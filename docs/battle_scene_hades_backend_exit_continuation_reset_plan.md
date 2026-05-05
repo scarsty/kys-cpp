@@ -490,7 +490,7 @@ Task 6 verification on May 5, 2026: The red build failed first because `BattleFr
 - Modify: `src/BattleScenePresentationPlayer.cpp`
 - Modify: `src/BattleScenePresentationPlayer.h`
 
-- [ ] Introduce or finalize `BattleSceneFrameBundle` as:
+- [x] Introduce or finalize `BattleSceneFrameBundle` as:
 
 ```cpp
 struct BattleSceneFrameBundle
@@ -503,10 +503,10 @@ struct BattleSceneFrameBundle
 
 Only add adapter-only lookup/application data that is required to write committed deltas. Do not store gameplay work queues such as pending damage, pending casts, or active attack worlds outside `state`.
 
-- [ ] Rewrite `BattleSceneHades::backRun1()` into the target shape.
-- [ ] Delete transitional helpers named `advanceCoreBattleFrame`, `applyCoreBattleFrameResult`, `applyBattleGameplayCommand`, `applyResolvedBattleHit`, `Action(r)`, and `AI(r)` once their responsibilities are runner-owned.
-- [ ] Keep scene-only camera, audio, rumble, text-effect movement, enemy entrance, and exit timing outside the runner only when driven by explicit frame result facts.
-- [ ] Run:
+- [x] Rewrite `BattleSceneHades::backRun1()` into the target shape.
+- [x] Delete transitional helpers named `advanceCoreBattleFrame`, `applyCoreBattleFrameResult`, `applyBattleGameplayCommand`, `applyResolvedBattleHit`, `Action(r)`, and `AI(r)` once their responsibilities are runner-owned.
+- [x] Keep scene-only camera, audio, rumble, text-effect movement, enemy entrance, and exit timing outside the runner only when driven by explicit frame result facts.
+- [x] Run:
 
 ```powershell
 .github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal
@@ -517,12 +517,14 @@ rg -n "advanceCoreBattleFrame|applyCoreBattleFrameResult|applyBattleGameplayComm
 
 Expected: one runner call in `BattleSceneHades.cpp`, inside the bundle/advance/apply path. No scene gameplay helper matches remain.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\BattleSceneHades.cpp src\BattleSceneHades.h src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h src\BattleScenePresentationPlayer.cpp src\BattleScenePresentationPlayer.h
 git commit -m "refactor: collapse battle scene frame path"
 ```
+
+Task 7 verification on May 6, 2026: `kys_tests` Debug x64 built successfully. `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core],[battle][presentation]"` passed 534 assertions in 63 test cases. The runner-call search returned exactly one `BattleFrameRunner().advanceFrame` occurrence in `BattleSceneHades.cpp`, and the transitional-helper search for `advanceCoreBattleFrame|applyCoreBattleFrameResult|applyBattleGameplayCommand|applyResolvedBattleHit|void BattleSceneHades::Action|void BattleSceneHades::AI|Action\(r\)|AI\(r\)` returned no matches.
 
 ## Task 8: Final Boundary Gate
 

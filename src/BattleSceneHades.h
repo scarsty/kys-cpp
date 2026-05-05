@@ -60,9 +60,16 @@ protected:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     SceneBattleFrameInput buildBattleFrameInput();
-    SceneBattleFrameResult advanceCoreBattleFrame(const SceneBattleFrameInput& input);
-    void applyCoreBattleFrameResult(const SceneBattleFrameResult& result);
-    void playCorePresentationFrame(const SceneBattleFrameResult& result);
+    KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle buildCoreFrameBundle(
+        KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
+        KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
+    void applyCoreFrameBundle(
+        KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle,
+        const KysChess::Battle::BattleFrameResult& frameResult,
+        const KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
+        const KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
+    void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
+    void playCorePresentationFrame();
     void cleanupVisualOnlyBattleFrameState(const SceneBattleFrameResult& result);
     Role* findNearestEnemy(int team, Pointf p);
     Role* findFarthestEnemy(int team, Pointf p);
@@ -99,7 +106,6 @@ protected:
     void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
     void updateAutoCamera();
     void clampCameraCenter();
-    void prepareCoreMovementDecisions();
     KysChess::Battle::BattleFrameState makeCoreFrameState(
         KysChess::Battle::BattleWorldState world);
     void populateCoreStatusState(KysChess::Battle::BattleFrameState& frameState);
@@ -111,9 +117,10 @@ protected:
     void applyCoreFrameApplications(const KysChess::Battle::BattleFrameState& frameState);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
     KysChess::Battle::BattleWorldState makeNoOpCoreWorld() const;
+    KysChess::Battle::BattleWorldState makeCoreMovementWorld(std::unordered_map<int, Role*>& rolesByBattleId);
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(Role* role, const MovementRuntime* movementRuntime);
-    void applyCoreMovementSnapshot(const KysChess::Battle::BattleTickResult& result, const std::map<int, Role*>& rolesByBattleId);
+    void applyCoreMovementSnapshot(const KysChess::Battle::BattleTickResult& result, const std::unordered_map<int, Role*>& rolesByBattleId);
     KysChess::Battle::BattlePresentationSnapshot makePresentationSnapshot() const;
     void beginPresentationFrame();
     void publishPresentationFrame();

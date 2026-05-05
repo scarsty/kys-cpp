@@ -2618,9 +2618,18 @@ void BattleSceneHades::runListBasedSwap()
 void BattleSceneHades::backRun1()
 {
     auto input = buildBattleFrameInput();
-    auto result = advanceCoreBattleFrame(input);
-    applyCoreBattleFrameResult(result);
-    playCorePresentationFrame(result);
+    SceneBattleFrameResult result;
+    if (input.shouldAdvance)
+    {
+        result.advanced = true;
+        auto actionContext = makeBattleActionFrameAdapterContext();
+        BattleMovementPhysicsFrameAdapterContext movementPhysicsContext;
+        auto bundle = buildCoreFrameBundle(actionContext, movementPhysicsContext);
+        auto frameResult = KysChess::Battle::BattleFrameRunner().advanceFrame(bundle.state);
+        applyCoreFrameBundle(bundle, frameResult, actionContext, movementPhysicsContext);
+    }
+    applyLegacyBattleFrameResult(result);
+    playCorePresentationFrame();
     cleanupVisualOnlyBattleFrameState(result);
 }
 
@@ -2658,367 +2667,331 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
     return input;
 }
 
-BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFrame(
-    const SceneBattleFrameInput& input)
+KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle BattleSceneHades::buildCoreFrameBundle(
+    BattleActionFrameAdapterContext& actionContext,
+    BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
 {
-    SceneBattleFrameResult result;
-    if (!input.shouldAdvance)
+    KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle bundle;
+    bundle.state = makeCoreFrameState(makeCoreMovementWorld(bundle.rolesByBattleId));
+    populateCoreStatusState(bundle.state);
+    populateCoreStatusDamageState(bundle.state);
+    bundle.state.damage.aggregatePendingTransactionsByDefender = true;
+
+    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    bundle.state.combo.units = comboStates;
+    bundle.state.teamEffects.world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
+    bundle.state.teamEffects.healAuraRadius = TILE_W * 6.0;
+    bundle.state.effects.world = makeBattleEffectWorld(battle_roles_, comboStates);
+
+    for (auto role : battle_roles_)
     {
-        return result;
-    }
-    result.advanced = true;
+        assert(role);
+        decreaseToZero(role->Shake);
+        decreaseToZero(role->HurtFrame);
+        decreaseToZero(role->Attention);
+        decreaseToZero(role->Invincible);
 
-    {
-        auto frameState = makeCoreFrameState(makeNoOpCoreWorld());
-        populateCoreStatusState(frameState);
-        populateCoreStatusDamageState(frameState);
-        KysChess::Battle::BattleFrameRunner().advanceFrame(frameState);
-        applyCoreStatusState(frameState);
-        applyCoreStatusDamageState(frameState);
-    }
-
-    for (auto r : battle_roles_)
-    {
-        decreaseToZero(r->Shake);
-
-        // Defensive timers should expire in real battle ticks even when control
-        // effects stop movement/actions. Otherwise periodic immunity can cool
-        // down while the previous invincible window is frozen in place.
-        decreaseToZero(r->HurtFrame);
-        decreaseToZero(r->Attention);
-        decreaseToZero(r->Invincible);
-
-        auto runtimeFrameState = makeCoreFrameState(makeNoOpCoreWorld());
-        runtimeFrameState.attacks.attacks.clear();
-        runtimeFrameState.attacks.sharedHitGroupTargets.clear();
-        auto& comboStatesForRuntime = KysChess::ChessCombo::getMutableStates();
-        runtimeFrameState.combo.units = comboStatesForRuntime;
-        runtimeFrameState.teamEffects.world = makeBattleTeamEffectWorld(battle_roles_, comboStatesForRuntime);
-        runtimeFrameState.teamEffects.healAuraRadius = TILE_W * 6.0;
-        runtimeFrameState.effects.world = makeBattleEffectWorld(battle_roles_, comboStatesForRuntime);
-        auto comboForRuntime = comboStatesForRuntime.find(r->ID);
-        if (comboForRuntime != comboStatesForRuntime.end())
+        auto comboIt = comboStates.find(role->ID);
+        if (comboIt != comboStates.end())
         {
-            runtimeFrameState.runtime.percentRolls.reserve(comboForRuntime->second.triggeredEffects.size() + 1);
-            for (size_t i = 0; i <= comboForRuntime->second.triggeredEffects.size(); ++i)
+            bundle.state.runtime.percentRolls.reserve(
+                bundle.state.runtime.percentRolls.size() + comboIt->second.triggeredEffects.size() + 1);
+            for (size_t i = 0; i <= comboIt->second.triggeredEffects.size(); ++i)
             {
-                runtimeFrameState.runtime.percentRolls.push_back(rand_.rand() * 100.0);
+                bundle.state.runtime.percentRolls.push_back(rand_.rand() * 100.0);
             }
         }
-        KysChess::Battle::BattleFrameRuntimeUnitInput runtimeInput;
-        runtimeInput.unitId = r->ID;
-        runtimeInput.input = makeBattleFrameUnitRuntimeInput(r, battle_frame_, 3, 3);
-        runtimeInput.hp = r->HP;
-        runtimeInput.maxHp = r->MaxHP;
-        runtimeInput.alive = r->Dead == 0;
-        runtimeInput.lastAlive = isLastAliveInTeam(r);
-        runtimeFrameState.runtime.units.push_back(runtimeInput);
 
-        auto runtimeFrameResult = KysChess::Battle::BattleFrameRunner().advanceFrame(runtimeFrameState);
-        assert(runtimeFrameState.runtime.committedResults.size() == 1);
-        const auto& runtimeUnitResult = runtimeFrameState.runtime.committedResults.front();
-        applyBattleFrameUnitRuntimeResult(r, runtimeUnitResult.result);
-        if (comboForRuntime != comboStatesForRuntime.end())
+        KysChess::Battle::BattleFrameRuntimeUnitInput runtimeInput;
+        runtimeInput.unitId = role->ID;
+        runtimeInput.input = makeBattleFrameUnitRuntimeInput(role, battle_frame_, 3, 3);
+        runtimeInput.hp = role->HP;
+        runtimeInput.maxHp = role->MaxHP;
+        runtimeInput.alive = role->Dead == 0;
+        runtimeInput.lastAlive = isLastAliveInTeam(role);
+        bundle.state.runtime.units.push_back(runtimeInput);
+    }
+
+    BattleRescueFrameAdapterContext rescueContext;
+    rescueContext.roles = &battle_roles_;
+    rescueContext.comboStates = &comboStates;
+    for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
+    {
+        for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
         {
-            comboStatesForRuntime = runtimeFrameState.combo.units;
-            for (const auto& event : runtimeUnitResult.comboEvents)
+            int occupantUnitId = -1;
+            for (auto role : battle_roles_)
             {
-                if (event.type == KysChess::Battle::BattleComboFrameRuntimeEventType::AutoUltimateReady)
+                assert(role);
+                if (role->Dead != 0)
                 {
-                    playAutoUltimateReady(r);
+                    continue;
                 }
+                auto roleCell = pos90To45(role->Pos.x, role->Pos.y);
+                if (roleCell.x == x && roleCell.y == y)
+                {
+                    occupantUnitId = role->ID;
+                    break;
+                }
+            }
+            rescueContext.cells.push_back({
+                x,
+                y,
+                canWalk45(x, y),
+                occupantUnitId >= 0,
+                occupantUnitId,
+            });
+        }
+    }
+    auto* basicMagic = Save::getInstance()->getMagic(1);
+    assert(basicMagic);
+    rescueContext.config.executeUnattendedRadius = TILE_W * 3.0;
+    rescueContext.config.counterAttackSkillId = basicMagic->ID;
+    rescueContext.config.counterAttackVisualEffectId = 11;
+    rescueContext.config.counterAttackProjectileSpeed = PROJECTILE_SPEED;
+    rescueContext.config.counterAttackMeleeOffset = MELEE_ATTACK_EFFECT_OFFSET;
+    rescueContext.config.counterAttackMinimumTotalFrames = 20;
+    rescueContext.config.counterAttackTotalFramePadding = 15;
+    rescueContext.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
+    rescueContext.callbacks.toPosition = [this](int x, int y) { return pos45To90(x, y); };
+    populateBattleFrameRescueState(bundle.state, rescueContext);
+
+    movementPhysicsContext.roles = &battle_roles_;
+    movementPhysicsContext.config.gravity = gravity_;
+    movementPhysicsContext.config.friction = friction_;
+    movementPhysicsContext.config.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
+    movementPhysicsContext.config.tileWidth = TILE_W;
+    movementPhysicsContext.config.coordCount = BATTLE_COORD_COUNT;
+    movementPhysicsContext.config.defaultSeparationDistance = TILE_W * 1.5;
+    movementPhysicsContext.config.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
+    movementPhysicsContext.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
+    movementPhysicsContext.callbacks.canWalk = [this](int x, int y) { return canWalk45(x, y); };
+    movementPhysicsContext.callbacks.castFrame = [this](Role* role)
+    {
+        return calCast(role->ActType, role->OperationType, role);
+    };
+    movementPhysicsContext.callbacks.movementDashFrames = [this](Role* role)
+    {
+        return movement_runtime_[role].movement_dash_frames;
+    };
+    movementPhysicsContext.callbacks.movementDashCooldown = [this](Role* role)
+    {
+        return movement_runtime_[role].movement_dash_cooldown;
+    };
+    movementPhysicsContext.callbacks.movementDashSpreadFrames = [this](Role* role)
+    {
+        return movement_runtime_[role].movement_dash_spread_frames;
+    };
+    movementPhysicsContext.callbacks.setMovementDashRuntime = [this](Role* role, int frames, int cooldown, int spreadFrames)
+    {
+        auto& movementRuntime = movement_runtime_[role];
+        movementRuntime.movement_dash_frames = frames;
+        movementRuntime.movement_dash_cooldown = cooldown;
+        movementRuntime.movement_dash_spread_frames = spreadFrames;
+    };
+    populateBattleMovementPhysicsFrame(bundle.state, movementPhysicsContext);
+
+    bundle.state.pendingAttackSpawns = std::move(pending_core_attack_spawns_);
+    pending_core_attack_spawns_.clear();
+    core_movement_decisions_.clear();
+    core_movement_frame_ = battle_frame_;
+    populateBattleActionFrame(bundle.state, actionContext);
+
+    for (size_t i = 0; i + 1 < bundle.state.attacks.attacks.size(); ++i)
+    {
+        const auto& attack1 = bundle.state.attacks.attacks[i];
+        auto* attacker1 = findRoleByBattleId(battle_roles_, attack1.state.attackerUnitId);
+        auto* skill1 = Save::getInstance()->getMagic(attack1.state.skillId);
+        for (size_t j = i + 1; j < bundle.state.attacks.attacks.size(); ++j)
+        {
+            const auto& attack2 = bundle.state.attacks.attacks[j];
+            auto* attacker2 = findRoleByBattleId(battle_roles_, attack2.state.attackerUnitId);
+            if (attacker1->Team == attacker2->Team)
+            {
+                continue;
+            }
+            auto* skill2 = Save::getInstance()->getMagic(attack2.state.skillId);
+            if (skill1)
+            {
+                bundle.state.projectileCancel.baseDamages.push_back({
+                    attack1.id,
+                    attack2.id,
+                    calculateHitMagicBaseDamage(attacker1, attacker2, skill1),
+                });
+            }
+            if (skill2)
+            {
+                bundle.state.projectileCancel.baseDamages.push_back({
+                    attack2.id,
+                    attack1.id,
+                    calculateHitMagicBaseDamage(attacker2, attacker1, skill2),
+                });
+            }
+        }
+    }
+    populateCoreHitState(bundle.state);
+    return bundle;
+}
+
+void BattleSceneHades::applyCoreFrameBundle(
+    KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle,
+    const KysChess::Battle::BattleFrameResult& frameResult,
+    const BattleActionFrameAdapterContext& actionContext,
+    const BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
+{
+    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    applyCoreStatusState(bundle.state);
+    for (const auto& runtimeUnitResult : bundle.state.runtime.committedResults)
+    {
+        auto* role = findRoleByBattleId(battle_roles_, runtimeUnitResult.unitId);
+        applyBattleFrameUnitRuntimeResult(role, runtimeUnitResult.result);
+        for (const auto& event : runtimeUnitResult.comboEvents)
+        {
+            if (event.type == KysChess::Battle::BattleComboFrameRuntimeEventType::AutoUltimateReady)
+            {
+                playAutoUltimateReady(role);
             }
         }
         if (runtimeUnitResult.result.mpDelta != 0)
         {
-            changeRoleMP(r, runtimeUnitResult.result.mpDelta);
+            changeRoleMP(role, runtimeUnitResult.result.mpDelta);
         }
-        for (const auto& event : runtimeFrameState.teamEffects.committedEvents)
-        {
-            auto* target = findRoleByBattleId(battle_roles_, event.targetUnitId);
-            const auto& unit = findBattleTeamEffectUnit(runtimeFrameState.teamEffects.world, event.targetUnitId);
-            switch (event.type)
-            {
-            case KysChess::Battle::BattleTeamEffectEventType::Heal:
-                target->HP = unit.hp;
-                break;
-            case KysChess::Battle::BattleTeamEffectEventType::MpRestore:
-                target->MP = unit.mp;
-                break;
-            case KysChess::Battle::BattleTeamEffectEventType::ShieldGain:
-                comboStatesForRuntime[target->ID].shield = unit.shield;
-                break;
-            case KysChess::Battle::BattleTeamEffectEventType::CooldownReduced:
-                target->CoolDown = unit.cooldown;
-                break;
-            }
-        }
-        for (const auto& command : runtimeFrameState.effects.committedCommands)
-        {
-            auto* target = findRoleByBattleId(battle_roles_, command.targetUnitId);
-            const auto& unit = findBattleEffectUnit(runtimeFrameState.effects.world, command.targetUnitId);
-            switch (command.type)
-            {
-            case KysChess::Battle::BattleEffectCommandType::AddInvincibility:
-                target->Invincible = unit.invincible;
-                break;
-            default:
-                assert(false);
-                break;
-            }
-        }
-        for (const auto& event : runtimeFrameResult.frame.presentationEvents)
-        {
-            presentation_recorder_.recordPresentation(event);
-        }
-
     }
 
-    //if (current_frame_ % 2 == 0)
+    comboStates = bundle.state.combo.units;
+    applyCoreDamageTransactions(bundle.state);
+    applyCoreTeamEffectState(bundle.state);
+    for (const auto& command : bundle.state.effects.committedCommands)
     {
-        prepareCoreMovementDecisions();
+        auto* target = findRoleByBattleId(battle_roles_, command.targetUnitId);
+        const auto& unit = findBattleEffectUnit(bundle.state.effects.world, command.targetUnitId);
+        switch (command.type)
+        {
+        case KysChess::Battle::BattleEffectCommandType::AddInvincibility:
+            target->Invincible = unit.invincible;
+            break;
+        default:
+            assert(false);
+            break;
+        }
     }
-
-    //效果
-    //if (current_frame_ % 2 == 0)
+    applyCoreFrameApplications(bundle.state);
+    applyBattleMovementPhysicsFrameResults(bundle.state, movementPhysicsContext);
+    applyCoreMovementSnapshot(frameResult.movement, bundle.rolesByBattleId);
+    core_movement_decisions_.clear();
+    for (const auto& [battleId, decision] : frameResult.movement.decisions)
     {
-        auto frameState = makeCoreFrameState(makeNoOpCoreWorld());
-        populateCoreStatusDamageState(frameState);
-        frameState.damage.aggregatePendingTransactionsByDefender = true;
-        auto& comboStates = KysChess::ChessCombo::getMutableStates();
-        frameState.combo.units = comboStates;
-        frameState.teamEffects.world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
-        BattleRescueFrameAdapterContext rescueContext;
-        rescueContext.roles = &battle_roles_;
-        rescueContext.comboStates = &comboStates;
-        for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
+        auto it = bundle.rolesByBattleId.find(battleId);
+        if (it != bundle.rolesByBattleId.end())
         {
-            for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
-            {
-                int occupantUnitId = -1;
-                for (auto role : battle_roles_)
-                {
-                    assert(role);
-                    if (role->Dead != 0)
-                    {
-                        continue;
-                    }
-                    auto roleCell = pos90To45(role->Pos.x, role->Pos.y);
-                    if (roleCell.x == x && roleCell.y == y)
-                    {
-                        occupantUnitId = role->ID;
-                        break;
-                    }
-                }
-                rescueContext.cells.push_back({
-                    x,
-                    y,
-                    canWalk45(x, y),
-                    occupantUnitId >= 0,
-                    occupantUnitId,
-                });
-            }
-        }
-        auto* basicMagic = Save::getInstance()->getMagic(1);
-        assert(basicMagic);
-        rescueContext.config.executeUnattendedRadius = TILE_W * 3.0;
-        rescueContext.config.counterAttackSkillId = basicMagic->ID;
-        rescueContext.config.counterAttackVisualEffectId = 11;
-        rescueContext.config.counterAttackProjectileSpeed = PROJECTILE_SPEED;
-        rescueContext.config.counterAttackMeleeOffset = MELEE_ATTACK_EFFECT_OFFSET;
-        rescueContext.config.counterAttackMinimumTotalFrames = 20;
-        rescueContext.config.counterAttackTotalFramePadding = 15;
-        rescueContext.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
-        rescueContext.callbacks.toPosition = [this](int x, int y) { return pos45To90(x, y); };
-        populateBattleFrameRescueState(frameState, rescueContext);
-        BattleMovementPhysicsFrameAdapterContext movementPhysicsContext;
-        movementPhysicsContext.roles = &battle_roles_;
-        movementPhysicsContext.config.gravity = gravity_;
-        movementPhysicsContext.config.friction = friction_;
-        movementPhysicsContext.config.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
-        movementPhysicsContext.config.tileWidth = TILE_W;
-        movementPhysicsContext.config.coordCount = BATTLE_COORD_COUNT;
-        movementPhysicsContext.config.defaultSeparationDistance = TILE_W * 1.5;
-        movementPhysicsContext.config.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
-        movementPhysicsContext.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
-        movementPhysicsContext.callbacks.canWalk = [this](int x, int y) { return canWalk45(x, y); };
-        movementPhysicsContext.callbacks.castFrame = [this](Role* role)
-        {
-            return calCast(role->ActType, role->OperationType, role);
-        };
-        movementPhysicsContext.callbacks.movementDashFrames = [this](Role* role)
-        {
-            return movement_runtime_[role].movement_dash_frames;
-        };
-        movementPhysicsContext.callbacks.movementDashCooldown = [this](Role* role)
-        {
-            return movement_runtime_[role].movement_dash_cooldown;
-        };
-        movementPhysicsContext.callbacks.movementDashSpreadFrames = [this](Role* role)
-        {
-            return movement_runtime_[role].movement_dash_spread_frames;
-        };
-        movementPhysicsContext.callbacks.setMovementDashRuntime = [this](Role* role, int frames, int cooldown, int spreadFrames)
-        {
-            auto& movementRuntime = movement_runtime_[role];
-            movementRuntime.movement_dash_frames = frames;
-            movementRuntime.movement_dash_cooldown = cooldown;
-            movementRuntime.movement_dash_spread_frames = spreadFrames;
-        };
-        populateBattleMovementPhysicsFrame(frameState, movementPhysicsContext);
-        frameState.pendingAttackSpawns = std::move(pending_core_attack_spawns_);
-        pending_core_attack_spawns_.clear();
-        auto actionContext = makeBattleActionFrameAdapterContext();
-        populateBattleActionFrame(frameState, actionContext);
-        for (size_t i = 0; i + 1 < frameState.attacks.attacks.size(); ++i)
-        {
-            const auto& attack1 = frameState.attacks.attacks[i];
-            auto* attacker1 = findRoleByBattleId(battle_roles_, attack1.state.attackerUnitId);
-            auto* skill1 = Save::getInstance()->getMagic(attack1.state.skillId);
-            for (size_t j = i + 1; j < frameState.attacks.attacks.size(); ++j)
-            {
-                const auto& attack2 = frameState.attacks.attacks[j];
-                auto* attacker2 = findRoleByBattleId(battle_roles_, attack2.state.attackerUnitId);
-                if (attacker1->Team == attacker2->Team)
-                {
-                    continue;
-                }
-                auto* skill2 = Save::getInstance()->getMagic(attack2.state.skillId);
-                if (skill1)
-                {
-                    frameState.projectileCancel.baseDamages.push_back({
-                        attack1.id,
-                        attack2.id,
-                        calculateHitMagicBaseDamage(attacker1, attacker2, skill1),
-                    });
-                }
-                if (skill2)
-                {
-                    frameState.projectileCancel.baseDamages.push_back({
-                        attack2.id,
-                        attack1.id,
-                        calculateHitMagicBaseDamage(attacker2, attacker1, skill2),
-                    });
-                }
-            }
-        }
-        populateCoreHitState(frameState);
-        auto frameResult = KysChess::Battle::BattleFrameRunner().advanceFrame(frameState);
-        auto attackEvents = std::move(frameResult.attackEvents);
-        comboStates = frameState.combo.units;
-        applyCoreDamageTransactions(frameState);
-        applyCoreTeamEffectState(frameState);
-        applyCoreFrameApplications(frameState);
-        applyBattleMovementPhysicsFrameResults(frameState, movementPhysicsContext);
-        auto actionApply = applyBattleActionFrameResults(frameState, actionContext);
-        for (int soundId : actionApply.attackSoundIds)
-        {
-            Audio::getInstance()->playASound(soundId);
-        }
-        for (int i = 0; i < actionApply.blinkSoundCount; ++i)
-        {
-            Audio::getInstance()->playESound(BLINK_SOUND_EFFECT_ID);
-        }
-        for (const auto& event : actionApply.presentationEvents)
-        {
-            presentation_recorder_.recordPresentation(event);
-        }
-        for (const auto& command : frameState.projectileCancel.committedCommands)
-        {
-            applyBattleProjectileCancelDamage(
-                findRoleByBattleId(battle_roles_, command.sourceUnitId),
-                command.damage);
-            applyBattleProjectileCancelDamage(
-                findRoleByBattleId(battle_roles_, command.otherSourceUnitId),
-                command.otherDamage);
-        }
-        shared_hit_group_targets_.clear();
-        for (const auto& [groupId, targets] : frameState.attacks.sharedHitGroupTargets)
-        {
-            auto& output = shared_hit_group_targets_[groupId];
-            output.insert(targets.begin(), targets.end());
-        }
-        for (const auto& event : frameResult.frame.presentationEvents)
-        {
-            presentation_recorder_.recordPresentation(event);
-        }
-        advanceVisualOnlyEffects(attack_effects_);
-
-        for (const auto& event : attackEvents)
-        {
-            if (event.type == KysChess::Battle::BattleAttackEventType::Hit)
-            {
-                auto* r = findRoleByBattleId(battle_roles_, event.unitId);
-                bool scriptedImpact = hasScriptedImpact(event);
-
-                if (event.skillId >= 0)
-                {
-                    auto* skill = Save::getInstance()->getMagic(event.skillId);
-                    assert(skill);
-                    Audio::getInstance()->playESound(skill->EffectID);
-                }
-                if (scriptedImpact)
-                {
-                    r->Shake = 5;
-                    continue;
-                }
-
-                auto* attacker = findRoleByBattleId(battle_roles_, event.sourceUnitId);
-
-                shake_ = event.ultimate ? 10 : 0;
-                r->Frozen = 0;
-                if (event.mainProjectile)
-                {
-                    applyFrozen(r, event.ultimate ? 10 : 5);
-                }
-                r->Shake = event.ultimate ? 10 : 5;
-                if (event.ultimate) { ultHitRoles_.insert(r); }
-                if (event.operationType != KysChess::Battle::BattleOperationType::None
-                    || event.hiddenWeaponItemId >= 0)
-                {
-                    Engine::getInstance()->gameControllerRumble(100, 100, 50);
-                    auto* usingMagic = event.skillId >= 0 ? Save::getInstance()->getMagic(event.skillId) : nullptr;
-                    auto* usingHiddenWeapon = event.hiddenWeaponItemId >= 0 ? Save::getInstance()->getItem(event.hiddenWeaponItemId) : nullptr;
-                    assert(usingHiddenWeapon || usingMagic);
-                    assert(event.totalFrame > 0);
-                }
-                //std::vector<std::string> = {};
-            }
-        }
-        for (auto request : frameState.pendingAttackSpawns)
-        {
-            queueCoreAttackSpawn(std::move(request));
-        }
-        next_shared_hit_group_id_ = frameState.projectileFollowUps.nextSharedHitGroupId;
-        active_attack_world_ = std::move(frameState.attacks);
-        active_attack_world_.attacks.erase(
-            std::remove_if(
-                active_attack_world_.attacks.begin(),
-                active_attack_world_.attacks.end(),
-                [](const auto& attack)
-                {
-                    return attack.frame >= attack.state.totalFrame;
-                }),
-            active_attack_world_.attacks.end());
-        //删除播放完毕的
-        for (auto it = attack_effects_.begin(); it != attack_effects_.end();)
-        {
-            if (it->Frame >= it->TotalFrame)
-            {
-                it = attack_effects_.erase(it);
-            }
-            else
-            {
-                it++;
-            }
+            core_movement_decisions_[it->second] = decision;
         }
     }
 
+    auto actionApply = applyBattleActionFrameResults(bundle.state, actionContext);
+    for (int soundId : actionApply.attackSoundIds)
+    {
+        Audio::getInstance()->playASound(soundId);
+    }
+    for (int i = 0; i < actionApply.blinkSoundCount; ++i)
+    {
+        Audio::getInstance()->playESound(BLINK_SOUND_EFFECT_ID);
+    }
+    for (const auto& event : actionApply.presentationEvents)
+    {
+        presentation_recorder_.recordPresentation(event);
+    }
+    for (const auto& command : bundle.state.projectileCancel.committedCommands)
+    {
+        applyBattleProjectileCancelDamage(
+            findRoleByBattleId(battle_roles_, command.sourceUnitId),
+            command.damage);
+        applyBattleProjectileCancelDamage(
+            findRoleByBattleId(battle_roles_, command.otherSourceUnitId),
+            command.otherDamage);
+    }
+    shared_hit_group_targets_.clear();
+    for (const auto& [groupId, targets] : bundle.state.attacks.sharedHitGroupTargets)
+    {
+        auto& output = shared_hit_group_targets_[groupId];
+        output.insert(targets.begin(), targets.end());
+    }
+    for (const auto& event : frameResult.frame.presentationEvents)
+    {
+        presentation_recorder_.recordPresentation(event);
+    }
+    advanceVisualOnlyEffects(attack_effects_);
 
-    return result;
+    for (const auto& event : frameResult.attackEvents)
+    {
+        if (event.type == KysChess::Battle::BattleAttackEventType::Hit)
+        {
+            auto* role = findRoleByBattleId(battle_roles_, event.unitId);
+            bool scriptedImpact = hasScriptedImpact(event);
+
+            if (event.skillId >= 0)
+            {
+                auto* skill = Save::getInstance()->getMagic(event.skillId);
+                assert(skill);
+                Audio::getInstance()->playESound(skill->EffectID);
+            }
+            if (scriptedImpact)
+            {
+                role->Shake = 5;
+                continue;
+            }
+
+            shake_ = event.ultimate ? 10 : 0;
+            role->Frozen = 0;
+            if (event.mainProjectile)
+            {
+                applyFrozen(role, event.ultimate ? 10 : 5);
+            }
+            role->Shake = event.ultimate ? 10 : 5;
+            if (event.ultimate)
+            {
+                ultHitRoles_.insert(role);
+            }
+            if (event.operationType != KysChess::Battle::BattleOperationType::None
+                || event.hiddenWeaponItemId >= 0)
+            {
+                Engine::getInstance()->gameControllerRumble(100, 100, 50);
+                auto* usingMagic = event.skillId >= 0 ? Save::getInstance()->getMagic(event.skillId) : nullptr;
+                auto* usingHiddenWeapon = event.hiddenWeaponItemId >= 0 ? Save::getInstance()->getItem(event.hiddenWeaponItemId) : nullptr;
+                assert(usingHiddenWeapon || usingMagic);
+                assert(event.totalFrame > 0);
+            }
+        }
+    }
+    for (auto request : bundle.state.pendingAttackSpawns)
+    {
+        queueCoreAttackSpawn(std::move(request));
+    }
+    next_shared_hit_group_id_ = bundle.state.projectileFollowUps.nextSharedHitGroupId;
+    active_attack_world_ = std::move(bundle.state.attacks);
+    active_attack_world_.attacks.erase(
+        std::remove_if(
+            active_attack_world_.attacks.begin(),
+            active_attack_world_.attacks.end(),
+            [](const auto& attack)
+            {
+                return attack.frame >= attack.state.totalFrame;
+            }),
+        active_attack_world_.attacks.end());
+    for (auto it = attack_effects_.begin(); it != attack_effects_.end();)
+    {
+        if (it->Frame >= it->TotalFrame)
+        {
+            it = attack_effects_.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
 }
 
-void BattleSceneHades::applyCoreBattleFrameResult(const SceneBattleFrameResult& result)
+void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult& result)
 {
     if (!result.advanced)
     {
@@ -3078,7 +3051,7 @@ void BattleSceneHades::applyCoreBattleFrameResult(const SceneBattleFrameResult& 
     }
 }
 
-void BattleSceneHades::playCorePresentationFrame(const SceneBattleFrameResult& result)
+void BattleSceneHades::playCorePresentationFrame()
 {
     publishPresentationFrame();
 }
@@ -3701,7 +3674,9 @@ KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(Role* r
     return unit;
 }
 
-void BattleSceneHades::applyCoreMovementSnapshot(const KysChess::Battle::BattleTickResult& result, const std::map<int, Role*>& rolesByBattleId)
+void BattleSceneHades::applyCoreMovementSnapshot(
+    const KysChess::Battle::BattleTickResult& result,
+    const std::unordered_map<int, Role*>& rolesByBattleId)
 {
     for (const auto& unit : result.snapshot.units)
     {
@@ -4110,15 +4085,8 @@ KysChess::Battle::BattleWorldState BattleSceneHades::makeNoOpCoreWorld() const
     return world;
 }
 
-void BattleSceneHades::prepareCoreMovementDecisions()
+KysChess::Battle::BattleWorldState BattleSceneHades::makeCoreMovementWorld(std::unordered_map<int, Role*>& rolesByBattleId)
 {
-    if (core_movement_frame_ == battle_frame_)
-    {
-        return;
-    }
-    core_movement_frame_ = battle_frame_;
-    core_movement_decisions_.clear();
-
     KysChess::Battle::BattleWorldState world;
     world.frame = battle_frame_;
     world.config = makeCoreMovementConfig();
@@ -4128,7 +4096,7 @@ void BattleSceneHades::prepareCoreMovementDecisions()
         return !isOutLine(p45.x, p45.y) && canWalk45(p45.x, p45.y);
     };
 
-    std::map<int, Role*> rolesByBattleId;
+    rolesByBattleId.clear();
     for (auto* role : battle_roles_)
     {
         if (!role || role->Dead != 0)
@@ -4138,18 +4106,7 @@ void BattleSceneHades::prepareCoreMovementDecisions()
 
         auto movementIt = movement_runtime_.find(role);
         world.units.push_back(makeCoreMovementUnit(role, movementIt != movement_runtime_.end() ? &movementIt->second : nullptr));
-        rolesByBattleId[role->ID] = role;
+        rolesByBattleId.emplace(role->ID, role);
     }
-
-    auto frameState = makeCoreFrameState(std::move(world));
-    auto result = KysChess::Battle::BattleFrameRunner().advanceFrame(frameState).movement;
-    applyCoreMovementSnapshot(result, rolesByBattleId);
-    for (const auto& [battleId, decision] : result.decisions)
-    {
-        auto it = rolesByBattleId.find(battleId);
-        if (it != rolesByBattleId.end())
-        {
-            core_movement_decisions_[it->second] = decision;
-        }
-    }
+    return world;
 }
