@@ -111,27 +111,6 @@ Battle::BattlePresentationEvent makeHealLogPresentation(
     return event;
 }
 
-Battle::BattlePresentationEvent makeDamageNumberPresentation(
-    int frame,
-    Role* role,
-    int damage,
-    Color color,
-    int baseSize)
-{
-    assert(role);
-    assert(damage > 0);
-
-    Battle::BattlePresentationEvent event;
-    event.type = Battle::BattlePresentationEventType::DamageNumber;
-    event.frame = frame;
-    event.targetUnitId = role->ID;
-    event.amount = damage;
-    event.textSize = baseSize;
-    event.color = { color.r, color.g, color.b, color.a };
-    event.position = role->Pos;
-    return event;
-}
-
 std::string formatStatusValue(const char* label, int value, const char* unit)
 {
     if (value <= 0)
@@ -139,28 +118,6 @@ std::string formatStatusValue(const char* label, int value, const char* unit)
         return label;
     }
     return std::format("{}（{}{}）", label, value, unit);
-}
-
-void mergeBattleCommandApplication(
-    BattleCommandApplicationResult& result,
-    BattleCommandApplicationResult next)
-{
-    result.criticalHitUnitIds.insert(
-        result.criticalHitUnitIds.end(),
-        next.criticalHitUnitIds.begin(),
-        next.criticalHitUnitIds.end());
-    result.presentationEvents.insert(
-        result.presentationEvents.end(),
-        std::make_move_iterator(next.presentationEvents.begin()),
-        std::make_move_iterator(next.presentationEvents.end()));
-    result.attackSpawnRequests.insert(
-        result.attackSpawnRequests.end(),
-        std::make_move_iterator(next.attackSpawnRequests.begin()),
-        std::make_move_iterator(next.attackSpawnRequests.end()));
-    result.autoUltimateRequests.insert(
-        result.autoUltimateRequests.end(),
-        next.autoUltimateRequests.begin(),
-        next.autoUltimateRequests.end());
 }
 
 }  // namespace
@@ -625,6 +582,20 @@ void writeBattleCooldownState(Role* role, const Battle::BattleCooldownState& sta
     {
         role->CoolDown = state.cooldown;
     }
+}
+
+Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role)
+{
+    assert(role);
+
+    Battle::BattleDamagePresentationStyle style;
+    style.normalDamageColor = makeBattlePresentationColor(damageTextColor(role, false));
+    style.emphasizedDamageColor = makeBattlePresentationColor(damageTextColor(role, true));
+    style.executeTextColor = makeBattlePresentationColor({ 255, 136, 48, 255 });
+    style.normalDamageTextSize = NORMAL_DAMAGE_TEXT_SIZE;
+    style.emphasizedDamageTextSize = ULT_DAMAGE_TEXT_SIZE;
+    style.executeTextSize = ULT_DAMAGE_TEXT_SIZE;
+    return style;
 }
 
 Battle::BattleHitUnitSnapshot makeBattleHitUnitSnapshot(Role* unit)
@@ -1340,171 +1311,12 @@ BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     return result;
 }
 
-void appendBattlePendingDamage(
-    std::vector<BattlePendingDamageAdapterInput>& pendingDamage,
-    BattlePendingDamageAdapterInput damage)
-{
-    assert(damage.target);
-    assert(damage.damage > 0);
-    pendingDamage.push_back(std::move(damage));
-}
-
-int calculateBattlePendingHpDamage(
-    const std::vector<BattlePendingDamageAdapterInput>& pendingDamage,
-    Role* target)
-{
-    assert(target);
-
-    int damage = 0;
-    for (const auto& pending : pendingDamage)
-    {
-        if (pending.target == target)
-        {
-            damage += pending.damage;
-        }
-    }
-    return damage;
-}
-
-Battle::BattleDamageApplicationInput makeBattleDamageApplicationInput(
-    const BattleDamageApplicationAdapterInput& input)
-{
-    assert(input.roles);
-    assert(input.pendingDamage);
-    assert(input.comboStates);
-
-    Battle::BattleDamageApplicationInput damageApplicationInput;
-    damageApplicationInput.frame = input.frame;
-    damageApplicationInput.aggregatePendingTransactionsByDefender = true;
-    damageApplicationInput.deathEffects = input.deathEffects;
-    damageApplicationInput.projectileFollowUps = input.projectileFollowUps;
-    damageApplicationInput.pendingAliveByTeam = input.pendingAliveByTeam;
-    for (auto role : *input.roles)
-    {
-        assert(role);
-        damageApplicationInput.units.push_back({ role->ID, role->Team, role->Dead == 0 });
-    }
-
-    for (const auto& pending : *input.pendingDamage)
-    {
-        assert(pending.target);
-        assert(pending.damage > 0);
-
-        auto target = pending.target;
-        auto defenderStateIt = input.comboStates->find(target->ID);
-        auto attackerStateIt = pending.source
-            ? input.comboStates->find(pending.source->ID)
-            : input.comboStates->end();
-
-        Battle::BattleDamageTransactionInput damageInput;
-        damageInput.request.attackerUnitId = pending.source ? pending.source->ID : -1;
-        damageInput.request.defenderUnitId = target->ID;
-        damageInput.request.baseDamage = pending.executed ? std::max(pending.damage, target->HP) : pending.damage;
-        damageInput.request.preResolvedDamage = true;
-        damageInput.attacker = makeBattleDamageUnit(
-            pending.source,
-            attackerStateIt != input.comboStates->end() ? &attackerStateIt->second : nullptr);
-        damageInput.defender = makeBattleDamageUnit(
-            target,
-            defenderStateIt != input.comboStates->end() ? &defenderStateIt->second : nullptr);
-        damageApplicationInput.pendingTransactions.push_back(std::move(damageInput));
-
-        Battle::BattleDamagePresentationInput presentation;
-        presentation.enabled = true;
-        presentation.critical = pending.critical;
-        presentation.ultimate = pending.ultimate;
-        presentation.executed = pending.executed;
-        presentation.skillName = pending.skillName;
-        presentation.detailText = pending.detailText;
-        presentation.normalDamageColor = makeBattlePresentationColor(pending.damageTextSize > 0
-            ? pending.damageColor
-            : damageTextColor(target, false));
-        presentation.emphasizedDamageColor = makeBattlePresentationColor(pending.damageTextSize > 0
-            ? pending.damageColor
-            : damageTextColor(target, true));
-        presentation.executeTextColor = makeBattlePresentationColor({ 255, 136, 48, 255 });
-        presentation.normalDamageTextSize = pending.damageTextSize > 0
-            ? pending.damageTextSize
-            : NORMAL_DAMAGE_TEXT_SIZE;
-        presentation.emphasizedDamageTextSize = pending.damageTextSize > 0
-            ? pending.damageTextSize
-            : ULT_DAMAGE_TEXT_SIZE;
-        presentation.executeTextSize = ULT_DAMAGE_TEXT_SIZE;
-        damageApplicationInput.pendingPresentation.push_back(std::move(presentation));
-
-        if (defenderStateIt != input.comboStates->end())
-        {
-            auto effects = makeBattleDamageApplicationUnitEffects(defenderStateIt->second);
-            if (effects)
-            {
-                damageApplicationInput.unitEffects[target->ID] = *effects;
-            }
-        }
-    }
-
-    return damageApplicationInput;
-}
-
-Battle::BattleDamageApplicationResult applyBattleDamageApplication(
-    const Battle::BattleDamageApplicationInput& input)
-{
-    return Battle::BattleDamageApplicationSystem().apply(input);
-}
-
-Battle::BattleDamageTransactionResult applyBattleAcceptedHitSideEffectTransaction(
-    Role* source,
-    Role* target,
-    Battle::BattleDamageRequest request,
-    std::map<int, RoleComboState>& states)
-{
-    assert(target);
-
-    auto sourceStateIt = source ? states.find(source->ID) : states.end();
-    auto& targetState = states[target->ID];
-    request.attackerUnitId = source ? source->ID : -1;
-    request.defenderUnitId = target->ID;
-    request.acceptedHit = true;
-
-    Battle::BattleDamageTransactionInput transactionInput;
-    transactionInput.request = request;
-    transactionInput.attacker = makeBattleDamageUnit(
-        source,
-        sourceStateIt != states.end() ? &sourceStateIt->second : nullptr);
-    transactionInput.defender = makeBattleDamageUnit(target, &targetState);
-    transactionInput.defenderStatus = makeBattleStatusUnit(target, targetState);
-    transactionInput.defenderCooldown = makeBattleCooldownState(target);
-
-    Battle::BattleDamageApplicationInput applicationInput;
-    applicationInput.units.push_back({ target->ID, target->Team, target->Dead == 0 });
-    if (source)
-    {
-        applicationInput.units.push_back({ source->ID, source->Team, source->Dead == 0 });
-    }
-    applicationInput.pendingTransactions.push_back(std::move(transactionInput));
-    auto applicationResult = Battle::BattleDamageApplicationSystem().apply(applicationInput);
-    assert(applicationResult.transactions.size() == 1);
-    auto result = std::move(applicationResult.transactions.front());
-
-    if (source)
-    {
-        writeBattleDamageUnit(
-            source,
-            sourceStateIt != states.end() ? &sourceStateIt->second : nullptr,
-            result.attacker);
-    }
-    writeBattleDamageUnit(target, &targetState, result.defender);
-    writeBattleStatusUnit(target, targetState, result.defenderStatus);
-    writeBattleCooldownState(target, result.defenderCooldown);
-    return result;
-}
-
 BattleCommandApplicationResult applyBattleCommand(
     const BattleCommandApplicationContext& context,
     const Battle::BattleGameplayCommand& command)
 {
     assert(context.roles);
     assert(context.comboStates);
-    assert(context.pendingDamage);
 
     BattleCommandApplicationResult result;
 
@@ -1530,56 +1342,7 @@ BattleCommandApplicationResult applyBattleCommand(
             application.presentationEvents.end());
     };
 
-    if (const auto* hpDamage = std::get_if<Battle::BattleHpDamageCommand>(&command))
-    {
-        auto source = hpDamage->sourceUnitId >= 0 ? findRoleByBattleId(*context.roles, hpDamage->sourceUnitId) : nullptr;
-        auto target = findRoleByBattleId(*context.roles, hpDamage->targetUnitId);
-        if (hpDamage->critical)
-        {
-            result.criticalHitUnitIds.push_back(target->ID);
-        }
-        appendBattlePendingDamage(
-            *context.pendingDamage,
-            BattlePendingDamageAdapterInput{
-                source,
-                target,
-                hpDamage->damage,
-                hpDamage->critical,
-                hpDamage->ultimate,
-                hpDamage->executed,
-                hpDamage->skillName,
-                hpDamage->detailText,
-            });
-    }
-    else if (const auto* sideEffect = std::get_if<Battle::BattleAcceptedHitSideEffectCommand>(&command))
-    {
-        auto source = sideEffect->sourceUnitId >= 0 ? findRoleByBattleId(*context.roles, sideEffect->sourceUnitId) : nullptr;
-        auto target = findRoleByBattleId(*context.roles, sideEffect->targetUnitId);
-        applyBattleAcceptedHitSideEffectTransaction(source, target, sideEffect->damage, *context.comboStates);
-    }
-    else if (const auto* mpDamage = std::get_if<Battle::BattleMpDamageCommand>(&command))
-    {
-        auto source = mpDamage->sourceUnitId >= 0 ? findRoleByBattleId(*context.roles, mpDamage->sourceUnitId) : nullptr;
-        auto target = findRoleByBattleId(*context.roles, mpDamage->targetUnitId);
-        auto damageResult = applyBattleAcceptedHitSideEffectTransaction(
-            source,
-            target,
-            mpDamage->damage,
-            *context.comboStates);
-        for (const auto& event : damageResult.events)
-        {
-            if (event.type == Battle::BattleDamageEventType::MpDamageApplied)
-            {
-                result.presentationEvents.push_back(makeDamageNumberPresentation(
-                    context.frame,
-                    target,
-                    event.value,
-                    { 160, 32, 240, 255 },
-                    15));
-            }
-        }
-    }
-    else if (const auto* knockback = std::get_if<Battle::BattleKnockbackCommand>(&command))
+    if (const auto* knockback = std::get_if<Battle::BattleKnockbackCommand>(&command))
     {
         auto target = findRoleByBattleId(*context.roles, knockback->targetUnitId);
         target->Velocity += knockback->velocityDelta;
@@ -1701,56 +1464,6 @@ BattleCommandApplicationResult applyBattleCommand(
     }
 
     return result;
-}
-
-BattleCommandApplicationResult applyBattleHitApplication(
-    const BattleCommandApplicationContext& context,
-    const Battle::BattleHitResolutionResult& hitResolution)
-{
-    assert(context.comboStates);
-
-    auto attackerComboIt = context.comboStates->find(hitResolution.attackerUnitId);
-    auto defenderComboIt = context.comboStates->find(hitResolution.defenderUnitId);
-    if (attackerComboIt != context.comboStates->end())
-    {
-        attackerComboIt->second = hitResolution.attackerCombo;
-    }
-    if (defenderComboIt != context.comboStates->end())
-    {
-        defenderComboIt->second = hitResolution.defenderCombo;
-    }
-
-    BattleCommandApplicationResult result;
-    for (const auto& command : hitResolution.commands)
-    {
-        mergeBattleCommandApplication(result, applyBattleCommand(context, command));
-    }
-    return result;
-}
-
-Battle::BattleDamageRequest makeBattleMpLeechDamageRequest(int damage)
-{
-    assert(damage >= 0);
-
-    Battle::BattleDamageRequest request;
-    request.mpDamage = damage;
-    request.mpOnHit = static_cast<int>(damage * 0.8);
-    return request;
-}
-
-std::optional<Battle::BattleDamageApplicationUnitEffects> makeBattleDamageApplicationUnitEffects(
-    const RoleComboState& state)
-{
-    if (state.deathAOEPct <= 0)
-    {
-        return std::nullopt;
-    }
-
-    return Battle::BattleDamageApplicationUnitEffects{
-        state.deathAOEPct,
-        state.deathAOEStunFrames,
-        state.deathAOEMaxTargets,
-    };
 }
 
 std::vector<Battle::BattleComboFrameRuntimeEvent> advanceBattleComboFrameRuntime(

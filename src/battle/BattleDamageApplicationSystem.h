@@ -42,6 +42,16 @@ struct BattleDamagePresentationInput
     int executeTextSize = 0;
 };
 
+struct BattleDamagePresentationStyle
+{
+    BattlePresentationColor normalDamageColor;
+    BattlePresentationColor emphasizedDamageColor;
+    BattlePresentationColor executeTextColor{ 255, 136, 48, 255 };
+    int normalDamageTextSize = 0;
+    int emphasizedDamageTextSize = 0;
+    int executeTextSize = 0;
+};
+
 enum class BattleDamageLifecycleEventType
 {
     UnitDied,

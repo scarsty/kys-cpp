@@ -4,7 +4,6 @@
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
-#include "battle/BattleDamageApplicationSystem.h"
 #include "battle/BattleProjectileTargetingSystem.h"
 #include "battle/BattleHitResolver.h"
 
@@ -12,7 +11,6 @@
 #include <deque>
 #include <functional>
 #include <map>
-#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -75,31 +73,6 @@ struct BattleFrameHitAdapterInput
     int randomDamageVariance = 0;
     std::vector<double> percentRolls;
     int pendingDefenderHpDamage = 0;
-};
-
-struct BattlePendingDamageAdapterInput
-{
-    Role* source = nullptr;
-    Role* target = nullptr;
-    int damage = 0;
-    bool critical = false;
-    bool ultimate = false;
-    bool executed = false;
-    std::string skillName;
-    std::string detailText;
-    Color damageColor;
-    int damageTextSize = 0;
-};
-
-struct BattleDamageApplicationAdapterInput
-{
-    int frame = 0;
-    const std::vector<Role*>* roles = nullptr;
-    const std::vector<BattlePendingDamageAdapterInput>* pendingDamage = nullptr;
-    const std::map<int, RoleComboState>* comboStates = nullptr;
-    Battle::BattleDeathEffectWorld deathEffects;
-    Battle::BattleProjectileFollowUpContext projectileFollowUps;
-    std::map<int, int> pendingAliveByTeam;
 };
 
 struct BattleActionFrameAdapterConfig
@@ -193,12 +166,10 @@ struct BattleCommandApplicationContext
     int frame = 0;
     const std::vector<Role*>* roles = nullptr;
     std::map<int, RoleComboState>* comboStates = nullptr;
-    std::vector<BattlePendingDamageAdapterInput>* pendingDamage = nullptr;
 };
 
 struct BattleCommandApplicationResult
 {
-    std::vector<int> criticalHitUnitIds;
     std::vector<Battle::BattlePresentationEvent> presentationEvents;
     std::vector<Battle::BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleAutoUltimateApplicationRequest> autoUltimateRequests;
@@ -252,6 +223,7 @@ Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboSt
 void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
 Battle::BattleCooldownState makeBattleCooldownState(Role* role);
 void writeBattleCooldownState(Role* role, const Battle::BattleCooldownState& state);
+Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
 void populateBattleFrameHitUnits(
     Battle::BattleFrameState& frameState,
     const std::vector<Role*>& roles);
@@ -273,30 +245,9 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
 BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     const BattleLifecycleApplicationContext& context,
     const std::vector<Battle::BattleGameplayEvent>& events);
-void appendBattlePendingDamage(
-    std::vector<BattlePendingDamageAdapterInput>& pendingDamage,
-    BattlePendingDamageAdapterInput damage);
-int calculateBattlePendingHpDamage(
-    const std::vector<BattlePendingDamageAdapterInput>& pendingDamage,
-    Role* target);
-Battle::BattleDamageApplicationInput makeBattleDamageApplicationInput(
-    const BattleDamageApplicationAdapterInput& input);
-Battle::BattleDamageApplicationResult applyBattleDamageApplication(
-    const Battle::BattleDamageApplicationInput& input);
-Battle::BattleDamageTransactionResult applyBattleAcceptedHitSideEffectTransaction(
-    Role* source,
-    Role* target,
-    Battle::BattleDamageRequest request,
-    std::map<int, RoleComboState>& states);
 BattleCommandApplicationResult applyBattleCommand(
     const BattleCommandApplicationContext& context,
     const Battle::BattleGameplayCommand& command);
-BattleCommandApplicationResult applyBattleHitApplication(
-    const BattleCommandApplicationContext& context,
-    const Battle::BattleHitResolutionResult& hitResolution);
-Battle::BattleDamageRequest makeBattleMpLeechDamageRequest(int damage);
-std::optional<Battle::BattleDamageApplicationUnitEffects> makeBattleDamageApplicationUnitEffects(
-    const RoleComboState& state);
 std::vector<Battle::BattleComboFrameRuntimeEvent> advanceBattleComboFrameRuntime(
     RoleComboState& state,
     const Battle::BattleComboFrameRuntimeInput& input);

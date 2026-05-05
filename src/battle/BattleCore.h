@@ -173,6 +173,9 @@ struct BattleFrameState
         bool aggregatePendingTransactionsByDefender = false;
         std::vector<BattleDamageUnitState> units;
         std::map<int, BattleCooldownState> cooldowns;
+        std::vector<BattleStatusUnitState> statusUnits;
+        std::map<int, BattleDamagePresentationStyle> presentationStylesByDefender;
+        std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
         std::vector<BattleDamageTransactionInput> pendingTransactions;
         std::vector<BattleDamagePresentationInput> pendingPresentation;
         std::vector<BattleDamageTransactionResult> committedTransactions;

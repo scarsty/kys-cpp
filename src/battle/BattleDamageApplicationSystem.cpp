@@ -195,7 +195,10 @@ std::vector<BattleDamagePresentationInput> aggregatePendingPresentation(
             continue;
         }
 
-        aggregated[it->second] = pendingPresentation[i];
+        if (!aggregated[it->second].enabled || pendingPresentation[i].enabled)
+        {
+            aggregated[it->second] = pendingPresentation[i];
+        }
     }
     return aggregated;
 }

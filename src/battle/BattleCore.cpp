@@ -926,7 +926,12 @@ bool buildFrameDamageTransaction(
         transaction.attacker.id = request.attackerUnitId;
     }
     transaction.defender = *defender;
-    if (const auto* status = findStatusUnit(state.status.units, request.defenderUnitId))
+    const auto* status = findStatusUnit(state.damage.statusUnits, request.defenderUnitId);
+    if (!status)
+    {
+        status = findStatusUnit(state.status.units, request.defenderUnitId);
+    }
+    if (status)
     {
         transaction.defenderStatus = *status;
     }
@@ -966,6 +971,33 @@ bool tryAppendFrameDamageTransaction(
         return false;
     }
     state.damage.pendingTransactions.push_back(std::move(transaction));
+
+    const auto styleIt = state.damage.presentationStylesByDefender.find(command.targetUnitId);
+    if (styleIt != state.damage.presentationStylesByDefender.end())
+    {
+        while (state.damage.pendingPresentation.size() + 1 < state.damage.pendingTransactions.size())
+        {
+            state.damage.pendingPresentation.push_back({});
+        }
+        BattleDamagePresentationInput presentation;
+        presentation.enabled = true;
+        presentation.critical = command.critical;
+        presentation.ultimate = command.ultimate;
+        presentation.executed = command.executed;
+        presentation.skillName = command.skillName;
+        presentation.detailText = command.detailText;
+        presentation.normalDamageColor = styleIt->second.normalDamageColor;
+        presentation.emphasizedDamageColor = styleIt->second.emphasizedDamageColor;
+        presentation.executeTextColor = styleIt->second.executeTextColor;
+        presentation.normalDamageTextSize = styleIt->second.normalDamageTextSize;
+        presentation.emphasizedDamageTextSize = styleIt->second.emphasizedDamageTextSize;
+        presentation.executeTextSize = styleIt->second.executeTextSize;
+        state.damage.pendingPresentation.push_back(std::move(presentation));
+    }
+    else if (!state.damage.pendingPresentation.empty())
+    {
+        state.damage.pendingPresentation.push_back({});
+    }
     return true;
 }
 
@@ -983,6 +1015,10 @@ bool tryAppendFrameDamageTransaction(
         return false;
     }
     state.damage.pendingTransactions.push_back(std::move(transaction));
+    if (!state.damage.pendingPresentation.empty())
+    {
+        state.damage.pendingPresentation.push_back({});
+    }
     return true;
 }
 
@@ -1001,6 +1037,10 @@ bool tryAppendFrameDamageTransaction(
         return false;
     }
     state.damage.pendingTransactions.push_back(std::move(transaction));
+    if (!state.damage.pendingPresentation.empty())
+    {
+        state.damage.pendingPresentation.push_back({});
+    }
     return true;
 }
 
@@ -1064,12 +1104,17 @@ BattleDamageApplicationInput makeFrameDamageApplicationInput(const BattleFrameSt
     input.aggregatePendingTransactionsByDefender = state.damage.aggregatePendingTransactionsByDefender;
     input.pendingTransactions = state.damage.pendingTransactions;
     input.pendingPresentation = state.damage.pendingPresentation;
+    input.unitEffects = state.damage.unitEffects;
     input.pendingAliveByTeam = state.result.pendingAliveByTeam;
     input.deathEffects = state.deathEffects.world;
     input.projectileFollowUps = state.projectileFollowUps;
 
     std::map<int, std::size_t> indexByUnitId;
     for (const auto& unit : state.world.units)
+    {
+        appendDamageApplicationUnit(input.units, indexByUnitId, unit.id, unit.team, unit.alive);
+    }
+    for (const auto& unit : state.deathEffects.world.units)
     {
         appendDamageApplicationUnit(input.units, indexByUnitId, unit.id, unit.team, unit.alive);
     }

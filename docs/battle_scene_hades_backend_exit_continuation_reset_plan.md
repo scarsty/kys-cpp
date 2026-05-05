@@ -301,10 +301,10 @@ Task 2 verification on May 5, 2026: The focused red build failed because `Battle
 - Modify: `src/BattleSceneBattleAdapter.h`
 - Test: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] Replace scene calls to `makeBattleDamageApplicationInput(...)` and `applyBattleDamageApplication(...)` with adapter application of `frameState.damage.committedTransactions`, `frameState.damage.lifecycleEvents`, and `frameState.damage.presentationEvents`.
-- [ ] Delete adapter helpers whose only job is to run `BattleDamageApplicationSystem` after the frame.
-- [ ] Delete scene-owned pending HP damage drain after the runner. Pending legacy damage may be adapted into `state.damage.pendingTransactions` before the runner only.
-- [ ] Ensure `BattleSceneBattleAdapter` applies committed damage deltas but does not re-run damage calculation.
+- [x] Replace scene calls to `makeBattleDamageApplicationInput(...)` and `applyBattleDamageApplication(...)` with adapter application of `frameState.damage.committedTransactions`, `frameState.damage.lifecycleEvents`, and `frameState.damage.presentationEvents`.
+- [x] Delete adapter helpers whose only job is to run `BattleDamageApplicationSystem` after the frame.
+- [x] Delete scene-owned pending HP damage drain after the runner. Pending legacy damage may be adapted into `state.damage.pendingTransactions` before the runner only.
+- [x] Ensure `BattleSceneBattleAdapter` applies committed damage deltas but does not re-run damage calculation.
 - [ ] Run:
 
 ```powershell
@@ -321,6 +321,8 @@ Expected: tests pass. Search returns no scene/adapter post-runner damage applica
 git add src\BattleSceneHades.cpp src\BattleSceneHades.h src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h
 git commit -m "refactor: delete scene damage application pass"
 ```
+
+Task 3 verification on May 5, 2026: `kys_tests` Debug x64 built successfully. `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][damage_application][unit]"` passed 81 assertions in 10 test cases, and full `x64\Debug\kys_tests.exe` passed 4598 assertions in 239 test cases. The Task 3 boundary search for `BattleDamageApplicationSystem|makeBattleDamageApplicationInput|applyBattleDamageApplication|pendingPreResolvedHpDamage|calculateQueuedHpDamage|applyAcceptedHitSideEffectTransaction` across `BattleSceneHades` and `BattleSceneBattleAdapter` returned no matches.
 
 ## Task 4: Reduce Gameplay Commands Inside Core Before Returning
 

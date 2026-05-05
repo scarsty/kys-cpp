@@ -106,6 +106,7 @@ protected:
     void applyCoreStatusState(const KysChess::Battle::BattleFrameState& frameState);
     void populateCoreStatusDamageState(KysChess::Battle::BattleFrameState& frameState);
     void applyCoreStatusDamageState(const KysChess::Battle::BattleFrameState& frameState);
+    void applyCoreDamageTransactions(const KysChess::Battle::BattleFrameState& frameState);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
     KysChess::Battle::BattleWorldState makeNoOpCoreWorld() const;
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
@@ -179,7 +180,6 @@ protected:
     BattleScenePresentationPlayer presentation_player_;
     KysChess::Battle::BattlePresentationFrame last_presentation_frame_;
 
-    std::vector<KysChess::BattleSceneBattleAdapter::BattlePendingDamageAdapterInput> pending_battle_damage_;
 
     struct MovementRuntime {
         int core_assigned_slot = 0;
