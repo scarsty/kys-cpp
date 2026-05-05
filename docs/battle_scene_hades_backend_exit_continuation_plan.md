@@ -1,5 +1,7 @@
 # BattleSceneHades Backend Exit Continuation Implementation Plan
 
+> **Status:** Superseded on May 5, 2026. This continuation plan led to a false-positive direction where code could move from `BattleSceneHades` into `BattleSceneBattleAdapter` without creating a real one-frame state owner. Treat this file as historical checkpoint evidence only. Continue from `docs/battle_scene_hades_backend_exit_continuation_reset_plan.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Finish the backend exit honestly by removing the remaining scene-owned gameplay hidden behind the current short `BattleSceneHades::backRun1()` helper phases.

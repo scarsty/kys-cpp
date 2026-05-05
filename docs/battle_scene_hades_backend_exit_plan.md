@@ -1,6 +1,6 @@
 # BattleSceneHades Backend Exit Implementation Plan
 
-> **Status:** Superseded on May 4, 2026. The completion claim in this document was rejected after source review because `BattleSceneHades` still owns substantial backend gameplay through delegated helper phases. Treat this file as historical checkpoint evidence only. Continue from `docs/battle_scene_hades_backend_exit_continuation_plan.md`.
+> **Status:** Superseded on May 4, 2026, and superseded again on May 5, 2026 by the breakthrough reset. The completion claim in this document was rejected after source review because `BattleSceneHades` still owns substantial backend gameplay through delegated helper phases. Treat this file as historical checkpoint evidence only. Continue from `docs/battle_scene_hades_backend_exit_continuation_reset_plan.md`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
