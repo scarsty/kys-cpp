@@ -2629,17 +2629,84 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
     return input;
 }
 
+KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot BattleSceneHades::buildBattleFrameLegacySnapshot()
+{
+    KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot snapshot;
+    snapshot.battleFrame = battle_frame_;
+    snapshot.roles.assign(battle_roles_.begin(), battle_roles_.end());
+    snapshot.comboStates = &KysChess::ChessCombo::getMutableStates();
+
+    snapshot.roleSnapshots.reserve(snapshot.roles.size());
+    for (auto* role : snapshot.roles)
+    {
+        assert(role);
+        auto movementIt = movement_runtime_.find(role);
+        KysChess::BattleSceneBattleAdapter::BattleFrameLegacyRoleSnapshot roleSnapshot;
+        roleSnapshot.role = role;
+        roleSnapshot.unitId = role->ID;
+        roleSnapshot.grid = pos90To45(role->Pos.x, role->Pos.y);
+        roleSnapshot.alive = role->Dead == 0;
+        if (movementIt != movement_runtime_.end())
+        {
+            roleSnapshot.movementDashFrames = movementIt->second.movement_dash_frames;
+            roleSnapshot.movementDashCooldown = movementIt->second.movement_dash_cooldown;
+            roleSnapshot.movementDashSpreadFrames = movementIt->second.movement_dash_spread_frames;
+        }
+        snapshot.rolesByBattleId.emplace(role->ID, role);
+        snapshot.roleSnapshots.push_back(std::move(roleSnapshot));
+    }
+
+    for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
+    {
+        for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
+        {
+            int occupantUnitId = -1;
+            for (const auto& roleSnapshot : snapshot.roleSnapshots)
+            {
+                if (!roleSnapshot.alive)
+                {
+                    continue;
+                }
+                if (roleSnapshot.grid.x == x && roleSnapshot.grid.y == y)
+                {
+                    occupantUnitId = roleSnapshot.unitId;
+                    break;
+                }
+            }
+            const bool walkable = canWalk45(x, y);
+            snapshot.grid.rescueCells.push_back({
+                x,
+                y,
+                walkable,
+                occupantUnitId >= 0,
+                occupantUnitId,
+            });
+            snapshot.grid.movementCells.push_back({
+                x,
+                y,
+                walkable,
+            });
+        }
+    }
+
+    return snapshot;
+}
+
 KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle BattleSceneHades::buildCoreFrameBundle(
     BattleActionFrameAdapterContext& actionContext,
     BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
 {
+    auto snapshot = buildBattleFrameLegacySnapshot();
+    assert(snapshot.comboStates);
+    auto& comboStates = *snapshot.comboStates;
+
     KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle bundle;
-    bundle.state = makeCoreFrameState(makeCoreMovementWorld(bundle.rolesByBattleId));
+    bundle.rolesByBattleId = snapshot.rolesByBattleId;
+    bundle.state = makeCoreFrameState(makeCoreMovementWorld(snapshot));
     populateCoreStatusState(bundle.state);
     populateCoreStatusDamageState(bundle.state);
     bundle.state.damage.aggregatePendingTransactionsByDefender = true;
 
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
     bundle.state.combo.units = comboStates;
     bundle.state.teamEffects.world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
     bundle.state.teamEffects.healAuraRadius = TILE_W * 6.0;
@@ -2677,34 +2744,7 @@ KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle BattleSceneHades::bui
     BattleRescueFrameAdapterContext rescueContext;
     rescueContext.roles = &battle_roles_;
     rescueContext.comboStates = &comboStates;
-    for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
-    {
-        for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
-        {
-            int occupantUnitId = -1;
-            for (auto role : battle_roles_)
-            {
-                assert(role);
-                if (role->Dead != 0)
-                {
-                    continue;
-                }
-                auto roleCell = pos90To45(role->Pos.x, role->Pos.y);
-                if (roleCell.x == x && roleCell.y == y)
-                {
-                    occupantUnitId = role->ID;
-                    break;
-                }
-            }
-            rescueContext.cells.push_back({
-                x,
-                y,
-                canWalk45(x, y),
-                occupantUnitId >= 0,
-                occupantUnitId,
-            });
-        }
-    }
+    rescueContext.cells = snapshot.grid.rescueCells;
     auto* basicMagic = Save::getInstance()->getMagic(1);
     assert(basicMagic);
     rescueContext.config.executeUnattendedRadius = TILE_W * 3.0;
@@ -3585,7 +3625,9 @@ KysChess::Battle::BattleMovementConfig BattleSceneHades::makeCoreMovementConfig(
     return KysChess::Battle::BattleGeometry(geometry).movementConfig();
 }
 
-KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(Role* role, const MovementRuntime* movementRuntime)
+KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(
+    Role* role,
+    const KysChess::BattleSceneBattleAdapter::BattleFrameLegacyRoleSnapshot* roleSnapshot)
 {
     bool isUltimate = role->MP >= role->MaxMP;
     Magic* plannedMagic = role->UsingMagic;
@@ -3622,12 +3664,16 @@ KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(Role* r
     unit.taXue = dashAttackEnabled;
     unit.dashAttack = dashAttackEnabled;
     unit.canAttack = role->CoolDown == 0;
-    if (movementRuntime)
+    if (roleSnapshot)
     {
-        unit.assignedSlot = movementRuntime->core_assigned_slot;
-        unit.slotSwitchCooldownRemaining = movementRuntime->core_slot_switch_cooldown;
-        unit.dashFramesRemaining = movementRuntime->movement_dash_frames;
-        unit.dashCooldownRemaining = movementRuntime->movement_dash_cooldown;
+        auto movementIt = movement_runtime_.find(role);
+        if (movementIt != movement_runtime_.end())
+        {
+            unit.assignedSlot = movementIt->second.core_assigned_slot;
+            unit.slotSwitchCooldownRemaining = movementIt->second.core_slot_switch_cooldown;
+        }
+        unit.dashFramesRemaining = roleSnapshot->movementDashFrames;
+        unit.dashCooldownRemaining = roleSnapshot->movementDashCooldown;
     }
     return unit;
 }
@@ -3988,7 +4034,8 @@ void BattleSceneHades::applyCoreFrameApplications(const KysChess::Battle::Battle
     }
 }
 
-KysChess::Battle::BattleWorldState BattleSceneHades::makeCoreMovementWorld(std::unordered_map<int, Role*>& rolesByBattleId)
+KysChess::Battle::BattleWorldState BattleSceneHades::makeCoreMovementWorld(
+    const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot)
 {
     KysChess::Battle::BattleWorldState world;
     world.frame = battle_frame_;
@@ -3999,17 +4046,16 @@ KysChess::Battle::BattleWorldState BattleSceneHades::makeCoreMovementWorld(std::
         return !isOutLine(p45.x, p45.y) && canWalk45(p45.x, p45.y);
     };
 
-    rolesByBattleId.clear();
-    for (auto* role : battle_roles_)
+    for (const auto& roleSnapshot : snapshot.roleSnapshots)
     {
-        if (!role || role->Dead != 0)
+        auto* role = roleSnapshot.role;
+        assert(role);
+        if (!roleSnapshot.alive)
         {
             continue;
         }
 
-        auto movementIt = movement_runtime_.find(role);
-        world.units.push_back(makeCoreMovementUnit(role, movementIt != movement_runtime_.end() ? &movementIt->second : nullptr));
-        rolesByBattleId.emplace(role->ID, role);
+        world.units.push_back(makeCoreMovementUnit(role, &roleSnapshot));
     }
     return world;
 }

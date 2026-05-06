@@ -58,6 +58,33 @@ struct BattleSceneFrameBundle
     std::unordered_map<int, Role*> rolesByBattleId;
 };
 
+struct BattleFrameLegacyRoleSnapshot
+{
+    Role* role = nullptr;
+    int unitId = -1;
+    Point grid;
+    bool alive = false;
+    int movementDashFrames = 0;
+    int movementDashCooldown = 0;
+    int movementDashSpreadFrames = 0;
+};
+
+struct BattleFrameLegacyGridSnapshot
+{
+    std::vector<Battle::BattleRescueCellSnapshot> rescueCells;
+    std::vector<Battle::BattleMovementPhysicsCollisionCellSnapshot> movementCells;
+};
+
+struct BattleFrameLegacySnapshot
+{
+    int battleFrame = 0;
+    std::vector<Role*> roles;
+    std::vector<BattleFrameLegacyRoleSnapshot> roleSnapshots;
+    std::unordered_map<int, Role*> rolesByBattleId;
+    std::map<int, RoleComboState>* comboStates = nullptr;
+    BattleFrameLegacyGridSnapshot grid;
+};
+
 struct BattleFrameHitAdapterInput
 {
     int attackId = -1;

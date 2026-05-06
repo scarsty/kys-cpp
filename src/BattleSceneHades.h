@@ -60,6 +60,7 @@ protected:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     SceneBattleFrameInput buildBattleFrameInput();
+    KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot buildBattleFrameLegacySnapshot();
     KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle buildCoreFrameBundle(
         KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
         KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
@@ -113,9 +114,12 @@ protected:
     void applyCoreTeamEffectState(const KysChess::Battle::BattleFrameState& frameState);
     void applyCoreFrameApplications(const KysChess::Battle::BattleFrameState& frameState);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
-    KysChess::Battle::BattleWorldState makeCoreMovementWorld(std::unordered_map<int, Role*>& rolesByBattleId);
+    KysChess::Battle::BattleWorldState makeCoreMovementWorld(
+        const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot);
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
-    KysChess::Battle::BattleUnitState makeCoreMovementUnit(Role* role, const MovementRuntime* movementRuntime);
+    KysChess::Battle::BattleUnitState makeCoreMovementUnit(
+        Role* role,
+        const KysChess::BattleSceneBattleAdapter::BattleFrameLegacyRoleSnapshot* roleSnapshot);
     void applyCoreMovementSnapshot(const KysChess::Battle::BattleTickResult& result, const std::unordered_map<int, Role*>& rolesByBattleId);
     KysChess::Battle::BattlePresentationSnapshot makePresentationSnapshot() const;
     void beginPresentationFrame();
