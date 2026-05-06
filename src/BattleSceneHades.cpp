@@ -1110,6 +1110,9 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     battleRuntime().effects.world = makeBattleEffectWorld(
         battle_roles_,
         KysChess::ChessCombo::getMutableStates());
+    battleRuntime().deathEffects.world = makeBattleDeathEffectWorld(
+        battle_roles_,
+        KysChess::ChessCombo::getMutableStates());
     auto* basicMagic = Save::getInstance()->getMagic(1);
     assert(basicMagic);
     battleRuntime().rescue.executeUnattendedRadius = TILE_W * 3.0;
@@ -2716,7 +2719,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().damage = {};
     battleRuntime().status = {};
     battleRuntime().combo = {};
-    battleRuntime().deathEffects = {};
+    battleRuntime().deathEffects.events.clear();
     battleRuntime().projectileCancel = {};
     battleRuntime().teamEffects.committedEvents.clear();
     battleRuntime().effects.committedCommands.clear();
@@ -3776,7 +3779,6 @@ void BattleSceneHades::applyCoreStatusState(
 void BattleSceneHades::populateCoreStatusDamageState(KysChess::Battle::BattleRuntimeState& frameState)
 {
     auto& comboStates = KysChess::ChessCombo::getMutableStates();
-    frameState.deathEffects.world = makeBattleDeathEffectWorld(battle_roles_, comboStates);
     frameState.result.pendingAliveByTeam = { { 1, static_cast<int>(enemies_.size()) } };
     for (auto role : battle_roles_)
     {
