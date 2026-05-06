@@ -2674,6 +2674,9 @@ KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot BattleSceneHades::
                 }
             }
             const bool walkable = canWalk45(x, y);
+            snapshot.grid.positionsByCell.emplace(
+                std::pair{ x, y },
+                pos45To90(x, y));
             snapshot.grid.rescueCells.push_back({
                 x,
                 y,
@@ -2744,7 +2747,9 @@ KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle BattleSceneHades::bui
     BattleRescueFrameAdapterContext rescueContext;
     rescueContext.roles = &battle_roles_;
     rescueContext.comboStates = &comboStates;
+    rescueContext.snapshot = &snapshot;
     rescueContext.cells = snapshot.grid.rescueCells;
+    rescueContext.positionsByCell = snapshot.grid.positionsByCell;
     auto* basicMagic = Save::getInstance()->getMagic(1);
     assert(basicMagic);
     rescueContext.config.executeUnattendedRadius = TILE_W * 3.0;
@@ -2754,11 +2759,11 @@ KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle BattleSceneHades::bui
     rescueContext.config.counterAttackMeleeOffset = MELEE_ATTACK_EFFECT_OFFSET;
     rescueContext.config.counterAttackMinimumTotalFrames = 20;
     rescueContext.config.counterAttackTotalFramePadding = 15;
-    rescueContext.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
-    rescueContext.callbacks.toPosition = [this](int x, int y) { return pos45To90(x, y); };
     populateBattleFrameRescueState(bundle.state, rescueContext);
 
     movementPhysicsContext.roles = &battle_roles_;
+    movementPhysicsContext.snapshot = &snapshot;
+    movementPhysicsContext.cells = snapshot.grid.movementCells;
     movementPhysicsContext.config.gravity = gravity_;
     movementPhysicsContext.config.friction = friction_;
     movementPhysicsContext.config.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
@@ -2766,31 +2771,7 @@ KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle BattleSceneHades::bui
     movementPhysicsContext.config.coordCount = BATTLE_COORD_COUNT;
     movementPhysicsContext.config.defaultSeparationDistance = TILE_W * 1.5;
     movementPhysicsContext.config.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
-    movementPhysicsContext.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
-    movementPhysicsContext.callbacks.canWalk = [this](int x, int y) { return canWalk45(x, y); };
-    movementPhysicsContext.callbacks.castFrame = [this](Role* role)
-    {
-        return calCast(role->ActType, role->OperationType, role);
-    };
-    movementPhysicsContext.callbacks.movementDashFrames = [this](Role* role)
-    {
-        return movement_runtime_[role].movement_dash_frames;
-    };
-    movementPhysicsContext.callbacks.movementDashCooldown = [this](Role* role)
-    {
-        return movement_runtime_[role].movement_dash_cooldown;
-    };
-    movementPhysicsContext.callbacks.movementDashSpreadFrames = [this](Role* role)
-    {
-        return movement_runtime_[role].movement_dash_spread_frames;
-    };
-    movementPhysicsContext.callbacks.setMovementDashRuntime = [this](Role* role, int frames, int cooldown, int spreadFrames)
-    {
-        auto& movementRuntime = movement_runtime_[role];
-        movementRuntime.movement_dash_frames = frames;
-        movementRuntime.movement_dash_cooldown = cooldown;
-        movementRuntime.movement_dash_spread_frames = spreadFrames;
-    };
+    movementPhysicsContext.config.castFrames = KysChess::BattleSceneBattleAdapter::makeBattleCastConfig().castFrames;
     populateBattleMovementPhysicsFrame(bundle.state, movementPhysicsContext);
 
     bundle.state.pendingAttackSpawns = std::move(pending_core_attack_spawns_);
@@ -2879,6 +2860,14 @@ void BattleSceneHades::applyCoreFrameBundle(
     }
     applyCoreFrameApplications(bundle.state);
     applyBattleMovementPhysicsFrameResults(bundle.state, movementPhysicsContext);
+    for (const auto& result : bundle.state.movementPhysics.committedResults)
+    {
+        auto* role = findRoleByBattleId(battle_roles_, result.unitId);
+        auto& movementRuntime = movement_runtime_[role];
+        movementRuntime.movement_dash_frames = result.state.movementDashFrames;
+        movementRuntime.movement_dash_cooldown = result.state.movementDashCooldown;
+        movementRuntime.movement_dash_spread_frames = result.state.movementDashSpreadFrames;
+    }
     applyCoreMovementSnapshot(frameResult.movement, bundle.rolesByBattleId);
     core_movement_decisions_.clear();
     for (const auto& [battleId, decision] : frameResult.movement.decisions)

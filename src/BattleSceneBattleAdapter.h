@@ -6,6 +6,7 @@
 #include "battle/BattleCore.h"
 #include "battle/BattleProjectileTargetingSystem.h"
 
+#include <array>
 #include <cstddef>
 #include <deque>
 #include <functional>
@@ -73,6 +74,7 @@ struct BattleFrameLegacyGridSnapshot
 {
     std::vector<Battle::BattleRescueCellSnapshot> rescueCells;
     std::vector<Battle::BattleMovementPhysicsCollisionCellSnapshot> movementCells;
+    std::map<std::pair<int, int>, Pointf> positionsByCell;
 };
 
 struct BattleFrameLegacySnapshot
@@ -163,19 +165,14 @@ struct BattleRescueFrameAdapterConfig
     int counterAttackTotalFramePadding = 15;
 };
 
-struct BattleRescueFrameAdapterCallbacks
-{
-    std::function<Point(double, double)> toGrid;
-    std::function<Pointf(int, int)> toPosition;
-};
-
 struct BattleRescueFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
     const std::map<int, RoleComboState>* comboStates = nullptr;
+    const BattleFrameLegacySnapshot* snapshot = nullptr;
     std::vector<Battle::BattleRescueCellSnapshot> cells;
+    std::map<std::pair<int, int>, Pointf> positionsByCell;
     BattleRescueFrameAdapterConfig config;
-    BattleRescueFrameAdapterCallbacks callbacks;
 };
 
 struct BattleMovementPhysicsFrameAdapterConfig
@@ -187,24 +184,15 @@ struct BattleMovementPhysicsFrameAdapterConfig
     int coordCount = 0;
     double defaultSeparationDistance = 0.0;
     int dashMomentumFrames = 0;
-};
-
-struct BattleMovementPhysicsFrameAdapterCallbacks
-{
-    std::function<Point(double, double)> toGrid;
-    std::function<bool(int, int)> canWalk;
-    std::function<int(Role*)> castFrame;
-    std::function<int(Role*)> movementDashFrames;
-    std::function<int(Role*)> movementDashCooldown;
-    std::function<int(Role*)> movementDashSpreadFrames;
-    std::function<void(Role*, int, int, int)> setMovementDashRuntime;
+    std::array<int, 4> castFrames{};
 };
 
 struct BattleMovementPhysicsFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
+    const BattleFrameLegacySnapshot* snapshot = nullptr;
+    std::vector<Battle::BattleMovementPhysicsCollisionCellSnapshot> cells;
     BattleMovementPhysicsFrameAdapterConfig config;
-    BattleMovementPhysicsFrameAdapterCallbacks callbacks;
 };
 
 struct BattleActionFrameApplyResult

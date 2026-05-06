@@ -758,6 +758,21 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     double reach,
     const BattleActionFrameAdapterContext& context);
 
+const BattleFrameLegacyRoleSnapshot& requireLegacyRoleSnapshot(
+    const BattleFrameLegacySnapshot& snapshot,
+    int unitId)
+{
+    auto it = std::find_if(
+        snapshot.roleSnapshots.begin(),
+        snapshot.roleSnapshots.end(),
+        [&](const BattleFrameLegacyRoleSnapshot& roleSnapshot)
+        {
+            return roleSnapshot.unitId == unitId;
+        });
+    assert(it != snapshot.roleSnapshots.end());
+    return *it;
+}
+
 void captureActionComboState(
     Battle::BattleActionCommitInput& actionInput,
     Role* role,
@@ -1044,18 +1059,11 @@ void populateBattleFrameRescueState(
 {
     assert(context.roles);
     assert(context.comboStates);
-    assert(context.callbacks.toGrid);
-    assert(context.callbacks.toPosition);
+    assert(context.snapshot);
 
     frameState.rescue.units.clear();
     frameState.rescue.cells = context.cells;
-    frameState.rescue.positionsByCell.clear();
-    for (const auto& cell : context.cells)
-    {
-        frameState.rescue.positionsByCell.emplace(
-            std::pair{ cell.x, cell.y },
-            context.callbacks.toPosition(cell.x, cell.y));
-    }
+    frameState.rescue.positionsByCell = context.positionsByCell;
     frameState.rescue.executeUnattendedRadius = context.config.executeUnattendedRadius;
     frameState.rescue.counterAttack.skillId = context.config.counterAttackSkillId;
     frameState.rescue.counterAttack.visualEffectId = context.config.counterAttackVisualEffectId;
@@ -1075,7 +1083,7 @@ void populateBattleFrameRescueState(
         snapshot.unit.hp = role->HP;
         snapshot.unit.maxHp = role->MaxHP;
         snapshot.unit.invincible = role->Invincible;
-        snapshot.unit.cell = context.callbacks.toGrid(role->Pos.x, role->Pos.y);
+        snapshot.unit.cell = requireLegacyRoleSnapshot(*context.snapshot, role->ID).grid;
         snapshot.position = role->Pos;
         auto stateIt = context.comboStates->find(role->ID);
         if (stateIt != context.comboStates->end())
@@ -1095,12 +1103,7 @@ void populateBattleMovementPhysicsFrame(
     const BattleMovementPhysicsFrameAdapterContext& context)
 {
     assert(context.roles);
-    assert(context.callbacks.toGrid);
-    assert(context.callbacks.canWalk);
-    assert(context.callbacks.castFrame);
-    assert(context.callbacks.movementDashFrames);
-    assert(context.callbacks.movementDashCooldown);
-    assert(context.callbacks.movementDashSpreadFrames);
+    assert(context.snapshot);
 
     frameState.movementPhysics.config.gravity = context.config.gravity;
     frameState.movementPhysics.config.friction = context.config.friction;
@@ -1109,7 +1112,7 @@ void populateBattleMovementPhysicsFrame(
     frameState.movementPhysics.collision.coordCount = context.config.coordCount;
     frameState.movementPhysics.collision.defaultSeparationDistance = context.config.defaultSeparationDistance;
     frameState.movementPhysics.collision.units.clear();
-    frameState.movementPhysics.collision.cells.clear();
+    frameState.movementPhysics.collision.cells = context.cells;
     frameState.movementPhysics.units.clear();
 
     for (auto role : *context.roles)
@@ -1121,34 +1124,24 @@ void populateBattleMovementPhysicsFrame(
             role->Pos,
         });
     }
-    for (int x = 0; x < context.config.coordCount; ++x)
-    {
-        for (int y = 0; y < context.config.coordCount; ++y)
-        {
-            frameState.movementPhysics.collision.cells.push_back({
-                x,
-                y,
-                context.callbacks.canWalk(x, y),
-            });
-        }
-    }
-
     for (auto role : *context.roles)
     {
         assert(role);
+        const auto& roleSnapshot = requireLegacyRoleSnapshot(*context.snapshot, role->ID);
         Battle::BattleFrameMovementPhysicsUnitInput input;
         input.unitId = role->ID;
         input.frozenFrames = role->Frozen;
         input.state.position = role->Pos;
         input.state.velocity = role->Velocity;
         input.state.acceleration = role->Acceleration;
-        input.state.movementDashFrames = context.callbacks.movementDashFrames(role);
-        input.state.movementDashCooldown = context.callbacks.movementDashCooldown(role);
-        input.state.movementDashSpreadFrames = context.callbacks.movementDashSpreadFrames(role);
+        input.state.movementDashFrames = roleSnapshot.movementDashFrames;
+        input.state.movementDashCooldown = roleSnapshot.movementDashCooldown;
+        input.state.movementDashSpreadFrames = roleSnapshot.movementDashSpreadFrames;
 
         if (role->OperationType == 3 && role->HaveAction)
         {
-            const int dashStartFrame = context.callbacks.castFrame(role);
+            assert(role->OperationType >= 0 && role->OperationType < static_cast<int>(context.config.castFrames.size()));
+            const int dashStartFrame = context.config.castFrames[role->OperationType];
             const int dashEndFrame = dashStartFrame + context.config.dashMomentumFrames;
             input.actionDashActive = role->ActFrame >= dashStartFrame && role->ActFrame <= dashEndFrame;
             if (role->ActFrame > dashEndFrame)
@@ -1166,7 +1159,6 @@ void applyBattleMovementPhysicsFrameResults(
     const BattleMovementPhysicsFrameAdapterContext& context)
 {
     assert(context.roles);
-    assert(context.callbacks.setMovementDashRuntime);
 
     for (const auto& result : frameState.movementPhysics.committedResults)
     {
@@ -1175,11 +1167,6 @@ void applyBattleMovementPhysicsFrameResults(
         role->Pos = result.state.position;
         role->Velocity = result.state.velocity;
         role->Acceleration = result.state.acceleration;
-        context.callbacks.setMovementDashRuntime(
-            role,
-            result.state.movementDashFrames,
-            result.state.movementDashCooldown,
-            result.state.movementDashSpreadFrames);
     }
 }
 
