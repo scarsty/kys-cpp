@@ -1412,10 +1412,7 @@ BattleLifecycleApplicationResult applyBattleLifecycleEvents(
             auto* victim = findRoleByBattleId(*context.roles, event.targetUnitId);
             context.tracker->recordKill(killer, victim, event.frame);
             context.tracker->recordDeath(victim, event.frame);
-            if (context.onUnitDied)
-            {
-                context.onUnitDied();
-            }
+            result.unitDied = true;
             break;
         }
         case Battle::BattleGameplayEventType::BattleEnded:

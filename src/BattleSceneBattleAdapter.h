@@ -9,7 +9,6 @@
 #include <array>
 #include <cstddef>
 #include <deque>
-#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -218,13 +217,13 @@ struct BattleLifecycleApplicationContext
     BattleTracker* tracker = nullptr;
     const std::vector<Role*>* roles = nullptr;
     int currentBattleResult = -1;
-    std::function<void()> onUnitDied;
 };
 
 struct BattleLifecycleApplicationResult
 {
     bool battleEnded = false;
     int battleResult = -1;
+    bool unitDied = false;
 };
 
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);

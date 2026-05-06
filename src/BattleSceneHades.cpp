@@ -3988,12 +3988,12 @@ void BattleSceneHades::applyCoreDamageTransactions(
             &tracker_,
             &battle_roles_,
             result_,
-            [this]()
-            {
-                updateEnemyTopDebuffState();
-            },
         },
         lifecycleEvents);
+    if (lifecycleApply.unitDied)
+    {
+        updateEnemyTopDebuffState();
+    }
     if (lifecycleApply.battleEnded)
     {
         if (!isManualCameraEnabled())
