@@ -57,17 +57,6 @@ struct BattleFrameApplyContext
     std::unordered_map<int, Role*> rolesByBattleId;
 };
 
-struct BattleFrameRoleImport
-{
-    Role* role = nullptr;
-    int unitId = -1;
-    Point grid;
-    bool alive = false;
-    int movementDashFrames = 0;
-    int movementDashCooldown = 0;
-    int movementDashSpreadFrames = 0;
-};
-
 struct BattleFrameActionImport
 {
     int unitId = -1;
@@ -92,14 +81,10 @@ struct BattleFrameActionImport
     int blinkCellRandomRoll = 0;
 };
 
-struct BattleFrameSceneImport
+struct BattleActionFrameImportSet
 {
     int battleFrame = 0;
-    std::vector<Role*> roles;
-    std::vector<BattleFrameRoleImport> roleSnapshots;
     std::unordered_map<int, BattleFrameActionImport> actionsByUnitId;
-    std::unordered_map<int, Role*> rolesByBattleId;
-    std::map<int, RoleComboState>* comboStates = nullptr;
 };
 
 struct BattleFrameHitAdapterInput
@@ -137,7 +122,9 @@ struct BattleActionFrameAdapterConfig
 struct BattleActionFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
-    const BattleFrameSceneImport* snapshot = nullptr;
+    const BattleActionFrameImportSet* actionImport = nullptr;
+    std::unordered_map<int, Point> unitCells;
+    const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
     std::map<int, Battle::BattleCastResult>* pendingCastResults = nullptr;
     std::map<int, RoleComboState>* comboStates = nullptr;
     const std::map<int, Battle::MovementDecision>* movementDecisions = nullptr;
@@ -161,7 +148,7 @@ struct BattleRescueFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
     const std::map<int, RoleComboState>* comboStates = nullptr;
-    const BattleFrameSceneImport* snapshot = nullptr;
+    std::unordered_map<int, Point> unitCells;
     std::vector<Battle::BattleRescueCellSnapshot> cells;
     std::map<std::pair<int, int>, Pointf> positionsByCell;
     BattleRescueFrameAdapterConfig config;
@@ -182,7 +169,7 @@ struct BattleMovementPhysicsFrameAdapterConfig
 struct BattleMovementPhysicsFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
-    const BattleFrameSceneImport* snapshot = nullptr;
+    const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
     std::vector<Battle::BattleMovementPhysicsCollisionCellSnapshot> cells;
     BattleMovementPhysicsFrameAdapterConfig config;
 };
@@ -228,9 +215,6 @@ void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, in
 void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result);
 
 void configureBattleAttackWorld(Battle::BattleAttackWorld& world);
-Battle::BattleAttackWorld makeBattleAttackWorld(
-    const std::vector<Role*>& roles,
-    const Battle::BattleAttackWorld& activeWorld);
 Battle::BattleTeamEffectWorld makeBattleTeamEffectWorld(
     const std::vector<Role*>& roles,
     const std::map<int, RoleComboState>& states);

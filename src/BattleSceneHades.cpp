@@ -599,13 +599,13 @@ Magic* BattleSceneHades::commitAutoUltimate(Role* role, bool consumeMP)
         return nullptr;
     }
 
-    auto snapshot = buildBattleFrameSceneImport();
+    auto actionImport = buildBattleActionFrameImport();
     auto selectedAction = commitBattleSelectedSkillAction(
         role,
         magic,
         true,
         -1,
-        makeBattleActionFrameAdapterContext(snapshot));
+        makeBattleActionFrameAdapterContext(actionImport));
     for (int soundId : selectedAction.applyResult.attackSoundIds)
     {
         Audio::getInstance()->playASound(soundId);
@@ -1116,14 +1116,19 @@ const KysChess::Battle::BattleRuntimeState& BattleSceneHades::battleRuntime() co
 }
 
 BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterContext(
-    const KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport& snapshot)
+    const KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet& actionImport)
 {
     BattleActionFrameAdapterContext context;
     context.roles = &battle_roles_;
-    context.snapshot = &snapshot;
+    context.actionImport = &actionImport;
+    for (auto* role : battle_roles_)
+    {
+        assert(role);
+        context.unitCells.emplace(role->ID, pos90To45(role->Pos.x, role->Pos.y));
+    }
+    context.movementRuntime = &battleRuntime().movementRuntime;
     context.pendingCastResults = &battleRuntime().pendingCastResults;
-    assert(snapshot.comboStates);
-    context.comboStates = snapshot.comboStates;
+    context.comboStates = &KysChess::ChessCombo::getMutableStates();
     context.movementDecisions = &battleRuntime().movementDecisions;
     context.ultimateCasters = &battleRuntime().ultimateCasters;
     context.config.maxEffectiveBattleReach = MAX_EFFECTIVE_BATTLE_REACH;
@@ -2554,10 +2559,10 @@ void BattleSceneHades::backRun1()
     if (input.shouldAdvance)
     {
         result.advanced = true;
-        auto snapshot = buildBattleFrameSceneImport();
-        auto actionContext = makeBattleActionFrameAdapterContext(snapshot);
+        auto actionImport = buildBattleActionFrameImport();
+        auto actionContext = makeBattleActionFrameAdapterContext(actionImport);
         BattleMovementPhysicsFrameAdapterContext movementPhysicsContext;
-        auto bundle = buildCoreRuntimeContext(snapshot, actionContext, movementPhysicsContext);
+        auto bundle = buildCoreRuntimeContext(actionContext, movementPhysicsContext);
         auto frameResult = battle_session_->runFrame();
         applyCoreFrameResult(bundle, frameResult, actionContext, movementPhysicsContext);
     }
@@ -2599,31 +2604,14 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
     return input;
 }
 
-KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport BattleSceneHades::buildBattleFrameSceneImport()
+KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet BattleSceneHades::buildBattleActionFrameImport()
 {
-    KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport snapshot;
-    snapshot.battleFrame = battle_frame_;
-    snapshot.roles.assign(battle_roles_.begin(), battle_roles_.end());
-    snapshot.comboStates = &KysChess::ChessCombo::getMutableStates();
+    KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet actionImport;
+    actionImport.battleFrame = battle_frame_;
 
-    snapshot.roleSnapshots.reserve(snapshot.roles.size());
-    for (auto* role : snapshot.roles)
+    for (auto* role : battle_roles_)
     {
         assert(role);
-        auto movementIt = battleRuntime().movementRuntime.find(role->ID);
-        KysChess::BattleSceneBattleAdapter::BattleFrameRoleImport roleSnapshot;
-        roleSnapshot.role = role;
-        roleSnapshot.unitId = role->ID;
-        roleSnapshot.grid = pos90To45(role->Pos.x, role->Pos.y);
-        roleSnapshot.alive = role->Dead == 0;
-        if (movementIt != battleRuntime().movementRuntime.end())
-        {
-            roleSnapshot.movementDashFrames = movementIt->second.movementDashFrames;
-            roleSnapshot.movementDashCooldown = movementIt->second.movementDashCooldown;
-            roleSnapshot.movementDashSpreadFrames = movementIt->second.movementDashSpreadFrames;
-        }
-        snapshot.rolesByBattleId.emplace(role->ID, role);
-        snapshot.roleSnapshots.push_back(std::move(roleSnapshot));
 
         KysChess::BattleSceneBattleAdapter::BattleFrameActionImport actionSnapshot;
         actionSnapshot.unitId = role->ID;
@@ -2679,24 +2667,26 @@ KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport BattleSceneHades::bui
         actionSnapshot.projectileBounceRoll = rand_.rand_int(100);
         actionSnapshot.blinkRandomRoll = rand_.rand_int(std::numeric_limits<int>::max());
         actionSnapshot.blinkCellRandomRoll = rand_.rand_int(std::numeric_limits<int>::max());
-        snapshot.actionsByUnitId.emplace(role->ID, actionSnapshot);
+        actionImport.actionsByUnitId.emplace(role->ID, actionSnapshot);
     }
 
-    return snapshot;
+    return actionImport;
 }
 
 KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::buildCoreRuntimeContext(
-    const KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport& snapshot,
     BattleActionFrameAdapterContext& actionContext,
     BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
 {
-    assert(snapshot.comboStates);
-    auto& comboStates = *snapshot.comboStates;
+    auto& comboStates = KysChess::ChessCombo::getMutableStates();
     initializeBattleRuntimeStaticState();
 
     KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext bundle;
-    bundle.rolesByBattleId = snapshot.rolesByBattleId;
-    battleRuntime().world = makeCoreMovementWorld(snapshot);
+    for (auto* role : battle_roles_)
+    {
+        assert(role);
+        bundle.rolesByBattleId.emplace(role->ID, role);
+    }
+    battleRuntime().world = makeCoreMovementWorld();
     battleRuntime().projectileFollowUps = makeCoreProjectileFollowUpContext();
     battleRuntime().runtime = {};
     battleRuntime().damage = {};
@@ -2752,22 +2742,28 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     BattleRescueFrameAdapterContext rescueContext;
     rescueContext.roles = &battle_roles_;
     rescueContext.comboStates = &comboStates;
-    rescueContext.snapshot = &snapshot;
+    for (auto* role : battle_roles_)
+    {
+        assert(role);
+        rescueContext.unitCells.emplace(role->ID, pos90To45(role->Pos.x, role->Pos.y));
+    }
     rescueContext.cells = battleRuntime().rescue.cells;
     for (auto& cell : rescueContext.cells)
     {
         cell.occupied = false;
         cell.occupantUnitId = -1;
-        for (const auto& roleSnapshot : snapshot.roleSnapshots)
+        for (auto* role : battle_roles_)
         {
-            if (!roleSnapshot.alive)
+            assert(role);
+            if (role->Dead != 0)
             {
                 continue;
             }
-            if (roleSnapshot.grid.x == cell.x && roleSnapshot.grid.y == cell.y)
+            auto grid = pos90To45(role->Pos.x, role->Pos.y);
+            if (grid.x == cell.x && grid.y == cell.y)
             {
                 cell.occupied = true;
-                cell.occupantUnitId = roleSnapshot.unitId;
+                cell.occupantUnitId = role->ID;
                 break;
             }
         }
@@ -2785,7 +2781,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     populateBattleFrameRescueState(battleRuntime(), rescueContext);
 
     movementPhysicsContext.roles = &battle_roles_;
-    movementPhysicsContext.snapshot = &snapshot;
+    movementPhysicsContext.movementRuntime = &battleRuntime().movementRuntime;
     movementPhysicsContext.cells = battleRuntime().movementPhysics.collision.cells;
     movementPhysicsContext.config.gravity = gravity_;
     movementPhysicsContext.config.friction = friction_;
@@ -3687,8 +3683,7 @@ KysChess::Battle::BattleMovementConfig BattleSceneHades::makeCoreMovementConfig(
 }
 
 KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(
-    Role* role,
-    const KysChess::BattleSceneBattleAdapter::BattleFrameRoleImport* roleSnapshot)
+    Role* role)
 {
     bool isUltimate = role->MP >= role->MaxMP;
     Magic* plannedMagic = role->UsingMagic;
@@ -3725,22 +3720,23 @@ KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(
     unit.taXue = dashAttackEnabled;
     unit.dashAttack = dashAttackEnabled;
     unit.canAttack = role->CoolDown == 0;
-    if (roleSnapshot)
-    {
-        auto existingMovement = std::find_if(
-            battleRuntime().world.units.begin(),
-            battleRuntime().world.units.end(),
-            [role](const KysChess::Battle::BattleUnitState& existing)
-            {
-                return existing.id == role->ID;
-            });
-        if (existingMovement != battleRuntime().world.units.end())
+    auto existingMovement = std::find_if(
+        battleRuntime().world.units.begin(),
+        battleRuntime().world.units.end(),
+        [role](const KysChess::Battle::BattleUnitState& existing)
         {
-            unit.assignedSlot = existingMovement->assignedSlot;
-            unit.slotSwitchCooldownRemaining = existingMovement->slotSwitchCooldownRemaining;
-        }
-        unit.dashFramesRemaining = roleSnapshot->movementDashFrames;
-        unit.dashCooldownRemaining = roleSnapshot->movementDashCooldown;
+            return existing.id == role->ID;
+        });
+    if (existingMovement != battleRuntime().world.units.end())
+    {
+        unit.assignedSlot = existingMovement->assignedSlot;
+        unit.slotSwitchCooldownRemaining = existingMovement->slotSwitchCooldownRemaining;
+    }
+    auto movementIt = battleRuntime().movementRuntime.find(role->ID);
+    if (movementIt != battleRuntime().movementRuntime.end())
+    {
+        unit.dashFramesRemaining = movementIt->second.movementDashFrames;
+        unit.dashCooldownRemaining = movementIt->second.movementDashCooldown;
     }
     return unit;
 }
@@ -4068,24 +4064,22 @@ void BattleSceneHades::applyCoreFrameApplications(
     }
 }
 
-KysChess::Battle::BattleWorldState BattleSceneHades::makeCoreMovementWorld(
-    const KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport& snapshot)
+KysChess::Battle::BattleWorldState BattleSceneHades::makeCoreMovementWorld()
 {
     KysChess::Battle::BattleWorldState world;
     world.frame = battle_frame_;
     world.config = makeCoreMovementConfig();
     world.terrainCells = battleRuntime().world.terrainCells;
 
-    for (const auto& roleSnapshot : snapshot.roleSnapshots)
+    for (auto* role : battle_roles_)
     {
-        auto* role = roleSnapshot.role;
         assert(role);
-        if (!roleSnapshot.alive)
+        if (role->Dead != 0)
         {
             continue;
         }
 
-        world.units.push_back(makeCoreMovementUnit(role, &roleSnapshot));
+        world.units.push_back(makeCoreMovementUnit(role));
     }
     return world;
 }

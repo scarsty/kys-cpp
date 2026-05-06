@@ -225,24 +225,6 @@ void configureBattleAttackWorld(Battle::BattleAttackWorld& world)
     world.spendNonThroughOnHit = false;
 }
 
-Battle::BattleAttackWorld makeBattleAttackWorld(
-    const std::vector<Role*>& roles,
-    const Battle::BattleAttackWorld& activeWorld)
-{
-    Battle::BattleAttackWorld world = activeWorld;
-    configureBattleAttackWorld(world);
-    world.units.clear();
-    for (auto role : roles)
-    {
-        if (role)
-        {
-            world.units.push_back(makeBattleAttackUnit(role));
-        }
-    }
-
-    return world;
-}
-
 Battle::BattleTeamEffectWorld makeBattleTeamEffectWorld(
     const std::vector<Role*>& roles,
     const std::map<int, RoleComboState>& states)
@@ -656,9 +638,9 @@ const BattleFrameActionImport& requireActionSnapshot(
     const BattleActionFrameAdapterContext& context,
     int unitId)
 {
-    assert(context.snapshot);
-    auto it = context.snapshot->actionsByUnitId.find(unitId);
-    assert(it != context.snapshot->actionsByUnitId.end());
+    assert(context.actionImport);
+    auto it = context.actionImport->actionsByUnitId.find(unitId);
+    assert(it != context.actionImport->actionsByUnitId.end());
     return it->second;
 }
 
@@ -668,10 +650,16 @@ Role* findSnapshotRole(const BattleActionFrameAdapterContext& context, int unitI
     {
         return nullptr;
     }
-    assert(context.snapshot);
-    auto it = context.snapshot->rolesByBattleId.find(unitId);
-    assert(it != context.snapshot->rolesByBattleId.end());
-    return it->second;
+    assert(context.roles);
+    auto it = std::find_if(
+        context.roles->begin(),
+        context.roles->end(),
+        [unitId](const Role* role)
+        {
+            return role && role->ID == unitId;
+        });
+    assert(it != context.roles->end());
+    return *it;
 }
 
 Pointf positionForCell(int x, int y, int coordCount)
@@ -787,19 +775,13 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     double reach,
     const BattleActionFrameAdapterContext& context);
 
-const BattleFrameRoleImport& requireLegacyRoleSnapshot(
-    const BattleFrameSceneImport& snapshot,
+Point requireUnitCell(
+    const std::unordered_map<int, Point>& unitCells,
     int unitId)
 {
-    auto it = std::find_if(
-        snapshot.roleSnapshots.begin(),
-        snapshot.roleSnapshots.end(),
-        [&](const BattleFrameRoleImport& roleSnapshot)
-        {
-            return roleSnapshot.unitId == unitId;
-        });
-    assert(it != snapshot.roleSnapshots.end());
-    return *it;
+    auto it = unitCells.find(unitId);
+    assert(it != unitCells.end());
+    return it->second;
 }
 
 void captureActionComboState(
@@ -922,7 +904,10 @@ void populateCastPlanInputForRole(
         return;
     }
 
-    if (requireLegacyRoleSnapshot(*context.snapshot, role->ID).movementDashFrames > 0)
+    assert(context.movementRuntime);
+    auto movementIt = context.movementRuntime->find(role->ID);
+    if (movementIt != context.movementRuntime->end()
+        && movementIt->second.movementDashFrames > 0)
     {
         return;
     }
@@ -994,10 +979,9 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     const BattleActionFrameAdapterContext& context)
 {
     assert(role);
-    assert(context.snapshot);
 
     Battle::BattleBlinkGeometryInput geometry;
-    auto current = requireLegacyRoleSnapshot(*context.snapshot, role->ID).grid;
+    auto current = requireUnitCell(context.unitCells, role->ID);
     geometry.currentGridX = current.x;
     geometry.currentGridY = current.y;
 
@@ -1010,7 +994,7 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
             continue;
         }
 
-        auto targetPos45 = requireLegacyRoleSnapshot(*context.snapshot, target->ID).grid;
+        auto targetPos45 = requireUnitCell(context.unitCells, target->ID);
         for (int dx = -gridReach; dx <= gridReach; ++dx)
         {
             for (int dy = -gridReach; dy <= gridReach; ++dy)
@@ -1029,7 +1013,7 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
                     {
                         continue;
                     }
-                    auto rolePos45 = requireLegacyRoleSnapshot(*context.snapshot, other->ID).grid;
+                    auto rolePos45 = requireUnitCell(context.unitCells, other->ID);
                     if (rolePos45.x == x && rolePos45.y == y)
                     {
                         occupied = true;
@@ -1093,7 +1077,6 @@ void populateBattleFrameRescueState(
 {
     assert(context.roles);
     assert(context.comboStates);
-    assert(context.snapshot);
 
     frameState.rescue.units.clear();
     frameState.rescue.cells = context.cells;
@@ -1117,7 +1100,7 @@ void populateBattleFrameRescueState(
         snapshot.unit.hp = role->HP;
         snapshot.unit.maxHp = role->MaxHP;
         snapshot.unit.invincible = role->Invincible;
-        snapshot.unit.cell = requireLegacyRoleSnapshot(*context.snapshot, role->ID).grid;
+        snapshot.unit.cell = requireUnitCell(context.unitCells, role->ID);
         snapshot.position = role->Pos;
         auto stateIt = context.comboStates->find(role->ID);
         if (stateIt != context.comboStates->end())
@@ -1137,7 +1120,7 @@ void populateBattleMovementPhysicsFrame(
     const BattleMovementPhysicsFrameAdapterContext& context)
 {
     assert(context.roles);
-    assert(context.snapshot);
+    assert(context.movementRuntime);
 
     frameState.movementPhysics.config.gravity = context.config.gravity;
     frameState.movementPhysics.config.friction = context.config.friction;
@@ -1161,16 +1144,19 @@ void populateBattleMovementPhysicsFrame(
     for (auto role : *context.roles)
     {
         assert(role);
-        const auto& roleSnapshot = requireLegacyRoleSnapshot(*context.snapshot, role->ID);
         Battle::BattleFrameMovementPhysicsUnitInput input;
         input.unitId = role->ID;
         input.frozenFrames = role->Frozen;
         input.state.position = role->Pos;
         input.state.velocity = role->Velocity;
         input.state.acceleration = role->Acceleration;
-        input.state.movementDashFrames = roleSnapshot.movementDashFrames;
-        input.state.movementDashCooldown = roleSnapshot.movementDashCooldown;
-        input.state.movementDashSpreadFrames = roleSnapshot.movementDashSpreadFrames;
+        auto movementIt = context.movementRuntime->find(role->ID);
+        if (movementIt != context.movementRuntime->end())
+        {
+            input.state.movementDashFrames = movementIt->second.movementDashFrames;
+            input.state.movementDashCooldown = movementIt->second.movementDashCooldown;
+            input.state.movementDashSpreadFrames = movementIt->second.movementDashSpreadFrames;
+        }
 
         if (role->OperationType == 3 && role->HaveAction)
         {

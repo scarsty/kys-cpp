@@ -61,9 +61,8 @@ protected:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     SceneBattleFrameInput buildBattleFrameInput();
-    KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport buildBattleFrameSceneImport();
+    KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet buildBattleActionFrameImport();
     KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext buildCoreRuntimeContext(
-        const KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport& snapshot,
         KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
         KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
     void applyCoreFrameResult(
@@ -117,13 +116,11 @@ protected:
     void applyCoreTeamEffectState(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     void applyCoreFrameApplications(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext(
-        const KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport& snapshot);
-    KysChess::Battle::BattleWorldState makeCoreMovementWorld(
-        const KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport& snapshot);
+        const KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet& actionImport);
+    KysChess::Battle::BattleWorldState makeCoreMovementWorld();
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(
-        Role* role,
-        const KysChess::BattleSceneBattleAdapter::BattleFrameRoleImport* roleSnapshot);
+        Role* role);
     void applyCoreMovementSnapshot(
         const KysChess::Battle::BattleTickResult& result,
         const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
