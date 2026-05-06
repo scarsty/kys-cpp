@@ -133,25 +133,11 @@ struct BattleActionFrameAdapterContext
     BattleActionFrameAdapterConfig config;
 };
 
-struct BattleRescueFrameAdapterConfig
-{
-    double executeUnattendedRadius = 0.0;
-    int counterAttackSkillId = -1;
-    int counterAttackVisualEffectId = -1;
-    double counterAttackProjectileSpeed = 0.0;
-    double counterAttackMeleeOffset = 0.0;
-    int counterAttackMinimumTotalFrames = 20;
-    int counterAttackTotalFramePadding = 15;
-};
-
 struct BattleRescueFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
     const std::map<int, RoleComboState>* comboStates = nullptr;
     std::unordered_map<int, Point> unitCells;
-    std::vector<Battle::BattleRescueCellSnapshot> cells;
-    std::map<std::pair<int, int>, Pointf> positionsByCell;
-    BattleRescueFrameAdapterConfig config;
 };
 
 struct BattleMovementPhysicsFrameAdapterConfig
@@ -170,7 +156,6 @@ struct BattleMovementPhysicsFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
     const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
-    std::vector<Battle::BattleMovementPhysicsCollisionCellSnapshot> cells;
     BattleMovementPhysicsFrameAdapterConfig config;
 };
 

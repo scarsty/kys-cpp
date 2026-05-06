@@ -117,13 +117,10 @@ protected:
     void applyCoreFrameApplications(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext(
         const KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet& actionImport);
-    KysChess::Battle::BattleWorldState makeCoreMovementWorld();
+    void populateCoreMovementWorld();
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(
         Role* role);
-    void applyCoreMovementSnapshot(
-        const KysChess::Battle::BattleTickResult& result,
-        const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     KysChess::Battle::BattlePresentationSnapshot makePresentationSnapshot() const;
     void beginPresentationFrame();
     void publishPresentationFrame();

@@ -1100,7 +1100,24 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     KysChess::Battle::BattleRuntimeInit init;
     battle_session_.emplace(std::move(init));
     initializeBattleRuntimeStaticState();
+    battleRuntime().world.config = makeCoreMovementConfig();
     configureBattleAttackWorld(battleRuntime().attacks);
+    battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
+    auto* basicMagic = Save::getInstance()->getMagic(1);
+    assert(basicMagic);
+    battleRuntime().rescue.executeUnattendedRadius = TILE_W * 3.0;
+    battleRuntime().rescue.counterAttack.skillId = basicMagic->ID;
+    battleRuntime().rescue.counterAttack.visualEffectId = 11;
+    battleRuntime().rescue.counterAttack.projectileSpeed = PROJECTILE_SPEED;
+    battleRuntime().rescue.counterAttack.meleeAttackEffectOffset = MELEE_ATTACK_EFFECT_OFFSET;
+    battleRuntime().rescue.counterAttack.minimumTotalFrames = 20;
+    battleRuntime().rescue.counterAttack.totalFramePadding = 15;
+    battleRuntime().movementPhysics.config.gravity = gravity_;
+    battleRuntime().movementPhysics.config.friction = friction_;
+    battleRuntime().movementPhysics.config.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
+    battleRuntime().movementPhysics.collision.tileWidth = TILE_W;
+    battleRuntime().movementPhysics.collision.coordCount = BATTLE_COORD_COUNT;
+    battleRuntime().movementPhysics.collision.defaultSeparationDistance = TILE_W * 1.5;
 }
 
 KysChess::Battle::BattleRuntimeState& BattleSceneHades::battleRuntime()
@@ -2686,7 +2703,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
         assert(role);
         bundle.rolesByBattleId.emplace(role->ID, role);
     }
-    battleRuntime().world = makeCoreMovementWorld();
+    populateCoreMovementWorld();
     battleRuntime().projectileFollowUps = makeCoreProjectileFollowUpContext();
     battleRuntime().runtime = {};
     battleRuntime().damage = {};
@@ -2694,7 +2711,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().combo = {};
     battleRuntime().deathEffects = {};
     battleRuntime().projectileCancel = {};
-    battleRuntime().teamEffects = {};
+    battleRuntime().teamEffects.committedEvents.clear();
     battleRuntime().effects = {};
     battleRuntime().actions = {};
     battleRuntime().movementPhysics.units.clear();
@@ -2707,7 +2724,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
 
     battleRuntime().combo.units = comboStates;
     battleRuntime().teamEffects.world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
-    battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
     battleRuntime().effects.world = makeBattleEffectWorld(battle_roles_, comboStates);
 
     for (auto role : battle_roles_)
@@ -2747,8 +2763,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
         assert(role);
         rescueContext.unitCells.emplace(role->ID, pos90To45(role->Pos.x, role->Pos.y));
     }
-    rescueContext.cells = battleRuntime().rescue.cells;
-    for (auto& cell : rescueContext.cells)
+    for (auto& cell : battleRuntime().rescue.cells)
     {
         cell.occupied = false;
         cell.occupantUnitId = -1;
@@ -2768,27 +2783,10 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
             }
         }
     }
-    rescueContext.positionsByCell = battleRuntime().rescue.positionsByCell;
-    auto* basicMagic = Save::getInstance()->getMagic(1);
-    assert(basicMagic);
-    rescueContext.config.executeUnattendedRadius = TILE_W * 3.0;
-    rescueContext.config.counterAttackSkillId = basicMagic->ID;
-    rescueContext.config.counterAttackVisualEffectId = 11;
-    rescueContext.config.counterAttackProjectileSpeed = PROJECTILE_SPEED;
-    rescueContext.config.counterAttackMeleeOffset = MELEE_ATTACK_EFFECT_OFFSET;
-    rescueContext.config.counterAttackMinimumTotalFrames = 20;
-    rescueContext.config.counterAttackTotalFramePadding = 15;
     populateBattleFrameRescueState(battleRuntime(), rescueContext);
 
     movementPhysicsContext.roles = &battle_roles_;
     movementPhysicsContext.movementRuntime = &battleRuntime().movementRuntime;
-    movementPhysicsContext.cells = battleRuntime().movementPhysics.collision.cells;
-    movementPhysicsContext.config.gravity = gravity_;
-    movementPhysicsContext.config.friction = friction_;
-    movementPhysicsContext.config.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
-    movementPhysicsContext.config.tileWidth = TILE_W;
-    movementPhysicsContext.config.coordCount = BATTLE_COORD_COUNT;
-    movementPhysicsContext.config.defaultSeparationDistance = TILE_W * 1.5;
     movementPhysicsContext.config.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
     movementPhysicsContext.config.castFrames = KysChess::BattleSceneBattleAdapter::makeBattleCastConfig().castFrames;
     populateBattleMovementPhysicsFrame(battleRuntime(), movementPhysicsContext);
@@ -2896,7 +2894,6 @@ void BattleSceneHades::applyCoreFrameResult(
         movementRuntime.movementDashCooldown = result.state.movementDashCooldown;
         movementRuntime.movementDashSpreadFrames = result.state.movementDashSpreadFrames;
     }
-    applyCoreMovementSnapshot(frameResult.movement, bundle);
     battleRuntime().movementDecisions.clear();
     for (const auto& [battleId, decision] : frameResult.movement.decisions)
     {
@@ -3741,17 +3738,6 @@ KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(
     return unit;
 }
 
-void BattleSceneHades::applyCoreMovementSnapshot(
-    const KysChess::Battle::BattleTickResult& result,
-    const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle)
-{
-    for (const auto& unit : result.snapshot.units)
-    {
-        auto& movementRuntime = battleRuntime().movementRuntime[unit.id];
-        (void)movementRuntime;
-    }
-}
-
 void BattleSceneHades::populateCoreStatusState(KysChess::Battle::BattleRuntimeState& frameState)
 {
     auto& comboStates = KysChess::ChessCombo::getMutableStates();
@@ -4064,12 +4050,11 @@ void BattleSceneHades::applyCoreFrameApplications(
     }
 }
 
-KysChess::Battle::BattleWorldState BattleSceneHades::makeCoreMovementWorld()
+void BattleSceneHades::populateCoreMovementWorld()
 {
-    KysChess::Battle::BattleWorldState world;
+    auto& world = battleRuntime().world;
     world.frame = battle_frame_;
-    world.config = makeCoreMovementConfig();
-    world.terrainCells = battleRuntime().world.terrainCells;
+    world.units.clear();
 
     for (auto* role : battle_roles_)
     {
@@ -4081,5 +4066,4 @@ KysChess::Battle::BattleWorldState BattleSceneHades::makeCoreMovementWorld()
 
         world.units.push_back(makeCoreMovementUnit(role));
     }
-    return world;
 }

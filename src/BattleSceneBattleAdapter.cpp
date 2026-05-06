@@ -1079,16 +1079,6 @@ void populateBattleFrameRescueState(
     assert(context.comboStates);
 
     frameState.rescue.units.clear();
-    frameState.rescue.cells = context.cells;
-    frameState.rescue.positionsByCell = context.positionsByCell;
-    frameState.rescue.executeUnattendedRadius = context.config.executeUnattendedRadius;
-    frameState.rescue.counterAttack.skillId = context.config.counterAttackSkillId;
-    frameState.rescue.counterAttack.visualEffectId = context.config.counterAttackVisualEffectId;
-    frameState.rescue.counterAttack.projectileSpeed = context.config.counterAttackProjectileSpeed;
-    frameState.rescue.counterAttack.meleeAttackEffectOffset = context.config.counterAttackMeleeOffset;
-    frameState.rescue.counterAttack.minimumTotalFrames = context.config.counterAttackMinimumTotalFrames;
-    frameState.rescue.counterAttack.totalFramePadding = context.config.counterAttackTotalFramePadding;
-
     frameState.rescue.units.reserve(context.roles->size());
     for (auto role : *context.roles)
     {
@@ -1122,14 +1112,7 @@ void populateBattleMovementPhysicsFrame(
     assert(context.roles);
     assert(context.movementRuntime);
 
-    frameState.movementPhysics.config.gravity = context.config.gravity;
-    frameState.movementPhysics.config.friction = context.config.friction;
-    frameState.movementPhysics.config.postDashSpreadFrames = context.config.postDashSpreadFrames;
-    frameState.movementPhysics.collision.tileWidth = context.config.tileWidth;
-    frameState.movementPhysics.collision.coordCount = context.config.coordCount;
-    frameState.movementPhysics.collision.defaultSeparationDistance = context.config.defaultSeparationDistance;
     frameState.movementPhysics.collision.units.clear();
-    frameState.movementPhysics.collision.cells = context.cells;
     frameState.movementPhysics.units.clear();
 
     for (auto role : *context.roles)
