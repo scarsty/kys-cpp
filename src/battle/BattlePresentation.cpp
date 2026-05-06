@@ -56,52 +56,65 @@ void assertValidEvent(const BattleGameplayEvent& event)
     }
 }
 
-void assertValidEvent(const BattlePresentationEvent& event)
+void assertValidEvent(const BattleLogEvent& event)
 {
     assert(event.frame == BattlePresentationCurrentFrame || event.frame >= 0);
     switch (event.type)
     {
-    case BattlePresentationEventType::DamageLog:
-    case BattlePresentationEventType::HealLog:
+    case BattleLogEventType::Damage:
+    case BattleLogEventType::Heal:
         assert(event.amount >= 0);
         break;
-    case BattlePresentationEventType::StatusLog:
+    case BattleLogEventType::Status:
         assert(!event.text.empty());
         break;
-    case BattlePresentationEventType::FloatingText:
+    case BattleLogEventType::UnitDied:
+        assert(event.targetUnitId >= 0);
+        break;
+    case BattleLogEventType::BattleEnded:
+        break;
+    }
+}
+
+void assertValidEvent(const BattleVisualEvent& event)
+{
+    assert(event.frame == BattlePresentationCurrentFrame || event.frame >= 0);
+    switch (event.type)
+    {
+    case BattleVisualEventType::FloatingText:
         assert(!event.text.empty());
         assert(event.textSize > 0);
         break;
-    case BattlePresentationEventType::RoleEffect:
+    case BattleVisualEventType::RoleEffect:
         assert(event.targetUnitId >= 0);
         assert(event.effectId >= 0);
         break;
-    case BattlePresentationEventType::DamageNumber:
+    case BattleVisualEventType::DamageNumber:
         assert(event.targetUnitId >= 0);
         assert(event.amount > 0);
         assert(event.textSize > 0);
         break;
-    case BattlePresentationEventType::CameraFocus:
+    case BattleVisualEventType::CameraFocus:
         assert(event.durationFrames >= 0);
         break;
-    case BattlePresentationEventType::ProjectileSpawned:
-    case BattlePresentationEventType::ProjectileMoved:
+    case BattleVisualEventType::ProjectileSpawned:
+    case BattleVisualEventType::ProjectileMoved:
         assert(event.effectId >= 0);
         assert(event.durationFrames >= 0);
         break;
-    case BattlePresentationEventType::ProjectileHit:
+    case BattleVisualEventType::ProjectileHit:
         assert(event.effectId >= 0);
         assert(event.targetUnitId >= 0);
         break;
-    case BattlePresentationEventType::ProjectileExpired:
-    case BattlePresentationEventType::ProjectileTargetLost:
+    case BattleVisualEventType::ProjectileExpired:
+    case BattleVisualEventType::ProjectileTargetLost:
         assert(event.effectId >= 0);
         break;
-    case BattlePresentationEventType::ProjectileCancelled:
+    case BattleVisualEventType::ProjectileCancelled:
         assert(event.effectId >= 0);
         assert(event.amount >= 0);
         break;
-    case BattlePresentationEventType::ProjectileBounced:
+    case BattleVisualEventType::ProjectileBounced:
         assert(event.effectId >= 0);
         assert(event.targetUnitId >= 0);
         assert(event.amount >= 0);
@@ -114,7 +127,8 @@ void BattlePresentationRecorder::beginFrame(BattlePresentationSnapshot snapshot)
 {
     frame_.snapshot = std::move(snapshot);
     frame_.gameplayEvents.clear();
-    frame_.presentationEvents.clear();
+    frame_.logEvents.clear();
+    frame_.visualEvents.clear();
 }
 
 void BattlePresentationRecorder::recordGameplay(BattleGameplayEvent event)
@@ -124,11 +138,18 @@ void BattlePresentationRecorder::recordGameplay(BattleGameplayEvent event)
     frame_.gameplayEvents.push_back(std::move(event));
 }
 
-void BattlePresentationRecorder::recordPresentation(BattlePresentationEvent event)
+void BattlePresentationRecorder::recordLog(BattleLogEvent event)
 {
     assertValidEvent(event);
     stampFrame(event.frame, frame_.snapshot.frame);
-    frame_.presentationEvents.push_back(std::move(event));
+    frame_.logEvents.push_back(std::move(event));
+}
+
+void BattlePresentationRecorder::recordVisual(BattleVisualEvent event)
+{
+    assertValidEvent(event);
+    stampFrame(event.frame, frame_.snapshot.frame);
+    frame_.visualEvents.push_back(std::move(event));
 }
 
 const BattlePresentationFrame& BattlePresentationRecorder::frame() const

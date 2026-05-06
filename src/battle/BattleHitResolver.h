@@ -278,7 +278,8 @@ struct BattleHitResolutionResult
     RoleComboState attackerCombo;
     RoleComboState defenderCombo;
     std::vector<BattleGameplayCommand> commands;
-    std::vector<BattlePresentationEvent> presentationEvents;
+    std::vector<BattleLogEvent> logEvents;
+    std::vector<BattleVisualEvent> visualEvents;
     bool dodged = false;
     bool reflected = false;
     bool critical = false;
@@ -302,7 +303,8 @@ struct BattleProjectileFollowUpContext
 struct BattleProjectileFollowUpExpansion
 {
     std::vector<BattleGameplayCommand> commands;
-    std::vector<BattlePresentationEvent> presentationEvents;
+    std::vector<BattleLogEvent> logEvents;
+    std::vector<BattleVisualEvent> visualEvents;
 };
 
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(

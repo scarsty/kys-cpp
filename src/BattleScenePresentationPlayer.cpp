@@ -126,6 +126,33 @@ void BattleScenePresentationPlayer::play(
     assert(bindings.attackEffects);
     assert(bindings.resolveRole);
 
+    playLogs(frame.logEvents, bindings);
+    playVisuals(frame.visualEvents, bindings);
+}
+
+void BattleScenePresentationPlayer::playLogs(
+    const std::vector<KysChess::Battle::BattleLogEvent>& logEvents,
+    const Bindings& bindings) const
+{
+    assert(bindings.tracker);
+    assert(bindings.resolveRole);
+
+    for (const auto& event : logEvents)
+    {
+        recordLog(event, bindings);
+    }
+}
+
+void BattleScenePresentationPlayer::playVisuals(
+    const std::vector<KysChess::Battle::BattleVisualEvent>& visualEvents,
+    const Bindings& bindings) const
+{
+    assert(bindings.textEffects);
+    assert(bindings.attackEffects);
+    assert(bindings.resolveRole);
+
+    KysChess::Battle::BattlePresentationFrame frame;
+    frame.visualEvents = visualEvents;
     const auto plan = planner_.build(frame);
     for (const auto& command : plan.commands)
     {
@@ -140,15 +167,6 @@ void BattleScenePresentationPlayer::playCommand(
     using KysChess::Battle::BattlePresentationCommandType;
     switch (command.type)
     {
-    case BattlePresentationCommandType::RecordDamage:
-        recordDamage(command, bindings);
-        break;
-    case BattlePresentationCommandType::RecordHeal:
-        recordHeal(command, bindings);
-        break;
-    case BattlePresentationCommandType::RecordStatus:
-        recordStatus(command, bindings);
-        break;
     case BattlePresentationCommandType::SpawnFloatingText:
         spawnFloatingText(command, bindings);
         break;
@@ -181,40 +199,62 @@ void BattleScenePresentationPlayer::playCommand(
     }
 }
 
+void BattleScenePresentationPlayer::recordLog(
+    const KysChess::Battle::BattleLogEvent& event,
+    const Bindings& bindings) const
+{
+    using KysChess::Battle::BattleLogEventType;
+    switch (event.type)
+    {
+    case BattleLogEventType::Damage:
+        recordDamage(event, bindings);
+        break;
+    case BattleLogEventType::Heal:
+        recordHeal(event, bindings);
+        break;
+    case BattleLogEventType::Status:
+        recordStatus(event, bindings);
+        break;
+    case BattleLogEventType::UnitDied:
+    case BattleLogEventType::BattleEnded:
+        break;
+    }
+}
+
 void BattleScenePresentationPlayer::recordDamage(
-    const KysChess::Battle::BattlePresentationCommand& command,
+    const KysChess::Battle::BattleLogEvent& event,
     const Bindings& bindings) const
 {
     bindings.tracker->recordDamage(
-        resolveRole(bindings, command.sourceUnitId),
-        resolveRole(bindings, command.targetUnitId),
-        command.amount,
-        command.skillName,
-        command.frame,
-        command.detailText);
+        resolveRole(bindings, event.sourceUnitId),
+        resolveRole(bindings, event.targetUnitId),
+        event.amount,
+        event.skillName,
+        event.frame,
+        event.detailText);
 }
 
 void BattleScenePresentationPlayer::recordHeal(
-    const KysChess::Battle::BattlePresentationCommand& command,
+    const KysChess::Battle::BattleLogEvent& event,
     const Bindings& bindings) const
 {
     bindings.tracker->recordHeal(
-        resolveRole(bindings, command.sourceUnitId),
-        resolveRole(bindings, command.targetUnitId),
-        command.amount,
-        command.text,
-        command.frame);
+        resolveRole(bindings, event.sourceUnitId),
+        resolveRole(bindings, event.targetUnitId),
+        event.amount,
+        event.text,
+        event.frame);
 }
 
 void BattleScenePresentationPlayer::recordStatus(
-    const KysChess::Battle::BattlePresentationCommand& command,
+    const KysChess::Battle::BattleLogEvent& event,
     const Bindings& bindings) const
 {
     bindings.tracker->recordStatus(
-        resolveRole(bindings, command.sourceUnitId),
-        resolveRole(bindings, command.targetUnitId),
-        command.text,
-        command.frame);
+        resolveRole(bindings, event.sourceUnitId),
+        resolveRole(bindings, event.targetUnitId),
+        event.text,
+        event.frame);
 }
 
 void BattleScenePresentationPlayer::spawnFloatingText(

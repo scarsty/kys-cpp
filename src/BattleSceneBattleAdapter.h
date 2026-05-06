@@ -52,13 +52,12 @@ struct BattleCastAdapterInput
     int cooldownReductionPct = 0;
 };
 
-struct BattleSceneFrameBundle
+struct BattleFrameApplyContext
 {
-    Battle::BattleFrameState state;
     std::unordered_map<int, Role*> rolesByBattleId;
 };
 
-struct BattleFrameLegacyRoleSnapshot
+struct BattleFrameRoleImport
 {
     Role* role = nullptr;
     int unitId = -1;
@@ -69,7 +68,7 @@ struct BattleFrameLegacyRoleSnapshot
     int movementDashSpreadFrames = 0;
 };
 
-struct BattleFrameLegacyActionUnitSnapshot
+struct BattleFrameActionImport
 {
     int unitId = -1;
     int nearestEnemyUnitId = -1;
@@ -93,22 +92,14 @@ struct BattleFrameLegacyActionUnitSnapshot
     int blinkCellRandomRoll = 0;
 };
 
-struct BattleFrameLegacyGridSnapshot
-{
-    std::vector<Battle::BattleRescueCellSnapshot> rescueCells;
-    std::vector<Battle::BattleMovementPhysicsCollisionCellSnapshot> movementCells;
-    std::map<std::pair<int, int>, Pointf> positionsByCell;
-};
-
-struct BattleFrameLegacySnapshot
+struct BattleFrameSceneImport
 {
     int battleFrame = 0;
     std::vector<Role*> roles;
-    std::vector<BattleFrameLegacyRoleSnapshot> roleSnapshots;
-    std::unordered_map<int, BattleFrameLegacyActionUnitSnapshot> actionsByUnitId;
+    std::vector<BattleFrameRoleImport> roleSnapshots;
+    std::unordered_map<int, BattleFrameActionImport> actionsByUnitId;
     std::unordered_map<int, Role*> rolesByBattleId;
     std::map<int, RoleComboState>* comboStates = nullptr;
-    BattleFrameLegacyGridSnapshot grid;
 };
 
 struct BattleFrameHitAdapterInput
@@ -146,11 +137,11 @@ struct BattleActionFrameAdapterConfig
 struct BattleActionFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
-    const BattleFrameLegacySnapshot* snapshot = nullptr;
-    std::unordered_map<Role*, Battle::BattleCastResult>* pendingCastResults = nullptr;
+    const BattleFrameSceneImport* snapshot = nullptr;
+    std::map<int, Battle::BattleCastResult>* pendingCastResults = nullptr;
     std::map<int, RoleComboState>* comboStates = nullptr;
-    const std::unordered_map<Role*, Battle::MovementDecision>* movementDecisions = nullptr;
-    std::set<Role*>* ultimateCasters = nullptr;
+    const std::map<int, Battle::MovementDecision>* movementDecisions = nullptr;
+    std::set<int>* ultimateCasters = nullptr;
     std::vector<int> movementDashStartUnitIds;
     BattleActionFrameAdapterConfig config;
 };
@@ -170,7 +161,7 @@ struct BattleRescueFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
     const std::map<int, RoleComboState>* comboStates = nullptr;
-    const BattleFrameLegacySnapshot* snapshot = nullptr;
+    const BattleFrameSceneImport* snapshot = nullptr;
     std::vector<Battle::BattleRescueCellSnapshot> cells;
     std::map<std::pair<int, int>, Pointf> positionsByCell;
     BattleRescueFrameAdapterConfig config;
@@ -191,7 +182,7 @@ struct BattleMovementPhysicsFrameAdapterConfig
 struct BattleMovementPhysicsFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
-    const BattleFrameLegacySnapshot* snapshot = nullptr;
+    const BattleFrameSceneImport* snapshot = nullptr;
     std::vector<Battle::BattleMovementPhysicsCollisionCellSnapshot> cells;
     BattleMovementPhysicsFrameAdapterConfig config;
 };
@@ -201,7 +192,8 @@ struct BattleActionFrameApplyResult
     std::vector<int> attackSoundIds;
     int blinkSoundCount = 0;
     std::vector<Battle::BattleAttackSpawnRequest> attackSpawnRequests;
-    std::vector<Battle::BattlePresentationEvent> presentationEvents;
+    std::vector<Battle::BattleLogEvent> logEvents;
+    std::vector<Battle::BattleVisualEvent> visualEvents;
     std::vector<int> clearMovementDashSpreadUnitIds;
     std::vector<int> faceTowardsNearestUnitIds;
 };
@@ -237,8 +229,7 @@ void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result);
 
 Battle::BattleAttackWorld makeBattleAttackWorld(
     const std::vector<Role*>& roles,
-    const Battle::BattleAttackWorld& activeWorld,
-    const std::unordered_map<int, std::set<int>>& sharedHitGroupTargets);
+    const Battle::BattleAttackWorld& activeWorld);
 Battle::BattleTeamEffectWorld makeBattleTeamEffectWorld(
     const std::vector<Role*>& roles,
     const std::map<int, RoleComboState>& states);
@@ -272,25 +263,25 @@ Battle::BattleCooldownState makeBattleCooldownState(Role* role);
 void writeBattleCooldownState(Role* role, const Battle::BattleCooldownState& state);
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
 void populateBattleFrameHitUnits(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     const std::vector<Role*>& roles);
 void appendBattleFrameHitInput(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     const BattleFrameHitAdapterInput& input);
 void populateBattleFrameRescueState(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     const BattleRescueFrameAdapterContext& context);
 void populateBattleMovementPhysicsFrame(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     const BattleMovementPhysicsFrameAdapterContext& context);
 void applyBattleMovementPhysicsFrameResults(
-    const Battle::BattleFrameState& frameState,
+    const Battle::BattleRuntimeState& frameState,
     const BattleMovementPhysicsFrameAdapterContext& context);
 void populateBattleActionFrame(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     BattleActionFrameAdapterContext& context);
 BattleActionFrameApplyResult applyBattleActionFrameResults(
-    const Battle::BattleFrameState& frameState,
+    const Battle::BattleRuntimeState& frameState,
     const BattleActionFrameAdapterContext& context);
 BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     Role* role,

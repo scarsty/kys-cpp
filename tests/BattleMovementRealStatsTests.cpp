@@ -4,7 +4,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
-#include <functional>
 #include <map>
 #include <string>
 #include <vector>
@@ -62,12 +61,25 @@ BattleMovementConfig pinnedConfig()
     return BattleGeometry(geometry).movementConfig();
 }
 
+std::vector<BattleTerrainCell> terrainRectangle(double minX, double minY, double maxX, double maxY)
+{
+    std::vector<BattleTerrainCell> cells;
+    for (double x = minX; x <= maxX; x += SceneTileWidth)
+    {
+        for (double y = minY; y <= maxY; y += SceneTileWidth)
+        {
+            cells.push_back({ { static_cast<float>(x), static_cast<float>(y), 0 }, true });
+        }
+    }
+    return cells;
+}
+
 BattleWorldState makeWorld(const std::vector<PinnedUnitSpec>& specs,
-                           std::function<bool(Pointf)> terrain = {})
+                           std::vector<BattleTerrainCell> terrain = {})
 {
     BattleWorldState world;
     world.config = pinnedConfig();
-    world.canStandAt = terrain ? std::move(terrain) : [](Pointf) { return true; };
+    world.terrainCells = std::move(terrain);
 
     for (size_t i = 0; i < specs.size(); ++i)
     {
@@ -218,14 +230,10 @@ TEST_CASE("RangedRetarget_HoldsWhenAlreadyCanShoot", "[battle][movement]")
 
 TEST_CASE("CorneredRanged_NoWallBumpLoop", "[battle][movement]")
 {
-    auto terrain = [](Pointf p)
-    {
-        return p.x >= 80 && p.y >= 80 && p.x <= 700 && p.y <= 700;
-    };
     auto world = makeWorld({
         { 4, 0, { 90, 90, 0 } },
         { 116, 1, { 280, 120, 0 } },
-    }, terrain);
+    }, terrainRectangle(80, 80, 700, 700));
 
     auto run = BattleMovementSimulator(world).run(160, 2026);
     CHECK(run.stats.at(1).consecutiveWallBlockedFrames < 10);

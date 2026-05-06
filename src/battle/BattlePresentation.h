@@ -19,11 +19,17 @@ struct BattlePresentationColor
     std::uint8_t a = 255;
 };
 
-enum class BattlePresentationEventType
+enum class BattleLogEventType
 {
-    DamageLog,
-    HealLog,
-    StatusLog,
+    Damage,
+    Heal,
+    Status,
+    UnitDied,
+    BattleEnded,
+};
+
+enum class BattleVisualEventType
+{
     FloatingText,
     RoleEffect,
     DamageNumber,
@@ -35,6 +41,18 @@ enum class BattlePresentationEventType
     ProjectileTargetLost,
     ProjectileCancelled,
     ProjectileBounced,
+};
+
+struct BattleLogEvent
+{
+    BattleLogEventType type = BattleLogEventType::Status;
+    int frame = BattlePresentationCurrentFrame;
+    int sourceUnitId = -1;
+    int targetUnitId = -1;
+    int amount = 0;
+    std::string text;
+    std::string skillName;
+    std::string detailText;
 };
 
 enum class BattleGameplayEventType
@@ -65,9 +83,9 @@ struct BattleGameplayEvent
     int otherAttackId = -1;
 };
 
-struct BattlePresentationEvent
+struct BattleVisualEvent
 {
-    BattlePresentationEventType type = BattlePresentationEventType::StatusLog;
+    BattleVisualEventType type = BattleVisualEventType::FloatingText;
     int frame = BattlePresentationCurrentFrame;
     int sourceUnitId = -1;
     int targetUnitId = -1;
@@ -113,7 +131,8 @@ struct BattlePresentationFrame
 {
     BattlePresentationSnapshot snapshot;
     std::vector<BattleGameplayEvent> gameplayEvents;
-    std::vector<BattlePresentationEvent> presentationEvents;
+    std::vector<BattleLogEvent> logEvents;
+    std::vector<BattleVisualEvent> visualEvents;
 };
 
 class BattlePresentationRecorder
@@ -121,7 +140,8 @@ class BattlePresentationRecorder
 public:
     void beginFrame(BattlePresentationSnapshot snapshot);
     void recordGameplay(BattleGameplayEvent event);
-    void recordPresentation(BattlePresentationEvent event);
+    void recordLog(BattleLogEvent event);
+    void recordVisual(BattleVisualEvent event);
 
     const BattlePresentationFrame& frame() const;
     BattlePresentationFrame consumeFrame();

@@ -88,7 +88,8 @@ struct BattleRescueRepositionResult
     BattleRescueHealDelta heal;
     BattleRescueInvincibilityDelta invincibility;
     std::optional<BattleRescueBasicCounterAttackCommand> basicCounterAttack;
-    std::vector<BattlePresentationEvent> presentationEvents;
+    std::vector<BattleLogEvent> logEvents;
+    std::vector<BattleVisualEvent> visualEvents;
 };
 
 class BattleRescueRepositionSystem

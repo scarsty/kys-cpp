@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <format>
 #include <set>
 
 namespace KysChess::Battle
@@ -40,15 +41,24 @@ void applyDamageUnitToDeathEffectUnit(BattleDeathEffectUnit& deathUnit, const Ba
     deathUnit.shield = damageUnit.shield;
 }
 
-BattlePresentationEvent makeDeathPreventionPresentation(const BattleDamageEvent& event)
+std::string formatStatusFrames(const char* label, int frames)
 {
-    BattlePresentationEvent presentation;
-    presentation.type = BattlePresentationEventType::StatusLog;
-    presentation.sourceUnitId = event.sourceUnitId;
-    presentation.targetUnitId = event.targetUnitId;
-    presentation.durationFrames = event.value;
-    presentation.text = "死亡庇護";
-    return presentation;
+    if (frames <= 0)
+    {
+        return label;
+    }
+    return std::format("{}（{}幀）", label, frames);
+}
+
+BattleLogEvent makeDeathPreventionLog(const BattleDamageEvent& event)
+{
+    BattleLogEvent log;
+    log.type = BattleLogEventType::Status;
+    log.sourceUnitId = event.sourceUnitId;
+    log.targetUnitId = event.targetUnitId;
+    log.amount = event.value;
+    log.text = "死亡庇護";
+    return log;
 }
 
 void appendDeathAoeCommand(BattleDamageApplicationResult& result,
@@ -144,6 +154,13 @@ void updateBattleResult(BattleDamageApplicationResult& result,
         -1,
         result.winningTeam,
     });
+    result.logEvents.push_back({
+        BattleLogEventType::BattleEnded,
+        input.frame,
+        -1,
+        -1,
+        result.winningTeam,
+    });
 }
 
 std::vector<BattleDamageTransactionInput> aggregatePendingTransactions(
@@ -230,9 +247,9 @@ int selectDamageTextSize(const BattleDamagePresentationInput& presentation)
         : presentation.normalDamageTextSize;
 }
 
-void appendDamagePresentationEvents(BattleDamageApplicationResult& result,
-                                    const BattleDamagePresentationInput& presentation,
-                                    const BattleDamageTransactionResult& transaction)
+void appendDamageOutputEvents(BattleDamageApplicationResult& result,
+                              const BattleDamagePresentationInput& presentation,
+                              const BattleDamageTransactionResult& transaction)
 {
     if (!presentation.enabled)
     {
@@ -247,33 +264,86 @@ void appendDamagePresentationEvents(BattleDamageApplicationResult& result,
 
     if (presentation.executed)
     {
-        BattlePresentationEvent executedText;
-        executedText.type = BattlePresentationEventType::FloatingText;
+        BattleVisualEvent executedText;
+        executedText.type = BattleVisualEventType::FloatingText;
         executedText.targetUnitId = transaction.defender.id;
         executedText.text = "處決！";
         executedText.color = presentation.executeTextColor;
         executedText.textSize = presentation.executeTextSize;
-        result.presentationEvents.push_back(std::move(executedText));
+        result.visualEvents.push_back(std::move(executedText));
     }
     else
     {
-        BattlePresentationEvent number;
-        number.type = BattlePresentationEventType::DamageNumber;
+        BattleVisualEvent number;
+        number.type = BattleVisualEventType::DamageNumber;
         number.targetUnitId = transaction.defender.id;
         number.amount = hpDamage;
         number.color = selectDamageColor(presentation);
         number.textSize = selectDamageTextSize(presentation);
-        result.presentationEvents.push_back(std::move(number));
+        result.visualEvents.push_back(std::move(number));
     }
 
-    BattlePresentationEvent damageLog;
-    damageLog.type = BattlePresentationEventType::DamageLog;
+    BattleLogEvent damageLog;
+    damageLog.type = BattleLogEventType::Damage;
     damageLog.sourceUnitId = transaction.attacker.id;
     damageLog.targetUnitId = transaction.defender.id;
     damageLog.amount = hpDamage;
     damageLog.skillName = presentation.skillName;
     damageLog.detailText = presentation.detailText;
-    result.presentationEvents.push_back(std::move(damageLog));
+    result.logEvents.push_back(std::move(damageLog));
+}
+
+void appendDamageTransactionLogEvents(BattleDamageApplicationResult& result,
+                                      const BattleDamageTransactionResult& transaction)
+{
+    if (transaction.hurtInvincGranted && transaction.defenderDelta.invincibleDelta > 0)
+    {
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Status;
+        log.sourceUnitId = transaction.defender.id;
+        log.targetUnitId = transaction.defender.id;
+        log.amount = transaction.defenderDelta.invincibleDelta;
+        log.text = formatStatusFrames("受傷無敵", transaction.defenderDelta.invincibleDelta);
+        result.logEvents.push_back(std::move(log));
+    }
+
+    if (!transaction.killed)
+    {
+        return;
+    }
+
+    if (transaction.attackerDelta.hpDelta > 0)
+    {
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Heal;
+        log.sourceUnitId = transaction.attacker.id;
+        log.targetUnitId = transaction.attacker.id;
+        log.amount = transaction.attackerDelta.hpDelta;
+        log.text = transaction.attacker.killHealPct > 0
+            ? std::format("擊殺回復 {}%", transaction.attacker.killHealPct)
+            : "擊殺回復";
+        result.logEvents.push_back(std::move(log));
+    }
+    if (transaction.attackerDelta.invincibleDelta > 0)
+    {
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Status;
+        log.sourceUnitId = transaction.attacker.id;
+        log.targetUnitId = transaction.attacker.id;
+        log.amount = transaction.attackerDelta.invincibleDelta;
+        log.text = formatStatusFrames("擊殺無敵", transaction.attackerDelta.invincibleDelta);
+        result.logEvents.push_back(std::move(log));
+    }
+    if (transaction.attackerDelta.attackDelta > 0)
+    {
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Status;
+        log.sourceUnitId = transaction.attacker.id;
+        log.targetUnitId = transaction.attacker.id;
+        log.amount = transaction.attackerDelta.attackDelta;
+        log.text = std::format("嗜血（+{}攻）", transaction.attackerDelta.attackDelta);
+        result.logEvents.push_back(std::move(log));
+    }
 }
 
 }  // namespace
@@ -317,7 +387,7 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
         {
             if (event.type == BattleDamageEventType::DeathPrevented)
             {
-                result.presentationEvents.push_back(makeDeathPreventionPresentation(event));
+                result.logEvents.push_back(makeDeathPreventionLog(event));
             }
             if (event.type != BattleDamageEventType::UnitDied)
             {
@@ -343,6 +413,13 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
                 event.targetUnitId,
                 event.value,
             });
+            result.logEvents.push_back({
+                BattleLogEventType::UnitDied,
+                input.frame,
+                event.sourceUnitId,
+                event.targetUnitId,
+                event.value,
+            });
 
             appendDeathAoeCommand(result, input, transaction, event.targetUnitId);
             if (findDeathEffectUnit(result.deathEffects, event.targetUnitId))
@@ -359,8 +436,9 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
 
         if (!pendingPresentation.empty())
         {
-            appendDamagePresentationEvents(result, pendingPresentation[i], transaction);
+            appendDamageOutputEvents(result, pendingPresentation[i], transaction);
         }
+        appendDamageTransactionLogEvents(result, transaction);
         result.transactions.push_back(std::move(transaction));
     }
 
@@ -368,10 +446,14 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
     auto followUpContext = input.projectileFollowUps;
     auto followUps = expandBattleProjectileFollowUpCommands(result.commands, followUpContext);
     result.commands = std::move(followUps.commands);
-    result.presentationEvents.insert(
-        result.presentationEvents.end(),
-        followUps.presentationEvents.begin(),
-        followUps.presentationEvents.end());
+    result.visualEvents.insert(
+        result.visualEvents.end(),
+        followUps.visualEvents.begin(),
+        followUps.visualEvents.end());
+    result.logEvents.insert(
+        result.logEvents.end(),
+        followUps.logEvents.begin(),
+        followUps.logEvents.end());
     return result;
 }
 

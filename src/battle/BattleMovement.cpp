@@ -192,13 +192,40 @@ bool reservationConflicts(const BattleWorldState& world,
     return false;
 }
 
+bool terrainAllows(const BattleWorldState& world, Pointf position)
+{
+    if (world.terrainCells.empty())
+    {
+        return true;
+    }
+
+    const BattleTerrainCell* nearest = nullptr;
+    double nearestDistance = std::numeric_limits<double>::max();
+    for (const auto& cell : world.terrainCells)
+    {
+        const double distance = distance2d(position, cell.position);
+        if (distance < nearestDistance)
+        {
+            nearestDistance = distance;
+            nearest = &cell;
+        }
+    }
+    assert(nearest);
+    const double maximumDistance = std::max(1.0, world.config.tileWidth * 1.5);
+    if (nearestDistance > maximumDistance)
+    {
+        return false;
+    }
+    return nearest->walkable;
+}
+
 MoveProbe probeMoveInWorld(const BattleWorldState& world,
                            const BattleUnitState& unit,
                            Pointf nextPosition,
                            bool ignoreUnits,
                            const std::map<int, Pointf>& reservations)
 {
-    if (world.canStandAt && !world.canStandAt(nextPosition))
+    if (!terrainAllows(world, nextPosition))
     {
         return { false, MoveBlockReason::Wall, -1 };
     }
@@ -230,7 +257,7 @@ MoveProbe probeMoveInWorld(const BattleWorldState& world,
 
 bool terrainSegmentClear(const BattleWorldState& world, Pointf from, Pointf to)
 {
-    if (!world.canStandAt)
+    if (world.terrainCells.empty())
     {
         return true;
     }
@@ -239,7 +266,7 @@ bool terrainSegmentClear(const BattleWorldState& world, Pointf from, Pointf to)
     double length = delta.norm();
     if (length <= 0.01)
     {
-        return world.canStandAt(to);
+        return terrainAllows(world, to);
     }
 
     int steps = std::max(1, static_cast<int>(std::ceil(length / std::max(1.0, world.config.engagementDeadband))));
@@ -247,7 +274,7 @@ bool terrainSegmentClear(const BattleWorldState& world, Pointf from, Pointf to)
     {
         double t = static_cast<double>(i) / steps;
         auto probe = from + delta * t;
-        if (!world.canStandAt(probe))
+        if (!terrainAllows(world, probe))
         {
             return false;
         }

@@ -1,5 +1,6 @@
 #include "battle/BattleCore.h"
 #include "battle/BattleHitResolver.h"
+#include "battle/BattleRuntimeSession.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -40,12 +41,11 @@ BattleUnitState runtimeUnit(int id, int team, Pointf position)
     return state;
 }
 
-BattleFrameState runtimeFrameState()
+BattleRuntimeState runtimeFrameState()
 {
-    BattleFrameState state;
+    BattleRuntimeState state;
     state.world.frame = 6;
     state.world.config = runtimeMovementConfig();
-    state.world.canStandAt = [](Pointf) { return true; };
     state.world.units = {
         runtimeUnit(1, 0, { 100, 100, 0 }),
         runtimeUnit(2, 1, { 500, 100, 0 }),
@@ -55,6 +55,22 @@ BattleFrameState runtimeFrameState()
     state.attacks.bounceSpawnDistance = SceneTileWidth * 1.5;
     state.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
     return state;
+}
+
+BattleRuntimeState ownedRuntimeState()
+{
+    BattleRuntimeState runtime;
+    runtime.world.frame = 6;
+    runtime.world.config = runtimeMovementConfig();
+    runtime.world.units = {
+        runtimeUnit(1, 0, { 100, 100, 0 }),
+        runtimeUnit(2, 1, { 500, 100, 0 }),
+    };
+    runtime.attacks.hitRadius = SceneTileWidth * 2.0;
+    runtime.attacks.minimumVectorNorm = LegacyMinimumVectorNorm;
+    runtime.attacks.bounceSpawnDistance = SceneTileWidth * 1.5;
+    runtime.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
+    return runtime;
 }
 
 BattleFrameUnitRuntimeInput finishingSkillRuntime()
@@ -159,6 +175,102 @@ const BattleEffectUnit& effectUnitById(const BattleEffectWorld& world, int id)
 
 }  // namespace
 
+TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[battle][frame_runner][runtime][ownership]")
+{
+    auto runtime = ownedRuntimeState();
+    runtime.attacks.nextAttackId = 70;
+    runtime.attacks.units = {
+        { 1, 0, true, false, false, { 100, 120, 0 } },
+        { 2, 1, true, false, false, { 106, 120, 0 } },
+    };
+
+    BattleAttackSpawnRequest request;
+    request.initial.attackerUnitId = 1;
+    request.initial.preferredTargetUnitId = 2;
+    request.initial.skillId = 101;
+    request.initial.totalFrame = 30;
+    request.initial.visualEffectId = 44;
+    request.initial.operationType = BattleOperationType::RangedProjectile;
+    request.initial.position = { 100, 120, 0 };
+    request.initial.velocity = { 6, 0, 0 };
+    runtime.pendingAttackSpawns.push_back(request);
+
+    auto first = BattleFrameRunner().runFrame(runtime);
+    auto second = BattleFrameRunner().runFrame(runtime);
+
+    CHECK(runtime.pendingAttackSpawns.empty());
+    REQUIRE(runtime.attacks.attacks.size() == 1);
+    CHECK(runtime.attacks.attacks[0].id == 70);
+    CHECK(runtime.attacks.nextAttackId == 71);
+    CHECK(first.frame.snapshot.frame == 7);
+    CHECK(second.frame.snapshot.frame == 8);
+}
+
+TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][runtime_session][ownership]")
+{
+    auto runtime = ownedRuntimeState();
+    runtime.attacks.nextAttackId = 70;
+    runtime.attacks.units = {
+        { 1, 0, true, false, false, { 100, 120, 0 } },
+        { 2, 1, true, false, false, { 106, 120, 0 } },
+    };
+
+    BattleAttackSpawnRequest request;
+    request.initial.attackerUnitId = 1;
+    request.initial.preferredTargetUnitId = 2;
+    request.initial.skillId = 101;
+    request.initial.totalFrame = 30;
+    request.initial.visualEffectId = 44;
+    request.initial.operationType = BattleOperationType::RangedProjectile;
+    request.initial.position = { 100, 120, 0 };
+    request.initial.velocity = { 6, 0, 0 };
+    runtime.pendingAttackSpawns.push_back(request);
+
+    BattleRuntimeInit init;
+    init.runtime = std::move(runtime);
+    BattleRuntimeSession session(std::move(init));
+
+    const auto first = session.runFrame();
+    const auto second = session.runFrame();
+
+    CHECK(session.runtime().pendingAttackSpawns.empty());
+    REQUIRE(session.runtime().attacks.attacks.size() == 1);
+    CHECK(session.runtime().attacks.attacks[0].id == 70);
+    CHECK(session.runtime().attacks.nextAttackId == 71);
+    CHECK(first.frame.snapshot.frame == 7);
+    CHECK(second.frame.snapshot.frame == 8);
+}
+
+TEST_CASE("BattleRuntimeSession_QueuedAttackSpawnEntersOwnedRuntime", "[battle][runtime_session][ownership]")
+{
+    BattleRuntimeInit init;
+    init.runtime = ownedRuntimeState();
+    init.runtime.attacks.nextAttackId = 80;
+    init.runtime.attacks.units = {
+        { 1, 0, true, false, false, { 100, 120, 0 } },
+        { 2, 1, true, false, false, { 106, 120, 0 } },
+    };
+    BattleRuntimeSession session(std::move(init));
+
+    BattleAttackSpawnRequest request;
+    request.initial.attackerUnitId = 1;
+    request.initial.preferredTargetUnitId = 2;
+    request.initial.skillId = 102;
+    request.initial.totalFrame = 30;
+    request.initial.visualEffectId = 45;
+    request.initial.operationType = BattleOperationType::RangedProjectile;
+    request.initial.position = { 100, 120, 0 };
+    request.initial.velocity = { 6, 0, 0 };
+
+    session.enqueueAttackSpawn(std::move(request));
+    session.runFrame();
+
+    CHECK(session.runtime().pendingAttackSpawns.empty());
+    REQUIRE(session.runtime().attacks.attacks.size() == 1);
+    CHECK(session.runtime().attacks.attacks[0].id == 80);
+    CHECK(session.runtime().attacks.attacks[0].state.skillId == 102);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrameState", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
@@ -178,7 +290,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     runtime.alive = true;
     state.runtime.units.push_back(runtime);
 
-    auto result = BattleFrameRunner().advanceFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
     REQUIRE(state.runtime.committedResults.size() == 1);
     CHECK(state.runtime.committedResults[0].unitId == 1);
@@ -220,7 +332,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToTeamWorl
     runtime.alive = true;
     state.runtime.units.push_back(runtime);
 
-    auto result = BattleFrameRunner().advanceFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
     REQUIRE(state.teamEffects.committedEvents.size() == 2);
     CHECK(state.teamEffects.committedEvents[0].type == BattleTeamEffectEventType::Heal);
@@ -234,15 +346,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToTeamWorl
     CHECK(teamEffectUnitById(state.teamEffects.world, 3).hp == 10);
 
     const auto healLog = std::find_if(
-        result.frame.presentationEvents.begin(),
-        result.frame.presentationEvents.end(),
-        [](const BattlePresentationEvent& event)
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
         {
-            return event.type == BattlePresentationEventType::HealLog
+            return event.type == BattleLogEventType::Heal
                 && event.sourceUnitId == 1
                 && event.targetUnitId == 1;
         });
-    REQUIRE(healLog != result.frame.presentationEvents.end());
+    REQUIRE(healLog != result.frame.logEvents.end());
     CHECK(healLog->amount == 15);
     CHECK(healLog->text == "技能群療");
 }
@@ -270,7 +382,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     state.damage.cooldowns.emplace(1, cooldownUnit());
     state.damage.cooldowns.emplace(2, cooldownUnit());
 
-    BattleFrameRunner().advanceFrame(state);
+    BattleFrameRunner().runFrame(state);
 
     REQUIRE(state.damage.committedTransactions.size() == 1);
     const auto& transaction = state.damage.committedTransactions[0];
@@ -302,7 +414,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     state.damage.cooldowns.emplace(1, cooldownUnit());
     state.damage.cooldowns.emplace(2, cooldownUnit());
 
-    BattleFrameRunner().advanceFrame(state);
+    BattleFrameRunner().runFrame(state);
 
     REQUIRE(state.damage.committedTransactions.size() == 1);
     const auto& transaction = state.damage.committedTransactions[0];
@@ -342,7 +454,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     runtime.alive = true;
     state.runtime.units.push_back(runtime);
 
-    auto result = BattleFrameRunner().advanceFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
     CHECK(teamEffectUnitById(state.teamEffects.world, 1).hp == 70);
     CHECK(teamEffectUnitById(state.teamEffects.world, 2).hp == 95);
@@ -360,26 +472,26 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     CHECK(state.teamEffects.committedEvents[2].value == 10);
 
     const auto selfRegenLog = std::find_if(
-        result.frame.presentationEvents.begin(),
-        result.frame.presentationEvents.end(),
-        [](const BattlePresentationEvent& event)
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
         {
-            return event.type == BattlePresentationEventType::HealLog
+            return event.type == BattleLogEventType::Heal
                 && event.targetUnitId == 1
                 && event.text == "生命回復";
         });
-    CHECK(selfRegenLog != result.frame.presentationEvents.end());
+    CHECK(selfRegenLog != result.frame.logEvents.end());
 
     const auto auraLog = std::find_if(
-        result.frame.presentationEvents.begin(),
-        result.frame.presentationEvents.end(),
-        [](const BattlePresentationEvent& event)
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
         {
-            return event.type == BattlePresentationEventType::HealLog
+            return event.type == BattleLogEventType::Heal
                 && event.targetUnitId == 2
                 && event.text == "治療光環";
         });
-    CHECK(auraLog != result.frame.presentationEvents.end());
+    CHECK(auraLog != result.frame.logEvents.end());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battle][frame_runner][runtime][unit]")
@@ -409,23 +521,23 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
     runtime.alive = true;
     state.runtime.units.push_back(runtime);
 
-    auto result = BattleFrameRunner().advanceFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
     CHECK(teamEffectUnitById(state.teamEffects.world, 1).hp == 65);
     CHECK(state.combo.units.at(1).effectActivationCounts.at(0) == 1);
 
     const auto healLog = std::find_if(
-        result.frame.presentationEvents.begin(),
-        result.frame.presentationEvents.end(),
-        [](const BattlePresentationEvent& event)
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
         {
-            return event.type == BattlePresentationEventType::HealLog
+            return event.type == BattleLogEventType::Heal
                 && event.sourceUnitId == 1
                 && event.targetUnitId == 1
                 && event.amount == 25
                 && event.text == "爆發治療";
         });
-    CHECK(healLog != result.frame.presentationEvents.end());
+    CHECK(healLog != result.frame.logEvents.end());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEffectExecutor", "[battle][frame_runner][runtime][unit]")
@@ -447,7 +559,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
     runtime.alive = true;
     state.runtime.units.push_back(runtime);
 
-    auto result = BattleFrameRunner().advanceFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
     REQUIRE(state.effects.committedCommands.size() == 1);
     CHECK(state.effects.committedCommands[0].type == BattleEffectCommandType::AddInvincibility);
@@ -456,17 +568,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
     CHECK(effectUnitById(state.effects.world, 1).invincible == 12);
 
     const auto statusLog = std::find_if(
-        result.frame.presentationEvents.begin(),
-        result.frame.presentationEvents.end(),
-        [](const BattlePresentationEvent& event)
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
         {
-            return event.type == BattlePresentationEventType::StatusLog
+            return event.type == BattleLogEventType::Status
                 && event.sourceUnitId == 1
                 && event.targetUnitId == 1
                 && event.amount == 9
                 && event.text == "技能後無敵";
         });
-    CHECK(statusLog != result.frame.presentationEvents.end());
+    CHECK(statusLog != result.frame.logEvents.end());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand", "[battle][frame_runner][runtime][unit]")
@@ -481,7 +593,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     state.projectileCancel.baseDamages.push_back({ 10, -1, 25 });
     state.projectileCancel.baseDamages.push_back({ 20, -1, 12 });
 
-    auto result = BattleFrameRunner().advanceFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
     REQUIRE(result.attackEvents.size() == 3);
     const auto& cancel = result.attackEvents[2];

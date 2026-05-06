@@ -144,21 +144,22 @@ TEST_CASE("BattleDamageApplication_AggregatedPendingDamageUsesLastPresentationMe
     auto result = BattleDamageApplicationSystem().apply(input);
 
     REQUIRE(result.transactions.size() == 1);
-    REQUIRE(result.presentationEvents.size() == 2);
-    CHECK(result.presentationEvents[0].type == BattlePresentationEventType::DamageNumber);
-    CHECK(result.presentationEvents[0].targetUnitId == 2);
-    CHECK(result.presentationEvents[0].amount == 7);
-    CHECK(result.presentationEvents[0].textSize == 33);
-    CHECK(result.presentationEvents[0].color.r == 40);
-    CHECK(result.presentationEvents[1].type == BattlePresentationEventType::DamageLog);
-    CHECK(result.presentationEvents[1].sourceUnitId == 3);
-    CHECK(result.presentationEvents[1].targetUnitId == 2);
-    CHECK(result.presentationEvents[1].amount == 7);
-    CHECK(result.presentationEvents[1].skillName == "終段");
-    CHECK(result.presentationEvents[1].detailText == "第二段");
+    REQUIRE(result.visualEvents.size() == 1);
+    CHECK(result.visualEvents[0].type == BattleVisualEventType::DamageNumber);
+    CHECK(result.visualEvents[0].targetUnitId == 2);
+    CHECK(result.visualEvents[0].amount == 7);
+    CHECK(result.visualEvents[0].textSize == 33);
+    CHECK(result.visualEvents[0].color.r == 40);
+    REQUIRE(result.logEvents.size() == 1);
+    CHECK(result.logEvents[0].type == BattleLogEventType::Damage);
+    CHECK(result.logEvents[0].sourceUnitId == 3);
+    CHECK(result.logEvents[0].targetUnitId == 2);
+    CHECK(result.logEvents[0].amount == 7);
+    CHECK(result.logEvents[0].skillName == "終段");
+    CHECK(result.logEvents[0].detailText == "第二段");
 }
 
-TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsPresentation", "[battle][damage_application][unit]")
+TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsLog", "[battle][damage_application][unit]")
 {
     auto input = applicationInput();
     auto damage = damageInput(1, 2, 20);
@@ -172,10 +173,10 @@ TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsPresent
     CHECK_FALSE(result.transactions[0].killed);
     CHECK(result.transactions[0].defender.alive);
     CHECK(result.transactions[0].defender.hp == 1);
-    REQUIRE(result.presentationEvents.size() == 1);
-    CHECK(result.presentationEvents[0].type == BattlePresentationEventType::StatusLog);
-    CHECK(result.presentationEvents[0].targetUnitId == 2);
-    CHECK(result.presentationEvents[0].durationFrames == 30);
+    REQUIRE(result.logEvents.size() == 1);
+    CHECK(result.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.logEvents[0].targetUnitId == 2);
+    CHECK(result.logEvents[0].amount == 30);
 }
 
 TEST_CASE("BattleDamageApplication_DeathAoeBecomesProjectileCommand", "[battle][damage_application][unit]")

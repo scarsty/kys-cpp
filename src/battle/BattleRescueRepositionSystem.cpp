@@ -289,10 +289,10 @@ ProtectionChoice resolveProtectionChoice(
     return best;
 }
 
-BattlePresentationEvent floatingTextEvent(int targetUnitId)
+BattleVisualEvent floatingTextEvent(int targetUnitId)
 {
-    BattlePresentationEvent event;
-    event.type = BattlePresentationEventType::FloatingText;
+    BattleVisualEvent event;
+    event.type = BattleVisualEventType::FloatingText;
     event.targetUnitId = targetUnitId;
     event.text = "挪移";
     event.color = RescueTextColor;
@@ -300,20 +300,20 @@ BattlePresentationEvent floatingTextEvent(int targetUnitId)
     return event;
 }
 
-BattlePresentationEvent statusEvent(int sourceUnitId, int targetUnitId, std::string text)
+BattleLogEvent statusEvent(int sourceUnitId, int targetUnitId, std::string text)
 {
-    BattlePresentationEvent event;
-    event.type = BattlePresentationEventType::StatusLog;
+    BattleLogEvent event;
+    event.type = BattleLogEventType::Status;
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
     event.text = std::move(text);
     return event;
 }
 
-BattlePresentationEvent healEvent(int sourceUnitId, int targetUnitId, int amount)
+BattleLogEvent healEvent(int sourceUnitId, int targetUnitId, int amount)
 {
-    BattlePresentationEvent event;
-    event.type = BattlePresentationEventType::HealLog;
+    BattleLogEvent event;
+    event.type = BattleLogEventType::Heal;
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
     event.amount = amount;
@@ -334,11 +334,11 @@ void commitProtectionResult(
     result.invincibility = { pulled.id, ProtectionInvincibilityFrames };
     if (result.heal.amount > 0)
     {
-        result.presentationEvents.push_back(healEvent(puller.id, pulled.id, result.heal.amount));
+        result.logEvents.push_back(healEvent(puller.id, pulled.id, result.heal.amount));
     }
-    result.presentationEvents.push_back(statusEvent(puller.id, pulled.id, "保護挪移"));
-    result.presentationEvents.push_back(statusEvent(puller.id, pulled.id, "短暫無敵（10幀）"));
-    result.presentationEvents.push_back(floatingTextEvent(pulled.id));
+    result.logEvents.push_back(statusEvent(puller.id, pulled.id, "保護挪移"));
+    result.logEvents.push_back(statusEvent(puller.id, pulled.id, "短暫無敵（10幀）"));
+    result.visualEvents.push_back(floatingTextEvent(pulled.id));
 }
 
 void commitExecuteResult(
@@ -350,8 +350,8 @@ void commitExecuteResult(
     result.teleport = BattleRescueTeleportDelta{ pulled.id, puller.id, destination };
     result.counterDelta = { puller.id, 0, -1 };
     result.basicCounterAttack = BattleRescueBasicCounterAttackCommand{ puller.id, pulled.id };
-    result.presentationEvents.push_back(statusEvent(puller.id, pulled.id, "處決挪移"));
-    result.presentationEvents.push_back(floatingTextEvent(pulled.id));
+    result.logEvents.push_back(statusEvent(puller.id, pulled.id, "處決挪移"));
+    result.visualEvents.push_back(floatingTextEvent(pulled.id));
 }
 
 }  // namespace

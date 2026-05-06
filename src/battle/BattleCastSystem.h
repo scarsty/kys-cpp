@@ -151,7 +151,7 @@ struct BattleCastResult
     BattleCastAnimationTiming animation;
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleGameplayEvent> gameplayEvents;
-    std::vector<BattlePresentationEvent> presentationEvents;
+    std::vector<BattleVisualEvent> visualEvents;
     std::vector<BattleEffectEvent> effectEvents;
 };
 
@@ -259,7 +259,7 @@ struct BattleActionCommitResult
     std::vector<BattleBlinkTeleportDelta> blinkTeleports;
     std::vector<BattleItemUseCommand> itemUseCommands;
     std::vector<BattleItemCountDelta> itemCountDeltas;
-    std::vector<BattlePresentationEvent> presentationEvents;
+    std::vector<BattleVisualEvent> visualEvents;
 };
 
 class BattleCastPlanner

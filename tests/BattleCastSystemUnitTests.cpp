@@ -178,7 +178,7 @@ void checkGameplayEventEquals(const BattleGameplayEvent& lhs, const BattleGamepl
     CHECK(lhs.otherAttackId == rhs.otherAttackId);
 }
 
-void checkPresentationEventEquals(const BattlePresentationEvent& lhs, const BattlePresentationEvent& rhs)
+void checkVisualEventEquals(const BattleVisualEvent& lhs, const BattleVisualEvent& rhs)
 {
     CHECK(lhs.type == rhs.type);
     CHECK(lhs.frame == rhs.frame);
@@ -230,10 +230,10 @@ void checkResultEquals(const BattleCastResult& lhs, const BattleCastResult& rhs)
         checkGameplayEventEquals(lhs.gameplayEvents[i], rhs.gameplayEvents[i]);
     }
 
-    REQUIRE(lhs.presentationEvents.size() == rhs.presentationEvents.size());
-    for (size_t i = 0; i < lhs.presentationEvents.size(); ++i)
+    REQUIRE(lhs.visualEvents.size() == rhs.visualEvents.size());
+    for (size_t i = 0; i < lhs.visualEvents.size(); ++i)
     {
-        checkPresentationEventEquals(lhs.presentationEvents[i], rhs.presentationEvents[i]);
+        checkVisualEventEquals(lhs.visualEvents[i], rhs.visualEvents[i]);
     }
 
     REQUIRE(lhs.effectEvents.size() == rhs.effectEvents.size());
@@ -385,13 +385,13 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsResourceDeltasTimingAndEvents", 
     CHECK(result.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
     CHECK(result.gameplayEvents[0].sourceUnitId == 1);
     CHECK(result.gameplayEvents[0].targetUnitId == 2);
-    REQUIRE(result.presentationEvents.size() == 2);
-    CHECK(result.presentationEvents[0].type == BattlePresentationEventType::FloatingText);
-    CHECK(result.presentationEvents[0].targetUnitId == 1);
-    CHECK(result.presentationEvents[0].text == "野球拳");
-    CHECK(result.presentationEvents[1].type == BattlePresentationEventType::RoleEffect);
-    CHECK(result.presentationEvents[1].targetUnitId == 1);
-    CHECK(result.presentationEvents[1].effectId == 77);
+    REQUIRE(result.visualEvents.size() == 2);
+    CHECK(result.visualEvents[0].type == BattleVisualEventType::FloatingText);
+    CHECK(result.visualEvents[0].targetUnitId == 1);
+    CHECK(result.visualEvents[0].text == "野球拳");
+    CHECK(result.visualEvents[1].type == BattleVisualEventType::RoleEffect);
+    CHECK(result.visualEvents[1].targetUnitId == 1);
+    CHECK(result.visualEvents[1].effectId == 77);
 }
 
 TEST_CASE("BattleCastSystem_CommitSelectedCastUsesExplicitOperationType", "[battle][cast]")

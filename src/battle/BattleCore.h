@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <map>
+#include <set>
 #include <vector>
 
 namespace KysChess::Battle
@@ -229,7 +230,7 @@ struct BattleFrameRescueCounterAttackConfig
     int totalFramePadding = 15;
 };
 
-struct BattleFrameState
+struct BattleRuntimeState
 {
     BattleWorldState world;
     BattleAttackWorld attacks;
@@ -253,7 +254,8 @@ struct BattleFrameState
         std::vector<BattleDamagePresentationInput> pendingPresentation;
         std::vector<BattleDamageTransactionResult> committedTransactions;
         std::vector<BattleDamageLifecycleEvent> lifecycleEvents;
-        std::vector<BattlePresentationEvent> presentationEvents;
+        std::vector<BattleLogEvent> logEvents;
+        std::vector<BattleVisualEvent> visualEvents;
     } damage;
 
     struct StatusState
@@ -338,6 +340,10 @@ struct BattleFrameState
     } hits;
 
     BattleProjectileFollowUpContext projectileFollowUps;
+    std::map<int, BattleMovementPhysicsState> movementRuntime;
+    std::map<int, MovementDecision> movementDecisions;
+    std::map<int, BattleCastResult> pendingCastResults;
+    std::set<int> ultimateCasters;
 
     struct ApplicationState
     {
@@ -366,7 +372,7 @@ struct BattleFrameResult
 struct BattleTeamEffectCommandApplication
 {
     std::vector<BattleTeamEffectEvent> events;
-    std::vector<BattlePresentationEvent> presentationEvents;
+    std::vector<BattleLogEvent> logEvents;
 };
 
 BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
@@ -390,7 +396,7 @@ double resolveFrameArmorPenetratedDefense(
 class BattleFrameRunner
 {
 public:
-    BattleFrameResult advanceFrame(BattleFrameState& state) const;
+    BattleFrameResult runFrame(BattleRuntimeState& runtime) const;
 };
 
 }  // namespace KysChess::Battle

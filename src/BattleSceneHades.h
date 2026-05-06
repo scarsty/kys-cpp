@@ -1,7 +1,7 @@
 ﻿#pragma once
-#include "battle/BattleCore.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentation.h"
+#include "battle/BattleRuntimeSession.h"
 #include "BattleSceneAct.h"
 #include "BattleSceneBattleAdapter.h"
 #include "BattleStatsView.h"
@@ -12,6 +12,7 @@
 #include "Head.h"
 #include <deque>
 #include <map>
+#include <optional>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -60,19 +61,18 @@ protected:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     SceneBattleFrameInput buildBattleFrameInput();
-    KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot buildBattleFrameLegacySnapshot();
-    KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle buildCoreFrameBundle(
-        const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot,
+    KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport buildBattleFrameSceneImport();
+    KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext buildCoreRuntimeContext(
+        const KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport& snapshot,
         KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
         KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
-    void applyCoreFrameBundle(
-        KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle,
+    void applyCoreFrameResult(
+        KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
         const KysChess::Battle::BattleFrameResult& frameResult,
         const KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
         const KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
-    void cleanupVisualOnlyBattleFrameState(const SceneBattleFrameResult& result);
     Role* findNearestEnemy(int team, Pointf p);
     Role* findFarthestEnemy(int team, Pointf p);
     int calCast(int act_type, int operation_type, Role* r);
@@ -87,11 +87,15 @@ protected:
     Magic* commitAutoUltimate(Role* role, bool consumeMP);
     void playAutoUltimateReady(Role* role);
     void queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnRequest request);
+    void initializeBattleRuntimeSession();
+    KysChess::Battle::BattleRuntimeState& battleRuntime();
+    const KysChess::Battle::BattleRuntimeState& battleRuntime() const;
     virtual int calRolePic(Role* r, int style, int frame) override;
 
     int calculateHitMagicBaseDamage(Role* attacker, Role* defender, Magic* magic);
-    void populateCoreHitState(KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle);
-    void appendCoreHitInputsForAttack(KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle,
+    void initializeBattleRuntimeStaticState();
+    void populateCoreHitState(KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
+    void appendCoreHitInputsForAttack(KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
                                       int attackId,
                                       const KysChess::Battle::BattleAttackState& attackState);
     KysChess::Battle::BattleProjectileFollowUpContext makeCoreProjectileFollowUpContext() const;
@@ -106,25 +110,23 @@ protected:
     void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
     void updateAutoCamera();
     void clampCameraCenter();
-    KysChess::Battle::BattleFrameState makeCoreFrameState(
-        KysChess::Battle::BattleWorldState world);
-    void populateCoreStatusState(KysChess::Battle::BattleFrameState& frameState);
-    void applyCoreStatusState(const KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle);
-    void populateCoreStatusDamageState(KysChess::Battle::BattleFrameState& frameState);
-    void applyCoreDamageTransactions(const KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle);
-    void applyCoreTeamEffectState(const KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle);
-    void applyCoreFrameApplications(const KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle);
+    void populateCoreStatusState(KysChess::Battle::BattleRuntimeState& frameState);
+    void applyCoreStatusState(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
+    void populateCoreStatusDamageState(KysChess::Battle::BattleRuntimeState& frameState);
+    void applyCoreDamageTransactions(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
+    void applyCoreTeamEffectState(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
+    void applyCoreFrameApplications(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext(
-        const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot);
+        const KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport& snapshot);
     KysChess::Battle::BattleWorldState makeCoreMovementWorld(
-        const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot);
+        const KysChess::BattleSceneBattleAdapter::BattleFrameSceneImport& snapshot);
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(
         Role* role,
-        const KysChess::BattleSceneBattleAdapter::BattleFrameLegacyRoleSnapshot* roleSnapshot);
+        const KysChess::BattleSceneBattleAdapter::BattleFrameRoleImport* roleSnapshot);
     void applyCoreMovementSnapshot(
         const KysChess::Battle::BattleTickResult& result,
-        const KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle& bundle);
+        const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     KysChess::Battle::BattlePresentationSnapshot makePresentationSnapshot() const;
     void beginPresentationFrame();
     void publishPresentationFrame();
@@ -132,9 +134,7 @@ protected:
     void recordFloatingTextPresentation(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
     void recordRoleEffectPresentation(Role* role, int eftId, int totalFrames = 0);
     void recordDamageNumberPresentation(Role* role, int damage, Color color, int baseSize = 15);
-    void recordDamageLogPresentation(Role* source, Role* target, int amount, const std::string& skillName = "", const std::string& detailText = "");
-    void recordHealLogPresentation(Role* source, Role* target, int amount, const std::string& reason = "");
-    void recordStatusLogPresentation(Role* source, Role* target, const std::string& text);
+    void recordBattleStatusLog(Role* source, Role* target, const std::string& text);
     bool roleForcesRangedMagic(Role* role) const;
     int getForcedRangedMinSelectDistance(Role* role) const;
     int getProjectileSpeedMultiplierPct(Role* role) const;
@@ -164,7 +164,7 @@ protected:
     bool positionSwapActive_ = false;
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> criticalHitRoles_;
-    std::set<Role*> ultCasters_;     // roles that chose ultimate skill
+    std::optional<KysChess::Battle::BattleRuntimeSession> battle_session_;
     std::vector<int> enemy_stars_;
     std::vector<int> teammate_weapons_;
     std::vector<int> teammate_armors_;
@@ -172,10 +172,6 @@ protected:
     std::vector<int> enemy_armors_;
     std::vector<std::pair<int, int>> clone_spawn_positions_;
     std::unordered_map<int, int> hurt_flash_timers_;
-    std::unordered_map<int, std::set<int>> shared_hit_group_targets_;
-    std::unordered_map<Role*, KysChess::Battle::BattleCastResult> pending_cast_results_;
-    KysChess::Battle::BattleAttackWorld active_attack_world_;
-    std::vector<KysChess::Battle::BattleAttackSpawnRequest> pending_core_attack_spawns_;
     int next_shared_hit_group_id_ = 1;
     bool manual_camera_dragging_ = false;
     double previous_refresh_interval_ = 0.0;
@@ -185,20 +181,9 @@ protected:
     int close_up_total_ = 0;
     bool count_fights_won_ = true;
     int core_movement_frame_ = -1;
-    std::unordered_map<Role*, KysChess::Battle::MovementDecision> core_movement_decisions_;
     KysChess::Battle::BattlePresentationRecorder presentation_recorder_;
     BattleScenePresentationPlayer presentation_player_;
     KysChess::Battle::BattlePresentationFrame last_presentation_frame_;
-
-
-    struct MovementRuntime {
-        int core_assigned_slot = 0;
-        int core_slot_switch_cooldown = 0;
-        int movement_dash_frames = 0;
-        int movement_dash_cooldown = 0;
-        int movement_dash_spread_frames = 0;
-    };
-    std::unordered_map<Role*, MovementRuntime> movement_runtime_;
 };
 
 template<typename Cmp>

@@ -2,7 +2,6 @@
 
 #include "../Point.h"
 
-#include <functional>
 #include <map>
 #include <string>
 #include <vector>
@@ -134,6 +133,12 @@ struct BattleSnapshot
     std::vector<BattleUnitState> units;
 };
 
+struct BattleTerrainCell
+{
+    Pointf position;
+    bool walkable = true;
+};
+
 struct BattleTickResult
 {
     BattleSnapshot snapshot;
@@ -147,7 +152,7 @@ struct BattleWorldState
     unsigned int seed = 1;
     BattleMovementConfig config;
     std::vector<BattleUnitState> units;
-    std::function<bool(Pointf)> canStandAt;
+    std::vector<BattleTerrainCell> terrainCells;
 };
 
 struct MovementStats

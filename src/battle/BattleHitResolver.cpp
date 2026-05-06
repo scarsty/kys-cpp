@@ -165,20 +165,20 @@ BattleCooldownState makeCooldownState(const BattleHitUnitSnapshot& unit)
     return cooldown;
 }
 
-BattlePresentationEvent statusEvent(int sourceUnitId, int targetUnitId, std::string text)
+BattleLogEvent statusEvent(int sourceUnitId, int targetUnitId, std::string text)
 {
-    BattlePresentationEvent event;
-    event.type = BattlePresentationEventType::StatusLog;
+    BattleLogEvent event;
+    event.type = BattleLogEventType::Status;
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
     event.text = std::move(text);
     return event;
 }
 
-BattlePresentationEvent healEvent(int sourceUnitId, int targetUnitId, int amount, std::string reason)
+BattleLogEvent healEvent(int sourceUnitId, int targetUnitId, int amount, std::string reason)
 {
-    BattlePresentationEvent event;
-    event.type = BattlePresentationEventType::HealLog;
+    BattleLogEvent event;
+    event.type = BattleLogEventType::Heal;
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
     event.amount = amount;
@@ -186,10 +186,10 @@ BattlePresentationEvent healEvent(int sourceUnitId, int targetUnitId, int amount
     return event;
 }
 
-BattlePresentationEvent roleEffectEvent(int targetUnitId, int effectId, int durationFrames)
+BattleVisualEvent roleEffectEvent(int targetUnitId, int effectId, int durationFrames)
 {
-    BattlePresentationEvent event;
-    event.type = BattlePresentationEventType::RoleEffect;
+    BattleVisualEvent event;
+    event.type = BattleVisualEventType::RoleEffect;
     event.targetUnitId = targetUnitId;
     event.effectId = effectId;
     event.visualEffectId = effectId;
@@ -197,13 +197,13 @@ BattlePresentationEvent roleEffectEvent(int targetUnitId, int effectId, int dura
     return event;
 }
 
-BattlePresentationEvent floatingTextEvent(int targetUnitId,
+BattleVisualEvent floatingTextEvent(int targetUnitId,
                                           std::string text,
                                           BattlePresentationColor color,
                                           int textSize)
 {
-    BattlePresentationEvent event;
-    event.type = BattlePresentationEventType::FloatingText;
+    BattleVisualEvent event;
+    event.type = BattleVisualEventType::FloatingText;
     event.targetUnitId = targetUnitId;
     event.text = std::move(text);
     event.color = color;
@@ -496,7 +496,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                     shieldExplosion->reason,
                 });
             }
-            expansion.presentationEvents.push_back(statusEvent(
+            expansion.logEvents.push_back(statusEvent(
                 shieldExplosion->sourceUnitId,
                 -1,
                 std::format("{}（{}傷害）", shieldExplosion->reason, shieldExplosion->damage)));
@@ -523,7 +523,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                     "殉爆",
                 });
             }
-            expansion.presentationEvents.push_back(statusEvent(
+            expansion.logEvents.push_back(statusEvent(
                 deathAoe->sourceUnitId,
                 -1,
                 std::format("殉爆{}%（{}幀）", deathAoe->damagePct, deathAoe->stunFrames)));
@@ -567,14 +567,14 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
             if (input.attackEvent.scriptedStunFrames > 0)
             {
-                result.presentationEvents.push_back(statusEvent(
+                result.logEvents.push_back(statusEvent(
                     input.attacker.id,
                     input.defender.id,
                     formatStatusFrames("眩暈", input.attackEvent.scriptedStunFrames)));
             }
             if (input.attackEvent.scriptedBleedStacks > 0)
             {
-                result.presentationEvents.push_back(statusEvent(
+                result.logEvents.push_back(statusEvent(
                     input.attacker.id,
                     input.defender.id,
                     std::format("螺旋流血彈流血{}層", input.attackEvent.scriptedBleedStacks)));
@@ -649,7 +649,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         if (boostPct > 0.0)
         {
             result.shapedHpDamage *= 1.0 + boostPct / 100.0;
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
                 std::format("內力加傷 +{:.1f}%（目前內力 {}%）",
@@ -678,13 +678,13 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         {
         case BattleAttackerHitDamageEventType::Crit:
             result.critical = true;
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
                 formatStatusPercent("暴擊", damageEvent.value)));
             break;
         case BattleAttackerHitDamageEventType::RampingStack:
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
                 formatStackingEffectStatus("連擊增傷", damageEvent.value, damageEvent.value2)));
@@ -711,8 +711,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         });
         if (resources.hpHealed > 0)
         {
-            result.presentationEvents.push_back(roleEffectEvent(input.attacker.id, KysChess::EFT_HEAL, RoleStatusEffectFrames));
-            result.presentationEvents.push_back(healEvent(input.attacker.id, input.attacker.id, resources.hpHealed, "命中回血"));
+            result.visualEvents.push_back(roleEffectEvent(input.attacker.id, KysChess::EFT_HEAL, RoleStatusEffectFrames));
+            result.logEvents.push_back(healEvent(input.attacker.id, input.attacker.id, resources.hpHealed, "命中回血"));
         }
     }
 
@@ -722,7 +722,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         request.poisonPct = attackerCombo.poisonDOTPct;
         request.poisonDurationFrames = attackerCombo.poisonDuration;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-        result.presentationEvents.push_back(statusEvent(
+        result.logEvents.push_back(statusEvent(
             input.attacker.id,
             input.defender.id,
             formatStatusPercentFrames("中毒", attackerCombo.poisonDOTPct, attackerCombo.poisonDuration)));
@@ -736,7 +736,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         BattleDamageRequest request;
         request.frozenFrames = legacyStunFrames;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-        result.presentationEvents.push_back(statusEvent(
+        result.logEvents.push_back(statusEvent(
             input.attacker.id,
             input.defender.id,
             formatStatusFrames("眩暈", legacyStunFrames)));
@@ -751,7 +751,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         BattleDamageRequest request;
         request.frozenFrames = stunCommand.frames;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-        result.presentationEvents.push_back(statusEvent(
+        result.logEvents.push_back(statusEvent(
             input.attacker.id,
             input.defender.id,
             formatStatusFrames("眩暈", stunCommand.frames)));
@@ -786,7 +786,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             offensiveCooldownExtendPct);
         if (cooldown.increased)
         {
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
                 formatCooldownIncreaseStatus(offensiveCooldownExtendPct, cooldown.before, cooldown.after)));
@@ -829,13 +829,13 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         switch (damageEvent.type)
         {
         case BattleDefenderHitDamageEventType::DamageAdaptationStack:
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.defender.id,
                 input.attacker.id,
                 formatStackingEffectStatus("同敵減傷", damageEvent.value, damageEvent.value2)));
             break;
         case BattleDefenderHitDamageEventType::DodgeAdaptationStack:
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.defender.id,
                 input.attacker.id,
                 formatStackingEffectStatus("同敵閃避", damageEvent.value, damageEvent.value2)));
@@ -861,7 +861,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     result.shapedHpDamage = lateDamage.damage;
     if (lateDamage.maxHitCapped)
     {
-        result.presentationEvents.push_back(statusEvent(
+        result.logEvents.push_back(statusEvent(
             input.defender.id,
             input.attacker.id,
             std::format("單次承傷封頂{}%最大生命", lateDamage.maxHitPct)));
@@ -881,7 +881,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             defensiveCooldownExtendPct);
         if (cooldown.increased)
         {
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.defender.id,
                 input.attacker.id,
                 formatCooldownIncreaseStatus(defensiveCooldownExtendPct, cooldown.before, cooldown.after)));
@@ -897,7 +897,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         BattleDamageRequest request;
         request.frozenFrames = stunCommand.frames;
         result.commands.push_back(acceptedHitCommand(input.defender.id, input.attacker.id, request));
-        result.presentationEvents.push_back(statusEvent(
+        result.logEvents.push_back(statusEvent(
             input.defender.id,
             input.attacker.id,
             formatStatusFrames("反制並眩暈對手", stunCommand.frames)));
@@ -912,12 +912,12 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         [&]() { return rolls.next(); });
     if (result.reflected)
     {
-        result.presentationEvents.push_back(floatingTextEvent(
+        result.visualEvents.push_back(floatingTextEvent(
             input.defender.id,
             "彈反",
             { 180, 150, 255, 255 },
             24));
-        result.presentationEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "彈反了遠程攻擊"));
+        result.logEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "彈反了遠程攻擊"));
     }
 
     if (!result.reflected)
@@ -936,7 +936,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         if (executeResult.executed)
         {
             result.executed = true;
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
                 formatExecuteStatus(executeResult.thresholdPct)));
@@ -953,13 +953,13 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         switch (blockCommand)
         {
         case BattleDefenderBlockCommand::CounterUltimateBlock:
-            result.presentationEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
-            result.presentationEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋後釋放絕招"));
+            result.visualEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
+            result.logEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋後釋放絕招"));
             result.commands.push_back(BattleAutoUltimateCommand{ input.defender.id, false });
             break;
         case BattleDefenderBlockCommand::Block:
-            result.presentationEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
-            result.presentationEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋了本次攻擊"));
+            result.visualEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
+            result.logEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋了本次攻擊"));
             break;
         default:
             assert(false);
@@ -977,8 +977,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     writeDefenseState(defenderCombo, defense.defender);
     if (defense.blockedByFirstHit)
     {
-        result.presentationEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
-        result.presentationEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋了首轮傷害"));
+        result.visualEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
+        result.logEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋了首輪傷害"));
     }
     std::string damageDetail;
     if (usingHiddenWeapon)
@@ -1100,7 +1100,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             request.bleedStacks = bleedProc.stacks;
             request.bleedMaxStacks = bleedProc.maxStacks;
             result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
                 formatStatusRange("流血", bleedProc.stacks, std::max(1, bleedProc.maxStacks), "層")));
@@ -1116,7 +1116,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             request.damageReduceDebuffDurationFrames = damageReduceDebuff.durationFrames;
             request.damageReduceDebuffPct = damageReduceDebuff.pct;
             result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
                 formatStatusPercentFrames("傷害降低", damageReduceDebuff.pct, damageReduceDebuff.durationFrames)));
@@ -1132,7 +1132,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             BattleDamageRequest request;
             request.mpBlockFrames = mpBlock.effect.value;
             result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-            result.presentationEvents.push_back(statusEvent(
+            result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
                 formatStatusFrames("封內", mpBlock.effect.value)));

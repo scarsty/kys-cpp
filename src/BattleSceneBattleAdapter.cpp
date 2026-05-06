@@ -217,8 +217,7 @@ void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result)
 
 Battle::BattleAttackWorld makeBattleAttackWorld(
     const std::vector<Role*>& roles,
-    const Battle::BattleAttackWorld& activeWorld,
-    const std::unordered_map<int, std::set<int>>& sharedHitGroupTargets)
+    const Battle::BattleAttackWorld& activeWorld)
 {
     Battle::BattleAttackWorld world = activeWorld;
     world.hitRadius = BATTLE_TILE_W * 2.0;
@@ -236,12 +235,6 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
         }
     }
 
-    world.sharedHitGroupTargets.clear();
-    for (const auto& [groupId, targets] : sharedHitGroupTargets)
-    {
-        auto& output = world.sharedHitGroupTargets[groupId];
-        output.insert(output.end(), targets.begin(), targets.end());
-    }
     return world;
 }
 
@@ -598,7 +591,7 @@ Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolved
 }
 
 void populateBattleFrameHitUnits(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     const std::vector<Role*>& roles)
 {
     frameState.hits.units.clear();
@@ -610,7 +603,7 @@ void populateBattleFrameHitUnits(
 }
 
 void appendBattleFrameHitInput(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     const BattleFrameHitAdapterInput& input)
 {
     assert(input.attackId >= 0);
@@ -654,7 +647,7 @@ int legacyOperationForAttackArea(int attackAreaType)
         Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(attackAreaType));
 }
 
-const BattleFrameLegacyActionUnitSnapshot& requireActionSnapshot(
+const BattleFrameActionImport& requireActionSnapshot(
     const BattleActionFrameAdapterContext& context,
     int unitId)
 {
@@ -676,13 +669,8 @@ Role* findSnapshotRole(const BattleActionFrameAdapterContext& context, int unitI
     return it->second;
 }
 
-Pointf positionForCell(const BattleFrameLegacySnapshot& snapshot, int x, int y, int coordCount)
+Pointf positionForCell(int x, int y, int coordCount)
 {
-    auto it = snapshot.grid.positionsByCell.find({ x, y });
-    if (it != snapshot.grid.positionsByCell.end())
-    {
-        return it->second;
-    }
     return {
         static_cast<float>(-y * BATTLE_TILE_W + x * BATTLE_TILE_W + coordCount * BATTLE_TILE_W),
         static_cast<float>(y * BATTLE_TILE_W + x * BATTLE_TILE_W),
@@ -690,16 +678,9 @@ Pointf positionForCell(const BattleFrameLegacySnapshot& snapshot, int x, int y, 
     };
 }
 
-bool cellWalkable(const BattleFrameLegacySnapshot& snapshot, int x, int y)
+bool cellWalkable(int x, int y, int coordCount)
 {
-    auto it = std::find_if(
-        snapshot.grid.movementCells.begin(),
-        snapshot.grid.movementCells.end(),
-        [&](const Battle::BattleMovementPhysicsCollisionCellSnapshot& cell)
-        {
-            return cell.x == x && cell.y == y;
-        });
-    return it != snapshot.grid.movementCells.end() && it->walkable;
+    return x >= 0 && y >= 0 && x < coordCount && y < coordCount;
 }
 
 BattleCastSkillAdapterInput makeActionFrameSkillInput(
@@ -801,14 +782,14 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     double reach,
     const BattleActionFrameAdapterContext& context);
 
-const BattleFrameLegacyRoleSnapshot& requireLegacyRoleSnapshot(
-    const BattleFrameLegacySnapshot& snapshot,
+const BattleFrameRoleImport& requireLegacyRoleSnapshot(
+    const BattleFrameSceneImport& snapshot,
     int unitId)
 {
     auto it = std::find_if(
         snapshot.roleSnapshots.begin(),
         snapshot.roleSnapshots.end(),
-        [&](const BattleFrameLegacyRoleSnapshot& roleSnapshot)
+        [&](const BattleFrameRoleImport& roleSnapshot)
         {
             return roleSnapshot.unitId == unitId;
         });
@@ -861,7 +842,7 @@ void populateActionCommitInputForRole(
     {
         role->PreActTimer = context.config.battleFrame;
         Magic* magic = role->UsingMagic;
-        auto pendingCast = context.pendingCastResults->find(role);
+        auto pendingCast = context.pendingCastResults->find(role->ID);
         assert(pendingCast != context.pendingCastResults->end());
         assert(magic);
         auto castResult = pendingCast->second;
@@ -941,7 +922,7 @@ void populateCastPlanInputForRole(
         return;
     }
 
-    auto coreDecisionIt = context.movementDecisions->find(role);
+    auto coreDecisionIt = context.movementDecisions->find(role->ID);
     if (coreDecisionIt != context.movementDecisions->end())
     {
         const auto& coreDecision = coreDecisionIt->second;
@@ -1054,8 +1035,8 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
                 geometry.cells.push_back({
                     x,
                     y,
-                    positionForCell(*context.snapshot, x, y, context.config.coordCount),
-                    cellWalkable(*context.snapshot, x, y),
+                    positionForCell(x, y, context.config.coordCount),
+                    cellWalkable(x, y, context.config.coordCount),
                     occupied,
                 });
             }
@@ -1082,12 +1063,12 @@ void applyBlinkTeleportDelta(
 {
     assert(role);
     auto* target = findRoleByBattleId(*context.roles, teleport.targetUnitId);
-    Battle::BattlePresentationEvent presentation;
-    presentation.type = Battle::BattlePresentationEventType::StatusLog;
-    presentation.sourceUnitId = role->ID;
-    presentation.targetUnitId = target->ID;
-    presentation.text = teleport.selectedWeakest ? "閃擊追殺" : "閃擊突襲";
-    result.presentationEvents.push_back(std::move(presentation));
+    Battle::BattleLogEvent log;
+    log.type = Battle::BattleLogEventType::Status;
+    log.sourceUnitId = role->ID;
+    log.targetUnitId = target->ID;
+    log.text = teleport.selectedWeakest ? "閃擊追殺" : "閃擊突襲";
+    result.logEvents.push_back(std::move(log));
 
     role->setPositionOnly(teleport.gridX, teleport.gridY);
     role->Pos.x = teleport.position.x;
@@ -1102,7 +1083,7 @@ void applyBlinkTeleportDelta(
 }
 
 void populateBattleFrameRescueState(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     const BattleRescueFrameAdapterContext& context)
 {
     assert(context.roles);
@@ -1147,7 +1128,7 @@ void populateBattleFrameRescueState(
 }
 
 void populateBattleMovementPhysicsFrame(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     const BattleMovementPhysicsFrameAdapterContext& context)
 {
     assert(context.roles);
@@ -1203,7 +1184,7 @@ void populateBattleMovementPhysicsFrame(
 }
 
 void applyBattleMovementPhysicsFrameResults(
-    const Battle::BattleFrameState& frameState,
+    const Battle::BattleRuntimeState& frameState,
     const BattleMovementPhysicsFrameAdapterContext& context)
 {
     assert(context.roles);
@@ -1219,7 +1200,7 @@ void applyBattleMovementPhysicsFrameResults(
 }
 
 void populateBattleActionFrame(
-    Battle::BattleFrameState& frameState,
+    Battle::BattleRuntimeState& frameState,
     BattleActionFrameAdapterContext& context)
 {
     assert(context.roles);
@@ -1242,7 +1223,7 @@ void populateBattleActionFrame(
 }
 
 BattleActionFrameApplyResult applyBattleActionFrameResults(
-    const Battle::BattleFrameState& frameState,
+    const Battle::BattleRuntimeState& frameState,
     const BattleActionFrameAdapterContext& context)
 {
     assert(context.roles);
@@ -1268,7 +1249,7 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
             assert(magic);
             role->UsingMagic = magic;
             applyBattleCastStart(role, action.castResult, magic->MagicType);
-            (*context.pendingCastResults)[role] = action.castResult;
+            (*context.pendingCastResults)[role->ID] = action.castResult;
             result.clearMovementDashSpreadUnitIds.push_back(role->ID);
         }
         else
@@ -1299,8 +1280,8 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
             result.attackSoundIds.push_back(magic->SoundID);
             role->OperationCount = action.actionResult.operationCount;
             applyBattleCastCommit(role, action.actionInput.cast);
-            context.pendingCastResults->erase(role);
-            context.ultimateCasters->erase(role);
+            context.pendingCastResults->erase(role->ID);
+            context.ultimateCasters->erase(role->ID);
         }
 
         if (action.actionInput.hasItem)
@@ -1361,7 +1342,7 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
     captureActionComboState(actionInput, role, context);
 
-    Battle::BattleFrameState actionFrameState;
+    Battle::BattleRuntimeState actionFrameState;
     Battle::BattleFrameActionUnitInput unitInput;
     unitInput.unitId = role->ID;
     unitInput.hasSelectedCastInput = true;
@@ -1370,7 +1351,7 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     unitInput.selectedOperationType = Battle::battleOperationFromLegacy(resolvedOperationType);
     unitInput.selectedActionInput = std::move(actionInput);
     actionFrameState.actions.units.push_back(std::move(unitInput));
-    auto actionFrameResult = Battle::BattleFrameRunner().advanceFrame(actionFrameState);
+    auto actionFrameResult = Battle::BattleFrameRunner().runFrame(actionFrameState);
     assert(actionFrameState.actions.unitResults.size() == 1);
     const auto& actionUnitResult = actionFrameState.actions.unitResults.front();
     assert(actionUnitResult.actionCommitted);
@@ -1383,10 +1364,14 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
 
     result.magic = magic;
     result.applyResult.attackSoundIds.push_back(magic->SoundID);
-    result.applyResult.presentationEvents.insert(
-        result.applyResult.presentationEvents.end(),
-        actionFrameResult.frame.presentationEvents.begin(),
-        actionFrameResult.frame.presentationEvents.end());
+    result.applyResult.visualEvents.insert(
+        result.applyResult.visualEvents.end(),
+        actionFrameResult.frame.visualEvents.begin(),
+        actionFrameResult.frame.visualEvents.end());
+    result.applyResult.logEvents.insert(
+        result.applyResult.logEvents.end(),
+        actionFrameResult.frame.logEvents.begin(),
+        actionFrameResult.frame.logEvents.end());
     result.applyResult.attackSpawnRequests = actionResult.attackSpawnRequests;
     role->OperationCount = actionResult.operationCount;
     return result;

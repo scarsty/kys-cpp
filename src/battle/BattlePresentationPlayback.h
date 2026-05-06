@@ -9,9 +9,6 @@ namespace KysChess::Battle
 
 enum class BattlePresentationCommandType
 {
-    RecordDamage,
-    RecordHeal,
-    RecordStatus,
     SpawnFloatingText,
     SpawnRoleEffect,
     SpawnDamageNumber,
@@ -26,7 +23,7 @@ enum class BattlePresentationCommandType
 
 struct BattlePresentationCommand
 {
-    BattlePresentationCommandType type = BattlePresentationCommandType::RecordStatus;
+    BattlePresentationCommandType type = BattlePresentationCommandType::SpawnFloatingText;
     int frame = 0;
     int sourceUnitId = -1;
     int targetUnitId = -1;
@@ -63,7 +60,7 @@ public:
     BattlePresentationPlaybackPlan build(const BattlePresentationFrame& frame) const;
 
 private:
-    BattlePresentationCommand makeCommand(const BattlePresentationEvent& event) const;
+    BattlePresentationCommand makeCommand(const BattleVisualEvent& event) const;
 };
 
 }  // namespace KysChess::Battle

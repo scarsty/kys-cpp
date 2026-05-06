@@ -7,63 +7,54 @@ namespace KysChess::Battle
 
 namespace
 {
-BattlePresentationCommandType commandTypeFor(BattlePresentationEventType type)
+BattlePresentationCommandType commandTypeFor(BattleVisualEventType type)
 {
     switch (type)
     {
-    case BattlePresentationEventType::DamageLog:
-        return BattlePresentationCommandType::RecordDamage;
-    case BattlePresentationEventType::HealLog:
-        return BattlePresentationCommandType::RecordHeal;
-    case BattlePresentationEventType::StatusLog:
-        return BattlePresentationCommandType::RecordStatus;
-    case BattlePresentationEventType::FloatingText:
+    case BattleVisualEventType::FloatingText:
         return BattlePresentationCommandType::SpawnFloatingText;
-    case BattlePresentationEventType::RoleEffect:
+    case BattleVisualEventType::RoleEffect:
         return BattlePresentationCommandType::SpawnRoleEffect;
-    case BattlePresentationEventType::DamageNumber:
+    case BattleVisualEventType::DamageNumber:
         return BattlePresentationCommandType::SpawnDamageNumber;
-    case BattlePresentationEventType::CameraFocus:
+    case BattleVisualEventType::CameraFocus:
         return BattlePresentationCommandType::FocusCamera;
-    case BattlePresentationEventType::ProjectileSpawned:
+    case BattleVisualEventType::ProjectileSpawned:
         return BattlePresentationCommandType::SpawnProjectile;
-    case BattlePresentationEventType::ProjectileMoved:
+    case BattleVisualEventType::ProjectileMoved:
         return BattlePresentationCommandType::MoveProjectile;
-    case BattlePresentationEventType::ProjectileHit:
+    case BattleVisualEventType::ProjectileHit:
         return BattlePresentationCommandType::ImpactProjectile;
-    case BattlePresentationEventType::ProjectileExpired:
+    case BattleVisualEventType::ProjectileExpired:
         return BattlePresentationCommandType::ExpireProjectile;
-    case BattlePresentationEventType::ProjectileTargetLost:
+    case BattleVisualEventType::ProjectileTargetLost:
         return BattlePresentationCommandType::CancelProjectile;
-    case BattlePresentationEventType::ProjectileCancelled:
+    case BattleVisualEventType::ProjectileCancelled:
         return BattlePresentationCommandType::CancelProjectile;
-    case BattlePresentationEventType::ProjectileBounced:
+    case BattleVisualEventType::ProjectileBounced:
         return BattlePresentationCommandType::BounceProjectile;
     }
 
     assert(false);
-    return BattlePresentationCommandType::RecordStatus;
+    return BattlePresentationCommandType::SpawnFloatingText;
 }
 
-bool isProjectileEvent(BattlePresentationEventType type)
+bool isProjectileEvent(BattleVisualEventType type)
 {
     switch (type)
     {
-    case BattlePresentationEventType::ProjectileSpawned:
-    case BattlePresentationEventType::ProjectileMoved:
-    case BattlePresentationEventType::ProjectileHit:
-    case BattlePresentationEventType::ProjectileExpired:
-    case BattlePresentationEventType::ProjectileTargetLost:
-    case BattlePresentationEventType::ProjectileCancelled:
-    case BattlePresentationEventType::ProjectileBounced:
+    case BattleVisualEventType::ProjectileSpawned:
+    case BattleVisualEventType::ProjectileMoved:
+    case BattleVisualEventType::ProjectileHit:
+    case BattleVisualEventType::ProjectileExpired:
+    case BattleVisualEventType::ProjectileTargetLost:
+    case BattleVisualEventType::ProjectileCancelled:
+    case BattleVisualEventType::ProjectileBounced:
         return true;
-    case BattlePresentationEventType::DamageLog:
-    case BattlePresentationEventType::HealLog:
-    case BattlePresentationEventType::StatusLog:
-    case BattlePresentationEventType::FloatingText:
-    case BattlePresentationEventType::RoleEffect:
-    case BattlePresentationEventType::DamageNumber:
-    case BattlePresentationEventType::CameraFocus:
+    case BattleVisualEventType::FloatingText:
+    case BattleVisualEventType::RoleEffect:
+    case BattleVisualEventType::DamageNumber:
+    case BattleVisualEventType::CameraFocus:
         return false;
     }
 
@@ -71,25 +62,22 @@ bool isProjectileEvent(BattlePresentationEventType type)
     return false;
 }
 
-int projectileRelatedAttackIdFor(const BattlePresentationEvent& event)
+int projectileRelatedAttackIdFor(const BattleVisualEvent& event)
 {
     switch (event.type)
     {
-    case BattlePresentationEventType::ProjectileCancelled:
-    case BattlePresentationEventType::ProjectileBounced:
+    case BattleVisualEventType::ProjectileCancelled:
+    case BattleVisualEventType::ProjectileBounced:
         return event.amount;
-    case BattlePresentationEventType::ProjectileSpawned:
-    case BattlePresentationEventType::ProjectileMoved:
-    case BattlePresentationEventType::ProjectileHit:
-    case BattlePresentationEventType::ProjectileExpired:
-    case BattlePresentationEventType::ProjectileTargetLost:
-    case BattlePresentationEventType::DamageLog:
-    case BattlePresentationEventType::HealLog:
-    case BattlePresentationEventType::StatusLog:
-    case BattlePresentationEventType::FloatingText:
-    case BattlePresentationEventType::RoleEffect:
-    case BattlePresentationEventType::DamageNumber:
-    case BattlePresentationEventType::CameraFocus:
+    case BattleVisualEventType::ProjectileSpawned:
+    case BattleVisualEventType::ProjectileMoved:
+    case BattleVisualEventType::ProjectileHit:
+    case BattleVisualEventType::ProjectileExpired:
+    case BattleVisualEventType::ProjectileTargetLost:
+    case BattleVisualEventType::FloatingText:
+    case BattleVisualEventType::RoleEffect:
+    case BattleVisualEventType::DamageNumber:
+    case BattleVisualEventType::CameraFocus:
         return -1;
     }
 
@@ -102,15 +90,15 @@ BattlePresentationPlaybackPlan BattlePresentationPlaybackPlanner::build(const Ba
 {
     BattlePresentationPlaybackPlan plan;
     plan.snapshot = frame.snapshot;
-    plan.commands.reserve(frame.presentationEvents.size());
-    for (const auto& event : frame.presentationEvents)
+    plan.commands.reserve(frame.visualEvents.size());
+    for (const auto& event : frame.visualEvents)
     {
         plan.commands.push_back(makeCommand(event));
     }
     return plan;
 }
 
-BattlePresentationCommand BattlePresentationPlaybackPlanner::makeCommand(const BattlePresentationEvent& event) const
+BattlePresentationCommand BattlePresentationPlaybackPlanner::makeCommand(const BattleVisualEvent& event) const
 {
     BattlePresentationCommand command;
     command.type = commandTypeFor(event.type);

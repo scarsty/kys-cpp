@@ -707,25 +707,25 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
 
     if (!selectedSkill.name.empty())
     {
-        BattlePresentationEvent textEvent;
-        textEvent.type = BattlePresentationEventType::FloatingText;
+        BattleVisualEvent textEvent;
+        textEvent.type = BattleVisualEventType::FloatingText;
         textEvent.targetUnitId = input.unit.id;
         textEvent.text = selectedSkill.name;
         textEvent.skillName = selectedSkill.name;
         textEvent.textSize = result.decision.ultimate ? 36 : 24;
         textEvent.color = result.decision.ultimate ? ultimateTextColor() : BattlePresentationColor{};
-        result.presentationEvents.push_back(textEvent);
+        result.visualEvents.push_back(textEvent);
     }
 
     if (selectedSkill.visualEffectId >= 0)
     {
-        BattlePresentationEvent effectEvent;
-        effectEvent.type = BattlePresentationEventType::RoleEffect;
+        BattleVisualEvent effectEvent;
+        effectEvent.type = BattleVisualEventType::RoleEffect;
         effectEvent.targetUnitId = input.unit.id;
         effectEvent.effectId = selectedSkill.visualEffectId;
         effectEvent.visualEffectId = selectedSkill.visualEffectId;
         effectEvent.durationFrames = result.animation.castFrame;
-        result.presentationEvents.push_back(effectEvent);
+        result.visualEvents.push_back(effectEvent);
     }
 
     result.effectEvents.push_back({ BattleHook::SkillFinished, input.unit.id, input.targetUnitId });
@@ -749,7 +749,7 @@ BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionComm
     if (input.hasCast)
     {
         assert(input.cast.decision.canCast);
-        result.presentationEvents = input.cast.presentationEvents;
+        result.visualEvents = input.cast.visualEvents;
         result.attackSpawnRequests.insert(
             result.attackSpawnRequests.end(),
             input.cast.attackSpawnRequests.begin(),

@@ -85,7 +85,8 @@ struct BattleDamageApplicationResult
     std::vector<BattleDamageTransactionResult> transactions;
     std::vector<BattleDamageLifecycleEvent> lifecycleEvents;
     std::vector<BattleGameplayEvent> gameplayEvents;
-    std::vector<BattlePresentationEvent> presentationEvents;
+    std::vector<BattleLogEvent> logEvents;
+    std::vector<BattleVisualEvent> visualEvents;
     std::vector<BattleGameplayCommand> commands;
     BattleDeathEffectWorld deathEffects;
     bool battleEnded = false;

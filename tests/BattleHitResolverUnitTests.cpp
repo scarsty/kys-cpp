@@ -85,7 +85,7 @@ TEST_CASE("BattleHitResolver_NonHitEvent_ReturnsNoGameplayCommands", "[battle][h
     auto result = BattleHitResolver().resolve(input);
 
     CHECK(result.commands.empty());
-    CHECK(result.presentationEvents.empty());
+    CHECK(result.logEvents.empty());
 }
 
 TEST_CASE("BattleHitResolver_HiddenWeaponUsesResolvedItemDamageDividedByFive", "[battle][hit_resolver][unit]")
@@ -168,7 +168,7 @@ TEST_CASE("BattleHitResolver_KnockbackIsReturnedAsCommand", "[battle][hit_resolv
     CHECK(command.grantHurtFrame);
 }
 
-TEST_CASE("BattleHitResolver_CritMarksResultAndEmitsStatusLog", "[battle][hit_resolver][unit]")
+TEST_CASE("BattleHitResolver_CritMarksResultAndEmitsStatusEvent", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
     input.skill.id = 101;
@@ -181,11 +181,11 @@ TEST_CASE("BattleHitResolver_CritMarksResultAndEmitsStatusLog", "[battle][hit_re
 
     CHECK(result.critical);
     CHECK(result.shapedHpDamage == Catch::Approx(100.0));
-    REQUIRE(result.presentationEvents.size() == 1);
-    CHECK(result.presentationEvents[0].type == BattlePresentationEventType::StatusLog);
-    CHECK(result.presentationEvents[0].sourceUnitId == 1);
-    CHECK(result.presentationEvents[0].targetUnitId == 2);
-    CHECK(result.presentationEvents[0].text == "暴擊（200%）");
+    REQUIRE(result.logEvents.size() == 1);
+    CHECK(result.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.logEvents[0].sourceUnitId == 1);
+    CHECK(result.logEvents[0].targetUnitId == 2);
+    CHECK(result.logEvents[0].text == "暴擊（200%）");
 }
 
 TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand", "[battle][hit_resolver][unit]")
@@ -203,11 +203,11 @@ TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand",
     CHECK(command->targetUnitId == 2);
     CHECK(command->damage.acceptedHit);
     CHECK(command->damage.hpOnHit == 30);
-    auto heal = std::find_if(result.presentationEvents.begin(), result.presentationEvents.end(), [](const BattlePresentationEvent& event)
+    auto heal = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
         {
-            return event.type == BattlePresentationEventType::HealLog;
+            return event.type == BattleLogEventType::Heal;
         });
-    REQUIRE(heal != result.presentationEvents.end());
+    REQUIRE(heal != result.logEvents.end());
     CHECK(heal->sourceUnitId == 1);
     CHECK(heal->targetUnitId == 1);
     CHECK(heal->amount == 20);
@@ -228,9 +228,9 @@ TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resol
     REQUIRE(command);
     CHECK(command->damage.poisonPct == 12);
     CHECK(command->damage.poisonDurationFrames == 60);
-    REQUIRE_FALSE(result.presentationEvents.empty());
-    CHECK(result.presentationEvents[0].type == BattlePresentationEventType::StatusLog);
-    CHECK(result.presentationEvents[0].text == "中毒（12%·60幀）");
+    REQUIRE_FALSE(result.logEvents.empty());
+    CHECK(result.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.logEvents[0].text == "中毒（12%·60幀）");
 }
 
 TEST_CASE("BattleHitResolver_TriggeredTeamHealEmitsCommandWithoutApplyingTeamWorld", "[battle][hit_resolver][unit]")
@@ -319,11 +319,11 @@ TEST_CASE("BattleHitResolver_FirstHitBlockZerosDamageAndEmitsBlockPresentation",
     CHECK(result.finalHpDamage == 0);
     CHECK_FALSE(firstHpDamageCommand(result));
     CHECK(result.defenderCombo.blockFirstHitsRemaining == 0);
-    auto block = std::find_if(result.presentationEvents.begin(), result.presentationEvents.end(), [](const BattlePresentationEvent& event)
+    auto block = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
         {
-            return event.type == BattlePresentationEventType::StatusLog && event.text == "格擋了首轮傷害";
+            return event.type == BattleLogEventType::Status && event.text == "格擋了首輪傷害";
         });
-    REQUIRE(block != result.presentationEvents.end());
+    REQUIRE(block != result.logEvents.end());
 }
 
 TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battle][hit_resolver][unit]")
@@ -625,10 +625,10 @@ TEST_CASE("BattleHitResolver_ScriptedImpactEmitsStatusAndDamageCommands", "[batt
                 && hp->detailText == "特效傷害";
         }
     }
-    for (const auto& event : result.presentationEvents)
+    for (const auto& event : result.logEvents)
     {
-        sawStunLog = sawStunLog || (event.type == BattlePresentationEventType::StatusLog && event.text == "眩暈（12幀）");
-        sawBleedLog = sawBleedLog || (event.type == BattlePresentationEventType::StatusLog && event.text == "螺旋流血彈流血2層");
+        sawStunLog = sawStunLog || (event.type == BattleLogEventType::Status && event.text == "眩暈（12幀）");
+        sawBleedLog = sawBleedLog || (event.type == BattleLogEventType::Status && event.text == "螺旋流血彈流血2層");
     }
 
     CHECK(sawStatus);
