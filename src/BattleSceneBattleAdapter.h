@@ -70,6 +70,30 @@ struct BattleFrameLegacyRoleSnapshot
     int movementDashSpreadFrames = 0;
 };
 
+struct BattleFrameLegacyActionUnitSnapshot
+{
+    int unitId = -1;
+    int nearestEnemyUnitId = -1;
+    int farthestEnemyUnitId = -1;
+    Magic* normalMagic = nullptr;
+    Magic* ultimateMagic = nullptr;
+    bool forceRangedMagic = false;
+    int forcedRangedMinSelectDistance = 0;
+    int projectileSpeedMultiplierPct = 100;
+    int ultimateExtraProjectileCount = 0;
+    double normalEffectiveReach = 0.0;
+    double ultimateEffectiveReach = 0.0;
+    bool normalRangedStyle = false;
+    bool ultimateRangedStyle = false;
+    double normalBlinkReach = 0.0;
+    double ultimateBlinkReach = 0.0;
+    std::array<int, 4> castFrameByOperation{};
+    std::array<double, 2> randomUnitRolls{};
+    int projectileBounceRoll = 0;
+    int blinkRandomRoll = 0;
+    int blinkCellRandomRoll = 0;
+};
+
 struct BattleFrameLegacyGridSnapshot
 {
     std::vector<Battle::BattleRescueCellSnapshot> rescueCells;
@@ -82,6 +106,7 @@ struct BattleFrameLegacySnapshot
     int battleFrame = 0;
     std::vector<Role*> roles;
     std::vector<BattleFrameLegacyRoleSnapshot> roleSnapshots;
+    std::unordered_map<int, BattleFrameLegacyActionUnitSnapshot> actionsByUnitId;
     std::unordered_map<int, Role*> rolesByBattleId;
     std::map<int, RoleComboState>* comboStates = nullptr;
     BattleFrameLegacyGridSnapshot grid;
@@ -116,42 +141,19 @@ struct BattleActionFrameAdapterConfig
     int battleFrame = 0;
     float gravity = 0.0f;
     int projectileBounceRange = 0;
-};
-
-struct BattleActionFrameAdapterCallbacks
-{
-    std::function<Role*(int, Pointf)> findNearestEnemy;
-    std::function<Role*(int, Pointf)> findFarthestEnemy;
-    std::function<Magic*(Role*)> selectNormalMagic;
-    std::function<Magic*(Role*)> selectUltimateMagic;
-    std::function<int(Role*, int, int)> castFrame;
-    std::function<bool(Role*)> forceRangedMagic;
-    std::function<int(Role*)> forcedRangedMinSelectDistance;
-    std::function<int(Role*)> projectileSpeedMultiplierPct;
-    std::function<int(Role*)> ultimateExtraProjectileCount;
-    std::function<double(Magic*, bool, int, int)> effectiveReach;
-    std::function<bool(Magic*, bool)> rangedStyleMagic;
-    std::function<double(Magic*)> blinkReach;
-    std::function<int(int)> randomInt;
-    std::function<double()> randomUnit;
-    std::function<int(Role*)> movementDashFrames;
-    std::function<void(Role*)> beginMovementDash;
-    std::function<void(Role*)> clearMovementDashSpread;
-    std::function<Point(double, double)> toGrid;
-    std::function<Pointf(int, int)> toPosition;
-    std::function<bool(int, int)> canWalk;
-    std::function<void(Role*)> faceTowardsNearest;
+    int coordCount = 0;
 };
 
 struct BattleActionFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
+    const BattleFrameLegacySnapshot* snapshot = nullptr;
     std::unordered_map<Role*, Battle::BattleCastResult>* pendingCastResults = nullptr;
     std::map<int, RoleComboState>* comboStates = nullptr;
     const std::unordered_map<Role*, Battle::MovementDecision>* movementDecisions = nullptr;
     std::set<Role*>* ultimateCasters = nullptr;
+    std::vector<int> movementDashStartUnitIds;
     BattleActionFrameAdapterConfig config;
-    BattleActionFrameAdapterCallbacks callbacks;
 };
 
 struct BattleRescueFrameAdapterConfig
@@ -201,6 +203,8 @@ struct BattleActionFrameApplyResult
     int blinkSoundCount = 0;
     std::vector<Battle::BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<Battle::BattlePresentationEvent> presentationEvents;
+    std::vector<int> clearMovementDashSpreadUnitIds;
+    std::vector<int> faceTowardsNearestUnitIds;
 };
 
 struct BattleSelectedSkillActionResult
@@ -285,7 +289,7 @@ void applyBattleMovementPhysicsFrameResults(
     const BattleMovementPhysicsFrameAdapterContext& context);
 void populateBattleActionFrame(
     Battle::BattleFrameState& frameState,
-    const BattleActionFrameAdapterContext& context);
+    BattleActionFrameAdapterContext& context);
 BattleActionFrameApplyResult applyBattleActionFrameResults(
     const Battle::BattleFrameState& frameState,
     const BattleActionFrameAdapterContext& context);

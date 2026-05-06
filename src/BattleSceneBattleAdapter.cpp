@@ -654,6 +654,54 @@ int legacyOperationForAttackArea(int attackAreaType)
         Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(attackAreaType));
 }
 
+const BattleFrameLegacyActionUnitSnapshot& requireActionSnapshot(
+    const BattleActionFrameAdapterContext& context,
+    int unitId)
+{
+    assert(context.snapshot);
+    auto it = context.snapshot->actionsByUnitId.find(unitId);
+    assert(it != context.snapshot->actionsByUnitId.end());
+    return it->second;
+}
+
+Role* findSnapshotRole(const BattleActionFrameAdapterContext& context, int unitId)
+{
+    if (unitId < 0)
+    {
+        return nullptr;
+    }
+    assert(context.snapshot);
+    auto it = context.snapshot->rolesByBattleId.find(unitId);
+    assert(it != context.snapshot->rolesByBattleId.end());
+    return it->second;
+}
+
+Pointf positionForCell(const BattleFrameLegacySnapshot& snapshot, int x, int y, int coordCount)
+{
+    auto it = snapshot.grid.positionsByCell.find({ x, y });
+    if (it != snapshot.grid.positionsByCell.end())
+    {
+        return it->second;
+    }
+    return {
+        static_cast<float>(-y * BATTLE_TILE_W + x * BATTLE_TILE_W + coordCount * BATTLE_TILE_W),
+        static_cast<float>(y * BATTLE_TILE_W + x * BATTLE_TILE_W),
+        0.0f,
+    };
+}
+
+bool cellWalkable(const BattleFrameLegacySnapshot& snapshot, int x, int y)
+{
+    auto it = std::find_if(
+        snapshot.grid.movementCells.begin(),
+        snapshot.grid.movementCells.end(),
+        [&](const Battle::BattleMovementPhysicsCollisionCellSnapshot& cell)
+        {
+            return cell.x == x && cell.y == y;
+        });
+    return it != snapshot.grid.movementCells.end() && it->walkable;
+}
+
 BattleCastSkillAdapterInput makeActionFrameSkillInput(
     Role* role,
     Magic* magic,
@@ -666,22 +714,16 @@ BattleCastSkillAdapterInput makeActionFrameSkillInput(
         return skill;
     }
 
-    const bool forceRanged = context.callbacks.forceRangedMagic(role);
-    const int forcedRangedMinSelectDistance = context.callbacks.forcedRangedMinSelectDistance(role);
-    const int projectileSpeedMultiplierPct = context.callbacks.projectileSpeedMultiplierPct(role);
+    const auto& action = requireActionSnapshot(context, role->ID);
+    const bool forceRanged = action.forceRangedMagic;
+    const int projectileSpeedMultiplierPct = action.projectileSpeedMultiplierPct;
     skill.magic = magic;
-    skill.reach = std::min(
-        context.callbacks.effectiveReach(
-            magic,
-            forceRanged,
-            forcedRangedMinSelectDistance,
-            projectileSpeedMultiplierPct),
-        context.config.maxEffectiveBattleReach);
+    skill.reach = ultimate ? action.ultimateEffectiveReach : action.normalEffectiveReach;
     skill.forceRanged = forceRanged;
-    skill.rangedStyle = context.callbacks.rangedStyleMagic(magic, forceRanged);
+    skill.rangedStyle = ultimate ? action.ultimateRangedStyle : action.normalRangedStyle;
     skill.projectileSpeedMultiplierPct = projectileSpeedMultiplierPct;
     skill.meleeSplashCount = ultimate && magic->AttackAreaType == 0 ? 1 : 0;
-    skill.extraProjectileCount = ultimate ? context.callbacks.ultimateExtraProjectileCount(role) : 0;
+    skill.extraProjectileCount = ultimate ? action.ultimateExtraProjectileCount : 0;
     return skill;
 }
 
@@ -690,12 +732,13 @@ int rollDashHitCount(Role* role, Magic* selectedMagic, const BattleActionFrameAd
     int dashHitCount = 1;
     if (selectedMagic)
     {
+        const auto& action = requireActionSnapshot(context, role->ID);
         const double multiHitScore = (role->Speed + role->getActProperty(selectedMagic->MagicType)) / 180.0;
-        if (context.callbacks.randomUnit() < multiHitScore)
+        if (action.randomUnitRolls[0] < multiHitScore)
         {
             dashHitCount++;
         }
-        if (context.callbacks.randomUnit() < multiHitScore * 0.5)
+        if (action.randomUnitRolls[1] < multiHitScore * 0.5)
         {
             dashHitCount++;
         }
@@ -788,7 +831,7 @@ void captureActionComboState(
     auto prime = Battle::collectFrameProjectileBouncePrime(
         actionInput.combo,
         role->ID,
-        context.callbacks.randomInt(100),
+        requireActionSnapshot(context, role->ID).projectileBounceRoll,
         context.config.projectileBounceRange);
     actionInput.projectileBouncePrime = {
         prime.count,
@@ -828,9 +871,12 @@ void populateActionCommitInputForRole(
         actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
         actionInput.hasCast = true;
         actionInput.cast = std::move(castResult);
-        actionInput.blinkRandomRoll = context.callbacks.randomInt(std::numeric_limits<int>::max());
-        actionInput.blinkCellRandomRoll = context.callbacks.randomInt(std::numeric_limits<int>::max());
-        actionInput.blinkReach = context.callbacks.blinkReach(magic);
+        const auto& action = requireActionSnapshot(context, role->ID);
+        actionInput.blinkRandomRoll = action.blinkRandomRoll;
+        actionInput.blinkCellRandomRoll = action.blinkCellRandomRoll;
+        actionInput.blinkReach = castResult.decision.ultimate
+            ? action.ultimateBlinkReach
+            : action.normalBlinkReach;
         actionInput.blinkWeakTargetDefWeight = context.config.blinkWeakTargetDefWeight;
         actionInput.blinkGeometry = makeBlinkGeometryInput(role, actionInput.blinkReach, context);
         actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
@@ -854,7 +900,7 @@ void populateActionCommitInputForRole(
         actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
         actionInput.hiddenWeaponTotalFrame = context.config.hiddenWeaponTotalFrame;
         auto hiddenWeaponVelocity = role->RealTowards;
-        if (auto target = context.callbacks.findFarthestEnemy(role->Team, role->Pos))
+        if (auto* target = findSnapshotRole(context, requireActionSnapshot(context, role->ID).farthestEnemyUnitId))
         {
             hiddenWeaponVelocity = target->Pos - role->Pos;
         }
@@ -869,7 +915,7 @@ void populateActionCommitInputForRole(
 void populateCastPlanInputForRole(
     Battle::BattleFrameActionUnitInput& unitInput,
     Role* role,
-    const BattleActionFrameAdapterContext& context)
+    BattleActionFrameAdapterContext& context)
 {
     if (role->Dead != 0 || role->HaveAction)
     {
@@ -878,9 +924,10 @@ void populateCastPlanInputForRole(
 
     bool canStartAttack = role->CoolDown == 0;
     Magic* equippedMagic = role->UsingMagic;
-    Magic* normalMagic = equippedMagic ? equippedMagic : context.callbacks.selectNormalMagic(role);
-    Magic* ultimateMagic = equippedMagic ? equippedMagic : context.callbacks.selectUltimateMagic(role);
-    Role* target = context.callbacks.findNearestEnemy(role->Team, role->Pos);
+    const auto& action = requireActionSnapshot(context, role->ID);
+    Magic* normalMagic = equippedMagic ? equippedMagic : action.normalMagic;
+    Magic* ultimateMagic = equippedMagic ? equippedMagic : action.ultimateMagic;
+    Role* target = findSnapshotRole(context, action.nearestEnemyUnitId);
     if (!target)
     {
         role->Velocity = { 0, 0, 0 };
@@ -889,7 +936,7 @@ void populateCastPlanInputForRole(
         return;
     }
 
-    if (context.callbacks.movementDashFrames(role) > 0)
+    if (requireLegacyRoleSnapshot(*context.snapshot, role->ID).movementDashFrames > 0)
     {
         return;
     }
@@ -910,7 +957,7 @@ void populateCastPlanInputForRole(
             role->RealTowards.normTo(1);
             if (coreDecision.action == Battle::MovementAction::Dash)
             {
-                context.callbacks.beginMovementDash(role);
+                context.movementDashStartUnitIds.push_back(role->ID);
             }
             return;
         }
@@ -950,7 +997,7 @@ Battle::BattleFrameActionUnitState makeActionFrameUnitState(
         : context.config.actionRecoveryFrames;
     if (role->OperationType >= 0 && role->OperationType <= 3 && role->ActType >= 0)
     {
-        state.castFrame = context.callbacks.castFrame(role, role->ActType, role->OperationType);
+        state.castFrame = requireActionSnapshot(context, role->ID).castFrameByOperation[role->OperationType];
     }
     return state;
 }
@@ -961,9 +1008,10 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     const BattleActionFrameAdapterContext& context)
 {
     assert(role);
+    assert(context.snapshot);
 
     Battle::BattleBlinkGeometryInput geometry;
-    auto current = context.callbacks.toGrid(role->Pos.x, role->Pos.y);
+    auto current = requireLegacyRoleSnapshot(*context.snapshot, role->ID).grid;
     geometry.currentGridX = current.x;
     geometry.currentGridY = current.y;
 
@@ -976,7 +1024,7 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
             continue;
         }
 
-        auto targetPos45 = context.callbacks.toGrid(target->Pos.x, target->Pos.y);
+        auto targetPos45 = requireLegacyRoleSnapshot(*context.snapshot, target->ID).grid;
         for (int dx = -gridReach; dx <= gridReach; ++dx)
         {
             for (int dy = -gridReach; dy <= gridReach; ++dy)
@@ -995,7 +1043,7 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
                     {
                         continue;
                     }
-                    auto rolePos45 = context.callbacks.toGrid(other->Pos.x, other->Pos.y);
+                    auto rolePos45 = requireLegacyRoleSnapshot(*context.snapshot, other->ID).grid;
                     if (rolePos45.x == x && rolePos45.y == y)
                     {
                         occupied = true;
@@ -1006,8 +1054,8 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
                 geometry.cells.push_back({
                     x,
                     y,
-                    context.callbacks.toPosition(x, y),
-                    context.callbacks.canWalk(x, y),
+                    positionForCell(*context.snapshot, x, y, context.config.coordCount),
+                    cellWalkable(*context.snapshot, x, y),
                     occupied,
                 });
             }
@@ -1048,8 +1096,8 @@ void applyBlinkTeleportDelta(
     role->Velocity = { 0, 0, 0 };
     role->Acceleration = { 0, 0, context.config.gravity };
     role->FindingWay = 0;
-    context.callbacks.faceTowardsNearest(role);
     role->RealTowards = teleport.facing;
+    result.faceTowardsNearestUnitIds.push_back(role->ID);
     result.blinkSoundCount++;
 }
 
@@ -1172,7 +1220,7 @@ void applyBattleMovementPhysicsFrameResults(
 
 void populateBattleActionFrame(
     Battle::BattleFrameState& frameState,
-    const BattleActionFrameAdapterContext& context)
+    BattleActionFrameAdapterContext& context)
 {
     assert(context.roles);
     assert(context.pendingCastResults);
@@ -1221,7 +1269,7 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
             role->UsingMagic = magic;
             applyBattleCastStart(role, action.castResult, magic->MagicType);
             (*context.pendingCastResults)[role] = action.castResult;
-            context.callbacks.clearMovementDashSpread(role);
+            result.clearMovementDashSpreadUnitIds.push_back(role->ID);
         }
         else
         {
@@ -1290,7 +1338,7 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
         return result;
     }
 
-    auto* target = context.callbacks.findNearestEnemy(role->Team, role->Pos);
+    auto* target = findSnapshotRole(context, requireActionSnapshot(context, role->ID).nearestEnemyUnitId);
     if (!target)
     {
         return result;

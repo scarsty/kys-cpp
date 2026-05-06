@@ -590,12 +590,13 @@ Magic* BattleSceneHades::commitAutoUltimate(Role* role, bool consumeMP)
         return nullptr;
     }
 
+    auto snapshot = buildBattleFrameLegacySnapshot();
     auto selectedAction = commitBattleSelectedSkillAction(
         role,
         magic,
         true,
         -1,
-        makeBattleActionFrameAdapterContext());
+        makeBattleActionFrameAdapterContext(snapshot));
     for (int soundId : selectedAction.applyResult.attackSoundIds)
     {
         Audio::getInstance()->playASound(soundId);
@@ -1118,12 +1119,15 @@ void BattleSceneHades::queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnR
     pending_core_attack_spawns_.push_back(std::move(request));
 }
 
-BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterContext()
+BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterContext(
+    const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot)
 {
     BattleActionFrameAdapterContext context;
     context.roles = &battle_roles_;
+    context.snapshot = &snapshot;
     context.pendingCastResults = &pending_cast_results_;
-    context.comboStates = &KysChess::ChessCombo::getMutableStates();
+    assert(snapshot.comboStates);
+    context.comboStates = snapshot.comboStates;
     context.movementDecisions = &core_movement_decisions_;
     context.ultimateCasters = &ultCasters_;
     context.config.maxEffectiveBattleReach = MAX_EFFECTIVE_BATTLE_REACH;
@@ -1138,39 +1142,7 @@ BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterCo
     context.config.battleFrame = battle_frame_;
     context.config.gravity = gravity_;
     context.config.projectileBounceRange = static_cast<int>(PROJECTILE_BOUNCE_RANGE);
-    context.callbacks.findNearestEnemy = [this](int team, Pointf pos) { return findNearestEnemy(team, pos); };
-    context.callbacks.findFarthestEnemy = [this](int team, Pointf pos) { return findFarthestEnemy(team, pos); };
-    context.callbacks.selectNormalMagic = [this](Role* role) { return selectMagic(role, std::less<double>{}); };
-    context.callbacks.selectUltimateMagic = [this](Role* role) { return selectMagic(role, std::greater<double>{}); };
-    context.callbacks.castFrame = [this](Role* role, int actType, int operationType) { return calCast(actType, operationType, role); };
-    context.callbacks.forceRangedMagic = [this](Role* role) { return roleForcesRangedMagic(role); };
-    context.callbacks.forcedRangedMinSelectDistance = [this](Role* role) { return getForcedRangedMinSelectDistance(role); };
-    context.callbacks.projectileSpeedMultiplierPct = [this](Role* role) { return getProjectileSpeedMultiplierPct(role); };
-    context.callbacks.ultimateExtraProjectileCount = [this](Role* role) { return getUltimateExtraProjectileCount(role); };
-    context.callbacks.effectiveReach = [](Magic* magic, bool forceRanged, int forcedRangedMinSelectDistance, int projectileSpeedMultiplierPct)
-    {
-        return effectiveBattleReach(magic, forceRanged, forcedRangedMinSelectDistance, projectileSpeedMultiplierPct);
-    };
-    context.callbacks.rangedStyleMagic = [](Magic* magic, bool forceRanged) { return isRangedStyleMagic(magic, forceRanged); };
-    context.callbacks.blinkReach = [](Magic* magic) { return calcBlinkReach(magic); };
-    context.callbacks.randomInt = [this](int max) { return rand_.rand_int(max); };
-    context.callbacks.randomUnit = [this]() { return rand_.rand(); };
-    context.callbacks.movementDashFrames = [this](Role* role) { return movement_runtime_[role].movement_dash_frames; };
-    context.callbacks.beginMovementDash = [this](Role* role)
-    {
-        auto& movementRuntime = movement_runtime_[role];
-        if (movementRuntime.movement_dash_frames <= 0)
-        {
-            movementRuntime.movement_dash_frames = DASH_MOMENTUM_FRAMES;
-            movementRuntime.movement_dash_cooldown = MOVEMENT_DASH_COOLDOWN_FRAMES;
-            movementRuntime.movement_dash_spread_frames = 0;
-        }
-    };
-    context.callbacks.clearMovementDashSpread = [this](Role* role) { movement_runtime_[role].movement_dash_spread_frames = 0; };
-    context.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
-    context.callbacks.toPosition = [this](int x, int y) { return pos45To90(x, y); };
-    context.callbacks.canWalk = [this](int x, int y) { return canWalk45(x, y); };
-    context.callbacks.faceTowardsNearest = [this](Role* role) { setFaceTowardsNearest(role); };
+    context.config.coordCount = BATTLE_COORD_COUNT;
     return context;
 }
 
@@ -2584,9 +2556,10 @@ void BattleSceneHades::backRun1()
     if (input.shouldAdvance)
     {
         result.advanced = true;
-        auto actionContext = makeBattleActionFrameAdapterContext();
+        auto snapshot = buildBattleFrameLegacySnapshot();
+        auto actionContext = makeBattleActionFrameAdapterContext(snapshot);
         BattleMovementPhysicsFrameAdapterContext movementPhysicsContext;
-        auto bundle = buildCoreFrameBundle(actionContext, movementPhysicsContext);
+        auto bundle = buildCoreFrameBundle(snapshot, actionContext, movementPhysicsContext);
         auto frameResult = KysChess::Battle::BattleFrameRunner().advanceFrame(bundle.state);
         applyCoreFrameBundle(bundle, frameResult, actionContext, movementPhysicsContext);
     }
@@ -2654,6 +2627,62 @@ KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot BattleSceneHades::
         }
         snapshot.rolesByBattleId.emplace(role->ID, role);
         snapshot.roleSnapshots.push_back(std::move(roleSnapshot));
+
+        KysChess::BattleSceneBattleAdapter::BattleFrameLegacyActionUnitSnapshot actionSnapshot;
+        actionSnapshot.unitId = role->ID;
+        if (auto* nearest = findNearestEnemy(role->Team, role->Pos))
+        {
+            actionSnapshot.nearestEnemyUnitId = nearest->ID;
+        }
+        if (auto* farthest = findFarthestEnemy(role->Team, role->Pos))
+        {
+            actionSnapshot.farthestEnemyUnitId = farthest->ID;
+        }
+
+        auto* equippedMagic = role->UsingMagic;
+        actionSnapshot.normalMagic = equippedMagic ? equippedMagic : selectMagic(role, std::less<double>{});
+        actionSnapshot.ultimateMagic = equippedMagic ? equippedMagic : selectMagic(role, std::greater<double>{});
+        actionSnapshot.forceRangedMagic = roleForcesRangedMagic(role);
+        actionSnapshot.forcedRangedMinSelectDistance = getForcedRangedMinSelectDistance(role);
+        actionSnapshot.projectileSpeedMultiplierPct = getProjectileSpeedMultiplierPct(role);
+        actionSnapshot.ultimateExtraProjectileCount = getUltimateExtraProjectileCount(role);
+        if (actionSnapshot.normalMagic)
+        {
+            actionSnapshot.normalEffectiveReach = std::min(
+                effectiveBattleReach(
+                    actionSnapshot.normalMagic,
+                    actionSnapshot.forceRangedMagic,
+                    actionSnapshot.forcedRangedMinSelectDistance,
+                    actionSnapshot.projectileSpeedMultiplierPct),
+                MAX_EFFECTIVE_BATTLE_REACH);
+            actionSnapshot.normalRangedStyle = isRangedStyleMagic(
+                actionSnapshot.normalMagic,
+                actionSnapshot.forceRangedMagic);
+            actionSnapshot.normalBlinkReach = calcBlinkReach(actionSnapshot.normalMagic);
+        }
+        if (actionSnapshot.ultimateMagic)
+        {
+            actionSnapshot.ultimateEffectiveReach = std::min(
+                effectiveBattleReach(
+                    actionSnapshot.ultimateMagic,
+                    actionSnapshot.forceRangedMagic,
+                    actionSnapshot.forcedRangedMinSelectDistance,
+                    actionSnapshot.projectileSpeedMultiplierPct),
+                MAX_EFFECTIVE_BATTLE_REACH);
+            actionSnapshot.ultimateRangedStyle = isRangedStyleMagic(
+                actionSnapshot.ultimateMagic,
+                actionSnapshot.forceRangedMagic);
+            actionSnapshot.ultimateBlinkReach = calcBlinkReach(actionSnapshot.ultimateMagic);
+        }
+        for (int operationType = 0; operationType < static_cast<int>(actionSnapshot.castFrameByOperation.size()); ++operationType)
+        {
+            actionSnapshot.castFrameByOperation[operationType] = calCast(role->ActType, operationType, role);
+        }
+        actionSnapshot.randomUnitRolls = { rand_.rand(), rand_.rand() };
+        actionSnapshot.projectileBounceRoll = rand_.rand_int(100);
+        actionSnapshot.blinkRandomRoll = rand_.rand_int(std::numeric_limits<int>::max());
+        actionSnapshot.blinkCellRandomRoll = rand_.rand_int(std::numeric_limits<int>::max());
+        snapshot.actionsByUnitId.emplace(role->ID, actionSnapshot);
     }
 
     for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
@@ -2696,10 +2725,10 @@ KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot BattleSceneHades::
 }
 
 KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle BattleSceneHades::buildCoreFrameBundle(
+    const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot,
     BattleActionFrameAdapterContext& actionContext,
     BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
 {
-    auto snapshot = buildBattleFrameLegacySnapshot();
     assert(snapshot.comboStates);
     auto& comboStates = *snapshot.comboStates;
 
@@ -2779,6 +2808,17 @@ KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle BattleSceneHades::bui
     core_movement_decisions_.clear();
     core_movement_frame_ = battle_frame_;
     populateBattleActionFrame(bundle.state, actionContext);
+    for (int unitId : actionContext.movementDashStartUnitIds)
+    {
+        auto* role = findRoleByBattleId(battle_roles_, unitId);
+        auto& movementRuntime = movement_runtime_[role];
+        if (movementRuntime.movement_dash_frames <= 0)
+        {
+            movementRuntime.movement_dash_frames = DASH_MOMENTUM_FRAMES;
+            movementRuntime.movement_dash_cooldown = MOVEMENT_DASH_COOLDOWN_FRAMES;
+            movementRuntime.movement_dash_spread_frames = 0;
+        }
+    }
 
     for (size_t i = 0; i + 1 < bundle.state.attacks.attacks.size(); ++i)
     {
@@ -2891,6 +2931,14 @@ void BattleSceneHades::applyCoreFrameBundle(
     for (const auto& event : actionApply.presentationEvents)
     {
         presentation_recorder_.recordPresentation(event);
+    }
+    for (int unitId : actionApply.clearMovementDashSpreadUnitIds)
+    {
+        movement_runtime_[findRoleByBattleId(battle_roles_, unitId)].movement_dash_spread_frames = 0;
+    }
+    for (int unitId : actionApply.faceTowardsNearestUnitIds)
+    {
+        setFaceTowardsNearest(findRoleByBattleId(battle_roles_, unitId));
     }
     for (const auto& command : bundle.state.projectileCancel.committedCommands)
     {

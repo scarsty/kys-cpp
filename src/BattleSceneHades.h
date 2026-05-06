@@ -62,6 +62,7 @@ protected:
     SceneBattleFrameInput buildBattleFrameInput();
     KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot buildBattleFrameLegacySnapshot();
     KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle buildCoreFrameBundle(
+        const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot,
         KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
         KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
     void applyCoreFrameBundle(
@@ -113,7 +114,8 @@ protected:
     void applyCoreDamageTransactions(const KysChess::Battle::BattleFrameState& frameState);
     void applyCoreTeamEffectState(const KysChess::Battle::BattleFrameState& frameState);
     void applyCoreFrameApplications(const KysChess::Battle::BattleFrameState& frameState);
-    KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
+    KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext(
+        const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot);
     KysChess::Battle::BattleWorldState makeCoreMovementWorld(
         const KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot& snapshot);
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
