@@ -80,12 +80,12 @@ The exact helper names are not important. The important ownership rules are:
 - Modify: `src/BattleSceneHades.cpp`
 - Modify: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] Remove `BattleSceneFrameBundle::pendingPresentationEvents` from `src/BattleSceneBattleAdapter.h`.
-- [ ] Delete `TEST_CASE("BattleSceneFrameBundle_CarriesCoreStateAndAdapterApplicationFacts", "[battle][core]")` from `tests/BattleCoreUnitTests.cpp`.
-- [ ] Delete the unused declaration and definition of `BattleSceneHades::applyCoreStatusDamageState`.
-- [ ] Delete the unused declaration and definition of `BattleSceneHades::makeNoOpCoreWorld`.
-- [ ] Delete empty `BattleSceneHades::makeSpecialMagicEffect()` and its call from `BattleSceneHades::onEntrance()` if the call still targets only that empty function.
-- [ ] Run:
+- [x] Remove `BattleSceneFrameBundle::pendingPresentationEvents` from `src/BattleSceneBattleAdapter.h`.
+- [x] Delete `TEST_CASE("BattleSceneFrameBundle_CarriesCoreStateAndAdapterApplicationFacts", "[battle][core]")` from `tests/BattleCoreUnitTests.cpp`.
+- [x] Delete the unused declaration and definition of `BattleSceneHades::applyCoreStatusDamageState`.
+- [x] Delete the unused declaration and definition of `BattleSceneHades::makeNoOpCoreWorld`.
+- [x] Delete empty `BattleSceneHades::makeSpecialMagicEffect()` and its call from `BattleSceneHades::onEntrance()` if the call still targets only that empty function.
+- [x] Run:
 
 ```powershell
 rg -n "pendingPresentationEvents|applyCoreStatusDamageState|makeNoOpCoreWorld|makeSpecialMagicEffect" src tests
@@ -95,7 +95,7 @@ x64\Debug\kys_tests.exe "[battle][core]"
 
 Expected: the search returns no matches, the test target builds, and core tests pass.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\BattleSceneBattleAdapter.h src\BattleSceneHades.h src\BattleSceneHades.cpp tests\BattleCoreUnitTests.cpp
@@ -112,7 +112,7 @@ git commit -m "refactor: delete stale battle frame migration code"
 - Modify: `src/BattleSceneHades.h`
 - Modify: `src/BattleSceneHades.cpp`
 
-- [ ] Add snapshot structs to `src/BattleSceneBattleAdapter.h`:
+- [x] Add snapshot structs to `src/BattleSceneBattleAdapter.h`:
 
 ```cpp
 struct BattleFrameLegacyRoleSnapshot
@@ -143,13 +143,13 @@ struct BattleFrameLegacySnapshot
 };
 ```
 
-- [ ] Add this declaration to `BattleSceneHades`:
+- [x] Add this declaration to `BattleSceneHades`:
 
 ```cpp
 KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot buildBattleFrameLegacySnapshot();
 ```
 
-- [ ] Implement `BattleSceneHades::buildBattleFrameLegacySnapshot()` by:
+- [x] Implement `BattleSceneHades::buildBattleFrameLegacySnapshot()` by:
   - copying `battle_frame_`;
   - copying `battle_roles_` into `snapshot.roles`;
   - setting `snapshot.comboStates = &KysChess::ChessCombo::getMutableStates()`;
@@ -157,7 +157,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameLegacySnapshot buildBattleFrameLe
   - filling `roleSnapshots` with each role's battle id, grid from `pos90To45`, alive flag, and movement runtime values;
   - filling `grid.rescueCells` and `grid.movementCells` in one nested `BATTLE_COORD_COUNT` loop.
 
-- [ ] Change `buildCoreFrameBundle()` to start with:
+- [x] Change `buildCoreFrameBundle()` to start with:
 
 ```cpp
 auto snapshot = buildBattleFrameLegacySnapshot();
@@ -165,7 +165,7 @@ auto snapshot = buildBattleFrameLegacySnapshot();
 
 Then use `snapshot.rolesByBattleId` to initialize `bundle.rolesByBattleId`, and use `*snapshot.comboStates` instead of repeatedly calling `ChessCombo::getMutableStates()` inside that method.
 
-- [ ] Run:
+- [x] Run:
 
 ```powershell
 rg -n "ChessCombo::getMutableStates\(\)" src\BattleSceneHades.cpp
@@ -175,7 +175,7 @@ x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core]"
 
 Expected: build/tests pass. The search may still find legitimate apply-side combo writes, but `buildCoreFrameBundle()` should no longer call `ChessCombo::getMutableStates()` more than once through snapshot construction.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\BattleSceneBattleAdapter.h src\BattleSceneHades.h src\BattleSceneHades.cpp
@@ -192,26 +192,26 @@ git commit -m "refactor: capture battle frame legacy snapshot"
 - Modify: `src/BattleSceneBattleAdapter.cpp`
 - Modify: `src/BattleSceneHades.cpp`
 
-- [ ] Delete `BattleRescueFrameAdapterCallbacks` from `src/BattleSceneBattleAdapter.h`.
-- [ ] Change `BattleRescueFrameAdapterContext` to hold explicit positions:
+- [x] Delete `BattleRescueFrameAdapterCallbacks` from `src/BattleSceneBattleAdapter.h`.
+- [x] Change `BattleRescueFrameAdapterContext` to hold explicit positions:
 
 ```cpp
 std::map<std::pair<int, int>, Pointf> positionsByCell;
 ```
 
-- [ ] Update `populateBattleFrameRescueState()` to use `context.positionsByCell` and each `BattleFrameLegacyRoleSnapshot::grid` value instead of `context.callbacks.toGrid` and `context.callbacks.toPosition`.
-- [ ] Delete `toGrid` and `toPosition` callback assignment from the rescue section of `buildCoreFrameBundle()`.
-- [ ] Delete `BattleMovementPhysicsFrameAdapterCallbacks` from `src/BattleSceneBattleAdapter.h`.
-- [ ] Change `BattleMovementPhysicsFrameAdapterContext` to hold:
+- [x] Update `populateBattleFrameRescueState()` to use `context.positionsByCell` and each `BattleFrameLegacyRoleSnapshot::grid` value instead of `context.callbacks.toGrid` and `context.callbacks.toPosition`.
+- [x] Delete `toGrid` and `toPosition` callback assignment from the rescue section of `buildCoreFrameBundle()`.
+- [x] Delete `BattleMovementPhysicsFrameAdapterCallbacks` from `src/BattleSceneBattleAdapter.h`.
+- [x] Change `BattleMovementPhysicsFrameAdapterContext` to hold:
 
 ```cpp
 const BattleFrameLegacySnapshot* snapshot = nullptr;
 std::vector<Battle::BattleMovementPhysicsCellSnapshot> cells;
 ```
 
-- [ ] Update `populateBattleMovementPhysicsFrame()` to read movement runtime values and cells from `context.snapshot`/`context.cells`, not callback functions.
-- [ ] Move movement-dash runtime application out of `applyBattleMovementPhysicsFrameResults()` callback use and into `BattleSceneHades::applyCoreFrameBundle()` by directly writing `movement_runtime_[role]`.
-- [ ] Run:
+- [x] Update `populateBattleMovementPhysicsFrame()` to read movement runtime values and cells from `context.snapshot`/`context.cells`, not callback functions.
+- [x] Move movement-dash runtime application out of `applyBattleMovementPhysicsFrameResults()` callback use and into `BattleSceneHades::applyCoreFrameBundle()` by directly writing `movement_runtime_[role]`.
+- [x] Run:
 
 ```powershell
 rg -n "BattleRescueFrameAdapterCallbacks|BattleMovementPhysicsFrameAdapterCallbacks|callbacks\.toGrid|callbacks\.toPosition|callbacks\.canWalk|callbacks\.movementDashFrames|callbacks\.movementDashCooldown|callbacks\.movementDashSpreadFrames|callbacks\.setMovementDashRuntime" src\BattleSceneHades.cpp src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h
@@ -221,7 +221,7 @@ x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][movement],[battle
 
 Expected: callback search returns no rescue/movement build callback matches, and focused tests pass.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\BattleSceneBattleAdapter.h src\BattleSceneBattleAdapter.cpp src\BattleSceneHades.cpp
@@ -239,7 +239,7 @@ git commit -m "refactor: populate rescue and movement from frame snapshot"
 - Modify: `src/BattleSceneHades.h`
 - Modify: `src/BattleSceneHades.cpp`
 
-- [ ] Add action snapshot structs to `src/BattleSceneBattleAdapter.h`:
+- [x] Add action snapshot structs to `src/BattleSceneBattleAdapter.h`:
 
 ```cpp
 struct BattleFrameLegacyActionUnitSnapshot
@@ -267,13 +267,13 @@ struct BattleFrameLegacyActionUnitSnapshot
 };
 ```
 
-- [ ] Add this field to `BattleFrameLegacySnapshot`:
+- [x] Add this field to `BattleFrameLegacySnapshot`:
 
 ```cpp
 std::unordered_map<int, BattleFrameLegacyActionUnitSnapshot> actionsByUnitId;
 ```
 
-- [ ] In `buildBattleFrameLegacySnapshot()`, fill one `BattleFrameLegacyActionUnitSnapshot` per role using existing scene methods:
+- [x] In `buildBattleFrameLegacySnapshot()`, fill one `BattleFrameLegacyActionUnitSnapshot` per role using existing scene methods:
   - `findNearestEnemy`;
   - `findFarthestEnemy`;
   - `selectMagic`;
@@ -287,14 +287,14 @@ std::unordered_map<int, BattleFrameLegacyActionUnitSnapshot> actionsByUnitId;
   - `calCast`;
   - `rand_.rand()` and `rand_.rand_int(...)`.
 
-- [ ] Delete `BattleActionFrameAdapterCallbacks` from `src/BattleSceneBattleAdapter.h`.
-- [ ] Change `BattleActionFrameAdapterContext` to hold:
+- [x] Delete `BattleActionFrameAdapterCallbacks` from `src/BattleSceneBattleAdapter.h`.
+- [x] Change `BattleActionFrameAdapterContext` to hold:
 
 ```cpp
 const BattleFrameLegacySnapshot* snapshot = nullptr;
 ```
 
-- [ ] Update these adapter functions to use `context.snapshot->actionsByUnitId.at(role->ID)` instead of callbacks:
+- [x] Update these adapter functions to use `context.snapshot->actionsByUnitId.at(role->ID)` instead of callbacks:
   - `makeActionFrameSkillInput`;
   - `rollDashHitCount`;
   - `captureActionComboState`;
@@ -305,8 +305,8 @@ const BattleFrameLegacySnapshot* snapshot = nullptr;
   - `applyBlinkTeleportDelta`;
   - `commitBattleSelectedSkillAction`.
 
-- [ ] Keep legacy application effects explicit. For example, replace `context.callbacks.faceTowardsNearest(role)` by returning a committed facing delta or calling a scene-owned apply helper after adapter returns.
-- [ ] Run:
+- [x] Keep legacy application effects explicit. For example, replace `context.callbacks.faceTowardsNearest(role)` by returning a committed facing delta or calling a scene-owned apply helper after adapter returns.
+- [x] Run:
 
 ```powershell
 rg -n "BattleActionFrameAdapterCallbacks|callbacks\." src\BattleSceneHades.cpp src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h
@@ -316,7 +316,7 @@ x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core],[battle][pr
 
 Expected: no action callback type or `callbacks.` usage remains in the frame-build adapter path. Focused tests pass.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\BattleSceneBattleAdapter.h src\BattleSceneBattleAdapter.cpp src\BattleSceneHades.h src\BattleSceneHades.cpp
@@ -334,7 +334,7 @@ git commit -m "refactor: populate battle actions from frame snapshot"
 - Modify: `src/BattleSceneBattleAdapter.h`
 - Modify: `src/BattleSceneBattleAdapter.cpp`
 
-- [ ] Add a local helper in `BattleSceneHades.cpp` near frame application:
+- [x] Add a local helper in `BattleSceneHades.cpp` near frame application:
 
 ```cpp
 Role* requireFrameRole(
@@ -348,10 +348,10 @@ Role* requireFrameRole(
 }
 ```
 
-- [ ] Replace `findRoleByBattleId(battle_roles_, ...)` inside `applyCoreFrameBundle()`, `applyCoreStatusState()`, `applyCoreDamageTransactions()`, `applyCoreTeamEffectState()`, `applyCoreFrameApplications()`, and `applyCoreMovementSnapshot()` with `requireFrameRole(...)` where a frame bundle is available.
-- [ ] If a helper does not currently accept the bundle, change the signature to accept `const BattleSceneFrameBundle& bundle` instead of only `const BattleFrameState& frameState`.
-- [ ] Do not change non-frame UI or setup code in this task.
-- [ ] Run:
+- [x] Replace `findRoleByBattleId(battle_roles_, ...)` inside `applyCoreFrameBundle()`, `applyCoreStatusState()`, `applyCoreDamageTransactions()`, `applyCoreTeamEffectState()`, `applyCoreFrameApplications()`, and `applyCoreMovementSnapshot()` with `requireFrameRole(...)` where a frame bundle is available.
+- [x] If a helper does not currently accept the bundle, change the signature to accept `const BattleSceneFrameBundle& bundle` instead of only `const BattleFrameState& frameState`.
+- [x] Do not change non-frame UI or setup code in this task.
+- [x] Run:
 
 ```powershell
 rg -n "findRoleByBattleId\(battle_roles_," src\BattleSceneHades.cpp
@@ -361,7 +361,7 @@ x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core],[battle][pr
 
 Expected: any remaining search matches are outside frame build/apply helpers and are listed in the task verification note before commit.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\BattleSceneHades.cpp src\BattleSceneHades.h src\BattleSceneBattleAdapter.h src\BattleSceneBattleAdapter.cpp
@@ -376,7 +376,7 @@ git commit -m "refactor: apply battle frame through captured role lookup"
 
 - Modify: `docs/battle_scene_hades_frame_world_cleanup_plan.md`
 
-- [ ] Run:
+- [x] Run:
 
 ```powershell
 git diff --check
@@ -385,7 +385,7 @@ x64\Debug\kys_tests.exe
 .github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys -Verbosity minimal
 ```
 
-- [ ] Run boundary searches:
+- [x] Run boundary searches:
 
 ```powershell
 rg -n "std::function|callbacks\." src\BattleSceneBattleAdapter.h src\BattleSceneBattleAdapter.cpp src\BattleSceneHades.cpp
@@ -401,8 +401,8 @@ Expected:
 - scene/adapter still do not call backend gameplay systems directly;
 - `src\battle` still has no legacy/render dependencies.
 
-- [ ] Record exact verification output in `## Verification Log`.
-- [ ] Commit:
+- [x] Record exact verification output in `## Verification Log`.
+- [x] Commit:
 
 ```powershell
 git add docs\battle_scene_hades_frame_world_cleanup_plan.md
@@ -412,3 +412,10 @@ git commit -m "docs: record battle frame world cleanup verification"
 ## Verification Log
 
 - 2026-05-06 plan created after `76e7dc3 docs: record battle backend exit verification` on `codex/battle-backend-exit-breakthrough`. The plan intentionally prioritizes callback removal and snapshot ownership over cosmetic method extraction.
+- 2026-05-06 Task 0 committed as `c4c1ab2 refactor: delete stale battle frame migration code`. Verification: `rg -n "pendingPresentationEvents|applyCoreStatusDamageState|makeNoOpCoreWorld|makeSpecialMagicEffect" src tests` returned no matches; `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal` exited with `MSBuild exited with code 0`; `x64\Debug\kys_tests.exe "[battle][core]"` passed 423 assertions in 51 test cases.
+- 2026-05-06 Task 1 committed as `ed93d70 refactor: capture battle frame legacy snapshot`. Verification: `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal` exited with `MSBuild exited with code 0`; `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core]"` passed 423 assertions in 51 test cases.
+- 2026-05-06 Task 2 committed as `c2ecb1d refactor: populate rescue and movement from frame snapshot`. Verification: rescue/movement callback search returned no matches; `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal` exited with `MSBuild exited with code 0`; `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][movement],[battle][rescue_reposition][unit]"` passed 2893 assertions in 22 test cases.
+- 2026-05-06 Task 3 committed as `b192905 refactor: populate battle actions from frame snapshot`. Verification: `rg -n "BattleActionFrameAdapterCallbacks|callbacks\." src\BattleSceneHades.cpp src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h` returned no matches; `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal` exited with `MSBuild exited with code 0`; `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core],[battle][presentation]"` passed 530 assertions in 62 test cases; `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys -Verbosity minimal` exited with `MSBuild exited with code 0`.
+- 2026-05-06 Task 4 committed as `5523742 refactor: apply battle frame through captured role lookup`. Verification: `git diff --check` returned no output; `rg -n "findRoleByBattleId\(battle_roles_," src\BattleSceneHades.cpp` returned only presentation/setup matches at `src\BattleSceneHades.cpp:996` and `src\BattleSceneHades.cpp:1127`; `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal` exited with `MSBuild exited with code 0`; `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core],[battle][presentation]"` passed 530 assertions in 62 test cases; `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys -Verbosity minimal` exited with `MSBuild exited with code 0`.
+- 2026-05-06 Final coupling cleanup committed as `1c7124f refactor: return battle lifecycle apply facts`. Verification: `git diff --check` returned no output; `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal` exited with `MSBuild exited with code 0`; `x64\Debug\kys_tests.exe` passed 4670 assertions in 246 test cases; `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys -Verbosity minimal` exited with `MSBuild exited with code 0`.
+- 2026-05-06 Final boundary searches after `1c7124f`: `rg -n "std::function|callbacks\." src\BattleSceneBattleAdapter.h src\BattleSceneBattleAdapter.cpp src\BattleSceneHades.cpp` returned no matches; `rg -n "BattleFrameRunner\(\)\.advanceFrame" src\BattleSceneHades.cpp` returned `src\BattleSceneHades.cpp:2573:        auto frameResult = KysChess::Battle::BattleFrameRunner().advanceFrame(bundle.state);`; `rg -n "BattleDamageApplicationSystem|BattleRescueRepositionSystem|BattleMovementPhysicsSystem|BattleHitResolver|BattleActionCommitSystem|BattleCastPlanner|BattleTeamEffectSystem|BattleComboTriggerSystem|BattleEffectDispatcher" src\BattleSceneHades.cpp src\BattleSceneHades.h src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h` returned no matches; `rg -n "Role\*|Magic\*|Item\*|Engine|TextureManager|Font|Scene" src\battle` returned no matches.
