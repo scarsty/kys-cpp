@@ -745,6 +745,41 @@ const BattleTeamEffectUnit* findTeamEffectUnit(const BattleTeamEffectWorld& worl
     return it != world.units.end() ? &*it : nullptr;
 }
 
+void syncTeamEffectUnit(BattleRuntimeState& state, const BattleDamageUnitState& source)
+{
+    if (auto* unit = findTeamEffectUnit(state.teamEffects.world, source.id))
+    {
+        unit->alive = source.alive;
+        unit->hp = source.hp;
+        unit->maxHp = source.maxHp;
+        unit->mp = source.mp;
+        unit->maxMp = source.maxMp;
+        unit->shield = source.shield;
+        unit->mpBlocked = source.mpBlocked;
+        unit->mpRecoveryBonusPct = source.mpRecoveryBonusPct;
+    }
+}
+
+void syncTeamEffectPosition(BattleRuntimeState& state, int unitId, Pointf position)
+{
+    if (auto* unit = findTeamEffectUnit(state.teamEffects.world, unitId))
+    {
+        unit->x = position.x;
+        unit->y = position.y;
+    }
+}
+
+void syncTeamEffectStatus(BattleRuntimeState& state, const BattleStatusUnitState& source)
+{
+    if (auto* unit = findTeamEffectUnit(state.teamEffects.world, source.id))
+    {
+        unit->alive = source.alive;
+        unit->hp = source.hp;
+        unit->maxHp = source.maxHp;
+        unit->mpBlocked = source.mpBlockTimer > 0;
+    }
+}
+
 BattleFrameRescueUnitSnapshot* findRescueUnit(std::vector<BattleFrameRescueUnitSnapshot>& units, int unitId)
 {
     auto it = std::find_if(units.begin(), units.end(), [&](const BattleFrameRescueUnitSnapshot& unit)
@@ -902,6 +937,8 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
     {
         defender->alive = transaction.defender.alive;
     }
+    syncTeamEffectUnit(state, transaction.attacker);
+    syncTeamEffectUnit(state, transaction.defender);
     if (auto* status = findStatusUnit(state.status.units, transaction.defender.id))
     {
         *status = transaction.defenderStatus;
@@ -948,6 +985,7 @@ void syncRescuePosition(BattleRuntimeState& state, int unitId, Pointf position)
     {
         worldUnit->position = position;
     }
+    syncTeamEffectPosition(state, unitId, position);
     auto attackUnitIt = std::find_if(
         state.attacks.units.begin(),
         state.attacks.units.end(),
@@ -1893,6 +1931,10 @@ void advanceStatus(BattleRuntimeState& state)
         state.status.events.end(),
         statusTick.events.begin(),
         statusTick.events.end());
+    for (const auto& unit : state.status.units)
+    {
+        syncTeamEffectStatus(state, unit);
+    }
 
     for (const auto& event : statusTick.events)
     {
@@ -2224,6 +2266,7 @@ void advanceMovementPhysics(BattleRuntimeState& state)
             unit->position = result.state.position;
             unit->velocity = result.state.velocity;
         }
+        syncTeamEffectPosition(state, input.unitId, result.state.position);
         auto collisionIt = std::find_if(
             state.movementPhysics.collision.units.begin(),
             state.movementPhysics.collision.units.end(),

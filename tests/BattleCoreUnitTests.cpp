@@ -1519,6 +1519,73 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
     CHECK(result.commands.empty());
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_SyncsTeamEffectWorldFromDamage", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 1, { 120, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.damage.aggregatePendingTransactionsByDefender = true;
+    state.teamEffects.world.units = {
+        adapterTeamEffectUnit(1, 0, 100, 10),
+        adapterTeamEffectUnit(2, 1, 10, 20),
+    };
+    state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
+
+    BattleFrameRunner().runFrame(state);
+
+    const auto& defender = teamEffectUnitById(state.teamEffects.world, 2);
+    CHECK(defender.hp == 0);
+    CHECK_FALSE(defender.alive);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_SyncsTeamEffectWorldFromMovementPhysics", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 1, { 220, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.teamEffects.world.units = {
+        adapterTeamEffectUnit(1, 0, 100, 10),
+        adapterTeamEffectUnit(2, 1, 100, 20),
+    };
+    state.teamEffects.world.units[0].x = 100.0;
+    state.teamEffects.world.units[0].y = 100.0;
+    state.movementPhysics.config.gravity = 0.0f;
+    state.movementPhysics.config.friction = 0.0f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.collision.tileWidth = SceneTileWidth;
+    state.movementPhysics.collision.coordCount = 20;
+    state.movementPhysics.collision.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.collision.units = {
+        { 1, true, { 100, 100, 0 } },
+        { 2, true, { 220, 100, 0 } },
+    };
+    for (int x = -20; x < 20; ++x)
+    {
+        for (int y = -20; y < 20; ++y)
+        {
+            state.movementPhysics.collision.cells.push_back({ x, y, true });
+        }
+    }
+    state.movementPhysics.units.push_back({
+        1,
+        0,
+        false,
+        { { 100, 100, 0 }, { 5, 0, 0 }, { 0, 0, 0 }, 0, 0, 0 },
+    });
+
+    BattleFrameRunner().runFrame(state);
+
+    const auto& moved = teamEffectUnitById(state.teamEffects.world, 1);
+    CHECK(moved.x == 105.0);
+    CHECK(moved.y == 100.0);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesDeathAoeToPendingProjectileSpawn", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;

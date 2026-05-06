@@ -58,6 +58,7 @@ using KysChess::BattleSceneBattleAdapter::resolveBattleMagicBaseDamage;
 using KysChess::BattleSceneBattleAdapter::writeBattleCooldownState;
 using KysChess::BattleSceneBattleAdapter::writeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::writeBattleStatusUnit;
+using KysChess::BattleSceneBattleAdapter::writeBattleTeamEffectRoleRuntimeFields;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
@@ -1103,6 +1104,9 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     battleRuntime().world.config = makeCoreMovementConfig();
     configureBattleAttackWorld(battleRuntime().attacks);
     battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
+    battleRuntime().teamEffects.world = makeBattleTeamEffectWorld(
+        battle_roles_,
+        KysChess::ChessCombo::getMutableStates());
     auto* basicMagic = Save::getInstance()->getMagic(1);
     assert(basicMagic);
     battleRuntime().rescue.executeUnattendedRadius = TILE_W * 3.0;
@@ -2723,7 +2727,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().damage.aggregatePendingTransactionsByDefender = true;
 
     battleRuntime().combo.units = comboStates;
-    battleRuntime().teamEffects.world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
     battleRuntime().effects.world = makeBattleEffectWorld(battle_roles_, comboStates);
 
     for (auto role : battle_roles_)
@@ -2865,6 +2868,7 @@ void BattleSceneHades::applyCoreFrameResult(
         {
             changeRoleMP(role, runtimeUnitResult.result.mpDelta);
         }
+        writeBattleTeamEffectRoleRuntimeFields(battleRuntime().teamEffects.world, role);
     }
 
     comboStates = battleRuntime().combo.units;
@@ -3881,6 +3885,7 @@ void BattleSceneHades::applyCoreDamageTransactions(
             hurt_flash_timers_[r->ID] = HURT_FLASH_DURATION;
             double mpGain = static_cast<double>(committedHpDamage) / r->MaxHP * 75.0;
             changeRoleMP(r, mpGain);
+            writeBattleTeamEffectRoleRuntimeFields(battleRuntime().teamEffects.world, r);
         }
 
         if (diedUnitIds.find(r->ID) != diedUnitIds.end())

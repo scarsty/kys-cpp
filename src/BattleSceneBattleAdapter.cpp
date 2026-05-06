@@ -225,6 +225,27 @@ void configureBattleAttackWorld(Battle::BattleAttackWorld& world)
     world.spendNonThroughOnHit = false;
 }
 
+Battle::BattleTeamEffectUnit makeBattleTeamEffectUnit(Role* role, const RoleComboState& state)
+{
+    assert(role);
+
+    Battle::BattleTeamEffectUnit unit;
+    unit.id = role->ID;
+    unit.team = role->Team;
+    unit.alive = role->Dead == 0;
+    unit.hp = role->HP;
+    unit.maxHp = role->MaxHP;
+    unit.mp = role->MP;
+    unit.maxMp = GameUtil::MAX_MP;
+    unit.cooldown = role->CoolDown;
+    unit.shield = state.shield;
+    unit.mpBlocked = state.mpBlockTimer > 0;
+    unit.mpRecoveryBonusPct = state.mpRecoveryBonusPct;
+    unit.x = role->Pos.x;
+    unit.y = role->Pos.y;
+    return unit;
+}
+
 Battle::BattleTeamEffectWorld makeBattleTeamEffectWorld(
     const std::vector<Role*>& roles,
     const std::map<int, RoleComboState>& states)
@@ -236,23 +257,24 @@ Battle::BattleTeamEffectWorld makeBattleTeamEffectWorld(
         auto stateIt = states.find(role->ID);
         assert(stateIt != states.end());
 
-        Battle::BattleTeamEffectUnit unit;
-        unit.id = role->ID;
-        unit.team = role->Team;
-        unit.alive = role->Dead == 0;
-        unit.hp = role->HP;
-        unit.maxHp = role->MaxHP;
-        unit.mp = role->MP;
-        unit.maxMp = GameUtil::MAX_MP;
-        unit.cooldown = role->CoolDown;
-        unit.shield = stateIt->second.shield;
-        unit.mpBlocked = stateIt->second.mpBlockTimer > 0;
-        unit.mpRecoveryBonusPct = stateIt->second.mpRecoveryBonusPct;
-        unit.x = role->Pos.x;
-        unit.y = role->Pos.y;
-        world.units.push_back(unit);
+        world.units.push_back(makeBattleTeamEffectUnit(role, stateIt->second));
     }
     return world;
+}
+
+void writeBattleTeamEffectRoleRuntimeFields(Battle::BattleTeamEffectWorld& world, Role* role)
+{
+    assert(role);
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const Battle::BattleTeamEffectUnit& unit)
+        {
+            return unit.id == role->ID;
+        });
+    assert(it != world.units.end());
+    it->mp = role->MP;
+    it->maxMp = GameUtil::MAX_MP;
+    it->cooldown = role->CoolDown;
+    it->x = role->Pos.x;
+    it->y = role->Pos.y;
 }
 
 const Battle::BattleTeamEffectUnit& findBattleTeamEffectUnit(

@@ -200,9 +200,11 @@ void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, in
 void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result);
 
 void configureBattleAttackWorld(Battle::BattleAttackWorld& world);
+Battle::BattleTeamEffectUnit makeBattleTeamEffectUnit(Role* role, const RoleComboState& state);
 Battle::BattleTeamEffectWorld makeBattleTeamEffectWorld(
     const std::vector<Role*>& roles,
     const std::map<int, RoleComboState>& states);
+void writeBattleTeamEffectRoleRuntimeFields(Battle::BattleTeamEffectWorld& world, Role* role);
 const Battle::BattleTeamEffectUnit& findBattleTeamEffectUnit(
     const Battle::BattleTeamEffectWorld& world,
     int unitId);
