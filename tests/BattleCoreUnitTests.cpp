@@ -820,24 +820,6 @@ TEST_CASE("BattleFrameState_ComposesHeadlessRuntimeStateForFullFrameRunner", "[b
     CHECK(state.result.winningTeam == -1);
 }
 
-TEST_CASE("BattleSceneFrameBundle_CarriesCoreStateAndAdapterApplicationFacts", "[battle][core]")
-{
-    KysChess::BattleSceneBattleAdapter::BattleSceneFrameBundle bundle;
-
-    bundle.state.world.frame = 9;
-    bundle.rolesByBattleId.emplace(7, nullptr);
-    BattlePresentationEvent event;
-    event.type = BattlePresentationEventType::StatusLog;
-    event.sourceUnitId = 7;
-    event.text = "adapter fact";
-    bundle.pendingPresentationEvents.push_back(event);
-
-    CHECK(bundle.state.world.frame == 9);
-    REQUIRE(bundle.rolesByBattleId.contains(7));
-    REQUIRE(bundle.pendingPresentationEvents.size() == 1);
-    CHECK(bundle.pendingPresentationEvents[0].sourceUnitId == 7);
-}
-
 TEST_CASE("BattleCore_AppliesTeamEffectGameplayCommands", "[battle][core]")
 {
     BattleTeamEffectWorld world;

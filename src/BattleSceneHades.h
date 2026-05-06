@@ -95,7 +95,6 @@ protected:
     KysChess::Battle::BattleProjectileFollowUpContext makeCoreProjectileFollowUpContext() const;
 
 
-    void makeSpecialMagicEffect();
     void runPositionSwapLoop();
     void runListBasedSwap();
     bool isManualCameraEnabled() const;
@@ -110,12 +109,10 @@ protected:
     void populateCoreStatusState(KysChess::Battle::BattleFrameState& frameState);
     void applyCoreStatusState(const KysChess::Battle::BattleFrameState& frameState);
     void populateCoreStatusDamageState(KysChess::Battle::BattleFrameState& frameState);
-    void applyCoreStatusDamageState(const KysChess::Battle::BattleFrameState& frameState);
     void applyCoreDamageTransactions(const KysChess::Battle::BattleFrameState& frameState);
     void applyCoreTeamEffectState(const KysChess::Battle::BattleFrameState& frameState);
     void applyCoreFrameApplications(const KysChess::Battle::BattleFrameState& frameState);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
-    KysChess::Battle::BattleWorldState makeNoOpCoreWorld() const;
     KysChess::Battle::BattleWorldState makeCoreMovementWorld(std::unordered_map<int, Role*>& rolesByBattleId);
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(Role* role, const MovementRuntime* movementRuntime);

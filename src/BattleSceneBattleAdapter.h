@@ -56,7 +56,6 @@ struct BattleSceneFrameBundle
 {
     Battle::BattleFrameState state;
     std::unordered_map<int, Role*> rolesByBattleId;
-    std::vector<Battle::BattlePresentationEvent> pendingPresentationEvents;
 };
 
 struct BattleFrameHitAdapterInput

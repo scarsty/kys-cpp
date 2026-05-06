@@ -753,7 +753,6 @@ BattleSceneHades::BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::
         h->setVisible(false);
         addChild(h);
     }
-    makeSpecialMagicEffect();
 }
 
 BattleSceneHades::BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager) :
@@ -3468,10 +3467,6 @@ int BattleSceneHades::calRolePic(Role* r, int style, int frame)
     return r->FaceTowards;
 }
 
-void BattleSceneHades::makeSpecialMagicEffect()
-{
-}
-
 void BattleSceneHades::populateCoreHitState(KysChess::Battle::BattleFrameState& frameState)
 {
     populateBattleFrameHitUnits(frameState, battle_roles_);
@@ -3723,52 +3718,6 @@ void BattleSceneHades::populateCoreStatusDamageState(KysChess::Battle::BattleFra
                 });
         }
     }
-}
-
-void BattleSceneHades::applyCoreStatusDamageState(const KysChess::Battle::BattleFrameState& frameState)
-{
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
-    size_t transactionIndex = 0;
-    for (const auto& event : frameState.status.events)
-    {
-        if (event.type == KysChess::Battle::BattleStatusEventType::InvincibilityGranted)
-        {
-            auto target = findRoleByBattleId(battle_roles_, event.unitId);
-            recordStatusLogPresentation(target, target, formatStatusFrames("週期免傷", event.value));
-            continue;
-        }
-        if (event.type == KysChess::Battle::BattleStatusEventType::TempAttackExpired)
-        {
-            continue;
-        }
-
-        assert(event.type == KysChess::Battle::BattleStatusEventType::PoisonDamage
-            || event.type == KysChess::Battle::BattleStatusEventType::BleedDamage);
-        assert(transactionIndex < frameState.damage.committedTransactions.size());
-        const auto& transaction = frameState.damage.committedTransactions[transactionIndex++];
-        auto* source = findOptionalRoleByBattleId(battle_roles_, event.sourceUnitId);
-        auto* target = findRoleByBattleId(battle_roles_, event.unitId);
-        auto sourceStateIt = comboStates.find(transaction.attacker.id);
-        writeBattleDamageUnit(
-            source,
-            sourceStateIt != comboStates.end() ? &sourceStateIt->second : nullptr,
-            transaction.attacker);
-        auto targetStateIt = comboStates.find(transaction.defender.id);
-        writeBattleDamageUnit(
-            target,
-            targetStateIt != comboStates.end() ? &targetStateIt->second : nullptr,
-            transaction.defender);
-        writeBattleCooldownState(target, transaction.defenderCooldown);
-
-        const bool poison = event.type == KysChess::Battle::BattleStatusEventType::PoisonDamage;
-        recordDamageNumberPresentation(
-            target,
-            transaction.finalHpDamage,
-            poison ? poisonDamageTextColor() : bleedDamageTextColor(),
-            NORMAL_DAMAGE_TEXT_SIZE);
-        recordDamageLogPresentation(source, target, transaction.finalHpDamage, "", poison ? "中毒" : "流血");
-    }
-    assert(transactionIndex == frameState.damage.committedTransactions.size());
 }
 
 void BattleSceneHades::applyCoreDamageTransactions(const KysChess::Battle::BattleFrameState& frameState)
@@ -4037,15 +3986,6 @@ void BattleSceneHades::applyCoreFrameApplications(const KysChess::Battle::Battle
             rumble.highFrequency,
             rumble.durationMs);
     }
-}
-
-KysChess::Battle::BattleWorldState BattleSceneHades::makeNoOpCoreWorld() const
-{
-    KysChess::Battle::BattleWorldState world;
-    world.frame = battle_frame_;
-    world.config = makeCoreMovementConfig();
-    world.canStandAt = [](Pointf) { return true; };
-    return world;
 }
 
 KysChess::Battle::BattleWorldState BattleSceneHades::makeCoreMovementWorld(std::unordered_map<int, Role*>& rolesByBattleId)
