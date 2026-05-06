@@ -227,6 +227,7 @@ Battle::BattleCastInput makeBattleCastInput(const BattleCastAdapterInput& input)
 void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, int actType);
 void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result);
 
+void configureBattleAttackWorld(Battle::BattleAttackWorld& world);
 Battle::BattleAttackWorld makeBattleAttackWorld(
     const std::vector<Role*>& roles,
     const Battle::BattleAttackWorld& activeWorld);

@@ -215,17 +215,22 @@ void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result)
     unit->UsingMagic = nullptr;
 }
 
-Battle::BattleAttackWorld makeBattleAttackWorld(
-    const std::vector<Role*>& roles,
-    const Battle::BattleAttackWorld& activeWorld)
+void configureBattleAttackWorld(Battle::BattleAttackWorld& world)
 {
-    Battle::BattleAttackWorld world = activeWorld;
     world.hitRadius = BATTLE_TILE_W * 2.0;
     world.minimumVectorNorm = MINIMUM_VECTOR_NORM;
     world.projectileGraceFrames = 5;
     world.bounceSpawnDistance = BATTLE_TILE_W * 1.5;
     world.defaultProjectileSpeed = BATTLE_TILE_W / 3.0;
     world.spendNonThroughOnHit = false;
+}
+
+Battle::BattleAttackWorld makeBattleAttackWorld(
+    const std::vector<Role*>& roles,
+    const Battle::BattleAttackWorld& activeWorld)
+{
+    Battle::BattleAttackWorld world = activeWorld;
+    configureBattleAttackWorld(world);
     world.units.clear();
     for (auto role : roles)
     {

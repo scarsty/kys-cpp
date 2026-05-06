@@ -42,7 +42,7 @@ using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
 using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
 using KysChess::BattleSceneBattleAdapter::findBattleTeamEffectUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleCooldownState;
-using KysChess::BattleSceneBattleAdapter::makeBattleAttackWorld;
+using KysChess::BattleSceneBattleAdapter::configureBattleAttackWorld;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamagePresentationStyle;
 using KysChess::BattleSceneBattleAdapter::makeBattleFrameUnitRuntimeInput;
@@ -1100,6 +1100,7 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     KysChess::Battle::BattleRuntimeInit init;
     battle_session_.emplace(std::move(init));
     initializeBattleRuntimeStaticState();
+    configureBattleAttackWorld(battleRuntime().attacks);
 }
 
 KysChess::Battle::BattleRuntimeState& BattleSceneHades::battleRuntime()
@@ -2696,9 +2697,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext bundle;
     bundle.rolesByBattleId = snapshot.rolesByBattleId;
     battleRuntime().world = makeCoreMovementWorld(snapshot);
-    battleRuntime().attacks = makeBattleAttackWorld(
-        battle_roles_,
-        battleRuntime().attacks);
     battleRuntime().projectileFollowUps = makeCoreProjectileFollowUpContext();
     battleRuntime().runtime = {};
     battleRuntime().damage = {};
