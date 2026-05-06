@@ -807,6 +807,45 @@ BattleEffectUnit* findEffectUnit(BattleEffectWorld& world, int unitId)
     return it != world.units.end() ? &*it : nullptr;
 }
 
+void syncEffectUnit(BattleRuntimeState& state, const BattleDamageUnitState& source)
+{
+    if (auto* unit = findEffectUnit(state.effects.world, source.id))
+    {
+        unit->alive = source.alive;
+        unit->hp = source.hp;
+        unit->maxHp = source.maxHp;
+        unit->mp = source.mp;
+        unit->maxMp = source.maxMp;
+        unit->invincible = source.invincible;
+        unit->shield = source.shield;
+    }
+}
+
+void syncEffectStatus(BattleRuntimeState& state, const BattleStatusUnitState& source)
+{
+    if (auto* unit = findEffectUnit(state.effects.world, source.id))
+    {
+        unit->alive = source.alive;
+        unit->hp = source.hp;
+        unit->maxHp = source.maxHp;
+        unit->invincible = source.invincible;
+    }
+}
+
+void syncEffectFromTeamEffectUnit(BattleRuntimeState& state, const BattleTeamEffectUnit& source)
+{
+    if (auto* unit = findEffectUnit(state.effects.world, source.id))
+    {
+        unit->alive = source.alive;
+        unit->hp = source.hp;
+        unit->maxHp = source.maxHp;
+        unit->mp = source.mp;
+        unit->maxMp = source.maxMp;
+        unit->cooldown = source.cooldown;
+        unit->shield = source.shield;
+    }
+}
+
 BattleDeathEffectUnit* findDeathEffectUnit(BattleDeathEffectWorld& world, int unitId)
 {
     auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleDeathEffectUnit& unit)
@@ -939,6 +978,8 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
     }
     syncTeamEffectUnit(state, transaction.attacker);
     syncTeamEffectUnit(state, transaction.defender);
+    syncEffectUnit(state, transaction.attacker);
+    syncEffectUnit(state, transaction.defender);
     if (auto* status = findStatusUnit(state.status.units, transaction.defender.id))
     {
         *status = transaction.defenderStatus;
@@ -972,6 +1013,11 @@ void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int inv
     if (auto* teamUnit = findTeamEffectUnit(state.teamEffects.world, unitId))
     {
         teamUnit->hp = hp;
+    }
+    if (auto* effectUnit = findEffectUnit(state.effects.world, unitId))
+    {
+        effectUnit->hp = hp;
+        effectUnit->invincible = invincible;
     }
     if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, unitId))
     {
@@ -1463,6 +1509,7 @@ void syncTeamEffectEventsToFrameState(
         {
             status->hp = unit->hp;
         }
+        syncEffectFromTeamEffectUnit(state, *unit);
         if (auto cooldownIt = state.damage.cooldowns.find(event.targetUnitId);
             cooldownIt != state.damage.cooldowns.end())
         {
@@ -1556,6 +1603,10 @@ bool applyFrameMpRestoreCommand(
     {
         teamUnit->mp = unit->mp;
     }
+    if (auto* effectUnit = findEffectUnit(state.effects.world, command.unitId))
+    {
+        effectUnit->mp = unit->mp;
+    }
     state.applications.mpRestores.push_back({ command.unitId, restored });
     appendStatusEventLog(logEvents, command.unitId, command.unitId, command.reason);
     return true;
@@ -1588,6 +1639,10 @@ bool applyFrameUnitHealCommand(
     {
         teamUnit->hp = unit->hp;
     }
+    if (auto* effectUnit = findEffectUnit(state.effects.world, command.targetUnitId))
+    {
+        effectUnit->hp = unit->hp;
+    }
     if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.targetUnitId))
     {
         deathUnit->hp = unit->hp;
@@ -1619,6 +1674,10 @@ bool applyFrameUnitShieldCommand(
     if (auto* teamUnit = findTeamEffectUnit(state.teamEffects.world, command.targetUnitId))
     {
         teamUnit->shield += command.amount;
+    }
+    if (auto* effectUnit = findEffectUnit(state.effects.world, command.targetUnitId))
+    {
+        effectUnit->shield += command.amount;
     }
     if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.targetUnitId))
     {
@@ -1934,6 +1993,7 @@ void advanceStatus(BattleRuntimeState& state)
     for (const auto& unit : state.status.units)
     {
         syncTeamEffectStatus(state, unit);
+        syncEffectStatus(state, unit);
     }
 
     for (const auto& event : statusTick.events)
@@ -2070,6 +2130,7 @@ void applyRuntimeTeamEvents(
     }
 
     appendTeamEffectLogEvents(logEvents, events, reason);
+    syncTeamEffectEventsToFrameState(state, events);
     state.teamEffects.committedEvents.insert(
         state.teamEffects.committedEvents.end(),
         events.begin(),

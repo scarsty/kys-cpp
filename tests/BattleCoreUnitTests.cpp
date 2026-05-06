@@ -90,6 +90,16 @@ const BattleTeamEffectUnit& teamEffectUnitById(const BattleTeamEffectWorld& worl
     return *it;
 }
 
+const BattleEffectUnit& effectUnitById(const BattleEffectWorld& world, int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleEffectUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    REQUIRE(it != world.units.end());
+    return *it;
+}
+
 KysChess::AppliedEffectInstance triggeredEffect(KysChess::EffectType type,
                                                 KysChess::Trigger trigger,
                                                 int value,
@@ -1584,6 +1594,69 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SyncsTeamEffectWorldFromMovementPhysic
     const auto& moved = teamEffectUnitById(state.teamEffects.world, 1);
     CHECK(moved.x == 105.0);
     CHECK(moved.y == 100.0);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_SyncsEffectWorldFromDamage", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 1, { 120, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.damage.aggregatePendingTransactionsByDefender = true;
+    state.effects.world.units = {
+        { 1, 0, true, 100, 100, 10, 50, 0, 0, 0 },
+        { 2, 1, true, 10, 100, 20, 50, 0, 0, 0 },
+    };
+    state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
+
+    BattleFrameRunner().runFrame(state);
+
+    const auto& defender = effectUnitById(state.effects.world, 2);
+    CHECK(defender.hp == 0);
+    CHECK_FALSE(defender.alive);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_SyncsEffectWorldInvincibilityFromStatus", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 1, { 220, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.status.units = {
+        statusUnitSnapshot(1, 100),
+        statusUnitSnapshot(2, 100),
+    };
+    state.status.units[0].invincible = 1;
+    state.effects.world.units = {
+        { 1, 0, true, 100, 100, 10, 50, 0, 7, 0 },
+        { 2, 1, true, 100, 100, 20, 50, 0, 0, 0 },
+    };
+    state.combo.units[1].postSkillInvincFrames = 5;
+
+    BattleFrameRuntimeUnitInput runtime;
+    runtime.unitId = 1;
+    runtime.input.state.cooldown = 1;
+    runtime.input.state.haveAction = true;
+    runtime.input.frame = 1;
+    runtime.input.mpRegenIntervalFrames = 30;
+    runtime.input.physicalPowerRegenIntervalFrames = 30;
+    runtime.hp = 100;
+    runtime.maxHp = 100;
+    runtime.alive = true;
+    state.runtime.units.push_back(runtime);
+
+    BattleFrameRunner().runFrame(state);
+
+    const auto& source = effectUnitById(state.effects.world, 1);
+    CHECK(source.invincible == 5);
+    REQUIRE(state.effects.committedCommands.size() == 1);
+    CHECK(state.effects.committedCommands[0].type == BattleEffectCommandType::AddInvincibility);
+    CHECK(state.effects.committedCommands[0].value == 4);
+    CHECK(state.status.units[0].invincible == 5);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesDeathAoeToPendingProjectileSpawn", "[battle][core][breakthrough]")
