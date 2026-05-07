@@ -25,6 +25,11 @@ enum class Trigger;
 
 class PositionSwapNode;
 
+struct BattleSceneRoleBindings
+{
+    std::unordered_map<int, Role*> rolesByBattleId;
+};
+
 class BattleSceneHades : public BattleSceneAct
 {
     friend class PositionSwapNode;
@@ -61,11 +66,11 @@ protected:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     SceneBattleFrameInput buildBattleFrameInput();
-    KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext buildCoreRuntimeContext(
+    void prepareCoreFrame(
         KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
         KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
     void applyCoreFrameResult(
-        KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+        const BattleSceneRoleBindings& bindings,
         const KysChess::Battle::BattleFrameResult& frameResult,
         const KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
         const KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
@@ -92,17 +97,17 @@ protected:
     void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
     void updateAutoCamera();
     void clampCameraCenter();
-    void applyCoreStatusState(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
+    void applyCoreStatusState(const BattleSceneRoleBindings& bindings);
     void initializeCoreDamageState();
     void applyCoreDamageTransactions(
-        const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+        const BattleSceneRoleBindings& bindings,
         const std::vector<KysChess::Battle::BattleHitResolutionResult>& hitResults);
-    void applyCoreTeamEffectState(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
+    void applyCoreTeamEffectState(const BattleSceneRoleBindings& bindings);
     void applyCoreFrameApplications(
-        const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+        const BattleSceneRoleBindings& bindings,
         const KysChess::Battle::BattleFrameApplications& applications);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
-    void populateCoreMovementWorld();
+    void syncCoreMovementWorld();
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(
         Role* role);
@@ -140,6 +145,7 @@ protected:
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> criticalHitRoles_;
     std::optional<KysChess::Battle::BattleRuntimeSession> battle_session_;
+    BattleSceneRoleBindings core_role_bindings_;
     std::vector<int> enemy_stars_;
     std::vector<int> teammate_weapons_;
     std::vector<int> teammate_armors_;

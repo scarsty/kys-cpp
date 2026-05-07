@@ -795,15 +795,6 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     double reach,
     const BattleActionFrameAdapterContext& context);
 
-Point requireUnitCell(
-    const std::unordered_map<int, Point>& unitCells,
-    int unitId)
-{
-    auto it = unitCells.find(unitId);
-    assert(it != unitCells.end());
-    return it->second;
-}
-
 void captureActionComboState(
     Battle::BattleActionCommitInput& actionInput,
     Role* role,
@@ -942,22 +933,23 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     const BattleActionFrameAdapterContext& context)
 {
     assert(role);
+    assert(context.units);
 
     Battle::BattleBlinkGeometryInput geometry;
-    auto current = requireUnitCell(context.unitCells, role->ID);
+    auto current = context.units->requireUnit(role->ID).grid;
     geometry.currentGridX = current.x;
     geometry.currentGridY = current.y;
 
     int gridReach = std::max(1, static_cast<int>(reach / BATTLE_TILE_W) + 1);
     std::set<std::pair<int, int>> visited;
-    for (auto target : *context.roles)
+    for (const auto& target : context.units->units)
     {
-        if (target == role || target->Dead != 0 || target->Team == role->Team)
+        if (target.id == role->ID || !target.alive || target.team == role->Team)
         {
             continue;
         }
 
-        auto targetPos45 = requireUnitCell(context.unitCells, target->ID);
+        auto targetPos45 = target.grid;
         for (int dx = -gridReach; dx <= gridReach; ++dx)
         {
             for (int dy = -gridReach; dy <= gridReach; ++dy)
@@ -970,13 +962,13 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
                 }
 
                 bool occupied = false;
-                for (auto other : *context.roles)
+                for (const auto& other : context.units->units)
                 {
-                    if (other == role || other->Dead != 0)
+                    if (other.id == role->ID || !other.alive)
                     {
                         continue;
                     }
-                    auto rolePos45 = requireUnitCell(context.unitCells, other->ID);
+                    auto rolePos45 = other.grid;
                     if (rolePos45.x == x && rolePos45.y == y)
                     {
                         occupied = true;
@@ -1047,6 +1039,26 @@ void applyBattleMovementPhysicsFrameResults(
         role->Pos = result.state.position;
         role->Velocity = result.state.velocity;
         role->Acceleration = result.state.acceleration;
+    }
+}
+
+void applyBattleMovementFrameResults(
+    const Battle::BattleTickResult& movement,
+    const BattleMovementPhysicsFrameAdapterContext& context)
+{
+    assert(context.roles);
+
+    for (const auto& unit : movement.snapshot.units)
+    {
+        auto* role = findRoleByBattleId(*context.roles, unit.id);
+        role->Pos = unit.position;
+        role->Velocity = unit.velocity;
+        auto velocity = unit.velocity;
+        if (velocity.norm() > 0.01)
+        {
+            role->RealTowards = velocity;
+            role->RealTowards.normTo(1);
+        }
     }
 }
 

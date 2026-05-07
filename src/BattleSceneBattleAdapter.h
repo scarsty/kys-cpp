@@ -12,7 +12,6 @@
 #include <map>
 #include <set>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 class BattleTracker;
@@ -50,11 +49,6 @@ struct BattleCastAdapterInput
     int cooldownReductionPct = 0;
 };
 
-struct BattleFrameApplyContext
-{
-    std::unordered_map<int, Role*> rolesByBattleId;
-};
-
 struct BattleActionFrameAdapterConfig
 {
     double maxEffectiveBattleReach = 0.0;
@@ -77,7 +71,6 @@ struct BattleActionFrameAdapterContext
     const std::vector<Role*>* roles = nullptr;
     const Battle::BattleUnitStore* units = nullptr;
     RandomDouble* random = nullptr;
-    std::unordered_map<int, Point> unitCells;
     const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
     std::map<int, Battle::BattleCastResult>* pendingCastResults = nullptr;
     std::map<int, RoleComboState>* comboStates = nullptr;
@@ -162,6 +155,9 @@ void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::Batt
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
 void applyBattleMovementPhysicsFrameResults(
     const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
+    const BattleMovementPhysicsFrameAdapterContext& context);
+void applyBattleMovementFrameResults(
+    const Battle::BattleTickResult& movement,
     const BattleMovementPhysicsFrameAdapterContext& context);
 void populateBattleActionDirectives(
     Battle::BattleRuntimeState& runtime,
