@@ -858,59 +858,6 @@ const BattleFrameRescueUnitSnapshot* findRescueUnit(const std::vector<BattleFram
     return it != units.end() ? &*it : nullptr;
 }
 
-BattleEffectUnit* findEffectUnit(BattleEffectWorld& world, int unitId)
-{
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleEffectUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    return it != world.units.end() ? &*it : nullptr;
-}
-
-// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
-void syncEffectUnit(BattleRuntimeState& state, const BattleDamageUnitState& source)
-{
-    const auto* canonical = state.units.findUnit(source.id);
-    if (auto* unit = findEffectUnit(state.effects.world, source.id))
-    {
-        unit->alive = canonical ? canonical->alive : source.alive;
-        unit->hp = canonical ? canonical->hp : source.hp;
-        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
-        unit->mp = canonical ? canonical->mp : source.mp;
-        unit->maxMp = canonical ? canonical->maxMp : source.maxMp;
-        unit->invincible = canonical ? canonical->invincible : source.invincible;
-        unit->shield = canonical ? canonical->shield : source.shield;
-    }
-}
-
-// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
-void syncEffectStatus(BattleRuntimeState& state, const BattleStatusUnitState& source)
-{
-    const auto* canonical = state.units.findUnit(source.id);
-    if (auto* unit = findEffectUnit(state.effects.world, source.id))
-    {
-        unit->alive = canonical ? canonical->alive : source.alive;
-        unit->hp = canonical ? canonical->hp : source.hp;
-        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
-        unit->invincible = canonical ? canonical->invincible : source.invincible;
-    }
-}
-
-// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
-void syncEffectFromRuntimeUnit(BattleRuntimeState& state, const BattleRuntimeUnit& source)
-{
-    if (auto* unit = findEffectUnit(state.effects.world, source.id))
-    {
-        unit->alive = source.alive;
-        unit->hp = source.hp;
-        unit->maxHp = source.maxHp;
-        unit->mp = source.mp;
-        unit->maxMp = source.maxMp;
-        unit->cooldown = source.cooldown;
-        unit->shield = source.shield;
-    }
-}
-
 BattleDeathEffectUnit* findDeathEffectUnit(BattleDeathEffectWorld& world, int unitId)
 {
     auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleDeathEffectUnit& unit)
@@ -1047,8 +994,6 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
     {
         defender->alive = transaction.defender.alive;
     }
-    syncEffectUnit(state, transaction.attacker);
-    syncEffectUnit(state, transaction.defender);
     if (auto* status = findStatusUnit(state.status.units, transaction.defender.id))
     {
         *status = transaction.defenderStatus;
@@ -1084,11 +1029,6 @@ void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int inv
     {
         status->hp = hp;
         status->invincible = invincible;
-    }
-    if (auto* effectUnit = findEffectUnit(state.effects.world, unitId))
-    {
-        effectUnit->hp = hp;
-        effectUnit->invincible = invincible;
     }
     if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, unitId))
     {
@@ -1582,7 +1522,6 @@ void applyTeamEffectEventsToFrameState(
         {
             status->hp = unit.hp;
         }
-        syncEffectFromRuntimeUnit(state, unit);
         if (auto cooldownIt = state.damage.cooldowns.find(event.targetUnitId);
             cooldownIt != state.damage.cooldowns.end())
         {
@@ -1676,10 +1615,6 @@ bool applyFrameMpRestoreCommand(
     {
         runtimeUnit->mp = unit->mp;
     }
-    if (auto* effectUnit = findEffectUnit(state.effects.world, command.unitId))
-    {
-        effectUnit->mp = unit->mp;
-    }
     state.applications.mpRestores.push_back({ command.unitId, restored });
     appendStatusEventLog(logEvents, command.unitId, command.unitId, command.reason);
     return true;
@@ -1712,10 +1647,6 @@ bool applyFrameUnitHealCommand(
     {
         runtimeUnit->hp = unit->hp;
     }
-    if (auto* effectUnit = findEffectUnit(state.effects.world, command.targetUnitId))
-    {
-        effectUnit->hp = unit->hp;
-    }
     if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.targetUnitId))
     {
         deathUnit->hp = unit->hp;
@@ -1747,10 +1678,6 @@ bool applyFrameUnitShieldCommand(
     if (auto* runtimeUnit = state.units.findUnit(command.targetUnitId))
     {
         runtimeUnit->shield += command.amount;
-    }
-    if (auto* effectUnit = findEffectUnit(state.effects.world, command.targetUnitId))
-    {
-        effectUnit->shield += command.amount;
     }
     if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.targetUnitId))
     {
@@ -2069,7 +1996,6 @@ void advanceStatus(BattleRuntimeState& state)
         {
             state.units.writeStatusUnit(unit);
         }
-        syncEffectStatus(state, unit);
     }
 
     for (const auto& event : statusTick.events)
@@ -2240,7 +2166,7 @@ void applyPostSkillInvincibility(
     std::vector<BattleLogEvent>& logEvents)
 {
     assert(event.value > 0);
-    if (state.effects.world.units.empty())
+    if (state.units.units.empty())
     {
         return;
     }
@@ -2256,7 +2182,8 @@ void applyPostSkillInvincibility(
         event.value,
     });
     auto commands = dispatcher.dispatch(
-        state.effects.world,
+        state.units,
+        state.effects.activationCounts,
         { BattleHook::SkillFinished, sourceUnitId, -1 });
     appendEffectCommandLogEvents(logEvents, commands);
     state.effects.committedCommands.insert(
@@ -2264,11 +2191,11 @@ void applyPostSkillInvincibility(
         commands.begin(),
         commands.end());
 
-    if (auto* effectUnit = findEffectUnit(state.effects.world, sourceUnitId))
+    if (const auto* runtimeUnit = state.units.findUnit(sourceUnitId))
     {
         if (auto* statusUnit = findStatusUnit(state.status.units, sourceUnitId))
         {
-            statusUnit->invincible = effectUnit->invincible;
+            statusUnit->invincible = runtimeUnit->invincible;
         }
     }
 }

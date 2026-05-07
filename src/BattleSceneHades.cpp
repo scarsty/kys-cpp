@@ -458,45 +458,6 @@ void setCoolDown(Role* r, int cd)
     r->CoolDownMax = cd;
 }
 
-KysChess::Battle::BattleEffectWorld makeBattleEffectWorld(
-    const std::vector<Role*>& roles,
-    const std::map<int, KysChess::RoleComboState>& states)
-{
-    KysChess::Battle::BattleEffectWorld world;
-    for (auto role : roles)
-    {
-        assert(role);
-        auto stateIt = states.find(role->ID);
-        assert(stateIt != states.end());
-
-        KysChess::Battle::BattleEffectUnit unit;
-        unit.id = role->ID;
-        unit.team = role->Team;
-        unit.alive = role->Dead == 0;
-        unit.hp = role->HP;
-        unit.maxHp = role->MaxHP;
-        unit.mp = role->MP;
-        unit.maxMp = GameUtil::MAX_MP;
-        unit.cooldown = role->CoolDown;
-        unit.invincible = role->Invincible;
-        unit.shield = stateIt->second.shield;
-        world.units.push_back(unit);
-    }
-    return world;
-}
-
-const KysChess::Battle::BattleEffectUnit& findBattleEffectUnit(
-    const KysChess::Battle::BattleEffectWorld& world,
-    int unitId)
-{
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const KysChess::Battle::BattleEffectUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    assert(it != world.units.end());
-    return *it;
-}
-
 KysChess::Battle::BattleDeathEffectWorld makeBattleDeathEffectWorld(
     const std::vector<Role*>& roles,
     const std::map<int, KysChess::RoleComboState>& states)
@@ -1115,9 +1076,6 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     }
     configureBattleAttackWorld(battleRuntime().attacks);
     battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
-    battleRuntime().effects.world = makeBattleEffectWorld(
-        battle_roles_,
-        comboStates);
     battleRuntime().deathEffects.world = makeBattleDeathEffectWorld(
         battle_roles_,
         comboStates);
@@ -2889,7 +2847,7 @@ void BattleSceneHades::applyCoreFrameResult(
     for (const auto& command : battleRuntime().effects.committedCommands)
     {
         auto* target = requireFrameRole(bundle, command.targetUnitId);
-        const auto& unit = findBattleEffectUnit(battleRuntime().effects.world, command.targetUnitId);
+        const auto& unit = battleRuntime().units.requireUnit(command.targetUnitId);
         switch (command.type)
         {
         case KysChess::Battle::BattleEffectCommandType::AddInvincibility:

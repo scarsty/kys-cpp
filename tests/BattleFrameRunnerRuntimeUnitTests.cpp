@@ -138,30 +138,6 @@ BattleCooldownState cooldownUnit()
     return state;
 }
 
-BattleEffectUnit effectUnit(int id, int team, int hp, int invincible)
-{
-    BattleEffectUnit unit;
-    unit.id = id;
-    unit.team = team;
-    unit.alive = true;
-    unit.hp = hp;
-    unit.maxHp = 100;
-    unit.invincible = invincible;
-    return unit;
-}
-
-const BattleEffectUnit& effectUnitById(const BattleEffectWorld& world, int id)
-{
-    for (const auto& unit : world.units)
-    {
-        if (unit.id == id)
-        {
-            return unit;
-        }
-    }
-    FAIL("effect unit not found");
-}
-
 }  // namespace
 
 TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[battle][frame_runner][runtime][ownership]")
@@ -532,9 +508,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEffectExecutor", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    state.effects.world.units = {
-        effectUnit(1, 0, 80, 3),
+    state.units.units = {
+        teamRuntimeUnit(1, 0, 80),
     };
+    state.units.units[0].invincible = 3;
 
     KysChess::RoleComboState combo;
     combo.postSkillInvincFrames = 12;
@@ -554,7 +531,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
     CHECK(state.effects.committedCommands[0].type == BattleEffectCommandType::AddInvincibility);
     CHECK(state.effects.committedCommands[0].label == "技能後無敵");
     CHECK(state.effects.committedCommands[0].value == 9);
-    CHECK(effectUnitById(state.effects.world, 1).invincible == 12);
+    CHECK(state.units.requireUnit(1).invincible == 12);
 
     const auto statusLog = std::find_if(
         result.frame.logEvents.begin(),

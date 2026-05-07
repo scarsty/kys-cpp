@@ -8,6 +8,9 @@
 namespace KysChess::Battle
 {
 
+struct BattleRuntimeUnit;
+struct BattleUnitStore;
+
 enum class BattleHook
 {
     BattleStart,
@@ -45,20 +48,6 @@ enum class BattleEffectCommandType
     DedicatedEffect,
 };
 
-struct BattleEffectUnit
-{
-    int id = -1;
-    int team = 0;
-    bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    int mp = 0;
-    int maxMp = 0;
-    int cooldown = 0;
-    int invincible = 0;
-    int shield = 0;
-};
-
 struct BattleEffectDefinition
 {
     int id = -1;
@@ -89,32 +78,25 @@ struct BattleEffectCommand
     std::string label;
 };
 
-struct BattleEffectWorld
-{
-    std::vector<BattleEffectUnit> units;
-    std::map<int, int> activationCounts;
-};
-
 class BattleEffectContext
 {
 public:
-    BattleEffectContext(BattleEffectWorld& world,
+    BattleEffectContext(BattleUnitStore& units,
                         const BattleEffectEvent& event,
                         const BattleEffectDefinition& effect);
 
-    BattleEffectWorld& world();
     const BattleEffectEvent& event() const;
     const BattleEffectDefinition& effect() const;
 
-    std::vector<BattleEffectUnit*> targets() const;
+    std::vector<BattleRuntimeUnit*> targets() const;
     void emit(BattleEffectCommand command);
     const std::vector<BattleEffectCommand>& commands() const;
 
 private:
-    BattleEffectUnit* findUnit(int id) const;
-    std::vector<BattleEffectUnit*> teamUnits(int team) const;
+    BattleRuntimeUnit* findUnit(int id) const;
+    std::vector<BattleRuntimeUnit*> teamUnits(int team) const;
 
-    BattleEffectWorld& world_;
+    BattleUnitStore& units_;
     const BattleEffectEvent& event_;
     const BattleEffectDefinition& effect_;
     std::vector<BattleEffectCommand> commands_;
@@ -181,7 +163,9 @@ public:
     explicit BattleEffectDispatcher(const BattleEffectRegistry& registry);
 
     void addEffect(BattleEffectDefinition effect);
-    std::vector<BattleEffectCommand> dispatch(BattleEffectWorld& world, const BattleEffectEvent& event) const;
+    std::vector<BattleEffectCommand> dispatch(BattleUnitStore& units,
+                                              std::map<int, int>& activationCounts,
+                                              const BattleEffectEvent& event) const;
 
 private:
     const BattleEffectRegistry& registry_;

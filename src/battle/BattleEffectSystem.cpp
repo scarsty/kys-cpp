@@ -1,23 +1,20 @@
 #include "BattleEffectSystem.h"
 
+#include "BattleCore.h"
+
 #include <algorithm>
 #include <utility>
 
 namespace KysChess::Battle
 {
 
-BattleEffectContext::BattleEffectContext(BattleEffectWorld& world,
+BattleEffectContext::BattleEffectContext(BattleUnitStore& units,
                                          const BattleEffectEvent& event,
                                          const BattleEffectDefinition& effect)
-    : world_(world),
+    : units_(units),
       event_(event),
       effect_(effect)
 {
-}
-
-BattleEffectWorld& BattleEffectContext::world()
-{
-    return world_;
 }
 
 const BattleEffectEvent& BattleEffectContext::event() const
@@ -30,7 +27,7 @@ const BattleEffectDefinition& BattleEffectContext::effect() const
     return effect_;
 }
 
-std::vector<BattleEffectUnit*> BattleEffectContext::targets() const
+std::vector<BattleRuntimeUnit*> BattleEffectContext::targets() const
 {
     switch (effect_.target)
     {
@@ -78,19 +75,16 @@ const std::vector<BattleEffectCommand>& BattleEffectContext::commands() const
     return commands_;
 }
 
-BattleEffectUnit* BattleEffectContext::findUnit(int id) const
+BattleRuntimeUnit* BattleEffectContext::findUnit(int id) const
 {
-    auto it = std::find_if(world_.units.begin(), world_.units.end(), [&](const BattleEffectUnit& unit)
-        {
-            return unit.id == id && unit.alive;
-        });
-    return it == world_.units.end() ? nullptr : &*it;
+    auto* unit = units_.findUnit(id);
+    return unit && unit->alive ? unit : nullptr;
 }
 
-std::vector<BattleEffectUnit*> BattleEffectContext::teamUnits(int team) const
+std::vector<BattleRuntimeUnit*> BattleEffectContext::teamUnits(int team) const
 {
-    std::vector<BattleEffectUnit*> units;
-    for (auto& unit : world_.units)
+    std::vector<BattleRuntimeUnit*> units;
+    for (auto& unit : units_.units)
     {
         if (unit.alive && unit.team == team)
         {
@@ -254,7 +248,8 @@ void BattleEffectDispatcher::addEffect(BattleEffectDefinition effect)
     effects_.push_back(std::move(effect));
 }
 
-std::vector<BattleEffectCommand> BattleEffectDispatcher::dispatch(BattleEffectWorld& world,
+std::vector<BattleEffectCommand> BattleEffectDispatcher::dispatch(BattleUnitStore& units,
+                                                                  std::map<int, int>& activationCounts,
                                                                   const BattleEffectEvent& event) const
 {
     std::vector<BattleEffectCommand> commands;
@@ -264,7 +259,7 @@ std::vector<BattleEffectCommand> BattleEffectDispatcher::dispatch(BattleEffectWo
         {
             continue;
         }
-        if (effect.maxCount > 0 && world.activationCounts[effect.id] >= effect.maxCount)
+        if (effect.maxCount > 0 && activationCounts[effect.id] >= effect.maxCount)
         {
             continue;
         }
@@ -275,11 +270,11 @@ std::vector<BattleEffectCommand> BattleEffectDispatcher::dispatch(BattleEffectWo
             continue;
         }
 
-        BattleEffectContext context(world, event, effect);
+        BattleEffectContext context(units, event, effect);
         executor->execute(context);
         if (!context.commands().empty())
         {
-            world.activationCounts[effect.id]++;
+            activationCounts[effect.id]++;
             commands.insert(commands.end(), context.commands().begin(), context.commands().end());
         }
     }

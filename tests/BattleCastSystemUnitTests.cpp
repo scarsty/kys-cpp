@@ -1,8 +1,10 @@
 #include "battle/BattleCastSystem.h"
+#include "battle/BattleCore.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <map>
 #include <memory>
 
 using namespace KysChess::Battle;
@@ -709,22 +711,23 @@ TEST_CASE("BattleCastSystem_PostSkillHookIsEmittedForNormalAndUltimateCasts", "[
     CHECK(ultimate.effectEvents[0].hook == BattleHook::SkillFinished);
     CHECK(ultimate.effectEvents[1].hook == BattleHook::UltimateCast);
 
-    BattleEffectWorld world;
-    BattleEffectUnit caster;
+    BattleUnitStore units;
+    BattleRuntimeUnit caster;
     caster.id = input.unit.id;
     caster.alive = true;
-    world.units.push_back(caster);
+    units.units.push_back(caster);
+    std::map<int, int> activationCounts;
 
     BattleEffectRegistry registry;
     registry.registerExecutor("添加無敵幀", std::make_unique<AddInvincibilityExecutor>());
     BattleEffectDispatcher dispatcher(registry);
     dispatcher.addEffect(invincibilityEffect());
-    auto commands = dispatcher.dispatch(world, normal.effectEvents[0]);
+    auto commands = dispatcher.dispatch(units, activationCounts, normal.effectEvents[0]);
 
     REQUIRE(commands.size() == 1);
     CHECK(commands[0].type == BattleEffectCommandType::AddInvincibility);
     CHECK(commands[0].targetUnitId == input.unit.id);
-    CHECK(world.units[0].invincible == 30);
+    CHECK(units.units[0].invincible == 30);
 }
 
 TEST_CASE("BattleCastSystem_OutputIsDeterministicForSameSeedAndInput", "[battle][cast]")

@@ -366,7 +366,7 @@ struct BattleRuntimeState
 
     struct EffectState
     {
-        BattleEffectWorld world;
+        std::map<int, int> activationCounts;
         std::vector<BattleEffectCommand> committedCommands;
     } effects;
 
