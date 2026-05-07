@@ -450,17 +450,6 @@ BattleLogEvent dodgeStatusEvent(int defenderUnitId, int attackerUnitId)
     return event;
 }
 
-double takeRuntimePercentRoll(BattleFrameScratch& scratch)
-{
-    if (scratch.runtime.nextPercentRoll < scratch.runtime.percentRolls.size())
-    {
-        const double roll = scratch.runtime.percentRolls[scratch.runtime.nextPercentRoll++];
-        assert(roll >= 0.0 && roll < 100.0);
-        return roll;
-    }
-    return 0.0;
-}
-
 void applyAttackContext(BattleVisualEvent& presentation, const BattleAttackWorld& world, int attackId)
 {
     presentation.effectId = attackId;
@@ -620,7 +609,6 @@ void syncAttackUnitsFromWorld(BattleRuntimeState& state)
 
 void advanceRuntimeUnits(
     BattleRuntimeState& state,
-    BattleFrameScratch& scratch,
     std::vector<BattleGameplayCommand>& commands,
     std::vector<BattleFrameRuntimeUnitResult>& runtimeResults)
 {
@@ -685,7 +673,7 @@ void advanceRuntimeUnits(
             auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
                 comboIt->second,
                 { BattleComboTriggerHook::AfterSkillCast, unit.id, -1 },
-                [&]() { return takeRuntimePercentRoll(scratch); });
+                [&]() { return state.random.nextPercent(); });
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
                 BattleTeamHealCommand command{
@@ -2480,16 +2468,16 @@ void applyPendingTeamEffects(
     state.teamEffects.pendingCommands = std::move(unappliedCommands);
 }
 
-void advanceMovementPhysics(BattleRuntimeState& state, BattleFrameScratch& scratch)
+std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleRuntimeState& state)
 {
-    scratch.movementPhysics.committedResults.clear();
+    std::vector<BattleFrameMovementPhysicsUnitResult> committedResults;
     if (state.units.units.empty())
     {
-        return;
+        return committedResults;
     }
     if (state.movementPhysics.collision.cells.empty())
     {
-        return;
+        return committedResults;
     }
 
     assert(state.movementPhysics.collision.tileWidth > 0.0);
@@ -2541,7 +2529,7 @@ void advanceMovementPhysics(BattleRuntimeState& state, BattleFrameScratch& scrat
             {
                 status->frozenTimer = result.frozenFrames;
             }
-            scratch.movementPhysics.committedResults.push_back(std::move(result));
+            committedResults.push_back(std::move(result));
             continue;
         }
 
@@ -2598,8 +2586,9 @@ void advanceMovementPhysics(BattleRuntimeState& state, BattleFrameScratch& scrat
         {
             collisionIt->position = result.state.position;
         }
-        scratch.movementPhysics.committedResults.push_back(std::move(result));
+        committedResults.push_back(std::move(result));
     }
+    return committedResults;
 }
 
 void advanceMovement(BattleRuntimeState& state, BattleFrameResult& result)
@@ -3038,12 +3027,11 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state, BattleF
     state.effects.committedCommands.clear();
     state.rescue.committedResults.clear();
     advanceStatus(state);
-    advanceRuntimeUnits(state, scratch, result.commands, result.runtimeResults);
+    advanceRuntimeUnits(state, result.commands, result.runtimeResults);
     applyRuntimeComboEvents(state, result.runtimeResults, logEvents);
     applyPendingTeamEffects(state, logEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
-    advanceMovementPhysics(state, scratch);
-    result.movementPhysicsResults = scratch.movementPhysics.committedResults;
+    result.movementPhysicsResults = advanceMovementPhysics(state);
     advanceMovement(state, result);
     advanceActionFrameUnits(
         state,

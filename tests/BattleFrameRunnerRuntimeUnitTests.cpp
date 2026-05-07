@@ -249,12 +249,9 @@ TEST_CASE("BattleFrameRunner_RunFrame_ConsumesExternalFrameScratch", "[battle][f
     auto state = runtimeFrameState();
     BattleFrameScratch scratch;
 
-    scratch.runtime.percentRolls.push_back(12.0);
-
     auto result = BattleFrameRunner().runFrame(state, scratch);
 
     CHECK(result.runtimeResults.empty());
-    CHECK(scratch.runtime.percentRolls.empty());
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")

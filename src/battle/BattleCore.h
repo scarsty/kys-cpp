@@ -272,21 +272,10 @@ struct BattleFrameRescueCounterAttackConfig
 
 struct BattleFrameScratch
 {
-    struct RuntimeScratch
-    {
-        std::vector<double> percentRolls;
-        std::size_t nextPercentRoll = 0;
-    } runtime;
-
     struct ActionScratch
     {
         std::vector<BattleFrameActionUnitInput> units;
     } actions;
-
-    struct MovementPhysicsScratch
-    {
-        std::vector<BattleFrameMovementPhysicsUnitResult> committedResults;
-    } movementPhysics;
 
 };
 

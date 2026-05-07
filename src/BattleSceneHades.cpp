@@ -2497,17 +2497,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
         decreaseToZero(role->Attention);
         decreaseToZero(role->Invincible);
 
-        auto comboIt = comboStates.find(role->ID);
-        if (comboIt != comboStates.end())
-        {
-            scratch.runtime.percentRolls.reserve(
-                scratch.runtime.percentRolls.size() + comboIt->second.triggeredEffects.size() + 1);
-            for (size_t i = 0; i <= comboIt->second.triggeredEffects.size(); ++i)
-            {
-                scratch.runtime.percentRolls.push_back(rand_.rand() * 100.0);
-            }
-        }
-
     }
 
     movementPhysicsContext.roles = &battle_roles_;
