@@ -55,21 +55,6 @@ struct BattleFrameApplyContext
     std::unordered_map<int, Role*> rolesByBattleId;
 };
 
-struct BattleFrameHitAdapterInput
-{
-    int attackId = -1;
-    Role* attacker = nullptr;
-    Role* defender = nullptr;
-    Magic* magic = nullptr;
-    Item* hiddenWeapon = nullptr;
-    int resolvedMagicBaseDamage = 0;
-    int resolvedHiddenWeaponDamage = 0;
-    int sharedBleedMaxStacks = 1;
-    int randomDamageVariance = 0;
-    std::vector<double> percentRolls;
-    int pendingDefenderHpDamage = 0;
-};
-
 struct BattleActionFrameAdapterConfig
 {
     double maxEffectiveBattleReach = 0.0;
@@ -177,9 +162,6 @@ void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::Batt
 Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state);
 void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
-void appendBattleFrameHitInput(
-    Battle::BattleFrameScratch& scratch,
-    const BattleFrameHitAdapterInput& input);
 void applyBattleMovementPhysicsFrameResults(
     const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
     const BattleMovementPhysicsFrameAdapterContext& context);

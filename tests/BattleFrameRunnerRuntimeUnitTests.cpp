@@ -252,14 +252,12 @@ TEST_CASE("BattleFrameRunner_RunFrame_ConsumesExternalFrameScratch", "[battle][f
 
     scratch.runtime.percentRolls.push_back(12.0);
     scratch.projectileCancelBaseDamages.push_back({ 10, 20, 30 });
-    scratch.hits.scalars.push_back({});
 
     auto result = BattleFrameRunner().runFrame(state, scratch);
 
     CHECK(result.runtimeResults.empty());
     CHECK(scratch.runtime.percentRolls.empty());
     CHECK(scratch.projectileCancelBaseDamages.empty());
-    CHECK(scratch.hits.scalars.empty());
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")

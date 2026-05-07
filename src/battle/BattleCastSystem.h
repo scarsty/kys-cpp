@@ -185,6 +185,7 @@ struct BattleActionItemSnapshot
     std::string name;
     int itemType = 0;
     int hiddenWeaponEffectId = -1;
+    int addHp = 0;
 };
 
 struct BattleBlinkAttackCommand

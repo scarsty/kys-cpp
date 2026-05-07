@@ -27,6 +27,23 @@ Point BattleGridTransform::toGrid(Pointf position) const
     return grid;
 }
 
+std::uint32_t BattleRuntimeRandom::nextRaw()
+{
+    state = state * 1664525u + 1013904223u;
+    return state;
+}
+
+double BattleRuntimeRandom::nextPercent()
+{
+    return static_cast<double>(nextRaw() % 10000u) / 100.0;
+}
+
+int BattleRuntimeRandom::nextInt(int upperBound)
+{
+    assert(upperBound > 0);
+    return static_cast<int>(nextRaw() % static_cast<std::uint32_t>(upperBound));
+}
+
 BattleRuntimeUnit* BattleUnitStore::findUnit(int unitId)
 {
     auto it = std::find_if(units.begin(), units.end(), [&](const BattleRuntimeUnit& unit)
@@ -260,24 +277,6 @@ const BattleProjectileCancelBaseDamage* findProjectileCancelBaseDamage(
     return it != scratch.projectileCancelBaseDamages.end() ? &*it : nullptr;
 }
 
-const BattleFrameHitScalarInput* findHitScalar(
-    const BattleFrameScratch& scratch,
-    int attackId,
-    int attackerUnitId,
-    int defenderUnitId)
-{
-    auto it = std::find_if(
-        scratch.hits.scalars.begin(),
-        scratch.hits.scalars.end(),
-        [&](const BattleFrameHitScalarInput& input)
-        {
-            return input.attackId == attackId
-                && input.attackerUnitId == attackerUnitId
-                && input.defenderUnitId == defenderUnitId;
-        });
-    return it != scratch.hits.scalars.end() ? &*it : nullptr;
-}
-
 BattleHitUnitSnapshot makeHitUnitSnapshot(const BattleRuntimeUnit& unit)
 {
     BattleHitUnitSnapshot snapshot;
@@ -338,6 +337,98 @@ BattleHitItemSnapshot makeHitItemSnapshot(const BattleAttackEvent& event, int re
     item.hiddenWeaponEffectId = event.hiddenWeaponEffectId;
     item.resolvedDamage = resolvedDamage;
     return item;
+}
+
+std::vector<double> takeHitPercentRolls(BattleRuntimeState& state)
+{
+    std::vector<double> rolls;
+    rolls.reserve(64);
+    for (int i = 0; i < 64; ++i)
+    {
+        rolls.push_back(state.random.nextPercent());
+    }
+    return rolls;
+}
+
+int sharedBleedMaxStacks(const BattleRuntimeState& state, const BattleAttackEvent& event)
+{
+    if (event.scriptedBleedStacks <= 0)
+    {
+        return 1;
+    }
+    auto it = state.combo.units.find(event.sourceUnitId);
+    if (it == state.combo.units.end() || it->second.bleedChancePct <= 0)
+    {
+        return 1;
+    }
+    return std::max(1, it->second.bleedMaxStacks);
+}
+
+int pendingDefenderHpDamage(const BattleRuntimeState& state, int defenderUnitId)
+{
+    int pending = 0;
+    for (const auto& transaction : state.damage.pendingTransactions)
+    {
+        if (transaction.defender.id == defenderUnitId)
+        {
+            pending += static_cast<int>(transaction.request.baseDamage);
+        }
+    }
+    return pending;
+}
+
+int runtimeDistanceCells(const BattleRuntimeState& state, const BattleRuntimeUnit& lhs, const BattleRuntimeUnit& rhs)
+{
+    const int gridDistance = std::abs(lhs.grid.x - rhs.grid.x) + std::abs(lhs.grid.y - rhs.grid.y);
+    if (gridDistance > 0)
+    {
+        return gridDistance;
+    }
+    if (state.units.gridTransform.tileWidth > 0.0)
+    {
+        return std::max(1, static_cast<int>(
+            std::ceil((lhs.position - rhs.position).norm() / state.units.gridTransform.tileWidth)));
+    }
+    return 1;
+}
+
+int resolveHitMagicBaseDamage(
+    BattleRuntimeState& state,
+    const BattleAttackEvent& event,
+    const BattleRuntimeUnit& attacker,
+    const BattleRuntimeUnit& defender)
+{
+    double defence = defender.defence;
+    auto comboIt = state.combo.units.find(attacker.id);
+    if (comboIt != state.combo.units.end())
+    {
+        defence = resolveFrameArmorPenetratedDefense(
+            comboIt->second,
+            attacker.id,
+            defender.id,
+            defence,
+            state.random.nextPercent());
+    }
+
+    return BattleDamageSystem().resolveMagicBaseDamage({
+        attacker.attack,
+        event.skillMagicPower,
+        defence,
+        state.random.nextInt(10) - state.random.nextInt(10),
+    });
+}
+
+int resolveHiddenWeaponDamage(
+    BattleRuntimeState& state,
+    const BattleAttackEvent& event,
+    const BattleRuntimeUnit& attacker,
+    const BattleRuntimeUnit& defender)
+{
+    int damage = attacker.hiddenWeapon - event.hiddenWeaponItemAddHp;
+    damage += state.random.nextInt(10) - state.random.nextInt(10);
+    const int distance = runtimeDistanceCells(state, attacker, defender);
+    damage = static_cast<int>(damage / std::exp((distance - 1) / 10.0));
+    return std::max(1, damage);
 }
 
 BattleLogEvent dodgeStatusEvent(int defenderUnitId, int attackerUnitId)
@@ -653,17 +744,6 @@ void applyProjectileCancelDamageResults(
     }
 }
 
-std::vector<double> hitResolverRolls(
-    const BattleFrameHitScalarInput& scalar,
-    bool consumedDodgeRoll)
-{
-    if (!consumedDodgeRoll || scalar.percentRolls.empty())
-    {
-        return scalar.percentRolls;
-    }
-    return { std::next(scalar.percentRolls.begin()), scalar.percentRolls.end() };
-}
-
 void updateCommittedHitCombos(BattleRuntimeState& state, const BattleHitResolutionResult& result)
 {
     if (auto it = state.combo.units.find(result.attackerUnitId); it != state.combo.units.end())
@@ -677,11 +757,8 @@ void updateCommittedHitCombos(BattleRuntimeState& state, const BattleHitResoluti
 }
 
 BattleHitResolutionInput makeHitResolutionInput(
-    const BattleRuntimeState& state,
-    const BattleFrameScratch& scratch,
-    const BattleAttackEvent& event,
-    const BattleFrameHitScalarInput& scalar,
-    bool consumedDodgeRoll)
+    BattleRuntimeState& state,
+    const BattleAttackEvent& event)
 {
     const auto* attacker = state.units.findUnit(event.sourceUnitId);
     const auto* defender = state.units.findUnit(event.unitId);
@@ -697,10 +774,10 @@ BattleHitResolutionInput makeHitResolutionInput(
         assert(input.defender.facing.norm() > 0.0);
         input.attackEvent.position = input.defender.position + input.defender.facing;
     }
-    input.sharedBleedMaxStacks = scalar.sharedBleedMaxStacks;
-    input.randomDamageVariance = scalar.randomDamageVariance;
-    input.pendingDefenderHpDamage = scalar.pendingDefenderHpDamage;
-    input.percentRolls = hitResolverRolls(scalar, consumedDodgeRoll);
+    input.sharedBleedMaxStacks = sharedBleedMaxStacks(state, event);
+    input.randomDamageVariance = state.random.nextInt(10) - state.random.nextInt(10);
+    input.pendingDefenderHpDamage = pendingDefenderHpDamage(state, event.unitId);
+    input.percentRolls = takeHitPercentRolls(state);
 
     if (event.skillId >= 0)
     {
@@ -708,11 +785,13 @@ BattleHitResolutionInput makeHitResolutionInput(
             event,
             *attacker,
             *defender,
-            scalar.resolvedMagicBaseDamage);
+            resolveHitMagicBaseDamage(state, event, *attacker, *defender));
     }
     if (event.hiddenWeaponItemId >= 0)
     {
-        input.item = makeHitItemSnapshot(event, scalar.resolvedHiddenWeaponDamage);
+        input.item = makeHitItemSnapshot(
+            event,
+            resolveHiddenWeaponDamage(state, event, *attacker, *defender));
     }
     if (auto comboIt = state.combo.units.find(event.sourceUnitId); comboIt != state.combo.units.end())
     {
@@ -728,7 +807,6 @@ BattleHitResolutionInput makeHitResolutionInput(
 bool tryResolveDodgeHit(
     BattleRuntimeState& state,
     const BattleAttackEvent& event,
-    const BattleFrameHitScalarInput& scalar,
     std::vector<BattleHitResolutionResult>& hitResults,
     std::vector<BattleLogEvent>& logEvents)
 {
@@ -738,7 +816,7 @@ bool tryResolveDodgeHit(
         return false;
     }
 
-    const double roll = scalar.percentRolls.empty() ? 0.0 : scalar.percentRolls.front();
+    const double roll = state.random.nextPercent();
     auto dodge = BattleComboTriggerSystem().resolveDodge(defenderComboIt->second, event.sourceUnitId, roll);
     if (!dodge.dodged)
     {
@@ -767,7 +845,6 @@ bool tryResolveDodgeHit(
 
 void resolveHitEvents(
     BattleRuntimeState& state,
-    const BattleFrameScratch& scratch,
     const std::vector<BattleAttackEvent>& events,
     std::vector<BattleHitResolutionResult>& hitResults,
     std::vector<BattleGameplayCommand>& commands,
@@ -781,19 +858,12 @@ void resolveHitEvents(
             continue;
         }
 
-        const auto* scalar = findHitScalar(scratch, event.attackId, event.sourceUnitId, event.unitId);
-        if (!scalar)
+        if (tryResolveDodgeHit(state, event, hitResults, logEvents))
         {
             continue;
         }
 
-        const bool consumedDodgeRoll = state.combo.units.find(event.unitId) != state.combo.units.end();
-        if (tryResolveDodgeHit(state, event, *scalar, hitResults, logEvents))
-        {
-            continue;
-        }
-
-        auto input = makeHitResolutionInput(state, scratch, event, *scalar, consumedDodgeRoll);
+        auto input = makeHitResolutionInput(state, event);
         auto result = BattleHitResolver().resolve(input);
         auto followUps = expandBattleProjectileFollowUpCommands(
             result.commands,
@@ -2675,7 +2745,6 @@ void advanceAttacksAndResolveHits(
         result.commands);
     resolveHitEvents(
         state,
-        scratch,
         result.attackEvents,
         result.hitResults,
         result.commands,

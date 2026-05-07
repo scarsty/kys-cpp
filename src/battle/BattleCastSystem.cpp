@@ -562,6 +562,7 @@ void appendItemCommands(const BattleActionCommitInput& input, BattleActionCommit
         request.initial.hiddenWeaponItemId = input.item.id;
         request.initial.hiddenWeaponItemName = input.item.name;
         request.initial.hiddenWeaponEffectId = input.item.hiddenWeaponEffectId;
+        request.initial.hiddenWeaponItemAddHp = input.item.addHp;
         request.initial.visualEffectId = input.item.hiddenWeaponEffectId;
         request.initial.totalFrame = input.hiddenWeaponTotalFrame;
         request.initial.operationType = BattleOperationType::None;

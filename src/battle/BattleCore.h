@@ -15,6 +15,7 @@
 #include "BattleTeamEffectSystem.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <set>
 #include <string>
@@ -96,6 +97,7 @@ struct BattleRuntimeUnit
     BattleOperationType operationType = BattleOperationType::None;
     int actType = -1;
     int physicalPower = 0;
+    int hiddenWeapon = 0;
     int invincible = 0;
     int hurtFrame = 0;
     int shield = 0;
@@ -182,17 +184,13 @@ struct BattleFrameActionUnitResult
     BattleActionCommitResult actionResult;
 };
 
-struct BattleFrameHitScalarInput
+struct BattleRuntimeRandom
 {
-    int attackId = -1;
-    int attackerUnitId = -1;
-    int defenderUnitId = -1;
-    int resolvedMagicBaseDamage = 0;
-    int resolvedHiddenWeaponDamage = 0;
-    int sharedBleedMaxStacks = 1;
-    int randomDamageVariance = 0;
-    std::vector<double> percentRolls;
-    int pendingDefenderHpDamage = 0;
+    std::uint32_t state = 0x6d2b79f5u;
+
+    std::uint32_t nextRaw();
+    double nextPercent();
+    int nextInt(int upperBound);
 };
 
 struct BattleFrameKnockbackDelta
@@ -299,10 +297,6 @@ struct BattleFrameScratch
         std::vector<BattleFrameMovementPhysicsUnitResult> committedResults;
     } movementPhysics;
 
-    struct HitScratch
-    {
-        std::vector<BattleFrameHitScalarInput> scalars;
-    } hits;
 };
 
 struct BattleRuntimeState
@@ -310,6 +304,7 @@ struct BattleRuntimeState
     BattleUnitStore units;
     BattleWorldState world;
     BattleAttackWorld attacks;
+    BattleRuntimeRandom random;
 
     struct DamageState
     {

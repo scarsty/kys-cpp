@@ -33,9 +33,7 @@ using KysChess::BattleSceneBattleAdapter::applyBattleActionFrameResults;
 using KysChess::BattleSceneBattleAdapter::applyBattleFrameUnitRuntimeResult;
 using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
 using KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext;
-using KysChess::BattleSceneBattleAdapter::BattleFrameHitAdapterInput;
 using KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext;
-using KysChess::BattleSceneBattleAdapter::appendBattleFrameHitInput;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
 using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
 using KysChess::BattleSceneBattleAdapter::configureBattleAttackWorld;
@@ -899,6 +897,7 @@ void BattleSceneHades::queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnR
         assert(item);
         request.initial.hiddenWeaponItemName = item->Name;
         request.initial.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
+        request.initial.hiddenWeaponItemAddHp = item->AddHP;
     }
     request.initial.executeCanHitInvincible = attackCanHitInvincible(attacker);
     assert(battle_session_.has_value());
@@ -2561,7 +2560,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
             }
         }
     }
-    populateCoreHitState(bundle, scratch);
     return bundle;
 }
 
@@ -2789,23 +2787,6 @@ void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult
 void BattleSceneHades::playCorePresentationFrame()
 {
     publishPresentationFrame();
-}
-
-int BattleSceneHades::getSharedBleedMaxStacks(Role* source) const
-{
-    if (!source)
-    {
-        return 1;
-    }
-
-    auto& cs = KysChess::ChessCombo::getActiveStates();
-    auto it = cs.find(source->ID);
-    if (it == cs.end() || it->second.bleedChancePct <= 0)
-    {
-        return 1;
-    }
-
-    return std::max(1, it->second.bleedMaxStacks);
 }
 
 void BattleSceneHades::playAutoUltimateReady(Role* role)
@@ -3130,72 +3111,6 @@ int BattleSceneHades::calRolePic(Role* r, int style, int frame)
         total += r->FightFrame[i] * 4;
     }
     return r->FaceTowards;
-}
-
-void BattleSceneHades::populateCoreHitState(
-    KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
-    KysChess::Battle::BattleFrameScratch& scratch)
-{
-    auto& frameState = battleRuntime();
-
-    for (const auto& attack : frameState.attacks.attacks)
-    {
-        appendCoreHitInputsForAttack(bundle, scratch, attack.id, attack.state);
-    }
-
-    int nextAttackId = frameState.attacks.nextAttackId;
-    for (const auto& spawn : frameState.pendingAttackSpawns)
-    {
-        appendCoreHitInputsForAttack(bundle, scratch, nextAttackId, spawn.initial);
-        ++nextAttackId;
-    }
-}
-
-void BattleSceneHades::appendCoreHitInputsForAttack(
-    KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
-    KysChess::Battle::BattleFrameScratch& scratch,
-    int attackId,
-    const KysChess::Battle::BattleAttackState& attackState)
-{
-    auto* attacker = requireFrameRole(bundle, attackState.attackerUnitId);
-    auto* magic = attackState.skillId >= 0 ? Save::getInstance()->getMagic(attackState.skillId) : nullptr;
-    auto* hiddenWeapon = attackState.hiddenWeaponItemId >= 0
-        ? Save::getInstance()->getItem(attackState.hiddenWeaponItemId)
-        : nullptr;
-
-    for (auto* defender : battle_roles_)
-    {
-        if (defender->Dead != 0 || defender->Team == attacker->Team)
-        {
-            continue;
-        }
-
-        std::vector<double> percentRolls;
-        percentRolls.reserve(65);
-        auto& comboStates = battleRuntime().combo.units;
-        if (comboStates.find(defender->ID) != comboStates.end())
-        {
-            percentRolls.push_back(rand_.rand() * 100.0);
-        }
-        for (int i = 0; i < 64; ++i)
-        {
-            percentRolls.push_back(rand_.rand() * 100.0);
-        }
-
-        appendBattleFrameHitInput(scratch, BattleFrameHitAdapterInput{
-            attackId,
-            attacker,
-            defender,
-            magic,
-            hiddenWeapon,
-            magic ? calculateHitMagicBaseDamage(attacker, defender, magic) : 0,
-            hiddenWeapon ? calHiddenWeaponHurt(attacker, defender, hiddenWeapon) : 0,
-            attackState.scriptedBleedStacks > 0 ? getSharedBleedMaxStacks(attacker) : 1,
-            static_cast<int>(5 * (rand_.rand() - rand_.rand())),
-            std::move(percentRolls),
-            0,
-        });
-    }
 }
 
 void BattleSceneHades::initializeBattleRuntimeStaticState()

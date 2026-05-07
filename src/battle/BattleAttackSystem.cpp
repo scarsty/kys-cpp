@@ -33,6 +33,7 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackState& state
     event.hiddenWeaponItemId = state.hiddenWeaponItemId;
     event.hiddenWeaponItemName = state.hiddenWeaponItemName;
     event.hiddenWeaponEffectId = state.hiddenWeaponEffectId;
+    event.hiddenWeaponItemAddHp = state.hiddenWeaponItemAddHp;
     event.scriptedDamage = state.scriptedDamage;
     event.scriptedStunFrames = state.scriptedStunFrames;
     event.scriptedBleedStacks = state.scriptedBleedStacks;

@@ -74,7 +74,6 @@ protected:
     void playCorePresentationFrame();
 
     void updateEnemyTopDebuffState();
-    int getSharedBleedMaxStacks(Role* source) const;
     bool attackCanHitInvincible(Role* role) const;
     Magic* commitAutoUltimate(Role* role, bool consumeMP);
     void playAutoUltimateReady(Role* role);
@@ -86,15 +85,6 @@ protected:
 
     int calculateHitMagicBaseDamage(Role* attacker, Role* defender, Magic* magic);
     void initializeBattleRuntimeStaticState();
-    void populateCoreHitState(
-        KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
-        KysChess::Battle::BattleFrameScratch& scratch);
-    void appendCoreHitInputsForAttack(KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
-                                      KysChess::Battle::BattleFrameScratch& scratch,
-                                      int attackId,
-                                      const KysChess::Battle::BattleAttackState& attackState);
-
-
     void runPositionSwapLoop();
     void runListBasedSwap();
     bool isManualCameraEnabled() const;

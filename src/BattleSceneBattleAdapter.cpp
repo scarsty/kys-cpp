@@ -405,6 +405,7 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     unit.operationType = Battle::battleOperationFromLegacy(role->OperationType);
     unit.actType = role->ActType;
     unit.physicalPower = role->PhysicalPower;
+    unit.hiddenWeapon = role->HiddenWeapon;
     unit.invincible = role->Invincible;
     unit.hurtFrame = role->HurtFrame;
     for (int magicType = 0; magicType <= 4; ++magicType)
@@ -486,6 +487,7 @@ Battle::BattleActionItemSnapshot makeBattleActionItemSnapshot(Item* item)
     snapshot.name = item->Name;
     snapshot.itemType = item->ItemType;
     snapshot.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
+    snapshot.addHp = item->AddHP;
     return snapshot;
 }
 
@@ -620,27 +622,6 @@ Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* ro
     style.emphasizedDamageTextSize = ULT_DAMAGE_TEXT_SIZE;
     style.executeTextSize = ULT_DAMAGE_TEXT_SIZE;
     return style;
-}
-
-void appendBattleFrameHitInput(
-    Battle::BattleFrameScratch& scratch,
-    const BattleFrameHitAdapterInput& input)
-{
-    assert(input.attackId >= 0);
-    assert(input.attacker);
-    assert(input.defender);
-
-    scratch.hits.scalars.push_back({
-        input.attackId,
-        input.attacker->ID,
-        input.defender->ID,
-        input.resolvedMagicBaseDamage,
-        input.resolvedHiddenWeaponDamage,
-        input.sharedBleedMaxStacks,
-        input.randomDamageVariance,
-        input.percentRolls,
-        input.pendingDefenderHpDamage,
-    });
 }
 
 int legacyOperationForAttackArea(int attackAreaType)

@@ -59,6 +59,7 @@ struct BattleAttackState
     int hiddenWeaponItemId = -1;
     std::string hiddenWeaponItemName;
     int hiddenWeaponEffectId = -1;
+    int hiddenWeaponItemAddHp = 0;
     int scriptedDamage = 0;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
@@ -144,6 +145,7 @@ struct BattleAttackEvent
     int hiddenWeaponItemId = -1;
     std::string hiddenWeaponItemName;
     int hiddenWeaponEffectId = -1;
+    int hiddenWeaponItemAddHp = 0;
     int scriptedDamage = 0;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
