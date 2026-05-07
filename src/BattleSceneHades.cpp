@@ -454,50 +454,6 @@ Magic* BattleSceneHades::commitAutoUltimate(Role* role, bool consumeMP)
     return selectedAction.magic;
 }
 
-// Apply freeze frames to a role, accounting for low-HP immunity and freeze shield
-void applyFrozen(Role* r, int frames, std::map<int, KysChess::RoleComboState>& comboStates)
-{
-    if (!r || frames <= 0)
-    {
-        return;
-    }
-    // Low HP immunity: below 25% HP
-    if (r->MaxHP > 0 && r->HP < r->MaxHP * 0.25)
-    {
-        return;
-    }
-
-    auto it = comboStates.find(r->ID);
-
-    int totalFreezeRes = 0;
-    if (it != comboStates.end())
-    {
-        totalFreezeRes = it->second.freezeReductionPct;
-        if (it->second.shield > 0)
-        {
-            totalFreezeRes += it->second.shieldFreezeResPct;
-        }
-    }
-    totalFreezeRes = std::clamp(totalFreezeRes, 0, 100);
-    if (totalFreezeRes > 0)
-    {
-        frames = (frames * (100 - totalFreezeRes)) / 100;
-    }
-
-    if (it != comboStates.end() && it->second.controlImmunityFrames > 0)
-    {
-        int absorbed = std::min(frames, it->second.controlImmunityFrames);
-        it->second.controlImmunityFrames -= absorbed;
-        frames -= absorbed;
-    }
-
-    if (frames > 0)
-    {
-        r->Frozen += frames;
-        r->FrozenMax = r->Frozen;    // Reset max when frozen is applied
-    }
-}
-
 int BattleSceneHades::getOperationType(int attackAreaType)
 {
     return KysChess::Battle::toLegacyOperationType(
@@ -2557,11 +2513,6 @@ void BattleSceneHades::applyCoreFrameResult(
             }
 
             shake_ = event.ultimate ? 10 : 0;
-            role->Frozen = 0;
-            if (event.mainProjectile)
-            {
-                applyFrozen(role, event.ultimate ? 10 : 5, battleRuntime().combo.units);
-            }
             role->Shake = event.ultimate ? 10 : 5;
             if (event.ultimate)
             {
@@ -3239,8 +3190,6 @@ void BattleSceneHades::applyCoreDamageTransactions(
             r->Velocity.normTo(15);
             r->Velocity.z = 12;
             r->Velocity.normTo(committedHpDamage / 2.0);
-            r->Frozen = 0;
-            applyFrozen(r, 5, cs);
             x_ = rand_.rand_int(2) - rand_.rand_int(2);
             y_ = rand_.rand_int(2) - rand_.rand_int(2);
             if (!isManualCameraEnabled())

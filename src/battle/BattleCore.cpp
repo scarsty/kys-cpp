@@ -1338,6 +1338,33 @@ BattleActionCommitInput makePendingCastActionInput(BattleRuntimeState& state,
     return actionInput;
 }
 
+std::string toStatusText(const BattleDamageEvent& event)
+{
+    auto withValue = [&](const char* label)
+    {
+        return event.value > 0
+            ? std::format("{}（{}）", label, event.value)
+            : std::string(label);
+    };
+    switch (event.statusType)
+    {
+    case BattleDamageStatusType::Frozen:
+        return withValue("受擊硬直");
+    case BattleDamageStatusType::Poison:
+        return withValue("中毒");
+    case BattleDamageStatusType::Bleed:
+        return withValue("流血");
+    case BattleDamageStatusType::DamageReduceDebuff:
+        return withValue("破防");
+    case BattleDamageStatusType::MpBlocked:
+        return withValue("封內");
+    case BattleDamageStatusType::None:
+        return "狀態";
+    }
+    assert(false);
+    return "狀態";
+}
+
 BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
 {
     BattleGameplayEvent gameplay;
@@ -1356,6 +1383,7 @@ BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
         break;
     case BattleDamageEventType::StatusApplied:
         gameplay.type = BattleGameplayEventType::StatusApplied;
+        gameplay.text = toStatusText(event);
         break;
     case BattleDamageEventType::HpRestored:
     case BattleDamageEventType::MpRestored:
@@ -1368,6 +1396,7 @@ BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
     case BattleDamageEventType::DeathPrevented:
     case BattleDamageEventType::ExecuteTriggered:
         gameplay.type = BattleGameplayEventType::StatusApplied;
+        gameplay.text = toStatusText(event);
         break;
     }
     return gameplay;
@@ -1855,6 +1884,7 @@ bool tryAppendFrameDamageTransaction(
         ? std::max(command.damage, defender->hp)
         : command.damage;
     request.preResolvedDamage = true;
+    request.frozenFrames = command.frozenFrames;
 
     BattleDamageTransactionInput transaction;
     if (!buildFrameDamageTransaction(state, request, transaction))

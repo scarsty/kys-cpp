@@ -62,6 +62,7 @@ struct BattleHpDamageCommand
     bool critical = false;
     bool ultimate = false;
     bool executed = false;
+    int frozenFrames = 0;
     std::string skillName;
     std::string detailText;
 };

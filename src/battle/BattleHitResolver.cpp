@@ -383,6 +383,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                     false,
                     false,
                     false,
+                    0,
                     "",
                     currentHp->reason,
                 });
@@ -587,6 +588,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                 false,
                 false,
                 false,
+                0,
                 "",
                 "特效傷害",
             });
@@ -601,6 +603,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
 
     const bool usingSkill = input.skill.id >= 0;
     const double baseDamage = static_cast<double>(input.skill.resolvedBaseDamage);
+    const int impactFrozenFrames = input.attackEvent.mainProjectile
+        ? (input.attackEvent.ultimate ? 10 : 5)
+        : 0;
 
     BattleLegacyHitShapeInput shapeInput;
     shapeInput.baseDamage = baseDamage;
@@ -1073,6 +1078,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                 false,
                 false,
                 false,
+                0,
                 "",
                 "技能反彈",
             });
@@ -1239,6 +1245,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                 result.critical,
                 input.attackEvent.ultimate,
                 !result.reflected && result.executed,
+                !result.reflected ? impactFrozenFrames : 0,
                 input.skill.name,
                 damageDetail,
             });
@@ -1254,6 +1261,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             BattleDamageRequest request;
             request.mpDamage = damage;
             request.mpOnHit = static_cast<int>(damage * 0.8);
+            request.frozenFrames = !result.reflected ? impactFrozenFrames : 0;
             const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
             const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;
             result.commands.push_back(BattleMpDamageCommand{

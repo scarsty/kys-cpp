@@ -2265,6 +2265,33 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[ba
         }));
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesMainProjectileImpactFreezeInCore", "[battle][core][breakthrough]")
+{
+    auto frame = hitDamageFrameState(70, 100);
+    auto& state = frame.state;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions.front().defenderStatus.frozenTimer == 5);
+    CHECK(result.damageTransactions.front().defenderStatus.frozenMaxTimer == 5);
+    CHECK(state.status.units[1].frozenTimer == 5);
+    CHECK(state.status.units[1].frozenMaxTimer == 5);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyImpactFreezeForNonMainProjectile", "[battle][core][breakthrough]")
+{
+    auto frame = hitDamageFrameState(70, 100);
+    auto& state = frame.state;
+    state.attacks.attacks.front().state.mainProjectile = false;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions.front().defenderStatus.frozenTimer == 0);
+    CHECK(state.status.units[1].frozenTimer == 0);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndInsideSameFrame", "[battle][core][breakthrough]")
 {
     auto frame = hitDamageFrameState(120, 20);
