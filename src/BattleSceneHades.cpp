@@ -48,18 +48,23 @@ using KysChess::BattleSceneBattleAdapter::makeBattlePresentationColor;
 using KysChess::BattleSceneBattleAdapter::makeBattleRuntimeUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleStatusUnit;
 using KysChess::BattleSceneBattleAdapter::applyBattleMovementPhysicsFrameResults;
+using KysChess::BattleSceneBattleAdapter::effectiveBattleReach;
+using KysChess::BattleSceneBattleAdapter::forcedRangedMinSelectDistance;
+using KysChess::BattleSceneBattleAdapter::isBattleRangedStyleMagic;
 using KysChess::BattleSceneBattleAdapter::populateBattleActionFrame;
 using KysChess::BattleSceneBattleAdapter::populateBattleFrameRescueState;
 using KysChess::BattleSceneBattleAdapter::populateBattleMovementPhysicsFrame;
 using KysChess::BattleSceneBattleAdapter::populateBattleFrameHitUnits;
+using KysChess::BattleSceneBattleAdapter::projectileSpeedMultiplierPct;
 using KysChess::BattleSceneBattleAdapter::resolveBattleMagicBaseDamage;
+using KysChess::BattleSceneBattleAdapter::roleForcesRangedMagic;
+using KysChess::BattleSceneBattleAdapter::selectHigherPowerMagic;
+using KysChess::BattleSceneBattleAdapter::selectLowerPowerMagic;
 using KysChess::BattleSceneBattleAdapter::writeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::writeBattleStatusUnit;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
-constexpr int PROJECTILE_BASE_TRAVEL = BATTLE_TILE_W * 5;  // travel distance at sd=1 (excluding spawn offset)
-constexpr int PROJECTILE_TRAVEL_PER_SD = BATTLE_TILE_W;    // extra travel per sd
 constexpr double PROJECTILE_BOUNCE_RANGE = 90.0;
 constexpr int HURT_FLASH_DURATION = 15;
 constexpr int HURT_FLASH_PERIOD = 3;
@@ -93,7 +98,6 @@ constexpr double MELEE_ATTACK_REACH = MELEE_ATTACK_EFFECT_OFFSET + MELEE_ATTACK_
 constexpr double MELEE_LOCAL_TARGET_RADIUS = MELEE_ATTACK_REACH + MELEE_ATTACK_EFFECT_OFFSET;
 constexpr double DASH_ATTACK_ADVANCE_DISTANCE = MELEE_LOCAL_TARGET_RADIUS;
 constexpr double DASH_ATTACK_MELEE_REACH = MELEE_ATTACK_REACH + DASH_ATTACK_ADVANCE_DISTANCE;
-constexpr double RANGED_ATTACK_SAFETY_MARGIN = MELEE_ATTACK_HIT_RADIUS - ENGAGEMENT_CELL_DEADBAND;
 constexpr double ROLE_MOVE_SPEED_DIVISOR = 22.0;
 constexpr int BATTLE_COORD_COUNT = BATTLEMAP_COORD_COUNT;
 constexpr int ROLE_STATUS_BAR_WIDTH = 48;
@@ -102,7 +106,6 @@ constexpr int ROLE_STATUS_BAR_Y = -120;
 constexpr int ROLE_STATUS_BAR_STEP_Y = ROLE_STATUS_BAR_HEIGHT + ROLE_STATUS_BAR_HEIGHT / 3;
 constexpr int ROLE_STATUS_BAR_MP_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y;
 constexpr int ROLE_STATUS_BAR_FROZEN_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y * 2;
-constexpr int DEFAULT_FORCED_RANGED_MIN_SELECT_DISTANCE = 6;
 
 Pointf battlePos45To90(int x, int y)
 {
@@ -164,26 +167,6 @@ float cameraZoomBlend(int closeUp, int closeUpTotal)
     return 1.0f;
 }
 
-int calcProjectileReach(int select_distance, int spawn_offset)
-{
-    return spawn_offset + PROJECTILE_BASE_TRAVEL + (select_distance - 1) * PROJECTILE_TRAVEL_PER_SD;
-}
-
-int effectiveProjectileSelectDistance(const Magic* magic, bool forcedRanged, int forcedRangedMinSelectDistance)
-{
-    if (!magic)
-    {
-        return 1;
-    }
-
-    int selectDistance = std::max(1, magic->SelectDistance);
-    if (forcedRanged && magic->AttackAreaType == 0)
-    {
-        selectDistance = std::max(selectDistance, std::max(1, forcedRangedMinSelectDistance));
-    }
-    return selectDistance;
-}
-
 double battleSpeedToRefreshMultiplier(int battleSpeed)
 {
     switch (battleSpeed)
@@ -216,11 +199,6 @@ Color poisonDamageTextColor()
 Color bleedDamageTextColor()
 {
     return { 190, 120, 60, 255 };
-}
-
-int calcProjectileFrames(int select_distance, int spawn_offset)
-{
-    return (calcProjectileReach(select_distance, spawn_offset) - spawn_offset) / PROJECTILE_SPEED;
 }
 
 bool isSummonedCloneRole(const Role* r)
@@ -326,69 +304,6 @@ std::string formatExecuteStatus(int thresholdPct)
         return "觸發處決";
     }
     return std::format("觸發處決（斬殺線{}%）", thresholdPct);
-}
-
-double calcBlinkReach(const Magic* magic)
-{
-    if (!magic)
-    {
-        return BATTLE_TILE_W * 3.0;
-    }
-    if (magic->AttackAreaType == 3)
-    {
-        return 180.0;
-    }
-    if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
-    {
-        return std::min(MAX_EFFECTIVE_BATTLE_REACH, static_cast<double>(calcProjectileReach(magic->SelectDistance, BATTLE_TILE_W * 2) - 10));
-    }
-    return std::max(BATTLE_TILE_W * 3.0, static_cast<double>(magic->SelectDistance * BATTLE_TILE_W));
-}
-
-bool isForcedRangedMagic(const Magic* magic, bool forceRanged)
-{
-    return magic && forceRanged && magic->AttackAreaType == 0;
-}
-
-bool isProjectileStyleMagic(const Magic* magic, bool forceRanged)
-{
-    return magic
-        && (magic->AttackAreaType == 1
-            || magic->AttackAreaType == 2
-            || isForcedRangedMagic(magic, forceRanged));
-}
-
-bool isRangedStyleMagic(const Magic* magic, bool forceRanged)
-{
-    return magic
-        && (magic->AttackAreaType == 1
-            || magic->AttackAreaType == 2
-            || magic->AttackAreaType == 3
-            || isForcedRangedMagic(magic, forceRanged));
-}
-
-double effectiveBattleReach(const Magic* magic,
-                            bool forceRanged,
-                            int forcedRangedMinSelectDistance,
-                            int projectileSpeedMultiplierPct)
-{
-    if (!magic)
-    {
-        return BATTLE_TILE_W * 2.0;
-    }
-    if (magic->AttackAreaType == 3)
-    {
-        return 180.0;
-    }
-    if (isProjectileStyleMagic(magic, forceRanged))
-    {
-        int selectDistance = effectiveProjectileSelectDistance(magic, isForcedRangedMagic(magic, forceRanged), forcedRangedMinSelectDistance);
-        int projectileFrames = calcProjectileFrames(selectDistance, BATTLE_TILE_W * 2);
-        double projectileReach = BATTLE_TILE_W * 2
-            + projectileFrames * PROJECTILE_SPEED * projectileSpeedMultiplierPct / 100.0;
-        return std::max(BATTLE_TILE_W * 2.0, projectileReach - RANGED_ATTACK_SAFETY_MARGIN);
-    }
-    return MELEE_ATTACK_REACH;
 }
 
 bool hasMPBlock(const Role* r)
@@ -520,7 +435,7 @@ Magic* BattleSceneHades::commitAutoUltimate(Role* role, bool consumeMP)
         return nullptr;
     }
 
-    Magic* magic = selectMagic(role, std::greater<double>{ });
+    Magic* magic = selectHigherPowerMagic(role);
     if (!magic)
     {
         return nullptr;
@@ -554,48 +469,6 @@ Magic* BattleSceneHades::commitAutoUltimate(Role* role, bool consumeMP)
         changeRoleMP(role, -role->MaxMP);
     }
     return selectedAction.magic;
-}
-
-bool BattleSceneHades::roleForcesRangedMagic(Role* role) const
-{
-    if (!role)
-    {
-        return false;
-    }
-    auto& states = KysChess::ChessCombo::getActiveStates();
-    auto it = states.find(role->ID);
-    return it != states.end() && it->second.forceRangedAttack;
-}
-
-int BattleSceneHades::getForcedRangedMinSelectDistance(Role* role) const
-{
-    if (!role)
-    {
-        return DEFAULT_FORCED_RANGED_MIN_SELECT_DISTANCE;
-    }
-
-    auto& states = KysChess::ChessCombo::getActiveStates();
-    auto it = states.find(role->ID);
-    if (it == states.end() || it->second.forceRangedMinSelectDistance <= 0)
-    {
-        return DEFAULT_FORCED_RANGED_MIN_SELECT_DISTANCE;
-    }
-    return std::max(1, it->second.forceRangedMinSelectDistance);
-}
-
-int BattleSceneHades::getProjectileSpeedMultiplierPct(Role* role) const
-{
-    if (!role)
-    {
-        return 100;
-    }
-    auto& states = KysChess::ChessCombo::getActiveStates();
-    auto it = states.find(role->ID);
-    if (it == states.end())
-    {
-        return 100;
-    }
-    return std::max(100, it->second.projectileSpeedMultiplierPct);
 }
 
 // Apply freeze frames to a role, accounting for low-HP immunity and freeze shield
@@ -2592,41 +2465,7 @@ KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet BattleSceneHades:
         KysChess::BattleSceneBattleAdapter::BattleFrameActionImport actionSnapshot;
         actionSnapshot.unitId = role->ID;
 
-        auto* equippedMagic = role->UsingMagic;
-        actionSnapshot.normalMagic = equippedMagic ? equippedMagic : selectMagic(role, std::less<double>{});
-        actionSnapshot.ultimateMagic = equippedMagic ? equippedMagic : selectMagic(role, std::greater<double>{});
-        actionSnapshot.forceRangedMagic = roleForcesRangedMagic(role);
-        actionSnapshot.forcedRangedMinSelectDistance = getForcedRangedMinSelectDistance(role);
-        actionSnapshot.projectileSpeedMultiplierPct = getProjectileSpeedMultiplierPct(role);
         actionSnapshot.ultimateExtraProjectileCount = getUltimateExtraProjectileCount(role);
-        if (actionSnapshot.normalMagic)
-        {
-            actionSnapshot.normalEffectiveReach = std::min(
-                effectiveBattleReach(
-                    actionSnapshot.normalMagic,
-                    actionSnapshot.forceRangedMagic,
-                    actionSnapshot.forcedRangedMinSelectDistance,
-                    actionSnapshot.projectileSpeedMultiplierPct),
-                MAX_EFFECTIVE_BATTLE_REACH);
-            actionSnapshot.normalRangedStyle = isRangedStyleMagic(
-                actionSnapshot.normalMagic,
-                actionSnapshot.forceRangedMagic);
-            actionSnapshot.normalBlinkReach = calcBlinkReach(actionSnapshot.normalMagic);
-        }
-        if (actionSnapshot.ultimateMagic)
-        {
-            actionSnapshot.ultimateEffectiveReach = std::min(
-                effectiveBattleReach(
-                    actionSnapshot.ultimateMagic,
-                    actionSnapshot.forceRangedMagic,
-                    actionSnapshot.forcedRangedMinSelectDistance,
-                    actionSnapshot.projectileSpeedMultiplierPct),
-                MAX_EFFECTIVE_BATTLE_REACH);
-            actionSnapshot.ultimateRangedStyle = isRangedStyleMagic(
-                actionSnapshot.ultimateMagic,
-                actionSnapshot.forceRangedMagic);
-            actionSnapshot.ultimateBlinkReach = calcBlinkReach(actionSnapshot.ultimateMagic);
-        }
         actionSnapshot.randomUnitRolls = { rand_.rand(), rand_.rand() };
         actionSnapshot.projectileBounceRoll = rand_.rand_int(100);
         actionSnapshot.blinkRandomRoll = rand_.rand_int(std::numeric_limits<int>::max());
@@ -3537,15 +3376,15 @@ KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(
     Magic* plannedMagic = role->UsingMagic;
     if (!plannedMagic)
     {
-        plannedMagic = isUltimate ? selectMagic(role, std::greater<double>{ }) : selectMagic(role, std::less<double>{ });
+        plannedMagic = isUltimate ? selectHigherPowerMagic(role) : selectLowerPowerMagic(role);
     }
 
-    bool forceRanged = roleForcesRangedMagic(role);
-    const auto& cs = KysChess::ChessCombo::getActiveStates();
+    auto& cs = battleRuntime().combo.units;
     auto comboIt = cs.find(role->ID);
+    bool forceRanged = roleForcesRangedMagic(cs, role->ID);
     bool dashAttackEnabled = comboIt != cs.end() && comboIt->second.dashAttack;
-    int forcedRangedMinSelectDistance = getForcedRangedMinSelectDistance(role);
-    int projectileSpeedMultiplierPct = getProjectileSpeedMultiplierPct(role);
+    int forcedRangedDistance = forcedRangedMinSelectDistance(cs, role->ID);
+    int speedMultiplierPct = projectileSpeedMultiplierPct(cs, role->ID);
 
     KysChess::Battle::BattleUnitState unit;
     unit.id = role->ID;
@@ -3559,10 +3398,10 @@ KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(
     unit.star = role->Star;
     unit.reach = plannedMagic
         ? std::min(
-            effectiveBattleReach(plannedMagic, forceRanged, forcedRangedMinSelectDistance, projectileSpeedMultiplierPct),
+            effectiveBattleReach(plannedMagic, forceRanged, forcedRangedDistance, speedMultiplierPct),
             MAX_EFFECTIVE_BATTLE_REACH)
         : MELEE_ATTACK_REACH;
-    unit.style = isRangedStyleMagic(plannedMagic, forceRanged)
+    unit.style = isBattleRangedStyleMagic(plannedMagic, forceRanged)
         ? KysChess::Battle::CombatStyle::Ranged
         : KysChess::Battle::CombatStyle::Melee;
     unit.taXue = dashAttackEnabled;

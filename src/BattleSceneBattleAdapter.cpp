@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cassert>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <limits>
 #include <set>
@@ -45,6 +46,38 @@ constexpr int DASH_HIT_TOTAL_FRAME = 30;
 constexpr double DASH_HIT_POSITION_SPACING = 2.0;
 constexpr int DASH_HIT_FRAME_STEP = 3;
 constexpr std::array<int, 4> LEGACY_CAST_FRAMES = { 25, 30, 20, 25 };
+constexpr int DEFAULT_FORCED_RANGED_MIN_SELECT_DISTANCE = 6;
+constexpr double MAX_EFFECTIVE_BATTLE_REACH = 480.0;
+constexpr double ENGAGEMENT_CELL_DEADBAND = BATTLE_TILE_W / 2.0;
+constexpr double MELEE_ATTACK_EFFECT_OFFSET = BATTLE_TILE_W * 2.0;
+constexpr double MELEE_ATTACK_HIT_RADIUS = BATTLE_TILE_W * 2.0;
+constexpr double MELEE_ATTACK_SAFETY_MARGIN = MELEE_ATTACK_HIT_RADIUS - (BATTLE_TILE_W - ENGAGEMENT_CELL_DEADBAND / 2.0);
+constexpr double MELEE_ATTACK_REACH = MELEE_ATTACK_EFFECT_OFFSET + MELEE_ATTACK_HIT_RADIUS - MELEE_ATTACK_SAFETY_MARGIN;
+constexpr double RANGED_ATTACK_SAFETY_MARGIN = MELEE_ATTACK_HIT_RADIUS - ENGAGEMENT_CELL_DEADBAND;
+
+template<typename Cmp>
+Magic* selectBattleMagic(Role* role, Cmp cmp)
+{
+    assert(role);
+    auto learnedMagics = role->getLearnedMagics();
+    if (learnedMagics.empty())
+    {
+        return nullptr;
+    }
+
+    Magic* chosen = learnedMagics.front();
+    double power = role->getMagicPower(chosen);
+    for (size_t i = 1; i < learnedMagics.size(); ++i)
+    {
+        double candidatePower = role->getMagicPower(learnedMagics[i]);
+        if (cmp(candidatePower, power))
+        {
+            power = candidatePower;
+            chosen = learnedMagics[i];
+        }
+    }
+    return chosen;
+}
 
 Battle::BattleAttackUnit makeBattleAttackUnit(Role* role)
 {
@@ -131,6 +164,125 @@ Battle::BattleCastGeometry makeBattleCastGeometry()
     geometry.dashHitPositionSpacing = DASH_HIT_POSITION_SPACING;
     geometry.dashHitFrameStep = DASH_HIT_FRAME_STEP;
     return geometry;
+}
+
+Magic* selectLowerPowerMagic(Role* role)
+{
+    return selectBattleMagic(role, std::less<double>{});
+}
+
+Magic* selectHigherPowerMagic(Role* role)
+{
+    return selectBattleMagic(role, std::greater<double>{});
+}
+
+bool roleForcesRangedMagic(const std::map<int, RoleComboState>& comboStates, int unitId)
+{
+    auto it = comboStates.find(unitId);
+    return it != comboStates.end() && it->second.forceRangedAttack;
+}
+
+int forcedRangedMinSelectDistance(const std::map<int, RoleComboState>& comboStates, int unitId)
+{
+    auto it = comboStates.find(unitId);
+    if (it == comboStates.end() || it->second.forceRangedMinSelectDistance <= 0)
+    {
+        return DEFAULT_FORCED_RANGED_MIN_SELECT_DISTANCE;
+    }
+    return std::max(1, it->second.forceRangedMinSelectDistance);
+}
+
+int projectileSpeedMultiplierPct(const std::map<int, RoleComboState>& comboStates, int unitId)
+{
+    auto it = comboStates.find(unitId);
+    if (it == comboStates.end())
+    {
+        return 100;
+    }
+    return std::max(100, it->second.projectileSpeedMultiplierPct);
+}
+
+bool isForcedRangedMagic(const Magic* magic, bool forceRanged)
+{
+    return magic && forceRanged && magic->AttackAreaType == 0;
+}
+
+bool isProjectileStyleMagic(const Magic* magic, bool forceRanged)
+{
+    return magic
+        && (magic->AttackAreaType == 1
+            || magic->AttackAreaType == 2
+            || isForcedRangedMagic(magic, forceRanged));
+}
+
+bool isBattleRangedStyleMagic(const Magic* magic, bool forceRanged)
+{
+    return magic
+        && (magic->AttackAreaType == 1
+            || magic->AttackAreaType == 2
+            || magic->AttackAreaType == 3
+            || isForcedRangedMagic(magic, forceRanged));
+}
+
+int effectiveProjectileSelectDistance(const Magic* magic, bool forcedRanged, int forcedRangedMinSelectDistance)
+{
+    assert(magic);
+    int selectDistance = std::max(1, magic->SelectDistance);
+    if (forcedRanged && magic->AttackAreaType == 0)
+    {
+        selectDistance = std::max(selectDistance, std::max(1, forcedRangedMinSelectDistance));
+    }
+    return selectDistance;
+}
+
+double battleBlinkReach(const Magic* magic)
+{
+    const auto geometry = makeBattleCastGeometry();
+    if (!magic)
+    {
+        return BATTLE_TILE_W * 3.0;
+    }
+    if (magic->AttackAreaType == 3)
+    {
+        return 180.0;
+    }
+    if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
+    {
+        const double reach = geometry.projectileSpawnOffset
+            + geometry.projectileBaseTravel
+            + (magic->SelectDistance - 1) * geometry.projectileTravelPerSelectDistance;
+        return std::min(MAX_EFFECTIVE_BATTLE_REACH, reach - 10.0);
+    }
+    return std::max(BATTLE_TILE_W * 3.0, static_cast<double>(magic->SelectDistance * BATTLE_TILE_W));
+}
+
+double effectiveBattleReach(
+    const Magic* magic,
+    bool forceRanged,
+    int forcedRangedMinSelectDistance,
+    int projectileSpeedMultiplierPct)
+{
+    const auto geometry = makeBattleCastGeometry();
+    if (!magic)
+    {
+        return BATTLE_TILE_W * 2.0;
+    }
+    if (magic->AttackAreaType == 3)
+    {
+        return 180.0;
+    }
+    if (isProjectileStyleMagic(magic, forceRanged))
+    {
+        const int selectDistance = effectiveProjectileSelectDistance(
+            magic,
+            isForcedRangedMagic(magic, forceRanged),
+            forcedRangedMinSelectDistance);
+        const double projectileReach = geometry.projectileSpawnOffset
+            + (geometry.projectileBaseTravel + (selectDistance - 1) * geometry.projectileTravelPerSelectDistance)
+                * projectileSpeedMultiplierPct / 100.0;
+        return std::max(BATTLE_TILE_W * 2.0, projectileReach - RANGED_ATTACK_SAFETY_MARGIN);
+    }
+    return MELEE_ATTACK_REACH;
 }
 
 Battle::BattleCastSkillState makeBattleCastSkillState(Role* unit, const BattleCastSkillAdapterInput& input)
@@ -674,14 +826,21 @@ BattleCastSkillAdapterInput makeActionFrameSkillInput(
         return skill;
     }
 
+    assert(context.comboStates);
     const auto& action = requireActionSnapshot(context, role->ID);
-    const bool forceRanged = action.forceRangedMagic;
-    const int projectileSpeedMultiplierPct = action.projectileSpeedMultiplierPct;
+    const bool forceRanged = roleForcesRangedMagic(*context.comboStates, role->ID);
+    const int speedMultiplierPct = projectileSpeedMultiplierPct(*context.comboStates, role->ID);
     skill.magic = magic;
-    skill.reach = ultimate ? action.ultimateEffectiveReach : action.normalEffectiveReach;
+    skill.reach = std::min(
+        effectiveBattleReach(
+            magic,
+            forceRanged,
+            forcedRangedMinSelectDistance(*context.comboStates, role->ID),
+            speedMultiplierPct),
+        context.config.maxEffectiveBattleReach);
     skill.forceRanged = forceRanged;
-    skill.rangedStyle = ultimate ? action.ultimateRangedStyle : action.normalRangedStyle;
-    skill.projectileSpeedMultiplierPct = projectileSpeedMultiplierPct;
+    skill.rangedStyle = isBattleRangedStyleMagic(magic, forceRanged);
+    skill.projectileSpeedMultiplierPct = speedMultiplierPct;
     skill.meleeSplashCount = ultimate && magic->AttackAreaType == 0 ? 1 : 0;
     skill.extraProjectileCount = ultimate ? action.ultimateExtraProjectileCount : 0;
     return skill;
@@ -828,9 +987,7 @@ void populateActionCommitInputForRole(
         const auto& action = requireActionSnapshot(context, role->ID);
         actionInput.blinkRandomRoll = action.blinkRandomRoll;
         actionInput.blinkCellRandomRoll = action.blinkCellRandomRoll;
-        actionInput.blinkReach = castResult.decision.ultimate
-            ? action.ultimateBlinkReach
-            : action.normalBlinkReach;
+        actionInput.blinkReach = battleBlinkReach(magic);
         actionInput.blinkWeakTargetDefWeight = context.config.blinkWeakTargetDefWeight;
         actionInput.blinkGeometry = makeBlinkGeometryInput(role, actionInput.blinkReach, context);
         actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
@@ -878,9 +1035,8 @@ void populateCastPlanInputForRole(
 
     bool canStartAttack = role->CoolDown == 0;
     Magic* equippedMagic = role->UsingMagic;
-    const auto& action = requireActionSnapshot(context, role->ID);
-    Magic* normalMagic = equippedMagic ? equippedMagic : action.normalMagic;
-    Magic* ultimateMagic = equippedMagic ? equippedMagic : action.ultimateMagic;
+    Magic* normalMagic = equippedMagic ? equippedMagic : selectLowerPowerMagic(role);
+    Magic* ultimateMagic = equippedMagic ? equippedMagic : selectHigherPowerMagic(role);
     Role* target = findNearestEnemyRole(context, role->ID);
     if (!target)
     {

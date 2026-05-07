@@ -73,7 +73,6 @@ protected:
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
 
-    template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
     int getUltimateExtraProjectileCount(Role* r);
     void updateEnemyTopDebuffState();
     int getSharedBleedMaxStacks(Role* source) const;
@@ -127,10 +126,6 @@ protected:
     void recordRoleEffectPresentation(Role* role, int eftId, int totalFrames = 0);
     void recordDamageNumberPresentation(Role* role, int damage, Color color, int baseSize = 15);
     void recordBattleStatusLog(Role* source, Role* target, const std::string& text);
-    bool roleForcesRangedMagic(Role* role) const;
-    int getForcedRangedMinSelectDistance(Role* role) const;
-    int getProjectileSpeedMultiplierPct(Role* role) const;
-
 public:
     BattleTracker& getTracker() { return tracker_; }
     const std::deque<Role>& getFriendsObj() const { return friends_obj_; }
@@ -177,22 +172,3 @@ protected:
     BattleScenePresentationPlayer presentation_player_;
     KysChess::Battle::BattlePresentationFrame last_presentation_frame_;
 };
-
-template<typename Cmp>
-Magic* BattleSceneHades::selectMagic(Role* r, Cmp cmp)
-{
-    auto v = r->getLearnedMagics();
-    if (v.empty()) return nullptr;
-    Magic* chosen = v[0];
-    double power = r->getMagicPower(v[0]);
-    for (size_t i = 1; i < v.size(); ++i)
-    {
-        double p = r->getMagicPower(v[i]);
-        if (cmp(p, power))
-        {
-            power = p;
-            chosen = v[i];
-        }
-    }
-    return chosen;
-}

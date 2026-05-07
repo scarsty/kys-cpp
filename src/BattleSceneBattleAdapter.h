@@ -60,18 +60,7 @@ struct BattleFrameApplyContext
 struct BattleFrameActionImport
 {
     int unitId = -1;
-    Magic* normalMagic = nullptr;
-    Magic* ultimateMagic = nullptr;
-    bool forceRangedMagic = false;
-    int forcedRangedMinSelectDistance = 0;
-    int projectileSpeedMultiplierPct = 100;
     int ultimateExtraProjectileCount = 0;
-    double normalEffectiveReach = 0.0;
-    double ultimateEffectiveReach = 0.0;
-    bool normalRangedStyle = false;
-    bool ultimateRangedStyle = false;
-    double normalBlinkReach = 0.0;
-    double ultimateBlinkReach = 0.0;
     std::array<double, 2> randomUnitRolls{};
     int projectileBounceRoll = 0;
     int blinkRandomRoll = 0;
@@ -192,6 +181,18 @@ Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
 
 Battle::BattleCastConfig makeBattleCastConfig();
 Battle::BattleCastGeometry makeBattleCastGeometry();
+Magic* selectLowerPowerMagic(Role* role);
+Magic* selectHigherPowerMagic(Role* role);
+bool roleForcesRangedMagic(const std::map<int, RoleComboState>& comboStates, int unitId);
+int forcedRangedMinSelectDistance(const std::map<int, RoleComboState>& comboStates, int unitId);
+int projectileSpeedMultiplierPct(const std::map<int, RoleComboState>& comboStates, int unitId);
+double battleBlinkReach(const Magic* magic);
+bool isBattleRangedStyleMagic(const Magic* magic, bool forceRanged);
+double effectiveBattleReach(
+    const Magic* magic,
+    bool forceRanged,
+    int forcedRangedMinSelectDistance,
+    int projectileSpeedMultiplierPct);
 Battle::BattleCastSkillState makeBattleCastSkillState(Role* unit, const BattleCastSkillAdapterInput& input);
 Battle::BattleCastInput makeBattleCastInput(const BattleCastAdapterInput& input);
 void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, int actType);
