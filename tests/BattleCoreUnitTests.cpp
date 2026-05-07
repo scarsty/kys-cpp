@@ -56,6 +56,25 @@ BattleWorldState worldWith(std::vector<BattleUnitState> units)
     return world;
 }
 
+BattleRuntimeUnit runtimeUnitSnapshot(int id, int team, int hp, Pointf position = {})
+{
+    BattleRuntimeUnit unit;
+    unit.id = id;
+    unit.team = team;
+    unit.alive = hp > 0;
+    unit.hp = hp;
+    unit.maxHp = 100;
+    unit.mp = 20;
+    unit.maxMp = 50;
+    unit.attack = 30;
+    unit.defence = 5;
+    unit.cooldown = 10;
+    unit.cooldownMax = 60;
+    unit.physicalPower = 3;
+    unit.position = position;
+    return unit;
+}
+
 TEST_CASE("BattleUnitStore_RequiresAndMutatesCanonicalUnitValues", "[battle][core][runtime]")
 {
     BattleUnitStore store;
@@ -465,6 +484,125 @@ BattleDamageTransactionInput preResolvedDamageInput(int attackerUnitId, int defe
     input.defenderStatus.hp = hpBefore;
     input.defenderStatus.maxHp = 100;
     return input;
+}
+
+TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 1, { 120, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, 10, { 120, 100, 0 }),
+    };
+    state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
+    state.damage.units = {
+        damageUnitSnapshot(1, 100),
+        damageUnitSnapshot(2, 10),
+    };
+    state.status.units = {
+        statusUnitSnapshot(1, 100),
+        statusUnitSnapshot(2, 10),
+    };
+    state.damage.cooldowns.emplace(2, BattleCooldownState{});
+
+    BattleFrameRunner().runFrame(state);
+
+    const auto& defender = state.units.requireUnit(2);
+    CHECK(defender.hp == 0);
+    CHECK_FALSE(defender.alive);
+}
+
+TEST_CASE("BattleFrameRunner_RoutesStatusTicksThroughCanonicalUnitStore", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({ unit(1, 0, { 100, 100, 0 }) });
+    state.attacks = attackWorld();
+    auto runtime = runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 });
+    runtime.mpBlocked = true;
+    state.units.units.push_back(runtime);
+    auto status = statusUnitSnapshot(1, 100);
+    status.mpBlockTimer = 1;
+    status.damageImmunityAfterFrames = 1;
+    status.damageImmunityDuration = 5;
+    status.damageImmunityTimer = 0;
+    state.status.units.push_back(status);
+
+    BattleFrameRunner().runFrame(state);
+
+    const auto& unit = state.units.requireUnit(1);
+    CHECK_FALSE(unit.mpBlocked);
+    CHECK(unit.invincible == 5);
+}
+
+TEST_CASE("BattleFrameRunner_RoutesTeamEffectEventsThroughCanonicalUnitStore", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 0, { 120, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 40, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 0, 80, { 120, 100, 0 }),
+    };
+    state.teamEffects.world.units = {
+        adapterTeamEffectUnit(1, 0, 40, 10),
+        adapterTeamEffectUnit(2, 0, 80, 10),
+    };
+    state.damage.units = {
+        damageUnitSnapshot(1, 40),
+        damageUnitSnapshot(2, 80),
+    };
+    state.status.units = {
+        statusUnitSnapshot(1, 40),
+        statusUnitSnapshot(2, 80),
+    };
+    state.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 1, 10, 0, "技能群療" });
+
+    BattleFrameRunner().runFrame(state);
+
+    CHECK(state.units.requireUnit(1).hp == 50);
+    CHECK(state.units.requireUnit(2).hp == 90);
+}
+
+TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({ unit(1, 0, { 100, 100, 0 }) });
+    state.attacks = attackWorld();
+    state.units.gridTransform = { SceneTileWidth, 64 };
+    state.units.units.push_back(runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }));
+    state.movementPhysics.config.gravity = 0.0f;
+    state.movementPhysics.config.friction = 0.0f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.collision.tileWidth = SceneTileWidth;
+    state.movementPhysics.collision.coordCount = 64;
+    state.movementPhysics.collision.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.collision.units = { { 1, true, { 100, 100, 0 } } };
+    for (int x = -64; x < 64; ++x)
+    {
+        for (int y = -64; y < 64; ++y)
+        {
+            state.movementPhysics.collision.cells.push_back({ x, y, true });
+        }
+    }
+    BattleFrameMovementPhysicsUnitInput moving;
+    moving.unitId = 1;
+    moving.state.position = { 100, 100, 0 };
+    moving.state.velocity = { 5, 0, 0 };
+    moving.state.acceleration = { 0, 0, 0 };
+    state.movementPhysics.units.push_back(moving);
+
+    BattleFrameRunner().runFrame(state);
+
+    const auto& unit = state.units.requireUnit(1);
+    CHECK(unit.position.x == 105.0f);
+    CHECK(unit.velocity.x == 5.0f);
 }
 
 BattleFrameRescueUnitSnapshot rescueUnit(int id, int team, Point cell, Pointf position, int hp)

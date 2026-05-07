@@ -27,24 +27,36 @@ Point BattleGridTransform::toGrid(Pointf position) const
     return grid;
 }
 
-BattleRuntimeUnit& BattleUnitStore::requireUnit(int unitId)
+BattleRuntimeUnit* BattleUnitStore::findUnit(int unitId)
 {
     auto it = std::find_if(units.begin(), units.end(), [&](const BattleRuntimeUnit& unit)
         {
             return unit.id == unitId;
         });
-    assert(it != units.end());
-    return *it;
+    return it != units.end() ? &*it : nullptr;
+}
+
+const BattleRuntimeUnit* BattleUnitStore::findUnit(int unitId) const
+{
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleRuntimeUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != units.end() ? &*it : nullptr;
+}
+
+BattleRuntimeUnit& BattleUnitStore::requireUnit(int unitId)
+{
+    auto* unit = findUnit(unitId);
+    assert(unit);
+    return *unit;
 }
 
 const BattleRuntimeUnit& BattleUnitStore::requireUnit(int unitId) const
 {
-    auto it = std::find_if(units.begin(), units.end(), [&](const BattleRuntimeUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    assert(it != units.end());
-    return *it;
+    const auto* unit = findUnit(unitId);
+    assert(unit);
+    return *unit;
 }
 
 void BattleUnitStore::writeDamageUnit(const BattleDamageUnitState& source)
@@ -62,6 +74,32 @@ void BattleUnitStore::writeDamageUnit(const BattleDamageUnitState& source)
     unit.mpRecoveryBonusPct = source.mpRecoveryBonusPct;
 }
 
+void BattleUnitStore::writeStatusUnit(const BattleStatusUnitState& source)
+{
+    auto& unit = requireUnit(source.id);
+    unit.alive = source.alive;
+    unit.hp = source.hp;
+    unit.maxHp = source.maxHp;
+    unit.attack = source.attack;
+    unit.invincible = source.invincible;
+    unit.mpBlocked = source.mpBlockTimer > 0;
+}
+
+void BattleUnitStore::writeTeamEffectUnit(const BattleTeamEffectUnit& source)
+{
+    auto& unit = requireUnit(source.id);
+    unit.team = source.team;
+    unit.alive = source.alive;
+    unit.hp = source.hp;
+    unit.maxHp = source.maxHp;
+    unit.mp = source.mp;
+    unit.maxMp = source.maxMp;
+    unit.cooldown = source.cooldown;
+    unit.shield = source.shield;
+    unit.mpBlocked = source.mpBlocked;
+    unit.mpRecoveryBonusPct = source.mpRecoveryBonusPct;
+}
+
 void BattleUnitStore::setPosition(int unitId, Pointf position)
 {
     auto& unit = requireUnit(unitId);
@@ -69,8 +107,19 @@ void BattleUnitStore::setPosition(int unitId, Pointf position)
     unit.grid = gridTransform.toGrid(position);
 }
 
+void BattleUnitStore::setMotion(int unitId, Pointf position, Pointf velocity, Pointf acceleration)
+{
+    auto& unit = requireUnit(unitId);
+    unit.position = position;
+    unit.velocity = velocity;
+    unit.acceleration = acceleration;
+    unit.grid = gridTransform.toGrid(position);
+}
+
 namespace
 {
+bool hasCanonicalUnitStore(const BattleRuntimeState& state);
+
 BattlePresentationUnitSnapshot toPresentationUnit(const BattleUnitState& unit)
 {
     return {
@@ -448,6 +497,25 @@ void advanceRuntimeUnits(BattleRuntimeState& state, std::vector<BattleGameplayCo
         committed.unitId = input.unitId;
         committed.result = BattleFrameUnitRuntimeSystem().advance(input.input);
 
+        if (hasCanonicalUnitStore(state))
+        {
+            auto& unit = state.units.requireUnit(input.unitId);
+            unit.cooldown = committed.result.state.cooldown;
+            unit.physicalPower = committed.result.state.physicalPower;
+            if (committed.result.mpDelta > 0 && !unit.mpBlocked)
+            {
+                unit.mp += committed.result.mpDelta * (100 + unit.mpRecoveryBonusPct) / 100;
+            }
+            else if (committed.result.mpDelta < 0)
+            {
+                unit.mp += committed.result.mpDelta;
+            }
+            if (committed.result.resetDashVelocity)
+            {
+                unit.velocity = { 0, 0, 0 };
+            }
+        }
+
         auto comboIt = state.combo.units.find(input.unitId);
         if (comboIt != state.combo.units.end())
         {
@@ -782,6 +850,11 @@ const BattleDamageUnitState* findDamageUnit(const std::vector<BattleDamageUnitSt
     return it != units.end() ? &*it : nullptr;
 }
 
+bool hasCanonicalUnitStore(const BattleRuntimeState& state)
+{
+    return !state.units.units.empty();
+}
+
 BattleTeamEffectUnit* findTeamEffectUnit(BattleTeamEffectWorld& world, int unitId)
 {
     auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleTeamEffectUnit& unit)
@@ -800,38 +873,44 @@ const BattleTeamEffectUnit* findTeamEffectUnit(const BattleTeamEffectWorld& worl
     return it != world.units.end() ? &*it : nullptr;
 }
 
+// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
 void syncTeamEffectUnit(BattleRuntimeState& state, const BattleDamageUnitState& source)
 {
+    const auto* canonical = state.units.findUnit(source.id);
     if (auto* unit = findTeamEffectUnit(state.teamEffects.world, source.id))
     {
-        unit->alive = source.alive;
-        unit->hp = source.hp;
-        unit->maxHp = source.maxHp;
-        unit->mp = source.mp;
-        unit->maxMp = source.maxMp;
-        unit->shield = source.shield;
-        unit->mpBlocked = source.mpBlocked;
-        unit->mpRecoveryBonusPct = source.mpRecoveryBonusPct;
+        unit->alive = canonical ? canonical->alive : source.alive;
+        unit->hp = canonical ? canonical->hp : source.hp;
+        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
+        unit->mp = canonical ? canonical->mp : source.mp;
+        unit->maxMp = canonical ? canonical->maxMp : source.maxMp;
+        unit->shield = canonical ? canonical->shield : source.shield;
+        unit->mpBlocked = canonical ? canonical->mpBlocked : source.mpBlocked;
+        unit->mpRecoveryBonusPct = canonical ? canonical->mpRecoveryBonusPct : source.mpRecoveryBonusPct;
     }
 }
 
+// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
 void syncTeamEffectPosition(BattleRuntimeState& state, int unitId, Pointf position)
 {
+    const auto* canonical = state.units.findUnit(unitId);
     if (auto* unit = findTeamEffectUnit(state.teamEffects.world, unitId))
     {
-        unit->x = position.x;
-        unit->y = position.y;
+        unit->x = canonical ? canonical->position.x : position.x;
+        unit->y = canonical ? canonical->position.y : position.y;
     }
 }
 
+// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
 void syncTeamEffectStatus(BattleRuntimeState& state, const BattleStatusUnitState& source)
 {
+    const auto* canonical = state.units.findUnit(source.id);
     if (auto* unit = findTeamEffectUnit(state.teamEffects.world, source.id))
     {
-        unit->alive = source.alive;
-        unit->hp = source.hp;
-        unit->maxHp = source.maxHp;
-        unit->mpBlocked = source.mpBlockTimer > 0;
+        unit->alive = canonical ? canonical->alive : source.alive;
+        unit->hp = canonical ? canonical->hp : source.hp;
+        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
+        unit->mpBlocked = canonical ? canonical->mpBlocked : source.mpBlockTimer > 0;
     }
 }
 
@@ -862,42 +941,48 @@ BattleEffectUnit* findEffectUnit(BattleEffectWorld& world, int unitId)
     return it != world.units.end() ? &*it : nullptr;
 }
 
+// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
 void syncEffectUnit(BattleRuntimeState& state, const BattleDamageUnitState& source)
 {
+    const auto* canonical = state.units.findUnit(source.id);
     if (auto* unit = findEffectUnit(state.effects.world, source.id))
     {
-        unit->alive = source.alive;
-        unit->hp = source.hp;
-        unit->maxHp = source.maxHp;
-        unit->mp = source.mp;
-        unit->maxMp = source.maxMp;
-        unit->invincible = source.invincible;
-        unit->shield = source.shield;
+        unit->alive = canonical ? canonical->alive : source.alive;
+        unit->hp = canonical ? canonical->hp : source.hp;
+        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
+        unit->mp = canonical ? canonical->mp : source.mp;
+        unit->maxMp = canonical ? canonical->maxMp : source.maxMp;
+        unit->invincible = canonical ? canonical->invincible : source.invincible;
+        unit->shield = canonical ? canonical->shield : source.shield;
     }
 }
 
+// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
 void syncEffectStatus(BattleRuntimeState& state, const BattleStatusUnitState& source)
 {
+    const auto* canonical = state.units.findUnit(source.id);
     if (auto* unit = findEffectUnit(state.effects.world, source.id))
     {
-        unit->alive = source.alive;
-        unit->hp = source.hp;
-        unit->maxHp = source.maxHp;
-        unit->invincible = source.invincible;
+        unit->alive = canonical ? canonical->alive : source.alive;
+        unit->hp = canonical ? canonical->hp : source.hp;
+        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
+        unit->invincible = canonical ? canonical->invincible : source.invincible;
     }
 }
 
+// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
 void syncEffectFromTeamEffectUnit(BattleRuntimeState& state, const BattleTeamEffectUnit& source)
 {
+    const auto* canonical = state.units.findUnit(source.id);
     if (auto* unit = findEffectUnit(state.effects.world, source.id))
     {
-        unit->alive = source.alive;
-        unit->hp = source.hp;
-        unit->maxHp = source.maxHp;
-        unit->mp = source.mp;
-        unit->maxMp = source.maxMp;
-        unit->cooldown = source.cooldown;
-        unit->shield = source.shield;
+        unit->alive = canonical ? canonical->alive : source.alive;
+        unit->hp = canonical ? canonical->hp : source.hp;
+        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
+        unit->mp = canonical ? canonical->mp : source.mp;
+        unit->maxMp = canonical ? canonical->maxMp : source.maxMp;
+        unit->cooldown = canonical ? canonical->cooldown : source.cooldown;
+        unit->shield = canonical ? canonical->shield : source.shield;
     }
 }
 
@@ -1010,6 +1095,12 @@ BattleStatusUnitState makeFallbackStatusUnit(const BattleDamageUnitState& unit)
 
 void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamageTransactionResult& transaction)
 {
+    if (hasCanonicalUnitStore(state))
+    {
+        state.units.writeDamageUnit(transaction.attacker);
+        state.units.writeDamageUnit(transaction.defender);
+        state.units.requireUnit(transaction.defender.id).cooldown = transaction.defenderCooldown.cooldown;
+    }
     if (auto* attacker = findDamageUnit(state.damage.units, transaction.attacker.id))
     {
         *attacker = transaction.attacker;
@@ -1055,6 +1146,12 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
 
 void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int invincible)
 {
+    if (hasCanonicalUnitStore(state))
+    {
+        auto& unit = state.units.requireUnit(unitId);
+        unit.hp = hp;
+        unit.invincible = invincible;
+    }
     if (auto* damageUnit = findDamageUnit(state.damage.units, unitId))
     {
         damageUnit->hp = hp;
@@ -1082,6 +1179,10 @@ void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int inv
 
 void syncRescuePosition(BattleRuntimeState& state, int unitId, Pointf position)
 {
+    if (hasCanonicalUnitStore(state))
+    {
+        state.units.setPosition(unitId, position);
+    }
     if (auto* worldUnit = findWorldUnit(state.world, unitId))
     {
         worldUnit->position = position;
@@ -1554,6 +1655,10 @@ void syncTeamEffectEventsToFrameState(
     {
         const auto* unit = findTeamEffectUnit(state.teamEffects.world, event.targetUnitId);
         assert(unit);
+        if (hasCanonicalUnitStore(state))
+        {
+            state.units.writeTeamEffectUnit(*unit);
+        }
         if (auto* damageUnit = findDamageUnit(state.damage.units, event.targetUnitId))
         {
             damageUnit->hp = unit->hp;
@@ -2047,6 +2152,10 @@ void advanceStatus(BattleRuntimeState& state)
         statusTick.events.end());
     for (const auto& unit : state.status.units)
     {
+        if (hasCanonicalUnitStore(state))
+        {
+            state.units.writeStatusUnit(unit);
+        }
         syncTeamEffectStatus(state, unit);
         syncEffectStatus(state, unit);
     }
@@ -2381,6 +2490,14 @@ void advanceMovementPhysics(BattleRuntimeState& state)
         {
             unit->position = result.state.position;
             unit->velocity = result.state.velocity;
+        }
+        if (hasCanonicalUnitStore(state))
+        {
+            state.units.setMotion(
+                input.unitId,
+                result.state.position,
+                result.state.velocity,
+                result.state.acceleration);
         }
         syncTeamEffectPosition(state, input.unitId, result.state.position);
         auto collisionIt = std::find_if(

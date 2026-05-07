@@ -110,10 +110,15 @@ struct BattleUnitStore
     BattleGridTransform gridTransform;
     std::vector<BattleRuntimeUnit> units;
 
+    BattleRuntimeUnit* findUnit(int unitId);
+    const BattleRuntimeUnit* findUnit(int unitId) const;
     BattleRuntimeUnit& requireUnit(int unitId);
     const BattleRuntimeUnit& requireUnit(int unitId) const;
     void writeDamageUnit(const BattleDamageUnitState& source);
+    void writeStatusUnit(const BattleStatusUnitState& source);
+    void writeTeamEffectUnit(const BattleTeamEffectUnit& source);
     void setPosition(int unitId, Pointf position);
+    void setMotion(int unitId, Pointf position, Pointf velocity, Pointf acceleration);
 };
 
 struct BattleFrameRuntimeUnitInput
