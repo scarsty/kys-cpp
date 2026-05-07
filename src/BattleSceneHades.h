@@ -83,7 +83,6 @@ protected:
     const KysChess::Battle::BattleRuntimeState& battleRuntime() const;
     virtual int calRolePic(Role* r, int style, int frame) override;
 
-    int calculateHitMagicBaseDamage(Role* attacker, Role* defender, Magic* magic);
     void initializeBattleRuntimeStaticState();
     void runPositionSwapLoop();
     void runListBasedSwap();

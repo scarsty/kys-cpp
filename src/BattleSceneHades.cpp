@@ -48,7 +48,6 @@ using KysChess::BattleSceneBattleAdapter::forcedRangedMinSelectDistance;
 using KysChess::BattleSceneBattleAdapter::isBattleRangedStyleMagic;
 using KysChess::BattleSceneBattleAdapter::populateBattleActionFrame;
 using KysChess::BattleSceneBattleAdapter::projectileSpeedMultiplierPct;
-using KysChess::BattleSceneBattleAdapter::resolveBattleMagicBaseDamage;
 using KysChess::BattleSceneBattleAdapter::roleForcesRangedMagic;
 using KysChess::BattleSceneBattleAdapter::selectHigherPowerMagic;
 using KysChess::BattleSceneBattleAdapter::selectLowerPowerMagic;
@@ -2528,38 +2527,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
         }
     }
 
-    for (size_t i = 0; i + 1 < battleRuntime().attacks.attacks.size(); ++i)
-    {
-        const auto& attack1 = battleRuntime().attacks.attacks[i];
-        auto* attacker1 = requireFrameRole(bundle, attack1.state.attackerUnitId);
-        auto* skill1 = Save::getInstance()->getMagic(attack1.state.skillId);
-        for (size_t j = i + 1; j < battleRuntime().attacks.attacks.size(); ++j)
-        {
-            const auto& attack2 = battleRuntime().attacks.attacks[j];
-            auto* attacker2 = requireFrameRole(bundle, attack2.state.attackerUnitId);
-            if (attacker1->Team == attacker2->Team)
-            {
-                continue;
-            }
-            auto* skill2 = Save::getInstance()->getMagic(attack2.state.skillId);
-            if (skill1)
-            {
-                scratch.projectileCancelBaseDamages.push_back({
-                    attack1.id,
-                    attack2.id,
-                    calculateHitMagicBaseDamage(attacker1, attacker2, skill1),
-                });
-            }
-            if (skill2)
-            {
-                scratch.projectileCancelBaseDamages.push_back({
-                    attack2.id,
-                    attack1.id,
-                    calculateHitMagicBaseDamage(attacker2, attacker1, skill2),
-                });
-            }
-        }
-    }
     return bundle;
 }
 
@@ -3147,34 +3114,6 @@ void BattleSceneHades::initializeBattleRuntimeStaticState()
             });
         }
     }
-}
-
-int BattleSceneHades::calculateHitMagicBaseDamage(Role* attacker, Role* defender, Magic* magic)
-{
-    assert(attacker);
-    assert(defender);
-    assert(magic);
-
-    double defence = defender->Defence;
-    // 破甲：降低有效防禦
-    auto& cs = battleRuntime().combo.units;
-    auto it = cs.find(attacker->ID);
-    if (it != cs.end())
-    {
-        defence = KysChess::Battle::resolveFrameArmorPenetratedDefense(
-            it->second,
-            attacker->ID,
-            defender->ID,
-            defence,
-            rand_.rand() * 100.0);
-    }
-
-    return resolveBattleMagicBaseDamage({
-        attacker->Attack,
-        attacker->getMagicPower(magic),
-        defence,
-        rand_.rand_int(10) - rand_.rand_int(10),
-    });
 }
 
 KysChess::Battle::BattleMovementConfig BattleSceneHades::makeCoreMovementConfig() const

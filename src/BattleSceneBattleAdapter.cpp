@@ -1305,9 +1305,4 @@ BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     return result;
 }
 
-int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input)
-{
-    return Battle::BattleDamageSystem().resolveMagicBaseDamage(input);
-}
-
 }  // namespace KysChess::BattleSceneBattleAdapter

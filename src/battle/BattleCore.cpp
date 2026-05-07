@@ -261,22 +261,6 @@ const BattleAttackInstance* findAttack(const BattleAttackWorld& world, int attac
     return nullptr;
 }
 
-const BattleProjectileCancelBaseDamage* findProjectileCancelBaseDamage(
-    const BattleFrameScratch& scratch,
-    int attackId,
-    int otherAttackId)
-{
-    auto it = std::find_if(
-        scratch.projectileCancelBaseDamages.begin(),
-        scratch.projectileCancelBaseDamages.end(),
-        [&](const BattleProjectileCancelBaseDamage& input)
-        {
-            return input.attackId == attackId
-                && (input.otherAttackId < 0 || input.otherAttackId == otherAttackId);
-        });
-    return it != scratch.projectileCancelBaseDamages.end() ? &*it : nullptr;
-}
-
 BattleHitUnitSnapshot makeHitUnitSnapshot(const BattleRuntimeUnit& unit)
 {
     BattleHitUnitSnapshot snapshot;
@@ -429,6 +413,31 @@ int resolveHiddenWeaponDamage(
     const int distance = runtimeDistanceCells(state, attacker, defender);
     damage = static_cast<int>(damage / std::exp((distance - 1) / 10.0));
     return std::max(1, damage);
+}
+
+int resolveProjectileCancelDamage(
+    BattleRuntimeState& state,
+    const BattleAttackInstance& attack,
+    const BattleAttackInstance& otherAttack,
+    int currentDamage)
+{
+    if (attack.state.skillId < 0)
+    {
+        return currentDamage;
+    }
+
+    const auto* attacker = state.units.findUnit(attack.state.attackerUnitId);
+    const auto* defender = state.units.findUnit(otherAttack.state.attackerUnitId);
+    assert(attacker);
+    assert(defender);
+
+    BattleAttackEvent event;
+    event.sourceUnitId = attack.state.attackerUnitId;
+    event.skillId = attack.state.skillId;
+    event.skillMagicPower = attack.state.skillMagicPower;
+    return scaleProjectileCancelDamage(
+        resolveHitMagicBaseDamage(state, event, *attacker, *defender),
+        attack.state.operationType);
 }
 
 BattleLogEvent dodgeStatusEvent(int defenderUnitId, int attackerUnitId)
@@ -698,7 +707,6 @@ void advanceRuntimeUnits(
 
 void applyProjectileCancelDamageResults(
     BattleRuntimeState& state,
-    const BattleFrameScratch& scratch,
     std::vector<BattleAttackEvent>& events,
     std::vector<BattleProjectileCancelDamageCommand>& projectileCancelDamageCommands,
     std::vector<BattleGameplayCommand>& commands)
@@ -718,18 +726,16 @@ void applyProjectileCancelDamageResults(
         assert(attack);
         assert(otherAttack);
 
-        if (const auto* damage = findProjectileCancelBaseDamage(scratch, event.attackId, event.otherAttackId))
-        {
-            event.projectileCancelDamage = scaleProjectileCancelDamage(
-                damage->baseDamage,
-                attack->state.operationType);
-        }
-        if (const auto* damage = findProjectileCancelBaseDamage(scratch, event.otherAttackId, event.attackId))
-        {
-            event.otherProjectileCancelDamage = scaleProjectileCancelDamage(
-                damage->baseDamage,
-                otherAttack->state.operationType);
-        }
+        event.projectileCancelDamage = resolveProjectileCancelDamage(
+            state,
+            *attack,
+            *otherAttack,
+            event.projectileCancelDamage);
+        event.otherProjectileCancelDamage = resolveProjectileCancelDamage(
+            state,
+            *otherAttack,
+            *attack,
+            event.otherProjectileCancelDamage);
 
         BattleProjectileCancelDamageCommand command;
         command.attackId = event.attackId;
@@ -2739,7 +2745,6 @@ void advanceAttacksAndResolveHits(
         std::make_move_iterator(tickEvents.end()));
     applyProjectileCancelDamageResults(
         state,
-        scratch,
         result.attackEvents,
         result.projectileCancelDamageCommands,
         result.commands);

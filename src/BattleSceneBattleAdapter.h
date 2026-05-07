@@ -180,6 +180,4 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
 BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     const BattleLifecycleApplicationContext& context,
     const std::vector<Battle::BattleGameplayEvent>& events);
-int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input);
-
 }  // namespace KysChess::BattleSceneBattleAdapter

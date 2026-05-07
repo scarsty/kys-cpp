@@ -114,7 +114,6 @@ BattleAttackInstance cancelProjectile(int id, int attackerUnitId)
     attack.id = id;
     attack.frame = 5;
     attack.state.attackerUnitId = attackerUnitId;
-    attack.state.skillId = 100 + id;
     attack.state.totalFrame = 30;
     attack.state.operationType = BattleOperationType::RangedProjectile;
     attack.state.position = { 500, 500, 0 };
@@ -251,13 +250,11 @@ TEST_CASE("BattleFrameRunner_RunFrame_ConsumesExternalFrameScratch", "[battle][f
     BattleFrameScratch scratch;
 
     scratch.runtime.percentRolls.push_back(12.0);
-    scratch.projectileCancelBaseDamages.push_back({ 10, 20, 30 });
 
     auto result = BattleFrameRunner().runFrame(state, scratch);
 
     CHECK(result.runtimeResults.empty());
     CHECK(scratch.runtime.percentRolls.empty());
-    CHECK(scratch.projectileCancelBaseDamages.empty());
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")
@@ -580,9 +577,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     };
     state.attacks.attacks.push_back(cancelProjectile(10, 1));
     state.attacks.attacks.push_back(cancelProjectile(20, 2));
-    scratch.projectileCancelBaseDamages.push_back({ 10, -1, 25 });
-    scratch.projectileCancelBaseDamages.push_back({ 20, -1, 12 });
-
+    state.attacks.attacks[0].state.projectileCancelDamage = 25;
+    state.attacks.attacks[1].state.projectileCancelDamage = 12;
     auto result = runBattleFrame(state, scratch);
 
     REQUIRE(result.attackEvents.size() == 3);

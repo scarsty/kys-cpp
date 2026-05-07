@@ -139,13 +139,6 @@ struct BattleFrameRuntimeUnitResult
     RoleComboState comboState;
 };
 
-struct BattleProjectileCancelBaseDamage
-{
-    int attackId = -1;
-    int otherAttackId = -1;
-    int baseDamage = 0;
-};
-
 struct BattleFrameActionUnitState
 {
     bool haveAction = false;
@@ -284,8 +277,6 @@ struct BattleFrameScratch
         std::vector<double> percentRolls;
         std::size_t nextPercentRoll = 0;
     } runtime;
-
-    std::vector<BattleProjectileCancelBaseDamage> projectileCancelBaseDamages;
 
     struct ActionScratch
     {
