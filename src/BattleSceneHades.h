@@ -66,14 +66,10 @@ protected:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     SceneBattleFrameInput buildBattleFrameInput();
-    void prepareCoreFrame(
-        KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
-        KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
     void applyCoreFrameResult(
         const BattleSceneRoleBindings& bindings,
         const KysChess::Battle::BattleFrameResult& frameResult,
-        const KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
-        const KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
+        const KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext);
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
 
@@ -88,6 +84,7 @@ protected:
     virtual int calRolePic(Role* r, int style, int frame) override;
 
     void initializeBattleRuntimeStaticState();
+    void initializeCoreMovementWorld();
     void runPositionSwapLoop();
     void runListBasedSwap();
     bool isManualCameraEnabled() const;
@@ -107,7 +104,6 @@ protected:
         const BattleSceneRoleBindings& bindings,
         const KysChess::Battle::BattleFrameApplications& applications);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
-    void syncCoreMovementWorld();
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(
         Role* role);

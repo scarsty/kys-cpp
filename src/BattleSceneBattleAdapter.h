@@ -76,11 +76,6 @@ struct BattleActionFrameAdapterContext
     BattleActionFrameAdapterConfig config;
 };
 
-struct BattleMovementPhysicsFrameAdapterContext
-{
-    const std::vector<Role*>* roles = nullptr;
-};
-
 struct BattleActionFrameApplyResult
 {
     std::vector<int> attackSoundIds;
@@ -153,10 +148,10 @@ void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::Batt
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
 void applyBattleMovementPhysicsFrameResults(
     const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
-    const BattleMovementPhysicsFrameAdapterContext& context);
+    const std::vector<Role*>& roles);
 void applyBattleMovementFrameResults(
     const Battle::BattleTickResult& movement,
-    const BattleMovementPhysicsFrameAdapterContext& context);
+    const std::vector<Role*>& roles);
 void initializeBattleActionPlanInputs(
     Battle::BattleRuntimeState& runtime,
     BattleActionFrameAdapterContext& context);

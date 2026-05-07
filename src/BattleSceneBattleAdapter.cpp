@@ -907,13 +907,11 @@ void applyBlinkTeleportDelta(
 
 void applyBattleMovementPhysicsFrameResults(
     const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
-    const BattleMovementPhysicsFrameAdapterContext& context)
+    const std::vector<Role*>& roles)
 {
-    assert(context.roles);
-
     for (const auto& result : movementResults)
     {
-        auto* role = findRoleByBattleId(*context.roles, result.unitId);
+        auto* role = findRoleByBattleId(roles, result.unitId);
         role->Frozen = result.frozenFrames;
         role->Pos = result.state.position;
         role->Velocity = result.state.velocity;
@@ -923,13 +921,11 @@ void applyBattleMovementPhysicsFrameResults(
 
 void applyBattleMovementFrameResults(
     const Battle::BattleTickResult& movement,
-    const BattleMovementPhysicsFrameAdapterContext& context)
+    const std::vector<Role*>& roles)
 {
-    assert(context.roles);
-
     for (const auto& unit : movement.snapshot.units)
     {
-        auto* role = findRoleByBattleId(*context.roles, unit.id);
+        auto* role = findRoleByBattleId(roles, unit.id);
         role->Pos = unit.position;
         role->Velocity = unit.velocity;
         auto velocity = unit.velocity;

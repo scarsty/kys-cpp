@@ -33,7 +33,6 @@ using KysChess::BattleSceneBattleAdapter::applyBattleActionFrameResults;
 using KysChess::BattleSceneBattleAdapter::applyBattleFrameUnitRuntimeResult;
 using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
 using KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext;
-using KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
 using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
 using KysChess::BattleSceneBattleAdapter::configureBattleAttackWorld;
@@ -928,6 +927,7 @@ void BattleSceneHades::initializeBattleRuntimeSession()
                 makeBattleStatusUnit(role, stateIt->second)));
         }
     }
+    initializeCoreMovementWorld();
     initializeCoreDamageState();
     configureBattleAttackWorld(battleRuntime().attacks);
     battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
@@ -2417,11 +2417,9 @@ void BattleSceneHades::backRun1()
     if (input.shouldAdvance)
     {
         result.advanced = true;
-        auto actionContext = makeBattleActionFrameAdapterContext();
-        BattleMovementPhysicsFrameAdapterContext movementPhysicsContext;
-        prepareCoreFrame(actionContext, movementPhysicsContext);
         auto frameResult = battle_session_->runFrame();
-        applyCoreFrameResult(core_role_bindings_, frameResult, actionContext, movementPhysicsContext);
+        auto actionContext = makeBattleActionFrameAdapterContext();
+        applyCoreFrameResult(core_role_bindings_, frameResult, actionContext);
     }
     applyLegacyBattleFrameResult(result);
     playCorePresentationFrame();
@@ -2461,32 +2459,10 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
     return input;
 }
 
-void BattleSceneHades::prepareCoreFrame(
-    BattleActionFrameAdapterContext& actionContext,
-    BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
-{
-    initializeBattleRuntimeStaticState();
-
-    syncCoreMovementWorld();
-
-    for (auto role : battle_roles_)
-    {
-        assert(role);
-        decreaseToZero(role->Shake);
-        decreaseToZero(role->HurtFrame);
-        decreaseToZero(role->Attention);
-        decreaseToZero(role->Invincible);
-
-    }
-
-    movementPhysicsContext.roles = &battle_roles_;
-}
-
 void BattleSceneHades::applyCoreFrameResult(
     const BattleSceneRoleBindings& bindings,
     const KysChess::Battle::BattleFrameResult& frameResult,
-    const BattleActionFrameAdapterContext& actionContext,
-    const BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
+    const BattleActionFrameAdapterContext& actionContext)
 {
     applyCoreStatusState(bindings);
     for (const auto& runtimeUnitResult : frameResult.runtimeResults)
@@ -2523,8 +2499,8 @@ void BattleSceneHades::applyCoreFrameResult(
         }
     }
     applyCoreFrameApplications(bindings, frameResult.applications);
-    applyBattleMovementFrameResults(frameResult.movement, movementPhysicsContext);
-    applyBattleMovementPhysicsFrameResults(frameResult.movementPhysicsResults, movementPhysicsContext);
+    applyBattleMovementFrameResults(frameResult.movement, battle_roles_);
+    applyBattleMovementPhysicsFrameResults(frameResult.movementPhysicsResults, battle_roles_);
 
     auto actionApply = applyBattleActionFrameResults(frameResult.actionResults, actionContext);
     for (int soundId : actionApply.attackSoundIds)
@@ -2643,6 +2619,9 @@ void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
         r->MP = GameUtil::limit(r->MP, 0, GameUtil::MAX_MP);
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
+        decreaseToZero(r->Shake);
+        decreaseToZero(r->HurtFrame);
+        decreaseToZero(r->Attention);
     }
 
     //处理文字
@@ -3057,6 +3036,23 @@ void BattleSceneHades::initializeBattleRuntimeStaticState()
     }
 }
 
+void BattleSceneHades::initializeCoreMovementWorld()
+{
+    auto& world = battleRuntime().world;
+    world.frame = battle_frame_;
+    world.units.clear();
+    world.units.reserve(battle_roles_.size());
+    for (auto* role : battle_roles_)
+    {
+        assert(role);
+        if (role->Dead != 0)
+        {
+            continue;
+        }
+        world.units.push_back(makeCoreMovementUnit(role));
+    }
+}
+
 KysChess::Battle::BattleMovementConfig BattleSceneHades::makeCoreMovementConfig() const
 {
     KysChess::Battle::BattleMovementGeometry geometry;
@@ -3427,53 +3423,4 @@ void BattleSceneHades::applyCoreFrameApplications(
             rumble.highFrequency,
             rumble.durationMs);
     }
-}
-
-void BattleSceneHades::syncCoreMovementWorld()
-{
-    auto& world = battleRuntime().world;
-    world.frame = battle_frame_;
-
-    for (auto* role : battle_roles_)
-    {
-        assert(role);
-        if (role->Dead != 0)
-        {
-            continue;
-        }
-
-        auto unit = makeCoreMovementUnit(role);
-        auto existing = std::find_if(
-            world.units.begin(),
-            world.units.end(),
-            [role](const KysChess::Battle::BattleUnitState& current)
-            {
-                return current.id == role->ID;
-            });
-        if (existing == world.units.end())
-        {
-            world.units.push_back(std::move(unit));
-            continue;
-        }
-
-        unit.position = existing->position;
-        unit.velocity = existing->velocity;
-        unit.assignedSlot = existing->assignedSlot;
-        unit.slotSwitchCooldownRemaining = existing->slotSwitchCooldownRemaining;
-        unit.dashFramesRemaining = existing->dashFramesRemaining;
-        unit.dashCooldownRemaining = existing->dashCooldownRemaining;
-        unit.targetId = existing->targetId;
-        *existing = std::move(unit);
-    }
-
-    world.units.erase(
-        std::remove_if(
-            world.units.begin(),
-            world.units.end(),
-            [this](const KysChess::Battle::BattleUnitState& unit)
-            {
-                auto role = findOptionalRoleByBattleId(battle_roles_, unit.id);
-                return !role || role->Dead != 0;
-            }),
-        world.units.end());
 }

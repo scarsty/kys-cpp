@@ -894,6 +894,67 @@ const BattleUnitState* findWorldUnit(const BattleWorldState& world, int unitId)
     return it != world.units.end() ? &*it : nullptr;
 }
 
+void refreshMovementSkillProfile(
+    BattleUnitState& movementUnit,
+    const BattleRuntimeUnit& runtimeUnit,
+    const BattleRuntimeState& state)
+{
+    auto planIt = state.action.castPlanInputs.find(runtimeUnit.id);
+    if (planIt == state.action.castPlanInputs.end())
+    {
+        if (runtimeUnit.reach > 0.0)
+        {
+            movementUnit.reach = runtimeUnit.reach;
+            movementUnit.style = runtimeUnit.style;
+        }
+        return;
+    }
+
+    const auto& plan = planIt->second;
+    const bool useUltimate = runtimeUnit.maxMp > 0
+        && runtimeUnit.mp >= runtimeUnit.maxMp
+        && plan.ultimateSkill.id >= 0;
+    const auto& skill = useUltimate ? plan.ultimateSkill : plan.normalSkill;
+    movementUnit.reach = skill.reach > 0.0 ? skill.reach : plan.unit.meleeAttackReach;
+    movementUnit.style = skill.rangedStyle ? CombatStyle::Ranged : CombatStyle::Melee;
+    movementUnit.taXue = plan.unit.dashAttackEnabled;
+    movementUnit.dashAttack = plan.unit.dashAttackEnabled;
+}
+
+void refreshMovementWorldFromRuntimeUnits(BattleRuntimeState& state)
+{
+    for (const auto& runtimeUnit : state.units.units)
+    {
+        auto* movementUnit = findWorldUnit(state.world, runtimeUnit.id);
+        if (!movementUnit)
+        {
+            continue;
+        }
+
+        movementUnit->realRoleId = runtimeUnit.realRoleId;
+        movementUnit->name = runtimeUnit.name;
+        movementUnit->team = runtimeUnit.team;
+        movementUnit->alive = runtimeUnit.alive;
+        movementUnit->canAttack = runtimeUnit.cooldown == 0;
+        if (movementUnit->speed <= 0.0 && runtimeUnit.speed > 0)
+        {
+            movementUnit->speed = runtimeUnit.speed;
+        }
+        refreshMovementSkillProfile(*movementUnit, runtimeUnit, state);
+    }
+
+    state.world.units.erase(
+        std::remove_if(
+            state.world.units.begin(),
+            state.world.units.end(),
+            [&](const BattleUnitState& unit)
+            {
+                const auto* runtimeUnit = state.units.findUnit(unit.id);
+                return !runtimeUnit || !runtimeUnit->alive;
+            }),
+        state.world.units.end());
+}
+
 const BattleStatusRuntimeUnit* findStatusUnit(const std::vector<BattleStatusRuntimeUnit>& units, int unitId)
 {
     auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusRuntimeUnit& unit)
@@ -3251,6 +3312,10 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     applyRuntimeComboEvents(state, result.runtimeResults, logEvents);
     applyPendingTeamEffects(state, logEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
+    if (hasCanonicalUnitStore(state))
+    {
+        refreshMovementWorldFromRuntimeUnits(state);
+    }
     result.movementPhysicsResults = advanceMovementPhysics(state);
     advanceMovement(state, result);
     advanceActionFrameUnits(
