@@ -270,6 +270,18 @@ struct BattleFrameRumbleEvent
     int durationMs = 0;
 };
 
+struct BattleFrameApplications
+{
+    std::vector<BattleFrameKnockbackDelta> knockbacks;
+    std::vector<BattleFrameMpRestoreDelta> mpRestores;
+    std::vector<BattleFrameUnitHealDelta> unitHeals;
+    std::vector<BattleFrameUnitShieldDelta> unitShields;
+    std::vector<BattleFrameTempAttackBuffDelta> tempAttackBuffs;
+    std::vector<BattleFrameLastAttackerDelta> lastAttackers;
+    std::vector<BattleFrameAutoUltimateRequest> autoUltimateRequests;
+    std::vector<BattleFrameRumbleEvent> rumbles;
+};
+
 struct BattleFrameRescueUnitSnapshot
 {
     BattleRescueUnitSnapshot unit;
@@ -399,18 +411,6 @@ struct BattleRuntimeState
     std::map<int, BattleCastResult> pendingCastResults;
     std::set<int> ultimateCasters;
 
-    struct ApplicationState
-    {
-        std::vector<BattleFrameKnockbackDelta> knockbacks;
-        std::vector<BattleFrameMpRestoreDelta> mpRestores;
-        std::vector<BattleFrameUnitHealDelta> unitHeals;
-        std::vector<BattleFrameUnitShieldDelta> unitShields;
-        std::vector<BattleFrameTempAttackBuffDelta> tempAttackBuffs;
-        std::vector<BattleFrameLastAttackerDelta> lastAttackers;
-        std::vector<BattleFrameAutoUltimateRequest> autoUltimateRequests;
-        std::vector<BattleFrameRumbleEvent> rumbles;
-    } applications;
-
     std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;
 };
 
@@ -419,6 +419,7 @@ struct BattleFrameResult
     BattlePresentationFrame frame;
     BattleTickResult movement;
     std::vector<BattleAttackEvent> attackEvents;
+    BattleFrameApplications applications;
     // 遷移期間的不完整快照退路；場景與 adapter 不得消費這些命令。
     std::vector<BattleGameplayCommand> commands;
 };

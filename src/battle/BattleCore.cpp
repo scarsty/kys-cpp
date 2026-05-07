@@ -1560,6 +1560,7 @@ bool applyFrameTeamEffectCommand(
 bool applyFrameMpRestoreCommand(
     BattleRuntimeState& state,
     const BattleMpRestoreCommand& command,
+    BattleFrameApplications& applications,
     std::vector<BattleLogEvent>& logEvents)
 {
     auto* unit = state.units.findUnit(command.unitId);
@@ -1575,7 +1576,7 @@ bool applyFrameMpRestoreCommand(
     }
 
     unit->mp += restored;
-    state.applications.mpRestores.push_back({ command.unitId, restored });
+    applications.mpRestores.push_back({ command.unitId, restored });
     appendStatusEventLog(logEvents, command.unitId, command.unitId, command.reason);
     return true;
 }
@@ -1583,6 +1584,7 @@ bool applyFrameMpRestoreCommand(
 bool applyFrameUnitHealCommand(
     BattleRuntimeState& state,
     const BattleUnitHealCommand& command,
+    BattleFrameApplications& applications,
     std::vector<BattleLogEvent>& logEvents)
 {
     auto* unit = state.units.findUnit(command.targetUnitId);
@@ -1599,7 +1601,7 @@ bool applyFrameUnitHealCommand(
         return true;
     }
 
-    state.applications.unitHeals.push_back({ command.sourceUnitId, command.targetUnitId, healed });
+    applications.unitHeals.push_back({ command.sourceUnitId, command.targetUnitId, healed });
     appendHealEventLog(logEvents, command.sourceUnitId, command.targetUnitId, healed, command.reason);
     return true;
 }
@@ -1607,6 +1609,7 @@ bool applyFrameUnitHealCommand(
 bool applyFrameUnitShieldCommand(
     BattleRuntimeState& state,
     const BattleUnitShieldCommand& command,
+    BattleFrameApplications& applications,
     std::vector<BattleLogEvent>& logEvents)
 {
     auto comboIt = state.combo.units.find(command.targetUnitId);
@@ -1624,7 +1627,7 @@ bool applyFrameUnitShieldCommand(
     {
         runtimeUnit->shield += command.amount;
     }
-    state.applications.unitShields.push_back({ command.sourceUnitId, command.targetUnitId, command.amount });
+    applications.unitShields.push_back({ command.sourceUnitId, command.targetUnitId, command.amount });
     appendStatusEventLog(
         logEvents,
         command.sourceUnitId,
@@ -1636,6 +1639,7 @@ bool applyFrameUnitShieldCommand(
 bool applyFrameTempAttackBuffCommand(
     BattleRuntimeState& state,
     const BattleTempAttackBuffCommand& command,
+    BattleFrameApplications& applications,
     std::vector<BattleLogEvent>& logEvents)
 {
     auto* unit = state.units.findUnit(command.unitId);
@@ -1657,7 +1661,7 @@ bool applyFrameTempAttackBuffCommand(
             comboIt->second.tempAttackBuffs.push_back({ command.attackBonus, command.durationFrames });
         }
     }
-    state.applications.tempAttackBuffs.push_back({
+    applications.tempAttackBuffs.push_back({
         command.unitId,
         command.attackBonus,
         command.defenceBonus,
@@ -1680,6 +1684,7 @@ bool applyFrameTempAttackBuffCommand(
 bool reduceFrameGameplayCommand(
     BattleRuntimeState& state,
     const BattleGameplayCommand& command,
+    BattleFrameApplications& applications,
     std::vector<BattleGameplayCommand>& pending,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -1730,16 +1735,16 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* mpRestore = std::get_if<BattleMpRestoreCommand>(&command))
     {
-        return applyFrameMpRestoreCommand(state, *mpRestore, logEvents);
+        return applyFrameMpRestoreCommand(state, *mpRestore, applications, logEvents);
     }
     if (const auto* autoUltimate = std::get_if<BattleAutoUltimateCommand>(&command))
     {
-        state.applications.autoUltimateRequests.push_back({ autoUltimate->unitId, autoUltimate->consumeMp });
+        applications.autoUltimateRequests.push_back({ autoUltimate->unitId, autoUltimate->consumeMp });
         return true;
     }
     if (const auto* knockback = std::get_if<BattleKnockbackCommand>(&command))
     {
-        state.applications.knockbacks.push_back({
+        applications.knockbacks.push_back({
             knockback->targetUnitId,
             knockback->velocityDelta,
             knockback->velocityCap,
@@ -1757,16 +1762,16 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* tempAttack = std::get_if<BattleTempAttackBuffCommand>(&command))
     {
-        return applyFrameTempAttackBuffCommand(state, *tempAttack, logEvents);
+        return applyFrameTempAttackBuffCommand(state, *tempAttack, applications, logEvents);
     }
     if (const auto* lastAttacker = std::get_if<BattleLastAttackerCommand>(&command))
     {
-        state.applications.lastAttackers.push_back({ lastAttacker->targetUnitId, lastAttacker->attackerUnitId });
+        applications.lastAttackers.push_back({ lastAttacker->targetUnitId, lastAttacker->attackerUnitId });
         return true;
     }
     if (const auto* rumble = std::get_if<BattleRumbleCommand>(&command))
     {
-        state.applications.rumbles.push_back({
+        applications.rumbles.push_back({
             rumble->lowFrequency,
             rumble->highFrequency,
             rumble->durationMs,
@@ -1779,11 +1784,11 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* heal = std::get_if<BattleUnitHealCommand>(&command))
     {
-        return applyFrameUnitHealCommand(state, *heal, logEvents);
+        return applyFrameUnitHealCommand(state, *heal, applications, logEvents);
     }
     if (const auto* shield = std::get_if<BattleUnitShieldCommand>(&command))
     {
-        return applyFrameUnitShieldCommand(state, *shield, logEvents);
+        return applyFrameUnitShieldCommand(state, *shield, applications, logEvents);
     }
     assert(false);
     return false;
@@ -1792,6 +1797,7 @@ bool reduceFrameGameplayCommand(
 void reduceFrameGameplayCommands(
     BattleRuntimeState& state,
     std::vector<BattleGameplayCommand>& commands,
+    BattleFrameApplications& applications,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
@@ -1799,7 +1805,7 @@ void reduceFrameGameplayCommands(
     std::vector<BattleGameplayCommand> unreduced;
     for (std::size_t i = 0; i < pending.size(); ++i)
     {
-        if (!reduceFrameGameplayCommand(state, pending[i], pending, logEvents, visualEvents))
+        if (!reduceFrameGameplayCommand(state, pending[i], applications, pending, logEvents, visualEvents))
         {
             unreduced.push_back(std::move(pending[i]));
         }
@@ -2406,7 +2412,7 @@ void advanceAttacksAndResolveHits(
         std::make_move_iterator(tickEvents.end()));
     applyProjectileCancelDamageResults(state, result.attackEvents, result.commands);
     resolveHitEvents(state, result.attackEvents, result.commands, logEvents, visualEvents);
-    reduceFrameGameplayCommands(state, result.commands, logEvents, visualEvents);
+    reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
 }
 
 void applyDamageAndLifecycle(
@@ -2684,18 +2690,17 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     state.effects.committedCommands.clear();
     state.hits.committedResults.clear();
     state.rescue.committedResults.clear();
-    state.applications = {};
     advanceStatus(state);
     advanceRuntimeUnits(state, result.commands);
     applyRuntimeComboEvents(state, logEvents);
     applyPendingTeamEffects(state, logEvents);
-    reduceFrameGameplayCommands(state, result.commands, logEvents, visualEvents);
+    reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
     advanceMovementPhysics(state);
     advanceMovement(state, result);
     advanceActionFrameUnits(state, result.movement, gameplayEvents, visualEvents);
     advanceAttacksAndResolveHits(state, result, logEvents, visualEvents);
     applyDamageAndLifecycle(state, result, gameplayEvents, logEvents, visualEvents);
-    reduceFrameGameplayCommands(state, result.commands, logEvents, visualEvents);
+    reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
     emitPresentationFrame(state, result, gameplayEvents, logEvents, visualEvents);
     return result;
 }

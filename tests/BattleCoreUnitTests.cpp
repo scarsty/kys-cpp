@@ -1767,9 +1767,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[ba
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.applications.tempAttackBuffs.size() == 1);
-    CHECK(state.applications.tempAttackBuffs[0].unitId == 2);
-    CHECK(state.applications.tempAttackBuffs[0].attackBonus == 14);
+    REQUIRE(result.applications.tempAttackBuffs.size() == 1);
+    CHECK(result.applications.tempAttackBuffs[0].unitId == 2);
+    CHECK(result.applications.tempAttackBuffs[0].attackBonus == 14);
     REQUIRE(state.combo.units.at(2).tempAttackBuffs.size() == 1);
     CHECK(state.combo.units.at(2).tempAttackBuffs[0].remainingFrames == 45);
     CHECK(result.commands.empty());
@@ -1785,9 +1785,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.applications.autoUltimateRequests.size() == 1);
-    CHECK(state.applications.autoUltimateRequests[0].unitId == 2);
-    CHECK_FALSE(state.applications.autoUltimateRequests[0].consumeMp);
+    REQUIRE(result.applications.autoUltimateRequests.size() == 1);
+    CHECK(result.applications.autoUltimateRequests[0].unitId == 2);
+    CHECK_FALSE(result.applications.autoUltimateRequests[0].consumeMp);
     CHECK(result.commands.empty());
 }
 

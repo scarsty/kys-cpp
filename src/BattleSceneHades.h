@@ -112,7 +112,9 @@ protected:
     void initializeCoreDamageState();
     void applyCoreDamageTransactions(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     void applyCoreTeamEffectState(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
-    void applyCoreFrameApplications(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
+    void applyCoreFrameApplications(
+        const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+        const KysChess::Battle::BattleFrameApplications& applications);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext(
         const KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet& actionImport);
     void populateCoreMovementWorld();

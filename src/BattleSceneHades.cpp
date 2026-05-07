@@ -2675,7 +2675,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().movementPhysics.units.clear();
     battleRuntime().movementPhysics.committedResults.clear();
     battleRuntime().hits = {};
-    battleRuntime().applications = {};
 
     for (auto role : battle_roles_)
     {
@@ -2833,7 +2832,7 @@ void BattleSceneHades::applyCoreFrameResult(
             break;
         }
     }
-    applyCoreFrameApplications(bundle);
+    applyCoreFrameApplications(bundle, frameResult.applications);
     applyBattleMovementPhysicsFrameResults(battleRuntime(), movementPhysicsContext);
     for (const auto& result : battleRuntime().movementPhysics.committedResults)
     {
@@ -3924,10 +3923,10 @@ void BattleSceneHades::applyCoreTeamEffectState(
 }
 
 void BattleSceneHades::applyCoreFrameApplications(
-    const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle)
+    const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+    const KysChess::Battle::BattleFrameApplications& applications)
 {
-    const auto& frameState = battleRuntime();
-    for (const auto& knockback : frameState.applications.knockbacks)
+    for (const auto& knockback : applications.knockbacks)
     {
         auto* target = requireFrameRole(bundle, knockback.targetUnitId);
         target->Velocity += knockback.velocityDelta;
@@ -3940,33 +3939,33 @@ void BattleSceneHades::applyCoreFrameApplications(
             target->HurtFrame = 1;
         }
     }
-    for (const auto& restore : frameState.applications.mpRestores)
+    for (const auto& restore : applications.mpRestores)
     {
         auto* target = requireFrameRole(bundle, restore.unitId);
         target->MP = std::min(GameUtil::MAX_MP, target->MP + restore.amount);
     }
-    for (const auto& heal : frameState.applications.unitHeals)
+    for (const auto& heal : applications.unitHeals)
     {
         auto* target = requireFrameRole(bundle, heal.targetUnitId);
         target->HP = std::min(target->MaxHP, target->HP + heal.amount);
         recordRoleEffectPresentation(target, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
     }
-    for (const auto& buff : frameState.applications.tempAttackBuffs)
+    for (const auto& buff : applications.tempAttackBuffs)
     {
         auto* target = requireFrameRole(bundle, buff.unitId);
         target->Attack += buff.attackBonus;
         target->Defence += buff.defenceBonus;
     }
-    for (const auto& lastAttacker : frameState.applications.lastAttackers)
+    for (const auto& lastAttacker : applications.lastAttackers)
     {
         auto* target = requireFrameRole(bundle, lastAttacker.targetUnitId);
         target->LastAttacker = requireFrameRole(bundle, lastAttacker.attackerUnitId);
     }
-    for (const auto& request : frameState.applications.autoUltimateRequests)
+    for (const auto& request : applications.autoUltimateRequests)
     {
         commitAutoUltimate(requireFrameRole(bundle, request.unitId), request.consumeMp);
     }
-    for (const auto& rumble : frameState.applications.rumbles)
+    for (const auto& rumble : applications.rumbles)
     {
         Engine::getInstance()->gameControllerRumble(
             rumble.lowFrequency,
