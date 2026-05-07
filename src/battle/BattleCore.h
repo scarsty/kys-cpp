@@ -381,7 +381,6 @@ struct BattleRuntimeState
     struct ActionState
     {
         std::vector<BattleFrameActionUnitInput> units;
-        std::vector<BattleFrameActionUnitResult> unitResults;
     } actions;
 
     struct MovementPhysicsState
@@ -417,6 +416,7 @@ struct BattleFrameResult
     BattleFrameApplications applications;
     std::vector<BattleProjectileCancelDamageCommand> projectileCancelDamageCommands;
     std::vector<BattleHitResolutionResult> hitResults;
+    std::vector<BattleFrameActionUnitResult> actionResults;
     // 遷移期間的不完整快照退路；場景與 adapter 不得消費這些命令。
     std::vector<BattleGameplayCommand> commands;
 };

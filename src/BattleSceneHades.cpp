@@ -2671,7 +2671,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().projectileCancelBaseDamages.clear();
     battleRuntime().teamEffects.committedEvents.clear();
     battleRuntime().effects.committedCommands.clear();
-    battleRuntime().actions = {};
+    battleRuntime().actions.units.clear();
     battleRuntime().movementPhysics.units.clear();
     battleRuntime().movementPhysics.committedResults.clear();
     battleRuntime().hits.units.clear();
@@ -2855,7 +2855,7 @@ void BattleSceneHades::applyCoreFrameResult(
         }
     }
 
-    auto actionApply = applyBattleActionFrameResults(battleRuntime(), actionContext);
+    auto actionApply = applyBattleActionFrameResults(frameResult.actionResults, actionContext);
     for (int soundId : actionApply.attackSoundIds)
     {
         Audio::getInstance()->playASound(soundId);

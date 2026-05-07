@@ -2297,10 +2297,10 @@ void advanceMovement(BattleRuntimeState& state, BattleFrameResult& result)
 void advanceActionFrameUnits(
     BattleRuntimeState& state,
     const BattleTickResult& movement,
+    std::vector<BattleFrameActionUnitResult>& actionResults,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
-    state.actions.unitResults.clear();
     for (const auto& input : state.actions.units)
     {
         assert(input.unitId >= 0);
@@ -2388,7 +2388,7 @@ void advanceActionFrameUnits(
             }
         }
 
-        state.actions.unitResults.push_back(std::move(result));
+        actionResults.push_back(std::move(result));
     }
     state.actions.units.clear();
 }
@@ -2708,7 +2708,12 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
     advanceMovementPhysics(state);
     advanceMovement(state, result);
-    advanceActionFrameUnits(state, result.movement, gameplayEvents, visualEvents);
+    advanceActionFrameUnits(
+        state,
+        result.movement,
+        result.actionResults,
+        gameplayEvents,
+        visualEvents);
     advanceAttacksAndResolveHits(state, result, logEvents, visualEvents);
     applyDamageAndLifecycle(state, result, gameplayEvents, logEvents, visualEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);

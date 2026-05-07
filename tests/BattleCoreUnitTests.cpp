@@ -1151,9 +1151,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battl
     REQUIRE(state.status.events.size() == 1);
     CHECK(state.status.events[0].type == BattleStatusEventType::TempAttackExpired);
     CHECK(state.units.requireUnit(1).attack == 10);
-    REQUIRE(state.actions.unitResults.size() == 1);
-    CHECK_FALSE(state.actions.unitResults[0].castResult.decision.canCast);
-    CHECK(state.actions.unitResults[0].castResult.decision.reason == BattleCastBlockReason::Stunned);
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK_FALSE(result.actionResults[0].castResult.decision.canCast);
+    CHECK(result.actionResults[0].castResult.decision.reason == BattleCastBlockReason::Stunned);
     CHECK(result.frame.gameplayEvents.empty());
 }
 
@@ -1179,8 +1179,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    REQUIRE(state.actions.unitResults[0].castResult.attackSpawnRequests.size() == 1);
+    REQUIRE(result.actionResults.size() == 1);
+    REQUIRE(result.actionResults[0].castResult.attackSpawnRequests.size() == 1);
     CHECK(result.attackEvents.empty());
     REQUIRE(result.frame.gameplayEvents.size() == 1);
     CHECK(result.frame.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
@@ -1214,9 +1214,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[b
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    CHECK_FALSE(state.actions.unitResults[0].castResult.decision.canCast);
-    CHECK(state.actions.unitResults[0].castResult.decision.reason == BattleCastBlockReason::Frozen);
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK_FALSE(result.actionResults[0].castResult.decision.canCast);
+    CHECK(result.actionResults[0].castResult.decision.reason == BattleCastBlockReason::Frozen);
     CHECK(result.attackEvents.empty());
 }
 
@@ -1245,9 +1245,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    REQUIRE(state.actions.unitResults[0].castResult.attackSpawnRequests.size() == 1);
-    const auto& spawn = state.actions.unitResults[0].castResult.attackSpawnRequests[0];
+    REQUIRE(result.actionResults.size() == 1);
+    REQUIRE(result.actionResults[0].castResult.attackSpawnRequests.size() == 1);
+    const auto& spawn = result.actionResults[0].castResult.attackSpawnRequests[0];
     CHECK(spawn.initial.position.x == state.world.units[0].position.x + SceneTileWidth * 2.0);
     CHECK(spawn.initial.position.y == state.world.units[0].position.y);
     CHECK(result.attackEvents.empty());
@@ -1273,11 +1273,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", 
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    CHECK(state.actions.unitResults[0].unitId == 1);
-    CHECK(state.actions.unitResults[0].actionInput.hasCast);
-    CHECK(state.actions.unitResults[0].actionInput.cast.decision.skillId == 101);
-    REQUIRE(state.actions.unitResults[0].actionResult.attackSpawnRequests.size() == 1);
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK(result.actionResults[0].unitId == 1);
+    CHECK(result.actionResults[0].actionInput.hasCast);
+    CHECK(result.actionResults[0].actionInput.cast.decision.skillId == 101);
+    REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
     REQUIRE(result.attackEvents.size() >= 1);
     CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
     CHECK(result.attackEvents.front().attackId == 0);
@@ -1307,13 +1307,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastInput", "[battle][c
     actionUnit.selectedActionInput = frameActionCommitInput();
     state.actions.units.push_back(actionUnit);
 
-    BattleFrameRunner().runFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    CHECK(state.actions.unitResults[0].castResult.decision.canCast);
-    CHECK(state.actions.unitResults[0].castResult.decision.ultimate);
-    CHECK(state.actions.unitResults[0].castResult.decision.skillId == 202);
-    CHECK(state.actions.unitResults[0].castResult.decision.operationType == BattleOperationType::RangedProjectile);
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK(result.actionResults[0].castResult.decision.canCast);
+    CHECK(result.actionResults[0].castResult.decision.ultimate);
+    CHECK(result.actionResults[0].castResult.decision.skillId == 202);
+    CHECK(result.actionResults[0].castResult.decision.operationType == BattleOperationType::RangedProjectile);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastFromActionFrameUnitInput", "[battle][core]")
@@ -1340,8 +1340,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastFromActionFrameUnit
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    const auto& action = state.actions.unitResults[0];
+    REQUIRE(result.actionResults.size() == 1);
+    const auto& action = result.actionResults[0];
     CHECK(action.actionCommitted);
     CHECK(action.castCommitted);
     CHECK(action.castResult.decision.canCast);
@@ -1373,10 +1373,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StartsCastFromActionFrameUnitInput", "
     actionUnit.canPlanCast = true;
     state.actions.units.push_back(actionUnit);
 
-    BattleFrameRunner().runFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    const auto& action = state.actions.unitResults[0];
+    REQUIRE(result.actionResults.size() == 1);
+    const auto& action = result.actionResults[0];
     CHECK(action.unitId == 1);
     CHECK(action.castStarted);
     CHECK(action.state.haveAction);
@@ -1412,8 +1412,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingCastFromActionFrameUnitI
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    const auto& action = state.actions.unitResults[0];
+    REQUIRE(result.actionResults.size() == 1);
+    const auto& action = result.actionResults[0];
     CHECK(action.castCommitted);
     CHECK(action.actionInput.hasCast);
     CHECK(action.actionInput.cast.decision.skillId == 101);
@@ -1442,10 +1442,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", 
     actionUnit.state.recoveryFrames = 4;
     state.actions.units.push_back(actionUnit);
 
-    BattleFrameRunner().runFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    const auto& action = state.actions.unitResults[0];
+    REQUIRE(result.actionResults.size() == 1);
+    const auto& action = result.actionResults[0];
     CHECK(action.state.actFrame == 12);
     CHECK_FALSE(action.state.haveAction);
     CHECK(action.state.actType == -1);
@@ -1476,10 +1476,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingItemFromActionFrameUnitI
     actionUnit.hasPendingActionInput = true;
     state.actions.units.push_back(actionUnit);
 
-    BattleFrameRunner().runFrame(state);
+    auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.actions.unitResults.size() == 1);
-    const auto& action = state.actions.unitResults[0];
+    REQUIRE(result.actionResults.size() == 1);
+    const auto& action = result.actionResults[0];
     CHECK(action.actionCommitted);
     CHECK(action.actionResult.itemUseCommands.empty());
     REQUIRE(action.actionResult.itemCountDeltas.size() == 1);

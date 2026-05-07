@@ -247,7 +247,7 @@ void populateBattleActionFrame(
     Battle::BattleRuntimeState& frameState,
     BattleActionFrameAdapterContext& context);
 BattleActionFrameApplyResult applyBattleActionFrameResults(
-    const Battle::BattleRuntimeState& frameState,
+    const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
     const BattleActionFrameAdapterContext& context);
 BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     Role* role,

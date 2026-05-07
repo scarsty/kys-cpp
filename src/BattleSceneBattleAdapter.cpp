@@ -1170,7 +1170,7 @@ void populateBattleActionFrame(
 }
 
 BattleActionFrameApplyResult applyBattleActionFrameResults(
-    const Battle::BattleRuntimeState& frameState,
+    const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
     const BattleActionFrameAdapterContext& context)
 {
     assert(context.roles);
@@ -1179,7 +1179,7 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
     assert(context.ultimateCasters);
 
     BattleActionFrameApplyResult result;
-    for (const auto& action : frameState.actions.unitResults)
+    for (const auto& action : actionResults)
     {
         auto* role = findRoleByBattleId(*context.roles, action.unitId);
 
@@ -1299,8 +1299,8 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     unitInput.selectedActionInput = std::move(actionInput);
     actionFrameState.actions.units.push_back(std::move(unitInput));
     auto actionFrameResult = Battle::BattleFrameRunner().runFrame(actionFrameState);
-    assert(actionFrameState.actions.unitResults.size() == 1);
-    const auto& actionUnitResult = actionFrameState.actions.unitResults.front();
+    assert(actionFrameResult.actionResults.size() == 1);
+    const auto& actionUnitResult = actionFrameResult.actionResults.front();
     assert(actionUnitResult.actionCommitted);
     const auto& actionResult = actionUnitResult.actionResult;
     auto comboIt = context.comboStates->find(role->ID);
