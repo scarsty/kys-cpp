@@ -210,6 +210,10 @@ const Battle::BattleTeamEffectUnit& findBattleTeamEffectUnit(
     int unitId);
 Battle::BattlePresentationColor makeBattlePresentationColor(Color color);
 
+Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
+    Role* role,
+    const RoleComboState* state,
+    const Battle::BattleGridTransform& gridTransform);
 Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
     Role* role,
     int frame,

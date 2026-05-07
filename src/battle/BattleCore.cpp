@@ -14,6 +14,61 @@
 
 namespace KysChess::Battle
 {
+
+Point BattleGridTransform::toGrid(Pointf position) const
+{
+    assert(tileWidth > 0.0);
+    assert(coordCount > 0);
+
+    const double x = position.x - coordCount * tileWidth;
+    Point grid;
+    grid.x = static_cast<int>(std::round((x / tileWidth + position.y / tileWidth) / 2.0));
+    grid.y = static_cast<int>(std::round((-x / tileWidth + position.y / tileWidth) / 2.0));
+    return grid;
+}
+
+BattleRuntimeUnit& BattleUnitStore::requireUnit(int unitId)
+{
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleRuntimeUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    assert(it != units.end());
+    return *it;
+}
+
+const BattleRuntimeUnit& BattleUnitStore::requireUnit(int unitId) const
+{
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleRuntimeUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    assert(it != units.end());
+    return *it;
+}
+
+void BattleUnitStore::writeDamageUnit(const BattleDamageUnitState& source)
+{
+    auto& unit = requireUnit(source.id);
+    unit.alive = source.alive;
+    unit.hp = source.hp;
+    unit.maxHp = source.maxHp;
+    unit.mp = source.mp;
+    unit.maxMp = source.maxMp;
+    unit.attack = source.attack;
+    unit.invincible = source.invincible;
+    unit.shield = source.shield;
+    unit.mpBlocked = source.mpBlocked;
+    unit.mpRecoveryBonusPct = source.mpRecoveryBonusPct;
+}
+
+void BattleUnitStore::setPosition(int unitId, Pointf position)
+{
+    auto& unit = requireUnit(unitId);
+    unit.position = position;
+    unit.grid = gridTransform.toGrid(position);
+}
+
 namespace
 {
 BattlePresentationUnitSnapshot toPresentationUnit(const BattleUnitState& unit)

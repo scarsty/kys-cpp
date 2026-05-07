@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <map>
 #include <set>
+#include <string>
 #include <vector>
 
 namespace KysChess::Battle
@@ -64,6 +65,55 @@ class BattleFrameUnitRuntimeSystem
 {
 public:
     BattleFrameUnitRuntimeResult advance(const BattleFrameUnitRuntimeInput& input) const;
+};
+
+struct BattleGridTransform
+{
+    double tileWidth = 0.0;
+    int coordCount = 0;
+
+    Point toGrid(Pointf position) const;
+};
+
+struct BattleRuntimeUnit
+{
+    int id = -1;
+    int realRoleId = -1;
+    std::string name;
+    int team = 0;
+    bool alive = true;
+    int hp = 0;
+    int maxHp = 0;
+    int mp = 0;
+    int maxMp = 0;
+    int attack = 0;
+    int defence = 0;
+    int cooldown = 0;
+    int cooldownMax = 0;
+    int physicalPower = 0;
+    int invincible = 0;
+    int shield = 0;
+    bool mpBlocked = false;
+    int mpRecoveryBonusPct = 0;
+    Pointf position;
+    Pointf velocity;
+    Pointf acceleration;
+    Pointf facing;
+    Point grid;
+    bool canAttack = true;
+    double reach = 0.0;
+    CombatStyle style = CombatStyle::Melee;
+};
+
+struct BattleUnitStore
+{
+    BattleGridTransform gridTransform;
+    std::vector<BattleRuntimeUnit> units;
+
+    BattleRuntimeUnit& requireUnit(int unitId);
+    const BattleRuntimeUnit& requireUnit(int unitId) const;
+    void writeDamageUnit(const BattleDamageUnitState& source);
+    void setPosition(int unitId, Pointf position);
 };
 
 struct BattleFrameRuntimeUnitInput
@@ -232,6 +282,7 @@ struct BattleFrameRescueCounterAttackConfig
 
 struct BattleRuntimeState
 {
+    BattleUnitStore units;
     BattleWorldState world;
     BattleAttackWorld attacks;
     struct RuntimeState

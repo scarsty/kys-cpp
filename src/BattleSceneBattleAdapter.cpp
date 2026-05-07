@@ -311,6 +311,43 @@ Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
     return input;
 }
 
+Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
+    Role* role,
+    const RoleComboState* state,
+    const Battle::BattleGridTransform& gridTransform)
+{
+    assert(role);
+
+    Battle::BattleRuntimeUnit unit;
+    unit.id = role->ID;
+    unit.realRoleId = role->RealID;
+    unit.name = role->Name;
+    unit.team = role->Team;
+    unit.alive = role->Dead == 0;
+    unit.hp = role->HP;
+    unit.maxHp = role->MaxHP;
+    unit.mp = role->MP;
+    unit.maxMp = role->MaxMP;
+    unit.attack = role->Attack;
+    unit.defence = role->Defence;
+    unit.cooldown = role->CoolDown;
+    unit.cooldownMax = role->CoolDownMax;
+    unit.physicalPower = role->PhysicalPower;
+    unit.invincible = role->Invincible;
+    unit.position = role->Pos;
+    unit.velocity = role->Velocity;
+    unit.acceleration = role->Acceleration;
+    unit.facing = role->RealTowards;
+    unit.grid = gridTransform.toGrid(role->Pos);
+    if (state)
+    {
+        unit.shield = state->shield;
+        unit.mpBlocked = state->mpBlockTimer > 0;
+        unit.mpRecoveryBonusPct = state->mpRecoveryBonusPct;
+    }
+    return unit;
+}
+
 void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnitRuntimeResult& result)
 {
     assert(role);

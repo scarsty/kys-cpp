@@ -56,6 +56,67 @@ BattleWorldState worldWith(std::vector<BattleUnitState> units)
     return world;
 }
 
+TEST_CASE("BattleUnitStore_RequiresAndMutatesCanonicalUnitValues", "[battle][core][runtime]")
+{
+    BattleUnitStore store;
+    BattleRuntimeUnit unit;
+    unit.id = 1;
+    unit.team = 0;
+    unit.alive = true;
+    unit.hp = 80;
+    unit.maxHp = 100;
+    unit.mp = 10;
+    unit.maxMp = 50;
+    unit.attack = 20;
+    unit.defence = 7;
+    unit.shield = 3;
+    store.units.push_back(unit);
+
+    BattleDamageUnitState damage;
+    damage.id = 1;
+    damage.hp = 25;
+    damage.maxHp = 100;
+    damage.alive = false;
+    damage.mp = 18;
+    damage.maxMp = 60;
+    damage.attack = 31;
+    damage.invincible = 4;
+    damage.shield = 9;
+    damage.mpBlocked = true;
+    damage.mpRecoveryBonusPct = 25;
+    store.writeDamageUnit(damage);
+
+    const auto& updated = store.requireUnit(1);
+    CHECK_FALSE(updated.alive);
+    CHECK(updated.hp == 25);
+    CHECK(updated.mp == 18);
+    CHECK(updated.maxMp == 60);
+    CHECK(updated.attack == 31);
+    CHECK(updated.invincible == 4);
+    CHECK(updated.shield == 9);
+    CHECK(updated.mpBlocked);
+    CHECK(updated.mpRecoveryBonusPct == 25);
+}
+
+TEST_CASE("BattleUnitStore_UpdatesPositionAndGridWithCoreTransform", "[battle][core][runtime]")
+{
+    BattleUnitStore store;
+    store.gridTransform.tileWidth = SceneTileWidth;
+    store.gridTransform.coordCount = 64;
+    BattleRuntimeUnit unit;
+    unit.id = 7;
+    unit.position = { 64.0f * 36.0f, 0.0f, 0.0f };
+    store.units.push_back(unit);
+
+    store.setPosition(7, { 64.0f * 36.0f + 36.0f, 36.0f, 0.0f });
+
+    const auto& updated = store.requireUnit(7);
+    CHECK(updated.position.x == 64.0f * 36.0f + 36.0f);
+    CHECK(updated.position.y == 36.0f);
+    CHECK(updated.grid.x == 1);
+    CHECK(updated.grid.y == 0);
+}
+
 BattleAttackWorld attackWorld()
 {
     BattleAttackWorld world;

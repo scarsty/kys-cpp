@@ -47,6 +47,7 @@ using KysChess::BattleSceneBattleAdapter::makeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamagePresentationStyle;
 using KysChess::BattleSceneBattleAdapter::makeBattleFrameUnitRuntimeInput;
 using KysChess::BattleSceneBattleAdapter::makeBattlePresentationColor;
+using KysChess::BattleSceneBattleAdapter::makeBattleRuntimeUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleStatusUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleTeamEffectWorld;
 using KysChess::BattleSceneBattleAdapter::applyBattleMovementPhysicsFrameResults;
@@ -1102,17 +1103,30 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     battle_session_.emplace(std::move(init));
     initializeBattleRuntimeStaticState();
     battleRuntime().world.config = makeCoreMovementConfig();
+    battleRuntime().units.gridTransform = { TILE_W, BATTLE_COORD_COUNT };
+    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    battleRuntime().units.units.clear();
+    battleRuntime().units.units.reserve(battle_roles_.size());
+    for (auto* role : battle_roles_)
+    {
+        assert(role);
+        auto stateIt = comboStates.find(role->ID);
+        battleRuntime().units.units.push_back(makeBattleRuntimeUnit(
+            role,
+            stateIt != comboStates.end() ? &stateIt->second : nullptr,
+            battleRuntime().units.gridTransform));
+    }
     configureBattleAttackWorld(battleRuntime().attacks);
     battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
     battleRuntime().teamEffects.world = makeBattleTeamEffectWorld(
         battle_roles_,
-        KysChess::ChessCombo::getMutableStates());
+        comboStates);
     battleRuntime().effects.world = makeBattleEffectWorld(
         battle_roles_,
-        KysChess::ChessCombo::getMutableStates());
+        comboStates);
     battleRuntime().deathEffects.world = makeBattleDeathEffectWorld(
         battle_roles_,
-        KysChess::ChessCombo::getMutableStates());
+        comboStates);
     auto* basicMagic = Save::getInstance()->getMagic(1);
     assert(basicMagic);
     battleRuntime().rescue.executeUnattendedRadius = TILE_W * 3.0;
