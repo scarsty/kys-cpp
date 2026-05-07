@@ -55,6 +55,7 @@ struct BattleCastSkillState
     int extraProjectileCount = 0;
     bool strengthenedMelee = false;
     double reach{};
+    double blinkReach = 0.0;
     bool forceRanged = false;
     bool rangedStyle = false;
 };

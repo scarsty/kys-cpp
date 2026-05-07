@@ -90,6 +90,10 @@ BattleRuntimeUnit runtimeUnitSnapshot(int id, int team, int hp, Pointf position 
 
 void seedRuntimeUnitsFromWorld(BattleRuntimeState& state, int hp = 100)
 {
+    if (state.units.gridTransform.tileWidth <= 0.0)
+    {
+        state.units.gridTransform = { SceneTileWidth, 64 };
+    }
     state.units.units.clear();
     for (const auto& unit : state.world.units)
     {
@@ -97,6 +101,7 @@ void seedRuntimeUnitsFromWorld(BattleRuntimeState& state, int hp = 100)
         runtime.alive = unit.alive;
         runtime.velocity = unit.velocity;
         runtime.style = unit.style;
+        runtime.grid = state.units.gridTransform.toGrid(runtime.position);
         state.units.units.push_back(std::move(runtime));
     }
 }
@@ -1502,6 +1507,66 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StartsCastFromActionFrameUnitInput", "
     CHECK(action.state.actFrame == 0);
     CHECK(action.castResult.decision.canCast);
     CHECK(action.castResult.decision.skillId == 301);
+}
+
+TEST_CASE("BattleFrameRunner_StoresPendingCastCommitInputWhenCastStarts", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 220, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+
+    BattleFrameActionUnitInput actionUnit;
+    actionUnit.unitId = 1;
+    actionUnit.castInput = frameCastInput(1, 2);
+    actionUnit.castInput.normalSkill.attackAreaType = 1;
+    actionUnit.castInput.normalSkill.rangedStyle = true;
+    actionUnit.castInput.normalSkill.reach = 400.0;
+    actionUnit.canPlanCast = true;
+    state.action.directives.push_back(actionUnit);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK(result.actionResults[0].castStarted);
+    auto pending = state.action.pendingCommitInputs.find(1);
+    REQUIRE(pending != state.action.pendingCommitInputs.end());
+    CHECK(pending->second.hasCast);
+    CHECK(pending->second.cast.decision.skillId == 301);
+}
+
+TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastInputWithoutSceneDirective", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 220, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto& unit = state.units.requireUnit(1);
+    unit.haveAction = true;
+    unit.actFrame = 6;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.actType = 1;
+    unit.cooldown = 10;
+
+    auto action = frameActionCommitInput();
+    action.hasCast = true;
+    action.cast = committedFrameCast();
+    state.action.pendingCommitInputs.emplace(1, action);
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.action.pendingCommitInputs.empty());
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK(result.actionResults[0].actionCommitted);
+    CHECK(result.actionResults[0].castCommitted);
+    CHECK(result.actionResults[0].actionInput.hasCast);
+    REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingCastFromActionFrameUnitInput", "[battle][core]")

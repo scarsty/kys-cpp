@@ -96,6 +96,7 @@ struct BattleRuntimeUnit
     int actFrame = 0;
     BattleOperationType operationType = BattleOperationType::None;
     int actType = -1;
+    int operationCount = 0;
     int physicalPower = 0;
     int hiddenWeapon = 0;
     int invincible = 0;
@@ -341,14 +342,17 @@ struct BattleRuntimeState
     struct ActionState
     {
         std::vector<BattleFrameActionUnitInput> directives;
+        std::map<int, BattleActionCommitInput> pendingCommitInputs;
         std::vector<int> castFrames;
         int actionRecoveryFrames = 0;
         int dashRecoveryFrames = 0;
+        double blinkWeakTargetDefWeight = 0.0;
+        int strengthenedMeleeOperationCountThreshold = 0;
+        int projectileBounceRange = 0;
     } action;
 
     BattleProjectileFollowUpContext projectileFollowUps;
     std::map<int, BattleMovementPhysicsState> movementRuntime;
-    std::map<int, BattleCastResult> pendingCastResults;
     std::set<int> ultimateCasters;
 
     std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;

@@ -52,6 +52,7 @@ using KysChess::BattleSceneBattleAdapter::projectileSpeedMultiplierPct;
 using KysChess::BattleSceneBattleAdapter::roleForcesRangedMagic;
 using KysChess::BattleSceneBattleAdapter::selectHigherPowerMagic;
 using KysChess::BattleSceneBattleAdapter::selectLowerPowerMagic;
+using KysChess::BattleSceneBattleAdapter::strengthenedMeleeOperationCountThreshold;
 using KysChess::BattleSceneBattleAdapter::writeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::writeBattleStatusUnit;
 
@@ -963,6 +964,9 @@ void BattleSceneHades::initializeBattleRuntimeSession()
         castConfig.castFrames.end());
     battleRuntime().action.actionRecoveryFrames = ACTION_RECOVERY_FRAMES;
     battleRuntime().action.dashRecoveryFrames = DASH_MOMENTUM_FRAMES;
+    battleRuntime().action.blinkWeakTargetDefWeight = BLINK_WEAK_TARGET_DEF_WEIGHT;
+    battleRuntime().action.strengthenedMeleeOperationCountThreshold = strengthenedMeleeOperationCountThreshold();
+    battleRuntime().action.projectileBounceRange = static_cast<int>(PROJECTILE_BOUNCE_RANGE);
     battleRuntime().movementPhysics.collision.tileWidth = TILE_W;
     battleRuntime().movementPhysics.collision.coordCount = BATTLE_COORD_COUNT;
     battleRuntime().movementPhysics.collision.defaultSeparationDistance = TILE_W * 1.5;
@@ -992,7 +996,6 @@ BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterCo
     context.units = &battleRuntime().units;
     context.random = &rand_;
     context.movementRuntime = &battleRuntime().movementRuntime;
-    context.pendingCastResults = &battleRuntime().pendingCastResults;
     context.comboStates = &battleRuntime().combo.units;
     context.ultimateCasters = &battleRuntime().ultimateCasters;
     context.config.maxEffectiveBattleReach = MAX_EFFECTIVE_BATTLE_REACH;

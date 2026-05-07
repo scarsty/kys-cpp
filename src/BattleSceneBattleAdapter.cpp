@@ -16,7 +16,6 @@
 #include <format>
 #include <functional>
 #include <iterator>
-#include <limits>
 #include <set>
 #include <utility>
 
@@ -167,6 +166,11 @@ Battle::BattleCastGeometry makeBattleCastGeometry()
     return geometry;
 }
 
+int strengthenedMeleeOperationCountThreshold()
+{
+    return STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
+}
+
 Magic* selectLowerPowerMagic(Role* role)
 {
     return selectBattleMagic(role, std::less<double>{});
@@ -308,6 +312,7 @@ Battle::BattleCastSkillState makeBattleCastSkillState(Role* unit, const BattleCa
     skill.extraProjectileCount = input.extraProjectileCount;
     skill.strengthenedMelee = input.strengthenedMelee;
     skill.reach = input.reach;
+    skill.blinkReach = input.blinkReach;
     skill.forceRanged = input.forceRanged;
     skill.rangedStyle = input.rangedStyle;
     return skill;
@@ -404,6 +409,7 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     unit.actFrame = role->ActFrame;
     unit.operationType = Battle::battleOperationFromLegacy(role->OperationType);
     unit.actType = role->ActType;
+    unit.operationCount = role->OperationCount;
     unit.physicalPower = role->PhysicalPower;
     unit.hiddenWeapon = role->HiddenWeapon;
     unit.invincible = role->Invincible;
@@ -723,6 +729,7 @@ BattleCastSkillAdapterInput makeActionFrameSkillInput(
     skill.projectileSpeedMultiplierPct = speedMultiplierPct;
     skill.meleeSplashCount = ultimate && magic->AttackAreaType == 0 ? 1 : 0;
     skill.extraProjectileCount = ultimate ? actionUltimateExtraProjectileCount(role, context) : 0;
+    skill.blinkReach = battleBlinkReach(magic);
     return skill;
 }
 
@@ -825,47 +832,6 @@ void populateActionCommitInputForRole(
     Role* role,
     const BattleActionFrameAdapterContext& context)
 {
-    if (!role->HaveAction)
-    {
-        return;
-    }
-
-    if (role->OperationType != 3)
-    {
-        role->Velocity = { 0, 0, 0 };
-    }
-
-    if (role->OperationType >= 0 && role->OperationType <= 3
-        && role->ActFrame == LEGACY_CAST_FRAMES[role->OperationType])
-    {
-        role->PreActTimer = context.config.battleFrame;
-        Magic* magic = role->UsingMagic;
-        auto pendingCast = context.pendingCastResults->find(role->ID);
-        assert(pendingCast != context.pendingCastResults->end());
-        assert(magic);
-        auto castResult = pendingCast->second;
-        assert(castResult.decision.canCast);
-
-        Battle::BattleActionCommitInput actionInput;
-        actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
-        actionInput.hasCast = true;
-        actionInput.cast = std::move(castResult);
-        actionInput.blinkRandomRoll = actionRandomInt(context, std::numeric_limits<int>::max());
-        actionInput.blinkCellRandomRoll = actionRandomInt(context, std::numeric_limits<int>::max());
-        actionInput.blinkReach = battleBlinkReach(magic);
-        actionInput.blinkWeakTargetDefWeight = context.config.blinkWeakTargetDefWeight;
-        actionInput.blinkGeometry = makeBlinkGeometryInput(role, actionInput.blinkReach, context);
-        actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
-        for (auto target : *context.roles)
-        {
-            actionInput.targets.push_back(makeBattleActionTargetSnapshot(target));
-        }
-
-        captureActionComboState(actionInput, role, context);
-        unitInput.hasPendingActionInput = true;
-        unitInput.pendingActionInput = std::move(actionInput);
-    }
-
     if (role->UsingItem)
     {
         Item* item = role->UsingItem;
@@ -1067,7 +1033,6 @@ void populateBattleActionDirectives(
     BattleActionFrameAdapterContext& context)
 {
     assert(context.roles);
-    assert(context.pendingCastResults);
     assert(context.comboStates);
 
     runtime.action.directives.clear();
@@ -1091,8 +1056,6 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
     const BattleActionFrameAdapterContext& context)
 {
     assert(context.roles);
-    assert(context.pendingCastResults);
-    assert(context.comboStates);
     assert(context.ultimateCasters);
 
     BattleActionFrameApplyResult result;
@@ -1113,7 +1076,6 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
             assert(magic);
             role->UsingMagic = magic;
             applyBattleCastStart(role, action.castResult, magic->MagicType);
-            (*context.pendingCastResults)[role->ID] = action.castResult;
             result.clearMovementDashSpreadUnitIds.push_back(role->ID);
         }
         else
@@ -1126,12 +1088,6 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
             continue;
         }
 
-        auto comboIt = context.comboStates->find(role->ID);
-        if (comboIt != context.comboStates->end())
-        {
-            comboIt->second = action.actionResult.combo;
-        }
-
         for (const auto& teleport : action.actionResult.blinkTeleports)
         {
             applyBlinkTeleportDelta(role, teleport, context, result);
@@ -1141,10 +1097,10 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
         {
             Magic* magic = role->UsingMagic;
             assert(magic);
+            role->PreActTimer = context.config.battleFrame;
             result.attackSoundIds.push_back(magic->SoundID);
             role->OperationCount = action.actionResult.operationCount;
             applyBattleCastCommit(role, action.actionInput.cast);
-            context.pendingCastResults->erase(role->ID);
             context.ultimateCasters->erase(role->ID);
         }
 

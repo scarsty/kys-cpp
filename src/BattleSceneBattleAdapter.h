@@ -29,6 +29,7 @@ struct BattleCastSkillAdapterInput
     int meleeSplashCount = 0;
     int extraProjectileCount = 0;
     bool strengthenedMelee = false;
+    double blinkReach = 0.0;
 };
 
 struct BattleCastAdapterInput
@@ -72,7 +73,6 @@ struct BattleActionFrameAdapterContext
     const Battle::BattleUnitStore* units = nullptr;
     RandomDouble* random = nullptr;
     const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
-    std::map<int, Battle::BattleCastResult>* pendingCastResults = nullptr;
     std::map<int, RoleComboState>* comboStates = nullptr;
     std::set<int>* ultimateCasters = nullptr;
     BattleActionFrameAdapterConfig config;
@@ -118,6 +118,7 @@ Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
 
 Battle::BattleCastConfig makeBattleCastConfig();
 Battle::BattleCastGeometry makeBattleCastGeometry();
+int strengthenedMeleeOperationCountThreshold();
 Magic* selectLowerPowerMagic(Role* role);
 Magic* selectHigherPowerMagic(Role* role);
 bool roleForcesRangedMagic(const std::map<int, RoleComboState>& comboStates, int unitId);

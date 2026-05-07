@@ -5,6 +5,7 @@
 #include <cmath>
 #include <format>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <set>
 #include <type_traits>
@@ -1095,8 +1096,13 @@ BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
     if (const auto* source = state.units.findUnit(input.unit.id))
     {
         input.unit.position = source->position;
+        input.unit.facing = source->facing;
         input.unit.alive = source->alive;
         input.unit.canStartAttack = source->canAttack;
+        input.unit.mp = source->mp;
+        input.unit.maxMp = source->maxMp;
+        input.unit.speed = source->speed;
+        input.unit.operationCount = source->operationCount;
     }
     else if (const auto* source = findWorldUnit(state.world, input.unit.id))
     {
@@ -1143,6 +1149,153 @@ BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
         input.targetUnitId = -1;
     }
     return input;
+}
+
+const BattleCastSkillState& selectedCastSkill(const BattleCastInput& input, const BattleCastResult& cast)
+{
+    return cast.decision.ultimate ? input.ultimateSkill : input.normalSkill;
+}
+
+Pointf positionForRuntimeGridCell(const BattleRuntimeState& state, int x, int y)
+{
+    const int coordCount = state.units.gridTransform.coordCount;
+    const double tileWidth = state.units.gridTransform.tileWidth;
+    assert(coordCount > 0);
+    assert(tileWidth > 0.0);
+    return {
+        static_cast<float>(-y * tileWidth + x * tileWidth + coordCount * tileWidth),
+        static_cast<float>(y * tileWidth + x * tileWidth),
+        0.0f,
+    };
+}
+
+bool runtimeGridCellWalkable(const BattleRuntimeState& state, int x, int y)
+{
+    const int coordCount = state.units.gridTransform.coordCount;
+    if (x < 0 || y < 0 || x >= coordCount || y >= coordCount)
+    {
+        return false;
+    }
+    const auto index = static_cast<std::size_t>(x * coordCount + y);
+    if (index >= state.world.terrainCells.size())
+    {
+        return true;
+    }
+    return state.world.terrainCells[index].walkable;
+}
+
+BattleBlinkGeometryInput makeRuntimeBlinkGeometry(const BattleRuntimeState& state,
+                                                  const BattleRuntimeUnit& source,
+                                                  double reach)
+{
+    BattleBlinkGeometryInput geometry;
+    geometry.currentGridX = source.grid.x;
+    geometry.currentGridY = source.grid.y;
+
+    const double tileWidth = state.units.gridTransform.tileWidth;
+    assert(tileWidth > 0.0);
+    int gridReach = std::max(1, static_cast<int>(reach / tileWidth) + 1);
+    std::set<std::pair<int, int>> visited;
+    for (const auto& target : state.units.units)
+    {
+        if (target.id == source.id || !target.alive || target.team == source.team)
+        {
+            continue;
+        }
+
+        for (int dx = -gridReach; dx <= gridReach; ++dx)
+        {
+            for (int dy = -gridReach; dy <= gridReach; ++dy)
+            {
+                const int x = target.grid.x + dx;
+                const int y = target.grid.y + dy;
+                if (!visited.emplace(x, y).second)
+                {
+                    continue;
+                }
+
+                bool occupied = false;
+                for (const auto& other : state.units.units)
+                {
+                    if (other.id == source.id || !other.alive)
+                    {
+                        continue;
+                    }
+                    if (other.grid.x == x && other.grid.y == y)
+                    {
+                        occupied = true;
+                        break;
+                    }
+                }
+
+                geometry.cells.push_back({
+                    x,
+                    y,
+                    positionForRuntimeGridCell(state, x, y),
+                    runtimeGridCellWalkable(state, x, y),
+                    occupied,
+                });
+            }
+        }
+    }
+    return geometry;
+}
+
+BattleActionCommitInput makePendingCastActionInput(BattleRuntimeState& state,
+                                                   const BattleRuntimeUnit& unit,
+                                                   const BattleCastInput& castInput,
+                                                   const BattleCastResult& cast)
+{
+    const auto& selectedSkill = selectedCastSkill(castInput, cast);
+    BattleActionCommitInput actionInput;
+    actionInput.unit.id = unit.id;
+    actionInput.unit.team = unit.team;
+    actionInput.unit.position = unit.position;
+    actionInput.unit.facing = unit.facing;
+    actionInput.unit.operationCount = unit.operationCount;
+    actionInput.hasCast = true;
+    actionInput.cast = cast;
+    actionInput.blinkRandomRoll = state.random.nextInt(std::numeric_limits<int>::max());
+    actionInput.blinkCellRandomRoll = state.random.nextInt(std::numeric_limits<int>::max());
+    actionInput.blinkReach = selectedSkill.blinkReach > 0.0 ? selectedSkill.blinkReach : selectedSkill.reach;
+    actionInput.blinkWeakTargetDefWeight = state.action.blinkWeakTargetDefWeight;
+    actionInput.strengthenedMeleeOperationCountThreshold =
+        state.action.strengthenedMeleeOperationCountThreshold;
+    for (const auto& target : state.units.units)
+    {
+        actionInput.targets.push_back({
+            target.id,
+            target.team,
+            target.alive,
+            target.hp,
+            target.maxHp,
+            static_cast<double>(target.defence),
+            target.invincible,
+            target.position,
+        });
+    }
+
+    auto comboIt = state.combo.units.find(unit.id);
+    if (comboIt != state.combo.units.end())
+    {
+        actionInput.combo = comboIt->second;
+        auto prime = collectFrameProjectileBouncePrime(
+            actionInput.combo,
+            unit.id,
+            state.random.nextInt(100),
+            state.action.projectileBounceRange);
+        actionInput.projectileBouncePrime = {
+            prime.count,
+            prime.chancePct,
+            prime.rollPct,
+            prime.range,
+        };
+        if (actionInput.combo.blinkAttack)
+        {
+            actionInput.blinkGeometry = makeRuntimeBlinkGeometry(state, unit, actionInput.blinkReach);
+        }
+    }
+    return actionInput;
 }
 
 BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
@@ -2662,6 +2815,7 @@ void advanceActionFrameUnits(
         const auto* input = inputIt != inputsByUnitId.end()
             ? inputIt->second
             : nullptr;
+        auto pendingCommitIt = state.action.pendingCommitInputs.find(unit.id);
         BattleFrameActionUnitResult result;
         result.unitId = unit.id;
         result.state = makeActionRuntimeState(unit);
@@ -2698,7 +2852,8 @@ void advanceActionFrameUnits(
         }
         else if (input && !result.state.haveAction && input->canPlanCast)
         {
-            auto cast = BattleCastPlanner().plan(refreshedCastInput(state, movement, input->castInput));
+            auto castInput = refreshedCastInput(state, movement, input->castInput);
+            auto cast = BattleCastPlanner().plan(castInput);
             gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
             visualEvents.insert(visualEvents.end(), cast.visualEvents.begin(), cast.visualEvents.end());
             if (cast.decision.canCast)
@@ -2711,18 +2866,31 @@ void advanceActionFrameUnits(
                     : input->castInput.normalSkill.magicType;
                 result.state.operationType = cast.decision.operationType;
                 result.state.cooldown = cast.animation.cooldownFrames;
+                state.action.pendingCommitInputs[unit.id] =
+                    makePendingCastActionInput(state, unit, castInput, cast);
             }
             result.castResult = std::move(cast);
         }
-        else if (input && result.state.haveAction && input->hasPendingActionInput)
+        else if (result.state.haveAction
+            && ((input && input->hasPendingActionInput)
+                || pendingCommitIt != state.action.pendingCommitInputs.end()))
         {
             const int castFrame = actionCastFrame(state, result.state.operationType);
             if (result.state.actFrame == castFrame)
             {
                 result.actionCommitted = true;
-                result.castCommitted = input->pendingActionInput.hasCast;
-                result.actionInput = input->pendingActionInput;
-                result.actionResult = BattleActionCommitSystem().commit(input->pendingActionInput);
+                if (input && input->hasPendingActionInput)
+                {
+                    result.castCommitted = input->pendingActionInput.hasCast;
+                    result.actionInput = input->pendingActionInput;
+                }
+                else
+                {
+                    result.castCommitted = pendingCommitIt->second.hasCast;
+                    result.actionInput = pendingCommitIt->second;
+                    state.action.pendingCommitInputs.erase(pendingCommitIt);
+                }
+                result.actionResult = BattleActionCommitSystem().commit(result.actionInput);
                 state.pendingAttackSpawns.insert(
                     state.pendingAttackSpawns.end(),
                     result.actionResult.attackSpawnRequests.begin(),
@@ -2746,9 +2914,22 @@ void advanceActionFrameUnits(
                 result.state.haveAction = false;
                 result.state.operationType = BattleOperationType::None;
                 result.state.actType = -1;
+                state.action.pendingCommitInputs.erase(unit.id);
             }
         }
 
+        if (result.actionCommitted)
+        {
+            unit.operationCount = result.actionResult.operationCount;
+            if (result.actionInput.hasCast)
+            {
+                auto comboIt = state.combo.units.find(unit.id);
+                if (comboIt != state.combo.units.end())
+                {
+                    comboIt->second = result.actionResult.combo;
+                }
+            }
+        }
         writeActionStateToUnitStore(state, result);
         if (input || wasActionActive || result.castStarted || result.actionCommitted)
         {
