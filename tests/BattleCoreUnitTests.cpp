@@ -136,6 +136,36 @@ TEST_CASE("BattleUnitStore_UpdatesPositionAndGridWithCoreTransform", "[battle][c
     CHECK(updated.grid.y == 0);
 }
 
+TEST_CASE("BattleUnitStore_SelectsNearestAndFarthestLiveEnemyUnits", "[battle][core][runtime]")
+{
+    BattleUnitStore store;
+    store.units = {
+        runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, 100, { 130, 100, 0 }),
+        runtimeUnitSnapshot(3, 1, 100, { 260, 100, 0 }),
+        runtimeUnitSnapshot(4, 0, 100, { 110, 100, 0 }),
+        runtimeUnitSnapshot(5, 1, 0, { 105, 100, 0 }),
+    };
+    store.requireUnit(5).alive = false;
+
+    CHECK(findNearestEnemyUnitId(store, 1) == 2);
+    CHECK(findFarthestEnemyUnitId(store, 1) == 3);
+}
+
+TEST_CASE("BattleUnitStore_TargetSelectionReturnsNoUnitWithoutLiveEnemy", "[battle][core][runtime]")
+{
+    BattleUnitStore store;
+    store.units = {
+        runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 0, 100, { 130, 100, 0 }),
+        runtimeUnitSnapshot(3, 1, 0, { 260, 100, 0 }),
+    };
+    store.requireUnit(3).alive = false;
+
+    CHECK(findNearestEnemyUnitId(store, 1) == -1);
+    CHECK(findFarthestEnemyUnitId(store, 1) == -1);
+}
+
 BattleAttackWorld attackWorld()
 {
     BattleAttackWorld world;

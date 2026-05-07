@@ -72,8 +72,6 @@ protected:
         const KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
-    Role* findNearestEnemy(int team, Pointf p);
-    Role* findFarthestEnemy(int team, Pointf p);
     int calCast(int act_type, int operation_type, Role* r);
     int calCoolDown(int act_type, int operation_type, Role* r);
 

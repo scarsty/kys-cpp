@@ -90,6 +90,50 @@ void BattleUnitStore::setMotion(int unitId, Pointf position, Pointf velocity, Po
     unit.grid = gridTransform.toGrid(position);
 }
 
+int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId)
+{
+    const auto& source = units.requireUnit(sourceUnitId);
+    int targetUnitId = -1;
+    double bestDistance = 0.0;
+    for (const auto& candidate : units.units)
+    {
+        if (!candidate.alive || candidate.team == source.team)
+        {
+            continue;
+        }
+
+        const double distance = (candidate.position - source.position).norm();
+        if (targetUnitId < 0 || distance < bestDistance)
+        {
+            targetUnitId = candidate.id;
+            bestDistance = distance;
+        }
+    }
+    return targetUnitId;
+}
+
+int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId)
+{
+    const auto& source = units.requireUnit(sourceUnitId);
+    int targetUnitId = -1;
+    double bestDistance = 0.0;
+    for (const auto& candidate : units.units)
+    {
+        if (!candidate.alive || candidate.team == source.team)
+        {
+            continue;
+        }
+
+        const double distance = (candidate.position - source.position).norm();
+        if (targetUnitId < 0 || distance > bestDistance)
+        {
+            targetUnitId = candidate.id;
+            bestDistance = distance;
+        }
+    }
+    return targetUnitId;
+}
+
 namespace
 {
 bool hasCanonicalUnitStore(const BattleRuntimeState& state);

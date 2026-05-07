@@ -1096,6 +1096,7 @@ BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterCo
     BattleActionFrameAdapterContext context;
     context.roles = &battle_roles_;
     context.actionImport = &actionImport;
+    context.units = &battleRuntime().units;
     for (auto* role : battle_roles_)
     {
         assert(role);
@@ -2590,14 +2591,6 @@ KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet BattleSceneHades:
 
         KysChess::BattleSceneBattleAdapter::BattleFrameActionImport actionSnapshot;
         actionSnapshot.unitId = role->ID;
-        if (auto* nearest = findNearestEnemy(role->Team, role->Pos))
-        {
-            actionSnapshot.nearestEnemyUnitId = nearest->ID;
-        }
-        if (auto* farthest = findFarthestEnemy(role->Team, role->Pos))
-        {
-            actionSnapshot.farthestEnemyUnitId = farthest->ID;
-        }
 
         auto* equippedMagic = role->UsingMagic;
         actionSnapshot.normalMagic = equippedMagic ? equippedMagic : selectMagic(role, std::less<double>{});
@@ -3357,44 +3350,6 @@ void BattleSceneHades::setRoleInitState(Role* role)
         role->RealTowards = { -1, -1 };
     }
     role->Acceleration = { 0, 0, gravity_ };
-}
-
-Role* BattleSceneHades::findNearestEnemy(int team, Pointf p)
-{
-    double dis = 4096;
-    Role* r0 = nullptr;
-    for (auto r1 : battle_roles_)
-    {
-        if (r1->Dead == 0 && team != r1->Team)
-        {
-            auto dis1 = EuclidDis(p, r1->Pos);
-            if (dis1 < dis)
-            {
-                dis = dis1;
-                r0 = r1;
-            }
-        }
-    }
-    return r0;
-}
-
-Role* BattleSceneHades::findFarthestEnemy(int team, Pointf p)
-{
-    double dis = 0;
-    Role* r0 = nullptr;
-    for (auto r1 : battle_roles_)
-    {
-        if (r1->Dead == 0 && team != r1->Team)
-        {
-            auto dis1 = EuclidDis(p, r1->Pos);
-            if (dis1 > dis)
-            {
-                dis = dis1;
-                r0 = r1;
-            }
-        }
-    }
-    return r0;
 }
 
 //前搖

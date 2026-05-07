@@ -122,6 +122,9 @@ struct BattleUnitStore
     void setMotion(int unitId, Pointf position, Pointf velocity, Pointf acceleration);
 };
 
+int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
+int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
+
 struct BattleFrameRuntimeUnitInput
 {
     int unitId = -1;

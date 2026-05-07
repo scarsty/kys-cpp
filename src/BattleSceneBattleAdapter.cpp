@@ -635,6 +635,18 @@ Role* findSnapshotRole(const BattleActionFrameAdapterContext& context, int unitI
     return *it;
 }
 
+Role* findNearestEnemyRole(const BattleActionFrameAdapterContext& context, int sourceUnitId)
+{
+    assert(context.units);
+    return findSnapshotRole(context, Battle::findNearestEnemyUnitId(*context.units, sourceUnitId));
+}
+
+Role* findFarthestEnemyRole(const BattleActionFrameAdapterContext& context, int sourceUnitId)
+{
+    assert(context.units);
+    return findSnapshotRole(context, Battle::findFarthestEnemyUnitId(*context.units, sourceUnitId));
+}
+
 Pointf positionForCell(int x, int y, int coordCount)
 {
     return {
@@ -841,7 +853,7 @@ void populateActionCommitInputForRole(
         actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
         actionInput.hiddenWeaponTotalFrame = context.config.hiddenWeaponTotalFrame;
         auto hiddenWeaponVelocity = role->RealTowards;
-        if (auto* target = findSnapshotRole(context, requireActionSnapshot(context, role->ID).farthestEnemyUnitId))
+        if (auto* target = findFarthestEnemyRole(context, role->ID))
         {
             hiddenWeaponVelocity = target->Pos - role->Pos;
         }
@@ -868,7 +880,7 @@ void populateCastPlanInputForRole(
     const auto& action = requireActionSnapshot(context, role->ID);
     Magic* normalMagic = equippedMagic ? equippedMagic : action.normalMagic;
     Magic* ultimateMagic = equippedMagic ? equippedMagic : action.ultimateMagic;
-    Role* target = findSnapshotRole(context, action.nearestEnemyUnitId);
+    Role* target = findNearestEnemyRole(context, role->ID);
     if (!target)
     {
         role->Velocity = { 0, 0, 0 };
@@ -1266,7 +1278,7 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
         return result;
     }
 
-    auto* target = findSnapshotRole(context, requireActionSnapshot(context, role->ID).nearestEnemyUnitId);
+    auto* target = findNearestEnemyRole(context, role->ID);
     if (!target)
     {
         return result;

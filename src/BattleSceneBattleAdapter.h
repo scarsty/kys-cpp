@@ -60,8 +60,6 @@ struct BattleFrameApplyContext
 struct BattleFrameActionImport
 {
     int unitId = -1;
-    int nearestEnemyUnitId = -1;
-    int farthestEnemyUnitId = -1;
     Magic* normalMagic = nullptr;
     Magic* ultimateMagic = nullptr;
     bool forceRangedMagic = false;
@@ -123,6 +121,7 @@ struct BattleActionFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
     const BattleActionFrameImportSet* actionImport = nullptr;
+    const Battle::BattleUnitStore* units = nullptr;
     std::unordered_map<int, Point> unitCells;
     const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
     std::map<int, Battle::BattleCastResult>* pendingCastResults = nullptr;
