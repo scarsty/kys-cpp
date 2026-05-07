@@ -1,5 +1,7 @@
 #include "BattleCore.h"
 
+#include "BattleCombatIntent.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -1196,6 +1198,93 @@ const BattleCastSkillState& selectedCastSkill(const BattleCastInput& input, cons
     return cast.decision.ultimate ? input.ultimateSkill : input.normalSkill;
 }
 
+BattleActionCommitInput makePendingCastActionInput(BattleRuntimeState& state,
+                                                   const BattleRuntimeUnit& unit,
+                                                   const BattleCastInput& castInput,
+                                                   const BattleCastResult& cast);
+
+bool tryCommitAutoUltimate(
+    BattleRuntimeState& state,
+    int unitId,
+    bool consumeMp,
+    bool announceAutoUltimate,
+    BattleFrameApplications& applications,
+    std::vector<BattleGameplayEvent>& gameplayEvents,
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents)
+{
+    auto* unit = state.units.findUnit(unitId);
+    if (!unit || !unit->alive)
+    {
+        return false;
+    }
+
+    auto planIt = state.action.castPlanInputs.find(unitId);
+    if (planIt == state.action.castPlanInputs.end()
+        || planIt->second.ultimateSkill.id < 0)
+    {
+        return false;
+    }
+
+    auto castInput = refreshedCastInput(state, {}, planIt->second);
+    if (castInput.targetUnitId < 0)
+    {
+        return false;
+    }
+    castInput.unit.canStartAttack = true;
+
+    const auto operationType =
+        BattleCombatIntentPlanner().operationTypeForAttackArea(castInput.ultimateSkill.attackAreaType);
+    if (operationType == BattleOperationType::None)
+    {
+        return false;
+    }
+
+    auto cast = BattleCastPlanner().commitSelectedCast(castInput, true, operationType);
+    gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
+    visualEvents.insert(visualEvents.end(), cast.visualEvents.begin(), cast.visualEvents.end());
+    if (castInput.ultimateSkill.soundId >= 0)
+    {
+        applications.attackSoundIds.push_back(castInput.ultimateSkill.soundId);
+    }
+    if (announceAutoUltimate)
+    {
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Status;
+        log.sourceUnitId = unitId;
+        log.targetUnitId = unitId;
+        log.text = std::format("自動絕招·{}", castInput.ultimateSkill.name);
+        logEvents.push_back(std::move(log));
+    }
+
+    auto actionInput = makePendingCastActionInput(state, *unit, castInput, cast);
+    auto actionResult = BattleActionCommitSystem().commit(actionInput);
+    state.pendingAttackSpawns.insert(
+        state.pendingAttackSpawns.end(),
+        actionResult.attackSpawnRequests.begin(),
+        actionResult.attackSpawnRequests.end());
+    logEvents.insert(
+        logEvents.end(),
+        actionResult.logEvents.begin(),
+        actionResult.logEvents.end());
+    visualEvents.insert(
+        visualEvents.end(),
+        actionResult.visualEvents.begin(),
+        actionResult.visualEvents.end());
+    auto comboIt = state.combo.units.find(unitId);
+    if (comboIt != state.combo.units.end())
+    {
+        comboIt->second = actionResult.combo;
+    }
+    unit->operationCount = actionResult.operationCount;
+    if (consumeMp)
+    {
+        unit->mp -= unit->maxMp;
+        applications.mpRestores.push_back({ unitId, -unit->maxMp });
+    }
+    return true;
+}
+
 Pointf positionForRuntimeGridCell(const BattleRuntimeState& state, int x, int y)
 {
     const int coordCount = state.units.gridTransform.coordCount;
@@ -2162,6 +2251,7 @@ bool reduceFrameGameplayCommand(
     const BattleGameplayCommand& command,
     BattleFrameApplications& applications,
     std::vector<BattleGameplayCommand>& pending,
+    std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
@@ -2215,8 +2305,15 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* autoUltimate = std::get_if<BattleAutoUltimateCommand>(&command))
     {
-        applications.autoUltimateRequests.push_back({ autoUltimate->unitId, autoUltimate->consumeMp });
-        return true;
+        return tryCommitAutoUltimate(
+            state,
+            autoUltimate->unitId,
+            autoUltimate->consumeMp,
+            autoUltimate->announce,
+            applications,
+            gameplayEvents,
+            logEvents,
+            visualEvents);
     }
     if (const auto* knockback = std::get_if<BattleKnockbackCommand>(&command))
     {
@@ -2274,6 +2371,7 @@ void reduceFrameGameplayCommands(
     BattleRuntimeState& state,
     std::vector<BattleGameplayCommand>& commands,
     BattleFrameApplications& applications,
+    std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
@@ -2281,7 +2379,7 @@ void reduceFrameGameplayCommands(
     std::vector<BattleGameplayCommand> unreduced;
     for (std::size_t i = 0; i < pending.size(); ++i)
     {
-        if (!reduceFrameGameplayCommand(state, pending[i], applications, pending, logEvents, visualEvents))
+        if (!reduceFrameGameplayCommand(state, pending[i], applications, pending, gameplayEvents, logEvents, visualEvents))
         {
             unreduced.push_back(std::move(pending[i]));
         }
@@ -2612,10 +2710,12 @@ void applyPostSkillInvincibility(
 void applyRuntimeComboEvents(
     BattleRuntimeState& state,
     const std::vector<BattleFrameRuntimeUnitResult>& runtimeResults,
+    std::vector<BattleGameplayCommand>& deferredCommands,
     std::vector<BattleLogEvent>& logEvents)
 {
     for (const auto& result : runtimeResults)
     {
+        bool autoUltimateReady = false;
         for (const auto& event : result.comboEvents)
         {
             switch (event.type)
@@ -2632,6 +2732,7 @@ void applyRuntimeComboEvents(
                 applyPostSkillInvincibility(state, result.unitId, event, logEvents);
                 break;
             case BattleComboFrameRuntimeEventType::AutoUltimateReady:
+                autoUltimateReady = true;
                 break;
             }
         }
@@ -2641,6 +2742,10 @@ void applyRuntimeComboEvents(
             auto committed = result.comboState;
             committed.triggerTimers = comboIt->second.triggerTimers;
             comboIt->second = std::move(committed);
+        }
+        if (autoUltimateReady)
+        {
+            deferredCommands.push_back(BattleAutoUltimateCommand{ result.unitId, false, true });
         }
     }
 }
@@ -3039,6 +3144,7 @@ void advanceActionFrameUnits(
 void advanceAttacksAndResolveHits(
     BattleRuntimeState& state,
     BattleFrameResult& result,
+    std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
@@ -3067,7 +3173,7 @@ void advanceAttacksAndResolveHits(
         result.commands,
         logEvents,
         visualEvents);
-    reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
+    reduceFrameGameplayCommands(state, result.commands, result.applications, gameplayEvents, logEvents, visualEvents);
 }
 
 void applyDamageAndLifecycle(
@@ -3354,6 +3460,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     std::vector<BattleGameplayEvent> gameplayEvents;
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
+    std::vector<BattleGameplayCommand> deferredCommands;
 
     clearBattleDamageFrameOutputs(state);
     state.status.events.clear();
@@ -3364,9 +3471,9 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     state.rescue.committedResults.clear();
     advanceStatus(state);
     advanceRuntimeUnits(state, result.commands, result.runtimeResults);
-    applyRuntimeComboEvents(state, result.runtimeResults, logEvents);
+    applyRuntimeComboEvents(state, result.runtimeResults, deferredCommands, logEvents);
     applyPendingTeamEffects(state, logEvents);
-    reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
+    reduceFrameGameplayCommands(state, result.commands, result.applications, gameplayEvents, logEvents, visualEvents);
     if (hasCanonicalUnitStore(state))
     {
         refreshMovementWorldFromRuntimeUnits(state);
@@ -3380,10 +3487,14 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         gameplayEvents,
         logEvents,
         visualEvents);
-    advanceAttacksAndResolveHits(state, result, logEvents, visualEvents);
+    advanceAttacksAndResolveHits(state, result, gameplayEvents, logEvents, visualEvents);
     syncRescueStateFromRuntimeUnits(state);
     applyDamageAndLifecycle(state, result, gameplayEvents, logEvents, visualEvents);
-    reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
+    result.commands.insert(
+        result.commands.end(),
+        std::make_move_iterator(deferredCommands.begin()),
+        std::make_move_iterator(deferredCommands.end()));
+    reduceFrameGameplayCommands(state, result.commands, result.applications, gameplayEvents, logEvents, visualEvents);
     publishFrameApplyOutputs(state, result);
     emitPresentationFrame(state, result, gameplayEvents, logEvents, visualEvents);
     return result;

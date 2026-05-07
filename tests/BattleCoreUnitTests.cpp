@@ -382,6 +382,8 @@ BattleCastInput frameCastInput(int sourceUnitId, int targetUnitId)
     input.normalSkill.visualEffectId = 77;
     input.normalSkill.reach = 137.5;
     input.ultimateSkill.id = 401;
+    input.ultimateSkill.name = "絕招";
+    input.ultimateSkill.soundId = 55;
     input.ultimateSkill.attackAreaType = 1;
     input.ultimateSkill.magicType = 1;
     input.ultimateSkill.visualEffectId = 88;
@@ -418,6 +420,13 @@ BattleFrameActionUnitInput pendingActionUnit(BattleActionCommitInput actionInput
     actionUnit.hasPendingActionInput = true;
     actionUnit.pendingActionInput = std::move(actionInput);
     return actionUnit;
+}
+
+void configureAutoUltimateActionRuntime(BattleRuntimeState& state, int unitId, int targetUnitId)
+{
+    state.action.castPlanInputs[unitId] = frameCastInput(unitId, targetUnitId);
+    state.action.strengthenedMeleeOperationCountThreshold = 2;
+    state.action.projectileBounceRange = 90;
 }
 
 BattleCastResult committedFrameCast()
@@ -1949,15 +1958,48 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
 {
     auto frame = hitDamageFrameState(70, 100);
     auto& state = frame.state;
+    configureAutoUltimateActionRuntime(state, 2, 1);
     KysChess::RoleComboState defenderCombo;
     defenderCombo.counterUltimateBlockChancePct = 100;
     state.combo.units.emplace(2, defenderCombo);
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.applications.autoUltimateRequests.size() == 1);
-    CHECK(result.applications.autoUltimateRequests[0].unitId == 2);
-    CHECK_FALSE(result.applications.autoUltimateRequests[0].consumeMp);
+    REQUIRE(state.pendingAttackSpawns.size() == 1);
+    CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 2);
+    CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == 1);
+    CHECK(state.pendingAttackSpawns[0].initial.skillId == 401);
+    REQUIRE(result.applications.attackSoundIds.size() == 1);
+    CHECK(result.applications.attackSoundIds[0] == 55);
+    CHECK(result.commands.empty());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimeAutoUltimateReadyInsideCore", "[battle][core][breakthrough]")
+{
+    auto frame = hitDamageFrameState(70, 100);
+    auto& state = frame.state;
+    configureAutoUltimateActionRuntime(state, 2, 1);
+    KysChess::RoleComboState combo;
+    combo.autoUltimateAfterFrames = 1;
+    combo.autoUltimateTimer = 1;
+    state.combo.units[2] = combo;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(state.pendingAttackSpawns.size() == 1);
+    CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 2);
+    CHECK(state.pendingAttackSpawns[0].initial.skillId == 401);
+    CHECK(std::any_of(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Status
+                && event.sourceUnitId == 2
+                && event.text == "自動絕招·絕招";
+        }));
+    REQUIRE(result.applications.attackSoundIds.size() == 1);
+    CHECK(result.applications.attackSoundIds[0] == 55);
     CHECK(result.commands.empty());
 }
 

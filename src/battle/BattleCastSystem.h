@@ -43,6 +43,7 @@ struct BattleCastSkillState
 {
     int id = -1;
     std::string name;
+    int soundId = -1;
     int hurtType = 0;
     int attackAreaType = -1;
     int magicType = -1;

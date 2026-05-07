@@ -75,8 +75,6 @@ protected:
 
     void updateEnemyTopDebuffState();
     bool attackCanHitInvincible(Role* role) const;
-    Magic* commitAutoUltimate(Role* role, bool consumeMP);
-    void playAutoUltimateReady(Role* role);
     void queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnRequest request);
     void initializeBattleRuntimeSession();
     KysChess::Battle::BattleRuntimeState& battleRuntime();

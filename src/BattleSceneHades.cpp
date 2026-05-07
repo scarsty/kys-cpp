@@ -34,7 +34,6 @@ using KysChess::BattleSceneBattleAdapter::applyBattleFrameUnitRuntimeResult;
 using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
 using KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
-using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
 using KysChess::BattleSceneBattleAdapter::configureBattleAttackWorld;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamagePresentationStyle;
@@ -411,48 +410,6 @@ void writeBattleDeathEffectTrackers(const std::vector<KysChess::Battle::BattleFr
 }
 
 }    // namespace
-
-Magic* BattleSceneHades::commitAutoUltimate(Role* role, bool consumeMP)
-{
-    if (!role || role->Dead != 0)
-    {
-        return nullptr;
-    }
-
-    Magic* magic = selectHigherPowerMagic(role);
-    if (!magic)
-    {
-        return nullptr;
-    }
-
-    auto selectedAction = commitBattleSelectedSkillAction(
-        role,
-        magic,
-        true,
-        -1,
-        makeBattleActionFrameAdapterContext());
-    for (int soundId : selectedAction.applyResult.attackSoundIds)
-    {
-        Audio::getInstance()->playASound(soundId);
-    }
-    for (const auto& event : selectedAction.applyResult.visualEvents)
-    {
-        presentation_recorder_.recordVisual(event);
-    }
-    for (const auto& event : selectedAction.applyResult.logEvents)
-    {
-        presentation_recorder_.recordLog(event);
-    }
-    for (auto& request : selectedAction.applyResult.attackSpawnRequests)
-    {
-        queueCoreAttackSpawn(std::move(request));
-    }
-    if (consumeMP)
-    {
-        changeRoleMP(role, -role->MaxMP);
-    }
-    return selectedAction.magic;
-}
 
 int BattleSceneHades::getOperationType(int attackAreaType)
 {
@@ -2417,13 +2374,6 @@ void BattleSceneHades::applyCoreFrameResult(
     {
         auto* role = requireFrameRole(bindings, runtimeUnitResult.unitId);
         applyBattleFrameUnitRuntimeResult(role, runtimeUnitResult.result);
-        for (const auto& event : runtimeUnitResult.comboEvents)
-        {
-            if (event.type == KysChess::Battle::BattleComboFrameRuntimeEventType::AutoUltimateReady)
-            {
-                playAutoUltimateReady(role);
-            }
-        }
         if (runtimeUnitResult.result.mpDelta != 0)
         {
             changeRoleMP(role, runtimeUnitResult.result.mpDelta);
@@ -2616,16 +2566,6 @@ void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult
 void BattleSceneHades::playCorePresentationFrame()
 {
     publishPresentationFrame();
-}
-
-void BattleSceneHades::playAutoUltimateReady(Role* role)
-{
-    assert(role);
-    if (auto magic = commitAutoUltimate(role, false))
-    {
-        recordFloatingTextPresentation(role, std::string(magic->Name), { 255, 215, 0, 255 }, EMPHASIS_TEXT_SIZE);
-        recordBattleStatusLog(role, nullptr, std::format("自動絕招·{}", std::string(magic->Name)));
-    }
 }
 
 void BattleSceneHades::updateEnemyTopDebuffState()
@@ -3322,9 +3262,9 @@ void BattleSceneHades::applyCoreFrameApplications(
         auto* target = requireFrameRole(bindings, lastAttacker.targetUnitId);
         target->LastAttacker = requireFrameRole(bindings, lastAttacker.attackerUnitId);
     }
-    for (const auto& request : applications.autoUltimateRequests)
+    for (int soundId : applications.attackSoundIds)
     {
-        commitAutoUltimate(requireFrameRole(bindings, request.unitId), request.consumeMp);
+        Audio::getInstance()->playASound(soundId);
     }
     for (const auto& rumble : applications.rumbles)
     {

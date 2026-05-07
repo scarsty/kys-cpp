@@ -87,12 +87,6 @@ struct BattleActionFrameApplyResult
     std::vector<int> faceTowardsNearestUnitIds;
 };
 
-struct BattleSelectedSkillActionResult
-{
-    Magic* magic = nullptr;
-    BattleActionFrameApplyResult applyResult;
-};
-
 struct BattleLifecycleApplicationContext
 {
     BattleTracker* tracker = nullptr;
@@ -158,12 +152,6 @@ void initializeBattleActionPlanInputs(
     BattleActionFrameAdapterContext& context);
 BattleActionFrameApplyResult applyBattleActionFrameResults(
     const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
-    const BattleActionFrameAdapterContext& context);
-BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
-    Role* role,
-    Magic* magic,
-    bool isUltimate,
-    int operationType,
     const BattleActionFrameAdapterContext& context);
 BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     const BattleLifecycleApplicationContext& context,

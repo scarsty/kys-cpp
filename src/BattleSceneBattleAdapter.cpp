@@ -296,6 +296,7 @@ Battle::BattleCastSkillState makeBattleCastSkillState(Role* unit, const BattleCa
     assert(unit);
     skill.id = input.magic->ID;
     skill.name = input.magic->Name;
+    skill.soundId = input.magic->SoundID;
     skill.hurtType = input.magic->HurtType;
     skill.attackAreaType = input.magic->AttackAreaType;
     skill.magicType = input.magic->MagicType;
@@ -642,26 +643,6 @@ int actionUltimateExtraProjectileCount(Role* role, const BattleActionFrameAdapte
         std::max(0, combo.ultimateExtraProjectiles));
 }
 
-const Battle::BattleRuntimeUnit* findNearestEnemyUnit(const BattleActionFrameAdapterContext& context, int sourceUnitId)
-{
-    assert(context.units);
-    const int targetUnitId = Battle::findNearestEnemyUnitId(*context.units, sourceUnitId);
-    return targetUnitId >= 0 ? context.units->findUnit(targetUnitId) : nullptr;
-}
-
-void setCastTargetFromRuntimeUnit(Battle::BattleCastInput& castInput, const Battle::BattleRuntimeUnit& target)
-{
-    castInput.targetUnitId = target.id;
-    castInput.targetPosition = target.position;
-    castInput.targetDistance = EuclidDis(castInput.unit.position, target.position);
-    auto dashVelocity = target.position - castInput.unit.position;
-    if (dashVelocity.norm() > 0.01)
-    {
-        dashVelocity.normTo(MELEE_ATTACK_HIT_RADIUS / DASH_MOMENTUM_FRAMES);
-    }
-    castInput.unit.dashVelocity = dashVelocity;
-}
-
 Pointf positionForCell(int x, int y, int coordCount)
 {
     return {
@@ -780,31 +761,6 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     Role* role,
     double reach,
     const BattleActionFrameAdapterContext& context);
-
-void captureActionComboState(
-    Battle::BattleActionCommitInput& actionInput,
-    Role* role,
-    const BattleActionFrameAdapterContext& context)
-{
-    auto comboIt = context.comboStates->find(role->ID);
-    if (comboIt == context.comboStates->end())
-    {
-        return;
-    }
-
-    actionInput.combo = comboIt->second;
-    auto prime = Battle::collectFrameProjectileBouncePrime(
-        actionInput.combo,
-        role->ID,
-        actionRandomInt(context, 100),
-        context.config.projectileBounceRange);
-    actionInput.projectileBouncePrime = {
-        prime.count,
-        prime.chancePct,
-        prime.rollPct,
-        prime.range,
-    };
-}
 
 Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     Role* role,
@@ -1008,78 +964,6 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
         }
 
     }
-    return result;
-}
-
-BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
-    Role* role,
-    Magic* magic,
-    bool isUltimate,
-    int operationType,
-    const BattleActionFrameAdapterContext& context)
-{
-    assert(context.roles);
-    assert(context.comboStates);
-
-    BattleSelectedSkillActionResult result;
-    if (!role || !magic)
-    {
-        return result;
-    }
-
-    auto* target = findNearestEnemyUnit(context, role->ID);
-    if (!target)
-    {
-        return result;
-    }
-
-    auto castInput = makeActionFrameCastInput(
-        role,
-        magic,
-        magic,
-        true,
-        false,
-        context);
-    setCastTargetFromRuntimeUnit(castInput, *target);
-    const int resolvedOperationType = operationType >= 0
-        ? operationType
-        : legacyOperationForAttackArea(magic->AttackAreaType);
-
-    Battle::BattleActionCommitInput actionInput;
-    actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
-    actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
-    captureActionComboState(actionInput, role, context);
-
-    auto cast = Battle::BattleCastPlanner().commitSelectedCast(
-        std::move(castInput),
-        isUltimate,
-        Battle::battleOperationFromLegacy(resolvedOperationType));
-    assert(cast.decision.canCast);
-    actionInput.hasCast = true;
-    actionInput.cast = std::move(cast);
-    auto actionResult = Battle::BattleActionCommitSystem().commit(actionInput);
-    auto comboIt = context.comboStates->find(role->ID);
-    if (comboIt != context.comboStates->end())
-    {
-        comboIt->second = actionResult.combo;
-    }
-
-    result.magic = magic;
-    result.applyResult.attackSoundIds.push_back(magic->SoundID);
-    result.applyResult.visualEvents.insert(
-        result.applyResult.visualEvents.end(),
-        actionInput.cast.visualEvents.begin(),
-        actionInput.cast.visualEvents.end());
-    result.applyResult.visualEvents.insert(
-        result.applyResult.visualEvents.end(),
-        actionResult.visualEvents.begin(),
-        actionResult.visualEvents.end());
-    result.applyResult.logEvents.insert(
-        result.applyResult.logEvents.end(),
-        actionResult.logEvents.begin(),
-        actionResult.logEvents.end());
-    result.applyResult.attackSpawnRequests = actionResult.attackSpawnRequests;
-    role->OperationCount = actionResult.operationCount;
     return result;
 }
 

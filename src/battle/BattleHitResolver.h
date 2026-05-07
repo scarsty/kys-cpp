@@ -159,6 +159,7 @@ struct BattleAutoUltimateCommand
 {
     int unitId = -1;
     bool consumeMp = false;
+    bool announce = false;
 };
 
 struct BattleKnockbackCommand

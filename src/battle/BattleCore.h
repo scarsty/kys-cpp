@@ -217,12 +217,6 @@ struct BattleFrameLastAttackerDelta
     int attackerUnitId = -1;
 };
 
-struct BattleFrameAutoUltimateRequest
-{
-    int unitId = -1;
-    bool consumeMp = false;
-};
-
 struct BattleFrameRumbleEvent
 {
     int lowFrequency = 0;
@@ -244,7 +238,7 @@ struct BattleFrameApplications
     std::vector<BattleFrameUnitShieldDelta> unitShields;
     std::vector<BattleFrameTempAttackBuffDelta> tempAttackBuffs;
     std::vector<BattleFrameLastAttackerDelta> lastAttackers;
-    std::vector<BattleFrameAutoUltimateRequest> autoUltimateRequests;
+    std::vector<int> attackSoundIds;
     std::vector<BattleFrameRumbleEvent> rumbles;
 };
 
