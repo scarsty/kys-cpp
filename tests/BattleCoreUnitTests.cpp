@@ -1662,46 +1662,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", 
     CHECK(action.state.operationType == BattleOperationType::None);
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingItemFromActionFrameUnitInput", "[battle][core]")
-{
-    BattleRuntimeState state;
-    state.world = worldWith({
-        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
-        unit(2, 1, { 160, 100, 0 }),
-    });
-    state.attacks = attackWorld();
-    seedRuntimeUnitsFromWorld(state);
-    auto& unit = state.units.requireUnit(1);
-    unit.haveAction = true;
-    unit.actFrame = 6;
-    unit.operationType = BattleOperationType::RangedProjectile;
-    unit.actType = 1;
-    unit.cooldown = 10;
-
-    BattleFrameActionUnitInput actionUnit;
-    actionUnit.unitId = 1;
-    actionUnit.pendingActionInput = frameActionCommitInput();
-    actionUnit.pendingActionInput.hasItem = true;
-    actionUnit.pendingActionInput.item.id = 501;
-    actionUnit.pendingActionInput.item.itemType = 4;
-    actionUnit.pendingActionInput.item.hiddenWeaponEffectId = 901;
-    actionUnit.pendingActionInput.hiddenWeaponVelocity = { 10, 0, 0 };
-    actionUnit.pendingActionInput.hiddenWeaponTotalFrame = 100;
-    actionUnit.hasPendingActionInput = true;
-    state.action.directives.push_back(actionUnit);
-
-    auto result = runBattleFrame(state);
-
-    REQUIRE(result.actionResults.size() == 1);
-    const auto& action = result.actionResults[0];
-    CHECK(action.actionCommitted);
-    CHECK(action.actionResult.itemUseCommands.empty());
-    REQUIRE(action.actionResult.itemCountDeltas.size() == 1);
-    CHECK(action.actionResult.itemCountDeltas[0].delta == -1);
-    REQUIRE(action.actionResult.attackSpawnRequests.size() == 1);
-    CHECK(action.actionResult.attackSpawnRequests[0].initial.hiddenWeaponItemId == 501);
-}
-
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[battle][core]")
 {
     BattleRuntimeState state;

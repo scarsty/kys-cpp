@@ -30,8 +30,6 @@ BattleActionCommitInput basicActionInput()
     input.unit.operationCount = 0;
     input.strengthenedMeleeOperationCountThreshold = 2;
     input.blinkWeakTargetDefWeight = 100;
-    input.hiddenWeaponTotalFrame = 100;
-    input.hiddenWeaponVelocity = { 10.0f, 0.0f, 0.0f };
     return input;
 }
 
@@ -124,34 +122,6 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
     CHECK(teleport.position.y == 20.0f);
     CHECK(teleport.facing.x == -1.0f);
     CHECK(teleport.facing.y == 0.0f);
-}
-
-TEST_CASE("BattleActionCommit_HiddenWeaponItemEmitsProjectileAndItemCountDelta", "[battle][action_commit][unit]")
-{
-    auto input = basicActionInput();
-    input.hasItem = true;
-    input.item.id = 501;
-    input.item.name = "飛刀";
-    input.item.itemType = 4;
-    input.item.hiddenWeaponEffectId = 77;
-
-    auto result = BattleActionCommitSystem().commit(input);
-
-    REQUIRE(result.attackSpawnRequests.size() == 1);
-    const auto& request = result.attackSpawnRequests[0];
-    CHECK(request.initial.attackerUnitId == 1);
-    CHECK(request.initial.hiddenWeaponItemId == 501);
-    CHECK(request.initial.hiddenWeaponItemName == "飛刀");
-    CHECK(request.initial.hiddenWeaponEffectId == 77);
-    CHECK(request.initial.visualEffectId == 77);
-    CHECK(request.initial.totalFrame == 100);
-    CHECK(request.initial.operationType == BattleOperationType::None);
-    CHECK(request.initial.ignoreProjectileCancel);
-    CHECK(request.initial.velocity.x == 10.0f);
-
-    REQUIRE(result.itemCountDeltas.size() == 1);
-    CHECK(result.itemCountDeltas[0].itemId == 501);
-    CHECK(result.itemCountDeltas[0].delta == -1);
 }
 
 TEST_CASE("BattleActionCommit_CommittedMeleeCastAdvancesOperationCount", "[battle][action_commit][unit]")

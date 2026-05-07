@@ -60,7 +60,6 @@ struct BattleActionFrameAdapterConfig
     int dashMomentumFrames = 0;
     int movementDashCooldownFrames = 0;
     int actionRecoveryFrames = 0;
-    int hiddenWeaponTotalFrame = 0;
     int battleFrame = 0;
     float gravity = 0.0f;
     int projectileBounceRange = 0;
@@ -146,7 +145,6 @@ void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnit
 void applyBattleProjectileCancelDamage(Role* role, int damage);
 Battle::BattleActionCommitUnitSnapshot makeBattleActionCommitUnitSnapshot(Role* role);
 Battle::BattleActionTargetSnapshot makeBattleActionTargetSnapshot(Role* role);
-Battle::BattleActionItemSnapshot makeBattleActionItemSnapshot(Item* item);
 
 Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state);
 void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit);
@@ -159,9 +157,6 @@ void applyBattleMovementPhysicsFrameResults(
 void applyBattleMovementFrameResults(
     const Battle::BattleTickResult& movement,
     const BattleMovementPhysicsFrameAdapterContext& context);
-void populateBattleItemActionDirectives(
-    Battle::BattleRuntimeState& runtime,
-    BattleActionFrameAdapterContext& context);
 void initializeBattleActionPlanInputs(
     Battle::BattleRuntimeState& runtime,
     BattleActionFrameAdapterContext& context);

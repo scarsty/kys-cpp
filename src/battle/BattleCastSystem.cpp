@@ -537,45 +537,6 @@ void appendBlinkAttackCommand(const BattleActionCommitInput& input, BattleAction
     result.combo.blinkAttackUseWeakest = !useWeakest;
 }
 
-void appendItemCommands(const BattleActionCommitInput& input, BattleActionCommitResult& result)
-{
-    if (!input.hasItem)
-    {
-        return;
-    }
-
-    assert(input.item.id >= 0);
-    if (input.item.itemType == 3)
-    {
-        result.itemUseCommands.push_back({
-            input.unit.id,
-            input.item.id,
-        });
-    }
-    else if (input.item.itemType == 4)
-    {
-        assert(input.hiddenWeaponTotalFrame > 0);
-        BattleAttackSpawnRequest request;
-        request.initial.attackerUnitId = input.unit.id;
-        request.initial.position = input.unit.position;
-        request.initial.velocity = input.hiddenWeaponVelocity;
-        request.initial.hiddenWeaponItemId = input.item.id;
-        request.initial.hiddenWeaponItemName = input.item.name;
-        request.initial.hiddenWeaponEffectId = input.item.hiddenWeaponEffectId;
-        request.initial.hiddenWeaponItemAddHp = input.item.addHp;
-        request.initial.visualEffectId = input.item.hiddenWeaponEffectId;
-        request.initial.totalFrame = input.hiddenWeaponTotalFrame;
-        request.initial.operationType = BattleOperationType::None;
-        request.initial.ignoreProjectileCancel = true;
-        result.attackSpawnRequests.push_back(request);
-    }
-
-    result.itemCountDeltas.push_back({
-        input.item.id,
-        -1,
-    });
-}
-
 }  // namespace
 
 BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
@@ -782,7 +743,6 @@ BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionComm
     }
 
     appendBlinkAttackCommand(input, result);
-    appendItemCommands(input, result);
     return result;
 }
 

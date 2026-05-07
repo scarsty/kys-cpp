@@ -180,15 +180,6 @@ struct BattleActionTargetSnapshot
     Pointf position;
 };
 
-struct BattleActionItemSnapshot
-{
-    int id = -1;
-    std::string name;
-    int itemType = 0;
-    int hiddenWeaponEffectId = -1;
-    int addHp = 0;
-};
-
 struct BattleBlinkAttackCommand
 {
     int unitId = -1;
@@ -224,18 +215,6 @@ struct BattleBlinkTeleportDelta
     Pointf facing;
 };
 
-struct BattleItemUseCommand
-{
-    int unitId = -1;
-    int itemId = -1;
-};
-
-struct BattleItemCountDelta
-{
-    int itemId = -1;
-    int delta = 0;
-};
-
 struct BattleActionCommitInput
 {
     BattleActionCommitUnitSnapshot unit;
@@ -243,10 +222,6 @@ struct BattleActionCommitInput
     std::vector<BattleActionTargetSnapshot> targets;
     bool hasCast = false;
     BattleCastResult cast;
-    bool hasItem = false;
-    BattleActionItemSnapshot item;
-    Pointf hiddenWeaponVelocity;
-    int hiddenWeaponTotalFrame = 0;
     int blinkRandomRoll = 0;
     int blinkCellRandomRoll = 0;
     double blinkReach = 0.0;
@@ -263,8 +238,6 @@ struct BattleActionCommitResult
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleBlinkAttackCommand> blinkCommands;
     std::vector<BattleBlinkTeleportDelta> blinkTeleports;
-    std::vector<BattleItemUseCommand> itemUseCommands;
-    std::vector<BattleItemCountDelta> itemCountDeltas;
     std::vector<BattleVisualEvent> visualEvents;
 };
 

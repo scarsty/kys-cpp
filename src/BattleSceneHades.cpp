@@ -48,7 +48,6 @@ using KysChess::BattleSceneBattleAdapter::effectiveBattleReach;
 using KysChess::BattleSceneBattleAdapter::forcedRangedMinSelectDistance;
 using KysChess::BattleSceneBattleAdapter::isBattleRangedStyleMagic;
 using KysChess::BattleSceneBattleAdapter::initializeBattleActionPlanInputs;
-using KysChess::BattleSceneBattleAdapter::populateBattleItemActionDirectives;
 using KysChess::BattleSceneBattleAdapter::projectileSpeedMultiplierPct;
 using KysChess::BattleSceneBattleAdapter::roleForcesRangedMagic;
 using KysChess::BattleSceneBattleAdapter::selectHigherPowerMagic;
@@ -1008,7 +1007,6 @@ BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterCo
     context.config.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
     context.config.movementDashCooldownFrames = MOVEMENT_DASH_COOLDOWN_FRAMES;
     context.config.actionRecoveryFrames = ACTION_RECOVERY_FRAMES;
-    context.config.hiddenWeaponTotalFrame = 100;
     context.config.battleFrame = battle_frame_;
     context.config.gravity = gravity_;
     context.config.projectileBounceRange = static_cast<int>(PROJECTILE_BOUNCE_RANGE);
@@ -2102,7 +2100,6 @@ void BattleSceneHades::onEntrance()
             clone->Velocity = { 0, 0, 0 };
             clone->Acceleration = { 0, 0, 0 };
             clone->UsingMagic = nullptr;
-            clone->UsingItem = nullptr;
             clone->HaveAction = 0;
             clone->ActFrame = 0;
             clone->CoolDown = 0;
@@ -2491,8 +2488,6 @@ void BattleSceneHades::prepareCoreFrame(
     }
 
     movementPhysicsContext.roles = &battle_roles_;
-
-    populateBattleItemActionDirectives(battleRuntime(), actionContext);
 }
 
 void BattleSceneHades::applyCoreFrameResult(

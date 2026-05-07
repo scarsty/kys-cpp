@@ -366,7 +366,6 @@ public:
     double Posture = 0;    //架势，用于格挡崩防等
     int Breathless = 0;    //气绝
     Magic* UsingMagic = nullptr;
-    Item* UsingItem = nullptr;
 
     int WalkingStep = 0;    //行走步数，在不行动且有位移时会增加
 

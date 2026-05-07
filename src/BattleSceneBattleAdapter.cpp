@@ -1,7 +1,6 @@
 #include "BattleSceneBattleAdapter.h"
 
 #include "Scene.h"
-#include "Event.h"
 #include "Save.h"
 #include "BattleScenePresentationConstants.h"
 #include "BattleStatsView.h"
@@ -13,9 +12,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <format>
-#include <functional>
-#include <iterator>
 #include <set>
 #include <utility>
 
@@ -484,19 +480,6 @@ Battle::BattleActionTargetSnapshot makeBattleActionTargetSnapshot(Role* role)
     return snapshot;
 }
 
-Battle::BattleActionItemSnapshot makeBattleActionItemSnapshot(Item* item)
-{
-    assert(item);
-
-    Battle::BattleActionItemSnapshot snapshot;
-    snapshot.id = item->ID;
-    snapshot.name = item->Name;
-    snapshot.itemType = item->ItemType;
-    snapshot.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
-    snapshot.addHp = item->AddHP;
-    return snapshot;
-}
-
 Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state)
 {
     Battle::BattleStatusUnitState unit;
@@ -667,13 +650,6 @@ const Battle::BattleRuntimeUnit* findNearestEnemyUnit(const BattleActionFrameAda
     return targetUnitId >= 0 ? context.units->findUnit(targetUnitId) : nullptr;
 }
 
-const Battle::BattleRuntimeUnit* findFarthestEnemyUnit(const BattleActionFrameAdapterContext& context, int sourceUnitId)
-{
-    assert(context.units);
-    const int targetUnitId = Battle::findFarthestEnemyUnitId(*context.units, sourceUnitId);
-    return targetUnitId >= 0 ? context.units->findUnit(targetUnitId) : nullptr;
-}
-
 void setCastTargetFromRuntimeUnit(Battle::BattleCastInput& castInput, const Battle::BattleRuntimeUnit& target)
 {
     castInput.targetUnitId = target.id;
@@ -831,39 +807,6 @@ void captureActionComboState(
     };
 }
 
-void populateActionCommitInputForRole(
-    Battle::BattleFrameActionUnitInput& unitInput,
-    Role* role,
-    const BattleActionFrameAdapterContext& context)
-{
-    if (role->UsingItem)
-    {
-        Item* item = role->UsingItem;
-        Battle::BattleActionCommitInput actionInput;
-        actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
-        actionInput.hasItem = true;
-        actionInput.item = makeBattleActionItemSnapshot(item);
-        actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
-        actionInput.hiddenWeaponTotalFrame = context.config.hiddenWeaponTotalFrame;
-        auto hiddenWeaponVelocity = role->RealTowards;
-        if (auto* target = findFarthestEnemyUnit(context, role->ID))
-        {
-            hiddenWeaponVelocity = target->position - role->Pos;
-        }
-        hiddenWeaponVelocity.normTo(10);
-        actionInput.hiddenWeaponVelocity = hiddenWeaponVelocity;
-        unitInput.hasPendingActionInput = true;
-        unitInput.pendingActionInput = std::move(actionInput);
-    }
-}
-
-bool hasActionFrameDirective(const Battle::BattleFrameActionUnitInput& unitInput)
-{
-    return unitInput.canPlanCast
-        || unitInput.hasPendingActionInput
-        || unitInput.hasSelectedCastInput;
-}
-
 Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     Role* role,
     double reach,
@@ -999,28 +942,6 @@ void applyBattleMovementFrameResults(
     }
 }
 
-void populateBattleItemActionDirectives(
-    Battle::BattleRuntimeState& runtime,
-    BattleActionFrameAdapterContext& context)
-{
-    assert(context.roles);
-    assert(context.comboStates);
-
-    runtime.action.directives.clear();
-    runtime.action.directives.reserve(context.roles->size());
-    for (auto role : *context.roles)
-    {
-        assert(role);
-        Battle::BattleFrameActionUnitInput unitInput;
-        unitInput.unitId = role->ID;
-        populateActionCommitInputForRole(unitInput, role, context);
-        if (hasActionFrameDirective(unitInput))
-        {
-            runtime.action.directives.push_back(std::move(unitInput));
-        }
-    }
-}
-
 void initializeBattleActionPlanInputs(
     Battle::BattleRuntimeState& runtime,
     BattleActionFrameAdapterContext& context)
@@ -1099,21 +1020,6 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
             context.ultimateCasters->erase(role->ID);
         }
 
-        if (action.actionInput.hasItem)
-        {
-            Item* item = role->UsingItem;
-            assert(item);
-            for (const auto& command : action.actionResult.itemUseCommands)
-            {
-                assert(command.itemId == item->ID);
-                role->useItem(item);
-            }
-            for (const auto& delta : action.actionResult.itemCountDeltas)
-            {
-                Event::getInstance()->addItemWithoutHint(delta.itemId, delta.delta);
-            }
-            role->UsingItem = nullptr;
-        }
     }
     return result;
 }
