@@ -138,6 +138,11 @@ BattleCooldownState cooldownUnit()
     return state;
 }
 
+BattleStatusRuntimeUnit runtimeStatusUnit(const BattleStatusUnitState& unit)
+{
+    return makeBattleStatusRuntimeUnit(unit);
+}
+
 }  // namespace
 
 TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[battle][frame_runner][runtime][ownership]")
@@ -338,7 +343,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     poisoned.poisonTimer = 3;
     poisoned.poisonTickPct = 10;
     poisoned.poisonSourceId = 1;
-    state.status.units.push_back(poisoned);
+    state.status.units.push_back(runtimeStatusUnit(poisoned));
 
     state.damage.units = {
         damageUnit(1, 100),
@@ -359,7 +364,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     CHECK(transaction.finalHpDamage == 8);
     CHECK(transaction.defender.id == 2);
     CHECK(transaction.defender.hp == 72);
-    CHECK(state.status.units[0].hp == 72);
+    CHECK(state.units.requireUnit(2).hp == 72);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
@@ -375,7 +380,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     bleeding.bleedStacks = 6;
     bleeding.bleedTimer = 1;
     bleeding.bleedSourceId = 1;
-    state.status.units.push_back(bleeding);
+    state.status.units.push_back(runtimeStatusUnit(bleeding));
 
     state.damage.units = {
         damageUnit(1, 100),
@@ -396,7 +401,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     CHECK(transaction.finalHpDamage == 6);
     CHECK(transaction.defender.id == 2);
     CHECK(transaction.defender.hp == 74);
-    CHECK(state.status.units[0].hp == 74);
+    CHECK(state.units.requireUnit(2).hp == 74);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[battle][frame_runner][runtime][unit]")

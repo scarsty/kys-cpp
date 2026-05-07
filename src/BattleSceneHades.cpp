@@ -1034,6 +1034,8 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     auto& comboStates = KysChess::ChessCombo::getMutableStates();
     battleRuntime().units.units.clear();
     battleRuntime().units.units.reserve(battle_roles_.size());
+    battleRuntime().status.units.clear();
+    battleRuntime().status.units.reserve(battle_roles_.size());
     for (auto* role : battle_roles_)
     {
         assert(role);
@@ -1042,6 +1044,11 @@ void BattleSceneHades::initializeBattleRuntimeSession()
             role,
             stateIt != comboStates.end() ? &stateIt->second : nullptr,
             battleRuntime().units.gridTransform));
+        if (stateIt != comboStates.end())
+        {
+            battleRuntime().status.units.push_back(KysChess::Battle::makeBattleStatusRuntimeUnit(
+                makeBattleStatusUnit(role, stateIt->second)));
+        }
     }
     configureBattleAttackWorld(battleRuntime().attacks);
     battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
@@ -2658,7 +2665,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().projectileFollowUps.nextSharedHitGroupId = next_shared_hit_group_id_;
     battleRuntime().runtime = {};
     battleRuntime().damage = {};
-    battleRuntime().status = {};
+    battleRuntime().status.events.clear();
     battleRuntime().combo = {};
     battleRuntime().deathEffects.events.clear();
     battleRuntime().projectileCancel = {};
@@ -2669,7 +2676,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().movementPhysics.committedResults.clear();
     battleRuntime().hits = {};
     battleRuntime().applications = {};
-    populateCoreStatusState(battleRuntime());
     populateCoreStatusDamageState(battleRuntime());
     battleRuntime().damage.aggregatePendingTransactionsByDefender = true;
 
@@ -3674,31 +3680,19 @@ KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(
     return unit;
 }
 
-void BattleSceneHades::populateCoreStatusState(KysChess::Battle::BattleRuntimeState& frameState)
-{
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
-    for (auto role : battle_roles_)
-    {
-        assert(role);
-        auto stateIt = comboStates.find(role->ID);
-        if (stateIt != comboStates.end() && role->Dead == 0)
-        {
-            frameState.status.units.push_back(makeBattleStatusUnit(role, stateIt->second));
-        }
-    }
-}
-
 void BattleSceneHades::applyCoreStatusState(
     const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle)
 {
     const auto& frameState = battleRuntime();
     auto& comboStates = KysChess::ChessCombo::getMutableStates();
-    for (const auto& unit : frameState.status.units)
+    for (const auto& status : frameState.status.units)
     {
-        auto role = requireFrameRole(bundle, unit.id);
+        auto role = requireFrameRole(bundle, status.id);
         assert(role);
-        auto stateIt = comboStates.find(unit.id);
+        auto stateIt = comboStates.find(status.id);
         assert(stateIt != comboStates.end());
+        const auto& runtimeUnit = frameState.units.requireUnit(status.id);
+        const auto unit = KysChess::Battle::makeBattleStatusUnitState(status, runtimeUnit);
         writeBattleStatusUnit(role, stateIt->second, unit);
     }
 }

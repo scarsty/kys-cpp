@@ -108,7 +108,6 @@ protected:
     void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
     void updateAutoCamera();
     void clampCameraCenter();
-    void populateCoreStatusState(KysChess::Battle::BattleRuntimeState& frameState);
     void applyCoreStatusState(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     void populateCoreStatusDamageState(KysChess::Battle::BattleRuntimeState& frameState);
     void applyCoreDamageTransactions(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);

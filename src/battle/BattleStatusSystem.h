@@ -6,6 +6,9 @@
 namespace KysChess::Battle
 {
 
+struct BattleRuntimeUnit;
+struct BattleUnitStore;
+
 struct TimedAttackBuff
 {
     int attackBonus = 0;
@@ -26,6 +29,33 @@ struct BattleStatusUnitState
     int maxHp = 0;
     int attack = 0;
     int invincible = 0;
+
+    int poisonTimer = 0;
+    int poisonTickPct = 0;
+    int poisonSourceId = -1;
+
+    int bleedStacks = 0;
+    int bleedTimer = 0;
+    int bleedSourceId = -1;
+
+    int frozenTimer = 0;
+    int frozenMaxTimer = 0;
+    int freezeReductionPct = 0;
+    int shieldFreezeResPct = 0;
+    int controlImmunityFrames = 0;
+    int mpBlockTimer = 0;
+
+    int damageImmunityAfterFrames = 0;
+    int damageImmunityDuration = 0;
+    int damageImmunityTimer = 0;
+
+    std::vector<TimedAttackBuff> tempAttackBuffs;
+    std::vector<DamageReduceDebuff> damageReduceDebuffs;
+};
+
+struct BattleStatusRuntimeUnit
+{
+    int id = -1;
 
     int poisonTimer = 0;
     int poisonTickPct = 0;
@@ -86,15 +116,15 @@ public:
 
     BattleStatusTickResult tick(BattleStatusUnitState& unit) const;
     BattleStatusTickResult tick(std::vector<BattleStatusUnitState>& units) const;
+    BattleStatusTickResult tick(BattleUnitStore& units, BattleStatusRuntimeUnit& status) const;
+    BattleStatusTickResult tick(BattleUnitStore& units, std::vector<BattleStatusRuntimeUnit>& statuses) const;
 
 private:
-    void tickTempAttackBuffs(BattleStatusUnitState& unit, BattleStatusTickResult& result) const;
-    void tickPoison(BattleStatusUnitState& unit, BattleStatusTickResult& result) const;
-    void tickBleed(BattleStatusUnitState& unit, BattleStatusTickResult& result) const;
-    void tickSimpleTimers(BattleStatusUnitState& unit) const;
-    void tickPeriodicInvincibility(BattleStatusUnitState& unit, BattleStatusTickResult& result) const;
-
     BattleStatusSystemConfig config_;
 };
+
+BattleStatusRuntimeUnit makeBattleStatusRuntimeUnit(const BattleStatusUnitState& unit);
+BattleStatusUnitState makeBattleStatusUnitState(const BattleStatusRuntimeUnit& status, const BattleRuntimeUnit& unit);
+void writeBattleStatusRuntimeUnit(BattleStatusRuntimeUnit& status, const BattleStatusUnitState& unit);
 
 }  // namespace KysChess::Battle

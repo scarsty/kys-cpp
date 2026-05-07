@@ -115,7 +115,6 @@ struct BattleUnitStore
     BattleRuntimeUnit& requireUnit(int unitId);
     const BattleRuntimeUnit& requireUnit(int unitId) const;
     void writeDamageUnit(const BattleDamageUnitState& source);
-    void writeStatusUnit(const BattleStatusUnitState& source);
     void setPosition(int unitId, Pointf position);
     void setMotion(int unitId, Pointf position, Pointf velocity, Pointf acceleration);
 };
@@ -316,7 +315,7 @@ struct BattleRuntimeState
     struct StatusState
     {
         BattleStatusSystemConfig config;
-        std::vector<BattleStatusUnitState> units;
+        std::vector<BattleStatusRuntimeUnit> units;
         std::vector<BattleStatusEvent> events;
     } status;
 

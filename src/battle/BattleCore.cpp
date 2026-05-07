@@ -74,17 +74,6 @@ void BattleUnitStore::writeDamageUnit(const BattleDamageUnitState& source)
     unit.mpRecoveryBonusPct = source.mpRecoveryBonusPct;
 }
 
-void BattleUnitStore::writeStatusUnit(const BattleStatusUnitState& source)
-{
-    auto& unit = requireUnit(source.id);
-    unit.alive = source.alive;
-    unit.hp = source.hp;
-    unit.maxHp = source.maxHp;
-    unit.attack = source.attack;
-    unit.invincible = source.invincible;
-    unit.mpBlocked = source.mpBlockTimer > 0;
-}
-
 void BattleUnitStore::setPosition(int unitId, Pointf position)
 {
     auto& unit = requireUnit(unitId);
@@ -124,21 +113,18 @@ BattlePresentationUnitSnapshot toPresentationUnit(const BattleUnitState& unit)
     };
 }
 
-void applyStatusSnapshot(BattlePresentationUnitSnapshot& snapshot, const std::vector<BattleStatusUnitState>& statusUnits)
+void applyUnitStoreSnapshot(BattlePresentationUnitSnapshot& snapshot, const BattleUnitStore& units)
 {
-    auto it = std::find_if(statusUnits.begin(), statusUnits.end(), [&](const BattleStatusUnitState& unit)
-        {
-            return unit.id == snapshot.id;
-        });
-    if (it == statusUnits.end())
+    const auto* unit = units.findUnit(snapshot.id);
+    if (!unit)
     {
         return;
     }
 
-    snapshot.alive = it->alive;
-    snapshot.hp = it->hp;
-    snapshot.maxHp = it->maxHp;
-    snapshot.invincible = it->invincible;
+    snapshot.alive = unit->alive;
+    snapshot.hp = unit->hp;
+    snapshot.maxHp = unit->maxHp;
+    snapshot.invincible = unit->invincible;
 }
 
 BattlePresentationSnapshot makePresentationSnapshot(const BattleRuntimeState& state)
@@ -149,7 +135,7 @@ BattlePresentationSnapshot makePresentationSnapshot(const BattleRuntimeState& st
     for (const auto& unit : state.world.units)
     {
         auto presentationUnit = toPresentationUnit(unit);
-        applyStatusSnapshot(presentationUnit, state.status.units);
+        applyUnitStoreSnapshot(presentationUnit, state.units);
         snapshot.units.push_back(std::move(presentationUnit));
     }
     return snapshot;
@@ -784,9 +770,9 @@ void assertFrameMovementConfigConfigured(const BattleMovementConfig& config)
     assert(config.movementDashDistanceMultiplier > 0.0);
 }
 
-BattleStatusUnitState* findStatusUnit(std::vector<BattleStatusUnitState>& units, int unitId)
+BattleStatusRuntimeUnit* findStatusUnit(std::vector<BattleStatusRuntimeUnit>& units, int unitId)
 {
-    auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusUnitState& unit)
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusRuntimeUnit& unit)
         {
             return unit.id == unitId;
         });
@@ -811,7 +797,25 @@ const BattleUnitState* findWorldUnit(const BattleWorldState& world, int unitId)
     return it != world.units.end() ? &*it : nullptr;
 }
 
-const BattleStatusUnitState* findStatusUnit(const std::vector<BattleStatusUnitState>& units, int unitId)
+const BattleStatusRuntimeUnit* findStatusUnit(const std::vector<BattleStatusRuntimeUnit>& units, int unitId)
+{
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusRuntimeUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != units.end() ? &*it : nullptr;
+}
+
+BattleStatusUnitState* findDamageStatusUnit(std::vector<BattleStatusUnitState>& units, int unitId)
+{
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusUnitState& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != units.end() ? &*it : nullptr;
+}
+
+const BattleStatusUnitState* findDamageStatusUnit(const std::vector<BattleStatusUnitState>& units, int unitId)
 {
     auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusUnitState& unit)
         {
@@ -882,7 +886,6 @@ BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
     }
     if (const auto* status = findStatusUnit(state.status.units, input.unit.id))
     {
-        input.unit.alive = status->alive;
         input.unit.frozen = status->frozenTimer > 0;
     }
     if (const auto* target = findWorldUnit(state.world, input.targetUnitId))
@@ -981,11 +984,7 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
     }
     if (auto* status = findStatusUnit(state.status.units, transaction.defender.id))
     {
-        *status = transaction.defenderStatus;
-        status->alive = transaction.defender.alive;
-        status->hp = transaction.defender.hp;
-        status->maxHp = transaction.defender.maxHp;
-        status->invincible = transaction.defender.invincible;
+        writeBattleStatusRuntimeUnit(*status, transaction.defenderStatus);
     }
 }
 
@@ -1001,11 +1000,6 @@ void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int inv
     {
         damageUnit->hp = hp;
         damageUnit->invincible = invincible;
-    }
-    if (auto* status = findStatusUnit(state.status.units, unitId))
-    {
-        status->hp = hp;
-        status->invincible = invincible;
     }
 }
 
@@ -1351,14 +1345,16 @@ bool buildFrameDamageTransaction(
         transaction.attacker.id = request.attackerUnitId;
     }
     transaction.defender = *defender;
-    const auto* status = findStatusUnit(state.damage.statusUnits, request.defenderUnitId);
-    if (!status)
-    {
-        status = findStatusUnit(state.status.units, request.defenderUnitId);
-    }
+    const auto* status = findDamageStatusUnit(state.damage.statusUnits, request.defenderUnitId);
     if (status)
     {
         transaction.defenderStatus = *status;
+    }
+    else if (const auto* runtimeStatus = findStatusUnit(state.status.units, request.defenderUnitId))
+    {
+        transaction.defenderStatus = makeBattleStatusUnitState(
+            *runtimeStatus,
+            state.units.requireUnit(request.defenderUnitId));
     }
     else
     {
@@ -1471,11 +1467,11 @@ bool tryAppendFrameDamageTransaction(
 
 BattleStatusUnitState* findFrameStatusUnit(BattleRuntimeState& state, int unitId)
 {
-    if (auto* status = findStatusUnit(state.damage.statusUnits, unitId))
+    if (auto* status = findDamageStatusUnit(state.damage.statusUnits, unitId))
     {
         return status;
     }
-    return findStatusUnit(state.status.units, unitId);
+    return nullptr;
 }
 
 void applyTeamEffectEventsToFrameState(
@@ -1945,19 +1941,11 @@ void updateBattleResult(BattleRuntimeState& state, std::vector<BattleGameplayEve
 void advanceStatus(BattleRuntimeState& state)
 {
     state.status.config.frame = state.world.frame;
-    auto statusTick = BattleStatusSystem(state.status.config).tick(state.status.units);
+    auto statusTick = BattleStatusSystem(state.status.config).tick(state.units, state.status.units);
     state.status.events.insert(
         state.status.events.end(),
         statusTick.events.begin(),
         statusTick.events.end());
-    for (const auto& unit : state.status.units)
-    {
-        if (hasCanonicalUnitStore(state))
-        {
-            state.units.writeStatusUnit(unit);
-        }
-    }
-
     for (const auto& event : statusTick.events)
     {
         if (event.type != BattleStatusEventType::PoisonDamage
@@ -1982,7 +1970,9 @@ void advanceStatus(BattleRuntimeState& state)
         transaction.request.preResolvedDamage = true;
         transaction.attacker = *attacker;
         transaction.defender = *defender;
-        transaction.defenderStatus = *defenderStatus;
+        transaction.defenderStatus = makeBattleStatusUnitState(
+            *defenderStatus,
+            state.units.requireUnit(event.unitId));
         transaction.defenderCooldown = cooldownIt->second;
         state.damage.pendingTransactions.push_back(std::move(transaction));
     }
@@ -2151,13 +2141,6 @@ void applyPostSkillInvincibility(
         commands.begin(),
         commands.end());
 
-    if (const auto* runtimeUnit = state.units.findUnit(sourceUnitId))
-    {
-        if (auto* statusUnit = findStatusUnit(state.status.units, sourceUnitId))
-        {
-            statusUnit->invincible = runtimeUnit->invincible;
-        }
-    }
 }
 
 void applyRuntimeComboEvents(
