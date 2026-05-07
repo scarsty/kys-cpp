@@ -111,9 +111,6 @@ protected:
     void beginPresentationFrame();
     void publishPresentationFrame();
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
-    void recordFloatingTextPresentation(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
-    void recordRoleEffectPresentation(Role* role, int eftId, int totalFrames = 0);
-    void recordDamageNumberPresentation(Role* role, int damage, Color color, int baseSize = 15);
     void recordBattleStatusLog(Role* source, Role* target, const std::string& text);
 public:
     BattleTracker& getTracker() { return tracker_; }

@@ -3,6 +3,7 @@
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentationPlayback.h"
 #include "BattleSceneBattleAdapter.h"
+#include "ChessEftIds.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -2023,6 +2024,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle
     CHECK(rescue.heal.amount == 10);
     CHECK(rescue.invincibility.targetUnitId == 2);
     CHECK(rescue.invincibility.frames == 10);
+    CHECK(std::any_of(
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.targetUnitId == 2
+                && event.effectId == KysChess::EFT_HEAL;
+        }));
     CHECK(state.units.requireUnit(2).hp == 30);
     CHECK(state.units.requireUnit(2).invincible == 10);
     CHECK(state.combo.units.at(3).forcePullProtectRemaining == 0);

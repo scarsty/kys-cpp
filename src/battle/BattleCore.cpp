@@ -1,5 +1,6 @@
 #include "BattleCore.h"
 
+#include "../ChessEftIds.h"
 #include "BattleCombatIntent.h"
 
 #include <algorithm>
@@ -18,6 +19,22 @@
 
 namespace KysChess::Battle
 {
+
+namespace
+{
+constexpr int CoreRoleStatusEffectFrames = 48;
+
+BattleVisualEvent roleEffectEvent(int targetUnitId, int effectId, int durationFrames)
+{
+    BattleVisualEvent event;
+    event.type = BattleVisualEventType::RoleEffect;
+    event.targetUnitId = targetUnitId;
+    event.effectId = effectId;
+    event.visualEffectId = effectId;
+    event.durationFrames = durationFrames;
+    return event;
+}
+}
 
 Point BattleGridTransform::toGrid(Pointf position) const
 {
@@ -1813,6 +1830,10 @@ void applyRescueResultToFrameState(
     {
         assert(result.heal.targetUnitId == pulled->unit.id);
         pulled->unit.hp = std::min(pulled->unit.maxHp, pulled->unit.hp + result.heal.amount);
+        visualEvents.push_back(roleEffectEvent(
+            pulled->unit.id,
+            KysChess::EFT_HEAL,
+            CoreRoleStatusEffectFrames));
     }
     if (result.invincibility.frames > 0)
     {
@@ -2150,7 +2171,8 @@ bool applyFrameUnitHealCommand(
     BattleRuntimeState& state,
     const BattleUnitHealCommand& command,
     BattleFrameApplications& applications,
-    std::vector<BattleLogEvent>& logEvents)
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents)
 {
     auto* unit = state.units.findUnit(command.targetUnitId);
     if (!unit)
@@ -2168,6 +2190,10 @@ bool applyFrameUnitHealCommand(
 
     applications.unitHeals.push_back({ command.sourceUnitId, command.targetUnitId, healed });
     appendHealEventLog(logEvents, command.sourceUnitId, command.targetUnitId, healed, command.reason);
+    visualEvents.push_back(roleEffectEvent(
+        command.targetUnitId,
+        KysChess::EFT_HEAL,
+        CoreRoleStatusEffectFrames));
     return true;
 }
 
@@ -2357,7 +2383,7 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* heal = std::get_if<BattleUnitHealCommand>(&command))
     {
-        return applyFrameUnitHealCommand(state, *heal, applications, logEvents);
+        return applyFrameUnitHealCommand(state, *heal, applications, logEvents, visualEvents);
     }
     if (const auto* shield = std::get_if<BattleUnitShieldCommand>(&command))
     {

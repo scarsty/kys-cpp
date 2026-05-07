@@ -8,7 +8,6 @@
 #include "battle/BattleStatusSystem.h"
 #include "ChessBalance.h"
 #include "ChessCombo.h"
-#include "ChessEftIds.h"
 #include "ChessEquipment.h"
 #include "ChessNeigong.h"
 #include "ChessUiCommon.h"
@@ -37,7 +36,6 @@ using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
 using KysChess::BattleSceneBattleAdapter::configureBattleAttackWorld;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamagePresentationStyle;
-using KysChess::BattleSceneBattleAdapter::makeBattlePresentationColor;
 using KysChess::BattleSceneBattleAdapter::makeBattleRuntimeUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleStatusUnit;
 using KysChess::BattleSceneBattleAdapter::applyBattleMovementPhysicsFrameResults;
@@ -693,64 +691,6 @@ void BattleSceneHades::publishPresentationFrame()
         {
             return findRoleByBattleId(battle_roles_, unitId);
         },
-    });
-}
-
-void BattleSceneHades::recordFloatingTextPresentation(Role* role, const std::string& text, Color color, int size, int type)
-{
-    presentation_recorder_.recordVisual({
-        KysChess::Battle::BattleVisualEventType::FloatingText,
-        battle_frame_,
-        -1,
-        role ? role->ID : -1,
-        0,
-        0,
-        -1,
-        size,
-        type,
-        text,
-        "",
-        "",
-        makeBattlePresentationColor(color),
-        role ? role->Pos : Pointf{},
-    });
-}
-
-void BattleSceneHades::recordRoleEffectPresentation(Role* role, int eftId, int totalFrames)
-{
-    assert(role);
-
-    presentation_recorder_.recordVisual({
-        KysChess::Battle::BattleVisualEventType::RoleEffect,
-        battle_frame_,
-        -1,
-        role->ID,
-        0,
-        totalFrames,
-        eftId,
-    });
-}
-
-void BattleSceneHades::recordDamageNumberPresentation(Role* role, int damage, Color color, int baseSize)
-{
-    assert(role);
-    assert(damage > 0);
-
-    presentation_recorder_.recordVisual({
-        KysChess::Battle::BattleVisualEventType::DamageNumber,
-        battle_frame_,
-        -1,
-        role->ID,
-        damage,
-        0,
-        -1,
-        baseSize,
-        0,
-        "",
-        "",
-        "",
-        makeBattlePresentationColor(color),
-        role->Pos,
     });
 }
 
@@ -3168,7 +3108,6 @@ void BattleSceneHades::applyCoreDamageTransactions(
         {
             assert(rescue.heal.targetUnitId == pulled->ID);
             pulled->HP = std::min(pulled->MaxHP, pulled->HP + rescue.heal.amount);
-            recordRoleEffectPresentation(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
         }
         if (rescue.invincibility.frames > 0)
         {
@@ -3249,7 +3188,6 @@ void BattleSceneHades::applyCoreFrameApplications(
     {
         auto* target = requireFrameRole(bindings, heal.targetUnitId);
         target->HP = std::min(target->MaxHP, target->HP + heal.amount);
-        recordRoleEffectPresentation(target, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
     }
     for (const auto& buff : applications.tempAttackBuffs)
     {
