@@ -139,21 +139,9 @@ struct BattleFrameRuntimeUnitResult
     RoleComboState comboState;
 };
 
-struct BattleFrameActionUnitState
-{
-    bool haveAction = false;
-    int actFrame = 0;
-    int actType = -1;
-    int castFrame = 0;
-    BattleOperationType operationType = BattleOperationType::None;
-    int cooldownFrames = 0;
-    int recoveryFrames = 0;
-};
-
 struct BattleFrameActionUnitInput
 {
     int unitId = -1;
-    BattleFrameActionUnitState state;
     bool canPlanCast = false;
     BattleCastInput castInput;
     bool hasSelectedCastInput = false;
@@ -168,7 +156,7 @@ struct BattleFrameActionUnitInput
 struct BattleFrameActionUnitResult
 {
     int unitId = -1;
-    BattleFrameActionUnitState state;
+    BattleFrameUnitRuntimeState state;
     bool castStarted = false;
     bool actionCommitted = false;
     bool castCommitted = false;
@@ -358,6 +346,13 @@ struct BattleRuntimeState
         std::vector<int> actionCastFrames;
         int dashMomentumFrames = 0;
     } movementPhysics;
+
+    struct ActionState
+    {
+        std::vector<int> castFrames;
+        int actionRecoveryFrames = 0;
+        int dashRecoveryFrames = 0;
+    } action;
 
     BattleProjectileFollowUpContext projectileFollowUps;
     std::map<int, BattleMovementPhysicsState> movementRuntime;

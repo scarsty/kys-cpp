@@ -954,6 +954,11 @@ void BattleSceneHades::initializeBattleRuntimeSession()
         castConfig.castFrames.begin(),
         castConfig.castFrames.end());
     battleRuntime().movementPhysics.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
+    battleRuntime().action.castFrames.assign(
+        castConfig.castFrames.begin(),
+        castConfig.castFrames.end());
+    battleRuntime().action.actionRecoveryFrames = ACTION_RECOVERY_FRAMES;
+    battleRuntime().action.dashRecoveryFrames = DASH_MOMENTUM_FRAMES;
     battleRuntime().movementPhysics.collision.tileWidth = TILE_W;
     battleRuntime().movementPhysics.collision.coordCount = BATTLE_COORD_COUNT;
     battleRuntime().movementPhysics.collision.defaultSeparationDistance = TILE_W * 1.5;

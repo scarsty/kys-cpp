@@ -845,7 +845,7 @@ void populateActionCommitInputForRole(
     }
 
     if (role->OperationType >= 0 && role->OperationType <= 3
-        && role->ActFrame == unitInput.state.castFrame)
+        && role->ActFrame == LEGACY_CAST_FRAMES[role->OperationType])
     {
         role->PreActTimer = context.config.battleFrame;
         Magic* magic = role->UsingMagic;
@@ -891,7 +891,6 @@ void populateActionCommitInputForRole(
         }
         hiddenWeaponVelocity.normTo(10);
         actionInput.hiddenWeaponVelocity = hiddenWeaponVelocity;
-        unitInput.state.castFrame = role->ActFrame;
         unitInput.hasPendingActionInput = true;
         unitInput.pendingActionInput = std::move(actionInput);
     }
@@ -952,26 +951,11 @@ void populateCastPlanInputForRole(
         context);
 }
 
-Battle::BattleFrameActionUnitState makeActionFrameUnitState(
-    Role* role,
-    const BattleActionFrameAdapterContext& context)
+bool hasActionFrameDirective(const Battle::BattleFrameActionUnitInput& unitInput)
 {
-    assert(role);
-
-    Battle::BattleFrameActionUnitState state;
-    state.haveAction = role->HaveAction != 0;
-    state.actFrame = role->ActFrame;
-    state.actType = role->ActType;
-    state.operationType = Battle::battleOperationFromLegacy(role->OperationType);
-    state.cooldownFrames = role->CoolDown;
-    state.recoveryFrames = role->OperationType == 3
-        ? context.config.dashMomentumFrames
-        : context.config.actionRecoveryFrames;
-    if (role->OperationType >= 0 && role->OperationType <= 3 && role->ActType >= 0)
-    {
-        state.castFrame = LEGACY_CAST_FRAMES[role->OperationType];
-    }
-    return state;
+    return unitInput.canPlanCast
+        || unitInput.hasPendingActionInput
+        || unitInput.hasSelectedCastInput;
 }
 
 Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
@@ -1035,7 +1019,7 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     return geometry;
 }
 
-void applyActionFrameUnitState(Role* role, const Battle::BattleFrameActionUnitState& state)
+void applyActionFrameUnitState(Role* role, const Battle::BattleFrameUnitRuntimeState& state)
 {
     assert(role);
 
@@ -1104,10 +1088,12 @@ void populateBattleActionFrame(
         assert(role);
         Battle::BattleFrameActionUnitInput unitInput;
         unitInput.unitId = role->ID;
-        unitInput.state = makeActionFrameUnitState(role, context);
         populateActionCommitInputForRole(unitInput, role, context);
         populateCastPlanInputForRole(unitInput, role, context);
-        scratch.actions.units.push_back(std::move(unitInput));
+        if (hasActionFrameDirective(unitInput))
+        {
+            scratch.actions.units.push_back(std::move(unitInput));
+        }
     }
 }
 
@@ -1231,21 +1217,14 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
     captureActionComboState(actionInput, role, context);
 
-    Battle::BattleRuntimeState actionFrameState;
-    Battle::BattleFrameScratch scratch;
-    Battle::BattleFrameActionUnitInput unitInput;
-    unitInput.unitId = role->ID;
-    unitInput.hasSelectedCastInput = true;
-    unitInput.selectedCastInput = std::move(castInput);
-    unitInput.selectedCastUltimate = isUltimate;
-    unitInput.selectedOperationType = Battle::battleOperationFromLegacy(resolvedOperationType);
-    unitInput.selectedActionInput = std::move(actionInput);
-    scratch.actions.units.push_back(std::move(unitInput));
-    auto actionFrameResult = Battle::BattleFrameRunner().runFrame(actionFrameState, scratch);
-    assert(actionFrameResult.actionResults.size() == 1);
-    const auto& actionUnitResult = actionFrameResult.actionResults.front();
-    assert(actionUnitResult.actionCommitted);
-    const auto& actionResult = actionUnitResult.actionResult;
+    auto cast = Battle::BattleCastPlanner().commitSelectedCast(
+        std::move(castInput),
+        isUltimate,
+        Battle::battleOperationFromLegacy(resolvedOperationType));
+    assert(cast.decision.canCast);
+    actionInput.hasCast = true;
+    actionInput.cast = std::move(cast);
+    auto actionResult = Battle::BattleActionCommitSystem().commit(actionInput);
     auto comboIt = context.comboStates->find(role->ID);
     if (comboIt != context.comboStates->end())
     {
@@ -1256,12 +1235,12 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     result.applyResult.attackSoundIds.push_back(magic->SoundID);
     result.applyResult.visualEvents.insert(
         result.applyResult.visualEvents.end(),
-        actionFrameResult.frame.visualEvents.begin(),
-        actionFrameResult.frame.visualEvents.end());
-    result.applyResult.logEvents.insert(
-        result.applyResult.logEvents.end(),
-        actionFrameResult.frame.logEvents.begin(),
-        actionFrameResult.frame.logEvents.end());
+        actionInput.cast.visualEvents.begin(),
+        actionInput.cast.visualEvents.end());
+    result.applyResult.visualEvents.insert(
+        result.applyResult.visualEvents.end(),
+        actionResult.visualEvents.begin(),
+        actionResult.visualEvents.end());
     result.applyResult.attackSpawnRequests = actionResult.attackSpawnRequests;
     role->OperationCount = actionResult.operationCount;
     return result;

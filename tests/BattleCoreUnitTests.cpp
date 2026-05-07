@@ -24,6 +24,12 @@ constexpr double LegacyMinimumVectorNorm = 0.0001;
 
 BattleFrameResult runBattleFrame(BattleRuntimeState& state, BattleFrameScratch& scratch)
 {
+    if (state.action.castFrames.empty())
+    {
+        state.action.castFrames = { 6, 6, 6, 6 };
+        state.action.actionRecoveryFrames = 4;
+        state.action.dashRecoveryFrames = 5;
+    }
     return BattleFrameRunner().runFrame(state, scratch);
 }
 
@@ -412,9 +418,6 @@ BattleFrameActionUnitInput pendingActionUnit(BattleActionCommitInput actionInput
 {
     BattleFrameActionUnitInput actionUnit;
     actionUnit.unitId = actionInput.unit.id;
-    actionUnit.state.haveAction = true;
-    actionUnit.state.actFrame = 0;
-    actionUnit.state.castFrame = 0;
     actionUnit.hasPendingActionInput = true;
     actionUnit.pendingActionInput = std::move(actionInput);
     return actionUnit;
@@ -1220,6 +1223,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
         { 1, 0, true, false, false, { 10, 20, 0 } },
         { 2, 1, true, false, false, { 82, 20, 0 } },
     };
+    seedRuntimeUnitsFromWorld(state);
     auto cast = frameCastInput(1, 2);
     cast.normalSkill.attackAreaType = 1;
     cast.normalSkill.rangedStyle = true;
@@ -1319,6 +1323,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
         { 1, 0, true, false, false, { 10, 20, 0 } },
         { 2, 1, true, false, false, { 210, 20, 0 } },
     };
+    seedRuntimeUnitsFromWorld(state);
     auto cast = frameCastInput(1, 2);
     cast.unit.position = { -500, -500, 0 };
     cast.targetPosition = { -250, -250, 0 };
@@ -1351,6 +1356,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", 
         { 2, 1, true, false, false, { 160, 100, 0 } },
     };
     seedRuntimeUnitsFromWorld(state);
+    auto& unit = state.units.requireUnit(1);
+    unit.haveAction = true;
+    unit.actFrame = 6;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.actType = 1;
+    unit.cooldown = 10;
 
     auto action = frameActionCommitInput();
     action.hasCast = true;
@@ -1379,6 +1390,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastInput", "[battle][c
         unit(2, 1, { 220, 100, 0 }),
     });
     state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
 
     auto cast = frameCastInput(1, 2);
     cast.unit.mp = 0;
@@ -1412,6 +1424,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastFromActionFrameUnit
         unit(2, 1, { 220, 100, 0 }),
     });
     state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
 
     BattleFrameActionUnitInput actionUnit;
     actionUnit.unitId = 1;
@@ -1452,6 +1465,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StartsCastFromActionFrameUnitInput", "
         unit(2, 1, { 220, 100, 0 }),
     });
     state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
 
     BattleFrameActionUnitInput actionUnit;
     actionUnit.unitId = 1;
@@ -1489,12 +1503,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingCastFromActionFrameUnitI
         { 2, 1, true, false, false, { 160, 100, 0 } },
     };
     seedRuntimeUnitsFromWorld(state);
+    auto& unit = state.units.requireUnit(1);
+    unit.haveAction = true;
+    unit.actFrame = 6;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.actType = 1;
+    unit.cooldown = 10;
 
     BattleFrameActionUnitInput actionUnit;
     actionUnit.unitId = 1;
-    actionUnit.state.haveAction = true;
-    actionUnit.state.actFrame = 6;
-    actionUnit.state.castFrame = 6;
     actionUnit.pendingActionInput = frameActionCommitInput();
     actionUnit.pendingActionInput.hasCast = true;
     actionUnit.pendingActionInput.cast = committedFrameCast();
@@ -1522,16 +1539,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", 
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
     });
     state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto& unit = state.units.requireUnit(1);
+    unit.haveAction = true;
+    unit.actFrame = 11;
+    unit.actType = 2;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.cooldown = 30;
 
     BattleFrameActionUnitInput actionUnit;
     actionUnit.unitId = 1;
-    actionUnit.state.haveAction = true;
-    actionUnit.state.actFrame = 11;
-    actionUnit.state.actType = 2;
-    actionUnit.state.castFrame = 6;
-    actionUnit.state.operationType = BattleOperationType::RangedProjectile;
-    actionUnit.state.cooldownFrames = 30;
-    actionUnit.state.recoveryFrames = 4;
     scratch.actions.units.push_back(actionUnit);
 
     auto result = runBattleFrame(state, scratch);
@@ -1553,12 +1570,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingItemFromActionFrameUnitI
         unit(2, 1, { 160, 100, 0 }),
     });
     state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto& unit = state.units.requireUnit(1);
+    unit.haveAction = true;
+    unit.actFrame = 6;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.actType = 1;
+    unit.cooldown = 10;
 
     BattleFrameActionUnitInput actionUnit;
     actionUnit.unitId = 1;
-    actionUnit.state.haveAction = true;
-    actionUnit.state.actFrame = 6;
-    actionUnit.state.castFrame = 6;
     actionUnit.pendingActionInput = frameActionCommitInput();
     actionUnit.pendingActionInput.hasItem = true;
     actionUnit.pendingActionInput.item.id = 501;

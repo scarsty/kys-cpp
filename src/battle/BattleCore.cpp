@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -2600,12 +2601,42 @@ void writeActionStateToUnitStore(BattleRuntimeState& state, const BattleFrameAct
 {
     if (auto* unit = state.units.findUnit(result.unitId))
     {
-        unit->cooldown = result.state.cooldownFrames;
+        unit->cooldown = result.state.cooldown;
         unit->actFrame = result.state.actFrame;
         unit->actType = result.state.actType;
         unit->operationType = result.state.operationType;
         unit->haveAction = result.state.haveAction;
     }
+}
+
+int actionCastFrame(const BattleRuntimeState& state, BattleOperationType operationType)
+{
+    const int legacyOperation = toLegacyOperationType(operationType);
+    if (legacyOperation < 0)
+    {
+        return 0;
+    }
+    assert(static_cast<std::size_t>(legacyOperation) < state.action.castFrames.size());
+    return state.action.castFrames[legacyOperation];
+}
+
+int actionRecoveryFrames(const BattleRuntimeState& state, BattleOperationType operationType)
+{
+    return operationType == BattleOperationType::Dash
+        ? state.action.dashRecoveryFrames
+        : state.action.actionRecoveryFrames;
+}
+
+BattleFrameUnitRuntimeState makeActionRuntimeState(const BattleRuntimeUnit& unit)
+{
+    BattleFrameUnitRuntimeState state;
+    state.cooldown = unit.cooldown;
+    state.actFrame = unit.actFrame;
+    state.actType = unit.actType;
+    state.operationType = unit.operationType;
+    state.haveAction = unit.haveAction;
+    state.physicalPower = unit.physicalPower;
+    return state;
 }
 
 void advanceActionFrameUnits(
@@ -2616,21 +2647,34 @@ void advanceActionFrameUnits(
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
+    std::unordered_map<int, const BattleFrameActionUnitInput*> inputsByUnitId;
+    inputsByUnitId.reserve(scratch.actions.units.size());
     for (const auto& input : scratch.actions.units)
     {
         assert(input.unitId >= 0);
+        const auto [_, inserted] = inputsByUnitId.emplace(input.unitId, &input);
+        assert(inserted);
+    }
 
+    for (auto& unit : state.units.units)
+    {
+        assert(unit.id >= 0);
+        const auto inputIt = inputsByUnitId.find(unit.id);
+        const auto* input = inputIt != inputsByUnitId.end()
+            ? inputIt->second
+            : nullptr;
         BattleFrameActionUnitResult result;
-        result.unitId = input.unitId;
-        result.state = input.state;
+        result.unitId = unit.id;
+        result.state = makeActionRuntimeState(unit);
+        const bool wasActionActive = result.state.haveAction;
 
-        if (input.hasSelectedCastInput)
+        if (input && input->hasSelectedCastInput)
         {
-            assert(input.selectedOperationType != BattleOperationType::None);
+            assert(input->selectedOperationType != BattleOperationType::None);
             auto cast = BattleCastPlanner().commitSelectedCast(
-                refreshedCastInput(state, movement, input.selectedCastInput),
-                input.selectedCastUltimate,
-                input.selectedOperationType);
+                refreshedCastInput(state, movement, input->selectedCastInput),
+                input->selectedCastUltimate,
+                input->selectedOperationType);
             gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
             visualEvents.insert(visualEvents.end(), cast.visualEvents.begin(), cast.visualEvents.end());
             result.castResult = cast;
@@ -2639,7 +2683,7 @@ void advanceActionFrameUnits(
             {
                 result.actionCommitted = true;
                 result.castCommitted = true;
-                result.actionInput = input.selectedActionInput;
+                result.actionInput = input->selectedActionInput;
                 result.actionInput.hasCast = true;
                 result.actionInput.cast = std::move(cast);
                 result.actionResult = BattleActionCommitSystem().commit(result.actionInput);
@@ -2653,9 +2697,9 @@ void advanceActionFrameUnits(
                     result.actionResult.visualEvents.end());
             }
         }
-        else if (!input.state.haveAction && input.canPlanCast)
+        else if (input && !result.state.haveAction && input->canPlanCast)
         {
-            auto cast = BattleCastPlanner().plan(refreshedCastInput(state, movement, input.castInput));
+            auto cast = BattleCastPlanner().plan(refreshedCastInput(state, movement, input->castInput));
             gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
             visualEvents.insert(visualEvents.end(), cast.visualEvents.begin(), cast.visualEvents.end());
             if (cast.decision.canCast)
@@ -2664,23 +2708,22 @@ void advanceActionFrameUnits(
                 result.state.haveAction = true;
                 result.state.actFrame = 0;
                 result.state.actType = cast.decision.ultimate
-                    ? input.castInput.ultimateSkill.magicType
-                    : input.castInput.normalSkill.magicType;
+                    ? input->castInput.ultimateSkill.magicType
+                    : input->castInput.normalSkill.magicType;
                 result.state.operationType = cast.decision.operationType;
-                result.state.cooldownFrames = cast.animation.cooldownFrames;
-                result.state.recoveryFrames = cast.animation.recoveryFrames;
+                result.state.cooldown = cast.animation.cooldownFrames;
             }
             result.castResult = std::move(cast);
         }
-        else if (input.state.haveAction && input.hasPendingActionInput)
+        else if (input && result.state.haveAction && input->hasPendingActionInput)
         {
-            assert(input.state.castFrame >= 0);
-            if (input.state.actFrame == input.state.castFrame)
+            const int castFrame = actionCastFrame(state, result.state.operationType);
+            if (result.state.actFrame == castFrame)
             {
                 result.actionCommitted = true;
-                result.castCommitted = input.pendingActionInput.hasCast;
-                result.actionInput = input.pendingActionInput;
-                result.actionResult = BattleActionCommitSystem().commit(input.pendingActionInput);
+                result.castCommitted = input->pendingActionInput.hasCast;
+                result.actionInput = input->pendingActionInput;
+                result.actionResult = BattleActionCommitSystem().commit(input->pendingActionInput);
                 state.pendingAttackSpawns.insert(
                     state.pendingAttackSpawns.end(),
                     result.actionResult.attackSpawnRequests.begin(),
@@ -2692,13 +2735,14 @@ void advanceActionFrameUnits(
             }
         }
 
-        if (input.state.haveAction)
+        if (wasActionActive)
         {
             ++result.state.actFrame;
-            if (result.state.cooldownFrames > 0
+            const int castFrame = actionCastFrame(state, result.state.operationType);
+            if (result.state.cooldown > 0
                 && result.state.actType >= 0
                 && result.state.operationType != BattleOperationType::None
-                && result.state.actFrame > result.state.castFrame + result.state.recoveryFrames)
+                && result.state.actFrame > castFrame + actionRecoveryFrames(state, result.state.operationType))
             {
                 result.state.haveAction = false;
                 result.state.operationType = BattleOperationType::None;
@@ -2707,14 +2751,16 @@ void advanceActionFrameUnits(
         }
 
         writeActionStateToUnitStore(state, result);
-        actionResults.push_back(std::move(result));
+        if (input || wasActionActive || result.castStarted || result.actionCommitted)
+        {
+            actionResults.push_back(std::move(result));
+        }
     }
     scratch.actions.units.clear();
 }
 
 void advanceAttacksAndResolveHits(
     BattleRuntimeState& state,
-    const BattleFrameScratch& scratch,
     BattleFrameResult& result,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -3040,7 +3086,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state, BattleF
         result.actionResults,
         gameplayEvents,
         visualEvents);
-    advanceAttacksAndResolveHits(state, scratch, result, logEvents, visualEvents);
+    advanceAttacksAndResolveHits(state, result, logEvents, visualEvents);
     syncRescueStateFromRuntimeUnits(state);
     applyDamageAndLifecycle(state, result, gameplayEvents, logEvents, visualEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
