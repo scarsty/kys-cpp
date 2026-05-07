@@ -8,16 +8,11 @@
 namespace KysChess::Battle
 {
 
-struct BattleDeathEffectUnit
+struct BattleUnitStore;
+
+struct BattleDeathEffectExtras
 {
     int id = -1;
-    int team = 0;
-    bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    int attack = 0;
-    int defence = 0;
-    int shield = 0;
     int shieldPctMaxHp = 0;
     int shieldOnAllyDeathTracker = 0;
     std::vector<int> comboIds;
@@ -40,22 +35,23 @@ struct BattleDeathEffectEvent
     int comboId = -1;
 };
 
-struct BattleDeathEffectWorld
+struct BattleDeathEffectStore
 {
-    std::vector<BattleDeathEffectUnit> units;
+    std::vector<BattleDeathEffectExtras> units;
     std::set<int> regularSynergyComboIds;
 };
 
 class BattleDeathEffectSystem
 {
 public:
-    std::vector<BattleDeathEffectEvent> applyAllyDeathEffects(BattleDeathEffectWorld& world,
+    std::vector<BattleDeathEffectEvent> applyAllyDeathEffects(BattleUnitStore& units,
+                                                              BattleDeathEffectStore& effects,
                                                               int deadUnitId) const;
 
 private:
-    BattleDeathEffectUnit& unitById(BattleDeathEffectWorld& world, int unitId) const;
-    bool comboAppliesToUnit(const BattleDeathEffectWorld& world,
-                            const BattleDeathEffectUnit& unit,
+    BattleDeathEffectExtras& extrasById(BattleDeathEffectStore& effects, int unitId) const;
+    bool comboAppliesToUnit(const BattleDeathEffectStore& effects,
+                            const BattleDeathEffectExtras& extras,
                             int comboId) const;
 };
 

@@ -1,50 +1,55 @@
 #include "BattleDeathEffectSystem.h"
 
+#include "BattleCore.h"
+
 #include <algorithm>
 #include <cassert>
 
 namespace KysChess::Battle
 {
 
-BattleDeathEffectUnit& BattleDeathEffectSystem::unitById(BattleDeathEffectWorld& world, int unitId) const
+BattleDeathEffectExtras& BattleDeathEffectSystem::extrasById(BattleDeathEffectStore& effects, int unitId) const
 {
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleDeathEffectUnit& unit)
+    auto it = std::find_if(effects.units.begin(), effects.units.end(), [&](const BattleDeathEffectExtras& extras)
         {
-            return unit.id == unitId;
+            return extras.id == unitId;
         });
-    assert(it != world.units.end());
+    assert(it != effects.units.end());
     return *it;
 }
 
-bool BattleDeathEffectSystem::comboAppliesToUnit(const BattleDeathEffectWorld& world,
-                                                const BattleDeathEffectUnit& unit,
+bool BattleDeathEffectSystem::comboAppliesToUnit(const BattleDeathEffectStore& effects,
+                                                const BattleDeathEffectExtras& extras,
                                                 int comboId) const
 {
-    if (comboId < 0 || world.regularSynergyComboIds.count(comboId) == 0)
+    if (comboId < 0 || effects.regularSynergyComboIds.count(comboId) == 0)
     {
         return false;
     }
-    return std::find(unit.comboIds.begin(), unit.comboIds.end(), comboId) != unit.comboIds.end();
+    return std::find(extras.comboIds.begin(), extras.comboIds.end(), comboId) != extras.comboIds.end();
 }
 
-std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffects(BattleDeathEffectWorld& world,
+std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffects(BattleUnitStore& units,
+                                                                                   BattleDeathEffectStore& effects,
                                                                                    int deadUnitId) const
 {
-    auto& dead = unitById(world, deadUnitId);
+    auto& dead = units.requireUnit(deadUnitId);
+    auto& deadExtras = extrasById(effects, deadUnitId);
     assert(!dead.alive);
 
     std::vector<BattleDeathEffectEvent> events;
-    for (auto& ally : world.units)
+    for (auto& allyExtras : effects.units)
     {
+        auto& ally = units.requireUnit(allyExtras.id);
         if (!ally.alive || ally.id == dead.id || ally.team != dead.team)
         {
             continue;
         }
 
-        for (const auto& effect : ally.appliedEffects)
+        for (const auto& effect : allyExtras.appliedEffects)
         {
             if (effect.type != EffectType::AllyDeathStatBoost
-                || !comboAppliesToUnit(world, dead, effect.sourceComboId))
+                || !comboAppliesToUnit(effects, deadExtras, effect.sourceComboId))
             {
                 continue;
             }
@@ -61,10 +66,10 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
             });
         }
 
-        for (const auto& effect : dead.appliedEffects)
+        for (const auto& effect : deadExtras.appliedEffects)
         {
             if (effect.type != EffectType::DeathMedical
-                || !comboAppliesToUnit(world, ally, effect.sourceComboId))
+                || !comboAppliesToUnit(effects, allyExtras, effect.sourceComboId))
             {
                 continue;
             }
@@ -85,29 +90,29 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
             }
         }
 
-        for (const auto& effect : ally.appliedEffects)
+        for (const auto& effect : allyExtras.appliedEffects)
         {
             if (effect.type != EffectType::ShieldOnAllyDeath
-                || !comboAppliesToUnit(world, dead, effect.sourceComboId))
+                || !comboAppliesToUnit(effects, deadExtras, effect.sourceComboId))
             {
                 continue;
             }
             assert(effect.value > 0);
 
-            ally.shieldOnAllyDeathTracker++;
-            if (ally.shieldOnAllyDeathTracker < effect.value)
+            allyExtras.shieldOnAllyDeathTracker++;
+            if (allyExtras.shieldOnAllyDeathTracker < effect.value)
             {
                 continue;
             }
 
-            ally.shieldOnAllyDeathTracker = 0;
-            if (ally.shieldPctMaxHp <= 0)
+            allyExtras.shieldOnAllyDeathTracker = 0;
+            if (allyExtras.shieldPctMaxHp <= 0)
             {
                 continue;
             }
 
             int before = ally.shield;
-            ally.shield += ally.maxHp * ally.shieldPctMaxHp / 100;
+            ally.shield += ally.maxHp * allyExtras.shieldPctMaxHp / 100;
             if (ally.shield > before)
             {
                 events.push_back({

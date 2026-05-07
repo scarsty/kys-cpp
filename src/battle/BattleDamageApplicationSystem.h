@@ -78,7 +78,8 @@ struct BattleDamageApplicationInput
     std::vector<BattleDamagePresentationInput> pendingPresentation;
     std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
     std::map<int, int> pendingAliveByTeam;
-    BattleDeathEffectWorld deathEffects;
+    BattleDeathEffectStore* deathEffects = nullptr;
+    BattleUnitStore* deathEffectUnits = nullptr;
     BattleProjectileFollowUpContext projectileFollowUps;
     const BattleUnitStore* projectileFollowUpUnits = nullptr;
 };
@@ -91,7 +92,6 @@ struct BattleDamageApplicationResult
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
     std::vector<BattleGameplayCommand> commands;
-    BattleDeathEffectWorld deathEffects;
     bool battleEnded = false;
     int winningTeam = -1;
 };

@@ -85,7 +85,6 @@ std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
     assert(maxTargets >= 0);
 
     const auto& origin = unitById(units, originUnitId);
-    assert(origin.alive);
 
     std::vector<const BattleRuntimeUnit*> targets;
     for (const auto& unit : units.units)

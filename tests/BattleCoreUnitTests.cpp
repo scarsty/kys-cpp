@@ -283,6 +283,11 @@ BattleRuntimeState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
         damageUnitSnapshot(1, 80),
         damageUnitSnapshot(2, defenderHp),
     };
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 80, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, defenderHp, { 105, 100, 0 }),
+    };
+    state.deathEffects.store.units = { { 1 }, { 2 } };
     state.status.units = {
         statusUnitSnapshot(1, 80),
         statusUnitSnapshot(2, defenderHp),
@@ -455,6 +460,7 @@ BattleDamageTransactionInput preResolvedDamageInput(int attackerUnitId, int defe
 TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
+    state.units.gridTransform = { SceneTileWidth, 64 };
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }),
         unit(2, 1, { 120, 100, 0 }),
@@ -464,6 +470,7 @@ TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore",
         runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(2, 1, 10, { 120, 100, 0 }),
     };
+    state.deathEffects.store.units = { { 1 }, { 2 } };
     state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
     state.damage.units = {
         damageUnitSnapshot(1, 100),
@@ -588,6 +595,7 @@ BattleRescueCellSnapshot rescueCell(int x, int y, bool walkable = true, bool occ
 BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
 {
     BattleRuntimeState state;
+    state.units.gridTransform = { SceneTileWidth, 64 };
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }),
         unit(2, 1, { 180, 180, 0 }),
@@ -608,6 +616,12 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
     state.damage.cooldowns.emplace(2, BattleCooldownState{});
     state.damage.cooldowns.emplace(3, BattleCooldownState{});
     state.damage.pendingTransactions.push_back(preResolvedDamageInput(1, 2, defenderHp, damage));
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, defenderHp, { 180, 180, 0 }),
+        runtimeUnitSnapshot(3, 1, 100, { 72, 72, 0 }),
+    };
+    state.deathEffects.store.units = { { 1 }, { 2 }, { 3 } };
     state.rescue.units = {
         rescueUnit(1, 0, { 10, 10 }, { 360, 360, 0 }, 100),
         rescueUnit(2, 1, { 5, 5 }, { 180, 180, 0 }, defenderHp),
@@ -987,16 +1001,16 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     comboState.postSkillInvincFrames = 12;
     state.combo.units.emplace(1, comboState);
 
-    BattleDeathEffectUnit deathEffectUnit;
-    deathEffectUnit.id = 1;
-    state.deathEffects.world.units.push_back(deathEffectUnit);
+    BattleDeathEffectExtras deathEffectExtras;
+    deathEffectExtras.id = 1;
+    state.deathEffects.store.units.push_back(deathEffectExtras);
 
     CHECK(state.world.units.size() == 2);
     CHECK(state.actions.units[0].castInput.unit.id == 1);
     CHECK(state.damage.pendingTransactions[0].request.defenderUnitId == 2);
     CHECK(state.status.units[0].hp == 80);
     CHECK(state.combo.units.at(1).postSkillInvincFrames == 12);
-    CHECK(state.deathEffects.world.units[0].id == 1);
+    CHECK(state.deathEffects.store.units[0].id == 1);
     CHECK_FALSE(state.result.ended);
     CHECK(state.result.winningTeam == -1);
 }
@@ -1512,6 +1526,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
         { 1, true, 100, 100 },
         { 2, true, 10, 100 },
     };
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, 10, { 210, 100, 0 }),
+    };
+    state.deathEffects.store.units = { { 1 }, { 2 } };
     state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
 
     auto result = BattleFrameRunner().runFrame(state);
@@ -1605,6 +1624,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
     });
     state.attacks = attackWorld();
     state.damage.aggregatePendingTransactionsByDefender = true;
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, 10, { 210, 100, 0 }),
+        runtimeUnitSnapshot(3, 0, 80, { 120, 100, 0 }),
+    };
+    state.deathEffects.store.units = { { 1 }, { 2 }, { 3 } };
 
     auto first = lethalDamageInput(1, 2);
     first.request.baseDamage = 3;
@@ -1745,6 +1770,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesDeathAoeToPendingProjectileSpaw
     state.attacks = attackWorld();
     state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
     state.damage.unitEffects[2] = { 50, 6, 1 };
+    state.deathEffects.store.units = { { 1 }, { 2 } };
     state.projectileFollowUps.projectileSpeed = SceneProjectileSpeed;
     state.projectileFollowUps.minimumProjectileFrames = 20;
     state.projectileFollowUps.areaProjectileFramePadding = 15;
@@ -1881,11 +1907,19 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
     CHECK(result.commands.empty());
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathEffectWorldSeesCommittedDamageRewards", "[battle][core]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageRewards", "[battle][core]")
 {
     BattleRuntimeState state;
     state.world = worldWith({});
     state.attacks = attackWorld();
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 40),
+        runtimeUnitSnapshot(2, 1, 10),
+    };
+    state.units.units[0].attack = 12;
+    state.units.units[0].defence = 8;
+    state.units.units[1].attack = 9;
+    state.units.units[1].defence = 6;
     auto input = lethalDamageInput(1, 2);
     input.attacker.hp = 40;
     input.attacker.maxHp = 100;
@@ -1893,21 +1927,21 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathEffectWorldSeesCommittedDamageRew
     input.attacker.killHealPct = 25;
     input.attacker.bloodlustAttackPerKill = 7;
     state.damage.pendingTransactions.push_back(input);
-    state.deathEffects.world.units = {
-        { 1, 0, true, 40, 100, 12, 8 },
-        { 2, 1, true, 10, 100, 9, 6 },
+    state.deathEffects.store.units = {
+        { 1 },
+        { 2 },
     };
 
     BattleFrameRunner().runFrame(state);
 
     REQUIRE(state.damage.committedTransactions.size() == 1);
-    REQUIRE(state.deathEffects.world.units.size() == 2);
+    REQUIRE(state.deathEffects.store.units.size() == 2);
     CHECK(state.damage.committedTransactions.front().attacker.hp == 65);
     CHECK(state.damage.committedTransactions.front().attacker.attack == 19);
-    CHECK(state.deathEffects.world.units[0].hp == 65);
-    CHECK(state.deathEffects.world.units[0].attack == 19);
-    CHECK(state.deathEffects.world.units[1].alive == false);
-    CHECK(state.deathEffects.world.units[1].hp == 0);
+    CHECK(state.units.requireUnit(1).hp == 65);
+    CHECK(state.units.requireUnit(1).attack == 19);
+    CHECK(state.units.requireUnit(2).alive == false);
+    CHECK(state.units.requireUnit(2).hp == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_BattleEndEventEmitsOnce", "[battle][core]")
@@ -1919,6 +1953,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_BattleEndEventEmitsOnce", "[battle][co
     });
     state.attacks = attackWorld();
     state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, 10, { 210, 100, 0 }),
+    };
+    state.deathEffects.store.units = { { 1 }, { 2 } };
 
     auto first = BattleFrameRunner().runFrame(state);
     auto second = BattleFrameRunner().runFrame(state);

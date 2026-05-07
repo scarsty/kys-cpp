@@ -328,7 +328,7 @@ struct BattleRuntimeState
 
     struct DeathEffectState
     {
-        BattleDeathEffectWorld world;
+        BattleDeathEffectStore store;
         std::vector<BattleDeathEffectEvent> events;
     } deathEffects;
 

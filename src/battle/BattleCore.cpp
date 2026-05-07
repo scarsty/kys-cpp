@@ -861,24 +861,6 @@ const BattleFrameRescueUnitSnapshot* findRescueUnit(const std::vector<BattleFram
     return it != units.end() ? &*it : nullptr;
 }
 
-BattleDeathEffectUnit* findDeathEffectUnit(BattleDeathEffectWorld& world, int unitId)
-{
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleDeathEffectUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    return it != world.units.end() ? &*it : nullptr;
-}
-
-void applyDamageUnitToDeathEffectUnit(BattleDeathEffectUnit& deathUnit, const BattleDamageUnitState& damageUnit)
-{
-    deathUnit.alive = damageUnit.alive;
-    deathUnit.hp = damageUnit.hp;
-    deathUnit.maxHp = damageUnit.maxHp;
-    deathUnit.attack = damageUnit.attack;
-    deathUnit.shield = damageUnit.shield;
-}
-
 double distance2d(Pointf lhs, Pointf rhs)
 {
     return EuclidDis(lhs.x - rhs.x, lhs.y - rhs.y);
@@ -1005,14 +987,6 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
         status->maxHp = transaction.defender.maxHp;
         status->invincible = transaction.defender.invincible;
     }
-    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, transaction.defender.id))
-    {
-        applyDamageUnitToDeathEffectUnit(*deathUnit, transaction.defender);
-    }
-    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, transaction.attacker.id))
-    {
-        applyDamageUnitToDeathEffectUnit(*deathUnit, transaction.attacker);
-    }
 }
 
 void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int invincible)
@@ -1032,10 +1006,6 @@ void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int inv
     {
         status->hp = hp;
         status->invincible = invincible;
-    }
-    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, unitId))
-    {
-        deathUnit->hp = hp;
     }
 }
 
@@ -1535,11 +1505,6 @@ void applyTeamEffectEventsToFrameState(
         {
             comboIt->second.shield = unit.shield;
         }
-        if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, event.targetUnitId))
-        {
-            deathUnit->hp = unit.hp;
-            deathUnit->shield = unit.shield;
-        }
     }
 }
 
@@ -1650,10 +1615,6 @@ bool applyFrameUnitHealCommand(
     {
         runtimeUnit->hp = unit->hp;
     }
-    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.targetUnitId))
-    {
-        deathUnit->hp = unit->hp;
-    }
     state.applications.unitHeals.push_back({ command.sourceUnitId, command.targetUnitId, healed });
     appendHealEventLog(logEvents, command.sourceUnitId, command.targetUnitId, healed, command.reason);
     return true;
@@ -1682,10 +1643,6 @@ bool applyFrameUnitShieldCommand(
     {
         runtimeUnit->shield += command.amount;
     }
-    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.targetUnitId))
-    {
-        deathUnit->shield += command.amount;
-    }
     state.applications.unitShields.push_back({ command.sourceUnitId, command.targetUnitId, command.amount });
     appendStatusEventLog(
         logEvents,
@@ -1711,6 +1668,11 @@ bool applyFrameTempAttackBuffCommand(
     {
         unit->attack += command.attackBonus;
     }
+    if (auto* runtimeUnit = state.units.findUnit(command.unitId))
+    {
+        runtimeUnit->attack += command.attackBonus;
+        runtimeUnit->defence += command.defenceBonus;
+    }
     if (!command.permanent && comboIt != state.combo.units.end())
     {
         if (command.attackBonus != 0 && command.durationFrames > 0)
@@ -1718,12 +1680,6 @@ bool applyFrameTempAttackBuffCommand(
             comboIt->second.tempAttackBuffs.push_back({ command.attackBonus, command.durationFrames });
         }
     }
-    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.unitId))
-    {
-        deathUnit->attack += command.attackBonus;
-        deathUnit->defence += command.defenceBonus;
-    }
-
     state.applications.tempAttackBuffs.push_back({
         command.unitId,
         command.attackBonus,
@@ -1893,7 +1849,7 @@ void appendDamageApplicationUnit(
     units.push_back({ unitId, team, alive });
 }
 
-BattleDamageApplicationInput makeFrameDamageApplicationInput(const BattleRuntimeState& state)
+BattleDamageApplicationInput makeFrameDamageApplicationInput(BattleRuntimeState& state)
 {
     BattleDamageApplicationInput input;
     input.frame = state.world.frame;
@@ -1902,16 +1858,13 @@ BattleDamageApplicationInput makeFrameDamageApplicationInput(const BattleRuntime
     input.pendingPresentation = state.damage.pendingPresentation;
     input.unitEffects = state.damage.unitEffects;
     input.pendingAliveByTeam = state.result.pendingAliveByTeam;
-    input.deathEffects = state.deathEffects.world;
+    input.deathEffects = &state.deathEffects.store;
+    input.deathEffectUnits = &state.units;
     input.projectileFollowUps = state.projectileFollowUps;
     input.projectileFollowUpUnits = &state.units;
 
     std::map<int, std::size_t> indexByUnitId;
     for (const auto& unit : state.world.units)
-    {
-        appendDamageApplicationUnit(input.units, indexByUnitId, unit.id, unit.team, unit.alive);
-    }
-    for (const auto& unit : state.deathEffects.world.units)
     {
         appendDamageApplicationUnit(input.units, indexByUnitId, unit.id, unit.team, unit.alive);
     }
@@ -2534,8 +2487,6 @@ void applyDamageAndLifecycle(
         }
         state.damage.committedTransactions.push_back(transaction);
     }
-    state.deathEffects.world = std::move(application.deathEffects);
-
     for (const auto& event : application.gameplayEvents)
     {
         if (event.type == BattleGameplayEventType::BattleEnded && battleEndAlreadyEmitted)

@@ -1,5 +1,7 @@
 #include "BattleDamageApplicationSystem.h"
 
+#include "BattleCore.h"
+
 #include <algorithm>
 #include <cassert>
 #include <format>
@@ -21,24 +23,6 @@ BattleDamageApplicationUnitSnapshot& unitById(
         });
     assert(it != units.end());
     return *it;
-}
-
-BattleDeathEffectUnit* findDeathEffectUnit(BattleDeathEffectWorld& world, int unitId)
-{
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleDeathEffectUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    return it != world.units.end() ? &*it : nullptr;
-}
-
-void applyDamageUnitToDeathEffectUnit(BattleDeathEffectUnit& deathUnit, const BattleDamageUnitState& damageUnit)
-{
-    deathUnit.alive = damageUnit.alive;
-    deathUnit.hp = damageUnit.hp;
-    deathUnit.maxHp = damageUnit.maxHp;
-    deathUnit.attack = damageUnit.attack;
-    deathUnit.shield = damageUnit.shield;
 }
 
 std::string formatStatusFrames(const char* label, int frames)
@@ -352,9 +336,10 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
     const BattleDamageApplicationInput& input) const
 {
     assert(input.frame >= 0);
+    assert(input.deathEffects);
+    assert(input.deathEffectUnits);
 
     BattleDamageApplicationResult result;
-    result.deathEffects = input.deathEffects;
     auto units = input.units;
     auto pendingTransactions = input.aggregatePendingTransactionsByDefender
         ? aggregatePendingTransactions(input.pendingTransactions)
@@ -374,14 +359,8 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
             unitById(units, transaction.attacker.id).alive = transaction.attacker.alive;
         }
 
-        if (auto* deathUnit = findDeathEffectUnit(result.deathEffects, transaction.defender.id))
-        {
-            applyDamageUnitToDeathEffectUnit(*deathUnit, transaction.defender);
-        }
-        if (auto* deathUnit = findDeathEffectUnit(result.deathEffects, transaction.attacker.id))
-        {
-            applyDamageUnitToDeathEffectUnit(*deathUnit, transaction.attacker);
-        }
+        input.deathEffectUnits->writeDamageUnit(transaction.defender);
+        input.deathEffectUnits->writeDamageUnit(transaction.attacker);
 
         for (const auto& event : transaction.events)
         {
@@ -422,15 +401,13 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
             });
 
             appendDeathAoeCommand(result, input, transaction, event.targetUnitId);
-            if (findDeathEffectUnit(result.deathEffects, event.targetUnitId))
+            auto deathEvents = BattleDeathEffectSystem().applyAllyDeathEffects(
+                *input.deathEffectUnits,
+                *input.deathEffects,
+                event.targetUnitId);
+            for (const auto& deathEvent : deathEvents)
             {
-                auto deathEvents = BattleDeathEffectSystem().applyAllyDeathEffects(
-                    result.deathEffects,
-                    event.targetUnitId);
-                for (const auto& deathEvent : deathEvents)
-                {
-                    appendDeathEffectCommand(result, deathEvent);
-                }
+                appendDeathEffectCommand(result, deathEvent);
             }
         }
 

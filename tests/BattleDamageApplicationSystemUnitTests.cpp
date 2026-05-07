@@ -35,11 +35,26 @@ BattleDamageTransactionInput damageInput(int attackerUnitId, int defenderUnitId,
     return input;
 }
 
+BattleRuntimeUnit runtimeUnit(int id, int team, int hp, int maxHp, int attack)
+{
+    BattleRuntimeUnit unit;
+    unit.id = id;
+    unit.team = team;
+    unit.alive = hp > 0;
+    unit.hp = hp;
+    unit.maxHp = maxHp;
+    unit.attack = attack;
+    return unit;
+}
+
 BattleDamageApplicationInput applicationInput()
 {
     BattleDamageApplicationInput input;
-    static BattleUnitStore followUpUnits;
-    followUpUnits.units = {};
+    static BattleUnitStore runtimeUnits;
+    static BattleDeathEffectStore deathEffects;
+    runtimeUnits.units = {};
+    deathEffects.units = {};
+    deathEffects.regularSynergyComboIds.clear();
     input.frame = 77;
     input.units = {
         { 1, 0, true },
@@ -61,8 +76,15 @@ BattleDamageApplicationInput applicationInput()
     defender.maxHp = 100;
     defender.position = { 36.0f, 0.0f, 0.0f };
     defender.grid = { 1, 0 };
-    followUpUnits.units = { attacker, defender };
-    input.projectileFollowUpUnits = &followUpUnits;
+    runtimeUnits.units = { attacker, defender };
+    BattleDeathEffectExtras attackerEffects;
+    attackerEffects.id = 1;
+    BattleDeathEffectExtras defenderEffects;
+    defenderEffects.id = 2;
+    deathEffects.units = { attackerEffects, defenderEffects };
+    input.deathEffectUnits = &runtimeUnits;
+    input.deathEffects = &deathEffects;
+    input.projectileFollowUpUnits = &runtimeUnits;
     input.projectileFollowUps.projectileSpeed = 12.0;
     return input;
 }
@@ -113,6 +135,7 @@ TEST_CASE("BattleDamageApplication_AggregatesPendingDamageByDefenderWhenRequeste
     auto input = applicationInput();
     input.aggregatePendingTransactionsByDefender = true;
     input.units.push_back({ 3, 0, true });
+    input.deathEffectUnits->units.push_back(runtimeUnit(3, 0, 80, 100, 0));
 
     auto first = damageInput(1, 2, 3);
     auto second = damageInput(3, 2, 4);
@@ -134,6 +157,7 @@ TEST_CASE("BattleDamageApplication_AggregatedPendingDamageUsesLastPresentationMe
     auto input = applicationInput();
     input.aggregatePendingTransactionsByDefender = true;
     input.units.push_back({ 3, 0, true });
+    input.deathEffectUnits->units.push_back(runtimeUnit(3, 0, 80, 100, 0));
 
     auto first = damageInput(1, 2, 3);
     auto second = damageInput(3, 2, 4);
@@ -222,30 +246,30 @@ TEST_CASE("BattleDamageApplication_AllyDeathEffectsBecomeExplicitCommands", "[ba
     input.units.push_back({ 3, 1, true });
     input.pendingTransactions.push_back(damageInput(1, 2, 20));
 
-    BattleDeathEffectUnit dead;
+    BattleRuntimeUnit allyUnit;
+    allyUnit.id = 3;
+    allyUnit.team = 1;
+    allyUnit.alive = true;
+    allyUnit.hp = 50;
+    allyUnit.maxHp = 100;
+    allyUnit.attack = 10;
+    allyUnit.defence = 8;
+    input.deathEffectUnits->units.push_back(allyUnit);
+
+    BattleDeathEffectExtras dead;
     dead.id = 2;
-    dead.team = 1;
-    dead.alive = true;
-    dead.hp = 10;
-    dead.maxHp = 100;
     dead.comboIds = { 9 };
     dead.appliedEffects.push_back({ EffectType::DeathMedical, 20, 0, "", Trigger::Always, 0, 0, 0, 9 });
 
-    BattleDeathEffectUnit ally;
+    BattleDeathEffectExtras ally;
     ally.id = 3;
-    ally.team = 1;
-    ally.alive = true;
-    ally.hp = 50;
-    ally.maxHp = 100;
-    ally.attack = 10;
-    ally.defence = 8;
     ally.shieldPctMaxHp = 30;
     ally.comboIds = { 9 };
     ally.appliedEffects.push_back({ EffectType::AllyDeathStatBoost, 4, 0, "", Trigger::Always, 0, 0, 0, 9 });
     ally.appliedEffects.push_back({ EffectType::ShieldOnAllyDeath, 1, 0, "", Trigger::Always, 0, 0, 0, 9 });
 
-    input.deathEffects.units = { dead, ally };
-    input.deathEffects.regularSynergyComboIds.insert(9);
+    input.deathEffects->units = { dead, ally };
+    input.deathEffects->regularSynergyComboIds.insert(9);
 
     auto result = BattleDamageApplicationSystem().apply(input);
 

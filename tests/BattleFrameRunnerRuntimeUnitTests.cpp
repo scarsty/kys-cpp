@@ -344,6 +344,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
         damageUnit(1, 100),
         damageUnit(2, 80),
     };
+    state.units.units = {
+        teamRuntimeUnit(1, 0, 100),
+        teamRuntimeUnit(2, 1, 80),
+    };
+    state.deathEffects.store.units = { { 1 }, { 2 } };
     state.damage.cooldowns.emplace(1, cooldownUnit());
     state.damage.cooldowns.emplace(2, cooldownUnit());
 
@@ -376,6 +381,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
         damageUnit(1, 100),
         damageUnit(2, 80),
     };
+    state.units.units = {
+        teamRuntimeUnit(1, 0, 100),
+        teamRuntimeUnit(2, 1, 80),
+    };
+    state.deathEffects.store.units = { { 1 }, { 2 } };
     state.damage.cooldowns.emplace(1, cooldownUnit());
     state.damage.cooldowns.emplace(2, cooldownUnit());
 

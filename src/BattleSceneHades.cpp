@@ -458,17 +458,17 @@ void setCoolDown(Role* r, int cd)
     r->CoolDownMax = cd;
 }
 
-KysChess::Battle::BattleDeathEffectWorld makeBattleDeathEffectWorld(
+KysChess::Battle::BattleDeathEffectStore makeBattleDeathEffectStore(
     const std::vector<Role*>& roles,
     const std::map<int, KysChess::RoleComboState>& states)
 {
-    KysChess::Battle::BattleDeathEffectWorld world;
+    KysChess::Battle::BattleDeathEffectStore store;
     const auto& allCombos = KysChess::ChessCombo::getAllCombos();
     for (int comboId = 0; comboId < static_cast<int>(allCombos.size()); ++comboId)
     {
         if (!allCombos[comboId].isAntiCombo)
         {
-            world.regularSynergyComboIds.insert(comboId);
+            store.regularSynergyComboIds.insert(comboId);
         }
     }
 
@@ -478,45 +478,38 @@ KysChess::Battle::BattleDeathEffectWorld makeBattleDeathEffectWorld(
         auto stateIt = states.find(role->ID);
         assert(stateIt != states.end());
 
-        KysChess::Battle::BattleDeathEffectUnit unit;
-        unit.id = role->ID;
-        unit.team = role->Team;
-        unit.alive = role->Dead == 0;
-        unit.hp = role->HP;
-        unit.maxHp = role->MaxHP;
-        unit.attack = role->Attack;
-        unit.defence = role->Defence;
-        unit.shield = stateIt->second.shield;
-        unit.shieldPctMaxHp = stateIt->second.shieldPctMaxHP;
-        unit.shieldOnAllyDeathTracker = stateIt->second.shieldOnAllyDeathTracker;
-        unit.appliedEffects = stateIt->second.appliedEffects;
+        KysChess::Battle::BattleDeathEffectExtras extras;
+        extras.id = role->ID;
+        extras.shieldPctMaxHp = stateIt->second.shieldPctMaxHP;
+        extras.shieldOnAllyDeathTracker = stateIt->second.shieldOnAllyDeathTracker;
+        extras.appliedEffects = stateIt->second.appliedEffects;
 
         int comboLookupId = getComboLookupId(role);
         if (comboLookupId >= 0)
         {
-            unit.comboIds = KysChess::ChessCombo::getCombosForRole(comboLookupId);
+            extras.comboIds = KysChess::ChessCombo::getCombosForRole(comboLookupId);
         }
-        world.units.push_back(unit);
+        store.units.push_back(std::move(extras));
     }
-    return world;
+    return store;
 }
 
-void writeBattleDeathEffectTrackers(const KysChess::Battle::BattleDeathEffectWorld& world,
+void writeBattleDeathEffectTrackers(const KysChess::Battle::BattleDeathEffectStore& store,
                                     const std::vector<Role*>& roles,
                                     std::map<int, KysChess::RoleComboState>& states)
 {
     for (auto role : roles)
     {
         assert(role);
-        auto unitIt = std::find_if(world.units.begin(), world.units.end(), [&](const KysChess::Battle::BattleDeathEffectUnit& unit)
+        auto extrasIt = std::find_if(store.units.begin(), store.units.end(), [&](const KysChess::Battle::BattleDeathEffectExtras& extras)
             {
-                return unit.id == role->ID;
+                return extras.id == role->ID;
             });
-        assert(unitIt != world.units.end());
+        assert(extrasIt != store.units.end());
 
         auto stateIt = states.find(role->ID);
         assert(stateIt != states.end());
-        stateIt->second.shieldOnAllyDeathTracker = unitIt->shieldOnAllyDeathTracker;
+        stateIt->second.shieldOnAllyDeathTracker = extrasIt->shieldOnAllyDeathTracker;
     }
 }
 
@@ -1052,7 +1045,7 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     }
     configureBattleAttackWorld(battleRuntime().attacks);
     battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
-    battleRuntime().deathEffects.world = makeBattleDeathEffectWorld(
+    battleRuntime().deathEffects.store = makeBattleDeathEffectStore(
         battle_roles_,
         comboStates);
     auto* basicMagic = Save::getInstance()->getMagic(1);
@@ -3886,7 +3879,7 @@ void BattleSceneHades::applyCoreDamageTransactions(
         }
     }
 
-    writeBattleDeathEffectTrackers(frameState.deathEffects.world, battle_roles_, cs);
+    writeBattleDeathEffectTrackers(frameState.deathEffects.store, battle_roles_, cs);
 
     auto lifecycleApply = applyBattleLifecycleEvents(
         {

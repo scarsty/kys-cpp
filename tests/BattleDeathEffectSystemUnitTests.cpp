@@ -1,3 +1,4 @@
+#include "battle/BattleCore.h"
 #include "battle/BattleDeathEffectSystem.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -17,9 +18,9 @@ AppliedEffectInstance effect(EffectType type, int value, int comboId)
     return instance;
 }
 
-BattleDeathEffectUnit unit(int id, int team, bool alive)
+BattleRuntimeUnit unit(int id, int team, bool alive)
 {
-    BattleDeathEffectUnit state;
+    BattleRuntimeUnit state;
     state.id = id;
     state.team = team;
     state.alive = alive;
@@ -30,89 +31,113 @@ BattleDeathEffectUnit unit(int id, int team, bool alive)
     return state;
 }
 
-const BattleDeathEffectUnit& unitById(const BattleDeathEffectWorld& world, int id)
+BattleDeathEffectExtras extras(int id)
 {
-    for (const auto& unit : world.units)
+    BattleDeathEffectExtras state;
+    state.id = id;
+    return state;
+}
+
+const BattleDeathEffectExtras& extrasById(const BattleDeathEffectStore& store, int id)
+{
+    for (const auto& extras : store.units)
     {
-        if (unit.id == id)
+        if (extras.id == id)
         {
-            return unit;
+            return extras;
         }
     }
-    FAIL("unit not found");
+    FAIL("extras not found");
 }
 
 }  // namespace
 
 TEST_CASE("BattleDeathEffectSystem_AllyDeathStatBoost_RequiresRegularSharedCombo", "[battle][death_effect][unit]")
 {
-    BattleDeathEffectWorld world;
-    world.regularSynergyComboIds = { 7 };
-    auto dead = unit(1, 0, false);
+    BattleUnitStore units;
+    units.units = {
+        unit(1, 0, false),
+        unit(2, 0, true),
+        unit(3, 1, true),
+    };
+    BattleDeathEffectStore effects;
+    effects.regularSynergyComboIds = { 7 };
+    auto dead = extras(1);
     dead.comboIds = { 7 };
-    auto ally = unit(2, 0, true);
+    auto ally = extras(2);
     ally.appliedEffects = {
         effect(EffectType::AllyDeathStatBoost, 5, 7),
         effect(EffectType::AllyDeathStatBoost, 9, 8),
     };
-    auto enemy = unit(3, 1, true);
+    auto enemy = extras(3);
     enemy.appliedEffects = { effect(EffectType::AllyDeathStatBoost, 50, 7) };
-    world.units = { dead, ally, enemy };
+    effects.units = { dead, ally, enemy };
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(world, 1);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 1);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::AllyStatBoost);
     CHECK(events[0].targetUnitId == 2);
     CHECK(events[0].value == 5);
-    CHECK(unitById(world, 2).attack == 15);
-    CHECK(unitById(world, 2).defence == 25);
-    CHECK(unitById(world, 3).attack == 10);
+    CHECK(units.requireUnit(2).attack == 15);
+    CHECK(units.requireUnit(2).defence == 25);
+    CHECK(units.requireUnit(3).attack == 10);
 }
 
 TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboAllies", "[battle][death_effect][unit]")
 {
-    BattleDeathEffectWorld world;
-    world.regularSynergyComboIds = { 3 };
-    auto dead = unit(1, 0, false);
+    BattleUnitStore units;
+    units.units = {
+        unit(1, 0, false),
+        unit(2, 0, true),
+        unit(3, 0, true),
+    };
+    units.requireUnit(2).hp = 80;
+    units.requireUnit(3).hp = 20;
+    BattleDeathEffectStore effects;
+    effects.regularSynergyComboIds = { 3 };
+    auto dead = extras(1);
     dead.appliedEffects = { effect(EffectType::DeathMedical, 30, 3) };
-    auto ally = unit(2, 0, true);
-    ally.hp = 80;
+    auto ally = extras(2);
     ally.comboIds = { 3 };
-    auto outsider = unit(3, 0, true);
-    outsider.hp = 20;
+    auto outsider = extras(3);
     outsider.comboIds = { 4 };
-    world.units = { dead, ally, outsider };
+    effects.units = { dead, ally, outsider };
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(world, 1);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 1);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::DeathMedicalHeal);
     CHECK(events[0].targetUnitId == 2);
     CHECK(events[0].value == 20);
-    CHECK(unitById(world, 2).hp == 100);
-    CHECK(unitById(world, 3).hp == 20);
+    CHECK(units.requireUnit(2).hp == 100);
+    CHECK(units.requireUnit(3).hp == 20);
 }
 
 TEST_CASE("BattleDeathEffectSystem_ShieldOnAllyDeath_TracksDeathsAndAwardsShield", "[battle][death_effect][unit]")
 {
-    BattleDeathEffectWorld world;
-    world.regularSynergyComboIds = { 5 };
-    auto dead = unit(1, 0, false);
+    BattleUnitStore units;
+    units.units = {
+        unit(1, 0, false),
+        unit(2, 0, true),
+    };
+    units.requireUnit(2).maxHp = 200;
+    BattleDeathEffectStore effects;
+    effects.regularSynergyComboIds = { 5 };
+    auto dead = extras(1);
     dead.comboIds = { 5 };
-    auto ally = unit(2, 0, true);
-    ally.maxHp = 200;
+    auto ally = extras(2);
     ally.shieldPctMaxHp = 25;
     ally.shieldOnAllyDeathTracker = 1;
     ally.appliedEffects = { effect(EffectType::ShieldOnAllyDeath, 2, 5) };
-    world.units = { dead, ally };
+    effects.units = { dead, ally };
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(world, 1);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 1);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::ShieldOnAllyDeath);
     CHECK(events[0].targetUnitId == 2);
     CHECK(events[0].value == 50);
-    CHECK(unitById(world, 2).shield == 50);
-    CHECK(unitById(world, 2).shieldOnAllyDeathTracker == 0);
+    CHECK(units.requireUnit(2).shield == 50);
+    CHECK(extrasById(effects, 2).shieldOnAllyDeathTracker == 0);
 }
