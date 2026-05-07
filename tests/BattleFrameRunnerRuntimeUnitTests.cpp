@@ -121,16 +121,6 @@ BattleRuntimeUnit teamRuntimeUnitAt(int id, int team, int hp, Pointf position, i
     return unit;
 }
 
-BattleDamageUnitState damageUnit(int id, int hp)
-{
-    BattleDamageUnitState unit;
-    unit.id = id;
-    unit.alive = true;
-    unit.hp = hp;
-    unit.maxHp = 100;
-    return unit;
-}
-
 BattleStatusRuntimeUnit runtimeStatusUnit(const BattleStatusUnitState& unit)
 {
     return makeBattleStatusRuntimeUnit(unit);
@@ -338,10 +328,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     poisoned.poisonSourceId = 1;
     state.status.units.push_back(runtimeStatusUnit(poisoned));
 
-    state.damage.units = {
-        damageUnit(1, 100),
-        damageUnit(2, 80),
-    };
     state.units.units = {
         teamRuntimeUnit(1, 0, 100),
         teamRuntimeUnit(2, 1, 80),
@@ -373,10 +359,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     bleeding.bleedSourceId = 1;
     state.status.units.push_back(runtimeStatusUnit(bleeding));
 
-    state.damage.units = {
-        damageUnit(1, 100),
-        damageUnit(2, 80),
-    };
     state.units.units = {
         teamRuntimeUnit(1, 0, 100),
         teamRuntimeUnit(2, 1, 80),

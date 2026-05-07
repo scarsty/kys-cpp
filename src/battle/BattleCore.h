@@ -302,7 +302,7 @@ struct BattleRuntimeState
     struct DamageState
     {
         bool aggregatePendingTransactionsByDefender = false;
-        std::vector<BattleDamageUnitState> units;
+        std::vector<BattleDamageRuntimeUnit> unitExtras;
         std::map<int, BattleDamagePresentationStyle> presentationStylesByDefender;
         std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
         std::vector<BattleDamageTransactionInput> pendingTransactions;
@@ -454,5 +454,6 @@ public:
 };
 
 void clearBattleDamageFrameScratch(BattleRuntimeState& state);
+BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
 
 }  // namespace KysChess::Battle

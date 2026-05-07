@@ -227,19 +227,6 @@ BattleHitItemSnapshot hitItemSnapshot(int id, int resolvedDamage)
     return snapshot;
 }
 
-BattleDamageUnitState damageUnitSnapshot(int id, int hp)
-{
-    BattleDamageUnitState state;
-    state.id = id;
-    state.alive = true;
-    state.hp = hp;
-    state.maxHp = 100;
-    state.mp = 50;
-    state.maxMp = 100;
-    state.attack = 30;
-    return state;
-}
-
 BattleStatusUnitState statusUnitSnapshot(int id, int hp)
 {
     BattleStatusUnitState state;
@@ -284,10 +271,6 @@ BattleRuntimeState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
     };
     state.hits.skills.push_back({ 10, 1, 2, hitSkillSnapshot(101, resolvedBaseDamage) });
     state.hits.scalars.push_back({ 10, 1, 2, resolvedBaseDamage, 0, 1, 0, {} });
-    state.damage.units = {
-        damageUnitSnapshot(1, 80),
-        damageUnitSnapshot(2, defenderHp),
-    };
     state.units.units = {
         runtimeUnitSnapshot(1, 0, 80, { 100, 100, 0 }),
         runtimeUnitSnapshot(2, 1, defenderHp, { 105, 100, 0 }),
@@ -475,10 +458,6 @@ TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore",
     };
     state.deathEffects.store.units = { { 1 }, { 2 } };
     state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
-    state.damage.units = {
-        damageUnitSnapshot(1, 100),
-        damageUnitSnapshot(2, 10),
-    };
     state.status.units = {
         statusRuntimeSnapshot(1, 100),
         statusRuntimeSnapshot(2, 10),
@@ -524,10 +503,6 @@ TEST_CASE("BattleFrameRunner_RoutesTeamEffectEventsThroughCanonicalUnitStore", "
     state.units.units = {
         runtimeUnitSnapshot(1, 0, 40, { 100, 100, 0 }),
         runtimeUnitSnapshot(2, 0, 80, { 120, 100, 0 }),
-    };
-    state.damage.units = {
-        damageUnitSnapshot(1, 40),
-        damageUnitSnapshot(2, 80),
     };
     state.status.units = {
         statusRuntimeSnapshot(1, 40),
@@ -604,11 +579,6 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
         unit(3, 1, { 72, 72, 0 }),
     });
     state.attacks = attackWorld();
-    state.damage.units = {
-        damageUnitSnapshot(1, 100),
-        damageUnitSnapshot(2, defenderHp),
-        damageUnitSnapshot(3, 100),
-    };
     state.status.units = {
         statusRuntimeSnapshot(1, 100),
         statusRuntimeSnapshot(2, defenderHp),
@@ -1706,11 +1676,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
         runtimeUnitSnapshot(2, 0, 70, { 120, 100, 0 }),
         runtimeUnitSnapshot(3, 1, 80, { 180, 100, 0 }),
     };
-    state.damage.units = {
-        damageUnitSnapshot(1, 50),
-        damageUnitSnapshot(2, 70),
-        damageUnitSnapshot(3, 80),
-    };
     state.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 1, 10, 0, "技能群療" });
 
     auto result = BattleFrameRunner().runFrame(state);
@@ -1718,8 +1683,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
     REQUIRE(state.teamEffects.committedEvents.size() == 2);
     CHECK(state.units.requireUnit(1).hp == 60);
     CHECK(state.units.requireUnit(2).hp == 80);
-    CHECK(state.damage.units[0].hp == 60);
-    CHECK(state.damage.units[1].hp == 80);
     CHECK(result.commands.empty());
 }
 
@@ -1848,7 +1811,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle
     CHECK(rescue.heal.amount == 10);
     CHECK(rescue.invincibility.targetUnitId == 2);
     CHECK(rescue.invincibility.frames == 10);
-    CHECK(state.damage.units[1].hp == 30);
     CHECK(state.units.requireUnit(2).hp == 30);
     CHECK(state.units.requireUnit(2).invincible == 10);
     CHECK(state.combo.units.at(3).forcePullProtectRemaining == 0);
@@ -1906,7 +1868,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
     REQUIRE(state.damage.committedTransactions.size() == 1);
     CHECK(state.rescue.committedResults.empty());
     CHECK(state.combo.units.at(3).forcePullProtectRemaining == 1);
-    CHECK(state.damage.units[1].hp == 20);
+    CHECK(state.units.requireUnit(2).hp == 20);
     CHECK(result.commands.empty());
 }
 

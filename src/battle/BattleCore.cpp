@@ -809,18 +809,18 @@ const BattleStatusRuntimeUnit* findStatusUnit(const std::vector<BattleStatusRunt
     return it != units.end() ? &*it : nullptr;
 }
 
-BattleDamageUnitState* findDamageUnit(std::vector<BattleDamageUnitState>& units, int unitId)
+BattleDamageRuntimeUnit* findDamageRuntimeUnit(std::vector<BattleDamageRuntimeUnit>& units, int unitId)
 {
-    auto it = std::find_if(units.begin(), units.end(), [&](const BattleDamageUnitState& unit)
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleDamageRuntimeUnit& unit)
         {
             return unit.id == unitId;
         });
     return it != units.end() ? &*it : nullptr;
 }
 
-const BattleDamageUnitState* findDamageUnit(const std::vector<BattleDamageUnitState>& units, int unitId)
+const BattleDamageRuntimeUnit* findDamageRuntimeUnit(const std::vector<BattleDamageRuntimeUnit>& units, int unitId)
 {
-    auto it = std::find_if(units.begin(), units.end(), [&](const BattleDamageUnitState& unit)
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleDamageRuntimeUnit& unit)
         {
             return unit.id == unitId;
         });
@@ -938,6 +938,48 @@ BattleStatusUnitState makeFallbackStatusUnit(const BattleDamageUnitState& unit)
     return status;
 }
 
+BattleDamageUnitState makeBattleDamageUnitState(
+    const BattleRuntimeUnit& unit,
+    const BattleDamageRuntimeUnit* runtime)
+{
+    BattleDamageUnitState damage;
+    damage.id = unit.id;
+    damage.alive = unit.alive;
+    damage.hp = unit.hp;
+    damage.maxHp = unit.maxHp;
+    damage.mp = unit.mp;
+    damage.maxMp = unit.maxMp;
+    damage.attack = unit.attack;
+    damage.invincible = unit.invincible;
+    damage.shield = unit.shield;
+    damage.mpBlocked = unit.mpBlocked;
+    damage.mpRecoveryBonusPct = unit.mpRecoveryBonusPct;
+    if (runtime)
+    {
+        damage.hurtInvincFrames = runtime->hurtInvincFrames;
+        damage.blockFirstHitsRemaining = runtime->blockFirstHitsRemaining;
+        damage.deathPrevention = runtime->deathPrevention;
+        damage.deathPreventionUsed = runtime->deathPreventionUsed;
+        damage.deathPreventionFrames = runtime->deathPreventionFrames;
+        damage.killHealPct = runtime->killHealPct;
+        damage.killInvincFrames = runtime->killInvincFrames;
+        damage.bloodlustAttackPerKill = runtime->bloodlustAttackPerKill;
+    }
+    return damage;
+}
+
+void writeBattleDamageRuntimeUnit(BattleDamageRuntimeUnit& runtime, const BattleDamageUnitState& unit)
+{
+    runtime.hurtInvincFrames = unit.hurtInvincFrames;
+    runtime.blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
+    runtime.deathPrevention = unit.deathPrevention;
+    runtime.deathPreventionUsed = unit.deathPreventionUsed;
+    runtime.deathPreventionFrames = unit.deathPreventionFrames;
+    runtime.killHealPct = unit.killHealPct;
+    runtime.killInvincFrames = unit.killInvincFrames;
+    runtime.bloodlustAttackPerKill = unit.bloodlustAttackPerKill;
+}
+
 BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit)
 {
     BattleCooldownState cooldown;
@@ -958,13 +1000,13 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
         state.units.writeDamageUnit(transaction.defender);
         state.units.requireUnit(transaction.defender.id).cooldown = transaction.defenderCooldown.cooldown;
     }
-    if (auto* attacker = findDamageUnit(state.damage.units, transaction.attacker.id))
+    if (auto* attacker = findDamageRuntimeUnit(state.damage.unitExtras, transaction.attacker.id))
     {
-        *attacker = transaction.attacker;
+        writeBattleDamageRuntimeUnit(*attacker, transaction.attacker);
     }
-    if (auto* defender = findDamageUnit(state.damage.units, transaction.defender.id))
+    if (auto* defender = findDamageRuntimeUnit(state.damage.unitExtras, transaction.defender.id))
     {
-        *defender = transaction.defender;
+        writeBattleDamageRuntimeUnit(*defender, transaction.defender);
     }
     if (auto* attacker = findWorldUnit(state.world, transaction.attacker.id))
     {
@@ -987,11 +1029,6 @@ void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int inv
         auto& unit = state.units.requireUnit(unitId);
         unit.hp = hp;
         unit.invincible = invincible;
-    }
-    if (auto* damageUnit = findDamageUnit(state.damage.units, unitId))
-    {
-        damageUnit->hp = hp;
-        damageUnit->invincible = invincible;
     }
 }
 
@@ -1316,27 +1353,31 @@ bool buildFrameDamageTransaction(
 {
     assert(request.defenderUnitId >= 0);
 
-    const auto* defender = findDamageUnit(state.damage.units, request.defenderUnitId);
-    if (!defender)
+    const auto* defenderUnit = state.units.findUnit(request.defenderUnitId);
+    const auto* defenderExtras = findDamageRuntimeUnit(state.damage.unitExtras, request.defenderUnitId);
+    if (!defenderUnit)
     {
         return false;
     }
+    const auto defender = makeBattleDamageUnitState(*defenderUnit, defenderExtras);
 
     transaction.request = request;
     if (request.attackerUnitId >= 0)
     {
-        const auto* attacker = findDamageUnit(state.damage.units, request.attackerUnitId);
-        if (!attacker)
+        const auto* attackerUnit = state.units.findUnit(request.attackerUnitId);
+        if (!attackerUnit)
         {
             return false;
         }
-        transaction.attacker = *attacker;
+        transaction.attacker = makeBattleDamageUnitState(
+            *attackerUnit,
+            findDamageRuntimeUnit(state.damage.unitExtras, request.attackerUnitId));
     }
     else
     {
         transaction.attacker.id = request.attackerUnitId;
     }
-    transaction.defender = *defender;
+    transaction.defender = defender;
     if (const auto* runtimeStatus = findStatusUnit(state.status.units, request.defenderUnitId))
     {
         transaction.defenderStatus = makeBattleStatusUnitState(
@@ -1345,7 +1386,7 @@ bool buildFrameDamageTransaction(
     }
     else
     {
-        transaction.defenderStatus = makeFallbackStatusUnit(*defender);
+        transaction.defenderStatus = makeFallbackStatusUnit(defender);
     }
     transaction.defenderCooldown = makeBattleFrameCooldownState(state.units.requireUnit(request.defenderUnitId));
     return true;
@@ -1355,7 +1396,7 @@ bool tryAppendFrameDamageTransaction(
     BattleRuntimeState& state,
     const BattleHpDamageCommand& command)
 {
-    const auto* defender = findDamageUnit(state.damage.units, command.targetUnitId);
+    const auto* defender = state.units.findUnit(command.targetUnitId);
     if (!defender)
     {
         return false;
@@ -1455,12 +1496,6 @@ void applyTeamEffectEventsToFrameState(
     for (const auto& event : events)
     {
         const auto& unit = state.units.requireUnit(event.targetUnitId);
-        if (auto* damageUnit = findDamageUnit(state.damage.units, event.targetUnitId))
-        {
-            damageUnit->hp = unit.hp;
-            damageUnit->mp = unit.mp;
-            damageUnit->shield = unit.shield;
-        }
         if (auto comboIt = state.combo.units.find(event.targetUnitId);
             comboIt != state.combo.units.end())
         {
@@ -1527,7 +1562,7 @@ bool applyFrameMpRestoreCommand(
     const BattleMpRestoreCommand& command,
     std::vector<BattleLogEvent>& logEvents)
 {
-    auto* unit = findDamageUnit(state.damage.units, command.unitId);
+    auto* unit = state.units.findUnit(command.unitId);
     if (!unit)
     {
         return false;
@@ -1540,10 +1575,6 @@ bool applyFrameMpRestoreCommand(
     }
 
     unit->mp += restored;
-    if (auto* runtimeUnit = state.units.findUnit(command.unitId))
-    {
-        runtimeUnit->mp = unit->mp;
-    }
     state.applications.mpRestores.push_back({ command.unitId, restored });
     appendStatusEventLog(logEvents, command.unitId, command.unitId, command.reason);
     return true;
@@ -1554,7 +1585,7 @@ bool applyFrameUnitHealCommand(
     const BattleUnitHealCommand& command,
     std::vector<BattleLogEvent>& logEvents)
 {
-    auto* unit = findDamageUnit(state.damage.units, command.targetUnitId);
+    auto* unit = state.units.findUnit(command.targetUnitId);
     if (!unit)
     {
         return false;
@@ -1568,10 +1599,6 @@ bool applyFrameUnitHealCommand(
         return true;
     }
 
-    if (auto* runtimeUnit = state.units.findUnit(command.targetUnitId))
-    {
-        runtimeUnit->hp = unit->hp;
-    }
     state.applications.unitHeals.push_back({ command.sourceUnitId, command.targetUnitId, healed });
     appendHealEventLog(logEvents, command.sourceUnitId, command.targetUnitId, healed, command.reason);
     return true;
@@ -1583,7 +1610,8 @@ bool applyFrameUnitShieldCommand(
     std::vector<BattleLogEvent>& logEvents)
 {
     auto comboIt = state.combo.units.find(command.targetUnitId);
-    if (comboIt == state.combo.units.end() && !findDamageUnit(state.damage.units, command.targetUnitId))
+    auto* runtimeUnit = state.units.findUnit(command.targetUnitId);
+    if (comboIt == state.combo.units.end() && !runtimeUnit)
     {
         return false;
     }
@@ -1592,11 +1620,7 @@ bool applyFrameUnitShieldCommand(
     {
         comboIt->second.shield += command.amount;
     }
-    if (auto* damageUnit = findDamageUnit(state.damage.units, command.targetUnitId))
-    {
-        damageUnit->shield += command.amount;
-    }
-    if (auto* runtimeUnit = state.units.findUnit(command.targetUnitId))
+    if (runtimeUnit)
     {
         runtimeUnit->shield += command.amount;
     }
@@ -1614,7 +1638,7 @@ bool applyFrameTempAttackBuffCommand(
     const BattleTempAttackBuffCommand& command,
     std::vector<BattleLogEvent>& logEvents)
 {
-    auto* unit = findDamageUnit(state.damage.units, command.unitId);
+    auto* unit = state.units.findUnit(command.unitId);
     auto comboIt = state.combo.units.find(command.unitId);
     if (!unit && comboIt == state.combo.units.end())
     {
@@ -1624,11 +1648,7 @@ bool applyFrameTempAttackBuffCommand(
     if (unit)
     {
         unit->attack += command.attackBonus;
-    }
-    if (auto* runtimeUnit = state.units.findUnit(command.unitId))
-    {
-        runtimeUnit->attack += command.attackBonus;
-        runtimeUnit->defence += command.defenceBonus;
+        unit->defence += command.defenceBonus;
     }
     if (!command.permanent && comboIt != state.combo.units.end())
     {
@@ -1915,10 +1935,10 @@ void advanceStatus(BattleRuntimeState& state)
             continue;
         }
 
-        auto* attacker = findDamageUnit(state.damage.units, event.sourceUnitId);
-        auto* defender = findDamageUnit(state.damage.units, event.unitId);
+        auto* attackerUnit = state.units.findUnit(event.sourceUnitId);
+        auto* defenderUnit = state.units.findUnit(event.unitId);
         auto* defenderStatus = findStatusUnit(state.status.units, event.unitId);
-        if (!attacker || !defender || !defenderStatus)
+        if (!attackerUnit || !defenderUnit || !defenderStatus)
         {
             continue;
         }
@@ -1928,8 +1948,12 @@ void advanceStatus(BattleRuntimeState& state)
         transaction.request.defenderUnitId = event.unitId;
         transaction.request.baseDamage = event.value;
         transaction.request.preResolvedDamage = true;
-        transaction.attacker = *attacker;
-        transaction.defender = *defender;
+        transaction.attacker = makeBattleDamageUnitState(
+            *attackerUnit,
+            findDamageRuntimeUnit(state.damage.unitExtras, event.sourceUnitId));
+        transaction.defender = makeBattleDamageUnitState(
+            *defenderUnit,
+            findDamageRuntimeUnit(state.damage.unitExtras, event.unitId));
         transaction.defenderStatus = makeBattleStatusUnitState(
             *defenderStatus,
             state.units.requireUnit(event.unitId));
@@ -2527,6 +2551,21 @@ BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
     }
     assert(false);
     return result;
+}
+
+BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit)
+{
+    BattleDamageRuntimeUnit runtime;
+    runtime.id = unit.id;
+    runtime.hurtInvincFrames = unit.hurtInvincFrames;
+    runtime.blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
+    runtime.deathPrevention = unit.deathPrevention;
+    runtime.deathPreventionUsed = unit.deathPreventionUsed;
+    runtime.deathPreventionFrames = unit.deathPreventionFrames;
+    runtime.killHealPct = unit.killHealPct;
+    runtime.killInvincFrames = unit.killInvincFrames;
+    runtime.bloodlustAttackPerKill = unit.bloodlustAttackPerKill;
+    return runtime;
 }
 
 BattleCore::BattleCore(BattleWorldState& world)

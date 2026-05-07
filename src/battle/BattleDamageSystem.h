@@ -41,6 +41,19 @@ struct BattleDamageUnitState
     int mpRecoveryBonusPct = 0;
 };
 
+struct BattleDamageRuntimeUnit
+{
+    int id = -1;
+    int hurtInvincFrames = 0;
+    int blockFirstHitsRemaining = 0;
+    bool deathPrevention = false;
+    bool deathPreventionUsed = false;
+    int deathPreventionFrames = 0;
+    int killHealPct = 0;
+    int killInvincFrames = 0;
+    int bloodlustAttackPerKill = 0;
+};
+
 struct BattleDamageModifierState
 {
     int flatDamageIncrease = 0;

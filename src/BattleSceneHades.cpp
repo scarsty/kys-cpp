@@ -3705,9 +3705,10 @@ void BattleSceneHades::initializeCoreDamageState()
     {
         assert(role);
         auto stateIt = comboStates.find(role->ID);
-        frameState.damage.units.push_back(makeBattleDamageUnit(
-            role,
-            stateIt != comboStates.end() ? &stateIt->second : nullptr));
+        frameState.damage.unitExtras.push_back(KysChess::Battle::makeBattleDamageRuntimeUnit(
+            makeBattleDamageUnit(
+                role,
+                stateIt != comboStates.end() ? &stateIt->second : nullptr)));
         frameState.damage.presentationStylesByDefender.emplace(role->ID, makeBattleDamagePresentationStyle(role));
         if (stateIt != comboStates.end() && stateIt->second.deathAOEPct > 0)
         {
