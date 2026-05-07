@@ -57,14 +57,6 @@ struct BattleMovementPhysicsCollisionWorld
     std::vector<BattleMovementPhysicsCollisionCellSnapshot> cells;
 };
 
-struct BattleFrameMovementPhysicsUnitInput
-{
-    int unitId = -1;
-    int frozenFrames = 0;
-    bool actionDashActive = false;
-    BattleMovementPhysicsState state;
-};
-
 struct BattleFrameMovementPhysicsUnitResult
 {
     int unitId = -1;

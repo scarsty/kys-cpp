@@ -35,7 +35,6 @@ using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
 using KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::BattleFrameHitAdapterInput;
 using KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext;
-using KysChess::BattleSceneBattleAdapter::BattleRescueFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::appendBattleFrameHitInput;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
 using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
@@ -50,9 +49,6 @@ using KysChess::BattleSceneBattleAdapter::effectiveBattleReach;
 using KysChess::BattleSceneBattleAdapter::forcedRangedMinSelectDistance;
 using KysChess::BattleSceneBattleAdapter::isBattleRangedStyleMagic;
 using KysChess::BattleSceneBattleAdapter::populateBattleActionFrame;
-using KysChess::BattleSceneBattleAdapter::populateBattleFrameRescueState;
-using KysChess::BattleSceneBattleAdapter::populateBattleMovementPhysicsFrame;
-using KysChess::BattleSceneBattleAdapter::populateBattleFrameHitUnits;
 using KysChess::BattleSceneBattleAdapter::projectileSpeedMultiplierPct;
 using KysChess::BattleSceneBattleAdapter::resolveBattleMagicBaseDamage;
 using KysChess::BattleSceneBattleAdapter::roleForcesRangedMagic;
@@ -937,6 +933,11 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     battleRuntime().movementPhysics.config.gravity = gravity_;
     battleRuntime().movementPhysics.config.friction = friction_;
     battleRuntime().movementPhysics.config.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
+    const auto castConfig = KysChess::BattleSceneBattleAdapter::makeBattleCastConfig();
+    battleRuntime().movementPhysics.actionCastFrames.assign(
+        castConfig.castFrames.begin(),
+        castConfig.castFrames.end());
+    battleRuntime().movementPhysics.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
     battleRuntime().movementPhysics.collision.tileWidth = TILE_W;
     battleRuntime().movementPhysics.collision.coordCount = BATTLE_COORD_COUNT;
     battleRuntime().movementPhysics.collision.defaultSeparationDistance = TILE_W * 1.5;
@@ -2493,41 +2494,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
 
     }
 
-    BattleRescueFrameAdapterContext rescueContext;
-    rescueContext.roles = &battle_roles_;
-    rescueContext.comboStates = &battleRuntime().combo.units;
-    for (auto* role : battle_roles_)
-    {
-        assert(role);
-        rescueContext.unitCells.emplace(role->ID, pos90To45(role->Pos.x, role->Pos.y));
-    }
-    for (auto& cell : battleRuntime().rescue.cells)
-    {
-        cell.occupied = false;
-        cell.occupantUnitId = -1;
-        for (auto* role : battle_roles_)
-        {
-            assert(role);
-            if (role->Dead != 0)
-            {
-                continue;
-            }
-            auto grid = pos90To45(role->Pos.x, role->Pos.y);
-            if (grid.x == cell.x && grid.y == cell.y)
-            {
-                cell.occupied = true;
-                cell.occupantUnitId = role->ID;
-                break;
-            }
-        }
-    }
-    populateBattleFrameRescueState(battleRuntime(), rescueContext);
-
     movementPhysicsContext.roles = &battle_roles_;
-    movementPhysicsContext.movementRuntime = &battleRuntime().movementRuntime;
-    movementPhysicsContext.config.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
-    movementPhysicsContext.config.castFrames = KysChess::BattleSceneBattleAdapter::makeBattleCastConfig().castFrames;
-    populateBattleMovementPhysicsFrame(battleRuntime(), scratch, movementPhysicsContext);
 
     battleRuntime().movementDecisions.clear();
     core_movement_frame_ = battle_frame_;
@@ -2622,14 +2589,6 @@ void BattleSceneHades::applyCoreFrameResult(
     }
     applyCoreFrameApplications(bundle, frameResult.applications);
     applyBattleMovementPhysicsFrameResults(frameResult.movementPhysicsResults, movementPhysicsContext);
-    for (const auto& result : frameResult.movementPhysicsResults)
-    {
-        auto* role = requireFrameRole(bundle, result.unitId);
-        auto& movementRuntime = battleRuntime().movementRuntime[role->ID];
-        movementRuntime.movementDashFrames = result.state.movementDashFrames;
-        movementRuntime.movementDashCooldown = result.state.movementDashCooldown;
-        movementRuntime.movementDashSpreadFrames = result.state.movementDashSpreadFrames;
-    }
     battleRuntime().movementDecisions.clear();
     for (const auto& [battleId, decision] : frameResult.movement.decisions)
     {
@@ -3160,7 +3119,6 @@ void BattleSceneHades::populateCoreHitState(
     KysChess::Battle::BattleFrameScratch& scratch)
 {
     auto& frameState = battleRuntime();
-    populateBattleFrameHitUnits(scratch, battle_roles_);
 
     for (const auto& attack : frameState.attacks.attacks)
     {

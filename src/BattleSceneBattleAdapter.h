@@ -102,30 +102,9 @@ struct BattleActionFrameAdapterContext
     BattleActionFrameAdapterConfig config;
 };
 
-struct BattleRescueFrameAdapterContext
-{
-    const std::vector<Role*>* roles = nullptr;
-    const std::map<int, RoleComboState>* comboStates = nullptr;
-    std::unordered_map<int, Point> unitCells;
-};
-
-struct BattleMovementPhysicsFrameAdapterConfig
-{
-    float gravity = -4.0f;
-    float friction = 0.1f;
-    int postDashSpreadFrames = 0;
-    double tileWidth = 0.0;
-    int coordCount = 0;
-    double defaultSeparationDistance = 0.0;
-    int dashMomentumFrames = 0;
-    std::array<int, 4> castFrames{};
-};
-
 struct BattleMovementPhysicsFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
-    const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
-    BattleMovementPhysicsFrameAdapterConfig config;
 };
 
 struct BattleActionFrameApplyResult
@@ -193,7 +172,6 @@ Battle::BattleActionCommitUnitSnapshot makeBattleActionCommitUnitSnapshot(Role* 
 Battle::BattleActionTargetSnapshot makeBattleActionTargetSnapshot(Role* role);
 Battle::BattleActionItemSnapshot makeBattleActionItemSnapshot(Item* item);
 
-Battle::BattleHitUnitSnapshot makeBattleHitUnitSnapshot(Role* unit);
 Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,
                                                           Role* defender,
                                                           Magic* magic,
@@ -204,19 +182,9 @@ void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::Batt
 Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state);
 void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
-void populateBattleFrameHitUnits(
-    Battle::BattleFrameScratch& scratch,
-    const std::vector<Role*>& roles);
 void appendBattleFrameHitInput(
     Battle::BattleFrameScratch& scratch,
     const BattleFrameHitAdapterInput& input);
-void populateBattleFrameRescueState(
-    Battle::BattleRuntimeState& frameState,
-    const BattleRescueFrameAdapterContext& context);
-void populateBattleMovementPhysicsFrame(
-    Battle::BattleRuntimeState& frameState,
-    Battle::BattleFrameScratch& scratch,
-    const BattleMovementPhysicsFrameAdapterContext& context);
 void applyBattleMovementPhysicsFrameResults(
     const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
     const BattleMovementPhysicsFrameAdapterContext& context);

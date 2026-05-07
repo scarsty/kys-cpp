@@ -278,16 +278,29 @@ const BattleFrameHitScalarInput* findHitScalar(
     return it != scratch.hits.scalars.end() ? &*it : nullptr;
 }
 
-const BattleHitUnitSnapshot* findHitUnit(const BattleFrameScratch& scratch, int unitId)
+BattleHitUnitSnapshot makeHitUnitSnapshot(const BattleRuntimeUnit& unit)
 {
-    auto it = std::find_if(
-        scratch.hits.units.begin(),
-        scratch.hits.units.end(),
-        [&](const BattleHitUnitSnapshot& unit)
-        {
-            return unit.id == unitId;
-        });
-    return it != scratch.hits.units.end() ? &*it : nullptr;
+    BattleHitUnitSnapshot snapshot;
+    snapshot.id = unit.id;
+    snapshot.team = unit.team;
+    snapshot.alive = unit.alive;
+    snapshot.hp = unit.hp;
+    snapshot.maxHp = unit.maxHp;
+    snapshot.mp = unit.mp;
+    snapshot.maxMp = unit.maxMp;
+    snapshot.attack = unit.attack;
+    snapshot.defence = unit.defence;
+    snapshot.speed = unit.speed;
+    snapshot.invincible = unit.invincible;
+    snapshot.hurtFrame = unit.hurtFrame;
+    snapshot.cooldown = unit.cooldown;
+    snapshot.cooldownMax = unit.cooldownMax;
+    snapshot.haveAction = unit.haveAction;
+    snapshot.operationType = unit.operationType;
+    snapshot.actType = unit.actType;
+    snapshot.position = unit.position;
+    snapshot.facing = unit.facing;
+    return snapshot;
 }
 
 const BattleFrameHitSkillInput* findHitSkill(
@@ -669,15 +682,15 @@ BattleHitResolutionInput makeHitResolutionInput(
     const BattleFrameHitScalarInput& scalar,
     bool consumedDodgeRoll)
 {
-    const auto* attacker = findHitUnit(scratch, event.sourceUnitId);
-    const auto* defender = findHitUnit(scratch, event.unitId);
+    const auto* attacker = state.units.findUnit(event.sourceUnitId);
+    const auto* defender = state.units.findUnit(event.unitId);
     assert(attacker);
     assert(defender);
 
     BattleHitResolutionInput input;
     input.attackEvent = event;
-    input.attacker = *attacker;
-    input.defender = *defender;
+    input.attacker = makeHitUnitSnapshot(*attacker);
+    input.defender = makeHitUnitSnapshot(*defender);
     if ((input.attackEvent.position - input.defender.position).norm() == 0.0)
     {
         assert(input.defender.facing.norm() > 0.0);
@@ -937,6 +950,53 @@ const BattleFrameRescueUnitSnapshot* findRescueUnit(const std::vector<BattleFram
             return unit.unit.id == unitId;
         });
     return it != units.end() ? &*it : nullptr;
+}
+
+void syncRescueStateFromRuntimeUnits(BattleRuntimeState& state)
+{
+    state.rescue.units.clear();
+    state.rescue.units.reserve(state.units.units.size());
+    for (const auto& unit : state.units.units)
+    {
+        BattleFrameRescueUnitSnapshot snapshot;
+        snapshot.unit.id = unit.id;
+        snapshot.unit.team = unit.team;
+        snapshot.unit.alive = unit.alive;
+        snapshot.unit.hp = unit.hp;
+        snapshot.unit.maxHp = unit.maxHp;
+        snapshot.unit.invincible = unit.invincible;
+        snapshot.unit.cell = unit.grid;
+        snapshot.position = unit.position;
+        auto comboIt = state.combo.units.find(unit.id);
+        if (comboIt != state.combo.units.end())
+        {
+            snapshot.unit.isSummonedClone = comboIt->second.isSummonedClone;
+            snapshot.unit.forcePullProtect = comboIt->second.forcePullProtect;
+            snapshot.unit.forcePullProtectRemaining = comboIt->second.forcePullProtectRemaining;
+            snapshot.unit.forcePullExecute = comboIt->second.forcePullExecute;
+            snapshot.unit.forcePullExecuteRemaining = comboIt->second.forcePullExecuteRemaining;
+        }
+        state.rescue.units.push_back(std::move(snapshot));
+    }
+
+    for (auto& cell : state.rescue.cells)
+    {
+        cell.occupied = false;
+        cell.occupantUnitId = -1;
+        for (const auto& unit : state.units.units)
+        {
+            if (!unit.alive)
+            {
+                continue;
+            }
+            if (unit.grid.x == cell.x && unit.grid.y == cell.y)
+            {
+                cell.occupied = true;
+                cell.occupantUnitId = unit.id;
+                break;
+            }
+        }
+    }
 }
 
 double distance2d(Pointf lhs, Pointf rhs)
@@ -2344,7 +2404,11 @@ void applyPendingTeamEffects(
 void advanceMovementPhysics(BattleRuntimeState& state, BattleFrameScratch& scratch)
 {
     scratch.movementPhysics.committedResults.clear();
-    if (scratch.movementPhysics.units.empty())
+    if (state.units.units.empty())
+    {
+        return;
+    }
+    if (state.movementPhysics.collision.cells.empty())
     {
         return;
     }
@@ -2353,56 +2417,103 @@ void advanceMovementPhysics(BattleRuntimeState& state, BattleFrameScratch& scrat
     assert(state.movementPhysics.collision.coordCount > 0);
     assert(state.movementPhysics.collision.defaultSeparationDistance > 0.0);
 
-    for (const auto& input : scratch.movementPhysics.units)
+    state.movementPhysics.collision.units.clear();
+    state.movementPhysics.collision.units.reserve(state.units.units.size());
+    for (const auto& unit : state.units.units)
     {
-        assert(input.unitId >= 0);
+        state.movementPhysics.collision.units.push_back({
+            unit.id,
+            unit.alive,
+            unit.position,
+        });
+    }
+
+    for (auto& unit : state.units.units)
+    {
+        assert(unit.id >= 0);
+        auto movementIt = state.movementRuntime.find(unit.id);
+        if (movementIt == state.movementRuntime.end())
+        {
+            movementIt = state.movementRuntime.emplace(
+                unit.id,
+                BattleMovementPhysicsState{
+                    unit.position,
+                    unit.velocity,
+                    unit.acceleration,
+                }).first;
+        }
+        auto& movementRuntime = movementIt->second;
+
         BattleFrameMovementPhysicsUnitResult result;
-        result.unitId = input.unitId;
-        result.state = input.state;
-        result.frozenFrames = input.frozenFrames;
+        result.unitId = unit.id;
+        result.state = movementRuntime;
+        result.state.position = unit.position;
+        result.state.velocity = unit.velocity;
+        result.state.acceleration = unit.acceleration;
+        if (auto* status = findStatusUnit(state.status.units, unit.id))
+        {
+            result.frozenFrames = status->frozenTimer;
+        }
 
         if (result.frozenFrames > 0)
         {
             --result.frozenFrames;
+            if (auto* status = findStatusUnit(state.status.units, unit.id))
+            {
+                status->frozenTimer = result.frozenFrames;
+            }
             scratch.movementPhysics.committedResults.push_back(std::move(result));
             continue;
         }
 
+        bool actionDashActive = false;
+        if (unit.operationType == BattleOperationType::Dash && unit.haveAction)
+        {
+            const auto operation = static_cast<int>(unit.operationType);
+            assert(operation >= 0 && operation < static_cast<int>(state.movementPhysics.actionCastFrames.size()));
+            const int dashStartFrame = state.movementPhysics.actionCastFrames[operation];
+            const int dashEndFrame = dashStartFrame + state.movementPhysics.dashMomentumFrames;
+            actionDashActive = unit.actFrame >= dashStartFrame && unit.actFrame <= dashEndFrame;
+            if (unit.actFrame > dashEndFrame)
+            {
+                result.state.velocity = { 0, 0, 0 };
+            }
+        }
+
         BattleMovementPhysicsInput physicsInput;
-        physicsInput.state = input.state;
+        physicsInput.state = result.state;
         physicsInput.config = state.movementPhysics.config;
-        physicsInput.actionDashActive = input.actionDashActive;
+        physicsInput.actionDashActive = actionDashActive;
         physicsInput.canMove = [&](Pointf position, int separationDistance)
         {
             return canMoveInPhysicsSnapshot(
                 state.movementPhysics.collision,
-                input.unitId,
-                input.state.position,
+                unit.id,
+                unit.position,
                 position,
                 separationDistance);
         };
         result.state = BattleMovementPhysicsSystem().advance(physicsInput);
         result.physicsAdvanced = true;
+        movementRuntime = result.state;
 
-        if (auto* unit = findWorldUnit(state.world, input.unitId))
+        if (auto* worldUnit = findWorldUnit(state.world, unit.id))
         {
-            unit->position = result.state.position;
-            unit->velocity = result.state.velocity;
+            worldUnit->position = result.state.position;
+            worldUnit->velocity = result.state.velocity;
         }
-        if (hasCanonicalUnitStore(state))
-        {
-            state.units.setMotion(
-                input.unitId,
-                result.state.position,
-                result.state.velocity,
-                result.state.acceleration);
-        }
+        state.units.setMotion(
+            unit.id,
+            result.state.position,
+            result.state.velocity,
+            result.state.acceleration);
+
         auto collisionIt = std::find_if(
             state.movementPhysics.collision.units.begin(),
             state.movementPhysics.collision.units.end(),
             [&](const BattleMovementPhysicsCollisionUnitSnapshot& unit)
             {
-                return unit.id == input.unitId;
+                return unit.id == result.unitId;
             });
         if (collisionIt != state.movementPhysics.collision.units.end())
         {
@@ -2410,7 +2521,6 @@ void advanceMovementPhysics(BattleRuntimeState& state, BattleFrameScratch& scrat
         }
         scratch.movementPhysics.committedResults.push_back(std::move(result));
     }
-    scratch.movementPhysics.units.clear();
 }
 
 void advanceMovement(BattleRuntimeState& state, BattleFrameResult& result)
@@ -2866,6 +2976,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state, BattleF
         gameplayEvents,
         visualEvents);
     advanceAttacksAndResolveHits(state, scratch, result, logEvents, visualEvents);
+    syncRescueStateFromRuntimeUnits(state);
     applyDamageAndLifecycle(state, result, gameplayEvents, logEvents, visualEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
     emitPresentationFrame(state, result, gameplayEvents, logEvents, visualEvents);

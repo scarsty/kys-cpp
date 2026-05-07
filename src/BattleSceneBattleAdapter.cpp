@@ -395,6 +395,7 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     unit.maxMp = role->MaxMP;
     unit.attack = role->Attack;
     unit.defence = role->Defence;
+    unit.speed = role->Speed;
     unit.cooldown = role->CoolDown;
     unit.cooldownMax = role->CoolDownMax;
     unit.haveAction = role->HaveAction != 0;
@@ -403,6 +404,7 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     unit.actType = role->ActType;
     unit.physicalPower = role->PhysicalPower;
     unit.invincible = role->Invincible;
+    unit.hurtFrame = role->HurtFrame;
     unit.position = role->Pos;
     unit.velocity = role->Velocity;
     unit.acceleration = role->Acceleration;
@@ -613,33 +615,6 @@ Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* ro
     return style;
 }
 
-Battle::BattleHitUnitSnapshot makeBattleHitUnitSnapshot(Role* unit)
-{
-    assert(unit);
-
-    Battle::BattleHitUnitSnapshot snapshot;
-    snapshot.id = unit->ID;
-    snapshot.team = unit->Team;
-    snapshot.alive = unit->Dead == 0;
-    snapshot.hp = unit->HP;
-    snapshot.maxHp = unit->MaxHP;
-    snapshot.mp = unit->MP;
-    snapshot.maxMp = unit->MaxMP;
-    snapshot.attack = unit->Attack;
-    snapshot.defence = unit->Defence;
-    snapshot.speed = unit->Speed;
-    snapshot.invincible = unit->Invincible;
-    snapshot.hurtFrame = unit->HurtFrame;
-    snapshot.cooldown = unit->CoolDown;
-    snapshot.cooldownMax = unit->CoolDownMax;
-    snapshot.haveAction = unit->HaveAction != 0;
-    snapshot.operationType = Battle::battleOperationFromLegacy(unit->OperationType);
-    snapshot.actType = unit->ActType;
-    snapshot.position = unit->Pos;
-    snapshot.facing = unit->RealTowards;
-    return snapshot;
-}
-
 Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,
                                                           Role* defender,
                                                           Magic* magic,
@@ -678,18 +653,6 @@ Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolved
     snapshot.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
     snapshot.resolvedDamage = resolvedDamage;
     return snapshot;
-}
-
-void populateBattleFrameHitUnits(
-    Battle::BattleFrameScratch& scratch,
-    const std::vector<Role*>& roles)
-{
-    scratch.hits.units.clear();
-    scratch.hits.units.reserve(roles.size());
-    for (auto* role : roles)
-    {
-        scratch.hits.units.push_back(makeBattleHitUnitSnapshot(role));
-    }
 }
 
 void appendBattleFrameHitInput(
@@ -1177,93 +1140,6 @@ void applyBlinkTeleportDelta(
     role->RealTowards = teleport.facing;
     result.faceTowardsNearestUnitIds.push_back(role->ID);
     result.blinkSoundCount++;
-}
-
-void populateBattleFrameRescueState(
-    Battle::BattleRuntimeState& frameState,
-    const BattleRescueFrameAdapterContext& context)
-{
-    assert(context.roles);
-    assert(context.comboStates);
-
-    frameState.rescue.units.clear();
-    frameState.rescue.units.reserve(context.roles->size());
-    for (auto role : *context.roles)
-    {
-        assert(role);
-        Battle::BattleFrameRescueUnitSnapshot snapshot;
-        snapshot.unit.id = role->ID;
-        snapshot.unit.team = role->Team;
-        snapshot.unit.alive = role->Dead == 0;
-        snapshot.unit.hp = role->HP;
-        snapshot.unit.maxHp = role->MaxHP;
-        snapshot.unit.invincible = role->Invincible;
-        snapshot.unit.cell = requireUnitCell(context.unitCells, role->ID);
-        snapshot.position = role->Pos;
-        auto stateIt = context.comboStates->find(role->ID);
-        if (stateIt != context.comboStates->end())
-        {
-            snapshot.unit.isSummonedClone = stateIt->second.isSummonedClone;
-            snapshot.unit.forcePullProtect = stateIt->second.forcePullProtect;
-            snapshot.unit.forcePullProtectRemaining = stateIt->second.forcePullProtectRemaining;
-            snapshot.unit.forcePullExecute = stateIt->second.forcePullExecute;
-            snapshot.unit.forcePullExecuteRemaining = stateIt->second.forcePullExecuteRemaining;
-        }
-        frameState.rescue.units.push_back(std::move(snapshot));
-    }
-}
-
-void populateBattleMovementPhysicsFrame(
-    Battle::BattleRuntimeState& frameState,
-    Battle::BattleFrameScratch& scratch,
-    const BattleMovementPhysicsFrameAdapterContext& context)
-{
-    assert(context.roles);
-    assert(context.movementRuntime);
-
-    frameState.movementPhysics.collision.units.clear();
-    scratch.movementPhysics.units.clear();
-
-    for (auto role : *context.roles)
-    {
-        assert(role);
-        frameState.movementPhysics.collision.units.push_back({
-            role->ID,
-            role->Dead == 0,
-            role->Pos,
-        });
-    }
-    for (auto role : *context.roles)
-    {
-        assert(role);
-        Battle::BattleFrameMovementPhysicsUnitInput input;
-        input.unitId = role->ID;
-        input.frozenFrames = role->Frozen;
-        input.state.position = role->Pos;
-        input.state.velocity = role->Velocity;
-        input.state.acceleration = role->Acceleration;
-        auto movementIt = context.movementRuntime->find(role->ID);
-        if (movementIt != context.movementRuntime->end())
-        {
-            input.state.movementDashFrames = movementIt->second.movementDashFrames;
-            input.state.movementDashCooldown = movementIt->second.movementDashCooldown;
-            input.state.movementDashSpreadFrames = movementIt->second.movementDashSpreadFrames;
-        }
-
-        if (role->OperationType == 3 && role->HaveAction)
-        {
-            assert(role->OperationType >= 0 && role->OperationType < static_cast<int>(context.config.castFrames.size()));
-            const int dashStartFrame = context.config.castFrames[role->OperationType];
-            const int dashEndFrame = dashStartFrame + context.config.dashMomentumFrames;
-            input.actionDashActive = role->ActFrame >= dashStartFrame && role->ActFrame <= dashEndFrame;
-            if (role->ActFrame > dashEndFrame)
-            {
-                input.state.velocity = { 0, 0, 0 };
-            }
-        }
-
-        scratch.movementPhysics.units.push_back(std::move(input));
-    }
 }
 
 void applyBattleMovementPhysicsFrameResults(

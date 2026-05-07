@@ -88,6 +88,7 @@ struct BattleRuntimeUnit
     int maxMp = 0;
     int attack = 0;
     int defence = 0;
+    int speed = 0;
     int cooldown = 0;
     int cooldownMax = 0;
     bool haveAction = false;
@@ -96,6 +97,7 @@ struct BattleRuntimeUnit
     int actType = -1;
     int physicalPower = 0;
     int invincible = 0;
+    int hurtFrame = 0;
     int shield = 0;
     bool mpBlocked = false;
     int mpRecoveryBonusPct = 0;
@@ -309,13 +311,11 @@ struct BattleFrameScratch
 
     struct MovementPhysicsScratch
     {
-        std::vector<BattleFrameMovementPhysicsUnitInput> units;
         std::vector<BattleFrameMovementPhysicsUnitResult> committedResults;
     } movementPhysics;
 
     struct HitScratch
     {
-        std::vector<BattleHitUnitSnapshot> units;
         std::vector<BattleFrameHitSkillInput> skills;
         std::vector<BattleFrameHitItemInput> items;
         std::vector<BattleFrameHitScalarInput> scalars;
@@ -397,6 +397,8 @@ struct BattleRuntimeState
     {
         BattleMovementPhysicsConfig config;
         BattleMovementPhysicsCollisionWorld collision;
+        std::vector<int> actionCastFrames;
+        int dashMomentumFrames = 0;
     } movementPhysics;
 
     BattleProjectileFollowUpContext projectileFollowUps;

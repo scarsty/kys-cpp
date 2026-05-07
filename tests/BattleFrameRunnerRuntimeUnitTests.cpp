@@ -252,7 +252,6 @@ TEST_CASE("BattleFrameRunner_RunFrame_ConsumesExternalFrameScratch", "[battle][f
 
     scratch.runtime.percentRolls.push_back(12.0);
     scratch.projectileCancelBaseDamages.push_back({ 10, 20, 30 });
-    scratch.hits.units.push_back({});
     scratch.hits.skills.push_back({});
     scratch.hits.items.push_back({});
     scratch.hits.scalars.push_back({});
@@ -262,7 +261,6 @@ TEST_CASE("BattleFrameRunner_RunFrame_ConsumesExternalFrameScratch", "[battle][f
     CHECK(result.runtimeResults.empty());
     CHECK(scratch.runtime.percentRolls.empty());
     CHECK(scratch.projectileCancelBaseDamages.empty());
-    CHECK(scratch.hits.units.empty());
     CHECK(scratch.hits.skills.empty());
     CHECK(scratch.hits.items.empty());
     CHECK(scratch.hits.scalars.empty());
