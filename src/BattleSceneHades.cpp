@@ -2627,10 +2627,6 @@ KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet BattleSceneHades:
                 actionSnapshot.forceRangedMagic);
             actionSnapshot.ultimateBlinkReach = calcBlinkReach(actionSnapshot.ultimateMagic);
         }
-        for (int operationType = 0; operationType < static_cast<int>(actionSnapshot.castFrameByOperation.size()); ++operationType)
-        {
-            actionSnapshot.castFrameByOperation[operationType] = calCast(role->ActType, operationType, role);
-        }
         actionSnapshot.randomUnitRolls = { rand_.rand(), rand_.rand() };
         actionSnapshot.projectileBounceRoll = rand_.rand_int(100);
         actionSnapshot.blinkRandomRoll = rand_.rand_int(std::numeric_limits<int>::max());
@@ -3350,47 +3346,6 @@ void BattleSceneHades::setRoleInitState(Role* role)
         role->RealTowards = { -1, -1 };
     }
     role->Acceleration = { 0, 0, gravity_ };
-}
-
-//前搖
-int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
-{
-    int v[4] = { 25, 30, 20, 25 };
-    if (operation_type >= 0 && operation_type <= 3)
-    {
-        return v[operation_type];
-    }
-    return 0;
-}
-
-//冷卻减去前搖就是後搖
-//需注意攻擊判定可能仍然存在，嚴格來說攻擊判定存在的時間加上前搖應小於冷卻
-int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
-{
-    int i = r->getActProperty(act_type);
-    int v[4] = { 105 - i / 2, 185 - i, 115 - i / 2, 45 };
-    int min_v[4] = { 60, 70, 70, 45 };
-    if (operation_type >= 0 && operation_type <= 3)
-    {
-        int c = std::max(min_v[operation_type], v[operation_type]);
-        int spd = std::min(150, r->Speed);
-        c = c * (1.0 - 0.5 * spd / 150.0);
-        c = std::max(calCast(act_type, operation_type, r) + 2, c);
-        // CDR from combos/neigong — clamp so cooldown never drops below cast time
-        auto& cs = KysChess::ChessCombo::getMutableStates();
-        auto it = cs.find(r->ID);
-        if (it != cs.end() && it->second.cdrPct > 0)
-        {
-            c = static_cast<int>(c * (1.0 - it->second.cdrPct / 100.0));
-            c = std::max(calCast(act_type, operation_type, r) + 2, c);
-        }
-        // std::print("{} cast time {}\n", r->Name, c);
-        return c;
-    }
-    else
-    {
-        return 0;
-    }
 }
 
 int BattleSceneHades::calRolePic(Role* r, int style, int frame)

@@ -72,8 +72,6 @@ protected:
         const KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
-    int calCast(int act_type, int operation_type, Role* r);
-    int calCoolDown(int act_type, int operation_type, Role* r);
 
     template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
     int getUltimateExtraProjectileCount(Role* r);

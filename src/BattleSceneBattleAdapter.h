@@ -72,7 +72,6 @@ struct BattleFrameActionImport
     bool ultimateRangedStyle = false;
     double normalBlinkReach = 0.0;
     double ultimateBlinkReach = 0.0;
-    std::array<int, 4> castFrameByOperation{};
     std::array<double, 2> randomUnitRolls{};
     int projectileBounceRoll = 0;
     int blinkRandomRoll = 0;
