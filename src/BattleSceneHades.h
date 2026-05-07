@@ -63,7 +63,8 @@ protected:
     SceneBattleFrameInput buildBattleFrameInput();
     KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext buildCoreRuntimeContext(
         KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
-        KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
+        KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext,
+        KysChess::Battle::BattleFrameScratch& scratch);
     void applyCoreFrameResult(
         KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
         const KysChess::Battle::BattleFrameResult& frameResult,
@@ -86,8 +87,11 @@ protected:
 
     int calculateHitMagicBaseDamage(Role* attacker, Role* defender, Magic* magic);
     void initializeBattleRuntimeStaticState();
-    void populateCoreHitState(KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
+    void populateCoreHitState(
+        KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+        KysChess::Battle::BattleFrameScratch& scratch);
     void appendCoreHitInputsForAttack(KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+                                      KysChess::Battle::BattleFrameScratch& scratch,
                                       int attackId,
                                       const KysChess::Battle::BattleAttackState& attackState);
 

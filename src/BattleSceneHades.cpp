@@ -2407,7 +2407,8 @@ void BattleSceneHades::backRun1()
         result.advanced = true;
         auto actionContext = makeBattleActionFrameAdapterContext();
         BattleMovementPhysicsFrameAdapterContext movementPhysicsContext;
-        auto bundle = buildCoreRuntimeContext(actionContext, movementPhysicsContext);
+        auto& scratch = battle_session_->beginFrameScratch();
+        auto bundle = buildCoreRuntimeContext(actionContext, movementPhysicsContext, scratch);
         auto frameResult = battle_session_->runFrame();
         applyCoreFrameResult(bundle, frameResult, actionContext, movementPhysicsContext);
     }
@@ -2451,7 +2452,8 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
 
 KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::buildCoreRuntimeContext(
     BattleActionFrameAdapterContext& actionContext,
-    BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
+    BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext,
+    KysChess::Battle::BattleFrameScratch& scratch)
 {
     auto& comboStates = battleRuntime().combo.units;
     initializeBattleRuntimeStaticState();
@@ -2464,21 +2466,12 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     }
     populateCoreMovementWorld();
     battleRuntime().projectileFollowUps.nextSharedHitGroupId = next_shared_hit_group_id_;
-    battleRuntime().runtime = {};
     KysChess::Battle::clearBattleDamageFrameScratch(battleRuntime());
     battleRuntime().status.events.clear();
     battleRuntime().combo.events.clear();
     battleRuntime().deathEffects.events.clear();
-    battleRuntime().projectileCancelBaseDamages.clear();
     battleRuntime().teamEffects.committedEvents.clear();
     battleRuntime().effects.committedCommands.clear();
-    battleRuntime().actions.units.clear();
-    battleRuntime().movementPhysics.units.clear();
-    battleRuntime().movementPhysics.committedResults.clear();
-    battleRuntime().hits.units.clear();
-    battleRuntime().hits.skills.clear();
-    battleRuntime().hits.items.clear();
-    battleRuntime().hits.scalars.clear();
 
     for (auto role : battle_roles_)
     {
@@ -2491,11 +2484,11 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
         auto comboIt = comboStates.find(role->ID);
         if (comboIt != comboStates.end())
         {
-            battleRuntime().runtime.percentRolls.reserve(
-                battleRuntime().runtime.percentRolls.size() + comboIt->second.triggeredEffects.size() + 1);
+            scratch.runtime.percentRolls.reserve(
+                scratch.runtime.percentRolls.size() + comboIt->second.triggeredEffects.size() + 1);
             for (size_t i = 0; i <= comboIt->second.triggeredEffects.size(); ++i)
             {
-                battleRuntime().runtime.percentRolls.push_back(rand_.rand() * 100.0);
+                scratch.runtime.percentRolls.push_back(rand_.rand() * 100.0);
             }
         }
 
@@ -2506,7 +2499,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
         runtimeInput.maxHp = role->MaxHP;
         runtimeInput.alive = role->Dead == 0;
         runtimeInput.lastAlive = isLastAliveInTeam(role);
-        battleRuntime().runtime.units.push_back(runtimeInput);
+        scratch.runtime.units.push_back(runtimeInput);
     }
 
     BattleRescueFrameAdapterContext rescueContext;
@@ -2543,11 +2536,11 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     movementPhysicsContext.movementRuntime = &battleRuntime().movementRuntime;
     movementPhysicsContext.config.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
     movementPhysicsContext.config.castFrames = KysChess::BattleSceneBattleAdapter::makeBattleCastConfig().castFrames;
-    populateBattleMovementPhysicsFrame(battleRuntime(), movementPhysicsContext);
+    populateBattleMovementPhysicsFrame(battleRuntime(), scratch, movementPhysicsContext);
 
     battleRuntime().movementDecisions.clear();
     core_movement_frame_ = battle_frame_;
-    populateBattleActionFrame(battleRuntime(), actionContext);
+    populateBattleActionFrame(scratch, actionContext);
     for (int unitId : actionContext.movementDashStartUnitIds)
     {
         auto* role = requireFrameRole(bundle, unitId);
@@ -2576,7 +2569,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
             auto* skill2 = Save::getInstance()->getMagic(attack2.state.skillId);
             if (skill1)
             {
-                battleRuntime().projectileCancelBaseDamages.push_back({
+                scratch.projectileCancelBaseDamages.push_back({
                     attack1.id,
                     attack2.id,
                     calculateHitMagicBaseDamage(attacker1, attacker2, skill1),
@@ -2584,7 +2577,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
             }
             if (skill2)
             {
-                battleRuntime().projectileCancelBaseDamages.push_back({
+                scratch.projectileCancelBaseDamages.push_back({
                     attack2.id,
                     attack1.id,
                     calculateHitMagicBaseDamage(attacker2, attacker1, skill2),
@@ -2592,7 +2585,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
             }
         }
     }
-    populateCoreHitState(bundle);
+    populateCoreHitState(bundle, scratch);
     return bundle;
 }
 
@@ -2603,7 +2596,7 @@ void BattleSceneHades::applyCoreFrameResult(
     const BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
 {
     applyCoreStatusState(bundle);
-    for (const auto& runtimeUnitResult : battleRuntime().runtime.committedResults)
+    for (const auto& runtimeUnitResult : frameResult.runtimeResults)
     {
         auto* role = requireFrameRole(bundle, runtimeUnitResult.unitId);
         applyBattleFrameUnitRuntimeResult(role, runtimeUnitResult.result);
@@ -2637,8 +2630,8 @@ void BattleSceneHades::applyCoreFrameResult(
         }
     }
     applyCoreFrameApplications(bundle, frameResult.applications);
-    applyBattleMovementPhysicsFrameResults(battleRuntime(), movementPhysicsContext);
-    for (const auto& result : battleRuntime().movementPhysics.committedResults)
+    applyBattleMovementPhysicsFrameResults(frameResult.movementPhysicsResults, movementPhysicsContext);
+    for (const auto& result : frameResult.movementPhysicsResults)
     {
         auto* role = requireFrameRole(bundle, result.unitId);
         auto& movementRuntime = battleRuntime().movementRuntime[role->ID];
@@ -3185,30 +3178,31 @@ int BattleSceneHades::calRolePic(Role* r, int style, int frame)
 }
 
 void BattleSceneHades::populateCoreHitState(
-    KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle)
+    KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+    KysChess::Battle::BattleFrameScratch& scratch)
 {
     auto& frameState = battleRuntime();
-    populateBattleFrameHitUnits(frameState, battle_roles_);
+    populateBattleFrameHitUnits(scratch, battle_roles_);
 
     for (const auto& attack : frameState.attacks.attacks)
     {
-        appendCoreHitInputsForAttack(bundle, attack.id, attack.state);
+        appendCoreHitInputsForAttack(bundle, scratch, attack.id, attack.state);
     }
 
     int nextAttackId = frameState.attacks.nextAttackId;
     for (const auto& spawn : frameState.pendingAttackSpawns)
     {
-        appendCoreHitInputsForAttack(bundle, nextAttackId, spawn.initial);
+        appendCoreHitInputsForAttack(bundle, scratch, nextAttackId, spawn.initial);
         ++nextAttackId;
     }
 }
 
 void BattleSceneHades::appendCoreHitInputsForAttack(
     KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+    KysChess::Battle::BattleFrameScratch& scratch,
     int attackId,
     const KysChess::Battle::BattleAttackState& attackState)
 {
-    auto& frameState = battleRuntime();
     auto* attacker = requireFrameRole(bundle, attackState.attackerUnitId);
     auto* magic = attackState.skillId >= 0 ? Save::getInstance()->getMagic(attackState.skillId) : nullptr;
     auto* hiddenWeapon = attackState.hiddenWeaponItemId >= 0
@@ -3234,7 +3228,7 @@ void BattleSceneHades::appendCoreHitInputsForAttack(
             percentRolls.push_back(rand_.rand() * 100.0);
         }
 
-        appendBattleFrameHitInput(frameState, BattleFrameHitAdapterInput{
+        appendBattleFrameHitInput(scratch, BattleFrameHitAdapterInput{
             attackId,
             attacker,
             defender,

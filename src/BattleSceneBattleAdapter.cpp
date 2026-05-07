@@ -704,26 +704,26 @@ Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolved
 }
 
 void populateBattleFrameHitUnits(
-    Battle::BattleRuntimeState& frameState,
+    Battle::BattleFrameScratch& scratch,
     const std::vector<Role*>& roles)
 {
-    frameState.hits.units.clear();
-    frameState.hits.units.reserve(roles.size());
+    scratch.hits.units.clear();
+    scratch.hits.units.reserve(roles.size());
     for (auto* role : roles)
     {
-        frameState.hits.units.push_back(makeBattleHitUnitSnapshot(role));
+        scratch.hits.units.push_back(makeBattleHitUnitSnapshot(role));
     }
 }
 
 void appendBattleFrameHitInput(
-    Battle::BattleRuntimeState& frameState,
+    Battle::BattleFrameScratch& scratch,
     const BattleFrameHitAdapterInput& input)
 {
     assert(input.attackId >= 0);
     assert(input.attacker);
     assert(input.defender);
 
-    frameState.hits.scalars.push_back({
+    scratch.hits.scalars.push_back({
         input.attackId,
         input.attacker->ID,
         input.defender->ID,
@@ -734,7 +734,7 @@ void appendBattleFrameHitInput(
         input.percentRolls,
         input.pendingDefenderHpDamage,
     });
-    frameState.hits.skills.push_back({
+    scratch.hits.skills.push_back({
         input.attackId,
         input.attacker->ID,
         input.defender->ID,
@@ -744,7 +744,7 @@ void appendBattleFrameHitInput(
             input.magic,
             input.resolvedMagicBaseDamage),
     });
-    frameState.hits.items.push_back({
+    scratch.hits.items.push_back({
         input.attackId,
         input.attacker->ID,
         input.defender->ID,
@@ -1260,13 +1260,14 @@ void populateBattleFrameRescueState(
 
 void populateBattleMovementPhysicsFrame(
     Battle::BattleRuntimeState& frameState,
+    Battle::BattleFrameScratch& scratch,
     const BattleMovementPhysicsFrameAdapterContext& context)
 {
     assert(context.roles);
     assert(context.movementRuntime);
 
     frameState.movementPhysics.collision.units.clear();
-    frameState.movementPhysics.units.clear();
+    scratch.movementPhysics.units.clear();
 
     for (auto role : *context.roles)
     {
@@ -1306,17 +1307,17 @@ void populateBattleMovementPhysicsFrame(
             }
         }
 
-        frameState.movementPhysics.units.push_back(std::move(input));
+        scratch.movementPhysics.units.push_back(std::move(input));
     }
 }
 
 void applyBattleMovementPhysicsFrameResults(
-    const Battle::BattleRuntimeState& frameState,
+    const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
     const BattleMovementPhysicsFrameAdapterContext& context)
 {
     assert(context.roles);
 
-    for (const auto& result : frameState.movementPhysics.committedResults)
+    for (const auto& result : movementResults)
     {
         auto* role = findRoleByBattleId(*context.roles, result.unitId);
         role->Frozen = result.frozenFrames;
@@ -1327,7 +1328,7 @@ void applyBattleMovementPhysicsFrameResults(
 }
 
 void populateBattleActionFrame(
-    Battle::BattleRuntimeState& frameState,
+    Battle::BattleFrameScratch& scratch,
     BattleActionFrameAdapterContext& context)
 {
     assert(context.roles);
@@ -1335,8 +1336,8 @@ void populateBattleActionFrame(
     assert(context.comboStates);
     assert(context.movementDecisions);
 
-    frameState.actions.units.clear();
-    frameState.actions.units.reserve(context.roles->size());
+    scratch.actions.units.clear();
+    scratch.actions.units.reserve(context.roles->size());
     for (auto role : *context.roles)
     {
         assert(role);
@@ -1345,7 +1346,7 @@ void populateBattleActionFrame(
         unitInput.state = makeActionFrameUnitState(role, context);
         populateActionCommitInputForRole(unitInput, role, context);
         populateCastPlanInputForRole(unitInput, role, context);
-        frameState.actions.units.push_back(std::move(unitInput));
+        scratch.actions.units.push_back(std::move(unitInput));
     }
 }
 
@@ -1470,6 +1471,7 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     captureActionComboState(actionInput, role, context);
 
     Battle::BattleRuntimeState actionFrameState;
+    Battle::BattleFrameScratch scratch;
     Battle::BattleFrameActionUnitInput unitInput;
     unitInput.unitId = role->ID;
     unitInput.hasSelectedCastInput = true;
@@ -1477,8 +1479,8 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     unitInput.selectedCastUltimate = isUltimate;
     unitInput.selectedOperationType = Battle::battleOperationFromLegacy(resolvedOperationType);
     unitInput.selectedActionInput = std::move(actionInput);
-    actionFrameState.actions.units.push_back(std::move(unitInput));
-    auto actionFrameResult = Battle::BattleFrameRunner().runFrame(actionFrameState);
+    scratch.actions.units.push_back(std::move(unitInput));
+    auto actionFrameResult = Battle::BattleFrameRunner().runFrame(actionFrameState, scratch);
     assert(actionFrameResult.actionResults.size() == 1);
     const auto& actionUnitResult = actionFrameResult.actionResults.front();
     assert(actionUnitResult.actionCommitted);

@@ -301,18 +301,42 @@ struct BattleFrameRescueCounterAttackConfig
     int totalFramePadding = 15;
 };
 
+struct BattleFrameScratch
+{
+    struct RuntimeScratch
+    {
+        std::vector<BattleFrameRuntimeUnitInput> units;
+        std::vector<double> percentRolls;
+        std::size_t nextPercentRoll = 0;
+    } runtime;
+
+    std::vector<BattleProjectileCancelBaseDamage> projectileCancelBaseDamages;
+
+    struct ActionScratch
+    {
+        std::vector<BattleFrameActionUnitInput> units;
+    } actions;
+
+    struct MovementPhysicsScratch
+    {
+        std::vector<BattleFrameMovementPhysicsUnitInput> units;
+        std::vector<BattleFrameMovementPhysicsUnitResult> committedResults;
+    } movementPhysics;
+
+    struct HitScratch
+    {
+        std::vector<BattleHitUnitSnapshot> units;
+        std::vector<BattleFrameHitSkillInput> skills;
+        std::vector<BattleFrameHitItemInput> items;
+        std::vector<BattleFrameHitScalarInput> scalars;
+    } hits;
+};
+
 struct BattleRuntimeState
 {
     BattleUnitStore units;
     BattleWorldState world;
     BattleAttackWorld attacks;
-    struct RuntimeState
-    {
-        std::vector<BattleFrameRuntimeUnitInput> units;
-        std::vector<BattleFrameRuntimeUnitResult> committedResults;
-        std::vector<double> percentRolls;
-        std::size_t nextPercentRoll = 0;
-    } runtime;
 
     struct DamageState
     {
@@ -366,8 +390,6 @@ struct BattleRuntimeState
         std::map<int, int> pendingAliveByTeam;
     } result;
 
-    std::vector<BattleProjectileCancelBaseDamage> projectileCancelBaseDamages;
-
     struct TeamEffectState
     {
         double healAuraRadius = 0.0;
@@ -381,26 +403,11 @@ struct BattleRuntimeState
         std::vector<BattleEffectCommand> committedCommands;
     } effects;
 
-    struct ActionState
-    {
-        std::vector<BattleFrameActionUnitInput> units;
-    } actions;
-
     struct MovementPhysicsState
     {
         BattleMovementPhysicsConfig config;
         BattleMovementPhysicsCollisionWorld collision;
-        std::vector<BattleFrameMovementPhysicsUnitInput> units;
-        std::vector<BattleFrameMovementPhysicsUnitResult> committedResults;
     } movementPhysics;
-
-    struct HitState
-    {
-        std::vector<BattleHitUnitSnapshot> units;
-        std::vector<BattleFrameHitSkillInput> skills;
-        std::vector<BattleFrameHitItemInput> items;
-        std::vector<BattleFrameHitScalarInput> scalars;
-    } hits;
 
     BattleProjectileFollowUpContext projectileFollowUps;
     std::map<int, BattleMovementPhysicsState> movementRuntime;
@@ -418,6 +425,8 @@ struct BattleFrameResult
     std::vector<BattleAttackEvent> attackEvents;
     BattleFrameApplications applications;
     std::vector<BattleProjectileCancelDamageCommand> projectileCancelDamageCommands;
+    std::vector<BattleFrameRuntimeUnitResult> runtimeResults;
+    std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
     std::vector<BattleHitResolutionResult> hitResults;
     std::vector<BattleFrameActionUnitResult> actionResults;
     // 遷移期間的不完整快照退路；場景與 adapter 不得消費這些命令。
@@ -451,10 +460,11 @@ double resolveFrameArmorPenetratedDefense(
 class BattleFrameRunner
 {
 public:
-    BattleFrameResult runFrame(BattleRuntimeState& runtime) const;
+    BattleFrameResult runFrame(BattleRuntimeState& runtime, BattleFrameScratch& scratch) const;
 };
 
 void clearBattleDamageFrameScratch(BattleRuntimeState& state);
+void clearBattleFrameScratch(BattleFrameScratch& scratch);
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
 
 }  // namespace KysChess::Battle

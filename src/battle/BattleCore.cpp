@@ -241,85 +241,85 @@ const BattleAttackInstance* findAttack(const BattleAttackWorld& world, int attac
 }
 
 const BattleProjectileCancelBaseDamage* findProjectileCancelBaseDamage(
-    const BattleRuntimeState& state,
+    const BattleFrameScratch& scratch,
     int attackId,
     int otherAttackId)
 {
     auto it = std::find_if(
-        state.projectileCancelBaseDamages.begin(),
-        state.projectileCancelBaseDamages.end(),
+        scratch.projectileCancelBaseDamages.begin(),
+        scratch.projectileCancelBaseDamages.end(),
         [&](const BattleProjectileCancelBaseDamage& input)
         {
             return input.attackId == attackId
                 && (input.otherAttackId < 0 || input.otherAttackId == otherAttackId);
         });
-    return it != state.projectileCancelBaseDamages.end() ? &*it : nullptr;
+    return it != scratch.projectileCancelBaseDamages.end() ? &*it : nullptr;
 }
 
 const BattleFrameHitScalarInput* findHitScalar(
-    const BattleRuntimeState& state,
+    const BattleFrameScratch& scratch,
     int attackId,
     int attackerUnitId,
     int defenderUnitId)
 {
     auto it = std::find_if(
-        state.hits.scalars.begin(),
-        state.hits.scalars.end(),
+        scratch.hits.scalars.begin(),
+        scratch.hits.scalars.end(),
         [&](const BattleFrameHitScalarInput& input)
         {
             return input.attackId == attackId
                 && input.attackerUnitId == attackerUnitId
                 && input.defenderUnitId == defenderUnitId;
         });
-    return it != state.hits.scalars.end() ? &*it : nullptr;
+    return it != scratch.hits.scalars.end() ? &*it : nullptr;
 }
 
-const BattleHitUnitSnapshot* findHitUnit(const BattleRuntimeState& state, int unitId)
+const BattleHitUnitSnapshot* findHitUnit(const BattleFrameScratch& scratch, int unitId)
 {
     auto it = std::find_if(
-        state.hits.units.begin(),
-        state.hits.units.end(),
+        scratch.hits.units.begin(),
+        scratch.hits.units.end(),
         [&](const BattleHitUnitSnapshot& unit)
         {
             return unit.id == unitId;
         });
-    return it != state.hits.units.end() ? &*it : nullptr;
+    return it != scratch.hits.units.end() ? &*it : nullptr;
 }
 
 const BattleFrameHitSkillInput* findHitSkill(
-    const BattleRuntimeState& state,
+    const BattleFrameScratch& scratch,
     int attackId,
     int attackerUnitId,
     int defenderUnitId)
 {
     auto it = std::find_if(
-        state.hits.skills.begin(),
-        state.hits.skills.end(),
+        scratch.hits.skills.begin(),
+        scratch.hits.skills.end(),
         [&](const BattleFrameHitSkillInput& input)
         {
             return input.attackId == attackId
                 && input.attackerUnitId == attackerUnitId
                 && input.defenderUnitId == defenderUnitId;
         });
-    return it != state.hits.skills.end() ? &*it : nullptr;
+    return it != scratch.hits.skills.end() ? &*it : nullptr;
 }
 
 const BattleFrameHitItemInput* findHitItem(
-    const BattleRuntimeState& state,
+    const BattleFrameScratch& scratch,
     int attackId,
     int attackerUnitId,
     int defenderUnitId)
 {
     auto it = std::find_if(
-        state.hits.items.begin(),
-        state.hits.items.end(),
+        scratch.hits.items.begin(),
+        scratch.hits.items.end(),
         [&](const BattleFrameHitItemInput& input)
         {
             return input.attackId == attackId
                 && input.attackerUnitId == attackerUnitId
                 && input.defenderUnitId == defenderUnitId;
         });
-    return it != state.hits.items.end() ? &*it : nullptr;
+    return it != scratch.hits.items.end() ? &*it : nullptr;
 }
 
 BattleLogEvent dodgeStatusEvent(int defenderUnitId, int attackerUnitId)
@@ -332,11 +332,11 @@ BattleLogEvent dodgeStatusEvent(int defenderUnitId, int attackerUnitId)
     return event;
 }
 
-double takeRuntimePercentRoll(BattleRuntimeState& state)
+double takeRuntimePercentRoll(BattleFrameScratch& scratch)
 {
-    if (state.runtime.nextPercentRoll < state.runtime.percentRolls.size())
+    if (scratch.runtime.nextPercentRoll < scratch.runtime.percentRolls.size())
     {
-        const double roll = state.runtime.percentRolls[state.runtime.nextPercentRoll++];
+        const double roll = scratch.runtime.percentRolls[scratch.runtime.nextPercentRoll++];
         assert(roll >= 0.0 && roll < 100.0);
         return roll;
     }
@@ -500,11 +500,15 @@ void syncAttackUnitsFromWorld(BattleRuntimeState& state)
     }
 }
 
-void advanceRuntimeUnits(BattleRuntimeState& state, std::vector<BattleGameplayCommand>& commands)
+void advanceRuntimeUnits(
+    BattleRuntimeState& state,
+    BattleFrameScratch& scratch,
+    std::vector<BattleGameplayCommand>& commands,
+    std::vector<BattleFrameRuntimeUnitResult>& runtimeResults)
 {
     BattleComboTriggerSystem comboSystem;
-    state.runtime.committedResults.clear();
-    for (const auto& input : state.runtime.units)
+    runtimeResults.clear();
+    for (const auto& input : scratch.runtime.units)
     {
         assert(input.unitId >= 0);
 
@@ -564,7 +568,7 @@ void advanceRuntimeUnits(BattleRuntimeState& state, std::vector<BattleGameplayCo
             auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
                 comboIt->second,
                 { BattleComboTriggerHook::AfterSkillCast, input.unitId, -1 },
-                [&]() { return takeRuntimePercentRoll(state); });
+                [&]() { return takeRuntimePercentRoll(scratch); });
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
                 BattleTeamHealCommand command{
@@ -580,12 +584,14 @@ void advanceRuntimeUnits(BattleRuntimeState& state, std::vector<BattleGameplayCo
         {
             committed.comboState = comboIt->second;
         }
-        state.runtime.committedResults.push_back(std::move(committed));
+        runtimeResults.push_back(std::move(committed));
     }
+    scratch.runtime.units.clear();
 }
 
 void applyProjectileCancelDamageResults(
     BattleRuntimeState& state,
+    const BattleFrameScratch& scratch,
     std::vector<BattleAttackEvent>& events,
     std::vector<BattleProjectileCancelDamageCommand>& projectileCancelDamageCommands,
     std::vector<BattleGameplayCommand>& commands)
@@ -605,13 +611,13 @@ void applyProjectileCancelDamageResults(
         assert(attack);
         assert(otherAttack);
 
-        if (const auto* damage = findProjectileCancelBaseDamage(state, event.attackId, event.otherAttackId))
+        if (const auto* damage = findProjectileCancelBaseDamage(scratch, event.attackId, event.otherAttackId))
         {
             event.projectileCancelDamage = scaleProjectileCancelDamage(
                 damage->baseDamage,
                 attack->state.operationType);
         }
-        if (const auto* damage = findProjectileCancelBaseDamage(state, event.otherAttackId, event.attackId))
+        if (const auto* damage = findProjectileCancelBaseDamage(scratch, event.otherAttackId, event.attackId))
         {
             event.otherProjectileCancelDamage = scaleProjectileCancelDamage(
                 damage->baseDamage,
@@ -656,12 +662,13 @@ void updateCommittedHitCombos(BattleRuntimeState& state, const BattleHitResoluti
 
 BattleHitResolutionInput makeHitResolutionInput(
     const BattleRuntimeState& state,
+    const BattleFrameScratch& scratch,
     const BattleAttackEvent& event,
     const BattleFrameHitScalarInput& scalar,
     bool consumedDodgeRoll)
 {
-    const auto* attacker = findHitUnit(state, event.sourceUnitId);
-    const auto* defender = findHitUnit(state, event.unitId);
+    const auto* attacker = findHitUnit(scratch, event.sourceUnitId);
+    const auto* defender = findHitUnit(scratch, event.unitId);
     assert(attacker);
     assert(defender);
 
@@ -679,12 +686,12 @@ BattleHitResolutionInput makeHitResolutionInput(
     input.pendingDefenderHpDamage = scalar.pendingDefenderHpDamage;
     input.percentRolls = hitResolverRolls(scalar, consumedDodgeRoll);
 
-    if (const auto* skill = findHitSkill(state, event.attackId, event.sourceUnitId, event.unitId))
+    if (const auto* skill = findHitSkill(scratch, event.attackId, event.sourceUnitId, event.unitId))
     {
         input.skill = skill->skill;
         input.skill.resolvedBaseDamage = scalar.resolvedMagicBaseDamage;
     }
-    if (const auto* item = findHitItem(state, event.attackId, event.sourceUnitId, event.unitId))
+    if (const auto* item = findHitItem(scratch, event.attackId, event.sourceUnitId, event.unitId))
     {
         input.item = item->item;
         input.item.resolvedDamage = scalar.resolvedHiddenWeaponDamage;
@@ -742,6 +749,7 @@ bool tryResolveDodgeHit(
 
 void resolveHitEvents(
     BattleRuntimeState& state,
+    const BattleFrameScratch& scratch,
     const std::vector<BattleAttackEvent>& events,
     std::vector<BattleHitResolutionResult>& hitResults,
     std::vector<BattleGameplayCommand>& commands,
@@ -755,7 +763,7 @@ void resolveHitEvents(
             continue;
         }
 
-        const auto* scalar = findHitScalar(state, event.attackId, event.sourceUnitId, event.unitId);
+        const auto* scalar = findHitScalar(scratch, event.attackId, event.sourceUnitId, event.unitId);
         if (!scalar)
         {
             continue;
@@ -767,7 +775,7 @@ void resolveHitEvents(
             continue;
         }
 
-        auto input = makeHitResolutionInput(state, event, *scalar, consumedDodgeRoll);
+        auto input = makeHitResolutionInput(state, scratch, event, *scalar, consumedDodgeRoll);
         auto result = BattleHitResolver().resolve(input);
         auto followUps = expandBattleProjectileFollowUpCommands(
             result.commands,
@@ -2181,9 +2189,10 @@ void applyPostSkillInvincibility(
 
 void applyRuntimeComboEvents(
     BattleRuntimeState& state,
+    const std::vector<BattleFrameRuntimeUnitResult>& runtimeResults,
     std::vector<BattleLogEvent>& logEvents)
 {
-    for (const auto& result : state.runtime.committedResults)
+    for (const auto& result : runtimeResults)
     {
         for (const auto& event : result.comboEvents)
         {
@@ -2261,10 +2270,10 @@ void applyPendingTeamEffects(
     state.teamEffects.pendingCommands = std::move(unappliedCommands);
 }
 
-void advanceMovementPhysics(BattleRuntimeState& state)
+void advanceMovementPhysics(BattleRuntimeState& state, BattleFrameScratch& scratch)
 {
-    state.movementPhysics.committedResults.clear();
-    if (state.movementPhysics.units.empty())
+    scratch.movementPhysics.committedResults.clear();
+    if (scratch.movementPhysics.units.empty())
     {
         return;
     }
@@ -2273,7 +2282,7 @@ void advanceMovementPhysics(BattleRuntimeState& state)
     assert(state.movementPhysics.collision.coordCount > 0);
     assert(state.movementPhysics.collision.defaultSeparationDistance > 0.0);
 
-    for (const auto& input : state.movementPhysics.units)
+    for (const auto& input : scratch.movementPhysics.units)
     {
         assert(input.unitId >= 0);
         BattleFrameMovementPhysicsUnitResult result;
@@ -2284,7 +2293,7 @@ void advanceMovementPhysics(BattleRuntimeState& state)
         if (result.frozenFrames > 0)
         {
             --result.frozenFrames;
-            state.movementPhysics.committedResults.push_back(std::move(result));
+            scratch.movementPhysics.committedResults.push_back(std::move(result));
             continue;
         }
 
@@ -2328,9 +2337,9 @@ void advanceMovementPhysics(BattleRuntimeState& state)
         {
             collisionIt->position = result.state.position;
         }
-        state.movementPhysics.committedResults.push_back(std::move(result));
+        scratch.movementPhysics.committedResults.push_back(std::move(result));
     }
-    state.movementPhysics.units.clear();
+    scratch.movementPhysics.units.clear();
 }
 
 void advanceMovement(BattleRuntimeState& state, BattleFrameResult& result)
@@ -2340,12 +2349,13 @@ void advanceMovement(BattleRuntimeState& state, BattleFrameResult& result)
 
 void advanceActionFrameUnits(
     BattleRuntimeState& state,
+    BattleFrameScratch& scratch,
     const BattleTickResult& movement,
     std::vector<BattleFrameActionUnitResult>& actionResults,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
-    for (const auto& input : state.actions.units)
+    for (const auto& input : scratch.actions.units)
     {
         assert(input.unitId >= 0);
 
@@ -2434,11 +2444,12 @@ void advanceActionFrameUnits(
 
         actionResults.push_back(std::move(result));
     }
-    state.actions.units.clear();
+    scratch.actions.units.clear();
 }
 
 void advanceAttacksAndResolveHits(
     BattleRuntimeState& state,
+    const BattleFrameScratch& scratch,
     BattleFrameResult& result,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -2458,11 +2469,13 @@ void advanceAttacksAndResolveHits(
         std::make_move_iterator(tickEvents.end()));
     applyProjectileCancelDamageResults(
         state,
+        scratch,
         result.attackEvents,
         result.projectileCancelDamageCommands,
         result.commands);
     resolveHitEvents(
         state,
+        scratch,
         result.attackEvents,
         result.hitResults,
         result.commands,
@@ -2732,7 +2745,12 @@ void clearBattleDamageFrameScratch(BattleRuntimeState& state)
     state.damage.visualEvents.clear();
 }
 
-BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
+void clearBattleFrameScratch(BattleFrameScratch& scratch)
+{
+    scratch = {};
+}
+
+BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state, BattleFrameScratch& scratch) const
 {
     assertFrameMovementConfigConfigured(state.world.config);
     assertFrameAttackWorldConfigured(state.attacks);
@@ -2746,22 +2764,25 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     state.effects.committedCommands.clear();
     state.rescue.committedResults.clear();
     advanceStatus(state);
-    advanceRuntimeUnits(state, result.commands);
-    applyRuntimeComboEvents(state, logEvents);
+    advanceRuntimeUnits(state, scratch, result.commands, result.runtimeResults);
+    applyRuntimeComboEvents(state, result.runtimeResults, logEvents);
     applyPendingTeamEffects(state, logEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
-    advanceMovementPhysics(state);
+    advanceMovementPhysics(state, scratch);
+    result.movementPhysicsResults = scratch.movementPhysics.committedResults;
     advanceMovement(state, result);
     advanceActionFrameUnits(
         state,
+        scratch,
         result.movement,
         result.actionResults,
         gameplayEvents,
         visualEvents);
-    advanceAttacksAndResolveHits(state, result, logEvents, visualEvents);
+    advanceAttacksAndResolveHits(state, scratch, result, logEvents, visualEvents);
     applyDamageAndLifecycle(state, result, gameplayEvents, logEvents, visualEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
     emitPresentationFrame(state, result, gameplayEvents, logEvents, visualEvents);
+    clearBattleFrameScratch(scratch);
     return result;
 }
 

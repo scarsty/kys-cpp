@@ -212,22 +212,23 @@ Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboSt
 void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
 void populateBattleFrameHitUnits(
-    Battle::BattleRuntimeState& frameState,
+    Battle::BattleFrameScratch& scratch,
     const std::vector<Role*>& roles);
 void appendBattleFrameHitInput(
-    Battle::BattleRuntimeState& frameState,
+    Battle::BattleFrameScratch& scratch,
     const BattleFrameHitAdapterInput& input);
 void populateBattleFrameRescueState(
     Battle::BattleRuntimeState& frameState,
     const BattleRescueFrameAdapterContext& context);
 void populateBattleMovementPhysicsFrame(
     Battle::BattleRuntimeState& frameState,
+    Battle::BattleFrameScratch& scratch,
     const BattleMovementPhysicsFrameAdapterContext& context);
 void applyBattleMovementPhysicsFrameResults(
-    const Battle::BattleRuntimeState& frameState,
+    const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
     const BattleMovementPhysicsFrameAdapterContext& context);
 void populateBattleActionFrame(
-    Battle::BattleRuntimeState& frameState,
+    Battle::BattleFrameScratch& scratch,
     BattleActionFrameAdapterContext& context);
 BattleActionFrameApplyResult applyBattleActionFrameResults(
     const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,

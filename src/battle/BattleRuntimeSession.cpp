@@ -8,9 +8,15 @@ BattleRuntimeSession::BattleRuntimeSession(BattleRuntimeInit init)
 {
 }
 
+BattleFrameScratch& BattleRuntimeSession::beginFrameScratch()
+{
+    clearBattleFrameScratch(scratch_);
+    return scratch_;
+}
+
 BattleFrameResult BattleRuntimeSession::runFrame()
 {
-    return runner_.runFrame(runtime_);
+    return runner_.runFrame(runtime_, scratch_);
 }
 
 void BattleRuntimeSession::enqueueAttackSpawn(BattleAttackSpawnRequest request)
