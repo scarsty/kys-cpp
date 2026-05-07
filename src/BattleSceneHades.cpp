@@ -46,7 +46,7 @@ using KysChess::BattleSceneBattleAdapter::applyBattleMovementPhysicsFrameResults
 using KysChess::BattleSceneBattleAdapter::effectiveBattleReach;
 using KysChess::BattleSceneBattleAdapter::forcedRangedMinSelectDistance;
 using KysChess::BattleSceneBattleAdapter::isBattleRangedStyleMagic;
-using KysChess::BattleSceneBattleAdapter::populateBattleActionFrame;
+using KysChess::BattleSceneBattleAdapter::populateBattleActionDirectives;
 using KysChess::BattleSceneBattleAdapter::projectileSpeedMultiplierPct;
 using KysChess::BattleSceneBattleAdapter::roleForcesRangedMagic;
 using KysChess::BattleSceneBattleAdapter::selectHigherPowerMagic;
@@ -2428,8 +2428,7 @@ void BattleSceneHades::backRun1()
         result.advanced = true;
         auto actionContext = makeBattleActionFrameAdapterContext();
         BattleMovementPhysicsFrameAdapterContext movementPhysicsContext;
-        auto& scratch = battle_session_->beginFrameScratch();
-        auto bundle = buildCoreRuntimeContext(actionContext, movementPhysicsContext, scratch);
+        auto bundle = buildCoreRuntimeContext(actionContext, movementPhysicsContext);
         auto frameResult = battle_session_->runFrame();
         applyCoreFrameResult(bundle, frameResult, actionContext, movementPhysicsContext);
     }
@@ -2473,8 +2472,7 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
 
 KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::buildCoreRuntimeContext(
     BattleActionFrameAdapterContext& actionContext,
-    BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext,
-    KysChess::Battle::BattleFrameScratch& scratch)
+    BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
 {
     auto& comboStates = battleRuntime().combo.units;
     initializeBattleRuntimeStaticState();
@@ -2508,7 +2506,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
 
     battleRuntime().movementDecisions.clear();
     core_movement_frame_ = battle_frame_;
-    populateBattleActionFrame(scratch, actionContext);
+    populateBattleActionDirectives(battleRuntime(), actionContext);
     for (int unitId : actionContext.movementDashStartUnitIds)
     {
         auto* role = requireFrameRole(bundle, unitId);

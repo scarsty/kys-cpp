@@ -2641,15 +2641,14 @@ BattleFrameUnitRuntimeState makeActionRuntimeState(const BattleRuntimeUnit& unit
 
 void advanceActionFrameUnits(
     BattleRuntimeState& state,
-    BattleFrameScratch& scratch,
     const BattleTickResult& movement,
     std::vector<BattleFrameActionUnitResult>& actionResults,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
     std::unordered_map<int, const BattleFrameActionUnitInput*> inputsByUnitId;
-    inputsByUnitId.reserve(scratch.actions.units.size());
-    for (const auto& input : scratch.actions.units)
+    inputsByUnitId.reserve(state.action.directives.size());
+    for (const auto& input : state.action.directives)
     {
         assert(input.unitId >= 0);
         const auto [_, inserted] = inputsByUnitId.emplace(input.unitId, &input);
@@ -2756,7 +2755,7 @@ void advanceActionFrameUnits(
             actionResults.push_back(std::move(result));
         }
     }
-    scratch.actions.units.clear();
+    state.action.directives.clear();
 }
 
 void advanceAttacksAndResolveHits(
@@ -3054,12 +3053,7 @@ void clearBattleDamageFrameScratch(BattleRuntimeState& state)
     state.damage.visualEvents.clear();
 }
 
-void clearBattleFrameScratch(BattleFrameScratch& scratch)
-{
-    scratch = {};
-}
-
-BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state, BattleFrameScratch& scratch) const
+BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
 {
     assertFrameMovementConfigConfigured(state.world.config);
     assertFrameAttackWorldConfigured(state.attacks);
@@ -3081,7 +3075,6 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state, BattleF
     advanceMovement(state, result);
     advanceActionFrameUnits(
         state,
-        scratch,
         result.movement,
         result.actionResults,
         gameplayEvents,
@@ -3091,7 +3084,6 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state, BattleF
     applyDamageAndLifecycle(state, result, gameplayEvents, logEvents, visualEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
     emitPresentationFrame(state, result, gameplayEvents, logEvents, visualEvents);
-    clearBattleFrameScratch(scratch);
     return result;
 }
 

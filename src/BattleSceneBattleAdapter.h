@@ -165,8 +165,8 @@ Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* ro
 void applyBattleMovementPhysicsFrameResults(
     const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
     const BattleMovementPhysicsFrameAdapterContext& context);
-void populateBattleActionFrame(
-    Battle::BattleFrameScratch& scratch,
+void populateBattleActionDirectives(
+    Battle::BattleRuntimeState& runtime,
     BattleActionFrameAdapterContext& context);
 BattleActionFrameApplyResult applyBattleActionFrameResults(
     const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,

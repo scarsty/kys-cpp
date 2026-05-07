@@ -17,7 +17,6 @@ class BattleRuntimeSession
 public:
     explicit BattleRuntimeSession(BattleRuntimeInit init);
 
-    BattleFrameScratch& beginFrameScratch();
     BattleFrameResult runFrame();
     void enqueueAttackSpawn(BattleAttackSpawnRequest request);
 
@@ -26,7 +25,6 @@ public:
 
 private:
     BattleRuntimeState runtime_;
-    BattleFrameScratch scratch_;
     BattleFrameRunner runner_;
 };
 

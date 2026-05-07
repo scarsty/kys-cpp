@@ -1072,8 +1072,8 @@ void applyBattleMovementPhysicsFrameResults(
     }
 }
 
-void populateBattleActionFrame(
-    Battle::BattleFrameScratch& scratch,
+void populateBattleActionDirectives(
+    Battle::BattleRuntimeState& runtime,
     BattleActionFrameAdapterContext& context)
 {
     assert(context.roles);
@@ -1081,8 +1081,8 @@ void populateBattleActionFrame(
     assert(context.comboStates);
     assert(context.movementDecisions);
 
-    scratch.actions.units.clear();
-    scratch.actions.units.reserve(context.roles->size());
+    runtime.action.directives.clear();
+    runtime.action.directives.reserve(context.roles->size());
     for (auto role : *context.roles)
     {
         assert(role);
@@ -1092,7 +1092,7 @@ void populateBattleActionFrame(
         populateCastPlanInputForRole(unitInput, role, context);
         if (hasActionFrameDirective(unitInput))
         {
-            scratch.actions.units.push_back(std::move(unitInput));
+            runtime.action.directives.push_back(std::move(unitInput));
         }
     }
 }

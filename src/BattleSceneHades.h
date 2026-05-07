@@ -63,8 +63,7 @@ protected:
     SceneBattleFrameInput buildBattleFrameInput();
     KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext buildCoreRuntimeContext(
         KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
-        KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext,
-        KysChess::Battle::BattleFrameScratch& scratch);
+        KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
     void applyCoreFrameResult(
         KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
         const KysChess::Battle::BattleFrameResult& frameResult,

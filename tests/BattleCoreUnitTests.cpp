@@ -22,7 +22,7 @@ constexpr double SceneBounceSpawnDistance = SceneTileWidth * 1.5;
 constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
 constexpr double LegacyMinimumVectorNorm = 0.0001;
 
-BattleFrameResult runBattleFrame(BattleRuntimeState& state, BattleFrameScratch& scratch)
+BattleFrameResult runBattleFrame(BattleRuntimeState& state)
 {
     if (state.action.castFrames.empty())
     {
@@ -30,13 +30,7 @@ BattleFrameResult runBattleFrame(BattleRuntimeState& state, BattleFrameScratch& 
         state.action.actionRecoveryFrames = 4;
         state.action.dashRecoveryFrames = 5;
     }
-    return BattleFrameRunner().runFrame(state, scratch);
-}
-
-BattleFrameResult runBattleFrame(BattleRuntimeState& state)
-{
-    BattleFrameScratch scratch;
-    return runBattleFrame(state, scratch);
+    return BattleFrameRunner().runFrame(state);
 }
 
 BattleMovementConfig testConfig()
@@ -271,14 +265,12 @@ BattleStatusRuntimeUnit statusRuntimeSnapshot(int id, int hp)
 struct HitDamageFrameState
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
 };
 
 HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
 {
     HitDamageFrameState frame;
     auto& state = frame.state;
-    auto& scratch = frame.scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 105, 100, 0 }),
@@ -607,7 +599,6 @@ BattleRescueCellSnapshot rescueCell(int x, int y, bool walkable = true, bool occ
 BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.units.gridTransform = { SceneTileWidth, 64 };
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }),
@@ -976,7 +967,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
 TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }),
         unit(2, 1, { 240, 100, 0 }),
@@ -986,7 +976,7 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     BattleCastInput castInput;
     castInput.unit.id = 1;
     castInput.targetUnitId = 2;
-    scratch.actions.units.push_back(castPlanningActionUnit(castInput));
+    state.action.directives.push_back(castPlanningActionUnit(castInput));
 
     BattleDamageTransactionInput damageInput;
     damageInput.request.attackerUnitId = 1;
@@ -1005,7 +995,7 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     state.deathEffects.store.units.push_back(deathEffectExtras);
 
     CHECK(state.world.units.size() == 2);
-    CHECK(scratch.actions.units[0].castInput.unit.id == 1);
+    CHECK(state.action.directives[0].castInput.unit.id == 1);
     CHECK(state.damage.pendingTransactions[0].request.defenderUnitId == 2);
     CHECK(state.units.requireUnit(1).hp == 80);
     CHECK(state.combo.units.at(1).postSkillInvincFrames == 12);
@@ -1176,7 +1166,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[b
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }),
         unit(2, 1, { 210, 100, 0 }),
@@ -1195,9 +1184,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battl
 
     auto cast = frameCastInput(1, 2);
     cast.unit.stunned = true;
-    scratch.actions.units.push_back(castPlanningActionUnit(cast));
+    state.action.directives.push_back(castPlanningActionUnit(cast));
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(state.status.events.size() == 1);
     CHECK(state.status.events[0].type == BattleStatusEventType::TempAttackExpired);
@@ -1211,7 +1200,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battl
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawningAttack", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 10, 20, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 82, 20, 0 }),
@@ -1228,9 +1216,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
     cast.normalSkill.attackAreaType = 1;
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
-    scratch.actions.units.push_back(castPlanningActionUnit(cast));
+    state.action.directives.push_back(castPlanningActionUnit(cast));
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     REQUIRE(result.actionResults[0].castResult.attackSpawnRequests.size() == 1);
@@ -1242,7 +1230,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
 TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 10, 20, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 260, 20, 0 }),
@@ -1260,9 +1247,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[
     cast.normalSkill.attackAreaType = 1;
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
-    scratch.actions.units.push_back(castPlanningActionUnit(cast));
+    state.action.directives.push_back(castPlanningActionUnit(cast));
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     const auto& castResult = result.actionResults[0].castResult;
@@ -1275,7 +1262,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     auto caster = unit(1, 0, { 10, 20, 0 }, CombatStyle::Ranged);
     caster.reach = 400.0;
     state.world = worldWith({
@@ -1297,9 +1283,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[b
     frozenStatus.alive = true;
     frozenStatus.frozenTimer = 3;
     state.status.units.push_back(makeBattleStatusRuntimeUnit(frozenStatus));
-    scratch.actions.units.push_back(castPlanningActionUnit(frameCastInput(1, 2)));
+    state.action.directives.push_back(castPlanningActionUnit(frameCastInput(1, 2)));
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     CHECK_FALSE(result.actionResults[0].castResult.decision.canCast);
@@ -1310,7 +1296,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[b
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     auto caster = unit(1, 0, { 10, 20, 0 }, CombatStyle::Ranged);
     caster.reach = 400.0;
     state.world = worldWith({
@@ -1330,9 +1315,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
     cast.normalSkill.attackAreaType = 1;
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
-    scratch.actions.units.push_back(castPlanningActionUnit(cast));
+    state.action.directives.push_back(castPlanningActionUnit(cast));
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     REQUIRE(result.actionResults[0].castResult.attackSpawnRequests.size() == 1);
@@ -1345,7 +1330,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 160, 100, 0 }),
@@ -1366,9 +1350,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", 
     auto action = frameActionCommitInput();
     action.hasCast = true;
     action.cast = committedFrameCast();
-    scratch.actions.units.push_back(pendingActionUnit(action));
+    state.action.directives.push_back(pendingActionUnit(action));
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     CHECK(result.actionResults[0].unitId == 1);
@@ -1381,10 +1365,43 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", 
     CHECK(result.attackEvents.front().sourceUnitId == 1);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesRuntimeOwnedActionDirectives", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 160, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.attacks.units = {
+        { 1, 0, true, false, false, { 100, 100, 0 } },
+        { 2, 1, true, false, false, { 160, 100, 0 } },
+    };
+    seedRuntimeUnitsFromWorld(state);
+    auto& unit = state.units.requireUnit(1);
+    unit.haveAction = true;
+    unit.actFrame = 6;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.actType = 1;
+    unit.cooldown = 10;
+
+    auto action = frameActionCommitInput();
+    action.hasCast = true;
+    action.cast = committedFrameCast();
+    state.action.directives.push_back(pendingActionUnit(action));
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.action.directives.empty());
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK(result.actionResults[0].actionCommitted);
+    REQUIRE(result.attackEvents.size() >= 1);
+    CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastInput", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 220, 100, 0 }),
@@ -1404,9 +1421,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastInput", "[battle][c
     actionUnit.selectedCastUltimate = true;
     actionUnit.selectedOperationType = BattleOperationType::RangedProjectile;
     actionUnit.selectedActionInput = frameActionCommitInput();
-    scratch.actions.units.push_back(actionUnit);
+    state.action.directives.push_back(actionUnit);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     CHECK(result.actionResults[0].castResult.decision.canCast);
@@ -1418,7 +1435,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastInput", "[battle][c
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastFromActionFrameUnitInput", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 220, 100, 0 }),
@@ -1437,9 +1453,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastFromActionFrameUnit
     actionUnit.selectedCastUltimate = true;
     actionUnit.selectedOperationType = BattleOperationType::RangedProjectile;
     actionUnit.selectedActionInput = frameActionCommitInput();
-    scratch.actions.units.push_back(actionUnit);
+    state.action.directives.push_back(actionUnit);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     const auto& action = result.actionResults[0];
@@ -1459,7 +1475,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsSelectedCastFromActionFrameUnit
 TEST_CASE("BattleFrameRunner_AdvanceFrame_StartsCastFromActionFrameUnitInput", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 220, 100, 0 }),
@@ -1474,9 +1489,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StartsCastFromActionFrameUnitInput", "
     actionUnit.castInput.normalSkill.rangedStyle = true;
     actionUnit.castInput.normalSkill.reach = 400.0;
     actionUnit.canPlanCast = true;
-    scratch.actions.units.push_back(actionUnit);
+    state.action.directives.push_back(actionUnit);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     const auto& action = result.actionResults[0];
@@ -1492,7 +1507,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StartsCastFromActionFrameUnitInput", "
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingCastFromActionFrameUnitInput", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 160, 100, 0 }),
@@ -1516,9 +1530,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingCastFromActionFrameUnitI
     actionUnit.pendingActionInput.hasCast = true;
     actionUnit.pendingActionInput.cast = committedFrameCast();
     actionUnit.hasPendingActionInput = true;
-    scratch.actions.units.push_back(actionUnit);
+    state.action.directives.push_back(actionUnit);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     const auto& action = result.actionResults[0];
@@ -1534,7 +1548,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingCastFromActionFrameUnitI
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
     });
@@ -1549,9 +1562,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", 
 
     BattleFrameActionUnitInput actionUnit;
     actionUnit.unitId = 1;
-    scratch.actions.units.push_back(actionUnit);
+    state.action.directives.push_back(actionUnit);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     const auto& action = result.actionResults[0];
@@ -1564,7 +1577,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingItemFromActionFrameUnitInput", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 160, 100, 0 }),
@@ -1588,9 +1600,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsPendingItemFromActionFrameUnitI
     actionUnit.pendingActionInput.hiddenWeaponVelocity = { 10, 0, 0 };
     actionUnit.pendingActionInput.hiddenWeaponTotalFrame = 100;
     actionUnit.hasPendingActionInput = true;
-    scratch.actions.units.push_back(actionUnit);
+    state.action.directives.push_back(actionUnit);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     const auto& action = result.actionResults[0];
@@ -1808,7 +1820,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityToUnitStore", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }),
         unit(2, 1, { 220, 100, 0 }),
@@ -1828,7 +1839,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityToUnitSto
     state.units.units[0].haveAction = true;
     state.combo.units[1].postSkillInvincFrames = 5;
 
-    runBattleFrame(state, scratch);
+    runBattleFrame(state);
 
     CHECK(state.units.requireUnit(1).invincible == 5);
     REQUIRE(state.effects.committedCommands.size() == 1);
@@ -1870,14 +1881,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[ba
 {
     auto frame = hitDamageFrameState(70, 100);
     auto& state = frame.state;
-    auto& scratch = frame.scratch;
     KysChess::RoleComboState defenderCombo;
     defenderCombo.shield = 10;
     defenderCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::TempFlatATK, KysChess::Trigger::OnShieldBreak, 14, 100, 45));
     state.combo.units.emplace(2, defenderCombo);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.applications.tempAttackBuffs.size() == 1);
     CHECK(result.applications.tempAttackBuffs[0].unitId == 2);
@@ -1891,12 +1901,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
 {
     auto frame = hitDamageFrameState(70, 100);
     auto& state = frame.state;
-    auto& scratch = frame.scratch;
     KysChess::RoleComboState defenderCombo;
     defenderCombo.counterUltimateBlockChancePct = 100;
     state.combo.units.emplace(2, defenderCombo);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.applications.autoUltimateRequests.size() == 1);
     CHECK(result.applications.autoUltimateRequests[0].unitId == 2);
@@ -2149,7 +2158,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparat
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 105, 100, 0 }),
@@ -2172,7 +2180,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", 
     projectile.state.velocity = { 5, 0, 0 };
     state.attacks.attacks.push_back(projectile);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.hitResults.size() == 1);
     CHECK(result.hitResults[0].attackerUnitId == 1);
@@ -2189,9 +2197,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[ba
 {
     auto frame = hitDamageFrameState(70, 100);
     auto& state = frame.state;
-    auto& scratch = frame.scratch;
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.hitResults.size() == 1);
     REQUIRE(state.damage.committedTransactions.size() == 1);
@@ -2211,9 +2218,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndIns
 {
     auto frame = hitDamageFrameState(120, 20);
     auto& state = frame.state;
-    auto& scratch = frame.scratch;
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(state.damage.committedTransactions.size() == 1);
     CHECK_FALSE(state.damage.committedTransactions.front().defender.alive);
@@ -2241,7 +2247,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndIns
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 105, 100, 0 }),
@@ -2268,7 +2273,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
     defenderCombo.dodgeChancePct = 100;
     state.combo.units.emplace(2, defenderCombo);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.hitResults.size() == 1);
     CHECK(result.hitResults[0].dodged);
@@ -2297,7 +2302,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesHiddenWeaponScalarInput", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 105, 100, 0 }),
@@ -2324,7 +2328,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesHiddenWeaponScalarInput", "[ba
 
     state.units.requireUnit(1).hiddenWeapon = 100;
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.hitResults.size() == 1);
     CHECK(result.hitResults[0].finalHpDamage > 0);
@@ -2335,7 +2339,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesHiddenWeaponScalarInput", "[ba
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][core]")
 {
     BattleRuntimeState state;
-    BattleFrameScratch scratch;
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 105, 100, 0 }),
@@ -2356,7 +2359,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][
     projectile.state.velocity = { 5, 0, 0 };
     state.attacks.attacks.push_back(projectile);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.hitResults.size() == 1);
     CHECK(result.hitResults[0].finalHpDamage == 33);

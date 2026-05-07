@@ -258,15 +258,6 @@ struct BattleFrameRescueCounterAttackConfig
     int totalFramePadding = 15;
 };
 
-struct BattleFrameScratch
-{
-    struct ActionScratch
-    {
-        std::vector<BattleFrameActionUnitInput> units;
-    } actions;
-
-};
-
 struct BattleRuntimeState
 {
     BattleUnitStore units;
@@ -349,6 +340,7 @@ struct BattleRuntimeState
 
     struct ActionState
     {
+        std::vector<BattleFrameActionUnitInput> directives;
         std::vector<int> castFrames;
         int actionRecoveryFrames = 0;
         int dashRecoveryFrames = 0;
@@ -405,11 +397,10 @@ double resolveFrameArmorPenetratedDefense(
 class BattleFrameRunner
 {
 public:
-    BattleFrameResult runFrame(BattleRuntimeState& runtime, BattleFrameScratch& scratch) const;
+    BattleFrameResult runFrame(BattleRuntimeState& runtime) const;
 };
 
 void clearBattleDamageFrameScratch(BattleRuntimeState& state);
-void clearBattleFrameScratch(BattleFrameScratch& scratch);
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
 
 }  // namespace KysChess::Battle

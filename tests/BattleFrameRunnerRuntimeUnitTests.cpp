@@ -16,15 +16,9 @@ constexpr double SceneTileWidth = 36.0;
 constexpr double MaxEffectiveBattleReach = 480.0;
 constexpr double LegacyMinimumVectorNorm = 0.0001;
 
-BattleFrameResult runBattleFrame(BattleRuntimeState& state, BattleFrameScratch& scratch)
-{
-    return BattleFrameRunner().runFrame(state, scratch);
-}
-
 BattleFrameResult runBattleFrame(BattleRuntimeState& state)
 {
-    BattleFrameScratch scratch;
-    return runBattleFrame(state, scratch);
+    return BattleFrameRunner().runFrame(state);
 }
 
 BattleMovementConfig runtimeMovementConfig()
@@ -244,12 +238,11 @@ TEST_CASE("BattleRuntimeSession_QueuedAttackSpawnEntersOwnedRuntime", "[battle][
     CHECK(session.runtime().attacks.attacks[0].state.skillId == 102);
 }
 
-TEST_CASE("BattleFrameRunner_RunFrame_ConsumesExternalFrameScratch", "[battle][frame_runner][runtime][scratch]")
+TEST_CASE("BattleFrameRunner_RunFrame_DoesNotRequireExternalFrameScratch", "[battle][frame_runner][runtime]")
 {
     auto state = runtimeFrameState();
-    BattleFrameScratch scratch;
 
-    auto result = BattleFrameRunner().runFrame(state, scratch);
+    auto result = BattleFrameRunner().runFrame(state);
 
     CHECK(result.runtimeResults.empty());
 }
@@ -282,7 +275,6 @@ TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[batt
 TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrameState", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    BattleFrameScratch scratch;
 
     KysChess::RoleComboState combo;
     combo.postSkillInvincFrames = 12;
@@ -295,7 +287,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     };
     applyRuntimeInput(state.units.requireUnit(1), finishingSkillRuntime());
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.runtimeResults.size() == 1);
     CHECK(result.runtimeResults[0].unitId == 1);
@@ -315,7 +307,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStore", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    BattleFrameScratch scratch;
     state.units.units = {
         teamRuntimeUnit(1, 0, 50),
         teamRuntimeUnit(2, 0, 90),
@@ -329,7 +320,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
     state.combo.units.emplace(1, combo);
     applyRuntimeInput(state.units.requireUnit(1), finishingSkillRuntime());
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(state.teamEffects.committedEvents.size() == 2);
     CHECK(state.teamEffects.committedEvents[0].type == BattleTeamEffectEventType::Heal);
@@ -422,7 +413,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    BattleFrameScratch scratch;
     state.world.frame = 6;
     state.teamEffects.healAuraRadius = SceneTileWidth * 6.0;
     state.units.units = {
@@ -445,7 +435,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     runtime.state.cooldown = 0;
     applyRuntimeInput(state.units.requireUnit(1), runtime);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     CHECK(state.units.requireUnit(1).hp == 70);
     CHECK(state.units.requireUnit(2).hp == 95);
@@ -488,7 +478,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    BattleFrameScratch scratch;
     state.units.units = {
         teamRuntimeUnit(1, 0, 40),
     };
@@ -508,7 +497,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
     runtime.state.cooldown = 0;
     applyRuntimeInput(state.units.requireUnit(1), runtime);
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     CHECK(state.units.requireUnit(1).hp == 65);
     CHECK(state.combo.units.at(1).effectActivationCounts.at(0) == 1);
@@ -530,7 +519,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEffectExecutor", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    BattleFrameScratch scratch;
     state.units.units = {
         teamRuntimeUnit(1, 0, 80),
     };
@@ -542,7 +530,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
 
     applyRuntimeInput(state.units.requireUnit(1), finishingSkillRuntime());
 
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(state.effects.committedCommands.size() == 1);
     CHECK(state.effects.committedCommands[0].type == BattleEffectCommandType::AddInvincibility);
@@ -567,7 +555,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    BattleFrameScratch scratch;
     state.attacks.units = {
         { 1, 0, true, false, false, { 100, 100, 0 } },
         { 2, 1, true, false, false, { 900, 900, 0 } },
@@ -576,7 +563,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     state.attacks.attacks.push_back(cancelProjectile(20, 2));
     state.attacks.attacks[0].state.projectileCancelDamage = 25;
     state.attacks.attacks[1].state.projectileCancelDamage = 12;
-    auto result = runBattleFrame(state, scratch);
+    auto result = runBattleFrame(state);
 
     REQUIRE(result.attackEvents.size() == 3);
     const auto& cancel = result.attackEvents[2];
