@@ -238,6 +238,7 @@ struct BattleActionCommitResult
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleBlinkAttackCommand> blinkCommands;
     std::vector<BattleBlinkTeleportDelta> blinkTeleports;
+    std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
 };
 

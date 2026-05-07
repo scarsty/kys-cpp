@@ -885,14 +885,6 @@ void applyBlinkTeleportDelta(
     BattleActionFrameApplyResult& result)
 {
     assert(role);
-    auto* target = findRoleByBattleId(*context.roles, teleport.targetUnitId);
-    Battle::BattleLogEvent log;
-    log.type = Battle::BattleLogEventType::Status;
-    log.sourceUnitId = role->ID;
-    log.targetUnitId = target->ID;
-    log.text = teleport.selectedWeakest ? "閃擊追殺" : "閃擊突襲";
-    result.logEvents.push_back(std::move(log));
-
     role->setPositionOnly(teleport.gridX, teleport.gridY);
     role->Pos.x = teleport.position.x;
     role->Pos.y = teleport.position.y;
@@ -1082,6 +1074,10 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
         result.applyResult.visualEvents.end(),
         actionResult.visualEvents.begin(),
         actionResult.visualEvents.end());
+    result.applyResult.logEvents.insert(
+        result.applyResult.logEvents.end(),
+        actionResult.logEvents.begin(),
+        actionResult.logEvents.end());
     result.applyResult.attackSpawnRequests = actionResult.attackSpawnRequests;
     role->OperationCount = actionResult.operationCount;
     return result;

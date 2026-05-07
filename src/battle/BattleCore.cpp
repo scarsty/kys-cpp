@@ -2837,6 +2837,7 @@ void advanceActionFrameUnits(
     const BattleTickResult& movement,
     std::vector<BattleFrameActionUnitResult>& actionResults,
     std::vector<BattleGameplayEvent>& gameplayEvents,
+    std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
     std::unordered_map<int, const BattleFrameActionUnitInput*> inputsByUnitId;
@@ -2897,6 +2898,10 @@ void advanceActionFrameUnits(
                     state.pendingAttackSpawns.end(),
                     result.actionResult.attackSpawnRequests.begin(),
                     result.actionResult.attackSpawnRequests.end());
+                logEvents.insert(
+                    logEvents.end(),
+                    result.actionResult.logEvents.begin(),
+                    result.actionResult.logEvents.end());
                 visualEvents.insert(
                     visualEvents.end(),
                     result.actionResult.visualEvents.begin(),
@@ -2953,6 +2958,10 @@ void advanceActionFrameUnits(
                     state.pendingAttackSpawns.end(),
                     result.actionResult.attackSpawnRequests.begin(),
                     result.actionResult.attackSpawnRequests.end());
+                logEvents.insert(
+                    logEvents.end(),
+                    result.actionResult.logEvents.begin(),
+                    result.actionResult.logEvents.end());
                 visualEvents.insert(
                     visualEvents.end(),
                     result.actionResult.visualEvents.begin(),
@@ -3339,6 +3348,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         result.movement,
         result.actionResults,
         gameplayEvents,
+        logEvents,
         visualEvents);
     advanceAttacksAndResolveHits(state, result, logEvents, visualEvents);
     syncRescueStateFromRuntimeUnits(state);

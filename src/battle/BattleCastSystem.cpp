@@ -493,6 +493,14 @@ void appendBlinkTeleportDelta(
         cell.position,
         facing,
     });
+    result.logEvents.push_back({
+        BattleLogEventType::Status,
+        BattlePresentationCurrentFrame,
+        input.unit.id,
+        command.targetUnitId,
+        0,
+        command.selectedWeakest ? "閃擊追殺" : "閃擊突襲",
+    });
 }
 
 void appendBlinkAttackCommand(const BattleActionCommitInput& input, BattleActionCommitResult& result)

@@ -69,6 +69,9 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
         target(2, 90, 0.0, { 100, 20, 0 }),
         target(3, 30, 0.0, { 120, 20, 0 }),
     };
+    input.blinkGeometry.cells = {
+        { 1, 0, { 100, 20, 0 }, true, false },
+    };
 
     auto weakest = BattleActionCommitSystem().commit(input);
 
@@ -77,6 +80,11 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     CHECK(weakest.blinkCommands[0].targetUnitId == 3);
     CHECK(weakest.blinkCommands[0].selectedWeakest);
     CHECK(weakest.blinkCommands[0].reach == 144.0);
+    REQUIRE(weakest.logEvents.size() == 1);
+    CHECK(weakest.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(weakest.logEvents[0].sourceUnitId == 1);
+    CHECK(weakest.logEvents[0].targetUnitId == 3);
+    CHECK(weakest.logEvents[0].text == "閃擊追殺");
     CHECK_FALSE(weakest.combo.blinkAttackUseWeakest);
 
     input.combo = weakest.combo;
@@ -86,6 +94,11 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     REQUIRE(random.blinkCommands.size() == 1);
     CHECK(random.blinkCommands[0].targetUnitId == 3);
     CHECK_FALSE(random.blinkCommands[0].selectedWeakest);
+    REQUIRE(random.logEvents.size() == 1);
+    CHECK(random.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(random.logEvents[0].sourceUnitId == 1);
+    CHECK(random.logEvents[0].targetUnitId == 3);
+    CHECK(random.logEvents[0].text == "閃擊突襲");
     CHECK(random.combo.blinkAttackUseWeakest);
 }
 
