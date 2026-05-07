@@ -192,6 +192,12 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
     BattleAttackSpawnRequest request;
     request.initial.attackerUnitId = input.unit.id;
     request.initial.skillId = selectedSkill.id;
+    request.initial.skillName = selectedSkill.name;
+    request.initial.skillHurtType = selectedSkill.hurtType;
+    request.initial.skillMagicType = selectedSkill.magicType;
+    request.initial.skillEffectId = selectedSkill.visualEffectId;
+    request.initial.skillAttackerActProperty = selectedSkill.actProperty;
+    request.initial.skillMagicPower = selectedSkill.magicPower;
     request.initial.operationType = operationType;
     request.initial.visualEffectId = selectedSkill.visualEffectId;
     request.initial.preferredTargetUnitId = input.targetUnitId;
@@ -554,6 +560,8 @@ void appendItemCommands(const BattleActionCommitInput& input, BattleActionCommit
         request.initial.position = input.unit.position;
         request.initial.velocity = input.hiddenWeaponVelocity;
         request.initial.hiddenWeaponItemId = input.item.id;
+        request.initial.hiddenWeaponItemName = input.item.name;
+        request.initial.hiddenWeaponEffectId = input.item.hiddenWeaponEffectId;
         request.initial.visualEffectId = input.item.hiddenWeaponEffectId;
         request.initial.totalFrame = input.hiddenWeaponTotalFrame;
         request.initial.operationType = BattleOperationType::None;

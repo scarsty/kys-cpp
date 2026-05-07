@@ -131,6 +131,7 @@ TEST_CASE("BattleActionCommit_HiddenWeaponItemEmitsProjectileAndItemCountDelta",
     auto input = basicActionInput();
     input.hasItem = true;
     input.item.id = 501;
+    input.item.name = "飛刀";
     input.item.itemType = 4;
     input.item.hiddenWeaponEffectId = 77;
 
@@ -140,6 +141,8 @@ TEST_CASE("BattleActionCommit_HiddenWeaponItemEmitsProjectileAndItemCountDelta",
     const auto& request = result.attackSpawnRequests[0];
     CHECK(request.initial.attackerUnitId == 1);
     CHECK(request.initial.hiddenWeaponItemId == 501);
+    CHECK(request.initial.hiddenWeaponItemName == "飛刀");
+    CHECK(request.initial.hiddenWeaponEffectId == 77);
     CHECK(request.initial.visualEffectId == 77);
     CHECK(request.initial.totalFrame == 100);
     CHECK(request.initial.operationType == BattleOperationType::None);

@@ -3,6 +3,7 @@
 #include "../Point.h"
 #include "BattleOperation.h"
 
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -33,6 +34,12 @@ struct BattleAttackState
 {
     int attackerUnitId = -1;
     int skillId = -1;
+    std::string skillName;
+    int skillHurtType = 0;
+    int skillMagicType = 0;
+    int skillEffectId = -1;
+    int skillAttackerActProperty = 0;
+    int skillMagicPower = 0;
     int preferredTargetUnitId = -1;
     bool requirePreferredTarget = false;
     int totalFrame = 1;
@@ -50,6 +57,8 @@ struct BattleAttackState
     int visualEffectId = -1;
     BattleOperationType operationType = BattleOperationType::None;
     int hiddenWeaponItemId = -1;
+    std::string hiddenWeaponItemName;
+    int hiddenWeaponEffectId = -1;
     int scriptedDamage = 0;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
@@ -124,9 +133,17 @@ struct BattleAttackEvent
     int sourceUnitId = -1;
     int otherSourceUnitId = -1;
     int skillId = -1;
+    std::string skillName;
+    int skillHurtType = 0;
+    int skillMagicType = 0;
+    int skillEffectId = -1;
+    int skillAttackerActProperty = 0;
+    int skillMagicPower = 0;
     BattleOperationType operationType = BattleOperationType::None;
     int visualEffectId = -1;
     int hiddenWeaponItemId = -1;
+    std::string hiddenWeaponItemName;
+    int hiddenWeaponEffectId = -1;
     int scriptedDamage = 0;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;

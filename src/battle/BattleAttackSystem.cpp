@@ -22,9 +22,17 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackState& state
 {
     event.sourceUnitId = state.attackerUnitId;
     event.skillId = state.skillId;
+    event.skillName = state.skillName;
+    event.skillHurtType = state.skillHurtType;
+    event.skillMagicType = state.skillMagicType;
+    event.skillEffectId = state.skillEffectId;
+    event.skillAttackerActProperty = state.skillAttackerActProperty;
+    event.skillMagicPower = state.skillMagicPower;
     event.operationType = state.operationType;
     event.visualEffectId = state.visualEffectId;
     event.hiddenWeaponItemId = state.hiddenWeaponItemId;
+    event.hiddenWeaponItemName = state.hiddenWeaponItemName;
+    event.hiddenWeaponEffectId = state.hiddenWeaponEffectId;
     event.scriptedDamage = state.scriptedDamage;
     event.scriptedStunFrames = state.scriptedStunFrames;
     event.scriptedBleedStacks = state.scriptedBleedStacks;

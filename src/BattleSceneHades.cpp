@@ -882,6 +882,24 @@ void BattleSceneHades::queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnR
 {
     assert(request.initial.attackerUnitId >= 0);
     auto* attacker = findRoleByBattleId(battle_roles_, request.initial.attackerUnitId);
+    if (request.initial.skillId >= 0 && request.initial.skillName.empty())
+    {
+        auto* magic = Save::getInstance()->getMagic(request.initial.skillId);
+        assert(magic);
+        request.initial.skillName = magic->Name;
+        request.initial.skillHurtType = magic->HurtType;
+        request.initial.skillMagicType = magic->MagicType;
+        request.initial.skillEffectId = magic->EffectID;
+        request.initial.skillAttackerActProperty = attacker->getActProperty(magic->MagicType);
+        request.initial.skillMagicPower = attacker->getMagicPower(magic);
+    }
+    if (request.initial.hiddenWeaponItemId >= 0 && request.initial.hiddenWeaponItemName.empty())
+    {
+        auto* item = Save::getInstance()->getItem(request.initial.hiddenWeaponItemId);
+        assert(item);
+        request.initial.hiddenWeaponItemName = item->Name;
+        request.initial.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
+    }
     request.initial.executeCanHitInvincible = attackCanHitInvincible(attacker);
     assert(battle_session_.has_value());
     battle_session_->enqueueAttackSpawn(std::move(request));

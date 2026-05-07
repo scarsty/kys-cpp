@@ -43,12 +43,14 @@ struct BattleCastSkillState
 {
     int id = -1;
     std::string name;
+    int hurtType = 0;
     int attackAreaType = -1;
     int magicType = -1;
     int visualEffectId = -1;
     int selectDistance = 1;
     int projectileSpeedMultiplierPct = 100;
     int actProperty = 0;
+    int magicPower = 0;
     int meleeSplashCount = 0;
     int extraProjectileCount = 0;
     bool strengthenedMelee = false;
@@ -180,6 +182,7 @@ struct BattleActionTargetSnapshot
 struct BattleActionItemSnapshot
 {
     int id = -1;
+    std::string name;
     int itemType = 0;
     int hiddenWeaponEffectId = -1;
 };

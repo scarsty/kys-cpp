@@ -303,40 +303,41 @@ BattleHitUnitSnapshot makeHitUnitSnapshot(const BattleRuntimeUnit& unit)
     return snapshot;
 }
 
-const BattleFrameHitSkillInput* findHitSkill(
-    const BattleFrameScratch& scratch,
-    int attackId,
-    int attackerUnitId,
-    int defenderUnitId)
+int actPropertyForMagicType(const BattleRuntimeUnit& unit, int magicType)
 {
-    auto it = std::find_if(
-        scratch.hits.skills.begin(),
-        scratch.hits.skills.end(),
-        [&](const BattleFrameHitSkillInput& input)
-        {
-            return input.attackId == attackId
-                && input.attackerUnitId == attackerUnitId
-                && input.defenderUnitId == defenderUnitId;
-        });
-    return it != scratch.hits.skills.end() ? &*it : nullptr;
+    auto it = unit.actPropertiesByMagicType.find(magicType);
+    return it != unit.actPropertiesByMagicType.end() ? it->second : 0;
 }
 
-const BattleFrameHitItemInput* findHitItem(
-    const BattleFrameScratch& scratch,
-    int attackId,
-    int attackerUnitId,
-    int defenderUnitId)
+BattleHitSkillSnapshot makeHitSkillSnapshot(
+    const BattleAttackEvent& event,
+    const BattleRuntimeUnit& attacker,
+    const BattleRuntimeUnit& defender,
+    int resolvedBaseDamage)
 {
-    auto it = std::find_if(
-        scratch.hits.items.begin(),
-        scratch.hits.items.end(),
-        [&](const BattleFrameHitItemInput& input)
-        {
-            return input.attackId == attackId
-                && input.attackerUnitId == attackerUnitId
-                && input.defenderUnitId == defenderUnitId;
-        });
-    return it != scratch.hits.items.end() ? &*it : nullptr;
+    BattleHitSkillSnapshot skill;
+    skill.id = event.skillId;
+    skill.name = event.skillName;
+    skill.hurtType = event.skillHurtType;
+    skill.magicType = event.skillMagicType;
+    skill.effectId = event.skillEffectId;
+    skill.attackerActProperty = event.skillAttackerActProperty != 0
+        ? event.skillAttackerActProperty
+        : actPropertyForMagicType(attacker, event.skillMagicType);
+    skill.defenderActProperty = actPropertyForMagicType(defender, event.skillMagicType);
+    skill.magicPower = event.skillMagicPower;
+    skill.resolvedBaseDamage = resolvedBaseDamage;
+    return skill;
+}
+
+BattleHitItemSnapshot makeHitItemSnapshot(const BattleAttackEvent& event, int resolvedDamage)
+{
+    BattleHitItemSnapshot item;
+    item.id = event.hiddenWeaponItemId;
+    item.name = event.hiddenWeaponItemName;
+    item.hiddenWeaponEffectId = event.hiddenWeaponEffectId;
+    item.resolvedDamage = resolvedDamage;
+    return item;
 }
 
 BattleLogEvent dodgeStatusEvent(int defenderUnitId, int attackerUnitId)
@@ -701,15 +702,17 @@ BattleHitResolutionInput makeHitResolutionInput(
     input.pendingDefenderHpDamage = scalar.pendingDefenderHpDamage;
     input.percentRolls = hitResolverRolls(scalar, consumedDodgeRoll);
 
-    if (const auto* skill = findHitSkill(scratch, event.attackId, event.sourceUnitId, event.unitId))
+    if (event.skillId >= 0)
     {
-        input.skill = skill->skill;
-        input.skill.resolvedBaseDamage = scalar.resolvedMagicBaseDamage;
+        input.skill = makeHitSkillSnapshot(
+            event,
+            *attacker,
+            *defender,
+            scalar.resolvedMagicBaseDamage);
     }
-    if (const auto* item = findHitItem(scratch, event.attackId, event.sourceUnitId, event.unitId))
+    if (event.hiddenWeaponItemId >= 0)
     {
-        input.item = item->item;
-        input.item.resolvedDamage = scalar.resolvedHiddenWeaponDamage;
+        input.item = makeHitItemSnapshot(event, scalar.resolvedHiddenWeaponDamage);
     }
     if (auto comboIt = state.combo.units.find(event.sourceUnitId); comboIt != state.combo.units.end())
     {

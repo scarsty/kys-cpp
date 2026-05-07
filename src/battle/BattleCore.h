@@ -101,6 +101,7 @@ struct BattleRuntimeUnit
     int shield = 0;
     bool mpBlocked = false;
     int mpRecoveryBonusPct = 0;
+    std::map<int, int> actPropertiesByMagicType;
     Pointf position;
     Pointf velocity;
     Pointf acceleration;
@@ -192,22 +193,6 @@ struct BattleFrameHitScalarInput
     int randomDamageVariance = 0;
     std::vector<double> percentRolls;
     int pendingDefenderHpDamage = 0;
-};
-
-struct BattleFrameHitSkillInput
-{
-    int attackId = -1;
-    int attackerUnitId = -1;
-    int defenderUnitId = -1;
-    BattleHitSkillSnapshot skill;
-};
-
-struct BattleFrameHitItemInput
-{
-    int attackId = -1;
-    int attackerUnitId = -1;
-    int defenderUnitId = -1;
-    BattleHitItemSnapshot item;
 };
 
 struct BattleFrameKnockbackDelta
@@ -316,8 +301,6 @@ struct BattleFrameScratch
 
     struct HitScratch
     {
-        std::vector<BattleFrameHitSkillInput> skills;
-        std::vector<BattleFrameHitItemInput> items;
         std::vector<BattleFrameHitScalarInput> scalars;
     } hits;
 };

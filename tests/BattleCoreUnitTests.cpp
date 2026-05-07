@@ -247,25 +247,6 @@ BattleAttackSpawnRequest attackSpawnRequest()
     return request;
 }
 
-BattleHitSkillSnapshot hitSkillSnapshot(int id, int resolvedBaseDamage)
-{
-    BattleHitSkillSnapshot snapshot;
-    snapshot.id = id;
-    snapshot.name = "test skill";
-    snapshot.magicType = 1;
-    snapshot.resolvedBaseDamage = resolvedBaseDamage;
-    return snapshot;
-}
-
-BattleHitItemSnapshot hitItemSnapshot(int id, int resolvedDamage)
-{
-    BattleHitItemSnapshot snapshot;
-    snapshot.id = id;
-    snapshot.name = "test item";
-    snapshot.resolvedDamage = resolvedDamage;
-    return snapshot;
-}
-
 BattleStatusUnitState statusUnitSnapshot(int id, int hp)
 {
     BattleStatusUnitState state;
@@ -328,7 +309,6 @@ HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
     projectile.state.velocity = { 5, 0, 0 };
     state.attacks.attacks.push_back(projectile);
 
-    scratch.hits.skills.push_back({ 10, 1, 2, hitSkillSnapshot(101, resolvedBaseDamage) });
     scratch.hits.scalars.push_back({ 10, 1, 2, resolvedBaseDamage, 0, 1, 0, {} });
     state.units.units = {
         runtimeUnitSnapshot(1, 0, 80, { 100, 100, 0 }),
@@ -2153,7 +2133,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", 
     projectile.state.velocity = { 5, 0, 0 };
     state.attacks.attacks.push_back(projectile);
 
-    scratch.hits.skills.push_back({ 10, 1, 2, hitSkillSnapshot(101, 70) });
     scratch.hits.scalars.push_back({ 10, 1, 2, 70, 0, 1, 0, {} });
 
     auto result = runBattleFrame(state, scratch);
@@ -2247,7 +2226,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
     projectile.state.velocity = { 5, 0, 0 };
     state.attacks.attacks.push_back(projectile);
 
-    scratch.hits.skills.push_back({ 10, 1, 2, hitSkillSnapshot(101, 70) });
     scratch.hits.scalars.push_back({ 10, 1, 2, 70, 0, 1, 0, { 0.0 } });
     KysChess::RoleComboState defenderCombo;
     defenderCombo.dodgeChancePct = 100;
@@ -2298,13 +2276,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesHiddenWeaponScalarInput", "[ba
     projectile.id = 10;
     projectile.state.attackerUnitId = 1;
     projectile.state.hiddenWeaponItemId = 501;
+    projectile.state.hiddenWeaponItemName = "飛刀";
+    projectile.state.hiddenWeaponEffectId = 901;
     projectile.state.totalFrame = 30;
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.position = { 100, 100, 0 };
     projectile.state.velocity = { 5, 0, 0 };
     state.attacks.attacks.push_back(projectile);
 
-    scratch.hits.items.push_back({ 10, 1, 2, hitItemSnapshot(501, 100) });
     scratch.hits.scalars.push_back({ 10, 1, 2, 0, 100, 1, 0, {} });
 
     auto result = runBattleFrame(state, scratch);

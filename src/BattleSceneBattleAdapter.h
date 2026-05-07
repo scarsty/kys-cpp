@@ -172,11 +172,6 @@ Battle::BattleActionCommitUnitSnapshot makeBattleActionCommitUnitSnapshot(Role* 
 Battle::BattleActionTargetSnapshot makeBattleActionTargetSnapshot(Role* role);
 Battle::BattleActionItemSnapshot makeBattleActionItemSnapshot(Item* item);
 
-Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,
-                                                          Role* defender,
-                                                          Magic* magic,
-                                                          int resolvedBaseDamage);
-Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolvedDamage);
 Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state);
 void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit);
 Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state);

@@ -296,12 +296,14 @@ Battle::BattleCastSkillState makeBattleCastSkillState(Role* unit, const BattleCa
     assert(unit);
     skill.id = input.magic->ID;
     skill.name = input.magic->Name;
+    skill.hurtType = input.magic->HurtType;
     skill.attackAreaType = input.magic->AttackAreaType;
     skill.magicType = input.magic->MagicType;
     skill.visualEffectId = input.magic->EffectID;
     skill.selectDistance = input.magic->SelectDistance;
     skill.projectileSpeedMultiplierPct = input.projectileSpeedMultiplierPct;
     skill.actProperty = unit->getActProperty(input.magic->MagicType);
+    skill.magicPower = unit->getMagicPower(input.magic);
     skill.meleeSplashCount = input.meleeSplashCount;
     skill.extraProjectileCount = input.extraProjectileCount;
     skill.strengthenedMelee = input.strengthenedMelee;
@@ -405,6 +407,10 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     unit.physicalPower = role->PhysicalPower;
     unit.invincible = role->Invincible;
     unit.hurtFrame = role->HurtFrame;
+    for (int magicType = 0; magicType <= 4; ++magicType)
+    {
+        unit.actPropertiesByMagicType.emplace(magicType, role->getActProperty(magicType));
+    }
     unit.position = role->Pos;
     unit.velocity = role->Velocity;
     unit.acceleration = role->Acceleration;
@@ -477,6 +483,7 @@ Battle::BattleActionItemSnapshot makeBattleActionItemSnapshot(Item* item)
 
     Battle::BattleActionItemSnapshot snapshot;
     snapshot.id = item->ID;
+    snapshot.name = item->Name;
     snapshot.itemType = item->ItemType;
     snapshot.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
     return snapshot;
@@ -615,46 +622,6 @@ Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* ro
     return style;
 }
 
-Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,
-                                                          Role* defender,
-                                                          Magic* magic,
-                                                          int resolvedBaseDamage)
-{
-    Battle::BattleHitSkillSnapshot snapshot;
-    if (!magic)
-    {
-        return snapshot;
-    }
-    assert(attacker);
-    assert(defender);
-
-    snapshot.id = magic->ID;
-    snapshot.name = magic->Name;
-    snapshot.hurtType = magic->HurtType;
-    snapshot.magicType = magic->MagicType;
-    snapshot.effectId = magic->EffectID;
-    snapshot.attackerActProperty = attacker->getActProperty(magic->MagicType);
-    snapshot.defenderActProperty = defender->getActProperty(magic->MagicType);
-    snapshot.magicPower = attacker->getMagicPower(magic);
-    snapshot.resolvedBaseDamage = resolvedBaseDamage;
-    return snapshot;
-}
-
-Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolvedDamage)
-{
-    Battle::BattleHitItemSnapshot snapshot;
-    if (!item)
-    {
-        return snapshot;
-    }
-
-    snapshot.id = item->ID;
-    snapshot.name = item->Name;
-    snapshot.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
-    snapshot.resolvedDamage = resolvedDamage;
-    return snapshot;
-}
-
 void appendBattleFrameHitInput(
     Battle::BattleFrameScratch& scratch,
     const BattleFrameHitAdapterInput& input)
@@ -673,24 +640,6 @@ void appendBattleFrameHitInput(
         input.randomDamageVariance,
         input.percentRolls,
         input.pendingDefenderHpDamage,
-    });
-    scratch.hits.skills.push_back({
-        input.attackId,
-        input.attacker->ID,
-        input.defender->ID,
-        makeBattleHitSkillSnapshot(
-            input.attacker,
-            input.defender,
-            input.magic,
-            input.resolvedMagicBaseDamage),
-    });
-    scratch.hits.items.push_back({
-        input.attackId,
-        input.attacker->ID,
-        input.defender->ID,
-        makeBattleHitItemSnapshot(
-            input.hiddenWeapon,
-            input.resolvedHiddenWeaponDamage),
     });
 }
 
