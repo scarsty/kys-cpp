@@ -35,7 +35,6 @@ struct BattleCastSkillAdapterInput
 struct BattleCastAdapterInput
 {
     Role* unit = nullptr;
-    Role* target = nullptr;
     BattleCastSkillAdapterInput normalSkill;
     BattleCastSkillAdapterInput ultimateSkill;
     bool canStartAttack = true;
@@ -45,7 +44,6 @@ struct BattleCastAdapterInput
     int dashHitCount = 1;
     bool emitDashFollowUpSkillAttack = false;
     int dashFollowUpOperationType = -1;
-    double targetDistance{};
     double meleeAttackReach{};
     double dashAttackReach{};
     int operationCount = 0;

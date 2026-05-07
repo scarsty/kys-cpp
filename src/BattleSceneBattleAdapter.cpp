@@ -162,6 +162,7 @@ Battle::BattleCastGeometry makeBattleCastGeometry()
     geometry.projectileTravelPerSelectDistance = BATTLE_TILE_W;
     geometry.meleeSplashProjectileSpeed = MELEE_SPLASH_PROJECTILE_SPEED;
     geometry.dashHitPositionSpacing = DASH_HIT_POSITION_SPACING;
+    geometry.dashVelocityMagnitude = MELEE_ATTACK_HIT_RADIUS / DASH_MOMENTUM_FRAMES;
     geometry.dashHitFrameStep = DASH_HIT_FRAME_STEP;
     return geometry;
 }
@@ -340,9 +341,6 @@ Battle::BattleCastInput makeBattleCastInput(const BattleCastAdapterInput& input)
     castInput.unit.dashFollowUpOperationType = Battle::battleOperationFromLegacy(input.dashFollowUpOperationType);
     castInput.normalSkill = makeBattleCastSkillState(input.unit, input.normalSkill);
     castInput.ultimateSkill = makeBattleCastSkillState(input.unit, input.ultimateSkill);
-    castInput.targetUnitId = input.target ? input.target->ID : -1;
-    castInput.targetPosition = input.target ? input.target->Pos : Pointf{};
-    castInput.targetDistance = input.targetDistance;
     return castInput;
 }
 
@@ -760,36 +758,6 @@ int legacyOperationForAttackArea(int attackAreaType)
         Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(attackAreaType));
 }
 
-Role* findSnapshotRole(const BattleActionFrameAdapterContext& context, int unitId)
-{
-    if (unitId < 0)
-    {
-        return nullptr;
-    }
-    assert(context.roles);
-    auto it = std::find_if(
-        context.roles->begin(),
-        context.roles->end(),
-        [unitId](const Role* role)
-        {
-            return role && role->ID == unitId;
-        });
-    assert(it != context.roles->end());
-    return *it;
-}
-
-Role* findNearestEnemyRole(const BattleActionFrameAdapterContext& context, int sourceUnitId)
-{
-    assert(context.units);
-    return findSnapshotRole(context, Battle::findNearestEnemyUnitId(*context.units, sourceUnitId));
-}
-
-Role* findFarthestEnemyRole(const BattleActionFrameAdapterContext& context, int sourceUnitId)
-{
-    assert(context.units);
-    return findSnapshotRole(context, Battle::findFarthestEnemyUnitId(*context.units, sourceUnitId));
-}
-
 double actionRandomRoll(const BattleActionFrameAdapterContext& context)
 {
     assert(context.random);
@@ -812,6 +780,33 @@ int actionUltimateExtraProjectileCount(Role* role, const BattleActionFrameAdapte
         combo,
         role->ID,
         std::max(0, combo.ultimateExtraProjectiles));
+}
+
+const Battle::BattleRuntimeUnit* findNearestEnemyUnit(const BattleActionFrameAdapterContext& context, int sourceUnitId)
+{
+    assert(context.units);
+    const int targetUnitId = Battle::findNearestEnemyUnitId(*context.units, sourceUnitId);
+    return targetUnitId >= 0 ? context.units->findUnit(targetUnitId) : nullptr;
+}
+
+const Battle::BattleRuntimeUnit* findFarthestEnemyUnit(const BattleActionFrameAdapterContext& context, int sourceUnitId)
+{
+    assert(context.units);
+    const int targetUnitId = Battle::findFarthestEnemyUnitId(*context.units, sourceUnitId);
+    return targetUnitId >= 0 ? context.units->findUnit(targetUnitId) : nullptr;
+}
+
+void setCastTargetFromRuntimeUnit(Battle::BattleCastInput& castInput, const Battle::BattleRuntimeUnit& target)
+{
+    castInput.targetUnitId = target.id;
+    castInput.targetPosition = target.position;
+    castInput.targetDistance = EuclidDis(castInput.unit.position, target.position);
+    auto dashVelocity = target.position - castInput.unit.position;
+    if (dashVelocity.norm() > 0.01)
+    {
+        dashVelocity.normTo(MELEE_ATTACK_HIT_RADIUS / DASH_MOMENTUM_FRAMES);
+    }
+    castInput.unit.dashVelocity = dashVelocity;
 }
 
 Pointf positionForCell(int x, int y, int coordCount)
@@ -879,7 +874,6 @@ int rollDashHitCount(Role* role, Magic* selectedMagic, const BattleActionFrameAd
 
 Battle::BattleCastInput makeActionFrameCastInput(
     Role* role,
-    Role* target,
     Magic* normalMagic,
     Magic* ultimateMagic,
     bool canStartAttack,
@@ -887,12 +881,11 @@ Battle::BattleCastInput makeActionFrameCastInput(
     const BattleActionFrameAdapterContext& context)
 {
     assert(role);
-    assert(target);
     assert(context.comboStates);
 
     const bool isUltimate = role->MP >= role->MaxMP;
     Magic* selectedMagic = isUltimate && ultimateMagic ? ultimateMagic : normalMagic;
-    Pointf dashVelocity = target->Pos - role->Pos;
+    Pointf dashVelocity = role->RealTowards;
     if (dashVelocity.norm() > 0.01)
     {
         dashVelocity.normTo(context.config.meleeAttackHitRadius / context.config.dashMomentumFrames);
@@ -909,7 +902,6 @@ Battle::BattleCastInput makeActionFrameCastInput(
 
     BattleCastAdapterInput castAdapterInput;
     castAdapterInput.unit = role;
-    castAdapterInput.target = target;
     castAdapterInput.normalSkill = makeActionFrameSkillInput(role, normalMagic, false, context);
     castAdapterInput.ultimateSkill = makeActionFrameSkillInput(role, ultimateMagic, true, context);
     castAdapterInput.canStartAttack = canStartAttack;
@@ -919,7 +911,6 @@ Battle::BattleCastInput makeActionFrameCastInput(
     castAdapterInput.dashHitCount = rollDashHitCount(role, selectedMagic, context);
     castAdapterInput.emitDashFollowUpSkillAttack = dashAttackEnabled && selectedMagic;
     castAdapterInput.dashFollowUpOperationType = selectedMagic ? legacyOperationForAttackArea(selectedMagic->AttackAreaType) : -1;
-    castAdapterInput.targetDistance = EuclidDis(role->Pos, target->Pos);
     castAdapterInput.meleeAttackReach = context.config.meleeAttackReach;
     castAdapterInput.dashAttackReach = context.config.dashAttackMeleeReach;
     castAdapterInput.operationCount = role->OperationCount;
@@ -1022,9 +1013,9 @@ void populateActionCommitInputForRole(
         actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
         actionInput.hiddenWeaponTotalFrame = context.config.hiddenWeaponTotalFrame;
         auto hiddenWeaponVelocity = role->RealTowards;
-        if (auto* target = findFarthestEnemyRole(context, role->ID))
+        if (auto* target = findFarthestEnemyUnit(context, role->ID))
         {
-            hiddenWeaponVelocity = target->Pos - role->Pos;
+            hiddenWeaponVelocity = target->position - role->Pos;
         }
         hiddenWeaponVelocity.normTo(10);
         actionInput.hiddenWeaponVelocity = hiddenWeaponVelocity;
@@ -1048,14 +1039,6 @@ void populateCastPlanInputForRole(
     Magic* equippedMagic = role->UsingMagic;
     Magic* normalMagic = equippedMagic ? equippedMagic : selectLowerPowerMagic(role);
     Magic* ultimateMagic = equippedMagic ? equippedMagic : selectHigherPowerMagic(role);
-    Role* target = findNearestEnemyRole(context, role->ID);
-    if (!target)
-    {
-        role->Velocity = { 0, 0, 0 };
-        role->FindingWay = 0;
-        role->OperationType = -1;
-        return;
-    }
 
     assert(context.movementRuntime);
     auto movementIt = context.movementRuntime->find(role->ID);
@@ -1087,16 +1070,9 @@ void populateCastPlanInputForRole(
         }
     }
 
-    role->RealTowards = target->Pos - role->Pos;
-    if (role->RealTowards.norm() > 0.01)
-    {
-        role->RealTowards.normTo(1);
-    }
-
     unitInput.canPlanCast = true;
     unitInput.castInput = makeActionFrameCastInput(
         role,
-        target,
         normalMagic,
         ultimateMagic,
         canStartAttack,
@@ -1447,7 +1423,7 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
         return result;
     }
 
-    auto* target = findNearestEnemyRole(context, role->ID);
+    auto* target = findNearestEnemyUnit(context, role->ID);
     if (!target)
     {
         return result;
@@ -1455,12 +1431,12 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
 
     auto castInput = makeActionFrameCastInput(
         role,
-        target,
         magic,
         magic,
         true,
         false,
         context);
+    setCastTargetFromRuntimeUnit(castInput, *target);
     const int resolvedOperationType = operationType >= 0
         ? operationType
         : legacyOperationForAttackArea(magic->AttackAreaType);

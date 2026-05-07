@@ -369,6 +369,7 @@ BattleCastInput frameCastInput(int sourceUnitId, int targetUnitId)
     input.geometry.projectileTravelPerSelectDistance = SceneTileWidth;
     input.geometry.meleeSplashProjectileSpeed = 3.0;
     input.geometry.dashHitPositionSpacing = 2.0;
+    input.geometry.dashVelocityMagnitude = SceneTileWidth * 2.0 / 5.0;
     input.geometry.dashHitFrameStep = 3;
     input.unit.id = sourceUnitId;
     input.unit.position = { 10.0f, 20.0f, 0.0f };
@@ -1238,6 +1239,39 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
     CHECK(result.attackEvents.empty());
     REQUIRE(result.frame.gameplayEvents.size() == 1);
     CHECK(result.frame.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    BattleFrameScratch scratch;
+    state.world = worldWith({
+        unit(1, 0, { 10, 20, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 260, 20, 0 }),
+        unit(3, 1, { 82, 20, 0 }),
+    });
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 100, { 10, 20, 0 }),
+        runtimeUnitSnapshot(2, 1, 100, { 260, 20, 0 }),
+        runtimeUnitSnapshot(3, 1, 100, { 82, 20, 0 }),
+    };
+    state.attacks = attackWorld();
+    auto cast = frameCastInput(1, -1);
+    cast.targetPosition = {};
+    cast.targetDistance = 0.0;
+    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.rangedStyle = true;
+    cast.normalSkill.reach = 400.0;
+    scratch.actions.units.push_back(castPlanningActionUnit(cast));
+
+    auto result = runBattleFrame(state, scratch);
+
+    REQUIRE(result.actionResults.size() == 1);
+    const auto& castResult = result.actionResults[0].castResult;
+    CHECK(castResult.decision.canCast);
+    CHECK(castResult.decision.targetUnitId == 3);
+    REQUIRE(castResult.attackSpawnRequests.size() == 1);
+    CHECK(castResult.attackSpawnRequests[0].initial.preferredTargetUnitId == 3);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[battle][core]")

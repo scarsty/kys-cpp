@@ -71,6 +71,7 @@ struct BattleCastGeometry
     double projectileTravelPerSelectDistance{};
     double meleeSplashProjectileSpeed{};
     double dashHitPositionSpacing{};
+    double dashVelocityMagnitude{};
     int dashHitFrameStep{};
 };
 

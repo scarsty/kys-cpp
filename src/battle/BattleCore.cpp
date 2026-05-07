@@ -909,11 +909,33 @@ double distance2d(Pointf lhs, Pointf rhs)
     return EuclidDis(lhs.x - rhs.x, lhs.y - rhs.y);
 }
 
+void refreshCastTarget(BattleCastInput& input, int targetUnitId, Pointf targetPosition)
+{
+    input.targetUnitId = targetUnitId;
+    input.targetPosition = targetPosition;
+    input.targetDistance = distance2d(input.unit.position, targetPosition);
+    if (input.geometry.dashVelocityMagnitude > 0.0)
+    {
+        auto dashVelocity = targetPosition - input.unit.position;
+        if (dashVelocity.norm() > 0.01)
+        {
+            dashVelocity.normTo(static_cast<float>(input.geometry.dashVelocityMagnitude));
+        }
+        input.unit.dashVelocity = dashVelocity;
+    }
+}
+
 BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
                                    const BattleTickResult& movement,
                                    BattleCastInput input)
 {
-    if (const auto* source = findWorldUnit(state.world, input.unit.id))
+    if (const auto* source = state.units.findUnit(input.unit.id))
+    {
+        input.unit.position = source->position;
+        input.unit.alive = source->alive;
+        input.unit.canStartAttack = source->canAttack;
+    }
+    else if (const auto* source = findWorldUnit(state.world, input.unit.id))
     {
         input.unit.position = source->position;
         input.unit.alive = source->alive;
@@ -927,12 +949,26 @@ BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
     {
         input.unit.frozen = status->frozenTimer > 0;
     }
-    if (const auto* target = findWorldUnit(state.world, input.targetUnitId))
+    if (input.targetUnitId < 0 && hasCanonicalUnitStore(state))
+    {
+        input.targetUnitId = findNearestEnemyUnitId(state.units, input.unit.id);
+    }
+    if (const auto* target = state.units.findUnit(input.targetUnitId))
     {
         if (target->alive)
         {
-            input.targetPosition = target->position;
-            input.targetDistance = distance2d(input.unit.position, target->position);
+            refreshCastTarget(input, target->id, target->position);
+        }
+        else
+        {
+            input.targetUnitId = -1;
+        }
+    }
+    else if (const auto* target = findWorldUnit(state.world, input.targetUnitId))
+    {
+        if (target->alive)
+        {
+            refreshCastTarget(input, target->id, target->position);
         }
         else
         {
