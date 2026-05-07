@@ -1,3 +1,4 @@
+#include "battle/BattleCore.h"
 #include "battle/BattleHitResolver.h"
 #include "ChessEftIds.h"
 
@@ -53,6 +54,18 @@ BattleHitResolutionInput hitInput()
     input.defender.position = { 0.0f, 0.0f, 0.0f };
     input.defender.facing = { 1.0f, 0.0f, 0.0f };
     return input;
+}
+
+BattleRuntimeUnit runtimeUnit(int id, int team, Pointf position)
+{
+    BattleRuntimeUnit unit;
+    unit.id = id;
+    unit.team = team;
+    unit.alive = true;
+    unit.hp = 100;
+    unit.maxHp = 100;
+    unit.position = position;
+    return unit;
 }
 
 const BattleAcceptedHitSideEffectCommand* firstAcceptedHitCommand(const BattleHitResolutionResult& result)
@@ -471,11 +484,14 @@ TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCo
 TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnCommands", "[battle][hit_resolver][unit]")
 {
     BattleProjectileFollowUpContext context;
-    context.targets.units = {
-        { 1, 0, true, 100, 100, 0, 0, 0.0, 0.0, 0, 0 },
-        { 2, 1, true, 100, 100, 0, 0, 40.0, 0.0, 1, 0 },
-        { 3, 1, true, 100, 100, 0, 0, 80.0, 0.0, 2, 0 },
+    BattleUnitStore units;
+    units.units = {
+        runtimeUnit(1, 0, { 0.0f, 0.0f, 0.0f }),
+        runtimeUnit(2, 1, { 40.0f, 0.0f, 0.0f }),
+        runtimeUnit(3, 1, { 80.0f, 0.0f, 0.0f }),
     };
+    units.units[1].grid = { 1, 0 };
+    units.units[2].grid = { 2, 0 };
     context.projectileSpeed = 10.0;
 
     BattleAttackEvent prototype;
@@ -498,7 +514,7 @@ TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnComman
         40,
     });
 
-    auto expanded = expandBattleProjectileFollowUpCommands(commands, context);
+    auto expanded = expandBattleProjectileFollowUpCommands(commands, context, units);
 
     REQUIRE(expanded.commands.size() == 2);
     const auto* first = std::get_if<BattleProjectileSpawnCommand>(&expanded.commands[0]);

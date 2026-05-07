@@ -443,8 +443,12 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
     }
 
     updateBattleResult(result, input, units);
+    assert(input.projectileFollowUpUnits);
     auto followUpContext = input.projectileFollowUps;
-    auto followUps = expandBattleProjectileFollowUpCommands(result.commands, followUpContext);
+    auto followUps = expandBattleProjectileFollowUpCommands(
+        result.commands,
+        followUpContext,
+        *input.projectileFollowUpUnits);
     result.commands = std::move(followUps.commands);
     result.visualEvents.insert(
         result.visualEvents.end(),

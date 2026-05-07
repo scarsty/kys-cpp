@@ -261,16 +261,5 @@ BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     const BattleLifecycleApplicationContext& context,
     const std::vector<Battle::BattleGameplayEvent>& events);
 int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input);
-std::vector<int> selectBattleNearbyProjectileTargets(
-    const Battle::BattleProjectileTargetWorld& world,
-    int sourceUnitId,
-    int centerTargetUnitId,
-    int rangePixels);
-std::vector<int> selectBattleAreaImpactTargets(
-    const Battle::BattleProjectileTargetWorld& world,
-    int originUnitId,
-    int areaSize,
-    int maxTargets,
-    int trackedTargetUnitId);
 
 }  // namespace KysChess::BattleSceneBattleAdapter

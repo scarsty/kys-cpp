@@ -1,58 +1,55 @@
 #include "BattleProjectileTargetingSystem.h"
 
+#include "BattleCore.h"
+
 #include <algorithm>
 #include <cassert>
 
 namespace KysChess::Battle
 {
 
-const BattleProjectileTargetUnit& BattleProjectileTargetingSystem::unitById(
-    const BattleProjectileTargetWorld& world,
+const BattleRuntimeUnit& BattleProjectileTargetingSystem::unitById(
+    const BattleUnitStore& units,
     int unitId) const
 {
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleProjectileTargetUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    assert(it != world.units.end());
-    return *it;
+    return units.requireUnit(unitId);
 }
 
-double BattleProjectileTargetingSystem::distanceSquared(const BattleProjectileTargetUnit& lhs,
-                                                        const BattleProjectileTargetUnit& rhs) const
+double BattleProjectileTargetingSystem::distanceSquared(const BattleRuntimeUnit& lhs,
+                                                        const BattleRuntimeUnit& rhs) const
 {
-    double dx = lhs.x - rhs.x;
-    double dy = lhs.y - rhs.y;
+    double dx = lhs.position.x - rhs.position.x;
+    double dy = lhs.position.y - rhs.position.y;
     return dx * dx + dy * dy;
 }
 
-bool BattleProjectileTargetingSystem::withinGridArea(const BattleProjectileTargetUnit& origin,
-                                                     const BattleProjectileTargetUnit& target,
+bool BattleProjectileTargetingSystem::withinGridArea(const BattleRuntimeUnit& origin,
+                                                     const BattleRuntimeUnit& target,
                                                      int width,
                                                      int height) const
 {
     assert(width > 0);
     assert(height > 0);
-    return std::abs(origin.gridX - target.gridX) <= width
-        && std::abs(origin.gridY - target.gridY) <= height;
+    return std::abs(origin.grid.x - target.grid.x) <= width
+        && std::abs(origin.grid.y - target.grid.y) <= height;
 }
 
 std::vector<int> BattleProjectileTargetingSystem::selectNearbyTargets(
-    const BattleProjectileTargetWorld& world,
+    const BattleUnitStore& units,
     int attackerUnitId,
     int centerUnitId,
     double radius) const
 {
     assert(radius > 0.0);
 
-    const auto& attacker = unitById(world, attackerUnitId);
-    const auto& center = unitById(world, centerUnitId);
+    const auto& attacker = unitById(units, attackerUnitId);
+    const auto& center = unitById(units, centerUnitId);
     assert(attacker.alive);
     assert(center.alive);
 
     double radiusSquared = radius * radius;
-    std::vector<const BattleProjectileTargetUnit*> targets;
-    for (const auto& unit : world.units)
+    std::vector<const BattleRuntimeUnit*> targets;
+    for (const auto& unit : units.units)
     {
         if (!unit.alive || unit.team == attacker.team)
         {
@@ -78,7 +75,7 @@ std::vector<int> BattleProjectileTargetingSystem::selectNearbyTargets(
 }
 
 std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
-    const BattleProjectileTargetWorld& world,
+    const BattleUnitStore& units,
     int originUnitId,
     int areaSize,
     int maxTargets,
@@ -87,11 +84,11 @@ std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
     assert(areaSize > 0);
     assert(maxTargets >= 0);
 
-    const auto& origin = unitById(world, originUnitId);
+    const auto& origin = unitById(units, originUnitId);
     assert(origin.alive);
 
-    std::vector<const BattleProjectileTargetUnit*> targets;
-    for (const auto& unit : world.units)
+    std::vector<const BattleRuntimeUnit*> targets;
+    for (const auto& unit : units.units)
     {
         if (!unit.alive || unit.id == origin.id || unit.team == origin.team)
         {
@@ -123,7 +120,7 @@ std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
 
     if (trackedTargetUnitId >= 0 && !hasTracked)
     {
-        const auto& tracked = unitById(world, trackedTargetUnitId);
+        const auto& tracked = unitById(units, trackedTargetUnitId);
         if (tracked.alive && tracked.team != origin.team)
         {
             ids.push_back(tracked.id);
@@ -133,14 +130,14 @@ std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
 }
 
 int BattleProjectileTargetingSystem::selectRandomEnemy(
-    const BattleProjectileTargetWorld& world,
+    const BattleUnitStore& units,
     int sourceTeam,
     int randomIndex) const
 {
     assert(randomIndex >= 0);
 
     std::vector<int> ids;
-    for (const auto& unit : world.units)
+    for (const auto& unit : units.units)
     {
         if (unit.alive && unit.team != sourceTeam)
         {
@@ -155,21 +152,21 @@ int BattleProjectileTargetingSystem::selectRandomEnemy(
 }
 
 int BattleProjectileTargetingSystem::selectWeakestVulnerableEnemy(
-    const BattleProjectileTargetWorld& world,
+    const BattleUnitStore& units,
     int sourceTeam,
     double defenseWeight) const
 {
     assert(defenseWeight >= 0.0);
 
-    const BattleProjectileTargetUnit* weakest = nullptr;
+    const BattleRuntimeUnit* weakest = nullptr;
     double weakestEffectiveHp = 0.0;
-    for (const auto& unit : world.units)
+    for (const auto& unit : units.units)
     {
         if (!unit.alive || unit.team == sourceTeam || unit.invincible > 0)
         {
             continue;
         }
-        const double effectiveHp = unit.maxHp + unit.defense * defenseWeight;
+        const double effectiveHp = unit.maxHp + unit.defence * defenseWeight;
         if (!weakest || effectiveHp < weakestEffectiveHp)
         {
             weakest = &unit;

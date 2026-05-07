@@ -1,4 +1,4 @@
-#include "battle/BattleProjectileTargetingSystem.h"
+#include "battle/BattleCore.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -7,25 +7,23 @@ using namespace KysChess::Battle;
 namespace
 {
 
-BattleProjectileTargetUnit unit(int id, int team, double x, double y, int gridX, int gridY)
+BattleRuntimeUnit unit(int id, int team, double x, double y, int gridX, int gridY)
 {
-    BattleProjectileTargetUnit state;
+    BattleRuntimeUnit state;
     state.id = id;
     state.team = team;
     state.alive = true;
-    state.x = x;
-    state.y = y;
-    state.gridX = gridX;
-    state.gridY = gridY;
+    state.position = { static_cast<float>(x), static_cast<float>(y), 0.0f };
+    state.grid = { gridX, gridY };
     return state;
 }
 
-BattleProjectileTargetUnit combatUnit(int id, int team, int hp, int maxHp, int defense, int invincible)
+BattleRuntimeUnit combatUnit(int id, int team, int hp, int maxHp, int defense, int invincible)
 {
     auto state = unit(id, team, 0.0, 0.0, 0, 0);
     state.hp = hp;
     state.maxHp = maxHp;
-    state.defense = defense;
+    state.defence = defense;
     state.invincible = invincible;
     return state;
 }
@@ -34,8 +32,8 @@ BattleProjectileTargetUnit combatUnit(int id, int team, int hp, int maxHp, int d
 
 TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_AreEnemiesSortedByDistance", "[battle][projectile][unit]")
 {
-    BattleProjectileTargetWorld world;
-    world.units = {
+    BattleUnitStore units;
+    units.units = {
         unit(1, 0, 0.0, 0.0, 0, 0),
         unit(2, 1, 100.0, 0.0, 1, 0),
         unit(3, 1, 20.0, 0.0, 0, 1),
@@ -43,7 +41,7 @@ TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_AreEnemiesSortedByDista
         unit(5, 1, 500.0, 0.0, 5, 0),
     };
 
-    auto ids = BattleProjectileTargetingSystem().selectNearbyTargets(world, 1, 2, 120.0);
+    auto ids = BattleProjectileTargetingSystem().selectNearbyTargets(units, 1, 2, 120.0);
 
     REQUIRE(ids.size() == 2);
     CHECK(ids[0] == 2);
@@ -52,8 +50,8 @@ TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_AreEnemiesSortedByDista
 
 TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_UsesGridAreaLimitAndTrackedTarget", "[battle][projectile][unit]")
 {
-    BattleProjectileTargetWorld world;
-    world.units = {
+    BattleUnitStore units;
+    units.units = {
         unit(1, 0, 0.0, 0.0, 0, 0),
         unit(2, 1, 10.0, 0.0, 1, 0),
         unit(3, 1, 20.0, 0.0, 2, 0),
@@ -61,7 +59,7 @@ TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_UsesGridAreaLimitAndTracke
         unit(5, 0, 5.0, 0.0, 1, 1),
     };
 
-    auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(world, 1, 2, 1, 4);
+    auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(units, 1, 2, 1, 4);
 
     REQUIRE(ids.size() == 2);
     CHECK(ids[0] == 2);
@@ -70,14 +68,14 @@ TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_UsesGridAreaLimitAndTracke
 
 TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_DoesNotDuplicateTrackedTarget", "[battle][projectile][unit]")
 {
-    BattleProjectileTargetWorld world;
-    world.units = {
+    BattleUnitStore units;
+    units.units = {
         unit(1, 0, 0.0, 0.0, 0, 0),
         unit(2, 1, 10.0, 0.0, 1, 0),
         unit(3, 1, 20.0, 0.0, 2, 0),
     };
 
-    auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(world, 1, 2, 0, 2);
+    auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(units, 1, 2, 0, 2);
 
     REQUIRE(ids.size() == 2);
     CHECK(ids[0] == 2);
@@ -86,31 +84,31 @@ TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_DoesNotDuplicateTrackedTar
 
 TEST_CASE("BattleProjectileTargetingSystem_RandomEnemy_UsesExplicitIndex", "[battle][projectile][unit]")
 {
-    BattleProjectileTargetWorld world;
-    world.units = {
+    BattleUnitStore units;
+    units.units = {
         unit(1, 0, 0.0, 0.0, 0, 0),
         unit(2, 1, 10.0, 0.0, 1, 0),
         unit(3, 1, 20.0, 0.0, 2, 0),
         unit(4, 0, 30.0, 0.0, 3, 0),
     };
 
-    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(world, 0, 0) == 2);
-    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(world, 0, 1) == 3);
-    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(world, 0, 2) == 2);
+    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 0) == 2);
+    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 1) == 3);
+    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 2) == 2);
 }
 
 TEST_CASE("BattleProjectileTargetingSystem_WeakestVulnerableEnemy_UsesEffectiveHp", "[battle][projectile][unit]")
 {
-    BattleProjectileTargetWorld world;
-    world.units = {
+    BattleUnitStore units;
+    units.units = {
         combatUnit(1, 0, 100, 100, 0, 0),
         combatUnit(2, 1, 60, 200, 1, 0),
         combatUnit(3, 1, 70, 100, 20, 0),
         combatUnit(4, 1, 5, 100, 0, 3),
         combatUnit(5, 1, 1, 100, 0, 0),
     };
-    world.units[4].alive = false;
+    units.units[4].alive = false;
 
-    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(world, 0, 4.0) == 3);
-    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(world, 1, 4.0) == 1);
+    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(units, 0, 4.0) == 3);
+    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(units, 1, 4.0) == 1);
 }

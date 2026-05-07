@@ -15,6 +15,9 @@
 namespace KysChess::Battle
 {
 
+struct BattleUnitStore;
+struct BattleRuntimeUnit;
+
 struct BattleHitUnitSnapshot
 {
     int id = -1;
@@ -291,7 +294,6 @@ struct BattleHitResolutionResult
 
 struct BattleProjectileFollowUpContext
 {
-    BattleProjectileTargetWorld targets;
     double projectileSpeed = 1.0;
     int minimumProjectileFrames = 20;
     int nearbyProjectileFramePadding = 18;
@@ -309,7 +311,8 @@ struct BattleProjectileFollowUpExpansion
 
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     const std::vector<BattleGameplayCommand>& commands,
-    BattleProjectileFollowUpContext& context);
+    BattleProjectileFollowUpContext& context,
+    const BattleUnitStore& units);
 
 class BattleHitResolver
 {

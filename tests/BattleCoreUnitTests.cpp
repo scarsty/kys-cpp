@@ -1749,9 +1749,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesDeathAoeToPendingProjectileSpaw
     state.projectileFollowUps.minimumProjectileFrames = 20;
     state.projectileFollowUps.areaProjectileFramePadding = 15;
     state.projectileFollowUps.areaSpawnDistance = SceneTileWidth;
-    state.projectileFollowUps.targets.units = {
-        { 1, 0, true, 100, 100, 0, 0, 100, 100, 0, 0 },
-        { 2, 1, true, 10, 100, 0, 0, 120, 100, 0, 0 },
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 100, { 100.0f, 100.0f, 0.0f }),
+        runtimeUnitSnapshot(2, 1, 10, { 120.0f, 100.0f, 0.0f }),
     };
 
     auto result = BattleFrameRunner().runFrame(state);

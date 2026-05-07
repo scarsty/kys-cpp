@@ -734,7 +734,10 @@ void resolveHitEvents(
 
         auto input = makeHitResolutionInput(state, event, *scalar, consumedDodgeRoll);
         auto result = BattleHitResolver().resolve(input);
-        auto followUps = expandBattleProjectileFollowUpCommands(result.commands, state.projectileFollowUps);
+        auto followUps = expandBattleProjectileFollowUpCommands(
+            result.commands,
+            state.projectileFollowUps,
+            state.units);
         result.commands = std::move(followUps.commands);
         result.visualEvents.insert(
             result.visualEvents.end(),
@@ -1778,7 +1781,10 @@ bool reduceFrameGameplayCommand(
         || std::holds_alternative<BattleShieldExplosionCommand>(command)
         || std::holds_alternative<BattleDeathAoeProjectileCommand>(command))
     {
-        auto followUps = expandBattleProjectileFollowUpCommands({ command }, state.projectileFollowUps);
+        auto followUps = expandBattleProjectileFollowUpCommands(
+            { command },
+            state.projectileFollowUps,
+            state.units);
         pending.insert(
             pending.end(),
             std::make_move_iterator(followUps.commands.begin()),
@@ -1898,6 +1904,7 @@ BattleDamageApplicationInput makeFrameDamageApplicationInput(const BattleRuntime
     input.pendingAliveByTeam = state.result.pendingAliveByTeam;
     input.deathEffects = state.deathEffects.world;
     input.projectileFollowUps = state.projectileFollowUps;
+    input.projectileFollowUpUnits = &state.units;
 
     std::map<int, std::size_t> indexByUnitId;
     for (const auto& unit : state.world.units)

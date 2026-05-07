@@ -2,6 +2,7 @@
 
 #include "../ChessEftIds.h"
 #include "BattleComboTriggerSystem.h"
+#include "BattleCore.h"
 
 #include <algorithm>
 #include <cassert>
@@ -211,21 +212,16 @@ BattleVisualEvent floatingTextEvent(int targetUnitId,
     return event;
 }
 
-const BattleProjectileTargetUnit& followUpUnitById(
-    const BattleProjectileTargetWorld& world,
+const BattleRuntimeUnit& followUpUnitById(
+    const BattleUnitStore& units,
     int unitId)
 {
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleProjectileTargetUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    assert(it != world.units.end());
-    return *it;
+    return units.requireUnit(unitId);
 }
 
-Pointf followUpPosition(const BattleProjectileTargetUnit& unit)
+Pointf followUpPosition(const BattleRuntimeUnit& unit)
 {
-    return { static_cast<float>(unit.x), static_cast<float>(unit.y), 0.0f };
+    return unit.position;
 }
 
 double followUpDistance(Pointf lhs, Pointf rhs)
@@ -247,7 +243,7 @@ Pointf normalizedFollowUpVelocity(Pointf from, Pointf to, double speed)
 
 BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     const BattleNearbyTrackingProjectilesCommand& command,
-    const BattleProjectileTargetUnit& target,
+    const BattleRuntimeUnit& target,
     const BattleProjectileFollowUpContext& context)
 {
     const auto targetPosition = followUpPosition(target);
@@ -289,10 +285,11 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
     int damage,
     int stunFrames,
     int visualEffectId,
-    const BattleProjectileFollowUpContext& context)
+    const BattleProjectileFollowUpContext& context,
+    const BattleUnitStore& units)
 {
-    const auto& source = followUpUnitById(context.targets, sourceUnitId);
-    const auto& target = followUpUnitById(context.targets, targetUnitId);
+    const auto& source = followUpUnitById(units, sourceUnitId);
+    const auto& target = followUpUnitById(units, targetUnitId);
     auto sourcePosition = followUpPosition(source);
     auto targetPosition = followUpPosition(target);
     auto direction = targetPosition - sourcePosition;
@@ -361,7 +358,8 @@ std::string appendDetail(std::string detail, const std::string& text)
 
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     const std::vector<BattleGameplayCommand>& commands,
-    BattleProjectileFollowUpContext& context)
+    BattleProjectileFollowUpContext& context,
+    const BattleUnitStore& units)
 {
     assert(context.projectileSpeed > 0.0);
     assert(context.minimumProjectileFrames > 0);
@@ -372,8 +370,8 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     {
         if (const auto* currentHp = std::get_if<BattleCurrentHpBlastCommand>(&command))
         {
-            const auto& source = followUpUnitById(context.targets, currentHp->sourceUnitId);
-            for (const auto& unit : context.targets.units)
+            const auto& source = followUpUnitById(units, currentHp->sourceUnitId);
+            for (const auto& unit : units.units)
             {
                 if (!unit.alive || unit.team == source.team)
                 {
@@ -394,7 +392,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
         }
         if (const auto* spiral = std::get_if<BattleSpiralBleedProjectileCommand>(&command))
         {
-            const auto& source = followUpUnitById(context.targets, spiral->sourceUnitId);
+            const auto& source = followUpUnitById(units, spiral->sourceUnitId);
             const auto sourcePosition = followUpPosition(source);
             const int sharedHitGroupId = context.nextSharedHitGroupId++;
             const int projectileCount = std::max(1, spiral->projectileCount);
@@ -423,7 +421,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
         if (const auto* nearby = std::get_if<BattleNearbyTrackingProjectilesCommand>(&command))
         {
             auto targetIds = targeting.selectNearbyTargets(
-                context.targets,
+                units,
                 nearby->prototype.sourceUnitId,
                 nearby->centerTargetUnitId,
                 nearby->rangePixels);
@@ -432,7 +430,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                 expansion.commands.push_back(BattleProjectileSpawnCommand{
                     makeNearbyFollowUpSpawn(
                         *nearby,
-                        followUpUnitById(context.targets, targetId),
+                        followUpUnitById(units, targetId),
                         context),
                     "範圍追蹤彈",
                 });
@@ -469,7 +467,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                 const double prototypeSpeed = prototypeVelocity.norm();
                 request.initial.velocity = normalizedFollowUpVelocity(
                     extra->prototype.position,
-                    followUpPosition(followUpUnitById(context.targets, extra->targetUnitId)),
+                    followUpPosition(followUpUnitById(units, extra->targetUnitId)),
                     prototypeSpeed > 0.01 ? prototypeSpeed : context.projectileSpeed);
                 expansion.commands.push_back(BattleProjectileSpawnCommand{ std::move(request), "命中追加彈" });
             }
@@ -478,7 +476,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
         if (const auto* shieldExplosion = std::get_if<BattleShieldExplosionCommand>(&command))
         {
             auto targetIds = targeting.selectAreaImpactTargets(
-                context.targets,
+                units,
                 shieldExplosion->sourceUnitId,
                 shieldExplosion->areaSize,
                 0,
@@ -492,7 +490,8 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                         shieldExplosion->damage,
                         0,
                         shieldExplosion->effectId,
-                        context),
+                        context,
+                        units),
                     shieldExplosion->reason,
                 });
             }
@@ -505,7 +504,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
         if (const auto* deathAoe = std::get_if<BattleDeathAoeProjectileCommand>(&command))
         {
             auto targetIds = targeting.selectAreaImpactTargets(
-                context.targets,
+                units,
                 deathAoe->sourceUnitId,
                 7,
                 deathAoe->maxTargets,
@@ -519,7 +518,8 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                         deathAoe->damage,
                         deathAoe->stunFrames,
                         KysChess::EFT_DEATH_BLAST,
-                        context),
+                        context,
+                        units),
                     "殉爆",
                 });
             }

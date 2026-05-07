@@ -1,4 +1,5 @@
 #include "battle/BattleDamageApplicationSystem.h"
+#include "battle/BattleCore.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -37,15 +38,31 @@ BattleDamageTransactionInput damageInput(int attackerUnitId, int defenderUnitId,
 BattleDamageApplicationInput applicationInput()
 {
     BattleDamageApplicationInput input;
+    static BattleUnitStore followUpUnits;
+    followUpUnits.units = {};
     input.frame = 77;
     input.units = {
         { 1, 0, true },
         { 2, 1, true },
     };
-    input.projectileFollowUps.targets.units = {
-        { 1, 0, true, 40, 100, 0, 0, 0.0, 0.0, 0, 0 },
-        { 2, 1, true, 10, 100, 0, 0, 36.0, 0.0, 1, 0 },
-    };
+    BattleRuntimeUnit attacker;
+    attacker.id = 1;
+    attacker.team = 0;
+    attacker.alive = true;
+    attacker.hp = 40;
+    attacker.maxHp = 100;
+    attacker.position = { 0.0f, 0.0f, 0.0f };
+    attacker.grid = { 0, 0 };
+    BattleRuntimeUnit defender;
+    defender.id = 2;
+    defender.team = 1;
+    defender.alive = true;
+    defender.hp = 10;
+    defender.maxHp = 100;
+    defender.position = { 36.0f, 0.0f, 0.0f };
+    defender.grid = { 1, 0 };
+    followUpUnits.units = { attacker, defender };
+    input.projectileFollowUpUnits = &followUpUnits;
     input.projectileFollowUps.projectileSpeed = 12.0;
     return input;
 }

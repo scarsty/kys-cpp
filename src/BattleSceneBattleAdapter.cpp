@@ -1389,32 +1389,4 @@ int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input
     return Battle::BattleDamageSystem().resolveMagicBaseDamage(input);
 }
 
-std::vector<int> selectBattleNearbyProjectileTargets(
-    const Battle::BattleProjectileTargetWorld& world,
-    int sourceUnitId,
-    int centerTargetUnitId,
-    int rangePixels)
-{
-    return Battle::BattleProjectileTargetingSystem().selectNearbyTargets(
-        world,
-        sourceUnitId,
-        centerTargetUnitId,
-        rangePixels);
-}
-
-std::vector<int> selectBattleAreaImpactTargets(
-    const Battle::BattleProjectileTargetWorld& world,
-    int originUnitId,
-    int areaSize,
-    int maxTargets,
-    int trackedTargetUnitId)
-{
-    return Battle::BattleProjectileTargetingSystem().selectAreaImpactTargets(
-        world,
-        originUnitId,
-        areaSize,
-        maxTargets,
-        trackedTargetUnitId);
-}
-
 }  // namespace KysChess::BattleSceneBattleAdapter

@@ -1,5 +1,6 @@
 #include "BattleCastSystem.h"
 
+#include "BattleCore.h"
 #include "BattleMath.h"
 #include "BattleCombatIntent.h"
 #include "BattleProjectileTargetingSystem.h"
@@ -402,25 +403,24 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
     }
 }
 
-BattleProjectileTargetWorld makeActionTargetWorld(const BattleActionCommitInput& input)
+BattleUnitStore makeActionTargetUnits(const BattleActionCommitInput& input)
 {
-    BattleProjectileTargetWorld world;
-    world.units.reserve(input.targets.size());
+    BattleUnitStore units;
+    units.units.reserve(input.targets.size());
     for (const auto& target : input.targets)
     {
-        world.units.push_back({
-            target.id,
-            target.team,
-            target.alive,
-            target.hp,
-            target.maxHp,
-            static_cast<int>(target.defence),
-            target.invincible,
-            target.position.x,
-            target.position.y,
-        });
+        BattleRuntimeUnit unit;
+        unit.id = target.id;
+        unit.team = target.team;
+        unit.alive = target.alive;
+        unit.hp = target.hp;
+        unit.maxHp = target.maxHp;
+        unit.defence = static_cast<int>(target.defence);
+        unit.invincible = target.invincible;
+        unit.position = target.position;
+        units.units.push_back(unit);
     }
-    return world;
+    return units;
 }
 
 const BattleActionTargetSnapshot* findActionTarget(const BattleActionCommitInput& input, int targetId)
@@ -496,22 +496,22 @@ void appendBlinkAttackCommand(const BattleActionCommitInput& input, BattleAction
         return;
     }
 
-    auto targetWorld = makeActionTargetWorld(input);
+    auto targetUnits = makeActionTargetUnits(input);
     BattleProjectileTargetingSystem targeting;
     const bool useWeakest = result.combo.blinkAttackUseWeakest;
     int targetId = useWeakest
-        ? targeting.selectWeakestVulnerableEnemy(
-            targetWorld,
+            ? targeting.selectWeakestVulnerableEnemy(
+            targetUnits,
             input.unit.team,
             input.blinkWeakTargetDefWeight)
         : targeting.selectRandomEnemy(
-            targetWorld,
+            targetUnits,
             input.unit.team,
             input.blinkRandomRoll);
     if (targetId < 0 && useWeakest)
     {
         targetId = targeting.selectRandomEnemy(
-            targetWorld,
+            targetUnits,
             input.unit.team,
             input.blinkRandomRoll);
     }

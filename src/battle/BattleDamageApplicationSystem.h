@@ -12,6 +12,8 @@
 namespace KysChess::Battle
 {
 
+struct BattleUnitStore;
+
 struct BattleDamageApplicationUnitSnapshot
 {
     int id = -1;
@@ -78,6 +80,7 @@ struct BattleDamageApplicationInput
     std::map<int, int> pendingAliveByTeam;
     BattleDeathEffectWorld deathEffects;
     BattleProjectileFollowUpContext projectileFollowUps;
+    const BattleUnitStore* projectileFollowUpUnits = nullptr;
 };
 
 struct BattleDamageApplicationResult

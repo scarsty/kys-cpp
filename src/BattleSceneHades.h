@@ -97,7 +97,6 @@ protected:
     void appendCoreHitInputsForAttack(KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
                                       int attackId,
                                       const KysChess::Battle::BattleAttackState& attackState);
-    KysChess::Battle::BattleProjectileFollowUpContext makeCoreProjectileFollowUpContext() const;
 
 
     void runPositionSwapLoop();

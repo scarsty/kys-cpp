@@ -520,30 +520,6 @@ void writeBattleDeathEffectTrackers(const KysChess::Battle::BattleDeathEffectWor
     }
 }
 
-KysChess::Battle::BattleProjectileTargetWorld makeBattleProjectileTargetWorld(const std::vector<Role*>& roles)
-{
-    KysChess::Battle::BattleProjectileTargetWorld world;
-    for (auto role : roles)
-    {
-        assert(role);
-        auto grid = battlePos90To45(role->Pos.x, role->Pos.y);
-        KysChess::Battle::BattleProjectileTargetUnit unit;
-        unit.id = role->ID;
-        unit.team = role->Team;
-        unit.alive = role->Dead == 0;
-        unit.hp = role->HP;
-        unit.maxHp = role->MaxHP;
-        unit.defense = role->Defence;
-        unit.invincible = role->Invincible;
-        unit.x = role->Pos.x;
-        unit.y = role->Pos.y;
-        unit.gridX = grid.x;
-        unit.gridY = grid.y;
-        world.units.push_back(unit);
-    }
-    return world;
-}
-
 }    // namespace
 
 Magic* BattleSceneHades::commitAutoUltimate(Role* role, bool consumeMP)
@@ -1094,6 +1070,12 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     battleRuntime().movementPhysics.collision.tileWidth = TILE_W;
     battleRuntime().movementPhysics.collision.coordCount = BATTLE_COORD_COUNT;
     battleRuntime().movementPhysics.collision.defaultSeparationDistance = TILE_W * 1.5;
+    battleRuntime().projectileFollowUps.projectileSpeed = PROJECTILE_SPEED;
+    battleRuntime().projectileFollowUps.minimumProjectileFrames = 20;
+    battleRuntime().projectileFollowUps.nearbyProjectileFramePadding = 18;
+    battleRuntime().projectileFollowUps.areaProjectileFramePadding = 15;
+    battleRuntime().projectileFollowUps.areaSpawnDistance = TILE_W * 1.5;
+    battleRuntime().projectileFollowUps.nextSharedHitGroupId = next_shared_hit_group_id_;
 }
 
 KysChess::Battle::BattleRuntimeState& BattleSceneHades::battleRuntime()
@@ -2680,7 +2662,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
         bundle.rolesByBattleId.emplace(role->ID, role);
     }
     populateCoreMovementWorld();
-    battleRuntime().projectileFollowUps = makeCoreProjectileFollowUpContext();
+    battleRuntime().projectileFollowUps.nextSharedHitGroupId = next_shared_hit_group_id_;
     battleRuntime().runtime = {};
     battleRuntime().damage = {};
     battleRuntime().status = {};
@@ -3596,19 +3578,6 @@ void BattleSceneHades::initializeBattleRuntimeStaticState()
             });
         }
     }
-}
-
-KysChess::Battle::BattleProjectileFollowUpContext BattleSceneHades::makeCoreProjectileFollowUpContext() const
-{
-    KysChess::Battle::BattleProjectileFollowUpContext context;
-    context.targets = makeBattleProjectileTargetWorld(battle_roles_);
-    context.projectileSpeed = PROJECTILE_SPEED;
-    context.minimumProjectileFrames = 20;
-    context.nearbyProjectileFramePadding = 18;
-    context.areaProjectileFramePadding = 15;
-    context.areaSpawnDistance = TILE_W * 1.5;
-    context.nextSharedHitGroupId = next_shared_hit_group_id_;
-    return context;
 }
 
 int BattleSceneHades::calculateHitMagicBaseDamage(Role* attacker, Role* defender, Magic* magic)

@@ -5,53 +5,36 @@
 namespace KysChess::Battle
 {
 
-struct BattleProjectileTargetUnit
-{
-    int id = -1;
-    int team = 0;
-    bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    int defense = 0;
-    int invincible = 0;
-    double x = 0.0;
-    double y = 0.0;
-    int gridX = 0;
-    int gridY = 0;
-};
-
-struct BattleProjectileTargetWorld
-{
-    std::vector<BattleProjectileTargetUnit> units;
-};
+struct BattleRuntimeUnit;
+struct BattleUnitStore;
 
 class BattleProjectileTargetingSystem
 {
 public:
-    std::vector<int> selectNearbyTargets(const BattleProjectileTargetWorld& world,
+    std::vector<int> selectNearbyTargets(const BattleUnitStore& units,
                                          int attackerUnitId,
                                          int centerUnitId,
                                          double radius) const;
 
-    std::vector<int> selectAreaImpactTargets(const BattleProjectileTargetWorld& world,
+    std::vector<int> selectAreaImpactTargets(const BattleUnitStore& units,
                                              int originUnitId,
                                              int areaSize,
                                              int maxTargets,
                                              int trackedTargetUnitId) const;
 
-    int selectRandomEnemy(const BattleProjectileTargetWorld& world,
+    int selectRandomEnemy(const BattleUnitStore& units,
                           int sourceTeam,
                           int randomIndex) const;
 
-    int selectWeakestVulnerableEnemy(const BattleProjectileTargetWorld& world,
+    int selectWeakestVulnerableEnemy(const BattleUnitStore& units,
                                      int sourceTeam,
                                      double defenseWeight) const;
 
 private:
-    const BattleProjectileTargetUnit& unitById(const BattleProjectileTargetWorld& world, int unitId) const;
-    double distanceSquared(const BattleProjectileTargetUnit& lhs, const BattleProjectileTargetUnit& rhs) const;
-    bool withinGridArea(const BattleProjectileTargetUnit& origin,
-                        const BattleProjectileTargetUnit& target,
+    const BattleRuntimeUnit& unitById(const BattleUnitStore& units, int unitId) const;
+    double distanceSquared(const BattleRuntimeUnit& lhs, const BattleRuntimeUnit& rhs) const;
+    bool withinGridArea(const BattleRuntimeUnit& origin,
+                        const BattleRuntimeUnit& target,
                         int width,
                         int height) const;
 };
