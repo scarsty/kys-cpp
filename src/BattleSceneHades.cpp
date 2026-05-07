@@ -967,7 +967,6 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     battleRuntime().projectileFollowUps.nearbyProjectileFramePadding = 18;
     battleRuntime().projectileFollowUps.areaProjectileFramePadding = 15;
     battleRuntime().projectileFollowUps.areaSpawnDistance = TILE_W * 1.5;
-    battleRuntime().projectileFollowUps.nextSharedHitGroupId = next_shared_hit_group_id_;
 }
 
 KysChess::Battle::BattleRuntimeState& BattleSceneHades::battleRuntime()
@@ -996,7 +995,6 @@ BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterCo
     context.movementRuntime = &battleRuntime().movementRuntime;
     context.pendingCastResults = &battleRuntime().pendingCastResults;
     context.comboStates = &battleRuntime().combo.units;
-    context.movementDecisions = &battleRuntime().movementDecisions;
     context.ultimateCasters = &battleRuntime().ultimateCasters;
     context.config.maxEffectiveBattleReach = MAX_EFFECTIVE_BATTLE_REACH;
     context.config.meleeAttackHitRadius = MELEE_ATTACK_HIT_RADIUS;
@@ -2484,13 +2482,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
         bundle.rolesByBattleId.emplace(role->ID, role);
     }
     populateCoreMovementWorld();
-    battleRuntime().projectileFollowUps.nextSharedHitGroupId = next_shared_hit_group_id_;
-    KysChess::Battle::clearBattleDamageFrameScratch(battleRuntime());
-    battleRuntime().status.events.clear();
-    battleRuntime().combo.events.clear();
-    battleRuntime().deathEffects.events.clear();
-    battleRuntime().teamEffects.committedEvents.clear();
-    battleRuntime().effects.committedCommands.clear();
 
     for (auto role : battle_roles_)
     {
@@ -2504,20 +2495,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
 
     movementPhysicsContext.roles = &battle_roles_;
 
-    battleRuntime().movementDecisions.clear();
-    core_movement_frame_ = battle_frame_;
     populateBattleActionDirectives(battleRuntime(), actionContext);
-    for (int unitId : actionContext.movementDashStartUnitIds)
-    {
-        auto* role = requireFrameRole(bundle, unitId);
-        auto& movementRuntime = battleRuntime().movementRuntime[role->ID];
-        if (movementRuntime.movementDashFrames <= 0)
-        {
-            movementRuntime.movementDashFrames = DASH_MOMENTUM_FRAMES;
-            movementRuntime.movementDashCooldown = MOVEMENT_DASH_COOLDOWN_FRAMES;
-            movementRuntime.movementDashSpreadFrames = 0;
-        }
-    }
 
     return bundle;
 }
@@ -2564,15 +2542,6 @@ void BattleSceneHades::applyCoreFrameResult(
     }
     applyCoreFrameApplications(bundle, frameResult.applications);
     applyBattleMovementPhysicsFrameResults(frameResult.movementPhysicsResults, movementPhysicsContext);
-    battleRuntime().movementDecisions.clear();
-    for (const auto& [battleId, decision] : frameResult.movement.decisions)
-    {
-        auto it = bundle.rolesByBattleId.find(battleId);
-        if (it != bundle.rolesByBattleId.end())
-        {
-            battleRuntime().movementDecisions[battleId] = decision;
-        }
-    }
 
     auto actionApply = applyBattleActionFrameResults(frameResult.actionResults, actionContext);
     for (int soundId : actionApply.attackSoundIds)
@@ -2659,7 +2628,6 @@ void BattleSceneHades::applyCoreFrameResult(
             }
         }
     }
-    next_shared_hit_group_id_ = battleRuntime().projectileFollowUps.nextSharedHitGroupId;
     battleRuntime().attacks.attacks.erase(
         std::remove_if(
             battleRuntime().attacks.attacks.begin(),

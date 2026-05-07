@@ -81,9 +81,7 @@ struct BattleActionFrameAdapterContext
     const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
     std::map<int, Battle::BattleCastResult>* pendingCastResults = nullptr;
     std::map<int, RoleComboState>* comboStates = nullptr;
-    const std::map<int, Battle::MovementDecision>* movementDecisions = nullptr;
     std::set<int>* ultimateCasters = nullptr;
-    std::vector<int> movementDashStartUnitIds;
     BattleActionFrameAdapterConfig config;
 };
 

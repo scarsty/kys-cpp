@@ -3043,10 +3043,8 @@ BattleFrameUnitRuntimeResult BattleFrameUnitRuntimeSystem::advance(
     return result;
 }
 
-void clearBattleDamageFrameScratch(BattleRuntimeState& state)
+void clearBattleDamageFrameOutputs(BattleRuntimeState& state)
 {
-    state.damage.pendingTransactions.clear();
-    state.damage.pendingPresentation.clear();
     state.damage.committedTransactions.clear();
     state.damage.lifecycleEvents.clear();
     state.damage.logEvents.clear();
@@ -3063,6 +3061,10 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
 
+    clearBattleDamageFrameOutputs(state);
+    state.status.events.clear();
+    state.combo.events.clear();
+    state.deathEffects.events.clear();
     state.teamEffects.committedEvents.clear();
     state.effects.committedCommands.clear();
     state.rescue.committedResults.clear();

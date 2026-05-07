@@ -919,28 +919,6 @@ void populateCastPlanInputForRole(
         return;
     }
 
-    auto coreDecisionIt = context.movementDecisions->find(role->ID);
-    if (coreDecisionIt != context.movementDecisions->end())
-    {
-        const auto& coreDecision = coreDecisionIt->second;
-        bool coreWantsMove = coreDecision.action == Battle::MovementAction::Move
-            || coreDecision.action == Battle::MovementAction::Dash;
-        auto coreVelocity = coreDecision.velocity;
-        if (coreWantsMove && coreVelocity.norm() > 0.01)
-        {
-            role->OperationType = -1;
-            role->FindingWay = 0;
-            role->Velocity = coreDecision.velocity;
-            role->RealTowards = coreDecision.velocity;
-            role->RealTowards.normTo(1);
-            if (coreDecision.action == Battle::MovementAction::Dash)
-            {
-                context.movementDashStartUnitIds.push_back(role->ID);
-            }
-            return;
-        }
-    }
-
     unitInput.canPlanCast = true;
     unitInput.castInput = makeActionFrameCastInput(
         role,
@@ -1079,7 +1057,6 @@ void populateBattleActionDirectives(
     assert(context.roles);
     assert(context.pendingCastResults);
     assert(context.comboStates);
-    assert(context.movementDecisions);
 
     runtime.action.directives.clear();
     runtime.action.directives.reserve(context.roles->size());

@@ -147,7 +147,6 @@ protected:
     std::vector<int> enemy_armors_;
     std::vector<std::pair<int, int>> clone_spawn_positions_;
     std::unordered_map<int, int> hurt_flash_timers_;
-    int next_shared_hit_group_id_ = 1;
     bool manual_camera_dragging_ = false;
     double previous_refresh_interval_ = 0.0;
     int battle_frame_ = 0;
@@ -155,7 +154,6 @@ protected:
     Pointf camera_target_;
     int close_up_total_ = 0;
     bool count_fights_won_ = true;
-    int core_movement_frame_ = -1;
     KysChess::Battle::BattlePresentationRecorder presentation_recorder_;
     BattleScenePresentationPlayer presentation_player_;
     KysChess::Battle::BattlePresentationFrame last_presentation_frame_;

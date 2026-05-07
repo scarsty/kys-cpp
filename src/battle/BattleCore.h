@@ -348,7 +348,6 @@ struct BattleRuntimeState
 
     BattleProjectileFollowUpContext projectileFollowUps;
     std::map<int, BattleMovementPhysicsState> movementRuntime;
-    std::map<int, MovementDecision> movementDecisions;
     std::map<int, BattleCastResult> pendingCastResults;
     std::set<int> ultimateCasters;
 
@@ -400,7 +399,6 @@ public:
     BattleFrameResult runFrame(BattleRuntimeState& runtime) const;
 };
 
-void clearBattleDamageFrameScratch(BattleRuntimeState& state);
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
 
 }  // namespace KysChess::Battle

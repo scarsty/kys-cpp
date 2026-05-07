@@ -238,7 +238,7 @@ TEST_CASE("BattleRuntimeSession_QueuedAttackSpawnEntersOwnedRuntime", "[battle][
     CHECK(session.runtime().attacks.attacks[0].state.skillId == 102);
 }
 
-TEST_CASE("BattleFrameRunner_RunFrame_DoesNotRequireExternalFrameScratch", "[battle][frame_runner][runtime]")
+TEST_CASE("BattleFrameRunner_RunFrame_UsesRuntimeOwnedFrameState", "[battle][frame_runner][runtime]")
 {
     auto state = runtimeFrameState();
 
