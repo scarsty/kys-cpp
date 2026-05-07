@@ -187,11 +187,6 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     Role* role,
     const RoleComboState* state,
     const Battle::BattleGridTransform& gridTransform);
-Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
-    Role* role,
-    int frame,
-    int mpRegenIntervalFrames,
-    int physicalPowerRegenIntervalFrames);
 void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnitRuntimeResult& result);
 void applyBattleProjectileCancelDamage(Role* role, int damage);
 Battle::BattleActionCommitUnitSnapshot makeBattleActionCommitUnitSnapshot(Role* role);

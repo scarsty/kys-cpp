@@ -91,6 +91,7 @@ struct BattleRuntimeUnit
     int cooldown = 0;
     int cooldownMax = 0;
     bool haveAction = false;
+    int actFrame = 0;
     BattleOperationType operationType = BattleOperationType::None;
     int actType = -1;
     int physicalPower = 0;
@@ -124,16 +125,6 @@ struct BattleUnitStore
 
 int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
 int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
-
-struct BattleFrameRuntimeUnitInput
-{
-    int unitId = -1;
-    BattleFrameUnitRuntimeInput input;
-    int hp = 0;
-    int maxHp = 0;
-    bool alive = false;
-    bool lastAlive = false;
-};
 
 struct BattleFrameRuntimeUnitResult
 {
@@ -305,7 +296,6 @@ struct BattleFrameScratch
 {
     struct RuntimeScratch
     {
-        std::vector<BattleFrameRuntimeUnitInput> units;
         std::vector<double> percentRolls;
         std::size_t nextPercentRoll = 0;
     } runtime;

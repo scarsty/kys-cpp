@@ -75,7 +75,6 @@ protected:
 
     void updateEnemyTopDebuffState();
     int getSharedBleedMaxStacks(Role* source) const;
-    bool isLastAliveInTeam(Role* role) const;
     bool attackCanHitInvincible(Role* role) const;
     Magic* commitAutoUltimate(Role* role, bool consumeMP);
     void playAutoUltimateReady(Role* role);

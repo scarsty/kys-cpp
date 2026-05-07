@@ -1792,6 +1792,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityToUnitSto
         unit(1, 0, { 100, 100, 0 }),
         unit(2, 1, { 220, 100, 0 }),
     });
+    state.world.frame = 1;
     state.attacks = attackWorld();
     state.status.units = {
         statusRuntimeSnapshot(1, 100),
@@ -1802,19 +1803,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityToUnitSto
         runtimeUnitSnapshot(2, 1, 100, { 220, 100, 0 }),
     };
     state.units.units[0].invincible = 1;
+    state.units.units[0].cooldown = 1;
+    state.units.units[0].haveAction = true;
     state.combo.units[1].postSkillInvincFrames = 5;
-
-    BattleFrameRuntimeUnitInput runtime;
-    runtime.unitId = 1;
-    runtime.input.state.cooldown = 1;
-    runtime.input.state.haveAction = true;
-    runtime.input.frame = 1;
-    runtime.input.mpRegenIntervalFrames = 30;
-    runtime.input.physicalPowerRegenIntervalFrames = 30;
-    runtime.hp = 100;
-    runtime.maxHp = 100;
-    runtime.alive = true;
-    scratch.runtime.units.push_back(runtime);
 
     runBattleFrame(state, scratch);
 

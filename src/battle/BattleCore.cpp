@@ -137,6 +137,10 @@ int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId)
 namespace
 {
 bool hasCanonicalUnitStore(const BattleRuntimeState& state);
+bool isLastAliveInTeam(const BattleUnitStore& store, const BattleRuntimeUnit& unit);
+BattleFrameUnitRuntimeInput makeRuntimeUnitTickInput(
+    const BattleRuntimeState& state,
+    const BattleRuntimeUnit& unit);
 
 BattlePresentationUnitSnapshot toPresentationUnit(const BattleUnitState& unit)
 {
@@ -508,47 +512,46 @@ void advanceRuntimeUnits(
 {
     BattleComboTriggerSystem comboSystem;
     runtimeResults.clear();
-    for (const auto& input : scratch.runtime.units)
+    for (auto& unit : state.units.units)
     {
-        assert(input.unitId >= 0);
+        assert(unit.id >= 0);
+        auto input = makeRuntimeUnitTickInput(state, unit);
+        const bool lastAlive = isLastAliveInTeam(state.units, unit);
 
         BattleFrameRuntimeUnitResult committed;
-        committed.unitId = input.unitId;
-        committed.result = BattleFrameUnitRuntimeSystem().advance(input.input);
+        committed.unitId = unit.id;
+        committed.result = BattleFrameUnitRuntimeSystem().advance(input);
 
-        if (hasCanonicalUnitStore(state))
+        unit.cooldown = committed.result.state.cooldown;
+        unit.actFrame = committed.result.state.actFrame;
+        unit.haveAction = committed.result.state.haveAction;
+        unit.operationType = committed.result.state.operationType;
+        unit.actType = committed.result.state.actType;
+        unit.physicalPower = committed.result.state.physicalPower;
+        if (committed.result.mpDelta > 0 && !unit.mpBlocked)
         {
-            auto& unit = state.units.requireUnit(input.unitId);
-            unit.cooldown = committed.result.state.cooldown;
-            unit.haveAction = committed.result.state.haveAction;
-            unit.operationType = committed.result.state.operationType;
-            unit.actType = committed.result.state.actType;
-            unit.physicalPower = committed.result.state.physicalPower;
-            if (committed.result.mpDelta > 0 && !unit.mpBlocked)
-            {
-                unit.mp += committed.result.mpDelta * (100 + unit.mpRecoveryBonusPct) / 100;
-            }
-            else if (committed.result.mpDelta < 0)
-            {
-                unit.mp += committed.result.mpDelta;
-            }
-            if (committed.result.resetDashVelocity)
-            {
-                unit.velocity = { 0, 0, 0 };
-            }
+            unit.mp += committed.result.mpDelta * (100 + unit.mpRecoveryBonusPct) / 100;
+        }
+        else if (committed.result.mpDelta < 0)
+        {
+            unit.mp += committed.result.mpDelta;
+        }
+        if (committed.result.resetDashVelocity)
+        {
+            unit.velocity = { 0, 0, 0 };
         }
 
-        auto comboIt = state.combo.units.find(input.unitId);
+        auto comboIt = state.combo.units.find(unit.id);
         if (comboIt != state.combo.units.end())
         {
             auto frameEvents = comboSystem.advanceFrameRuntime(
                 comboIt->second,
                 {
                     state.world.frame,
-                    input.hp,
-                    input.maxHp,
-                    input.alive,
-                    input.lastAlive,
+                    unit.hp,
+                    unit.maxHp,
+                    unit.alive,
+                    lastAlive,
                 });
             committed.comboEvents.insert(
                 committed.comboEvents.end(),
@@ -559,7 +562,7 @@ void advanceRuntimeUnits(
         {
             auto skillFinishedEvents = comboSystem.collectSkillFinishedRuntimeEvents(
                 comboIt->second,
-                input.alive);
+                unit.alive);
             committed.comboEvents.insert(
                 committed.comboEvents.end(),
                 skillFinishedEvents.begin(),
@@ -567,12 +570,12 @@ void advanceRuntimeUnits(
 
             auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
                 comboIt->second,
-                { BattleComboTriggerHook::AfterSkillCast, input.unitId, -1 },
+                { BattleComboTriggerHook::AfterSkillCast, unit.id, -1 },
                 [&]() { return takeRuntimePercentRoll(scratch); });
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
                 BattleTeamHealCommand command{
-                    input.unitId,
+                    unit.id,
                     teamHeal.flatHeal,
                     teamHeal.pctHeal,
                     "技能群療",
@@ -586,7 +589,6 @@ void advanceRuntimeUnits(
         }
         runtimeResults.push_back(std::move(committed));
     }
-    scratch.runtime.units.clear();
 }
 
 void applyProjectileCancelDamageResults(
@@ -884,6 +886,39 @@ const BattleDamageRuntimeUnit* findDamageRuntimeUnit(const std::vector<BattleDam
 bool hasCanonicalUnitStore(const BattleRuntimeState& state)
 {
     return !state.units.units.empty();
+}
+
+bool isLastAliveInTeam(const BattleUnitStore& store, const BattleRuntimeUnit& unit)
+{
+    for (const auto& other : store.units)
+    {
+        if (other.id != unit.id && other.team == unit.team && other.alive)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+BattleFrameUnitRuntimeInput makeRuntimeUnitTickInput(
+    const BattleRuntimeState& state,
+    const BattleRuntimeUnit& unit)
+{
+    BattleFrameUnitRuntimeInput input;
+    input.state.cooldown = unit.cooldown;
+    input.state.actFrame = unit.actFrame;
+    input.state.actType = unit.actType;
+    input.state.operationType = unit.operationType;
+    input.state.haveAction = unit.haveAction;
+    input.state.physicalPower = unit.physicalPower;
+    input.frame = state.world.frame;
+    input.mpRegenIntervalFrames = 3;
+    input.physicalPowerRegenIntervalFrames = 3;
+    if (const auto* status = findStatusUnit(state.status.units, unit.id))
+    {
+        input.frozen = status->frozenTimer > 0;
+    }
+    return input;
 }
 
 BattleFrameRescueUnitSnapshot* findRescueUnit(std::vector<BattleFrameRescueUnitSnapshot>& units, int unitId)
@@ -2383,6 +2418,18 @@ void advanceMovement(BattleRuntimeState& state, BattleFrameResult& result)
     result.movement = BattleCore(state.world).tickMovement();
 }
 
+void writeActionStateToUnitStore(BattleRuntimeState& state, const BattleFrameActionUnitResult& result)
+{
+    if (auto* unit = state.units.findUnit(result.unitId))
+    {
+        unit->cooldown = result.state.cooldownFrames;
+        unit->actFrame = result.state.actFrame;
+        unit->actType = result.state.actType;
+        unit->operationType = result.state.operationType;
+        unit->haveAction = result.state.haveAction;
+    }
+}
+
 void advanceActionFrameUnits(
     BattleRuntimeState& state,
     BattleFrameScratch& scratch,
@@ -2438,6 +2485,9 @@ void advanceActionFrameUnits(
                 result.castStarted = true;
                 result.state.haveAction = true;
                 result.state.actFrame = 0;
+                result.state.actType = cast.decision.ultimate
+                    ? input.castInput.ultimateSkill.magicType
+                    : input.castInput.normalSkill.magicType;
                 result.state.operationType = cast.decision.operationType;
                 result.state.cooldownFrames = cast.animation.cooldownFrames;
                 result.state.recoveryFrames = cast.animation.recoveryFrames;
@@ -2478,6 +2528,7 @@ void advanceActionFrameUnits(
             }
         }
 
+        writeActionStateToUnitStore(state, result);
         actionResults.push_back(std::move(result));
     }
     scratch.actions.units.clear();

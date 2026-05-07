@@ -376,28 +376,6 @@ void configureBattleAttackWorld(Battle::BattleAttackWorld& world)
     world.spendNonThroughOnHit = false;
 }
 
-Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
-    Role* role,
-    int frame,
-    int mpRegenIntervalFrames,
-    int physicalPowerRegenIntervalFrames)
-{
-    assert(role);
-
-    Battle::BattleFrameUnitRuntimeInput input;
-    input.state.cooldown = role->CoolDown;
-    input.state.actFrame = role->ActFrame;
-    input.state.actType = role->ActType;
-    input.state.operationType = Battle::battleOperationFromLegacy(role->OperationType);
-    input.state.haveAction = role->HaveAction != 0;
-    input.state.physicalPower = role->PhysicalPower;
-    input.frame = frame;
-    input.frozen = role->Frozen > 0;
-    input.mpRegenIntervalFrames = mpRegenIntervalFrames;
-    input.physicalPowerRegenIntervalFrames = physicalPowerRegenIntervalFrames;
-    return input;
-}
-
 Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     Role* role,
     const RoleComboState* state,
@@ -420,6 +398,7 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     unit.cooldown = role->CoolDown;
     unit.cooldownMax = role->CoolDownMax;
     unit.haveAction = role->HaveAction != 0;
+    unit.actFrame = role->ActFrame;
     unit.operationType = Battle::battleOperationFromLegacy(role->OperationType);
     unit.actType = role->ActType;
     unit.physicalPower = role->PhysicalPower;

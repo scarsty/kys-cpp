@@ -98,6 +98,16 @@ BattleFrameUnitRuntimeInput finishingSkillRuntime()
     return input;
 }
 
+void applyRuntimeInput(BattleRuntimeUnit& unit, const BattleFrameUnitRuntimeInput& input)
+{
+    unit.cooldown = input.state.cooldown;
+    unit.actFrame = input.state.actFrame;
+    unit.actType = input.state.actType;
+    unit.operationType = input.state.operationType;
+    unit.haveAction = input.state.haveAction;
+    unit.physicalPower = input.state.physicalPower;
+}
+
 BattleAttackInstance cancelProjectile(int id, int attackerUnitId)
 {
     BattleAttackInstance attack;
@@ -240,13 +250,6 @@ TEST_CASE("BattleFrameRunner_RunFrame_ConsumesExternalFrameScratch", "[battle][f
     auto state = runtimeFrameState();
     BattleFrameScratch scratch;
 
-    BattleFrameRuntimeUnitInput runtime;
-    runtime.unitId = 1;
-    runtime.input = finishingSkillRuntime();
-    runtime.hp = 80;
-    runtime.maxHp = 100;
-    runtime.alive = true;
-    scratch.runtime.units.push_back(runtime);
     scratch.runtime.percentRolls.push_back(12.0);
     scratch.projectileCancelBaseDamages.push_back({ 10, 20, 30 });
     scratch.hits.units.push_back({});
@@ -256,16 +259,38 @@ TEST_CASE("BattleFrameRunner_RunFrame_ConsumesExternalFrameScratch", "[battle][f
 
     auto result = BattleFrameRunner().runFrame(state, scratch);
 
-    REQUIRE(result.runtimeResults.size() == 1);
-    CHECK(result.runtimeResults[0].unitId == 1);
-    CHECK(result.runtimeResults[0].result.skillFinished);
-    CHECK(scratch.runtime.units.empty());
+    CHECK(result.runtimeResults.empty());
     CHECK(scratch.runtime.percentRolls.empty());
     CHECK(scratch.projectileCancelBaseDamages.empty());
     CHECK(scratch.hits.units.empty());
     CHECK(scratch.hits.skills.empty());
     CHECK(scratch.hits.items.empty());
     CHECK(scratch.hits.scalars.empty());
+}
+
+TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")
+{
+    auto state = runtimeFrameState();
+    state.units.units = {
+        teamRuntimeUnit(1, 0, 80),
+        teamRuntimeUnit(2, 1, 100),
+    };
+    auto& unit = state.units.requireUnit(1);
+    unit.cooldown = 1;
+    unit.haveAction = true;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.actType = 2;
+    unit.physicalPower = 4;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.runtimeResults.size() == 2);
+    CHECK(result.runtimeResults[0].unitId == 1);
+    CHECK(result.runtimeResults[0].result.skillFinished);
+    CHECK(state.units.requireUnit(1).cooldown == 0);
+    CHECK(state.units.requireUnit(1).mp == 21);
+    CHECK(state.units.requireUnit(1).physicalPower == 5);
+    CHECK_FALSE(state.units.requireUnit(1).haveAction);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrameState", "[battle][frame_runner][runtime][unit]")
@@ -279,14 +304,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     combo.onSkillTeamHeal = 7;
     combo.onSkillTeamHealPct = 3;
     state.combo.units.emplace(1, combo);
-
-    BattleFrameRuntimeUnitInput runtime;
-    runtime.unitId = 1;
-    runtime.input = finishingSkillRuntime();
-    runtime.hp = 80;
-    runtime.maxHp = 100;
-    runtime.alive = true;
-    scratch.runtime.units.push_back(runtime);
+    state.units.units = {
+        teamRuntimeUnit(1, 0, 80),
+    };
+    applyRuntimeInput(state.units.requireUnit(1), finishingSkillRuntime());
 
     auto result = runBattleFrame(state, scratch);
 
@@ -297,13 +318,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     CHECK(result.runtimeResults[0].comboEvents[0].type == BattleComboFrameRuntimeEventType::PostSkillInvincibility);
 
     REQUIRE(result.commands.empty());
-    REQUIRE(state.teamEffects.pendingCommands.size() == 1);
-    const auto* command = std::get_if<BattleTeamHealCommand>(&state.teamEffects.pendingCommands[0]);
-    REQUIRE(command);
-    CHECK(command->sourceUnitId == 1);
-    CHECK(command->flatHeal == 7);
-    CHECK(command->pctHeal == 3);
-    CHECK(command->reason == "技能群療");
+    CHECK(state.teamEffects.pendingCommands.empty());
+    REQUIRE(state.teamEffects.committedEvents.size() == 1);
+    CHECK(state.teamEffects.committedEvents[0].sourceUnitId == 1);
+    CHECK(state.teamEffects.committedEvents[0].targetUnitId == 1);
+    CHECK(state.teamEffects.committedEvents[0].value == 10);
     CHECK_FALSE(state.combo.units.at(1).onSkillTeamHealPending);
 }
 
@@ -322,14 +341,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
     combo.onSkillTeamHeal = 5;
     combo.onSkillTeamHealPct = 10;
     state.combo.units.emplace(1, combo);
-
-    BattleFrameRuntimeUnitInput runtime;
-    runtime.unitId = 1;
-    runtime.input = finishingSkillRuntime();
-    runtime.hp = 50;
-    runtime.maxHp = 100;
-    runtime.alive = true;
-    scratch.runtime.units.push_back(runtime);
+    applyRuntimeInput(state.units.requireUnit(1), finishingSkillRuntime());
 
     auto result = runBattleFrame(state, scratch);
 
@@ -443,22 +455,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     combo.healedATKSPDBoostPct = 20;
     state.combo.units.emplace(1, combo);
 
-    BattleFrameRuntimeUnitInput runtime;
-    runtime.unitId = 1;
-    runtime.input = finishingSkillRuntime();
-    runtime.input.state.cooldown = 0;
-    runtime.hp = 50;
-    runtime.maxHp = 100;
-    runtime.alive = true;
-    scratch.runtime.units.push_back(runtime);
+    auto runtime = finishingSkillRuntime();
+    runtime.state.cooldown = 0;
+    applyRuntimeInput(state.units.requireUnit(1), runtime);
 
     auto result = runBattleFrame(state, scratch);
 
     CHECK(state.units.requireUnit(1).hp == 70);
     CHECK(state.units.requireUnit(2).hp == 95);
-    CHECK(state.units.requireUnit(2).cooldown == 40);
+    CHECK(state.units.requireUnit(2).cooldown == 39);
     CHECK(state.units.requireUnit(3).hp == 60);
-    CHECK(state.units.requireUnit(3).cooldown == 50);
+    CHECK(state.units.requireUnit(3).cooldown == 49);
     CHECK(state.units.requireUnit(4).hp == 20);
 
     REQUIRE(state.teamEffects.committedEvents.size() == 3);
@@ -511,14 +518,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
     combo.triggeredEffects.push_back(healBurst);
     state.combo.units.emplace(1, combo);
 
-    BattleFrameRuntimeUnitInput runtime;
-    runtime.unitId = 1;
-    runtime.input = finishingSkillRuntime();
-    runtime.input.state.cooldown = 0;
-    runtime.hp = 40;
-    runtime.maxHp = 100;
-    runtime.alive = true;
-    scratch.runtime.units.push_back(runtime);
+    auto runtime = finishingSkillRuntime();
+    runtime.state.cooldown = 0;
+    applyRuntimeInput(state.units.requireUnit(1), runtime);
 
     auto result = runBattleFrame(state, scratch);
 
@@ -552,13 +554,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
     combo.postSkillInvincFrames = 12;
     state.combo.units.emplace(1, combo);
 
-    BattleFrameRuntimeUnitInput runtime;
-    runtime.unitId = 1;
-    runtime.input = finishingSkillRuntime();
-    runtime.hp = 80;
-    runtime.maxHp = 100;
-    runtime.alive = true;
-    scratch.runtime.units.push_back(runtime);
+    applyRuntimeInput(state.units.requireUnit(1), finishingSkillRuntime());
 
     auto result = runBattleFrame(state, scratch);
 

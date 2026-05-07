@@ -42,7 +42,6 @@ using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
 using KysChess::BattleSceneBattleAdapter::configureBattleAttackWorld;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamagePresentationStyle;
-using KysChess::BattleSceneBattleAdapter::makeBattleFrameUnitRuntimeInput;
 using KysChess::BattleSceneBattleAdapter::makeBattlePresentationColor;
 using KysChess::BattleSceneBattleAdapter::makeBattleRuntimeUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleStatusUnit;
@@ -2492,14 +2491,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
             }
         }
 
-        KysChess::Battle::BattleFrameRuntimeUnitInput runtimeInput;
-        runtimeInput.unitId = role->ID;
-        runtimeInput.input = makeBattleFrameUnitRuntimeInput(role, battle_frame_, 3, 3);
-        runtimeInput.hp = role->HP;
-        runtimeInput.maxHp = role->MaxHP;
-        runtimeInput.alive = role->Dead == 0;
-        runtimeInput.lastAlive = isLastAliveInTeam(role);
-        scratch.runtime.units.push_back(runtimeInput);
     }
 
     BattleRescueFrameAdapterContext rescueContext;
@@ -2838,19 +2829,6 @@ int BattleSceneHades::getSharedBleedMaxStacks(Role* source) const
     }
 
     return std::max(1, it->second.bleedMaxStacks);
-}
-
-bool BattleSceneHades::isLastAliveInTeam(Role* role) const
-{
-    assert(role);
-    for (auto ally : battle_roles_)
-    {
-        if (ally->Team == role->Team && ally != role && ally->Dead == 0)
-        {
-            return false;
-        }
-    }
-    return true;
 }
 
 void BattleSceneHades::playAutoUltimateReady(Role* role)
