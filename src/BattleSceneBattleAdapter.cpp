@@ -760,16 +760,6 @@ int legacyOperationForAttackArea(int attackAreaType)
         Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(attackAreaType));
 }
 
-const BattleFrameActionImport& requireActionSnapshot(
-    const BattleActionFrameAdapterContext& context,
-    int unitId)
-{
-    assert(context.actionImport);
-    auto it = context.actionImport->actionsByUnitId.find(unitId);
-    assert(it != context.actionImport->actionsByUnitId.end());
-    return it->second;
-}
-
 Role* findSnapshotRole(const BattleActionFrameAdapterContext& context, int unitId)
 {
     if (unitId < 0)
@@ -800,6 +790,30 @@ Role* findFarthestEnemyRole(const BattleActionFrameAdapterContext& context, int 
     return findSnapshotRole(context, Battle::findFarthestEnemyUnitId(*context.units, sourceUnitId));
 }
 
+double actionRandomRoll(const BattleActionFrameAdapterContext& context)
+{
+    assert(context.random);
+    return context.random->rand();
+}
+
+int actionRandomInt(const BattleActionFrameAdapterContext& context, int upperBound)
+{
+    assert(context.random);
+    return context.random->rand_int(upperBound);
+}
+
+int actionUltimateExtraProjectileCount(Role* role, const BattleActionFrameAdapterContext& context)
+{
+    assert(context.comboStates);
+    auto comboIt = context.comboStates->find(role->ID);
+    assert(comboIt != context.comboStates->end());
+    auto& combo = comboIt->second;
+    return Battle::collectFrameExtraProjectileCount(
+        combo,
+        role->ID,
+        std::max(0, combo.ultimateExtraProjectiles));
+}
+
 Pointf positionForCell(int x, int y, int coordCount)
 {
     return {
@@ -827,7 +841,6 @@ BattleCastSkillAdapterInput makeActionFrameSkillInput(
     }
 
     assert(context.comboStates);
-    const auto& action = requireActionSnapshot(context, role->ID);
     const bool forceRanged = roleForcesRangedMagic(*context.comboStates, role->ID);
     const int speedMultiplierPct = projectileSpeedMultiplierPct(*context.comboStates, role->ID);
     skill.magic = magic;
@@ -842,7 +855,7 @@ BattleCastSkillAdapterInput makeActionFrameSkillInput(
     skill.rangedStyle = isBattleRangedStyleMagic(magic, forceRanged);
     skill.projectileSpeedMultiplierPct = speedMultiplierPct;
     skill.meleeSplashCount = ultimate && magic->AttackAreaType == 0 ? 1 : 0;
-    skill.extraProjectileCount = ultimate ? action.ultimateExtraProjectileCount : 0;
+    skill.extraProjectileCount = ultimate ? actionUltimateExtraProjectileCount(role, context) : 0;
     return skill;
 }
 
@@ -851,13 +864,12 @@ int rollDashHitCount(Role* role, Magic* selectedMagic, const BattleActionFrameAd
     int dashHitCount = 1;
     if (selectedMagic)
     {
-        const auto& action = requireActionSnapshot(context, role->ID);
         const double multiHitScore = (role->Speed + role->getActProperty(selectedMagic->MagicType)) / 180.0;
-        if (action.randomUnitRolls[0] < multiHitScore)
+        if (actionRandomRoll(context) < multiHitScore)
         {
             dashHitCount++;
         }
-        if (action.randomUnitRolls[1] < multiHitScore * 0.5)
+        if (actionRandomRoll(context) < multiHitScore * 0.5)
         {
             dashHitCount++;
         }
@@ -944,7 +956,7 @@ void captureActionComboState(
     auto prime = Battle::collectFrameProjectileBouncePrime(
         actionInput.combo,
         role->ID,
-        requireActionSnapshot(context, role->ID).projectileBounceRoll,
+        actionRandomInt(context, 100),
         context.config.projectileBounceRange);
     actionInput.projectileBouncePrime = {
         prime.count,
@@ -984,9 +996,8 @@ void populateActionCommitInputForRole(
         actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
         actionInput.hasCast = true;
         actionInput.cast = std::move(castResult);
-        const auto& action = requireActionSnapshot(context, role->ID);
-        actionInput.blinkRandomRoll = action.blinkRandomRoll;
-        actionInput.blinkCellRandomRoll = action.blinkCellRandomRoll;
+        actionInput.blinkRandomRoll = actionRandomInt(context, std::numeric_limits<int>::max());
+        actionInput.blinkCellRandomRoll = actionRandomInt(context, std::numeric_limits<int>::max());
         actionInput.blinkReach = battleBlinkReach(magic);
         actionInput.blinkWeakTargetDefWeight = context.config.blinkWeakTargetDefWeight;
         actionInput.blinkGeometry = makeBlinkGeometryInput(role, actionInput.blinkReach, context);

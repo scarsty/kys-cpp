@@ -25,7 +25,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <limits>
 
 namespace
 {
@@ -441,13 +440,12 @@ Magic* BattleSceneHades::commitAutoUltimate(Role* role, bool consumeMP)
         return nullptr;
     }
 
-    auto actionImport = buildBattleActionFrameImport();
     auto selectedAction = commitBattleSelectedSkillAction(
         role,
         magic,
         true,
         -1,
-        makeBattleActionFrameAdapterContext(actionImport));
+        makeBattleActionFrameAdapterContext());
     for (int soundId : selectedAction.applyResult.attackSoundIds)
     {
         Audio::getInstance()->playASound(soundId);
@@ -963,13 +961,12 @@ const KysChess::Battle::BattleRuntimeState& BattleSceneHades::battleRuntime() co
     return battle_session_->runtime();
 }
 
-BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterContext(
-    const KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet& actionImport)
+BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterContext()
 {
     BattleActionFrameAdapterContext context;
     context.roles = &battle_roles_;
-    context.actionImport = &actionImport;
     context.units = &battleRuntime().units;
+    context.random = &rand_;
     for (auto* role : battle_roles_)
     {
         assert(role);
@@ -2408,8 +2405,7 @@ void BattleSceneHades::backRun1()
     if (input.shouldAdvance)
     {
         result.advanced = true;
-        auto actionImport = buildBattleActionFrameImport();
-        auto actionContext = makeBattleActionFrameAdapterContext(actionImport);
+        auto actionContext = makeBattleActionFrameAdapterContext();
         BattleMovementPhysicsFrameAdapterContext movementPhysicsContext;
         auto bundle = buildCoreRuntimeContext(actionContext, movementPhysicsContext);
         auto frameResult = battle_session_->runFrame();
@@ -2451,29 +2447,6 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
     ultHitRoles_.clear();
     criticalHitRoles_.clear();
     return input;
-}
-
-KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet BattleSceneHades::buildBattleActionFrameImport()
-{
-    KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet actionImport;
-    actionImport.battleFrame = battle_frame_;
-
-    for (auto* role : battle_roles_)
-    {
-        assert(role);
-
-        KysChess::BattleSceneBattleAdapter::BattleFrameActionImport actionSnapshot;
-        actionSnapshot.unitId = role->ID;
-
-        actionSnapshot.ultimateExtraProjectileCount = getUltimateExtraProjectileCount(role);
-        actionSnapshot.randomUnitRolls = { rand_.rand(), rand_.rand() };
-        actionSnapshot.projectileBounceRoll = rand_.rand_int(100);
-        actionSnapshot.blinkRandomRoll = rand_.rand_int(std::numeric_limits<int>::max());
-        actionSnapshot.blinkCellRandomRoll = rand_.rand_int(std::numeric_limits<int>::max());
-        actionImport.actionsByUnitId.emplace(role->ID, actionSnapshot);
-    }
-
-    return actionImport;
 }
 
 KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::buildCoreRuntimeContext(
@@ -2895,20 +2868,6 @@ void BattleSceneHades::playAutoUltimateReady(Role* role)
         recordFloatingTextPresentation(role, std::string(magic->Name), { 255, 215, 0, 255 }, EMPHASIS_TEXT_SIZE);
         recordBattleStatusLog(role, nullptr, std::format("自動絕招·{}", std::string(magic->Name)));
     }
-}
-
-int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
-{
-    assert(r);
-    auto& cs = battleRuntime().combo.units;
-    auto it = cs.find(r->ID);
-    assert(it != cs.end());
-
-    auto& s = it->second;
-    return KysChess::Battle::collectFrameExtraProjectileCount(
-        s,
-        r->ID,
-        std::max(0, s.ultimateExtraProjectiles));
 }
 
 void BattleSceneHades::updateEnemyTopDebuffState()

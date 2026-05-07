@@ -57,22 +57,6 @@ struct BattleFrameApplyContext
     std::unordered_map<int, Role*> rolesByBattleId;
 };
 
-struct BattleFrameActionImport
-{
-    int unitId = -1;
-    int ultimateExtraProjectileCount = 0;
-    std::array<double, 2> randomUnitRolls{};
-    int projectileBounceRoll = 0;
-    int blinkRandomRoll = 0;
-    int blinkCellRandomRoll = 0;
-};
-
-struct BattleActionFrameImportSet
-{
-    int battleFrame = 0;
-    std::unordered_map<int, BattleFrameActionImport> actionsByUnitId;
-};
-
 struct BattleFrameHitAdapterInput
 {
     int attackId = -1;
@@ -108,8 +92,8 @@ struct BattleActionFrameAdapterConfig
 struct BattleActionFrameAdapterContext
 {
     const std::vector<Role*>* roles = nullptr;
-    const BattleActionFrameImportSet* actionImport = nullptr;
     const Battle::BattleUnitStore* units = nullptr;
+    RandomDouble* random = nullptr;
     std::unordered_map<int, Point> unitCells;
     const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
     std::map<int, Battle::BattleCastResult>* pendingCastResults = nullptr;

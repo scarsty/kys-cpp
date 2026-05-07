@@ -61,7 +61,6 @@ protected:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     SceneBattleFrameInput buildBattleFrameInput();
-    KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet buildBattleActionFrameImport();
     KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext buildCoreRuntimeContext(
         KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext,
         KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext);
@@ -73,7 +72,6 @@ protected:
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
 
-    int getUltimateExtraProjectileCount(Role* r);
     void updateEnemyTopDebuffState();
     int getSharedBleedMaxStacks(Role* source) const;
     bool isLastAliveInTeam(Role* role) const;
@@ -112,8 +110,7 @@ protected:
     void applyCoreFrameApplications(
         const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
         const KysChess::Battle::BattleFrameApplications& applications);
-    KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext(
-        const KysChess::BattleSceneBattleAdapter::BattleActionFrameImportSet& actionImport);
+    KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
     void populateCoreMovementWorld();
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(
