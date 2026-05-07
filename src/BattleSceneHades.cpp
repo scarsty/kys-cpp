@@ -1050,6 +1050,7 @@ void BattleSceneHades::initializeBattleRuntimeSession()
                 makeBattleStatusUnit(role, stateIt->second)));
         }
     }
+    initializeCoreDamageState();
     configureBattleAttackWorld(battleRuntime().attacks);
     battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
     battleRuntime().deathEffects.store = makeBattleDeathEffectStore(
@@ -2664,7 +2665,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     populateCoreMovementWorld();
     battleRuntime().projectileFollowUps.nextSharedHitGroupId = next_shared_hit_group_id_;
     battleRuntime().runtime = {};
-    battleRuntime().damage = {};
+    KysChess::Battle::clearBattleDamageFrameScratch(battleRuntime());
     battleRuntime().status.events.clear();
     battleRuntime().combo = {};
     battleRuntime().deathEffects.events.clear();
@@ -2676,8 +2677,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().movementPhysics.committedResults.clear();
     battleRuntime().hits = {};
     battleRuntime().applications = {};
-    populateCoreStatusDamageState(battleRuntime());
-    battleRuntime().damage.aggregatePendingTransactionsByDefender = true;
 
     battleRuntime().combo.units = comboStates;
 
@@ -3697,9 +3696,12 @@ void BattleSceneHades::applyCoreStatusState(
     }
 }
 
-void BattleSceneHades::populateCoreStatusDamageState(KysChess::Battle::BattleRuntimeState& frameState)
+void BattleSceneHades::initializeCoreDamageState()
 {
+    auto& frameState = battleRuntime();
     auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    frameState.damage = {};
+    frameState.damage.aggregatePendingTransactionsByDefender = true;
     frameState.result.pendingAliveByTeam = { { 1, static_cast<int>(enemies_.size()) } };
     for (auto role : battle_roles_)
     {
@@ -3710,10 +3712,6 @@ void BattleSceneHades::populateCoreStatusDamageState(KysChess::Battle::BattleRun
             stateIt != comboStates.end() ? &stateIt->second : nullptr));
         frameState.damage.cooldowns.emplace(role->ID, makeBattleCooldownState(role));
         frameState.damage.presentationStylesByDefender.emplace(role->ID, makeBattleDamagePresentationStyle(role));
-        if (stateIt != comboStates.end())
-        {
-            frameState.damage.statusUnits.push_back(makeBattleStatusUnit(role, stateIt->second));
-        }
         if (stateIt != comboStates.end() && stateIt->second.deathAOEPct > 0)
         {
             frameState.damage.unitEffects.emplace(

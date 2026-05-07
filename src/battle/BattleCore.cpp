@@ -806,24 +806,6 @@ const BattleStatusRuntimeUnit* findStatusUnit(const std::vector<BattleStatusRunt
     return it != units.end() ? &*it : nullptr;
 }
 
-BattleStatusUnitState* findDamageStatusUnit(std::vector<BattleStatusUnitState>& units, int unitId)
-{
-    auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusUnitState& unit)
-        {
-            return unit.id == unitId;
-        });
-    return it != units.end() ? &*it : nullptr;
-}
-
-const BattleStatusUnitState* findDamageStatusUnit(const std::vector<BattleStatusUnitState>& units, int unitId)
-{
-    auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusUnitState& unit)
-        {
-            return unit.id == unitId;
-        });
-    return it != units.end() ? &*it : nullptr;
-}
-
 BattleDamageUnitState* findDamageUnit(std::vector<BattleDamageUnitState>& units, int unitId)
 {
     auto it = std::find_if(units.begin(), units.end(), [&](const BattleDamageUnitState& unit)
@@ -1345,12 +1327,7 @@ bool buildFrameDamageTransaction(
         transaction.attacker.id = request.attackerUnitId;
     }
     transaction.defender = *defender;
-    const auto* status = findDamageStatusUnit(state.damage.statusUnits, request.defenderUnitId);
-    if (status)
-    {
-        transaction.defenderStatus = *status;
-    }
-    else if (const auto* runtimeStatus = findStatusUnit(state.status.units, request.defenderUnitId))
+    if (const auto* runtimeStatus = findStatusUnit(state.status.units, request.defenderUnitId))
     {
         transaction.defenderStatus = makeBattleStatusUnitState(
             *runtimeStatus,
@@ -1465,15 +1442,6 @@ bool tryAppendFrameDamageTransaction(
     return true;
 }
 
-BattleStatusUnitState* findFrameStatusUnit(BattleRuntimeState& state, int unitId)
-{
-    if (auto* status = findDamageStatusUnit(state.damage.statusUnits, unitId))
-    {
-        return status;
-    }
-    return nullptr;
-}
-
 void applyTeamEffectEventsToFrameState(
     BattleRuntimeState& state,
     const std::vector<BattleTeamEffectEvent>& events)
@@ -1486,10 +1454,6 @@ void applyTeamEffectEventsToFrameState(
             damageUnit->hp = unit.hp;
             damageUnit->mp = unit.mp;
             damageUnit->shield = unit.shield;
-        }
-        if (auto* status = findFrameStatusUnit(state, event.targetUnitId))
-        {
-            status->hp = unit.hp;
         }
         if (auto cooldownIt = state.damage.cooldowns.find(event.targetUnitId);
             cooldownIt != state.damage.cooldowns.end())
@@ -1603,10 +1567,6 @@ bool applyFrameUnitHealCommand(
         return true;
     }
 
-    if (auto* status = findFrameStatusUnit(state, command.targetUnitId))
-    {
-        status->hp = unit->hp;
-    }
     if (auto* runtimeUnit = state.units.findUnit(command.targetUnitId))
     {
         runtimeUnit->hp = unit->hp;
@@ -2659,6 +2619,16 @@ BattleFrameUnitRuntimeResult BattleFrameUnitRuntimeSystem::advance(
     }
 
     return result;
+}
+
+void clearBattleDamageFrameScratch(BattleRuntimeState& state)
+{
+    state.damage.pendingTransactions.clear();
+    state.damage.pendingPresentation.clear();
+    state.damage.committedTransactions.clear();
+    state.damage.lifecycleEvents.clear();
+    state.damage.logEvents.clear();
+    state.damage.visualEvents.clear();
 }
 
 BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const

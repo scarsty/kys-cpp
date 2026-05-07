@@ -301,7 +301,6 @@ struct BattleRuntimeState
         bool aggregatePendingTransactionsByDefender = false;
         std::vector<BattleDamageUnitState> units;
         std::map<int, BattleCooldownState> cooldowns;
-        std::vector<BattleStatusUnitState> statusUnits;
         std::map<int, BattleDamagePresentationStyle> presentationStylesByDefender;
         std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
         std::vector<BattleDamageTransactionInput> pendingTransactions;
@@ -451,5 +450,7 @@ class BattleFrameRunner
 public:
     BattleFrameResult runFrame(BattleRuntimeState& runtime) const;
 };
+
+void clearBattleDamageFrameScratch(BattleRuntimeState& state);
 
 }  // namespace KysChess::Battle
