@@ -40,7 +40,6 @@ using KysChess::BattleSceneBattleAdapter::BattleRescueFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::appendBattleFrameHitInput;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
 using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
-using KysChess::BattleSceneBattleAdapter::makeBattleCooldownState;
 using KysChess::BattleSceneBattleAdapter::configureBattleAttackWorld;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamagePresentationStyle;
@@ -54,7 +53,6 @@ using KysChess::BattleSceneBattleAdapter::populateBattleFrameRescueState;
 using KysChess::BattleSceneBattleAdapter::populateBattleMovementPhysicsFrame;
 using KysChess::BattleSceneBattleAdapter::populateBattleFrameHitUnits;
 using KysChess::BattleSceneBattleAdapter::resolveBattleMagicBaseDamage;
-using KysChess::BattleSceneBattleAdapter::writeBattleCooldownState;
 using KysChess::BattleSceneBattleAdapter::writeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::writeBattleStatusUnit;
 
@@ -3710,7 +3708,6 @@ void BattleSceneHades::initializeCoreDamageState()
         frameState.damage.units.push_back(makeBattleDamageUnit(
             role,
             stateIt != comboStates.end() ? &stateIt->second : nullptr));
-        frameState.damage.cooldowns.emplace(role->ID, makeBattleCooldownState(role));
         frameState.damage.presentationStylesByDefender.emplace(role->ID, makeBattleDamagePresentationStyle(role));
         if (stateIt != comboStates.end() && stateIt->second.deathAOEPct > 0)
         {
@@ -3786,7 +3783,7 @@ void BattleSceneHades::applyCoreDamageTransactions(
         {
             writeBattleStatusUnit(r, sit->second, damageTaken.defenderStatus);
         }
-        writeBattleCooldownState(r, damageTaken.defenderCooldown);
+        r->CoolDown = damageTaken.defenderCooldown.cooldown;
 
         int committedHpDamage = 0;
         for (const auto& event : damageTaken.events)

@@ -90,6 +90,9 @@ struct BattleRuntimeUnit
     int defence = 0;
     int cooldown = 0;
     int cooldownMax = 0;
+    bool haveAction = false;
+    BattleOperationType operationType = BattleOperationType::None;
+    int actType = -1;
     int physicalPower = 0;
     int invincible = 0;
     int shield = 0;
@@ -300,7 +303,6 @@ struct BattleRuntimeState
     {
         bool aggregatePendingTransactionsByDefender = false;
         std::vector<BattleDamageUnitState> units;
-        std::map<int, BattleCooldownState> cooldowns;
         std::map<int, BattleDamagePresentationStyle> presentationStylesByDefender;
         std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
         std::vector<BattleDamageTransactionInput> pendingTransactions;

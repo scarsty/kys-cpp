@@ -268,6 +268,9 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     unit.defence = role->Defence;
     unit.cooldown = role->CoolDown;
     unit.cooldownMax = role->CoolDownMax;
+    unit.haveAction = role->HaveAction != 0;
+    unit.operationType = Battle::battleOperationFromLegacy(role->OperationType);
+    unit.actType = role->ActType;
     unit.physicalPower = role->PhysicalPower;
     unit.invincible = role->Invincible;
     unit.position = role->Pos;
@@ -464,31 +467,6 @@ void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::Batt
     state->shield = unit.shield;
     state->blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
     state->deathPreventionUsed = unit.deathPreventionUsed;
-}
-
-Battle::BattleCooldownState makeBattleCooldownState(Role* role)
-{
-    Battle::BattleCooldownState state;
-    if (!role)
-    {
-        state.alive = false;
-        return state;
-    }
-    state.alive = role->Dead == 0;
-    state.cooldown = role->CoolDown;
-    state.cooldownMax = role->CoolDownMax;
-    state.haveAction = role->HaveAction;
-    state.operationType = Battle::battleOperationFromLegacy(role->OperationType);
-    state.actType = role->ActType;
-    return state;
-}
-
-void writeBattleCooldownState(Role* role, const Battle::BattleCooldownState& state)
-{
-    if (role)
-    {
-        role->CoolDown = state.cooldown;
-    }
 }
 
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role)

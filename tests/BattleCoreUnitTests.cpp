@@ -297,8 +297,6 @@ BattleRuntimeState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
         statusRuntimeSnapshot(1, 80),
         statusRuntimeSnapshot(2, defenderHp),
     };
-    state.damage.cooldowns.emplace(1, BattleCooldownState{});
-    state.damage.cooldowns.emplace(2, BattleCooldownState{});
     return state;
 }
 
@@ -485,7 +483,6 @@ TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore",
         statusRuntimeSnapshot(1, 100),
         statusRuntimeSnapshot(2, 10),
     };
-    state.damage.cooldowns.emplace(2, BattleCooldownState{});
 
     BattleFrameRunner().runFrame(state);
 
@@ -617,9 +614,6 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
         statusRuntimeSnapshot(2, defenderHp),
         statusRuntimeSnapshot(3, 100),
     };
-    state.damage.cooldowns.emplace(1, BattleCooldownState{});
-    state.damage.cooldowns.emplace(2, BattleCooldownState{});
-    state.damage.cooldowns.emplace(3, BattleCooldownState{});
     state.damage.pendingTransactions.push_back(preResolvedDamageInput(1, 2, defenderHp, damage));
     state.units.units = {
         runtimeUnitSnapshot(1, 0, 100, { 100, 100, 0 }),

@@ -472,6 +472,9 @@ void advanceRuntimeUnits(BattleRuntimeState& state, std::vector<BattleGameplayCo
         {
             auto& unit = state.units.requireUnit(input.unitId);
             unit.cooldown = committed.result.state.cooldown;
+            unit.haveAction = committed.result.state.haveAction;
+            unit.operationType = committed.result.state.operationType;
+            unit.actType = committed.result.state.actType;
             unit.physicalPower = committed.result.state.physicalPower;
             if (committed.result.mpDelta > 0 && !unit.mpBlocked)
             {
@@ -935,6 +938,18 @@ BattleStatusUnitState makeFallbackStatusUnit(const BattleDamageUnitState& unit)
     return status;
 }
 
+BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit)
+{
+    BattleCooldownState cooldown;
+    cooldown.alive = unit.alive;
+    cooldown.cooldown = unit.cooldown;
+    cooldown.cooldownMax = unit.cooldownMax;
+    cooldown.haveAction = unit.haveAction;
+    cooldown.operationType = unit.operationType;
+    cooldown.actType = unit.actType;
+    return cooldown;
+}
+
 void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamageTransactionResult& transaction)
 {
     if (hasCanonicalUnitStore(state))
@@ -950,11 +965,6 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
     if (auto* defender = findDamageUnit(state.damage.units, transaction.defender.id))
     {
         *defender = transaction.defender;
-    }
-    if (auto cooldownIt = state.damage.cooldowns.find(transaction.defender.id);
-        cooldownIt != state.damage.cooldowns.end())
-    {
-        cooldownIt->second = transaction.defenderCooldown;
     }
     if (auto* attacker = findWorldUnit(state.world, transaction.attacker.id))
     {
@@ -1337,11 +1347,7 @@ bool buildFrameDamageTransaction(
     {
         transaction.defenderStatus = makeFallbackStatusUnit(*defender);
     }
-    if (auto cooldownIt = state.damage.cooldowns.find(request.defenderUnitId);
-        cooldownIt != state.damage.cooldowns.end())
-    {
-        transaction.defenderCooldown = cooldownIt->second;
-    }
+    transaction.defenderCooldown = makeBattleFrameCooldownState(state.units.requireUnit(request.defenderUnitId));
     return true;
 }
 
@@ -1454,11 +1460,6 @@ void applyTeamEffectEventsToFrameState(
             damageUnit->hp = unit.hp;
             damageUnit->mp = unit.mp;
             damageUnit->shield = unit.shield;
-        }
-        if (auto cooldownIt = state.damage.cooldowns.find(event.targetUnitId);
-            cooldownIt != state.damage.cooldowns.end())
-        {
-            cooldownIt->second.cooldown = unit.cooldown;
         }
         if (auto comboIt = state.combo.units.find(event.targetUnitId);
             comboIt != state.combo.units.end())
@@ -1917,8 +1918,7 @@ void advanceStatus(BattleRuntimeState& state)
         auto* attacker = findDamageUnit(state.damage.units, event.sourceUnitId);
         auto* defender = findDamageUnit(state.damage.units, event.unitId);
         auto* defenderStatus = findStatusUnit(state.status.units, event.unitId);
-        auto cooldownIt = state.damage.cooldowns.find(event.unitId);
-        if (!attacker || !defender || !defenderStatus || cooldownIt == state.damage.cooldowns.end())
+        if (!attacker || !defender || !defenderStatus)
         {
             continue;
         }
@@ -1933,7 +1933,7 @@ void advanceStatus(BattleRuntimeState& state)
         transaction.defenderStatus = makeBattleStatusUnitState(
             *defenderStatus,
             state.units.requireUnit(event.unitId));
-        transaction.defenderCooldown = cooldownIt->second;
+        transaction.defenderCooldown = makeBattleFrameCooldownState(state.units.requireUnit(event.unitId));
         state.damage.pendingTransactions.push_back(std::move(transaction));
     }
 }

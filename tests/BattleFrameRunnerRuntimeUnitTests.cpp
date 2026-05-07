@@ -131,13 +131,6 @@ BattleDamageUnitState damageUnit(int id, int hp)
     return unit;
 }
 
-BattleCooldownState cooldownUnit()
-{
-    BattleCooldownState state;
-    state.alive = true;
-    return state;
-}
-
 BattleStatusRuntimeUnit runtimeStatusUnit(const BattleStatusUnitState& unit)
 {
     return makeBattleStatusRuntimeUnit(unit);
@@ -354,8 +347,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
         teamRuntimeUnit(2, 1, 80),
     };
     state.deathEffects.store.units = { { 1 }, { 2 } };
-    state.damage.cooldowns.emplace(1, cooldownUnit());
-    state.damage.cooldowns.emplace(2, cooldownUnit());
 
     BattleFrameRunner().runFrame(state);
 
@@ -391,8 +382,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
         teamRuntimeUnit(2, 1, 80),
     };
     state.deathEffects.store.units = { { 1 }, { 2 } };
-    state.damage.cooldowns.emplace(1, cooldownUnit());
-    state.damage.cooldowns.emplace(2, cooldownUnit());
 
     BattleFrameRunner().runFrame(state);
 

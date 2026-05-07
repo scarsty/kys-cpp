@@ -227,8 +227,6 @@ Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboSt
 void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit);
 Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state);
 void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
-Battle::BattleCooldownState makeBattleCooldownState(Role* role);
-void writeBattleCooldownState(Role* role, const Battle::BattleCooldownState& state);
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
 void populateBattleFrameHitUnits(
     Battle::BattleRuntimeState& frameState,
