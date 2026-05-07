@@ -72,7 +72,6 @@ struct BattleActionFrameAdapterContext
     const std::vector<Role*>* roles = nullptr;
     const Battle::BattleUnitStore* units = nullptr;
     RandomDouble* random = nullptr;
-    const std::map<int, Battle::BattleMovementPhysicsState>* movementRuntime = nullptr;
     std::map<int, RoleComboState>* comboStates = nullptr;
     std::set<int>* ultimateCasters = nullptr;
     BattleActionFrameAdapterConfig config;
@@ -160,7 +159,10 @@ void applyBattleMovementPhysicsFrameResults(
 void applyBattleMovementFrameResults(
     const Battle::BattleTickResult& movement,
     const BattleMovementPhysicsFrameAdapterContext& context);
-void populateBattleActionDirectives(
+void populateBattleItemActionDirectives(
+    Battle::BattleRuntimeState& runtime,
+    BattleActionFrameAdapterContext& context);
+void initializeBattleActionPlanInputs(
     Battle::BattleRuntimeState& runtime,
     BattleActionFrameAdapterContext& context);
 BattleActionFrameApplyResult applyBattleActionFrameResults(

@@ -1151,6 +1151,29 @@ BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
     return input;
 }
 
+void refreshRuntimeCastSkillBonuses(BattleRuntimeState& state, BattleCastInput& input)
+{
+    auto comboIt = state.combo.units.find(input.unit.id);
+    if (comboIt == state.combo.units.end())
+    {
+        return;
+    }
+    if (input.ultimateSkill.id >= 0 && input.unit.mp == input.unit.maxMp)
+    {
+        input.ultimateSkill.extraProjectileCount = collectFrameExtraProjectileCount(
+            comboIt->second,
+            input.unit.id,
+            std::max(0, comboIt->second.ultimateExtraProjectiles));
+    }
+}
+
+bool actionMovementDashActive(const BattleRuntimeState& state, int unitId)
+{
+    auto movementIt = state.movementRuntime.find(unitId);
+    return movementIt != state.movementRuntime.end()
+        && movementIt->second.movementDashFrames > 0;
+}
+
 const BattleCastSkillState& selectedCastSkill(const BattleCastInput& input, const BattleCastResult& cast)
 {
     return cast.decision.ultimate ? input.ultimateSkill : input.normalSkill;
@@ -2815,6 +2838,19 @@ void advanceActionFrameUnits(
         const auto* input = inputIt != inputsByUnitId.end()
             ? inputIt->second
             : nullptr;
+        const BattleCastInput* castPlanInput = input && input->canPlanCast
+            ? &input->castInput
+            : nullptr;
+        auto runtimeCastPlanIt = state.action.castPlanInputs.find(unit.id);
+        bool usingRuntimeCastPlan = false;
+        if (!castPlanInput
+            && runtimeCastPlanIt != state.action.castPlanInputs.end()
+            && !unit.haveAction
+            && !actionMovementDashActive(state, unit.id))
+        {
+            castPlanInput = &runtimeCastPlanIt->second;
+            usingRuntimeCastPlan = true;
+        }
         auto pendingCommitIt = state.action.pendingCommitInputs.find(unit.id);
         BattleFrameActionUnitResult result;
         result.unitId = unit.id;
@@ -2850,9 +2886,14 @@ void advanceActionFrameUnits(
                     result.actionResult.visualEvents.end());
             }
         }
-        else if (input && !result.state.haveAction && input->canPlanCast)
+        else if (!result.state.haveAction && castPlanInput)
         {
-            auto castInput = refreshedCastInput(state, movement, input->castInput);
+            auto castInput = refreshedCastInput(state, movement, *castPlanInput);
+            if (usingRuntimeCastPlan)
+            {
+                castInput.unit.canStartAttack = castInput.unit.canStartAttack && unit.cooldown == 0;
+                refreshRuntimeCastSkillBonuses(state, castInput);
+            }
             auto cast = BattleCastPlanner().plan(castInput);
             gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
             visualEvents.insert(visualEvents.end(), cast.visualEvents.begin(), cast.visualEvents.end());
@@ -2862,8 +2903,8 @@ void advanceActionFrameUnits(
                 result.state.haveAction = true;
                 result.state.actFrame = 0;
                 result.state.actType = cast.decision.ultimate
-                    ? input->castInput.ultimateSkill.magicType
-                    : input->castInput.normalSkill.magicType;
+                    ? castInput.ultimateSkill.magicType
+                    : castInput.normalSkill.magicType;
                 result.state.operationType = cast.decision.operationType;
                 result.state.cooldown = cast.animation.cooldownFrames;
                 state.action.pendingCommitInputs[unit.id] =

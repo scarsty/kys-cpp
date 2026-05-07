@@ -47,7 +47,8 @@ using KysChess::BattleSceneBattleAdapter::applyBattleMovementFrameResults;
 using KysChess::BattleSceneBattleAdapter::effectiveBattleReach;
 using KysChess::BattleSceneBattleAdapter::forcedRangedMinSelectDistance;
 using KysChess::BattleSceneBattleAdapter::isBattleRangedStyleMagic;
-using KysChess::BattleSceneBattleAdapter::populateBattleActionDirectives;
+using KysChess::BattleSceneBattleAdapter::initializeBattleActionPlanInputs;
+using KysChess::BattleSceneBattleAdapter::populateBattleItemActionDirectives;
 using KysChess::BattleSceneBattleAdapter::projectileSpeedMultiplierPct;
 using KysChess::BattleSceneBattleAdapter::roleForcesRangedMagic;
 using KysChess::BattleSceneBattleAdapter::selectHigherPowerMagic;
@@ -975,6 +976,8 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     battleRuntime().projectileFollowUps.nearbyProjectileFramePadding = 18;
     battleRuntime().projectileFollowUps.areaProjectileFramePadding = 15;
     battleRuntime().projectileFollowUps.areaSpawnDistance = TILE_W * 1.5;
+    auto actionContext = makeBattleActionFrameAdapterContext();
+    initializeBattleActionPlanInputs(battleRuntime(), actionContext);
 }
 
 KysChess::Battle::BattleRuntimeState& BattleSceneHades::battleRuntime()
@@ -995,7 +998,6 @@ BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterCo
     context.roles = &battle_roles_;
     context.units = &battleRuntime().units;
     context.random = &rand_;
-    context.movementRuntime = &battleRuntime().movementRuntime;
     context.comboStates = &battleRuntime().combo.units;
     context.ultimateCasters = &battleRuntime().ultimateCasters;
     context.config.maxEffectiveBattleReach = MAX_EFFECTIVE_BATTLE_REACH;
@@ -2490,7 +2492,7 @@ void BattleSceneHades::prepareCoreFrame(
 
     movementPhysicsContext.roles = &battle_roles_;
 
-    populateBattleActionDirectives(battleRuntime(), actionContext);
+    populateBattleItemActionDirectives(battleRuntime(), actionContext);
 }
 
 void BattleSceneHades::applyCoreFrameResult(

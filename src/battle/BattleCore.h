@@ -342,6 +342,7 @@ struct BattleRuntimeState
     struct ActionState
     {
         std::vector<BattleFrameActionUnitInput> directives;
+        std::map<int, BattleCastInput> castPlanInputs;
         std::map<int, BattleActionCommitInput> pendingCommitInputs;
         std::vector<int> castFrames;
         int actionRecoveryFrames = 0;

@@ -1509,6 +1509,29 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StartsCastFromActionFrameUnitInput", "
     CHECK(action.castResult.decision.skillId == 301);
 }
 
+TEST_CASE("BattleFrameRunner_PlansCastFromRuntimeOwnedCastPlanInput", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 220, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.units.requireUnit(1).cooldown = 0;
+    auto cast = frameCastInput(1, 2);
+    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.rangedStyle = true;
+    cast.normalSkill.reach = 400.0;
+    state.action.castPlanInputs.emplace(1, cast);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK(result.actionResults[0].castStarted);
+    CHECK(result.actionResults[0].castResult.decision.skillId == 301);
+}
+
 TEST_CASE("BattleFrameRunner_StoresPendingCastCommitInputWhenCastStarts", "[battle][core][runtime]")
 {
     BattleRuntimeState state;

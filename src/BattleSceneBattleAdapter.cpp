@@ -705,7 +705,8 @@ BattleCastSkillAdapterInput makeActionFrameSkillInput(
     Role* role,
     Magic* magic,
     bool ultimate,
-    const BattleActionFrameAdapterContext& context)
+    const BattleActionFrameAdapterContext& context,
+    bool consumeFrameSkillBonuses)
 {
     BattleCastSkillAdapterInput skill;
     if (!magic)
@@ -728,7 +729,9 @@ BattleCastSkillAdapterInput makeActionFrameSkillInput(
     skill.rangedStyle = isBattleRangedStyleMagic(magic, forceRanged);
     skill.projectileSpeedMultiplierPct = speedMultiplierPct;
     skill.meleeSplashCount = ultimate && magic->AttackAreaType == 0 ? 1 : 0;
-    skill.extraProjectileCount = ultimate ? actionUltimateExtraProjectileCount(role, context) : 0;
+    skill.extraProjectileCount = ultimate && consumeFrameSkillBonuses
+        ? actionUltimateExtraProjectileCount(role, context)
+        : 0;
     skill.blinkReach = battleBlinkReach(magic);
     return skill;
 }
@@ -757,7 +760,8 @@ Battle::BattleCastInput makeActionFrameCastInput(
     Magic* ultimateMagic,
     bool canStartAttack,
     bool movementDashActive,
-    const BattleActionFrameAdapterContext& context)
+    const BattleActionFrameAdapterContext& context,
+    bool consumeFrameSkillBonuses = true)
 {
     assert(role);
     assert(context.comboStates);
@@ -781,8 +785,8 @@ Battle::BattleCastInput makeActionFrameCastInput(
 
     BattleCastAdapterInput castAdapterInput;
     castAdapterInput.unit = role;
-    castAdapterInput.normalSkill = makeActionFrameSkillInput(role, normalMagic, false, context);
-    castAdapterInput.ultimateSkill = makeActionFrameSkillInput(role, ultimateMagic, true, context);
+    castAdapterInput.normalSkill = makeActionFrameSkillInput(role, normalMagic, false, context, consumeFrameSkillBonuses);
+    castAdapterInput.ultimateSkill = makeActionFrameSkillInput(role, ultimateMagic, true, context, consumeFrameSkillBonuses);
     castAdapterInput.canStartAttack = canStartAttack;
     castAdapterInput.movementDashActive = movementDashActive;
     castAdapterInput.dashAttackEnabled = dashAttackEnabled;
@@ -851,39 +855,6 @@ void populateActionCommitInputForRole(
         unitInput.hasPendingActionInput = true;
         unitInput.pendingActionInput = std::move(actionInput);
     }
-}
-
-void populateCastPlanInputForRole(
-    Battle::BattleFrameActionUnitInput& unitInput,
-    Role* role,
-    BattleActionFrameAdapterContext& context)
-{
-    if (role->Dead != 0 || role->HaveAction)
-    {
-        return;
-    }
-
-    bool canStartAttack = role->CoolDown == 0;
-    Magic* equippedMagic = role->UsingMagic;
-    Magic* normalMagic = equippedMagic ? equippedMagic : selectLowerPowerMagic(role);
-    Magic* ultimateMagic = equippedMagic ? equippedMagic : selectHigherPowerMagic(role);
-
-    assert(context.movementRuntime);
-    auto movementIt = context.movementRuntime->find(role->ID);
-    if (movementIt != context.movementRuntime->end()
-        && movementIt->second.movementDashFrames > 0)
-    {
-        return;
-    }
-
-    unitInput.canPlanCast = true;
-    unitInput.castInput = makeActionFrameCastInput(
-        role,
-        normalMagic,
-        ultimateMagic,
-        canStartAttack,
-        false,
-        context);
 }
 
 bool hasActionFrameDirective(const Battle::BattleFrameActionUnitInput& unitInput)
@@ -1028,7 +999,7 @@ void applyBattleMovementFrameResults(
     }
 }
 
-void populateBattleActionDirectives(
+void populateBattleItemActionDirectives(
     Battle::BattleRuntimeState& runtime,
     BattleActionFrameAdapterContext& context)
 {
@@ -1043,11 +1014,35 @@ void populateBattleActionDirectives(
         Battle::BattleFrameActionUnitInput unitInput;
         unitInput.unitId = role->ID;
         populateActionCommitInputForRole(unitInput, role, context);
-        populateCastPlanInputForRole(unitInput, role, context);
         if (hasActionFrameDirective(unitInput))
         {
             runtime.action.directives.push_back(std::move(unitInput));
         }
+    }
+}
+
+void initializeBattleActionPlanInputs(
+    Battle::BattleRuntimeState& runtime,
+    BattleActionFrameAdapterContext& context)
+{
+    assert(context.roles);
+    assert(context.comboStates);
+
+    runtime.action.castPlanInputs.clear();
+    for (auto role : *context.roles)
+    {
+        assert(role);
+        Magic* equippedMagic = role->UsingMagic;
+        Magic* normalMagic = equippedMagic ? equippedMagic : selectLowerPowerMagic(role);
+        Magic* ultimateMagic = equippedMagic ? equippedMagic : selectHigherPowerMagic(role);
+        runtime.action.castPlanInputs[role->ID] = makeActionFrameCastInput(
+            role,
+            normalMagic,
+            ultimateMagic,
+            true,
+            false,
+            context,
+            false);
     }
 }
 
