@@ -3135,7 +3135,6 @@ void emitPresentationFrame(
 void publishFrameApplyOutputs(BattleRuntimeState& state, BattleFrameResult& result)
 {
     result.damageTransactions = state.damage.committedTransactions;
-    result.damageLifecycleEvents = state.damage.lifecycleEvents;
     result.rescueResults = state.rescue.committedResults;
     result.teamEffectEvents = state.teamEffects.committedEvents;
     result.effectCommands = state.effects.committedCommands;

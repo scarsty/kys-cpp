@@ -3176,35 +3176,14 @@ void BattleSceneHades::applyCoreDamageTransactions(
     }
 
     auto& cs = battleRuntime().combo.units;
-    std::set<int> diedUnitIds;
-    std::vector<KysChess::Battle::BattleGameplayEvent> lifecycleEvents;
-    for (const auto& event : frameResult.damageLifecycleEvents)
-    {
-        switch (event.type)
+    auto lifecycleApply = applyBattleLifecycleEvents(
         {
-        case KysChess::Battle::BattleDamageLifecycleEventType::UnitDied:
-            diedUnitIds.insert(event.targetUnitId);
-            lifecycleEvents.push_back({
-                KysChess::Battle::BattleGameplayEventType::UnitDied,
-                battle_frame_,
-                event.sourceUnitId,
-                event.targetUnitId,
-                event.value,
-            });
-            break;
-        case KysChess::Battle::BattleDamageLifecycleEventType::BattleEnded:
-            lifecycleEvents.push_back({
-                KysChess::Battle::BattleGameplayEventType::BattleEnded,
-                battle_frame_,
-                -1,
-                -1,
-                event.value,
-            });
-            break;
-        case KysChess::Battle::BattleDamageLifecycleEventType::KillRecorded:
-            break;
-        }
-    }
+            &tracker_,
+            &battle_roles_,
+            result_,
+        },
+        frameResult.frame.gameplayEvents);
+    std::set<int> diedUnitIds(lifecycleApply.diedUnitIds.begin(), lifecycleApply.diedUnitIds.end());
 
     for (const auto& damageTaken : frameResult.damageTransactions)
     {
@@ -3311,13 +3290,6 @@ void BattleSceneHades::applyCoreDamageTransactions(
 
     writeBattleDeathEffectTrackers(frameResult.deathEffectTrackers, cs);
 
-    auto lifecycleApply = applyBattleLifecycleEvents(
-        {
-            &tracker_,
-            &battle_roles_,
-            result_,
-        },
-        lifecycleEvents);
     if (lifecycleApply.unitDied)
     {
         updateEnemyTopDebuffState();

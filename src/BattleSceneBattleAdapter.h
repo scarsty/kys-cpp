@@ -105,6 +105,7 @@ struct BattleLifecycleApplicationResult
     bool battleEnded = false;
     int battleResult = -1;
     bool unitDied = false;
+    std::vector<int> diedUnitIds;
 };
 
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);

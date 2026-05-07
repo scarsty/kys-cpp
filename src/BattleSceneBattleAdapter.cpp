@@ -1108,6 +1108,7 @@ BattleLifecycleApplicationResult applyBattleLifecycleEvents(
             context.tracker->recordKill(killer, victim, event.frame);
             context.tracker->recordDeath(victim, event.frame);
             result.unitDied = true;
+            result.diedUnitIds.push_back(event.targetUnitId);
             break;
         }
         case Battle::BattleGameplayEventType::BattleEnded:

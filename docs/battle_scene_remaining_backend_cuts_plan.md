@@ -30,7 +30,6 @@ These are not rename problems. Each remaining cut must delete a scene-owned game
 **Change**
 - Add output fields to `BattleFrameResult`:
   - `damageTransactions`
-  - `damageLifecycleEvents`
   - `rescueResults`
   - `teamEffectEvents`
   - `effectCommands`
@@ -57,7 +56,7 @@ These are not rename problems. Each remaining cut must delete a scene-owned game
 - `src/battle/BattleCore.cpp`
 
 **Change**
-- Use `frameResult.frame.gameplayEvents` or an explicit `frameResult.gameplayEvents` field as tracker input.
+- Use `frameResult.frame.gameplayEvents` as tracker input.
 - Delete lifecycle reconstruction in `applyCoreDamageTransactions()`.
 - If the scene still needs a died-unit set for death visuals, derive it from the explicit gameplay events passed into the apply method, not from runtime damage internals.
 
