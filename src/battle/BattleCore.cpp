@@ -202,14 +202,14 @@ const BattleProjectileCancelBaseDamage* findProjectileCancelBaseDamage(
     int otherAttackId)
 {
     auto it = std::find_if(
-        state.projectileCancel.baseDamages.begin(),
-        state.projectileCancel.baseDamages.end(),
+        state.projectileCancelBaseDamages.begin(),
+        state.projectileCancelBaseDamages.end(),
         [&](const BattleProjectileCancelBaseDamage& input)
         {
             return input.attackId == attackId
                 && (input.otherAttackId < 0 || input.otherAttackId == otherAttackId);
         });
-    return it != state.projectileCancel.baseDamages.end() ? &*it : nullptr;
+    return it != state.projectileCancelBaseDamages.end() ? &*it : nullptr;
 }
 
 const BattleFrameHitScalarInput* findHitScalar(
@@ -543,10 +543,10 @@ void advanceRuntimeUnits(BattleRuntimeState& state, std::vector<BattleGameplayCo
 void applyProjectileCancelDamageResults(
     BattleRuntimeState& state,
     std::vector<BattleAttackEvent>& events,
+    std::vector<BattleProjectileCancelDamageCommand>& projectileCancelDamageCommands,
     std::vector<BattleGameplayCommand>& commands)
 {
     BattleAttackSystem attackSystem;
-    state.projectileCancel.committedCommands.clear();
     for (auto& event : events)
     {
         if (event.type != BattleAttackEventType::ProjectileCancel)
@@ -582,7 +582,7 @@ void applyProjectileCancelDamageResults(
         command.damage = event.projectileCancelDamage;
         command.otherDamage = event.otherProjectileCancelDamage;
         commands.push_back(command);
-        state.projectileCancel.committedCommands.push_back(command);
+        projectileCancelDamageCommands.push_back(command);
         attackSystem.applyProjectileCancelDamage(state.attacks, event);
     }
 }
@@ -2410,7 +2410,11 @@ void advanceAttacksAndResolveHits(
         result.attackEvents.end(),
         std::make_move_iterator(tickEvents.begin()),
         std::make_move_iterator(tickEvents.end()));
-    applyProjectileCancelDamageResults(state, result.attackEvents, result.commands);
+    applyProjectileCancelDamageResults(
+        state,
+        result.attackEvents,
+        result.projectileCancelDamageCommands,
+        result.commands);
     resolveHitEvents(state, result.attackEvents, result.commands, logEvents, visualEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
 }

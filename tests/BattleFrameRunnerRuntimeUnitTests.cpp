@@ -542,8 +542,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     };
     state.attacks.attacks.push_back(cancelProjectile(10, 1));
     state.attacks.attacks.push_back(cancelProjectile(20, 2));
-    state.projectileCancel.baseDamages.push_back({ 10, -1, 25 });
-    state.projectileCancel.baseDamages.push_back({ 20, -1, 12 });
+    state.projectileCancelBaseDamages.push_back({ 10, -1, 25 });
+    state.projectileCancelBaseDamages.push_back({ 20, -1, 12 });
 
     auto result = BattleFrameRunner().runFrame(state);
 
@@ -554,8 +554,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     CHECK(cancel.otherProjectileCancelDamage == 12);
 
     REQUIRE(result.commands.empty());
-    REQUIRE(state.projectileCancel.committedCommands.size() == 1);
-    const auto* command = &state.projectileCancel.committedCommands[0];
+    REQUIRE(result.projectileCancelDamageCommands.size() == 1);
+    const auto* command = &result.projectileCancelDamageCommands[0];
     REQUIRE(command);
     CHECK(command->attackId == 10);
     CHECK(command->otherAttackId == 20);

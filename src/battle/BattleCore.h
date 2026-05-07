@@ -363,11 +363,7 @@ struct BattleRuntimeState
         std::map<int, int> pendingAliveByTeam;
     } result;
 
-    struct ProjectileCancelState
-    {
-        std::vector<BattleProjectileCancelBaseDamage> baseDamages;
-        std::vector<BattleProjectileCancelDamageCommand> committedCommands;
-    } projectileCancel;
+    std::vector<BattleProjectileCancelBaseDamage> projectileCancelBaseDamages;
 
     struct TeamEffectState
     {
@@ -420,6 +416,7 @@ struct BattleFrameResult
     BattleTickResult movement;
     std::vector<BattleAttackEvent> attackEvents;
     BattleFrameApplications applications;
+    std::vector<BattleProjectileCancelDamageCommand> projectileCancelDamageCommands;
     // 遷移期間的不完整快照退路；場景與 adapter 不得消費這些命令。
     std::vector<BattleGameplayCommand> commands;
 };

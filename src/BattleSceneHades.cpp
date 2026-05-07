@@ -2668,7 +2668,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().status.events.clear();
     battleRuntime().combo.events.clear();
     battleRuntime().deathEffects.events.clear();
-    battleRuntime().projectileCancel = {};
+    battleRuntime().projectileCancelBaseDamages.clear();
     battleRuntime().teamEffects.committedEvents.clear();
     battleRuntime().effects.committedCommands.clear();
     battleRuntime().actions = {};
@@ -2772,7 +2772,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
             auto* skill2 = Save::getInstance()->getMagic(attack2.state.skillId);
             if (skill1)
             {
-                battleRuntime().projectileCancel.baseDamages.push_back({
+                battleRuntime().projectileCancelBaseDamages.push_back({
                     attack1.id,
                     attack2.id,
                     calculateHitMagicBaseDamage(attacker1, attacker2, skill1),
@@ -2780,7 +2780,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
             }
             if (skill2)
             {
-                battleRuntime().projectileCancel.baseDamages.push_back({
+                battleRuntime().projectileCancelBaseDamages.push_back({
                     attack2.id,
                     attack1.id,
                     calculateHitMagicBaseDamage(attacker2, attacker1, skill2),
@@ -2877,7 +2877,7 @@ void BattleSceneHades::applyCoreFrameResult(
     {
         setFaceTowardsNearest(requireFrameRole(bundle, unitId));
     }
-    for (const auto& command : battleRuntime().projectileCancel.committedCommands)
+    for (const auto& command : frameResult.projectileCancelDamageCommands)
     {
         applyBattleProjectileCancelDamage(
             requireFrameRole(bundle, command.sourceUnitId),
