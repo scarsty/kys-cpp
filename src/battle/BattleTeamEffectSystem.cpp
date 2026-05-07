@@ -1,5 +1,6 @@
 #include "BattleTeamEffectSystem.h"
 
+#include "BattleCore.h"
 #include "BattleResourceRules.h"
 
 #include <algorithm>
@@ -9,24 +10,20 @@
 namespace KysChess::Battle
 {
 
-BattleTeamEffectUnit& BattleTeamEffectSystem::unitById(BattleTeamEffectWorld& world, int unitId) const
+BattleRuntimeUnit& BattleTeamEffectSystem::unitById(BattleUnitStore& units, int unitId) const
 {
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleTeamEffectUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    assert(it != world.units.end());
-    assert(it->alive);
-    return *it;
+    auto& unit = units.requireUnit(unitId);
+    assert(unit.alive);
+    return unit;
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applySelfHeal(BattleTeamEffectWorld& world,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applySelfHeal(BattleUnitStore& units,
                                                                          int sourceUnitId,
                                                                          int pctHeal) const
 {
     assert(pctHeal > 0);
 
-    auto& source = unitById(world, sourceUnitId);
+    auto& source = unitById(units, sourceUnitId);
     int amount = source.maxHp * pctHeal / 100;
     assert(amount > 0);
 
@@ -39,16 +36,16 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applySelfHeal(BattleT
     return { { BattleTeamEffectEventType::Heal, sourceUnitId, source.id, source.hp - before, before, source.hp } };
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleTeamEffectWorld& world,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleUnitStore& units,
                                                                          int sourceUnitId,
                                                                          int flatHeal,
                                                                          int pctHeal) const
 {
     assert(flatHeal > 0 || pctHeal > 0);
 
-    auto& source = unitById(world, sourceUnitId);
+    auto& source = unitById(units, sourceUnitId);
     std::vector<BattleTeamEffectEvent> events;
-    for (auto& unit : world.units)
+    for (auto& unit : units.units)
     {
         if (!unit.alive || unit.team != source.team)
         {
@@ -67,15 +64,15 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleT
     return events;
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleTeamEffectWorld& world,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleUnitStore& units,
                                                                        int sourceUnitId,
                                                                        int amount) const
 {
     assert(amount > 0);
 
-    auto& source = unitById(world, sourceUnitId);
+    auto& source = unitById(units, sourceUnitId);
     std::vector<BattleTeamEffectEvent> events;
-    for (auto& unit : world.units)
+    for (auto& unit : units.units)
     {
         if (!unit.alive || unit.team != source.team)
         {
@@ -93,16 +90,16 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleTea
     return events;
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamShield(BattleTeamEffectWorld& world,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamShield(BattleUnitStore& units,
                                                                            int sourceUnitId,
                                                                            int amount,
                                                                            bool refreshOnly) const
 {
     assert(amount > 0);
 
-    auto& source = unitById(world, sourceUnitId);
+    auto& source = unitById(units, sourceUnitId);
     std::vector<BattleTeamEffectEvent> events;
-    for (auto& unit : world.units)
+    for (auto& unit : units.units)
     {
         if (!unit.alive || unit.team != source.team)
         {
@@ -119,7 +116,7 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamShield(Battl
     return events;
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyHealAura(BattleTeamEffectWorld& world,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyHealAura(BattleUnitStore& units,
                                                                          int sourceUnitId,
                                                                          int flatHeal,
                                                                          int pctHeal,
@@ -130,18 +127,18 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyHealAura(BattleT
     assert(radius > 0.0);
     assert(healedCooldownReducePct >= 0);
 
-    auto& source = unitById(world, sourceUnitId);
+    auto& source = unitById(units, sourceUnitId);
     double radiusSquared = radius * radius;
     std::vector<BattleTeamEffectEvent> events;
-    for (auto& unit : world.units)
+    for (auto& unit : units.units)
     {
         if (!unit.alive || unit.id == source.id || unit.team != source.team)
         {
             continue;
         }
 
-        double dx = unit.x - source.x;
-        double dy = unit.y - source.y;
+        double dx = unit.position.x - source.position.x;
+        double dy = unit.position.y - source.position.y;
         if (dx * dx + dy * dy > radiusSquared)
         {
             continue;

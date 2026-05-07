@@ -40,7 +40,6 @@ using KysChess::BattleSceneBattleAdapter::BattleRescueFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::appendBattleFrameHitInput;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
 using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
-using KysChess::BattleSceneBattleAdapter::findBattleTeamEffectUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleCooldownState;
 using KysChess::BattleSceneBattleAdapter::configureBattleAttackWorld;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamageUnit;
@@ -49,7 +48,6 @@ using KysChess::BattleSceneBattleAdapter::makeBattleFrameUnitRuntimeInput;
 using KysChess::BattleSceneBattleAdapter::makeBattlePresentationColor;
 using KysChess::BattleSceneBattleAdapter::makeBattleRuntimeUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleStatusUnit;
-using KysChess::BattleSceneBattleAdapter::makeBattleTeamEffectWorld;
 using KysChess::BattleSceneBattleAdapter::applyBattleMovementPhysicsFrameResults;
 using KysChess::BattleSceneBattleAdapter::populateBattleActionFrame;
 using KysChess::BattleSceneBattleAdapter::populateBattleFrameRescueState;
@@ -59,7 +57,6 @@ using KysChess::BattleSceneBattleAdapter::resolveBattleMagicBaseDamage;
 using KysChess::BattleSceneBattleAdapter::writeBattleCooldownState;
 using KysChess::BattleSceneBattleAdapter::writeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::writeBattleStatusUnit;
-using KysChess::BattleSceneBattleAdapter::writeBattleTeamEffectRoleRuntimeFields;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
@@ -1118,9 +1115,6 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     }
     configureBattleAttackWorld(battleRuntime().attacks);
     battleRuntime().teamEffects.healAuraRadius = TILE_W * 6.0;
-    battleRuntime().teamEffects.world = makeBattleTeamEffectWorld(
-        battle_roles_,
-        comboStates);
     battleRuntime().effects.world = makeBattleEffectWorld(
         battle_roles_,
         comboStates);
@@ -2887,7 +2881,6 @@ void BattleSceneHades::applyCoreFrameResult(
         {
             changeRoleMP(role, runtimeUnitResult.result.mpDelta);
         }
-        writeBattleTeamEffectRoleRuntimeFields(battleRuntime().teamEffects.world, role);
     }
 
     comboStates = battleRuntime().combo.units;
@@ -3903,7 +3896,6 @@ void BattleSceneHades::applyCoreDamageTransactions(
             hurt_flash_timers_[r->ID] = HURT_FLASH_DURATION;
             double mpGain = static_cast<double>(committedHpDamage) / r->MaxHP * 75.0;
             changeRoleMP(r, mpGain);
-            writeBattleTeamEffectRoleRuntimeFields(battleRuntime().teamEffects.world, r);
         }
 
         if (diedUnitIds.find(r->ID) != diedUnitIds.end())
@@ -4002,7 +3994,7 @@ void BattleSceneHades::applyCoreTeamEffectState(
     for (const auto& event : frameState.teamEffects.committedEvents)
     {
         auto* target = requireFrameRole(bundle, event.targetUnitId);
-        const auto& unit = findBattleTeamEffectUnit(frameState.teamEffects.world, event.targetUnitId);
+        const auto& unit = frameState.units.requireUnit(event.targetUnitId);
         switch (event.type)
         {
         case KysChess::Battle::BattleTeamEffectEventType::Heal:

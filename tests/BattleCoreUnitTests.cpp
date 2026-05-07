@@ -146,30 +146,6 @@ BattleAttackWorld attackWorld()
     return world;
 }
 
-BattleTeamEffectUnit adapterTeamEffectUnit(int id, int team, int hp, int mp, int shield = 0)
-{
-    BattleTeamEffectUnit unit;
-    unit.id = id;
-    unit.team = team;
-    unit.alive = true;
-    unit.hp = hp;
-    unit.maxHp = 100;
-    unit.mp = mp;
-    unit.maxMp = 50;
-    unit.shield = shield;
-    return unit;
-}
-
-const BattleTeamEffectUnit& teamEffectUnitById(const BattleTeamEffectWorld& world, int unitId)
-{
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleTeamEffectUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    REQUIRE(it != world.units.end());
-    return *it;
-}
-
 const BattleEffectUnit& effectUnitById(const BattleEffectWorld& world, int unitId)
 {
     auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleEffectUnit& unit)
@@ -549,10 +525,6 @@ TEST_CASE("BattleFrameRunner_RoutesTeamEffectEventsThroughCanonicalUnitStore", "
     state.units.units = {
         runtimeUnitSnapshot(1, 0, 40, { 100, 100, 0 }),
         runtimeUnitSnapshot(2, 0, 80, { 120, 100, 0 }),
-    };
-    state.teamEffects.world.units = {
-        adapterTeamEffectUnit(1, 0, 40, 10),
-        adapterTeamEffectUnit(2, 0, 80, 10),
     };
     state.damage.units = {
         damageUnitSnapshot(1, 40),
@@ -1041,41 +1013,45 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
 
 TEST_CASE("BattleCore_AppliesTeamEffectGameplayCommands", "[battle][core]")
 {
-    BattleTeamEffectWorld world;
-    world.units = {
-        adapterTeamEffectUnit(1, 0, 40, 10),
-        adapterTeamEffectUnit(2, 0, 90, 45, 3),
-        adapterTeamEffectUnit(3, 1, 20, 5),
+    BattleUnitStore units;
+    units.units = {
+        runtimeUnitSnapshot(1, 0, 40),
+        runtimeUnitSnapshot(2, 0, 90),
+        runtimeUnitSnapshot(3, 1, 20),
     };
+    units.units[0].mp = 10;
+    units.units[1].mp = 45;
+    units.units[1].shield = 3;
+    units.units[2].mp = 5;
 
     auto heal = applyBattleTeamEffectCommand(
-        world,
+        units,
         BattleTeamHealCommand{ 1, 5, 10, "技能群療" });
     REQUIRE(heal.events.size() == 2);
     CHECK(heal.events[0].targetUnitId == 1);
     CHECK(heal.events[0].value == 15);
-    CHECK(world.units[0].hp == 55);
-    CHECK(world.units[1].hp == 100);
+    CHECK(units.units[0].hp == 55);
+    CHECK(units.units[1].hp == 100);
     REQUIRE(heal.logEvents.size() == 2);
     CHECK(heal.logEvents[0].type == BattleLogEventType::Heal);
     CHECK(heal.logEvents[0].text == "技能群療");
 
     auto mp = applyBattleTeamEffectCommand(
-        world,
+        units,
         BattleTeamMpRestoreCommand{ 1, 8, "全隊回內" });
     REQUIRE(mp.events.size() == 2);
-    CHECK(world.units[0].mp == 18);
-    CHECK(world.units[1].mp == 50);
+    CHECK(units.units[0].mp == 18);
+    CHECK(units.units[1].mp == 50);
     REQUIRE(mp.logEvents.size() == 2);
     CHECK(mp.logEvents[0].type == BattleLogEventType::Status);
     CHECK(mp.logEvents[0].text == "全隊回內+8MP");
 
     auto shield = applyBattleTeamEffectCommand(
-        world,
+        units,
         BattleTeamShieldCommand{ 1, 7, true, "全隊護盾" });
     REQUIRE(shield.events.size() == 2);
-    CHECK(world.units[0].shield == 7);
-    CHECK(world.units[1].shield == 7);
+    CHECK(units.units[0].shield == 7);
+    CHECK(units.units[1].shield == 7);
     REQUIRE(shield.logEvents.size() == 2);
     CHECK(shield.logEvents[0].type == BattleLogEventType::Status);
     CHECK(shield.logEvents[0].text == "全隊護盾（7護盾）");
@@ -1706,10 +1682,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
         unit(3, 1, { 180, 100, 0 }),
     });
     state.attacks = attackWorld();
-    state.teamEffects.world.units = {
-        adapterTeamEffectUnit(1, 0, 50, 10),
-        adapterTeamEffectUnit(2, 0, 70, 20),
-        adapterTeamEffectUnit(3, 1, 80, 30),
+    state.units.units = {
+        runtimeUnitSnapshot(1, 0, 50, { 100, 100, 0 }),
+        runtimeUnitSnapshot(2, 0, 70, { 120, 100, 0 }),
+        runtimeUnitSnapshot(3, 1, 80, { 180, 100, 0 }),
     };
     state.damage.units = {
         damageUnitSnapshot(1, 50),
@@ -1721,78 +1697,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
     auto result = BattleFrameRunner().runFrame(state);
 
     REQUIRE(state.teamEffects.committedEvents.size() == 2);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 1).hp == 60);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 2).hp == 80);
+    CHECK(state.units.requireUnit(1).hp == 60);
+    CHECK(state.units.requireUnit(2).hp == 80);
     CHECK(state.damage.units[0].hp == 60);
     CHECK(state.damage.units[1].hp == 80);
     CHECK(result.commands.empty());
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_SyncsTeamEffectWorldFromDamage", "[battle][core][breakthrough]")
-{
-    BattleRuntimeState state;
-    state.world = worldWith({
-        unit(1, 0, { 100, 100, 0 }),
-        unit(2, 1, { 120, 100, 0 }),
-    });
-    state.attacks = attackWorld();
-    state.damage.aggregatePendingTransactionsByDefender = true;
-    state.teamEffects.world.units = {
-        adapterTeamEffectUnit(1, 0, 100, 10),
-        adapterTeamEffectUnit(2, 1, 10, 20),
-    };
-    state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
-
-    BattleFrameRunner().runFrame(state);
-
-    const auto& defender = teamEffectUnitById(state.teamEffects.world, 2);
-    CHECK(defender.hp == 0);
-    CHECK_FALSE(defender.alive);
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_SyncsTeamEffectWorldFromMovementPhysics", "[battle][core][breakthrough]")
-{
-    BattleRuntimeState state;
-    state.world = worldWith({
-        unit(1, 0, { 100, 100, 0 }),
-        unit(2, 1, { 220, 100, 0 }),
-    });
-    state.attacks = attackWorld();
-    state.teamEffects.world.units = {
-        adapterTeamEffectUnit(1, 0, 100, 10),
-        adapterTeamEffectUnit(2, 1, 100, 20),
-    };
-    state.teamEffects.world.units[0].x = 100.0;
-    state.teamEffects.world.units[0].y = 100.0;
-    state.movementPhysics.config.gravity = 0.0f;
-    state.movementPhysics.config.friction = 0.0f;
-    state.movementPhysics.config.postDashSpreadFrames = 6;
-    state.movementPhysics.collision.tileWidth = SceneTileWidth;
-    state.movementPhysics.collision.coordCount = 20;
-    state.movementPhysics.collision.defaultSeparationDistance = SceneTileWidth;
-    state.movementPhysics.collision.units = {
-        { 1, true, { 100, 100, 0 } },
-        { 2, true, { 220, 100, 0 } },
-    };
-    for (int x = -20; x < 20; ++x)
-    {
-        for (int y = -20; y < 20; ++y)
-        {
-            state.movementPhysics.collision.cells.push_back({ x, y, true });
-        }
-    }
-    state.movementPhysics.units.push_back({
-        1,
-        0,
-        false,
-        { { 100, 100, 0 }, { 5, 0, 0 }, { 0, 0, 0 }, 0, 0, 0 },
-    });
-
-    BattleFrameRunner().runFrame(state);
-
-    const auto& moved = teamEffectUnitById(state.teamEffects.world, 1);
-    CHECK(moved.x == 105.0);
-    CHECK(moved.y == 100.0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_SyncsEffectWorldFromDamage", "[battle][core][breakthrough]")

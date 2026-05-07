@@ -100,36 +100,25 @@ BattleAttackInstance cancelProjectile(int id, int attackerUnitId)
     return attack;
 }
 
-BattleTeamEffectUnit teamEffectUnit(int id, int team, int hp)
+BattleRuntimeUnit teamRuntimeUnit(int id, int team, int hp)
 {
-    BattleTeamEffectUnit unit;
+    BattleRuntimeUnit unit;
     unit.id = id;
     unit.team = team;
     unit.alive = true;
     unit.hp = hp;
     unit.maxHp = 100;
+    unit.mp = 20;
+    unit.maxMp = 100;
     return unit;
 }
 
-BattleTeamEffectUnit teamEffectUnitAt(int id, int team, int hp, Pointf position, int cooldown = 0)
+BattleRuntimeUnit teamRuntimeUnitAt(int id, int team, int hp, Pointf position, int cooldown = 0)
 {
-    auto unit = teamEffectUnit(id, team, hp);
-    unit.x = position.x;
-    unit.y = position.y;
+    auto unit = teamRuntimeUnit(id, team, hp);
+    unit.position = position;
     unit.cooldown = cooldown;
     return unit;
-}
-
-const BattleTeamEffectUnit& teamEffectUnitById(const BattleTeamEffectWorld& world, int id)
-{
-    for (const auto& unit : world.units)
-    {
-        if (unit.id == id)
-        {
-            return unit;
-        }
-    }
-    FAIL("team effect unit not found");
 }
 
 BattleDamageUnitState damageUnit(int id, int hp)
@@ -309,13 +298,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     CHECK_FALSE(state.combo.units.at(1).onSkillTeamHealPending);
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToTeamWorld", "[battle][frame_runner][runtime][unit]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStore", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    state.teamEffects.world.units = {
-        teamEffectUnit(1, 0, 50),
-        teamEffectUnit(2, 0, 90),
-        teamEffectUnit(3, 1, 10),
+    state.units.units = {
+        teamRuntimeUnit(1, 0, 50),
+        teamRuntimeUnit(2, 0, 90),
+        teamRuntimeUnit(3, 1, 10),
     };
 
     KysChess::RoleComboState combo;
@@ -341,9 +330,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToTeamWorl
     CHECK(state.teamEffects.committedEvents[0].value == 15);
     CHECK(state.teamEffects.committedEvents[1].targetUnitId == 2);
     CHECK(state.teamEffects.committedEvents[1].value == 10);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 1).hp == 65);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 2).hp == 100);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 3).hp == 10);
+    CHECK(state.units.requireUnit(1).hp == 65);
+    CHECK(state.units.requireUnit(2).hp == 100);
+    CHECK(state.units.requireUnit(3).hp == 10);
 
     const auto healLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -429,11 +418,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     auto state = runtimeFrameState();
     state.world.frame = 6;
     state.teamEffects.healAuraRadius = SceneTileWidth * 6.0;
-    state.teamEffects.world.units = {
-        teamEffectUnitAt(1, 0, 50, { 0, 0, 0 }),
-        teamEffectUnitAt(2, 0, 80, { 100, 0, 0 }, 50),
-        teamEffectUnitAt(3, 0, 60, { 300, 0, 0 }, 50),
-        teamEffectUnitAt(4, 1, 20, { 50, 0, 0 }),
+    state.units.units = {
+        teamRuntimeUnitAt(1, 0, 50, { 0, 0, 0 }),
+        teamRuntimeUnitAt(2, 0, 80, { 100, 0, 0 }, 50),
+        teamRuntimeUnitAt(3, 0, 60, { 300, 0, 0 }, 50),
+        teamRuntimeUnitAt(4, 1, 20, { 50, 0, 0 }),
     };
 
     KysChess::RoleComboState combo;
@@ -456,12 +445,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    CHECK(teamEffectUnitById(state.teamEffects.world, 1).hp == 70);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 2).hp == 95);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 2).cooldown == 40);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 3).hp == 60);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 3).cooldown == 50);
-    CHECK(teamEffectUnitById(state.teamEffects.world, 4).hp == 20);
+    CHECK(state.units.requireUnit(1).hp == 70);
+    CHECK(state.units.requireUnit(2).hp == 95);
+    CHECK(state.units.requireUnit(2).cooldown == 40);
+    CHECK(state.units.requireUnit(3).hp == 60);
+    CHECK(state.units.requireUnit(3).cooldown == 50);
+    CHECK(state.units.requireUnit(4).hp == 20);
 
     REQUIRE(state.teamEffects.committedEvents.size() == 3);
     CHECK(state.teamEffects.committedEvents[0].targetUnitId == 1);
@@ -497,8 +486,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    state.teamEffects.world.units = {
-        teamEffectUnit(1, 0, 40),
+    state.units.units = {
+        teamRuntimeUnit(1, 0, 40),
     };
 
     KysChess::AppliedEffectInstance healBurst;
@@ -523,7 +512,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    CHECK(teamEffectUnitById(state.teamEffects.world, 1).hp == 65);
+    CHECK(state.units.requireUnit(1).hp == 65);
     CHECK(state.combo.units.at(1).effectActivationCounts.at(0) == 1);
 
     const auto healLog = std::find_if(

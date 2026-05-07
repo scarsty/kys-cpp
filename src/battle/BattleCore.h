@@ -116,7 +116,6 @@ struct BattleUnitStore
     const BattleRuntimeUnit& requireUnit(int unitId) const;
     void writeDamageUnit(const BattleDamageUnitState& source);
     void writeStatusUnit(const BattleStatusUnitState& source);
-    void writeTeamEffectUnit(const BattleTeamEffectUnit& source);
     void setPosition(int unitId, Pointf position);
     void setMotion(int unitId, Pointf position, Pointf velocity, Pointf acceleration);
 };
@@ -360,7 +359,6 @@ struct BattleRuntimeState
 
     struct TeamEffectState
     {
-        BattleTeamEffectWorld world;
         double healAuraRadius = 0.0;
         std::vector<BattleGameplayCommand> pendingCommands;
         std::vector<BattleTeamEffectEvent> committedEvents;
@@ -432,7 +430,7 @@ struct BattleTeamEffectCommandApplication
 };
 
 BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
-    BattleTeamEffectWorld& world,
+    BattleUnitStore& units,
     const BattleGameplayCommand& command);
 
 BattleProjectileBouncePrime collectFrameProjectileBouncePrime(

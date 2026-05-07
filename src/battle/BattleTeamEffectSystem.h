@@ -5,22 +5,8 @@
 namespace KysChess::Battle
 {
 
-struct BattleTeamEffectUnit
-{
-    int id = -1;
-    int team = 0;
-    bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    int mp = 0;
-    int maxMp = 0;
-    int cooldown = 0;
-    int shield = 0;
-    bool mpBlocked = false;
-    int mpRecoveryBonusPct = 0;
-    double x = 0.0;
-    double y = 0.0;
-};
+struct BattleRuntimeUnit;
+struct BattleUnitStore;
 
 enum class BattleTeamEffectEventType
 {
@@ -40,33 +26,28 @@ struct BattleTeamEffectEvent
     int after = 0;
 };
 
-struct BattleTeamEffectWorld
-{
-    std::vector<BattleTeamEffectUnit> units;
-};
-
 class BattleTeamEffectSystem
 {
 public:
-    std::vector<BattleTeamEffectEvent> applySelfHeal(BattleTeamEffectWorld& world,
+    std::vector<BattleTeamEffectEvent> applySelfHeal(BattleUnitStore& units,
                                                      int sourceUnitId,
                                                      int pctHeal) const;
 
-    std::vector<BattleTeamEffectEvent> applyTeamHeal(BattleTeamEffectWorld& world,
+    std::vector<BattleTeamEffectEvent> applyTeamHeal(BattleUnitStore& units,
                                                      int sourceUnitId,
                                                      int flatHeal,
                                                      int pctHeal) const;
 
-    std::vector<BattleTeamEffectEvent> applyTeamMp(BattleTeamEffectWorld& world,
+    std::vector<BattleTeamEffectEvent> applyTeamMp(BattleUnitStore& units,
                                                    int sourceUnitId,
                                                    int amount) const;
 
-    std::vector<BattleTeamEffectEvent> applyTeamShield(BattleTeamEffectWorld& world,
+    std::vector<BattleTeamEffectEvent> applyTeamShield(BattleUnitStore& units,
                                                        int sourceUnitId,
                                                        int amount,
                                                        bool refreshOnly) const;
 
-    std::vector<BattleTeamEffectEvent> applyHealAura(BattleTeamEffectWorld& world,
+    std::vector<BattleTeamEffectEvent> applyHealAura(BattleUnitStore& units,
                                                      int sourceUnitId,
                                                      int flatHeal,
                                                      int pctHeal,
@@ -74,7 +55,7 @@ public:
                                                      int healedCooldownReducePct) const;
 
 private:
-    BattleTeamEffectUnit& unitById(BattleTeamEffectWorld& world, int unitId) const;
+    BattleRuntimeUnit& unitById(BattleUnitStore& units, int unitId) const;
 };
 
 }  // namespace KysChess::Battle

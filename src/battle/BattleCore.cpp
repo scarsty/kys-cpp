@@ -85,21 +85,6 @@ void BattleUnitStore::writeStatusUnit(const BattleStatusUnitState& source)
     unit.mpBlocked = source.mpBlockTimer > 0;
 }
 
-void BattleUnitStore::writeTeamEffectUnit(const BattleTeamEffectUnit& source)
-{
-    auto& unit = requireUnit(source.id);
-    unit.team = source.team;
-    unit.alive = source.alive;
-    unit.hp = source.hp;
-    unit.maxHp = source.maxHp;
-    unit.mp = source.mp;
-    unit.maxMp = source.maxMp;
-    unit.cooldown = source.cooldown;
-    unit.shield = source.shield;
-    unit.mpBlocked = source.mpBlocked;
-    unit.mpRecoveryBonusPct = source.mpRecoveryBonusPct;
-}
-
 void BattleUnitStore::setPosition(int unitId, Pointf position)
 {
     auto& unit = requireUnit(unitId);
@@ -855,65 +840,6 @@ bool hasCanonicalUnitStore(const BattleRuntimeState& state)
     return !state.units.units.empty();
 }
 
-BattleTeamEffectUnit* findTeamEffectUnit(BattleTeamEffectWorld& world, int unitId)
-{
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleTeamEffectUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    return it != world.units.end() ? &*it : nullptr;
-}
-
-const BattleTeamEffectUnit* findTeamEffectUnit(const BattleTeamEffectWorld& world, int unitId)
-{
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleTeamEffectUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    return it != world.units.end() ? &*it : nullptr;
-}
-
-// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
-void syncTeamEffectUnit(BattleRuntimeState& state, const BattleDamageUnitState& source)
-{
-    const auto* canonical = state.units.findUnit(source.id);
-    if (auto* unit = findTeamEffectUnit(state.teamEffects.world, source.id))
-    {
-        unit->alive = canonical ? canonical->alive : source.alive;
-        unit->hp = canonical ? canonical->hp : source.hp;
-        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
-        unit->mp = canonical ? canonical->mp : source.mp;
-        unit->maxMp = canonical ? canonical->maxMp : source.maxMp;
-        unit->shield = canonical ? canonical->shield : source.shield;
-        unit->mpBlocked = canonical ? canonical->mpBlocked : source.mpBlocked;
-        unit->mpRecoveryBonusPct = canonical ? canonical->mpRecoveryBonusPct : source.mpRecoveryBonusPct;
-    }
-}
-
-// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
-void syncTeamEffectPosition(BattleRuntimeState& state, int unitId, Pointf position)
-{
-    const auto* canonical = state.units.findUnit(unitId);
-    if (auto* unit = findTeamEffectUnit(state.teamEffects.world, unitId))
-    {
-        unit->x = canonical ? canonical->position.x : position.x;
-        unit->y = canonical ? canonical->position.y : position.y;
-    }
-}
-
-// Transitional projection bridge; delete when subsystem reads BattleUnitStore.
-void syncTeamEffectStatus(BattleRuntimeState& state, const BattleStatusUnitState& source)
-{
-    const auto* canonical = state.units.findUnit(source.id);
-    if (auto* unit = findTeamEffectUnit(state.teamEffects.world, source.id))
-    {
-        unit->alive = canonical ? canonical->alive : source.alive;
-        unit->hp = canonical ? canonical->hp : source.hp;
-        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
-        unit->mpBlocked = canonical ? canonical->mpBlocked : source.mpBlockTimer > 0;
-    }
-}
-
 BattleFrameRescueUnitSnapshot* findRescueUnit(std::vector<BattleFrameRescueUnitSnapshot>& units, int unitId)
 {
     auto it = std::find_if(units.begin(), units.end(), [&](const BattleFrameRescueUnitSnapshot& unit)
@@ -971,18 +897,17 @@ void syncEffectStatus(BattleRuntimeState& state, const BattleStatusUnitState& so
 }
 
 // Transitional projection bridge; delete when subsystem reads BattleUnitStore.
-void syncEffectFromTeamEffectUnit(BattleRuntimeState& state, const BattleTeamEffectUnit& source)
+void syncEffectFromRuntimeUnit(BattleRuntimeState& state, const BattleRuntimeUnit& source)
 {
-    const auto* canonical = state.units.findUnit(source.id);
     if (auto* unit = findEffectUnit(state.effects.world, source.id))
     {
-        unit->alive = canonical ? canonical->alive : source.alive;
-        unit->hp = canonical ? canonical->hp : source.hp;
-        unit->maxHp = canonical ? canonical->maxHp : source.maxHp;
-        unit->mp = canonical ? canonical->mp : source.mp;
-        unit->maxMp = canonical ? canonical->maxMp : source.maxMp;
-        unit->cooldown = canonical ? canonical->cooldown : source.cooldown;
-        unit->shield = canonical ? canonical->shield : source.shield;
+        unit->alive = source.alive;
+        unit->hp = source.hp;
+        unit->maxHp = source.maxHp;
+        unit->mp = source.mp;
+        unit->maxMp = source.maxMp;
+        unit->cooldown = source.cooldown;
+        unit->shield = source.shield;
     }
 }
 
@@ -1122,8 +1047,6 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
     {
         defender->alive = transaction.defender.alive;
     }
-    syncTeamEffectUnit(state, transaction.attacker);
-    syncTeamEffectUnit(state, transaction.defender);
     syncEffectUnit(state, transaction.attacker);
     syncEffectUnit(state, transaction.defender);
     if (auto* status = findStatusUnit(state.status.units, transaction.defender.id))
@@ -1162,10 +1085,6 @@ void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int inv
         status->hp = hp;
         status->invincible = invincible;
     }
-    if (auto* teamUnit = findTeamEffectUnit(state.teamEffects.world, unitId))
-    {
-        teamUnit->hp = hp;
-    }
     if (auto* effectUnit = findEffectUnit(state.effects.world, unitId))
     {
         effectUnit->hp = hp;
@@ -1187,7 +1106,6 @@ void syncRescuePosition(BattleRuntimeState& state, int unitId, Pointf position)
     {
         worldUnit->position = position;
     }
-    syncTeamEffectPosition(state, unitId, position);
     auto attackUnitIt = std::find_if(
         state.attacks.units.begin(),
         state.attacks.units.end(),
@@ -1647,43 +1565,38 @@ BattleStatusUnitState* findFrameStatusUnit(BattleRuntimeState& state, int unitId
     return findStatusUnit(state.status.units, unitId);
 }
 
-void syncTeamEffectEventsToFrameState(
+void applyTeamEffectEventsToFrameState(
     BattleRuntimeState& state,
     const std::vector<BattleTeamEffectEvent>& events)
 {
     for (const auto& event : events)
     {
-        const auto* unit = findTeamEffectUnit(state.teamEffects.world, event.targetUnitId);
-        assert(unit);
-        if (hasCanonicalUnitStore(state))
-        {
-            state.units.writeTeamEffectUnit(*unit);
-        }
+        const auto& unit = state.units.requireUnit(event.targetUnitId);
         if (auto* damageUnit = findDamageUnit(state.damage.units, event.targetUnitId))
         {
-            damageUnit->hp = unit->hp;
-            damageUnit->mp = unit->mp;
-            damageUnit->shield = unit->shield;
+            damageUnit->hp = unit.hp;
+            damageUnit->mp = unit.mp;
+            damageUnit->shield = unit.shield;
         }
         if (auto* status = findFrameStatusUnit(state, event.targetUnitId))
         {
-            status->hp = unit->hp;
+            status->hp = unit.hp;
         }
-        syncEffectFromTeamEffectUnit(state, *unit);
+        syncEffectFromRuntimeUnit(state, unit);
         if (auto cooldownIt = state.damage.cooldowns.find(event.targetUnitId);
             cooldownIt != state.damage.cooldowns.end())
         {
-            cooldownIt->second.cooldown = unit->cooldown;
+            cooldownIt->second.cooldown = unit.cooldown;
         }
         if (auto comboIt = state.combo.units.find(event.targetUnitId);
             comboIt != state.combo.units.end())
         {
-            comboIt->second.shield = unit->shield;
+            comboIt->second.shield = unit.shield;
         }
         if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, event.targetUnitId))
         {
-            deathUnit->hp = unit->hp;
-            deathUnit->shield = unit->shield;
+            deathUnit->hp = unit.hp;
+            deathUnit->shield = unit.shield;
         }
     }
 }
@@ -1723,17 +1636,17 @@ bool applyFrameTeamEffectCommand(
     const BattleGameplayCommand& command,
     std::vector<BattleLogEvent>& logEvents)
 {
-    if (state.teamEffects.world.units.empty())
+    if (state.units.units.empty())
     {
         return false;
     }
 
-    auto application = applyBattleTeamEffectCommand(state.teamEffects.world, command);
+    auto application = applyBattleTeamEffectCommand(state.units, command);
     logEvents.insert(
         logEvents.end(),
         application.logEvents.begin(),
         application.logEvents.end());
-    syncTeamEffectEventsToFrameState(state, application.events);
+    applyTeamEffectEventsToFrameState(state, application.events);
     state.teamEffects.committedEvents.insert(
         state.teamEffects.committedEvents.end(),
         application.events.begin(),
@@ -1759,9 +1672,9 @@ bool applyFrameMpRestoreCommand(
     }
 
     unit->mp += restored;
-    if (auto* teamUnit = findTeamEffectUnit(state.teamEffects.world, command.unitId))
+    if (auto* runtimeUnit = state.units.findUnit(command.unitId))
     {
-        teamUnit->mp = unit->mp;
+        runtimeUnit->mp = unit->mp;
     }
     if (auto* effectUnit = findEffectUnit(state.effects.world, command.unitId))
     {
@@ -1795,9 +1708,9 @@ bool applyFrameUnitHealCommand(
     {
         status->hp = unit->hp;
     }
-    if (auto* teamUnit = findTeamEffectUnit(state.teamEffects.world, command.targetUnitId))
+    if (auto* runtimeUnit = state.units.findUnit(command.targetUnitId))
     {
-        teamUnit->hp = unit->hp;
+        runtimeUnit->hp = unit->hp;
     }
     if (auto* effectUnit = findEffectUnit(state.effects.world, command.targetUnitId))
     {
@@ -1831,9 +1744,9 @@ bool applyFrameUnitShieldCommand(
     {
         damageUnit->shield += command.amount;
     }
-    if (auto* teamUnit = findTeamEffectUnit(state.teamEffects.world, command.targetUnitId))
+    if (auto* runtimeUnit = state.units.findUnit(command.targetUnitId))
     {
-        teamUnit->shield += command.amount;
+        runtimeUnit->shield += command.amount;
     }
     if (auto* effectUnit = findEffectUnit(state.effects.world, command.targetUnitId))
     {
@@ -2156,7 +2069,6 @@ void advanceStatus(BattleRuntimeState& state)
         {
             state.units.writeStatusUnit(unit);
         }
-        syncTeamEffectStatus(state, unit);
         syncEffectStatus(state, unit);
     }
 
@@ -2259,7 +2171,7 @@ void applyRuntimeTeamEvents(
     const BattleComboFrameRuntimeEvent& event,
     std::vector<BattleLogEvent>& logEvents)
 {
-    if (state.teamEffects.world.units.empty())
+    if (state.units.units.empty())
     {
         return;
     }
@@ -2270,13 +2182,13 @@ void applyRuntimeTeamEvents(
     switch (event.type)
     {
     case BattleComboFrameRuntimeEventType::SelfHpRegen:
-        events = system.applySelfHeal(state.teamEffects.world, sourceUnitId, event.value);
+        events = system.applySelfHeal(state.units, sourceUnitId, event.value);
         reason = "生命回復";
         break;
     case BattleComboFrameRuntimeEventType::HealAura:
         assert(state.teamEffects.healAuraRadius > 0.0);
         events = system.applyHealAura(
-            state.teamEffects.world,
+            state.units,
             sourceUnitId,
             event.value,
             event.value2,
@@ -2285,7 +2197,7 @@ void applyRuntimeTeamEvents(
         reason = "治療光環";
         break;
     case BattleComboFrameRuntimeEventType::HealPercentSelf:
-        events = system.applySelfHeal(state.teamEffects.world, sourceUnitId, event.value);
+        events = system.applySelfHeal(state.units, sourceUnitId, event.value);
         reason = "爆發治療";
         break;
     default:
@@ -2294,7 +2206,7 @@ void applyRuntimeTeamEvents(
     }
 
     appendTeamEffectLogEvents(logEvents, events, reason);
-    syncTeamEffectEventsToFrameState(state, events);
+    applyTeamEffectEventsToFrameState(state, events);
     state.teamEffects.committedEvents.insert(
         state.teamEffects.committedEvents.end(),
         events.begin(),
@@ -2304,12 +2216,12 @@ void applyRuntimeTeamEvents(
 void applyBroadcastTriggerTimer(BattleRuntimeState& state, int sourceUnitId, const BattleComboFrameRuntimeEvent& event)
 {
     assert(event.durationFrames > 0);
-    const auto* source = findTeamEffectUnit(state.teamEffects.world, sourceUnitId);
+    const auto* source = state.units.findUnit(sourceUnitId);
     if (!source)
     {
         return;
     }
-    for (const auto& unit : state.teamEffects.world.units)
+    for (const auto& unit : state.units.units)
     {
         if (!unit.alive || unit.id == sourceUnitId || unit.team != source->team)
         {
@@ -2400,7 +2312,7 @@ void applyPendingTeamEffects(
     BattleRuntimeState& state,
     std::vector<BattleLogEvent>& logEvents)
 {
-    if (state.teamEffects.world.units.empty())
+    if (state.units.units.empty())
     {
         return;
     }
@@ -2418,20 +2330,20 @@ void applyPendingTeamEffects(
                     return typedCommand.sourceUnitId;
                 }
                 return -1;
-            }, command);
+        }, command);
         if (sourceUnitId >= 0)
         {
-            if (!findTeamEffectUnit(state.teamEffects.world, sourceUnitId))
+            if (!state.units.findUnit(sourceUnitId))
             {
                 unappliedCommands.push_back(command);
                 continue;
             }
-            auto application = applyBattleTeamEffectCommand(state.teamEffects.world, command);
+            auto application = applyBattleTeamEffectCommand(state.units, command);
             logEvents.insert(
                 logEvents.end(),
                 application.logEvents.begin(),
                 application.logEvents.end());
-            syncTeamEffectEventsToFrameState(state, application.events);
+            applyTeamEffectEventsToFrameState(state, application.events);
             state.teamEffects.committedEvents.insert(
                 state.teamEffects.committedEvents.end(),
                 application.events.begin(),
@@ -2499,7 +2411,6 @@ void advanceMovementPhysics(BattleRuntimeState& state)
                 result.state.velocity,
                 result.state.acceleration);
         }
-        syncTeamEffectPosition(state, input.unitId, result.state.position);
         auto collisionIt = std::find_if(
             state.movementPhysics.collision.units.begin(),
             state.movementPhysics.collision.units.end(),
@@ -2749,7 +2660,7 @@ void emitPresentationFrame(
 }  // namespace
 
 BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
-    BattleTeamEffectWorld& world,
+    BattleUnitStore& units,
     const BattleGameplayCommand& command)
 {
     BattleTeamEffectCommandApplication result;
@@ -2758,7 +2669,7 @@ BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
     {
         assert(heal->sourceUnitId >= 0);
         result.events = system.applyTeamHeal(
-            world,
+            units,
             heal->sourceUnitId,
             heal->flatHeal,
             heal->pctHeal);
@@ -2769,7 +2680,7 @@ BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
     {
         assert(mp->sourceUnitId >= 0);
         result.events = system.applyTeamMp(
-            world,
+            units,
             mp->sourceUnitId,
             mp->amount);
         appendTeamEffectLogEvents(result.logEvents, result.events, mp->reason);
@@ -2779,7 +2690,7 @@ BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
     {
         assert(shield->sourceUnitId >= 0);
         result.events = system.applyTeamShield(
-            world,
+            units,
             shield->sourceUnitId,
             shield->amount,
             shield->refreshOnly);
