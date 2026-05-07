@@ -599,7 +599,7 @@ int BattleSceneHades::getProjectileSpeedMultiplierPct(Role* role) const
 }
 
 // Apply freeze frames to a role, accounting for low-HP immunity and freeze shield
-void applyFrozen(Role* r, int frames)
+void applyFrozen(Role* r, int frames, std::map<int, KysChess::RoleComboState>& comboStates)
 {
     if (!r || frames <= 0)
     {
@@ -611,11 +611,10 @@ void applyFrozen(Role* r, int frames)
         return;
     }
 
-    auto& cs = KysChess::ChessCombo::getMutableStates();
-    auto it = cs.find(r->ID);
+    auto it = comboStates.find(r->ID);
 
     int totalFreezeRes = 0;
-    if (it != cs.end())
+    if (it != comboStates.end())
     {
         totalFreezeRes = it->second.freezeReductionPct;
         if (it->second.shield > 0)
@@ -629,7 +628,7 @@ void applyFrozen(Role* r, int frames)
         frames = (frames * (100 - totalFreezeRes)) / 100;
     }
 
-    if (it != cs.end() && it->second.controlImmunityFrames > 0)
+    if (it != comboStates.end() && it->second.controlImmunityFrames > 0)
     {
         int absorbed = std::min(frames, it->second.controlImmunityFrames);
         it->second.controlImmunityFrames -= absorbed;
@@ -1030,6 +1029,8 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     battleRuntime().world.config = makeCoreMovementConfig();
     battleRuntime().units.gridTransform = { TILE_W, BATTLE_COORD_COUNT };
     auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    battleRuntime().combo.units = comboStates;
+    battleRuntime().combo.events.clear();
     battleRuntime().units.units.clear();
     battleRuntime().units.units.reserve(battle_roles_.size());
     battleRuntime().status.units.clear();
@@ -1102,7 +1103,7 @@ BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterCo
     }
     context.movementRuntime = &battleRuntime().movementRuntime;
     context.pendingCastResults = &battleRuntime().pendingCastResults;
-    context.comboStates = &KysChess::ChessCombo::getMutableStates();
+    context.comboStates = &battleRuntime().combo.units;
     context.movementDecisions = &battleRuntime().movementDecisions;
     context.ultimateCasters = &battleRuntime().ultimateCasters;
     context.config.maxEffectiveBattleReach = MAX_EFFECTIVE_BATTLE_REACH;
@@ -2651,7 +2652,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     BattleActionFrameAdapterContext& actionContext,
     BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
 {
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    auto& comboStates = battleRuntime().combo.units;
     initializeBattleRuntimeStaticState();
 
     KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext bundle;
@@ -2665,7 +2666,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().runtime = {};
     KysChess::Battle::clearBattleDamageFrameScratch(battleRuntime());
     battleRuntime().status.events.clear();
-    battleRuntime().combo = {};
+    battleRuntime().combo.events.clear();
     battleRuntime().deathEffects.events.clear();
     battleRuntime().projectileCancel = {};
     battleRuntime().teamEffects.committedEvents.clear();
@@ -2675,8 +2676,6 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().movementPhysics.committedResults.clear();
     battleRuntime().hits = {};
     battleRuntime().applications = {};
-
-    battleRuntime().combo.units = comboStates;
 
     for (auto role : battle_roles_)
     {
@@ -2709,7 +2708,7 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
 
     BattleRescueFrameAdapterContext rescueContext;
     rescueContext.roles = &battle_roles_;
-    rescueContext.comboStates = &comboStates;
+    rescueContext.comboStates = &battleRuntime().combo.units;
     for (auto* role : battle_roles_)
     {
         assert(role);
@@ -2800,7 +2799,6 @@ void BattleSceneHades::applyCoreFrameResult(
     const BattleActionFrameAdapterContext& actionContext,
     const BattleMovementPhysicsFrameAdapterContext& movementPhysicsContext)
 {
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
     applyCoreStatusState(bundle);
     for (const auto& runtimeUnitResult : battleRuntime().runtime.committedResults)
     {
@@ -2819,7 +2817,6 @@ void BattleSceneHades::applyCoreFrameResult(
         }
     }
 
-    comboStates = battleRuntime().combo.units;
     applyCoreDamageTransactions(bundle);
     applyCoreTeamEffectState(bundle);
     for (const auto& command : battleRuntime().effects.committedCommands)
@@ -2923,7 +2920,7 @@ void BattleSceneHades::applyCoreFrameResult(
             role->Frozen = 0;
             if (event.mainProjectile)
             {
-                applyFrozen(role, event.ultimate ? 10 : 5);
+                applyFrozen(role, event.ultimate ? 10 : 5, battleRuntime().combo.units);
             }
             role->Shake = event.ultimate ? 10 : 5;
             if (event.ultimate)
@@ -2962,6 +2959,7 @@ void BattleSceneHades::applyCoreFrameResult(
             ++it;
         }
     }
+    KysChess::ChessCombo::getMutableStates() = battleRuntime().combo.units;
 }
 
 void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult& result)
@@ -3072,7 +3070,7 @@ void BattleSceneHades::playAutoUltimateReady(Role* role)
 int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
 {
     assert(r);
-    auto& cs = KysChess::ChessCombo::getMutableStates();
+    auto& cs = battleRuntime().combo.units;
     auto it = cs.find(r->ID);
     assert(it != cs.end());
 
@@ -3085,7 +3083,9 @@ int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
 
 void BattleSceneHades::updateEnemyTopDebuffState()
 {
-    auto& cs = KysChess::ChessCombo::getMutableStates();
+    auto& cs = battle_session_.has_value()
+        ? battleRuntime().combo.units
+        : KysChess::ChessCombo::getMutableStates();
 
     int liveAllies = 0;
     int topTargets = 0;
@@ -3514,7 +3514,7 @@ void BattleSceneHades::appendCoreHitInputsForAttack(
 
         std::vector<double> percentRolls;
         percentRolls.reserve(65);
-        auto& comboStates = KysChess::ChessCombo::getMutableStates();
+        auto& comboStates = battleRuntime().combo.units;
         if (comboStates.find(defender->ID) != comboStates.end())
         {
             percentRolls.push_back(rand_.rand() * 100.0);
@@ -3584,7 +3584,7 @@ int BattleSceneHades::calculateHitMagicBaseDamage(Role* attacker, Role* defender
 
     double defence = defender->Defence;
     // 破甲：降低有效防禦
-    auto& cs = KysChess::ChessCombo::getMutableStates();
+    auto& cs = battleRuntime().combo.units;
     auto it = cs.find(attacker->ID);
     if (it != cs.end())
     {
@@ -3680,8 +3680,8 @@ KysChess::Battle::BattleUnitState BattleSceneHades::makeCoreMovementUnit(
 void BattleSceneHades::applyCoreStatusState(
     const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle)
 {
-    const auto& frameState = battleRuntime();
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    auto& frameState = battleRuntime();
+    auto& comboStates = frameState.combo.units;
     for (const auto& status : frameState.status.units)
     {
         auto role = requireFrameRole(bundle, status.id);
@@ -3697,7 +3697,7 @@ void BattleSceneHades::applyCoreStatusState(
 void BattleSceneHades::initializeCoreDamageState()
 {
     auto& frameState = battleRuntime();
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    auto& comboStates = frameState.combo.units;
     frameState.damage = {};
     frameState.damage.aggregatePendingTransactionsByDefender = true;
     frameState.result.pendingAliveByTeam = { { 1, static_cast<int>(enemies_.size()) } };
@@ -3726,7 +3726,7 @@ void BattleSceneHades::initializeCoreDamageState()
 void BattleSceneHades::applyCoreDamageTransactions(
     const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle)
 {
-    const auto& frameState = battleRuntime();
+    auto& frameState = battleRuntime();
     for (const auto& hitResolution : frameState.hits.committedResults)
     {
         if (hitResolution.critical)
@@ -3735,7 +3735,7 @@ void BattleSceneHades::applyCoreDamageTransactions(
         }
     }
 
-    auto& cs = KysChess::ChessCombo::getMutableStates();
+    auto& cs = frameState.combo.units;
     std::set<int> diedUnitIds;
     std::vector<KysChess::Battle::BattleGameplayEvent> lifecycleEvents;
     for (const auto& event : frameState.damage.lifecycleEvents)
@@ -3821,7 +3821,7 @@ void BattleSceneHades::applyCoreDamageTransactions(
             r->Velocity.z = 12;
             r->Velocity.normTo(committedHpDamage / 2.0);
             r->Frozen = 0;
-            applyFrozen(r, 5);
+            applyFrozen(r, 5, cs);
             x_ = rand_.rand_int(2) - rand_.rand_int(2);
             y_ = rand_.rand_int(2) - rand_.rand_int(2);
             if (!isManualCameraEnabled())
@@ -3899,8 +3899,8 @@ void BattleSceneHades::applyCoreDamageTransactions(
 void BattleSceneHades::applyCoreTeamEffectState(
     const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle)
 {
-    const auto& frameState = battleRuntime();
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    auto& frameState = battleRuntime();
+    auto& comboStates = frameState.combo.units;
     for (const auto& event : frameState.teamEffects.committedEvents)
     {
         auto* target = requireFrameRole(bundle, event.targetUnitId);
