@@ -398,7 +398,6 @@ struct BattleRuntimeState
         std::vector<BattleFrameHitSkillInput> skills;
         std::vector<BattleFrameHitItemInput> items;
         std::vector<BattleFrameHitScalarInput> scalars;
-        std::vector<BattleHitResolutionResult> committedResults;
     } hits;
 
     BattleProjectileFollowUpContext projectileFollowUps;
@@ -417,6 +416,7 @@ struct BattleFrameResult
     std::vector<BattleAttackEvent> attackEvents;
     BattleFrameApplications applications;
     std::vector<BattleProjectileCancelDamageCommand> projectileCancelDamageCommands;
+    std::vector<BattleHitResolutionResult> hitResults;
     // 遷移期間的不完整快照退路；場景與 adapter 不得消費這些命令。
     std::vector<BattleGameplayCommand> commands;
 };

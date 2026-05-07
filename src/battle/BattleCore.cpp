@@ -660,6 +660,7 @@ bool tryResolveDodgeHit(
     BattleRuntimeState& state,
     const BattleAttackEvent& event,
     const BattleFrameHitScalarInput& scalar,
+    std::vector<BattleHitResolutionResult>& hitResults,
     std::vector<BattleLogEvent>& logEvents)
 {
     auto defenderComboIt = state.combo.units.find(event.unitId);
@@ -691,13 +692,14 @@ bool tryResolveDodgeHit(
         logEvents.end(),
         result.logEvents.begin(),
         result.logEvents.end());
-    state.hits.committedResults.push_back(std::move(result));
+    hitResults.push_back(std::move(result));
     return true;
 }
 
 void resolveHitEvents(
     BattleRuntimeState& state,
     const std::vector<BattleAttackEvent>& events,
+    std::vector<BattleHitResolutionResult>& hitResults,
     std::vector<BattleGameplayCommand>& commands,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -716,7 +718,7 @@ void resolveHitEvents(
         }
 
         const bool consumedDodgeRoll = state.combo.units.find(event.unitId) != state.combo.units.end();
-        if (tryResolveDodgeHit(state, event, *scalar, logEvents))
+        if (tryResolveDodgeHit(state, event, *scalar, hitResults, logEvents))
         {
             continue;
         }
@@ -742,7 +744,7 @@ void resolveHitEvents(
             visualEvents.end(),
             result.visualEvents.begin(),
             result.visualEvents.end());
-        state.hits.committedResults.push_back(std::move(result));
+        hitResults.push_back(std::move(result));
     }
 }
 
@@ -2415,7 +2417,13 @@ void advanceAttacksAndResolveHits(
         result.attackEvents,
         result.projectileCancelDamageCommands,
         result.commands);
-    resolveHitEvents(state, result.attackEvents, result.commands, logEvents, visualEvents);
+    resolveHitEvents(
+        state,
+        result.attackEvents,
+        result.hitResults,
+        result.commands,
+        logEvents,
+        visualEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
 }
 
@@ -2692,7 +2700,6 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
 
     state.teamEffects.committedEvents.clear();
     state.effects.committedCommands.clear();
-    state.hits.committedResults.clear();
     state.rescue.committedResults.clear();
     advanceStatus(state);
     advanceRuntimeUnits(state, result.commands);

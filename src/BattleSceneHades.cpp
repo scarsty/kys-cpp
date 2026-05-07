@@ -2674,7 +2674,10 @@ KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext BattleSceneHades::bu
     battleRuntime().actions = {};
     battleRuntime().movementPhysics.units.clear();
     battleRuntime().movementPhysics.committedResults.clear();
-    battleRuntime().hits = {};
+    battleRuntime().hits.units.clear();
+    battleRuntime().hits.skills.clear();
+    battleRuntime().hits.items.clear();
+    battleRuntime().hits.scalars.clear();
 
     for (auto role : battle_roles_)
     {
@@ -2816,7 +2819,7 @@ void BattleSceneHades::applyCoreFrameResult(
         }
     }
 
-    applyCoreDamageTransactions(bundle);
+    applyCoreDamageTransactions(bundle, frameResult.hitResults);
     applyCoreTeamEffectState(bundle);
     for (const auto& command : battleRuntime().effects.committedCommands)
     {
@@ -3723,10 +3726,11 @@ void BattleSceneHades::initializeCoreDamageState()
 }
 
 void BattleSceneHades::applyCoreDamageTransactions(
-    const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle)
+    const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+    const std::vector<KysChess::Battle::BattleHitResolutionResult>& hitResults)
 {
     auto& frameState = battleRuntime();
-    for (const auto& hitResolution : frameState.hits.committedResults)
+    for (const auto& hitResolution : hitResults)
     {
         if (hitResolution.critical)
         {

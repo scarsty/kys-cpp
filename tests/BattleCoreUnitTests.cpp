@@ -2066,10 +2066,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", 
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.hits.committedResults.size() == 1);
-    CHECK(state.hits.committedResults[0].attackerUnitId == 1);
-    CHECK(state.hits.committedResults[0].defenderUnitId == 2);
-    CHECK(state.hits.committedResults[0].finalHpDamage == 69);
+    REQUIRE(result.hitResults.size() == 1);
+    CHECK(result.hitResults[0].attackerUnitId == 1);
+    CHECK(result.hitResults[0].defenderUnitId == 2);
+    CHECK(result.hitResults[0].finalHpDamage == 69);
 
     const auto hpDamage = std::find_if(
         result.commands.begin(),
@@ -2080,7 +2080,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", 
             return hp && hp->sourceUnitId == 1 && hp->targetUnitId == 2;
         });
     REQUIRE(hpDamage != result.commands.end());
-    CHECK(std::get<BattleHpDamageCommand>(*hpDamage).damage == state.hits.committedResults[0].finalHpDamage);
+    CHECK(std::get<BattleHpDamageCommand>(*hpDamage).damage == result.hitResults[0].finalHpDamage);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[battle][core][breakthrough]")
@@ -2089,7 +2089,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[ba
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.hits.committedResults.size() == 1);
+    REQUIRE(result.hitResults.size() == 1);
     REQUIRE(state.damage.committedTransactions.size() == 1);
     CHECK(state.damage.committedTransactions.front().defender.id == 2);
     CHECK(state.damage.committedTransactions.front().finalHpDamage > 0);
@@ -2167,8 +2167,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.hits.committedResults.size() == 1);
-    CHECK(state.hits.committedResults[0].dodged);
+    REQUIRE(result.hitResults.size() == 1);
+    CHECK(result.hitResults[0].dodged);
     CHECK(state.combo.units.at(2).dodgedLast);
     CHECK(std::none_of(
         result.commands.begin(),
@@ -2223,8 +2223,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesHiddenWeaponScalarInput", "[ba
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.hits.committedResults.size() == 1);
-    CHECK(state.hits.committedResults[0].finalHpDamage == 19);
+    REQUIRE(result.hitResults.size() == 1);
+    CHECK(result.hitResults[0].finalHpDamage == 19);
     const auto hpDamage = std::find_if(
         result.commands.begin(),
         result.commands.end(),
@@ -2266,8 +2266,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.hits.committedResults.size() == 1);
-    CHECK(state.hits.committedResults[0].finalHpDamage == 33);
+    REQUIRE(result.hitResults.size() == 1);
+    CHECK(result.hitResults[0].finalHpDamage == 33);
     REQUIRE(!result.commands.empty());
     const auto* hp = std::get_if<BattleHpDamageCommand>(&result.commands.front());
     REQUIRE(hp);

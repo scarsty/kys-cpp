@@ -110,7 +110,9 @@ protected:
     void clampCameraCenter();
     void applyCoreStatusState(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     void initializeCoreDamageState();
-    void applyCoreDamageTransactions(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
+    void applyCoreDamageTransactions(
+        const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
+        const std::vector<KysChess::Battle::BattleHitResolutionResult>& hitResults);
     void applyCoreTeamEffectState(const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle);
     void applyCoreFrameApplications(
         const KysChess::BattleSceneBattleAdapter::BattleFrameApplyContext& bundle,
