@@ -23,7 +23,6 @@ public:
         Role* PreferredTarget = nullptr;  //优先追踪/命中的目标
         std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
         Magic* UsingMagic = nullptr;
-        Item* UsingHiddenWeapon = nullptr;
         int Frame = 0;                 //当前帧数
         int TotalFrame = 1;            //总帧数，当前帧数超过此值就移除此效果
         int TotalEffectFrame = 1;      //效果总帧数
@@ -37,7 +36,7 @@ public:
         int NoHurt = 0;                //是否无伤害
         int IsUltimate = 0;            //大招标记
         int IsMain = 1;                //是否主弹（非多重小弹）
-        int ScriptedDamage = 0;        //非武功/暗器投射物命中时造成的固定伤害
+        int ScriptedDamage = 0;        //非武功投射物命中時造成的固定傷害
         int ScriptedStunFrames = 0;    //非武功投射物命中时附带的控制时间
         int ScriptedBleedStacks = 0;   //非武功投射物命中时附带的流血层数
         int SharedHitGroupId = 0;      //同一触发实例共享命中记录，避免多弹重复命中同一目标

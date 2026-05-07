@@ -54,14 +54,6 @@ struct BattleHitSkillSnapshot
     int resolvedBaseDamage = 0;
 };
 
-struct BattleHitItemSnapshot
-{
-    int id = -1;
-    std::string name;
-    int hiddenWeaponEffectId = -1;
-    int resolvedDamage = 0;
-};
-
 struct BattleHpDamageCommand
 {
     int sourceUnitId = -1;
@@ -265,7 +257,6 @@ struct BattleHitResolutionInput
     BattleHitUnitSnapshot attacker;
     BattleHitUnitSnapshot defender;
     BattleHitSkillSnapshot skill;
-    BattleHitItemSnapshot item;
     RoleComboState attackerCombo;
     RoleComboState defenderCombo;
     int pendingDefenderHpDamage = 0;

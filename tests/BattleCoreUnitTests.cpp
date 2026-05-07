@@ -2347,43 +2347,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
     CHECK(dodgeLog != result.frame.logEvents.end());
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesHiddenWeaponScalarInput", "[battle][core]")
-{
-    BattleRuntimeState state;
-    state.world = worldWith({
-        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
-        unit(2, 1, { 105, 100, 0 }),
-    });
-    state.attacks = attackWorld();
-    state.attacks.units = {
-        { 1, 0, true, false, false, { 100, 100, 0 } },
-        { 2, 1, true, false, false, { 105, 100, 0 } },
-    };
-    seedRuntimeUnitsFromWorld(state);
-
-    BattleAttackInstance projectile;
-    projectile.id = 10;
-    projectile.state.attackerUnitId = 1;
-    projectile.state.hiddenWeaponItemId = 501;
-    projectile.state.hiddenWeaponItemName = "飛刀";
-    projectile.state.hiddenWeaponEffectId = 901;
-    projectile.state.hiddenWeaponItemAddHp = 0;
-    projectile.state.totalFrame = 30;
-    projectile.state.operationType = BattleOperationType::RangedProjectile;
-    projectile.state.position = { 100, 100, 0 };
-    projectile.state.velocity = { 5, 0, 0 };
-    state.attacks.attacks.push_back(projectile);
-
-    state.units.requireUnit(1).hiddenWeapon = 100;
-
-    auto result = runBattleFrame(state);
-
-    REQUIRE(result.hitResults.size() == 1);
-    CHECK(result.hitResults[0].finalHpDamage > 0);
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    CHECK(state.damage.committedTransactions.front().finalHpDamage == result.hitResults[0].finalHpDamage);
-}
-
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][core]")
 {
     BattleRuntimeState state;

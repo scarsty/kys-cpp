@@ -30,10 +30,6 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackState& state
     event.skillMagicPower = state.skillMagicPower;
     event.operationType = state.operationType;
     event.visualEffectId = state.visualEffectId;
-    event.hiddenWeaponItemId = state.hiddenWeaponItemId;
-    event.hiddenWeaponItemName = state.hiddenWeaponItemName;
-    event.hiddenWeaponEffectId = state.hiddenWeaponEffectId;
-    event.hiddenWeaponItemAddHp = state.hiddenWeaponItemAddHp;
     event.scriptedDamage = state.scriptedDamage;
     event.scriptedStunFrames = state.scriptedStunFrames;
     event.scriptedBleedStacks = state.scriptedBleedStacks;
@@ -121,8 +117,7 @@ bool tryApplyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAtta
     const auto& attack = request.initial;
     const bool eligible = attack.scriptedDamage == 0
         && (attack.track
-            || attack.operationType == BattleOperationType::RangedProjectile
-            || attack.hiddenWeaponItemId >= 0);
+            || attack.operationType == BattleOperationType::RangedProjectile);
     if (!eligible)
     {
         return false;

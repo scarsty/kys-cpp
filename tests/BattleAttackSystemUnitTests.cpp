@@ -146,7 +146,6 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.initial.bounceRollPct = 30;
     request.initial.executeCanHitInvincible = true;
     request.initial.ignoreProjectileCancel = true;
-    request.initial.hiddenWeaponItemId = 501;
     request.initial.scriptedDamage = 33;
     request.initial.scriptedStunFrames = 12;
     request.initial.scriptedBleedStacks = 4;
@@ -188,7 +187,6 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.state.bounceRollPct == 30);
     CHECK(attack.state.executeCanHitInvincible);
     CHECK(attack.state.ignoreProjectileCancel);
-    CHECK(attack.state.hiddenWeaponItemId == 501);
     CHECK(attack.state.scriptedDamage == 33);
     CHECK(attack.state.scriptedStunFrames == 12);
     CHECK(attack.state.scriptedBleedStacks == 4);
@@ -268,7 +266,6 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.skillId = 101;
     projectile.state.operationType = BattleOperationType::RangedProjectile;
-    projectile.state.hiddenWeaponItemId = 501;
     projectile.state.scriptedDamage = 33;
     projectile.state.scriptedStunFrames = 12;
     projectile.state.scriptedBleedStacks = 4;
@@ -297,7 +294,6 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     CHECK(hit->unitId == 2);
     CHECK(hit->skillId == 101);
     CHECK(hit->operationType == BattleOperationType::RangedProjectile);
-    CHECK(hit->hiddenWeaponItemId == 501);
     CHECK(hit->scriptedDamage == 33);
     CHECK(hit->scriptedStunFrames == 12);
     CHECK(hit->scriptedBleedStacks == 4);

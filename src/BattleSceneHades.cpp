@@ -892,14 +892,6 @@ void BattleSceneHades::queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnR
         request.initial.skillAttackerActProperty = attacker->getActProperty(magic->MagicType);
         request.initial.skillMagicPower = attacker->getMagicPower(magic);
     }
-    if (request.initial.hiddenWeaponItemId >= 0 && request.initial.hiddenWeaponItemName.empty())
-    {
-        auto* item = Save::getInstance()->getItem(request.initial.hiddenWeaponItemId);
-        assert(item);
-        request.initial.hiddenWeaponItemName = item->Name;
-        request.initial.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
-        request.initial.hiddenWeaponItemAddHp = item->AddHP;
-    }
     request.initial.executeCanHitInvincible = attackCanHitInvincible(attacker);
     assert(battle_session_.has_value());
     battle_session_->enqueueAttackSpawn(std::move(request));
@@ -2608,13 +2600,11 @@ void BattleSceneHades::applyCoreFrameResult(
             {
                 ultHitRoles_.insert(role);
             }
-            if (event.operationType != KysChess::Battle::BattleOperationType::None
-                || event.hiddenWeaponItemId >= 0)
+            if (event.operationType != KysChess::Battle::BattleOperationType::None)
             {
                 Engine::getInstance()->gameControllerRumble(100, 100, 50);
                 auto* usingMagic = event.skillId >= 0 ? Save::getInstance()->getMagic(event.skillId) : nullptr;
-                auto* usingHiddenWeapon = event.hiddenWeaponItemId >= 0 ? Save::getInstance()->getItem(event.hiddenWeaponItemId) : nullptr;
-                assert(usingHiddenWeapon || usingMagic);
+                assert(usingMagic);
                 assert(event.totalFrame > 0);
             }
         }

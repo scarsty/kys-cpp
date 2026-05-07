@@ -315,16 +315,6 @@ BattleHitSkillSnapshot makeHitSkillSnapshot(
     return skill;
 }
 
-BattleHitItemSnapshot makeHitItemSnapshot(const BattleAttackEvent& event, int resolvedDamage)
-{
-    BattleHitItemSnapshot item;
-    item.id = event.hiddenWeaponItemId;
-    item.name = event.hiddenWeaponItemName;
-    item.hiddenWeaponEffectId = event.hiddenWeaponEffectId;
-    item.resolvedDamage = resolvedDamage;
-    return item;
-}
-
 std::vector<double> takeHitPercentRolls(BattleRuntimeState& state)
 {
     std::vector<double> rolls;
@@ -363,21 +353,6 @@ int pendingDefenderHpDamage(const BattleRuntimeState& state, int defenderUnitId)
     return pending;
 }
 
-int runtimeDistanceCells(const BattleRuntimeState& state, const BattleRuntimeUnit& lhs, const BattleRuntimeUnit& rhs)
-{
-    const int gridDistance = std::abs(lhs.grid.x - rhs.grid.x) + std::abs(lhs.grid.y - rhs.grid.y);
-    if (gridDistance > 0)
-    {
-        return gridDistance;
-    }
-    if (state.units.gridTransform.tileWidth > 0.0)
-    {
-        return std::max(1, static_cast<int>(
-            std::ceil((lhs.position - rhs.position).norm() / state.units.gridTransform.tileWidth)));
-    }
-    return 1;
-}
-
 int resolveHitMagicBaseDamage(
     BattleRuntimeState& state,
     const BattleAttackEvent& event,
@@ -402,19 +377,6 @@ int resolveHitMagicBaseDamage(
         defence,
         state.random.nextInt(10) - state.random.nextInt(10),
     });
-}
-
-int resolveHiddenWeaponDamage(
-    BattleRuntimeState& state,
-    const BattleAttackEvent& event,
-    const BattleRuntimeUnit& attacker,
-    const BattleRuntimeUnit& defender)
-{
-    int damage = attacker.hiddenWeapon - event.hiddenWeaponItemAddHp;
-    damage += state.random.nextInt(10) - state.random.nextInt(10);
-    const int distance = runtimeDistanceCells(state, attacker, defender);
-    damage = static_cast<int>(damage / std::exp((distance - 1) / 10.0));
-    return std::max(1, damage);
 }
 
 int resolveProjectileCancelDamage(
@@ -782,12 +744,6 @@ BattleHitResolutionInput makeHitResolutionInput(
             *attacker,
             *defender,
             resolveHitMagicBaseDamage(state, event, *attacker, *defender));
-    }
-    if (event.hiddenWeaponItemId >= 0)
-    {
-        input.item = makeHitItemSnapshot(
-            event,
-            resolveHiddenWeaponDamage(state, event, *attacker, *defender));
     }
     if (auto comboIt = state.combo.units.find(event.sourceUnitId); comboIt != state.combo.units.end())
     {

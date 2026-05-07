@@ -98,7 +98,6 @@ struct BattleRuntimeUnit
     int actType = -1;
     int operationCount = 0;
     int physicalPower = 0;
-    int hiddenWeapon = 0;
     int invincible = 0;
     int hurtFrame = 0;
     int shield = 0;

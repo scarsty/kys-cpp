@@ -56,10 +56,6 @@ struct BattleAttackState
     int bounceRollPct = 0;
     int visualEffectId = -1;
     BattleOperationType operationType = BattleOperationType::None;
-    int hiddenWeaponItemId = -1;
-    std::string hiddenWeaponItemName;
-    int hiddenWeaponEffectId = -1;
-    int hiddenWeaponItemAddHp = 0;
     int scriptedDamage = 0;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
@@ -142,10 +138,6 @@ struct BattleAttackEvent
     int skillMagicPower = 0;
     BattleOperationType operationType = BattleOperationType::None;
     int visualEffectId = -1;
-    int hiddenWeaponItemId = -1;
-    std::string hiddenWeaponItemName;
-    int hiddenWeaponEffectId = -1;
-    int hiddenWeaponItemAddHp = 0;
     int scriptedDamage = 0;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;

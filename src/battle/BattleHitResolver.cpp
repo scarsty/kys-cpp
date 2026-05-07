@@ -257,7 +257,6 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     request.initial.visualEffectId = command.prototype.visualEffectId;
     request.initial.ultimate = command.prototype.ultimate;
     request.initial.ignoreProjectileCancel = command.prototype.skillId < 0;
-    request.initial.hiddenWeaponItemId = command.prototype.hiddenWeaponItemId;
     request.initial.scriptedDamage = command.prototype.scriptedDamage;
     request.initial.scriptedStunFrames = command.prototype.scriptedStunFrames;
     request.initial.scriptedBleedStacks = command.prototype.scriptedBleedStacks;
@@ -455,7 +454,6 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                 request.initial.sharedHitGroupId = extra->prototype.sharedHitGroupId;
                 request.initial.visualEffectId = extra->prototype.visualEffectId;
                 request.initial.operationType = extra->prototype.operationType;
-                request.initial.hiddenWeaponItemId = extra->prototype.hiddenWeaponItemId;
                 request.initial.scriptedDamage = extra->prototype.scriptedDamage;
                 request.initial.scriptedStunFrames = extra->prototype.scriptedStunFrames;
                 request.initial.scriptedBleedStacks = extra->prototype.scriptedBleedStacks;
@@ -601,11 +599,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         return result;
     }
 
-    const bool usingHiddenWeapon = input.item.id >= 0;
-    const bool usingSkill = !usingHiddenWeapon && input.skill.id >= 0;
-    const double baseDamage = usingHiddenWeapon
-        ? input.item.resolvedDamage / 5.0
-        : static_cast<double>(input.skill.resolvedBaseDamage);
+    const bool usingSkill = input.skill.id >= 0;
+    const double baseDamage = static_cast<double>(input.skill.resolvedBaseDamage);
 
     BattleLegacyHitShapeInput shapeInput;
     shapeInput.baseDamage = baseDamage;
@@ -616,7 +611,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     shapeInput.impactPosition = input.attackEvent.position;
     shapeInput.defenderPosition = input.defender.position;
     shapeInput.defenderFacing = input.defender.facing;
-    shapeInput.operationType = usingHiddenWeapon ? BattleOperationType::None : input.attackEvent.operationType;
+    shapeInput.operationType = input.attackEvent.operationType;
     shapeInput.usingSkill = usingSkill;
     shapeInput.attackerActProperty = input.skill.attackerActProperty;
     shapeInput.defenderActProperty = input.skill.defenderActProperty;
@@ -808,8 +803,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     }
 
     auto defenderCombo = input.defenderCombo;
-    const bool rangedProjectile = usingHiddenWeapon || input.attackEvent.operationType == BattleOperationType::RangedProjectile;
-    const bool usingHpDamage = usingHiddenWeapon || input.skill.hurtType == 0;
+    const bool rangedProjectile = input.attackEvent.operationType == BattleOperationType::RangedProjectile;
+    const bool usingHpDamage = input.skill.hurtType == 0;
 
     result.shapedHpDamage = BattleDamageSystem().applyModifiers({
         result.shapedHpDamage,
@@ -981,10 +976,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         result.logEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋了首輪傷害"));
     }
     std::string damageDetail;
-    if (usingHiddenWeapon)
-    {
-        damageDetail = appendDetail(std::move(damageDetail), "暗器");
-    }
     if (result.critical)
     {
         damageDetail = appendDetail(std::move(damageDetail), "暴擊");

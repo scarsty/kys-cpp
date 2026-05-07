@@ -407,7 +407,6 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     unit.actType = role->ActType;
     unit.operationCount = role->OperationCount;
     unit.physicalPower = role->PhysicalPower;
-    unit.hiddenWeapon = role->HiddenWeapon;
     unit.invincible = role->Invincible;
     unit.hurtFrame = role->HurtFrame;
     for (int magicType = 0; magicType <= 4; ++magicType)

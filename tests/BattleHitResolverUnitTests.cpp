@@ -101,19 +101,6 @@ TEST_CASE("BattleHitResolver_NonHitEvent_ReturnsNoGameplayCommands", "[battle][h
     CHECK(result.logEvents.empty());
 }
 
-TEST_CASE("BattleHitResolver_HiddenWeaponUsesResolvedItemDamageDividedByFive", "[battle][hit_resolver][unit]")
-{
-    auto input = hitInput();
-    input.skill.id = -1;
-    input.item.id = 501;
-    input.item.resolvedDamage = 100;
-
-    auto result = BattleHitResolver().resolve(input);
-
-    CHECK(result.shapedHpDamage == Catch::Approx(20.0));
-    CHECK(result.finalHpDamage == 20);
-}
-
 TEST_CASE("BattleHitResolver_MagicUsesResolvedBaseDamage", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
