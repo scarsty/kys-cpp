@@ -399,22 +399,14 @@ KysChess::Battle::BattleDeathEffectStore makeBattleDeathEffectStore(
     return store;
 }
 
-void writeBattleDeathEffectTrackers(const KysChess::Battle::BattleDeathEffectStore& store,
-                                    const std::vector<Role*>& roles,
+void writeBattleDeathEffectTrackers(const std::vector<KysChess::Battle::BattleFrameDeathEffectTrackerResult>& trackers,
                                     std::map<int, KysChess::RoleComboState>& states)
 {
-    for (auto role : roles)
+    for (const auto& tracker : trackers)
     {
-        assert(role);
-        auto extrasIt = std::find_if(store.units.begin(), store.units.end(), [&](const KysChess::Battle::BattleDeathEffectExtras& extras)
-            {
-                return extras.id == role->ID;
-            });
-        assert(extrasIt != store.units.end());
-
-        auto stateIt = states.find(role->ID);
+        auto stateIt = states.find(tracker.unitId);
         assert(stateIt != states.end());
-        stateIt->second.shieldOnAllyDeathTracker = extrasIt->shieldOnAllyDeathTracker;
+        stateIt->second.shieldOnAllyDeathTracker = tracker.shieldOnAllyDeathTracker;
     }
 }
 
@@ -2482,16 +2474,15 @@ void BattleSceneHades::applyCoreFrameResult(
         }
     }
 
-    applyCoreDamageTransactions(bindings, frameResult.hitResults);
-    applyCoreTeamEffectState(bindings);
-    for (const auto& command : battleRuntime().effects.committedCommands)
+    applyCoreDamageTransactions(bindings, frameResult);
+    applyCoreTeamEffectState(bindings, frameResult.teamEffectEvents);
+    for (const auto& command : frameResult.effectCommands)
     {
         auto* target = requireFrameRole(bindings, command.targetUnitId);
-        const auto& unit = battleRuntime().units.requireUnit(command.targetUnitId);
         switch (command.type)
         {
         case KysChess::Battle::BattleEffectCommandType::AddInvincibility:
-            target->Invincible = unit.invincible;
+            target->Invincible += command.value;
             break;
         default:
             assert(false);
@@ -3174,10 +3165,9 @@ void BattleSceneHades::initializeCoreDamageState()
 
 void BattleSceneHades::applyCoreDamageTransactions(
     const BattleSceneRoleBindings& bindings,
-    const std::vector<KysChess::Battle::BattleHitResolutionResult>& hitResults)
+    const KysChess::Battle::BattleFrameResult& frameResult)
 {
-    auto& frameState = battleRuntime();
-    for (const auto& hitResolution : hitResults)
+    for (const auto& hitResolution : frameResult.hitResults)
     {
         if (hitResolution.critical)
         {
@@ -3185,10 +3175,10 @@ void BattleSceneHades::applyCoreDamageTransactions(
         }
     }
 
-    auto& cs = frameState.combo.units;
+    auto& cs = battleRuntime().combo.units;
     std::set<int> diedUnitIds;
     std::vector<KysChess::Battle::BattleGameplayEvent> lifecycleEvents;
-    for (const auto& event : frameState.damage.lifecycleEvents)
+    for (const auto& event : frameResult.damageLifecycleEvents)
     {
         switch (event.type)
         {
@@ -3216,7 +3206,7 @@ void BattleSceneHades::applyCoreDamageTransactions(
         }
     }
 
-    for (const auto& damageTaken : frameState.damage.committedTransactions)
+    for (const auto& damageTaken : frameResult.damageTransactions)
     {
         auto r = requireFrameRole(bindings, damageTaken.defender.id);
         Role* attacker = damageTaken.attacker.id >= 0
@@ -3289,7 +3279,7 @@ void BattleSceneHades::applyCoreDamageTransactions(
         }
     }
 
-    for (const auto& rescue : frameState.rescue.committedResults)
+    for (const auto& rescue : frameResult.rescueResults)
     {
         assert(rescue.teleport);
         auto* pulled = requireFrameRole(bindings, rescue.teleport->unitId);
@@ -3319,7 +3309,7 @@ void BattleSceneHades::applyCoreDamageTransactions(
         }
     }
 
-    writeBattleDeathEffectTrackers(frameState.deathEffects.store, battle_roles_, cs);
+    writeBattleDeathEffectTrackers(frameResult.deathEffectTrackers, cs);
 
     auto lifecycleApply = applyBattleLifecycleEvents(
         {
@@ -3347,27 +3337,26 @@ void BattleSceneHades::applyCoreDamageTransactions(
 }
 
 void BattleSceneHades::applyCoreTeamEffectState(
-    const BattleSceneRoleBindings& bindings)
+    const BattleSceneRoleBindings& bindings,
+    const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events)
 {
-    auto& frameState = battleRuntime();
-    auto& comboStates = frameState.combo.units;
-    for (const auto& event : frameState.teamEffects.committedEvents)
+    auto& comboStates = battleRuntime().combo.units;
+    for (const auto& event : events)
     {
         auto* target = requireFrameRole(bindings, event.targetUnitId);
-        const auto& unit = frameState.units.requireUnit(event.targetUnitId);
         switch (event.type)
         {
         case KysChess::Battle::BattleTeamEffectEventType::Heal:
-            target->HP = unit.hp;
+            target->HP = event.after;
             break;
         case KysChess::Battle::BattleTeamEffectEventType::MpRestore:
-            target->MP = unit.mp;
+            target->MP = event.after;
             break;
         case KysChess::Battle::BattleTeamEffectEventType::ShieldGain:
-            comboStates[target->ID].shield = unit.shield;
+            comboStates[target->ID].shield = event.after;
             break;
         case KysChess::Battle::BattleTeamEffectEventType::CooldownReduced:
-            target->CoolDown = unit.cooldown;
+            target->CoolDown = event.after;
             break;
         }
     }

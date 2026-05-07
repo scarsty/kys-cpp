@@ -1967,9 +1967,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    REQUIRE(state.rescue.committedResults.size() == 1);
-    const auto& rescue = state.rescue.committedResults.front();
+    REQUIRE(result.damageTransactions.size() == 1);
+    REQUIRE(result.rescueResults.size() == 1);
+    const auto& rescue = result.rescueResults.front();
     REQUIRE(rescue.teleport.has_value());
     CHECK(rescue.teleport->unitId == 2);
     CHECK(rescue.teleport->pullerUnitId == 3);
@@ -2004,8 +2004,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttac
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.rescue.committedResults.size() == 1);
-    const auto& rescue = state.rescue.committedResults.front();
+    REQUIRE(result.rescueResults.size() == 1);
+    const auto& rescue = result.rescueResults.front();
     REQUIRE(rescue.teleport.has_value());
     CHECK(rescue.teleport->unitId == 2);
     CHECK(rescue.teleport->pullerUnitId == 1);
@@ -2065,9 +2065,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageReward
         { 2 },
     };
 
-    runBattleFrame(state);
+    auto result = runBattleFrame(state);
 
     REQUIRE(state.damage.committedTransactions.size() == 1);
+    REQUIRE(result.deathEffectTrackers.size() == 2);
+    CHECK(result.deathEffectTrackers[0].unitId == 1);
+    CHECK(result.deathEffectTrackers[1].unitId == 2);
     REQUIRE(state.deathEffects.store.units.size() == 2);
     CHECK(state.damage.committedTransactions.front().attacker.hp == 65);
     CHECK(state.damage.committedTransactions.front().attacker.attack == 19);

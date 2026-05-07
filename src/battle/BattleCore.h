@@ -230,6 +230,12 @@ struct BattleFrameRumbleEvent
     int durationMs = 0;
 };
 
+struct BattleFrameDeathEffectTrackerResult
+{
+    int unitId = -1;
+    int shieldOnAllyDeathTracker = 0;
+};
+
 struct BattleFrameApplications
 {
     std::vector<BattleFrameKnockbackDelta> knockbacks;
@@ -369,6 +375,12 @@ struct BattleFrameResult
     std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
     std::vector<BattleHitResolutionResult> hitResults;
     std::vector<BattleFrameActionUnitResult> actionResults;
+    std::vector<BattleDamageTransactionResult> damageTransactions;
+    std::vector<BattleDamageLifecycleEvent> damageLifecycleEvents;
+    std::vector<BattleRescueRepositionResult> rescueResults;
+    std::vector<BattleTeamEffectEvent> teamEffectEvents;
+    std::vector<BattleEffectCommand> effectCommands;
+    std::vector<BattleFrameDeathEffectTrackerResult> deathEffectTrackers;
     // 遷移期間的不完整快照退路；場景與 adapter 不得消費這些命令。
     std::vector<BattleGameplayCommand> commands;
 };

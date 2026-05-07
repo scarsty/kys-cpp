@@ -98,8 +98,10 @@ protected:
     void initializeCoreDamageState();
     void applyCoreDamageTransactions(
         const BattleSceneRoleBindings& bindings,
-        const std::vector<KysChess::Battle::BattleHitResolutionResult>& hitResults);
-    void applyCoreTeamEffectState(const BattleSceneRoleBindings& bindings);
+        const KysChess::Battle::BattleFrameResult& frameResult);
+    void applyCoreTeamEffectState(
+        const BattleSceneRoleBindings& bindings,
+        const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events);
     void applyCoreFrameApplications(
         const BattleSceneRoleBindings& bindings,
         const KysChess::Battle::BattleFrameApplications& applications);

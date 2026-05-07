@@ -3131,6 +3131,23 @@ void emitPresentationFrame(
     }
     result.frame = recorder.consumeFrame();
 }
+
+void publishFrameApplyOutputs(BattleRuntimeState& state, BattleFrameResult& result)
+{
+    result.damageTransactions = state.damage.committedTransactions;
+    result.damageLifecycleEvents = state.damage.lifecycleEvents;
+    result.rescueResults = state.rescue.committedResults;
+    result.teamEffectEvents = state.teamEffects.committedEvents;
+    result.effectCommands = state.effects.committedCommands;
+    result.deathEffectTrackers.reserve(state.deathEffects.store.units.size());
+    for (const auto& extras : state.deathEffects.store.units)
+    {
+        result.deathEffectTrackers.push_back({
+            extras.id,
+            extras.shieldOnAllyDeathTracker,
+        });
+    }
+}
 }  // namespace
 
 BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
@@ -3328,6 +3345,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     syncRescueStateFromRuntimeUnits(state);
     applyDamageAndLifecycle(state, result, gameplayEvents, logEvents, visualEvents);
     reduceFrameGameplayCommands(state, result.commands, result.applications, logEvents, visualEvents);
+    publishFrameApplyOutputs(state, result);
     emitPresentationFrame(state, result, gameplayEvents, logEvents, visualEvents);
     return result;
 }

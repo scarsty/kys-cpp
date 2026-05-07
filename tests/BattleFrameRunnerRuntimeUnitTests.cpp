@@ -297,10 +297,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
 
     REQUIRE(result.commands.empty());
     CHECK(state.teamEffects.pendingCommands.empty());
-    REQUIRE(state.teamEffects.committedEvents.size() == 1);
-    CHECK(state.teamEffects.committedEvents[0].sourceUnitId == 1);
-    CHECK(state.teamEffects.committedEvents[0].targetUnitId == 1);
-    CHECK(state.teamEffects.committedEvents[0].value == 10);
+    REQUIRE(result.teamEffectEvents.size() == 1);
+    CHECK(result.teamEffectEvents[0].sourceUnitId == 1);
+    CHECK(result.teamEffectEvents[0].targetUnitId == 1);
+    CHECK(result.teamEffectEvents[0].value == 10);
     CHECK_FALSE(state.combo.units.at(1).onSkillTeamHealPending);
 }
 
@@ -322,13 +322,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.teamEffects.committedEvents.size() == 2);
-    CHECK(state.teamEffects.committedEvents[0].type == BattleTeamEffectEventType::Heal);
-    CHECK(state.teamEffects.committedEvents[0].sourceUnitId == 1);
-    CHECK(state.teamEffects.committedEvents[0].targetUnitId == 1);
-    CHECK(state.teamEffects.committedEvents[0].value == 15);
-    CHECK(state.teamEffects.committedEvents[1].targetUnitId == 2);
-    CHECK(state.teamEffects.committedEvents[1].value == 10);
+    REQUIRE(result.teamEffectEvents.size() == 2);
+    CHECK(result.teamEffectEvents[0].type == BattleTeamEffectEventType::Heal);
+    CHECK(result.teamEffectEvents[0].sourceUnitId == 1);
+    CHECK(result.teamEffectEvents[0].targetUnitId == 1);
+    CHECK(result.teamEffectEvents[0].value == 15);
+    CHECK(result.teamEffectEvents[1].targetUnitId == 2);
+    CHECK(result.teamEffectEvents[1].value == 10);
     CHECK(state.units.requireUnit(1).hp == 65);
     CHECK(state.units.requireUnit(2).hp == 100);
     CHECK(state.units.requireUnit(3).hp == 10);
@@ -369,10 +369,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     };
     state.deathEffects.store.units = { { 1 }, { 2 } };
 
-    runBattleFrame(state);
+    auto result = runBattleFrame(state);
 
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    const auto& transaction = state.damage.committedTransactions[0];
+    REQUIRE(result.damageTransactions.size() == 1);
+    const auto& transaction = result.damageTransactions[0];
     CHECK(transaction.finalHpDamage == 8);
     CHECK(transaction.defender.id == 2);
     CHECK(transaction.defender.hp == 72);
@@ -400,10 +400,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     };
     state.deathEffects.store.units = { { 1 }, { 2 } };
 
-    runBattleFrame(state);
+    auto result = runBattleFrame(state);
 
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    const auto& transaction = state.damage.committedTransactions[0];
+    REQUIRE(result.damageTransactions.size() == 1);
+    const auto& transaction = result.damageTransactions[0];
     CHECK(transaction.finalHpDamage == 6);
     CHECK(transaction.defender.id == 2);
     CHECK(transaction.defender.hp == 74);
@@ -444,13 +444,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     CHECK(state.units.requireUnit(3).cooldown == 49);
     CHECK(state.units.requireUnit(4).hp == 20);
 
-    REQUIRE(state.teamEffects.committedEvents.size() == 3);
-    CHECK(state.teamEffects.committedEvents[0].targetUnitId == 1);
-    CHECK(state.teamEffects.committedEvents[0].value == 20);
-    CHECK(state.teamEffects.committedEvents[1].targetUnitId == 2);
-    CHECK(state.teamEffects.committedEvents[1].value == 15);
-    CHECK(state.teamEffects.committedEvents[2].type == BattleTeamEffectEventType::CooldownReduced);
-    CHECK(state.teamEffects.committedEvents[2].value == 10);
+    REQUIRE(result.teamEffectEvents.size() == 3);
+    CHECK(result.teamEffectEvents[0].targetUnitId == 1);
+    CHECK(result.teamEffectEvents[0].value == 20);
+    CHECK(result.teamEffectEvents[1].targetUnitId == 2);
+    CHECK(result.teamEffectEvents[1].value == 15);
+    CHECK(result.teamEffectEvents[2].type == BattleTeamEffectEventType::CooldownReduced);
+    CHECK(result.teamEffectEvents[2].value == 10);
 
     const auto selfRegenLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -532,10 +532,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.effects.committedCommands.size() == 1);
-    CHECK(state.effects.committedCommands[0].type == BattleEffectCommandType::AddInvincibility);
-    CHECK(state.effects.committedCommands[0].label == "技能後無敵");
-    CHECK(state.effects.committedCommands[0].value == 9);
+    REQUIRE(result.effectCommands.size() == 1);
+    CHECK(result.effectCommands[0].type == BattleEffectCommandType::AddInvincibility);
+    CHECK(result.effectCommands[0].label == "技能後無敵");
+    CHECK(result.effectCommands[0].value == 9);
     CHECK(state.units.requireUnit(1).invincible == 12);
 
     const auto statusLog = std::find_if(
