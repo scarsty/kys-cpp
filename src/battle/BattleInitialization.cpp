@@ -189,6 +189,8 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             });
     }
 
+    result.comboStates = runtime.combo.units;
+
     return result;
 }
 

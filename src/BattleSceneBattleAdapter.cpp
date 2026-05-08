@@ -98,6 +98,23 @@ Color damageTextColor(const Role* role, bool emphasized)
     return emphasized ? Color{ 47, 128, 255, 255 } : Color{ 102, 207, 255, 255 };
 }
 
+Pointf facingDirection(int faceTowards)
+{
+    switch (faceTowards)
+    {
+    case 0:
+        return { 1.0f, 0.0f, 0.0f };
+    case 1:
+        return { 0.0f, 1.0f, 0.0f };
+    case 2:
+        return { -1.0f, 0.0f, 0.0f };
+    case 3:
+        return { 0.0f, -1.0f, 0.0f };
+    default:
+        return { 1.0f, 0.0f, 0.0f };
+    }
+}
+
 }  // namespace
 
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId)
@@ -109,6 +126,75 @@ Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId)
     assert(it != roles.end());
     assert(*it);
     return *it;
+}
+
+BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context)
+{
+    assert(context.comboStates);
+
+    Battle::BattleRuntimeInit init;
+    init.runtime.units.gridTransform = context.gridTransform;
+    init.runtime.combo.units = *context.comboStates;
+    init.runtime.combo.events.clear();
+    init.runtime.units.units.reserve(context.roles.size());
+    init.runtime.status.units.reserve(context.roles.size());
+
+    std::unordered_map<int, Role*> rolesByBattleId;
+    rolesByBattleId.reserve(context.roles.size());
+    for (auto* role : context.roles)
+    {
+        assert(role);
+        rolesByBattleId.emplace(role->ID, role);
+        auto stateIt = context.comboStates->find(role->ID);
+        init.runtime.units.units.push_back(makeBattleRuntimeUnit(
+            role,
+            stateIt != context.comboStates->end() ? &stateIt->second : nullptr,
+            context.gridTransform));
+        if (stateIt != context.comboStates->end())
+        {
+            init.runtime.status.units.push_back(Battle::makeBattleStatusRuntimeUnit(
+                makeBattleStatusUnit(role, stateIt->second)));
+        }
+    }
+
+    BattleRuntimeCreationResult result{
+        Battle::BattleRuntimeSession(std::move(init)),
+        {},
+        std::move(rolesByBattleId),
+    };
+    result.initializationResult = result.session.releaseInitializationResult();
+    return result;
+}
+
+void commitFinalSetupPlacementToRuntime(
+    Battle::BattleRuntimeState& runtime,
+    const BattleSetupPlacementInput& input)
+{
+    runtime.units.gridTransform = input.gridTransform;
+    for (const auto& role : input.roles)
+    {
+        const auto position = Pointf{
+            static_cast<float>(-role.y * input.gridTransform.tileWidth + role.x * input.gridTransform.tileWidth + input.gridTransform.coordCount * input.gridTransform.tileWidth),
+            static_cast<float>(role.y * input.gridTransform.tileWidth + role.x * input.gridTransform.tileWidth),
+            0.0f,
+        };
+        runtime.units.setPosition(role.unitId, position);
+        auto& unit = runtime.units.requireUnit(role.unitId);
+        unit.facing = facingDirection(role.faceTowards);
+
+        auto worldIt = std::find_if(
+            runtime.world.units.begin(),
+            runtime.world.units.end(),
+            [unitId = role.unitId](const Battle::BattleUnitState& unitState)
+            {
+                return unitState.id == unitId;
+            });
+        if (worldIt != runtime.world.units.end())
+        {
+            worldIt->position = position;
+            worldIt->velocity = { 0, 0, 0 };
+        }
+    }
 }
 
 Battle::BattlePresentationColor makeBattlePresentationColor(Color color)

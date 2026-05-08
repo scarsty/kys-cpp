@@ -1,4 +1,5 @@
 #include "battle/BattleInitialization.h"
+#include "battle/BattleRuntimeSession.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -146,4 +147,32 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     CHECK(result.logEvents[0].sourceUnitId == 10);
     CHECK(result.logEvents[0].text == "獲取50護盾");
     CHECK(result.logEvents[1].text == "全隊獲取15護盾");
+}
+
+TEST_CASE("BattleRuntimeSession_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization][runtime_session]")
+{
+    BattleRuntimeInit init;
+    init.runtime.units.units.push_back(runtimeUnit(10, 0, 100, 20, 30, 40));
+    init.runtime.status.units.push_back(statusRuntime(10, 100, 20));
+
+    BattleInitializationUnitSeed seed;
+    seed.unitId = 10;
+    seed.realRoleId = 1001;
+    seed.team = 0;
+    seed.baseMaxHp = 100;
+    seed.baseAttack = 20;
+    seed.baseDefence = 30;
+    seed.baseSpeed = 40;
+    seed.baseCombo.flatHP = 25;
+    init.setup.units.push_back(seed);
+
+    BattleRuntimeSession session(std::move(init));
+    auto result = session.releaseInitializationResult();
+
+    const auto& unit = session.runtime().units.requireUnit(10);
+    CHECK(unit.maxHp == 125);
+    CHECK(unit.hp == 125);
+    REQUIRE(result.roleDeltas.size() == 1);
+    CHECK(result.roleDeltas[0].unitId == 10);
+    CHECK(result.roleDeltas[0].maxHp == 125);
 }

@@ -5,6 +5,7 @@
 #include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
 #include "battle/BattleProjectileTargetingSystem.h"
+#include "battle/BattleRuntimeSession.h"
 
 #include <array>
 #include <cstddef>
@@ -12,6 +13,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 class BattleTracker;
@@ -102,7 +104,39 @@ struct BattleLifecycleApplicationResult
     std::vector<int> diedUnitIds;
 };
 
+struct BattleRuntimeBuildContext
+{
+    std::vector<Role*> roles;
+    std::map<int, RoleComboState>* comboStates = nullptr;
+    Battle::BattleGridTransform gridTransform;
+};
+
+struct BattleRuntimeCreationResult
+{
+    Battle::BattleRuntimeSession session;
+    Battle::BattleInitializationResult initializationResult;
+    std::unordered_map<int, Role*> rolesByBattleId;
+};
+
+struct BattleSetupPlacementUnit
+{
+    int unitId = -1;
+    int x = 0;
+    int y = 0;
+    int faceTowards = 0;
+};
+
+struct BattleSetupPlacementInput
+{
+    Battle::BattleGridTransform gridTransform;
+    std::vector<BattleSetupPlacementUnit> roles;
+};
+
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
+BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context);
+void commitFinalSetupPlacementToRuntime(
+    Battle::BattleRuntimeState& runtime,
+    const BattleSetupPlacementInput& input);
 
 Battle::BattleCastConfig makeBattleCastConfig();
 Battle::BattleCastGeometry makeBattleCastGeometry();

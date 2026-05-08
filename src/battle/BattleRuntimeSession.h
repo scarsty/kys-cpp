@@ -2,6 +2,7 @@
 
 #include "BattleInitialization.h"
 
+#include <optional>
 #include <utility>
 
 namespace KysChess::Battle
@@ -14,12 +15,14 @@ public:
 
     BattleFrameResult runFrame();
     void enqueueAttackSpawn(BattleAttackSpawnRequest request);
+    BattleInitializationResult releaseInitializationResult();
 
     const BattleRuntimeState& runtime() const;
     BattleRuntimeState& runtimeForTests();
 
 private:
     BattleRuntimeState runtime_;
+    std::optional<BattleInitializationResult> initialization_result_;
     BattleFrameRunner runner_;
 };
 

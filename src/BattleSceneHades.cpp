@@ -1,4 +1,4 @@
-#include "BattleSceneHades.h"
+﻿#include "BattleSceneHades.h"
 #include "Audio.h"
 #include "BattleRoleManager.h"
 #include "BattleSceneBattleAdapter.h"
@@ -743,35 +743,13 @@ void BattleSceneHades::queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnR
 
 void BattleSceneHades::initializeBattleRuntimeSession()
 {
-    KysChess::Battle::BattleRuntimeInit init;
-    battle_session_.emplace(std::move(init));
+    auto created = KysChess::BattleSceneBattleAdapter::createInitializedBattleRuntimeSession(
+        makeBattleRuntimeBuildContext());
+    battle_session_.emplace(std::move(created.session));
+    core_role_bindings_.rolesByBattleId = std::move(created.rolesByBattleId);
     initializeBattleRuntimeStaticState();
     battleRuntime().world.config = makeCoreMovementConfig();
-    battleRuntime().units.gridTransform = { TILE_W, BATTLE_COORD_COUNT };
     auto& comboStates = KysChess::ChessCombo::getMutableStates();
-    battleRuntime().combo.units = comboStates;
-    battleRuntime().combo.events.clear();
-    battleRuntime().units.units.clear();
-    battleRuntime().units.units.reserve(battle_roles_.size());
-    battleRuntime().status.units.clear();
-    battleRuntime().status.units.reserve(battle_roles_.size());
-    core_role_bindings_.rolesByBattleId.clear();
-    core_role_bindings_.rolesByBattleId.reserve(battle_roles_.size());
-    for (auto* role : battle_roles_)
-    {
-        assert(role);
-        core_role_bindings_.rolesByBattleId.emplace(role->ID, role);
-        auto stateIt = comboStates.find(role->ID);
-        battleRuntime().units.units.push_back(makeBattleRuntimeUnit(
-            role,
-            stateIt != comboStates.end() ? &stateIt->second : nullptr,
-            battleRuntime().units.gridTransform));
-        if (stateIt != comboStates.end())
-        {
-            battleRuntime().status.units.push_back(KysChess::Battle::makeBattleStatusRuntimeUnit(
-                makeBattleStatusUnit(role, stateIt->second)));
-        }
-    }
     initializeCoreMovementWorld();
     initializeCoreDamageState();
     configureBattleAttackWorld(battleRuntime().attacks);
@@ -814,6 +792,53 @@ void BattleSceneHades::initializeBattleRuntimeSession()
     battleRuntime().projectileFollowUps.areaSpawnDistance = TILE_W * 1.5;
     auto actionContext = makeBattleActionFrameAdapterContext();
     initializeBattleActionPlanInputs(battleRuntime(), actionContext);
+}
+
+KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::makeBattleRuntimeBuildContext() const
+{
+    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext context;
+    context.roles = battle_roles_;
+    context.comboStates = const_cast<std::map<int, KysChess::RoleComboState>*>(&KysChess::ChessCombo::getMutableStates());
+    context.gridTransform = { TILE_W, BATTLE_COORD_COUNT };
+    return context;
+}
+
+void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
+{
+    if (!extended_teammates_.empty() && progress_.isPositionSwapEnabled())
+    {
+        auto prompt = std::make_shared<MenuText>(std::vector<std::string>{ "地圖佈陣", "列表佈陣", "直接開戰" });
+        prompt->setFontSize(36);
+        prompt->arrange(0, 0, 0, 45);
+        prompt->runAtPosition(300, 220);
+        int choice = prompt->getResult();
+        if (choice == 0)
+        {
+            runPositionSwapLoop();
+        }
+        else if (choice == 1)
+        {
+            runListBasedSwap();
+        }
+    }
+}
+
+void BattleSceneHades::commitFinalSetupPlacementToRuntime()
+{
+    KysChess::BattleSceneBattleAdapter::BattleSetupPlacementInput input;
+    input.gridTransform = battleRuntime().units.gridTransform;
+    input.roles.reserve(battle_roles_.size());
+    for (auto* role : battle_roles_)
+    {
+        assert(role);
+        input.roles.push_back({
+            role->ID,
+            role->X(),
+            role->Y(),
+            role->FaceTowards,
+        });
+    }
+    KysChess::BattleSceneBattleAdapter::commitFinalSetupPlacementToRuntime(battleRuntime(), input);
 }
 
 KysChess::Battle::BattleRuntimeState& BattleSceneHades::battleRuntime()
@@ -1974,25 +1999,9 @@ void BattleSceneHades::onEntrance()
     close_up_total_ = 0;
     clampCameraCenter();
 
-    // Pre-battle position swap
-    if (!extended_teammates_.empty() && progress_.isPositionSwapEnabled())
-    {
-        auto prompt = std::make_shared<MenuText>(std::vector<std::string>{ "地圖佈陣", "列表佈陣", "直接開戰" });
-        prompt->setFontSize(36);
-        prompt->arrange(0, 0, 0, 45);
-        prompt->runAtPosition(300, 220);
-        int choice = prompt->getResult();
-        if (choice == 0)
-        {
-            runPositionSwapLoop();
-        }
-        else if (choice == 1)
-        {
-            runListBasedSwap();
-        }
-    }
-
     initializeBattleRuntimeSession();
+    runPreBattlePositionSwapIfEnabled();
+    commitFinalSetupPlacementToRuntime();
 
     // int i = 0;
     // for (auto r : friends_)

@@ -77,6 +77,9 @@ protected:
     bool attackCanHitInvincible(Role* role) const;
     void queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnRequest request);
     void initializeBattleRuntimeSession();
+    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext makeBattleRuntimeBuildContext() const;
+    void runPreBattlePositionSwapIfEnabled();
+    void commitFinalSetupPlacementToRuntime();
     KysChess::Battle::BattleRuntimeState& battleRuntime();
     const KysChess::Battle::BattleRuntimeState& battleRuntime() const;
     virtual int calRolePic(Role* r, int style, int frame) override;

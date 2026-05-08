@@ -84,6 +84,7 @@ struct BattleInitializationResult
     std::vector<BattleInitializationRoleDelta> roleDeltas;
     std::vector<BattleInitializationCloneIntent> cloneIntents;
     std::vector<BattleInitializationEnemyTopDebuffDelta> enemyTopDebuffs;
+    std::map<int, RoleComboState> comboStates;
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
 };
