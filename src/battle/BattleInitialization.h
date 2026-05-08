@@ -2,6 +2,7 @@
 
 #include "BattleCore.h"
 
+#include <string>
 #include <vector>
 
 namespace KysChess::Battle
@@ -34,11 +35,73 @@ struct BattleInitializationCloneSource
     int sourceUnitId = -1;
     int sourceRealRoleId = -1;
     int power = 0;
+    int star = 0;
+    int chessInstanceId = -1;
+    int sourceOrder = 0;
+};
+
+struct BattleSetupComboThreshold
+{
+    int count = 0;
+    std::vector<ComboEffect> effects;
+};
+
+struct BattleSetupComboDefinition
+{
+    int id = -1;
+    std::string name;
+    std::vector<int> memberRoleIds;
+    std::vector<BattleSetupComboThreshold> thresholds;
+    bool isAntiCombo = false;
+    bool starSynergyBonus = false;
+};
+
+struct BattleSetupEquipmentDefinition
+{
+    int itemId = -1;
+    int equipType = 0;
+    std::vector<ComboEffect> effects;
+    std::vector<std::string> actAsComboNames;
+};
+
+struct BattleSetupEquipmentSynergyDefinition
+{
+    std::vector<int> roleIds;
+    int equipmentId = -1;
+    std::vector<ComboEffect> effects;
+    std::vector<std::string> actAsComboNames;
+};
+
+struct BattleSetupNeigongDefinition
+{
+    int magicId = -1;
+    std::vector<ComboEffect> effects;
+};
+
+struct BattleSetupRosterUnit
+{
+    int unitId = -1;
+    int realRoleId = -1;
+    int team = 0;
+    int star = 1;
+    int cost = 0;
+    int weaponId = -1;
+    int armorId = -1;
+    int chessInstanceId = -1;
+    int fightsWon = 0;
+    int sourceOrder = 0;
 };
 
 struct BattleRuntimeSetupSeed
 {
     std::vector<BattleInitializationUnitSeed> units;
+    std::vector<BattleSetupRosterUnit> allyRoster;
+    std::vector<BattleSetupRosterUnit> enemyRoster;
+    std::vector<BattleSetupComboDefinition> comboDefinitions;
+    std::vector<BattleSetupEquipmentDefinition> equipmentDefinitions;
+    std::vector<BattleSetupEquipmentSynergyDefinition> equipmentSynergies;
+    std::vector<BattleSetupNeigongDefinition> neigongDefinitions;
+    std::vector<int> obtainedNeigongMagicIds;
     std::vector<BattleInitializationCloneSource> cloneSources;
     std::vector<BattleInitializationCloneSpawnCell> cloneCells;
     int cloneSummonCount = 0;

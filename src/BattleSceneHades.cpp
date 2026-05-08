@@ -694,18 +694,6 @@ void BattleSceneHades::publishPresentationFrame()
     });
 }
 
-void BattleSceneHades::recordBattleStatusLog(Role* source, Role* target, const std::string& text)
-{
-    presentation_recorder_.recordLog({
-        KysChess::Battle::BattleLogEventType::Status,
-        battle_frame_,
-        source ? source->ID : -1,
-        target ? target->ID : -1,
-        0,
-        text,
-    });
-}
-
 bool BattleSceneHades::attackCanHitInvincible(Role* role) const
 {
     assert(role);
@@ -741,15 +729,37 @@ void BattleSceneHades::queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnR
     battle_session_->enqueueAttackSpawn(std::move(request));
 }
 
-void BattleSceneHades::initializeBattleRuntimeSession()
+void BattleSceneHades::initializeBattleRuntime()
 {
+    KysChess::ChessCombo::clearActiveStates();
+    auto& comboStates = KysChess::ChessCombo::getMutableStates();
     auto created = KysChess::BattleSceneBattleAdapter::createInitializedBattleRuntimeSession(
         makeBattleRuntimeBuildContext());
     battle_session_.emplace(std::move(created.session));
     core_role_bindings_.rolesByBattleId = std::move(created.rolesByBattleId);
+    KysChess::BattleSceneBattleAdapter::applyBattleInitializationResult(
+        created.initializationResult,
+        {
+            &battle_roles_,
+            &friends_obj_,
+            &comboStates,
+            &core_role_bindings_.rolesByBattleId,
+        });
+    if (!created.initializationResult.logEvents.empty() || !created.initializationResult.visualEvents.empty())
+    {
+        beginPresentationFrame();
+        for (const auto& event : created.initializationResult.visualEvents)
+        {
+            presentation_recorder_.recordVisual(event);
+        }
+        for (const auto& event : created.initializationResult.logEvents)
+        {
+            presentation_recorder_.recordLog(event);
+        }
+        publishPresentationFrame();
+    }
     initializeBattleRuntimeStaticState();
     battleRuntime().world.config = makeCoreMovementConfig();
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
     initializeCoreMovementWorld();
     initializeCoreDamageState();
     configureBattleAttackWorld(battleRuntime().attacks);
@@ -800,6 +810,87 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
     context.roles = battle_roles_;
     context.comboStates = const_cast<std::map<int, KysChess::RoleComboState>*>(&KysChess::ChessCombo::getMutableStates());
     context.gridTransform = { TILE_W, BATTLE_COORD_COUNT };
+    context.cloneSpawnCells = clone_spawn_positions_;
+    context.nextCloneUnitId = 10000 + static_cast<int>(enemies_obj_.size() + friends_obj_.size());
+
+    if (extended_teammates_.empty())
+    {
+        return context;
+    }
+
+    auto getAllyEquipment = [&](size_t index)
+    {
+        int weaponId = index < teammate_weapons_.size() ? teammate_weapons_[index] : -1;
+        int armorId = index < teammate_armors_.size() ? teammate_armors_[index] : -1;
+        if (weaponId >= 0 || armorId >= 0)
+        {
+            return std::pair{ weaponId, armorId };
+        }
+        if (index >= extended_teammates_.size())
+        {
+            return std::pair{ -1, -1 };
+        }
+
+        const auto& teammate = extended_teammates_[index];
+        if (teammate.weaponId >= 0 || teammate.armorId >= 0)
+        {
+            return std::pair{ teammate.weaponId, teammate.armorId };
+        }
+
+        auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ teammate.chessInstanceId });
+        if (!chess)
+        {
+            return std::pair{ -1, -1 };
+        }
+        return std::pair{ chess->weaponInstance.itemId, chess->armorInstance.itemId };
+    };
+    auto getEnemyEquipment = [&](size_t index)
+    {
+        return std::pair{
+            index < enemy_weapons_.size() ? enemy_weapons_[index] : -1,
+            index < enemy_armors_.size() ? enemy_armors_[index] : -1,
+        };
+    };
+
+    context.allyRoster.reserve(friends_obj_.size());
+    for (size_t index = 0; index < friends_obj_.size() && index < extended_teammates_.size(); ++index)
+    {
+        const auto& role = friends_obj_[index];
+        const auto& teammate = extended_teammates_[index];
+        const auto [weaponId, armorId] = getAllyEquipment(index);
+        context.allyRoster.push_back({
+            role.ID,
+            role.RealID,
+            0,
+            teammate.star,
+            std::max(1, role.Cost),
+            weaponId,
+            armorId,
+            teammate.chessInstanceId,
+            static_cast<int>(index),
+        });
+    }
+
+    context.enemyRoster.reserve(enemies_obj_.size());
+    for (size_t index = 0; index < enemies_obj_.size(); ++index)
+    {
+        const auto& role = enemies_obj_[index];
+        const auto [weaponId, armorId] = getEnemyEquipment(index);
+        context.enemyRoster.push_back({
+            role.ID,
+            role.RealID,
+            1,
+            index < enemy_stars_.size() ? enemy_stars_[index] : 0,
+            std::max(1, role.Cost),
+            weaponId,
+            armorId,
+            -1,
+            static_cast<int>(index),
+        });
+    }
+
+    auto& obtained = progress_.getObtainedNeigong();
+    context.obtainedNeigongMagicIds.assign(obtained.begin(), obtained.end());
     return context;
 }
 
@@ -1431,8 +1522,6 @@ void BattleSceneHades::onEntrance()
 
     //首先设置位置和阵营，其他的后面统一处理
     int battleUid = 10000;
-    int cloneSummonCount = 0;
-    std::vector<size_t> cloneSourceIndices;
     //敌方
     for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
     {
@@ -1510,7 +1599,6 @@ void BattleSceneHades::onEntrance()
             }
         }
 
-        // Detect combos using RealID (original Save IDs, deduped by set)
         auto getTeammateFightsWon = [&](size_t index)
         {
             if (index >= extended_teammates_.size())
@@ -1541,31 +1629,26 @@ void BattleSceneHades::onEntrance()
                 return std::pair{ -1, -1 };
             }
 
-            auto& teammate = extended_teammates_[index];
+            const auto& teammate = extended_teammates_[index];
             if (teammate.weaponId >= 0 || teammate.armorId >= 0)
             {
                 return std::pair{ teammate.weaponId, teammate.armorId };
             }
 
-            KysChess::ChessInstanceID chessInstanceId{ teammate.chessInstanceId };
-            auto chess = chessManager_.tryFindChessByInstanceId(chessInstanceId);
+            auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ teammate.chessInstanceId });
             if (!chess)
             {
                 return std::pair{ -1, -1 };
             }
-
-            auto& c = *chess;
-            return std::pair{
-                c.weaponInstance.itemId,
-                c.armorInstance.itemId
-            };
+            return std::pair{ chess->weaponInstance.itemId, chess->armorInstance.itemId };
         };
 
         auto getEnemyEquipment = [&](size_t index)
         {
-            int weaponId = index < enemy_weapons_.size() ? enemy_weapons_[index] : -1;
-            int armorId = index < enemy_armors_.size() ? enemy_armors_[index] : -1;
-            return std::pair{ weaponId, armorId };
+            return std::pair{
+                index < enemy_weapons_.size() ? enemy_weapons_[index] : -1,
+                index < enemy_armors_.size() ? enemy_armors_[index] : -1,
+            };
         };
 
         auto allyChessVec = [&]()
@@ -1574,20 +1657,22 @@ void BattleSceneHades::onEntrance()
             for (size_t i = 0; i < friends_obj_.size(); i++)
             {
                 auto orig = roleSave_.getRole(friends_obj_[i].RealID);
-                if (orig)
+                if (!orig)
                 {
-                    KysChess::Chess chess;
-                    chess.role = orig;
-                    chess.star = i < extended_teammates_.size() ? extended_teammates_[i].star : 1;
-                    if (i < extended_teammates_.size())
-                    {
-                        chess.id = KysChess::ChessInstanceID{ extended_teammates_[i].chessInstanceId };
-                    }
-                    auto [weaponId, armorId] = getAllyEquipment(i);
-                    chess.weaponInstance.itemId = weaponId;
-                    chess.armorInstance.itemId = armorId;
-                    v.push_back(chess);
+                    continue;
                 }
+
+                KysChess::Chess chess;
+                chess.role = orig;
+                chess.star = i < extended_teammates_.size() ? extended_teammates_[i].star : 1;
+                if (i < extended_teammates_.size())
+                {
+                    chess.id = KysChess::ChessInstanceID{ extended_teammates_[i].chessInstanceId };
+                }
+                auto [weaponId, armorId] = getAllyEquipment(i);
+                chess.weaponInstance.itemId = weaponId;
+                chess.armorInstance.itemId = armorId;
+                v.push_back(chess);
             }
             return KysChess::ChessEquipment::withActiveSynergies(std::move(v));
         }();
@@ -1597,25 +1682,23 @@ void BattleSceneHades::onEntrance()
             for (size_t i = 0; i < enemies_obj_.size(); i++)
             {
                 auto orig = roleSave_.getRole(enemies_obj_[i].RealID);
-                if (orig)
+                if (!orig)
                 {
-                    KysChess::Chess chess;
-                    chess.role = orig;
-                    chess.star = i < enemy_stars_.size() ? enemy_stars_[i] : 0;
-                    auto [weaponId, armorId] = getEnemyEquipment(i);
-                    chess.weaponInstance.itemId = weaponId;
-                    chess.armorInstance.itemId = armorId;
-                    v.push_back(chess);
+                    continue;
                 }
+
+                KysChess::Chess chess;
+                chess.role = orig;
+                chess.star = i < enemy_stars_.size() ? enemy_stars_[i] : 0;
+                auto [weaponId, armorId] = getEnemyEquipment(i);
+                chess.weaponInstance.itemId = weaponId;
+                chess.armorInstance.itemId = armorId;
+                v.push_back(chess);
             }
             return KysChess::ChessEquipment::withActiveSynergies(std::move(v));
         }();
-        auto allyCombos = KysChess::ChessCombo::detectCombos(allyChessVec);
-        auto enemyCombos = KysChess::ChessCombo::detectCombos(enemyChessVec);
-        auto allyStates = KysChess::ChessCombo::buildComboStates(allyCombos);
-        auto enemyStates = KysChess::ChessCombo::buildComboStates(enemyCombos);
-        auto allyComboGlobalEffects = KysChess::ChessCombo::collectGlobalEffects(allyCombos);
-        auto enemyComboGlobalEffects = KysChess::ChessCombo::collectGlobalEffects(enemyCombos);
+        auto allyStates = KysChess::ChessCombo::buildComboStates(KysChess::ChessCombo::detectCombos(allyChessVec));
+        auto enemyStates = KysChess::ChessCombo::buildComboStates(KysChess::ChessCombo::detectCombos(enemyChessVec));
 
         struct FightWinGrowthBonus
         {
@@ -1650,209 +1733,6 @@ void BattleSceneHades::onEntrance()
             KysChess::BattleRoleManager::applyStarBonus(&enemies_obj_[i], enemy_stars_[i]);
         }
 
-        int allyTeamFlatShield = KysChess::ChessCombo::computeTeamFlatShieldBonus(allyStates);
-        int enemyTeamFlatShield = KysChess::ChessCombo::computeTeamFlatShieldBonus(enemyStates);
-        std::vector<KysChess::ComboEffect> allyGlobalEffects = allyComboGlobalEffects;
-
-        // Collect neigong global effects and apply them per battle copy.
-        // This avoids stacking the same effect multiple times when duplicate role IDs are selected.
-        {
-            auto& obtained = progress_.getObtainedNeigong();
-            if (!obtained.empty())
-            {
-                auto& pool = KysChess::ChessNeigong::getPool();
-                for (int mid : obtained)
-                {
-                    for (auto& ng : pool)
-                    {
-                        if (ng.magicId == mid)
-                        {
-                            allyGlobalEffects.insert(allyGlobalEffects.end(), ng.effects.begin(), ng.effects.end());
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Apply combo stat buffs on copies and remap to battle IDs
-        KysChess::ChessCombo::clearActiveStates();
-        auto& cs = KysChess::ChessCombo::getMutableStates();
-        auto applyStateToCopy = [&](Role& r, KysChess::RoleComboState& s)
-        {
-            r.MaxHP += s.flatHP;
-            r.Attack += s.flatATK;
-            r.Defence += s.flatDEF;
-            r.Speed += s.flatSPD;
-            if (s.pctHP != 0)
-            {
-                r.MaxHP = static_cast<int>(r.MaxHP * (1.0 + s.pctHP / 100.0));
-            }
-            if (s.pctATK != 0)
-            {
-                r.Attack = static_cast<int>(r.Attack * (1.0 + s.pctATK / 100.0));
-            }
-            if (s.pctDEF != 0)
-            {
-                r.Defence = static_cast<int>(r.Defence * (1.0 + s.pctDEF / 100.0));
-            }
-            if (s.pctSPD != 0)
-            {
-                r.Speed = static_cast<int>(r.Speed * (1.0 + s.pctSPD / 100.0));
-            }
-            r.HP = r.MaxHP;
-            if (s.shieldPctMaxHP > 0)
-            {
-                s.shield = r.MaxHP * s.shieldPctMaxHP / 100;
-                recordBattleStatusLog(&r, nullptr,
-                    formatStatusValue("獲取", s.shield, "護盾"));
-            }
-        };
-        auto applyEquipmentEffects = [&](KysChess::RoleComboState& state, int roleId, int weaponId, int armorId)
-        {
-            auto applyById = [&](int itemId)
-            {
-                if (itemId < 0)
-                {
-                    return;
-                }
-                auto* eq = KysChess::ChessEquipment::getById(itemId);
-                if (!eq)
-                {
-                    return;
-                }
-                for (auto& effect : eq->effects)
-                {
-                    KysChess::ChessBattleEffects::applyEffect(state, effect);
-                }
-            };
-            applyById(weaponId);
-            applyById(armorId);
-            for (auto* synergy : KysChess::ChessEquipment::getSynergiesFor(roleId, weaponId, armorId))
-            {
-                for (auto& effect : synergy->effects)
-                {
-                    KysChess::ChessBattleEffects::applyEffect(state, effect);
-                }
-            }
-        };
-        auto initializeTimedEffects = [](KysChess::RoleComboState& state)
-        {
-            if (state.damageImmunityAfterFrames > 0)
-            {
-                state.damageImmunityTimer = state.damageImmunityAfterFrames;
-            }
-            if (state.autoUltimateAfterFrames > 0)
-            {
-                state.autoUltimateTimer = state.autoUltimateAfterFrames;
-            }
-        };
-        auto applyOnCopies = [&](std::deque<Role>& objs,
-                                 std::map<int, KysChess::RoleComboState>& states,
-                                 const std::vector<KysChess::ComboEffect>& globalEffects,
-                                 int teamFlatShield,
-                                 auto equipmentLookup)
-        {
-            for (size_t index = 0; index < objs.size(); ++index)
-            {
-                auto& r = objs[index];
-                KysChess::RoleComboState battleState;
-                auto it = states.find(r.RealID);
-                if (it != states.end())
-                {
-                    battleState = it->second;
-                }
-
-                for (auto& effect : globalEffects)
-                {
-                    KysChess::ChessBattleEffects::applyEffect(battleState, effect);
-                }
-
-                auto [weaponId, armorId] = equipmentLookup(index);
-                applyEquipmentEffects(battleState, r.RealID, weaponId, armorId);
-                applyStateToCopy(r, battleState);
-                if (teamFlatShield > 0)
-                {
-                    battleState.shield += teamFlatShield;
-                    recordBattleStatusLog(&r, nullptr,
-                        formatStatusValue("全隊獲取", teamFlatShield, "護盾"));
-                }
-                initializeTimedEffects(battleState);
-                battleState.blockFirstHitsRemaining = battleState.blockFirstHitsCount;
-                cs[r.ID] = battleState;
-            }
-        };
-        applyOnCopies(friends_obj_, allyStates, allyGlobalEffects, allyTeamFlatShield, getAllyEquipment);
-        applyOnCopies(enemies_obj_, enemyStates, enemyComboGlobalEffects, enemyTeamFlatShield, getEnemyEquipment);
-        updateEnemyTopDebuffState();
-
-        for (auto& role : friends_obj_)
-        {
-            auto it = cs.find(role.ID);
-            if (it != cs.end())
-            {
-                cloneSummonCount = std::max(cloneSummonCount, it->second.cloneSummonCount);
-            }
-        }
-
-        if (cloneSummonCount > 0)
-        {
-            struct CloneSourceCandidate
-            {
-                size_t index = static_cast<size_t>(-1);
-                int chessInstanceId = -1;
-                int star = 0;
-                int power = 0;
-            };
-
-            std::vector<CloneSourceCandidate> cloneCandidates;
-            for (size_t i = 0; i < friends_obj_.size() && i < extended_teammates_.size(); ++i)
-            {
-                auto it = cs.find(friends_obj_[i].ID);
-                if (it == cs.end() || it->second.cloneSummonCount <= 0)
-                {
-                    continue;
-                }
-
-                cloneCandidates.push_back({ i,
-                    extended_teammates_[i].chessInstanceId,
-                    extended_teammates_[i].star,
-                    friends_obj_[i].MaxHP + friends_obj_[i].Attack + friends_obj_[i].Defence });
-            }
-
-            std::sort(cloneCandidates.begin(), cloneCandidates.end(), [](const auto& left, const auto& right)
-                {
-                    if (left.star != right.star)
-                    {
-                        return left.star > right.star;
-                    }
-                    if (left.power != right.power)
-                    {
-                        return left.power > right.power;
-                    }
-                    return left.index < right.index;
-                });
-
-            std::set<int> usedInstanceIds;
-            std::vector<size_t> fallbackIndices;
-            for (const auto& candidate : cloneCandidates)
-            {
-                if (candidate.chessInstanceId >= 0)
-                {
-                    if (!usedInstanceIds.insert(candidate.chessInstanceId).second)
-                    {
-                        fallbackIndices.push_back(candidate.index);
-                        continue;
-                    }
-                }
-                cloneSourceIndices.push_back(candidate.index);
-            }
-            cloneSourceIndices.insert(cloneSourceIndices.end(), fallbackIndices.begin(), fallbackIndices.end());
-            if (cloneSummonCount < static_cast<int>(cloneSourceIndices.size()))
-            {
-                cloneSourceIndices.resize(cloneSummonCount);
-            }
-        }
     }
     else if (info_->AutoTeamMate[0] >= 0)
     {
@@ -1904,83 +1784,6 @@ void BattleSceneHades::onEntrance()
         }
     }
 
-    if (!extended_teammates_.empty()
-        && cloneSummonCount > 0
-        && !cloneSourceIndices.empty()
-        && !clone_spawn_positions_.empty())
-    {
-        auto isOccupied45 = [&](int x, int y)
-        {
-            for (auto role : battle_roles_)
-            {
-                if (role->Dead != 0)
-                {
-                    continue;
-                }
-                auto pos = pos90To45(role->Pos.x, role->Pos.y);
-                if (pos.x == x && pos.y == y)
-                {
-                    return true;
-                }
-            }
-            return false;
-        };
-
-        auto& cs = KysChess::ChessCombo::getMutableStates();
-        int spawned = 0;
-        for (auto [x, y] : clone_spawn_positions_)
-        {
-            if (spawned >= cloneSummonCount)
-            {
-                break;
-            }
-            if (!canWalk45(x, y) || isOccupied45(x, y))
-            {
-                continue;
-            }
-
-            size_t sourceIndex = cloneSourceIndices[spawned % cloneSourceIndices.size()];
-            if (sourceIndex >= friends_obj_.size())
-            {
-                continue;
-            }
-
-            auto source = &friends_obj_[sourceIndex];
-            auto sourceState = cs.find(source->ID);
-            if (sourceState == cs.end())
-            {
-                continue;
-            }
-
-            friends_obj_.push_back(*source);
-            auto clone = &friends_obj_.back();
-            clone->ID = battleUid++;
-            clone->Auto = 2;
-            clone->Team = source->Team;
-            clone->Dead = 0;
-            clone->LastAttacker = nullptr;
-            clone->Velocity = { 0, 0, 0 };
-            clone->Acceleration = { 0, 0, 0 };
-            clone->UsingMagic = nullptr;
-            clone->HaveAction = 0;
-            clone->ActFrame = 0;
-            clone->CoolDown = 0;
-            clone->Frozen = 0;
-            clone->FrozenMax = 0;
-            clone->Invincible = 0;
-            clone->HurtFrame = 0;
-            clone->Shake = 0;
-            clone->FindingWay = 0;
-            clone->OperationCount = 0;
-            clone->setPositionOnly(x, y);
-            setRoleInitState(clone);
-            battle_roles_.push_back(clone);
-            cs[clone->ID] = KysChess::ChessBattleEffects::makeSummonedCloneState(sourceState->second, clone->MaxHP);
-            recordBattleStatusLog(source, clone, std::format("七截分身（落點 {}, {}）", x, y));
-            spawned++;
-        }
-    }
-
     // Center camera on allies
     if (!friends_.empty())
     {
@@ -1999,7 +1802,7 @@ void BattleSceneHades::onEntrance()
     close_up_total_ = 0;
     clampCameraCenter();
 
-    initializeBattleRuntimeSession();
+    initializeBattleRuntime();
     runPreBattlePositionSwapIfEnabled();
     commitFinalSetupPlacementToRuntime();
 
@@ -2517,109 +2320,6 @@ void BattleSceneHades::playCorePresentationFrame()
     publishPresentationFrame();
 }
 
-void BattleSceneHades::updateEnemyTopDebuffState()
-{
-    auto& cs = battle_session_.has_value()
-        ? battleRuntime().combo.units
-        : KysChess::ChessCombo::getMutableStates();
-
-    int liveAllies = 0;
-    int topTargets = 0;
-    int perMemberValue = 0;
-    for (const auto& ally : friends_obj_)
-    {
-        if (ally.Dead != 0)
-        {
-            continue;
-        }
-
-        auto sit = cs.find(ally.ID);
-        if (sit == cs.end() || sit->second.enemyTopDebuffCount <= 0)
-        {
-            continue;
-        }
-
-        liveAllies++;
-        topTargets = std::max(topTargets, sit->second.enemyTopDebuffCount);
-        perMemberValue = std::max(perMemberValue, sit->second.enemyTopDebuffValue);
-    }
-
-    if (liveAllies <= 0 || topTargets <= 0 || perMemberValue <= 0)
-    {
-        topTargets = std::max(topTargets, 0);
-    }
-
-    std::vector<size_t> enemyOrder;
-    enemyOrder.reserve(enemies_obj_.size());
-    for (size_t i = 0; i < enemies_obj_.size(); ++i)
-    {
-        if (enemies_obj_[i].Dead == 0)
-        {
-            enemyOrder.push_back(i);
-        }
-    }
-
-    auto enemySortScore = [&](size_t index) -> long long
-    {
-        int tier = index < enemies_obj_.size() ? enemies_obj_[index].Cost : 0;
-        int star = index < enemy_stars_.size() ? enemy_stars_[index] : 0;
-        if (tier <= 0)
-        {
-            return 0;
-        }
-
-        long long score = 1;
-        for (int i = 0; i < star; ++i)
-        {
-            score *= tier;
-        }
-        return score;
-    };
-
-    std::stable_sort(enemyOrder.begin(), enemyOrder.end(), [&](size_t l, size_t r)
-        {
-            long long lScore = enemySortScore(l);
-            long long rScore = enemySortScore(r);
-            if (lScore != rScore)
-            {
-                return lScore > rScore;
-            }
-
-            int lHP = l < enemies_obj_.size() ? enemies_obj_[l].MaxHP : 0;
-            int rHP = r < enemies_obj_.size() ? enemies_obj_[r].MaxHP : 0;
-            return lHP > rHP;
-        });
-
-    int assignedTargets = 0;
-    for (size_t index : enemyOrder)
-    {
-        auto& enemy = enemies_obj_[index];
-        auto& state = cs[enemy.ID];
-        int desired = 0;
-        if (assignedTargets < topTargets && liveAllies > 0 && perMemberValue > 0)
-        {
-            desired = perMemberValue * liveAllies;
-            ++assignedTargets;
-        }
-
-        int delta = desired - state.enemyTopDebuffApplied;
-        if (delta != 0)
-        {
-            int change = delta > 0 ? delta : -delta;
-            enemy.Attack = std::max(0, enemy.Attack - delta);
-            enemy.Defence = std::max(0, enemy.Defence - delta);
-            state.enemyTopDebuffApplied = desired;
-            recordBattleStatusLog(nullptr,
-                &enemy,
-                std::format("陰險：前{}名攻防{}{}（{}名存活）",
-                    topTargets,
-                    delta > 0 ? "-" : "+",
-                    change,
-                    liveAllies));
-        }
-    }
-}
-
 void BattleSceneHades::onPressedCancel()
 {
 }
@@ -3127,10 +2827,6 @@ void BattleSceneHades::applyCoreDamageTransactions(
 
     writeBattleDeathEffectTrackers(frameResult.deathEffectTrackers, cs);
 
-    if (lifecycleApply.unitDied)
-    {
-        updateEnemyTopDebuffState();
-    }
     if (lifecycleApply.battleEnded)
     {
         if (!isManualCameraEnabled())
@@ -3203,6 +2899,12 @@ void BattleSceneHades::applyCoreFrameApplications(
         auto* target = requireFrameRole(bindings, buff.unitId);
         target->Attack += buff.attackBonus;
         target->Defence += buff.defenceBonus;
+    }
+    for (const auto& delta : applications.enemyTopDebuffDeltas)
+    {
+        auto* target = requireFrameRole(bindings, delta.unitId);
+        target->Attack += delta.attackDelta;
+        target->Defence += delta.defenceDelta;
     }
     for (const auto& lastAttacker : applications.lastAttackers)
     {

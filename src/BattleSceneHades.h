@@ -73,10 +73,9 @@ protected:
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
 
-    void updateEnemyTopDebuffState();
     bool attackCanHitInvincible(Role* role) const;
     void queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnRequest request);
-    void initializeBattleRuntimeSession();
+    void initializeBattleRuntime();
     KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext makeBattleRuntimeBuildContext() const;
     void runPreBattlePositionSwapIfEnabled();
     void commitFinalSetupPlacementToRuntime();
@@ -114,7 +113,6 @@ protected:
     void beginPresentationFrame();
     void publishPresentationFrame();
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
-    void recordBattleStatusLog(Role* source, Role* target, const std::string& text);
 public:
     BattleTracker& getTracker() { return tracker_; }
     const std::deque<Role>& getFriendsObj() const { return friends_obj_; }

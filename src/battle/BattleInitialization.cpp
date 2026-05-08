@@ -1,14 +1,37 @@
 #include "BattleInitialization.h"
 
+#include "../ChessBattleEffects.h"
+
+#include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <format>
+#include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 
 namespace KysChess::Battle
 {
 
 namespace
 {
+
+struct ActiveSetupCombo
+{
+    int id = -1;
+    int memberCount = 0;
+    int physicalMemberCount = 0;
+    int activeThresholdIdx = -1;
+    bool isAntiCombo = false;
+    std::set<int> memberRoleIds;
+};
+
+struct TeamResolvedSetup
+{
+    std::map<int, RoleComboState> baseStatesByRealRoleId;
+    std::vector<std::pair<ComboEffect, int>> teamwideEffects;
+};
 
 BattleStatusRuntimeUnit& requireStatusUnit(BattleRuntimeState& runtime, int unitId)
 {
@@ -67,26 +90,518 @@ std::string shieldLogText(const char* prefix, int shield)
     return std::string(prefix) + std::to_string(shield) + "護盾";
 }
 
+bool isTeamwideComboEffect(EffectType type)
+{
+    switch (type)
+    {
+    case EffectType::TeamFlatHP:
+    case EffectType::TeamFlatATK:
+    case EffectType::TeamFlatDEF:
+    case EffectType::TeamFlatSPD:
+    case EffectType::TeamPctHP:
+    case EffectType::TeamPctATK:
+    case EffectType::TeamPctDEF:
+    case EffectType::TeamPctSPD:
+        return true;
+    default:
+        return false;
+    }
+}
+
+const BattleSetupEquipmentDefinition* findEquipmentDefinition(
+    const BattleRuntimeSetupSeed& setup,
+    int itemId)
+{
+    if (itemId < 0)
+    {
+        return nullptr;
+    }
+
+    const auto it = std::find_if(
+        setup.equipmentDefinitions.begin(),
+        setup.equipmentDefinitions.end(),
+        [itemId](const BattleSetupEquipmentDefinition& definition)
+        {
+            return definition.itemId == itemId;
+        });
+    return it != setup.equipmentDefinitions.end() ? &*it : nullptr;
+}
+
+const BattleSetupNeigongDefinition* findNeigongDefinition(
+    const BattleRuntimeSetupSeed& setup,
+    int magicId)
+{
+    const auto it = std::find_if(
+        setup.neigongDefinitions.begin(),
+        setup.neigongDefinitions.end(),
+        [magicId](const BattleSetupNeigongDefinition& definition)
+        {
+            return definition.magicId == magicId;
+        });
+    return it != setup.neigongDefinitions.end() ? &*it : nullptr;
+}
+
+bool equipmentSynergyActive(
+    const BattleSetupEquipmentSynergyDefinition& synergy,
+    int roleId,
+    int weaponId,
+    int armorId)
+{
+    if (synergy.equipmentId != weaponId && synergy.equipmentId != armorId)
+    {
+        return false;
+    }
+
+    return std::find(synergy.roleIds.begin(), synergy.roleIds.end(), roleId) != synergy.roleIds.end();
+}
+
+std::vector<std::string> collectActAsComboNames(
+    const BattleRuntimeSetupSeed& setup,
+    const BattleSetupRosterUnit& unit)
+{
+    std::vector<std::string> names;
+
+    auto appendEquipmentActAs = [&](int itemId)
+    {
+        const auto* definition = findEquipmentDefinition(setup, itemId);
+        if (!definition)
+        {
+            return;
+        }
+        names.insert(names.end(), definition->actAsComboNames.begin(), definition->actAsComboNames.end());
+    };
+
+    appendEquipmentActAs(unit.weaponId);
+    appendEquipmentActAs(unit.armorId);
+
+    for (const auto& synergy : setup.equipmentSynergies)
+    {
+        if (!equipmentSynergyActive(synergy, unit.realRoleId, unit.weaponId, unit.armorId))
+        {
+            continue;
+        }
+
+        names.insert(names.end(), synergy.actAsComboNames.begin(), synergy.actAsComboNames.end());
+    }
+
+    return names;
+}
+
+std::vector<ActiveSetupCombo> detectCombos(
+    const std::vector<BattleSetupRosterUnit>& roster,
+    const BattleRuntimeSetupSeed& setup)
+{
+    std::map<int, int> starByRole;
+    std::map<int, int> costByRole;
+    std::map<std::string, std::set<int>> actAsByComboName;
+    for (const auto& unit : roster)
+    {
+        starByRole[unit.realRoleId] = unit.star;
+        costByRole[unit.realRoleId] = unit.cost;
+        for (const auto& comboName : collectActAsComboNames(setup, unit))
+        {
+            actAsByComboName[comboName].insert(unit.realRoleId);
+        }
+    }
+
+    std::vector<ActiveSetupCombo> result;
+    for (const auto& combo : setup.comboDefinitions)
+    {
+        ActiveSetupCombo active;
+        active.id = combo.id;
+
+        auto addMember = [&](int roleId)
+        {
+            if (!starByRole.contains(roleId))
+            {
+                return;
+            }
+            if (active.memberRoleIds.insert(roleId).second)
+            {
+                active.memberCount++;
+            }
+        };
+
+        for (int roleId : combo.memberRoleIds)
+        {
+            addMember(roleId);
+        }
+        if (const auto actAsIt = actAsByComboName.find(combo.name); actAsIt != actAsByComboName.end())
+        {
+            for (int roleId : actAsIt->second)
+            {
+                addMember(roleId);
+            }
+        }
+        if (active.memberCount == 0)
+        {
+            continue;
+        }
+
+        active.physicalMemberCount = active.memberCount;
+        if (combo.starSynergyBonus)
+        {
+            for (int roleId : active.memberRoleIds)
+            {
+                active.memberCount += starByRole[roleId] - 1;
+            }
+        }
+
+        if (combo.isAntiCombo)
+        {
+            int bestRoleId = -1;
+            int bestCost = -1;
+            for (int roleId : active.memberRoleIds)
+            {
+                const int cost = costByRole.contains(roleId) ? costByRole[roleId] : -1;
+                if (cost > bestCost)
+                {
+                    bestCost = cost;
+                    bestRoleId = roleId;
+                }
+            }
+            active.memberRoleIds.clear();
+            if (bestRoleId >= 0)
+            {
+                active.memberRoleIds.insert(bestRoleId);
+                active.memberCount = 1;
+                active.physicalMemberCount = 1;
+                active.isAntiCombo = true;
+                active.activeThresholdIdx = 0;
+            }
+        }
+        else
+        {
+            for (int thresholdIndex = static_cast<int>(combo.thresholds.size()) - 1; thresholdIndex >= 0; --thresholdIndex)
+            {
+                if (active.memberCount >= combo.thresholds[thresholdIndex].count)
+                {
+                    active.activeThresholdIdx = thresholdIndex;
+                    break;
+                }
+            }
+        }
+
+        result.push_back(std::move(active));
+    }
+
+    return result;
+}
+
+TeamResolvedSetup resolveTeamSetup(
+    const std::vector<BattleSetupRosterUnit>& roster,
+    const BattleRuntimeSetupSeed& setup)
+{
+    TeamResolvedSetup resolved;
+    for (const auto& active : detectCombos(roster, setup))
+    {
+        if (active.activeThresholdIdx < 0)
+        {
+            continue;
+        }
+
+        const auto comboIt = std::find_if(
+            setup.comboDefinitions.begin(),
+            setup.comboDefinitions.end(),
+            [&active](const BattleSetupComboDefinition& definition)
+            {
+                return definition.id == active.id;
+            });
+        assert(comboIt != setup.comboDefinitions.end());
+        const auto& threshold = comboIt->thresholds[active.activeThresholdIdx];
+
+        for (int roleId : active.memberRoleIds)
+        {
+            auto& state = resolved.baseStatesByRealRoleId[roleId];
+            for (const auto& effect : threshold.effects)
+            {
+                if (isTeamwideComboEffect(effect.type))
+                {
+                    continue;
+                }
+                KysChess::ChessBattleEffects::applyEffect(state, effect, active.id);
+            }
+        }
+
+        for (const auto& effect : threshold.effects)
+        {
+            if (!isTeamwideComboEffect(effect.type))
+            {
+                continue;
+            }
+            resolved.teamwideEffects.push_back({ effect, active.id });
+        }
+    }
+
+    return resolved;
+}
+
+void applyEquipmentEffects(
+    RoleComboState& combo,
+    const BattleRuntimeSetupSeed& setup,
+    const BattleInitializationUnitSeed& seed,
+    const std::vector<BattleSetupRosterUnit>& roster)
+{
+    const auto rosterIt = std::find_if(
+        roster.begin(),
+        roster.end(),
+        [&seed](const BattleSetupRosterUnit& unit)
+        {
+            return unit.unitId == seed.unitId;
+        });
+    if (rosterIt == roster.end())
+    {
+        return;
+    }
+
+    auto applyDefinition = [&](int itemId)
+    {
+        const auto* definition = findEquipmentDefinition(setup, itemId);
+        if (!definition)
+        {
+            return;
+        }
+        for (const auto& effect : definition->effects)
+        {
+            KysChess::ChessBattleEffects::applyEffect(combo, effect);
+        }
+    };
+
+    applyDefinition(rosterIt->weaponId);
+    applyDefinition(rosterIt->armorId);
+    for (const auto& synergy : setup.equipmentSynergies)
+    {
+        if (!equipmentSynergyActive(synergy, seed.realRoleId, rosterIt->weaponId, rosterIt->armorId))
+        {
+            continue;
+        }
+        for (const auto& effect : synergy.effects)
+        {
+            KysChess::ChessBattleEffects::applyEffect(combo, effect);
+        }
+    }
+}
+
+void applyObtainedNeigongEffects(
+    RoleComboState& combo,
+    const BattleRuntimeSetupSeed& setup,
+    int team)
+{
+    if (team != 0)
+    {
+        return;
+    }
+
+    for (int magicId : setup.obtainedNeigongMagicIds)
+    {
+        const auto* definition = findNeigongDefinition(setup, magicId);
+        if (!definition)
+        {
+            continue;
+        }
+        for (const auto& effect : definition->effects)
+        {
+            KysChess::ChessBattleEffects::applyEffect(combo, effect);
+        }
+    }
+}
+
+int resolveCloneCount(const BattleRuntimeSetupSeed& setup, const std::map<int, RoleComboState>& combos)
+{
+    if (setup.cloneSummonCount > 0)
+    {
+        return setup.cloneSummonCount;
+    }
+
+    int cloneCount = 0;
+    for (const auto& [unitId, combo] : combos)
+    {
+        (void)unitId;
+        cloneCount = std::max(cloneCount, combo.cloneSummonCount);
+    }
+    return cloneCount;
+}
+
+Pointf positionForCloneCell(const BattleGridTransform& gridTransform, int x, int y)
+{
+    return {
+        static_cast<float>(-y * gridTransform.tileWidth + x * gridTransform.tileWidth + gridTransform.coordCount * gridTransform.tileWidth),
+        static_cast<float>(y * gridTransform.tileWidth + x * gridTransform.tileWidth),
+        0.0f,
+    };
+}
+
+BattleStatusRuntimeUnit cloneStatusUnit(
+    const BattleStatusRuntimeUnit& source,
+    int cloneUnitId,
+    const RoleComboState& cloneCombo)
+{
+    auto clone = source;
+    clone.id = cloneUnitId;
+    clone.freezeReductionPct = cloneCombo.freezeReductionPct;
+    clone.shieldFreezeResPct = cloneCombo.shieldFreezeResPct;
+    clone.controlImmunityFrames = cloneCombo.controlImmunityFrames;
+    clone.damageImmunityAfterFrames = cloneCombo.damageImmunityAfterFrames;
+    clone.damageImmunityDuration = cloneCombo.damageImmunityDuration;
+    clone.damageImmunityTimer = cloneCombo.damageImmunityTimer;
+    return clone;
+}
+
+std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
+    BattleRuntimeState& runtime,
+    std::vector<BattleLogEvent>& logEvents)
+{
+    int liveAllies = 0;
+    int topTargets = 0;
+    int perMemberValue = 0;
+    for (const auto& ally : runtime.units.units)
+    {
+        if (!ally.alive || ally.team != 0)
+        {
+            continue;
+        }
+
+        const auto comboIt = runtime.combo.units.find(ally.id);
+        if (comboIt == runtime.combo.units.end() || comboIt->second.enemyTopDebuffCount <= 0)
+        {
+            continue;
+        }
+
+        liveAllies++;
+        topTargets = std::max(topTargets, comboIt->second.enemyTopDebuffCount);
+        perMemberValue = std::max(perMemberValue, comboIt->second.enemyTopDebuffValue);
+    }
+
+    std::vector<const BattleRuntimeUnit*> enemyOrder;
+    for (const auto& unit : runtime.units.units)
+    {
+        if (unit.team == 1 && unit.alive)
+        {
+            enemyOrder.push_back(&unit);
+        }
+    }
+
+    auto sortScore = [](const BattleRuntimeUnit& unit)
+    {
+        if (unit.cost <= 0)
+        {
+            return 0LL;
+        }
+
+        long long score = 1;
+        for (int index = 0; index < unit.star; ++index)
+        {
+            score *= unit.cost;
+        }
+        return score;
+    };
+
+    std::stable_sort(
+        enemyOrder.begin(),
+        enemyOrder.end(),
+        [&sortScore](const BattleRuntimeUnit* left, const BattleRuntimeUnit* right)
+        {
+            const long long leftScore = sortScore(*left);
+            const long long rightScore = sortScore(*right);
+            if (leftScore != rightScore)
+            {
+                return leftScore > rightScore;
+            }
+            return left->maxHp > right->maxHp;
+        });
+
+    std::vector<BattleInitializationEnemyTopDebuffDelta> deltas;
+    int assignedTargets = 0;
+    for (const auto* enemyRef : enemyOrder)
+    {
+        auto& enemy = runtime.units.requireUnit(enemyRef->id);
+        auto comboIt = runtime.combo.units.find(enemy.id);
+        assert(comboIt != runtime.combo.units.end());
+
+        int desired = 0;
+        if (assignedTargets < topTargets && liveAllies > 0 && perMemberValue > 0)
+        {
+            desired = perMemberValue * liveAllies;
+            ++assignedTargets;
+        }
+
+        const int delta = desired - comboIt->second.enemyTopDebuffApplied;
+        if (delta == 0)
+        {
+            continue;
+        }
+
+        enemy.attack = std::max(0, enemy.attack - delta);
+        enemy.defence = std::max(0, enemy.defence - delta);
+        comboIt->second.enemyTopDebuffApplied = desired;
+        deltas.push_back({
+            enemy.id,
+            -delta,
+            -delta,
+            desired,
+        });
+        logEvents.push_back({
+            BattleLogEventType::Status,
+            BattlePresentationCurrentFrame,
+            -1,
+            enemy.id,
+            0,
+            std::format("陰險：前{}名攻防{}{}（{}名存活）",
+                topTargets,
+                delta > 0 ? "-" : "+",
+                std::abs(delta),
+                liveAllies),
+        });
+    }
+
+    return deltas;
+}
+
 }  // namespace
 
 BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeState& runtime,
                                                                   const BattleRuntimeSetupSeed& setup) const
 {
     BattleInitializationResult result;
-    std::map<int, int> teamByUnitId;
+    const auto allyResolved = resolveTeamSetup(setup.allyRoster, setup);
+    const auto enemyResolved = resolveTeamSetup(setup.enemyRoster, setup);
+    std::vector<int> seededUnitIds;
+    seededUnitIds.reserve(setup.units.size());
 
     for (const auto& seed : setup.units)
     {
         auto& unit = runtime.units.requireUnit(seed.unitId);
         auto& status = requireStatusUnit(runtime, seed.unitId);
-
-        teamByUnitId[seed.unitId] = seed.team;
-
         RoleComboState combo = seed.baseCombo;
+
+        const auto& resolved = seed.team == 0 ? allyResolved : enemyResolved;
+        if (const auto baseStateIt = resolved.baseStatesByRealRoleId.find(seed.realRoleId);
+            baseStateIt != resolved.baseStatesByRealRoleId.end())
+        {
+            for (const auto& effect : baseStateIt->second.appliedEffects)
+            {
+                KysChess::ChessBattleEffects::applyEffect(combo, effect, effect.sourceComboId);
+            }
+        }
+        for (const auto& [effect, sourceComboId] : resolved.teamwideEffects)
+        {
+            KysChess::ChessBattleEffects::applyEffect(combo, effect, sourceComboId);
+        }
+        applyEquipmentEffects(
+            combo,
+            setup,
+            seed,
+            seed.team == 0 ? setup.allyRoster : setup.enemyRoster);
+        applyObtainedNeigongEffects(combo, setup, seed.team);
+
         unit.maxHp = seed.baseMaxHp + combo.flatHP;
         unit.attack = seed.baseAttack + combo.flatATK;
         unit.defence = seed.baseDefence + combo.flatDEF;
         unit.speed = seed.baseSpeed + combo.flatSPD;
+        unit.realRoleId = seed.realRoleId;
+        unit.team = seed.team;
+        unit.star = seed.star;
+        unit.cost = seed.cost;
 
         unit.maxHp = applyPercentBonus(unit.maxHp, combo.pctHP);
         unit.attack = applyPercentBonus(unit.attack, combo.pctATK);
@@ -128,15 +643,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
         status.controlImmunityFrames = combo.controlImmunityFrames;
 
         runtime.combo.units[seed.unitId] = combo;
-        result.roleDeltas.push_back(
-            {
-                seed.unitId,
-                unit.maxHp,
-                unit.hp,
-                unit.attack,
-                unit.defence,
-                unit.speed,
-            });
+        seededUnitIds.push_back(seed.unitId);
     }
 
     std::map<int, int> teamFlatShieldByTeam;
@@ -187,6 +694,156 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
                 teamShield,
                 shieldLogText("全隊獲取", teamShield),
             });
+    }
+
+    const int cloneCount = resolveCloneCount(setup, runtime.combo.units);
+    if (cloneCount > 0 && !setup.cloneSources.empty())
+    {
+        std::vector<BattleInitializationCloneSource> cloneSources = setup.cloneSources;
+        std::sort(
+            cloneSources.begin(),
+            cloneSources.end(),
+            [](const BattleInitializationCloneSource& left, const BattleInitializationCloneSource& right)
+            {
+                if (left.star != right.star)
+                {
+                    return left.star > right.star;
+                }
+                if (left.power != right.power)
+                {
+                    return left.power > right.power;
+                }
+                return left.sourceOrder < right.sourceOrder;
+            });
+
+        std::set<int> usedInstanceIds;
+        std::vector<BattleInitializationCloneSource> cloneCandidates;
+        std::vector<BattleInitializationCloneSource> fallbackCandidates;
+        for (const auto& source : cloneSources)
+        {
+            if (source.chessInstanceId >= 0)
+            {
+                if (!usedInstanceIds.insert(source.chessInstanceId).second)
+                {
+                    fallbackCandidates.push_back(source);
+                    continue;
+                }
+            }
+            cloneCandidates.push_back(source);
+        }
+        cloneCandidates.insert(cloneCandidates.end(), fallbackCandidates.begin(), fallbackCandidates.end());
+
+        int nextCloneUnitId = setup.nextCloneUnitId;
+        int spawned = 0;
+        for (const auto& cell : setup.cloneCells)
+        {
+            if (spawned >= cloneCount || cloneCandidates.empty())
+            {
+                break;
+            }
+            if (!cell.walkable || cell.occupied)
+            {
+                continue;
+            }
+
+            const auto& source = cloneCandidates[spawned % cloneCandidates.size()];
+            const auto& sourceUnit = runtime.units.requireUnit(source.sourceUnitId);
+            const auto& sourceStatus = requireStatusUnit(runtime, source.sourceUnitId);
+            const auto sourceWorldIt = std::find_if(
+                runtime.world.units.begin(),
+                runtime.world.units.end(),
+                [&source](const BattleUnitState& unit)
+                {
+                    return unit.id == source.sourceUnitId;
+                });
+            const auto sourceComboIt = runtime.combo.units.find(source.sourceUnitId);
+            assert(sourceComboIt != runtime.combo.units.end());
+
+            auto cloneUnit = sourceUnit;
+            cloneUnit.id = nextCloneUnitId;
+            cloneUnit.realRoleId = source.sourceRealRoleId;
+            cloneUnit.alive = true;
+            cloneUnit.hp = cloneUnit.maxHp;
+            cloneUnit.position = positionForCloneCell(runtime.units.gridTransform, cell.x, cell.y);
+            cloneUnit.velocity = { 0, 0, 0 };
+            cloneUnit.acceleration = { 0, 0, 0 };
+            cloneUnit.grid = { cell.x, cell.y, 0 };
+            cloneUnit.cooldown = 0;
+            cloneUnit.cooldownMax = 0;
+            cloneUnit.haveAction = false;
+            cloneUnit.actFrame = 0;
+            cloneUnit.actType = -1;
+            cloneUnit.operationType = BattleOperationType::None;
+            cloneUnit.operationCount = 0;
+            cloneUnit.invincible = 0;
+            cloneUnit.hurtFrame = 0;
+            cloneUnit.canAttack = true;
+
+            auto cloneCombo = KysChess::ChessBattleEffects::makeSummonedCloneState(
+                sourceComboIt->second,
+                cloneUnit.maxHp);
+            cloneUnit.shield = cloneCombo.shield;
+
+            runtime.units.units.push_back(cloneUnit);
+            runtime.status.units.push_back(cloneStatusUnit(sourceStatus, nextCloneUnitId, cloneCombo));
+            runtime.combo.units[nextCloneUnitId] = cloneCombo;
+
+            BattleUnitState cloneWorld;
+            if (sourceWorldIt != runtime.world.units.end())
+            {
+                cloneWorld = *sourceWorldIt;
+            }
+            cloneWorld.id = nextCloneUnitId;
+            cloneWorld.realRoleId = source.sourceRealRoleId;
+            cloneWorld.team = sourceUnit.team;
+            cloneWorld.alive = true;
+            cloneWorld.position = cloneUnit.position;
+            cloneWorld.velocity = { 0, 0, 0 };
+            cloneWorld.star = sourceUnit.star;
+            runtime.world.units.push_back(cloneWorld);
+
+            result.cloneIntents.push_back({
+                source.sourceUnitId,
+                nextCloneUnitId,
+                cell.x,
+                cell.y,
+                {
+                    nextCloneUnitId,
+                    cloneUnit.maxHp,
+                    cloneUnit.hp,
+                    cloneUnit.attack,
+                    cloneUnit.defence,
+                    cloneUnit.speed,
+                },
+                cloneCombo,
+            });
+            result.logEvents.push_back({
+                BattleLogEventType::Status,
+                BattlePresentationCurrentFrame,
+                source.sourceUnitId,
+                nextCloneUnitId,
+                0,
+                std::format("七截分身（落點 {}, {}）", cell.x, cell.y),
+            });
+
+            ++nextCloneUnitId;
+            ++spawned;
+        }
+    }
+
+    result.enemyTopDebuffs = applyEnemyTopDebuff(runtime, result.logEvents);
+
+    for (int unitId : seededUnitIds)
+    {
+        const auto& unit = runtime.units.requireUnit(unitId);
+        result.roleDeltas.push_back({
+            unitId,
+            unit.maxHp,
+            unit.hp,
+            unit.attack,
+            unit.defence,
+            unit.speed,
+        });
     }
 
     result.comboStates = runtime.combo.units;

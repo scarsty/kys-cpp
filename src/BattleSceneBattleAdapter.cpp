@@ -4,7 +4,10 @@
 #include "Save.h"
 #include "BattleScenePresentationConstants.h"
 #include "BattleStatsView.h"
+#include "ChessCombo.h"
+#include "ChessEquipment.h"
 #include "ChessEftIds.h"
+#include "ChessNeigong.h"
 #include "GameUtil.h"
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattleDamageSystem.h"
@@ -115,6 +118,208 @@ Pointf facingDirection(int faceTowards)
     }
 }
 
+Battle::BattleUnitState makeBattleWorldUnit(Role* role)
+{
+    assert(role);
+
+    Battle::BattleUnitState unit;
+    unit.id = role->ID;
+    unit.realRoleId = role->RealID;
+    unit.name = role->Name;
+    unit.team = role->Team;
+    unit.alive = role->Dead == 0;
+    unit.position = role->Pos;
+    unit.velocity = role->Velocity;
+    unit.speed = role->Speed / 22.0;
+    unit.star = role->Star;
+    unit.canAttack = role->CoolDown == 0;
+    return unit;
+}
+
+std::vector<Battle::BattleSetupComboDefinition> makeBattleSetupComboDefinitions()
+{
+    std::vector<Battle::BattleSetupComboDefinition> definitions;
+    for (const auto& combo : KysChess::ChessCombo::getAllCombos())
+    {
+        Battle::BattleSetupComboDefinition definition;
+        definition.id = combo.id;
+        definition.name = combo.name;
+        definition.memberRoleIds = combo.memberRoleIds;
+        definition.isAntiCombo = combo.isAntiCombo;
+        definition.starSynergyBonus = combo.starSynergyBonus;
+        definition.thresholds.reserve(combo.thresholds.size());
+        for (const auto& threshold : combo.thresholds)
+        {
+            definition.thresholds.push_back({ threshold.count, threshold.effects });
+        }
+        definitions.push_back(std::move(definition));
+    }
+    return definitions;
+}
+
+std::vector<Battle::BattleSetupEquipmentDefinition> makeBattleSetupEquipmentDefinitions()
+{
+    std::vector<Battle::BattleSetupEquipmentDefinition> definitions;
+    for (const auto& equipment : KysChess::ChessEquipment::getAll())
+    {
+        definitions.push_back({
+            equipment.itemId,
+            equipment.equipType,
+            equipment.effects,
+            equipment.actAsComboNames,
+        });
+    }
+    return definitions;
+}
+
+std::vector<Battle::BattleSetupEquipmentSynergyDefinition> makeBattleSetupEquipmentSynergyDefinitions()
+{
+    std::vector<Battle::BattleSetupEquipmentSynergyDefinition> definitions;
+    for (const auto& synergy : KysChess::ChessEquipment::getAllSynergies())
+    {
+        definitions.push_back({
+            synergy.roleIds,
+            synergy.equipmentId,
+            synergy.effects,
+            synergy.actAsComboNames,
+        });
+    }
+    return definitions;
+}
+
+std::vector<Battle::BattleSetupNeigongDefinition> makeBattleSetupNeigongDefinitions()
+{
+    std::vector<Battle::BattleSetupNeigongDefinition> definitions;
+    for (const auto& neigong : KysChess::ChessNeigong::getPool())
+    {
+        definitions.push_back({ neigong.magicId, neigong.effects });
+    }
+    return definitions;
+}
+
+Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeBuildContext& context)
+{
+    Battle::BattleRuntimeSetupSeed setup;
+    setup.allyRoster = context.allyRoster;
+    setup.enemyRoster = context.enemyRoster;
+    setup.comboDefinitions = makeBattleSetupComboDefinitions();
+    setup.equipmentDefinitions = makeBattleSetupEquipmentDefinitions();
+    setup.equipmentSynergies = makeBattleSetupEquipmentSynergyDefinitions();
+    setup.neigongDefinitions = makeBattleSetupNeigongDefinitions();
+    setup.obtainedNeigongMagicIds = context.obtainedNeigongMagicIds;
+    setup.nextCloneUnitId = context.nextCloneUnitId;
+
+    for (const auto& unit : context.allyRoster)
+    {
+        setup.units.push_back({
+            unit.unitId,
+            unit.realRoleId,
+            unit.team,
+            unit.star,
+            unit.cost,
+            0,
+            0,
+            0,
+            0,
+            {},
+        });
+    }
+    for (const auto& unit : context.enemyRoster)
+    {
+        setup.units.push_back({
+            unit.unitId,
+            unit.realRoleId,
+            unit.team,
+            unit.star,
+            unit.cost,
+            0,
+            0,
+            0,
+            0,
+            {},
+        });
+    }
+
+    for (const auto& roster : { &context.allyRoster, &context.enemyRoster })
+    {
+        for (const auto& unit : *roster)
+        {
+            const auto roleIt = std::find_if(
+                context.roles.begin(),
+                context.roles.end(),
+                [&unit](Role* role)
+                {
+                    return role && role->ID == unit.unitId;
+                });
+            if (roleIt == context.roles.end() || !*roleIt)
+            {
+                continue;
+            }
+
+            const auto seedIt = std::find_if(
+                setup.units.begin(),
+                setup.units.end(),
+                [&unit](const Battle::BattleInitializationUnitSeed& seed)
+                {
+                    return seed.unitId == unit.unitId;
+                });
+            if (seedIt == setup.units.end())
+            {
+                continue;
+            }
+
+            seedIt->baseMaxHp = (*roleIt)->MaxHP;
+            seedIt->baseAttack = (*roleIt)->Attack;
+            seedIt->baseDefence = (*roleIt)->Defence;
+            seedIt->baseSpeed = (*roleIt)->Speed;
+        }
+    }
+
+    for (const auto& unit : context.allyRoster)
+    {
+        setup.cloneSources.push_back({
+            unit.unitId,
+            unit.realRoleId,
+            0,
+            unit.star,
+            unit.chessInstanceId,
+            unit.sourceOrder,
+        });
+    }
+    for (auto& source : setup.cloneSources)
+    {
+        const auto roleIt = std::find_if(
+            context.roles.begin(),
+            context.roles.end(),
+            [&source](Role* role)
+            {
+                return role && role->ID == source.sourceUnitId;
+            });
+        if (roleIt != context.roles.end() && *roleIt)
+        {
+            source.power = (*roleIt)->MaxHP + (*roleIt)->Attack + (*roleIt)->Defence;
+        }
+    }
+    for (const auto& [x, y] : context.cloneSpawnCells)
+    {
+        bool occupied = false;
+        for (auto* role : context.roles)
+        {
+            if (!role || role->Dead != 0)
+            {
+                continue;
+            }
+            if (role->X() == x && role->Y() == y)
+            {
+                occupied = true;
+                break;
+            }
+        }
+        setup.cloneCells.push_back({ x, y, true, occupied });
+    }
+
+    return setup;
+}
 }  // namespace
 
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId)
@@ -138,6 +343,8 @@ BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRu
     init.runtime.combo.events.clear();
     init.runtime.units.units.reserve(context.roles.size());
     init.runtime.status.units.reserve(context.roles.size());
+    init.runtime.world.units.reserve(context.roles.size());
+    init.setup = makeBattleRuntimeSetupSeed(context);
 
     std::unordered_map<int, Role*> rolesByBattleId;
     rolesByBattleId.reserve(context.roles.size());
@@ -155,6 +362,11 @@ BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRu
             init.runtime.status.units.push_back(Battle::makeBattleStatusRuntimeUnit(
                 makeBattleStatusUnit(role, stateIt->second)));
         }
+        else
+        {
+            init.runtime.status.units.push_back(Battle::BattleStatusRuntimeUnit{ .id = role->ID });
+        }
+        init.runtime.world.units.push_back(makeBattleWorldUnit(role));
     }
 
     BattleRuntimeCreationResult result{
@@ -164,6 +376,74 @@ BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRu
     };
     result.initializationResult = result.session.releaseInitializationResult();
     return result;
+}
+
+void applyBattleInitializationResult(
+    const Battle::BattleInitializationResult& result,
+    const BattleInitializationApplyContext& context)
+{
+    assert(context.battleRoles);
+    assert(context.friendsObj);
+    assert(context.comboStates);
+    assert(context.rolesByBattleId);
+
+    *context.comboStates = result.comboStates;
+
+    for (const auto& delta : result.roleDeltas)
+    {
+        auto* role = findRoleByBattleId(*context.battleRoles, delta.unitId);
+        role->MaxHP = delta.maxHp;
+        role->HP = delta.hp;
+        role->Attack = delta.attack;
+        role->Defence = delta.defence;
+        role->Speed = delta.speed;
+    }
+
+    for (const auto& intent : result.cloneIntents)
+    {
+        auto roleIt = context.rolesByBattleId->find(intent.sourceUnitId);
+        assert(roleIt != context.rolesByBattleId->end());
+        auto* source = roleIt->second;
+        assert(source);
+
+        context.friendsObj->push_back(*source);
+        auto* clone = &context.friendsObj->back();
+        clone->ID = intent.cloneUnitId;
+        clone->RealID = source->RealID;
+        clone->Auto = 2;
+        clone->Team = source->Team;
+        clone->Dead = 0;
+        clone->LastAttacker = nullptr;
+        clone->Velocity = { 0, 0, 0 };
+        clone->Acceleration = { 0, 0, 0 };
+        clone->UsingMagic = nullptr;
+        clone->HaveAction = 0;
+        clone->ActFrame = 0;
+        clone->CoolDown = 0;
+        clone->CoolDownMax = 0;
+        clone->Frozen = 0;
+        clone->FrozenMax = 0;
+        clone->Invincible = 0;
+        clone->HurtFrame = 0;
+        clone->Shake = 0;
+        clone->FindingWay = 0;
+        clone->OperationCount = 0;
+        clone->setPositionOnly(intent.gridX, intent.gridY);
+        clone->MaxHP = intent.roleValues.maxHp;
+        clone->HP = intent.roleValues.hp;
+        clone->Attack = intent.roleValues.attack;
+        clone->Defence = intent.roleValues.defence;
+        clone->Speed = intent.roleValues.speed;
+        context.battleRoles->push_back(clone);
+        (*context.rolesByBattleId)[intent.cloneUnitId] = clone;
+    }
+
+    for (const auto& delta : result.enemyTopDebuffs)
+    {
+        auto* role = findRoleByBattleId(*context.battleRoles, delta.unitId);
+        role->Attack += delta.attackDelta;
+        role->Defence += delta.defenceDelta;
+    }
 }
 
 void commitFinalSetupPlacementToRuntime(

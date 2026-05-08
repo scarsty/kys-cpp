@@ -109,6 +109,11 @@ struct BattleRuntimeBuildContext
     std::vector<Role*> roles;
     std::map<int, RoleComboState>* comboStates = nullptr;
     Battle::BattleGridTransform gridTransform;
+    std::vector<Battle::BattleSetupRosterUnit> allyRoster;
+    std::vector<Battle::BattleSetupRosterUnit> enemyRoster;
+    std::vector<int> obtainedNeigongMagicIds;
+    std::vector<std::pair<int, int>> cloneSpawnCells;
+    int nextCloneUnitId = 100000;
 };
 
 struct BattleRuntimeCreationResult
@@ -132,8 +137,19 @@ struct BattleSetupPlacementInput
     std::vector<BattleSetupPlacementUnit> roles;
 };
 
+struct BattleInitializationApplyContext
+{
+    std::vector<Role*>* battleRoles = nullptr;
+    std::deque<Role>* friendsObj = nullptr;
+    std::map<int, RoleComboState>* comboStates = nullptr;
+    std::unordered_map<int, Role*>* rolesByBattleId = nullptr;
+};
+
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
 BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context);
+void applyBattleInitializationResult(
+    const Battle::BattleInitializationResult& result,
+    const BattleInitializationApplyContext& context);
 void commitFinalSetupPlacementToRuntime(
     Battle::BattleRuntimeState& runtime,
     const BattleSetupPlacementInput& input);

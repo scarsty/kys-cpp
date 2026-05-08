@@ -259,6 +259,115 @@ std::string formatStatusValue(const std::string& label, int value, const char* u
     return std::format("{}（{}{}）", label, value, unit);
 }
 
+long long enemyTopDebuffSortScore(const BattleRuntimeUnit& unit)
+{
+    if (unit.cost <= 0)
+    {
+        return 0;
+    }
+
+    long long score = 1;
+    for (int index = 0; index < std::max(0, unit.star); ++index)
+    {
+        score *= unit.cost;
+    }
+    return score;
+}
+
+void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
+                                 BattleFrameApplications& applications,
+                                 std::vector<BattleLogEvent>& logEvents)
+{
+    int liveAllies = 0;
+    int topTargets = 0;
+    int perMemberValue = 0;
+    for (const auto& ally : state.units.units)
+    {
+        if (!ally.alive || ally.team != 0)
+        {
+            continue;
+        }
+
+        const auto comboIt = state.combo.units.find(ally.id);
+        if (comboIt == state.combo.units.end() || comboIt->second.enemyTopDebuffCount <= 0)
+        {
+            continue;
+        }
+
+        liveAllies++;
+        topTargets = std::max(topTargets, comboIt->second.enemyTopDebuffCount);
+        perMemberValue = std::max(perMemberValue, comboIt->second.enemyTopDebuffValue);
+    }
+
+    std::vector<BattleRuntimeUnit*> enemyOrder;
+    for (auto& unit : state.units.units)
+    {
+        if (unit.team == 1 && unit.alive)
+        {
+            enemyOrder.push_back(&unit);
+        }
+    }
+
+    std::stable_sort(
+        enemyOrder.begin(),
+        enemyOrder.end(),
+        [](const BattleRuntimeUnit* left, const BattleRuntimeUnit* right)
+        {
+            const long long leftScore = enemyTopDebuffSortScore(*left);
+            const long long rightScore = enemyTopDebuffSortScore(*right);
+            if (leftScore != rightScore)
+            {
+                return leftScore > rightScore;
+            }
+            return left->maxHp > right->maxHp;
+        });
+
+    int assignedTargets = 0;
+    for (auto* enemy : enemyOrder)
+    {
+        auto comboIt = state.combo.units.find(enemy->id);
+        if (comboIt == state.combo.units.end())
+        {
+            continue;
+        }
+
+        int desired = 0;
+        if (assignedTargets < topTargets && liveAllies > 0 && perMemberValue > 0)
+        {
+            desired = perMemberValue * liveAllies;
+            ++assignedTargets;
+        }
+
+        const int delta = desired - comboIt->second.enemyTopDebuffApplied;
+        if (delta == 0)
+        {
+            continue;
+        }
+
+        enemy->attack = std::max(0, enemy->attack - delta);
+        enemy->defence = std::max(0, enemy->defence - delta);
+        comboIt->second.enemyTopDebuffApplied = desired;
+        applications.enemyTopDebuffDeltas.push_back({
+            enemy->id,
+            -delta,
+            -delta,
+            desired,
+        });
+        logEvents.push_back({
+            BattleLogEventType::Status,
+            BattlePresentationCurrentFrame,
+            -1,
+            enemy->id,
+            0,
+            std::format("陰險：前{}名攻防{}{}（{}名存活）",
+                topTargets,
+                delta > 0 ? "-" : "+",
+                std::abs(delta),
+                liveAllies),
+        });
+    }
+}
+
 BattleLogEvent toLogEvent(const BattleEvent& event)
 {
     BattleLogEvent log;
@@ -3216,6 +3325,7 @@ void applyDamageAndLifecycle(
 
     const bool battleEndAlreadyEmitted = state.result.eventEmitted;
     auto application = BattleDamageApplicationSystem().apply(makeFrameDamageApplicationInput(state));
+    bool unitDied = false;
 
     state.damage.lifecycleEvents = application.lifecycleEvents;
     state.damage.logEvents = application.logEvents;
@@ -3241,6 +3351,7 @@ void applyDamageAndLifecycle(
         {
             if (event.type == BattleDamageEventType::UnitDied)
             {
+                unitDied = true;
                 continue;
             }
             gameplayEvents.push_back(toGameplayEvent(event));
@@ -3254,6 +3365,10 @@ void applyDamageAndLifecycle(
             continue;
         }
         gameplayEvents.push_back(event);
+    }
+    if (unitDied)
+    {
+        appendEnemyTopDebuffUpdates(state, result.applications, logEvents);
     }
 
     if (application.battleEnded)

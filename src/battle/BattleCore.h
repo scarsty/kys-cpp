@@ -112,6 +112,8 @@ struct BattleRuntimeUnit
     bool canAttack = true;
     double reach = 0.0;
     CombatStyle style = CombatStyle::Melee;
+    int star = 1;
+    int cost = 0;
 };
 
 struct BattleUnitStore
@@ -224,6 +226,14 @@ struct BattleFrameRumbleEvent
     int durationMs = 0;
 };
 
+struct BattleFrameEnemyTopDebuffDelta
+{
+    int unitId = -1;
+    int attackDelta = 0;
+    int defenceDelta = 0;
+    int appliedValue = 0;
+};
+
 struct BattleFrameDeathEffectTrackerResult
 {
     int unitId = -1;
@@ -240,6 +250,7 @@ struct BattleFrameApplications
     std::vector<BattleFrameLastAttackerDelta> lastAttackers;
     std::vector<int> attackSoundIds;
     std::vector<BattleFrameRumbleEvent> rumbles;
+    std::vector<BattleFrameEnemyTopDebuffDelta> enemyTopDebuffDeltas;
 };
 
 struct BattleFrameRescueUnitSnapshot
