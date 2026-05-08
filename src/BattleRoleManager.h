@@ -1,15 +1,10 @@
 #pragma once
 
+#include "BattleStarStats.h"
 #include "Save.h"
 
 namespace KysChess
 {
-
-struct StarBoostedStats
-{
-    int hp, atk, def, spd;
-    int fist, sword, knife, unusual, hidden;
-};
 
 class BattleRoleManager
 {

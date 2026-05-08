@@ -1,5 +1,6 @@
 #include "BattleInitialization.h"
 
+#include "../BattleStarStats.h"
 #include "../ChessBattleEffects.h"
 
 #include <algorithm>
@@ -139,6 +140,20 @@ const BattleSetupNeigongDefinition* findNeigongDefinition(
             return definition.magicId == magicId;
         });
     return it != setup.neigongDefinitions.end() ? &*it : nullptr;
+}
+
+const BattleSetupRosterUnit* findRosterUnit(
+    const std::vector<BattleSetupRosterUnit>& roster,
+    int unitId)
+{
+    const auto it = std::find_if(
+        roster.begin(),
+        roster.end(),
+        [unitId](const BattleSetupRosterUnit& unit)
+        {
+            return unit.unitId == unitId;
+        });
+    return it != roster.end() ? &*it : nullptr;
 }
 
 bool equipmentSynergyActive(
@@ -567,6 +582,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
     const auto enemyResolved = resolveTeamSetup(setup.enemyRoster, setup);
     std::vector<int> seededUnitIds;
     seededUnitIds.reserve(setup.units.size());
+    std::map<int, StarBoostedStats> starStatsByUnitId;
 
     for (const auto& seed : setup.units)
     {
@@ -575,6 +591,8 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
         RoleComboState combo = seed.baseCombo;
 
         const auto& resolved = seed.team == 0 ? allyResolved : enemyResolved;
+        const auto& roster = seed.team == 0 ? setup.allyRoster : setup.enemyRoster;
+        const auto* rosterUnit = findRosterUnit(roster, seed.unitId);
         if (const auto baseStateIt = resolved.baseStatesByRealRoleId.find(seed.realRoleId);
             baseStateIt != resolved.baseStatesByRealRoleId.end())
         {
@@ -591,13 +609,49 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             combo,
             setup,
             seed,
-            seed.team == 0 ? setup.allyRoster : setup.enemyRoster);
+            roster);
         applyObtainedNeigongEffects(combo, setup, seed.team);
 
-        unit.maxHp = seed.baseMaxHp + combo.flatHP;
-        unit.attack = seed.baseAttack + combo.flatATK;
-        unit.defence = seed.baseDefence + combo.flatDEF;
-        unit.speed = seed.baseSpeed + combo.flatSPD;
+        const int normalizedStar = normalizeBattleStar(rosterUnit ? rosterUnit->star : seed.star);
+        const int fightsWon = rosterUnit ? rosterUnit->fightsWon : 0;
+        const int extraFightWinGrowthHP = [&]()
+        {
+            const auto baseStateIt = resolved.baseStatesByRealRoleId.find(seed.realRoleId);
+            return baseStateIt != resolved.baseStatesByRealRoleId.end() ? baseStateIt->second.fightWinGrowthHP : 0;
+        }();
+        const int extraFightWinGrowthATK = [&]()
+        {
+            const auto baseStateIt = resolved.baseStatesByRealRoleId.find(seed.realRoleId);
+            return baseStateIt != resolved.baseStatesByRealRoleId.end() ? baseStateIt->second.fightWinGrowthATK : 0;
+        }();
+        const int extraFightWinGrowthDEF = [&]()
+        {
+            const auto baseStateIt = resolved.baseStatesByRealRoleId.find(seed.realRoleId);
+            return baseStateIt != resolved.baseStatesByRealRoleId.end() ? baseStateIt->second.fightWinGrowthDEF : 0;
+        }();
+        const auto starBoostedStats = computeStarBoostedStats(
+            {
+                seed.baseMaxHp,
+                seed.baseAttack,
+                seed.baseDefence,
+                seed.baseSpeed,
+                seed.baseFist,
+                seed.baseSword,
+                seed.baseKnife,
+                seed.baseUnusual,
+                seed.baseHiddenWeapon,
+            },
+            normalizedStar,
+            fightsWon,
+            extraFightWinGrowthHP,
+            extraFightWinGrowthATK,
+            extraFightWinGrowthDEF);
+        starStatsByUnitId[seed.unitId] = starBoostedStats;
+
+        unit.maxHp = starBoostedStats.hp + combo.flatHP;
+        unit.attack = starBoostedStats.atk + combo.flatATK;
+        unit.defence = starBoostedStats.def + combo.flatDEF;
+        unit.speed = starBoostedStats.spd + combo.flatSPD;
         unit.realRoleId = seed.realRoleId;
         unit.team = seed.team;
         unit.star = seed.star;
@@ -836,13 +890,21 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
     for (int unitId : seededUnitIds)
     {
         const auto& unit = runtime.units.requireUnit(unitId);
+        const auto starStatsIt = starStatsByUnitId.find(unitId);
+        assert(starStatsIt != starStatsByUnitId.end());
         result.roleDeltas.push_back({
             unitId,
+            normalizeBattleStar(unit.star),
             unit.maxHp,
             unit.hp,
             unit.attack,
             unit.defence,
             unit.speed,
+            starStatsIt->second.fist,
+            starStatsIt->second.sword,
+            starStatsIt->second.knife,
+            starStatsIt->second.unusual,
+            starStatsIt->second.hidden,
         });
     }
 

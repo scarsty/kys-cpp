@@ -19,6 +19,11 @@ struct BattleInitializationUnitSeed
     int baseAttack = 0;
     int baseDefence = 0;
     int baseSpeed = 0;
+    int baseFist = 0;
+    int baseSword = 0;
+    int baseKnife = 0;
+    int baseUnusual = 0;
+    int baseHiddenWeapon = 0;
     RoleComboState baseCombo;
 };
 
@@ -117,11 +122,17 @@ struct BattleRuntimeInit
 struct BattleInitializationRoleDelta
 {
     int unitId = -1;
+    int star = 1;
     int maxHp = 0;
     int hp = 0;
     int attack = 0;
     int defence = 0;
     int speed = 0;
+    int fist = 0;
+    int sword = 0;
+    int knife = 0;
+    int unusual = 0;
+    int hiddenWeapon = 0;
 };
 
 struct BattleInitializationCloneIntent

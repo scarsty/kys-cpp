@@ -1,5 +1,6 @@
 #include "battle/BattleInitialization.h"
 #include "battle/BattleRuntimeSession.h"
+#include "BattleStarStats.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -10,6 +11,12 @@ using namespace KysChess;
 
 namespace
 {
+
+const BalanceConfig& chessBalanceConfig()
+{
+    static BalanceConfig config;
+    return config;
+}
 
 BattleRuntimeUnit runtimeUnit(int id, int team, int maxHp, int attack, int defence, int speed)
 {
@@ -45,6 +52,16 @@ BattleStatusRuntimeUnit& requireStatusRuntime(BattleRuntimeState& runtime, int u
 }
 
 }  // namespace
+
+namespace KysChess
+{
+
+const BalanceConfig& ChessBalance::config()
+{
+    return chessBalanceConfig();
+}
+
+}  // namespace KysChess
 
 TEST_CASE("BattleInitializationSystem_CompilesPureRuntimeInitializationApi", "[battle][initialization]")
 {
@@ -99,6 +116,91 @@ TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "
     REQUIRE(result.roleDeltas.size() == 1);
     CHECK(result.roleDeltas[0].unitId == 10);
     CHECK(result.roleDeltas[0].maxHp == 150);
+}
+
+TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWins", "[battle][initialization]")
+{
+    BattleRuntimeState runtime;
+    runtime.units.units.push_back(runtimeUnit(10, 0, 100, 20, 30, 40));
+    runtime.status.units.push_back(statusRuntime(10, 100, 20));
+
+    BattleRuntimeSetupSeed setup;
+    setup.allyRoster.push_back({
+        10,
+        1001,
+        0,
+        2,
+        1,
+        -1,
+        -1,
+        7,
+        3,
+        0,
+    });
+
+    BattleSetupComboDefinition combo;
+    combo.id = 99;
+    combo.name = "測試連攜";
+    combo.memberRoleIds = { 1001 };
+    combo.thresholds.push_back({
+        1,
+        {
+            ComboEffect{ EffectType::FightWinHP, 2 },
+            ComboEffect{ EffectType::FightWinATKDEF, 1, 3 },
+        },
+    });
+    setup.comboDefinitions.push_back(combo);
+
+    BattleInitializationUnitSeed seed;
+    seed.unitId = 10;
+    seed.realRoleId = 1001;
+    seed.team = 0;
+    seed.star = 2;
+    seed.cost = 1;
+    seed.baseMaxHp = 100;
+    seed.baseAttack = 20;
+    seed.baseDefence = 30;
+    seed.baseSpeed = 40;
+    seed.baseFist = 10;
+    seed.baseSword = 11;
+    seed.baseKnife = 12;
+    seed.baseUnusual = 13;
+    seed.baseHiddenWeapon = 14;
+    setup.units.push_back(seed);
+
+    auto result = BattleInitializationSystem().initialize(runtime, setup);
+
+    const auto expected = computeStarBoostedStats(
+        {
+            100,
+            20,
+            30,
+            40,
+            10,
+            11,
+            12,
+            13,
+            14,
+        },
+        2,
+        3,
+        2,
+        1,
+        3);
+
+    const auto& unit = runtime.units.requireUnit(10);
+    CHECK(unit.maxHp == expected.hp);
+    CHECK(unit.hp == expected.hp);
+    CHECK(unit.attack == expected.atk);
+    CHECK(unit.defence == expected.def);
+    CHECK(unit.speed == expected.spd);
+    REQUIRE(result.roleDeltas.size() == 1);
+    CHECK(result.roleDeltas[0].star == 2);
+    CHECK(result.roleDeltas[0].fist == expected.fist);
+    CHECK(result.roleDeltas[0].sword == expected.sword);
+    CHECK(result.roleDeltas[0].knife == expected.knife);
+    CHECK(result.roleDeltas[0].unusual == expected.unusual);
+    CHECK(result.roleDeltas[0].hiddenWeapon == expected.hidden);
 }
 
 TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", "[battle][initialization]")

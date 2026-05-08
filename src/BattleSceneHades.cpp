@@ -1,6 +1,5 @@
 ﻿#include "BattleSceneHades.h"
 #include "Audio.h"
-#include "BattleRoleManager.h"
 #include "BattleSceneBattleAdapter.h"
 #include "BattleScenePresentationConstants.h"
 #include "battle/BattleAttackSystem.h"
@@ -853,6 +852,22 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
     };
 
     context.allyRoster.reserve(friends_obj_.size());
+    auto getTeammateFightsWon = [&](size_t index)
+    {
+        if (index >= extended_teammates_.size())
+        {
+            return 0;
+        }
+
+        const int chessInstanceId = extended_teammates_[index].chessInstanceId;
+        if (chessInstanceId < 0)
+        {
+            return 0;
+        }
+
+        auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ chessInstanceId });
+        return chess ? chess->fightsWon : 0;
+    };
     for (size_t index = 0; index < friends_obj_.size() && index < extended_teammates_.size(); ++index)
     {
         const auto& role = friends_obj_[index];
@@ -867,6 +882,7 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
             weaponId,
             armorId,
             teammate.chessInstanceId,
+            getTeammateFightsWon(index),
             static_cast<int>(index),
         });
     }
@@ -885,6 +901,7 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
             weaponId,
             armorId,
             -1,
+            0,
             static_cast<int>(index),
         });
     }
@@ -1597,140 +1614,6 @@ void BattleSceneHades::onEntrance()
                 friends_.push_back(r);
                 r->Auto = 2;
             }
-        }
-
-        auto getTeammateFightsWon = [&](size_t index)
-        {
-            if (index >= extended_teammates_.size())
-            {
-                return 0;
-            }
-
-            int chessInstanceId = extended_teammates_[index].chessInstanceId;
-            if (chessInstanceId < 0)
-            {
-                return 0;
-            }
-
-            auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ chessInstanceId });
-            return chess ? chess->fightsWon : 0;
-        };
-
-        auto getAllyEquipment = [&](size_t index)
-        {
-            int weaponId = index < teammate_weapons_.size() ? teammate_weapons_[index] : -1;
-            int armorId = index < teammate_armors_.size() ? teammate_armors_[index] : -1;
-            if (weaponId >= 0 || armorId >= 0)
-            {
-                return std::pair{ weaponId, armorId };
-            }
-            if (index >= extended_teammates_.size())
-            {
-                return std::pair{ -1, -1 };
-            }
-
-            const auto& teammate = extended_teammates_[index];
-            if (teammate.weaponId >= 0 || teammate.armorId >= 0)
-            {
-                return std::pair{ teammate.weaponId, teammate.armorId };
-            }
-
-            auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ teammate.chessInstanceId });
-            if (!chess)
-            {
-                return std::pair{ -1, -1 };
-            }
-            return std::pair{ chess->weaponInstance.itemId, chess->armorInstance.itemId };
-        };
-
-        auto getEnemyEquipment = [&](size_t index)
-        {
-            return std::pair{
-                index < enemy_weapons_.size() ? enemy_weapons_[index] : -1,
-                index < enemy_armors_.size() ? enemy_armors_[index] : -1,
-            };
-        };
-
-        auto allyChessVec = [&]()
-        {
-            std::vector<KysChess::Chess> v;
-            for (size_t i = 0; i < friends_obj_.size(); i++)
-            {
-                auto orig = roleSave_.getRole(friends_obj_[i].RealID);
-                if (!orig)
-                {
-                    continue;
-                }
-
-                KysChess::Chess chess;
-                chess.role = orig;
-                chess.star = i < extended_teammates_.size() ? extended_teammates_[i].star : 1;
-                if (i < extended_teammates_.size())
-                {
-                    chess.id = KysChess::ChessInstanceID{ extended_teammates_[i].chessInstanceId };
-                }
-                auto [weaponId, armorId] = getAllyEquipment(i);
-                chess.weaponInstance.itemId = weaponId;
-                chess.armorInstance.itemId = armorId;
-                v.push_back(chess);
-            }
-            return KysChess::ChessEquipment::withActiveSynergies(std::move(v));
-        }();
-        auto enemyChessVec = [&]()
-        {
-            std::vector<KysChess::Chess> v;
-            for (size_t i = 0; i < enemies_obj_.size(); i++)
-            {
-                auto orig = roleSave_.getRole(enemies_obj_[i].RealID);
-                if (!orig)
-                {
-                    continue;
-                }
-
-                KysChess::Chess chess;
-                chess.role = orig;
-                chess.star = i < enemy_stars_.size() ? enemy_stars_[i] : 0;
-                auto [weaponId, armorId] = getEnemyEquipment(i);
-                chess.weaponInstance.itemId = weaponId;
-                chess.armorInstance.itemId = armorId;
-                v.push_back(chess);
-            }
-            return KysChess::ChessEquipment::withActiveSynergies(std::move(v));
-        }();
-        auto allyStates = KysChess::ChessCombo::buildComboStates(KysChess::ChessCombo::detectCombos(allyChessVec));
-        auto enemyStates = KysChess::ChessCombo::buildComboStates(KysChess::ChessCombo::detectCombos(enemyChessVec));
-
-        struct FightWinGrowthBonus
-        {
-            int hp = 0;
-            int atk = 0;
-            int def = 0;
-        };
-
-        auto getFightWinGrowthBonus = [](const std::map<int, KysChess::RoleComboState>& states, int realId)
-        {
-            auto it = states.find(realId);
-            if (it == states.end())
-            {
-                return FightWinGrowthBonus{};
-            }
-            return FightWinGrowthBonus{
-                it->second.fightWinGrowthHP,
-                it->second.fightWinGrowthATK,
-                it->second.fightWinGrowthDEF
-            };
-        };
-
-        // Apply star + combo-aware per-win growth on battle copies
-        for (size_t i = 0; i < friends_obj_.size() && i < extended_teammates_.size(); i++)
-        {
-            auto extraFightWinGrowth = getFightWinGrowthBonus(allyStates, friends_obj_[i].RealID);
-            KysChess::BattleRoleManager::applyStarBonus(&friends_obj_[i], extended_teammates_[i].star, getTeammateFightsWon(i),
-                extraFightWinGrowth.hp, extraFightWinGrowth.atk, extraFightWinGrowth.def);
-        }
-        for (size_t i = 0; i < enemies_obj_.size() && i < enemy_stars_.size(); i++)
-        {
-            KysChess::BattleRoleManager::applyStarBonus(&enemies_obj_[i], enemy_stars_[i]);
         }
 
     }

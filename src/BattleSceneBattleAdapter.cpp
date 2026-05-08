@@ -221,6 +221,11 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeBui
             0,
             0,
             0,
+            0,
+            0,
+            0,
+            0,
+            0,
             {},
         });
     }
@@ -232,6 +237,11 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeBui
             unit.team,
             unit.star,
             unit.cost,
+            0,
+            0,
+            0,
+            0,
+            0,
             0,
             0,
             0,
@@ -272,6 +282,11 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeBui
             seedIt->baseAttack = (*roleIt)->Attack;
             seedIt->baseDefence = (*roleIt)->Defence;
             seedIt->baseSpeed = (*roleIt)->Speed;
+            seedIt->baseFist = (*roleIt)->Fist;
+            seedIt->baseSword = (*roleIt)->Sword;
+            seedIt->baseKnife = (*roleIt)->Knife;
+            seedIt->baseUnusual = (*roleIt)->Unusual;
+            seedIt->baseHiddenWeapon = (*roleIt)->HiddenWeapon;
         }
     }
 
@@ -392,11 +407,17 @@ void applyBattleInitializationResult(
     for (const auto& delta : result.roleDeltas)
     {
         auto* role = findRoleByBattleId(*context.battleRoles, delta.unitId);
+        role->Star = delta.star;
         role->MaxHP = delta.maxHp;
         role->HP = delta.hp;
         role->Attack = delta.attack;
         role->Defence = delta.defence;
         role->Speed = delta.speed;
+        role->Fist = delta.fist;
+        role->Sword = delta.sword;
+        role->Knife = delta.knife;
+        role->Unusual = delta.unusual;
+        role->HiddenWeapon = delta.hiddenWeapon;
     }
 
     for (const auto& intent : result.cloneIntents)
