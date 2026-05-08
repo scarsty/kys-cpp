@@ -1,16 +1,11 @@
 #pragma once
 
-#include "BattleCore.h"
+#include "BattleInitialization.h"
 
 #include <utility>
 
 namespace KysChess::Battle
 {
-
-struct BattleRuntimeInit
-{
-    BattleRuntimeState runtime;
-};
 
 class BattleRuntimeSession
 {
