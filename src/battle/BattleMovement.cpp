@@ -1,5 +1,7 @@
 #include "BattleMovement.h"
 
+#include "BattleFind.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -45,30 +47,6 @@ int deterministicSide(int unitId, int slot)
     return ((unitId * 37 + slot * 17) & 1) == 0 ? 1 : -1;
 }
 
-BattleUnitState* findUnit(BattleWorldState& world, int id)
-{
-    for (auto& unit : world.units)
-    {
-        if (unit.id == id)
-        {
-            return &unit;
-        }
-    }
-    return nullptr;
-}
-
-const BattleUnitState* findUnit(const BattleWorldState& world, int id)
-{
-    for (auto& unit : world.units)
-    {
-        if (unit.id == id)
-        {
-            return &unit;
-        }
-    }
-    return nullptr;
-}
-
 const BattleUnitState* nearestEnemy(const BattleWorldState& world, const BattleUnitState& unit)
 {
     const BattleUnitState* best = nullptr;
@@ -102,18 +80,14 @@ std::vector<int> movementOrder(const BattleWorldState& world)
 
     std::sort(ids.begin(), ids.end(), [&](int lhsId, int rhsId)
         {
-            const auto* lhs = findUnit(world, lhsId);
-            const auto* rhs = findUnit(world, rhsId);
-            if (!lhs || !rhs)
-            {
-                return lhsId < rhsId;
-            }
-            const auto* lhsTarget = nearestEnemy(world, *lhs);
-            const auto* rhsTarget = nearestEnemy(world, *rhs);
-            double lhsDistance = lhsTarget ? distance2d(lhs->position, lhsTarget->position) : std::numeric_limits<double>::max();
-            double rhsDistance = rhsTarget ? distance2d(rhs->position, rhsTarget->position) : std::numeric_limits<double>::max();
-            bool lhsAttackReady = lhsTarget && lhs->canAttack && lhsDistance <= lhs->reach;
-            bool rhsAttackReady = rhsTarget && rhs->canAttack && rhsDistance <= rhs->reach;
+            const auto& lhs = requireById(world.units, lhsId);
+            const auto& rhs = requireById(world.units, rhsId);
+            const auto* lhsTarget = nearestEnemy(world, lhs);
+            const auto* rhsTarget = nearestEnemy(world, rhs);
+            double lhsDistance = lhsTarget ? distance2d(lhs.position, lhsTarget->position) : std::numeric_limits<double>::max();
+            double rhsDistance = rhsTarget ? distance2d(rhs.position, rhsTarget->position) : std::numeric_limits<double>::max();
+            bool lhsAttackReady = lhsTarget && lhs.canAttack && lhsDistance <= lhs.reach;
+            bool rhsAttackReady = rhsTarget && rhs.canAttack && rhsDistance <= rhs.reach;
             if (lhsAttackReady != rhsAttackReady)
             {
                 return lhsAttackReady;
@@ -463,8 +437,8 @@ BattleTickResult BattleMovementPlanner::tick()
 
     for (int unitId : movementOrder(world_))
     {
-        auto* unit = findUnit(world_, unitId);
-        if (!unit || !unit->alive)
+        auto* unit = &requireById(world_.units, unitId);
+        if (!unit->alive)
         {
             continue;
         }

@@ -145,6 +145,9 @@
     <ClCompile Include="battle\BattleRescueRepositionSystem.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="battle\BattleRuntimeRules.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="Font.cpp">
       <Filter>font</Filter>
     </ClCompile>
@@ -387,6 +390,12 @@
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="battle\BattleHitResolver.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="battle\BattleFind.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="battle\BattleRuntimeRules.h">
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="Font.h">

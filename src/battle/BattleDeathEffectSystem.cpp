@@ -1,22 +1,13 @@
 #include "BattleDeathEffectSystem.h"
 
 #include "BattleCore.h"
+#include "BattleFind.h"
 
 #include <algorithm>
 #include <cassert>
 
 namespace KysChess::Battle
 {
-
-BattleDeathEffectExtras& BattleDeathEffectSystem::extrasById(BattleDeathEffectStore& effects, int unitId) const
-{
-    auto it = std::find_if(effects.units.begin(), effects.units.end(), [&](const BattleDeathEffectExtras& extras)
-        {
-            return extras.id == unitId;
-        });
-    assert(it != effects.units.end());
-    return *it;
-}
 
 bool BattleDeathEffectSystem::comboAppliesToUnit(const BattleDeathEffectStore& effects,
                                                 const BattleDeathEffectExtras& extras,
@@ -34,7 +25,7 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
                                                                                    int deadUnitId) const
 {
     auto& dead = units.requireUnit(deadUnitId);
-    auto& deadExtras = extrasById(effects, deadUnitId);
+    auto& deadExtras = requireById(effects.units, deadUnitId);
     assert(!dead.alive);
 
     std::vector<BattleDeathEffectEvent> events;

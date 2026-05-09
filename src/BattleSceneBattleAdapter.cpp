@@ -16,42 +16,73 @@
 #include <algorithm>
 #include <cassert>
 #include <set>
+#include <string>
 #include <utility>
 
 namespace KysChess::BattleSceneBattleAdapter
 {
+
+void configureBattleAttackWorld(
+    Battle::BattleAttackWorld& world,
+    const Battle::BattleRuntimeRulesConfig& rules);
+Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
+    Role* role,
+    const RoleComboState* state,
+    const Battle::BattleGridTransform& gridTransform);
+Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state);
+Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state);
+Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
+
 namespace
 {
-constexpr int BATTLE_TILE_W = Scene::TILE_W;
-constexpr double MINIMUM_VECTOR_NORM = 0.0001;
-constexpr int ACTION_RECOVERY_FRAMES = 4;
-constexpr int DASH_MOMENTUM_FRAMES = 5;
-constexpr int NORMAL_CAST_MP_DELTA = 5;
-constexpr int COOLDOWN_AFTER_CAST_PADDING = 2;
-constexpr int COOLDOWN_MAX_SPEED = 150;
-constexpr double SPEED_COOLDOWN_REDUCTION_RATIO = 0.5;
-constexpr int MELEE_HIT_TOTAL_FRAME = 10;
-constexpr int STRENGTHENED_MELEE_TOTAL_FRAME = 30;
-constexpr double STRENGTHENED_MELEE_SELECT_DISTANCE_DIVISOR = 2.0;
-constexpr float STRENGTHENED_MELEE_MULTIPLIER = 2.0f;
-constexpr int STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD = 2;
-constexpr int MELEE_SPLASH_TOTAL_FRAME = 60;
-constexpr int MELEE_SPLASH_INITIAL_FRAME = 5;
-constexpr double MELEE_SPLASH_PROJECTILE_SPEED = 3.0;
-constexpr float MELEE_SPLASH_STRENGTH_MULTIPLIER = 0.5f;
-constexpr int TRACKING_PROJECTILE_TOTAL_FRAME = 120;
-constexpr int DASH_HIT_TOTAL_FRAME = 30;
-constexpr double DASH_HIT_POSITION_SPACING = 2.0;
-constexpr int DASH_HIT_FRAME_STEP = 3;
-constexpr std::array<int, 4> LEGACY_CAST_FRAMES = { 25, 30, 20, 25 };
-constexpr int DEFAULT_FORCED_RANGED_MIN_SELECT_DISTANCE = 6;
-constexpr double MAX_EFFECTIVE_BATTLE_REACH = 480.0;
-constexpr double ENGAGEMENT_CELL_DEADBAND = BATTLE_TILE_W / 2.0;
-constexpr double MELEE_ATTACK_EFFECT_OFFSET = BATTLE_TILE_W * 2.0;
-constexpr double MELEE_ATTACK_HIT_RADIUS = BATTLE_TILE_W * 2.0;
-constexpr double MELEE_ATTACK_SAFETY_MARGIN = MELEE_ATTACK_HIT_RADIUS - (BATTLE_TILE_W - ENGAGEMENT_CELL_DEADBAND / 2.0);
-constexpr double MELEE_ATTACK_REACH = MELEE_ATTACK_EFFECT_OFFSET + MELEE_ATTACK_HIT_RADIUS - MELEE_ATTACK_SAFETY_MARGIN;
-constexpr double RANGED_ATTACK_SAFETY_MARGIN = MELEE_ATTACK_HIT_RADIUS - ENGAGEMENT_CELL_DEADBAND;
+constexpr double ROLE_MOVE_SPEED_DIVISOR = 22.0;
+
+class RoleBattleProjection
+{
+public:
+    explicit RoleBattleProjection(Role* role)
+        : role_(role)
+    {
+        assert(role_);
+    }
+
+    int id() const { return role_->ID; }
+    int realRoleId() const { return role_->RealID; }
+    const std::string& name() const { return role_->Name; }
+    int team() const { return role_->Team; }
+    bool alive() const { return role_->Dead == 0; }
+    int hp() const { return role_->HP; }
+    int maxHp() const { return role_->MaxHP; }
+    int mp() const { return role_->MP; }
+    int maxMp() const { return role_->MaxMP; }
+    int attack() const { return role_->Attack; }
+    int defence() const { return role_->Defence; }
+    int speed() const { return role_->Speed; }
+    int star() const { return role_->Star; }
+    int invincible() const { return role_->Invincible; }
+    int hurtFrame() const { return role_->HurtFrame; }
+    int frozen() const { return role_->Frozen; }
+    int frozenMax() const { return role_->FrozenMax; }
+    Pointf position() const { return role_->Pos; }
+    Pointf velocity() const { return role_->Velocity; }
+    Pointf acceleration() const { return role_->Acceleration; }
+    Pointf facing() const { return role_->RealTowards; }
+
+    Battle::BattleUnitState worldUnit() const;
+    Battle::BattleUnitState initializedWorldUnit(
+        const std::map<int, RoleComboState>& comboStates,
+        const Battle::BattleWorldState& world,
+        const std::map<int, Battle::BattleMovementPhysicsState>& movementRuntime,
+        const Battle::BattleActionRulesConfig& actionRules) const;
+    Battle::BattleRuntimeUnit runtimeUnit(
+        const RoleComboState* state,
+        const Battle::BattleGridTransform& gridTransform) const;
+    Battle::BattleStatusUnitState statusUnit(const RoleComboState& state) const;
+    Battle::BattleDamageUnitState damageUnit(const RoleComboState* state) const;
+
+private:
+    Role* role_ = nullptr;
+};
 
 template<typename Cmp>
 Magic* selectBattleMagic(Role* role, Cmp cmp)
@@ -77,20 +108,6 @@ Magic* selectBattleMagic(Role* role, Cmp cmp)
     return chosen;
 }
 
-Battle::BattleAttackUnit makeBattleAttackUnit(Role* role)
-{
-    assert(role);
-
-    Battle::BattleAttackUnit unit;
-    unit.id = role->ID;
-    unit.team = role->Team;
-    unit.alive = role->Dead == 0;
-    unit.invincible = role->Invincible != 0;
-    unit.hurtFrame = role->HurtFrame != 0;
-    unit.position = role->Pos;
-    return unit;
-}
-
 Color damageTextColor(const Role* role, bool emphasized)
 {
     bool friendlyTarget = role && role->Team == 0;
@@ -101,39 +118,155 @@ Color damageTextColor(const Role* role, bool emphasized)
     return emphasized ? Color{ 47, 128, 255, 255 } : Color{ 102, 207, 255, 255 };
 }
 
-Pointf facingDirection(int faceTowards)
+Battle::BattleUnitState RoleBattleProjection::worldUnit() const
 {
-    switch (faceTowards)
+    Battle::BattleUnitState unit;
+    unit.id = id();
+    unit.realRoleId = realRoleId();
+    unit.name = name();
+    unit.team = team();
+    unit.alive = alive();
+    unit.position = position();
+    unit.velocity = velocity();
+    unit.speed = speed() / ROLE_MOVE_SPEED_DIVISOR;
+    unit.star = star();
+    unit.canAttack = role_->CoolDown == 0;
+    return unit;
+}
+
+bool isSummonedCloneRole(const Role* role)
+{
+    if (!role)
     {
-    case 0:
-        return { 1.0f, 0.0f, 0.0f };
-    case 1:
-        return { 0.0f, 1.0f, 0.0f };
-    case 2:
-        return { -1.0f, 0.0f, 0.0f };
-    case 3:
-        return { 0.0f, -1.0f, 0.0f };
-    default:
-        return { 1.0f, 0.0f, 0.0f };
+        return false;
     }
+    const auto& states = KysChess::ChessCombo::getActiveStates();
+    const auto it = states.find(role->ID);
+    return it != states.end() && it->second.isSummonedClone;
+}
+
+int getComboLookupId(const Role* role)
+{
+    if (!role)
+    {
+        return -1;
+    }
+    if (isSummonedCloneRole(role))
+    {
+        return -1;
+    }
+    return role->RealID >= 0 ? role->RealID : role->ID;
+}
+
+Battle::BattleUnitState RoleBattleProjection::initializedWorldUnit(
+    const std::map<int, RoleComboState>& comboStates,
+    const Battle::BattleWorldState& world,
+    const std::map<int, Battle::BattleMovementPhysicsState>& movementRuntime,
+    const Battle::BattleActionRulesConfig& actionRules) const
+{
+    const auto comboIt = comboStates.find(id());
+    const bool dashAttackEnabled = comboIt != comboStates.end() && comboIt->second.dashAttack;
+
+    auto unit = worldUnit();
+    unit.reach = actionRules.meleeAttackReach;
+    unit.style = Battle::CombatStyle::Melee;
+    unit.taXue = dashAttackEnabled;
+    unit.dashAttack = dashAttackEnabled;
+
+    const auto existingMovement = std::find_if(
+        world.units.begin(),
+        world.units.end(),
+        [unitId = id()](const Battle::BattleUnitState& existing)
+        {
+            return existing.id == unitId;
+        });
+    if (existingMovement != world.units.end())
+    {
+        unit.assignedSlot = existingMovement->assignedSlot;
+        unit.slotSwitchCooldownRemaining = existingMovement->slotSwitchCooldownRemaining;
+    }
+
+    const auto movementIt = movementRuntime.find(id());
+    if (movementIt != movementRuntime.end())
+    {
+        unit.dashFramesRemaining = movementIt->second.movementDashFrames;
+        unit.dashCooldownRemaining = movementIt->second.movementDashCooldown;
+    }
+
+    return unit;
 }
 
 Battle::BattleUnitState makeBattleWorldUnit(Role* role)
 {
-    assert(role);
+    return RoleBattleProjection(role).worldUnit();
+}
 
-    Battle::BattleUnitState unit;
-    unit.id = role->ID;
-    unit.realRoleId = role->RealID;
-    unit.name = role->Name;
-    unit.team = role->Team;
-    unit.alive = role->Dead == 0;
-    unit.position = role->Pos;
-    unit.velocity = role->Velocity;
-    unit.speed = role->Speed / 22.0;
-    unit.star = role->Star;
-    unit.canAttack = role->CoolDown == 0;
-    return unit;
+Battle::BattleUnitState makeInitializedBattleWorldUnit(
+    Role* role,
+    const std::map<int, RoleComboState>& comboStates,
+    const Battle::BattleWorldState& world,
+    const std::map<int, Battle::BattleMovementPhysicsState>& movementRuntime,
+    const Battle::BattleActionRulesConfig& actionRules)
+{
+    return RoleBattleProjection(role).initializedWorldUnit(
+        comboStates,
+        world,
+        movementRuntime,
+        actionRules);
+}
+
+Battle::BattleDeathEffectStore makeBattleDeathEffectStore(
+    const std::vector<Role*>& roles,
+    const std::map<int, RoleComboState>& states)
+{
+    Battle::BattleDeathEffectStore store;
+    const auto& allCombos = KysChess::ChessCombo::getAllCombos();
+    for (int comboId = 0; comboId < static_cast<int>(allCombos.size()); ++comboId)
+    {
+        if (!allCombos[comboId].isAntiCombo)
+        {
+            store.regularSynergyComboIds.insert(comboId);
+        }
+    }
+
+    for (auto* role : roles)
+    {
+        assert(role);
+        const auto stateIt = states.find(role->ID);
+        assert(stateIt != states.end());
+
+        Battle::BattleDeathEffectExtras extras;
+        extras.id = role->ID;
+        extras.shieldPctMaxHp = stateIt->second.shieldPctMaxHP;
+        extras.shieldOnAllyDeathTracker = stateIt->second.shieldOnAllyDeathTracker;
+        extras.appliedEffects = stateIt->second.appliedEffects;
+
+        const int comboLookupId = getComboLookupId(role);
+        if (comboLookupId >= 0)
+        {
+            extras.comboIds = KysChess::ChessCombo::getCombosForRole(comboLookupId);
+        }
+
+        store.units.push_back(std::move(extras));
+    }
+
+    return store;
+}
+
+std::vector<Role*> makeOrderedRuntimeRoles(
+    const Battle::BattleRuntimeState& runtime,
+    const std::unordered_map<int, Role*>& rolesByBattleId)
+{
+    std::vector<Role*> roles;
+    roles.reserve(runtime.units.units.size());
+    for (const auto& unit : runtime.units.units)
+    {
+        const auto roleIt = rolesByBattleId.find(unit.id);
+        assert(roleIt != rolesByBattleId.end());
+        assert(roleIt->second);
+        roles.push_back(roleIt->second);
+    }
+    return roles;
 }
 
 std::vector<Battle::BattleSetupComboDefinition> makeBattleSetupComboDefinitions()
@@ -197,7 +330,7 @@ std::vector<Battle::BattleSetupNeigongDefinition> makeBattleSetupNeigongDefiniti
     return definitions;
 }
 
-Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeBuildContext& context)
+Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSceneSetupInput& context)
 {
     Battle::BattleRuntimeSetupSeed setup;
     setup.allyRoster = context.allyRoster;
@@ -350,29 +483,30 @@ Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId)
 
 BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context)
 {
-    assert(context.comboStates);
+    const auto& setup = context.setup;
+    assert(setup.comboStates);
 
     Battle::BattleRuntimeInit init;
-    init.runtime.units.gridTransform = context.gridTransform;
-    init.runtime.combo.units = *context.comboStates;
+    init.runtime.units.gridTransform = context.rules.gridTransform;
+    init.runtime.combo.units = *setup.comboStates;
     init.runtime.combo.events.clear();
-    init.runtime.units.units.reserve(context.roles.size());
-    init.runtime.status.units.reserve(context.roles.size());
-    init.runtime.world.units.reserve(context.roles.size());
-    init.setup = makeBattleRuntimeSetupSeed(context);
+    init.runtime.units.units.reserve(setup.roles.size());
+    init.runtime.status.units.reserve(setup.roles.size());
+    init.runtime.world.units.reserve(setup.roles.size());
+    init.setup = makeBattleRuntimeSetupSeed(setup);
 
     std::unordered_map<int, Role*> rolesByBattleId;
-    rolesByBattleId.reserve(context.roles.size());
-    for (auto* role : context.roles)
+    rolesByBattleId.reserve(setup.roles.size());
+    for (auto* role : setup.roles)
     {
         assert(role);
         rolesByBattleId.emplace(role->ID, role);
-        auto stateIt = context.comboStates->find(role->ID);
+        auto stateIt = setup.comboStates->find(role->ID);
         init.runtime.units.units.push_back(makeBattleRuntimeUnit(
             role,
-            stateIt != context.comboStates->end() ? &stateIt->second : nullptr,
-            context.gridTransform));
-        if (stateIt != context.comboStates->end())
+            stateIt != setup.comboStates->end() ? &stateIt->second : nullptr,
+            context.rules.gridTransform));
+        if (stateIt != setup.comboStates->end())
         {
             init.runtime.status.units.push_back(Battle::makeBattleStatusRuntimeUnit(
                 makeBattleStatusUnit(role, stateIt->second)));
@@ -391,6 +525,97 @@ BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRu
     };
     result.initializationResult = result.session.releaseInitializationResult();
     return result;
+}
+
+void configureInitializedBattleRuntimeState(
+    Battle::BattleRuntimeSession& session,
+    const BattleRuntimeBuildContext& context,
+    const std::unordered_map<int, Role*>& rolesByBattleId)
+{
+    auto& runtime = session.runtimeForSetupConfiguration();
+    const auto orderedRoles = makeOrderedRuntimeRoles(runtime, rolesByBattleId);
+
+    runtime.world.frame = context.setup.battleFrame;
+    runtime.world.config = context.rules.movementConfig;
+    runtime.world.terrainCells = context.setup.terrainCells;
+
+    const auto existingWorld = runtime.world;
+    runtime.world.units.clear();
+    runtime.world.units.reserve(orderedRoles.size());
+    for (auto* role : orderedRoles)
+    {
+        assert(role);
+        if (role->Dead != 0)
+        {
+            continue;
+        }
+        runtime.world.units.push_back(makeInitializedBattleWorldUnit(
+            role,
+            runtime.combo.units,
+            existingWorld,
+            runtime.movementRuntime,
+            context.rules.action));
+    }
+
+    configureBattleAttackWorld(runtime.attacks, context.rules);
+
+    runtime.teamEffects.healAuraRadius = context.rules.teamEffectHealAuraRadius;
+    runtime.deathEffects.store = makeBattleDeathEffectStore(orderedRoles, runtime.combo.units);
+
+    runtime.rescue.positionsByCell = context.setup.rescuePositionsByCell;
+    runtime.rescue.cells = context.setup.rescueCells;
+    runtime.rescue.executeUnattendedRadius = context.rules.rescueExecuteUnattendedRadius;
+    runtime.rescue.counterAttack = context.rules.rescueCounterAttack;
+    runtime.rescue.counterAttack.skillId = context.setup.rescueCounterAttackSkillId;
+
+    runtime.movementPhysics.config = context.rules.movementPhysicsConfig;
+    runtime.movementPhysics.collision = context.rules.movementCollisionWorld;
+    runtime.movementPhysics.actionCastFrames.assign(
+        context.rules.castConfig.castFrames.begin(),
+        context.rules.castConfig.castFrames.end());
+    runtime.movementPhysics.dashMomentumFrames = context.rules.movementPhysicsDashMomentumFrames;
+
+    runtime.action.castFrames.assign(
+        context.rules.castConfig.castFrames.begin(),
+        context.rules.castConfig.castFrames.end());
+    runtime.action.actionRecoveryFrames = context.rules.action.actionRecoveryFrames;
+    runtime.action.dashRecoveryFrames = context.rules.action.dashRecoveryFrames;
+    runtime.action.blinkWeakTargetDefWeight = context.rules.action.blinkWeakTargetDefWeight;
+    runtime.action.strengthenedMeleeOperationCountThreshold = context.rules.action.strengthenedMeleeOperationCountThreshold;
+    runtime.action.projectileBounceRange = context.rules.action.projectileBounceRange;
+
+    runtime.projectileFollowUps = context.rules.projectileFollowUps;
+
+    runtime.damage = {};
+    runtime.damage.aggregatePendingTransactionsByDefender = true;
+    runtime.result.pendingAliveByTeam = context.setup.pendingAliveByTeam;
+    for (auto* role : orderedRoles)
+    {
+        assert(role);
+        const auto stateIt = runtime.combo.units.find(role->ID);
+        runtime.damage.unitExtras.push_back(Battle::makeBattleDamageRuntimeUnit(
+            makeBattleDamageUnit(
+                role,
+                stateIt != runtime.combo.units.end() ? &stateIt->second : nullptr)));
+        runtime.damage.presentationStylesByDefender.emplace(role->ID, makeBattleDamagePresentationStyle(role));
+        if (stateIt != runtime.combo.units.end() && stateIt->second.deathAOEPct > 0)
+        {
+            runtime.damage.unitEffects.emplace(
+                role->ID,
+                Battle::BattleDamageApplicationUnitEffects{
+                    stateIt->second.deathAOEPct,
+                    stateIt->second.deathAOEStunFrames,
+                    stateIt->second.deathAOEMaxTargets,
+                });
+        }
+    }
+
+    BattleActionPlanInputContext actionContext;
+    actionContext.roles = &orderedRoles;
+    actionContext.actionRules = context.rules.action;
+    actionContext.castConfig = context.rules.castConfig;
+    actionContext.castGeometry = context.rules.castGeometry;
+    initializeBattleActionPlanInputs(runtime, actionContext);
 }
 
 void applyBattleInitializationResult(
@@ -467,91 +692,26 @@ void applyBattleInitializationResult(
     }
 }
 
-void commitFinalSetupPlacementToRuntime(
-    Battle::BattleRuntimeState& runtime,
-    const BattleSetupPlacementInput& input)
+Battle::BattleSetupPlacementInput makeBattleSetupPlacementInput(const std::vector<Role*>& roles)
 {
-    runtime.units.gridTransform = input.gridTransform;
-    for (const auto& role : input.roles)
+    Battle::BattleSetupPlacementInput input;
+    input.units.reserve(roles.size());
+    for (auto* role : roles)
     {
-        const auto position = Pointf{
-            static_cast<float>(-role.y * input.gridTransform.tileWidth + role.x * input.gridTransform.tileWidth + input.gridTransform.coordCount * input.gridTransform.tileWidth),
-            static_cast<float>(role.y * input.gridTransform.tileWidth + role.x * input.gridTransform.tileWidth),
-            0.0f,
-        };
-        runtime.units.setPosition(role.unitId, position);
-        auto& unit = runtime.units.requireUnit(role.unitId);
-        unit.facing = facingDirection(role.faceTowards);
-
-        auto worldIt = std::find_if(
-            runtime.world.units.begin(),
-            runtime.world.units.end(),
-            [unitId = role.unitId](const Battle::BattleUnitState& unitState)
-            {
-                return unitState.id == unitId;
-            });
-        if (worldIt != runtime.world.units.end())
-        {
-            worldIt->position = position;
-            worldIt->velocity = { 0, 0, 0 };
-        }
+        assert(role);
+        input.units.push_back({
+            role->ID,
+            role->X(),
+            role->Y(),
+            role->FaceTowards,
+        });
     }
+    return input;
 }
 
 Battle::BattlePresentationColor makeBattlePresentationColor(Color color)
 {
     return { color.r, color.g, color.b, color.a };
-}
-
-Battle::BattleCastConfig makeBattleCastConfig()
-{
-    Battle::BattleCastConfig config;
-    config.castFrames = LEGACY_CAST_FRAMES;
-    config.baseCooldownFrames = { 105, 185, 115, 45 };
-    config.minimumCooldownFrames = { 60, 70, 70, 45 };
-    config.cooldownActPropertyDivisors = { 2, 1, 2, 0 };
-    config.recoveryFrames = {
-        ACTION_RECOVERY_FRAMES,
-        ACTION_RECOVERY_FRAMES,
-        ACTION_RECOVERY_FRAMES,
-        DASH_MOMENTUM_FRAMES,
-    };
-    config.maxCooldownSpeed = COOLDOWN_MAX_SPEED;
-    config.speedCooldownReductionRatio = SPEED_COOLDOWN_REDUCTION_RATIO;
-    config.minimumCooldownAfterCastPadding = COOLDOWN_AFTER_CAST_PADDING;
-    config.normalCastMpDelta = NORMAL_CAST_MP_DELTA;
-    config.minimumFacingNorm = MINIMUM_VECTOR_NORM;
-    config.meleeHitTotalFrame = MELEE_HIT_TOTAL_FRAME;
-    config.strengthenedMeleeTotalFrame = STRENGTHENED_MELEE_TOTAL_FRAME;
-    config.strengthenedMeleeSelectDistanceDivisor = STRENGTHENED_MELEE_SELECT_DISTANCE_DIVISOR;
-    config.strengthenedMeleeMultiplier = STRENGTHENED_MELEE_MULTIPLIER;
-    config.meleeSplashTotalFrame = MELEE_SPLASH_TOTAL_FRAME;
-    config.meleeSplashInitialFrame = MELEE_SPLASH_INITIAL_FRAME;
-    config.meleeSplashStrengthMultiplier = MELEE_SPLASH_STRENGTH_MULTIPLIER;
-    config.trackingProjectileTotalFrame = TRACKING_PROJECTILE_TOTAL_FRAME;
-    config.dashHitTotalFrame = DASH_HIT_TOTAL_FRAME;
-    config.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
-    return config;
-}
-
-Battle::BattleCastGeometry makeBattleCastGeometry()
-{
-    Battle::BattleCastGeometry geometry;
-    geometry.meleeAttackEffectOffset = BATTLE_TILE_W * 2.0;
-    geometry.projectileSpeed = BATTLE_TILE_W / 3.0;
-    geometry.projectileSpawnOffset = BATTLE_TILE_W * 2.0;
-    geometry.projectileBaseTravel = BATTLE_TILE_W * 5.0;
-    geometry.projectileTravelPerSelectDistance = BATTLE_TILE_W;
-    geometry.meleeSplashProjectileSpeed = MELEE_SPLASH_PROJECTILE_SPEED;
-    geometry.dashHitPositionSpacing = DASH_HIT_POSITION_SPACING;
-    geometry.dashVelocityMagnitude = MELEE_ATTACK_HIT_RADIUS / DASH_MOMENTUM_FRAMES;
-    geometry.dashHitFrameStep = DASH_HIT_FRAME_STEP;
-    return geometry;
-}
-
-int strengthenedMeleeOperationCountThreshold()
-{
-    return STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
 }
 
 Magic* selectLowerPowerMagic(Role* role)
@@ -562,177 +722,6 @@ Magic* selectLowerPowerMagic(Role* role)
 Magic* selectHigherPowerMagic(Role* role)
 {
     return selectBattleMagic(role, std::greater<double>{});
-}
-
-bool roleForcesRangedMagic(const std::map<int, RoleComboState>& comboStates, int unitId)
-{
-    auto it = comboStates.find(unitId);
-    return it != comboStates.end() && it->second.forceRangedAttack;
-}
-
-int forcedRangedMinSelectDistance(const std::map<int, RoleComboState>& comboStates, int unitId)
-{
-    auto it = comboStates.find(unitId);
-    if (it == comboStates.end() || it->second.forceRangedMinSelectDistance <= 0)
-    {
-        return DEFAULT_FORCED_RANGED_MIN_SELECT_DISTANCE;
-    }
-    return std::max(1, it->second.forceRangedMinSelectDistance);
-}
-
-int projectileSpeedMultiplierPct(const std::map<int, RoleComboState>& comboStates, int unitId)
-{
-    auto it = comboStates.find(unitId);
-    if (it == comboStates.end())
-    {
-        return 100;
-    }
-    return std::max(100, it->second.projectileSpeedMultiplierPct);
-}
-
-bool isForcedRangedMagic(const Magic* magic, bool forceRanged)
-{
-    return magic && forceRanged && magic->AttackAreaType == 0;
-}
-
-bool isProjectileStyleMagic(const Magic* magic, bool forceRanged)
-{
-    return magic
-        && (magic->AttackAreaType == 1
-            || magic->AttackAreaType == 2
-            || isForcedRangedMagic(magic, forceRanged));
-}
-
-bool isBattleRangedStyleMagic(const Magic* magic, bool forceRanged)
-{
-    return magic
-        && (magic->AttackAreaType == 1
-            || magic->AttackAreaType == 2
-            || magic->AttackAreaType == 3
-            || isForcedRangedMagic(magic, forceRanged));
-}
-
-int effectiveProjectileSelectDistance(const Magic* magic, bool forcedRanged, int forcedRangedMinSelectDistance)
-{
-    assert(magic);
-    int selectDistance = std::max(1, magic->SelectDistance);
-    if (forcedRanged && magic->AttackAreaType == 0)
-    {
-        selectDistance = std::max(selectDistance, std::max(1, forcedRangedMinSelectDistance));
-    }
-    return selectDistance;
-}
-
-double battleBlinkReach(const Magic* magic)
-{
-    const auto geometry = makeBattleCastGeometry();
-    if (!magic)
-    {
-        return BATTLE_TILE_W * 3.0;
-    }
-    if (magic->AttackAreaType == 3)
-    {
-        return 180.0;
-    }
-    if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
-    {
-        const double reach = geometry.projectileSpawnOffset
-            + geometry.projectileBaseTravel
-            + (magic->SelectDistance - 1) * geometry.projectileTravelPerSelectDistance;
-        return std::min(MAX_EFFECTIVE_BATTLE_REACH, reach - 10.0);
-    }
-    return std::max(BATTLE_TILE_W * 3.0, static_cast<double>(magic->SelectDistance * BATTLE_TILE_W));
-}
-
-double effectiveBattleReach(
-    const Magic* magic,
-    bool forceRanged,
-    int forcedRangedMinSelectDistance,
-    int projectileSpeedMultiplierPct)
-{
-    const auto geometry = makeBattleCastGeometry();
-    if (!magic)
-    {
-        return BATTLE_TILE_W * 2.0;
-    }
-    if (magic->AttackAreaType == 3)
-    {
-        return 180.0;
-    }
-    if (isProjectileStyleMagic(magic, forceRanged))
-    {
-        const int selectDistance = effectiveProjectileSelectDistance(
-            magic,
-            isForcedRangedMagic(magic, forceRanged),
-            forcedRangedMinSelectDistance);
-        const double projectileReach = geometry.projectileSpawnOffset
-            + (geometry.projectileBaseTravel + (selectDistance - 1) * geometry.projectileTravelPerSelectDistance)
-                * projectileSpeedMultiplierPct / 100.0;
-        return std::max(BATTLE_TILE_W * 2.0, projectileReach - RANGED_ATTACK_SAFETY_MARGIN);
-    }
-    return MELEE_ATTACK_REACH;
-}
-
-Battle::BattleCastSkillState makeBattleCastSkillState(Role* unit, const BattleCastSkillAdapterInput& input)
-{
-    Battle::BattleCastSkillState skill;
-    if (!input.magic)
-    {
-        return skill;
-    }
-    assert(unit);
-    skill.id = input.magic->ID;
-    skill.name = input.magic->Name;
-    skill.soundId = input.magic->SoundID;
-    skill.hurtType = input.magic->HurtType;
-    skill.attackAreaType = input.magic->AttackAreaType;
-    skill.magicType = input.magic->MagicType;
-    skill.visualEffectId = input.magic->EffectID;
-    skill.selectDistance = input.magic->SelectDistance;
-    skill.projectileSpeedMultiplierPct = input.projectileSpeedMultiplierPct;
-    skill.actProperty = unit->getActProperty(input.magic->MagicType);
-    skill.magicPower = unit->getMagicPower(input.magic);
-    skill.meleeSplashCount = input.meleeSplashCount;
-    skill.extraProjectileCount = input.extraProjectileCount;
-    skill.strengthenedMelee = input.strengthenedMelee;
-    skill.reach = input.reach;
-    skill.blinkReach = input.blinkReach;
-    skill.forceRanged = input.forceRanged;
-    skill.rangedStyle = input.rangedStyle;
-    return skill;
-}
-
-Battle::BattleCastInput makeBattleCastInput(const BattleCastAdapterInput& input)
-{
-    assert(input.unit);
-
-    Battle::BattleCastInput castInput;
-    castInput.config = makeBattleCastConfig();
-    castInput.geometry = makeBattleCastGeometry();
-    castInput.unit.id = input.unit->ID;
-    castInput.unit.position = input.unit->Pos;
-    castInput.unit.facing = input.unit->RealTowards;
-    castInput.unit.alive = input.unit->Dead == 0;
-    castInput.unit.frozen = input.unit->Frozen != 0;
-    castInput.unit.stunned = input.unit->HurtFrame != 0;
-    castInput.unit.canStartAttack = input.canStartAttack;
-    castInput.unit.mp = input.unit->MP;
-    castInput.unit.maxMp = input.unit->MaxMP;
-    castInput.unit.speed = input.unit->Speed;
-    castInput.unit.cooldownReductionPct = input.cooldownReductionPct;
-    castInput.unit.operationCount = input.operationCount;
-    castInput.unit.meleeAttackReach = input.meleeAttackReach;
-    castInput.unit.dashAttackReach = input.dashAttackReach;
-    castInput.unit.hasEquippedSkill = input.unit->UsingMagic != nullptr;
-    castInput.unit.movementDashActive = input.movementDashActive;
-    castInput.unit.dashAttackEnabled = input.dashAttackEnabled;
-    castInput.unit.dashVelocity = input.dashVelocity;
-    castInput.unit.dashHitCount = input.dashHitCount;
-    castInput.unit.emitDashFollowUpSkillAttack = input.emitDashFollowUpSkillAttack;
-    castInput.unit.dashFollowUpOperationType = Battle::battleOperationFromLegacy(input.dashFollowUpOperationType);
-    castInput.normalSkill = makeBattleCastSkillState(input.unit, input.normalSkill);
-    castInput.ultimateSkill = makeBattleCastSkillState(input.unit, input.ultimateSkill);
-    return castInput;
 }
 
 void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, int actType)
@@ -757,55 +746,52 @@ void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result)
     unit->UsingMagic = nullptr;
 }
 
-void configureBattleAttackWorld(Battle::BattleAttackWorld& world)
+void configureBattleAttackWorld(Battle::BattleAttackWorld& world, const Battle::BattleRuntimeRulesConfig& rules)
 {
-    world.hitRadius = BATTLE_TILE_W * 2.0;
-    world.minimumVectorNorm = MINIMUM_VECTOR_NORM;
+    world.hitRadius = rules.action.meleeAttackHitRadius;
+    world.minimumVectorNorm = rules.minimumVectorNorm;
     world.projectileGraceFrames = 5;
-    world.bounceSpawnDistance = BATTLE_TILE_W * 1.5;
-    world.defaultProjectileSpeed = BATTLE_TILE_W / 3.0;
+    world.bounceSpawnDistance = rules.projectileFollowUps.areaSpawnDistance;
+    world.defaultProjectileSpeed = rules.projectileFollowUps.projectileSpeed;
     world.spendNonThroughOnHit = false;
 }
 
-Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
-    Role* role,
+Battle::BattleRuntimeUnit RoleBattleProjection::runtimeUnit(
     const RoleComboState* state,
-    const Battle::BattleGridTransform& gridTransform)
+    const Battle::BattleGridTransform& gridTransform) const
 {
-    assert(role);
-
     Battle::BattleRuntimeUnit unit;
-    unit.id = role->ID;
-    unit.realRoleId = role->RealID;
-    unit.name = role->Name;
-    unit.team = role->Team;
-    unit.alive = role->Dead == 0;
-    unit.hp = role->HP;
-    unit.maxHp = role->MaxHP;
-    unit.mp = role->MP;
-    unit.maxMp = role->MaxMP;
-    unit.attack = role->Attack;
-    unit.defence = role->Defence;
-    unit.speed = role->Speed;
-    unit.cooldown = role->CoolDown;
-    unit.cooldownMax = role->CoolDownMax;
-    unit.haveAction = role->HaveAction != 0;
-    unit.actFrame = role->ActFrame;
-    unit.operationType = Battle::battleOperationFromLegacy(role->OperationType);
-    unit.actType = role->ActType;
-    unit.operationCount = role->OperationCount;
-    unit.physicalPower = role->PhysicalPower;
-    unit.invincible = role->Invincible;
-    unit.hurtFrame = role->HurtFrame;
+    unit.id = id();
+    unit.realRoleId = realRoleId();
+    unit.name = name();
+    unit.team = team();
+    unit.alive = alive();
+    unit.hp = hp();
+    unit.maxHp = maxHp();
+    unit.mp = mp();
+    unit.maxMp = maxMp();
+    unit.attack = attack();
+    unit.defence = defence();
+    unit.speed = speed();
+    unit.cooldown = role_->CoolDown;
+    unit.cooldownMax = role_->CoolDownMax;
+    unit.haveAction = role_->HaveAction != 0;
+    unit.actFrame = role_->ActFrame;
+    unit.operationType = Battle::battleOperationFromLegacy(role_->OperationType);
+    unit.actType = role_->ActType;
+    unit.operationCount = role_->OperationCount;
+    unit.physicalPower = role_->PhysicalPower;
+    unit.invincible = invincible();
+    unit.hurtFrame = hurtFrame();
     for (int magicType = 0; magicType <= 4; ++magicType)
     {
-        unit.actPropertiesByMagicType.emplace(magicType, role->getActProperty(magicType));
+        unit.actPropertiesByMagicType.emplace(magicType, role_->getActProperty(magicType));
     }
-    unit.position = role->Pos;
-    unit.velocity = role->Velocity;
-    unit.acceleration = role->Acceleration;
-    unit.facing = role->RealTowards;
-    unit.grid = gridTransform.toGrid(role->Pos);
+    unit.position = position();
+    unit.velocity = velocity();
+    unit.acceleration = acceleration();
+    unit.facing = facing();
+    unit.grid = gridTransform.toGrid(position());
     if (state)
     {
         unit.shield = state->shield;
@@ -813,6 +799,14 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
         unit.mpRecoveryBonusPct = state->mpRecoveryBonusPct;
     }
     return unit;
+}
+
+Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
+    Role* role,
+    const RoleComboState* state,
+    const Battle::BattleGridTransform& gridTransform)
+{
+    return RoleBattleProjection(role).runtimeUnit(state, gridTransform);
 }
 
 void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnitRuntimeResult& result)
@@ -838,52 +832,23 @@ void applyBattleProjectileCancelDamage(Role* role, int damage)
     role->CancelDmg += damage;
 }
 
-Battle::BattleActionCommitUnitSnapshot makeBattleActionCommitUnitSnapshot(Role* role)
-{
-    assert(role);
-
-    Battle::BattleActionCommitUnitSnapshot snapshot;
-    snapshot.id = role->ID;
-    snapshot.team = role->Team;
-    snapshot.position = role->Pos;
-    snapshot.facing = role->RealTowards;
-    snapshot.operationCount = role->OperationCount;
-    return snapshot;
-}
-
-Battle::BattleActionTargetSnapshot makeBattleActionTargetSnapshot(Role* role)
-{
-    assert(role);
-
-    Battle::BattleActionTargetSnapshot snapshot;
-    snapshot.id = role->ID;
-    snapshot.team = role->Team;
-    snapshot.alive = role->Dead == 0;
-    snapshot.hp = role->HP;
-    snapshot.maxHp = role->MaxHP;
-    snapshot.defence = role->Defence;
-    snapshot.invincible = role->Invincible;
-    snapshot.position = role->Pos;
-    return snapshot;
-}
-
-Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state)
+Battle::BattleStatusUnitState RoleBattleProjection::statusUnit(const RoleComboState& state) const
 {
     Battle::BattleStatusUnitState unit;
-    unit.id = role ? role->ID : -1;
-    unit.alive = role && role->Dead == 0;
-    unit.hp = role ? role->HP : 0;
-    unit.maxHp = role ? role->MaxHP : 0;
-    unit.attack = role ? role->Attack : 0;
-    unit.invincible = role ? role->Invincible : 0;
+    unit.id = id();
+    unit.alive = alive();
+    unit.hp = hp();
+    unit.maxHp = maxHp();
+    unit.attack = attack();
+    unit.invincible = invincible();
     unit.poisonTimer = state.poisonTimer;
     unit.poisonTickPct = state.poisonTickDmg;
     unit.poisonSourceId = state.poisonSourceId;
     unit.bleedStacks = state.bleedStacks;
     unit.bleedTimer = state.bleedTimer;
     unit.bleedSourceId = state.bleedSourceId;
-    unit.frozenTimer = role ? role->Frozen : 0;
-    unit.frozenMaxTimer = role ? role->FrozenMax : 0;
+    unit.frozenTimer = frozen();
+    unit.frozenMaxTimer = frozenMax();
     unit.freezeReductionPct = state.freezeReductionPct;
     unit.shieldFreezeResPct = state.shieldFreezeResPct;
     unit.controlImmunityFrames = state.controlImmunityFrames;
@@ -901,6 +866,11 @@ Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboSt
         unit.damageReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
     }
     return unit;
+}
+
+Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state)
+{
+    return RoleBattleProjection(role).statusUnit(state);
 }
 
 void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit)
@@ -936,17 +906,17 @@ void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::Batt
     }
 }
 
-Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state)
+Battle::BattleDamageUnitState RoleBattleProjection::damageUnit(const RoleComboState* state) const
 {
     Battle::BattleDamageUnitState unit;
-    unit.id = role ? role->ID : -1;
-    unit.alive = role && role->Dead == 0;
-    unit.hp = role ? role->HP : 0;
-    unit.maxHp = role ? role->MaxHP : 0;
-    unit.mp = role ? role->MP : 0;
-    unit.maxMp = role ? role->MaxMP : 0;
-    unit.attack = role ? role->Attack : 0;
-    unit.invincible = role ? role->Invincible : 0;
+    unit.id = id();
+    unit.alive = alive();
+    unit.hp = hp();
+    unit.maxHp = maxHp();
+    unit.mp = mp();
+    unit.maxMp = maxMp();
+    unit.attack = attack();
+    unit.invincible = invincible();
     if (!state)
     {
         return unit;
@@ -964,6 +934,11 @@ Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboSt
     unit.mpBlocked = state->mpBlockTimer > 0;
     unit.mpRecoveryBonusPct = state->mpRecoveryBonusPct;
     return unit;
+}
+
+Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state)
+{
+    return RoleBattleProjection(role).damageUnit(state);
 }
 
 void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit)
@@ -1000,215 +975,39 @@ Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* ro
     return style;
 }
 
-int legacyOperationForAttackArea(int attackAreaType)
+Battle::BattleActionSkillSeed makeBattleActionSkillSeed(Role* role, Magic* magic)
 {
-    return Battle::toLegacyOperationType(
-        Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(attackAreaType));
-}
-
-double actionRandomRoll(const BattleActionFrameAdapterContext& context)
-{
-    assert(context.random);
-    return context.random->rand();
-}
-
-int actionRandomInt(const BattleActionFrameAdapterContext& context, int upperBound)
-{
-    assert(context.random);
-    return context.random->rand_int(upperBound);
-}
-
-int actionUltimateExtraProjectileCount(Role* role, const BattleActionFrameAdapterContext& context)
-{
-    assert(context.comboStates);
-    auto comboIt = context.comboStates->find(role->ID);
-    assert(comboIt != context.comboStates->end());
-    auto& combo = comboIt->second;
-    return Battle::collectFrameExtraProjectileCount(
-        combo,
-        role->ID,
-        std::max(0, combo.ultimateExtraProjectiles));
-}
-
-Pointf positionForCell(int x, int y, int coordCount)
-{
-    return {
-        static_cast<float>(-y * BATTLE_TILE_W + x * BATTLE_TILE_W + coordCount * BATTLE_TILE_W),
-        static_cast<float>(y * BATTLE_TILE_W + x * BATTLE_TILE_W),
-        0.0f,
-    };
-}
-
-bool cellWalkable(int x, int y, int coordCount)
-{
-    return x >= 0 && y >= 0 && x < coordCount && y < coordCount;
-}
-
-BattleCastSkillAdapterInput makeActionFrameSkillInput(
-    Role* role,
-    Magic* magic,
-    bool ultimate,
-    const BattleActionFrameAdapterContext& context,
-    bool consumeFrameSkillBonuses)
-{
-    BattleCastSkillAdapterInput skill;
+    Battle::BattleActionSkillSeed seed;
     if (!magic)
     {
-        return skill;
+        return seed;
     }
-
-    assert(context.comboStates);
-    const bool forceRanged = roleForcesRangedMagic(*context.comboStates, role->ID);
-    const int speedMultiplierPct = projectileSpeedMultiplierPct(*context.comboStates, role->ID);
-    skill.magic = magic;
-    skill.reach = std::min(
-        effectiveBattleReach(
-            magic,
-            forceRanged,
-            forcedRangedMinSelectDistance(*context.comboStates, role->ID),
-            speedMultiplierPct),
-        context.config.maxEffectiveBattleReach);
-    skill.forceRanged = forceRanged;
-    skill.rangedStyle = isBattleRangedStyleMagic(magic, forceRanged);
-    skill.projectileSpeedMultiplierPct = speedMultiplierPct;
-    skill.meleeSplashCount = ultimate && magic->AttackAreaType == 0 ? 1 : 0;
-    skill.extraProjectileCount = ultimate && consumeFrameSkillBonuses
-        ? actionUltimateExtraProjectileCount(role, context)
-        : 0;
-    skill.blinkReach = battleBlinkReach(magic);
-    return skill;
+    seed.id = magic->ID;
+    seed.name = magic->Name;
+    seed.soundId = magic->SoundID;
+    seed.hurtType = magic->HurtType;
+    seed.attackAreaType = magic->AttackAreaType;
+    seed.magicType = magic->MagicType;
+    seed.visualEffectId = magic->EffectID;
+    seed.selectDistance = magic->SelectDistance;
+    seed.actProperty = role->getActProperty(magic->MagicType);
+    seed.magicPower = role->getMagicPower(magic);
+    return seed;
 }
 
-int rollDashHitCount(Role* role, Magic* selectedMagic, const BattleActionFrameAdapterContext& context)
-{
-    int dashHitCount = 1;
-    if (selectedMagic)
-    {
-        const double multiHitScore = (role->Speed + role->getActProperty(selectedMagic->MagicType)) / 180.0;
-        if (actionRandomRoll(context) < multiHitScore)
-        {
-            dashHitCount++;
-        }
-        if (actionRandomRoll(context) < multiHitScore * 0.5)
-        {
-            dashHitCount++;
-        }
-    }
-    return dashHitCount;
-}
-
-Battle::BattleCastInput makeActionFrameCastInput(
+Battle::BattleActionPlanSeed makeBattleActionPlanSeed(
     Role* role,
     Magic* normalMagic,
     Magic* ultimateMagic,
-    bool canStartAttack,
-    bool movementDashActive,
-    const BattleActionFrameAdapterContext& context,
-    bool consumeFrameSkillBonuses = true)
+    bool hasEquippedSkill)
 {
     assert(role);
-    assert(context.comboStates);
-
-    const bool isUltimate = role->MP >= role->MaxMP;
-    Magic* selectedMagic = isUltimate && ultimateMagic ? ultimateMagic : normalMagic;
-    Pointf dashVelocity = role->RealTowards;
-    if (dashVelocity.norm() > 0.01)
-    {
-        dashVelocity.normTo(context.config.meleeAttackHitRadius / context.config.dashMomentumFrames);
-    }
-
-    bool dashAttackEnabled = false;
-    int cooldownReductionPct = 0;
-    auto comboIt = context.comboStates->find(role->ID);
-    if (comboIt != context.comboStates->end())
-    {
-        dashAttackEnabled = comboIt->second.dashAttack;
-        cooldownReductionPct = comboIt->second.cdrPct;
-    }
-
-    BattleCastAdapterInput castAdapterInput;
-    castAdapterInput.unit = role;
-    castAdapterInput.normalSkill = makeActionFrameSkillInput(role, normalMagic, false, context, consumeFrameSkillBonuses);
-    castAdapterInput.ultimateSkill = makeActionFrameSkillInput(role, ultimateMagic, true, context, consumeFrameSkillBonuses);
-    castAdapterInput.canStartAttack = canStartAttack;
-    castAdapterInput.movementDashActive = movementDashActive;
-    castAdapterInput.dashAttackEnabled = dashAttackEnabled;
-    castAdapterInput.dashVelocity = dashVelocity;
-    castAdapterInput.dashHitCount = rollDashHitCount(role, selectedMagic, context);
-    castAdapterInput.emitDashFollowUpSkillAttack = dashAttackEnabled && selectedMagic;
-    castAdapterInput.dashFollowUpOperationType = selectedMagic ? legacyOperationForAttackArea(selectedMagic->AttackAreaType) : -1;
-    castAdapterInput.meleeAttackReach = context.config.meleeAttackReach;
-    castAdapterInput.dashAttackReach = context.config.dashAttackMeleeReach;
-    castAdapterInput.operationCount = role->OperationCount;
-    castAdapterInput.cooldownReductionPct = cooldownReductionPct;
-    return makeBattleCastInput(castAdapterInput);
-}
-
-Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
-    Role* role,
-    double reach,
-    const BattleActionFrameAdapterContext& context);
-
-Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
-    Role* role,
-    double reach,
-    const BattleActionFrameAdapterContext& context)
-{
-    assert(role);
-    assert(context.units);
-
-    Battle::BattleBlinkGeometryInput geometry;
-    auto current = context.units->requireUnit(role->ID).grid;
-    geometry.currentGridX = current.x;
-    geometry.currentGridY = current.y;
-
-    int gridReach = std::max(1, static_cast<int>(reach / BATTLE_TILE_W) + 1);
-    std::set<std::pair<int, int>> visited;
-    for (const auto& target : context.units->units)
-    {
-        if (target.id == role->ID || !target.alive || target.team == role->Team)
-        {
-            continue;
-        }
-
-        auto targetPos45 = target.grid;
-        for (int dx = -gridReach; dx <= gridReach; ++dx)
-        {
-            for (int dy = -gridReach; dy <= gridReach; ++dy)
-            {
-                int x = targetPos45.x + dx;
-                int y = targetPos45.y + dy;
-                if (!visited.emplace(x, y).second)
-                {
-                    continue;
-                }
-
-                bool occupied = false;
-                for (const auto& other : context.units->units)
-                {
-                    if (other.id == role->ID || !other.alive)
-                    {
-                        continue;
-                    }
-                    auto rolePos45 = other.grid;
-                    if (rolePos45.x == x && rolePos45.y == y)
-                    {
-                        occupied = true;
-                        break;
-                    }
-                }
-
-                geometry.cells.push_back({
-                    x,
-                    y,
-                    positionForCell(x, y, context.config.coordCount),
-                    cellWalkable(x, y, context.config.coordCount),
-                    occupied,
-                });
-            }
-        }
-    }
-    return geometry;
+    Battle::BattleActionPlanSeed seed;
+    seed.unitId = role->ID;
+    seed.hasEquippedSkill = hasEquippedSkill;
+    seed.normalSkill = makeBattleActionSkillSeed(role, normalMagic);
+    seed.ultimateSkill = makeBattleActionSkillSeed(role, ultimateMagic);
+    return seed;
 }
 
 void applyActionFrameUnitState(Role* role, const Battle::BattleFrameUnitRuntimeState& state)
@@ -1224,7 +1023,7 @@ void applyActionFrameUnitState(Role* role, const Battle::BattleFrameUnitRuntimeS
 void applyBlinkTeleportDelta(
     Role* role,
     const Battle::BattleBlinkTeleportDelta& teleport,
-    const BattleActionFrameAdapterContext& context,
+    const BattleActionFrameApplyContext& context,
     BattleActionFrameApplyResult& result)
 {
     assert(role);
@@ -1233,7 +1032,7 @@ void applyBlinkTeleportDelta(
     role->Pos.y = teleport.position.y;
     role->Pos.z = 0;
     role->Velocity = { 0, 0, 0 };
-    role->Acceleration = { 0, 0, context.config.gravity };
+    role->Acceleration = { 0, 0, context.gravity };
     role->FindingWay = 0;
     role->RealTowards = teleport.facing;
     result.faceTowardsNearestUnitIds.push_back(role->ID);
@@ -1274,35 +1073,33 @@ void applyBattleMovementFrameResults(
 
 void initializeBattleActionPlanInputs(
     Battle::BattleRuntimeState& runtime,
-    BattleActionFrameAdapterContext& context)
+    BattleActionPlanInputContext& context)
 {
     assert(context.roles);
-    assert(context.comboStates);
 
-    runtime.action.castPlanInputs.clear();
+    runtime.action.planSeeds.clear();
+    runtime.action.castConfig = context.castConfig;
+    runtime.action.castGeometry = context.castGeometry;
+    runtime.action.actionRules = context.actionRules;
     for (auto role : *context.roles)
     {
         assert(role);
         Magic* equippedMagic = role->UsingMagic;
         Magic* normalMagic = equippedMagic ? equippedMagic : selectLowerPowerMagic(role);
         Magic* ultimateMagic = equippedMagic ? equippedMagic : selectHigherPowerMagic(role);
-        runtime.action.castPlanInputs[role->ID] = makeActionFrameCastInput(
+        runtime.action.planSeeds[role->ID] = makeBattleActionPlanSeed(
             role,
             normalMagic,
             ultimateMagic,
-            true,
-            false,
-            context,
-            false);
+            equippedMagic != nullptr);
     }
 }
 
 BattleActionFrameApplyResult applyBattleActionFrameResults(
     const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
-    const BattleActionFrameAdapterContext& context)
+    const BattleActionFrameApplyContext& context)
 {
     assert(context.roles);
-    assert(context.ultimateCasters);
 
     BattleActionFrameApplyResult result;
     for (const auto& action : actionResults)
@@ -1322,7 +1119,6 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
             assert(magic);
             role->UsingMagic = magic;
             applyBattleCastStart(role, action.castResult, magic->MagicType);
-            result.clearMovementDashSpreadUnitIds.push_back(role->ID);
         }
         else
         {
@@ -1343,11 +1139,10 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
         {
             Magic* magic = role->UsingMagic;
             assert(magic);
-            role->PreActTimer = context.config.battleFrame;
+            role->PreActTimer = context.battleFrame;
             result.attackSoundIds.push_back(magic->SoundID);
             role->OperationCount = action.actionResult.operationCount;
             applyBattleCastCommit(role, action.actionInput.cast);
-            context.ultimateCasters->erase(role->ID);
         }
 
     }

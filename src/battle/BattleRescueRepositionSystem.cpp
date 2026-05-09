@@ -1,5 +1,7 @@
 #include "BattleRescueRepositionSystem.h"
 
+#include "BattleFind.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -25,16 +27,6 @@ int distanceCells(Point lhs, Point rhs)
     return std::abs(lhs.x - rhs.x) + std::abs(lhs.y - rhs.y);
 }
 
-const BattleRescueUnitSnapshot& unitById(const std::vector<BattleRescueUnitSnapshot>& units, int unitId)
-{
-    auto it = std::find_if(units.begin(), units.end(), [&](const BattleRescueUnitSnapshot& unit)
-        {
-            return unit.id == unitId;
-        });
-    assert(it != units.end());
-    return *it;
-}
-
 bool legalCell(const BattleRescueRepositionInput& input, const BattleRescueUnitSnapshot& pulled, Point cell)
 {
     if (cell.x == pulled.cell.x && cell.y == pulled.cell.y)
@@ -42,11 +34,11 @@ bool legalCell(const BattleRescueRepositionInput& input, const BattleRescueUnitS
         return false;
     }
 
-    auto it = std::find_if(input.cells.begin(), input.cells.end(), [&](const BattleRescueCellSnapshot& snapshot)
+    auto it = std::ranges::find_if(input.cells, [&](const BattleRescueCellSnapshot& snapshot)
         {
             return snapshot.x == cell.x && snapshot.y == cell.y;
         });
-    if (it == input.cells.end())
+    if (it == std::ranges::end(input.cells))
     {
         return false;
     }
@@ -359,7 +351,7 @@ void commitExecuteResult(
 BattleRescueRepositionResult BattleRescueRepositionSystem::resolve(
     const BattleRescueRepositionInput& input) const
 {
-    const auto& pulled = unitById(input.units, input.pulledUnitId);
+    const auto& pulled = requireById(input.units, input.pulledUnitId);
     if (!pulled.alive)
     {
         return {};

@@ -251,6 +251,38 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     CHECK(result.logEvents[1].text == "全隊獲取15護盾");
 }
 
+TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[battle][initialization]")
+{
+    BattleRuntimeState runtime;
+    runtime.units.gridTransform = { 36.0, 18 };
+    runtime.units.units.push_back(runtimeUnit(10, 0, 100, 20, 30, 40));
+    runtime.status.units.push_back(statusRuntime(10, 100, 20));
+    runtime.combo.units[10].cloneSummonCount = 1;
+
+    BattleRuntimeSetupSeed setup;
+    setup.cloneSummonCount = 1;
+    setup.nextCloneUnitId = 1000;
+    setup.cloneSources.push_back({ 10, 1001, 999, 3, 7, 0 });
+    setup.cloneCells.push_back({ 3, 4, true, false });
+
+    auto result = BattleInitializationSystem().initialize(runtime, setup);
+
+    REQUIRE(result.cloneIntents.size() == 1);
+    const auto& intent = result.cloneIntents[0];
+    CHECK(intent.sourceUnitId == 10);
+    CHECK(intent.cloneUnitId == 1000);
+    CHECK(intent.gridX == 3);
+    CHECK(intent.gridY == 4);
+    CHECK(intent.roleValues.unitId == 1000);
+    CHECK(intent.roleValues.maxHp == 100);
+    CHECK(intent.roleValues.hp == 100);
+    CHECK(intent.roleValues.attack == 20);
+    CHECK(intent.roleValues.defence == 30);
+    CHECK(intent.roleValues.speed == 40);
+    CHECK(runtime.units.findUnit(1000) != nullptr);
+    CHECK(runtime.combo.units.find(1000) != runtime.combo.units.end());
+}
+
 TEST_CASE("BattleRuntimeSession_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization][runtime_session]")
 {
     BattleRuntimeInit init;

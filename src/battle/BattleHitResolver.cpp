@@ -212,18 +212,6 @@ BattleVisualEvent floatingTextEvent(int targetUnitId,
     return event;
 }
 
-const BattleRuntimeUnit& followUpUnitById(
-    const BattleUnitStore& units,
-    int unitId)
-{
-    return units.requireUnit(unitId);
-}
-
-Pointf followUpPosition(const BattleRuntimeUnit& unit)
-{
-    return unit.position;
-}
-
 double followUpDistance(Pointf lhs, Pointf rhs)
 {
     return EuclidDis(lhs.x - rhs.x, lhs.y - rhs.y);
@@ -246,7 +234,7 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     const BattleRuntimeUnit& target,
     const BattleProjectileFollowUpContext& context)
 {
-    const auto targetPosition = followUpPosition(target);
+    const auto targetPosition = target.position;
     BattleAttackSpawnRequest request;
     request.initial.attackerUnitId = command.prototype.sourceUnitId;
     request.initial.skillId = command.prototype.skillId;
@@ -287,10 +275,10 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
     const BattleProjectileFollowUpContext& context,
     const BattleUnitStore& units)
 {
-    const auto& source = followUpUnitById(units, sourceUnitId);
-    const auto& target = followUpUnitById(units, targetUnitId);
-    auto sourcePosition = followUpPosition(source);
-    auto targetPosition = followUpPosition(target);
+    const auto& source = units.requireUnit(sourceUnitId);
+    const auto& target = units.requireUnit(targetUnitId);
+    auto sourcePosition = source.position;
+    auto targetPosition = target.position;
     auto direction = targetPosition - sourcePosition;
     if (direction.norm() <= 0.01)
     {
@@ -369,7 +357,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     {
         if (const auto* currentHp = std::get_if<BattleCurrentHpBlastCommand>(&command))
         {
-            const auto& source = followUpUnitById(units, currentHp->sourceUnitId);
+            const auto& source = units.requireUnit(currentHp->sourceUnitId);
             for (const auto& unit : units.units)
             {
                 if (!unit.alive || unit.team == source.team)
@@ -392,8 +380,8 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
         }
         if (const auto* spiral = std::get_if<BattleSpiralBleedProjectileCommand>(&command))
         {
-            const auto& source = followUpUnitById(units, spiral->sourceUnitId);
-            const auto sourcePosition = followUpPosition(source);
+            const auto& source = units.requireUnit(spiral->sourceUnitId);
+            const auto sourcePosition = source.position;
             const int sharedHitGroupId = context.nextSharedHitGroupId++;
             const int projectileCount = std::max(1, spiral->projectileCount);
             for (int i = 0; i < projectileCount; ++i)
@@ -430,7 +418,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                 expansion.commands.push_back(BattleProjectileSpawnCommand{
                     makeNearbyFollowUpSpawn(
                         *nearby,
-                        followUpUnitById(units, targetId),
+                        units.requireUnit(targetId),
                         context),
                     "範圍追蹤彈",
                 });
@@ -466,7 +454,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                 const double prototypeSpeed = prototypeVelocity.norm();
                 request.initial.velocity = normalizedFollowUpVelocity(
                     extra->prototype.position,
-                    followUpPosition(followUpUnitById(units, extra->targetUnitId)),
+                    units.requireUnit(extra->targetUnitId).position,
                     prototypeSpeed > 0.01 ? prototypeSpeed : context.projectileSpeed);
                 expansion.commands.push_back(BattleProjectileSpawnCommand{ std::move(request), "命中追加彈" });
             }

@@ -238,6 +238,34 @@ TEST_CASE("BattleRuntimeSession_QueuedAttackSpawnEntersOwnedRuntime", "[battle][
     CHECK(session.runtime().attacks.attacks[0].state.skillId == 102);
 }
 
+TEST_CASE("BattleRuntimeSession_CommitSetupPlacementUpdatesOwnedRuntime", "[battle][runtime_session][ownership]")
+{
+    BattleRuntimeInit init;
+    init.runtime = ownedRuntimeState();
+    init.runtime.units.gridTransform = { SceneTileWidth, 18 };
+    init.runtime.units.units = {
+        teamRuntimeUnitAt(1, 0, 100, { 100, 100, 0 }),
+    };
+    init.runtime.world.units = {
+        runtimeUnit(1, 0, { 100, 100, 0 }),
+    };
+    BattleRuntimeSession session(std::move(init));
+
+    BattleSetupPlacementInput placement;
+    placement.units.push_back({ 1, 3, 4, 2 });
+
+    session.commitSetupPlacement(placement);
+
+    const auto& unit = session.runtime().units.requireUnit(1);
+    CHECK(unit.grid.x == 3);
+    CHECK(unit.grid.y == 4);
+    CHECK(unit.facing.x == -1.0f);
+    CHECK(unit.facing.y == 0.0f);
+    REQUIRE(session.runtime().world.units.size() == 1);
+    CHECK(session.runtime().world.units[0].position.x == unit.position.x);
+    CHECK(session.runtime().world.units[0].position.y == unit.position.y);
+}
+
 TEST_CASE("BattleFrameRunner_RunFrame_UsesRuntimeOwnedFrameState", "[battle][frame_runner][runtime]")
 {
     auto state = runtimeFrameState();
@@ -245,6 +273,26 @@ TEST_CASE("BattleFrameRunner_RunFrame_UsesRuntimeOwnedFrameState", "[battle][fra
     auto result = BattleFrameRunner().runFrame(state);
 
     CHECK(result.runtimeResults.empty());
+}
+
+TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][frame_runner][runtime]")
+{
+    auto state = runtimeFrameState();
+    state.units.units = {
+        teamRuntimeUnit(1, 0, 80),
+    };
+    KysChess::RoleComboState combo;
+    combo.shield = 12;
+    state.combo.units.emplace(1, combo);
+    state.status.units.push_back(BattleStatusRuntimeUnit{ .id = 1 });
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.stateApplications.statusUnits.size() == 1);
+    CHECK(result.stateApplications.statusUnits[0].id == 1);
+    CHECK(result.stateApplications.statusUnits[0].hp == 80);
+    REQUIRE(result.stateApplications.comboStates.size() == 1);
+    CHECK(result.stateApplications.comboStates.at(1).shield == 12);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")
@@ -295,7 +343,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     REQUIRE(result.runtimeResults[0].comboEvents.size() == 1);
     CHECK(result.runtimeResults[0].comboEvents[0].type == BattleComboFrameRuntimeEventType::PostSkillInvincibility);
 
-    REQUIRE(result.commands.empty());
     CHECK(state.teamEffects.pendingCommands.empty());
     REQUIRE(result.teamEffectEvents.size() == 1);
     CHECK(result.teamEffectEvents[0].sourceUnitId == 1);
@@ -571,7 +618,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     CHECK(cancel.projectileCancelDamage == 25);
     CHECK(cancel.otherProjectileCancelDamage == 12);
 
-    REQUIRE(result.commands.empty());
     REQUIRE(result.projectileCancelDamageCommands.size() == 1);
     const auto* command = &result.projectileCancelDamageCommands[0];
     REQUIRE(command);

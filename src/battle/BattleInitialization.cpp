@@ -2,6 +2,7 @@
 
 #include "../BattleStarStats.h"
 #include "../ChessBattleEffects.h"
+#include "BattleFind.h"
 
 #include <algorithm>
 #include <cassert>
@@ -33,20 +34,6 @@ struct TeamResolvedSetup
     std::map<int, RoleComboState> baseStatesByRealRoleId;
     std::vector<std::pair<ComboEffect, int>> teamwideEffects;
 };
-
-BattleStatusRuntimeUnit& requireStatusUnit(BattleRuntimeState& runtime, int unitId)
-{
-    for (auto& status : runtime.status.units)
-    {
-        if (status.id == unitId)
-        {
-            return status;
-        }
-    }
-
-    assert(false && "battle initialization requires imported status runtime unit");
-    return runtime.status.units.front();
-}
 
 int applyPercentBonus(int value, double pct)
 {
@@ -109,53 +96,6 @@ bool isTeamwideComboEffect(EffectType type)
     }
 }
 
-const BattleSetupEquipmentDefinition* findEquipmentDefinition(
-    const BattleRuntimeSetupSeed& setup,
-    int itemId)
-{
-    if (itemId < 0)
-    {
-        return nullptr;
-    }
-
-    const auto it = std::find_if(
-        setup.equipmentDefinitions.begin(),
-        setup.equipmentDefinitions.end(),
-        [itemId](const BattleSetupEquipmentDefinition& definition)
-        {
-            return definition.itemId == itemId;
-        });
-    return it != setup.equipmentDefinitions.end() ? &*it : nullptr;
-}
-
-const BattleSetupNeigongDefinition* findNeigongDefinition(
-    const BattleRuntimeSetupSeed& setup,
-    int magicId)
-{
-    const auto it = std::find_if(
-        setup.neigongDefinitions.begin(),
-        setup.neigongDefinitions.end(),
-        [magicId](const BattleSetupNeigongDefinition& definition)
-        {
-            return definition.magicId == magicId;
-        });
-    return it != setup.neigongDefinitions.end() ? &*it : nullptr;
-}
-
-const BattleSetupRosterUnit* findRosterUnit(
-    const std::vector<BattleSetupRosterUnit>& roster,
-    int unitId)
-{
-    const auto it = std::find_if(
-        roster.begin(),
-        roster.end(),
-        [unitId](const BattleSetupRosterUnit& unit)
-        {
-            return unit.unitId == unitId;
-        });
-    return it != roster.end() ? &*it : nullptr;
-}
-
 bool equipmentSynergyActive(
     const BattleSetupEquipmentSynergyDefinition& synergy,
     int roleId,
@@ -178,7 +118,7 @@ std::vector<std::string> collectActAsComboNames(
 
     auto appendEquipmentActAs = [&](int itemId)
     {
-        const auto* definition = findEquipmentDefinition(setup, itemId);
+        const auto* definition = tryFindBy(setup.equipmentDefinitions, itemId, &BattleSetupEquipmentDefinition::itemId);
         if (!definition)
         {
             return;
@@ -315,15 +255,8 @@ TeamResolvedSetup resolveTeamSetup(
             continue;
         }
 
-        const auto comboIt = std::find_if(
-            setup.comboDefinitions.begin(),
-            setup.comboDefinitions.end(),
-            [&active](const BattleSetupComboDefinition& definition)
-            {
-                return definition.id == active.id;
-            });
-        assert(comboIt != setup.comboDefinitions.end());
-        const auto& threshold = comboIt->thresholds[active.activeThresholdIdx];
+        const auto& comboDefinition = requireById(setup.comboDefinitions, active.id);
+        const auto& threshold = comboDefinition.thresholds[active.activeThresholdIdx];
 
         for (int roleId : active.memberRoleIds)
         {
@@ -357,21 +290,15 @@ void applyEquipmentEffects(
     const BattleInitializationUnitSeed& seed,
     const std::vector<BattleSetupRosterUnit>& roster)
 {
-    const auto rosterIt = std::find_if(
-        roster.begin(),
-        roster.end(),
-        [&seed](const BattleSetupRosterUnit& unit)
-        {
-            return unit.unitId == seed.unitId;
-        });
-    if (rosterIt == roster.end())
+    const auto* rosterUnit = tryFindBy(roster, seed.unitId, &BattleSetupRosterUnit::unitId);
+    if (!rosterUnit)
     {
         return;
     }
 
     auto applyDefinition = [&](int itemId)
     {
-        const auto* definition = findEquipmentDefinition(setup, itemId);
+        const auto* definition = tryFindBy(setup.equipmentDefinitions, itemId, &BattleSetupEquipmentDefinition::itemId);
         if (!definition)
         {
             return;
@@ -382,11 +309,11 @@ void applyEquipmentEffects(
         }
     };
 
-    applyDefinition(rosterIt->weaponId);
-    applyDefinition(rosterIt->armorId);
+    applyDefinition(rosterUnit->weaponId);
+    applyDefinition(rosterUnit->armorId);
     for (const auto& synergy : setup.equipmentSynergies)
     {
-        if (!equipmentSynergyActive(synergy, seed.realRoleId, rosterIt->weaponId, rosterIt->armorId))
+        if (!equipmentSynergyActive(synergy, seed.realRoleId, rosterUnit->weaponId, rosterUnit->armorId))
         {
             continue;
         }
@@ -409,7 +336,7 @@ void applyObtainedNeigongEffects(
 
     for (int magicId : setup.obtainedNeigongMagicIds)
     {
-        const auto* definition = findNeigongDefinition(setup, magicId);
+        const auto* definition = tryFindBy(setup.neigongDefinitions, magicId, &BattleSetupNeigongDefinition::magicId);
         if (!definition)
         {
             continue;
@@ -460,6 +387,36 @@ BattleStatusRuntimeUnit cloneStatusUnit(
     clone.damageImmunityDuration = cloneCombo.damageImmunityDuration;
     clone.damageImmunityTimer = cloneCombo.damageImmunityTimer;
     return clone;
+}
+
+BattleInitializationRoleDelta makeRoleDelta(
+    int unitId,
+    int star,
+    int maxHp,
+    int hp,
+    int attack,
+    int defence,
+    int speed,
+    int fist = 0,
+    int sword = 0,
+    int knife = 0,
+    int unusual = 0,
+    int hiddenWeapon = 0)
+{
+    BattleInitializationRoleDelta delta;
+    delta.unitId = unitId;
+    delta.star = star;
+    delta.maxHp = maxHp;
+    delta.hp = hp;
+    delta.attack = attack;
+    delta.defence = defence;
+    delta.speed = speed;
+    delta.fist = fist;
+    delta.sword = sword;
+    delta.knife = knife;
+    delta.unusual = unusual;
+    delta.hiddenWeapon = hiddenWeapon;
+    return delta;
 }
 
 std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
@@ -587,12 +544,12 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
     for (const auto& seed : setup.units)
     {
         auto& unit = runtime.units.requireUnit(seed.unitId);
-        auto& status = requireStatusUnit(runtime, seed.unitId);
+        auto& status = requireById(runtime.status.units, seed.unitId);
         RoleComboState combo = seed.baseCombo;
 
         const auto& resolved = seed.team == 0 ? allyResolved : enemyResolved;
         const auto& roster = seed.team == 0 ? setup.allyRoster : setup.enemyRoster;
-        const auto* rosterUnit = findRosterUnit(roster, seed.unitId);
+        const auto* rosterUnit = tryFindBy(roster, seed.unitId, &BattleSetupRosterUnit::unitId);
         if (const auto baseStateIt = resolved.baseStatesByRealRoleId.find(seed.realRoleId);
             baseStateIt != resolved.baseStatesByRealRoleId.end())
         {
@@ -802,14 +759,8 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
 
             const auto& source = cloneCandidates[spawned % cloneCandidates.size()];
             const auto& sourceUnit = runtime.units.requireUnit(source.sourceUnitId);
-            const auto& sourceStatus = requireStatusUnit(runtime, source.sourceUnitId);
-            const auto sourceWorldIt = std::find_if(
-                runtime.world.units.begin(),
-                runtime.world.units.end(),
-                [&source](const BattleUnitState& unit)
-                {
-                    return unit.id == source.sourceUnitId;
-                });
+            const auto& sourceStatus = requireById(runtime.status.units, source.sourceUnitId);
+            const auto* sourceWorld = tryFindById(runtime.world.units, source.sourceUnitId);
             const auto sourceComboIt = runtime.combo.units.find(source.sourceUnitId);
             assert(sourceComboIt != runtime.combo.units.end());
 
@@ -843,9 +794,9 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             runtime.combo.units[nextCloneUnitId] = cloneCombo;
 
             BattleUnitState cloneWorld;
-            if (sourceWorldIt != runtime.world.units.end())
+            if (sourceWorld)
             {
-                cloneWorld = *sourceWorldIt;
+                cloneWorld = *sourceWorld;
             }
             cloneWorld.id = nextCloneUnitId;
             cloneWorld.realRoleId = source.sourceRealRoleId;
@@ -861,14 +812,14 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
                 nextCloneUnitId,
                 cell.x,
                 cell.y,
-                {
+                makeRoleDelta(
                     nextCloneUnitId,
+                    cloneUnit.star,
                     cloneUnit.maxHp,
                     cloneUnit.hp,
                     cloneUnit.attack,
                     cloneUnit.defence,
-                    cloneUnit.speed,
-                },
+                    cloneUnit.speed),
                 cloneCombo,
             });
             result.logEvents.push_back({
@@ -892,7 +843,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
         const auto& unit = runtime.units.requireUnit(unitId);
         const auto starStatsIt = starStatsByUnitId.find(unitId);
         assert(starStatsIt != starStatsByUnitId.end());
-        result.roleDeltas.push_back({
+        result.roleDeltas.push_back(makeRoleDelta(
             unitId,
             normalizeBattleStar(unit.star),
             unit.maxHp,
@@ -904,8 +855,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             starStatsIt->second.sword,
             starStatsIt->second.knife,
             starStatsIt->second.unusual,
-            starStatsIt->second.hidden,
-        });
+            starStatsIt->second.hidden));
     }
 
     result.comboStates = runtime.combo.units;

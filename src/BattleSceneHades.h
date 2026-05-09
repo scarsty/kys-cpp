@@ -68,23 +68,16 @@ protected:
     SceneBattleFrameInput buildBattleFrameInput();
     void applyCoreFrameResult(
         const BattleSceneRoleBindings& bindings,
-        const KysChess::Battle::BattleFrameResult& frameResult,
-        const KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext& actionContext);
+        const KysChess::Battle::BattleFrameResult& frameResult);
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
 
-    bool attackCanHitInvincible(Role* role) const;
-    void queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnRequest request);
     void initializeBattleRuntime();
-    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext makeBattleRuntimeBuildContext() const;
+    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext makeBattleRuntimeBuildContext();
     void runPreBattlePositionSwapIfEnabled();
     void commitFinalSetupPlacementToRuntime();
-    KysChess::Battle::BattleRuntimeState& battleRuntime();
-    const KysChess::Battle::BattleRuntimeState& battleRuntime() const;
     virtual int calRolePic(Role* r, int style, int frame) override;
 
-    void initializeBattleRuntimeStaticState();
-    void initializeCoreMovementWorld();
     void runPositionSwapLoop();
     void runListBasedSwap();
     bool isManualCameraEnabled() const;
@@ -94,8 +87,9 @@ protected:
     void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
     void updateAutoCamera();
     void clampCameraCenter();
-    void applyCoreStatusState(const BattleSceneRoleBindings& bindings);
-    void initializeCoreDamageState();
+    void applyCoreStatusState(
+        const BattleSceneRoleBindings& bindings,
+        const KysChess::Battle::BattleFrameStateApplications& applications);
     void applyCoreDamageTransactions(
         const BattleSceneRoleBindings& bindings,
         const KysChess::Battle::BattleFrameResult& frameResult);
@@ -105,10 +99,7 @@ protected:
     void applyCoreFrameApplications(
         const BattleSceneRoleBindings& bindings,
         const KysChess::Battle::BattleFrameApplications& applications);
-    KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
-    KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
-    KysChess::Battle::BattleUnitState makeCoreMovementUnit(
-        Role* role);
+    KysChess::BattleSceneBattleAdapter::BattleActionFrameApplyContext makeBattleActionFrameApplyContext() const;
     KysChess::Battle::BattlePresentationSnapshot makePresentationSnapshot() const;
     void beginPresentationFrame();
     void publishPresentationFrame();

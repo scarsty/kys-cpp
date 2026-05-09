@@ -31,7 +31,6 @@ public:
                                      double defenseWeight) const;
 
 private:
-    const BattleRuntimeUnit& unitById(const BattleUnitStore& units, int unitId) const;
     double distanceSquared(const BattleRuntimeUnit& lhs, const BattleRuntimeUnit& rhs) const;
     bool withinGridArea(const BattleRuntimeUnit& origin,
                         const BattleRuntimeUnit& target,

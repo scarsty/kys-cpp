@@ -1,6 +1,7 @@
 #include "BattleDamageApplicationSystem.h"
 
 #include "BattleCore.h"
+#include "BattleFind.h"
 
 #include <algorithm>
 #include <cassert>
@@ -12,18 +13,6 @@ namespace KysChess::Battle
 
 namespace
 {
-
-BattleDamageApplicationUnitSnapshot& unitById(
-    std::vector<BattleDamageApplicationUnitSnapshot>& units,
-    int unitId)
-{
-    auto it = std::find_if(units.begin(), units.end(), [&](const BattleDamageApplicationUnitSnapshot& unit)
-        {
-            return unit.id == unitId;
-        });
-    assert(it != units.end());
-    return *it;
-}
 
 std::string formatStatusFrames(const char* label, int frames)
 {
@@ -353,10 +342,10 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
     {
         const auto& pending = pendingTransactions[i];
         auto transaction = BattleDamageSystem().resolveTransaction(pending);
-        unitById(units, transaction.defender.id).alive = transaction.defender.alive;
+        requireById(units, transaction.defender.id).alive = transaction.defender.alive;
         if (transaction.attacker.id >= 0)
         {
-            unitById(units, transaction.attacker.id).alive = transaction.attacker.alive;
+            requireById(units, transaction.attacker.id).alive = transaction.attacker.alive;
         }
 
         input.deathEffectUnits->writeDamageUnit(transaction.defender);

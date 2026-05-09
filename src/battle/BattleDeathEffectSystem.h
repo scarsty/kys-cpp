@@ -49,7 +49,6 @@ public:
                                                               int deadUnitId) const;
 
 private:
-    BattleDeathEffectExtras& extrasById(BattleDeathEffectStore& effects, int unitId) const;
     bool comboAppliesToUnit(const BattleDeathEffectStore& effects,
                             const BattleDeathEffectExtras& extras,
                             int comboId) const;

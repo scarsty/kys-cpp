@@ -5,9 +5,9 @@
 #include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
 #include "battle/BattleProjectileTargetingSystem.h"
+#include "battle/BattleRuntimeRules.h"
 #include "battle/BattleRuntimeSession.h"
 
-#include <array>
 #include <cstddef>
 #include <deque>
 #include <map>
@@ -21,71 +21,25 @@ class BattleTracker;
 namespace KysChess::BattleSceneBattleAdapter
 {
 
-struct BattleCastSkillAdapterInput
-{
-    Magic* magic = nullptr;
-    double reach{};
-    bool forceRanged = false;
-    bool rangedStyle = false;
-    int projectileSpeedMultiplierPct = 100;
-    int meleeSplashCount = 0;
-    int extraProjectileCount = 0;
-    bool strengthenedMelee = false;
-    double blinkReach = 0.0;
-};
-
-struct BattleCastAdapterInput
-{
-    Role* unit = nullptr;
-    BattleCastSkillAdapterInput normalSkill;
-    BattleCastSkillAdapterInput ultimateSkill;
-    bool canStartAttack = true;
-    bool movementDashActive = false;
-    bool dashAttackEnabled = false;
-    Pointf dashVelocity;
-    int dashHitCount = 1;
-    bool emitDashFollowUpSkillAttack = false;
-    int dashFollowUpOperationType = -1;
-    double meleeAttackReach{};
-    double dashAttackReach{};
-    int operationCount = 0;
-    int cooldownReductionPct = 0;
-};
-
-struct BattleActionFrameAdapterConfig
-{
-    double maxEffectiveBattleReach = 0.0;
-    double meleeAttackHitRadius = 0.0;
-    double meleeAttackReach = 0.0;
-    double dashAttackMeleeReach = 0.0;
-    double blinkWeakTargetDefWeight = 0.0;
-    int dashMomentumFrames = 0;
-    int movementDashCooldownFrames = 0;
-    int actionRecoveryFrames = 0;
-    int battleFrame = 0;
-    float gravity = 0.0f;
-    int projectileBounceRange = 0;
-    int coordCount = 0;
-};
-
-struct BattleActionFrameAdapterContext
+struct BattleActionPlanInputContext
 {
     const std::vector<Role*>* roles = nullptr;
-    const Battle::BattleUnitStore* units = nullptr;
-    RandomDouble* random = nullptr;
-    std::map<int, RoleComboState>* comboStates = nullptr;
-    std::set<int>* ultimateCasters = nullptr;
-    BattleActionFrameAdapterConfig config;
+    Battle::BattleActionRulesConfig actionRules;
+    Battle::BattleCastConfig castConfig;
+    Battle::BattleCastGeometry castGeometry;
+};
+
+struct BattleActionFrameApplyContext
+{
+    const std::vector<Role*>* roles = nullptr;
+    int battleFrame = 0;
+    float gravity = 0.0f;
 };
 
 struct BattleActionFrameApplyResult
 {
     std::vector<int> attackSoundIds;
     int blinkSoundCount = 0;
-    std::vector<Battle::BattleAttackSpawnRequest> attackSpawnRequests;
-    std::vector<Battle::BattleLogEvent> logEvents;
-    std::vector<Battle::BattleVisualEvent> visualEvents;
-    std::vector<int> clearMovementDashSpreadUnitIds;
     std::vector<int> faceTowardsNearestUnitIds;
 };
 
@@ -104,16 +58,27 @@ struct BattleLifecycleApplicationResult
     std::vector<int> diedUnitIds;
 };
 
-struct BattleRuntimeBuildContext
+struct BattleRuntimeSceneSetupInput
 {
     std::vector<Role*> roles;
     std::map<int, RoleComboState>* comboStates = nullptr;
-    Battle::BattleGridTransform gridTransform;
+    std::vector<Battle::BattleTerrainCell> terrainCells;
     std::vector<Battle::BattleSetupRosterUnit> allyRoster;
     std::vector<Battle::BattleSetupRosterUnit> enemyRoster;
     std::vector<int> obtainedNeigongMagicIds;
     std::vector<std::pair<int, int>> cloneSpawnCells;
+    std::vector<Battle::BattleRescueCellSnapshot> rescueCells;
+    std::map<std::pair<int, int>, Pointf> rescuePositionsByCell;
+    std::map<int, int> pendingAliveByTeam;
+    int battleFrame = 0;
+    int rescueCounterAttackSkillId = -1;
     int nextCloneUnitId = 100000;
+};
+
+struct BattleRuntimeBuildContext
+{
+    BattleRuntimeSceneSetupInput setup;
+    Battle::BattleRuntimeRulesConfig rules;
 };
 
 struct BattleRuntimeCreationResult
@@ -121,20 +86,6 @@ struct BattleRuntimeCreationResult
     Battle::BattleRuntimeSession session;
     Battle::BattleInitializationResult initializationResult;
     std::unordered_map<int, Role*> rolesByBattleId;
-};
-
-struct BattleSetupPlacementUnit
-{
-    int unitId = -1;
-    int x = 0;
-    int y = 0;
-    int faceTowards = 0;
-};
-
-struct BattleSetupPlacementInput
-{
-    Battle::BattleGridTransform gridTransform;
-    std::vector<BattleSetupPlacementUnit> roles;
 };
 
 struct BattleInitializationApplyContext
@@ -147,50 +98,20 @@ struct BattleInitializationApplyContext
 
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
 BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context);
+void configureInitializedBattleRuntimeState(
+    Battle::BattleRuntimeSession& session,
+    const BattleRuntimeBuildContext& context,
+    const std::unordered_map<int, Role*>& rolesByBattleId);
 void applyBattleInitializationResult(
     const Battle::BattleInitializationResult& result,
     const BattleInitializationApplyContext& context);
-void commitFinalSetupPlacementToRuntime(
-    Battle::BattleRuntimeState& runtime,
-    const BattleSetupPlacementInput& input);
+Battle::BattleSetupPlacementInput makeBattleSetupPlacementInput(const std::vector<Role*>& roles);
 
-Battle::BattleCastConfig makeBattleCastConfig();
-Battle::BattleCastGeometry makeBattleCastGeometry();
-int strengthenedMeleeOperationCountThreshold();
-Magic* selectLowerPowerMagic(Role* role);
-Magic* selectHigherPowerMagic(Role* role);
-bool roleForcesRangedMagic(const std::map<int, RoleComboState>& comboStates, int unitId);
-int forcedRangedMinSelectDistance(const std::map<int, RoleComboState>& comboStates, int unitId);
-int projectileSpeedMultiplierPct(const std::map<int, RoleComboState>& comboStates, int unitId);
-double battleBlinkReach(const Magic* magic);
-bool isBattleRangedStyleMagic(const Magic* magic, bool forceRanged);
-double effectiveBattleReach(
-    const Magic* magic,
-    bool forceRanged,
-    int forcedRangedMinSelectDistance,
-    int projectileSpeedMultiplierPct);
-Battle::BattleCastSkillState makeBattleCastSkillState(Role* unit, const BattleCastSkillAdapterInput& input);
-Battle::BattleCastInput makeBattleCastInput(const BattleCastAdapterInput& input);
-void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, int actType);
-void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result);
-
-void configureBattleAttackWorld(Battle::BattleAttackWorld& world);
-Battle::BattlePresentationColor makeBattlePresentationColor(Color color);
-
-Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
-    Role* role,
-    const RoleComboState* state,
-    const Battle::BattleGridTransform& gridTransform);
 void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnitRuntimeResult& result);
 void applyBattleProjectileCancelDamage(Role* role, int damage);
-Battle::BattleActionCommitUnitSnapshot makeBattleActionCommitUnitSnapshot(Role* role);
-Battle::BattleActionTargetSnapshot makeBattleActionTargetSnapshot(Role* role);
 
-Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state);
 void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit);
-Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state);
 void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
-Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
 void applyBattleMovementPhysicsFrameResults(
     const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
     const std::vector<Role*>& roles);
@@ -199,10 +120,10 @@ void applyBattleMovementFrameResults(
     const std::vector<Role*>& roles);
 void initializeBattleActionPlanInputs(
     Battle::BattleRuntimeState& runtime,
-    BattleActionFrameAdapterContext& context);
+    BattleActionPlanInputContext& context);
 BattleActionFrameApplyResult applyBattleActionFrameResults(
     const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
-    const BattleActionFrameAdapterContext& context);
+    const BattleActionFrameApplyContext& context);
 BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     const BattleLifecycleApplicationContext& context,
     const std::vector<Battle::BattleGameplayEvent>& events);

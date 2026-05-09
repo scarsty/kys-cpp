@@ -8,13 +8,6 @@
 namespace KysChess::Battle
 {
 
-const BattleRuntimeUnit& BattleProjectileTargetingSystem::unitById(
-    const BattleUnitStore& units,
-    int unitId) const
-{
-    return units.requireUnit(unitId);
-}
-
 double BattleProjectileTargetingSystem::distanceSquared(const BattleRuntimeUnit& lhs,
                                                         const BattleRuntimeUnit& rhs) const
 {
@@ -42,8 +35,8 @@ std::vector<int> BattleProjectileTargetingSystem::selectNearbyTargets(
 {
     assert(radius > 0.0);
 
-    const auto& attacker = unitById(units, attackerUnitId);
-    const auto& center = unitById(units, centerUnitId);
+    const auto& attacker = units.requireUnit(attackerUnitId);
+    const auto& center = units.requireUnit(centerUnitId);
     assert(attacker.alive);
     assert(center.alive);
 
@@ -84,7 +77,7 @@ std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
     assert(areaSize > 0);
     assert(maxTargets >= 0);
 
-    const auto& origin = unitById(units, originUnitId);
+    const auto& origin = units.requireUnit(originUnitId);
 
     std::vector<const BattleRuntimeUnit*> targets;
     for (const auto& unit : units.units)
@@ -119,7 +112,7 @@ std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
 
     if (trackedTargetUnitId >= 0 && !hasTracked)
     {
-        const auto& tracked = unitById(units, trackedTargetUnitId);
+        const auto& tracked = units.requireUnit(trackedTargetUnitId);
         if (tracked.alive && tracked.team != origin.team)
         {
             ids.push_back(tracked.id);

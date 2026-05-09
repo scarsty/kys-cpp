@@ -175,6 +175,7 @@
     <ClCompile Include="battle\BattlePresentationPlayback.cpp" />
     <ClCompile Include="battle\BattleProjectileTargetingSystem.cpp" />
     <ClCompile Include="battle\BattleRescueRepositionSystem.cpp" />
+    <ClCompile Include="battle\BattleRuntimeRules.cpp" />
     <ClCompile Include="battle\BattleRuntimeSession.cpp" />
     <ClCompile Include="battle\BattleStatusSystem.cpp" />
     <ClCompile Include="battle\BattleTeamEffectSystem.cpp" />
@@ -312,6 +313,7 @@
     <ClInclude Include="battle\BattleDamageSystem.h" />
     <ClInclude Include="battle\BattleDeathEffectSystem.h" />
     <ClInclude Include="battle\BattleEffectSystem.h" />
+    <ClInclude Include="battle\BattleFind.h" />
     <ClInclude Include="battle\BattleInitialization.h" />
     <ClInclude Include="battle\BattleGeometry.h" />
     <ClInclude Include="battle\BattleHitResolver.h" />
@@ -322,6 +324,7 @@
     <ClInclude Include="battle\BattlePresentationPlayback.h" />
     <ClInclude Include="battle\BattleProjectileTargetingSystem.h" />
     <ClInclude Include="battle\BattleRescueRepositionSystem.h" />
+    <ClInclude Include="battle\BattleRuntimeRules.h" />
     <ClInclude Include="battle\BattleRuntimeSession.h" />
     <ClInclude Include="battle\BattleStatusSystem.h" />
     <ClInclude Include="battle\BattleTeamEffectSystem.h" />

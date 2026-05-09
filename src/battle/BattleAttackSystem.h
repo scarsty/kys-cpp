@@ -182,7 +182,6 @@ public:
 
 private:
     int allocateAttackId(BattleAttackWorld& world) const;
-    const BattleAttackUnit* unitById(const BattleAttackWorld& world, int unitId) const;
     const BattleAttackUnit* selectTarget(const BattleAttackWorld& world, const BattleAttackInstance& attack) const;
     bool hasHitUnit(const BattleAttackInstance& attack, int unitId) const;
     bool hasSharedHit(const BattleAttackWorld& world, int sharedHitGroupId, int unitId) const;

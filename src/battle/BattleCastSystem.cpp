@@ -1,6 +1,7 @@
 #include "BattleCastSystem.h"
 
 #include "BattleCore.h"
+#include "BattleFind.h"
 #include "BattleMath.h"
 #include "BattleCombatIntent.h"
 #include "BattleProjectileTargetingSystem.h"
@@ -429,28 +430,12 @@ BattleUnitStore makeActionTargetUnits(const BattleActionCommitInput& input)
     return units;
 }
 
-const BattleActionTargetSnapshot* findActionTarget(const BattleActionCommitInput& input, int targetId)
-{
-    auto it = std::find_if(
-        input.targets.begin(),
-        input.targets.end(),
-        [targetId](const BattleActionTargetSnapshot& target)
-        {
-            return target.id == targetId;
-        });
-    return it != input.targets.end() ? &*it : nullptr;
-}
-
 void appendBlinkTeleportDelta(
     const BattleActionCommitInput& input,
     const BattleBlinkAttackCommand& command,
     BattleActionCommitResult& result)
 {
-    const auto* target = findActionTarget(input, command.targetUnitId);
-    if (!target)
-    {
-        return;
-    }
+    const auto& target = requireById(input.targets, command.targetUnitId);
 
     std::vector<const BattleBlinkCell*> candidates;
     for (const auto& cell : input.blinkGeometry.cells)
@@ -464,7 +449,7 @@ void appendBlinkTeleportDelta(
         {
             continue;
         }
-        if (pointDistance(cell.position, target->position) > command.reach)
+        if (pointDistance(cell.position, target.position) > command.reach)
         {
             continue;
         }
@@ -478,7 +463,7 @@ void appendBlinkTeleportDelta(
 
     const int selectedIndex = input.blinkCellRandomRoll % static_cast<int>(candidates.size());
     const auto& cell = *candidates[selectedIndex];
-    auto facing = target->position - cell.position;
+    auto facing = target.position - cell.position;
     if (pointNorm(facing) > 0.01)
     {
         facing = normalizedTo(facing, 1.0, 0.01);

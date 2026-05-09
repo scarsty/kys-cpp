@@ -141,18 +141,43 @@ struct BattleFrameRuntimeUnitResult
     RoleComboState comboState;
 };
 
-struct BattleFrameActionUnitInput
+struct BattleActionRulesConfig
+{
+    double tileWidth = 0.0;
+    double maxEffectiveBattleReach = 0.0;
+    double meleeAttackHitRadius = 0.0;
+    double meleeAttackReach = 0.0;
+    double dashAttackMeleeReach = 0.0;
+    double blinkWeakTargetDefWeight = 0.0;
+    int dashMomentumFrames = 0;
+    int movementDashCooldownFrames = 0;
+    int actionRecoveryFrames = 0;
+    int dashRecoveryFrames = 0;
+    int strengthenedMeleeOperationCountThreshold = 0;
+    int projectileBounceRange = 0;
+    int coordCount = 0;
+};
+
+struct BattleActionSkillSeed
+{
+    int id = -1;
+    std::string name;
+    int soundId = -1;
+    int hurtType = 0;
+    int attackAreaType = -1;
+    int magicType = -1;
+    int visualEffectId = -1;
+    int selectDistance = 1;
+    int actProperty = 0;
+    int magicPower = 0;
+};
+
+struct BattleActionPlanSeed
 {
     int unitId = -1;
-    bool canPlanCast = false;
-    BattleCastInput castInput;
-    bool hasSelectedCastInput = false;
-    BattleCastInput selectedCastInput;
-    bool selectedCastUltimate = false;
-    BattleOperationType selectedOperationType = BattleOperationType::None;
-    BattleActionCommitInput selectedActionInput;
-    bool hasPendingActionInput = false;
-    BattleActionCommitInput pendingActionInput;
+    bool hasEquippedSkill = false;
+    BattleActionSkillSeed normalSkill;
+    BattleActionSkillSeed ultimateSkill;
 };
 
 struct BattleFrameActionUnitResult
@@ -253,6 +278,12 @@ struct BattleFrameApplications
     std::vector<BattleFrameEnemyTopDebuffDelta> enemyTopDebuffDeltas;
 };
 
+struct BattleFrameStateApplications
+{
+    std::vector<BattleStatusUnitState> statusUnits;
+    std::map<int, RoleComboState> comboStates;
+};
+
 struct BattleFrameRescueUnitSnapshot
 {
     BattleRescueUnitSnapshot unit;
@@ -351,9 +382,11 @@ struct BattleRuntimeState
 
     struct ActionState
     {
-        std::vector<BattleFrameActionUnitInput> directives;
-        std::map<int, BattleCastInput> castPlanInputs;
+        std::map<int, BattleActionPlanSeed> planSeeds;
         std::map<int, BattleActionCommitInput> pendingCommitInputs;
+        BattleCastConfig castConfig;
+        BattleCastGeometry castGeometry;
+        BattleActionRulesConfig actionRules;
         std::vector<int> castFrames;
         int actionRecoveryFrames = 0;
         int dashRecoveryFrames = 0;
@@ -385,8 +418,7 @@ struct BattleFrameResult
     std::vector<BattleTeamEffectEvent> teamEffectEvents;
     std::vector<BattleEffectCommand> effectCommands;
     std::vector<BattleFrameDeathEffectTrackerResult> deathEffectTrackers;
-    // 遷移期間的不完整快照退路；場景與 adapter 不得消費這些命令。
-    std::vector<BattleGameplayCommand> commands;
+    BattleFrameStateApplications stateApplications;
 };
 
 struct BattleTeamEffectCommandApplication

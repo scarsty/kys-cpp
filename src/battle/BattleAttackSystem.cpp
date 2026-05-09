@@ -1,5 +1,6 @@
 #include "BattleAttackSystem.h"
 
+#include "BattleFind.h"
 #include "BattleMath.h"
 
 #include <algorithm>
@@ -64,15 +65,6 @@ BattleAttackEvent makeProjectileCancelEvent(const BattleAttackInstance& lhs, con
     return event;
 }
 
-BattleAttackInstance& findAttackById(BattleAttackWorld& world, int attackId)
-{
-    auto it = std::find_if(world.attacks.begin(), world.attacks.end(), [&](const BattleAttackInstance& attack)
-        {
-            return attack.id == attackId;
-        });
-    assert(it != world.attacks.end());
-    return *it;
-}
 }  // namespace
 
 double projectileOperationDamageMultiplier(BattleOperationType operationType)
@@ -273,8 +265,8 @@ void BattleAttackSystem::applyProjectileCancelDamage(
     assert(event.projectileCancelDamage >= 0);
     assert(event.otherProjectileCancelDamage >= 0);
 
-    auto& lhs = findAttackById(world, event.attackId);
-    auto& rhs = findAttackById(world, event.otherAttackId);
+    auto& lhs = requireById(world.attacks, event.attackId);
+    auto& rhs = requireById(world.attacks, event.otherAttackId);
     lhs.state.projectileCancelWeaken += event.otherProjectileCancelDamage;
     rhs.state.projectileCancelWeaken += event.projectileCancelDamage;
     if (lhs.state.projectileCancelWeaken > event.projectileCancelDamage)
@@ -305,20 +297,11 @@ int BattleAttackSystem::allocateAttackId(BattleAttackWorld& world) const
     return world.nextAttackId++;
 }
 
-const BattleAttackUnit* BattleAttackSystem::unitById(const BattleAttackWorld& world, int unitId) const
-{
-    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleAttackUnit& unit)
-        {
-            return unit.id == unitId;
-        });
-    return it == world.units.end() ? nullptr : &*it;
-}
-
 const BattleAttackUnit* BattleAttackSystem::selectTarget(
     const BattleAttackWorld& world,
     const BattleAttackInstance& attack) const
 {
-    const auto* attacker = unitById(world, attack.state.attackerUnitId);
+    const auto* attacker = tryFindById(world.units, attack.state.attackerUnitId);
     if (!attacker || !attacker->alive)
     {
         return nullptr;
@@ -326,7 +309,7 @@ const BattleAttackUnit* BattleAttackSystem::selectTarget(
 
     if (attack.state.preferredTargetUnitId >= 0)
     {
-        const auto* preferred = unitById(world, attack.state.preferredTargetUnitId);
+        const auto* preferred = tryFindById(world.units, attack.state.preferredTargetUnitId);
         if (preferred && preferred->alive && preferred->team != attacker->team)
         {
             return preferred;
@@ -442,7 +425,7 @@ bool BattleAttackSystem::canHit(
         return false;
     }
 
-    const auto* attacker = unitById(world, attack.state.attackerUnitId);
+    const auto* attacker = tryFindById(world.units, attack.state.attackerUnitId);
     if (!attacker || !attacker->alive || attacker->team == target.team)
     {
         return false;
@@ -464,7 +447,7 @@ const BattleAttackUnit* BattleAttackSystem::selectBounceTarget(
     assert(attack.state.bounceRemaining > 0);
     assert(attack.state.bounceRange > 0);
 
-    const auto* attacker = unitById(world, attack.state.attackerUnitId);
+    const auto* attacker = tryFindById(world.units, attack.state.attackerUnitId);
     if (!attacker || !attacker->alive)
     {
         return nullptr;
@@ -562,7 +545,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
         {
             continue;
         }
-        const auto* lhsAttacker = unitById(world, lhs.state.attackerUnitId);
+        const auto* lhsAttacker = tryFindById(world.units, lhs.state.attackerUnitId);
         if (!lhsAttacker || !lhsAttacker->alive)
         {
             continue;
@@ -575,7 +558,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
             {
                 continue;
             }
-            const auto* rhsAttacker = unitById(world, rhs.state.attackerUnitId);
+            const auto* rhsAttacker = tryFindById(world.units, rhs.state.attackerUnitId);
             if (!rhsAttacker || !rhsAttacker->alive || lhsAttacker->team == rhsAttacker->team)
             {
                 continue;
