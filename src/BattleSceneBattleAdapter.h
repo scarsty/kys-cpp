@@ -21,14 +21,6 @@ class BattleTracker;
 namespace KysChess::BattleSceneBattleAdapter
 {
 
-struct BattleActionPlanInputContext
-{
-    const std::vector<Role*>* roles = nullptr;
-    Battle::BattleActionRulesConfig actionRules;
-    Battle::BattleCastConfig castConfig;
-    Battle::BattleCastGeometry castGeometry;
-};
-
 struct BattleActionFrameApplyContext
 {
     const std::vector<Role*>* roles = nullptr;
@@ -38,7 +30,6 @@ struct BattleActionFrameApplyContext
 
 struct BattleActionFrameApplyResult
 {
-    std::vector<int> attackSoundIds;
     int blinkSoundCount = 0;
     std::vector<int> faceTowardsNearestUnitIds;
 };
@@ -98,7 +89,7 @@ struct BattleInitializationApplyContext
 
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
 BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context);
-void configureInitializedBattleRuntimeState(
+void commitInitializedBattleRuntimeConfiguration(
     Battle::BattleRuntimeSession& session,
     const BattleRuntimeBuildContext& context,
     const std::unordered_map<int, Role*>& rolesByBattleId);
@@ -112,15 +103,9 @@ void applyBattleProjectileCancelDamage(Role* role, int damage);
 
 void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit);
 void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
-void applyBattleMovementPhysicsFrameResults(
-    const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
+void applyBattleMovementPresentationResults(
+    const std::vector<Battle::BattleFrameMovementPresentationUnitResult>& movementResults,
     const std::vector<Role*>& roles);
-void applyBattleMovementFrameResults(
-    const Battle::BattleTickResult& movement,
-    const std::vector<Role*>& roles);
-void initializeBattleActionPlanInputs(
-    Battle::BattleRuntimeState& runtime,
-    BattleActionPlanInputContext& context);
 BattleActionFrameApplyResult applyBattleActionFrameResults(
     const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
     const BattleActionFrameApplyContext& context);

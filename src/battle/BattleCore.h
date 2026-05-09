@@ -284,6 +284,16 @@ struct BattleFrameStateApplications
     std::map<int, RoleComboState> comboStates;
 };
 
+struct BattleFrameMovementPresentationUnitResult
+{
+    int unitId = -1;
+    Pointf position;
+    Pointf velocity;
+    Pointf acceleration;
+    Pointf facing;
+    int frozenFrames = 0;
+};
+
 struct BattleFrameRescueUnitSnapshot
 {
     BattleRescueUnitSnapshot unit;
@@ -315,29 +325,22 @@ struct BattleRuntimeState
         std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
         std::vector<BattleDamageTransactionInput> pendingTransactions;
         std::vector<BattleDamagePresentationInput> pendingPresentation;
-        std::vector<BattleDamageTransactionResult> committedTransactions;
-        std::vector<BattleDamageLifecycleEvent> lifecycleEvents;
-        std::vector<BattleLogEvent> logEvents;
-        std::vector<BattleVisualEvent> visualEvents;
     } damage;
 
     struct StatusState
     {
         BattleStatusSystemConfig config;
         std::vector<BattleStatusRuntimeUnit> units;
-        std::vector<BattleStatusEvent> events;
     } status;
 
     struct ComboTriggerState
     {
         std::map<int, RoleComboState> units;
-        std::vector<BattleComboTriggerEvent> events;
     } combo;
 
     struct DeathEffectState
     {
         BattleDeathEffectStore store;
-        std::vector<BattleDeathEffectEvent> events;
     } deathEffects;
 
     struct RescueState
@@ -347,7 +350,6 @@ struct BattleRuntimeState
         std::map<std::pair<int, int>, Pointf> positionsByCell;
         double executeUnattendedRadius = 0.0;
         BattleFrameRescueCounterAttackConfig counterAttack;
-        std::vector<BattleRescueRepositionResult> committedResults;
     } rescue;
 
     struct BattleResultState
@@ -363,13 +365,11 @@ struct BattleRuntimeState
     {
         double healAuraRadius = 0.0;
         std::vector<BattleGameplayCommand> pendingCommands;
-        std::vector<BattleTeamEffectEvent> committedEvents;
     } teamEffects;
 
     struct EffectState
     {
         std::map<int, int> activationCounts;
-        std::vector<BattleEffectCommand> committedCommands;
     } effects;
 
     struct MovementPhysicsState
@@ -411,6 +411,7 @@ struct BattleFrameResult
     std::vector<BattleProjectileCancelDamageCommand> projectileCancelDamageCommands;
     std::vector<BattleFrameRuntimeUnitResult> runtimeResults;
     std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
+    std::vector<BattleFrameMovementPresentationUnitResult> movementPresentationResults;
     std::vector<BattleHitResolutionResult> hitResults;
     std::vector<BattleFrameActionUnitResult> actionResults;
     std::vector<BattleDamageTransactionResult> damageTransactions;

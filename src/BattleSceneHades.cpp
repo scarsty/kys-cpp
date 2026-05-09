@@ -32,8 +32,7 @@ using KysChess::BattleSceneBattleAdapter::applyBattleFrameUnitRuntimeResult;
 using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
 using KysChess::BattleSceneBattleAdapter::BattleActionFrameApplyContext;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
-using KysChess::BattleSceneBattleAdapter::applyBattleMovementPhysicsFrameResults;
-using KysChess::BattleSceneBattleAdapter::applyBattleMovementFrameResults;
+using KysChess::BattleSceneBattleAdapter::applyBattleMovementPresentationResults;
 using KysChess::BattleSceneBattleAdapter::writeBattleDamageUnit;
 using KysChess::BattleSceneBattleAdapter::writeBattleStatusUnit;
 
@@ -497,7 +496,7 @@ void BattleSceneHades::initializeBattleRuntime()
         }
         publishPresentationFrame();
     }
-    KysChess::BattleSceneBattleAdapter::configureInitializedBattleRuntimeState(
+    KysChess::BattleSceneBattleAdapter::commitInitializedBattleRuntimeConfiguration(
         *battle_session_,
         buildContext,
         core_role_bindings_.rolesByBattleId);
@@ -1727,14 +1726,9 @@ void BattleSceneHades::applyCoreFrameResult(
         }
     }
     applyCoreFrameApplications(bindings, frameResult.applications);
-    applyBattleMovementFrameResults(frameResult.movement, battle_roles_);
-    applyBattleMovementPhysicsFrameResults(frameResult.movementPhysicsResults, battle_roles_);
+    applyBattleMovementPresentationResults(frameResult.movementPresentationResults, battle_roles_);
 
     auto actionApply = applyBattleActionFrameResults(frameResult.actionResults, makeBattleActionFrameApplyContext());
-    for (int soundId : actionApply.attackSoundIds)
-    {
-        Audio::getInstance()->playASound(soundId);
-    }
     for (int i = 0; i < actionApply.blinkSoundCount; ++i)
     {
         Audio::getInstance()->playESound(BLINK_SOUND_EFFECT_ID);

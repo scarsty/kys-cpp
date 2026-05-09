@@ -208,34 +208,32 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     CHECK(second.frame.snapshot.frame == 8);
 }
 
-TEST_CASE("BattleRuntimeSession_QueuedAttackSpawnEntersOwnedRuntime", "[battle][runtime_session][ownership]")
+TEST_CASE("BattleRuntimeSession_CommitSetupConfigurationAppliesOwnedRuntimeSetup", "[battle][runtime_session][ownership]")
 {
     BattleRuntimeInit init;
     init.runtime = ownedRuntimeState();
-    init.runtime.attacks.nextAttackId = 80;
-    init.runtime.attacks.units = {
-        { 1, 0, true, false, false, { 100, 120, 0 } },
-        { 2, 1, true, false, false, { 106, 120, 0 } },
-    };
     BattleRuntimeSession session(std::move(init));
 
-    BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = 1;
-    request.initial.preferredTargetUnitId = 2;
-    request.initial.skillId = 102;
-    request.initial.totalFrame = 30;
-    request.initial.visualEffectId = 45;
-    request.initial.operationType = BattleOperationType::RangedProjectile;
-    request.initial.position = { 100, 120, 0 };
-    request.initial.velocity = { 6, 0, 0 };
+    BattleRuntimeSetupConfiguration config;
+    config.world.frame = 42;
+    config.world.config = runtimeMovementConfig();
+    config.world.units = {
+        runtimeUnit(1, 0, { 128, 256, 0 }),
+    };
+    config.attacks.nextAttackId = 90;
+    config.action.castFrames = { 1, 2, 3, 4 };
+    config.damage.aggregatePendingTransactionsByDefender = true;
+    config.result.pendingAliveByTeam.emplace(1, 2);
 
-    session.enqueueAttackSpawn(std::move(request));
-    session.runFrame();
+    session.commitSetupConfiguration(std::move(config));
 
-    CHECK(session.runtime().pendingAttackSpawns.empty());
-    REQUIRE(session.runtime().attacks.attacks.size() == 1);
-    CHECK(session.runtime().attacks.attacks[0].id == 80);
-    CHECK(session.runtime().attacks.attacks[0].state.skillId == 102);
+    CHECK(session.runtime().world.frame == 42);
+    REQUIRE(session.runtime().world.units.size() == 1);
+    CHECK(session.runtime().world.units[0].id == 1);
+    CHECK(session.runtime().attacks.nextAttackId == 90);
+    CHECK(session.runtime().action.castFrames.size() == 4);
+    CHECK(session.runtime().damage.aggregatePendingTransactionsByDefender);
+    CHECK(session.runtime().result.pendingAliveByTeam.at(1) == 2);
 }
 
 TEST_CASE("BattleRuntimeSession_CommitSetupPlacementUpdatesOwnedRuntime", "[battle][runtime_session][ownership]")

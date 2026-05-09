@@ -653,6 +653,12 @@ TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[
 
     REQUIRE(result.movementPhysicsResults.size() == 1);
     CHECK(result.movementPhysicsResults[0].physicsAdvanced);
+    REQUIRE(result.movementPresentationResults.size() == 1);
+    CHECK(result.movementPresentationResults[0].unitId == 1);
+    CHECK(result.movementPresentationResults[0].position.x == 105.0f);
+    CHECK(result.movementPresentationResults[0].velocity.x == 5.0f);
+    CHECK(result.movementPresentationResults[0].acceleration.x == 0.0f);
+    CHECK(result.movementPresentationResults[0].frozenFrames == 0);
     const auto& unit = state.units.requireUnit(1);
     CHECK(unit.position.x == 105.0f);
     CHECK(unit.velocity.x == 5.0f);
@@ -1252,8 +1258,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battl
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.status.events.size() == 1);
-    CHECK(state.status.events[0].type == BattleStatusEventType::TempAttackExpired);
     CHECK(state.units.requireUnit(1).attack == 10);
     CHECK(result.actionResults.empty());
     CHECK(result.frame.gameplayEvents.empty());
@@ -1621,6 +1625,34 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastInputWithoutSceneDire
     REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
 }
 
+TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastSound", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 220, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto& unit = state.units.requireUnit(1);
+    unit.haveAction = true;
+    unit.actFrame = 6;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.actType = 1;
+    unit.cooldown = 10;
+
+    auto action = frameActionCommitInput();
+    action.hasCast = true;
+    action.cast = committedFrameCast();
+    action.cast.decision.soundId = 55;
+    state.action.pendingCommitInputs.emplace(1, action);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.applications.attackSoundIds.size() == 1);
+    CHECK(result.applications.attackSoundIds[0] == 55);
+}
+
 TEST_CASE("BattleFrameRunner_ConsumesUltimateCasterWhenRuntimeOwnedCastCommits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -1766,7 +1798,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.damage.committedTransactions.size() == 1);
+    REQUIRE(result.damageTransactions.size() == 1);
     CHECK(state.world.units[1].alive == false);
     CHECK(state.units.requireUnit(2).alive == false);
     CHECK(state.result.ended);
@@ -1900,18 +1932,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    CHECK(state.damage.committedTransactions[0].attacker.id == 3);
-    CHECK(state.damage.committedTransactions[0].defender.hp == 3);
-    REQUIRE(state.damage.visualEvents.size() == 1);
-    CHECK(state.damage.visualEvents[0].type == BattleVisualEventType::DamageNumber);
-    CHECK(state.damage.visualEvents[0].amount == 7);
-    CHECK(state.damage.visualEvents[0].textSize == 33);
-    CHECK(state.damage.visualEvents[0].color.r == 40);
-    REQUIRE(state.damage.logEvents.size() == 1);
-    CHECK(state.damage.logEvents[0].type == BattleLogEventType::Damage);
-    CHECK(state.damage.logEvents[0].skillName == "終段");
-    CHECK(state.damage.logEvents[0].detailText == "第二段");
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions[0].attacker.id == 3);
+    CHECK(result.damageTransactions[0].defender.hp == 3);
     CHECK(std::any_of(
         result.frame.visualEvents.begin(),
         result.frame.visualEvents.end(),
@@ -1919,9 +1942,26 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
         {
             return event.type == BattleVisualEventType::DamageNumber
                 && event.targetUnitId == 2
-                && event.amount == 7;
+                && event.amount == 7
+                && event.textSize == 33
+                && event.color.r == 40;
         }));
-    CHECK(state.damage.lifecycleEvents.empty());
+    CHECK(std::any_of(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Damage
+                && event.skillName == "終段"
+                && event.detailText == "第二段";
+        }));
+    CHECK_FALSE(std::any_of(
+        result.frame.gameplayEvents.begin(),
+        result.frame.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::UnitDied;
+        }));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[battle][core][breakthrough]")
@@ -1942,7 +1982,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.teamEffects.committedEvents.size() == 2);
+    REQUIRE(result.teamEffectEvents.size() == 2);
     CHECK(state.units.requireUnit(1).hp == 60);
     CHECK(state.units.requireUnit(2).hp == 80);
 }
@@ -1969,12 +2009,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityToUnitSto
     state.units.units[0].haveAction = true;
     state.combo.units[1].postSkillInvincFrames = 5;
 
-    runBattleFrame(state);
+    auto result = runBattleFrame(state);
 
     CHECK(state.units.requireUnit(1).invincible == 5);
-    REQUIRE(state.effects.committedCommands.size() == 1);
-    CHECK(state.effects.committedCommands[0].type == BattleEffectCommandType::AddInvincibility);
-    CHECK(state.effects.committedCommands[0].value == 4);
+    REQUIRE(result.effectCommands.size() == 1);
+    CHECK(result.effectCommands[0].type == BattleEffectCommandType::AddInvincibility);
+    CHECK(result.effectCommands[0].value == 4);
     CHECK(state.units.requireUnit(1).invincible == 5);
 }
 
@@ -2151,8 +2191,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    CHECK(state.rescue.committedResults.empty());
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.rescueResults.empty());
     CHECK(state.combo.units.at(3).forcePullProtectRemaining == 1);
     CHECK(state.units.requireUnit(2).hp == 20);
 }
@@ -2184,13 +2224,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageReward
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.damage.committedTransactions.size() == 1);
+    REQUIRE(result.damageTransactions.size() == 1);
     REQUIRE(result.deathEffectTrackers.size() == 2);
     CHECK(result.deathEffectTrackers[0].unitId == 1);
     CHECK(result.deathEffectTrackers[1].unitId == 2);
     REQUIRE(state.deathEffects.store.units.size() == 2);
-    CHECK(state.damage.committedTransactions.front().attacker.hp == 65);
-    CHECK(state.damage.committedTransactions.front().attacker.attack == 19);
+    CHECK(result.damageTransactions.front().attacker.hp == 65);
+    CHECK(result.damageTransactions.front().attacker.attack == 19);
     CHECK(state.units.requireUnit(1).hp == 65);
     CHECK(state.units.requireUnit(1).attack == 19);
     CHECK(state.units.requireUnit(2).alive == false);
@@ -2355,10 +2395,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", 
     CHECK(result.hitResults[0].defenderUnitId == 2);
     CHECK(result.hitResults[0].finalHpDamage > 0);
 
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    CHECK(state.damage.committedTransactions.front().attacker.id == 1);
-    CHECK(state.damage.committedTransactions.front().defender.id == 2);
-    CHECK(state.damage.committedTransactions.front().finalHpDamage == result.hitResults[0].finalHpDamage);
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions.front().attacker.id == 1);
+    CHECK(result.damageTransactions.front().defender.id == 2);
+    CHECK(result.damageTransactions.front().finalHpDamage == result.hitResults[0].finalHpDamage);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[battle][core][breakthrough]")
@@ -2369,10 +2409,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[ba
     auto result = runBattleFrame(state);
 
     REQUIRE(result.hitResults.size() == 1);
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    CHECK(state.damage.committedTransactions.front().defender.id == 2);
-    CHECK(state.damage.committedTransactions.front().finalHpDamage > 0);
-    CHECK(state.damage.committedTransactions.front().defender.hp < 100);
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions.front().defender.id == 2);
+    CHECK(result.damageTransactions.front().finalHpDamage > 0);
+    CHECK(result.damageTransactions.front().defender.hp < 100);
     CHECK(state.damage.pendingTransactions.empty());
 }
 
@@ -2410,8 +2450,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndIns
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    CHECK_FALSE(state.damage.committedTransactions.front().defender.alive);
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK_FALSE(result.damageTransactions.front().defender.alive);
     CHECK(state.result.ended);
     CHECK(state.result.winningTeam == 0);
     CHECK(std::any_of(
@@ -2509,8 +2549,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][
 
     REQUIRE(result.hitResults.size() == 1);
     CHECK(result.hitResults[0].finalHpDamage == 33);
-    REQUIRE(state.damage.committedTransactions.size() == 1);
-    CHECK(state.damage.committedTransactions.front().finalHpDamage == 33);
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions.front().finalHpDamage == 33);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPairedAttack", "[battle][core]")

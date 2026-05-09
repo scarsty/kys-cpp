@@ -137,6 +137,7 @@ struct BattleCastDecision
     int unitId = -1;
     int targetUnitId = -1;
     int skillId = -1;
+    int soundId = -1;
     BattleOperationType operationType = BattleOperationType::None;
     BattleCastBlockReason reason = BattleCastBlockReason::None;
 };

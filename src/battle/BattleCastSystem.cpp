@@ -545,6 +545,7 @@ BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
     const auto& selectedSkill = selectSkill(input, ultimate);
     decision.ultimate = ultimate;
     decision.skillId = selectedSkill.id;
+    decision.soundId = selectedSkill.soundId;
 
     decision.reason = blockedReason(input);
     if (decision.reason != BattleCastBlockReason::None)
@@ -608,6 +609,7 @@ BattleCastResult BattleCastPlanner::commitSelectedCast(
     decision.unitId = input.unit.id;
     decision.targetUnitId = input.targetUnitId;
     decision.skillId = selectedSkill.id;
+    decision.soundId = selectedSkill.soundId;
     decision.operationType = operationType;
 
     appendCommittedCastOutput(result, input, selectedSkill);

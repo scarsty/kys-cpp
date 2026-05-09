@@ -37,6 +37,18 @@ namespace
 {
 constexpr double ROLE_MOVE_SPEED_DIVISOR = 22.0;
 
+struct BattleActionPlanInputContext
+{
+    const std::vector<Role*>* roles = nullptr;
+    Battle::BattleActionRulesConfig actionRules;
+    Battle::BattleCastConfig castConfig;
+    Battle::BattleCastGeometry castGeometry;
+};
+
+void initializeBattleActionPlanInputs(
+    Battle::BattleRuntimeState::ActionState& action,
+    BattleActionPlanInputContext& context);
+
 class RoleBattleProjection
 {
 public:
@@ -489,7 +501,6 @@ BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRu
     Battle::BattleRuntimeInit init;
     init.runtime.units.gridTransform = context.rules.gridTransform;
     init.runtime.combo.units = *setup.comboStates;
-    init.runtime.combo.events.clear();
     init.runtime.units.units.reserve(setup.roles.size());
     init.runtime.status.units.reserve(setup.roles.size());
     init.runtime.world.units.reserve(setup.roles.size());
@@ -527,21 +538,23 @@ BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRu
     return result;
 }
 
-void configureInitializedBattleRuntimeState(
+void commitInitializedBattleRuntimeConfiguration(
     Battle::BattleRuntimeSession& session,
     const BattleRuntimeBuildContext& context,
     const std::unordered_map<int, Role*>& rolesByBattleId)
 {
-    auto& runtime = session.runtimeForSetupConfiguration();
+    const auto& runtime = session.runtime();
     const auto orderedRoles = makeOrderedRuntimeRoles(runtime, rolesByBattleId);
+    Battle::BattleRuntimeSetupConfiguration config;
 
-    runtime.world.frame = context.setup.battleFrame;
-    runtime.world.config = context.rules.movementConfig;
-    runtime.world.terrainCells = context.setup.terrainCells;
+    config.world = runtime.world;
+    config.world.frame = context.setup.battleFrame;
+    config.world.config = context.rules.movementConfig;
+    config.world.terrainCells = context.setup.terrainCells;
 
     const auto existingWorld = runtime.world;
-    runtime.world.units.clear();
-    runtime.world.units.reserve(orderedRoles.size());
+    config.world.units.clear();
+    config.world.units.reserve(orderedRoles.size());
     for (auto* role : orderedRoles)
     {
         assert(role);
@@ -549,7 +562,7 @@ void configureInitializedBattleRuntimeState(
         {
             continue;
         }
-        runtime.world.units.push_back(makeInitializedBattleWorldUnit(
+        config.world.units.push_back(makeInitializedBattleWorldUnit(
             role,
             runtime.combo.units,
             existingWorld,
@@ -557,50 +570,50 @@ void configureInitializedBattleRuntimeState(
             context.rules.action));
     }
 
-    configureBattleAttackWorld(runtime.attacks, context.rules);
+    config.attacks = runtime.attacks;
+    configureBattleAttackWorld(config.attacks, context.rules);
 
-    runtime.teamEffects.healAuraRadius = context.rules.teamEffectHealAuraRadius;
-    runtime.deathEffects.store = makeBattleDeathEffectStore(orderedRoles, runtime.combo.units);
+    config.teamEffects.healAuraRadius = context.rules.teamEffectHealAuraRadius;
+    config.deathEffects.store = makeBattleDeathEffectStore(orderedRoles, runtime.combo.units);
 
-    runtime.rescue.positionsByCell = context.setup.rescuePositionsByCell;
-    runtime.rescue.cells = context.setup.rescueCells;
-    runtime.rescue.executeUnattendedRadius = context.rules.rescueExecuteUnattendedRadius;
-    runtime.rescue.counterAttack = context.rules.rescueCounterAttack;
-    runtime.rescue.counterAttack.skillId = context.setup.rescueCounterAttackSkillId;
+    config.rescue.positionsByCell = context.setup.rescuePositionsByCell;
+    config.rescue.cells = context.setup.rescueCells;
+    config.rescue.executeUnattendedRadius = context.rules.rescueExecuteUnattendedRadius;
+    config.rescue.counterAttack = context.rules.rescueCounterAttack;
+    config.rescue.counterAttack.skillId = context.setup.rescueCounterAttackSkillId;
 
-    runtime.movementPhysics.config = context.rules.movementPhysicsConfig;
-    runtime.movementPhysics.collision = context.rules.movementCollisionWorld;
-    runtime.movementPhysics.actionCastFrames.assign(
+    config.movementPhysics.config = context.rules.movementPhysicsConfig;
+    config.movementPhysics.collision = context.rules.movementCollisionWorld;
+    config.movementPhysics.actionCastFrames.assign(
         context.rules.castConfig.castFrames.begin(),
         context.rules.castConfig.castFrames.end());
-    runtime.movementPhysics.dashMomentumFrames = context.rules.movementPhysicsDashMomentumFrames;
+    config.movementPhysics.dashMomentumFrames = context.rules.movementPhysicsDashMomentumFrames;
 
-    runtime.action.castFrames.assign(
+    config.action.castFrames.assign(
         context.rules.castConfig.castFrames.begin(),
         context.rules.castConfig.castFrames.end());
-    runtime.action.actionRecoveryFrames = context.rules.action.actionRecoveryFrames;
-    runtime.action.dashRecoveryFrames = context.rules.action.dashRecoveryFrames;
-    runtime.action.blinkWeakTargetDefWeight = context.rules.action.blinkWeakTargetDefWeight;
-    runtime.action.strengthenedMeleeOperationCountThreshold = context.rules.action.strengthenedMeleeOperationCountThreshold;
-    runtime.action.projectileBounceRange = context.rules.action.projectileBounceRange;
+    config.action.actionRecoveryFrames = context.rules.action.actionRecoveryFrames;
+    config.action.dashRecoveryFrames = context.rules.action.dashRecoveryFrames;
+    config.action.blinkWeakTargetDefWeight = context.rules.action.blinkWeakTargetDefWeight;
+    config.action.strengthenedMeleeOperationCountThreshold = context.rules.action.strengthenedMeleeOperationCountThreshold;
+    config.action.projectileBounceRange = context.rules.action.projectileBounceRange;
 
-    runtime.projectileFollowUps = context.rules.projectileFollowUps;
+    config.projectileFollowUps = context.rules.projectileFollowUps;
 
-    runtime.damage = {};
-    runtime.damage.aggregatePendingTransactionsByDefender = true;
-    runtime.result.pendingAliveByTeam = context.setup.pendingAliveByTeam;
+    config.damage.aggregatePendingTransactionsByDefender = true;
+    config.result.pendingAliveByTeam = context.setup.pendingAliveByTeam;
     for (auto* role : orderedRoles)
     {
         assert(role);
         const auto stateIt = runtime.combo.units.find(role->ID);
-        runtime.damage.unitExtras.push_back(Battle::makeBattleDamageRuntimeUnit(
+        config.damage.unitExtras.push_back(Battle::makeBattleDamageRuntimeUnit(
             makeBattleDamageUnit(
                 role,
                 stateIt != runtime.combo.units.end() ? &stateIt->second : nullptr)));
-        runtime.damage.presentationStylesByDefender.emplace(role->ID, makeBattleDamagePresentationStyle(role));
+        config.damage.presentationStylesByDefender.emplace(role->ID, makeBattleDamagePresentationStyle(role));
         if (stateIt != runtime.combo.units.end() && stateIt->second.deathAOEPct > 0)
         {
-            runtime.damage.unitEffects.emplace(
+            config.damage.unitEffects.emplace(
                 role->ID,
                 Battle::BattleDamageApplicationUnitEffects{
                     stateIt->second.deathAOEPct,
@@ -615,7 +628,9 @@ void configureInitializedBattleRuntimeState(
     actionContext.actionRules = context.rules.action;
     actionContext.castConfig = context.rules.castConfig;
     actionContext.castGeometry = context.rules.castGeometry;
-    initializeBattleActionPlanInputs(runtime, actionContext);
+    initializeBattleActionPlanInputs(config.action, actionContext);
+
+    session.commitSetupConfiguration(std::move(config));
 }
 
 void applyBattleInitializationResult(
@@ -1039,61 +1054,51 @@ void applyBlinkTeleportDelta(
     result.blinkSoundCount++;
 }
 
-void applyBattleMovementPhysicsFrameResults(
-    const std::vector<Battle::BattleFrameMovementPhysicsUnitResult>& movementResults,
+void applyBattleMovementPresentationResults(
+    const std::vector<Battle::BattleFrameMovementPresentationUnitResult>& movementResults,
     const std::vector<Role*>& roles)
 {
     for (const auto& result : movementResults)
     {
         auto* role = findRoleByBattleId(roles, result.unitId);
         role->Frozen = result.frozenFrames;
-        role->Pos = result.state.position;
-        role->Velocity = result.state.velocity;
-        role->Acceleration = result.state.acceleration;
-    }
-}
-
-void applyBattleMovementFrameResults(
-    const Battle::BattleTickResult& movement,
-    const std::vector<Role*>& roles)
-{
-    for (const auto& unit : movement.snapshot.units)
-    {
-        auto* role = findRoleByBattleId(roles, unit.id);
-        role->Pos = unit.position;
-        role->Velocity = unit.velocity;
-        auto velocity = unit.velocity;
-        if (velocity.norm() > 0.01)
+        role->Pos = result.position;
+        role->Velocity = result.velocity;
+        role->Acceleration = result.acceleration;
+        auto facing = result.facing;
+        if (facing.norm() > 0.01)
         {
-            role->RealTowards = velocity;
-            role->RealTowards.normTo(1);
+            role->RealTowards = facing;
         }
     }
 }
 
+namespace
+{
 void initializeBattleActionPlanInputs(
-    Battle::BattleRuntimeState& runtime,
+    Battle::BattleRuntimeState::ActionState& action,
     BattleActionPlanInputContext& context)
 {
     assert(context.roles);
 
-    runtime.action.planSeeds.clear();
-    runtime.action.castConfig = context.castConfig;
-    runtime.action.castGeometry = context.castGeometry;
-    runtime.action.actionRules = context.actionRules;
+    action.planSeeds.clear();
+    action.castConfig = context.castConfig;
+    action.castGeometry = context.castGeometry;
+    action.actionRules = context.actionRules;
     for (auto role : *context.roles)
     {
         assert(role);
         Magic* equippedMagic = role->UsingMagic;
         Magic* normalMagic = equippedMagic ? equippedMagic : selectLowerPowerMagic(role);
         Magic* ultimateMagic = equippedMagic ? equippedMagic : selectHigherPowerMagic(role);
-        runtime.action.planSeeds[role->ID] = makeBattleActionPlanSeed(
+        action.planSeeds[role->ID] = makeBattleActionPlanSeed(
             role,
             normalMagic,
             ultimateMagic,
             equippedMagic != nullptr);
     }
 }
+}  // namespace
 
 BattleActionFrameApplyResult applyBattleActionFrameResults(
     const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
@@ -1140,7 +1145,6 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
             Magic* magic = role->UsingMagic;
             assert(magic);
             role->PreActTimer = context.battleFrame;
-            result.attackSoundIds.push_back(magic->SoundID);
             role->OperationCount = action.actionResult.operationCount;
             applyBattleCastCommit(role, action.actionInput.cast);
         }

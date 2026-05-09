@@ -53,9 +53,22 @@ BattleFrameResult BattleRuntimeSession::runFrame()
     return runner_.runFrame(runtime_);
 }
 
-void BattleRuntimeSession::enqueueAttackSpawn(BattleAttackSpawnRequest request)
+void BattleRuntimeSession::commitSetupConfiguration(BattleRuntimeSetupConfiguration config)
 {
-    runtime_.pendingAttackSpawns.push_back(std::move(request));
+    assert(!setupConfigured_);
+    assert(!frameStarted_);
+    setupConfigured_ = true;
+
+    runtime_.world = std::move(config.world);
+    runtime_.attacks = std::move(config.attacks);
+    runtime_.damage = std::move(config.damage);
+    runtime_.result = std::move(config.result);
+    runtime_.teamEffects = std::move(config.teamEffects);
+    runtime_.rescue = std::move(config.rescue);
+    runtime_.movementPhysics = std::move(config.movementPhysics);
+    runtime_.action = std::move(config.action);
+    runtime_.projectileFollowUps = std::move(config.projectileFollowUps);
+    runtime_.deathEffects = std::move(config.deathEffects);
 }
 
 void BattleRuntimeSession::commitSetupPlacement(const BattleSetupPlacementInput& input)
@@ -87,17 +100,6 @@ BattleInitializationResult BattleRuntimeSession::releaseInitializationResult()
 
 const BattleRuntimeState& BattleRuntimeSession::runtime() const
 {
-    return runtime_;
-}
-
-BattleRuntimeState& BattleRuntimeSession::runtimeForTests()
-{
-    return runtime_;
-}
-
-BattleRuntimeState& BattleRuntimeSession::runtimeForSetupConfiguration()
-{
-    assert(!frameStarted_);
     return runtime_;
 }
 
