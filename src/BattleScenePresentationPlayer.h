@@ -1,21 +1,30 @@
 #pragma once
 
-#include "BattleSceneAct.h"
+#include "BattlePresentationEffects.h"
 #include "BattleStatsView.h"
 #include "battle/BattlePresentationPlayback.h"
 
 #include <deque>
 #include <functional>
+#include <optional>
 
 class BattleScenePresentationPlayer
 {
 public:
+    struct UnitView
+    {
+        Pointf position;
+        int team = -1;
+        int maxHp = 0;
+    };
+
     struct Bindings
     {
         BattleTracker* tracker = nullptr;
-        std::deque<BattleSceneAct::TextEffect>* textEffects = nullptr;
-        std::deque<BattleSceneAct::AttackEffect>* attackEffects = nullptr;
-        std::function<Role*(int)> resolveRole;
+        std::deque<BattleTextEffect>* textEffects = nullptr;
+        std::deque<BattleAttackEffect>* attackEffects = nullptr;
+        std::function<const BattleUnitIdentity*(int)> resolveIdentity;
+        std::function<std::optional<UnitView>(int)> resolveUnitView;
     };
 
     void play(const KysChess::Battle::BattlePresentationFrame& frame, const Bindings& bindings) const;

@@ -69,22 +69,22 @@ int BattleRuntimeRandom::nextInt(int upperBound)
 
 BattleRuntimeUnit* BattleUnitStore::findUnit(int unitId)
 {
-    return tryFindById(units, unitId);
+    return tryDenseById(units, unitId);
 }
 
 const BattleRuntimeUnit* BattleUnitStore::findUnit(int unitId) const
 {
-    return tryFindById(units, unitId);
+    return tryDenseById(units, unitId);
 }
 
 BattleRuntimeUnit& BattleUnitStore::requireUnit(int unitId)
 {
-    return requireById(units, unitId);
+    return requireDenseById(units, unitId);
 }
 
 const BattleRuntimeUnit& BattleUnitStore::requireUnit(int unitId) const
 {
-    return requireById(units, unitId);
+    return requireDenseById(units, unitId);
 }
 
 void BattleUnitStore::writeDamageUnit(const BattleDamageUnitState& source)
@@ -2811,7 +2811,6 @@ BattleDamageApplicationInput makeFrameDamageApplicationInput(BattleRuntimeState&
     input.pendingTransactions = &state.damage.pendingTransactions;
     input.pendingPresentation = &state.damage.pendingPresentation;
     input.unitEffects = &state.damage.unitEffects;
-    input.pendingAliveByTeam = &state.result.pendingAliveByTeam;
     input.deathEffects = &state.deathEffects.store;
     input.deathEffectUnits = &state.units;
     input.projectileFollowUps = &state.projectileFollowUps;
@@ -2866,13 +2865,6 @@ void updateBattleResult(BattleRuntimeState& state, std::vector<BattleGameplayEve
         if (unit.alive)
         {
             aliveTeams.insert(unit.team);
-        }
-    }
-    for (const auto& [team, count] : state.result.pendingAliveByTeam)
-    {
-        if (count > 0)
-        {
-            aliveTeams.insert(team);
         }
     }
     if (aliveTeams.size() != 1)
@@ -3583,6 +3575,33 @@ void advanceAttacksAndResolveHits(
         visualEvents);
 }
 
+BattleFrameDamageRenderUnit makeBattleFrameDamageRenderUnit(const BattleDamageUnitState& unit)
+{
+    return {
+        unit.id,
+        unit.hp,
+        unit.mp,
+        unit.invincible,
+        unit.alive,
+    };
+}
+
+BattleFrameDamageRenderApplication makeBattleFrameDamageRenderApplication(
+    const BattleDamageTransactionResult& transaction,
+    bool critical)
+{
+    return {
+        makeBattleFrameDamageRenderUnit(transaction.defender),
+        makeBattleFrameDamageRenderUnit(transaction.attacker),
+        transaction.defenderStatus.frozenTimer,
+        transaction.defenderStatus.frozenMaxTimer,
+        transaction.defenderCooldown.cooldown,
+        transaction.finalHpDamage,
+        transaction.killed,
+        critical,
+    };
+}
+
 void applyDamageAndLifecycle(
     BattleRuntimeState& state,
     BattleFrameResult& result,
@@ -3613,6 +3632,15 @@ void applyDamageAndLifecycle(
         application.commands.begin(),
         application.commands.end());
 
+    std::set<int> criticalDefenderIds;
+    for (const auto& hit : result.hitResults)
+    {
+        if (hit.critical)
+        {
+            criticalDefenderIds.insert(hit.defenderUnitId);
+        }
+    }
+
     for (auto transaction : application.transactions)
     {
         applyDamageTakenMpGain(transaction);
@@ -3627,6 +3655,10 @@ void applyDamageAndLifecycle(
             }
             gameplayEvents.push_back(toGameplayEvent(event));
         }
+        result.damageRenderApplications.push_back(
+            makeBattleFrameDamageRenderApplication(
+                transaction,
+                criticalDefenderIds.contains(transaction.defender.id)));
         result.damageTransactions.push_back(transaction);
     }
     for (const auto& event : application.gameplayEvents)
@@ -3689,15 +3721,15 @@ void emitPresentationFrame(
     result.frame = recorder.consumeFrame();
 }
 
-BattleFrameComboLegacyMirror makeBattleFrameComboLegacyMirror(
+BattleFrameComboRenderApplication makeBattleFrameComboRenderApplication(
     int unitId,
     const KysChess::RoleComboState& state)
 {
-    BattleFrameComboLegacyMirror mirror;
-    mirror.unitId = unitId;
-    mirror.shield = state.shield;
-    mirror.blockFirstHitsRemaining = state.blockFirstHitsRemaining;
-    return mirror;
+    BattleFrameComboRenderApplication application;
+    application.unitId = unitId;
+    application.shield = state.shield;
+    application.blockFirstHitsRemaining = state.blockFirstHitsRemaining;
+    return application;
 }
 
 BattleFrameRenderStatusUnit makeBattleFrameRenderStatusUnit(
@@ -3714,8 +3746,8 @@ BattleFrameRenderStatusUnit makeBattleFrameRenderStatusUnit(
 
 void publishFrameApplyOutputs(BattleRuntimeState& state, BattleFrameResult& result)
 {
-    result.stateApplications.comboMirrors.clear();
-    result.stateApplications.comboMirrors.reserve(state.units.units.size());
+    result.stateApplications.comboRenderUnits.clear();
+    result.stateApplications.comboRenderUnits.reserve(state.units.units.size());
     for (const auto& unit : state.units.units)
     {
         const auto comboIt = state.combo.units.find(unit.id);
@@ -3723,8 +3755,8 @@ void publishFrameApplyOutputs(BattleRuntimeState& state, BattleFrameResult& resu
         {
             continue;
         }
-        result.stateApplications.comboMirrors.push_back(
-            makeBattleFrameComboLegacyMirror(unit.id, comboIt->second));
+        result.stateApplications.comboRenderUnits.push_back(
+            makeBattleFrameComboRenderApplication(unit.id, comboIt->second));
     }
     result.stateApplications.statusRenderUnits.clear();
     result.stateApplications.statusRenderUnits.reserve(state.status.units.size());

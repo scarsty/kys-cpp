@@ -20,7 +20,6 @@ BattleFrameResult runBattleFrame(BattleRuntimeState& state)
 {
     return BattleFrameRunner().runFrame(state);
 }
-
 BattleMovementConfig runtimeMovementConfig()
 {
     BattleMovementGeometry geometry;
@@ -52,8 +51,8 @@ BattleRuntimeState runtimeFrameState()
     state.world.frame = 6;
     state.world.config = runtimeMovementConfig();
     state.world.units = {
-        runtimeUnit(1, 0, { 100, 100, 0 }),
-        runtimeUnit(2, 1, { 500, 100, 0 }),
+        runtimeUnit(0, 0, { 100, 100, 0 }),
+        runtimeUnit(1, 1, { 500, 100, 0 }),
     };
     state.attacks.hitRadius = SceneTileWidth * 2.0;
     state.attacks.minimumVectorNorm = LegacyMinimumVectorNorm;
@@ -68,8 +67,8 @@ BattleRuntimeState ownedRuntimeState()
     runtime.world.frame = 6;
     runtime.world.config = runtimeMovementConfig();
     runtime.world.units = {
-        runtimeUnit(1, 0, { 100, 100, 0 }),
-        runtimeUnit(2, 1, { 500, 100, 0 }),
+        runtimeUnit(0, 0, { 100, 100, 0 }),
+        runtimeUnit(1, 1, { 500, 100, 0 }),
     };
     runtime.attacks.hitRadius = SceneTileWidth * 2.0;
     runtime.attacks.minimumVectorNorm = LegacyMinimumVectorNorm;
@@ -152,8 +151,8 @@ TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[b
     };
 
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = 1;
-    request.initial.preferredTargetUnitId = 2;
+    request.initial.attackerUnitId = 0;
+    request.initial.preferredTargetUnitId = 0;
     request.initial.skillId = 101;
     request.initial.totalFrame = 30;
     request.initial.visualEffectId = 44;
@@ -183,8 +182,8 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     };
 
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = 1;
-    request.initial.preferredTargetUnitId = 2;
+    request.initial.attackerUnitId = 0;
+    request.initial.preferredTargetUnitId = 0;
     request.initial.skillId = 101;
     request.initial.totalFrame = 30;
     request.initial.visualEffectId = 44;
@@ -218,22 +217,20 @@ TEST_CASE("BattleRuntimeSession_CommitSetupConfigurationAppliesOwnedRuntimeSetup
     config.world.frame = 42;
     config.world.config = runtimeMovementConfig();
     config.world.units = {
-        runtimeUnit(1, 0, { 128, 256, 0 }),
+        runtimeUnit(0, 0, { 128, 256, 0 }),
     };
     config.attacks.nextAttackId = 90;
-    config.action.castFrames = { 1, 2, 3, 4 };
+    config.action.castFrames = { 0, 2, 3, 4 };
     config.damage.aggregatePendingTransactionsByDefender = true;
-    config.result.pendingAliveByTeam.emplace(1, 2);
 
     session.commitSetupConfiguration(std::move(config));
 
     CHECK(session.runtime().world.frame == 42);
     REQUIRE(session.runtime().world.units.size() == 1);
-    CHECK(session.runtime().world.units[0].id == 1);
+    CHECK(session.runtime().world.units[0].id == 0);
     CHECK(session.runtime().attacks.nextAttackId == 90);
     CHECK(session.runtime().action.castFrames.size() == 4);
     CHECK(session.runtime().damage.aggregatePendingTransactionsByDefender);
-    CHECK(session.runtime().result.pendingAliveByTeam.at(1) == 2);
 }
 
 TEST_CASE("BattleRuntimeSession_CommitSetupPlacementUpdatesOwnedRuntime", "[battle][runtime_session][ownership]")
@@ -242,19 +239,19 @@ TEST_CASE("BattleRuntimeSession_CommitSetupPlacementUpdatesOwnedRuntime", "[batt
     init.runtime = ownedRuntimeState();
     init.runtime.units.gridTransform = { SceneTileWidth, 18 };
     init.runtime.units.units = {
-        teamRuntimeUnitAt(1, 0, 100, { 100, 100, 0 }),
+        teamRuntimeUnitAt(0, 0, 100, { 100, 100, 0 }),
     };
     init.runtime.world.units = {
-        runtimeUnit(1, 0, { 100, 100, 0 }),
+        runtimeUnit(0, 0, { 100, 100, 0 }),
     };
     BattleRuntimeSession session(std::move(init));
 
     BattleSetupPlacementInput placement;
-    placement.units.push_back({ 1, 3, 4, 2 });
+    placement.units.push_back({ 0, 3, 4, 2 });
 
     session.commitSetupPlacement(placement);
 
-    const auto& unit = session.runtime().units.requireUnit(1);
+    const auto& unit = session.runtime().units.requireUnit(0);
     CHECK(unit.grid.x == 3);
     CHECK(unit.grid.y == 4);
     CHECK(unit.facing.x == -1.0f);
@@ -277,15 +274,15 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
 {
     auto state = runtimeFrameState();
     state.units.units = {
-        teamRuntimeUnit(1, 0, 80),
+        teamRuntimeUnit(0, 0, 80),
     };
     KysChess::RoleComboState combo;
     combo.shield = 12;
     combo.blockFirstHitsRemaining = 2;
-    state.combo.units.emplace(1, combo);
-    state.units.requireUnit(1).invincible = 4;
+    state.combo.units.emplace(0, combo);
+    state.units.requireUnit(0).invincible = 4;
     state.status.units.push_back(BattleStatusRuntimeUnit{
-        .id = 1,
+        .id = 0,
         .frozenTimer = 3,
         .frozenMaxTimer = 9,
     });
@@ -293,24 +290,24 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     auto result = runBattleFrame(state);
 
     REQUIRE(result.stateApplications.statusRenderUnits.size() == 1);
-    CHECK(result.stateApplications.statusRenderUnits[0].unitId == 1);
+    CHECK(result.stateApplications.statusRenderUnits[0].unitId == 0);
     CHECK(result.stateApplications.statusRenderUnits[0].invincible == 4);
     CHECK(result.stateApplications.statusRenderUnits[0].frozenFrames == 3);
     CHECK(result.stateApplications.statusRenderUnits[0].frozenMaxFrames == 9);
-    REQUIRE(result.stateApplications.comboMirrors.size() == 1);
-    CHECK(result.stateApplications.comboMirrors[0].unitId == 1);
-    CHECK(result.stateApplications.comboMirrors[0].shield == 12);
-    CHECK(result.stateApplications.comboMirrors[0].blockFirstHitsRemaining == 2);
+    REQUIRE(result.stateApplications.comboRenderUnits.size() == 1);
+    CHECK(result.stateApplications.comboRenderUnits[0].unitId == 0);
+    CHECK(result.stateApplications.comboRenderUnits[0].shield == 12);
+    CHECK(result.stateApplications.comboRenderUnits[0].blockFirstHitsRemaining == 2);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
     state.units.units = {
-        teamRuntimeUnit(1, 0, 80),
-        teamRuntimeUnit(2, 1, 100),
+        teamRuntimeUnit(0, 0, 80),
+        teamRuntimeUnit(1, 1, 100),
     };
-    auto& unit = state.units.requireUnit(1);
+    auto& unit = state.units.requireUnit(0);
     unit.cooldown = 1;
     unit.haveAction = true;
     unit.operationType = BattleOperationType::RangedProjectile;
@@ -320,33 +317,33 @@ TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[batt
     auto result = runBattleFrame(state);
 
     REQUIRE(result.unitApplications.size() == 2);
-    CHECK(result.unitApplications[0].unitId == 1);
+    CHECK(result.unitApplications[0].unitId == 0);
     CHECK(result.unitApplications[0].cooldown == 0);
     CHECK(result.unitApplications[0].actType == -1);
     CHECK_FALSE(result.unitApplications[0].resetDashVelocity);
-    CHECK(state.units.requireUnit(1).cooldown == 0);
-    CHECK(state.units.requireUnit(1).mp == 21);
-    CHECK(state.units.requireUnit(1).physicalPower == 5);
-    CHECK_FALSE(state.units.requireUnit(1).haveAction);
+    CHECK(state.units.requireUnit(0).cooldown == 0);
+    CHECK(state.units.requireUnit(0).mp == 21);
+    CHECK(state.units.requireUnit(0).physicalPower == 5);
+    CHECK_FALSE(state.units.requireUnit(0).haveAction);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
     state.units.units = {
-        teamRuntimeUnit(1, 0, 80),
-        teamRuntimeUnit(2, 1, 100),
+        teamRuntimeUnit(0, 0, 80),
+        teamRuntimeUnit(1, 1, 100),
     };
-    state.units.requireUnit(1).mpRecoveryBonusPct = 100;
-    state.units.requireUnit(2).mpBlocked = true;
+    state.units.requireUnit(0).mpRecoveryBonusPct = 100;
+    state.units.requireUnit(0).mpBlocked = true;
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.unitApplications.size() == 2);
-    CHECK(state.units.requireUnit(1).mp == 22);
-    CHECK(result.unitApplications[0].finalMp == 22);
-    CHECK(state.units.requireUnit(2).mp == 20);
-    CHECK(result.unitApplications[1].finalMp == 20);
+    CHECK(state.units.requireUnit(0).mp == 20);
+    CHECK(result.unitApplications[0].finalMp == 20);
+    CHECK(state.units.requireUnit(1).mp == 21);
+    CHECK(result.unitApplications[1].finalMp == 21);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrameState", "[battle][frame_runner][runtime][unit]")
@@ -358,58 +355,58 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     combo.onSkillTeamHealPending = true;
     combo.onSkillTeamHeal = 7;
     combo.onSkillTeamHealPct = 3;
-    state.combo.units.emplace(1, combo);
+    state.combo.units.emplace(0, combo);
     state.units.units = {
-        teamRuntimeUnit(1, 0, 80),
+        teamRuntimeUnit(0, 0, 80),
     };
-    applyRuntimeInput(state.units.requireUnit(1), finishingSkillRuntime());
+    applyRuntimeInput(state.units.requireUnit(0), finishingSkillRuntime());
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.unitApplications.size() == 1);
-    CHECK(result.unitApplications[0].unitId == 1);
+    CHECK(result.unitApplications[0].unitId == 0);
     CHECK(result.unitApplications[0].cooldown == 0);
 
     CHECK(state.teamEffects.pendingCommands.empty());
     REQUIRE(result.effectCommands.size() == 1);
     CHECK(result.effectCommands[0].type == BattleEffectCommandType::AddInvincibility);
-    CHECK(result.effectCommands[0].targetUnitId == 1);
+    CHECK(result.effectCommands[0].targetUnitId == 0);
     CHECK(result.effectCommands[0].value == 12);
     REQUIRE(result.teamEffectEvents.size() == 1);
-    CHECK(result.teamEffectEvents[0].sourceUnitId == 1);
-    CHECK(result.teamEffectEvents[0].targetUnitId == 1);
+    CHECK(result.teamEffectEvents[0].sourceUnitId == 0);
+    CHECK(result.teamEffectEvents[0].targetUnitId == 0);
     CHECK(result.teamEffectEvents[0].value == 10);
-    CHECK_FALSE(state.combo.units.at(1).onSkillTeamHealPending);
+    CHECK_FALSE(state.combo.units.at(0).onSkillTeamHealPending);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStore", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
     state.units.units = {
-        teamRuntimeUnit(1, 0, 50),
-        teamRuntimeUnit(2, 0, 90),
-        teamRuntimeUnit(3, 1, 10),
+        teamRuntimeUnit(0, 0, 50),
+        teamRuntimeUnit(1, 0, 90),
+        teamRuntimeUnit(2, 1, 10),
     };
 
     KysChess::RoleComboState combo;
     combo.onSkillTeamHealPending = true;
     combo.onSkillTeamHeal = 5;
     combo.onSkillTeamHealPct = 10;
-    state.combo.units.emplace(1, combo);
-    applyRuntimeInput(state.units.requireUnit(1), finishingSkillRuntime());
+    state.combo.units.emplace(0, combo);
+    applyRuntimeInput(state.units.requireUnit(0), finishingSkillRuntime());
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.teamEffectEvents.size() == 2);
     CHECK(result.teamEffectEvents[0].type == BattleTeamEffectEventType::Heal);
-    CHECK(result.teamEffectEvents[0].sourceUnitId == 1);
-    CHECK(result.teamEffectEvents[0].targetUnitId == 1);
+    CHECK(result.teamEffectEvents[0].sourceUnitId == 0);
+    CHECK(result.teamEffectEvents[0].targetUnitId == 0);
     CHECK(result.teamEffectEvents[0].value == 15);
-    CHECK(result.teamEffectEvents[1].targetUnitId == 2);
+    CHECK(result.teamEffectEvents[1].targetUnitId == 1);
     CHECK(result.teamEffectEvents[1].value == 10);
-    CHECK(state.units.requireUnit(1).hp == 65);
-    CHECK(state.units.requireUnit(2).hp == 100);
-    CHECK(state.units.requireUnit(3).hp == 10);
+    CHECK(state.units.requireUnit(0).hp == 65);
+    CHECK(state.units.requireUnit(1).hp == 100);
+    CHECK(state.units.requireUnit(2).hp == 10);
 
     const auto healLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -417,8 +414,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Heal
-                && event.sourceUnitId == 1
-                && event.targetUnitId == 1;
+                && event.sourceUnitId == 0
+                && event.targetUnitId == 0;
         });
     REQUIRE(healLog != result.frame.logEvents.end());
     CHECK(healLog->amount == 15);
@@ -432,29 +429,29 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     state.status.config.poisonDamageIntervalFrames = 30;
 
     BattleStatusUnitState poisoned;
-    poisoned.id = 2;
+    poisoned.id = 1;
     poisoned.alive = true;
     poisoned.hp = 80;
     poisoned.maxHp = 100;
     poisoned.poisonTimer = 3;
     poisoned.poisonTickPct = 10;
-    poisoned.poisonSourceId = 1;
+    poisoned.poisonSourceId = 0;
     state.status.units.push_back(runtimeStatusUnit(poisoned));
 
     state.units.units = {
-        teamRuntimeUnit(1, 0, 100),
-        teamRuntimeUnit(2, 1, 80),
+        teamRuntimeUnit(0, 0, 100),
+        teamRuntimeUnit(1, 1, 80),
     };
-    state.deathEffects.store.units = { { 1 }, { 2 } };
+    state.deathEffects.store.units = { { 0 }, { 1 } };
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.damageTransactions.size() == 1);
     const auto& transaction = result.damageTransactions[0];
     CHECK(transaction.finalHpDamage == 8);
-    CHECK(transaction.defender.id == 2);
+    CHECK(transaction.defender.id == 1);
     CHECK(transaction.defender.hp == 72);
-    CHECK(state.units.requireUnit(2).hp == 72);
+    CHECK(state.units.requireUnit(1).hp == 72);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
@@ -463,29 +460,29 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     state.status.config.bleedDamageIntervalFrames = 10;
 
     BattleStatusUnitState bleeding;
-    bleeding.id = 2;
+    bleeding.id = 1;
     bleeding.alive = true;
     bleeding.hp = 80;
     bleeding.maxHp = 100;
     bleeding.bleedStacks = 6;
     bleeding.bleedTimer = 1;
-    bleeding.bleedSourceId = 1;
+    bleeding.bleedSourceId = 0;
     state.status.units.push_back(runtimeStatusUnit(bleeding));
 
     state.units.units = {
-        teamRuntimeUnit(1, 0, 100),
-        teamRuntimeUnit(2, 1, 80),
+        teamRuntimeUnit(0, 0, 100),
+        teamRuntimeUnit(1, 1, 80),
     };
-    state.deathEffects.store.units = { { 1 }, { 2 } };
+    state.deathEffects.store.units = { { 0 }, { 1 } };
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.damageTransactions.size() == 1);
     const auto& transaction = result.damageTransactions[0];
     CHECK(transaction.finalHpDamage == 6);
-    CHECK(transaction.defender.id == 2);
+    CHECK(transaction.defender.id == 1);
     CHECK(transaction.defender.hp == 74);
-    CHECK(state.units.requireUnit(2).hp == 74);
+    CHECK(state.units.requireUnit(1).hp == 74);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[battle][frame_runner][runtime][unit]")
@@ -494,10 +491,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     state.world.frame = 6;
     state.teamEffects.healAuraRadius = SceneTileWidth * 6.0;
     state.units.units = {
-        teamRuntimeUnitAt(1, 0, 50, { 0, 0, 0 }),
-        teamRuntimeUnitAt(2, 0, 80, { 100, 0, 0 }, 50),
-        teamRuntimeUnitAt(3, 0, 60, { 300, 0, 0 }, 50),
-        teamRuntimeUnitAt(4, 1, 20, { 50, 0, 0 }),
+        teamRuntimeUnitAt(0, 0, 50, { 0, 0, 0 }),
+        teamRuntimeUnitAt(1, 0, 80, { 100, 0, 0 }, 50),
+        teamRuntimeUnitAt(2, 0, 60, { 300, 0, 0 }, 50),
+        teamRuntimeUnitAt(3, 1, 20, { 50, 0, 0 }),
     };
 
     KysChess::RoleComboState combo;
@@ -507,25 +504,25 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     combo.healAuraPct = 10;
     combo.healAuraInterval = 6;
     combo.healedATKSPDBoostPct = 20;
-    state.combo.units.emplace(1, combo);
+    state.combo.units.emplace(0, combo);
 
     auto runtime = finishingSkillRuntime();
     runtime.state.cooldown = 0;
-    applyRuntimeInput(state.units.requireUnit(1), runtime);
+    applyRuntimeInput(state.units.requireUnit(0), runtime);
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.units.requireUnit(1).hp == 70);
-    CHECK(state.units.requireUnit(2).hp == 95);
-    CHECK(state.units.requireUnit(2).cooldown == 39);
-    CHECK(state.units.requireUnit(3).hp == 60);
-    CHECK(state.units.requireUnit(3).cooldown == 49);
-    CHECK(state.units.requireUnit(4).hp == 20);
+    CHECK(state.units.requireUnit(0).hp == 70);
+    CHECK(state.units.requireUnit(1).hp == 95);
+    CHECK(state.units.requireUnit(1).cooldown == 39);
+    CHECK(state.units.requireUnit(2).hp == 60);
+    CHECK(state.units.requireUnit(2).cooldown == 49);
+    CHECK(state.units.requireUnit(3).hp == 20);
 
     REQUIRE(result.teamEffectEvents.size() == 3);
-    CHECK(result.teamEffectEvents[0].targetUnitId == 1);
+    CHECK(result.teamEffectEvents[0].targetUnitId == 0);
     CHECK(result.teamEffectEvents[0].value == 20);
-    CHECK(result.teamEffectEvents[1].targetUnitId == 2);
+    CHECK(result.teamEffectEvents[1].targetUnitId == 1);
     CHECK(result.teamEffectEvents[1].value == 15);
     CHECK(result.teamEffectEvents[2].type == BattleTeamEffectEventType::CooldownReduced);
     CHECK(result.teamEffectEvents[2].value == 10);
@@ -536,7 +533,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Heal
-                && event.targetUnitId == 1
+                && event.targetUnitId == 0
                 && event.text == "生命回復";
         });
     CHECK(selfRegenLog != result.frame.logEvents.end());
@@ -547,7 +544,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Heal
-                && event.targetUnitId == 2
+                && event.targetUnitId == 1
                 && event.text == "治療光環";
         });
     CHECK(auraLog != result.frame.logEvents.end());
@@ -557,7 +554,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
 {
     auto state = runtimeFrameState();
     state.units.units = {
-        teamRuntimeUnit(1, 0, 40),
+        teamRuntimeUnit(0, 0, 40),
     };
 
     KysChess::AppliedEffectInstance healBurst;
@@ -569,16 +566,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
 
     KysChess::RoleComboState combo;
     combo.triggeredEffects.push_back(healBurst);
-    state.combo.units.emplace(1, combo);
+    state.combo.units.emplace(0, combo);
 
     auto runtime = finishingSkillRuntime();
     runtime.state.cooldown = 0;
-    applyRuntimeInput(state.units.requireUnit(1), runtime);
+    applyRuntimeInput(state.units.requireUnit(0), runtime);
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.units.requireUnit(1).hp == 65);
-    CHECK(state.combo.units.at(1).effectActivationCounts.at(0) == 1);
+    CHECK(state.units.requireUnit(0).hp == 65);
+    CHECK(state.combo.units.at(0).effectActivationCounts.at(0) == 1);
 
     const auto healLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -586,8 +583,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Heal
-                && event.sourceUnitId == 1
-                && event.targetUnitId == 1
+                && event.sourceUnitId == 0
+                && event.targetUnitId == 0
                 && event.amount == 25
                 && event.text == "爆發治療";
         });
@@ -598,15 +595,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
 {
     auto state = runtimeFrameState();
     state.units.units = {
-        teamRuntimeUnit(1, 0, 80),
+        teamRuntimeUnit(0, 0, 80),
     };
     state.units.units[0].invincible = 3;
 
     KysChess::RoleComboState combo;
     combo.postSkillInvincFrames = 12;
-    state.combo.units.emplace(1, combo);
+    state.combo.units.emplace(0, combo);
 
-    applyRuntimeInput(state.units.requireUnit(1), finishingSkillRuntime());
+    applyRuntimeInput(state.units.requireUnit(0), finishingSkillRuntime());
 
     auto result = runBattleFrame(state);
 
@@ -614,7 +611,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
     CHECK(result.effectCommands[0].type == BattleEffectCommandType::AddInvincibility);
     CHECK(result.effectCommands[0].label == "技能後無敵");
     CHECK(result.effectCommands[0].value == 9);
-    CHECK(state.units.requireUnit(1).invincible == 12);
+    CHECK(state.units.requireUnit(0).invincible == 12);
 
     const auto statusLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -622,8 +619,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Status
-                && event.sourceUnitId == 1
-                && event.targetUnitId == 1
+                && event.sourceUnitId == 0
+                && event.targetUnitId == 0
                 && event.amount == 9
                 && event.text == "技能後無敵";
         });
@@ -634,11 +631,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
 {
     auto state = runtimeFrameState();
     state.attacks.units = {
-        { 1, 0, true, false, false, { 100, 100, 0 } },
-        { 2, 1, true, false, false, { 900, 900, 0 } },
+        { 0, 0, true, false, false, { 100, 100, 0 } },
+        { 1, 1, true, false, false, { 900, 900, 0 } },
     };
-    state.attacks.attacks.push_back(cancelProjectile(10, 1));
-    state.attacks.attacks.push_back(cancelProjectile(20, 2));
+    state.attacks.attacks.push_back(cancelProjectile(10, 0));
+    state.attacks.attacks.push_back(cancelProjectile(20, 1));
     state.attacks.attacks[0].state.projectileCancelDamage = 25;
     state.attacks.attacks[1].state.projectileCancelDamage = 12;
     auto result = runBattleFrame(state);
@@ -654,8 +651,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     REQUIRE(command);
     CHECK(command->attackId == 10);
     CHECK(command->otherAttackId == 20);
-    CHECK(command->sourceUnitId == 1);
-    CHECK(command->otherSourceUnitId == 2);
+    CHECK(command->sourceUnitId == 0);
+    CHECK(command->otherSourceUnitId == 1);
     CHECK(command->damage == 25);
     CHECK(command->otherDamage == 12);
 

@@ -101,13 +101,6 @@ void updateBattleResult(BattleDamageApplicationResult& result,
             aliveTeams.insert(unit.team);
         }
     }
-    for (const auto& [team, count] : *input.pendingAliveByTeam)
-    {
-        if (count > 0)
-        {
-            aliveTeams.insert(team);
-        }
-    }
     if (aliveTeams.size() != 1)
     {
         return;
@@ -329,7 +322,6 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
     assert(input.pendingTransactions);
     assert(input.pendingPresentation);
     assert(input.unitEffects);
-    assert(input.pendingAliveByTeam);
     assert(input.deathEffects);
     assert(input.deathEffectUnits);
     assert(input.projectileFollowUps);

@@ -139,6 +139,7 @@ class BattlePresentationRecorder
 {
 public:
     void beginFrame(BattlePresentationSnapshot snapshot);
+    void beginFrame(int frame);
     void recordGameplay(BattleGameplayEvent event);
     void recordLog(BattleLogEvent event);
     void recordVisual(BattleVisualEvent event);

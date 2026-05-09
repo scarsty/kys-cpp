@@ -473,9 +473,9 @@ TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnComman
     BattleProjectileFollowUpContext context;
     BattleUnitStore units;
     units.units = {
-        runtimeUnit(1, 0, { 0.0f, 0.0f, 0.0f }),
-        runtimeUnit(2, 1, { 40.0f, 0.0f, 0.0f }),
-        runtimeUnit(3, 1, { 80.0f, 0.0f, 0.0f }),
+        runtimeUnit(0, 0, { 0.0f, 0.0f, 0.0f }),
+        runtimeUnit(1, 1, { 40.0f, 0.0f, 0.0f }),
+        runtimeUnit(2, 1, { 80.0f, 0.0f, 0.0f }),
     };
     units.units[1].grid = { 1, 0 };
     units.units[2].grid = { 2, 0 };
@@ -484,8 +484,8 @@ TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnComman
     BattleAttackEvent prototype;
     prototype.type = BattleAttackEventType::Hit;
     prototype.attackId = 10;
-    prototype.sourceUnitId = 1;
-    prototype.unitId = 2;
+    prototype.sourceUnitId = 0;
+    prototype.unitId = 1;
     prototype.skillId = 101;
     prototype.visualEffectId = 44;
     prototype.position = { 0, 0, 0 };
@@ -509,7 +509,7 @@ TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnComman
     REQUIRE(first);
     REQUIRE(second);
     CHECK(first->request.initial.preferredTargetUnitId == 2);
-    CHECK(second->request.initial.preferredTargetUnitId == 3);
+    CHECK(second->request.initial.preferredTargetUnitId == 1);
     CHECK(first->request.initial.suppressNearbyTrackingProjectileProc);
     CHECK_FALSE(first->request.initial.mainProjectile);
     CHECK(first->request.initial.strengthMultiplier == Catch::Approx(0.4f));

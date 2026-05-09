@@ -56,88 +56,88 @@ TEST_CASE("BattleDeathEffectSystem_AllyDeathStatBoost_RequiresRegularSharedCombo
 {
     BattleUnitStore units;
     units.units = {
-        unit(1, 0, false),
-        unit(2, 0, true),
-        unit(3, 1, true),
+        unit(0, 0, false),
+        unit(1, 0, true),
+        unit(2, 1, true),
     };
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 7 };
-    auto dead = extras(1);
+    auto dead = extras(0);
     dead.comboIds = { 7 };
-    auto ally = extras(2);
+    auto ally = extras(1);
     ally.appliedEffects = {
         effect(EffectType::AllyDeathStatBoost, 5, 7),
         effect(EffectType::AllyDeathStatBoost, 9, 8),
     };
-    auto enemy = extras(3);
+    auto enemy = extras(2);
     enemy.appliedEffects = { effect(EffectType::AllyDeathStatBoost, 50, 7) };
     effects.units = { dead, ally, enemy };
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 1);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::AllyStatBoost);
-    CHECK(events[0].targetUnitId == 2);
+    CHECK(events[0].targetUnitId == 1);
     CHECK(events[0].value == 5);
-    CHECK(units.requireUnit(2).attack == 15);
-    CHECK(units.requireUnit(2).defence == 25);
-    CHECK(units.requireUnit(3).attack == 10);
+    CHECK(units.requireUnit(1).attack == 15);
+    CHECK(units.requireUnit(1).defence == 25);
+    CHECK(units.requireUnit(2).attack == 10);
 }
 
 TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboAllies", "[battle][death_effect][unit]")
 {
     BattleUnitStore units;
     units.units = {
-        unit(1, 0, false),
+        unit(0, 0, false),
+        unit(1, 0, true),
         unit(2, 0, true),
-        unit(3, 0, true),
     };
-    units.requireUnit(2).hp = 80;
-    units.requireUnit(3).hp = 20;
+    units.requireUnit(1).hp = 80;
+    units.requireUnit(2).hp = 20;
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 3 };
-    auto dead = extras(1);
+    auto dead = extras(0);
     dead.appliedEffects = { effect(EffectType::DeathMedical, 30, 3) };
-    auto ally = extras(2);
+    auto ally = extras(1);
     ally.comboIds = { 3 };
-    auto outsider = extras(3);
+    auto outsider = extras(2);
     outsider.comboIds = { 4 };
     effects.units = { dead, ally, outsider };
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 1);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::DeathMedicalHeal);
-    CHECK(events[0].targetUnitId == 2);
+    CHECK(events[0].targetUnitId == 1);
     CHECK(events[0].value == 20);
-    CHECK(units.requireUnit(2).hp == 100);
-    CHECK(units.requireUnit(3).hp == 20);
+    CHECK(units.requireUnit(1).hp == 100);
+    CHECK(units.requireUnit(2).hp == 20);
 }
 
 TEST_CASE("BattleDeathEffectSystem_ShieldOnAllyDeath_TracksDeathsAndAwardsShield", "[battle][death_effect][unit]")
 {
     BattleUnitStore units;
     units.units = {
-        unit(1, 0, false),
-        unit(2, 0, true),
+        unit(0, 0, false),
+        unit(1, 0, true),
     };
-    units.requireUnit(2).maxHp = 200;
+    units.requireUnit(1).maxHp = 200;
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 5 };
-    auto dead = extras(1);
+    auto dead = extras(0);
     dead.comboIds = { 5 };
-    auto ally = extras(2);
+    auto ally = extras(1);
     ally.shieldPctMaxHp = 25;
     ally.shieldOnAllyDeathTracker = 1;
     ally.appliedEffects = { effect(EffectType::ShieldOnAllyDeath, 2, 5) };
     effects.units = { dead, ally };
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 1);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::ShieldOnAllyDeath);
-    CHECK(events[0].targetUnitId == 2);
+    CHECK(events[0].targetUnitId == 1);
     CHECK(events[0].value == 50);
-    CHECK(units.requireUnit(2).shield == 50);
-    CHECK(extrasById(effects, 2).shieldOnAllyDeathTracker == 0);
+    CHECK(units.requireUnit(1).shield == 50);
+    CHECK(extrasById(effects, 1).shieldOnAllyDeathTracker == 0);
 }

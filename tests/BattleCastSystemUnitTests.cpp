@@ -712,6 +712,10 @@ TEST_CASE("BattleCastSystem_PostSkillHookIsEmittedForNormalAndUltimateCasts", "[
     CHECK(ultimate.effectEvents[1].hook == BattleHook::UltimateCast);
 
     BattleUnitStore units;
+    BattleRuntimeUnit first;
+    first.id = 0;
+    first.alive = true;
+    units.units.push_back(first);
     BattleRuntimeUnit caster;
     caster.id = input.unit.id;
     caster.alive = true;
@@ -727,7 +731,7 @@ TEST_CASE("BattleCastSystem_PostSkillHookIsEmittedForNormalAndUltimateCasts", "[
     REQUIRE(commands.size() == 1);
     CHECK(commands[0].type == BattleEffectCommandType::AddInvincibility);
     CHECK(commands[0].targetUnitId == input.unit.id);
-    CHECK(units.units[0].invincible == 30);
+    CHECK(units.units[1].invincible == 30);
 }
 
 TEST_CASE("BattleCastSystem_OutputIsDeterministicForSameSeedAndInput", "[battle][cast]")

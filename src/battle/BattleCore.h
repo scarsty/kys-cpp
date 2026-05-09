@@ -253,7 +253,7 @@ struct BattleFrameApplications
     std::vector<BattleFrameRumbleEvent> rumbles;
 };
 
-struct BattleFrameComboLegacyMirror
+struct BattleFrameComboRenderApplication
 {
     int unitId{};
     int shield{};
@@ -271,7 +271,7 @@ struct BattleFrameRenderStatusUnit
 struct BattleFrameStateApplications
 {
     std::vector<BattleFrameRenderStatusUnit> statusRenderUnits;
-    std::vector<BattleFrameComboLegacyMirror> comboMirrors;
+    std::vector<BattleFrameComboRenderApplication> comboRenderUnits;
 };
 
 struct BattleFrameMovementPresentationUnitResult
@@ -282,6 +282,27 @@ struct BattleFrameMovementPresentationUnitResult
     Pointf acceleration;
     Pointf facing;
     int frozenFrames{};
+};
+
+struct BattleFrameDamageRenderUnit
+{
+    int unitId{};
+    int hp{};
+    int mp{};
+    int invincible{};
+    bool alive{};
+};
+
+struct BattleFrameDamageRenderApplication
+{
+    BattleFrameDamageRenderUnit defender;
+    BattleFrameDamageRenderUnit attacker;
+    int frozenFrames{};
+    int frozenMaxFrames{};
+    int cooldown{};
+    int committedHpDamage{};
+    bool killed{};
+    bool critical{};
 };
 
 struct BattleFrameRescueUnitSnapshot
@@ -348,7 +369,6 @@ struct BattleRuntimeState
         int winningTeam = -1;
         bool eventEmitted = false;
         int endedFrame = -1;
-        std::map<int, int> pendingAliveByTeam;
     } result;
 
     struct TeamEffectState
@@ -405,6 +425,7 @@ struct BattleFrameResult
     std::vector<BattleHitResolutionResult> hitResults;
     std::vector<BattleFrameActionUnitResult> actionResults;
     std::vector<BattleDamageTransactionResult> damageTransactions;
+    std::vector<BattleFrameDamageRenderApplication> damageRenderApplications;
     std::vector<BattleRescueRepositionResult> rescueResults;
     std::vector<BattleTeamEffectEvent> teamEffectEvents;
     std::vector<BattleEffectCommand> effectCommands;

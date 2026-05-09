@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BattlePostBattleSummary.h"
 #include "Chess.h"
 #include "ChessCombo.h"
 #include "ChessManager.h"
@@ -48,11 +49,13 @@ struct BattleLogEvent
 class BattleTracker
 {
 public:
-    void recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame, const std::string& detailText = "");
-    void recordHeal(Role* source, Role* target, int amount, const std::string& reason, int frame);
-    void recordStatus(Role* source, Role* target, const std::string& text, int frame);
-    void recordKill(Role* killer, Role* victim, int frame);
-    void recordDeath(Role* role, int frame);
+    void recordDamage(const BattleUnitIdentity* attacker, const BattleUnitIdentity* defender, int damage, const std::string& skillName, int frame, const std::string& detailText = "");
+    void recordHeal(const BattleUnitIdentity* source, const BattleUnitIdentity* target, int amount, const std::string& reason, int frame);
+    void recordStatus(const BattleUnitIdentity* source, const BattleUnitIdentity* target, const std::string& text, int frame);
+    void recordKill(const BattleUnitIdentity* killer, const BattleUnitIdentity* victim, int frame);
+    void recordDeath(const BattleUnitIdentity* unit, int frame);
+    void recordProjectileCancel(int unitId, int damage);
+    int cancelDamageForUnit(int unitId) const;
     void recordBattleEnd(int frame, int battleResult);
     const std::map<int, RoleBattleStats>& getStats() const { return stats_; }
     const std::vector<BattleLogEvent>& getEvents() const { return events_; }
@@ -61,6 +64,7 @@ public:
 
 private:
     std::map<int, RoleBattleStats> stats_;
+    std::map<int, int> cancelDamageByUnit_;
     std::vector<BattleLogEvent> events_;
     int battleEndFrame_ = 0;
     int battleResult_ = -1;
@@ -78,7 +82,8 @@ public:
 
     struct RoleEntry
     {
-        Role* role = nullptr;
+        BattleUnitIdentity identity;
+        std::string displayName;
         int star = 1;
         int chessInstanceId = -1;
         int battleId = -1;
@@ -92,6 +97,8 @@ public:
         int hpRemaining = 0;
         int maxHpRemaining = 0;
         bool dead = false;
+        std::vector<int> skillSoundIds;
+        std::vector<int> skillEffectIds;
     };
 
     struct ComboEntry
@@ -120,10 +127,8 @@ public:
         const std::vector<int>& allyArmors = {});
 
     void setupPostBattle(
-        const std::deque<Role>& allyBattleCopies,
-        const std::deque<Role>& enemyBattleCopies,
-        const BattleTracker& tracker,
-        int battleResult);
+        const BattlePostBattleSummary& summary,
+        const BattleTracker& tracker);
 
     void draw() override;
     void dealEvent(EngineEvent& e) override;

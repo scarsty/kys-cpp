@@ -744,7 +744,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
         }
         cloneCandidates.insert(cloneCandidates.end(), fallbackCandidates.begin(), fallbackCandidates.end());
 
-        int nextCloneUnitId = setup.nextCloneUnitId;
+        int nextRuntimeUnitId = static_cast<int>(runtime.units.units.size());
         int spawned = 0;
         for (const auto& cell : setup.cloneCells)
         {
@@ -765,7 +765,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             assert(sourceComboIt != runtime.combo.units.end());
 
             auto cloneUnit = sourceUnit;
-            cloneUnit.id = nextCloneUnitId;
+            cloneUnit.id = nextRuntimeUnitId;
             cloneUnit.realRoleId = source.sourceRealRoleId;
             cloneUnit.alive = true;
             cloneUnit.hp = cloneUnit.maxHp;
@@ -790,15 +790,15 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             cloneUnit.shield = cloneCombo.shield;
 
             runtime.units.units.push_back(cloneUnit);
-            runtime.status.units.push_back(cloneStatusUnit(sourceStatus, nextCloneUnitId, cloneCombo));
-            runtime.combo.units[nextCloneUnitId] = cloneCombo;
+            runtime.status.units.push_back(cloneStatusUnit(sourceStatus, nextRuntimeUnitId, cloneCombo));
+            runtime.combo.units[nextRuntimeUnitId] = cloneCombo;
 
             BattleUnitState cloneWorld;
             if (sourceWorld)
             {
                 cloneWorld = *sourceWorld;
             }
-            cloneWorld.id = nextCloneUnitId;
+            cloneWorld.id = nextRuntimeUnitId;
             cloneWorld.realRoleId = source.sourceRealRoleId;
             cloneWorld.team = sourceUnit.team;
             cloneWorld.alive = true;
@@ -809,11 +809,11 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
 
             result.cloneIntents.push_back({
                 source.sourceUnitId,
-                nextCloneUnitId,
+                nextRuntimeUnitId,
                 cell.x,
                 cell.y,
                 makeRoleDelta(
-                    nextCloneUnitId,
+                    nextRuntimeUnitId,
                     cloneUnit.star,
                     cloneUnit.maxHp,
                     cloneUnit.hp,
@@ -826,12 +826,12 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
                 BattleLogEventType::Status,
                 BattlePresentationCurrentFrame,
                 source.sourceUnitId,
-                nextCloneUnitId,
+                nextRuntimeUnitId,
                 0,
                 std::format("七截分身（落點 {}, {}）", cell.x, cell.y),
             });
 
-            ++nextCloneUnitId;
+            ++nextRuntimeUnitId;
             ++spawned;
         }
     }

@@ -110,7 +110,6 @@ struct BattleRuntimeSetupSeed
     std::vector<BattleInitializationCloneSource> cloneSources;
     std::vector<BattleInitializationCloneSpawnCell> cloneCells;
     int cloneSummonCount = 0;
-    int nextCloneUnitId = 100000;
 };
 
 struct BattleRuntimeInit

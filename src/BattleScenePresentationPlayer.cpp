@@ -38,23 +38,43 @@ uint8_t damageTextAlpha(int damage, int maxHp)
     return static_cast<uint8_t>(192 + (255 - 192) * impactScale);
 }
 
-Role* resolveRole(const BattleScenePresentationPlayer::Bindings& bindings, int unitId)
+const BattleUnitIdentity* resolveIdentity(const BattleScenePresentationPlayer::Bindings& bindings, int unitId)
 {
-    assert(bindings.resolveRole);
+    assert(bindings.resolveIdentity);
     if (unitId < 0)
     {
         return nullptr;
     }
-    return bindings.resolveRole(unitId);
+    return bindings.resolveIdentity(unitId);
+}
+
+std::optional<BattleScenePresentationPlayer::UnitView> resolveUnitView(
+    const BattleScenePresentationPlayer::Bindings& bindings,
+    int unitId)
+{
+    assert(bindings.resolveUnitView);
+    if (unitId < 0)
+    {
+        return std::nullopt;
+    }
+    return bindings.resolveUnitView(unitId);
+}
+
+Pointf floatingTextPositionFor(const BattleScenePresentationPlayer::UnitView& unit, const std::string& text)
+{
+    Pointf position = unit.position;
+    position.x -= 7.5 * Font::getTextDrawSize(text);
+    position.y -= 50;
+    return position;
 }
 
 int resolveVisualTeam(const BattleScenePresentationPlayer::Bindings& bindings, int unitId)
 {
-    auto* role = resolveRole(bindings, unitId);
-    return role ? role->Team : -1;
+    auto unit = resolveUnitView(bindings, unitId);
+    return unit ? unit->team : -1;
 }
 
-BattleSceneAct::AttackEffect* findProjectile(
+BattleAttackEffect* findProjectile(
     const BattleScenePresentationPlayer::Bindings& bindings,
     int projectileAttackId)
 {
@@ -66,13 +86,13 @@ BattleSceneAct::AttackEffect* findProjectile(
     return it == bindings.attackEffects->end() ? nullptr : &*it;
 }
 
-BattleSceneAct::AttackEffect& createProjectile(
+BattleAttackEffect& createProjectile(
     const KysChess::Battle::BattlePresentationCommand& command,
     const BattleScenePresentationPlayer::Bindings& bindings)
 {
     assert(command.projectileAttackId >= 0);
 
-    BattleSceneAct::AttackEffect effect;
+    BattleAttackEffect effect;
     effect.VisualAttackId = command.projectileAttackId;
     effect.VisualOnly = 1;
     effect.Frame = 0;
@@ -81,7 +101,7 @@ BattleSceneAct::AttackEffect& createProjectile(
 }
 
 void applyProjectilePayload(
-    BattleSceneAct::AttackEffect& effect,
+    BattleAttackEffect& effect,
     const KysChess::Battle::BattlePresentationCommand& command,
     const BattleScenePresentationPlayer::Bindings& bindings)
 {
@@ -100,7 +120,7 @@ void applyProjectilePayload(
     }
 }
 
-BattleSceneAct::AttackEffect& upsertProjectile(
+BattleAttackEffect& upsertProjectile(
     const KysChess::Battle::BattlePresentationCommand& command,
     const BattleScenePresentationPlayer::Bindings& bindings)
 {
@@ -111,7 +131,7 @@ BattleSceneAct::AttackEffect& upsertProjectile(
     return createProjectile(command, bindings);
 }
 
-void finishProjectile(BattleSceneAct::AttackEffect& effect, int fadeFrames)
+void finishProjectile(BattleAttackEffect& effect, int fadeFrames)
 {
     effect.Frame = std::max(effect.Frame, effect.TotalFrame - fadeFrames);
 }
@@ -124,7 +144,8 @@ void BattleScenePresentationPlayer::play(
     assert(bindings.tracker);
     assert(bindings.textEffects);
     assert(bindings.attackEffects);
-    assert(bindings.resolveRole);
+    assert(bindings.resolveIdentity);
+    assert(bindings.resolveUnitView);
 
     playLogs(frame.logEvents, bindings);
     playVisuals(frame.visualEvents, bindings);
@@ -135,7 +156,7 @@ void BattleScenePresentationPlayer::playLogs(
     const Bindings& bindings) const
 {
     assert(bindings.tracker);
-    assert(bindings.resolveRole);
+    assert(bindings.resolveIdentity);
 
     for (const auto& event : logEvents)
     {
@@ -149,7 +170,7 @@ void BattleScenePresentationPlayer::playVisuals(
 {
     assert(bindings.textEffects);
     assert(bindings.attackEffects);
-    assert(bindings.resolveRole);
+    assert(bindings.resolveUnitView);
 
     KysChess::Battle::BattlePresentationFrame frame;
     frame.visualEvents = visualEvents;
@@ -226,8 +247,8 @@ void BattleScenePresentationPlayer::recordDamage(
     const Bindings& bindings) const
 {
     bindings.tracker->recordDamage(
-        resolveRole(bindings, event.sourceUnitId),
-        resolveRole(bindings, event.targetUnitId),
+        resolveIdentity(bindings, event.sourceUnitId),
+        resolveIdentity(bindings, event.targetUnitId),
         event.amount,
         event.skillName,
         event.frame,
@@ -239,8 +260,8 @@ void BattleScenePresentationPlayer::recordHeal(
     const Bindings& bindings) const
 {
     bindings.tracker->recordHeal(
-        resolveRole(bindings, event.sourceUnitId),
-        resolveRole(bindings, event.targetUnitId),
+        resolveIdentity(bindings, event.sourceUnitId),
+        resolveIdentity(bindings, event.targetUnitId),
         event.amount,
         event.text,
         event.frame);
@@ -251,8 +272,8 @@ void BattleScenePresentationPlayer::recordStatus(
     const Bindings& bindings) const
 {
     bindings.tracker->recordStatus(
-        resolveRole(bindings, event.sourceUnitId),
-        resolveRole(bindings, event.targetUnitId),
+        resolveIdentity(bindings, event.sourceUnitId),
+        resolveIdentity(bindings, event.targetUnitId),
         event.text,
         event.frame);
 }
@@ -261,10 +282,14 @@ void BattleScenePresentationPlayer::spawnFloatingText(
     const KysChess::Battle::BattlePresentationCommand& command,
     const Bindings& bindings) const
 {
-    BattleSceneAct::TextEffect effect;
-    auto* role = resolveRole(bindings, command.targetUnitId);
-    effect.set(command.text, toSceneColor(command.color), role);
-    if (!role)
+    BattleTextEffect effect;
+    effect.Text = command.text;
+    effect.color = toSceneColor(command.color);
+    if (auto unit = resolveUnitView(bindings, command.targetUnitId))
+    {
+        effect.Pos = floatingTextPositionFor(*unit, command.text);
+    }
+    else
     {
         effect.Pos = command.position;
     }
@@ -277,11 +302,11 @@ void BattleScenePresentationPlayer::spawnRoleEffect(
     const KysChess::Battle::BattlePresentationCommand& command,
     const Bindings& bindings) const
 {
-    auto* role = resolveRole(bindings, command.targetUnitId);
-    assert(role);
+    auto unit = resolveUnitView(bindings, command.targetUnitId);
+    assert(unit);
 
-    BattleSceneAct::AttackEffect effect;
-    effect.FollowRole = role;
+    BattleAttackEffect effect;
+    effect.FollowUnitId = command.targetUnitId;
     effect.Pos = { 0.0f, 0.0f, ROLE_STATUS_EFT_Z_OFFSET };
     effect.setEft(command.effectId);
     effect.TotalFrame = command.durationFrames > 0
@@ -289,7 +314,7 @@ void BattleScenePresentationPlayer::spawnRoleEffect(
         : std::max(1, effect.TotalEffectFrame);
     effect.Frame = 0;
     effect.VisualOnly = 1;
-    effect.VisualTeam = role->Team;
+    effect.VisualTeam = unit->team;
     bindings.attackEffects->push_back(std::move(effect));
 }
 
@@ -297,14 +322,16 @@ void BattleScenePresentationPlayer::spawnDamageNumber(
     const KysChess::Battle::BattlePresentationCommand& command,
     const Bindings& bindings) const
 {
-    auto* role = resolveRole(bindings, command.targetUnitId);
-    assert(role);
+    auto unit = resolveUnitView(bindings, command.targetUnitId);
+    assert(unit);
     assert(command.amount > 0);
 
-    BattleSceneAct::TextEffect effect;
-    effect.set(std::to_string(-command.amount), toSceneColor(command.color), role);
-    effect.Size = damageTextSize(command.textSize, command.amount, role->MaxHP);
-    effect.color.a = damageTextAlpha(command.amount, role->MaxHP);
+    BattleTextEffect effect;
+    effect.Text = std::to_string(-command.amount);
+    effect.color = toSceneColor(command.color);
+    effect.Pos = floatingTextPositionFor(*unit, effect.Text);
+    effect.Size = damageTextSize(command.textSize, command.amount, unit->maxHp);
+    effect.color.a = damageTextAlpha(command.amount, unit->maxHp);
     bindings.textEffects->push_back(std::move(effect));
 }
 

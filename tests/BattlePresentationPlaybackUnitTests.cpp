@@ -1,5 +1,5 @@
 #include "battle/BattlePresentationPlayback.h"
-#include "BattleSceneAct.h"
+#include "BattlePresentationEffects.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -150,54 +150,49 @@ TEST_CASE("BattlePresentationPlaybackPlanner_TargetLostCancelHasNoRelatedProject
     CHECK(plan.commands[0].projectileOperationKind == 2);
 }
 
-TEST_CASE("BattleSceneAct_AttackEffectRenderTeamFallsBackToLegacyAttacker", "[battle][presentation][unit]")
+TEST_CASE("BattleAttackEffect_RenderTeamUsesVisualTeamOnly", "[battle][presentation][unit]")
 {
-    Role attacker;
-    attacker.Team = 0;
-
-    BattleSceneAct::AttackEffect effect;
-    effect.Attacker = &attacker;
-
-    CHECK(effect.renderTeam() == 0);
+    BattleAttackEffect effect;
+    CHECK(effect.renderTeam() == -1);
 
     effect.VisualTeam = 1;
 
     CHECK(effect.renderTeam() == 1);
 }
 
-TEST_CASE("BattleSceneAct_AdvanceVisualOnlyEffectsTicksOnlyVisualLifetime", "[battle][presentation][unit]")
+TEST_CASE("BattleAttackEffect_AdvanceVisualOnlyEffectsTicksOnlyVisualLifetime", "[battle][presentation][unit]")
 {
-    std::deque<BattleSceneAct::AttackEffect> effects;
+    std::deque<BattleAttackEffect> effects;
 
-    BattleSceneAct::AttackEffect visualRoleEffect;
+    BattleAttackEffect visualRoleEffect;
     visualRoleEffect.VisualOnly = 1;
     visualRoleEffect.TotalFrame = 3;
     effects.push_back(visualRoleEffect);
 
-    BattleSceneAct::AttackEffect legacyGameplayProjectile;
+    BattleAttackEffect legacyGameplayProjectile;
     legacyGameplayProjectile.TotalFrame = 3;
     effects.push_back(legacyGameplayProjectile);
 
-    BattleSceneAct::advanceVisualOnlyEffects(effects);
+    advanceBattleVisualOnlyEffects(effects);
 
     CHECK(effects[0].Frame == 1);
     CHECK(effects[1].Frame == 0);
 }
 
-TEST_CASE("BattleSceneAct_VisualOnlyProjectileFadeAdvancesToExpiry", "[battle][presentation][unit]")
+TEST_CASE("BattleAttackEffect_VisualOnlyProjectileFadeAdvancesToExpiry", "[battle][presentation][unit]")
 {
-    std::deque<BattleSceneAct::AttackEffect> effects;
+    std::deque<BattleAttackEffect> effects;
 
-    BattleSceneAct::AttackEffect impactedVisualProjectile;
+    BattleAttackEffect impactedVisualProjectile;
     impactedVisualProjectile.VisualOnly = 1;
     impactedVisualProjectile.TotalFrame = 30;
     impactedVisualProjectile.Frame = 28;
     effects.push_back(impactedVisualProjectile);
 
-    BattleSceneAct::advanceVisualOnlyEffects(effects);
+    advanceBattleVisualOnlyEffects(effects);
     CHECK(effects.front().Frame == 29);
 
-    BattleSceneAct::advanceVisualOnlyEffects(effects);
+    advanceBattleVisualOnlyEffects(effects);
     CHECK(effects.front().Frame == 30);
     CHECK(effects.front().Frame >= effects.front().TotalFrame);
 }

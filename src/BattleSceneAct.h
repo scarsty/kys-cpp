@@ -29,6 +29,7 @@ public:
         int OperationType = -1;        //攻击类型
         std::string Path;              //效果贴图路径
         Role* FollowRole = nullptr;    //一直保持在角色身上
+        int FollowUnitId = -1;         //運行時視覺效果追蹤的渲染單位
         int Weaken = 0;                //弱化程度，减掉
         double Strengthen = 1;         //强化程度，相乘
         int Track = 0;                 //是否追踪
@@ -117,10 +118,6 @@ public:
 
     std::deque<AttackEffect> attack_effects_;
     std::deque<TextEffect> text_effects_;
-
-    std::deque<Role*> enemies_;
-    std::deque<Role> enemies_obj_;
-    std::deque<Role> friends_obj_;
 
     std::vector<std::shared_ptr<Head>> heads_;
     std::vector<std::shared_ptr<Head>> head_boss_;

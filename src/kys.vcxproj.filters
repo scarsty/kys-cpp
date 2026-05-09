@@ -136,6 +136,15 @@
     <ClCompile Include="BattleSceneBattleAdapter.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="BattleSceneMapState.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleSceneUnitStore.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleTracker.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="battle\BattleHitResolver.cpp">
       <Filter>battle</Filter>
     </ClCompile>
@@ -381,6 +390,21 @@
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="BattleSceneBattleAdapter.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneMapState.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneRenderMath.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneUnitStore.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="BattlePostBattleSummary.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="BattlePresentationEffects.h">
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="battle\BattleMath.h">

@@ -77,7 +77,6 @@ struct BattleDamageApplicationInput
     const std::vector<BattleDamageTransactionInput>* pendingTransactions = nullptr;
     const std::vector<BattleDamagePresentationInput>* pendingPresentation = nullptr;
     const std::map<int, BattleDamageApplicationUnitEffects>* unitEffects = nullptr;
-    const std::map<int, int>* pendingAliveByTeam = nullptr;
     BattleDeathEffectStore* deathEffects = nullptr;
     BattleUnitStore* deathEffectUnits = nullptr;
     const BattleProjectileFollowUpContext* projectileFollowUps = nullptr;

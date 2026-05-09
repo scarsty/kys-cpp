@@ -17,6 +17,7 @@ BattleUnitStore effectUnits()
 {
     BattleUnitStore units;
     for (auto [id, team, alive, hp, mp, cooldown] : {
+        std::tuple{ 0, 0, false, 0, 0, 0 },
         std::tuple{ 1, 0, true, 50, 0, 40 },
         std::tuple{ 2, 0, true, 70, 0, 20 },
         std::tuple{ 3, 1, true, 30, 0, 60 },
@@ -124,7 +125,7 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_MutateOnlyResolvedTargets", "[
     {
         auto units = effectUnits();
         std::map<int, int> activationCounts;
-        units.units[2].invincible = 12;
+        units.units[3].invincible = 12;
         BattleEffectDispatcher dispatcher(registry);
         dispatcher.addEffect(effect(11, BattleHook::SkillFinished, BattleEffectTarget::Source, "添加無敵幀", 30));
 
@@ -138,8 +139,8 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_MutateOnlyResolvedTargets", "[
     {
         auto units = effectUnits();
         std::map<int, int> activationCounts;
-        units.units[0].cooldown = 100;
-        units.units[1].cooldown = 0;
+        units.units[1].cooldown = 100;
+        units.units[2].cooldown = 0;
         BattleEffectDispatcher dispatcher(registry);
         dispatcher.addEffect(effect(12, BattleHook::AfterHeal, BattleEffectTarget::SourceTeam, "冷卻百分比修正", 25));
 
@@ -183,7 +184,7 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_RestoreResourceAndEmitDelta", 
 {
     auto units = effectUnits();
     std::map<int, int> activationCounts;
-    units.units[0].mp = 85;
+    units.units[1].mp = 85;
     BattleEffectRegistry registry;
     BattleEffectDispatcher dispatcher(registry);
     dispatcher.addEffect(effect(40, BattleHook::AfterHeal, BattleEffectTarget::Source, "回內力", 30));

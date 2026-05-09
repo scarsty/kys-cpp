@@ -2,18 +2,24 @@
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentation.h"
 #include "battle/BattleRuntimeSession.h"
-#include "BattleSceneAct.h"
+#include "BattlePostBattleSummary.h"
+#include "BattlePresentationEffects.h"
+#include "BattleSceneRenderMath.h"
+#include "BattleScene.h"
 #include "BattleSceneBattleAdapter.h"
+#include "BattleSceneMapState.h"
 #include "BattleStatsView.h"
 #include "BattleScenePresentationPlayer.h"
+#include "BattleSceneUnitStore.h"
 #include "ChessManager.h"
 #include "ChessProgress.h"
 #include "ChessRoleSave.h"
-#include "Head.h"
+#include <array>
+#include <cstddef>
 #include <deque>
 #include <map>
 #include <optional>
-#include <set>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -25,18 +31,14 @@ enum class Trigger;
 
 class PositionSwapNode;
 
-struct BattleSceneRoleBindings
-{
-    std::unordered_map<int, Role*> rolesByBattleId;
-};
-
-class BattleSceneHades : public BattleSceneAct
+class BattleSceneHades : public BattleScene
 {
     friend class PositionSwapNode;
 public:
     BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager);
     BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager);
     virtual ~BattleSceneHades();
+    void setID(int id);
 
     //继承自基类的函数
     virtual void draw() override;
@@ -53,6 +55,18 @@ public:
 
 protected:
     struct MovementRuntime;
+    struct BattleSceneInitialRoleState
+    {
+        int hp = 0;
+        int mp = 0;
+        int physicalPower = 0;
+        int faceTowards = Towards_None;
+        Pointf position;
+        Pointf realTowards;
+        Pointf acceleration;
+        std::array<int, 5> fightFrames{};
+    };
+
     struct SceneBattleFrameInput
     {
         bool shouldAdvance = true;
@@ -61,13 +75,10 @@ protected:
     {
         bool advanced = false;
     };
-    void renderExtraRoleInfo(Role* r, double x, double y);
-    //int calHurt(Role* r0, Role* r1);
+    void renderExtraRoleInfo(const BattleSceneUnit& unit, double x, double y);
     virtual int checkResult() override;
-    virtual void setRoleInitState(Role* r) override;
     SceneBattleFrameInput buildBattleFrameInput();
     void applyCoreFrameResult(
-        const BattleSceneRoleBindings& bindings,
         const KysChess::Battle::BattleFrameResult& frameResult);
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
@@ -76,7 +87,6 @@ protected:
     KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext makeBattleRuntimeBuildContext();
     void runPreBattlePositionSwapIfEnabled();
     void commitFinalSetupPlacementToRuntime();
-    virtual int calRolePic(Role* r, int style, int frame) override;
 
     void runPositionSwapLoop();
     void runListBasedSwap();
@@ -87,27 +97,25 @@ protected:
     void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
     void updateAutoCamera();
     void clampCameraCenter();
-    void applyCoreStatusState(
-        const BattleSceneRoleBindings& bindings,
-        const KysChess::Battle::BattleFrameStateApplications& applications);
-    void applyCoreDamageTransactions(
-        const BattleSceneRoleBindings& bindings,
-        const KysChess::Battle::BattleFrameResult& frameResult);
-    void applyCoreTeamEffectState(
-        const BattleSceneRoleBindings& bindings,
-        const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events);
-    void applyCoreFrameApplications(
-        const BattleSceneRoleBindings& bindings,
-        const KysChess::Battle::BattleFrameApplications& applications);
-    KysChess::BattleSceneBattleAdapter::BattleActionFrameApplyContext makeBattleActionFrameApplyContext() const;
-    KysChess::Battle::BattlePresentationSnapshot makePresentationSnapshot() const;
+    void applyCoreStatusState(const KysChess::Battle::BattleFrameStateApplications& applications);
+    void applyCoreDamageTransactions(const KysChess::Battle::BattleFrameResult& frameResult);
+    void applyCoreTeamEffectState(const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events);
+    void applyCoreFrameApplications(const KysChess::Battle::BattleFrameApplications& applications);
+    int assignSetupUnitId();
+    int realRoleIdForRole(const Role& role) const;
+    BattleSceneInitialRoleState makeInitialRoleState(
+        Role& role,
+        const std::vector<Role*>& opposingRoles);
+    KysChess::BattleSceneBattleAdapter::BattleSetupRoleSnapshot makeSetupRoleSnapshot(
+        int unitId,
+        Role& role,
+        const BattleSceneInitialRoleState& initialState) const;
     void beginPresentationFrame();
     void publishPresentationFrame();
-    Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
+    Color calculateHurtFlashColor(int unitId, const Color& baseColor) const;
 public:
     BattleTracker& getTracker() { return tracker_; }
-    const std::deque<Role>& getFriendsObj() const { return friends_obj_; }
-    const std::deque<Role>& getEnemiesObj() const { return enemies_obj_; }
+    BattlePostBattleSummary makePostBattleSummary() const;
     void setEnemyStars(const std::vector<int>& stars) { enemy_stars_ = stars; }
     void setTeammateWeapons(const std::vector<int>& weapons) { teammate_weapons_ = weapons; }
     void setTeammateArmors(const std::vector<int>& armors) { teammate_armors_ = armors; }
@@ -125,19 +133,31 @@ protected:
     KysChess::ChessProgress& progress_;
     KysChess::ChessManager& chessManager_;
     BattleTracker tracker_;
-    Role* swapSelected_ = nullptr;
+    int swapSelectedUnitId_ = -1;
     bool positionSwapActive_ = false;
-    std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
-    std::set<Role*> criticalHitRoles_;
     std::optional<KysChess::Battle::BattleRuntimeSession> battle_session_;
-    BattleSceneRoleBindings core_role_bindings_;
     std::vector<int> enemy_stars_;
     std::vector<int> teammate_weapons_;
     std::vector<int> teammate_armors_;
     std::vector<int> enemy_weapons_;
     std::vector<int> enemy_armors_;
     std::vector<std::pair<int, int>> clone_spawn_positions_;
+    std::vector<KysChess::BattleSceneBattleAdapter::BattleSetupRoleSnapshot> setup_role_snapshots_;
+    std::vector<KysChess::Battle::BattleSetupRosterUnit> setup_ally_roster_;
+    std::vector<KysChess::Battle::BattleSetupRosterUnit> setup_enemy_roster_;
+    int next_setup_unit_id_ = 0;
     std::unordered_map<int, int> hurt_flash_timers_;
+    BattleSceneUnitStore scene_units_;
+    std::deque<BattleAttackEffect> attack_effects_;
+    std::deque<BattleTextEffect> text_effects_;
+    BattleSceneMapState battle_map_;
+    Pointf pos_;
+    float gravity_ = -4.0f;
+    float friction_ = 0.1f;
+    int frozen_ = 0;
+    int slow_ = 0;
+    int shake_ = 0;
+    int close_up_ = 0;
     bool manual_camera_dragging_ = false;
     double previous_refresh_interval_ = 0.0;
     int battle_frame_ = 0;

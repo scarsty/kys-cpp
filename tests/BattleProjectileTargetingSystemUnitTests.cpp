@@ -34,81 +34,81 @@ TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_AreEnemiesSortedByDista
 {
     BattleUnitStore units;
     units.units = {
-        unit(1, 0, 0.0, 0.0, 0, 0),
-        unit(2, 1, 100.0, 0.0, 1, 0),
-        unit(3, 1, 20.0, 0.0, 0, 1),
-        unit(4, 0, 10.0, 0.0, 0, 0),
-        unit(5, 1, 500.0, 0.0, 5, 0),
+        unit(0, 0, 0.0, 0.0, 0, 0),
+        unit(1, 1, 100.0, 0.0, 1, 0),
+        unit(2, 1, 20.0, 0.0, 0, 1),
+        unit(3, 0, 10.0, 0.0, 0, 0),
+        unit(4, 1, 500.0, 0.0, 5, 0),
     };
 
-    auto ids = BattleProjectileTargetingSystem().selectNearbyTargets(units, 1, 2, 120.0);
+    auto ids = BattleProjectileTargetingSystem().selectNearbyTargets(units, 0, 1, 120.0);
 
     REQUIRE(ids.size() == 2);
-    CHECK(ids[0] == 2);
-    CHECK(ids[1] == 3);
+    CHECK(ids[0] == 1);
+    CHECK(ids[1] == 2);
 }
 
 TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_UsesGridAreaLimitAndTrackedTarget", "[battle][projectile][unit]")
 {
     BattleUnitStore units;
     units.units = {
-        unit(1, 0, 0.0, 0.0, 0, 0),
-        unit(2, 1, 10.0, 0.0, 1, 0),
-        unit(3, 1, 20.0, 0.0, 2, 0),
-        unit(4, 1, 300.0, 0.0, 9, 9),
-        unit(5, 0, 5.0, 0.0, 1, 1),
+        unit(0, 0, 0.0, 0.0, 0, 0),
+        unit(1, 1, 10.0, 0.0, 1, 0),
+        unit(2, 1, 20.0, 0.0, 2, 0),
+        unit(3, 1, 300.0, 0.0, 9, 9),
+        unit(4, 0, 5.0, 0.0, 1, 1),
     };
 
-    auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(units, 1, 2, 1, 4);
+    auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(units, 0, 2, 1, 3);
 
     REQUIRE(ids.size() == 2);
-    CHECK(ids[0] == 2);
-    CHECK(ids[1] == 4);
+    CHECK(ids[0] == 1);
+    CHECK(ids[1] == 3);
 }
 
 TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_DoesNotDuplicateTrackedTarget", "[battle][projectile][unit]")
 {
     BattleUnitStore units;
     units.units = {
-        unit(1, 0, 0.0, 0.0, 0, 0),
-        unit(2, 1, 10.0, 0.0, 1, 0),
-        unit(3, 1, 20.0, 0.0, 2, 0),
+        unit(0, 0, 0.0, 0.0, 0, 0),
+        unit(1, 1, 10.0, 0.0, 1, 0),
+        unit(2, 1, 20.0, 0.0, 2, 0),
     };
 
-    auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(units, 1, 2, 0, 2);
+    auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(units, 0, 2, 0, 1);
 
     REQUIRE(ids.size() == 2);
-    CHECK(ids[0] == 2);
-    CHECK(ids[1] == 3);
+    CHECK(ids[0] == 1);
+    CHECK(ids[1] == 2);
 }
 
 TEST_CASE("BattleProjectileTargetingSystem_RandomEnemy_UsesExplicitIndex", "[battle][projectile][unit]")
 {
     BattleUnitStore units;
     units.units = {
-        unit(1, 0, 0.0, 0.0, 0, 0),
-        unit(2, 1, 10.0, 0.0, 1, 0),
-        unit(3, 1, 20.0, 0.0, 2, 0),
-        unit(4, 0, 30.0, 0.0, 3, 0),
+        unit(0, 0, 0.0, 0.0, 0, 0),
+        unit(1, 1, 10.0, 0.0, 1, 0),
+        unit(2, 1, 20.0, 0.0, 2, 0),
+        unit(3, 0, 30.0, 0.0, 3, 0),
     };
 
-    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 0) == 2);
-    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 1) == 3);
-    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 2) == 2);
+    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 0) == 1);
+    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 1) == 2);
+    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 2) == 1);
 }
 
 TEST_CASE("BattleProjectileTargetingSystem_WeakestVulnerableEnemy_UsesEffectiveHp", "[battle][projectile][unit]")
 {
     BattleUnitStore units;
     units.units = {
-        combatUnit(1, 0, 100, 100, 0, 0),
-        combatUnit(2, 1, 60, 200, 1, 0),
-        combatUnit(3, 1, 70, 100, 20, 0),
-        combatUnit(4, 1, 5, 100, 0, 3),
-        combatUnit(5, 1, 1, 100, 0, 0),
+        combatUnit(0, 0, 100, 100, 0, 0),
+        combatUnit(1, 1, 60, 200, 1, 0),
+        combatUnit(2, 1, 70, 100, 20, 0),
+        combatUnit(3, 1, 5, 100, 0, 3),
+        combatUnit(4, 1, 1, 100, 0, 0),
     };
     units.units[4].alive = false;
 
-    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(units, 0, 4.0) == 3);
-    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(units, 1, 4.0) == 1);
+    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(units, 0, 4.0) == 2);
+    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(units, 1, 4.0) == 0);
 }

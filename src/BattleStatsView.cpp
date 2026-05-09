@@ -11,6 +11,7 @@
 #include "ChessEftIds.h"
 #include "ImGuiLayer.h"
 #include "ScenePreloader.h"
+#include <cassert>
 #include <format>
 #include <set>
 #include <unordered_map>
@@ -52,21 +53,13 @@ std::unordered_map<int, std::string> buildDistinctRoleLabels(const std::vector<B
     std::unordered_map<int, std::string> labels;
     for (const auto& entry : team)
     {
-        if (entry.role)
-        {
-            totals[entry.role->Name]++;
-        }
+        totals[entry.displayName]++;
     }
 
     std::unordered_map<std::string, int> seen;
     for (const auto& entry : team)
     {
-        if (!entry.role)
-        {
-            continue;
-        }
-
-        const std::string baseName = entry.role->Name;
+        const std::string baseName = entry.displayName;
         const int instanceIndex = ++seen[baseName];
         labels[entry.battleId] = totals[baseName] > 1
             ? std::format("{} [{}]", baseName, instanceIndex)
@@ -215,173 +208,25 @@ void BattleStatsView::queuePostBattleLogOpen()
     }
 }
 
-void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame, const std::string& detailText)
-{
-    if (battleResult_ != -1) return;
-    // if (damage <= 0) return;
-    if (attacker) {
-        auto& s = stats_[attacker->ID];
-        s.damageDealt += damage;
-        if (s.firstDamageFrame == 0) s.firstDamageFrame = frame;
-        s.lastActiveFrame = frame;
-        if (!skillName.empty())
-            s.damagePerSkill[skillName] += damage;
-    }
-    if (defender)
-        stats_[defender->ID].damageTaken += damage;
-
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Damage;
-    event.frame = frame;
-    event.value = damage;
-    if (attacker)
-    {
-        event.sourceId = attacker->ID;
-        event.sourceTeam = attacker->Team;
-        event.sourceName = attacker->Name;
-    }
-    if (defender)
-    {
-        event.targetId = defender->ID;
-        event.targetTeam = defender->Team;
-        event.targetName = defender->Name;
-    }
-    event.skillName = skillName;
-    event.detailText = detailText;
-    events_.push_back(std::move(event));
-}
-
-void BattleTracker::recordHeal(Role* source, Role* target, int amount, const std::string& reason, int frame)
-{
-    if (battleResult_ != -1) return;
-    if (amount <= 0)
-    {
-        return;
-    }
-
-    if (source)
-    {
-        stats_[source->ID].lastActiveFrame = frame;
-    }
-
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Heal;
-    event.frame = frame;
-    event.value = amount;
-    event.detailText = reason;
-    if (source)
-    {
-        event.sourceId = source->ID;
-        event.sourceTeam = source->Team;
-        event.sourceName = source->Name;
-    }
-    if (target)
-    {
-        event.targetId = target->ID;
-        event.targetTeam = target->Team;
-        event.targetName = target->Name;
-    }
-    events_.push_back(std::move(event));
-}
-
-void BattleTracker::recordStatus(Role* source, Role* target, const std::string& text, int frame)
-{
-    if (battleResult_ != -1) return;
-    if (text.empty())
-    {
-        return;
-    }
-
-    if (source)
-    {
-        stats_[source->ID].lastActiveFrame = frame;
-    }
-
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Status;
-    event.frame = frame;
-    event.detailText = text;
-    if (source)
-    {
-        event.sourceId = source->ID;
-        event.sourceTeam = source->Team;
-        event.sourceName = source->Name;
-    }
-    if (target)
-    {
-        event.targetId = target->ID;
-        event.targetTeam = target->Team;
-        event.targetName = target->Name;
-    }
-    events_.push_back(std::move(event));
-}
-
-void BattleTracker::recordKill(Role* killer, Role* victim, int frame)
-{
-    if (battleResult_ != -1) return;
-    if (killer)
-        stats_[killer->ID].kills++;
-
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Kill;
-    event.frame = frame;
-    if (killer)
-    {
-        event.sourceId = killer->ID;
-        event.sourceTeam = killer->Team;
-        event.sourceName = killer->Name;
-    }
-    if (victim)
-    {
-        event.targetId = victim->ID;
-        event.targetTeam = victim->Team;
-        event.targetName = victim->Name;
-    }
-    events_.push_back(std::move(event));
-}
-
-void BattleTracker::recordDeath(Role* role, int frame)
-{
-    if (battleResult_ != -1) return;
-    if (role)
-        stats_[role->ID].lastActiveFrame = frame;
-
-    if (!role)
-    {
-        return;
-    }
-
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Death;
-    event.frame = frame;
-    event.targetId = role->ID;
-    event.targetTeam = role->Team;
-    event.targetName = role->Name;
-    events_.push_back(std::move(event));
-}
-
-void BattleTracker::recordBattleEnd(int frame, int battleResult)
-{
-    battleEndFrame_ = frame;
-    battleResult_ = battleResult;
-
-    BattleLogEvent event;
-    event.type = BattleLogEventType::BattleEnd;
-    event.frame = frame;
-    event.value = battleResult;
-    events_.push_back(std::move(event));
-}
-
 static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team, int chessInstanceId = -1, int fightsWon = 0)
 {
+    assert(role);
     BattleStatsView::RoleEntry e;
-    e.role = role;
+    e.identity = {
+        role->ID,
+        role->RealID,
+        team,
+        role->HeadID,
+        role->Name,
+    };
+    e.displayName = role->Name;
     e.star = star;
     e.team = team;
     e.chessInstanceId = chessInstanceId;
-    e.hpRemaining = role ? role->HP : 0;
-    e.maxHpRemaining = role ? role->MaxHP : 0;
-    e.dead = role ? role->Dead != 0 : false;
+    e.battleId = role->ID;
+    e.hpRemaining = role->HP;
+    e.maxHpRemaining = role->MaxHP;
+    e.dead = role->Dead != 0;
     auto s = KysChess::BattleRoleManager::computeStarStats(role, star, fightsWon);
     e.hp = s.hp;
     e.atk = s.atk;
@@ -393,8 +238,39 @@ static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team, int 
     {
         if (!e.skillNames.empty()) e.skillNames += " ";
         e.skillNames += m->Name;
+        if (m->SoundID >= 0)
+        {
+            e.skillSoundIds.push_back(m->SoundID);
+        }
+        if (m->EffectID >= 0)
+        {
+            e.skillEffectIds.push_back(m->EffectID);
+        }
     }
     return e;
+}
+
+static BattleStatsView::RoleEntry makePostBattleEntry(const BattlePostBattleUnitSummary& summary)
+{
+    BattleStatsView::RoleEntry entry;
+    entry.identity = summary.identity;
+    entry.displayName = summary.identity.name;
+    entry.star = summary.star;
+    entry.chessInstanceId = summary.chessInstanceId;
+    entry.battleId = summary.identity.battleId;
+    entry.team = summary.identity.team;
+    entry.hp = summary.hp;
+    entry.atk = summary.attack;
+    entry.def = summary.defence;
+    entry.spd = summary.speed;
+    entry.weaponId = summary.weaponId;
+    entry.armorId = summary.armorId;
+    entry.skillNames = summary.skillNames;
+    entry.hpRemaining = summary.hpRemaining;
+    entry.maxHpRemaining = summary.maxHpRemaining;
+    entry.dead = summary.dead;
+    entry.cancelDmg = summary.cancelDmg;
+    return entry;
 }
 
 static BattleStatsView::ComboEntry makeComboEntry(const KysChess::ActiveCombo& ac)
@@ -478,17 +354,15 @@ void BattleStatsView::setupPreBattle(
 }
 
 void BattleStatsView::setupPostBattle(
-    const std::deque<Role>& allyBattleCopies,
-    const std::deque<Role>& enemyBattleCopies,
-    const BattleTracker& tracker,
-    int battleResult)
+    const BattlePostBattleSummary& summary,
+    const BattleTracker& tracker)
 {
     isPreBattle_ = false;
     full_window_ = 1;
     assetsPreloaded_ = false;
     loadingTextRendered_ = false;
     battleId_ = -1;
-    battleResult_ = battleResult;
+    battleResult_ = summary.battleResult;
     clearPostBattleBackground();
     postBattleBackground_ = Engine::getInstance()->cloneTexture(Engine::getInstance()->getMainTexture());
     postBattleLogShown_ = false;
@@ -527,29 +401,17 @@ void BattleStatsView::setupPostBattle(
             }
         }
     };
-    for (auto& r : allyBattleCopies)
+    for (const auto& unit : summary.allies)
     {
-        auto orig = roleSave_.getRole(r.RealID);
-        if (!orig) continue;
-        auto e = makeEntry(orig, 1, 0);
-        fillPost(e, r.ID);
-        e.cancelDmg = r.CancelDmg;
-        e.hpRemaining = r.HP;
-        e.maxHpRemaining = r.MaxHP;
-        e.dead = r.Dead != 0;
-        allies_.push_back(e);
+        auto entry = makePostBattleEntry(unit);
+        fillPost(entry, unit.identity.battleId);
+        allies_.push_back(std::move(entry));
     }
-    for (auto& r : enemyBattleCopies)
+    for (const auto& unit : summary.enemies)
     {
-        auto orig = roleSave_.getRole(r.RealID);
-        if (!orig) continue;
-        auto e = makeEntry(orig, 1, 1);
-        fillPost(e, r.ID);
-        e.cancelDmg = r.CancelDmg;
-        e.hpRemaining = r.HP;
-        e.maxHpRemaining = r.MaxHP;
-        e.dead = r.Dead != 0;
-        enemies_.push_back(e);
+        auto entry = makePostBattleEntry(unit);
+        fillPost(entry, unit.identity.battleId);
+        enemies_.push_back(std::move(entry));
     }
     auto byDmg = [](const RoleEntry& a, const RoleEntry& b) { return a.damageDealt > b.damageDealt; };
     std::sort(allies_.begin(), allies_.end(), byDmg);
@@ -577,14 +439,9 @@ void BattleStatsView::showPostBattleLog()
         rows.reserve(team.size());
         for (const auto& entry : team)
         {
-            if (!entry.role)
-            {
-                continue;
-            }
-
             BattleLogRoleRow row;
             row.id = entry.battleId;
-            row.name = resolveRoleLabel(entry.team, entry.battleId, entry.role->Name);
+            row.name = resolveRoleLabel(entry.team, entry.battleId, entry.displayName);
             row.team = entry.team;
             row.damageDealt = entry.damageDealt;
             row.damageTaken = entry.damageTaken;
@@ -686,14 +543,13 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
 
     for (auto& e : team)
     {
-        if (!e.role) continue;
         // Avatar scaled to ~40px tall
-        auto tex = TextureManager::getInstance()->getTexture("head", e.role->HeadID);
+        auto tex = TextureManager::getInstance()->getTexture("head", e.identity.headId);
         if (tex)
             TextureManager::getInstance()->renderTexture(tex, x, y - 2, TextureManager::RenderInfo{ cWhite, 255, 0.22, 0.22 });
 
         Color nameCol = e.team == 0 ? cGreen : cRed;
-        font->draw(std::string(e.role->Name), fs, x + cName, y, nameCol);
+        font->draw(e.displayName, fs, x + cName, y, nameCol);
 
         if (!showPost)
         {
@@ -948,11 +804,7 @@ void BattleStatsView::dealEvent(EngineEvent& e)
         {
             for (auto& re : roles)
             {
-                if (!re.role)
-                {
-                    continue;
-                }
-                std::string text_group = std::format("fight/fight{:03}", re.role->HeadID);
+                std::string text_group = std::format("fight/fight{:03}", re.identity.headId);
                 int frameCount = TextureManager::getInstance()->getTextureGroupCount(text_group);
                 for (int frame = 0; frame < frameCount; ++frame)
                 {
@@ -962,14 +814,14 @@ void BattleStatsView::dealEvent(EngineEvent& e)
                         tex->load();
                     }
                 }
-                auto magics = re.role->getLearnedMagics(re.star);
-                for (auto m : magics) {
-                    if (m->SoundID >= 0) atkSounds.push_back(m->SoundID);
-                    if (m->EffectID >= 0)
-                    {
-                        effSounds.push_back(m->EffectID);
-                        preloadEffect(m->EffectID);
-                    }
+                for (int soundId : re.skillSoundIds)
+                {
+                    atkSounds.push_back(soundId);
+                }
+                for (int effectId : re.skillEffectIds)
+                {
+                    effSounds.push_back(effectId);
+                    preloadEffect(effectId);
                 }
             }
         };

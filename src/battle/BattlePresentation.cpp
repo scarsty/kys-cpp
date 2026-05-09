@@ -131,6 +131,12 @@ void BattlePresentationRecorder::beginFrame(BattlePresentationSnapshot snapshot)
     frame_.visualEvents.clear();
 }
 
+void BattlePresentationRecorder::beginFrame(int frame)
+{
+    frame_ = {};
+    frame_.snapshot.frame = frame;
+}
+
 void BattlePresentationRecorder::recordGameplay(BattleGameplayEvent event)
 {
     assertValidEvent(event);

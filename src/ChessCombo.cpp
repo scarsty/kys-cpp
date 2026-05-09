@@ -7,6 +7,7 @@
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
+#include <cassert>
 #include <print>
 
 namespace KysChess
@@ -287,26 +288,45 @@ std::vector<int> ChessCombo::getCombosForRole(int roleId)
 
 void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles)
 {
-    auto combos = getCombosForRole(deadRoleId);
+    std::vector<ChessComboBattleUnitRef> units;
+    units.reserve(allRoles.size());
+    for (auto* role : allRoles)
+    {
+        assert(role);
+        units.push_back({
+            role->ID,
+            role->RealID,
+            role->Team,
+            role->Dead == 0,
+            role->Cost,
+        });
+    }
+    transferAntiCombo(deadRoleId, units);
+}
+
+void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<ChessComboBattleUnitRef>& allUnits)
+{
+    const auto deadIt = std::find_if(allUnits.begin(), allUnits.end(), [&](const auto& unit)
+        {
+            return unit.battleId == deadRoleId;
+        });
+    assert(deadIt != allUnits.end());
+
+    auto combos = getCombosForRole(deadIt->realRoleId);
     for (auto cid : combos)
     {
         auto& combo = getAllCombos()[(int)cid];
         if (!combo.isAntiCombo) continue;
 
-        int deadTeam = -1;
-        for (auto r : allRoles)
-            if (r->ID == deadRoleId) { deadTeam = r->Team; break; }
-        if (deadTeam == -1) continue;
-
         int bestId = -1, bestTier = -1;
         for (int mid : combo.memberRoleIds)
         {
-            for (auto r : allRoles)
+            for (const auto& unit : allUnits)
             {
-                if (r->ID == mid && r->Team == deadTeam && r->Dead == 0)
+                if (unit.realRoleId == mid && unit.team == deadIt->team && unit.alive)
                 {
-                    int tier = r->Cost;
-                    if (tier > bestTier) { bestTier = tier; bestId = mid; }
+                    int tier = unit.cost;
+                    if (tier > bestTier) { bestTier = tier; bestId = unit.battleId; }
                     break;
                 }
             }

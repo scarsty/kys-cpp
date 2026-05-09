@@ -1036,7 +1036,7 @@ int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vecto
 
     {
         auto view = std::make_shared<BattleStatsView>(services_.roleSave, chessManager);
-        view->setupPostBattle(battle->getFriendsObj(), battle->getEnemiesObj(), battle->getTracker(), battle->getResult());
+        view->setupPostBattle(battle->makePostBattleSummary(), battle->getTracker());
         view->run();
     }
 

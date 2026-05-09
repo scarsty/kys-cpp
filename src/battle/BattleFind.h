@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <ranges>
 #include <type_traits>
@@ -42,6 +43,32 @@ decltype(auto) requireById(Range& range, int id)
     auto* item = tryFindById(range, id);
     assert(item);
     return *item;
+}
+
+template<typename Range>
+auto tryDenseById(Range& range, int id)
+{
+    using Reference = std::ranges::range_reference_t<Range>;
+    using Element = std::remove_reference_t<Reference>;
+
+    if (id < 0 || static_cast<std::size_t>(id) >= std::ranges::size(range))
+    {
+        return static_cast<Element*>(nullptr);
+    }
+
+    auto& item = range[static_cast<std::size_t>(id)];
+    assert(item.id == id);
+    return std::addressof(item);
+}
+
+template<typename Range>
+decltype(auto) requireDenseById(Range& range, int id)
+{
+    assert(id >= 0);
+    assert(static_cast<std::size_t>(id) < std::ranges::size(range));
+    auto& item = range[static_cast<std::size_t>(id)];
+    assert(item.id == id);
+    return item;
 }
 
 template<typename Map>

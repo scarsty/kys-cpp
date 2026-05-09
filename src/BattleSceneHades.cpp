@@ -1,9 +1,12 @@
-﻿#include "BattleSceneHades.h"
+#include "BattleSceneHades.h"
 #include "Audio.h"
 #include "BattleSceneBattleAdapter.h"
 #include "BattleScenePresentationConstants.h"
+#include "BattleStarStats.h"
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCombatIntent.h"
+#include "battle/BattleFind.h"
+#include "battle/BattleOperation.h"
 #include "battle/BattleStatusSystem.h"
 #include "ChessBalance.h"
 #include "ChessCombo.h"
@@ -14,28 +17,18 @@
 #include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
-#include "Head.h"
 #include "MainScene.h"
 #include "SystemSettings.h"
-#include "TeamMenu.h"
 #include "Weather.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <set>
 
 namespace
 {
-using KysChess::BattleSceneBattleAdapter::applyBattleActionFrameResults;
-using KysChess::BattleSceneBattleAdapter::applyBattleFrameUnitApplication;
-using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
-using KysChess::BattleSceneBattleAdapter::BattleActionFrameApplyContext;
-using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
-using KysChess::BattleSceneBattleAdapter::applyBattleMovementPresentationResults;
-using KysChess::BattleSceneBattleAdapter::writeBattleDamageRenderUnit;
-
 constexpr int HURT_FLASH_DURATION = 15;
-constexpr int HURT_FLASH_PERIOD = 3;
 constexpr int BLINK_SOUND_EFFECT_ID = 11;
 constexpr int CAMERA_DEATH_ZOOM_FRAMES = 30;           // death-focus hold time; original behavior used 30
 constexpr int CAMERA_BATTLE_END_ZOOM_FRAMES = 30;      // end-of-battle hold time; original behavior used 60
@@ -125,14 +118,110 @@ bool hasScriptedImpact(const KysChess::Battle::BattleAttackEvent& event)
     return event.scriptedDamage > 0 || event.scriptedStunFrames > 0 || event.scriptedBleedStacks > 0;
 }
 
-Role* requireFrameRole(
-    const BattleSceneRoleBindings& bindings,
-    int unitId)
+template<typename Cmp>
+Magic* selectBattleMagic(Role& role, Cmp cmp)
 {
-    auto it = bindings.rolesByBattleId.find(unitId);
-    assert(it != bindings.rolesByBattleId.end());
-    assert(it->second);
-    return it->second;
+    auto learnedMagics = role.getLearnedMagics();
+    if (learnedMagics.empty())
+    {
+        return nullptr;
+    }
+
+    Magic* chosen = learnedMagics.front();
+    int power = role.getMagicPower(chosen);
+    for (size_t i = 1; i < learnedMagics.size(); ++i)
+    {
+        int candidatePower = role.getMagicPower(learnedMagics[i]);
+        if (cmp(candidatePower, power))
+        {
+            power = candidatePower;
+            chosen = learnedMagics[i];
+        }
+    }
+    return chosen;
+}
+
+KysChess::BattleSceneBattleAdapter::BattleSetupSkillSnapshot makeBattleSetupSkillSnapshot(
+    Role& role,
+    Magic* magic)
+{
+    KysChess::BattleSceneBattleAdapter::BattleSetupSkillSnapshot snapshot;
+    if (!magic)
+    {
+        return snapshot;
+    }
+    snapshot.id = magic->ID;
+    snapshot.name = magic->Name;
+    snapshot.soundId = magic->SoundID;
+    snapshot.hurtType = magic->HurtType;
+    snapshot.attackAreaType = magic->AttackAreaType;
+    snapshot.magicType = magic->MagicType;
+    snapshot.visualEffectId = magic->EffectID;
+    snapshot.selectDistance = magic->SelectDistance;
+    snapshot.actProperty = role.getActProperty(magic->MagicType);
+    snapshot.magicPower = role.getMagicPower(magic);
+    return snapshot;
+}
+
+std::string makeBattleSkillNames(Role& role, int star)
+{
+    std::string skillNames;
+    auto magics = role.getLearnedMagics(star);
+    for (auto* magic : magics)
+    {
+        if (!skillNames.empty())
+        {
+            skillNames += " ";
+        }
+        skillNames += magic->Name;
+    }
+    return skillNames;
+}
+
+struct BattleLifecycleApplyResult
+{
+    bool battleEnded = false;
+    int battleResult = -1;
+    bool unitDied = false;
+    std::vector<int> diedUnitIds;
+};
+
+BattleLifecycleApplyResult applyBattleLifecycleEventsToTracker(
+    BattleTracker& tracker,
+    const BattleSceneUnitStore& sceneUnits,
+    int currentBattleResult,
+    const std::vector<KysChess::Battle::BattleGameplayEvent>& events)
+{
+    BattleLifecycleApplyResult result;
+    for (const auto& event : events)
+    {
+        switch (event.type)
+        {
+        case KysChess::Battle::BattleGameplayEventType::UnitDied:
+        {
+            const auto* killer = event.sourceUnitId >= 0
+                ? &sceneUnits.requireUnit(event.sourceUnitId).identity
+                : nullptr;
+            const auto* victim = &sceneUnits.requireUnit(event.targetUnitId).identity;
+            tracker.recordKill(killer, victim, event.frame);
+            tracker.recordDeath(victim, event.frame);
+            result.unitDied = true;
+            result.diedUnitIds.push_back(event.targetUnitId);
+            break;
+        }
+        case KysChess::Battle::BattleGameplayEventType::BattleEnded:
+            if (currentBattleResult == -1)
+            {
+                result.battleEnded = true;
+                result.battleResult = event.amount;
+                tracker.recordBattleEnd(event.frame, event.amount);
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    return result;
 }
 
 void writeBattleDeathEffectTrackers(const std::vector<KysChess::Battle::BattleFrameDeathEffectTrackerResult>& trackers,
@@ -175,30 +264,7 @@ BattleSceneHades::BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::
 {
     full_window_ = 1;
     COORD_COUNT = BATTLEMAP_COORD_COUNT;
-
-    earth_layer_.resize(COORD_COUNT);
-    building_layer_.resize(COORD_COUNT);
-
-    // heads_.resize(1);
-    // int i = 0;
-    // for (auto& h : heads_)
-    // {
-    //     h = std::make_shared<Head>();
-    //     h->setAlwaysLight(1);
-    //     addChild(h, 10, 10 + (i++) * 80);
-    //     h->setVisible(false);
-    // }
-    // heads_[0]->setVisible(true);
-    // heads_[0]->setRole(Save::getInstance()->getRole(0));
-
-    head_boss_.resize(6);
-    for (auto& h : head_boss_)
-    {
-        h = std::make_shared<Head>();
-        h->setStyle(1);
-        h->setVisible(false);
-        addChild(h);
-    }
+    battle_map_.initialize(COORD_COUNT);
 }
 
 BattleSceneHades::BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager) :
@@ -209,6 +275,13 @@ BattleSceneHades::BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, Ky
 
 BattleSceneHades::~BattleSceneHades()
 {
+}
+
+void BattleSceneHades::setID(int id)
+{
+    battle_id_ = id;
+    info_ = BattleMap::getInstance()->getBattleInfo(id);
+    battle_map_.loadBattlefield(info_->BattleFieldID);
 }
 
 bool BattleSceneHades::isManualCameraEnabled() const
@@ -279,11 +352,11 @@ void BattleSceneHades::updateAutoCamera()
     {
         Pointf center{ 0, 0, 0 };
         int count = 0;
-        for (auto r : battle_roles_)
+        for (const auto& unit : scene_units_.units())
         {
-            if (r && r->Team == 0 && r->Dead == 0)
+            if (unit.identity.team == 0 && unit.alive)
             {
-                center += r->Pos;
+                center += unit.position;
                 count++;
             }
         }
@@ -366,57 +439,143 @@ void BattleSceneHades::clampCameraCenter()
     pos_.y = center_y * 2.0f;
 }
 
-Color BattleSceneHades::calculateHurtFlashColor(const Role* r, const Color& base_color) const
+Color BattleSceneHades::calculateHurtFlashColor(int unitId, const Color& baseColor) const
 {
-    auto it = hurt_flash_timers_.find(r->ID);
-    if (it == hurt_flash_timers_.end())
-    {
-        return base_color;
-    }
-
-    int timer = it->second;
-    int phase = timer % HURT_FLASH_PERIOD;
-
-    if (phase < 2)
-    {
-        return { 255, 100, 100, base_color.a };
-    }
-    return base_color;
+    auto it = hurt_flash_timers_.find(unitId);
+    const int timer = it != hurt_flash_timers_.end() ? it->second : 0;
+    return BattleSceneRenderMath::hurtFlashColor(timer, baseColor);
 }
 
-KysChess::Battle::BattlePresentationSnapshot BattleSceneHades::makePresentationSnapshot() const
+int BattleSceneHades::assignSetupUnitId()
 {
-    KysChess::Battle::BattlePresentationSnapshot snapshot;
-    snapshot.frame = battle_frame_;
-    for (auto role : battle_roles_)
-    {
-        if (!role)
-        {
-            continue;
-        }
+    return next_setup_unit_id_++;
+}
 
-        snapshot.units.push_back({
-            role->ID,
-            role->RealID,
-            role->Name,
-            role->Team,
-            role->Dead == 0,
-            role->HP,
-            role->MaxHP,
-            role->MP,
-            GameUtil::MAX_MP,
-            role->CoolDown,
-            role->Invincible,
-            role->Pos,
-            role->Velocity,
-        });
+int BattleSceneHades::realRoleIdForRole(const Role& role) const
+{
+    return role.RealID >= 0 ? role.RealID : role.ID;
+}
+
+BattleSceneHades::BattleSceneInitialRoleState BattleSceneHades::makeInitialRoleState(
+    Role& role,
+    const std::vector<Role*>& opposingRoles)
+{
+    readFightFrame(&role);
+
+    BattleSceneInitialRoleState state;
+    state.hp = role.MaxHP;
+    state.mp = 0;
+    state.physicalPower = (std::max)(role.PhysicalPower, 90);
+
+    int faceTowards = role.FaceTowards;
+    int minDistance = COORD_COUNT * COORD_COUNT;
+    for (auto* other : opposingRoles)
+    {
+        assert(other);
+        const int distance = calDistance(role.X(), role.Y(), other->X(), other->Y());
+        if (distance < minDistance)
+        {
+            minDistance = distance;
+            const int candidate = calTowards(role.X(), role.Y(), other->X(), other->Y());
+            if (candidate != Towards_None)
+            {
+                faceTowards = candidate;
+            }
+        }
     }
+
+    state.faceTowards = faceTowards;
+    state.realTowards = BattleSceneRenderMath::realTowardsFromFaceTowards(faceTowards);
+    auto position = battle_map_.pos45To90(role.X(), role.Y());
+    state.position = { position.x, position.y, 0 };
+    state.acceleration = { 0, 0, gravity_ };
+    for (int i = 0; i < BattleSceneRenderMath::FightStyleCount; ++i)
+    {
+        state.fightFrames[i] = role.FightFrame[i];
+    }
+    return state;
+}
+
+KysChess::BattleSceneBattleAdapter::BattleSetupRoleSnapshot BattleSceneHades::makeSetupRoleSnapshot(
+    int unitId,
+    Role& role,
+    const BattleSceneInitialRoleState& initialState) const
+{
+    using KysChess::BattleSceneBattleAdapter::BattleSetupRoleSnapshot;
+
+    BattleSetupRoleSnapshot snapshot;
+    snapshot.unitId = unitId;
+    snapshot.realRoleId = realRoleIdForRole(role);
+    snapshot.name = role.Name;
+    snapshot.headId = role.HeadID;
+    snapshot.team = role.Team;
+    snapshot.alive = role.Dead == 0;
+    snapshot.gridX = role.X();
+    snapshot.gridY = role.Y();
+    snapshot.faceTowards = initialState.faceTowards;
+    snapshot.position = initialState.position;
+    snapshot.velocity = role.Velocity;
+    snapshot.acceleration = initialState.acceleration;
+    snapshot.facing = initialState.realTowards;
+    snapshot.star = role.Star;
+    snapshot.cost = role.Cost;
+    snapshot.hp = initialState.hp;
+    snapshot.maxHp = role.MaxHP;
+    snapshot.mp = initialState.mp;
+    snapshot.maxMp = role.MaxMP;
+    snapshot.attack = role.Attack;
+    snapshot.defence = role.Defence;
+    snapshot.speed = role.Speed;
+    snapshot.fist = role.Fist;
+    snapshot.sword = role.Sword;
+    snapshot.knife = role.Knife;
+    snapshot.unusual = role.Unusual;
+    snapshot.hiddenWeapon = role.HiddenWeapon;
+    snapshot.cooldown = role.CoolDown;
+    snapshot.cooldownMax = role.CoolDownMax;
+    snapshot.haveAction = role.HaveAction != 0;
+    snapshot.actFrame = role.ActFrame;
+    snapshot.operationType = KysChess::Battle::battleOperationFromLegacy(role.OperationType);
+    snapshot.actType = role.ActType;
+    snapshot.operationCount = role.OperationCount;
+    snapshot.physicalPower = initialState.physicalPower;
+    snapshot.invincible = role.Invincible;
+    snapshot.hurtFrame = role.HurtFrame;
+    snapshot.frozen = role.Frozen;
+    snapshot.frozenMax = role.FrozenMax;
+    snapshot.fightFrames = initialState.fightFrames;
+    for (int magicType = 0; magicType < BattleSceneRenderMath::FightStyleCount; ++magicType)
+    {
+        snapshot.actPropertiesByMagicType[magicType] = role.getActProperty(magicType);
+    }
+
+    Magic* normalMagic = role.UsingMagic;
+    Magic* ultimateMagic = role.UsingMagic;
+    snapshot.hasEquippedSkill = normalMagic != nullptr;
+    if (!normalMagic)
+    {
+        normalMagic = selectBattleMagic(
+            role,
+            [](int candidatePower, int currentPower)
+            {
+                return candidatePower < currentPower;
+            });
+        ultimateMagic = selectBattleMagic(
+            role,
+            [](int candidatePower, int currentPower)
+            {
+                return candidatePower > currentPower;
+            });
+    }
+    snapshot.normalSkill = makeBattleSetupSkillSnapshot(role, normalMagic);
+    snapshot.ultimateSkill = makeBattleSetupSkillSnapshot(role, ultimateMagic);
+    snapshot.skillNames = makeBattleSkillNames(role, snapshot.star);
     return snapshot;
 }
 
 void BattleSceneHades::beginPresentationFrame()
 {
-    presentation_recorder_.beginFrame(makePresentationSnapshot());
+    presentation_recorder_.beginFrame(battle_frame_);
 }
 
 void BattleSceneHades::publishPresentationFrame()
@@ -426,9 +585,18 @@ void BattleSceneHades::publishPresentationFrame()
         &tracker_,
         &text_effects_,
         &attack_effects_,
-        [this](int unitId) -> Role*
+        [this](int unitId) -> const BattleUnitIdentity*
         {
-            return requireFrameRole(core_role_bindings_, unitId);
+            return &scene_units_.requireUnit(unitId).identity;
+        },
+        [this](int unitId) -> std::optional<BattleScenePresentationPlayer::UnitView>
+        {
+            const auto& unit = scene_units_.requireUnit(unitId);
+            return BattleScenePresentationPlayer::UnitView{
+                unit.position,
+                unit.identity.team,
+                unit.maxHp,
+            };
         },
     });
 }
@@ -436,37 +604,25 @@ void BattleSceneHades::publishPresentationFrame()
 void BattleSceneHades::initializeBattleRuntime()
 {
     KysChess::ChessCombo::clearActiveStates();
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
     auto buildContext = makeBattleRuntimeBuildContext();
     auto created = KysChess::BattleSceneBattleAdapter::createInitializedBattleRuntimeSession(
         buildContext);
     battle_session_.emplace(std::move(created.session));
-    core_role_bindings_.rolesByBattleId = std::move(created.rolesByBattleId);
-    KysChess::BattleSceneBattleAdapter::applyBattleInitializationResult(
-        created.initializationResult,
-        {
-            &battle_roles_,
-            &friends_obj_,
-            &comboStates,
-            &core_role_bindings_.rolesByBattleId,
-        });
-    if (!created.initializationResult.logEvents.empty() || !created.initializationResult.visualEvents.empty())
+    KysChess::ChessCombo::getMutableStates() = created.sceneInitialization.comboStates;
+    scene_units_.initialize(created.sceneInitialization);
+    if (!created.sceneInitialization.logEvents.empty() || !created.sceneInitialization.visualEvents.empty())
     {
         beginPresentationFrame();
-        for (const auto& event : created.initializationResult.visualEvents)
+        for (const auto& event : created.sceneInitialization.visualEvents)
         {
             presentation_recorder_.recordVisual(event);
         }
-        for (const auto& event : created.initializationResult.logEvents)
+        for (const auto& event : created.sceneInitialization.logEvents)
         {
             presentation_recorder_.recordLog(event);
         }
         publishPresentationFrame();
     }
-    KysChess::BattleSceneBattleAdapter::commitInitializedBattleRuntimeConfiguration(
-        *battle_session_,
-        buildContext,
-        core_role_bindings_.rolesByBattleId);
 }
 
 KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::makeBattleRuntimeBuildContext()
@@ -475,10 +631,9 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
     context.rules = KysChess::Battle::makeHadesBattleRuntimeRules(TILE_W, BATTLE_COORD_COUNT);
     context.rules.movementPhysicsConfig.gravity = gravity_;
     context.rules.movementPhysicsConfig.friction = friction_;
-    context.setup.roles = battle_roles_;
+    context.setup.roles = setup_role_snapshots_;
     context.setup.comboStates = &KysChess::ChessCombo::getMutableStates();
     context.setup.cloneSpawnCells = clone_spawn_positions_;
-    context.setup.pendingAliveByTeam.emplace(1, static_cast<int>(enemies_.size()));
     context.setup.battleFrame = battle_frame_;
 
     auto* basicMagic = Save::getInstance()->getMagic(1);
@@ -492,8 +647,8 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
     {
         for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
         {
-            const auto position = pos45To90(x, y);
-            const bool walkable = !isOutLine(x, y) && canWalk45(x, y);
+            const auto position = battle_map_.pos45To90(x, y);
+            const bool walkable = battle_map_.canWalk45(x, y);
             context.setup.terrainCells.push_back({ position, walkable });
             context.setup.rescuePositionsByCell.emplace(std::pair{ x, y }, position);
             context.setup.rescueCells.push_back({
@@ -511,101 +666,8 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
         }
     }
 
-    context.setup.nextCloneUnitId = 10000 + static_cast<int>(enemies_obj_.size() + friends_obj_.size());
-
-    if (extended_teammates_.empty())
-    {
-        return context;
-    }
-
-    auto getAllyEquipment = [&](size_t index)
-    {
-        int weaponId = index < teammate_weapons_.size() ? teammate_weapons_[index] : -1;
-        int armorId = index < teammate_armors_.size() ? teammate_armors_[index] : -1;
-        if (weaponId >= 0 || armorId >= 0)
-        {
-            return std::pair{ weaponId, armorId };
-        }
-        if (index >= extended_teammates_.size())
-        {
-            return std::pair{ -1, -1 };
-        }
-
-        const auto& teammate = extended_teammates_[index];
-        if (teammate.weaponId >= 0 || teammate.armorId >= 0)
-        {
-            return std::pair{ teammate.weaponId, teammate.armorId };
-        }
-
-        auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ teammate.chessInstanceId });
-        if (!chess)
-        {
-            return std::pair{ -1, -1 };
-        }
-        return std::pair{ chess->weaponInstance.itemId, chess->armorInstance.itemId };
-    };
-    auto getEnemyEquipment = [&](size_t index)
-    {
-        return std::pair{
-            index < enemy_weapons_.size() ? enemy_weapons_[index] : -1,
-            index < enemy_armors_.size() ? enemy_armors_[index] : -1,
-        };
-    };
-
-    context.setup.allyRoster.reserve(friends_obj_.size());
-    auto getTeammateFightsWon = [&](size_t index)
-    {
-        if (index >= extended_teammates_.size())
-        {
-            return 0;
-        }
-
-        const int chessInstanceId = extended_teammates_[index].chessInstanceId;
-        if (chessInstanceId < 0)
-        {
-            return 0;
-        }
-
-        auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ chessInstanceId });
-        return chess ? chess->fightsWon : 0;
-    };
-    for (size_t index = 0; index < friends_obj_.size() && index < extended_teammates_.size(); ++index)
-    {
-        const auto& role = friends_obj_[index];
-        const auto& teammate = extended_teammates_[index];
-        const auto [weaponId, armorId] = getAllyEquipment(index);
-        context.setup.allyRoster.push_back({
-            role.ID,
-            role.RealID,
-            0,
-            teammate.star,
-            std::max(1, role.Cost),
-            weaponId,
-            armorId,
-            teammate.chessInstanceId,
-            getTeammateFightsWon(index),
-            static_cast<int>(index),
-        });
-    }
-
-    context.setup.enemyRoster.reserve(enemies_obj_.size());
-    for (size_t index = 0; index < enemies_obj_.size(); ++index)
-    {
-        const auto& role = enemies_obj_[index];
-        const auto [weaponId, armorId] = getEnemyEquipment(index);
-        context.setup.enemyRoster.push_back({
-            role.ID,
-            role.RealID,
-            1,
-            index < enemy_stars_.size() ? enemy_stars_[index] : 0,
-            std::max(1, role.Cost),
-            weaponId,
-            armorId,
-            -1,
-            0,
-            static_cast<int>(index),
-        });
-    }
+    context.setup.allyRoster = setup_ally_roster_;
+    context.setup.enemyRoster = setup_enemy_roster_;
 
     auto& obtained = progress_.getObtainedNeigong();
     context.setup.obtainedNeigongMagicIds.assign(obtained.begin(), obtained.end());
@@ -614,7 +676,7 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
 
 void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
 {
-    if (!extended_teammates_.empty() && progress_.isPositionSwapEnabled())
+    if (progress_.isPositionSwapEnabled())
     {
         auto prompt = std::make_shared<MenuText>(std::vector<std::string>{ "地圖佈陣", "列表佈陣", "直接開戰" });
         prompt->setFontSize(36);
@@ -635,17 +697,7 @@ void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
 void BattleSceneHades::commitFinalSetupPlacementToRuntime()
 {
     assert(battle_session_.has_value());
-    battle_session_->commitSetupPlacement(
-        KysChess::BattleSceneBattleAdapter::makeBattleSetupPlacementInput(battle_roles_));
-}
-
-BattleActionFrameApplyContext BattleSceneHades::makeBattleActionFrameApplyContext() const
-{
-    BattleActionFrameApplyContext context;
-    context.rolesByBattleId = &core_role_bindings_.rolesByBattleId;
-    context.battleFrame = battle_frame_;
-    context.gravity = gravity_;
-    return context;
+    battle_session_->commitSetupPlacement(scene_units_.makeSetupPlacementInput());
 }
 
 void BattleSceneHades::draw()
@@ -662,7 +714,7 @@ void BattleSceneHades::draw()
 
     //以下是计算出需要画的区域，先画到一个大图上，再转贴到窗口
     {
-        auto p = pos90To45(pos_.x, pos_.y);
+        auto p = battle_map_.pos90To45(pos_.x, pos_.y);
         man_x_ = p.x;
         man_y_ = p.y;
     }
@@ -754,10 +806,10 @@ void BattleSceneHades::draw()
         {
             int ix = man_x_ + i + (sum / 2);
             int iy = man_y_ - i + (sum - sum / 2);
-            auto p = pos45To90(ix, iy);
-            if (!isOutLine(ix, iy))
+            auto p = battle_map_.pos45To90(ix, iy);
+            if (!battle_map_.isOutLine(ix, iy))
             {
-                int num = earth_layer_.data(ix, iy) / 2;
+                int num = battle_map_.earthLayer().data(ix, iy) / 2;
                 Color color = { 255, 255, 255, 255 };
                 bool need_draw = true;
                 if (need_draw && num > 0)
@@ -823,10 +875,10 @@ void BattleSceneHades::draw()
         {
             int ix = man_x_ + i + (sum / 2);
             int iy = man_y_ - i + (sum - sum / 2);
-            auto p = pos45To90(ix, iy);
-            if (!isOutLine(ix, iy))
+            auto p = battle_map_.pos45To90(ix, iy);
+            if (!battle_map_.isOutLine(ix, iy))
             {
-                int num = building_layer_.data(ix, iy) / 2;
+                int num = battle_map_.buildingLayer().data(ix, iy) / 2;
                 if (num > 0)
                 {
                     // TODO: make this legacy only
@@ -845,33 +897,30 @@ void BattleSceneHades::draw()
             }
         }
     }
-    for (auto r : battle_roles_)
+    for (const auto& unit : scene_units_.units())
     {
-        if (!is_visible_world(r->Pos.x, r->Pos.y / 2.0))
+        if (!unit.active)
+        {
+            continue;
+        }
+        if (!is_visible_world(unit.position.x, unit.position.y / 2.0))
         {
             continue;
         }
         //if (r->Dead) { continue; }
         DrawInfo info;
-        auto path = std::format("fight/fight{:03}", r->HeadID);
+        auto path = std::format("fight/fight{:03}", unit.identity.headId);
         info.color = { 255, 255, 255, 255 };
         info.alpha = 255;
         info.white = 0;
-        if (battle_cursor_->isRunning() && !acting_role_->isAuto())
+        info.p = unit.position;
+        if (result_ == -1 && unit.shake)
         {
-            info.color = { 128, 128, 128, 255 };
-            if (inEffect(acting_role_, r))
-            {
-                info.color = { 255, 255, 255, 255 };
-            }
+            info.p.x += shakeJitter(battle_frame_, unit.unitId);
         }
-        info.p = r->Pos;
-        if (result_ == -1 && r->Shake)
-        {
-            info.p.x += shakeJitter(battle_frame_, r->ID);
-        }
-        r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
-        info.tex = TextureManager::getInstance()->getTexture(path, calRolePic(r, r->ActType, r->ActFrame));
+        info.tex = TextureManager::getInstance()->getTexture(
+            path,
+            BattleSceneRenderMath::calRenderUnitPic(unit.fightFrames, unit.realTowards, unit.actType, unit.actFrame));
         if (!info.tex)
         {
             continue;
@@ -884,11 +933,11 @@ void BattleSceneHades::draw()
         //    }
 
         //}
-        if (r->Dead)
+        if (!unit.alive)
         {
             //if (r->Frozen == 0)
             {
-                if (r->FaceTowards >= 2)
+                if (realTowardsToFaceTowards(unit.realTowards) >= 2)
                 {
                     info.rot = 90;
                 }
@@ -898,13 +947,13 @@ void BattleSceneHades::draw()
                 }
             }
         }
-        if (r->Attention)
+        if (unit.attention)
         {
-            info.alpha = 255 - r->Attention * 4;
+            info.alpha = 255 - unit.attention * 4;
         }
 
         // 應用受击闪红
-        info.color = calculateHurtFlashColor(r, info.color);
+        info.color = calculateHurtFlashColor(unit.unitId, info.color);
 
         info.shadow = 1;
         //TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
@@ -914,9 +963,12 @@ void BattleSceneHades::draw()
     //effects
     for (auto& ae : attack_effects_)
     {
-        //for (auto r : ae.Defender)
         {
-            auto effect_pos = ae.FollowRole ? ae.FollowRole->Pos + ae.Pos : ae.Pos;
+            Pointf effect_pos = ae.Pos;
+            if (ae.FollowUnitId >= 0)
+            {
+                effect_pos = scene_units_.requireUnit(ae.FollowUnitId).position + ae.Pos;
+            }
             if (!is_visible_world(effect_pos.x, effect_pos.y / 2.0))
             {
                 continue;
@@ -936,13 +988,14 @@ void BattleSceneHades::draw()
             info.sort_p = effect_pos;
             info.sort_p.y += 10000;    // force projectiles to render on top
             info.color = { 255, 255, 255, 255 };
-            info.alpha = ae.FollowRole ? 255 : 192;
-            info.shadow = ae.FollowRole ? 0 : 1;
-            if (!ae.FollowRole && ae.renderTeam() == 0)
+            const bool followsUnit = ae.FollowUnitId >= 0;
+            info.alpha = followsUnit ? 255 : 192;
+            info.shadow = followsUnit ? 0 : 1;
+            if (!followsUnit && ae.renderTeam() == 0)
             {
                 info.shadow = 2;
             }
-            if (!ae.FollowRole)
+            if (!followsUnit)
             {
                 info.alpha = 255 * (ae.TotalFrame * 1.25 - ae.Frame) / (ae.TotalFrame * 1.25);    //越来越透明
             }
@@ -1013,22 +1066,26 @@ void BattleSceneHades::draw()
             TextureManager::RenderInfo{ d.color, d.alpha, scaley, 1, static_cast<double>(d.rot), d.white, color_v, {} });
     }
 
-    for (auto r : battle_roles_)
+    for (const auto& unit : scene_units_.units())
     {
-        if (is_visible_world(r->Pos.x, r->Pos.y / 2.0))
+        if (is_visible_world(unit.position.x, unit.position.y / 2.0))
         {
-            renderExtraRoleInfo(r, renderWorldX(r->Pos.x), renderWorldY(r->Pos.y / 2.0));
+            renderExtraRoleInfo(unit, renderWorldX(unit.position.x), renderWorldY(unit.position.y / 2.0));
         }
     }
 
-    if (swapSelected_ && is_visible_world(swapSelected_->Pos.x, swapSelected_->Pos.y / 2.0))
+    if (swapSelectedUnitId_ >= 0)
     {
-        engine->fillColor(
-            { 255, 255, 0, 80 },
-            renderWorldX(swapSelected_->Pos.x - 15),
-            renderWorldY(swapSelected_->Pos.y / 2.0 - 5),
-            std::max(1, int(30 * viewScaleX)),
-            std::max(1, int(10 * viewScaleY)));
+        const auto& selectedUnit = scene_units_.requireUnit(swapSelectedUnitId_);
+        if (is_visible_world(selectedUnit.position.x, selectedUnit.position.y / 2.0))
+        {
+            engine->fillColor(
+                { 255, 255, 0, 80 },
+                renderWorldX(selectedUnit.position.x - 15),
+                renderWorldY(selectedUnit.position.y / 2.0 - 5),
+                std::max(1, int(30 * viewScaleX)),
+                std::max(1, int(10 * viewScaleY)));
+        }
     }
 
     if (use_whole_scene)
@@ -1070,31 +1127,31 @@ void BattleSceneHades::draw()
     }
 
     // Role info text (frozen timer, swap coordinates)
-    for (auto r : battle_roles_)
+    for (const auto& unit : scene_units_.units())
     {
-        if (r == nullptr || r->Dead) { continue; }
-        double wx = r->Pos.x;
-        double wy = r->Pos.y / 2.0;
+        if (!unit.alive) { continue; }
+        double wx = unit.position.x;
+        double wy = unit.position.y / 2.0;
         int ux = worldToUiX(wx);
         int uy = worldToUiY(wy);
         if (ux < -80 || ux >= ui_w + 80 || uy < -80 || uy >= ui_h + 80) { continue; }
-        if (r->Frozen > 0 && r->FrozenMax > 0)
+        if (unit.frozen > 0 && unit.frozenMax > 0)
         {
-            Font::getInstance()->draw(std::to_string(r->Frozen),
+            Font::getInstance()->draw(std::to_string(unit.frozen),
                 (std::max)(1, int(9 * sizeScale)),
                 worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y - 1),
                 { 255, 255, 255, 255 });
         }
-        else if (r->CoolDown > 0 && r->CoolDownMax > 0)
+        else if (unit.cooldown > 0 && unit.cooldownMax > 0)
         {
-            Font::getInstance()->draw(std::to_string(r->CoolDown),
+            Font::getInstance()->draw(std::to_string(unit.cooldown),
                 (std::max)(1, int(9 * sizeScale)),
                 worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y - 1),
                 { 230, 195, 120, 240 });
         }
-        if (positionSwapActive_ && r->Team == 0)
+        if (positionSwapActive_ && unit.identity.team == 0)
         {
-            std::string coord = std::format("({},{})", r->X(), r->Y());
+            std::string coord = std::format("({},{})", unit.gridX, unit.gridY);
             Font::getInstance()->draw(coord,
                 (std::max)(1, int(28 * sizeScale)),
                 worldToUiX(wx - 5), worldToUiY(wy - 5),
@@ -1149,7 +1206,7 @@ void BattleSceneHades::advanceBattleFrame()
         battle_frame_++;
         return;
     }
-    decreaseToZero(close_up_);
+    BattleSceneRenderMath::decreaseToZero(close_up_);
     if (close_up_ == 0)
     {
         if (isManualCameraEnabled())
@@ -1173,16 +1230,9 @@ void BattleSceneHades::onEntrance()
 
     calViewRegion();
 
-    //注意此时才能得到窗口的大小，用来设置头像的位置
-    head_self_->setPosition(10, 10);
-    int count = 0;
-    for (auto& h : head_boss_)
-    {
-        h->setPosition(Engine::getInstance()->getUIWidth() / 2 - h->getWidth() / 2, Engine::getInstance()->getUIHeight() - 50 - (25 * count++));
-    }
     addChild(Weather::getInstance());
 
-    makeEarthTexture();    //注意高度稍微多了一点
+    battle_map_.makeEarthTexture(render_center_x_, render_center_y_);
 
     auto* engine = Engine::getInstance();
     int whole_scene_w = COORD_COUNT * TILE_W * 2;
@@ -1201,147 +1251,180 @@ void BattleSceneHades::onEntrance()
             is_legacy, whole_scene_w, whole_scene_h, max_texture_size);
     }
 
-    //首先设置位置和阵营，其他的后面统一处理
-    int battleUid = 10000;
-    //敌方
+    assert(!extended_teammates_.empty());
+
+    next_setup_unit_id_ = 0;
+
+    std::deque<Role> enemySetupRoles;
+    std::deque<Role> allySetupRoles;
+    std::vector<Role*> enemyRoles;
+    std::vector<Role*> allyRoles;
+
+    // 敵方：保留原始 BattleInfo 順序給裝備/星等來源，出場 unit id 仍依能力排序。
     for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
     {
-        auto r_ptr = roleSave_.getRole(info_->Enemy[i]);
-        if (r_ptr)
+        auto* source = roleSave_.getRole(info_->Enemy[i]);
+        if (!source)
         {
-            enemies_obj_.push_back(*r_ptr);
-            auto r = &enemies_obj_.back();
-            r->ID = battleUid++;
-            r->resetBattleInfo();
-            r->RealID = r_ptr->ID;
-            enemies_.push_back(r);
-            LOG("Adding enemy battle ID {} with {} name {}\n", r->ID, r->RealID, r->Name);
-            r->setPositionOnly(info_->EnemyX[i], info_->EnemyY[i]);
-            r->Team = 1;
-            readFightFrame(r);
-            r->FaceTowards = rand_.rand_int(4);
-            man_x_ = r->X();
-            man_y_ = r->Y();
+            continue;
         }
-    }
 
-    //初始状态
-    for (auto r : enemies_)
+        enemySetupRoles.push_back(*source);
+        auto* role = &enemySetupRoles.back();
+        role->resetBattleInfo();
+        role->RealID = source->ID;
+        role->setPositionOnly(info_->EnemyX[i], info_->EnemyY[i]);
+        role->Team = 1;
+        role->Star = KysChess::normalizeBattleStar(i < static_cast<int>(enemy_stars_.size()) ? enemy_stars_[i] : 0);
+        role->FaceTowards = rand_.rand_int(4);
+        enemyRoles.push_back(role);
+        LOG("Adding enemy role {} name {}\n", role->RealID, role->Name);
+    }
+    assert(!enemyRoles.empty());
+
+    allyRoles.reserve(extended_teammates_.size());
+    for (const auto& teammate : extended_teammates_)
     {
-        setRoleInitState(r);
-    }
-    pos_ = enemies_[0]->Pos;
+        auto* source = roleSave_.getRole(teammate.ID);
+        assert(source);
 
-    //敌人按能力从低到高，依次出场
-    std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r)
+        allySetupRoles.push_back(*source);
+        auto* role = &allySetupRoles.back();
+        role->resetBattleInfo();
+        role->RealID = source->ID;
+        role->setPositionOnly(teammate.X, teammate.Y);
+        role->Team = 0;
+        role->Star = KysChess::normalizeBattleStar(teammate.star);
+        role->Auto = 2;
+        allyRoles.push_back(role);
+    }
+    assert(!allyRoles.empty());
+
+    auto getAllyEquipment = [&](size_t index)
+    {
+        int weaponId = index < teammate_weapons_.size() ? teammate_weapons_[index] : -1;
+        int armorId = index < teammate_armors_.size() ? teammate_armors_[index] : -1;
+        if (weaponId >= 0 || armorId >= 0)
         {
-            return l->MaxHP + l->Attack < r->MaxHP + r->Attack;
+            return std::pair{ weaponId, armorId };
+        }
+
+        assert(index < extended_teammates_.size());
+        const auto& teammate = extended_teammates_[index];
+        if (teammate.weaponId >= 0 || teammate.armorId >= 0)
+        {
+            return std::pair{ teammate.weaponId, teammate.armorId };
+        }
+
+        auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ teammate.chessInstanceId });
+        if (!chess)
+        {
+            return std::pair{ -1, -1 };
+        }
+        return std::pair{ chess->weaponInstance.itemId, chess->armorInstance.itemId };
+    };
+    auto getEnemyEquipment = [&](size_t index)
+    {
+        return std::pair{
+            index < enemy_weapons_.size() ? enemy_weapons_[index] : -1,
+            index < enemy_armors_.size() ? enemy_armors_[index] : -1,
+        };
+    };
+    auto getTeammateFightsWon = [&](size_t index)
+    {
+        assert(index < extended_teammates_.size());
+        const int chessInstanceId = extended_teammates_[index].chessInstanceId;
+        if (chessInstanceId < 0)
+        {
+            return 0;
+        }
+
+        auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ chessInstanceId });
+        return chess ? chess->fightsWon : 0;
+    };
+
+    auto sortedEnemyRoles = enemyRoles;
+    std::sort(sortedEnemyRoles.begin(), sortedEnemyRoles.end(), [](Role* lhs, Role* rhs)
+        {
+            return lhs->MaxHP + lhs->Attack < rhs->MaxHP + rhs->Attack;
         });
 
-    for (int i = 0; i < head_boss_.size() && i < enemies_.size(); i++)
+    std::unordered_map<Role*, int> enemyUnitIds;
+    for (auto* enemy : sortedEnemyRoles)
     {
-        head_boss_[i]->setRole(enemies_[enemies_.size() - i - 1]);
+        assert(enemy);
+        const int unitId = assignSetupUnitId();
+        enemyUnitIds.emplace(enemy, unitId);
+        setup_role_snapshots_.push_back(makeSetupRoleSnapshot(
+            unitId,
+            *enemy,
+            makeInitialRoleState(*enemy, allyRoles)));
     }
-    if (!extended_teammates_.empty())
+    setup_enemy_roster_.reserve(enemyRoles.size());
+    for (auto* enemy : enemyRoles)
     {
-        while (!enemies_.empty())
-        {
-            battle_roles_.push_back(enemies_.front());
-            enemies_.pop_front();
-        }
-    }
-    else
-    {
-        for (int i = 0; i < 6; i++)
-        {
-            if (!enemies_.empty())
-            {
-                battle_roles_.push_back(enemies_.front());
-                enemies_.pop_front();
-            }
-        }
-    }
-
-    //判断是不是有自動战斗人物
-    if (!extended_teammates_.empty())
-    {
-        for (const auto& teammate_info : extended_teammates_)
-        {
-            auto r_ptr = roleSave_.getRole(teammate_info.ID);
-            if (r_ptr)
-            {
-                friends_obj_.push_back(*r_ptr);
-                auto r = &friends_obj_.back();
-                r->ID = battleUid++;
-                r->resetBattleInfo();
-                r->RealID = r_ptr->ID;
-                friends_.push_back(r);
-                r->Auto = 2;
-            }
-        }
-
-    }
-    else if (info_->AutoTeamMate[0] >= 0)
-    {
-        for (int i = 0; i < TEAMMATE_COUNT; i++)
-        {
-            auto r = roleSave_.getRole(info_->AutoTeamMate[i]);
-            if (r)
-            {
-                friends_.push_back(r);
-                r->Auto = 2;    //由AI控制
-            }
-        }
+        const auto it = enemyUnitIds.find(enemy);
+        assert(it != enemyUnitIds.end());
+        const auto& role = KysChess::Battle::requireBy(
+            setup_role_snapshots_,
+            it->second,
+            &KysChess::BattleSceneBattleAdapter::BattleSetupRoleSnapshot::unitId);
+        const auto index = setup_enemy_roster_.size();
+        const auto [weaponId, armorId] = getEnemyEquipment(index);
+        setup_enemy_roster_.push_back({
+            role.unitId,
+            role.realRoleId,
+            1,
+            role.star,
+            std::max(1, role.cost),
+            weaponId,
+            armorId,
+            -1,
+            0,
+            static_cast<int>(index),
+        });
     }
 
-    if (extended_teammates_.empty() && 1)    //准许队友出场
+    setup_ally_roster_.reserve(allyRoles.size());
+    for (size_t index = 0; index < allyRoles.size(); ++index)
     {
-        auto team_menu = std::make_shared<TeamMenu>();
-        team_menu->setMode(1);
-        team_menu->setForceMainRole(true);
-        team_menu->run();
-
-        for (auto r : team_menu->getRoles())
-        {
-            if (std::find(friends_.begin(), friends_.end(), r) == friends_.end())
-            {
-                friends_.push_back(r);
-            }
-        }
-    }
-    //队友
-    role_ = nullptr;
-    for (int i = 0; i < friends_.size(); i++)
-    {
-        auto r = friends_[i];
-        if (r)
-        {
-            battle_roles_.push_back(r);
-            // Use extended teammate positions if available, otherwise use BattleInfo positions
-            if (!extended_teammates_.empty() && i < extended_teammates_.size())
-            {
-                r->setPositionOnly(extended_teammates_[i].X, extended_teammates_[i].Y);
-            }
-            else
-            {
-                r->setPositionOnly(info_->TeamMateX[i], info_->TeamMateY[i]);
-            }
-            r->Team = 0;
-            setRoleInitState(r);
-        }
+        auto* ally = allyRoles[index];
+        assert(ally);
+        const int unitId = assignSetupUnitId();
+        auto snapshot = makeSetupRoleSnapshot(
+            unitId,
+            *ally,
+            makeInitialRoleState(*ally, enemyRoles));
+        const auto [weaponId, armorId] = getAllyEquipment(index);
+        setup_ally_roster_.push_back({
+            snapshot.unitId,
+            snapshot.realRoleId,
+            0,
+            snapshot.star,
+            std::max(1, snapshot.cost),
+            weaponId,
+            armorId,
+            extended_teammates_[index].chessInstanceId,
+            getTeammateFightsWon(index),
+            static_cast<int>(index),
+        });
+        setup_role_snapshots_.push_back(std::move(snapshot));
     }
 
-    // Center camera on allies
-    if (!friends_.empty())
+    int sx = 0;
+    int sy = 0;
+    for (auto* ally : allyRoles)
     {
-        int sx = 0, sy = 0;
-        for (auto r : friends_)
-        {
-            sx += r->X();
-            sy += r->Y();
-        }
-        pos_ = pos45To90(sx / friends_.size(), sy / friends_.size());
+        sx += ally->X();
+        sy += ally->Y();
     }
+    pos_ = battle_map_.pos45To90(
+        sx / static_cast<int>(allyRoles.size()),
+        sy / static_cast<int>(allyRoles.size()));
+    auto cameraCell = battle_map_.pos90To45(pos_.x, pos_.y);
+    man_x_ = cameraCell.x;
+    man_y_ = cameraCell.y;
+
     battle_frame_ = 0;
     half_speed_step_on_next_render_ = true;
     manual_camera_dragging_ = false;
@@ -1352,18 +1435,6 @@ void BattleSceneHades::onEntrance()
     initializeBattleRuntime();
     runPreBattlePositionSwapIfEnabled();
     commitFinalSetupPlacementToRuntime();
-
-    // int i = 0;
-    // for (auto r : friends_)
-    // {
-    //     if (r && r != heads_[0]->getRole())
-    //     {
-    //         auto head = std::make_shared<Head>();
-    //         head->setRole(r);
-    //         head->setAlwaysLight(true);
-    //         addChild(head, Engine::getInstance()->getWindowWidth() - 280, 10 + 80 * i++);
-    //     }
-    // }
 
     Audio::getInstance()->playMusic(KysChess::getRandomBattleMusic());
     // Audio::getInstance()->playMusic(info_->Music);
@@ -1386,8 +1457,6 @@ void BattleSceneHades::onExit()
 
 void BattleSceneHades::calExpGot()
 {
-    BattleScene::calExpGot();
-
     if (result_ != 0)
     {
         return;
@@ -1414,6 +1483,11 @@ void BattleSceneHades::calExpGot()
     }
 }
 
+BattlePostBattleSummary BattleSceneHades::makePostBattleSummary() const
+{
+    return scene_units_.makePostBattleSummary(tracker_, result_);
+}
+
 class PositionSwapNode : public RunNode
 {
     BattleSceneHades* battle_;
@@ -1427,36 +1501,34 @@ public:
         if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
         {
             auto p = battle_->getMousePosition(battle_->man_x_, battle_->man_y_);
-            Role* clicked = nullptr;
-            for (auto r : battle_->getBattleRoles())
+            int clickedUnitId = -1;
+            for (int unitId : battle_->scene_units_.allyUnitIds())
             {
-                if (r && r->Team == 0 && r->X() == p.x && r->Y() == p.y)
+                const auto& unit = battle_->scene_units_.requireUnit(unitId);
+                if (unit.identity.team == 0 && unit.gridX == p.x && unit.gridY == p.y)
                 {
-                    clicked = r;
+                    clickedUnitId = unitId;
                     break;
                 }
             }
-            if (!clicked)
+            if (clickedUnitId < 0)
             {
                 return;
             }
-            if (!battle_->swapSelected_)
+            if (battle_->swapSelectedUnitId_ < 0)
             {
-                battle_->swapSelected_ = clicked;
+                battle_->swapSelectedUnitId_ = clickedUnitId;
             }
-            else if (clicked != battle_->swapSelected_)
+            else if (clickedUnitId != battle_->swapSelectedUnitId_)
             {
-                int ax = battle_->swapSelected_->X(), ay = battle_->swapSelected_->Y();
-                int bx = clicked->X(), by = clicked->Y();
-                battle_->swapSelected_->setPositionOnly(bx, by);
-                clicked->setPositionOnly(ax, ay);
-                auto pa = battle_->pos45To90(bx, by);
-                auto pb = battle_->pos45To90(ax, ay);
-                battle_->swapSelected_->Pos.x = pa.x;
-                battle_->swapSelected_->Pos.y = pa.y;
-                clicked->Pos.x = pb.x;
-                clicked->Pos.y = pb.y;
-                battle_->swapSelected_ = nullptr;
+                battle_->scene_units_.swapSetupUnitPositions(
+                    battle_->swapSelectedUnitId_,
+                    clickedUnitId,
+                    [this](int x, int y)
+                    {
+                        return battle_->battle_map_.pos45To90(x, y);
+                    });
+                battle_->swapSelectedUnitId_ = -1;
             }
         }
     }
@@ -1469,7 +1541,7 @@ public:
         menu->runAtPosition(400, 300);
         if (menu->getResult() == 0)
         {
-            battle_->swapSelected_ = nullptr;
+            battle_->swapSelectedUnitId_ = -1;
             exit_ = true;
         }
     }
@@ -1477,7 +1549,7 @@ public:
 
 void BattleSceneHades::runPositionSwapLoop()
 {
-    swapSelected_ = nullptr;
+    swapSelectedUnitId_ = -1;
     auto node = std::make_shared<PositionSwapNode>(this);
     node->run();
 }
@@ -1485,17 +1557,10 @@ void BattleSceneHades::runPositionSwapLoop()
 void BattleSceneHades::runListBasedSwap()
 {
     positionSwapActive_ = true;
-    // Collect friendly roles
-    std::vector<Role*> allies;
-    for (auto r : battle_roles_)
-    {
-        if (r && r->Team == 0)
-        {
-            allies.push_back(r);
-        }
-    }
+    auto allies = scene_units_.allyUnitIds();
     if (allies.size() < 2)
     {
+        positionSwapActive_ = false;
         return;
     }
 
@@ -1506,10 +1571,11 @@ void BattleSceneHades::runListBasedSwap()
         // First pass: find max name width and max coord width separately
         int maxNameLen = 0;
         int maxCoordLen = 0;
-        for (auto r : allies)
+        for (int unitId : allies)
         {
-            std::string name = r->Name;
-            std::string coord = std::format("({},{})", r->X(), r->Y());
+            const auto& unit = scene_units_.requireUnit(unitId);
+            std::string name = unit.identity.name;
+            std::string coord = std::format("({},{})", unit.gridX, unit.gridY);
             int nameLen = Font::getTextDrawSize(name);
             int coordLen = Font::getTextDrawSize(coord);
             if (nameLen > maxNameLen)
@@ -1527,8 +1593,9 @@ void BattleSceneHades::runListBasedSwap()
         std::vector<bool> animateOutlines;
         for (int i = 0; i < (int)allies.size(); i++)
         {
-            std::string name = allies[i]->Name;
-            std::string coord = std::format("({},{})", allies[i]->X(), allies[i]->Y());
+            const auto& unit = scene_units_.requireUnit(allies[i]);
+            std::string name = unit.identity.name;
+            std::string coord = std::format("({},{})", unit.gridX, unit.gridY);
             int nameLen = Font::getTextDrawSize(name);
             int coordLen = Font::getTextDrawSize(coord);
             // Pad name to max, then pad coord prefix so coords right-align
@@ -1592,20 +1659,15 @@ void BattleSceneHades::runListBasedSwap()
         }
 
         // Perform swap
-        auto* a = allies[sel1];
-        auto* b = allies[sel2];
-        int ax = a->X(), ay = a->Y();
-        int bx = b->X(), by = b->Y();
-        a->setPositionOnly(bx, by);
-        b->setPositionOnly(ax, ay);
-        auto pa = pos45To90(bx, by);
-        auto pb = pos45To90(ax, ay);
-        a->Pos.x = pa.x;
-        a->Pos.y = pa.y;
-        b->Pos.x = pb.x;
-        b->Pos.y = pb.y;
+        scene_units_.swapSetupUnitPositions(
+            allies[sel1],
+            allies[sel2],
+            [this](int x, int y)
+            {
+                return battle_map_.pos45To90(x, y);
+            });
     }
-    swapSelected_ = nullptr;
+    swapSelectedUnitId_ = -1;
     positionSwapActive_ = false;
 }
 
@@ -1617,7 +1679,7 @@ void BattleSceneHades::backRun1()
     {
         result.advanced = true;
         auto frameResult = battle_session_->runFrame();
-        applyCoreFrameResult(core_role_bindings_, frameResult);
+        applyCoreFrameResult(frameResult);
     }
     applyLegacyBattleFrameResult(result);
     playCorePresentationFrame();
@@ -1652,59 +1714,84 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
         //y_ = rand_.rand_int(2) - rand_.rand_int(2);
         slow_--;
     }
-    ultHitRoles_.clear();
-    criticalHitRoles_.clear();
     return input;
 }
 
 void BattleSceneHades::applyCoreFrameResult(
-    const BattleSceneRoleBindings& bindings,
     const KysChess::Battle::BattleFrameResult& frameResult)
 {
     for (const auto& application : frameResult.unitApplications)
     {
-        auto* role = requireFrameRole(bindings, application.unitId);
-        applyBattleFrameUnitApplication(role, application);
+        auto& unit = scene_units_.requireUnit(application.unitId);
+        unit.cooldown = application.cooldown;
+        unit.actFrame = application.actFrame;
+        unit.actType = application.actType;
+        unit.mp = application.finalMp;
+        if (application.resetDashVelocity)
+        {
+            unit.velocity = { 0, 0, 0 };
+        }
     }
-    applyCoreStatusState(bindings, frameResult.stateApplications);
+    applyCoreStatusState(frameResult.stateApplications);
 
-    applyCoreDamageTransactions(bindings, frameResult);
-    applyCoreTeamEffectState(bindings, frameResult.teamEffectEvents);
+    applyCoreDamageTransactions(frameResult);
+    applyCoreTeamEffectState(frameResult.teamEffectEvents);
     for (const auto& command : frameResult.effectCommands)
     {
-        auto* target = requireFrameRole(bindings, command.targetUnitId);
         switch (command.type)
         {
         case KysChess::Battle::BattleEffectCommandType::AddInvincibility:
-            target->Invincible += command.value;
+            scene_units_.requireUnit(command.targetUnitId).invincible += command.value;
             break;
         default:
             assert(false);
             break;
         }
     }
-    applyCoreFrameApplications(bindings, frameResult.applications);
-    applyBattleMovementPresentationResults(
-        frameResult.movementPresentationResults,
-        core_role_bindings_.rolesByBattleId);
-
-    auto actionApply = applyBattleActionFrameResults(frameResult.actionResults, makeBattleActionFrameApplyContext());
-    for (int i = 0; i < actionApply.blinkSoundCount; ++i)
+    applyCoreFrameApplications(frameResult.applications);
+    for (const auto& movement : frameResult.movementPresentationResults)
     {
-        Audio::getInstance()->playESound(BLINK_SOUND_EFFECT_ID);
+        auto& unit = scene_units_.requireUnit(movement.unitId);
+        unit.frozen = movement.frozenFrames;
+        unit.position = movement.position;
+        unit.velocity = movement.velocity;
+        unit.acceleration = movement.acceleration;
+        auto facing = movement.facing;
+        if (facing.norm() > 0.01)
+        {
+            unit.realTowards = facing;
+        }
     }
-    for (int unitId : actionApply.faceTowardsNearestUnitIds)
+
+    for (const auto& action : frameResult.actionResults)
     {
-        setFaceTowardsNearest(requireFrameRole(bindings, unitId));
+        auto& unit = scene_units_.requireUnit(action.unitId);
+        unit.actFrame = action.state.actFrame;
+        unit.actType = action.state.actType;
+        unit.cooldown = action.state.cooldown;
+        if (action.castStarted)
+        {
+            unit.actFrame = 0;
+            unit.actType = action.state.actType;
+            unit.cooldown = action.state.cooldown;
+            unit.cooldownMax = action.state.cooldown;
+            unit.velocity = { 0, 0, 0 };
+        }
+        for (const auto& teleport : action.actionResult.blinkTeleports)
+        {
+            unit.gridX = teleport.gridX;
+            unit.gridY = teleport.gridY;
+            unit.position = { teleport.position.x, teleport.position.y, 0 };
+            unit.velocity = { 0, 0, 0 };
+            unit.acceleration = { 0, 0, gravity_ };
+            unit.realTowards = teleport.facing;
+            Audio::getInstance()->playESound(BLINK_SOUND_EFFECT_ID);
+        }
     }
     for (const auto& command : frameResult.projectileCancelDamageCommands)
     {
-        applyBattleProjectileCancelDamage(
-            requireFrameRole(bindings, command.sourceUnitId),
-            command.damage);
-        applyBattleProjectileCancelDamage(
-            requireFrameRole(bindings, command.otherSourceUnitId),
-            command.otherDamage);
+        tracker_.recordProjectileCancel(command.sourceUnitId, command.damage);
+        tracker_.recordProjectileCancel(command.otherSourceUnitId, command.otherDamage);
     }
     for (const auto& event : frameResult.frame.visualEvents)
     {
@@ -1714,13 +1801,13 @@ void BattleSceneHades::applyCoreFrameResult(
     {
         presentation_recorder_.recordLog(event);
     }
-    advanceVisualOnlyEffects(attack_effects_);
+    advanceBattleVisualOnlyEffects(attack_effects_);
 
     for (const auto& event : frameResult.attackEvents)
     {
         if (event.type == KysChess::Battle::BattleAttackEventType::Hit)
         {
-            auto* role = requireFrameRole(bindings, event.unitId);
+            auto& unit = scene_units_.requireUnit(event.unitId);
             bool scriptedImpact = hasScriptedImpact(event);
 
             if (event.skillId >= 0)
@@ -1731,21 +1818,15 @@ void BattleSceneHades::applyCoreFrameResult(
             }
             if (scriptedImpact)
             {
-                role->Shake = 5;
+                unit.shake = 5;
                 continue;
             }
 
             shake_ = event.ultimate ? 10 : 0;
-            role->Shake = event.ultimate ? 10 : 5;
-            if (event.ultimate)
-            {
-                ultHitRoles_.insert(role);
-            }
+            unit.shake = event.ultimate ? 10 : 5;
             if (event.operationType != KysChess::Battle::BattleOperationType::None)
             {
                 Engine::getInstance()->gameControllerRumble(100, 100, 50);
-                auto* usingMagic = event.skillId >= 0 ? Save::getInstance()->getMagic(event.skillId) : nullptr;
-                assert(usingMagic);
                 assert(event.totalFrame > 0);
             }
         }
@@ -1769,13 +1850,16 @@ void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult
     {
         return;
     }
-    for (auto r : battle_roles_)
+    for (auto& unit : scene_units_.units())
     {
-        r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
-        r->MP = GameUtil::limit(r->MP, 0, GameUtil::MAX_MP);
-        decreaseToZero(r->Shake);
-        decreaseToZero(r->HurtFrame);
-        decreaseToZero(r->Attention);
+        if (!unit.active)
+        {
+            continue;
+        }
+        unit.hp = GameUtil::limit(unit.hp, 0, unit.maxHp);
+        unit.mp = GameUtil::limit(unit.mp, 0, unit.maxMp);
+        BattleSceneRenderMath::decreaseToZero(unit.shake);
+        BattleSceneRenderMath::decreaseToZero(unit.attention);
     }
 
     //处理文字
@@ -1798,30 +1882,10 @@ void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult
         }
     }
 
+    if (slow_ == 0 && (result_ == 0 || result_ == 1))
     {
-        //人物出场
-        while (!enemies_.empty())
-        {
-            battle_roles_.push_back(enemies_.front());
-            enemies_.pop_front();
-            // battle_roles_.back()->Attention = 30;
-        }
-        //亮血条
-        if (enemies_.size() < head_boss_.size())
-        {
-            for (int i = 0; i < head_boss_.size(); i++)
-            {
-                if (i >= enemies_.size())
-                {
-                    head_boss_[i]->setVisible(true);
-                }
-            }
-        }
-        if (slow_ == 0 && (result_ == 0 || result_ == 1))
-        {
-            calExpGot();
-            setExit(true);
-        }
+        calExpGot();
+        setExit(true);
     }
 }
 
@@ -1834,19 +1898,14 @@ void BattleSceneHades::onPressedCancel()
 {
 }
 
-void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
+void BattleSceneHades::renderExtraRoleInfo(const BattleSceneUnit& unit, double x, double y)
 {
-    if (r == nullptr || r->Dead)
+    if (!unit.alive)
     {
         return;
     }
 
-    auto& comboStates = KysChess::ChessCombo::getActiveStates();
-    const KysChess::RoleComboState* comboState = nullptr;
-    if (auto it = comboStates.find(r->ID); it != comboStates.end())
-    {
-        comboState = &it->second;
-    }
+    const auto& comboState = unit.combo;
 
     // 画个血条
     Color outline_color = { 0, 0, 0, 128 };
@@ -1888,46 +1947,46 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
 
     Color background_color = { 0, 255, 0, 128 };    // 我方绿色
     Color shadow_color = { 64, 64, 64, 128 };       // 背景阴影
-    if (r->Team == 1)
+    if (unit.identity.team == 1)
     {
         // 敌方红色
         background_color = { 255, 0, 0, 128 };
     }
 
-    renderBar(y + ROLE_STATUS_BAR_Y, r->HP, r->MaxHP, background_color, shadow_color);
+    renderBar(y + ROLE_STATUS_BAR_Y, unit.hp, unit.maxHp, background_color, shadow_color);
 
-    if (r->MaxHP > 0 && r->HP > 0)
+    if (unit.maxHp > 0 && unit.hp > 0)
     {
         int bar_y = y + ROLE_STATUS_BAR_Y;
-        int hpFillWidth = std::clamp(static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(r->HP) / r->MaxHP))), 0, ROLE_STATUS_BAR_WIDTH);
+        int hpFillWidth = std::clamp(static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(unit.hp) / unit.maxHp))), 0, ROLE_STATUS_BAR_WIDTH);
 
-        if (comboState && comboState->shield > 0)
+        if (comboState.shield > 0)
         {
-            int shieldWidth = std::clamp(static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(comboState->shield) / r->MaxHP))), 1, ROLE_STATUS_BAR_WIDTH);
+            int shieldWidth = std::clamp(static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(comboState.shield) / unit.maxHp))), 1, ROLE_STATUS_BAR_WIDTH);
             int visibleShieldWidth = std::min(shieldWidth, hpFillWidth);
             Rect shieldRect = { barLeft, bar_y, visibleShieldWidth, ROLE_STATUS_BAR_HEIGHT };
             // int shieldAlpha = std::clamp(90 + comboState->shield * 120 / std::max(1, r->MaxHP), 90, 180);
             Engine::getInstance()->renderSquareTexture(&shieldRect, { 250, 200, 0, 255 }, 255);
         }
 
-        bool hasDamageProtection = r->Invincible > 0 || (comboState && comboState->blockFirstHitsRemaining > 0);
+        bool hasDamageProtection = unit.invincible > 0 || comboState.blockFirstHitsRemaining > 0;
         if (hasDamageProtection)
         {
-            Color protectionColor = comboState && comboState->blockFirstHitsRemaining > 0 ? Color{ 255, 220, 110, 255 } : Color{ 255, 170, 95, 255 };
+            Color protectionColor = comboState.blockFirstHitsRemaining > 0 ? Color{ 255, 220, 110, 255 } : Color{ 255, 170, 95, 255 };
             renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, protectionColor, 220);
         }
     }
 
     Color mp_color = { 0, 0, 255, 128 };
     Color mp_shadow_color = { 64, 64, 64, 128 };
-    renderBar(y + ROLE_STATUS_BAR_MP_Y, r->MP, r->MaxMP, mp_color, mp_shadow_color);
+    renderBar(y + ROLE_STATUS_BAR_MP_Y, unit.mp, unit.maxMp, mp_color, mp_shadow_color);
 
     // Frozen / cooldown bar – frozen takes priority
-    if (r->Frozen > 0 && r->FrozenMax > 0)
+    if (unit.frozen > 0 && unit.frozenMax > 0)
     {
         Color frozen_color = { 200, 220, 255, 192 };
         int bar_y = y + ROLE_STATUS_BAR_FROZEN_Y;
-        double perc = static_cast<double>(r->Frozen) / r->FrozenMax;
+        double perc = static_cast<double>(unit.frozen) / unit.frozenMax;
 
         // Draw outline (same color as bar)
         renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, frozen_color, 128);
@@ -1936,11 +1995,11 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
         Rect r_frozen = { barLeft, bar_y, int(perc * ROLE_STATUS_BAR_WIDTH), ROLE_STATUS_BAR_HEIGHT };
         Engine::getInstance()->renderSquareTexture(&r_frozen, frozen_color, 192);
     }
-    else if (r->CoolDown > 0 && r->CoolDownMax > 0)
+    else if (unit.cooldown > 0 && unit.cooldownMax > 0)
     {
         Color cd_color = { 255, 210, 140, 160 };
         int bar_y = y + ROLE_STATUS_BAR_FROZEN_Y;
-        double perc = static_cast<double>(r->CoolDown) / r->CoolDownMax;
+        double perc = static_cast<double>(unit.cooldown) / unit.cooldownMax;
 
         renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, cd_color, 100);
 
@@ -1951,8 +2010,13 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
 
 int BattleSceneHades::checkResult()
 {
-    int team0 = getTeamMateCount(0);
-    int team1 = enemies_.size() + getTeamMateCount(1);
+    if (result_ != -1)
+    {
+        return result_;
+    }
+
+    const int team0 = scene_units_.aliveUnitsOnTeam(0);
+    const int team1 = scene_units_.aliveUnitsOnTeam(1);
     if (team0 > 0 && team1 == 0)
     {
         return 0;
@@ -1964,181 +2028,86 @@ int BattleSceneHades::checkResult()
     return -1;
 }
 
-void BattleSceneHades::setRoleInitState(Role* role)
-{
-    BattleScene::setRoleInitState(role);
-    if (role->Team == 0)
-    {
-        role->HP = role->MaxHP;
-        role->MP = 0;
-        role->PhysicalPower = (std::max)(role->PhysicalPower, 90);
-    }
-    else
-    {
-        role->HP = role->MaxHP;
-        role->MP = 0;
-        role->PhysicalPower = (std::max)(role->PhysicalPower, 90);
-    }
-
-    auto p = pos45To90(role->X(), role->Y());
-
-    role->Pos.x = p.x;
-    role->Pos.y = p.y;
-    if (role->FaceTowards == Towards_RightDown)
-    {
-        role->RealTowards = { 1, 1 };
-    }
-    if (role->FaceTowards == Towards_RightUp)
-    {
-        role->RealTowards = { 1, -1 };
-    }
-    if (role->FaceTowards == Towards_LeftDown)
-    {
-        role->RealTowards = { -1, 1 };
-    }
-    if (role->FaceTowards == Towards_LeftUp)
-    {
-        role->RealTowards = { -1, -1 };
-    }
-    role->Acceleration = { 0, 0, gravity_ };
-}
-
-int BattleSceneHades::calRolePic(Role* r, int style, int frame)
-{
-    if (style < 0 || style >= 5)
-    {
-        style = resolveFightStyle(r, -1);
-        if (style >= 0)
-        {
-            return r->FightFrame[style] * r->FaceTowards;
-        }
-    }
-    else
-    {
-        style = resolveFightStyle(r, style);
-    }
-    if (style < 0)
-    {
-        return r->FaceTowards;
-    }
-    int total = 0;
-    for (int i = 0; i < 5; i++)
-    {
-        if (i == style)
-        {
-            //停留在最后一帧
-            if (frame < r->FightFrame[style] - 2)
-            {
-                return total + r->FightFrame[style] * r->FaceTowards + frame;
-            }
-            else
-            {
-                return total + r->FightFrame[style] * r->FaceTowards + r->FightFrame[style] - 2;
-            }
-        }
-        total += r->FightFrame[i] * 4;
-    }
-    return r->FaceTowards;
-}
-
 void BattleSceneHades::applyCoreStatusState(
-    const BattleSceneRoleBindings& bindings,
     const KysChess::Battle::BattleFrameStateApplications& applications)
 {
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
-    for (const auto& mirror : applications.comboMirrors)
+    for (const auto& combo : applications.comboRenderUnits)
     {
-        auto& state = comboStates[mirror.unitId];
-        state.shield = mirror.shield;
-        state.blockFirstHitsRemaining = mirror.blockFirstHitsRemaining;
+        auto& unit = scene_units_.requireUnit(combo.unitId);
+        unit.combo.shield = combo.shield;
+        unit.combo.blockFirstHitsRemaining = combo.blockFirstHitsRemaining;
     }
     for (const auto& status : applications.statusRenderUnits)
     {
-        auto role = requireFrameRole(bindings, status.unitId);
-        assert(role);
-        role->Invincible = status.invincible;
-        role->Frozen = status.frozenFrames;
-        role->FrozenMax = status.frozenMaxFrames;
+        auto& unit = scene_units_.requireUnit(status.unitId);
+        unit.invincible = status.invincible;
+        unit.frozen = status.frozenFrames;
+        unit.frozenMax = status.frozenMaxFrames;
+
     }
 }
 
 void BattleSceneHades::applyCoreDamageTransactions(
-    const BattleSceneRoleBindings& bindings,
     const KysChess::Battle::BattleFrameResult& frameResult)
 {
-    for (const auto& hitResolution : frameResult.hitResults)
-    {
-        if (hitResolution.critical)
-        {
-            criticalHitRoles_.insert(requireFrameRole(bindings, hitResolution.defenderUnitId));
-        }
-    }
-
     auto& cs = KysChess::ChessCombo::getMutableStates();
-    auto lifecycleApply = applyBattleLifecycleEvents(
-        {
-            &tracker_,
-            &core_role_bindings_.rolesByBattleId,
-            result_,
-        },
+    auto lifecycleApply = applyBattleLifecycleEventsToTracker(
+        tracker_,
+        scene_units_,
+        result_,
         frameResult.frame.gameplayEvents);
     std::set<int> diedUnitIds(lifecycleApply.diedUnitIds.begin(), lifecycleApply.diedUnitIds.end());
 
-    for (const auto& damageTaken : frameResult.damageTransactions)
+    for (const auto& damage : frameResult.damageRenderApplications)
     {
-        auto r = requireFrameRole(bindings, damageTaken.defender.id);
-        Role* attacker = damageTaken.attacker.id >= 0
-            ? requireFrameRole(bindings, damageTaken.attacker.id)
-            : nullptr;
-        r->LastAttacker = attacker;
-        auto sit = cs.find(r->ID);
-        auto kit = attacker ? cs.find(attacker->ID) : cs.end();
-        if (attacker && kit != cs.end())
-        {
-            writeBattleDamageRenderUnit(attacker, &kit->second, damageTaken.attacker);
-        }
-        writeBattleDamageRenderUnit(r, sit != cs.end() ? &sit->second : nullptr, damageTaken.defender);
-        r->Frozen = damageTaken.defenderStatus.frozenTimer;
-        r->FrozenMax = damageTaken.defenderStatus.frozenMaxTimer;
-        r->CoolDown = damageTaken.defenderCooldown.cooldown;
+        auto& defenderUnit = scene_units_.requireUnit(damage.defender.unitId);
+        defenderUnit.hp = damage.defender.hp;
+        defenderUnit.mp = damage.defender.mp;
+        defenderUnit.invincible = damage.defender.invincible;
+        defenderUnit.alive = damage.defender.alive;
+        defenderUnit.frozen = damage.frozenFrames;
+        defenderUnit.frozenMax = damage.frozenMaxFrames;
+        defenderUnit.cooldown = damage.cooldown;
 
-        int committedHpDamage = 0;
-        for (const auto& event : damageTaken.events)
+        if (damage.attacker.unitId >= 0)
         {
-            if (event.type == KysChess::Battle::BattleDamageEventType::DamageApplied)
-            {
-                committedHpDamage += event.value;
-            }
+            auto& attackerUnit = scene_units_.requireUnit(damage.attacker.unitId);
+            attackerUnit.hp = damage.attacker.hp;
+            attackerUnit.mp = damage.attacker.mp;
+            attackerUnit.invincible = damage.attacker.invincible;
+            attackerUnit.alive = damage.attacker.alive;
         }
 
-        if (committedHpDamage > 0)
+        auto sit = cs.find(damage.defender.unitId);
+
+        if (damage.committedHpDamage > 0)
         {
-            AttackEffect ae1;
-            ae1.FollowRole = r;
+            BattleAttackEffect ae1;
+            ae1.FollowUnitId = damage.defender.unitId;
             ae1.setPath(std::format("eft/bld{:03}", int(rand_.rand() * 5)));
             ae1.TotalFrame = ae1.TotalEffectFrame;
             ae1.Frame = 0;
             attack_effects_.push_back(std::move(ae1));
-            hurt_flash_timers_[r->ID] = HURT_FLASH_DURATION;
+            hurt_flash_timers_[damage.defender.unitId] = HURT_FLASH_DURATION;
         }
 
-        if (diedUnitIds.find(r->ID) != diedUnitIds.end())
+        if (diedUnitIds.find(damage.defender.unitId) != diedUnitIds.end())
         {
             if (sit != cs.end())
             {
                 sit->second.onSkillTeamHealPending = false;
             }
 
-            KysChess::ChessCombo::transferAntiCombo(r->ID, battle_roles_);
+            KysChess::ChessCombo::transferAntiCombo(damage.defender.unitId, scene_units_.makeComboBattleUnitRefs());
 
-            r->Velocity.normTo(15);
-            r->Velocity.z = 12;
-            r->Velocity.normTo(committedHpDamage / 2.0);
+            defenderUnit.velocity.normTo(15);
+            defenderUnit.velocity.z = 12;
+            defenderUnit.velocity.normTo(damage.committedHpDamage / 2.0);
             x_ = rand_.rand_int(2) - rand_.rand_int(2);
             y_ = rand_.rand_int(2) - rand_.rand_int(2);
             if (!isManualCameraEnabled())
             {
-                focusCameraOn(r->Pos, CAMERA_DEATH_ZOOM_FRAMES);
+                focusCameraOn(defenderUnit.position, CAMERA_DEATH_ZOOM_FRAMES);
             }
             frozen_ = 5;
             shake_ = 10;
@@ -2154,29 +2123,27 @@ void BattleSceneHades::applyCoreDamageTransactions(
     for (const auto& rescue : frameResult.rescueResults)
     {
         assert(rescue.teleport);
-        auto* pulled = requireFrameRole(bindings, rescue.teleport->unitId);
-        auto* puller = requireFrameRole(bindings, rescue.teleport->pullerUnitId);
+        auto& pulledUnit = scene_units_.requireUnit(rescue.teleport->unitId);
+        auto& pullerUnit = scene_units_.requireUnit(rescue.teleport->pullerUnitId);
         const auto& destination = rescue.teleport->destinationCell;
-        auto pos = pos45To90(destination.x, destination.y);
-        pulled->setPositionOnly(destination.x, destination.y);
-        pulled->Pos.x = pos.x;
-        pulled->Pos.y = pos.y;
-        pulled->Pos.z = 0;
-        pulled->Velocity = { 0, 0, 0 };
-        pulled->Acceleration = { 0, 0, gravity_ };
-        pulled->FindingWay = 0;
-        setFaceTowardsNearest(pulled);
-        setFaceTowardsNearest(puller);
+        auto pos = battle_map_.pos45To90(destination.x, destination.y);
+        pulledUnit.gridX = destination.x;
+        pulledUnit.gridY = destination.y;
+        pulledUnit.position = { pos.x, pos.y, 0 };
+        pulledUnit.velocity = { 0, 0, 0 };
+        pulledUnit.acceleration = { 0, 0, gravity_ };
+        pulledUnit.realTowards = scene_units_.facingTowardNearestEnemy(pulledUnit.unitId);
+        pullerUnit.realTowards = scene_units_.facingTowardNearestEnemy(pullerUnit.unitId);
 
         if (rescue.heal.amount > 0)
         {
-            assert(rescue.heal.targetUnitId == pulled->ID);
-            pulled->HP = std::min(pulled->MaxHP, pulled->HP + rescue.heal.amount);
+            assert(rescue.heal.targetUnitId == pulledUnit.unitId);
+            pulledUnit.hp = std::min(pulledUnit.maxHp, pulledUnit.hp + rescue.heal.amount);
         }
         if (rescue.invincibility.frames > 0)
         {
-            assert(rescue.invincibility.targetUnitId == pulled->ID);
-            pulled->Invincible += rescue.invincibility.frames;
+            assert(rescue.invincibility.targetUnitId == pulledUnit.unitId);
+            pulledUnit.invincible += rescue.invincibility.frames;
         }
     }
 
@@ -2197,62 +2164,55 @@ void BattleSceneHades::applyCoreDamageTransactions(
 }
 
 void BattleSceneHades::applyCoreTeamEffectState(
-    const BattleSceneRoleBindings& bindings,
     const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events)
 {
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
     for (const auto& event : events)
     {
-        auto* target = requireFrameRole(bindings, event.targetUnitId);
+        auto& unit = scene_units_.requireUnit(event.targetUnitId);
         switch (event.type)
         {
         case KysChess::Battle::BattleTeamEffectEventType::Heal:
-            target->HP = event.after;
+            unit.hp = event.after;
             break;
         case KysChess::Battle::BattleTeamEffectEventType::MpRestore:
-            target->MP = event.after;
+            unit.mp = event.after;
             break;
         case KysChess::Battle::BattleTeamEffectEventType::ShieldGain:
-            comboStates[target->ID].shield = event.after;
+            unit.combo.shield = event.after;
             break;
         case KysChess::Battle::BattleTeamEffectEventType::CooldownReduced:
-            target->CoolDown = event.after;
+            unit.cooldown = event.after;
             break;
         }
     }
 }
 
 void BattleSceneHades::applyCoreFrameApplications(
-    const BattleSceneRoleBindings& bindings,
     const KysChess::Battle::BattleFrameApplications& applications)
 {
     for (const auto& knockback : applications.knockbacks)
     {
-        auto* target = requireFrameRole(bindings, knockback.targetUnitId);
-        target->Velocity += knockback.velocityDelta;
-        if (knockback.velocityCap > 0.0 && target->Velocity.norm() > knockback.velocityCap)
+        auto& targetUnit = scene_units_.requireUnit(knockback.targetUnitId);
+        targetUnit.velocity += knockback.velocityDelta;
+        if (knockback.velocityCap > 0.0 && targetUnit.velocity.norm() > knockback.velocityCap)
         {
-            target->Velocity.normTo(static_cast<float>(knockback.velocityCap));
+            targetUnit.velocity.normTo(static_cast<float>(knockback.velocityCap));
         }
+
         if (knockback.grantHurtFrame)
         {
-            target->HurtFrame = 1;
+            hurt_flash_timers_[knockback.targetUnitId] = HURT_FLASH_DURATION;
         }
     }
     for (const auto& restore : applications.mpRestores)
     {
-        auto* target = requireFrameRole(bindings, restore.unitId);
-        target->MP = std::min(GameUtil::MAX_MP, target->MP + restore.amount);
+        auto& unit = scene_units_.requireUnit(restore.unitId);
+        unit.mp = std::min(unit.maxMp, unit.mp + restore.amount);
     }
     for (const auto& heal : applications.unitHeals)
     {
-        auto* target = requireFrameRole(bindings, heal.targetUnitId);
-        target->HP = std::min(target->MaxHP, target->HP + heal.amount);
-    }
-    for (const auto& lastAttacker : applications.lastAttackers)
-    {
-        auto* target = requireFrameRole(bindings, lastAttacker.targetUnitId);
-        target->LastAttacker = requireFrameRole(bindings, lastAttacker.attackerUnitId);
+        auto& unit = scene_units_.requireUnit(heal.targetUnitId);
+        unit.hp = std::min(unit.maxHp, unit.hp + heal.amount);
     }
     for (int soundId : applications.attackSoundIds)
     {

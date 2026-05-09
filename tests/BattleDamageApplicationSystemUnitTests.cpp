@@ -55,18 +55,17 @@ struct BattleDamageApplicationTestFrame
     std::vector<BattleDamageTransactionInput> pendingTransactions;
     std::vector<BattleDamagePresentationInput> pendingPresentation;
     std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
-    std::map<int, int> pendingAliveByTeam;
     BattleProjectileFollowUpContext projectileFollowUps;
 
     BattleDamageApplicationTestFrame()
     {
         input.frame = 77;
         input.units = {
-            { 1, 0, true },
-            { 2, 1, true },
+            { 0, 0, true },
+            { 1, 1, true },
         };
         BattleRuntimeUnit attacker;
-        attacker.id = 1;
+        attacker.id = 0;
         attacker.team = 0;
         attacker.alive = true;
         attacker.hp = 40;
@@ -74,7 +73,7 @@ struct BattleDamageApplicationTestFrame
         attacker.position = { 0.0f, 0.0f, 0.0f };
         attacker.grid = { 0, 0 };
         BattleRuntimeUnit defender;
-        defender.id = 2;
+        defender.id = 1;
         defender.team = 1;
         defender.alive = true;
         defender.hp = 10;
@@ -83,16 +82,15 @@ struct BattleDamageApplicationTestFrame
         defender.grid = { 1, 0 };
         runtimeUnits.units = { attacker, defender };
         BattleDeathEffectExtras attackerEffects;
-        attackerEffects.id = 1;
+        attackerEffects.id = 0;
         BattleDeathEffectExtras defenderEffects;
-        defenderEffects.id = 2;
+        defenderEffects.id = 1;
         deathEffects.units = { attackerEffects, defenderEffects };
         input.deathEffectUnits = &runtimeUnits;
         input.deathEffects = &deathEffects;
         input.pendingTransactions = &pendingTransactions;
         input.pendingPresentation = &pendingPresentation;
         input.unitEffects = &unitEffects;
-        input.pendingAliveByTeam = &pendingAliveByTeam;
         input.projectileFollowUps = &projectileFollowUps;
         input.projectileFollowUpUnits = &runtimeUnits;
         projectileFollowUps.projectileSpeed = 12.0;
@@ -124,7 +122,7 @@ TEST_CASE("BattleDamageApplication_FatalDamageEmitsDeathAndKillRewardEvents", "[
 {
     auto frame = applicationInput();
     auto& input = frame.input;
-    auto damage = damageInput(1, 2, 20);
+    auto damage = damageInput(0, 1, 20);
     damage.attacker.killHealPct = 25;
     damage.attacker.bloodlustAttackPerKill = 7;
     frame.pendingTransactions.push_back(damage);
@@ -134,16 +132,16 @@ TEST_CASE("BattleDamageApplication_FatalDamageEmitsDeathAndKillRewardEvents", "[
     REQUIRE(result.transactions.size() == 1);
     CHECK(result.transactions[0].killed);
     REQUIRE(findLifecycleEvent(result, BattleDamageLifecycleEventType::UnitDied));
-    CHECK(findLifecycleEvent(result, BattleDamageLifecycleEventType::UnitDied)->targetUnitId == 2);
+    CHECK(findLifecycleEvent(result, BattleDamageLifecycleEventType::UnitDied)->targetUnitId == 1);
     REQUIRE(findLifecycleEvent(result, BattleDamageLifecycleEventType::KillRecorded));
-    CHECK(findLifecycleEvent(result, BattleDamageLifecycleEventType::KillRecorded)->sourceUnitId == 1);
+    CHECK(findLifecycleEvent(result, BattleDamageLifecycleEventType::KillRecorded)->sourceUnitId == 0);
     CHECK(result.transactions[0].attacker.hp == 65);
     CHECK(result.transactions[0].attacker.attack == 19);
     REQUIRE(result.gameplayEvents.size() >= 1);
     CHECK(result.gameplayEvents[0].type == BattleGameplayEventType::UnitDied);
     CHECK(result.gameplayEvents[0].frame == 77);
-    CHECK(result.gameplayEvents[0].sourceUnitId == 1);
-    CHECK(result.gameplayEvents[0].targetUnitId == 2);
+    CHECK(result.gameplayEvents[0].sourceUnitId == 0);
+    CHECK(result.gameplayEvents[0].targetUnitId == 1);
 }
 
 TEST_CASE("BattleDamageApplication_AggregatesPendingDamageByDefenderWhenRequested", "[battle][damage_application][unit]")
@@ -151,12 +149,12 @@ TEST_CASE("BattleDamageApplication_AggregatesPendingDamageByDefenderWhenRequeste
     auto frame = applicationInput();
     auto& input = frame.input;
     input.aggregatePendingTransactionsByDefender = true;
-    input.units.push_back({ 3, 0, true });
-    input.deathEffectUnits->units.push_back(runtimeUnit(3, 0, 80, 100, 0));
+    input.units.push_back({ 2, 0, true });
+    input.deathEffectUnits->units.push_back(runtimeUnit(2, 0, 80, 100, 0));
 
-    auto first = damageInput(1, 2, 3);
-    auto second = damageInput(3, 2, 4);
-    second.attacker.id = 3;
+    auto first = damageInput(0, 1, 3);
+    auto second = damageInput(2, 1, 4);
+    second.attacker.id = 2;
     second.attacker.hp = 80;
     second.attacker.maxHp = 100;
     frame.pendingTransactions.push_back(first);
@@ -165,7 +163,7 @@ TEST_CASE("BattleDamageApplication_AggregatesPendingDamageByDefenderWhenRequeste
     auto result = BattleDamageApplicationSystem().apply(input);
 
     REQUIRE(result.transactions.size() == 1);
-    CHECK(result.transactions[0].attacker.id == 3);
+    CHECK(result.transactions[0].attacker.id == 2);
     CHECK(result.transactions[0].defender.hp == 3);
 }
 
@@ -174,12 +172,12 @@ TEST_CASE("BattleDamageApplication_AggregatedPendingDamageUsesLastPresentationMe
     auto frame = applicationInput();
     auto& input = frame.input;
     input.aggregatePendingTransactionsByDefender = true;
-    input.units.push_back({ 3, 0, true });
-    input.deathEffectUnits->units.push_back(runtimeUnit(3, 0, 80, 100, 0));
+    input.units.push_back({ 2, 0, true });
+    input.deathEffectUnits->units.push_back(runtimeUnit(2, 0, 80, 100, 0));
 
-    auto first = damageInput(1, 2, 3);
-    auto second = damageInput(3, 2, 4);
-    second.attacker.id = 3;
+    auto first = damageInput(0, 1, 3);
+    auto second = damageInput(2, 1, 4);
+    second.attacker.id = 2;
     frame.pendingTransactions.push_back(first);
     frame.pendingTransactions.push_back(second);
 
@@ -205,14 +203,14 @@ TEST_CASE("BattleDamageApplication_AggregatedPendingDamageUsesLastPresentationMe
     REQUIRE(result.transactions.size() == 1);
     REQUIRE(result.visualEvents.size() == 1);
     CHECK(result.visualEvents[0].type == BattleVisualEventType::DamageNumber);
-    CHECK(result.visualEvents[0].targetUnitId == 2);
+    CHECK(result.visualEvents[0].targetUnitId == 1);
     CHECK(result.visualEvents[0].amount == 7);
     CHECK(result.visualEvents[0].textSize == 33);
     CHECK(result.visualEvents[0].color.r == 40);
     REQUIRE(result.logEvents.size() == 1);
     CHECK(result.logEvents[0].type == BattleLogEventType::Damage);
-    CHECK(result.logEvents[0].sourceUnitId == 3);
-    CHECK(result.logEvents[0].targetUnitId == 2);
+    CHECK(result.logEvents[0].sourceUnitId == 2);
+    CHECK(result.logEvents[0].targetUnitId == 1);
     CHECK(result.logEvents[0].amount == 7);
     CHECK(result.logEvents[0].skillName == "終段");
     CHECK(result.logEvents[0].detailText == "第二段");
@@ -222,7 +220,7 @@ TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsLog", "
 {
     auto frame = applicationInput();
     auto& input = frame.input;
-    auto damage = damageInput(1, 2, 20);
+    auto damage = damageInput(0, 1, 20);
     damage.defender.deathPrevention = true;
     damage.defender.deathPreventionFrames = 30;
     frame.pendingTransactions.push_back(damage);
@@ -235,7 +233,7 @@ TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsLog", "
     CHECK(result.transactions[0].defender.hp == 1);
     REQUIRE(result.logEvents.size() == 1);
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(result.logEvents[0].targetUnitId == 2);
+    CHECK(result.logEvents[0].targetUnitId == 1);
     CHECK(result.logEvents[0].amount == 30);
 }
 
@@ -243,18 +241,18 @@ TEST_CASE("BattleDamageApplication_DeathAoeBecomesProjectileCommand", "[battle][
 {
     auto frame = applicationInput();
     auto& input = frame.input;
-    frame.pendingTransactions.push_back(damageInput(1, 2, 20));
-    frame.unitEffects[2].deathAoePct = 40;
-    frame.unitEffects[2].deathAoeStunFrames = 5;
-    frame.unitEffects[2].deathAoeMaxTargets = 3;
+    frame.pendingTransactions.push_back(damageInput(0, 1, 20));
+    frame.unitEffects[1].deathAoePct = 40;
+    frame.unitEffects[1].deathAoeStunFrames = 5;
+    frame.unitEffects[1].deathAoeMaxTargets = 3;
 
     auto result = BattleDamageApplicationSystem().apply(input);
 
     REQUIRE(result.commands.size() == 1);
     const auto* command = std::get_if<BattleProjectileSpawnCommand>(&result.commands[0]);
     REQUIRE(command);
-    CHECK(command->request.initial.attackerUnitId == 2);
-    CHECK(command->request.initial.preferredTargetUnitId == 1);
+    CHECK(command->request.initial.attackerUnitId == 1);
+    CHECK(command->request.initial.preferredTargetUnitId == 0);
     CHECK(command->request.initial.scriptedDamage == 40);
     CHECK(command->request.initial.scriptedStunFrames == 5);
     CHECK(command->request.initial.track);
@@ -264,11 +262,11 @@ TEST_CASE("BattleDamageApplication_AllyDeathEffectsBecomeExplicitCommands", "[ba
 {
     auto frame = applicationInput();
     auto& input = frame.input;
-    input.units.push_back({ 3, 1, true });
-    frame.pendingTransactions.push_back(damageInput(1, 2, 20));
+    input.units.push_back({ 2, 1, true });
+    frame.pendingTransactions.push_back(damageInput(0, 1, 20));
 
     BattleRuntimeUnit allyUnit;
-    allyUnit.id = 3;
+    allyUnit.id = 2;
     allyUnit.team = 1;
     allyUnit.alive = true;
     allyUnit.hp = 50;
@@ -278,12 +276,12 @@ TEST_CASE("BattleDamageApplication_AllyDeathEffectsBecomeExplicitCommands", "[ba
     input.deathEffectUnits->units.push_back(allyUnit);
 
     BattleDeathEffectExtras dead;
-    dead.id = 2;
+    dead.id = 1;
     dead.comboIds = { 9 };
     dead.appliedEffects.push_back({ EffectType::DeathMedical, 20, 0, "", Trigger::Always, 0, 0, 0, 9 });
 
     BattleDeathEffectExtras ally;
-    ally.id = 3;
+    ally.id = 2;
     ally.shieldPctMaxHp = 30;
     ally.comboIds = { 9 };
     ally.appliedEffects.push_back({ EffectType::AllyDeathStatBoost, 4, 0, "", Trigger::Always, 0, 0, 0, 9 });
@@ -304,7 +302,7 @@ TEST_CASE("BattleDamageApplication_ReturnsBattleResultWithoutSceneTeamScan", "[b
 {
     auto frame = applicationInput();
     auto& input = frame.input;
-    frame.pendingTransactions.push_back(damageInput(1, 2, 20));
+    frame.pendingTransactions.push_back(damageInput(0, 1, 20));
 
     auto result = BattleDamageApplicationSystem().apply(input);
 

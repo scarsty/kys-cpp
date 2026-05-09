@@ -27,12 +27,12 @@ void configureBattleAttackWorld(
     Battle::BattleAttackWorld& world,
     const Battle::BattleRuntimeRulesConfig& rules);
 Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
-    Role* role,
+    const BattleSetupRoleSnapshot& snapshot,
     const RoleComboState* state,
     const Battle::BattleGridTransform& gridTransform);
-Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state);
-Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state);
-Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role);
+Battle::BattleStatusUnitState makeBattleStatusUnit(const BattleSetupRoleSnapshot& snapshot, const RoleComboState& state);
+Battle::BattleDamageUnitState makeBattleDamageUnit(const BattleSetupRoleSnapshot& snapshot, const RoleComboState* state);
+Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(int team);
 
 namespace
 {
@@ -40,7 +40,7 @@ constexpr double ROLE_MOVE_SPEED_DIVISOR = 22.0;
 
 struct BattleActionPlanInputContext
 {
-    const std::vector<Role*>* setupRoles = nullptr;
+    const std::vector<BattleSetupRoleSnapshot>* setupRoles = nullptr;
     Battle::BattleActionRulesConfig actionRules;
     Battle::BattleCastConfig castConfig;
     Battle::BattleCastGeometry castGeometry;
@@ -50,36 +50,36 @@ void initializeBattleActionPlanInputs(
     Battle::BattleRuntimeState::ActionState& action,
     BattleActionPlanInputContext& context);
 
-class RoleBattleProjection
+class BattleSetupRoleProjection
 {
 public:
-    explicit RoleBattleProjection(Role* role)
-        : role_(role)
+    explicit BattleSetupRoleProjection(const BattleSetupRoleSnapshot& snapshot)
+        : snapshot_(snapshot)
     {
-        assert(role_);
+        assert(snapshot_.unitId >= 0);
     }
 
-    int id() const { return role_->ID; }
-    int realRoleId() const { return role_->RealID; }
-    const std::string& name() const { return role_->Name; }
-    int team() const { return role_->Team; }
-    bool alive() const { return role_->Dead == 0; }
-    int hp() const { return role_->HP; }
-    int maxHp() const { return role_->MaxHP; }
-    int mp() const { return role_->MP; }
-    int maxMp() const { return role_->MaxMP; }
-    int attack() const { return role_->Attack; }
-    int defence() const { return role_->Defence; }
-    int speed() const { return role_->Speed; }
-    int star() const { return role_->Star; }
-    int invincible() const { return role_->Invincible; }
-    int hurtFrame() const { return role_->HurtFrame; }
-    int frozen() const { return role_->Frozen; }
-    int frozenMax() const { return role_->FrozenMax; }
-    Pointf position() const { return role_->Pos; }
-    Pointf velocity() const { return role_->Velocity; }
-    Pointf acceleration() const { return role_->Acceleration; }
-    Pointf facing() const { return role_->RealTowards; }
+    int id() const { return snapshot_.unitId; }
+    int realRoleId() const { return snapshot_.realRoleId; }
+    const std::string& name() const { return snapshot_.name; }
+    int team() const { return snapshot_.team; }
+    bool alive() const { return snapshot_.alive; }
+    int hp() const { return snapshot_.hp; }
+    int maxHp() const { return snapshot_.maxHp; }
+    int mp() const { return snapshot_.mp; }
+    int maxMp() const { return snapshot_.maxMp; }
+    int attack() const { return snapshot_.attack; }
+    int defence() const { return snapshot_.defence; }
+    int speed() const { return snapshot_.speed; }
+    int star() const { return snapshot_.star; }
+    int invincible() const { return snapshot_.invincible; }
+    int hurtFrame() const { return snapshot_.hurtFrame; }
+    int frozen() const { return snapshot_.frozen; }
+    int frozenMax() const { return snapshot_.frozenMax; }
+    Pointf position() const { return snapshot_.position; }
+    Pointf velocity() const { return snapshot_.velocity; }
+    Pointf acceleration() const { return snapshot_.acceleration; }
+    Pointf facing() const { return snapshot_.facing; }
 
     Battle::BattleUnitState worldUnit() const;
     Battle::BattleUnitState initializedWorldUnit(
@@ -94,44 +94,19 @@ public:
     Battle::BattleDamageUnitState damageUnit(const RoleComboState* state) const;
 
 private:
-    Role* role_ = nullptr;
+    const BattleSetupRoleSnapshot& snapshot_;
 };
 
-template<typename Cmp>
-Magic* selectBattleMagic(Role* role, Cmp cmp)
+Color damageTextColor(int team, bool emphasized)
 {
-    assert(role);
-    auto learnedMagics = role->getLearnedMagics();
-    if (learnedMagics.empty())
-    {
-        return nullptr;
-    }
-
-    Magic* chosen = learnedMagics.front();
-    double power = role->getMagicPower(chosen);
-    for (size_t i = 1; i < learnedMagics.size(); ++i)
-    {
-        double candidatePower = role->getMagicPower(learnedMagics[i]);
-        if (cmp(candidatePower, power))
-        {
-            power = candidatePower;
-            chosen = learnedMagics[i];
-        }
-    }
-    return chosen;
-}
-
-Color damageTextColor(const Role* role, bool emphasized)
-{
-    bool friendlyTarget = role && role->Team == 0;
-    if (friendlyTarget)
+    if (team == 0)
     {
         return emphasized ? Color{ 255, 45, 85, 255 } : Color{ 255, 90, 79, 255 };
     }
     return emphasized ? Color{ 47, 128, 255, 255 } : Color{ 102, 207, 255, 255 };
 }
 
-Battle::BattleUnitState RoleBattleProjection::worldUnit() const
+Battle::BattleUnitState BattleSetupRoleProjection::worldUnit() const
 {
     Battle::BattleUnitState unit;
     unit.id = id();
@@ -143,35 +118,20 @@ Battle::BattleUnitState RoleBattleProjection::worldUnit() const
     unit.velocity = velocity();
     unit.speed = speed() / ROLE_MOVE_SPEED_DIVISOR;
     unit.star = star();
-    unit.canAttack = role_->CoolDown == 0;
+    unit.canAttack = snapshot_.cooldown == 0;
     return unit;
 }
 
-bool isSummonedCloneRole(const Role* role)
+int getComboLookupId(int realRoleId, const RoleComboState& state)
 {
-    if (!role)
-    {
-        return false;
-    }
-    const auto& states = KysChess::ChessCombo::getActiveStates();
-    const auto it = states.find(role->ID);
-    return it != states.end() && it->second.isSummonedClone;
-}
-
-int getComboLookupId(const Role* role)
-{
-    if (!role)
+    if (state.isSummonedClone)
     {
         return -1;
     }
-    if (isSummonedCloneRole(role))
-    {
-        return -1;
-    }
-    return role->RealID >= 0 ? role->RealID : role->ID;
+    return realRoleId;
 }
 
-Battle::BattleUnitState RoleBattleProjection::initializedWorldUnit(
+Battle::BattleUnitState BattleSetupRoleProjection::initializedWorldUnit(
     const std::map<int, RoleComboState>& comboStates,
     const Battle::BattleWorldState& world,
     const std::map<int, Battle::BattleMovementPhysicsState>& movementRuntime,
@@ -209,19 +169,19 @@ Battle::BattleUnitState RoleBattleProjection::initializedWorldUnit(
     return unit;
 }
 
-Battle::BattleUnitState makeBattleWorldUnit(Role* role)
+Battle::BattleUnitState makeBattleWorldUnit(const BattleSetupRoleSnapshot& snapshot)
 {
-    return RoleBattleProjection(role).worldUnit();
+    return BattleSetupRoleProjection(snapshot).worldUnit();
 }
 
 Battle::BattleUnitState makeInitializedBattleWorldUnit(
-    Role* role,
+    const BattleSetupRoleSnapshot& snapshot,
     const std::map<int, RoleComboState>& comboStates,
     const Battle::BattleWorldState& world,
     const std::map<int, Battle::BattleMovementPhysicsState>& movementRuntime,
     const Battle::BattleActionRulesConfig& actionRules)
 {
-    return RoleBattleProjection(role).initializedWorldUnit(
+    return BattleSetupRoleProjection(snapshot).initializedWorldUnit(
         comboStates,
         world,
         movementRuntime,
@@ -229,7 +189,7 @@ Battle::BattleUnitState makeInitializedBattleWorldUnit(
 }
 
 Battle::BattleDeathEffectStore makeBattleDeathEffectStore(
-    const std::vector<Role*>& roles,
+    const std::vector<BattleSetupRoleSnapshot>& roles,
     const std::map<int, RoleComboState>& states)
 {
     Battle::BattleDeathEffectStore store;
@@ -242,19 +202,18 @@ Battle::BattleDeathEffectStore makeBattleDeathEffectStore(
         }
     }
 
-    for (auto* role : roles)
+    for (const auto& role : roles)
     {
-        assert(role);
-        const auto stateIt = states.find(role->ID);
+        const auto stateIt = states.find(role.unitId);
         assert(stateIt != states.end());
 
         Battle::BattleDeathEffectExtras extras;
-        extras.id = role->ID;
+        extras.id = role.unitId;
         extras.shieldPctMaxHp = stateIt->second.shieldPctMaxHP;
         extras.shieldOnAllyDeathTracker = stateIt->second.shieldOnAllyDeathTracker;
         extras.appliedEffects = stateIt->second.appliedEffects;
 
-        const int comboLookupId = getComboLookupId(role);
+        const int comboLookupId = getComboLookupId(role.realRoleId, stateIt->second);
         if (comboLookupId >= 0)
         {
             extras.comboIds = KysChess::ChessCombo::getCombosForRole(comboLookupId);
@@ -266,18 +225,76 @@ Battle::BattleDeathEffectStore makeBattleDeathEffectStore(
     return store;
 }
 
-std::vector<Role*> makeOrderedRuntimeRoles(
-    const Battle::BattleRuntimeState& runtime,
-    const std::unordered_map<int, Role*>& rolesByBattleId)
+const BattleSetupRoleSnapshot& requireSetupRoleSnapshot(
+    const std::vector<BattleSetupRoleSnapshot>& roles,
+    int unitId)
 {
-    std::vector<Role*> roles;
+    return Battle::requireBy(roles, unitId, &BattleSetupRoleSnapshot::unitId);
+}
+
+const Battle::BattleInitializationCloneIntent* findCloneIntent(
+    const Battle::BattleInitializationResult& initialization,
+    int cloneUnitId)
+{
+    return Battle::tryFindBy(initialization.cloneIntents, cloneUnitId, &Battle::BattleInitializationCloneIntent::cloneUnitId);
+}
+
+BattleSetupRoleSnapshot makeRuntimeSetupRoleSnapshot(
+    const Battle::BattleRuntimeUnit& unit,
+    const BattleSetupRoleSnapshot& source)
+{
+    auto snapshot = source;
+    snapshot.unitId = unit.id;
+    snapshot.realRoleId = unit.realRoleId;
+    snapshot.team = unit.team;
+    snapshot.alive = unit.alive;
+    snapshot.position = unit.position;
+    snapshot.velocity = unit.velocity;
+    snapshot.acceleration = unit.acceleration;
+    snapshot.facing = unit.facing;
+    snapshot.gridX = unit.grid.x;
+    snapshot.gridY = unit.grid.y;
+    snapshot.star = unit.star;
+    snapshot.cost = unit.cost;
+    snapshot.hp = unit.hp;
+    snapshot.maxHp = unit.maxHp;
+    snapshot.mp = unit.mp;
+    snapshot.maxMp = unit.maxMp;
+    snapshot.attack = unit.attack;
+    snapshot.defence = unit.defence;
+    snapshot.speed = unit.speed;
+    snapshot.cooldown = unit.cooldown;
+    snapshot.cooldownMax = unit.cooldownMax;
+    snapshot.haveAction = unit.haveAction;
+    snapshot.actFrame = unit.actFrame;
+    snapshot.operationType = unit.operationType;
+    snapshot.actType = unit.actType;
+    snapshot.operationCount = unit.operationCount;
+    snapshot.physicalPower = unit.physicalPower;
+    snapshot.invincible = unit.invincible;
+    snapshot.hurtFrame = unit.hurtFrame;
+    return snapshot;
+}
+
+std::vector<BattleSetupRoleSnapshot> makeOrderedRuntimeRoleSnapshots(
+    const Battle::BattleRuntimeState& runtime,
+    const BattleRuntimeSceneSetupInput& setup,
+    const Battle::BattleInitializationResult& initialization)
+{
+    std::vector<BattleSetupRoleSnapshot> roles;
     roles.reserve(runtime.units.units.size());
     for (const auto& unit : runtime.units.units)
     {
-        const auto roleIt = rolesByBattleId.find(unit.id);
-        assert(roleIt != rolesByBattleId.end());
-        assert(roleIt->second);
-        roles.push_back(roleIt->second);
+        if (const auto* source = Battle::tryFindBy(setup.roles, unit.id, &BattleSetupRoleSnapshot::unitId))
+        {
+            roles.push_back(makeRuntimeSetupRoleSnapshot(unit, *source));
+            continue;
+        }
+
+        const auto* clone = findCloneIntent(initialization, unit.id);
+        assert(clone);
+        const auto& source = requireSetupRoleSnapshot(setup.roles, clone->sourceUnitId);
+        roles.push_back(makeRuntimeSetupRoleSnapshot(unit, source));
     }
     return roles;
 }
@@ -353,7 +370,6 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSce
     setup.equipmentSynergies = makeBattleSetupEquipmentSynergyDefinitions();
     setup.neigongDefinitions = makeBattleSetupNeigongDefinitions();
     setup.obtainedNeigongMagicIds = context.obtainedNeigongMagicIds;
-    setup.nextCloneUnitId = context.nextCloneUnitId;
 
     for (const auto& unit : context.allyRoster)
     {
@@ -400,17 +416,7 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSce
     {
         for (const auto& unit : *roster)
         {
-            const auto roleIt = std::find_if(
-                context.roles.begin(),
-                context.roles.end(),
-                [&unit](Role* role)
-                {
-                    return role && role->ID == unit.unitId;
-                });
-            if (roleIt == context.roles.end() || !*roleIt)
-            {
-                continue;
-            }
+            const auto& role = requireSetupRoleSnapshot(context.roles, unit.unitId);
 
             const auto seedIt = std::find_if(
                 setup.units.begin(),
@@ -424,15 +430,15 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSce
                 continue;
             }
 
-            seedIt->baseMaxHp = (*roleIt)->MaxHP;
-            seedIt->baseAttack = (*roleIt)->Attack;
-            seedIt->baseDefence = (*roleIt)->Defence;
-            seedIt->baseSpeed = (*roleIt)->Speed;
-            seedIt->baseFist = (*roleIt)->Fist;
-            seedIt->baseSword = (*roleIt)->Sword;
-            seedIt->baseKnife = (*roleIt)->Knife;
-            seedIt->baseUnusual = (*roleIt)->Unusual;
-            seedIt->baseHiddenWeapon = (*roleIt)->HiddenWeapon;
+            seedIt->baseMaxHp = role.maxHp;
+            seedIt->baseAttack = role.attack;
+            seedIt->baseDefence = role.defence;
+            seedIt->baseSpeed = role.speed;
+            seedIt->baseFist = role.fist;
+            seedIt->baseSword = role.sword;
+            seedIt->baseKnife = role.knife;
+            seedIt->baseUnusual = role.unusual;
+            seedIt->baseHiddenWeapon = role.hiddenWeapon;
         }
     }
 
@@ -449,28 +455,19 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSce
     }
     for (auto& source : setup.cloneSources)
     {
-        const auto roleIt = std::find_if(
-            context.roles.begin(),
-            context.roles.end(),
-            [&source](Role* role)
-            {
-                return role && role->ID == source.sourceUnitId;
-            });
-        if (roleIt != context.roles.end() && *roleIt)
-        {
-            source.power = (*roleIt)->MaxHP + (*roleIt)->Attack + (*roleIt)->Defence;
-        }
+        const auto& role = requireSetupRoleSnapshot(context.roles, source.sourceUnitId);
+        source.power = role.maxHp + role.attack + role.defence;
     }
     for (const auto& [x, y] : context.cloneSpawnCells)
     {
         bool occupied = false;
-        for (auto* role : context.roles)
+        for (const auto& role : context.roles)
         {
-            if (!role || role->Dead != 0)
+            if (!role.alive)
             {
                 continue;
             }
-            if (role->X() == x && role->Y() == y)
+            if (role.gridX == x && role.gridY == y)
             {
                 occupied = true;
                 break;
@@ -483,69 +480,94 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSce
 }
 }  // namespace
 
-Role* findSetupRoleByBattleId(const std::vector<Role*>& roles, int unitId)
+const Battle::BattleSetupRosterUnit* tryFindRosterUnit(
+    const BattleRuntimeSceneSetupInput& setup,
+    int unitId)
 {
-    auto it = std::find_if(roles.begin(), roles.end(), [&](Role* role)
-        {
-            return role && role->ID == unitId;
-        });
-    assert(it != roles.end());
-    assert(*it);
-    return *it;
+    if (const auto* ally = Battle::tryFindBy(setup.allyRoster, unitId, &Battle::BattleSetupRosterUnit::unitId))
+    {
+        return ally;
+    }
+    return Battle::tryFindBy(setup.enemyRoster, unitId, &Battle::BattleSetupRosterUnit::unitId);
 }
 
-BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context)
+BattleSceneUnit makeInitializedSceneUnit(
+    const BattleSetupRoleSnapshot& role,
+    const BattleRuntimeSceneSetupInput& setup,
+    const Battle::BattleInitializationResult& initialization)
 {
-    const auto& setup = context.setup;
-    assert(setup.comboStates);
+    const auto* clone = findCloneIntent(initialization, role.unitId);
+    const auto* roster = clone ? nullptr : tryFindRosterUnit(setup, role.unitId);
 
-    Battle::BattleRuntimeInit init;
-    init.runtime.units.gridTransform = context.rules.gridTransform;
-    init.runtime.combo.units = *setup.comboStates;
-    init.runtime.units.units.reserve(setup.roles.size());
-    init.runtime.status.units.reserve(setup.roles.size());
-    init.runtime.world.units.reserve(setup.roles.size());
-    init.setup = makeBattleRuntimeSetupSeed(setup);
-
-    std::unordered_map<int, Role*> rolesByBattleId;
-    rolesByBattleId.reserve(setup.roles.size());
-    for (auto* role : setup.roles)
-    {
-        assert(role);
-        rolesByBattleId.emplace(role->ID, role);
-        auto stateIt = setup.comboStates->find(role->ID);
-        init.runtime.units.units.push_back(makeBattleRuntimeUnit(
-            role,
-            stateIt != setup.comboStates->end() ? &stateIt->second : nullptr,
-            context.rules.gridTransform));
-        if (stateIt != setup.comboStates->end())
-        {
-            init.runtime.status.units.push_back(Battle::makeBattleStatusRuntimeUnit(
-                makeBattleStatusUnit(role, stateIt->second)));
-        }
-        else
-        {
-            init.runtime.status.units.push_back(Battle::BattleStatusRuntimeUnit{ .id = role->ID });
-        }
-        init.runtime.world.units.push_back(makeBattleWorldUnit(role));
-    }
-
-    BattleRuntimeCreationResult result{
-        Battle::BattleRuntimeSession(std::move(init)),
-        {},
-        std::move(rolesByBattleId),
+    BattleSceneUnit unit;
+    unit.identity = {
+        role.unitId,
+        role.realRoleId,
+        role.team,
+        role.headId,
+        role.name,
     };
-    result.initializationResult = result.session.releaseInitializationResult();
+    unit.unitId = role.unitId;
+    unit.sourceUnitId = clone ? clone->sourceUnitId : role.unitId;
+    unit.gridX = role.gridX;
+    unit.gridY = role.gridY;
+    unit.faceTowards = role.faceTowards;
+    unit.position = role.position;
+    unit.velocity = role.velocity;
+    unit.acceleration = role.acceleration;
+    unit.realTowards = role.facing;
+    unit.fightFrames = role.fightFrames;
+    unit.star = role.star;
+    unit.chessInstanceId = roster ? roster->chessInstanceId : -1;
+    unit.weaponId = roster ? roster->weaponId : -1;
+    unit.armorId = roster ? roster->armorId : -1;
+    unit.cost = role.cost;
+    unit.hp = role.hp;
+    unit.maxHp = role.maxHp;
+    unit.mp = role.mp;
+    unit.maxMp = role.maxMp;
+    unit.attack = role.attack;
+    unit.defence = role.defence;
+    unit.speed = role.speed;
+    unit.cooldown = role.cooldown;
+    unit.cooldownMax = role.cooldownMax;
+    unit.frozen = role.frozen;
+    unit.frozenMax = role.frozenMax;
+    unit.invincible = role.invincible;
+    unit.actType = role.actType;
+    unit.actFrame = role.actFrame;
+    unit.alive = role.alive;
+    unit.active = role.alive;
+    unit.skillNames = role.skillNames;
+    return unit;
+}
+
+BattleInitializationSceneApplyResult makeBattleInitializationSceneApplyResult(
+    const BattleRuntimeSceneSetupInput& setup,
+    const Battle::BattleInitializationResult& initialization,
+    const Battle::BattleRuntimeState& runtime)
+{
+    BattleInitializationSceneApplyResult result;
+    result.comboStates = initialization.comboStates;
+    result.logEvents = initialization.logEvents;
+    result.visualEvents = initialization.visualEvents;
+
+    const auto orderedRoles = makeOrderedRuntimeRoleSnapshots(runtime, setup, initialization);
+    result.units.reserve(orderedRoles.size());
+    for (const auto& role : orderedRoles)
+    {
+        result.units.push_back(makeInitializedSceneUnit(role, setup, initialization));
+    }
     return result;
 }
 
 void commitInitializedBattleRuntimeConfiguration(
     Battle::BattleRuntimeSession& session,
     const BattleRuntimeBuildContext& context,
-    const std::unordered_map<int, Role*>& rolesByBattleId)
+    const Battle::BattleInitializationResult& initialization)
 {
     const auto& runtime = session.runtime();
-    const auto orderedRoles = makeOrderedRuntimeRoles(runtime, rolesByBattleId);
+    const auto orderedRoles = makeOrderedRuntimeRoleSnapshots(runtime, context.setup, initialization);
     Battle::BattleRuntimeSetupConfiguration config;
 
     config.world = runtime.world;
@@ -556,10 +578,9 @@ void commitInitializedBattleRuntimeConfiguration(
     const auto existingWorld = runtime.world;
     config.world.units.clear();
     config.world.units.reserve(orderedRoles.size());
-    for (auto* role : orderedRoles)
+    for (const auto& role : orderedRoles)
     {
-        assert(role);
-        if (role->Dead != 0)
+        if (!role.alive)
         {
             continue;
         }
@@ -602,20 +623,18 @@ void commitInitializedBattleRuntimeConfiguration(
     config.projectileFollowUps = context.rules.projectileFollowUps;
 
     config.damage.aggregatePendingTransactionsByDefender = true;
-    config.result.pendingAliveByTeam = context.setup.pendingAliveByTeam;
-    for (auto* role : orderedRoles)
+    for (const auto& role : orderedRoles)
     {
-        assert(role);
-        const auto stateIt = runtime.combo.units.find(role->ID);
+        const auto stateIt = runtime.combo.units.find(role.unitId);
         config.damage.unitExtras.push_back(Battle::makeBattleDamageRuntimeUnit(
             makeBattleDamageUnit(
                 role,
                 stateIt != runtime.combo.units.end() ? &stateIt->second : nullptr)));
-        config.damage.presentationStylesByDefender.emplace(role->ID, makeBattleDamagePresentationStyle(role));
+        config.damage.presentationStylesByDefender.emplace(role.unitId, makeBattleDamagePresentationStyle(role.team));
         if (stateIt != runtime.combo.units.end() && stateIt->second.deathAOEPct > 0)
         {
             config.damage.unitEffects.emplace(
-                role->ID,
+                role.unitId,
                 Battle::BattleDamageApplicationUnitEffects{
                     stateIt->second.deathAOEPct,
                     stateIt->second.deathAOEStunFrames,
@@ -634,128 +653,55 @@ void commitInitializedBattleRuntimeConfiguration(
     session.commitSetupConfiguration(std::move(config));
 }
 
-void applyBattleInitializationResult(
-    const Battle::BattleInitializationResult& result,
-    const BattleInitializationApplyContext& context)
+BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context)
 {
-    assert(context.battleRoles);
-    assert(context.friendsObj);
-    assert(context.comboStates);
-    assert(context.rolesByBattleId);
+    const auto& setup = context.setup;
+    assert(setup.comboStates);
 
-    *context.comboStates = result.comboStates;
+    Battle::BattleRuntimeInit init;
+    init.runtime.units.gridTransform = context.rules.gridTransform;
+    init.runtime.combo.units = *setup.comboStates;
+    init.runtime.units.units.reserve(setup.roles.size());
+    init.runtime.status.units.reserve(setup.roles.size());
+    init.runtime.world.units.reserve(setup.roles.size());
+    init.setup = makeBattleRuntimeSetupSeed(setup);
 
-    for (const auto& delta : result.roleDeltas)
+    for (const auto& role : setup.roles)
     {
-        auto* role = findSetupRoleByBattleId(*context.battleRoles, delta.unitId);
-        role->Star = delta.star;
-        role->MaxHP = delta.maxHp;
-        role->HP = delta.hp;
-        role->Attack = delta.attack;
-        role->Defence = delta.defence;
-        role->Speed = delta.speed;
-        role->Fist = delta.fist;
-        role->Sword = delta.sword;
-        role->Knife = delta.knife;
-        role->Unusual = delta.unusual;
-        role->HiddenWeapon = delta.hiddenWeapon;
+        assert(role.unitId >= 0);
+        auto stateIt = setup.comboStates->find(role.unitId);
+        init.runtime.units.units.push_back(makeBattleRuntimeUnit(
+            role,
+            stateIt != setup.comboStates->end() ? &stateIt->second : nullptr,
+            context.rules.gridTransform));
+        if (stateIt != setup.comboStates->end())
+        {
+            init.runtime.status.units.push_back(Battle::makeBattleStatusRuntimeUnit(
+                makeBattleStatusUnit(role, stateIt->second)));
+        }
+        else
+        {
+            init.runtime.status.units.push_back(Battle::BattleStatusRuntimeUnit{ .id = role.unitId });
+        }
+        init.runtime.world.units.push_back(makeBattleWorldUnit(role));
     }
 
-    for (const auto& intent : result.cloneIntents)
-    {
-        auto roleIt = context.rolesByBattleId->find(intent.sourceUnitId);
-        assert(roleIt != context.rolesByBattleId->end());
-        auto* source = roleIt->second;
-        assert(source);
-
-        context.friendsObj->push_back(*source);
-        auto* clone = &context.friendsObj->back();
-        clone->ID = intent.cloneUnitId;
-        clone->RealID = source->RealID;
-        clone->Auto = 2;
-        clone->Team = source->Team;
-        clone->Dead = 0;
-        clone->LastAttacker = nullptr;
-        clone->Velocity = { 0, 0, 0 };
-        clone->Acceleration = { 0, 0, 0 };
-        clone->UsingMagic = nullptr;
-        clone->HaveAction = 0;
-        clone->ActFrame = 0;
-        clone->CoolDown = 0;
-        clone->CoolDownMax = 0;
-        clone->Frozen = 0;
-        clone->FrozenMax = 0;
-        clone->Invincible = 0;
-        clone->HurtFrame = 0;
-        clone->Shake = 0;
-        clone->FindingWay = 0;
-        clone->OperationCount = 0;
-        clone->setPositionOnly(intent.gridX, intent.gridY);
-        clone->MaxHP = intent.roleValues.maxHp;
-        clone->HP = intent.roleValues.hp;
-        clone->Attack = intent.roleValues.attack;
-        clone->Defence = intent.roleValues.defence;
-        clone->Speed = intent.roleValues.speed;
-        context.battleRoles->push_back(clone);
-        (*context.rolesByBattleId)[intent.cloneUnitId] = clone;
-    }
-
-    for (const auto& delta : result.enemyTopDebuffs)
-    {
-        auto* role = findSetupRoleByBattleId(*context.battleRoles, delta.unitId);
-        role->Attack += delta.attackDelta;
-        role->Defence += delta.defenceDelta;
-    }
-}
-
-Battle::BattleSetupPlacementInput makeBattleSetupPlacementInput(const std::vector<Role*>& roles)
-{
-    Battle::BattleSetupPlacementInput input;
-    input.units.reserve(roles.size());
-    for (auto* role : roles)
-    {
-        assert(role);
-        input.units.push_back({
-            role->ID,
-            role->X(),
-            role->Y(),
-            role->FaceTowards,
-        });
-    }
-    return input;
+    BattleRuntimeCreationResult result{
+        Battle::BattleRuntimeSession(std::move(init)),
+        {},
+    };
+    auto initialization = result.session.releaseInitializationResult();
+    result.sceneInitialization = makeBattleInitializationSceneApplyResult(
+        setup,
+        initialization,
+        result.session.runtime());
+    commitInitializedBattleRuntimeConfiguration(result.session, context, initialization);
+    return result;
 }
 
 Battle::BattlePresentationColor makeBattlePresentationColor(Color color)
 {
     return { color.r, color.g, color.b, color.a };
-}
-
-Magic* selectLowerPowerMagic(Role* role)
-{
-    return selectBattleMagic(role, std::less<double>{});
-}
-
-Magic* selectHigherPowerMagic(Role* role)
-{
-    return selectBattleMagic(role, std::greater<double>{});
-}
-
-void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, int actType)
-{
-    assert(unit);
-    assert(result.decision.canCast);
-    unit->CoolDown = result.cooldownDelta;
-    unit->CoolDownMax = result.cooldownDelta;
-    unit->ActType = actType;
-    unit->ActFrame = 0;
-    unit->Velocity = { 0, 0, 0 };
-    unit->FindingWay = 0;
-}
-
-void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result)
-{
-    assert(unit);
-    unit->UsingMagic = nullptr;
 }
 
 void configureBattleAttackWorld(Battle::BattleAttackWorld& world, const Battle::BattleRuntimeRulesConfig& rules)
@@ -768,7 +714,7 @@ void configureBattleAttackWorld(Battle::BattleAttackWorld& world, const Battle::
     world.spendNonThroughOnHit = false;
 }
 
-Battle::BattleRuntimeUnit RoleBattleProjection::runtimeUnit(
+Battle::BattleRuntimeUnit BattleSetupRoleProjection::runtimeUnit(
     const RoleComboState* state,
     const Battle::BattleGridTransform& gridTransform) const
 {
@@ -785,19 +731,19 @@ Battle::BattleRuntimeUnit RoleBattleProjection::runtimeUnit(
     unit.attack = attack();
     unit.defence = defence();
     unit.speed = speed();
-    unit.cooldown = role_->CoolDown;
-    unit.cooldownMax = role_->CoolDownMax;
-    unit.haveAction = role_->HaveAction != 0;
-    unit.actFrame = role_->ActFrame;
-    unit.operationType = Battle::battleOperationFromLegacy(role_->OperationType);
-    unit.actType = role_->ActType;
-    unit.operationCount = role_->OperationCount;
-    unit.physicalPower = role_->PhysicalPower;
+    unit.cooldown = snapshot_.cooldown;
+    unit.cooldownMax = snapshot_.cooldownMax;
+    unit.haveAction = snapshot_.haveAction;
+    unit.actFrame = snapshot_.actFrame;
+    unit.operationType = snapshot_.operationType;
+    unit.actType = snapshot_.actType;
+    unit.operationCount = snapshot_.operationCount;
+    unit.physicalPower = snapshot_.physicalPower;
     unit.invincible = invincible();
     unit.hurtFrame = hurtFrame();
     for (int magicType = 0; magicType <= 4; ++magicType)
     {
-        unit.actPropertiesByMagicType.emplace(magicType, role_->getActProperty(magicType));
+        unit.actPropertiesByMagicType.emplace(magicType, snapshot_.actPropertiesByMagicType[magicType]);
     }
     unit.position = position();
     unit.velocity = velocity();
@@ -814,35 +760,14 @@ Battle::BattleRuntimeUnit RoleBattleProjection::runtimeUnit(
 }
 
 Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
-    Role* role,
+    const BattleSetupRoleSnapshot& snapshot,
     const RoleComboState* state,
     const Battle::BattleGridTransform& gridTransform)
 {
-    return RoleBattleProjection(role).runtimeUnit(state, gridTransform);
+    return BattleSetupRoleProjection(snapshot).runtimeUnit(state, gridTransform);
 }
 
-void applyBattleFrameUnitApplication(Role* role, const Battle::BattleFrameUnitApplication& application)
-{
-    assert(role);
-
-    role->CoolDown = application.cooldown;
-    role->ActFrame = application.actFrame;
-    role->ActType = application.actType;
-    role->MP = application.finalMp;
-    if (application.resetDashVelocity)
-    {
-        role->Velocity = { 0, 0, 0 };
-    }
-}
-
-void applyBattleProjectileCancelDamage(Role* role, int damage)
-{
-    assert(role);
-    assert(damage >= 0);
-    role->CancelDmg += damage;
-}
-
-Battle::BattleStatusUnitState RoleBattleProjection::statusUnit(const RoleComboState& state) const
+Battle::BattleStatusUnitState BattleSetupRoleProjection::statusUnit(const RoleComboState& state) const
 {
     Battle::BattleStatusUnitState unit;
     unit.id = id();
@@ -878,12 +803,12 @@ Battle::BattleStatusUnitState RoleBattleProjection::statusUnit(const RoleComboSt
     return unit;
 }
 
-Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state)
+Battle::BattleStatusUnitState makeBattleStatusUnit(const BattleSetupRoleSnapshot& snapshot, const RoleComboState& state)
 {
-    return RoleBattleProjection(role).statusUnit(state);
+    return BattleSetupRoleProjection(snapshot).statusUnit(state);
 }
 
-Battle::BattleDamageUnitState RoleBattleProjection::damageUnit(const RoleComboState* state) const
+Battle::BattleDamageUnitState BattleSetupRoleProjection::damageUnit(const RoleComboState* state) const
 {
     Battle::BattleDamageUnitState unit;
     unit.id = id();
@@ -913,36 +838,16 @@ Battle::BattleDamageUnitState RoleBattleProjection::damageUnit(const RoleComboSt
     return unit;
 }
 
-Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state)
+Battle::BattleDamageUnitState makeBattleDamageUnit(const BattleSetupRoleSnapshot& snapshot, const RoleComboState* state)
 {
-    return RoleBattleProjection(role).damageUnit(state);
+    return BattleSetupRoleProjection(snapshot).damageUnit(state);
 }
 
-void writeBattleDamageRenderUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit)
+Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(int team)
 {
-    if (role)
-    {
-        role->HP = unit.hp;
-        role->MP = unit.mp;
-        role->Invincible = unit.invincible;
-        role->Dead = unit.alive ? 0 : 1;
-    }
-
-    if (!state)
-    {
-        return;
-    }
-    state->shield = unit.shield;
-    state->blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
-}
-
-Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role)
-{
-    assert(role);
-
     Battle::BattleDamagePresentationStyle style;
-    style.normalDamageColor = makeBattlePresentationColor(damageTextColor(role, false));
-    style.emphasizedDamageColor = makeBattlePresentationColor(damageTextColor(role, true));
+    style.normalDamageColor = makeBattlePresentationColor(damageTextColor(team, false));
+    style.emphasizedDamageColor = makeBattlePresentationColor(damageTextColor(team, true));
     style.executeTextColor = makeBattlePresentationColor({ 255, 136, 48, 255 });
     style.normalDamageTextSize = NORMAL_DAMAGE_TEXT_SIZE;
     style.emphasizedDamageTextSize = ULT_DAMAGE_TEXT_SIZE;
@@ -950,86 +855,34 @@ Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* ro
     return style;
 }
 
-Battle::BattleActionSkillSeed makeBattleActionSkillSeed(Role* role, Magic* magic)
+Battle::BattleActionSkillSeed makeBattleActionSkillSeed(const BattleSetupSkillSnapshot& skill)
 {
     Battle::BattleActionSkillSeed seed;
-    if (!magic)
+    if (skill.id < 0)
     {
         return seed;
     }
-    seed.id = magic->ID;
-    seed.name = magic->Name;
-    seed.soundId = magic->SoundID;
-    seed.hurtType = magic->HurtType;
-    seed.attackAreaType = magic->AttackAreaType;
-    seed.magicType = magic->MagicType;
-    seed.visualEffectId = magic->EffectID;
-    seed.selectDistance = magic->SelectDistance;
-    seed.actProperty = role->getActProperty(magic->MagicType);
-    seed.magicPower = role->getMagicPower(magic);
+    seed.id = skill.id;
+    seed.name = skill.name;
+    seed.soundId = skill.soundId;
+    seed.hurtType = skill.hurtType;
+    seed.attackAreaType = skill.attackAreaType;
+    seed.magicType = skill.magicType;
+    seed.visualEffectId = skill.visualEffectId;
+    seed.selectDistance = skill.selectDistance;
+    seed.actProperty = skill.actProperty;
+    seed.magicPower = skill.magicPower;
     return seed;
 }
 
-Battle::BattleActionPlanSeed makeBattleActionPlanSeed(
-    Role* role,
-    Magic* normalMagic,
-    Magic* ultimateMagic,
-    bool hasEquippedSkill)
+Battle::BattleActionPlanSeed makeBattleActionPlanSeed(const BattleSetupRoleSnapshot& role)
 {
-    assert(role);
     Battle::BattleActionPlanSeed seed;
-    seed.unitId = role->ID;
-    seed.hasEquippedSkill = hasEquippedSkill;
-    seed.normalSkill = makeBattleActionSkillSeed(role, normalMagic);
-    seed.ultimateSkill = makeBattleActionSkillSeed(role, ultimateMagic);
+    seed.unitId = role.unitId;
+    seed.hasEquippedSkill = role.hasEquippedSkill;
+    seed.normalSkill = makeBattleActionSkillSeed(role.normalSkill);
+    seed.ultimateSkill = makeBattleActionSkillSeed(role.ultimateSkill);
     return seed;
-}
-
-void applyActionFrameUnitState(Role* role, const Battle::BattleUnitFrameTickState& state)
-{
-    assert(role);
-
-    role->ActFrame = state.actFrame;
-    role->ActType = state.actType;
-}
-
-void applyBlinkTeleportDelta(
-    Role* role,
-    const Battle::BattleBlinkTeleportDelta& teleport,
-    const BattleActionFrameApplyContext& context,
-    BattleActionFrameApplyResult& result)
-{
-    assert(role);
-    role->setPositionOnly(teleport.gridX, teleport.gridY);
-    role->Pos.x = teleport.position.x;
-    role->Pos.y = teleport.position.y;
-    role->Pos.z = 0;
-    role->Velocity = { 0, 0, 0 };
-    role->Acceleration = { 0, 0, context.gravity };
-    role->FindingWay = 0;
-    role->RealTowards = teleport.facing;
-    result.faceTowardsNearestUnitIds.push_back(role->ID);
-    result.blinkSoundCount++;
-}
-
-void applyBattleMovementPresentationResults(
-    const std::vector<Battle::BattleFrameMovementPresentationUnitResult>& movementResults,
-    const std::unordered_map<int, Role*>& rolesByBattleId)
-{
-    for (const auto& result : movementResults)
-    {
-        auto* role = Battle::requireMappedById(rolesByBattleId, result.unitId);
-        assert(role);
-        role->Frozen = result.frozenFrames;
-        role->Pos = result.position;
-        role->Velocity = result.velocity;
-        role->Acceleration = result.acceleration;
-        auto facing = result.facing;
-        if (facing.norm() > 0.01)
-        {
-            role->RealTowards = facing;
-        }
-    }
 }
 
 namespace
@@ -1044,113 +897,11 @@ void initializeBattleActionPlanInputs(
     action.castConfig = context.castConfig;
     action.castGeometry = context.castGeometry;
     action.actionRules = context.actionRules;
-    for (auto role : *context.setupRoles)
+    for (const auto& role : *context.setupRoles)
     {
-        assert(role);
-        Magic* equippedMagic = role->UsingMagic;
-        Magic* normalMagic = equippedMagic ? equippedMagic : selectLowerPowerMagic(role);
-        Magic* ultimateMagic = equippedMagic ? equippedMagic : selectHigherPowerMagic(role);
-        action.planSeeds[role->ID] = makeBattleActionPlanSeed(
-            role,
-            normalMagic,
-            ultimateMagic,
-            equippedMagic != nullptr);
+        action.planSeeds[role.unitId] = makeBattleActionPlanSeed(role);
     }
 }
 }  // namespace
-
-BattleActionFrameApplyResult applyBattleActionFrameResults(
-    const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
-    const BattleActionFrameApplyContext& context)
-{
-    assert(context.rolesByBattleId);
-
-    BattleActionFrameApplyResult result;
-    for (const auto& action : actionResults)
-    {
-        auto* role = Battle::requireMappedById(*context.rolesByBattleId, action.unitId);
-        assert(role);
-
-        if (action.castStarted)
-        {
-            auto* magic = action.castResult.decision.skillId >= 0
-                ? Save::getInstance()->getMagic(action.castResult.decision.skillId)
-                : nullptr;
-            if (action.castResult.decision.equipSkill)
-            {
-                assert(magic);
-                role->UsingMagic = magic;
-            }
-            assert(magic);
-            role->UsingMagic = magic;
-            applyBattleCastStart(role, action.castResult, magic->MagicType);
-        }
-        else
-        {
-            applyActionFrameUnitState(role, action.state);
-        }
-
-        if (!action.actionCommitted)
-        {
-            continue;
-        }
-
-        for (const auto& teleport : action.actionResult.blinkTeleports)
-        {
-            applyBlinkTeleportDelta(role, teleport, context, result);
-        }
-
-        if (action.actionInput.hasCast)
-        {
-            Magic* magic = role->UsingMagic;
-            assert(magic);
-            role->PreActTimer = context.battleFrame;
-            role->OperationCount = action.actionResult.operationCount;
-            applyBattleCastCommit(role, action.actionInput.cast);
-        }
-
-    }
-    return result;
-}
-
-BattleLifecycleApplicationResult applyBattleLifecycleEvents(
-    const BattleLifecycleApplicationContext& context,
-    const std::vector<Battle::BattleGameplayEvent>& events)
-{
-    assert(context.tracker);
-    assert(context.rolesByBattleId);
-
-    BattleLifecycleApplicationResult result;
-    for (const auto& event : events)
-    {
-        switch (event.type)
-        {
-        case Battle::BattleGameplayEventType::UnitDied:
-        {
-            auto* killer = event.sourceUnitId >= 0
-                ? Battle::requireMappedById(*context.rolesByBattleId, event.sourceUnitId)
-                : nullptr;
-            auto* victim = Battle::requireMappedById(*context.rolesByBattleId, event.targetUnitId);
-            assert(victim);
-            context.tracker->recordKill(killer, victim, event.frame);
-            context.tracker->recordDeath(victim, event.frame);
-            result.unitDied = true;
-            result.diedUnitIds.push_back(event.targetUnitId);
-            break;
-        }
-        case Battle::BattleGameplayEventType::BattleEnded:
-            if (context.currentBattleResult == -1)
-            {
-                result.battleEnded = true;
-                result.battleResult = event.amount;
-                context.tracker->recordBattleEnd(event.frame, event.amount);
-            }
-            break;
-        default:
-            break;
-        }
-    }
-    return result;
-}
 
 }  // namespace KysChess::BattleSceneBattleAdapter

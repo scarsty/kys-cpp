@@ -1,6 +1,9 @@
 #pragma once
 
-#include "BattleSceneAct.h"
+#include "BattlePostBattleSummary.h"
+#include "BattleSceneUnitStore.h"
+#include "ChessBattleEffects.h"
+#include "Types.h"
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
@@ -8,12 +11,12 @@
 #include "battle/BattleRuntimeRules.h"
 #include "battle/BattleRuntimeSession.h"
 
+#include <array>
 #include <cstddef>
 #include <deque>
 #include <map>
 #include <set>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 class BattleTracker;
@@ -21,37 +24,72 @@ class BattleTracker;
 namespace KysChess::BattleSceneBattleAdapter
 {
 
-struct BattleActionFrameApplyContext
+struct BattleSetupSkillSnapshot
 {
-    const std::unordered_map<int, Role*>* rolesByBattleId = nullptr;
-    int battleFrame = 0;
-    float gravity = 0.0f;
+    int id = -1;
+    std::string name;
+    int soundId = -1;
+    int hurtType = 0;
+    int attackAreaType = -1;
+    int magicType = -1;
+    int visualEffectId = -1;
+    int selectDistance = 1;
+    int actProperty = 0;
+    int magicPower = 0;
 };
 
-struct BattleActionFrameApplyResult
+struct BattleSetupRoleSnapshot
 {
-    int blinkSoundCount = 0;
-    std::vector<int> faceTowardsNearestUnitIds;
-};
-
-struct BattleLifecycleApplicationContext
-{
-    BattleTracker* tracker = nullptr;
-    const std::unordered_map<int, Role*>* rolesByBattleId = nullptr;
-    int currentBattleResult = -1;
-};
-
-struct BattleLifecycleApplicationResult
-{
-    bool battleEnded = false;
-    int battleResult = -1;
-    bool unitDied = false;
-    std::vector<int> diedUnitIds;
+    int unitId = -1;
+    int realRoleId = -1;
+    std::string name;
+    int headId = -1;
+    int team = -1;
+    bool alive = true;
+    int gridX = 0;
+    int gridY = 0;
+    int faceTowards = 0;
+    Pointf position;
+    Pointf velocity;
+    Pointf acceleration;
+    Pointf facing;
+    int star = 1;
+    int cost = 0;
+    int hp = 0;
+    int maxHp = 0;
+    int mp = 0;
+    int maxMp = 0;
+    int attack = 0;
+    int defence = 0;
+    int speed = 0;
+    int fist = 0;
+    int sword = 0;
+    int knife = 0;
+    int unusual = 0;
+    int hiddenWeapon = 0;
+    int cooldown = 0;
+    int cooldownMax = 0;
+    bool haveAction = false;
+    int actFrame = 0;
+    Battle::BattleOperationType operationType = Battle::BattleOperationType::None;
+    int actType = -1;
+    int operationCount = 0;
+    int physicalPower = 0;
+    int invincible = 0;
+    int hurtFrame = 0;
+    int frozen = 0;
+    int frozenMax = 0;
+    std::array<int, 5> fightFrames{};
+    std::array<int, 5> actPropertiesByMagicType{};
+    bool hasEquippedSkill = false;
+    std::string skillNames;
+    BattleSetupSkillSnapshot normalSkill;
+    BattleSetupSkillSnapshot ultimateSkill;
 };
 
 struct BattleRuntimeSceneSetupInput
 {
-    std::vector<Role*> roles;
+    std::vector<BattleSetupRoleSnapshot> roles;
     std::map<int, RoleComboState>* comboStates = nullptr;
     std::vector<Battle::BattleTerrainCell> terrainCells;
     std::vector<Battle::BattleSetupRosterUnit> allyRoster;
@@ -60,10 +98,8 @@ struct BattleRuntimeSceneSetupInput
     std::vector<std::pair<int, int>> cloneSpawnCells;
     std::vector<Battle::BattleRescueCellSnapshot> rescueCells;
     std::map<std::pair<int, int>, Pointf> rescuePositionsByCell;
-    std::map<int, int> pendingAliveByTeam;
     int battleFrame = 0;
     int rescueCounterAttackSkillId = -1;
-    int nextCloneUnitId = 100000;
 };
 
 struct BattleRuntimeBuildContext
@@ -72,43 +108,19 @@ struct BattleRuntimeBuildContext
     Battle::BattleRuntimeRulesConfig rules;
 };
 
+struct BattleInitializationSceneApplyResult
+{
+    std::map<int, RoleComboState> comboStates;
+    std::vector<BattleSceneUnit> units;
+    std::vector<Battle::BattleLogEvent> logEvents;
+    std::vector<Battle::BattleVisualEvent> visualEvents;
+};
+
 struct BattleRuntimeCreationResult
 {
     Battle::BattleRuntimeSession session;
-    Battle::BattleInitializationResult initializationResult;
-    std::unordered_map<int, Role*> rolesByBattleId;
+    BattleInitializationSceneApplyResult sceneInitialization;
 };
 
-struct BattleInitializationApplyContext
-{
-    std::vector<Role*>* battleRoles = nullptr;
-    std::deque<Role>* friendsObj = nullptr;
-    std::map<int, RoleComboState>* comboStates = nullptr;
-    std::unordered_map<int, Role*>* rolesByBattleId = nullptr;
-};
-
-Role* findSetupRoleByBattleId(const std::vector<Role*>& roles, int unitId);
 BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context);
-void commitInitializedBattleRuntimeConfiguration(
-    Battle::BattleRuntimeSession& session,
-    const BattleRuntimeBuildContext& context,
-    const std::unordered_map<int, Role*>& rolesByBattleId);
-void applyBattleInitializationResult(
-    const Battle::BattleInitializationResult& result,
-    const BattleInitializationApplyContext& context);
-Battle::BattleSetupPlacementInput makeBattleSetupPlacementInput(const std::vector<Role*>& roles);
-
-void applyBattleFrameUnitApplication(Role* role, const Battle::BattleFrameUnitApplication& application);
-void applyBattleProjectileCancelDamage(Role* role, int damage);
-
-void writeBattleDamageRenderUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
-void applyBattleMovementPresentationResults(
-    const std::vector<Battle::BattleFrameMovementPresentationUnitResult>& movementResults,
-    const std::unordered_map<int, Role*>& rolesByBattleId);
-BattleActionFrameApplyResult applyBattleActionFrameResults(
-    const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
-    const BattleActionFrameApplyContext& context);
-BattleLifecycleApplicationResult applyBattleLifecycleEvents(
-    const BattleLifecycleApplicationContext& context,
-    const std::vector<Battle::BattleGameplayEvent>& events);
 }  // namespace KysChess::BattleSceneBattleAdapter
