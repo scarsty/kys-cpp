@@ -23,29 +23,29 @@ enum class BattlePresentationCommandType
 
 struct BattlePresentationCommand
 {
-    BattlePresentationCommandType type = BattlePresentationCommandType::SpawnFloatingText;
-    int frame = 0;
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int amount = 0;
-    int durationFrames = 0;
-    int effectId = -1;
-    int textSize = 0;
-    int textMotionType = 0;
+    BattlePresentationCommandType type{};
+    int frame{};
+    int sourceUnitId{};
+    int targetUnitId{};
+    int amount{};
+    int durationFrames{};
+    int effectId{};
+    int textSize{};
+    int textMotionType{};
     std::string text;
     std::string skillName;
     std::string detailText;
     BattlePresentationColor color;
     Pointf position;
-    int visualEffectId = -1;
-    int projectileAttackId = -1;
-    int projectileRelatedAttackId = -1;
-    int projectileSourceUnitId = -1;
-    int projectileTargetUnitId = -1;
+    int visualEffectId{};
+    int projectileAttackId{};
+    int projectileRelatedAttackId{};
+    int projectileSourceUnitId{};
+    int projectileTargetUnitId{};
     Pointf projectilePosition;
     Pointf projectileVelocity;
-    int projectileDurationFrames = 0;
-    int projectileOperationKind = -1;
+    int projectileDurationFrames{};
+    int projectileOperationKind{};
 };
 
 struct BattlePresentationPlaybackPlan

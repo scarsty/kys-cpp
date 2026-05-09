@@ -653,6 +653,10 @@ TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[
 
     REQUIRE(result.movementPhysicsResults.size() == 1);
     CHECK(result.movementPhysicsResults[0].physicsAdvanced);
+    REQUIRE(result.movementPresentationResults.size() == result.movementPhysicsResults.size());
+    CHECK(result.movementPresentationResults[0].unitId == result.movementPhysicsResults[0].unitId);
+    CHECK(result.movementPresentationResults[0].position.x == result.movementPhysicsResults[0].state.position.x);
+    CHECK(result.movementPresentationResults[0].velocity.x == result.movementPhysicsResults[0].state.velocity.x);
     REQUIRE(result.movementPresentationResults.size() == 1);
     CHECK(result.movementPresentationResults[0].unitId == 1);
     CHECK(result.movementPresentationResults[0].position.x == 105.0f);
@@ -964,23 +968,23 @@ TEST_CASE("BattleCore_SlotSwitchCooldown_BoundsRepeatedReplans", "[battle][core]
     CHECK(second.decisions.at(1).slot == slotAfterFirst);
 }
 
-TEST_CASE("BattleFrameUnitRuntimeSystem_AdvancesCooldownAndIdleResourceTicks", "[battle][core]")
+TEST_CASE("BattleUnitFrameTickSystem_AdvancesCooldownAndIdleResourceTicks", "[battle][core]")
 {
-    BattleFrameUnitRuntimeState state;
+    BattleUnitFrameTickState state;
     state.cooldown = 1;
     state.actType = 2;
     state.operationType = BattleOperationType::Dash;
     state.haveAction = true;
     state.physicalPower = 9;
 
-    BattleFrameUnitRuntimeInput input;
+    BattleUnitFrameTickInput input;
     input.state = state;
     input.frame = 6;
     input.frozen = false;
     input.mpRegenIntervalFrames = 3;
     input.physicalPowerRegenIntervalFrames = 3;
 
-    auto result = BattleFrameUnitRuntimeSystem().advance(input);
+    auto result = BattleUnitFrameTickSystem().advance(input);
 
     CHECK(result.state.cooldown == 0);
     CHECK(result.state.actFrame == 0);
@@ -2056,12 +2060,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[ba
         triggeredEffect(KysChess::EffectType::TempFlatATK, KysChess::Trigger::OnShieldBreak, 14, 100, 45));
     state.combo.units.emplace(2, defenderCombo);
 
-    auto result = runBattleFrame(state);
+    runBattleFrame(state);
 
-    REQUIRE(result.applications.tempAttackBuffs.size() == 1);
-    CHECK(result.applications.tempAttackBuffs[0].unitId == 2);
-    CHECK(result.applications.tempAttackBuffs[0].attackBonus == 14);
+    CHECK(state.units.requireUnit(2).attack == 44);
     REQUIRE(state.combo.units.at(2).tempAttackBuffs.size() == 1);
+    CHECK(state.combo.units.at(2).tempAttackBuffs[0].attackBonus == 14);
     CHECK(state.combo.units.at(2).tempAttackBuffs[0].remainingFrames == 45);
 }
 
@@ -2414,6 +2417,48 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[ba
     CHECK(result.damageTransactions.front().finalHpDamage > 0);
     CHECK(result.damageTransactions.front().defender.hp < 100);
     CHECK(state.damage.pendingTransactions.empty());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDamageTakenMpGainInsideRuntime", "[battle][core][breakthrough]")
+{
+    auto frame = hitDamageFrameState(70, 100);
+    auto& state = frame.state;
+    state.world.frame = 1;
+    auto& defender = state.units.requireUnit(2);
+    defender.mp = 5;
+    defender.maxMp = 100;
+    defender.mpRecoveryBonusPct = 50;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 1);
+    const auto& damage = result.damageTransactions.front();
+    const int baseGain = static_cast<int>(
+        static_cast<double>(damage.finalHpDamage) / damage.defender.maxHp * 75.0);
+    const int expectedGain = static_cast<int>(baseGain * 1.5);
+    CHECK(damage.defender.mp == 5 + expectedGain);
+    CHECK(damage.defenderDelta.mpDelta == expectedGain);
+    CHECK(state.units.requireUnit(2).mp == 5 + expectedGain);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageTakenMpGainHonorsMpBlock", "[battle][core][breakthrough]")
+{
+    auto frame = hitDamageFrameState(70, 100);
+    auto& state = frame.state;
+    state.world.frame = 1;
+    auto& defender = state.units.requireUnit(2);
+    defender.mp = 5;
+    defender.maxMp = 100;
+    state.status.units[1].mpBlockTimer = 2;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 1);
+    const auto& damage = result.damageTransactions.front();
+    CHECK(damage.defender.mpBlocked);
+    CHECK(damage.defender.mp == 5);
+    CHECK(damage.defenderDelta.mpDelta == 0);
+    CHECK(state.units.requireUnit(2).mp == 5);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesMainProjectileImpactFreezeInCore", "[battle][core][breakthrough]")

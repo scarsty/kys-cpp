@@ -75,7 +75,7 @@ int computeTeamFlatShield(const std::map<int, RoleComboState>& comboStates)
 
 std::string shieldLogText(const char* prefix, int shield)
 {
-    return std::string(prefix) + std::to_string(shield) + "護盾";
+    return std::format("{}{}護盾", prefix, shield);
 }
 
 bool isTeamwideComboEffect(EffectType type)

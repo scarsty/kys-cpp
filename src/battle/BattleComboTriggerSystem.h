@@ -83,11 +83,11 @@ struct BattleComboTriggerInput
 
 struct BattleComboTriggerAction
 {
-    BattleComboTriggerActionType type = BattleComboTriggerActionType::HealPercentSelf;
-    Trigger trigger = Trigger::Always;
-    int effectIndex = -1;
-    int value = 0;
-    int durationFrames = 0;
+    BattleComboTriggerActionType type{};
+    Trigger trigger{};
+    int effectIndex{};
+    int value{};
+    int durationFrames{};
 };
 
 struct BattleTriggeredTeamHeal
@@ -99,8 +99,8 @@ struct BattleTriggeredTeamHeal
 
 struct BattleDodgeResolution
 {
-    int chancePct = 0;
-    bool dodged = false;
+    int chancePct{};
+    bool dodged{};
 };
 
 struct BattleAttackerHitDamageInput
@@ -119,9 +119,9 @@ enum class BattleAttackerHitDamageEventType
 
 struct BattleAttackerHitDamageEvent
 {
-    BattleAttackerHitDamageEventType type = BattleAttackerHitDamageEventType::Crit;
-    int value = 0;
-    int value2 = 0;
+    BattleAttackerHitDamageEventType type{};
+    int value{};
+    int value2{};
 };
 
 struct BattleAttackerHitDamageResult
@@ -147,9 +147,9 @@ enum class BattleDefenderHitDamageEventType
 
 struct BattleDefenderHitDamageEvent
 {
-    BattleDefenderHitDamageEventType type = BattleDefenderHitDamageEventType::DamageAdaptationStack;
-    int value = 0;
-    int value2 = 0;
+    BattleDefenderHitDamageEventType type{};
+    int value{};
+    int value2{};
 };
 
 struct BattleDefenderHitDamageResult
@@ -189,8 +189,8 @@ enum class BattleDefenderBlockCommand
 
 struct BattleStunCommand
 {
-    int frames = 0;
-    int effectIndex = -1;
+    int frames{};
+    int effectIndex{};
 };
 
 struct BattleProjectileBouncePrimeInput
@@ -254,31 +254,31 @@ enum class BattleShieldBreakCommandType
 
 struct BattleOnHitComboCommand
 {
-    BattleOnHitComboCommandType type = BattleOnHitComboCommandType::MpBlock;
-    int value = 0;
-    int value2 = 0;
+    BattleOnHitComboCommandType type{};
+    int value{};
+    int value2{};
 };
 
 struct BattleShieldBreakCommand
 {
-    BattleShieldBreakCommandType type = BattleShieldBreakCommandType::ShieldExplosion;
-    int value = 0;
-    int durationFrames = 0;
-    int effectIndex = -1;
+    BattleShieldBreakCommandType type{};
+    int value{};
+    int durationFrames{};
+    int effectIndex{};
 };
 
 struct BattleActivatedComboEffect
 {
-    int effectIndex = -1;
+    int effectIndex{};
     AppliedEffectInstance effect;
 };
 
 struct BattleComboTriggerEvent
 {
-    BattleComboTriggerHook hook = BattleComboTriggerHook::FrameTick;
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int effectIndex = -1;
+    BattleComboTriggerHook hook{};
+    int sourceUnitId{};
+    int targetUnitId{};
+    int effectIndex{};
     AppliedEffectInstance effect;
 };
 

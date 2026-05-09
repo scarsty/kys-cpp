@@ -7,6 +7,7 @@
 #include <cassert>
 #include <format>
 #include <set>
+#include <span>
 
 namespace KysChess::Battle
 {
@@ -39,8 +40,8 @@ void appendDeathAoeCommand(BattleDamageApplicationResult& result,
                            const BattleDamageTransactionResult& transaction,
                            int deadUnitId)
 {
-    auto effectIt = input.unitEffects.find(deadUnitId);
-    if (effectIt == input.unitEffects.end() || effectIt->second.deathAoePct <= 0)
+    auto effectIt = input.unitEffects->find(deadUnitId);
+    if (effectIt == input.unitEffects->end() || effectIt->second.deathAoePct <= 0)
     {
         return;
     }
@@ -100,7 +101,7 @@ void updateBattleResult(BattleDamageApplicationResult& result,
             aliveTeams.insert(unit.team);
         }
     }
-    for (const auto& [team, count] : input.pendingAliveByTeam)
+    for (const auto& [team, count] : *input.pendingAliveByTeam)
     {
         if (count > 0)
         {
@@ -325,17 +326,27 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
     const BattleDamageApplicationInput& input) const
 {
     assert(input.frame >= 0);
+    assert(input.pendingTransactions);
+    assert(input.pendingPresentation);
+    assert(input.unitEffects);
+    assert(input.pendingAliveByTeam);
     assert(input.deathEffects);
     assert(input.deathEffectUnits);
+    assert(input.projectileFollowUps);
 
     BattleDamageApplicationResult result;
     auto units = input.units;
-    auto pendingTransactions = input.aggregatePendingTransactionsByDefender
-        ? aggregatePendingTransactions(input.pendingTransactions)
-        : input.pendingTransactions;
-    auto pendingPresentation = input.aggregatePendingTransactionsByDefender
-        ? aggregatePendingPresentation(input.pendingTransactions, input.pendingPresentation)
-        : input.pendingPresentation;
+    std::vector<BattleDamageTransactionInput> aggregatedTransactions;
+    std::vector<BattleDamagePresentationInput> aggregatedPresentation;
+    std::span<const BattleDamageTransactionInput> pendingTransactions = *input.pendingTransactions;
+    std::span<const BattleDamagePresentationInput> pendingPresentation = *input.pendingPresentation;
+    if (input.aggregatePendingTransactionsByDefender)
+    {
+        aggregatedTransactions = aggregatePendingTransactions(*input.pendingTransactions);
+        aggregatedPresentation = aggregatePendingPresentation(*input.pendingTransactions, *input.pendingPresentation);
+        pendingTransactions = aggregatedTransactions;
+        pendingPresentation = aggregatedPresentation;
+    }
     assert(pendingPresentation.empty() || pendingPresentation.size() == pendingTransactions.size());
 
     for (std::size_t i = 0; i < pendingTransactions.size(); ++i)
@@ -410,7 +421,7 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
 
     updateBattleResult(result, input, units);
     assert(input.projectileFollowUpUnits);
-    auto followUpContext = input.projectileFollowUps;
+    auto followUpContext = *input.projectileFollowUps;
     auto followUps = expandBattleProjectileFollowUpCommands(
         result.commands,
         followUpContext,

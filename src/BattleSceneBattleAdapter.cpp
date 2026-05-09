@@ -11,6 +11,7 @@
 #include "GameUtil.h"
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattleDamageSystem.h"
+#include "battle/BattleFind.h"
 #include "battle/BattleProjectileTargetingSystem.h"
 
 #include <algorithm>
@@ -39,7 +40,7 @@ constexpr double ROLE_MOVE_SPEED_DIVISOR = 22.0;
 
 struct BattleActionPlanInputContext
 {
-    const std::vector<Role*>* roles = nullptr;
+    const std::vector<Role*>* setupRoles = nullptr;
     Battle::BattleActionRulesConfig actionRules;
     Battle::BattleCastConfig castConfig;
     Battle::BattleCastGeometry castGeometry;
@@ -482,7 +483,7 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSce
 }
 }  // namespace
 
-Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId)
+Role* findSetupRoleByBattleId(const std::vector<Role*>& roles, int unitId)
 {
     auto it = std::find_if(roles.begin(), roles.end(), [&](Role* role)
         {
@@ -624,7 +625,7 @@ void commitInitializedBattleRuntimeConfiguration(
     }
 
     BattleActionPlanInputContext actionContext;
-    actionContext.roles = &orderedRoles;
+    actionContext.setupRoles = &orderedRoles;
     actionContext.actionRules = context.rules.action;
     actionContext.castConfig = context.rules.castConfig;
     actionContext.castGeometry = context.rules.castGeometry;
@@ -646,7 +647,7 @@ void applyBattleInitializationResult(
 
     for (const auto& delta : result.roleDeltas)
     {
-        auto* role = findRoleByBattleId(*context.battleRoles, delta.unitId);
+        auto* role = findSetupRoleByBattleId(*context.battleRoles, delta.unitId);
         role->Star = delta.star;
         role->MaxHP = delta.maxHp;
         role->HP = delta.hp;
@@ -701,7 +702,7 @@ void applyBattleInitializationResult(
 
     for (const auto& delta : result.enemyTopDebuffs)
     {
-        auto* role = findRoleByBattleId(*context.battleRoles, delta.unitId);
+        auto* role = findSetupRoleByBattleId(*context.battleRoles, delta.unitId);
         role->Attack += delta.attackDelta;
         role->Defence += delta.defenceDelta;
     }
@@ -743,12 +744,10 @@ void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, in
 {
     assert(unit);
     assert(result.decision.canCast);
-    unit->OperationType = Battle::toLegacyOperationType(result.decision.operationType);
     unit->CoolDown = result.cooldownDelta;
     unit->CoolDownMax = result.cooldownDelta;
     unit->ActType = actType;
     unit->ActFrame = 0;
-    unit->HaveAction = 1;
     unit->Velocity = { 0, 0, 0 };
     unit->FindingWay = 0;
 }
@@ -756,8 +755,6 @@ void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, in
 void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result)
 {
     assert(unit);
-    unit->MP += result.mpDelta;
-    unit->limit();
     unit->UsingMagic = nullptr;
 }
 
@@ -824,17 +821,15 @@ Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
     return RoleBattleProjection(role).runtimeUnit(state, gridTransform);
 }
 
-void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnitRuntimeResult& result)
+void applyBattleFrameUnitApplication(Role* role, const Battle::BattleFrameUnitApplication& application)
 {
     assert(role);
 
-    role->CoolDown = result.state.cooldown;
-    role->ActFrame = result.state.actFrame;
-    role->ActType = result.state.actType;
-    role->OperationType = Battle::toLegacyOperationType(result.state.operationType);
-    role->HaveAction = result.state.haveAction ? 1 : 0;
-    role->PhysicalPower = result.state.physicalPower;
-    if (result.resetDashVelocity)
+    role->CoolDown = application.cooldown;
+    role->ActFrame = application.actFrame;
+    role->ActType = application.actType;
+    role->MP = application.finalMp;
+    if (application.resetDashVelocity)
     {
         role->Velocity = { 0, 0, 0 };
     }
@@ -888,39 +883,6 @@ Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboSt
     return RoleBattleProjection(role).statusUnit(state);
 }
 
-void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit)
-{
-    if (role)
-    {
-        role->Attack = unit.attack;
-        role->Invincible = unit.invincible;
-        role->Frozen = unit.frozenTimer;
-        role->FrozenMax = unit.frozenMaxTimer;
-    }
-
-    state.poisonTimer = unit.poisonTimer;
-    state.poisonTickDmg = unit.poisonTickPct;
-    state.poisonSourceId = unit.poisonSourceId;
-    state.bleedStacks = unit.bleedStacks;
-    state.bleedTimer = unit.bleedTimer;
-    state.bleedSourceId = unit.bleedSourceId;
-    state.controlImmunityFrames = unit.controlImmunityFrames;
-    state.mpBlockTimer = unit.mpBlockTimer;
-    state.damageImmunityTimer = unit.damageImmunityTimer;
-
-    state.tempAttackBuffs.clear();
-    for (const auto& buff : unit.tempAttackBuffs)
-    {
-        state.tempAttackBuffs.push_back({ buff.attackBonus, buff.remainingFrames });
-    }
-
-    state.dmgReduceDebuffs.clear();
-    for (const auto& debuff : unit.damageReduceDebuffs)
-    {
-        state.dmgReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
-    }
-}
-
 Battle::BattleDamageUnitState RoleBattleProjection::damageUnit(const RoleComboState* state) const
 {
     Battle::BattleDamageUnitState unit;
@@ -956,13 +918,12 @@ Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboSt
     return RoleBattleProjection(role).damageUnit(state);
 }
 
-void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit)
+void writeBattleDamageRenderUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit)
 {
     if (role)
     {
         role->HP = unit.hp;
         role->MP = unit.mp;
-        role->Attack = unit.attack;
         role->Invincible = unit.invincible;
         role->Dead = unit.alive ? 0 : 1;
     }
@@ -973,7 +934,6 @@ void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::Batt
     }
     state->shield = unit.shield;
     state->blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
-    state->deathPreventionUsed = unit.deathPreventionUsed;
 }
 
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(Role* role)
@@ -1025,14 +985,12 @@ Battle::BattleActionPlanSeed makeBattleActionPlanSeed(
     return seed;
 }
 
-void applyActionFrameUnitState(Role* role, const Battle::BattleFrameUnitRuntimeState& state)
+void applyActionFrameUnitState(Role* role, const Battle::BattleUnitFrameTickState& state)
 {
     assert(role);
 
-    role->HaveAction = state.haveAction ? 1 : 0;
     role->ActFrame = state.actFrame;
     role->ActType = state.actType;
-    role->OperationType = Battle::toLegacyOperationType(state.operationType);
 }
 
 void applyBlinkTeleportDelta(
@@ -1056,11 +1014,12 @@ void applyBlinkTeleportDelta(
 
 void applyBattleMovementPresentationResults(
     const std::vector<Battle::BattleFrameMovementPresentationUnitResult>& movementResults,
-    const std::vector<Role*>& roles)
+    const std::unordered_map<int, Role*>& rolesByBattleId)
 {
     for (const auto& result : movementResults)
     {
-        auto* role = findRoleByBattleId(roles, result.unitId);
+        auto* role = Battle::requireMappedById(rolesByBattleId, result.unitId);
+        assert(role);
         role->Frozen = result.frozenFrames;
         role->Pos = result.position;
         role->Velocity = result.velocity;
@@ -1079,13 +1038,13 @@ void initializeBattleActionPlanInputs(
     Battle::BattleRuntimeState::ActionState& action,
     BattleActionPlanInputContext& context)
 {
-    assert(context.roles);
+    assert(context.setupRoles);
 
     action.planSeeds.clear();
     action.castConfig = context.castConfig;
     action.castGeometry = context.castGeometry;
     action.actionRules = context.actionRules;
-    for (auto role : *context.roles)
+    for (auto role : *context.setupRoles)
     {
         assert(role);
         Magic* equippedMagic = role->UsingMagic;
@@ -1104,12 +1063,13 @@ BattleActionFrameApplyResult applyBattleActionFrameResults(
     const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
     const BattleActionFrameApplyContext& context)
 {
-    assert(context.roles);
+    assert(context.rolesByBattleId);
 
     BattleActionFrameApplyResult result;
     for (const auto& action : actionResults)
     {
-        auto* role = findRoleByBattleId(*context.roles, action.unitId);
+        auto* role = Battle::requireMappedById(*context.rolesByBattleId, action.unitId);
+        assert(role);
 
         if (action.castStarted)
         {
@@ -1158,7 +1118,7 @@ BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     const std::vector<Battle::BattleGameplayEvent>& events)
 {
     assert(context.tracker);
-    assert(context.roles);
+    assert(context.rolesByBattleId);
 
     BattleLifecycleApplicationResult result;
     for (const auto& event : events)
@@ -1168,9 +1128,10 @@ BattleLifecycleApplicationResult applyBattleLifecycleEvents(
         case Battle::BattleGameplayEventType::UnitDied:
         {
             auto* killer = event.sourceUnitId >= 0
-                ? findRoleByBattleId(*context.roles, event.sourceUnitId)
+                ? Battle::requireMappedById(*context.rolesByBattleId, event.sourceUnitId)
                 : nullptr;
-            auto* victim = findRoleByBattleId(*context.roles, event.targetUnitId);
+            auto* victim = Battle::requireMappedById(*context.rolesByBattleId, event.targetUnitId);
+            assert(victim);
             context.tracker->recordKill(killer, victim, event.frame);
             context.tracker->recordDeath(victim, event.frame);
             result.unitDied = true;

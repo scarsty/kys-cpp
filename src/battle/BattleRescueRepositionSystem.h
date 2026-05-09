@@ -42,34 +42,34 @@ struct BattleRescueCellSnapshot
 
 struct BattleRescueTeleportDelta
 {
-    int unitId = -1;
-    int pullerUnitId = -1;
+    int unitId{};
+    int pullerUnitId{};
     Point destinationCell;
 };
 
 struct BattleRescueCounterDelta
 {
     int unitId = -1;
-    int protectRemainingDelta = 0;
-    int executeRemainingDelta = 0;
+    int protectRemainingDelta{};
+    int executeRemainingDelta{};
 };
 
 struct BattleRescueHealDelta
 {
     int targetUnitId = -1;
-    int amount = 0;
+    int amount{};
 };
 
 struct BattleRescueInvincibilityDelta
 {
     int targetUnitId = -1;
-    int frames = 0;
+    int frames{};
 };
 
 struct BattleRescueBasicCounterAttackCommand
 {
-    int attackerUnitId = -1;
-    int targetUnitId = -1;
+    int attackerUnitId{};
+    int targetUnitId{};
 };
 
 struct BattleRescueRepositionInput

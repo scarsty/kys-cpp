@@ -3,6 +3,7 @@
 #include "../ChessEftIds.h"
 #include "BattleCombatIntent.h"
 #include "BattleFind.h"
+#include "BattleResourceRules.h"
 
 #include <algorithm>
 #include <cassert>
@@ -13,6 +14,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -164,9 +166,17 @@ namespace
 {
 bool hasCanonicalUnitStore(const BattleRuntimeState& state);
 bool isLastAliveInTeam(const BattleUnitStore& store, const BattleRuntimeUnit& unit);
-BattleFrameUnitRuntimeInput makeRuntimeUnitTickInput(
+BattleUnitFrameTickInput makeRuntimeUnitTickInput(
     const BattleRuntimeState& state,
     const BattleRuntimeUnit& unit);
+
+struct BattleRuntimeUnitFrameCommit
+{
+    int unitId = -1;
+    BattleUnitFrameTickResult tick;
+    std::vector<BattleComboFrameRuntimeEvent> comboEvents;
+    RoleComboState comboState;
+};
 
 BattlePresentationUnitSnapshot toPresentationUnit(const BattleUnitState& unit)
 {
@@ -263,7 +273,6 @@ long long enemyTopDebuffSortScore(const BattleRuntimeUnit& unit)
 }
 
 void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
-                                 BattleFrameApplications& applications,
                                  std::vector<BattleLogEvent>& logEvents)
 {
     int liveAllies = 0;
@@ -335,12 +344,6 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
         enemy->attack = std::max(0, enemy->attack - delta);
         enemy->defence = std::max(0, enemy->defence - delta);
         comboIt->second.enemyTopDebuffApplied = desired;
-        applications.enemyTopDebuffDeltas.push_back({
-            enemy->id,
-            -delta,
-            -delta,
-            desired,
-        });
         logEvents.push_back({
             BattleLogEventType::Status,
             BattlePresentationCurrentFrame,
@@ -672,38 +675,48 @@ void syncAttackUnitsFromWorld(BattleRuntimeState& state)
 void advanceRuntimeUnits(
     BattleRuntimeState& state,
     std::vector<BattleGameplayCommand>& commands,
-    std::vector<BattleFrameRuntimeUnitResult>& runtimeResults)
+    std::vector<BattleRuntimeUnitFrameCommit>& runtimeCommits,
+    std::vector<BattleFrameUnitApplication>& unitApplications)
 {
     BattleComboTriggerSystem comboSystem;
-    runtimeResults.clear();
+    runtimeCommits.clear();
+    unitApplications.clear();
     for (auto& unit : state.units.units)
     {
         assert(unit.id >= 0);
         auto input = makeRuntimeUnitTickInput(state, unit);
         const bool lastAlive = isLastAliveInTeam(state.units, unit);
 
-        BattleFrameRuntimeUnitResult committed;
+        BattleRuntimeUnitFrameCommit committed;
         committed.unitId = unit.id;
-        committed.result = BattleFrameUnitRuntimeSystem().advance(input);
+        committed.tick = BattleUnitFrameTickSystem().advance(input);
 
-        unit.cooldown = committed.result.state.cooldown;
-        unit.actFrame = committed.result.state.actFrame;
-        unit.haveAction = committed.result.state.haveAction;
-        unit.operationType = committed.result.state.operationType;
-        unit.actType = committed.result.state.actType;
-        unit.physicalPower = committed.result.state.physicalPower;
-        if (committed.result.mpDelta > 0 && !unit.mpBlocked)
+        unit.cooldown = committed.tick.state.cooldown;
+        unit.actFrame = committed.tick.state.actFrame;
+        unit.haveAction = committed.tick.state.haveAction;
+        unit.operationType = committed.tick.state.operationType;
+        unit.actType = committed.tick.state.actType;
+        unit.physicalPower = committed.tick.state.physicalPower;
+        if (committed.tick.mpDelta > 0 && !unit.mpBlocked)
         {
-            unit.mp += committed.result.mpDelta * (100 + unit.mpRecoveryBonusPct) / 100;
+            unit.mp += committed.tick.mpDelta * (100 + unit.mpRecoveryBonusPct) / 100;
         }
-        else if (committed.result.mpDelta < 0)
+        else if (committed.tick.mpDelta < 0)
         {
-            unit.mp += committed.result.mpDelta;
+            unit.mp += committed.tick.mpDelta;
         }
-        if (committed.result.resetDashVelocity)
+        if (committed.tick.resetDashVelocity)
         {
             unit.velocity = { 0, 0, 0 };
         }
+        unitApplications.push_back({
+            unit.id,
+            unit.cooldown,
+            unit.actFrame,
+            unit.actType,
+            unit.mp,
+            committed.tick.resetDashVelocity,
+        });
 
         auto comboIt = state.combo.units.find(unit.id);
         if (comboIt != state.combo.units.end())
@@ -722,7 +735,7 @@ void advanceRuntimeUnits(
                 frameEvents.begin(),
                 frameEvents.end());
         }
-        if (committed.result.skillFinished && comboIt != state.combo.units.end())
+        if (committed.tick.skillFinished && comboIt != state.combo.units.end())
         {
             auto skillFinishedEvents = comboSystem.collectSkillFinishedRuntimeEvents(
                 comboIt->second,
@@ -751,7 +764,7 @@ void advanceRuntimeUnits(
         {
             committed.comboState = comboIt->second;
         }
-        runtimeResults.push_back(std::move(committed));
+        runtimeCommits.push_back(std::move(committed));
     }
 }
 
@@ -1219,11 +1232,11 @@ BattleCastSkillState makeRuntimeCastSkillState(
     return skill;
 }
 
-BattleFrameUnitRuntimeInput makeRuntimeUnitTickInput(
+BattleUnitFrameTickInput makeRuntimeUnitTickInput(
     const BattleRuntimeState& state,
     const BattleRuntimeUnit& unit)
 {
-    BattleFrameUnitRuntimeInput input;
+    BattleUnitFrameTickInput input;
     input.state.cooldown = unit.cooldown;
     input.state.actFrame = unit.actFrame;
     input.state.actType = unit.actType;
@@ -1238,6 +1251,11 @@ BattleFrameUnitRuntimeInput makeRuntimeUnitTickInput(
         input.frozen = status->frozenTimer > 0;
     }
     return input;
+}
+
+std::pair<int, int> rescueCellKey(int x, int y)
+{
+    return { x, y };
 }
 
 void syncRescueStateFromRuntimeUnits(BattleRuntimeState& state)
@@ -1267,23 +1285,27 @@ void syncRescueStateFromRuntimeUnits(BattleRuntimeState& state)
         state.rescue.units.push_back(std::move(snapshot));
     }
 
+    std::map<std::pair<int, int>, int> occupantByCell;
+    for (const auto& unit : state.units.units)
+    {
+        if (!unit.alive)
+        {
+            continue;
+        }
+        occupantByCell[rescueCellKey(unit.grid.x, unit.grid.y)] = unit.id;
+    }
+
     for (auto& cell : state.rescue.cells)
     {
         cell.occupied = false;
         cell.occupantUnitId = -1;
-        for (const auto& unit : state.units.units)
+        const auto occupantIt = occupantByCell.find(rescueCellKey(cell.x, cell.y));
+        if (occupantIt == occupantByCell.end())
         {
-            if (!unit.alive)
-            {
-                continue;
-            }
-            if (unit.grid.x == cell.x && unit.grid.y == cell.y)
-            {
-                cell.occupied = true;
-                cell.occupantUnitId = unit.id;
-                break;
-            }
+            continue;
         }
+        cell.occupied = true;
+        cell.occupantUnitId = occupantIt->second;
     }
 }
 
@@ -1886,6 +1908,29 @@ BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit)
     cooldown.operationType = unit.operationType;
     cooldown.actType = unit.actType;
     return cooldown;
+}
+
+void applyDamageTakenMpGain(BattleDamageTransactionResult& transaction)
+{
+    if (transaction.finalHpDamage <= 0 || transaction.defender.maxHp <= 0)
+    {
+        return;
+    }
+
+    const int baseGain = static_cast<int>(
+        static_cast<double>(transaction.finalHpDamage) / transaction.defender.maxHp * 75.0);
+    const int mpGain = adjustedMpRestore(
+        transaction.defender.mpBlocked,
+        transaction.defender.mpRecoveryBonusPct,
+        baseGain);
+    if (mpGain <= 0)
+    {
+        return;
+    }
+
+    const int before = transaction.defender.mp;
+    transaction.defender.mp = std::min(transaction.defender.maxMp, transaction.defender.mp + mpGain);
+    transaction.defenderDelta.mpDelta += transaction.defender.mp - before;
 }
 
 void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamageTransactionResult& transaction)
@@ -2526,7 +2571,6 @@ bool applyFrameUnitHealCommand(
 bool applyFrameUnitShieldCommand(
     BattleRuntimeState& state,
     const BattleUnitShieldCommand& command,
-    BattleFrameApplications& applications,
     std::vector<BattleLogEvent>& logEvents)
 {
     auto comboIt = state.combo.units.find(command.targetUnitId);
@@ -2544,7 +2588,6 @@ bool applyFrameUnitShieldCommand(
     {
         runtimeUnit->shield += command.amount;
     }
-    applications.unitShields.push_back({ command.sourceUnitId, command.targetUnitId, command.amount });
     appendStatusEventLog(
         logEvents,
         command.sourceUnitId,
@@ -2556,7 +2599,6 @@ bool applyFrameUnitShieldCommand(
 bool applyFrameTempAttackBuffCommand(
     BattleRuntimeState& state,
     const BattleTempAttackBuffCommand& command,
-    BattleFrameApplications& applications,
     std::vector<BattleLogEvent>& logEvents)
 {
     auto* unit = state.units.findUnit(command.unitId);
@@ -2578,13 +2620,6 @@ bool applyFrameTempAttackBuffCommand(
             comboIt->second.tempAttackBuffs.push_back({ command.attackBonus, command.durationFrames });
         }
     }
-    applications.tempAttackBuffs.push_back({
-        command.unitId,
-        command.attackBonus,
-        command.defenceBonus,
-        command.durationFrames,
-        command.permanent,
-    });
     if (!command.reason.empty())
     {
         appendStatusEventLog(
@@ -2688,7 +2723,7 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* tempAttack = std::get_if<BattleTempAttackBuffCommand>(&command))
     {
-        return applyFrameTempAttackBuffCommand(state, *tempAttack, applications, logEvents);
+        return applyFrameTempAttackBuffCommand(state, *tempAttack, logEvents);
     }
     if (const auto* lastAttacker = std::get_if<BattleLastAttackerCommand>(&command))
     {
@@ -2714,7 +2749,7 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* shield = std::get_if<BattleUnitShieldCommand>(&command))
     {
-        return applyFrameUnitShieldCommand(state, *shield, applications, logEvents);
+        return applyFrameUnitShieldCommand(state, *shield, logEvents);
     }
     assert(false);
     return false;
@@ -2773,13 +2808,13 @@ BattleDamageApplicationInput makeFrameDamageApplicationInput(BattleRuntimeState&
     BattleDamageApplicationInput input;
     input.frame = state.world.frame;
     input.aggregatePendingTransactionsByDefender = state.damage.aggregatePendingTransactionsByDefender;
-    input.pendingTransactions = state.damage.pendingTransactions;
-    input.pendingPresentation = state.damage.pendingPresentation;
-    input.unitEffects = state.damage.unitEffects;
-    input.pendingAliveByTeam = state.result.pendingAliveByTeam;
+    input.pendingTransactions = &state.damage.pendingTransactions;
+    input.pendingPresentation = &state.damage.pendingPresentation;
+    input.unitEffects = &state.damage.unitEffects;
+    input.pendingAliveByTeam = &state.result.pendingAliveByTeam;
     input.deathEffects = &state.deathEffects.store;
     input.deathEffectUnits = &state.units;
-    input.projectileFollowUps = state.projectileFollowUps;
+    input.projectileFollowUps = &state.projectileFollowUps;
     input.projectileFollowUpUnits = &state.units;
 
     std::map<int, std::size_t> indexByUnitId;
@@ -3069,13 +3104,13 @@ void applyPostSkillInvincibility(
 
 void applyRuntimeComboEvents(
     BattleRuntimeState& state,
-    const std::vector<BattleFrameRuntimeUnitResult>& runtimeResults,
+    const std::vector<BattleRuntimeUnitFrameCommit>& runtimeCommits,
     std::vector<BattleGameplayCommand>& deferredCommands,
     std::vector<BattleTeamEffectEvent>& teamEffectEvents,
     std::vector<BattleEffectCommand>& effectCommands,
     std::vector<BattleLogEvent>& logEvents)
 {
-    for (const auto& result : runtimeResults)
+    for (const auto& result : runtimeCommits)
     {
         bool autoUltimateReady = false;
         for (const auto& event : result.comboEvents)
@@ -3284,7 +3319,11 @@ void advanceMovement(BattleRuntimeState& state, BattleFrameResult& result)
 void publishMovementPresentationResults(BattleFrameResult& result)
 {
     result.movementPresentationResults.clear();
-    result.movementPresentationResults.reserve(result.movement.snapshot.units.size());
+    result.movementPresentationResults.reserve(
+        std::max(result.movement.snapshot.units.size(), result.movementPhysicsResults.size()));
+
+    std::unordered_map<int, std::size_t> indexByUnitId;
+    indexByUnitId.reserve(result.movement.snapshot.units.size() + result.movementPhysicsResults.size());
 
     for (const auto& unit : result.movement.snapshot.units)
     {
@@ -3297,15 +3336,19 @@ void publishMovementPresentationResults(BattleFrameResult& result)
             presentation.facing = presentation.velocity;
             presentation.facing.normTo(1);
         }
-        result.movementPresentationResults.push_back(presentation);
+        indexByUnitId.emplace(presentation.unitId, result.movementPresentationResults.size());
+        result.movementPresentationResults.push_back(std::move(presentation));
     }
 
     for (const auto& physics : result.movementPhysicsResults)
     {
-        auto& presentation = requireBy(
-            result.movementPresentationResults,
-            physics.unitId,
-            &BattleFrameMovementPresentationUnitResult::unitId);
+        auto indexIt = indexByUnitId.find(physics.unitId);
+        if (indexIt == indexByUnitId.end())
+        {
+            indexIt = indexByUnitId.emplace(physics.unitId, result.movementPresentationResults.size()).first;
+            result.movementPresentationResults.push_back({ .unitId = physics.unitId });
+        }
+        auto& presentation = result.movementPresentationResults[indexIt->second];
         presentation.position = physics.state.position;
         presentation.velocity = physics.state.velocity;
         presentation.acceleration = physics.state.acceleration;
@@ -3348,9 +3391,9 @@ int actionRecoveryFrames(const BattleRuntimeState& state, BattleOperationType op
         : state.action.actionRecoveryFrames;
 }
 
-BattleFrameUnitRuntimeState makeActionRuntimeState(const BattleRuntimeUnit& unit)
+BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 {
-    BattleFrameUnitRuntimeState state;
+    BattleUnitFrameTickState state;
     state.cooldown = unit.cooldown;
     state.actFrame = unit.actFrame;
     state.actType = unit.actType;
@@ -3570,8 +3613,9 @@ void applyDamageAndLifecycle(
         application.commands.begin(),
         application.commands.end());
 
-    for (const auto& transaction : application.transactions)
+    for (auto transaction : application.transactions)
     {
+        applyDamageTakenMpGain(transaction);
         applyDamageResultToFrameState(state, transaction);
         applyRescueRepositionForDamage(state, result, transaction, logEvents, visualEvents);
         for (const auto& event : transaction.events)
@@ -3595,7 +3639,7 @@ void applyDamageAndLifecycle(
     }
     if (unitDied)
     {
-        appendEnemyTopDebuffUpdates(state, result.applications, logEvents);
+        appendEnemyTopDebuffUpdates(state, logEvents);
     }
 
     if (application.battleEnded)
@@ -3645,16 +3689,50 @@ void emitPresentationFrame(
     result.frame = recorder.consumeFrame();
 }
 
+BattleFrameComboLegacyMirror makeBattleFrameComboLegacyMirror(
+    int unitId,
+    const KysChess::RoleComboState& state)
+{
+    BattleFrameComboLegacyMirror mirror;
+    mirror.unitId = unitId;
+    mirror.shield = state.shield;
+    mirror.blockFirstHitsRemaining = state.blockFirstHitsRemaining;
+    return mirror;
+}
+
+BattleFrameRenderStatusUnit makeBattleFrameRenderStatusUnit(
+    const BattleStatusRuntimeUnit& status,
+    const BattleRuntimeUnit& unit)
+{
+    return {
+        status.id,
+        unit.invincible,
+        status.frozenTimer,
+        status.frozenMaxTimer,
+    };
+}
+
 void publishFrameApplyOutputs(BattleRuntimeState& state, BattleFrameResult& result)
 {
-    result.stateApplications.comboStates = state.combo.units;
-    result.stateApplications.statusUnits.clear();
-    result.stateApplications.statusUnits.reserve(state.status.units.size());
+    result.stateApplications.comboMirrors.clear();
+    result.stateApplications.comboMirrors.reserve(state.units.units.size());
+    for (const auto& unit : state.units.units)
+    {
+        const auto comboIt = state.combo.units.find(unit.id);
+        if (comboIt == state.combo.units.end())
+        {
+            continue;
+        }
+        result.stateApplications.comboMirrors.push_back(
+            makeBattleFrameComboLegacyMirror(unit.id, comboIt->second));
+    }
+    result.stateApplications.statusRenderUnits.clear();
+    result.stateApplications.statusRenderUnits.reserve(state.status.units.size());
     for (const auto& status : state.status.units)
     {
         if (const auto* unit = state.units.findUnit(status.id))
         {
-            result.stateApplications.statusUnits.push_back(makeBattleStatusUnitState(status, *unit));
+            result.stateApplications.statusRenderUnits.push_back(makeBattleFrameRenderStatusUnit(status, *unit));
         }
     }
     result.deathEffectTrackers.reserve(state.deathEffects.store.units.size());
@@ -3790,8 +3868,8 @@ double resolveFrameArmorPenetratedDefense(
         [rollPercent]() { return rollPercent; }).defense;
 }
 
-BattleFrameUnitRuntimeResult BattleFrameUnitRuntimeSystem::advance(
-    const BattleFrameUnitRuntimeInput& input) const
+BattleUnitFrameTickResult BattleUnitFrameTickSystem::advance(
+    const BattleUnitFrameTickInput& input) const
 {
     assert(input.frame >= 0);
     assert(input.mpRegenIntervalFrames > 0);
@@ -3799,7 +3877,7 @@ BattleFrameUnitRuntimeResult BattleFrameUnitRuntimeSystem::advance(
     assert(input.state.cooldown >= 0);
     assert(input.state.physicalPower >= 0);
 
-    BattleFrameUnitRuntimeResult result;
+    BattleUnitFrameTickResult result;
     result.state = input.state;
 
     const int previousCooldown = result.state.cooldown;
@@ -3841,15 +3919,16 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
     std::vector<BattleGameplayCommand> deferredCommands;
+    std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
 
     // Tick status timers and queue status damage, e.g. poison or bleed damage transactions.
     advanceStatus(state);
     // Tick unit cooldown/action/MP timers and collect frame combo events, e.g. skill-finished triggers.
-    advanceRuntimeUnits(state, frameCommands, result.runtimeResults);
+    advanceRuntimeUnits(state, frameCommands, runtimeCommits, result.unitApplications);
     // Apply combo timer events to runtime state, deferring auto-ultimate commands until late frame.
     applyRuntimeComboEvents(
         state,
-        result.runtimeResults,
+        runtimeCommits,
         deferredCommands,
         result.teamEffectEvents,
         result.effectCommands,
@@ -3887,8 +3966,11 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         visualEvents);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
     advanceAttacksAndResolveHits(state, result, frameCommands, gameplayEvents, logEvents, visualEvents);
-    // Refresh rescue/protect snapshots from current runtime units before damage lifecycle consumes them.
-    syncRescueStateFromRuntimeUnits(state);
+    // Refresh rescue/protect snapshots only when damage lifecycle can consume them.
+    if (!state.damage.pendingTransactions.empty())
+    {
+        syncRescueStateFromRuntimeUnits(state);
+    }
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
     applyDamageAndLifecycle(state, result, frameCommands, gameplayEvents, logEvents, visualEvents);
     frameCommands.insert(

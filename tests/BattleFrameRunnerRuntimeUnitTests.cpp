@@ -78,9 +78,9 @@ BattleRuntimeState ownedRuntimeState()
     return runtime;
 }
 
-BattleFrameUnitRuntimeInput finishingSkillRuntime()
+BattleUnitFrameTickInput finishingSkillRuntime()
 {
-    BattleFrameUnitRuntimeInput input;
+    BattleUnitFrameTickInput input;
     input.state.cooldown = 1;
     input.state.actType = 2;
     input.state.operationType = BattleOperationType::RangedProjectile;
@@ -92,7 +92,7 @@ BattleFrameUnitRuntimeInput finishingSkillRuntime()
     return input;
 }
 
-void applyRuntimeInput(BattleRuntimeUnit& unit, const BattleFrameUnitRuntimeInput& input)
+void applyRuntimeInput(BattleRuntimeUnit& unit, const BattleUnitFrameTickInput& input)
 {
     unit.cooldown = input.state.cooldown;
     unit.actFrame = input.state.actFrame;
@@ -270,7 +270,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_UsesRuntimeOwnedFrameState", "[battle][fra
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    CHECK(result.runtimeResults.empty());
+    CHECK(result.unitApplications.empty());
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][frame_runner][runtime]")
@@ -281,16 +281,26 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     };
     KysChess::RoleComboState combo;
     combo.shield = 12;
+    combo.blockFirstHitsRemaining = 2;
     state.combo.units.emplace(1, combo);
-    state.status.units.push_back(BattleStatusRuntimeUnit{ .id = 1 });
+    state.units.requireUnit(1).invincible = 4;
+    state.status.units.push_back(BattleStatusRuntimeUnit{
+        .id = 1,
+        .frozenTimer = 3,
+        .frozenMaxTimer = 9,
+    });
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.stateApplications.statusUnits.size() == 1);
-    CHECK(result.stateApplications.statusUnits[0].id == 1);
-    CHECK(result.stateApplications.statusUnits[0].hp == 80);
-    REQUIRE(result.stateApplications.comboStates.size() == 1);
-    CHECK(result.stateApplications.comboStates.at(1).shield == 12);
+    REQUIRE(result.stateApplications.statusRenderUnits.size() == 1);
+    CHECK(result.stateApplications.statusRenderUnits[0].unitId == 1);
+    CHECK(result.stateApplications.statusRenderUnits[0].invincible == 4);
+    CHECK(result.stateApplications.statusRenderUnits[0].frozenFrames == 3);
+    CHECK(result.stateApplications.statusRenderUnits[0].frozenMaxFrames == 9);
+    REQUIRE(result.stateApplications.comboMirrors.size() == 1);
+    CHECK(result.stateApplications.comboMirrors[0].unitId == 1);
+    CHECK(result.stateApplications.comboMirrors[0].shield == 12);
+    CHECK(result.stateApplications.comboMirrors[0].blockFirstHitsRemaining == 2);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")
@@ -309,13 +319,34 @@ TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[batt
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.runtimeResults.size() == 2);
-    CHECK(result.runtimeResults[0].unitId == 1);
-    CHECK(result.runtimeResults[0].result.skillFinished);
+    REQUIRE(result.unitApplications.size() == 2);
+    CHECK(result.unitApplications[0].unitId == 1);
+    CHECK(result.unitApplications[0].cooldown == 0);
+    CHECK(result.unitApplications[0].actType == -1);
+    CHECK_FALSE(result.unitApplications[0].resetDashVelocity);
     CHECK(state.units.requireUnit(1).cooldown == 0);
     CHECK(state.units.requireUnit(1).mp == 21);
     CHECK(state.units.requireUnit(1).physicalPower == 5);
     CHECK_FALSE(state.units.requireUnit(1).haveAction);
+}
+
+TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[battle][frame_runner][runtime][unit]")
+{
+    auto state = runtimeFrameState();
+    state.units.units = {
+        teamRuntimeUnit(1, 0, 80),
+        teamRuntimeUnit(2, 1, 100),
+    };
+    state.units.requireUnit(1).mpRecoveryBonusPct = 100;
+    state.units.requireUnit(2).mpBlocked = true;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.unitApplications.size() == 2);
+    CHECK(state.units.requireUnit(1).mp == 22);
+    CHECK(result.unitApplications[0].finalMp == 22);
+    CHECK(state.units.requireUnit(2).mp == 20);
+    CHECK(result.unitApplications[1].finalMp == 20);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrameState", "[battle][frame_runner][runtime][unit]")
@@ -335,13 +366,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.runtimeResults.size() == 1);
-    CHECK(result.runtimeResults[0].unitId == 1);
-    CHECK(result.runtimeResults[0].result.skillFinished);
-    REQUIRE(result.runtimeResults[0].comboEvents.size() == 1);
-    CHECK(result.runtimeResults[0].comboEvents[0].type == BattleComboFrameRuntimeEventType::PostSkillInvincibility);
+    REQUIRE(result.unitApplications.size() == 1);
+    CHECK(result.unitApplications[0].unitId == 1);
+    CHECK(result.unitApplications[0].cooldown == 0);
 
     CHECK(state.teamEffects.pendingCommands.empty());
+    REQUIRE(result.effectCommands.size() == 1);
+    CHECK(result.effectCommands[0].type == BattleEffectCommandType::AddInvincibility);
+    CHECK(result.effectCommands[0].targetUnitId == 1);
+    CHECK(result.effectCommands[0].value == 12);
     REQUIRE(result.teamEffectEvents.size() == 1);
     CHECK(result.teamEffectEvents[0].sourceUnitId == 1);
     CHECK(result.teamEffectEvents[0].targetUnitId == 1);

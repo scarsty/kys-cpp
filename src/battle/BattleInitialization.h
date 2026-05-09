@@ -121,36 +121,36 @@ struct BattleRuntimeInit
 
 struct BattleInitializationRoleDelta
 {
-    int unitId = -1;
-    int star = 1;
-    int maxHp = 0;
-    int hp = 0;
-    int attack = 0;
-    int defence = 0;
-    int speed = 0;
-    int fist = 0;
-    int sword = 0;
-    int knife = 0;
-    int unusual = 0;
-    int hiddenWeapon = 0;
+    int unitId{};
+    int star{};
+    int maxHp{};
+    int hp{};
+    int attack{};
+    int defence{};
+    int speed{};
+    int fist{};
+    int sword{};
+    int knife{};
+    int unusual{};
+    int hiddenWeapon{};
 };
 
 struct BattleInitializationCloneIntent
 {
-    int sourceUnitId = -1;
-    int cloneUnitId = -1;
-    int gridX = 0;
-    int gridY = 0;
+    int sourceUnitId{};
+    int cloneUnitId{};
+    int gridX{};
+    int gridY{};
     BattleInitializationRoleDelta roleValues;
     RoleComboState combo;
 };
 
 struct BattleInitializationEnemyTopDebuffDelta
 {
-    int unitId = -1;
-    int attackDelta = 0;
-    int defenceDelta = 0;
-    int appliedValue = 0;
+    int unitId{};
+    int attackDelta{};
+    int defenceDelta{};
+    int appliedValue{};
 };
 
 struct BattleInitializationResult

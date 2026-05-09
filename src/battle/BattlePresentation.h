@@ -106,17 +106,17 @@ struct BattleVisualEvent
 
 struct BattlePresentationUnitSnapshot
 {
-    int id = -1;
-    int realRoleId = -1;
+    int id{};
+    int realRoleId{};
     std::string name;
-    int team = 0;
-    bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    int mp = 0;
-    int maxMp = 0;
-    int cooldown = 0;
-    int invincible = 0;
+    int team{};
+    bool alive{};
+    int hp{};
+    int maxHp{};
+    int mp{};
+    int maxMp{};
+    int cooldown{};
+    int invincible{};
     Pointf position;
     Pointf velocity;
 };

@@ -11,14 +11,14 @@ struct BattleUnitStore;
 
 struct TimedAttackBuff
 {
-    int attackBonus = 0;
-    int remainingFrames = 0;
+    int attackBonus{};
+    int remainingFrames{};
 };
 
 struct DamageReduceDebuff
 {
-    int remainingFrames = 0;
-    int pct = 0;
+    int remainingFrames{};
+    int pct{};
 };
 
 struct BattleStatusUnitState
@@ -90,10 +90,10 @@ enum class BattleStatusEventType
 
 struct BattleStatusEvent
 {
-    BattleStatusEventType type = BattleStatusEventType::PoisonDamage;
-    int unitId = -1;
-    int sourceUnitId = -1;
-    int value = 0;
+    BattleStatusEventType type{};
+    int unitId{};
+    int sourceUnitId{};
+    int value{};
     std::string reason;
 };
 

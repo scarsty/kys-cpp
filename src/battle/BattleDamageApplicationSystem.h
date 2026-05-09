@@ -16,9 +16,9 @@ struct BattleUnitStore;
 
 struct BattleDamageApplicationUnitSnapshot
 {
-    int id = -1;
-    int team = 0;
-    bool alive = true;
+    int id{};
+    int team{};
+    bool alive{};
 };
 
 struct BattleDamageApplicationUnitEffects
@@ -63,10 +63,10 @@ enum class BattleDamageLifecycleEventType
 
 struct BattleDamageLifecycleEvent
 {
-    BattleDamageLifecycleEventType type = BattleDamageLifecycleEventType::UnitDied;
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int value = 0;
+    BattleDamageLifecycleEventType type{};
+    int sourceUnitId{};
+    int targetUnitId{};
+    int value{};
 };
 
 struct BattleDamageApplicationInput
@@ -74,13 +74,13 @@ struct BattleDamageApplicationInput
     int frame = 0;
     bool aggregatePendingTransactionsByDefender = false;
     std::vector<BattleDamageApplicationUnitSnapshot> units;
-    std::vector<BattleDamageTransactionInput> pendingTransactions;
-    std::vector<BattleDamagePresentationInput> pendingPresentation;
-    std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
-    std::map<int, int> pendingAliveByTeam;
+    const std::vector<BattleDamageTransactionInput>* pendingTransactions = nullptr;
+    const std::vector<BattleDamagePresentationInput>* pendingPresentation = nullptr;
+    const std::map<int, BattleDamageApplicationUnitEffects>* unitEffects = nullptr;
+    const std::map<int, int>* pendingAliveByTeam = nullptr;
     BattleDeathEffectStore* deathEffects = nullptr;
     BattleUnitStore* deathEffectUnits = nullptr;
-    BattleProjectileFollowUpContext projectileFollowUps;
+    const BattleProjectileFollowUpContext* projectileFollowUps = nullptr;
     const BattleUnitStore* projectileFollowUpUnits = nullptr;
 };
 

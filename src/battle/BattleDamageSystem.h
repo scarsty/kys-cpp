@@ -268,11 +268,11 @@ enum class BattleDamageStatusType
 
 struct BattleDamageEvent
 {
-    BattleDamageEventType type = BattleDamageEventType::DamageApplied;
-    BattleDamageStatusType statusType = BattleDamageStatusType::None;
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int value = 0;
+    BattleDamageEventType type{};
+    BattleDamageStatusType statusType{};
+    int sourceUnitId{};
+    int targetUnitId{};
+    int value{};
 };
 
 struct BattleDamageRequest
@@ -307,14 +307,14 @@ struct BattleDamageRequest
 
 struct BattleUnitDelta
 {
-    int unitId = -1;
-    int hpDelta = 0;
-    int mpDelta = 0;
-    int shieldDelta = 0;
-    int invincibleDelta = 0;
-    int attackDelta = 0;
-    bool aliveChanged = false;
-    bool alive = true;
+    int unitId{};
+    int hpDelta{};
+    int mpDelta{};
+    int shieldDelta{};
+    int invincibleDelta{};
+    int attackDelta{};
+    bool aliveChanged{};
+    bool alive{};
 };
 
 struct BattleDamageTransactionInput

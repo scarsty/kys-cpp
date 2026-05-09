@@ -28,10 +28,10 @@ enum class BattleDeathEffectEventType
 
 struct BattleDeathEffectEvent
 {
-    BattleDeathEffectEventType type = BattleDeathEffectEventType::AllyStatBoost;
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int value = 0;
+    BattleDeathEffectEventType type{};
+    int sourceUnitId{};
+    int targetUnitId{};
+    int value{};
     int comboId = -1;
 };
 

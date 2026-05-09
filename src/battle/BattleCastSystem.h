@@ -184,10 +184,10 @@ struct BattleActionTargetSnapshot
 
 struct BattleBlinkAttackCommand
 {
-    int unitId = -1;
-    int targetUnitId = -1;
-    bool selectedWeakest = false;
-    double reach = 0.0;
+    int unitId{};
+    int targetUnitId{};
+    bool selectedWeakest{};
+    double reach{};
 };
 
 struct BattleBlinkCell
@@ -208,11 +208,11 @@ struct BattleBlinkGeometryInput
 
 struct BattleBlinkTeleportDelta
 {
-    int unitId = -1;
-    int targetUnitId = -1;
-    bool selectedWeakest = false;
-    int gridX = 0;
-    int gridY = 0;
+    int unitId{};
+    int targetUnitId{};
+    bool selectedWeakest{};
+    int gridX{};
+    int gridY{};
     Pointf position;
     Pointf facing;
 };
@@ -236,7 +236,7 @@ struct BattleActionCommitInput
 struct BattleActionCommitResult
 {
     RoleComboState combo;
-    int operationCount = 0;
+    int operationCount{};
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleBlinkAttackCommand> blinkCommands;
     std::vector<BattleBlinkTeleportDelta> blinkTeleports;

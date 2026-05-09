@@ -23,7 +23,7 @@ namespace KysChess::BattleSceneBattleAdapter
 
 struct BattleActionFrameApplyContext
 {
-    const std::vector<Role*>* roles = nullptr;
+    const std::unordered_map<int, Role*>* rolesByBattleId = nullptr;
     int battleFrame = 0;
     float gravity = 0.0f;
 };
@@ -37,7 +37,7 @@ struct BattleActionFrameApplyResult
 struct BattleLifecycleApplicationContext
 {
     BattleTracker* tracker = nullptr;
-    const std::vector<Role*>* roles = nullptr;
+    const std::unordered_map<int, Role*>* rolesByBattleId = nullptr;
     int currentBattleResult = -1;
 };
 
@@ -87,7 +87,7 @@ struct BattleInitializationApplyContext
     std::unordered_map<int, Role*>* rolesByBattleId = nullptr;
 };
 
-Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
+Role* findSetupRoleByBattleId(const std::vector<Role*>& roles, int unitId);
 BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRuntimeBuildContext& context);
 void commitInitializedBattleRuntimeConfiguration(
     Battle::BattleRuntimeSession& session,
@@ -98,14 +98,13 @@ void applyBattleInitializationResult(
     const BattleInitializationApplyContext& context);
 Battle::BattleSetupPlacementInput makeBattleSetupPlacementInput(const std::vector<Role*>& roles);
 
-void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnitRuntimeResult& result);
+void applyBattleFrameUnitApplication(Role* role, const Battle::BattleFrameUnitApplication& application);
 void applyBattleProjectileCancelDamage(Role* role, int damage);
 
-void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit);
-void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
+void writeBattleDamageRenderUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
 void applyBattleMovementPresentationResults(
     const std::vector<Battle::BattleFrameMovementPresentationUnitResult>& movementResults,
-    const std::vector<Role*>& roles);
+    const std::unordered_map<int, Role*>& rolesByBattleId);
 BattleActionFrameApplyResult applyBattleActionFrameResults(
     const std::vector<Battle::BattleFrameActionUnitResult>& actionResults,
     const BattleActionFrameApplyContext& context);

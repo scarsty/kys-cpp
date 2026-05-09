@@ -35,7 +35,7 @@ private:
     BattleWorldState& world_;
 };
 
-struct BattleFrameUnitRuntimeState
+struct BattleUnitFrameTickState
 {
     int cooldown = 0;
     int actFrame = 0;
@@ -45,27 +45,27 @@ struct BattleFrameUnitRuntimeState
     int physicalPower = 0;
 };
 
-struct BattleFrameUnitRuntimeInput
+struct BattleUnitFrameTickInput
 {
-    BattleFrameUnitRuntimeState state;
+    BattleUnitFrameTickState state;
     int frame = 0;
     bool frozen = false;
     int mpRegenIntervalFrames = 0;
     int physicalPowerRegenIntervalFrames = 0;
 };
 
-struct BattleFrameUnitRuntimeResult
+struct BattleUnitFrameTickResult
 {
-    BattleFrameUnitRuntimeState state;
+    BattleUnitFrameTickState state;
     int mpDelta = 0;
     bool skillFinished = false;
     bool resetDashVelocity = false;
 };
 
-class BattleFrameUnitRuntimeSystem
+class BattleUnitFrameTickSystem
 {
 public:
-    BattleFrameUnitRuntimeResult advance(const BattleFrameUnitRuntimeInput& input) const;
+    BattleUnitFrameTickResult advance(const BattleUnitFrameTickInput& input) const;
 };
 
 struct BattleGridTransform
@@ -133,12 +133,14 @@ struct BattleUnitStore
 int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
 int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
 
-struct BattleFrameRuntimeUnitResult
+struct BattleFrameUnitApplication
 {
-    int unitId = -1;
-    BattleFrameUnitRuntimeResult result;
-    std::vector<BattleComboFrameRuntimeEvent> comboEvents;
-    RoleComboState comboState;
+    int unitId{};
+    int cooldown{};
+    int actFrame{};
+    int actType{};
+    int finalMp{};
+    bool resetDashVelocity{};
 };
 
 struct BattleActionRulesConfig
@@ -174,7 +176,7 @@ struct BattleActionSkillSeed
 
 struct BattleActionPlanSeed
 {
-    int unitId = -1;
+    int unitId{};
     bool hasEquippedSkill = false;
     BattleActionSkillSeed normalSkill;
     BattleActionSkillSeed ultimateSkill;
@@ -182,8 +184,8 @@ struct BattleActionPlanSeed
 
 struct BattleFrameActionUnitResult
 {
-    int unitId = -1;
-    BattleFrameUnitRuntimeState state;
+    int unitId{};
+    BattleUnitFrameTickState state;
     bool castStarted = false;
     bool actionCommitted = false;
     bool castCommitted = false;
@@ -203,7 +205,7 @@ struct BattleRuntimeRandom
 
 struct BattleFrameKnockbackDelta
 {
-    int targetUnitId = -1;
+    int targetUnitId{};
     Pointf velocityDelta;
     double velocityCap = 0.0;
     bool grantHurtFrame = false;
@@ -211,58 +213,34 @@ struct BattleFrameKnockbackDelta
 
 struct BattleFrameMpRestoreDelta
 {
-    int unitId = -1;
-    int amount = 0;
+    int unitId{};
+    int amount{};
 };
 
 struct BattleFrameUnitHealDelta
 {
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int amount = 0;
-};
-
-struct BattleFrameUnitShieldDelta
-{
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int amount = 0;
-};
-
-struct BattleFrameTempAttackBuffDelta
-{
-    int unitId = -1;
-    int attackBonus = 0;
-    int defenceBonus = 0;
-    int durationFrames = 0;
-    bool permanent = false;
+    int sourceUnitId{};
+    int targetUnitId{};
+    int amount{};
 };
 
 struct BattleFrameLastAttackerDelta
 {
-    int targetUnitId = -1;
-    int attackerUnitId = -1;
+    int targetUnitId{};
+    int attackerUnitId{};
 };
 
 struct BattleFrameRumbleEvent
 {
-    int lowFrequency = 0;
-    int highFrequency = 0;
-    int durationMs = 0;
-};
-
-struct BattleFrameEnemyTopDebuffDelta
-{
-    int unitId = -1;
-    int attackDelta = 0;
-    int defenceDelta = 0;
-    int appliedValue = 0;
+    int lowFrequency{};
+    int highFrequency{};
+    int durationMs{};
 };
 
 struct BattleFrameDeathEffectTrackerResult
 {
-    int unitId = -1;
-    int shieldOnAllyDeathTracker = 0;
+    int unitId{};
+    int shieldOnAllyDeathTracker{};
 };
 
 struct BattleFrameApplications
@@ -270,28 +248,40 @@ struct BattleFrameApplications
     std::vector<BattleFrameKnockbackDelta> knockbacks;
     std::vector<BattleFrameMpRestoreDelta> mpRestores;
     std::vector<BattleFrameUnitHealDelta> unitHeals;
-    std::vector<BattleFrameUnitShieldDelta> unitShields;
-    std::vector<BattleFrameTempAttackBuffDelta> tempAttackBuffs;
     std::vector<BattleFrameLastAttackerDelta> lastAttackers;
     std::vector<int> attackSoundIds;
     std::vector<BattleFrameRumbleEvent> rumbles;
-    std::vector<BattleFrameEnemyTopDebuffDelta> enemyTopDebuffDeltas;
+};
+
+struct BattleFrameComboLegacyMirror
+{
+    int unitId{};
+    int shield{};
+    int blockFirstHitsRemaining{};
+};
+
+struct BattleFrameRenderStatusUnit
+{
+    int unitId{};
+    int invincible{};
+    int frozenFrames{};
+    int frozenMaxFrames{};
 };
 
 struct BattleFrameStateApplications
 {
-    std::vector<BattleStatusUnitState> statusUnits;
-    std::map<int, RoleComboState> comboStates;
+    std::vector<BattleFrameRenderStatusUnit> statusRenderUnits;
+    std::vector<BattleFrameComboLegacyMirror> comboMirrors;
 };
 
 struct BattleFrameMovementPresentationUnitResult
 {
-    int unitId = -1;
+    int unitId{};
     Pointf position;
     Pointf velocity;
     Pointf acceleration;
     Pointf facing;
-    int frozenFrames = 0;
+    int frozenFrames{};
 };
 
 struct BattleFrameRescueUnitSnapshot
@@ -409,7 +399,7 @@ struct BattleFrameResult
     std::vector<BattleAttackEvent> attackEvents;
     BattleFrameApplications applications;
     std::vector<BattleProjectileCancelDamageCommand> projectileCancelDamageCommands;
-    std::vector<BattleFrameRuntimeUnitResult> runtimeResults;
+    std::vector<BattleFrameUnitApplication> unitApplications;
     std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
     std::vector<BattleFrameMovementPresentationUnitResult> movementPresentationResults;
     std::vector<BattleHitResolutionResult> hitResults;

@@ -18,12 +18,12 @@ enum class BattleTeamEffectEventType
 
 struct BattleTeamEffectEvent
 {
-    BattleTeamEffectEventType type = BattleTeamEffectEventType::Heal;
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int value = 0;
-    int before = 0;
-    int after = 0;
+    BattleTeamEffectEventType type{};
+    int sourceUnitId{};
+    int targetUnitId{};
+    int value{};
+    int before{};
+    int after{};
 };
 
 class BattleTeamEffectSystem

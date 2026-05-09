@@ -335,10 +335,9 @@ std::string appendDetail(std::string detail, const std::string& text)
     }
     if (!detail.empty())
     {
-        detail += "、";
+        return std::format("{}、{}", detail, text);
     }
-    detail += text;
-    return detail;
+    return text;
 }
 
 }  // namespace

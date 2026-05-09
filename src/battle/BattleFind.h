@@ -44,4 +44,12 @@ decltype(auto) requireById(Range& range, int id)
     return *item;
 }
 
+template<typename Map>
+decltype(auto) requireMappedById(Map& map, int id)
+{
+    auto it = map.find(id);
+    assert(it != map.end());
+    return (it->second);
+}
+
 }  // namespace KysChess::Battle

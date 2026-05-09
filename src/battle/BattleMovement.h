@@ -59,8 +59,8 @@ struct BattleMovementPhysicsCollisionWorld
 
 struct BattleFrameMovementPhysicsUnitResult
 {
-    int unitId = -1;
-    int frozenFrames = 0;
+    int unitId{};
+    int frozenFrames{};
     bool physicsAdvanced = false;
     BattleMovementPhysicsState state;
 };

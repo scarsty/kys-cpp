@@ -56,50 +56,50 @@ struct BattleHitSkillSnapshot
 
 struct BattleHpDamageCommand
 {
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int damage = 0;
-    bool critical = false;
-    bool ultimate = false;
-    bool executed = false;
-    int frozenFrames = 0;
+    int sourceUnitId{};
+    int targetUnitId{};
+    int damage{};
+    bool critical{};
+    bool ultimate{};
+    bool executed{};
+    int frozenFrames{};
     std::string skillName;
     std::string detailText;
 };
 
 struct BattleMpDamageCommand
 {
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
+    int sourceUnitId{};
+    int targetUnitId{};
     BattleDamageRequest damage;
 };
 
 struct BattleAcceptedHitSideEffectCommand
 {
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
+    int sourceUnitId{};
+    int targetUnitId{};
     BattleDamageRequest damage;
 };
 
 struct BattleTeamHealCommand
 {
-    int sourceUnitId = -1;
-    int flatHeal = 0;
-    int pctHeal = 0;
+    int sourceUnitId{};
+    int flatHeal{};
+    int pctHeal{};
     std::string reason;
 };
 
 struct BattleTeamMpRestoreCommand
 {
-    int sourceUnitId = -1;
-    int amount = 0;
+    int sourceUnitId{};
+    int amount{};
     std::string reason;
 };
 
 struct BattleTeamShieldCommand
 {
-    int sourceUnitId = -1;
-    int amount = 0;
+    int sourceUnitId{};
+    int amount{};
     bool refreshOnly = false;
     std::string reason;
 };
@@ -112,69 +112,69 @@ struct BattleProjectileSpawnCommand
 
 struct BattleCurrentHpBlastCommand
 {
-    int sourceUnitId = -1;
-    int damagePct = 0;
+    int sourceUnitId{};
+    int damagePct{};
     std::string reason;
 };
 
 struct BattleSpiralBleedProjectileCommand
 {
-    int sourceUnitId = -1;
-    int bleedStacks = 0;
-    int projectileCount = 0;
+    int sourceUnitId{};
+    int bleedStacks{};
+    int projectileCount{};
 };
 
 struct BattleNearbyTrackingProjectilesCommand
 {
     BattleAttackEvent prototype;
-    int centerTargetUnitId = -1;
-    int rangePixels = 0;
-    int damagePct = 0;
+    int centerTargetUnitId{};
+    int rangePixels{};
+    int damagePct{};
 };
 
 struct BattleHitExtraProjectilesCommand
 {
     BattleAttackEvent prototype;
-    int extraCount = 0;
-    int targetUnitId = -1;
+    int extraCount{};
+    int targetUnitId{};
 };
 
 struct BattleShieldExplosionCommand
 {
-    int sourceUnitId = -1;
-    int areaSize = 0;
-    int effectId = -1;
-    int damage = 0;
+    int sourceUnitId{};
+    int areaSize{};
+    int effectId{};
+    int damage{};
     std::string reason;
 };
 
 struct BattleMpRestoreCommand
 {
-    int unitId = -1;
-    int amount = 0;
+    int unitId{};
+    int amount{};
     std::string reason;
 };
 
 struct BattleAutoUltimateCommand
 {
-    int unitId = -1;
+    int unitId{};
     bool consumeMp = false;
     bool announce = false;
 };
 
 struct BattleKnockbackCommand
 {
-    int targetUnitId = -1;
+    int targetUnitId{};
     Pointf velocityDelta;
-    double velocityCap = 0.0;
+    double velocityCap{};
     bool grantHurtFrame = false;
 };
 
 struct BattleTempAttackBuffCommand
 {
-    int unitId = -1;
-    int attackBonus = 0;
-    int durationFrames = 0;
+    int unitId{};
+    int attackBonus{};
+    int durationFrames{};
     std::string reason;
     int defenceBonus = 0;
     bool permanent = false;
@@ -182,50 +182,50 @@ struct BattleTempAttackBuffCommand
 
 struct BattleLastAttackerCommand
 {
-    int targetUnitId = -1;
-    int attackerUnitId = -1;
+    int targetUnitId{};
+    int attackerUnitId{};
 };
 
 struct BattleRumbleCommand
 {
-    int lowFrequency = 0;
-    int highFrequency = 0;
-    int durationMs = 0;
+    int lowFrequency{};
+    int highFrequency{};
+    int durationMs{};
 };
 
 struct BattleProjectileCancelDamageCommand
 {
-    int attackId = -1;
-    int otherAttackId = -1;
-    int sourceUnitId = -1;
-    int otherSourceUnitId = -1;
-    int damage = 0;
-    int otherDamage = 0;
+    int attackId{};
+    int otherAttackId{};
+    int sourceUnitId{};
+    int otherSourceUnitId{};
+    int damage{};
+    int otherDamage{};
 };
 
 struct BattleDeathAoeProjectileCommand
 {
-    int sourceUnitId = -1;
-    int trackedTargetUnitId = -1;
-    int damage = 0;
-    int damagePct = 0;
-    int stunFrames = 0;
-    int maxTargets = 0;
+    int sourceUnitId{};
+    int trackedTargetUnitId{};
+    int damage{};
+    int damagePct{};
+    int stunFrames{};
+    int maxTargets{};
 };
 
 struct BattleUnitHealCommand
 {
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int amount = 0;
+    int sourceUnitId{};
+    int targetUnitId{};
+    int amount{};
     std::string reason;
 };
 
 struct BattleUnitShieldCommand
 {
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
-    int amount = 0;
+    int sourceUnitId{};
+    int targetUnitId{};
+    int amount{};
     std::string reason;
 };
 
@@ -269,8 +269,8 @@ struct BattleHitResolutionInput
 
 struct BattleHitResolutionResult
 {
-    int attackerUnitId = -1;
-    int defenderUnitId = -1;
+    int attackerUnitId{};
+    int defenderUnitId{};
     RoleComboState attackerCombo;
     RoleComboState defenderCombo;
     std::vector<BattleGameplayCommand> commands;
