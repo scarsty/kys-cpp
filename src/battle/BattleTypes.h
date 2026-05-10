@@ -127,12 +127,6 @@ struct BattleEvent
     double value = 0.0;
 };
 
-struct BattleSnapshot
-{
-    int frame = 0;
-    std::vector<BattleUnitState> units;
-};
-
 struct BattleTerrainCell
 {
     Pointf position;
@@ -141,7 +135,8 @@ struct BattleTerrainCell
 
 struct BattleTickResult
 {
-    BattleSnapshot snapshot;
+    int frame = 0;
+    std::vector<BattleUnitState> units;
     std::vector<BattleEvent> events;
     std::map<int, MovementDecision> decisions;
 };

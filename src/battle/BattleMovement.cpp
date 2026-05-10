@@ -268,15 +268,6 @@ Point movementPhysicsCell(const BattleMovementPhysicsCollisionWorld& world, Poin
     return cell;
 }
 
-bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& world, Point cell)
-{
-    auto it = std::ranges::find_if(world.cells, [&](const BattleMovementPhysicsCollisionCellSnapshot& snapshot)
-        {
-            return snapshot.x == cell.x && snapshot.y == cell.y;
-        });
-    return it != std::ranges::end(world.cells) && it->walkable;
-}
-
 std::optional<MovementDecision> chooseDash(const BattleWorldState& world,
                                            const BattleUnitState& unit,
                                            const BattleUnitState& target,
@@ -349,6 +340,27 @@ void recordEvent(std::vector<BattleEvent>& events,
 }
 
 }  // namespace
+
+std::size_t movementPhysicsCellIndex(const BattleMovementPhysicsCollisionWorld& world, int x, int y)
+{
+    assert(world.coordCount > 0);
+    assert(x >= 0);
+    assert(y >= 0);
+    assert(x < world.coordCount);
+    assert(y < world.coordCount);
+    return static_cast<std::size_t>(y * world.coordCount + x);
+}
+
+bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& world, Point cell)
+{
+    if (cell.x < 0 || cell.y < 0 || cell.x >= world.coordCount || cell.y >= world.coordCount)
+    {
+        return false;
+    }
+    const auto index = movementPhysicsCellIndex(world, cell.x, cell.y);
+    assert(index < world.walkableByCell.size());
+    return world.walkableByCell[index] != 0;
+}
 
 bool canMoveInPhysicsSnapshot(
     const BattleMovementPhysicsCollisionWorld& world,
@@ -499,7 +511,7 @@ MoveProbe BattleMovementPlanner::probeMove(const BattleUnitState& unit,
 BattleTickResult BattleMovementPlanner::tick()
 {
     BattleTickResult result;
-    result.snapshot.frame = world_.frame;
+    result.frame = world_.frame;
     std::map<int, Pointf> reservations;
 
     for (int unitId : movementOrder(world_))
@@ -674,8 +686,8 @@ BattleTickResult BattleMovementPlanner::tick()
     }
 
     world_.frame++;
-    result.snapshot.frame = world_.frame;
-    result.snapshot.units = world_.units;
+    result.frame = world_.frame;
+    result.units = world_.units;
     return result;
 }
 

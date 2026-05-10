@@ -123,38 +123,30 @@ void assertValidEvent(const BattleVisualEvent& event)
 }
 }  // namespace
 
-void BattlePresentationRecorder::beginFrame(BattlePresentationSnapshot snapshot)
-{
-    frame_.snapshot = std::move(snapshot);
-    frame_.gameplayEvents.clear();
-    frame_.logEvents.clear();
-    frame_.visualEvents.clear();
-}
-
 void BattlePresentationRecorder::beginFrame(int frame)
 {
     frame_ = {};
-    frame_.snapshot.frame = frame;
+    frame_.frame = frame;
 }
 
 void BattlePresentationRecorder::recordGameplay(BattleGameplayEvent event)
 {
     assertValidEvent(event);
-    stampFrame(event.frame, frame_.snapshot.frame);
+    stampFrame(event.frame, frame_.frame);
     frame_.gameplayEvents.push_back(std::move(event));
 }
 
 void BattlePresentationRecorder::recordLog(BattleLogEvent event)
 {
     assertValidEvent(event);
-    stampFrame(event.frame, frame_.snapshot.frame);
+    stampFrame(event.frame, frame_.frame);
     frame_.logEvents.push_back(std::move(event));
 }
 
 void BattlePresentationRecorder::recordVisual(BattleVisualEvent event)
 {
     assertValidEvent(event);
-    stampFrame(event.frame, frame_.snapshot.frame);
+    stampFrame(event.frame, frame_.frame);
     frame_.visualEvents.push_back(std::move(event));
 }
 

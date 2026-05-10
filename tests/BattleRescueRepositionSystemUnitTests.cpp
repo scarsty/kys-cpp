@@ -21,7 +21,7 @@ BattleRescueUnitSnapshot unit(int id, int team, Point cell)
 
 BattleRescueCellSnapshot cell(int x, int y, bool occupied = false)
 {
-    return { x, y, true, occupied, occupied ? 99 : -1 };
+    return { x, y, true, occupied, occupied ? 99 : -1, { static_cast<float>(x * 10), static_cast<float>(y * 10), 0.0f } };
 }
 
 }  // namespace
@@ -101,7 +101,7 @@ TEST_CASE("BattleRescueReposition_NoCommandWhenNoLegalCellExists", "[battle][res
     input.units[1].forcePullProtect = true;
     input.units[1].forcePullProtectRemaining = 1;
     input.cells = {
-        { 2, 3, false, false, -1 },
+        { 2, 3, false, false, -1, { 20.0f, 30.0f, 0.0f } },
         cell(5, 5),
     };
 

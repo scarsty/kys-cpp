@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <utility>
 
 namespace KysChess::BattleSceneSetupBuilder
 {
@@ -109,28 +110,28 @@ Magic* selectBattleMagic(
     return chosen;
 }
 
-KysChess::BattleSceneBattleAdapter::BattleSetupSkillSnapshot makeSkillSnapshot(
+KysChess::Battle::BattleActionSkillSeed makeSkillSeed(
     const Role& role,
     int star,
     Magic* magic)
 {
-    KysChess::BattleSceneBattleAdapter::BattleSetupSkillSnapshot snapshot;
+    KysChess::Battle::BattleActionSkillSeed seed;
     if (!magic)
     {
-        return snapshot;
+        return seed;
     }
 
-    snapshot.id = magic->ID;
-    snapshot.name = magic->Name;
-    snapshot.soundId = magic->SoundID;
-    snapshot.hurtType = magic->HurtType;
-    snapshot.attackAreaType = magic->AttackAreaType;
-    snapshot.magicType = magic->MagicType;
-    snapshot.visualEffectId = magic->EffectID;
-    snapshot.selectDistance = magic->SelectDistance;
-    snapshot.actProperty = actPropertyForMagicType(role, magic->MagicType);
-    snapshot.magicPower = magicPowerForStar(role, magic->ID, star);
-    return snapshot;
+    seed.id = magic->ID;
+    seed.name = magic->Name;
+    seed.soundId = magic->SoundID;
+    seed.hurtType = magic->HurtType;
+    seed.attackAreaType = magic->AttackAreaType;
+    seed.magicType = magic->MagicType;
+    seed.visualEffectId = magic->EffectID;
+    seed.selectDistance = magic->SelectDistance;
+    seed.actProperty = actPropertyForMagicType(role, magic->MagicType);
+    seed.magicPower = magicPowerForStar(role, magic->ID, star);
+    return seed;
 }
 
 std::string skillNamesForStar(
@@ -195,6 +196,69 @@ int facingTowardNearestOpponent(
         }
     }
     return faceTowards;
+}
+
+KysChess::Battle::BattleInitializationUnitSeed makeInitializationUnitSeed(
+    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+{
+    return {
+        unit.unitId,
+        unit.realRoleId,
+        unit.team,
+        unit.star,
+        unit.cost,
+        unit.vitals.maxHp,
+        unit.stats.attack,
+        unit.stats.defence,
+        unit.stats.speed,
+        unit.fist,
+        unit.sword,
+        unit.knife,
+        unit.unusual,
+        unit.hiddenWeapon,
+        {},
+    };
+}
+
+KysChess::Battle::BattleSetupRosterUnit makeRosterUnit(
+    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+{
+    return {
+        unit.unitId,
+        unit.realRoleId,
+        unit.team,
+        unit.star,
+        unit.cost,
+        unit.weaponId,
+        unit.armorId,
+        unit.chessInstanceId,
+        unit.fightsWon,
+        unit.sourceOrder,
+    };
+}
+
+KysChess::Battle::BattleInitializationCloneSource makeCloneSource(
+    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+{
+    return {
+        unit.unitId,
+        unit.realRoleId,
+        unit.vitals.maxHp + unit.stats.attack + unit.stats.defence,
+        unit.star,
+        unit.chessInstanceId,
+        unit.sourceOrder,
+    };
+}
+
+KysChess::Battle::BattleActionPlanSeed makeActionPlanSeed(
+    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+{
+    KysChess::Battle::BattleActionPlanSeed seed;
+    seed.unitId = unit.unitId;
+    seed.hasEquippedSkill = unit.hasEquippedSkill;
+    seed.normalSkill = unit.normalSkill;
+    seed.ultimateSkill = unit.ultimateSkill;
+    return seed;
 }
 }  // namespace
 
@@ -271,8 +335,8 @@ KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
                 return candidate > current;
             });
     }
-    unit.normalSkill = makeSkillSnapshot(role, request.star, normalMagic);
-    unit.ultimateSkill = makeSkillSnapshot(role, request.star, ultimateMagic);
+    unit.normalSkill = makeSkillSeed(role, request.star, normalMagic);
+    unit.ultimateSkill = makeSkillSeed(role, request.star, ultimateMagic);
     unit.skillNames = skillNamesForStar(role, request.star, request.magicSlots);
     return unit;
 }
@@ -288,9 +352,29 @@ BattleSceneSetupBuildResult buildSetupUnits(std::span<const BattleSceneSetupUnit
 
     BattleSceneSetupBuildResult result;
     result.units.reserve(requests.size());
+    result.initializationUnits.reserve(requests.size());
+    result.allyRoster.reserve(requests.size());
+    result.enemyRoster.reserve(requests.size());
+    result.cloneSources.reserve(requests.size());
+    result.actionPlanSeeds.reserve(requests.size());
     for (const auto& request : requests)
     {
-        result.units.push_back(makeSetupUnit(request, cells));
+        auto setupUnit = makeSetupUnit(request, cells);
+        result.initializationUnits.push_back(makeInitializationUnitSeed(setupUnit));
+        result.actionPlanSeeds.push_back(makeActionPlanSeed(setupUnit));
+
+        auto rosterUnit = makeRosterUnit(setupUnit);
+        if (setupUnit.team == 0)
+        {
+            result.allyRoster.push_back(rosterUnit);
+            result.cloneSources.push_back(makeCloneSource(setupUnit));
+        }
+        else
+        {
+            result.enemyRoster.push_back(rosterUnit);
+        }
+
+        result.units.push_back(std::move(setupUnit));
     }
     std::ranges::sort(
         result.units,
@@ -302,6 +386,11 @@ BattleSceneSetupBuildResult buildSetupUnits(std::span<const BattleSceneSetupUnit
     {
         assert(result.units[index].unitId == static_cast<int>(index));
     }
+    std::ranges::sort(result.initializationUnits, {}, &KysChess::Battle::BattleInitializationUnitSeed::unitId);
+    std::ranges::sort(result.actionPlanSeeds, {}, &KysChess::Battle::BattleActionPlanSeed::unitId);
+    std::ranges::sort(result.allyRoster, {}, &KysChess::Battle::BattleSetupRosterUnit::sourceOrder);
+    std::ranges::sort(result.enemyRoster, {}, &KysChess::Battle::BattleSetupRosterUnit::sourceOrder);
+    std::ranges::sort(result.cloneSources, {}, &KysChess::Battle::BattleInitializationCloneSource::sourceUnitId);
     return result;
 }
 

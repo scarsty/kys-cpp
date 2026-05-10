@@ -1,5 +1,6 @@
 #include "BattleStatusSystem.h"
 
+#include "../ChessBattleEffects.h"
 #include "BattleCore.h"
 
 #include <algorithm>
@@ -248,6 +249,40 @@ BattleStatusRuntimeUnit makeBattleStatusRuntimeUnit(const BattleStatusUnitState&
     BattleStatusRuntimeUnit status;
     status.id = unit.id;
     writeBattleStatusRuntimeUnit(status, unit);
+    return status;
+}
+
+BattleStatusUnitState makeBattleStatusUnitState(const BattleRuntimeUnit& unit, const KysChess::RoleComboState& state)
+{
+    BattleStatusUnitState status;
+    status.id = unit.id;
+    status.alive = unit.alive;
+    status.hp = unit.vitals.hp;
+    status.maxHp = unit.vitals.maxHp;
+    status.attack = unit.stats.attack;
+    status.invincible = unit.invincible;
+    status.effects.poisonTimer = state.poisonTimer;
+    status.effects.poisonTickPct = state.poisonTickDmg;
+    status.effects.poisonSourceId = state.poisonSourceId;
+    status.effects.bleedStacks = state.bleedStacks;
+    status.effects.bleedTimer = state.bleedTimer;
+    status.effects.bleedSourceId = state.bleedSourceId;
+    status.effects.freezeReductionPct = state.freezeReductionPct;
+    status.effects.shieldFreezeResPct = state.shieldFreezeResPct;
+    status.effects.controlImmunityFrames = state.controlImmunityFrames;
+    status.effects.mpBlockTimer = state.mpBlockTimer;
+    status.effects.damageImmunityAfterFrames = state.damageImmunityAfterFrames;
+    status.effects.damageImmunityDuration = state.damageImmunityDuration;
+    status.effects.damageImmunityTimer = state.damageImmunityTimer;
+
+    for (const auto& buff : state.tempAttackBuffs)
+    {
+        status.effects.tempAttackBuffs.push_back({ buff.attackBonus, buff.remainingFrames });
+    }
+    for (const auto& debuff : state.dmgReduceDebuffs)
+    {
+        status.effects.damageReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
+    }
     return status;
 }
 

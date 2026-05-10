@@ -144,11 +144,10 @@ TEST_CASE("BattleMovementPhysicsSystem_SlidesAndTicksDashRuntime", "[battle][mov
     collision.coordCount = 10;
     collision.defaultSeparationDistance = 4.0;
     collision.units = { { 0, true, input.state.position } };
-    collision.cells = {
-        { 8, 4, false },
-        { 8, 3, true },
-        { 6, 6, false },
-    };
+    collision.walkableByCell.assign(10 * 10, 1);
+    collision.walkableByCell[movementPhysicsCellIndex(collision, 8, 4)] = 0;
+    collision.walkableByCell[movementPhysicsCellIndex(collision, 9, 4)] = 0;
+    collision.walkableByCell[movementPhysicsCellIndex(collision, 6, 6)] = 0;
     input.collisionWorld = &collision;
     input.unitId = 0;
     input.currentPosition = input.state.position;

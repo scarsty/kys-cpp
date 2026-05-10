@@ -50,7 +50,6 @@ struct BattlePresentationCommand
 
 struct BattlePresentationPlaybackPlan
 {
-    BattlePresentationSnapshot snapshot;
     std::vector<BattlePresentationCommand> commands;
 };
 

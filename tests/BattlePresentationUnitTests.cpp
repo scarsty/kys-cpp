@@ -5,23 +5,18 @@
 
 using namespace KysChess::Battle;
 
-TEST_CASE("BattlePresentationRecorder_BeginsFrameWithSnapshotAndRecordsLogEvents", "[battle][presentation][unit]")
+TEST_CASE("BattlePresentationRecorder_BeginsFrameAndRecordsLogEvents", "[battle][presentation][unit]")
 {
-    BattlePresentationSnapshot snapshot;
-    snapshot.frame = 42;
-    snapshot.units.push_back({ 1, 101, "unit", 0, true, 50, 100, 20, 100, 3, 0, { 10, 20, 0 }, { 1, 0, 0 } });
-
     BattlePresentationRecorder recorder;
-    recorder.beginFrame(snapshot);
+    recorder.beginFrame(42);
     recorder.recordLog({ KysChess::Battle::BattleLogEventType::Status, BattlePresentationCurrentFrame, 1, 2, 0, "status" });
     recorder.recordLog({ KysChess::Battle::BattleLogEventType::Heal, 43, 1, 1, 12, "heal" });
 
     const auto& frame = recorder.frame();
-    REQUIRE(frame.snapshot.units.size() == 1);
     REQUIRE(frame.logEvents.size() == 2);
     CHECK(frame.visualEvents.empty());
     CHECK(frame.gameplayEvents.empty());
-    CHECK(frame.snapshot.frame == 42);
+    CHECK(frame.frame == 42);
     CHECK(frame.logEvents[0].frame == 42);
     CHECK(frame.logEvents[0].type == KysChess::Battle::BattleLogEventType::Status);
     CHECK(frame.logEvents[0].text == "status");
@@ -39,8 +34,7 @@ TEST_CASE("BattlePresentationRecorder_BeginFrameWithFrameOnlyStampsEvents", "[ba
     recorder.recordGameplay({ BattleGameplayEventType::BattleEnded });
 
     const auto& frame = recorder.frame();
-    CHECK(frame.snapshot.frame == 17);
-    CHECK(frame.snapshot.units.empty());
+    CHECK(frame.frame == 17);
     REQUIRE(frame.logEvents.size() == 1);
     CHECK(frame.logEvents[0].frame == 17);
     REQUIRE(frame.visualEvents.size() == 1);
@@ -52,7 +46,7 @@ TEST_CASE("BattlePresentationRecorder_BeginFrameWithFrameOnlyStampsEvents", "[ba
 TEST_CASE("BattlePresentationRecorder_StampsAndPreservesGameplayEventOrder", "[battle][presentation][unit]")
 {
     BattlePresentationRecorder recorder;
-    recorder.beginFrame({ 42, {} });
+    recorder.beginFrame(42);
 
     recorder.recordGameplay({ BattleGameplayEventType::CastStarted, BattlePresentationCurrentFrame, 1, 2, 0, -1 });
     recorder.recordGameplay({ BattleGameplayEventType::DamageApplied, 43, 1, 2, 12, -1 });
@@ -79,18 +73,18 @@ TEST_CASE("BattlePresentationRecorder_StampsAndPreservesGameplayEventOrder", "[b
 TEST_CASE("BattlePresentationRecorder_ConsumeFrameMovesCurrentFrameAndResets", "[battle][presentation][unit]")
 {
     BattlePresentationRecorder recorder;
-    recorder.beginFrame({ 7, {} });
+    recorder.beginFrame(7);
     recorder.recordGameplay({ BattleGameplayEventType::ProjectileExpired, BattlePresentationCurrentFrame, 1, 3, 0, 11 });
     recorder.recordVisual({ BattleVisualEventType::FloatingText, BattlePresentationCurrentFrame, -1, 3, 0, 0, -1, 24, 1, "text" });
 
     auto consumed = recorder.consumeFrame();
 
-    CHECK(consumed.snapshot.frame == 7);
+    CHECK(consumed.frame == 7);
     REQUIRE(consumed.gameplayEvents.size() == 1);
     REQUIRE(consumed.visualEvents.size() == 1);
     CHECK(consumed.gameplayEvents[0].effectId == 11);
     CHECK(consumed.visualEvents[0].targetUnitId == 3);
-    CHECK(recorder.frame().snapshot.frame == 0);
+    CHECK(recorder.frame().frame == 0);
     CHECK(recorder.frame().gameplayEvents.empty());
     CHECK(recorder.frame().logEvents.empty());
     CHECK(recorder.frame().visualEvents.empty());
@@ -99,7 +93,7 @@ TEST_CASE("BattlePresentationRecorder_ConsumeFrameMovesCurrentFrameAndResets", "
 TEST_CASE("BattlePresentationRecorder_PreservesExplicitFrameZero", "[battle][presentation][unit]")
 {
     BattlePresentationRecorder recorder;
-    recorder.beginFrame({ 9, {} });
+    recorder.beginFrame(9);
     recorder.recordGameplay({ BattleGameplayEventType::BattleEnded, 0 });
     recorder.recordLog({ KysChess::Battle::BattleLogEventType::Status, 0, -1, -1, 0, "frame-zero" });
 

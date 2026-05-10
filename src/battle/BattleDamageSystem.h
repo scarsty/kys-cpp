@@ -15,6 +15,8 @@ struct RoleComboState;
 namespace KysChess::Battle
 {
 
+struct BattleRuntimeUnit;
+
 struct BattleDamageUnitState
 {
     int id = -1;
@@ -365,5 +367,6 @@ public:
 };
 
 BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* state);
+BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const RoleComboState* state);
 
 }  // namespace KysChess::Battle

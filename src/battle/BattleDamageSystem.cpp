@@ -1,6 +1,7 @@
 #include "BattleDamageSystem.h"
 
 #include "../ChessBattleEffects.h"
+#include "BattleCore.h"
 #include "BattleResourceRules.h"
 
 #include <algorithm>
@@ -814,6 +815,31 @@ BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* st
     modifier.poisonTimer = state->poisonTimer;
     modifier.maxHitPctMaxHp = state->maxHitPctCurrentHP;
     return modifier;
+}
+
+BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const RoleComboState* state)
+{
+    BattleDamageUnitState damage;
+    damage.id = unit.id;
+    damage.alive = unit.alive;
+    damage.vitals = unit.vitals;
+    damage.attack = unit.stats.attack;
+    damage.invincible = unit.invincible;
+    damage.shield = unit.shield;
+    damage.mpBlocked = unit.mpBlocked;
+    damage.mpRecoveryBonusPct = unit.mpRecoveryBonusPct;
+    if (state)
+    {
+        damage.hurtInvincFrames = state->hurtInvincFrames;
+        damage.blockFirstHitsRemaining = state->blockFirstHitsRemaining;
+        damage.deathPrevention = state->deathPrevention;
+        damage.deathPreventionUsed = state->deathPreventionUsed;
+        damage.deathPreventionFrames = state->deathPreventionFrames;
+        damage.killHealPct = state->killHealPct;
+        damage.killInvincFrames = state->killInvincFrames;
+        damage.bloodlustAttackPerKill = state->bloodlustATKPerKill;
+    }
+    return damage;
 }
 
 }  // namespace KysChess::Battle

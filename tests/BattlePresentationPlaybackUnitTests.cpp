@@ -8,8 +8,7 @@ using namespace KysChess::Battle;
 TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryVisualEvent", "[battle][presentation][unit]")
 {
     BattlePresentationFrame frame;
-    frame.snapshot.frame = 18;
-    frame.snapshot.units.push_back({ 1, 11, "source", 0, true, 100, 100, 20, 100, 0, 0, { 1, 2, 0 }, {} });
+    frame.frame = 18;
     frame.gameplayEvents = {
         { BattleGameplayEventType::DamageApplied, 18, 1, 2, 30, -1 },
         { BattleGameplayEventType::ProjectileHit, 18, 1, 2, 0, 10 },
@@ -36,8 +35,6 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryVisualEvent", "[battle][pr
     BattlePresentationPlaybackPlanner planner;
     auto plan = planner.build(frame);
 
-    REQUIRE(plan.snapshot.frame == 18);
-    REQUIRE(plan.snapshot.units.size() == 1);
     REQUIRE(plan.commands.size() == frame.visualEvents.size());
     CHECK(plan.commands[0].type == BattlePresentationCommandType::SpawnFloatingText);
     CHECK(plan.commands[0].textSize == 24);
@@ -81,7 +78,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryVisualEvent", "[battle][pr
 TEST_CASE("BattlePresentationPlaybackPlanner_PreservesCommandOrder", "[battle][presentation][unit]")
 {
     BattlePresentationFrame frame;
-    frame.snapshot.frame = 3;
+    frame.frame = 3;
     frame.gameplayEvents = {
         { BattleGameplayEventType::CastStarted, 3, 1, 2 },
         { BattleGameplayEventType::DamageApplied, 3, 1, 2, 9 },
@@ -108,7 +105,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_PreservesCommandOrder", "[battle][p
 TEST_CASE("BattlePresentationPlaybackPlanner_IgnoresNonVisualOutputs", "[battle][presentation][unit]")
 {
     BattlePresentationFrame frame;
-    frame.snapshot.frame = 5;
+    frame.frame = 5;
     frame.gameplayEvents = {
         { BattleGameplayEventType::CastStarted, 5, 1, 2 },
         { BattleGameplayEventType::ProjectileMoved, 5, 1, 2, 0, 10, { 4, 5, 0 } },
@@ -132,7 +129,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_IgnoresNonVisualOutputs", "[battle]
 TEST_CASE("BattlePresentationPlaybackPlanner_TargetLostCancelHasNoRelatedProjectile", "[battle][presentation][unit]")
 {
     BattlePresentationFrame frame;
-    frame.snapshot.frame = 9;
+    frame.frame = 9;
     frame.visualEvents = {
         { BattleVisualEventType::ProjectileTargetLost, 9, 1, -1, 0, 20, 10, 0, 0, "", "", "", {}, { 30, 40, 0 }, 12, { 1, 0, 0 }, 2 },
     };

@@ -104,32 +104,9 @@ struct BattleVisualEvent
     int operationKind = -1;
 };
 
-struct BattlePresentationUnitSnapshot
-{
-    int id{};
-    int realRoleId{};
-    std::string name;
-    int team{};
-    bool alive{};
-    int hp{};
-    int maxHp{};
-    int mp{};
-    int maxMp{};
-    int cooldown{};
-    int invincible{};
-    Pointf position;
-    Pointf velocity;
-};
-
-struct BattlePresentationSnapshot
-{
-    int frame = 0;
-    std::vector<BattlePresentationUnitSnapshot> units;
-};
-
 struct BattlePresentationFrame
 {
-    BattlePresentationSnapshot snapshot;
+    int frame = 0;
     std::vector<BattleGameplayEvent> gameplayEvents;
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
@@ -138,7 +115,6 @@ struct BattlePresentationFrame
 class BattlePresentationRecorder
 {
 public:
-    void beginFrame(BattlePresentationSnapshot snapshot);
     void beginFrame(int frame);
     void recordGameplay(BattleGameplayEvent event);
     void recordLog(BattleLogEvent event);

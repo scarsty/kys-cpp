@@ -49,6 +49,16 @@ bool legalCell(const BattleRescueRepositionInput& input, const BattleRescueUnitS
     return !it->occupied || it->occupantUnitId == pulled.id;
 }
 
+const BattleRescueCellSnapshot& requireCell(const BattleRescueRepositionInput& input, Point cell)
+{
+    auto it = std::ranges::find_if(input.cells, [&](const BattleRescueCellSnapshot& snapshot)
+        {
+            return snapshot.x == cell.x && snapshot.y == cell.y;
+        });
+    assert(it != std::ranges::end(input.cells));
+    return *it;
+}
+
 std::vector<const BattleRescueUnitSnapshot*> pullCandidates(const BattleRescueRepositionInput& input)
 {
     std::vector<const BattleRescueUnitSnapshot*> candidates;
@@ -317,9 +327,9 @@ void commitProtectionResult(
     BattleRescueRepositionResult& result,
     const BattleRescueUnitSnapshot& pulled,
     const BattleRescueUnitSnapshot& puller,
-    Point destination)
+    const BattleRescueCellSnapshot& destination)
 {
-    result.teleport = BattleRescueTeleportDelta{ pulled.id, puller.id, destination };
+    result.teleport = BattleRescueTeleportDelta{ pulled.id, puller.id, { destination.x, destination.y }, destination.position };
     result.counterDelta = { puller.id, -1, 0 };
     const int requestedHeal = std::max(1, pulled.maxHp * ProtectionHealPctMaxHp / 100);
     result.heal = { pulled.id, std::max(0, std::min(pulled.maxHp, pulled.hp + requestedHeal) - pulled.hp) };
@@ -337,9 +347,9 @@ void commitExecuteResult(
     BattleRescueRepositionResult& result,
     const BattleRescueUnitSnapshot& pulled,
     const BattleRescueUnitSnapshot& puller,
-    Point destination)
+    const BattleRescueCellSnapshot& destination)
 {
-    result.teleport = BattleRescueTeleportDelta{ pulled.id, puller.id, destination };
+    result.teleport = BattleRescueTeleportDelta{ pulled.id, puller.id, { destination.x, destination.y }, destination.position };
     result.counterDelta = { puller.id, 0, -1 };
     result.basicCounterAttack = BattleRescueBasicCounterAttackCommand{ puller.id, pulled.id };
     result.logEvents.push_back(statusEvent(puller.id, pulled.id, "處決挪移"));
@@ -379,7 +389,7 @@ BattleRescueRepositionResult BattleRescueRepositionSystem::resolve(
             {
                 continue;
             }
-            commitExecuteResult(result, pulled, *puller, cells.front());
+            commitExecuteResult(result, pulled, *puller, requireCell(input, cells.front()));
             return result;
         }
         return result;
@@ -388,7 +398,7 @@ BattleRescueRepositionResult BattleRescueRepositionSystem::resolve(
     auto choice = resolveProtectionChoice(input, pulled, candidates);
     if (choice.valid)
     {
-        commitProtectionResult(result, pulled, *choice.puller, choice.cell);
+        commitProtectionResult(result, pulled, *choice.puller, requireCell(input, choice.cell));
     }
     return result;
 }

@@ -726,17 +726,11 @@ TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[
     state.movementPhysics.config.gravity = 0.0f;
     state.movementPhysics.config.friction = 0.0f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
-    state.movementPhysics.collision.tileWidth = SceneTileWidth;
-    state.movementPhysics.collision.coordCount = 64;
+    state.movementPhysics.collision.tileWidth = 100.0;
+    state.movementPhysics.collision.coordCount = 2;
     state.movementPhysics.collision.defaultSeparationDistance = SceneTileWidth;
     state.movementPhysics.collision.units = { { 0, true, { 100, 100, 0 } } };
-    for (int x = -64; x < 64; ++x)
-    {
-        for (int y = -64; y < 64; ++y)
-        {
-            state.movementPhysics.collision.cells.push_back({ x, y, true });
-        }
-    }
+    state.movementPhysics.collision.walkableByCell.assign(2 * 2, 1);
 
     auto result = runBattleFrame(state);
 
@@ -761,7 +755,14 @@ TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[
 
 BattleRescueCellSnapshot rescueCell(int x, int y, bool walkable = true, bool occupied = false)
 {
-    return { x, y, walkable, occupied, occupied ? 99 : -1 };
+    return {
+        x,
+        y,
+        walkable,
+        occupied,
+        occupied ? 99 : -1,
+        { static_cast<float>(x * SceneTileWidth), static_cast<float>(y * SceneTileWidth), 0.0f },
+    };
 }
 
 BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
@@ -1117,7 +1118,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
     CHECK(result.movement.events[0].type == BattleEventType::DashStart);
     REQUIRE(result.frame.logEvents.size() == result.movement.events.size());
     REQUIRE(!result.frame.visualEvents.empty());
-    CHECK(result.frame.snapshot.frame == 1);
+    CHECK(result.frame.frame == 1);
     CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
     CHECK(result.frame.logEvents[0].text == "dash-start");
     const auto& firstProjectileEvent = result.frame.visualEvents[0];
@@ -1210,34 +1211,6 @@ TEST_CASE("BattleCore_AppliesTeamEffectGameplayCommands", "[battle][core]")
     REQUIRE(shield.logEvents.size() == 2);
     CHECK(shield.logEvents[0].type == BattleLogEventType::Status);
     CHECK(shield.logEvents[0].text == "全隊護盾（7護盾）");
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_SnapshotIncludesCommittedUnitState", "[battle][core]")
-{
-    BattleRuntimeState state;
-    state.world = worldWith({
-        unit(0, 0, { 100, 100, 0 }),
-        unit(1, 1, { 600, 100, 0 }),
-    });
-    state.attacks = attackWorld();
-    state.units.units = {
-        runtimeUnitSnapshot(0, 0, 80, { 100, 100, 0 }),
-        runtimeUnitSnapshot(1, 1, 100, { 600, 100, 0 }),
-    };
-    state.units.units[0].vitals.maxHp = 120;
-    state.units.units[0].invincible = 6;
-    state.status.units.push_back(statusRuntimeSnapshot(0, 80));
-
-    auto result = runBattleFrame(state);
-
-    REQUIRE(result.frame.snapshot.units.size() == state.world.units.size());
-    CHECK(result.frame.snapshot.frame == state.world.frame);
-    CHECK(result.frame.snapshot.units[0].id == state.world.units[0].id);
-    CHECK(result.frame.snapshot.units[0].hp == state.units.units[0].vitals.hp);
-    CHECK(result.frame.snapshot.units[0].maxHp == state.units.units[0].vitals.maxHp);
-    CHECK(result.frame.snapshot.units[0].invincible == state.units.units[0].invincible);
-    CHECK(result.frame.snapshot.units[0].position.x == state.world.units[0].position.x);
-    CHECK(result.frame.snapshot.units[0].velocity.x == state.world.units[0].velocity.x);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle][core][runtime]")
@@ -1984,20 +1957,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     state.movementPhysics.config.gravity = -4.0f;
     state.movementPhysics.config.friction = 0.1f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
-    state.movementPhysics.collision.tileWidth = SceneTileWidth;
-    state.movementPhysics.collision.coordCount = 64;
+    state.movementPhysics.collision.tileWidth = 100.0;
+    state.movementPhysics.collision.coordCount = 2;
     state.movementPhysics.collision.defaultSeparationDistance = SceneTileWidth * 1.5;
     state.movementPhysics.collision.units = {
         { 0, true, { 100, 100, 0 } },
         { 1, true, { 200, 100, 0 } },
     };
-    for (int x = -64; x < 64; ++x)
-    {
-        for (int y = -64; y < 64; ++y)
-        {
-            state.movementPhysics.collision.cells.push_back({ x, y, true });
-        }
-    }
+    state.movementPhysics.collision.walkableByCell.assign(2 * 2, 1);
     state.movementRuntime[0].position = { 100, 100, 0 };
     state.movementRuntime[0].velocity = { 5, 0, 0 };
     state.movementRuntime[0].acceleration = { 0, 0, -4 };

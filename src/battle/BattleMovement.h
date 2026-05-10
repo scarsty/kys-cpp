@@ -2,6 +2,8 @@
 
 #include "BattleGeometry.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <map>
 #include <vector>
 
@@ -32,21 +34,17 @@ struct BattleMovementPhysicsCollisionUnitSnapshot
     Pointf position;
 };
 
-struct BattleMovementPhysicsCollisionCellSnapshot
-{
-    int x = 0;
-    int y = 0;
-    bool walkable = false;
-};
-
 struct BattleMovementPhysicsCollisionWorld
 {
     double tileWidth = 0.0;
     int coordCount = 0;
     double defaultSeparationDistance = 0.0;
     std::vector<BattleMovementPhysicsCollisionUnitSnapshot> units;
-    std::vector<BattleMovementPhysicsCollisionCellSnapshot> cells;
+    std::vector<std::uint8_t> walkableByCell;
 };
+
+std::size_t movementPhysicsCellIndex(const BattleMovementPhysicsCollisionWorld& world, int x, int y);
+bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& world, Point cell);
 
 struct BattleMovementPhysicsInput
 {

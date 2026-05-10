@@ -27,10 +27,12 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <numeric>
 #include <set>
+#include <utility>
 
 namespace
 {
@@ -422,10 +424,11 @@ void BattleSceneHades::publishPresentationFrame()
     });
 }
 
-void BattleSceneHades::initializeBattleRuntime()
+void BattleSceneHades::initializeBattleRuntime(
+    KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild)
 {
     KysChess::ChessCombo::clearActiveStates();
-    auto buildContext = makeBattleRuntimeBuildContext();
+    auto buildContext = makeBattleRuntimeBuildContext(std::move(setupBuild));
     auto created = KysChess::BattleSceneBattleAdapter::createInitializedBattleRuntimeSession(
         buildContext);
     battle_session_.emplace(std::move(created.session));
@@ -451,50 +454,65 @@ void BattleSceneHades::setBattleRuntimeRandomSeed(unsigned int seed)
     battle_random_seed_ = seed;
 }
 
-KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::makeBattleRuntimeBuildContext()
+KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::makeBattleRuntimeBuildContext(
+    KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild)
 {
     KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext context;
     context.rules = KysChess::Battle::makeHadesBattleRuntimeRules(TILE_W, BATTLE_COORD_COUNT);
     context.randomSeed = battle_random_seed_;
     context.rules.movementPhysicsConfig.gravity = gravity_;
     context.rules.movementPhysicsConfig.friction = friction_;
-    context.setup.units = setup_units_;
-    context.setup.comboStates = &KysChess::ChessCombo::getMutableStates();
-    context.setup.cloneSpawnCells = clone_spawn_positions_;
-    context.setup.battleFrame = battle_frame_;
+    context.input.runtimeSetupSeed.units = std::move(setupBuild.initializationUnits);
+    context.input.runtimeSetupSeed.allyRoster = std::move(setupBuild.allyRoster);
+    context.input.runtimeSetupSeed.enemyRoster = std::move(setupBuild.enemyRoster);
+    context.input.runtimeSetupSeed.cloneSources = std::move(setupBuild.cloneSources);
+    context.input.actionPlanSeeds = std::move(setupBuild.actionPlanSeeds);
+    context.input.units = std::move(setupBuild.units);
+    context.input.comboStates = &KysChess::ChessCombo::getMutableStates();
+    context.input.battleFrame = battle_frame_;
 
     auto* basicMagic = Save::getInstance()->getMagic(1);
     assert(basicMagic);
-    context.setup.rescueCounterAttackSkillId = basicMagic->ID;
+    context.input.rescueCounterAttackSkillId = basicMagic->ID;
 
-    context.setup.terrainCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
-    context.setup.rescueCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
-    context.rules.movementCollisionWorld.cells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
+    context.input.terrainCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
+    context.input.rescueCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
+    context.rules.movementCollisionWorld.walkableByCell.assign(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT, 0);
     for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
     {
         for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
         {
             const auto position = battle_map_.pos45To90(x, y);
             const bool walkable = battle_map_.canWalk45(x, y);
-            context.setup.terrainCells.push_back({ position, walkable });
-            context.setup.rescuePositionsByCell.emplace(std::pair{ x, y }, position);
-            context.setup.rescueCells.push_back({
+            context.input.terrainCells.push_back({ position, walkable });
+            context.input.rescueCells.push_back({
                 x,
                 y,
                 walkable,
                 false,
                 -1,
+                position,
             });
-            context.rules.movementCollisionWorld.cells.push_back({
-                x,
-                y,
-                walkable,
-            });
+            const auto movementCellIndex = static_cast<std::size_t>(y * BATTLE_COORD_COUNT + x);
+            context.rules.movementCollisionWorld.walkableByCell[movementCellIndex] = walkable ? 1 : 0;
         }
     }
 
     auto& obtained = progress_.getObtainedNeigong();
-    context.setup.obtainedNeigongMagicIds.assign(obtained.begin(), obtained.end());
+    context.input.runtimeSetupSeed.obtainedNeigongMagicIds.assign(obtained.begin(), obtained.end());
+    for (const auto& [x, y] : clone_spawn_positions_)
+    {
+        bool occupied = false;
+        for (const auto& unit : context.input.units)
+        {
+            if (unit.alive && unit.gridX == x && unit.gridY == y)
+            {
+                occupied = true;
+                break;
+            }
+        }
+        context.input.runtimeSetupSeed.cloneCells.push_back({ x, y, true, occupied });
+    }
     return context;
 }
 
@@ -1222,7 +1240,7 @@ void BattleSceneHades::onEntrance()
     {
         applySharedSetupCallbacks(request);
     }
-    setup_units_ = KysChess::BattleSceneSetupBuilder::buildSetupUnits(setupRequests).units;
+    auto setupBuild = KysChess::BattleSceneSetupBuilder::buildSetupUnits(setupRequests);
 
     int sx = 0;
     int sy = 0;
@@ -1245,7 +1263,7 @@ void BattleSceneHades::onEntrance()
     close_up_total_ = 0;
     clampCameraCenter();
 
-    initializeBattleRuntime();
+    initializeBattleRuntime(std::move(setupBuild));
     runPreBattlePositionSwapIfEnabled();
     commitFinalSetupPlacementToRuntime();
 

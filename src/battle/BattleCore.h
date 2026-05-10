@@ -123,6 +123,7 @@ struct BattleUnitStore
 
 int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
 int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
+BattleUnitState makeBattleWorldUnitState(const BattleRuntimeUnit& unit, double moveSpeedDivisor);
 
 struct BattleFrameUnitApplication
 {
@@ -356,7 +357,6 @@ struct BattleRuntimeState
     {
         std::vector<BattleFrameRescueUnitSnapshot> units;
         std::vector<BattleRescueCellSnapshot> cells;
-        std::map<std::pair<int, int>, Pointf> positionsByCell;
         double executeUnattendedRadius = 0.0;
         BattleFrameRescueCounterAttackConfig counterAttack;
     } rescue;

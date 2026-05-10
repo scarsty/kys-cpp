@@ -3,6 +3,11 @@
 #include <string>
 #include <vector>
 
+namespace KysChess
+{
+struct RoleComboState;
+}
+
 namespace KysChess::Battle
 {
 
@@ -109,6 +114,7 @@ private:
 };
 
 BattleStatusRuntimeUnit makeBattleStatusRuntimeUnit(const BattleStatusUnitState& unit);
+BattleStatusUnitState makeBattleStatusUnitState(const BattleRuntimeUnit& unit, const KysChess::RoleComboState& state);
 BattleStatusUnitState makeBattleStatusUnitState(const BattleStatusRuntimeUnit& status, const BattleRuntimeUnit& unit);
 void writeBattleStatusRuntimeUnit(BattleStatusRuntimeUnit& status, const BattleStatusUnitState& unit);
 

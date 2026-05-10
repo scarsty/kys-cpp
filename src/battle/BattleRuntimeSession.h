@@ -41,14 +41,25 @@ class BattleRuntimeSession
 public:
     explicit BattleRuntimeSession(BattleRuntimeInit init);
 
+    template<typename SetupConfigurationFactory>
+    static BattleRuntimeSession createConfigured(
+        BattleRuntimeInit init,
+        SetupConfigurationFactory&& makeSetupConfiguration)
+    {
+        BattleRuntimeSession session(std::move(init));
+        session.applySetupConfiguration(makeSetupConfiguration(session.runtime()));
+        return session;
+    }
+
     BattleFrameResult runFrame();
-    void commitSetupConfiguration(BattleRuntimeSetupConfiguration config);
     void commitSetupPlacement(const BattleSetupPlacementInput& input);
     BattleInitializationResult releaseInitializationResult();
 
     const BattleRuntimeState& runtime() const;
 
 private:
+    void applySetupConfiguration(BattleRuntimeSetupConfiguration config);
+
     BattleRuntimeState runtime_;
     std::optional<BattleInitializationResult> initialization_result_;
     BattleFrameRunner runner_;

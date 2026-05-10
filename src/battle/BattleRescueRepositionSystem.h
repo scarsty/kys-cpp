@@ -38,6 +38,7 @@ struct BattleRescueCellSnapshot
     bool walkable = false;
     bool occupied = false;
     int occupantUnitId = -1;
+    Pointf position;
 };
 
 struct BattleRescueTeleportDelta
@@ -45,6 +46,7 @@ struct BattleRescueTeleportDelta
     int unitId{};
     int pullerUnitId{};
     Point destinationCell;
+    Pointf destinationPosition;
 };
 
 struct BattleRescueCounterDelta

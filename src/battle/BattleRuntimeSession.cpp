@@ -53,7 +53,7 @@ BattleFrameResult BattleRuntimeSession::runFrame()
     return runner_.runFrame(runtime_);
 }
 
-void BattleRuntimeSession::commitSetupConfiguration(BattleRuntimeSetupConfiguration config)
+void BattleRuntimeSession::applySetupConfiguration(BattleRuntimeSetupConfiguration config)
 {
     assert(!setupConfigured_);
     assert(!frameStarted_);

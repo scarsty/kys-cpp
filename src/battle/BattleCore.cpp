@@ -184,6 +184,24 @@ int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId)
     return targetUnitId;
 }
 
+BattleUnitState makeBattleWorldUnitState(const BattleRuntimeUnit& runtimeUnit, double moveSpeedDivisor)
+{
+    assert(moveSpeedDivisor != 0.0);
+
+    BattleUnitState unit;
+    unit.id = runtimeUnit.id;
+    unit.realRoleId = runtimeUnit.realRoleId;
+    unit.name = runtimeUnit.name;
+    unit.team = runtimeUnit.team;
+    unit.alive = runtimeUnit.alive;
+    unit.position = runtimeUnit.motion.position;
+    unit.velocity = runtimeUnit.motion.velocity;
+    unit.speed = runtimeUnit.stats.speed / moveSpeedDivisor;
+    unit.star = runtimeUnit.star;
+    unit.canAttack = runtimeUnit.animation.cooldown == 0;
+    return unit;
+}
+
 namespace
 {
 bool hasCanonicalUnitStore(const BattleRuntimeState& state);
@@ -199,53 +217,6 @@ struct BattleRuntimeUnitFrameCommit
     std::vector<BattleComboFrameRuntimeEvent> comboEvents;
     RoleComboState comboState;
 };
-
-BattlePresentationUnitSnapshot toPresentationUnit(const BattleUnitState& unit)
-{
-    return {
-        unit.id,
-        unit.realRoleId,
-        unit.name,
-        unit.team,
-        unit.alive,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        unit.position,
-        unit.velocity,
-    };
-}
-
-void applyUnitStoreSnapshot(BattlePresentationUnitSnapshot& snapshot, const BattleUnitStore& units)
-{
-    const auto* unit = units.findUnit(snapshot.id);
-    if (!unit)
-    {
-        return;
-    }
-
-    snapshot.alive = unit->alive;
-    snapshot.hp = unit->vitals.hp;
-    snapshot.maxHp = unit->vitals.maxHp;
-    snapshot.invincible = unit->invincible;
-}
-
-BattlePresentationSnapshot makePresentationSnapshot(const BattleRuntimeState& state)
-{
-    BattlePresentationSnapshot snapshot;
-    snapshot.frame = state.world.frame;
-    snapshot.units.reserve(state.world.units.size());
-    for (const auto& unit : state.world.units)
-    {
-        auto presentationUnit = toPresentationUnit(unit);
-        applyUnitStoreSnapshot(presentationUnit, state.units);
-        snapshot.units.push_back(std::move(presentationUnit));
-    }
-    return snapshot;
-}
 
 const char* textForMovementEvent(BattleEventType type)
 {
@@ -2009,20 +1980,6 @@ BattleRescueRepositionInput makeRescueInput(
     return input;
 }
 
-Pointf rescueCellPosition(const BattleRuntimeState& state, Point cell)
-{
-    auto it = state.rescue.positionsByCell.find({ cell.x, cell.y });
-    if (it != state.rescue.positionsByCell.end())
-    {
-        return it->second;
-    }
-    return {
-        static_cast<float>(cell.x * state.world.config.tileWidth),
-        static_cast<float>(cell.y * state.world.config.tileWidth),
-        0.0f,
-    };
-}
-
 bool rescueUnitUnattendedByTeam(const BattleRuntimeState& state, int targetUnitId, int team)
 {
     assert(state.rescue.executeUnattendedRadius > 0.0);
@@ -2096,7 +2053,7 @@ void applyRescueResultToFrameState(
 
     auto* pulled = &requireBy(state.rescue.units, result.teleport->unitId, rescueSnapshotUnitId);
     pulled->unit.cell = result.teleport->destinationCell;
-    pulled->position = rescueCellPosition(state, result.teleport->destinationCell);
+    pulled->position = result.teleport->destinationPosition;
     syncRescuePosition(state, pulled->unit.id, pulled->position);
 
     if (result.counterDelta.unitId >= 0)
@@ -3140,7 +3097,7 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
     {
         return physicsResults;
     }
-    if (state.movementPhysics.collision.cells.empty())
+    if (state.movementPhysics.collision.walkableByCell.empty())
     {
         return physicsResults;
     }
@@ -3253,12 +3210,12 @@ void publishMovementPresentationResults(BattleFrameResult& result)
 {
     result.movementPresentationResults.clear();
     result.movementPresentationResults.reserve(
-        std::max(result.movement.snapshot.units.size(), result.movementPhysicsResults.size()));
+        std::max(result.movement.units.size(), result.movementPhysicsResults.size()));
 
     std::unordered_map<int, std::size_t> indexByUnitId;
-    indexByUnitId.reserve(result.movement.snapshot.units.size() + result.movementPhysicsResults.size());
+    indexByUnitId.reserve(result.movement.units.size() + result.movementPhysicsResults.size());
 
-    for (const auto& unit : result.movement.snapshot.units)
+    for (const auto& unit : result.movement.units)
     {
         BattleFrameMovementPresentationUnitResult presentation;
         presentation.unitId = unit.id;
@@ -3635,7 +3592,7 @@ void emitPresentationFrame(
     std::vector<BattleVisualEvent>& visualEvents)
 {
     BattlePresentationRecorder recorder;
-    recorder.beginFrame(makePresentationSnapshot(state));
+    recorder.beginFrame(state.world.frame);
     for (auto event : gameplayEvents)
     {
         recorder.recordGameplay(std::move(event));

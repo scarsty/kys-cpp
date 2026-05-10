@@ -73,8 +73,9 @@ protected:
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
     void playCorePresentationFrame();
 
-    void initializeBattleRuntime();
-    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext makeBattleRuntimeBuildContext();
+    void initializeBattleRuntime(KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
+    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext makeBattleRuntimeBuildContext(
+        KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
     void runPreBattlePositionSwapIfEnabled();
     void commitFinalSetupPlacementToRuntime();
 
@@ -124,7 +125,6 @@ protected:
     std::vector<int> enemy_weapons_;
     std::vector<int> enemy_armors_;
     std::vector<std::pair<int, int>> clone_spawn_positions_;
-    std::vector<KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput> setup_units_;
     std::unordered_map<int, int> hurt_flash_timers_;
     BattleSceneUnitStore scene_units_;
     std::deque<BattleAttackEffect> attack_effects_;

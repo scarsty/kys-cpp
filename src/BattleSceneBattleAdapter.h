@@ -24,20 +24,6 @@ class BattleTracker;
 namespace KysChess::BattleSceneBattleAdapter
 {
 
-struct BattleSetupSkillSnapshot
-{
-    int id = -1;
-    std::string name;
-    int soundId = -1;
-    int hurtType = 0;
-    int attackAreaType = -1;
-    int magicType = -1;
-    int visualEffectId = -1;
-    int selectDistance = 1;
-    int actProperty = 0;
-    int magicPower = 0;
-};
-
 struct BattleSetupUnitInput
 {
     int unitId = -1;
@@ -77,26 +63,25 @@ struct BattleSetupUnitInput
     std::array<int, 5> actPropertiesByMagicType{};
     bool hasEquippedSkill = false;
     std::string skillNames;
-    BattleSetupSkillSnapshot normalSkill;
-    BattleSetupSkillSnapshot ultimateSkill;
+    Battle::BattleActionSkillSeed normalSkill;
+    Battle::BattleActionSkillSeed ultimateSkill;
 };
 
-struct BattleRuntimeSceneSetupInput
+struct BattleRuntimeCreationInput
 {
     std::vector<BattleSetupUnitInput> units;
+    Battle::BattleRuntimeSetupSeed runtimeSetupSeed;
     std::map<int, RoleComboState>* comboStates = nullptr;
     std::vector<Battle::BattleTerrainCell> terrainCells;
-    std::vector<int> obtainedNeigongMagicIds;
-    std::vector<std::pair<int, int>> cloneSpawnCells;
     std::vector<Battle::BattleRescueCellSnapshot> rescueCells;
-    std::map<std::pair<int, int>, Pointf> rescuePositionsByCell;
+    std::vector<Battle::BattleActionPlanSeed> actionPlanSeeds;
     int battleFrame = 0;
     int rescueCounterAttackSkillId = -1;
 };
 
 struct BattleRuntimeBuildContext
 {
-    BattleRuntimeSceneSetupInput setup;
+    BattleRuntimeCreationInput input;
     Battle::BattleRuntimeRulesConfig rules;
     unsigned int randomSeed = 1;
 };

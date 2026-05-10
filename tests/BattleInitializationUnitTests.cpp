@@ -52,6 +52,57 @@ BattleStatusRuntimeUnit& requireStatusRuntime(BattleRuntimeState& runtime, int u
     return *it;
 }
 
+void addRuntimeSetupSeed(
+    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext& context,
+    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+{
+    context.input.runtimeSetupSeed.units.push_back({
+        unit.unitId,
+        unit.realRoleId,
+        unit.team,
+        unit.star,
+        unit.cost,
+        unit.vitals.maxHp,
+        unit.stats.attack,
+        unit.stats.defence,
+        unit.stats.speed,
+        unit.fist,
+        unit.sword,
+        unit.knife,
+        unit.unusual,
+        unit.hiddenWeapon,
+        {},
+    });
+    BattleSetupRosterUnit roster{
+        unit.unitId,
+        unit.realRoleId,
+        unit.team,
+        unit.star,
+        unit.cost,
+        unit.weaponId,
+        unit.armorId,
+        unit.chessInstanceId,
+        unit.fightsWon,
+        unit.sourceOrder,
+    };
+    if (unit.team == 0)
+    {
+        context.input.runtimeSetupSeed.allyRoster.push_back(roster);
+        context.input.runtimeSetupSeed.cloneSources.push_back({
+            unit.unitId,
+            unit.realRoleId,
+            unit.vitals.maxHp + unit.stats.attack + unit.stats.defence,
+            unit.star,
+            unit.chessInstanceId,
+            unit.sourceOrder,
+        });
+    }
+    else
+    {
+        context.input.runtimeSetupSeed.enemyRoster.push_back(roster);
+    }
+}
+
 }  // namespace
 
 namespace KysChess
@@ -342,8 +393,8 @@ TEST_CASE("BattleSceneBattleAdapter_CreatesCloneSceneRowsWithoutRoleMirror", "[b
 
     Adapter::BattleRuntimeBuildContext context;
     context.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    context.setup.comboStates = &comboStates;
-    context.setup.cloneSpawnCells.push_back({ 3, 4 });
+    context.input.comboStates = &comboStates;
+    context.input.runtimeSetupSeed.cloneCells.push_back({ 3, 4, true, false });
 
     Adapter::BattleSetupUnitInput source;
     source.unitId = 0;
@@ -363,7 +414,8 @@ TEST_CASE("BattleSceneBattleAdapter_CreatesCloneSceneRowsWithoutRoleMirror", "[b
     source.star = 3;
     source.cost = 7;
     source.chessInstanceId = 99;
-    context.setup.units.push_back(source);
+    context.input.units.push_back(source);
+    addRuntimeSetupSeed(context, source);
 
     auto created = Adapter::createInitializedBattleRuntimeSession(context);
 
@@ -405,7 +457,7 @@ TEST_CASE("BattleSceneBattleAdapter_InitializesRuntimeRandomFromBuildContext", "
 
     Adapter::BattleRuntimeBuildContext context;
     context.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    context.setup.comboStates = &comboStates;
+    context.input.comboStates = &comboStates;
     context.randomSeed = 777u;
 
     Adapter::BattleSetupUnitInput source;
@@ -418,7 +470,8 @@ TEST_CASE("BattleSceneBattleAdapter_InitializesRuntimeRandomFromBuildContext", "
     source.stats = { 20, 30, 40 };
     source.motion = { { 100, 200, 0 }, { 0, 0, 0 }, { 0, 0, 0 }, { 1, 1, 0 } };
     source.animation = { 0, 0, 0, -1 };
-    context.setup.units.push_back(source);
+    context.input.units.push_back(source);
+    addRuntimeSetupSeed(context, source);
 
     auto created = Adapter::createInitializedBattleRuntimeSession(context);
 

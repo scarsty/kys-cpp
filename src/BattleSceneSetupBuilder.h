@@ -41,6 +41,11 @@ struct BattleSceneSetupUnitRequest
 struct BattleSceneSetupBuildResult
 {
     std::vector<KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput> units;
+    std::vector<KysChess::Battle::BattleInitializationUnitSeed> initializationUnits;
+    std::vector<KysChess::Battle::BattleSetupRosterUnit> allyRoster;
+    std::vector<KysChess::Battle::BattleSetupRosterUnit> enemyRoster;
+    std::vector<KysChess::Battle::BattleInitializationCloneSource> cloneSources;
+    std::vector<KysChess::Battle::BattleActionPlanSeed> actionPlanSeeds;
 };
 
 KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(

@@ -168,8 +168,8 @@ TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[b
     REQUIRE(runtime.attacks.attacks.size() == 1);
     CHECK(runtime.attacks.attacks[0].id == 70);
     CHECK(runtime.attacks.nextAttackId == 71);
-    CHECK(first.frame.snapshot.frame == 7);
-    CHECK(second.frame.snapshot.frame == 8);
+    CHECK(first.frame.frame == 7);
+    CHECK(second.frame.frame == 8);
 }
 
 TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][runtime_session][ownership]")
@@ -203,15 +203,14 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     REQUIRE(session.runtime().attacks.attacks.size() == 1);
     CHECK(session.runtime().attacks.attacks[0].id == 70);
     CHECK(session.runtime().attacks.nextAttackId == 71);
-    CHECK(first.frame.snapshot.frame == 7);
-    CHECK(second.frame.snapshot.frame == 8);
+    CHECK(first.frame.frame == 7);
+    CHECK(second.frame.frame == 8);
 }
 
-TEST_CASE("BattleRuntimeSession_CommitSetupConfigurationAppliesOwnedRuntimeSetup", "[battle][runtime_session][ownership]")
+TEST_CASE("BattleRuntimeSession_CreateConfiguredAppliesOwnedRuntimeSetup", "[battle][runtime_session][ownership]")
 {
     BattleRuntimeInit init;
     init.runtime = ownedRuntimeState();
-    BattleRuntimeSession session(std::move(init));
 
     BattleRuntimeSetupConfiguration config;
     config.world.frame = 42;
@@ -223,7 +222,12 @@ TEST_CASE("BattleRuntimeSession_CommitSetupConfigurationAppliesOwnedRuntimeSetup
     config.action.castFrames = { 0, 2, 3, 4 };
     config.damage.aggregatePendingTransactionsByDefender = true;
 
-    session.commitSetupConfiguration(std::move(config));
+    auto session = BattleRuntimeSession::createConfigured(
+        std::move(init),
+        [config = std::move(config)](const BattleRuntimeState&) mutable
+        {
+            return std::move(config);
+        });
 
     CHECK(session.runtime().world.frame == 42);
     REQUIRE(session.runtime().world.units.size() == 1);

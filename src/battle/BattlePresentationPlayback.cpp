@@ -89,7 +89,6 @@ int projectileRelatedAttackIdFor(const BattleVisualEvent& event)
 BattlePresentationPlaybackPlan BattlePresentationPlaybackPlanner::build(const BattlePresentationFrame& frame) const
 {
     BattlePresentationPlaybackPlan plan;
-    plan.snapshot = frame.snapshot;
     plan.commands.reserve(frame.visualEvents.size());
     for (const auto& event : frame.visualEvents)
     {
