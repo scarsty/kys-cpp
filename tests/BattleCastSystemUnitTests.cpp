@@ -387,13 +387,35 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsResourceDeltasTimingAndEvents", 
     CHECK(result.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
     CHECK(result.gameplayEvents[0].sourceUnitId == 1);
     CHECK(result.gameplayEvents[0].targetUnitId == 2);
+    REQUIRE(result.visualEvents.size() == 1);
+    CHECK(result.visualEvents[0].type == BattleVisualEventType::RoleEffect);
+    CHECK(result.visualEvents[0].targetUnitId == 1);
+    CHECK(result.visualEvents[0].effectId == 77);
+}
+
+TEST_CASE("BattleCastSystem_UltimateCastEmitsHighlightedFloatingText", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.mp = input.unit.maxMp;
+    input.targetDistance = 300.0;
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.canCast);
+    REQUIRE(result.decision.ultimate);
+    REQUIRE(result.decision.announceUltimate);
     REQUIRE(result.visualEvents.size() == 2);
     CHECK(result.visualEvents[0].type == BattleVisualEventType::FloatingText);
     CHECK(result.visualEvents[0].targetUnitId == 1);
-    CHECK(result.visualEvents[0].text == "野球拳");
+    CHECK(result.visualEvents[0].text == "絕招");
+    CHECK(result.visualEvents[0].textSize == 36);
+    CHECK(result.visualEvents[0].color.r == 255);
+    CHECK(result.visualEvents[0].color.g == 215);
+    CHECK(result.visualEvents[0].color.b == 0);
+    CHECK(result.visualEvents[0].color.a == 255);
     CHECK(result.visualEvents[1].type == BattleVisualEventType::RoleEffect);
     CHECK(result.visualEvents[1].targetUnitId == 1);
-    CHECK(result.visualEvents[1].effectId == 77);
+    CHECK(result.visualEvents[1].effectId == 41);
 }
 
 TEST_CASE("BattleCastSystem_CommitSelectedCastUsesExplicitOperationType", "[battle][cast]")
@@ -431,7 +453,7 @@ TEST_CASE("BattleCastSystem_CommittedCastOnlyRequiresSelectedOperationConfig", "
     input.config.minimumCooldownAfterCastPadding = fullConfig.minimumCooldownAfterCastPadding;
     input.config.normalCastMpDelta = fullConfig.normalCastMpDelta;
     input.config.minimumFacingNorm = fullConfig.minimumFacingNorm;
-    input.normalSkill = skill(119, 1, 400.0);
+    input.normalSkill = skill(119, 0, 400.0, true);
     input.normalSkill.visualEffectId = 33;
     input.normalSkill.selectDistance = 4;
     input.targetDistance = 300.0;
@@ -453,7 +475,7 @@ TEST_CASE("BattleCastSystem_CommittedCastOnlyRequiresSelectedOperationConfig", "
 TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][cast]")
 {
     auto input = basicInput();
-    input.normalSkill = skill(107, 1, 400.0);
+    input.normalSkill = skill(107, 0, 400.0, true);
     input.normalSkill.visualEffectId = 88;
     input.normalSkill.selectDistance = 4;
     input.targetDistance = 300.0;
@@ -473,7 +495,7 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][c
     CHECK(request.initial.velocity.x > 0.0f);
     CHECK(request.initial.velocity.y == Catch::Approx(0.0f));
     CHECK(request.initial.totalFrame == 24);
-    CHECK(request.initial.through);
+    CHECK_FALSE(request.initial.through);
     CHECK_FALSE(request.initial.ultimate);
 }
 
@@ -570,7 +592,7 @@ TEST_CASE("BattleCastSystem_OperationOneSpawnTracksForLegacyFrameCount", "[battl
 TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle][cast]")
 {
     auto input = basicInput();
-    input.normalSkill = skill(115, 1, 400.0);
+    input.normalSkill = skill(115, 0, 400.0, true);
     input.normalSkill.selectDistance = 4;
     input.normalSkill.extraProjectileCount = 2;
     input.targetDistance = 300.0;
@@ -582,16 +604,68 @@ TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle
     CHECK(result.attackSpawnRequests[0].initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
     CHECK(result.attackSpawnRequests[0].initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(result.attackSpawnRequests[0].initial.totalFrame == 24);
-    CHECK(result.attackSpawnRequests[0].initial.through);
+    CHECK_FALSE(result.attackSpawnRequests[0].initial.through);
 
     CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
     CHECK(result.attackSpawnRequests[1].initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == 24);
-    CHECK(result.attackSpawnRequests[1].initial.through);
+    CHECK_FALSE(result.attackSpawnRequests[1].initial.through);
+    CHECK_FALSE(result.attackSpawnRequests[1].initial.mainProjectile);
     CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(12.0f));
 
     CHECK(result.attackSpawnRequests[2].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
     CHECK(result.attackSpawnRequests[2].initial.operationType == BattleOperationType::RangedProjectile);
+    CHECK_FALSE(result.attackSpawnRequests[2].initial.mainProjectile);
+}
+
+TEST_CASE("BattleCastSystem_RangedAreaCastEmitsLegacySideProjectiles", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.normalSkill = skill(120, 1, 400.0);
+    input.normalSkill.selectDistance = 4;
+    input.targetDistance = 300.0;
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.operationType == BattleOperationType::RangedProjectile);
+    REQUIRE(result.attackSpawnRequests.size() == 3);
+
+    const auto& main = result.attackSpawnRequests[0];
+    CHECK(main.initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
+    CHECK(main.initial.mainProjectile);
+    CHECK(main.initial.through);
+    CHECK(main.initial.strengthMultiplier == Catch::Approx(1.0f));
+
+    for (std::size_t i = 1; i < result.attackSpawnRequests.size(); ++i)
+    {
+        const auto& side = result.attackSpawnRequests[i];
+        CHECK(side.initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+        CHECK(side.initial.operationType == BattleOperationType::RangedProjectile);
+        CHECK(side.initial.through);
+        CHECK_FALSE(side.initial.mainProjectile);
+        CHECK(side.initial.strengthMultiplier == Catch::Approx(0.2f));
+        CHECK(side.initial.velocity.x > 0.0f);
+        CHECK(side.initial.velocity.y != Catch::Approx(0.0f));
+    }
+}
+
+TEST_CASE("BattleCastSystem_TrackingUltimateEmitsLegacyTwoProjectileSpread", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.mp = input.unit.maxMp;
+    input.ultimateSkill = skill(220, 3, 400.0);
+    input.ultimateSkill.selectDistance = 4;
+    input.targetDistance = 180.0;
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.ultimate);
+    REQUIRE(result.decision.operationType == BattleOperationType::TrackingProjectile);
+    REQUIRE(result.attackSpawnRequests.size() == 2);
+    CHECK(result.attackSpawnRequests[0].initial.track);
+    CHECK(result.attackSpawnRequests[1].initial.track);
+    CHECK(result.attackSpawnRequests[0].initial.totalFrame == LegacyTrackingProjectileTotalFrame);
+    CHECK(result.attackSpawnRequests[1].initial.totalFrame == LegacyTrackingProjectileTotalFrame);
 }
 
 TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[battle][cast]")
@@ -613,7 +687,7 @@ TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[
     input = basicInput();
     input.geometry.meleeAttackEffectOffset = 72.0;
     input.geometry.projectileSpawnOffset = 108.0;
-    input.normalSkill = skill(116, 1, 400.0);
+    input.normalSkill = skill(116, 0, 400.0, true);
     input.normalSkill.selectDistance = 4;
     input.normalSkill.extraProjectileCount = 1;
     input.targetDistance = 300.0;

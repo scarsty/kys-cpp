@@ -193,3 +193,32 @@ TEST_CASE("BattleAttackEffect_VisualOnlyProjectileFadeAdvancesToExpiry", "[battl
     CHECK(effects.front().Frame == 30);
     CHECK(effects.front().Frame >= effects.front().TotalFrame);
 }
+
+TEST_CASE("BattleAttackEffect_PresentationLifetimeAdvancesOnlyOnBattleFrameTicks", "[battle][presentation][unit]")
+{
+    std::deque<BattleAttackEffect> effects;
+
+    BattleAttackEffect roleEffect;
+    roleEffect.VisualOnly = 1;
+    roleEffect.TotalFrame = 2;
+    roleEffect.Frame = 1;
+    effects.push_back(roleEffect);
+
+    BattleAttackEffect runtimeOwnedEffect;
+    runtimeOwnedEffect.VisualOnly = 0;
+    runtimeOwnedEffect.TotalFrame = 2;
+    runtimeOwnedEffect.Frame = 1;
+    effects.push_back(runtimeOwnedEffect);
+
+    advanceBattlePresentationEffects(effects, false);
+
+    REQUIRE(effects.size() == 2);
+    CHECK(effects[0].Frame == 1);
+    CHECK(effects[1].Frame == 1);
+
+    advanceBattlePresentationEffects(effects, true);
+
+    REQUIRE(effects.size() == 1);
+    CHECK(effects.front().VisualOnly == 0);
+    CHECK(effects.front().Frame == 1);
+}

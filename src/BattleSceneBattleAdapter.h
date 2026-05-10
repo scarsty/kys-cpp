@@ -24,48 +24,7 @@ class BattleTracker;
 namespace KysChess::BattleSceneBattleAdapter
 {
 
-struct BattleSetupUnitInput
-{
-    int unitId = -1;
-    int realRoleId = -1;
-    std::string name;
-    int headId = -1;
-    int team = -1;
-    int sourceOrder = 0;
-    bool alive = true;
-    int gridX = 0;
-    int gridY = 0;
-    int faceTowards = 0;
-    Battle::BattleUnitVitals vitals;
-    Battle::BattleUnitStats stats;
-    Battle::BattleUnitMotion motion;
-    Battle::BattleUnitAnimationState animation;
-    int star = 1;
-    int cost = 0;
-    int weaponId = -1;
-    int armorId = -1;
-    int chessInstanceId = -1;
-    int fightsWon = 0;
-    int fist = 0;
-    int sword = 0;
-    int knife = 0;
-    int unusual = 0;
-    int hiddenWeapon = 0;
-    bool haveAction = false;
-    Battle::BattleOperationType operationType = Battle::BattleOperationType::None;
-    int operationCount = 0;
-    int physicalPower = 0;
-    int invincible = 0;
-    int hurtFrame = 0;
-    int frozen = 0;
-    int frozenMax = 0;
-    std::array<int, 5> fightFrames{};
-    std::array<int, 5> actPropertiesByMagicType{};
-    bool hasEquippedSkill = false;
-    std::string skillNames;
-    Battle::BattleActionSkillSeed normalSkill;
-    Battle::BattleActionSkillSeed ultimateSkill;
-};
+using BattleSetupUnitInput = Battle::BattleSetupUnitInput;
 
 struct BattleRuntimeCreationInput
 {

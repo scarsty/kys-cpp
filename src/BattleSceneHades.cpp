@@ -1501,6 +1501,7 @@ void BattleSceneHades::backRun1()
     if (input.shouldAdvance)
     {
         result.advanced = true;
+        advanceBattlePresentationEffects(attack_effects_, true);
         auto frameResult = battle_session_->runFrame();
         applyCoreFrameResult(frameResult);
     }
@@ -1624,7 +1625,6 @@ void BattleSceneHades::applyCoreFrameResult(
     {
         presentation_recorder_.recordLog(event);
     }
-    advanceBattleVisualOnlyEffects(attack_effects_);
 
     for (const auto& event : frameResult.attackEvents)
     {
@@ -1652,17 +1652,6 @@ void BattleSceneHades::applyCoreFrameResult(
                 Engine::getInstance()->gameControllerRumble(100, 100, 50);
                 assert(event.totalFrame > 0);
             }
-        }
-    }
-    for (auto it = attack_effects_.begin(); it != attack_effects_.end();)
-    {
-        if (it->Frame >= it->TotalFrame)
-        {
-            it = attack_effects_.erase(it);
-        }
-        else
-        {
-            ++it;
         }
     }
 }
@@ -1916,6 +1905,7 @@ void BattleSceneHades::applyCoreDamageTransactions(
             ae1.setPath(std::format("eft/bld{:03}", int(rand_.rand() * 5)));
             ae1.TotalFrame = ae1.TotalEffectFrame;
             ae1.Frame = 0;
+            ae1.VisualOnly = 1;
             attack_effects_.push_back(std::move(ae1));
             hurt_flash_timers_[damage.defender.unitId] = HURT_FLASH_DURATION;
         }

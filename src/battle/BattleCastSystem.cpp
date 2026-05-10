@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <vector>
 
 namespace KysChess::Battle
@@ -34,6 +35,8 @@ int advanceOperationCountAfterCommittedCast(int operationCount,
 
 namespace
 {
+constexpr double LegacyRangedSideProjectileAngle = 3.14159265358979323846 / 12.0;
+
 BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
 {
     BattleSkillState combatSkill;
@@ -52,6 +55,18 @@ Pointf castFacing(const BattleCastInput& input)
     assert(input.config.minimumFacingNorm > 0.0);
     assert(pointNorm(facing) > input.config.minimumFacingNorm);
     return normalizedTo(facing, 1.0, input.config.minimumFacingNorm);
+}
+
+Pointf rotated(Pointf point, double angle)
+{
+    const double baseAngle = std::atan2(point.y, point.x) + angle;
+    const double norm = std::sqrt(static_cast<double>(point.x) * point.x
+        + static_cast<double>(point.y) * point.y);
+    return {
+        static_cast<float>(std::cos(baseAngle) * norm),
+        static_cast<float>(std::sin(baseAngle) * norm),
+        point.z,
+    };
 }
 
 void assertCastSharedConfig(const BattleCastConfig& config)
@@ -275,8 +290,113 @@ void appendExtraProjectiles(std::vector<BattleAttackSpawnRequest>& requests,
     {
         auto extra = prototype;
         extra.initial.castSubrequestKind = BattleAttackCastSubrequestKind::ExtraProjectile;
+        extra.initial.mainProjectile = false;
         requests.push_back(extra);
     }
+}
+
+void appendTrackingProjectileSpread(
+    std::vector<BattleAttackSpawnRequest>& requests,
+    const BattleCastResult& result,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill)
+{
+    const int projectileCount = result.decision.ultimate ? 2 : 1;
+    assert(projectileCount > 0);
+
+    const auto facing = castFacing(input);
+    for (int i = 0; i < projectileCount; ++i)
+    {
+        auto request = makeOperationRequest(
+            result,
+            input,
+            selectedSkill,
+            BattleOperationType::TrackingProjectile,
+            BattleAttackCastSubrequestKind::SkillHit);
+        if (projectileCount > 1)
+        {
+            const double offset = i == 0
+                ? -LegacyRangedSideProjectileAngle
+                : LegacyRangedSideProjectileAngle;
+            request.initial.velocity = normalizedTo(
+                rotated(facing, offset),
+                projectileSpeedForSkill(input.geometry, selectedSkill),
+                input.config.minimumFacingNorm);
+            request.initial.mainProjectile = i == 0;
+        }
+        requests.push_back(request);
+    }
+}
+
+void appendRangedSideProjectiles(
+    std::vector<BattleAttackSpawnRequest>& requests,
+    const BattleCastResult& result,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill)
+{
+    if (selectedSkill.attackAreaType != 1 && selectedSkill.attackAreaType != 2)
+    {
+        return;
+    }
+
+    const int sideCount = result.decision.ultimate ? 3 : 2;
+    const float strengthMultiplier = result.decision.ultimate ? 0.35f : 0.2f;
+    assert(sideCount > 0);
+
+    const auto facing = castFacing(input);
+    for (int i = 0; i < sideCount; ++i)
+    {
+        const double t = sideCount == 1
+            ? 0.0
+            : static_cast<double>(i) / (sideCount - 1);
+        const double angle = -LegacyRangedSideProjectileAngle
+            + t * LegacyRangedSideProjectileAngle * 2.0;
+        const double speed = 5.0 - 0.5 / sideCount * 2.0 * i;
+
+        auto side = makeOperationRequest(
+            result,
+            input,
+            selectedSkill,
+            BattleOperationType::RangedProjectile,
+            BattleAttackCastSubrequestKind::ExtraProjectile);
+        side.initial.velocity = normalizedTo(
+            rotated(facing, angle),
+            speed,
+            input.config.minimumFacingNorm);
+        side.initial.through = true;
+        side.initial.mainProjectile = false;
+        side.initial.strengthMultiplier = strengthMultiplier;
+        requests.push_back(side);
+    }
+}
+
+std::vector<BattleAttackSpawnRequest> makeTrackingProjectileRequests(
+    const BattleCastResult& result,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill)
+{
+    std::vector<BattleAttackSpawnRequest> requests;
+    appendTrackingProjectileSpread(requests, result, input, selectedSkill);
+    appendExtraProjectiles(requests, selectedSkill);
+    return requests;
+}
+
+std::vector<BattleAttackSpawnRequest> makeRangedProjectileRequests(
+    const BattleCastResult& result,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill)
+{
+    std::vector<BattleAttackSpawnRequest> requests = {
+        makeOperationRequest(
+            result,
+            input,
+            selectedSkill,
+            BattleOperationType::RangedProjectile,
+            BattleAttackCastSubrequestKind::SkillHit),
+    };
+    appendExtraProjectiles(requests, selectedSkill);
+    appendRangedSideProjectiles(requests, result, input, selectedSkill);
+    return requests;
 }
 
 std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
@@ -389,19 +509,9 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
     case BattleOperationType::Melee:
         return makeMeleeRequests(result, input, selectedSkill);
     case BattleOperationType::TrackingProjectile:
+        return makeTrackingProjectileRequests(result, input, selectedSkill);
     case BattleOperationType::RangedProjectile:
-    {
-        std::vector<BattleAttackSpawnRequest> requests = {
-            makeOperationRequest(
-                result,
-                input,
-                selectedSkill,
-                result.decision.operationType,
-                BattleAttackCastSubrequestKind::SkillHit),
-        };
-        appendExtraProjectiles(requests, selectedSkill);
-        return requests;
-    }
+        return makeRangedProjectileRequests(result, input, selectedSkill);
     case BattleOperationType::Dash:
         return makeDashRequests(result, input, selectedSkill);
     default:
@@ -670,15 +780,15 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     gameplayEvent.effectId = selectedSkill.id;
     result.gameplayEvents.push_back(gameplayEvent);
 
-    if (!selectedSkill.name.empty())
+    if (result.decision.announceUltimate && !selectedSkill.name.empty())
     {
         BattleVisualEvent textEvent;
         textEvent.type = BattleVisualEventType::FloatingText;
         textEvent.targetUnitId = input.unit.id;
         textEvent.text = selectedSkill.name;
         textEvent.skillName = selectedSkill.name;
-        textEvent.textSize = result.decision.ultimate ? 36 : 24;
-        textEvent.color = result.decision.ultimate ? ultimateTextColor() : BattlePresentationColor{};
+        textEvent.textSize = 36;
+        textEvent.color = ultimateTextColor();
         result.visualEvents.push_back(textEvent);
     }
 
@@ -714,7 +824,6 @@ BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionComm
     if (input.hasCast)
     {
         assert(input.cast.decision.canCast);
-        result.visualEvents = input.cast.visualEvents;
         result.attackSpawnRequests.insert(
             result.attackSpawnRequests.end(),
             input.cast.attackSpawnRequests.begin(),

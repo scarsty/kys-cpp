@@ -3,6 +3,8 @@
 #include "GameUtil.h"
 #include "filefunc.h"
 
+#include <fluidsynth.h>
+
 #include <cmath>
 
 namespace
@@ -26,10 +28,17 @@ bool isMidiFile(const std::string& file)
 {
     return file.contains(".mid") || file.contains(".midi") || file.contains(".kar");
 }
+
+void suppressFluidSynthDebugLogs()
+{
+    fluid_set_log_function(FLUID_DBG, nullptr, nullptr);
+    fluid_set_log_function(FLUID_INFO, nullptr, nullptr);
+}
 }
 
 Audio::Audio()
 {
+    suppressFluidSynthDebugLogs();
     MIX_Init();
     SDL_AudioSpec spec{};
     spec.freq = 22050;

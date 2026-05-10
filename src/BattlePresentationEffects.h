@@ -4,6 +4,7 @@
 #include "Point.h"
 #include "TextureManager.h"
 
+#include <algorithm>
 #include <deque>
 #include <format>
 #include <string>
@@ -66,4 +67,18 @@ inline void advanceBattleVisualOnlyEffects(std::deque<BattleAttackEffect>& effec
             ++effect.Frame;
         }
     }
+}
+
+inline void advanceBattlePresentationEffects(std::deque<BattleAttackEffect>& effects, bool battleFrameAdvanced)
+{
+    if (!battleFrameAdvanced)
+    {
+        return;
+    }
+
+    advanceBattleVisualOnlyEffects(effects);
+    std::erase_if(effects, [](const BattleAttackEffect& effect)
+        {
+            return effect.VisualOnly && effect.Frame >= effect.TotalFrame;
+        });
 }

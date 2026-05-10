@@ -15,6 +15,7 @@ namespace
 constexpr double SceneTileWidth = 36.0;
 constexpr double MaxEffectiveBattleReach = 480.0;
 constexpr double LegacyMinimumVectorNorm = 0.0001;
+constexpr int HealEffectId = 0;
 
 BattleFrameResult runBattleFrame(BattleRuntimeState& state)
 {
@@ -207,34 +208,98 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     CHECK(second.frame.frame == 8);
 }
 
-TEST_CASE("BattleRuntimeSession_CreateConfiguredAppliesOwnedRuntimeSetup", "[battle][runtime_session][ownership]")
+TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[battle][runtime_session][ownership]")
 {
-    BattleRuntimeInit init;
-    init.runtime = ownedRuntimeState();
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(SceneTileWidth, 18);
+    input.battleFrame = 42;
 
-    BattleRuntimeSetupConfiguration config;
-    config.world.frame = 42;
-    config.world.config = runtimeMovementConfig();
-    config.world.units = {
-        runtimeUnit(0, 0, { 128, 256, 0 }),
-    };
-    config.attacks.nextAttackId = 90;
-    config.action.castFrames = { 0, 2, 3, 4 };
-    config.damage.aggregatePendingTransactionsByDefender = true;
+    BattleSetupUnitInput unit;
+    unit.unitId = 0;
+    unit.realRoleId = 1000;
+    unit.name = "測試";
+    unit.team = 0;
+    unit.alive = true;
+    unit.vitals = { 100, 100, 0, 100 };
+    unit.stats = { 10, 10, 10 };
+    unit.motion.position = { 128, 256, 0 };
+    input.units.push_back(unit);
+    input.comboStates.emplace(0, KysChess::RoleComboState{});
 
-    auto session = BattleRuntimeSession::createConfigured(
-        std::move(init),
-        [config = std::move(config)](const BattleRuntimeState&) mutable
-        {
-            return std::move(config);
-        });
+    auto session = BattleRuntimeSession::createInitialized(std::move(input));
 
     CHECK(session.runtime().world.frame == 42);
     REQUIRE(session.runtime().world.units.size() == 1);
     CHECK(session.runtime().world.units[0].id == 0);
-    CHECK(session.runtime().attacks.nextAttackId == 90);
-    CHECK(session.runtime().action.castFrames.size() == 4);
+    REQUIRE(session.runtime().attacks.units.size() == 1);
+    CHECK(session.runtime().attacks.units[0].id == 0);
+    CHECK(session.runtime().action.castFrames == session.runtime().movementPhysics.actionCastFrames);
     CHECK(session.runtime().damage.aggregatePendingTransactionsByDefender);
+}
+
+TEST_CASE("BattleRuntimeSession_CreateInitializedSpendsNonThroughProjectilesOnHit", "[battle][runtime_session][ownership]")
+{
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(SceneTileWidth, 18);
+
+    BattleSetupUnitInput unit;
+    unit.unitId = 0;
+    unit.realRoleId = 1000;
+    unit.name = "測試";
+    unit.team = 0;
+    unit.alive = true;
+    unit.vitals = { 100, 100, 0, 100 };
+    unit.stats = { 10, 10, 10 };
+    unit.motion.position = { 128, 256, 0 };
+    input.units.push_back(unit);
+    input.comboStates.emplace(0, KysChess::RoleComboState{});
+
+    auto session = BattleRuntimeSession::createInitialized(std::move(input));
+
+    CHECK(session.runtime().attacks.spendNonThroughOnHit);
+}
+
+TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStoresAlignedAfterFrame", "[battle][runtime_session][ownership]")
+{
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(SceneTileWidth, 18);
+    input.rules.movementCollisionWorld.walkableByCell.assign(18 * 18, 1);
+
+    BattleSetupUnitInput ally;
+    ally.unitId = 0;
+    ally.realRoleId = 1000;
+    ally.name = "我方";
+    ally.team = 0;
+    ally.alive = true;
+    ally.vitals = { 100, 100, 0, 100 };
+    ally.stats = { 10, 10, 10 };
+    ally.motion.position = { 128, 128, 0 };
+    input.units.push_back(ally);
+    input.comboStates.emplace(0, KysChess::RoleComboState{});
+
+    BattleSetupUnitInput enemy;
+    enemy.unitId = 1;
+    enemy.realRoleId = 1001;
+    enemy.name = "敵方";
+    enemy.team = 1;
+    enemy.alive = true;
+    enemy.vitals = { 100, 100, 0, 100 };
+    enemy.stats = { 10, 10, 10 };
+    enemy.motion.position = { 360, 128, 0 };
+    input.units.push_back(enemy);
+    input.comboStates.emplace(1, KysChess::RoleComboState{});
+
+    auto session = BattleRuntimeSession::createInitialized(std::move(input));
+    session.runFrame();
+
+    const auto& runtime = session.runtime();
+    const auto& unit = runtime.units.requireUnit(0);
+    REQUIRE(runtime.world.units.size() == 2);
+    REQUIRE(runtime.attacks.units.size() == 2);
+    CHECK(runtime.world.units[0].position.x == unit.motion.position.x);
+    CHECK(runtime.world.units[0].position.y == unit.motion.position.y);
+    CHECK(runtime.attacks.units[0].position.x == unit.motion.position.x);
+    CHECK(runtime.attacks.units[0].position.y == unit.motion.position.y);
 }
 
 TEST_CASE("BattleRuntimeSession_CommitSetupPlacementUpdatesOwnedRuntime", "[battle][runtime_session][ownership]")
@@ -411,6 +476,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
     CHECK(state.units.requireUnit(0).vitals.hp == 65);
     CHECK(state.units.requireUnit(1).vitals.hp == 100);
     CHECK(state.units.requireUnit(2).vitals.hp == 10);
+    CHECK(std::count_if(
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.effectId == HealEffectId;
+        }) == 2);
 
     const auto healLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -530,6 +603,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     CHECK(result.teamEffectEvents[1].value == 15);
     CHECK(result.teamEffectEvents[2].type == BattleTeamEffectEventType::CooldownReduced);
     CHECK(result.teamEffectEvents[2].value == 10);
+    CHECK(std::count_if(
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.effectId == HealEffectId;
+        }) == 2);
 
     const auto selfRegenLog = std::find_if(
         result.frame.logEvents.begin(),

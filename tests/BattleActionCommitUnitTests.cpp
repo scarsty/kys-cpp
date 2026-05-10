@@ -59,6 +59,23 @@ TEST_CASE("BattleActionCommit_UltimateCastSetsPendingSkillTeamHeal", "[battle][a
     CHECK(result.combo.onSkillTeamHealPending);
 }
 
+TEST_CASE("BattleActionCommit_DoesNotReplayCastVisualEvents", "[battle][action_commit][unit]")
+{
+    auto input = basicActionInput();
+    input.hasCast = true;
+    input.cast = committedCast(true, BattleOperationType::RangedProjectile);
+
+    BattleVisualEvent textEvent;
+    textEvent.type = BattleVisualEventType::FloatingText;
+    textEvent.targetUnitId = 1;
+    textEvent.text = "絕招";
+    input.cast.visualEvents.push_back(std::move(textEvent));
+
+    auto result = BattleActionCommitSystem().commit(input);
+
+    CHECK(result.visualEvents.empty());
+}
+
 TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[battle][action_commit][unit]")
 {
     auto input = basicActionInput();

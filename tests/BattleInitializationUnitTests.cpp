@@ -103,6 +103,74 @@ void addRuntimeSetupSeed(
     }
 }
 
+BattleActionSkillSeed makeHadesTestSkillSeed(
+    int attackAreaType = 0,
+    int selectDistance = 1,
+    std::string name = "普通攻擊",
+    int soundId = 55,
+    int visualEffectId = 44)
+{
+    BattleActionSkillSeed seed;
+    seed.id = 1;
+    seed.name = std::move(name);
+    seed.soundId = soundId;
+    seed.attackAreaType = attackAreaType;
+    seed.magicType = 1;
+    seed.selectDistance = selectDistance;
+    seed.visualEffectId = visualEffectId;
+    seed.actProperty = 40;
+    seed.magicPower = 40;
+    return seed;
+}
+
+void addInitializedRuntimeTestUnit(
+    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext& context,
+    int unitId,
+    int realRoleId,
+    int team,
+    int gridX,
+    int gridY,
+    int faceTowards,
+    BattleActionSkillSeed normalSkill = makeHadesTestSkillSeed(),
+    BattleActionSkillSeed ultimateSkill = makeHadesTestSkillSeed())
+{
+    namespace Adapter = KysChess::BattleSceneBattleAdapter;
+
+    Adapter::BattleSetupUnitInput unit;
+    unit.unitId = unitId;
+    unit.realRoleId = realRoleId;
+    unit.name = team == 0 ? "我方" : "敵方";
+    unit.team = team;
+    unit.sourceOrder = unitId;
+    unit.alive = true;
+    unit.gridX = gridX;
+    unit.gridY = gridY;
+    unit.faceTowards = faceTowards;
+    unit.vitals = { 120, 120, 0, 100 };
+    unit.stats = { 30, 20, 40 };
+    unit.motion.position = {
+        static_cast<float>(-gridY * 36 + gridX * 36 + 18 * 36),
+        static_cast<float>(gridY * 36 + gridX * 36),
+        0.0f,
+    };
+    unit.motion.facing = faceTowards == Towards_LeftUp ? Pointf{ -1.0f, 0.0f, 0.0f } : Pointf{ 1.0f, 0.0f, 0.0f };
+    unit.animation = { 0, 0, 0, -1 };
+    unit.star = 1;
+    unit.cost = 1;
+    unit.physicalPower = 100;
+    unit.hasEquippedSkill = true;
+    unit.normalSkill = std::move(normalSkill);
+    unit.ultimateSkill = std::move(ultimateSkill);
+    context.input.units.push_back(unit);
+    context.input.actionPlanSeeds.push_back({
+        unitId,
+        true,
+        unit.normalSkill,
+        unit.ultimateSkill,
+    });
+    addRuntimeSetupSeed(context, unit);
+}
+
 }  // namespace
 
 namespace KysChess
@@ -476,6 +544,132 @@ TEST_CASE("BattleSceneBattleAdapter_InitializesRuntimeRandomFromBuildContext", "
     auto created = Adapter::createInitializedBattleRuntimeSession(context);
 
     CHECK(created.session.runtime().random.seed() == 777u);
+}
+
+TEST_CASE("BattleSceneBattleAdapter_InitializedSessionAdvancesUnitsAfterSetupPlacement", "[battle][initialization][runtime]")
+{
+    namespace Adapter = KysChess::BattleSceneBattleAdapter;
+
+    std::map<int, RoleComboState> comboStates;
+
+    Adapter::BattleRuntimeBuildContext context;
+    context.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    context.input.comboStates = &comboStates;
+    context.rules.movementCollisionWorld.walkableByCell.assign(18 * 18, 1);
+
+    addInitializedRuntimeTestUnit(context, 0, 1001, 0, 3, 3, Towards_RightDown);
+    addInitializedRuntimeTestUnit(context, 1, 1002, 1, 10, 10, Towards_LeftUp);
+
+    auto created = Adapter::createInitializedBattleRuntimeSession(context);
+
+    BattleSetupPlacementInput placement;
+    placement.units.push_back({ 0, 3, 3, Towards_RightDown });
+    placement.units.push_back({ 1, 10, 10, Towards_LeftUp });
+    created.session.commitSetupPlacement(placement);
+
+    const auto initialAlly = created.session.runtime().units.requireUnit(0).motion.position;
+    const auto initialEnemy = created.session.runtime().units.requireUnit(1).motion.position;
+
+    bool anyUnitMoved = false;
+    for (int frame = 0; frame < 90 && !anyUnitMoved; ++frame)
+    {
+        created.session.runFrame();
+        const auto& ally = created.session.runtime().units.requireUnit(0).motion.position;
+        const auto& enemy = created.session.runtime().units.requireUnit(1).motion.position;
+        anyUnitMoved = ally.x != initialAlly.x
+            || ally.y != initialAlly.y
+            || enemy.x != initialEnemy.x
+            || enemy.y != initialEnemy.y;
+    }
+
+    CHECK(anyUnitMoved);
+}
+
+TEST_CASE("BattleSceneBattleAdapter_InitializedSessionSeedsAttackUnits", "[battle][initialization][runtime]")
+{
+    namespace Adapter = KysChess::BattleSceneBattleAdapter;
+
+    std::map<int, RoleComboState> comboStates;
+
+    Adapter::BattleRuntimeBuildContext context;
+    context.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    context.input.comboStates = &comboStates;
+
+    addInitializedRuntimeTestUnit(context, 0, 1001, 0, 3, 3, Towards_RightDown);
+    addInitializedRuntimeTestUnit(context, 1, 1002, 1, 10, 10, Towards_LeftUp);
+
+    auto created = Adapter::createInitializedBattleRuntimeSession(context);
+
+    REQUIRE(created.session.runtime().attacks.units.size() == 2);
+    CHECK(created.session.runtime().attacks.units[0].id == 0);
+    CHECK(created.session.runtime().attacks.units[0].team == 0);
+    CHECK(created.session.runtime().attacks.units[0].alive);
+    CHECK(created.session.runtime().attacks.units[1].id == 1);
+    CHECK(created.session.runtime().attacks.units[1].team == 1);
+    CHECK(created.session.runtime().attacks.units[1].alive);
+}
+
+TEST_CASE("BattleSceneBattleAdapter_InitializedSessionResolvesProjectileCombat", "[battle][initialization][runtime]")
+{
+    namespace Adapter = KysChess::BattleSceneBattleAdapter;
+
+    std::map<int, RoleComboState> comboStates;
+
+    Adapter::BattleRuntimeBuildContext context;
+    context.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    context.input.comboStates = &comboStates;
+    context.rules.movementCollisionWorld.walkableByCell.assign(18 * 18, 1);
+
+    auto projectileSkill = makeHadesTestSkillSeed(1, 4, "飛刀", 55, 44);
+    addInitializedRuntimeTestUnit(
+        context,
+        0,
+        1001,
+        0,
+        3,
+        3,
+        Towards_RightDown,
+        projectileSkill,
+        projectileSkill);
+    addInitializedRuntimeTestUnit(
+        context,
+        1,
+        1002,
+        1,
+        5,
+        3,
+        Towards_LeftUp,
+        projectileSkill,
+        projectileSkill);
+
+    auto created = Adapter::createInitializedBattleRuntimeSession(context);
+
+    BattleSetupPlacementInput placement;
+    placement.units.push_back({ 0, 3, 3, Towards_RightDown });
+    placement.units.push_back({ 1, 5, 3, Towards_LeftUp });
+    created.session.commitSetupPlacement(placement);
+
+    bool playedAttackSound = false;
+    bool emittedProjectile = false;
+    bool appliedDamage = false;
+    for (int frame = 0; frame < 90 && !(playedAttackSound && emittedProjectile && appliedDamage); ++frame)
+    {
+        const auto frameResult = created.session.runFrame();
+        playedAttackSound = playedAttackSound || !frameResult.applications.attackSoundIds.empty();
+        emittedProjectile = emittedProjectile
+            || std::any_of(
+                frameResult.frame.visualEvents.begin(),
+                frameResult.frame.visualEvents.end(),
+                [](const BattleVisualEvent& event)
+                {
+                    return event.type == BattleVisualEventType::ProjectileSpawned;
+                });
+        appliedDamage = appliedDamage || !frameResult.damageRenderApplications.empty();
+    }
+
+    CHECK(playedAttackSound);
+    CHECK(emittedProjectile);
+    CHECK(appliedDamage);
 }
 
 TEST_CASE("BattleRuntimeSession_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization][runtime_session]")

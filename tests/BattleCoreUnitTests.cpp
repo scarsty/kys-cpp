@@ -1116,11 +1116,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
 
     CHECK(state.world.frame == 1);
     CHECK(result.movement.events[0].type == BattleEventType::DashStart);
-    REQUIRE(result.frame.logEvents.size() == result.movement.events.size());
+    REQUIRE(result.frame.logEvents.empty());
     REQUIRE(!result.frame.visualEvents.empty());
     CHECK(result.frame.frame == 1);
-    CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(result.frame.logEvents[0].text == "dash-start");
     const auto& firstProjectileEvent = result.frame.visualEvents[0];
     CHECK(firstProjectileEvent.type == BattleVisualEventType::ProjectileMoved);
     CHECK(firstProjectileEvent.effectId == 10);
@@ -1385,7 +1383,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
     };
     seedRuntimeUnitsFromWorld(state);
     auto cast = frameCastInput(0, 1);
-    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.attackAreaType = 0;
+    cast.normalSkill.forceRanged = true;
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
@@ -1417,7 +1416,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[
     auto cast = frameCastInput(0, -1);
     cast.targetPosition = {};
     cast.targetDistance = 0.0;
-    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.attackAreaType = 0;
+    cast.normalSkill.forceRanged = true;
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
@@ -1485,7 +1485,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
     auto cast = frameCastInput(0, 1);
     cast.unit.position = { -500, -500, 0 };
     cast.targetPosition = { -250, -250, 0 };
-    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.attackAreaType = 0;
+    cast.normalSkill.forceRanged = true;
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
@@ -1774,11 +1775,15 @@ TEST_CASE("BattleFrameRunner_ConsumesUltimateCasterWhenRuntimeOwnedCastCommits",
     unit.operationType = BattleOperationType::RangedProjectile;
     unit.animation.actType = 1;
     unit.animation.cooldown = 10;
+    unit.vitals.mp = 100;
+    unit.vitals.maxMp = 100;
     state.ultimateCasters.insert(0);
 
     auto action = frameActionCommitInput();
     action.hasCast = true;
     action.cast = committedFrameCast();
+    action.cast.decision.ultimate = true;
+    action.cast.mpDelta = -unit.vitals.maxMp;
     state.action.pendingCommitInputs.emplace(0, action);
 
     auto result = runBattleFrame(state);
@@ -1786,6 +1791,38 @@ TEST_CASE("BattleFrameRunner_ConsumesUltimateCasterWhenRuntimeOwnedCastCommits",
     REQUIRE(result.actionResults.size() == 1);
     CHECK(result.actionResults[0].actionCommitted);
     CHECK(state.ultimateCasters.empty());
+    CHECK(state.units.requireUnit(0).vitals.mp == 0);
+}
+
+TEST_CASE("BattleFrameRunner_AppliesCommittedNormalCastMpGain", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto& unit = state.units.requireUnit(0);
+    unit.haveAction = true;
+    unit.animation.actFrame = 6;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.animation.actType = 1;
+    unit.animation.cooldown = 10;
+    unit.vitals.mp = 0;
+    unit.vitals.maxMp = 100;
+
+    auto action = frameActionCommitInput();
+    action.hasCast = true;
+    action.cast = committedFrameCast();
+    action.cast.mpDelta = 5;
+    state.action.pendingCommitInputs.emplace(0, action);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK(result.actionResults[0].actionCommitted);
+    CHECK(state.units.requireUnit(0).vitals.mp == action.cast.mpDelta + 1);
 }
 
 TEST_CASE("BattleFrameRunner_PrunesFinishedRuntimeAttacksAfterFrame", "[battle][core][runtime]")
@@ -2096,6 +2133,39 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
     REQUIRE(result.teamEffectEvents.size() == 2);
     CHECK(state.units.requireUnit(0).vitals.hp == 60);
     CHECK(state.units.requireUnit(1).vitals.hp == 80);
+    CHECK(std::count_if(
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.effectId == KysChess::EFT_HEAL;
+        }) == 2);
+}
+
+TEST_CASE("BattleFrameRunner_DropsPendingTeamEffectWhenSourceDiesBeforeApply", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.units.gridTransform = { SceneTileWidth, 64 };
+    state.world = worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 0, { 120, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.units.units = {
+        runtimeUnitSnapshot(0, 0, 40, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 0, 80, { 120, 100, 0 }),
+    };
+    state.units.requireUnit(0).alive = false;
+    state.world.units[0].alive = false;
+    state.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 0, 10, 0, "技能群療" });
+
+    auto result = runBattleFrame(state);
+
+    CHECK(result.teamEffectEvents.empty());
+    CHECK(result.frame.visualEvents.empty());
+    CHECK(state.teamEffects.pendingCommands.empty());
+    CHECK(state.units.requireUnit(1).vitals.hp == 80);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityToUnitStore", "[battle][core][breakthrough]")
@@ -2186,10 +2256,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.pendingAttackSpawns.size() == 1);
+    REQUIRE(state.pendingAttackSpawns.size() == 4);
     CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 1);
     CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == 0);
     CHECK(state.pendingAttackSpawns[0].initial.skillId == 401);
+    CHECK(state.pendingAttackSpawns[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(state.pendingAttackSpawns[1].initial.strengthMultiplier == 0.35f);
     REQUIRE(result.applications.attackSoundIds.size() == 1);
     CHECK(result.applications.attackSoundIds[0] == 55);
 }
@@ -2206,9 +2278,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimeAutoUltimateReadyInsideC
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.pendingAttackSpawns.size() == 1);
+    REQUIRE(state.pendingAttackSpawns.size() == 4);
     CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 1);
     CHECK(state.pendingAttackSpawns[0].initial.skillId == 401);
+    CHECK(state.pendingAttackSpawns[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(state.pendingAttackSpawns[1].initial.strengthMultiplier == 0.35f);
     CHECK(std::any_of(
         result.frame.logEvents.begin(),
         result.frame.logEvents.end(),
@@ -2422,7 +2496,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparat
 
     REQUIRE(result.attackEvents.size() == 4);
     REQUIRE(result.frame.gameplayEvents.size() == result.attackEvents.size());
-    REQUIRE(result.frame.logEvents.size() == result.movement.events.size());
+    REQUIRE(result.frame.logEvents.empty());
     REQUIRE(result.frame.visualEvents.size() == result.attackEvents.size());
 
     CHECK(result.attackEvents[0].type == BattleAttackEventType::Moved);
@@ -2649,6 +2723,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
                 && event.text == "閃避了來襲攻擊";
         });
     CHECK(dodgeLog != result.frame.logEvents.end());
+
+    const auto dodgeEffect = std::find_if(
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.targetUnitId == 1
+                && event.effectId == KysChess::EFT_EVADE;
+        });
+    CHECK(dodgeEffect != result.frame.visualEvents.end());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][core]")
@@ -2710,7 +2795,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPa
 
     REQUIRE(result.attackEvents.size() == 2);
     REQUIRE(result.frame.gameplayEvents.size() == 2);
-    REQUIRE(result.frame.logEvents.size() == result.movement.events.size());
+    REQUIRE(result.frame.logEvents.empty());
     REQUIRE(result.frame.visualEvents.size() == result.attackEvents.size());
 
     CHECK(result.attackEvents[1].type == BattleAttackEventType::TargetLost);
@@ -2810,7 +2895,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
 
     REQUIRE(result.attackEvents.size() == 3);
     REQUIRE(result.frame.gameplayEvents.size() == 3);
-    REQUIRE(result.frame.logEvents.size() == result.movement.events.size());
+    REQUIRE(result.frame.logEvents.empty());
     REQUIRE(result.frame.visualEvents.size() == result.attackEvents.size() + 1);
     CHECK(result.attackEvents[2].type == BattleAttackEventType::Bounce);
     CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::AttackSpawned);
