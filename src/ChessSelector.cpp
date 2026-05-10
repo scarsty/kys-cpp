@@ -79,10 +79,14 @@ void ChessSelector::enterBattle()
     ChessBattleFlow(services(), rewardFlow).enterBattle();
 }
 
-int ChessSelector::runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id, int seed)
+int ChessSelector::runBattle(
+    const DynamicBattleRoles& roles,
+    const std::vector<Chess>& allyChess,
+    unsigned int battleSeed,
+    int battle_id)
 {
     ChessRewardFlow rewardFlow(services());
-    return ChessBattleFlow(services(), rewardFlow).runBattle(roles, allyChess, battle_id, seed);
+    return ChessBattleFlow(services(), rewardFlow).runBattle(roles, allyChess, battleSeed, battle_id);
 }
 
 void ChessSelector::buyExp()

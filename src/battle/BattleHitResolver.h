@@ -16,6 +16,7 @@
 namespace KysChess::Battle
 {
 
+class BattleRuntimeRandom;
 struct BattleUnitStore;
 struct BattleRuntimeUnit;
 
@@ -257,7 +258,6 @@ struct BattleHitResolutionInput
     int pendingDefenderHpDamage = 0;
     int sharedBleedMaxStacks = 1;
     int randomDamageVariance = 0;
-    std::vector<double> percentRolls;
 };
 
 struct BattleHitResolutionResult
@@ -303,7 +303,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
 class BattleHitResolver
 {
 public:
-    BattleHitResolutionResult resolve(const BattleHitResolutionInput& input) const;
+    BattleHitResolutionResult resolve(const BattleHitResolutionInput& input, BattleRuntimeRandom& random) const;
 };
 
 }  // namespace KysChess::Battle

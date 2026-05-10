@@ -80,6 +80,17 @@ const BattleHpDamageCommand* firstHpDamageCommand(const BattleHitResolutionResul
     return it == result.commands.end() ? nullptr : &std::get<BattleHpDamageCommand>(*it);
 }
 
+BattleRuntimeRandom fixedBattleRandom()
+{
+    return BattleRuntimeRandom(1u);
+}
+
+BattleHitResolutionResult resolveHit(const BattleHitResolutionInput& input)
+{
+    auto random = fixedBattleRandom();
+    return KysChess::Battle::BattleHitResolver().resolve(input, random);
+}
+
 }  // namespace
 
 TEST_CASE("BattleHitResolver_NonHitEvent_ReturnsNoGameplayCommands", "[battle][hit_resolver][unit]")
@@ -89,7 +100,7 @@ TEST_CASE("BattleHitResolver_NonHitEvent_ReturnsNoGameplayCommands", "[battle][h
     input.attacker.id = 1;
     input.defender.id = 2;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     CHECK(result.commands.empty());
     CHECK(result.logEvents.empty());
@@ -101,7 +112,7 @@ TEST_CASE("BattleHitResolver_MagicUsesResolvedBaseDamage", "[battle][hit_resolve
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 70;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     CHECK(result.shapedHpDamage == Catch::Approx(70.0));
     CHECK(result.finalHpDamage == 70);
@@ -117,7 +128,7 @@ TEST_CASE("BattleHitResolver_ProjectCancelAndStrengthShapeFinalDamage", "[battle
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 100;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     CHECK(result.shapedHpDamage == Catch::Approx(229.5));
     CHECK(result.finalHpDamage == 229);
@@ -131,7 +142,7 @@ TEST_CASE("BattleHitResolver_FrozenSideEffectEmitsAcceptedHitCommand", "[battle]
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 90;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     const auto* command = std::get_if<BattleAcceptedHitSideEffectCommand>(&result.commands.front());
     REQUIRE(command);
@@ -147,7 +158,7 @@ TEST_CASE("BattleHitResolver_KnockbackIsReturnedAsCommand", "[battle][hit_resolv
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 90;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     auto knockback = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
         {
@@ -169,9 +180,8 @@ TEST_CASE("BattleHitResolver_CritMarksResultAndEmitsStatusEvent", "[battle][hit_
     input.skill.resolvedBaseDamage = 50;
     input.attackerCombo.critChancePct = 100;
     input.attackerCombo.critMultiplier = 200;
-    input.percentRolls = { 0.0 };
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     CHECK(result.critical);
     CHECK(result.shapedHpDamage == Catch::Approx(100.0));
@@ -189,7 +199,7 @@ TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand",
     input.skill.resolvedBaseDamage = 50;
     input.attackerCombo.hpOnHit = 30;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     const auto* command = firstAcceptedHitCommand(result);
     REQUIRE(command);
@@ -216,7 +226,7 @@ TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resol
     input.attackerCombo.poisonDOTPct = 12;
     input.attackerCombo.poisonDuration = 60;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     const auto* command = firstAcceptedHitCommand(result);
     REQUIRE(command);
@@ -234,9 +244,8 @@ TEST_CASE("BattleHitResolver_TriggeredTeamHealEmitsCommandWithoutApplyingTeamWor
     input.skill.resolvedBaseDamage = 50;
     input.attackerCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::OnSkillTeamHeal, KysChess::Trigger::OnHit, 12, 100));
-    input.percentRolls = { 0.0 };
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     auto it = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
         {
@@ -257,9 +266,8 @@ TEST_CASE("BattleHitResolver_ReflectedRangedProjectileChangesActualSourceAndTarg
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 40;
     input.defenderCombo.projectileReflectPct = 100;
-    input.percentRolls = { 0.0 };
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     CHECK(result.reflected);
     const auto* command = firstHpDamageCommand(result);
@@ -286,9 +294,8 @@ TEST_CASE("BattleHitResolver_ExecuteTurnsFinalDamageIntoExecutedHpCommand", "[ba
     input.defender.vitals.maxHp = 100;
     input.attackerCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::Execute, KysChess::Trigger::OnHit, 50, 100));
-    input.percentRolls = { 0.0 };
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     CHECK(result.executed);
     const auto* command = firstHpDamageCommand(result);
@@ -308,7 +315,7 @@ TEST_CASE("BattleHitResolver_FirstHitBlockZerosDamageAndEmitsBlockPresentation",
     input.skill.resolvedBaseDamage = 50;
     input.defenderCombo.blockFirstHitsRemaining = 1;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     CHECK(result.finalHpDamage == 0);
     CHECK_FALSE(firstHpDamageCommand(result));
@@ -328,7 +335,7 @@ TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battl
     input.skill.resolvedBaseDamage = 50;
     input.defenderCombo.skillReflectPct = 20;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     auto reflected = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
         {
@@ -351,9 +358,8 @@ TEST_CASE("BattleHitResolver_BleedAndMpBlockEmitAcceptedHitCommands", "[battle][
     input.attackerCombo.bleedMaxStacks = 3;
     input.attackerCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::MPBlock, KysChess::Trigger::OnHit, 9, 100));
-    input.percentRolls = { 0.0, 0.0 };
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     bool sawBleed = false;
     bool sawMpBlock = false;
@@ -391,9 +397,8 @@ TEST_CASE("BattleHitResolver_OnHitFollowUpsEmitGameplayCommands", "[battle][hit_
     input.attackerCombo.triggeredEffects.back().value2 = 45;
     input.attackerCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::UltimateExtraProjectiles, KysChess::Trigger::OnHit, 2, 100));
-    input.percentRolls = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     bool sawCurrentHpBlast = false;
     bool sawTeamMpRestore = false;
@@ -451,9 +456,8 @@ TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCo
     input.attackEvent.suppressNearbyTrackingProjectileProc = true;
     input.attackerCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::NearbyTrackingProjectiles, KysChess::Trigger::OnHit, 80, 100));
-    input.percentRolls = { 0.0 };
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     auto nearby = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
         {
@@ -517,7 +521,7 @@ TEST_CASE("BattleHitResolver_MpDamageSkillEmitsMpDamageCommand", "[battle][hit_r
     input.skill.resolvedBaseDamage = 50;
     input.randomDamageVariance = -5;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     auto mpDamage = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
         {
@@ -549,9 +553,8 @@ TEST_CASE("BattleHitResolver_ShieldBreakEmitsShieldBreakCommands", "[battle][hit
         triggeredEffect(KysChess::EffectType::TempFlatATK, KysChess::Trigger::OnShieldBreak, 14, 100, 45));
     input.defenderCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::MPRestore, KysChess::Trigger::OnShieldBreak, 25, 100));
-    input.percentRolls = { 0.0, 0.0, 0.0, 0.0 };
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     bool sawExplosion = false;
     bool sawUltimate = false;
@@ -598,7 +601,7 @@ TEST_CASE("BattleHitResolver_ScriptedImpactEmitsStatusAndDamageCommands", "[batt
     input.attackEvent.scriptedDamage = 35;
     input.sharedBleedMaxStacks = 4;
 
-    auto result = BattleHitResolver().resolve(input);
+    auto result = resolveHit(input);
 
     bool sawStatus = false;
     bool sawDamage = false;

@@ -17,27 +17,6 @@ namespace
 constexpr int RoleStatusEffectFrames = 45;
 constexpr double FollowUpPi = 3.14159265358979323846;
 
-class BattleHitRollStream
-{
-public:
-    explicit BattleHitRollStream(const std::vector<double>& rolls)
-        : rolls_(rolls)
-    {
-    }
-
-    double next()
-    {
-        assert(index_ < rolls_.size());
-        const double roll = rolls_[index_++];
-        assert(roll >= 0.0 && roll < 100.0);
-        return roll;
-    }
-
-private:
-    const std::vector<double>& rolls_;
-    size_t index_ = 0;
-};
-
 std::string formatStatusFrames(const char* label, int frames)
 {
     if (frames <= 0)
@@ -514,7 +493,9 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     return expansion;
 }
 
-BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionInput& input) const
+BattleHitResolutionResult BattleHitResolver::resolve(
+    const BattleHitResolutionInput& input,
+    BattleRuntimeRandom& random) const
 {
     assert(input.defender.id >= 0);
     const bool scriptedInput = input.attackEvent.scriptedDamage > 0
@@ -604,7 +585,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
 
     const auto shaped = BattleDamageSystem().shapeLegacyHitDamage(shapeInput);
     result.shapedHpDamage = shaped.damage;
-    BattleHitRollStream rolls(input.percentRolls);
 
     if (shaped.frozenFrames > 0)
     {
@@ -651,7 +631,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     auto attackerDamage = BattleComboTriggerSystem().shapeAttackerHitDamage(
         attackerCombo,
         { result.shapedHpDamage, input.attacker.vitals.hp, input.attacker.vitals.maxHp, attackerCombo.lastAliveFlag },
-        [&]() { return rolls.next(); });
+        random);
     result.shapedHpDamage = attackerDamage.damage;
     for (const auto& damageEvent : attackerDamage.events)
     {
@@ -709,9 +689,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             formatStatusPercentFrames("中毒", attackerCombo.poisonDOTPct, attackerCombo.poisonDuration)));
     }
 
-    int legacyStunFrames = BattleComboTriggerSystem().resolveLegacyStunFrames(
-        attackerCombo,
-        [&]() { return rolls.next(); });
+    int legacyStunFrames = attackerCombo.stunChancePct > 0 && random.chance(attackerCombo.stunChancePct)
+        ? attackerCombo.stunFrames
+        : 0;
     if (legacyStunFrames > 0)
     {
         BattleDamageRequest request;
@@ -726,7 +706,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     auto hitStunCommands = BattleComboTriggerSystem().collectStunCommands(
         attackerCombo,
         { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
-        [&]() { return rolls.next(); });
+        random);
     for (const auto& stunCommand : hitStunCommands)
     {
         BattleDamageRequest request;
@@ -741,7 +721,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             static_cast<size_t>(stunCommand.effectIndex));
     }
 
-    if (BattleComboTriggerSystem().shouldApplyKnockback(attackerCombo, [&]() { return rolls.next(); }))
+    if (attackerCombo.knockbackChancePct > 0 && random.chance(attackerCombo.knockbackChancePct))
     {
         auto procVelocity = input.defender.motion.position - input.attacker.motion.position;
         procVelocity.normTo(5.0f);
@@ -753,9 +733,11 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         });
     }
 
-    int offensiveCooldownExtendPct = BattleComboTriggerSystem().resolveOffensiveCooldownExtendPct(
-        attackerCombo,
-        [&]() { return rolls.next(); });
+    int offensiveCooldownExtendPct = attackerCombo.offensiveCharmChancePct > 0
+        && attackerCombo.charmCDRAmountPct > 0
+        && random.chance(attackerCombo.offensiveCharmChancePct)
+        ? attackerCombo.charmCDRAmountPct
+        : 0;
     if (offensiveCooldownExtendPct > 0)
     {
         BattleDamageRequest request;
@@ -777,7 +759,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     auto teamHeal = BattleComboTriggerSystem().collectTriggeredTeamHeal(
         attackerCombo,
         { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
-        [&]() { return rolls.next(); });
+        random);
     if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
     {
         result.commands.push_back(BattleTeamHealCommand{
@@ -848,9 +830,11 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             std::format("單次承傷封頂{}%最大生命", lateDamage.maxHitPct)));
     }
 
-    int defensiveCooldownExtendPct = BattleComboTriggerSystem().resolveDefensiveCooldownExtendPct(
-        defenderCombo,
-        [&]() { return rolls.next(); });
+    int defensiveCooldownExtendPct = defenderCombo.charmCDRChancePct > 0
+        && defenderCombo.charmCDRAmountPct > 0
+        && random.chance(defenderCombo.charmCDRChancePct)
+        ? defenderCombo.charmCDRAmountPct
+        : 0;
     if (defensiveCooldownExtendPct > 0)
     {
         BattleDamageRequest request;
@@ -872,7 +856,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     auto beingHitStunCommands = BattleComboTriggerSystem().collectStunCommands(
         defenderCombo,
         { BattleComboTriggerHook::DamageTaken, input.defender.id, input.attacker.id },
-        [&]() { return rolls.next(); });
+        random);
     for (const auto& stunCommand : beingHitStunCommands)
     {
         BattleDamageRequest request;
@@ -890,7 +874,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     result.reflected = BattleComboTriggerSystem().resolveProjectileReflect(
         defenderCombo,
         rangedProjectile,
-        [&]() { return rolls.next(); });
+        random);
     if (result.reflected)
     {
         result.visualEvents.push_back(floatingTextEvent(
@@ -913,7 +897,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                 result.shapedHpDamage,
                 usingHpDamage,
             },
-            [&]() { return rolls.next(); });
+            random);
         if (executeResult.executed)
         {
             result.executed = true;
@@ -927,7 +911,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     auto blockCommands = BattleComboTriggerSystem().collectDefenderBlockCommands(
         defenderCombo,
         { result.executed, result.reflected },
-        [&]() { return rolls.next(); });
+        random);
     for (auto blockCommand : blockCommands)
     {
         result.shapedHpDamage = 0;
@@ -976,7 +960,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         auto shieldBreakCommands = BattleComboTriggerSystem().collectShieldBreakCommands(
             defenderCombo,
             { BattleComboTriggerHook::ShieldBreak, input.defender.id, input.defender.id },
-            [&]() { return rolls.next(); });
+            random);
         for (const auto& shieldBreak : shieldBreakCommands)
         {
             bool activated = true;
@@ -1068,10 +1052,15 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
 
     if (!result.reflected)
     {
-        auto bleedProc = BattleComboTriggerSystem().resolveBleedProc(
-            attackerCombo,
-            result.shapedHpDamage > 0,
-            [&]() { return rolls.next(); });
+        BattleBleedProc bleedProc;
+        bleedProc.applies = result.shapedHpDamage > 0
+            && attackerCombo.bleedChancePct > 0
+            && random.chance(attackerCombo.bleedChancePct);
+        if (bleedProc.applies)
+        {
+            bleedProc.stacks = 1;
+            bleedProc.maxStacks = attackerCombo.bleedMaxStacks;
+        }
         if (bleedProc.applies)
         {
             BattleDamageRequest request;
@@ -1084,10 +1073,16 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                 formatStatusRange("流血", bleedProc.stacks, std::max(1, bleedProc.maxStacks), "層")));
         }
 
-        auto damageReduceDebuff = BattleComboTriggerSystem().resolveDamageReduceDebuffProc(
-            attackerCombo,
-            result.shapedHpDamage > 0,
-            [&]() { return rolls.next(); });
+        BattleDamageReduceDebuffProc damageReduceDebuff;
+        damageReduceDebuff.applies = result.shapedHpDamage > 0
+            && attackerCombo.dmgReduceDebuffChancePct > 0
+            && attackerCombo.dmgReduceDebuffDurationFrames > 0
+            && random.chance(attackerCombo.dmgReduceDebuffChancePct);
+        if (damageReduceDebuff.applies)
+        {
+            damageReduceDebuff.pct = attackerCombo.dmgReduceDebuffPct;
+            damageReduceDebuff.durationFrames = attackerCombo.dmgReduceDebuffDurationFrames;
+        }
         if (damageReduceDebuff.applies)
         {
             BattleDamageRequest request;
@@ -1104,7 +1099,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             attackerCombo,
             { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
             { KysChess::EffectType::MPBlock },
-            [&]() { return rolls.next(); });
+            random);
         for (const auto& mpBlock : mpBlockEvents)
         {
             BattleDamageRequest request;
@@ -1128,7 +1123,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                     KysChess::EffectType::FlatShield,
                     KysChess::EffectType::SpiralBleedProjectile,
                 },
-                [&]() { return rolls.next(); });
+                random);
         }
         else
         {
@@ -1142,7 +1137,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                     KysChess::EffectType::SpiralBleedProjectile,
                     KysChess::EffectType::NearbyTrackingProjectiles,
                 },
-                [&]() { return rolls.next(); });
+                random);
         }
 
         for (const auto& followUp : followUpEvents)
@@ -1196,7 +1191,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             attackerCombo,
             { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
             0,
-            [&]() { return rolls.next(); });
+            random);
         if (extraProjectiles > 0)
         {
             result.commands.push_back(BattleHitExtraProjectilesCommand{

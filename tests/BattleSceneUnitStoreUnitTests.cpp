@@ -75,13 +75,7 @@ TEST_CASE("BattleSceneUnitStore_SwapsSetupPositionAndUpdatesWorldPosition", "[ba
 
     BattleSceneUnitStore store;
     store.initialize(std::move(units));
-    store.swapSetupUnitPositions(
-        0,
-        1,
-        [](int x, int y)
-        {
-            return Pointf{ static_cast<float>(x * 10), static_cast<float>(y * 10), 0 };
-        });
+    store.swapSetupUnitPositions(0, 1);
 
     CHECK(store.requireUnit(0).gridX == 3);
     CHECK(store.requireUnit(0).gridY == 4);

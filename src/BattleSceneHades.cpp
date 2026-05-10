@@ -418,19 +418,7 @@ void BattleSceneHades::publishPresentationFrame()
         &tracker_,
         &text_effects_,
         &attack_effects_,
-        [this](int unitId) -> const BattleUnitIdentity*
-        {
-            return &scene_units_.requireUnit(unitId).identity;
-        },
-        [this](int unitId) -> std::optional<BattleScenePresentationPlayer::UnitView>
-        {
-            const auto& unit = scene_units_.requireUnit(unitId);
-            return BattleScenePresentationPlayer::UnitView{
-                unit.motion.position,
-                unit.identity.team,
-                unit.vitals.maxHp,
-            };
-        },
+        &scene_units_,
     });
 }
 
@@ -458,10 +446,16 @@ void BattleSceneHades::initializeBattleRuntime()
     }
 }
 
+void BattleSceneHades::setBattleRuntimeRandomSeed(unsigned int seed)
+{
+    battle_random_seed_ = seed;
+}
+
 KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::makeBattleRuntimeBuildContext()
 {
     KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext context;
     context.rules = KysChess::Battle::makeHadesBattleRuntimeRules(TILE_W, BATTLE_COORD_COUNT);
+    context.randomSeed = battle_random_seed_;
     context.rules.movementPhysicsConfig.gravity = gravity_;
     context.rules.movementPhysicsConfig.friction = friction_;
     context.setup.units = setup_units_;
@@ -1153,7 +1147,9 @@ void BattleSceneHades::onEntrance()
         request.gridX = info_->EnemyX[i];
         request.gridY = info_->EnemyY[i];
         request.star = KysChess::normalizeBattleStar(i < static_cast<int>(enemy_stars_.size()) ? enemy_stars_[i] : 0);
-        request.faceTowardsFallback = rand_.rand_int(4);
+        request.faceTowardsFallback = source->FaceTowards != Towards_None
+            ? source->FaceTowards
+            : Towards_RightDown;
         request.weaponId = weaponId;
         request.armorId = armorId;
         request.sourceOrder = static_cast<int>(enemyRequests.size());
@@ -1206,20 +1202,16 @@ void BattleSceneHades::onEntrance()
         request.unitId = nextUnitId++;
     }
 
-    auto positionForCell = [this](int x, int y)
-    {
-        return battle_map_.pos45To90(x, y);
-    };
-    auto magicById = [](int magicId)
-    {
-        return Save::getInstance()->getMagic(magicId);
-    };
     auto applySharedSetupCallbacks = [&](BattleSceneSetupUnitRequest& request)
     {
+        assert(request.source);
         request.gravity = gravity_;
-        request.positionForCell = positionForCell;
-        request.fightFramesForHeadId = readBattleFightFramesForHeadId;
-        request.magicById = magicById;
+        request.position = battle_map_.pos45To90(request.gridX, request.gridY);
+        request.fightFrames = readBattleFightFramesForHeadId(request.source->HeadID);
+        for (int index = 0; index < ROLE_MAGIC_COUNT; ++index)
+        {
+            request.magicSlots[index] = Save::getInstance()->getMagic(request.source->MagicID[index]);
+        }
     };
 
     std::vector<BattleSceneSetupUnitRequest> setupRequests;
@@ -1344,11 +1336,7 @@ public:
             {
                 battle_->scene_units_.swapSetupUnitPositions(
                     battle_->swapSelectedUnitId_,
-                    clickedUnitId,
-                    [this](int x, int y)
-                    {
-                        return battle_->battle_map_.pos45To90(x, y);
-                    });
+                    clickedUnitId);
                 battle_->swapSelectedUnitId_ = -1;
             }
         }
@@ -1482,11 +1470,7 @@ void BattleSceneHades::runListBasedSwap()
         // Perform swap
         scene_units_.swapSetupUnitPositions(
             allies[sel1],
-            allies[sel2],
-            [this](int x, int y)
-            {
-                return battle_map_.pos45To90(x, y);
-            });
+            allies[sel2]);
     }
     swapSelectedUnitId_ = -1;
     positionSwapActive_ = false;

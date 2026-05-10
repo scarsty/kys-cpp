@@ -98,6 +98,7 @@ struct BattleRuntimeBuildContext
 {
     BattleRuntimeSceneSetupInput setup;
     Battle::BattleRuntimeRulesConfig rules;
+    unsigned int randomSeed = 1;
 };
 
 struct BattleInitializationSceneApplyResult

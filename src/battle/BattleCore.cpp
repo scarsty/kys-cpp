@@ -50,21 +50,46 @@ Point BattleGridTransform::toGrid(Pointf position) const
     return grid;
 }
 
-std::uint32_t BattleRuntimeRandom::nextRaw()
+BattleRuntimeRandom::BattleRuntimeRandom(unsigned int seed)
+    : seed_(seed), rand_(seed)
 {
-    state = state * 1664525u + 1013904223u;
-    return state;
+}
+
+unsigned int BattleRuntimeRandom::seed() const
+{
+    return seed_;
 }
 
 double BattleRuntimeRandom::nextPercent()
 {
-    return static_cast<double>(nextRaw() % 10000u) / 100.0;
+    return static_cast<double>(rand_() % 10000u) / 100.0;
 }
 
 int BattleRuntimeRandom::nextInt(int upperBound)
 {
     assert(upperBound > 0);
-    return static_cast<int>(nextRaw() % static_cast<std::uint32_t>(upperBound));
+    return static_cast<int>(rand_() % static_cast<std::uint32_t>(upperBound));
+}
+
+bool BattleRuntimeRandom::chance(int chancePct)
+{
+    assert(chancePct >= 0);
+    assert(chancePct <= 100);
+    if (chancePct <= 0)
+    {
+        return false;
+    }
+    if (chancePct >= 100)
+    {
+        return true;
+    }
+    return nextPercent() < static_cast<double>(chancePct);
+}
+
+int BattleRuntimeRandom::symmetricInt(int exclusiveBound)
+{
+    assert(exclusiveBound > 0);
+    return nextInt(exclusiveBound) - nextInt(exclusiveBound);
 }
 
 BattleRuntimeUnit* BattleUnitStore::findUnit(int unitId)
@@ -411,17 +436,6 @@ BattleHitSkillSnapshot makeHitSkillSnapshot(
     return skill;
 }
 
-std::vector<double> takeHitPercentRolls(BattleRuntimeState& state)
-{
-    std::vector<double> rolls;
-    rolls.reserve(64);
-    for (int i = 0; i < 64; ++i)
-    {
-        rolls.push_back(state.random.nextPercent());
-    }
-    return rolls;
-}
-
 int sharedBleedMaxStacks(const BattleRuntimeState& state, const BattleAttackEvent& event)
 {
     if (event.scriptedBleedStacks <= 0)
@@ -464,14 +478,14 @@ int resolveHitMagicBaseDamage(
             attacker.id,
             defender.id,
             defence,
-            state.random.nextPercent());
+            state.random);
     }
 
     return BattleDamageSystem().resolveMagicBaseDamage({
         attacker.stats.attack,
         event.skillMagicPower,
         defence,
-        state.random.nextInt(10) - state.random.nextInt(10),
+        state.random.symmetricInt(10),
     });
 }
 
@@ -737,7 +751,7 @@ void advanceRuntimeUnits(
             auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
                 comboIt->second,
                 { BattleComboTriggerHook::AfterSkillCast, unit.id, -1 },
-                [&]() { return state.random.nextPercent(); });
+                state.random);
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
                 BattleTeamHealCommand command{
@@ -829,9 +843,8 @@ BattleHitResolutionInput makeHitResolutionInput(
         input.attackEvent.position = input.defender.motion.position + input.defender.motion.facing;
     }
     input.sharedBleedMaxStacks = sharedBleedMaxStacks(state, event);
-    input.randomDamageVariance = state.random.nextInt(10) - state.random.nextInt(10);
+    input.randomDamageVariance = state.random.symmetricInt(10);
     input.pendingDefenderHpDamage = pendingDefenderHpDamage(state, event.unitId);
-    input.percentRolls = takeHitPercentRolls(state);
 
     if (event.skillId >= 0)
     {
@@ -912,7 +925,7 @@ void resolveHitEvents(
         }
 
         auto input = makeHitResolutionInput(state, event);
-        auto result = BattleHitResolver().resolve(input);
+        auto result = BattleHitResolver().resolve(input, state.random);
         auto followUps = expandBattleProjectileFollowUpCommands(
             result.commands,
             state.projectileFollowUps,
@@ -1392,6 +1405,7 @@ void refreshRuntimeCastSkillBonuses(BattleRuntimeState& state, BattleCastInput& 
     {
         input.ultimateSkill.extraProjectileCount = collectFrameExtraProjectileCount(
             comboIt->second,
+            state.random,
             input.unit.id,
             std::max(0, comboIt->second.ultimateExtraProjectiles));
     }
@@ -2025,61 +2039,6 @@ bool rescueUnitUnattendedByTeam(const BattleRuntimeState& state, int targetUnitI
         }
     }
     return true;
-}
-
-Point movementPhysicsCell(const BattleMovementPhysicsCollisionWorld& world, Pointf position)
-{
-    assert(world.tileWidth > 0.0);
-    assert(world.coordCount > 0);
-    double x = position.x - world.coordCount * world.tileWidth;
-    Point cell;
-    cell.x = static_cast<int>(std::round((x / world.tileWidth + position.y / world.tileWidth) / 2.0));
-    cell.y = static_cast<int>(std::round((-x / world.tileWidth + position.y / world.tileWidth) / 2.0));
-    return cell;
-}
-
-bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& world, Point cell)
-{
-    auto it = std::ranges::find_if(world.cells, [&](const BattleMovementPhysicsCollisionCellSnapshot& snapshot)
-        {
-            return snapshot.x == cell.x && snapshot.y == cell.y;
-        });
-    return it != std::ranges::end(world.cells) && it->walkable;
-}
-
-bool canMoveInPhysicsSnapshot(
-    const BattleMovementPhysicsCollisionWorld& world,
-    int unitId,
-    Pointf currentPosition,
-    Pointf nextPosition,
-    int separationDistance)
-{
-    if (currentPosition.z > 1.0f)
-    {
-        return true;
-    }
-
-    const double separation = separationDistance == -1
-        ? world.defaultSeparationDistance
-        : static_cast<double>(separationDistance);
-    for (const auto& unit : world.units)
-    {
-        if (!unit.alive || unit.id == unitId)
-        {
-            continue;
-        }
-        const double nextDistance = distance2d(nextPosition, unit.position);
-        if (nextDistance < separation)
-        {
-            const double currentDistance = distance2d(currentPosition, unit.position);
-            if (currentDistance >= nextDistance)
-            {
-                return false;
-            }
-        }
-    }
-
-    return movementPhysicsCellWalkable(world, movementPhysicsCell(world, nextPosition));
 }
 
 BattleAttackSpawnRequest makeRescueCounterAttackSpawn(
@@ -3257,16 +3216,10 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
         BattleMovementPhysicsInput physicsInput;
         physicsInput.state = result.state;
         physicsInput.config = state.movementPhysics.config;
+        physicsInput.collisionWorld = &state.movementPhysics.collision;
+        physicsInput.unitId = unit.id;
+        physicsInput.currentPosition = unit.motion.position;
         physicsInput.actionDashActive = actionDashActive;
-        physicsInput.canMove = [&](Pointf position, int separationDistance)
-        {
-            return canMoveInPhysicsSnapshot(
-                state.movementPhysics.collision,
-                unit.id,
-                unit.motion.position,
-                position,
-                separationDistance);
-        };
         result.state = BattleMovementPhysicsSystem().advance(physicsInput);
         result.physicsAdvanced = true;
         movementRuntime = result.state;
@@ -3862,13 +3815,17 @@ BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
         });
 }
 
-int collectFrameExtraProjectileCount(KysChess::RoleComboState& state, int unitId, int baseCount)
+int collectFrameExtraProjectileCount(
+    KysChess::RoleComboState& state,
+    BattleRuntimeRandom& random,
+    int unitId,
+    int baseCount)
 {
     return BattleComboTriggerSystem().collectExtraProjectileCount(
         state,
         { BattleComboTriggerHook::AfterSkillCast, unitId, -1 },
         baseCount,
-        []() { return 0.0; });
+        random);
 }
 
 bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId)
@@ -3881,12 +3838,12 @@ double resolveFrameArmorPenetratedDefense(
     int attackerUnitId,
     int targetUnitId,
     double defense,
-    double rollPercent)
+    BattleRuntimeRandom& random)
 {
     return BattleComboTriggerSystem().resolveArmorPenetratedDefense(
         state,
         { attackerUnitId, targetUnitId, defense },
-        [rollPercent]() { return rollPercent; }).defense;
+        random).defense;
 }
 
 BattleUnitFrameTickResult BattleUnitFrameTickSystem::advance(

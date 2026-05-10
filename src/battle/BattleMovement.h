@@ -2,7 +2,6 @@
 
 #include "BattleGeometry.h"
 
-#include <functional>
 #include <map>
 #include <vector>
 
@@ -24,14 +23,6 @@ struct BattleMovementPhysicsConfig
     float gravity = -4.0f;
     float friction = 0.1f;
     int postDashSpreadFrames = 0;
-};
-
-struct BattleMovementPhysicsInput
-{
-    BattleMovementPhysicsState state;
-    BattleMovementPhysicsConfig config;
-    bool actionDashActive = false;
-    std::function<bool(Pointf, int)> canMove;
 };
 
 struct BattleMovementPhysicsCollisionUnitSnapshot
@@ -57,6 +48,16 @@ struct BattleMovementPhysicsCollisionWorld
     std::vector<BattleMovementPhysicsCollisionCellSnapshot> cells;
 };
 
+struct BattleMovementPhysicsInput
+{
+    BattleMovementPhysicsState state;
+    BattleMovementPhysicsConfig config;
+    const BattleMovementPhysicsCollisionWorld* collisionWorld = nullptr;
+    int unitId = -1;
+    Pointf currentPosition;
+    bool actionDashActive = false;
+};
+
 struct BattleFrameMovementPhysicsUnitResult
 {
     int unitId{};
@@ -70,6 +71,13 @@ class BattleMovementPhysicsSystem
 public:
     BattleMovementPhysicsState advance(const BattleMovementPhysicsInput& input) const;
 };
+
+bool canMoveInPhysicsSnapshot(
+    const BattleMovementPhysicsCollisionWorld& world,
+    int unitId,
+    Pointf currentPosition,
+    Pointf nextPosition,
+    int separationDistance);
 
 class BattleMovementPlanner
 {

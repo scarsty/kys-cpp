@@ -1,4 +1,5 @@
 #pragma once
+#include "battle/BattleCore.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentation.h"
 #include "battle/BattleRuntimeSession.h"
@@ -96,6 +97,7 @@ protected:
 public:
     BattleTracker& getTracker() { return tracker_; }
     BattlePostBattleSummary makePostBattleSummary() const;
+    void setBattleRuntimeRandomSeed(unsigned int seed);
     void setEnemyStars(const std::vector<int>& stars) { enemy_stars_ = stars; }
     void setTeammateWeapons(const std::vector<int>& weapons) { teammate_weapons_ = weapons; }
     void setTeammateArmors(const std::vector<int>& armors) { teammate_armors_ = armors; }
@@ -142,6 +144,7 @@ protected:
     Pointf camera_target_;
     int close_up_total_ = 0;
     bool count_fights_won_ = true;
+    unsigned int battle_random_seed_ = 1;
     KysChess::Battle::BattlePresentationRecorder presentation_recorder_;
     BattleScenePresentationPlayer presentation_player_;
     KysChess::Battle::BattlePresentationFrame last_presentation_frame_;

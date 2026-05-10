@@ -184,7 +184,7 @@ Console::Console()
             gd.progress(),
             gd.economy(),
             gd.random());
-        int result = selector.runBattle(roles, allyChess, battle_id, seed);
+        int result = selector.runBattle(roles, allyChess, static_cast<unsigned int>(seed), battle_id);
         std::print("【测试】战斗结束，结果：{}\n", result == 0 ? "胜利" : "失败");
 
         // 讀回自動存檔後再強制還原內功，避免測試戰鬥流程中途存到臨時進度。

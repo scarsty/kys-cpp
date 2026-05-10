@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <random>
 #include <set>
 #include <string>
 #include <vector>
@@ -184,13 +185,20 @@ struct BattleFrameActionUnitResult
     BattleActionCommitResult actionResult;
 };
 
-struct BattleRuntimeRandom
+class BattleRuntimeRandom
 {
-    std::uint32_t state = 0x6d2b79f5u;
+public:
+    explicit BattleRuntimeRandom(unsigned int seed = 1);
 
-    std::uint32_t nextRaw();
+    unsigned int seed() const;
     double nextPercent();
     int nextInt(int upperBound);
+    bool chance(int chancePct);
+    int symmetricInt(int exclusiveBound);
+
+private:
+    unsigned int seed_ = 1;
+    std::mt19937 rand_;
 };
 
 struct BattleFrameKnockbackDelta
@@ -438,14 +446,18 @@ BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
     int attackerUnitId,
     int rollPct,
     int defaultRange);
-int collectFrameExtraProjectileCount(KysChess::RoleComboState& state, int unitId, int baseCount);
+int collectFrameExtraProjectileCount(
+    KysChess::RoleComboState& state,
+    BattleRuntimeRandom& random,
+    int unitId,
+    int baseCount);
 bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId);
 double resolveFrameArmorPenetratedDefense(
     const KysChess::RoleComboState& state,
     int attackerUnitId,
     int targetUnitId,
     double defense,
-    double rollPercent);
+    BattleRuntimeRandom& random);
 
 class BattleFrameRunner
 {

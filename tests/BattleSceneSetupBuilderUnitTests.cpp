@@ -33,9 +33,14 @@ std::array<int, 5> testFightFrames(int)
     return { 1, 2, 3, 4, 5 };
 }
 
-Magic* noMagic(int)
+void populateSetupFacts(KysChess::BattleSceneSetupBuilder::BattleSceneSetupUnitRequest& request)
 {
-    return nullptr;
+    request.position = {
+        static_cast<float>(request.gridX * 10),
+        static_cast<float>(request.gridY * 10),
+        0,
+    };
+    request.fightFrames = testFightFrames(request.source->HeadID);
 }
 }  // namespace
 
@@ -57,12 +62,7 @@ TEST_CASE("BattleSceneSetupBuilder_BuildsSetupUnitWithoutMutatingSavedRole", "[b
     request.faceTowardsFallback = Towards_RightDown;
     request.sourceOrder = 0;
     request.gravity = -3.0f;
-    request.positionForCell = [](int x, int y)
-    {
-        return Pointf{ static_cast<float>(x * 10), static_cast<float>(y * 10), 0 };
-    };
-    request.fightFramesForHeadId = testFightFrames;
-    request.magicById = noMagic;
+    populateSetupFacts(request);
 
     auto unit = KysChess::BattleSceneSetupBuilder::makeSetupUnit(
         request,
@@ -102,12 +102,12 @@ TEST_CASE("BattleSceneSetupBuilder_BuildsGroupedUnitValues", "[battle][scene_set
     request.star = 1;
     request.faceTowardsFallback = Towards_RightDown;
     request.sourceOrder = 0;
-    request.positionForCell = [](int x, int y)
-    {
-        return Pointf{ static_cast<float>(x), static_cast<float>(y), 0 };
+    request.position = {
+        static_cast<float>(request.gridX),
+        static_cast<float>(request.gridY),
+        0,
     };
-    request.fightFramesForHeadId = testFightFrames;
-    request.magicById = noMagic;
+    request.fightFrames = testFightFrames(source.HeadID);
 
     const std::array requests{ request };
     const auto result = KysChess::BattleSceneSetupBuilder::buildSetupUnits(requests);
@@ -134,12 +134,12 @@ TEST_CASE("BattleSceneSetupBuilder_AssignsDenseUnitsInProvidedOrder", "[battle][
     requests.push_back({ .unitId = 1, .source = &second, .team = 0, .gridX = 5, .gridY = 6, .star = 3, .faceTowardsFallback = Towards_LeftUp, .sourceOrder = 0 });
     for (auto& request : requests)
     {
-        request.positionForCell = [](int x, int y)
-        {
-            return Pointf{ static_cast<float>(x), static_cast<float>(y), 0 };
+        request.position = {
+            static_cast<float>(request.gridX),
+            static_cast<float>(request.gridY),
+            0,
         };
-        request.fightFramesForHeadId = testFightFrames;
-        request.magicById = noMagic;
+        request.fightFrames = testFightFrames(request.source->HeadID);
     }
 
     auto result = KysChess::BattleSceneSetupBuilder::buildSetupUnits(requests);

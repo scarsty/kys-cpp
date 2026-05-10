@@ -19,8 +19,8 @@
 #include <algorithm>
 #include <array>
 #include <climits>
-#include <sstream>
 #include <numeric>
+#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -882,8 +882,8 @@ void ChessBattleFlow::enterBattle()
         }
     }
 
-    int battleSeed = static_cast<int>(services_.random.enemyRandInt(INT_MAX));
-    int result = runBattle(roles, selectedChess, -1, battleSeed);
+    const unsigned int battleSeed = static_cast<unsigned int>(services_.random.enemyRandInt(INT_MAX));
+    int result = runBattle(roles, selectedChess, battleSeed);
 
     for (const auto& chess : selectedChess)
     {
@@ -982,7 +982,12 @@ void ChessBattleFlow::enterBattle()
     }
 }
 
-int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id, int seed, bool countFightsWon)
+int ChessBattleFlow::runBattle(
+    const DynamicBattleRoles& roles,
+    const std::vector<Chess>& allyChess,
+    unsigned int battleSeed,
+    int battle_id,
+    bool countFightsWon)
 {
     auto activeAllyChess = ChessEquipment::withActiveSynergies(allyChess);
     battle_id = chooseBattleMapIfNeeded(roles, activeAllyChess, battle_id);
@@ -1028,10 +1033,7 @@ int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vecto
 
     auto battle = DynamicChessMap::createBattle(roles, services_.random, services_.roleSave, services_.progress, chessManager, battle_id);
     battle->setCountFightsWon(countFightsWon);
-    if (seed >= 0)
-    {
-        battle->rand_.set_seed(static_cast<unsigned int>(seed));
-    }
+    battle->setBattleRuntimeRandomSeed(battleSeed);
     battle->run();
 
     {

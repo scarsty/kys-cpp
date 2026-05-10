@@ -32,17 +32,13 @@ const BattleSceneUnit& BattleSceneUnitStore::requireUnit(int unitId) const
     return units_[unitId];
 }
 
-void BattleSceneUnitStore::swapSetupUnitPositions(
-    int firstUnitId,
-    int secondUnitId,
-    PositionForCell positionForCell)
+void BattleSceneUnitStore::swapSetupUnitPositions(int firstUnitId, int secondUnitId)
 {
     auto& first = requireUnit(firstUnitId);
     auto& second = requireUnit(secondUnitId);
     std::swap(first.gridX, second.gridX);
     std::swap(first.gridY, second.gridY);
-    first.motion.position = positionForCell(first.gridX, first.gridY);
-    second.motion.position = positionForCell(second.gridX, second.gridY);
+    std::swap(first.motion.position, second.motion.position);
 }
 
 KysChess::Battle::BattleSetupPlacementInput BattleSceneUnitStore::makeSetupPlacementInput() const

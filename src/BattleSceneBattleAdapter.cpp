@@ -588,6 +588,7 @@ BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRu
 
     Battle::BattleRuntimeInit init;
     init.runtime.units.gridTransform = context.rules.gridTransform;
+    init.runtime.random = Battle::BattleRuntimeRandom(context.randomSeed);
     init.runtime.combo.units = *setup.comboStates;
     init.runtime.units.units.reserve(setup.units.size());
     init.runtime.status.units.reserve(setup.units.size());

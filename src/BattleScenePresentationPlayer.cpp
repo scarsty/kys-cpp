@@ -40,24 +40,29 @@ uint8_t damageTextAlpha(int damage, int maxHp)
 
 const BattleUnitIdentity* resolveIdentity(const BattleScenePresentationPlayer::Bindings& bindings, int unitId)
 {
-    assert(bindings.resolveIdentity);
+    assert(bindings.units);
     if (unitId < 0)
     {
         return nullptr;
     }
-    return bindings.resolveIdentity(unitId);
+    return &bindings.units->requireUnit(unitId).identity;
 }
 
 std::optional<BattleScenePresentationPlayer::UnitView> resolveUnitView(
     const BattleScenePresentationPlayer::Bindings& bindings,
     int unitId)
 {
-    assert(bindings.resolveUnitView);
+    assert(bindings.units);
     if (unitId < 0)
     {
         return std::nullopt;
     }
-    return bindings.resolveUnitView(unitId);
+    const auto& unit = bindings.units->requireUnit(unitId);
+    return BattleScenePresentationPlayer::UnitView{
+        unit.motion.position,
+        unit.identity.team,
+        unit.vitals.maxHp,
+    };
 }
 
 Pointf floatingTextPositionFor(const BattleScenePresentationPlayer::UnitView& unit, const std::string& text)
@@ -144,8 +149,7 @@ void BattleScenePresentationPlayer::play(
     assert(bindings.tracker);
     assert(bindings.textEffects);
     assert(bindings.attackEffects);
-    assert(bindings.resolveIdentity);
-    assert(bindings.resolveUnitView);
+    assert(bindings.units);
 
     playLogs(frame.logEvents, bindings);
     playVisuals(frame.visualEvents, bindings);
@@ -156,7 +160,7 @@ void BattleScenePresentationPlayer::playLogs(
     const Bindings& bindings) const
 {
     assert(bindings.tracker);
-    assert(bindings.resolveIdentity);
+    assert(bindings.units);
 
     for (const auto& event : logEvents)
     {
@@ -170,7 +174,7 @@ void BattleScenePresentationPlayer::playVisuals(
 {
     assert(bindings.textEffects);
     assert(bindings.attackEffects);
-    assert(bindings.resolveUnitView);
+    assert(bindings.units);
 
     KysChess::Battle::BattlePresentationFrame frame;
     frame.visualEvents = visualEvents;

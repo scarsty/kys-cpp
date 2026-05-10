@@ -53,13 +53,15 @@ int actPropertyForMagicType(const Role& role, int type)
     }
 }
 
-std::vector<Magic*> learnedMagicsForStar(const Role& role, int star, const std::function<Magic*(int)>& magicById)
+std::vector<Magic*> learnedMagicsForStar(
+    const Role& role,
+    int star,
+    const std::array<Magic*, ROLE_MAGIC_COUNT>& magicSlots)
 {
-    assert(magicById);
     std::vector<Magic*> magics;
     for (int index = magicSlotStart(star); index < magicSlotEnd(star); ++index)
     {
-        auto* magic = magicById(role.MagicID[index]);
+        auto* magic = magicSlots[index];
         if (magic)
         {
             magics.push_back(magic);
@@ -84,10 +86,10 @@ template<typename Cmp>
 Magic* selectBattleMagic(
     const Role& role,
     int star,
-    const std::function<Magic*(int)>& magicById,
+    const std::array<Magic*, ROLE_MAGIC_COUNT>& magicSlots,
     Cmp cmp)
 {
-    auto learned = learnedMagicsForStar(role, star, magicById);
+    auto learned = learnedMagicsForStar(role, star, magicSlots);
     if (learned.empty())
     {
         return nullptr;
@@ -134,10 +136,10 @@ KysChess::BattleSceneBattleAdapter::BattleSetupSkillSnapshot makeSkillSnapshot(
 std::string skillNamesForStar(
     const Role& role,
     int star,
-    const std::function<Magic*(int)>& magicById)
+    const std::array<Magic*, ROLE_MAGIC_COUNT>& magicSlots)
 {
     std::string names;
-    for (auto* magic : learnedMagicsForStar(role, star, magicById))
+    for (auto* magic : learnedMagicsForStar(role, star, magicSlots))
     {
         if (!names.empty())
         {
@@ -203,9 +205,6 @@ KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
     assert(request.source);
     assert(request.unitId >= 0);
     assert(request.team == 0 || request.team == 1);
-    assert(request.positionForCell);
-    assert(request.fightFramesForHeadId);
-    assert(request.magicById);
 
     const auto& role = *request.source;
     const int faceTowards = facingTowardNearestOpponent(request, opponents);
@@ -221,12 +220,11 @@ KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
     unit.gridX = request.gridX;
     unit.gridY = request.gridY;
     unit.faceTowards = faceTowards;
-    const Pointf position = request.positionForCell(request.gridX, request.gridY);
     const Pointf velocity{};
     const Pointf acceleration{ 0, 0, request.gravity };
     const Pointf facing = BattleSceneRenderMath::realTowardsFromFaceTowards(faceTowards);
-    unit.motion = { position, velocity, acceleration, facing };
-    unit.fightFrames = request.fightFramesForHeadId(role.HeadID);
+    unit.motion = { request.position, velocity, acceleration, facing };
+    unit.fightFrames = request.fightFrames;
     unit.star = request.star;
     unit.cost = role.Cost;
     unit.weaponId = request.weaponId;
@@ -259,7 +257,7 @@ KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
         normalMagic = selectBattleMagic(
             role,
             request.star,
-            request.magicById,
+            request.magicSlots,
             [](int candidate, int current)
             {
                 return candidate < current;
@@ -267,7 +265,7 @@ KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
         ultimateMagic = selectBattleMagic(
             role,
             request.star,
-            request.magicById,
+            request.magicSlots,
             [](int candidate, int current)
             {
                 return candidate > current;
@@ -275,7 +273,7 @@ KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
     }
     unit.normalSkill = makeSkillSnapshot(role, request.star, normalMagic);
     unit.ultimateSkill = makeSkillSnapshot(role, request.star, ultimateMagic);
-    unit.skillNames = skillNamesForStar(role, request.star, request.magicById);
+    unit.skillNames = skillNamesForStar(role, request.star, request.magicSlots);
     return unit;
 }
 

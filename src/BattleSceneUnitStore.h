@@ -6,7 +6,6 @@
 #include "battle/BattleRuntimeSession.h"
 
 #include <array>
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -52,8 +51,6 @@ struct BattleSceneUnit
 class BattleSceneUnitStore
 {
 public:
-    using PositionForCell = std::function<Pointf(int, int)>;
-
     void initialize(std::vector<BattleSceneUnit> units);
 
     BattleSceneUnit& requireUnit(int unitId);
@@ -62,7 +59,7 @@ public:
     std::vector<BattleSceneUnit>& units() { return units_; }
     const std::vector<BattleSceneUnit>& units() const { return units_; }
 
-    void swapSetupUnitPositions(int firstUnitId, int secondUnitId, PositionForCell positionForCell);
+    void swapSetupUnitPositions(int firstUnitId, int secondUnitId);
     KysChess::Battle::BattleSetupPlacementInput makeSetupPlacementInput() const;
     std::vector<KysChess::ChessComboBattleUnitRef> makeComboBattleUnitRefs() const;
     Pointf facingTowardNearestEnemy(int unitId) const;

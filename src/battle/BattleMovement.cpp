@@ -7,6 +7,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -256,6 +257,26 @@ bool terrainSegmentClear(const BattleWorldState& world, Pointf from, Pointf to)
     return true;
 }
 
+Point movementPhysicsCell(const BattleMovementPhysicsCollisionWorld& world, Pointf position)
+{
+    assert(world.tileWidth > 0.0);
+    assert(world.coordCount > 0);
+    double x = position.x - world.coordCount * world.tileWidth;
+    Point cell;
+    cell.x = static_cast<int>(std::round((x / world.tileWidth + position.y / world.tileWidth) / 2.0));
+    cell.y = static_cast<int>(std::round((-x / world.tileWidth + position.y / world.tileWidth) / 2.0));
+    return cell;
+}
+
+bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& world, Point cell)
+{
+    auto it = std::ranges::find_if(world.cells, [&](const BattleMovementPhysicsCollisionCellSnapshot& snapshot)
+        {
+            return snapshot.x == cell.x && snapshot.y == cell.y;
+        });
+    return it != std::ranges::end(world.cells) && it->walkable;
+}
+
 std::optional<MovementDecision> chooseDash(const BattleWorldState& world,
                                            const BattleUnitState& unit,
                                            const BattleUnitState& target,
@@ -329,6 +350,41 @@ void recordEvent(std::vector<BattleEvent>& events,
 
 }  // namespace
 
+bool canMoveInPhysicsSnapshot(
+    const BattleMovementPhysicsCollisionWorld& world,
+    int unitId,
+    Pointf currentPosition,
+    Pointf nextPosition,
+    int separationDistance)
+{
+    if (currentPosition.z > 1.0f)
+    {
+        return true;
+    }
+
+    const double separation = separationDistance == -1
+        ? world.defaultSeparationDistance
+        : static_cast<double>(separationDistance);
+    for (const auto& unit : world.units)
+    {
+        if (!unit.alive || unit.id == unitId)
+        {
+            continue;
+        }
+        const double nextDistance = distance2d(nextPosition, unit.position);
+        if (nextDistance < separation)
+        {
+            const double currentDistance = distance2d(currentPosition, unit.position);
+            if (currentDistance >= nextDistance)
+            {
+                return false;
+            }
+        }
+    }
+
+    return movementPhysicsCellWalkable(world, movementPhysicsCell(world, nextPosition));
+}
+
 BattleMovementPlanner::BattleMovementPlanner(BattleWorldState& world)
     : world_(world)
 {
@@ -336,7 +392,18 @@ BattleMovementPlanner::BattleMovementPlanner(BattleWorldState& world)
 
 BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMovementPhysicsInput& input) const
 {
-    assert(input.canMove);
+    assert(input.collisionWorld);
+    assert(input.unitId >= 0);
+
+    auto canMove = [&](Pointf position, int separationDistance)
+    {
+        return canMoveInPhysicsSnapshot(
+            *input.collisionWorld,
+            input.unitId,
+            input.currentPosition,
+            position,
+            separationDistance);
+    };
 
     auto state = input.state;
     const bool movementDashActive = state.movementDashFrames > 0;
@@ -344,7 +411,7 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
     const int separationDistance = input.actionDashActive || movementDashActive ? 1 : -1;
     auto nextPosition = state.position + state.velocity;
 
-    if (input.canMove(nextPosition, separationDistance))
+    if (canMove(nextPosition, separationDistance))
     {
         state.position = nextPosition;
     }
@@ -353,7 +420,7 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
         bool canSlide = false;
         auto xOnly = state.position;
         xOnly.x = nextPosition.x;
-        if (input.canMove(xOnly, separationDistance))
+        if (canMove(xOnly, separationDistance))
         {
             state.position = xOnly;
             state.velocity.y = 0;
@@ -363,7 +430,7 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
         {
             auto yOnly = state.position;
             yOnly.y = nextPosition.y;
-            if (input.canMove(yOnly, separationDistance))
+            if (canMove(yOnly, separationDistance))
             {
                 state.position = yOnly;
                 state.velocity.x = 0;

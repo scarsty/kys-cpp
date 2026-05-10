@@ -1,5 +1,6 @@
 #include "BattleComboTriggerSystem.h"
 
+#include "BattleCore.h"
 #include "BattleDamageSystem.h"
 
 #include <algorithm>
@@ -10,6 +11,19 @@ namespace KysChess::Battle
 {
 namespace
 {
+
+bool passesChance(BattleRuntimeRandom& random, int chancePct)
+{
+    if (chancePct <= 0)
+    {
+        return false;
+    }
+    if (chancePct >= 100)
+    {
+        return true;
+    }
+    return random.chance(chancePct);
+}
 
 bool hookMatchesLegacyTrigger(BattleComboTriggerHook hook, Trigger trigger)
 {
@@ -261,10 +275,8 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::collectSkill
 BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTeamHeal(
     RoleComboState& state,
     Trigger trigger,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
-    assert(static_cast<bool>(rollPercent));
-
     BattleTriggeredTeamHeal result;
     for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
     {
@@ -273,7 +285,7 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTeamHeal(
         {
             continue;
         }
-        if (trigger == Trigger::OnHit && effect.triggerValue > 0 && rollPercent() >= effect.triggerValue)
+        if (trigger == Trigger::OnHit && effect.triggerValue > 0 && !passesChance(random, effect.triggerValue))
         {
             continue;
         }
@@ -302,13 +314,13 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTeamHeal(
 BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTriggeredTeamHeal(
     RoleComboState& state,
     const BattleComboTriggerInput& input,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
     auto events = collectTriggerEvents(
         state,
         input,
         { EffectType::OnSkillTeamHeal, EffectType::OnSkillTeamHealPct },
-        rollPercent);
+        random);
 
     BattleTriggeredTeamHeal result;
     for (const auto& event : events)
@@ -330,7 +342,7 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTriggeredTeamHeal(
 BattleTriggeredTeamHeal BattleComboTriggerSystem::collectPendingSkillTeamHeal(
     RoleComboState& state,
     const BattleComboTriggerInput& input,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
     BattleTriggeredTeamHeal result;
     if (!state.onSkillTeamHealPending)
@@ -340,7 +352,7 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectPendingSkillTeamHeal(
 
     result.flatHeal = state.onSkillTeamHeal;
     result.pctHeal = state.onSkillTeamHealPct;
-    auto triggered = collectTriggeredTeamHeal(state, input, rollPercent);
+    auto triggered = collectTriggeredTeamHeal(state, input, random);
     result.flatHeal += triggered.flatHeal;
     result.pctHeal += triggered.pctHeal;
     result.activatedEffectIndices = std::move(triggered.activatedEffectIndices);
@@ -352,7 +364,7 @@ std::vector<BattleOnHitComboCommand> BattleComboTriggerSystem::collectOnHitCombo
     RoleComboState& state,
     const BattleComboTriggerInput& input,
     bool suppressNearbyTrackingProjectiles,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
     auto events = suppressNearbyTrackingProjectiles
         ? collectTriggerEvents(
@@ -365,7 +377,7 @@ std::vector<BattleOnHitComboCommand> BattleComboTriggerSystem::collectOnHitCombo
                 EffectType::FlatShield,
                 EffectType::SpiralBleedProjectile,
             },
-            rollPercent)
+            random)
         : collectTriggerEvents(
             state,
             input,
@@ -377,7 +389,7 @@ std::vector<BattleOnHitComboCommand> BattleComboTriggerSystem::collectOnHitCombo
                 EffectType::SpiralBleedProjectile,
                 EffectType::NearbyTrackingProjectiles,
             },
-            rollPercent);
+            random);
 
     std::vector<BattleOnHitComboCommand> commands;
     for (const auto& event : events)
@@ -419,7 +431,7 @@ std::vector<BattleOnHitComboCommand> BattleComboTriggerSystem::collectOnHitCombo
 std::vector<BattleShieldBreakCommand> BattleComboTriggerSystem::collectShieldBreakCommands(
     RoleComboState& state,
     const BattleComboTriggerInput& input,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
     auto events = collectTriggerEvents(
         state,
@@ -430,7 +442,7 @@ std::vector<BattleShieldBreakCommand> BattleComboTriggerSystem::collectShieldBre
             EffectType::TempFlatATK,
             EffectType::MPRestore,
         },
-        rollPercent,
+        random,
         BattleComboActivationRecording::CallerRecords);
 
     std::vector<BattleShieldBreakCommand> commands;
@@ -470,11 +482,10 @@ std::vector<BattleActivatedComboEffect> BattleComboTriggerSystem::collectChanceE
     RoleComboState& state,
     Trigger trigger,
     std::initializer_list<EffectType> effectTypes,
-    const std::function<double()>& rollPercent,
+    BattleRuntimeRandom& random,
     BattleComboActivationRecording recording) const
 {
     assert(effectTypes.size() > 0);
-    assert(static_cast<bool>(rollPercent));
 
     std::vector<BattleActivatedComboEffect> result;
     for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
@@ -488,7 +499,7 @@ std::vector<BattleActivatedComboEffect> BattleComboTriggerSystem::collectChanceE
         {
             continue;
         }
-        if (effect.triggerValue > 0 && rollPercent() >= effect.triggerValue)
+        if (effect.triggerValue > 0 && !passesChance(random, effect.triggerValue))
         {
             continue;
         }
@@ -506,11 +517,10 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::collectTriggerEve
     RoleComboState& state,
     const BattleComboTriggerInput& input,
     std::initializer_list<EffectType> effectTypes,
-    const std::function<double()>& rollPercent,
+    BattleRuntimeRandom& random,
     BattleComboActivationRecording recording) const
 {
     assert(effectTypes.size() > 0);
-    assert(static_cast<bool>(rollPercent));
 
     std::vector<BattleComboTriggerEvent> result;
     for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
@@ -524,7 +534,7 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::collectTriggerEve
         {
             continue;
         }
-        if (effect.triggerValue > 0 && rollPercent() >= effect.triggerValue)
+        if (effect.triggerValue > 0 && !passesChance(random, effect.triggerValue))
         {
             continue;
         }
@@ -636,10 +646,9 @@ BattleDodgeResolution BattleComboTriggerSystem::resolveDodge(
 BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
     RoleComboState& state,
     const BattleAttackerHitDamageInput& input,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
     assert(input.maxHp > 0);
-    assert(static_cast<bool>(rollPercent));
     assert(state.rampingStacks.size() == state.rampingIdleTimers.size());
     assert(state.rampings.empty() || state.rampings.size() == state.rampingStacks.size());
 
@@ -660,7 +669,7 @@ BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
         critted = true;
         state.dodgedLast = false;
     }
-    if (!critted && state.critChancePct > 0 && rollPercent() < state.critChancePct)
+    if (!critted && passesChance(random, state.critChancePct))
     {
         critted = true;
     }
@@ -763,11 +772,10 @@ BattleDefenderHitDamageResult BattleComboTriggerSystem::shapeDefenderHitDamage(
 BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
     RoleComboState& state,
     const BattleExecuteComboInput& input,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
     assert(input.attackerUnitId >= 0);
     assert(input.targetUnitId >= 0);
-    assert(static_cast<bool>(rollPercent));
 
     BattleExecuteComboResult result;
     for (const auto& triggerEvent : matchingTriggerEffects(
@@ -789,7 +797,7 @@ BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
                 input.appliesHpDamage,
                 effect.value,
             })
-            && rollPercent() < effect.triggerValue)
+            && passesChance(random, effect.triggerValue))
         {
             recordActivation(state, static_cast<size_t>(triggerEvent.effectIndex));
             result.executed = true;
@@ -804,34 +812,28 @@ BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
 bool BattleComboTriggerSystem::resolveProjectileReflect(
     const RoleComboState& state,
     bool rangedProjectile,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
-    assert(static_cast<bool>(rollPercent));
-    return rangedProjectile
-        && state.projectileReflectPct > 0
-        && rollPercent() < state.projectileReflectPct;
+    return rangedProjectile && passesChance(random, state.projectileReflectPct);
 }
 
 std::vector<BattleDefenderBlockCommand> BattleComboTriggerSystem::collectDefenderBlockCommands(
     const RoleComboState& state,
     const BattleDefenderBlockInput& input,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
-    assert(static_cast<bool>(rollPercent));
-
     std::vector<BattleDefenderBlockCommand> commands;
     if (input.executed || input.reflected)
     {
         return commands;
     }
 
-    if (state.counterUltimateBlockChancePct > 0
-        && rollPercent() < state.counterUltimateBlockChancePct)
+    if (passesChance(random, state.counterUltimateBlockChancePct))
     {
         commands.push_back(BattleDefenderBlockCommand::CounterUltimateBlock);
     }
 
-    if (state.blockChancePct > 0 && rollPercent() < state.blockChancePct)
+    if (passesChance(random, state.blockChancePct))
     {
         commands.push_back(BattleDefenderBlockCommand::Block);
     }
@@ -842,13 +844,13 @@ std::vector<BattleDefenderBlockCommand> BattleComboTriggerSystem::collectDefende
 std::vector<BattleStunCommand> BattleComboTriggerSystem::collectStunCommands(
     RoleComboState& state,
     const BattleComboTriggerInput& input,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
     auto events = collectTriggerEvents(
         state,
         input,
         { EffectType::Stun },
-        rollPercent,
+        random,
         BattleComboActivationRecording::CallerRecords);
 
     std::vector<BattleStunCommand> commands;
@@ -903,7 +905,7 @@ int BattleComboTriggerSystem::collectExtraProjectileCount(
     RoleComboState& state,
     const BattleComboTriggerInput& input,
     int baseCount,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
     assert(baseCount >= 0);
     int count = baseCount;
@@ -911,7 +913,7 @@ int BattleComboTriggerSystem::collectExtraProjectileCount(
              state,
              input,
              { EffectType::UltimateExtraProjectiles },
-             rollPercent))
+             random))
     {
         assert(event.effect.value > 0);
         count += event.effect.value;
@@ -937,16 +939,15 @@ bool BattleComboTriggerSystem::hasExecuteCombo(
 BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDefense(
     const RoleComboState& state,
     const BattleArmorPenetrationInput& input,
-    const std::function<double()>& rollPercent) const
+    BattleRuntimeRandom& random) const
 {
     assert(input.attackerUnitId >= 0);
     assert(input.targetUnitId >= 0);
     assert(input.defense >= 0.0);
-    assert(static_cast<bool>(rollPercent));
 
     BattleArmorPenetrationResult result;
     result.defense = input.defense;
-    if (state.armorPenChancePct > 0 && rollPercent() < state.armorPenChancePct)
+    if (passesChance(random, state.armorPenChancePct))
     {
         result.defense *= (1.0 - state.armorPenPct / 100.0);
     }
@@ -956,89 +957,10 @@ BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDef
              { BattleComboTriggerHook::DamageDealt, input.attackerUnitId, input.targetUnitId },
              { EffectType::ArmorPen }))
     {
-        if (rollPercent() < event.effect.triggerValue)
+        if (passesChance(random, event.effect.triggerValue))
         {
             result.defense *= (1.0 - event.effect.value / 100.0);
         }
-    }
-    return result;
-}
-
-int BattleComboTriggerSystem::resolveLegacyStunFrames(
-    const RoleComboState& state,
-    const std::function<double()>& rollPercent) const
-{
-    assert(static_cast<bool>(rollPercent));
-    return state.stunChancePct > 0 && rollPercent() < state.stunChancePct
-        ? state.stunFrames
-        : 0;
-}
-
-bool BattleComboTriggerSystem::shouldApplyKnockback(
-    const RoleComboState& state,
-    const std::function<double()>& rollPercent) const
-{
-    assert(static_cast<bool>(rollPercent));
-    return state.knockbackChancePct > 0 && rollPercent() < state.knockbackChancePct;
-}
-
-int BattleComboTriggerSystem::resolveOffensiveCooldownExtendPct(
-    const RoleComboState& state,
-    const std::function<double()>& rollPercent) const
-{
-    assert(static_cast<bool>(rollPercent));
-    return state.offensiveCharmChancePct > 0
-        && state.charmCDRAmountPct > 0
-        && rollPercent() < state.offensiveCharmChancePct
-        ? state.charmCDRAmountPct
-        : 0;
-}
-
-int BattleComboTriggerSystem::resolveDefensiveCooldownExtendPct(
-    const RoleComboState& state,
-    const std::function<double()>& rollPercent) const
-{
-    assert(static_cast<bool>(rollPercent));
-    return state.charmCDRChancePct > 0
-        && state.charmCDRAmountPct > 0
-        && rollPercent() < state.charmCDRChancePct
-        ? state.charmCDRAmountPct
-        : 0;
-}
-
-BattleBleedProc BattleComboTriggerSystem::resolveBleedProc(
-    const RoleComboState& state,
-    bool damagePositive,
-    const std::function<double()>& rollPercent) const
-{
-    assert(static_cast<bool>(rollPercent));
-    BattleBleedProc result;
-    result.applies = damagePositive
-        && state.bleedChancePct > 0
-        && rollPercent() < state.bleedChancePct;
-    if (result.applies)
-    {
-        result.stacks = 1;
-        result.maxStacks = state.bleedMaxStacks;
-    }
-    return result;
-}
-
-BattleDamageReduceDebuffProc BattleComboTriggerSystem::resolveDamageReduceDebuffProc(
-    const RoleComboState& state,
-    bool damagePositive,
-    const std::function<double()>& rollPercent) const
-{
-    assert(static_cast<bool>(rollPercent));
-    BattleDamageReduceDebuffProc result;
-    result.applies = damagePositive
-        && state.dmgReduceDebuffChancePct > 0
-        && state.dmgReduceDebuffDurationFrames > 0
-        && rollPercent() < state.dmgReduceDebuffChancePct;
-    if (result.applies)
-    {
-        result.pct = state.dmgReduceDebuffPct;
-        result.durationFrames = state.dmgReduceDebuffDurationFrames;
     }
     return result;
 }

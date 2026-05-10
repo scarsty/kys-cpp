@@ -2,12 +2,13 @@
 
 #include "ChessBattleEffects.h"
 
-#include <functional>
 #include <initializer_list>
 #include <vector>
 
 namespace KysChess::Battle
 {
+
+class BattleRuntimeRandom;
 
 struct BattleComboFrameUnit
 {
@@ -298,41 +299,41 @@ public:
 
     BattleTriggeredTeamHeal collectTeamHeal(RoleComboState& state,
                                             Trigger trigger,
-                                            const std::function<double()>& rollPercent) const;
+                                            BattleRuntimeRandom& random) const;
 
     BattleTriggeredTeamHeal collectTriggeredTeamHeal(
         RoleComboState& state,
         const BattleComboTriggerInput& input,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     BattleTriggeredTeamHeal collectPendingSkillTeamHeal(
         RoleComboState& state,
         const BattleComboTriggerInput& input,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     std::vector<BattleOnHitComboCommand> collectOnHitComboCommands(
         RoleComboState& state,
         const BattleComboTriggerInput& input,
         bool suppressNearbyTrackingProjectiles,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     std::vector<BattleShieldBreakCommand> collectShieldBreakCommands(
         RoleComboState& state,
         const BattleComboTriggerInput& input,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     std::vector<BattleActivatedComboEffect> collectChanceEffects(
         RoleComboState& state,
         Trigger trigger,
         std::initializer_list<EffectType> effectTypes,
-        const std::function<double()>& rollPercent,
+        BattleRuntimeRandom& random,
         BattleComboActivationRecording recording = BattleComboActivationRecording::RecordOnCollect) const;
 
     std::vector<BattleComboTriggerEvent> collectTriggerEvents(
         RoleComboState& state,
         const BattleComboTriggerInput& input,
         std::initializer_list<EffectType> effectTypes,
-        const std::function<double()>& rollPercent,
+        BattleRuntimeRandom& random,
         BattleComboActivationRecording recording = BattleComboActivationRecording::RecordOnCollect) const;
 
     std::vector<BattleComboTriggerEvent> matchingTriggerEffects(
@@ -352,7 +353,7 @@ public:
     BattleAttackerHitDamageResult shapeAttackerHitDamage(
         RoleComboState& state,
         const BattleAttackerHitDamageInput& input,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     BattleDefenderHitDamageResult shapeDefenderHitDamage(
         RoleComboState& state,
@@ -361,21 +362,21 @@ public:
     BattleExecuteComboResult resolveExecuteCombo(
         RoleComboState& state,
         const BattleExecuteComboInput& input,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     bool resolveProjectileReflect(const RoleComboState& state,
                                   bool rangedProjectile,
-                                  const std::function<double()>& rollPercent) const;
+                                  BattleRuntimeRandom& random) const;
 
     std::vector<BattleDefenderBlockCommand> collectDefenderBlockCommands(
         const RoleComboState& state,
         const BattleDefenderBlockInput& input,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     std::vector<BattleStunCommand> collectStunCommands(
         RoleComboState& state,
         const BattleComboTriggerInput& input,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     BattleProjectileBouncePrime collectProjectileBouncePrime(
         const RoleComboState& state,
@@ -385,27 +386,14 @@ public:
         RoleComboState& state,
         const BattleComboTriggerInput& input,
         int baseCount,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     bool hasExecuteCombo(const RoleComboState& state, int attackerUnitId) const;
 
     BattleArmorPenetrationResult resolveArmorPenetratedDefense(
         const RoleComboState& state,
         const BattleArmorPenetrationInput& input,
-        const std::function<double()>& rollPercent) const;
-
-    int resolveLegacyStunFrames(const RoleComboState& state, const std::function<double()>& rollPercent) const;
-    bool shouldApplyKnockback(const RoleComboState& state, const std::function<double()>& rollPercent) const;
-    int resolveOffensiveCooldownExtendPct(const RoleComboState& state, const std::function<double()>& rollPercent) const;
-    int resolveDefensiveCooldownExtendPct(const RoleComboState& state, const std::function<double()>& rollPercent) const;
-    BattleBleedProc resolveBleedProc(
-        const RoleComboState& state,
-        bool damagePositive,
-        const std::function<double()>& rollPercent) const;
-    BattleDamageReduceDebuffProc resolveDamageReduceDebuffProc(
-        const RoleComboState& state,
-        bool damagePositive,
-        const std::function<double()>& rollPercent) const;
+        BattleRuntimeRandom& random) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;
 

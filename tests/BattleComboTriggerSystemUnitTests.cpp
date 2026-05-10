@@ -1,8 +1,10 @@
+#include "battle/BattleCore.h"
 #include "battle/BattleComboTriggerSystem.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <random>
+#include <stdexcept>
 
 using namespace KysChess;
 using namespace KysChess::Battle;
@@ -25,6 +27,45 @@ AppliedEffectInstance triggeredEffect(EffectType type,
     effect.duration = duration;
     effect.maxCount = maxCount;
     return effect;
+}
+
+struct ChanceExpectation
+{
+    int chancePct = 0;
+    bool shouldPass = true;
+};
+
+BattleRuntimeRandom fixedBattleRandom()
+{
+    return BattleRuntimeRandom(1u);
+}
+
+BattleRuntimeRandom randomForChanceSequence(std::initializer_list<ChanceExpectation> expectations)
+{
+    for (unsigned int seed = 1; seed < 200000; ++seed)
+    {
+        BattleRuntimeRandom candidate(seed);
+        bool matches = true;
+        for (const auto& expectation : expectations)
+        {
+            const bool actual = expectation.chancePct <= 0
+                ? false
+                : expectation.chancePct >= 100
+                    ? true
+                    : candidate.chance(expectation.chancePct);
+            if (actual != expectation.shouldPass)
+            {
+                matches = false;
+                break;
+            }
+        }
+        if (matches)
+        {
+            return BattleRuntimeRandom(seed);
+        }
+    }
+
+    throw std::runtime_error("Could not find battle random seed for requested chance sequence");
 }
 
 }  // namespace
@@ -149,7 +190,8 @@ TEST_CASE("BattleComboTriggerSystem_TeamHeal_CollectsMatchingHookAndCountsActiva
         triggeredEffect(EffectType::Stun, Trigger::OnHit, 10));
 
     BattleComboTriggerSystem system;
-    auto hit = system.collectTeamHeal(state, Trigger::OnHit, []() { return 10.0; });
+    auto hitRandom = randomForChanceSequence({ { 50, true } });
+    auto hit = system.collectTeamHeal(state, Trigger::OnHit, hitRandom);
 
     CHECK(hit.flatHeal == 20);
     CHECK(hit.pctHeal == 0);
@@ -157,11 +199,13 @@ TEST_CASE("BattleComboTriggerSystem_TeamHeal_CollectsMatchingHookAndCountsActiva
     CHECK(hit.activatedEffectIndices[0] == 0);
     CHECK(state.effectActivationCounts[0] == 1);
 
-    auto repeatedHit = system.collectTeamHeal(state, Trigger::OnHit, []() { return 10.0; });
+    auto repeatedRandom = fixedBattleRandom();
+    auto repeatedHit = system.collectTeamHeal(state, Trigger::OnHit, repeatedRandom);
     CHECK(repeatedHit.flatHeal == 0);
     CHECK(repeatedHit.pctHeal == 0);
 
-    auto ultimate = system.collectTeamHeal(state, Trigger::OnUltimate, []() { return 99.0; });
+    auto ultimateRandom = fixedBattleRandom();
+    auto ultimate = system.collectTeamHeal(state, Trigger::OnUltimate, ultimateRandom);
     CHECK(ultimate.flatHeal == 0);
     CHECK(ultimate.pctHeal == 15);
     REQUIRE(ultimate.activatedEffectIndices.size() == 1);
@@ -175,11 +219,13 @@ TEST_CASE("BattleComboTriggerSystem_TeamHeal_ChanceGateDoesNotConsumeMaxCount", 
         triggeredEffect(EffectType::OnSkillTeamHeal, Trigger::OnHit, 20, 50, 0, 1));
 
     BattleComboTriggerSystem system;
-    auto missed = system.collectTeamHeal(state, Trigger::OnHit, []() { return 60.0; });
+    auto missedRandom = randomForChanceSequence({ { 50, false } });
+    auto missed = system.collectTeamHeal(state, Trigger::OnHit, missedRandom);
     CHECK(missed.flatHeal == 0);
     CHECK(state.effectActivationCounts[0] == 0);
 
-    auto hit = system.collectTeamHeal(state, Trigger::OnHit, []() { return 49.0; });
+    auto hitRandom = randomForChanceSequence({ { 50, true } });
+    auto hit = system.collectTeamHeal(state, Trigger::OnHit, hitRandom);
     CHECK(hit.flatHeal == 20);
     CHECK(state.effectActivationCounts[0] == 1);
 }
@@ -194,10 +240,11 @@ TEST_CASE("BattleComboTriggerSystem_TriggeredTeamHeal_CollectsFlatAndPercentFrom
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::Stun, Trigger::OnHit, 4, 100));
 
+    auto random = fixedBattleRandom();
     auto result = BattleComboTriggerSystem().collectTriggeredTeamHeal(
         state,
         { BattleComboTriggerHook::DamageDealt, 1, 2 },
-        []() { return 0.0; });
+        random);
 
     CHECK(result.flatHeal == 12);
     CHECK(result.pctHeal == 8);
@@ -218,10 +265,11 @@ TEST_CASE("BattleComboTriggerSystem_PendingSkillTeamHeal_ConsumesPendingBaseHeal
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::OnSkillTeamHeal, Trigger::OnUltimate, 11, 100));
 
+    auto random = fixedBattleRandom();
     auto result = BattleComboTriggerSystem().collectPendingSkillTeamHeal(
         state,
         { BattleComboTriggerHook::AfterSkillCast, 3, -1 },
-        []() { return 0.0; });
+        random);
 
     CHECK(result.flatHeal == 16);
     CHECK(result.pctHeal == 7);
@@ -240,11 +288,12 @@ TEST_CASE("BattleComboTriggerSystem_OnHitComboCommands_FilterNearbyTrackingWhenS
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::FlatShield, Trigger::OnHit, 12, 100));
 
+    auto suppressedRandom = fixedBattleRandom();
     auto suppressed = BattleComboTriggerSystem().collectOnHitComboCommands(
         state,
         { BattleComboTriggerHook::DamageDealt, 1, 2 },
         true,
-        []() { return 0.0; });
+        suppressedRandom);
 
     REQUIRE(suppressed.size() == 2);
     CHECK(suppressed[0].type == BattleOnHitComboCommandType::MpBlock);
@@ -255,11 +304,12 @@ TEST_CASE("BattleComboTriggerSystem_OnHitComboCommands_FilterNearbyTrackingWhenS
     CHECK(state.effectActivationCounts[1] == 0);
     CHECK(state.effectActivationCounts[2] == 1);
 
+    auto allowedRandom = fixedBattleRandom();
     auto allowed = BattleComboTriggerSystem().collectOnHitComboCommands(
         state,
         { BattleComboTriggerHook::DamageDealt, 1, 2 },
         false,
-        []() { return 0.0; });
+        allowedRandom);
 
     REQUIRE(allowed.size() == 3);
     CHECK(allowed[1].type == BattleOnHitComboCommandType::NearbyTrackingProjectiles);
@@ -279,19 +329,21 @@ TEST_CASE("BattleComboTriggerSystem_ChanceEffects_FilterTypesAndRecordOnlyActiva
         triggeredEffect(EffectType::AutoUltimate, Trigger::OnShieldBreak, 1, 50));
 
     BattleComboTriggerSystem system;
+    auto missedRandom = randomForChanceSequence({ { 75, false }, { 50, false } });
     auto missed = system.collectChanceEffects(
         state,
         Trigger::OnShieldBreak,
         { EffectType::ShieldExplosion, EffectType::AutoUltimate },
-        []() { return 80.0; });
+        missedRandom);
     CHECK(missed.empty());
     CHECK(state.effectActivationCounts[0] == 0);
 
+    auto activatedRandom = randomForChanceSequence({ { 75, true }, { 50, true } });
     auto activated = system.collectChanceEffects(
         state,
         Trigger::OnShieldBreak,
         { EffectType::ShieldExplosion, EffectType::AutoUltimate },
-        []() { return 10.0; });
+        activatedRandom);
     REQUIRE(activated.size() == 2);
     CHECK(activated[0].effect.type == EffectType::ShieldExplosion);
     CHECK(activated[1].effect.type == EffectType::AutoUltimate);
@@ -299,11 +351,12 @@ TEST_CASE("BattleComboTriggerSystem_ChanceEffects_FilterTypesAndRecordOnlyActiva
     CHECK(state.effectActivationCounts[1] == 0);
     CHECK(state.effectActivationCounts[2] == 1);
 
+    auto cappedRandom = fixedBattleRandom();
     auto capped = system.collectChanceEffects(
         state,
         Trigger::OnShieldBreak,
         { EffectType::ShieldExplosion },
-        []() { return 10.0; });
+        cappedRandom);
     CHECK(capped.empty());
 }
 
@@ -314,11 +367,12 @@ TEST_CASE("BattleComboTriggerSystem_ChanceEffects_CallerCanRecordAfterSceneActio
         triggeredEffect(EffectType::MPRestore, Trigger::OnShieldBreak, 25, 100, 0, 1));
 
     BattleComboTriggerSystem system;
+    auto random = fixedBattleRandom();
     auto candidates = system.collectChanceEffects(
         state,
         Trigger::OnShieldBreak,
         { EffectType::MPRestore },
-        []() { return 0.0; },
+        random,
         BattleComboActivationRecording::CallerRecords);
 
     REQUIRE(candidates.size() == 1);
@@ -359,13 +413,12 @@ TEST_CASE("BattleComboTriggerSystem_TriggerEvents_EmitInEffectOrder", "[battle][
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::DmgReductionPct, Trigger::OnBeingHit, 25, 100));
 
-    std::vector<double> rolls = { 0.0, 49.0 };
-    size_t nextRoll = 0;
+    auto random = randomForChanceSequence({ { 100, true }, { 50, true } });
     auto events = BattleComboTriggerSystem().collectTriggerEvents(
         state,
         { BattleComboTriggerHook::ProjectileHitEnemy, 7, 9 },
         { EffectType::Stun, EffectType::MPBlock },
-        [&]() { return rolls[nextRoll++]; });
+        random);
 
     REQUIRE(events.size() == 2);
     CHECK(events[0].hook == BattleComboTriggerHook::ProjectileHitEnemy);
@@ -375,7 +428,6 @@ TEST_CASE("BattleComboTriggerSystem_TriggerEvents_EmitInEffectOrder", "[battle][
     CHECK(events[0].effect.type == EffectType::Stun);
     CHECK(events[1].effectIndex == 1);
     CHECK(events[1].effect.type == EffectType::MPBlock);
-    CHECK(nextRoll == 2);
 }
 
 TEST_CASE("BattleComboTriggerSystem_TriggerEvents_SameSeedProducesSameEventStream", "[battle][combo][unit]")
@@ -391,13 +443,12 @@ TEST_CASE("BattleComboTriggerSystem_TriggerEvents_SameSeedProducesSameEventStrea
         return state;
     };
     auto collectWithSeed = [&](unsigned int seed, RoleComboState& state) {
-        std::mt19937 rng(seed);
-        std::uniform_real_distribution<double> roll(0.0, 100.0);
+        auto random = BattleRuntimeRandom(seed);
         return BattleComboTriggerSystem().collectTriggerEvents(
             state,
             { BattleComboTriggerHook::ProjectileHitEnemy, 4, 8 },
             { EffectType::Stun, EffectType::MPBlock, EffectType::Execute },
-            [&]() { return roll(rng); });
+            random);
     };
 
     auto firstState = makeState();
@@ -426,27 +477,30 @@ TEST_CASE("BattleComboTriggerSystem_TriggerEvents_MaxCountConsumesOnlyOnActivati
         triggeredEffect(EffectType::Stun, Trigger::OnHit, 12, 50, 0, 1));
 
     BattleComboTriggerSystem system;
+    auto missedRandom = randomForChanceSequence({ { 50, false } });
     auto missed = system.collectTriggerEvents(
         state,
         { BattleComboTriggerHook::ProjectileHitEnemy, 1, 2 },
         { EffectType::Stun },
-        []() { return 60.0; });
+        missedRandom);
     CHECK(missed.empty());
     CHECK(state.effectActivationCounts[0] == 0);
 
+    auto activatedRandom = randomForChanceSequence({ { 50, true } });
     auto activated = system.collectTriggerEvents(
         state,
         { BattleComboTriggerHook::ProjectileHitEnemy, 1, 2 },
         { EffectType::Stun },
-        []() { return 40.0; });
+        activatedRandom);
     REQUIRE(activated.size() == 1);
     CHECK(state.effectActivationCounts[0] == 1);
 
+    auto cappedRandom = fixedBattleRandom();
     auto capped = system.collectTriggerEvents(
         state,
         { BattleComboTriggerHook::ProjectileHitEnemy, 1, 2 },
         { EffectType::Stun },
-        []() { return 0.0; });
+        cappedRandom);
     CHECK(capped.empty());
     CHECK(state.effectActivationCounts[0] == 1);
 }
@@ -491,11 +545,12 @@ TEST_CASE("BattleComboTriggerSystem_TriggerEvents_MapsShieldBreakHook", "[battle
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::Stun, Trigger::OnHit, 5, 100));
 
+    auto random = fixedBattleRandom();
     auto events = BattleComboTriggerSystem().collectTriggerEvents(
         state,
         { BattleComboTriggerHook::ShieldBreak, 2, 2 },
         { EffectType::ShieldExplosion },
-        []() { return 0.0; },
+        random,
         BattleComboActivationRecording::CallerRecords);
 
     REQUIRE(events.size() == 1);
@@ -520,10 +575,11 @@ TEST_CASE("BattleComboTriggerSystem_ShieldBreakCommands_MapEffectsWithoutRecordi
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::Stun, Trigger::OnHit, 5, 100));
 
+    auto random = fixedBattleRandom();
     auto commands = BattleComboTriggerSystem().collectShieldBreakCommands(
         state,
         { BattleComboTriggerHook::ShieldBreak, 2, 2 },
-        []() { return 0.0; });
+        random);
 
     REQUIRE(commands.size() == 4);
     CHECK(commands[0].type == BattleShieldBreakCommandType::ShieldExplosion);
@@ -623,10 +679,11 @@ TEST_CASE("BattleComboTriggerSystem_AttackerHitDamage_AppliesCritNthAndRampingSt
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::PctATK, Trigger::Always, 50));
 
+    auto random = randomForChanceSequence({ { 50, true } });
     auto result = BattleComboTriggerSystem().shapeAttackerHitDamage(
         state,
         { 100.0, 80, 100, false },
-        []() { return 10.0; });
+        random);
 
     CHECK(result.damage == Catch::Approx(900.0));
     REQUIRE(result.events.size() == 2);
@@ -675,10 +732,11 @@ TEST_CASE("BattleComboTriggerSystem_ExecuteCombo_RecordsOnlyTriggeredExecute", "
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::Execute, Trigger::OnHit, 10, 100, 0, 1));
 
+    auto random = randomForChanceSequence({ { 50, true } });
     auto result = BattleComboTriggerSystem().resolveExecuteCombo(
         state,
         { 4, 8, 50, 200, 15.0, true },
-        []() { return 25.0; });
+        random);
 
     CHECK(result.executed);
     CHECK(result.thresholdPct == 20);
@@ -694,26 +752,28 @@ TEST_CASE("BattleComboTriggerSystem_DefenderReactions_ResolveReflectAndBlocksInL
     state.counterUltimateBlockChancePct = 60;
     state.blockChancePct = 70;
 
-    CHECK(BattleComboTriggerSystem().resolveProjectileReflect(state, true, []() { return 39.0; }));
-    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, true, []() { return 40.0; }));
-    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, false, []() { return 0.0; }));
+    auto reflectHitRandom = randomForChanceSequence({ { 40, true } });
+    CHECK(BattleComboTriggerSystem().resolveProjectileReflect(state, true, reflectHitRandom));
+    auto reflectMissRandom = randomForChanceSequence({ { 40, false } });
+    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, true, reflectMissRandom));
+    auto notRangedRandom = fixedBattleRandom();
+    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, false, notRangedRandom));
 
-    std::vector<double> rolls = { 50.0, 69.0 };
-    size_t nextRoll = 0;
+    auto blockRandom = randomForChanceSequence({ { 60, true }, { 70, true } });
     auto blocks = BattleComboTriggerSystem().collectDefenderBlockCommands(
         state,
         { false, false },
-        [&]() { return rolls[nextRoll++]; });
+        blockRandom);
 
     REQUIRE(blocks.size() == 2);
     CHECK(blocks[0] == BattleDefenderBlockCommand::CounterUltimateBlock);
     CHECK(blocks[1] == BattleDefenderBlockCommand::Block);
-    CHECK(nextRoll == 2);
 
+    auto skippedRandom = fixedBattleRandom();
     CHECK(BattleComboTriggerSystem().collectDefenderBlockCommands(
         state,
         { true, false },
-        []() { return 0.0; }).empty());
+        skippedRandom).empty());
 }
 
 TEST_CASE("BattleComboTriggerSystem_StunCommands_CollectWithoutRecordingActivation", "[battle][combo][unit]")
@@ -724,10 +784,11 @@ TEST_CASE("BattleComboTriggerSystem_StunCommands_CollectWithoutRecordingActivati
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::MPBlock, Trigger::OnHit, 20, 100));
 
+    auto random = fixedBattleRandom();
     auto commands = BattleComboTriggerSystem().collectStunCommands(
         state,
         { BattleComboTriggerHook::DamageDealt, 4, 8 },
-        []() { return 0.0; });
+        random);
 
     REQUIRE(commands.size() == 1);
     CHECK(commands[0].frames == 12);
@@ -766,11 +827,12 @@ TEST_CASE("BattleComboTriggerSystem_ExtraProjectileCount_AddsFlatAndTriggeredEff
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::Stun, Trigger::OnUltimate, 5, 100));
 
+    auto random = fixedBattleRandom();
     auto count = BattleComboTriggerSystem().collectExtraProjectileCount(
         state,
         { BattleComboTriggerHook::AfterSkillCast, 4, -1 },
         3,
-        []() { return 0.0; });
+        random);
 
     CHECK(count == 5);
     CHECK(state.effectActivationCounts[0] == 1);
@@ -794,48 +856,11 @@ TEST_CASE("BattleComboTriggerSystem_ArmorPenetration_AppliesLegacyAndTriggeredPe
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::ArmorPen, Trigger::OnHit, 40, 100));
 
-    std::vector<double> rolls = { 0.0, 0.0 };
-    size_t nextRoll = 0;
+    auto random = fixedBattleRandom();
     auto result = BattleComboTriggerSystem().resolveArmorPenetratedDefense(
         state,
         { 4, 8, 100.0 },
-        [&]() { return rolls[nextRoll++]; });
+        random);
 
     CHECK(result.defense == Catch::Approx(45.0));
-    CHECK(nextRoll == 2);
-}
-
-TEST_CASE("BattleComboTriggerSystem_HitProcHelpers_ResolveLegacyProcDecisions", "[battle][combo][unit]")
-{
-    RoleComboState state;
-    state.stunChancePct = 50;
-    state.stunFrames = 7;
-    state.knockbackChancePct = 30;
-    state.offensiveCharmChancePct = 60;
-    state.charmCDRAmountPct = 25;
-    state.charmCDRChancePct = 40;
-    state.bleedChancePct = 70;
-    state.bleedMaxStacks = 5;
-    state.dmgReduceDebuffChancePct = 80;
-    state.dmgReduceDebuffPct = 15;
-    state.dmgReduceDebuffDurationFrames = 90;
-
-    CHECK(BattleComboTriggerSystem().resolveLegacyStunFrames(state, []() { return 49.0; }) == 7);
-    CHECK(BattleComboTriggerSystem().resolveLegacyStunFrames(state, []() { return 50.0; }) == 0);
-    CHECK(BattleComboTriggerSystem().shouldApplyKnockback(state, []() { return 29.0; }));
-    CHECK_FALSE(BattleComboTriggerSystem().shouldApplyKnockback(state, []() { return 30.0; }));
-    CHECK(BattleComboTriggerSystem().resolveOffensiveCooldownExtendPct(state, []() { return 59.0; }) == 25);
-    CHECK(BattleComboTriggerSystem().resolveDefensiveCooldownExtendPct(state, []() { return 39.0; }) == 25);
-
-    auto bleed = BattleComboTriggerSystem().resolveBleedProc(state, true, []() { return 69.0; });
-    CHECK(bleed.applies);
-    CHECK(bleed.stacks == 1);
-    CHECK(bleed.maxStacks == 5);
-    CHECK_FALSE(BattleComboTriggerSystem().resolveBleedProc(state, false, []() { return 0.0; }).applies);
-
-    auto debuff = BattleComboTriggerSystem().resolveDamageReduceDebuffProc(state, true, []() { return 79.0; });
-    CHECK(debuff.applies);
-    CHECK(debuff.pct == 15);
-    CHECK(debuff.durationFrames == 90);
-    CHECK_FALSE(BattleComboTriggerSystem().resolveDamageReduceDebuffProc(state, false, []() { return 0.0; }).applies);
 }

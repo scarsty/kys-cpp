@@ -397,6 +397,34 @@ TEST_CASE("BattleSceneBattleAdapter_CreatesCloneSceneRowsWithoutRoleMirror", "[b
     CHECK(cloneIt->gridY == 4);
 }
 
+TEST_CASE("BattleSceneBattleAdapter_InitializesRuntimeRandomFromBuildContext", "[battle][initialization]")
+{
+    namespace Adapter = KysChess::BattleSceneBattleAdapter;
+
+    std::map<int, RoleComboState> comboStates;
+
+    Adapter::BattleRuntimeBuildContext context;
+    context.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    context.setup.comboStates = &comboStates;
+    context.randomSeed = 777u;
+
+    Adapter::BattleSetupUnitInput source;
+    source.unitId = 0;
+    source.realRoleId = 1001;
+    source.name = "測試角色";
+    source.team = 0;
+    source.alive = true;
+    source.vitals = { 100, 100, 0, 0 };
+    source.stats = { 20, 30, 40 };
+    source.motion = { { 100, 200, 0 }, { 0, 0, 0 }, { 0, 0, 0 }, { 1, 1, 0 } };
+    source.animation = { 0, 0, 0, -1 };
+    context.setup.units.push_back(source);
+
+    auto created = Adapter::createInitializedBattleRuntimeSession(context);
+
+    CHECK(created.session.runtime().random.seed() == 777u);
+}
+
 TEST_CASE("BattleRuntimeSession_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization][runtime_session]")
 {
     BattleRuntimeInit init;

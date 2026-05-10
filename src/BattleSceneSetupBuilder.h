@@ -5,7 +5,6 @@
 #include "Types.h"
 
 #include <array>
-#include <functional>
 #include <span>
 #include <vector>
 
@@ -34,9 +33,9 @@ struct BattleSceneSetupUnitRequest
     int fightsWon = 0;
     int sourceOrder = 0;
     float gravity = -4.0f;
-    std::function<Pointf(int, int)> positionForCell;
-    std::function<std::array<int, 5>(int)> fightFramesForHeadId;
-    std::function<Magic*(int)> magicById;
+    Pointf position;
+    std::array<int, 5> fightFrames{};
+    std::array<Magic*, ROLE_MAGIC_COUNT> magicSlots{};
 };
 
 struct BattleSceneSetupBuildResult

@@ -139,18 +139,22 @@ TEST_CASE("BattleMovementPhysicsSystem_SlidesAndTicksDashRuntime", "[battle][mov
     input.config.friction = 0.1f;
     input.config.postDashSpreadFrames = 12;
     input.actionDashActive = true;
-    std::vector<int> requestedDistances;
-    input.canMove = [&](Pointf position, int separationDistance)
-    {
-        requestedDistances.push_back(separationDistance);
-        return position.x == 15.0f && position.y == 10.0f;
+    BattleMovementPhysicsCollisionWorld collision;
+    collision.tileWidth = 1.0;
+    collision.coordCount = 10;
+    collision.defaultSeparationDistance = 4.0;
+    collision.units = { { 0, true, input.state.position } };
+    collision.cells = {
+        { 8, 4, false },
+        { 8, 3, true },
+        { 6, 6, false },
     };
+    input.collisionWorld = &collision;
+    input.unitId = 0;
+    input.currentPosition = input.state.position;
 
     auto state = BattleMovementPhysicsSystem().advance(input);
 
-    REQUIRE(requestedDistances.size() == 2);
-    CHECK(requestedDistances[0] == 1);
-    CHECK(requestedDistances[1] == 1);
     CHECK(state.position.x == 15.0f);
     CHECK(state.position.y == 10.0f);
     CHECK(state.velocity.x == Catch::Approx(4.9));
