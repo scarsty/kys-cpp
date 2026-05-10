@@ -13,7 +13,7 @@ BattleRuntimeUnit unit(int id, int team, double x, double y, int gridX, int grid
     state.id = id;
     state.team = team;
     state.alive = true;
-    state.position = { static_cast<float>(x), static_cast<float>(y), 0.0f };
+    state.motion.position = { static_cast<float>(x), static_cast<float>(y), 0.0f };
     state.grid = { gridX, gridY };
     return state;
 }
@@ -21,9 +21,9 @@ BattleRuntimeUnit unit(int id, int team, double x, double y, int gridX, int grid
 BattleRuntimeUnit combatUnit(int id, int team, int hp, int maxHp, int defense, int invincible)
 {
     auto state = unit(id, team, 0.0, 0.0, 0, 0);
-    state.hp = hp;
-    state.maxHp = maxHp;
-    state.defence = defense;
+    state.vitals.hp = hp;
+    state.vitals.maxHp = maxHp;
+    state.stats.defence = defense;
     state.invincible = invincible;
     return state;
 }

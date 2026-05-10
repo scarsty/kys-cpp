@@ -24,10 +24,10 @@ BattleRuntimeUnit unit(int id, int team, bool alive)
     state.id = id;
     state.team = team;
     state.alive = alive;
-    state.hp = 50;
-    state.maxHp = 100;
-    state.attack = 10;
-    state.defence = 20;
+    state.vitals.hp = 50;
+    state.vitals.maxHp = 100;
+    state.stats.attack = 10;
+    state.stats.defence = 20;
     return state;
 }
 
@@ -79,9 +79,9 @@ TEST_CASE("BattleDeathEffectSystem_AllyDeathStatBoost_RequiresRegularSharedCombo
     CHECK(events[0].type == BattleDeathEffectEventType::AllyStatBoost);
     CHECK(events[0].targetUnitId == 1);
     CHECK(events[0].value == 5);
-    CHECK(units.requireUnit(1).attack == 15);
-    CHECK(units.requireUnit(1).defence == 25);
-    CHECK(units.requireUnit(2).attack == 10);
+    CHECK(units.requireUnit(1).stats.attack == 15);
+    CHECK(units.requireUnit(1).stats.defence == 25);
+    CHECK(units.requireUnit(2).stats.attack == 10);
 }
 
 TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboAllies", "[battle][death_effect][unit]")
@@ -92,8 +92,8 @@ TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboA
         unit(1, 0, true),
         unit(2, 0, true),
     };
-    units.requireUnit(1).hp = 80;
-    units.requireUnit(2).hp = 20;
+    units.requireUnit(1).vitals.hp = 80;
+    units.requireUnit(2).vitals.hp = 20;
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 3 };
     auto dead = extras(0);
@@ -110,8 +110,8 @@ TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboA
     CHECK(events[0].type == BattleDeathEffectEventType::DeathMedicalHeal);
     CHECK(events[0].targetUnitId == 1);
     CHECK(events[0].value == 20);
-    CHECK(units.requireUnit(1).hp == 100);
-    CHECK(units.requireUnit(2).hp == 20);
+    CHECK(units.requireUnit(1).vitals.hp == 100);
+    CHECK(units.requireUnit(2).vitals.hp == 20);
 }
 
 TEST_CASE("BattleDeathEffectSystem_ShieldOnAllyDeath_TracksDeathsAndAwardsShield", "[battle][death_effect][unit]")
@@ -121,7 +121,7 @@ TEST_CASE("BattleDeathEffectSystem_ShieldOnAllyDeath_TracksDeathsAndAwardsShield
         unit(0, 0, false),
         unit(1, 0, true),
     };
-    units.requireUnit(1).maxHp = 200;
+    units.requireUnit(1).vitals.maxHp = 200;
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 5 };
     auto dead = extras(0);

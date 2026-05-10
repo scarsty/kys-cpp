@@ -24,10 +24,9 @@ BattleSceneUnit makeUnit(int id, int team, int x, int y, Pointf position)
     unit.faceTowards = Towards_RightDown;
     unit.alive = true;
     unit.active = true;
-    unit.position = position;
-    unit.realTowards = { 1, 1, 0 };
-    unit.maxHp = 100;
-    unit.hp = 100;
+    unit.vitals = { 100, 100, 0, 0 };
+    unit.motion = { position, { 0, 0, 0 }, { 0, 0, 0 }, { 1, 1, 0 } };
+    unit.animation = { 0, 0, 0, -1 };
     unit.cost = 2;
     return unit;
 }
@@ -48,42 +47,24 @@ TEST_CASE("BattleSceneUnitStore_InitializesDenseRowsAndRequiresByUnitId", "[batt
     CHECK(store.aliveUnitsOnTeam(1) == 1);
 }
 
-TEST_CASE("BattleSceneUnitStore_UsesSharedUnitValueObjects", "[battle][scene_unit_store]")
+TEST_CASE("BattleSceneUnitStore_UsesGroupedFieldsAsPrimaryState", "[battle][scene_unit_store]")
 {
-    BattleSceneUnit unit;
-    unit.hp = 10;
-    unit.maxHp = 20;
-    unit.mp = 3;
-    unit.maxMp = 8;
-    unit.attack = 30;
-    unit.defence = 40;
-    unit.speed = 50;
-    unit.position = { 1, 2, 3 };
-    unit.velocity = { 4, 5, 6 };
-    unit.acceleration = { 7, 8, 9 };
-    unit.realTowards = { 10, 11, 12 };
-    unit.cooldown = 13;
-    unit.cooldownMax = 14;
-    unit.actFrame = 15;
-    unit.actType = 16;
+    std::vector<BattleSceneUnit> units;
+    auto unit = makeUnit(0, 0, 1, 2, { 10, 20, 0 });
+    unit.vitals = { 75, 100, 4, 10 };
+    unit.stats = { 30, 40, 50 };
+    unit.motion = { { 10, 20, 0 }, { 1, 2, 3 }, { 0, 0, 9 }, { 1, 0, 0 } };
+    unit.animation = { 3, 5, 7, 9 };
+    units.push_back(unit);
 
-    syncBattleSceneUnitSharedValueObjects(unit);
+    BattleSceneUnitStore store;
+    store.initialize(std::move(units));
 
-    CHECK(unit.vitals.hp == 10);
-    CHECK(unit.vitals.maxHp == 20);
-    CHECK(unit.vitals.mp == 3);
-    CHECK(unit.vitals.maxMp == 8);
-    CHECK(unit.stats.attack == 30);
-    CHECK(unit.stats.defence == 40);
-    CHECK(unit.stats.speed == 50);
-    CHECK(unit.motion.position.x == 1);
-    CHECK(unit.motion.velocity.y == 5);
-    CHECK(unit.motion.acceleration.z == 9);
-    CHECK(unit.motion.facing.x == 10);
-    CHECK(unit.animation.cooldown == 13);
-    CHECK(unit.animation.cooldownMax == 14);
-    CHECK(unit.animation.actFrame == 15);
-    CHECK(unit.animation.actType == 16);
+    const auto& stored = store.requireUnit(0);
+    CHECK(stored.vitals.hp == 75);
+    CHECK(stored.stats.attack == 30);
+    CHECK(stored.motion.position.x == 10);
+    CHECK(stored.animation.actFrame == 7);
 }
 
 TEST_CASE("BattleSceneUnitStore_SwapsSetupPositionAndUpdatesWorldPosition", "[battle][scene_unit_store]")
@@ -104,12 +85,12 @@ TEST_CASE("BattleSceneUnitStore_SwapsSetupPositionAndUpdatesWorldPosition", "[ba
 
     CHECK(store.requireUnit(0).gridX == 3);
     CHECK(store.requireUnit(0).gridY == 4);
-    CHECK(store.requireUnit(0).position.x == 30);
-    CHECK(store.requireUnit(0).position.y == 40);
+    CHECK(store.requireUnit(0).motion.position.x == 30);
+    CHECK(store.requireUnit(0).motion.position.y == 40);
     CHECK(store.requireUnit(1).gridX == 1);
     CHECK(store.requireUnit(1).gridY == 2);
-    CHECK(store.requireUnit(1).position.x == 10);
-    CHECK(store.requireUnit(1).position.y == 20);
+    CHECK(store.requireUnit(1).motion.position.x == 10);
+    CHECK(store.requireUnit(1).motion.position.y == 20);
 }
 
 TEST_CASE("BattleSceneUnitStore_BuildsSetupPlacementOnlyForActiveUnits", "[battle][scene_unit_store]")

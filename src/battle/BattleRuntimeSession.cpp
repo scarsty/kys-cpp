@@ -82,7 +82,7 @@ void BattleRuntimeSession::commitSetupPlacement(const BattleSetupPlacementInput&
         const auto position = setupPlacementPosition(runtime_.units.gridTransform, unitPlacement.x, unitPlacement.y);
         runtime_.units.setPosition(unitPlacement.unitId, position);
         auto& unit = runtime_.units.requireUnit(unitPlacement.unitId);
-        unit.facing = setupPlacementFacing(unitPlacement.faceTowards);
+        unit.motion.facing = setupPlacementFacing(unitPlacement.faceTowards);
 
         auto& worldUnit = requireById(runtime_.world.units, unitPlacement.unitId);
         worldUnit.position = position;

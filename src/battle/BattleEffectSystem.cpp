@@ -98,10 +98,10 @@ void HealPercentExecutor::execute(BattleEffectContext& context) const
 {
     for (auto* target : context.targets())
     {
-        int before = target->hp;
-        int amount = std::max(1, target->maxHp * context.effect().value / 100);
-        target->hp = std::min(target->maxHp, target->hp + amount);
-        int healed = target->hp - before;
+        int before = target->vitals.hp;
+        int amount = std::max(1, target->vitals.maxHp * context.effect().value / 100);
+        target->vitals.hp = std::min(target->vitals.maxHp, target->vitals.hp + amount);
+        int healed = target->vitals.hp - before;
         if (healed > 0)
         {
             context.emit({
@@ -156,9 +156,9 @@ void RestoreMpExecutor::execute(BattleEffectContext& context) const
 {
     for (auto* target : context.targets())
     {
-        int before = target->mp;
-        target->mp = std::min(target->maxMp, target->mp + std::max(0, context.effect().value));
-        int restored = target->mp - before;
+        int before = target->vitals.mp;
+        target->vitals.mp = std::min(target->vitals.maxMp, target->vitals.mp + std::max(0, context.effect().value));
+        int restored = target->vitals.mp - before;
         if (restored > 0)
         {
             context.emit({
@@ -177,22 +177,22 @@ void ModifyCooldownPercentExecutor::execute(BattleEffectContext& context) const
 {
     for (auto* target : context.targets())
     {
-        if (target->cooldown <= 0)
+        if (target->animation.cooldown <= 0)
         {
             continue;
         }
 
-        int before = target->cooldown;
-        target->cooldown = static_cast<int>(target->cooldown * (1.0 - context.effect().value / 100.0));
-        target->cooldown = std::max(0, target->cooldown);
-        if (target->cooldown != before)
+        int before = target->animation.cooldown;
+        target->animation.cooldown = static_cast<int>(target->animation.cooldown * (1.0 - context.effect().value / 100.0));
+        target->animation.cooldown = std::max(0, target->animation.cooldown);
+        if (target->animation.cooldown != before)
         {
             context.emit({
                 BattleEffectCommandType::ModifyCooldown,
                 context.effect().id,
                 context.event().sourceUnitId,
                 target->id,
-                target->cooldown - before,
+                target->animation.cooldown - before,
                 context.effect().type,
             });
         }

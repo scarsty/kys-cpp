@@ -13,8 +13,8 @@ BattleDamageUnitState unit()
     BattleDamageUnitState state;
     state.id = 1;
     state.alive = true;
-    state.hp = 100;
-    state.maxHp = 200;
+    state.vitals.hp = 100;
+    state.vitals.maxHp = 200;
     state.attack = 50;
     return state;
 }
@@ -24,10 +24,7 @@ BattleResourceUnitState resourceUnit(int id, int hp, int maxHp, int mp, int maxM
     BattleResourceUnitState state;
     state.id = id;
     state.alive = true;
-    state.hp = hp;
-    state.maxHp = maxHp;
-    state.mp = mp;
-    state.maxMp = maxMp;
+    state.vitals = { hp, maxHp, mp, maxMp };
     return state;
 }
 
@@ -39,6 +36,22 @@ BattleStatusUnitState statusUnit(int id)
     state.hp = 100;
     state.maxHp = 200;
     return state;
+}
+
+TEST_CASE("BattleDamageSystem_UsesGroupedVitalsForDamageState", "[battle][damage]")
+{
+    BattleDamageUnitState defender;
+    defender.id = 1;
+    defender.alive = true;
+    defender.vitals = { 30, 100, 5, 20 };
+
+    BattleDamageSystem system;
+    auto result = system.applyDamageTaken(defender, 10);
+
+    CHECK(result.defender.vitals.hp == 20);
+    CHECK(result.defender.vitals.maxHp == 100);
+    CHECK(result.defender.vitals.mp == 5);
+    CHECK(result.defender.alive);
 }
 
 }  // namespace
@@ -209,17 +222,17 @@ TEST_CASE("BattleDamageSystem_DamageTaken_GrantsHurtInvincOrDeathPrevention", "[
     auto hurt = unit();
     hurt.hurtInvincFrames = 5;
     auto hurtResult = system.applyDamageTaken(hurt, 20);
-    CHECK(hurtResult.defender.hp == 80);
+    CHECK(hurtResult.defender.vitals.hp == 80);
     CHECK(hurtResult.defender.invincible == 5);
     CHECK(hurtResult.hurtInvincGranted);
     CHECK_FALSE(hurtResult.died);
 
     auto protectedUnit = unit();
-    protectedUnit.hp = 10;
+    protectedUnit.vitals.hp = 10;
     protectedUnit.deathPrevention = true;
     protectedUnit.deathPreventionFrames = 30;
     auto protectedResult = system.applyDamageTaken(protectedUnit, 20);
-    CHECK(protectedResult.defender.hp == 1);
+    CHECK(protectedResult.defender.vitals.hp == 1);
     CHECK(protectedResult.defender.invincible == 30);
     CHECK(protectedResult.defender.deathPreventionUsed);
     CHECK(protectedResult.deathPrevented);
@@ -229,14 +242,14 @@ TEST_CASE("BattleDamageSystem_DamageTaken_GrantsHurtInvincOrDeathPrevention", "[
 TEST_CASE("BattleDamageSystem_KillReward_HealsInvincibleAndBloodlustPerUnit", "[battle][damage][unit]")
 {
     auto killer = unit();
-    killer.hp = 120;
+    killer.vitals.hp = 120;
     killer.killHealPct = 50;
     killer.killInvincFrames = 12;
     killer.bloodlustAttackPerKill = 7;
 
     auto result = BattleDamageSystem().applyKillReward({ killer });
 
-    CHECK(result.killer.hp == 200);
+    CHECK(result.killer.vitals.hp == 200);
     CHECK(result.healed == 80);
     CHECK(result.killer.invincible == 12);
     CHECK(result.invincibilityGranted == 12);
@@ -301,55 +314,55 @@ TEST_CASE("BattleDamageSystem_OnHitResources_ApplyPerUnitMpHpAndDrain", "[battle
 
     auto result = BattleDamageSystem().applyOnHitResources(input);
 
-    CHECK(result.attacker.hp == 120);
+    CHECK(result.attacker.vitals.hp == 120);
     CHECK(result.hpHealed == 30);
-    CHECK(result.target.mp == 0);
+    CHECK(result.target.vitals.mp == 0);
     CHECK(result.mpDrained == 12);
-    CHECK(result.attacker.mp == 100);
+    CHECK(result.attacker.vitals.mp == 100);
     CHECK(result.mpRestored == 20);
 }
 
 TEST_CASE("BattleDamageSystem_Poison_OnlyStrongerPoisonRefreshesTarget", "[battle][damage][unit]")
 {
     auto target = statusUnit(2);
-    target.poisonTickPct = 8;
-    target.poisonTimer = 30;
-    target.poisonSourceId = 7;
+    target.effects.poisonTickPct = 8;
+    target.effects.poisonTimer = 30;
+    target.effects.poisonSourceId = 7;
 
     auto weak = BattleDamageSystem().applyPoisonIfStronger({ target, 1, 5, 60 });
     CHECK_FALSE(weak.applied);
-    CHECK(weak.target.poisonTickPct == 8);
-    CHECK(weak.target.poisonTimer == 30);
-    CHECK(weak.target.poisonSourceId == 7);
+    CHECK(weak.target.effects.poisonTickPct == 8);
+    CHECK(weak.target.effects.poisonTimer == 30);
+    CHECK(weak.target.effects.poisonSourceId == 7);
 
     auto strong = BattleDamageSystem().applyPoisonIfStronger({ target, 1, 12, 60 });
     CHECK(strong.applied);
-    CHECK(strong.target.poisonTickPct == 12);
-    CHECK(strong.target.poisonTimer == 60);
-    CHECK(strong.target.poisonSourceId == 1);
+    CHECK(strong.target.effects.poisonTickPct == 12);
+    CHECK(strong.target.effects.poisonTimer == 60);
+    CHECK(strong.target.effects.poisonSourceId == 1);
     CHECK(strong.value == 12);
 }
 
 TEST_CASE("BattleDamageSystem_Bleed_StacksToCapAndInitializesTimer", "[battle][damage][unit]")
 {
     auto target = statusUnit(2);
-    target.bleedStacks = 2;
-    target.bleedTimer = 0;
+    target.effects.bleedStacks = 2;
+    target.effects.bleedTimer = 0;
 
     auto result = BattleDamageSystem().applyBleed(target, 1, 2, 3);
 
     CHECK(result.applied);
-    CHECK(result.target.bleedStacks == 3);
-    CHECK(result.target.bleedTimer == 10);
-    CHECK(result.target.bleedSourceId == 1);
+    CHECK(result.target.effects.bleedStacks == 3);
+    CHECK(result.target.effects.bleedTimer == 10);
+    CHECK(result.target.effects.bleedSourceId == 1);
     CHECK(result.value == 3);
 
-    result.target.bleedTimer = 7;
+    result.target.effects.bleedTimer = 7;
     auto capped = BattleDamageSystem().applyBleed(result.target, 4, 1, 3);
     CHECK_FALSE(capped.applied);
-    CHECK(capped.target.bleedStacks == 3);
-    CHECK(capped.target.bleedTimer == 7);
-    CHECK(capped.target.bleedSourceId == 4);
+    CHECK(capped.target.effects.bleedStacks == 3);
+    CHECK(capped.target.effects.bleedTimer == 7);
+    CHECK(capped.target.effects.bleedSourceId == 4);
 }
 
 TEST_CASE("BattleDamageSystem_DamageReduceDebuff_AppendsValidTimedDebuff", "[battle][damage][unit]")
@@ -359,9 +372,9 @@ TEST_CASE("BattleDamageSystem_DamageReduceDebuff_AppendsValidTimedDebuff", "[bat
     auto result = BattleDamageSystem().applyDamageReduceDebuff(target, 45, 30);
 
     REQUIRE(result.applied);
-    REQUIRE(result.target.damageReduceDebuffs.size() == 1);
-    CHECK(result.target.damageReduceDebuffs[0].remainingFrames == 45);
-    CHECK(result.target.damageReduceDebuffs[0].pct == 30);
+    REQUIRE(result.target.effects.damageReduceDebuffs.size() == 1);
+    CHECK(result.target.effects.damageReduceDebuffs[0].remainingFrames == 45);
+    CHECK(result.target.effects.damageReduceDebuffs[0].pct == 30);
     CHECK(result.value == 30);
 }
 
@@ -383,7 +396,7 @@ TEST_CASE("傷害交易_物理傷害套用攻守方修正並輸出差量", "[bat
     auto result = BattleDamageSystem().resolveTransaction(input);
 
     CHECK(result.finalHpDamage == 92);
-    CHECK(result.defender.hp == 8);
+    CHECK(result.defender.vitals.hp == 8);
     CHECK(result.defenderDelta.unitId == 2);
     CHECK(result.defenderDelta.hpDelta == -92);
     REQUIRE(result.events.size() == 1);
@@ -409,7 +422,7 @@ TEST_CASE("傷害交易_護盾先吸收生命傷害", "[battle][damage][unit]")
 
     CHECK(result.shieldAbsorbed == 50);
     CHECK(result.finalHpDamage == 30);
-    CHECK(result.defender.hp == 70);
+    CHECK(result.defender.vitals.hp == 70);
     CHECK(result.defender.shield == 0);
     CHECK(result.defenderDelta.shieldDelta == -50);
     REQUIRE(result.events.size() == 2);
@@ -434,12 +447,12 @@ TEST_CASE("傷害交易_無敵阻擋一般傷害但不阻擋處決", "[battle][d
     auto blocked = BattleDamageSystem().resolveTransaction(blockedInput);
 
     CHECK(blocked.finalHpDamage == 0);
-    CHECK(blocked.defender.hp == 100);
+    CHECK(blocked.defender.vitals.hp == 100);
     REQUIRE(blocked.events.size() == 1);
     CHECK(blocked.events[0].type == BattleDamageEventType::BlockedByInvincible);
 
     auto executedInput = blockedInput;
-    executedInput.defender.hp = 35;
+    executedInput.defender.vitals.hp = 35;
     executedInput.request.canExecute = true;
     executedInput.request.executeThresholdPct = 20;
 
@@ -447,7 +460,7 @@ TEST_CASE("傷害交易_無敵阻擋一般傷害但不阻擋處決", "[battle][d
 
     CHECK(executed.executed);
     CHECK(executed.defender.alive == false);
-    CHECK(executed.defender.hp == 0);
+    CHECK(executed.defender.vitals.hp == 0);
     CHECK(executed.finalHpDamage == 35);
     REQUIRE(executed.events.size() == 3);
     CHECK(executed.events[0].type == BattleDamageEventType::ExecuteTriggered);
@@ -465,13 +478,13 @@ TEST_CASE("傷害交易_死亡保護與擊殺獎勵由同一交易輸出", "[bat
     protectedInput.attacker.id = 1;
     protectedInput.defender = unit();
     protectedInput.defender.id = 2;
-    protectedInput.defender.hp = 20;
+    protectedInput.defender.vitals.hp = 20;
     protectedInput.defender.deathPrevention = true;
     protectedInput.defender.deathPreventionFrames = 30;
 
     auto protectedResult = BattleDamageSystem().resolveTransaction(protectedInput);
 
-    CHECK(protectedResult.defender.hp == 1);
+    CHECK(protectedResult.defender.vitals.hp == 1);
     CHECK(protectedResult.defender.alive);
     CHECK(protectedResult.defender.deathPreventionUsed);
     CHECK(protectedResult.defender.invincible == 30);
@@ -486,18 +499,18 @@ TEST_CASE("傷害交易_死亡保護與擊殺獎勵由同一交易輸出", "[bat
     killInput.request.baseDamage = 50;
     killInput.attacker = unit();
     killInput.attacker.id = 1;
-    killInput.attacker.hp = 120;
+    killInput.attacker.vitals.hp = 120;
     killInput.attacker.killHealPct = 50;
     killInput.attacker.killInvincFrames = 12;
     killInput.attacker.bloodlustAttackPerKill = 7;
     killInput.defender = unit();
     killInput.defender.id = 2;
-    killInput.defender.hp = 40;
+    killInput.defender.vitals.hp = 40;
 
     auto kill = BattleDamageSystem().resolveTransaction(killInput);
 
     CHECK_FALSE(kill.defender.alive);
-    CHECK(kill.attacker.hp == 200);
+    CHECK(kill.attacker.vitals.hp == 200);
     CHECK(kill.attacker.invincible == 12);
     CHECK(kill.attacker.attack == 57);
     CHECK(kill.attackerDelta.hpDelta == 80);
@@ -519,18 +532,15 @@ TEST_CASE("傷害交易_魔力傷害不觸發生命傷害防禦層", "[battle][d
     input.attacker.id = 1;
     input.defender = unit();
     input.defender.id = 2;
-    input.defender.mp = 20;
-    input.defender.maxMp = 100;
-    input.defender.invincible = 10;
-    input.defender.shield = 50;
+    input.defender.vitals.mp = 20;
+    input.defender.vitals.maxMp = 100;
 
     auto result = BattleDamageSystem().resolveTransaction(input);
 
     CHECK(result.finalHpDamage == 0);
     CHECK(result.finalMpDamage == 20);
-    CHECK(result.defender.hp == 100);
-    CHECK(result.defender.mp == 0);
-    CHECK(result.defender.shield == 50);
+    CHECK(result.defender.vitals.hp == 100);
+    CHECK(result.defender.vitals.mp == 0);
     CHECK(result.defenderDelta.mpDelta == -20);
     REQUIRE(result.events.size() == 1);
     CHECK(result.events[0].type == BattleDamageEventType::MpDamageApplied);
@@ -549,14 +559,14 @@ TEST_CASE("傷害交易_命中後資源與冷卻延長只在有效命中後生�
     input.request.cooldownExtendPct = 25;
     input.attacker = unit();
     input.attacker.id = 1;
-    input.attacker.hp = 90;
-    input.attacker.maxHp = 120;
-    input.attacker.mp = 80;
-    input.attacker.maxMp = 100;
+    input.attacker.vitals.hp = 90;
+    input.attacker.vitals.maxHp = 120;
+    input.attacker.vitals.mp = 80;
+    input.attacker.vitals.maxMp = 100;
     input.defender = unit();
     input.defender.id = 2;
-    input.defender.mp = 12;
-    input.defender.maxMp = 100;
+    input.defender.vitals.mp = 12;
+    input.defender.vitals.maxMp = 100;
     input.defenderCooldown.alive = true;
     input.defenderCooldown.cooldown = 50;
     input.defenderCooldown.cooldownMax = 100;
@@ -566,9 +576,9 @@ TEST_CASE("傷害交易_命中後資源與冷卻延長只在有效命中後生�
 
     auto result = BattleDamageSystem().resolveTransaction(input);
 
-    CHECK(result.attacker.hp == 120);
-    CHECK(result.attacker.mp == 100);
-    CHECK(result.defender.mp == 0);
+    CHECK(result.attacker.vitals.hp == 120);
+    CHECK(result.attacker.vitals.mp == 100);
+    CHECK(result.defender.vitals.mp == 0);
     CHECK(result.attackerDelta.hpDelta == 30);
     CHECK(result.attackerDelta.mpDelta == 20);
     CHECK(result.defenderDelta.mpDelta == -12);
@@ -595,9 +605,9 @@ TEST_CASE("傷害交易_命中後資源與冷卻延長只在有效命中後生�
     auto blocked = BattleDamageSystem().resolveTransaction(input);
 
     CHECK(blocked.finalHpDamage == 0);
-    CHECK(blocked.attacker.hp == 90);
-    CHECK(blocked.attacker.mp == 80);
-    CHECK(blocked.defender.mp == 12);
+    CHECK(blocked.attacker.vitals.hp == 90);
+    CHECK(blocked.attacker.vitals.mp == 80);
+    CHECK(blocked.defender.vitals.mp == 12);
     CHECK(blocked.defenderCooldown.cooldown == 50);
     CHECK(blocked.cooldownDelta == 0);
 }
@@ -612,25 +622,25 @@ TEST_CASE("傷害交易_命中後內力回復遵守封內與回復加成", "[bat
     input.request.mpDrain = 10;
     input.attacker = unit();
     input.attacker.id = 1;
-    input.attacker.mp = 20;
-    input.attacker.maxMp = 100;
+    input.attacker.vitals.mp = 20;
+    input.attacker.vitals.maxMp = 100;
     input.attacker.mpRecoveryBonusPct = 50;
     input.defender = unit();
     input.defender.id = 2;
-    input.defender.mp = 10;
+    input.defender.vitals.mp = 10;
 
     auto result = BattleDamageSystem().resolveTransaction(input);
 
-    CHECK(result.attacker.mp == 50);
-    CHECK(result.defender.mp == 0);
+    CHECK(result.attacker.vitals.mp == 50);
+    CHECK(result.defender.vitals.mp == 0);
     CHECK(result.attackerDelta.mpDelta == 30);
     CHECK(result.defenderDelta.mpDelta == -10);
 
     input.attacker.mpBlocked = true;
     auto blocked = BattleDamageSystem().resolveTransaction(input);
 
-    CHECK(blocked.attacker.mp == 20);
-    CHECK(blocked.defender.mp == 0);
+    CHECK(blocked.attacker.vitals.mp == 20);
+    CHECK(blocked.defender.vitals.mp == 0);
     CHECK(blocked.attackerDelta.mpDelta == 0);
     CHECK(blocked.defenderDelta.mpDelta == -10);
 }
@@ -654,24 +664,24 @@ TEST_CASE("傷害交易_命中後狀態由交易輸出", "[battle][damage][unit]
     input.defender = unit();
     input.defender.id = 2;
     input.defenderStatus = statusUnit(2);
-    input.defenderStatus.poisonTickPct = 8;
-    input.defenderStatus.poisonTimer = 30;
-    input.defenderStatus.bleedStacks = 2;
+    input.defenderStatus.effects.poisonTickPct = 8;
+    input.defenderStatus.effects.poisonTimer = 30;
+    input.defenderStatus.effects.bleedStacks = 2;
 
     auto result = BattleDamageSystem().resolveTransaction(input);
 
-    CHECK(result.defenderStatus.poisonTickPct == 12);
-    CHECK(result.defenderStatus.poisonTimer == 60);
-    CHECK(result.defenderStatus.poisonSourceId == 1);
-    CHECK(result.defenderStatus.bleedStacks == 3);
-    CHECK(result.defenderStatus.bleedTimer == 10);
-    CHECK(result.defenderStatus.bleedSourceId == 1);
-    REQUIRE(result.defenderStatus.damageReduceDebuffs.size() == 1);
-    CHECK(result.defenderStatus.damageReduceDebuffs[0].remainingFrames == 45);
-    CHECK(result.defenderStatus.damageReduceDebuffs[0].pct == 30);
-    CHECK(result.defenderStatus.frozenTimer == 5);
-    CHECK(result.defenderStatus.frozenMaxTimer == 5);
-    CHECK(result.defenderStatus.mpBlockTimer == 9);
+    CHECK(result.defenderStatus.effects.poisonTickPct == 12);
+    CHECK(result.defenderStatus.effects.poisonTimer == 60);
+    CHECK(result.defenderStatus.effects.poisonSourceId == 1);
+    CHECK(result.defenderStatus.effects.bleedStacks == 3);
+    CHECK(result.defenderStatus.effects.bleedTimer == 10);
+    CHECK(result.defenderStatus.effects.bleedSourceId == 1);
+    REQUIRE(result.defenderStatus.effects.damageReduceDebuffs.size() == 1);
+    CHECK(result.defenderStatus.effects.damageReduceDebuffs[0].remainingFrames == 45);
+    CHECK(result.defenderStatus.effects.damageReduceDebuffs[0].pct == 30);
+    CHECK(result.defenderStatus.effects.frozenTimer == 5);
+    CHECK(result.defenderStatus.effects.frozenMaxTimer == 5);
+    CHECK(result.defenderStatus.effects.mpBlockTimer == 9);
 
     std::vector<BattleDamageStatusType> statuses;
     for (const auto& event : result.events)
@@ -702,15 +712,15 @@ TEST_CASE("傷害交易_較弱中毒不會刷新交易目標", "[battle][damage]
     input.defender = unit();
     input.defender.id = 2;
     input.defenderStatus = statusUnit(2);
-    input.defenderStatus.poisonTickPct = 8;
-    input.defenderStatus.poisonTimer = 30;
-    input.defenderStatus.poisonSourceId = 7;
+    input.defenderStatus.effects.poisonTickPct = 8;
+    input.defenderStatus.effects.poisonTimer = 30;
+    input.defenderStatus.effects.poisonSourceId = 7;
 
     auto result = BattleDamageSystem().resolveTransaction(input);
 
-    CHECK(result.defenderStatus.poisonTickPct == 8);
-    CHECK(result.defenderStatus.poisonTimer == 30);
-    CHECK(result.defenderStatus.poisonSourceId == 7);
+    CHECK(result.defenderStatus.effects.poisonTickPct == 8);
+    CHECK(result.defenderStatus.effects.poisonTimer == 30);
+    CHECK(result.defenderStatus.effects.poisonSourceId == 7);
     for (const auto& event : result.events)
     {
         CHECK_FALSE(event.statusType == BattleDamageStatusType::Poison);
@@ -735,8 +745,8 @@ TEST_CASE("傷害交易_已確認命中的零傷害特效仍可套用狀態", "[
     auto result = BattleDamageSystem().resolveTransaction(input);
 
     CHECK(result.finalHpDamage == 0);
-    CHECK(result.defenderStatus.frozenTimer == 6);
-    CHECK(result.defenderStatus.bleedStacks == 1);
+    CHECK(result.defenderStatus.effects.frozenTimer == 6);
+    CHECK(result.defenderStatus.effects.bleedStacks == 1);
     REQUIRE(result.events.size() == 2);
     CHECK(result.events[0].statusType == BattleDamageStatusType::Bleed);
     CHECK(result.events[1].statusType == BattleDamageStatusType::Frozen);
@@ -755,15 +765,15 @@ TEST_CASE("傷害交易_冰凍套用抗性與控制免疫", "[battle][damage][un
     input.defender.id = 2;
     input.defender.shield = 1;
     input.defenderStatus = statusUnit(2);
-    input.defenderStatus.freezeReductionPct = 20;
-    input.defenderStatus.shieldFreezeResPct = 30;
-    input.defenderStatus.controlImmunityFrames = 3;
+    input.defenderStatus.effects.freezeReductionPct = 20;
+    input.defenderStatus.effects.shieldFreezeResPct = 30;
+    input.defenderStatus.effects.controlImmunityFrames = 3;
 
     auto result = BattleDamageSystem().resolveTransaction(input);
 
-    CHECK(result.defenderStatus.controlImmunityFrames == 0);
-    CHECK(result.defenderStatus.frozenTimer == 2);
-    CHECK(result.defenderStatus.frozenMaxTimer == 2);
+    CHECK(result.defenderStatus.effects.controlImmunityFrames == 0);
+    CHECK(result.defenderStatus.effects.frozenTimer == 2);
+    CHECK(result.defenderStatus.effects.frozenMaxTimer == 2);
     REQUIRE(result.events.size() == 1);
     CHECK(result.events[0].statusType == BattleDamageStatusType::Frozen);
     CHECK(result.events[0].value == 2);
@@ -772,8 +782,8 @@ TEST_CASE("傷害交易_冰凍套用抗性與控制免疫", "[battle][damage][un
     input.defenderStatus.maxHp = 200;
     auto lowHp = BattleDamageSystem().resolveTransaction(input);
 
-    CHECK(lowHp.defenderStatus.frozenTimer == 0);
-    CHECK(lowHp.defenderStatus.controlImmunityFrames == 3);
+    CHECK(lowHp.defenderStatus.effects.frozenTimer == 0);
+    CHECK(lowHp.defenderStatus.effects.controlImmunityFrames == 3);
     CHECK(lowHp.events.empty());
 }
 
@@ -786,20 +796,20 @@ TEST_CASE("傷害交易_已結算傷害不重跑防禦層但仍處理死亡", "[
     input.request.preResolvedDamage = true;
     input.attacker = unit();
     input.attacker.id = 1;
-    input.attacker.hp = 120;
+    input.attacker.vitals.hp = 120;
     input.attacker.killHealPct = 50;
     input.defender = unit();
     input.defender.id = 2;
-    input.defender.hp = 30;
+    input.defender.vitals.hp = 30;
     input.defender.invincible = 10;
     input.defender.shield = 99;
 
     auto result = BattleDamageSystem().resolveTransaction(input);
 
     CHECK_FALSE(result.defender.alive);
-    CHECK(result.defender.hp == 0);
+    CHECK(result.defender.vitals.hp == 0);
     CHECK(result.defender.shield == 99);
-    CHECK(result.attacker.hp == 200);
+    CHECK(result.attacker.vitals.hp == 200);
     CHECK(result.attackerDelta.hpDelta == 80);
     REQUIRE(result.events.size() == 3);
     CHECK(result.events[0].type == BattleDamageEventType::DamageApplied);

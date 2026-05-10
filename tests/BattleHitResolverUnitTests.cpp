@@ -41,18 +41,12 @@ BattleHitResolutionInput hitInput()
     input.attackEvent.operationType = BattleOperationType::Melee;
     input.attackEvent.strengthMultiplier = 1.0f;
     input.attacker.id = 1;
-    input.attacker.hp = 80;
-    input.attacker.maxHp = 100;
-    input.attacker.mp = 50;
-    input.attacker.maxMp = 100;
-    input.attacker.position = { -1.0f, 0.0f, 0.0f };
+    input.attacker.vitals = { 80, 100, 50, 100 };
+    input.attacker.motion.position = { -1.0f, 0.0f, 0.0f };
     input.defender.id = 2;
-    input.defender.hp = 100;
-    input.defender.maxHp = 100;
-    input.defender.mp = 20;
-    input.defender.maxMp = 100;
-    input.defender.position = { 0.0f, 0.0f, 0.0f };
-    input.defender.facing = { 1.0f, 0.0f, 0.0f };
+    input.defender.vitals = { 100, 100, 20, 100 };
+    input.defender.motion.position = { 0.0f, 0.0f, 0.0f };
+    input.defender.motion.facing = { 1.0f, 0.0f, 0.0f };
     return input;
 }
 
@@ -62,9 +56,9 @@ BattleRuntimeUnit runtimeUnit(int id, int team, Pointf position)
     unit.id = id;
     unit.team = team;
     unit.alive = true;
-    unit.hp = 100;
-    unit.maxHp = 100;
-    unit.position = position;
+    unit.vitals.hp = 100;
+    unit.vitals.maxHp = 100;
+    unit.motion.position = position;
     return unit;
 }
 
@@ -288,8 +282,8 @@ TEST_CASE("BattleHitResolver_ExecuteTurnsFinalDamageIntoExecutedHpCommand", "[ba
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 20;
-    input.defender.hp = 30;
-    input.defender.maxHp = 100;
+    input.defender.vitals.hp = 30;
+    input.defender.vitals.maxHp = 100;
     input.attackerCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::Execute, KysChess::Trigger::OnHit, 50, 100));
     input.percentRolls = { 0.0 };

@@ -21,13 +21,13 @@ BattleDamageTransactionInput damageInput(int attackerUnitId, int defenderUnitId,
     input.request.preResolvedDamage = true;
     input.attacker.id = attackerUnitId;
     input.attacker.alive = true;
-    input.attacker.hp = 40;
-    input.attacker.maxHp = 100;
+    input.attacker.vitals.hp = 40;
+    input.attacker.vitals.maxHp = 100;
     input.attacker.attack = 12;
     input.defender.id = defenderUnitId;
     input.defender.alive = true;
-    input.defender.hp = 10;
-    input.defender.maxHp = 100;
+    input.defender.vitals.hp = 10;
+    input.defender.vitals.maxHp = 100;
     input.defenderStatus.id = defenderUnitId;
     input.defenderStatus.alive = true;
     input.defenderStatus.hp = 10;
@@ -41,9 +41,9 @@ BattleRuntimeUnit runtimeUnit(int id, int team, int hp, int maxHp, int attack)
     unit.id = id;
     unit.team = team;
     unit.alive = hp > 0;
-    unit.hp = hp;
-    unit.maxHp = maxHp;
-    unit.attack = attack;
+    unit.vitals.hp = hp;
+    unit.vitals.maxHp = maxHp;
+    unit.stats.attack = attack;
     return unit;
 }
 
@@ -68,17 +68,17 @@ struct BattleDamageApplicationTestFrame
         attacker.id = 0;
         attacker.team = 0;
         attacker.alive = true;
-        attacker.hp = 40;
-        attacker.maxHp = 100;
-        attacker.position = { 0.0f, 0.0f, 0.0f };
+        attacker.vitals.hp = 40;
+        attacker.vitals.maxHp = 100;
+        attacker.motion.position = { 0.0f, 0.0f, 0.0f };
         attacker.grid = { 0, 0 };
         BattleRuntimeUnit defender;
         defender.id = 1;
         defender.team = 1;
         defender.alive = true;
-        defender.hp = 10;
-        defender.maxHp = 100;
-        defender.position = { 36.0f, 0.0f, 0.0f };
+        defender.vitals.hp = 10;
+        defender.vitals.maxHp = 100;
+        defender.motion.position = { 36.0f, 0.0f, 0.0f };
         defender.grid = { 1, 0 };
         runtimeUnits.units = { attacker, defender };
         BattleDeathEffectExtras attackerEffects;
@@ -135,7 +135,7 @@ TEST_CASE("BattleDamageApplication_FatalDamageEmitsDeathAndKillRewardEvents", "[
     CHECK(findLifecycleEvent(result, BattleDamageLifecycleEventType::UnitDied)->targetUnitId == 1);
     REQUIRE(findLifecycleEvent(result, BattleDamageLifecycleEventType::KillRecorded));
     CHECK(findLifecycleEvent(result, BattleDamageLifecycleEventType::KillRecorded)->sourceUnitId == 0);
-    CHECK(result.transactions[0].attacker.hp == 65);
+    CHECK(result.transactions[0].attacker.vitals.hp == 65);
     CHECK(result.transactions[0].attacker.attack == 19);
     REQUIRE(result.gameplayEvents.size() >= 1);
     CHECK(result.gameplayEvents[0].type == BattleGameplayEventType::UnitDied);
@@ -155,8 +155,8 @@ TEST_CASE("BattleDamageApplication_AggregatesPendingDamageByDefenderWhenRequeste
     auto first = damageInput(0, 1, 3);
     auto second = damageInput(2, 1, 4);
     second.attacker.id = 2;
-    second.attacker.hp = 80;
-    second.attacker.maxHp = 100;
+    second.attacker.vitals.hp = 80;
+    second.attacker.vitals.maxHp = 100;
     frame.pendingTransactions.push_back(first);
     frame.pendingTransactions.push_back(second);
 
@@ -164,7 +164,7 @@ TEST_CASE("BattleDamageApplication_AggregatesPendingDamageByDefenderWhenRequeste
 
     REQUIRE(result.transactions.size() == 1);
     CHECK(result.transactions[0].attacker.id == 2);
-    CHECK(result.transactions[0].defender.hp == 3);
+    CHECK(result.transactions[0].defender.vitals.hp == 3);
 }
 
 TEST_CASE("BattleDamageApplication_AggregatedPendingDamageUsesLastPresentationMetadata", "[battle][damage_application][unit]")
@@ -230,7 +230,7 @@ TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsLog", "
     REQUIRE(result.transactions.size() == 1);
     CHECK_FALSE(result.transactions[0].killed);
     CHECK(result.transactions[0].defender.alive);
-    CHECK(result.transactions[0].defender.hp == 1);
+    CHECK(result.transactions[0].defender.vitals.hp == 1);
     REQUIRE(result.logEvents.size() == 1);
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
     CHECK(result.logEvents[0].targetUnitId == 1);
@@ -269,10 +269,10 @@ TEST_CASE("BattleDamageApplication_AllyDeathEffectsBecomeExplicitCommands", "[ba
     allyUnit.id = 2;
     allyUnit.team = 1;
     allyUnit.alive = true;
-    allyUnit.hp = 50;
-    allyUnit.maxHp = 100;
-    allyUnit.attack = 10;
-    allyUnit.defence = 8;
+    allyUnit.vitals.hp = 50;
+    allyUnit.vitals.maxHp = 100;
+    allyUnit.stats.attack = 10;
+    allyUnit.stats.defence = 8;
     input.deathEffectUnits->units.push_back(allyUnit);
 
     BattleDeathEffectExtras dead;

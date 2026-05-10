@@ -420,11 +420,11 @@ BattleUnitStore makeActionTargetUnits(const BattleActionCommitInput& input)
         unit.id = target.id;
         unit.team = target.team;
         unit.alive = target.alive;
-        unit.hp = target.hp;
-        unit.maxHp = target.maxHp;
-        unit.defence = static_cast<int>(target.defence);
+        unit.vitals.hp = target.hp;
+        unit.vitals.maxHp = target.maxHp;
+        unit.stats.defence = static_cast<int>(target.defence);
         unit.invincible = target.invincible;
-        unit.position = target.position;
+        unit.motion.position = target.position;
         units.units.push_back(unit);
     }
     return units;

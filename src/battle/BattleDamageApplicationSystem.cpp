@@ -49,7 +49,7 @@ void appendDeathAoeCommand(BattleDamageApplicationResult& result,
     BattleDeathAoeProjectileCommand command;
     command.sourceUnitId = deadUnitId;
     command.trackedTargetUnitId = transaction.attacker.id;
-    command.damage = std::max(1, transaction.defender.maxHp * effectIt->second.deathAoePct / 100);
+    command.damage = std::max(1, transaction.defender.vitals.maxHp * effectIt->second.deathAoePct / 100);
     command.damagePct = effectIt->second.deathAoePct;
     command.stunFrames = effectIt->second.deathAoeStunFrames;
     command.maxTargets = effectIt->second.deathAoeMaxTargets;

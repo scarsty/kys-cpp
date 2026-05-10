@@ -40,22 +40,7 @@ struct BattleSceneUnit
     KysChess::Battle::BattleUnitStats stats;
     KysChess::Battle::BattleUnitMotion motion;
     KysChess::Battle::BattleUnitAnimationState animation;
-    Pointf position;
-    Pointf velocity;
-    Pointf acceleration;
-    Pointf realTowards;
     std::array<int, 5> fightFrames{};
-    int actType = -1;
-    int actFrame = 0;
-    int hp = 0;
-    int maxHp = 0;
-    int mp = 0;
-    int maxMp = 0;
-    int attack = 0;
-    int defence = 0;
-    int speed = 0;
-    int cooldown = 0;
-    int cooldownMax = 0;
     int frozen = 0;
     int frozenMax = 0;
     int invincible = 0;
@@ -63,8 +48,6 @@ struct BattleSceneUnit
     int attention = 0;
     BattleSceneRenderComboState combo;
 };
-
-void syncBattleSceneUnitSharedValueObjects(BattleSceneUnit& unit);
 
 class BattleSceneUnitStore
 {

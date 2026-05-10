@@ -2,6 +2,7 @@
 
 #include "BattleOperation.h"
 #include "BattleStatusSystem.h"
+#include "BattleUnitValues.h"
 #include "../Point.h"
 
 #include <vector>
@@ -18,10 +19,7 @@ struct BattleDamageUnitState
 {
     int id = -1;
     bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    int mp = 0;
-    int maxMp = 0;
+    BattleUnitVitals vitals;
     int attack = 0;
     int invincible = 0;
     int hurtInvincFrames = 0;
@@ -198,10 +196,7 @@ struct BattleResourceUnitState
 {
     int id = -1;
     bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    int mp = 0;
-    int maxMp = 0;
+    BattleUnitVitals vitals;
     bool mpBlocked = false;
     int mpRecoveryBonusPct = 0;
 };

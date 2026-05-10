@@ -66,22 +66,22 @@ public:
     const std::string& name() const { return snapshot_.name; }
     int team() const { return snapshot_.team; }
     bool alive() const { return snapshot_.alive; }
-    int hp() const { return snapshot_.hp; }
-    int maxHp() const { return snapshot_.maxHp; }
-    int mp() const { return snapshot_.mp; }
-    int maxMp() const { return snapshot_.maxMp; }
-    int attack() const { return snapshot_.attack; }
-    int defence() const { return snapshot_.defence; }
-    int speed() const { return snapshot_.speed; }
+    int hp() const { return snapshot_.vitals.hp; }
+    int maxHp() const { return snapshot_.vitals.maxHp; }
+    int mp() const { return snapshot_.vitals.mp; }
+    int maxMp() const { return snapshot_.vitals.maxMp; }
+    int attack() const { return snapshot_.stats.attack; }
+    int defence() const { return snapshot_.stats.defence; }
+    int speed() const { return snapshot_.stats.speed; }
     int star() const { return snapshot_.star; }
     int invincible() const { return snapshot_.invincible; }
     int hurtFrame() const { return snapshot_.hurtFrame; }
     int frozen() const { return snapshot_.frozen; }
     int frozenMax() const { return snapshot_.frozenMax; }
-    Pointf position() const { return snapshot_.position; }
-    Pointf velocity() const { return snapshot_.velocity; }
-    Pointf acceleration() const { return snapshot_.acceleration; }
-    Pointf facing() const { return snapshot_.facing; }
+    Pointf position() const { return snapshot_.motion.position; }
+    Pointf velocity() const { return snapshot_.motion.velocity; }
+    Pointf acceleration() const { return snapshot_.motion.acceleration; }
+    Pointf facing() const { return snapshot_.motion.facing; }
 
     Battle::BattleUnitState worldUnit() const;
     Battle::BattleUnitState initializedWorldUnit(
@@ -108,46 +108,6 @@ Color damageTextColor(int team, bool emphasized)
     return emphasized ? Color{ 47, 128, 255, 255 } : Color{ 102, 207, 255, 255 };
 }
 
-Battle::BattleUnitVitals makeBattleUnitVitals(const BattleSetupUnitInput& source)
-{
-    return { source.hp, source.maxHp, source.mp, source.maxMp };
-}
-
-Battle::BattleUnitVitals makeBattleUnitVitals(const Battle::BattleRuntimeUnit& source)
-{
-    return { source.hp, source.maxHp, source.mp, source.maxMp };
-}
-
-Battle::BattleUnitStats makeBattleUnitStats(const BattleSetupUnitInput& source)
-{
-    return { source.attack, source.defence, source.speed };
-}
-
-Battle::BattleUnitStats makeBattleUnitStats(const Battle::BattleRuntimeUnit& source)
-{
-    return { source.attack, source.defence, source.speed };
-}
-
-Battle::BattleUnitMotion makeBattleUnitMotion(const BattleSetupUnitInput& source)
-{
-    return { source.position, source.velocity, source.acceleration, source.facing };
-}
-
-Battle::BattleUnitMotion makeBattleUnitMotion(const Battle::BattleRuntimeUnit& source)
-{
-    return { source.position, source.velocity, source.acceleration, source.facing };
-}
-
-Battle::BattleUnitAnimationState makeBattleUnitAnimationState(const BattleSetupUnitInput& source)
-{
-    return { source.cooldown, source.cooldownMax, source.actFrame, source.actType };
-}
-
-Battle::BattleUnitAnimationState makeBattleUnitAnimationState(const Battle::BattleRuntimeUnit& source)
-{
-    return { source.cooldown, source.cooldownMax, source.actFrame, source.actType };
-}
-
 Battle::BattleUnitState BattleSetupRoleProjection::worldUnit() const
 {
     Battle::BattleUnitState unit;
@@ -160,7 +120,7 @@ Battle::BattleUnitState BattleSetupRoleProjection::worldUnit() const
     unit.velocity = velocity();
     unit.speed = speed() / ROLE_MOVE_SPEED_DIVISOR;
     unit.star = star();
-    unit.canAttack = snapshot_.cooldown == 0;
+    unit.canAttack = snapshot_.animation.cooldown == 0;
     return unit;
 }
 
@@ -418,10 +378,10 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSce
             unit.team,
             unit.star,
             unit.cost,
-            unit.maxHp,
-            unit.attack,
-            unit.defence,
-            unit.speed,
+            unit.vitals.maxHp,
+            unit.stats.attack,
+            unit.stats.defence,
+            unit.stats.speed,
             unit.fist,
             unit.sword,
             unit.knife,
@@ -443,7 +403,7 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSce
         setup.cloneSources.push_back({
             unit.unitId,
             unit.realRoleId,
-            unit.maxHp + unit.attack + unit.defence,
+            unit.vitals.maxHp + unit.stats.attack + unit.stats.defence,
             unit.star,
             unit.chessInstanceId,
             unit.sourceOrder,
@@ -489,34 +449,19 @@ BattleSceneUnit makeInitializedSceneUnit(
     unit.gridX = runtimeUnit.grid.x;
     unit.gridY = runtimeUnit.grid.y;
     unit.faceTowards = setup.faceTowards;
-    unit.vitals = makeBattleUnitVitals(runtimeUnit);
-    unit.stats = makeBattleUnitStats(runtimeUnit);
-    unit.motion = makeBattleUnitMotion(runtimeUnit);
-    unit.animation = makeBattleUnitAnimationState(runtimeUnit);
-    unit.position = unit.motion.position;
-    unit.velocity = unit.motion.velocity;
-    unit.acceleration = unit.motion.acceleration;
-    unit.realTowards = unit.motion.facing;
+    unit.vitals = runtimeUnit.vitals;
+    unit.stats = runtimeUnit.stats;
+    unit.motion = runtimeUnit.motion;
+    unit.animation = runtimeUnit.animation;
     unit.fightFrames = setup.fightFrames;
     unit.star = runtimeUnit.star;
     unit.chessInstanceId = clone ? -1 : setup.chessInstanceId;
     unit.weaponId = clone ? -1 : setup.weaponId;
     unit.armorId = clone ? -1 : setup.armorId;
     unit.cost = runtimeUnit.cost;
-    unit.hp = unit.vitals.hp;
-    unit.maxHp = unit.vitals.maxHp;
-    unit.mp = unit.vitals.mp;
-    unit.maxMp = unit.vitals.maxMp;
-    unit.attack = unit.stats.attack;
-    unit.defence = unit.stats.defence;
-    unit.speed = unit.stats.speed;
-    unit.cooldown = unit.animation.cooldown;
-    unit.cooldownMax = unit.animation.cooldownMax;
     unit.frozen = setup.frozen;
     unit.frozenMax = setup.frozenMax;
     unit.invincible = runtimeUnit.invincible;
-    unit.actType = unit.animation.actType;
-    unit.actFrame = unit.animation.actFrame;
     unit.alive = runtimeUnit.alive;
     unit.active = runtimeUnit.alive;
     unit.skillNames = setup.skillNames;
@@ -707,23 +652,12 @@ Battle::BattleRuntimeUnit BattleSetupRoleProjection::runtimeUnit(
     unit.name = name();
     unit.team = team();
     unit.alive = alive();
-    unit.vitals = makeBattleUnitVitals(snapshot_);
-    unit.stats = makeBattleUnitStats(snapshot_);
-    unit.motion = makeBattleUnitMotion(snapshot_);
-    unit.animation = makeBattleUnitAnimationState(snapshot_);
-    unit.hp = unit.vitals.hp;
-    unit.maxHp = unit.vitals.maxHp;
-    unit.mp = unit.vitals.mp;
-    unit.maxMp = unit.vitals.maxMp;
-    unit.attack = unit.stats.attack;
-    unit.defence = unit.stats.defence;
-    unit.speed = unit.stats.speed;
-    unit.cooldown = unit.animation.cooldown;
-    unit.cooldownMax = unit.animation.cooldownMax;
+    unit.vitals = snapshot_.vitals;
+    unit.stats = snapshot_.stats;
+    unit.motion = snapshot_.motion;
+    unit.animation = snapshot_.animation;
     unit.haveAction = snapshot_.haveAction;
-    unit.actFrame = unit.animation.actFrame;
     unit.operationType = snapshot_.operationType;
-    unit.actType = unit.animation.actType;
     unit.operationCount = snapshot_.operationCount;
     unit.physicalPower = snapshot_.physicalPower;
     unit.invincible = invincible();
@@ -732,10 +666,6 @@ Battle::BattleRuntimeUnit BattleSetupRoleProjection::runtimeUnit(
     {
         unit.actPropertiesByMagicType.emplace(magicType, snapshot_.actPropertiesByMagicType[magicType]);
     }
-    unit.position = unit.motion.position;
-    unit.velocity = unit.motion.velocity;
-    unit.acceleration = unit.motion.acceleration;
-    unit.facing = unit.motion.facing;
     unit.grid = gridTransform.toGrid(position());
     if (state)
     {
@@ -763,29 +693,29 @@ Battle::BattleStatusUnitState BattleSetupRoleProjection::statusUnit(const RoleCo
     unit.maxHp = maxHp();
     unit.attack = attack();
     unit.invincible = invincible();
-    unit.poisonTimer = state.poisonTimer;
-    unit.poisonTickPct = state.poisonTickDmg;
-    unit.poisonSourceId = state.poisonSourceId;
-    unit.bleedStacks = state.bleedStacks;
-    unit.bleedTimer = state.bleedTimer;
-    unit.bleedSourceId = state.bleedSourceId;
-    unit.frozenTimer = frozen();
-    unit.frozenMaxTimer = frozenMax();
-    unit.freezeReductionPct = state.freezeReductionPct;
-    unit.shieldFreezeResPct = state.shieldFreezeResPct;
-    unit.controlImmunityFrames = state.controlImmunityFrames;
-    unit.mpBlockTimer = state.mpBlockTimer;
-    unit.damageImmunityAfterFrames = state.damageImmunityAfterFrames;
-    unit.damageImmunityDuration = state.damageImmunityDuration;
-    unit.damageImmunityTimer = state.damageImmunityTimer;
+    unit.effects.poisonTimer = state.poisonTimer;
+    unit.effects.poisonTickPct = state.poisonTickDmg;
+    unit.effects.poisonSourceId = state.poisonSourceId;
+    unit.effects.bleedStacks = state.bleedStacks;
+    unit.effects.bleedTimer = state.bleedTimer;
+    unit.effects.bleedSourceId = state.bleedSourceId;
+    unit.effects.frozenTimer = frozen();
+    unit.effects.frozenMaxTimer = frozenMax();
+    unit.effects.freezeReductionPct = state.freezeReductionPct;
+    unit.effects.shieldFreezeResPct = state.shieldFreezeResPct;
+    unit.effects.controlImmunityFrames = state.controlImmunityFrames;
+    unit.effects.mpBlockTimer = state.mpBlockTimer;
+    unit.effects.damageImmunityAfterFrames = state.damageImmunityAfterFrames;
+    unit.effects.damageImmunityDuration = state.damageImmunityDuration;
+    unit.effects.damageImmunityTimer = state.damageImmunityTimer;
 
     for (const auto& buff : state.tempAttackBuffs)
     {
-        unit.tempAttackBuffs.push_back({ buff.attackBonus, buff.remainingFrames });
+        unit.effects.tempAttackBuffs.push_back({ buff.attackBonus, buff.remainingFrames });
     }
     for (const auto& debuff : state.dmgReduceDebuffs)
     {
-        unit.damageReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
+        unit.effects.damageReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
     }
     return unit;
 }
@@ -800,10 +730,7 @@ Battle::BattleDamageUnitState BattleSetupRoleProjection::damageUnit(const RoleCo
     Battle::BattleDamageUnitState unit;
     unit.id = id();
     unit.alive = alive();
-    unit.hp = hp();
-    unit.maxHp = maxHp();
-    unit.mp = mp();
-    unit.maxMp = maxMp();
+    unit.vitals = { hp(), maxHp(), mp(), maxMp() };
     unit.attack = attack();
     unit.invincible = invincible();
     if (!state)
@@ -835,10 +762,7 @@ Battle::BattleDamageUnitState makeBattleDamageUnit(const Battle::BattleRuntimeUn
     Battle::BattleDamageUnitState unit;
     unit.id = runtimeUnit.id;
     unit.alive = runtimeUnit.alive;
-    unit.hp = runtimeUnit.vitals.hp;
-    unit.maxHp = runtimeUnit.vitals.maxHp;
-    unit.mp = runtimeUnit.vitals.mp;
-    unit.maxMp = runtimeUnit.vitals.maxMp;
+    unit.vitals = runtimeUnit.vitals;
     unit.attack = runtimeUnit.stats.attack;
     unit.invincible = runtimeUnit.invincible;
     if (!state)

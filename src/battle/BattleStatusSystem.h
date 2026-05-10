@@ -21,15 +21,8 @@ struct DamageReduceDebuff
     int pct{};
 };
 
-struct BattleStatusUnitState
+struct BattleStatusEffectState
 {
-    int id = -1;
-    bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    int attack = 0;
-    int invincible = 0;
-
     int poisonTimer = 0;
     int poisonTickPct = 0;
     int poisonSourceId = -1;
@@ -53,31 +46,23 @@ struct BattleStatusUnitState
     std::vector<DamageReduceDebuff> damageReduceDebuffs;
 };
 
+struct BattleStatusUnitState
+{
+    int id = -1;
+    bool alive = true;
+    int hp = 0;
+    int maxHp = 0;
+    int attack = 0;
+    int invincible = 0;
+
+    BattleStatusEffectState effects;
+};
+
 struct BattleStatusRuntimeUnit
 {
     int id = -1;
 
-    int poisonTimer = 0;
-    int poisonTickPct = 0;
-    int poisonSourceId = -1;
-
-    int bleedStacks = 0;
-    int bleedTimer = 0;
-    int bleedSourceId = -1;
-
-    int frozenTimer = 0;
-    int frozenMaxTimer = 0;
-    int freezeReductionPct = 0;
-    int shieldFreezeResPct = 0;
-    int controlImmunityFrames = 0;
-    int mpBlockTimer = 0;
-
-    int damageImmunityAfterFrames = 0;
-    int damageImmunityDuration = 0;
-    int damageImmunityTimer = 0;
-
-    std::vector<TimedAttackBuff> tempAttackBuffs;
-    std::vector<DamageReduceDebuff> damageReduceDebuffs;
+    BattleStatusEffectState effects;
 };
 
 enum class BattleStatusEventType

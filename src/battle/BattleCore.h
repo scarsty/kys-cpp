@@ -13,6 +13,7 @@
 #include "BattleRescueRepositionSystem.h"
 #include "BattleStatusSystem.h"
 #include "BattleTeamEffectSystem.h"
+#include "BattleUnitValues.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -76,37 +77,6 @@ struct BattleGridTransform
     Point toGrid(Pointf position) const;
 };
 
-struct BattleUnitVitals
-{
-    int hp{};
-    int maxHp{};
-    int mp{};
-    int maxMp{};
-};
-
-struct BattleUnitStats
-{
-    int attack{};
-    int defence{};
-    int speed{};
-};
-
-struct BattleUnitMotion
-{
-    Pointf position;
-    Pointf velocity;
-    Pointf acceleration;
-    Pointf facing;
-};
-
-struct BattleUnitAnimationState
-{
-    int cooldown{};
-    int cooldownMax{};
-    int actFrame{};
-    int actType = -1;
-};
-
 struct BattleRuntimeUnit
 {
     int id = -1;
@@ -118,19 +88,8 @@ struct BattleRuntimeUnit
     BattleUnitStats stats;
     BattleUnitMotion motion;
     BattleUnitAnimationState animation;
-    int hp = 0;
-    int maxHp = 0;
-    int mp = 0;
-    int maxMp = 0;
-    int attack = 0;
-    int defence = 0;
-    int speed = 0;
-    int cooldown = 0;
-    int cooldownMax = 0;
     bool haveAction = false;
-    int actFrame = 0;
     BattleOperationType operationType = BattleOperationType::None;
-    int actType = -1;
     int operationCount = 0;
     int physicalPower = 0;
     int invincible = 0;
@@ -139,10 +98,6 @@ struct BattleRuntimeUnit
     bool mpBlocked = false;
     int mpRecoveryBonusPct = 0;
     std::map<int, int> actPropertiesByMagicType;
-    Pointf position;
-    Pointf velocity;
-    Pointf acceleration;
-    Pointf facing;
     Point grid;
     bool canAttack = true;
     double reach = 0.0;
@@ -150,8 +105,6 @@ struct BattleRuntimeUnit
     int star = 1;
     int cost = 0;
 };
-
-void syncBattleRuntimeUnitSharedValueObjects(BattleRuntimeUnit& unit);
 
 struct BattleUnitStore
 {

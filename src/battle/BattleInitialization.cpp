@@ -380,23 +380,20 @@ BattleStatusRuntimeUnit cloneStatusUnit(
 {
     auto clone = source;
     clone.id = cloneUnitId;
-    clone.freezeReductionPct = cloneCombo.freezeReductionPct;
-    clone.shieldFreezeResPct = cloneCombo.shieldFreezeResPct;
-    clone.controlImmunityFrames = cloneCombo.controlImmunityFrames;
-    clone.damageImmunityAfterFrames = cloneCombo.damageImmunityAfterFrames;
-    clone.damageImmunityDuration = cloneCombo.damageImmunityDuration;
-    clone.damageImmunityTimer = cloneCombo.damageImmunityTimer;
+    clone.effects.freezeReductionPct = cloneCombo.freezeReductionPct;
+    clone.effects.shieldFreezeResPct = cloneCombo.shieldFreezeResPct;
+    clone.effects.controlImmunityFrames = cloneCombo.controlImmunityFrames;
+    clone.effects.damageImmunityAfterFrames = cloneCombo.damageImmunityAfterFrames;
+    clone.effects.damageImmunityDuration = cloneCombo.damageImmunityDuration;
+    clone.effects.damageImmunityTimer = cloneCombo.damageImmunityTimer;
     return clone;
 }
 
 BattleInitializationRoleDelta makeRoleDelta(
     int unitId,
     int star,
-    int maxHp,
-    int hp,
-    int attack,
-    int defence,
-    int speed,
+    const BattleUnitVitals& vitals,
+    const BattleUnitStats& stats,
     int fist = 0,
     int sword = 0,
     int knife = 0,
@@ -406,11 +403,8 @@ BattleInitializationRoleDelta makeRoleDelta(
     BattleInitializationRoleDelta delta;
     delta.unitId = unitId;
     delta.star = star;
-    delta.maxHp = maxHp;
-    delta.hp = hp;
-    delta.attack = attack;
-    delta.defence = defence;
-    delta.speed = speed;
+    delta.vitals = vitals;
+    delta.stats = stats;
     delta.fist = fist;
     delta.sword = sword;
     delta.knife = knife;
@@ -479,7 +473,7 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
             {
                 return leftScore > rightScore;
             }
-            return left->maxHp > right->maxHp;
+            return left->vitals.maxHp > right->vitals.maxHp;
         });
 
     std::vector<BattleInitializationEnemyTopDebuffDelta> deltas;
@@ -503,9 +497,8 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
             continue;
         }
 
-        enemy.attack = std::max(0, enemy.attack - delta);
-        enemy.defence = std::max(0, enemy.defence - delta);
-        syncBattleRuntimeUnitSharedValueObjects(enemy);
+        enemy.stats.attack = std::max(0, enemy.stats.attack - delta);
+        enemy.stats.defence = std::max(0, enemy.stats.defence - delta);
         comboIt->second.enemyTopDebuffApplied = desired;
         deltas.push_back({
             enemy.id,
@@ -606,25 +599,24 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             extraFightWinGrowthDEF);
         starStatsByUnitId[seed.unitId] = starBoostedStats;
 
-        unit.maxHp = starBoostedStats.hp + combo.flatHP;
-        unit.attack = starBoostedStats.atk + combo.flatATK;
-        unit.defence = starBoostedStats.def + combo.flatDEF;
-        unit.speed = starBoostedStats.spd + combo.flatSPD;
+        unit.vitals.maxHp = starBoostedStats.hp + combo.flatHP;
+        unit.stats.attack = starBoostedStats.atk + combo.flatATK;
+        unit.stats.defence = starBoostedStats.def + combo.flatDEF;
+        unit.stats.speed = starBoostedStats.spd + combo.flatSPD;
         unit.realRoleId = seed.realRoleId;
         unit.team = seed.team;
         unit.star = seed.star;
         unit.cost = seed.cost;
 
-        unit.maxHp = applyPercentBonus(unit.maxHp, combo.pctHP);
-        unit.attack = applyPercentBonus(unit.attack, combo.pctATK);
-        unit.defence = applyPercentBonus(unit.defence, combo.pctDEF);
-        unit.speed = applyPercentBonus(unit.speed, combo.pctSPD);
-        unit.hp = unit.maxHp;
-        syncBattleRuntimeUnitSharedValueObjects(unit);
+        unit.vitals.maxHp = applyPercentBonus(unit.vitals.maxHp, combo.pctHP);
+        unit.stats.attack = applyPercentBonus(unit.stats.attack, combo.pctATK);
+        unit.stats.defence = applyPercentBonus(unit.stats.defence, combo.pctDEF);
+        unit.stats.speed = applyPercentBonus(unit.stats.speed, combo.pctSPD);
+        unit.vitals.hp = unit.vitals.maxHp;
 
         if (combo.shieldPctMaxHP > 0)
         {
-            combo.shield = unit.maxHp * combo.shieldPctMaxHP / 100;
+            combo.shield = unit.vitals.maxHp * combo.shieldPctMaxHP / 100;
             result.logEvents.push_back(
                 {
                     BattleLogEventType::Status,
@@ -648,12 +640,12 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
 
         unit.shield = combo.shield;
 
-        status.damageImmunityAfterFrames = combo.damageImmunityAfterFrames;
-        status.damageImmunityDuration = combo.damageImmunityDuration;
-        status.damageImmunityTimer = combo.damageImmunityTimer;
-        status.freezeReductionPct = combo.freezeReductionPct;
-        status.shieldFreezeResPct = combo.shieldFreezeResPct;
-        status.controlImmunityFrames = combo.controlImmunityFrames;
+        status.effects.damageImmunityAfterFrames = combo.damageImmunityAfterFrames;
+        status.effects.damageImmunityDuration = combo.damageImmunityDuration;
+        status.effects.damageImmunityTimer = combo.damageImmunityTimer;
+        status.effects.freezeReductionPct = combo.freezeReductionPct;
+        status.effects.shieldFreezeResPct = combo.shieldFreezeResPct;
+        status.effects.controlImmunityFrames = combo.controlImmunityFrames;
 
         runtime.combo.units[seed.unitId] = combo;
         seededUnitIds.push_back(seed.unitId);
@@ -770,26 +762,25 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             cloneUnit.id = nextRuntimeUnitId;
             cloneUnit.realRoleId = source.sourceRealRoleId;
             cloneUnit.alive = true;
-            cloneUnit.hp = cloneUnit.maxHp;
-            cloneUnit.position = positionForCloneCell(runtime.units.gridTransform, cell.x, cell.y);
-            cloneUnit.velocity = { 0, 0, 0 };
-            cloneUnit.acceleration = { 0, 0, 0 };
+            cloneUnit.vitals.hp = cloneUnit.vitals.maxHp;
+            cloneUnit.motion.position = positionForCloneCell(runtime.units.gridTransform, cell.x, cell.y);
+            cloneUnit.motion.velocity = { 0, 0, 0 };
+            cloneUnit.motion.acceleration = { 0, 0, 0 };
             cloneUnit.grid = { cell.x, cell.y, 0 };
-            cloneUnit.cooldown = 0;
-            cloneUnit.cooldownMax = 0;
+            cloneUnit.animation.cooldown = 0;
+            cloneUnit.animation.cooldownMax = 0;
             cloneUnit.haveAction = false;
-            cloneUnit.actFrame = 0;
-            cloneUnit.actType = -1;
+            cloneUnit.animation.actFrame = 0;
+            cloneUnit.animation.actType = -1;
             cloneUnit.operationType = BattleOperationType::None;
             cloneUnit.operationCount = 0;
             cloneUnit.invincible = 0;
             cloneUnit.hurtFrame = 0;
             cloneUnit.canAttack = true;
-            syncBattleRuntimeUnitSharedValueObjects(cloneUnit);
 
             auto cloneCombo = KysChess::ChessBattleEffects::makeSummonedCloneState(
                 sourceComboIt->second,
-                cloneUnit.maxHp);
+                cloneUnit.vitals.maxHp);
             cloneUnit.shield = cloneCombo.shield;
 
             runtime.units.units.push_back(cloneUnit);
@@ -805,7 +796,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             cloneWorld.realRoleId = source.sourceRealRoleId;
             cloneWorld.team = sourceUnit.team;
             cloneWorld.alive = true;
-            cloneWorld.position = cloneUnit.position;
+            cloneWorld.position = cloneUnit.motion.position;
             cloneWorld.velocity = { 0, 0, 0 };
             cloneWorld.star = sourceUnit.star;
             runtime.world.units.push_back(cloneWorld);
@@ -818,11 +809,8 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
                 makeRoleDelta(
                     nextRuntimeUnitId,
                     cloneUnit.star,
-                    cloneUnit.maxHp,
-                    cloneUnit.hp,
-                    cloneUnit.attack,
-                    cloneUnit.defence,
-                    cloneUnit.speed),
+                    cloneUnit.vitals,
+                    cloneUnit.stats),
                 cloneCombo,
             });
             result.logEvents.push_back({
@@ -849,11 +837,8 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
         result.roleDeltas.push_back(makeRoleDelta(
             unitId,
             normalizeBattleStar(unit.star),
-            unit.maxHp,
-            unit.hp,
-            unit.attack,
-            unit.defence,
-            unit.speed,
+            unit.vitals,
+            unit.stats,
             starStatsIt->second.fist,
             starStatsIt->second.sword,
             starStatsIt->second.knife,

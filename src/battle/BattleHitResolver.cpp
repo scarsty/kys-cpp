@@ -114,11 +114,8 @@ BattleDamageUnitState makeDamageUnit(const BattleHitUnitSnapshot& unit, const Ro
     BattleDamageUnitState damageUnit;
     damageUnit.id = unit.id;
     damageUnit.alive = unit.alive;
-    damageUnit.hp = unit.hp;
-    damageUnit.maxHp = unit.maxHp;
-    damageUnit.mp = unit.mp;
-    damageUnit.maxMp = unit.maxMp;
-    damageUnit.attack = unit.attack;
+    damageUnit.vitals = unit.vitals;
+    damageUnit.attack = unit.stats.attack;
     damageUnit.invincible = unit.invincible;
     if (combo)
     {
@@ -142,10 +139,7 @@ BattleResourceUnitState makeResourceUnit(const BattleHitUnitSnapshot& unit, cons
     BattleResourceUnitState resource;
     resource.id = unit.id;
     resource.alive = unit.alive;
-    resource.hp = unit.hp;
-    resource.maxHp = unit.maxHp;
-    resource.mp = unit.mp;
-    resource.maxMp = unit.maxMp;
+    resource.vitals = unit.vitals;
     if (combo)
     {
         resource.mpBlocked = combo->mpBlockTimer > 0;
@@ -158,11 +152,11 @@ BattleCooldownState makeCooldownState(const BattleHitUnitSnapshot& unit)
 {
     BattleCooldownState cooldown;
     cooldown.alive = unit.alive;
-    cooldown.cooldown = unit.cooldown;
-    cooldown.cooldownMax = unit.cooldownMax;
+    cooldown.cooldown = unit.animation.cooldown;
+    cooldown.cooldownMax = unit.animation.cooldownMax;
     cooldown.haveAction = unit.haveAction;
     cooldown.operationType = unit.operationType;
-    cooldown.actType = unit.actType;
+    cooldown.actType = unit.animation.actType;
     return cooldown;
 }
 
@@ -234,7 +228,7 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     const BattleRuntimeUnit& target,
     const BattleProjectileFollowUpContext& context)
 {
-    const auto targetPosition = target.position;
+    const auto targetPosition = target.motion.position;
     BattleAttackSpawnRequest request;
     request.initial.attackerUnitId = command.prototype.sourceUnitId;
     request.initial.skillId = command.prototype.skillId;
@@ -277,8 +271,8 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
 {
     const auto& source = units.requireUnit(sourceUnitId);
     const auto& target = units.requireUnit(targetUnitId);
-    auto sourcePosition = source.position;
-    auto targetPosition = target.position;
+    auto sourcePosition = source.motion.position;
+    auto targetPosition = target.motion.position;
     auto direction = targetPosition - sourcePosition;
     if (direction.norm() <= 0.01)
     {
@@ -366,7 +360,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                 expansion.commands.push_back(BattleHpDamageCommand{
                     currentHp->sourceUnitId,
                     unit.id,
-                    std::max(1, unit.hp * currentHp->damagePct / 100),
+                    std::max(1, unit.vitals.hp * currentHp->damagePct / 100),
                     false,
                     false,
                     false,
@@ -380,7 +374,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
         if (const auto* spiral = std::get_if<BattleSpiralBleedProjectileCommand>(&command))
         {
             const auto& source = units.requireUnit(spiral->sourceUnitId);
-            const auto sourcePosition = source.position;
+            const auto sourcePosition = source.motion.position;
             const int sharedHitGroupId = context.nextSharedHitGroupId++;
             const int projectileCount = std::max(1, spiral->projectileCount);
             for (int i = 0; i < projectileCount; ++i)
@@ -453,7 +447,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                 const double prototypeSpeed = prototypeVelocity.norm();
                 request.initial.velocity = normalizedFollowUpVelocity(
                     extra->prototype.position,
-                    units.requireUnit(extra->targetUnitId).position,
+                    units.requireUnit(extra->targetUnitId).motion.position,
                     prototypeSpeed > 0.01 ? prototypeSpeed : context.projectileSpeed);
                 expansion.commands.push_back(BattleProjectileSpawnCommand{ std::move(request), "命中追加彈" });
             }
@@ -601,8 +595,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     shapeInput.frame = input.attackEvent.frame;
     shapeInput.totalFrame = input.attackEvent.totalFrame;
     shapeInput.impactPosition = input.attackEvent.position;
-    shapeInput.defenderPosition = input.defender.position;
-    shapeInput.defenderFacing = input.defender.facing;
+    shapeInput.defenderPosition = input.defender.motion.position;
+    shapeInput.defenderFacing = input.defender.motion.facing;
     shapeInput.operationType = input.attackEvent.operationType;
     shapeInput.usingSkill = usingSkill;
     shapeInput.attackerActProperty = input.skill.attackerActProperty;
@@ -619,7 +613,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
     }
 
-    auto velocityDelta = input.defender.position - input.attacker.position;
+    auto velocityDelta = input.defender.motion.position - input.attacker.motion.position;
     velocityDelta.normTo(static_cast<float>(shaped.knockbackStrength));
     result.commands.push_back(BattleKnockbackCommand{
         input.defender.id,
@@ -629,9 +623,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     });
 
     auto attackerCombo = input.attackerCombo;
-    if (usingSkill && input.attacker.maxMp > 0 && attackerCombo.mpRatioDmgBoostPct > 0)
+    if (usingSkill && input.attacker.vitals.maxMp > 0 && attackerCombo.mpRatioDmgBoostPct > 0)
     {
-        const double mpRatio = static_cast<double>(input.attacker.mp) / input.attacker.maxMp;
+        const double mpRatio = static_cast<double>(input.attacker.vitals.mp) / input.attacker.vitals.maxMp;
         const double boostPct = mpRatio * attackerCombo.mpRatioDmgBoostPct;
         if (boostPct > 0.0)
         {
@@ -656,7 +650,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
 
     auto attackerDamage = BattleComboTriggerSystem().shapeAttackerHitDamage(
         attackerCombo,
-        { result.shapedHpDamage, input.attacker.hp, input.attacker.maxHp, attackerCombo.lastAliveFlag },
+        { result.shapedHpDamage, input.attacker.vitals.hp, input.attacker.vitals.maxHp, attackerCombo.lastAliveFlag },
         [&]() { return rolls.next(); });
     result.shapedHpDamage = attackerDamage.damage;
     for (const auto& damageEvent : attackerDamage.events)
@@ -749,7 +743,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
 
     if (BattleComboTriggerSystem().shouldApplyKnockback(attackerCombo, [&]() { return rolls.next(); }))
     {
-        auto procVelocity = input.defender.position - input.attacker.position;
+        auto procVelocity = input.defender.motion.position - input.attacker.motion.position;
         procVelocity.normTo(5.0f);
         result.commands.push_back(BattleKnockbackCommand{
             input.defender.id,
@@ -809,7 +803,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
 
     auto defenderDamage = BattleComboTriggerSystem().shapeDefenderHitDamage(
         defenderCombo,
-        { result.shapedHpDamage, input.defender.hp, input.defender.maxHp, defenderCombo.lastAliveFlag, input.attacker.id });
+        { result.shapedHpDamage, input.defender.vitals.hp, input.defender.vitals.maxHp, defenderCombo.lastAliveFlag, input.attacker.id });
     result.shapedHpDamage = defenderDamage.damage;
     for (const auto& damageEvent : defenderDamage.events)
     {
@@ -914,8 +908,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
             {
                 input.attacker.id,
                 input.defender.id,
-                input.defender.hp - input.pendingDefenderHpDamage,
-                input.defender.maxHp,
+                input.defender.vitals.hp - input.pendingDefenderHpDamage,
+                input.defender.vitals.maxHp,
                 result.shapedHpDamage,
                 usingHpDamage,
             },
@@ -1004,7 +998,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                 break;
             case BattleShieldBreakCommandType::MpRestore:
             {
-                int restored = std::min(shieldBreak.value, std::max(0, input.defender.maxMp - input.defender.mp));
+                int restored = std::min(shieldBreak.value, std::max(0, input.defender.vitals.maxMp - input.defender.vitals.mp));
                 if (restored > 0)
                 {
                     result.commands.push_back(BattleMpRestoreCommand{
@@ -1034,7 +1028,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         {
             int explosionDamage = std::max(
                 1,
-                defenderCombo.shieldPctMaxHP * input.defender.maxHp / 100 * shieldExplosionPct / 100);
+                defenderCombo.shieldPctMaxHP * input.defender.vitals.maxHp / 100 * shieldExplosionPct / 100);
             result.commands.push_back(BattleShieldExplosionCommand{
                 input.defender.id,
                 5,
@@ -1219,7 +1213,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         damage = std::max(0, damage);
         if (result.executed)
         {
-            damage = std::max(damage, input.defender.hp);
+            damage = std::max(damage, input.defender.vitals.hp);
         }
         if (damage > 0)
         {

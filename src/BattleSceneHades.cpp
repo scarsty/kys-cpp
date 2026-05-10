@@ -316,7 +316,7 @@ void BattleSceneHades::updateAutoCamera()
         {
             if (unit.identity.team == 0 && unit.alive)
             {
-                center += unit.position;
+                center += unit.motion.position;
                 count++;
             }
         }
@@ -426,9 +426,9 @@ void BattleSceneHades::publishPresentationFrame()
         {
             const auto& unit = scene_units_.requireUnit(unitId);
             return BattleScenePresentationPlayer::UnitView{
-                unit.position,
+                unit.motion.position,
                 unit.identity.team,
-                unit.maxHp,
+                unit.vitals.maxHp,
             };
         },
     });
@@ -733,7 +733,7 @@ void BattleSceneHades::draw()
         {
             continue;
         }
-        if (!is_visible_world(unit.position.x, unit.position.y / 2.0))
+        if (!is_visible_world(unit.motion.position.x, unit.motion.position.y / 2.0))
         {
             continue;
         }
@@ -743,14 +743,18 @@ void BattleSceneHades::draw()
         info.color = { 255, 255, 255, 255 };
         info.alpha = 255;
         info.white = 0;
-        info.p = unit.position;
+        info.p = unit.motion.position;
         if (result_ == -1 && unit.shake)
         {
             info.p.x += shakeJitter(battle_frame_, unit.unitId);
         }
         info.tex = TextureManager::getInstance()->getTexture(
             path,
-            BattleSceneRenderMath::calRenderUnitPic(unit.fightFrames, unit.realTowards, unit.actType, unit.actFrame));
+            BattleSceneRenderMath::calRenderUnitPic(
+                unit.fightFrames,
+                unit.motion.facing,
+                unit.animation.actType,
+                unit.animation.actFrame));
         if (!info.tex)
         {
             continue;
@@ -767,7 +771,7 @@ void BattleSceneHades::draw()
         {
             //if (r->Frozen == 0)
             {
-                if (realTowardsToFaceTowards(unit.realTowards) >= 2)
+                if (realTowardsToFaceTowards(unit.motion.facing) >= 2)
                 {
                     info.rot = 90;
                 }
@@ -797,7 +801,7 @@ void BattleSceneHades::draw()
             Pointf effect_pos = ae.Pos;
             if (ae.FollowUnitId >= 0)
             {
-                effect_pos = scene_units_.requireUnit(ae.FollowUnitId).position + ae.Pos;
+                effect_pos = scene_units_.requireUnit(ae.FollowUnitId).motion.position + ae.Pos;
             }
             if (!is_visible_world(effect_pos.x, effect_pos.y / 2.0))
             {
@@ -898,21 +902,24 @@ void BattleSceneHades::draw()
 
     for (const auto& unit : scene_units_.units())
     {
-        if (is_visible_world(unit.position.x, unit.position.y / 2.0))
+        if (is_visible_world(unit.motion.position.x, unit.motion.position.y / 2.0))
         {
-            renderExtraRoleInfo(unit, renderWorldX(unit.position.x), renderWorldY(unit.position.y / 2.0));
+            renderExtraRoleInfo(
+                unit,
+                renderWorldX(unit.motion.position.x),
+                renderWorldY(unit.motion.position.y / 2.0));
         }
     }
 
     if (swapSelectedUnitId_ >= 0)
     {
         const auto& selectedUnit = scene_units_.requireUnit(swapSelectedUnitId_);
-        if (is_visible_world(selectedUnit.position.x, selectedUnit.position.y / 2.0))
+        if (is_visible_world(selectedUnit.motion.position.x, selectedUnit.motion.position.y / 2.0))
         {
             engine->fillColor(
                 { 255, 255, 0, 80 },
-                renderWorldX(selectedUnit.position.x - 15),
-                renderWorldY(selectedUnit.position.y / 2.0 - 5),
+                renderWorldX(selectedUnit.motion.position.x - 15),
+                renderWorldY(selectedUnit.motion.position.y / 2.0 - 5),
                 std::max(1, int(30 * viewScaleX)),
                 std::max(1, int(10 * viewScaleY)));
         }
@@ -960,8 +967,8 @@ void BattleSceneHades::draw()
     for (const auto& unit : scene_units_.units())
     {
         if (!unit.alive) { continue; }
-        double wx = unit.position.x;
-        double wy = unit.position.y / 2.0;
+        double wx = unit.motion.position.x;
+        double wy = unit.motion.position.y / 2.0;
         int ux = worldToUiX(wx);
         int uy = worldToUiY(wy);
         if (ux < -80 || ux >= ui_w + 80 || uy < -80 || uy >= ui_h + 80) { continue; }
@@ -972,9 +979,9 @@ void BattleSceneHades::draw()
                 worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y - 1),
                 { 255, 255, 255, 255 });
         }
-        else if (unit.cooldown > 0 && unit.cooldownMax > 0)
+        else if (unit.animation.cooldown > 0 && unit.animation.cooldownMax > 0)
         {
-            Font::getInstance()->draw(std::to_string(unit.cooldown),
+            Font::getInstance()->draw(std::to_string(unit.animation.cooldown),
                 (std::max)(1, int(9 * sizeScale)),
                 worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y - 1),
                 { 230, 195, 120, 240 });
@@ -1537,15 +1544,14 @@ void BattleSceneHades::applyCoreFrameResult(
     for (const auto& application : frameResult.unitApplications)
     {
         auto& unit = scene_units_.requireUnit(application.unitId);
-        unit.cooldown = application.cooldown;
-        unit.actFrame = application.actFrame;
-        unit.actType = application.actType;
-        unit.mp = application.finalMp;
+        unit.animation.cooldown = application.cooldown;
+        unit.animation.actFrame = application.actFrame;
+        unit.animation.actType = application.actType;
+        unit.vitals.mp = application.finalMp;
         if (application.resetDashVelocity)
         {
-            unit.velocity = { 0, 0, 0 };
+            unit.motion.velocity = { 0, 0, 0 };
         }
-        syncBattleSceneUnitSharedValueObjects(unit);
     }
     applyCoreStatusState(frameResult.stateApplications);
 
@@ -1568,42 +1574,40 @@ void BattleSceneHades::applyCoreFrameResult(
     {
         auto& unit = scene_units_.requireUnit(movement.unitId);
         unit.frozen = movement.frozenFrames;
-        unit.position = movement.position;
-        unit.velocity = movement.velocity;
-        unit.acceleration = movement.acceleration;
+        unit.motion.position = movement.position;
+        unit.motion.velocity = movement.velocity;
+        unit.motion.acceleration = movement.acceleration;
         auto facing = movement.facing;
         if (facing.norm() > 0.01)
         {
-            unit.realTowards = facing;
+            unit.motion.facing = facing;
         }
-        syncBattleSceneUnitSharedValueObjects(unit);
     }
 
     for (const auto& action : frameResult.actionResults)
     {
         auto& unit = scene_units_.requireUnit(action.unitId);
-        unit.actFrame = action.state.actFrame;
-        unit.actType = action.state.actType;
-        unit.cooldown = action.state.cooldown;
+        unit.animation.actFrame = action.state.actFrame;
+        unit.animation.actType = action.state.actType;
+        unit.animation.cooldown = action.state.cooldown;
         if (action.castStarted)
         {
-            unit.actFrame = 0;
-            unit.actType = action.state.actType;
-            unit.cooldown = action.state.cooldown;
-            unit.cooldownMax = action.state.cooldown;
-            unit.velocity = { 0, 0, 0 };
+            unit.animation.actFrame = 0;
+            unit.animation.actType = action.state.actType;
+            unit.animation.cooldown = action.state.cooldown;
+            unit.animation.cooldownMax = action.state.cooldown;
+            unit.motion.velocity = { 0, 0, 0 };
         }
         for (const auto& teleport : action.actionResult.blinkTeleports)
         {
             unit.gridX = teleport.gridX;
             unit.gridY = teleport.gridY;
-            unit.position = { teleport.position.x, teleport.position.y, 0 };
-            unit.velocity = { 0, 0, 0 };
-            unit.acceleration = { 0, 0, gravity_ };
-            unit.realTowards = teleport.facing;
+            unit.motion.position = { teleport.position.x, teleport.position.y, 0 };
+            unit.motion.velocity = { 0, 0, 0 };
+            unit.motion.acceleration = { 0, 0, gravity_ };
+            unit.motion.facing = teleport.facing;
             Audio::getInstance()->playESound(BLINK_SOUND_EFFECT_ID);
         }
-        syncBattleSceneUnitSharedValueObjects(unit);
     }
     for (const auto& command : frameResult.projectileCancelDamageCommands)
     {
@@ -1673,11 +1677,10 @@ void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult
         {
             continue;
         }
-        unit.hp = GameUtil::limit(unit.hp, 0, unit.maxHp);
-        unit.mp = GameUtil::limit(unit.mp, 0, unit.maxMp);
+        unit.vitals.hp = GameUtil::limit(unit.vitals.hp, 0, unit.vitals.maxHp);
+        unit.vitals.mp = GameUtil::limit(unit.vitals.mp, 0, unit.vitals.maxMp);
         BattleSceneRenderMath::decreaseToZero(unit.shake);
         BattleSceneRenderMath::decreaseToZero(unit.attention);
-        syncBattleSceneUnitSharedValueObjects(unit);
     }
 
     //处理文字
@@ -1771,16 +1774,22 @@ void BattleSceneHades::renderExtraRoleInfo(const BattleSceneUnit& unit, double x
         background_color = { 255, 0, 0, 128 };
     }
 
-    renderBar(y + ROLE_STATUS_BAR_Y, unit.hp, unit.maxHp, background_color, shadow_color);
+    renderBar(y + ROLE_STATUS_BAR_Y, unit.vitals.hp, unit.vitals.maxHp, background_color, shadow_color);
 
-    if (unit.maxHp > 0 && unit.hp > 0)
+    if (unit.vitals.maxHp > 0 && unit.vitals.hp > 0)
     {
         int bar_y = y + ROLE_STATUS_BAR_Y;
-        int hpFillWidth = std::clamp(static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(unit.hp) / unit.maxHp))), 0, ROLE_STATUS_BAR_WIDTH);
+        int hpFillWidth = std::clamp(
+            static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(unit.vitals.hp) / unit.vitals.maxHp))),
+            0,
+            ROLE_STATUS_BAR_WIDTH);
 
         if (comboState.shield > 0)
         {
-            int shieldWidth = std::clamp(static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(comboState.shield) / unit.maxHp))), 1, ROLE_STATUS_BAR_WIDTH);
+            int shieldWidth = std::clamp(
+                static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(comboState.shield) / unit.vitals.maxHp))),
+                1,
+                ROLE_STATUS_BAR_WIDTH);
             int visibleShieldWidth = std::min(shieldWidth, hpFillWidth);
             Rect shieldRect = { barLeft, bar_y, visibleShieldWidth, ROLE_STATUS_BAR_HEIGHT };
             // int shieldAlpha = std::clamp(90 + comboState->shield * 120 / std::max(1, r->MaxHP), 90, 180);
@@ -1797,7 +1806,7 @@ void BattleSceneHades::renderExtraRoleInfo(const BattleSceneUnit& unit, double x
 
     Color mp_color = { 0, 0, 255, 128 };
     Color mp_shadow_color = { 64, 64, 64, 128 };
-    renderBar(y + ROLE_STATUS_BAR_MP_Y, unit.mp, unit.maxMp, mp_color, mp_shadow_color);
+    renderBar(y + ROLE_STATUS_BAR_MP_Y, unit.vitals.mp, unit.vitals.maxMp, mp_color, mp_shadow_color);
 
     // Frozen / cooldown bar – frozen takes priority
     if (unit.frozen > 0 && unit.frozenMax > 0)
@@ -1813,11 +1822,11 @@ void BattleSceneHades::renderExtraRoleInfo(const BattleSceneUnit& unit, double x
         Rect r_frozen = { barLeft, bar_y, int(perc * ROLE_STATUS_BAR_WIDTH), ROLE_STATUS_BAR_HEIGHT };
         Engine::getInstance()->renderSquareTexture(&r_frozen, frozen_color, 192);
     }
-    else if (unit.cooldown > 0 && unit.cooldownMax > 0)
+    else if (unit.animation.cooldown > 0 && unit.animation.cooldownMax > 0)
     {
         Color cd_color = { 255, 210, 140, 160 };
         int bar_y = y + ROLE_STATUS_BAR_FROZEN_Y;
-        double perc = static_cast<double>(unit.cooldown) / unit.cooldownMax;
+        double perc = static_cast<double>(unit.animation.cooldown) / unit.animation.cooldownMax;
 
         renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, cd_color, 100);
 
@@ -1879,22 +1888,21 @@ void BattleSceneHades::applyCoreDamageTransactions(
     for (const auto& damage : frameResult.damageRenderApplications)
     {
         auto& defenderUnit = scene_units_.requireUnit(damage.defender.unitId);
-        defenderUnit.hp = damage.defender.hp;
-        defenderUnit.mp = damage.defender.mp;
+        defenderUnit.vitals.hp = damage.defender.hp;
+        defenderUnit.vitals.mp = damage.defender.mp;
         defenderUnit.invincible = damage.defender.invincible;
         defenderUnit.alive = damage.defender.alive;
         defenderUnit.frozen = damage.frozenFrames;
         defenderUnit.frozenMax = damage.frozenMaxFrames;
-        defenderUnit.cooldown = damage.cooldown;
+        defenderUnit.animation.cooldown = damage.cooldown;
 
         if (damage.attacker.unitId >= 0)
         {
             auto& attackerUnit = scene_units_.requireUnit(damage.attacker.unitId);
-            attackerUnit.hp = damage.attacker.hp;
-            attackerUnit.mp = damage.attacker.mp;
+            attackerUnit.vitals.hp = damage.attacker.hp;
+            attackerUnit.vitals.mp = damage.attacker.mp;
             attackerUnit.invincible = damage.attacker.invincible;
             attackerUnit.alive = damage.attacker.alive;
-            syncBattleSceneUnitSharedValueObjects(attackerUnit);
         }
 
         auto sit = cs.find(damage.defender.unitId);
@@ -1919,14 +1927,14 @@ void BattleSceneHades::applyCoreDamageTransactions(
 
             KysChess::ChessCombo::transferAntiCombo(damage.defender.unitId, scene_units_.makeComboBattleUnitRefs());
 
-            defenderUnit.velocity.normTo(15);
-            defenderUnit.velocity.z = 12;
-            defenderUnit.velocity.normTo(damage.committedHpDamage / 2.0);
+            defenderUnit.motion.velocity.normTo(15);
+            defenderUnit.motion.velocity.z = 12;
+            defenderUnit.motion.velocity.normTo(damage.committedHpDamage / 2.0);
             x_ = rand_.rand_int(2) - rand_.rand_int(2);
             y_ = rand_.rand_int(2) - rand_.rand_int(2);
             if (!isManualCameraEnabled())
             {
-                focusCameraOn(defenderUnit.position, CAMERA_DEATH_ZOOM_FRAMES);
+                focusCameraOn(defenderUnit.motion.position, CAMERA_DEATH_ZOOM_FRAMES);
             }
             frozen_ = 5;
             shake_ = 10;
@@ -1937,7 +1945,6 @@ void BattleSceneHades::applyCoreDamageTransactions(
                 close_up_total_ = std::max(close_up_total_, close_up_);
             }
         }
-        syncBattleSceneUnitSharedValueObjects(defenderUnit);
     }
 
     for (const auto& rescue : frameResult.rescueResults)
@@ -1949,24 +1956,22 @@ void BattleSceneHades::applyCoreDamageTransactions(
         auto pos = battle_map_.pos45To90(destination.x, destination.y);
         pulledUnit.gridX = destination.x;
         pulledUnit.gridY = destination.y;
-        pulledUnit.position = { pos.x, pos.y, 0 };
-        pulledUnit.velocity = { 0, 0, 0 };
-        pulledUnit.acceleration = { 0, 0, gravity_ };
-        pulledUnit.realTowards = scene_units_.facingTowardNearestEnemy(pulledUnit.unitId);
-        pullerUnit.realTowards = scene_units_.facingTowardNearestEnemy(pullerUnit.unitId);
+        pulledUnit.motion.position = { pos.x, pos.y, 0 };
+        pulledUnit.motion.velocity = { 0, 0, 0 };
+        pulledUnit.motion.acceleration = { 0, 0, gravity_ };
+        pulledUnit.motion.facing = scene_units_.facingTowardNearestEnemy(pulledUnit.unitId);
+        pullerUnit.motion.facing = scene_units_.facingTowardNearestEnemy(pullerUnit.unitId);
 
         if (rescue.heal.amount > 0)
         {
             assert(rescue.heal.targetUnitId == pulledUnit.unitId);
-            pulledUnit.hp = std::min(pulledUnit.maxHp, pulledUnit.hp + rescue.heal.amount);
+            pulledUnit.vitals.hp = std::min(pulledUnit.vitals.maxHp, pulledUnit.vitals.hp + rescue.heal.amount);
         }
         if (rescue.invincibility.frames > 0)
         {
             assert(rescue.invincibility.targetUnitId == pulledUnit.unitId);
             pulledUnit.invincible += rescue.invincibility.frames;
         }
-        syncBattleSceneUnitSharedValueObjects(pulledUnit);
-        syncBattleSceneUnitSharedValueObjects(pullerUnit);
     }
 
     writeBattleDeathEffectTrackers(frameResult.deathEffectTrackers, cs);
@@ -1994,19 +1999,18 @@ void BattleSceneHades::applyCoreTeamEffectState(
         switch (event.type)
         {
         case KysChess::Battle::BattleTeamEffectEventType::Heal:
-            unit.hp = event.after;
+            unit.vitals.hp = event.after;
             break;
         case KysChess::Battle::BattleTeamEffectEventType::MpRestore:
-            unit.mp = event.after;
+            unit.vitals.mp = event.after;
             break;
         case KysChess::Battle::BattleTeamEffectEventType::ShieldGain:
             unit.combo.shield = event.after;
             break;
         case KysChess::Battle::BattleTeamEffectEventType::CooldownReduced:
-            unit.cooldown = event.after;
+            unit.animation.cooldown = event.after;
             break;
         }
-        syncBattleSceneUnitSharedValueObjects(unit);
     }
 }
 
@@ -2016,29 +2020,26 @@ void BattleSceneHades::applyCoreFrameApplications(
     for (const auto& knockback : applications.knockbacks)
     {
         auto& targetUnit = scene_units_.requireUnit(knockback.targetUnitId);
-        targetUnit.velocity += knockback.velocityDelta;
-        if (knockback.velocityCap > 0.0 && targetUnit.velocity.norm() > knockback.velocityCap)
+        targetUnit.motion.velocity += knockback.velocityDelta;
+        if (knockback.velocityCap > 0.0 && targetUnit.motion.velocity.norm() > knockback.velocityCap)
         {
-            targetUnit.velocity.normTo(static_cast<float>(knockback.velocityCap));
+            targetUnit.motion.velocity.normTo(static_cast<float>(knockback.velocityCap));
         }
 
         if (knockback.grantHurtFrame)
         {
             hurt_flash_timers_[knockback.targetUnitId] = HURT_FLASH_DURATION;
         }
-        syncBattleSceneUnitSharedValueObjects(targetUnit);
     }
     for (const auto& restore : applications.mpRestores)
     {
         auto& unit = scene_units_.requireUnit(restore.unitId);
-        unit.mp = std::min(unit.maxMp, unit.mp + restore.amount);
-        syncBattleSceneUnitSharedValueObjects(unit);
+        unit.vitals.mp = std::min(unit.vitals.maxMp, unit.vitals.mp + restore.amount);
     }
     for (const auto& heal : applications.unitHeals)
     {
         auto& unit = scene_units_.requireUnit(heal.targetUnitId);
-        unit.hp = std::min(unit.maxHp, unit.hp + heal.amount);
-        syncBattleSceneUnitSharedValueObjects(unit);
+        unit.vitals.hp = std::min(unit.vitals.maxHp, unit.vitals.hp + heal.amount);
     }
     for (int soundId : applications.attackSoundIds)
     {

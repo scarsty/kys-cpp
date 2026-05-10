@@ -19,8 +19,8 @@ BattleUnitDelta makeBattleUnitDelta(const BattleDamageUnitState& before, const B
 {
     BattleUnitDelta delta;
     delta.unitId = after.id;
-    delta.hpDelta = after.hp - before.hp;
-    delta.mpDelta = after.mp - before.mp;
+    delta.hpDelta = after.vitals.hp - before.vitals.hp;
+    delta.mpDelta = after.vitals.mp - before.vitals.mp;
     delta.shieldDelta = after.shield - before.shield;
     delta.invincibleDelta = after.invincible - before.invincible;
     delta.attackDelta = after.attack - before.attack;
@@ -52,10 +52,7 @@ BattleResourceUnitState makeBattleResourceUnit(const BattleDamageUnitState& unit
     BattleResourceUnitState resource;
     resource.id = unit.id;
     resource.alive = unit.alive;
-    resource.hp = unit.hp;
-    resource.maxHp = unit.maxHp;
-    resource.mp = unit.mp;
-    resource.maxMp = unit.maxMp;
+    resource.vitals = unit.vitals;
     resource.mpBlocked = unit.mpBlocked;
     resource.mpRecoveryBonusPct = unit.mpRecoveryBonusPct;
     return resource;
@@ -63,8 +60,8 @@ BattleResourceUnitState makeBattleResourceUnit(const BattleDamageUnitState& unit
 
 void writeBattleResourceUnit(BattleDamageUnitState& unit, const BattleResourceUnitState& resource)
 {
-    unit.hp = resource.hp;
-    unit.mp = resource.mp;
+    unit.vitals.hp = resource.vitals.hp;
+    unit.vitals.mp = resource.vitals.mp;
 }
 
 }  // namespace
@@ -102,8 +99,8 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
 
             result.executed = input.request.canExecute
                 && shouldExecute({
-                    result.defender.hp,
-                    result.defender.maxHp,
+                    result.defender.vitals.hp,
+                    result.defender.vitals.maxHp,
                     modified.damage,
                     true,
                     input.request.executeThresholdPct,
@@ -149,16 +146,16 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             }
         }
 
-        int hpBeforeDamage = result.defender.hp;
+        int hpBeforeDamage = result.defender.vitals.hp;
         int hpDamage = static_cast<int>(resolvedDamage);
         if (result.executed)
         {
-            hpDamage = std::max(hpDamage, result.defender.hp);
+            hpDamage = std::max(hpDamage, result.defender.vitals.hp);
         }
 
         auto taken = applyDamageTaken(result.defender, hpDamage);
         result.defender = taken.defender;
-        result.finalHpDamage = std::max(0, hpBeforeDamage - result.defender.hp);
+        result.finalHpDamage = std::max(0, hpBeforeDamage - result.defender.vitals.hp);
         result.hurtInvincGranted = taken.hurtInvincGranted;
         result.deathPrevented = taken.deathPrevented;
         result.invincibilityGranted = taken.invincibilityGranted;
@@ -203,10 +200,10 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
 
     if (input.request.mpDamage > 0)
     {
-        int mpBefore = result.defender.mp;
-        int mpDamage = std::min(input.request.mpDamage, std::max(0, result.defender.mp));
-        result.defender.mp -= mpDamage;
-        result.finalMpDamage = mpBefore - result.defender.mp;
+        int mpBefore = result.defender.vitals.mp;
+        int mpDamage = std::min(input.request.mpDamage, std::max(0, result.defender.vitals.mp));
+        result.defender.vitals.mp -= mpDamage;
+        result.finalMpDamage = mpBefore - result.defender.vitals.mp;
         if (result.finalMpDamage > 0)
         {
             recordBattleDamageEvent(result.events,
@@ -228,34 +225,34 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                 input.request.hpOnHit,
                 input.request.mpDrain,
             });
-            int attackerHpBefore = result.attacker.hp;
-            int attackerMpBefore = result.attacker.mp;
-            int defenderMpBefore = result.defender.mp;
+            int attackerHpBefore = result.attacker.vitals.hp;
+            int attackerMpBefore = result.attacker.vitals.mp;
+            int defenderMpBefore = result.defender.vitals.mp;
             writeBattleResourceUnit(result.attacker, resources.attacker);
             writeBattleResourceUnit(result.defender, resources.target);
-            if (result.attacker.hp > attackerHpBefore)
+            if (result.attacker.vitals.hp > attackerHpBefore)
             {
                 recordBattleDamageEvent(result.events,
                                         BattleDamageEventType::HpRestored,
                                         input.request.attackerUnitId,
                                         input.request.attackerUnitId,
-                                        result.attacker.hp - attackerHpBefore);
+                                        result.attacker.vitals.hp - attackerHpBefore);
             }
-            if (result.attacker.mp > attackerMpBefore)
+            if (result.attacker.vitals.mp > attackerMpBefore)
             {
                 recordBattleDamageEvent(result.events,
                                         BattleDamageEventType::MpRestored,
                                         input.request.attackerUnitId,
                                         input.request.attackerUnitId,
-                                        result.attacker.mp - attackerMpBefore);
+                                        result.attacker.vitals.mp - attackerMpBefore);
             }
-            if (defenderMpBefore > result.defender.mp)
+            if (defenderMpBefore > result.defender.vitals.mp)
             {
                 recordBattleDamageEvent(result.events,
                                         BattleDamageEventType::MpDrained,
                                         input.request.attackerUnitId,
                                         input.request.defenderUnitId,
-                                        defenderMpBefore - result.defender.mp);
+                                        defenderMpBefore - result.defender.vitals.mp);
             }
         }
 
@@ -336,25 +333,25 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             if (!(result.defenderStatus.maxHp > 0
                     && result.defenderStatus.hp * 100 < result.defenderStatus.maxHp * input.request.frozenLowHpImmunityPct))
             {
-                int freezeReduction = result.defenderStatus.freezeReductionPct;
+                int freezeReduction = result.defenderStatus.effects.freezeReductionPct;
                 if (result.defender.shield > 0)
                 {
-                    freezeReduction += result.defenderStatus.shieldFreezeResPct;
+                    freezeReduction += result.defenderStatus.effects.shieldFreezeResPct;
                 }
                 freezeReduction = std::clamp(freezeReduction, 0, 100);
                 frames = frames * (100 - freezeReduction) / 100;
 
-                if (result.defenderStatus.controlImmunityFrames > 0)
+                if (result.defenderStatus.effects.controlImmunityFrames > 0)
                 {
-                    int absorbed = std::min(frames, result.defenderStatus.controlImmunityFrames);
-                    result.defenderStatus.controlImmunityFrames -= absorbed;
+                    int absorbed = std::min(frames, result.defenderStatus.effects.controlImmunityFrames);
+                    result.defenderStatus.effects.controlImmunityFrames -= absorbed;
                     frames -= absorbed;
                 }
 
                 if (frames > 0)
                 {
-                    result.defenderStatus.frozenTimer += frames;
-                    result.defenderStatus.frozenMaxTimer = result.defenderStatus.frozenTimer;
+                    result.defenderStatus.effects.frozenTimer += frames;
+                    result.defenderStatus.effects.frozenMaxTimer = result.defenderStatus.effects.frozenTimer;
                     recordBattleStatusEvent(result.events,
                                             BattleDamageStatusType::Frozen,
                                             input.request.attackerUnitId,
@@ -367,16 +364,16 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         if (input.request.mpBlockFrames > 0)
         {
             assert(input.defenderStatus.id == input.request.defenderUnitId);
-            int before = result.defenderStatus.mpBlockTimer;
-            result.defenderStatus.mpBlockTimer = std::max(result.defenderStatus.mpBlockTimer,
-                                                          input.request.mpBlockFrames);
-            if (result.defenderStatus.mpBlockTimer > before)
+            int before = result.defenderStatus.effects.mpBlockTimer;
+            result.defenderStatus.effects.mpBlockTimer = std::max(result.defenderStatus.effects.mpBlockTimer,
+                                                                  input.request.mpBlockFrames);
+            if (result.defenderStatus.effects.mpBlockTimer > before)
             {
                 recordBattleStatusEvent(result.events,
                                         BattleDamageStatusType::MpBlocked,
                                         input.request.attackerUnitId,
                                         input.request.defenderUnitId,
-                                        result.defenderStatus.mpBlockTimer - before);
+                                        result.defenderStatus.effects.mpBlockTimer - before);
             }
         }
     }
@@ -423,7 +420,7 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
     result.damage = damage;
     if (input.defender.maxHitPctMaxHp > 0 && result.damage > 0)
     {
-        int maxHit = std::max(1, input.defenderUnit.maxHp * input.defender.maxHitPctMaxHp / 100);
+        int maxHit = std::max(1, input.defenderUnit.vitals.maxHp * input.defender.maxHitPctMaxHp / 100);
         if (result.damage > maxHit)
         {
             result.damage = static_cast<double>(maxHit);
@@ -562,20 +559,20 @@ BattleDamageTakenResult BattleDamageSystem::applyDamageTaken(BattleDamageUnitSta
         return result;
     }
 
-    result.defender.hp -= damage;
-    if (result.defender.hp > 0 && result.defender.hurtInvincFrames > 0)
+    result.defender.vitals.hp -= damage;
+    if (result.defender.vitals.hp > 0 && result.defender.hurtInvincFrames > 0)
     {
         result.defender.invincible += result.defender.hurtInvincFrames;
         result.hurtInvincGranted = true;
         result.invincibilityGranted = result.defender.hurtInvincFrames;
     }
 
-    if (result.defender.hp <= 0)
+    if (result.defender.vitals.hp <= 0)
     {
         if (result.defender.deathPrevention && !result.defender.deathPreventionUsed)
         {
             result.defender.deathPreventionUsed = true;
-            result.defender.hp = 1;
+            result.defender.vitals.hp = 1;
             int frames = result.defender.deathPreventionFrames > 0 ? result.defender.deathPreventionFrames : 100;
             result.defender.invincible += frames;
             result.deathPrevented = true;
@@ -583,7 +580,7 @@ BattleDamageTakenResult BattleDamageSystem::applyDamageTaken(BattleDamageUnitSta
         }
         else
         {
-            result.defender.hp = 0;
+            result.defender.vitals.hp = 0;
             result.defender.alive = false;
             result.died = true;
         }
@@ -603,10 +600,10 @@ BattleKillRewardResult BattleDamageSystem::applyKillReward(const BattleKillRewar
 
     if (result.killer.killHealPct > 0)
     {
-        int before = result.killer.hp;
-        result.killer.hp = std::min(result.killer.maxHp,
-            result.killer.hp + result.killer.maxHp * result.killer.killHealPct / 100);
-        result.healed = result.killer.hp - before;
+        int before = result.killer.vitals.hp;
+        result.killer.vitals.hp = std::min(result.killer.vitals.maxHp,
+            result.killer.vitals.hp + result.killer.vitals.maxHp * result.killer.killHealPct / 100);
+        result.healed = result.killer.vitals.hp - before;
     }
 
     if (result.killer.killInvincFrames > 0)
@@ -675,10 +672,10 @@ BattleOnHitResourceResult BattleDamageSystem::applyOnHitResources(const BattleOn
 {
     assert(input.attacker.id >= 0);
     assert(input.target.id >= 0);
-    assert(input.attacker.maxHp >= 0);
-    assert(input.attacker.maxMp >= 0);
-    assert(input.target.maxHp >= 0);
-    assert(input.target.maxMp >= 0);
+    assert(input.attacker.vitals.maxHp >= 0);
+    assert(input.attacker.vitals.maxMp >= 0);
+    assert(input.target.vitals.maxHp >= 0);
+    assert(input.target.vitals.maxMp >= 0);
     assert(input.mpOnHit >= 0);
     assert(input.hpOnHit >= 0);
     assert(input.mpDrain >= 0);
@@ -694,15 +691,15 @@ BattleOnHitResourceResult BattleDamageSystem::applyOnHitResources(const BattleOn
 
     if (input.hpOnHit > 0)
     {
-        int before = result.attacker.hp;
-        result.attacker.hp = std::min(result.attacker.maxHp, result.attacker.hp + input.hpOnHit);
-        result.hpHealed = result.attacker.hp - before;
+        int before = result.attacker.vitals.hp;
+        result.attacker.vitals.hp = std::min(result.attacker.vitals.maxHp, result.attacker.vitals.hp + input.hpOnHit);
+        result.hpHealed = result.attacker.vitals.hp - before;
     }
 
     if (input.mpDrain > 0 && result.target.alive)
     {
-        int drained = std::min(input.mpDrain, std::max(0, result.target.mp));
-        result.target.mp -= drained;
+        int drained = std::min(input.mpDrain, std::max(0, result.target.vitals.mp));
+        result.target.vitals.mp -= drained;
         result.mpDrained = drained;
     }
 
@@ -711,9 +708,9 @@ BattleOnHitResourceResult BattleDamageSystem::applyOnHitResources(const BattleOn
                                    input.mpOnHit + result.mpDrained);
     if (mpGain > 0)
     {
-        int before = result.attacker.mp;
-        result.attacker.mp = std::min(result.attacker.maxMp, result.attacker.mp + mpGain);
-        result.mpRestored = result.attacker.mp - before;
+        int before = result.attacker.vitals.mp;
+        result.attacker.vitals.mp = std::min(result.attacker.vitals.maxMp, result.attacker.vitals.mp + mpGain);
+        result.mpRestored = result.attacker.vitals.mp - before;
     }
 
     return result;
@@ -734,15 +731,15 @@ BattleStatusApplyResult BattleDamageSystem::applyPoisonIfStronger(const BattlePo
     }
 
     int newDamage = result.target.hp * input.poisonPct / 100;
-    int oldDamage = result.target.hp * result.target.poisonTickPct / 100;
+    int oldDamage = result.target.hp * result.target.effects.poisonTickPct / 100;
     if (newDamage <= oldDamage)
     {
         return result;
     }
 
-    result.target.poisonTimer = input.durationFrames;
-    result.target.poisonTickPct = input.poisonPct;
-    result.target.poisonSourceId = input.sourceUnitId;
+    result.target.effects.poisonTimer = input.durationFrames;
+    result.target.effects.poisonTickPct = input.poisonPct;
+    result.target.effects.poisonSourceId = input.sourceUnitId;
     result.applied = true;
     result.value = input.poisonPct;
     return result;
@@ -764,15 +761,15 @@ BattleStatusApplyResult BattleDamageSystem::applyBleed(BattleStatusUnitState tar
         return result;
     }
 
-    int before = result.target.bleedStacks;
-    result.target.bleedStacks = std::min(result.target.bleedStacks + stacks, maxStacks);
-    if (result.target.bleedTimer <= 0)
+    int before = result.target.effects.bleedStacks;
+    result.target.effects.bleedStacks = std::min(result.target.effects.bleedStacks + stacks, maxStacks);
+    if (result.target.effects.bleedTimer <= 0)
     {
-        result.target.bleedTimer = 10;
+        result.target.effects.bleedTimer = 10;
     }
-    result.target.bleedSourceId = sourceUnitId;
-    result.applied = result.target.bleedStacks > before;
-    result.value = result.target.bleedStacks;
+    result.target.effects.bleedSourceId = sourceUnitId;
+    result.applied = result.target.effects.bleedStacks > before;
+    result.value = result.target.effects.bleedStacks;
     return result;
 }
 
@@ -791,7 +788,7 @@ BattleStatusApplyResult BattleDamageSystem::applyDamageReduceDebuff(BattleStatus
         return result;
     }
 
-    result.target.damageReduceDebuffs.push_back({ durationFrames, pct });
+    result.target.effects.damageReduceDebuffs.push_back({ durationFrames, pct });
     result.applied = true;
     result.value = pct;
     return result;

@@ -93,9 +93,9 @@ BattleUnitFrameTickInput finishingSkillRuntime()
 
 void applyRuntimeInput(BattleRuntimeUnit& unit, const BattleUnitFrameTickInput& input)
 {
-    unit.cooldown = input.state.cooldown;
-    unit.actFrame = input.state.actFrame;
-    unit.actType = input.state.actType;
+    unit.animation.cooldown = input.state.cooldown;
+    unit.animation.actFrame = input.state.actFrame;
+    unit.animation.actType = input.state.actType;
     unit.operationType = input.state.operationType;
     unit.haveAction = input.state.haveAction;
     unit.physicalPower = input.state.physicalPower;
@@ -119,18 +119,18 @@ BattleRuntimeUnit teamRuntimeUnit(int id, int team, int hp)
     unit.id = id;
     unit.team = team;
     unit.alive = true;
-    unit.hp = hp;
-    unit.maxHp = 100;
-    unit.mp = 20;
-    unit.maxMp = 100;
+    unit.vitals.hp = hp;
+    unit.vitals.maxHp = 100;
+    unit.vitals.mp = 20;
+    unit.vitals.maxMp = 100;
     return unit;
 }
 
 BattleRuntimeUnit teamRuntimeUnitAt(int id, int team, int hp, Pointf position, int cooldown = 0)
 {
     auto unit = teamRuntimeUnit(id, team, hp);
-    unit.position = position;
-    unit.cooldown = cooldown;
+    unit.motion.position = position;
+    unit.animation.cooldown = cooldown;
     return unit;
 }
 
@@ -254,11 +254,11 @@ TEST_CASE("BattleRuntimeSession_CommitSetupPlacementUpdatesOwnedRuntime", "[batt
     const auto& unit = session.runtime().units.requireUnit(0);
     CHECK(unit.grid.x == 3);
     CHECK(unit.grid.y == 4);
-    CHECK(unit.facing.x == -1.0f);
-    CHECK(unit.facing.y == 0.0f);
+    CHECK(unit.motion.facing.x == -1.0f);
+    CHECK(unit.motion.facing.y == 0.0f);
     REQUIRE(session.runtime().world.units.size() == 1);
-    CHECK(session.runtime().world.units[0].position.x == unit.position.x);
-    CHECK(session.runtime().world.units[0].position.y == unit.position.y);
+    CHECK(session.runtime().world.units[0].position.x == unit.motion.position.x);
+    CHECK(session.runtime().world.units[0].position.y == unit.motion.position.y);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_UsesRuntimeOwnedFrameState", "[battle][frame_runner][runtime]")
@@ -281,11 +281,11 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     combo.blockFirstHitsRemaining = 2;
     state.combo.units.emplace(0, combo);
     state.units.requireUnit(0).invincible = 4;
-    state.status.units.push_back(BattleStatusRuntimeUnit{
-        .id = 0,
-        .frozenTimer = 3,
-        .frozenMaxTimer = 9,
-    });
+    BattleStatusRuntimeUnit status;
+    status.id = 0;
+    status.effects.frozenTimer = 3;
+    status.effects.frozenMaxTimer = 9;
+    state.status.units.push_back(status);
 
     auto result = runBattleFrame(state);
 
@@ -308,10 +308,10 @@ TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[batt
         teamRuntimeUnit(1, 1, 100),
     };
     auto& unit = state.units.requireUnit(0);
-    unit.cooldown = 1;
+    unit.animation.cooldown = 1;
     unit.haveAction = true;
     unit.operationType = BattleOperationType::RangedProjectile;
-    unit.actType = 2;
+    unit.animation.actType = 2;
     unit.physicalPower = 4;
 
     auto result = runBattleFrame(state);
@@ -321,8 +321,8 @@ TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[batt
     CHECK(result.unitApplications[0].cooldown == 0);
     CHECK(result.unitApplications[0].actType == -1);
     CHECK_FALSE(result.unitApplications[0].resetDashVelocity);
-    CHECK(state.units.requireUnit(0).cooldown == 0);
-    CHECK(state.units.requireUnit(0).mp == 21);
+    CHECK(state.units.requireUnit(0).animation.cooldown == 0);
+    CHECK(state.units.requireUnit(0).vitals.mp == 21);
     CHECK(state.units.requireUnit(0).physicalPower == 5);
     CHECK_FALSE(state.units.requireUnit(0).haveAction);
 }
@@ -340,9 +340,9 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
     auto result = runBattleFrame(state);
 
     REQUIRE(result.unitApplications.size() == 2);
-    CHECK(state.units.requireUnit(0).mp == 20);
+    CHECK(state.units.requireUnit(0).vitals.mp == 20);
     CHECK(result.unitApplications[0].finalMp == 20);
-    CHECK(state.units.requireUnit(1).mp == 21);
+    CHECK(state.units.requireUnit(1).vitals.mp == 21);
     CHECK(result.unitApplications[1].finalMp == 21);
 }
 
@@ -404,9 +404,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
     CHECK(result.teamEffectEvents[0].value == 15);
     CHECK(result.teamEffectEvents[1].targetUnitId == 1);
     CHECK(result.teamEffectEvents[1].value == 10);
-    CHECK(state.units.requireUnit(0).hp == 65);
-    CHECK(state.units.requireUnit(1).hp == 100);
-    CHECK(state.units.requireUnit(2).hp == 10);
+    CHECK(state.units.requireUnit(0).vitals.hp == 65);
+    CHECK(state.units.requireUnit(1).vitals.hp == 100);
+    CHECK(state.units.requireUnit(2).vitals.hp == 10);
 
     const auto healLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -433,9 +433,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     poisoned.alive = true;
     poisoned.hp = 80;
     poisoned.maxHp = 100;
-    poisoned.poisonTimer = 3;
-    poisoned.poisonTickPct = 10;
-    poisoned.poisonSourceId = 0;
+    poisoned.effects.poisonTimer = 3;
+    poisoned.effects.poisonTickPct = 10;
+    poisoned.effects.poisonSourceId = 0;
     state.status.units.push_back(runtimeStatusUnit(poisoned));
 
     state.units.units = {
@@ -450,8 +450,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     const auto& transaction = result.damageTransactions[0];
     CHECK(transaction.finalHpDamage == 8);
     CHECK(transaction.defender.id == 1);
-    CHECK(transaction.defender.hp == 72);
-    CHECK(state.units.requireUnit(1).hp == 72);
+    CHECK(transaction.defender.vitals.hp == 72);
+    CHECK(state.units.requireUnit(1).vitals.hp == 72);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
@@ -464,9 +464,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     bleeding.alive = true;
     bleeding.hp = 80;
     bleeding.maxHp = 100;
-    bleeding.bleedStacks = 6;
-    bleeding.bleedTimer = 1;
-    bleeding.bleedSourceId = 0;
+    bleeding.effects.bleedStacks = 6;
+    bleeding.effects.bleedTimer = 1;
+    bleeding.effects.bleedSourceId = 0;
     state.status.units.push_back(runtimeStatusUnit(bleeding));
 
     state.units.units = {
@@ -481,8 +481,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     const auto& transaction = result.damageTransactions[0];
     CHECK(transaction.finalHpDamage == 6);
     CHECK(transaction.defender.id == 1);
-    CHECK(transaction.defender.hp == 74);
-    CHECK(state.units.requireUnit(1).hp == 74);
+    CHECK(transaction.defender.vitals.hp == 74);
+    CHECK(state.units.requireUnit(1).vitals.hp == 74);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[battle][frame_runner][runtime][unit]")
@@ -512,12 +512,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.units.requireUnit(0).hp == 70);
-    CHECK(state.units.requireUnit(1).hp == 95);
-    CHECK(state.units.requireUnit(1).cooldown == 39);
-    CHECK(state.units.requireUnit(2).hp == 60);
-    CHECK(state.units.requireUnit(2).cooldown == 49);
-    CHECK(state.units.requireUnit(3).hp == 20);
+    CHECK(state.units.requireUnit(0).vitals.hp == 70);
+    CHECK(state.units.requireUnit(1).vitals.hp == 95);
+    CHECK(state.units.requireUnit(1).animation.cooldown == 39);
+    CHECK(state.units.requireUnit(2).vitals.hp == 60);
+    CHECK(state.units.requireUnit(2).animation.cooldown == 49);
+    CHECK(state.units.requireUnit(3).vitals.hp == 20);
 
     REQUIRE(result.teamEffectEvents.size() == 3);
     CHECK(result.teamEffectEvents[0].targetUnitId == 0);
@@ -574,7 +574,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.units.requireUnit(0).hp == 65);
+    CHECK(state.units.requireUnit(0).vitals.hp == 65);
     CHECK(state.combo.units.at(0).effectActivationCounts.at(0) == 1);
 
     const auto healLog = std::find_if(

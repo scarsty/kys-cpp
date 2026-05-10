@@ -28,11 +28,8 @@ BattleRuntimeUnit runtimeUnit(int id, int team, int maxHp, int attack, int defen
     unit.id = id;
     unit.team = team;
     unit.alive = maxHp > 0;
-    unit.hp = maxHp;
-    unit.maxHp = maxHp;
-    unit.attack = attack;
-    unit.defence = defence;
-    unit.speed = speed;
+    unit.vitals = { maxHp, maxHp, 0, 0 };
+    unit.stats = { attack, defence, speed };
     return unit;
 }
 
@@ -158,14 +155,18 @@ TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "
     auto result = BattleInitializationSystem().initialize(runtime, setup);
 
     const auto& unit = runtime.units.requireUnit(0);
-    CHECK(unit.maxHp == 150);
-    CHECK(unit.hp == 150);
-    CHECK(unit.attack == 27);
-    CHECK(unit.defence == 49);
-    CHECK(unit.speed == 42);
+    CHECK(unit.vitals.maxHp == 150);
+    CHECK(unit.vitals.hp == 150);
+    CHECK(unit.stats.attack == 27);
+    CHECK(unit.stats.defence == 49);
+    CHECK(unit.stats.speed == 42);
     REQUIRE(result.roleDeltas.size() == 1);
     CHECK(result.roleDeltas[0].unitId == 0);
-    CHECK(result.roleDeltas[0].maxHp == 150);
+    CHECK(result.roleDeltas[0].vitals.maxHp == 150);
+    CHECK(result.roleDeltas[0].vitals.hp == 150);
+    CHECK(result.roleDeltas[0].stats.attack == 27);
+    CHECK(result.roleDeltas[0].stats.defence == 49);
+    CHECK(result.roleDeltas[0].stats.speed == 42);
 }
 
 TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWins", "[battle][initialization]")
@@ -239,11 +240,11 @@ TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWi
         3);
 
     const auto& unit = runtime.units.requireUnit(0);
-    CHECK(unit.maxHp == expected.hp);
-    CHECK(unit.hp == expected.hp);
-    CHECK(unit.attack == expected.atk);
-    CHECK(unit.defence == expected.def);
-    CHECK(unit.speed == expected.spd);
+    CHECK(unit.vitals.maxHp == expected.hp);
+    CHECK(unit.vitals.hp == expected.hp);
+    CHECK(unit.stats.attack == expected.atk);
+    CHECK(unit.stats.defence == expected.def);
+    CHECK(unit.stats.speed == expected.spd);
     REQUIRE(result.roleDeltas.size() == 1);
     CHECK(result.roleDeltas[0].star == 2);
     CHECK(result.roleDeltas[0].fist == expected.fist);
@@ -293,7 +294,7 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     CHECK(initialized.autoUltimateTimer == 30);
     CHECK(initialized.blockFirstHitsRemaining == 2);
     CHECK(unit.shield == 65);
-    CHECK(status.damageImmunityTimer == 12);
+    CHECK(status.effects.damageImmunityTimer == 12);
     REQUIRE(result.logEvents.size() == 2);
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
     CHECK(result.logEvents[0].sourceUnitId == 0);
@@ -323,11 +324,11 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     CHECK(intent.gridX == 3);
     CHECK(intent.gridY == 4);
     CHECK(intent.roleValues.unitId == 1);
-    CHECK(intent.roleValues.maxHp == 100);
-    CHECK(intent.roleValues.hp == 100);
-    CHECK(intent.roleValues.attack == 20);
-    CHECK(intent.roleValues.defence == 30);
-    CHECK(intent.roleValues.speed == 40);
+    CHECK(intent.roleValues.vitals.maxHp == 100);
+    CHECK(intent.roleValues.vitals.hp == 100);
+    CHECK(intent.roleValues.stats.attack == 20);
+    CHECK(intent.roleValues.stats.defence == 30);
+    CHECK(intent.roleValues.stats.speed == 40);
     CHECK(runtime.units.findUnit(1) != nullptr);
     CHECK(runtime.combo.units.find(1) != runtime.combo.units.end());
 }
@@ -355,16 +356,13 @@ TEST_CASE("BattleSceneBattleAdapter_CreatesCloneSceneRowsWithoutRoleMirror", "[b
     source.gridX = 1;
     source.gridY = 2;
     source.faceTowards = Towards_RightDown;
-    source.position = { 100, 200, 0 };
-    source.facing = { 1, 1, 0 };
+    source.vitals = { 100, 100, 0, 0 };
+    source.stats = { 20, 30, 40 };
+    source.motion = { { 100, 200, 0 }, { 0, 0, 0 }, { 0, 0, 0 }, { 1, 1, 0 } };
+    source.animation = { 0, 0, 0, -1 };
     source.star = 3;
     source.cost = 7;
     source.chessInstanceId = 99;
-    source.hp = 100;
-    source.maxHp = 100;
-    source.attack = 20;
-    source.defence = 30;
-    source.speed = 40;
     context.setup.units.push_back(source);
 
     auto created = Adapter::createInitializedBattleRuntimeSession(context);
@@ -390,13 +388,8 @@ TEST_CASE("BattleSceneBattleAdapter_CreatesCloneSceneRowsWithoutRoleMirror", "[b
     CHECK(cloneIt->sourceUnitId == 0);
     CHECK(cloneIt->identity.realRoleId == 1001);
     CHECK(cloneIt->identity.battleId == 1);
-    CHECK(cloneIt->hp == sourceIt->hp);
-    CHECK(cloneIt->maxHp == sourceIt->maxHp);
     CHECK(cloneIt->vitals.hp == sourceIt->vitals.hp);
     CHECK(cloneIt->vitals.maxHp == sourceIt->vitals.maxHp);
-    CHECK(cloneIt->attack == sourceIt->attack);
-    CHECK(cloneIt->defence == sourceIt->defence);
-    CHECK(cloneIt->speed == sourceIt->speed);
     CHECK(cloneIt->stats.attack == sourceIt->stats.attack);
     CHECK(cloneIt->stats.defence == sourceIt->stats.defence);
     CHECK(cloneIt->stats.speed == sourceIt->stats.speed);
@@ -425,13 +418,14 @@ TEST_CASE("BattleRuntimeSession_ConsumesSetupAndInitializesOwnedRuntime", "[batt
     auto result = session.releaseInitializationResult();
 
     const auto& unit = session.runtime().units.requireUnit(0);
-    CHECK(unit.maxHp == 125);
-    CHECK(unit.hp == 125);
+    CHECK(unit.vitals.maxHp == 125);
+    CHECK(unit.vitals.hp == 125);
     CHECK(unit.vitals.maxHp == 125);
     CHECK(unit.vitals.hp == 125);
     REQUIRE(result.roleDeltas.size() == 1);
     CHECK(result.roleDeltas[0].unitId == 0);
-    CHECK(result.roleDeltas[0].maxHp == 125);
+    CHECK(result.roleDeltas[0].vitals.maxHp == 125);
+    CHECK(result.roleDeltas[0].vitals.hp == 125);
 }
 
 TEST_CASE("BattleRuntimeUnit_UsesSharedUnitValueObjects", "[battle][initialization][runtime_session]")

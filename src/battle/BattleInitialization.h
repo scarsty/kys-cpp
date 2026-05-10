@@ -122,11 +122,8 @@ struct BattleInitializationRoleDelta
 {
     int unitId{};
     int star{};
-    int maxHp{};
-    int hp{};
-    int attack{};
-    int defence{};
-    int speed{};
+    BattleUnitVitals vitals;
+    BattleUnitStats stats;
     int fist{};
     int sword{};
     int knife{};

@@ -61,33 +61,6 @@ double BattleRuntimeRandom::nextPercent()
     return static_cast<double>(nextRaw() % 10000u) / 100.0;
 }
 
-void syncBattleRuntimeUnitSharedValueObjects(BattleRuntimeUnit& unit)
-{
-    unit.vitals = {
-        unit.hp,
-        unit.maxHp,
-        unit.mp,
-        unit.maxMp,
-    };
-    unit.stats = {
-        unit.attack,
-        unit.defence,
-        unit.speed,
-    };
-    unit.motion = {
-        unit.position,
-        unit.velocity,
-        unit.acceleration,
-        unit.facing,
-    };
-    unit.animation = {
-        unit.cooldown,
-        unit.cooldownMax,
-        unit.actFrame,
-        unit.actType,
-    };
-}
-
 int BattleRuntimeRandom::nextInt(int upperBound)
 {
     assert(upperBound > 0);
@@ -118,34 +91,28 @@ void BattleUnitStore::writeDamageUnit(const BattleDamageUnitState& source)
 {
     auto& unit = requireUnit(source.id);
     unit.alive = source.alive;
-    unit.hp = source.hp;
-    unit.maxHp = source.maxHp;
-    unit.mp = source.mp;
-    unit.maxMp = source.maxMp;
-    unit.attack = source.attack;
+    unit.vitals = source.vitals;
+    unit.stats.attack = source.attack;
     unit.invincible = source.invincible;
     unit.shield = source.shield;
     unit.mpBlocked = source.mpBlocked;
     unit.mpRecoveryBonusPct = source.mpRecoveryBonusPct;
-    syncBattleRuntimeUnitSharedValueObjects(unit);
 }
 
 void BattleUnitStore::setPosition(int unitId, Pointf position)
 {
     auto& unit = requireUnit(unitId);
-    unit.position = position;
+    unit.motion.position = position;
     unit.grid = gridTransform.toGrid(position);
-    syncBattleRuntimeUnitSharedValueObjects(unit);
 }
 
 void BattleUnitStore::setMotion(int unitId, Pointf position, Pointf velocity, Pointf acceleration)
 {
     auto& unit = requireUnit(unitId);
-    unit.position = position;
-    unit.velocity = velocity;
-    unit.acceleration = acceleration;
+    unit.motion.position = position;
+    unit.motion.velocity = velocity;
+    unit.motion.acceleration = acceleration;
     unit.grid = gridTransform.toGrid(position);
-    syncBattleRuntimeUnitSharedValueObjects(unit);
 }
 
 int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId)
@@ -160,7 +127,7 @@ int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId)
             continue;
         }
 
-        const double distance = (candidate.position - source.position).norm();
+        const double distance = (candidate.motion.position - source.motion.position).norm();
         if (targetUnitId < 0 || distance < bestDistance)
         {
             targetUnitId = candidate.id;
@@ -182,7 +149,7 @@ int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId)
             continue;
         }
 
-        const double distance = (candidate.position - source.position).norm();
+        const double distance = (candidate.motion.position - source.motion.position).norm();
         if (targetUnitId < 0 || distance > bestDistance)
         {
             targetUnitId = candidate.id;
@@ -236,8 +203,8 @@ void applyUnitStoreSnapshot(BattlePresentationUnitSnapshot& snapshot, const Batt
     }
 
     snapshot.alive = unit->alive;
-    snapshot.hp = unit->hp;
-    snapshot.maxHp = unit->maxHp;
+    snapshot.hp = unit->vitals.hp;
+    snapshot.maxHp = unit->vitals.maxHp;
     snapshot.invincible = unit->invincible;
 }
 
@@ -346,7 +313,7 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
             {
                 return leftScore > rightScore;
             }
-            return left->maxHp > right->maxHp;
+            return left->vitals.maxHp > right->vitals.maxHp;
         });
 
     int assignedTargets = 0;
@@ -371,8 +338,8 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
             continue;
         }
 
-        enemy->attack = std::max(0, enemy->attack - delta);
-        enemy->defence = std::max(0, enemy->defence - delta);
+        enemy->stats.attack = std::max(0, enemy->stats.attack - delta);
+        enemy->stats.defence = std::max(0, enemy->stats.defence - delta);
         comboIt->second.enemyTopDebuffApplied = desired;
         logEvents.push_back({
             BattleLogEventType::Status,
@@ -406,22 +373,14 @@ BattleHitUnitSnapshot makeHitUnitSnapshot(const BattleRuntimeUnit& unit)
     snapshot.id = unit.id;
     snapshot.team = unit.team;
     snapshot.alive = unit.alive;
-    snapshot.hp = unit.hp;
-    snapshot.maxHp = unit.maxHp;
-    snapshot.mp = unit.mp;
-    snapshot.maxMp = unit.maxMp;
-    snapshot.attack = unit.attack;
-    snapshot.defence = unit.defence;
-    snapshot.speed = unit.speed;
+    snapshot.vitals = unit.vitals;
+    snapshot.stats = unit.stats;
+    snapshot.motion = unit.motion;
+    snapshot.animation = unit.animation;
     snapshot.invincible = unit.invincible;
     snapshot.hurtFrame = unit.hurtFrame;
-    snapshot.cooldown = unit.cooldown;
-    snapshot.cooldownMax = unit.cooldownMax;
     snapshot.haveAction = unit.haveAction;
     snapshot.operationType = unit.operationType;
-    snapshot.actType = unit.actType;
-    snapshot.position = unit.position;
-    snapshot.facing = unit.facing;
     return snapshot;
 }
 
@@ -496,7 +455,7 @@ int resolveHitMagicBaseDamage(
     const BattleRuntimeUnit& attacker,
     const BattleRuntimeUnit& defender)
 {
-    double defence = defender.defence;
+    double defence = defender.stats.defence;
     auto comboIt = state.combo.units.find(attacker.id);
     if (comboIt != state.combo.units.end())
     {
@@ -509,7 +468,7 @@ int resolveHitMagicBaseDamage(
     }
 
     return BattleDamageSystem().resolveMagicBaseDamage({
-        attacker.attack,
+        attacker.stats.attack,
         event.skillMagicPower,
         defence,
         state.random.nextInt(10) - state.random.nextInt(10),
@@ -721,30 +680,30 @@ void advanceRuntimeUnits(
         committed.unitId = unit.id;
         committed.tick = BattleUnitFrameTickSystem().advance(input);
 
-        unit.cooldown = committed.tick.state.cooldown;
-        unit.actFrame = committed.tick.state.actFrame;
+        unit.animation.cooldown = committed.tick.state.cooldown;
+        unit.animation.actFrame = committed.tick.state.actFrame;
         unit.haveAction = committed.tick.state.haveAction;
         unit.operationType = committed.tick.state.operationType;
-        unit.actType = committed.tick.state.actType;
+        unit.animation.actType = committed.tick.state.actType;
         unit.physicalPower = committed.tick.state.physicalPower;
         if (committed.tick.mpDelta > 0 && !unit.mpBlocked)
         {
-            unit.mp += committed.tick.mpDelta * (100 + unit.mpRecoveryBonusPct) / 100;
+            unit.vitals.mp += committed.tick.mpDelta * (100 + unit.mpRecoveryBonusPct) / 100;
         }
         else if (committed.tick.mpDelta < 0)
         {
-            unit.mp += committed.tick.mpDelta;
+            unit.vitals.mp += committed.tick.mpDelta;
         }
         if (committed.tick.resetDashVelocity)
         {
-            unit.velocity = { 0, 0, 0 };
+            unit.motion.velocity = { 0, 0, 0 };
         }
         unitApplications.push_back({
             unit.id,
-            unit.cooldown,
-            unit.actFrame,
-            unit.actType,
-            unit.mp,
+            unit.animation.cooldown,
+            unit.animation.actFrame,
+            unit.animation.actType,
+            unit.vitals.mp,
             committed.tick.resetDashVelocity,
         });
 
@@ -755,8 +714,8 @@ void advanceRuntimeUnits(
                 comboIt->second,
                 {
                     state.world.frame,
-                    unit.hp,
-                    unit.maxHp,
+                    unit.vitals.hp,
+                    unit.vitals.maxHp,
                     unit.alive,
                     lastAlive,
                 });
@@ -864,10 +823,10 @@ BattleHitResolutionInput makeHitResolutionInput(
     input.attackEvent = event;
     input.attacker = makeHitUnitSnapshot(attacker);
     input.defender = makeHitUnitSnapshot(defender);
-    if ((input.attackEvent.position - input.defender.position).norm() == 0.0)
+    if ((input.attackEvent.position - input.defender.motion.position).norm() == 0.0)
     {
-        assert(input.defender.facing.norm() > 0.0);
-        input.attackEvent.position = input.defender.position + input.defender.facing;
+        assert(input.defender.motion.facing.norm() > 0.0);
+        input.attackEvent.position = input.defender.motion.position + input.defender.motion.facing;
     }
     input.sharedBleedMaxStacks = sharedBleedMaxStacks(state, event);
     input.randomDamageVariance = state.random.nextInt(10) - state.random.nextInt(10);
@@ -1033,8 +992,8 @@ void refreshMovementSkillProfile(
     }
 
     const auto& seed = seedIt->second;
-    const bool useUltimate = runtimeUnit.maxMp > 0
-        && runtimeUnit.mp >= runtimeUnit.maxMp
+    const bool useUltimate = runtimeUnit.vitals.maxMp > 0
+        && runtimeUnit.vitals.mp >= runtimeUnit.vitals.maxMp
         && seed.ultimateSkill.id >= 0;
     const auto skill = makeRuntimeCastSkillState(
         state,
@@ -1064,10 +1023,10 @@ void refreshMovementWorldFromRuntimeUnits(BattleRuntimeState& state)
         movementUnit->name = runtimeUnit.name;
         movementUnit->team = runtimeUnit.team;
         movementUnit->alive = runtimeUnit.alive;
-        movementUnit->canAttack = runtimeUnit.cooldown == 0;
-        if (movementUnit->speed <= 0.0 && runtimeUnit.speed > 0)
+        movementUnit->canAttack = runtimeUnit.animation.cooldown == 0;
+        if (movementUnit->speed <= 0.0 && runtimeUnit.stats.speed > 0)
         {
-            movementUnit->speed = runtimeUnit.speed;
+            movementUnit->speed = runtimeUnit.stats.speed;
         }
         refreshMovementSkillProfile(*movementUnit, runtimeUnit, state);
     }
@@ -1267,9 +1226,9 @@ BattleUnitFrameTickInput makeRuntimeUnitTickInput(
     const BattleRuntimeUnit& unit)
 {
     BattleUnitFrameTickInput input;
-    input.state.cooldown = unit.cooldown;
-    input.state.actFrame = unit.actFrame;
-    input.state.actType = unit.actType;
+    input.state.cooldown = unit.animation.cooldown;
+    input.state.actFrame = unit.animation.actFrame;
+    input.state.actType = unit.animation.actType;
     input.state.operationType = unit.operationType;
     input.state.haveAction = unit.haveAction;
     input.state.physicalPower = unit.physicalPower;
@@ -1278,7 +1237,7 @@ BattleUnitFrameTickInput makeRuntimeUnitTickInput(
     input.physicalPowerRegenIntervalFrames = 3;
     if (const auto* status = tryFindById(state.status.units, unit.id))
     {
-        input.frozen = status->frozenTimer > 0;
+        input.frozen = status->effects.frozenTimer > 0;
     }
     return input;
 }
@@ -1298,11 +1257,11 @@ void syncRescueStateFromRuntimeUnits(BattleRuntimeState& state)
         snapshot.unit.id = unit.id;
         snapshot.unit.team = unit.team;
         snapshot.unit.alive = unit.alive;
-        snapshot.unit.hp = unit.hp;
-        snapshot.unit.maxHp = unit.maxHp;
+        snapshot.unit.hp = unit.vitals.hp;
+        snapshot.unit.maxHp = unit.vitals.maxHp;
         snapshot.unit.invincible = unit.invincible;
         snapshot.unit.cell = unit.grid;
-        snapshot.position = unit.position;
+        snapshot.position = unit.motion.position;
         auto comboIt = state.combo.units.find(unit.id);
         if (comboIt != state.combo.units.end())
         {
@@ -1366,13 +1325,13 @@ BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
 {
     if (const auto* source = state.units.findUnit(input.unit.id))
     {
-        input.unit.position = source->position;
-        input.unit.facing = source->facing;
+        input.unit.position = source->motion.position;
+        input.unit.facing = source->motion.facing;
         input.unit.alive = source->alive;
         input.unit.canStartAttack = source->canAttack;
-        input.unit.mp = source->mp;
-        input.unit.maxMp = source->maxMp;
-        input.unit.speed = source->speed;
+        input.unit.mp = source->vitals.mp;
+        input.unit.maxMp = source->vitals.maxMp;
+        input.unit.speed = source->stats.speed;
         input.unit.operationCount = source->operationCount;
     }
     else if (const auto* source = tryFindById(state.world.units, input.unit.id))
@@ -1387,7 +1346,7 @@ BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
     }
     if (const auto* status = tryFindById(state.status.units, input.unit.id))
     {
-        input.unit.frozen = status->frozenTimer > 0;
+        input.unit.frozen = status->effects.frozenTimer > 0;
     }
     if (input.targetUnitId < 0 && hasCanonicalUnitStore(state))
     {
@@ -1397,7 +1356,7 @@ BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
     {
         if (target->alive)
         {
-            refreshCastTarget(input, target->id, target->position);
+            refreshCastTarget(input, target->id, target->motion.position);
         }
         else
         {
@@ -1450,13 +1409,13 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     input.config = state.action.castConfig;
     input.geometry = state.action.castGeometry;
     input.unit.id = unit.id;
-    input.unit.position = unit.position;
-    input.unit.facing = unit.facing;
+    input.unit.position = unit.motion.position;
+    input.unit.facing = unit.motion.facing;
     input.unit.alive = unit.alive;
     input.unit.canStartAttack = canStartAttack;
-    input.unit.mp = unit.mp;
-    input.unit.maxMp = unit.maxMp;
-    input.unit.speed = unit.speed;
+    input.unit.mp = unit.vitals.mp;
+    input.unit.maxMp = unit.vitals.maxMp;
+    input.unit.speed = unit.stats.speed;
     input.unit.operationCount = unit.operationCount;
     input.unit.meleeAttackReach = state.action.actionRules.meleeAttackReach;
     input.unit.dashAttackReach = state.action.actionRules.dashAttackMeleeReach;
@@ -1466,7 +1425,7 @@ BattleCastInput makeRuntimeCastInputFromSeed(
 
     if (const auto* status = tryFindById(state.status.units, unit.id))
     {
-        input.unit.frozen = status->frozenTimer > 0;
+        input.unit.frozen = status->effects.frozenTimer > 0;
     }
 
     auto comboIt = state.combo.units.find(unit.id);
@@ -1476,14 +1435,14 @@ BattleCastInput makeRuntimeCastInputFromSeed(
         input.unit.dashAttackEnabled = comboIt->second.dashAttack;
     }
 
-    input.unit.dashVelocity = unit.facing;
+    input.unit.dashVelocity = unit.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)
     {
         input.unit.dashVelocity.normTo(
             state.action.actionRules.meleeAttackHitRadius / state.action.actionRules.dashMomentumFrames);
     }
 
-    const bool ultimateReady = unit.maxMp > 0 && unit.mp >= unit.maxMp;
+    const bool ultimateReady = unit.vitals.maxMp > 0 && unit.vitals.mp >= unit.vitals.maxMp;
     const auto& selectedSeed = ultimateReady && seed.ultimateSkill.id >= 0
         ? seed.ultimateSkill
         : seed.normalSkill;
@@ -1513,7 +1472,7 @@ int rollRuntimeDashHitCount(
         return dashHitCount;
     }
 
-    const double multiHitScore = (unit.speed + selectedSkill.actProperty) / 180.0;
+    const double multiHitScore = (unit.stats.speed + selectedSkill.actProperty) / 180.0;
     if (nextRuntimeUnitRoll(state) < multiHitScore)
     {
         ++dashHitCount;
@@ -1663,8 +1622,8 @@ bool tryCommitAutoUltimate(
     unit->operationCount = actionResult.operationCount;
     if (consumeMp)
     {
-        unit->mp -= unit->maxMp;
-        applications.mpRestores.push_back({ unitId, -unit->maxMp });
+        unit->vitals.mp -= unit->vitals.maxMp;
+        applications.mpRestores.push_back({ unitId, -unit->vitals.maxMp });
     }
     return true;
 }
@@ -1763,8 +1722,8 @@ BattleActionCommitInput makePendingCastActionInput(BattleRuntimeState& state,
     BattleActionCommitInput actionInput;
     actionInput.unit.id = unit.id;
     actionInput.unit.team = unit.team;
-    actionInput.unit.position = unit.position;
-    actionInput.unit.facing = unit.facing;
+    actionInput.unit.position = unit.motion.position;
+    actionInput.unit.facing = unit.motion.facing;
     actionInput.unit.operationCount = unit.operationCount;
     actionInput.hasCast = true;
     actionInput.cast = cast;
@@ -1780,11 +1739,11 @@ BattleActionCommitInput makePendingCastActionInput(BattleRuntimeState& state,
             target.id,
             target.team,
             target.alive,
-            target.hp,
-            target.maxHp,
-            static_cast<double>(target.defence),
+            target.vitals.hp,
+            target.vitals.maxHp,
+            static_cast<double>(target.stats.defence),
             target.invincible,
-            target.position,
+            target.motion.position,
         });
     }
 
@@ -1880,8 +1839,8 @@ BattleStatusUnitState makeFallbackStatusUnit(const BattleDamageUnitState& unit)
     BattleStatusUnitState status;
     status.id = unit.id;
     status.alive = unit.alive;
-    status.hp = unit.hp;
-    status.maxHp = unit.maxHp;
+    status.hp = unit.vitals.hp;
+    status.maxHp = unit.vitals.maxHp;
     status.invincible = unit.invincible;
     return status;
 }
@@ -1893,11 +1852,8 @@ BattleDamageUnitState makeBattleDamageUnitState(
     BattleDamageUnitState damage;
     damage.id = unit.id;
     damage.alive = unit.alive;
-    damage.hp = unit.hp;
-    damage.maxHp = unit.maxHp;
-    damage.mp = unit.mp;
-    damage.maxMp = unit.maxMp;
-    damage.attack = unit.attack;
+    damage.vitals = unit.vitals;
+    damage.attack = unit.stats.attack;
     damage.invincible = unit.invincible;
     damage.shield = unit.shield;
     damage.mpBlocked = unit.mpBlocked;
@@ -1932,23 +1888,23 @@ BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit)
 {
     BattleCooldownState cooldown;
     cooldown.alive = unit.alive;
-    cooldown.cooldown = unit.cooldown;
-    cooldown.cooldownMax = unit.cooldownMax;
+    cooldown.cooldown = unit.animation.cooldown;
+    cooldown.cooldownMax = unit.animation.cooldownMax;
     cooldown.haveAction = unit.haveAction;
     cooldown.operationType = unit.operationType;
-    cooldown.actType = unit.actType;
+    cooldown.actType = unit.animation.actType;
     return cooldown;
 }
 
 void applyDamageTakenMpGain(BattleDamageTransactionResult& transaction)
 {
-    if (transaction.finalHpDamage <= 0 || transaction.defender.maxHp <= 0)
+    if (transaction.finalHpDamage <= 0 || transaction.defender.vitals.maxHp <= 0)
     {
         return;
     }
 
     const int baseGain = static_cast<int>(
-        static_cast<double>(transaction.finalHpDamage) / transaction.defender.maxHp * 75.0);
+        static_cast<double>(transaction.finalHpDamage) / transaction.defender.vitals.maxHp * 75.0);
     const int mpGain = adjustedMpRestore(
         transaction.defender.mpBlocked,
         transaction.defender.mpRecoveryBonusPct,
@@ -1958,9 +1914,9 @@ void applyDamageTakenMpGain(BattleDamageTransactionResult& transaction)
         return;
     }
 
-    const int before = transaction.defender.mp;
-    transaction.defender.mp = std::min(transaction.defender.maxMp, transaction.defender.mp + mpGain);
-    transaction.defenderDelta.mpDelta += transaction.defender.mp - before;
+    const int before = transaction.defender.vitals.mp;
+    transaction.defender.vitals.mp = std::min(transaction.defender.vitals.maxMp, transaction.defender.vitals.mp + mpGain);
+    transaction.defenderDelta.mpDelta += transaction.defender.vitals.mp - before;
 }
 
 void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamageTransactionResult& transaction)
@@ -1969,7 +1925,8 @@ void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamage
     {
         state.units.writeDamageUnit(transaction.attacker);
         state.units.writeDamageUnit(transaction.defender);
-        state.units.requireUnit(transaction.defender.id).cooldown = transaction.defenderCooldown.cooldown;
+        auto& unit = state.units.requireUnit(transaction.defender.id);
+        unit.animation.cooldown = transaction.defenderCooldown.cooldown;
     }
     if (auto* attacker = tryFindById(state.damage.unitExtras, transaction.attacker.id))
     {
@@ -1998,7 +1955,7 @@ void syncRescueDamageUnit(BattleRuntimeState& state, int unitId, int hp, int inv
     if (hasCanonicalUnitStore(state))
     {
         auto& unit = state.units.requireUnit(unitId);
-        unit.hp = hp;
+        unit.vitals.hp = hp;
         unit.invincible = invincible;
     }
 }
@@ -2261,7 +2218,7 @@ void applyRescueRepositionForDamage(
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
-    if (state.rescue.units.empty() || transaction.defender.maxHp <= 0 || !transaction.defender.alive)
+    if (state.rescue.units.empty() || transaction.defender.vitals.maxHp <= 0 || !transaction.defender.alive)
     {
         return;
     }
@@ -2275,16 +2232,16 @@ void applyRescueRepositionForDamage(
 
     auto* mutablePulled = &requireBy(state.rescue.units, transaction.defender.id, rescueSnapshotUnitId);
     mutablePulled->unit.alive = transaction.defender.alive;
-    mutablePulled->unit.hp = transaction.defender.hp;
-    mutablePulled->unit.maxHp = transaction.defender.maxHp;
+    mutablePulled->unit.hp = transaction.defender.vitals.hp;
+    mutablePulled->unit.maxHp = transaction.defender.vitals.maxHp;
     mutablePulled->unit.invincible = transaction.defender.invincible;
 
-    const int hpBefore = transaction.defender.hp - transaction.defenderDelta.hpDelta;
+    const int hpBefore = transaction.defender.vitals.hp - transaction.defenderDelta.hpDelta;
     if (attacker
         && attacker->unit.alive
         && attacker->unit.team != pulled->unit.team
-        && hpBefore * 4 > transaction.defender.maxHp
-        && transaction.defender.hp * 4 <= transaction.defender.maxHp)
+        && hpBefore * 4 > transaction.defender.vitals.maxHp
+        && transaction.defender.vitals.hp * 4 <= transaction.defender.vitals.maxHp)
     {
         tryApplyRescue(state,
                        result,
@@ -2296,8 +2253,8 @@ void applyRescueRepositionForDamage(
     }
 
     const auto& currentPulled = requireBy(state.rescue.units, transaction.defender.id, rescueSnapshotUnitId);
-    if (hpBefore * 100 > transaction.defender.maxHp * 15
-        && currentPulled.unit.hp * 100 <= transaction.defender.maxHp * 15
+    if (hpBefore * 100 > transaction.defender.vitals.maxHp * 15
+        && currentPulled.unit.hp * 100 <= transaction.defender.vitals.maxHp * 15
         && state.rescue.executeUnattendedRadius > 0.0
         && rescueUnitUnattendedByTeam(state, transaction.defender.id, 1 - currentPulled.unit.team))
     {
@@ -2423,7 +2380,7 @@ bool tryAppendFrameDamageTransaction(
     request.attackerUnitId = command.sourceUnitId;
     request.defenderUnitId = command.targetUnitId;
     request.baseDamage = command.executed
-        ? std::max(command.damage, defender->hp)
+        ? std::max(command.damage, defender->vitals.hp)
         : command.damage;
     request.preResolvedDamage = true;
     request.frozenFrames = command.frozenFrames;
@@ -2556,13 +2513,13 @@ bool applyFrameMpRestoreCommand(
         return false;
     }
 
-    const int restored = std::min(command.amount, std::max(0, unit->maxMp - unit->mp));
+    const int restored = std::min(command.amount, std::max(0, unit->vitals.maxMp - unit->vitals.mp));
     if (restored <= 0)
     {
         return true;
     }
 
-    unit->mp += restored;
+    unit->vitals.mp += restored;
     applications.mpRestores.push_back({ command.unitId, restored });
     appendStatusEventLog(logEvents, command.unitId, command.unitId, command.reason);
     return true;
@@ -2581,9 +2538,9 @@ bool applyFrameUnitHealCommand(
         return false;
     }
 
-    const int before = unit->hp;
-    unit->hp = std::min(unit->maxHp, unit->hp + command.amount);
-    const int healed = unit->hp - before;
+    const int before = unit->vitals.hp;
+    unit->vitals.hp = std::min(unit->vitals.maxHp, unit->vitals.hp + command.amount);
+    const int healed = unit->vitals.hp - before;
     if (healed <= 0)
     {
         return true;
@@ -2640,8 +2597,8 @@ bool applyFrameTempAttackBuffCommand(
 
     if (unit)
     {
-        unit->attack += command.attackBonus;
-        unit->defence += command.defenceBonus;
+        unit->stats.attack += command.attackBonus;
+        unit->stats.defence += command.defenceBonus;
     }
     if (!command.permanent && comboIt != state.combo.units.end())
     {
@@ -3240,7 +3197,7 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
         state.movementPhysics.collision.units.push_back({
             unit.id,
             unit.alive,
-            unit.position,
+            unit.motion.position,
         });
     }
 
@@ -3253,9 +3210,9 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
             movementIt = state.movementRuntime.emplace(
                 unit.id,
                 BattleMovementPhysicsState{
-                    unit.position,
-                    unit.velocity,
-                    unit.acceleration,
+                    unit.motion.position,
+                    unit.motion.velocity,
+                    unit.motion.acceleration,
                 }).first;
         }
         auto& movementRuntime = movementIt->second;
@@ -3263,12 +3220,12 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
         BattleFrameMovementPhysicsUnitResult result;
         result.unitId = unit.id;
         result.state = movementRuntime;
-        result.state.position = unit.position;
-        result.state.velocity = unit.velocity;
-        result.state.acceleration = unit.acceleration;
+        result.state.position = unit.motion.position;
+        result.state.velocity = unit.motion.velocity;
+        result.state.acceleration = unit.motion.acceleration;
         if (auto* status = tryFindById(state.status.units, unit.id))
         {
-            result.frozenFrames = status->frozenTimer;
+            result.frozenFrames = status->effects.frozenTimer;
         }
 
         if (result.frozenFrames > 0)
@@ -3276,7 +3233,7 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
             --result.frozenFrames;
             if (auto* status = tryFindById(state.status.units, unit.id))
             {
-                status->frozenTimer = result.frozenFrames;
+                status->effects.frozenTimer = result.frozenFrames;
             }
             physicsResults.push_back(std::move(result));
             continue;
@@ -3289,8 +3246,9 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
             assert(operation >= 0 && operation < static_cast<int>(state.movementPhysics.actionCastFrames.size()));
             const int dashStartFrame = state.movementPhysics.actionCastFrames[operation];
             const int dashEndFrame = dashStartFrame + state.movementPhysics.dashMomentumFrames;
-            actionDashActive = unit.actFrame >= dashStartFrame && unit.actFrame <= dashEndFrame;
-            if (unit.actFrame > dashEndFrame)
+            actionDashActive = unit.animation.actFrame >= dashStartFrame
+                && unit.animation.actFrame <= dashEndFrame;
+            if (unit.animation.actFrame > dashEndFrame)
             {
                 result.state.velocity = { 0, 0, 0 };
             }
@@ -3305,7 +3263,7 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
             return canMoveInPhysicsSnapshot(
                 state.movementPhysics.collision,
                 unit.id,
-                unit.position,
+                unit.motion.position,
                 position,
                 separationDistance);
         };
@@ -3387,9 +3345,9 @@ void writeActionStateToUnitStore(BattleRuntimeState& state, const BattleFrameAct
 {
     if (auto* unit = state.units.findUnit(result.unitId))
     {
-        unit->cooldown = result.state.cooldown;
-        unit->actFrame = result.state.actFrame;
-        unit->actType = result.state.actType;
+        unit->animation.cooldown = result.state.cooldown;
+        unit->animation.actFrame = result.state.actFrame;
+        unit->animation.actType = result.state.actType;
         unit->operationType = result.state.operationType;
         unit->haveAction = result.state.haveAction;
     }
@@ -3416,9 +3374,9 @@ int actionRecoveryFrames(const BattleRuntimeState& state, BattleOperationType op
 BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 {
     BattleUnitFrameTickState state;
-    state.cooldown = unit.cooldown;
-    state.actFrame = unit.actFrame;
-    state.actType = unit.actType;
+    state.cooldown = unit.animation.cooldown;
+    state.actFrame = unit.animation.actFrame;
+    state.actType = unit.animation.actType;
     state.operationType = unit.operationType;
     state.haveAction = unit.haveAction;
     state.physicalPower = unit.physicalPower;
@@ -3449,7 +3407,7 @@ void advanceActionFrameUnits(
                 state,
                 unit,
                 runtimePlanSeedIt->second,
-                unit.cooldown == 0,
+                unit.animation.cooldown == 0,
                 false,
                 false);
             castPlanInput = &*runtimeCastPlan;
@@ -3466,7 +3424,8 @@ void advanceActionFrameUnits(
             auto castInput = refreshedCastInput(state, movement, *castPlanInput);
             if (usingRuntimeCastPlan)
             {
-                castInput.unit.canStartAttack = castInput.unit.canStartAttack && unit.cooldown == 0;
+                castInput.unit.canStartAttack = castInput.unit.canStartAttack
+                    && unit.animation.cooldown == 0;
                 refreshRuntimeCastSkillBonuses(state, castInput);
             }
             const bool plannedUltimate = castInput.ultimateSkill.id >= 0
@@ -3609,8 +3568,8 @@ BattleFrameDamageRenderUnit makeBattleFrameDamageRenderUnit(const BattleDamageUn
 {
     return {
         unit.id,
-        unit.hp,
-        unit.mp,
+        unit.vitals.hp,
+        unit.vitals.mp,
         unit.invincible,
         unit.alive,
     };
@@ -3623,8 +3582,8 @@ BattleFrameDamageRenderApplication makeBattleFrameDamageRenderApplication(
     return {
         makeBattleFrameDamageRenderUnit(transaction.defender),
         makeBattleFrameDamageRenderUnit(transaction.attacker),
-        transaction.defenderStatus.frozenTimer,
-        transaction.defenderStatus.frozenMaxTimer,
+        transaction.defenderStatus.effects.frozenTimer,
+        transaction.defenderStatus.effects.frozenMaxTimer,
         transaction.defenderCooldown.cooldown,
         transaction.finalHpDamage,
         transaction.killed,
@@ -3769,8 +3728,8 @@ BattleFrameRenderStatusUnit makeBattleFrameRenderStatusUnit(
     return {
         status.id,
         unit.invincible,
-        status.frozenTimer,
-        status.frozenMaxTimer,
+        status.effects.frozenTimer,
+        status.effects.frozenMaxTimer,
     };
 }
 

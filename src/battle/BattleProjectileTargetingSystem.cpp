@@ -11,8 +11,8 @@ namespace KysChess::Battle
 double BattleProjectileTargetingSystem::distanceSquared(const BattleRuntimeUnit& lhs,
                                                         const BattleRuntimeUnit& rhs) const
 {
-    double dx = lhs.position.x - rhs.position.x;
-    double dy = lhs.position.y - rhs.position.y;
+    double dx = lhs.motion.position.x - rhs.motion.position.x;
+    double dy = lhs.motion.position.y - rhs.motion.position.y;
     return dx * dx + dy * dy;
 }
 
@@ -158,7 +158,7 @@ int BattleProjectileTargetingSystem::selectWeakestVulnerableEnemy(
         {
             continue;
         }
-        const double effectiveHp = unit.maxHp + unit.defence * defenseWeight;
+        const double effectiveHp = unit.vitals.maxHp + unit.stats.defence * defenseWeight;
         if (!weakest || effectiveHp < weakestEffectiveHp)
         {
             weakest = &unit;

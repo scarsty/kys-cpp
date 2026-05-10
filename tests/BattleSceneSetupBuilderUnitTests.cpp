@@ -74,14 +74,54 @@ TEST_CASE("BattleSceneSetupBuilder_BuildsSetupUnitWithoutMutatingSavedRole", "[b
     CHECK(unit.gridX == 2);
     CHECK(unit.gridY == 3);
     CHECK(unit.star == 4);
-    CHECK(unit.hp == source.MaxHP);
-    CHECK(unit.mp == 0);
+    CHECK(unit.vitals.hp == source.MaxHP);
+    CHECK(unit.vitals.mp == 0);
     CHECK(unit.physicalPower >= 90);
-    CHECK(unit.acceleration.z == -3.0f);
+    CHECK(unit.motion.acceleration.z == -3.0f);
     CHECK(source.Team == originalTeam);
     CHECK(source.Star == originalStar);
     CHECK(source.X() == originalX);
     CHECK(source.Y() == originalY);
+}
+
+TEST_CASE("BattleSceneSetupBuilder_BuildsGroupedUnitValues", "[battle][scene_setup]")
+{
+    Role source = makeSavedRole(1001);
+    source.MaxHP = 120;
+    source.MaxMP = 45;
+    source.Attack = 35;
+    source.Defence = 20;
+    source.Speed = 8;
+
+    KysChess::BattleSceneSetupBuilder::BattleSceneSetupUnitRequest request;
+    request.unitId = 0;
+    request.source = &source;
+    request.team = 0;
+    request.gridX = 2;
+    request.gridY = 3;
+    request.star = 1;
+    request.faceTowardsFallback = Towards_RightDown;
+    request.sourceOrder = 0;
+    request.positionForCell = [](int x, int y)
+    {
+        return Pointf{ static_cast<float>(x), static_cast<float>(y), 0 };
+    };
+    request.fightFramesForHeadId = testFightFrames;
+    request.magicById = noMagic;
+
+    const std::array requests{ request };
+    const auto result = KysChess::BattleSceneSetupBuilder::buildSetupUnits(requests);
+
+    REQUIRE(result.units.size() == 1);
+    const auto& unit = result.units[0];
+    CHECK(unit.vitals.maxHp == 120);
+    CHECK(unit.vitals.hp == 120);
+    CHECK(unit.stats.attack == 35);
+    CHECK(unit.stats.defence == 20);
+    CHECK(unit.stats.speed == 8);
+    CHECK(unit.motion.position.x == 2.0f);
+    CHECK(unit.motion.position.y == 3.0f);
+    CHECK(unit.animation.actType == -1);
 }
 
 TEST_CASE("BattleSceneSetupBuilder_AssignsDenseUnitsInProvidedOrder", "[battle][scene_setup]")

@@ -7,6 +7,7 @@
 #include "BattleOperation.h"
 #include "BattlePresentation.h"
 #include "BattleProjectileTargetingSystem.h"
+#include "BattleUnitValues.h"
 
 #include <string>
 #include <variant>
@@ -23,22 +24,14 @@ struct BattleHitUnitSnapshot
     int id = -1;
     int team = 0;
     bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    int mp = 0;
-    int maxMp = 0;
-    int attack = 0;
-    double defence = 0.0;
-    int speed = 0;
+    BattleUnitVitals vitals;
+    BattleUnitStats stats;
+    BattleUnitMotion motion;
+    BattleUnitAnimationState animation;
     int invincible = 0;
     int hurtFrame = 0;
-    int cooldown = 0;
-    int cooldownMax = 0;
     bool haveAction = false;
     BattleOperationType operationType = BattleOperationType::None;
-    int actType = -1;
-    Pointf position;
-    Pointf facing;
 };
 
 struct BattleHitSkillSnapshot

@@ -13,13 +13,13 @@ BattleRuntimeUnit unit(int id, int team, int hp, int mp, int shield = 0)
     state.id = id;
     state.team = team;
     state.alive = true;
-    state.hp = hp;
-    state.maxHp = 100;
-    state.mp = mp;
-    state.maxMp = 100;
-    state.cooldown = 50;
+    state.vitals.hp = hp;
+    state.vitals.maxHp = 100;
+    state.vitals.mp = mp;
+    state.vitals.maxMp = 100;
+    state.animation.cooldown = 50;
     state.shield = shield;
-    state.position = { static_cast<float>(id * 10.0), 0.0f, 0.0f };
+    state.motion.position = { static_cast<float>(id * 10.0), 0.0f, 0.0f };
     return state;
 }
 
@@ -48,10 +48,10 @@ TEST_CASE("BattleTeamEffectSystem_TeamHeal_HealsAliveSourceTeamOnly", "[battle][
     CHECK(events[0].value == 30);
     CHECK(events[1].targetUnitId == 1);
     CHECK(events[1].value == 5);
-    CHECK(unitById(units, 0).hp == 70);
-    CHECK(unitById(units, 1).hp == 100);
-    CHECK(unitById(units, 2).hp == 20);
-    CHECK(unitById(units, 3).hp == 10);
+    CHECK(unitById(units, 0).vitals.hp == 70);
+    CHECK(unitById(units, 1).vitals.hp == 100);
+    CHECK(unitById(units, 2).vitals.hp == 20);
+    CHECK(unitById(units, 3).vitals.hp == 10);
 }
 
 TEST_CASE("BattleTeamEffectSystem_TeamMp_RespectsBlockBonusAndCap", "[battle][team_effect][unit]")
@@ -69,10 +69,10 @@ TEST_CASE("BattleTeamEffectSystem_TeamMp_RespectsBlockBonusAndCap", "[battle][te
     auto events = BattleTeamEffectSystem().applyTeamMp(units, 0, 20);
 
     REQUIRE(events.size() == 2);
-    CHECK(unitById(units, 0).mp == 100);
-    CHECK(unitById(units, 1).mp == 100);
-    CHECK(unitById(units, 2).mp == 40);
-    CHECK(unitById(units, 3).mp == 20);
+    CHECK(unitById(units, 0).vitals.mp == 100);
+    CHECK(unitById(units, 1).vitals.mp == 100);
+    CHECK(unitById(units, 2).vitals.mp == 40);
+    CHECK(unitById(units, 3).vitals.mp == 20);
     CHECK(events[0].value == 20);
     CHECK(events[1].value == 30);
 }
@@ -108,10 +108,10 @@ TEST_CASE("BattleTeamEffectSystem_HealAura_UsesRadiusAndCooldownReduction", "[ba
         unit(2, 0, 40, 0),
         unit(3, 1, 10, 0),
     };
-    units.units[0].position.x = 0.0f;
-    units.units[1].position.x = 20.0f;
-    units.units[2].position.x = 200.0f;
-    units.units[3].position.x = 20.0f;
+    units.units[0].motion.position.x = 0.0f;
+    units.units[1].motion.position.x = 20.0f;
+    units.units[2].motion.position.x = 200.0f;
+    units.units[3].motion.position.x = 20.0f;
 
     auto events = BattleTeamEffectSystem().applyHealAura(units, 0, 5, 10, 50.0, 25);
 
@@ -122,10 +122,10 @@ TEST_CASE("BattleTeamEffectSystem_HealAura_UsesRadiusAndCooldownReduction", "[ba
     CHECK(events[1].type == BattleTeamEffectEventType::CooldownReduced);
     CHECK(events[1].targetUnitId == 1);
     CHECK(events[1].value == 13);
-    CHECK(unitById(units, 1).hp == 65);
-    CHECK(unitById(units, 1).cooldown == 37);
-    CHECK(unitById(units, 2).hp == 40);
-    CHECK(unitById(units, 3).hp == 10);
+    CHECK(unitById(units, 1).vitals.hp == 65);
+    CHECK(unitById(units, 1).animation.cooldown == 37);
+    CHECK(unitById(units, 2).vitals.hp == 40);
+    CHECK(unitById(units, 3).vitals.hp == 10);
 }
 
 TEST_CASE("BattleTeamEffectSystem_SelfHeal_EmitsOnlyWhenHpChanges", "[battle][team_effect][unit]")
@@ -138,9 +138,9 @@ TEST_CASE("BattleTeamEffectSystem_SelfHeal_EmitsOnlyWhenHpChanges", "[battle][te
     auto healed = BattleTeamEffectSystem().applySelfHeal(units, 0, 10);
     REQUIRE(healed.size() == 1);
     CHECK(healed[0].value == 10);
-    CHECK(unitById(units, 0).hp == 90);
+    CHECK(unitById(units, 0).vitals.hp == 90);
 
-    units.units[0].hp = 100;
+    units.units[0].vitals.hp = 100;
     auto full = BattleTeamEffectSystem().applySelfHeal(units, 0, 10);
     CHECK(full.empty());
 }

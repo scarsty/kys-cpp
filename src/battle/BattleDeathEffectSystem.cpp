@@ -46,8 +46,8 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
             }
             assert(effect.value > 0);
 
-            ally.attack += effect.value;
-            ally.defence += effect.value;
+            ally.stats.attack += effect.value;
+            ally.stats.defence += effect.value;
             events.push_back({
                 BattleDeathEffectEventType::AllyStatBoost,
                 dead.id,
@@ -66,16 +66,16 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
             }
             assert(effect.value > 0);
 
-            int before = ally.hp;
-            int heal = std::max(1, ally.maxHp * effect.value / 100);
-            ally.hp = std::min(ally.maxHp, ally.hp + heal);
-            if (ally.hp > before)
+            int before = ally.vitals.hp;
+            int heal = std::max(1, ally.vitals.maxHp * effect.value / 100);
+            ally.vitals.hp = std::min(ally.vitals.maxHp, ally.vitals.hp + heal);
+            if (ally.vitals.hp > before)
             {
                 events.push_back({
                     BattleDeathEffectEventType::DeathMedicalHeal,
                     dead.id,
                     ally.id,
-                    ally.hp - before,
+                    ally.vitals.hp - before,
                     effect.sourceComboId,
                 });
             }
@@ -103,7 +103,7 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
             }
 
             int before = ally.shield;
-            ally.shield += ally.maxHp * allyExtras.shieldPctMaxHp / 100;
+            ally.shield += ally.vitals.maxHp * allyExtras.shieldPctMaxHp / 100;
             if (ally.shield > before)
             {
                 events.push_back({

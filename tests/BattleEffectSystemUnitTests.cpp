@@ -28,11 +28,11 @@ BattleUnitStore effectUnits()
         unit.id = id;
         unit.team = team;
         unit.alive = alive;
-        unit.hp = hp;
-        unit.maxHp = 100;
-        unit.mp = mp;
-        unit.maxMp = 100;
-        unit.cooldown = cooldown;
+        unit.vitals.hp = hp;
+        unit.vitals.maxHp = 100;
+        unit.vitals.mp = mp;
+        unit.vitals.maxMp = 100;
+        unit.animation.cooldown = cooldown;
         units.units.push_back(unit);
     }
     return units;
@@ -117,8 +117,8 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_MutateOnlyResolvedTargets", "[
         CHECK(commands[0].type == BattleEffectCommandType::Heal);
         CHECK(commands[0].targetUnitId == 3);
         CHECK(commands[0].value == 70);
-        CHECK(unitById(units, 3).hp == 100);
-        CHECK(unitById(units, 1).hp == 50);
+        CHECK(unitById(units, 3).vitals.hp == 100);
+        CHECK(unitById(units, 1).vitals.hp == 50);
     }
 
     SECTION("invincibility uses max remaining frames")
@@ -139,16 +139,16 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_MutateOnlyResolvedTargets", "[
     {
         auto units = effectUnits();
         std::map<int, int> activationCounts;
-        units.units[1].cooldown = 100;
-        units.units[2].cooldown = 0;
+        units.units[1].animation.cooldown = 100;
+        units.units[2].animation.cooldown = 0;
         BattleEffectDispatcher dispatcher(registry);
         dispatcher.addEffect(effect(12, BattleHook::AfterHeal, BattleEffectTarget::SourceTeam, "冷卻百分比修正", 25));
 
         auto commands = dispatcher.dispatch(units, activationCounts, { BattleHook::AfterHeal, 1, 3 });
         REQUIRE(commands.size() == 1);
         CHECK(commands[0].targetUnitId == 1);
-        CHECK(unitById(units, 1).cooldown == 75);
-        CHECK(unitById(units, 2).cooldown == 0);
+        CHECK(unitById(units, 1).animation.cooldown == 75);
+        CHECK(unitById(units, 2).animation.cooldown == 0);
     }
 }
 
@@ -184,7 +184,7 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_RestoreResourceAndEmitDelta", 
 {
     auto units = effectUnits();
     std::map<int, int> activationCounts;
-    units.units[1].mp = 85;
+    units.units[1].vitals.mp = 85;
     BattleEffectRegistry registry;
     BattleEffectDispatcher dispatcher(registry);
     dispatcher.addEffect(effect(40, BattleHook::AfterHeal, BattleEffectTarget::Source, "回內力", 30));
@@ -195,7 +195,7 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_RestoreResourceAndEmitDelta", 
     CHECK(commands[0].sourceUnitId == 1);
     CHECK(commands[0].targetUnitId == 1);
     CHECK(commands[0].value == 15);
-    CHECK(unitById(units, 1).mp == 100);
+    CHECK(unitById(units, 1).vitals.mp == 100);
 }
 
 TEST_CASE("BattleEffectDispatcher_HookAndActivationLimit_AreDeterministic", "[battle][effects][unit]")
@@ -231,27 +231,27 @@ TEST_CASE("BattleStatusSystem_PoisonBleedAndTimers_TickPerUnit", "[battle][statu
     unit.hp = 80;
     unit.maxHp = 200;
     unit.attack = 120;
-    unit.poisonTimer = 2;
-    unit.poisonTickPct = 10;
-    unit.poisonSourceId = 1;
-    unit.bleedStacks = 3;
-    unit.bleedTimer = 1;
-    unit.bleedSourceId = 2;
-    unit.mpBlockTimer = 3;
-    unit.damageImmunityAfterFrames = 4;
-    unit.damageImmunityDuration = 11;
-    unit.damageImmunityTimer = 1;
-    unit.tempAttackBuffs.push_back({ 15, 1 });
-    unit.damageReduceDebuffs.push_back({ 1, 30 });
+    unit.effects.poisonTimer = 2;
+    unit.effects.poisonTickPct = 10;
+    unit.effects.poisonSourceId = 1;
+    unit.effects.bleedStacks = 3;
+    unit.effects.bleedTimer = 1;
+    unit.effects.bleedSourceId = 2;
+    unit.effects.mpBlockTimer = 3;
+    unit.effects.damageImmunityAfterFrames = 4;
+    unit.effects.damageImmunityDuration = 11;
+    unit.effects.damageImmunityTimer = 1;
+    unit.effects.tempAttackBuffs.push_back({ 15, 1 });
+    unit.effects.damageReduceDebuffs.push_back({ 1, 30 });
 
     auto result = BattleStatusSystem({ 30 }).tick(unit);
 
     CHECK(unit.attack == 105);
-    CHECK(unit.poisonTimer == 1);
-    CHECK(unit.bleedTimer == 10);
-    CHECK(unit.bleedStacks == 3);
-    CHECK(unit.mpBlockTimer == 2);
-    CHECK(unit.damageReduceDebuffs.empty());
+    CHECK(unit.effects.poisonTimer == 1);
+    CHECK(unit.effects.bleedTimer == 10);
+    CHECK(unit.effects.bleedStacks == 3);
+    CHECK(unit.effects.mpBlockTimer == 2);
+    CHECK(unit.effects.damageReduceDebuffs.empty());
     CHECK(unit.invincible == 11);
 
     std::map<BattleStatusEventType, int> values;
@@ -271,12 +271,12 @@ TEST_CASE("BattleStatusSystem_DeadUnitsDoNotTickOrEmit", "[battle][status][unit]
     unit.id = 8;
     unit.alive = false;
     unit.attack = 100;
-    unit.bleedStacks = 5;
-    unit.bleedTimer = 0;
-    unit.tempAttackBuffs.push_back({ 10, 1 });
+    unit.effects.bleedStacks = 5;
+    unit.effects.bleedTimer = 0;
+    unit.effects.tempAttackBuffs.push_back({ 10, 1 });
 
     auto result = BattleStatusSystem({ 30 }).tick(unit);
     CHECK(result.events.empty());
     CHECK(unit.attack == 100);
-    CHECK(unit.bleedStacks == 5);
+    CHECK(unit.effects.bleedStacks == 5);
 }

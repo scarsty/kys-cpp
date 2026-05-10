@@ -7,40 +7,12 @@
 #include <ranges>
 #include <utility>
 
-void syncBattleSceneUnitSharedValueObjects(BattleSceneUnit& unit)
-{
-    unit.vitals = {
-        unit.hp,
-        unit.maxHp,
-        unit.mp,
-        unit.maxMp,
-    };
-    unit.stats = {
-        unit.attack,
-        unit.defence,
-        unit.speed,
-    };
-    unit.motion = {
-        unit.position,
-        unit.velocity,
-        unit.acceleration,
-        unit.realTowards,
-    };
-    unit.animation = {
-        unit.cooldown,
-        unit.cooldownMax,
-        unit.actFrame,
-        unit.actType,
-    };
-}
-
 void BattleSceneUnitStore::initialize(std::vector<BattleSceneUnit> units)
 {
     units_ = std::move(units);
     for (std::size_t index = 0; index < units_.size(); ++index)
     {
         assert(units_[index].unitId == static_cast<int>(index));
-        syncBattleSceneUnitSharedValueObjects(units_[index]);
     }
 }
 
@@ -69,10 +41,8 @@ void BattleSceneUnitStore::swapSetupUnitPositions(
     auto& second = requireUnit(secondUnitId);
     std::swap(first.gridX, second.gridX);
     std::swap(first.gridY, second.gridY);
-    first.position = positionForCell(first.gridX, first.gridY);
-    second.position = positionForCell(second.gridX, second.gridY);
-    syncBattleSceneUnitSharedValueObjects(first);
-    syncBattleSceneUnitSharedValueObjects(second);
+    first.motion.position = positionForCell(first.gridX, first.gridY);
+    second.motion.position = positionForCell(second.gridX, second.gridY);
 }
 
 KysChess::Battle::BattleSetupPlacementInput BattleSceneUnitStore::makeSetupPlacementInput() const
@@ -123,7 +93,7 @@ Pointf BattleSceneUnitStore::facingTowardNearestEnemy(int unitId) const
         {
             continue;
         }
-        auto delta = candidate.position - source.position;
+        auto delta = candidate.motion.position - source.motion.position;
         const auto distance = delta.norm();
         if (!nearest || distance < nearestDistance)
         {
@@ -133,10 +103,10 @@ Pointf BattleSceneUnitStore::facingTowardNearestEnemy(int unitId) const
     }
     if (!nearest)
     {
-        return source.realTowards;
+        return source.motion.facing;
     }
 
-    auto facing = nearest->position - source.position;
+    auto facing = nearest->motion.position - source.motion.position;
     facing.z = 0;
     facing.normTo(1.0f);
     return facing;
@@ -178,16 +148,16 @@ BattlePostBattleSummary BattleSceneUnitStore::makePostBattleSummary(
         unit.identity = source.identity;
         unit.star = source.star;
         unit.chessInstanceId = source.chessInstanceId;
-        unit.hp = source.maxHp;
-        unit.maxHp = source.maxHp;
-        unit.attack = source.attack;
-        unit.defence = source.defence;
-        unit.speed = source.speed;
+        unit.hp = source.vitals.maxHp;
+        unit.maxHp = source.vitals.maxHp;
+        unit.attack = source.stats.attack;
+        unit.defence = source.stats.defence;
+        unit.speed = source.stats.speed;
         unit.weaponId = source.weaponId;
         unit.armorId = source.armorId;
         unit.skillNames = source.skillNames;
-        unit.hpRemaining = source.hp;
-        unit.maxHpRemaining = source.maxHp;
+        unit.hpRemaining = source.vitals.hp;
+        unit.maxHpRemaining = source.vitals.maxHp;
         unit.dead = !source.alive;
         unit.cancelDmg = tracker.cancelDamageForUnit(source.unitId);
         target.push_back(std::move(unit));

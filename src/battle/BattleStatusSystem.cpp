@@ -30,18 +30,18 @@ struct RuntimeStatusTickTarget
 
     int id() const { return status.id; }
     bool alive() const { return unit.alive; }
-    int hp() const { return unit.hp; }
-    int maxHp() const { return unit.maxHp; }
-    int& attack() { return unit.attack; }
+    int hp() const { return unit.vitals.hp; }
+    int maxHp() const { return unit.vitals.maxHp; }
+    int& attack() { return unit.stats.attack; }
     int& invincible() { return unit.invincible; }
-    void syncMpBlocked() { unit.mpBlocked = status.mpBlockTimer > 0; }
+    void syncMpBlocked() { unit.mpBlocked = status.effects.mpBlockTimer > 0; }
 };
 
 template <typename Target>
 void tickTempAttackBuffs(Target& target, BattleStatusTickResult& result)
 {
-    auto& status = target.status;
-    for (auto it = status.tempAttackBuffs.begin(); it != status.tempAttackBuffs.end();)
+    auto& effects = target.status.effects;
+    for (auto it = effects.tempAttackBuffs.begin(); it != effects.tempAttackBuffs.end();)
     {
         if (it->remainingFrames > 0)
         {
@@ -58,7 +58,7 @@ void tickTempAttackBuffs(Target& target, BattleStatusTickResult& result)
                 it->attackBonus,
                 "臨時攻擊到期",
             });
-            it = status.tempAttackBuffs.erase(it);
+            it = effects.tempAttackBuffs.erase(it);
         }
         else
         {
@@ -73,28 +73,28 @@ void tickPoison(
     Target& target,
     BattleStatusTickResult& result)
 {
-    auto& status = target.status;
-    if (status.poisonTimer <= 0)
+    auto& effects = target.status.effects;
+    if (effects.poisonTimer <= 0)
     {
         return;
     }
 
-    --status.poisonTimer;
+    --effects.poisonTimer;
     if (config.poisonDamageIntervalFrames > 0 && config.frame % config.poisonDamageIntervalFrames == 0)
     {
-        int damage = std::max(1, target.hp() * status.poisonTickPct / 100);
+        int damage = std::max(1, target.hp() * effects.poisonTickPct / 100);
         result.events.push_back({
             BattleStatusEventType::PoisonDamage,
             target.id(),
-            status.poisonSourceId,
+            effects.poisonSourceId,
             damage,
             "中毒",
         });
     }
 
-    if (status.poisonTimer <= 0)
+    if (effects.poisonTimer <= 0)
     {
-        status.poisonSourceId = -1;
+        effects.poisonSourceId = -1;
     }
 }
 
@@ -104,48 +104,48 @@ void tickBleed(
     Target& target,
     BattleStatusTickResult& result)
 {
-    auto& status = target.status;
-    if (status.bleedStacks <= 0)
+    auto& effects = target.status.effects;
+    if (effects.bleedStacks <= 0)
     {
-        status.bleedTimer = 0;
-        status.bleedSourceId = -1;
+        effects.bleedTimer = 0;
+        effects.bleedSourceId = -1;
         return;
     }
 
-    if (status.bleedTimer > 0)
+    if (effects.bleedTimer > 0)
     {
-        --status.bleedTimer;
+        --effects.bleedTimer;
     }
 
-    if (status.bleedTimer <= 0)
+    if (effects.bleedTimer <= 0)
     {
-        int damage = std::max(1, target.maxHp() * status.bleedStacks / 100);
+        int damage = std::max(1, target.maxHp() * effects.bleedStacks / 100);
         result.events.push_back({
             BattleStatusEventType::BleedDamage,
             target.id(),
-            status.bleedSourceId,
+            effects.bleedSourceId,
             damage,
             "流血",
         });
-        status.bleedTimer = config.bleedDamageIntervalFrames;
+        effects.bleedTimer = config.bleedDamageIntervalFrames;
     }
 }
 
 template <typename Target>
 void tickSimpleTimers(Target& target)
 {
-    auto& status = target.status;
-    if (status.mpBlockTimer > 0)
+    auto& effects = target.status.effects;
+    if (effects.mpBlockTimer > 0)
     {
-        --status.mpBlockTimer;
+        --effects.mpBlockTimer;
     }
     target.syncMpBlocked();
 
-    for (auto it = status.damageReduceDebuffs.begin(); it != status.damageReduceDebuffs.end();)
+    for (auto it = effects.damageReduceDebuffs.begin(); it != effects.damageReduceDebuffs.end();)
     {
         if (--it->remainingFrames <= 0)
         {
-            it = status.damageReduceDebuffs.erase(it);
+            it = effects.damageReduceDebuffs.erase(it);
         }
         else
         {
@@ -157,29 +157,29 @@ void tickSimpleTimers(Target& target)
 template <typename Target>
 void tickPeriodicInvincibility(Target& target, BattleStatusTickResult& result)
 {
-    auto& status = target.status;
-    if (status.damageImmunityAfterFrames <= 0)
+    auto& effects = target.status.effects;
+    if (effects.damageImmunityAfterFrames <= 0)
     {
         return;
     }
 
-    if (status.damageImmunityTimer > 0)
+    if (effects.damageImmunityTimer > 0)
     {
-        --status.damageImmunityTimer;
+        --effects.damageImmunityTimer;
     }
 
-    if (status.damageImmunityTimer <= 0)
+    if (effects.damageImmunityTimer <= 0)
     {
         int before = target.invincible();
-        target.invincible() = std::max(target.invincible(), status.damageImmunityDuration);
-        status.damageImmunityTimer = status.damageImmunityAfterFrames;
+        target.invincible() = std::max(target.invincible(), effects.damageImmunityDuration);
+        effects.damageImmunityTimer = effects.damageImmunityAfterFrames;
         if (target.invincible() > before)
         {
             result.events.push_back({
                 BattleStatusEventType::InvincibilityGranted,
                 target.id(),
                 target.id(),
-                status.damageImmunityDuration,
+                effects.damageImmunityDuration,
                 "周期免傷",
             });
         }
@@ -256,49 +256,17 @@ BattleStatusUnitState makeBattleStatusUnitState(const BattleStatusRuntimeUnit& s
     BattleStatusUnitState frame;
     frame.id = status.id;
     frame.alive = unit.alive;
-    frame.hp = unit.hp;
-    frame.maxHp = unit.maxHp;
-    frame.attack = unit.attack;
+    frame.hp = unit.vitals.hp;
+    frame.maxHp = unit.vitals.maxHp;
+    frame.attack = unit.stats.attack;
     frame.invincible = unit.invincible;
-    frame.poisonTimer = status.poisonTimer;
-    frame.poisonTickPct = status.poisonTickPct;
-    frame.poisonSourceId = status.poisonSourceId;
-    frame.bleedStacks = status.bleedStacks;
-    frame.bleedTimer = status.bleedTimer;
-    frame.bleedSourceId = status.bleedSourceId;
-    frame.frozenTimer = status.frozenTimer;
-    frame.frozenMaxTimer = status.frozenMaxTimer;
-    frame.freezeReductionPct = status.freezeReductionPct;
-    frame.shieldFreezeResPct = status.shieldFreezeResPct;
-    frame.controlImmunityFrames = status.controlImmunityFrames;
-    frame.mpBlockTimer = status.mpBlockTimer;
-    frame.damageImmunityAfterFrames = status.damageImmunityAfterFrames;
-    frame.damageImmunityDuration = status.damageImmunityDuration;
-    frame.damageImmunityTimer = status.damageImmunityTimer;
-    frame.tempAttackBuffs = status.tempAttackBuffs;
-    frame.damageReduceDebuffs = status.damageReduceDebuffs;
+    frame.effects = status.effects;
     return frame;
 }
 
 void writeBattleStatusRuntimeUnit(BattleStatusRuntimeUnit& status, const BattleStatusUnitState& unit)
 {
-    status.poisonTimer = unit.poisonTimer;
-    status.poisonTickPct = unit.poisonTickPct;
-    status.poisonSourceId = unit.poisonSourceId;
-    status.bleedStacks = unit.bleedStacks;
-    status.bleedTimer = unit.bleedTimer;
-    status.bleedSourceId = unit.bleedSourceId;
-    status.frozenTimer = unit.frozenTimer;
-    status.frozenMaxTimer = unit.frozenMaxTimer;
-    status.freezeReductionPct = unit.freezeReductionPct;
-    status.shieldFreezeResPct = unit.shieldFreezeResPct;
-    status.controlImmunityFrames = unit.controlImmunityFrames;
-    status.mpBlockTimer = unit.mpBlockTimer;
-    status.damageImmunityAfterFrames = unit.damageImmunityAfterFrames;
-    status.damageImmunityDuration = unit.damageImmunityDuration;
-    status.damageImmunityTimer = unit.damageImmunityTimer;
-    status.tempAttackBuffs = unit.tempAttackBuffs;
-    status.damageReduceDebuffs = unit.damageReduceDebuffs;
+    status.effects = unit.effects;
 }
 
 }  // namespace KysChess::Battle

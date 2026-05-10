@@ -24,16 +24,21 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applySelfHeal(BattleU
     assert(pctHeal > 0);
 
     auto& source = unitById(units, sourceUnitId);
-    int amount = source.maxHp * pctHeal / 100;
+    int amount = source.vitals.maxHp * pctHeal / 100;
     assert(amount > 0);
 
-    int before = source.hp;
-    source.hp = std::min(source.maxHp, source.hp + amount);
-    if (source.hp <= before)
+    int before = source.vitals.hp;
+    source.vitals.hp = std::min(source.vitals.maxHp, source.vitals.hp + amount);
+    if (source.vitals.hp <= before)
     {
         return {};
     }
-    return { { BattleTeamEffectEventType::Heal, sourceUnitId, source.id, source.hp - before, before, source.hp } };
+    return { { BattleTeamEffectEventType::Heal,
+               sourceUnitId,
+               source.id,
+               source.vitals.hp - before,
+               before,
+               source.vitals.hp } };
 }
 
 std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleUnitStore& units,
@@ -52,13 +57,18 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleU
             continue;
         }
 
-        int amount = flatHeal + unit.maxHp * pctHeal / 100;
+        int amount = flatHeal + unit.vitals.maxHp * pctHeal / 100;
         assert(amount > 0);
-        int before = unit.hp;
-        unit.hp = std::min(unit.maxHp, unit.hp + amount);
-        if (unit.hp > before)
+        int before = unit.vitals.hp;
+        unit.vitals.hp = std::min(unit.vitals.maxHp, unit.vitals.hp + amount);
+        if (unit.vitals.hp > before)
         {
-            events.push_back({ BattleTeamEffectEventType::Heal, sourceUnitId, unit.id, unit.hp - before, before, unit.hp });
+            events.push_back({ BattleTeamEffectEventType::Heal,
+                               sourceUnitId,
+                               unit.id,
+                               unit.vitals.hp - before,
+                               before,
+                               unit.vitals.hp });
         }
     }
     return events;
@@ -80,11 +90,16 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleUni
         }
 
         int restore = adjustedMpRestore(unit.mpBlocked, unit.mpRecoveryBonusPct, amount);
-        int before = unit.mp;
-        unit.mp = std::min(unit.maxMp, unit.mp + restore);
-        if (unit.mp > before)
+        int before = unit.vitals.mp;
+        unit.vitals.mp = std::min(unit.vitals.maxMp, unit.vitals.mp + restore);
+        if (unit.vitals.mp > before)
         {
-            events.push_back({ BattleTeamEffectEventType::MpRestore, sourceUnitId, unit.id, unit.mp - before, before, unit.mp });
+            events.push_back({ BattleTeamEffectEventType::MpRestore,
+                               sourceUnitId,
+                               unit.id,
+                               unit.vitals.mp - before,
+                               before,
+                               unit.vitals.mp });
         }
     }
     return events;
@@ -137,36 +152,42 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyHealAura(BattleU
             continue;
         }
 
-        double dx = unit.position.x - source.position.x;
-        double dy = unit.position.y - source.position.y;
+        double dx = unit.motion.position.x - source.motion.position.x;
+        double dy = unit.motion.position.y - source.motion.position.y;
         if (dx * dx + dy * dy > radiusSquared)
         {
             continue;
         }
 
-        int amount = flatHeal + unit.maxHp * pctHeal / 100;
+        int amount = flatHeal + unit.vitals.maxHp * pctHeal / 100;
         assert(amount > 0);
-        int hpBefore = unit.hp;
-        unit.hp = std::min(unit.maxHp, unit.hp + amount);
-        if (unit.hp > hpBefore)
+        int hpBefore = unit.vitals.hp;
+        unit.vitals.hp = std::min(unit.vitals.maxHp, unit.vitals.hp + amount);
+        if (unit.vitals.hp > hpBefore)
         {
-            events.push_back({ BattleTeamEffectEventType::Heal, sourceUnitId, unit.id, unit.hp - hpBefore, hpBefore, unit.hp });
+            events.push_back({ BattleTeamEffectEventType::Heal,
+                               sourceUnitId,
+                               unit.id,
+                               unit.vitals.hp - hpBefore,
+                               hpBefore,
+                               unit.vitals.hp });
         }
 
-        if (healedCooldownReducePct > 0 && unit.cooldown > 0)
+        if (healedCooldownReducePct > 0 && unit.animation.cooldown > 0)
         {
-            int cooldownBefore = unit.cooldown;
-            unit.cooldown = static_cast<int>(unit.cooldown * (1.0 - healedCooldownReducePct / 100.0));
-            unit.cooldown = std::max(0, unit.cooldown);
-            if (unit.cooldown < cooldownBefore)
+            int cooldownBefore = unit.animation.cooldown;
+            unit.animation.cooldown = static_cast<int>(
+                unit.animation.cooldown * (1.0 - healedCooldownReducePct / 100.0));
+            unit.animation.cooldown = std::max(0, unit.animation.cooldown);
+            if (unit.animation.cooldown < cooldownBefore)
             {
                 events.push_back({
                     BattleTeamEffectEventType::CooldownReduced,
                     sourceUnitId,
                     unit.id,
-                    cooldownBefore - unit.cooldown,
+                    cooldownBefore - unit.animation.cooldown,
                     cooldownBefore,
-                    unit.cooldown,
+                    unit.animation.cooldown,
                 });
             }
         }
