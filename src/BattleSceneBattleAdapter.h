@@ -38,13 +38,14 @@ struct BattleSetupSkillSnapshot
     int magicPower = 0;
 };
 
-struct BattleSetupRoleSnapshot
+struct BattleSetupUnitInput
 {
     int unitId = -1;
     int realRoleId = -1;
     std::string name;
     int headId = -1;
     int team = -1;
+    int sourceOrder = 0;
     bool alive = true;
     int gridX = 0;
     int gridY = 0;
@@ -55,6 +56,10 @@ struct BattleSetupRoleSnapshot
     Pointf facing;
     int star = 1;
     int cost = 0;
+    int weaponId = -1;
+    int armorId = -1;
+    int chessInstanceId = -1;
+    int fightsWon = 0;
     int hp = 0;
     int maxHp = 0;
     int mp = 0;
@@ -89,11 +94,9 @@ struct BattleSetupRoleSnapshot
 
 struct BattleRuntimeSceneSetupInput
 {
-    std::vector<BattleSetupRoleSnapshot> roles;
+    std::vector<BattleSetupUnitInput> units;
     std::map<int, RoleComboState>* comboStates = nullptr;
     std::vector<Battle::BattleTerrainCell> terrainCells;
-    std::vector<Battle::BattleSetupRosterUnit> allyRoster;
-    std::vector<Battle::BattleSetupRosterUnit> enemyRoster;
     std::vector<int> obtainedNeigongMagicIds;
     std::vector<std::pair<int, int>> cloneSpawnCells;
     std::vector<Battle::BattleRescueCellSnapshot> rescueCells;

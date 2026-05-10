@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentation.h"
 #include "battle/BattleRuntimeSession.h"
@@ -8,6 +8,7 @@
 #include "BattleScene.h"
 #include "BattleSceneBattleAdapter.h"
 #include "BattleSceneMapState.h"
+#include "BattleSceneSetupBuilder.h"
 #include "BattleStatsView.h"
 #include "BattleScenePresentationPlayer.h"
 #include "BattleSceneUnitStore.h"
@@ -55,18 +56,6 @@ public:
 
 protected:
     struct MovementRuntime;
-    struct BattleSceneInitialRoleState
-    {
-        int hp = 0;
-        int mp = 0;
-        int physicalPower = 0;
-        int faceTowards = Towards_None;
-        Pointf position;
-        Pointf realTowards;
-        Pointf acceleration;
-        std::array<int, 5> fightFrames{};
-    };
-
     struct SceneBattleFrameInput
     {
         bool shouldAdvance = true;
@@ -101,15 +90,6 @@ protected:
     void applyCoreDamageTransactions(const KysChess::Battle::BattleFrameResult& frameResult);
     void applyCoreTeamEffectState(const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events);
     void applyCoreFrameApplications(const KysChess::Battle::BattleFrameApplications& applications);
-    int assignSetupUnitId();
-    int realRoleIdForRole(const Role& role) const;
-    BattleSceneInitialRoleState makeInitialRoleState(
-        Role& role,
-        const std::vector<Role*>& opposingRoles);
-    KysChess::BattleSceneBattleAdapter::BattleSetupRoleSnapshot makeSetupRoleSnapshot(
-        int unitId,
-        Role& role,
-        const BattleSceneInitialRoleState& initialState) const;
     void beginPresentationFrame();
     void publishPresentationFrame();
     Color calculateHurtFlashColor(int unitId, const Color& baseColor) const;
@@ -142,10 +122,7 @@ protected:
     std::vector<int> enemy_weapons_;
     std::vector<int> enemy_armors_;
     std::vector<std::pair<int, int>> clone_spawn_positions_;
-    std::vector<KysChess::BattleSceneBattleAdapter::BattleSetupRoleSnapshot> setup_role_snapshots_;
-    std::vector<KysChess::Battle::BattleSetupRosterUnit> setup_ally_roster_;
-    std::vector<KysChess::Battle::BattleSetupRosterUnit> setup_enemy_roster_;
-    int next_setup_unit_id_ = 0;
+    std::vector<KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput> setup_units_;
     std::unordered_map<int, int> hurt_flash_timers_;
     BattleSceneUnitStore scene_units_;
     std::deque<BattleAttackEffect> attack_effects_;

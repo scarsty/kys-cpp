@@ -1,9 +1,10 @@
-#include "BattleSceneBattleAdapter.h"
 #include "BattleSceneUnitStore.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <format>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -34,12 +35,12 @@ BattleSceneUnit makeUnit(int id, int team, int x, int y, Pointf position)
 
 TEST_CASE("BattleSceneUnitStore_InitializesDenseRowsAndRequiresByUnitId", "[battle][scene_unit_store]")
 {
-    KysChess::BattleSceneBattleAdapter::BattleInitializationSceneApplyResult result;
-    result.units.push_back(makeUnit(0, 0, 1, 2, { 10, 20, 0 }));
-    result.units.push_back(makeUnit(1, 1, 5, 6, { 30, 40, 0 }));
+    std::vector<BattleSceneUnit> units;
+    units.push_back(makeUnit(0, 0, 1, 2, { 10, 20, 0 }));
+    units.push_back(makeUnit(1, 1, 5, 6, { 30, 40, 0 }));
 
     BattleSceneUnitStore store;
-    store.initialize(result);
+    store.initialize(std::move(units));
 
     CHECK(store.requireUnit(0).identity.realRoleId == 1000);
     CHECK(store.requireUnit(1).identity.team == 1);
@@ -47,14 +48,52 @@ TEST_CASE("BattleSceneUnitStore_InitializesDenseRowsAndRequiresByUnitId", "[batt
     CHECK(store.aliveUnitsOnTeam(1) == 1);
 }
 
+TEST_CASE("BattleSceneUnitStore_UsesSharedUnitValueObjects", "[battle][scene_unit_store]")
+{
+    BattleSceneUnit unit;
+    unit.hp = 10;
+    unit.maxHp = 20;
+    unit.mp = 3;
+    unit.maxMp = 8;
+    unit.attack = 30;
+    unit.defence = 40;
+    unit.speed = 50;
+    unit.position = { 1, 2, 3 };
+    unit.velocity = { 4, 5, 6 };
+    unit.acceleration = { 7, 8, 9 };
+    unit.realTowards = { 10, 11, 12 };
+    unit.cooldown = 13;
+    unit.cooldownMax = 14;
+    unit.actFrame = 15;
+    unit.actType = 16;
+
+    syncBattleSceneUnitSharedValueObjects(unit);
+
+    CHECK(unit.vitals.hp == 10);
+    CHECK(unit.vitals.maxHp == 20);
+    CHECK(unit.vitals.mp == 3);
+    CHECK(unit.vitals.maxMp == 8);
+    CHECK(unit.stats.attack == 30);
+    CHECK(unit.stats.defence == 40);
+    CHECK(unit.stats.speed == 50);
+    CHECK(unit.motion.position.x == 1);
+    CHECK(unit.motion.velocity.y == 5);
+    CHECK(unit.motion.acceleration.z == 9);
+    CHECK(unit.motion.facing.x == 10);
+    CHECK(unit.animation.cooldown == 13);
+    CHECK(unit.animation.cooldownMax == 14);
+    CHECK(unit.animation.actFrame == 15);
+    CHECK(unit.animation.actType == 16);
+}
+
 TEST_CASE("BattleSceneUnitStore_SwapsSetupPositionAndUpdatesWorldPosition", "[battle][scene_unit_store]")
 {
-    KysChess::BattleSceneBattleAdapter::BattleInitializationSceneApplyResult result;
-    result.units.push_back(makeUnit(0, 0, 1, 2, { 10, 20, 0 }));
-    result.units.push_back(makeUnit(1, 0, 3, 4, { 30, 40, 0 }));
+    std::vector<BattleSceneUnit> units;
+    units.push_back(makeUnit(0, 0, 1, 2, { 10, 20, 0 }));
+    units.push_back(makeUnit(1, 0, 3, 4, { 30, 40, 0 }));
 
     BattleSceneUnitStore store;
-    store.initialize(result);
+    store.initialize(std::move(units));
     store.swapSetupUnitPositions(
         0,
         1,
@@ -75,15 +114,15 @@ TEST_CASE("BattleSceneUnitStore_SwapsSetupPositionAndUpdatesWorldPosition", "[ba
 
 TEST_CASE("BattleSceneUnitStore_BuildsSetupPlacementOnlyForActiveUnits", "[battle][scene_unit_store]")
 {
-    KysChess::BattleSceneBattleAdapter::BattleInitializationSceneApplyResult result;
+    std::vector<BattleSceneUnit> units;
     auto active = makeUnit(0, 0, 1, 2, { 10, 20, 0 });
     auto inactive = makeUnit(1, 0, 3, 4, { 30, 40, 0 });
     inactive.active = false;
-    result.units.push_back(active);
-    result.units.push_back(inactive);
+    units.push_back(active);
+    units.push_back(inactive);
 
     BattleSceneUnitStore store;
-    store.initialize(result);
+    store.initialize(std::move(units));
     auto placement = store.makeSetupPlacementInput();
 
     REQUIRE(placement.units.size() == 1);
@@ -95,15 +134,15 @@ TEST_CASE("BattleSceneUnitStore_BuildsSetupPlacementOnlyForActiveUnits", "[battl
 
 TEST_CASE("BattleSceneUnitStore_BuildsComboRefsFromCanonicalRows", "[battle][scene_unit_store]")
 {
-    KysChess::BattleSceneBattleAdapter::BattleInitializationSceneApplyResult result;
+    std::vector<BattleSceneUnit> units;
     auto alive = makeUnit(0, 0, 1, 2, { 10, 20, 0 });
     auto dead = makeUnit(1, 1, 3, 4, { 30, 40, 0 });
     dead.alive = false;
-    result.units.push_back(alive);
-    result.units.push_back(dead);
+    units.push_back(alive);
+    units.push_back(dead);
 
     BattleSceneUnitStore store;
-    store.initialize(result);
+    store.initialize(std::move(units));
     auto refs = store.makeComboBattleUnitRefs();
 
     REQUIRE(refs.size() == 2);
@@ -115,13 +154,13 @@ TEST_CASE("BattleSceneUnitStore_BuildsComboRefsFromCanonicalRows", "[battle][sce
 
 TEST_CASE("BattleSceneUnitStore_FacesTowardNearestAliveEnemy", "[battle][scene_unit_store]")
 {
-    KysChess::BattleSceneBattleAdapter::BattleInitializationSceneApplyResult result;
-    result.units.push_back(makeUnit(0, 0, 1, 2, { 0, 0, 0 }));
-    result.units.push_back(makeUnit(1, 1, 3, 4, { 10, 0, 0 }));
-    result.units.push_back(makeUnit(2, 1, 5, 6, { 100, 0, 0 }));
+    std::vector<BattleSceneUnit> units;
+    units.push_back(makeUnit(0, 0, 1, 2, { 0, 0, 0 }));
+    units.push_back(makeUnit(1, 1, 3, 4, { 10, 0, 0 }));
+    units.push_back(makeUnit(2, 1, 5, 6, { 100, 0, 0 }));
 
     BattleSceneUnitStore store;
-    store.initialize(result);
+    store.initialize(std::move(units));
     auto facing = store.facingTowardNearestEnemy(0);
 
     CHECK(facing.x == 1.0f);

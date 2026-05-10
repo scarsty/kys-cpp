@@ -12,11 +12,6 @@
 
 class BattleTracker;
 
-namespace KysChess::BattleSceneBattleAdapter
-{
-struct BattleInitializationSceneApplyResult;
-}
-
 struct BattleSceneRenderComboState
 {
     int shield = 0;
@@ -41,6 +36,10 @@ struct BattleSceneUnit
 
     bool alive = true;
     bool active = true;
+    KysChess::Battle::BattleUnitVitals vitals;
+    KysChess::Battle::BattleUnitStats stats;
+    KysChess::Battle::BattleUnitMotion motion;
+    KysChess::Battle::BattleUnitAnimationState animation;
     Pointf position;
     Pointf velocity;
     Pointf acceleration;
@@ -65,12 +64,14 @@ struct BattleSceneUnit
     BattleSceneRenderComboState combo;
 };
 
+void syncBattleSceneUnitSharedValueObjects(BattleSceneUnit& unit);
+
 class BattleSceneUnitStore
 {
 public:
     using PositionForCell = std::function<Pointf(int, int)>;
 
-    void initialize(const KysChess::BattleSceneBattleAdapter::BattleInitializationSceneApplyResult& result);
+    void initialize(std::vector<BattleSceneUnit> units);
 
     BattleSceneUnit& requireUnit(int unitId);
     const BattleSceneUnit& requireUnit(int unitId) const;

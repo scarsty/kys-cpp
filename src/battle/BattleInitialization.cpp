@@ -505,6 +505,7 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
 
         enemy.attack = std::max(0, enemy.attack - delta);
         enemy.defence = std::max(0, enemy.defence - delta);
+        syncBattleRuntimeUnitSharedValueObjects(enemy);
         comboIt->second.enemyTopDebuffApplied = desired;
         deltas.push_back({
             enemy.id,
@@ -619,6 +620,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
         unit.defence = applyPercentBonus(unit.defence, combo.pctDEF);
         unit.speed = applyPercentBonus(unit.speed, combo.pctSPD);
         unit.hp = unit.maxHp;
+        syncBattleRuntimeUnitSharedValueObjects(unit);
 
         if (combo.shieldPctMaxHP > 0)
         {
@@ -783,6 +785,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             cloneUnit.invincible = 0;
             cloneUnit.hurtFrame = 0;
             cloneUnit.canAttack = true;
+            syncBattleRuntimeUnitSharedValueObjects(cloneUnit);
 
             auto cloneCombo = KysChess::ChessBattleEffects::makeSummonedCloneState(
                 sourceComboIt->second,

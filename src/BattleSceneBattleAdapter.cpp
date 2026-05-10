@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <ranges>
 #include <set>
 #include <string>
 #include <utility>
@@ -27,11 +28,12 @@ void configureBattleAttackWorld(
     Battle::BattleAttackWorld& world,
     const Battle::BattleRuntimeRulesConfig& rules);
 Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
-    const BattleSetupRoleSnapshot& snapshot,
+    const BattleSetupUnitInput& snapshot,
     const RoleComboState* state,
     const Battle::BattleGridTransform& gridTransform);
-Battle::BattleStatusUnitState makeBattleStatusUnit(const BattleSetupRoleSnapshot& snapshot, const RoleComboState& state);
-Battle::BattleDamageUnitState makeBattleDamageUnit(const BattleSetupRoleSnapshot& snapshot, const RoleComboState* state);
+Battle::BattleStatusUnitState makeBattleStatusUnit(const BattleSetupUnitInput& snapshot, const RoleComboState& state);
+Battle::BattleDamageUnitState makeBattleDamageUnit(const BattleSetupUnitInput& snapshot, const RoleComboState* state);
+Battle::BattleDamageUnitState makeBattleDamageUnit(const Battle::BattleRuntimeUnit& runtimeUnit, const RoleComboState* state);
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(int team);
 
 namespace
@@ -40,7 +42,7 @@ constexpr double ROLE_MOVE_SPEED_DIVISOR = 22.0;
 
 struct BattleActionPlanInputContext
 {
-    const std::vector<BattleSetupRoleSnapshot>* setupRoles = nullptr;
+    const std::vector<BattleSetupUnitInput>* setupUnits = nullptr;
     Battle::BattleActionRulesConfig actionRules;
     Battle::BattleCastConfig castConfig;
     Battle::BattleCastGeometry castGeometry;
@@ -53,7 +55,7 @@ void initializeBattleActionPlanInputs(
 class BattleSetupRoleProjection
 {
 public:
-    explicit BattleSetupRoleProjection(const BattleSetupRoleSnapshot& snapshot)
+    explicit BattleSetupRoleProjection(const BattleSetupUnitInput& snapshot)
         : snapshot_(snapshot)
     {
         assert(snapshot_.unitId >= 0);
@@ -94,7 +96,7 @@ public:
     Battle::BattleDamageUnitState damageUnit(const RoleComboState* state) const;
 
 private:
-    const BattleSetupRoleSnapshot& snapshot_;
+    const BattleSetupUnitInput& snapshot_;
 };
 
 Color damageTextColor(int team, bool emphasized)
@@ -104,6 +106,46 @@ Color damageTextColor(int team, bool emphasized)
         return emphasized ? Color{ 255, 45, 85, 255 } : Color{ 255, 90, 79, 255 };
     }
     return emphasized ? Color{ 47, 128, 255, 255 } : Color{ 102, 207, 255, 255 };
+}
+
+Battle::BattleUnitVitals makeBattleUnitVitals(const BattleSetupUnitInput& source)
+{
+    return { source.hp, source.maxHp, source.mp, source.maxMp };
+}
+
+Battle::BattleUnitVitals makeBattleUnitVitals(const Battle::BattleRuntimeUnit& source)
+{
+    return { source.hp, source.maxHp, source.mp, source.maxMp };
+}
+
+Battle::BattleUnitStats makeBattleUnitStats(const BattleSetupUnitInput& source)
+{
+    return { source.attack, source.defence, source.speed };
+}
+
+Battle::BattleUnitStats makeBattleUnitStats(const Battle::BattleRuntimeUnit& source)
+{
+    return { source.attack, source.defence, source.speed };
+}
+
+Battle::BattleUnitMotion makeBattleUnitMotion(const BattleSetupUnitInput& source)
+{
+    return { source.position, source.velocity, source.acceleration, source.facing };
+}
+
+Battle::BattleUnitMotion makeBattleUnitMotion(const Battle::BattleRuntimeUnit& source)
+{
+    return { source.position, source.velocity, source.acceleration, source.facing };
+}
+
+Battle::BattleUnitAnimationState makeBattleUnitAnimationState(const BattleSetupUnitInput& source)
+{
+    return { source.cooldown, source.cooldownMax, source.actFrame, source.actType };
+}
+
+Battle::BattleUnitAnimationState makeBattleUnitAnimationState(const Battle::BattleRuntimeUnit& source)
+{
+    return { source.cooldown, source.cooldownMax, source.actFrame, source.actType };
 }
 
 Battle::BattleUnitState BattleSetupRoleProjection::worldUnit() const
@@ -169,27 +211,62 @@ Battle::BattleUnitState BattleSetupRoleProjection::initializedWorldUnit(
     return unit;
 }
 
-Battle::BattleUnitState makeBattleWorldUnit(const BattleSetupRoleSnapshot& snapshot)
+Battle::BattleUnitState makeBattleWorldUnit(const BattleSetupUnitInput& snapshot)
 {
     return BattleSetupRoleProjection(snapshot).worldUnit();
 }
 
+Battle::BattleUnitState makeBattleWorldUnit(const Battle::BattleRuntimeUnit& runtimeUnit)
+{
+    Battle::BattleUnitState unit;
+    unit.id = runtimeUnit.id;
+    unit.realRoleId = runtimeUnit.realRoleId;
+    unit.name = runtimeUnit.name;
+    unit.team = runtimeUnit.team;
+    unit.alive = runtimeUnit.alive;
+    unit.position = runtimeUnit.motion.position;
+    unit.velocity = runtimeUnit.motion.velocity;
+    unit.speed = runtimeUnit.stats.speed / ROLE_MOVE_SPEED_DIVISOR;
+    unit.star = runtimeUnit.star;
+    unit.canAttack = runtimeUnit.animation.cooldown == 0;
+    return unit;
+}
+
 Battle::BattleUnitState makeInitializedBattleWorldUnit(
-    const BattleSetupRoleSnapshot& snapshot,
+    const Battle::BattleRuntimeUnit& runtimeUnit,
     const std::map<int, RoleComboState>& comboStates,
     const Battle::BattleWorldState& world,
     const std::map<int, Battle::BattleMovementPhysicsState>& movementRuntime,
     const Battle::BattleActionRulesConfig& actionRules)
 {
-    return BattleSetupRoleProjection(snapshot).initializedWorldUnit(
-        comboStates,
-        world,
-        movementRuntime,
-        actionRules);
+    const auto comboIt = comboStates.find(runtimeUnit.id);
+    const bool dashAttackEnabled = comboIt != comboStates.end() && comboIt->second.dashAttack;
+
+    auto unit = makeBattleWorldUnit(runtimeUnit);
+    unit.reach = actionRules.meleeAttackReach;
+    unit.style = Battle::CombatStyle::Melee;
+    unit.taXue = dashAttackEnabled;
+    unit.dashAttack = dashAttackEnabled;
+
+    const auto existingMovement = std::ranges::find(world.units, runtimeUnit.id, &Battle::BattleUnitState::id);
+    if (existingMovement != world.units.end())
+    {
+        unit.assignedSlot = existingMovement->assignedSlot;
+        unit.slotSwitchCooldownRemaining = existingMovement->slotSwitchCooldownRemaining;
+    }
+
+    const auto movementIt = movementRuntime.find(runtimeUnit.id);
+    if (movementIt != movementRuntime.end())
+    {
+        unit.dashFramesRemaining = movementIt->second.movementDashFrames;
+        unit.dashCooldownRemaining = movementIt->second.movementDashCooldown;
+    }
+
+    return unit;
 }
 
 Battle::BattleDeathEffectStore makeBattleDeathEffectStore(
-    const std::vector<BattleSetupRoleSnapshot>& roles,
+    const Battle::BattleUnitStore& units,
     const std::map<int, RoleComboState>& states)
 {
     Battle::BattleDeathEffectStore store;
@@ -202,18 +279,18 @@ Battle::BattleDeathEffectStore makeBattleDeathEffectStore(
         }
     }
 
-    for (const auto& role : roles)
+    for (const auto& unit : units.units)
     {
-        const auto stateIt = states.find(role.unitId);
+        const auto stateIt = states.find(unit.id);
         assert(stateIt != states.end());
 
         Battle::BattleDeathEffectExtras extras;
-        extras.id = role.unitId;
+        extras.id = unit.id;
         extras.shieldPctMaxHp = stateIt->second.shieldPctMaxHP;
         extras.shieldOnAllyDeathTracker = stateIt->second.shieldOnAllyDeathTracker;
         extras.appliedEffects = stateIt->second.appliedEffects;
 
-        const int comboLookupId = getComboLookupId(role.realRoleId, stateIt->second);
+        const int comboLookupId = getComboLookupId(unit.realRoleId, stateIt->second);
         if (comboLookupId >= 0)
         {
             extras.comboIds = KysChess::ChessCombo::getCombosForRole(comboLookupId);
@@ -225,13 +302,6 @@ Battle::BattleDeathEffectStore makeBattleDeathEffectStore(
     return store;
 }
 
-const BattleSetupRoleSnapshot& requireSetupRoleSnapshot(
-    const std::vector<BattleSetupRoleSnapshot>& roles,
-    int unitId)
-{
-    return Battle::requireBy(roles, unitId, &BattleSetupRoleSnapshot::unitId);
-}
-
 const Battle::BattleInitializationCloneIntent* findCloneIntent(
     const Battle::BattleInitializationResult& initialization,
     int cloneUnitId)
@@ -239,64 +309,14 @@ const Battle::BattleInitializationCloneIntent* findCloneIntent(
     return Battle::tryFindBy(initialization.cloneIntents, cloneUnitId, &Battle::BattleInitializationCloneIntent::cloneUnitId);
 }
 
-BattleSetupRoleSnapshot makeRuntimeSetupRoleSnapshot(
-    const Battle::BattleRuntimeUnit& unit,
-    const BattleSetupRoleSnapshot& source)
-{
-    auto snapshot = source;
-    snapshot.unitId = unit.id;
-    snapshot.realRoleId = unit.realRoleId;
-    snapshot.team = unit.team;
-    snapshot.alive = unit.alive;
-    snapshot.position = unit.position;
-    snapshot.velocity = unit.velocity;
-    snapshot.acceleration = unit.acceleration;
-    snapshot.facing = unit.facing;
-    snapshot.gridX = unit.grid.x;
-    snapshot.gridY = unit.grid.y;
-    snapshot.star = unit.star;
-    snapshot.cost = unit.cost;
-    snapshot.hp = unit.hp;
-    snapshot.maxHp = unit.maxHp;
-    snapshot.mp = unit.mp;
-    snapshot.maxMp = unit.maxMp;
-    snapshot.attack = unit.attack;
-    snapshot.defence = unit.defence;
-    snapshot.speed = unit.speed;
-    snapshot.cooldown = unit.cooldown;
-    snapshot.cooldownMax = unit.cooldownMax;
-    snapshot.haveAction = unit.haveAction;
-    snapshot.actFrame = unit.actFrame;
-    snapshot.operationType = unit.operationType;
-    snapshot.actType = unit.actType;
-    snapshot.operationCount = unit.operationCount;
-    snapshot.physicalPower = unit.physicalPower;
-    snapshot.invincible = unit.invincible;
-    snapshot.hurtFrame = unit.hurtFrame;
-    return snapshot;
-}
-
-std::vector<BattleSetupRoleSnapshot> makeOrderedRuntimeRoleSnapshots(
-    const Battle::BattleRuntimeState& runtime,
+const BattleSetupUnitInput& requireSetupUnit(
     const BattleRuntimeSceneSetupInput& setup,
-    const Battle::BattleInitializationResult& initialization)
+    int unitId)
 {
-    std::vector<BattleSetupRoleSnapshot> roles;
-    roles.reserve(runtime.units.units.size());
-    for (const auto& unit : runtime.units.units)
-    {
-        if (const auto* source = Battle::tryFindBy(setup.roles, unit.id, &BattleSetupRoleSnapshot::unitId))
-        {
-            roles.push_back(makeRuntimeSetupRoleSnapshot(unit, *source));
-            continue;
-        }
-
-        const auto* clone = findCloneIntent(initialization, unit.id);
-        assert(clone);
-        const auto& source = requireSetupRoleSnapshot(setup.roles, clone->sourceUnitId);
-        roles.push_back(makeRuntimeSetupRoleSnapshot(unit, source));
-    }
-    return roles;
+    assert(unitId >= 0);
+    assert(static_cast<std::size_t>(unitId) < setup.units.size());
+    assert(setup.units[unitId].unitId == unitId);
+    return setup.units[unitId];
 }
 
 std::vector<Battle::BattleSetupComboDefinition> makeBattleSetupComboDefinitions()
@@ -363,111 +383,82 @@ std::vector<Battle::BattleSetupNeigongDefinition> makeBattleSetupNeigongDefiniti
 Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSceneSetupInput& context)
 {
     Battle::BattleRuntimeSetupSeed setup;
-    setup.allyRoster = context.allyRoster;
-    setup.enemyRoster = context.enemyRoster;
     setup.comboDefinitions = makeBattleSetupComboDefinitions();
     setup.equipmentDefinitions = makeBattleSetupEquipmentDefinitions();
     setup.equipmentSynergies = makeBattleSetupEquipmentSynergyDefinitions();
     setup.neigongDefinitions = makeBattleSetupNeigongDefinitions();
     setup.obtainedNeigongMagicIds = context.obtainedNeigongMagicIds;
 
-    for (const auto& unit : context.allyRoster)
+    for (const auto& unit : context.units)
     {
-        setup.units.push_back({
+        Battle::BattleSetupRosterUnit roster{
             unit.unitId,
             unit.realRoleId,
             unit.team,
             unit.star,
             unit.cost,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            {},
-        });
-    }
-    for (const auto& unit : context.enemyRoster)
-    {
-        setup.units.push_back({
-            unit.unitId,
-            unit.realRoleId,
-            unit.team,
-            unit.star,
-            unit.cost,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            {},
-        });
-    }
-
-    for (const auto& roster : { &context.allyRoster, &context.enemyRoster })
-    {
-        for (const auto& unit : *roster)
+            unit.weaponId,
+            unit.armorId,
+            unit.chessInstanceId,
+            unit.fightsWon,
+            unit.sourceOrder,
+        };
+        if (unit.team == 0)
         {
-            const auto& role = requireSetupRoleSnapshot(context.roles, unit.unitId);
-
-            const auto seedIt = std::find_if(
-                setup.units.begin(),
-                setup.units.end(),
-                [&unit](const Battle::BattleInitializationUnitSeed& seed)
-                {
-                    return seed.unitId == unit.unitId;
-                });
-            if (seedIt == setup.units.end())
-            {
-                continue;
-            }
-
-            seedIt->baseMaxHp = role.maxHp;
-            seedIt->baseAttack = role.attack;
-            seedIt->baseDefence = role.defence;
-            seedIt->baseSpeed = role.speed;
-            seedIt->baseFist = role.fist;
-            seedIt->baseSword = role.sword;
-            seedIt->baseKnife = role.knife;
-            seedIt->baseUnusual = role.unusual;
-            seedIt->baseHiddenWeapon = role.hiddenWeapon;
+            setup.allyRoster.push_back(roster);
         }
+        else
+        {
+            setup.enemyRoster.push_back(roster);
+        }
+
+        setup.units.push_back({
+            unit.unitId,
+            unit.realRoleId,
+            unit.team,
+            unit.star,
+            unit.cost,
+            unit.maxHp,
+            unit.attack,
+            unit.defence,
+            unit.speed,
+            unit.fist,
+            unit.sword,
+            unit.knife,
+            unit.unusual,
+            unit.hiddenWeapon,
+            {},
+        });
     }
 
-    for (const auto& unit : context.allyRoster)
+    std::ranges::sort(setup.allyRoster, {}, &Battle::BattleSetupRosterUnit::sourceOrder);
+    std::ranges::sort(setup.enemyRoster, {}, &Battle::BattleSetupRosterUnit::sourceOrder);
+
+    for (const auto& unit : context.units)
     {
+        if (unit.team != 0)
+        {
+            continue;
+        }
         setup.cloneSources.push_back({
             unit.unitId,
             unit.realRoleId,
-            0,
+            unit.maxHp + unit.attack + unit.defence,
             unit.star,
             unit.chessInstanceId,
             unit.sourceOrder,
         });
     }
-    for (auto& source : setup.cloneSources)
-    {
-        const auto& role = requireSetupRoleSnapshot(context.roles, source.sourceUnitId);
-        source.power = role.maxHp + role.attack + role.defence;
-    }
     for (const auto& [x, y] : context.cloneSpawnCells)
     {
         bool occupied = false;
-        for (const auto& role : context.roles)
+        for (const auto& unit : context.units)
         {
-            if (!role.alive)
+            if (!unit.alive)
             {
                 continue;
             }
-            if (role.gridX == x && role.gridY == y)
+            if (unit.gridX == x && unit.gridY == y)
             {
                 occupied = true;
                 break;
@@ -480,65 +471,55 @@ Battle::BattleRuntimeSetupSeed makeBattleRuntimeSetupSeed(const BattleRuntimeSce
 }
 }  // namespace
 
-const Battle::BattleSetupRosterUnit* tryFindRosterUnit(
-    const BattleRuntimeSceneSetupInput& setup,
-    int unitId)
-{
-    if (const auto* ally = Battle::tryFindBy(setup.allyRoster, unitId, &Battle::BattleSetupRosterUnit::unitId))
-    {
-        return ally;
-    }
-    return Battle::tryFindBy(setup.enemyRoster, unitId, &Battle::BattleSetupRosterUnit::unitId);
-}
-
 BattleSceneUnit makeInitializedSceneUnit(
-    const BattleSetupRoleSnapshot& role,
-    const BattleRuntimeSceneSetupInput& setup,
-    const Battle::BattleInitializationResult& initialization)
+    const Battle::BattleRuntimeUnit& runtimeUnit,
+    const BattleSetupUnitInput& setup,
+    const Battle::BattleInitializationCloneIntent* clone)
 {
-    const auto* clone = findCloneIntent(initialization, role.unitId);
-    const auto* roster = clone ? nullptr : tryFindRosterUnit(setup, role.unitId);
-
     BattleSceneUnit unit;
     unit.identity = {
-        role.unitId,
-        role.realRoleId,
-        role.team,
-        role.headId,
-        role.name,
+        runtimeUnit.id,
+        runtimeUnit.realRoleId,
+        runtimeUnit.team,
+        setup.headId,
+        setup.name,
     };
-    unit.unitId = role.unitId;
-    unit.sourceUnitId = clone ? clone->sourceUnitId : role.unitId;
-    unit.gridX = role.gridX;
-    unit.gridY = role.gridY;
-    unit.faceTowards = role.faceTowards;
-    unit.position = role.position;
-    unit.velocity = role.velocity;
-    unit.acceleration = role.acceleration;
-    unit.realTowards = role.facing;
-    unit.fightFrames = role.fightFrames;
-    unit.star = role.star;
-    unit.chessInstanceId = roster ? roster->chessInstanceId : -1;
-    unit.weaponId = roster ? roster->weaponId : -1;
-    unit.armorId = roster ? roster->armorId : -1;
-    unit.cost = role.cost;
-    unit.hp = role.hp;
-    unit.maxHp = role.maxHp;
-    unit.mp = role.mp;
-    unit.maxMp = role.maxMp;
-    unit.attack = role.attack;
-    unit.defence = role.defence;
-    unit.speed = role.speed;
-    unit.cooldown = role.cooldown;
-    unit.cooldownMax = role.cooldownMax;
-    unit.frozen = role.frozen;
-    unit.frozenMax = role.frozenMax;
-    unit.invincible = role.invincible;
-    unit.actType = role.actType;
-    unit.actFrame = role.actFrame;
-    unit.alive = role.alive;
-    unit.active = role.alive;
-    unit.skillNames = role.skillNames;
+    unit.unitId = runtimeUnit.id;
+    unit.sourceUnitId = clone ? clone->sourceUnitId : runtimeUnit.id;
+    unit.gridX = runtimeUnit.grid.x;
+    unit.gridY = runtimeUnit.grid.y;
+    unit.faceTowards = setup.faceTowards;
+    unit.vitals = makeBattleUnitVitals(runtimeUnit);
+    unit.stats = makeBattleUnitStats(runtimeUnit);
+    unit.motion = makeBattleUnitMotion(runtimeUnit);
+    unit.animation = makeBattleUnitAnimationState(runtimeUnit);
+    unit.position = unit.motion.position;
+    unit.velocity = unit.motion.velocity;
+    unit.acceleration = unit.motion.acceleration;
+    unit.realTowards = unit.motion.facing;
+    unit.fightFrames = setup.fightFrames;
+    unit.star = runtimeUnit.star;
+    unit.chessInstanceId = clone ? -1 : setup.chessInstanceId;
+    unit.weaponId = clone ? -1 : setup.weaponId;
+    unit.armorId = clone ? -1 : setup.armorId;
+    unit.cost = runtimeUnit.cost;
+    unit.hp = unit.vitals.hp;
+    unit.maxHp = unit.vitals.maxHp;
+    unit.mp = unit.vitals.mp;
+    unit.maxMp = unit.vitals.maxMp;
+    unit.attack = unit.stats.attack;
+    unit.defence = unit.stats.defence;
+    unit.speed = unit.stats.speed;
+    unit.cooldown = unit.animation.cooldown;
+    unit.cooldownMax = unit.animation.cooldownMax;
+    unit.frozen = setup.frozen;
+    unit.frozenMax = setup.frozenMax;
+    unit.invincible = runtimeUnit.invincible;
+    unit.actType = unit.animation.actType;
+    unit.actFrame = unit.animation.actFrame;
+    unit.alive = runtimeUnit.alive;
+    unit.active = runtimeUnit.alive;
+    unit.skillNames = setup.skillNames;
     return unit;
 }
 
@@ -552,11 +533,14 @@ BattleInitializationSceneApplyResult makeBattleInitializationSceneApplyResult(
     result.logEvents = initialization.logEvents;
     result.visualEvents = initialization.visualEvents;
 
-    const auto orderedRoles = makeOrderedRuntimeRoleSnapshots(runtime, setup, initialization);
-    result.units.reserve(orderedRoles.size());
-    for (const auto& role : orderedRoles)
+    result.units.reserve(runtime.units.units.size());
+    for (const auto& runtimeUnit : runtime.units.units)
     {
-        result.units.push_back(makeInitializedSceneUnit(role, setup, initialization));
+        const auto* clone = findCloneIntent(initialization, runtimeUnit.id);
+        const auto& setupUnit = clone
+            ? requireSetupUnit(setup, clone->sourceUnitId)
+            : requireSetupUnit(setup, runtimeUnit.id);
+        result.units.push_back(makeInitializedSceneUnit(runtimeUnit, setupUnit, clone));
     }
     return result;
 }
@@ -567,7 +551,6 @@ void commitInitializedBattleRuntimeConfiguration(
     const Battle::BattleInitializationResult& initialization)
 {
     const auto& runtime = session.runtime();
-    const auto orderedRoles = makeOrderedRuntimeRoleSnapshots(runtime, context.setup, initialization);
     Battle::BattleRuntimeSetupConfiguration config;
 
     config.world = runtime.world;
@@ -577,15 +560,15 @@ void commitInitializedBattleRuntimeConfiguration(
 
     const auto existingWorld = runtime.world;
     config.world.units.clear();
-    config.world.units.reserve(orderedRoles.size());
-    for (const auto& role : orderedRoles)
+    config.world.units.reserve(runtime.units.units.size());
+    for (const auto& unit : runtime.units.units)
     {
-        if (!role.alive)
+        if (!unit.alive)
         {
             continue;
         }
         config.world.units.push_back(makeInitializedBattleWorldUnit(
-            role,
+            unit,
             runtime.combo.units,
             existingWorld,
             runtime.movementRuntime,
@@ -596,7 +579,7 @@ void commitInitializedBattleRuntimeConfiguration(
     configureBattleAttackWorld(config.attacks, context.rules);
 
     config.teamEffects.healAuraRadius = context.rules.teamEffectHealAuraRadius;
-    config.deathEffects.store = makeBattleDeathEffectStore(orderedRoles, runtime.combo.units);
+    config.deathEffects.store = makeBattleDeathEffectStore(runtime.units, runtime.combo.units);
 
     config.rescue.positionsByCell = context.setup.rescuePositionsByCell;
     config.rescue.cells = context.setup.rescueCells;
@@ -623,18 +606,18 @@ void commitInitializedBattleRuntimeConfiguration(
     config.projectileFollowUps = context.rules.projectileFollowUps;
 
     config.damage.aggregatePendingTransactionsByDefender = true;
-    for (const auto& role : orderedRoles)
+    for (const auto& unit : runtime.units.units)
     {
-        const auto stateIt = runtime.combo.units.find(role.unitId);
+        const auto stateIt = runtime.combo.units.find(unit.id);
         config.damage.unitExtras.push_back(Battle::makeBattleDamageRuntimeUnit(
             makeBattleDamageUnit(
-                role,
+                unit,
                 stateIt != runtime.combo.units.end() ? &stateIt->second : nullptr)));
-        config.damage.presentationStylesByDefender.emplace(role.unitId, makeBattleDamagePresentationStyle(role.team));
+        config.damage.presentationStylesByDefender.emplace(unit.id, makeBattleDamagePresentationStyle(unit.team));
         if (stateIt != runtime.combo.units.end() && stateIt->second.deathAOEPct > 0)
         {
             config.damage.unitEffects.emplace(
-                role.unitId,
+                unit.id,
                 Battle::BattleDamageApplicationUnitEffects{
                     stateIt->second.deathAOEPct,
                     stateIt->second.deathAOEStunFrames,
@@ -644,7 +627,7 @@ void commitInitializedBattleRuntimeConfiguration(
     }
 
     BattleActionPlanInputContext actionContext;
-    actionContext.setupRoles = &orderedRoles;
+    actionContext.setupUnits = &context.setup.units;
     actionContext.actionRules = context.rules.action;
     actionContext.castConfig = context.rules.castConfig;
     actionContext.castGeometry = context.rules.castGeometry;
@@ -661,12 +644,12 @@ BattleRuntimeCreationResult createInitializedBattleRuntimeSession(const BattleRu
     Battle::BattleRuntimeInit init;
     init.runtime.units.gridTransform = context.rules.gridTransform;
     init.runtime.combo.units = *setup.comboStates;
-    init.runtime.units.units.reserve(setup.roles.size());
-    init.runtime.status.units.reserve(setup.roles.size());
-    init.runtime.world.units.reserve(setup.roles.size());
+    init.runtime.units.units.reserve(setup.units.size());
+    init.runtime.status.units.reserve(setup.units.size());
+    init.runtime.world.units.reserve(setup.units.size());
     init.setup = makeBattleRuntimeSetupSeed(setup);
 
-    for (const auto& role : setup.roles)
+    for (const auto& role : setup.units)
     {
         assert(role.unitId >= 0);
         auto stateIt = setup.comboStates->find(role.unitId);
@@ -724,19 +707,23 @@ Battle::BattleRuntimeUnit BattleSetupRoleProjection::runtimeUnit(
     unit.name = name();
     unit.team = team();
     unit.alive = alive();
-    unit.hp = hp();
-    unit.maxHp = maxHp();
-    unit.mp = mp();
-    unit.maxMp = maxMp();
-    unit.attack = attack();
-    unit.defence = defence();
-    unit.speed = speed();
-    unit.cooldown = snapshot_.cooldown;
-    unit.cooldownMax = snapshot_.cooldownMax;
+    unit.vitals = makeBattleUnitVitals(snapshot_);
+    unit.stats = makeBattleUnitStats(snapshot_);
+    unit.motion = makeBattleUnitMotion(snapshot_);
+    unit.animation = makeBattleUnitAnimationState(snapshot_);
+    unit.hp = unit.vitals.hp;
+    unit.maxHp = unit.vitals.maxHp;
+    unit.mp = unit.vitals.mp;
+    unit.maxMp = unit.vitals.maxMp;
+    unit.attack = unit.stats.attack;
+    unit.defence = unit.stats.defence;
+    unit.speed = unit.stats.speed;
+    unit.cooldown = unit.animation.cooldown;
+    unit.cooldownMax = unit.animation.cooldownMax;
     unit.haveAction = snapshot_.haveAction;
-    unit.actFrame = snapshot_.actFrame;
+    unit.actFrame = unit.animation.actFrame;
     unit.operationType = snapshot_.operationType;
-    unit.actType = snapshot_.actType;
+    unit.actType = unit.animation.actType;
     unit.operationCount = snapshot_.operationCount;
     unit.physicalPower = snapshot_.physicalPower;
     unit.invincible = invincible();
@@ -745,10 +732,10 @@ Battle::BattleRuntimeUnit BattleSetupRoleProjection::runtimeUnit(
     {
         unit.actPropertiesByMagicType.emplace(magicType, snapshot_.actPropertiesByMagicType[magicType]);
     }
-    unit.position = position();
-    unit.velocity = velocity();
-    unit.acceleration = acceleration();
-    unit.facing = facing();
+    unit.position = unit.motion.position;
+    unit.velocity = unit.motion.velocity;
+    unit.acceleration = unit.motion.acceleration;
+    unit.facing = unit.motion.facing;
     unit.grid = gridTransform.toGrid(position());
     if (state)
     {
@@ -760,7 +747,7 @@ Battle::BattleRuntimeUnit BattleSetupRoleProjection::runtimeUnit(
 }
 
 Battle::BattleRuntimeUnit makeBattleRuntimeUnit(
-    const BattleSetupRoleSnapshot& snapshot,
+    const BattleSetupUnitInput& snapshot,
     const RoleComboState* state,
     const Battle::BattleGridTransform& gridTransform)
 {
@@ -803,7 +790,7 @@ Battle::BattleStatusUnitState BattleSetupRoleProjection::statusUnit(const RoleCo
     return unit;
 }
 
-Battle::BattleStatusUnitState makeBattleStatusUnit(const BattleSetupRoleSnapshot& snapshot, const RoleComboState& state)
+Battle::BattleStatusUnitState makeBattleStatusUnit(const BattleSetupUnitInput& snapshot, const RoleComboState& state)
 {
     return BattleSetupRoleProjection(snapshot).statusUnit(state);
 }
@@ -838,9 +825,39 @@ Battle::BattleDamageUnitState BattleSetupRoleProjection::damageUnit(const RoleCo
     return unit;
 }
 
-Battle::BattleDamageUnitState makeBattleDamageUnit(const BattleSetupRoleSnapshot& snapshot, const RoleComboState* state)
+Battle::BattleDamageUnitState makeBattleDamageUnit(const BattleSetupUnitInput& snapshot, const RoleComboState* state)
 {
     return BattleSetupRoleProjection(snapshot).damageUnit(state);
+}
+
+Battle::BattleDamageUnitState makeBattleDamageUnit(const Battle::BattleRuntimeUnit& runtimeUnit, const RoleComboState* state)
+{
+    Battle::BattleDamageUnitState unit;
+    unit.id = runtimeUnit.id;
+    unit.alive = runtimeUnit.alive;
+    unit.hp = runtimeUnit.vitals.hp;
+    unit.maxHp = runtimeUnit.vitals.maxHp;
+    unit.mp = runtimeUnit.vitals.mp;
+    unit.maxMp = runtimeUnit.vitals.maxMp;
+    unit.attack = runtimeUnit.stats.attack;
+    unit.invincible = runtimeUnit.invincible;
+    if (!state)
+    {
+        return unit;
+    }
+
+    unit.hurtInvincFrames = state->hurtInvincFrames;
+    unit.shield = state->shield;
+    unit.blockFirstHitsRemaining = state->blockFirstHitsRemaining;
+    unit.deathPrevention = state->deathPrevention;
+    unit.deathPreventionUsed = state->deathPreventionUsed;
+    unit.deathPreventionFrames = state->deathPreventionFrames;
+    unit.killHealPct = state->killHealPct;
+    unit.killInvincFrames = state->killInvincFrames;
+    unit.bloodlustAttackPerKill = state->bloodlustATKPerKill;
+    unit.mpBlocked = state->mpBlockTimer > 0;
+    unit.mpRecoveryBonusPct = state->mpRecoveryBonusPct;
+    return unit;
 }
 
 Battle::BattleDamagePresentationStyle makeBattleDamagePresentationStyle(int team)
@@ -875,7 +892,7 @@ Battle::BattleActionSkillSeed makeBattleActionSkillSeed(const BattleSetupSkillSn
     return seed;
 }
 
-Battle::BattleActionPlanSeed makeBattleActionPlanSeed(const BattleSetupRoleSnapshot& role)
+Battle::BattleActionPlanSeed makeBattleActionPlanSeed(const BattleSetupUnitInput& role)
 {
     Battle::BattleActionPlanSeed seed;
     seed.unitId = role.unitId;
@@ -891,13 +908,13 @@ void initializeBattleActionPlanInputs(
     Battle::BattleRuntimeState::ActionState& action,
     BattleActionPlanInputContext& context)
 {
-    assert(context.setupRoles);
+    assert(context.setupUnits);
 
     action.planSeeds.clear();
     action.castConfig = context.castConfig;
     action.castGeometry = context.castGeometry;
     action.actionRules = context.actionRules;
-    for (const auto& role : *context.setupRoles)
+    for (const auto& role : *context.setupUnits)
     {
         action.planSeeds[role.unitId] = makeBattleActionPlanSeed(role);
     }

@@ -76,6 +76,37 @@ struct BattleGridTransform
     Point toGrid(Pointf position) const;
 };
 
+struct BattleUnitVitals
+{
+    int hp{};
+    int maxHp{};
+    int mp{};
+    int maxMp{};
+};
+
+struct BattleUnitStats
+{
+    int attack{};
+    int defence{};
+    int speed{};
+};
+
+struct BattleUnitMotion
+{
+    Pointf position;
+    Pointf velocity;
+    Pointf acceleration;
+    Pointf facing;
+};
+
+struct BattleUnitAnimationState
+{
+    int cooldown{};
+    int cooldownMax{};
+    int actFrame{};
+    int actType = -1;
+};
+
 struct BattleRuntimeUnit
 {
     int id = -1;
@@ -83,6 +114,10 @@ struct BattleRuntimeUnit
     std::string name;
     int team = 0;
     bool alive = true;
+    BattleUnitVitals vitals;
+    BattleUnitStats stats;
+    BattleUnitMotion motion;
+    BattleUnitAnimationState animation;
     int hp = 0;
     int maxHp = 0;
     int mp = 0;
@@ -115,6 +150,8 @@ struct BattleRuntimeUnit
     int star = 1;
     int cost = 0;
 };
+
+void syncBattleRuntimeUnitSharedValueObjects(BattleRuntimeUnit& unit);
 
 struct BattleUnitStore
 {

@@ -61,6 +61,33 @@ double BattleRuntimeRandom::nextPercent()
     return static_cast<double>(nextRaw() % 10000u) / 100.0;
 }
 
+void syncBattleRuntimeUnitSharedValueObjects(BattleRuntimeUnit& unit)
+{
+    unit.vitals = {
+        unit.hp,
+        unit.maxHp,
+        unit.mp,
+        unit.maxMp,
+    };
+    unit.stats = {
+        unit.attack,
+        unit.defence,
+        unit.speed,
+    };
+    unit.motion = {
+        unit.position,
+        unit.velocity,
+        unit.acceleration,
+        unit.facing,
+    };
+    unit.animation = {
+        unit.cooldown,
+        unit.cooldownMax,
+        unit.actFrame,
+        unit.actType,
+    };
+}
+
 int BattleRuntimeRandom::nextInt(int upperBound)
 {
     assert(upperBound > 0);
@@ -100,6 +127,7 @@ void BattleUnitStore::writeDamageUnit(const BattleDamageUnitState& source)
     unit.shield = source.shield;
     unit.mpBlocked = source.mpBlocked;
     unit.mpRecoveryBonusPct = source.mpRecoveryBonusPct;
+    syncBattleRuntimeUnitSharedValueObjects(unit);
 }
 
 void BattleUnitStore::setPosition(int unitId, Pointf position)
@@ -107,6 +135,7 @@ void BattleUnitStore::setPosition(int unitId, Pointf position)
     auto& unit = requireUnit(unitId);
     unit.position = position;
     unit.grid = gridTransform.toGrid(position);
+    syncBattleRuntimeUnitSharedValueObjects(unit);
 }
 
 void BattleUnitStore::setMotion(int unitId, Pointf position, Pointf velocity, Pointf acceleration)
@@ -116,6 +145,7 @@ void BattleUnitStore::setMotion(int unitId, Pointf position, Pointf velocity, Po
     unit.velocity = velocity;
     unit.acceleration = acceleration;
     unit.grid = gridTransform.toGrid(position);
+    syncBattleRuntimeUnitSharedValueObjects(unit);
 }
 
 int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId)

@@ -183,6 +183,7 @@
     <ClCompile Include="BattleSceneBattleAdapter.cpp" />
     <ClCompile Include="BattleSceneMapState.cpp" />
     <ClCompile Include="BattleScenePresentationPlayer.cpp" />
+    <ClCompile Include="BattleSceneSetupBuilder.cpp" />
     <ClCompile Include="BattleSceneUnitStore.cpp" />
     <ClCompile Include="BattleTracker.cpp" />
     <ClCompile Include="BattleMenu.cpp" />
@@ -296,6 +297,7 @@
     <ClInclude Include="BattlePresentationEffects.h" />
     <ClInclude Include="BattleScenePresentationConstants.h" />
     <ClInclude Include="BattleScenePresentationPlayer.h" />
+    <ClInclude Include="BattleSceneSetupBuilder.h" />
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="Event.h" />
     <ClInclude Include="ChessBalance.h" />

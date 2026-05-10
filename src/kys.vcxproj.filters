@@ -139,6 +139,9 @@
     <ClCompile Include="BattleSceneMapState.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="BattleSceneSetupBuilder.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="BattleSceneUnitStore.cpp">
       <Filter>battle</Filter>
     </ClCompile>
@@ -396,6 +399,9 @@
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="BattleSceneRenderMath.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneSetupBuilder.h">
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="BattleSceneUnitStore.h">

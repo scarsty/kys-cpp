@@ -1,19 +1,46 @@
 #include "BattleSceneUnitStore.h"
 
-#include "BattleSceneBattleAdapter.h"
 #include "BattleStatsView.h"
 
 #include <algorithm>
 #include <cassert>
 #include <ranges>
+#include <utility>
 
-void BattleSceneUnitStore::initialize(
-    const KysChess::BattleSceneBattleAdapter::BattleInitializationSceneApplyResult& result)
+void syncBattleSceneUnitSharedValueObjects(BattleSceneUnit& unit)
 {
-    units_ = result.units;
+    unit.vitals = {
+        unit.hp,
+        unit.maxHp,
+        unit.mp,
+        unit.maxMp,
+    };
+    unit.stats = {
+        unit.attack,
+        unit.defence,
+        unit.speed,
+    };
+    unit.motion = {
+        unit.position,
+        unit.velocity,
+        unit.acceleration,
+        unit.realTowards,
+    };
+    unit.animation = {
+        unit.cooldown,
+        unit.cooldownMax,
+        unit.actFrame,
+        unit.actType,
+    };
+}
+
+void BattleSceneUnitStore::initialize(std::vector<BattleSceneUnit> units)
+{
+    units_ = std::move(units);
     for (std::size_t index = 0; index < units_.size(); ++index)
     {
         assert(units_[index].unitId == static_cast<int>(index));
+        syncBattleSceneUnitSharedValueObjects(units_[index]);
     }
 }
 
@@ -44,6 +71,8 @@ void BattleSceneUnitStore::swapSetupUnitPositions(
     std::swap(first.gridY, second.gridY);
     first.position = positionForCell(first.gridX, first.gridY);
     second.position = positionForCell(second.gridX, second.gridY);
+    syncBattleSceneUnitSharedValueObjects(first);
+    syncBattleSceneUnitSharedValueObjects(second);
 }
 
 KysChess::Battle::BattleSetupPlacementInput BattleSceneUnitStore::makeSetupPlacementInput() const
