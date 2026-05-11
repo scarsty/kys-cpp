@@ -69,6 +69,109 @@ Pointf rotated(Pointf point, double angle)
     };
 }
 
+double angleDelta(double lhs, double rhs)
+{
+    return std::abs(std::atan2(std::sin(lhs - rhs), std::cos(lhs - rhs)));
+}
+
+std::vector<BattleCastProjectileTarget> orderedAlternateProjectileTargets(
+    const BattleCastInput& input,
+    Pointf launchPosition,
+    Pointf baseDirection,
+    double maxTravel)
+{
+    const double baseAngle = std::atan2(baseDirection.y, baseDirection.x);
+    std::vector<BattleCastProjectileTarget> targets;
+    for (const auto& target : input.projectileSpreadTargets)
+    {
+        if (target.unitId == input.targetUnitId)
+        {
+            continue;
+        }
+        if (pointDistance(target.position, launchPosition) > maxTravel)
+        {
+            continue;
+        }
+        targets.push_back(target);
+    }
+
+    std::sort(targets.begin(), targets.end(), [&](const auto& left, const auto& right)
+    {
+        const auto leftDir = left.position - launchPosition;
+        const auto rightDir = right.position - launchPosition;
+        const double leftAngle = pointNorm(leftDir) > input.config.minimumFacingNorm
+            ? std::atan2(leftDir.y, leftDir.x)
+            : baseAngle;
+        const double rightAngle = pointNorm(rightDir) > input.config.minimumFacingNorm
+            ? std::atan2(rightDir.y, rightDir.x)
+            : baseAngle;
+        const double leftDelta = angleDelta(leftAngle, baseAngle);
+        const double rightDelta = angleDelta(rightAngle, baseAngle);
+        if (leftDelta != rightDelta)
+        {
+            return leftDelta < rightDelta;
+        }
+        return pointDistance(left.position, launchPosition) < pointDistance(right.position, launchPosition);
+    });
+    return targets;
+}
+
+void assignProjectileTargetOrSpread(
+    BattleAttackSpawnRequest& request,
+    const BattleCastInput& input,
+    const std::vector<BattleCastProjectileTarget>& alternates,
+    int projectileIndex,
+    int projectileCount,
+    double speed)
+{
+    const BattleCastProjectileTarget* assigned = nullptr;
+    request.initial.requirePreferredTarget = false;
+    if (projectileIndex == 0 && input.targetUnitId >= 0)
+    {
+        request.initial.preferredTargetUnitId = input.targetUnitId;
+        const auto primaryDirection = input.targetPosition - request.initial.position;
+        if (pointNorm(primaryDirection) > input.config.minimumFacingNorm)
+        {
+            request.initial.velocity = normalizedTo(
+                primaryDirection,
+                speed,
+                input.config.minimumFacingNorm);
+        }
+        return;
+    }
+
+    const int alternateIndex = projectileIndex - 1;
+    if (alternateIndex >= 0 && alternateIndex < static_cast<int>(alternates.size()))
+    {
+        assigned = &alternates[alternateIndex];
+    }
+
+    if (assigned)
+    {
+        request.initial.preferredTargetUnitId = assigned->unitId;
+        request.initial.requirePreferredTarget = true;
+        const auto assignedDirection = assigned->position - request.initial.position;
+        if (pointNorm(assignedDirection) > input.config.minimumFacingNorm)
+        {
+            request.initial.velocity = normalizedTo(
+                assignedDirection,
+                speed,
+                input.config.minimumFacingNorm);
+        }
+        return;
+    }
+
+    if (projectileCount > 1)
+    {
+        const auto facing = castFacing(input);
+        const double offset = (projectileIndex - (projectileCount - 1) / 2.0) * LegacyRangedSideProjectileAngle;
+        request.initial.velocity = normalizedTo(
+            rotated(facing, offset),
+            speed,
+            input.config.minimumFacingNorm);
+    }
+}
+
 void assertCastSharedConfig(const BattleCastConfig& config)
 {
     assert(config.maxCooldownSpeed > 0.0);
@@ -281,16 +384,34 @@ BattleAttackSpawnRequest makeOperationRequest(const BattleCastResult& result,
 }
 
 void appendExtraProjectiles(std::vector<BattleAttackSpawnRequest>& requests,
+                            const BattleCastInput& input,
                             const BattleCastSkillState& selectedSkill)
 {
     assert(selectedSkill.extraProjectileCount >= 0);
     assert(!requests.empty());
     const auto prototype = requests.front();
+    const double speed = pointNorm(prototype.initial.velocity) > input.config.minimumFacingNorm
+        ? pointNorm(prototype.initial.velocity)
+        : projectileSpeedForSkill(input.geometry, selectedSkill);
+    const double maxTravel = speed * std::max(1, prototype.initial.totalFrame - prototype.initialFrame)
+        + input.geometry.projectileSpawnOffset;
+    const auto alternates = orderedAlternateProjectileTargets(
+        input,
+        prototype.initial.position,
+        prototype.initial.velocity,
+        maxTravel);
     for (int i = 0; i < selectedSkill.extraProjectileCount; ++i)
     {
         auto extra = prototype;
         extra.initial.castSubrequestKind = BattleAttackCastSubrequestKind::ExtraProjectile;
         extra.initial.mainProjectile = false;
+        assignProjectileTargetOrSpread(
+            extra,
+            input,
+            alternates,
+            i + 1,
+            selectedSkill.extraProjectileCount + 1,
+            speed);
         requests.push_back(extra);
     }
 }
@@ -304,26 +425,26 @@ void appendTrackingProjectileSpread(
     const int projectileCount = result.decision.ultimate ? 2 : 1;
     assert(projectileCount > 0);
 
-    const auto facing = castFacing(input);
+    auto prototype = makeOperationRequest(
+        result,
+        input,
+        selectedSkill,
+        BattleOperationType::TrackingProjectile,
+        BattleAttackCastSubrequestKind::SkillHit);
+    const double speed = projectileSpeedForSkill(input.geometry, selectedSkill);
+    const double maxTravel = speed * std::max(1, prototype.initial.totalFrame - prototype.initialFrame)
+        + input.geometry.projectileSpawnOffset;
+    const auto alternates = orderedAlternateProjectileTargets(
+        input,
+        prototype.initial.position,
+        castFacing(input),
+        maxTravel);
     for (int i = 0; i < projectileCount; ++i)
     {
-        auto request = makeOperationRequest(
-            result,
-            input,
-            selectedSkill,
-            BattleOperationType::TrackingProjectile,
-            BattleAttackCastSubrequestKind::SkillHit);
-        if (projectileCount > 1)
-        {
-            const double offset = i == 0
-                ? -LegacyRangedSideProjectileAngle
-                : LegacyRangedSideProjectileAngle;
-            request.initial.velocity = normalizedTo(
-                rotated(facing, offset),
-                projectileSpeedForSkill(input.geometry, selectedSkill),
-                input.config.minimumFacingNorm);
-            request.initial.mainProjectile = i == 0;
-        }
+        auto request = prototype;
+        request.initial.mainProjectile = i == 0;
+        request.initialFrame = result.decision.ultimate ? (i * 5) : 0;
+        assignProjectileTargetOrSpread(request, input, alternates, i, projectileCount, speed);
         requests.push_back(request);
     }
 }
@@ -351,7 +472,8 @@ void appendRangedSideProjectiles(
             : static_cast<double>(i) / (sideCount - 1);
         const double angle = -LegacyRangedSideProjectileAngle
             + t * LegacyRangedSideProjectileAngle * 2.0;
-        const double speed = 5.0 - 0.5 / sideCount * 2.0 * i;
+        const double speed = (5.0 - 0.5 / sideCount * 2.0 * i)
+            * selectedSkill.projectileSpeedMultiplierPct / 100.0;
 
         auto side = makeOperationRequest(
             result,
@@ -377,7 +499,7 @@ std::vector<BattleAttackSpawnRequest> makeTrackingProjectileRequests(
 {
     std::vector<BattleAttackSpawnRequest> requests;
     appendTrackingProjectileSpread(requests, result, input, selectedSkill);
-    appendExtraProjectiles(requests, selectedSkill);
+    appendExtraProjectiles(requests, input, selectedSkill);
     return requests;
 }
 
@@ -394,7 +516,7 @@ std::vector<BattleAttackSpawnRequest> makeRangedProjectileRequests(
             BattleOperationType::RangedProjectile,
             BattleAttackCastSubrequestKind::SkillHit),
     };
-    appendExtraProjectiles(requests, selectedSkill);
+    appendExtraProjectiles(requests, input, selectedSkill);
     appendRangedSideProjectiles(requests, result, input, selectedSkill);
     return requests;
 }
@@ -448,7 +570,7 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
         requests.push_back(splash);
     }
 
-    appendExtraProjectiles(requests, selectedSkill);
+    appendExtraProjectiles(requests, input, selectedSkill);
     return requests;
 }
 

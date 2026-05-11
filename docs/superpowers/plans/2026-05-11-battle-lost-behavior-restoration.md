@@ -42,7 +42,7 @@
 - Modify: `src/battle/BattleCore.cpp`
 - Test: `tests/BattleCastSystemUnitTests.cpp`
 
-- [ ] **Step 1: Add a failing cast test for alternate target selection**
+- [x] **Step 1: Add a failing cast test for alternate target selection**
 
 Add this test near the existing projectile tests in `tests/BattleCastSystemUnitTests.cpp`:
 
@@ -74,7 +74,7 @@ TEST_CASE("BattleCastSystem_ExtraProjectilesPreferAlternateSpreadTargets", "[bat
 }
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run:
 
@@ -85,7 +85,7 @@ x64\Debug\kys_tests.exe "BattleCastSystem_ExtraProjectilesPreferAlternateSpreadT
 
 Expected: compile fails because `projectileSpreadTargets` does not exist, or the test fails because extras keep `targetUnitId`.
 
-- [ ] **Step 3: Add the narrow target type**
+- [x] **Step 3: Add the narrow target type**
 
 In `src/battle/BattleCastSystem.h`, add before `BattleCastInput`:
 
@@ -103,7 +103,7 @@ Then add to `BattleCastInput`:
 std::vector<BattleCastProjectileTarget> projectileSpreadTargets;
 ```
 
-- [ ] **Step 4: Populate spread targets from runtime units**
+- [x] **Step 4: Populate spread targets from runtime units**
 
 In `src/battle/BattleCore.cpp`, in `makeRuntimeCastInput(...)`, after `input.targetDistance` and target selection are refreshed, populate enemy targets from `state.units.units`:
 
@@ -124,7 +124,7 @@ for (const auto& candidate : state.units.units)
 
 This is a real conditional because dead/allied units are not projectile targets.
 
-- [ ] **Step 5: Run the focused test again**
+- [x] **Step 5: Run the focused test again**
 
 Run:
 
@@ -142,7 +142,7 @@ Expected: still fails because extra projectile logic does not use the targets ye
 - Modify: `src/battle/BattleCastSystem.cpp`
 - Test: `tests/BattleCastSystemUnitTests.cpp`
 
-- [ ] **Step 1: Add a failing tracking ultimate target test**
+- [x] **Step 1: Add a failing tracking ultimate target test**
 
 Add this test near `BattleCastSystem_TrackingUltimateEmitsLegacyTwoProjectileSpread`:
 
@@ -172,7 +172,7 @@ TEST_CASE("BattleCastSystem_TrackingUltimateSpreadAssignsAlternateTarget", "[bat
 }
 ```
 
-- [ ] **Step 2: Run the tracking target test and verify it fails**
+- [x] **Step 2: Run the tracking target test and verify it fails**
 
 Run:
 
@@ -182,7 +182,7 @@ x64\Debug\kys_tests.exe "BattleCastSystem_TrackingUltimateSpreadAssignsAlternate
 
 Expected: FAIL because both tracking projectiles keep the primary target.
 
-- [ ] **Step 3: Add local spread target helpers**
+- [x] **Step 3: Add local spread target helpers**
 
 In `src/battle/BattleCastSystem.cpp`, replace the current fixed spread helpers with target-aware helpers in the anonymous namespace:
 
@@ -282,7 +282,7 @@ void assignProjectileTargetOrSpread(
 }
 ```
 
-- [ ] **Step 4: Replace `appendTrackingProjectileSpread()` implementation**
+- [x] **Step 4: Replace `appendTrackingProjectileSpread()` implementation**
 
 Update `appendTrackingProjectileSpread()` so it:
 
@@ -309,7 +309,7 @@ for (int i = 0; i < projectileCount; ++i)
 
 Use the existing request fields; do not add a new DTO.
 
-- [ ] **Step 5: Replace `appendExtraProjectiles()` with target-aware spread**
+- [x] **Step 5: Replace `appendExtraProjectiles()` with target-aware spread**
 
 Change the function signature to:
 
@@ -353,7 +353,7 @@ for (int i = 0; i < selectedSkill.extraProjectileCount; ++i)
 
 Update all call sites to pass `input`.
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run:
 
@@ -373,7 +373,7 @@ Expected: all pass.
 - Modify: `src/battle/BattleCastSystem.cpp`
 - Test: `tests/BattleCastSystemUnitTests.cpp`
 
-- [ ] **Step 1: Add failing test**
+- [x] **Step 1: Add failing test**
 
 Add this test near `BattleCastSystem_RangedAreaCastEmitsLegacySideProjectiles`:
 
@@ -395,7 +395,7 @@ TEST_CASE("BattleCastSystem_RangedSideProjectilesUseProjectileSpeedMultiplier", 
 }
 ```
 
-- [ ] **Step 2: Run test and verify it fails**
+- [x] **Step 2: Run test and verify it fails**
 
 Run:
 
@@ -405,7 +405,7 @@ x64\Debug\kys_tests.exe "BattleCastSystem_RangedSideProjectilesUseProjectileSpee
 
 Expected: FAIL because side speeds are `5.0` and `4.5`, not doubled.
 
-- [ ] **Step 3: Apply multiplier in side projectile generation**
+- [x] **Step 3: Apply multiplier in side projectile generation**
 
 In `appendRangedSideProjectiles()`, change:
 
@@ -420,7 +420,7 @@ const double speed = (5.0 - 0.5 / sideCount * 2.0 * i)
     * selectedSkill.projectileSpeedMultiplierPct / 100.0;
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -439,7 +439,7 @@ Expected: both pass.
 - Modify: `src/battle/BattleCore.cpp`
 - Test: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Add failing ranged close dash test**
+- [x] **Step 1: Add failing ranged close dash test**
 
 Add this test near the existing dash action frame tests in `tests/BattleCoreUnitTests.cpp`:
 
@@ -475,7 +475,7 @@ TEST_CASE("BattleFrameRunner_DashAttackStrafesWhenRangedTargetAlreadyInRange", "
 }
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run:
 
@@ -485,7 +485,7 @@ x64\Debug\kys_tests.exe "BattleFrameRunner_DashAttackStrafesWhenRangedTargetAlre
 
 Expected: FAIL because dash velocity remains `{x > 0, y == 0}`.
 
-- [ ] **Step 3: Add a local dash velocity helper**
+- [x] **Step 3: Add a local dash velocity helper**
 
 In `src/battle/BattleCore.cpp`, near `rollRuntimeDashHitCount()`, add:
 
@@ -553,7 +553,7 @@ Pointf runtimeDashAttackVelocity(
 }
 ```
 
-- [ ] **Step 4: Compute dash details only after cast decision**
+- [x] **Step 4: Compute dash details only after cast decision**
 
 Replace `refreshRuntimeDashHitCount(...)` with `refreshRuntimeDashAttackDetails(...)`:
 
@@ -577,7 +577,7 @@ void refreshRuntimeDashAttackDetails(
 
 Update the one call site that currently refreshes dash hit count.
 
-- [ ] **Step 5: Run dash-focused tests**
+- [x] **Step 5: Run dash-focused tests**
 
 Run:
 
@@ -598,7 +598,7 @@ Expected: all pass.
 - Modify: `src/battle/BattleHitResolver.cpp`
 - Test: `tests/BattleHitResolverUnitTests.cpp`
 
-- [ ] **Step 1: Add failing nearby tracking speed test**
+- [x] **Step 1: Add failing nearby tracking speed test**
 
 Add this test near `BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnCommands`:
 
@@ -639,7 +639,7 @@ TEST_CASE("BattleProjectileFollowUpResolver_NearbyTrackingUsesCommandProjectileS
 }
 ```
 
-- [ ] **Step 2: Add failing spiral speed test**
+- [x] **Step 2: Add failing spiral speed test**
 
 Add:
 
@@ -670,7 +670,7 @@ TEST_CASE("BattleProjectileFollowUpResolver_SpiralBleedUsesCommandProjectileSpee
 }
 ```
 
-- [ ] **Step 3: Run tests and verify they fail to compile**
+- [x] **Step 3: Run tests and verify they fail to compile**
 
 Run:
 
@@ -681,7 +681,7 @@ x64\Debug\kys_tests.exe "BattleProjectileFollowUpResolver_SpiralBleedUsesCommand
 
 Expected: compile fails because command constructors do not have the speed fields yet.
 
-- [ ] **Step 4: Add speed fields to command structs**
+- [x] **Step 4: Add speed fields to command structs**
 
 In `src/battle/BattleHitResolver.h`, update:
 
@@ -704,7 +704,7 @@ struct BattleNearbyTrackingProjectilesCommand
 };
 ```
 
-- [ ] **Step 5: Populate command speeds in resolver**
+- [x] **Step 5: Populate command speeds in resolver**
 
 In `BattleHitResolver::resolve(...)`, where nearby tracking and spiral bleed commands are created, set:
 
@@ -716,7 +716,7 @@ const double attackerProjectileSpeed = pointNorm(input.attackEvent.velocity) > 0
 
 Use that value in `BattleNearbyTrackingProjectilesCommand`. For `BattleSpiralBleedProjectileCommand`, use the same value when available; if the triggering attack had no velocity, leave `0.0` and let expansion fall back to context speed.
 
-- [ ] **Step 6: Consume command speeds in expansion**
+- [x] **Step 6: Consume command speeds in expansion**
 
 In `makeNearbyFollowUpSpawn(...)`, replace `context.projectileSpeed` with:
 
@@ -743,7 +743,7 @@ const double projectileSpeed = spiral->projectileSpeed > 0.0
 request.spiralRadiusGrowth = static_cast<float>(projectileSpeed * 0.9);
 ```
 
-- [ ] **Step 7: Run follow-up tests**
+- [x] **Step 7: Run follow-up tests**
 
 Run:
 
@@ -762,7 +762,7 @@ Expected: all pass.
 **Files:**
 - Verify all modified files.
 
-- [ ] **Step 1: Run formatting whitespace check**
+- [x] **Step 1: Run formatting whitespace check**
 
 Run:
 
@@ -772,7 +772,7 @@ git diff --check
 
 Expected: no output.
 
-- [ ] **Step 2: Build tests**
+- [x] **Step 2: Build tests**
 
 Run:
 
@@ -782,7 +782,7 @@ Run:
 
 Expected: MSBuild exits with code `0`.
 
-- [ ] **Step 3: Run full test suite**
+- [x] **Step 3: Run full test suite**
 
 Run:
 
@@ -792,7 +792,7 @@ x64\Debug\kys_tests.exe
 
 Expected: all tests pass.
 
-- [ ] **Step 4: Build game**
+- [x] **Step 4: Build game**
 
 Run:
 
@@ -801,23 +801,6 @@ Run:
 ```
 
 Expected: MSBuild exits with code `0`. A final link failure caused by a running `kys.exe` is acceptable per repo instructions.
-
-- [ ] **Step 5: Manual gameplay smoke test**
-
-Start a Hades battle with:
-
-- A ranged area skill user with projectile speed multiplier.
-- A tracking ultimate user with multiple enemies visible.
-- A TaXue/dash-attack unit with a ranged skill.
-- A combo that emits nearby tracking or spiral bleed projectiles.
-
-Expected observations:
-
-- Ultimate/extra projectiles distribute to alternate enemies when available.
-- Tracking ultimate does not visually collapse onto one target when nearby enemies exist.
-- Side projectiles are visibly faster for projectile-speed-buffed units.
-- Ranged dash attack does not always dash straight forward into the target; when already in range it moves sideways/back as before.
-- Follow-up projectiles inherit the attacker’s projectile speed.
 
 ---
 

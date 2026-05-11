@@ -77,6 +77,7 @@ struct BattleAttackInstance
     bool noHurt = false;
     int spawnedFromAttackId = -1;
     std::vector<int> hitUnitIds;
+    Pointf previousPosition;
     Pointf acceleration;
     bool spiralMotion = false;
     Pointf spiralCenter;

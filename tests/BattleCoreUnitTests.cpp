@@ -1597,6 +1597,42 @@ TEST_CASE("BattleFrameRunner_PlansCastFromRuntimeOwnedCastPlanInput", "[battle][
     CHECK(result.actionResults[0].castResult.decision.skillId == 301);
 }
 
+TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliveEnemies", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }),
+        unit(2, 1, { 220, 140, 0 }),
+        unit(3, 1, { 220, 90, 0 }),
+    });
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.units.requireUnit(0).animation.cooldown = 0;
+    state.units.requireUnit(0).vitals.mp = state.units.requireUnit(0).vitals.maxMp;
+    state.units.requireUnit(3).alive = false;
+    state.world.units[3].alive = false;
+
+    auto cast = frameCastInput(0, 1);
+    cast.ultimateSkill.attackAreaType = 3;
+    cast.ultimateSkill.rangedStyle = true;
+    cast.ultimateSkill.reach = 400.0;
+    cast.ultimateSkill.selectDistance = 4;
+    configureRuntimeActionPlan(state, cast);
+    state.units.requireUnit(0).animation.cooldown = 0;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.actionResults.size() == 1);
+    REQUIRE(result.actionResults[0].castStarted);
+    const auto& requests = result.actionResults[0].castResult.attackSpawnRequests;
+    REQUIRE(requests.size() == 2);
+    CHECK(requests[0].initial.preferredTargetUnitId == 1);
+    CHECK(requests[1].initial.preferredTargetUnitId == 2);
+    CHECK(requests[1].initial.requirePreferredTarget);
+    CHECK(requests[1].initialFrame == 5);
+}
+
 TEST_CASE("BattleFrameRunner_ClearsDashSpreadWhenRuntimeCastStarts", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -1672,6 +1708,36 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
             return request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit;
         });
     CHECK(pendingDashHitCount == 3);
+}
+
+TEST_CASE("BattleFrameRunner_DashAttackStrafesWhenRangedTargetAlreadyInRange", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.world = worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 180, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.units.requireUnit(0).motion.facing = { 1, 0, 0 };
+    state.units.requireUnit(0).stats.speed = 180;
+    state.units.requireUnit(0).animation.cooldown = 0;
+    state.combo.units[0].dashAttack = true;
+
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.rangedStyle = true;
+    cast.normalSkill.reach = 400.0;
+    cast.targetPosition = { 180, 100, 0 };
+    cast.targetDistance = 80.0;
+    configureRuntimeActionPlan(state, cast);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.actionResults.size() == 1);
+    REQUIRE(result.actionResults[0].castResult.decision.operationType == BattleOperationType::Dash);
+    const auto& dash = result.actionResults[0].castResult.attackSpawnRequests[0];
+    CHECK(std::abs(dash.initial.velocity.y) > 0.01f);
 }
 
 TEST_CASE("BattleFrameRunner_StoresPendingCastCommitInputWhenCastStarts", "[battle][core][runtime]")

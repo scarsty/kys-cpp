@@ -3,6 +3,7 @@
 #include "../ChessEftIds.h"
 #include "BattleCombatIntent.h"
 #include "BattleFind.h"
+#include "BattleMath.h"
 #include "BattleResourceRules.h"
 
 #include <algorithm>
@@ -1343,6 +1344,20 @@ BattleCastInput refreshedCastInput(const BattleRuntimeState& state,
     {
         input.targetUnitId = -1;
     }
+
+    input.projectileSpreadTargets.clear();
+    const auto& sourceUnit = state.units.requireUnit(input.unit.id);
+    for (const auto& candidate : state.units.units)
+    {
+        if (!candidate.alive || candidate.team == sourceUnit.team)
+        {
+            continue;
+        }
+        input.projectileSpreadTargets.push_back({
+            candidate.id,
+            candidate.motion.position,
+        });
+    }
     return input;
 }
 
@@ -1450,6 +1465,67 @@ int rollRuntimeDashHitCount(
     return dashHitCount;
 }
 
+Pointf runtimeDashAttackVelocity(
+    BattleRuntimeState& state,
+    const BattleRuntimeUnit& unit,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill)
+{
+    auto direction = input.targetPosition - unit.motion.position;
+    if (pointNorm(direction) <= state.action.castConfig.minimumFacingNorm)
+    {
+        direction = unit.motion.facing;
+    }
+    assert(pointNorm(direction) > state.action.castConfig.minimumFacingNorm);
+
+    double dashDistance = state.action.actionRules.meleeAttackHitRadius
+        / state.action.actionRules.dashMomentumFrames;
+
+    if (selectedSkill.rangedStyle)
+    {
+        const double attackRange = selectedSkill.attackAreaType == 3
+            ? 180.0
+            : std::min(selectedSkill.reach, state.action.actionRules.maxEffectiveBattleReach);
+        const double forwardGap = std::max(0.0, input.targetDistance - attackRange);
+        dashDistance = state.action.actionRules.meleeAttackHitRadius
+            / state.action.actionRules.dashMomentumFrames;
+        if (forwardGap > state.world.config.engagementDeadband)
+        {
+            dashDistance = std::min(dashDistance, forwardGap / state.action.actionRules.dashMomentumFrames);
+        }
+        else
+        {
+            auto away = unit.motion.position - input.targetPosition;
+            if (pointNorm(away) > state.action.castConfig.minimumFacingNorm)
+            {
+                away = normalizedTo(away, 1.0, state.action.castConfig.minimumFacingNorm);
+                Pointf side{ -away.y, away.x, 0 };
+                if (state.random.nextPercent() < 50.0)
+                {
+                    side = scaled(side, -1.0);
+                }
+                side = normalizedTo(side, 1.0, state.action.castConfig.minimumFacingNorm);
+                direction = side + scaled(
+                    away,
+                    std::clamp((attackRange - input.targetDistance) / std::max(attackRange, 1.0), 0.0, 1.0));
+            }
+        }
+    }
+    else if (selectedSkill.attackAreaType == 0)
+    {
+        const double usefulAdvance = input.targetDistance
+            - state.action.actionRules.meleeAttackReach
+            + state.world.config.engagementDeadband;
+        dashDistance = std::clamp(
+            usefulAdvance,
+            0.0,
+            state.world.config.maxDashDistance)
+            / state.action.actionRules.dashMomentumFrames;
+    }
+
+    return normalizedTo(direction, dashDistance, state.action.castConfig.minimumFacingNorm);
+}
+
 const BattleCastSkillState& selectedCastSkill(const BattleCastInput& input, bool ultimate)
 {
     return ultimate ? input.ultimateSkill : input.normalSkill;
@@ -1462,7 +1538,7 @@ bool castInputWouldUseDash(const BattleCastInput& input, const BattleCastSkillSt
         && (input.targetDistance > input.unit.meleeAttackReach || selectedSkill.rangedStyle);
 }
 
-void refreshRuntimeDashHitCount(
+void refreshRuntimeDashAttackDetails(
     BattleRuntimeState& state,
     const BattleRuntimeUnit& unit,
     BattleCastInput& input,
@@ -1473,10 +1549,9 @@ void refreshRuntimeDashHitCount(
     {
         return;
     }
-    input.unit.dashHitCount = rollRuntimeDashHitCount(
-        state,
-        unit,
-        selectedCastSkill(input, ultimate));
+    const auto& skill = selectedCastSkill(input, ultimate);
+    input.unit.dashHitCount = rollRuntimeDashHitCount(state, unit, skill);
+    input.unit.dashVelocity = runtimeDashAttackVelocity(state, unit, input, skill);
 }
 
 bool actionMovementDashActive(const BattleRuntimeState& state, int unitId)
@@ -1543,7 +1618,7 @@ bool tryCommitAutoUltimate(
         return false;
     }
 
-    refreshRuntimeDashHitCount(
+    refreshRuntimeDashAttackDetails(
         state,
         *unit,
         castInput,
@@ -3423,7 +3498,7 @@ void advanceActionFrameUnits(
             }
             const bool plannedUltimate = castInput.ultimateSkill.id >= 0
                 && castInput.unit.mp == castInput.unit.maxMp;
-            refreshRuntimeDashHitCount(
+            refreshRuntimeDashAttackDetails(
                 state,
                 unit,
                 castInput,

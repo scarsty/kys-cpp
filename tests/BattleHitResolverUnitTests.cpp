@@ -513,6 +513,68 @@ TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnComman
     CHECK(first->request.initial.strengthMultiplier == Catch::Approx(0.4f));
 }
 
+TEST_CASE("BattleProjectileFollowUpResolver_NearbyTrackingUsesCommandProjectileSpeed", "[battle][hit_resolver][unit]")
+{
+    BattleProjectileFollowUpContext context;
+    BattleUnitStore units;
+    units.units = {
+        runtimeUnit(0, 0, { 0.0f, 0.0f, 0.0f }),
+        runtimeUnit(1, 1, { 80.0f, 0.0f, 0.0f }),
+    };
+    context.projectileSpeed = 10.0;
+
+    BattleAttackEvent prototype;
+    prototype.sourceUnitId = 0;
+    prototype.unitId = 1;
+    prototype.skillId = 101;
+    prototype.visualEffectId = 44;
+    prototype.position = { 0, 0, 0 };
+    prototype.velocity = { 20, 0, 0 };
+
+    std::vector<BattleGameplayCommand> commands;
+    commands.push_back(BattleNearbyTrackingProjectilesCommand{
+        prototype,
+        1,
+        100,
+        40,
+        20.0,
+    });
+
+    auto expanded = expandBattleProjectileFollowUpCommands(commands, context, units);
+
+    REQUIRE(expanded.commands.size() == 1);
+    const auto* spawn = std::get_if<BattleProjectileSpawnCommand>(&expanded.commands[0]);
+    REQUIRE(spawn);
+    CHECK(spawn->request.initial.velocity.x == Catch::Approx(20.0f));
+    CHECK(spawn->request.initial.velocity.y == Catch::Approx(0.0f));
+    CHECK(spawn->request.initial.velocity.z == Catch::Approx(0.0f));
+}
+
+TEST_CASE("BattleProjectileFollowUpResolver_SpiralBleedUsesCommandProjectileSpeed", "[battle][hit_resolver][unit]")
+{
+    BattleProjectileFollowUpContext context;
+    BattleUnitStore units;
+    units.units = {
+        runtimeUnit(0, 0, { 0.0f, 0.0f, 0.0f }),
+    };
+    context.projectileSpeed = 10.0;
+
+    std::vector<BattleGameplayCommand> commands;
+    commands.push_back(BattleSpiralBleedProjectileCommand{
+        0,
+        3,
+        2,
+        20.0,
+    });
+
+    auto expanded = expandBattleProjectileFollowUpCommands(commands, context, units);
+
+    REQUIRE(expanded.commands.size() == 2);
+    const auto* spawn = std::get_if<BattleProjectileSpawnCommand>(&expanded.commands[0]);
+    REQUIRE(spawn);
+    CHECK(spawn->request.spiralRadiusGrowth == Catch::Approx(18.0f));
+}
+
 TEST_CASE("BattleHitResolver_MpDamageSkillEmitsMpDamageCommand", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();

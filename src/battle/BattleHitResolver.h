@@ -116,6 +116,7 @@ struct BattleSpiralBleedProjectileCommand
     int sourceUnitId{};
     int bleedStacks{};
     int projectileCount{};
+    double projectileSpeed{};
 };
 
 struct BattleNearbyTrackingProjectilesCommand
@@ -124,6 +125,7 @@ struct BattleNearbyTrackingProjectilesCommand
     int centerTargetUnitId{};
     int rangePixels{};
     int damagePct{};
+    double projectileSpeed{};
 };
 
 struct BattleHitExtraProjectilesCommand

@@ -103,6 +103,12 @@ struct BattleCastConfig
     int strengthenedMeleeOperationCountThreshold{};
 };
 
+struct BattleCastProjectileTarget
+{
+    int unitId = -1;
+    Pointf position;
+};
+
 struct BattleCastInput
 {
     BattleCastConfig config;
@@ -113,6 +119,7 @@ struct BattleCastInput
     int targetUnitId = -1;
     Pointf targetPosition;
     double targetDistance{};
+    std::vector<BattleCastProjectileTarget> projectileSpreadTargets;
 };
 
 enum class BattleCastBlockReason

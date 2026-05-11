@@ -618,6 +618,34 @@ TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle
     CHECK_FALSE(result.attackSpawnRequests[2].initial.mainProjectile);
 }
 
+TEST_CASE("BattleCastSystem_ExtraProjectilesPreferAlternateSpreadTargets", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.mp = input.unit.maxMp;
+    input.ultimateSkill = skill(230, 1, 400.0);
+    input.ultimateSkill.selectDistance = 4;
+    input.ultimateSkill.extraProjectileCount = 2;
+    input.targetUnitId = 2;
+    input.targetPosition = { 82.0f, 20.0f, 0.0f };
+    input.targetDistance = 72.0;
+    input.projectileSpreadTargets = {
+        { 2, { 82.0f, 20.0f, 0.0f } },
+        { 3, { 82.0f, 56.0f, 0.0f } },
+        { 4, { 82.0f, -16.0f, 0.0f } },
+    };
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.ultimate);
+    REQUIRE(result.attackSpawnRequests.size() == 6);
+    CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(result.attackSpawnRequests[1].initial.preferredTargetUnitId == 3);
+    CHECK(result.attackSpawnRequests[1].initial.requirePreferredTarget);
+    CHECK(result.attackSpawnRequests[2].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(result.attackSpawnRequests[2].initial.preferredTargetUnitId == 4);
+    CHECK(result.attackSpawnRequests[2].initial.requirePreferredTarget);
+}
+
 TEST_CASE("BattleCastSystem_RangedAreaCastEmitsLegacySideProjectiles", "[battle][cast]")
 {
     auto input = basicInput();
@@ -649,6 +677,22 @@ TEST_CASE("BattleCastSystem_RangedAreaCastEmitsLegacySideProjectiles", "[battle]
     }
 }
 
+TEST_CASE("BattleCastSystem_RangedSideProjectilesUseProjectileSpeedMultiplier", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.normalSkill = skill(121, 1, 400.0);
+    input.normalSkill.selectDistance = 4;
+    input.normalSkill.projectileSpeedMultiplierPct = 200;
+    input.targetDistance = 300.0;
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.operationType == BattleOperationType::RangedProjectile);
+    REQUIRE(result.attackSpawnRequests.size() == 3);
+    CHECK(result.attackSpawnRequests[1].initial.velocity.norm() == Catch::Approx(10.0f));
+    CHECK(result.attackSpawnRequests[2].initial.velocity.norm() == Catch::Approx(9.0f));
+}
+
 TEST_CASE("BattleCastSystem_TrackingUltimateEmitsLegacyTwoProjectileSpread", "[battle][cast]")
 {
     auto input = basicInput();
@@ -662,10 +706,38 @@ TEST_CASE("BattleCastSystem_TrackingUltimateEmitsLegacyTwoProjectileSpread", "[b
     REQUIRE(result.decision.ultimate);
     REQUIRE(result.decision.operationType == BattleOperationType::TrackingProjectile);
     REQUIRE(result.attackSpawnRequests.size() == 2);
+    CHECK(result.attackSpawnRequests[0].initial.mainProjectile);
+    CHECK_FALSE(result.attackSpawnRequests[1].initial.mainProjectile);
+    CHECK(result.attackSpawnRequests[0].initialFrame == 0);
+    CHECK(result.attackSpawnRequests[1].initialFrame == 5);
     CHECK(result.attackSpawnRequests[0].initial.track);
     CHECK(result.attackSpawnRequests[1].initial.track);
     CHECK(result.attackSpawnRequests[0].initial.totalFrame == LegacyTrackingProjectileTotalFrame);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == LegacyTrackingProjectileTotalFrame);
+}
+
+TEST_CASE("BattleCastSystem_TrackingUltimateSpreadAssignsAlternateTarget", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.mp = input.unit.maxMp;
+    input.ultimateSkill = skill(231, 3, 400.0);
+    input.ultimateSkill.selectDistance = 4;
+    input.targetUnitId = 2;
+    input.targetPosition = { 82.0f, 20.0f, 0.0f };
+    input.targetDistance = 72.0;
+    input.projectileSpreadTargets = {
+        { 2, { 82.0f, 20.0f, 0.0f } },
+        { 3, { 86.0f, 54.0f, 0.0f } },
+    };
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.ultimate);
+    REQUIRE(result.decision.operationType == BattleOperationType::TrackingProjectile);
+    REQUIRE(result.attackSpawnRequests.size() == 2);
+    CHECK(result.attackSpawnRequests[0].initial.preferredTargetUnitId == 2);
+    CHECK(result.attackSpawnRequests[1].initial.preferredTargetUnitId == 3);
+    CHECK(result.attackSpawnRequests[1].initial.requirePreferredTarget);
 }
 
 TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[battle][cast]")

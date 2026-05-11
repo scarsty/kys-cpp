@@ -19,6 +19,88 @@ struct PendingBounce
     int targetUnitId = -1;
 };
 
+bool isProjectileOperation(BattleOperationType operationType)
+{
+    return operationType == BattleOperationType::RangedProjectile
+        || operationType == BattleOperationType::TrackingProjectile;
+}
+
+double pointSegmentDistance(Pointf point, Pointf segmentStart, Pointf segmentEnd)
+{
+    const double dx = static_cast<double>(segmentEnd.x) - segmentStart.x;
+    const double dy = static_cast<double>(segmentEnd.y) - segmentStart.y;
+    const double lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared <= 0.0)
+    {
+        return pointDistance(point, segmentEnd);
+    }
+
+    const double px = static_cast<double>(point.x) - segmentStart.x;
+    const double py = static_cast<double>(point.y) - segmentStart.y;
+    const double t = std::clamp((px * dx + py * dy) / lengthSquared, 0.0, 1.0);
+    Pointf closest{
+        static_cast<float>(segmentStart.x + dx * t),
+        static_cast<float>(segmentStart.y + dy * t),
+        0.0f,
+    };
+    return pointDistance(point, closest);
+}
+
+double cross2d(Pointf origin, Pointf lhs, Pointf rhs)
+{
+    return (static_cast<double>(lhs.x) - origin.x) * (static_cast<double>(rhs.y) - origin.y)
+        - (static_cast<double>(lhs.y) - origin.y) * (static_cast<double>(rhs.x) - origin.x);
+}
+
+bool rangesOverlap(double lhsStart, double lhsEnd, double rhsStart, double rhsEnd)
+{
+    if (lhsStart > lhsEnd)
+    {
+        std::swap(lhsStart, lhsEnd);
+    }
+    if (rhsStart > rhsEnd)
+    {
+        std::swap(rhsStart, rhsEnd);
+    }
+    return std::max(lhsStart, rhsStart) <= std::min(lhsEnd, rhsEnd);
+}
+
+bool segmentsIntersect(Pointf lhsStart, Pointf lhsEnd, Pointf rhsStart, Pointf rhsEnd)
+{
+    constexpr double Epsilon = 0.000001;
+    const double lhsCrossStart = cross2d(lhsStart, lhsEnd, rhsStart);
+    const double lhsCrossEnd = cross2d(lhsStart, lhsEnd, rhsEnd);
+    const double rhsCrossStart = cross2d(rhsStart, rhsEnd, lhsStart);
+    const double rhsCrossEnd = cross2d(rhsStart, rhsEnd, lhsEnd);
+
+    if (std::abs(lhsCrossStart) <= Epsilon
+        && std::abs(lhsCrossEnd) <= Epsilon
+        && std::abs(rhsCrossStart) <= Epsilon
+        && std::abs(rhsCrossEnd) <= Epsilon)
+    {
+        return rangesOverlap(lhsStart.x, lhsEnd.x, rhsStart.x, rhsEnd.x)
+            && rangesOverlap(lhsStart.y, lhsEnd.y, rhsStart.y, rhsEnd.y);
+    }
+
+    return lhsCrossStart * lhsCrossEnd <= Epsilon
+        && rhsCrossStart * rhsCrossEnd <= Epsilon;
+}
+
+double segmentSegmentDistance(Pointf lhsStart, Pointf lhsEnd, Pointf rhsStart, Pointf rhsEnd)
+{
+    if (segmentsIntersect(lhsStart, lhsEnd, rhsStart, rhsEnd))
+    {
+        return 0.0;
+    }
+
+    return std::min({
+        pointSegmentDistance(lhsStart, rhsStart, rhsEnd),
+        pointSegmentDistance(lhsEnd, rhsStart, rhsEnd),
+        pointSegmentDistance(rhsStart, lhsStart, lhsEnd),
+        pointSegmentDistance(rhsEnd, lhsStart, lhsEnd),
+    });
+}
+
 void applyAttackPayload(BattleAttackEvent& event, const BattleAttackState& state)
 {
     event.sourceUnitId = state.attackerUnitId;
@@ -134,6 +216,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
     BattleAttackInstance attack;
     attack.id = allocateAttackId(world);
     attack.state = request.initial;
+    attack.previousPosition = request.initial.position;
     attack.frame = request.initialFrame;
     attack.acceleration = request.acceleration;
     attack.spiralMotion = request.spiralMotion;
@@ -375,6 +458,7 @@ void BattleAttackSystem::markHit(BattleAttackWorld& world, BattleAttackInstance&
 
 void BattleAttackSystem::moveAttack(BattleAttackInstance& attack) const
 {
+    const Pointf positionBeforeMove = attack.state.position;
     if (attack.spiralMotion)
     {
         attack.spiralRadius += attack.spiralRadiusGrowth;
@@ -389,11 +473,19 @@ void BattleAttackSystem::moveAttack(BattleAttackInstance& attack) const
             static_cast<float>(std::sin(attack.spiralAngle) * attack.spiralRadiusGrowth),
             0.0f,
         };
+        attack.previousPosition = positionBeforeMove;
         return;
     }
 
     attack.state.velocity += attack.acceleration;
     attack.state.position += attack.state.velocity;
+    attack.previousPosition = positionBeforeMove;
+    if (attack.frame == 1
+        && attack.state.preferredTargetUnitId >= 0
+        && isProjectileOperation(attack.state.operationType))
+    {
+        attack.previousPosition = positionBeforeMove - attack.state.velocity;
+    }
 }
 
 void BattleAttackSystem::trackTarget(
@@ -436,7 +528,10 @@ bool BattleAttackSystem::canHit(
         return false;
     }
 
-    return pointDistance(target.position, attack.state.position) <= world.hitRadius;
+    return pointSegmentDistance(
+        target.position,
+        attack.previousPosition,
+        attack.state.position) <= world.hitRadius;
 }
 
 const BattleAttackUnit* BattleAttackSystem::selectBounceTarget(
@@ -567,7 +662,11 @@ void BattleAttackSystem::collectProjectileCancelEvents(
             {
                 continue;
             }
-            if (pointDistance(lhs.state.position, rhs.state.position) < world.hitRadius)
+            if (segmentSegmentDistance(
+                    lhs.previousPosition,
+                    lhs.state.position,
+                    rhs.previousPosition,
+                    rhs.state.position) < world.hitRadius)
             {
                 events.push_back(makeProjectileCancelEvent(lhs, rhs));
             }

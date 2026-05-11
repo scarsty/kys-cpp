@@ -354,6 +354,43 @@ TEST_CASE("BattleAttackSystem_RangedHitOnlyEmitsAfterProjectileReachesTarget", "
     CHECK(hasEvent(atReach, BattleAttackEventType::Hit, 10, 2));
 }
 
+TEST_CASE("BattleAttackSystem_FastProjectileHitsTargetCrossedBetweenFrames", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.hitRadius = 10.0;
+    world.units = {
+        unit(1, 0, 0, 0),
+        unit(2, 1, 50, 0),
+    };
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
+    projectile.state.velocity = { 100, 0, 0 };
+    world.attacks.push_back(projectile);
+
+    auto events = BattleAttackSystem().tick(world);
+
+    CHECK(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
+}
+
+TEST_CASE("BattleAttackSystem_FastPreferredProjectileCanHitCloseTargetBehindSpawnOffset", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.hitRadius = 10.0;
+    world.units = {
+        unit(1, 0, 0, 0),
+        unit(2, 1, 40, 0),
+    };
+    auto projectile = attack(10, 1, 72, 0);
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
+    projectile.state.preferredTargetUnitId = 2;
+    projectile.state.velocity = { 60, 0, 0 };
+    world.attacks.push_back(projectile);
+
+    auto events = BattleAttackSystem().tick(world);
+
+    CHECK(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
+}
+
 TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][unit]")
 {
     auto world = attackWorld();
@@ -504,6 +541,27 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDama
     CHECK(events.back().otherSourceUnitId == 2);
     CHECK(events.back().projectileCancelDamage == 17);
     CHECK(events.back().otherProjectileCancelDamage == 10);
+}
+
+TEST_CASE("BattleAttackSystem_FastProjectilesCancelWhenCrossingBetweenFrames", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.hitRadius = 10.0;
+    world.projectileGraceFrames = 5;
+    world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
+    auto lhs = attack(10, 1, 0, 0);
+    lhs.frame = 5;
+    lhs.state.velocity = { 100, 0, 0 };
+    auto rhs = attack(11, 2, 120, 0);
+    rhs.frame = 5;
+    rhs.state.velocity = { -100, 0, 0 };
+    world.attacks = { lhs, rhs };
+
+    auto events = BattleAttackSystem().tick(world);
+
+    REQUIRE(events.back().type == BattleAttackEventType::ProjectileCancel);
+    CHECK(events.back().attackId == 10);
+    CHECK(events.back().otherAttackId == 11);
 }
 
 TEST_CASE("BattleAttackSystem_ApplyProjectileCancelDamageCommitsLegacyWeakenRules", "[battle][attack][unit]")

@@ -17,6 +17,14 @@ namespace
 constexpr int RoleStatusEffectFrames = 45;
 constexpr double FollowUpPi = 3.14159265358979323846;
 
+double pointMagnitude(const Pointf& point)
+{
+    return std::sqrt(
+        static_cast<double>(point.x) * point.x
+        + static_cast<double>(point.y) * point.y
+        + static_cast<double>(point.z) * point.z);
+}
+
 std::string formatStatusFrames(const char* label, int frames)
 {
     if (frames <= 0)
@@ -208,6 +216,9 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     const BattleProjectileFollowUpContext& context)
 {
     const auto targetPosition = target.motion.position;
+    const double projectileSpeed = command.projectileSpeed > 0.0
+        ? command.projectileSpeed
+        : context.projectileSpeed;
     BattleAttackSpawnRequest request;
     request.initial.attackerUnitId = command.prototype.sourceUnitId;
     request.initial.skillId = command.prototype.skillId;
@@ -230,11 +241,11 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     request.initial.velocity = normalizedFollowUpVelocity(
         request.initial.position,
         targetPosition,
-        context.projectileSpeed);
+        projectileSpeed);
     request.initial.totalFrame = std::max(
         context.minimumProjectileFrames,
         static_cast<int>(std::ceil(followUpDistance(targetPosition, request.initial.position)
-                                   / std::max(1.0, context.projectileSpeed)))
+                                   / std::max(1.0, projectileSpeed)))
             + context.nearbyProjectileFramePadding);
     return request;
 }
@@ -356,6 +367,9 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
             const auto sourcePosition = source.motion.position;
             const int sharedHitGroupId = context.nextSharedHitGroupId++;
             const int projectileCount = std::max(1, spiral->projectileCount);
+            const double projectileSpeed = spiral->projectileSpeed > 0.0
+                ? spiral->projectileSpeed
+                : context.projectileSpeed;
             for (int i = 0; i < projectileCount; ++i)
             {
                 BattleAttackSpawnRequest request;
@@ -371,7 +385,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                 request.spiralMotion = true;
                 request.spiralCenter = sourcePosition;
                 request.spiralRadius = 0.0f;
-                request.spiralRadiusGrowth = static_cast<float>(context.projectileSpeed * 0.9);
+                request.spiralRadiusGrowth = static_cast<float>(projectileSpeed * 0.9);
                 request.spiralAngle = static_cast<float>(2.0 * FollowUpPi * i / projectileCount);
                 request.spiralAngularVelocity = 0.42f;
                 expansion.commands.push_back(BattleProjectileSpawnCommand{ std::move(request), "螺旋流血彈" });
@@ -1140,6 +1154,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 random);
         }
 
+        const double attackerProjectileSpeed = pointMagnitude(input.attackEvent.velocity) > 0.01
+            ? pointMagnitude(input.attackEvent.velocity)
+            : 0.0;
         for (const auto& followUp : followUpEvents)
         {
             assert(followUp.effect.value > 0);
@@ -1172,6 +1189,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                     input.attacker.id,
                     followUp.effect.value,
                     followUp.effect.value2 > 0 ? followUp.effect.value2 : 6,
+                    attackerProjectileSpeed,
                 });
                 break;
             case KysChess::EffectType::NearbyTrackingProjectiles:
@@ -1180,6 +1198,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                     input.defender.id,
                     followUp.effect.value,
                     followUp.effect.value2 > 0 ? followUp.effect.value2 : 40,
+                    attackerProjectileSpeed,
                 });
                 break;
             default:
