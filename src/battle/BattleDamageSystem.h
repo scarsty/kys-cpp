@@ -270,6 +270,7 @@ struct BattleDamageEvent
     int sourceUnitId{};
     int targetUnitId{};
     int value{};
+    int maxValue{};
 };
 
 struct BattleDamageRequest
@@ -300,6 +301,7 @@ struct BattleDamageRequest
     int damageReduceDebuffDurationFrames = 0;
     int damageReduceDebuffPct = 0;
     int mpBlockFrames = 0;
+    bool triggersDefenseEffects = true;
 };
 
 struct BattleUnitDelta
@@ -353,7 +355,7 @@ public:
     BattleDamageTransactionResult resolveTransaction(const BattleDamageTransactionInput& input) const;
     BattleDamageModifierResult applyModifiers(const BattleDamageModifierInput& input) const;
     BattleDamageDefenseResult resolveDefense(const BattleDamageDefenseInput& input) const;
-    BattleDamageTakenResult applyDamageTaken(BattleDamageUnitState defender, int damage) const;
+    BattleDamageTakenResult applyDamageTaken(BattleDamageUnitState defender, int damage, bool triggersDefenseEffects = true) const;
     BattleKillRewardResult applyKillReward(const BattleKillRewardInput& input) const;
     BattleCooldownIncreaseResult extendActiveCooldown(BattleCooldownState unit, int pct) const;
     bool shouldExecute(const BattleExecuteInput& input) const;
@@ -368,5 +370,8 @@ public:
 
 BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* state);
 BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const RoleComboState* state);
+BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const BattleDamageRuntimeUnit* runtime);
+void writeBattleDamageRuntimeUnit(BattleDamageRuntimeUnit& runtime, const BattleDamageUnitState& unit);
+BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit);
 
 }  // namespace KysChess::Battle

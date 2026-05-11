@@ -18,6 +18,9 @@ struct BattleMovementPhysicsState
     int movementDashFrames = 0;
     int movementDashCooldown = 0;
     int movementDashSpreadFrames = 0;
+    Pointf postDashRetreatVelocity;
+    int postDashRetreatFrames = 0;
+    int postDashChaosFrames = 0;
 };
 
 struct BattleMovementPhysicsConfig

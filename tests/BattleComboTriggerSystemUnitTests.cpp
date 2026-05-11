@@ -165,20 +165,6 @@ TEST_CASE("BattleComboTriggerSystem_FrameRuntime_EmitsFrameTriggers", "[battle][
     CHECK(state.effectActivationCounts[1] == 1);
 }
 
-TEST_CASE("BattleComboTriggerSystem_SkillFinishedRuntime_EmitsPostSkillInvincibility", "[battle][combo][unit]")
-{
-    RoleComboState state;
-    state.postSkillInvincFrames = 8;
-
-    auto events = BattleComboTriggerSystem().collectSkillFinishedRuntimeEvents(state, true);
-
-    REQUIRE(events.size() == 1);
-    CHECK(events[0].type == BattleComboFrameRuntimeEventType::PostSkillInvincibility);
-    CHECK(events[0].value == 8);
-
-    CHECK(BattleComboTriggerSystem().collectSkillFinishedRuntimeEvents(state, false).empty());
-}
-
 TEST_CASE("BattleComboTriggerSystem_TeamHeal_CollectsMatchingHookAndCountsActivations", "[battle][combo][unit]")
 {
     RoleComboState state;
@@ -286,7 +272,7 @@ TEST_CASE("BattleComboTriggerSystem_OnHitComboCommands_FilterNearbyTrackingWhenS
         triggeredEffect(EffectType::NearbyTrackingProjectiles, Trigger::OnHit, 80, 100));
     state.triggeredEffects.back().value2 = 30;
     state.triggeredEffects.push_back(
-        triggeredEffect(EffectType::FlatShield, Trigger::OnHit, 12, 100));
+        triggeredEffect(EffectType::FlatShield, Trigger::OnCast, 12, 100));
 
     auto suppressedRandom = fixedBattleRandom();
     auto suppressed = BattleComboTriggerSystem().collectOnHitComboCommands(
@@ -295,14 +281,12 @@ TEST_CASE("BattleComboTriggerSystem_OnHitComboCommands_FilterNearbyTrackingWhenS
         true,
         suppressedRandom);
 
-    REQUIRE(suppressed.size() == 2);
+    REQUIRE(suppressed.size() == 1);
     CHECK(suppressed[0].type == BattleOnHitComboCommandType::MpBlock);
     CHECK(suppressed[0].value == 4);
-    CHECK(suppressed[1].type == BattleOnHitComboCommandType::FlatShield);
-    CHECK(suppressed[1].value == 12);
     CHECK(state.effectActivationCounts[0] == 1);
     CHECK(state.effectActivationCounts[1] == 0);
-    CHECK(state.effectActivationCounts[2] == 1);
+    CHECK(state.effectActivationCounts.count(2) == 0);
 
     auto allowedRandom = fixedBattleRandom();
     auto allowed = BattleComboTriggerSystem().collectOnHitComboCommands(
@@ -311,7 +295,7 @@ TEST_CASE("BattleComboTriggerSystem_OnHitComboCommands_FilterNearbyTrackingWhenS
         false,
         allowedRandom);
 
-    REQUIRE(allowed.size() == 3);
+    REQUIRE(allowed.size() == 2);
     CHECK(allowed[1].type == BattleOnHitComboCommandType::NearbyTrackingProjectiles);
     CHECK(allowed[1].value == 80);
     CHECK(allowed[1].value2 == 30);

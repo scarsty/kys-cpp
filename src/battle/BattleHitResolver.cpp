@@ -3,6 +3,7 @@
 #include "../ChessEftIds.h"
 #include "BattleComboTriggerSystem.h"
 #include "BattleCore.h"
+#include "BattleStatusFormat.h"
 
 #include <algorithm>
 #include <cassert>
@@ -63,15 +64,6 @@ std::string formatStackingEffectStatus(const char* label, int pctPerStack, int s
         return label;
     }
     return std::format("{} +{}%（{}層）", label, pctPerStack * stacks, stacks);
-}
-
-std::string formatStatusRange(const char* label, int current, int maxValue, const char* unit)
-{
-    if (current <= 0 || maxValue <= 0)
-    {
-        return label;
-    }
-    return std::format("{}（{}/{}{}）", label, current, maxValue, unit);
 }
 
 std::string formatCooldownIncreaseStatus(int pct, int before, int after)
@@ -324,6 +316,31 @@ std::string appendDetail(std::string detail, const std::string& text)
     return text;
 }
 
+std::string projectileSourceLabel(const BattleAttackEvent& event)
+{
+    if (event.operationType == BattleOperationType::Dash)
+    {
+        return "滑步";
+    }
+    if (event.ultimate && event.track && !event.mainProjectile)
+    {
+        return "絕招追蹤彈";
+    }
+    if (event.ultimate && !event.mainProjectile)
+    {
+        return "絕招追加彈";
+    }
+    if ((event.track || event.operationType == BattleOperationType::TrackingProjectile) && !event.mainProjectile)
+    {
+        return "追蹤彈";
+    }
+    if (event.sharedHitGroupId > 0 && !event.mainProjectile)
+    {
+        return "連鎖彈";
+    }
+    return "";
+}
+
 }  // namespace
 
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
@@ -357,6 +374,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                     0,
                     "",
                     currentHp->reason,
+                    false,
                 });
             }
             continue;
@@ -653,10 +671,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         {
         case BattleAttackerHitDamageEventType::Crit:
             result.critical = true;
-            result.logEvents.push_back(statusEvent(
-                input.attacker.id,
-                input.defender.id,
-                formatStatusPercent("暴擊", damageEvent.value)));
             break;
         case BattleAttackerHitDamageEventType::RampingStack:
             result.logEvents.push_back(statusEvent(
@@ -1044,6 +1058,10 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     {
         damageDetail = appendDetail(std::move(damageDetail), "彈反");
     }
+    if (auto label = projectileSourceLabel(input.attackEvent); !label.empty())
+    {
+        damageDetail = appendDetail(std::move(damageDetail), label);
+    }
 
     if (!result.reflected && usingSkill && defenderCombo.skillReflectPct > 0)
     {
@@ -1060,6 +1078,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 0,
                 "",
                 "技能反彈",
+                false,
             });
         }
     }
@@ -1081,10 +1100,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             request.bleedStacks = bleedProc.stacks;
             request.bleedMaxStacks = bleedProc.maxStacks;
             result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-            result.logEvents.push_back(statusEvent(
-                input.attacker.id,
-                input.defender.id,
-                formatStatusRange("流血", bleedProc.stacks, std::max(1, bleedProc.maxStacks), "層")));
         }
 
         BattleDamageReduceDebuffProc damageReduceDebuff;
@@ -1126,31 +1141,12 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
 
         std::vector<BattleComboTriggerEvent> followUpEvents;
-        if (input.attackEvent.suppressNearbyTrackingProjectileProc)
+        if (!input.attackEvent.suppressNearbyTrackingProjectileProc)
         {
             followUpEvents = BattleComboTriggerSystem().collectTriggerEvents(
                 attackerCombo,
                 { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
-                {
-                    KysChess::EffectType::CurrentHPPctBlast,
-                    KysChess::EffectType::TeamMPRestore,
-                    KysChess::EffectType::FlatShield,
-                    KysChess::EffectType::SpiralBleedProjectile,
-                },
-                random);
-        }
-        else
-        {
-            followUpEvents = BattleComboTriggerSystem().collectTriggerEvents(
-                attackerCombo,
-                { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
-                {
-                    KysChess::EffectType::CurrentHPPctBlast,
-                    KysChess::EffectType::TeamMPRestore,
-                    KysChess::EffectType::FlatShield,
-                    KysChess::EffectType::SpiralBleedProjectile,
-                    KysChess::EffectType::NearbyTrackingProjectiles,
-                },
+                { KysChess::EffectType::NearbyTrackingProjectiles },
                 random);
         }
 
@@ -1162,36 +1158,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             assert(followUp.effect.value > 0);
             switch (followUp.effect.type)
             {
-            case KysChess::EffectType::CurrentHPPctBlast:
-                result.commands.push_back(BattleCurrentHpBlastCommand{
-                    input.attacker.id,
-                    followUp.effect.value,
-                    "當前生命傷害",
-                });
-                break;
-            case KysChess::EffectType::TeamMPRestore:
-                result.commands.push_back(BattleTeamMpRestoreCommand{
-                    input.attacker.id,
-                    followUp.effect.value,
-                    "琴棋書畫",
-                });
-                break;
-            case KysChess::EffectType::FlatShield:
-                result.commands.push_back(BattleTeamShieldCommand{
-                    input.attacker.id,
-                    followUp.effect.value,
-                    true,
-                    "全隊護盾重整",
-                });
-                break;
-            case KysChess::EffectType::SpiralBleedProjectile:
-                result.commands.push_back(BattleSpiralBleedProjectileCommand{
-                    input.attacker.id,
-                    followUp.effect.value,
-                    followUp.effect.value2 > 0 ? followUp.effect.value2 : 6,
-                    attackerProjectileSpeed,
-                });
-                break;
             case KysChess::EffectType::NearbyTrackingProjectiles:
                 result.commands.push_back(BattleNearbyTrackingProjectilesCommand{
                     input.attackEvent,
@@ -1204,20 +1170,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             default:
                 assert(false);
             }
-        }
-
-        int extraProjectiles = BattleComboTriggerSystem().collectExtraProjectileCount(
-            attackerCombo,
-            { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
-            0,
-            random);
-        if (extraProjectiles > 0)
-        {
-            result.commands.push_back(BattleHitExtraProjectilesCommand{
-                input.attackEvent,
-                extraProjectiles,
-                input.defender.id,
-            });
         }
     }
 
@@ -1243,6 +1195,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 !result.reflected ? impactFrozenFrames : 0,
                 input.skill.name,
                 damageDetail,
+                !result.reflected,
             });
             result.finalHpDamage = damage;
         }

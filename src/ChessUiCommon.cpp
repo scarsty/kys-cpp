@@ -78,6 +78,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
             if (eff.trigger == Trigger::WhileLowHP) return std::format("血<{}%·", eff.triggerValue);
             if (eff.trigger == Trigger::AllyLowHPBurst) return std::format("友血<{}%·狂暴{}幀·", eff.triggerValue, eff.duration);
             if (eff.trigger == Trigger::LastAlive) return "最後存活·";
+            if (eff.trigger == Trigger::OnCast && eff.triggerValue < 100) return std::format("出手{}%·", eff.triggerValue);
             if (eff.trigger == Trigger::OnUltimate) return "絕招·";
             if (eff.trigger == Trigger::OnHit && eff.triggerValue < 100) return std::format("擊中{}%·", eff.triggerValue);
             if (eff.trigger == Trigger::OnBeingHit && eff.triggerValue < 100) return std::format("被擊{}%·", eff.triggerValue);
@@ -88,6 +89,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
         if (eff.trigger == Trigger::WhileLowHP) return std::format("血量<{}%: ", eff.triggerValue);
         if (eff.trigger == Trigger::AllyLowHPBurst) return std::format("血量<{}%狂暴({}幀): ", eff.triggerValue, eff.duration);
         if (eff.trigger == Trigger::LastAlive) return "最後存活: ";
+        if (eff.trigger == Trigger::OnCast && eff.triggerValue < 100) return std::format("{}%出手觸發", eff.triggerValue);
         if (eff.trigger == Trigger::OnUltimate) return "絕招觸發: ";
         if (eff.trigger == Trigger::OnHit && eff.triggerValue < 100) return std::format("{}%擊中觸發", eff.triggerValue);
         if (eff.trigger == Trigger::OnBeingHit && eff.triggerValue < 100) return std::format("{}%被擊中觸發", eff.triggerValue);

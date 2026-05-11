@@ -48,6 +48,25 @@ TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_AreEnemiesSortedByDista
     CHECK(ids[1] == 2);
 }
 
+TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_UsesDeadCenterPosition", "[battle][projectile][unit]")
+{
+    BattleUnitStore units;
+    units.units = {
+        unit(0, 0, 0.0, 0.0, 0, 0),
+        unit(1, 1, 100.0, 0.0, 1, 0),
+        unit(2, 1, 120.0, 0.0, 1, 1),
+        unit(3, 1, 70.0, 0.0, 1, -1),
+        unit(4, 0, 95.0, 0.0, 1, 0),
+    };
+    units.units[1].alive = false;
+
+    auto ids = BattleProjectileTargetingSystem().selectNearbyTargets(units, 0, 1, 40.0);
+
+    REQUIRE(ids.size() == 2);
+    CHECK(ids[0] == 2);
+    CHECK(ids[1] == 3);
+}
+
 TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_UsesGridAreaLimitAndTrackedTarget", "[battle][projectile][unit]")
 {
     BattleUnitStore units;

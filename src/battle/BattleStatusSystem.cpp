@@ -136,6 +136,10 @@ template <typename Target>
 void tickSimpleTimers(Target& target)
 {
     auto& effects = target.status.effects;
+    if (target.invincible() > 0)
+    {
+        --target.invincible();
+    }
     if (effects.mpBlockTimer > 0)
     {
         --effects.mpBlockTimer;

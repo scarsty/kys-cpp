@@ -82,6 +82,8 @@ static const std::map<std::string, Trigger> triggerMap = {
     {"低血量", Trigger::WhileLowHP},
     {"友方低血狂暴", Trigger::AllyLowHPBurst},
     {"最后存活", Trigger::LastAlive},
+    {"攻擊出手時概率", Trigger::OnCast},
+    {"攻击出手时概率", Trigger::OnCast},
     {"绝招时", Trigger::OnUltimate},
     {"攻击命中时概率", Trigger::OnHit},
     {"被击中时概率", Trigger::OnBeingHit},

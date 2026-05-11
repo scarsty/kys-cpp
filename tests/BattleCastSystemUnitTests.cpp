@@ -204,6 +204,18 @@ void checkVisualEventEquals(const BattleVisualEvent& lhs, const BattleVisualEven
     CHECK(lhs.operationKind == rhs.operationKind);
 }
 
+void checkLogEventEquals(const BattleLogEvent& lhs, const BattleLogEvent& rhs)
+{
+    CHECK(lhs.type == rhs.type);
+    CHECK(lhs.frame == rhs.frame);
+    CHECK(lhs.sourceUnitId == rhs.sourceUnitId);
+    CHECK(lhs.targetUnitId == rhs.targetUnitId);
+    CHECK(lhs.amount == rhs.amount);
+    CHECK(lhs.text == rhs.text);
+    CHECK(lhs.skillName == rhs.skillName);
+    CHECK(lhs.detailText == rhs.detailText);
+}
+
 void checkEffectEventEquals(const BattleEffectEvent& lhs, const BattleEffectEvent& rhs)
 {
     CHECK(lhs.hook == rhs.hook);
@@ -231,6 +243,15 @@ void checkResultEquals(const BattleCastResult& lhs, const BattleCastResult& rhs)
     {
         checkGameplayEventEquals(lhs.gameplayEvents[i], rhs.gameplayEvents[i]);
     }
+
+    REQUIRE(lhs.logEvents.size() == rhs.logEvents.size());
+    for (size_t i = 0; i < lhs.logEvents.size(); ++i)
+    {
+        checkLogEventEquals(lhs.logEvents[i], rhs.logEvents[i]);
+    }
+
+    checkPoint(lhs.postDashRetreatVelocity, rhs.postDashRetreatVelocity);
+    CHECK(lhs.postDashRetreatFrames == rhs.postDashRetreatFrames);
 
     REQUIRE(lhs.visualEvents.size() == rhs.visualEvents.size());
     for (size_t i = 0; i < lhs.visualEvents.size(); ++i)
@@ -387,6 +408,12 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsResourceDeltasTimingAndEvents", 
     CHECK(result.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
     CHECK(result.gameplayEvents[0].sourceUnitId == 1);
     CHECK(result.gameplayEvents[0].targetUnitId == 2);
+    REQUIRE(result.logEvents.size() == 1);
+    CHECK(result.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.logEvents[0].sourceUnitId == 1);
+    CHECK(result.logEvents[0].targetUnitId == 2);
+    CHECK(result.logEvents[0].text == "施放野球拳");
+    CHECK(result.logEvents[0].skillName == "野球拳");
     REQUIRE(result.visualEvents.size() == 1);
     CHECK(result.visualEvents[0].type == BattleVisualEventType::RoleEffect);
     CHECK(result.visualEvents[0].targetUnitId == 1);
@@ -806,6 +833,9 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
     CHECK(result.attackSpawnRequests[2].initial.totalFrame == 30);
     CHECK_FALSE(result.attackSpawnRequests[2].initial.track);
     CHECK_FALSE(result.attackSpawnRequests[2].initial.through);
+    CHECK(result.postDashRetreatVelocity.x == Catch::Approx(-4.0f));
+    CHECK(result.postDashRetreatVelocity.y == Catch::Approx(0.0f));
+    CHECK(result.postDashRetreatFrames == 5);
 
     input.unit.dashVelocity = { 8.0f, 0.0f, 0.0f };
     auto fasterResult = BattleCastPlanner().plan(input);
@@ -815,6 +845,7 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
     CHECK(fasterResult.attackSpawnRequests[1].initial.position.x == Catch::Approx(result.attackSpawnRequests[1].initial.position.x));
     CHECK(fasterResult.attackSpawnRequests[2].initial.position.x == Catch::Approx(result.attackSpawnRequests[2].initial.position.x));
     CHECK(fasterResult.attackSpawnRequests[0].initial.velocity.x == Catch::Approx(8.0f));
+    CHECK(fasterResult.postDashRetreatVelocity.x == Catch::Approx(-8.0f));
 }
 
 TEST_CASE("BattleCastSystem_DashCastCanEmitExplicitFollowUpSkillRequest", "[battle][cast]")

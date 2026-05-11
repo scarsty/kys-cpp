@@ -36,16 +36,17 @@ void recordBattleDamageEvent(std::vector<BattleDamageEvent>& events,
                              int targetUnitId,
                              int value)
 {
-    events.push_back({ type, BattleDamageStatusType::None, sourceUnitId, targetUnitId, value });
+    events.push_back({ type, BattleDamageStatusType::None, sourceUnitId, targetUnitId, value, 0 });
 }
 
 void recordBattleStatusEvent(std::vector<BattleDamageEvent>& events,
                              BattleDamageStatusType statusType,
                              int sourceUnitId,
                              int targetUnitId,
-                             int value)
+                             int value,
+                             int maxValue = 0)
 {
-    events.push_back({ BattleDamageEventType::StatusApplied, statusType, sourceUnitId, targetUnitId, value });
+    events.push_back({ BattleDamageEventType::StatusApplied, statusType, sourceUnitId, targetUnitId, value, maxValue });
 }
 
 BattleResourceUnitState makeBattleResourceUnit(const BattleDamageUnitState& unit)
@@ -83,11 +84,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
     if (input.request.baseDamage > 0.0)
     {
         double resolvedDamage = input.request.baseDamage;
-        if (input.request.preResolvedDamage)
-        {
-            acceptedHit = true;
-        }
-        else
+        if (!input.request.preResolvedDamage)
         {
             auto modified = applyModifiers({
                 input.request.baseDamage,
@@ -115,36 +112,38 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                                         input.request.executeThresholdPct);
             }
 
-            auto defense = resolveDefense({
-                modified.damage,
-                result.executed,
-                input.request.reflected,
-                result.defender.invincible > 0,
-                result.defender,
-            });
-            result.defender = defense.defender;
-            result.shieldAbsorbed = defense.shieldAbsorbed;
-            result.blockedByInvincible = defense.blockedByInvincible;
-            result.blockedByFirstHit = defense.blockedByFirstHit;
-            acceptedHit = !defense.blockedByInvincible && !defense.blockedByFirstHit;
-            resolvedDamage = defense.damage;
+                                    resolvedDamage = modified.damage;
+                                }
 
-            if (defense.shieldAbsorbed > 0)
-            {
-                recordBattleDamageEvent(result.events,
-                                        BattleDamageEventType::ShieldAbsorbed,
-                                        input.request.attackerUnitId,
-                                        input.request.defenderUnitId,
-                                        defense.shieldAbsorbed);
-            }
-            if (defense.blockedByInvincible)
-            {
-                recordBattleDamageEvent(result.events,
-                                        BattleDamageEventType::BlockedByInvincible,
-                                        input.request.attackerUnitId,
-                                        input.request.defenderUnitId,
-                                        0);
-            }
+                                auto defense = resolveDefense({
+                                    resolvedDamage,
+                                    result.executed,
+                                    input.request.reflected,
+                                    result.defender.invincible > 0,
+                                    result.defender,
+                                });
+                                result.defender = defense.defender;
+                                result.shieldAbsorbed = defense.shieldAbsorbed;
+                                result.blockedByInvincible = defense.blockedByInvincible;
+                                result.blockedByFirstHit = defense.blockedByFirstHit;
+                                acceptedHit = !defense.blockedByInvincible && !defense.blockedByFirstHit;
+                                resolvedDamage = defense.damage;
+
+                                if (defense.shieldAbsorbed > 0)
+                                {
+                                    recordBattleDamageEvent(result.events,
+                                                            BattleDamageEventType::ShieldAbsorbed,
+                                                            input.request.attackerUnitId,
+                                                            input.request.defenderUnitId,
+                                                            defense.shieldAbsorbed);
+                                }
+                                if (defense.blockedByInvincible)
+                                {
+                                    recordBattleDamageEvent(result.events,
+                                                            BattleDamageEventType::BlockedByInvincible,
+                                                            input.request.attackerUnitId,
+                                                            input.request.defenderUnitId,
+                                                            0);
         }
 
         int hpBeforeDamage = result.defender.vitals.hp;
@@ -154,7 +153,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             hpDamage = std::max(hpDamage, result.defender.vitals.hp);
         }
 
-        auto taken = applyDamageTaken(result.defender, hpDamage);
+        auto taken = applyDamageTaken(result.defender, hpDamage, input.request.triggersDefenseEffects);
         result.defender = taken.defender;
         result.finalHpDamage = std::max(0, hpBeforeDamage - result.defender.vitals.hp);
         result.hurtInvincGranted = taken.hurtInvincGranted;
@@ -217,6 +216,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
 
     if (acceptedHit)
     {
+        const bool canApplyStatusEffects = input.defender.invincible <= 0;
         if (input.request.mpOnHit > 0 || input.request.hpOnHit > 0 || input.request.mpDrain > 0)
         {
             auto resources = applyOnHitResources({
@@ -272,7 +272,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             }
         }
 
-        if (input.request.poisonPct > 0)
+        if (canApplyStatusEffects && input.request.poisonPct > 0)
         {
             assert(input.defenderStatus.id == input.request.defenderUnitId);
             auto poison = applyPoisonIfStronger({
@@ -292,7 +292,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             }
         }
 
-        if (input.request.bleedStacks > 0)
+        if (canApplyStatusEffects && input.request.bleedStacks > 0)
         {
             assert(input.defenderStatus.id == input.request.defenderUnitId);
             auto bleed = applyBleed(result.defenderStatus,
@@ -306,11 +306,12 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                                         BattleDamageStatusType::Bleed,
                                         input.request.attackerUnitId,
                                         input.request.defenderUnitId,
-                                        bleed.value);
+                                        bleed.value,
+                                        input.request.bleedMaxStacks);
             }
         }
 
-        if (input.request.damageReduceDebuffDurationFrames > 0)
+        if (canApplyStatusEffects && input.request.damageReduceDebuffDurationFrames > 0)
         {
             assert(input.defenderStatus.id == input.request.defenderUnitId);
             auto debuff = applyDamageReduceDebuff(result.defenderStatus,
@@ -327,7 +328,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             }
         }
 
-        if (input.request.frozenFrames > 0)
+        if (canApplyStatusEffects && input.request.frozenFrames > 0)
         {
             assert(input.defenderStatus.id == input.request.defenderUnitId);
             int frames = input.request.frozenFrames;
@@ -362,7 +363,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             }
         }
 
-        if (input.request.mpBlockFrames > 0)
+        if (canApplyStatusEffects && input.request.mpBlockFrames > 0)
         {
             assert(input.defenderStatus.id == input.request.defenderUnitId);
             int before = result.defenderStatus.effects.mpBlockTimer;
@@ -551,7 +552,10 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
     return result;
 }
 
-BattleDamageTakenResult BattleDamageSystem::applyDamageTaken(BattleDamageUnitState defender, int damage) const
+BattleDamageTakenResult BattleDamageSystem::applyDamageTaken(
+    BattleDamageUnitState defender,
+    int damage,
+    bool triggersDefenseEffects) const
 {
     BattleDamageTakenResult result;
     result.defender = defender;
@@ -561,7 +565,7 @@ BattleDamageTakenResult BattleDamageSystem::applyDamageTaken(BattleDamageUnitSta
     }
 
     result.defender.vitals.hp -= damage;
-    if (result.defender.vitals.hp > 0 && result.defender.hurtInvincFrames > 0)
+    if (triggersDefenseEffects && result.defender.vitals.hp > 0 && result.defender.hurtInvincFrames > 0)
     {
         result.defender.invincible += result.defender.hurtInvincFrames;
         result.hurtInvincGranted = true;

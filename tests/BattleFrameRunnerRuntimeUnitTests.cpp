@@ -140,6 +140,18 @@ BattleStatusRuntimeUnit runtimeStatusUnit(const BattleStatusUnitState& unit)
     return makeBattleStatusRuntimeUnit(unit);
 }
 
+void seedDamageExtrasFromUnits(BattleRuntimeState& state)
+{
+    state.combo.units.clear();
+    state.damage.unitExtras.clear();
+    for (const auto& unit : state.units.units)
+    {
+        state.combo.units.emplace(unit.id, KysChess::RoleComboState{});
+        state.damage.unitExtras.push_back(makeBattleDamageRuntimeUnit(
+            makeBattleDamageUnitState(unit, static_cast<const BattleDamageRuntimeUnit*>(nullptr))));
+    }
+}
+
 }  // namespace
 
 TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[battle][frame_runner][runtime][ownership]")
@@ -234,7 +246,7 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[ba
     REQUIRE(session.runtime().attacks.units.size() == 1);
     CHECK(session.runtime().attacks.units[0].id == 0);
     CHECK(session.runtime().action.castFrames == session.runtime().movementPhysics.actionCastFrames);
-    CHECK(session.runtime().damage.aggregatePendingTransactionsByDefender);
+    CHECK(session.runtime().damage.sortPendingDamageByDefenderMagnitude);
 }
 
 TEST_CASE("BattleRuntimeSession_CreateInitializedSpendsNonThroughProjectilesOnHit", "[battle][runtime_session][ownership]")
@@ -360,7 +372,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
 
     REQUIRE(result.stateApplications.statusRenderUnits.size() == 1);
     CHECK(result.stateApplications.statusRenderUnits[0].unitId == 0);
-    CHECK(result.stateApplications.statusRenderUnits[0].invincible == 4);
+    CHECK(result.stateApplications.statusRenderUnits[0].invincible == 3);
     CHECK(result.stateApplications.statusRenderUnits[0].frozenFrames == 3);
     CHECK(result.stateApplications.statusRenderUnits[0].frozenMaxFrames == 9);
     REQUIRE(result.stateApplications.comboRenderUnits.size() == 1);
@@ -437,10 +449,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     CHECK(result.unitApplications[0].cooldown == 0);
 
     CHECK(state.teamEffects.pendingCommands.empty());
-    REQUIRE(result.effectCommands.size() == 1);
-    CHECK(result.effectCommands[0].type == BattleEffectCommandType::AddInvincibility);
-    CHECK(result.effectCommands[0].targetUnitId == 0);
-    CHECK(result.effectCommands[0].value == 12);
+    CHECK(result.effectCommands.empty());
     REQUIRE(result.teamEffectEvents.size() == 1);
     CHECK(result.teamEffectEvents[0].sourceUnitId == 0);
     CHECK(result.teamEffectEvents[0].targetUnitId == 0);
@@ -519,6 +528,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
     };
+    seedDamageExtrasFromUnits(state);
     state.deathEffects.store.units = { { 0 }, { 1 } };
 
     auto result = runBattleFrame(state);
@@ -550,6 +560,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
     };
+    seedDamageExtrasFromUnits(state);
     state.deathEffects.store.units = { { 0 }, { 1 } };
 
     auto result = runBattleFrame(state);
@@ -560,6 +571,52 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     CHECK(transaction.defender.id == 1);
     CHECK(transaction.defender.vitals.hp == 74);
     CHECK(state.units.requireUnit(1).vitals.hp == 74);
+    auto bleedLog = std::find_if(result.frame.logEvents.begin(), result.frame.logEvents.end(), [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Damage
+                && event.targetUnitId == 1
+                && event.amount == 6
+                && event.detailText == "流血";
+        });
+    CHECK(bleedLog != result.frame.logEvents.end());
+    auto bleedNumber = std::find_if(result.frame.visualEvents.begin(), result.frame.visualEvents.end(), [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::DamageNumber
+                && event.targetUnitId == 1
+                && event.amount == 6
+                && event.color.r == 190
+                && event.color.g == 120
+                && event.color.b == 60;
+        });
+    CHECK(bleedNumber != result.frame.visualEvents.end());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DecrementsInvincibility", "[battle][frame_runner][runtime][unit]")
+{
+    auto state = runtimeFrameState();
+    state.units.units = {
+        teamRuntimeUnit(0, 0, 100),
+        teamRuntimeUnit(1, 1, 100),
+    };
+    BattleStatusUnitState status0;
+    status0.id = 0;
+    BattleStatusUnitState status1;
+    status1.id = 1;
+    state.status.units = {
+        runtimeStatusUnit(status0),
+        runtimeStatusUnit(status1),
+    };
+    state.units.requireUnit(0).invincible = 3;
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireUnit(0).invincible == 2);
+    auto applied = std::find_if(result.stateApplications.statusRenderUnits.begin(), result.stateApplications.statusRenderUnits.end(), [](const BattleFrameRenderStatusUnit& unit)
+        {
+            return unit.unitId == 0;
+        });
+    REQUIRE(applied != result.stateApplications.statusRenderUnits.end());
+    CHECK(applied->invincible == 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[battle][frame_runner][runtime][unit]")
@@ -676,7 +733,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
     CHECK(healLog != result.frame.logEvents.end());
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEffectExecutor", "[battle][frame_runner][runtime][unit]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSkillFinish", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
     state.units.units = {
@@ -692,24 +749,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesPostSkillInvincibilityThroughEf
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.effectCommands.size() == 1);
-    CHECK(result.effectCommands[0].type == BattleEffectCommandType::AddInvincibility);
-    CHECK(result.effectCommands[0].label == "技能後無敵");
-    CHECK(result.effectCommands[0].value == 9);
-    CHECK(state.units.requireUnit(0).invincible == 12);
-
-    const auto statusLog = std::find_if(
-        result.frame.logEvents.begin(),
-        result.frame.logEvents.end(),
-        [](const BattleLogEvent& event)
-        {
-            return event.type == BattleLogEventType::Status
-                && event.sourceUnitId == 0
-                && event.targetUnitId == 0
-                && event.amount == 9
-                && event.text == "技能後無敵";
-        });
-    CHECK(statusLog != result.frame.logEvents.end());
+    CHECK(result.effectCommands.empty());
+    CHECK(state.units.requireUnit(0).invincible == 3);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand", "[battle][frame_runner][runtime][unit]")

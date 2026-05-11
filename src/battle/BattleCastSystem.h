@@ -164,6 +164,9 @@ struct BattleCastResult
     BattleCastAnimationTiming animation;
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleGameplayEvent> gameplayEvents;
+    std::vector<BattleLogEvent> logEvents;
+    Pointf postDashRetreatVelocity;
+    int postDashRetreatFrames = 0;
     std::vector<BattleVisualEvent> visualEvents;
     std::vector<BattleEffectEvent> effectEvents;
 };
@@ -227,7 +230,6 @@ struct BattleBlinkTeleportDelta
 struct BattleActionCommitInput
 {
     BattleActionCommitUnitSnapshot unit;
-    RoleComboState combo;
     std::vector<BattleActionTargetSnapshot> targets;
     bool hasCast = false;
     BattleCastResult cast;
@@ -268,7 +270,7 @@ private:
 class BattleActionCommitSystem
 {
 public:
-    BattleActionCommitResult commit(const BattleActionCommitInput& input) const;
+    BattleActionCommitResult commit(const BattleActionCommitInput& input, const RoleComboState& combo) const;
 };
 
 }  // namespace KysChess::Battle

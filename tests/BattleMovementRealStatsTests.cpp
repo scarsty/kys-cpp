@@ -197,6 +197,77 @@ TEST_CASE("HuFei_HuYiDao_TaXue_DashAttackStillHappens", "[battle][movement]")
     CHECK((run.stats.at(1).attackReadyFrames + run.stats.at(2).attackReadyFrames) > 0);
 }
 
+TEST_CASE("TaXue_DashDoesNotForceMaximumDistance", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 1, 0, { 100, 100, 0 } },
+        { 116, 1, { 260, 100, 0 } },
+    });
+
+    auto tick = BattleMovementPlanner(world).tick();
+
+    const auto dash = std::find_if(
+        tick.events.begin(),
+        tick.events.end(),
+        [](const BattleEvent& event)
+        {
+            return event.unitId == 1 && event.type == BattleEventType::DashStart;
+        });
+    REQUIRE(dash != tick.events.end());
+    CHECK(dash->value < world.config.maxDashDistance);
+}
+
+TEST_CASE("TaXue_MeleeChaosStartsImmediatePeelDash", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 1, 0, { 100, 100, 0 } },
+        { 116, 1, { 220, 100, 0 } },
+    });
+    world.units[0].postDashChaosFramesRemaining = world.config.dashFrames + 1;
+
+    auto tick = BattleMovementPlanner(world).tick();
+
+    const auto dash = std::find_if(
+        tick.events.begin(),
+        tick.events.end(),
+        [](const BattleEvent& event)
+        {
+            return event.unitId == 1 && event.type == BattleEventType::DashStart;
+        });
+    REQUIRE(dash != tick.events.end());
+    REQUIRE(tick.decisions.contains(1));
+    CHECK(tick.decisions.at(1).action == MovementAction::Dash);
+    CHECK(dash->to.x < dash->from.x);
+    CHECK(std::abs(dash->to.y - dash->from.y) > 0.1);
+    CHECK(world.units[0].postDashChaosFramesRemaining == 0);
+    CHECK(world.units[0].dashCooldownRemaining == world.config.dashCooldownFrames);
+}
+
+TEST_CASE("TaXue_RangedPeelsWhenCrowded", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 4, 0, { 100, 100, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.units[0].taXue = true;
+    world.units[0].dashAttack = true;
+
+    auto tick = BattleMovementPlanner(world).tick();
+
+    const auto dash = std::find_if(
+        tick.events.begin(),
+        tick.events.end(),
+        [](const BattleEvent& event)
+        {
+            return event.unitId == 1 && event.type == BattleEventType::DashStart;
+        });
+    REQUIRE(dash != tick.events.end());
+    CHECK(dash->to.x < dash->from.x);
+    REQUIRE(tick.decisions.contains(1));
+    CHECK(tick.decisions.at(1).action == MovementAction::Dash);
+    CHECK(tick.units[0].dashCooldownRemaining == world.config.dashCooldownFrames);
+}
+
 TEST_CASE("MeleeSwarm_DoesNotReserveSameApproachSlot", "[battle][movement]")
 {
     auto world = makeWorld({

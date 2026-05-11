@@ -93,6 +93,8 @@ struct BattleUnitState
     int slotSwitchCooldownRemaining = 0;
     int dashFramesRemaining = 0;
     int dashCooldownRemaining = 0;
+    int postDashRetreatFramesRemaining = 0;
+    int postDashChaosFramesRemaining = 0;
 };
 
 struct MoveProbe

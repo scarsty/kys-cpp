@@ -23,6 +23,7 @@ struct BattleAttackEffect
     int VisualEffectId = -1;
     int VisualOnly = 0;
     int VisualTeam = -1;
+    int Through = 0;
     int SpiralMotion = 0;
     Pointf SpiralCenter;
     float SpiralRadius = 0.0f;

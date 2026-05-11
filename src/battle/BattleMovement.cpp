@@ -271,7 +271,14 @@ Point movementPhysicsCell(const BattleMovementPhysicsCollisionWorld& world, Poin
 std::optional<MovementDecision> chooseDash(const BattleWorldState& world,
                                            const BattleUnitState& unit,
                                            const BattleUnitState& target,
-                                           Pointf direction)
+                                           Pointf direction);
+
+std::optional<MovementDecision> chooseDashByDistance(const BattleWorldState& world,
+                                                     const BattleUnitState& unit,
+                                                     const BattleUnitState& target,
+                                                     Pointf direction,
+                                                     double minDistance,
+                                                     double maxDistance)
 {
     if (unit.dashCooldownRemaining > 0 || direction.norm() <= 0.01f)
     {
@@ -279,24 +286,11 @@ std::optional<MovementDecision> chooseDash(const BattleWorldState& world,
     }
     direction = unitVector(direction);
 
-    double targetDistance = distance2d(unit.position, target.position);
-    double usefulGap = unit.style == CombatStyle::Melee
-        ? targetDistance - world.config.meleeAttackReach + world.config.engagementDeadband
-        : targetDistance - unit.reach + world.config.engagementDeadband;
-    double normalDashDistance = std::max(
-        unit.speed * world.config.dashFrames,
-        unit.speed * world.config.dashFrames * world.config.movementDashDistanceMultiplier);
-    double minDistance = unit.taXue
-        ? std::max(world.config.tileWidth * 2.0, unit.speed * world.config.dashFrames)
-        : unit.speed * world.config.dashFrames;
-    double allowedDashDistance = unit.taXue
-        ? world.config.maxDashDistance
-        : std::min(world.config.maxDashDistance, normalDashDistance);
-    double maxDistance = std::max(minDistance, std::min(allowedDashDistance, usefulGap));
-    if (unit.taXue)
+    if (maxDistance <= world.config.engagementDeadband)
     {
-        maxDistance = std::max(maxDistance, world.config.maxDashDistance);
+        return std::nullopt;
     }
+    minDistance = std::min(minDistance, maxDistance);
 
     for (double dashDistance = maxDistance; dashDistance >= minDistance; dashDistance -= world.config.engagementDeadband)
     {
@@ -320,6 +314,90 @@ std::optional<MovementDecision> chooseDash(const BattleWorldState& world,
         }
     }
     return std::nullopt;
+}
+
+double normalDashDistanceFor(const BattleWorldState& world, const BattleUnitState& unit)
+{
+    return std::max(
+        unit.speed * world.config.dashFrames,
+        unit.speed * world.config.dashFrames * world.config.movementDashDistanceMultiplier);
+}
+
+double minimumDashDistanceFor(const BattleWorldState& world, const BattleUnitState& unit)
+{
+    return unit.taXue
+        ? std::max(world.config.tileWidth * 2.0, unit.speed * world.config.dashFrames)
+        : unit.speed * world.config.dashFrames;
+}
+
+double allowedDashDistanceFor(const BattleWorldState& world, const BattleUnitState& unit)
+{
+    const double normalDashDistance = normalDashDistanceFor(world, unit);
+    return unit.taXue
+        ? world.config.maxDashDistance
+        : std::min(world.config.maxDashDistance, normalDashDistance);
+}
+
+std::optional<MovementDecision> chooseDash(const BattleWorldState& world,
+                                           const BattleUnitState& unit,
+                                           const BattleUnitState& target,
+                                           Pointf direction)
+{
+
+    double targetDistance = distance2d(unit.position, target.position);
+    double usefulGap = unit.style == CombatStyle::Melee
+        ? targetDistance - world.config.meleeAttackReach + world.config.engagementDeadband
+        : targetDistance - unit.reach + world.config.engagementDeadband;
+    double minDistance = minimumDashDistanceFor(world, unit);
+    double allowedDashDistance = allowedDashDistanceFor(world, unit);
+    double maxDistance = std::min(allowedDashDistance, usefulGap);
+    return chooseDashByDistance(world, unit, target, direction, minDistance, maxDistance);
+}
+
+std::optional<MovementDecision> chooseRetreatDash(const BattleWorldState& world,
+                                                  const BattleUnitState& unit,
+                                                  const BattleUnitState& target,
+                                                  Pointf direction)
+{
+    return chooseDashByDistance(
+        world,
+        unit,
+        target,
+        direction,
+        minimumDashDistanceFor(world, unit),
+        allowedDashDistanceFor(world, unit));
+}
+
+Pointf meleeChaosDesiredPosition(const BattleWorldState& world,
+                                 const BattleUnitState& unit,
+                                 const BattleUnitState& target)
+{
+    auto away = unit.position - target.position;
+    if (away.norm() <= 0.01f)
+    {
+        away = { 1.0f, 0.0f, 0.0f };
+    }
+    away = unitVector(away);
+    Pointf side{ -away.y, away.x, 0 };
+    side = side * static_cast<float>(deterministicSide(unit.id, unit.assignedSlot));
+    return unit.position
+        + side * static_cast<float>(world.config.tileWidth * 2.0)
+        + away * static_cast<float>(world.config.tileWidth * 1.5);
+}
+
+Pointf rangedPeelDashDirection(const BattleWorldState& world,
+                               const BattleUnitState& unit,
+                               const BattleUnitState& target)
+{
+    auto away = unit.position - target.position;
+    if (away.norm() <= 0.01f)
+    {
+        away = { static_cast<float>(deterministicSide(unit.id, unit.assignedSlot + world.frame)), 0.0f, 0.0f };
+    }
+    away = unitVector(away);
+    Pointf side{ -away.y, away.x, 0 };
+    side = side * static_cast<float>(0.35 * deterministicSide(unit.id, world.frame + unit.assignedSlot));
+    return unitVector(away + side);
 }
 
 void recordEvent(std::vector<BattleEvent>& events,
@@ -420,7 +498,12 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
     auto state = input.state;
     const bool movementDashActive = state.movementDashFrames > 0;
     const bool movementDashEnding = state.movementDashFrames == 1;
-    const int separationDistance = input.actionDashActive || movementDashActive ? 1 : -1;
+    const bool postDashRetreatActive = state.postDashRetreatFrames > 0;
+    if (postDashRetreatActive && !input.actionDashActive && !movementDashActive)
+    {
+        state.velocity = state.postDashRetreatVelocity;
+    }
+    const int separationDistance = input.actionDashActive || movementDashActive || postDashRetreatActive ? 1 : -1;
     auto nextPosition = state.position + state.velocity;
 
     if (canMove(nextPosition, separationDistance))
@@ -454,12 +537,17 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
         {
             state.velocity = { 0, 0, 0 };
             state.movementDashFrames = 0;
+            state.postDashRetreatFrames = 0;
         }
     }
 
     if (state.movementDashFrames > 0)
     {
         --state.movementDashFrames;
+    }
+    if (!movementDashActive && state.postDashRetreatFrames > 0)
+    {
+        --state.postDashRetreatFrames;
     }
     if (movementDashEnding)
     {
@@ -526,6 +614,13 @@ BattleTickResult BattleMovementPlanner::tick()
         decision.unitId = unit->id;
         decision.slot = unit->assignedSlot;
 
+        if (unit->postDashRetreatFramesRemaining > 0)
+        {
+            decision.destination = unit->position;
+            result.decisions[unit->id] = decision;
+            continue;
+        }
+
         if (unit->slotSwitchCooldownRemaining > 0)
         {
             unit->slotSwitchCooldownRemaining--;
@@ -570,10 +665,64 @@ BattleTickResult BattleMovementPlanner::tick()
         }
         decision.targetId = target->id;
         double targetDistance = distance2d(unit->position, target->position);
+        const bool meleeChaosActive = unit->style == CombatStyle::Melee
+            && unit->postDashChaosFramesRemaining > 0;
+        if (unit->taXue
+            && unit->style == CombatStyle::Ranged
+            && unit->canAttack
+            && unit->dashCooldownRemaining <= 0
+            && unit->reach > 0.0
+            && targetDistance <= unit->reach * 0.65)
+        {
+            auto dash = chooseRetreatDash(
+                world_,
+                *unit,
+                *target,
+                rangedPeelDashDirection(world_, *unit, *target));
+            if (dash)
+            {
+                decision = *dash;
+                unit->velocity = decision.velocity;
+                unit->dashFramesRemaining = world_.config.dashFrames;
+                unit->dashCooldownRemaining = world_.config.dashCooldownFrames;
+                reservations[unit->id] = decision.destination;
+                recordEvent(result.events, BattleEventType::DashStart, *unit, decision);
+                result.decisions[unit->id] = decision;
+                continue;
+            }
+        }
+
+        if (unit->taXue
+            && meleeChaosActive
+            && unit->dashCooldownRemaining <= 0)
+        {
+            auto dash = chooseRetreatDash(
+                world_,
+                *unit,
+                *target,
+                meleeChaosDesiredPosition(world_, *unit, *target) - unit->position);
+            if (dash)
+            {
+                decision = *dash;
+                unit->velocity = decision.velocity;
+                unit->dashFramesRemaining = world_.config.dashFrames;
+                unit->dashCooldownRemaining = world_.config.dashCooldownFrames;
+                unit->postDashChaosFramesRemaining = 0;
+                reservations[unit->id] = decision.destination;
+                recordEvent(result.events, BattleEventType::DashStart, *unit, decision);
+                result.decisions[unit->id] = decision;
+                continue;
+            }
+        }
+
         bool canAttackFromHere = unit->canAttack && targetDistance <= unit->reach;
         bool rangedCanHold = unit->style == CombatStyle::Ranged && targetDistance <= unit->reach;
         bool meleeReady = unit->style == CombatStyle::Melee && targetDistance <= world_.config.meleeAttackReach;
-        if (canAttackFromHere || rangedCanHold || meleeReady)
+        if (meleeChaosActive)
+        {
+            --unit->postDashChaosFramesRemaining;
+        }
+        if (!meleeChaosActive && (canAttackFromHere || rangedCanHold || meleeReady))
         {
             decision.action = MovementAction::AttackReady;
             decision.destination = unit->position;
@@ -584,12 +733,17 @@ BattleTickResult BattleMovementPlanner::tick()
         }
 
         Pointf desired = combatSlotPosition(world_, *unit, *target, unit->assignedSlot);
-        if (unit->style == CombatStyle::Melee && targetDistance > world_.config.meleeAttackReach)
+        if (meleeChaosActive)
+        {
+            desired = meleeChaosDesiredPosition(world_, *unit, *target);
+        }
+        else if (unit->style == CombatStyle::Melee && targetDistance > world_.config.meleeAttackReach)
         {
             desired = target->position;
         }
 
         bool shouldPlanDash = unit->dashCooldownRemaining <= 0
+            && !meleeChaosActive
             && (unit->taXue
                 ? targetDistance > world_.config.meleeAttackReach * 1.1
                 : targetDistance > (unit->style == CombatStyle::Melee

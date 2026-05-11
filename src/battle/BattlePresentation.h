@@ -102,6 +102,7 @@ struct BattleVisualEvent
     int visualEffectId = -1;
     Pointf velocity;
     int operationKind = -1;
+    bool through = false;
 };
 
 struct BattlePresentationFrame

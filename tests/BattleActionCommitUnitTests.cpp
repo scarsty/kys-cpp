@@ -53,8 +53,9 @@ TEST_CASE("BattleActionCommit_UltimateCastSetsPendingSkillTeamHeal", "[battle][a
     auto input = basicActionInput();
     input.hasCast = true;
     input.cast = committedCast(true, BattleOperationType::RangedProjectile);
+    KysChess::RoleComboState combo;
 
-    auto result = BattleActionCommitSystem().commit(input);
+    auto result = BattleActionCommitSystem().commit(input, combo);
 
     CHECK(result.combo.onSkillTeamHealPending);
 }
@@ -64,6 +65,7 @@ TEST_CASE("BattleActionCommit_DoesNotReplayCastVisualEvents", "[battle][action_c
     auto input = basicActionInput();
     input.hasCast = true;
     input.cast = committedCast(true, BattleOperationType::RangedProjectile);
+    KysChess::RoleComboState combo;
 
     BattleVisualEvent textEvent;
     textEvent.type = BattleVisualEventType::FloatingText;
@@ -71,7 +73,7 @@ TEST_CASE("BattleActionCommit_DoesNotReplayCastVisualEvents", "[battle][action_c
     textEvent.text = "絕招";
     input.cast.visualEvents.push_back(std::move(textEvent));
 
-    auto result = BattleActionCommitSystem().commit(input);
+    auto result = BattleActionCommitSystem().commit(input, combo);
 
     CHECK(result.visualEvents.empty());
 }
@@ -79,8 +81,6 @@ TEST_CASE("BattleActionCommit_DoesNotReplayCastVisualEvents", "[battle][action_c
 TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[battle][action_commit][unit]")
 {
     auto input = basicActionInput();
-    input.combo.blinkAttack = true;
-    input.combo.blinkAttackUseWeakest = true;
     input.blinkReach = 144.0;
     input.targets = {
         target(2, 90, 0.0, { 100, 20, 0 }),
@@ -89,8 +89,11 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     input.blinkGeometry.cells = {
         { 1, 0, { 100, 20, 0 }, true, false },
     };
+    KysChess::RoleComboState combo;
+    combo.blinkAttack = true;
+    combo.blinkAttackUseWeakest = true;
 
-    auto weakest = BattleActionCommitSystem().commit(input);
+    auto weakest = BattleActionCommitSystem().commit(input, combo);
 
     REQUIRE(weakest.blinkCommands.size() == 1);
     CHECK(weakest.blinkCommands[0].unitId == 1);
@@ -104,9 +107,8 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     CHECK(weakest.logEvents[0].text == "閃擊追殺");
     CHECK_FALSE(weakest.combo.blinkAttackUseWeakest);
 
-    input.combo = weakest.combo;
     input.blinkRandomRoll = 1;
-    auto random = BattleActionCommitSystem().commit(input);
+    auto random = BattleActionCommitSystem().commit(input, weakest.combo);
 
     REQUIRE(random.blinkCommands.size() == 1);
     CHECK(random.blinkCommands[0].targetUnitId == 3);
@@ -122,8 +124,6 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
 TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[battle][action_commit][unit]")
 {
     auto input = basicActionInput();
-    input.combo.blinkAttack = true;
-    input.combo.blinkAttackUseWeakest = true;
     input.blinkReach = 64.0;
     input.blinkCellRandomRoll = 1;
     input.targets = {
@@ -138,8 +138,11 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
         { 4, 1, { 132, 20, 0 }, true, false },
         { 5, 1, { 140, 20, 0 }, true, true },
     };
+    KysChess::RoleComboState combo;
+    combo.blinkAttack = true;
+    combo.blinkAttackUseWeakest = true;
 
-    auto result = BattleActionCommitSystem().commit(input);
+    auto result = BattleActionCommitSystem().commit(input, combo);
 
     REQUIRE(result.blinkCommands.size() == 1);
     REQUIRE(result.blinkTeleports.size() == 1);
@@ -159,8 +162,9 @@ TEST_CASE("BattleActionCommit_CommittedMeleeCastAdvancesOperationCount", "[battl
     auto input = basicActionInput();
     input.hasCast = true;
     input.cast = committedCast(false, BattleOperationType::Melee);
+    KysChess::RoleComboState combo;
 
-    auto result = BattleActionCommitSystem().commit(input);
+    auto result = BattleActionCommitSystem().commit(input, combo);
 
     CHECK(result.operationCount == 1);
 }

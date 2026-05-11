@@ -68,7 +68,7 @@ std::optional<BattleScenePresentationPlayer::UnitView> resolveUnitView(
 Pointf floatingTextPositionFor(const BattleScenePresentationPlayer::UnitView& unit, const std::string& text)
 {
     Pointf position = unit.position;
-    position.x -= 7.5 * Font::getTextDrawSize(text);
+    position.x -= static_cast<float>(7.5 * Font::getTextDrawSize(text));
     position.y -= 50;
     return position;
 }
@@ -112,6 +112,7 @@ void applyProjectilePayload(
 {
     effect.VisualOnly = 1;
     effect.VisualTeam = resolveVisualTeam(bindings, command.projectileSourceUnitId);
+    effect.Through = command.projectileThrough ? 1 : 0;
     effect.Pos = command.projectilePosition;
     effect.Velocity = command.projectileVelocity;
     effect.TotalFrame = std::max(1, command.projectileDurationFrames);
@@ -361,7 +362,10 @@ void BattleScenePresentationPlayer::impactProjectile(
 {
     auto& effect = upsertProjectile(command, bindings);
     applyProjectilePayload(effect, command, bindings);
-    finishProjectile(effect, 15);
+    if (!effect.Through)
+    {
+        finishProjectile(effect, 15);
+    }
 }
 
 void BattleScenePresentationPlayer::expireProjectile(

@@ -329,12 +329,11 @@ struct BattleRuntimeState
 
     struct DamageState
     {
-        bool aggregatePendingTransactionsByDefender = false;
+        bool sortPendingDamageByDefenderMagnitude = false;
         std::vector<BattleDamageRuntimeUnit> unitExtras;
         std::map<int, BattleDamagePresentationStyle> presentationStylesByDefender;
         std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
-        std::vector<BattleDamageTransactionInput> pendingTransactions;
-        std::vector<BattleDamagePresentationInput> pendingPresentation;
+        std::vector<BattlePendingDamageIntent> pendingDamage;
     } damage;
 
     struct StatusState
@@ -451,6 +450,11 @@ int collectFrameExtraProjectileCount(
     BattleRuntimeRandom& random,
     int unitId,
     int baseCount);
+std::vector<BattleGameplayCommand> collectFrameCastScopedComboCommands(
+    KysChess::RoleComboState& state,
+    BattleRuntimeRandom& random,
+    int unitId,
+    double projectileSpeed);
 bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId);
 double resolveFrameArmorPenetratedDefense(
     const KysChess::RoleComboState& state,
@@ -466,5 +470,7 @@ public:
 };
 
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
+void writeBattleDamageComboState(KysChess::RoleComboState& combo, const BattleDamageUnitState& unit);
+void writeBattleStatusComboState(KysChess::RoleComboState& combo, const BattleStatusUnitState& unit);
 
 }  // namespace KysChess::Battle

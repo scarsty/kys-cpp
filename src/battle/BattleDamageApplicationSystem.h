@@ -14,13 +14,6 @@ namespace KysChess::Battle
 
 struct BattleUnitStore;
 
-struct BattleDamageApplicationUnitSnapshot
-{
-    int id{};
-    int team{};
-    bool alive{};
-};
-
 struct BattleDamageApplicationUnitEffects
 {
     int deathAoePct = 0;
@@ -54,6 +47,12 @@ struct BattleDamagePresentationStyle
     int executeTextSize = 0;
 };
 
+struct BattlePendingDamageIntent
+{
+    BattleDamageRequest request;
+    BattleDamagePresentationInput presentation;
+};
+
 enum class BattleDamageLifecycleEventType
 {
     UnitDied,
@@ -72,15 +71,15 @@ struct BattleDamageLifecycleEvent
 struct BattleDamageApplicationInput
 {
     int frame = 0;
-    bool aggregatePendingTransactionsByDefender = false;
-    std::vector<BattleDamageApplicationUnitSnapshot> units;
-    const std::vector<BattleDamageTransactionInput>* pendingTransactions = nullptr;
-    const std::vector<BattleDamagePresentationInput>* pendingPresentation = nullptr;
+    bool sortPendingDamageByDefenderMagnitude = false;
+    BattleUnitStore* units = nullptr;
+    std::map<int, KysChess::RoleComboState>* comboUnits = nullptr;
+    std::vector<BattleStatusRuntimeUnit>* statusUnits = nullptr;
+    std::vector<BattleDamageRuntimeUnit>* damageUnitExtras = nullptr;
+    const std::vector<BattlePendingDamageIntent>* pendingDamage = nullptr;
     const std::map<int, BattleDamageApplicationUnitEffects>* unitEffects = nullptr;
     BattleDeathEffectStore* deathEffects = nullptr;
-    BattleUnitStore* deathEffectUnits = nullptr;
     const BattleProjectileFollowUpContext* projectileFollowUps = nullptr;
-    const BattleUnitStore* projectileFollowUpUnits = nullptr;
 };
 
 struct BattleDamageApplicationResult
@@ -99,6 +98,7 @@ class BattleDamageApplicationSystem
 {
 public:
     BattleDamageApplicationResult apply(const BattleDamageApplicationInput& input) const;
+    int previewDefenderPendingHpDamage(BattleDamageApplicationInput input, int defenderUnitId) const;
 };
 
 }  // namespace KysChess::Battle

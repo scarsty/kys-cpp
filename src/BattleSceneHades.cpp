@@ -97,19 +97,6 @@ float cameraZoomBlend(int closeUp, int closeUpTotal)
     return 1.0f;
 }
 
-double battleSpeedToRefreshMultiplier(int battleSpeed)
-{
-    switch (battleSpeed)
-    {
-    case 0:
-        return 0.5;
-    case 2:
-        return 2.0;
-    default:
-        return 1.0;
-    }
-}
-
 float shakeJitter(int battleFrame, int roleId)
 {
     uint32_t state = static_cast<uint32_t>(battleFrame) ^ (static_cast<uint32_t>(roleId) * 0x9e3779b9u);
@@ -1034,7 +1021,21 @@ void BattleSceneHades::dealEvent2(EngineEvent& e)
 
 int BattleSceneHades::getBattleStepsThisRender()
 {
-    return 1;
+    switch (SystemSettings::getInstance()->data().battleSpeed)
+    {
+    case 0:
+        half_speed_step_on_next_render_ = true;
+        return 2;
+    case 2:
+    {
+        const int steps = half_speed_step_on_next_render_ ? 1 : 0;
+        half_speed_step_on_next_render_ = !half_speed_step_on_next_render_;
+        return steps;
+    }
+    default:
+        half_speed_step_on_next_render_ = true;
+        return 1;
+    }
 }
 
 void BattleSceneHades::advanceBattleFrame()
@@ -1075,7 +1076,6 @@ void BattleSceneHades::advanceBattleFrame()
 void BattleSceneHades::onEntrance()
 {
     previous_refresh_interval_ = RunNode::getRefreshInterval();
-    RunNode::setRefreshInterval(previous_refresh_interval_ * battleSpeedToRefreshMultiplier(SystemSettings::getInstance()->data().battleSpeed));
 
     calViewRegion();
 
@@ -1560,18 +1560,6 @@ void BattleSceneHades::applyCoreFrameResult(
 
     applyCoreDamageTransactions(frameResult);
     applyCoreTeamEffectState(frameResult.teamEffectEvents);
-    for (const auto& command : frameResult.effectCommands)
-    {
-        switch (command.type)
-        {
-        case KysChess::Battle::BattleEffectCommandType::AddInvincibility:
-            scene_units_.requireUnit(command.targetUnitId).invincible += command.value;
-            break;
-        default:
-            assert(false);
-            break;
-        }
-    }
     applyCoreFrameApplications(frameResult.applications);
     for (const auto& movement : frameResult.movementPresentationResults)
     {

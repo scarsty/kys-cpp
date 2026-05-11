@@ -35,7 +35,8 @@ bool hookMatchesLegacyTrigger(BattleComboTriggerHook hook, Trigger trigger)
             || trigger == Trigger::AllyLowHPBurst
             || trigger == Trigger::LastAlive;
     case BattleComboTriggerHook::AfterSkillCast:
-        return trigger == Trigger::OnUltimate;
+        return trigger == Trigger::OnCast
+            || trigger == Trigger::OnUltimate;
     case BattleComboTriggerHook::ProjectileHitEnemy:
     case BattleComboTriggerHook::ProjectileHitAllyOrSource:
     case BattleComboTriggerHook::DamageDealt:
@@ -255,23 +256,6 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
     return events;
 }
 
-std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::collectSkillFinishedRuntimeEvents(
-    const RoleComboState& state,
-    bool alive) const
-{
-    std::vector<BattleComboFrameRuntimeEvent> events;
-    if (alive && state.postSkillInvincFrames > 0)
-    {
-        events.push_back({
-            BattleComboFrameRuntimeEventType::PostSkillInvincibility,
-            Trigger::OnUltimate,
-            -1,
-            state.postSkillInvincFrames,
-        });
-    }
-    return events;
-}
-
 BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTeamHeal(
     RoleComboState& state,
     Trigger trigger,
@@ -372,10 +356,6 @@ std::vector<BattleOnHitComboCommand> BattleComboTriggerSystem::collectOnHitCombo
             input,
             {
                 EffectType::MPBlock,
-                EffectType::CurrentHPPctBlast,
-                EffectType::TeamMPRestore,
-                EffectType::FlatShield,
-                EffectType::SpiralBleedProjectile,
             },
             random)
         : collectTriggerEvents(
@@ -383,10 +363,6 @@ std::vector<BattleOnHitComboCommand> BattleComboTriggerSystem::collectOnHitCombo
             input,
             {
                 EffectType::MPBlock,
-                EffectType::CurrentHPPctBlast,
-                EffectType::TeamMPRestore,
-                EffectType::FlatShield,
-                EffectType::SpiralBleedProjectile,
                 EffectType::NearbyTrackingProjectiles,
             },
             random);
@@ -404,18 +380,6 @@ std::vector<BattleOnHitComboCommand> BattleComboTriggerSystem::collectOnHitCombo
         {
         case EffectType::MPBlock:
             command.type = BattleOnHitComboCommandType::MpBlock;
-            break;
-        case EffectType::CurrentHPPctBlast:
-            command.type = BattleOnHitComboCommandType::CurrentHpPctBlast;
-            break;
-        case EffectType::TeamMPRestore:
-            command.type = BattleOnHitComboCommandType::TeamMpRestore;
-            break;
-        case EffectType::FlatShield:
-            command.type = BattleOnHitComboCommandType::FlatShield;
-            break;
-        case EffectType::SpiralBleedProjectile:
-            command.type = BattleOnHitComboCommandType::SpiralBleedProjectile;
             break;
         case EffectType::NearbyTrackingProjectiles:
             command.type = BattleOnHitComboCommandType::NearbyTrackingProjectiles;

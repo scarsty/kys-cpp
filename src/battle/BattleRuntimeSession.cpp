@@ -157,6 +157,8 @@ BattleUnitState makeInitializedWorldUnit(
     {
         unit.dashFramesRemaining = movementIt->second.movementDashFrames;
         unit.dashCooldownRemaining = movementIt->second.movementDashCooldown;
+        unit.postDashRetreatFramesRemaining = movementIt->second.postDashRetreatFrames;
+        unit.postDashChaosFramesRemaining = movementIt->second.postDashChaosFrames;
     }
 
     return unit;
@@ -312,7 +314,7 @@ void deriveRuntimeStores(BattleRuntimeState& runtime, BattleRuntimeSessionCreati
 
     runtime.projectileFollowUps = input.rules.projectileFollowUps;
 
-    runtime.damage.aggregatePendingTransactionsByDefender = true;
+    runtime.damage.sortPendingDamageByDefenderMagnitude = true;
     runtime.damage.unitExtras.clear();
     runtime.damage.presentationStylesByDefender.clear();
     runtime.damage.unitEffects.clear();

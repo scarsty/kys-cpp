@@ -237,6 +237,13 @@ TEST_CASE("BattleDamageSystem_DamageTaken_GrantsHurtInvincOrDeathPrevention", "[
     CHECK(protectedResult.defender.deathPreventionUsed);
     CHECK(protectedResult.deathPrevented);
     CHECK_FALSE(protectedResult.died);
+
+    auto noHurtInvinc = unit();
+    noHurtInvinc.hurtInvincFrames = 5;
+    auto noHurtInvincResult = system.applyDamageTaken(noHurtInvinc, 20, false);
+    CHECK(noHurtInvincResult.defender.vitals.hp == 80);
+    CHECK(noHurtInvincResult.defender.invincible == 0);
+    CHECK_FALSE(noHurtInvincResult.hurtInvincGranted);
 }
 
 TEST_CASE("BattleDamageSystem_KillReward_HealsInvincibleAndBloodlustPerUnit", "[battle][damage][unit]")
@@ -752,6 +759,38 @@ TEST_CASE("傷害交易_已確認命中的零傷害特效仍可套用狀態", "[
     CHECK(result.events[1].statusType == BattleDamageStatusType::Frozen);
 }
 
+TEST_CASE("傷害交易_無敵阻擋已確認命中的狀態特效", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.acceptedHit = true;
+    input.request.frozenFrames = 6;
+    input.request.bleedStacks = 1;
+    input.request.bleedMaxStacks = 3;
+    input.request.poisonPct = 12;
+    input.request.poisonDurationFrames = 60;
+    input.request.mpBlockFrames = 9;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defender.invincible = 10;
+    input.defenderStatus = statusUnit(2);
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.finalHpDamage == 0);
+    CHECK(result.defenderStatus.effects.frozenTimer == 0);
+    CHECK(result.defenderStatus.effects.bleedStacks == 0);
+    CHECK(result.defenderStatus.effects.poisonTimer == 0);
+    CHECK(result.defenderStatus.effects.mpBlockTimer == 0);
+    for (const auto& event : result.events)
+    {
+        CHECK(event.type != BattleDamageEventType::StatusApplied);
+    }
+}
+
 TEST_CASE("傷害交易_冰凍套用抗性與控制免疫", "[battle][damage][unit]")
 {
     BattleDamageTransactionInput input;
@@ -787,7 +826,7 @@ TEST_CASE("傷害交易_冰凍套用抗性與控制免疫", "[battle][damage][un
     CHECK(lowHp.events.empty());
 }
 
-TEST_CASE("傷害交易_已結算傷害不重跑防禦層但仍處理死亡", "[battle][damage][unit]")
+TEST_CASE("傷害交易_已結算傷害仍套用即時防禦狀態", "[battle][damage][unit]")
 {
     BattleDamageTransactionInput input;
     input.request.attackerUnitId = 1;
@@ -806,13 +845,13 @@ TEST_CASE("傷害交易_已結算傷害不重跑防禦層但仍處理死亡", "[
 
     auto result = BattleDamageSystem().resolveTransaction(input);
 
-    CHECK_FALSE(result.defender.alive);
-    CHECK(result.defender.vitals.hp == 0);
+    CHECK(result.blockedByInvincible);
+    CHECK(result.finalHpDamage == 0);
+    CHECK(result.defender.alive);
+    CHECK(result.defender.vitals.hp == 30);
     CHECK(result.defender.shield == 99);
-    CHECK(result.attacker.vitals.hp == 200);
-    CHECK(result.attackerDelta.hpDelta == 80);
-    REQUIRE(result.events.size() == 3);
-    CHECK(result.events[0].type == BattleDamageEventType::DamageApplied);
-    CHECK(result.events[1].type == BattleDamageEventType::UnitDied);
-    CHECK(result.events[2].type == BattleDamageEventType::KillRewardApplied);
+    CHECK(result.attacker.vitals.hp == 120);
+    CHECK(result.attackerDelta.hpDelta == 0);
+    REQUIRE(result.events.size() == 1);
+    CHECK(result.events[0].type == BattleDamageEventType::BlockedByInvincible);
 }

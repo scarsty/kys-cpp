@@ -893,6 +893,13 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     result.cooldownDelta = result.animation.cooldownFrames;
     result.mpDelta = mpDeltaForCast(input, result.decision.ultimate);
 
+    if (result.decision.operationType == BattleOperationType::Dash
+        && pointNorm(input.unit.dashVelocity) > input.config.minimumFacingNorm)
+    {
+        result.postDashRetreatVelocity = scaled(input.unit.dashVelocity, -1.0);
+        result.postDashRetreatFrames = result.animation.recoveryFrames;
+    }
+
     result.attackSpawnRequests = makeAttackSpawnRequests(result, input, selectedSkill);
 
     BattleGameplayEvent gameplayEvent;
@@ -901,6 +908,14 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     gameplayEvent.targetUnitId = input.targetUnitId;
     gameplayEvent.effectId = selectedSkill.id;
     result.gameplayEvents.push_back(gameplayEvent);
+
+    BattleLogEvent logEvent;
+    logEvent.type = BattleLogEventType::Status;
+    logEvent.sourceUnitId = input.unit.id;
+    logEvent.targetUnitId = input.targetUnitId;
+    logEvent.skillName = selectedSkill.name;
+    logEvent.text = selectedSkill.name.empty() ? "出手" : "施放" + selectedSkill.name;
+    result.logEvents.push_back(std::move(logEvent));
 
     if (result.decision.announceUltimate && !selectedSkill.name.empty())
     {
@@ -932,7 +947,7 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     }
 }
 
-BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionCommitInput& input) const
+BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionCommitInput& input, const RoleComboState& combo) const
 {
     assert(input.unit.id >= 0);
     assert(input.unit.operationCount >= 0);
@@ -940,7 +955,7 @@ BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionComm
     assert(input.strengthenedMeleeOperationCountThreshold > 0);
 
     BattleActionCommitResult result;
-    result.combo = input.combo;
+    result.combo = combo;
     result.operationCount = input.unit.operationCount;
 
     if (input.hasCast)

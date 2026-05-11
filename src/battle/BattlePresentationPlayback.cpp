@@ -123,6 +123,7 @@ BattlePresentationCommand BattlePresentationPlaybackPlanner::makeCommand(const B
     command.projectileVelocity = event.velocity;
     command.projectileDurationFrames = event.durationFrames;
     command.projectileOperationKind = event.operationKind;
+    command.projectileThrough = event.through;
     return command;
 }
 

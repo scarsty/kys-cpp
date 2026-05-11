@@ -15,6 +15,7 @@ enum class Trigger
     WhileLowHP,
     AllyLowHPBurst,
     LastAlive,
+    OnCast,  // Proc when an attack is released
     OnUltimate,
     OnHit,  // Proc on attack hit
     OnBeingHit,  // Proc when being hit (defender)

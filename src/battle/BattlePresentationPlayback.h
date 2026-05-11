@@ -46,6 +46,7 @@ struct BattlePresentationCommand
     Pointf projectileVelocity;
     int projectileDurationFrames{};
     int projectileOperationKind{};
+    bool projectileThrough = false;
 };
 
 struct BattlePresentationPlaybackPlan

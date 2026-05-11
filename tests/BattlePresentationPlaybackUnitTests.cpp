@@ -14,9 +14,9 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryVisualEvent", "[battle][pr
         { BattleGameplayEventType::ProjectileHit, 18, 1, 2, 0, 10 },
     };
     frame.logEvents = {
-        { BattleLogEventType::Damage, 18, 1, 2, 30, "", "skill", "detail" },
-        { BattleLogEventType::Heal, 18, 1, 1, 12, "heal" },
-        { BattleLogEventType::Status, 18, 1, 2, 0, "status" },
+        { KysChess::Battle::BattleLogEventType::Damage, 18, 1, 2, 30, "", "skill", "detail" },
+        { KysChess::Battle::BattleLogEventType::Heal, 18, 1, 1, 12, "heal" },
+        { KysChess::Battle::BattleLogEventType::Status, 18, 1, 2, 0, "status" },
     };
     frame.visualEvents = {
         { BattleVisualEventType::FloatingText, 18, -1, 2, 0, 0, -1, 24, 1, "float" },
@@ -33,6 +33,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryVisualEvent", "[battle][pr
     };
 
     BattlePresentationPlaybackPlanner planner;
+    frame.visualEvents[4].through = true;
     auto plan = planner.build(frame);
 
     REQUIRE(plan.commands.size() == frame.visualEvents.size());
@@ -55,6 +56,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryVisualEvent", "[battle][pr
     CHECK(plan.commands[4].projectileVelocity.x == 2);
     CHECK(plan.commands[4].projectileDurationFrames == 30);
     CHECK(plan.commands[4].projectileOperationKind == 2);
+    CHECK(plan.commands[4].projectileThrough);
     CHECK(plan.commands[5].type == BattlePresentationCommandType::MoveProjectile);
     CHECK(plan.commands[5].projectileAttackId == 10);
     CHECK(plan.commands[5].visualEffectId == 33);
@@ -84,8 +86,8 @@ TEST_CASE("BattlePresentationPlaybackPlanner_PreservesCommandOrder", "[battle][p
         { BattleGameplayEventType::DamageApplied, 3, 1, 2, 9 },
     };
     frame.logEvents = {
-        { BattleLogEventType::Status, 3, -1, 1, 0, "first" },
-        { BattleLogEventType::Damage, 3, 1, 2, 9 },
+        { KysChess::Battle::BattleLogEventType::Status, 3, -1, 1, 0, "first" },
+        { KysChess::Battle::BattleLogEventType::Damage, 3, 1, 2, 9 },
     };
     frame.visualEvents = {
         { BattleVisualEventType::FloatingText, 3, -1, 1, 0, 0, -1, 24, 0, "second" },
@@ -112,7 +114,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_IgnoresNonVisualOutputs", "[battle]
         { BattleGameplayEventType::DamageApplied, 5, 1, 2, 9 },
     };
     frame.logEvents = {
-        { BattleLogEventType::Status, 5, -1, -1, 0, "log-only" },
+        { KysChess::Battle::BattleLogEventType::Status, 5, -1, -1, 0, "log-only" },
     };
     frame.visualEvents = {
         { BattleVisualEventType::FloatingText, 5, -1, 1, 0, 0, -1, 24, 0, "visual-only" },

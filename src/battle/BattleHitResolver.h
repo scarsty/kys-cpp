@@ -59,6 +59,7 @@ struct BattleHpDamageCommand
     int frozenFrames{};
     std::string skillName;
     std::string detailText;
+    bool triggersDefenseEffects = true;
 };
 
 struct BattleMpDamageCommand

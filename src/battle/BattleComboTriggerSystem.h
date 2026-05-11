@@ -39,7 +39,6 @@ enum class BattleComboFrameRuntimeEventType
     HealAura,
     HealPercentSelf,
     BroadcastTriggerTimer,
-    PostSkillInvincibility,
 };
 
 struct BattleComboFrameRuntimeEvent
@@ -238,10 +237,6 @@ struct BattleDamageReduceDebuffProc
 enum class BattleOnHitComboCommandType
 {
     MpBlock,
-    CurrentHpPctBlast,
-    TeamMpRestore,
-    FlatShield,
-    SpiralBleedProjectile,
     NearbyTrackingProjectiles,
 };
 
@@ -292,10 +287,6 @@ public:
     std::vector<BattleComboFrameRuntimeEvent> advanceFrameRuntime(
         RoleComboState& state,
         const BattleComboFrameRuntimeInput& input) const;
-
-    std::vector<BattleComboFrameRuntimeEvent> collectSkillFinishedRuntimeEvents(
-        const RoleComboState& state,
-        bool alive) const;
 
     BattleTriggeredTeamHeal collectTeamHeal(RoleComboState& state,
                                             Trigger trigger,

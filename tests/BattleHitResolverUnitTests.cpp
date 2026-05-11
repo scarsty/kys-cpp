@@ -173,7 +173,7 @@ TEST_CASE("BattleHitResolver_KnockbackIsReturnedAsCommand", "[battle][hit_resolv
     CHECK(command.grantHurtFrame);
 }
 
-TEST_CASE("BattleHitResolver_CritMarksResultAndEmitsStatusEvent", "[battle][hit_resolver][unit]")
+TEST_CASE("BattleHitResolver_CritMarksResultAndKeepsDamageDetail", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
     input.skill.id = 101;
@@ -185,11 +185,49 @@ TEST_CASE("BattleHitResolver_CritMarksResultAndEmitsStatusEvent", "[battle][hit_
 
     CHECK(result.critical);
     CHECK(result.shapedHpDamage == Catch::Approx(100.0));
-    REQUIRE(result.logEvents.size() == 1);
-    CHECK(result.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(result.logEvents[0].sourceUnitId == 1);
-    CHECK(result.logEvents[0].targetUnitId == 2);
-    CHECK(result.logEvents[0].text == "暴擊（200%）");
+    CHECK(result.logEvents.empty());
+    const auto* command = firstHpDamageCommand(result);
+    REQUIRE(command);
+    CHECK(command->critical);
+    CHECK(command->detailText == "暴擊");
+}
+
+TEST_CASE("BattleHitResolver_ProjectileCritKeepsDamageDetailWithoutStatusLog", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 50;
+    input.attackerCombo.critChancePct = 100;
+    input.attackerCombo.critMultiplier = 200;
+
+    auto result = resolveHit(input);
+
+    CHECK(result.critical);
+    CHECK(result.shapedHpDamage == Catch::Approx(100.0));
+    CHECK(result.logEvents.empty());
+    const auto* command = firstHpDamageCommand(result);
+    REQUIRE(command);
+    CHECK(command->critical);
+    CHECK(command->detailText == "暴擊");
+}
+
+TEST_CASE("BattleHitResolver_DamageCommandLabelsProjectileSource", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.name = "降龍";
+    input.skill.resolvedBaseDamage = 70;
+    input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.attackEvent.ultimate = true;
+    input.attackEvent.track = true;
+    input.attackEvent.mainProjectile = false;
+
+    auto result = resolveHit(input);
+
+    const auto* damage = firstHpDamageCommand(result);
+    REQUIRE(damage);
+    CHECK(damage->detailText.find("絕招追蹤彈") != std::string::npos);
 }
 
 TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand", "[battle][hit_resolver][unit]")
@@ -377,9 +415,38 @@ TEST_CASE("BattleHitResolver_BleedAndMpBlockEmitAcceptedHitCommands", "[battle][
     CHECK(sawMpBlock);
 }
 
-TEST_CASE("BattleHitResolver_OnHitFollowUpsEmitGameplayCommands", "[battle][hit_resolver][unit]")
+TEST_CASE("BattleHitResolver_NearbyTrackingFollowUpEmitsGameplayCommand", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::NearbyTrackingProjectiles, KysChess::Trigger::OnHit, 80, 100));
+    input.attackerCombo.triggeredEffects.back().value2 = 45;
+
+    auto result = resolveHit(input);
+
+    bool sawNearby = false;
+    for (const auto& command : result.commands)
+    {
+        if (const auto* nearby = std::get_if<BattleNearbyTrackingProjectilesCommand>(&command))
+        {
+            sawNearby = nearby->prototype.sourceUnitId == 1
+                && nearby->centerTargetUnitId == 2
+                && nearby->rangePixels == 80
+                && nearby->damagePct == 45;
+        }
+    }
+
+    CHECK(sawNearby);
+}
+
+TEST_CASE("BattleHitResolver_OnHitDoesNotEmitCastScopedFollowUps", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.attackEvent.velocity = { 4.0f, 0.0f, 0.0f };
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
@@ -392,59 +459,16 @@ TEST_CASE("BattleHitResolver_OnHitFollowUpsEmitGameplayCommands", "[battle][hit_
     input.attackerCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::SpiralBleedProjectile, KysChess::Trigger::OnHit, 2, 100));
     input.attackerCombo.triggeredEffects.back().value2 = 7;
-    input.attackerCombo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::NearbyTrackingProjectiles, KysChess::Trigger::OnHit, 80, 100));
-    input.attackerCombo.triggeredEffects.back().value2 = 45;
-    input.attackerCombo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::UltimateExtraProjectiles, KysChess::Trigger::OnHit, 2, 100));
 
     auto result = resolveHit(input);
 
-    bool sawCurrentHpBlast = false;
-    bool sawTeamMpRestore = false;
-    bool sawTeamShield = false;
-    bool sawSpiral = false;
-    bool sawNearby = false;
-    bool sawExtra = false;
     for (const auto& command : result.commands)
     {
-        if (const auto* currentHp = std::get_if<BattleCurrentHpBlastCommand>(&command))
-        {
-            sawCurrentHpBlast = currentHp->sourceUnitId == 1 && currentHp->damagePct == 15;
-        }
-        else if (const auto* teamMp = std::get_if<BattleTeamMpRestoreCommand>(&command))
-        {
-            sawTeamMpRestore = teamMp->sourceUnitId == 1 && teamMp->amount == 8 && teamMp->reason == "琴棋書畫";
-        }
-        else if (const auto* shield = std::get_if<BattleTeamShieldCommand>(&command))
-        {
-            sawTeamShield = shield->sourceUnitId == 1 && shield->amount == 12 && shield->refreshOnly;
-        }
-        else if (const auto* spiral = std::get_if<BattleSpiralBleedProjectileCommand>(&command))
-        {
-            sawSpiral = spiral->sourceUnitId == 1 && spiral->bleedStacks == 2 && spiral->projectileCount == 7;
-        }
-        else if (const auto* nearby = std::get_if<BattleNearbyTrackingProjectilesCommand>(&command))
-        {
-            sawNearby = nearby->prototype.sourceUnitId == 1
-                && nearby->centerTargetUnitId == 2
-                && nearby->rangePixels == 80
-                && nearby->damagePct == 45;
-        }
-        else if (const auto* extra = std::get_if<BattleHitExtraProjectilesCommand>(&command))
-        {
-            sawExtra = extra->prototype.sourceUnitId == 1
-                && extra->targetUnitId == 2
-                && extra->extraCount == 2;
-        }
+        CHECK_FALSE(std::holds_alternative<BattleCurrentHpBlastCommand>(command));
+        CHECK_FALSE(std::holds_alternative<BattleTeamMpRestoreCommand>(command));
+        CHECK_FALSE(std::holds_alternative<BattleTeamShieldCommand>(command));
+        CHECK_FALSE(std::holds_alternative<BattleSpiralBleedProjectileCommand>(command));
     }
-
-    CHECK(sawCurrentHpBlast);
-    CHECK(sawTeamMpRestore);
-    CHECK(sawTeamShield);
-    CHECK(sawSpiral);
-    CHECK(sawNearby);
-    CHECK(sawExtra);
 }
 
 TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCommand", "[battle][hit_resolver][unit]")
@@ -464,6 +488,46 @@ TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCo
             return std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command);
     });
     CHECK(nearby == result.commands.end());
+}
+
+TEST_CASE("BattleProjectileFollowUpResolver_CurrentHpBlastDoesNotTriggerDefenseEffects", "[battle][hit_resolver][unit]")
+{
+    BattleProjectileFollowUpContext context;
+    BattleUnitStore units;
+    units.units = {
+        runtimeUnit(0, 0, { 0.0f, 0.0f, 0.0f }),
+        runtimeUnit(1, 1, { 40.0f, 0.0f, 0.0f }),
+    };
+
+    std::vector<BattleGameplayCommand> commands;
+    commands.push_back(BattleCurrentHpBlastCommand{ 0, 15, "當前生命傷害" });
+
+    auto expanded = expandBattleProjectileFollowUpCommands(commands, context, units);
+
+    REQUIRE(expanded.commands.size() == 1);
+    const auto* hp = std::get_if<BattleHpDamageCommand>(&expanded.commands[0]);
+    REQUIRE(hp);
+    CHECK_FALSE(hp->triggersDefenseEffects);
+    CHECK(hp->detailText == "當前生命傷害");
+}
+
+TEST_CASE("BattleHitResolver_SkillReflectDamageDoesNotTriggerDefenseEffects", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 80;
+    input.defenderCombo.skillReflectPct = 50;
+
+    auto result = resolveHit(input);
+
+    auto reflected = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
+        {
+            const auto* hp = std::get_if<BattleHpDamageCommand>(&command);
+            return hp && hp->detailText == "技能反彈";
+        });
+    REQUIRE(reflected != result.commands.end());
+    const auto& hp = std::get<BattleHpDamageCommand>(*reflected);
+    CHECK_FALSE(hp.triggersDefenseEffects);
 }
 
 TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnCommands", "[battle][hit_resolver][unit]")

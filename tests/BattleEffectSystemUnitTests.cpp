@@ -265,6 +265,21 @@ TEST_CASE("BattleStatusSystem_PoisonBleedAndTimers_TickPerUnit", "[battle][statu
     CHECK(values[BattleStatusEventType::InvincibilityGranted] == 11);
 }
 
+TEST_CASE("BattleStatusSystem_InvincibilityTicksDownEachFrame", "[battle][status][unit]")
+{
+    BattleStatusUnitState unit;
+    unit.id = 8;
+    unit.alive = true;
+    unit.hp = 80;
+    unit.maxHp = 100;
+    unit.invincible = 3;
+
+    auto result = BattleStatusSystem({ 30 }).tick(unit);
+
+    CHECK(result.events.empty());
+    CHECK(unit.invincible == 2);
+}
+
 TEST_CASE("BattleStatusSystem_DeadUnitsDoNotTickOrEmit", "[battle][status][unit]")
 {
     BattleStatusUnitState unit;

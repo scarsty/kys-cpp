@@ -37,8 +37,6 @@ std::vector<int> BattleProjectileTargetingSystem::selectNearbyTargets(
 
     const auto& attacker = units.requireUnit(attackerUnitId);
     const auto& center = units.requireUnit(centerUnitId);
-    assert(attacker.alive);
-    assert(center.alive);
 
     double radiusSquared = radius * radius;
     std::vector<const BattleRuntimeUnit*> targets;
