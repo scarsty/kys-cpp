@@ -13,7 +13,6 @@
 #include "MainScene.h"
 #include "ParticleExample.h"
 #include "Random.h"
-#include "Timer.h"
 #include "GameState.h"
 #include "TextureManager.h"
 #include "UI.h"

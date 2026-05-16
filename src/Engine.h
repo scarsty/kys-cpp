@@ -18,8 +18,13 @@
 #include <emscripten.h>
 #endif
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 
 #ifndef M_PI
 #define M_PI 3.1415926535897

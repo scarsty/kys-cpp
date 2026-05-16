@@ -16,6 +16,9 @@ const std::vector<NewSave::FieldInfo>& NewSave::getFieldInfo(const std::string& 
     if (name == "Magic") { return getInstance()->magic_; }
     if (name == "SubMapInfo") { return getInstance()->submapinfo_; }
     if (name == "Shop") { return getInstance()->shop_; }
+
+    static const std::vector<FieldInfo> empty;
+    return empty;
 }
 
 void NewSave::initDBFieldInfo()

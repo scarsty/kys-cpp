@@ -13,7 +13,9 @@
 
 std::unordered_map<Texture*, Color> Engine::color_cache_;
 #ifdef _MSC_VER
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
 #endif

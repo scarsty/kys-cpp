@@ -30,6 +30,11 @@ set(KYS_COMMON_INCLUDES
     "${KYS_ROOT}/local/include"
 )
 
+set(KYS_COMMON_DEFINITIONS WITH_SMALLPOT1 WITH_NETWORK)
+if(WIN32)
+    list(APPEND KYS_COMMON_DEFINITIONS _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN NOMINMAX)
+endif()
+
 set(KYS_BATTLE_SOURCES
     battle/BattleAttackSystem.cpp
     battle/BattleCastSystem.cpp
@@ -69,7 +74,7 @@ set(KYS_GAME_SUPPORT_SOURCES
 file(GLOB KYS_GAME_SOURCES CONFIGURE_DEPENDS "*.cpp")
 add_executable(kys ${KYS_GAME_SOURCES} ${KYS_GAME_SUPPORT_SOURCES})
 target_include_directories(kys PRIVATE ${KYS_COMMON_INCLUDES})
-target_compile_definitions(kys PRIVATE WITH_SMALLPOT1 WITH_NETWORK)
+target_compile_definitions(kys PRIVATE ${KYS_COMMON_DEFINITIONS})
 target_link_libraries(kys PRIVATE
     kys_battle_core
     SDL3::SDL3
@@ -139,7 +144,7 @@ add_executable(kys_tests
     ChessBattleEffects.cpp
 )
 target_include_directories(kys_tests PRIVATE ${KYS_COMMON_INCLUDES})
-target_compile_definitions(kys_tests PRIVATE WITH_SMALLPOT1 WITH_NETWORK)
+target_compile_definitions(kys_tests PRIVATE ${KYS_COMMON_DEFINITIONS})
 target_link_libraries(kys_tests PRIVATE kys_battle_core Catch2::Catch2 yaml-cpp::yaml-cpp)
 
 if(MSVC)

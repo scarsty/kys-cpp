@@ -121,17 +121,14 @@ public:
         RADIUS,
     };
 
-    enum
-    {
-        /** The Particle emitter lives forever. */
-        DURATION_INFINITY = -1,
+    /** The Particle emitter lives forever. */
+    static constexpr float DURATION_INFINITY = -1.0f;
 
-        /** The starting size of the particle is equal to the ending size. */
-        START_SIZE_EQUAL_TO_END_SIZE = -1,
+    /** The starting size of the particle is equal to the ending size. */
+    static constexpr float START_SIZE_EQUAL_TO_END_SIZE = -1.0f;
 
-        /** The starting radius of the particle is equal to the ending radius. */
-        START_RADIUS_EQUAL_TO_END_RADIUS = -1,
-    };
+    /** The starting radius of the particle is equal to the ending radius. */
+    static constexpr float START_RADIUS_EQUAL_TO_END_RADIUS = -1.0f;
 
 public:
     void addParticles(int count);

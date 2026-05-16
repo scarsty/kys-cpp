@@ -150,9 +150,10 @@ public:
 
     const std::string& getTalkContent(int talk_id)
     {
+        static const std::string empty;
         if (talk_id < 0 || talk_id >= talk_contents_.size())
         {
-            return "";
+            return empty;
         }
         return talk_contents_[talk_id];
     }
