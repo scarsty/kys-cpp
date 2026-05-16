@@ -12,6 +12,7 @@
 namespace KysChess::Battle
 {
 
+class BattleRuntimeRandom;
 struct BattleUnitStore;
 
 struct BattleDamageApplicationUnitEffects
@@ -80,6 +81,7 @@ struct BattleDamageApplicationInput
     const std::map<int, BattleDamageApplicationUnitEffects>* unitEffects = nullptr;
     BattleDeathEffectStore* deathEffects = nullptr;
     const BattleProjectileFollowUpContext* projectileFollowUps = nullptr;
+    BattleRuntimeRandom* random = nullptr;
 };
 
 struct BattleDamageApplicationResult

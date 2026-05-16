@@ -420,7 +420,7 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
     int liveAllies = 0;
     int topTargets = 0;
     int perMemberValue = 0;
-    for (const auto& ally : runtime.units.units)
+    for (const auto& ally : runtime.unitStore.units)
     {
         if (!ally.alive || ally.team != 0)
         {
@@ -439,7 +439,7 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
     }
 
     std::vector<const BattleRuntimeUnit*> enemyOrder;
-    for (const auto& unit : runtime.units.units)
+    for (const auto& unit : runtime.unitStore.units)
     {
         if (unit.team == 1 && unit.alive)
         {
@@ -480,7 +480,7 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
     int assignedTargets = 0;
     for (const auto* enemyRef : enemyOrder)
     {
-        auto& enemy = runtime.units.requireUnit(enemyRef->id);
+        auto& enemy = runtime.unitStore.requireUnit(enemyRef->id);
         auto comboIt = runtime.combo.units.find(enemy.id);
         assert(comboIt != runtime.combo.units.end());
 
@@ -537,7 +537,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
 
     for (const auto& seed : setup.units)
     {
-        auto& unit = runtime.units.requireUnit(seed.unitId);
+        auto& unit = runtime.unitStore.requireUnit(seed.unitId);
         auto& status = requireById(runtime.status.units, seed.unitId);
         RoleComboState combo = seed.baseCombo;
 
@@ -684,7 +684,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             continue;
         }
 
-        auto& unit = runtime.units.requireUnit(seed.unitId);
+        auto& unit = runtime.unitStore.requireUnit(seed.unitId);
         auto comboIt = runtime.combo.units.find(seed.unitId);
         assert(comboIt != runtime.combo.units.end());
 
@@ -738,7 +738,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
         }
         cloneCandidates.insert(cloneCandidates.end(), fallbackCandidates.begin(), fallbackCandidates.end());
 
-        int nextRuntimeUnitId = static_cast<int>(runtime.units.units.size());
+        int nextRuntimeUnitId = static_cast<int>(runtime.unitStore.units.size());
         int spawned = 0;
         for (const auto& cell : setup.cloneCells)
         {
@@ -752,9 +752,8 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             }
 
             const auto& source = cloneCandidates[spawned % cloneCandidates.size()];
-            const auto& sourceUnit = runtime.units.requireUnit(source.sourceUnitId);
+            const auto& sourceUnit = runtime.unitStore.requireUnit(source.sourceUnitId);
             const auto& sourceStatus = requireById(runtime.status.units, source.sourceUnitId);
-            const auto* sourceWorld = tryFindById(runtime.world.units, source.sourceUnitId);
             const auto sourceComboIt = runtime.combo.units.find(source.sourceUnitId);
             assert(sourceComboIt != runtime.combo.units.end());
 
@@ -763,7 +762,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             cloneUnit.realRoleId = source.sourceRealRoleId;
             cloneUnit.alive = true;
             cloneUnit.vitals.hp = cloneUnit.vitals.maxHp;
-            cloneUnit.motion.position = positionForCloneCell(runtime.units.gridTransform, cell.x, cell.y);
+            cloneUnit.motion.position = positionForCloneCell(runtime.unitStore.gridTransform, cell.x, cell.y);
             cloneUnit.motion.velocity = { 0, 0, 0 };
             cloneUnit.motion.acceleration = { 0, 0, 0 };
             cloneUnit.grid = { cell.x, cell.y, 0 };
@@ -775,7 +774,6 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             cloneUnit.operationType = BattleOperationType::None;
             cloneUnit.operationCount = 0;
             cloneUnit.invincible = 0;
-            cloneUnit.hurtFrame = 0;
             cloneUnit.canAttack = true;
 
             auto cloneCombo = KysChess::ChessBattleEffects::makeSummonedCloneState(
@@ -783,23 +781,20 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
                 cloneUnit.vitals.maxHp);
             cloneUnit.shield = cloneCombo.shield;
 
-            runtime.units.units.push_back(cloneUnit);
+            runtime.unitStore.units.push_back(cloneUnit);
             runtime.status.units.push_back(cloneStatusUnit(sourceStatus, nextRuntimeUnitId, cloneCombo));
             runtime.combo.units[nextRuntimeUnitId] = cloneCombo;
 
-            BattleUnitState cloneWorld;
-            if (sourceWorld)
+            BattleMovementAgentState cloneAgent;
+            if (const auto sourceAgent = runtime.movement.agents.find(source.sourceUnitId);
+                sourceAgent != runtime.movement.agents.end())
             {
-                cloneWorld = *sourceWorld;
+                cloneAgent = sourceAgent->second;
             }
-            cloneWorld.id = nextRuntimeUnitId;
-            cloneWorld.realRoleId = source.sourceRealRoleId;
-            cloneWorld.team = sourceUnit.team;
-            cloneWorld.alive = true;
-            cloneWorld.position = cloneUnit.motion.position;
-            cloneWorld.velocity = { 0, 0, 0 };
-            cloneWorld.star = sourceUnit.star;
-            runtime.world.units.push_back(cloneWorld);
+            cloneAgent.physics.position = cloneUnit.motion.position;
+            cloneAgent.physics.velocity = cloneUnit.motion.velocity;
+            cloneAgent.physics.acceleration = cloneUnit.motion.acceleration;
+            runtime.movement.agents.emplace(nextRuntimeUnitId, cloneAgent);
 
             result.cloneIntents.push_back({
                 source.sourceUnitId,
@@ -831,7 +826,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
 
     for (int unitId : seededUnitIds)
     {
-        const auto& unit = runtime.units.requireUnit(unitId);
+        const auto& unit = runtime.unitStore.requireUnit(unitId);
         const auto starStatsIt = starStatsByUnitId.find(unitId);
         assert(starStatsIt != starStatsByUnitId.end());
         result.roleDeltas.push_back(makeRoleDelta(

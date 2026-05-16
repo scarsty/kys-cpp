@@ -1,8 +1,10 @@
 #include "battle/BattleDamageApplicationSystem.h"
 #include "battle/BattleCore.h"
+#include "ChessEftIds.h"
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <variant>
 
 using namespace KysChess::Battle;
@@ -35,6 +37,21 @@ BattleDamageTransactionInput damageInput(int attackerUnitId, int defenderUnitId,
     return input;
 }
 
+KysChess::AppliedEffectInstance triggeredEffect(KysChess::EffectType type,
+                                                KysChess::Trigger trigger,
+                                                int value,
+                                                int triggerValue = 0,
+                                                int duration = 0)
+{
+    KysChess::AppliedEffectInstance effect;
+    effect.type = type;
+    effect.trigger = trigger;
+    effect.value = value;
+    effect.triggerValue = triggerValue;
+    effect.duration = duration;
+    return effect;
+}
+
 BattleRuntimeUnit runtimeUnit(int id, int team, int hp, int maxHp, int attack)
 {
     BattleRuntimeUnit unit;
@@ -58,6 +75,7 @@ struct BattleDamageApplicationTestFrame
     std::vector<BattlePendingDamageIntent> pendingDamage;
     std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
     BattleProjectileFollowUpContext projectileFollowUps;
+    BattleRuntimeRandom random{ 1u };
 
     BattleDamageApplicationTestFrame()
     {
@@ -104,6 +122,7 @@ struct BattleDamageApplicationTestFrame
         input.pendingDamage = &pendingDamage;
         input.unitEffects = &unitEffects;
         input.projectileFollowUps = &projectileFollowUps;
+        input.random = &random;
         projectileFollowUps.projectileSpeed = 12.0;
     }
 };
@@ -172,17 +191,6 @@ void seedRuntimeStatusUnit(BattleDamageApplicationTestFrame& frame, const Battle
     writeBattleStatusRuntimeUnit(*runtimeStatus, unit);
 }
 
-void seedComboDamageUnit(BattleDamageApplicationTestFrame& frame, const BattleDamageUnitState& unit)
-{
-    if (unit.id < 0)
-    {
-        return;
-    }
-
-    auto& combo = frame.comboUnits[unit.id];
-    writeBattleDamageComboState(combo, unit);
-}
-
 void seedComboModifierState(
     BattleDamageApplicationTestFrame& frame,
     int unitId,
@@ -208,12 +216,6 @@ void seedComboModifierState(
     }
 }
 
-void seedComboStatusUnit(BattleDamageApplicationTestFrame& frame, const BattleStatusUnitState& unit)
-{
-    auto& combo = frame.comboUnits[unit.id];
-    writeBattleStatusComboState(combo, unit);
-}
-
 void queuePendingDamage(
     BattleDamageApplicationTestFrame& frame,
     BattleDamageTransactionInput transaction,
@@ -222,11 +224,8 @@ void queuePendingDamage(
     seedRuntimeDamageUnit(frame, transaction.attacker);
     seedRuntimeDamageUnit(frame, transaction.defender);
     seedRuntimeStatusUnit(frame, transaction.defenderStatus);
-    seedComboDamageUnit(frame, transaction.attacker);
-    seedComboDamageUnit(frame, transaction.defender);
     seedComboModifierState(frame, transaction.attacker.id, transaction.attackerModifiers);
     seedComboModifierState(frame, transaction.defender.id, transaction.defenderModifiers);
-    seedComboStatusUnit(frame, transaction.defenderStatus);
     frame.pendingDamage.push_back({ transaction.request, std::move(presentation) });
 }
 
@@ -256,6 +255,29 @@ TEST_CASE("BattleDamageApplication_FatalDamageEmitsDeathAndKillRewardEvents", "[
     CHECK(result.gameplayEvents[0].frame == 77);
     CHECK(result.gameplayEvents[0].sourceUnitId == 0);
     CHECK(result.gameplayEvents[0].targetUnitId == 1);
+}
+
+TEST_CASE("BattleDamageApplication_FatalDamageLogsDamageBeforeDeath", "[battle][damage_application][unit]")
+{
+    auto frame = applicationInput();
+    auto& input = frame.input;
+    BattleDamagePresentationInput presentation;
+    presentation.skillName = "六脈神劍";
+    queuePendingDamage(frame, damageInput(0, 1, 20), presentation);
+
+    auto result = BattleDamageApplicationSystem().apply(input);
+
+    REQUIRE(result.transactions.size() == 1);
+    REQUIRE(result.transactions[0].killed);
+    REQUIRE(result.logEvents.size() >= 2);
+    CHECK(result.logEvents[0].type == BattleLogEventType::Damage);
+    CHECK(result.logEvents[0].sourceUnitId == 0);
+    CHECK(result.logEvents[0].targetUnitId == 1);
+    CHECK(result.logEvents[0].amount == 10);
+    CHECK(result.logEvents[0].skillName == "六脈神劍");
+    CHECK(result.logEvents[1].type == BattleLogEventType::UnitDied);
+    CHECK(result.logEvents[1].sourceUnitId == 0);
+    CHECK(result.logEvents[1].targetUnitId == 1);
 }
 
 TEST_CASE("BattleDamageApplication_ResolvesPendingDamageByMagnitudeWhenSortingEnabled", "[battle][damage_application][unit]")
@@ -395,6 +417,31 @@ TEST_CASE("BattleDamageApplication_AppliesSingleHitCapPerPendingHit", "[battle][
     CHECK(input.units->requireUnit(1).vitals.hp == 50);
 }
 
+TEST_CASE("BattleDamageApplication_UsesStatusDamageReduceDebuffsWithoutComboMirror", "[battle][damage_application][unit]")
+{
+    auto frame = applicationInput();
+    auto& input = frame.input;
+
+    auto damage = damageInput(0, 1, 10);
+    damage.request.preResolvedDamage = false;
+    damage.defender.vitals.hp = 100;
+    damage.defender.vitals.maxHp = 100;
+    damage.defenderStatus.hp = 100;
+    damage.defenderStatus.maxHp = 100;
+    queuePendingDamage(frame, damage);
+
+    auto* attackerStatus = findById(frame.statusUnits, 0);
+    REQUIRE(attackerStatus);
+    attackerStatus->effects.damageReduceDebuffs.push_back({ 3, 50 });
+    frame.comboUnits.at(0).dmgReduceDebuffs.clear();
+
+    auto result = BattleDamageApplicationSystem().apply(input);
+
+    REQUIRE(result.transactions.size() == 1);
+    CHECK(result.transactions[0].finalHpDamage == 5);
+    CHECK(frame.comboUnits.at(0).dmgReduceDebuffs.empty());
+}
+
 TEST_CASE("BattleDamageApplication_OrdersDamageNumbersByLargestHitPerDefender", "[battle][damage_application][unit]")
 {
     auto frame = applicationInput();
@@ -469,6 +516,85 @@ TEST_CASE("BattleDamageApplication_PreviewDefenderPendingHpDamageUsesResolvedPen
     CHECK(BattleDamageApplicationSystem().previewDefenderPendingHpDamage(input, 1) == 0);
 }
 
+TEST_CASE("BattleDamageApplication_UsesDamageRuntimeBlockFirstHitWithoutComboMirror", "[battle][damage_application][unit]")
+{
+    auto frame = applicationInput();
+    auto& input = frame.input;
+
+    auto damage = damageInput(0, 1, 9);
+    queuePendingDamage(frame, damage);
+    auto* defenderExtras = findById(frame.damageUnitExtras, 1);
+    REQUIRE(defenderExtras);
+    defenderExtras->blockFirstHitsRemaining = 1;
+    frame.comboUnits.at(1).blockFirstHitsRemaining = 0;
+
+    auto result = BattleDamageApplicationSystem().apply(input);
+
+    REQUIRE(result.transactions.size() == 1);
+    CHECK(result.transactions[0].blockedByFirstHit);
+    CHECK(result.transactions[0].finalHpDamage == 0);
+    REQUIRE(defenderExtras);
+    CHECK(defenderExtras->blockFirstHitsRemaining == 0);
+    CHECK(frame.comboUnits.at(1).blockFirstHitsRemaining == 0);
+}
+
+TEST_CASE("BattleDamageApplication_ShieldBreakEmitsShieldBreakCommands", "[battle][damage_application][unit]")
+{
+    auto frame = applicationInput();
+    auto& input = frame.input;
+    auto damage = damageInput(0, 1, 50);
+    damage.defender.shield = 30;
+    damage.defender.vitals.mp = 10;
+    damage.defender.vitals.maxMp = 100;
+    queuePendingDamage(frame, damage);
+    auto& defenderCombo = frame.comboUnits.at(1);
+    defenderCombo.shield = 0;
+    defenderCombo.shieldPctMaxHP = 20;
+    defenderCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::ShieldExplosion, KysChess::Trigger::OnShieldBreak, 50, 100));
+    defenderCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::AutoUltimate, KysChess::Trigger::OnShieldBreak, 1, 100));
+    defenderCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::TempFlatATK, KysChess::Trigger::OnShieldBreak, 14, 100, 45));
+    defenderCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::MPRestore, KysChess::Trigger::OnShieldBreak, 25, 100));
+
+    auto result = BattleDamageApplicationSystem().apply(input);
+
+    bool sawExplosion = false;
+    bool sawUltimate = false;
+    bool sawAttackBuff = false;
+    bool sawMpRestore = false;
+    sawExplosion = std::ranges::any_of(result.logEvents, [](const BattleLogEvent& event)
+    {
+        return event.type == BattleLogEventType::Status
+            && event.sourceUnitId == 1
+            && event.text == "護盾爆炸（10傷害）";
+    });
+    for (const auto& command : result.commands)
+    {
+        if (const auto* ultimate = std::get_if<BattleAutoUltimateCommand>(&command))
+        {
+            sawUltimate = ultimate->unitId == 1 && !ultimate->consumeMp;
+        }
+        else if (const auto* attackBuff = std::get_if<BattleTempAttackBuffCommand>(&command))
+        {
+            sawAttackBuff = attackBuff->unitId == 1
+                && attackBuff->attackBonus == 14
+                && attackBuff->durationFrames == 45;
+        }
+        else if (const auto* mpRestore = std::get_if<BattleMpRestoreCommand>(&command))
+        {
+            sawMpRestore = mpRestore->unitId == 1 && mpRestore->amount == 25;
+        }
+    }
+
+    CHECK(sawExplosion);
+    CHECK(sawUltimate);
+    CHECK(sawAttackBuff);
+    CHECK(sawMpRestore);
+}
+
 TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsLog", "[battle][damage_application][unit]")
 {
     auto frame = applicationInput();
@@ -487,8 +613,10 @@ TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsLog", "
     auto preventionLog = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Status
+                && event.sourceUnitId == 1
                 && event.targetUnitId == 1
-                && event.amount == 30;
+                && event.amount == 30
+                && event.text == "死亡庇護（30幀）";
         });
     CHECK(preventionLog != result.logEvents.end());
 }

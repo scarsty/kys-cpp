@@ -1,9 +1,15 @@
-#include "BattleStatsView.h"
+#include "BattleReport.h"
 
 #include <cassert>
 #include <utility>
 
-void BattleTracker::recordDamage(
+int BattleReport::cancelDamageForUnit(int unitId) const
+{
+    const auto it = cancelDamageByUnit_.find(unitId);
+    return it == cancelDamageByUnit_.end() ? 0 : it->second;
+}
+
+void BattleReportBuilder::recordDamage(
     const BattleUnitIdentity* attacker,
     const BattleUnitIdentity* defender,
     int damage,
@@ -11,10 +17,9 @@ void BattleTracker::recordDamage(
     int frame,
     const std::string& detailText)
 {
-    if (battleResult_ != -1) return;
     if (attacker)
     {
-        auto& stats = stats_[attacker->battleId];
+        auto& stats = report_.stats_[attacker->battleId];
         stats.damageDealt += damage;
         if (stats.firstDamageFrame == 0)
         {
@@ -28,11 +33,11 @@ void BattleTracker::recordDamage(
     }
     if (defender)
     {
-        stats_[defender->battleId].damageTaken += damage;
+        report_.stats_[defender->battleId].damageTaken += damage;
     }
 
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Damage;
+    BattleReportEvent event;
+    event.type = BattleReportEventType::Damage;
     event.frame = frame;
     event.value = damage;
     if (attacker)
@@ -49,17 +54,16 @@ void BattleTracker::recordDamage(
     }
     event.skillName = skillName;
     event.detailText = detailText;
-    events_.push_back(std::move(event));
+    report_.events_.push_back(std::move(event));
 }
 
-void BattleTracker::recordHeal(
+void BattleReportBuilder::recordHeal(
     const BattleUnitIdentity* source,
     const BattleUnitIdentity* target,
     int amount,
     const std::string& reason,
     int frame)
 {
-    if (battleResult_ != -1) return;
     if (amount <= 0)
     {
         return;
@@ -67,11 +71,11 @@ void BattleTracker::recordHeal(
 
     if (source)
     {
-        stats_[source->battleId].lastActiveFrame = frame;
+        report_.stats_[source->battleId].lastActiveFrame = frame;
     }
 
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Heal;
+    BattleReportEvent event;
+    event.type = BattleReportEventType::Heal;
     event.frame = frame;
     event.value = amount;
     event.detailText = reason;
@@ -87,16 +91,15 @@ void BattleTracker::recordHeal(
         event.targetTeam = target->team;
         event.targetName = target->name;
     }
-    events_.push_back(std::move(event));
+    report_.events_.push_back(std::move(event));
 }
 
-void BattleTracker::recordStatus(
+void BattleReportBuilder::recordStatus(
     const BattleUnitIdentity* source,
     const BattleUnitIdentity* target,
     const std::string& text,
     int frame)
 {
-    if (battleResult_ != -1) return;
     if (text.empty())
     {
         return;
@@ -104,11 +107,11 @@ void BattleTracker::recordStatus(
 
     if (source)
     {
-        stats_[source->battleId].lastActiveFrame = frame;
+        report_.stats_[source->battleId].lastActiveFrame = frame;
     }
 
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Status;
+    BattleReportEvent event;
+    event.type = BattleReportEventType::Status;
     event.frame = frame;
     event.detailText = text;
     if (source)
@@ -123,19 +126,18 @@ void BattleTracker::recordStatus(
         event.targetTeam = target->team;
         event.targetName = target->name;
     }
-    events_.push_back(std::move(event));
+    report_.events_.push_back(std::move(event));
 }
 
-void BattleTracker::recordKill(const BattleUnitIdentity* killer, const BattleUnitIdentity* victim, int frame)
+void BattleReportBuilder::recordKill(const BattleUnitIdentity* killer, const BattleUnitIdentity* victim, int frame)
 {
-    if (battleResult_ != -1) return;
     if (killer)
     {
-        stats_[killer->battleId].kills++;
+        report_.stats_[killer->battleId].kills++;
     }
 
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Kill;
+    BattleReportEvent event;
+    event.type = BattleReportEventType::Kill;
     event.frame = frame;
     if (killer)
     {
@@ -149,51 +151,44 @@ void BattleTracker::recordKill(const BattleUnitIdentity* killer, const BattleUni
         event.targetTeam = victim->team;
         event.targetName = victim->name;
     }
-    events_.push_back(std::move(event));
+    report_.events_.push_back(std::move(event));
 }
 
-void BattleTracker::recordDeath(const BattleUnitIdentity* unit, int frame)
+void BattleReportBuilder::recordDeath(const BattleUnitIdentity* unit, int frame)
 {
-    if (battleResult_ != -1) return;
     if (unit)
     {
-        stats_[unit->battleId].lastActiveFrame = frame;
+        report_.stats_[unit->battleId].lastActiveFrame = frame;
     }
     if (!unit)
     {
         return;
     }
 
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Death;
+    BattleReportEvent event;
+    event.type = BattleReportEventType::Death;
     event.frame = frame;
     event.targetId = unit->battleId;
     event.targetTeam = unit->team;
     event.targetName = unit->name;
-    events_.push_back(std::move(event));
+    report_.events_.push_back(std::move(event));
 }
 
-void BattleTracker::recordProjectileCancel(int unitId, int damage)
+void BattleReportBuilder::recordProjectileCancel(int unitId, int damage)
 {
     assert(unitId >= 0);
     assert(damage >= 0);
-    cancelDamageByUnit_[unitId] += damage;
+    report_.cancelDamageByUnit_[unitId] += damage;
 }
 
-int BattleTracker::cancelDamageForUnit(int unitId) const
+void BattleReportBuilder::recordBattleEnd(int frame, int battleResult)
 {
-    const auto it = cancelDamageByUnit_.find(unitId);
-    return it == cancelDamageByUnit_.end() ? 0 : it->second;
-}
+    report_.battleEndFrame_ = frame;
+    report_.battleResult_ = battleResult;
 
-void BattleTracker::recordBattleEnd(int frame, int battleResult)
-{
-    battleEndFrame_ = frame;
-    battleResult_ = battleResult;
-
-    BattleLogEvent event;
-    event.type = BattleLogEventType::BattleEnd;
+    BattleReportEvent event;
+    event.type = BattleReportEventType::BattleEnd;
     event.frame = frame;
     event.value = battleResult;
-    events_.push_back(std::move(event));
+    report_.events_.push_back(std::move(event));
 }

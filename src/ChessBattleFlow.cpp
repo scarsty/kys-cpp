@@ -1038,7 +1038,7 @@ int ChessBattleFlow::runBattle(
 
     {
         auto view = std::make_shared<BattleStatsView>(services_.roleSave, chessManager);
-        view->setupPostBattle(battle->makePostBattleSummary(), battle->getTracker());
+        view->setupPostBattle(battle->makePostBattleSummary(), battle->getBattleReport());
         view->run();
     }
 

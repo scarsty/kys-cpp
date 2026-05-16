@@ -232,7 +232,7 @@ const std::vector<NeigongDef>& ChessNeigong::getPool()
 TEST_CASE("BattleInitializationSystem_CompilesPureRuntimeInitializationApi", "[battle][initialization]")
 {
     BattleRuntimeState runtime;
-    runtime.units.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
+    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
     runtime.status.units.push_back(statusRuntime(0, 100, 20));
 
     BattleRuntimeSetupSeed setup;
@@ -247,7 +247,7 @@ TEST_CASE("BattleInitializationSystem_CompilesPureRuntimeInitializationApi", "[b
 TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "[battle][initialization]")
 {
     BattleRuntimeState runtime;
-    runtime.units.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
+    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
     runtime.status.units.push_back(statusRuntime(0, 100, 20));
 
     RoleComboState combo;
@@ -273,7 +273,7 @@ TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "
 
     auto result = BattleInitializationSystem().initialize(runtime, setup);
 
-    const auto& unit = runtime.units.requireUnit(0);
+    const auto& unit = runtime.unitStore.requireUnit(0);
     CHECK(unit.vitals.maxHp == 150);
     CHECK(unit.vitals.hp == 150);
     CHECK(unit.stats.attack == 27);
@@ -291,7 +291,7 @@ TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "
 TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWins", "[battle][initialization]")
 {
     BattleRuntimeState runtime;
-    runtime.units.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
+    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
     runtime.status.units.push_back(statusRuntime(0, 100, 20));
 
     BattleRuntimeSetupSeed setup;
@@ -358,7 +358,7 @@ TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWi
         1,
         3);
 
-    const auto& unit = runtime.units.requireUnit(0);
+    const auto& unit = runtime.unitStore.requireUnit(0);
     CHECK(unit.vitals.maxHp == expected.hp);
     CHECK(unit.vitals.hp == expected.hp);
     CHECK(unit.stats.attack == expected.atk);
@@ -376,7 +376,7 @@ TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWi
 TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", "[battle][initialization]")
 {
     BattleRuntimeState runtime;
-    runtime.units.units.push_back(runtimeUnit(0, 0, 200, 20, 30, 40));
+    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 200, 20, 30, 40));
     runtime.status.units.push_back(statusRuntime(0, 200, 20));
 
     RoleComboState combo;
@@ -406,7 +406,7 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     auto result = BattleInitializationSystem().initialize(runtime, setup);
 
     const auto& initialized = runtime.combo.units.at(0);
-    const auto& unit = runtime.units.requireUnit(0);
+    const auto& unit = runtime.unitStore.requireUnit(0);
     const auto& status = requireStatusRuntime(runtime, 0);
     CHECK(initialized.shield == 65);
     CHECK(initialized.damageImmunityTimer == 12);
@@ -424,8 +424,8 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
 TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[battle][initialization]")
 {
     BattleRuntimeState runtime;
-    runtime.units.gridTransform = { 36.0, 18 };
-    runtime.units.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
+    runtime.unitStore.gridTransform = { 36.0, 18 };
+    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
     runtime.status.units.push_back(statusRuntime(0, 100, 20));
     runtime.combo.units[0].cloneSummonCount = 1;
 
@@ -448,7 +448,7 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     CHECK(intent.roleValues.stats.attack == 20);
     CHECK(intent.roleValues.stats.defence == 30);
     CHECK(intent.roleValues.stats.speed == 40);
-    CHECK(runtime.units.findUnit(1) != nullptr);
+    CHECK(runtime.unitStore.findUnit(1) != nullptr);
     CHECK(runtime.combo.units.find(1) != runtime.combo.units.end());
 }
 
@@ -567,15 +567,15 @@ TEST_CASE("BattleSceneBattleAdapter_InitializedSessionAdvancesUnitsAfterSetupPla
     placement.units.push_back({ 1, 10, 10, Towards_LeftUp });
     created.session.commitSetupPlacement(placement);
 
-    const auto initialAlly = created.session.runtime().units.requireUnit(0).motion.position;
-    const auto initialEnemy = created.session.runtime().units.requireUnit(1).motion.position;
+    const auto initialAlly = created.session.runtime().unitStore.requireUnit(0).motion.position;
+    const auto initialEnemy = created.session.runtime().unitStore.requireUnit(1).motion.position;
 
     bool anyUnitMoved = false;
     for (int frame = 0; frame < 90 && !anyUnitMoved; ++frame)
     {
         created.session.runFrame();
-        const auto& ally = created.session.runtime().units.requireUnit(0).motion.position;
-        const auto& enemy = created.session.runtime().units.requireUnit(1).motion.position;
+        const auto& ally = created.session.runtime().unitStore.requireUnit(0).motion.position;
+        const auto& enemy = created.session.runtime().unitStore.requireUnit(1).motion.position;
         anyUnitMoved = ally.x != initialAlly.x
             || ally.y != initialAlly.y
             || enemy.x != initialEnemy.x
@@ -600,13 +600,13 @@ TEST_CASE("BattleSceneBattleAdapter_InitializedSessionSeedsAttackUnits", "[battl
 
     auto created = Adapter::createInitializedBattleRuntimeSession(context);
 
-    REQUIRE(created.session.runtime().attacks.units.size() == 2);
-    CHECK(created.session.runtime().attacks.units[0].id == 0);
-    CHECK(created.session.runtime().attacks.units[0].team == 0);
-    CHECK(created.session.runtime().attacks.units[0].alive);
-    CHECK(created.session.runtime().attacks.units[1].id == 1);
-    CHECK(created.session.runtime().attacks.units[1].team == 1);
-    CHECK(created.session.runtime().attacks.units[1].alive);
+    REQUIRE(created.session.runtime().unitStore.units.size() == 2);
+    CHECK(created.session.runtime().unitStore.units[0].id == 0);
+    CHECK(created.session.runtime().unitStore.units[0].team == 0);
+    CHECK(created.session.runtime().unitStore.units[0].alive);
+    CHECK(created.session.runtime().unitStore.units[1].id == 1);
+    CHECK(created.session.runtime().unitStore.units[1].team == 1);
+    CHECK(created.session.runtime().unitStore.units[1].alive);
 }
 
 TEST_CASE("BattleSceneBattleAdapter_InitializedSessionResolvesProjectileCombat", "[battle][initialization][runtime]")
@@ -675,7 +675,7 @@ TEST_CASE("BattleSceneBattleAdapter_InitializedSessionResolvesProjectileCombat",
 TEST_CASE("BattleRuntimeSession_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization][runtime_session]")
 {
     BattleRuntimeInit init;
-    init.runtime.units.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
+    init.runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
     init.runtime.status.units.push_back(statusRuntime(0, 100, 20));
 
     BattleInitializationUnitSeed seed;
@@ -692,7 +692,7 @@ TEST_CASE("BattleRuntimeSession_ConsumesSetupAndInitializesOwnedRuntime", "[batt
     BattleRuntimeSession session(std::move(init));
     auto result = session.releaseInitializationResult();
 
-    const auto& unit = session.runtime().units.requireUnit(0);
+    const auto& unit = session.runtime().unitStore.requireUnit(0);
     CHECK(unit.vitals.maxHp == 125);
     CHECK(unit.vitals.hp == 125);
     CHECK(unit.vitals.maxHp == 125);

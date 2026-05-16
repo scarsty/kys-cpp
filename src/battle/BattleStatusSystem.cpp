@@ -1,7 +1,7 @@
 #include "BattleStatusSystem.h"
 
 #include "../ChessBattleEffects.h"
-#include "BattleCore.h"
+#include "BattleUnitStore.h"
 
 #include <algorithm>
 

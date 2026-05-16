@@ -14,6 +14,8 @@
 namespace KysChess::Battle
 {
 
+struct BattleUnitStore;
+
 struct BattleCastUnitState
 {
     int id = -1;
@@ -171,27 +173,6 @@ struct BattleCastResult
     std::vector<BattleEffectEvent> effectEvents;
 };
 
-struct BattleActionCommitUnitSnapshot
-{
-    int id = -1;
-    int team = 0;
-    Pointf position;
-    Pointf facing = { 1.0f, 0.0f, 0.0f };
-    int operationCount = 0;
-};
-
-struct BattleActionTargetSnapshot
-{
-    int id = -1;
-    int team = 0;
-    bool alive = true;
-    int hp = 0;
-    int maxHp = 0;
-    double defence = 0.0;
-    int invincible = 0;
-    Pointf position;
-};
-
 struct BattleBlinkAttackCommand
 {
     int unitId{};
@@ -229,8 +210,8 @@ struct BattleBlinkTeleportDelta
 
 struct BattleActionCommitInput
 {
-    BattleActionCommitUnitSnapshot unit;
-    std::vector<BattleActionTargetSnapshot> targets;
+    int sourceUnitId = -1;
+    Pointf committedFacing = { 1.0f, 0.0f, 0.0f };
     bool hasCast = false;
     BattleCastResult cast;
     int blinkRandomRoll = 0;
@@ -258,6 +239,10 @@ class BattleCastPlanner
 public:
     BattleCastResult plan(const BattleCastInput& input) const;
     BattleCastResult commitSelectedCast(const BattleCastInput& input, bool ultimate, BattleOperationType operationType) const;
+    BattleCastResult commitSelectedCast(const BattleCastInput& input,
+                                        const BattleCastSkillState& selectedSkill,
+                                        bool ultimate,
+                                        BattleOperationType operationType) const;
 
 private:
     const BattleCastSkillState& selectSkill(const BattleCastInput& input, bool& ultimate) const;
@@ -270,7 +255,9 @@ private:
 class BattleActionCommitSystem
 {
 public:
-    BattleActionCommitResult commit(const BattleActionCommitInput& input, const RoleComboState& combo) const;
+    BattleActionCommitResult commit(const BattleActionCommitInput& input,
+                                    const RoleComboState& combo,
+                                    const BattleUnitStore& units) const;
 };
 
 }  // namespace KysChess::Battle

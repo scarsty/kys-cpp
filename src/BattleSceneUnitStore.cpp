@@ -1,6 +1,6 @@
 #include "BattleSceneUnitStore.h"
 
-#include "BattleStatsView.h"
+#include "BattleReport.h"
 
 #include <algorithm>
 #include <cassert>
@@ -132,13 +132,13 @@ std::vector<int> BattleSceneUnitStore::allyUnitIds() const
 }
 
 BattlePostBattleSummary BattleSceneUnitStore::makePostBattleSummary(
-    const BattleTracker& tracker,
+    const BattleReport& report,
     int battleResult) const
 {
     BattlePostBattleSummary summary;
     summary.battleResult = battleResult;
 
-    auto append = [&tracker](const BattleSceneUnit& source, std::vector<BattlePostBattleUnitSummary>& target)
+    auto append = [&report](const BattleSceneUnit& source, std::vector<BattlePostBattleUnitSummary>& target)
     {
         BattlePostBattleUnitSummary unit;
         unit.identity = source.identity;
@@ -155,7 +155,7 @@ BattlePostBattleSummary BattleSceneUnitStore::makePostBattleSummary(
         unit.hpRemaining = source.vitals.hp;
         unit.maxHpRemaining = source.vitals.maxHp;
         unit.dead = !source.alive;
-        unit.cancelDmg = tracker.cancelDamageForUnit(source.unitId);
+        unit.cancelDmg = report.cancelDamageForUnit(source.unitId);
         target.push_back(std::move(unit));
     };
 

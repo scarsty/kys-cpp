@@ -58,7 +58,6 @@ struct BattleSetupUnitInput
     int operationCount = 0;
     int physicalPower = 0;
     int invincible = 0;
-    int hurtFrame = 0;
     int frozen = 0;
     int frozenMax = 0;
     std::array<int, 5> fightFrames{};

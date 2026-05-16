@@ -38,16 +38,6 @@ uint8_t damageTextAlpha(int damage, int maxHp)
     return static_cast<uint8_t>(192 + (255 - 192) * impactScale);
 }
 
-const BattleUnitIdentity* resolveIdentity(const BattleScenePresentationPlayer::Bindings& bindings, int unitId)
-{
-    assert(bindings.units);
-    if (unitId < 0)
-    {
-        return nullptr;
-    }
-    return &bindings.units->requireUnit(unitId).identity;
-}
-
 std::optional<BattleScenePresentationPlayer::UnitView> resolveUnitView(
     const BattleScenePresentationPlayer::Bindings& bindings,
     int unitId)
@@ -147,26 +137,11 @@ void BattleScenePresentationPlayer::play(
     const KysChess::Battle::BattlePresentationFrame& frame,
     const Bindings& bindings) const
 {
-    assert(bindings.tracker);
     assert(bindings.textEffects);
     assert(bindings.attackEffects);
     assert(bindings.units);
 
-    playLogs(frame.logEvents, bindings);
     playVisuals(frame.visualEvents, bindings);
-}
-
-void BattleScenePresentationPlayer::playLogs(
-    const std::vector<KysChess::Battle::BattleLogEvent>& logEvents,
-    const Bindings& bindings) const
-{
-    assert(bindings.tracker);
-    assert(bindings.units);
-
-    for (const auto& event : logEvents)
-    {
-        recordLog(event, bindings);
-    }
 }
 
 void BattleScenePresentationPlayer::playVisuals(
@@ -223,64 +198,6 @@ void BattleScenePresentationPlayer::playCommand(
         bounceProjectile(command, bindings);
         break;
     }
-}
-
-void BattleScenePresentationPlayer::recordLog(
-    const KysChess::Battle::BattleLogEvent& event,
-    const Bindings& bindings) const
-{
-    using KysChess::Battle::BattleLogEventType;
-    switch (event.type)
-    {
-    case BattleLogEventType::Damage:
-        recordDamage(event, bindings);
-        break;
-    case BattleLogEventType::Heal:
-        recordHeal(event, bindings);
-        break;
-    case BattleLogEventType::Status:
-        recordStatus(event, bindings);
-        break;
-    case BattleLogEventType::UnitDied:
-    case BattleLogEventType::BattleEnded:
-        break;
-    }
-}
-
-void BattleScenePresentationPlayer::recordDamage(
-    const KysChess::Battle::BattleLogEvent& event,
-    const Bindings& bindings) const
-{
-    bindings.tracker->recordDamage(
-        resolveIdentity(bindings, event.sourceUnitId),
-        resolveIdentity(bindings, event.targetUnitId),
-        event.amount,
-        event.skillName,
-        event.frame,
-        event.detailText);
-}
-
-void BattleScenePresentationPlayer::recordHeal(
-    const KysChess::Battle::BattleLogEvent& event,
-    const Bindings& bindings) const
-{
-    bindings.tracker->recordHeal(
-        resolveIdentity(bindings, event.sourceUnitId),
-        resolveIdentity(bindings, event.targetUnitId),
-        event.amount,
-        event.text,
-        event.frame);
-}
-
-void BattleScenePresentationPlayer::recordStatus(
-    const KysChess::Battle::BattleLogEvent& event,
-    const Bindings& bindings) const
-{
-    bindings.tracker->recordStatus(
-        resolveIdentity(bindings, event.sourceUnitId),
-        resolveIdentity(bindings, event.targetUnitId),
-        event.text,
-        event.frame);
 }
 
 void BattleScenePresentationPlayer::spawnFloatingText(

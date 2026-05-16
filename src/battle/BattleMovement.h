@@ -10,24 +10,19 @@
 namespace KysChess::Battle
 {
 
-struct BattleMovementPhysicsState
-{
-    Pointf position;
-    Pointf velocity;
-    Pointf acceleration;
-    int movementDashFrames = 0;
-    int movementDashCooldown = 0;
-    int movementDashSpreadFrames = 0;
-    Pointf postDashRetreatVelocity;
-    int postDashRetreatFrames = 0;
-    int postDashChaosFrames = 0;
-};
-
 struct BattleMovementPhysicsConfig
 {
     float gravity = -4.0f;
     float friction = 0.1f;
     int postDashSpreadFrames = 0;
+};
+
+struct BattleMovementPhysicsTerrain
+{
+    double tileWidth = 0.0;
+    int coordCount = 0;
+    double defaultSeparationDistance = 0.0;
+    std::vector<std::uint8_t> walkableByCell;
 };
 
 struct BattleMovementPhysicsCollisionUnitSnapshot
@@ -57,6 +52,7 @@ struct BattleMovementPhysicsInput
     int unitId = -1;
     Pointf currentPosition;
     bool actionDashActive = false;
+    bool ignoreUnitCollision = false;
 };
 
 struct BattleFrameMovementPhysicsUnitResult
@@ -78,12 +74,15 @@ bool canMoveInPhysicsSnapshot(
     int unitId,
     Pointf currentPosition,
     Pointf nextPosition,
-    int separationDistance);
+    int separationDistance,
+    bool ignoreUnitCollision = false);
+
+bool battleMovementTaXueUnstable(const BattleUnitState& unit);
 
 class BattleMovementPlanner
 {
 public:
-    explicit BattleMovementPlanner(BattleWorldState& world);
+    explicit BattleMovementPlanner(BattleMovementFrameInput& world);
 
     BattleTickResult tick();
     MoveProbe probeMove(const BattleUnitState& unit,
@@ -92,18 +91,18 @@ public:
                         const std::map<int, Pointf>& reservations = {}) const;
 
 private:
-    BattleWorldState& world_;
+    BattleMovementFrameInput& world_;
 };
 
 class BattleMovementSimulator
 {
 public:
-    explicit BattleMovementSimulator(BattleWorldState world);
+    explicit BattleMovementSimulator(BattleMovementFrameInput world);
 
     MovementRunResult run(int frames, unsigned int seed);
 
 private:
-    BattleWorldState world_;
+    BattleMovementFrameInput world_;
 };
 
 }  // namespace KysChess::Battle

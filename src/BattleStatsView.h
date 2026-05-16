@@ -1,74 +1,15 @@
 #pragma once
 
 #include "BattlePostBattleSummary.h"
+#include "BattleReport.h"
 #include "Chess.h"
 #include "ChessCombo.h"
 #include "ChessManager.h"
 #include "ChessRoleSave.h"
 #include "RunNode.h"
 #include <deque>
-#include <map>
 #include <string>
 #include <vector>
-
-struct RoleBattleStats
-{
-    int damageDealt = 0;
-    int damageTaken = 0;
-    int kills = 0;
-    std::map<std::string, int> damagePerSkill;
-    int firstDamageFrame = 0;
-    int lastActiveFrame = 0;
-};
-
-enum class BattleLogEventType
-{
-    Damage,
-    Heal,
-    Status,
-    Kill,
-    Death,
-    BattleEnd
-};
-
-struct BattleLogEvent
-{
-    BattleLogEventType type = BattleLogEventType::Damage;
-    int frame = 0;
-    int sourceId = -1;
-    int targetId = -1;
-    int sourceTeam = -1;
-    int targetTeam = -1;
-    int value = 0;
-    std::string sourceName;
-    std::string targetName;
-    std::string skillName;
-    std::string detailText;
-};
-
-class BattleTracker
-{
-public:
-    void recordDamage(const BattleUnitIdentity* attacker, const BattleUnitIdentity* defender, int damage, const std::string& skillName, int frame, const std::string& detailText = "");
-    void recordHeal(const BattleUnitIdentity* source, const BattleUnitIdentity* target, int amount, const std::string& reason, int frame);
-    void recordStatus(const BattleUnitIdentity* source, const BattleUnitIdentity* target, const std::string& text, int frame);
-    void recordKill(const BattleUnitIdentity* killer, const BattleUnitIdentity* victim, int frame);
-    void recordDeath(const BattleUnitIdentity* unit, int frame);
-    void recordProjectileCancel(int unitId, int damage);
-    int cancelDamageForUnit(int unitId) const;
-    void recordBattleEnd(int frame, int battleResult);
-    const std::map<int, RoleBattleStats>& getStats() const { return stats_; }
-    const std::vector<BattleLogEvent>& getEvents() const { return events_; }
-    int getBattleEndFrame() const { return battleEndFrame_; }
-    int getBattleResult() const { return battleResult_; }
-
-private:
-    std::map<int, RoleBattleStats> stats_;
-    std::map<int, int> cancelDamageByUnit_;
-    std::vector<BattleLogEvent> events_;
-    int battleEndFrame_ = 0;
-    int battleResult_ = -1;
-};
 
 class BattleStatsView : public RunNode
 {
@@ -128,7 +69,7 @@ public:
 
     void setupPostBattle(
         const BattlePostBattleSummary& summary,
-        const BattleTracker& tracker);
+        const BattleReport& report);
 
     void draw() override;
     void dealEvent(EngineEvent& e) override;
@@ -149,7 +90,7 @@ private:
     bool postBattleKeyboardReleaseArmed_ = false;
     bool postBattleGamepadReleaseArmed_ = false;
     int battleLogTotalFrames_ = 0;
-    std::vector<BattleLogEvent> battleLogEvents_;
+    const BattleReport* battleReport_ = nullptr;
     Texture* postBattleBackground_ = nullptr;
 
     std::vector<RoleEntry> allies_, enemies_;

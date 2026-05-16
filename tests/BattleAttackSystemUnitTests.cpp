@@ -1,9 +1,12 @@
 #include "battle/BattleAttackSystem.h"
+#include "battle/BattleCore.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <initializer_list>
+#include <iterator>
 
 using namespace KysChess::Battle;
 
@@ -16,13 +19,34 @@ constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
 constexpr double LegacyMinimumVectorNorm = 0.0001;
 constexpr double TightTrackingHitRadius = SceneTileWidth / 8.0;
 
-BattleAttackUnit unit(int id, int team, double x, double y)
+BattleRuntimeUnit unit(int id, int team, double x, double y)
 {
-    BattleAttackUnit state;
+    BattleRuntimeUnit state;
     state.id = id;
     state.team = team;
-    state.position = { static_cast<float>(x), static_cast<float>(y), 0.0f };
+    state.motion.position = { static_cast<float>(x), static_cast<float>(y), 0.0f };
     return state;
+}
+
+BattleUnitStore unitStore(std::initializer_list<BattleRuntimeUnit> unitList)
+{
+    BattleUnitStore store;
+    int maxId = -1;
+    for (const auto& unit : unitList)
+    {
+        maxId = std::max(maxId, unit.id);
+    }
+    store.units.resize(static_cast<std::size_t>(maxId + 1));
+    for (int id = 0; id <= maxId; ++id)
+    {
+        store.units[static_cast<std::size_t>(id)].id = id;
+        store.units[static_cast<std::size_t>(id)].alive = false;
+    }
+    for (const auto& unit : unitList)
+    {
+        store.units[static_cast<std::size_t>(unit.id)] = unit;
+    }
+    return store;
 }
 
 BattleAttackInstance attack(int id, int attackerId, double x, double y)
@@ -61,9 +85,9 @@ BattleAttackSpawnRequest spawnRequest()
     return request;
 }
 
-BattleAttackWorld attackWorld()
+BattleAttackState attackWorld()
 {
-    BattleAttackWorld world;
+    BattleAttackState world;
     world.hitRadius = SceneHitRadius;
     world.minimumVectorNorm = LegacyMinimumVectorNorm;
     world.bounceSpawnDistance = SceneBounceSpawnDistance;
@@ -74,7 +98,7 @@ BattleAttackWorld attackWorld()
 
 TEST_CASE("BattleAttackSystem_WorldGeometryStartsEmptyUntilSupplied", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
+    BattleAttackState world;
 
     CHECK(world.hitRadius == Catch::Approx(0.0));
     CHECK(world.minimumVectorNorm == Catch::Approx(0.0));
@@ -262,7 +286,7 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
 {
     auto world = attackWorld();
     world.hitRadius = SceneHitRadius;
-    world.units = { unit(1, 0, 0, 0), unit(2, 1, 40, 0) };
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 40, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.skillId = 101;
     projectile.state.operationType = BattleOperationType::RangedProjectile;
@@ -283,7 +307,7 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     projectile.frame = 7;
     world.attacks.push_back(projectile);
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     auto hit = std::find_if(events.begin(), events.end(), [](const BattleAttackEvent& event) {
         return event.type == BattleAttackEventType::Hit;
@@ -312,23 +336,50 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     CHECK(hit->velocity.x == Catch::Approx(9.0f).margin(0.01));
 }
 
+TEST_CASE("BattleAttackSystem_InvincibleContactEmitsNonDamagingBlockOnce", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.hitRadius = SceneHitRadius;
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 40, 0) });
+    units.requireUnit(2).invincible = 1;
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
+    projectile.state.velocity = { 10, 0, 0 };
+    world.attacks.push_back(projectile);
+
+    auto events = BattleAttackSystem().tick(world, units);
+
+    CHECK(hasEvent(events, BattleAttackEventType::BlockedByInvincible, 10, 2));
+    CHECK(!hasEvent(events, BattleAttackEventType::Hit, 10, 2));
+
+    auto repeated = BattleAttackSystem().tick(world, units);
+
+    CHECK(!hasEvent(repeated, BattleAttackEventType::BlockedByInvincible, 10, 2));
+    CHECK(!hasEvent(repeated, BattleAttackEventType::Hit, 10, 2));
+
+    units.requireUnit(2).invincible = 0;
+    auto vulnerable = BattleAttackSystem().tick(world, units);
+
+    CHECK(hasEvent(vulnerable, BattleAttackEventType::Hit, 10, 2));
+}
+
 TEST_CASE("BattleAttackSystem_MeleeHitOnlyEmitsAfterHitVolumeReachesTarget", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.units = {
+    auto units = unitStore({
         unit(1, 0, 0, 0),
         unit(2, 1, SceneHitRadius + 1.0, 0),
-    };
+    });
     auto melee = attack(10, 1, 0, 0);
     melee.state.operationType = BattleOperationType::Melee;
     world.attacks.push_back(melee);
 
-    auto beforeReach = BattleAttackSystem().tick(world);
+    auto beforeReach = BattleAttackSystem().tick(world, units);
 
     CHECK(!hasEvent(beforeReach, BattleAttackEventType::Hit, 10, 2));
 
     world.attacks[0].state.position = { static_cast<float>(SceneHitRadius), 0.0f, 0.0f };
-    auto atReach = BattleAttackSystem().tick(world);
+    auto atReach = BattleAttackSystem().tick(world, units);
 
     CHECK(hasEvent(atReach, BattleAttackEventType::Hit, 10, 2));
 }
@@ -336,20 +387,20 @@ TEST_CASE("BattleAttackSystem_MeleeHitOnlyEmitsAfterHitVolumeReachesTarget", "[b
 TEST_CASE("BattleAttackSystem_RangedHitOnlyEmitsAfterProjectileReachesTarget", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.units = {
+    auto units = unitStore({
         unit(1, 0, 0, 0),
         unit(2, 1, SceneHitRadius + SceneProjectileSpeed + 1.0, 0),
-    };
+    });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.velocity = { static_cast<float>(SceneProjectileSpeed), 0.0f, 0.0f };
     world.attacks.push_back(projectile);
 
-    auto beforeReach = BattleAttackSystem().tick(world);
+    auto beforeReach = BattleAttackSystem().tick(world, units);
 
     CHECK(!hasEvent(beforeReach, BattleAttackEventType::Hit, 10, 2));
 
-    auto atReach = BattleAttackSystem().tick(world);
+    auto atReach = BattleAttackSystem().tick(world, units);
 
     CHECK(hasEvent(atReach, BattleAttackEventType::Hit, 10, 2));
 }
@@ -358,16 +409,16 @@ TEST_CASE("BattleAttackSystem_FastProjectileHitsTargetCrossedBetweenFrames", "[b
 {
     auto world = attackWorld();
     world.hitRadius = 10.0;
-    world.units = {
+    auto units = unitStore({
         unit(1, 0, 0, 0),
         unit(2, 1, 50, 0),
-    };
+    });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.velocity = { 100, 0, 0 };
     world.attacks.push_back(projectile);
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     CHECK(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
 }
@@ -376,17 +427,17 @@ TEST_CASE("BattleAttackSystem_FastPreferredProjectileCanHitCloseTargetBehindSpaw
 {
     auto world = attackWorld();
     world.hitRadius = 10.0;
-    world.units = {
+    auto units = unitStore({
         unit(1, 0, 0, 0),
         unit(2, 1, 40, 0),
-    };
+    });
     auto projectile = attack(10, 1, 72, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.preferredTargetUnitId = 2;
     projectile.state.velocity = { 60, 0, 0 };
     world.attacks.push_back(projectile);
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     CHECK(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
 }
@@ -394,13 +445,13 @@ TEST_CASE("BattleAttackSystem_FastPreferredProjectileCanHitCloseTargetBehindSpaw
 TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.units = { unit(1, 0, 0, 0), unit(2, 1, 500, 0) };
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 500, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.velocity = { 3, 4, 0 };
     projectile.state.totalFrame = 1;
     world.attacks.push_back(projectile);
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     REQUIRE(world.attacks.size() == 1);
     CHECK(world.attacks[0].frame == 1);
@@ -413,34 +464,34 @@ TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][uni
 TEST_CASE("BattleAttackSystem_HitsNearestEnemyOnceAndMarksNonThroughSpent", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.units = { unit(1, 0, 0, 0), unit(2, 1, 40, 0), unit(3, 1, 45, 0) };
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 40, 0), unit(3, 1, 45, 0) });
     world.attacks.push_back(attack(10, 1, 0, 0));
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     REQUIRE(world.attacks[0].hitUnitIds.size() == 1);
     CHECK(world.attacks[0].hitUnitIds[0] == 2);
     CHECK(world.attacks[0].noHurt);
     CHECK(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
 
-    auto secondEvents = BattleAttackSystem().tick(world);
+    auto secondEvents = BattleAttackSystem().tick(world, units);
     CHECK(!hasEvent(secondEvents, BattleAttackEventType::Hit, 10, 2));
 }
 
 TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameTargetTwice", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0), unit(3, 1, 120, 0) };
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 30, 0), unit(3, 1, 120, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.through = true;
     world.attacks.push_back(projectile);
 
-    auto firstEvents = BattleAttackSystem().tick(world);
+    auto firstEvents = BattleAttackSystem().tick(world, units);
     CHECK(hasEvent(firstEvents, BattleAttackEventType::Hit, 10, 2));
     CHECK_FALSE(world.attacks[0].noHurt);
 
     world.attacks[0].state.velocity = { 90, 0, 0 };
-    auto secondEvents = BattleAttackSystem().tick(world);
+    auto secondEvents = BattleAttackSystem().tick(world, units);
     CHECK(hasEvent(secondEvents, BattleAttackEventType::Hit, 10, 3));
     CHECK(!hasEvent(secondEvents, BattleAttackEventType::Hit, 10, 2));
 }
@@ -448,7 +499,7 @@ TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameT
 TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectiles", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0) };
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 30, 0) });
     auto first = attack(10, 1, 0, 0);
     first.state.sharedHitGroupId = 7;
     first.state.through = true;
@@ -457,7 +508,7 @@ TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectil
     second.state.through = true;
     world.attacks = { first, second };
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     CHECK(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
     CHECK(!hasEvent(events, BattleAttackEventType::Hit, 11, 2));
@@ -468,15 +519,15 @@ TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectil
 TEST_CASE("BattleAttackSystem_RequiredPreferredTargetExpiresWhenTargetInvalid", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0) };
-    world.units[1].alive = false;
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 30, 0) });
+    units.units[1].alive = false;
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.preferredTargetUnitId = 2;
     projectile.state.requirePreferredTarget = true;
     projectile.state.totalFrame = 20;
     world.attacks.push_back(projectile);
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     CHECK(world.attacks[0].noHurt);
     CHECK(world.attacks[0].frame == 15);
@@ -487,30 +538,49 @@ TEST_CASE("BattleAttackSystem_TrackingPreservesSpeedWhileTurningTowardTarget", "
 {
     auto world = attackWorld();
     world.hitRadius = TightTrackingHitRadius;
-    world.units = { unit(1, 0, 0, 0), unit(2, 1, 100, 100) };
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 100, 100) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.track = true;
     projectile.state.velocity = { 10, 0, 0 };
     world.attacks.push_back(projectile);
 
-    BattleAttackSystem().tick(world);
+    BattleAttackSystem().tick(world, units);
 
     CHECK(world.attacks[0].state.velocity.y > 0.0f);
     CHECK(world.attacks[0].state.velocity.x > 0.0f);
+}
+
+TEST_CASE("BattleAttackSystem_TrackingProjectileStopsSteeringAfterFirstThroughHit", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.hitRadius = TightTrackingHitRadius;
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 100, 100) });
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.track = true;
+    projectile.state.through = true;
+    projectile.state.preferredTargetUnitId = 2;
+    projectile.state.velocity = { 10, 0, 0 };
+    projectile.hitUnitIds.push_back(2);
+    world.attacks.push_back(projectile);
+
+    BattleAttackSystem().tick(world, units);
+
+    CHECK(world.attacks[0].state.velocity.x == Catch::Approx(10.0f));
+    CHECK(world.attacks[0].state.velocity.y == Catch::Approx(0.0f));
 }
 
 TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle][attack][unit]")
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
+    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     auto rhs = attack(11, 2, 20, 0);
     rhs.frame = 5;
     world.attacks = { lhs, rhs };
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     REQUIRE(events.back().type == BattleAttackEventType::ProjectileCancel);
     CHECK(events.back().attackId == 10);
@@ -521,7 +591,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDama
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
+    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     lhs.state.operationType = BattleOperationType::TrackingProjectile;
@@ -532,7 +602,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDama
     rhs.state.projectileCancelDamage = 10;
     world.attacks = { lhs, rhs };
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     REQUIRE(events.back().type == BattleAttackEventType::ProjectileCancel);
     CHECK(events.back().attackId == 10);
@@ -543,12 +613,86 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDama
     CHECK(events.back().otherProjectileCancelDamage == 10);
 }
 
+TEST_CASE("BattleAttackSystem_ProjectileCancelUsesEachProjectileOncePerFrame", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.projectileGraceFrames = 5;
+    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    for (int i = 0; i < 3; ++i)
+    {
+        auto lhs = attack(10 + i, 1, 0, 0);
+        lhs.frame = 5;
+        lhs.state.projectileCancelDamage = 100 - i;
+        world.attacks.push_back(lhs);
+
+        auto rhs = attack(20 + i, 2, 0, 0);
+        rhs.frame = 5;
+        rhs.state.projectileCancelDamage = 90 - i;
+        world.attacks.push_back(rhs);
+    }
+
+    auto events = BattleAttackSystem().tick(world, units);
+
+    std::vector<int> usedAttackIds;
+    int cancelCount = 0;
+    for (const auto& event : events)
+    {
+        if (event.type != BattleAttackEventType::ProjectileCancel)
+        {
+            continue;
+        }
+        ++cancelCount;
+        CHECK(std::count(usedAttackIds.begin(), usedAttackIds.end(), event.attackId) == 0);
+        usedAttackIds.push_back(event.attackId);
+        CHECK(std::count(usedAttackIds.begin(), usedAttackIds.end(), event.otherAttackId) == 0);
+        usedAttackIds.push_back(event.otherAttackId);
+    }
+    CHECK(cancelCount == 3);
+}
+
+TEST_CASE("BattleAttackSystem_ProjectileCancelMatchesHighestStrengthPairsFirst", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.projectileGraceFrames = 5;
+    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    auto weakLeft = attack(10, 1, 0, 0);
+    weakLeft.frame = 5;
+    weakLeft.state.projectileCancelDamage = 10;
+    auto strongLeft = attack(11, 1, 0, 0);
+    strongLeft.frame = 5;
+    strongLeft.state.projectileCancelDamage = 100;
+    auto strongRight = attack(20, 2, 0, 0);
+    strongRight.frame = 5;
+    strongRight.state.projectileCancelDamage = 90;
+    auto weakRight = attack(21, 2, 0, 0);
+    weakRight.frame = 5;
+    weakRight.state.projectileCancelDamage = 20;
+    world.attacks = { weakLeft, strongLeft, strongRight, weakRight };
+
+    auto events = BattleAttackSystem().tick(world, units);
+
+    std::vector<BattleAttackEvent> cancels;
+    std::copy_if(
+        events.begin(),
+        events.end(),
+        std::back_inserter(cancels),
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::ProjectileCancel;
+        });
+    REQUIRE(cancels.size() == 2);
+    CHECK(cancels[0].attackId == 11);
+    CHECK(cancels[0].otherAttackId == 20);
+    CHECK(cancels[1].attackId == 10);
+    CHECK(cancels[1].otherAttackId == 21);
+}
+
 TEST_CASE("BattleAttackSystem_FastProjectilesCancelWhenCrossingBetweenFrames", "[battle][attack][unit]")
 {
     auto world = attackWorld();
     world.hitRadius = 10.0;
     world.projectileGraceFrames = 5;
-    world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
+    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     lhs.state.velocity = { 100, 0, 0 };
@@ -557,7 +701,7 @@ TEST_CASE("BattleAttackSystem_FastProjectilesCancelWhenCrossingBetweenFrames", "
     rhs.state.velocity = { -100, 0, 0 };
     world.attacks = { lhs, rhs };
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     REQUIRE(events.back().type == BattleAttackEventType::ProjectileCancel);
     CHECK(events.back().attackId == 10);
@@ -598,7 +742,7 @@ TEST_CASE("BattleAttackSystem_UltimateProjectileDoesNotCancel", "[battle][attack
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
+    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     lhs.state.ultimate = true;
@@ -606,7 +750,7 @@ TEST_CASE("BattleAttackSystem_UltimateProjectileDoesNotCancel", "[battle][attack
     rhs.frame = 5;
     world.attacks = { lhs, rhs };
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     CHECK(!hasEvent(events, BattleAttackEventType::ProjectileCancel, 10));
 }
@@ -615,7 +759,7 @@ TEST_CASE("BattleAttackSystem_IgnoredProjectileDoesNotCancel", "[battle][attack]
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
+    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     lhs.state.ignoreProjectileCancel = true;
@@ -623,7 +767,7 @@ TEST_CASE("BattleAttackSystem_IgnoredProjectileDoesNotCancel", "[battle][attack]
     rhs.frame = 5;
     world.attacks = { lhs, rhs };
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     CHECK(!hasEvent(events, BattleAttackEventType::ProjectileCancel, 10));
 }
@@ -632,13 +776,13 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
 {
     auto world = attackWorld();
     world.nextAttackId = 20;
-    world.units = {
+    auto units = unitStore({
         unit(1, 0, 0, 0),
         unit(2, 1, 20, 0),
         unit(3, 1, 80, 0),
         unit(4, 1, 130, 0),
         unit(5, 1, 260, 0),
-    };
+    });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.velocity = { 10, 0, 0 };
     projectile.state.bounceRemaining = 2;
@@ -648,7 +792,7 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
     projectile.hitUnitIds = { 4 };
     world.attacks.push_back(projectile);
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     REQUIRE(world.attacks.size() == 2);
     const auto& source = world.attacks[0];
@@ -676,7 +820,7 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
 TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.units = { unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 80, 0) };
+    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 80, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.bounceRemaining = 1;
     projectile.state.bounceRange = 120;
@@ -684,7 +828,7 @@ TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[
     projectile.state.bounceRollPct = 30;
     world.attacks.push_back(projectile);
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     REQUIRE(world.attacks.size() == 1);
     CHECK(world.attacks[0].noHurt);
@@ -695,11 +839,11 @@ TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[
 TEST_CASE("BattleAttackSystem_BounceCannotTriggerWithoutHitEvent", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.units = {
+    auto units = unitStore({
         unit(1, 0, 0, 0),
         unit(2, 1, SceneHitRadius + 1.0, 0),
         unit(3, 1, SceneHitRadius + SceneBounceSpawnDistance, 0),
-    };
+    });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.bounceRemaining = 1;
     projectile.state.bounceRange = static_cast<int>(SceneTileWidth * 4);
@@ -707,7 +851,7 @@ TEST_CASE("BattleAttackSystem_BounceCannotTriggerWithoutHitEvent", "[battle][att
     projectile.state.bounceRollPct = 0;
     world.attacks.push_back(projectile);
 
-    auto events = BattleAttackSystem().tick(world);
+    auto events = BattleAttackSystem().tick(world, units);
 
     CHECK(!hasEvent(events, BattleAttackEventType::Hit, 10, 2));
     CHECK(!hasEvent(events, BattleAttackEventType::Bounce, 10, 3));

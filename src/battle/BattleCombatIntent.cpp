@@ -39,8 +39,9 @@ CombatIntent BattleCombatIntentPlanner::select(const CombatIntentInput& input) c
     }
 
     bool useDashAttack = input.dashAttackEnabled
+        && !input.plannedSkill.rangedStyle
         && input.targetDistance <= input.dashAttackReach
-        && (input.targetDistance > input.meleeAttackReach || input.plannedSkill.rangedStyle);
+        && input.targetDistance > input.meleeAttackReach;
     if (useDashAttack)
     {
         intent.startAttack = true;

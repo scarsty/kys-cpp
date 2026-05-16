@@ -98,17 +98,8 @@ BattleDamageUnitState makeDamageUnit(const BattleHitUnitSnapshot& unit, const Ro
     damageUnit.invincible = unit.invincible;
     if (combo)
     {
-        damageUnit.shield = combo->shield;
-        damageUnit.blockFirstHitsRemaining = combo->blockFirstHitsRemaining;
-        damageUnit.deathPrevention = combo->deathPrevention;
-        damageUnit.deathPreventionUsed = combo->deathPreventionUsed;
-        damageUnit.deathPreventionFrames = combo->deathPreventionFrames;
-        damageUnit.killHealPct = combo->killHealPct;
-        damageUnit.killInvincFrames = combo->killInvincFrames;
-        damageUnit.bloodlustAttackPerKill = combo->bloodlustATKPerKill;
         damageUnit.mpBlocked = combo->mpBlockTimer > 0;
         damageUnit.mpRecoveryBonusPct = combo->mpRecoveryBonusPct;
-        damageUnit.hurtInvincFrames = combo->hurtInvincFrames;
     }
     return damageUnit;
 }
@@ -296,13 +287,6 @@ BattleAcceptedHitSideEffectCommand acceptedHitCommand(int sourceUnitId,
     return { sourceUnitId, targetUnitId, request };
 }
 
-void writeDefenseState(RoleComboState& combo, const BattleDamageUnitState& unit)
-{
-    combo.shield = unit.shield;
-    combo.blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
-    combo.deathPreventionUsed = unit.deathPreventionUsed;
-}
-
 std::string appendDetail(std::string detail, const std::string& text)
 {
     if (text.empty())
@@ -339,6 +323,12 @@ std::string projectileSourceLabel(const BattleAttackEvent& event)
         return "連鎖彈";
     }
     return "";
+}
+
+bool canApplyOffensiveControlEffects(const BattleAttackEvent& event)
+{
+    return event.mainProjectile
+        || event.operationType != BattleOperationType::RangedProjectile;
 }
 
 }  // namespace
@@ -631,7 +621,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         input.defender.id,
         velocityDelta,
         shaped.knockbackVelocityCap,
-        shaped.grantsHurtFrame,
     });
 
     auto attackerCombo = input.attackerCombo;
@@ -717,7 +706,10 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             formatStatusPercentFrames("中毒", attackerCombo.poisonDOTPct, attackerCombo.poisonDuration)));
     }
 
-    int legacyStunFrames = attackerCombo.stunChancePct > 0 && random.chance(attackerCombo.stunChancePct)
+    const bool offensiveControlEffectsAllowed = canApplyOffensiveControlEffects(input.attackEvent);
+    int legacyStunFrames = offensiveControlEffectsAllowed
+        && attackerCombo.stunChancePct > 0
+        && random.chance(attackerCombo.stunChancePct)
         ? attackerCombo.stunFrames
         : 0;
     if (legacyStunFrames > 0)
@@ -731,22 +723,25 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             formatStatusFrames("眩暈", legacyStunFrames)));
     }
 
-    auto hitStunCommands = BattleComboTriggerSystem().collectStunCommands(
-        attackerCombo,
-        { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
-        random);
-    for (const auto& stunCommand : hitStunCommands)
+    if (offensiveControlEffectsAllowed)
     {
-        BattleDamageRequest request;
-        request.frozenFrames = stunCommand.frames;
-        result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-        result.logEvents.push_back(statusEvent(
-            input.attacker.id,
-            input.defender.id,
-            formatStatusFrames("眩暈", stunCommand.frames)));
-        BattleComboTriggerSystem().recordActivation(
+        auto hitStunCommands = BattleComboTriggerSystem().collectStunCommands(
             attackerCombo,
-            static_cast<size_t>(stunCommand.effectIndex));
+            { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
+            random);
+        for (const auto& stunCommand : hitStunCommands)
+        {
+            BattleDamageRequest request;
+            request.frozenFrames = stunCommand.frames;
+            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
+            result.logEvents.push_back(statusEvent(
+                input.attacker.id,
+                input.defender.id,
+                formatStatusFrames("眩暈", stunCommand.frames)));
+            BattleComboTriggerSystem().recordActivation(
+                attackerCombo,
+                static_cast<size_t>(stunCommand.effectIndex));
+        }
     }
 
     if (attackerCombo.knockbackChancePct > 0 && random.chance(attackerCombo.knockbackChancePct))
@@ -757,7 +752,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             input.defender.id,
             procVelocity,
             0.0,
-            false,
         });
     }
 
@@ -799,7 +793,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     }
 
     auto defenderCombo = input.defenderCombo;
-    const bool rangedProjectile = input.attackEvent.operationType == BattleOperationType::RangedProjectile;
+    const bool reflectableProjectile =
+        input.attackEvent.operationType == BattleOperationType::RangedProjectile
+        || input.attackEvent.operationType == BattleOperationType::TrackingProjectile;
     const bool usingHpDamage = input.skill.hurtType == 0;
 
     result.shapedHpDamage = BattleDamageSystem().applyModifiers({
@@ -901,7 +897,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     result.reflected = BattleComboTriggerSystem().resolveProjectileReflect(
         defenderCombo,
-        rangedProjectile,
+        reflectableProjectile,
         random);
     if (result.reflected)
     {
@@ -959,96 +955,10 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
     }
 
-    auto defense = BattleDamageSystem().resolveDefense({
-        result.shapedHpDamage,
-        result.executed,
-        result.reflected,
-        input.defender.invincible > 0,
-        makeDamageUnit(input.defender, &defenderCombo),
-    });
-    result.shapedHpDamage = defense.damage;
-    writeDefenseState(defenderCombo, defense.defender);
-    if (defense.blockedByFirstHit)
-    {
-        result.visualEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
-        result.logEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋了首輪傷害"));
-    }
     std::string damageDetail;
     if (result.critical)
     {
         damageDetail = appendDetail(std::move(damageDetail), "暴擊");
-    }
-    if (defense.shieldAbsorbed > 0)
-    {
-        damageDetail = appendDetail(std::move(damageDetail), std::format("護盾吸收 {}", defense.shieldAbsorbed));
-    }
-    if (defense.shieldBroken)
-    {
-        int shieldExplosionPct = 0;
-        auto shieldBreakCommands = BattleComboTriggerSystem().collectShieldBreakCommands(
-            defenderCombo,
-            { BattleComboTriggerHook::ShieldBreak, input.defender.id, input.defender.id },
-            random);
-        for (const auto& shieldBreak : shieldBreakCommands)
-        {
-            bool activated = true;
-            switch (shieldBreak.type)
-            {
-            case BattleShieldBreakCommandType::ShieldExplosion:
-                shieldExplosionPct = std::max(shieldExplosionPct, shieldBreak.value);
-                break;
-            case BattleShieldBreakCommandType::AutoUltimate:
-                result.commands.push_back(BattleAutoUltimateCommand{ input.defender.id, false });
-                break;
-            case BattleShieldBreakCommandType::TempFlatAttack:
-                result.commands.push_back(BattleTempAttackBuffCommand{
-                    input.defender.id,
-                    shieldBreak.value,
-                    shieldBreak.durationFrames,
-                    std::format("護盾爆炸（臨時攻+{}，{}幀）", shieldBreak.value, shieldBreak.durationFrames),
-                });
-                break;
-            case BattleShieldBreakCommandType::MpRestore:
-            {
-                int restored = std::min(shieldBreak.value, std::max(0, input.defender.vitals.maxMp - input.defender.vitals.mp));
-                if (restored > 0)
-                {
-                    result.commands.push_back(BattleMpRestoreCommand{
-                        input.defender.id,
-                        restored,
-                        std::format("護盾爆炸·回內力+{}", restored),
-                    });
-                }
-                else
-                {
-                    activated = false;
-                }
-                break;
-            }
-            default:
-                assert(false);
-            }
-
-            if (activated)
-            {
-                BattleComboTriggerSystem().recordActivation(
-                    defenderCombo,
-                    static_cast<size_t>(shieldBreak.effectIndex));
-            }
-        }
-        if (shieldExplosionPct > 0)
-        {
-            int explosionDamage = std::max(
-                1,
-                defenderCombo.shieldPctMaxHP * input.defender.vitals.maxHp / 100 * shieldExplosionPct / 100);
-            result.commands.push_back(BattleShieldExplosionCommand{
-                input.defender.id,
-                5,
-                KysChess::EFT_SHIELD_BLAST,
-                explosionDamage,
-                "護盾爆炸",
-            });
-        }
     }
     if (result.executed)
     {

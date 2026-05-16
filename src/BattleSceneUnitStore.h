@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-class BattleTracker;
+class BattleReport;
 
 struct BattleSceneRenderComboState
 {
@@ -65,7 +65,7 @@ public:
     Pointf facingTowardNearestEnemy(int unitId) const;
     int aliveUnitsOnTeam(int team) const;
     std::vector<int> allyUnitIds() const;
-    BattlePostBattleSummary makePostBattleSummary(const BattleTracker& tracker, int battleResult) const;
+    BattlePostBattleSummary makePostBattleSummary(const BattleReport& report, int battleResult) const;
 
 private:
     std::vector<BattleSceneUnit> units_;

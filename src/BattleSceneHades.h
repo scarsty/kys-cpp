@@ -8,7 +8,10 @@
 #include "BattleSceneRenderMath.h"
 #include "BattleScene.h"
 #include "BattleSceneBattleAdapter.h"
+#include "BattleSceneFrameStateApplier.h"
+#include "BattleSceneImpactPlayer.h"
 #include "BattleSceneMapState.h"
+#include "BattleSceneReportPlayer.h"
 #include "BattleSceneSetupBuilder.h"
 #include "BattleStatsView.h"
 #include "BattleScenePresentationPlayer.h"
@@ -88,15 +91,12 @@ protected:
     void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
     void updateAutoCamera();
     void clampCameraCenter();
-    void applyCoreStatusState(const KysChess::Battle::BattleFrameStateApplications& applications);
-    void applyCoreDamageTransactions(const KysChess::Battle::BattleFrameResult& frameResult);
-    void applyCoreTeamEffectState(const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events);
-    void applyCoreFrameApplications(const KysChess::Battle::BattleFrameApplications& applications);
+    void applySceneFrameStateResult(const BattleSceneFrameStateApplyResult& result);
     void beginPresentationFrame();
     void publishPresentationFrame();
     Color calculateHurtFlashColor(int unitId, const Color& baseColor) const;
 public:
-    BattleTracker& getTracker() { return tracker_; }
+    const BattleReport& getBattleReport() const { return battle_report_.report(); }
     BattlePostBattleSummary makePostBattleSummary() const;
     void setBattleRuntimeRandomSeed(unsigned int seed);
     void setEnemyStars(const std::vector<int>& stars) { enemy_stars_ = stars; }
@@ -115,7 +115,7 @@ protected:
     KysChess::ChessRoleSave& roleSave_;
     KysChess::ChessProgress& progress_;
     KysChess::ChessManager& chessManager_;
-    BattleTracker tracker_;
+    BattleReportBuilder battle_report_;
     int swapSelectedUnitId_ = -1;
     bool positionSwapActive_ = false;
     std::optional<KysChess::Battle::BattleRuntimeSession> battle_session_;
@@ -146,6 +146,9 @@ protected:
     bool count_fights_won_ = true;
     unsigned int battle_random_seed_ = 1;
     KysChess::Battle::BattlePresentationRecorder presentation_recorder_;
+    BattleSceneFrameStateApplier frame_state_applier_;
+    BattleSceneImpactPlayer impact_player_;
     BattleScenePresentationPlayer presentation_player_;
+    BattleSceneReportPlayer report_player_;
     KysChess::Battle::BattlePresentationFrame last_presentation_frame_;
 };

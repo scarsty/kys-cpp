@@ -108,11 +108,6 @@ float shakeJitter(int battleFrame, int roleId)
     return -2.5f + static_cast<float>(state & 0xffffu) * (5.0f / 65535.0f);
 }
 
-bool hasScriptedImpact(const KysChess::Battle::BattleAttackEvent& event)
-{
-    return event.scriptedDamage > 0 || event.scriptedStunFrames > 0 || event.scriptedBleedStacks > 0;
-}
-
 std::array<int, 5> readBattleFightFramesForHeadId(int headId)
 {
     std::array<int, 5> fightFrames{};
@@ -125,63 +120,6 @@ std::array<int, 5> readBattleFightFramesForHeadId(int headId)
         fightFrames[frames[index * 2]] = frames[index * 2 + 1];
     }
     return fightFrames;
-}
-
-struct BattleLifecycleApplyResult
-{
-    bool battleEnded = false;
-    int battleResult = -1;
-    bool unitDied = false;
-    std::vector<int> diedUnitIds;
-};
-
-BattleLifecycleApplyResult applyBattleLifecycleEventsToTracker(
-    BattleTracker& tracker,
-    const BattleSceneUnitStore& sceneUnits,
-    int currentBattleResult,
-    const std::vector<KysChess::Battle::BattleGameplayEvent>& events)
-{
-    BattleLifecycleApplyResult result;
-    for (const auto& event : events)
-    {
-        switch (event.type)
-        {
-        case KysChess::Battle::BattleGameplayEventType::UnitDied:
-        {
-            const auto* killer = event.sourceUnitId >= 0
-                ? &sceneUnits.requireUnit(event.sourceUnitId).identity
-                : nullptr;
-            const auto* victim = &sceneUnits.requireUnit(event.targetUnitId).identity;
-            tracker.recordKill(killer, victim, event.frame);
-            tracker.recordDeath(victim, event.frame);
-            result.unitDied = true;
-            result.diedUnitIds.push_back(event.targetUnitId);
-            break;
-        }
-        case KysChess::Battle::BattleGameplayEventType::BattleEnded:
-            if (currentBattleResult == -1)
-            {
-                result.battleEnded = true;
-                result.battleResult = event.amount;
-                tracker.recordBattleEnd(event.frame, event.amount);
-            }
-            break;
-        default:
-            break;
-        }
-    }
-    return result;
-}
-
-void writeBattleDeathEffectTrackers(const std::vector<KysChess::Battle::BattleFrameDeathEffectTrackerResult>& trackers,
-                                    std::map<int, KysChess::RoleComboState>& states)
-{
-    for (const auto& tracker : trackers)
-    {
-        auto stateIt = states.find(tracker.unitId);
-        assert(stateIt != states.end());
-        stateIt->second.shieldOnAllyDeathTracker = tracker.shieldOnAllyDeathTracker;
-    }
 }
 
 }    // namespace
@@ -403,8 +341,11 @@ void BattleSceneHades::beginPresentationFrame()
 void BattleSceneHades::publishPresentationFrame()
 {
     last_presentation_frame_ = presentation_recorder_.consumeFrame();
+    report_player_.playLogs(last_presentation_frame_.logEvents, {
+        &battle_report_,
+        &scene_units_,
+    });
     presentation_player_.play(last_presentation_frame_, {
-        &tracker_,
         &text_effects_,
         &attack_effects_,
         &scene_units_,
@@ -758,14 +699,6 @@ void BattleSceneHades::draw()
         {
             continue;
         }
-        //if (r->HurtFrame)
-        //{
-        //    if (r->HurtFrame % 2 == 1)
-        //    {
-        //        info.white = 128;
-        //    }
-
-        //}
         if (!unit.alive)
         {
             //if (r->Frozen == 0)
@@ -1283,7 +1216,7 @@ void BattleSceneHades::onExit()
     use_whole_scene_ = false;
 
     // hurt_flash_timers_.clear();
-    // Engine::getInstance()->hideBattleLogWindow();
+    // Engine::getInstance()->hideBattleLogOverlay();
 }
 
 void BattleSceneHades::calExpGot()
@@ -1316,7 +1249,7 @@ void BattleSceneHades::calExpGot()
 
 BattlePostBattleSummary BattleSceneHades::makePostBattleSummary() const
 {
-    return scene_units_.makePostBattleSummary(tracker_, result_);
+    return scene_units_.makePostBattleSummary(battle_report_.report(), result_);
 }
 
 class PositionSwapNode : public RunNode
@@ -1544,67 +1477,34 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
 void BattleSceneHades::applyCoreFrameResult(
     const KysChess::Battle::BattleFrameResult& frameResult)
 {
-    for (const auto& application : frameResult.unitApplications)
+    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    BattleSceneFrameStateApplyContext context;
+    context.units = &scene_units_;
+    context.comboStates = &comboStates;
+    context.hurtFlashTimers = &hurt_flash_timers_;
+    context.random = &rand_;
+    context.pos45To90 = [this](int x, int y)
     {
-        auto& unit = scene_units_.requireUnit(application.unitId);
-        unit.animation.cooldown = application.cooldown;
-        unit.animation.actFrame = application.actFrame;
-        unit.animation.actType = application.actType;
-        unit.vitals.mp = application.finalMp;
-        if (application.resetDashVelocity)
-        {
-            unit.motion.velocity = { 0, 0, 0 };
-        }
-    }
-    applyCoreStatusState(frameResult.stateApplications);
+        return battle_map_.pos45To90(x, y);
+    };
+    context.transferAntiCombo = [this](int unitId)
+    {
+        KysChess::ChessCombo::transferAntiCombo(unitId, scene_units_.makeComboBattleUnitRefs());
+    };
+    context.gravity = gravity_;
+    context.manualCameraEnabled = isManualCameraEnabled();
+    context.hurtFlashDuration = HURT_FLASH_DURATION;
+    context.blinkSoundEffectId = BLINK_SOUND_EFFECT_ID;
+    context.deathZoomFrames = CAMERA_DEATH_ZOOM_FRAMES;
+    context.battleEndZoomFrames = CAMERA_BATTLE_END_ZOOM_FRAMES;
+    context.deathSlowFrames = CAMERA_DEATH_SLOW_FRAMES;
+    context.battleEndSlowFrames = CAMERA_BATTLE_END_SLOW_FRAMES;
+    applySceneFrameStateResult(frame_state_applier_.apply(frameResult, result_, context));
 
-    applyCoreDamageTransactions(frameResult);
-    applyCoreTeamEffectState(frameResult.teamEffectEvents);
-    applyCoreFrameApplications(frameResult.applications);
-    for (const auto& movement : frameResult.movementPresentationResults)
-    {
-        auto& unit = scene_units_.requireUnit(movement.unitId);
-        unit.frozen = movement.frozenFrames;
-        unit.motion.position = movement.position;
-        unit.motion.velocity = movement.velocity;
-        unit.motion.acceleration = movement.acceleration;
-        auto facing = movement.facing;
-        if (facing.norm() > 0.01)
-        {
-            unit.motion.facing = facing;
-        }
-    }
-
-    for (const auto& action : frameResult.actionResults)
-    {
-        auto& unit = scene_units_.requireUnit(action.unitId);
-        unit.animation.actFrame = action.state.actFrame;
-        unit.animation.actType = action.state.actType;
-        unit.animation.cooldown = action.state.cooldown;
-        if (action.castStarted)
-        {
-            unit.animation.actFrame = 0;
-            unit.animation.actType = action.state.actType;
-            unit.animation.cooldown = action.state.cooldown;
-            unit.animation.cooldownMax = action.state.cooldown;
-            unit.motion.velocity = { 0, 0, 0 };
-        }
-        for (const auto& teleport : action.actionResult.blinkTeleports)
-        {
-            unit.gridX = teleport.gridX;
-            unit.gridY = teleport.gridY;
-            unit.motion.position = { teleport.position.x, teleport.position.y, 0 };
-            unit.motion.velocity = { 0, 0, 0 };
-            unit.motion.acceleration = { 0, 0, gravity_ };
-            unit.motion.facing = teleport.facing;
-            Audio::getInstance()->playESound(BLINK_SOUND_EFFECT_ID);
-        }
-    }
-    for (const auto& command : frameResult.projectileCancelDamageCommands)
-    {
-        tracker_.recordProjectileCancel(command.sourceUnitId, command.damage);
-        tracker_.recordProjectileCancel(command.otherSourceUnitId, command.otherDamage);
-    }
+    report_player_.playProjectileCancelDamageCommands(frameResult.projectileCancelDamageCommands, {
+        &battle_report_,
+        &scene_units_,
+    });
     for (const auto& event : frameResult.frame.visualEvents)
     {
         presentation_recorder_.recordVisual(event);
@@ -1614,33 +1514,76 @@ void BattleSceneHades::applyCoreFrameResult(
         presentation_recorder_.recordLog(event);
     }
 
-    for (const auto& event : frameResult.attackEvents)
-    {
-        if (event.type == KysChess::Battle::BattleAttackEventType::Hit)
+    impact_player_.play(frameResult, {
+        &scene_units_,
+        &shake_,
+        [](int effectSoundId)
         {
-            auto& unit = scene_units_.requireUnit(event.unitId);
-            bool scriptedImpact = hasScriptedImpact(event);
+            Audio::getInstance()->playESound(effectSoundId);
+        },
+        [](int lowFrequency, int highFrequency, int durationMs)
+        {
+            Engine::getInstance()->gameControllerRumble(lowFrequency, highFrequency, durationMs);
+        },
+    });
+}
 
-            if (event.skillId >= 0)
-            {
-                auto* skill = Save::getInstance()->getMagic(event.skillId);
-                assert(skill);
-                Audio::getInstance()->playESound(skill->EffectID);
-            }
-            if (scriptedImpact)
-            {
-                unit.shake = 5;
-                continue;
-            }
-
-            shake_ = event.ultimate ? 10 : 0;
-            unit.shake = event.ultimate ? 10 : 5;
-            if (event.operationType != KysChess::Battle::BattleOperationType::None)
-            {
-                Engine::getInstance()->gameControllerRumble(100, 100, 50);
-                assert(event.totalFrame > 0);
-            }
-        }
+void BattleSceneHades::applySceneFrameStateResult(const BattleSceneFrameStateApplyResult& result)
+{
+    for (const auto& command : result.bloodEffects)
+    {
+        BattleAttackEffect effect;
+        effect.FollowUnitId = command.followUnitId;
+        effect.setPath(command.path);
+        effect.TotalFrame = effect.TotalEffectFrame;
+        effect.Frame = 0;
+        effect.VisualOnly = 1;
+        attack_effects_.push_back(std::move(effect));
+    }
+    for (int soundId : result.effectSoundIds)
+    {
+        Audio::getInstance()->playESound(soundId);
+    }
+    for (int soundId : result.attackSoundIds)
+    {
+        Audio::getInstance()->playASound(soundId);
+    }
+    for (const auto& rumble : result.rumbles)
+    {
+        Engine::getInstance()->gameControllerRumble(
+            rumble.lowFrequency,
+            rumble.highFrequency,
+            rumble.durationMs);
+    }
+    if (result.unitDied)
+    {
+        x_ = result.jitterX;
+        y_ = result.jitterY;
+    }
+    if (result.cameraFocus)
+    {
+        focusCameraOn(*result.cameraFocus, result.closeUpFrames);
+    }
+    else if (result.closeUpFrames > 0)
+    {
+        close_up_ = std::max(close_up_, result.closeUpFrames);
+        close_up_total_ = std::max(close_up_total_, close_up_);
+    }
+    if (result.frozenFrames > 0)
+    {
+        frozen_ = result.frozenFrames;
+    }
+    if (result.slowFrames > 0)
+    {
+        slow_ = result.slowFrames;
+    }
+    if (result.sceneShake > 0)
+    {
+        shake_ = result.sceneShake;
+    }
+    if (result.battleEnded)
+    {
+        result_ = result.battleResult;
     }
 }
 
@@ -1832,204 +1775,4 @@ int BattleSceneHades::checkResult()
         return 1;
     }
     return -1;
-}
-
-void BattleSceneHades::applyCoreStatusState(
-    const KysChess::Battle::BattleFrameStateApplications& applications)
-{
-    for (const auto& combo : applications.comboRenderUnits)
-    {
-        auto& unit = scene_units_.requireUnit(combo.unitId);
-        unit.combo.shield = combo.shield;
-        unit.combo.blockFirstHitsRemaining = combo.blockFirstHitsRemaining;
-    }
-    for (const auto& status : applications.statusRenderUnits)
-    {
-        auto& unit = scene_units_.requireUnit(status.unitId);
-        unit.invincible = status.invincible;
-        unit.frozen = status.frozenFrames;
-        unit.frozenMax = status.frozenMaxFrames;
-
-    }
-}
-
-void BattleSceneHades::applyCoreDamageTransactions(
-    const KysChess::Battle::BattleFrameResult& frameResult)
-{
-    auto& cs = KysChess::ChessCombo::getMutableStates();
-    auto lifecycleApply = applyBattleLifecycleEventsToTracker(
-        tracker_,
-        scene_units_,
-        result_,
-        frameResult.frame.gameplayEvents);
-    std::set<int> diedUnitIds(lifecycleApply.diedUnitIds.begin(), lifecycleApply.diedUnitIds.end());
-
-    for (const auto& damage : frameResult.damageRenderApplications)
-    {
-        auto& defenderUnit = scene_units_.requireUnit(damage.defender.unitId);
-        defenderUnit.vitals.hp = damage.defender.hp;
-        defenderUnit.vitals.mp = damage.defender.mp;
-        defenderUnit.invincible = damage.defender.invincible;
-        defenderUnit.alive = damage.defender.alive;
-        defenderUnit.frozen = damage.frozenFrames;
-        defenderUnit.frozenMax = damage.frozenMaxFrames;
-        defenderUnit.animation.cooldown = damage.cooldown;
-
-        if (damage.attacker.unitId >= 0)
-        {
-            auto& attackerUnit = scene_units_.requireUnit(damage.attacker.unitId);
-            attackerUnit.vitals.hp = damage.attacker.hp;
-            attackerUnit.vitals.mp = damage.attacker.mp;
-            attackerUnit.invincible = damage.attacker.invincible;
-            attackerUnit.alive = damage.attacker.alive;
-        }
-
-        auto sit = cs.find(damage.defender.unitId);
-
-        if (damage.committedHpDamage > 0)
-        {
-            BattleAttackEffect ae1;
-            ae1.FollowUnitId = damage.defender.unitId;
-            ae1.setPath(std::format("eft/bld{:03}", int(rand_.rand() * 5)));
-            ae1.TotalFrame = ae1.TotalEffectFrame;
-            ae1.Frame = 0;
-            ae1.VisualOnly = 1;
-            attack_effects_.push_back(std::move(ae1));
-            hurt_flash_timers_[damage.defender.unitId] = HURT_FLASH_DURATION;
-        }
-
-        if (diedUnitIds.find(damage.defender.unitId) != diedUnitIds.end())
-        {
-            if (sit != cs.end())
-            {
-                sit->second.onSkillTeamHealPending = false;
-            }
-
-            KysChess::ChessCombo::transferAntiCombo(damage.defender.unitId, scene_units_.makeComboBattleUnitRefs());
-
-            defenderUnit.motion.velocity.normTo(15);
-            defenderUnit.motion.velocity.z = 12;
-            defenderUnit.motion.velocity.normTo(damage.committedHpDamage / 2.0);
-            x_ = rand_.rand_int(2) - rand_.rand_int(2);
-            y_ = rand_.rand_int(2) - rand_.rand_int(2);
-            if (!isManualCameraEnabled())
-            {
-                focusCameraOn(defenderUnit.motion.position, CAMERA_DEATH_ZOOM_FRAMES);
-            }
-            frozen_ = 5;
-            shake_ = 10;
-            slow_ = CAMERA_DEATH_SLOW_FRAMES;
-            if (!isManualCameraEnabled())
-            {
-                close_up_ = std::max(close_up_, CAMERA_DEATH_ZOOM_FRAMES);
-                close_up_total_ = std::max(close_up_total_, close_up_);
-            }
-        }
-    }
-
-    for (const auto& rescue : frameResult.rescueResults)
-    {
-        assert(rescue.teleport);
-        auto& pulledUnit = scene_units_.requireUnit(rescue.teleport->unitId);
-        auto& pullerUnit = scene_units_.requireUnit(rescue.teleport->pullerUnitId);
-        const auto& destination = rescue.teleport->destinationCell;
-        auto pos = battle_map_.pos45To90(destination.x, destination.y);
-        pulledUnit.gridX = destination.x;
-        pulledUnit.gridY = destination.y;
-        pulledUnit.motion.position = { pos.x, pos.y, 0 };
-        pulledUnit.motion.velocity = { 0, 0, 0 };
-        pulledUnit.motion.acceleration = { 0, 0, gravity_ };
-        pulledUnit.motion.facing = scene_units_.facingTowardNearestEnemy(pulledUnit.unitId);
-        pullerUnit.motion.facing = scene_units_.facingTowardNearestEnemy(pullerUnit.unitId);
-
-        if (rescue.heal.amount > 0)
-        {
-            assert(rescue.heal.targetUnitId == pulledUnit.unitId);
-            pulledUnit.vitals.hp = std::min(pulledUnit.vitals.maxHp, pulledUnit.vitals.hp + rescue.heal.amount);
-        }
-        if (rescue.invincibility.frames > 0)
-        {
-            assert(rescue.invincibility.targetUnitId == pulledUnit.unitId);
-            pulledUnit.invincible += rescue.invincibility.frames;
-        }
-    }
-
-    writeBattleDeathEffectTrackers(frameResult.deathEffectTrackers, cs);
-
-    if (lifecycleApply.battleEnded)
-    {
-        if (!isManualCameraEnabled())
-        {
-            close_up_ = std::max(close_up_, CAMERA_BATTLE_END_ZOOM_FRAMES);
-            close_up_total_ = std::max(close_up_total_, close_up_);
-        }
-        frozen_ = 60;
-        slow_ = CAMERA_BATTLE_END_SLOW_FRAMES;
-        shake_ = 60;
-        result_ = lifecycleApply.battleResult;
-    }
-}
-
-void BattleSceneHades::applyCoreTeamEffectState(
-    const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events)
-{
-    for (const auto& event : events)
-    {
-        auto& unit = scene_units_.requireUnit(event.targetUnitId);
-        switch (event.type)
-        {
-        case KysChess::Battle::BattleTeamEffectEventType::Heal:
-            unit.vitals.hp = event.after;
-            break;
-        case KysChess::Battle::BattleTeamEffectEventType::MpRestore:
-            unit.vitals.mp = event.after;
-            break;
-        case KysChess::Battle::BattleTeamEffectEventType::ShieldGain:
-            unit.combo.shield = event.after;
-            break;
-        case KysChess::Battle::BattleTeamEffectEventType::CooldownReduced:
-            unit.animation.cooldown = event.after;
-            break;
-        }
-    }
-}
-
-void BattleSceneHades::applyCoreFrameApplications(
-    const KysChess::Battle::BattleFrameApplications& applications)
-{
-    for (const auto& knockback : applications.knockbacks)
-    {
-        auto& targetUnit = scene_units_.requireUnit(knockback.targetUnitId);
-        targetUnit.motion.velocity += knockback.velocityDelta;
-        if (knockback.velocityCap > 0.0 && targetUnit.motion.velocity.norm() > knockback.velocityCap)
-        {
-            targetUnit.motion.velocity.normTo(static_cast<float>(knockback.velocityCap));
-        }
-
-        if (knockback.grantHurtFrame)
-        {
-            hurt_flash_timers_[knockback.targetUnitId] = HURT_FLASH_DURATION;
-        }
-    }
-    for (const auto& restore : applications.mpRestores)
-    {
-        auto& unit = scene_units_.requireUnit(restore.unitId);
-        unit.vitals.mp = std::min(unit.vitals.maxMp, unit.vitals.mp + restore.amount);
-    }
-    for (const auto& heal : applications.unitHeals)
-    {
-        auto& unit = scene_units_.requireUnit(heal.targetUnitId);
-        unit.vitals.hp = std::min(unit.vitals.maxHp, unit.vitals.hp + heal.amount);
-    }
-    for (int soundId : applications.attackSoundIds)
-    {
-        Audio::getInstance()->playASound(soundId);
-    }
-    for (const auto& rumble : applications.rumbles)
-    {
-        Engine::getInstance()->gameControllerRumble(
-            rumble.lowFrequency,
-            rumble.highFrequency,
-            rumble.durationMs);
-    }
 }

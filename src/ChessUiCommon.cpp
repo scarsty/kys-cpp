@@ -207,7 +207,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::ShieldOnAllyDeath: desc = compact ? std::format("每{}友死獲盾", eff.value) : std::format("每{}友死獲盾", eff.value); break;
     case EffectType::DamageImmunityAfterFrames: desc = std::format("每{}幀免傷{}幀", eff.value, eff.value2); break;
     case EffectType::AutoUltimateAfterFrames: desc = std::format("每{}幀自動絕招", eff.value); break;
-    case EffectType::UltimateExtraProjectiles: desc = compact ? std::format("絕招+{}彈", eff.value) : std::format("絕招額外投射物+{}", eff.value); break;
+    case EffectType::UltimateExtraProjectiles: desc = compact ? std::format("絕招+{}彈", eff.value) : std::format("絕招額外彈道+{}", eff.value); break;
     case EffectType::BlockFirstHits: desc = compact ? std::format("格擋前{}次", eff.value) : std::format("格擋前{}次攻擊", eff.value); break;
     case EffectType::GoldCoefficient: desc = compact ? std::format("勝利+{}×最高星金", eff.value) : std::format("勝利獲得{}×最高星級金幣", eff.value); break;
     case EffectType::HurtInvincFrames: desc = std::format("受傷後無敵{}幀", eff.value); break;

@@ -19,8 +19,6 @@
 #include <string>
 #include <vector>
 
-class BattleTracker;
-
 namespace KysChess::BattleSceneBattleAdapter
 {
 

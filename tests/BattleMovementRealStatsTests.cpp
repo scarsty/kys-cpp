@@ -74,10 +74,35 @@ std::vector<BattleTerrainCell> terrainRectangle(double minX, double minY, double
     return cells;
 }
 
-BattleWorldState makeWorld(const std::vector<PinnedUnitSpec>& specs,
+std::vector<BattleTerrainCell> terrainGridWithVerticalWallGap(
+    int coordCount,
+    int wallX,
+    int gapY)
+{
+    std::vector<BattleTerrainCell> cells;
+    cells.reserve(static_cast<std::size_t>(coordCount * coordCount));
+    for (int x = 0; x < coordCount; ++x)
+    {
+        for (int y = 0; y < coordCount; ++y)
+        {
+            const bool wall = x == wallX && y != gapY;
+            cells.push_back({
+                {
+                    static_cast<float>(x * SceneTileWidth),
+                    static_cast<float>(y * SceneTileWidth),
+                    0.0f,
+                },
+                !wall,
+            });
+        }
+    }
+    return cells;
+}
+
+BattleMovementFrameInput makeWorld(const std::vector<PinnedUnitSpec>& specs,
                            std::vector<BattleTerrainCell> terrain = {})
 {
-    BattleWorldState world;
+    BattleMovementFrameInput world;
     world.config = pinnedConfig();
     world.terrainCells = std::move(terrain);
 
@@ -286,6 +311,141 @@ TEST_CASE("MeleeSwarm_DoesNotReserveSameApproachSlot", "[battle][movement]")
     }
 }
 
+TEST_CASE("ReservationHorizon_AvoidsSoftReservedStepWhenAlternativeExists", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 100, 100, 0 } },
+        { 29, 0, { 700, 700, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.config.reservationHorizonFrames = 3;
+    world.units[0].dashCooldownRemaining = 999;
+    world.units[1].canAttack = false;
+    world.movementReservations[2] = BattleMovementReservation{
+        2,
+        { 104.25f, 100.0f, 0.0f },
+        2.0,
+        world.frame + world.config.reservationHorizonFrames,
+    };
+
+    BattleMovementPlanner(world).tick();
+
+    CHECK(world.units[0].position.x > 100.0f);
+    CHECK(world.units[0].position.y != Catch::Approx(100.0f));
+    REQUIRE(world.movementReservations.contains(1));
+    CHECK(world.movementReservations.at(1).expiresFrame == world.frame + world.config.reservationHorizonFrames);
+}
+
+TEST_CASE("ReservationHorizon_SoftReservationsFallbackInsteadOfDeadlocking", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 100, 100, 0 } },
+        { 29, 0, { 700, 700, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.config.reservationHorizonFrames = 3;
+    world.units[0].dashCooldownRemaining = 999;
+    world.units[1].canAttack = false;
+    world.movementReservations[2] = BattleMovementReservation{
+        2,
+        { 104.25f, 100.0f, 0.0f },
+        500.0,
+        world.frame + world.config.reservationHorizonFrames,
+    };
+
+    auto tick = BattleMovementPlanner(world).tick();
+
+    CHECK(tick.decisions.at(1).action == MovementAction::Move);
+    CHECK(world.units[0].position.x > 100.0f);
+    CHECK(world.units[0].position.y == Catch::Approx(100.0f));
+}
+
+TEST_CASE("ReservationHorizon_PrunesExpiredAndClearsAttackReadyReservations", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 100, 100, 0 } },
+        { 29, 0, { 700, 700, 0 } },
+        { 116, 1, { 190, 100, 0 } },
+    });
+    world.config.reservationHorizonFrames = 3;
+    world.frame = 10;
+    world.units[1].alive = false;
+    world.movementReservations[1] = BattleMovementReservation{ 1, { 120, 100, 0 }, 2.0, 20 };
+    world.movementReservations[2] = BattleMovementReservation{ 2, { 700, 700, 0 }, 2.0, 9 };
+
+    BattleMovementPlanner(world).tick();
+
+    CHECK_FALSE(world.movementReservations.contains(1));
+    CHECK_FALSE(world.movementReservations.contains(2));
+}
+
+TEST_CASE("TaXue_UnstableIgnoresReservationsAndUnitBodiesButRespectsTerrain", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 1, 0, { 100, 100, 0 } },
+        { 116, 1, { 104.55f, 100, 0 } },
+    });
+    world.config.reservationHorizonFrames = 3;
+    world.units[0].dashFramesRemaining = 2;
+    world.units[0].velocity = { 4.55f, 0, 0 };
+    world.movementReservations[2] = BattleMovementReservation{ 2, { 104.55f, 100, 0 }, 2.0, 3 };
+
+    BattleMovementPlanner(world).tick();
+
+    CHECK(world.units[0].position.x == Catch::Approx(104.55f));
+    CHECK_FALSE(world.movementReservations.contains(1));
+
+    auto blocked = makeWorld({
+        { 1, 0, { 100, 100, 0 } },
+        { 116, 1, { 104.55f, 100, 0 } },
+    }, {
+        { { 100, 100, 0 }, true },
+        { { 104.55f, 100, 0 }, false },
+    });
+    blocked.units[0].dashFramesRemaining = 2;
+    blocked.units[0].velocity = { 4.55f, 0, 0 };
+
+    BattleMovementPlanner(blocked).tick();
+
+    CHECK(blocked.units[0].position.x == Catch::Approx(100.0f));
+}
+
+TEST_CASE("BattleMovementPhysicsSystem_CanIgnoreUnitCollisionButNotTerrain", "[battle][movement]")
+{
+    BattleMovementPhysicsCollisionWorld collision;
+    collision.tileWidth = 1.0;
+    collision.coordCount = 10;
+    collision.defaultSeparationDistance = 4.0;
+    collision.units = {
+        { 1, true, { 10, 10, 0 } },
+        { 2, true, { 15, 10, 0 } },
+    };
+    collision.walkableByCell.assign(10 * 10, 1);
+
+    BattleMovementPhysicsInput input;
+    input.state.position = { 10, 10, 0 };
+    input.state.velocity = { 5, 0, 0 };
+    input.config.gravity = 0.0f;
+    input.config.friction = 0.0f;
+    input.collisionWorld = &collision;
+    input.unitId = 1;
+    input.currentPosition = input.state.position;
+    input.ignoreUnitCollision = true;
+
+    auto state = BattleMovementPhysicsSystem().advance(input);
+
+    CHECK(state.position.x == Catch::Approx(15.0f));
+
+    collision.walkableByCell[movementPhysicsCellIndex(collision, 8, 3)] = 0;
+    input.state.position = { 10, 10, 0 };
+    input.state.velocity = { 5, 0, 0 };
+    input.currentPosition = input.state.position;
+
+    state = BattleMovementPhysicsSystem().advance(input);
+
+    CHECK(state.position.x == Catch::Approx(10.0f));
+}
+
 TEST_CASE("RangedRetarget_HoldsWhenAlreadyCanShoot", "[battle][movement]")
 {
     auto world = makeWorld({
@@ -312,6 +472,55 @@ TEST_CASE("CorneredRanged_NoWallBumpLoop", "[battle][movement]")
     auto run = BattleMovementSimulator(world).run(160, 2026);
     CHECK(run.stats.at(1).consecutiveWallBlockedFrames < 10);
     CHECK(run.stats.at(1).attackReadyFrames > 30);
+}
+
+TEST_CASE("MeleePathing_RoutesAroundWallGapInsteadOfHolding", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 116, 0, { 2.0f * SceneTileWidth, 4.0f * SceneTileWidth, 0 } },
+        { 4, 1, { 8.0f * SceneTileWidth, 4.0f * SceneTileWidth, 0 } },
+    }, terrainGridWithVerticalWallGap(12, 5, 9));
+    world.units[0].reach = 60.0;
+    world.units[1].speed = 0.0;
+
+    auto run = BattleMovementSimulator(world).run(220, 2026);
+    const auto& chaser = run.world.units[0];
+
+    CHECK(chaser.position.x > 5.0f * SceneTileWidth);
+    CHECK(run.stats.at(1).consecutiveWallBlockedFrames < 30);
+    CHECK(run.stats.at(1).consecutiveNoProgressFrames < 60);
+}
+
+TEST_CASE("MeleeAcrossWall_HoldsAttackReadyBecauseMeleeHitsIgnoreTerrain", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 116, 0, { 4.0f * SceneTileWidth, 4.0f * SceneTileWidth, 0 } },
+        { 4, 1, { 6.0f * SceneTileWidth, 4.0f * SceneTileWidth, 0 } },
+    }, terrainGridWithVerticalWallGap(12, 5, 9));
+    world.units[1].speed = 0.0;
+
+    auto run = BattleMovementSimulator(world).run(160, 2026);
+    const auto& chaser = run.world.units[0];
+
+    CHECK(chaser.position.y == Catch::Approx(4.0f * SceneTileWidth));
+    CHECK(run.stats.at(1).attackReadyFrames == 160);
+    CHECK(run.stats.at(1).consecutiveNoProgressFrames == 0);
+}
+
+TEST_CASE("RangedAcrossWall_HoldsAttackReadyBecauseProjectilesIgnoreTerrain", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 4, 0, { 4.0f * SceneTileWidth, 4.0f * SceneTileWidth, 0 } },
+        { 116, 1, { 6.0f * SceneTileWidth, 4.0f * SceneTileWidth, 0 } },
+    }, terrainGridWithVerticalWallGap(12, 5, 9));
+    world.units[1].speed = 0.0;
+
+    auto run = BattleMovementSimulator(world).run(160, 2026);
+    const auto& shooter = run.world.units[0];
+
+    CHECK(shooter.position.y == Catch::Approx(4.0f * SceneTileWidth));
+    CHECK(run.stats.at(1).attackReadyFrames == 160);
+    CHECK(run.stats.at(1).consecutiveNoProgressFrames == 0);
 }
 
 TEST_CASE("Deterministic_ReplaySameSeedSameEvents", "[battle][movement]")

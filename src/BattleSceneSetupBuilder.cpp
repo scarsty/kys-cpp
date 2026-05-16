@@ -305,7 +305,6 @@ KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
     unit.animation = { 0, 0, 0, -1 };
     unit.physicalPower = (std::max)(role.PhysicalPower, 90);
     unit.invincible = role.Invincible;
-    unit.hurtFrame = role.HurtFrame;
     unit.frozen = role.Frozen;
     unit.frozenMax = role.FrozenMax;
     for (int magicType = 0; magicType < BattleSceneRenderMath::FightStyleCount; ++magicType)

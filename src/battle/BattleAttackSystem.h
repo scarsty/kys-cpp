@@ -10,13 +10,15 @@
 namespace KysChess::Battle
 {
 
+struct BattleRuntimeUnit;
+struct BattleUnitStore;
+
 struct BattleAttackUnit
 {
     int id = -1;
     int team = 0;
     bool alive = true;
     bool invincible = false;
-    bool hurtFrame = false;
     Pointf position;
 };
 
@@ -30,7 +32,7 @@ enum class BattleAttackCastSubrequestKind
     ExtraProjectile,
 };
 
-struct BattleAttackState
+struct BattleAttackPayload
 {
     int attackerUnitId = -1;
     int skillId = -1;
@@ -72,11 +74,12 @@ struct BattleAttackState
 struct BattleAttackInstance
 {
     int id = -1;
-    BattleAttackState state;
+    BattleAttackPayload state;
     int frame = 0;
     bool noHurt = false;
     int spawnedFromAttackId = -1;
     std::vector<int> hitUnitIds;
+    std::vector<int> invincibleBlockedUnitIds;
     Pointf previousPosition;
     Pointf acceleration;
     bool spiralMotion = false;
@@ -89,7 +92,7 @@ struct BattleAttackInstance
 
 struct BattleAttackSpawnRequest
 {
-    BattleAttackState initial;
+    BattleAttackPayload initial;
     int initialFrame = 0;
     Pointf acceleration;
     bool spiralMotion = false;
@@ -119,6 +122,7 @@ enum class BattleAttackEventType
     Expired,
     TargetLost,
     ProjectileCancel,
+    BlockedByInvincible,
     Bounce
 };
 
@@ -158,7 +162,7 @@ struct BattleAttackEvent
     int totalFrame = 0;
 };
 
-struct BattleAttackWorld
+struct BattleAttackState
 {
     int frame = 0;
     double hitRadius{};
@@ -169,7 +173,6 @@ struct BattleAttackWorld
     double defaultProjectileSpeed{};
     int minimumBounceTotalFrame = 20;
     bool spendNonThroughOnHit = true;
-    std::vector<BattleAttackUnit> units;
     std::vector<BattleAttackInstance> attacks;
     std::unordered_map<int, std::vector<int>> sharedHitGroupTargets;
 };
@@ -177,30 +180,53 @@ struct BattleAttackWorld
 class BattleAttackSystem
 {
 public:
-    BattleAttackEvent spawn(BattleAttackWorld& world, const BattleAttackSpawnRequest& request) const;
-    std::vector<BattleAttackEvent> tick(BattleAttackWorld& world) const;
-    void applyProjectileCancelDamage(BattleAttackWorld& world, const BattleAttackEvent& event) const;
+    BattleAttackEvent spawn(BattleAttackState& world, const BattleAttackSpawnRequest& request) const;
+    std::vector<BattleAttackEvent> tick(BattleAttackState& world, const BattleUnitStore& units) const;
+    void applyProjectileCancelDamage(BattleAttackState& world, const BattleAttackEvent& event) const;
 
 private:
-    int allocateAttackId(BattleAttackWorld& world) const;
-    const BattleAttackUnit* selectTarget(const BattleAttackWorld& world, const BattleAttackInstance& attack) const;
+    int allocateAttackId(BattleAttackState& world) const;
+    const BattleRuntimeUnit* selectTarget(
+        const BattleAttackState& world,
+        const BattleUnitStore& units,
+        const BattleAttackInstance& attack) const;
     bool hasHitUnit(const BattleAttackInstance& attack, int unitId) const;
-    bool hasSharedHit(const BattleAttackWorld& world, int sharedHitGroupId, int unitId) const;
-    void markHit(BattleAttackWorld& world, BattleAttackInstance& attack, int unitId) const;
+    bool hasInvincibleBlockedUnit(const BattleAttackInstance& attack, int unitId) const;
+    bool hasSharedHit(const BattleAttackState& world, int sharedHitGroupId, int unitId) const;
+    void markHit(BattleAttackState& world, BattleAttackInstance& attack, int unitId) const;
+    void markInvincibleBlocked(BattleAttackInstance& attack, int unitId) const;
     void moveAttack(BattleAttackInstance& attack) const;
-    void trackTarget(BattleAttackInstance& attack, const BattleAttackUnit& target, double minimumVectorNorm) const;
-    bool canHit(const BattleAttackWorld& world, const BattleAttackInstance& attack, const BattleAttackUnit& target) const;
-    const BattleAttackUnit* selectBounceTarget(
-        const BattleAttackWorld& world,
+    void trackTarget(BattleAttackInstance& attack, const BattleRuntimeUnit& target, double minimumVectorNorm) const;
+    bool canContactTarget(
+        const BattleAttackState& world,
+        const BattleUnitStore& units,
         const BattleAttackInstance& attack,
-        const BattleAttackUnit& hitTarget) const;
+        const BattleRuntimeUnit& target) const;
+    bool contactBlockedByInvincible(
+        const BattleAttackState& world,
+        const BattleUnitStore& units,
+        const BattleAttackInstance& attack,
+        const BattleRuntimeUnit& target) const;
+    bool canHit(
+        const BattleAttackState& world,
+        const BattleUnitStore& units,
+        const BattleAttackInstance& attack,
+        const BattleRuntimeUnit& target) const;
+    const BattleRuntimeUnit* selectBounceTarget(
+        const BattleAttackState& world,
+        const BattleUnitStore& units,
+        const BattleAttackInstance& attack,
+        const BattleRuntimeUnit& hitTarget) const;
     BattleAttackInstance makeBounceAttack(
-        const BattleAttackWorld& world,
+        const BattleAttackState& world,
         const BattleAttackInstance& source,
-        const BattleAttackUnit& hitTarget,
-        const BattleAttackUnit& nextTarget,
+        const BattleRuntimeUnit& hitTarget,
+        const BattleRuntimeUnit& nextTarget,
         int attackId) const;
-    void collectProjectileCancelEvents(const BattleAttackWorld& world, std::vector<BattleAttackEvent>& events) const;
+    void collectProjectileCancelEvents(
+        const BattleAttackState& world,
+        const BattleUnitStore& units,
+        std::vector<BattleAttackEvent>& events) const;
 };
 
 double projectileOperationDamageMultiplier(BattleOperationType operationType);

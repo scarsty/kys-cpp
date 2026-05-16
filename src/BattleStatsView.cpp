@@ -1,4 +1,5 @@
 #include "BattleStatsView.h"
+#include "BattleLogPresenter.h"
 #include "BattleRoleManager.h"
 #include <algorithm>
 #include "Engine.h"
@@ -9,182 +10,9 @@
 #include "Audio.h"
 #include "ChessUiCommon.h"
 #include "ChessEftIds.h"
-#include "ImGuiLayer.h"
 #include "ScenePreloader.h"
 #include <cassert>
 #include <format>
-#include <set>
-#include <unordered_map>
-
-namespace
-{
-constexpr int kMaxBattleLogEntries = 9999;
-
-BattleLogTone teamToBattleLogTone(int team)
-{
-    if (team == 0) return BattleLogTone::Ally;
-    if (team == 1) return BattleLogTone::Enemy;
-    return BattleLogTone::Neutral;
-}
-
-BattleLogFieldTone teamToFieldTone(int team)
-{
-    if (team == 0) return BattleLogFieldTone::AllyName;
-    if (team == 1) return BattleLogFieldTone::EnemyName;
-    return BattleLogFieldTone::Default;
-}
-
-void appendBattleLogSegment(BattleLogLine& line, std::string text, BattleLogFieldTone tone = BattleLogFieldTone::Default)
-{
-    if (!text.empty())
-    {
-        line.segments.push_back({std::move(text), tone});
-    }
-}
-
-std::string battleResultText(int battleResult)
-{
-    return battleResult == 0 ? "戰鬥勝利" : (battleResult == 1 ? "戰鬥失敗" : "戰鬥結束");
-}
-
-std::unordered_map<int, std::string> buildDistinctRoleLabels(const std::vector<BattleStatsView::RoleEntry>& team)
-{
-    std::unordered_map<std::string, int> totals;
-    std::unordered_map<int, std::string> labels;
-    for (const auto& entry : team)
-    {
-        totals[entry.displayName]++;
-    }
-
-    std::unordered_map<std::string, int> seen;
-    for (const auto& entry : team)
-    {
-        const std::string baseName = entry.displayName;
-        const int instanceIndex = ++seen[baseName];
-        labels[entry.battleId] = totals[baseName] > 1
-            ? std::format("{} [{}]", baseName, instanceIndex)
-            : baseName;
-    }
-
-    return labels;
-}
-
-void setLineParticipants(BattleLogLine& line, const BattleLogEvent& event)
-{
-    line.sourceId = event.sourceId;
-    line.targetId = event.targetId;
-    line.sourceTeam = event.sourceTeam;
-    line.targetTeam = event.targetTeam;
-}
-
-BattleLogLine buildBattleLogLine(const BattleLogEvent& event)
-{
-    BattleLogLine line;
-    setLineParticipants(line, event);
-
-    auto addFrame = [&]() {
-        appendBattleLogSegment(line, std::format("[{:>4}F] ", event.frame), BattleLogFieldTone::SystemAccent);
-    };
-
-    switch (event.type)
-    {
-    case BattleLogEventType::Damage:
-        line.tone = teamToBattleLogTone(event.sourceTeam);
-        addFrame();
-        appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
-        appendBattleLogSegment(line, event.skillName.empty() ? " 攻擊 " : " 施放 ");
-        if (!event.skillName.empty())
-        {
-            appendBattleLogSegment(line, event.skillName, BattleLogFieldTone::SkillName);
-            appendBattleLogSegment(line, " 命中 ");
-        }
-        appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-        appendBattleLogSegment(line, " ，造成 ");
-        appendBattleLogSegment(line, std::to_string(event.value), BattleLogFieldTone::DamageValue);
-        appendBattleLogSegment(line, " 點傷害");
-        if (!event.detailText.empty())
-        {
-            appendBattleLogSegment(line, "（");
-            appendBattleLogSegment(line, event.detailText, BattleLogFieldTone::SkillName);
-            appendBattleLogSegment(line, "）");
-        }
-        break;
-    case BattleLogEventType::Heal:
-        line.tone = teamToBattleLogTone(event.targetTeam >= 0 ? event.targetTeam : event.sourceTeam);
-        addFrame();
-        if (!event.sourceName.empty() && !event.targetName.empty() && event.sourceId != event.targetId)
-        {
-            appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
-            appendBattleLogSegment(line, " 为 ");
-            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-        }
-        else if (!event.targetName.empty())
-        {
-            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-        }
-        else
-        {
-            appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
-        }
-        appendBattleLogSegment(line, " 恢復 ");
-        appendBattleLogSegment(line, std::to_string(event.value), BattleLogFieldTone::DamageValue);
-        appendBattleLogSegment(line, " 點生命");
-        if (!event.detailText.empty())
-        {
-            appendBattleLogSegment(line, "（");
-            appendBattleLogSegment(line, event.detailText, BattleLogFieldTone::SkillName);
-            appendBattleLogSegment(line, "）");
-        }
-        break;
-    case BattleLogEventType::Status:
-        line.tone = teamToBattleLogTone(event.targetTeam >= 0 ? event.targetTeam : event.sourceTeam);
-        if (line.tone == BattleLogTone::Neutral)
-        {
-            line.tone = BattleLogTone::System;
-        }
-        addFrame();
-        if (!event.sourceName.empty() && !event.targetName.empty() && event.sourceId != event.targetId)
-        {
-            appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
-            appendBattleLogSegment(line, " 對 ");
-            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-            appendBattleLogSegment(line, "：");
-        }
-        else if (!event.targetName.empty())
-        {
-            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-            appendBattleLogSegment(line, "：");
-        }
-        else if (!event.sourceName.empty())
-        {
-            appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
-            appendBattleLogSegment(line, "：");
-        }
-        appendBattleLogSegment(line, event.detailText, BattleLogFieldTone::SkillName);
-        break;
-    case BattleLogEventType::Kill:
-        line.tone = teamToBattleLogTone(event.sourceTeam);
-        addFrame();
-        appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
-        appendBattleLogSegment(line, " 擊殺了 ");
-        appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-        break;
-    case BattleLogEventType::Death:
-        line.tone = teamToBattleLogTone(event.targetTeam);
-        addFrame();
-        appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-        appendBattleLogSegment(line, " 倒下");
-        break;
-    case BattleLogEventType::BattleEnd:
-        line.tone = BattleLogTone::System;
-        addFrame();
-        appendBattleLogSegment(line, battleResultText(event.value), BattleLogFieldTone::SystemAccent);
-        break;
-    }
-
-    return line;
-}
-}
 
 BattleStatsView::~BattleStatsView()
 {
@@ -319,7 +147,7 @@ void BattleStatsView::setupPreBattle(
     postBattleKeyboardReleaseArmed_ = false;
     postBattleGamepadReleaseArmed_ = false;
     battleLogTotalFrames_ = 0;
-    battleLogEvents_.clear();
+    battleReport_ = nullptr;
     allies_.clear(); enemies_.clear();
     for (size_t i = 0; i < allies.size(); ++i)
     {
@@ -355,7 +183,7 @@ void BattleStatsView::setupPreBattle(
 
 void BattleStatsView::setupPostBattle(
     const BattlePostBattleSummary& summary,
-    const BattleTracker& tracker)
+    const BattleReport& report)
 {
     isPreBattle_ = false;
     full_window_ = 1;
@@ -370,10 +198,10 @@ void BattleStatsView::setupPostBattle(
     postBattleMouseReleaseArmed_ = false;
     postBattleKeyboardReleaseArmed_ = false;
     postBattleGamepadReleaseArmed_ = false;
-    battleLogEvents_ = tracker.getEvents();
+    battleReport_ = &report;
     allies_.clear(); enemies_.clear();
-    auto& stats = tracker.getStats();
-    int endFrame = tracker.getBattleEndFrame();
+    const auto& stats = report.stats();
+    int endFrame = report.battleEndFrame();
     battleLogTotalFrames_ = endFrame;
     auto fillPost = [&](RoleEntry& e, int battleId) {
         e.battleId = battleId;
@@ -420,85 +248,41 @@ void BattleStatsView::setupPostBattle(
 
 void BattleStatsView::showPostBattleLog()
 {
-    BattleLogData data;
-    data.title = "本場戰鬥日誌";
-    data.resultText = battleResultText(battleResult_);
-    data.totalFrames = battleLogTotalFrames_;
-    const auto allyLabels = buildDistinctRoleLabels(allies_);
-    const auto enemyLabels = buildDistinctRoleLabels(enemies_);
+    assert(battleReport_);
+    BattlePostBattleSummary summary;
+    summary.battleResult = battleResult_;
 
-    auto resolveRoleLabel = [&](int team, int battleId, const std::string& fallback) -> std::string
+    auto append = [](const RoleEntry& entry, std::vector<BattlePostBattleUnitSummary>& target)
     {
-        const auto& labels = team == 0 ? allyLabels : enemyLabels;
-        auto it = labels.find(battleId);
-        return it != labels.end() ? it->second : fallback;
+        BattlePostBattleUnitSummary unit;
+        unit.identity = entry.identity;
+        unit.star = entry.star;
+        unit.chessInstanceId = entry.chessInstanceId;
+        unit.hp = entry.hp;
+        unit.maxHp = entry.hp;
+        unit.attack = entry.atk;
+        unit.defence = entry.def;
+        unit.speed = entry.spd;
+        unit.weaponId = entry.weaponId;
+        unit.armorId = entry.armorId;
+        unit.skillNames = entry.skillNames;
+        unit.hpRemaining = entry.hpRemaining;
+        unit.maxHpRemaining = entry.maxHpRemaining;
+        unit.dead = entry.dead;
+        unit.cancelDmg = entry.cancelDmg;
+        target.push_back(std::move(unit));
     };
 
-    auto appendRoleRows = [&](const std::vector<RoleEntry>& team, std::vector<BattleLogRoleRow>& rows)
+    for (const auto& entry : allies_)
     {
-        rows.reserve(team.size());
-        for (const auto& entry : team)
-        {
-            BattleLogRoleRow row;
-            row.id = entry.battleId;
-            row.name = resolveRoleLabel(entry.team, entry.battleId, entry.displayName);
-            row.team = entry.team;
-            row.damageDealt = entry.damageDealt;
-            row.damageTaken = entry.damageTaken;
-            row.kills = entry.kills;
-            row.cancelDmg = entry.cancelDmg;
-            row.hpRemaining = entry.hpRemaining;
-            row.maxHp = entry.maxHpRemaining;
-            row.dead = entry.dead;
-            rows.push_back(std::move(row));
-        }
-    };
-
-    appendRoleRows(allies_, data.allies);
-    appendRoleRows(enemies_, data.enemies);
-
-    int omitted = 0;
-    const int eventCount = static_cast<int>(battleLogEvents_.size());
-    int startIndex = 0;
-    if (eventCount > kMaxBattleLogEntries)
-    {
-        omitted = eventCount - kMaxBattleLogEntries;
-        startIndex = omitted;
+        append(entry, summary.allies);
     }
-    data.omittedEntries = omitted;
-
-    if (omitted > 0)
+    for (const auto& entry : enemies_)
     {
-        BattleLogLine omittedLine;
-        omittedLine.tone = BattleLogTone::System;
-        appendBattleLogSegment(omittedLine, std::format("前 {} 條記錄已省略", omitted), BattleLogFieldTone::SystemAccent);
-        data.entries.push_back(std::move(omittedLine));
+        append(entry, summary.enemies);
     }
 
-    data.entries.reserve(data.entries.size() + eventCount - startIndex);
-    for (int i = startIndex; i < eventCount; ++i)
-    {
-        auto event = battleLogEvents_[i];
-        if (event.sourceId >= 0)
-        {
-            event.sourceName = resolveRoleLabel(event.sourceTeam, event.sourceId, event.sourceName);
-        }
-        if (event.targetId >= 0)
-        {
-            event.targetName = resolveRoleLabel(event.targetTeam, event.targetId, event.targetName);
-        }
-        data.entries.push_back(buildBattleLogLine(event));
-    }
-
-    if (data.entries.empty())
-    {
-        BattleLogLine emptyLine;
-        emptyLine.tone = BattleLogTone::System;
-        appendBattleLogSegment(emptyLine, "本場戰鬥沒有產生可記錄事件。", BattleLogFieldTone::SystemAccent);
-        data.entries.push_back(std::move(emptyLine));
-    }
-
-    Engine::getInstance()->showBattleLogWindow(data);
+    Engine::getInstance()->showBattleLogOverlay(BattleLogPresenter().present(summary, *battleReport_));
 }
 
 void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, int y, int w, const std::string& title, bool showPost)
@@ -922,7 +706,7 @@ void BattleStatsView::backRun()
         showPostBattleLog();
     }
 
-    if (!isPreBattle_ && postBattleLogShown_ && !Engine::getInstance()->isBattleLogWindowOpen())
+    if (!isPreBattle_ && postBattleLogShown_ && !Engine::getInstance()->isBattleLogOverlayOpen())
     {
         setExit(true);
     }

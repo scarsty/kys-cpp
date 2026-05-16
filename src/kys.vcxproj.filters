@@ -142,10 +142,19 @@
     <ClCompile Include="BattleSceneSetupBuilder.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="BattleSceneReportPlayer.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="BattleSceneUnitStore.cpp">
       <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="BattleTracker.cpp">
+    <ClCompile Include="BattleLogImGuiView.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleLogPresenter.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleReport.cpp">
       <Filter>battle</Filter>
     </ClCompile>
     <ClCompile Include="battle\BattleHitResolver.cpp">

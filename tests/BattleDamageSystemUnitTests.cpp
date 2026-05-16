@@ -116,7 +116,6 @@ TEST_CASE("BattleDamageSystem_LegacyHitShapeOwnsProjectileFalloffFacingAndOperat
     CHECK(result.knockbackStrength == Catch::Approx(2.0));
     CHECK(result.knockbackVelocityCap == Catch::Approx(3.0));
     CHECK(result.frozenFrames == 0);
-    CHECK(result.grantsHurtFrame);
 }
 
 TEST_CASE("BattleDamageSystem_LegacyDashHitShapeEmitsFreezeAndReducedDashDamage", "[battle][damage][unit]")

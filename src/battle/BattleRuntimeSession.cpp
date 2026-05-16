@@ -12,7 +12,6 @@ namespace KysChess::Battle
 {
 namespace
 {
-constexpr double RoleMoveSpeedDivisor = 22.0;
 constexpr int ProjectileGraceFrames = 5;
 constexpr int NormalDamageTextSize = 30;
 constexpr int UltDamageTextSize = 44;
@@ -81,7 +80,7 @@ int getComboLookupId(int realRoleId, const RoleComboState& state)
 }
 
 void configureAttackWorld(
-    BattleAttackWorld& world,
+    BattleAttackState& world,
     const BattleRuntimeRulesConfig& rules)
 {
     world.hitRadius = rules.action.meleeAttackHitRadius;
@@ -114,7 +113,6 @@ BattleRuntimeUnit makeRuntimeUnit(
     unit.operationCount = setup.operationCount;
     unit.physicalPower = setup.physicalPower;
     unit.invincible = setup.invincible;
-    unit.hurtFrame = setup.hurtFrame;
     for (int magicType = 0; magicType <= 4; ++magicType)
     {
         unit.actPropertiesByMagicType.emplace(magicType, setup.actPropertiesByMagicType[magicType]);
@@ -129,51 +127,39 @@ BattleRuntimeUnit makeRuntimeUnit(
     return unit;
 }
 
-BattleUnitState makeInitializedWorldUnit(
-    const BattleRuntimeUnit& runtimeUnit,
-    const std::map<int, RoleComboState>& comboStates,
-    const BattleWorldState& existingWorld,
-    const std::map<int, BattleMovementPhysicsState>& movementRuntime,
-    const BattleActionRulesConfig& actionRules)
+BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(const BattleRuntimeUnit& unit, const RoleComboState* combo)
 {
-    const auto comboIt = comboStates.find(runtimeUnit.id);
-    const bool dashAttackEnabled = comboIt != comboStates.end() && comboIt->second.dashAttack;
-
-    auto unit = makeBattleWorldUnitState(runtimeUnit, RoleMoveSpeedDivisor);
-    unit.reach = actionRules.meleeAttackReach;
-    unit.style = CombatStyle::Melee;
-    unit.taXue = dashAttackEnabled;
-    unit.dashAttack = dashAttackEnabled;
-
-    const auto existingMovement = std::ranges::find(existingWorld.units, runtimeUnit.id, &BattleUnitState::id);
-    if (existingMovement != existingWorld.units.end())
+    BattleDamageRuntimeUnit damage;
+    damage.id = unit.id;
+    if (combo)
     {
-        unit.assignedSlot = existingMovement->assignedSlot;
-        unit.slotSwitchCooldownRemaining = existingMovement->slotSwitchCooldownRemaining;
+        damage.hurtInvincFrames = combo->hurtInvincFrames;
+        damage.blockFirstHitsRemaining = combo->blockFirstHitsRemaining;
+        damage.deathPrevention = combo->deathPrevention;
+        damage.deathPreventionUsed = combo->deathPreventionUsed;
+        damage.deathPreventionFrames = combo->deathPreventionFrames;
+        damage.killHealPct = combo->killHealPct;
+        damage.killInvincFrames = combo->killInvincFrames;
+        damage.bloodlustAttackPerKill = combo->bloodlustATKPerKill;
     }
-
-    const auto movementIt = movementRuntime.find(runtimeUnit.id);
-    if (movementIt != movementRuntime.end())
-    {
-        unit.dashFramesRemaining = movementIt->second.movementDashFrames;
-        unit.dashCooldownRemaining = movementIt->second.movementDashCooldown;
-        unit.postDashRetreatFramesRemaining = movementIt->second.postDashRetreatFrames;
-        unit.postDashChaosFramesRemaining = movementIt->second.postDashChaosFrames;
-    }
-
-    return unit;
+    return damage;
 }
 
-BattleAttackUnit makeAttackUnit(const BattleRuntimeUnit& runtimeUnit)
+BattleMovementAgentState makeInitializedMovementAgent(
+    int unitId,
+    const BattleMovementState& existingMovement,
+    const BattleRuntimeUnit& unit)
 {
-    BattleAttackUnit unit;
-    unit.id = runtimeUnit.id;
-    unit.team = runtimeUnit.team;
-    unit.alive = runtimeUnit.alive;
-    unit.invincible = runtimeUnit.invincible > 0;
-    unit.hurtFrame = runtimeUnit.hurtFrame > 0;
-    unit.position = runtimeUnit.motion.position;
-    return unit;
+    if (const auto it = existingMovement.agents.find(unitId);
+        it != existingMovement.agents.end())
+    {
+        return it->second;
+    }
+    BattleMovementAgentState agent;
+    agent.physics.position = unit.motion.position;
+    agent.physics.velocity = unit.motion.velocity;
+    agent.physics.acceleration = unit.motion.acceleration;
+    return agent;
 }
 
 BattleDeathEffectStore makeDeathEffectStore(
@@ -215,12 +201,11 @@ BattleDeathEffectStore makeDeathEffectStore(
 
 void buildCanonicalRuntime(BattleRuntimeInit& init, const BattleRuntimeSessionCreationInput& input)
 {
-    init.runtime.units.gridTransform = input.rules.gridTransform;
+    init.runtime.unitStore.gridTransform = input.rules.gridTransform;
     init.runtime.random = BattleRuntimeRandom(input.randomSeed);
     init.runtime.combo.units = input.comboStates;
-    init.runtime.units.units.reserve(input.units.size());
+    init.runtime.unitStore.units.reserve(input.units.size());
     init.runtime.status.units.reserve(input.units.size());
-    init.runtime.world.units.reserve(input.units.size());
     init.setup = input.setup;
 
     for (const auto& setup : input.units)
@@ -241,47 +226,32 @@ void buildCanonicalRuntime(BattleRuntimeInit& init, const BattleRuntimeSessionCr
         {
             init.runtime.status.units.push_back(BattleStatusRuntimeUnit{ .id = setup.unitId });
         }
-        init.runtime.world.units.push_back(makeBattleWorldUnitState(runtimeUnit, RoleMoveSpeedDivisor));
-        init.runtime.units.units.push_back(std::move(runtimeUnit));
+        init.runtime.unitStore.units.push_back(std::move(runtimeUnit));
     }
 }
 
 void deriveRuntimeStores(BattleRuntimeState& runtime, BattleRuntimeSessionCreationInput input)
 {
-    const auto existingWorld = runtime.world;
+    const auto existingMovement = runtime.movement;
 
-    runtime.world.frame = input.battleFrame;
-    runtime.world.config = input.rules.movementConfig;
-    runtime.world.terrainCells = std::move(input.terrainCells);
-    runtime.world.units.clear();
-    runtime.world.units.reserve(runtime.units.units.size());
-    for (const auto& unit : runtime.units.units)
+    runtime.movement.frame = input.battleFrame;
+    runtime.movement.config = input.rules.movementConfig;
+    runtime.movement.terrainCells = std::move(input.terrainCells);
+    runtime.movement.agents.clear();
+    for (const auto& unit : runtime.unitStore.units)
     {
         if (!unit.alive)
         {
             continue;
         }
-        runtime.world.units.push_back(makeInitializedWorldUnit(
-            unit,
-            runtime.combo.units,
-            existingWorld,
-            runtime.movementRuntime,
-            input.rules.action));
+        runtime.movement.agents.emplace(
+            unit.id,
+            makeInitializedMovementAgent(unit.id, existingMovement, unit));
     }
 
     configureAttackWorld(runtime.attacks, input.rules);
-    runtime.attacks.units.clear();
-    runtime.attacks.units.reserve(runtime.units.units.size());
-    for (const auto& unit : runtime.units.units)
-    {
-        if (unit.alive)
-        {
-            runtime.attacks.units.push_back(makeAttackUnit(unit));
-        }
-    }
-
     runtime.teamEffects.healAuraRadius = input.rules.teamEffectHealAuraRadius;
-    runtime.deathEffects.store = makeDeathEffectStore(runtime.units, runtime.combo.units);
+    runtime.deathEffects.store = makeDeathEffectStore(runtime.unitStore, runtime.combo.units);
 
     runtime.rescue.cells = std::move(input.rescueCells);
     runtime.rescue.executeUnattendedRadius = input.rules.rescueExecuteUnattendedRadius;
@@ -289,7 +259,11 @@ void deriveRuntimeStores(BattleRuntimeState& runtime, BattleRuntimeSessionCreati
     runtime.rescue.counterAttack.skillId = input.rescueCounterAttackSkillId;
 
     runtime.movementPhysics.config = input.rules.movementPhysicsConfig;
-    runtime.movementPhysics.collision = input.rules.movementCollisionWorld;
+    runtime.movementPhysics.terrain.tileWidth = input.rules.movementCollisionWorld.tileWidth;
+    runtime.movementPhysics.terrain.coordCount = input.rules.movementCollisionWorld.coordCount;
+    runtime.movementPhysics.terrain.defaultSeparationDistance =
+        input.rules.movementCollisionWorld.defaultSeparationDistance;
+    runtime.movementPhysics.terrain.walkableByCell = input.rules.movementCollisionWorld.walkableByCell;
     runtime.movementPhysics.actionCastFrames.assign(
         input.rules.castConfig.castFrames.begin(),
         input.rules.castConfig.castFrames.end());
@@ -318,13 +292,12 @@ void deriveRuntimeStores(BattleRuntimeState& runtime, BattleRuntimeSessionCreati
     runtime.damage.unitExtras.clear();
     runtime.damage.presentationStylesByDefender.clear();
     runtime.damage.unitEffects.clear();
-    for (const auto& unit : runtime.units.units)
+    for (const auto& unit : runtime.unitStore.units)
     {
         const auto stateIt = runtime.combo.units.find(unit.id);
-        runtime.damage.unitExtras.push_back(makeBattleDamageRuntimeUnit(
-            makeBattleDamageUnitState(
-                unit,
-                stateIt != runtime.combo.units.end() ? &stateIt->second : nullptr)));
+        runtime.damage.unitExtras.push_back(makeInitialDamageRuntimeUnit(
+            unit,
+            stateIt != runtime.combo.units.end() ? &stateIt->second : nullptr));
         runtime.damage.presentationStylesByDefender.emplace(unit.id, makeDamagePresentationStyle(unit.team));
         if (stateIt != runtime.combo.units.end() && stateIt->second.deathAOEPct > 0)
         {
@@ -371,14 +344,11 @@ void BattleRuntimeSession::commitSetupPlacement(const BattleSetupPlacementInput&
 
     for (const auto& unitPlacement : input.units)
     {
-        const auto position = setupPlacementPosition(runtime_.units.gridTransform, unitPlacement.x, unitPlacement.y);
-        runtime_.units.setPosition(unitPlacement.unitId, position);
-        auto& unit = runtime_.units.requireUnit(unitPlacement.unitId);
+        const auto position = setupPlacementPosition(runtime_.unitStore.gridTransform, unitPlacement.x, unitPlacement.y);
+        runtime_.unitStore.setPosition(unitPlacement.unitId, position);
+        auto& unit = runtime_.unitStore.requireUnit(unitPlacement.unitId);
         unit.motion.facing = setupPlacementFacing(unitPlacement.faceTowards);
-
-        auto& worldUnit = requireById(runtime_.world.units, unitPlacement.unitId);
-        worldUnit.position = position;
-        worldUnit.velocity = { 0, 0, 0 };
+        unit.motion.velocity = { 0, 0, 0 };
     }
 }
 

@@ -2,10 +2,13 @@
 
 #include "BattleFind.h"
 #include "BattleMath.h"
+#include "BattleUnitStore.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <unordered_set>
+#include <vector>
 
 namespace KysChess::Battle
 {
@@ -17,6 +20,14 @@ struct PendingBounce
     BattleAttackInstance attack;
     int sourceAttackId = -1;
     int targetUnitId = -1;
+};
+
+struct ProjectileCancelCandidate
+{
+    BattleAttackEvent event;
+    int totalDamage = 0;
+    int strongestDamage = 0;
+    int weakestDamage = 0;
 };
 
 bool isProjectileOperation(BattleOperationType operationType)
@@ -101,7 +112,7 @@ double segmentSegmentDistance(Pointf lhsStart, Pointf lhsEnd, Pointf rhsStart, P
     });
 }
 
-void applyAttackPayload(BattleAttackEvent& event, const BattleAttackState& state)
+void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& state)
 {
     event.sourceUnitId = state.attackerUnitId;
     event.skillId = state.skillId;
@@ -145,6 +156,45 @@ BattleAttackEvent makeProjectileCancelEvent(const BattleAttackInstance& lhs, con
         rhs.state.projectileCancelDamage,
         rhs.state.operationType);
     return event;
+}
+
+ProjectileCancelCandidate makeProjectileCancelCandidate(
+    const BattleAttackInstance& lhs,
+    const BattleAttackInstance& rhs)
+{
+    ProjectileCancelCandidate candidate;
+    candidate.event = makeProjectileCancelEvent(lhs, rhs);
+    candidate.totalDamage = candidate.event.projectileCancelDamage + candidate.event.otherProjectileCancelDamage;
+    candidate.strongestDamage = std::max(
+        candidate.event.projectileCancelDamage,
+        candidate.event.otherProjectileCancelDamage);
+    candidate.weakestDamage = std::min(
+        candidate.event.projectileCancelDamage,
+        candidate.event.otherProjectileCancelDamage);
+    return candidate;
+}
+
+bool betterProjectileCancelCandidate(
+    const ProjectileCancelCandidate& lhs,
+    const ProjectileCancelCandidate& rhs)
+{
+    if (lhs.totalDamage != rhs.totalDamage)
+    {
+        return lhs.totalDamage > rhs.totalDamage;
+    }
+    if (lhs.strongestDamage != rhs.strongestDamage)
+    {
+        return lhs.strongestDamage > rhs.strongestDamage;
+    }
+    if (lhs.weakestDamage != rhs.weakestDamage)
+    {
+        return lhs.weakestDamage > rhs.weakestDamage;
+    }
+    if (lhs.event.attackId != rhs.event.attackId)
+    {
+        return lhs.event.attackId < rhs.event.attackId;
+    }
+    return lhs.event.otherAttackId < rhs.event.otherAttackId;
 }
 
 }  // namespace
@@ -202,7 +252,7 @@ bool tryApplyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAtta
 }
 
 BattleAttackEvent BattleAttackSystem::spawn(
-    BattleAttackWorld& world,
+    BattleAttackState& world,
     const BattleAttackSpawnRequest& request) const
 {
     assert(request.initial.attackerUnitId >= 0);
@@ -238,7 +288,9 @@ BattleAttackEvent BattleAttackSystem::spawn(
     return event;
 }
 
-std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world) const
+std::vector<BattleAttackEvent> BattleAttackSystem::tick(
+    BattleAttackState& world,
+    const BattleUnitStore& units) const
 {
     assert(world.hitRadius > 0.0);
     assert(world.minimumVectorNorm > 0.0);
@@ -265,7 +317,7 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
         moveAttack(attack);
         events.push_back({ BattleAttackEventType::Moved, attack.id });
 
-        const auto* target = selectTarget(world, attack);
+        const auto* target = selectTarget(world, units, attack);
         if (!target && attack.state.requirePreferredTarget)
         {
             attack.noHurt = true;
@@ -273,12 +325,23 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
             events.push_back({ BattleAttackEventType::TargetLost, attack.id });
         }
 
-        if (target && attack.state.track)
+        if (target && attack.state.track && attack.hitUnitIds.empty())
         {
             trackTarget(attack, *target, world.minimumVectorNorm);
         }
 
-        if (target && canHit(world, attack, *target))
+        if (target && contactBlockedByInvincible(world, units, attack, *target))
+        {
+            markInvincibleBlocked(attack, target->id);
+            BattleAttackEvent blocked;
+            blocked.type = BattleAttackEventType::BlockedByInvincible;
+            blocked.attackId = attack.id;
+            blocked.unitId = target->id;
+            applyAttackPayload(blocked, attack.state);
+            blocked.frame = attack.frame;
+            events.push_back(blocked);
+        }
+        else if (target && canHit(world, units, attack, *target))
         {
             markHit(world, attack, target->id);
             BattleAttackEvent hit;
@@ -294,7 +357,7 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
                 auto bounceSource = attack;
                 const auto* nextTarget = attack.state.bounceChancePct > 0
                     && attack.state.bounceRollPct < attack.state.bounceChancePct
-                    ? selectBounceTarget(world, attack, *target)
+                    ? selectBounceTarget(world, units, attack, *target)
                     : nullptr;
                 attack.state.bounceRemaining = 0;
                 attack.noHurt = true;
@@ -334,12 +397,12 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
         });
     }
 
-    collectProjectileCancelEvents(world, events);
+    collectProjectileCancelEvents(world, units, events);
     return events;
 }
 
 void BattleAttackSystem::applyProjectileCancelDamage(
-    BattleAttackWorld& world,
+    BattleAttackState& world,
     const BattleAttackEvent& event) const
 {
     assert(event.type == BattleAttackEventType::ProjectileCancel);
@@ -364,7 +427,7 @@ void BattleAttackSystem::applyProjectileCancelDamage(
     }
 }
 
-int BattleAttackSystem::allocateAttackId(BattleAttackWorld& world) const
+int BattleAttackSystem::allocateAttackId(BattleAttackState& world) const
 {
     assert(world.nextAttackId >= 0);
     if (world.nextAttackId == 0 && !world.attacks.empty())
@@ -380,11 +443,12 @@ int BattleAttackSystem::allocateAttackId(BattleAttackWorld& world) const
     return world.nextAttackId++;
 }
 
-const BattleAttackUnit* BattleAttackSystem::selectTarget(
-    const BattleAttackWorld& world,
+const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
+    const BattleAttackState& world,
+    const BattleUnitStore& units,
     const BattleAttackInstance& attack) const
 {
-    const auto* attacker = tryFindById(world.units, attack.state.attackerUnitId);
+    const auto* attacker = units.findUnit(attack.state.attackerUnitId);
     if (!attacker || !attacker->alive)
     {
         return nullptr;
@@ -392,7 +456,7 @@ const BattleAttackUnit* BattleAttackSystem::selectTarget(
 
     if (attack.state.preferredTargetUnitId >= 0)
     {
-        const auto* preferred = tryFindById(world.units, attack.state.preferredTargetUnitId);
+        const auto* preferred = units.findUnit(attack.state.preferredTargetUnitId);
         if (preferred && preferred->alive && preferred->team != attacker->team)
         {
             return preferred;
@@ -403,15 +467,15 @@ const BattleAttackUnit* BattleAttackSystem::selectTarget(
         }
     }
 
-    const BattleAttackUnit* best = nullptr;
+    const BattleRuntimeUnit* best = nullptr;
     double bestDistance = 0.0;
-    for (const auto& unit : world.units)
+    for (const auto& unit : units.units)
     {
         if (!unit.alive || unit.team == attacker->team)
         {
             continue;
         }
-        const double candidateDistance = pointDistance(unit.position, attack.state.position);
+        const double candidateDistance = pointDistance(unit.motion.position, attack.state.position);
         if (!best || candidateDistance < bestDistance)
         {
             best = &unit;
@@ -426,8 +490,16 @@ bool BattleAttackSystem::hasHitUnit(const BattleAttackInstance& attack, int unit
     return std::find(attack.hitUnitIds.begin(), attack.hitUnitIds.end(), unitId) != attack.hitUnitIds.end();
 }
 
+bool BattleAttackSystem::hasInvincibleBlockedUnit(const BattleAttackInstance& attack, int unitId) const
+{
+    return std::find(
+        attack.invincibleBlockedUnitIds.begin(),
+        attack.invincibleBlockedUnitIds.end(),
+        unitId) != attack.invincibleBlockedUnitIds.end();
+}
+
 bool BattleAttackSystem::hasSharedHit(
-    const BattleAttackWorld& world,
+    const BattleAttackState& world,
     int sharedHitGroupId,
     int unitId) const
 {
@@ -443,7 +515,7 @@ bool BattleAttackSystem::hasSharedHit(
     return std::find(it->second.begin(), it->second.end(), unitId) != it->second.end();
 }
 
-void BattleAttackSystem::markHit(BattleAttackWorld& world, BattleAttackInstance& attack, int unitId) const
+void BattleAttackSystem::markHit(BattleAttackState& world, BattleAttackInstance& attack, int unitId) const
 {
     assert(unitId >= 0);
     assert(!hasHitUnit(attack, unitId));
@@ -454,6 +526,13 @@ void BattleAttackSystem::markHit(BattleAttackWorld& world, BattleAttackInstance&
         assert(std::find(sharedHits.begin(), sharedHits.end(), unitId) == sharedHits.end());
         sharedHits.push_back(unitId);
     }
+}
+
+void BattleAttackSystem::markInvincibleBlocked(BattleAttackInstance& attack, int unitId) const
+{
+    assert(unitId >= 0);
+    assert(!hasInvincibleBlockedUnit(attack, unitId));
+    attack.invincibleBlockedUnitIds.push_back(unitId);
 }
 
 void BattleAttackSystem::moveAttack(BattleAttackInstance& attack) const
@@ -490,7 +569,7 @@ void BattleAttackSystem::moveAttack(BattleAttackInstance& attack) const
 
 void BattleAttackSystem::trackTarget(
     BattleAttackInstance& attack,
-    const BattleAttackUnit& target,
+    const BattleRuntimeUnit& target,
     double minimumVectorNorm) const
 {
     const double speed = pointNorm(attack.state.velocity);
@@ -498,18 +577,18 @@ void BattleAttackSystem::trackTarget(
     {
         return;
     }
-    auto correction = normalizedTo(target.position - attack.state.position, speed / 20.0, minimumVectorNorm);
+    auto correction = normalizedTo(target.motion.position - attack.state.position, speed / 20.0, minimumVectorNorm);
     attack.state.velocity += correction;
     attack.state.velocity = normalizedTo(attack.state.velocity, speed, minimumVectorNorm);
 }
 
-bool BattleAttackSystem::canHit(
-    const BattleAttackWorld& world,
+bool BattleAttackSystem::canContactTarget(
+    const BattleAttackState& world,
+    const BattleUnitStore& units,
     const BattleAttackInstance& attack,
-    const BattleAttackUnit& target) const
+    const BattleRuntimeUnit& target) const
 {
     if (attack.noHurt
-        || target.hurtFrame
         || !target.alive
         || hasHitUnit(attack, target.id)
         || hasSharedHit(world, attack.state.sharedHitGroupId, target.id))
@@ -517,40 +596,62 @@ bool BattleAttackSystem::canHit(
         return false;
     }
 
-    const auto* attacker = tryFindById(world.units, attack.state.attackerUnitId);
+    const auto* attacker = units.findUnit(attack.state.attackerUnitId);
     if (!attacker || !attacker->alive || attacker->team == target.team)
     {
         return false;
     }
 
-    if (target.invincible && !attack.state.executeCanHitInvincible)
-    {
-        return false;
-    }
-
     return pointSegmentDistance(
-        target.position,
+        target.motion.position,
         attack.previousPosition,
         attack.state.position) <= world.hitRadius;
 }
 
-const BattleAttackUnit* BattleAttackSystem::selectBounceTarget(
-    const BattleAttackWorld& world,
+bool BattleAttackSystem::contactBlockedByInvincible(
+    const BattleAttackState& world,
+    const BattleUnitStore& units,
     const BattleAttackInstance& attack,
-    const BattleAttackUnit& hitTarget) const
+    const BattleRuntimeUnit& target) const
+{
+    return target.invincible > 0
+        && !attack.state.executeCanHitInvincible
+        && !hasInvincibleBlockedUnit(attack, target.id)
+        && canContactTarget(world, units, attack, target);
+}
+
+bool BattleAttackSystem::canHit(
+    const BattleAttackState& world,
+    const BattleUnitStore& units,
+    const BattleAttackInstance& attack,
+    const BattleRuntimeUnit& target) const
+{
+    if (target.invincible > 0 && !attack.state.executeCanHitInvincible)
+    {
+        return false;
+    }
+
+    return canContactTarget(world, units, attack, target);
+}
+
+const BattleRuntimeUnit* BattleAttackSystem::selectBounceTarget(
+    const BattleAttackState& world,
+    const BattleUnitStore& units,
+    const BattleAttackInstance& attack,
+    const BattleRuntimeUnit& hitTarget) const
 {
     assert(attack.state.bounceRemaining > 0);
     assert(attack.state.bounceRange > 0);
 
-    const auto* attacker = tryFindById(world.units, attack.state.attackerUnitId);
+    const auto* attacker = units.findUnit(attack.state.attackerUnitId);
     if (!attacker || !attacker->alive)
     {
         return nullptr;
     }
 
-    const BattleAttackUnit* best = nullptr;
+    const BattleRuntimeUnit* best = nullptr;
     double bestDistance = static_cast<double>(attack.state.bounceRange);
-    for (const auto& unit : world.units)
+    for (const auto& unit : units.units)
     {
         if (!unit.alive
             || unit.team == attacker->team
@@ -561,7 +662,7 @@ const BattleAttackUnit* BattleAttackSystem::selectBounceTarget(
             continue;
         }
 
-        const double candidateDistance = pointDistance(hitTarget.position, unit.position);
+        const double candidateDistance = pointDistance(hitTarget.motion.position, unit.motion.position);
         if (candidateDistance > bestDistance)
         {
             continue;
@@ -576,10 +677,10 @@ const BattleAttackUnit* BattleAttackSystem::selectBounceTarget(
 }
 
 BattleAttackInstance BattleAttackSystem::makeBounceAttack(
-    const BattleAttackWorld& world,
+    const BattleAttackState& world,
     const BattleAttackInstance& source,
-    const BattleAttackUnit& hitTarget,
-    const BattleAttackUnit& nextTarget,
+    const BattleRuntimeUnit& hitTarget,
+    const BattleRuntimeUnit& nextTarget,
     int attackId) const
 {
     assert(attackId >= 0);
@@ -602,10 +703,10 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
         speed = world.defaultProjectileSpeed;
     }
 
-    auto direction = normalizedTo(nextTarget.position - hitTarget.position, 1.0, world.minimumVectorNorm);
+    auto direction = normalizedTo(nextTarget.motion.position - hitTarget.motion.position, 1.0, world.minimumVectorNorm);
     if (pointNorm(direction) <= world.minimumVectorNorm)
     {
-        direction = normalizedTo(nextTarget.position - source.state.position, 1.0, world.minimumVectorNorm);
+        direction = normalizedTo(nextTarget.motion.position - source.state.position, 1.0, world.minimumVectorNorm);
     }
     if (pointNorm(direction) <= world.minimumVectorNorm)
     {
@@ -613,26 +714,28 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
     }
 
     const auto spawnDistance = static_cast<float>(world.bounceSpawnDistance);
-    bounce.state.position = hitTarget.position + Pointf{
+    bounce.state.position = hitTarget.motion.position + Pointf{
         direction.x * spawnDistance,
         direction.y * spawnDistance,
         direction.z * spawnDistance,
     };
-    bounce.state.velocity = normalizedTo(nextTarget.position - bounce.state.position, speed, world.minimumVectorNorm);
+    bounce.state.velocity = normalizedTo(nextTarget.motion.position - bounce.state.position, speed, world.minimumVectorNorm);
     if (pointNorm(bounce.state.velocity) <= world.minimumVectorNorm)
     {
         bounce.state.velocity = normalizedTo(direction, speed, world.minimumVectorNorm);
     }
     bounce.state.totalFrame = std::max(
         world.minimumBounceTotalFrame,
-        static_cast<int>(std::ceil(pointDistance(nextTarget.position, bounce.state.position) / speed)) + 20);
+        static_cast<int>(std::ceil(pointDistance(nextTarget.motion.position, bounce.state.position) / speed)) + 20);
     return bounce;
 }
 
 void BattleAttackSystem::collectProjectileCancelEvents(
-    const BattleAttackWorld& world,
+    const BattleAttackState& world,
+    const BattleUnitStore& units,
     std::vector<BattleAttackEvent>& events) const
 {
+    std::vector<ProjectileCancelCandidate> candidates;
     for (size_t i = 0; i + 1 < world.attacks.size(); ++i)
     {
         const auto& lhs = world.attacks[i];
@@ -640,7 +743,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
         {
             continue;
         }
-        const auto* lhsAttacker = tryFindById(world.units, lhs.state.attackerUnitId);
+        const auto* lhsAttacker = units.findUnit(lhs.state.attackerUnitId);
         if (!lhsAttacker || !lhsAttacker->alive)
         {
             continue;
@@ -653,7 +756,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
             {
                 continue;
             }
-            const auto* rhsAttacker = tryFindById(world.units, rhs.state.attackerUnitId);
+            const auto* rhsAttacker = units.findUnit(rhs.state.attackerUnitId);
             if (!rhsAttacker || !rhsAttacker->alive || lhsAttacker->team == rhsAttacker->team)
             {
                 continue;
@@ -668,9 +771,24 @@ void BattleAttackSystem::collectProjectileCancelEvents(
                     rhs.previousPosition,
                     rhs.state.position) < world.hitRadius)
             {
-                events.push_back(makeProjectileCancelEvent(lhs, rhs));
+                candidates.push_back(makeProjectileCancelCandidate(lhs, rhs));
             }
         }
+    }
+
+    std::sort(candidates.begin(), candidates.end(), betterProjectileCancelCandidate);
+    std::unordered_set<int> usedAttackIds;
+    usedAttackIds.reserve(candidates.size() * 2);
+    for (const auto& candidate : candidates)
+    {
+        if (usedAttackIds.contains(candidate.event.attackId)
+            || usedAttackIds.contains(candidate.event.otherAttackId))
+        {
+            continue;
+        }
+        usedAttackIds.insert(candidate.event.attackId);
+        usedAttackIds.insert(candidate.event.otherAttackId);
+        events.push_back(candidate.event);
     }
 }
 

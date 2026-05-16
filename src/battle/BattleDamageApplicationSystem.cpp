@@ -1,9 +1,11 @@
 #include "BattleDamageApplicationSystem.h"
 
-#include "BattleCore.h"
+#include "../ChessEftIds.h"
+#include "BattleComboTriggerSystem.h"
 #include "BattleFind.h"
 #include "BattleResourceRules.h"
 #include "BattleStatusFormat.h"
+#include "BattleUnitStore.h"
 
 #include <algorithm>
 #include <cassert>
@@ -17,6 +19,8 @@ namespace KysChess::Battle
 
 namespace
 {
+
+constexpr int RoleStatusEffectFrames = 45;
 
 std::string formatStatusFrames(const char* label, int frames)
 {
@@ -72,10 +76,10 @@ BattleLogEvent makeDeathPreventionLog(const BattleDamageEvent& event)
 {
     BattleLogEvent log;
     log.type = BattleLogEventType::Status;
-    log.sourceUnitId = event.sourceUnitId;
+    log.sourceUnitId = event.targetUnitId;
     log.targetUnitId = event.targetUnitId;
     log.amount = event.value;
-    log.text = "死亡庇護";
+    log.text = formatStatusFrames("死亡庇護", event.value);
     return log;
 }
 
@@ -244,17 +248,12 @@ void applyResolvedTransactionToLiveState(
     writeBattleDamageRuntimeUnit(defenderExtras, transaction.defender);
     auto& defenderStatus = requireById(*input.statusUnits, transaction.defender.id);
     writeBattleStatusRuntimeUnit(defenderStatus, transaction.defenderStatus);
-    auto& defenderCombo = requireMappedById(*input.comboUnits, transaction.defender.id);
-    writeBattleDamageComboState(defenderCombo, transaction.defender);
-    writeBattleStatusComboState(defenderCombo, transaction.defenderStatus);
 
     if (transaction.attacker.id >= 0)
     {
         input.units->writeDamageUnit(transaction.attacker);
         auto& attackerExtras = requireById(*input.damageUnitExtras, transaction.attacker.id);
         writeBattleDamageRuntimeUnit(attackerExtras, transaction.attacker);
-        auto& attackerCombo = requireMappedById(*input.comboUnits, transaction.attacker.id);
-        writeBattleDamageComboState(attackerCombo, transaction.attacker);
     }
 }
 
@@ -355,6 +354,17 @@ int selectDamageTextSize(const BattleDamagePresentationInput& presentation)
         : presentation.normalDamageTextSize;
 }
 
+BattleVisualEvent roleEffectEvent(int targetUnitId, int effectId, int durationFrames)
+{
+    BattleVisualEvent event;
+    event.type = BattleVisualEventType::RoleEffect;
+    event.targetUnitId = targetUnitId;
+    event.effectId = effectId;
+    event.visualEffectId = effectId;
+    event.durationFrames = durationFrames;
+    return event;
+}
+
 void appendDamageOutputEvents(BattleDamageApplicationResult& result,
                               const BattleDamagePresentationInput& presentation,
                               const BattleDamageTransactionResult& transaction)
@@ -396,8 +406,8 @@ void appendDamageOutputEvents(BattleDamageApplicationResult& result,
     result.logEvents.push_back(std::move(damageLog));
 }
 
-void appendDamageTransactionLogEvents(BattleDamageApplicationResult& result,
-                                      const BattleDamageTransactionResult& transaction)
+void appendDamageTransactionPreDeathLogEvents(BattleDamageApplicationResult& result,
+                                              const BattleDamageTransactionResult& transaction)
 {
     for (const auto& event : transaction.events)
     {
@@ -415,6 +425,28 @@ void appendDamageTransactionLogEvents(BattleDamageApplicationResult& result,
         result.logEvents.push_back(std::move(log));
     }
 
+    if (transaction.blockedByFirstHit)
+    {
+        result.visualEvents.push_back(roleEffectEvent(transaction.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Status;
+        log.sourceUnitId = transaction.defender.id;
+        log.targetUnitId = transaction.attacker.id;
+        log.text = "格擋了首輪傷害";
+        result.logEvents.push_back(std::move(log));
+    }
+
+    if (transaction.shieldAbsorbed > 0)
+    {
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Status;
+        log.sourceUnitId = transaction.defender.id;
+        log.targetUnitId = transaction.attacker.id;
+        log.amount = transaction.shieldAbsorbed;
+        log.text = std::format("護盾吸收 {}", transaction.shieldAbsorbed);
+        result.logEvents.push_back(std::move(log));
+    }
+
     if (transaction.hurtInvincGranted && transaction.defenderDelta.invincibleDelta > 0)
     {
         BattleLogEvent log;
@@ -425,7 +457,11 @@ void appendDamageTransactionLogEvents(BattleDamageApplicationResult& result,
         log.text = formatStatusFrames("受傷無敵", transaction.defenderDelta.invincibleDelta);
         result.logEvents.push_back(std::move(log));
     }
+}
 
+void appendDamageTransactionKillRewardLogEvents(BattleDamageApplicationResult& result,
+                                                const BattleDamageTransactionResult& transaction)
+{
     if (!transaction.killed)
     {
         return;
@@ -465,6 +501,141 @@ void appendDamageTransactionLogEvents(BattleDamageApplicationResult& result,
     }
 }
 
+void appendDamageLifecycleEvents(BattleDamageApplicationResult& result,
+                                 const BattleDamageApplicationInput& input,
+                                 const BattleDamageTransactionResult& transaction)
+{
+    for (const auto& event : transaction.events)
+    {
+        if (event.type == BattleDamageEventType::DeathPrevented)
+        {
+            result.logEvents.push_back(makeDeathPreventionLog(event));
+        }
+        if (event.type != BattleDamageEventType::UnitDied)
+        {
+            continue;
+        }
+
+        result.lifecycleEvents.push_back({
+            BattleDamageLifecycleEventType::UnitDied,
+            event.sourceUnitId,
+            event.targetUnitId,
+            event.value,
+        });
+        result.lifecycleEvents.push_back({
+            BattleDamageLifecycleEventType::KillRecorded,
+            event.sourceUnitId,
+            event.targetUnitId,
+            0,
+        });
+        result.gameplayEvents.push_back({
+            BattleGameplayEventType::UnitDied,
+            input.frame,
+            event.sourceUnitId,
+            event.targetUnitId,
+            event.value,
+        });
+        result.logEvents.push_back({
+            BattleLogEventType::UnitDied,
+            input.frame,
+            event.sourceUnitId,
+            event.targetUnitId,
+            event.value,
+        });
+
+        appendDeathAoeCommand(result, input, transaction, event.targetUnitId);
+        auto deathEvents = BattleDeathEffectSystem().applyAllyDeathEffects(
+            *input.units,
+            *input.deathEffects,
+            event.targetUnitId);
+        for (const auto& deathEvent : deathEvents)
+        {
+            appendDeathEffectCommand(result, deathEvent);
+        }
+    }
+}
+
+void appendShieldBreakCommands(BattleDamageApplicationResult& result,
+                               const BattleDamageApplicationInput& input,
+                               const BattleDamageTransactionResult& transaction)
+{
+    if (!(transaction.shieldAbsorbed > 0
+            && transaction.defenderDelta.shieldDelta < 0
+            && transaction.defender.shield == 0))
+    {
+        return;
+    }
+
+    auto& defenderCombo = requireMappedById(*input.comboUnits, transaction.defender.id);
+    int shieldExplosionPct = 0;
+    auto shieldBreakCommands = BattleComboTriggerSystem().collectShieldBreakCommands(
+        defenderCombo,
+        { BattleComboTriggerHook::ShieldBreak, transaction.defender.id, transaction.defender.id },
+        *input.random);
+    for (const auto& shieldBreak : shieldBreakCommands)
+    {
+        bool activated = true;
+        switch (shieldBreak.type)
+        {
+        case BattleShieldBreakCommandType::ShieldExplosion:
+            shieldExplosionPct = std::max(shieldExplosionPct, shieldBreak.value);
+            break;
+        case BattleShieldBreakCommandType::AutoUltimate:
+            result.commands.push_back(BattleAutoUltimateCommand{ transaction.defender.id, false });
+            break;
+        case BattleShieldBreakCommandType::TempFlatAttack:
+            result.commands.push_back(BattleTempAttackBuffCommand{
+                transaction.defender.id,
+                shieldBreak.value,
+                shieldBreak.durationFrames,
+                std::format("護盾爆炸（臨時攻+{}，{}幀）", shieldBreak.value, shieldBreak.durationFrames),
+            });
+            break;
+        case BattleShieldBreakCommandType::MpRestore:
+        {
+            int restored = std::min(
+                shieldBreak.value,
+                std::max(0, transaction.defender.vitals.maxMp - transaction.defender.vitals.mp));
+            if (restored > 0)
+            {
+                result.commands.push_back(BattleMpRestoreCommand{
+                    transaction.defender.id,
+                    restored,
+                    std::format("護盾爆炸·回內力+{}", restored),
+                });
+            }
+            else
+            {
+                activated = false;
+            }
+            break;
+        }
+        default:
+            assert(false);
+        }
+
+        if (activated)
+        {
+            BattleComboTriggerSystem().recordActivation(
+                defenderCombo,
+                static_cast<size_t>(shieldBreak.effectIndex));
+        }
+    }
+    if (shieldExplosionPct > 0)
+    {
+        int explosionDamage = std::max(
+            1,
+            defenderCombo.shieldPctMaxHP * transaction.defender.vitals.maxHp / 100 * shieldExplosionPct / 100);
+        result.commands.push_back(BattleShieldExplosionCommand{
+            transaction.defender.id,
+            5,
+            KysChess::EFT_SHIELD_BLAST,
+            explosionDamage,
+            "護盾爆炸",
+        });
+    }
+}
+
 }  // namespace
 
 BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
@@ -479,62 +650,17 @@ BattleDamageApplicationResult BattleDamageApplicationSystem::apply(
     assert(input.unitEffects);
     assert(input.deathEffects);
     assert(input.projectileFollowUps);
+    assert(input.random);
 
     BattleDamageApplicationResult result;
     resolvePendingDamageTransactions(input, [&](const BattlePendingDamageIntent& intent, BattleDamageTransactionResult transaction)
     {
-        for (const auto& event : transaction.events)
-        {
-            if (event.type == BattleDamageEventType::DeathPrevented)
-            {
-                result.logEvents.push_back(makeDeathPreventionLog(event));
-            }
-            if (event.type != BattleDamageEventType::UnitDied)
-            {
-                continue;
-            }
-
-            result.lifecycleEvents.push_back({
-                BattleDamageLifecycleEventType::UnitDied,
-                event.sourceUnitId,
-                event.targetUnitId,
-                event.value,
-            });
-            result.lifecycleEvents.push_back({
-                BattleDamageLifecycleEventType::KillRecorded,
-                event.sourceUnitId,
-                event.targetUnitId,
-                0,
-            });
-            result.gameplayEvents.push_back({
-                BattleGameplayEventType::UnitDied,
-                input.frame,
-                event.sourceUnitId,
-                event.targetUnitId,
-                event.value,
-            });
-            result.logEvents.push_back({
-                BattleLogEventType::UnitDied,
-                input.frame,
-                event.sourceUnitId,
-                event.targetUnitId,
-                event.value,
-            });
-
-            appendDeathAoeCommand(result, input, transaction, event.targetUnitId);
-            auto deathEvents = BattleDeathEffectSystem().applyAllyDeathEffects(
-                *input.units,
-                *input.deathEffects,
-                event.targetUnitId);
-            for (const auto& deathEvent : deathEvents)
-            {
-                appendDeathEffectCommand(result, deathEvent);
-            }
-        }
-
         const auto& presentation = intent.presentation;
+        appendShieldBreakCommands(result, input, transaction);
         appendDamageOutputEvents(result, presentation, transaction);
-        appendDamageTransactionLogEvents(result, transaction);
+        appendDamageTransactionPreDeathLogEvents(result, transaction);
+        appendDamageLifecycleEvents(result, input, transaction);
+        appendDamageTransactionKillRewardLogEvents(result, transaction);
         result.transactions.push_back(std::move(transaction));
     });
 

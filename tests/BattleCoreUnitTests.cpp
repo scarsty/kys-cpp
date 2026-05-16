@@ -163,9 +163,9 @@ BattleUnitState unit(int id, int team, Pointf position, CombatStyle style = Comb
     return state;
 }
 
-BattleWorldState worldWith(std::vector<BattleUnitState> units)
+BattleMovementFrameInput worldWith(std::vector<BattleUnitState> units)
 {
-    BattleWorldState world;
+    BattleMovementFrameInput world;
     world.config = testConfig();
     world.units = std::move(units);
     return world;
@@ -186,29 +186,62 @@ BattleRuntimeUnit runtimeUnitSnapshot(int id, int team, int hp, Pointf position 
     return unit;
 }
 
-void seedRuntimeUnitsFromWorld(BattleRuntimeState& state, int hp = 100)
+void seedRuntimeUnitsFromMovementUnits(
+    BattleRuntimeState& state,
+    const std::vector<BattleUnitState>& units,
+    int hp = 100)
 {
-    if (state.units.gridTransform.tileWidth <= 0.0)
+    if (state.unitStore.gridTransform.tileWidth <= 0.0)
     {
-        state.units.gridTransform = { SceneTileWidth, 64 };
+        state.unitStore.gridTransform = { SceneTileWidth, 64 };
     }
-    state.units.units.clear();
+    state.unitStore.units.clear();
     state.combo.units.clear();
     state.status.units.clear();
     state.damage.unitExtras.clear();
-    for (const auto& unit : state.world.units)
+    state.movement.agents.clear();
+    for (const auto& unit : units)
     {
         auto runtime = runtimeUnitSnapshot(unit.id, unit.team, hp, unit.position);
         runtime.alive = unit.alive;
         runtime.motion.velocity = unit.velocity;
         runtime.style = unit.style;
-        runtime.grid = state.units.gridTransform.toGrid(runtime.motion.position);
+        runtime.grid = state.unitStore.gridTransform.toGrid(runtime.motion.position);
         state.combo.units.emplace(unit.id, KysChess::RoleComboState{});
         state.status.units.push_back(BattleStatusRuntimeUnit{ .id = unit.id });
         state.damage.unitExtras.push_back(makeBattleDamageRuntimeUnit(
             makeBattleDamageUnitState(runtime, static_cast<const BattleDamageRuntimeUnit*>(nullptr))));
-        state.units.units.push_back(std::move(runtime));
+        BattleMovementAgentState agent;
+        agent.physics.position = runtime.motion.position;
+        agent.physics.velocity = runtime.motion.velocity;
+        agent.physics.acceleration = runtime.motion.acceleration;
+        state.movement.agents.emplace(unit.id, agent);
+        state.unitStore.units.push_back(std::move(runtime));
     }
+}
+
+void configureRuntimeMovement(BattleRuntimeState& state, BattleMovementFrameInput input)
+{
+    state.movement.frame = input.frame;
+    state.movement.seed = input.seed;
+    state.movement.config = input.config;
+    state.movement.terrainCells = std::move(input.terrainCells);
+    state.movement.movementReservations = std::move(input.movementReservations);
+    seedRuntimeUnitsFromMovementUnits(state, input.units);
+}
+
+void seedRuntimeUnitsFromWorld(BattleRuntimeState& state, int hp = 100)
+{
+    std::vector<BattleUnitState> units;
+    units.reserve(state.unitStore.units.size());
+    for (const auto& runtime : state.unitStore.units)
+    {
+        auto unit = makeBattleWorldUnitState(runtime, BattleRuntimeMoveSpeedDivisor);
+        unit.reach = runtime.reach;
+        unit.style = runtime.style;
+        units.push_back(unit);
+    }
+    seedRuntimeUnitsFromMovementUnits(state, units, hp);
 }
 
 TEST_CASE("BattleUnitStore_RequiresAndMutatesCanonicalUnitValues", "[battle][core][runtime]")
@@ -297,9 +330,9 @@ TEST_CASE("BattleUnitStore_TargetSelectionReturnsNoUnitWithoutLiveEnemy", "[batt
     CHECK(findFarthestEnemyUnitId(store, 0) == -1);
 }
 
-BattleAttackWorld attackWorld()
+BattleAttackState attackWorld()
 {
-    BattleAttackWorld world;
+    BattleAttackState world;
     world.hitRadius = SceneAttackHitRadius;
     world.minimumVectorNorm = LegacyMinimumVectorNorm;
     world.bounceSpawnDistance = SceneBounceSpawnDistance;
@@ -409,15 +442,11 @@ HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
 {
     HitDamageFrameState frame;
     auto& state = frame.state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 105, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 105, 100, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
     state.status.units = {
         statusRuntimeSnapshot(0, 100),
@@ -446,7 +475,7 @@ HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
     projectile.state.velocity = { 5, 0, 0 };
     state.attacks.attacks.push_back(projectile);
 
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 80, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, defenderHp, { 105, 100, 0 }),
     };
@@ -457,15 +486,13 @@ HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
     };
     state.damage.unitExtras.clear();
     state.combo.units.clear();
-    for (const auto& unit : state.units.units)
+    for (const auto& unit : state.unitStore.units)
     {
         const auto damage = makeBattleDamageUnitState(
             unit,
             static_cast<const BattleDamageRuntimeUnit*>(nullptr));
         state.damage.unitExtras.push_back(makeBattleDamageRuntimeUnit(damage));
-        auto& combo = state.combo.units[unit.id];
-        writeBattleDamageComboState(combo, damage);
-        writeBattleStatusComboState(combo, makeBattleStatusUnitState(requireById(state.status.units, unit.id), unit));
+        state.combo.units.emplace(unit.id, KysChess::RoleComboState{});
     }
     return frame;
 }
@@ -591,16 +618,30 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, BattleCastInput input
     state.action.planSeeds[input.unit.id] = actionPlanSeedFromCastInput(input);
 }
 
-BattleActionCommitInput frameActionCommitInput()
+BattlePendingCastAction framePendingCastAction()
 {
-    BattleActionCommitInput input;
-    input.unit.id = 0;
-    input.unit.team = 0;
-    input.unit.position = { 100, 100, 0 };
-    input.unit.facing = { 1, 0, 0 };
-    input.unit.operationCount = 0;
-    input.strengthenedMeleeOperationCountThreshold = 2;
-    return input;
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.id = 101;
+    BattlePendingCastAction pending;
+    pending.unitId = 0;
+    pending.targetUnitId = 1;
+    pending.ultimate = false;
+    pending.operationType = BattleOperationType::RangedProjectile;
+    pending.skill = cast.normalSkill;
+    return pending;
+}
+
+void preparePendingCastCommitFrame(BattleRuntimeState& state,
+                                   int unitId,
+                                   BattleOperationType operationType = BattleOperationType::RangedProjectile,
+                                   int actFrame = 6)
+{
+    auto& unit = state.unitStore.requireUnit(unitId);
+    unit.haveAction = true;
+    unit.animation.actFrame = actFrame;
+    unit.operationType = operationType;
+    unit.animation.actType = 1;
+    unit.animation.cooldown = 10;
 }
 
 void configureAutoUltimateActionRuntime(BattleRuntimeState& state, int unitId, int targetUnitId)
@@ -700,7 +741,6 @@ void queuePendingDamage(
 {
     if (transaction.attacker.id >= 0)
     {
-        writeBattleDamageComboState(state.combo.units[transaction.attacker.id], transaction.attacker);
         auto& combo = state.combo.units[transaction.attacker.id];
         combo.flatDmgIncrease = transaction.attackerModifiers.flatDamageIncrease;
         combo.skillDmgPct = transaction.attackerModifiers.skillDamagePct;
@@ -718,13 +758,12 @@ void queuePendingDamage(
 
     if (transaction.attacker.id >= 0)
     {
-        state.units.writeDamageUnit(transaction.attacker);
+        state.unitStore.writeDamageUnit(transaction.attacker);
         writeBattleDamageRuntimeUnit(
             ensureById(state.damage.unitExtras, transaction.attacker.id),
             transaction.attacker);
     }
 
-    writeBattleDamageComboState(state.combo.units[transaction.defender.id], transaction.defender);
     {
         auto& combo = state.combo.units[transaction.defender.id];
         combo.flatDmgIncrease = transaction.defenderModifiers.flatDamageIncrease;
@@ -740,27 +779,26 @@ void queuePendingDamage(
             combo.dmgReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
         }
     }
-    state.units.writeDamageUnit(transaction.defender);
+    state.unitStore.writeDamageUnit(transaction.defender);
     writeBattleDamageRuntimeUnit(
         ensureById(state.damage.unitExtras, transaction.defender.id),
         transaction.defender);
     writeBattleStatusRuntimeUnit(
         ensureById(state.status.units, transaction.defenderStatus.id),
         transaction.defenderStatus);
-    writeBattleStatusComboState(state.combo.units[transaction.defenderStatus.id], transaction.defenderStatus);
     state.damage.pendingDamage.push_back(pendingDamageIntent(std::move(transaction), std::move(presentation)));
 }
 
 TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.units.gridTransform = { SceneTileWidth, 64 };
-    state.world = worldWith({
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 120, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 120, 100, 0 }),
     };
@@ -773,7 +811,7 @@ TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore",
 
     runBattleFrame(state);
 
-    const auto& defender = state.units.requireUnit(1);
+    const auto& defender = state.unitStore.requireUnit(1);
     CHECK(defender.vitals.hp == 0);
     CHECK_FALSE(defender.alive);
 }
@@ -781,11 +819,11 @@ TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore",
 TEST_CASE("BattleFrameRunner_RoutesStatusTicksThroughCanonicalUnitStore", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({ unit(0, 0, { 100, 100, 0 }) });
+    configureRuntimeMovement(state, worldWith({ unit(0, 0, { 100, 100, 0 }) }));
     state.attacks = attackWorld();
     auto runtime = runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 });
     runtime.mpBlocked = true;
-    state.units.units.push_back(runtime);
+    state.unitStore.units.push_back(runtime);
     auto status = statusUnitSnapshot(0, 100);
     status.effects.mpBlockTimer = 1;
     status.effects.damageImmunityAfterFrames = 1;
@@ -795,7 +833,7 @@ TEST_CASE("BattleFrameRunner_RoutesStatusTicksThroughCanonicalUnitStore", "[batt
 
     runBattleFrame(state);
 
-    const auto& unit = state.units.requireUnit(0);
+    const auto& unit = state.unitStore.requireUnit(0);
     CHECK_FALSE(unit.mpBlocked);
     CHECK(unit.invincible == 5);
 }
@@ -831,13 +869,13 @@ TEST_CASE("BattleStatusSystem_CopiesStatusEffectsAsACluster", "[battle][status]"
 TEST_CASE("BattleFrameRunner_RoutesTeamEffectEventsThroughCanonicalUnitStore", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.units.gridTransform = { SceneTileWidth, 64 };
-    state.world = worldWith({
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 0, { 120, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 40, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 0, 80, { 120, 100, 0 }),
     };
@@ -849,31 +887,29 @@ TEST_CASE("BattleFrameRunner_RoutesTeamEffectEventsThroughCanonicalUnitStore", "
 
     runBattleFrame(state);
 
-    CHECK(state.units.requireUnit(0).vitals.hp == 50);
-    CHECK(state.units.requireUnit(1).vitals.hp == 90);
+    CHECK(state.unitStore.requireUnit(0).vitals.hp == 50);
+    CHECK(state.unitStore.requireUnit(1).vitals.hp == 90);
 }
 
 TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({ unit(0, 0, { 100, 100, 0 }) });
+    configureRuntimeMovement(state, worldWith({ unit(0, 0, { 100, 100, 0 }) }));
     state.attacks = attackWorld();
-    state.units.gridTransform = { SceneTileWidth, 64 };
-    state.units.units.push_back(runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }));
-    state.units.requireUnit(0).motion.velocity = { 5, 0, 0 };
-    state.units.requireUnit(0).motion.acceleration = { 0, 0, 0 };
-    state.movementRuntime[0].position = { 100, 100, 0 };
-    state.movementRuntime[0].velocity = { 5, 0, 0 };
-    state.movementRuntime[0].acceleration = { 0, 0, 0 };
-    state.movementRuntime[0].movementDashFrames = 1;
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    state.unitStore.requireUnit(0).motion.velocity = { 5, 0, 0 };
+    state.unitStore.requireUnit(0).motion.acceleration = { 0, 0, 0 };
+    state.movement.agents.at(0).physics.position = { 100, 100, 0 };
+    state.movement.agents.at(0).physics.velocity = { 5, 0, 0 };
+    state.movement.agents.at(0).physics.acceleration = { 0, 0, 0 };
+    state.movement.agents.at(0).physics.movementDashFrames = 1;
     state.movementPhysics.config.gravity = 0.0f;
     state.movementPhysics.config.friction = 0.0f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
-    state.movementPhysics.collision.tileWidth = 100.0;
-    state.movementPhysics.collision.coordCount = 2;
-    state.movementPhysics.collision.defaultSeparationDistance = SceneTileWidth;
-    state.movementPhysics.collision.units = { { 0, true, { 100, 100, 0 } } };
-    state.movementPhysics.collision.walkableByCell.assign(2 * 2, 1);
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 2;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
 
     auto result = runBattleFrame(state);
 
@@ -889,11 +925,11 @@ TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[
     CHECK(result.movementPresentationResults[0].velocity.x == 5.0f);
     CHECK(result.movementPresentationResults[0].acceleration.x == 0.0f);
     CHECK(result.movementPresentationResults[0].frozenFrames == 0);
-    const auto& unit = state.units.requireUnit(0);
+    const auto& unit = state.unitStore.requireUnit(0);
     CHECK(unit.motion.position.x == 105.0f);
     CHECK(unit.motion.velocity.x == 5.0f);
-    CHECK(state.movementRuntime.at(0).movementDashFrames == 0);
-    CHECK(state.movementRuntime.at(0).movementDashSpreadFrames == 6);
+    CHECK(state.movement.agents.at(0).physics.movementDashFrames == 0);
+    CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 6);
 }
 
 BattleRescueCellSnapshot rescueCell(int x, int y, bool walkable = true, bool occupied = false)
@@ -911,27 +947,27 @@ BattleRescueCellSnapshot rescueCell(int x, int y, bool walkable = true, bool occ
 BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
 {
     BattleRuntimeState state;
-    state.units.gridTransform = { SceneTileWidth, 64 };
-    state.world = worldWith({
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 180, 180, 0 }),
         unit(2, 1, { 72, 72, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     state.status.units = {
         statusRuntimeSnapshot(0, 100),
         statusRuntimeSnapshot(1, defenderHp),
         statusRuntimeSnapshot(2, 100),
     };
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, defenderHp, { 180, 180, 0 }),
         runtimeUnitSnapshot(2, 1, 100, { 72, 72, 0 }),
     };
     queuePendingDamage(state, preResolvedDamageInput(0, 1, defenderHp, damage));
-    state.units.units[0].grid = { 10, 10 };
-    state.units.units[1].grid = { 5, 5 };
-    state.units.units[2].grid = { 3, 2 };
+    state.unitStore.units[0].grid = { 10, 10 };
+    state.unitStore.units[1].grid = { 5, 5 };
+    state.unitStore.units[2].grid = { 3, 2 };
     state.deathEffects.store.units = { { 0 }, { 1 }, { 2 } };
     state.rescue.cells = {
         rescueCell(2, 3),
@@ -1036,6 +1072,40 @@ TEST_CASE("BattleCombatIntent_BlocksAttackWhileMovementDashContinues", "[battle]
     CHECK_FALSE(intent.startAttack);
 }
 
+TEST_CASE("BattleCombatIntent_DashAttackDoesNotExtendRangedSkillReach", "[battle][intent]")
+{
+    CombatIntentInput input;
+    input.canStartAttack = true;
+    input.hasEquippedSkill = true;
+    input.dashAttackEnabled = true;
+    input.targetDistance = 320.0;
+    input.meleeAttackReach = 137.5;
+    input.dashAttackReach = 375.0;
+    input.plannedSkill = skill(1, 240.0, false);
+
+    auto intent = BattleCombatIntentPlanner().select(input);
+
+    CHECK_FALSE(intent.startAttack);
+    CHECK(intent.operationType == BattleOperationType::None);
+}
+
+TEST_CASE("BattleCombatIntent_RangedSkillIgnoresDashAttackWhenInReach", "[battle][intent]")
+{
+    CombatIntentInput input;
+    input.canStartAttack = true;
+    input.hasEquippedSkill = true;
+    input.dashAttackEnabled = true;
+    input.targetDistance = 160.0;
+    input.meleeAttackReach = 137.5;
+    input.dashAttackReach = 375.0;
+    input.plannedSkill = skill(1, 240.0, false);
+
+    auto intent = BattleCombatIntentPlanner().select(input);
+
+    CHECK(intent.startAttack);
+    CHECK(intent.operationType == BattleOperationType::RangedProjectile);
+}
+
 TEST_CASE("BattleCore_MovementConfig_DerivesSharedGeometry", "[battle][core]")
 {
     auto config = testConfig();
@@ -1117,6 +1187,7 @@ TEST_CASE("BattleCore_PlannedDash_IgnoresUnitsButRespectsTerrainSegment", "[batt
         unit(2, 0, { 130, 100, 0 }),
         unit(3, 1, { 600, 100, 0 }),
     });
+    world.units[1].speed = 0.0;
 
     auto openResult = BattleMovementPlanner(world).tick();
     CHECK(openResult.decisions.at(1).action == MovementAction::Dash);
@@ -1126,6 +1197,7 @@ TEST_CASE("BattleCore_PlannedDash_IgnoresUnitsButRespectsTerrainSegment", "[batt
         unit(2, 0, { 130, 100, 0 }),
         unit(3, 1, { 600, 100, 0 }),
     });
+    blockedWorld.units[1].speed = 0.0;
     blockedWorld.terrainCells = {
         { { 100, 100, 0 }, true },
         { { 125, 100, 0 }, false },
@@ -1233,10 +1305,10 @@ TEST_CASE("BattleUnitFrameTickSystem_AdvancesCooldownAndIdleResourceTicks", "[ba
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 600, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
 
     BattleAttackInstance projectile;
@@ -1249,16 +1321,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
     projectile.state.position = { 0, 0, 0 };
     projectile.state.velocity = { 5, 0, 0 };
 
-    state.attacks.units = {
-        { 1, 0, true, false, false, { 100, 100, 0 } },
-        { 2, 1, true, false, false, { 600, 100, 0 } },
-    };
+    seedRuntimeUnitsFromWorld(state);
     state.attacks.attacks.push_back(projectile);
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.world.frame == 1);
-    CHECK(result.movement.events[0].type == BattleEventType::DashStart);
+    CHECK(state.movement.frame == 1);
+    REQUIRE(!result.movement.events.empty());
+    CHECK(result.movement.events[0].type == BattleEventType::Movement);
     REQUIRE(result.frame.logEvents.empty());
     REQUIRE(!result.frame.visualEvents.empty());
     CHECK(result.frame.frame == 1);
@@ -1277,10 +1347,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
 TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
-        unit(1, 0, { 100, 100, 0 }),
-        unit(2, 1, { 240, 100, 0 }),
-    });
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 240, 100, 0 }),
+    }));
     state.attacks = attackWorld();
 
     BattleDamageTransactionInput damageInput;
@@ -1288,20 +1358,19 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     damageInput.request.defenderUnitId = 0;
     state.damage.pendingDamage.push_back(pendingDamageIntent(damageInput));
 
-    state.units.units.push_back(runtimeUnitSnapshot(0, 0, 80));
-    state.status.units.push_back(statusRuntimeSnapshot(1, 80));
+    state.unitStore.requireUnit(0).vitals.hp = 80;
 
     KysChess::RoleComboState comboState;
     comboState.postSkillInvincFrames = 12;
-    state.combo.units.emplace(1, comboState);
+    state.combo.units[1] = comboState;
 
     BattleDeathEffectExtras deathEffectExtras;
     deathEffectExtras.id = 1;
     state.deathEffects.store.units.push_back(deathEffectExtras);
 
-    CHECK(state.world.units.size() == 2);
+    CHECK(state.unitStore.units.size() == 2);
     CHECK(state.damage.pendingDamage[0].request.defenderUnitId == 0);
-    CHECK(state.units.requireUnit(0).vitals.hp == 80);
+    CHECK(state.unitStore.requireUnit(0).vitals.hp == 80);
     CHECK(state.combo.units.at(1).postSkillInvincFrames == 12);
     CHECK(state.deathEffects.store.units[0].id == 1);
     CHECK_FALSE(state.result.ended);
@@ -1354,13 +1423,37 @@ TEST_CASE("BattleCore_AppliesTeamEffectGameplayCommands", "[battle][core]")
     CHECK(shield.logEvents[0].text == "全隊護盾（7護盾）");
 }
 
+TEST_CASE("BattleFrameRunner_TeamShieldDoesNotMirrorIntoCombo", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 0, { 150, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 0, 100, { 150, 100, 0 }),
+    };
+    state.combo.units[0] = {};
+    state.combo.units[1] = {};
+    state.teamEffects.pendingCommands.push_back(BattleTeamShieldCommand{ 0, 12, false, "測試護盾" });
+
+    runBattleFrame(state);
+
+    CHECK(state.unitStore.requireUnit(0).shield == 12);
+    CHECK(state.unitStore.requireUnit(1).shield == 12);
+    CHECK(state.combo.units.at(0).shield == 0);
+    CHECK(state.combo.units.at(1).shield == 0);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 600, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
 
     auto grouped = runtimeUnitSnapshot(0, 0, 80, { 100, 100, 0 });
@@ -1371,7 +1464,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle
     grouped.haveAction = true;
 
     auto target = runtimeUnitSnapshot(1, 1, 100, { 600, 100, 0 });
-    state.units.units = { grouped, target };
+    state.unitStore.units = { grouped, target };
     state.status.units = {
         statusRuntimeSnapshot(0, 80),
         statusRuntimeSnapshot(1, 100),
@@ -1386,7 +1479,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle
     CHECK(result.unitApplications[0].actType == 13);
     CHECK(result.unitApplications[0].finalMp == 5);
 
-    const auto& updated = state.units.requireUnit(0);
+    const auto& updated = state.unitStore.requireUnit(0);
     CHECK(updated.animation.cooldown == 1);
     CHECK(updated.animation.actFrame == 6);
     CHECK(updated.animation.actType == 13);
@@ -1397,18 +1490,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[battle][core][presentation]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({});
+    configureRuntimeMovement(state, worldWith({}));
     state.attacks = attackWorld();
     state.attacks.hitRadius = 10.0;
     state.attacks.nextAttackId = 50;
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 0, 0, 0 } },
-        { 1, 1, true, false, false, { 106, 120, 0 } },
-    };
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 0, 0, 0 }),
         runtimeUnitSnapshot(1, 1, 100, { 106, 120, 0 }),
     };
+    seedRuntimeUnitsFromWorld(state);
     state.pendingAttackSpawns.push_back(attackSpawnRequest());
 
     auto result = runBattleFrame(state);
@@ -1482,30 +1572,28 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[b
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 210, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
 
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 100, { 210, 100, 0 }),
     };
-    state.units.units[0].stats.attack = 15;
-    BattleStatusRuntimeUnit statusUnit;
-    statusUnit.id = 0;
+    state.unitStore.units[0].stats.attack = 15;
+    auto& statusUnit = requireById(state.status.units, 0);
     statusUnit.effects.tempAttackBuffs.push_back({ 5, 1 });
-    state.status.units.push_back(statusUnit);
+    statusUnit.effects.frozenTimer = 10;
 
     auto cast = frameCastInput(0, 1);
     configureRuntimeActionPlan(state, cast);
-    state.units.requireUnit(0).animation.cooldown = 0;
-    state.units.requireUnit(0).hurtFrame = 3;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.units.requireUnit(0).stats.attack == 10);
+    CHECK(state.unitStore.requireUnit(0).stats.attack == 10);
     CHECK(result.actionResults.empty());
     CHECK(result.frame.gameplayEvents.empty());
 }
@@ -1513,17 +1601,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battl
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawningAttack", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 10, 20, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 82, 20, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     state.attacks.hitRadius = 10.0;
     state.attacks.nextAttackId = 90;
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 10, 20, 0 } },
-        { 1, 1, true, false, false, { 82, 20, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
     auto cast = frameCastInput(0, 1);
     cast.normalSkill.attackAreaType = 0;
@@ -1531,12 +1615,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
-    REQUIRE(result.actionResults[0].castResult.attackSpawnRequests.size() == 1);
+    CHECK(result.actionResults[0].castResult.attackSpawnRequests.empty());
     CHECK(result.attackEvents.empty());
     REQUIRE(result.frame.gameplayEvents.size() == 1);
     CHECK(result.frame.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
@@ -1548,15 +1632,53 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
     CHECK(result.frame.logEvents[0].skillName == "框架招式");
 }
 
+TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesEffectiveProjectileSelectDistance", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 10, 20, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 260, 20, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.attackAreaType = 0;
+    cast.normalSkill.selectDistance = 1;
+    configureRuntimeActionPlan(state, cast);
+    state.combo.units.at(0).forceRangedAttack = true;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
+
+    auto start = runBattleFrame(state);
+
+    REQUIRE(start.actionResults.size() == 1);
+    const auto& castResult = start.actionResults[0].castResult;
+    CHECK(castResult.decision.operationType == BattleOperationType::RangedProjectile);
+    CHECK(castResult.attackSpawnRequests.empty());
+
+    auto& caster = state.unitStore.requireUnit(0);
+    caster.haveAction = true;
+    caster.operationType = BattleOperationType::RangedProjectile;
+    caster.animation.actType = 1;
+    caster.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    caster.animation.cooldown = 20;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.actionResults.size() == 1);
+    REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
+    const auto& projectile = result.actionResults[0].actionResult.attackSpawnRequests[0].initial;
+    CHECK(projectile.totalFrame == 30);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 10, 20, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 260, 20, 0 }),
         unit(2, 1, { 82, 20, 0 }),
-    });
-    state.units.units = {
+    }));
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 10, 20, 0 }),
         runtimeUnitSnapshot(1, 1, 100, { 260, 20, 0 }),
         runtimeUnitSnapshot(2, 1, 100, { 82, 20, 0 }),
@@ -1570,7 +1692,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
@@ -1578,8 +1700,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[
     const auto& castResult = result.actionResults[0].castResult;
     CHECK(castResult.decision.canCast);
     CHECK(castResult.decision.targetUnitId == 2);
-    REQUIRE(castResult.attackSpawnRequests.size() == 1);
-    CHECK(castResult.attackSpawnRequests[0].initial.preferredTargetUnitId == 2);
+    CHECK(castResult.attackSpawnRequests.empty());
+    auto pending = state.action.pendingCasts.find(0);
+    REQUIRE(pending != state.action.pendingCasts.end());
+    CHECK(pending->second.targetUnitId == 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[battle][core]")
@@ -1587,27 +1711,19 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[b
     BattleRuntimeState state;
     auto caster = unit(0, 0, { 10, 20, 0 }, CombatStyle::Ranged);
     caster.reach = 400.0;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         caster,
         unit(1, 1, { 82, 20, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     state.attacks.nextAttackId = 70;
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 10, 20, 0 } },
-        { 1, 1, true, false, false, { 82, 20, 0 } },
-    };
-    state.units.units = {
-        runtimeUnitSnapshot(0, 0, 100, { 10, 20, 0 }),
-        runtimeUnitSnapshot(1, 1, 100, { 82, 20, 0 }),
-    };
     BattleStatusUnitState frozenStatus;
     frozenStatus.id = 0;
     frozenStatus.alive = true;
     frozenStatus.effects.frozenTimer = 3;
-    state.status.units.push_back(makeBattleStatusRuntimeUnit(frozenStatus));
+    state.status.units[0] = makeBattleStatusRuntimeUnit(frozenStatus);
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
@@ -1620,16 +1736,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
     BattleRuntimeState state;
     auto caster = unit(0, 0, { 10, 20, 0 }, CombatStyle::Ranged);
     caster.reach = 400.0;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         caster,
         unit(1, 1, { 82, 20, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     state.attacks.nextAttackId = 80;
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 10, 20, 0 } },
-        { 1, 1, true, false, false, { 82, 20, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
     auto cast = frameCastInput(0, 1);
     cast.unit.position = { -500, -500, 0 };
@@ -1639,43 +1751,48 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
-    REQUIRE(result.actionResults[0].castResult.attackSpawnRequests.size() == 1);
-    const auto& spawn = result.actionResults[0].castResult.attackSpawnRequests[0];
-    CHECK(spawn.initial.position.x == state.world.units[0].position.x + SceneTileWidth * 2.0);
-    CHECK(spawn.initial.position.y == state.world.units[0].position.y);
+    REQUIRE(result.actionResults[0].castResult.attackSpawnRequests.empty());
+    auto& releaseUnit = state.unitStore.requireUnit(0);
+    releaseUnit.haveAction = true;
+    releaseUnit.operationType = BattleOperationType::RangedProjectile;
+    releaseUnit.animation.actType = 1;
+    releaseUnit.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    releaseUnit.animation.cooldown = 20;
+
+    auto release = runBattleFrame(state);
+
+    REQUIRE(release.actionResults.size() == 1);
+    REQUIRE(release.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
+    const auto& spawn = release.actionResults[0].actionResult.attackSpawnRequests[0];
+    CHECK(spawn.initial.position.x == state.unitStore.requireUnit(0).motion.position.x + SceneTileWidth * 2.0);
+    CHECK(spawn.initial.position.y == state.unitStore.requireUnit(0).motion.position.y);
     CHECK(result.attackEvents.empty());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 160, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 160, 100, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
     state.combo.units[0] = {};
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
     unit.animation.actType = 1;
     unit.animation.cooldown = 10;
 
-    auto action = frameActionCommitInput();
-    action.hasCast = true;
-    action.cast = committedFrameCast();
-    state.action.pendingCommitInputs.emplace(0, action);
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
@@ -1693,28 +1810,22 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesRuntimeOwnedActionDirectives", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 160, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 160, 100, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
     state.combo.units[0] = {};
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
     unit.animation.actType = 1;
     unit.animation.cooldown = 10;
 
-    auto action = frameActionCommitInput();
-    action.hasCast = true;
-    action.cast = committedFrameCast();
-    state.action.pendingCommitInputs.emplace(0, action);
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
@@ -1727,19 +1838,19 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesRuntimeOwnedActionDirectives",
 TEST_CASE("BattleFrameRunner_PlansCastFromRuntimeOwnedCastPlanInput", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
     auto cast = frameCastInput(0, 1);
     cast.normalSkill.attackAreaType = 1;
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
@@ -1751,14 +1862,14 @@ TEST_CASE("BattleFrameRunner_PlansCastFromRuntimeOwnedCastPlanInput", "[battle][
 TEST_CASE("BattleFrameRunner_RuntimeCastStartFacesTargetDirection", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 180, 180, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    state.units.requireUnit(0).motion.facing = { 1, 0, 0 };
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).motion.facing = { 1, 0, 0 };
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
     auto cast = frameCastInput(0, 1);
     cast.normalSkill.attackAreaType = 1;
     cast.normalSkill.rangedStyle = true;
@@ -1771,12 +1882,11 @@ TEST_CASE("BattleFrameRunner_RuntimeCastStartFacesTargetDirection", "[battle][co
 
     REQUIRE(result.actionResults.size() == 1);
     REQUIRE(result.actionResults[0].castStarted);
-    const auto pending = state.action.pendingCommitInputs.find(0);
-    REQUIRE(pending != state.action.pendingCommitInputs.end());
-    CHECK(pending->second.unit.facing.x > 0.6f);
-    CHECK(pending->second.unit.facing.y > 0.6f);
-    CHECK(state.units.requireUnit(0).motion.facing.x > 0.6f);
-    CHECK(state.units.requireUnit(0).motion.facing.y > 0.6f);
+    const auto pending = state.action.pendingCasts.find(0);
+    REQUIRE(pending != state.action.pendingCasts.end());
+    CHECK(pending->second.targetUnitId == 1);
+    CHECK(state.unitStore.requireUnit(0).motion.facing.x > 0.6f);
+    CHECK(state.unitStore.requireUnit(0).motion.facing.y > 0.6f);
     const auto presentation = std::find_if(
         result.movementPresentationResults.begin(),
         result.movementPresentationResults.end(),
@@ -1792,18 +1902,17 @@ TEST_CASE("BattleFrameRunner_RuntimeCastStartFacesTargetDirection", "[battle][co
 TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliveEnemies", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
         unit(2, 1, { 220, 140, 0 }),
         unit(3, 1, { 220, 90, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    state.units.requireUnit(0).animation.cooldown = 0;
-    state.units.requireUnit(0).vitals.mp = state.units.requireUnit(0).vitals.maxMp;
-    state.units.requireUnit(3).alive = false;
-    state.world.units[3].alive = false;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).vitals.mp = state.unitStore.requireUnit(0).vitals.maxMp;
+    state.unitStore.requireUnit(3).alive = false;
 
     auto cast = frameCastInput(0, 1);
     cast.ultimateSkill.attackAreaType = 3;
@@ -1811,13 +1920,24 @@ TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliv
     cast.ultimateSkill.reach = 400.0;
     cast.ultimateSkill.selectDistance = 4;
     configureRuntimeActionPlan(state, cast);
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
+
+    auto start = runBattleFrame(state);
+    REQUIRE(start.actionResults.size() == 1);
+    REQUIRE(start.actionResults[0].castStarted);
+
+    auto& caster = state.unitStore.requireUnit(0);
+    caster.haveAction = true;
+    caster.operationType = BattleOperationType::TrackingProjectile;
+    caster.animation.actType = 1;
+    caster.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::TrackingProjectile)];
+    caster.animation.cooldown = 20;
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
-    REQUIRE(result.actionResults[0].castStarted);
-    const auto& requests = result.actionResults[0].castResult.attackSpawnRequests;
+    REQUIRE(result.actionResults[0].actionCommitted);
+    const auto& requests = result.actionResults[0].actionResult.attackSpawnRequests;
     REQUIRE(requests.size() == 2);
     CHECK(requests[0].initial.preferredTargetUnitId == 1);
     CHECK(requests[1].initial.preferredTargetUnitId == 2);
@@ -1828,39 +1948,39 @@ TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliv
 TEST_CASE("BattleFrameRunner_ClearsDashSpreadWhenRuntimeCastStarts", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    state.units.requireUnit(0).animation.cooldown = 0;
-    state.movementRuntime[0].movementDashSpreadFrames = 9;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
+    state.movement.agents.at(0).physics.movementDashSpreadFrames = 9;
     auto cast = frameCastInput(0, 1);
     cast.normalSkill.attackAreaType = 1;
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     CHECK(result.actionResults[0].castStarted);
-    CHECK(state.movementRuntime.at(0).movementDashSpreadFrames == 0);
+    CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 0);
 }
 
 TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Melee),
         unit(1, 1, { 300, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
 
-    auto& runtimeUnit = state.units.requireUnit(0);
+    auto& runtimeUnit = state.unitStore.requireUnit(0);
     runtimeUnit.animation.cooldown = 0;
     runtimeUnit.stats.speed = 360;
     state.combo.units[0].dashAttack = true;
@@ -1876,44 +1996,49 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
     cast.normalSkill.actProperty = 0;
     configureRuntimeActionPlan(state, cast);
 
+    auto start = runBattleFrame(state);
+
+    REQUIRE(start.actionResults.size() == 1);
+    const auto& startAction = start.actionResults[0];
+    REQUIRE(startAction.castStarted);
+    REQUIRE(startAction.castResult.decision.operationType == BattleOperationType::Dash);
+    const auto pending = state.action.pendingCasts.find(0);
+    REQUIRE(pending != state.action.pendingCasts.end());
+    CHECK(pending->second.operationType == BattleOperationType::Dash);
+
+    runtimeUnit.haveAction = true;
+    runtimeUnit.operationType = BattleOperationType::Dash;
+    runtimeUnit.animation.actType = 1;
+    runtimeUnit.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::Dash)];
+    runtimeUnit.animation.cooldown = 20;
+
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     const auto& action = result.actionResults[0];
-    REQUIRE(action.castStarted);
-    REQUIRE(action.castResult.decision.operationType == BattleOperationType::Dash);
+    REQUIRE(action.actionCommitted);
     const auto dashHitCount = std::count_if(
-        action.castResult.attackSpawnRequests.begin(),
-        action.castResult.attackSpawnRequests.end(),
+        action.actionResult.attackSpawnRequests.begin(),
+        action.actionResult.attackSpawnRequests.end(),
         [](const BattleAttackSpawnRequest& request)
         {
             return request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit;
         });
     CHECK(dashHitCount == 3);
-    const auto pending = state.action.pendingCommitInputs.find(0);
-    REQUIRE(pending != state.action.pendingCommitInputs.end());
-    const auto pendingDashHitCount = std::count_if(
-        pending->second.cast.attackSpawnRequests.begin(),
-        pending->second.cast.attackSpawnRequests.end(),
-        [](const BattleAttackSpawnRequest& request)
-        {
-            return request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit;
-        });
-    CHECK(pendingDashHitCount == 3);
 }
 
-TEST_CASE("BattleFrameRunner_DashAttackStrafesWhenRangedTargetAlreadyInRange", "[battle][core][runtime]")
+TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 180, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    state.units.requireUnit(0).motion.facing = { 1, 0, 0 };
-    state.units.requireUnit(0).stats.speed = 180;
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).motion.facing = { 1, 0, 0 };
+    state.unitStore.requireUnit(0).stats.speed = 180;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
     state.combo.units[0].dashAttack = true;
 
     auto cast = frameCastInput(0, 1);
@@ -1924,97 +2049,115 @@ TEST_CASE("BattleFrameRunner_DashAttackStrafesWhenRangedTargetAlreadyInRange", "
     cast.targetDistance = 80.0;
     configureRuntimeActionPlan(state, cast);
 
+    auto start = runBattleFrame(state);
+
+    REQUIRE(start.actionResults.size() == 1);
+    const auto& castResult = start.actionResults[0].castResult;
+    CHECK(castResult.decision.operationType == BattleOperationType::RangedProjectile);
+    CHECK(castResult.attackSpawnRequests.empty());
+    CHECK(castResult.postDashRetreatVelocity.x == Catch::Approx(0.0f));
+    CHECK(castResult.postDashRetreatVelocity.y == Catch::Approx(0.0f));
+    auto& caster = state.unitStore.requireUnit(0);
+    caster.haveAction = true;
+    caster.operationType = BattleOperationType::RangedProjectile;
+    caster.animation.actType = 1;
+    caster.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    caster.animation.cooldown = 20;
+
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
-    REQUIRE(result.actionResults[0].castResult.decision.operationType == BattleOperationType::Dash);
-    const auto& dash = result.actionResults[0].castResult.attackSpawnRequests[0];
-    CHECK(std::abs(dash.initial.velocity.y) > 0.01f);
-    CHECK(result.actionResults[0].castResult.postDashRetreatVelocity.norm() == Catch::Approx(11.52f));
+    const auto dashHitCount = std::count_if(
+        result.actionResults[0].actionResult.attackSpawnRequests.begin(),
+        result.actionResults[0].actionResult.attackSpawnRequests.end(),
+        [](const BattleAttackSpawnRequest& request)
+        {
+            return request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit;
+        });
+    CHECK(dashHitCount == 0);
 }
 
 TEST_CASE("BattleFrameRunner_MeleeDashCommitSchedulesPostDashRetreat", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Melee),
-        unit(1, 1, { 220, 100, 0 }),
-    });
+        unit(1, 1, { 300, 100, 0 }),
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
     state.combo.units[0] = {};
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::Dash;
     unit.animation.actType = 1;
     unit.animation.cooldown = 10;
 
-    auto actionInput = frameActionCommitInput();
-    actionInput.hasCast = true;
-    actionInput.cast = committedFrameCast();
-    actionInput.cast.decision.operationType = BattleOperationType::Dash;
-    actionInput.cast.postDashRetreatVelocity = { -6.0f, 0.0f, 0.0f };
-    actionInput.cast.postDashRetreatFrames = 5;
-    state.action.pendingCommitInputs.emplace(0, actionInput);
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.id = 101;
+    cast.normalSkill.attackAreaType = 0;
+    cast.normalSkill.rangedStyle = false;
+    cast.normalSkill.reach = 350.0;
+    configureRuntimeActionPlan(state, cast);
+    auto pending = framePendingCastAction();
+    pending.operationType = BattleOperationType::Dash;
+    pending.skill = cast.normalSkill;
+    state.action.pendingCasts.emplace(0, pending);
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     CHECK(result.actionResults[0].actionCommitted);
-    CHECK(state.movementRuntime.at(0).postDashRetreatVelocity.x < -3.0f);
-    CHECK(std::abs(state.movementRuntime.at(0).postDashRetreatVelocity.y) > 1.0f);
-    CHECK(state.movementRuntime.at(0).postDashRetreatFrames == 11);
-    CHECK(state.movementRuntime.at(0).postDashChaosFrames == 6);
+    CHECK(state.movement.agents.at(0).physics.postDashRetreatVelocity.x < -3.0f);
+    CHECK(std::abs(state.movement.agents.at(0).physics.postDashRetreatVelocity.y) > 1.0f);
+    CHECK(state.movement.agents.at(0).physics.postDashRetreatFrames == 11);
+    CHECK(state.movement.agents.at(0).physics.postDashChaosFrames == 6);
 }
 
 TEST_CASE("BattleFrameRunner_PostDashRetreatYieldsMovementPlannerToPhysics", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Melee),
         unit(1, 1, { 210, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.units.gridTransform = { SceneTileWidth, 64 };
-    state.units.units = {
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 100, { 210, 100, 0 }),
     };
     state.movementPhysics.config.gravity = 0.0f;
     state.movementPhysics.config.friction = 0.0f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
-    state.movementPhysics.collision.tileWidth = 100.0;
-    state.movementPhysics.collision.coordCount = 2;
-    state.movementPhysics.collision.defaultSeparationDistance = SceneTileWidth;
-    state.movementPhysics.collision.units = {
-        { 0, true, { 100, 100, 0 } },
-        { 1, true, { 210, 100, 0 } },
-    };
-    state.movementPhysics.collision.walkableByCell.assign(2 * 2, 1);
-    state.movementRuntime[0].position = { 100, 100, 0 };
-    state.movementRuntime[0].velocity = { 0, 0, 0 };
-    state.movementRuntime[0].acceleration = { 0, 0, 0 };
-    state.movementRuntime[0].postDashRetreatVelocity = { -5, 0, 0 };
-    state.movementRuntime[0].postDashRetreatFrames = 2;
-    state.movementRuntime[1].position = { 210, 100, 0 };
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 2;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
+    state.movement.agents.at(0).physics.position = { 100, 100, 0 };
+    state.movement.agents.at(0).physics.velocity = { 0, 0, 0 };
+    state.movement.agents.at(0).physics.acceleration = { 0, 0, 0 };
+    state.movement.agents.at(0).physics.postDashRetreatVelocity = { -5, 0, 0 };
+    state.movement.agents.at(0).physics.postDashRetreatFrames = 2;
+    state.movement.agents.at(1).physics.position = { 210, 100, 0 };
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.movement.decisions.contains(0));
     CHECK(result.movement.decisions.at(0).action == MovementAction::Hold);
-    CHECK(state.units.requireUnit(0).motion.position.x == Catch::Approx(95.0f));
-    CHECK(state.units.requireUnit(0).motion.velocity.x == Catch::Approx(-5.0f));
-    CHECK(state.movementRuntime.at(0).postDashRetreatFrames == 1);
+    CHECK(state.unitStore.requireUnit(0).motion.position.x == Catch::Approx(95.0f));
+    CHECK(state.unitStore.requireUnit(0).motion.velocity.x == Catch::Approx(-5.0f));
+    CHECK(state.movement.agents.at(0).physics.postDashRetreatFrames == 1);
 }
 
-TEST_CASE("BattleFrameRunner_StoresPendingCastCommitInputWhenCastStarts", "[battle][core][runtime]")
+TEST_CASE("BattleFrameRunner_StoresPendingCastIntentWhenCastStarts", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
 
@@ -2023,43 +2166,86 @@ TEST_CASE("BattleFrameRunner_StoresPendingCastCommitInputWhenCastStarts", "[batt
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
-    state.units.requireUnit(0).animation.cooldown = 0;
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     CHECK(result.actionResults[0].castStarted);
-    auto pending = state.action.pendingCommitInputs.find(0);
-    REQUIRE(pending != state.action.pendingCommitInputs.end());
-    CHECK(pending->second.hasCast);
-    CHECK(pending->second.cast.decision.skillId == 301);
+    auto pending = state.action.pendingCasts.find(0);
+    REQUIRE(pending != state.action.pendingCasts.end());
+    CHECK(pending->second.unitId == 0);
+    CHECK(pending->second.targetUnitId == 1);
+    CHECK(pending->second.skill.id == 301);
+    CHECK(pending->second.operationType == BattleOperationType::RangedProjectile);
+}
+
+TEST_CASE("BattleFrameRunner_RefreshesRuntimeCastTargetAtCommitFrame", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }, CombatStyle::Ranged),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+
+    auto cast = frameCastInput(0, 1);
+    cast.unit.position = { 100, 100, 0 };
+    cast.targetPosition = { 220, 100, 0 };
+    cast.targetDistance = 120.0;
+    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.rangedStyle = true;
+    cast.normalSkill.reach = 400.0;
+    configureRuntimeActionPlan(state, cast);
+    state.unitStore.requireUnit(0).animation.cooldown = 0;
+
+    auto start = runBattleFrame(state);
+    REQUIRE(start.actionResults.size() == 1);
+    REQUIRE(start.actionResults[0].castStarted);
+    REQUIRE(state.action.pendingCasts.contains(0));
+
+    auto& caster = state.unitStore.requireUnit(0);
+    caster.haveAction = true;
+    caster.operationType = BattleOperationType::RangedProjectile;
+    caster.animation.actType = 1;
+    caster.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    caster.animation.cooldown = 20;
+    state.unitStore.requireUnit(1).motion.position = { 220, 220, 0 };
+
+    auto release = runBattleFrame(state);
+
+    REQUIRE(release.actionResults.size() == 1);
+    REQUIRE(release.actionResults[0].actionCommitted);
+    REQUIRE(release.actionResults[0].actionResult.attackSpawnRequests.size() == 3);
+    const auto& request = release.actionResults[0].actionResult.attackSpawnRequests[0];
+    CHECK(request.initial.velocity.x > 0.0f);
+    CHECK(request.initial.velocity.y > 0.0f);
 }
 
 TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastInputWithoutSceneDirective", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
     state.combo.units[0] = {};
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
     unit.animation.actType = 1;
     unit.animation.cooldown = 10;
 
-    auto action = frameActionCommitInput();
-    action.hasCast = true;
-    action.cast = committedFrameCast();
-    state.action.pendingCommitInputs.emplace(0, action);
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCommitInputs.empty());
+    CHECK(state.action.pendingCasts.empty());
     REQUIRE(result.actionResults.size() == 1);
     CHECK(result.actionResults[0].actionCommitted);
     CHECK(result.actionResults[0].castCommitted);
@@ -2067,17 +2253,158 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastInputWithoutSceneDire
     REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
 }
 
-TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastAgainstLiveComboState", "[battle][core][runtime]")
+TEST_CASE("BattleFrameRunner_RetargetsPendingCastWhenOriginalTargetDiesBeforeCommit", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+        unit(2, 1, { 220, 220, 0 }),
+    }));
+    state.movement.frame = 1;
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
     state.combo.units[0] = {};
-    auto& unit = state.units.requireUnit(0);
+    preparePendingCastCommitFrame(state, 0);
+    auto& caster = state.unitStore.requireUnit(0);
+    caster.operationCount = 1;
+    caster.vitals.mp = 20;
+    caster.vitals.maxMp = 50;
+
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
+    auto& target = state.unitStore.requireUnit(1);
+    target.alive = false;
+    target.vitals.hp = 0;
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.action.pendingCasts.empty());
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK(result.actionResults[0].actionCommitted);
+    CHECK(result.actionResults[0].castCommitted);
+    CHECK(result.actionResults[0].actionInput.hasCast);
+    CHECK(result.actionResults[0].actionInput.cast.decision.targetUnitId == 2);
+    CHECK(result.actionResults[0].actionResult.operationCount == 1);
+    CHECK(state.unitStore.requireUnit(0).operationCount == 1);
+    CHECK(state.unitStore.requireUnit(0).vitals.mp == 25);
+    REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
+    const auto& request = result.actionResults[0].actionResult.attackSpawnRequests.front();
+    CHECK(request.initial.velocity.x > 0.0f);
+    CHECK(request.initial.velocity.y > 0.0f);
+}
+
+TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenNoLiveEnemyRemainsBeforeCommit", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }),
+    }));
+    state.movement.frame = 1;
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.combo.units[0] = {};
+    preparePendingCastCommitFrame(state, 0);
+    auto& caster = state.unitStore.requireUnit(0);
+    caster.operationCount = 1;
+    caster.vitals.mp = 20;
+    caster.vitals.maxMp = 50;
+
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
+    auto& target = state.unitStore.requireUnit(1);
+    target.alive = false;
+    target.vitals.hp = 0;
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.action.pendingCasts.empty());
+    CHECK(state.unitStore.requireUnit(0).operationCount == 1);
+    CHECK(state.unitStore.requireUnit(0).vitals.mp == 20);
+    CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
+    CHECK(state.unitStore.requireUnit(0).operationType == BattleOperationType::None);
+    CHECK(state.unitStore.requireUnit(0).animation.actType == -1);
+    REQUIRE(result.actionResults.size() == 1);
+    CHECK(result.actionResults[0].actionCommitted);
+    CHECK_FALSE(result.actionResults[0].castCommitted);
+    CHECK_FALSE(result.actionResults[0].actionInput.hasCast);
+    CHECK(result.actionResults[0].actionResult.operationCount == 1);
+    CHECK(result.actionResults[0].actionResult.attackSpawnRequests.empty());
+    CHECK(result.attackEvents.empty());
+}
+
+TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenCasterDiesBeforeActionFrame", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }),
+    }));
+    state.movement.frame = 1;
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.combo.units[0] = {};
+    preparePendingCastCommitFrame(state, 0);
+
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
+    auto& caster = state.unitStore.requireUnit(0);
+    caster.alive = false;
+    caster.vitals.hp = 0;
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.action.pendingCasts.empty());
+    CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
+    CHECK(state.unitStore.requireUnit(0).operationType == BattleOperationType::None);
+    CHECK(state.unitStore.requireUnit(0).animation.actType == -1);
+    CHECK(result.attackEvents.empty());
+    CHECK(result.actionResults.empty());
+}
+
+TEST_CASE("BattleFrameRunner_PrunesPendingCastWhenCasterDiesDuringDamageLifecycle", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 220, 100, 0 }, CombatStyle::Ranged),
+    }));
+    state.movement.frame = 1;
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.deathEffects.store.units = { { 0 }, { 1 } };
+    state.combo.units[1] = {};
+    preparePendingCastCommitFrame(state, 1, BattleOperationType::RangedProjectile, 0);
+    configureRuntimeActionPlan(state, frameCastInput(1, 0));
+    auto pending = framePendingCastAction();
+    pending.unitId = 1;
+    pending.targetUnitId = 0;
+    state.action.pendingCasts.emplace(1, pending);
+
+    queuePendingDamage(state, lethalDamageInput(0, 1));
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK_FALSE(state.unitStore.requireUnit(1).alive);
+    CHECK(state.action.pendingCasts.empty());
+    CHECK_FALSE(state.unitStore.requireUnit(1).haveAction);
+    CHECK(state.unitStore.requireUnit(1).operationType == BattleOperationType::None);
+    CHECK(state.unitStore.requireUnit(1).animation.actType == -1);
+}
+
+TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastAgainstLiveComboState", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.combo.units[0] = {};
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
@@ -2089,10 +2416,8 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastAgainstLiveComboState
     liveCombo.dodgeAdaptationStacks.push_back({ { 1, 2 } });
     state.combo.units[0] = liveCombo;
 
-    auto action = frameActionCommitInput();
-    action.hasCast = true;
-    action.cast = committedFrameCast();
-    state.action.pendingCommitInputs.emplace(0, action);
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
@@ -2107,13 +2432,13 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastAgainstLiveComboState
 TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
@@ -2130,47 +2455,57 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
     combo.postSkillInvincFrames = 12;
     state.combo.units[0] = combo;
 
-    auto action = frameActionCommitInput();
-    action.hasCast = true;
-    action.cast = committedFrameCast();
-    state.action.pendingCommitInputs.emplace(0, action);
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
-    CHECK(state.units.requireUnit(0).vitals.mp == 14);
-    CHECK(state.units.requireUnit(0).shield == 12);
-    CHECK(state.units.requireUnit(0).invincible == 12);
+    CHECK(state.unitStore.requireUnit(0).vitals.mp == 19);
+    CHECK(state.unitStore.requireUnit(0).shield == 12);
+    CHECK(state.unitStore.requireUnit(0).invincible == 12);
     CHECK(state.combo.units.at(0).effectActivationCounts.at(0) == 1);
     CHECK(state.combo.units.at(0).effectActivationCounts.at(1) == 1);
     REQUIRE(result.effectCommands.size() == 1);
     CHECK(result.effectCommands[0].type == BattleEffectCommandType::AddInvincibility);
     CHECK(result.effectCommands[0].targetUnitId == 0);
     CHECK(result.effectCommands[0].value == 12);
+
+    const auto invincibilityLog = std::find_if(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Status
+                && event.sourceUnitId == 0
+                && event.targetUnitId == 0
+                && event.amount == 12;
+        });
+    REQUIRE(invincibilityLog != result.frame.logEvents.end());
+    CHECK(invincibilityLog->text == "技能後無敵（12幀）");
 }
 
 TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastSound", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
     state.combo.units[0] = {};
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
     unit.animation.actType = 1;
     unit.animation.cooldown = 10;
 
-    auto action = frameActionCommitInput();
-    action.hasCast = true;
-    action.cast = committedFrameCast();
-    action.cast.decision.soundId = 55;
-    state.action.pendingCommitInputs.emplace(0, action);
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    auto action = framePendingCastAction();
+    action.skill.soundId = 55;
+    state.action.pendingCasts.emplace(0, action);
 
     auto result = runBattleFrame(state);
 
@@ -2181,14 +2516,14 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastSound", "[battle][cor
 TEST_CASE("BattleFrameRunner_ConsumesUltimateCasterWhenRuntimeOwnedCastCommits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
     state.combo.units[0] = {};
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
@@ -2198,32 +2533,32 @@ TEST_CASE("BattleFrameRunner_ConsumesUltimateCasterWhenRuntimeOwnedCastCommits",
     unit.vitals.maxMp = 100;
     state.ultimateCasters.insert(0);
 
-    auto action = frameActionCommitInput();
-    action.hasCast = true;
-    action.cast = committedFrameCast();
-    action.cast.decision.ultimate = true;
-    action.cast.mpDelta = -unit.vitals.maxMp;
-    state.action.pendingCommitInputs.emplace(0, action);
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.id = 101;
+    configureRuntimeActionPlan(state, cast);
+    auto action = framePendingCastAction();
+    action.ultimate = true;
+    state.action.pendingCasts.emplace(0, action);
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     CHECK(result.actionResults[0].actionCommitted);
     CHECK(state.ultimateCasters.empty());
-    CHECK(state.units.requireUnit(0).vitals.mp == 0);
+    CHECK(state.unitStore.requireUnit(0).vitals.mp == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AppliesCommittedNormalCastMpGain", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
     state.combo.units[0] = {};
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
@@ -2232,26 +2567,26 @@ TEST_CASE("BattleFrameRunner_AppliesCommittedNormalCastMpGain", "[battle][core][
     unit.vitals.mp = 0;
     unit.vitals.maxMp = 100;
 
-    auto action = frameActionCommitInput();
-    action.hasCast = true;
-    action.cast = committedFrameCast();
-    action.cast.mpDelta = 5;
-    state.action.pendingCommitInputs.emplace(0, action);
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.id = 101;
+    configureRuntimeActionPlan(state, cast);
+    auto action = framePendingCastAction();
+    state.action.pendingCasts.emplace(0, action);
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.actionResults.size() == 1);
     CHECK(result.actionResults[0].actionCommitted);
-    CHECK(state.units.requireUnit(0).vitals.mp == action.cast.mpDelta + 1);
+    CHECK(state.unitStore.requireUnit(0).vitals.mp == state.action.castConfig.normalCastMpDelta + 1);
 }
 
 TEST_CASE("BattleFrameRunner_PrunesFinishedRuntimeAttacksAfterFrame", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 220, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     BattleAttackInstance attack;
     attack.id = 77;
@@ -2262,6 +2597,7 @@ TEST_CASE("BattleFrameRunner_PrunesFinishedRuntimeAttacksAfterFrame", "[battle][
     attack.state.position = { 100, 100, 0 };
     attack.state.velocity = { 0, 0, 0 };
     attack.state.totalFrame = 1;
+    seedRuntimeUnitsFromWorld(state);
     state.attacks.attacks.push_back(attack);
 
     auto result = runBattleFrame(state);
@@ -2280,28 +2616,22 @@ TEST_CASE("BattleFrameRunner_PrunesFinishedRuntimeAttacksAfterFrame", "[battle][
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimePendingCastInput", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 160, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 160, 100, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
     state.combo.units[0] = {};
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 6;
     unit.operationType = BattleOperationType::RangedProjectile;
     unit.animation.actType = 1;
     unit.animation.cooldown = 10;
 
-    auto actionInput = frameActionCommitInput();
-    actionInput.hasCast = true;
-    actionInput.cast = committedFrameCast();
-    state.action.pendingCommitInputs.emplace(0, actionInput);
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
@@ -2319,12 +2649,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimePendingCastInput", "[bat
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
-    });
+    }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    auto& unit = state.units.requireUnit(0);
+    auto& unit = state.unitStore.requireUnit(0);
     unit.haveAction = true;
     unit.animation.actFrame = 11;
     unit.animation.actType = 2;
@@ -2344,16 +2674,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 210, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     state.status.units = {
         statusRuntimeSnapshot(0, 100),
         statusRuntimeSnapshot(1, 10),
     };
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 210, 100, 0 }),
     };
@@ -2374,8 +2704,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
     CHECK(renderDamage.frozenMaxFrames == transaction.defenderStatus.effects.frozenMaxTimer);
     CHECK(renderDamage.cooldown == transaction.defenderCooldown.cooldown);
     CHECK(renderDamage.committedHpDamage == transaction.finalHpDamage);
-    CHECK(state.world.units[1].alive == false);
-    CHECK(state.units.requireUnit(1).alive == false);
+    CHECK(state.unitStore.requireUnit(1).alive == false);
     CHECK(state.result.ended);
     CHECK(state.result.winningTeam == 0);
 
@@ -2390,23 +2719,92 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
     CHECK(gameplayTypes[gameplayTypes.size() - 1] == BattleGameplayEventType::BattleEnded);
 }
 
+TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeStores", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 210, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 1, 100, { 210, 100, 0 }),
+    };
+    state.unitStore.requireUnit(1).shield = 33;
+    state.combo.units[1].shield = 999;
+
+    BattleDamageRuntimeUnit damage;
+    damage.id = 1;
+    damage.blockFirstHitsRemaining = 2;
+    state.damage.unitExtras = { { 0 }, damage };
+    state.combo.units[1].blockFirstHitsRemaining = 9;
+
+    auto result = runBattleFrame(state);
+
+    auto it = std::find_if(
+        result.stateApplications.comboRenderUnits.begin(),
+        result.stateApplications.comboRenderUnits.end(),
+        [](const BattleFrameComboRenderApplication& unit)
+        {
+            return unit.unitId == 1;
+        });
+    REQUIRE(it != result.stateApplications.comboRenderUnits.end());
+    CHECK(it->shield == 33);
+    CHECK(it->blockFirstHitsRemaining == 2);
+}
+
+TEST_CASE("BattleFrameRunner_FirstHitBlockGameplayEventHasStatusText", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 120, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 1, 100, { 120, 100, 0 }),
+    };
+    state.combo.units = {
+        { 0, KysChess::RoleComboState{} },
+        { 1, KysChess::RoleComboState{} },
+    };
+    BattleDamageTransactionInput damage = preResolvedDamageInput(0, 1, 100, 20);
+    damage.defender.blockFirstHitsRemaining = 1;
+    queuePendingDamage(state, damage);
+
+    auto result = runBattleFrame(state);
+
+    auto event = std::find_if(
+        result.frame.gameplayEvents.begin(),
+        result.frame.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::StatusApplied
+                && event.targetUnitId == 1;
+        });
+    REQUIRE(event != result.frame.gameplayEvents.end());
+    CHECK(event->text == "格擋了首輪傷害");
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[battle][core][movement]")
 {
     BattleRuntimeState state;
-    state.units.gridTransform = { SceneTileWidth, 64 };
-    state.world = worldWith({
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 200, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 100, { 200, 100, 0 }),
     };
-    state.units.requireUnit(0).motion.velocity = { 5, 0, 0 };
-    state.units.requireUnit(0).motion.acceleration = { 0, 0, -4 };
-    state.units.requireUnit(0).motion.velocity = { 5, 0, 0 };
-    state.units.requireUnit(0).motion.acceleration = { 0, 0, -4 };
+    state.unitStore.requireUnit(0).motion.velocity = { 5, 0, 0 };
+    state.unitStore.requireUnit(0).motion.acceleration = { 0, 0, -4 };
+    state.unitStore.requireUnit(0).motion.velocity = { 5, 0, 0 };
+    state.unitStore.requireUnit(0).motion.acceleration = { 0, 0, -4 };
     state.status.units = {
         statusRuntimeSnapshot(0, 100),
         statusRuntimeSnapshot(1, 100),
@@ -2415,21 +2813,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     state.movementPhysics.config.gravity = -4.0f;
     state.movementPhysics.config.friction = 0.1f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
-    state.movementPhysics.collision.tileWidth = 100.0;
-    state.movementPhysics.collision.coordCount = 2;
-    state.movementPhysics.collision.defaultSeparationDistance = SceneTileWidth * 1.5;
-    state.movementPhysics.collision.units = {
-        { 0, true, { 100, 100, 0 } },
-        { 1, true, { 200, 100, 0 } },
-    };
-    state.movementPhysics.collision.walkableByCell.assign(2 * 2, 1);
-    state.movementRuntime[0].position = { 100, 100, 0 };
-    state.movementRuntime[0].velocity = { 5, 0, 0 };
-    state.movementRuntime[0].acceleration = { 0, 0, -4 };
-    state.movementRuntime[0].movementDashFrames = 1;
-    state.movementRuntime[1].position = { 200, 100, 0 };
-    state.movementRuntime[1].velocity = { 5, 0, 0 };
-    state.movementRuntime[1].acceleration = { 0, 0, -4 };
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 2;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth * 1.5;
+    state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
+    state.movement.agents.at(0).physics.position = { 100, 100, 0 };
+    state.movement.agents.at(0).physics.velocity = { 5, 0, 0 };
+    state.movement.agents.at(0).physics.acceleration = { 0, 0, -4 };
+    state.movement.agents.at(0).physics.movementDashFrames = 1;
+    state.movement.agents.at(1).physics.position = { 200, 100, 0 };
+    state.movement.agents.at(1).physics.velocity = { 5, 0, 0 };
+    state.movement.agents.at(1).physics.acceleration = { 0, 0, -4 };
 
     auto result = runBattleFrame(state);
 
@@ -2451,17 +2845,44 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     CHECK(stopped.state.velocity.x == 0.0f);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_SkipsDeadUnitsInMovementPhysics", "[battle][core][movement]")
+{
+    BattleRuntimeState state;
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    auto dead = unit(1, 1, { 200, 100, 0 });
+    dead.alive = false;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        dead,
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.requireUnit(0).motion.velocity = { 5, 0, 0 };
+    state.movementPhysics.config.gravity = 0.0f;
+    state.movementPhysics.config.friction = 0.0f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 2;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.movementPhysicsResults.size() == 1);
+    CHECK(result.movementPhysicsResults[0].unitId == 0);
+    CHECK_FALSE(state.movement.agents.contains(1));
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameState", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 210, 100, 0 }),
         unit(2, 0, { 120, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
     state.damage.sortPendingDamageByDefenderMagnitude = true;
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 210, 100, 0 }),
         runtimeUnitSnapshot(2, 0, 80, { 120, 100, 0 }),
@@ -2538,13 +2959,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 0, { 120, 100, 0 }),
         unit(2, 1, { 180, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 50, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 0, 70, { 120, 100, 0 }),
         runtimeUnitSnapshot(2, 1, 80, { 180, 100, 0 }),
@@ -2554,8 +2975,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
     auto result = runBattleFrame(state);
 
     REQUIRE(result.teamEffectEvents.size() == 2);
-    CHECK(state.units.requireUnit(0).vitals.hp == 60);
-    CHECK(state.units.requireUnit(1).vitals.hp == 80);
+    CHECK(state.unitStore.requireUnit(0).vitals.hp == 60);
+    CHECK(state.unitStore.requireUnit(1).vitals.hp == 80);
     CHECK(std::count_if(
         result.frame.visualEvents.begin(),
         result.frame.visualEvents.end(),
@@ -2569,18 +2990,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
 TEST_CASE("BattleFrameRunner_DropsPendingTeamEffectWhenSourceDiesBeforeApply", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
-    state.units.gridTransform = { SceneTileWidth, 64 };
-    state.world = worldWith({
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 0, { 120, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 40, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 0, 80, { 120, 100, 0 }),
     };
-    state.units.requireUnit(0).alive = false;
-    state.world.units[0].alive = false;
+    state.unitStore.requireUnit(0).alive = false;
     state.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 0, 10, 0, "技能群療" });
 
     auto result = runBattleFrame(state);
@@ -2588,46 +3008,46 @@ TEST_CASE("BattleFrameRunner_DropsPendingTeamEffectWhenSourceDiesBeforeApply", "
     CHECK(result.teamEffectEvents.empty());
     CHECK(result.frame.visualEvents.empty());
     CHECK(state.teamEffects.pendingCommands.empty());
-    CHECK(state.units.requireUnit(1).vitals.hp == 80);
+    CHECK(state.unitStore.requireUnit(1).vitals.hp == 80);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnCooldownFinish", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 220, 100, 0 }),
-    });
-    state.world.frame = 1;
+    }));
+    state.movement.frame = 1;
     state.attacks = attackWorld();
     state.status.units = {
         statusRuntimeSnapshot(0, 100),
         statusRuntimeSnapshot(1, 100),
     };
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 100, { 220, 100, 0 }),
     };
-    state.units.units[0].invincible = 1;
-    state.units.units[0].animation.cooldown = 1;
-    state.units.units[0].haveAction = true;
+    state.unitStore.units[0].invincible = 1;
+    state.unitStore.units[0].animation.cooldown = 1;
+    state.unitStore.units[0].haveAction = true;
     state.combo.units[0].postSkillInvincFrames = 5;
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.units.requireUnit(0).invincible == 0);
+    CHECK(state.unitStore.requireUnit(0).invincible == 0);
     CHECK(result.effectCommands.empty());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesDeathAoeToPendingProjectileSpawn", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 120, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100.0f, 100.0f, 0.0f }),
         runtimeUnitSnapshot(1, 1, 10, { 120.0f, 100.0f, 0.0f }),
     };
@@ -2656,14 +3076,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[ba
     defenderCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::TempFlatATK, KysChess::Trigger::OnShieldBreak, 14, 100, 45));
     state.combo.units[1] = defenderCombo;
-    state.units.requireUnit(1).shield = 10;
+    state.unitStore.requireUnit(1).shield = 10;
 
     runBattleFrame(state);
 
-    CHECK(state.units.requireUnit(1).stats.attack == 44);
-    REQUIRE(state.combo.units.at(1).tempAttackBuffs.size() == 1);
-    CHECK(state.combo.units.at(1).tempAttackBuffs[0].attackBonus == 14);
-    CHECK(state.combo.units.at(1).tempAttackBuffs[0].remainingFrames == 45);
+    CHECK(state.unitStore.requireUnit(1).stats.attack == 44);
+    CHECK(state.combo.units.at(1).tempAttackBuffs.empty());
+    const auto& status = requireById(state.status.units, 1);
+    REQUIRE(status.effects.tempAttackBuffs.size() == 1);
+    CHECK(status.effects.tempAttackBuffs[0].attackBonus == 14);
+    CHECK(status.effects.tempAttackBuffs[0].remainingFrames == 45);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore", "[battle][core][breakthrough]")
@@ -2679,7 +3101,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
 
     REQUIRE(state.pendingAttackSpawns.size() == 4);
     CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 1);
-    CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == 0);
+    CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == -1);
+    CHECK_FALSE(state.pendingAttackSpawns[0].initial.requirePreferredTarget);
     CHECK(state.pendingAttackSpawns[0].initial.skillId == 401);
     CHECK(state.pendingAttackSpawns[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
     CHECK(state.pendingAttackSpawns[1].initial.strengthMultiplier == 0.35f);
@@ -2720,13 +3143,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimeAutoUltimateReadyInsideC
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DropsDeferredAutoUltimateWhenBattleEndsFirst", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 180, 100, 0 }),
         unit(2, 0, { 120, 120, 0 }, CombatStyle::Ranged),
-    });
+    }));
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 180, 100, 0 }),
         runtimeUnitSnapshot(2, 0, 100, { 120, 120, 0 }),
@@ -2790,8 +3213,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle
                 && event.targetUnitId == 1
                 && event.effectId == KysChess::EFT_HEAL;
         }));
-    CHECK(state.units.requireUnit(1).vitals.hp == 30);
-    CHECK(state.units.requireUnit(1).invincible == 10);
+    CHECK(state.unitStore.requireUnit(1).vitals.hp == 30);
+    CHECK(state.unitStore.requireUnit(1).invincible == 10);
     CHECK(state.combo.units.at(2).forcePullProtectRemaining == 0);
 }
 
@@ -2802,8 +3225,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttac
     state.combo.units[2].forcePullProtectRemaining = 0;
     state.combo.units[0].forcePullExecute = true;
     state.combo.units[0].forcePullExecuteRemaining = 2;
-    state.units.requireUnit(0).grid = { 10, 10 };
-    state.units.requireUnit(1).grid = { 5, 5 };
+    state.unitStore.requireUnit(0).grid = { 10, 10 };
+    state.unitStore.requireUnit(1).grid = { 5, 5 };
     state.rescue.cells = {
         rescueCell(9, 10),
         rescueCell(10, 9),
@@ -2843,22 +3266,22 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
     REQUIRE(result.damageTransactions.size() == 1);
     CHECK(result.rescueResults.empty());
     CHECK(state.combo.units.at(2).forcePullProtectRemaining == 1);
-    CHECK(state.units.requireUnit(1).vitals.hp == 20);
+    CHECK(state.unitStore.requireUnit(1).vitals.hp == 20);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageRewards", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({});
+    configureRuntimeMovement(state, worldWith({}));
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 40),
         runtimeUnitSnapshot(1, 1, 10),
     };
-    state.units.units[0].stats.attack = 12;
-    state.units.units[0].stats.defence = 8;
-    state.units.units[1].stats.attack = 9;
-    state.units.units[1].stats.defence = 6;
+    state.unitStore.units[0].stats.attack = 12;
+    state.unitStore.units[0].stats.defence = 8;
+    state.unitStore.units[1].stats.attack = 9;
+    state.unitStore.units[1].stats.defence = 6;
     auto input = lethalDamageInput(0, 1);
     input.attacker.vitals.hp = 40;
     input.attacker.vitals.maxHp = 100;
@@ -2874,27 +3297,24 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageReward
     auto result = runBattleFrame(state);
 
     REQUIRE(result.damageTransactions.size() == 1);
-    REQUIRE(result.deathEffectTrackers.size() == 2);
-    CHECK(result.deathEffectTrackers[0].unitId == 0);
-    CHECK(result.deathEffectTrackers[1].unitId == 1);
     REQUIRE(state.deathEffects.store.units.size() == 2);
     CHECK(result.damageTransactions.front().attacker.vitals.hp == 65);
     CHECK(result.damageTransactions.front().attacker.attack == 19);
-    CHECK(state.units.requireUnit(0).vitals.hp == 65);
-    CHECK(state.units.requireUnit(0).stats.attack == 19);
-    CHECK(state.units.requireUnit(1).alive == false);
-    CHECK(state.units.requireUnit(1).vitals.hp == 0);
+    CHECK(state.unitStore.requireUnit(0).vitals.hp == 65);
+    CHECK(state.unitStore.requireUnit(0).stats.attack == 19);
+    CHECK(state.unitStore.requireUnit(1).alive == false);
+    CHECK(state.unitStore.requireUnit(1).vitals.hp == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_BattleEndEventEmitsOnce", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 210, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 210, 100, 0 }),
     };
@@ -2928,10 +3348,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_BattleEndEventEmitsOnce", "[battle][co
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparatelyFromPresentation", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 105, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
 
     BattleAttackInstance projectile;
@@ -2949,10 +3369,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparat
     expiringProjectile.state.position = { 300, 100, 0 };
     expiringProjectile.state.velocity = { 5, 0, 0 };
 
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 105, 100, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
     state.attacks.attacks.push_back(projectile);
     state.attacks.attacks.push_back(expiringProjectile);
@@ -2992,15 +3408,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparat
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 105, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 105, 100, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
 
     BattleAttackInstance projectile;
@@ -3046,8 +3458,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDamageTakenMpGainInsideRuntime"
 {
     auto frame = hitDamageFrameState(70, 100);
     auto& state = frame.state;
-    state.world.frame = 1;
-    auto& defender = state.units.requireUnit(1);
+    state.movement.frame = 1;
+    auto& defender = state.unitStore.requireUnit(1);
     defender.vitals.mp = 5;
     defender.vitals.maxMp = 100;
     defender.mpRecoveryBonusPct = 50;
@@ -3061,20 +3473,20 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDamageTakenMpGainInsideRuntime"
     const int expectedGain = static_cast<int>(baseGain * 1.5);
     CHECK(damage.defender.vitals.mp == 5 + expectedGain);
     CHECK(damage.defenderDelta.mpDelta == expectedGain);
-    CHECK(state.units.requireUnit(1).vitals.mp == 5 + expectedGain);
+    CHECK(state.unitStore.requireUnit(1).vitals.mp == 5 + expectedGain);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AccumulatesDamageTakenMpGainAcrossSameFrameHits", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }),
         unit(1, 1, { 210, 100, 0 }),
         unit(2, 0, { 120, 100, 0 }),
-    });
-    state.world.frame = 1;
+    }));
+    state.movement.frame = 1;
     state.attacks = attackWorld();
-    state.units.units = {
+    state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 100, { 210, 100, 0 }),
         runtimeUnitSnapshot(2, 0, 80, { 120, 100, 0 }),
@@ -3111,15 +3523,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AccumulatesDamageTakenMpGainAcrossSame
     CHECK(secondGain > 0);
     CHECK(result.damageTransactions[0].defender.vitals.mp == 5 + firstGain);
     CHECK(result.damageTransactions[1].defender.vitals.mp == 5 + firstGain + secondGain);
-    CHECK(state.units.requireUnit(1).vitals.mp == 5 + firstGain + secondGain);
+    CHECK(state.unitStore.requireUnit(1).vitals.mp == 5 + firstGain + secondGain);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePreviewUsesResolvedPendingDamage", "[battle][core][breakthrough]")
 {
     auto frame = hitDamageFrameState(3, 30);
     auto& state = frame.state;
-    state.world.frame = 1;
-    state.units.requireUnit(1).stats.defence = 200;
+    state.movement.frame = 1;
+    state.unitStore.requireUnit(1).stats.defence = 200;
     state.combo.units[0].triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::Execute, KysChess::Trigger::OnHit, 5, 100));
 
@@ -3129,14 +3541,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePreviewUsesResolvedPendingDamag
     pending.request.baseDamage = 40;
     pending.request.preResolvedDamage = false;
     pending.attacker = makeBattleDamageUnitState(
-        state.units.requireUnit(0),
+        state.unitStore.requireUnit(0),
         &requireById(state.damage.unitExtras, 0));
     pending.defender = makeBattleDamageUnitState(
-        state.units.requireUnit(1),
+        state.unitStore.requireUnit(1),
         &requireById(state.damage.unitExtras, 1));
     pending.defenderStatus = makeBattleStatusUnitState(
         requireById(state.status.units, 1),
-        state.units.requireUnit(1));
+        state.unitStore.requireUnit(1));
     queuePendingDamage(state, pending);
 
     auto result = runBattleFrame(state);
@@ -3158,8 +3570,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageTakenMpGainHonorsMpBlock", "[bat
 {
     auto frame = hitDamageFrameState(70, 100);
     auto& state = frame.state;
-    state.world.frame = 1;
-    auto& defender = state.units.requireUnit(1);
+    state.movement.frame = 1;
+    auto& defender = state.unitStore.requireUnit(1);
     defender.vitals.mp = 5;
     defender.vitals.maxMp = 100;
     state.status.units[1].effects.mpBlockTimer = 2;
@@ -3171,7 +3583,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageTakenMpGainHonorsMpBlock", "[bat
     CHECK(damage.defender.mpBlocked);
     CHECK(damage.defender.vitals.mp == 5);
     CHECK(damage.defenderDelta.mpDelta == 0);
-    CHECK(state.units.requireUnit(1).vitals.mp == 5);
+    CHECK(state.unitStore.requireUnit(1).vitals.mp == 5);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesMainProjectileImpactFreezeInCore", "[battle][core][breakthrough]")
@@ -3234,15 +3646,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndIns
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 105, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 105, 100, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
 
     BattleAttackInstance projectile;
@@ -3294,15 +3702,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 105, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 105, 100, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
 
     BattleAttackInstance projectile;
@@ -3325,32 +3729,29 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPairedAttack", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
-        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
-        unit(3, 1, { 700, 100, 0 }, CombatStyle::Ranged),
-    });
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 700, 100, 0 }, CombatStyle::Ranged),
+    }));
     state.attacks = attackWorld();
 
     BattleAttackInstance projectile;
     projectile.id = 10;
     projectile.state.attackerUnitId = 0;
-    projectile.state.preferredTargetUnitId = 0;
+    projectile.state.preferredTargetUnitId = 2;
     projectile.state.requirePreferredTarget = true;
     projectile.state.totalFrame = 30;
     projectile.state.position = { 100, 100, 0 };
     projectile.state.velocity = { 5, 0, 0 };
 
-    state.attacks.units = {
-        { 1, 0, true, false, false, { 100, 100, 0 } },
-        { 3, 1, true, false, false, { 700, 100, 0 } },
-    };
+    seedRuntimeUnitsFromWorld(state);
     state.attacks.attacks.push_back(projectile);
 
     auto result = runBattleFrame(state);
 
     REQUIRE(result.attackEvents.size() == 2);
     REQUIRE(result.frame.gameplayEvents.size() == 2);
-    REQUIRE(result.frame.logEvents.empty());
+    REQUIRE(result.frame.logEvents.size() == 1);
     REQUIRE(result.frame.visualEvents.size() == result.attackEvents.size());
 
     CHECK(result.attackEvents[1].type == BattleAttackEventType::TargetLost);
@@ -3360,15 +3761,61 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPa
     CHECK(result.frame.gameplayEvents[1].otherAttackId == -1);
     CHECK(result.frame.visualEvents[1].type == BattleVisualEventType::ProjectileTargetLost);
     CHECK(result.frame.visualEvents[1].amount == -1);
+    CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.frame.logEvents[0].sourceUnitId == 0);
+    CHECK(result.frame.logEvents[0].targetUnitId == -1);
+    CHECK(result.frame.logEvents[0].text == "彈道取消：目標遺失");
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_LogsProjectileContactIgnoredByInvincible", "[battle][core]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 105, 100, 0 }, CombatStyle::Ranged),
+    }));
+    state.attacks = attackWorld();
+
+    BattleAttackInstance projectile;
+    projectile.id = 10;
+    projectile.state.attackerUnitId = 0;
+    projectile.state.totalFrame = 30;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
+
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 1, 100, { 105, 100, 0 }),
+    };
+    state.unitStore.units[1].invincible = 3;
+    state.attacks.attacks.push_back(projectile);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.attackEvents.size() == 2);
+    CHECK(result.attackEvents[1].type == BattleAttackEventType::BlockedByInvincible);
+    CHECK(result.attackEvents[1].sourceUnitId == 0);
+    CHECK(result.attackEvents[1].unitId == 1);
+    CHECK(result.hitResults.empty());
+    CHECK(result.damageTransactions.empty());
+    CHECK(state.unitStore.units[1].invincible > 0);
+    REQUIRE(result.frame.logEvents.size() == 1);
+    CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.frame.logEvents[0].sourceUnitId == 0);
+    CHECK(result.frame.logEvents[0].targetUnitId == 1);
+    CHECK(result.frame.logEvents[0].text == "彈道命中無敵：傷害忽略");
+    CHECK(result.frame.gameplayEvents[1].type == BattleGameplayEventType::StatusApplied);
+    CHECK(result.frame.gameplayEvents[1].text == "彈道命中無敵：傷害忽略");
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAttackId", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 900, 900, 0 }, CombatStyle::Ranged),
-    });
+    }));
     state.attacks = attackWorld();
 
     BattleAttackInstance first;
@@ -3389,10 +3836,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
     second.state.operationType = BattleOperationType::RangedProjectile;
     second.state.projectileCancelDamage = 10;
 
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 900, 900, 0 } },
-    };
+    seedRuntimeUnitsFromWorld(state);
     state.attacks.attacks.push_back(first);
     state.attacks.attacks.push_back(second);
 
@@ -3411,16 +3855,62 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
     CHECK(result.frame.gameplayEvents[2].amount == 0);
     CHECK(result.frame.visualEvents[2].type == BattleVisualEventType::ProjectileCancelled);
     CHECK(result.frame.visualEvents[2].amount == 20);
+    REQUIRE(result.frame.logEvents.size() == 1);
+    CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.frame.logEvents[0].sourceUnitId == 0);
+    CHECK(result.frame.logEvents[0].targetUnitId == 1);
+    CHECK(result.frame.logEvents[0].amount == 17);
+    CHECK(result.frame.logEvents[0].text == "抵消彈道 #10 vs #20（17 - 10 = 7）");
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ProjectileCancelLogPutsWinnerOnLeft", "[battle][core]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 900, 900, 0 }, CombatStyle::Ranged),
+    }));
+    state.attacks = attackWorld();
+
+    BattleAttackInstance first;
+    first.id = 10;
+    first.state.attackerUnitId = 0;
+    first.frame = 5;
+    first.state.totalFrame = 30;
+    first.state.position = { 500, 500, 0 };
+    first.state.operationType = BattleOperationType::RangedProjectile;
+    first.state.projectileCancelDamage = 10;
+
+    BattleAttackInstance second;
+    second.id = 20;
+    second.state.attackerUnitId = 1;
+    second.frame = 5;
+    second.state.totalFrame = 30;
+    second.state.position = { 500, 500, 0 };
+    second.state.operationType = BattleOperationType::TrackingProjectile;
+    second.state.projectileCancelDamage = 11;
+
+    seedRuntimeUnitsFromWorld(state);
+    state.attacks.attacks.push_back(first);
+    state.attacks.attacks.push_back(second);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.frame.logEvents.size() == 1);
+    CHECK(result.frame.logEvents[0].sourceUnitId == 1);
+    CHECK(result.frame.logEvents[0].targetUnitId == 0);
+    CHECK(result.frame.logEvents[0].amount == 17);
+    CHECK(result.frame.logEvents[0].text == "抵消彈道 #20 vs #10（17 - 10 = 7）");
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay", "[battle][core]")
 {
     BattleRuntimeState state;
-    state.world = worldWith({
+    configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 105, 100, 0 }),
         unit(2, 1, { 180, 100, 0 }),
-    });
+    }));
     state.attacks = attackWorld();
 
     BattleAttackInstance projectile;
@@ -3438,11 +3928,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
     projectile.state.velocity = { 5, 0, 0 };
 
     state.attacks.nextAttackId = 30;
-    state.attacks.units = {
-        { 0, 0, true, false, false, { 100, 100, 0 } },
-        { 1, 1, true, false, false, { 105, 100, 0 } },
-        { 2, 1, true, false, false, { 180, 100, 0 } },
-    };
     seedRuntimeUnitsFromWorld(state);
     state.attacks.attacks.push_back(projectile);
 

@@ -152,6 +152,38 @@ TEST_CASE("BattleHitResolver_FrozenSideEffectEmitsAcceptedHitCommand", "[battle]
     CHECK(command->damage.frozenFrames == 5);
 }
 
+TEST_CASE("BattleHitResolver_RangedSideProjectileDoesNotApplyStunEffects", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.attackEvent.mainProjectile = false;
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 90;
+    input.attackerCombo.stunChancePct = 100;
+    input.attackerCombo.stunFrames = 7;
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::Stun, KysChess::Trigger::OnHit, 11, 100));
+
+    auto result = resolveHit(input);
+
+    CHECK(std::none_of(
+        result.commands.begin(),
+        result.commands.end(),
+        [](const BattleGameplayCommand& command)
+        {
+            const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command);
+            return sideEffect && sideEffect->damage.frozenFrames > 0;
+        }));
+    CHECK(std::none_of(
+        result.logEvents.begin(),
+        result.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Status
+                && event.text.find("眩暈") != std::string::npos;
+        }));
+}
+
 TEST_CASE("BattleHitResolver_KnockbackIsReturnedAsCommand", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
@@ -170,7 +202,6 @@ TEST_CASE("BattleHitResolver_KnockbackIsReturnedAsCommand", "[battle][hit_resolv
     CHECK(command.velocityDelta.x == Catch::Approx(2.0f));
     CHECK(command.velocityDelta.y == Catch::Approx(0.0f));
     CHECK(command.velocityCap == Catch::Approx(3.0));
-    CHECK(command.grantHurtFrame);
 }
 
 TEST_CASE("BattleHitResolver_CritMarksResultAndKeepsDamageDetail", "[battle][hit_resolver][unit]")
@@ -322,6 +353,25 @@ TEST_CASE("BattleHitResolver_ReflectedRangedProjectileChangesActualSourceAndTarg
     REQUIRE(reflectedAttribution != result.commands.end());
 }
 
+TEST_CASE("BattleHitResolver_ReflectsTrackingProjectile", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.attackEvent.operationType = BattleOperationType::TrackingProjectile;
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.defenderCombo.projectileReflectPct = 100;
+
+    auto result = resolveHit(input);
+
+    CHECK(result.reflected);
+    const auto* command = firstHpDamageCommand(result);
+    REQUIRE(command);
+    CHECK(command->sourceUnitId == 2);
+    CHECK(command->targetUnitId == 1);
+    CHECK(command->damage == 75);
+}
+
 TEST_CASE("BattleHitResolver_ExecuteTurnsFinalDamageIntoExecutedHpCommand", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
@@ -345,7 +395,7 @@ TEST_CASE("BattleHitResolver_ExecuteTurnsFinalDamageIntoExecutedHpCommand", "[ba
     CHECK(command->detailText == "處決");
 }
 
-TEST_CASE("BattleHitResolver_FirstHitBlockZerosDamageAndEmitsBlockPresentation", "[battle][hit_resolver][unit]")
+TEST_CASE("BattleHitResolver_QueuesRawDamageWithoutConsumingFirstHitBlock", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
     input.skill.id = 101;
@@ -355,14 +405,11 @@ TEST_CASE("BattleHitResolver_FirstHitBlockZerosDamageAndEmitsBlockPresentation",
 
     auto result = resolveHit(input);
 
-    CHECK(result.finalHpDamage == 0);
-    CHECK_FALSE(firstHpDamageCommand(result));
-    CHECK(result.defenderCombo.blockFirstHitsRemaining == 0);
-    auto block = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
-        {
-            return event.type == BattleLogEventType::Status && event.text == "格擋了首輪傷害";
-        });
-    REQUIRE(block != result.logEvents.end());
+    CHECK(result.finalHpDamage == 50);
+    const auto* command = firstHpDamageCommand(result);
+    REQUIRE(command);
+    CHECK(command->damage == 50);
+    CHECK(result.defenderCombo.blockFirstHitsRemaining == 1);
 }
 
 TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battle][hit_resolver][unit]")
@@ -661,60 +708,6 @@ TEST_CASE("BattleHitResolver_MpDamageSkillEmitsMpDamageCommand", "[battle][hit_r
     CHECK(command.damage.mpOnHit == 36);
     CHECK(result.finalHpDamage == 0);
     CHECK(result.finalMpDamage == 45);
-}
-
-TEST_CASE("BattleHitResolver_ShieldBreakEmitsShieldBreakCommands", "[battle][hit_resolver][unit]")
-{
-    auto input = hitInput();
-    input.skill.id = 101;
-    input.skill.hurtType = 0;
-    input.skill.resolvedBaseDamage = 50;
-    input.defenderCombo.shield = 30;
-    input.defenderCombo.shieldPctMaxHP = 20;
-    input.defenderCombo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::ShieldExplosion, KysChess::Trigger::OnShieldBreak, 50, 100));
-    input.defenderCombo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::AutoUltimate, KysChess::Trigger::OnShieldBreak, 1, 100));
-    input.defenderCombo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::TempFlatATK, KysChess::Trigger::OnShieldBreak, 14, 100, 45));
-    input.defenderCombo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::MPRestore, KysChess::Trigger::OnShieldBreak, 25, 100));
-
-    auto result = resolveHit(input);
-
-    bool sawExplosion = false;
-    bool sawUltimate = false;
-    bool sawAttackBuff = false;
-    bool sawMpRestore = false;
-    for (const auto& command : result.commands)
-    {
-        if (const auto* explosion = std::get_if<BattleShieldExplosionCommand>(&command))
-        {
-            sawExplosion = explosion->sourceUnitId == 2
-                && explosion->areaSize == 5
-                && explosion->effectId == KysChess::EFT_SHIELD_BLAST
-                && explosion->damage == 10;
-        }
-        else if (const auto* ultimate = std::get_if<BattleAutoUltimateCommand>(&command))
-        {
-            sawUltimate = ultimate->unitId == 2 && !ultimate->consumeMp;
-        }
-        else if (const auto* attackBuff = std::get_if<BattleTempAttackBuffCommand>(&command))
-        {
-            sawAttackBuff = attackBuff->unitId == 2
-                && attackBuff->attackBonus == 14
-                && attackBuff->durationFrames == 45;
-        }
-        else if (const auto* mpRestore = std::get_if<BattleMpRestoreCommand>(&command))
-        {
-            sawMpRestore = mpRestore->unitId == 2 && mpRestore->amount == 25;
-        }
-    }
-
-    CHECK(sawExplosion);
-    CHECK(sawUltimate);
-    CHECK(sawAttackBuff);
-    CHECK(sawMpRestore);
 }
 
 TEST_CASE("BattleHitResolver_ScriptedImpactEmitsStatusAndDamageCommands", "[battle][hit_resolver][unit]")

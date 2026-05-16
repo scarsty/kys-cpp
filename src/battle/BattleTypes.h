@@ -93,6 +93,7 @@ struct BattleUnitState
     int slotSwitchCooldownRemaining = 0;
     int dashFramesRemaining = 0;
     int dashCooldownRemaining = 0;
+    int movementDashSpreadFramesRemaining = 0;
     int postDashRetreatFramesRemaining = 0;
     int postDashChaosFramesRemaining = 0;
 };
@@ -135,6 +136,35 @@ struct BattleTerrainCell
     bool walkable = true;
 };
 
+struct BattleMovementReservation
+{
+    int unitId = -1;
+    Pointf position;
+    double radius = 0.0;
+    int expiresFrame = 0;
+};
+
+struct BattleMovementPhysicsState
+{
+    Pointf position;
+    Pointf velocity;
+    Pointf acceleration;
+    int movementDashFrames = 0;
+    int movementDashCooldown = 0;
+    int movementDashSpreadFrames = 0;
+    Pointf postDashRetreatVelocity;
+    int postDashRetreatFrames = 0;
+    int postDashChaosFrames = 0;
+};
+
+struct BattleMovementAgentState
+{
+    int targetId = -1;
+    int assignedSlot = 0;
+    int slotSwitchCooldownRemaining = 0;
+    BattleMovementPhysicsState physics;
+};
+
 struct BattleTickResult
 {
     int frame = 0;
@@ -143,13 +173,24 @@ struct BattleTickResult
     std::map<int, MovementDecision> decisions;
 };
 
-struct BattleWorldState
+struct BattleMovementFrameInput
 {
     int frame = 0;
     unsigned int seed = 1;
     BattleMovementConfig config;
     std::vector<BattleUnitState> units;
     std::vector<BattleTerrainCell> terrainCells;
+    std::map<int, BattleMovementReservation> movementReservations;
+};
+
+struct BattleMovementState
+{
+    int frame = 0;
+    unsigned int seed = 1;
+    BattleMovementConfig config;
+    std::vector<BattleTerrainCell> terrainCells;
+    std::map<int, BattleMovementReservation> movementReservations;
+    std::map<int, BattleMovementAgentState> agents;
 };
 
 struct MovementStats
@@ -170,7 +211,7 @@ struct MovementStats
 
 struct MovementRunResult
 {
-    BattleWorldState world;
+    BattleMovementFrameInput world;
     std::vector<BattleEvent> events;
     std::map<int, MovementStats> stats;
 };

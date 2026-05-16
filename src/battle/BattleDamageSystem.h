@@ -114,7 +114,6 @@ struct BattleLegacyHitShapeResult
     int frozenFrames = 0;
     double knockbackStrength = 0.0;
     double knockbackVelocityCap = 0.0;
-    bool grantsHurtFrame = false;
 };
 
 struct BattleScriptedHitRequestInput
@@ -242,6 +241,7 @@ enum class BattleDamageEventType
     MpDamageApplied,
     ShieldAbsorbed,
     BlockedByInvincible,
+    BlockedByFirstHit,
     DeathPrevented,
     UnitDied,
     KillRewardApplied,
@@ -369,7 +369,6 @@ public:
 };
 
 BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* state);
-BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const RoleComboState* state);
 BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const BattleDamageRuntimeUnit* runtime);
 void writeBattleDamageRuntimeUnit(BattleDamageRuntimeUnit& runtime, const BattleDamageUnitState& unit);
 BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit);

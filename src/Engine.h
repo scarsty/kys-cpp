@@ -58,7 +58,7 @@ enum Align
 using AudioSpec = SDL_AudioSpec;
 //这里直接使用SDL的事件结构
 using EngineEvent = SDL_Event;
-struct BattleLogData;
+struct BattleLogViewModel;
 struct BattleSystemMenuData;
 struct ChangelogData;
 
@@ -392,9 +392,9 @@ public:
     void renderPresent() const;
     bool processImGuiEvent(const EngineEvent& e) const;
     void renderImGuiOverlay() const;
-    void showBattleLogWindow(const BattleLogData& data) const;
-    void hideBattleLogWindow() const;
-    bool isBattleLogWindowOpen() const;
+    void showBattleLogOverlay(const BattleLogViewModel& model) const;
+    void hideBattleLogOverlay() const;
+    bool isBattleLogOverlayOpen() const;
     void showBattleSystemMenu(const BattleSystemMenuData& data) const;
     void hideBattleSystemMenu() const;
     bool isBattleSystemMenuOpen() const;

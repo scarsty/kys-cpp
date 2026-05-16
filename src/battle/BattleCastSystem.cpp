@@ -1,10 +1,10 @@
 #include "BattleCastSystem.h"
 
-#include "BattleCore.h"
 #include "BattleFind.h"
 #include "BattleMath.h"
 #include "BattleCombatIntent.h"
 #include "BattleProjectileTargetingSystem.h"
+#include "BattleUnitStore.h"
 
 #include <algorithm>
 #include <cassert>
@@ -383,6 +383,12 @@ BattleAttackSpawnRequest makeOperationRequest(const BattleCastResult& result,
     return request;
 }
 
+void clearPreferredTarget(BattleAttackSpawnRequest& request)
+{
+    request.initial.preferredTargetUnitId = -1;
+    request.initial.requirePreferredTarget = false;
+}
+
 void appendExtraProjectiles(std::vector<BattleAttackSpawnRequest>& requests,
                             const BattleCastInput& input,
                             const BattleCastSkillState& selectedSkill)
@@ -488,6 +494,7 @@ void appendRangedSideProjectiles(
         side.initial.through = true;
         side.initial.mainProjectile = false;
         side.initial.strengthMultiplier = strengthMultiplier;
+        clearPreferredTarget(side);
         requests.push_back(side);
     }
 }
@@ -516,6 +523,7 @@ std::vector<BattleAttackSpawnRequest> makeRangedProjectileRequests(
             BattleOperationType::RangedProjectile,
             BattleAttackCastSubrequestKind::SkillHit),
     };
+    clearPreferredTarget(requests.front());
     appendExtraProjectiles(requests, input, selectedSkill);
     appendRangedSideProjectiles(requests, result, input, selectedSkill);
     return requests;
@@ -642,32 +650,13 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
     }
 }
 
-BattleUnitStore makeActionTargetUnits(const BattleActionCommitInput& input)
-{
-    BattleUnitStore units;
-    units.units.reserve(input.targets.size());
-    for (const auto& target : input.targets)
-    {
-        BattleRuntimeUnit unit;
-        unit.id = target.id;
-        unit.team = target.team;
-        unit.alive = target.alive;
-        unit.vitals.hp = target.hp;
-        unit.vitals.maxHp = target.maxHp;
-        unit.stats.defence = static_cast<int>(target.defence);
-        unit.invincible = target.invincible;
-        unit.motion.position = target.position;
-        units.units.push_back(unit);
-    }
-    return units;
-}
-
 void appendBlinkTeleportDelta(
     const BattleActionCommitInput& input,
     const BattleBlinkAttackCommand& command,
+    const BattleUnitStore& units,
     BattleActionCommitResult& result)
 {
-    const auto& target = requireById(input.targets, command.targetUnitId);
+    const auto& target = units.requireUnit(command.targetUnitId);
 
     std::vector<const BattleBlinkCell*> candidates;
     for (const auto& cell : input.blinkGeometry.cells)
@@ -681,7 +670,7 @@ void appendBlinkTeleportDelta(
         {
             continue;
         }
-        if (pointDistance(cell.position, target.position) > command.reach)
+        if (pointDistance(cell.position, target.motion.position) > command.reach)
         {
             continue;
         }
@@ -695,14 +684,14 @@ void appendBlinkTeleportDelta(
 
     const int selectedIndex = input.blinkCellRandomRoll % static_cast<int>(candidates.size());
     const auto& cell = *candidates[selectedIndex];
-    auto facing = target.position - cell.position;
+    auto facing = target.motion.position - cell.position;
     if (pointNorm(facing) > 0.01)
     {
         facing = normalizedTo(facing, 1.0, 0.01);
     }
 
     result.blinkTeleports.push_back({
-        input.unit.id,
+        input.sourceUnitId,
         command.targetUnitId,
         command.selectedWeakest,
         cell.gridX,
@@ -713,37 +702,40 @@ void appendBlinkTeleportDelta(
     result.logEvents.push_back({
         BattleLogEventType::Status,
         BattlePresentationCurrentFrame,
-        input.unit.id,
+        input.sourceUnitId,
         command.targetUnitId,
         0,
         command.selectedWeakest ? "閃擊追殺" : "閃擊突襲",
     });
 }
 
-void appendBlinkAttackCommand(const BattleActionCommitInput& input, BattleActionCommitResult& result)
+void appendBlinkAttackCommand(
+    const BattleActionCommitInput& input,
+    const BattleUnitStore& units,
+    BattleActionCommitResult& result)
 {
     if (!result.combo.blinkAttack)
     {
         return;
     }
 
-    auto targetUnits = makeActionTargetUnits(input);
+    const auto& source = units.requireUnit(input.sourceUnitId);
     BattleProjectileTargetingSystem targeting;
     const bool useWeakest = result.combo.blinkAttackUseWeakest;
     int targetId = useWeakest
             ? targeting.selectWeakestVulnerableEnemy(
-            targetUnits,
-            input.unit.team,
+            units,
+            source.team,
             input.blinkWeakTargetDefWeight)
         : targeting.selectRandomEnemy(
-            targetUnits,
-            input.unit.team,
+            units,
+            source.team,
             input.blinkRandomRoll);
     if (targetId < 0 && useWeakest)
     {
         targetId = targeting.selectRandomEnemy(
-            targetUnits,
-            input.unit.team,
+            units,
+            source.team,
             input.blinkRandomRoll);
     }
     if (targetId < 0)
@@ -752,17 +744,21 @@ void appendBlinkAttackCommand(const BattleActionCommitInput& input, BattleAction
     }
 
     BattleBlinkAttackCommand command{
-        input.unit.id,
+        input.sourceUnitId,
         targetId,
         useWeakest,
         input.blinkReach,
     };
     result.blinkCommands.push_back(command);
-    appendBlinkTeleportDelta(input, command, result);
+    appendBlinkTeleportDelta(input, command, units, result);
     result.combo.blinkAttackUseWeakest = !useWeakest;
 }
 
 }  // namespace
+
+void appendCastActionStartOutput(BattleCastResult& result,
+                                 const BattleCastInput& input,
+                                 const BattleCastSkillState& selectedSkill);
 
 BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
 {
@@ -818,7 +814,7 @@ BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
                 : BattleCastBlockReason::OutOfRange;
         return result;
     }
-    appendCommittedCastOutput(result, input, selectedSkill);
+    appendCastActionStartOutput(result, input, selectedSkill);
     return result;
 }
 
@@ -827,10 +823,18 @@ BattleCastResult BattleCastPlanner::commitSelectedCast(
     bool ultimate,
     BattleOperationType operationType) const
 {
+    const auto& selectedSkill = ultimate ? input.ultimateSkill : input.normalSkill;
+    return commitSelectedCast(input, selectedSkill, ultimate, operationType);
+}
+
+BattleCastResult BattleCastPlanner::commitSelectedCast(
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill,
+    bool ultimate,
+    BattleOperationType operationType) const
+{
     assert(input.unit.id >= 0);
     assert(isBattleOperation(operationType));
-
-    const auto& selectedSkill = ultimate ? input.ultimateSkill : input.normalSkill;
     assert(selectedSkill.id >= 0);
     assertCastIntentInput(input, selectedSkill);
 
@@ -879,28 +883,20 @@ BattleCastBlockReason BattleCastPlanner::blockedReason(const BattleCastInput& in
     return BattleCastBlockReason::None;
 }
 
-void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
-                                                  const BattleCastInput& input,
-                                                  const BattleCastSkillState& selectedSkill) const
+void appendCastActionStartOutput(BattleCastResult& result,
+                                 const BattleCastInput& input,
+                                 const BattleCastSkillState& selectedSkill)
 {
     assert(result.decision.canCast);
     assert(isBattleOperation(result.decision.operationType));
-    assertCommittedCastInput(input, selectedSkill, result.decision.operationType);
+    assertCastOperationConfig(input.config, result.decision.operationType);
+    assert(selectedSkill.id >= 0);
 
     result.animation.castFrame = castFrameForOperation(input.config, result.decision.operationType);
     result.animation.cooldownFrames = cooldownForOperation(input, selectedSkill, result.decision.operationType);
     result.animation.recoveryFrames = recoveryFramesForOperation(input.config, result.decision.operationType);
     result.cooldownDelta = result.animation.cooldownFrames;
     result.mpDelta = mpDeltaForCast(input, result.decision.ultimate);
-
-    if (result.decision.operationType == BattleOperationType::Dash
-        && pointNorm(input.unit.dashVelocity) > input.config.minimumFacingNorm)
-    {
-        result.postDashRetreatVelocity = scaled(input.unit.dashVelocity, -1.0);
-        result.postDashRetreatFrames = result.animation.recoveryFrames;
-    }
-
-    result.attackSpawnRequests = makeAttackSpawnRequests(result, input, selectedSkill);
 
     BattleGameplayEvent gameplayEvent;
     gameplayEvent.type = BattleGameplayEventType::CastStarted;
@@ -939,6 +935,23 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
         effectEvent.durationFrames = result.animation.castFrame;
         result.visualEvents.push_back(effectEvent);
     }
+}
+
+void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
+                                                  const BattleCastInput& input,
+                                                  const BattleCastSkillState& selectedSkill) const
+{
+    appendCastActionStartOutput(result, input, selectedSkill);
+    assertCommittedCastInput(input, selectedSkill, result.decision.operationType);
+
+    if (result.decision.operationType == BattleOperationType::Dash
+        && pointNorm(input.unit.dashVelocity) > input.config.minimumFacingNorm)
+    {
+        result.postDashRetreatVelocity = scaled(input.unit.dashVelocity, -1.0);
+        result.postDashRetreatFrames = result.animation.recoveryFrames;
+    }
+
+    result.attackSpawnRequests = makeAttackSpawnRequests(result, input, selectedSkill);
 
     result.effectEvents.push_back({ BattleHook::SkillFinished, input.unit.id, input.targetUnitId });
     if (result.decision.ultimate)
@@ -947,16 +960,21 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     }
 }
 
-BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionCommitInput& input, const RoleComboState& combo) const
+BattleActionCommitResult BattleActionCommitSystem::commit(
+    const BattleActionCommitInput& input,
+    const RoleComboState& combo,
+    const BattleUnitStore& units) const
 {
-    assert(input.unit.id >= 0);
-    assert(input.unit.operationCount >= 0);
+    assert(input.sourceUnitId >= 0);
     assert(input.blinkRandomRoll >= 0);
     assert(input.strengthenedMeleeOperationCountThreshold > 0);
 
+    const auto& source = units.requireUnit(input.sourceUnitId);
+    assert(source.operationCount >= 0);
+
     BattleActionCommitResult result;
     result.combo = combo;
-    result.operationCount = input.unit.operationCount;
+    result.operationCount = source.operationCount;
 
     if (input.hasCast)
     {
@@ -970,7 +988,7 @@ BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionComm
             result.combo.onSkillTeamHealPending = true;
         }
         result.operationCount = advanceOperationCountAfterCommittedCast(
-            input.unit.operationCount,
+            source.operationCount,
             input.cast.decision.ultimate,
             input.cast.decision.operationType,
             input.strengthenedMeleeOperationCountThreshold);
@@ -983,7 +1001,7 @@ BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionComm
         }
     }
 
-    appendBlinkAttackCommand(input, result);
+    appendBlinkAttackCommand(input, units, result);
     return result;
 }
 

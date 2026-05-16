@@ -30,7 +30,6 @@ struct BattleHitUnitSnapshot
     BattleUnitMotion motion;
     BattleUnitAnimationState animation;
     int invincible = 0;
-    int hurtFrame = 0;
     bool haveAction = false;
     BattleOperationType operationType = BattleOperationType::None;
 };
@@ -164,7 +163,6 @@ struct BattleKnockbackCommand
     int targetUnitId{};
     Pointf velocityDelta;
     double velocityCap{};
-    bool grantHurtFrame = false;
 };
 
 struct BattleTempAttackBuffCommand

@@ -151,8 +151,8 @@ BattleInitializationSceneApplyResult makeBattleInitializationSceneApplyResult(
     result.logEvents = initialization.logEvents;
     result.visualEvents = initialization.visualEvents;
 
-    result.units.reserve(runtime.units.units.size());
-    for (const auto& runtimeUnit : runtime.units.units)
+    result.units.reserve(runtime.unitStore.units.size());
+    for (const auto& runtimeUnit : runtime.unitStore.units)
     {
         const auto* clone = findCloneIntent(initialization, runtimeUnit.id);
         const auto& setupUnit = clone

@@ -1,6 +1,6 @@
 #include "BattleEffectSystem.h"
 
-#include "BattleCore.h"
+#include "BattleUnitStore.h"
 
 #include <algorithm>
 #include <utility>

@@ -112,38 +112,46 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                                         input.request.executeThresholdPct);
             }
 
-                                    resolvedDamage = modified.damage;
-                                }
+            resolvedDamage = modified.damage;
+        }
 
-                                auto defense = resolveDefense({
-                                    resolvedDamage,
-                                    result.executed,
-                                    input.request.reflected,
-                                    result.defender.invincible > 0,
-                                    result.defender,
-                                });
-                                result.defender = defense.defender;
-                                result.shieldAbsorbed = defense.shieldAbsorbed;
-                                result.blockedByInvincible = defense.blockedByInvincible;
-                                result.blockedByFirstHit = defense.blockedByFirstHit;
-                                acceptedHit = !defense.blockedByInvincible && !defense.blockedByFirstHit;
-                                resolvedDamage = defense.damage;
+        auto defense = resolveDefense({
+            resolvedDamage,
+            result.executed,
+            input.request.reflected,
+            result.defender.invincible > 0,
+            result.defender,
+        });
+        result.defender = defense.defender;
+        result.shieldAbsorbed = defense.shieldAbsorbed;
+        result.blockedByInvincible = defense.blockedByInvincible;
+        result.blockedByFirstHit = defense.blockedByFirstHit;
+        acceptedHit = !defense.blockedByInvincible && !defense.blockedByFirstHit;
+        resolvedDamage = defense.damage;
 
-                                if (defense.shieldAbsorbed > 0)
-                                {
-                                    recordBattleDamageEvent(result.events,
-                                                            BattleDamageEventType::ShieldAbsorbed,
-                                                            input.request.attackerUnitId,
-                                                            input.request.defenderUnitId,
-                                                            defense.shieldAbsorbed);
-                                }
-                                if (defense.blockedByInvincible)
-                                {
-                                    recordBattleDamageEvent(result.events,
-                                                            BattleDamageEventType::BlockedByInvincible,
-                                                            input.request.attackerUnitId,
-                                                            input.request.defenderUnitId,
-                                                            0);
+        if (defense.shieldAbsorbed > 0)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::ShieldAbsorbed,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    defense.shieldAbsorbed);
+        }
+        if (defense.blockedByInvincible)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::BlockedByInvincible,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    0);
+        }
+        if (defense.blockedByFirstHit)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::BlockedByFirstHit,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    0);
         }
 
         int hpBeforeDamage = result.defender.vitals.hp;
@@ -493,7 +501,6 @@ BattleLegacyHitShapeResult BattleDamageSystem::shapeLegacyHitDamage(const Battle
     result.damage = damage;
     result.knockbackStrength = input.operationType == BattleOperationType::RangedProjectile ? 0.5 : 2.0;
     result.knockbackVelocityCap = input.operationType == BattleOperationType::RangedProjectile ? 1.5 : 3.0;
-    result.grantsHurtFrame = true;
     return result;
 }
 
@@ -819,31 +826,6 @@ BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* st
     modifier.poisonTimer = state->poisonTimer;
     modifier.maxHitPctMaxHp = state->maxHitPctCurrentHP;
     return modifier;
-}
-
-BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const RoleComboState* state)
-{
-    BattleDamageUnitState damage;
-    damage.id = unit.id;
-    damage.alive = unit.alive;
-    damage.vitals = unit.vitals;
-    damage.attack = unit.stats.attack;
-    damage.invincible = unit.invincible;
-    damage.shield = unit.shield;
-    damage.mpBlocked = unit.mpBlocked;
-    damage.mpRecoveryBonusPct = unit.mpRecoveryBonusPct;
-    if (state)
-    {
-        damage.hurtInvincFrames = state->hurtInvincFrames;
-        damage.blockFirstHitsRemaining = state->blockFirstHitsRemaining;
-        damage.deathPrevention = state->deathPrevention;
-        damage.deathPreventionUsed = state->deathPreventionUsed;
-        damage.deathPreventionFrames = state->deathPreventionFrames;
-        damage.killHealPct = state->killHealPct;
-        damage.killInvincFrames = state->killInvincFrames;
-        damage.bloodlustAttackPerKill = state->bloodlustATKPerKill;
-    }
-    return damage;
 }
 
 }  // namespace KysChess::Battle

@@ -12,6 +12,7 @@
 #include "BattlePresentation.h"
 #include "BattleRescueRepositionSystem.h"
 #include "BattleStatusSystem.h"
+#include "BattleUnitStore.h"
 #include "BattleTeamEffectSystem.h"
 #include "BattleUnitValues.h"
 
@@ -29,12 +30,12 @@ namespace KysChess::Battle
 class BattleCore
 {
 public:
-    explicit BattleCore(BattleWorldState& world);
+    explicit BattleCore(BattleMovementFrameInput& world);
 
     BattleTickResult tickMovement();
 
 private:
-    BattleWorldState& world_;
+    BattleMovementFrameInput& world_;
 };
 
 struct BattleUnitFrameTickState
@@ -69,61 +70,6 @@ class BattleUnitFrameTickSystem
 public:
     BattleUnitFrameTickResult advance(const BattleUnitFrameTickInput& input) const;
 };
-
-struct BattleGridTransform
-{
-    double tileWidth = 0.0;
-    int coordCount = 0;
-
-    Point toGrid(Pointf position) const;
-};
-
-struct BattleRuntimeUnit
-{
-    int id = -1;
-    int realRoleId = -1;
-    std::string name;
-    int team = 0;
-    bool alive = true;
-    BattleUnitVitals vitals;
-    BattleUnitStats stats;
-    BattleUnitMotion motion;
-    BattleUnitAnimationState animation;
-    bool haveAction = false;
-    BattleOperationType operationType = BattleOperationType::None;
-    int operationCount = 0;
-    int physicalPower = 0;
-    int invincible = 0;
-    int hurtFrame = 0;
-    int shield = 0;
-    bool mpBlocked = false;
-    int mpRecoveryBonusPct = 0;
-    std::map<int, int> actPropertiesByMagicType;
-    Point grid;
-    bool canAttack = true;
-    double reach = 0.0;
-    CombatStyle style = CombatStyle::Melee;
-    int star = 1;
-    int cost = 0;
-};
-
-struct BattleUnitStore
-{
-    BattleGridTransform gridTransform;
-    std::vector<BattleRuntimeUnit> units;
-
-    BattleRuntimeUnit* findUnit(int unitId);
-    const BattleRuntimeUnit* findUnit(int unitId) const;
-    BattleRuntimeUnit& requireUnit(int unitId);
-    const BattleRuntimeUnit& requireUnit(int unitId) const;
-    void writeDamageUnit(const BattleDamageUnitState& source);
-    void setPosition(int unitId, Pointf position);
-    void setMotion(int unitId, Pointf position, Pointf velocity, Pointf acceleration);
-};
-
-int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
-int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
-BattleUnitState makeBattleWorldUnitState(const BattleRuntimeUnit& unit, double moveSpeedDivisor);
 
 struct BattleFrameUnitApplication
 {
@@ -174,6 +120,15 @@ struct BattleActionPlanSeed
     BattleActionSkillSeed ultimateSkill;
 };
 
+struct BattlePendingCastAction
+{
+    int unitId = -1;
+    int targetUnitId = -1;
+    bool ultimate = false;
+    BattleOperationType operationType = BattleOperationType::None;
+    BattleCastSkillState skill;
+};
+
 struct BattleFrameActionUnitResult
 {
     int unitId{};
@@ -207,7 +162,6 @@ struct BattleFrameKnockbackDelta
     int targetUnitId{};
     Pointf velocityDelta;
     double velocityCap = 0.0;
-    bool grantHurtFrame = false;
 };
 
 struct BattleFrameMpRestoreDelta
@@ -234,12 +188,6 @@ struct BattleFrameRumbleEvent
     int lowFrequency{};
     int highFrequency{};
     int durationMs{};
-};
-
-struct BattleFrameDeathEffectTrackerResult
-{
-    int unitId{};
-    int shieldOnAllyDeathTracker{};
 };
 
 struct BattleFrameApplications
@@ -322,9 +270,9 @@ struct BattleFrameRescueCounterAttackConfig
 
 struct BattleRuntimeState
 {
-    BattleUnitStore units;
-    BattleWorldState world;
-    BattleAttackWorld attacks;
+    BattleUnitStore unitStore;
+    BattleMovementState movement;
+    BattleAttackState attacks;
     BattleRuntimeRandom random;
 
     struct DamageState
@@ -354,7 +302,6 @@ struct BattleRuntimeState
 
     struct RescueState
     {
-        std::vector<BattleFrameRescueUnitSnapshot> units;
         std::vector<BattleRescueCellSnapshot> cells;
         double executeUnattendedRadius = 0.0;
         BattleFrameRescueCounterAttackConfig counterAttack;
@@ -382,7 +329,7 @@ struct BattleRuntimeState
     struct MovementPhysicsState
     {
         BattleMovementPhysicsConfig config;
-        BattleMovementPhysicsCollisionWorld collision;
+        BattleMovementPhysicsTerrain terrain;
         std::vector<int> actionCastFrames;
         int dashMomentumFrames = 0;
     } movementPhysics;
@@ -390,7 +337,7 @@ struct BattleRuntimeState
     struct ActionState
     {
         std::map<int, BattleActionPlanSeed> planSeeds;
-        std::map<int, BattleActionCommitInput> pendingCommitInputs;
+        std::map<int, BattlePendingCastAction> pendingCasts;
         BattleCastConfig castConfig;
         BattleCastGeometry castGeometry;
         BattleActionRulesConfig actionRules;
@@ -403,7 +350,6 @@ struct BattleRuntimeState
     } action;
 
     BattleProjectileFollowUpContext projectileFollowUps;
-    std::map<int, BattleMovementPhysicsState> movementRuntime;
     std::set<int> ultimateCasters;
 
     std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;
@@ -426,7 +372,6 @@ struct BattleFrameResult
     std::vector<BattleRescueRepositionResult> rescueResults;
     std::vector<BattleTeamEffectEvent> teamEffectEvents;
     std::vector<BattleEffectCommand> effectCommands;
-    std::vector<BattleFrameDeathEffectTrackerResult> deathEffectTrackers;
     BattleFrameStateApplications stateApplications;
 };
 
@@ -470,7 +415,5 @@ public:
 };
 
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
-void writeBattleDamageComboState(KysChess::RoleComboState& combo, const BattleDamageUnitState& unit);
-void writeBattleStatusComboState(KysChess::RoleComboState& combo, const BattleStatusUnitState& unit);
 
 }  // namespace KysChess::Battle

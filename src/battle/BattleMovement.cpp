@@ -7,6 +7,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <queue>
 #include <ranges>
 #include <utility>
 #include <vector>
@@ -48,7 +49,7 @@ int deterministicSide(int unitId, int slot)
     return ((unitId * 37 + slot * 17) & 1) == 0 ? 1 : -1;
 }
 
-const BattleUnitState* nearestEnemy(const BattleWorldState& world, const BattleUnitState& unit)
+const BattleUnitState* nearestEnemy(const BattleMovementFrameInput& world, const BattleUnitState& unit)
 {
     const BattleUnitState* best = nullptr;
     double bestDistance = std::numeric_limits<double>::max();
@@ -68,7 +69,7 @@ const BattleUnitState* nearestEnemy(const BattleWorldState& world, const BattleU
     return best;
 }
 
-std::vector<int> movementOrder(const BattleWorldState& world)
+std::vector<int> movementOrder(const BattleMovementFrameInput& world)
 {
     std::vector<int> ids;
     for (const auto& unit : world.units)
@@ -102,7 +103,7 @@ std::vector<int> movementOrder(const BattleWorldState& world)
     return ids;
 }
 
-std::vector<Pointf> candidateDirections(const BattleWorldState& world,
+std::vector<Pointf> candidateDirections(const BattleMovementFrameInput& world,
                                         const BattleUnitState& unit,
                                         const BattleUnitState& target,
                                         Pointf desired)
@@ -126,7 +127,149 @@ std::vector<Pointf> candidateDirections(const BattleWorldState& world,
     return result;
 }
 
-Pointf combatSlotPosition(const BattleWorldState& world,
+int terrainGridCoordCount(const BattleMovementFrameInput& world)
+{
+    const auto cellCount = static_cast<int>(world.terrainCells.size());
+    const int coordCount = static_cast<int>(std::round(std::sqrt(static_cast<double>(cellCount))));
+    return coordCount > 0 && coordCount * coordCount == cellCount ? coordCount : 0;
+}
+
+std::size_t terrainGridIndex(int coordCount, int x, int y)
+{
+    assert(coordCount > 0);
+    assert(x >= 0 && x < coordCount);
+    assert(y >= 0 && y < coordCount);
+    return static_cast<std::size_t>(x * coordCount + y);
+}
+
+std::optional<int> nearestWalkableTerrainCell(const BattleMovementFrameInput& world, Pointf position)
+{
+    std::optional<int> best;
+    double bestDistance = std::numeric_limits<double>::max();
+    for (int i = 0; i < static_cast<int>(world.terrainCells.size()); ++i)
+    {
+        const auto& cell = world.terrainCells[static_cast<std::size_t>(i)];
+        if (!cell.walkable)
+        {
+            continue;
+        }
+        const double distance = distance2d(position, cell.position);
+        if (!best || distance < bestDistance)
+        {
+            best = i;
+            bestDistance = distance;
+        }
+    }
+    return best;
+}
+
+std::optional<Pointf> nextTerrainPathWaypoint(const BattleMovementFrameInput& world,
+                                              Pointf from,
+                                              Pointf to)
+{
+    const int coordCount = terrainGridCoordCount(world);
+    if (coordCount <= 0)
+    {
+        return std::nullopt;
+    }
+
+    const auto start = nearestWalkableTerrainCell(world, from);
+    const auto goal = nearestWalkableTerrainCell(world, to);
+    if (!start || !goal || *start == *goal)
+    {
+        return std::nullopt;
+    }
+
+    const int cellCount = coordCount * coordCount;
+    std::vector<double> cost(static_cast<std::size_t>(cellCount), std::numeric_limits<double>::max());
+    std::vector<int> previous(static_cast<std::size_t>(cellCount), -1);
+    using QueueItem = std::pair<double, int>;
+    std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<>> frontier;
+
+    cost[static_cast<std::size_t>(*start)] = 0.0;
+    frontier.push({ 0.0, *start });
+
+    const auto goalPosition = world.terrainCells[static_cast<std::size_t>(*goal)].position;
+    constexpr int neighborOffsets[4][2] = {
+        { 1, 0 },
+        { -1, 0 },
+        { 0, 1 },
+        { 0, -1 },
+    };
+
+    while (!frontier.empty())
+    {
+        const auto [_, current] = frontier.top();
+        frontier.pop();
+        if (current == *goal)
+        {
+            break;
+        }
+
+        const int x = current / coordCount;
+        const int y = current % coordCount;
+        for (const auto& [dx, dy] : neighborOffsets)
+        {
+            const int nx = x + dx;
+            const int ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= coordCount || ny >= coordCount)
+            {
+                continue;
+            }
+            const int next = static_cast<int>(terrainGridIndex(coordCount, nx, ny));
+            const auto& nextCell = world.terrainCells[static_cast<std::size_t>(next)];
+            if (!nextCell.walkable)
+            {
+                continue;
+            }
+
+            const double nextCost = cost[static_cast<std::size_t>(current)]
+                + distance2d(
+                    world.terrainCells[static_cast<std::size_t>(current)].position,
+                    nextCell.position);
+            if (nextCost >= cost[static_cast<std::size_t>(next)])
+            {
+                continue;
+            }
+
+            cost[static_cast<std::size_t>(next)] = nextCost;
+            previous[static_cast<std::size_t>(next)] = current;
+            frontier.push({ nextCost + distance2d(nextCell.position, goalPosition), next });
+        }
+    }
+
+    if (previous[static_cast<std::size_t>(*goal)] < 0)
+    {
+        return std::nullopt;
+    }
+
+    int waypoint = *goal;
+    while (previous[static_cast<std::size_t>(waypoint)] >= 0
+        && previous[static_cast<std::size_t>(waypoint)] != *start)
+    {
+        waypoint = previous[static_cast<std::size_t>(waypoint)];
+    }
+    return world.terrainCells[static_cast<std::size_t>(waypoint)].position;
+}
+
+std::optional<Pointf> terrainPathDirection(const BattleMovementFrameInput& world,
+                                           const BattleUnitState& unit,
+                                           Pointf desired)
+{
+    auto waypoint = nextTerrainPathWaypoint(world, unit.position, desired);
+    if (!waypoint)
+    {
+        return std::nullopt;
+    }
+    auto direction = *waypoint - unit.position;
+    if (direction.norm() <= 0.01f)
+    {
+        return std::nullopt;
+    }
+    return unitVector(direction);
+}
+
+Pointf combatSlotPosition(const BattleMovementFrameInput& world,
                           const BattleUnitState& unit,
                           const BattleUnitState& target,
                           int slot)
@@ -148,7 +291,7 @@ Pointf combatSlotPosition(const BattleWorldState& world,
     return target.position + rotated(away, angle) * radius;
 }
 
-bool reservationConflicts(const BattleWorldState& world,
+bool reservationConflicts(const BattleMovementFrameInput& world,
                           int unitId,
                           Pointf nextPosition,
                           const std::map<int, Pointf>& reservations)
@@ -167,7 +310,82 @@ bool reservationConflicts(const BattleWorldState& world,
     return false;
 }
 
-bool terrainAllows(const BattleWorldState& world, Pointf position)
+bool softReservationConflicts(const BattleMovementFrameInput& world,
+                              int unitId,
+                              Pointf nextPosition)
+{
+    for (const auto& [reservedBy, reservation] : world.movementReservations)
+    {
+        if (reservedBy == unitId || reservation.unitId == unitId)
+        {
+            continue;
+        }
+        const double radius = reservation.radius > 0.0
+            ? reservation.radius
+            : world.config.bodyRadius;
+        if (distance2d(nextPosition, reservation.position) < radius)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+double horizontalSpeed(Pointf velocity)
+{
+    return EuclidDis(velocity.x, velocity.y);
+}
+
+void pruneMovementReservations(BattleMovementFrameInput& world)
+{
+    for (auto it = world.movementReservations.begin(); it != world.movementReservations.end();)
+    {
+        const auto* unit = tryFindById(world.units, it->first);
+        if (!unit || !unit->alive || it->second.expiresFrame <= world.frame)
+        {
+            it = world.movementReservations.erase(it);
+            continue;
+        }
+        ++it;
+    }
+}
+
+void clearMovementReservation(BattleMovementFrameInput& world, int unitId)
+{
+    world.movementReservations.erase(unitId);
+}
+
+void reserveMovementDestination(BattleMovementFrameInput& world,
+                                const BattleUnitState& unit,
+                                Pointf destination)
+{
+    if (world.config.reservationHorizonFrames <= 0 || battleMovementTaXueUnstable(unit))
+    {
+        clearMovementReservation(world, unit.id);
+        return;
+    }
+
+    world.movementReservations[unit.id] = BattleMovementReservation{
+        unit.id,
+        destination,
+        world.config.bodyRadius,
+        world.frame + world.config.reservationHorizonFrames + 1,
+    };
+}
+
+void reserveSameFrameDestination(const BattleUnitState& unit,
+                                 Pointf destination,
+                                 std::map<int, Pointf>& reservations)
+{
+    if (battleMovementTaXueUnstable(unit))
+    {
+        reservations.erase(unit.id);
+        return;
+    }
+    reservations[unit.id] = destination;
+}
+
+bool terrainAllows(const BattleMovementFrameInput& world, Pointf position)
 {
     if (world.terrainCells.empty())
     {
@@ -194,17 +412,23 @@ bool terrainAllows(const BattleWorldState& world, Pointf position)
     return nearest->walkable;
 }
 
-MoveProbe probeMoveInWorld(const BattleWorldState& world,
+MoveProbe probeMoveInWorld(const BattleMovementFrameInput& world,
                            const BattleUnitState& unit,
                            Pointf nextPosition,
                            bool ignoreUnits,
-                           const std::map<int, Pointf>& reservations)
+                           const std::map<int, Pointf>& reservations,
+                           bool ignoreReservations = false,
+                           bool allowSoftReservations = true)
 {
     if (!terrainAllows(world, nextPosition))
     {
         return { false, MoveBlockReason::Wall, -1 };
     }
-    if (reservationConflicts(world, unit.id, nextPosition, reservations))
+    if (!ignoreReservations && reservationConflicts(world, unit.id, nextPosition, reservations))
+    {
+        return { false, MoveBlockReason::Reservation, -1 };
+    }
+    if (!ignoreReservations && !allowSoftReservations && softReservationConflicts(world, unit.id, nextPosition))
     {
         return { false, MoveBlockReason::Reservation, -1 };
     }
@@ -230,7 +454,7 @@ MoveProbe probeMoveInWorld(const BattleWorldState& world,
     return { true, MoveBlockReason::None, -1 };
 }
 
-bool terrainSegmentClear(const BattleWorldState& world, Pointf from, Pointf to)
+bool terrainSegmentClear(const BattleMovementFrameInput& world, Pointf from, Pointf to)
 {
     if (world.terrainCells.empty())
     {
@@ -268,17 +492,23 @@ Point movementPhysicsCell(const BattleMovementPhysicsCollisionWorld& world, Poin
     return cell;
 }
 
-std::optional<MovementDecision> chooseDash(const BattleWorldState& world,
+std::optional<MovementDecision> chooseDash(const BattleMovementFrameInput& world,
                                            const BattleUnitState& unit,
                                            const BattleUnitState& target,
-                                           Pointf direction);
+                                           Pointf direction,
+                                           const std::map<int, Pointf>& reservations,
+                                           bool ignoreReservations,
+                                           bool allowSoftReservations);
 
-std::optional<MovementDecision> chooseDashByDistance(const BattleWorldState& world,
+std::optional<MovementDecision> chooseDashByDistance(const BattleMovementFrameInput& world,
                                                      const BattleUnitState& unit,
                                                      const BattleUnitState& target,
                                                      Pointf direction,
                                                      double minDistance,
-                                                     double maxDistance)
+                                                     double maxDistance,
+                                                     const std::map<int, Pointf>& reservations,
+                                                     bool ignoreReservations,
+                                                     bool allowSoftReservations)
 {
     if (unit.dashCooldownRemaining > 0 || direction.norm() <= 0.01f)
     {
@@ -299,7 +529,14 @@ std::optional<MovementDecision> chooseDashByDistance(const BattleWorldState& wor
         {
             continue;
         }
-        auto probe = probeMoveInWorld(world, unit, landing, true, {});
+        auto probe = probeMoveInWorld(
+            world,
+            unit,
+            landing,
+            true,
+            reservations,
+            ignoreReservations,
+            allowSoftReservations);
         if (probe.canMove)
         {
             MovementDecision decision;
@@ -316,21 +553,21 @@ std::optional<MovementDecision> chooseDashByDistance(const BattleWorldState& wor
     return std::nullopt;
 }
 
-double normalDashDistanceFor(const BattleWorldState& world, const BattleUnitState& unit)
+double normalDashDistanceFor(const BattleMovementFrameInput& world, const BattleUnitState& unit)
 {
     return std::max(
         unit.speed * world.config.dashFrames,
         unit.speed * world.config.dashFrames * world.config.movementDashDistanceMultiplier);
 }
 
-double minimumDashDistanceFor(const BattleWorldState& world, const BattleUnitState& unit)
+double minimumDashDistanceFor(const BattleMovementFrameInput& world, const BattleUnitState& unit)
 {
     return unit.taXue
         ? std::max(world.config.tileWidth * 2.0, unit.speed * world.config.dashFrames)
         : unit.speed * world.config.dashFrames;
 }
 
-double allowedDashDistanceFor(const BattleWorldState& world, const BattleUnitState& unit)
+double allowedDashDistanceFor(const BattleMovementFrameInput& world, const BattleUnitState& unit)
 {
     const double normalDashDistance = normalDashDistanceFor(world, unit);
     return unit.taXue
@@ -338,10 +575,13 @@ double allowedDashDistanceFor(const BattleWorldState& world, const BattleUnitSta
         : std::min(world.config.maxDashDistance, normalDashDistance);
 }
 
-std::optional<MovementDecision> chooseDash(const BattleWorldState& world,
+std::optional<MovementDecision> chooseDash(const BattleMovementFrameInput& world,
                                            const BattleUnitState& unit,
                                            const BattleUnitState& target,
-                                           Pointf direction)
+                                           Pointf direction,
+                                           const std::map<int, Pointf>& reservations,
+                                           bool ignoreReservations,
+                                           bool allowSoftReservations)
 {
 
     double targetDistance = distance2d(unit.position, target.position);
@@ -351,13 +591,25 @@ std::optional<MovementDecision> chooseDash(const BattleWorldState& world,
     double minDistance = minimumDashDistanceFor(world, unit);
     double allowedDashDistance = allowedDashDistanceFor(world, unit);
     double maxDistance = std::min(allowedDashDistance, usefulGap);
-    return chooseDashByDistance(world, unit, target, direction, minDistance, maxDistance);
+    return chooseDashByDistance(
+        world,
+        unit,
+        target,
+        direction,
+        minDistance,
+        maxDistance,
+        reservations,
+        ignoreReservations,
+        allowSoftReservations);
 }
 
-std::optional<MovementDecision> chooseRetreatDash(const BattleWorldState& world,
+std::optional<MovementDecision> chooseRetreatDash(const BattleMovementFrameInput& world,
                                                   const BattleUnitState& unit,
                                                   const BattleUnitState& target,
-                                                  Pointf direction)
+                                                  Pointf direction,
+                                                  const std::map<int, Pointf>& reservations,
+                                                  bool ignoreReservations,
+                                                  bool allowSoftReservations)
 {
     return chooseDashByDistance(
         world,
@@ -365,10 +617,49 @@ std::optional<MovementDecision> chooseRetreatDash(const BattleWorldState& world,
         target,
         direction,
         minimumDashDistanceFor(world, unit),
-        allowedDashDistanceFor(world, unit));
+        allowedDashDistanceFor(world, unit),
+        reservations,
+        ignoreReservations,
+        allowSoftReservations);
 }
 
-Pointf meleeChaosDesiredPosition(const BattleWorldState& world,
+std::optional<MovementDecision> chooseDashWithSoftFallback(const BattleMovementFrameInput& world,
+                                                           const BattleUnitState& unit,
+                                                           const BattleUnitState& target,
+                                                           Pointf direction,
+                                                           const std::map<int, Pointf>& reservations,
+                                                           bool ignoreReservations)
+{
+    if (ignoreReservations)
+    {
+        return chooseDash(world, unit, target, direction, reservations, true, true);
+    }
+    if (auto dash = chooseDash(world, unit, target, direction, reservations, false, false))
+    {
+        return dash;
+    }
+    return chooseDash(world, unit, target, direction, reservations, false, true);
+}
+
+std::optional<MovementDecision> chooseRetreatDashWithSoftFallback(const BattleMovementFrameInput& world,
+                                                                  const BattleUnitState& unit,
+                                                                  const BattleUnitState& target,
+                                                                  Pointf direction,
+                                                                  const std::map<int, Pointf>& reservations,
+                                                                  bool ignoreReservations)
+{
+    if (ignoreReservations)
+    {
+        return chooseRetreatDash(world, unit, target, direction, reservations, true, true);
+    }
+    if (auto dash = chooseRetreatDash(world, unit, target, direction, reservations, false, false))
+    {
+        return dash;
+    }
+    return chooseRetreatDash(world, unit, target, direction, reservations, false, true);
+}
+
+Pointf meleeChaosDesiredPosition(const BattleMovementFrameInput& world,
                                  const BattleUnitState& unit,
                                  const BattleUnitState& target)
 {
@@ -385,7 +676,7 @@ Pointf meleeChaosDesiredPosition(const BattleWorldState& world,
         + away * static_cast<float>(world.config.tileWidth * 1.5);
 }
 
-Pointf rangedPeelDashDirection(const BattleWorldState& world,
+Pointf rangedPeelDashDirection(const BattleMovementFrameInput& world,
                                const BattleUnitState& unit,
                                const BattleUnitState& target)
 {
@@ -440,34 +731,49 @@ bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& worl
     return world.walkableByCell[index] != 0;
 }
 
+bool battleMovementTaXueUnstable(const BattleUnitState& unit)
+{
+    constexpr double StopThreshold = 0.1;
+    return unit.taXue
+        && (unit.dashFramesRemaining > 0
+            || unit.movementDashSpreadFramesRemaining > 0
+            || unit.postDashRetreatFramesRemaining > 0
+            || unit.postDashChaosFramesRemaining > 0
+            || horizontalSpeed(unit.velocity) > StopThreshold);
+}
+
 bool canMoveInPhysicsSnapshot(
     const BattleMovementPhysicsCollisionWorld& world,
     int unitId,
     Pointf currentPosition,
     Pointf nextPosition,
-    int separationDistance)
+    int separationDistance,
+    bool ignoreUnitCollision)
 {
     if (currentPosition.z > 1.0f)
     {
         return true;
     }
 
-    const double separation = separationDistance == -1
-        ? world.defaultSeparationDistance
-        : static_cast<double>(separationDistance);
-    for (const auto& unit : world.units)
+    if (!ignoreUnitCollision)
     {
-        if (!unit.alive || unit.id == unitId)
+        const double separation = separationDistance == -1
+            ? world.defaultSeparationDistance
+            : static_cast<double>(separationDistance);
+        for (const auto& unit : world.units)
         {
-            continue;
-        }
-        const double nextDistance = distance2d(nextPosition, unit.position);
-        if (nextDistance < separation)
-        {
-            const double currentDistance = distance2d(currentPosition, unit.position);
-            if (currentDistance >= nextDistance)
+            if (!unit.alive || unit.id == unitId)
             {
-                return false;
+                continue;
+            }
+            const double nextDistance = distance2d(nextPosition, unit.position);
+            if (nextDistance < separation)
+            {
+                const double currentDistance = distance2d(currentPosition, unit.position);
+                if (currentDistance >= nextDistance)
+                {
+                    return false;
+                }
             }
         }
     }
@@ -475,7 +781,7 @@ bool canMoveInPhysicsSnapshot(
     return movementPhysicsCellWalkable(world, movementPhysicsCell(world, nextPosition));
 }
 
-BattleMovementPlanner::BattleMovementPlanner(BattleWorldState& world)
+BattleMovementPlanner::BattleMovementPlanner(BattleMovementFrameInput& world)
     : world_(world)
 {
 }
@@ -492,7 +798,8 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
             input.unitId,
             input.currentPosition,
             position,
-            separationDistance);
+            separationDistance,
+            input.ignoreUnitCollision);
     };
 
     auto state = input.state;
@@ -598,8 +905,23 @@ MoveProbe BattleMovementPlanner::probeMove(const BattleUnitState& unit,
 
 BattleTickResult BattleMovementPlanner::tick()
 {
+    assert(world_.config.tileWidth > 0.0);
+    assert(world_.config.reservationHorizonFrames >= 0);
+    assert(world_.config.dashFrames > 0);
+    assert(world_.config.dashCooldownFrames >= 0);
+    assert(world_.config.slotSwitchCooldownFrames >= 0);
+    assert(world_.config.bodyRadius > 0.0);
+    assert(world_.config.engagementDeadband > 0.0);
+    assert(world_.config.engagementArriveDistance > 0.0);
+    assert(world_.config.meleeAttackReach > 0.0);
+    assert(world_.config.meleeLocalTargetRadius > 0.0);
+    assert(world_.config.maxDashDistance > 0.0);
+    assert(world_.config.maxRangedReach > 0.0);
+    assert(world_.config.movementDashDistanceMultiplier > 0.0);
+
     BattleTickResult result;
     result.frame = world_.frame;
+    pruneMovementReservations(world_);
     std::map<int, Pointf> reservations;
 
     for (int unitId : movementOrder(world_))
@@ -607,6 +929,7 @@ BattleTickResult BattleMovementPlanner::tick()
         auto* unit = &requireById(world_.units, unitId);
         if (!unit->alive)
         {
+            clearMovementReservation(world_, unit->id);
             continue;
         }
 
@@ -616,6 +939,7 @@ BattleTickResult BattleMovementPlanner::tick()
 
         if (unit->postDashRetreatFramesRemaining > 0)
         {
+            clearMovementReservation(world_, unit->id);
             decision.destination = unit->position;
             result.decisions[unit->id] = decision;
             continue;
@@ -629,7 +953,7 @@ BattleTickResult BattleMovementPlanner::tick()
         if (unit->dashFramesRemaining > 0)
         {
             auto next = unit->position + unit->velocity;
-            auto probe = probeMove(*unit, next, true);
+            auto probe = probeMoveInWorld(world_, *unit, next, true, reservations, true, true);
             if (probe.canMove)
             {
                 unit->position = next;
@@ -638,6 +962,7 @@ BattleTickResult BattleMovementPlanner::tick()
                 decision.destination = unit->position;
                 recordEvent(result.events, BattleEventType::Movement, *unit, decision);
             }
+            clearMovementReservation(world_, unit->id);
             unit->dashFramesRemaining--;
             if (unit->dashFramesRemaining <= 0)
             {
@@ -655,6 +980,7 @@ BattleTickResult BattleMovementPlanner::tick()
         const auto* target = nearestEnemy(world_, *unit);
         if (!target)
         {
+            clearMovementReservation(world_, unit->id);
             result.decisions[unit->id] = decision;
             continue;
         }
@@ -674,18 +1000,21 @@ BattleTickResult BattleMovementPlanner::tick()
             && unit->reach > 0.0
             && targetDistance <= unit->reach * 0.65)
         {
-            auto dash = chooseRetreatDash(
+            auto dash = chooseRetreatDashWithSoftFallback(
                 world_,
                 *unit,
                 *target,
-                rangedPeelDashDirection(world_, *unit, *target));
+                rangedPeelDashDirection(world_, *unit, *target),
+                reservations,
+                true);
             if (dash)
             {
                 decision = *dash;
                 unit->velocity = decision.velocity;
                 unit->dashFramesRemaining = world_.config.dashFrames;
                 unit->dashCooldownRemaining = world_.config.dashCooldownFrames;
-                reservations[unit->id] = decision.destination;
+                reserveSameFrameDestination(*unit, decision.destination, reservations);
+                reserveMovementDestination(world_, *unit, decision.destination);
                 recordEvent(result.events, BattleEventType::DashStart, *unit, decision);
                 result.decisions[unit->id] = decision;
                 continue;
@@ -696,11 +1025,13 @@ BattleTickResult BattleMovementPlanner::tick()
             && meleeChaosActive
             && unit->dashCooldownRemaining <= 0)
         {
-            auto dash = chooseRetreatDash(
+            auto dash = chooseRetreatDashWithSoftFallback(
                 world_,
                 *unit,
                 *target,
-                meleeChaosDesiredPosition(world_, *unit, *target) - unit->position);
+                meleeChaosDesiredPosition(world_, *unit, *target) - unit->position,
+                reservations,
+                true);
             if (dash)
             {
                 decision = *dash;
@@ -708,7 +1039,8 @@ BattleTickResult BattleMovementPlanner::tick()
                 unit->dashFramesRemaining = world_.config.dashFrames;
                 unit->dashCooldownRemaining = world_.config.dashCooldownFrames;
                 unit->postDashChaosFramesRemaining = 0;
-                reservations[unit->id] = decision.destination;
+                reserveSameFrameDestination(*unit, decision.destination, reservations);
+                reserveMovementDestination(world_, *unit, decision.destination);
                 recordEvent(result.events, BattleEventType::DashStart, *unit, decision);
                 result.decisions[unit->id] = decision;
                 continue;
@@ -727,6 +1059,7 @@ BattleTickResult BattleMovementPlanner::tick()
             decision.action = MovementAction::AttackReady;
             decision.destination = unit->position;
             unit->velocity = { 0, 0, 0 };
+            clearMovementReservation(world_, unit->id);
             recordEvent(result.events, BattleEventType::AttackReady, *unit, decision);
             result.decisions[unit->id] = decision;
             continue;
@@ -752,7 +1085,13 @@ BattleTickResult BattleMovementPlanner::tick()
         if (shouldPlanDash)
         {
             auto dashDirection = desired - unit->position;
-            auto dash = chooseDash(world_, *unit, *target, dashDirection);
+            auto dash = chooseDashWithSoftFallback(
+                world_,
+                *unit,
+                *target,
+                dashDirection,
+                reservations,
+                unit->taXue || battleMovementTaXueUnstable(*unit));
             if (dash)
             {
                 decision = *dash;
@@ -761,7 +1100,8 @@ BattleTickResult BattleMovementPlanner::tick()
                 unit->dashCooldownRemaining = unit->taXue
                     ? std::max(world_.config.dashFrames, world_.config.dashCooldownFrames / 2)
                     : world_.config.dashCooldownFrames;
-                reservations[unit->id] = decision.destination;
+                reserveSameFrameDestination(*unit, decision.destination, reservations);
+                reserveMovementDestination(world_, *unit, decision.destination);
                 recordEvent(result.events, BattleEventType::DashStart, *unit, decision);
                 result.decisions[unit->id] = decision;
                 continue;
@@ -770,10 +1110,25 @@ BattleTickResult BattleMovementPlanner::tick()
 
         bool moved = false;
         MoveProbe lastProbe;
-        for (auto direction : candidateDirections(world_, *unit, *target, desired))
+        auto directions = candidateDirections(world_, *unit, *target, desired);
+        if (!terrainSegmentClear(world_, unit->position, desired))
+        {
+            if (auto pathDirection = terrainPathDirection(world_, *unit, desired))
+            {
+                directions.insert(directions.begin(), *pathDirection);
+            }
+        }
+        for (auto direction : directions)
         {
             auto next = unit->position + direction * unit->speed;
-            auto probe = probeMove(*unit, next, false, reservations);
+            auto probe = probeMoveInWorld(
+                world_,
+                *unit,
+                next,
+                battleMovementTaXueUnstable(*unit),
+                reservations,
+                battleMovementTaXueUnstable(*unit),
+                false);
             lastProbe = probe;
             if (!probe.canMove)
             {
@@ -781,13 +1136,37 @@ BattleTickResult BattleMovementPlanner::tick()
             }
             unit->position = next;
             unit->velocity = direction * unit->speed;
-            reservations[unit->id] = next;
+            reserveSameFrameDestination(*unit, next, reservations);
+            reserveMovementDestination(world_, *unit, next);
             decision.action = MovementAction::Move;
             decision.velocity = unit->velocity;
             decision.destination = unit->position;
             recordEvent(result.events, BattleEventType::Movement, *unit, decision);
             moved = true;
             break;
+        }
+        if (!moved && !battleMovementTaXueUnstable(*unit))
+        {
+            for (auto direction : directions)
+            {
+                auto next = unit->position + direction * unit->speed;
+                auto probe = probeMoveInWorld(world_, *unit, next, false, reservations, false, true);
+                lastProbe = probe;
+                if (!probe.canMove)
+                {
+                    continue;
+                }
+                unit->position = next;
+                unit->velocity = direction * unit->speed;
+                reserveSameFrameDestination(*unit, next, reservations);
+                reserveMovementDestination(world_, *unit, next);
+                decision.action = MovementAction::Move;
+                decision.velocity = unit->velocity;
+                decision.destination = unit->position;
+                recordEvent(result.events, BattleEventType::Movement, *unit, decision);
+                moved = true;
+                break;
+            }
         }
 
         if (!moved)
@@ -810,14 +1189,21 @@ BattleTickResult BattleMovementPlanner::tick()
                 }
 
                 auto dashDirection = desired - unit->position;
-                auto dash = chooseDash(world_, *unit, *target, dashDirection);
+                auto dash = chooseDashWithSoftFallback(
+                    world_,
+                    *unit,
+                    *target,
+                    dashDirection,
+                    reservations,
+                    unit->taXue || battleMovementTaXueUnstable(*unit));
                 if (dash)
                 {
                     decision = *dash;
                     unit->velocity = decision.velocity;
                     unit->dashFramesRemaining = world_.config.dashFrames;
                     unit->dashCooldownRemaining = world_.config.dashCooldownFrames;
-                    reservations[unit->id] = decision.destination;
+                    reserveSameFrameDestination(*unit, decision.destination, reservations);
+                    reserveMovementDestination(world_, *unit, decision.destination);
                     recordEvent(result.events, BattleEventType::DashStart, *unit, decision);
                     moved = true;
                 }
@@ -835,6 +1221,7 @@ BattleTickResult BattleMovementPlanner::tick()
         if (!moved && decision.action == MovementAction::Hold)
         {
             unit->velocity = { 0, 0, 0 };
+            clearMovementReservation(world_, unit->id);
         }
         result.decisions[unit->id] = decision;
     }
@@ -845,7 +1232,7 @@ BattleTickResult BattleMovementPlanner::tick()
     return result;
 }
 
-BattleMovementSimulator::BattleMovementSimulator(BattleWorldState world)
+BattleMovementSimulator::BattleMovementSimulator(BattleMovementFrameInput world)
     : world_(std::move(world))
 {
 }
