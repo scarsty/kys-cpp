@@ -1,24 +1,36 @@
-cmake_minimum_required(VERSION 3.16)
-project(kys)
-cmake_policy(SET CMP0015 OLD)
+cmake_minimum_required(VERSION 3.22)
 
-set(CMAKE_VERBOSE_MAKEFILE on)
-set(CMAKE_CXX_COMPILER $ENV{CXX})
-set(CMAKE_CXX_FLAGS "-O2 -std=c++23 -pthread -DNDEBUG")
+set(KYS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+link_directories("${KYS_ROOT}/local/lib/x64")
+
+find_package(SDL3 CONFIG REQUIRED)
+find_package(SDL3_image CONFIG REQUIRED)
+find_package(SDL3_mixer CONFIG REQUIRED)
+find_package(SDL3_ttf CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(unofficial-lua CONFIG REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
+find_package(libzip CONFIG REQUIRED)
+find_package(unofficial-sqlite3 CONFIG REQUIRED)
 find_package(Catch2 CONFIG REQUIRED)
-include_directories(../include . ../mlcc ../others ../local/include /usr/include)
-link_directories(. ../lib)
+find_package(FluidSynth CONFIG REQUIRED)
+include(Catch)
 
-file(GLOB SRC_LIST
-    ./*.cpp
-    ../mlcc/strfunc.cpp
-    ../mlcc/filefunc.cpp
-    ../others/Hanz2Piny.cpp
-    )
-set(LINK_LIBRARIES SDL3 SDL3_ttf SDL3_image SDL3_mixer lua5.4 opencc sqlite3 yaml-cpp zip)
+set(KYS_COMMON_INCLUDES
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${KYS_ROOT}/include"
+    "${KYS_ROOT}/mlcc"
+    "${KYS_ROOT}/mod"
+    "${KYS_ROOT}/others"
+    "${KYS_ROOT}/local/include"
+)
 
-add_library(kys_battle_core
+set(KYS_BATTLE_SOURCES
     battle/BattleAttackSystem.cpp
     battle/BattleCastSystem.cpp
     battle/BattleComboTriggerSystem.cpp
@@ -30,37 +42,108 @@ add_library(kys_battle_core
     battle/BattleEffectSystem.cpp
     battle/BattleGeometry.cpp
     battle/BattleHitResolver.cpp
+    battle/BattleInitialization.cpp
     battle/BattleMovement.cpp
     battle/BattlePresentation.cpp
     battle/BattlePresentationPlayback.cpp
     battle/BattleProjectileTargetingSystem.cpp
     battle/BattleRescueRepositionSystem.cpp
+    battle/BattleRuntimeRules.cpp
+    battle/BattleRuntimeSession.cpp
     battle/BattleStatusSystem.cpp
     battle/BattleTeamEffectSystem.cpp
 )
-target_include_directories(kys_battle_core PUBLIC .)
 
-add_executable(kys ${SRC_LIST})
-target_link_libraries(kys imgui::imgui kys_battle_core ${LINK_LIBRARIES})
+add_library(kys_battle_core STATIC ${KYS_BATTLE_SOURCES})
+target_include_directories(kys_battle_core PUBLIC ${KYS_COMMON_INCLUDES})
+
+set(KYS_GAME_SUPPORT_SOURCES
+    "${KYS_ROOT}/mlcc/strfunc.cpp"
+    "${KYS_ROOT}/mlcc/filefunc.cpp"
+    "${KYS_ROOT}/mlcc/ZipFile.cpp"
+    "${KYS_ROOT}/mlcc/SQLite3Wrapper.cpp"
+    "${KYS_ROOT}/mlcc/SimpleCC.cpp"
+    "${KYS_ROOT}/others/Hanz2Piny.cpp"
+)
+
+file(GLOB KYS_GAME_SOURCES CONFIGURE_DEPENDS "*.cpp")
+add_executable(kys ${KYS_GAME_SOURCES} ${KYS_GAME_SUPPORT_SOURCES})
+target_include_directories(kys PRIVATE ${KYS_COMMON_INCLUDES})
+target_compile_definitions(kys PRIVATE WITH_SMALLPOT1 WITH_NETWORK)
+target_link_libraries(kys PRIVATE
+    kys_battle_core
+    SDL3::SDL3
+    SDL3_image::SDL3_image
+    SDL3_mixer::SDL3_mixer
+    SDL3_ttf::SDL3_ttf
+    imgui::imgui
+    unofficial::lua::lua
+    unofficial::sqlite3::sqlite3
+    yaml-cpp::yaml-cpp
+    libzip::zip
+    FluidSynth::libfluidsynth
+    SmallPot
+)
+
+if(MSVC)
+    target_compile_options(kys PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+    target_compile_options(kys_battle_core PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+endif()
+
+add_custom_command(TARGET kys POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${KYS_ROOT}/work/game-dev/config"
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory "${KYS_ROOT}/config" "${KYS_ROOT}/work/game-dev/config"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KYS_ROOT}/docs/更新日志.md" "${KYS_ROOT}/work/game-dev/config/changelog.md"
+)
+
+set(KYS_TEST_SOURCES
+    "${KYS_ROOT}/tests/TestMain.cpp"
+    "${KYS_ROOT}/tests/BattleActionCommitUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleAttackSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleCastSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleComboTriggerSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleCoreUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleDamageApplicationSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleDamageSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleDeathEffectSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleEffectSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleFrameRunnerRuntimeUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleHitResolverUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleInitializationUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleLogPresenterUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleMovementRealStatsTests.cpp"
+    "${KYS_ROOT}/tests/BattlePresentationPlaybackUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattlePresentationUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleProjectileTargetingSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleReportUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleRescueRepositionSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleSceneFrameStateApplierUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleSceneImpactPlayerUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleSceneReportPlayerUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleSceneRenderMathUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleSceneSetupBuilderUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleSceneUnitStoreUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleTeamEffectSystemUnitTests.cpp"
+)
 
 add_executable(kys_tests
-    ../tests/TestMain.cpp
-    ../tests/BattleAttackSystemUnitTests.cpp
-    ../tests/BattleCastSystemUnitTests.cpp
-    ../tests/BattleComboTriggerSystemUnitTests.cpp
-    ../tests/BattleCoreUnitTests.cpp
-    ../tests/BattleDamageSystemUnitTests.cpp
-    ../tests/BattleDeathEffectSystemUnitTests.cpp
-    ../tests/BattleEffectSystemUnitTests.cpp
-    ../tests/BattleHitResolverUnitTests.cpp
-    ../tests/BattleMovementRealStatsTests.cpp
-    ../tests/BattlePresentationPlaybackUnitTests.cpp
-    ../tests/BattlePresentationUnitTests.cpp
-    ../tests/BattleProjectileTargetingSystemUnitTests.cpp
-    ../tests/BattleRescueRepositionSystemUnitTests.cpp
-    ../tests/BattleTeamEffectSystemUnitTests.cpp
+    ${KYS_TEST_SOURCES}
+    BattleLogPresenter.cpp
+    BattleReport.cpp
+    BattleSceneBattleAdapter.cpp
+    BattleSceneFrameStateApplier.cpp
+    BattleSceneImpactPlayer.cpp
+    BattleSceneReportPlayer.cpp
+    BattleSceneSetupBuilder.cpp
+    BattleSceneUnitStore.cpp
+    ChessBattleEffects.cpp
 )
-target_include_directories(kys_tests PRIVATE . ../mlcc ../mod ../local/include)
-target_link_libraries(kys_tests kys_battle_core Catch2::Catch2)
-enable_testing()
-add_test(NAME kys_tests COMMAND kys_tests)
+target_include_directories(kys_tests PRIVATE ${KYS_COMMON_INCLUDES})
+target_compile_definitions(kys_tests PRIVATE WITH_SMALLPOT1 WITH_NETWORK)
+target_link_libraries(kys_tests PRIVATE kys_battle_core Catch2::Catch2 yaml-cpp::yaml-cpp)
+
+if(MSVC)
+    target_compile_options(kys_tests PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+endif()
+
+catch_discover_tests(kys_tests TEST_PREFIX "kys_tests::")

@@ -1,0 +1,61 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "windows-msvc-x64-debug",
+      "displayName": "Windows MSVC 2026 x64 Debug",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "toolset": "v145,host=x64",
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": [
+            "Windows"
+          ]
+        }
+      },
+      "binaryDir": "${sourceDir}/build/windows-msvc-x64-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_HOST_TRIPLET": "x64-windows",
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed"
+      }
+    },
+    {
+      "name": "windows-msvc-x64-release",
+      "displayName": "Windows MSVC x64 Release",
+      "inherits": "windows-msvc-x64-debug",
+      "binaryDir": "${sourceDir}/build/windows-msvc-x64-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-msvc-x64-debug",
+      "configurePreset": "windows-msvc-x64-debug",
+      "configuration": "Debug",
+      "jobs": 0
+    },
+    {
+      "name": "windows-msvc-x64-release",
+      "configurePreset": "windows-msvc-x64-release",
+      "configuration": "Release",
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "windows-msvc-x64-debug",
+      "configurePreset": "windows-msvc-x64-debug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
