@@ -47,10 +47,10 @@ std::optional<BattleScenePresentationPlayer::UnitView> resolveUnitView(
     {
         return std::nullopt;
     }
-    const auto& unit = bindings.units->requireUnit(unitId);
+    const auto& unit = bindings.units->requireRuntimeUnit(unitId);
     return BattleScenePresentationPlayer::UnitView{
         unit.motion.position,
-        unit.identity.team,
+        unit.team,
         unit.vitals.maxHp,
     };
 }

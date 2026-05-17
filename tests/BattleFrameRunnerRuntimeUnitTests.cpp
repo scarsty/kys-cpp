@@ -252,9 +252,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     request.initial.velocity = { 6, 0, 0 };
     runtime.pendingAttackSpawns.push_back(request);
 
-    BattleRuntimeInit init;
-    init.runtime = std::move(runtime);
-    BattleRuntimeSession session(std::move(init));
+    BattleRuntimeSession session(std::move(runtime));
 
     const auto first = session.runFrame();
     const auto second = session.runFrame();
@@ -285,7 +283,7 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[ba
     input.units.push_back(unit);
     input.comboStates.emplace(0, KysChess::RoleComboState{});
 
-    auto session = BattleRuntimeSession::createInitialized(std::move(input));
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
     CHECK(session.runtime().movement.frame == 42);
     REQUIRE(session.runtime().unitStore.units.size() == 1);
@@ -313,7 +311,7 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedSpendsNonThroughProjectilesOnHi
     input.units.push_back(unit);
     input.comboStates.emplace(0, KysChess::RoleComboState{});
 
-    auto session = BattleRuntimeSession::createInitialized(std::move(input));
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
     CHECK(session.runtime().attacks.spendNonThroughOnHit);
 }
@@ -348,7 +346,7 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStoresAligned
     input.units.push_back(enemy);
     input.comboStates.emplace(1, KysChess::RoleComboState{});
 
-    auto session = BattleRuntimeSession::createInitialized(std::move(input));
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
     session.runFrame();
 
     const auto& runtime = session.runtime();
@@ -361,14 +359,13 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStoresAligned
 
 TEST_CASE("BattleRuntimeSession_CommitSetupPlacementUpdatesOwnedRuntime", "[battle][runtime_session][ownership]")
 {
-    BattleRuntimeInit init;
-    init.runtime = ownedRuntimeState();
-    init.runtime.unitStore.gridTransform = { SceneTileWidth, 18 };
-    seedRuntimeUnits(init.runtime, {
+    auto runtime = ownedRuntimeState();
+    runtime.unitStore.gridTransform = { SceneTileWidth, 18 };
+    seedRuntimeUnits(runtime, {
         teamRuntimeUnitAt(0, 0, 100, { 100, 100, 0 }),
     });
-    init.runtime.movement.agents.emplace(0, BattleMovementAgentState{});
-    BattleRuntimeSession session(std::move(init));
+    runtime.movement.agents.emplace(0, BattleMovementAgentState{});
+    BattleRuntimeSession session(std::move(runtime));
 
     BattleSetupPlacementInput placement;
     placement.units.push_back({ 0, 3, 4, 2 });

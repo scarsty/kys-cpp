@@ -50,8 +50,7 @@ void BattleSceneImpactPlayer::play(
 
     for (const auto& command : planner_.plan(events))
     {
-        auto& unit = bindings.units->requireUnit(command.unitId);
-        unit.shake = command.unitShake;
+        bindings.units->setUnitShake(command.unitId, command.unitShake);
         if (command.effectSoundId >= 0)
         {
             assert(bindings.playEffectSound);

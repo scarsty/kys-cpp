@@ -1,12 +1,11 @@
 #include "BattleSceneHades.h"
 #include "Audio.h"
-#include "BattleSceneBattleAdapter.h"
 #include "BattleScenePresentationConstants.h"
 #include "BattleSceneSetupBuilder.h"
 #include "BattleStarStats.h"
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCombatIntent.h"
-#include "battle/BattleFind.h"
+#include "battle/BattleInitialization.h"
 #include "battle/BattleOperation.h"
 #include "battle/BattleStatusSystem.h"
 #include "ChessBalance.h"
@@ -45,9 +44,6 @@ constexpr int CAMERA_ZOOM_EASE_FRAMES = 0;             // 0 restores the old har
 constexpr int CAMERA_DEATH_SLOW_FRAMES = 10;           // slow-motion duration after a death
 constexpr int CAMERA_BATTLE_END_SLOW_FRAMES = 30;      // slow-motion duration when the battle ends
 constexpr int CAMERA_SLOW_STEP_INTERVAL = 4;           // lower = less slow-motion, higher = slower motion
-constexpr float CAMERA_AUTO_FOLLOW_LERP = 1.0f;        // 1.0 restores the old instant auto-follow snap
-constexpr float CAMERA_DEATH_FOCUS_LERP = 1.0f;        // 1.0 restores the old instant death-focus snap
-constexpr float CAMERA_DEATH_RETARGET_BLEND = 0.0f;    // 0.0 restores the old immediate retarget on repeated deaths
 constexpr int BATTLE_COORD_COUNT = BATTLEMAP_COORD_COUNT;
 constexpr int ROLE_STATUS_BAR_WIDTH = 48;
 constexpr int ROLE_STATUS_BAR_HEIGHT = 6;
@@ -55,16 +51,6 @@ constexpr int ROLE_STATUS_BAR_Y = -120;
 constexpr int ROLE_STATUS_BAR_STEP_Y = ROLE_STATUS_BAR_HEIGHT + ROLE_STATUS_BAR_HEIGHT / 3;
 constexpr int ROLE_STATUS_BAR_MP_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y;
 constexpr int ROLE_STATUS_BAR_FROZEN_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y * 2;
-
-Pointf lerpPoint(const Pointf& from, const Pointf& to, float t)
-{
-    t = (std::max)(0.0f, (std::min)(t, 1.0f));
-    return {
-        from.x + (to.x - from.x) * t,
-        from.y + (to.y - from.y) * t,
-        from.z + (to.z - from.z) * t,
-    };
-}
 
 float smoothStep(float t)
 {
@@ -176,154 +162,14 @@ bool BattleSceneHades::isManualCameraEnabled() const
     return SystemSettings::getInstance()->data().manualCamera;
 }
 
-void BattleSceneHades::handleManualCameraInput(const EngineEvent& e)
+BattleSceneCameraBounds BattleSceneHades::makeCameraBounds() const
 {
-    if (!isManualCameraEnabled())
-    {
-        manual_camera_dragging_ = false;
-        return;
-    }
-
-    auto* engine = Engine::getInstance();
-    switch (e.type)
-    {
-    case EVENT_MOUSE_BUTTON_DOWN:
-        if (e.button.button == BUTTON_LEFT)
-        {
-            int present_x = 0;
-            int present_y = 0;
-            int present_w = 0;
-            int present_h = 0;
-            engine->getPresentRect(present_x, present_y, present_w, present_h);
-            manual_camera_dragging_ = present_w > 0
-                && present_h > 0
-                && e.button.x >= present_x
-                && e.button.x < present_x + present_w
-                && e.button.y >= present_y
-                && e.button.y < present_y + present_h;
-        }
-        break;
-    case EVENT_MOUSE_BUTTON_UP:
-        if (e.button.button == BUTTON_LEFT)
-        {
-            manual_camera_dragging_ = false;
-        }
-        break;
-    case EVENT_MOUSE_MOTION:
-        if (manual_camera_dragging_)
-        {
-            int present_x = 0;
-            int present_y = 0;
-            int present_w = 0;
-            int present_h = 0;
-            engine->getPresentRect(present_x, present_y, present_w, present_h);
-            if (present_w > 0 && present_h > 0)
-            {
-                double world_delta_x = static_cast<double>(e.motion.xrel) * (render_center_x_ * 2.0 / present_w);
-                double world_delta_y = static_cast<double>(e.motion.yrel) * (render_center_y_ * 2.0 / present_h);
-                pos_.x -= static_cast<float>(world_delta_x);
-                pos_.y -= static_cast<float>(world_delta_y * 2.0);
-                clampCameraCenter();
-            }
-        }
-        break;
-    }
-}
-
-void BattleSceneHades::updateAutoCamera()
-{
-    Pointf desired = camera_target_;
-    bool haveDesired = false;
-
-    if (close_up_ <= 0)
-    {
-        Pointf center{ 0, 0, 0 };
-        int count = 0;
-        for (const auto& unit : scene_units_.units())
-        {
-            if (unit.identity.team == 0 && unit.alive)
-            {
-                center += unit.motion.position;
-                count++;
-            }
-        }
-
-        if (count > 0)
-        {
-            center.x /= count;
-            center.y /= count;
-            center.z /= count;
-            desired = center;
-            haveDesired = true;
-        }
-    }
-    else
-    {
-        haveDesired = true;
-    }
-
-    if (haveDesired)
-    {
-        camera_target_ = desired;
-    }
-
-    float lerp = close_up_ > 0 ? CAMERA_DEATH_FOCUS_LERP : CAMERA_AUTO_FOLLOW_LERP;
-    pos_ = lerpPoint(pos_, camera_target_, lerp);
-    clampCameraCenter();
-}
-
-void BattleSceneHades::focusCameraOn(const Pointf& focusPoint, int zoomFrames)
-{
-    if (zoomFrames <= 0)
-    {
-        return;
-    }
-
-    if (close_up_ <= 0)
-    {
-        camera_target_ = focusPoint;
-    }
-    else
-    {
-        camera_target_ = lerpPoint(camera_target_, focusPoint, CAMERA_DEATH_RETARGET_BLEND);
-    }
-
-    close_up_ = std::max(close_up_, zoomFrames);
-    close_up_total_ = std::max(close_up_total_, close_up_);
-}
-
-void BattleSceneHades::clampCameraCenter()
-{
-    float scene_w = static_cast<float>(COORD_COUNT * TILE_W * 2);
-    float scene_h = static_cast<float>(COORD_COUNT * TILE_H * 2);
-    if (scene_w <= 0.0f || scene_h <= 0.0f)
-    {
-        return;
-    }
-
-    float min_x = static_cast<float>(render_center_x_);
-    float max_x = scene_w - static_cast<float>(render_center_x_);
-    if (max_x <= min_x)
-    {
-        pos_.x = scene_w * 0.5f;
-    }
-    else
-    {
-        pos_.x = (std::max)(min_x, (std::min)(pos_.x, max_x));
-    }
-
-    float center_y = pos_.y * 0.5f;
-    float min_y = static_cast<float>(render_center_y_);
-    float max_y = scene_h - static_cast<float>(render_center_y_);
-    if (max_y <= min_y)
-    {
-        center_y = scene_h * 0.5f;
-    }
-    else
-    {
-        center_y = (std::max)(min_y, (std::min)(center_y, max_y));
-    }
-    pos_.y = center_y * 2.0f;
+    return {
+        static_cast<float>(COORD_COUNT * TILE_W * 2),
+        static_cast<float>(COORD_COUNT * TILE_H * 2),
+        static_cast<float>(render_center_x_),
+        static_cast<float>(render_center_y_),
+    };
 }
 
 Color BattleSceneHades::calculateHurtFlashColor(int unitId, const Color& baseColor) const
@@ -356,20 +202,20 @@ void BattleSceneHades::initializeBattleRuntime(
     KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild)
 {
     KysChess::ChessCombo::clearActiveStates();
-    auto buildContext = makeBattleRuntimeBuildContext(std::move(setupBuild));
-    auto created = KysChess::BattleSceneBattleAdapter::createInitializedBattleRuntimeSession(
-        buildContext);
-    battle_session_.emplace(std::move(created.session));
-    KysChess::ChessCombo::getMutableStates() = created.sceneInitialization.comboStates;
-    scene_units_.initialize(std::move(created.sceneInitialization.units));
-    if (!created.sceneInitialization.logEvents.empty() || !created.sceneInitialization.visualEvents.empty())
+    auto creationInput = makeBattleRuntimeSessionCreationInput(std::move(setupBuild));
+    auto creation = KysChess::Battle::BattleRuntimeSession::createInitialized(creationInput);
+    auto initialization = std::move(creation.initialization);
+    battle_session_.emplace(std::move(creation.session));
+    KysChess::ChessCombo::getMutableStates() = initialization.comboStates;
+    scene_units_.initializeFromRuntimeCreation(*battle_session_, creationInput, initialization);
+    if (!initialization.logEvents.empty() || !initialization.visualEvents.empty())
     {
         beginPresentationFrame();
-        for (const auto& event : created.sceneInitialization.visualEvents)
+        for (const auto& event : initialization.visualEvents)
         {
             presentation_recorder_.recordVisual(event);
         }
-        for (const auto& event : created.sceneInitialization.logEvents)
+        for (const auto& event : initialization.logEvents)
         {
             presentation_recorder_.recordLog(event);
         }
@@ -382,38 +228,32 @@ void BattleSceneHades::setBattleRuntimeRandomSeed(unsigned int seed)
     battle_random_seed_ = seed;
 }
 
-KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::makeBattleRuntimeBuildContext(
+KysChess::Battle::BattleRuntimeSessionCreationInput BattleSceneHades::makeBattleRuntimeSessionCreationInput(
     KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild)
 {
-    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext context;
-    context.rules = KysChess::Battle::makeHadesBattleRuntimeRules(TILE_W, BATTLE_COORD_COUNT);
-    context.randomSeed = battle_random_seed_;
-    context.rules.movementPhysicsConfig.gravity = gravity_;
-    context.rules.movementPhysicsConfig.friction = friction_;
-    context.input.runtimeSetupSeed.units = std::move(setupBuild.initializationUnits);
-    context.input.runtimeSetupSeed.allyRoster = std::move(setupBuild.allyRoster);
-    context.input.runtimeSetupSeed.enemyRoster = std::move(setupBuild.enemyRoster);
-    context.input.runtimeSetupSeed.cloneSources = std::move(setupBuild.cloneSources);
-    context.input.actionPlanSeeds = std::move(setupBuild.actionPlanSeeds);
-    context.input.units = std::move(setupBuild.units);
-    context.input.comboStates = &KysChess::ChessCombo::getMutableStates();
-    context.input.battleFrame = battle_frame_;
+    auto input = std::move(setupBuild.sessionInput);
+    input.rules = KysChess::Battle::makeHadesBattleRuntimeRules(TILE_W, BATTLE_COORD_COUNT);
+    input.randomSeed = battle_random_seed_;
+    input.rules.movementPhysicsConfig.gravity = gravity_;
+    input.rules.movementPhysicsConfig.friction = friction_;
+    input.comboStates = KysChess::ChessCombo::getMutableStates();
+    input.battleFrame = battle_frame_;
 
     auto* basicMagic = Save::getInstance()->getMagic(1);
     assert(basicMagic);
-    context.input.rescueCounterAttackSkillId = basicMagic->ID;
+    input.rescueCounterAttackSkillId = basicMagic->ID;
 
-    context.input.terrainCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
-    context.input.rescueCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
-    context.rules.movementCollisionWorld.walkableByCell.assign(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT, 0);
+    input.terrainCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
+    input.rescueCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
+    input.rules.movementCollisionWorld.walkableByCell.assign(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT, 0);
     for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
     {
         for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
         {
             const auto position = battle_map_.pos45To90(x, y);
             const bool walkable = battle_map_.canWalk45(x, y);
-            context.input.terrainCells.push_back({ position, walkable });
-            context.input.rescueCells.push_back({
+            input.terrainCells.push_back({ position, walkable });
+            input.rescueCells.push_back({
                 x,
                 y,
                 walkable,
@@ -422,16 +262,16 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
                 position,
             });
             const auto movementCellIndex = static_cast<std::size_t>(y * BATTLE_COORD_COUNT + x);
-            context.rules.movementCollisionWorld.walkableByCell[movementCellIndex] = walkable ? 1 : 0;
+            input.rules.movementCollisionWorld.walkableByCell[movementCellIndex] = walkable ? 1 : 0;
         }
     }
 
     auto& obtained = progress_.getObtainedNeigong();
-    context.input.runtimeSetupSeed.obtainedNeigongMagicIds.assign(obtained.begin(), obtained.end());
+    input.setup.obtainedNeigongMagicIds.assign(obtained.begin(), obtained.end());
     for (const auto& [x, y] : clone_spawn_positions_)
     {
         bool occupied = false;
-        for (const auto& unit : context.input.units)
+        for (const auto& unit : input.units)
         {
             if (unit.alive && unit.gridX == x && unit.gridY == y)
             {
@@ -439,9 +279,9 @@ KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext BattleSceneHades::
                 break;
             }
         }
-        context.input.runtimeSetupSeed.cloneCells.push_back({ x, y, true, occupied });
+        input.setup.cloneCells.push_back({ x, y, true, occupied });
     }
-    return context;
+    return input;
 }
 
 void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
@@ -508,7 +348,7 @@ void BattleSceneHades::draw()
 
     auto whole_scene = engine->getTexture("whole_scene");
     bool use_whole_scene = use_whole_scene_ && whole_scene != nullptr;
-    float zoomBlend = use_whole_scene ? cameraZoomBlend(close_up_, close_up_total_) : 0.0f;
+    float zoomBlend = use_whole_scene ? cameraZoomBlend(camera_.closeUpFrames(), camera_.closeUpTotalFrames()) : 0.0f;
     if (zoomBlend > 0.0f)
     {
         float zoomScale = 1.0f + (CAMERA_DEATH_ZOOM_SCALE - 1.0f) * zoomBlend;
@@ -667,31 +507,28 @@ void BattleSceneHades::draw()
             }
         }
     }
-    for (const auto& unit : scene_units_.units())
+    for (const auto& unit : scene_units_.runtimeUnits())
     {
-        if (!unit.active)
-        {
-            continue;
-        }
         if (!is_visible_world(unit.motion.position.x, unit.motion.position.y / 2.0))
         {
             continue;
         }
         //if (r->Dead) { continue; }
         DrawInfo info;
-        auto path = std::format("fight/fight{:03}", unit.identity.headId);
+        const auto& presentation = scene_units_.requirePresentation(unit.id);
+        auto path = std::format("fight/fight{:03}", presentation.headId);
         info.color = { 255, 255, 255, 255 };
         info.alpha = 255;
         info.white = 0;
         info.p = unit.motion.position;
-        if (result_ == -1 && unit.shake)
+        if (result_ == -1 && presentation.shake)
         {
-            info.p.x += shakeJitter(battle_frame_, unit.unitId);
+            info.p.x += shakeJitter(battle_frame_, unit.id);
         }
         info.tex = TextureManager::getInstance()->getTexture(
             path,
             BattleSceneRenderMath::calRenderUnitPic(
-                unit.fightFrames,
+                presentation.fightFrames,
                 unit.motion.facing,
                 unit.animation.actType,
                 unit.animation.actFrame));
@@ -713,13 +550,13 @@ void BattleSceneHades::draw()
                 }
             }
         }
-        if (unit.attention)
+        if (presentation.attention)
         {
-            info.alpha = 255 - unit.attention * 4;
+            info.alpha = 255 - presentation.attention * 4;
         }
 
         // 應用受击闪红
-        info.color = calculateHurtFlashColor(unit.unitId, info.color);
+        info.color = calculateHurtFlashColor(unit.id, info.color);
 
         info.shadow = 1;
         //TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
@@ -733,7 +570,7 @@ void BattleSceneHades::draw()
             Pointf effect_pos = ae.Pos;
             if (ae.FollowUnitId >= 0)
             {
-                effect_pos = scene_units_.requireUnit(ae.FollowUnitId).motion.position + ae.Pos;
+                effect_pos = scene_units_.requireRuntimeUnit(ae.FollowUnitId).motion.position + ae.Pos;
             }
             if (!is_visible_world(effect_pos.x, effect_pos.y / 2.0))
             {
@@ -832,12 +669,13 @@ void BattleSceneHades::draw()
             TextureManager::RenderInfo{ d.color, d.alpha, scaley, 1, static_cast<double>(d.rot), d.white, color_v, {} });
     }
 
-    for (const auto& unit : scene_units_.units())
+    for (const auto& unit : scene_units_.runtimeUnits())
     {
         if (is_visible_world(unit.motion.position.x, unit.motion.position.y / 2.0))
         {
             renderExtraRoleInfo(
                 unit,
+                scene_units_.requirePresentation(unit.id),
                 renderWorldX(unit.motion.position.x),
                 renderWorldY(unit.motion.position.y / 2.0));
         }
@@ -845,7 +683,7 @@ void BattleSceneHades::draw()
 
     if (swapSelectedUnitId_ >= 0)
     {
-        const auto& selectedUnit = scene_units_.requireUnit(swapSelectedUnitId_);
+        const auto& selectedUnit = scene_units_.requireRuntimeUnit(swapSelectedUnitId_);
         if (is_visible_world(selectedUnit.motion.position.x, selectedUnit.motion.position.y / 2.0))
         {
             engine->fillColor(
@@ -896,7 +734,7 @@ void BattleSceneHades::draw()
     }
 
     // Role info text (frozen timer, swap coordinates)
-    for (const auto& unit : scene_units_.units())
+    for (const auto& unit : scene_units_.runtimeUnits())
     {
         if (!unit.alive) { continue; }
         double wx = unit.motion.position.x;
@@ -918,9 +756,10 @@ void BattleSceneHades::draw()
                 worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y - 1),
                 { 230, 195, 120, 240 });
         }
-        if (positionSwapActive_ && unit.identity.team == 0)
+        if (positionSwapActive_ && unit.team == 0)
         {
-            std::string coord = std::format("({},{})", unit.gridX, unit.gridY);
+            const auto& placement = scene_units_.requireSetupPlacement(unit.id);
+            std::string coord = std::format("({},{})", placement.gridX, placement.gridY);
             Font::getInstance()->draw(coord,
                 (std::max)(1, int(28 * sizeScale)),
                 worldToUiX(wx - 5), worldToUiY(wy - 5),
@@ -939,7 +778,10 @@ void BattleSceneHades::draw()
 
 void BattleSceneHades::dealEvent(EngineEvent& e)
 {
-    handleManualCameraInput(e);
+    if (auto manualCenter = camera_.handleManualInput(e, pos_, makeCameraBounds()))
+    {
+        pos_ = *manualCenter;
+    }
 
     int steps = getBattleStepsThisRender();
     for (int step = 0; step < steps && !exit_; ++step)
@@ -989,16 +831,16 @@ void BattleSceneHades::advanceBattleFrame()
         battle_frame_++;
         return;
     }
-    BattleSceneRenderMath::decreaseToZero(close_up_);
-    if (close_up_ == 0)
+    camera_.decreaseCloseUp();
+    if (!camera_.closeUpActive())
     {
         if (isManualCameraEnabled())
         {
-            clampCameraCenter();
+            pos_ = BattleSceneCamera::clampCenter(pos_, makeCameraBounds());
         }
         else
         {
-            updateAutoCamera();
+            pos_ = camera_.updateAuto(pos_, scene_units_, makeCameraBounds());
         }
     }
 
@@ -1191,10 +1033,8 @@ void BattleSceneHades::onEntrance()
 
     battle_frame_ = 0;
     half_speed_step_on_next_render_ = true;
-    manual_camera_dragging_ = false;
-    camera_target_ = pos_;
-    close_up_total_ = 0;
-    clampCameraCenter();
+    camera_.reset(pos_);
+    pos_ = BattleSceneCamera::clampCenter(pos_, makeCameraBounds());
 
     initializeBattleRuntime(std::move(setupBuild));
     runPreBattlePositionSwapIfEnabled();
@@ -1268,8 +1108,8 @@ public:
             int clickedUnitId = -1;
             for (int unitId : battle_->scene_units_.allyUnitIds())
             {
-                const auto& unit = battle_->scene_units_.requireUnit(unitId);
-                if (unit.identity.team == 0 && unit.gridX == p.x && unit.gridY == p.y)
+                const auto& placement = battle_->scene_units_.requireSetupPlacement(unitId);
+                if (placement.gridX == p.x && placement.gridY == p.y)
                 {
                     clickedUnitId = unitId;
                     break;
@@ -1333,9 +1173,10 @@ void BattleSceneHades::runListBasedSwap()
         int maxCoordLen = 0;
         for (int unitId : allies)
         {
-            const auto& unit = scene_units_.requireUnit(unitId);
-            std::string name = unit.identity.name;
-            std::string coord = std::format("({},{})", unit.gridX, unit.gridY);
+            const auto& presentation = scene_units_.requirePresentation(unitId);
+            const auto& placement = scene_units_.requireSetupPlacement(unitId);
+            std::string name = presentation.identity.name;
+            std::string coord = std::format("({},{})", placement.gridX, placement.gridY);
             int nameLen = Font::getTextDrawSize(name);
             int coordLen = Font::getTextDrawSize(coord);
             if (nameLen > maxNameLen)
@@ -1353,9 +1194,10 @@ void BattleSceneHades::runListBasedSwap()
         std::vector<bool> animateOutlines;
         for (int i = 0; i < (int)allies.size(); i++)
         {
-            const auto& unit = scene_units_.requireUnit(allies[i]);
-            std::string name = unit.identity.name;
-            std::string coord = std::format("({},{})", unit.gridX, unit.gridY);
+            const auto& presentation = scene_units_.requirePresentation(allies[i]);
+            const auto& placement = scene_units_.requireSetupPlacement(allies[i]);
+            std::string name = presentation.identity.name;
+            std::string coord = std::format("({},{})", placement.gridX, placement.gridY);
             int nameLen = Font::getTextDrawSize(name);
             int coordLen = Font::getTextDrawSize(coord);
             // Pad name to max, then pad coord prefix so coords right-align
@@ -1478,20 +1320,15 @@ void BattleSceneHades::applyCoreFrameResult(
     const KysChess::Battle::BattleFrameResult& frameResult)
 {
     auto& comboStates = KysChess::ChessCombo::getMutableStates();
-    BattleSceneFrameStateApplyContext context;
+    BattleSceneFrameDeltaBuildContext context;
     context.units = &scene_units_;
     context.comboStates = &comboStates;
     context.hurtFlashTimers = &hurt_flash_timers_;
     context.random = &rand_;
-    context.pos45To90 = [this](int x, int y)
-    {
-        return battle_map_.pos45To90(x, y);
-    };
     context.transferAntiCombo = [this](int unitId)
     {
         KysChess::ChessCombo::transferAntiCombo(unitId, scene_units_.makeComboBattleUnitRefs());
     };
-    context.gravity = gravity_;
     context.manualCameraEnabled = isManualCameraEnabled();
     context.hurtFlashDuration = HURT_FLASH_DURATION;
     context.blinkSoundEffectId = BLINK_SOUND_EFFECT_ID;
@@ -1499,7 +1336,7 @@ void BattleSceneHades::applyCoreFrameResult(
     context.battleEndZoomFrames = CAMERA_BATTLE_END_ZOOM_FRAMES;
     context.deathSlowFrames = CAMERA_DEATH_SLOW_FRAMES;
     context.battleEndSlowFrames = CAMERA_BATTLE_END_SLOW_FRAMES;
-    applySceneFrameStateResult(frame_state_applier_.apply(frameResult, result_, context));
+    applySceneFrameDelta(frame_delta_builder_.build(frameResult, result_, context));
 
     report_player_.playProjectileCancelDamageCommands(frameResult.projectileCancelDamageCommands, {
         &battle_report_,
@@ -1528,7 +1365,7 @@ void BattleSceneHades::applyCoreFrameResult(
     });
 }
 
-void BattleSceneHades::applySceneFrameStateResult(const BattleSceneFrameStateApplyResult& result)
+void BattleSceneHades::applySceneFrameDelta(const BattleSceneFrameDelta& result)
 {
     for (const auto& command : result.bloodEffects)
     {
@@ -1562,12 +1399,11 @@ void BattleSceneHades::applySceneFrameStateResult(const BattleSceneFrameStateApp
     }
     if (result.cameraFocus)
     {
-        focusCameraOn(*result.cameraFocus, result.closeUpFrames);
+        camera_.focusOn(*result.cameraFocus, result.closeUpFrames);
     }
     else if (result.closeUpFrames > 0)
     {
-        close_up_ = std::max(close_up_, result.closeUpFrames);
-        close_up_total_ = std::max(close_up_total_, close_up_);
+        camera_.focusOn(pos_, result.closeUpFrames);
     }
     if (result.frozenFrames > 0)
     {
@@ -1593,17 +1429,7 @@ void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult
     {
         return;
     }
-    for (auto& unit : scene_units_.units())
-    {
-        if (!unit.active)
-        {
-            continue;
-        }
-        unit.vitals.hp = GameUtil::limit(unit.vitals.hp, 0, unit.vitals.maxHp);
-        unit.vitals.mp = GameUtil::limit(unit.vitals.mp, 0, unit.vitals.maxMp);
-        BattleSceneRenderMath::decreaseToZero(unit.shake);
-        BattleSceneRenderMath::decreaseToZero(unit.attention);
-    }
+    scene_units_.decreaseTransientPresentationState();
 
     //处理文字
     {
@@ -1641,14 +1467,16 @@ void BattleSceneHades::onPressedCancel()
 {
 }
 
-void BattleSceneHades::renderExtraRoleInfo(const BattleSceneUnit& unit, double x, double y)
+void BattleSceneHades::renderExtraRoleInfo(
+    const KysChess::Battle::BattleRuntimeUnit& unit,
+    const BattleSceneUnitPresentationState& presentation,
+    double x,
+    double y)
 {
     if (!unit.alive)
     {
         return;
     }
-
-    const auto& comboState = unit.combo;
 
     // 画个血条
     Color outline_color = { 0, 0, 0, 128 };
@@ -1690,7 +1518,7 @@ void BattleSceneHades::renderExtraRoleInfo(const BattleSceneUnit& unit, double x
 
     Color background_color = { 0, 255, 0, 128 };    // 我方绿色
     Color shadow_color = { 64, 64, 64, 128 };       // 背景阴影
-    if (unit.identity.team == 1)
+    if (unit.team == 1)
     {
         // 敌方红色
         background_color = { 255, 0, 0, 128 };
@@ -1706,10 +1534,10 @@ void BattleSceneHades::renderExtraRoleInfo(const BattleSceneUnit& unit, double x
             0,
             ROLE_STATUS_BAR_WIDTH);
 
-        if (comboState.shield > 0)
+        if (unit.shield > 0)
         {
             int shieldWidth = std::clamp(
-                static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(comboState.shield) / unit.vitals.maxHp))),
+            static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(unit.shield) / unit.vitals.maxHp))),
                 1,
                 ROLE_STATUS_BAR_WIDTH);
             int visibleShieldWidth = std::min(shieldWidth, hpFillWidth);
@@ -1718,10 +1546,10 @@ void BattleSceneHades::renderExtraRoleInfo(const BattleSceneUnit& unit, double x
             Engine::getInstance()->renderSquareTexture(&shieldRect, { 250, 200, 0, 255 }, 255);
         }
 
-        bool hasDamageProtection = unit.invincible > 0 || comboState.blockFirstHitsRemaining > 0;
+        bool hasDamageProtection = unit.invincible > 0 || unit.blockFirstHitsRemaining > 0;
         if (hasDamageProtection)
         {
-            Color protectionColor = comboState.blockFirstHitsRemaining > 0 ? Color{ 255, 220, 110, 255 } : Color{ 255, 170, 95, 255 };
+            Color protectionColor = unit.blockFirstHitsRemaining > 0 ? Color{ 255, 220, 110, 255 } : Color{ 255, 170, 95, 255 };
             renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, protectionColor, 220);
         }
     }

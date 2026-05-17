@@ -6,6 +6,7 @@
 #include "Font.h"
 #include "Save.h"
 #include "ChessScreenLayout.h"
+#include <assert.h>
 
 namespace KysChess
 {
@@ -20,6 +21,7 @@ ChessSelectorPresenter::FormattedChessName ChessSelectorPresenter::formatChessNa
     std::optional<int> starOpt,
     const std::string& prefix) const
 {
+    assert(role);
     // Use the shared menu-budget constants so anchors and formatter agree.
 
     std::string result;

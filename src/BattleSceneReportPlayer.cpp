@@ -11,7 +11,7 @@ const BattleUnitIdentity* resolveIdentity(const BattleSceneReportPlayer::Binding
     {
         return nullptr;
     }
-    return &bindings.units->requireUnit(unitId).identity;
+    return &bindings.units->requirePresentation(unitId).identity;
 }
 }  // namespace
 

@@ -133,9 +133,6 @@
     <ClCompile Include="BattleSceneHades.cpp">
       <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="BattleSceneBattleAdapter.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
     <ClCompile Include="BattleSceneMapState.cpp">
       <Filter>battle</Filter>
     </ClCompile>
@@ -401,9 +398,6 @@
     <ClInclude Include="BattleSceneHades.h">
       <Filter>battle</Filter>
     </ClInclude>
-    <ClInclude Include="BattleSceneBattleAdapter.h">
-      <Filter>battle</Filter>
-    </ClInclude>
     <ClInclude Include="BattleSceneMapState.h">
       <Filter>battle</Filter>
     </ClInclude>
@@ -431,8 +425,8 @@
     <ClInclude Include="battle\BattleHitResolver.h">
       <Filter>battle</Filter>
     </ClInclude>
-    <ClInclude Include="battle\BattleFind.h">
-      <Filter>battle</Filter>
+    <ClInclude Include="Find.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="battle\BattleRuntimeRules.h">
       <Filter>battle</Filter>

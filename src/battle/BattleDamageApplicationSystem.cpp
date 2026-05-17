@@ -2,7 +2,7 @@
 
 #include "../ChessEftIds.h"
 #include "BattleComboTriggerSystem.h"
-#include "BattleFind.h"
+#include "../Find.h"
 #include "BattleResourceRules.h"
 #include "BattleStatusFormat.h"
 #include "BattleUnitStore.h"

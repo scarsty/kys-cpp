@@ -199,7 +199,7 @@ int facingTowardNearestOpponent(
 }
 
 KysChess::Battle::BattleInitializationUnitSeed makeInitializationUnitSeed(
-    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+    const KysChess::Battle::BattleSetupUnitInput& unit)
 {
     return {
         unit.unitId,
@@ -221,7 +221,7 @@ KysChess::Battle::BattleInitializationUnitSeed makeInitializationUnitSeed(
 }
 
 KysChess::Battle::BattleSetupRosterUnit makeRosterUnit(
-    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+    const KysChess::Battle::BattleSetupUnitInput& unit)
 {
     return {
         unit.unitId,
@@ -238,7 +238,7 @@ KysChess::Battle::BattleSetupRosterUnit makeRosterUnit(
 }
 
 KysChess::Battle::BattleInitializationCloneSource makeCloneSource(
-    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+    const KysChess::Battle::BattleSetupUnitInput& unit)
 {
     return {
         unit.unitId,
@@ -251,7 +251,7 @@ KysChess::Battle::BattleInitializationCloneSource makeCloneSource(
 }
 
 KysChess::Battle::BattleActionPlanSeed makeActionPlanSeed(
-    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+    const KysChess::Battle::BattleSetupUnitInput& unit)
 {
     KysChess::Battle::BattleActionPlanSeed seed;
     seed.unitId = unit.unitId;
@@ -262,7 +262,7 @@ KysChess::Battle::BattleActionPlanSeed makeActionPlanSeed(
 }
 }  // namespace
 
-KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
+KysChess::Battle::BattleSetupUnitInput makeSetupUnit(
     const BattleSceneSetupUnitRequest& request,
     std::span<const BattleSceneSetupOpponentCell> opponents)
 {
@@ -273,7 +273,7 @@ KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
     const auto& role = *request.source;
     const int faceTowards = facingTowardNearestOpponent(request, opponents);
 
-    KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput unit;
+    KysChess::Battle::BattleSetupUnitInput unit;
     unit.unitId = request.unitId;
     unit.realRoleId = role.RealID >= 0 ? role.RealID : role.ID;
     unit.name = role.Name;
@@ -350,46 +350,47 @@ BattleSceneSetupBuildResult buildSetupUnits(std::span<const BattleSceneSetupUnit
     }
 
     BattleSceneSetupBuildResult result;
-    result.units.reserve(requests.size());
-    result.initializationUnits.reserve(requests.size());
-    result.allyRoster.reserve(requests.size());
-    result.enemyRoster.reserve(requests.size());
-    result.cloneSources.reserve(requests.size());
-    result.actionPlanSeeds.reserve(requests.size());
+    auto& sessionInput = result.sessionInput;
+    sessionInput.units.reserve(requests.size());
+    sessionInput.setup.units.reserve(requests.size());
+    sessionInput.setup.allyRoster.reserve(requests.size());
+    sessionInput.setup.enemyRoster.reserve(requests.size());
+    sessionInput.setup.cloneSources.reserve(requests.size());
+    sessionInput.actionPlanSeeds.reserve(requests.size());
     for (const auto& request : requests)
     {
         auto setupUnit = makeSetupUnit(request, cells);
-        result.initializationUnits.push_back(makeInitializationUnitSeed(setupUnit));
-        result.actionPlanSeeds.push_back(makeActionPlanSeed(setupUnit));
+        sessionInput.setup.units.push_back(makeInitializationUnitSeed(setupUnit));
+        sessionInput.actionPlanSeeds.push_back(makeActionPlanSeed(setupUnit));
 
         auto rosterUnit = makeRosterUnit(setupUnit);
         if (setupUnit.team == 0)
         {
-            result.allyRoster.push_back(rosterUnit);
-            result.cloneSources.push_back(makeCloneSource(setupUnit));
+            sessionInput.setup.allyRoster.push_back(rosterUnit);
+            sessionInput.setup.cloneSources.push_back(makeCloneSource(setupUnit));
         }
         else
         {
-            result.enemyRoster.push_back(rosterUnit);
+            sessionInput.setup.enemyRoster.push_back(rosterUnit);
         }
 
-        result.units.push_back(std::move(setupUnit));
+        sessionInput.units.push_back(std::move(setupUnit));
     }
     std::ranges::sort(
-        result.units,
+        sessionInput.units,
         [](const auto& lhs, const auto& rhs)
         {
             return lhs.unitId < rhs.unitId;
         });
-    for (std::size_t index = 0; index < result.units.size(); ++index)
+    for (std::size_t index = 0; index < sessionInput.units.size(); ++index)
     {
-        assert(result.units[index].unitId == static_cast<int>(index));
+        assert(sessionInput.units[index].unitId == static_cast<int>(index));
     }
-    std::ranges::sort(result.initializationUnits, {}, &KysChess::Battle::BattleInitializationUnitSeed::unitId);
-    std::ranges::sort(result.actionPlanSeeds, {}, &KysChess::Battle::BattleActionPlanSeed::unitId);
-    std::ranges::sort(result.allyRoster, {}, &KysChess::Battle::BattleSetupRosterUnit::sourceOrder);
-    std::ranges::sort(result.enemyRoster, {}, &KysChess::Battle::BattleSetupRosterUnit::sourceOrder);
-    std::ranges::sort(result.cloneSources, {}, &KysChess::Battle::BattleInitializationCloneSource::sourceUnitId);
+    std::ranges::sort(sessionInput.setup.units, {}, &KysChess::Battle::BattleInitializationUnitSeed::unitId);
+    std::ranges::sort(sessionInput.actionPlanSeeds, {}, &KysChess::Battle::BattleActionPlanSeed::unitId);
+    std::ranges::sort(sessionInput.setup.allyRoster, {}, &KysChess::Battle::BattleSetupRosterUnit::sourceOrder);
+    std::ranges::sort(sessionInput.setup.enemyRoster, {}, &KysChess::Battle::BattleSetupRosterUnit::sourceOrder);
+    std::ranges::sort(sessionInput.setup.cloneSources, {}, &KysChess::Battle::BattleInitializationCloneSource::sourceUnitId);
     return result;
 }
 

@@ -5,7 +5,7 @@
 
 #include <array>
 #include <map>
-#include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -82,25 +82,33 @@ struct BattleRuntimeSessionCreationInput
     int rescueCounterAttackSkillId = -1;
 };
 
+struct BattleRuntimeSessionCreationResult;
+
 class BattleRuntimeSession
 {
 public:
-    explicit BattleRuntimeSession(BattleRuntimeInit init);
+    explicit BattleRuntimeSession(BattleRuntimeState runtime);
 
-    static BattleRuntimeSession createInitialized(BattleRuntimeSessionCreationInput input);
+    static BattleRuntimeSessionCreationResult createInitialized(BattleRuntimeSessionCreationInput input);
 
     BattleFrameResult runFrame();
     void commitSetupPlacement(const BattleSetupPlacementInput& input);
-    BattleInitializationResult releaseInitializationResult();
 
     const BattleRuntimeState& runtime() const;
+    const BattleRuntimeUnit& requireRuntimeUnit(int unitId) const;
+    std::span<const BattleRuntimeUnit> runtimeUnits() const;
 
 private:
     BattleRuntimeState runtime_;
-    std::optional<BattleInitializationResult> initialization_result_;
     BattleFrameRunner runner_;
     bool setupPlacementCommitted_ = false;
     bool frameStarted_ = false;
+};
+
+struct BattleRuntimeSessionCreationResult
+{
+    BattleRuntimeSession session;
+    BattleInitializationResult initialization;
 };
 
 }  // namespace KysChess::Battle

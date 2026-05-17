@@ -1,11 +1,10 @@
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattleCore.h"
-#include "battle/BattleFind.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentationPlayback.h"
 #include "battle/BattleRuntimeRules.h"
-#include "BattleSceneBattleAdapter.h"
 #include "ChessEftIds.h"
+#include "Find.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -16,6 +15,7 @@
 #include <vector>
 
 using namespace KysChess::Battle;
+using namespace KysChess;
 
 namespace
 {

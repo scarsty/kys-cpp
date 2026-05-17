@@ -1,6 +1,6 @@
 #include "BattleCastSystem.h"
 
-#include "BattleFind.h"
+#include "../Find.h"
 #include "BattleMath.h"
 #include "BattleCombatIntent.h"
 #include "BattleProjectileTargetingSystem.h"

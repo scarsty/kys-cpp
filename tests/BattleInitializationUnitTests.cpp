@@ -1,6 +1,5 @@
 #include "battle/BattleInitialization.h"
 #include "battle/BattleRuntimeSession.h"
-#include "BattleSceneBattleAdapter.h"
 #include "BattleStarStats.h"
 #include "ChessCombo.h"
 #include "ChessEquipment.h"
@@ -53,10 +52,10 @@ BattleStatusRuntimeUnit& requireStatusRuntime(BattleRuntimeState& runtime, int u
 }
 
 void addRuntimeSetupSeed(
-    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext& context,
-    const KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput& unit)
+    BattleRuntimeSessionCreationInput& input,
+    const BattleSetupUnitInput& unit)
 {
-    context.input.runtimeSetupSeed.units.push_back({
+    input.setup.units.push_back({
         unit.unitId,
         unit.realRoleId,
         unit.team,
@@ -87,8 +86,8 @@ void addRuntimeSetupSeed(
     };
     if (unit.team == 0)
     {
-        context.input.runtimeSetupSeed.allyRoster.push_back(roster);
-        context.input.runtimeSetupSeed.cloneSources.push_back({
+        input.setup.allyRoster.push_back(roster);
+        input.setup.cloneSources.push_back({
             unit.unitId,
             unit.realRoleId,
             unit.vitals.maxHp + unit.stats.attack + unit.stats.defence,
@@ -99,7 +98,7 @@ void addRuntimeSetupSeed(
     }
     else
     {
-        context.input.runtimeSetupSeed.enemyRoster.push_back(roster);
+        input.setup.enemyRoster.push_back(roster);
     }
 }
 
@@ -124,7 +123,7 @@ BattleActionSkillSeed makeHadesTestSkillSeed(
 }
 
 void addInitializedRuntimeTestUnit(
-    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext& context,
+    BattleRuntimeSessionCreationInput& input,
     int unitId,
     int realRoleId,
     int team,
@@ -134,9 +133,7 @@ void addInitializedRuntimeTestUnit(
     BattleActionSkillSeed normalSkill = makeHadesTestSkillSeed(),
     BattleActionSkillSeed ultimateSkill = makeHadesTestSkillSeed())
 {
-    namespace Adapter = KysChess::BattleSceneBattleAdapter;
-
-    Adapter::BattleSetupUnitInput unit;
+    BattleSetupUnitInput unit;
     unit.unitId = unitId;
     unit.realRoleId = realRoleId;
     unit.name = team == 0 ? "我方" : "敵方";
@@ -161,14 +158,14 @@ void addInitializedRuntimeTestUnit(
     unit.hasEquippedSkill = true;
     unit.normalSkill = std::move(normalSkill);
     unit.ultimateSkill = std::move(ultimateSkill);
-    context.input.units.push_back(unit);
-    context.input.actionPlanSeeds.push_back({
+    input.units.push_back(unit);
+    input.actionPlanSeeds.push_back({
         unitId,
         true,
         unit.normalSkill,
         unit.ultimateSkill,
     });
-    addRuntimeSetupSeed(context, unit);
+    addRuntimeSetupSeed(input, unit);
 }
 
 }  // namespace
@@ -452,19 +449,17 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     CHECK(runtime.combo.units.find(1) != runtime.combo.units.end());
 }
 
-TEST_CASE("BattleSceneBattleAdapter_CreatesCloneSceneRowsWithoutRoleMirror", "[battle][initialization]")
+TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[battle][initialization]")
 {
-    namespace Adapter = KysChess::BattleSceneBattleAdapter;
-
     std::map<int, RoleComboState> comboStates;
     comboStates[0].cloneSummonCount = 1;
 
-    Adapter::BattleRuntimeBuildContext context;
-    context.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    context.input.comboStates = &comboStates;
-    context.input.runtimeSetupSeed.cloneCells.push_back({ 3, 4, true, false });
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.comboStates = comboStates;
+    input.setup.cloneCells.push_back({ 3, 4, true, false });
 
-    Adapter::BattleSetupUnitInput source;
+    BattleSetupUnitInput source;
     source.unitId = 0;
     source.realRoleId = 1001;
     source.name = "測試角色";
@@ -482,53 +477,40 @@ TEST_CASE("BattleSceneBattleAdapter_CreatesCloneSceneRowsWithoutRoleMirror", "[b
     source.star = 3;
     source.cost = 7;
     source.chessInstanceId = 99;
-    context.input.units.push_back(source);
-    addRuntimeSetupSeed(context, source);
+    input.units.push_back(source);
+    addRuntimeSetupSeed(input, source);
 
-    auto created = Adapter::createInitializedBattleRuntimeSession(context);
+    auto creation = BattleRuntimeSession::createInitialized(std::move(input));
+    auto& session = creation.session;
+    const auto& initialization = creation.initialization;
 
-    const auto& units = created.sceneInitialization.units;
+    const auto& units = session.runtime().unitStore.units;
     REQUIRE(units.size() == 2);
-    const auto sourceIt = std::find_if(
-        units.begin(),
-        units.end(),
-        [](const BattleSceneUnit& unit)
-        {
-            return unit.unitId == 0;
-        });
-    const auto cloneIt = std::find_if(
-        units.begin(),
-        units.end(),
-        [](const BattleSceneUnit& unit)
-        {
-            return unit.unitId == 1;
-        });
-    REQUIRE(sourceIt != units.end());
-    REQUIRE(cloneIt != units.end());
-    CHECK(cloneIt->sourceUnitId == 0);
-    CHECK(cloneIt->identity.realRoleId == 1001);
-    CHECK(cloneIt->identity.battleId == 1);
-    CHECK(cloneIt->vitals.hp == sourceIt->vitals.hp);
-    CHECK(cloneIt->vitals.maxHp == sourceIt->vitals.maxHp);
-    CHECK(cloneIt->stats.attack == sourceIt->stats.attack);
-    CHECK(cloneIt->stats.defence == sourceIt->stats.defence);
-    CHECK(cloneIt->stats.speed == sourceIt->stats.speed);
-    CHECK(cloneIt->gridX == 3);
-    CHECK(cloneIt->gridY == 4);
+    REQUIRE(initialization.cloneIntents.size() == 1);
+    CHECK(initialization.cloneIntents[0].sourceUnitId == 0);
+    CHECK(initialization.cloneIntents[0].cloneUnitId == 1);
+    const auto& sourceUnit = session.runtime().unitStore.requireUnit(0);
+    const auto& cloneUnit = session.runtime().unitStore.requireUnit(1);
+    CHECK(cloneUnit.realRoleId == 1001);
+    CHECK(cloneUnit.vitals.hp == sourceUnit.vitals.hp);
+    CHECK(cloneUnit.vitals.maxHp == sourceUnit.vitals.maxHp);
+    CHECK(cloneUnit.stats.attack == sourceUnit.stats.attack);
+    CHECK(cloneUnit.stats.defence == sourceUnit.stats.defence);
+    CHECK(cloneUnit.stats.speed == sourceUnit.stats.speed);
+    CHECK(cloneUnit.grid.x == 3);
+    CHECK(cloneUnit.grid.y == 4);
 }
 
-TEST_CASE("BattleSceneBattleAdapter_InitializesRuntimeRandomFromBuildContext", "[battle][initialization]")
+TEST_CASE("BattleRuntimeSession_InitializesRuntimeRandomFromCreationInput", "[battle][initialization]")
 {
-    namespace Adapter = KysChess::BattleSceneBattleAdapter;
-
     std::map<int, RoleComboState> comboStates;
 
-    Adapter::BattleRuntimeBuildContext context;
-    context.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    context.input.comboStates = &comboStates;
-    context.randomSeed = 777u;
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.comboStates = comboStates;
+    input.randomSeed = 777u;
 
-    Adapter::BattleSetupUnitInput source;
+    BattleSetupUnitInput source;
     source.unitId = 0;
     source.realRoleId = 1001;
     source.name = "測試角色";
@@ -538,44 +520,42 @@ TEST_CASE("BattleSceneBattleAdapter_InitializesRuntimeRandomFromBuildContext", "
     source.stats = { 20, 30, 40 };
     source.motion = { { 100, 200, 0 }, { 0, 0, 0 }, { 0, 0, 0 }, { 1, 1, 0 } };
     source.animation = { 0, 0, 0, -1 };
-    context.input.units.push_back(source);
-    addRuntimeSetupSeed(context, source);
+    input.units.push_back(source);
+    addRuntimeSetupSeed(input, source);
 
-    auto created = Adapter::createInitializedBattleRuntimeSession(context);
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
-    CHECK(created.session.runtime().random.seed() == 777u);
+    CHECK(session.runtime().random.seed() == 777u);
 }
 
-TEST_CASE("BattleSceneBattleAdapter_InitializedSessionAdvancesUnitsAfterSetupPlacement", "[battle][initialization][runtime]")
+TEST_CASE("BattleRuntimeSession_InitializedSessionAdvancesUnitsAfterSetupPlacement", "[battle][initialization][runtime]")
 {
-    namespace Adapter = KysChess::BattleSceneBattleAdapter;
-
     std::map<int, RoleComboState> comboStates;
 
-    Adapter::BattleRuntimeBuildContext context;
-    context.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    context.input.comboStates = &comboStates;
-    context.rules.movementCollisionWorld.walkableByCell.assign(18 * 18, 1);
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.comboStates = comboStates;
+    input.rules.movementCollisionWorld.walkableByCell.assign(18 * 18, 1);
 
-    addInitializedRuntimeTestUnit(context, 0, 1001, 0, 3, 3, Towards_RightDown);
-    addInitializedRuntimeTestUnit(context, 1, 1002, 1, 10, 10, Towards_LeftUp);
+    addInitializedRuntimeTestUnit(input, 0, 1001, 0, 3, 3, Towards_RightDown);
+    addInitializedRuntimeTestUnit(input, 1, 1002, 1, 10, 10, Towards_LeftUp);
 
-    auto created = Adapter::createInitializedBattleRuntimeSession(context);
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
     BattleSetupPlacementInput placement;
     placement.units.push_back({ 0, 3, 3, Towards_RightDown });
     placement.units.push_back({ 1, 10, 10, Towards_LeftUp });
-    created.session.commitSetupPlacement(placement);
+    session.commitSetupPlacement(placement);
 
-    const auto initialAlly = created.session.runtime().unitStore.requireUnit(0).motion.position;
-    const auto initialEnemy = created.session.runtime().unitStore.requireUnit(1).motion.position;
+    const auto initialAlly = session.runtime().unitStore.requireUnit(0).motion.position;
+    const auto initialEnemy = session.runtime().unitStore.requireUnit(1).motion.position;
 
     bool anyUnitMoved = false;
     for (int frame = 0; frame < 90 && !anyUnitMoved; ++frame)
     {
-        created.session.runFrame();
-        const auto& ally = created.session.runtime().unitStore.requireUnit(0).motion.position;
-        const auto& enemy = created.session.runtime().unitStore.requireUnit(1).motion.position;
+        session.runFrame();
+        const auto& ally = session.runtime().unitStore.requireUnit(0).motion.position;
+        const auto& enemy = session.runtime().unitStore.requireUnit(1).motion.position;
         anyUnitMoved = ally.x != initialAlly.x
             || ally.y != initialAlly.y
             || enemy.x != initialEnemy.x
@@ -585,44 +565,40 @@ TEST_CASE("BattleSceneBattleAdapter_InitializedSessionAdvancesUnitsAfterSetupPla
     CHECK(anyUnitMoved);
 }
 
-TEST_CASE("BattleSceneBattleAdapter_InitializedSessionSeedsAttackUnits", "[battle][initialization][runtime]")
+TEST_CASE("BattleRuntimeSession_InitializedSessionSeedsAttackUnits", "[battle][initialization][runtime]")
 {
-    namespace Adapter = KysChess::BattleSceneBattleAdapter;
-
     std::map<int, RoleComboState> comboStates;
 
-    Adapter::BattleRuntimeBuildContext context;
-    context.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    context.input.comboStates = &comboStates;
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.comboStates = comboStates;
 
-    addInitializedRuntimeTestUnit(context, 0, 1001, 0, 3, 3, Towards_RightDown);
-    addInitializedRuntimeTestUnit(context, 1, 1002, 1, 10, 10, Towards_LeftUp);
+    addInitializedRuntimeTestUnit(input, 0, 1001, 0, 3, 3, Towards_RightDown);
+    addInitializedRuntimeTestUnit(input, 1, 1002, 1, 10, 10, Towards_LeftUp);
 
-    auto created = Adapter::createInitializedBattleRuntimeSession(context);
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
-    REQUIRE(created.session.runtime().unitStore.units.size() == 2);
-    CHECK(created.session.runtime().unitStore.units[0].id == 0);
-    CHECK(created.session.runtime().unitStore.units[0].team == 0);
-    CHECK(created.session.runtime().unitStore.units[0].alive);
-    CHECK(created.session.runtime().unitStore.units[1].id == 1);
-    CHECK(created.session.runtime().unitStore.units[1].team == 1);
-    CHECK(created.session.runtime().unitStore.units[1].alive);
+    REQUIRE(session.runtime().unitStore.units.size() == 2);
+    CHECK(session.runtime().unitStore.units[0].id == 0);
+    CHECK(session.runtime().unitStore.units[0].team == 0);
+    CHECK(session.runtime().unitStore.units[0].alive);
+    CHECK(session.runtime().unitStore.units[1].id == 1);
+    CHECK(session.runtime().unitStore.units[1].team == 1);
+    CHECK(session.runtime().unitStore.units[1].alive);
 }
 
-TEST_CASE("BattleSceneBattleAdapter_InitializedSessionResolvesProjectileCombat", "[battle][initialization][runtime]")
+TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[battle][initialization][runtime]")
 {
-    namespace Adapter = KysChess::BattleSceneBattleAdapter;
-
     std::map<int, RoleComboState> comboStates;
 
-    Adapter::BattleRuntimeBuildContext context;
-    context.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    context.input.comboStates = &comboStates;
-    context.rules.movementCollisionWorld.walkableByCell.assign(18 * 18, 1);
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.comboStates = comboStates;
+    input.rules.movementCollisionWorld.walkableByCell.assign(18 * 18, 1);
 
     auto projectileSkill = makeHadesTestSkillSeed(1, 4, "飛刀", 55, 44);
     addInitializedRuntimeTestUnit(
-        context,
+        input,
         0,
         1001,
         0,
@@ -632,7 +608,7 @@ TEST_CASE("BattleSceneBattleAdapter_InitializedSessionResolvesProjectileCombat",
         projectileSkill,
         projectileSkill);
     addInitializedRuntimeTestUnit(
-        context,
+        input,
         1,
         1002,
         1,
@@ -642,19 +618,19 @@ TEST_CASE("BattleSceneBattleAdapter_InitializedSessionResolvesProjectileCombat",
         projectileSkill,
         projectileSkill);
 
-    auto created = Adapter::createInitializedBattleRuntimeSession(context);
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
     BattleSetupPlacementInput placement;
     placement.units.push_back({ 0, 3, 3, Towards_RightDown });
     placement.units.push_back({ 1, 5, 3, Towards_LeftUp });
-    created.session.commitSetupPlacement(placement);
+    session.commitSetupPlacement(placement);
 
     bool playedAttackSound = false;
     bool emittedProjectile = false;
     bool appliedDamage = false;
     for (int frame = 0; frame < 90 && !(playedAttackSound && emittedProjectile && appliedDamage); ++frame)
     {
-        const auto frameResult = created.session.runFrame();
+        const auto frameResult = session.runFrame();
         playedAttackSound = playedAttackSound || !frameResult.applications.attackSoundIds.empty();
         emittedProjectile = emittedProjectile
             || std::any_of(
@@ -672,11 +648,11 @@ TEST_CASE("BattleSceneBattleAdapter_InitializedSessionResolvesProjectileCombat",
     CHECK(appliedDamage);
 }
 
-TEST_CASE("BattleRuntimeSession_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization][runtime_session]")
+TEST_CASE("BattleInitializationSystem_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization]")
 {
-    BattleRuntimeInit init;
-    init.runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
-    init.runtime.status.units.push_back(statusRuntime(0, 100, 20));
+    BattleRuntimeState runtime;
+    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
+    runtime.status.units.push_back(statusRuntime(0, 100, 20));
 
     BattleInitializationUnitSeed seed;
     seed.unitId = 0;
@@ -687,12 +663,12 @@ TEST_CASE("BattleRuntimeSession_ConsumesSetupAndInitializesOwnedRuntime", "[batt
     seed.baseDefence = 30;
     seed.baseSpeed = 40;
     seed.baseCombo.flatHP = 25;
-    init.setup.units.push_back(seed);
+    BattleRuntimeSetupSeed setup;
+    setup.units.push_back(seed);
 
-    BattleRuntimeSession session(std::move(init));
-    auto result = session.releaseInitializationResult();
+    auto result = BattleInitializationSystem().initialize(runtime, setup);
 
-    const auto& unit = session.runtime().unitStore.requireUnit(0);
+    const auto& unit = runtime.unitStore.requireUnit(0);
     CHECK(unit.vitals.maxHp == 125);
     CHECK(unit.vitals.hp == 125);
     CHECK(unit.vitals.maxHp == 125);

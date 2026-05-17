@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "Color.h"
+
 #include "SDL3/SDL.h"
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
@@ -41,7 +43,6 @@ using Window = SDL_Window;
 using Texture = SDL_Texture;
 using Rect = SDL_Rect;
 using FRect = SDL_FRect;
-using Color = SDL_Color;
 using Keycode = SDL_Keycode;
 using Surface = SDL_Surface;
 using Gamepad = SDL_Gamepad;

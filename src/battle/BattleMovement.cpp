@@ -1,6 +1,6 @@
 #include "BattleMovement.h"
 
-#include "BattleFind.h"
+#include "../Find.h"
 
 #include <algorithm>
 #include <cassert>

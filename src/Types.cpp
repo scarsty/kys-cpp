@@ -259,10 +259,6 @@ int Role::learnMagic(int magic_id)
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器
 bool Role::canUseItem(Item* i)
 {
-    if (this == nullptr)
-    {
-        return false;
-    }
     if (i == nullptr)
     {
         return false;
@@ -354,10 +350,6 @@ bool Role::canUseItem(Item* i)
 //使用物品时属性变化
 void Role::useItem(Item* i)
 {
-    if (this == nullptr)
-    {
-        return;
-    }
     if (i == nullptr)
     {
         return;
@@ -482,10 +474,6 @@ int Role::getFinishedExpForItem(Item* i)
 
 void Role::equip(Item* i)
 {
-    if (this == nullptr)
-    {
-        return;
-    }
     if (i == nullptr)
     {
         return;
@@ -562,7 +550,7 @@ int Role::medicine(Role* r2)
 //注意这个返回值通常应为负
 int Role::detoxification(Role* r2)
 {
-    if (this == nullptr || r2 == nullptr)
+    if (r2 == nullptr)
     {
         return 0;
     }
@@ -575,7 +563,7 @@ int Role::detoxification(Role* r2)
 //用毒
 int Role::usePoison(Role* r2)
 {
-    if (this == nullptr || r2 == nullptr)
+    if (r2 == nullptr)
     {
         return 0;
     }

@@ -1,8 +1,8 @@
 #include "BattleCore.h"
 
 #include "../ChessEftIds.h"
+#include "../Find.h"
 #include "BattleCombatIntent.h"
-#include "BattleFind.h"
 #include "BattleMath.h"
 #include "BattleResourceRules.h"
 

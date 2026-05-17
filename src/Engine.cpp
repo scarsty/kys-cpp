@@ -1690,7 +1690,7 @@ Texture* Engine::createTextTexture(const std::string& fontname, const std::strin
             return nullptr;
         }
     }
-    auto text_s = TTF_RenderText_Blended(font, text.c_str(), 0, c);
+    auto text_s = TTF_RenderText_Blended(font, text.c_str(), 0, SDL_Color{ c.r, c.g, c.b, c.a });
     auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
     SDL_SetTextureScaleMode(text_t, SDL_SCALEMODE_LINEAR);
     SDL_DestroySurface(text_s);

@@ -1,6 +1,6 @@
 #include "BattleRescueRepositionSystem.h"
 
-#include "BattleFind.h"
+#include "../Find.h"
 
 #include <algorithm>
 #include <cassert>

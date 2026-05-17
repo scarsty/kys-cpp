@@ -7,8 +7,8 @@
 #include "BattlePresentationEffects.h"
 #include "BattleSceneRenderMath.h"
 #include "BattleScene.h"
-#include "BattleSceneBattleAdapter.h"
-#include "BattleSceneFrameStateApplier.h"
+#include "BattleSceneCamera.h"
+#include "BattleSceneFrameDeltaBuilder.h"
 #include "BattleSceneImpactPlayer.h"
 #include "BattleSceneMapState.h"
 #include "BattleSceneReportPlayer.h"
@@ -68,7 +68,11 @@ protected:
     {
         bool advanced = false;
     };
-    void renderExtraRoleInfo(const BattleSceneUnit& unit, double x, double y);
+    void renderExtraRoleInfo(
+        const KysChess::Battle::BattleRuntimeUnit& unit,
+        const BattleSceneUnitPresentationState& presentation,
+        double x,
+        double y);
     virtual int checkResult() override;
     SceneBattleFrameInput buildBattleFrameInput();
     void applyCoreFrameResult(
@@ -77,7 +81,7 @@ protected:
     void playCorePresentationFrame();
 
     void initializeBattleRuntime(KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
-    KysChess::BattleSceneBattleAdapter::BattleRuntimeBuildContext makeBattleRuntimeBuildContext(
+    KysChess::Battle::BattleRuntimeSessionCreationInput makeBattleRuntimeSessionCreationInput(
         KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
     void runPreBattlePositionSwapIfEnabled();
     void commitFinalSetupPlacementToRuntime();
@@ -87,11 +91,8 @@ protected:
     bool isManualCameraEnabled() const;
     int getBattleStepsThisRender();
     void advanceBattleFrame();
-    void handleManualCameraInput(const EngineEvent& e);
-    void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
-    void updateAutoCamera();
-    void clampCameraCenter();
-    void applySceneFrameStateResult(const BattleSceneFrameStateApplyResult& result);
+    BattleSceneCameraBounds makeCameraBounds() const;
+    void applySceneFrameDelta(const BattleSceneFrameDelta& result);
     void beginPresentationFrame();
     void publishPresentationFrame();
     Color calculateHurtFlashColor(int unitId, const Color& baseColor) const;
@@ -136,17 +137,14 @@ protected:
     int frozen_ = 0;
     int slow_ = 0;
     int shake_ = 0;
-    int close_up_ = 0;
-    bool manual_camera_dragging_ = false;
     double previous_refresh_interval_ = 0.0;
     int battle_frame_ = 0;
     bool half_speed_step_on_next_render_ = true;
-    Pointf camera_target_;
-    int close_up_total_ = 0;
+    BattleSceneCamera camera_;
     bool count_fights_won_ = true;
     unsigned int battle_random_seed_ = 1;
     KysChess::Battle::BattlePresentationRecorder presentation_recorder_;
-    BattleSceneFrameStateApplier frame_state_applier_;
+    BattleSceneFrameDeltaBuilder frame_delta_builder_;
     BattleSceneImpactPlayer impact_player_;
     BattleScenePresentationPlayer presentation_player_;
     BattleSceneReportPlayer report_player_;

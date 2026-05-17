@@ -1,27 +1,21 @@
 #include "BattleSceneReportPlayer.h"
+#include "BattleSceneTestRuntimeFixture.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <string>
-#include <utility>
-
-namespace
-{
-BattleSceneUnit reportPlayerUnit(int unitId, int battleId, int team, std::string name)
-{
-    BattleSceneUnit unit;
-    unit.unitId = unitId;
-    unit.identity = { battleId, battleId, team, 0, std::move(name) };
-    return unit;
-}
-}  // namespace
 
 TEST_CASE("BattleSceneReportPlayer_RecordsDamageBeforeDeathAndBattleEnd", "[battle][scene_report]")
 {
-    BattleSceneUnitStore units;
-    units.initialize({
-        reportPlayerUnit(0, 101, 0, "段譽"),
-        reportPlayerUnit(1, 202, 1, "岳不群"),
+    auto first = BattleSceneTest::makeSetupUnit(0, 0, 0, 0, { 0, 0, 0 });
+    first.realRoleId = 101;
+    first.name = "段譽";
+    auto second = BattleSceneTest::makeSetupUnit(1, 1, 1, 0, { 10, 0, 0 });
+    second.realRoleId = 202;
+    second.name = "岳不群";
+    BattleSceneTest::StoreFixture fixture({
+        first,
+        second,
     });
     BattleReportBuilder builder;
     BattleSceneReportPlayer player;
@@ -32,7 +26,7 @@ TEST_CASE("BattleSceneReportPlayer_RecordsDamageBeforeDeathAndBattleEnd", "[batt
         { KysChess::Battle::BattleLogEventType::BattleEnded, 221, -1, -1, 0 },
     };
 
-    player.playLogs(logs, { &builder, &units });
+    player.playLogs(logs, { &builder, &fixture.store });
 
     const auto& events = builder.report().events();
     REQUIRE(events.size() == 4);
@@ -50,10 +44,15 @@ TEST_CASE("BattleSceneReportPlayer_RecordsDamageBeforeDeathAndBattleEnd", "[batt
 
 TEST_CASE("BattleSceneReportPlayer_RecordsProjectileCancelStats", "[battle][scene_report]")
 {
-    BattleSceneUnitStore units;
-    units.initialize({
-        reportPlayerUnit(0, 101, 0, "段譽"),
-        reportPlayerUnit(1, 202, 1, "岳不群"),
+    auto first = BattleSceneTest::makeSetupUnit(0, 0, 0, 0, { 0, 0, 0 });
+    first.realRoleId = 101;
+    first.name = "段譽";
+    auto second = BattleSceneTest::makeSetupUnit(1, 1, 1, 0, { 10, 0, 0 });
+    second.realRoleId = 202;
+    second.name = "岳不群";
+    BattleSceneTest::StoreFixture fixture({
+        first,
+        second,
     });
     BattleReportBuilder builder;
     BattleSceneReportPlayer player;
@@ -62,7 +61,7 @@ TEST_CASE("BattleSceneReportPlayer_RecordsProjectileCancelStats", "[battle][scen
         { 34, 29, 0, 1, 35, 20 },
     };
 
-    player.playProjectileCancelDamageCommands(commands, { &builder, &units });
+    player.playProjectileCancelDamageCommands(commands, { &builder, &fixture.store });
 
     CHECK(builder.report().cancelDamageForUnit(0) == 35);
     CHECK(builder.report().cancelDamageForUnit(1) == 20);

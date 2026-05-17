@@ -1,7 +1,9 @@
 #include "BattleRuntimeSession.h"
 
 #include "../ChessCombo.h"
-#include "BattleFind.h"
+#include "../ChessEquipment.h"
+#include "../ChessNeigong.h"
+#include "../Find.h"
 
 #include <algorithm>
 #include <cassert>
@@ -199,14 +201,83 @@ BattleDeathEffectStore makeDeathEffectStore(
     return store;
 }
 
-void buildCanonicalRuntime(BattleRuntimeInit& init, const BattleRuntimeSessionCreationInput& input)
+std::vector<BattleSetupComboDefinition> makeBattleSetupComboDefinitions()
 {
-    init.runtime.unitStore.gridTransform = input.rules.gridTransform;
-    init.runtime.random = BattleRuntimeRandom(input.randomSeed);
-    init.runtime.combo.units = input.comboStates;
-    init.runtime.unitStore.units.reserve(input.units.size());
-    init.runtime.status.units.reserve(input.units.size());
-    init.setup = input.setup;
+    std::vector<BattleSetupComboDefinition> definitions;
+    for (const auto& combo : KysChess::ChessCombo::getAllCombos())
+    {
+        BattleSetupComboDefinition definition;
+        definition.id = combo.id;
+        definition.name = combo.name;
+        definition.memberRoleIds = combo.memberRoleIds;
+        definition.isAntiCombo = combo.isAntiCombo;
+        definition.starSynergyBonus = combo.starSynergyBonus;
+        definition.thresholds.reserve(combo.thresholds.size());
+        for (const auto& threshold : combo.thresholds)
+        {
+            definition.thresholds.push_back({ threshold.count, threshold.effects });
+        }
+        definitions.push_back(std::move(definition));
+    }
+    return definitions;
+}
+
+std::vector<BattleSetupEquipmentDefinition> makeBattleSetupEquipmentDefinitions()
+{
+    std::vector<BattleSetupEquipmentDefinition> definitions;
+    for (const auto& equipment : KysChess::ChessEquipment::getAll())
+    {
+        definitions.push_back({
+            equipment.itemId,
+            equipment.equipType,
+            equipment.effects,
+            equipment.actAsComboNames,
+        });
+    }
+    return definitions;
+}
+
+std::vector<BattleSetupEquipmentSynergyDefinition> makeBattleSetupEquipmentSynergyDefinitions()
+{
+    std::vector<BattleSetupEquipmentSynergyDefinition> definitions;
+    for (const auto& synergy : KysChess::ChessEquipment::getAllSynergies())
+    {
+        definitions.push_back({
+            synergy.roleIds,
+            synergy.equipmentId,
+            synergy.effects,
+            synergy.actAsComboNames,
+        });
+    }
+    return definitions;
+}
+
+std::vector<BattleSetupNeigongDefinition> makeBattleSetupNeigongDefinitions()
+{
+    std::vector<BattleSetupNeigongDefinition> definitions;
+    for (const auto& neigong : KysChess::ChessNeigong::getPool())
+    {
+        definitions.push_back({ neigong.magicId, neigong.effects });
+    }
+    return definitions;
+}
+
+void populateBattleRuntimeSetupDefinitions(BattleRuntimeSetupSeed& setup)
+{
+    setup.comboDefinitions = makeBattleSetupComboDefinitions();
+    setup.equipmentDefinitions = makeBattleSetupEquipmentDefinitions();
+    setup.equipmentSynergies = makeBattleSetupEquipmentSynergyDefinitions();
+    setup.neigongDefinitions = makeBattleSetupNeigongDefinitions();
+}
+
+BattleRuntimeState buildCanonicalRuntime(const BattleRuntimeSessionCreationInput& input)
+{
+    BattleRuntimeState runtime;
+    runtime.unitStore.gridTransform = input.rules.gridTransform;
+    runtime.random = BattleRuntimeRandom(input.randomSeed);
+    runtime.combo.units = input.comboStates;
+    runtime.unitStore.units.reserve(input.units.size());
+    runtime.status.units.reserve(input.units.size());
 
     for (const auto& setup : input.units)
     {
@@ -220,14 +291,15 @@ void buildCanonicalRuntime(BattleRuntimeInit& init, const BattleRuntimeSessionCr
             auto statusUnit = makeBattleStatusUnitState(runtimeUnit, comboIt->second);
             statusUnit.effects.frozenTimer = setup.frozen;
             statusUnit.effects.frozenMaxTimer = setup.frozenMax;
-            init.runtime.status.units.push_back(makeBattleStatusRuntimeUnit(statusUnit));
+            runtime.status.units.push_back(makeBattleStatusRuntimeUnit(statusUnit));
         }
         else
         {
-            init.runtime.status.units.push_back(BattleStatusRuntimeUnit{ .id = setup.unitId });
+            runtime.status.units.push_back(BattleStatusRuntimeUnit{ .id = setup.unitId });
         }
-        init.runtime.unitStore.units.push_back(std::move(runtimeUnit));
+        runtime.unitStore.units.push_back(std::move(runtimeUnit));
     }
+    return runtime;
 }
 
 void deriveRuntimeStores(BattleRuntimeState& runtime, BattleRuntimeSessionCreationInput input)
@@ -312,28 +384,167 @@ void deriveRuntimeStores(BattleRuntimeState& runtime, BattleRuntimeSessionCreati
     }
 }
 
-}  // namespace
-
-BattleRuntimeSession::BattleRuntimeSession(BattleRuntimeInit init)
-    : runtime_(std::move(init.runtime))
+struct BattleRuntimeSetupResult
 {
-    initialization_result_ = BattleInitializationSystem().initialize(runtime_, init.setup);
+    BattleRuntimeState runtime;
+    BattleInitializationResult initialization;
+};
+
+BattleRuntimeSetupResult setupBattleRuntime(BattleRuntimeSessionCreationInput input)
+{
+    populateBattleRuntimeSetupDefinitions(input.setup);
+
+    auto runtime = buildCanonicalRuntime(input);
+    auto initialization = BattleInitializationSystem().initialize(runtime, input.setup);
+    deriveRuntimeStores(runtime, std::move(input));
+
+    return {
+        std::move(runtime),
+        std::move(initialization),
+    };
 }
 
-BattleRuntimeSession BattleRuntimeSession::createInitialized(BattleRuntimeSessionCreationInput input)
-{
-    BattleRuntimeInit init;
-    buildCanonicalRuntime(init, input);
+}  // namespace
 
-    BattleRuntimeSession session(std::move(init));
-    deriveRuntimeStores(session.runtime_, std::move(input));
-    return session;
+BattleRuntimeSession::BattleRuntimeSession(BattleRuntimeState runtime)
+    : runtime_(std::move(runtime))
+{
+}
+
+BattleRuntimeSessionCreationResult BattleRuntimeSession::createInitialized(BattleRuntimeSessionCreationInput input)
+{
+    auto setup = setupBattleRuntime(std::move(input));
+
+    return {
+        BattleRuntimeSession(std::move(setup.runtime)),
+        std::move(setup.initialization),
+    };
 }
 
 BattleFrameResult BattleRuntimeSession::runFrame()
 {
     frameStarted_ = true;
-    return runner_.runFrame(runtime_);
+    auto result = runner_.runFrame(runtime_);
+    for (const auto& application : result.unitApplications)
+    {
+        auto& unit = runtime_.unitStore.requireUnit(application.unitId);
+        unit.animation.cooldown = application.cooldown;
+        unit.animation.actFrame = application.actFrame;
+        unit.animation.actType = application.actType;
+        unit.vitals.mp = application.finalMp;
+        if (application.resetDashVelocity)
+        {
+            unit.motion.velocity = { 0, 0, 0 };
+        }
+    }
+    for (const auto& status : result.stateApplications.statusRenderUnits)
+    {
+        auto& unit = runtime_.unitStore.requireUnit(status.unitId);
+        unit.invincible = status.invincible;
+        unit.frozen = status.frozenFrames;
+        unit.frozenMax = status.frozenMaxFrames;
+    }
+    for (const auto& combo : result.stateApplications.comboRenderUnits)
+    {
+        auto& unit = runtime_.unitStore.requireUnit(combo.unitId);
+        unit.shield = combo.shield;
+        unit.blockFirstHitsRemaining = combo.blockFirstHitsRemaining;
+    }
+    for (const auto& damage : result.damageRenderApplications)
+    {
+        auto& defenderUnit = runtime_.unitStore.requireUnit(damage.defender.unitId);
+        defenderUnit.vitals.hp = damage.defender.hp;
+        defenderUnit.vitals.mp = damage.defender.mp;
+        defenderUnit.invincible = damage.defender.invincible;
+        defenderUnit.alive = damage.defender.alive;
+        defenderUnit.frozen = damage.frozenFrames;
+        defenderUnit.frozenMax = damage.frozenMaxFrames;
+        defenderUnit.animation.cooldown = damage.cooldown;
+
+        if (damage.attacker.unitId >= 0)
+        {
+            auto& attackerUnit = runtime_.unitStore.requireUnit(damage.attacker.unitId);
+            attackerUnit.vitals.hp = damage.attacker.hp;
+            attackerUnit.vitals.mp = damage.attacker.mp;
+            attackerUnit.invincible = damage.attacker.invincible;
+            attackerUnit.alive = damage.attacker.alive;
+        }
+    }
+    for (const auto& event : result.teamEffectEvents)
+    {
+        auto& unit = runtime_.unitStore.requireUnit(event.targetUnitId);
+        switch (event.type)
+        {
+        case BattleTeamEffectEventType::Heal:
+            unit.vitals.hp = event.after;
+            break;
+        case BattleTeamEffectEventType::MpRestore:
+            unit.vitals.mp = event.after;
+            break;
+        case BattleTeamEffectEventType::ShieldGain:
+            unit.shield = event.after;
+            break;
+        case BattleTeamEffectEventType::CooldownReduced:
+            unit.animation.cooldown = event.after;
+            break;
+        }
+    }
+    for (const auto& knockback : result.applications.knockbacks)
+    {
+        auto& targetUnit = runtime_.unitStore.requireUnit(knockback.targetUnitId);
+        targetUnit.motion.velocity += knockback.velocityDelta;
+        if (knockback.velocityCap > 0.0 && targetUnit.motion.velocity.norm() > knockback.velocityCap)
+        {
+            targetUnit.motion.velocity.normTo(static_cast<float>(knockback.velocityCap));
+        }
+    }
+    for (const auto& restore : result.applications.mpRestores)
+    {
+        auto& unit = runtime_.unitStore.requireUnit(restore.unitId);
+        unit.vitals.mp = std::min(unit.vitals.maxMp, unit.vitals.mp + restore.amount);
+    }
+    for (const auto& heal : result.applications.unitHeals)
+    {
+        auto& unit = runtime_.unitStore.requireUnit(heal.targetUnitId);
+        unit.vitals.hp = std::min(unit.vitals.maxHp, unit.vitals.hp + heal.amount);
+    }
+    for (const auto& movement : result.movementPresentationResults)
+    {
+        auto& unit = runtime_.unitStore.requireUnit(movement.unitId);
+        unit.frozen = movement.frozenFrames;
+        unit.motion.position = movement.position;
+        unit.motion.velocity = movement.velocity;
+        unit.motion.acceleration = movement.acceleration;
+        auto facing = movement.facing;
+        if (facing.norm() > 0.01)
+        {
+            unit.motion.facing = facing;
+        }
+    }
+    for (const auto& action : result.actionResults)
+    {
+        auto& unit = runtime_.unitStore.requireUnit(action.unitId);
+        unit.animation.actFrame = action.state.actFrame;
+        unit.animation.actType = action.state.actType;
+        unit.animation.cooldown = action.state.cooldown;
+        if (action.castStarted)
+        {
+            unit.animation.actFrame = 0;
+            unit.animation.actType = action.state.actType;
+            unit.animation.cooldown = action.state.cooldown;
+            unit.animation.cooldownMax = action.state.cooldown;
+            unit.motion.velocity = { 0, 0, 0 };
+        }
+        for (const auto& teleport : action.actionResult.blinkTeleports)
+        {
+            unit.grid = { teleport.gridX, teleport.gridY };
+            unit.motion.position = { teleport.position.x, teleport.position.y, 0 };
+            unit.motion.velocity = { 0, 0, 0 };
+            unit.motion.acceleration = { 0, 0, runtime_.movementPhysics.config.gravity };
+            unit.motion.facing = teleport.facing;
+        }
+    }
+    return result;
 }
 
 void BattleRuntimeSession::commitSetupPlacement(const BattleSetupPlacementInput& input)
@@ -352,17 +563,19 @@ void BattleRuntimeSession::commitSetupPlacement(const BattleSetupPlacementInput&
     }
 }
 
-BattleInitializationResult BattleRuntimeSession::releaseInitializationResult()
-{
-    assert(initialization_result_.has_value());
-    BattleInitializationResult result = std::move(*initialization_result_);
-    initialization_result_.reset();
-    return result;
-}
-
 const BattleRuntimeState& BattleRuntimeSession::runtime() const
 {
     return runtime_;
+}
+
+const BattleRuntimeUnit& BattleRuntimeSession::requireRuntimeUnit(int unitId) const
+{
+    return runtime_.unitStore.requireUnit(unitId);
+}
+
+std::span<const BattleRuntimeUnit> BattleRuntimeSession::runtimeUnits() const
+{
+    return runtime_.unitStore.units;
 }
 
 }  // namespace KysChess::Battle

@@ -112,8 +112,8 @@ TEST_CASE("BattleSceneSetupBuilder_BuildsGroupedUnitValues", "[battle][scene_set
     const std::array requests{ request };
     const auto result = KysChess::BattleSceneSetupBuilder::buildSetupUnits(requests);
 
-    REQUIRE(result.units.size() == 1);
-    const auto& unit = result.units[0];
+    REQUIRE(result.sessionInput.units.size() == 1);
+    const auto& unit = result.sessionInput.units[0];
     CHECK(unit.vitals.maxHp == 120);
     CHECK(unit.vitals.hp == 120);
     CHECK(unit.stats.attack == 35);
@@ -146,22 +146,22 @@ TEST_CASE("BattleSceneSetupBuilder_EmitsRuntimeSeedRowsWithSetupUnits", "[battle
     const std::array requests{ request };
     const auto result = KysChess::BattleSceneSetupBuilder::buildSetupUnits(requests);
 
-    REQUIRE(result.units.size() == 1);
-    REQUIRE(result.initializationUnits.size() == 1);
-    CHECK(result.initializationUnits[0].unitId == result.units[0].unitId);
-    CHECK(result.initializationUnits[0].realRoleId == result.units[0].realRoleId);
-    CHECK(result.initializationUnits[0].baseMaxHp == result.units[0].vitals.maxHp);
-    CHECK(result.initializationUnits[0].baseAttack == result.units[0].stats.attack);
-    REQUIRE(result.allyRoster.size() == 1);
-    CHECK(result.allyRoster[0].unitId == 0);
-    CHECK(result.allyRoster[0].sourceOrder == 7);
-    REQUIRE(result.enemyRoster.empty());
-    REQUIRE(result.cloneSources.size() == 1);
-    CHECK(result.cloneSources[0].sourceUnitId == 0);
-    CHECK(result.cloneSources[0].power == source.MaxHP + source.Attack + source.Defence);
-    REQUIRE(result.actionPlanSeeds.size() == 1);
-    CHECK(result.actionPlanSeeds[0].unitId == 0);
-    CHECK(result.actionPlanSeeds[0].hasEquippedSkill == result.units[0].hasEquippedSkill);
+    REQUIRE(result.sessionInput.units.size() == 1);
+    REQUIRE(result.sessionInput.setup.units.size() == 1);
+    CHECK(result.sessionInput.setup.units[0].unitId == result.sessionInput.units[0].unitId);
+    CHECK(result.sessionInput.setup.units[0].realRoleId == result.sessionInput.units[0].realRoleId);
+    CHECK(result.sessionInput.setup.units[0].baseMaxHp == result.sessionInput.units[0].vitals.maxHp);
+    CHECK(result.sessionInput.setup.units[0].baseAttack == result.sessionInput.units[0].stats.attack);
+    REQUIRE(result.sessionInput.setup.allyRoster.size() == 1);
+    CHECK(result.sessionInput.setup.allyRoster[0].unitId == 0);
+    CHECK(result.sessionInput.setup.allyRoster[0].sourceOrder == 7);
+    REQUIRE(result.sessionInput.setup.enemyRoster.empty());
+    REQUIRE(result.sessionInput.setup.cloneSources.size() == 1);
+    CHECK(result.sessionInput.setup.cloneSources[0].sourceUnitId == 0);
+    CHECK(result.sessionInput.setup.cloneSources[0].power == source.MaxHP + source.Attack + source.Defence);
+    REQUIRE(result.sessionInput.actionPlanSeeds.size() == 1);
+    CHECK(result.sessionInput.actionPlanSeeds[0].unitId == 0);
+    CHECK(result.sessionInput.actionPlanSeeds[0].hasEquippedSkill == result.sessionInput.units[0].hasEquippedSkill);
 }
 
 TEST_CASE("BattleSceneSetupBuilder_AssignsDenseUnitsInProvidedOrder", "[battle][scene_setup]")
@@ -184,7 +184,7 @@ TEST_CASE("BattleSceneSetupBuilder_AssignsDenseUnitsInProvidedOrder", "[battle][
 
     auto result = KysChess::BattleSceneSetupBuilder::buildSetupUnits(requests);
 
-    REQUIRE(result.units.size() == 2);
-    CHECK(result.units[0].unitId == 0);
-    CHECK(result.units[1].unitId == 1);
+    REQUIRE(result.sessionInput.units.size() == 2);
+    CHECK(result.sessionInput.units[0].unitId == 0);
+    CHECK(result.sessionInput.units[1].unitId == 1);
 }

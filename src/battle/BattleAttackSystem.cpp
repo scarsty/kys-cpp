@@ -1,6 +1,6 @@
 #include "BattleAttackSystem.h"
 
-#include "BattleFind.h"
+#include "../Find.h"
 #include "BattleMath.h"
 #include "BattleUnitStore.h"
 

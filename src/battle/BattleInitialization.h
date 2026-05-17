@@ -112,12 +112,6 @@ struct BattleRuntimeSetupSeed
     int cloneSummonCount = 0;
 };
 
-struct BattleRuntimeInit
-{
-    BattleRuntimeState runtime;
-    BattleRuntimeSetupSeed setup;
-};
-
 struct BattleInitializationRoleDelta
 {
     int unitId{};

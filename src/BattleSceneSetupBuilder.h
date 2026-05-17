@@ -1,8 +1,8 @@
 #pragma once
 
-#include "BattleSceneBattleAdapter.h"
 #include "Point.h"
 #include "Types.h"
+#include "battle/BattleRuntimeSession.h"
 
 #include <array>
 #include <span>
@@ -40,15 +40,10 @@ struct BattleSceneSetupUnitRequest
 
 struct BattleSceneSetupBuildResult
 {
-    std::vector<KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput> units;
-    std::vector<KysChess::Battle::BattleInitializationUnitSeed> initializationUnits;
-    std::vector<KysChess::Battle::BattleSetupRosterUnit> allyRoster;
-    std::vector<KysChess::Battle::BattleSetupRosterUnit> enemyRoster;
-    std::vector<KysChess::Battle::BattleInitializationCloneSource> cloneSources;
-    std::vector<KysChess::Battle::BattleActionPlanSeed> actionPlanSeeds;
+    KysChess::Battle::BattleRuntimeSessionCreationInput sessionInput;
 };
 
-KysChess::BattleSceneBattleAdapter::BattleSetupUnitInput makeSetupUnit(
+KysChess::Battle::BattleSetupUnitInput makeSetupUnit(
     const BattleSceneSetupUnitRequest& request,
     std::span<const BattleSceneSetupOpponentCell> opponents);
 

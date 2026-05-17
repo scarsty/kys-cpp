@@ -1,13 +1,12 @@
 #pragma once
 
 #include "ChessBattleEffects.h"
-#include "Engine.h"
+#include "Color.h"
 
 #include <array>
 #include <map>
 #include <string>
 #include <vector>
-
 namespace KysChess
 {
 

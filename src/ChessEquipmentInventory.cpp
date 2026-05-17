@@ -28,7 +28,7 @@ void ChessEquipmentInventory::exportTo(GameDataStore& store) const
 void ChessEquipmentInventory::storeItem(int itemId)
 {
     AttachableItem item{
-        .instance = InstancedItem{.id = nextEquipInstanceId_, .itemId = itemId},
+        .instance = InstancedItem{.id = ItemInstanceID{nextEquipInstanceId_}, .itemId = itemId},
         .chessInstanceId = k_nonExistentChess};
     equipments_[ItemInstanceID{nextEquipInstanceId_}] = item;
     nextEquipInstanceId_ += 1;

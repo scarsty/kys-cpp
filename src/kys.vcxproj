@@ -180,8 +180,8 @@
     <ClCompile Include="battle\BattleStatusSystem.cpp" />
     <ClCompile Include="battle\BattleTeamEffectSystem.cpp" />
     <ClCompile Include="BattleScene.cpp" />
-    <ClCompile Include="BattleSceneBattleAdapter.cpp" />
-    <ClCompile Include="BattleSceneFrameStateApplier.cpp" />
+    <ClCompile Include="BattleSceneCamera.cpp" />
+    <ClCompile Include="BattleSceneFrameDeltaBuilder.cpp" />
     <ClCompile Include="BattleSceneMapState.cpp" />
     <ClCompile Include="BattleSceneImpactPlayer.cpp" />
     <ClCompile Include="BattleScenePresentationPlayer.cpp" />
@@ -294,7 +294,6 @@
     <ClInclude Include="..\mlcc\strfunc.h" />
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="BattleSceneHades.h" />
-    <ClInclude Include="BattleSceneBattleAdapter.h" />
     <ClInclude Include="BattleSceneMapState.h" />
     <ClInclude Include="BattleSceneRenderMath.h" />
     <ClInclude Include="BattleSceneUnitStore.h" />
@@ -328,7 +327,7 @@
     <ClInclude Include="battle\BattleDamageSystem.h" />
     <ClInclude Include="battle\BattleDeathEffectSystem.h" />
     <ClInclude Include="battle\BattleEffectSystem.h" />
-    <ClInclude Include="battle\BattleFind.h" />
+    <ClInclude Include="Find.h" />
     <ClInclude Include="battle\BattleInitialization.h" />
     <ClInclude Include="battle\BattleGeometry.h" />
     <ClInclude Include="battle\BattleHitResolver.h" />

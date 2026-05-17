@@ -71,11 +71,13 @@ set(KYS_GAME_SUPPORT_SOURCES
     "${KYS_ROOT}/others/Hanz2Piny.cpp"
 )
 
-file(GLOB KYS_GAME_SOURCES CONFIGURE_DEPENDS "*.cpp")
-add_executable(kys ${KYS_GAME_SOURCES} ${KYS_GAME_SUPPORT_SOURCES})
-target_include_directories(kys PRIVATE ${KYS_COMMON_INCLUDES})
-target_compile_definitions(kys PRIVATE ${KYS_COMMON_DEFINITIONS})
-target_link_libraries(kys PRIVATE
+file(GLOB KYS_GAME_LIB_SOURCES CONFIGURE_DEPENDS "*.cpp")
+list(REMOVE_ITEM KYS_GAME_LIB_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/kys.cpp")
+
+add_library(kys_game_lib STATIC ${KYS_GAME_LIB_SOURCES} ${KYS_GAME_SUPPORT_SOURCES})
+target_include_directories(kys_game_lib PUBLIC ${KYS_COMMON_INCLUDES})
+target_compile_definitions(kys_game_lib PUBLIC ${KYS_COMMON_DEFINITIONS})
+target_link_libraries(kys_game_lib PUBLIC
     kys_battle_core
     SDL3::SDL3
     SDL3_image::SDL3_image
@@ -90,8 +92,12 @@ target_link_libraries(kys PRIVATE
     SmallPot
 )
 
+add_executable(kys kys.cpp)
+target_link_libraries(kys PRIVATE kys_game_lib)
+
 if(MSVC)
     target_compile_options(kys PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+    target_compile_options(kys_game_lib PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
     target_compile_options(kys_battle_core PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
 endif()
 
@@ -122,7 +128,7 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleProjectileTargetingSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleReportUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleRescueRepositionSystemUnitTests.cpp"
-    "${KYS_ROOT}/tests/BattleSceneFrameStateApplierUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleSceneFrameDeltaBuilderUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneImpactPlayerUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneReportPlayerUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneRenderMathUnitTests.cpp"
@@ -133,19 +139,10 @@ set(KYS_TEST_SOURCES
 
 add_executable(kys_tests
     ${KYS_TEST_SOURCES}
-    BattleLogPresenter.cpp
-    BattleReport.cpp
-    BattleSceneBattleAdapter.cpp
-    BattleSceneFrameStateApplier.cpp
-    BattleSceneImpactPlayer.cpp
-    BattleSceneReportPlayer.cpp
-    BattleSceneSetupBuilder.cpp
-    BattleSceneUnitStore.cpp
-    ChessBattleEffects.cpp
 )
 target_include_directories(kys_tests PRIVATE ${KYS_COMMON_INCLUDES})
 target_compile_definitions(kys_tests PRIVATE ${KYS_COMMON_DEFINITIONS})
-target_link_libraries(kys_tests PRIVATE kys_battle_core Catch2::Catch2 yaml-cpp::yaml-cpp)
+target_link_libraries(kys_tests PRIVATE kys_game_lib Catch2::Catch2)
 
 if(MSVC)
     target_compile_options(kys_tests PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
