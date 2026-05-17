@@ -1,5 +1,6 @@
 #include "BattleInitialization.h"
 
+#include "BattleLogSegments.h"
 #include "../BattleStarStats.h"
 #include "../ChessBattleEffects.h"
 #include "../Find.h"
@@ -512,11 +513,17 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
             -1,
             enemy.id,
             0,
-            std::format("陰險：前{}名攻防{}{}（{}名存活）",
-                topTargets,
-                delta > 0 ? "-" : "+",
-                std::abs(delta),
-                liveAllies),
+            BattleLogCategory::Status,
+            BattleLogPerspective::Targeted,
+            logSegments<BattleLogTextTone::SkillName>(
+                "陰險：前",
+                std::pair{ BattleLogTextTone::ResourceValue, topTargets },
+                "名攻防",
+                std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, delta > 0 ? "-" : "+" },
+                std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, std::abs(delta) },
+                "（",
+                std::pair{ BattleLogTextTone::ResourceValue, liveAllies },
+                "名存活）"),
         });
     }
 
@@ -624,7 +631,9 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
                     seed.unitId,
                     -1,
                     combo.shield,
-                    shieldLogText("獲取", combo.shield),
+                    BattleLogCategory::Status,
+                    BattleLogPerspective::Targeted,
+                    battleLogText(shieldLogText("獲取", combo.shield), BattleLogTextTone::ShieldValue),
                 });
         }
 
@@ -697,7 +706,9 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
                 seed.unitId,
                 -1,
                 teamShield,
-                shieldLogText("全隊獲取", teamShield),
+                BattleLogCategory::Status,
+                BattleLogPerspective::Targeted,
+                battleLogText(shieldLogText("全隊獲取", teamShield), BattleLogTextTone::ShieldValue),
             });
     }
 
@@ -759,6 +770,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
 
             auto cloneUnit = sourceUnit;
             cloneUnit.id = nextRuntimeUnitId;
+            cloneUnit.presentationSourceUnitId = source.sourceUnitId;
             cloneUnit.realRoleId = source.sourceRealRoleId;
             cloneUnit.alive = true;
             cloneUnit.vitals.hp = cloneUnit.vitals.maxHp;
@@ -796,25 +808,25 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             cloneAgent.physics.acceleration = cloneUnit.motion.acceleration;
             runtime.movement.agents.emplace(nextRuntimeUnitId, cloneAgent);
 
-            result.cloneIntents.push_back({
-                source.sourceUnitId,
+            result.roleDeltas.push_back(makeRoleDelta(
                 nextRuntimeUnitId,
-                cell.x,
-                cell.y,
-                makeRoleDelta(
-                    nextRuntimeUnitId,
-                    cloneUnit.star,
-                    cloneUnit.vitals,
-                    cloneUnit.stats),
-                cloneCombo,
-            });
+                cloneUnit.star,
+                cloneUnit.vitals,
+                cloneUnit.stats));
             result.logEvents.push_back({
                 BattleLogEventType::Status,
                 BattlePresentationCurrentFrame,
                 source.sourceUnitId,
                 nextRuntimeUnitId,
                 0,
-                std::format("七截分身（落點 {}, {}）", cell.x, cell.y),
+                BattleLogCategory::Status,
+                BattleLogPerspective::Targeted,
+                logSegments<BattleLogTextTone::SkillName>(
+                    "七截分身（落點 ",
+                    std::pair{ BattleLogTextTone::ResourceValue, cell.x },
+                    ", ",
+                    std::pair{ BattleLogTextTone::ResourceValue, cell.y },
+                    "）"),
             });
 
             ++nextRuntimeUnitId;

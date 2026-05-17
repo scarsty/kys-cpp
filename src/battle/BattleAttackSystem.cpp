@@ -197,6 +197,11 @@ bool betterProjectileCancelCandidate(
     return lhs.event.otherAttackId < rhs.event.otherAttackId;
 }
 
+bool canResolveContactFromDefeatedSource(const BattleAttackPayload& attack)
+{
+    return isProjectileOperation(attack.operationType);
+}
+
 }  // namespace
 
 double projectileOperationDamageMultiplier(BattleOperationType operationType)
@@ -352,7 +357,11 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(
             hit.frame = attack.frame;
             events.push_back(hit);
 
-            if (attack.state.bounceRemaining > 0)
+            if (attack.spawnedFromAttackId >= 0 && attack.state.bounceRemaining == 0)
+            {
+                events.push_back({ BattleAttackEventType::ChainEnded, attack.id, -1, target->id });
+            }
+            else if (attack.state.bounceRemaining > 0)
             {
                 auto bounceSource = attack;
                 const auto* nextTarget = attack.state.bounceChancePct > 0
@@ -370,6 +379,10 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(
                         attack.id,
                         nextTarget->id,
                     });
+                }
+                else
+                {
+                    events.push_back({ BattleAttackEventType::ChainNoTargetInRange, attack.id, -1, target->id });
                 }
             }
 
@@ -448,8 +461,8 @@ const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
     const BattleUnitStore& units,
     const BattleAttackInstance& attack) const
 {
-    const auto* attacker = units.findUnit(attack.state.attackerUnitId);
-    if (!attacker || !attacker->alive)
+    const auto& attacker = units.requireUnit(attack.state.attackerUnitId);
+    if (!attacker.alive && !canResolveContactFromDefeatedSource(attack.state))
     {
         return nullptr;
     }
@@ -457,7 +470,7 @@ const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
     if (attack.state.preferredTargetUnitId >= 0)
     {
         const auto* preferred = units.findUnit(attack.state.preferredTargetUnitId);
-        if (preferred && preferred->alive && preferred->team != attacker->team)
+        if (preferred && preferred->alive && preferred->team != attacker.team)
         {
             return preferred;
         }
@@ -471,7 +484,7 @@ const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
     double bestDistance = 0.0;
     for (const auto& unit : units.units)
     {
-        if (!unit.alive || unit.team == attacker->team)
+        if (!unit.alive || unit.team == attacker.team)
         {
             continue;
         }
@@ -596,8 +609,8 @@ bool BattleAttackSystem::canContactTarget(
         return false;
     }
 
-    const auto* attacker = units.findUnit(attack.state.attackerUnitId);
-    if (!attacker || !attacker->alive || attacker->team == target.team)
+    const auto& attacker = units.requireUnit(attack.state.attackerUnitId);
+    if ((!attacker.alive && !canResolveContactFromDefeatedSource(attack.state)) || attacker.team == target.team)
     {
         return false;
     }
@@ -643,18 +656,14 @@ const BattleRuntimeUnit* BattleAttackSystem::selectBounceTarget(
     assert(attack.state.bounceRemaining > 0);
     assert(attack.state.bounceRange > 0);
 
-    const auto* attacker = units.findUnit(attack.state.attackerUnitId);
-    if (!attacker || !attacker->alive)
-    {
-        return nullptr;
-    }
+    const auto& attacker = units.requireUnit(attack.state.attackerUnitId);
 
     const BattleRuntimeUnit* best = nullptr;
     double bestDistance = static_cast<double>(attack.state.bounceRange);
     for (const auto& unit : units.units)
     {
         if (!unit.alive
-            || unit.team == attacker->team
+            || unit.team == attacker.team
             || unit.id == hitTarget.id
             || hasHitUnit(attack, unit.id)
             || hasSharedHit(world, attack.state.sharedHitGroupId, unit.id))
@@ -743,11 +752,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
         {
             continue;
         }
-        const auto* lhsAttacker = units.findUnit(lhs.state.attackerUnitId);
-        if (!lhsAttacker || !lhsAttacker->alive)
-        {
-            continue;
-        }
+        const auto& lhsAttacker = units.requireUnit(lhs.state.attackerUnitId);
 
         for (size_t j = i + 1; j < world.attacks.size(); ++j)
         {
@@ -756,8 +761,8 @@ void BattleAttackSystem::collectProjectileCancelEvents(
             {
                 continue;
             }
-            const auto* rhsAttacker = units.findUnit(rhs.state.attackerUnitId);
-            if (!rhsAttacker || !rhsAttacker->alive || lhsAttacker->team == rhsAttacker->team)
+            const auto& rhsAttacker = units.requireUnit(rhs.state.attackerUnitId);
+            if (lhsAttacker.team == rhsAttacker.team)
             {
                 continue;
             }

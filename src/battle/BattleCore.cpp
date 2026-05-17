@@ -3,6 +3,7 @@
 #include "../ChessEftIds.h"
 #include "../Find.h"
 #include "BattleCombatIntent.h"
+#include "BattleLogSegments.h"
 #include "BattleMath.h"
 #include "BattleResourceRules.h"
 
@@ -252,37 +253,42 @@ std::string formatStatusValue(const std::string& label, int value, const char* u
     return std::format("{}（{}{}）", label, value, unit);
 }
 
-std::string formatStatusFrames(const std::string& label, int frames)
-{
-    if (frames <= 0)
-    {
-        return label;
-    }
-    return std::format("{}（{}幀）", label, frames);
-}
-
-std::string formatEffectCommandLogText(const BattleEffectCommand& command)
+std::vector<BattleLogTextSegment> formatEffectCommandLogSegments(const BattleEffectCommand& command)
 {
     switch (command.type)
     {
     case BattleEffectCommandType::AddShield:
-        return formatStatusValue(command.label, command.value, "護盾");
+        return command.value > 0
+            ? logSegments<BattleLogTextTone::SkillName>(
+                command.label,
+                "（",
+                std::pair{ BattleLogTextTone::ShieldValue, command.value },
+                "護盾）")
+            : battleLogText(command.label, BattleLogTextTone::SkillName);
     case BattleEffectCommandType::AddInvincibility:
-        return formatStatusFrames(command.label, command.value);
+        return logStatusFrames(command.label.c_str(), command.value);
     case BattleEffectCommandType::ModifyResource:
         return command.value > 0
-            ? std::format("{}+{}MP", command.label, command.value)
-            : command.label;
+            ? logSegments<BattleLogTextTone::SkillName>(
+                command.label,
+                std::pair{ BattleLogTextTone::Positive, "+" },
+                std::pair{ BattleLogTextTone::ResourceValue, command.value },
+                std::pair{ BattleLogTextTone::ResourceValue, "MP" })
+            : battleLogText(command.label, BattleLogTextTone::SkillName);
     case BattleEffectCommandType::ModifyCooldown:
         return command.value != 0
-            ? std::format("{}（{}冷卻）", command.label, command.value)
-            : command.label;
+            ? logSegments<BattleLogTextTone::SkillName>(
+                command.label,
+                "（",
+                std::pair{ BattleLogTextTone::DurationValue, command.value },
+                "冷卻）")
+            : battleLogText(command.label, BattleLogTextTone::SkillName);
     case BattleEffectCommandType::Heal:
     case BattleEffectCommandType::DedicatedEffect:
-        return command.label;
+        return battleLogText(command.label, BattleLogTextTone::SkillName);
     }
     assert(false);
-    return command.label;
+    return battleLogText(command.label, BattleLogTextTone::SkillName);
 }
 
 long long enemyTopDebuffSortScore(const BattleRuntimeUnit& unit)
@@ -372,18 +378,17 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
         enemy->stats.attack = std::max(0, enemy->stats.attack - delta);
         enemy->stats.defence = std::max(0, enemy->stats.defence - delta);
         comboIt->second.enemyTopDebuffApplied = desired;
-        logEvents.push_back({
-            BattleLogEventType::Status,
-            BattlePresentationCurrentFrame,
-            -1,
-            enemy->id,
-            0,
-            std::format("陰險：前{}名攻防{}{}（{}名存活）",
-                topTargets,
-                delta > 0 ? "-" : "+",
-                std::abs(delta),
-                liveAllies),
-        });
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Status;
+        log.sourceUnitId = -1;
+        log.targetUnitId = enemy->id;
+        log.segments = battleLogText(std::format(
+            "陰險：前{}名攻防{}{}（{}名存活）",
+            topTargets,
+            delta > 0 ? "-" : "+",
+            std::abs(delta),
+            liveAllies), BattleLogTextTone::SkillName);
+        logEvents.push_back(std::move(log));
     }
 }
 
@@ -522,7 +527,8 @@ BattleLogEvent dodgeStatusEvent(int defenderUnitId, int attackerUnitId)
     event.type = BattleLogEventType::Status;
     event.sourceUnitId = defenderUnitId;
     event.targetUnitId = attackerUnitId;
-    event.text = "閃避了來襲攻擊";
+    event.perspective = BattleLogPerspective::SourceOnly;
+    event.segments = battleLogText("閃避了來襲攻擊", BattleLogTextTone::SkillName);
     return event;
 }
 
@@ -597,6 +603,11 @@ std::vector<BattleVisualEvent> toVisualEvents(
         presentation.targetUnitId = event.unitId;
         presentation.amount = -1;
         break;
+    case BattleAttackEventType::ChainEnded:
+    case BattleAttackEventType::ChainNoTargetInRange:
+        presentation.type = BattleVisualEventType::ProjectileExpired;
+        presentation.targetUnitId = event.unitId;
+        break;
     case BattleAttackEventType::ProjectileCancel:
         presentation.type = BattleVisualEventType::ProjectileCancelled;
         presentation.amount = event.otherAttackId;
@@ -648,6 +659,11 @@ BattleGameplayEvent toGameplayEvent(
         gameplay.type = BattleGameplayEventType::ProjectileCancelled;
         gameplay.targetUnitId = event.unitId;
         break;
+    case BattleAttackEventType::ChainEnded:
+    case BattleAttackEventType::ChainNoTargetInRange:
+        gameplay.type = BattleGameplayEventType::ProjectileExpired;
+        gameplay.targetUnitId = event.unitId;
+        break;
     case BattleAttackEventType::ProjectileCancel:
         gameplay.type = BattleGameplayEventType::ProjectileCancelled;
         gameplay.otherAttackId = event.otherAttackId;
@@ -674,51 +690,153 @@ BattleGameplayEvent toGameplayEvent(
     return gameplay;
 }
 
-std::string formatProjectileCancelLogText(int leftAttackId, int leftDamage, int rightAttackId, int rightDamage)
+std::vector<BattleLogTextSegment> formatProjectileCancelLogSegments(
+    int leftAttackId,
+    int leftDamage,
+    int rightAttackId,
+    int rightDamage)
 {
     const int remaining = leftDamage - rightDamage;
     if (remaining == 0)
     {
-        return std::format(
-            "抵消彈道 #{} vs #{}（{} - {} = 0，雙方互消）",
-            leftAttackId,
-            rightAttackId,
-            leftDamage,
-            rightDamage);
+        return logSegments<BattleLogTextTone::SkillName>(
+            "抵消彈道 ",
+            std::pair{ BattleLogTextTone::ProjectileId, std::format("#{}", leftAttackId) },
+            " vs ",
+            std::pair{ BattleLogTextTone::ProjectileId, std::format("#{}", rightAttackId) },
+            "（",
+            std::pair{ BattleLogTextTone::DamageValue, leftDamage },
+            std::pair{ BattleLogTextTone::FormulaValue, " - " },
+            std::pair{ BattleLogTextTone::DamageValue, rightDamage },
+            std::pair{ BattleLogTextTone::FormulaValue, " = " },
+            std::pair{ BattleLogTextTone::DamageValue, 0 },
+            "，雙方互消）");
     }
-    return std::format(
-        "抵消彈道 #{} vs #{}（{} - {} = {}）",
-        leftAttackId,
-        rightAttackId,
-        leftDamage,
-        rightDamage,
-        remaining);
+    return logSegments<BattleLogTextTone::SkillName>(
+        "抵消彈道 ",
+        std::pair{ BattleLogTextTone::ProjectileId, std::format("#{}", leftAttackId) },
+        " vs ",
+        std::pair{ BattleLogTextTone::ProjectileId, std::format("#{}", rightAttackId) },
+        "（",
+        std::pair{ BattleLogTextTone::DamageValue, leftDamage },
+        std::pair{ BattleLogTextTone::FormulaValue, " - " },
+        std::pair{ BattleLogTextTone::DamageValue, rightDamage },
+        std::pair{ BattleLogTextTone::FormulaValue, " = " },
+        std::pair{ BattleLogTextTone::DamageValue, remaining },
+        "）");
+}
+
+enum class ProjectileStopLogReason
+{
+    TargetLost,
+    ChainTargetLost,
+    ChainEnded,
+    ChainNoTargetInRange,
+};
+
+struct ProjectileStopLogBucket
+{
+    int sourceUnitId = -1;
+    ProjectileStopLogReason reason = ProjectileStopLogReason::TargetLost;
+    int count = 0;
+};
+
+struct ProjectileInvincibleBlockLogBucket
+{
+    int unitId = -1;
+    int count = 0;
+};
+
+void addProjectileStopLog(
+    std::vector<ProjectileStopLogBucket>& buckets,
+    int sourceUnitId,
+    ProjectileStopLogReason reason)
+{
+    auto bucket = std::find_if(
+        buckets.begin(),
+        buckets.end(),
+        [&](const ProjectileStopLogBucket& candidate)
+        {
+            return candidate.sourceUnitId == sourceUnitId
+                && candidate.reason == reason;
+        });
+    if (bucket == buckets.end())
+    {
+        buckets.push_back({ sourceUnitId, reason, 1 });
+        return;
+    }
+    ++bucket->count;
+}
+
+void addProjectileInvincibleBlockLog(
+    std::vector<ProjectileInvincibleBlockLogBucket>& buckets,
+    int unitId)
+{
+    auto bucket = std::find_if(
+        buckets.begin(),
+        buckets.end(),
+        [&](const ProjectileInvincibleBlockLogBucket& candidate)
+        {
+            return candidate.unitId == unitId;
+        });
+    if (bucket == buckets.end())
+    {
+        buckets.push_back({ unitId, 1 });
+        return;
+    }
+    ++bucket->count;
+}
+
+std::string formatProjectileStopLogText(const ProjectileStopLogBucket& bucket)
+{
+    switch (bucket.reason)
+    {
+    case ProjectileStopLogReason::TargetLost:
+        return std::format("彈道停止：{}枚目標遺失", bucket.count);
+    case ProjectileStopLogReason::ChainTargetLost:
+        return std::format("連鎖彈道停止：{}枚原目標失效", bucket.count);
+    case ProjectileStopLogReason::ChainEnded:
+        return std::format("連鎖彈道停止：{}枚已達最後一跳", bucket.count);
+    case ProjectileStopLogReason::ChainNoTargetInRange:
+        return std::format("連鎖彈道停止：{}枚搜尋範圍內無可連鎖目標", bucket.count);
+    }
+    assert(false);
+    return {};
 }
 
 void appendProjectileCancellationLogEvents(
     const BattleAttackState& world,
     const std::vector<BattleAttackEvent>& events,
-    std::vector<BattleLogEvent>& logEvents)
+    std::vector<BattleLogEvent>& logEvents,
+    bool chainedProjectileLogs)
 {
+    std::vector<ProjectileStopLogBucket> stopLogs;
+    std::vector<ProjectileInvincibleBlockLogBucket> invincibleBlockLogs;
     for (const auto& event : events)
     {
         switch (event.type)
         {
         case BattleAttackEventType::TargetLost:
         {
-            BattleLogEvent log;
-            log.type = BattleLogEventType::Status;
-            if (const auto* attack = tryFindById(world.attacks, event.attackId))
+            if (chainedProjectileLogs)
             {
-                log.sourceUnitId = attack->state.attackerUnitId;
+                break;
             }
-            log.targetUnitId = -1;
-            log.text = "彈道取消：目標遺失";
-            logEvents.push_back(std::move(log));
+            const BattleAttackInstance* attack = tryFindById(world.attacks, event.attackId);
+            addProjectileStopLog(
+                stopLogs,
+                attack ? attack->state.attackerUnitId : -1,
+                attack && attack->spawnedFromAttackId >= 0
+                    ? ProjectileStopLogReason::ChainTargetLost
+                    : ProjectileStopLogReason::TargetLost);
             break;
         }
         case BattleAttackEventType::ProjectileCancel:
         {
+            if (chainedProjectileLogs)
+            {
+                break;
+            }
             const bool otherWins = event.otherProjectileCancelDamage > event.projectileCancelDamage;
             const int leftAttackId = otherWins ? event.otherAttackId : event.attackId;
             const int rightAttackId = otherWins ? event.attackId : event.otherAttackId;
@@ -729,18 +847,34 @@ void appendProjectileCancellationLogEvents(
             log.sourceUnitId = otherWins ? event.otherSourceUnitId : event.sourceUnitId;
             log.targetUnitId = otherWins ? event.sourceUnitId : event.otherSourceUnitId;
             log.amount = leftDamage;
-            log.text = formatProjectileCancelLogText(leftAttackId, leftDamage, rightAttackId, rightDamage);
+            log.category = BattleLogCategory::ProjectileCancel;
+            log.segments = formatProjectileCancelLogSegments(leftAttackId, leftDamage, rightAttackId, rightDamage);
             logEvents.push_back(std::move(log));
+            break;
+        }
+        case BattleAttackEventType::ChainEnded:
+        case BattleAttackEventType::ChainNoTargetInRange:
+        {
+            if (!chainedProjectileLogs)
+            {
+                break;
+            }
+            const auto* attack = tryFindById(world.attacks, event.attackId);
+            addProjectileStopLog(
+                stopLogs,
+                attack ? attack->state.attackerUnitId : -1,
+                event.type == BattleAttackEventType::ChainEnded
+                    ? ProjectileStopLogReason::ChainEnded
+                    : ProjectileStopLogReason::ChainNoTargetInRange);
             break;
         }
         case BattleAttackEventType::BlockedByInvincible:
         {
-            BattleLogEvent log;
-            log.type = BattleLogEventType::Status;
-            log.sourceUnitId = event.sourceUnitId;
-            log.targetUnitId = event.unitId;
-            log.text = "彈道命中無敵：傷害忽略";
-            logEvents.push_back(std::move(log));
+            if (chainedProjectileLogs)
+            {
+                break;
+            }
+            addProjectileInvincibleBlockLog(invincibleBlockLogs, event.unitId);
             break;
         }
         case BattleAttackEventType::AttackSpawned:
@@ -750,6 +884,29 @@ void appendProjectileCancellationLogEvents(
         case BattleAttackEventType::Bounce:
             break;
         }
+    }
+
+    for (const auto& bucket : stopLogs)
+    {
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Status;
+        log.sourceUnitId = bucket.sourceUnitId;
+        log.targetUnitId = -1;
+        log.segments = battleLogText(formatProjectileStopLogText(bucket), BattleLogTextTone::SkillName);
+        logEvents.push_back(std::move(log));
+    }
+
+    for (const auto& bucket : invincibleBlockLogs)
+    {
+        BattleLogEvent log;
+        log.type = BattleLogEventType::Status;
+        log.sourceUnitId = bucket.unitId;
+        log.targetUnitId = -1;
+        log.perspective = BattleLogPerspective::SourceOnly;
+        log.segments = battleLogText(
+            std::format("彈道命中無敵：{}枚傷害忽略", bucket.count),
+            BattleLogTextTone::SkillName);
+        logEvents.push_back(std::move(log));
     }
 }
 
@@ -984,7 +1141,7 @@ void resolveHitEvents(
             continue;
         }
 
-        if (tryResolveDodgeHit(state, event, hitResults, logEvents, visualEvents))
+        if (event.scriptedDamage <= 0 && tryResolveDodgeHit(state, event, hitResults, logEvents, visualEvents))
         {
             continue;
         }
@@ -1879,7 +2036,7 @@ bool tryCommitAutoUltimate(
         log.type = BattleLogEventType::Status;
         log.sourceUnitId = unitId;
         log.targetUnitId = unitId;
-        log.text = std::format("自動絕招·{}", castInput.ultimateSkill.name);
+        log.segments = battleLogText(std::format("自動絕招·{}", castInput.ultimateSkill.name), BattleLogTextTone::SkillName);
         logEvents.push_back(std::move(log));
     }
 
@@ -2650,7 +2807,7 @@ BattleDamagePresentationInput makeFrameDamagePresentation(
     presentation.ultimate = command.ultimate;
     presentation.executed = command.executed;
     presentation.skillName = command.skillName;
-    presentation.detailText = command.detailText;
+    presentation.segments = command.segments;
     applyFrameDamagePresentationStyle(state, command.targetUnitId, presentation);
     return presentation;
 }
@@ -2710,7 +2867,7 @@ void appendStatusEventLog(
     event.type = BattleLogEventType::Status;
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
-    event.text = std::move(text);
+    event.segments = battleLogText(std::move(text), BattleLogTextTone::SkillName);
     logEvents.push_back(std::move(event));
 }
 
@@ -2726,7 +2883,7 @@ void appendHealEventLog(
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
     event.amount = amount;
-    event.text = std::move(text);
+    event.segments = battleLogText(std::move(text), BattleLogTextTone::SkillName);
     logEvents.push_back(std::move(event));
 }
 
@@ -3107,7 +3264,7 @@ std::vector<BattleStatusEvent> advanceStatus(BattleRuntimeState& state)
         request.baseDamage = event.value;
         request.preResolvedDamage = true;
         BattleDamagePresentationInput presentation;
-        presentation.detailText = event.reason;
+        presentation.segments = battleLogText(event.reason, BattleLogTextTone::SkillName);
         applyStatusTickDamagePresentation(state, event.type, event.unitId, presentation);
         appendFramePendingDamage(state, std::move(request), std::move(presentation));
     }
@@ -3125,24 +3282,24 @@ void appendTeamEffectLogEvents(
         log.sourceUnitId = event.sourceUnitId;
         log.targetUnitId = event.targetUnitId;
         log.amount = event.value;
-        log.text = reason;
+        log.segments = battleLogText(reason, BattleLogTextTone::SkillName);
         switch (event.type)
         {
         case BattleTeamEffectEventType::Heal:
             log.type = BattleLogEventType::Heal;
-            log.text = reason;
+            log.segments = battleLogText(reason, BattleLogTextTone::SkillName);
             break;
         case BattleTeamEffectEventType::MpRestore:
             log.type = BattleLogEventType::Status;
-            log.text = std::format("{}+{}MP", reason, event.value);
+            log.segments = battleLogText(std::format("{}+{}MP", reason, event.value), BattleLogTextTone::SkillName);
             break;
         case BattleTeamEffectEventType::ShieldGain:
             log.type = BattleLogEventType::Status;
-            log.text = formatStatusValue(reason, event.value, "護盾");
+            log.segments = battleLogText(formatStatusValue(reason, event.value, "護盾"), BattleLogTextTone::SkillName);
             break;
         case BattleTeamEffectEventType::CooldownReduced:
             log.type = BattleLogEventType::Status;
-            log.text = formatStatusValue(reason, event.value, "冷卻");
+            log.segments = battleLogText(formatStatusValue(reason, event.value, "冷卻"), BattleLogTextTone::SkillName);
             break;
         }
         logEvents.push_back(std::move(log));
@@ -3181,7 +3338,7 @@ void appendEffectCommandLogEvents(
         log.sourceUnitId = command.sourceUnitId;
         log.targetUnitId = command.targetUnitId;
         log.amount = command.value;
-        log.text = formatEffectCommandLogText(command);
+        log.segments = formatEffectCommandLogSegments(command);
         switch (command.type)
         {
         case BattleEffectCommandType::Heal:
@@ -3900,7 +4057,7 @@ void advanceAttacksAndResolveHits(
         result.attackEvents,
         result.projectileCancelDamageCommands,
         frameCommands);
-    appendProjectileCancellationLogEvents(state.attacks, result.attackEvents, logEvents);
+    appendProjectileCancellationLogEvents(state.attacks, result.attackEvents, logEvents, false);
     resolveHitEvents(
         state,
         result.attackEvents,
@@ -4427,6 +4584,8 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         visualEvents);
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
     applyDamageAndLifecycle(state, result, frameCommands, gameplayEvents, logEvents, visualEvents);
+    // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
+    appendProjectileCancellationLogEvents(state.attacks, result.attackEvents, logEvents, true);
     frameCommands.insert(
         frameCommands.end(),
         std::make_move_iterator(deferredCommands.begin()),

@@ -15,7 +15,7 @@ void BattleReportBuilder::recordDamage(
     int damage,
     const std::string& skillName,
     int frame,
-    const std::string& detailText)
+    std::vector<KysChess::Battle::BattleLogTextSegment> segments)
 {
     if (attacker)
     {
@@ -53,7 +53,7 @@ void BattleReportBuilder::recordDamage(
         event.targetName = defender->name;
     }
     event.skillName = skillName;
-    event.detailText = detailText;
+    event.segments = std::move(segments);
     report_.events_.push_back(std::move(event));
 }
 
@@ -61,7 +61,7 @@ void BattleReportBuilder::recordHeal(
     const BattleUnitIdentity* source,
     const BattleUnitIdentity* target,
     int amount,
-    const std::string& reason,
+    std::vector<KysChess::Battle::BattleLogTextSegment> segments,
     int frame)
 {
     if (amount <= 0)
@@ -78,7 +78,7 @@ void BattleReportBuilder::recordHeal(
     event.type = BattleReportEventType::Heal;
     event.frame = frame;
     event.value = amount;
-    event.detailText = reason;
+    event.segments = std::move(segments);
     if (source)
     {
         event.sourceId = source->battleId;
@@ -97,10 +97,12 @@ void BattleReportBuilder::recordHeal(
 void BattleReportBuilder::recordStatus(
     const BattleUnitIdentity* source,
     const BattleUnitIdentity* target,
-    const std::string& text,
+    KysChess::Battle::BattleLogCategory category,
+    KysChess::Battle::BattleLogPerspective perspective,
+    std::vector<KysChess::Battle::BattleLogTextSegment> segments,
     int frame)
 {
-    if (text.empty())
+    if (segments.empty())
     {
         return;
     }
@@ -113,7 +115,9 @@ void BattleReportBuilder::recordStatus(
     BattleReportEvent event;
     event.type = BattleReportEventType::Status;
     event.frame = frame;
-    event.detailText = text;
+    event.category = category;
+    event.perspective = perspective;
+    event.segments = std::move(segments);
     if (source)
     {
         event.sourceId = source->battleId;

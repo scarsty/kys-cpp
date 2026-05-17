@@ -13,8 +13,7 @@ namespace
 {
 BattleSceneUnitPresentationState makeInitializedScenePresentationState(
     const KysChess::Battle::BattleRuntimeUnit& runtimeUnit,
-    const KysChess::Battle::BattleSetupUnitInput& setup,
-    const KysChess::Battle::BattleInitializationCloneIntent* clone)
+    const KysChess::Battle::BattleSetupUnitInput& setup)
 {
     BattleSceneUnitPresentationState unit;
     unit.identity = {
@@ -25,66 +24,43 @@ BattleSceneUnitPresentationState makeInitializedScenePresentationState(
         setup.name,
     };
     unit.unitId = runtimeUnit.id;
-    unit.sourceUnitId = clone ? clone->sourceUnitId : runtimeUnit.id;
+    unit.sourceUnitId = runtimeUnit.presentationSourceUnitId;
     unit.faceTowards = setup.faceTowards;
     unit.headId = setup.headId;
     unit.fightFrames = setup.fightFrames;
-    unit.chessInstanceId = clone ? -1 : setup.chessInstanceId;
-    unit.weaponId = clone ? -1 : setup.weaponId;
-    unit.armorId = clone ? -1 : setup.armorId;
+    const bool isClone = runtimeUnit.presentationSourceUnitId != runtimeUnit.id;
+    unit.chessInstanceId = isClone ? -1 : setup.chessInstanceId;
+    unit.weaponId = isClone ? -1 : setup.weaponId;
+    unit.armorId = isClone ? -1 : setup.armorId;
     unit.skillNames = setup.skillNames;
     return unit;
 }
 
-BattleSceneSetupPlacementState makeInitialSceneSetupPlacement(
-    const KysChess::Battle::BattleRuntimeUnit& runtimeUnit,
-    const KysChess::Battle::BattleSetupUnitInput& setup,
-    const KysChess::Battle::BattleInitializationCloneIntent* clone)
-{
-    return {
-        runtimeUnit.id,
-        clone ? clone->gridX : setup.gridX,
-        clone ? clone->gridY : setup.gridY,
-        setup.faceTowards,
-        runtimeUnit.motion.position,
-        runtimeUnit.alive,
-    };
-}
 }  // namespace
 
 void BattleSceneUnitStore::initialize(
     const KysChess::Battle::BattleRuntimeSession& runtimeSession,
-    std::vector<BattleSceneUnitPresentationState> presentationStates,
-    std::vector<BattleSceneSetupPlacementState> setupPlacements)
+    std::vector<BattleSceneUnitPresentationState> presentationStates)
 {
     runtime_session_ = &runtimeSession;
     presentation_ = std::move(presentationStates);
-    setup_placements_ = std::move(setupPlacements);
-    assert(presentation_.size() == setup_placements_.size());
 }
 
 void BattleSceneUnitStore::initializeFromRuntimeCreation(
     const KysChess::Battle::BattleRuntimeSession& runtimeSession,
-    const KysChess::Battle::BattleRuntimeSessionCreationInput& input,
-    const KysChess::Battle::BattleInitializationResult& initialization)
+    const KysChess::Battle::BattleRuntimeSessionCreationInput& input)
 {
     std::vector<BattleSceneUnitPresentationState> presentation;
-    std::vector<BattleSceneSetupPlacementState> setupPlacements;
     presentation.reserve(runtimeSession.runtimeUnits().size());
-    setupPlacements.reserve(runtimeSession.runtimeUnits().size());
     for (const auto& runtimeUnit : runtimeSession.runtimeUnits())
     {
-        const auto* clone = KysChess::tryFindBy(
-            initialization.cloneIntents,
-            runtimeUnit.id,
-            &KysChess::Battle::BattleInitializationCloneIntent::cloneUnitId);
-        const auto& setupUnit = clone
-            ? KysChess::requireDenseBy(input.units, clone->sourceUnitId, &KysChess::Battle::BattleSetupUnitInput::unitId)
-            : KysChess::requireDenseBy(input.units, runtimeUnit.id, &KysChess::Battle::BattleSetupUnitInput::unitId);
-        presentation.push_back(makeInitializedScenePresentationState(runtimeUnit, setupUnit, clone));
-        setupPlacements.push_back(makeInitialSceneSetupPlacement(runtimeUnit, setupUnit, clone));
+        const auto& setupUnit = KysChess::requireDenseBy(
+            input.units,
+            runtimeUnit.presentationSourceUnitId,
+            &KysChess::Battle::BattleSetupUnitInput::unitId);
+        presentation.push_back(makeInitializedScenePresentationState(runtimeUnit, setupUnit));
     }
-    initialize(runtimeSession, std::move(presentation), std::move(setupPlacements));
+    initialize(runtimeSession, std::move(presentation));
 }
 
 const BattleSceneUnitPresentationState& BattleSceneUnitStore::requirePresentation(int unitId) const
@@ -107,14 +83,6 @@ const KysChess::Battle::BattleRuntimeUnit& BattleSceneUnitStore::requireRuntimeU
 {
     assert(runtime_session_);
     return runtime_session_->requireRuntimeUnit(unitId);
-}
-
-const BattleSceneSetupPlacementState& BattleSceneUnitStore::requireSetupPlacement(int unitId) const
-{
-    assert(unitId >= 0);
-    assert(static_cast<std::size_t>(unitId) < setup_placements_.size());
-    assert(setup_placements_[unitId].unitId == unitId);
-    return setup_placements_[unitId];
 }
 
 std::span<const KysChess::Battle::BattleRuntimeUnit> BattleSceneUnitStore::runtimeUnits() const
@@ -160,37 +128,6 @@ void BattleSceneUnitStore::decreaseTransientPresentationState()
         BattleSceneRenderMath::decreaseToZero(state.shake);
         BattleSceneRenderMath::decreaseToZero(state.attention);
     }
-}
-
-void BattleSceneUnitStore::swapSetupUnitPositions(int firstUnitId, int secondUnitId)
-{
-    auto& first = setup_placements_[firstUnitId];
-    auto& second = setup_placements_[secondUnitId];
-    assert(first.unitId == firstUnitId);
-    assert(second.unitId == secondUnitId);
-    std::swap(first.gridX, second.gridX);
-    std::swap(first.gridY, second.gridY);
-    std::swap(first.position, second.position);
-}
-
-KysChess::Battle::BattleSetupPlacementInput BattleSceneUnitStore::makeSetupPlacementInput() const
-{
-    KysChess::Battle::BattleSetupPlacementInput input;
-    input.units.reserve(setup_placements_.size());
-    for (const auto& placement : setup_placements_)
-    {
-        if (!placement.active)
-        {
-            continue;
-        }
-        input.units.push_back({
-            placement.unitId,
-            placement.gridX,
-            placement.gridY,
-            placement.faceTowards,
-        });
-    }
-    return input;
 }
 
 std::vector<KysChess::ChessComboBattleUnitRef> BattleSceneUnitStore::makeComboBattleUnitRefs() const

@@ -18,35 +18,6 @@ constexpr int ProjectileGraceFrames = 5;
 constexpr int NormalDamageTextSize = 30;
 constexpr int UltDamageTextSize = 44;
 
-Pointf setupPlacementPosition(const BattleGridTransform& gridTransform, int x, int y)
-{
-    assert(gridTransform.tileWidth > 0.0);
-    assert(gridTransform.coordCount > 0);
-    return {
-        static_cast<float>(-y * gridTransform.tileWidth + x * gridTransform.tileWidth + gridTransform.coordCount * gridTransform.tileWidth),
-        static_cast<float>(y * gridTransform.tileWidth + x * gridTransform.tileWidth),
-        0.0f,
-    };
-}
-
-Pointf setupPlacementFacing(int faceTowards)
-{
-    switch (faceTowards)
-    {
-    case 0:
-        return { 1.0f, 0.0f, 0.0f };
-    case 1:
-        return { 0.0f, 1.0f, 0.0f };
-    case 2:
-        return { -1.0f, 0.0f, 0.0f };
-    case 3:
-        return { 0.0f, -1.0f, 0.0f };
-    default:
-        assert(false && "invalid setup facing");
-        return { 1.0f, 0.0f, 0.0f };
-    }
-}
-
 BattlePresentationColor damageTextColor(int team, bool emphasized)
 {
     if (team == 0)
@@ -95,13 +66,13 @@ void configureAttackWorld(
 
 BattleRuntimeUnit makeRuntimeUnit(
     const BattleSetupUnitInput& setup,
-    const RoleComboState* combo,
-    const BattleGridTransform& gridTransform)
+    const RoleComboState* combo)
 {
     assert(setup.unitId >= 0);
 
     BattleRuntimeUnit unit;
     unit.id = setup.unitId;
+    unit.presentationSourceUnitId = setup.unitId;
     unit.realRoleId = setup.realRoleId;
     unit.name = setup.name;
     unit.team = setup.team;
@@ -119,7 +90,7 @@ BattleRuntimeUnit makeRuntimeUnit(
     {
         unit.actPropertiesByMagicType.emplace(magicType, setup.actPropertiesByMagicType[magicType]);
     }
-    unit.grid = gridTransform.toGrid(setup.motion.position);
+    unit.grid = { setup.gridX, setup.gridY };
     if (combo)
     {
         unit.shield = combo->shield;
@@ -284,8 +255,7 @@ BattleRuntimeState buildCanonicalRuntime(const BattleRuntimeSessionCreationInput
         const auto comboIt = input.comboStates.find(setup.unitId);
         auto runtimeUnit = makeRuntimeUnit(
             setup,
-            comboIt != input.comboStates.end() ? &comboIt->second : nullptr,
-            input.rules.gridTransform);
+            comboIt != input.comboStates.end() ? &comboIt->second : nullptr);
         if (comboIt != input.comboStates.end())
         {
             auto statusUnit = makeBattleStatusUnitState(runtimeUnit, comboIt->second);
@@ -302,7 +272,9 @@ BattleRuntimeState buildCanonicalRuntime(const BattleRuntimeSessionCreationInput
     return runtime;
 }
 
-void deriveRuntimeStores(BattleRuntimeState& runtime, BattleRuntimeSessionCreationInput input)
+void deriveRuntimeStores(
+    BattleRuntimeState& runtime,
+    BattleRuntimeSessionCreationInput input)
 {
     const auto existingMovement = runtime.movement;
 
@@ -353,6 +325,21 @@ void deriveRuntimeStores(BattleRuntimeState& runtime, BattleRuntimeSessionCreati
     for (const auto& seed : input.actionPlanSeeds)
     {
         runtime.action.planSeeds.emplace(seed.unitId, seed);
+    }
+    for (const auto& unit : runtime.unitStore.units)
+    {
+        if (unit.presentationSourceUnitId == unit.id)
+        {
+            continue;
+        }
+        const auto sourceSeedIt = runtime.action.planSeeds.find(unit.presentationSourceUnitId);
+        if (sourceSeedIt == runtime.action.planSeeds.end())
+        {
+            continue;
+        }
+        auto cloneSeed = sourceSeedIt->second;
+        cloneSeed.unitId = unit.id;
+        runtime.action.planSeeds.emplace(unit.id, std::move(cloneSeed));
     }
     runtime.action.castConfig = input.rules.castConfig;
     runtime.action.castGeometry = input.rules.castGeometry;
@@ -547,20 +534,16 @@ BattleFrameResult BattleRuntimeSession::runFrame()
     return result;
 }
 
-void BattleRuntimeSession::commitSetupPlacement(const BattleSetupPlacementInput& input)
-{
-    assert(!setupPlacementCommitted_);
-    assert(!frameStarted_);
-    setupPlacementCommitted_ = true;
 
-    for (const auto& unitPlacement : input.units)
-    {
-        const auto position = setupPlacementPosition(runtime_.unitStore.gridTransform, unitPlacement.x, unitPlacement.y);
-        runtime_.unitStore.setPosition(unitPlacement.unitId, position);
-        auto& unit = runtime_.unitStore.requireUnit(unitPlacement.unitId);
-        unit.motion.facing = setupPlacementFacing(unitPlacement.faceTowards);
-        unit.motion.velocity = { 0, 0, 0 };
-    }
+void BattleRuntimeSession::swapSetupUnitPositions(int firstUnitId, int secondUnitId)
+{
+    assert(!frameStarted_);
+    auto& first = runtime_.unitStore.requireUnit(firstUnitId);
+    auto& second = runtime_.unitStore.requireUnit(secondUnitId);
+    std::swap(first.grid, second.grid);
+    std::swap(first.motion.position, second.motion.position);
+    first.motion.velocity = { 0, 0, 0 };
+    second.motion.velocity = { 0, 0, 0 };
 }
 
 const BattleRuntimeState& BattleRuntimeSession::runtime() const

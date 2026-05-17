@@ -1,15 +1,18 @@
 #include "BattleLogPresenter.h"
 
 #include <format>
-#include <regex>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 namespace
 {
 constexpr int kMaxBattleLogEntries = 9999;
+
+using KysChess::Battle::BattleLogCategory;
+using KysChess::Battle::BattleLogPerspective;
+using KysChess::Battle::BattleLogTextSegment;
+using KysChess::Battle::BattleLogTextTone;
 
 BattleLogEntryTone teamToEntryTone(int team)
 {
@@ -18,17 +21,17 @@ BattleLogEntryTone teamToEntryTone(int team)
     return BattleLogEntryTone::Neutral;
 }
 
-BattleLogFieldTone teamToFieldTone(int team)
+BattleLogTextTone teamToTextTone(int team)
 {
-    if (team == 0) return BattleLogFieldTone::AllyName;
-    if (team == 1) return BattleLogFieldTone::EnemyName;
-    return BattleLogFieldTone::Default;
+    if (team == 0) return BattleLogTextTone::AllyName;
+    if (team == 1) return BattleLogTextTone::EnemyName;
+    return BattleLogTextTone::Default;
 }
 
-void appendBattleLogSegment(
+void appendTextSegment(
     BattleLogEntryView& entry,
     std::string text,
-    BattleLogFieldTone tone = BattleLogFieldTone::Default)
+    BattleLogTextTone tone = BattleLogTextTone::Default)
 {
     if (!text.empty())
     {
@@ -36,18 +39,21 @@ void appendBattleLogSegment(
     }
 }
 
-struct HighlightInterval
+void appendTextSegments(
+    BattleLogEntryView& entry,
+    const std::vector<BattleLogTextSegment>& segments)
 {
-    std::size_t start = 0;
-    std::size_t end = 0;
-    BattleLogFieldTone tone = BattleLogFieldTone::Default;
-};
-
-bool overlapsExisting(const std::vector<HighlightInterval>& intervals, std::size_t start, std::size_t end)
-{
-    for (const auto& interval : intervals)
+    for (const auto& segment : segments)
     {
-        if (start < interval.end && end > interval.start)
+        appendTextSegment(entry, segment.text, segment.tone);
+    }
+}
+
+bool hasVisibleTextSegment(const std::vector<BattleLogTextSegment>& segments)
+{
+    for (const auto& segment : segments)
+    {
+        if (!segment.text.empty())
         {
             return true;
         }
@@ -55,76 +61,16 @@ bool overlapsExisting(const std::vector<HighlightInterval>& intervals, std::size
     return false;
 }
 
-void collectRegexIntervals(
-    std::vector<HighlightInterval>& intervals,
-    const std::string& text,
-    const std::regex& pattern,
-    BattleLogFieldTone tone)
+BattleLogEntryCategory toEntryCategory(BattleLogCategory category)
 {
-    for (auto it = std::sregex_iterator(text.begin(), text.end(), pattern);
-        it != std::sregex_iterator();
-        ++it)
+    switch (category)
     {
-        const auto start = static_cast<std::size_t>(it->position());
-        const auto end = start + static_cast<std::size_t>(it->length());
-        if (!overlapsExisting(intervals, start, end))
-        {
-            intervals.push_back({ start, end, tone });
-        }
-    }
-}
-
-void appendHighlightedLogText(
-    BattleLogEntryView& entry,
-    const std::string& text,
-    BattleLogFieldTone fallbackTone = BattleLogFieldTone::Default)
-{
-    static const std::regex formulaPattern(R"(\d+(?:\s*[-+*/=]\s*\d+)+)");
-    static const std::regex projectilePattern(R"(#\d+)");
-    static const std::regex durationPattern(R"(\d+\s*(幀|秒|s|S))");
-
-    std::vector<HighlightInterval> intervals;
-    collectRegexIntervals(intervals, text, formulaPattern, BattleLogFieldTone::FormulaValue);
-    collectRegexIntervals(intervals, text, projectilePattern, BattleLogFieldTone::ProjectileId);
-    collectRegexIntervals(intervals, text, durationPattern, BattleLogFieldTone::DurationValue);
-    std::sort(
-        intervals.begin(),
-        intervals.end(),
-        [](const HighlightInterval& lhs, const HighlightInterval& rhs)
-        {
-            return lhs.start < rhs.start;
-        });
-
-    std::size_t cursor = 0;
-    for (const auto& interval : intervals)
-    {
-        if (cursor < interval.start)
-        {
-            appendBattleLogSegment(entry, text.substr(cursor, interval.start - cursor), fallbackTone);
-        }
-        appendBattleLogSegment(entry, text.substr(interval.start, interval.end - interval.start), interval.tone);
-        cursor = interval.end;
-    }
-    if (cursor < text.size())
-    {
-        appendBattleLogSegment(entry, text.substr(cursor), fallbackTone);
-    }
-}
-
-bool textStartsWith(const std::string& text, const char* prefix)
-{
-    return text.rfind(prefix, 0) == 0;
-}
-
-BattleLogEntryCategory classifyStatusEvent(const std::string& text)
-{
-    if (text == "出手" || textStartsWith(text, "施放"))
-    {
+    case BattleLogCategory::Cast:
         return BattleLogEntryCategory::Cast;
-    }
-    if (textStartsWith(text, "抵消彈道") || textStartsWith(text, "彈道取消"))
-    {
+    case BattleLogCategory::ProjectileCancel:
         return BattleLogEntryCategory::ProjectileCancel;
+    case BattleLogCategory::Status:
+        return BattleLogEntryCategory::Status;
     }
     return BattleLogEntryCategory::Status;
 }
@@ -172,9 +118,9 @@ BattleLogEntryView buildBattleLogEntry(const BattleReportEvent& event)
 
     auto addFrame = [&]()
     {
-        appendBattleLogSegment(entry, "[", BattleLogFieldTone::SystemAccent);
-        appendBattleLogSegment(entry, std::format("{:>4}F", event.frame), BattleLogFieldTone::FrameValue);
-        appendBattleLogSegment(entry, "] ", BattleLogFieldTone::SystemAccent);
+        appendTextSegment(entry, "[", BattleLogTextTone::SystemAccent);
+        appendTextSegment(entry, std::format("{:>4}F", event.frame), BattleLogTextTone::FrameValue);
+        appendTextSegment(entry, "] ", BattleLogTextTone::SystemAccent);
     };
 
     switch (event.type)
@@ -183,99 +129,109 @@ BattleLogEntryView buildBattleLogEntry(const BattleReportEvent& event)
         entry.category = BattleLogEntryCategory::Damage;
         entry.tone = teamToEntryTone(event.sourceTeam);
         addFrame();
-        appendBattleLogSegment(entry, event.sourceName, teamToFieldTone(event.sourceTeam));
-        appendBattleLogSegment(entry, event.skillName.empty() ? " 攻擊 " : " 施放 ");
+        appendTextSegment(entry, event.sourceName, teamToTextTone(event.sourceTeam));
+        appendTextSegment(entry, event.skillName.empty() ? " 攻擊 " : " 施放 ");
         if (!event.skillName.empty())
         {
-            appendBattleLogSegment(entry, event.skillName, BattleLogFieldTone::SkillName);
-            appendBattleLogSegment(entry, " 命中 ");
+            appendTextSegment(entry, event.skillName, BattleLogTextTone::SkillName);
+            appendTextSegment(entry, " 命中 ");
         }
-        appendBattleLogSegment(entry, event.targetName, teamToFieldTone(event.targetTeam));
-        appendBattleLogSegment(entry, "，造成 ");
-        appendBattleLogSegment(entry, std::to_string(event.value), BattleLogFieldTone::DamageValue);
-        appendBattleLogSegment(entry, " 點傷害");
-        if (!event.detailText.empty())
+        appendTextSegment(entry, event.targetName, teamToTextTone(event.targetTeam));
+        appendTextSegment(entry, "，造成 ");
+        appendTextSegment(entry, std::to_string(event.value), BattleLogTextTone::DamageValue);
+        appendTextSegment(entry, " 點傷害");
+        if (hasVisibleTextSegment(event.segments))
         {
-            appendBattleLogSegment(entry, "（");
-            appendHighlightedLogText(entry, event.detailText, BattleLogFieldTone::SkillName);
-            appendBattleLogSegment(entry, "）");
+            appendTextSegment(entry, "（");
+            appendTextSegments(entry, event.segments);
+            appendTextSegment(entry, "）");
         }
         break;
     case BattleReportEventType::Heal:
         entry.category = BattleLogEntryCategory::Heal;
         entry.tone = teamToEntryTone(event.targetTeam >= 0 ? event.targetTeam : event.sourceTeam);
         addFrame();
-        if (!event.sourceName.empty() && !event.targetName.empty() && event.sourceId != event.targetId)
+        if (event.perspective == BattleLogPerspective::SourceOnly && !event.sourceName.empty())
         {
-            appendBattleLogSegment(entry, event.sourceName, teamToFieldTone(event.sourceTeam));
-            appendBattleLogSegment(entry, " 為 ");
-            appendBattleLogSegment(entry, event.targetName, teamToFieldTone(event.targetTeam));
+            appendTextSegment(entry, event.sourceName, teamToTextTone(event.sourceTeam));
+            appendTextSegment(entry, "：");
+        }
+        else if (!event.sourceName.empty() && !event.targetName.empty() && event.sourceId != event.targetId)
+        {
+            appendTextSegment(entry, event.sourceName, teamToTextTone(event.sourceTeam));
+            appendTextSegment(entry, " 為 ");
+            appendTextSegment(entry, event.targetName, teamToTextTone(event.targetTeam));
         }
         else if (!event.targetName.empty())
         {
-            appendBattleLogSegment(entry, event.targetName, teamToFieldTone(event.targetTeam));
+            appendTextSegment(entry, event.targetName, teamToTextTone(event.targetTeam));
         }
         else
         {
-            appendBattleLogSegment(entry, event.sourceName, teamToFieldTone(event.sourceTeam));
+            appendTextSegment(entry, event.sourceName, teamToTextTone(event.sourceTeam));
         }
-        appendBattleLogSegment(entry, " 恢復 ");
-        appendBattleLogSegment(entry, std::to_string(event.value), BattleLogFieldTone::DamageValue);
-        appendBattleLogSegment(entry, " 點生命");
-        if (!event.detailText.empty())
+        appendTextSegment(entry, " 恢復 ");
+        appendTextSegment(entry, std::to_string(event.value), BattleLogTextTone::HealValue);
+        appendTextSegment(entry, " 點生命");
+        if (hasVisibleTextSegment(event.segments))
         {
-            appendBattleLogSegment(entry, "（");
-            appendHighlightedLogText(entry, event.detailText, BattleLogFieldTone::SkillName);
-            appendBattleLogSegment(entry, "）");
+            appendTextSegment(entry, "（");
+            appendTextSegments(entry, event.segments);
+            appendTextSegment(entry, "）");
         }
         break;
     case BattleReportEventType::Status:
-        entry.category = classifyStatusEvent(event.detailText);
+        entry.category = toEntryCategory(event.category);
         entry.tone = teamToEntryTone(event.targetTeam >= 0 ? event.targetTeam : event.sourceTeam);
         if (entry.tone == BattleLogEntryTone::Neutral)
         {
             entry.tone = BattleLogEntryTone::System;
         }
         addFrame();
-        if (!event.sourceName.empty() && !event.targetName.empty() && event.sourceId != event.targetId)
+        if (event.perspective == BattleLogPerspective::SourceOnly && !event.sourceName.empty())
         {
-            appendBattleLogSegment(entry, event.sourceName, teamToFieldTone(event.sourceTeam));
-            appendBattleLogSegment(entry, " 對 ");
-            appendBattleLogSegment(entry, event.targetName, teamToFieldTone(event.targetTeam));
-            appendBattleLogSegment(entry, "：");
+            appendTextSegment(entry, event.sourceName, teamToTextTone(event.sourceTeam));
+            appendTextSegment(entry, "：");
+        }
+        else if (!event.sourceName.empty() && !event.targetName.empty() && event.sourceId != event.targetId)
+        {
+            appendTextSegment(entry, event.sourceName, teamToTextTone(event.sourceTeam));
+            appendTextSegment(entry, " 對 ");
+            appendTextSegment(entry, event.targetName, teamToTextTone(event.targetTeam));
+            appendTextSegment(entry, "：");
         }
         else if (!event.targetName.empty())
         {
-            appendBattleLogSegment(entry, event.targetName, teamToFieldTone(event.targetTeam));
-            appendBattleLogSegment(entry, "：");
+            appendTextSegment(entry, event.targetName, teamToTextTone(event.targetTeam));
+            appendTextSegment(entry, "：");
         }
         else if (!event.sourceName.empty())
         {
-            appendBattleLogSegment(entry, event.sourceName, teamToFieldTone(event.sourceTeam));
-            appendBattleLogSegment(entry, "：");
+            appendTextSegment(entry, event.sourceName, teamToTextTone(event.sourceTeam));
+            appendTextSegment(entry, "：");
         }
-        appendHighlightedLogText(entry, event.detailText, BattleLogFieldTone::SkillName);
+        appendTextSegments(entry, event.segments);
         break;
     case BattleReportEventType::Kill:
         entry.category = BattleLogEntryCategory::Lifecycle;
         entry.tone = teamToEntryTone(event.sourceTeam);
         addFrame();
-        appendBattleLogSegment(entry, event.sourceName, teamToFieldTone(event.sourceTeam));
-        appendBattleLogSegment(entry, " 擊殺了 ");
-        appendBattleLogSegment(entry, event.targetName, teamToFieldTone(event.targetTeam));
+        appendTextSegment(entry, event.sourceName, teamToTextTone(event.sourceTeam));
+        appendTextSegment(entry, " 擊殺了 ");
+        appendTextSegment(entry, event.targetName, teamToTextTone(event.targetTeam));
         break;
     case BattleReportEventType::Death:
         entry.category = BattleLogEntryCategory::Lifecycle;
         entry.tone = teamToEntryTone(event.targetTeam);
         addFrame();
-        appendBattleLogSegment(entry, event.targetName, teamToFieldTone(event.targetTeam));
-        appendBattleLogSegment(entry, " 倒下");
+        appendTextSegment(entry, event.targetName, teamToTextTone(event.targetTeam));
+        appendTextSegment(entry, " 倒下");
         break;
     case BattleReportEventType::BattleEnd:
         entry.category = BattleLogEntryCategory::BattleEnd;
         entry.tone = BattleLogEntryTone::System;
         addFrame();
-        appendBattleLogSegment(entry, battleResultText(event.value), BattleLogFieldTone::SystemAccent);
+        appendTextSegment(entry, battleResultText(event.value), BattleLogTextTone::SystemAccent);
         break;
     }
 
@@ -372,10 +328,10 @@ BattleLogViewModel BattleLogPresenter::present(
         BattleLogEntryView omitted;
         omitted.tone = BattleLogEntryTone::System;
         omitted.category = BattleLogEntryCategory::Status;
-        appendBattleLogSegment(
+        appendTextSegment(
             omitted,
             std::format("前 {} 條記錄已省略", model.omittedEntries),
-            BattleLogFieldTone::SystemAccent);
+            BattleLogTextTone::SystemAccent);
         model.entries.push_back(std::move(omitted));
     }
 
@@ -399,7 +355,7 @@ BattleLogViewModel BattleLogPresenter::present(
         BattleLogEntryView empty;
         empty.tone = BattleLogEntryTone::System;
         empty.category = BattleLogEntryCategory::Status;
-        appendBattleLogSegment(empty, "本場戰鬥沒有產生可記錄事件。", BattleLogFieldTone::SystemAccent);
+        appendTextSegment(empty, "本場戰鬥沒有產生可記錄事件。", BattleLogTextTone::SystemAccent);
         model.entries.push_back(std::move(empty));
     }
 

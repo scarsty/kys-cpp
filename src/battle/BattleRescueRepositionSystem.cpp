@@ -1,5 +1,6 @@
 #include "BattleRescueRepositionSystem.h"
 
+#include "BattleLogSegments.h"
 #include "../Find.h"
 
 #include <algorithm>
@@ -308,7 +309,7 @@ BattleLogEvent statusEvent(int sourceUnitId, int targetUnitId, std::string text)
     event.type = BattleLogEventType::Status;
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
-    event.text = std::move(text);
+    event.segments = battleLogText(std::move(text), BattleLogTextTone::SkillName);
     return event;
 }
 
@@ -319,7 +320,7 @@ BattleLogEvent healEvent(int sourceUnitId, int targetUnitId, int amount)
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
     event.amount = amount;
-    event.text = "保護挪移";
+    event.segments = battleLogText("保護挪移", BattleLogTextTone::SkillName);
     return event;
 }
 

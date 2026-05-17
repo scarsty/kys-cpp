@@ -1,5 +1,6 @@
 #include "ChessBattleEffects.h"
 #include "battle/BattleCastSystem.h"
+#include "BattleLogTestHelpers.h"
 #include "battle/BattleUnitStore.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -111,7 +112,7 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     CHECK(weakest.logEvents[0].type == BattleLogEventType::Status);
     CHECK(weakest.logEvents[0].sourceUnitId == 0);
     CHECK(weakest.logEvents[0].targetUnitId == 2);
-    CHECK(weakest.logEvents[0].text == "閃擊追殺");
+    CHECK(BattleLogTest::textOf(weakest.logEvents[0]) == "閃擊追殺");
     CHECK_FALSE(weakest.combo.blinkAttackUseWeakest);
 
     input.blinkRandomRoll = 1;
@@ -124,7 +125,7 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     CHECK(random.logEvents[0].type == BattleLogEventType::Status);
     CHECK(random.logEvents[0].sourceUnitId == 0);
     CHECK(random.logEvents[0].targetUnitId == 2);
-    CHECK(random.logEvents[0].text == "閃擊突襲");
+    CHECK(BattleLogTest::textOf(random.logEvents[0]) == "閃擊突襲");
     CHECK(random.combo.blinkAttackUseWeakest);
 }
 

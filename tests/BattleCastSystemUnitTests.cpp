@@ -1,5 +1,6 @@
 #include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
+#include "BattleLogTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -193,7 +194,7 @@ void checkVisualEventEquals(const BattleVisualEvent& lhs, const BattleVisualEven
     CHECK(lhs.textMotionType == rhs.textMotionType);
     CHECK(lhs.text == rhs.text);
     CHECK(lhs.skillName == rhs.skillName);
-    CHECK(lhs.detailText == rhs.detailText);
+    CHECK(BattleLogTest::joinSegments(lhs.segments) == BattleLogTest::joinSegments(rhs.segments));
     CHECK(lhs.color.r == rhs.color.r);
     CHECK(lhs.color.g == rhs.color.g);
     CHECK(lhs.color.b == rhs.color.b);
@@ -211,9 +212,9 @@ void checkLogEventEquals(const BattleLogEvent& lhs, const BattleLogEvent& rhs)
     CHECK(lhs.sourceUnitId == rhs.sourceUnitId);
     CHECK(lhs.targetUnitId == rhs.targetUnitId);
     CHECK(lhs.amount == rhs.amount);
-    CHECK(lhs.text == rhs.text);
+    CHECK(lhs.category == rhs.category);
+    CHECK(BattleLogTest::joinSegments(lhs.segments) == BattleLogTest::joinSegments(rhs.segments));
     CHECK(lhs.skillName == rhs.skillName);
-    CHECK(lhs.detailText == rhs.detailText);
 }
 
 void checkEffectEventEquals(const BattleEffectEvent& lhs, const BattleEffectEvent& rhs)
@@ -412,7 +413,7 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsResourceDeltasTimingAndEvents", 
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
     CHECK(result.logEvents[0].sourceUnitId == 1);
     CHECK(result.logEvents[0].targetUnitId == 2);
-    CHECK(result.logEvents[0].text == "施放野球拳");
+    CHECK(BattleLogTest::textOf(result.logEvents[0]) == "施放野球拳");
     CHECK(result.logEvents[0].skillName == "野球拳");
     REQUIRE(result.visualEvents.size() == 1);
     CHECK(result.visualEvents[0].type == BattleVisualEventType::RoleEffect);

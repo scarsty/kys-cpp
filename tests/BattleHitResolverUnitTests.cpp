@@ -1,5 +1,6 @@
 #include "battle/BattleCore.h"
 #include "battle/BattleHitResolver.h"
+#include "BattleLogTestHelpers.h"
 #include "ChessEftIds.h"
 
 #include <catch2/catch_approx.hpp>
@@ -180,7 +181,7 @@ TEST_CASE("BattleHitResolver_RangedSideProjectileDoesNotApplyStunEffects", "[bat
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Status
-                && event.text.find("眩暈") != std::string::npos;
+                && BattleLogTest::textOf(event).find("眩暈") != std::string::npos;
         }));
 }
 
@@ -220,7 +221,7 @@ TEST_CASE("BattleHitResolver_CritMarksResultAndKeepsDamageDetail", "[battle][hit
     const auto* command = firstHpDamageCommand(result);
     REQUIRE(command);
     CHECK(command->critical);
-    CHECK(command->detailText == "暴擊");
+    CHECK(BattleLogTest::joinSegments(command->segments) == "暴擊");
 }
 
 TEST_CASE("BattleHitResolver_ProjectileCritKeepsDamageDetailWithoutStatusLog", "[battle][hit_resolver][unit]")
@@ -240,7 +241,7 @@ TEST_CASE("BattleHitResolver_ProjectileCritKeepsDamageDetailWithoutStatusLog", "
     const auto* command = firstHpDamageCommand(result);
     REQUIRE(command);
     CHECK(command->critical);
-    CHECK(command->detailText == "暴擊");
+    CHECK(BattleLogTest::joinSegments(command->segments) == "暴擊");
 }
 
 TEST_CASE("BattleHitResolver_DamageCommandLabelsProjectileSource", "[battle][hit_resolver][unit]")
@@ -258,7 +259,7 @@ TEST_CASE("BattleHitResolver_DamageCommandLabelsProjectileSource", "[battle][hit
 
     const auto* damage = firstHpDamageCommand(result);
     REQUIRE(damage);
-    CHECK(damage->detailText.find("絕招追蹤彈") != std::string::npos);
+    CHECK(BattleLogTest::joinSegments(damage->segments).find("絕招追蹤彈") != std::string::npos);
 }
 
 TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand", "[battle][hit_resolver][unit]")
@@ -284,7 +285,7 @@ TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand",
     CHECK(heal->sourceUnitId == 1);
     CHECK(heal->targetUnitId == 1);
     CHECK(heal->amount == 20);
-    CHECK(heal->text == "命中回血");
+    CHECK(BattleLogTest::textOf(*heal) == "命中回血");
 }
 
 TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resolver][unit]")
@@ -303,7 +304,7 @@ TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resol
     CHECK(command->damage.poisonDurationFrames == 60);
     REQUIRE_FALSE(result.logEvents.empty());
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(result.logEvents[0].text == "中毒（12%·60幀）");
+    CHECK(BattleLogTest::textOf(result.logEvents[0]) == "中毒（12%·60幀）");
 }
 
 TEST_CASE("BattleHitResolver_TriggeredTeamHealEmitsCommandWithoutApplyingTeamWorld", "[battle][hit_resolver][unit]")
@@ -343,7 +344,7 @@ TEST_CASE("BattleHitResolver_ReflectedRangedProjectileChangesActualSourceAndTarg
     REQUIRE(command);
     CHECK(command->sourceUnitId == 2);
     CHECK(command->targetUnitId == 1);
-    CHECK(command->detailText == "彈反");
+    CHECK(BattleLogTest::joinSegments(command->segments) == "彈反");
 
     auto reflectedAttribution = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
         {
@@ -392,7 +393,7 @@ TEST_CASE("BattleHitResolver_ExecuteTurnsFinalDamageIntoExecutedHpCommand", "[ba
     CHECK(command->targetUnitId == 2);
     CHECK(command->executed);
     CHECK(command->damage == 30);
-    CHECK(command->detailText == "處決");
+    CHECK(BattleLogTest::joinSegments(command->segments) == "處決");
 }
 
 TEST_CASE("BattleHitResolver_QueuesRawDamageWithoutConsumingFirstHitBlock", "[battle][hit_resolver][unit]")
@@ -430,7 +431,7 @@ TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battl
     REQUIRE(reflected != result.commands.end());
     const auto& command = std::get<BattleHpDamageCommand>(*reflected);
     CHECK(command.damage == 10);
-    CHECK(command.detailText == "技能反彈");
+    CHECK(BattleLogTest::joinSegments(command.segments) == "技能反彈");
 }
 
 TEST_CASE("BattleHitResolver_BleedAndMpBlockEmitAcceptedHitCommands", "[battle][hit_resolver][unit]")
@@ -555,7 +556,7 @@ TEST_CASE("BattleProjectileFollowUpResolver_CurrentHpBlastDoesNotTriggerDefenseE
     const auto* hp = std::get_if<BattleHpDamageCommand>(&expanded.commands[0]);
     REQUIRE(hp);
     CHECK_FALSE(hp->triggersDefenseEffects);
-    CHECK(hp->detailText == "當前生命傷害");
+    CHECK(BattleLogTest::joinSegments(hp->segments) == "當前生命傷害");
 }
 
 TEST_CASE("BattleHitResolver_SkillReflectDamageDoesNotTriggerDefenseEffects", "[battle][hit_resolver][unit]")
@@ -570,7 +571,7 @@ TEST_CASE("BattleHitResolver_SkillReflectDamageDoesNotTriggerDefenseEffects", "[
     auto reflected = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
         {
             const auto* hp = std::get_if<BattleHpDamageCommand>(&command);
-            return hp && hp->detailText == "技能反彈";
+            return hp && BattleLogTest::joinSegments(hp->segments) == "技能反彈";
         });
     REQUIRE(reflected != result.commands.end());
     const auto& hp = std::get<BattleHpDamageCommand>(*reflected);
@@ -741,13 +742,13 @@ TEST_CASE("BattleHitResolver_ScriptedImpactEmitsStatusAndDamageCommands", "[batt
             sawDamage = hp->sourceUnitId == 1
                 && hp->targetUnitId == 2
                 && hp->damage == 35
-                && hp->detailText == "特效傷害";
+                && BattleLogTest::joinSegments(hp->segments) == "特效傷害";
         }
     }
     for (const auto& event : result.logEvents)
     {
-        sawStunLog = sawStunLog || (event.type == BattleLogEventType::Status && event.text == "眩暈（12幀）");
-        sawBleedLog = sawBleedLog || (event.type == BattleLogEventType::Status && event.text == "螺旋流血彈流血2層");
+        sawStunLog = sawStunLog || (event.type == BattleLogEventType::Status && BattleLogTest::textOf(event) == "眩暈（12幀）");
+        sawBleedLog = sawBleedLog || (event.type == BattleLogEventType::Status && BattleLogTest::textOf(event) == "螺旋流血彈流血2層");
     }
 
     CHECK(sawStatus);

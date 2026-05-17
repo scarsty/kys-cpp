@@ -28,6 +28,44 @@ enum class BattleLogEventType
     BattleEnded,
 };
 
+enum class BattleLogCategory
+{
+    Status,
+    Cast,
+    ProjectileCancel,
+};
+
+enum class BattleLogPerspective
+{
+    Targeted,
+    SourceOnly,
+};
+
+enum class BattleLogTextTone
+{
+    Default,
+    AllyName,
+    EnemyName,
+    SkillName,
+    DamageValue,
+    HealValue,
+    ShieldValue,
+    ResourceValue,
+    DurationValue,
+    FrameValue,
+    FormulaValue,
+    ProjectileId,
+    SystemAccent,
+    Positive,
+    Negative,
+};
+
+struct BattleLogTextSegment
+{
+    std::string text;
+    BattleLogTextTone tone = BattleLogTextTone::Default;
+};
+
 enum class BattleVisualEventType
 {
     FloatingText,
@@ -50,9 +88,10 @@ struct BattleLogEvent
     int sourceUnitId = -1;
     int targetUnitId = -1;
     int amount = 0;
-    std::string text;
+    BattleLogCategory category = BattleLogCategory::Status;
+    BattleLogPerspective perspective = BattleLogPerspective::Targeted;
+    std::vector<BattleLogTextSegment> segments;
     std::string skillName;
-    std::string detailText;
 };
 
 enum class BattleGameplayEventType
@@ -96,7 +135,7 @@ struct BattleVisualEvent
     int textMotionType = 0;
     std::string text;
     std::string skillName;
-    std::string detailText;
+    std::vector<BattleLogTextSegment> segments;
     BattlePresentationColor color;
     Pointf position;
     int visualEffectId = -1;

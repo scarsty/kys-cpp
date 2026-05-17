@@ -1,4 +1,6 @@
 #include "battle/BattlePresentation.h"
+#include "battle/BattleLogSegments.h"
+#include "BattleLogTestHelpers.h"
 #include "BattleStatsView.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -9,8 +11,8 @@ TEST_CASE("BattlePresentationRecorder_BeginsFrameAndRecordsLogEvents", "[battle]
 {
     BattlePresentationRecorder recorder;
     recorder.beginFrame(42);
-    recorder.recordLog({ KysChess::Battle::BattleLogEventType::Status, BattlePresentationCurrentFrame, 1, 2, 0, "status" });
-    recorder.recordLog({ KysChess::Battle::BattleLogEventType::Heal, 43, 1, 1, 12, "heal" });
+    recorder.recordLog({ KysChess::Battle::BattleLogEventType::Status, BattlePresentationCurrentFrame, 1, 2, 0, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("status") });
+    recorder.recordLog({ KysChess::Battle::BattleLogEventType::Heal, 43, 1, 1, 12, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("heal") });
 
     const auto& frame = recorder.frame();
     REQUIRE(frame.logEvents.size() == 2);
@@ -19,7 +21,7 @@ TEST_CASE("BattlePresentationRecorder_BeginsFrameAndRecordsLogEvents", "[battle]
     CHECK(frame.frame == 42);
     CHECK(frame.logEvents[0].frame == 42);
     CHECK(frame.logEvents[0].type == KysChess::Battle::BattleLogEventType::Status);
-    CHECK(frame.logEvents[0].text == "status");
+    CHECK(BattleLogTest::textOf(frame.logEvents[0]) == "status");
     CHECK(frame.logEvents[1].frame == 43);
     CHECK(frame.logEvents[1].amount == 12);
 }
@@ -29,7 +31,7 @@ TEST_CASE("BattlePresentationRecorder_BeginFrameWithFrameOnlyStampsEvents", "[ba
     BattlePresentationRecorder recorder;
 
     recorder.beginFrame(17);
-    recorder.recordLog({ KysChess::Battle::BattleLogEventType::Status, BattlePresentationCurrentFrame, -1, -1, 0, "status" });
+    recorder.recordLog({ KysChess::Battle::BattleLogEventType::Status, BattlePresentationCurrentFrame, -1, -1, 0, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("status") });
     recorder.recordVisual({ BattleVisualEventType::FloatingText, BattlePresentationCurrentFrame, -1, 1, 0, 0, -1, 16, 0, "text" });
     recorder.recordGameplay({ BattleGameplayEventType::BattleEnded });
 
@@ -95,7 +97,7 @@ TEST_CASE("BattlePresentationRecorder_PreservesExplicitFrameZero", "[battle][pre
     BattlePresentationRecorder recorder;
     recorder.beginFrame(9);
     recorder.recordGameplay({ BattleGameplayEventType::BattleEnded, 0 });
-    recorder.recordLog({ KysChess::Battle::BattleLogEventType::Status, 0, -1, -1, 0, "frame-zero" });
+    recorder.recordLog({ KysChess::Battle::BattleLogEventType::Status, 0, -1, -1, 0, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("frame-zero") });
 
     const auto& frame = recorder.frame();
     REQUIRE(frame.gameplayEvents.size() == 1);

@@ -1,4 +1,5 @@
 #include "battle/BattlePresentationPlayback.h"
+#include "battle/BattleLogSegments.h"
 #include "BattlePresentationEffects.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -14,22 +15,22 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryVisualEvent", "[battle][pr
         { BattleGameplayEventType::ProjectileHit, 18, 1, 2, 0, 10 },
     };
     frame.logEvents = {
-        { KysChess::Battle::BattleLogEventType::Damage, 18, 1, 2, 30, "", "skill", "detail" },
-        { KysChess::Battle::BattleLogEventType::Heal, 18, 1, 1, 12, "heal" },
-        { KysChess::Battle::BattleLogEventType::Status, 18, 1, 2, 0, "status" },
+        { KysChess::Battle::BattleLogEventType::Damage, 18, 1, 2, 30, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("detail"), "skill" },
+        { KysChess::Battle::BattleLogEventType::Heal, 18, 1, 1, 12, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("heal") },
+        { KysChess::Battle::BattleLogEventType::Status, 18, 1, 2, 0, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("status") },
     };
     frame.visualEvents = {
         { BattleVisualEventType::FloatingText, 18, -1, 2, 0, 0, -1, 24, 1, "float" },
         { BattleVisualEventType::RoleEffect, 18, -1, 2, 0, 48, 7 },
         { BattleVisualEventType::DamageNumber, 18, -1, 2, 15, 0, -1, 30 },
-        { BattleVisualEventType::CameraFocus, 18, -1, -1, 0, 10, -1, 0, 0, "", "", "", {}, { 9, 8, 0 } },
-        { BattleVisualEventType::ProjectileSpawned, 18, 1, 2, 0, 30, 10, 0, 0, "", "", "", {}, { 10, 12, 0 }, 33, { 2, 0, 0 }, 2 },
-        { BattleVisualEventType::ProjectileMoved, 18, 1, 2, 0, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
-        { BattleVisualEventType::ProjectileHit, 18, 1, 2, 0, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
-        { BattleVisualEventType::ProjectileExpired, 18, 1, -1, 0, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
-        { BattleVisualEventType::ProjectileTargetLost, 18, 1, -1, -1, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
-        { BattleVisualEventType::ProjectileCancelled, 18, 1, 2, 20, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
-        { BattleVisualEventType::ProjectileBounced, 18, 1, 3, 20, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
+        { BattleVisualEventType::CameraFocus, 18, -1, -1, 0, 10, -1, 0, 0, "", "", {}, {}, { 9, 8, 0 } },
+        { BattleVisualEventType::ProjectileSpawned, 18, 1, 2, 0, 30, 10, 0, 0, "", "", {}, {}, { 10, 12, 0 }, 33, { 2, 0, 0 }, 2 },
+        { BattleVisualEventType::ProjectileMoved, 18, 1, 2, 0, 30, 10, 0, 0, "", "", {}, {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
+        { BattleVisualEventType::ProjectileHit, 18, 1, 2, 0, 30, 10, 0, 0, "", "", {}, {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
+        { BattleVisualEventType::ProjectileExpired, 18, 1, -1, 0, 30, 10, 0, 0, "", "", {}, {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
+        { BattleVisualEventType::ProjectileTargetLost, 18, 1, -1, -1, 30, 10, 0, 0, "", "", {}, {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
+        { BattleVisualEventType::ProjectileCancelled, 18, 1, 2, 20, 30, 10, 0, 0, "", "", {}, {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
+        { BattleVisualEventType::ProjectileBounced, 18, 1, 3, 20, 30, 10, 0, 0, "", "", {}, {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
     };
 
     BattlePresentationPlaybackPlanner planner;
@@ -86,7 +87,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_PreservesCommandOrder", "[battle][p
         { BattleGameplayEventType::DamageApplied, 3, 1, 2, 9 },
     };
     frame.logEvents = {
-        { KysChess::Battle::BattleLogEventType::Status, 3, -1, 1, 0, "first" },
+        { KysChess::Battle::BattleLogEventType::Status, 3, -1, 1, 0, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("first") },
         { KysChess::Battle::BattleLogEventType::Damage, 3, 1, 2, 9 },
     };
     frame.visualEvents = {
@@ -114,7 +115,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_IgnoresNonVisualOutputs", "[battle]
         { BattleGameplayEventType::DamageApplied, 5, 1, 2, 9 },
     };
     frame.logEvents = {
-        { KysChess::Battle::BattleLogEventType::Status, 5, -1, -1, 0, "log-only" },
+        { KysChess::Battle::BattleLogEventType::Status, 5, -1, -1, 0, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("log-only") },
     };
     frame.visualEvents = {
         { BattleVisualEventType::FloatingText, 5, -1, 1, 0, 0, -1, 24, 0, "visual-only" },
@@ -133,7 +134,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_TargetLostCancelHasNoRelatedProject
     BattlePresentationFrame frame;
     frame.frame = 9;
     frame.visualEvents = {
-        { BattleVisualEventType::ProjectileTargetLost, 9, 1, -1, 0, 20, 10, 0, 0, "", "", "", {}, { 30, 40, 0 }, 12, { 1, 0, 0 }, 2 },
+        { BattleVisualEventType::ProjectileTargetLost, 9, 1, -1, 0, 20, 10, 0, 0, "", "", {}, {}, { 30, 40, 0 }, 12, { 1, 0, 0 }, 2 },
     };
 
     BattlePresentationPlaybackPlanner planner;

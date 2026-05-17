@@ -1,10 +1,12 @@
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattleCore.h"
+#include "battle/BattleLogSegments.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentationPlayback.h"
 #include "battle/BattleRuntimeRules.h"
 #include "ChessEftIds.h"
 #include "Find.h"
+#include "BattleLogTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -1400,7 +1402,7 @@ TEST_CASE("BattleCore_AppliesTeamEffectGameplayCommands", "[battle][core]")
     CHECK(units.units[1].vitals.hp == 100);
     REQUIRE(heal.logEvents.size() == 2);
     CHECK(heal.logEvents[0].type == BattleLogEventType::Heal);
-    CHECK(heal.logEvents[0].text == "技能群療");
+    CHECK(BattleLogTest::textOf(heal.logEvents[0]) == "技能群療");
 
     auto mp = applyBattleTeamEffectCommand(
         units,
@@ -1410,7 +1412,7 @@ TEST_CASE("BattleCore_AppliesTeamEffectGameplayCommands", "[battle][core]")
     CHECK(units.units[1].vitals.mp == 50);
     REQUIRE(mp.logEvents.size() == 2);
     CHECK(mp.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(mp.logEvents[0].text == "全隊回內+8MP");
+    CHECK(BattleLogTest::textOf(mp.logEvents[0]) == "全隊回內+8MP");
 
     auto shield = applyBattleTeamEffectCommand(
         units,
@@ -1420,7 +1422,7 @@ TEST_CASE("BattleCore_AppliesTeamEffectGameplayCommands", "[battle][core]")
     CHECK(units.units[1].shield == 7);
     REQUIRE(shield.logEvents.size() == 2);
     CHECK(shield.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(shield.logEvents[0].text == "全隊護盾（7護盾）");
+    CHECK(BattleLogTest::textOf(shield.logEvents[0]) == "全隊護盾（7護盾）");
 }
 
 TEST_CASE("BattleFrameRunner_TeamShieldDoesNotMirrorIntoCombo", "[battle][core][runtime]")
@@ -1626,9 +1628,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
     CHECK(result.frame.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
     REQUIRE(result.frame.logEvents.size() == 1);
     CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(result.frame.logEvents[0].sourceUnitId == 0);
-    CHECK(result.frame.logEvents[0].targetUnitId == 1);
-    CHECK(result.frame.logEvents[0].text == "施放框架招式");
+    CHECK(result.frame.logEvents[0].sourceUnitId == 1);
+    CHECK(result.frame.logEvents[0].targetUnitId == 0);
+    CHECK(result.frame.logEvents[0].perspective == BattleLogPerspective::SourceOnly);
+    CHECK(BattleLogTest::textOf(result.frame.logEvents[0]) == "施放框架招式");
     CHECK(result.frame.logEvents[0].skillName == "框架招式");
 }
 
@@ -2482,7 +2485,9 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
                 && event.amount == 12;
         });
     REQUIRE(invincibilityLog != result.frame.logEvents.end());
-    CHECK(invincibilityLog->text == "技能後無敵（12幀）");
+        CHECK(BattleLogTest::textOf(*invincibilityLog) == "技能後無敵（12幀）");
+        CHECK(BattleLogTest::hasSegment(*invincibilityLog, "12", BattleLogTextTone::DurationValue));
+        CHECK(BattleLogTest::hasSegment(*invincibilityLog, "幀", BattleLogTextTone::DurationValue));
 }
 
 TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastSound", "[battle][core][runtime]")
@@ -2904,14 +2909,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
     BattleDamagePresentationInput firstPresentation;
     firstPresentation.enabled = true;
     firstPresentation.skillName = "先手";
-    firstPresentation.detailText = "第一段";
+    firstPresentation.segments = battleLogText("第一段");
     firstPresentation.normalDamageColor = { 10, 20, 30, 255 };
     firstPresentation.normalDamageTextSize = 22;
 
     BattleDamagePresentationInput secondPresentation;
     secondPresentation.enabled = true;
     secondPresentation.skillName = "終段";
-    secondPresentation.detailText = "第二段";
+    secondPresentation.segments = battleLogText("第二段");
     secondPresentation.critical = true;
     secondPresentation.emphasizedDamageColor = { 40, 50, 60, 255 };
     secondPresentation.emphasizedDamageTextSize = 33;
@@ -2945,7 +2950,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
         {
             return event.type == BattleLogEventType::Damage
                 && event.skillName == "終段"
-                && event.detailText == "第二段";
+                && BattleLogTest::textOf(event) == "第二段";
         }));
     CHECK_FALSE(std::any_of(
         result.frame.gameplayEvents.begin(),
@@ -3039,7 +3044,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnCo
     CHECK(result.effectCommands.empty());
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesDeathAoeToPendingProjectileSpawn", "[battle][core][breakthrough]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathAoeProjectileDamagesOnNextFrame", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({
@@ -3064,7 +3069,21 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesDeathAoeToPendingProjectileSpaw
     REQUIRE(state.pendingAttackSpawns.size() == 1);
     CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 1);
     CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == 0);
+    CHECK(state.pendingAttackSpawns[0].initial.scriptedDamage == 50);
     CHECK(state.pendingAttackSpawns[0].initial.scriptedStunFrames == 6);
+
+    result = runBattleFrame(state);
+
+    const auto damageIt = std::find_if(
+        result.damageRenderApplications.begin(),
+        result.damageRenderApplications.end(),
+        [](const BattleFrameDamageRenderApplication& application)
+        {
+            return application.defender.unitId == 0
+                && application.committedHpDamage == 50;
+        });
+    REQUIRE(damageIt != result.damageRenderApplications.end());
+    CHECK(state.unitStore.requireUnit(0).vitals.hp == 50);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[battle][core][breakthrough]")
@@ -3134,7 +3153,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimeAutoUltimateReadyInsideC
         {
             return event.type == BattleLogEventType::Status
                 && event.sourceUnitId == 1
-                && event.text == "自動絕招·絕招";
+                && BattleLogTest::textOf(event) == "自動絕招·絕招";
         }));
     REQUIRE(result.applications.attackSoundIds.size() == 1);
     CHECK(result.applications.attackSoundIds[0] == 55);
@@ -3180,7 +3199,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DropsDeferredAutoUltimateWhenBattleEnd
         {
             return event.type == BattleLogEventType::Status
                 && event.sourceUnitId == 2
-                && event.text == "自動絕招·絕招";
+                && BattleLogTest::textOf(event) == "自動絕招·絕招";
         }));
 }
 
@@ -3683,7 +3702,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
             return event.type == BattleLogEventType::Status
                 && event.sourceUnitId == 1
                 && event.targetUnitId == 0
-                && event.text == "閃避了來襲攻擊";
+                && BattleLogTest::textOf(event) == "閃避了來襲攻擊";
         });
     CHECK(dodgeLog != result.frame.logEvents.end());
 
@@ -3718,12 +3737,18 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][
     projectile.state.velocity = { 5, 0, 0 };
     state.attacks.attacks.push_back(projectile);
 
+    KysChess::RoleComboState defenderCombo;
+    defenderCombo.dodgeChancePct = 100;
+    state.combo.units[1] = defenderCombo;
+
     auto result = runBattleFrame(state);
 
     REQUIRE(result.hitResults.size() == 1);
+    CHECK_FALSE(result.hitResults[0].dodged);
     CHECK(result.hitResults[0].finalHpDamage == 33);
     REQUIRE(result.damageTransactions.size() == 1);
     CHECK(result.damageTransactions.front().finalHpDamage == 33);
+    CHECK_FALSE(state.combo.units.at(1).dodgedLast);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPairedAttack", "[battle][core]")
@@ -3764,10 +3789,95 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPa
     CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
     CHECK(result.frame.logEvents[0].sourceUnitId == 0);
     CHECK(result.frame.logEvents[0].targetUnitId == -1);
-    CHECK(result.frame.logEvents[0].text == "彈道取消：目標遺失");
+    CHECK(BattleLogTest::textOf(result.frame.logEvents[0]) == "彈道停止：1枚目標遺失");
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_LogsProjectileContactIgnoredByInvincible", "[battle][core]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_LabelsChainedProjectileTargetLost", "[battle][core]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 700, 100, 0 }, CombatStyle::Ranged),
+    }));
+    state.attacks = attackWorld();
+
+    BattleAttackInstance projectile;
+    projectile.id = 10;
+    projectile.spawnedFromAttackId = 9;
+    projectile.state.attackerUnitId = 0;
+    projectile.state.preferredTargetUnitId = 1;
+    projectile.state.requirePreferredTarget = true;
+    projectile.state.totalFrame = 30;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
+
+    seedRuntimeUnitsFromWorld(state);
+    state.unitStore.requireUnit(1).alive = false;
+    state.attacks.attacks.push_back(projectile);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.attackEvents.size() == 2);
+    CHECK(result.attackEvents[1].type == BattleAttackEventType::TargetLost);
+    CHECK(std::any_of(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return BattleLogTest::textOf(event) == "連鎖彈道停止：1枚原目標失效";
+        }));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_CoalescesSameFrameChainedProjectileStopLogs", "[battle][core]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 700, 100, 0 }, CombatStyle::Ranged),
+    }));
+    state.attacks = attackWorld();
+
+    BattleAttackInstance first;
+    first.id = 10;
+    first.spawnedFromAttackId = 8;
+    first.state.attackerUnitId = 0;
+    first.state.preferredTargetUnitId = 1;
+    first.state.requirePreferredTarget = true;
+    first.state.totalFrame = 30;
+    first.state.position = { 100, 100, 0 };
+    first.state.velocity = { 5, 0, 0 };
+
+    BattleAttackInstance second = first;
+    second.id = 11;
+    second.spawnedFromAttackId = 9;
+
+    seedRuntimeUnitsFromWorld(state);
+    state.unitStore.requireUnit(1).alive = false;
+    state.attacks.attacks.push_back(first);
+    state.attacks.attacks.push_back(second);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.attackEvents.size() == 4);
+    const int targetLostCount = static_cast<int>(std::count_if(
+        result.attackEvents.begin(),
+        result.attackEvents.end(),
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::TargetLost;
+        }));
+    CHECK(targetLostCount == 2);
+    const int stopLogCount = static_cast<int>(std::count_if(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return BattleLogTest::textOf(event) == "連鎖彈道停止：2枚原目標失效";
+        }));
+    CHECK(stopLogCount == 1);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_AggregatesProjectileContactIgnoredByInvincible", "[battle][core]")
 {
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({
@@ -3790,23 +3900,30 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_LogsProjectileContactIgnoredByInvincib
     };
     state.unitStore.units[1].invincible = 3;
     state.attacks.attacks.push_back(projectile);
+    projectile.id = 11;
+    state.attacks.attacks.push_back(projectile);
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 2);
+    REQUIRE(result.attackEvents.size() == 4);
     CHECK(result.attackEvents[1].type == BattleAttackEventType::BlockedByInvincible);
     CHECK(result.attackEvents[1].sourceUnitId == 0);
     CHECK(result.attackEvents[1].unitId == 1);
+    CHECK(result.attackEvents[3].type == BattleAttackEventType::BlockedByInvincible);
+    CHECK(result.attackEvents[3].sourceUnitId == 0);
+    CHECK(result.attackEvents[3].unitId == 1);
     CHECK(result.hitResults.empty());
     CHECK(result.damageTransactions.empty());
     CHECK(state.unitStore.units[1].invincible > 0);
     REQUIRE(result.frame.logEvents.size() == 1);
     CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(result.frame.logEvents[0].sourceUnitId == 0);
-    CHECK(result.frame.logEvents[0].targetUnitId == 1);
-    CHECK(result.frame.logEvents[0].text == "彈道命中無敵：傷害忽略");
+    CHECK(result.frame.logEvents[0].sourceUnitId == 1);
+    CHECK(result.frame.logEvents[0].targetUnitId == -1);
+    CHECK(BattleLogTest::textOf(result.frame.logEvents[0]) == "彈道命中無敵：2枚傷害忽略");
     CHECK(result.frame.gameplayEvents[1].type == BattleGameplayEventType::StatusApplied);
     CHECK(result.frame.gameplayEvents[1].text == "彈道命中無敵：傷害忽略");
+    CHECK(result.frame.gameplayEvents[3].type == BattleGameplayEventType::StatusApplied);
+    CHECK(result.frame.gameplayEvents[3].text == "彈道命中無敵：傷害忽略");
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAttackId", "[battle][core]")
@@ -3860,7 +3977,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
     CHECK(result.frame.logEvents[0].sourceUnitId == 0);
     CHECK(result.frame.logEvents[0].targetUnitId == 1);
     CHECK(result.frame.logEvents[0].amount == 17);
-    CHECK(result.frame.logEvents[0].text == "抵消彈道 #10 vs #20（17 - 10 = 7）");
+    CHECK(BattleLogTest::textOf(result.frame.logEvents[0]) == "抵消彈道 #10 vs #20（17 - 10 = 7）");
+    CHECK(BattleLogTest::hasSegment(result.frame.logEvents[0], "#10", BattleLogTextTone::ProjectileId));
+    CHECK(BattleLogTest::hasSegment(result.frame.logEvents[0], "#20", BattleLogTextTone::ProjectileId));
+    CHECK(BattleLogTest::hasSegment(result.frame.logEvents[0], " - ", BattleLogTextTone::FormulaValue));
+    CHECK(BattleLogTest::hasSegment(result.frame.logEvents[0], " = ", BattleLogTextTone::FormulaValue));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ProjectileCancelLogPutsWinnerOnLeft", "[battle][core]")
@@ -3900,7 +4021,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ProjectileCancelLogPutsWinnerOnLeft", 
     CHECK(result.frame.logEvents[0].sourceUnitId == 1);
     CHECK(result.frame.logEvents[0].targetUnitId == 0);
     CHECK(result.frame.logEvents[0].amount == 17);
-    CHECK(result.frame.logEvents[0].text == "抵消彈道 #20 vs #10（17 - 10 = 7）");
+    CHECK(BattleLogTest::textOf(result.frame.logEvents[0]) == "抵消彈道 #20 vs #10（17 - 10 = 7）");
+    CHECK(BattleLogTest::hasSegment(result.frame.logEvents[0], "#20", BattleLogTextTone::ProjectileId));
+    CHECK(BattleLogTest::hasSegment(result.frame.logEvents[0], "#10", BattleLogTextTone::ProjectileId));
+    CHECK(BattleLogTest::hasSegment(result.frame.logEvents[0], " - ", BattleLogTextTone::FormulaValue));
+    CHECK(BattleLogTest::hasSegment(result.frame.logEvents[0], " = ", BattleLogTextTone::FormulaValue));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay", "[battle][core]")
@@ -3916,6 +4041,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
     BattleAttackInstance projectile;
     projectile.id = 10;
     projectile.state.attackerUnitId = 0;
+    projectile.state.skillId = 101;
+    projectile.state.skillMagicPower = 840;
     projectile.state.preferredTargetUnitId = 1;
     projectile.state.totalFrame = 30;
     projectile.state.visualEffectId = 44;
@@ -3934,18 +4061,31 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
     auto result = runBattleFrame(state);
 
     REQUIRE(result.attackEvents.size() == 3);
-    REQUIRE(result.frame.gameplayEvents.size() == 3);
-    REQUIRE(result.frame.logEvents.empty());
-    REQUIRE(result.frame.visualEvents.size() == result.attackEvents.size() + 1);
     CHECK(result.attackEvents[2].type == BattleAttackEventType::Bounce);
-    CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::AttackSpawned);
-    CHECK(result.frame.gameplayEvents[2].effectId == 30);
-    CHECK(result.frame.gameplayEvents[2].sourceUnitId == 0);
-    CHECK(result.frame.gameplayEvents[2].targetUnitId == 2);
+    const auto gameplaySpawn = std::find_if(
+        result.frame.gameplayEvents.begin(),
+        result.frame.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::AttackSpawned
+                && event.effectId == 30;
+        });
+    REQUIRE(gameplaySpawn != result.frame.gameplayEvents.end());
+    CHECK(gameplaySpawn->sourceUnitId == 0);
+    CHECK(gameplaySpawn->targetUnitId == 2);
     CHECK(result.frame.visualEvents[2].type == BattleVisualEventType::ProjectileBounced);
     CHECK(result.frame.visualEvents[2].effectId == 10);
     CHECK(result.frame.visualEvents[2].amount == 30);
-    const auto& spawnEvent = result.frame.visualEvents[3];
+    const auto visualSpawn = std::find_if(
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::ProjectileSpawned
+                && event.effectId == 30;
+        });
+    REQUIRE(visualSpawn != result.frame.visualEvents.end());
+    const auto& spawnEvent = *visualSpawn;
     CHECK(spawnEvent.type == BattleVisualEventType::ProjectileSpawned);
     CHECK(spawnEvent.effectId == 30);
     CHECK(spawnEvent.sourceUnitId == 0);
@@ -3955,4 +4095,59 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
     CHECK(spawnEvent.position.x != 0.0f);
     CHECK(spawnEvent.velocity.x > 0.0f);
     CHECK(spawnEvent.operationKind == 2);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_LogsBounceChainTerminalReasons", "[battle][core]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 105, 100, 0 }),
+        unit(2, 1, { 400, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+
+    BattleAttackInstance projectile;
+    projectile.id = 10;
+    projectile.state.attackerUnitId = 0;
+    projectile.state.skillId = 101;
+    projectile.state.skillMagicPower = 840;
+    projectile.state.preferredTargetUnitId = 1;
+    projectile.state.totalFrame = 30;
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
+    projectile.state.bounceRemaining = 2;
+    projectile.state.bounceRange = 90;
+    projectile.state.bounceChancePct = 100;
+    projectile.state.bounceRollPct = 0;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
+
+    seedRuntimeUnitsFromWorld(state);
+    state.attacks.attacks.push_back(projectile);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.attackEvents.size() == 3);
+    CHECK(result.attackEvents[2].type == BattleAttackEventType::ChainNoTargetInRange);
+    const auto damageLog = std::find_if(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Damage
+                && event.sourceUnitId == 0
+                && event.targetUnitId == 1;
+        });
+    const auto terminalLog = std::find_if(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.sourceUnitId == 0
+                && event.targetUnitId == -1
+                && BattleLogTest::textOf(event) == "連鎖彈道停止：1枚搜尋範圍內無可連鎖目標";
+        });
+    REQUIRE(damageLog != result.frame.logEvents.end());
+    REQUIRE(terminalLog != result.frame.logEvents.end());
+    CHECK(damageLog < terminalLog);
 }

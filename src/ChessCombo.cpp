@@ -286,7 +286,7 @@ std::vector<int> ChessCombo::getCombosForRole(int roleId)
     return result;
 }
 
-void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles)
+std::vector<AntiComboTransferEvent> ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles)
 {
     std::vector<ChessComboBattleUnitRef> units;
     units.reserve(allRoles.size());
@@ -301,10 +301,10 @@ void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<Role*>& all
             role->Cost,
         });
     }
-    transferAntiCombo(deadRoleId, units);
+    return transferAntiCombo(deadRoleId, units);
 }
 
-void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<ChessComboBattleUnitRef>& allUnits)
+std::vector<AntiComboTransferEvent> ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<ChessComboBattleUnitRef>& allUnits)
 {
     const auto deadIt = std::find_if(allUnits.begin(), allUnits.end(), [&](const auto& unit)
         {
@@ -312,6 +312,7 @@ void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<ChessComboB
         });
     assert(deadIt != allUnits.end());
 
+    std::vector<AntiComboTransferEvent> events;
     auto combos = getCombosForRole(deadIt->realRoleId);
     for (auto cid : combos)
     {
@@ -337,8 +338,10 @@ void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<ChessComboB
             auto& thresh = combo.thresholds[0];
             for (auto& e : thresh.effects)
                 ChessBattleEffects::applyEffect(activeStates_[bestId], e, cid);
+            events.push_back({ cid, deadIt->battleId, bestId });
         }
     }
+    return events;
 }
 
 int ChessCombo::calculateGoldBonus(const std::vector<ActiveCombo>& active, const std::vector<Chess>& survivors)

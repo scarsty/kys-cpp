@@ -125,16 +125,6 @@ struct BattleInitializationRoleDelta
     int hiddenWeapon{};
 };
 
-struct BattleInitializationCloneIntent
-{
-    int sourceUnitId{};
-    int cloneUnitId{};
-    int gridX{};
-    int gridY{};
-    BattleInitializationRoleDelta roleValues;
-    RoleComboState combo;
-};
-
 struct BattleInitializationEnemyTopDebuffDelta
 {
     int unitId{};
@@ -146,7 +136,6 @@ struct BattleInitializationEnemyTopDebuffDelta
 struct BattleInitializationResult
 {
     std::vector<BattleInitializationRoleDelta> roleDeltas;
-    std::vector<BattleInitializationCloneIntent> cloneIntents;
     std::vector<BattleInitializationEnemyTopDebuffDelta> enemyTopDebuffs;
     std::map<int, RoleComboState> comboStates;
     std::vector<BattleLogEvent> logEvents;

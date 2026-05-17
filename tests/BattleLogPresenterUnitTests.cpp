@@ -1,4 +1,5 @@
 #include "BattleLogPresenter.h"
+#include "battle/BattleLogSegments.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -22,7 +23,7 @@ TEST_CASE("BattleLogPresenter_BuildsRowsAndFormattedEntries", "[battle][log_pres
     BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
     BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
     BattleReportBuilder builder;
-    builder.recordDamage(&attacker, &defender, 20, "六脈神劍", 12, "連擊增傷 +20%");
+    builder.recordDamage(&attacker, &defender, 20, "六脈神劍", 12, KysChess::Battle::battleLogText("連擊增傷 +20%"));
     builder.recordBattleEnd(30, 0);
 
     BattlePostBattleSummary summary;
@@ -49,7 +50,7 @@ TEST_CASE("BattleLogPresenter_DisambiguatesDuplicateNames", "[battle][log_presen
     BattleUnitIdentity first{ 201, 2, 1, 12, "弟子" };
     BattleUnitIdentity second{ 202, 3, 1, 13, "弟子" };
     BattleReportBuilder builder;
-    builder.recordStatus(&first, &second, "測試狀態", 10);
+    builder.recordStatus(&first, &second, KysChess::Battle::BattleLogCategory::Status, KysChess::Battle::BattleLogPerspective::Targeted, KysChess::Battle::battleLogText("測試狀態"), 10);
 
     BattlePostBattleSummary summary;
     summary.battleResult = 0;
@@ -68,7 +69,7 @@ TEST_CASE("BattleLogPresenter_FiltersByParticipantAndCategory", "[battle][log_pr
     BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
     BattleReportBuilder builder;
     builder.recordDamage(&attacker, &defender, 20, "六脈神劍", 12);
-    builder.recordStatus(&attacker, &defender, "眩暈（12幀）", 13);
+    builder.recordStatus(&attacker, &defender, KysChess::Battle::BattleLogCategory::Status, KysChess::Battle::BattleLogPerspective::Targeted, KysChess::Battle::battleLogText("眩暈（12幀）"), 13);
 
     BattlePostBattleSummary summary;
     summary.allies.push_back(summaryUnit(101, 0, "段譽"));
@@ -89,8 +90,8 @@ TEST_CASE("BattleLogPresenter_ClassifiesCastCancelAndLifecycleCategories", "[bat
     BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
     BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
     BattleReportBuilder builder;
-    builder.recordStatus(&attacker, &defender, "施放六脈神劍", 10);
-    builder.recordStatus(&attacker, &defender, "抵消彈道 #34 vs #29（100 - 65 = 35）", 11);
+    builder.recordStatus(&attacker, &defender, KysChess::Battle::BattleLogCategory::Cast, KysChess::Battle::BattleLogPerspective::Targeted, KysChess::Battle::battleLogText("施放六脈神劍"), 10);
+    builder.recordStatus(&attacker, &defender, KysChess::Battle::BattleLogCategory::ProjectileCancel, KysChess::Battle::BattleLogPerspective::Targeted, KysChess::Battle::battleLogText("抵消彈道 #34 vs #29（100 - 65 = 35）"), 11);
     builder.recordKill(&attacker, &defender, 12);
     builder.recordDeath(&defender, 12);
 
@@ -126,16 +127,31 @@ TEST_CASE("BattleLogPresenter_ClassifiesCastCancelAndLifecycleCategories", "[bat
 
 TEST_CASE("BattleLogPresenter_ColorsFramesDurationsProjectileIdsAndFormulas", "[battle][log_presenter]")
 {
-    constexpr auto durationTone = static_cast<BattleLogFieldTone>(6);
-    constexpr auto frameTone = static_cast<BattleLogFieldTone>(7);
-    constexpr auto formulaTone = static_cast<BattleLogFieldTone>(8);
-    constexpr auto projectileTone = static_cast<BattleLogFieldTone>(9);
+    using KysChess::Battle::BattleLogTextSegment;
+    using KysChess::Battle::BattleLogTextTone;
+    constexpr auto durationTone = BattleLogTextTone::DurationValue;
+    constexpr auto frameTone = BattleLogTextTone::FrameValue;
+    constexpr auto formulaTone = BattleLogTextTone::FormulaValue;
+    constexpr auto projectileTone = BattleLogTextTone::ProjectileId;
 
     BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
     BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
     BattleReportBuilder builder;
-    builder.recordStatus(&attacker, &defender, "眩暈（12幀）", 13);
-    builder.recordStatus(&attacker, &defender, "抵消彈道 #34 vs #29（100 - 65 = 35）", 14);
+    builder.recordStatus(&attacker, &defender, KysChess::Battle::BattleLogCategory::Status, KysChess::Battle::BattleLogPerspective::Targeted, {
+        { "眩暈（", BattleLogTextTone::SkillName },
+        { "12", BattleLogTextTone::DurationValue },
+        { "幀", BattleLogTextTone::DurationValue },
+        { "）", BattleLogTextTone::SkillName },
+    }, 13);
+    builder.recordStatus(&attacker, &defender, KysChess::Battle::BattleLogCategory::ProjectileCancel, KysChess::Battle::BattleLogPerspective::Targeted, {
+        { "抵消彈道 ", BattleLogTextTone::SkillName },
+        { "#34", BattleLogTextTone::ProjectileId },
+        { " vs ", BattleLogTextTone::SkillName },
+        { "#29", BattleLogTextTone::ProjectileId },
+        { "（", BattleLogTextTone::SkillName },
+        { "100 - 65 = 35", BattleLogTextTone::FormulaValue },
+        { "）", BattleLogTextTone::SkillName },
+    }, 14);
 
     BattlePostBattleSummary summary;
     summary.allies.push_back(summaryUnit(101, 0, "段譽"));
@@ -147,20 +163,67 @@ TEST_CASE("BattleLogPresenter_ColorsFramesDurationsProjectileIdsAndFormulas", "[
     CHECK(model.entries[0].plainText() == "[  13F] 段譽 對 岳不群：眩暈（12幀）");
     CHECK(model.entries[1].plainText() == "[  14F] 段譽 對 岳不群：抵消彈道 #34 vs #29（100 - 65 = 35）");
 
-    auto hasSegment = [](const BattleLogEntryView& entry, std::string_view text, BattleLogFieldTone tone)
+    auto hasSegment = [](const BattleLogEntryView& entry, std::string_view text, BattleLogTextTone tone)
     {
         return std::any_of(
             entry.segments.begin(),
             entry.segments.end(),
-            [&](const BattleLogSegment& segment)
+            [&](const BattleLogTextSegment& segment)
             {
                 return segment.text == text && segment.tone == tone;
             });
     };
 
     CHECK(hasSegment(model.entries[0], "  13F", frameTone));
-    CHECK(hasSegment(model.entries[0], "12幀", durationTone));
+    CHECK(hasSegment(model.entries[0], "12", durationTone));
+    CHECK(hasSegment(model.entries[0], "幀", durationTone));
     CHECK(hasSegment(model.entries[1], "#34", projectileTone));
     CHECK(hasSegment(model.entries[1], "#29", projectileTone));
     CHECK(hasSegment(model.entries[1], "100 - 65 = 35", formulaTone));
+}
+
+TEST_CASE("BattleLogPresenter_SourceOnlyStatusUsesSourceFocusedOrdering", "[battle][log_presenter]")
+{
+    BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
+    BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
+    BattleReportBuilder builder;
+    builder.recordStatus(
+        &defender,
+        &attacker,
+        KysChess::Battle::BattleLogCategory::Status,
+        KysChess::Battle::BattleLogPerspective::SourceOnly,
+        KysChess::Battle::battleLogText("閃避了來襲攻擊"),
+        13);
+
+    BattlePostBattleSummary summary;
+    summary.allies.push_back(summaryUnit(101, 0, "段譽"));
+    summary.enemies.push_back(summaryUnit(202, 1, "岳不群"));
+
+    auto model = BattleLogPresenter().present(summary, builder.report());
+
+    REQUIRE(model.entries.size() == 1);
+    CHECK(model.entries[0].plainText() == "[  13F] 岳不群：閃避了來襲攻擊");
+}
+
+TEST_CASE("BattleLogPresenter_OmitsDamageDetailParensWhenSegmentsHaveNoVisibleText", "[battle][log_presenter]")
+{
+    BattleUnitIdentity attacker{ 101, 1, 0, 11, "郭襄" };
+    BattleUnitIdentity defender{ 202, 2, 1, 12, "玄慈" };
+    BattleReportBuilder builder;
+    builder.recordDamage(
+        &attacker,
+        &defender,
+        205,
+        "滅劍絕劍",
+        252,
+        { { "", KysChess::Battle::BattleLogTextTone::SkillName } });
+
+    BattlePostBattleSummary summary;
+    summary.allies.push_back(summaryUnit(101, 0, "郭襄"));
+    summary.enemies.push_back(summaryUnit(202, 1, "玄慈"));
+
+    auto model = BattleLogPresenter().present(summary, builder.report());
+
+    REQUIRE(model.entries.size() == 1);
+    CHECK(model.entries[0].plainText() == "[ 252F] 郭襄 施放 滅劍絕劍 命中 玄慈，造成 205 點傷害");
 }

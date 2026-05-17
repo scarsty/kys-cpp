@@ -121,6 +121,8 @@ enum class BattleAttackEventType
     Hit,
     Expired,
     TargetLost,
+    ChainEnded,
+    ChainNoTargetInRange,
     ProjectileCancel,
     BlockedByInvincible,
     Bounce

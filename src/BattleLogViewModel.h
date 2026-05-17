@@ -1,5 +1,7 @@
 #pragma once
 
+#include "battle/BattlePresentation.h"
+
 #include <string>
 #include <vector>
 
@@ -9,20 +11,6 @@ enum class BattleLogEntryTone
     Ally,
     Enemy,
     System
-};
-
-enum class BattleLogFieldTone
-{
-    Default,
-    AllyName,
-    EnemyName,
-    SkillName,
-    DamageValue,
-    SystemAccent,
-    DurationValue,
-    FrameValue,
-    FormulaValue,
-    ProjectileId
 };
 
 enum class BattleLogEntryCategory
@@ -37,12 +25,6 @@ enum class BattleLogEntryCategory
     BattleEnd
 };
 
-struct BattleLogSegment
-{
-    std::string text;
-    BattleLogFieldTone tone = BattleLogFieldTone::Default;
-};
-
 struct BattleLogEntryView
 {
     BattleLogEntryTone tone = BattleLogEntryTone::Neutral;
@@ -51,7 +33,7 @@ struct BattleLogEntryView
     int targetId = -1;
     int sourceTeam = -1;
     int targetTeam = -1;
-    std::vector<BattleLogSegment> segments;
+    std::vector<KysChess::Battle::BattleLogTextSegment> segments;
 
     std::string plainText() const;
 };

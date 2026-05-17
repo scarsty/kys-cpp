@@ -1,4 +1,5 @@
 #include "battle/BattleInitialization.h"
+#include "BattleLogTestHelpers.h"
 #include "battle/BattleRuntimeSession.h"
 #include "BattleStarStats.h"
 #include "ChessCombo.h"
@@ -237,7 +238,6 @@ TEST_CASE("BattleInitializationSystem_CompilesPureRuntimeInitializationApi", "[b
     auto result = BattleInitializationSystem().initialize(runtime, setup);
 
     CHECK(result.roleDeltas.empty());
-    CHECK(result.cloneIntents.empty());
     CHECK(result.logEvents.empty());
 }
 
@@ -414,8 +414,42 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     REQUIRE(result.logEvents.size() == 2);
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
     CHECK(result.logEvents[0].sourceUnitId == 0);
-    CHECK(result.logEvents[0].text == "獲取50護盾");
-    CHECK(result.logEvents[1].text == "全隊獲取15護盾");
+    CHECK(BattleLogTest::textOf(result.logEvents[0]) == "獲取50護盾");
+    CHECK(BattleLogTest::textOf(result.logEvents[1]) == "全隊獲取15護盾");
+}
+
+TEST_CASE("BattleInitializationSystem_EnemyTopDebuffEmitsBattleLog", "[battle][initialization]")
+{
+    BattleRuntimeState runtime;
+    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
+    runtime.unitStore.units.push_back(runtimeUnit(1, 1, 100, 80, 50, 40));
+    runtime.unitStore.units.push_back(runtimeUnit(2, 1, 120, 60, 40, 40));
+    runtime.status.units.push_back(statusRuntime(0, 100, 20));
+    runtime.status.units.push_back(statusRuntime(1, 100, 80));
+    runtime.status.units.push_back(statusRuntime(2, 120, 60));
+
+    RoleComboState combo;
+    combo.enemyTopDebuffCount = 1;
+    combo.enemyTopDebuffValue = 7;
+
+    BattleRuntimeSetupSeed setup;
+    setup.units.push_back({ .unitId = 0, .realRoleId = 1001, .team = 0, .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40, .baseCombo = combo });
+    setup.units.push_back({ .unitId = 1, .realRoleId = 1002, .team = 1, .star = 1, .cost = 3, .baseMaxHp = 100, .baseAttack = 80, .baseDefence = 50, .baseSpeed = 40 });
+    setup.units.push_back({ .unitId = 2, .realRoleId = 1003, .team = 1, .star = 1, .cost = 1, .baseMaxHp = 120, .baseAttack = 60, .baseDefence = 40, .baseSpeed = 40 });
+
+    auto result = BattleInitializationSystem().initialize(runtime, setup);
+
+    REQUIRE(result.enemyTopDebuffs.size() == 1);
+    CHECK(result.enemyTopDebuffs[0].unitId == 1);
+    CHECK(runtime.unitStore.requireUnit(1).stats.attack == 73);
+    CHECK(runtime.unitStore.requireUnit(1).stats.defence == 43);
+    auto logIt = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
+    {
+        return event.type == BattleLogEventType::Status
+            && event.targetUnitId == 1
+            && BattleLogTest::textOf(event) == "陰險：前1名攻防-7（1名存活）";
+    });
+    CHECK(logIt != result.logEvents.end());
 }
 
 TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[battle][initialization]")
@@ -433,19 +467,16 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
 
     auto result = BattleInitializationSystem().initialize(runtime, setup);
 
-    REQUIRE(result.cloneIntents.size() == 1);
-    const auto& intent = result.cloneIntents[0];
-    CHECK(intent.sourceUnitId == 0);
-    CHECK(intent.cloneUnitId == 1);
-    CHECK(intent.gridX == 3);
-    CHECK(intent.gridY == 4);
-    CHECK(intent.roleValues.unitId == 1);
-    CHECK(intent.roleValues.vitals.maxHp == 100);
-    CHECK(intent.roleValues.vitals.hp == 100);
-    CHECK(intent.roleValues.stats.attack == 20);
-    CHECK(intent.roleValues.stats.defence == 30);
-    CHECK(intent.roleValues.stats.speed == 40);
-    CHECK(runtime.unitStore.findUnit(1) != nullptr);
+    const auto* clone = runtime.unitStore.findUnit(1);
+    REQUIRE(clone != nullptr);
+    CHECK(clone->presentationSourceUnitId == 0);
+    CHECK(clone->grid.x == 3);
+    CHECK(clone->grid.y == 4);
+    CHECK(clone->vitals.maxHp == 100);
+    CHECK(clone->vitals.hp == 100);
+    CHECK(clone->stats.attack == 20);
+    CHECK(clone->stats.defence == 30);
+    CHECK(clone->stats.speed == 40);
     CHECK(runtime.combo.units.find(1) != runtime.combo.units.end());
 }
 
@@ -482,15 +513,12 @@ TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[bat
 
     auto creation = BattleRuntimeSession::createInitialized(std::move(input));
     auto& session = creation.session;
-    const auto& initialization = creation.initialization;
 
     const auto& units = session.runtime().unitStore.units;
     REQUIRE(units.size() == 2);
-    REQUIRE(initialization.cloneIntents.size() == 1);
-    CHECK(initialization.cloneIntents[0].sourceUnitId == 0);
-    CHECK(initialization.cloneIntents[0].cloneUnitId == 1);
     const auto& sourceUnit = session.runtime().unitStore.requireUnit(0);
     const auto& cloneUnit = session.runtime().unitStore.requireUnit(1);
+    CHECK(cloneUnit.presentationSourceUnitId == 0);
     CHECK(cloneUnit.realRoleId == 1001);
     CHECK(cloneUnit.vitals.hp == sourceUnit.vitals.hp);
     CHECK(cloneUnit.vitals.maxHp == sourceUnit.vitals.maxHp);
@@ -541,11 +569,6 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionAdvancesUnitsAfterSetupPlaceme
     addInitializedRuntimeTestUnit(input, 1, 1002, 1, 10, 10, Towards_LeftUp);
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
-
-    BattleSetupPlacementInput placement;
-    placement.units.push_back({ 0, 3, 3, Towards_RightDown });
-    placement.units.push_back({ 1, 10, 10, Towards_LeftUp });
-    session.commitSetupPlacement(placement);
 
     const auto initialAlly = session.runtime().unitStore.requireUnit(0).motion.position;
     const auto initialEnemy = session.runtime().unitStore.requireUnit(1).motion.position;
@@ -619,11 +642,6 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[b
         projectileSkill);
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
-
-    BattleSetupPlacementInput placement;
-    placement.units.push_back({ 0, 3, 3, Towards_RightDown });
-    placement.units.push_back({ 1, 5, 3, Towards_LeftUp });
-    session.commitSetupPlacement(placement);
 
     bool playedAttackSound = false;
     bool emittedProjectile = false;

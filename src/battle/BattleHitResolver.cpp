@@ -1,9 +1,9 @@
 #include "BattleHitResolver.h"
 
+#include "BattleLogSegments.h"
 #include "../ChessEftIds.h"
 #include "BattleComboTriggerSystem.h"
 #include "BattleCore.h"
-#include "BattleStatusFormat.h"
 
 #include <algorithm>
 #include <cassert>
@@ -26,15 +26,6 @@ double pointMagnitude(const Pointf& point)
         + static_cast<double>(point.z) * point.z);
 }
 
-std::string formatStatusFrames(const char* label, int frames)
-{
-    if (frames <= 0)
-    {
-        return label;
-    }
-    return std::format("{}（{}幀）", label, frames);
-}
-
 std::string formatStatusPercent(const char* label, int pct)
 {
     if (pct <= 0)
@@ -54,7 +45,7 @@ std::string formatStatusPercentFrames(const char* label, int pct, int frames)
     {
         return formatStatusPercent(label, pct);
     }
-    return formatStatusFrames(label, frames);
+    return frames > 0 ? std::format("{}（{}幀）", label, frames) : std::string(label);
 }
 
 std::string formatStackingEffectStatus(const char* label, int pctPerStack, int stacks)
@@ -136,8 +127,32 @@ BattleLogEvent statusEvent(int sourceUnitId, int targetUnitId, std::string text)
     event.type = BattleLogEventType::Status;
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
-    event.text = std::move(text);
+    event.segments = battleLogText(std::move(text), BattleLogTextTone::SkillName);
     return event;
+}
+
+BattleLogEvent statusEvent(
+    int sourceUnitId,
+    int targetUnitId,
+    std::vector<BattleLogTextSegment> segments,
+    BattleLogPerspective perspective = BattleLogPerspective::Targeted)
+{
+    BattleLogEvent event;
+    event.type = BattleLogEventType::Status;
+    event.sourceUnitId = sourceUnitId;
+    event.targetUnitId = targetUnitId;
+    event.perspective = perspective;
+    event.segments = std::move(segments);
+    return event;
+}
+
+BattleLogEvent sourceStatusEvent(int sourceUnitId, int targetUnitId, std::string text)
+{
+    return statusEvent(
+        sourceUnitId,
+        targetUnitId,
+        battleLogText(std::move(text), BattleLogTextTone::SkillName),
+        BattleLogPerspective::SourceOnly);
 }
 
 BattleLogEvent healEvent(int sourceUnitId, int targetUnitId, int amount, std::string reason)
@@ -147,7 +162,7 @@ BattleLogEvent healEvent(int sourceUnitId, int targetUnitId, int amount, std::st
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
     event.amount = amount;
-    event.text = std::move(reason);
+    event.segments = battleLogText(std::move(reason), BattleLogTextTone::SkillName);
     return event;
 }
 
@@ -363,7 +378,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                     false,
                     0,
                     "",
-                    currentHp->reason,
+                    battleLogText(currentHp->reason, BattleLogTextTone::SkillName),
                     false,
                 });
             }
@@ -553,7 +568,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 result.logEvents.push_back(statusEvent(
                     input.attacker.id,
                     input.defender.id,
-                    formatStatusFrames("眩暈", input.attackEvent.scriptedStunFrames)));
+                    logStatusFrames("眩暈", input.attackEvent.scriptedStunFrames)));
             }
             if (input.attackEvent.scriptedBleedStacks > 0)
             {
@@ -574,7 +589,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 false,
                 0,
                 "",
-                "特效傷害",
+                battleLogText("特效傷害", BattleLogTextTone::SkillName),
             });
             result.finalHpDamage = input.attackEvent.scriptedDamage;
         }
@@ -720,7 +735,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         result.logEvents.push_back(statusEvent(
             input.attacker.id,
             input.defender.id,
-            formatStatusFrames("眩暈", legacyStunFrames)));
+            logStatusFrames("眩暈", legacyStunFrames)));
     }
 
     if (offensiveControlEffectsAllowed)
@@ -737,7 +752,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
-                formatStatusFrames("眩暈", stunCommand.frames)));
+                logStatusFrames("眩暈", stunCommand.frames)));
             BattleComboTriggerSystem().recordActivation(
                 attackerCombo,
                 static_cast<size_t>(stunCommand.effectIndex));
@@ -889,7 +904,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         result.logEvents.push_back(statusEvent(
             input.defender.id,
             input.attacker.id,
-            formatStatusFrames("反制並眩暈對手", stunCommand.frames)));
+            logStatusFrames("反制並眩暈對手", stunCommand.frames)));
         BattleComboTriggerSystem().recordActivation(
             defenderCombo,
             static_cast<size_t>(stunCommand.effectIndex));
@@ -906,7 +921,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             "彈反",
             { 180, 150, 255, 255 },
             24));
-        result.logEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "彈反了遠程攻擊"));
+        result.logEvents.push_back(sourceStatusEvent(input.defender.id, input.attacker.id, "彈反了遠程攻擊"));
     }
 
     if (!result.reflected)
@@ -943,12 +958,12 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         {
         case BattleDefenderBlockCommand::CounterUltimateBlock:
             result.visualEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
-            result.logEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋後釋放絕招"));
+            result.logEvents.push_back(sourceStatusEvent(input.defender.id, input.attacker.id, "格擋後釋放絕招"));
             result.commands.push_back(BattleAutoUltimateCommand{ input.defender.id, false });
             break;
         case BattleDefenderBlockCommand::Block:
             result.visualEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
-            result.logEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋了本次攻擊"));
+            result.logEvents.push_back(sourceStatusEvent(input.defender.id, input.attacker.id, "格擋了本次攻擊"));
             break;
         default:
             assert(false);
@@ -987,7 +1002,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 false,
                 0,
                 "",
-                "技能反彈",
+                battleLogText("技能反彈", BattleLogTextTone::SkillName),
                 false,
             });
         }
@@ -1047,7 +1062,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
-                formatStatusFrames("封內", mpBlock.effect.value)));
+                logStatusFrames("封內", mpBlock.effect.value)));
         }
 
         std::vector<BattleComboTriggerEvent> followUpEvents;
@@ -1104,7 +1119,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 !result.reflected && result.executed,
                 !result.reflected ? impactFrozenFrames : 0,
                 input.skill.name,
-                damageDetail,
+                battleLogText(damageDetail, BattleLogTextTone::SkillName),
                 !result.reflected,
             });
             result.finalHpDamage = damage;

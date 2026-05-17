@@ -2,9 +2,9 @@
 
 #include "../ChessEftIds.h"
 #include "BattleComboTriggerSystem.h"
+#include "BattleLogSegments.h"
 #include "../Find.h"
 #include "BattleResourceRules.h"
-#include "BattleStatusFormat.h"
 #include "BattleUnitStore.h"
 
 #include <algorithm>
@@ -22,27 +22,22 @@ namespace
 
 constexpr int RoleStatusEffectFrames = 45;
 
-std::string formatStatusFrames(const char* label, int frames)
-{
-    if (frames <= 0)
-    {
-        return label;
-    }
-    return std::format("{}（{}幀）", label, frames);
-}
-
-std::string formatAppliedStatusLog(const BattleDamageEvent& event)
+std::vector<BattleLogTextSegment> formatAppliedStatusLog(const BattleDamageEvent& event)
 {
     auto withValue = [&](const char* label)
     {
         return event.value > 0
-            ? std::format("{}（{}）", label, event.value)
-            : std::string(label);
+            ? logSegments<BattleLogTextTone::Negative>(
+                label,
+                "（",
+                std::pair{ BattleLogTextTone::ResourceValue, event.value },
+                "）")
+            : logSegments<BattleLogTextTone::Negative>(label);
     };
     switch (event.statusType)
     {
     case BattleDamageStatusType::Frozen:
-        return formatStatusFrames("受擊硬直", event.value);
+        return logStatusFrames<BattleLogTextTone::Negative>("受擊硬直", event.value);
     case BattleDamageStatusType::Poison:
         return withValue("中毒");
     case BattleDamageStatusType::Bleed:
@@ -50,15 +45,15 @@ std::string formatAppliedStatusLog(const BattleDamageEvent& event)
     case BattleDamageStatusType::DamageReduceDebuff:
         return withValue("破防");
     case BattleDamageStatusType::MpBlocked:
-        return formatStatusFrames("封內", event.value);
+        return logStatusFrames<BattleLogTextTone::Negative>("封內", event.value);
     case BattleDamageStatusType::None:
-        return "狀態";
+        return logSegments<BattleLogTextTone::Negative>("狀態");
     }
     assert(false);
-    return "狀態";
+    return logSegments<BattleLogTextTone::Negative>("狀態");
 }
 
-std::string formatAppliedStatusLog(
+std::vector<BattleLogTextSegment> formatAppliedStatusLog(
     const BattleDamageTransactionResult& transaction,
     const BattleDamageEvent& event)
 {
@@ -69,7 +64,7 @@ std::string formatAppliedStatusLog(
 
     const int currentStacks = std::max(event.value, transaction.defenderStatus.effects.bleedStacks);
     const int maxStacks = std::max(currentStacks, event.maxValue);
-    return formatStatusRange("流血", currentStacks, maxStacks, "層");
+    return logStatusRange<BattleLogTextTone::Negative>("流血", currentStacks, maxStacks, "層");
 }
 
 BattleLogEvent makeDeathPreventionLog(const BattleDamageEvent& event)
@@ -79,7 +74,7 @@ BattleLogEvent makeDeathPreventionLog(const BattleDamageEvent& event)
     log.sourceUnitId = event.targetUnitId;
     log.targetUnitId = event.targetUnitId;
     log.amount = event.value;
-    log.text = formatStatusFrames("死亡庇護", event.value);
+    log.segments = logStatusFrames<BattleLogTextTone::Positive>("死亡庇護", event.value);
     return log;
 }
 
@@ -402,7 +397,7 @@ void appendDamageOutputEvents(BattleDamageApplicationResult& result,
     damageLog.targetUnitId = transaction.defender.id;
     damageLog.amount = hpDamage;
     damageLog.skillName = presentation.skillName;
-    damageLog.detailText = presentation.detailText;
+    damageLog.segments = presentation.segments;
     result.logEvents.push_back(std::move(damageLog));
 }
 
@@ -421,7 +416,7 @@ void appendDamageTransactionPreDeathLogEvents(BattleDamageApplicationResult& res
         log.sourceUnitId = event.sourceUnitId;
         log.targetUnitId = event.targetUnitId;
         log.amount = event.value;
-        log.text = formatAppliedStatusLog(transaction, event);
+        log.segments = formatAppliedStatusLog(transaction, event);
         result.logEvents.push_back(std::move(log));
     }
 
@@ -432,7 +427,8 @@ void appendDamageTransactionPreDeathLogEvents(BattleDamageApplicationResult& res
         log.type = BattleLogEventType::Status;
         log.sourceUnitId = transaction.defender.id;
         log.targetUnitId = transaction.attacker.id;
-        log.text = "格擋了首輪傷害";
+        log.perspective = BattleLogPerspective::SourceOnly;
+        log.segments = battleLogText("格擋了首輪傷害", BattleLogTextTone::Positive);
         result.logEvents.push_back(std::move(log));
     }
 
@@ -443,7 +439,10 @@ void appendDamageTransactionPreDeathLogEvents(BattleDamageApplicationResult& res
         log.sourceUnitId = transaction.defender.id;
         log.targetUnitId = transaction.attacker.id;
         log.amount = transaction.shieldAbsorbed;
-        log.text = std::format("護盾吸收 {}", transaction.shieldAbsorbed);
+        log.perspective = BattleLogPerspective::SourceOnly;
+        log.segments = logSegments<BattleLogTextTone::Positive>(
+            "護盾吸收 ",
+            std::pair{ BattleLogTextTone::ShieldValue, transaction.shieldAbsorbed });
         result.logEvents.push_back(std::move(log));
     }
 
@@ -454,7 +453,7 @@ void appendDamageTransactionPreDeathLogEvents(BattleDamageApplicationResult& res
         log.sourceUnitId = transaction.defender.id;
         log.targetUnitId = transaction.defender.id;
         log.amount = transaction.defenderDelta.invincibleDelta;
-        log.text = formatStatusFrames("受傷無敵", transaction.defenderDelta.invincibleDelta);
+        log.segments = logStatusFrames<BattleLogTextTone::Positive>("受傷無敵", transaction.defenderDelta.invincibleDelta);
         result.logEvents.push_back(std::move(log));
     }
 }
@@ -474,9 +473,11 @@ void appendDamageTransactionKillRewardLogEvents(BattleDamageApplicationResult& r
         log.sourceUnitId = transaction.attacker.id;
         log.targetUnitId = transaction.attacker.id;
         log.amount = transaction.attackerDelta.hpDelta;
-        log.text = transaction.attacker.killHealPct > 0
-            ? std::format("擊殺回復 {}%", transaction.attacker.killHealPct)
-            : "擊殺回復";
+        log.segments = transaction.attacker.killHealPct > 0
+            ? logSegments<BattleLogTextTone::Positive>(
+                "擊殺回復 ",
+                std::pair{ BattleLogTextTone::HealValue, std::format("{}%", transaction.attacker.killHealPct) })
+            : battleLogText("擊殺回復", BattleLogTextTone::Positive);
         result.logEvents.push_back(std::move(log));
     }
     if (transaction.attackerDelta.invincibleDelta > 0)
@@ -486,7 +487,7 @@ void appendDamageTransactionKillRewardLogEvents(BattleDamageApplicationResult& r
         log.sourceUnitId = transaction.attacker.id;
         log.targetUnitId = transaction.attacker.id;
         log.amount = transaction.attackerDelta.invincibleDelta;
-        log.text = formatStatusFrames("擊殺無敵", transaction.attackerDelta.invincibleDelta);
+        log.segments = logStatusFrames<BattleLogTextTone::Positive>("擊殺無敵", transaction.attackerDelta.invincibleDelta);
         result.logEvents.push_back(std::move(log));
     }
     if (transaction.attackerDelta.attackDelta > 0)
@@ -496,7 +497,10 @@ void appendDamageTransactionKillRewardLogEvents(BattleDamageApplicationResult& r
         log.sourceUnitId = transaction.attacker.id;
         log.targetUnitId = transaction.attacker.id;
         log.amount = transaction.attackerDelta.attackDelta;
-        log.text = std::format("嗜血（+{}攻）", transaction.attackerDelta.attackDelta);
+        log.segments = logSegments<BattleLogTextTone::Positive>(
+            "嗜血（+",
+            std::pair{ BattleLogTextTone::DamageValue, transaction.attackerDelta.attackDelta },
+            "攻）");
         result.logEvents.push_back(std::move(log));
     }
 }

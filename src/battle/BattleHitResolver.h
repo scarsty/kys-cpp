@@ -57,7 +57,7 @@ struct BattleHpDamageCommand
     bool executed{};
     int frozenFrames{};
     std::string skillName;
-    std::string detailText;
+    std::vector<BattleLogTextSegment> segments;
     bool triggersDefenseEffects = true;
 };
 

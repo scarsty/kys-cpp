@@ -29,7 +29,7 @@ struct BattleDamagePresentationInput
     bool ultimate = false;
     bool executed = false;
     std::string skillName;
-    std::string detailText;
+    std::vector<BattleLogTextSegment> segments;
     BattlePresentationColor normalDamageColor;
     BattlePresentationColor emphasizedDamageColor;
     BattlePresentationColor executeTextColor{ 255, 136, 48, 255 };

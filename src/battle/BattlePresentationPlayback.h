@@ -34,7 +34,7 @@ struct BattlePresentationCommand
     int textMotionType{};
     std::string text;
     std::string skillName;
-    std::string detailText;
+    std::vector<BattleLogTextSegment> segments;
     BattlePresentationColor color;
     Pointf position;
     int visualEffectId{};

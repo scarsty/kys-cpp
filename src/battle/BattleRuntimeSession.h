@@ -13,19 +13,6 @@
 namespace KysChess::Battle
 {
 
-struct BattleSetupPlacementUnit
-{
-    int unitId = -1;
-    int x = 0;
-    int y = 0;
-    int faceTowards = 0;
-};
-
-struct BattleSetupPlacementInput
-{
-    std::vector<BattleSetupPlacementUnit> units;
-};
-
 struct BattleSetupUnitInput
 {
     int unitId = -1;
@@ -92,7 +79,7 @@ public:
     static BattleRuntimeSessionCreationResult createInitialized(BattleRuntimeSessionCreationInput input);
 
     BattleFrameResult runFrame();
-    void commitSetupPlacement(const BattleSetupPlacementInput& input);
+    void swapSetupUnitPositions(int firstUnitId, int secondUnitId);
 
     const BattleRuntimeState& runtime() const;
     const BattleRuntimeUnit& requireRuntimeUnit(int unitId) const;
@@ -101,7 +88,6 @@ public:
 private:
     BattleRuntimeState runtime_;
     BattleFrameRunner runner_;
-    bool setupPlacementCommitted_ = false;
     bool frameStarted_ = false;
 };
 

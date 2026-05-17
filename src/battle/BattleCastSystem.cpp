@@ -1,5 +1,6 @@
 #include "BattleCastSystem.h"
 
+#include "BattleLogSegments.h"
 #include "../Find.h"
 #include "BattleMath.h"
 #include "BattleCombatIntent.h"
@@ -699,14 +700,12 @@ void appendBlinkTeleportDelta(
         cell.position,
         facing,
     });
-    result.logEvents.push_back({
-        BattleLogEventType::Status,
-        BattlePresentationCurrentFrame,
-        input.sourceUnitId,
-        command.targetUnitId,
-        0,
-        command.selectedWeakest ? "閃擊追殺" : "閃擊突襲",
-    });
+    BattleLogEvent log;
+    log.type = BattleLogEventType::Status;
+    log.sourceUnitId = input.sourceUnitId;
+    log.targetUnitId = command.targetUnitId;
+    log.segments = battleLogText(command.selectedWeakest ? "閃擊追殺" : "閃擊突襲", BattleLogTextTone::SkillName);
+    result.logEvents.push_back(std::move(log));
 }
 
 void appendBlinkAttackCommand(
@@ -910,7 +909,16 @@ void appendCastActionStartOutput(BattleCastResult& result,
     logEvent.sourceUnitId = input.unit.id;
     logEvent.targetUnitId = input.targetUnitId;
     logEvent.skillName = selectedSkill.name;
-    logEvent.text = selectedSkill.name.empty() ? "出手" : "施放" + selectedSkill.name;
+    if (selectedSkill.name.empty())
+    {
+        logEvent.segments = battleLogText("出手");
+    }
+    else
+    {
+        logEvent.segments = logSegments(
+            "施放",
+            std::pair{ BattleLogTextTone::SkillName, selectedSkill.name });
+    }
     result.logEvents.push_back(std::move(logEvent));
 
     if (result.decision.announceUltimate && !selectedSkill.name.empty())

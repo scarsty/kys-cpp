@@ -111,7 +111,7 @@ BattlePresentationCommand BattlePresentationPlaybackPlanner::makeCommand(const B
     command.textMotionType = event.textMotionType;
     command.text = event.text;
     command.skillName = event.skillName;
-    command.detailText = event.detailText;
+    command.segments = event.segments;
     command.color = event.color;
     command.position = event.position;
     command.visualEffectId = isProjectileEvent(event.type) ? event.visualEffectId : event.effectId;

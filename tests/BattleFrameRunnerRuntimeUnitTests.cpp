@@ -1,4 +1,5 @@
 #include "battle/BattleCore.h"
+#include "BattleLogTestHelpers.h"
 #include "battle/BattleHitResolver.h"
 #include "battle/BattleRuntimeSession.h"
 
@@ -357,31 +358,6 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStoresAligned
     CHECK(runtime.movement.agents.at(0).physics.position.y == unit.motion.position.y);
 }
 
-TEST_CASE("BattleRuntimeSession_CommitSetupPlacementUpdatesOwnedRuntime", "[battle][runtime_session][ownership]")
-{
-    auto runtime = ownedRuntimeState();
-    runtime.unitStore.gridTransform = { SceneTileWidth, 18 };
-    seedRuntimeUnits(runtime, {
-        teamRuntimeUnitAt(0, 0, 100, { 100, 100, 0 }),
-    });
-    runtime.movement.agents.emplace(0, BattleMovementAgentState{});
-    BattleRuntimeSession session(std::move(runtime));
-
-    BattleSetupPlacementInput placement;
-    placement.units.push_back({ 0, 3, 4, 2 });
-
-    session.commitSetupPlacement(placement);
-
-    const auto& unit = session.runtime().unitStore.requireUnit(0);
-    CHECK(unit.grid.x == 3);
-    CHECK(unit.grid.y == 4);
-    CHECK(unit.motion.facing.x == -1.0f);
-    CHECK(unit.motion.facing.y == 0.0f);
-    REQUIRE(session.runtime().unitStore.units.size() == 1);
-    CHECK(session.runtime().unitStore.units[0].motion.position.x == unit.motion.position.x);
-    CHECK(session.runtime().unitStore.units[0].motion.position.y == unit.motion.position.y);
-}
-
 TEST_CASE("BattleFrameRunner_RunFrame_UsesRuntimeOwnedFrameState", "[battle][frame_runner][runtime]")
 {
     auto state = runtimeFrameState();
@@ -549,7 +525,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
         });
     REQUIRE(healLog != result.frame.logEvents.end());
     CHECK(healLog->amount == 15);
-    CHECK(healLog->text == "技能群療");
+    CHECK(BattleLogTest::textOf(*healLog) == "技能群療");
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
@@ -620,7 +596,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
             return event.type == BattleLogEventType::Damage
                 && event.targetUnitId == 1
                 && event.amount == 6
-                && event.detailText == "流血";
+                && BattleLogTest::textOf(event) == "流血";
         });
     CHECK(bleedLog != result.frame.logEvents.end());
     auto bleedNumber = std::find_if(result.frame.visualEvents.begin(), result.frame.visualEvents.end(), [](const BattleVisualEvent& event)
@@ -720,7 +696,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
         {
             return event.type == BattleLogEventType::Heal
                 && event.targetUnitId == 0
-                && event.text == "生命回復";
+                && BattleLogTest::textOf(event) == "生命回復";
         });
     CHECK(selfRegenLog != result.frame.logEvents.end());
 
@@ -731,7 +707,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
         {
             return event.type == BattleLogEventType::Heal
                 && event.targetUnitId == 1
-                && event.text == "治療光環";
+                && BattleLogTest::textOf(event) == "治療光環";
         });
     CHECK(auraLog != result.frame.logEvents.end());
 }
@@ -772,7 +748,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
                 && event.sourceUnitId == 0
                 && event.targetUnitId == 0
                 && event.amount == 25
-                && event.text == "爆發治療";
+                && BattleLogTest::textOf(event) == "爆發治療";
         });
     CHECK(healLog != result.frame.logEvents.end());
 }

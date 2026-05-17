@@ -24,6 +24,7 @@ struct BattleGridTransform
 struct BattleRuntimeUnit
 {
     int id = -1;
+    int presentationSourceUnitId = -1;
     int realRoleId = -1;
     std::string name;
     int team = 0;

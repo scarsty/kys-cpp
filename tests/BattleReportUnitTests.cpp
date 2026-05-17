@@ -1,4 +1,6 @@
 #include "BattleReport.h"
+#include "battle/BattleLogSegments.h"
+#include "BattleLogTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -8,7 +10,7 @@ TEST_CASE("BattleReportBuilder_RecordsDamageStatsAndOrderedEvents", "[battle][re
     BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
 
     BattleReportBuilder builder;
-    builder.recordDamage(&attacker, &defender, 152, "六脈神劍", 221, "連擊增傷 +42%（3層）");
+    builder.recordDamage(&attacker, &defender, 152, "六脈神劍", 221, KysChess::Battle::battleLogText("連擊增傷 +42%（3層）"));
     builder.recordBattleEnd(221, 0);
 
     const auto& report = builder.report();
@@ -26,7 +28,7 @@ TEST_CASE("BattleReportBuilder_RecordsDamageStatsAndOrderedEvents", "[battle][re
     CHECK(events[0].sourceName == "段譽");
     CHECK(events[0].targetName == "岳不群");
     CHECK(events[0].value == 152);
-    CHECK(events[0].detailText == "連擊增傷 +42%（3層）");
+    CHECK(BattleLogTest::joinSegments(events[0].segments) == "連擊增傷 +42%（3層）");
     CHECK(events[1].type == BattleReportEventType::BattleEnd);
 }
 

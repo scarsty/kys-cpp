@@ -244,28 +244,38 @@ void BattleLogImGuiView::render(BattleLogWindowState& state) const
         if (child_size.x < 1.0f) child_size.x = 1.0f;
         if (child_size.y < 1.0f) child_size.y = 1.0f;
         ImGui::BeginChild(child_id, child_size, true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
-        auto colorForField = [&](BattleLogFieldTone tone, BattleLogEntryTone line_tone) -> ImVec4
+        auto colorForField = [&](KysChess::Battle::BattleLogTextTone tone, BattleLogEntryTone line_tone) -> ImVec4
         {
             switch (tone)
             {
-            case BattleLogFieldTone::AllyName:
+            case KysChess::Battle::BattleLogTextTone::AllyName:
                 return ally_color;
-            case BattleLogFieldTone::EnemyName:
+            case KysChess::Battle::BattleLogTextTone::EnemyName:
                 return enemy_color;
-            case BattleLogFieldTone::SkillName:
+            case KysChess::Battle::BattleLogTextTone::SkillName:
                 return skill_color;
-            case BattleLogFieldTone::DamageValue:
+            case KysChess::Battle::BattleLogTextTone::DamageValue:
                 return damage_color;
-            case BattleLogFieldTone::SystemAccent:
-                return system_line;
-            case BattleLogFieldTone::DurationValue:
+            case KysChess::Battle::BattleLogTextTone::HealValue:
+                return ally_color;
+            case KysChess::Battle::BattleLogTextTone::ShieldValue:
                 return duration_color;
-            case BattleLogFieldTone::FrameValue:
-                return frame_color;
-            case BattleLogFieldTone::FormulaValue:
-                return formula_color;
-            case BattleLogFieldTone::ProjectileId:
+            case KysChess::Battle::BattleLogTextTone::ResourceValue:
                 return projectile_color;
+            case KysChess::Battle::BattleLogTextTone::SystemAccent:
+                return system_line;
+            case KysChess::Battle::BattleLogTextTone::DurationValue:
+                return duration_color;
+            case KysChess::Battle::BattleLogTextTone::FrameValue:
+                return frame_color;
+            case KysChess::Battle::BattleLogTextTone::FormulaValue:
+                return formula_color;
+            case KysChess::Battle::BattleLogTextTone::ProjectileId:
+                return projectile_color;
+            case KysChess::Battle::BattleLogTextTone::Positive:
+                return ally_color;
+            case KysChess::Battle::BattleLogTextTone::Negative:
+                return enemy_color;
             default:
                 break;
             }

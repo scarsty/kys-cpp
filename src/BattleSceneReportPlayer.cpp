@@ -75,7 +75,7 @@ void BattleSceneReportPlayer::recordDamage(
         event.amount,
         event.skillName,
         event.frame,
-        event.detailText);
+        event.segments);
 }
 
 void BattleSceneReportPlayer::recordHeal(
@@ -86,7 +86,7 @@ void BattleSceneReportPlayer::recordHeal(
         resolveIdentity(bindings, event.sourceUnitId),
         resolveIdentity(bindings, event.targetUnitId),
         event.amount,
-        event.text,
+        event.segments,
         event.frame);
 }
 
@@ -97,7 +97,9 @@ void BattleSceneReportPlayer::recordStatus(
     bindings.report->recordStatus(
         resolveIdentity(bindings, event.sourceUnitId),
         resolveIdentity(bindings, event.targetUnitId),
-        event.text,
+        event.category,
+        event.perspective,
+        event.segments,
         event.frame);
 }
 

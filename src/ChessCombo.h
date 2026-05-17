@@ -58,6 +58,13 @@ struct ChessComboBattleUnitRef
     int cost = 0;
 };
 
+struct AntiComboTransferEvent
+{
+    int comboId = -1;
+    int sourceUnitId = -1;
+    int targetUnitId = -1;
+};
+
 // Compute how many heroes from `combo` are owned (present in starByRole),
 // and the effective (star-augmented) count used for threshold evaluation.
 // An entry in starByRole means the hero is on the field; its value is the star level.
@@ -109,8 +116,8 @@ public:
     // An entry in the returned map means the hero is on the field.
     static std::map<int, int> buildStarMap(const std::vector<Chess>& selected);
     // Transfer anti-combo buff to next strongest alive member when current holder dies
-    static void transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles);
-    static void transferAntiCombo(int deadRoleId, const std::vector<ChessComboBattleUnitRef>& allUnits);
+    static std::vector<AntiComboTransferEvent> transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles);
+    static std::vector<AntiComboTransferEvent> transferAntiCombo(int deadRoleId, const std::vector<ChessComboBattleUnitRef>& allUnits);
     // Calculate gold bonus from active combos with goldCoefficient
     static int calculateGoldBonus(const std::vector<ActiveCombo>& active, const std::vector<Chess>& survivors);
     static bool hasActiveEffect(const std::vector<ActiveCombo>& active, EffectType effectType);

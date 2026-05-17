@@ -66,7 +66,7 @@ void assertValidEvent(const BattleLogEvent& event)
         assert(event.amount >= 0);
         break;
     case BattleLogEventType::Status:
-        assert(!event.text.empty());
+        assert(!event.segments.empty());
         break;
     case BattleLogEventType::UnitDied:
         assert(event.targetUnitId >= 0);

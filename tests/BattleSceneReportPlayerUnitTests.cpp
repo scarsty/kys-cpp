@@ -21,7 +21,7 @@ TEST_CASE("BattleSceneReportPlayer_RecordsDamageBeforeDeathAndBattleEnd", "[batt
     BattleSceneReportPlayer player;
 
     std::vector<KysChess::Battle::BattleLogEvent> logs = {
-        { KysChess::Battle::BattleLogEventType::Damage, 221, 0, 1, 152, "", "六脈神劍" },
+        { KysChess::Battle::BattleLogEventType::Damage, 221, 0, 1, 152, KysChess::Battle::BattleLogCategory::Status, KysChess::Battle::BattleLogPerspective::Targeted, {}, "六脈神劍" },
         { KysChess::Battle::BattleLogEventType::UnitDied, 221, 0, 1 },
         { KysChess::Battle::BattleLogEventType::BattleEnded, 221, -1, -1, 0 },
     };

@@ -84,7 +84,6 @@ protected:
     KysChess::Battle::BattleRuntimeSessionCreationInput makeBattleRuntimeSessionCreationInput(
         KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
     void runPreBattlePositionSwapIfEnabled();
-    void commitFinalSetupPlacementToRuntime();
 
     void runPositionSwapLoop();
     void runListBasedSwap();

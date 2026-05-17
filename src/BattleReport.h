@@ -1,5 +1,6 @@
 #pragma once
 
+#include "battle/BattlePresentation.h"
 #include "BattlePostBattleSummary.h"
 
 #include <map>
@@ -35,10 +36,12 @@ struct BattleReportEvent
     int sourceTeam = -1;
     int targetTeam = -1;
     int value = 0;
+    KysChess::Battle::BattleLogCategory category = KysChess::Battle::BattleLogCategory::Status;
+    KysChess::Battle::BattleLogPerspective perspective = KysChess::Battle::BattleLogPerspective::Targeted;
     std::string sourceName;
     std::string targetName;
     std::string skillName;
-    std::string detailText;
+    std::vector<KysChess::Battle::BattleLogTextSegment> segments;
 };
 
 class BattleReport
@@ -69,17 +72,19 @@ public:
         int damage,
         const std::string& skillName,
         int frame,
-        const std::string& detailText = "");
+        std::vector<KysChess::Battle::BattleLogTextSegment> segments = {});
     void recordHeal(
         const BattleUnitIdentity* source,
         const BattleUnitIdentity* target,
         int amount,
-        const std::string& reason,
+        std::vector<KysChess::Battle::BattleLogTextSegment> segments,
         int frame);
     void recordStatus(
         const BattleUnitIdentity* source,
         const BattleUnitIdentity* target,
-        const std::string& text,
+        KysChess::Battle::BattleLogCategory category,
+        KysChess::Battle::BattleLogPerspective perspective,
+        std::vector<KysChess::Battle::BattleLogTextSegment> segments,
         int frame);
     void recordKill(const BattleUnitIdentity* killer, const BattleUnitIdentity* victim, int frame);
     void recordDeath(const BattleUnitIdentity* unit, int frame);

@@ -207,7 +207,7 @@ void BattleSceneHades::initializeBattleRuntime(
     auto initialization = std::move(creation.initialization);
     battle_session_.emplace(std::move(creation.session));
     KysChess::ChessCombo::getMutableStates() = initialization.comboStates;
-    scene_units_.initializeFromRuntimeCreation(*battle_session_, creationInput, initialization);
+    scene_units_.initializeFromRuntimeCreation(*battle_session_, creationInput);
     if (!initialization.logEvents.empty() || !initialization.visualEvents.empty())
     {
         beginPresentationFrame();
@@ -302,12 +302,6 @@ void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
             runListBasedSwap();
         }
     }
-}
-
-void BattleSceneHades::commitFinalSetupPlacementToRuntime()
-{
-    assert(battle_session_.has_value());
-    battle_session_->commitSetupPlacement(scene_units_.makeSetupPlacementInput());
 }
 
 void BattleSceneHades::draw()
@@ -683,13 +677,13 @@ void BattleSceneHades::draw()
 
     if (swapSelectedUnitId_ >= 0)
     {
-        const auto& selectedUnit = scene_units_.requireRuntimeUnit(swapSelectedUnitId_);
-        if (is_visible_world(selectedUnit.motion.position.x, selectedUnit.motion.position.y / 2.0))
+        const auto& selectedPosition = scene_units_.requireRuntimeUnit(swapSelectedUnitId_).motion.position;
+        if (is_visible_world(selectedPosition.x, selectedPosition.y / 2.0))
         {
             engine->fillColor(
                 { 255, 255, 0, 80 },
-                renderWorldX(selectedUnit.motion.position.x - 15),
-                renderWorldY(selectedUnit.motion.position.y / 2.0 - 5),
+                renderWorldX(selectedPosition.x - 15),
+                renderWorldY(selectedPosition.y / 2.0 - 5),
                 std::max(1, int(30 * viewScaleX)),
                 std::max(1, int(10 * viewScaleY)));
         }
@@ -758,8 +752,7 @@ void BattleSceneHades::draw()
         }
         if (positionSwapActive_ && unit.team == 0)
         {
-            const auto& placement = scene_units_.requireSetupPlacement(unit.id);
-            std::string coord = std::format("({},{})", placement.gridX, placement.gridY);
+            std::string coord = std::format("({},{})", unit.grid.x, unit.grid.y);
             Font::getInstance()->draw(coord,
                 (std::max)(1, int(28 * sizeScale)),
                 worldToUiX(wx - 5), worldToUiY(wy - 5),
@@ -1038,7 +1031,6 @@ void BattleSceneHades::onEntrance()
 
     initializeBattleRuntime(std::move(setupBuild));
     runPreBattlePositionSwapIfEnabled();
-    commitFinalSetupPlacementToRuntime();
 
     Audio::getInstance()->playMusic(KysChess::getRandomBattleMusic());
     // Audio::getInstance()->playMusic(info_->Music);
@@ -1108,8 +1100,8 @@ public:
             int clickedUnitId = -1;
             for (int unitId : battle_->scene_units_.allyUnitIds())
             {
-                const auto& placement = battle_->scene_units_.requireSetupPlacement(unitId);
-                if (placement.gridX == p.x && placement.gridY == p.y)
+                const auto& unit = battle_->scene_units_.requireRuntimeUnit(unitId);
+                if (unit.grid.x == p.x && unit.grid.y == p.y)
                 {
                     clickedUnitId = unitId;
                     break;
@@ -1125,7 +1117,8 @@ public:
             }
             else if (clickedUnitId != battle_->swapSelectedUnitId_)
             {
-                battle_->scene_units_.swapSetupUnitPositions(
+                assert(battle_->battle_session_.has_value());
+                battle_->battle_session_->swapSetupUnitPositions(
                     battle_->swapSelectedUnitId_,
                     clickedUnitId);
                 battle_->swapSelectedUnitId_ = -1;
@@ -1150,8 +1143,10 @@ public:
 void BattleSceneHades::runPositionSwapLoop()
 {
     swapSelectedUnitId_ = -1;
+    positionSwapActive_ = true;
     auto node = std::make_shared<PositionSwapNode>(this);
     node->run();
+    positionSwapActive_ = false;
 }
 
 void BattleSceneHades::runListBasedSwap()
@@ -1174,9 +1169,9 @@ void BattleSceneHades::runListBasedSwap()
         for (int unitId : allies)
         {
             const auto& presentation = scene_units_.requirePresentation(unitId);
-            const auto& placement = scene_units_.requireSetupPlacement(unitId);
+            const auto& unit = scene_units_.requireRuntimeUnit(unitId);
             std::string name = presentation.identity.name;
-            std::string coord = std::format("({},{})", placement.gridX, placement.gridY);
+            std::string coord = std::format("({},{})", unit.grid.x, unit.grid.y);
             int nameLen = Font::getTextDrawSize(name);
             int coordLen = Font::getTextDrawSize(coord);
             if (nameLen > maxNameLen)
@@ -1195,9 +1190,9 @@ void BattleSceneHades::runListBasedSwap()
         for (int i = 0; i < (int)allies.size(); i++)
         {
             const auto& presentation = scene_units_.requirePresentation(allies[i]);
-            const auto& placement = scene_units_.requireSetupPlacement(allies[i]);
+            const auto& unit = scene_units_.requireRuntimeUnit(allies[i]);
             std::string name = presentation.identity.name;
-            std::string coord = std::format("({},{})", placement.gridX, placement.gridY);
+            std::string coord = std::format("({},{})", unit.grid.x, unit.grid.y);
             int nameLen = Font::getTextDrawSize(name);
             int coordLen = Font::getTextDrawSize(coord);
             // Pad name to max, then pad coord prefix so coords right-align
@@ -1261,7 +1256,8 @@ void BattleSceneHades::runListBasedSwap()
         }
 
         // Perform swap
-        scene_units_.swapSetupUnitPositions(
+        assert(battle_session_.has_value());
+        battle_session_->swapSetupUnitPositions(
             allies[sel1],
             allies[sel2]);
     }
@@ -1327,7 +1323,7 @@ void BattleSceneHades::applyCoreFrameResult(
     context.random = &rand_;
     context.transferAntiCombo = [this](int unitId)
     {
-        KysChess::ChessCombo::transferAntiCombo(unitId, scene_units_.makeComboBattleUnitRefs());
+        return KysChess::ChessCombo::transferAntiCombo(unitId, scene_units_.makeComboBattleUnitRefs());
     };
     context.manualCameraEnabled = isManualCameraEnabled();
     context.hurtFlashDuration = HURT_FLASH_DURATION;
@@ -1391,6 +1387,10 @@ void BattleSceneHades::applySceneFrameDelta(const BattleSceneFrameDelta& result)
             rumble.lowFrequency,
             rumble.highFrequency,
             rumble.durationMs);
+    }
+    for (const auto& event : result.logEvents)
+    {
+        presentation_recorder_.recordLog(event);
     }
     if (result.unitDied)
     {

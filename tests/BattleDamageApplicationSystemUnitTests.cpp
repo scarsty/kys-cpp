@@ -1,5 +1,7 @@
 #include "battle/BattleDamageApplicationSystem.h"
 #include "battle/BattleCore.h"
+#include "battle/BattleLogSegments.h"
+#include "BattleLogTestHelpers.h"
 #include "ChessEftIds.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -319,14 +321,14 @@ TEST_CASE("BattleDamageApplication_PreservesPerHitPresentationMetadata", "[battl
     BattleDamagePresentationInput firstPresentation;
     firstPresentation.enabled = true;
     firstPresentation.skillName = "先手";
-    firstPresentation.detailText = "第一段";
+    firstPresentation.segments = battleLogText("第一段");
     firstPresentation.normalDamageColor = { 10, 20, 30, 255 };
     firstPresentation.normalDamageTextSize = 22;
 
     BattleDamagePresentationInput secondPresentation;
     secondPresentation.enabled = true;
     secondPresentation.skillName = "終段";
-    secondPresentation.detailText = "第二段";
+    secondPresentation.segments = battleLogText("第二段");
     secondPresentation.critical = true;
     secondPresentation.emphasizedDamageColor = { 40, 50, 60, 255 };
     secondPresentation.emphasizedDamageTextSize = 33;
@@ -349,11 +351,11 @@ TEST_CASE("BattleDamageApplication_PreservesPerHitPresentationMetadata", "[battl
     CHECK(result.logEvents[0].targetUnitId == 1);
     CHECK(result.logEvents[0].amount == 4);
     CHECK(result.logEvents[0].skillName == "終段");
-    CHECK(result.logEvents[0].detailText == "第二段");
+    CHECK(BattleLogTest::textOf(result.logEvents[0]) == "第二段");
     CHECK(result.logEvents[1].sourceUnitId == 0);
     CHECK(result.logEvents[1].amount == 3);
     CHECK(result.logEvents[1].skillName == "先手");
-    CHECK(result.logEvents[1].detailText == "第一段");
+    CHECK(BattleLogTest::textOf(result.logEvents[1]) == "第一段");
 }
 
 TEST_CASE("BattleDamageApplication_AppliesHurtInvincibilityBetweenSameFrameHits", "[battle][damage_application][unit]")
@@ -569,7 +571,7 @@ TEST_CASE("BattleDamageApplication_ShieldBreakEmitsShieldBreakCommands", "[battl
     {
         return event.type == BattleLogEventType::Status
             && event.sourceUnitId == 1
-            && event.text == "護盾爆炸（10傷害）";
+            && BattleLogTest::textOf(event) == "護盾爆炸（10傷害）";
     });
     for (const auto& command : result.commands)
     {
@@ -616,7 +618,7 @@ TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsLog", "
                 && event.sourceUnitId == 1
                 && event.targetUnitId == 1
                 && event.amount == 30
-                && event.text == "死亡庇護（30幀）";
+                && BattleLogTest::textOf(event) == "死亡庇護（30幀）";
         });
     CHECK(preventionLog != result.logEvents.end());
 }
@@ -659,7 +661,7 @@ TEST_CASE("BattleDamageApplication_StatusAppliedProducesStatusLog", "[battle][da
                 && event.sourceUnitId == 0
                 && event.targetUnitId == 1
                 && event.amount == 2
-                && event.text == "流血（2/4層）";
+                && BattleLogTest::textOf(event) == "流血（2/4層）";
         });
     CHECK(bleedLog != result.logEvents.end());
 }
@@ -671,7 +673,7 @@ TEST_CASE("BattleDamageApplication_StatusTickPresentationProducesColoredDamageNu
 
     BattleDamagePresentationInput presentation;
     presentation.enabled = true;
-    presentation.detailText = "流血";
+    presentation.segments = battleLogText("流血");
     presentation.normalDamageColor = { 190, 120, 60, 255 };
     presentation.normalDamageTextSize = 22;
     queuePendingDamage(frame, damageInput(0, 1, 6), presentation);
