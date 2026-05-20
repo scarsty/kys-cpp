@@ -266,6 +266,67 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     CHECK(second.frame.frame == 8);
 }
 
+TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runtime_session][ownership]")
+{
+    auto runtime = ownedRuntimeState();
+    runtime.unitStore.requireUnit(0).stats.speed = 0;
+    runtime.unitStore.requireUnit(1).stats.speed = 0;
+    runtime.unitStore.requireUnit(1).vitals.hp = 100;
+    runtime.unitStore.requireUnit(1).motion.facing = { -1, 0, 0 };
+    seedDamageExtrasFromUnits(runtime);
+    runtime.status.units = {
+        BattleStatusRuntimeUnit{ .id = 0 },
+        BattleStatusRuntimeUnit{ .id = 1 },
+    };
+
+    BattleAttackInstance attack;
+    attack.id = 10;
+    attack.state.attackerUnitId = 0;
+    attack.state.preferredTargetUnitId = 1;
+    attack.state.skillId = 101;
+    attack.state.skillMagicPower = 120;
+    attack.state.totalFrame = 30;
+    attack.frame = 29;
+    attack.state.operationType = BattleOperationType::Melee;
+    attack.state.position = runtime.unitStore.requireUnit(1).motion.position;
+    attack.state.velocity = { 1, 0, 0 };
+    runtime.attacks.attacks.push_back(attack);
+
+    BattleRuntimeSession session(std::move(runtime));
+
+    const auto result = session.runFrame();
+
+    REQUIRE(result.applications.knockbacks.size() == 1);
+    const auto& command = result.applications.knockbacks[0];
+    const auto& unit = session.runtime().unitStore.requireUnit(command.targetUnitId);
+    CHECK(unit.motion.velocity.x == command.velocityDelta.x);
+    CHECK(unit.motion.velocity.y == command.velocityDelta.y);
+}
+
+TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayFrameApplications", "[battle][runtime_session][ownership]")
+{
+    auto runtime = ownedRuntimeState();
+    runtime.unitStore.requireUnit(0).vitals.hp = 50;
+    runtime.unitStore.requireUnit(0).vitals.mp = 10;
+    runtime.unitStore.requireUnit(1).vitals.hp = 90;
+    runtime.unitStore.requireUnit(1).vitals.mp = 10;
+    runtime.unitStore.requireUnit(1).team = 0;
+    seedDamageExtrasFromUnits(runtime);
+    runtime.status.units = {
+        BattleStatusRuntimeUnit{ .id = 0 },
+        BattleStatusRuntimeUnit{ .id = 1 },
+    };
+    runtime.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 0, 10, 0, "測試群療" });
+
+    BattleRuntimeSession session(std::move(runtime));
+
+    const auto result = session.runFrame();
+
+    REQUIRE(result.teamEffectEvents.size() == 2);
+    CHECK(session.runtime().unitStore.requireUnit(0).vitals.hp == 60);
+    CHECK(session.runtime().unitStore.requireUnit(1).vitals.hp == 100);
+}
+
 TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[battle][runtime_session][ownership]")
 {
     BattleRuntimeSessionCreationInput input;

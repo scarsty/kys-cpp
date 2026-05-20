@@ -7,6 +7,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <print>
 #include <queue>
 #include <ranges>
 #include <utility>
@@ -18,6 +19,7 @@ namespace
 {
 
 constexpr double kPi = 3.14159265358979323846;
+constexpr double AirborneTerrainClearanceTileFactor = 3.0;
 
 Pointf rotated(Pointf value, double angle)
 {
@@ -731,6 +733,26 @@ bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& worl
     return world.walkableByCell[index] != 0;
 }
 
+bool movementPhysicsSegmentWalkable(
+    const BattleMovementPhysicsCollisionWorld& world,
+    Pointf currentPosition,
+    Pointf nextPosition)
+{
+    auto delta = nextPosition - currentPosition;
+    delta.z = 0;
+    const double distance = delta.norm();
+    const int steps = std::max(1, static_cast<int>(std::ceil(distance / std::max(1.0, world.tileWidth / 4.0))));
+    for (int step = 1; step <= steps; ++step)
+    {
+        const auto probe = currentPosition + (nextPosition - currentPosition) * (static_cast<double>(step) / steps);
+        if (!movementPhysicsCellWalkable(world, movementPhysicsCell(world, probe)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool battleMovementTaXueUnstable(const BattleUnitState& unit)
 {
     constexpr double StopThreshold = 0.1;
@@ -750,12 +772,7 @@ bool canMoveInPhysicsSnapshot(
     int separationDistance,
     bool ignoreUnitCollision)
 {
-    if (currentPosition.z > 1.0f)
-    {
-        return true;
-    }
-
-    if (!ignoreUnitCollision)
+    if (currentPosition.z <= 1.0f && !ignoreUnitCollision)
     {
         const double separation = separationDistance == -1
             ? world.defaultSeparationDistance
@@ -778,7 +795,12 @@ bool canMoveInPhysicsSnapshot(
         }
     }
 
-    return movementPhysicsCellWalkable(world, movementPhysicsCell(world, nextPosition));
+    if (std::min(currentPosition.z, nextPosition.z) >= world.tileWidth * AirborneTerrainClearanceTileFactor)
+    {
+        return true;
+    }
+
+    return movementPhysicsSegmentWalkable(world, currentPosition, nextPosition);
 }
 
 BattleMovementPlanner::BattleMovementPlanner(BattleMovementFrameInput& world)
@@ -803,6 +825,8 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
     };
 
     auto state = input.state;
+    const auto startPosition = state.position;
+    const auto startVelocity = state.velocity;
     const bool movementDashActive = state.movementDashFrames > 0;
     const bool movementDashEnding = state.movementDashFrames == 1;
     const bool postDashRetreatActive = state.postDashRetreatFrames > 0;
@@ -868,6 +892,25 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
     {
         --state.movementDashCooldown;
     }
+    const bool firstCorpseLanding = !input.unitAlive && startPosition.z > 0.0f && state.position.z <= 0.0f;
+    if (firstCorpseLanding)
+    {
+        std::print(
+            "[corpse-land] unit={} startPos=({:.2f},{:.2f},{:.2f}) startVelocity=({:.2f},{:.2f},{:.2f}) impactPos=({:.2f},{:.2f},{:.2f}) impactVelocity=({:.2f},{:.2f},{:.2f})\n",
+            input.unitId,
+            startPosition.x,
+            startPosition.y,
+            startPosition.z,
+            startVelocity.x,
+            startVelocity.y,
+            startVelocity.z,
+            state.position.x,
+            state.position.y,
+            state.position.z,
+            state.velocity.x,
+            state.velocity.y,
+            state.velocity.z);
+    }
     if (state.position.z < 0)
     {
         state.position.z = 0;
@@ -886,6 +929,21 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
     if (state.position.z == 0)
     {
         state.velocity.z = 0;
+    }
+    if (firstCorpseLanding)
+    {
+        std::print(
+            "[corpse-bounce] unit={} clampedPos=({:.2f},{:.2f},{:.2f}) bounceVelocity=({:.2f},{:.2f},{:.2f}) acceleration=({:.2f},{:.2f},{:.2f})\n",
+            input.unitId,
+            state.position.x,
+            state.position.y,
+            state.position.z,
+            state.velocity.x,
+            state.velocity.y,
+            state.velocity.z,
+            state.acceleration.x,
+            state.acceleration.y,
+            state.acceleration.z);
     }
     if (state.velocity.norm() < 0.1)
     {

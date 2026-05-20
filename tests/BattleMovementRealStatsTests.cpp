@@ -410,7 +410,7 @@ TEST_CASE("TaXue_UnstableIgnoresReservationsAndUnitBodiesButRespectsTerrain", "[
     CHECK(blocked.units[0].position.x == Catch::Approx(100.0f));
 }
 
-TEST_CASE("BattleMovementPhysicsSystem_CanIgnoreUnitCollisionButNotTerrain", "[battle][movement]")
+TEST_CASE("BattleMovementPhysicsSystem_CanIgnoreUnitCollisionButNeedsHeightToClearTerrain", "[battle][movement]")
 {
     BattleMovementPhysicsCollisionWorld collision;
     collision.tileWidth = 1.0;
@@ -444,6 +444,24 @@ TEST_CASE("BattleMovementPhysicsSystem_CanIgnoreUnitCollisionButNotTerrain", "[b
     state = BattleMovementPhysicsSystem().advance(input);
 
     CHECK(state.position.x == Catch::Approx(10.0f));
+
+    collision.walkableByCell.assign(10 * 10, 1);
+    collision.walkableByCell[movementPhysicsCellIndex(collision, 7, 3)] = 0;
+    input.state.position = { 10, 10, 2 };
+    input.state.velocity = { 6, 0, 0 };
+    input.currentPosition = input.state.position;
+
+    state = BattleMovementPhysicsSystem().advance(input);
+
+    CHECK(state.position.x == Catch::Approx(10.0f));
+
+    input.state.position = { 10, 10, 3 };
+    input.state.velocity = { 6, 0, 0 };
+    input.currentPosition = input.state.position;
+
+    state = BattleMovementPhysicsSystem().advance(input);
+
+    CHECK(state.position.x == Catch::Approx(16.0f));
 }
 
 TEST_CASE("RangedRetarget_HoldsWhenAlreadyCanShoot", "[battle][movement]")

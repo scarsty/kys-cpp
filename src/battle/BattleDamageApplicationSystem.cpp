@@ -270,6 +270,10 @@ void resolvePendingDamageTransactions(const BattleDamageApplicationInput& input,
              input.sortPendingDamageByDefenderMagnitude))
     {
         const auto& intent = (*input.pendingDamage)[pendingIndex];
+        if (!input.units->requireUnit(intent.request.defenderUnitId).alive)
+        {
+            continue;
+        }
         auto transaction = BattleDamageSystem().resolveTransaction(
             makeDamageTransactionInputFromIntent(intent, input));
         applyDamageTakenMpGain(transaction);

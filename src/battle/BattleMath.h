@@ -15,17 +15,10 @@ inline double pointDistance(const Pointf& lhs, const Pointf& rhs)
     return std::sqrt(dx * dx + dy * dy);
 }
 
-inline double pointNorm(const Pointf& point)
-{
-    return std::sqrt(static_cast<double>(point.x) * point.x
-        + static_cast<double>(point.y) * point.y
-        + static_cast<double>(point.z) * point.z);
-}
-
 inline Pointf normalizedTo(Pointf point, double length, double minimumNorm)
 {
     assert(minimumNorm > 0.0);
-    const double current = pointNorm(point);
+    const double current = point.norm();
     if (current <= minimumNorm)
     {
         return {};

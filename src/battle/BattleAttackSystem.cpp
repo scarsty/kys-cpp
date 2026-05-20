@@ -585,7 +585,7 @@ void BattleAttackSystem::trackTarget(
     const BattleRuntimeUnit& target,
     double minimumVectorNorm) const
 {
-    const double speed = pointNorm(attack.state.velocity);
+    const double speed = attack.state.velocity.norm();
     if (speed <= minimumVectorNorm)
     {
         return;
@@ -706,18 +706,18 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
     bounce.frame = 0;
     bounce.state.bounceRemaining = std::max(0, source.state.bounceRemaining - 1);
 
-    double speed = pointNorm(source.state.velocity);
+    double speed = source.state.velocity.norm();
     if (speed <= world.minimumVectorNorm)
     {
         speed = world.defaultProjectileSpeed;
     }
 
     auto direction = normalizedTo(nextTarget.motion.position - hitTarget.motion.position, 1.0, world.minimumVectorNorm);
-    if (pointNorm(direction) <= world.minimumVectorNorm)
+    if (direction.norm() <= world.minimumVectorNorm)
     {
         direction = normalizedTo(nextTarget.motion.position - source.state.position, 1.0, world.minimumVectorNorm);
     }
-    if (pointNorm(direction) <= world.minimumVectorNorm)
+    if (direction.norm() <= world.minimumVectorNorm)
     {
         direction = { 1.0f, 0.0f, 0.0f };
     }
@@ -729,7 +729,7 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
         direction.z * spawnDistance,
     };
     bounce.state.velocity = normalizedTo(nextTarget.motion.position - bounce.state.position, speed, world.minimumVectorNorm);
-    if (pointNorm(bounce.state.velocity) <= world.minimumVectorNorm)
+    if (bounce.state.velocity.norm() <= world.minimumVectorNorm)
     {
         bounce.state.velocity = normalizedTo(direction, speed, world.minimumVectorNorm);
     }

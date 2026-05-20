@@ -1628,9 +1628,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
     CHECK(result.frame.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
     REQUIRE(result.frame.logEvents.size() == 1);
     CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(result.frame.logEvents[0].sourceUnitId == 1);
-    CHECK(result.frame.logEvents[0].targetUnitId == 0);
-    CHECK(result.frame.logEvents[0].perspective == BattleLogPerspective::SourceOnly);
+    CHECK(result.frame.logEvents[0].sourceUnitId == 0);
+    CHECK(result.frame.logEvents[0].targetUnitId == 1);
     CHECK(BattleLogTest::textOf(result.frame.logEvents[0]) == "施放框架招式");
     CHECK(result.frame.logEvents[0].skillName == "框架招式");
 }
@@ -2850,7 +2849,42 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     CHECK(stopped.state.velocity.x == 0.0f);
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_SkipsDeadUnitsInMovementPhysics", "[battle][core][movement]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_KeepsMovingCorpsesInMovementPhysics", "[battle][core][movement]")
+{
+    BattleRuntimeState state;
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    auto dead = unit(1, 1, { 200, 100, 0 });
+    dead.alive = false;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        dead,
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.requireUnit(0).motion.velocity = { 5, 0, 0 };
+    state.unitStore.requireUnit(1).motion.velocity = { 6, 0, 8 };
+    state.unitStore.requireUnit(1).motion.acceleration = { 0, 0, -4 };
+    state.movement.agents.at(1).physics.velocity = { 6, 0, 8 };
+    state.movement.agents.at(1).physics.acceleration = { 0, 0, -4 };
+    state.movementPhysics.config.gravity = 0.0f;
+    state.movementPhysics.config.friction = 0.0f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 2;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.movementPhysicsResults.size() == 2);
+    CHECK(result.movementPhysicsResults[0].unitId == 0);
+    CHECK(result.movementPhysicsResults[1].unitId == 1);
+    CHECK(result.movementPhysicsResults[1].physicsAdvanced);
+    CHECK(result.movementPhysicsResults[1].state.position.x == 206.0f);
+    CHECK(result.movementPhysicsResults[1].state.position.z == 8.0f);
+    CHECK(state.movement.agents.contains(1));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RemovesInertDeadUnitsFromMovementAgents", "[battle][core][movement]")
 {
     BattleRuntimeState state;
     state.unitStore.gridTransform = { SceneTileWidth, 64 };
@@ -2875,6 +2909,231 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SkipsDeadUnitsInMovementPhysics", "[ba
     REQUIRE(result.movementPhysicsResults.size() == 1);
     CHECK(result.movementPhysicsResults[0].unitId == 0);
     CHECK_FALSE(state.movement.agents.contains(1));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity", "[battle][core][movement]")
+{
+    BattleRuntimeState state;
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 200, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.deathEffects.store.units = { { 0 }, { 1 } };
+    state.movementPhysics.config.gravity = -4.0f;
+    state.movementPhysics.config.friction = 0.0f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 2;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
+    state.unitStore.requireUnit(1).motion.velocity = { -50.0f, 20.0f, 40.0f };
+    state.movement.agents.at(1).physics.velocity = state.unitStore.requireUnit(1).motion.velocity;
+    state.unitStore.requireUnit(0).stats.speed = 0;
+    state.unitStore.requireUnit(1).stats.speed = 0;
+
+    state.damage.pendingDamage.push_back({
+        .request = {
+            .attackerUnitId = 0,
+            .defenderUnitId = 1,
+            .baseDamage = 30,
+            .preResolvedDamage = true,
+        },
+    });
+    state.unitStore.requireUnit(1).vitals.hp = 20;
+    writeBattleDamageRuntimeUnit(
+        requireById(state.damage.unitExtras, 1),
+        makeBattleDamageUnitState(state.unitStore.requireUnit(1), static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions[0].killed);
+    const auto& dead = state.unitStore.requireUnit(1);
+    const double deathSpeed = std::sqrt(
+        dead.motion.velocity.x * dead.motion.velocity.x
+        + dead.motion.velocity.y * dead.motion.velocity.y
+        + dead.motion.velocity.z * dead.motion.velocity.z);
+    CHECK_FALSE(dead.alive);
+    CHECK(dead.motion.velocity.x > dead.motion.velocity.z);
+    CHECK(dead.motion.velocity.y != Catch::Approx(20.0));
+    CHECK(dead.motion.velocity.x > 0.0f);
+    CHECK(dead.motion.velocity.z > 0.0f);
+    CHECK(dead.motion.velocity.z <= 6.0f);
+    CHECK(deathSpeed == Catch::Approx(20.0 / 3.0 + 5.0));
+    CHECK(dead.motion.position.x == Catch::Approx(200.0f));
+    CHECK(dead.motion.position.z == Catch::Approx(36.0f));
+    CHECK(state.movement.agents.contains(1));
+    CHECK(state.movement.agents.at(1).physics.velocity.z == dead.motion.velocity.z);
+
+    auto presentation = std::find_if(
+        result.movementPresentationResults.begin(),
+        result.movementPresentationResults.end(),
+        [](const BattleFrameMovementPresentationUnitResult& item)
+        {
+            return item.unitId == 1;
+        });
+    REQUIRE(presentation != result.movementPresentationResults.end());
+    CHECK(presentation->velocity.x == dead.motion.velocity.x);
+    CHECK(presentation->velocity.z == dead.motion.velocity.z);
+    CHECK(presentation->position.x == dead.motion.position.x);
+    CHECK(presentation->position.z == dead.motion.position.z);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ClampsDeathKickVelocity", "[battle][core][movement]")
+{
+    BattleRuntimeState state;
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 200, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.deathEffects.store.units = { { 0 }, { 1 } };
+    state.movementPhysics.config.gravity = -4.0f;
+    state.movementPhysics.config.friction = 0.0f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 16;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(16 * 16, 1);
+
+    state.damage.pendingDamage.push_back({
+        .request = {
+            .attackerUnitId = 0,
+            .defenderUnitId = 1,
+            .baseDamage = 1000,
+            .preResolvedDamage = true,
+        },
+    });
+    state.unitStore.requireUnit(1).vitals.hp = 500;
+    writeBattleDamageRuntimeUnit(
+        requireById(state.damage.unitExtras, 1),
+        makeBattleDamageUnitState(state.unitStore.requireUnit(1), static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions[0].killed);
+    const auto& dead = state.unitStore.requireUnit(1);
+    CHECK(result.damageTransactions[0].finalHpDamage / 3.0 + 5.0 > 75.0);
+    CHECK_FALSE(dead.alive);
+    CHECK(dead.motion.velocity.norm() == Catch::Approx(75.0));
+    CHECK(dead.motion.velocity.z == Catch::Approx(6.0));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_SeedsDeathKickForNextFramePhysics", "[battle][core][movement]")
+{
+    BattleRuntimeState state;
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 200, 100, 0 }),
+        unit(2, 0, { 120, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.deathEffects.store.units = { { 0 }, { 1 }, { 2 } };
+    state.movementPhysics.config.gravity = -4.0f;
+    state.movementPhysics.config.friction = 0.0f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 16;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(16 * 16, 1);
+
+    state.damage.pendingDamage.push_back({
+        .request = {
+            .attackerUnitId = 0,
+            .defenderUnitId = 1,
+            .baseDamage = 30,
+            .preResolvedDamage = true,
+        },
+    });
+    state.damage.pendingDamage.push_back({
+        .request = {
+            .attackerUnitId = 2,
+            .defenderUnitId = 1,
+            .baseDamage = 30,
+            .preResolvedDamage = true,
+        },
+    });
+    state.unitStore.requireUnit(1).vitals.hp = 20;
+    writeBattleDamageRuntimeUnit(
+        requireById(state.damage.unitExtras, 1),
+        makeBattleDamageUnitState(state.unitStore.requireUnit(1), static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions[0].killed);
+
+    auto presentation = std::find_if(
+        result.movementPresentationResults.begin(),
+        result.movementPresentationResults.end(),
+        [](const BattleFrameMovementPresentationUnitResult& item)
+        {
+            return item.unitId == 1;
+        });
+    REQUIRE(presentation != result.movementPresentationResults.end());
+    const auto& dead = state.unitStore.requireUnit(1);
+    CHECK(presentation->position.x == dead.motion.position.x);
+    CHECK(presentation->position.y == dead.motion.position.y);
+    CHECK(presentation->position.z == dead.motion.position.z);
+    CHECK(presentation->velocity.x == dead.motion.velocity.x);
+    CHECK(presentation->velocity.y == dead.motion.velocity.y);
+    CHECK(presentation->velocity.z == dead.motion.velocity.z);
+    CHECK(dead.motion.velocity.norm() > 0.01f);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_MovingCorpsePhysicsPersistsIntoRuntime", "[battle][core][movement]")
+{
+    BattleRuntimeState state;
+    state.unitStore.gridTransform = { SceneTileWidth, 64 };
+    auto dead = unit(1, 1, { 200, 100, 0 });
+    dead.alive = false;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        dead,
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.requireUnit(1).motion.velocity = { 6, 0, 8 };
+    state.unitStore.requireUnit(1).motion.acceleration = { 0, 0, -4 };
+    state.movement.agents.at(1).physics.velocity = { 6, 0, 8 };
+    state.movement.agents.at(1).physics.acceleration = { 0, 0, -4 };
+    state.movementPhysics.config.gravity = -4.0f;
+    state.movementPhysics.config.friction = 0.0f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 2;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
+
+    auto first = runBattleFrame(state);
+    auto second = runBattleFrame(state);
+
+    const auto& deadUnit = state.unitStore.requireUnit(1);
+    auto firstCorpse = std::find_if(
+        first.movementPhysicsResults.begin(),
+        first.movementPhysicsResults.end(),
+        [](const BattleFrameMovementPhysicsUnitResult& item)
+        {
+            return item.unitId == 1;
+        });
+    auto secondCorpse = std::find_if(
+        second.movementPhysicsResults.begin(),
+        second.movementPhysicsResults.end(),
+        [](const BattleFrameMovementPhysicsUnitResult& item)
+        {
+            return item.unitId == 1;
+        });
+    REQUIRE(firstCorpse != first.movementPhysicsResults.end());
+    REQUIRE(secondCorpse != second.movementPhysicsResults.end());
+    CHECK(firstCorpse->state.position.z == 8.0f);
+    CHECK(secondCorpse->state.position.z == 12.0f);
+    CHECK(deadUnit.motion.position.z == 12.0f);
+    CHECK(deadUnit.motion.velocity.z == 0.0f);
+    CHECK(state.movement.agents.at(1).physics.position.z == deadUnit.motion.position.z);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameState", "[battle][core][breakthrough]")
@@ -3572,8 +3831,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePreviewUsesResolvedPendingDamag
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 2);
-    CHECK(result.damageTransactions[1].finalHpDamage < 30);
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(result.damageTransactions[0].killed);
     CHECK(std::none_of(
         result.frame.visualEvents.begin(),
         result.frame.visualEvents.end(),

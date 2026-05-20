@@ -17,7 +17,7 @@ public:
     Point_() {}
     Point_(T x1, T y1, T z1 = 0) : x(x1), y(y1), z(z1) {}
     T x{ 0 }, y{ 0 }, z{ 0 };
-    T norm()
+    T norm() const
     {
         return sqrt(x * x + y * y + z * z);
     }

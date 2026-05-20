@@ -53,6 +53,7 @@ struct BattleMovementPhysicsInput
     Pointf currentPosition;
     bool actionDashActive = false;
     bool ignoreUnitCollision = false;
+    bool unitAlive = true;
 };
 
 struct BattleFrameMovementPhysicsUnitResult

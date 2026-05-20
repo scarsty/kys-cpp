@@ -54,7 +54,7 @@ Pointf castFacing(const BattleCastInput& input)
 {
     auto facing = input.targetPosition - input.unit.position;
     assert(input.config.minimumFacingNorm > 0.0);
-    assert(pointNorm(facing) > input.config.minimumFacingNorm);
+    assert(facing.norm() > input.config.minimumFacingNorm);
     return normalizedTo(facing, 1.0, input.config.minimumFacingNorm);
 }
 
@@ -100,10 +100,10 @@ std::vector<BattleCastProjectileTarget> orderedAlternateProjectileTargets(
     {
         const auto leftDir = left.position - launchPosition;
         const auto rightDir = right.position - launchPosition;
-        const double leftAngle = pointNorm(leftDir) > input.config.minimumFacingNorm
+        const double leftAngle = leftDir.norm() > input.config.minimumFacingNorm
             ? std::atan2(leftDir.y, leftDir.x)
             : baseAngle;
-        const double rightAngle = pointNorm(rightDir) > input.config.minimumFacingNorm
+        const double rightAngle = rightDir.norm() > input.config.minimumFacingNorm
             ? std::atan2(rightDir.y, rightDir.x)
             : baseAngle;
         const double leftDelta = angleDelta(leftAngle, baseAngle);
@@ -131,7 +131,7 @@ void assignProjectileTargetOrSpread(
     {
         request.initial.preferredTargetUnitId = input.targetUnitId;
         const auto primaryDirection = input.targetPosition - request.initial.position;
-        if (pointNorm(primaryDirection) > input.config.minimumFacingNorm)
+        if (primaryDirection.norm() > input.config.minimumFacingNorm)
         {
             request.initial.velocity = normalizedTo(
                 primaryDirection,
@@ -152,7 +152,7 @@ void assignProjectileTargetOrSpread(
         request.initial.preferredTargetUnitId = assigned->unitId;
         request.initial.requirePreferredTarget = true;
         const auto assignedDirection = assigned->position - request.initial.position;
-        if (pointNorm(assignedDirection) > input.config.minimumFacingNorm)
+        if (assignedDirection.norm() > input.config.minimumFacingNorm)
         {
             request.initial.velocity = normalizedTo(
                 assignedDirection,
@@ -397,8 +397,8 @@ void appendExtraProjectiles(std::vector<BattleAttackSpawnRequest>& requests,
     assert(selectedSkill.extraProjectileCount >= 0);
     assert(!requests.empty());
     const auto prototype = requests.front();
-    const double speed = pointNorm(prototype.initial.velocity) > input.config.minimumFacingNorm
-        ? pointNorm(prototype.initial.velocity)
+    const double speed = prototype.initial.velocity.norm() > input.config.minimumFacingNorm
+        ? prototype.initial.velocity.norm()
         : projectileSpeedForSkill(input.geometry, selectedSkill);
     const double maxTravel = speed * std::max(1, prototype.initial.totalFrame - prototype.initialFrame)
         + input.geometry.projectileSpawnOffset;
@@ -603,7 +603,7 @@ std::vector<BattleAttackSpawnRequest> makeDashRequests(
         selectedSkill,
         BattleOperationType::Dash,
         BattleAttackCastSubrequestKind::DashHit);
-    assert(pointNorm(input.unit.dashVelocity) > input.config.minimumFacingNorm);
+    assert(input.unit.dashVelocity.norm() > input.config.minimumFacingNorm);
     const auto dashHitOffset = normalizedTo(
         input.unit.dashVelocity,
         input.geometry.dashHitPositionSpacing,
@@ -686,7 +686,7 @@ void appendBlinkTeleportDelta(
     const int selectedIndex = input.blinkCellRandomRoll % static_cast<int>(candidates.size());
     const auto& cell = *candidates[selectedIndex];
     auto facing = target.motion.position - cell.position;
-    if (pointNorm(facing) > 0.01)
+    if (facing.norm() > 0.01)
     {
         facing = normalizedTo(facing, 1.0, 0.01);
     }
@@ -953,7 +953,7 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     assertCommittedCastInput(input, selectedSkill, result.decision.operationType);
 
     if (result.decision.operationType == BattleOperationType::Dash
-        && pointNorm(input.unit.dashVelocity) > input.config.minimumFacingNorm)
+        && input.unit.dashVelocity.norm() > input.config.minimumFacingNorm)
     {
         result.postDashRetreatVelocity = scaled(input.unit.dashVelocity, -1.0);
         result.postDashRetreatFrames = result.animation.recoveryFrames;

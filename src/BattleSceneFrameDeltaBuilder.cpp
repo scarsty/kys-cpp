@@ -117,7 +117,9 @@ void BattleSceneFrameDeltaBuilder::collectDamageSceneEffects(
             result.jitterY = context.random->rand_int(2) - context.random->rand_int(2);
             if (!context.manualCameraEnabled)
             {
-                result.cameraFocus = defenderUnit.motion.position;
+                auto cameraFocus = defenderUnit.motion.position;
+                cameraFocus.y -= defenderUnit.motion.position.z * 2.0f;
+                result.cameraFocus = cameraFocus;
                 result.closeUpFrames = std::max(result.closeUpFrames, context.deathZoomFrames);
             }
             result.frozenFrames = 5;

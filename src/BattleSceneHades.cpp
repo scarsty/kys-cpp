@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -44,6 +45,9 @@ constexpr int CAMERA_ZOOM_EASE_FRAMES = 0;             // 0 restores the old har
 constexpr int CAMERA_DEATH_SLOW_FRAMES = 10;           // slow-motion duration after a death
 constexpr int CAMERA_BATTLE_END_SLOW_FRAMES = 30;      // slow-motion duration when the battle ends
 constexpr int CAMERA_SLOW_STEP_INTERVAL = 4;           // lower = less slow-motion, higher = slower motion
+constexpr double CORPSE_SHADOW_Y_OFFSET_RATIO = 0.1;
+constexpr double CORPSE_BODY_SCALE_X = 0.5;
+constexpr double CORPSE_BODY_SCALE_Y = 1.0;
 constexpr int BATTLE_COORD_COUNT = BATTLEMAP_COORD_COUNT;
 constexpr int ROLE_STATUS_BAR_WIDTH = 48;
 constexpr int ROLE_STATUS_BAR_HEIGHT = 6;
@@ -92,6 +96,55 @@ float shakeJitter(int battleFrame, int roleId)
     state *= 0x846ca68bu;
     state ^= state >> 16;
     return -2.5f + static_cast<float>(state & 0xffffu) * (5.0f / 65535.0f);
+}
+
+double renderGroundY(const Pointf& position)
+{
+    return position.y / 2.0 - position.z;
+}
+
+double corpseShadowY(const Pointf& position, const TextureWarpper& tex)
+{
+    return renderGroundY(position) + tex.dy * CORPSE_SHADOW_Y_OFFSET_RATIO;
+}
+
+Point corpseShadowRenderPosition(
+    const TextureWarpper& tex,
+    const Point& bodyRenderPosition,
+    double bodyScaleX,
+    double bodyScaleY,
+    double shadowScaleX,
+    double shadowScaleY)
+{
+    const double bodyCenterX = bodyRenderPosition.x - tex.dx + tex.w * bodyScaleX / 2.0;
+    const double bodyCenterY = bodyRenderPosition.y - tex.dy + tex.h * bodyScaleY / 2.0;
+    return {
+        static_cast<int>(bodyCenterX - tex.w * shadowScaleX / 2.0 + tex.dx),
+        static_cast<int>(bodyCenterY - tex.h * shadowScaleY / 2.0 + tex.dy),
+    };
+}
+
+Point rotatedAnchorRenderPosition(const TextureWarpper& tex, int anchorX, int anchorY, double zoomX, double zoomY, double angle)
+{
+    if (angle == 0.0)
+    {
+        return { anchorX, anchorY };
+    }
+
+    const double width = tex.w * zoomX;
+    const double height = tex.h * zoomY;
+    const double centerX = width / 2.0;
+    const double centerY = height / 2.0;
+    const double localAnchorX = tex.dx - centerX;
+    const double localAnchorY = tex.dy - centerY;
+    const double radians = angle * M_PI / 180.0;
+    const double rotatedAnchorX = localAnchorX * std::cos(radians) - localAnchorY * std::sin(radians);
+    const double rotatedAnchorY = localAnchorX * std::sin(radians) + localAnchorY * std::cos(radians);
+
+    return {
+        static_cast<int>(anchorX + tex.dx - centerX - rotatedAnchorX),
+        static_cast<int>(anchorY + tex.dy - centerY - rotatedAnchorY),
+    };
 }
 
 std::array<int, 5> readBattleFightFramesForHeadId(int headId)
@@ -468,6 +521,7 @@ void BattleSceneHades::draw()
         int rot = 0;
         int shadow = 0;
         uint8_t white = 0;
+        bool corpse = false;
     };
 
     std::vector<DrawInfo> draw_infos;
@@ -503,10 +557,6 @@ void BattleSceneHades::draw()
     }
     for (const auto& unit : scene_units_.runtimeUnits())
     {
-        if (!is_visible_world(unit.motion.position.x, unit.motion.position.y / 2.0))
-        {
-            continue;
-        }
         //if (r->Dead) { continue; }
         DrawInfo info;
         const auto& presentation = scene_units_.requirePresentation(unit.id);
@@ -519,19 +569,22 @@ void BattleSceneHades::draw()
         {
             info.p.x += shakeJitter(battle_frame_, unit.id);
         }
+        const int renderActType = unit.alive ? unit.animation.actType : -1;
+        const int renderActFrame = unit.alive ? unit.animation.actFrame : 0;
         info.tex = TextureManager::getInstance()->getTexture(
             path,
             BattleSceneRenderMath::calRenderUnitPic(
                 presentation.fightFrames,
                 unit.motion.facing,
-                unit.animation.actType,
-                unit.animation.actFrame));
+            renderActType,
+            renderActFrame));
         if (!info.tex)
         {
             continue;
         }
         if (!unit.alive)
         {
+            info.corpse = true;
             //if (r->Frozen == 0)
             {
                 if (realTowardsToFaceTowards(unit.motion.facing) >= 2)
@@ -632,7 +685,37 @@ void BattleSceneHades::draw()
                     scaley = 1;
                     yd = d.tex->dy * 0.1;
                 }
-                TextureManager::getInstance()->renderTexture(d.tex, renderWorldX(d.p.x), renderWorldY(d.p.y / 2.0 + yd),
+                double shadowY = d.p.y / 2.0 + yd;
+                if (d.corpse)
+                {
+                    shadowY = corpseShadowY(d.p, *d.tex);
+                }
+                Point shadowRenderPosition = rotatedAnchorRenderPosition(
+                    *d.tex,
+                    renderWorldX(d.p.x),
+                    renderWorldY(shadowY),
+                    scalex,
+                    scaley,
+                    static_cast<double>(d.rot));
+                if (d.corpse)
+                {
+                    const Point bodyRenderPosition = rotatedAnchorRenderPosition(
+                        *d.tex,
+                        renderWorldX(d.p.x),
+                        renderWorldY(renderGroundY(d.p)),
+                        CORPSE_BODY_SCALE_X,
+                        CORPSE_BODY_SCALE_Y,
+                        static_cast<double>(d.rot));
+                    shadowRenderPosition = corpseShadowRenderPosition(
+                        *d.tex,
+                        bodyRenderPosition,
+                        CORPSE_BODY_SCALE_X,
+                        CORPSE_BODY_SCALE_Y,
+                        scalex,
+                        scaley);
+                    shadowRenderPosition.y += static_cast<int>(d.tex->dy * CORPSE_SHADOW_Y_OFFSET_RATIO);
+                }
+                TextureManager::getInstance()->renderTexture(d.tex, shadowRenderPosition.x, shadowRenderPosition.y,
                     TextureManager::RenderInfo{ { 32, 32, 32, 255 }, uint8_t(d.alpha / 2), scalex, scaley, double(d.rot) });
                 // if (d.shadow == 1)
                 // {
@@ -650,17 +733,26 @@ void BattleSceneHades::draw()
         double scaley = 1;
         if (d.rot)
         {
-            scaley = 0.5;
+            scaley = CORPSE_BODY_SCALE_X;
         }
         std::vector<Color> color_v;
         //color_v[0] = { 128, 128, 64, 255 };
         std::vector<float> brightness_v(4, 0);
         brightness_v[0] = 0.5;
         brightness_v[2] = 0;
-        TextureManager::getInstance()->renderTexture(d.tex,
+        const double scalex = scaley;
+        const double zoomY = d.rot ? CORPSE_BODY_SCALE_Y : 1.0;
+        const Point renderPosition = rotatedAnchorRenderPosition(
+            *d.tex,
             renderWorldX(d.p.x),
-            renderWorldY(d.p.y / 2.0 - d.p.z),
-            TextureManager::RenderInfo{ d.color, d.alpha, scaley, 1, static_cast<double>(d.rot), d.white, color_v, {} });
+            renderWorldY(renderGroundY(d.p)),
+            scalex,
+            zoomY,
+            static_cast<double>(d.rot));
+        TextureManager::getInstance()->renderTexture(d.tex,
+            renderPosition.x,
+            renderPosition.y,
+            TextureManager::RenderInfo{ d.color, d.alpha, scalex, zoomY, static_cast<double>(d.rot), d.white, color_v, {} });
     }
 
     for (const auto& unit : scene_units_.runtimeUnits())
@@ -1399,7 +1491,8 @@ void BattleSceneHades::applySceneFrameDelta(const BattleSceneFrameDelta& result)
     }
     if (result.cameraFocus)
     {
-        camera_.focusOn(*result.cameraFocus, result.closeUpFrames);
+        pos_ = BattleSceneCamera::clampCenter(*result.cameraFocus, makeCameraBounds());
+        camera_.focusOn(pos_, result.closeUpFrames);
     }
     else if (result.closeUpFrames > 0)
     {

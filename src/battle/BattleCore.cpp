@@ -15,6 +15,7 @@
 #include <limits>
 #include <map>
 #include <optional>
+#include <print>
 #include <set>
 #include <unordered_map>
 #include <utility>
@@ -922,6 +923,10 @@ void advanceRuntimeUnits(
     for (auto& unit : state.unitStore.units)
     {
         assert(unit.id >= 0);
+        if (!unit.alive)
+        {
+            continue;
+        }
         auto input = makeRuntimeUnitTickInput(state, unit);
         const bool lastAlive = isLastAliveInTeam(state.unitStore, unit);
 
@@ -1218,6 +1223,72 @@ void refreshMovementSkillProfile(
 }
 
 using PostPhysicsMotionMap = std::map<int, BattleMovementPhysicsState>;
+using UnitMotionSnapshotMap = std::map<int, BattleUnitMotion>;
+
+constexpr float DeathKickImpactHeight = 36.0f;
+
+bool needsCorpsePhysics(const BattleRuntimeUnit& unit)
+{
+    return !unit.alive
+        && (unit.motion.position.z > 0.0f || unit.motion.velocity.norm() > 0.01);
+}
+
+double deathKickSpeed(int committedHpDamage)
+{
+    constexpr double MaxDeathKickSpeed = 75.0;
+
+    return std::clamp(committedHpDamage / 3.0 + 5.0, 0.0, MaxDeathKickSpeed);
+}
+
+Pointf deathKickVelocity(Pointf direction, int committedHpDamage)
+{
+    const double speed = deathKickSpeed(committedHpDamage);
+    const double verticalSpeed = std::min(6.0, speed * 0.35);
+    const double horizontalSpeed = std::sqrt(std::max(0.0, speed * speed - verticalSpeed * verticalSpeed));
+
+    direction.z = 0.0f;
+    if (direction.norm() <= 0.01)
+    {
+        direction = { 1, 0, 0 };
+    }
+    direction.normTo(horizontalSpeed);
+    direction.z = static_cast<float>(verticalSpeed);
+    return direction;
+}
+
+Pointf deathKickDirection(const BattleRuntimeState& state, const BattleRuntimeUnit& defender, int attackerUnitId)
+{
+    if (const auto* attacker = state.unitStore.findUnit(attackerUnitId))
+    {
+        if (attacker->id != defender.id)
+        {
+            return defender.motion.position - attacker->motion.position;
+        }
+    }
+    return { 1, 0, 0 };
+}
+
+UnitMotionSnapshotMap makeUnitMotionSnapshot(const BattleUnitStore& units)
+{
+    UnitMotionSnapshotMap snapshots;
+    for (const auto& unit : units.units)
+    {
+        snapshots.emplace(unit.id, unit.motion);
+    }
+    return snapshots;
+}
+
+const BattleUnitMotion& motionSnapshotForUnit(
+    const UnitMotionSnapshotMap& snapshots,
+    const BattleRuntimeUnit& fallback)
+{
+    const auto snapshotIt = snapshots.find(fallback.id);
+    if (snapshotIt != snapshots.end())
+    {
+        return snapshotIt->second;
+    }
+    return fallback.motion;
+}
 
 void prepareMovementAgents(BattleRuntimeState& state)
 {
@@ -1239,7 +1310,7 @@ void prepareMovementAgents(BattleRuntimeState& state)
     for (auto it = state.movement.agents.begin(); it != state.movement.agents.end();)
     {
         const auto& unit = state.unitStore.requireUnit(it->first);
-        if (!unit.alive)
+        if (!unit.alive && !needsCorpsePhysics(unit))
         {
             state.movement.movementReservations.erase(it->first);
             it = state.movement.agents.erase(it);
@@ -1764,11 +1835,11 @@ Pointf runtimeDashAttackVelocity(
     const BattleCastSkillState& selectedSkill)
 {
     auto direction = input.targetPosition - unit.motion.position;
-    if (pointNorm(direction) <= state.action.castConfig.minimumFacingNorm)
+    if (direction.norm() <= state.action.castConfig.minimumFacingNorm)
     {
         direction = unit.motion.facing;
     }
-    assert(pointNorm(direction) > state.action.castConfig.minimumFacingNorm);
+    assert(direction.norm() > state.action.castConfig.minimumFacingNorm);
     direction = normalizedTo(direction, 1.0, state.action.castConfig.minimumFacingNorm);
 
     double dashDistance = state.action.actionRules.meleeAttackHitRadius
@@ -1789,7 +1860,7 @@ Pointf runtimeDashAttackVelocity(
         else
         {
             auto away = unit.motion.position - input.targetPosition;
-            if (pointNorm(away) > state.action.castConfig.minimumFacingNorm)
+            if (away.norm() > state.action.castConfig.minimumFacingNorm)
             {
                 away = normalizedTo(away, 1.0, state.action.castConfig.minimumFacingNorm);
                 Pointf side{ -away.y, away.x, 0 };
@@ -1828,11 +1899,11 @@ Pointf runtimeCastFacing(
 {
     assert(input.config.minimumFacingNorm > 0.0);
     auto facing = input.targetPosition - unit.motion.position;
-    if (pointNorm(facing) <= input.config.minimumFacingNorm)
+    if (facing.norm() <= input.config.minimumFacingNorm)
     {
         facing = unit.motion.facing;
     }
-    assert(pointNorm(facing) > input.config.minimumFacingNorm);
+    assert(facing.norm() > input.config.minimumFacingNorm);
     return normalizedTo(facing, 1.0, input.config.minimumFacingNorm);
 }
 
@@ -1843,7 +1914,7 @@ const BattleCastSkillState& selectedCastSkill(const BattleCastInput& input, bool
 
 Pointf taXueMeleeRetreatVelocity(BattleRuntimeState& state, Pointf retreatVelocity)
 {
-    const double retreatSpeed = pointNorm(retreatVelocity);
+    const double retreatSpeed = retreatVelocity.norm();
     if (retreatSpeed <= state.action.castConfig.minimumFacingNorm)
     {
         return retreatVelocity;
@@ -1915,7 +1986,7 @@ double committedCastProjectileSpeed(const BattleActionCommitResult& result, doub
     assert(fallbackSpeed >= 0.0);
     for (const auto& request : result.attackSpawnRequests)
     {
-        const double speed = pointNorm(request.initial.velocity);
+        const double speed = request.initial.velocity.norm();
         if (speed > 0.01)
         {
             return speed;
@@ -2478,12 +2549,60 @@ BattleCooldownState makeBattleFrameCooldownStateImpl(const BattleRuntimeUnit& un
     return cooldown;
 }
 
-void applyDamageResultToFrameState(BattleRuntimeState& state, const BattleDamageTransactionResult& transaction)
+void applyDamageResultToFrameState(
+    BattleRuntimeState& state,
+    const BattleDamageTransactionResult& transaction,
+    const UnitMotionSnapshotMap& frameStartMotion)
 {
+    const auto& preDamageDefender = state.unitStore.requireUnit(transaction.defender.id);
+    const auto& defenderStartMotion = motionSnapshotForUnit(frameStartMotion, preDamageDefender);
+    const auto* attacker = state.unitStore.findUnit(transaction.attacker.id);
+    Pointf preDamageDeathKickDirection = { 1, 0, 0 };
+    if (attacker && attacker->id != preDamageDefender.id)
+    {
+        preDamageDeathKickDirection = defenderStartMotion.position - motionSnapshotForUnit(frameStartMotion, *attacker).position;
+    }
     state.unitStore.writeDamageUnit(transaction.attacker);
     state.unitStore.writeDamageUnit(transaction.defender);
     auto& unit = state.unitStore.requireUnit(transaction.defender.id);
     unit.animation.cooldown = transaction.defenderCooldown.cooldown;
+    if (transaction.killed)
+    {
+        unit.motion = defenderStartMotion;
+        unit.motion.position.z += DeathKickImpactHeight;
+        unit.motion.velocity = deathKickVelocity(
+            preDamageDeathKickDirection,
+            transaction.finalHpDamage);
+        std::print(
+            "[death-kick] unit={} roleId={} name={} attacker={} lastHpDamage={} targetSpeed={:.2f} pos=({:.2f},{:.2f},{:.2f}) velocity=({:.2f},{:.2f},{:.2f}) speed={:.2f}\n",
+            unit.id,
+            unit.realRoleId,
+            unit.name,
+            transaction.attacker.id,
+            transaction.finalHpDamage,
+            deathKickSpeed(transaction.finalHpDamage),
+            unit.motion.position.x,
+            unit.motion.position.y,
+            unit.motion.position.z,
+            unit.motion.velocity.x,
+            unit.motion.velocity.y,
+            unit.motion.velocity.z,
+            unit.motion.velocity.norm());
+        unit.motion.acceleration = { 0, 0, state.movementPhysics.config.gravity };
+        unit.frozen = 0;
+        unit.frozenMax = 0;
+        if (auto* status = tryFindById(state.status.units, unit.id))
+        {
+            status->effects.frozenTimer = 0;
+            status->effects.frozenMaxTimer = 0;
+        }
+        if (auto agentIt = state.movement.agents.find(unit.id); agentIt != state.movement.agents.end())
+        {
+            agentIt->second.physics.position = unit.motion.position;
+            agentIt->second.physics.velocity = unit.motion.velocity;
+            agentIt->second.physics.acceleration = unit.motion.acceleration;
+        }
+    }
     writeBattleDamageRuntimeUnit(
         requireById(state.damage.unitExtras, transaction.attacker.id),
         transaction.attacker);
@@ -3588,7 +3707,7 @@ PostPhysicsMotionMap makePostPhysicsMotionMap(
     return postPhysics;
 }
 
-std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleRuntimeState& state)
+std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleRuntimeState& state)
 {
     std::vector<BattleFrameMovementPhysicsUnitResult> physicsResults;
     if (state.unitStore.units.empty())
@@ -3609,7 +3728,7 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
     for (auto& unit : state.unitStore.units)
     {
         assert(unit.id >= 0);
-        if (!unit.alive)
+        if (!unit.alive && !needsCorpsePhysics(unit))
         {
             continue;
         }
@@ -3629,10 +3748,6 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
         if (result.frozenFrames > 0)
         {
             --result.frozenFrames;
-            if (auto* status = tryFindById(state.status.units, unit.id))
-            {
-                status->effects.frozenTimer = result.frozenFrames;
-            }
             physicsResults.push_back(std::move(result));
             continue;
         }
@@ -3659,6 +3774,7 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
         physicsInput.unitId = unit.id;
         physicsInput.currentPosition = unit.motion.position;
         physicsInput.actionDashActive = actionDashActive;
+        physicsInput.unitAlive = unit.alive;
         auto movementSnapshot = makeBattleWorldUnitState(unit, BattleRuntimeMoveSpeedDivisor);
         refreshMovementSkillProfile(movementSnapshot, unit, state);
         movementSnapshot.velocity = result.state.velocity;
@@ -3667,7 +3783,7 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
         movementSnapshot.movementDashSpreadFramesRemaining = result.state.movementDashSpreadFrames;
         movementSnapshot.postDashRetreatFramesRemaining = result.state.postDashRetreatFrames;
         movementSnapshot.postDashChaosFramesRemaining = result.state.postDashChaosFrames;
-        physicsInput.ignoreUnitCollision = battleMovementTaXueUnstable(movementSnapshot);
+        physicsInput.ignoreUnitCollision = !unit.alive || battleMovementTaXueUnstable(movementSnapshot);
 
         result.state = BattleMovementPhysicsSystem().advance(physicsInput);
         result.physicsAdvanced = true;
@@ -3681,14 +3797,31 @@ std::vector<BattleFrameMovementPhysicsUnitResult> advanceMovementPhysics(BattleR
     return physicsResults;
 }
 
-void advanceMovement(
+void commitFrameMovement(
     BattleRuntimeState& state,
     BattleFrameResult& result,
-    const PostPhysicsMotionMap& postPhysics)
+    std::vector<BattleFrameMovementPhysicsUnitResult> physicsResults,
+    BattleTickResult movement,
+    const BattleMovementFrameInput& movementInput)
 {
-    auto movementInput = makeMovementFrameInput(state, postPhysics);
-    result.movement = BattleCore(movementInput).tickMovement();
+    result.movementPhysicsResults = std::move(physicsResults);
+    result.movement = std::move(movement);
     applyMovementFrameState(state, movementInput);
+
+    for (const auto& physicsResult : result.movementPhysicsResults)
+    {
+        auto& unit = state.unitStore.requireUnit(physicsResult.unitId);
+        auto& physics = requireMappedById(state.movement.agents, physicsResult.unitId).physics;
+
+        unit.motion.position = physicsResult.state.position;
+        unit.motion.velocity = physicsResult.state.velocity;
+        unit.motion.acceleration = physicsResult.state.acceleration;
+        physics = physicsResult.state;
+        if (auto* status = tryFindById(state.status.units, physicsResult.unitId))
+        {
+            status->effects.frozenTimer = physicsResult.frozenFrames;
+        }
+    }
 
     if (state.movementPhysics.terrain.walkableByCell.empty())
     {
@@ -3731,6 +3864,15 @@ void advanceMovement(
     }
 }
 
+void advanceMotionFrame(BattleRuntimeState& state, BattleFrameResult& result)
+{
+    prepareMovementAgents(state);
+    auto physicsResults = computeMovementPhysics(state);
+    auto movementInput = makeMovementFrameInput(state, makePostPhysicsMotionMap(physicsResults));
+    auto movement = BattleCore(movementInput).tickMovement();
+    commitFrameMovement(state, result, std::move(physicsResults), std::move(movement), movementInput);
+}
+
 void publishMovementPresentationResults(const BattleRuntimeState& state, BattleFrameResult& result)
 {
     result.movementPresentationResults.clear();
@@ -3742,11 +3884,12 @@ void publishMovementPresentationResults(const BattleRuntimeState& state, BattleF
 
     for (const auto& unit : result.movement.units)
     {
+        const auto& runtimeUnit = state.unitStore.requireUnit(unit.id);
         BattleFrameMovementPresentationUnitResult presentation;
         presentation.unitId = unit.id;
-        presentation.position = unit.position;
-        presentation.velocity = unit.velocity;
-        const auto& runtimeUnit = state.unitStore.requireUnit(unit.id);
+        presentation.position = runtimeUnit.motion.position;
+        presentation.velocity = runtimeUnit.motion.velocity;
+        presentation.acceleration = runtimeUnit.motion.acceleration;
         auto runtimeFacing = runtimeUnit.motion.facing;
         if (runtimeFacing.norm() > 0.01f)
         {
@@ -4106,6 +4249,7 @@ BattleFrameDamageRenderApplication makeBattleFrameDamageRenderApplication(
 void applyDamageAndLifecycle(
     BattleRuntimeState& state,
     BattleFrameResult& result,
+    const UnitMotionSnapshotMap& frameStartMotion,
     std::vector<BattleGameplayCommand>& frameCommands,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
@@ -4144,7 +4288,7 @@ void applyDamageAndLifecycle(
 
     for (auto transaction : application.transactions)
     {
-        applyDamageResultToFrameState(state, transaction);
+        applyDamageResultToFrameState(state, transaction, frameStartMotion);
         applyRescueRepositionForDamage(state, result, transaction, logEvents, visualEvents);
         for (const auto& event : transaction.events)
         {
@@ -4518,6 +4662,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     std::vector<BattleVisualEvent> visualEvents;
     std::vector<BattleGameplayCommand> deferredCommands;
     std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
+    const auto frameStartMotion = makeUnitMotionSnapshot(state.unitStore);
 
     // Tick status timers and queue status damage, e.g. poison or bleed damage transactions.
     advanceStatus(state);
@@ -4544,12 +4689,8 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         gameplayEvents,
         logEvents,
         visualEvents);
-    // Prepare movement-owned unit state once; frame input builders must stay read-only.
-    prepareMovementAgents(state);
-    // Advance velocity/acceleration physics, e.g. dash momentum, gravity, friction, frozen gating.
-    result.movementPhysicsResults = advanceMovementPhysics(state);
-    // Run tactical movement planning on the world snapshot, e.g. approach enemies or hold ranged distance.
-    advanceMovement(state, result, makePostPhysicsMotionMap(result.movementPhysicsResults));
+    // Advance and commit motion, e.g. physics and tactical movement.
+    advanceMotionFrame(state, result);
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
     advanceActionFrameUnits(
         state,
@@ -4561,8 +4702,6 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         gameplayEvents,
         logEvents,
         visualEvents);
-    // Publish one scene-facing movement payload after action updates so cast-facing is preserved.
-    publishMovementPresentationResults(state, result);
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
     reduceFrameGameplayCommands(
         state,
@@ -4583,7 +4722,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         logEvents,
         visualEvents);
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
-    applyDamageAndLifecycle(state, result, frameCommands, gameplayEvents, logEvents, visualEvents);
+    applyDamageAndLifecycle(state, result, frameStartMotion, frameCommands, gameplayEvents, logEvents, visualEvents);
     // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
     appendProjectileCancellationLogEvents(state.attacks, result.attackEvents, logEvents, true);
     frameCommands.insert(
@@ -4601,6 +4740,8 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         logEvents,
         visualEvents);
     assert(frameCommands.empty());
+    // Publish scene-facing movement after damage/lifecycle so same-frame death kicks sync to the scene.
+    publishMovementPresentationResults(state, result);
     // Copy authoritative runtime state into explicit scene apply payloads, e.g. status/combo mirrors.
     publishFrameApplyOutputs(state, result);
     // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.
