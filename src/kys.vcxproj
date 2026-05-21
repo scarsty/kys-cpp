@@ -56,7 +56,7 @@
   <PropertyGroup Label="Vcpkg">
     <VcpkgAutoLink>true</VcpkgAutoLink>
     <VcpkgXUseBuiltInApplocalDeps>true</VcpkgXUseBuiltInApplocalDeps>
-    <VcpkgApplocalDeps>false</VcpkgApplocalDeps>
+    <VcpkgApplocalDeps>true</VcpkgApplocalDeps>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <VcpkgTriplet>
@@ -118,9 +118,9 @@
     <ClCompile Include="..\cifa\Cifa.cpp" />
     <ClCompile Include="..\mlcc\SimpleCC.cpp" />
     <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp" />
-    <ClCompile Include="..\mlcc\ZipFile.cpp" />
     <ClCompile Include="BattleSceneAct.cpp" />
     <ClCompile Include="BattleScenePaper.cpp" />
+    <ClCompile Include="..\mlcc\ArchiveFile.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
@@ -190,9 +190,9 @@
     <ClInclude Include="..\cifa\Cifa.h" />
     <ClInclude Include="..\mlcc\SimpleCC.h" />
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h" />
-    <ClInclude Include="..\mlcc\ZipFile.h" />
     <ClInclude Include="BattleSceneAct.h" />
     <ClInclude Include="BattleScenePaper.h" />
+    <ClInclude Include="..\mlcc\ArchiveFile.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="..\mlcc\filefunc.h" />

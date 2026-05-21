@@ -197,9 +197,6 @@
     <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\ZipFile.cpp">
-      <Filter>mlcc</Filter>
-    </ClCompile>
     <ClCompile Include="ScriptCifa.cpp">
       <Filter>script</Filter>
     </ClCompile>
@@ -208,6 +205,9 @@
     </ClCompile>
     <ClCompile Include="..\cifa\Cifa.cpp">
       <Filter>cifa</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\project\mlcc\ArchiveFile.cpp">
+      <Filter>mlcc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -418,9 +418,6 @@
     <ClInclude Include="..\mlcc\SimpleCC.h">
       <Filter>mlcc</Filter>
     </ClInclude>
-    <ClInclude Include="..\mlcc\ZipFile.h">
-      <Filter>mlcc</Filter>
-    </ClInclude>
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h">
       <Filter>mlcc</Filter>
     </ClInclude>
@@ -435,6 +432,9 @@
     </ClInclude>
     <ClInclude Include="..\cifa\Cifa.h">
       <Filter>cifa</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\project\mlcc\ArchiveFile.h">
+      <Filter>mlcc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
