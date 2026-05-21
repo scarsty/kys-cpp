@@ -39,6 +39,16 @@ BattleVisualEvent roleEffectEvent(int targetUnitId, int effectId, int durationFr
     event.durationFrames = durationFrames;
     return event;
 }
+
+BattleLogEvent makeAntiComboTransferLog(int sourceUnitId, int targetUnitId)
+{
+    BattleLogEvent log;
+    log.type = BattleLogEventType::Status;
+    log.sourceUnitId = sourceUnitId;
+    log.targetUnitId = targetUnitId;
+    log.segments = battleLogText("獨行轉移", BattleLogTextTone::SkillName);
+    return log;
+}
 }
 
 Point BattleGridTransform::toGrid(Pointf position) const
@@ -3325,6 +3335,107 @@ std::vector<int> unitDeathsIn(const std::vector<BattleDamageEvent>& events)
     return deadUnitIds;
 }
 
+bool comboEffectIsApplied(const KysChess::RoleComboState& state, int comboId)
+{
+    return std::ranges::any_of(
+        state.appliedEffects,
+        [comboId](const KysChess::AppliedEffectInstance& effect)
+        {
+            return effect.sourceComboId == comboId;
+        });
+}
+
+bool unitBelongsToCombo(const BattleDeathEffectExtras& extras, int comboId)
+{
+    return std::ranges::find(extras.comboIds, comboId) != extras.comboIds.end();
+}
+
+bool isAntiComboId(const BattleDeathEffectStore& store, int comboId)
+{
+    return comboId >= 0 && store.regularSynergyComboIds.count(comboId) == 0;
+}
+
+BattleRuntimeUnit* findAntiComboTransferTarget(
+    BattleRuntimeState& state,
+    int deadUnitId,
+    int comboId)
+{
+    const auto& dead = state.unitStore.requireUnit(deadUnitId);
+    BattleRuntimeUnit* best = nullptr;
+    for (auto& candidate : state.unitStore.units)
+    {
+        if (!candidate.alive || candidate.id == dead.id || candidate.team != dead.team)
+        {
+            continue;
+        }
+        const auto* extras = tryFindById(state.deathEffects.store.units, candidate.id);
+        if (!extras || !unitBelongsToCombo(*extras, comboId))
+        {
+            continue;
+        }
+        const auto comboIt = state.combo.units.find(candidate.id);
+        assert(comboIt != state.combo.units.end());
+        if (comboEffectIsApplied(comboIt->second, comboId))
+        {
+            continue;
+        }
+        if (!best || candidate.cost > best->cost)
+        {
+            best = &candidate;
+        }
+    }
+    return best;
+}
+
+void applyRuntimeAntiComboTransfer(
+    BattleRuntimeState& state,
+    int deadUnitId,
+    std::vector<BattleLogEvent>& logEvents)
+{
+    const auto& deadExtras = requireById(state.deathEffects.store.units, deadUnitId);
+    const auto& deadCombo = requireMappedById(state.combo.units, deadUnitId);
+    for (int comboId : deadExtras.comboIds)
+    {
+        if (!isAntiComboId(state.deathEffects.store, comboId)
+            || !comboEffectIsApplied(deadCombo, comboId))
+        {
+            continue;
+        }
+
+        auto* target = findAntiComboTransferTarget(state, deadUnitId, comboId);
+        if (!target)
+        {
+            continue;
+        }
+
+        auto& targetCombo = requireMappedById(state.combo.units, target->id);
+        auto& targetExtras = requireById(state.deathEffects.store.units, target->id);
+        for (const auto& effect : deadCombo.appliedEffects)
+        {
+            if (effect.sourceComboId != comboId)
+            {
+                continue;
+            }
+            KysChess::ChessBattleEffects::applyEffect(targetCombo, effect, comboId);
+            targetExtras.appliedEffects.push_back(effect);
+        }
+        logEvents.push_back(makeAntiComboTransferLog(deadUnitId, target->id));
+    }
+}
+
+void applyRuntimeDeathComboConsequences(
+    BattleRuntimeState& state,
+    const std::vector<int>& deadUnitIds,
+    std::vector<BattleLogEvent>& logEvents)
+{
+    for (int deadUnitId : deadUnitIds)
+    {
+        auto& combo = requireMappedById(state.combo.units, deadUnitId);
+        combo.onSkillTeamHealPending = false;
+        applyRuntimeAntiComboTransfer(state, deadUnitId, logEvents);
+    }
+}
+
 void updateBattleResult(BattleRuntimeState& state, std::vector<BattleGameplayEvent>& gameplayEvents)
 {
     if (state.result.ended)
@@ -4286,6 +4397,7 @@ void applyDamageAndLifecycle(
         }
     }
 
+    std::vector<int> deadUnitIds;
     for (auto transaction : application.transactions)
     {
         applyDamageResultToFrameState(state, transaction, frameStartMotion);
@@ -4295,6 +4407,7 @@ void applyDamageAndLifecycle(
             if (event.type == BattleDamageEventType::UnitDied)
             {
                 unitDied = true;
+                deadUnitIds.push_back(event.targetUnitId);
                 continue;
             }
             gameplayEvents.push_back(toGameplayEvent(event));
@@ -4315,6 +4428,7 @@ void applyDamageAndLifecycle(
     }
     if (unitDied)
     {
+        applyRuntimeDeathComboConsequences(state, deadUnitIds, logEvents);
         clearDeadRuntimePendingActions(state);
         appendEnemyTopDebuffUpdates(state, logEvents);
     }

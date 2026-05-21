@@ -100,25 +100,6 @@ TEST_CASE("BattleSceneUnitStore_InitializesSummonedClonePlacementAndSummary", "[
     CHECK(summary.allies[1].speed == cloneUnit.stats.speed);
 }
 
-TEST_CASE("BattleSceneUnitStore_BuildsComboRefsFromCanonicalRows", "[battle][scene_unit_store]")
-{
-    std::vector<KysChess::Battle::BattleSetupUnitInput> units;
-    auto alive = makeSetupUnit(0, 0, 1, 2, { 10, 20, 0 });
-    auto dead = makeSetupUnit(1, 1, 3, 4, { 30, 40, 0 });
-    dead.alive = false;
-    units.push_back(alive);
-    units.push_back(dead);
-
-    StoreFixture fixture(std::move(units));
-    auto refs = fixture.store.makeComboBattleUnitRefs();
-
-    REQUIRE(refs.size() == 2);
-    CHECK(refs[0].battleId == 0);
-    CHECK(refs[0].alive);
-    CHECK(refs[1].battleId == 1);
-    CHECK(!refs[1].alive);
-}
-
 TEST_CASE("BattleSceneUnitStore_FacesTowardNearestAliveEnemy", "[battle][scene_unit_store]")
 {
     std::vector<KysChess::Battle::BattleSetupUnitInput> units;

@@ -78,6 +78,8 @@ public:
 
     static BattleRuntimeSessionCreationResult createInitialized(BattleRuntimeSessionCreationInput input);
 
+    // The only post-initialization gameplay advance path. Callers send setup/input
+    // before the frame and consume the returned result for presentation/reporting.
     BattleFrameResult runFrame();
     void swapSetupUnitPositions(int firstUnitId, int secondUnitId);
 

@@ -1407,16 +1407,10 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
 void BattleSceneHades::applyCoreFrameResult(
     const KysChess::Battle::BattleFrameResult& frameResult)
 {
-    auto& comboStates = KysChess::ChessCombo::getMutableStates();
     BattleSceneFrameDeltaBuildContext context;
     context.units = &scene_units_;
-    context.comboStates = &comboStates;
     context.hurtFlashTimers = &hurt_flash_timers_;
     context.random = &rand_;
-    context.transferAntiCombo = [this](int unitId)
-    {
-        return KysChess::ChessCombo::transferAntiCombo(unitId, scene_units_.makeComboBattleUnitRefs());
-    };
     context.manualCameraEnabled = isManualCameraEnabled();
     context.hurtFlashDuration = HURT_FLASH_DURATION;
     context.blinkSoundEffectId = BLINK_SOUND_EFFECT_ID;
@@ -1479,10 +1473,6 @@ void BattleSceneHades::applySceneFrameDelta(const BattleSceneFrameDelta& result)
             rumble.lowFrequency,
             rumble.highFrequency,
             rumble.durationMs);
-    }
-    for (const auto& event : result.logEvents)
-    {
-        presentation_recorder_.recordLog(event);
     }
     if (result.unitDied)
     {

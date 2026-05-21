@@ -7,7 +7,6 @@
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
-#include <cassert>
 #include <print>
 
 namespace KysChess
@@ -284,64 +283,6 @@ std::vector<int> ChessCombo::getCombosForRole(int roleId)
         for (int rid : combo.memberRoleIds)
             if (rid == roleId) { result.push_back(combo.id); break; }
     return result;
-}
-
-std::vector<AntiComboTransferEvent> ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles)
-{
-    std::vector<ChessComboBattleUnitRef> units;
-    units.reserve(allRoles.size());
-    for (auto* role : allRoles)
-    {
-        assert(role);
-        units.push_back({
-            role->ID,
-            role->RealID,
-            role->Team,
-            role->Dead == 0,
-            role->Cost,
-        });
-    }
-    return transferAntiCombo(deadRoleId, units);
-}
-
-std::vector<AntiComboTransferEvent> ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<ChessComboBattleUnitRef>& allUnits)
-{
-    const auto deadIt = std::find_if(allUnits.begin(), allUnits.end(), [&](const auto& unit)
-        {
-            return unit.battleId == deadRoleId;
-        });
-    assert(deadIt != allUnits.end());
-
-    std::vector<AntiComboTransferEvent> events;
-    auto combos = getCombosForRole(deadIt->realRoleId);
-    for (auto cid : combos)
-    {
-        auto& combo = getAllCombos()[(int)cid];
-        if (!combo.isAntiCombo) continue;
-
-        int bestId = -1, bestTier = -1;
-        for (int mid : combo.memberRoleIds)
-        {
-            for (const auto& unit : allUnits)
-            {
-                if (unit.realRoleId == mid && unit.team == deadIt->team && unit.alive)
-                {
-                    int tier = unit.cost;
-                    if (tier > bestTier) { bestTier = tier; bestId = unit.battleId; }
-                    break;
-                }
-            }
-        }
-
-        if (bestId != -1 && activeStates_.count(bestId) == 0)
-        {
-            auto& thresh = combo.thresholds[0];
-            for (auto& e : thresh.effects)
-                ChessBattleEffects::applyEffect(activeStates_[bestId], e, cid);
-            events.push_back({ cid, deadIt->battleId, bestId });
-        }
-    }
-    return events;
 }
 
 int ChessCombo::calculateGoldBonus(const std::vector<ActiveCombo>& active, const std::vector<Chess>& survivors)

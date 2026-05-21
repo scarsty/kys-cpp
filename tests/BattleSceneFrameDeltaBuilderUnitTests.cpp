@@ -1,27 +1,21 @@
 #include "BattleSceneFrameDeltaBuilder.h"
-#include "BattleLogTestHelpers.h"
 #include "BattleSceneTestRuntimeFixture.h"
-#include "ChessCombo.h"
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <map>
 #include <unordered_map>
 
 namespace
 {
 BattleSceneFrameDeltaBuildContext testApplyContext(
     BattleSceneUnitStore& units,
-    std::map<int, KysChess::RoleComboState>& comboStates,
     std::unordered_map<int, int>& hurtFlashTimers,
     RandomDouble& random)
 {
     BattleSceneFrameDeltaBuildContext context;
     context.units = &units;
-    context.comboStates = &comboStates;
     context.hurtFlashTimers = &hurtFlashTimers;
     context.random = &random;
-    context.transferAntiCombo = [](int) { return std::vector<KysChess::AntiComboTransferEvent>{}; };
     context.hurtFlashDuration = 15;
     context.blinkSoundEffectId = 11;
     context.deathZoomFrames = 30;
@@ -32,14 +26,12 @@ BattleSceneFrameDeltaBuildContext testApplyContext(
 }
 }  // namespace
 
-TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDamageBeforeDeathEffects", "[battle][scene_frame_delta]")
+TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDeathPresentationEffects", "[battle][scene_frame_delta]")
 {
     BattleSceneTest::StoreFixture fixture({
         BattleSceneTest::makeSetupUnit(0, 0, 0, 0, { 0, 0, 0 }),
         BattleSceneTest::makeSetupUnit(1, 1, 1, 0, { 10, 0, 0 }),
     });
-    std::map<int, KysChess::RoleComboState> comboStates;
-    comboStates[1].onSkillTeamHealPending = true;
     std::unordered_map<int, int> hurtFlashTimers;
     RandomDouble random;
     random.set_seed(1);
@@ -65,9 +57,8 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDamageBeforeDeathEffects", "[bat
     auto result = BattleSceneFrameDeltaBuilder().build(
         frame,
         -1,
-        testApplyContext(fixture.store, comboStates, hurtFlashTimers, random));
+        testApplyContext(fixture.store, hurtFlashTimers, random));
 
-    CHECK_FALSE(comboStates[1].onSkillTeamHealPending);
     CHECK(hurtFlashTimers.at(1) == 15);
     REQUIRE(result.bloodEffects.size() == 1);
     CHECK(result.bloodEffects[0].followUnitId == 1);
@@ -79,51 +70,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDamageBeforeDeathEffects", "[bat
     REQUIRE(result.cameraFocus);
 }
 
-TEST_CASE("BattleSceneFrameDeltaBuilder_LogsAntiComboTransferOnDeath", "[battle][scene_frame_delta]")
-{
-    BattleSceneTest::StoreFixture fixture({
-        BattleSceneTest::makeSetupUnit(0, 0, 0, 0, { 0, 0, 0 }),
-        BattleSceneTest::makeSetupUnit(1, 1, 1, 0, { 10, 0, 0 }),
-        BattleSceneTest::makeSetupUnit(2, 1, 2, 0, { 20, 0, 0 }),
-    });
-    std::map<int, KysChess::RoleComboState> comboStates;
-    std::unordered_map<int, int> hurtFlashTimers;
-    RandomDouble random;
-
-    auto context = testApplyContext(fixture.store, comboStates, hurtFlashTimers, random);
-    context.transferAntiCombo = [](int deadUnitId)
-    {
-        CHECK(deadUnitId == 1);
-        return std::vector<KysChess::AntiComboTransferEvent>{ { 33, 1, 2 } };
-    };
-
-    KysChess::Battle::BattleFrameResult frame;
-    frame.damageRenderApplications.push_back({
-        { 1, 0, 0, 0, false },
-        { 0, 100, 20, 0, true },
-        12,
-        30,
-        7,
-        44,
-        true,
-        false,
-    });
-    frame.frame.gameplayEvents.push_back({
-        KysChess::Battle::BattleGameplayEventType::UnitDied,
-        90,
-        0,
-        1,
-    });
-
-    auto result = BattleSceneFrameDeltaBuilder().build(frame, -1, context);
-
-    REQUIRE(result.logEvents.size() == 1);
-    CHECK(result.logEvents[0].type == KysChess::Battle::BattleLogEventType::Status);
-    CHECK(result.logEvents[0].sourceUnitId == 1);
-    CHECK(result.logEvents[0].targetUnitId == 2);
-    CHECK(BattleLogTest::textOf(result.logEvents[0]) == "獨行轉移");
-}
-
 TEST_CASE("BattleSceneFrameDeltaBuilder_DoesNotReplayRescueRuntimeMutations", "[battle][scene_frame_delta]")
 {
     BattleSceneTest::StoreFixture fixture({
@@ -131,7 +77,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_DoesNotReplayRescueRuntimeMutations", "[
         BattleSceneTest::makeSetupUnit(1, 0, 1, 0, { 10, 0, 0 }),
         BattleSceneTest::makeSetupUnit(2, 1, 5, 0, { 500, 0, 0 }),
     });
-    std::map<int, KysChess::RoleComboState> comboStates;
     std::unordered_map<int, int> hurtFlashTimers;
     RandomDouble random;
 
@@ -150,7 +95,7 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_DoesNotReplayRescueRuntimeMutations", "[
     BattleSceneFrameDeltaBuilder().build(
         frame,
         -1,
-        testApplyContext(fixture.store, comboStates, hurtFlashTimers, random));
+        testApplyContext(fixture.store, hurtFlashTimers, random));
 
     const auto& rescued = fixture.store.requireRuntimeUnit(0);
     CHECK(rescued.grid.x == 0);
@@ -165,7 +110,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_ReturnsBattleEndSideEffects", "[battle][
         BattleSceneTest::makeSetupUnit(0, 0, 0, 0, { 0, 0, 0 }),
         BattleSceneTest::makeSetupUnit(1, 1, 1, 0, { 10, 0, 0 }),
     });
-    std::map<int, KysChess::RoleComboState> comboStates;
     std::unordered_map<int, int> hurtFlashTimers;
     RandomDouble random;
 
@@ -181,7 +125,7 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_ReturnsBattleEndSideEffects", "[battle][
     auto result = BattleSceneFrameDeltaBuilder().build(
         frame,
         -1,
-        testApplyContext(fixture.store, comboStates, hurtFlashTimers, random));
+        testApplyContext(fixture.store, hurtFlashTimers, random));
 
     CHECK(result.battleEnded);
     CHECK(result.battleResult == 0);

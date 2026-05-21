@@ -8,8 +8,6 @@
 #include <string>
 #include <vector>
 
-struct Role;
-
 namespace KysChess
 {
 
@@ -47,22 +45,6 @@ struct ComboOwnership
 {
     int owned = 0;      // distinct heroes from this combo present on the field
     int effective = 0;  // star-augmented value (== owned when starSynergyBonus is false)
-};
-
-struct ChessComboBattleUnitRef
-{
-    int battleId = -1;
-    int realRoleId = -1;
-    int team = -1;
-    bool alive = true;
-    int cost = 0;
-};
-
-struct AntiComboTransferEvent
-{
-    int comboId = -1;
-    int sourceUnitId = -1;
-    int targetUnitId = -1;
 };
 
 // Compute how many heroes from `combo` are owned (present in starByRole),
@@ -115,9 +97,6 @@ public:
     // Build { roleId -> starLevel } map from a selection of Chess pieces.
     // An entry in the returned map means the hero is on the field.
     static std::map<int, int> buildStarMap(const std::vector<Chess>& selected);
-    // Transfer anti-combo buff to next strongest alive member when current holder dies
-    static std::vector<AntiComboTransferEvent> transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles);
-    static std::vector<AntiComboTransferEvent> transferAntiCombo(int deadRoleId, const std::vector<ChessComboBattleUnitRef>& allUnits);
     // Calculate gold bonus from active combos with goldCoefficient
     static int calculateGoldBonus(const std::vector<ActiveCombo>& active, const std::vector<Chess>& survivors);
     static bool hasActiveEffect(const std::vector<ActiveCombo>& active, EffectType effectType);

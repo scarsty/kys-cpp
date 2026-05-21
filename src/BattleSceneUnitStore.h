@@ -1,7 +1,6 @@
 #pragma once
 
 #include "BattlePostBattleSummary.h"
-#include "ChessCombo.h"
 #include "Point.h"
 #include "battle/BattleRuntimeSession.h"
 
@@ -45,7 +44,6 @@ public:
 
     void setUnitShake(int unitId, int shake);
     void decreaseTransientPresentationState();
-    std::vector<KysChess::ChessComboBattleUnitRef> makeComboBattleUnitRefs() const;
     Pointf facingTowardNearestEnemy(int unitId) const;
     BattlePostBattleSummary makePostBattleSummary(const BattleReport& report, int battleResult) const;
 

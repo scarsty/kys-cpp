@@ -1,8 +1,5 @@
 #include "BattleSceneFrameDeltaBuilder.h"
 
-#include "ChessCombo.h"
-#include "battle/BattleLogSegments.h"
-
 #include <algorithm>
 #include <cassert>
 #include <format>
@@ -10,16 +7,6 @@
 
 namespace
 {
-KysChess::Battle::BattleLogEvent makeAntiComboTransferLog(const KysChess::AntiComboTransferEvent& event)
-{
-    KysChess::Battle::BattleLogEvent log;
-    log.type = KysChess::Battle::BattleLogEventType::Status;
-    log.sourceUnitId = event.sourceUnitId;
-    log.targetUnitId = event.targetUnitId;
-    log.segments = KysChess::Battle::battleLogText("獨行轉移", KysChess::Battle::BattleLogTextTone::SkillName);
-    return log;
-}
-
 struct BattleLifecycleSceneEffects
 {
     bool battleEnded = false;
@@ -99,19 +86,6 @@ void BattleSceneFrameDeltaBuilder::collectDamageSceneEffects(
         if (diedUnitIds.find(damage.defender.unitId) != diedUnitIds.end())
         {
             assert(context.random);
-            assert(context.comboStates);
-            auto sit = context.comboStates->find(damage.defender.unitId);
-            if (sit != context.comboStates->end())
-            {
-                sit->second.onSkillTeamHealPending = false;
-            }
-
-            assert(context.transferAntiCombo);
-            for (const auto& event : context.transferAntiCombo(damage.defender.unitId))
-            {
-                result.logEvents.push_back(makeAntiComboTransferLog(event));
-            }
-
             const auto& defenderUnit = context.units->requireRuntimeUnit(damage.defender.unitId);
             result.jitterX = context.random->rand_int(2) - context.random->rand_int(2);
             result.jitterY = context.random->rand_int(2) - context.random->rand_int(2);

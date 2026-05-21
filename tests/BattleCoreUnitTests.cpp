@@ -3,6 +3,7 @@
 #include "battle/BattleLogSegments.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentationPlayback.h"
+#include "battle/BattleRuntimeSession.h"
 #include "battle/BattleRuntimeRules.h"
 #include "ChessEftIds.h"
 #include "Find.h"
@@ -3918,6 +3919,67 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndIns
         {
             return event.type == BattleGameplayEventType::BattleEnded
                 && event.amount == 0;
+        }));
+}
+
+TEST_CASE("BattleRuntimeSession_RunFrame_AppliesDeathComboConsequencesBeforeSceneConsumption", "[battle][runtime_session][death]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 1, { 100, 100, 0 }),
+        unit(1, 0, { 120, 100, 0 }),
+        unit(2, 0, { 140, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 1, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 0, 10, { 120, 100, 0 }),
+        runtimeUnitSnapshot(2, 0, 100, { 140, 100, 0 }),
+    };
+    state.unitStore.requireUnit(1).realRoleId = 10;
+    state.unitStore.requireUnit(1).cost = 5;
+    state.unitStore.requireUnit(2).realRoleId = 20;
+    state.unitStore.requireUnit(2).cost = 4;
+
+    KysChess::AppliedEffectInstance antiComboEffect;
+    antiComboEffect.type = KysChess::EffectType::DodgeChance;
+    antiComboEffect.value = 35;
+    antiComboEffect.sourceComboId = 33;
+    state.combo.units[1].appliedEffects.push_back(antiComboEffect);
+    state.combo.units[1].dodgeChancePct = 35;
+    state.combo.units[1].onSkillTeamHealPending = true;
+    state.deathEffects.store.units = {
+        { .id = 0 },
+        { .id = 1, .comboIds = { 33 }, .appliedEffects = { antiComboEffect } },
+        { .id = 2, .comboIds = { 33 } },
+    };
+
+    queuePendingDamage(state, lethalDamageInput(0, 1));
+    BattleRuntimeSession session(std::move(state));
+
+    const auto result = session.runFrame();
+
+    const auto& runtime = session.runtime();
+    CHECK_FALSE(runtime.combo.units.at(1).onSkillTeamHealPending);
+    CHECK(runtime.combo.units.at(2).dodgeChancePct == 35);
+    CHECK(std::any_of(
+        runtime.combo.units.at(2).appliedEffects.begin(),
+        runtime.combo.units.at(2).appliedEffects.end(),
+        [](const KysChess::AppliedEffectInstance& effect)
+        {
+            return effect.sourceComboId == 33
+                && effect.type == KysChess::EffectType::DodgeChance
+                && effect.value == 35;
+        }));
+    CHECK(std::any_of(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Status
+                && event.sourceUnitId == 1
+                && event.targetUnitId == 2
+                && BattleLogTest::textOf(event) == "獨行轉移";
         }));
 }
 

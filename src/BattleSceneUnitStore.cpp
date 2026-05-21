@@ -130,25 +130,6 @@ void BattleSceneUnitStore::decreaseTransientPresentationState()
     }
 }
 
-std::vector<KysChess::ChessComboBattleUnitRef> BattleSceneUnitStore::makeComboBattleUnitRefs() const
-{
-    assert(runtime_session_);
-    std::vector<KysChess::ChessComboBattleUnitRef> refs;
-    auto units = runtime_session_->runtimeUnits();
-    refs.reserve(units.size());
-    for (const auto& unit : units)
-    {
-        refs.push_back({
-            unit.id,
-            unit.realRoleId,
-            unit.team,
-            unit.alive,
-            unit.cost,
-        });
-    }
-    return refs;
-}
-
 Pointf BattleSceneUnitStore::facingTowardNearestEnemy(int unitId) const
 {
     assert(runtime_session_);
