@@ -85,7 +85,7 @@ Expected: selected tests pass before production field removal.
 
 Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core]"` passed 677 assertions in 103 test cases.
 
-- [ ] **Step 6: Commit test migration**
+- [x] **Step 6: Commit test migration**
 
 Run:
 
@@ -96,6 +96,8 @@ git commit -m "test: stop asserting public hit diagnostics"
 
 Expected: one test-only commit.
 
+Result: committed as `1e457d0 test: stop asserting public hit diagnostics`.
+
 ---
 
 ## Task 2: Move `hitResults` Into Frame Context
@@ -105,7 +107,7 @@ Expected: one test-only commit.
 - Modify: `src/battle/BattleCore.h`
 - Modify: `src/battle/BattleCore.cpp`
 
-- [ ] **Step 1: Add private context storage**
+- [x] **Step 1: Add private context storage**
 
 In `BattleFrameContext`, add:
 
@@ -113,7 +115,7 @@ In `BattleFrameContext`, add:
 std::vector<BattleHitResolutionResult> hitResults;
 ```
 
-- [ ] **Step 2: Remove public field**
+- [x] **Step 2: Remove public field**
 
 In `BattleFrameResult`, remove:
 
@@ -121,7 +123,7 @@ In `BattleFrameResult`, remove:
 std::vector<BattleHitResolutionResult> hitResults;
 ```
 
-- [ ] **Step 3: Route hit resolution through context**
+- [x] **Step 3: Route hit resolution through context**
 
 In `advanceAttacksAndResolveHits`, change:
 
@@ -141,7 +143,7 @@ In `applyDamageAndLifecycle`, change critical-defender collection to iterate:
 for (const auto& hit : frame.hitResults)
 ```
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 Run:
 
@@ -153,6 +155,8 @@ git commit -m "refactor: keep hit diagnostics private to frame"
 
 Expected: selected tests pass, then one commit.
 
+Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner]"` passed 784 assertions in 117 test cases.
+
 ---
 
 ## Task 3: Leave `attackEvents` Public Until Scene Impact Is Reworked
@@ -162,7 +166,7 @@ Expected: selected tests pass, then one commit.
 - Read: `src/BattleSceneImpactPlayer.cpp`
 - Read: `src/battle/BattleCore.cpp`
 
-- [ ] **Step 1: Confirm attack event consumers**
+- [x] **Step 1: Confirm attack event consumers**
 
 Run:
 
@@ -172,9 +176,13 @@ rg -n "attackEvents" src tests
 
 Expected: `BattleSceneImpactPlayer` and presentation generation still consume `attackEvents`.
 
-- [ ] **Step 2: Record the next split before removing `attackEvents`**
+Result: `BattleSceneImpactPlayer` still consumes `attackEvents`, and `BattleCore.cpp` still uses them for presentation generation and projectile cancellation logs.
+
+- [x] **Step 2: Record the next split before removing `attackEvents`**
 
 Before any future `attackEvents` removal, create a plan that moves scene impact commands into a narrow result channel and stops `emitPresentationFrame()` from re-reading attack events.
+
+Decision: leave `attackEvents` public. A future split must first create narrow scene impact commands and stop `emitPresentationFrame()` from re-reading attack events.
 
 ---
 

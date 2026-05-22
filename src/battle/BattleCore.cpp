@@ -1303,6 +1303,7 @@ struct BattleFrameContext
     BattleTickResult movement;
     std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
     std::vector<BattleFrameActionUnitResult> actionResults;
+    std::vector<BattleHitResolutionResult> hitResults;
     UnitMotionSnapshotMap frameStartMotion;
 };
 
@@ -4372,7 +4373,7 @@ void advanceAttacksAndResolveHits(BattleRuntimeState& state, BattleFrameContext&
     resolveHitEvents(
         state,
         result.attackEvents,
-        result.hitResults,
+        frame.hitResults,
         frameCommands,
         logEvents,
         visualEvents);
@@ -4438,7 +4439,7 @@ void applyDamageAndLifecycle(BattleRuntimeState& state, BattleFrameContext& fram
         application.commands.end());
 
     std::set<int> criticalDefenderIds;
-    for (const auto& hit : result.hitResults)
+    for (const auto& hit : frame.hitResults)
     {
         if (hit.critical)
         {
