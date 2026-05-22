@@ -675,7 +675,7 @@ Result: committed as `refactor: route damage frame output through context`.
 
 ## Final Verification
 
-- [ ] **Step 1: Confirm top-level `runFrame()` no longer passes parallel frame vectors**
+- [x] **Step 1: Confirm top-level `runFrame()` no longer passes parallel frame vectors**
 
 Run:
 
@@ -685,7 +685,9 @@ rg -n "frameCommands,|gameplayEvents,|logEvents,|visualEvents|deferredCommands|r
 
 Expected: `BattleFrameRunner::runFrame()` may access `frame.*` fields, but direct helper calls from `runFrame()` no longer pass long parallel vector argument lists.
 
-- [ ] **Step 2: Confirm `BattleFrameContext` remains private and narrowly used**
+Result: the broad search still reports lower-level helper signatures and explicit `frame.*` lane uses, but `BattleFrameRunner::runFrame()` no longer passes long parallel vector argument lists to the helpers converted in this plan.
+
+- [x] **Step 2: Confirm `BattleFrameContext` remains private and narrowly used**
 
 Run:
 
@@ -703,7 +705,9 @@ rg -n "BattleFrameContext&" src/battle/BattleCore.cpp
 
 Expected: matches only for named frame-transaction step helpers from this plan and the command-reduction wrapper.
 
-- [ ] **Step 3: Run completion gate**
+Result: `BattleFrameContext` appears only in `src/battle/BattleCore.cpp`. `BattleFrameContext&` appears only on the consume helper and the named frame-transaction helpers from this plan.
+
+- [x] **Step 3: Run completion gate**
 
 Run:
 
@@ -714,3 +718,5 @@ x64\Debug\kys_tests.exe
 ```
 
 Expected: diff check exits 0, full tests pass, and MSBuild exits 0.
+
+Result: `git diff --check` exited 0. Full `x64\Debug\kys_tests.exe` passed 5632 assertions in 418 test cases. `.github\build-command.ps1` exited 0 and produced `x64\Debug\kys.exe`.
