@@ -253,7 +253,7 @@ Result: phase 2A is committed as a mechanical `BattleFrameContext` slice with no
 - Read: `src/battle/BattleCore.cpp`
 - Update this file with the chosen phase 2B helper list.
 
-- [ ] **Step 1: Find helpers with three or more frame-output parameters**
+- [x] **Step 1: Find helpers with three or more frame-output parameters**
 
 Run:
 
@@ -263,7 +263,9 @@ rg -n "std::vector<BattleGameplayCommand>&|std::vector<BattleGameplayEvent>&|std
 
 Expected: the high-churn candidates include `reduceFrameGameplayCommands`, `applyRuntimeComboEvents`, `advanceActionFrameUnits`, `advanceAttacksAndResolveHits`, `applyDamageAndLifecycle`, and `emitPresentationFrame`.
 
-- [ ] **Step 2: Classify each helper**
+Result: the broad search also found lower-level reducers and append helpers, but the top-level phase 2B routing candidates remain `reduceFrameGameplayCommands`, `applyRuntimeComboEvents`, `applyPendingTeamEffects`, `advanceActionFrameUnits`, `advanceAttacksAndResolveHits`, `applyDamageAndLifecycle`, and `emitPresentationFrame`.
+
+- [x] **Step 2: Classify each helper**
 
 Use this table:
 
@@ -276,7 +278,9 @@ Use this table:
 | `applyDamageAndLifecycle` | Convert after attack/hit helper conversion, because it uses `frameStartMotion` and appends death/battle-end events. |
 | `emitPresentationFrame` | Convert last; it consumes accumulated gameplay/log/visual vectors. |
 
-- [ ] **Step 3: Write phase 2B as a mechanical implementation plan**
+Decision: keep the existing order, and include `applyPendingTeamEffects` beside `applyRuntimeComboEvents` because it shares the same `teamEffectEvents`, `logEvents`, and `visualEvents` frame outputs.
+
+- [x] **Step 3: Write phase 2B as a mechanical implementation plan**
 
 Create a separate plan file only if the helper conversion list is larger than one commit:
 
@@ -285,6 +289,8 @@ docs/superpowers/plans/2026-05-22-battle-frame-context-routing.md
 ```
 
 Expected: phase 2B should not delete result fields or change subsystem internals.
+
+Result: phase 2B is split into a dedicated plan at `docs/superpowers/plans/2026-05-22-battle-frame-context-routing.md`, with one commit per routing group and no result-field or subsystem-ownership changes.
 
 ---
 
