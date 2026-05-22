@@ -91,7 +91,7 @@ Phase 2D+: Delete mirror-world synchronization one gameplay domain at a time.
 - Read: `src/battle/BattleCore.h`
 - Update research notes in this file after running commands.
 
-- [ ] **Step 1: Confirm the working tree is clean**
+- [x] **Step 1: Confirm the working tree is clean**
 
 Run:
 
@@ -101,7 +101,9 @@ git status --short
 
 Expected: no output before implementation work starts.
 
-- [ ] **Step 2: Record the current `runFrame()` order**
+Result: no output after committing the phase 2 planning docs.
+
+- [x] **Step 2: Record the current `runFrame()` order**
 
 Run:
 
@@ -111,7 +113,9 @@ rg -n "BattleFrameRunner::runFrame|advanceStatus|advanceRuntimeUnits|applyRuntim
 
 Expected: one ordered chain inside `BattleFrameRunner::runFrame()` plus helper definitions above it.
 
-- [ ] **Step 3: Record current frame-local carriers**
+Result: `BattleFrameRunner::runFrame()` currently calls, in order, `advanceStatus`, `advanceRuntimeUnits`, `applyRuntimeComboEvents`, `applyPendingTeamEffects`, `reduceFrameGameplayCommands`, `advanceMotionFrame`, `advanceActionFrameUnits`, `reduceFrameGameplayCommands`, `advanceAttacksAndResolveHits`, `applyDamageAndLifecycle`, final projectile cancellation logging, late `reduceFrameGameplayCommands`, `publishMovementPresentationResults`, `publishFrameApplyOutputs`, `emitPresentationFrame`, and `pruneFinishedRuntimeAttacks`.
+
+- [x] **Step 3: Record current frame-local carriers**
 
 Run:
 
@@ -121,7 +125,9 @@ rg -n "std::vector<BattleGameplayCommand> frameCommands|std::vector<BattleGamepl
 
 Expected: these carriers are local to `BattleFrameRunner::runFrame()` and helper parameters.
 
-- [ ] **Step 4: Decide the exact `BattleFrameContext` shape for phase 2A**
+Result: `frameCommands`, `gameplayEvents`, `logEvents`, `visualEvents`, `deferredCommands`, `runtimeCommits`, and `frameStartMotion` are currently local to `BattleFrameRunner::runFrame()` and passed through helper parameters.
+
+- [x] **Step 4: Decide the exact `BattleFrameContext` shape for phase 2A**
 
 Use this shape unless research finds a compile-level blocker:
 
@@ -141,6 +147,8 @@ struct BattleFrameContext
 
 Constraint: `BattleFrameContext` belongs in `src/battle/BattleCore.cpp` near `BattleFrameRunner::runFrame()` or in the anonymous namespace. Do not expose it from `BattleCore.h` unless a later task proves external callers need it.
 
+Decision: use the shape above. Place `BattleFrameContext` in the anonymous namespace after `UnitMotionSnapshotMap` is available, and add `makeBattleFrameContext()` after `makeUnitMotionSnapshot()` so initialization can call `makeUnitMotionSnapshot(state.unitStore)`. No `BattleCore.h` exposure is needed for phase 2A.
+
 ---
 
 ## Implementation Slice 2A: Introduce `BattleFrameContext`
@@ -153,7 +161,7 @@ Constraint: `BattleFrameContext` belongs in `src/battle/BattleCore.cpp` near `Ba
 - Test: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: Add `BattleFrameContext` in `BattleCore.cpp`**
+- [x] **Step 1: Add `BattleFrameContext` in `BattleCore.cpp`**
 
 Add a local struct that owns only one-frame data. Keep initialization mechanical:
 
@@ -168,7 +176,9 @@ BattleFrameContext makeBattleFrameContext(const BattleRuntimeState& state)
 
 Expected compile constraint: `UnitMotionSnapshotMap` must already be declared before the struct/helper.
 
-- [ ] **Step 2: Replace `runFrame()` locals with context fields**
+Result: `BattleFrameContext` is local to `src/battle/BattleCore.cpp`, after `UnitMotionSnapshotMap` and `makeUnitMotionSnapshot()` are available.
+
+- [x] **Step 2: Replace `runFrame()` locals with context fields**
 
 Change `BattleFrameRunner::runFrame()` from separate locals to:
 
@@ -180,7 +190,9 @@ Then pass `frame.frameCommands`, `frame.runtimeCommits`, `frame.result`, and oth
 
 Do not change helper signatures in this slice unless a reference cannot be passed safely.
 
-- [ ] **Step 3: Return `frame.result`**
+Result: `BattleFrameRunner::runFrame()` now uses `auto frame = makeBattleFrameContext(state);` and passes existing helper signatures the corresponding `frame.*` fields.
+
+- [x] **Step 3: Return `frame.result`**
 
 End `runFrame()` with:
 
@@ -190,7 +202,9 @@ return std::move(frame.result);
 
 Expected behavior: tests that assert `BattleFrameResult` fields keep passing unchanged.
 
-- [ ] **Step 4: Run focused runtime/frame tests**
+Result: `runFrame()` returns `std::move(frame.result)`.
+
+- [x] **Step 4: Run focused runtime/frame tests**
 
 Run:
 
@@ -200,7 +214,9 @@ x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_
 
 Expected: all selected tests pass. If the Catch2 filter syntax does not select the intended tests, run `x64\Debug\kys_tests.exe` instead and record that result in the implementation notes.
 
-- [ ] **Step 5: Run full tests and build**
+Result: `x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_session]"` passed 893 assertions in 124 test cases.
+
+- [x] **Step 5: Run full tests and build**
 
 Run:
 
@@ -211,7 +227,9 @@ x64\Debug\kys_tests.exe
 
 Expected: tests exit 0 and MSBuild exits 0. Final linking failure is acceptable only when the output states the game executable is locked by a running process.
 
-- [ ] **Step 6: Commit phase 2A**
+Result: `x64\Debug\kys_tests.exe` passed 5632 assertions in 418 test cases. `.github\build-command.ps1` exited 0 and produced `x64\Debug\kys.exe`; MSBuild still reported the existing `BattleCore.cpp(1264)` C4244 warning.
+
+- [x] **Step 6: Commit phase 2A**
 
 Run:
 
@@ -221,6 +239,8 @@ git commit -m "refactor: introduce battle frame context"
 ```
 
 Expected: one mechanical commit with no result-channel deletion and no subsystem mirror deletion.
+
+Result: phase 2A is committed as a mechanical `BattleFrameContext` slice with no result-channel deletion and no subsystem mirror deletion.
 
 ---
 

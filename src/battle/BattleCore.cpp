@@ -1288,6 +1288,25 @@ UnitMotionSnapshotMap makeUnitMotionSnapshot(const BattleUnitStore& units)
     return snapshots;
 }
 
+struct BattleFrameContext
+{
+    BattleFrameResult result;
+    std::vector<BattleGameplayCommand> frameCommands;
+    std::vector<BattleGameplayEvent> gameplayEvents;
+    std::vector<BattleLogEvent> logEvents;
+    std::vector<BattleVisualEvent> visualEvents;
+    std::vector<BattleGameplayCommand> deferredCommands;
+    std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
+    UnitMotionSnapshotMap frameStartMotion;
+};
+
+BattleFrameContext makeBattleFrameContext(const BattleRuntimeState& state)
+{
+    BattleFrameContext frame;
+    frame.frameStartMotion = makeUnitMotionSnapshot(state.unitStore);
+    return frame;
+}
+
 const BattleUnitMotion& motionSnapshotForUnit(
     const UnitMotionSnapshotMap& snapshots,
     const BattleRuntimeUnit& fallback)
@@ -4769,100 +4788,100 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
 {
     assert(!state.unitStore.units.empty());
 
-    BattleFrameResult result;
-    std::vector<BattleGameplayCommand> frameCommands;
-    std::vector<BattleGameplayEvent> gameplayEvents;
-    std::vector<BattleLogEvent> logEvents;
-    std::vector<BattleVisualEvent> visualEvents;
-    std::vector<BattleGameplayCommand> deferredCommands;
-    std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
-    const auto frameStartMotion = makeUnitMotionSnapshot(state.unitStore);
+    auto frame = makeBattleFrameContext(state);
 
     // Tick status timers and queue status damage, e.g. poison or bleed damage transactions.
     advanceStatus(state);
     // Tick unit cooldown/action/MP timers and collect frame combo events, e.g. skill-finished triggers.
-    advanceRuntimeUnits(state, frameCommands, runtimeCommits, result.unitApplications);
+    advanceRuntimeUnits(state, frame.frameCommands, frame.runtimeCommits, frame.result.unitApplications);
     // Apply combo timer events to runtime state, deferring auto-ultimate commands until late frame.
     applyRuntimeComboEvents(
         state,
-        runtimeCommits,
-        deferredCommands,
-        result.teamEffectEvents,
-        result.effectCommands,
-        logEvents,
-        visualEvents);
+        frame.runtimeCommits,
+        frame.deferredCommands,
+        frame.result.teamEffectEvents,
+        frame.result.effectCommands,
+        frame.logEvents,
+        frame.visualEvents);
     // Apply queued team effects whose source exists, e.g. delayed skill team heal.
-    applyPendingTeamEffects(state, result.teamEffectEvents, logEvents, visualEvents);
+    applyPendingTeamEffects(state, frame.result.teamEffectEvents, frame.logEvents, frame.visualEvents);
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
     reduceFrameGameplayCommands(
         state,
-        frameCommands,
-        result.applications,
-        result.effectCommands,
-        result.teamEffectEvents,
-        gameplayEvents,
-        logEvents,
-        visualEvents);
+        frame.frameCommands,
+        frame.result.applications,
+        frame.result.effectCommands,
+        frame.result.teamEffectEvents,
+        frame.gameplayEvents,
+        frame.logEvents,
+        frame.visualEvents);
     // Advance and commit motion, e.g. physics and tactical movement.
-    advanceMotionFrame(state, result);
+    advanceMotionFrame(state, frame.result);
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
     advanceActionFrameUnits(
         state,
-        result.movement,
-        result.applications,
-        result.actionResults,
-        result.effectCommands,
-        frameCommands,
-        gameplayEvents,
-        logEvents,
-        visualEvents);
+        frame.result.movement,
+        frame.result.applications,
+        frame.result.actionResults,
+        frame.result.effectCommands,
+        frame.frameCommands,
+        frame.gameplayEvents,
+        frame.logEvents,
+        frame.visualEvents);
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
     reduceFrameGameplayCommands(
         state,
-        frameCommands,
-        result.applications,
-        result.effectCommands,
-        result.teamEffectEvents,
-        gameplayEvents,
-        logEvents,
-        visualEvents);
+        frame.frameCommands,
+        frame.result.applications,
+        frame.result.effectCommands,
+        frame.result.teamEffectEvents,
+        frame.gameplayEvents,
+        frame.logEvents,
+        frame.visualEvents);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
     advanceAttacksAndResolveHits(
         state,
-        result,
-        frameCommands,
-        result.effectCommands,
-        gameplayEvents,
-        logEvents,
-        visualEvents);
+        frame.result,
+        frame.frameCommands,
+        frame.result.effectCommands,
+        frame.gameplayEvents,
+        frame.logEvents,
+        frame.visualEvents);
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
-    applyDamageAndLifecycle(state, result, frameStartMotion, frameCommands, gameplayEvents, logEvents, visualEvents);
+    applyDamageAndLifecycle(
+        state,
+        frame.result,
+        frame.frameStartMotion,
+        frame.frameCommands,
+        frame.gameplayEvents,
+        frame.logEvents,
+        frame.visualEvents);
     // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
-    appendProjectileCancellationLogEvents(state.attacks, result.attackEvents, logEvents, true);
-    frameCommands.insert(
-        frameCommands.end(),
-        std::make_move_iterator(deferredCommands.begin()),
-        std::make_move_iterator(deferredCommands.end()));
+    appendProjectileCancellationLogEvents(state.attacks, frame.result.attackEvents, frame.logEvents, true);
+    frame.frameCommands.insert(
+        frame.frameCommands.end(),
+        std::make_move_iterator(frame.deferredCommands.begin()),
+        std::make_move_iterator(frame.deferredCommands.end()));
     // Reduce late commands from damage/combo lifecycle, e.g. auto-ultimate or death-triggered projectiles.
     reduceFrameGameplayCommands(
         state,
-        frameCommands,
-        result.applications,
-        result.effectCommands,
-        result.teamEffectEvents,
-        gameplayEvents,
-        logEvents,
-        visualEvents);
-    assert(frameCommands.empty());
+        frame.frameCommands,
+        frame.result.applications,
+        frame.result.effectCommands,
+        frame.result.teamEffectEvents,
+        frame.gameplayEvents,
+        frame.logEvents,
+        frame.visualEvents);
+    assert(frame.frameCommands.empty());
     // Publish scene-facing movement after damage/lifecycle so same-frame death kicks sync to the scene.
-    publishMovementPresentationResults(state, result);
+    publishMovementPresentationResults(state, frame.result);
     // Copy authoritative runtime state into explicit scene apply payloads, e.g. status/combo mirrors.
-    publishFrameApplyOutputs(state, result);
+    publishFrameApplyOutputs(state, frame.result);
     // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.
-    emitPresentationFrame(state, result, gameplayEvents, logEvents, visualEvents);
+    emitPresentationFrame(state, frame.result, frame.gameplayEvents, frame.logEvents, frame.visualEvents);
     // Runtime maintenance: remove projectiles/melee attacks whose animation lifetime has finished.
     pruneFinishedRuntimeAttacks(state);
-    return result;
+    return std::move(frame.result);
 }
 
 }  // namespace KysChess::Battle
