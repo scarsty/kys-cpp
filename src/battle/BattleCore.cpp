@@ -2589,6 +2589,27 @@ BattleCooldownState makeBattleFrameCooldownStateImpl(const BattleRuntimeUnit& un
     return cooldown;
 }
 
+void commitDamageUnitCoreToRuntime(BattleRuntimeState& state, const BattleDamageUnitState& unit)
+{
+    state.unitStore.writeDamageUnit(unit);
+    writeBattleDamageRuntimeUnit(requireById(state.damage.unitExtras, unit.id), unit);
+}
+
+void commitDamageDefenderStatusToRuntime(
+    BattleRuntimeState& state,
+    const BattleDamageTransactionResult& transaction)
+{
+    writeBattleStatusRuntimeUnit(
+        requireById(state.status.units, transaction.defender.id),
+        transaction.defenderStatus);
+}
+
+void commitDamageCooldownToRuntime(BattleRuntimeState& state, const BattleDamageTransactionResult& transaction)
+{
+    auto& unit = state.unitStore.requireUnit(transaction.defender.id);
+    unit.animation.cooldown = transaction.defenderCooldown.cooldown;
+}
+
 void applyDamageResultToFrameState(
     BattleRuntimeState& state,
     const BattleDamageTransactionResult& transaction,
@@ -2602,10 +2623,10 @@ void applyDamageResultToFrameState(
     {
         preDamageDeathKickDirection = defenderStartMotion.position - motionSnapshotForUnit(frameStartMotion, *attacker).position;
     }
-    state.unitStore.writeDamageUnit(transaction.attacker);
-    state.unitStore.writeDamageUnit(transaction.defender);
+    commitDamageUnitCoreToRuntime(state, transaction.attacker);
+    commitDamageUnitCoreToRuntime(state, transaction.defender);
+    commitDamageCooldownToRuntime(state, transaction);
     auto& unit = state.unitStore.requireUnit(transaction.defender.id);
-    unit.animation.cooldown = transaction.defenderCooldown.cooldown;
     if (transaction.killed)
     {
         unit.motion = defenderStartMotion;
@@ -2643,15 +2664,7 @@ void applyDamageResultToFrameState(
             agentIt->second.physics.acceleration = unit.motion.acceleration;
         }
     }
-    writeBattleDamageRuntimeUnit(
-        requireById(state.damage.unitExtras, transaction.attacker.id),
-        transaction.attacker);
-    writeBattleDamageRuntimeUnit(
-        requireById(state.damage.unitExtras, transaction.defender.id),
-        transaction.defender);
-    writeBattleStatusRuntimeUnit(
-        requireById(state.status.units, transaction.defender.id),
-        transaction.defenderStatus);
+    commitDamageDefenderStatusToRuntime(state, transaction);
 }
 
 void applyRescueDamageToUnitStore(BattleRuntimeState& state, int unitId, int hp, int invincible)

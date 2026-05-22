@@ -85,7 +85,7 @@ Expected: the test passes on current behavior. If it fails, investigate the beha
 
 Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive"` passed 7 assertions in 1 test case.
 
-- [ ] **Step 3: Commit coverage**
+- [x] **Step 3: Commit coverage**
 
 Run:
 
@@ -95,6 +95,8 @@ git commit -m "test: cover runtime death prevention frame result"
 ```
 
 Expected: one test-only commit.
+
+Result: committed as `20e56b2 test: cover runtime death prevention frame result`.
 
 ---
 
@@ -106,7 +108,7 @@ Expected: one test-only commit.
 - Test: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: Extract attacker/defender writeback helpers**
+- [x] **Step 1: Extract attacker/defender writeback helpers**
 
 Add these helpers near `applyDamageResultToFrameState`:
 
@@ -133,7 +135,7 @@ void commitDamageCooldownToRuntime(BattleRuntimeState& state, const BattleDamage
 }
 ```
 
-- [ ] **Step 2: Use helpers in `applyDamageResultToFrameState`**
+- [x] **Step 2: Use helpers in `applyDamageResultToFrameState`**
 
 Replace the raw write calls for attacker/defender damage state with:
 
@@ -146,7 +148,7 @@ commitDamageCooldownToRuntime(state, transaction);
 
 Keep death-kick motion logic in `applyDamageResultToFrameState` for this task.
 
-- [ ] **Step 3: Run focused damage tests**
+- [x] **Step 3: Run focused damage tests**
 
 Run:
 
@@ -155,6 +157,8 @@ x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][frame_runner][run
 ```
 
 Expected: selected damage/status tests pass.
+
+Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][frame_runner][runtime][unit]"` passed 218 assertions in 31 test cases.
 
 - [ ] **Step 4: Commit the boundary split**
 
@@ -177,7 +181,7 @@ Expected: one refactor commit with no behavior changes.
 - Read: `src/BattleSceneFrameDeltaBuilder.cpp`
 - Read: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Audit damage channel consumers**
+- [x] **Step 1: Audit damage channel consumers**
 
 Run:
 
@@ -187,9 +191,13 @@ rg -n "damageTransactions|damageRenderApplications|stateApplications|unitApplica
 
 Expected: `damageRenderApplications` has scene consumers; `damageTransactions` is mostly tests plus runtime lifecycle source.
 
-- [ ] **Step 2: Record the next candidate in this plan**
+Result: `damageRenderApplications` has scene and initialization-test consumers; `damageTransactions` is mostly tests plus runtime lifecycle publication from `BattleCore.cpp`. `unitApplications` and `stateApplications` remain explicit runtime/test publication channels.
+
+- [x] **Step 2: Record the next candidate in this plan**
 
 Update this plan with the chosen next field before changing code. The expected candidate is `damageTransactions` only after tests assert behavior through canonical runtime state, frame events, and `damageRenderApplications`.
+
+Decision: the next damage result channel candidate remains `damageTransactions`, but only after tests stop depending on it for damage ordering diagnostics and instead assert canonical runtime state, ordered frame events, and `damageRenderApplications`.
 
 ---
 
