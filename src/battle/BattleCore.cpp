@@ -4152,17 +4152,17 @@ BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
     return state;
 }
 
-void advanceActionFrameUnits(
-    BattleRuntimeState& state,
-    const BattleTickResult& movement,
-    BattleFrameApplications& applications,
-    std::vector<BattleFrameActionUnitResult>& actionResults,
-    std::vector<BattleEffectCommand>& effectCommands,
-    std::vector<BattleGameplayCommand>& frameCommands,
-    std::vector<BattleGameplayEvent>& gameplayEvents,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& frame)
 {
+    const auto& movement = frame.result.movement;
+    auto& applications = frame.result.applications;
+    auto& actionResults = frame.result.actionResults;
+    auto& effectCommands = frame.result.effectCommands;
+    auto& frameCommands = frame.frameCommands;
+    auto& gameplayEvents = frame.gameplayEvents;
+    auto& logEvents = frame.logEvents;
+    auto& visualEvents = frame.visualEvents;
+
     for (auto& unit : state.unitStore.units)
     {
         assert(unit.id >= 0);
@@ -4820,16 +4820,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     // Advance and commit motion, e.g. physics and tactical movement.
     advanceMotionFrame(state, frame.result);
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
-    advanceActionFrameUnits(
-        state,
-        frame.result.movement,
-        frame.result.applications,
-        frame.result.actionResults,
-        frame.result.effectCommands,
-        frame.frameCommands,
-        frame.gameplayEvents,
-        frame.logEvents,
-        frame.visualEvents);
+    advanceActionFrameUnits(state, frame);
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
     reduceFrameGameplayCommands(state, frame);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.

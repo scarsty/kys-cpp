@@ -387,7 +387,7 @@ Result: committed as `refactor: route combo frame effects through context`.
 - Test: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: Change `advanceActionFrameUnits` signature**
+- [x] **Step 1: Change `advanceActionFrameUnits` signature**
 
 Change:
 
@@ -423,7 +423,7 @@ logEvents -> frame.logEvents
 visualEvents -> frame.visualEvents
 ```
 
-- [ ] **Step 2: Update `runFrame()` call site**
+- [x] **Step 2: Update `runFrame()` call site**
 
 Replace the multi-argument call with:
 
@@ -431,7 +431,7 @@ Replace the multi-argument call with:
 advanceActionFrameUnits(state, frame);
 ```
 
-- [ ] **Step 3: Run action/cast focused tests**
+- [x] **Step 3: Run action/cast focused tests**
 
 Run:
 
@@ -441,7 +441,9 @@ x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner]"
 
 Expected: all selected tests pass.
 
-- [ ] **Step 4: Commit Task 3**
+Result: `x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner]"` passed 861 assertions in 116 test cases.
+
+- [x] **Step 4: Commit Task 3**
 
 Run:
 
@@ -451,6 +453,8 @@ git commit -m "refactor: route action frame through context"
 ```
 
 Expected: one commit that changes only action frame routing.
+
+Result: committed as `refactor: route action frame through context`.
 
 ---
 
