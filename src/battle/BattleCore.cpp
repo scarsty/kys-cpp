@@ -1371,7 +1371,7 @@ void prepareMovementAgents(BattleRuntimeState& state)
     }
 }
 
-BattleMovementFrameInput makeMovementFrameInput(
+BattleMovementFrameInput makeMovementPlannerInputFromRuntime(
     const BattleRuntimeState& state,
     const PostPhysicsMotionMap& postPhysics)
 {
@@ -1421,7 +1421,7 @@ BattleMovementFrameInput makeMovementFrameInput(
     return input;
 }
 
-void applyMovementFrameState(BattleRuntimeState& state, const BattleMovementFrameInput& input)
+void commitMovementPlannerStateToRuntime(BattleRuntimeState& state, const BattleMovementFrameInput& input)
 {
     state.movement.frame = input.frame;
     state.movement.seed = input.seed;
@@ -3953,7 +3953,7 @@ void commitFrameMovement(
     const BattleMovementFrameInput& movementInput)
 {
     frame.movement = std::move(movement);
-    applyMovementFrameState(state, movementInput);
+    commitMovementPlannerStateToRuntime(state, movementInput);
 
     for (const auto& physicsResult : frame.movementPhysicsResults)
     {
@@ -4015,7 +4015,7 @@ void advanceMotionFrame(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     prepareMovementAgents(state);
     frame.movementPhysicsResults = computeMovementPhysics(state);
-    auto movementInput = makeMovementFrameInput(state, makePostPhysicsMotionMap(frame.movementPhysicsResults));
+    auto movementInput = makeMovementPlannerInputFromRuntime(state, makePostPhysicsMotionMap(frame.movementPhysicsResults));
     auto movement = BattleCore(movementInput).tickMovement();
     commitFrameMovement(state, frame, std::move(movement), movementInput);
 }

@@ -133,7 +133,7 @@ Expected: selected tests pass.
 
 Result: `x64\Debug\kys_tests.exe "[battle][core][movement],[battle][core]"` passed 754 assertions in 102 test cases.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
@@ -144,6 +144,8 @@ git commit -m "refactor: keep movement tick result private to frame"
 
 Expected: one commit that removes public `BattleFrameResult::movement`.
 
+Result: committed as `0f94019 refactor: keep movement tick result private to frame`.
+
 ---
 
 ## Task 2: Name The Remaining Movement Mirror Boundary
@@ -152,7 +154,7 @@ Expected: one commit that removes public `BattleFrameResult::movement`.
 
 - Modify: `src/battle/BattleCore.cpp`
 
-- [ ] **Step 1: Rename movement writeback helper**
+- [x] **Step 1: Rename movement writeback helper**
 
 Rename `applyMovementFrameState` to:
 
@@ -162,7 +164,7 @@ commitMovementPlannerStateToRuntime
 
 Keep the implementation unchanged in this task. The name should make the remaining mirror boundary searchable.
 
-- [ ] **Step 2: Rename movement construction helper**
+- [x] **Step 2: Rename movement construction helper**
 
 Rename `makeMovementFrameInput` to:
 
@@ -172,7 +174,7 @@ makeMovementPlannerInputFromRuntime
 
 Keep the implementation unchanged in this task.
 
-- [ ] **Step 3: Verify the boundary names**
+- [x] **Step 3: Verify the boundary names**
 
 Run:
 
@@ -181,6 +183,8 @@ rg -n "makeMovementFrameInput|applyMovementFrameState|makeMovementPlannerInputFr
 ```
 
 Expected: only the new names remain.
+
+Result: only `makeMovementPlannerInputFromRuntime` and `commitMovementPlannerStateToRuntime` remain.
 
 - [ ] **Step 4: Run tests and commit**
 
@@ -193,6 +197,8 @@ git commit -m "refactor: name movement planner runtime boundary"
 ```
 
 Expected: selected tests pass, then one naming-only commit.
+
+Result: `x64\Debug\kys_tests.exe "[battle][core][movement],[battle][core]"` passed 754 assertions in 102 test cases.
 
 ---
 
