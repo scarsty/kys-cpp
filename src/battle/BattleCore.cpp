@@ -2768,7 +2768,7 @@ BattleAttackSpawnRequest makeRescueCounterAttackSpawn(
     return request;
 }
 
-void applyRescueResultToFrameState(
+void commitRescueResultToRuntime(
     BattleRuntimeState& state,
     const BattleRescueRepositionResult& result,
     std::vector<BattleLogEvent>& logEvents,
@@ -2840,7 +2840,7 @@ bool tryApplyRescue(
     {
         return false;
     }
-    applyRescueResultToFrameState(state, rescue, logEvents, visualEvents);
+    commitRescueResultToRuntime(state, rescue, logEvents, visualEvents);
     result.rescueResults.push_back(std::move(rescue));
     return true;
 }

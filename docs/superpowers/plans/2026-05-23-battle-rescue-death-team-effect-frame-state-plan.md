@@ -36,7 +36,7 @@ BattleFrameRunner_AdvanceFrame_BattleEndEventEmitsOnce
 - Modify: `src/battle/BattleCore.cpp`
 - Test: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Rename rescue writeback helper**
+- [x] **Step 1: Rename rescue writeback helper**
 
 Rename:
 
@@ -52,7 +52,7 @@ void commitRescueResultToRuntime(
 
 Keep the implementation unchanged.
 
-- [ ] **Step 2: Verify naming**
+- [x] **Step 2: Verify naming**
 
 Run:
 
@@ -62,7 +62,9 @@ rg -n "applyRescueResultToFrameState|commitRescueResultToRuntime" src/battle/Bat
 
 Expected: only `commitRescueResultToRuntime` remains.
 
-- [ ] **Step 3: Run rescue tests and commit**
+Result: only `commitRescueResultToRuntime` remains.
+
+- [x] **Step 3: Run rescue tests and commit**
 
 Run:
 
@@ -73,6 +75,8 @@ git commit -m "refactor: name rescue runtime commit boundary"
 ```
 
 Expected: selected tests pass, then one naming-only commit.
+
+Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core][breakthrough]"` passed 128 assertions in 20 test cases.
 
 ---
 
