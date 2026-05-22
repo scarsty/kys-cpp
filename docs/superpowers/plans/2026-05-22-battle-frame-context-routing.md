@@ -549,7 +549,7 @@ Result: committed as `refactor: route attack hit frame through context`.
 - Test: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: Change `applyDamageAndLifecycle` signature**
+- [x] **Step 1: Change `applyDamageAndLifecycle` signature**
 
 Change:
 
@@ -581,7 +581,7 @@ logEvents -> frame.logEvents
 visualEvents -> frame.visualEvents
 ```
 
-- [ ] **Step 2: Change `emitPresentationFrame` signature**
+- [x] **Step 2: Change `emitPresentationFrame` signature**
 
 Change:
 
@@ -609,7 +609,7 @@ logEvents -> frame.logEvents
 visualEvents -> frame.visualEvents
 ```
 
-- [ ] **Step 3: Update final `runFrame()` context uses**
+- [x] **Step 3: Update final `runFrame()` context uses**
 
 Replace:
 
@@ -633,7 +633,7 @@ publishMovementPresentationResults(state, frame.result);
 publishFrameApplyOutputs(state, frame.result);
 ```
 
-- [ ] **Step 4: Run focused and full tests**
+- [x] **Step 4: Run focused and full tests**
 
 Run:
 
@@ -644,7 +644,9 @@ x64\Debug\kys_tests.exe
 
 Expected: focused tests and full tests pass.
 
-- [ ] **Step 5: Run build**
+Result: focused tests passed 893 assertions in 124 test cases. Full `x64\Debug\kys_tests.exe` passed 5632 assertions in 418 test cases.
+
+- [x] **Step 5: Run build**
 
 Run:
 
@@ -654,7 +656,9 @@ Run:
 
 Expected: MSBuild exits 0. The existing `BattleCore.cpp(1264)` C4244 warning may still appear.
 
-- [ ] **Step 6: Commit Task 5**
+Result: `.github\build-command.ps1` exited 0 and produced `x64\Debug\kys.exe`; the existing `BattleCore.cpp(1264)` C4244 warning still appears.
+
+- [x] **Step 6: Commit Task 5**
 
 Run:
 
@@ -664,6 +668,8 @@ git commit -m "refactor: route damage frame output through context"
 ```
 
 Expected: one commit that finishes phase 2B helper routing without changing `BattleFrameResult` fields.
+
+Result: committed as `refactor: route damage frame output through context`.
 
 ---
 

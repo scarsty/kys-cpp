@@ -4383,15 +4383,15 @@ BattleFrameDamageRenderApplication makeBattleFrameDamageRenderApplication(
     };
 }
 
-void applyDamageAndLifecycle(
-    BattleRuntimeState& state,
-    BattleFrameResult& result,
-    const UnitMotionSnapshotMap& frameStartMotion,
-    std::vector<BattleGameplayCommand>& frameCommands,
-    std::vector<BattleGameplayEvent>& gameplayEvents,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+void applyDamageAndLifecycle(BattleRuntimeState& state, BattleFrameContext& frame)
 {
+    auto& result = frame.result;
+    const auto& frameStartMotion = frame.frameStartMotion;
+    auto& frameCommands = frame.frameCommands;
+    auto& gameplayEvents = frame.gameplayEvents;
+    auto& logEvents = frame.logEvents;
+    auto& visualEvents = frame.visualEvents;
+
     if (state.result.ended && state.damage.pendingDamage.empty())
     {
         return;
@@ -4469,13 +4469,13 @@ void applyDamageAndLifecycle(
     state.damage.pendingDamage.clear();
 }
 
-void emitPresentationFrame(
-    BattleRuntimeState& state,
-    BattleFrameResult& result,
-    std::vector<BattleGameplayEvent>& gameplayEvents,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
 {
+    auto& result = frame.result;
+    auto& gameplayEvents = frame.gameplayEvents;
+    auto& logEvents = frame.logEvents;
+    auto& visualEvents = frame.visualEvents;
+
     BattlePresentationRecorder recorder;
     recorder.beginFrame(state.movement.frame);
     for (auto event : gameplayEvents)
@@ -4816,14 +4816,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
     advanceAttacksAndResolveHits(state, frame);
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
-    applyDamageAndLifecycle(
-        state,
-        frame.result,
-        frame.frameStartMotion,
-        frame.frameCommands,
-        frame.gameplayEvents,
-        frame.logEvents,
-        frame.visualEvents);
+    applyDamageAndLifecycle(state, frame);
     // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
     appendProjectileCancellationLogEvents(state.attacks, frame.result.attackEvents, frame.logEvents, true);
     frame.frameCommands.insert(
@@ -4838,7 +4831,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     // Copy authoritative runtime state into explicit scene apply payloads, e.g. status/combo mirrors.
     publishFrameApplyOutputs(state, frame.result);
     // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.
-    emitPresentationFrame(state, frame.result, frame.gameplayEvents, frame.logEvents, frame.visualEvents);
+    emitPresentationFrame(state, frame);
     // Runtime maintenance: remove projectiles/melee attacks whose animation lifetime has finished.
     pruneFinishedRuntimeAttacks(state);
     return consumeBattleFrameContext(std::move(frame));
