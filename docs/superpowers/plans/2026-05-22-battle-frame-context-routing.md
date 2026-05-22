@@ -273,7 +273,7 @@ Result: committed as `refactor: route frame command reduction through context`.
 - Test: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: Change `applyRuntimeComboEvents` signature**
+- [x] **Step 1: Change `applyRuntimeComboEvents` signature**
 
 Change:
 
@@ -310,7 +310,7 @@ frame.visualEvents
 frame.deferredCommands
 ```
 
-- [ ] **Step 2: Change `applyPendingTeamEffects` signature**
+- [x] **Step 2: Change `applyPendingTeamEffects` signature**
 
 Change:
 
@@ -336,7 +336,7 @@ frame.logEvents
 frame.visualEvents
 ```
 
-- [ ] **Step 3: Update `runFrame()` call sites**
+- [x] **Step 3: Update `runFrame()` call sites**
 
 Replace:
 
@@ -352,7 +352,7 @@ applyRuntimeComboEvents(state, frame);
 applyPendingTeamEffects(state, frame);
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -362,7 +362,9 @@ x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit Task 2**
+Result: `x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_session]"` passed 893 assertions in 124 test cases.
+
+- [x] **Step 5: Commit Task 2**
 
 Run:
 
@@ -372,6 +374,8 @@ git commit -m "refactor: route combo frame effects through context"
 ```
 
 Expected: one commit that changes only combo/team-effect frame routing.
+
+Result: committed as `refactor: route combo frame effects through context`.
 
 ---
 

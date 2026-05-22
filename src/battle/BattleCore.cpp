@@ -3737,16 +3737,9 @@ void applyCastPostSkillInvincibility(
     effectCommands.push_back(std::move(command));
 }
 
-void applyRuntimeComboEvents(
-    BattleRuntimeState& state,
-    const std::vector<BattleRuntimeUnitFrameCommit>& runtimeCommits,
-    std::vector<BattleGameplayCommand>& deferredCommands,
-    std::vector<BattleTeamEffectEvent>& teamEffectEvents,
-    std::vector<BattleEffectCommand>& effectCommands,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+void applyRuntimeComboEvents(BattleRuntimeState& state, BattleFrameContext& frame)
 {
-    for (const auto& result : runtimeCommits)
+    for (const auto& result : frame.runtimeCommits)
     {
         bool autoUltimateReady = false;
         for (const auto& event : result.comboEvents)
@@ -3756,7 +3749,13 @@ void applyRuntimeComboEvents(
             case BattleComboFrameRuntimeEventType::SelfHpRegen:
             case BattleComboFrameRuntimeEventType::HealAura:
             case BattleComboFrameRuntimeEventType::HealPercentSelf:
-                applyRuntimeTeamEvents(state, result.unitId, event, teamEffectEvents, logEvents, visualEvents);
+                applyRuntimeTeamEvents(
+                    state,
+                    result.unitId,
+                    event,
+                    frame.result.teamEffectEvents,
+                    frame.logEvents,
+                    frame.visualEvents);
                 break;
             case BattleComboFrameRuntimeEventType::BroadcastTriggerTimer:
                 applyBroadcastTriggerTimer(state, result.unitId, event);
@@ -3775,16 +3774,12 @@ void applyRuntimeComboEvents(
         }
         if (autoUltimateReady)
         {
-            deferredCommands.push_back(BattleAutoUltimateCommand{ result.unitId, false, true });
+            frame.deferredCommands.push_back(BattleAutoUltimateCommand{ result.unitId, false, true });
         }
     }
 }
 
-void applyPendingTeamEffects(
-    BattleRuntimeState& state,
-    std::vector<BattleTeamEffectEvent>& teamEffectEvents,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+void applyPendingTeamEffects(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     if (state.unitStore.units.empty())
     {
@@ -3813,13 +3808,13 @@ void applyPendingTeamEffects(
                 continue;
             }
             auto application = applyBattleTeamEffectCommand(state.unitStore, command);
-            logEvents.insert(
-                logEvents.end(),
+            frame.logEvents.insert(
+                frame.logEvents.end(),
                 application.logEvents.begin(),
                 application.logEvents.end());
-            appendTeamEffectVisualEvents(visualEvents, application.events);
-            teamEffectEvents.insert(
-                teamEffectEvents.end(),
+            appendTeamEffectVisualEvents(frame.visualEvents, application.events);
+            frame.result.teamEffectEvents.insert(
+                frame.result.teamEffectEvents.end(),
                 application.events.begin(),
                 application.events.end());
             continue;
@@ -4817,16 +4812,9 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     // Tick unit cooldown/action/MP timers and collect frame combo events, e.g. skill-finished triggers.
     advanceRuntimeUnits(state, frame.frameCommands, frame.runtimeCommits, frame.result.unitApplications);
     // Apply combo timer events to runtime state, deferring auto-ultimate commands until late frame.
-    applyRuntimeComboEvents(
-        state,
-        frame.runtimeCommits,
-        frame.deferredCommands,
-        frame.result.teamEffectEvents,
-        frame.result.effectCommands,
-        frame.logEvents,
-        frame.visualEvents);
+    applyRuntimeComboEvents(state, frame);
     // Apply queued team effects whose source exists, e.g. delayed skill team heal.
-    applyPendingTeamEffects(state, frame.result.teamEffectEvents, frame.logEvents, frame.visualEvents);
+    applyPendingTeamEffects(state, frame);
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
     reduceFrameGameplayCommands(state, frame);
     // Advance and commit motion, e.g. physics and tactical movement.
