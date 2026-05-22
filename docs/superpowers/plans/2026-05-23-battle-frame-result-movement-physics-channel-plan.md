@@ -33,7 +33,7 @@ This is phase 2C's first field-removal slice. It does not change movement physic
 - Read: `src/battle/BattleCore.cpp`
 - Read: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Confirm direct consumers**
+- [x] **Step 1: Confirm direct consumers**
 
 Run:
 
@@ -43,7 +43,9 @@ rg -n "movementPhysicsResults" src tests
 
 Expected: matches only in `BattleCore.h`, `BattleCore.cpp`, and `tests/BattleCoreUnitTests.cpp`.
 
-- [ ] **Step 2: Run the focused baseline**
+Result: matches were limited to `src/battle/BattleCore.h`, `src/battle/BattleCore.cpp`, and `tests/BattleCoreUnitTests.cpp`.
+
+- [x] **Step 2: Run the focused baseline**
 
 Run:
 
@@ -52,6 +54,8 @@ x64\Debug\kys_tests.exe "[battle][core][movement]"
 ```
 
 Expected: all selected movement tests pass before editing.
+
+Result: `x64\Debug\kys_tests.exe "[battle][core][movement]"` passed 64 assertions in 7 test cases.
 
 ---
 
@@ -62,7 +66,7 @@ Expected: all selected movement tests pass before editing.
 - Modify: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Update `BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore`**
+- [x] **Step 1: Update `BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore`**
 
 Remove assertions that compare `result.movementPresentationResults` to `result.movementPhysicsResults`. Keep assertions against `result.movementPresentationResults`, `state.unitStore`, and `state.movement.agents`.
 
@@ -82,7 +86,7 @@ CHECK(state.movement.agents.at(0).physics.movementDashFrames == 0);
 CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 6);
 ```
 
-- [ ] **Step 2: Update `BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore`**
+- [x] **Step 2: Update `BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore`**
 
 Replace `moved` and `stopped` physics-result assertions with runtime store and agent assertions:
 
@@ -98,7 +102,7 @@ CHECK(stoppedUnit.motion.position.x == 200.0f);
 CHECK(stoppedUnit.motion.velocity.x == 0.0f);
 ```
 
-- [ ] **Step 3: Update corpse movement physics tests**
+- [x] **Step 3: Update corpse movement physics tests**
 
 For `BattleFrameRunner_AdvanceFrame_KeepsMovingCorpsesInMovementPhysics`, assert the dead unit's canonical motion and agent persistence:
 
@@ -118,7 +122,7 @@ CHECK_FALSE(state.movement.agents.contains(1));
 
 For `BattleFrameRunner_AdvanceFrame_MovingCorpsePhysicsPersistsIntoRuntime`, replace `first.movementPhysicsResults` and `second.movementPhysicsResults` lookup checks with `state.unitStore.requireUnit(1).motion` checks after each frame.
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -127,6 +131,8 @@ x64\Debug\kys_tests.exe "[battle][core][movement]"
 ```
 
 Expected: movement tests pass before production code removal. This proves the tests no longer depend on the public physics field.
+
+Result: `x64\Debug\kys_tests.exe "[battle][core][movement]"` passed 64 assertions in 7 test cases after removing public-field assertions.
 
 - [ ] **Step 5: Commit test migration**
 

@@ -916,12 +916,6 @@ TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.movementPhysicsResults.size() == 1);
-    CHECK(result.movementPhysicsResults[0].physicsAdvanced);
-    REQUIRE(result.movementPresentationResults.size() == result.movementPhysicsResults.size());
-    CHECK(result.movementPresentationResults[0].unitId == result.movementPhysicsResults[0].unitId);
-    CHECK(result.movementPresentationResults[0].position.x == result.movementPhysicsResults[0].state.position.x);
-    CHECK(result.movementPresentationResults[0].velocity.x == result.movementPhysicsResults[0].state.velocity.x);
     REQUIRE(result.movementPresentationResults.size() == 1);
     CHECK(result.movementPresentationResults[0].unitId == 0);
     CHECK(result.movementPresentationResults[0].position.x == 105.0f);
@@ -2830,24 +2824,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     state.movement.agents.at(1).physics.velocity = { 5, 0, 0 };
     state.movement.agents.at(1).physics.acceleration = { 0, 0, -4 };
 
-    auto result = runBattleFrame(state);
+    runBattleFrame(state);
 
-    REQUIRE(result.movementPhysicsResults.size() == 2);
-    const auto& moved = result.movementPhysicsResults[0];
-    CHECK(moved.unitId == 0);
-    CHECK(moved.physicsAdvanced);
-    CHECK(moved.frozenFrames == 0);
-    CHECK(moved.state.position.x == 105.0f);
-    CHECK(moved.state.movementDashFrames == 0);
-    CHECK(moved.state.movementDashSpreadFrames == 6);
+    const auto& movedUnit = state.unitStore.requireUnit(0);
+    CHECK(movedUnit.motion.position.x == 105.0f);
+    CHECK(state.movement.agents.at(0).physics.movementDashFrames == 0);
+    CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 6);
 
-    const auto& stopped = result.movementPhysicsResults[1];
-    CHECK(stopped.unitId == 1);
-    CHECK_FALSE(stopped.physicsAdvanced);
-    CHECK(stopped.frozenFrames == 1);
+    const auto& stoppedUnit = state.unitStore.requireUnit(1);
     CHECK(state.status.units[1].effects.frozenTimer == 1);
-    CHECK(stopped.state.position.x == 200.0f);
-    CHECK(stopped.state.velocity.x == 0.0f);
+    CHECK(stoppedUnit.motion.position.x == 200.0f);
+    CHECK(stoppedUnit.motion.velocity.x == 0.0f);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_KeepsMovingCorpsesInMovementPhysics", "[battle][core][movement]")
@@ -2874,15 +2861,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_KeepsMovingCorpsesInMovementPhysics", 
     state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
     state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
 
-    auto result = runBattleFrame(state);
+    runBattleFrame(state);
 
-    REQUIRE(result.movementPhysicsResults.size() == 2);
-    CHECK(result.movementPhysicsResults[0].unitId == 0);
-    CHECK(result.movementPhysicsResults[1].unitId == 1);
-    CHECK(result.movementPhysicsResults[1].physicsAdvanced);
-    CHECK(result.movementPhysicsResults[1].state.position.x == 206.0f);
-    CHECK(result.movementPhysicsResults[1].state.position.z == 8.0f);
+    const auto& corpse = state.unitStore.requireUnit(1);
+    CHECK(corpse.motion.position.x == 206.0f);
+    CHECK(corpse.motion.position.z == 8.0f);
     CHECK(state.movement.agents.contains(1));
+    CHECK(state.movement.agents.at(1).physics.position.x == 206.0f);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RemovesInertDeadUnitsFromMovementAgents", "[battle][core][movement]")
@@ -2905,10 +2890,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RemovesInertDeadUnitsFromMovementAgent
     state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
     state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
 
-    auto result = runBattleFrame(state);
+    runBattleFrame(state);
 
-    REQUIRE(result.movementPhysicsResults.size() == 1);
-    CHECK(result.movementPhysicsResults[0].unitId == 0);
     CHECK_FALSE(state.movement.agents.contains(1));
 }
 
@@ -3110,28 +3093,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_MovingCorpsePhysicsPersistsIntoRuntime
     state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
     state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
 
-    auto first = runBattleFrame(state);
-    auto second = runBattleFrame(state);
+    runBattleFrame(state);
+    const auto& firstFrameCorpse = state.unitStore.requireUnit(1);
+    CHECK(firstFrameCorpse.motion.position.z == 8.0f);
+
+    runBattleFrame(state);
 
     const auto& deadUnit = state.unitStore.requireUnit(1);
-    auto firstCorpse = std::find_if(
-        first.movementPhysicsResults.begin(),
-        first.movementPhysicsResults.end(),
-        [](const BattleFrameMovementPhysicsUnitResult& item)
-        {
-            return item.unitId == 1;
-        });
-    auto secondCorpse = std::find_if(
-        second.movementPhysicsResults.begin(),
-        second.movementPhysicsResults.end(),
-        [](const BattleFrameMovementPhysicsUnitResult& item)
-        {
-            return item.unitId == 1;
-        });
-    REQUIRE(firstCorpse != first.movementPhysicsResults.end());
-    REQUIRE(secondCorpse != second.movementPhysicsResults.end());
-    CHECK(firstCorpse->state.position.z == 8.0f);
-    CHECK(secondCorpse->state.position.z == 12.0f);
     CHECK(deadUnit.motion.position.z == 12.0f);
     CHECK(deadUnit.motion.velocity.z == 0.0f);
     CHECK(state.movement.agents.at(1).physics.position.z == deadUnit.motion.position.z);
