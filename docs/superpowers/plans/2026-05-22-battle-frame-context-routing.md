@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Route top-level `BattleFrameRunner` helper signatures through the one-frame `BattleFrameContext` introduced in phase 2A.
+**Goal:** Route eligible top-level `BattleFrameRunner` helper signatures through the one-frame `BattleFrameContext` introduced in phase 2A without turning the context into a subsystem-owned mini-world.
 
-**Architecture:** Keep `BattleFrameContext` local to `src/battle/BattleCore.cpp`. Convert only helpers called directly by `BattleFrameRunner::runFrame()` or immediate frame orchestration helpers; do not delete `BattleFrameResult` fields and do not change subsystem ownership in this plan. Each task is a mechanical signature rewrite guarded by existing frame-level tests.
+**Architecture:** Keep `BattleFrameContext` local to `src/battle/BattleCore.cpp` as a frame transaction ledger owned by `BattleFrameRunner`, not as a subsystem API. Convert only named frame-transaction step helpers; lower-level rule/reducer helpers should keep narrow explicit parameters. Do not delete `BattleFrameResult` fields and do not change subsystem ownership in this plan.
 
 **Tech Stack:** C++17, Catch2 unit tests, Visual Studio/MSBuild via `.github/build-command.ps1`, PowerShell, ripgrep.
 
@@ -24,8 +24,40 @@ This plan does not:
 - delete movement, damage, action, attack, or status mirror-world APIs
 - change scene presentation behavior
 - add new gameplay behavior
+- pass `BattleFrameContext` to subsystem classes or headers
+- convert lower-level calculation helpers just to reduce parameter count
 
 Existing frame-level tests are the guard because this is a mechanical refactor. If any step requires a behavior change, stop and write a failing frame-level test before changing production code.
+
+---
+
+## Frame Context Ownership Contract
+
+`BattleFrameContext` is not authoritative gameplay state. Its ownership rule is:
+
+```text
+BattleRuntimeState = persistent gameplay owner
+BattleFrameContext = one-runFrame transaction scratch and output ledger
+BattleFrameResult = public scene/report output after the transaction
+```
+
+Use these lanes consistently:
+
+| Lane | Members | Rule |
+| --- | --- | --- |
+| Public frame output | `frame.result` | May be returned to scene/tests. Writes should stay visible at publish/commit points. |
+| Internal command queues | `frame.frameCommands`, `frame.deferredCommands` | Must be reduced, merged, or drained before the frame returns. |
+| Internal event staging | `frame.gameplayEvents`, `frame.logEvents`, `frame.visualEvents` | Must be consumed into `frame.result.frame` by `emitPresentationFrame()`. |
+| Internal unit tick scratch | `frame.runtimeCommits` | Exists only to bridge unit tick output into same-frame combo handling. |
+| Internal motion snapshot | `frame.frameStartMotion` | Exists only so same-frame damage/death logic can compare against pre-damage motion. |
+
+Eligibility rule for `BattleFrameContext&` parameters:
+
+- Allowed: anonymous-namespace functions in `src/battle/BattleCore.cpp` that are named frame-transaction steps and already coordinate several frame lanes.
+- Not allowed: subsystem classes, public headers, pure rule helpers, math helpers, conversion helpers, or functions that only need one lane.
+- Prefer explicit `frame.result.*` at publication points over hiding public output writes behind generic helper names.
+
+Phase 2B helps ownership only by making the transaction ledger explicit and auditable. Actual deletion of mirror worlds and result channels happens in later plans after consumer audits.
 
 ---
 
@@ -37,6 +69,75 @@ Existing frame-level tests are the guard because this is a mechanical refactor. 
 | `docs/superpowers/plans/2026-05-22-battle-frame-context-routing.md` | Track this phase 2B implementation. |
 | `tests/BattleCoreUnitTests.cpp` | Existing frame-runner behavior coverage. |
 | `tests/BattleFrameRunnerRuntimeUnitTests.cpp` | Existing runtime-owned frame-state coverage. |
+
+---
+
+## Task 0: Codify Context Boundary In Code
+
+**Files:**
+
+- Modify: `src/battle/BattleCore.cpp`
+- Test: `tests/BattleCoreUnitTests.cpp`
+- Test: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
+
+- [ ] **Step 1: Add an ownership comment above `BattleFrameContext`**
+
+In `src/battle/BattleCore.cpp`, add this comment immediately above `struct BattleFrameContext`:
+
+```cpp
+// One runFrame() transaction ledger. Persistent gameplay lives in BattleRuntimeState.
+// The only public frame output is result; every other member is frame-local scratch.
+// Keep this type private to BattleCore.cpp and do not pass it to subsystem classes.
+```
+
+- [ ] **Step 2: Add a result-consumption helper**
+
+Add this helper after `makeBattleFrameContext()`:
+
+```cpp
+BattleFrameResult consumeBattleFrameContext(BattleFrameContext&& frame)
+{
+    assert(frame.frameCommands.empty());
+    return std::move(frame.result);
+}
+```
+
+This is an exit-boundary check, not defensive programming. `frameCommands` must be empty because unreduced gameplay commands mean the frame transaction did not finish.
+
+- [ ] **Step 3: Return through the consumption helper**
+
+Change the end of `BattleFrameRunner::runFrame()` from:
+
+```cpp
+return std::move(frame.result);
+```
+
+to:
+
+```cpp
+return consumeBattleFrameContext(std::move(frame));
+```
+
+- [ ] **Step 4: Run focused tests**
+
+Run:
+
+```powershell
+x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_session]"
+```
+
+Expected: all selected tests pass.
+
+- [ ] **Step 5: Commit Task 0**
+
+Run:
+
+```powershell
+git add src/battle/BattleCore.cpp docs/superpowers/plans/2026-05-22-battle-frame-context-routing.md
+git commit -m "refactor: codify battle frame context boundary"
+```
+
+Expected: one commit that only documents/enforces the frame-context exit boundary.
 
 ---
 
@@ -58,9 +159,9 @@ x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_
 
 Expected: all selected tests pass before editing.
 
-- [ ] **Step 2: Change `reduceFrameGameplayCommands` signature**
+- [ ] **Step 2: Split narrow implementation from context wrapper**
 
-In `src/battle/BattleCore.cpp`, change:
+In `src/battle/BattleCore.cpp`, keep the narrow reducer shape for lower-level callers by renaming the existing function from:
 
 ```cpp
 void reduceFrameGameplayCommands(
@@ -77,36 +178,39 @@ void reduceFrameGameplayCommands(
 to:
 
 ```cpp
-void reduceFrameGameplayCommands(BattleRuntimeState& state, BattleFrameContext& frame)
+void reduceFrameGameplayCommandsImpl(
+    BattleRuntimeState& state,
+    std::vector<BattleGameplayCommand>& commands,
+    BattleFrameApplications& applications,
+    std::vector<BattleEffectCommand>& effectCommands,
+    std::vector<BattleTeamEffectEvent>& teamEffectEvents,
+    std::vector<BattleGameplayEvent>& gameplayEvents,
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents)
 ```
 
-Then replace the body with:
+Keep the existing implementation body under `reduceFrameGameplayCommandsImpl`.
+
+- [ ] **Step 3: Add the context wrapper for top-level transaction steps**
+
+Add this wrapper immediately after `reduceFrameGameplayCommandsImpl`:
 
 ```cpp
+void reduceFrameGameplayCommands(BattleRuntimeState& state, BattleFrameContext& frame)
 {
-    std::vector<BattleGameplayCommand> pending = std::move(frame.frameCommands);
-    std::vector<BattleGameplayCommand> unreduced;
-    for (std::size_t i = 0; i < pending.size(); ++i)
-    {
-        if (!reduceFrameGameplayCommand(
-            state,
-            pending[i],
-            frame.result.applications,
-            frame.result.effectCommands,
-            pending,
-            frame.result.teamEffectEvents,
-            frame.gameplayEvents,
-            frame.logEvents,
-            frame.visualEvents))
-        {
-            unreduced.push_back(std::move(pending[i]));
-        }
-    }
-    frame.frameCommands = std::move(unreduced);
+    reduceFrameGameplayCommandsImpl(
+        state,
+        frame.frameCommands,
+        frame.result.applications,
+        frame.result.effectCommands,
+        frame.result.teamEffectEvents,
+        frame.gameplayEvents,
+        frame.logEvents,
+        frame.visualEvents);
 }
 ```
 
-- [ ] **Step 3: Update all `reduceFrameGameplayCommands` call sites**
+- [ ] **Step 4: Update direct `runFrame()` call sites**
 
 Replace each call in `BattleFrameRunner::runFrame()` with:
 
@@ -114,9 +218,21 @@ Replace each call in `BattleFrameRunner::runFrame()` with:
 reduceFrameGameplayCommands(state, frame);
 ```
 
-Inside `advanceAttacksAndResolveHits`, keep its existing call shape until Task 4 converts that helper.
+Inside `advanceAttacksAndResolveHits`, update the nested call to the narrow implementation:
 
-- [ ] **Step 4: Run focused tests**
+```cpp
+reduceFrameGameplayCommandsImpl(
+    state,
+    frameCommands,
+    result.applications,
+    effectCommands,
+    result.teamEffectEvents,
+    gameplayEvents,
+    logEvents,
+    visualEvents);
+```
+
+- [ ] **Step 5: Run focused tests**
 
 Run:
 
@@ -126,7 +242,7 @@ x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit Task 1**
+- [ ] **Step 6: Commit Task 1**
 
 Run:
 
@@ -135,7 +251,7 @@ git add src/battle/BattleCore.cpp docs/superpowers/plans/2026-05-22-battle-frame
 git commit -m "refactor: route frame command reduction through context"
 ```
 
-Expected: one commit that changes only `reduceFrameGameplayCommands` and direct `runFrame()` call sites.
+Expected: one commit that adds a context wrapper for `reduceFrameGameplayCommands`, keeps a narrow implementation for lower-level callers, and updates direct `runFrame()` call sites.
 
 ---
 
@@ -541,7 +657,25 @@ rg -n "frameCommands,|gameplayEvents,|logEvents,|visualEvents|deferredCommands|r
 
 Expected: `BattleFrameRunner::runFrame()` may access `frame.*` fields, but direct helper calls from `runFrame()` no longer pass long parallel vector argument lists.
 
-- [ ] **Step 2: Run completion gate**
+- [ ] **Step 2: Confirm `BattleFrameContext` remains private and narrowly used**
+
+Run:
+
+```powershell
+rg -n "BattleFrameContext" src
+```
+
+Expected: matches only in `src/battle/BattleCore.cpp`.
+
+Run:
+
+```powershell
+rg -n "BattleFrameContext&" src/battle/BattleCore.cpp
+```
+
+Expected: matches only for named frame-transaction step helpers from this plan and the command-reduction wrapper.
+
+- [ ] **Step 3: Run completion gate**
 
 Run:
 
@@ -552,4 +686,3 @@ x64\Debug\kys_tests.exe
 ```
 
 Expected: diff check exits 0, full tests pass, and MSBuild exits 0.
-
