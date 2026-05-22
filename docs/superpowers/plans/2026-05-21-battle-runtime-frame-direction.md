@@ -289,11 +289,17 @@ Completed in phase 2: `BattleCore.cpp` remains the imperative transaction owner;
 
 **Goal:** Delete the pattern that produced the current bugs.
 
+**Planning status:** Phase 3 inventory is complete and shows this phase is not safe as one implementation pass.
+
+- See [2026-05-23-battle-runtime-phase-3-mirror-sync-breakdown.md](2026-05-23-battle-runtime-phase-3-mirror-sync-breakdown.md).
+- The first ready implementation slice is removing hidden runtime writeback from `BattleDamageApplicationSystem::apply()`.
+- Movement planner world writeback, action state writeback, and damage/status conversion cleanup each need separate slices with frame-level verification.
+
 **Files:**
 
 - Search-driven across `src/battle/` and `src/BattleScene*.cpp`.
 
-- [ ] **Step 1: Inventory all conversion pairs**
+- [x] **Step 1: Inventory all conversion pairs**
 
 Run:
 
@@ -307,6 +313,8 @@ Classify each match as:
 - setup-time conversion
 - one-frame local scratch
 - persistent mirror synchronization
+
+Completed in phase 3 inventory: the PowerShell-safe equivalent search found 123 matches across battle and `BattleScene*` files. Persistent runtime synchronization remains in damage application hidden writeback, movement planner input/writeback, action state result/writeback, and damage/status conversion APIs. Scene `apply*Frame` calls are still classified as presentation/report synchronization and are deferred until phase 5 unless a runtime result bridge is deleted in the same change.
 
 - [ ] **Step 2: Delete persistent mirror synchronization first**
 
