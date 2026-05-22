@@ -153,7 +153,7 @@ Result: committed as `refactor: codify battle frame context boundary`.
 - Test: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: Run the focused baseline**
+- [x] **Step 1: Run the focused baseline**
 
 Run:
 
@@ -163,7 +163,9 @@ x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_
 
 Expected: all selected tests pass before editing.
 
-- [ ] **Step 2: Split narrow implementation from context wrapper**
+Result: `x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_session]"` passed 893 assertions in 124 test cases.
+
+- [x] **Step 2: Split narrow implementation from context wrapper**
 
 In `src/battle/BattleCore.cpp`, keep the narrow reducer shape for lower-level callers by renaming the existing function from:
 
@@ -195,7 +197,7 @@ void reduceFrameGameplayCommandsImpl(
 
 Keep the existing implementation body under `reduceFrameGameplayCommandsImpl`.
 
-- [ ] **Step 3: Add the context wrapper for top-level transaction steps**
+- [x] **Step 3: Add the context wrapper for top-level transaction steps**
 
 Add this wrapper immediately after `reduceFrameGameplayCommandsImpl`:
 
@@ -214,7 +216,7 @@ void reduceFrameGameplayCommands(BattleRuntimeState& state, BattleFrameContext& 
 }
 ```
 
-- [ ] **Step 4: Update direct `runFrame()` call sites**
+- [x] **Step 4: Update direct `runFrame()` call sites**
 
 Replace each call in `BattleFrameRunner::runFrame()` with:
 
@@ -236,7 +238,7 @@ reduceFrameGameplayCommandsImpl(
     visualEvents);
 ```
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -246,7 +248,9 @@ x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_
 
 Expected: all selected tests pass.
 
-- [ ] **Step 6: Commit Task 1**
+Result: `x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_session]"` passed 893 assertions in 124 test cases.
+
+- [x] **Step 6: Commit Task 1**
 
 Run:
 
@@ -256,6 +260,8 @@ git commit -m "refactor: route frame command reduction through context"
 ```
 
 Expected: one commit that adds a context wrapper for `reduceFrameGameplayCommands`, keeps a narrow implementation for lower-level callers, and updates direct `runFrame()` call sites.
+
+Result: committed as `refactor: route frame command reduction through context`.
 
 ---
 

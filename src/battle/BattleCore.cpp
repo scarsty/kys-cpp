@@ -3302,7 +3302,7 @@ bool reduceFrameGameplayCommand(
     return false;
 }
 
-void reduceFrameGameplayCommands(
+void reduceFrameGameplayCommandsImpl(
     BattleRuntimeState& state,
     std::vector<BattleGameplayCommand>& commands,
     BattleFrameApplications& applications,
@@ -3331,6 +3331,19 @@ void reduceFrameGameplayCommands(
         }
     }
     commands = std::move(unreduced);
+}
+
+void reduceFrameGameplayCommands(BattleRuntimeState& state, BattleFrameContext& frame)
+{
+    reduceFrameGameplayCommandsImpl(
+        state,
+        frame.frameCommands,
+        frame.result.applications,
+        frame.result.effectCommands,
+        frame.result.teamEffectEvents,
+        frame.gameplayEvents,
+        frame.logEvents,
+        frame.visualEvents);
 }
 
 BattleDamageApplicationInput makeFrameDamageApplicationInput(BattleRuntimeState& state)
@@ -4347,7 +4360,7 @@ void advanceAttacksAndResolveHits(
         frameCommands,
         logEvents,
         visualEvents);
-    reduceFrameGameplayCommands(
+    reduceFrameGameplayCommandsImpl(
         state,
         frameCommands,
         result.applications,
@@ -4815,15 +4828,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     // Apply queued team effects whose source exists, e.g. delayed skill team heal.
     applyPendingTeamEffects(state, frame.result.teamEffectEvents, frame.logEvents, frame.visualEvents);
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
-    reduceFrameGameplayCommands(
-        state,
-        frame.frameCommands,
-        frame.result.applications,
-        frame.result.effectCommands,
-        frame.result.teamEffectEvents,
-        frame.gameplayEvents,
-        frame.logEvents,
-        frame.visualEvents);
+    reduceFrameGameplayCommands(state, frame);
     // Advance and commit motion, e.g. physics and tactical movement.
     advanceMotionFrame(state, frame.result);
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
@@ -4838,15 +4843,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         frame.logEvents,
         frame.visualEvents);
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
-    reduceFrameGameplayCommands(
-        state,
-        frame.frameCommands,
-        frame.result.applications,
-        frame.result.effectCommands,
-        frame.result.teamEffectEvents,
-        frame.gameplayEvents,
-        frame.logEvents,
-        frame.visualEvents);
+    reduceFrameGameplayCommands(state, frame);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
     advanceAttacksAndResolveHits(
         state,
@@ -4872,15 +4869,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
         std::make_move_iterator(frame.deferredCommands.begin()),
         std::make_move_iterator(frame.deferredCommands.end()));
     // Reduce late commands from damage/combo lifecycle, e.g. auto-ultimate or death-triggered projectiles.
-    reduceFrameGameplayCommands(
-        state,
-        frame.frameCommands,
-        frame.result.applications,
-        frame.result.effectCommands,
-        frame.result.teamEffectEvents,
-        frame.gameplayEvents,
-        frame.logEvents,
-        frame.visualEvents);
+    reduceFrameGameplayCommands(state, frame);
     assert(frame.frameCommands.empty());
     // Publish scene-facing movement after damage/lifecycle so same-frame death kicks sync to the scene.
     publishMovementPresentationResults(state, frame.result);
