@@ -66,8 +66,8 @@ private:
     void collectFrameApplicationSceneEffects(
         const KysChess::Battle::BattleFrameApplications& applications,
         BattleSceneFrameDelta& result) const;
-    void collectActionSceneEffects(
-        const std::vector<KysChess::Battle::BattleFrameActionUnitResult>& actions,
+    void collectBlinkSceneEffects(
+        const std::vector<KysChess::Battle::BattleBlinkTeleportDelta>& blinkTeleports,
         const BattleSceneFrameDeltaBuildContext& context,
         BattleSceneFrameDelta& result) const;
 };

@@ -53,7 +53,7 @@ BattleSceneFrameDelta BattleSceneFrameDeltaBuilder::build(
     BattleSceneFrameDelta result;
     collectDamageSceneEffects(frameResult, currentBattleResult, context, result);
     collectFrameApplicationSceneEffects(frameResult.applications, result);
-    collectActionSceneEffects(frameResult.actionResults, context, result);
+    collectBlinkSceneEffects(frameResult.blinkTeleports, context, result);
     return result;
 }
 
@@ -137,17 +137,15 @@ void BattleSceneFrameDeltaBuilder::collectFrameApplicationSceneEffects(
         applications.rumbles.end());
 }
 
-void BattleSceneFrameDeltaBuilder::collectActionSceneEffects(
-    const std::vector<KysChess::Battle::BattleFrameActionUnitResult>& actions,
+void BattleSceneFrameDeltaBuilder::collectBlinkSceneEffects(
+    const std::vector<KysChess::Battle::BattleBlinkTeleportDelta>& blinkTeleports,
     const BattleSceneFrameDeltaBuildContext& context,
     BattleSceneFrameDelta& result) const
 {
-    for (const auto& action : actions)
+    for (const auto& teleport : blinkTeleports)
     {
-        for (const auto& teleport : action.actionResult.blinkTeleports)
-        {
-            assert(context.blinkSoundEffectId >= 0);
-            result.effectSoundIds.push_back(context.blinkSoundEffectId);
-        }
+        assert(teleport.unitId >= 0);
+        assert(context.blinkSoundEffectId >= 0);
+        result.effectSoundIds.push_back(context.blinkSoundEffectId);
     }
 }

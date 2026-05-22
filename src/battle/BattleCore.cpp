@@ -4174,6 +4174,7 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
     const auto& movement = frame.movement;
     auto& applications = frame.result.applications;
     auto& actionResults = frame.result.actionResults;
+    auto& blinkTeleports = frame.result.blinkTeleports;
     auto& effectCommands = frame.result.effectCommands;
     auto& frameCommands = frame.frameCommands;
     auto& gameplayEvents = frame.gameplayEvents;
@@ -4301,6 +4302,10 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
                     visualEvents.end(),
                     result.actionResult.visualEvents.begin(),
                     result.actionResult.visualEvents.end());
+                blinkTeleports.insert(
+                    blinkTeleports.end(),
+                    result.actionResult.blinkTeleports.begin(),
+                    result.actionResult.blinkTeleports.end());
             }
         }
 

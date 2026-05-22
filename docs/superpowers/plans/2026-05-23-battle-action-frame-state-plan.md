@@ -60,7 +60,7 @@ Expected: only `commitActionFrameStateToRuntime` remains.
 
 Result: only `commitActionFrameStateToRuntime` remains.
 
-- [ ] **Step 3: Run action tests and commit**
+- [x] **Step 3: Run action tests and commit**
 
 Run:
 
@@ -74,6 +74,8 @@ Expected: selected tests pass, then one naming-only commit.
 
 Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core][runtime]"` passed 219 assertions in 38 test cases.
 
+Commit: `c764d30 refactor: name action runtime writeback boundary`.
+
 ---
 
 ## Task 2: Split Scene Blink Output From Action Diagnostic Results
@@ -85,7 +87,7 @@ Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core][r
 - Modify: `src/BattleSceneFrameDeltaBuilder.cpp`
 - Modify: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Add a narrow blink output field**
+- [x] **Step 1: Add a narrow blink output field**
 
 In `BattleFrameResult`, add:
 
@@ -93,7 +95,7 @@ In `BattleFrameResult`, add:
 std::vector<BattleBlinkTeleportDelta> blinkTeleports;
 ```
 
-- [ ] **Step 2: Publish blink teleports from action commit**
+- [x] **Step 2: Publish blink teleports from action commit**
 
 In `advanceActionFrameUnits`, after `result.actionResult = BattleActionCommitSystem().commit(...)`, append blink teleports:
 
@@ -104,7 +106,7 @@ frame.result.blinkTeleports.insert(
     result.actionResult.blinkTeleports.end());
 ```
 
-- [ ] **Step 3: Change scene delta builder to read the narrow field**
+- [x] **Step 3: Change scene delta builder to read the narrow field**
 
 Change `BattleSceneFrameDeltaBuilder::build` from:
 
@@ -120,7 +122,7 @@ collectBlinkSceneEffects(frameResult.blinkTeleports, context, result);
 
 Rename `collectActionSceneEffects` to `collectBlinkSceneEffects` and change its parameter to the blink teleport vector.
 
-- [ ] **Step 4: Run scene and action tests**
+- [x] **Step 4: Run scene and action tests**
 
 Run:
 
@@ -129,6 +131,8 @@ x64\Debug\kys_tests.exe "[battle][core],[battle][scene_frame_delta]"
 ```
 
 Expected: selected tests pass.
+
+Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core],[battle][scene_frame_delta]"` passed 755 assertions in 106 test cases.
 
 - [ ] **Step 5: Commit the scene contract split**
 
