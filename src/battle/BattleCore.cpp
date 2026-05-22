@@ -4321,15 +4321,13 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
     }
 }
 
-void advanceAttacksAndResolveHits(
-    BattleRuntimeState& state,
-    BattleFrameResult& result,
-    std::vector<BattleGameplayCommand>& frameCommands,
-    std::vector<BattleEffectCommand>& effectCommands,
-    std::vector<BattleGameplayEvent>& gameplayEvents,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+void advanceAttacksAndResolveHits(BattleRuntimeState& state, BattleFrameContext& frame)
 {
+    auto& result = frame.result;
+    auto& frameCommands = frame.frameCommands;
+    auto& logEvents = frame.logEvents;
+    auto& visualEvents = frame.visualEvents;
+
     state.attacks.frame = state.movement.frame;
     BattleAttackSystem attackSystem;
     for (const auto& request : state.pendingAttackSpawns)
@@ -4355,15 +4353,7 @@ void advanceAttacksAndResolveHits(
         frameCommands,
         logEvents,
         visualEvents);
-    reduceFrameGameplayCommandsImpl(
-        state,
-        frameCommands,
-        result.applications,
-        effectCommands,
-        result.teamEffectEvents,
-        gameplayEvents,
-        logEvents,
-        visualEvents);
+    reduceFrameGameplayCommands(state, frame);
 }
 
 BattleFrameDamageRenderUnit makeBattleFrameDamageRenderUnit(const BattleDamageUnitState& unit)
@@ -4824,14 +4814,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
     reduceFrameGameplayCommands(state, frame);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
-    advanceAttacksAndResolveHits(
-        state,
-        frame.result,
-        frame.frameCommands,
-        frame.result.effectCommands,
-        frame.gameplayEvents,
-        frame.logEvents,
-        frame.visualEvents);
+    advanceAttacksAndResolveHits(state, frame);
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
     applyDamageAndLifecycle(
         state,

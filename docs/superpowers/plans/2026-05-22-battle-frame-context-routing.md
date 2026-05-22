@@ -466,7 +466,7 @@ Result: committed as `refactor: route action frame through context`.
 - Test: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: Change `advanceAttacksAndResolveHits` signature**
+- [x] **Step 1: Change `advanceAttacksAndResolveHits` signature**
 
 Change:
 
@@ -498,7 +498,7 @@ logEvents -> frame.logEvents
 visualEvents -> frame.visualEvents
 ```
 
-- [ ] **Step 2: Update the nested command reduction**
+- [x] **Step 2: Update the nested command reduction**
 
 Inside `advanceAttacksAndResolveHits`, replace the nested multi-argument `reduceFrameGameplayCommands(...)` call with:
 
@@ -506,7 +506,7 @@ Inside `advanceAttacksAndResolveHits`, replace the nested multi-argument `reduce
 reduceFrameGameplayCommands(state, frame);
 ```
 
-- [ ] **Step 3: Update `runFrame()` call site**
+- [x] **Step 3: Update `runFrame()` call site**
 
 Replace the multi-argument call with:
 
@@ -514,7 +514,7 @@ Replace the multi-argument call with:
 advanceAttacksAndResolveHits(state, frame);
 ```
 
-- [ ] **Step 4: Run projectile/hit focused tests**
+- [x] **Step 4: Run projectile/hit focused tests**
 
 Run:
 
@@ -524,7 +524,9 @@ x64\Debug\kys_tests.exe "[battle][core]"
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit Task 4**
+Result: `x64\Debug\kys_tests.exe "[battle][core]"` passed 754 assertions in 102 test cases.
+
+- [x] **Step 5: Commit Task 4**
 
 Run:
 
@@ -534,6 +536,8 @@ git commit -m "refactor: route attack hit frame through context"
 ```
 
 Expected: one commit that changes only attack/hit frame routing.
+
+Result: committed as `refactor: route attack hit frame through context`.
 
 ---
 
