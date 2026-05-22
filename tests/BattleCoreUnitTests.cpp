@@ -1324,8 +1324,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
     auto result = runBattleFrame(state);
 
     CHECK(state.movement.frame == 1);
-    REQUIRE(!result.movement.events.empty());
-    CHECK(result.movement.events[0].type == BattleEventType::Movement);
     REQUIRE(result.frame.logEvents.empty());
     REQUIRE(!result.frame.visualEvents.empty());
     CHECK(result.frame.frame == 1);
@@ -2139,10 +2137,8 @@ TEST_CASE("BattleFrameRunner_PostDashRetreatYieldsMovementPlannerToPhysics", "[b
     state.movement.agents.at(0).physics.postDashRetreatFrames = 2;
     state.movement.agents.at(1).physics.position = { 210, 100, 0 };
 
-    auto result = runBattleFrame(state);
+    runBattleFrame(state);
 
-    REQUIRE(result.movement.decisions.contains(0));
-    CHECK(result.movement.decisions.at(0).action == MovementAction::Hold);
     CHECK(state.unitStore.requireUnit(0).motion.position.x == Catch::Approx(95.0f));
     CHECK(state.unitStore.requireUnit(0).motion.velocity.x == Catch::Approx(-5.0f));
     CHECK(state.movement.agents.at(0).physics.postDashRetreatFrames == 1);

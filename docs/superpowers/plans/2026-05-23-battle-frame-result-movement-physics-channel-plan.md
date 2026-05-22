@@ -255,7 +255,7 @@ Expected: selected tests pass.
 
 Result: `x64\Debug\kys_tests.exe "[battle][core][movement],[battle][core],[battle][frame_runner]"` passed 861 assertions in 116 test cases.
 
-- [ ] **Step 7: Commit field removal**
+- [x] **Step 7: Commit field removal**
 
 Run:
 
@@ -265,6 +265,8 @@ git commit -m "refactor: keep movement physics results private to frame"
 ```
 
 Expected: one commit that removes the public field and keeps behavior unchanged.
+
+Result: committed as `60676b7 refactor: keep movement physics results private to frame`.
 
 ---
 

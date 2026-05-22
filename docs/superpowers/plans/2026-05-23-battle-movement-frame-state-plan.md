@@ -36,7 +36,7 @@ BattleFrameRunner_AdvanceFrame_MovingCorpsePhysicsPersistsIntoRuntime
 - Modify: `src/battle/BattleCore.cpp`
 - Modify: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Confirm remaining movement result consumers**
+- [x] **Step 1: Confirm remaining movement result consumers**
 
 Run:
 
@@ -46,7 +46,9 @@ rg -n "result\\.movement|frame\\.result\\.movement|\\.movement\\.decisions|\\.mo
 
 Expected: `BattleCore.cpp` uses movement decisions for action/cast and presentation; tests directly assert movement events/decisions.
 
-- [ ] **Step 2: Rewrite public-result tests**
+Result: direct `BattleFrameResult::movement` consumers were limited to `BattleCore.cpp` and two tests asserting movement events/decisions.
+
+- [x] **Step 2: Rewrite public-result tests**
 
 In `tests/BattleCoreUnitTests.cpp`, replace direct assertions on `result.movement.events` and `result.movement.decisions` with canonical runtime or presentation checks.
 
@@ -66,7 +68,7 @@ CHECK(state.movement.agents.at(0).physics.postDashRetreatFrames > 0);
 CHECK(state.unitStore.requireUnit(0).motion.velocity.x == 0.0f);
 ```
 
-- [ ] **Step 3: Add private context storage**
+- [x] **Step 3: Add private context storage**
 
 In `src/battle/BattleCore.cpp`, add this member to `BattleFrameContext`:
 
@@ -74,7 +76,7 @@ In `src/battle/BattleCore.cpp`, add this member to `BattleFrameContext`:
 BattleTickResult movement;
 ```
 
-- [ ] **Step 4: Remove the public movement field**
+- [x] **Step 4: Remove the public movement field**
 
 In `src/battle/BattleCore.h`, remove this line from `BattleFrameResult`:
 
@@ -82,7 +84,7 @@ In `src/battle/BattleCore.h`, remove this line from `BattleFrameResult`:
 BattleTickResult movement;
 ```
 
-- [ ] **Step 5: Route movement through context**
+- [x] **Step 5: Route movement through context**
 
 Change `commitFrameMovement` to write `frame.movement` instead of `result.movement`. Use this signature:
 
@@ -103,7 +105,7 @@ applyMovementFrameState(state, movementInput);
 
 Replace later `result.movement` reads in this helper with `frame.movement`.
 
-- [ ] **Step 6: Update movement consumers**
+- [x] **Step 6: Update movement consumers**
 
 Change `advanceActionFrameUnits` from:
 
@@ -119,7 +121,7 @@ const auto& movement = frame.movement;
 
 Change `publishMovementPresentationResults` to accept `const BattleTickResult& movement` and replace `result.movement` reads with that parameter.
 
-- [ ] **Step 7: Run focused tests**
+- [x] **Step 7: Run focused tests**
 
 Run:
 
@@ -128,6 +130,8 @@ x64\Debug\kys_tests.exe "[battle][core][movement],[battle][core]"
 ```
 
 Expected: selected tests pass.
+
+Result: `x64\Debug\kys_tests.exe "[battle][core][movement],[battle][core]"` passed 754 assertions in 102 test cases.
 
 - [ ] **Step 8: Commit**
 

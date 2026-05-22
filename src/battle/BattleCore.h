@@ -358,7 +358,6 @@ struct BattleRuntimeState
 struct BattleFrameResult
 {
     BattlePresentationFrame frame;
-    BattleTickResult movement;
     std::vector<BattleAttackEvent> attackEvents;
     BattleFrameApplications applications;
     std::vector<BattleProjectileCancelDamageCommand> projectileCancelDamageCommands;

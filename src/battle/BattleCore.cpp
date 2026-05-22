@@ -1300,6 +1300,7 @@ struct BattleFrameContext
     std::vector<BattleVisualEvent> visualEvents;
     std::vector<BattleGameplayCommand> deferredCommands;
     std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
+    BattleTickResult movement;
     std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
     UnitMotionSnapshotMap frameStartMotion;
 };
@@ -3947,15 +3948,14 @@ std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleR
 
 void commitFrameMovement(
     BattleRuntimeState& state,
-    BattleFrameResult& result,
-    const std::vector<BattleFrameMovementPhysicsUnitResult>& physicsResults,
+    BattleFrameContext& frame,
     BattleTickResult movement,
     const BattleMovementFrameInput& movementInput)
 {
-    result.movement = std::move(movement);
+    frame.movement = std::move(movement);
     applyMovementFrameState(state, movementInput);
 
-    for (const auto& physicsResult : physicsResults)
+    for (const auto& physicsResult : frame.movementPhysicsResults)
     {
         auto& unit = state.unitStore.requireUnit(physicsResult.unitId);
         auto& physics = requireMappedById(state.movement.agents, physicsResult.unitId).physics;
@@ -3978,12 +3978,12 @@ void commitFrameMovement(
     assert(state.unitStore.gridTransform.tileWidth > 0.0);
     assert(state.unitStore.gridTransform.coordCount > 0);
 
-    for (const auto& movementUnit : result.movement.units)
+    for (const auto& movementUnit : frame.movement.units)
     {
         auto& runtimeUnit = state.unitStore.requireUnit(movementUnit.id);
 
-        auto decisionIt = result.movement.decisions.find(movementUnit.id);
-        assert(decisionIt != result.movement.decisions.end());
+        auto decisionIt = frame.movement.decisions.find(movementUnit.id);
+        assert(decisionIt != frame.movement.decisions.end());
         const auto action = decisionIt->second.action;
 
         Pointf syncedVelocity = movementUnit.velocity;
@@ -4017,22 +4017,23 @@ void advanceMotionFrame(BattleRuntimeState& state, BattleFrameContext& frame)
     frame.movementPhysicsResults = computeMovementPhysics(state);
     auto movementInput = makeMovementFrameInput(state, makePostPhysicsMotionMap(frame.movementPhysicsResults));
     auto movement = BattleCore(movementInput).tickMovement();
-    commitFrameMovement(state, frame.result, frame.movementPhysicsResults, std::move(movement), movementInput);
+    commitFrameMovement(state, frame, std::move(movement), movementInput);
 }
 
 void publishMovementPresentationResults(
     const BattleRuntimeState& state,
     BattleFrameResult& result,
+    const BattleTickResult& movement,
     const std::vector<BattleFrameMovementPhysicsUnitResult>& physicsResults)
 {
     result.movementPresentationResults.clear();
     result.movementPresentationResults.reserve(
-        std::max(result.movement.units.size(), physicsResults.size()));
+        std::max(movement.units.size(), physicsResults.size()));
 
     std::unordered_map<int, std::size_t> indexByUnitId;
-    indexByUnitId.reserve(result.movement.units.size() + physicsResults.size());
+    indexByUnitId.reserve(movement.units.size() + physicsResults.size());
 
-    for (const auto& unit : result.movement.units)
+    for (const auto& unit : movement.units)
     {
         const auto& runtimeUnit = state.unitStore.requireUnit(unit.id);
         BattleFrameMovementPresentationUnitResult presentation;
@@ -4157,7 +4158,7 @@ BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 
 void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& frame)
 {
-    const auto& movement = frame.result.movement;
+    const auto& movement = frame.movement;
     auto& applications = frame.result.applications;
     auto& actionResults = frame.result.actionResults;
     auto& effectCommands = frame.result.effectCommands;
@@ -4830,7 +4831,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     reduceFrameGameplayCommands(state, frame);
     assert(frame.frameCommands.empty());
     // Publish scene-facing movement after damage/lifecycle so same-frame death kicks sync to the scene.
-    publishMovementPresentationResults(state, frame.result, frame.movementPhysicsResults);
+    publishMovementPresentationResults(state, frame.result, frame.movement, frame.movementPhysicsResults);
     // Copy authoritative runtime state into explicit scene apply payloads, e.g. status/combo mirrors.
     publishFrameApplyOutputs(state, frame.result);
     // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.
