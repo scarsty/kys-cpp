@@ -160,7 +160,7 @@ Expected: selected damage/status tests pass.
 
 Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][frame_runner][runtime][unit]"` passed 218 assertions in 31 test cases.
 
-- [ ] **Step 4: Commit the boundary split**
+- [x] **Step 4: Commit the boundary split**
 
 Run:
 
@@ -170,6 +170,8 @@ git commit -m "refactor: name damage runtime writeback boundary"
 ```
 
 Expected: one refactor commit with no behavior changes.
+
+Result: committed as `ab231fd refactor: name damage runtime writeback boundary`.
 
 ---
 

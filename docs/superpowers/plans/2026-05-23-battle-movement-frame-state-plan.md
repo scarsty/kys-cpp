@@ -186,7 +186,7 @@ Expected: only the new names remain.
 
 Result: only `makeMovementPlannerInputFromRuntime` and `commitMovementPlannerStateToRuntime` remain.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 Run:
 
@@ -199,6 +199,8 @@ git commit -m "refactor: name movement planner runtime boundary"
 Expected: selected tests pass, then one naming-only commit.
 
 Result: `x64\Debug\kys_tests.exe "[battle][core][movement],[battle][core]"` passed 754 assertions in 102 test cases.
+
+Commit: `f3aa32f refactor: name movement planner runtime boundary`.
 
 ---
 

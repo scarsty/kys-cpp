@@ -284,7 +284,7 @@ Expected: no matches in `src/battle/BattleCore.h` or tests. Matches in `src/batt
 
 Result: matches remain only in `src/battle/BattleCore.cpp` for `BattleFrameContext` and movement helper internals.
 
-- [ ] **Step 2: Run completion gate**
+- [x] **Step 2: Run completion gate**
 
 Run:
 
@@ -295,3 +295,5 @@ x64\Debug\kys_tests.exe
 ```
 
 Expected: diff check exits 0, all Catch2 tests pass, and MSBuild exits 0.
+
+Result: `git diff --check` exited 0. Full `x64\Debug\kys_tests.exe` passed 5529 assertions in 419 test cases. `.github\build-command.ps1` exited 0 and produced `x64\Debug\kys.exe`.

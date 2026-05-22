@@ -231,13 +231,15 @@ Completed in phase 1: `BattleRuntimeSession_RunFrame_AppliesDeathComboConsequenc
 - Modify: subsystem headers only as needed to remove mirror-world APIs.
 - Update: `tests/BattleCoreUnitTests.cpp`, `tests/BattleFrameRunnerRuntimeUnitTests.cpp`, and focused subsystem tests.
 
-- [ ] **Step 1: Introduce `BattleFrameContext`**
+- [x] **Step 1: Introduce `BattleFrameContext`**
 
 Create a local/context type owned by the frame runner. It collects frame events, logs, visual events, applications, report commands, and temporary per-frame scratch data.
 
 This context should not become a second persistent world. It exists for one `runFrame()` call only.
 
-- [ ] **Step 2: Make frame ordering explicit**
+Completed in phase 2: `BattleFrameContext` is private to `BattleCore.cpp` and owns one-frame movement, action, hit, team-effect, effect-command, and motion snapshot scratch.
+
+- [x] **Step 2: Make frame ordering explicit**
 
 Restructure `BattleFrameRunner::advanceFrame()` or its replacement so the top-level function visibly owns ordering:
 
@@ -255,7 +257,9 @@ emitFramePresentation(...);
 
 Do not hide ordering across callbacks that mutate state from multiple subsystems.
 
-- [ ] **Step 3: Convert subsystem APIs to rule helpers or direct mutators**
+Completed in phase 2: `BattleFrameRunner::runFrame()` keeps the visible ordered transaction and routes top-level frame helpers through the context instead of parallel vector plumbing.
+
+- [x] **Step 3: Convert subsystem APIs to rule helpers or direct mutators**
 
 For each subsystem, choose one shape:
 
@@ -265,13 +269,19 @@ For each subsystem, choose one shape:
 
 Avoid subsystem APIs that require copying a runtime-shaped world in and writing it back out.
 
-- [ ] **Step 4: Collapse duplicated event/application channels**
+Completed in phase 2: movement, damage, action, hit, rescue, and team/effect runtime mutation boundaries are named or narrowed; remaining scene-facing channels are explicitly kept for later scene-contract work.
+
+- [x] **Step 4: Collapse duplicated event/application channels**
 
 Audit `BattleFrameResult` for overlapping ways to describe the same thing. Prefer ordered frame events with enough information for scene/report consumers over several parallel vectors that must be correlated later.
 
-- [ ] **Step 5: Keep `BattleCore.cpp` allowed to be imperative**
+Completed in phase 2: public diagnostic channels for movement physics, movement ticks, action results, hit results, team-effect events, and effect commands were removed or narrowed. Scene-facing `attackEvents`, `damageRenderApplications`, and `rescueResults` remain public where consumers still require them.
+
+- [x] **Step 5: Keep `BattleCore.cpp` allowed to be imperative**
 
 Do not split code only because the file is long. Split only when it reduces persistent state ownership or makes a pure rule reusable. A readable ordered transaction is better than many attractive pieces with hidden composition bugs.
+
+Completed in phase 2: `BattleCore.cpp` remains the imperative transaction owner; no new subsystem bridge was added for line-count reasons.
 
 ---
 
