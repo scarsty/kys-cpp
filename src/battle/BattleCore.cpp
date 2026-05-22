@@ -1302,6 +1302,7 @@ struct BattleFrameContext
     std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
     BattleTickResult movement;
     std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
+    std::vector<BattleFrameActionUnitResult> actionResults;
     UnitMotionSnapshotMap frameStartMotion;
 };
 
@@ -4173,7 +4174,7 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
 {
     const auto& movement = frame.movement;
     auto& applications = frame.result.applications;
-    auto& actionResults = frame.result.actionResults;
+    auto& actionResults = frame.actionResults;
     auto& blinkTeleports = frame.result.blinkTeleports;
     auto& effectCommands = frame.result.effectCommands;
     auto& frameCommands = frame.frameCommands;

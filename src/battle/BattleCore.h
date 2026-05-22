@@ -365,7 +365,6 @@ struct BattleFrameResult
     std::vector<BattleFrameMovementPresentationUnitResult> movementPresentationResults;
     std::vector<BattleBlinkTeleportDelta> blinkTeleports;
     std::vector<BattleHitResolutionResult> hitResults;
-    std::vector<BattleFrameActionUnitResult> actionResults;
     std::vector<BattleDamageTransactionResult> damageTransactions;
     std::vector<BattleFrameDamageRenderApplication> damageRenderApplications;
     std::vector<BattleRescueRepositionResult> rescueResults;

@@ -1589,7 +1589,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battl
     auto result = runBattleFrame(state);
 
     CHECK(state.unitStore.requireUnit(0).stats.attack == 10);
-    CHECK(result.actionResults.empty());
+    CHECK(state.action.pendingCasts.empty());
+    CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
     CHECK(result.frame.gameplayEvents.empty());
 }
 
@@ -1614,8 +1615,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].castResult.attackSpawnRequests.empty());
+    auto pending = state.action.pendingCasts.find(0);
+    REQUIRE(pending != state.action.pendingCasts.end());
+    CHECK(pending->second.skill.id == 301);
     CHECK(result.attackEvents.empty());
     REQUIRE(result.frame.gameplayEvents.size() == 1);
     CHECK(result.frame.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
@@ -1645,10 +1647,10 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesEffectiveProjectileSelectDista
 
     auto start = runBattleFrame(state);
 
-    REQUIRE(start.actionResults.size() == 1);
-    const auto& castResult = start.actionResults[0].castResult;
-    CHECK(castResult.decision.operationType == BattleOperationType::RangedProjectile);
-    CHECK(castResult.attackSpawnRequests.empty());
+    auto pending = state.action.pendingCasts.find(0);
+    REQUIRE(pending != state.action.pendingCasts.end());
+    CHECK(pending->second.operationType == BattleOperationType::RangedProjectile);
+    CHECK(start.attackEvents.empty());
 
     auto& caster = state.unitStore.requireUnit(0);
     caster.haveAction = true;
@@ -1659,10 +1661,15 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesEffectiveProjectileSelectDista
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
-    const auto& projectile = result.actionResults[0].actionResult.attackSpawnRequests[0].initial;
-    CHECK(projectile.totalFrame == 30);
+    auto projectile = std::find_if(
+        result.attackEvents.begin(),
+        result.attackEvents.end(),
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::AttackSpawned;
+        });
+    REQUIRE(projectile != result.attackEvents.end());
+    CHECK(projectile->totalFrame == 30);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[battle][core][runtime]")
@@ -1691,14 +1698,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    const auto& castResult = result.actionResults[0].castResult;
-    CHECK(castResult.decision.canCast);
-    CHECK(castResult.decision.targetUnitId == 2);
-    CHECK(castResult.attackSpawnRequests.empty());
     auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.targetUnitId == 2);
+    CHECK(result.attackEvents.empty());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[battle][core]")
@@ -1722,7 +1725,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[b
 
     auto result = runBattleFrame(state);
 
-    CHECK(result.actionResults.empty());
+    CHECK(state.action.pendingCasts.empty());
+    CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
     CHECK(result.attackEvents.empty());
 }
 
@@ -1750,8 +1754,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    REQUIRE(result.actionResults[0].castResult.attackSpawnRequests.empty());
+    REQUIRE(state.action.pendingCasts.contains(0));
+    CHECK(result.attackEvents.empty());
     auto& releaseUnit = state.unitStore.requireUnit(0);
     releaseUnit.haveAction = true;
     releaseUnit.operationType = BattleOperationType::RangedProjectile;
@@ -1761,11 +1765,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
 
     auto release = runBattleFrame(state);
 
-    REQUIRE(release.actionResults.size() == 1);
-    REQUIRE(release.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
-    const auto& spawn = release.actionResults[0].actionResult.attackSpawnRequests[0];
-    CHECK(spawn.initial.position.x == state.unitStore.requireUnit(0).motion.position.x + SceneTileWidth * 2.0);
-    CHECK(spawn.initial.position.y == state.unitStore.requireUnit(0).motion.position.y);
+    auto spawn = std::find_if(
+        release.attackEvents.begin(),
+        release.attackEvents.end(),
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::AttackSpawned;
+        });
+    REQUIRE(spawn != release.attackEvents.end());
+    CHECK(spawn->position.x == state.unitStore.requireUnit(0).motion.position.x + SceneTileWidth * 2.0);
+    CHECK(spawn->position.y == state.unitStore.requireUnit(0).motion.position.y);
     CHECK(result.attackEvents.empty());
 }
 
@@ -1791,15 +1800,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", 
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].unitId == 0);
-    CHECK(result.actionResults[0].actionInput.hasCast);
-    CHECK(result.actionResults[0].actionInput.cast.decision.skillId == 101);
-    REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
+    CHECK(state.action.pendingCasts.empty());
     REQUIRE(result.attackEvents.size() >= 1);
     CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
     CHECK(result.attackEvents.front().attackId == 0);
     CHECK(result.attackEvents.front().sourceUnitId == 0);
+    CHECK(result.attackEvents.front().skillId == 101);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesRuntimeOwnedActionDirectives", "[battle][core][runtime]")
@@ -1824,8 +1830,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesRuntimeOwnedActionDirectives",
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].actionCommitted);
+    CHECK(state.action.pendingCasts.empty());
     REQUIRE(result.attackEvents.size() >= 1);
     CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
 }
@@ -1849,9 +1854,9 @@ TEST_CASE("BattleFrameRunner_PlansCastFromRuntimeOwnedCastPlanInput", "[battle][
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].castStarted);
-    CHECK(result.actionResults[0].castResult.decision.skillId == 301);
+    auto pending = state.action.pendingCasts.find(0);
+    REQUIRE(pending != state.action.pendingCasts.end());
+    CHECK(pending->second.skill.id == 301);
 }
 
 TEST_CASE("BattleFrameRunner_RuntimeCastStartFacesTargetDirection", "[battle][core][runtime]")
@@ -1875,8 +1880,6 @@ TEST_CASE("BattleFrameRunner_RuntimeCastStartFacesTargetDirection", "[battle][co
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    REQUIRE(result.actionResults[0].castStarted);
     const auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.targetUnitId == 1);
@@ -1918,8 +1921,8 @@ TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliv
     state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto start = runBattleFrame(state);
-    REQUIRE(start.actionResults.size() == 1);
-    REQUIRE(start.actionResults[0].castStarted);
+    REQUIRE(state.action.pendingCasts.contains(0));
+    CHECK(start.attackEvents.empty());
 
     auto& caster = state.unitStore.requireUnit(0);
     caster.haveAction = true;
@@ -1930,14 +1933,18 @@ TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliv
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    REQUIRE(result.actionResults[0].actionCommitted);
-    const auto& requests = result.actionResults[0].actionResult.attackSpawnRequests;
-    REQUIRE(requests.size() == 2);
-    CHECK(requests[0].initial.preferredTargetUnitId == 1);
-    CHECK(requests[1].initial.preferredTargetUnitId == 2);
-    CHECK(requests[1].initial.requirePreferredTarget);
-    CHECK(requests[1].initialFrame == 5);
+    std::vector<BattleAttackEvent> spawned;
+    std::copy_if(
+        result.attackEvents.begin(),
+        result.attackEvents.end(),
+        std::back_inserter(spawned),
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::AttackSpawned;
+        });
+    REQUIRE(spawned.size() == 2);
+    CHECK(spawned[0].unitId == 1);
+    CHECK(spawned[1].unitId == 2);
 }
 
 TEST_CASE("BattleFrameRunner_ClearsDashSpreadWhenRuntimeCastStarts", "[battle][core][runtime]")
@@ -1960,8 +1967,7 @@ TEST_CASE("BattleFrameRunner_ClearsDashSpreadWhenRuntimeCastStarts", "[battle][c
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].castStarted);
+    REQUIRE(state.action.pendingCasts.contains(0));
     CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 0);
 }
 
@@ -1993,10 +1999,8 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
 
     auto start = runBattleFrame(state);
 
-    REQUIRE(start.actionResults.size() == 1);
-    const auto& startAction = start.actionResults[0];
-    REQUIRE(startAction.castStarted);
-    REQUIRE(startAction.castResult.decision.operationType == BattleOperationType::Dash);
+    REQUIRE(state.action.pendingCasts.contains(0));
+    CHECK(start.attackEvents.empty());
     const auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.operationType == BattleOperationType::Dash);
@@ -2009,15 +2013,13 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    const auto& action = result.actionResults[0];
-    REQUIRE(action.actionCommitted);
     const auto dashHitCount = std::count_if(
-        action.actionResult.attackSpawnRequests.begin(),
-        action.actionResult.attackSpawnRequests.end(),
-        [](const BattleAttackSpawnRequest& request)
+        result.attackEvents.begin(),
+        result.attackEvents.end(),
+        [](const BattleAttackEvent& event)
         {
-            return request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit;
+            return event.type == BattleAttackEventType::AttackSpawned
+                && event.operationType == BattleOperationType::Dash;
         });
     CHECK(dashHitCount == 3);
 }
@@ -2046,12 +2048,10 @@ TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[
 
     auto start = runBattleFrame(state);
 
-    REQUIRE(start.actionResults.size() == 1);
-    const auto& castResult = start.actionResults[0].castResult;
-    CHECK(castResult.decision.operationType == BattleOperationType::RangedProjectile);
-    CHECK(castResult.attackSpawnRequests.empty());
-    CHECK(castResult.postDashRetreatVelocity.x == Catch::Approx(0.0f));
-    CHECK(castResult.postDashRetreatVelocity.y == Catch::Approx(0.0f));
+    auto pending = state.action.pendingCasts.find(0);
+    REQUIRE(pending != state.action.pendingCasts.end());
+    CHECK(pending->second.operationType == BattleOperationType::RangedProjectile);
+    CHECK(start.attackEvents.empty());
     auto& caster = state.unitStore.requireUnit(0);
     caster.haveAction = true;
     caster.operationType = BattleOperationType::RangedProjectile;
@@ -2061,13 +2061,13 @@ TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
     const auto dashHitCount = std::count_if(
-        result.actionResults[0].actionResult.attackSpawnRequests.begin(),
-        result.actionResults[0].actionResult.attackSpawnRequests.end(),
-        [](const BattleAttackSpawnRequest& request)
+        result.attackEvents.begin(),
+        result.attackEvents.end(),
+        [](const BattleAttackEvent& event)
         {
-            return request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit;
+            return event.type == BattleAttackEventType::AttackSpawned
+                && event.operationType == BattleOperationType::Dash;
         });
     CHECK(dashHitCount == 0);
 }
@@ -2102,8 +2102,7 @@ TEST_CASE("BattleFrameRunner_MeleeDashCommitSchedulesPostDashRetreat", "[battle]
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].actionCommitted);
+    CHECK(state.action.pendingCasts.empty());
     CHECK(state.movement.agents.at(0).physics.postDashRetreatVelocity.x < -3.0f);
     CHECK(std::abs(state.movement.agents.at(0).physics.postDashRetreatVelocity.y) > 1.0f);
     CHECK(state.movement.agents.at(0).physics.postDashRetreatFrames == 11);
@@ -2161,10 +2160,7 @@ TEST_CASE("BattleFrameRunner_StoresPendingCastIntentWhenCastStarts", "[battle][c
     configureRuntimeActionPlan(state, cast);
     state.unitStore.requireUnit(0).animation.cooldown = 0;
 
-    auto result = runBattleFrame(state);
-
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].castStarted);
+    runBattleFrame(state);
     auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.unitId == 0);
@@ -2194,8 +2190,8 @@ TEST_CASE("BattleFrameRunner_RefreshesRuntimeCastTargetAtCommitFrame", "[battle]
     state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto start = runBattleFrame(state);
-    REQUIRE(start.actionResults.size() == 1);
-    REQUIRE(start.actionResults[0].castStarted);
+    REQUIRE(state.action.pendingCasts.contains(0));
+    CHECK(start.attackEvents.empty());
     REQUIRE(state.action.pendingCasts.contains(0));
 
     auto& caster = state.unitStore.requireUnit(0);
@@ -2208,12 +2204,18 @@ TEST_CASE("BattleFrameRunner_RefreshesRuntimeCastTargetAtCommitFrame", "[battle]
 
     auto release = runBattleFrame(state);
 
-    REQUIRE(release.actionResults.size() == 1);
-    REQUIRE(release.actionResults[0].actionCommitted);
-    REQUIRE(release.actionResults[0].actionResult.attackSpawnRequests.size() == 3);
-    const auto& request = release.actionResults[0].actionResult.attackSpawnRequests[0];
-    CHECK(request.initial.velocity.x > 0.0f);
-    CHECK(request.initial.velocity.y > 0.0f);
+    std::vector<BattleAttackEvent> spawned;
+    std::copy_if(
+        release.attackEvents.begin(),
+        release.attackEvents.end(),
+        std::back_inserter(spawned),
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::AttackSpawned;
+        });
+    REQUIRE(spawned.size() == 3);
+    CHECK(spawned[0].velocity.x > 0.0f);
+    CHECK(spawned[0].velocity.y > 0.0f);
 }
 
 TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastInputWithoutSceneDirective", "[battle][core][runtime]")
@@ -2239,11 +2241,8 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastInputWithoutSceneDire
     auto result = runBattleFrame(state);
 
     CHECK(state.action.pendingCasts.empty());
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].actionCommitted);
-    CHECK(result.actionResults[0].castCommitted);
-    CHECK(result.actionResults[0].actionInput.hasCast);
-    REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
+    REQUIRE(result.attackEvents.size() >= 1);
+    CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
 }
 
 TEST_CASE("BattleFrameRunner_RetargetsPendingCastWhenOriginalTargetDiesBeforeCommit", "[battle][core][runtime]")
@@ -2273,18 +2272,18 @@ TEST_CASE("BattleFrameRunner_RetargetsPendingCastWhenOriginalTargetDiesBeforeCom
     auto result = runBattleFrame(state);
 
     CHECK(state.action.pendingCasts.empty());
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].actionCommitted);
-    CHECK(result.actionResults[0].castCommitted);
-    CHECK(result.actionResults[0].actionInput.hasCast);
-    CHECK(result.actionResults[0].actionInput.cast.decision.targetUnitId == 2);
-    CHECK(result.actionResults[0].actionResult.operationCount == 1);
     CHECK(state.unitStore.requireUnit(0).operationCount == 1);
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 25);
-    REQUIRE(result.actionResults[0].actionResult.attackSpawnRequests.size() == 1);
-    const auto& request = result.actionResults[0].actionResult.attackSpawnRequests.front();
-    CHECK(request.initial.velocity.x > 0.0f);
-    CHECK(request.initial.velocity.y > 0.0f);
+    auto request = std::find_if(
+        result.attackEvents.begin(),
+        result.attackEvents.end(),
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::AttackSpawned;
+        });
+    REQUIRE(request != result.attackEvents.end());
+    CHECK(request->velocity.x > 0.0f);
+    CHECK(request->velocity.y > 0.0f);
 }
 
 TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenNoLiveEnemyRemainsBeforeCommit", "[battle][core][runtime]")
@@ -2318,12 +2317,6 @@ TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenNoLiveEnemyRemainsBeforeCommi
     CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
     CHECK(state.unitStore.requireUnit(0).operationType == BattleOperationType::None);
     CHECK(state.unitStore.requireUnit(0).animation.actType == -1);
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].actionCommitted);
-    CHECK_FALSE(result.actionResults[0].castCommitted);
-    CHECK_FALSE(result.actionResults[0].actionInput.hasCast);
-    CHECK(result.actionResults[0].actionResult.operationCount == 1);
-    CHECK(result.actionResults[0].actionResult.attackSpawnRequests.empty());
     CHECK(result.attackEvents.empty());
 }
 
@@ -2353,7 +2346,6 @@ TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenCasterDiesBeforeActionFrame",
     CHECK(state.unitStore.requireUnit(0).operationType == BattleOperationType::None);
     CHECK(state.unitStore.requireUnit(0).animation.actType == -1);
     CHECK(result.attackEvents.empty());
-    CHECK(result.actionResults.empty());
 }
 
 TEST_CASE("BattleFrameRunner_PrunesPendingCastWhenCasterDiesDuringDamageLifecycle", "[battle][core][runtime]")
@@ -2414,8 +2406,7 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastAgainstLiveComboState
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].actionCommitted);
+    CHECK(state.action.pendingCasts.empty());
     REQUIRE(state.combo.units.contains(0));
     REQUIRE(state.combo.units.at(0).dodgeAdaptationStacks.size() == 1);
     REQUIRE(state.combo.units.at(0).dodgeAdaptationStacks[0].contains(1));
@@ -2453,7 +2444,7 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
+    CHECK(state.action.pendingCasts.empty());
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 19);
     CHECK(state.unitStore.requireUnit(0).shield == 12);
     CHECK(state.unitStore.requireUnit(0).invincible == 12);
@@ -2537,8 +2528,7 @@ TEST_CASE("BattleFrameRunner_ConsumesUltimateCasterWhenRuntimeOwnedCastCommits",
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].actionCommitted);
+    CHECK(state.action.pendingCasts.empty());
     CHECK(state.ultimateCasters.empty());
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 0);
 }
@@ -2570,8 +2560,7 @@ TEST_CASE("BattleFrameRunner_AppliesCommittedNormalCastMpGain", "[battle][core][
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    CHECK(result.actionResults[0].actionCommitted);
+    CHECK(state.action.pendingCasts.empty());
     CHECK(state.unitStore.requireUnit(0).vitals.mp == state.action.castConfig.normalCastMpDelta + 1);
 }
 
@@ -2630,15 +2619,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimePendingCastInput", "[bat
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    const auto& action = result.actionResults[0];
-    CHECK(action.castCommitted);
-    CHECK(action.actionInput.hasCast);
-    CHECK(action.actionInput.cast.decision.skillId == 101);
-    REQUIRE(action.actionResult.attackSpawnRequests.size() == 1);
+    CHECK(state.action.pendingCasts.empty());
     REQUIRE(result.attackEvents.size() >= 1);
     CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
     CHECK(result.attackEvents.front().sourceUnitId == 0);
+    CHECK(result.attackEvents.front().skillId == 101);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", "[battle][core]")
@@ -2656,14 +2641,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", 
     unit.operationType = BattleOperationType::RangedProjectile;
     unit.animation.cooldown = 30;
 
-    auto result = runBattleFrame(state);
+    runBattleFrame(state);
 
-    REQUIRE(result.actionResults.size() == 1);
-    const auto& action = result.actionResults[0];
-    CHECK(action.state.actFrame == 12);
-    CHECK_FALSE(action.state.haveAction);
-    CHECK(action.state.actType == -1);
-    CHECK(action.state.operationType == BattleOperationType::None);
+    const auto& recovered = state.unitStore.requireUnit(0);
+    CHECK(recovered.animation.actFrame == 12);
+    CHECK_FALSE(recovered.haveAction);
+    CHECK(recovered.animation.actType == -1);
+    CHECK(recovered.operationType == BattleOperationType::None);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[battle][core]")

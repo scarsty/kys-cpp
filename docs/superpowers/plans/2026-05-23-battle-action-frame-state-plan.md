@@ -134,7 +134,7 @@ Expected: selected tests pass.
 
 Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core],[battle][scene_frame_delta]"` passed 755 assertions in 106 test cases.
 
-- [ ] **Step 5: Commit the scene contract split**
+- [x] **Step 5: Commit the scene contract split**
 
 Run:
 
@@ -144,6 +144,8 @@ git commit -m "refactor: publish blink teleports outside action diagnostics"
 ```
 
 Expected: one commit that keeps `actionResults` for tests but removes the scene dependency.
+
+Result: committed as `13a856b refactor: publish blink teleports outside action diagnostics`.
 
 ---
 
@@ -155,7 +157,7 @@ Expected: one commit that keeps `actionResults` for tests but removes the scene 
 - Modify: `src/battle/BattleCore.cpp`
 - Modify: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Confirm no scene consumers remain**
+- [x] **Step 1: Confirm no scene consumers remain**
 
 Run:
 
@@ -165,7 +167,9 @@ rg -n "actionResults" src tests
 
 Expected: no matches in scene files; remaining matches are `BattleCore.cpp`, `BattleCore.h`, and tests.
 
-- [ ] **Step 2: Rewrite tests to public behavior**
+Result: no scene consumers remained after the blink-teleport split; remaining consumers were `BattleCore.cpp`, `BattleCore.h`, and tests.
+
+- [x] **Step 2: Rewrite tests to public behavior**
 
 For cast-start tests, assert `result.frame.gameplayEvents` and `state.action.pendingCasts`.
 
@@ -173,7 +177,7 @@ For action-commit tests, assert `state.pendingAttackSpawns` is empty after attac
 
 For cancellation tests, assert pending casts are erased and `result.attackEvents` is empty.
 
-- [ ] **Step 3: Move storage into context**
+- [x] **Step 3: Move storage into context**
 
 Add to `BattleFrameContext`:
 
@@ -189,7 +193,7 @@ std::vector<BattleFrameActionUnitResult> actionResults;
 
 Change `advanceActionFrameUnits` to append to `frame.actionResults`.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 Run:
 
@@ -200,6 +204,8 @@ git commit -m "refactor: keep action diagnostics private to frame"
 ```
 
 Expected: selected tests pass, then one commit.
+
+Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner]"` passed 794 assertions in 117 test cases.
 
 ---
 
