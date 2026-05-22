@@ -32,7 +32,7 @@ BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit
 - Modify: `src/battle/BattleCore.cpp`
 - Test: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Rename the writeback helper**
+- [x] **Step 1: Rename the writeback helper**
 
 Rename:
 
@@ -48,7 +48,7 @@ void commitActionFrameStateToRuntime(BattleRuntimeState& state, const BattleFram
 
 Keep the implementation unchanged.
 
-- [ ] **Step 2: Verify the old name is gone**
+- [x] **Step 2: Verify the old name is gone**
 
 Run:
 
@@ -57,6 +57,8 @@ rg -n "writeActionStateToUnitStore|commitActionFrameStateToRuntime" src/battle/B
 ```
 
 Expected: only `commitActionFrameStateToRuntime` remains.
+
+Result: only `commitActionFrameStateToRuntime` remains.
 
 - [ ] **Step 3: Run action tests and commit**
 
@@ -69,6 +71,8 @@ git commit -m "refactor: name action runtime writeback boundary"
 ```
 
 Expected: selected tests pass, then one naming-only commit.
+
+Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core][runtime]"` passed 219 assertions in 38 test cases.
 
 ---
 

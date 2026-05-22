@@ -4097,7 +4097,7 @@ void publishMovementPresentationResults(
     }
 }
 
-void writeActionStateToUnitStore(BattleRuntimeState& state, const BattleFrameActionUnitResult& result)
+void commitActionFrameStateToRuntime(BattleRuntimeState& state, const BattleFrameActionUnitResult& result)
 {
     auto& unit = state.unitStore.requireUnit(result.unitId);
     unit.animation.cooldown = result.state.cooldown;
@@ -4330,7 +4330,7 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
                 state.ultimateCasters.erase(unit.id);
             }
         }
-        writeActionStateToUnitStore(state, result);
+        commitActionFrameStateToRuntime(state, result);
         if (wasActionActive || result.castStarted || result.actionCommitted)
         {
             actionResults.push_back(std::move(result));
