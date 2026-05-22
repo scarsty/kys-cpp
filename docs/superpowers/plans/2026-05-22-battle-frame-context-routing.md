@@ -80,7 +80,7 @@ Phase 2B helps ownership only by making the transaction ledger explicit and audi
 - Test: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: Add an ownership comment above `BattleFrameContext`**
+- [x] **Step 1: Add an ownership comment above `BattleFrameContext`**
 
 In `src/battle/BattleCore.cpp`, add this comment immediately above `struct BattleFrameContext`:
 
@@ -90,7 +90,7 @@ In `src/battle/BattleCore.cpp`, add this comment immediately above `struct Battl
 // Keep this type private to BattleCore.cpp and do not pass it to subsystem classes.
 ```
 
-- [ ] **Step 2: Add a result-consumption helper**
+- [x] **Step 2: Add a result-consumption helper**
 
 Add this helper after `makeBattleFrameContext()`:
 
@@ -104,7 +104,7 @@ BattleFrameResult consumeBattleFrameContext(BattleFrameContext&& frame)
 
 This is an exit-boundary check, not defensive programming. `frameCommands` must be empty because unreduced gameplay commands mean the frame transaction did not finish.
 
-- [ ] **Step 3: Return through the consumption helper**
+- [x] **Step 3: Return through the consumption helper**
 
 Change the end of `BattleFrameRunner::runFrame()` from:
 
@@ -118,7 +118,7 @@ to:
 return consumeBattleFrameContext(std::move(frame));
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -128,7 +128,9 @@ x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit Task 0**
+Result: `x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner],[battle][runtime_session]"` passed 893 assertions in 124 test cases.
+
+- [x] **Step 5: Commit Task 0**
 
 Run:
 
@@ -138,6 +140,8 @@ git commit -m "refactor: codify battle frame context boundary"
 ```
 
 Expected: one commit that only documents/enforces the frame-context exit boundary.
+
+Result: committed as `refactor: codify battle frame context boundary`.
 
 ---
 

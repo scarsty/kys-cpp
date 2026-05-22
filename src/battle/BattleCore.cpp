@@ -1288,6 +1288,9 @@ UnitMotionSnapshotMap makeUnitMotionSnapshot(const BattleUnitStore& units)
     return snapshots;
 }
 
+// One runFrame() transaction ledger. Persistent gameplay lives in BattleRuntimeState.
+// The only public frame output is result; every other member is frame-local scratch.
+// Keep this type private to BattleCore.cpp and do not pass it to subsystem classes.
 struct BattleFrameContext
 {
     BattleFrameResult result;
@@ -1305,6 +1308,12 @@ BattleFrameContext makeBattleFrameContext(const BattleRuntimeState& state)
     BattleFrameContext frame;
     frame.frameStartMotion = makeUnitMotionSnapshot(state.unitStore);
     return frame;
+}
+
+BattleFrameResult consumeBattleFrameContext(BattleFrameContext&& frame)
+{
+    assert(frame.frameCommands.empty());
+    return std::move(frame.result);
 }
 
 const BattleUnitMotion& motionSnapshotForUnit(
@@ -4881,7 +4890,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     emitPresentationFrame(state, frame.result, frame.gameplayEvents, frame.logEvents, frame.visualEvents);
     // Runtime maintenance: remove projectiles/melee attacks whose animation lifetime has finished.
     pruneFinishedRuntimeAttacks(state);
-    return std::move(frame.result);
+    return consumeBattleFrameContext(std::move(frame));
 }
 
 }  // namespace KysChess::Battle
