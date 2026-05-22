@@ -3689,15 +3689,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", 
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.hitResults.size() == 1);
-    CHECK(result.hitResults[0].attackerUnitId == 0);
-    CHECK(result.hitResults[0].defenderUnitId == 1);
-    CHECK(result.hitResults[0].finalHpDamage > 0);
-
     REQUIRE(result.damageTransactions.size() == 1);
     CHECK(result.damageTransactions.front().attacker.id == 0);
     CHECK(result.damageTransactions.front().defender.id == 1);
-    CHECK(result.damageTransactions.front().finalHpDamage == result.hitResults[0].finalHpDamage);
+    CHECK(result.damageTransactions.front().finalHpDamage > 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[battle][core][breakthrough]")
@@ -3707,7 +3702,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[ba
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.hitResults.size() == 1);
     REQUIRE(result.damageTransactions.size() == 1);
     CHECK(result.damageTransactions.front().defender.id == 1);
     CHECK(result.damageTransactions.front().finalHpDamage > 0);
@@ -3992,10 +3986,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.hitResults.size() == 1);
-    CHECK(result.hitResults[0].dodged);
     CHECK(state.combo.units.at(1).dodgedLast);
     CHECK(state.damage.pendingDamage.empty());
+    CHECK(result.damageTransactions.empty());
 
     const auto dodgeLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -4046,9 +4039,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.hitResults.size() == 1);
-    CHECK_FALSE(result.hitResults[0].dodged);
-    CHECK(result.hitResults[0].finalHpDamage == 33);
     REQUIRE(result.damageTransactions.size() == 1);
     CHECK(result.damageTransactions.front().finalHpDamage == 33);
     CHECK_FALSE(state.combo.units.at(1).dodgedLast);
@@ -4215,7 +4205,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AggregatesProjectileContactIgnoredByIn
     CHECK(result.attackEvents[3].type == BattleAttackEventType::BlockedByInvincible);
     CHECK(result.attackEvents[3].sourceUnitId == 0);
     CHECK(result.attackEvents[3].unitId == 1);
-    CHECK(result.hitResults.empty());
     CHECK(result.damageTransactions.empty());
     CHECK(state.unitStore.units[1].invincible > 0);
     REQUIRE(result.frame.logEvents.size() == 1);

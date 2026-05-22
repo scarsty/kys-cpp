@@ -31,7 +31,7 @@ BattleFrameRunner_AdvanceFrame_LogsBounceChainTerminalReasons
 
 - Modify: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Find direct `hitResults` assertions**
+- [x] **Step 1: Find direct `hitResults` assertions**
 
 Run:
 
@@ -41,7 +41,9 @@ rg -n "hitResults" tests/BattleCoreUnitTests.cpp tests/BattleFrameRunnerRuntimeU
 
 Expected: matches in hit-to-damage, dodge, scripted hit, and invincible aggregation tests.
 
-- [ ] **Step 2: Replace same-frame hit assertions**
+Result: direct assertions were in hit-to-damage, same-frame damage, dodge, scripted hit, and invincible aggregation tests.
+
+- [x] **Step 2: Replace same-frame hit assertions**
 
 In `BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame`, replace direct `result.hitResults` assertions with:
 
@@ -52,7 +54,7 @@ CHECK(result.damageTransactions.front().defender.id == 1);
 CHECK(result.damageTransactions.front().finalHpDamage > 0);
 ```
 
-- [ ] **Step 3: Replace dodge assertions**
+- [x] **Step 3: Replace dodge assertions**
 
 In `BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage`, remove `result.hitResults[0].dodged` and keep the public behavior checks:
 
@@ -62,7 +64,7 @@ CHECK(dodgeLog != result.frame.logEvents.end());
 CHECK(dodgeEffect != result.frame.visualEvents.end());
 ```
 
-- [ ] **Step 4: Replace scripted hit assertions**
+- [x] **Step 4: Replace scripted hit assertions**
 
 In `BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents`, assert damage and frame events:
 
@@ -71,7 +73,7 @@ REQUIRE(result.damageTransactions.size() == 1);
 CHECK(result.damageTransactions.front().finalHpDamage == 33);
 ```
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -80,6 +82,8 @@ x64\Debug\kys_tests.exe "[battle][core]"
 ```
 
 Expected: selected tests pass before production field removal.
+
+Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core]"` passed 677 assertions in 103 test cases.
 
 - [ ] **Step 6: Commit test migration**
 
