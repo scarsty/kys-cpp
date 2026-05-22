@@ -217,6 +217,13 @@ Completed in phase 1: `BattleRuntimeSession_RunFrame_AppliesDeathComboConsequenc
 
 **Goal:** Turn `BattleCore` from a migration container into an ordered runtime transaction.
 
+**Planning status:** Phase 2 is intentionally split into a dedicated research and breakdown plan before implementation:
+
+- See [2026-05-22-battle-runtime-frame-transaction-breakdown.md](2026-05-22-battle-runtime-frame-transaction-breakdown.md).
+- Do not treat the bullets below as one implementation task.
+- The only currently ready implementation slice is phase 2A: introduce a one-frame `BattleFrameContext` mechanically without changing behavior, deleting result channels, or collapsing subsystem APIs.
+- Phase 2B and later require the inventories in the dedicated plan: helper signature routing, `BattleFrameResult` consumer audit, mirror-world synchronization classification, and scenario coverage gates.
+
 **Files:**
 
 - Modify: `src/battle/BattleCore.h`
