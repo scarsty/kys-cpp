@@ -306,7 +306,7 @@ Result: phase 2B is split into a dedicated plan at `docs/superpowers/plans/2026-
 - Read: `tests/BattleCoreUnitTests.cpp`
 - Read: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: List direct field consumers**
+- [x] **Step 1: List direct field consumers**
 
 Run:
 
@@ -316,33 +316,42 @@ rg -n "frameResult\\.|result\\.(frame|movement|attackEvents|applications|project
 
 Expected: scene code primarily consumes `frame`, `movementPresentationResults`, and state/presentation applications; tests consume many more internals.
 
-- [ ] **Step 2: Classify fields**
+Result: production consumers are narrower than the initial expectation. `src/BattleSceneHades.cpp` consumes `projectileCancelDamageCommands`, `frame.visualEvents`, and `frame.logEvents`; `src/BattleSceneFrameDeltaBuilder.cpp` consumes `applications`, `actionResults`, `frame.gameplayEvents`, `damageRenderApplications`, and `rescueResults`; `src/BattleSceneImpactPlayer.cpp` consumes `attackEvents`. `movementPhysicsResults`, `movementPresentationResults`, `hitResults`, `unitApplications`, `teamEffectEvents`, `effectCommands`, and `stateApplications` have no direct scene consumer today. They are runtime internals, tests, or publication fields waiting for a clearer contract.
 
-Use this initial classification:
+- [x] **Step 2: Classify fields**
 
-| `BattleFrameResult` field | Initial class | Rule |
+Final classification after the consumer audit:
+
+| `BattleFrameResult` field | Consumer class | Rule |
 | --- | --- | --- |
 | `frame` | Public scene/report presentation contract | Keep stable until scene playback is simplified. |
-| `movementPresentationResults` | Scene presentation contract | Keep until scene unit movement consumption is fully event-driven. |
-| `stateApplications` | Scene render-state synchronization | Keep until combo/status render state has a clearer event contract. |
-| `damageTransactions` | Runtime test/debug probe and render source | Do not delete until damage render applications cover all scene/report needs. |
-| `attackEvents` | Runtime event source and presentation source | Do not delete until projectile visual/log emission no longer re-reads this vector. |
-| `applications` | Mixed frame output | Audit before merging into `frame` or narrower outputs. |
-| `unitApplications` | Scene/test synchronization output | Audit after context routing. |
-| `movementPhysicsResults` | Test/debug probe | Candidate for test helper replacement after movement migration. |
-| `hitResults` | Runtime test/debug probe | Candidate for narrower diagnostic result after hit migration. |
-| `actionResults` | Runtime test/debug probe | Candidate for narrower diagnostic result after action migration. |
+| `movement` | Runtime staging plus test/debug probe | Keep until action/cast no longer reads movement decisions from `BattleFrameResult`. |
+| `attackEvents` | Scene impact contract plus runtime presentation source | Keep until projectile visual/log emission and `BattleSceneImpactPlayer` no longer read it. |
+| `applications` | Scene sound/rumble contract | Keep until sound/rumble commands are ordered frame events. |
+| `projectileCancelDamageCommands` | Report/log playback command | Keep until report player consumes ordered frame events. |
+| `unitApplications` | Runtime-unit publication and test probe | Candidate only after runtime-unit scene synchronization is removed or replaced. |
+| `movementPhysicsResults` | Test/debug probe and local presentation input | First removal candidate: move to `BattleFrameContext`, keep it private, and update tests to assert canonical runtime state plus presentation output. |
+| `movementPresentationResults` | Test/debug publication; no direct scene consumer today | Candidate after `movementPhysicsResults` is private and scene movement presentation ownership is confirmed. |
+| `hitResults` | Runtime test/debug probe and damage bridge | Candidate after hit-to-damage behavior has frame-level coverage that does not read `hitResults`. |
+| `actionResults` | Scene blink sound source plus runtime test/debug probe | Keep until `BattleSceneFrameDeltaBuilder` no longer reads blink teleports from action results. |
+| `damageTransactions` | Runtime test/debug probe and damage lifecycle source | Do not delete until damage render applications and frame events cover all scene/report needs. |
 | `damageRenderApplications` | Scene presentation input | Keep while scene delta uses it. |
 | `rescueResults` | Scene presentation input | Keep while rescue visuals are scene-mapped. |
-| `teamEffectEvents` | Scene/test synchronization output | Audit after team effect event contract is clarified. |
-| `effectCommands` | Presentation/effect bridge | Audit with scene delta builder. |
-| `projectileCancelDamageCommands` | Report/log playback command | Keep until report player consumes ordered frame events. |
+| `teamEffectEvents` | Runtime test/debug probe | Candidate after team effect events are represented by ordered frame events or applications. |
+| `effectCommands` | Runtime test/debug probe and command bridge | Candidate after frame commands have a single ordered event/command publication path. |
+| `stateApplications` | Render-state publication; currently test-only direct consumer | Candidate after scene render-state synchronization is confirmed to use runtime stores or ordered events. |
 
-- [ ] **Step 3: Decide the first removable field**
+- [x] **Step 3: Decide the first removable field**
 
 Do not remove a field in the audit task. Pick exactly one first candidate and write a dedicated implementation plan for that field.
 
 Expected first candidates after audit: `movementPhysicsResults`, `hitResults`, or `actionResults`, because scene code should not need them directly.
+
+Decision: remove or narrow `movementPhysicsResults` first. It has no production consumer outside `src/battle/BattleCore.cpp`, while tests can assert the same behavior through canonical runtime state and `movementPresentationResults`. The dedicated plan is:
+
+```text
+docs/superpowers/plans/2026-05-23-battle-frame-result-movement-physics-channel-plan.md
+```
 
 ---
 
@@ -356,7 +365,7 @@ Expected first candidates after audit: `movementPhysicsResults`, `hitResults`, o
 - Read: `src/BattleSceneHades.cpp`
 - Read: `src/BattleSceneFrameDeltaBuilder.cpp`
 
-- [ ] **Step 1: Run the broad mirror search**
+- [x] **Step 1: Run the broad mirror search**
 
 Run:
 
@@ -366,7 +375,9 @@ rg -n "make.*World|write.*World|make.*State|write.*State|make.*Input|apply.*Snap
 
 Expected: matches include setup-time conversion, pure calculation input creation, one-frame scratch, and persistent mirror synchronization.
 
-- [ ] **Step 2: Classify each match**
+Result: matches include scene setup (`BattleSceneHades::makeBattleRuntimeSessionCreationInput`), scene/result application (`applyCoreFrameResult`, `applySceneFrameDelta`, `applyLegacyBattleFrameResult`), movement world construction (`makeMovementFrameInput`, `applyMovementFrameState`, `makeBattleWorldUnitState`), damage state conversion/writeback (`makeBattleDamageUnitStateFromRuntime`, `writeBattleDamageRuntimeUnitImpl`, `BattleUnitStore::writeDamageUnit`, `applyDamageResultToFrameState`), action state conversion/writeback (`makeActionRuntimeState`, `writeActionStateToUnitStore`), hit/cast/rescue calculation input builders, and status/runtime setup conversion in `BattleRuntimeSession`.
+
+- [x] **Step 2: Classify each match**
 
 Use these categories:
 
@@ -377,7 +388,21 @@ Use these categories:
 | One-frame scratch | Cannot outlive a single `runFrame()` and writes back immediately under runner order. | Prefer keeping until a direct mutator is clearer. |
 | Persistent mirror synchronization | Copies runtime-shaped state into another owner, runs logic, then writes gameplay fields back. | Delete one domain at a time. |
 
-- [ ] **Step 3: Split mirror deletion by domain**
+Inventory classification:
+
+| Match group | Category | Decision |
+| --- | --- | --- |
+| `BattleSceneHades::makeBattleRuntimeSessionCreationInput`, `BattleRuntimeSession::createInitialized`, initial damage/status runtime conversion | Setup-time conversion | Keep out of phase 2D; this is startup ownership, not frame transaction ownership. |
+| `makeRuntimeUnitTickInput`, `makeRuntimeCastSkillState`, `makeCommittedCastActionInput`, `makeRuntimeBlinkGeometry`, `makeHitResolutionInput`, `makeRescueInput`, `makeFrameDamageApplicationInput` | Pure calculation input or one-frame scratch | Keep narrow unless a domain plan replaces the paired writeback in the same slice. |
+| `BattleFrameContext`, `runtimeCommits`, `frameStartMotion` | One-frame scratch | Keep private to `BattleCore.cpp`; do not pass to subsystem classes. |
+| `makeMovementFrameInput`, `applyMovementFrameState`, `commitFrameMovement`, `makeBattleWorldUnitState` | Persistent mirror synchronization | Movement domain plan. |
+| `makeBattleDamageUnitStateFromRuntime`, `writeBattleDamageRuntimeUnitImpl`, `BattleUnitStore::writeDamageUnit`, `applyDamageResultToFrameState` | Persistent mirror synchronization | Damage/status domain plan. |
+| `makeActionRuntimeState`, `writeActionStateToUnitStore`, `BattleFrameActionUnitResult::state` | Persistent mirror synchronization | Action/cast domain plan. |
+| `BattleAttackSystem` event list, `makeHitResolutionInput`, `resolveHitEvents`, `hitResults`, projectile cancellation outputs | Mixed persistent attack store plus one-frame hit scratch | Attack/hit/projectile domain plan. |
+| `applyRescueResultToFrameState`, pending team effects, death combo consequences | Persistent runtime mutation driven by lifecycle events | Rescue/death/team-effect domain plan after damage lifecycle work. |
+| `applyCoreFrameResult`, `applySceneFrameDelta`, `applyLegacyBattleFrameResult` | Scene presentation synchronization | Keep stable while runtime ownership changes; simplify after runtime result channels shrink. |
+
+- [x] **Step 3: Split mirror deletion by domain**
 
 Use this order unless the inventory shows a lower-risk candidate:
 
@@ -389,15 +414,18 @@ Use this order unless the inventory shows a lower-risk candidate:
 | Attack/hit/projectile resolution | High event-order risk; must preserve projectile cancellation, bounce, target lost, invincible aggregation. |
 | Rescue/death/team effects | Depends on damage lifecycle and battle-end ordering. |
 
-- [ ] **Step 4: Write one dedicated implementation plan per domain**
+Decision: split 2D+ into five domain plans and keep result-channel removal separate from mirror-world deletion. The domain order remains movement, damage/status, action/cast, attack/hit/projectile, then rescue/death/team effects.
 
-Expected filenames:
+- [x] **Step 4: Write one dedicated implementation plan per domain**
+
+Plan filenames:
 
 ```text
-docs/superpowers/plans/2026-05-22-battle-movement-frame-state-plan.md
-docs/superpowers/plans/2026-05-22-battle-damage-frame-state-plan.md
-docs/superpowers/plans/2026-05-22-battle-action-frame-state-plan.md
-docs/superpowers/plans/2026-05-22-battle-attack-hit-frame-state-plan.md
+docs/superpowers/plans/2026-05-23-battle-movement-frame-state-plan.md
+docs/superpowers/plans/2026-05-23-battle-damage-frame-state-plan.md
+docs/superpowers/plans/2026-05-23-battle-action-frame-state-plan.md
+docs/superpowers/plans/2026-05-23-battle-attack-hit-frame-state-plan.md
+docs/superpowers/plans/2026-05-23-battle-rescue-death-team-effect-frame-state-plan.md
 ```
 
 Each domain plan must include exact tests to add or preserve before code changes.
@@ -414,7 +442,7 @@ Each domain plan must include exact tests to add or preserve before code changes
 - Read: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 - Update this file with coverage gaps.
 
-- [ ] **Step 1: Inventory existing frame-level tests by behavior**
+- [x] **Step 1: Inventory existing frame-level tests by behavior**
 
 Run:
 
@@ -424,19 +452,21 @@ rg -n "TEST_CASE\\(\"BattleFrameRunner|TEST_CASE\\(\"BattleRuntimeSession" tests
 
 Expected: current coverage already includes movement ordering, cast planning/commit, damage lifecycle, projectile cancellation, rescue, auto ultimate, and runtime session ownership.
 
-- [ ] **Step 2: Map each domain to required scenario checks**
+Result: the exact search found the `BattleFrameRunner_*` and `BattleRuntimeSession_*` scenario tests in `tests/BattleCoreUnitTests.cpp` and `tests/BattleFrameRunnerRuntimeUnitTests.cpp`. The broader `TEST_CASE` inventory confirms coverage for movement ordering, cast planning and commit, damage lifecycle, projectile cancellation, rescue, auto ultimate, runtime session ownership, and death combo scene consumption.
+
+- [x] **Step 2: Map each domain to required scenario checks**
 
 Use this checklist:
 
-| Domain | Required frame-level checks |
+| Domain | Required frame-level checks | Current coverage |
 | --- | --- |
-| Movement | Post-movement cast origin, moving corpse physics, death kick presentation, frozen physics timer. |
-| Damage/status | Poison/bleed to damage transaction, death prevention, damage-taken MP gain, impact freeze, battle end emits once. |
-| Action/cast | Cast start without attack spawn, pending cast refresh, target death cancel/retarget, MP gain/spend, combo post-skill effects. |
-| Attack/hit/projectile | Hit-to-damage same frame, dodge before damage, projectile target lost, cancel pair, bounce chain terminal logs. |
-| Rescue/death/team effects | Protect rescue, execute rescue counterattack, death combo consequences, pending team effect source death. |
+| Movement | Post-movement cast origin, moving corpse physics, death kick presentation, frozen physics timer. | Covered by `BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition`, `BattleFrameRunner_AdvanceFrame_KeepsMovingCorpsesInMovementPhysics`, `BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity`, `BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore`, and related movement tests. |
+| Damage/status | Poison/bleed to damage transaction, death prevention, damage-taken MP gain, impact freeze, battle end emits once. | Poison/bleed, MP gain, impact freeze, and battle-end-once are covered. Death prevention is the gap: add a frame-level death-prevention test before changing damage writeback ownership. |
+| Action/cast | Cast start without attack spawn, pending cast refresh, target death cancel/retarget, MP gain/spend, combo post-skill effects. | Covered by cast start, pending cast refresh, retarget/cancel, MP gain, pending cast input, and cast-scoped combo tests. MP spend is covered through committed cast MP delta expectations, but keep it in the action plan gate. |
+| Attack/hit/projectile | Hit-to-damage same frame, dodge before damage, projectile target lost, cancel pair, bounce chain terminal logs. | Covered by `BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame`, dodge, target lost, chained stop logs, cancel pair, invincible aggregation, bounce, and terminal reason tests. |
+| Rescue/death/team effects | Protect rescue, execute rescue counterattack, death combo consequences, pending team effect source death. | Covered by protect rescue, execute rescue, `BattleRuntimeSession_RunFrame_AppliesDeathComboConsequencesBeforeSceneConsumption`, and pending team effect source death tests. |
 
-- [ ] **Step 3: Require red/green proof for behavior-changing migrations**
+- [x] **Step 3: Require red/green proof for behavior-changing migrations**
 
 For behavior-changing migrations, the implementation plan must include:
 
@@ -449,6 +479,8 @@ For behavior-changing migrations, the implementation plan must include:
 ```
 
 Mechanical refactors such as phase 2A may use existing tests only.
+
+Decision: every 2D+ domain plan includes a coverage gate and the red/green proof requirement. The `movementPhysicsResults` public-channel removal is a mechanical API narrowing and may use rewritten existing tests plus full verification; domain ownership migrations must use red/green proof for any added behavior coverage.
 
 ---
 
