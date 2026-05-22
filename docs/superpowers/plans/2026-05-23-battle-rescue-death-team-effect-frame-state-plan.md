@@ -87,7 +87,7 @@ Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core][b
 - Read: `src/BattleSceneFrameDeltaBuilder.cpp`
 - Read: `src/battle/BattleCore.cpp`
 
-- [ ] **Step 1: Confirm rescue result consumers**
+- [x] **Step 1: Confirm rescue result consumers**
 
 Run:
 
@@ -97,9 +97,13 @@ rg -n "rescueResults" src tests
 
 Expected: `BattleSceneFrameDeltaBuilder` still reads `rescueResults`, and tests assert rescue behavior.
 
-- [ ] **Step 2: Add ordered rescue event only if scene replacement is in scope**
+Result: `BattleSceneFrameDeltaBuilder` still reads `rescueResults`, and tests still assert rescue behavior through this scene-facing channel.
+
+- [x] **Step 2: Add ordered rescue event only if scene replacement is in scope**
 
 Do not remove `rescueResults` in this plan unless a separate scene-delta task first replaces the scene dependency with an ordered `BattleGameplayEvent` or `BattleVisualEvent`. The replacement event must carry the pulled unit id, puller unit id, and teleport position.
+
+Decision: scene replacement is out of scope for this plan; keep `rescueResults` public.
 
 ---
 
@@ -111,7 +115,7 @@ Do not remove `rescueResults` in this plan unless a separate scene-delta task fi
 - Modify: `tests/BattleCoreUnitTests.cpp`
 - Modify: `tests/BattleFrameRunnerRuntimeUnitTests.cpp`
 
-- [ ] **Step 1: Confirm team-effect consumers**
+- [x] **Step 1: Confirm team-effect consumers**
 
 Run:
 
@@ -121,13 +125,15 @@ rg -n "teamEffectEvents|effectCommands" src tests
 
 Expected: production use is inside `BattleCore.cpp`; direct external consumers are tests.
 
-- [ ] **Step 2: Rewrite tests to public frame behavior**
+Result: production use was inside `BattleCore.cpp`; direct external consumers were tests.
+
+- [x] **Step 2: Rewrite tests to public frame behavior**
 
 For pending team-effect tests, assert canonical HP/MP/cooldown state and `result.frame.logEvents` or `result.frame.visualEvents` instead of `result.teamEffectEvents`.
 
 For effect-command tests, assert command consequences through canonical runtime state and frame logs.
 
-- [ ] **Step 3: Move team/effect diagnostics private**
+- [x] **Step 3: Move team/effect diagnostics private**
 
 Add these fields to `BattleFrameContext`:
 
@@ -145,7 +151,7 @@ std::vector<BattleEffectCommand> effectCommands;
 
 Update context-routed helpers to use `frame.teamEffectEvents` and `frame.effectCommands` unless the values are intentionally public.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 Run:
 
@@ -156,6 +162,8 @@ git commit -m "refactor: keep team effect diagnostics private to frame"
 ```
 
 Expected: selected tests pass, then one commit.
+
+Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "[battle][core],[battle][frame_runner]"` passed 759 assertions in 117 test cases.
 
 ---
 

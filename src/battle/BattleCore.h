@@ -367,8 +367,6 @@ struct BattleFrameResult
     std::vector<BattleDamageTransactionResult> damageTransactions;
     std::vector<BattleFrameDamageRenderApplication> damageRenderApplications;
     std::vector<BattleRescueRepositionResult> rescueResults;
-    std::vector<BattleTeamEffectEvent> teamEffectEvents;
-    std::vector<BattleEffectCommand> effectCommands;
     BattleFrameStateApplications stateApplications;
 };
 

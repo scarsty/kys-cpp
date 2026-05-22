@@ -2450,10 +2450,6 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
     CHECK(state.unitStore.requireUnit(0).invincible == 12);
     CHECK(state.combo.units.at(0).effectActivationCounts.at(0) == 1);
     CHECK(state.combo.units.at(0).effectActivationCounts.at(1) == 1);
-    REQUIRE(result.effectCommands.size() == 1);
-    CHECK(result.effectCommands[0].type == BattleEffectCommandType::AddInvincibility);
-    CHECK(result.effectCommands[0].targetUnitId == 0);
-    CHECK(result.effectCommands[0].value == 12);
 
     const auto invincibilityLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -3221,7 +3217,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[b
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.teamEffectEvents.size() == 2);
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 60);
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 80);
     CHECK(std::count_if(
@@ -3252,7 +3247,6 @@ TEST_CASE("BattleFrameRunner_DropsPendingTeamEffectWhenSourceDiesBeforeApply", "
 
     auto result = runBattleFrame(state);
 
-    CHECK(result.teamEffectEvents.empty());
     CHECK(result.frame.visualEvents.empty());
     CHECK(state.teamEffects.pendingCommands.empty());
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 80);
@@ -3283,7 +3277,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnCo
     auto result = runBattleFrame(state);
 
     CHECK(state.unitStore.requireUnit(0).invincible == 0);
-    CHECK(result.effectCommands.empty());
+    CHECK(result.frame.logEvents.empty());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathAoeProjectileDamagesOnNextFrame", "[battle][core][breakthrough]")

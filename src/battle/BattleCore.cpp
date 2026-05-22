@@ -1304,6 +1304,8 @@ struct BattleFrameContext
     std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
     std::vector<BattleFrameActionUnitResult> actionResults;
     std::vector<BattleHitResolutionResult> hitResults;
+    std::vector<BattleTeamEffectEvent> teamEffectEvents;
+    std::vector<BattleEffectCommand> effectCommands;
     UnitMotionSnapshotMap frameStartMotion;
 };
 
@@ -3356,8 +3358,8 @@ void reduceFrameGameplayCommands(BattleRuntimeState& state, BattleFrameContext& 
         state,
         frame.frameCommands,
         frame.result.applications,
-        frame.result.effectCommands,
-        frame.result.teamEffectEvents,
+        frame.effectCommands,
+        frame.teamEffectEvents,
         frame.gameplayEvents,
         frame.logEvents,
         frame.visualEvents);
@@ -3770,7 +3772,7 @@ void applyRuntimeComboEvents(BattleRuntimeState& state, BattleFrameContext& fram
                     state,
                     result.unitId,
                     event,
-                    frame.result.teamEffectEvents,
+                    frame.teamEffectEvents,
                     frame.logEvents,
                     frame.visualEvents);
                 break;
@@ -3830,8 +3832,8 @@ void applyPendingTeamEffects(BattleRuntimeState& state, BattleFrameContext& fram
                 application.logEvents.begin(),
                 application.logEvents.end());
             appendTeamEffectVisualEvents(frame.visualEvents, application.events);
-            frame.result.teamEffectEvents.insert(
-                frame.result.teamEffectEvents.end(),
+            frame.teamEffectEvents.insert(
+                frame.teamEffectEvents.end(),
                 application.events.begin(),
                 application.events.end());
             continue;
@@ -4177,7 +4179,7 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
     auto& applications = frame.result.applications;
     auto& actionResults = frame.actionResults;
     auto& blinkTeleports = frame.result.blinkTeleports;
-    auto& effectCommands = frame.result.effectCommands;
+    auto& effectCommands = frame.effectCommands;
     auto& frameCommands = frame.frameCommands;
     auto& gameplayEvents = frame.gameplayEvents;
     auto& logEvents = frame.logEvents;

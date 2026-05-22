@@ -322,7 +322,6 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayFrameApplications", "[batt
 
     const auto result = session.runFrame();
 
-    REQUIRE(result.teamEffectEvents.size() == 2);
     CHECK(session.runtime().unitStore.requireUnit(0).vitals.hp == 60);
     CHECK(session.runtime().unitStore.requireUnit(1).vitals.hp == 100);
 }
@@ -530,11 +529,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     CHECK(result.unitApplications[0].cooldown == 0);
 
     CHECK(state.teamEffects.pendingCommands.empty());
-    CHECK(result.effectCommands.empty());
-    REQUIRE(result.teamEffectEvents.size() == 1);
-    CHECK(result.teamEffectEvents[0].sourceUnitId == 0);
-    CHECK(result.teamEffectEvents[0].targetUnitId == 0);
-    CHECK(result.teamEffectEvents[0].value == 10);
+    CHECK(state.unitStore.requireUnit(0).vitals.hp == 90);
     CHECK_FALSE(state.combo.units.at(0).onSkillTeamHealPending);
 }
 
@@ -556,13 +551,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.teamEffectEvents.size() == 2);
-    CHECK(result.teamEffectEvents[0].type == BattleTeamEffectEventType::Heal);
-    CHECK(result.teamEffectEvents[0].sourceUnitId == 0);
-    CHECK(result.teamEffectEvents[0].targetUnitId == 0);
-    CHECK(result.teamEffectEvents[0].value == 15);
-    CHECK(result.teamEffectEvents[1].targetUnitId == 1);
-    CHECK(result.teamEffectEvents[1].value == 10);
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 65);
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 100);
     CHECK(state.unitStore.requireUnit(2).vitals.hp == 10);
@@ -734,13 +722,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     CHECK(state.unitStore.requireUnit(2).animation.cooldown == 49);
     CHECK(state.unitStore.requireUnit(3).vitals.hp == 20);
 
-    REQUIRE(result.teamEffectEvents.size() == 3);
-    CHECK(result.teamEffectEvents[0].targetUnitId == 0);
-    CHECK(result.teamEffectEvents[0].value == 20);
-    CHECK(result.teamEffectEvents[1].targetUnitId == 1);
-    CHECK(result.teamEffectEvents[1].value == 15);
-    CHECK(result.teamEffectEvents[2].type == BattleTeamEffectEventType::CooldownReduced);
-    CHECK(result.teamEffectEvents[2].value == 10);
     CHECK(std::count_if(
         result.frame.visualEvents.begin(),
         result.frame.visualEvents.end(),
@@ -830,7 +811,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSk
 
     auto result = runBattleFrame(state);
 
-    CHECK(result.effectCommands.empty());
     CHECK(state.unitStore.requireUnit(0).invincible == 3);
 }
 
