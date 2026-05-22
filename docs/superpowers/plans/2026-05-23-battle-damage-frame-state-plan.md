@@ -33,7 +33,7 @@ Add the death-prevention frame-level test in Task 1 before changing production c
 - Modify: `tests/BattleCoreUnitTests.cpp`
 - Test: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Add the test**
+- [x] **Step 1: Add the test**
 
 Add this test near the other damage lifecycle tests:
 
@@ -73,7 +73,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive",
 }
 ```
 
-- [ ] **Step 2: Run the new test**
+- [x] **Step 2: Run the new test**
 
 Run:
 
@@ -82,6 +82,8 @@ x64\Debug\kys_tests.exe "BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRunt
 ```
 
 Expected: the test passes on current behavior. If it fails, investigate the behavior before editing production code.
+
+Result: after rebuilding `kys_tests`, `x64\Debug\kys_tests.exe "BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive"` passed 7 assertions in 1 test case.
 
 - [ ] **Step 3: Commit coverage**
 

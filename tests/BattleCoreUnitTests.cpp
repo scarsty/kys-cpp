@@ -3185,6 +3185,40 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
         }));
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 200, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.deathEffects.store.units = { { 0 }, { 1 } };
+    state.damage.pendingDamage.push_back({
+        .request = {
+            .attackerUnitId = 0,
+            .defenderUnitId = 1,
+            .baseDamage = 99,
+            .preResolvedDamage = true,
+        },
+    });
+    state.unitStore.requireUnit(1).vitals.hp = 20;
+    auto& runtime = requireById(state.damage.unitExtras, 1);
+    runtime.deathPrevention = true;
+    runtime.deathPreventionFrames = 30;
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK_FALSE(result.damageTransactions[0].killed);
+    const auto& defender = state.unitStore.requireUnit(1);
+    CHECK(defender.alive);
+    CHECK(defender.vitals.hp == 1);
+    CHECK(defender.invincible == 30);
+    CHECK(runtime.deathPreventionUsed);
+    CHECK(runtime.deathPreventionFrames == 30);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
