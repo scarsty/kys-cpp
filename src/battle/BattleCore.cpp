@@ -1300,6 +1300,7 @@ struct BattleFrameContext
     std::vector<BattleVisualEvent> visualEvents;
     std::vector<BattleGameplayCommand> deferredCommands;
     std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
+    std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
     UnitMotionSnapshotMap frameStartMotion;
 };
 
@@ -3947,15 +3948,14 @@ std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleR
 void commitFrameMovement(
     BattleRuntimeState& state,
     BattleFrameResult& result,
-    std::vector<BattleFrameMovementPhysicsUnitResult> physicsResults,
+    const std::vector<BattleFrameMovementPhysicsUnitResult>& physicsResults,
     BattleTickResult movement,
     const BattleMovementFrameInput& movementInput)
 {
-    result.movementPhysicsResults = std::move(physicsResults);
     result.movement = std::move(movement);
     applyMovementFrameState(state, movementInput);
 
-    for (const auto& physicsResult : result.movementPhysicsResults)
+    for (const auto& physicsResult : physicsResults)
     {
         auto& unit = state.unitStore.requireUnit(physicsResult.unitId);
         auto& physics = requireMappedById(state.movement.agents, physicsResult.unitId).physics;
@@ -4011,23 +4011,26 @@ void commitFrameMovement(
     }
 }
 
-void advanceMotionFrame(BattleRuntimeState& state, BattleFrameResult& result)
+void advanceMotionFrame(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     prepareMovementAgents(state);
-    auto physicsResults = computeMovementPhysics(state);
-    auto movementInput = makeMovementFrameInput(state, makePostPhysicsMotionMap(physicsResults));
+    frame.movementPhysicsResults = computeMovementPhysics(state);
+    auto movementInput = makeMovementFrameInput(state, makePostPhysicsMotionMap(frame.movementPhysicsResults));
     auto movement = BattleCore(movementInput).tickMovement();
-    commitFrameMovement(state, result, std::move(physicsResults), std::move(movement), movementInput);
+    commitFrameMovement(state, frame.result, frame.movementPhysicsResults, std::move(movement), movementInput);
 }
 
-void publishMovementPresentationResults(const BattleRuntimeState& state, BattleFrameResult& result)
+void publishMovementPresentationResults(
+    const BattleRuntimeState& state,
+    BattleFrameResult& result,
+    const std::vector<BattleFrameMovementPhysicsUnitResult>& physicsResults)
 {
     result.movementPresentationResults.clear();
     result.movementPresentationResults.reserve(
-        std::max(result.movement.units.size(), result.movementPhysicsResults.size()));
+        std::max(result.movement.units.size(), physicsResults.size()));
 
     std::unordered_map<int, std::size_t> indexByUnitId;
-    indexByUnitId.reserve(result.movement.units.size() + result.movementPhysicsResults.size());
+    indexByUnitId.reserve(result.movement.units.size() + physicsResults.size());
 
     for (const auto& unit : result.movement.units)
     {
@@ -4051,7 +4054,7 @@ void publishMovementPresentationResults(const BattleRuntimeState& state, BattleF
         result.movementPresentationResults.push_back(std::move(presentation));
     }
 
-    for (const auto& physics : result.movementPhysicsResults)
+    for (const auto& physics : physicsResults)
     {
         auto indexIt = indexByUnitId.find(physics.unitId);
         if (indexIt == indexByUnitId.end())
@@ -4808,7 +4811,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
     reduceFrameGameplayCommands(state, frame);
     // Advance and commit motion, e.g. physics and tactical movement.
-    advanceMotionFrame(state, frame.result);
+    advanceMotionFrame(state, frame);
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
     advanceActionFrameUnits(state, frame);
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
@@ -4827,7 +4830,7 @@ BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
     reduceFrameGameplayCommands(state, frame);
     assert(frame.frameCommands.empty());
     // Publish scene-facing movement after damage/lifecycle so same-frame death kicks sync to the scene.
-    publishMovementPresentationResults(state, frame.result);
+    publishMovementPresentationResults(state, frame.result, frame.movementPhysicsResults);
     // Copy authoritative runtime state into explicit scene apply payloads, e.g. status/combo mirrors.
     publishFrameApplyOutputs(state, frame.result);
     // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.

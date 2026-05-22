@@ -134,7 +134,7 @@ Expected: movement tests pass before production code removal. This proves the te
 
 Result: `x64\Debug\kys_tests.exe "[battle][core][movement]"` passed 64 assertions in 7 test cases after removing public-field assertions.
 
-- [ ] **Step 5: Commit test migration**
+- [x] **Step 5: Commit test migration**
 
 Run:
 
@@ -144,6 +144,8 @@ git commit -m "test: stop asserting public movement physics results"
 ```
 
 Expected: one commit with test-only changes plus plan progress.
+
+Result: committed as `803b4ac test: stop asserting public movement physics results`.
 
 ---
 
@@ -155,7 +157,7 @@ Expected: one commit with test-only changes plus plan progress.
 - Modify: `src/battle/BattleCore.cpp`
 - Test: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] **Step 1: Add private context storage**
+- [x] **Step 1: Add private context storage**
 
 In `src/battle/BattleCore.cpp`, add this member to `BattleFrameContext`:
 
@@ -163,7 +165,7 @@ In `src/battle/BattleCore.cpp`, add this member to `BattleFrameContext`:
 std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
 ```
 
-- [ ] **Step 2: Remove the public result field**
+- [x] **Step 2: Remove the public result field**
 
 In `src/battle/BattleCore.h`, remove this line from `BattleFrameResult`:
 
@@ -171,7 +173,7 @@ In `src/battle/BattleCore.h`, remove this line from `BattleFrameResult`:
 std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
 ```
 
-- [ ] **Step 3: Change movement commit helper to consume private physics results**
+- [x] **Step 3: Change movement commit helper to consume private physics results**
 
 Change `commitFrameMovement` so it takes physics results by const reference and no longer assigns to `result.movementPhysicsResults`:
 
@@ -206,7 +208,7 @@ void commitFrameMovement(
 }
 ```
 
-- [ ] **Step 4: Pass private physics results to presentation publishing**
+- [x] **Step 4: Pass private physics results to presentation publishing**
 
 Change `publishMovementPresentationResults` to accept the physics vector explicitly:
 
@@ -219,7 +221,7 @@ void publishMovementPresentationResults(
 
 Inside the helper, replace every `result.movementPhysicsResults` read with `physicsResults`.
 
-- [ ] **Step 5: Route `advanceMotionFrame` through context**
+- [x] **Step 5: Route `advanceMotionFrame` through context**
 
 Change `advanceMotionFrame` to take `BattleFrameContext&` and write the private vector:
 
@@ -241,7 +243,7 @@ advanceMotionFrame(state, frame);
 publishMovementPresentationResults(state, frame.result, frame.movementPhysicsResults);
 ```
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run:
 
@@ -250,6 +252,8 @@ x64\Debug\kys_tests.exe "[battle][core][movement],[battle][core],[battle][frame_
 ```
 
 Expected: selected tests pass.
+
+Result: `x64\Debug\kys_tests.exe "[battle][core][movement],[battle][core],[battle][frame_runner]"` passed 861 assertions in 116 test cases.
 
 - [ ] **Step 7: Commit field removal**
 
@@ -266,7 +270,7 @@ Expected: one commit that removes the public field and keeps behavior unchanged.
 
 ## Task 3: Completion Verification
 
-- [ ] **Step 1: Confirm the field is gone from public result**
+- [x] **Step 1: Confirm the field is gone from public result**
 
 Run:
 
@@ -275,6 +279,8 @@ rg -n "movementPhysicsResults" src tests
 ```
 
 Expected: no matches in `src/battle/BattleCore.h` or tests. Matches in `src/battle/BattleCore.cpp` are allowed only for `BattleFrameContext` and movement helper internals.
+
+Result: matches remain only in `src/battle/BattleCore.cpp` for `BattleFrameContext` and movement helper internals.
 
 - [ ] **Step 2: Run completion gate**
 

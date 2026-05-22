@@ -363,7 +363,6 @@ struct BattleFrameResult
     BattleFrameApplications applications;
     std::vector<BattleProjectileCancelDamageCommand> projectileCancelDamageCommands;
     std::vector<BattleFrameUnitApplication> unitApplications;
-    std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
     std::vector<BattleFrameMovementPresentationUnitResult> movementPresentationResults;
     std::vector<BattleHitResolutionResult> hitResults;
     std::vector<BattleFrameActionUnitResult> actionResults;
