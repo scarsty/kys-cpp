@@ -80,7 +80,7 @@ public:
 
     // The only post-initialization gameplay advance path. Callers send setup/input
     // before the frame and consume the returned result for presentation/reporting.
-    BattleFrameResult runFrame();
+    BattlePresentationFrame runFrame();
     void swapSetupUnitPositions(int firstUnitId, int secondUnitId);
 
     const BattleRuntimeState& runtime() const;

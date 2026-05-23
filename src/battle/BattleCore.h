@@ -238,11 +238,6 @@ struct BattleRuntimeState
     std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;
 };
 
-struct BattleFrameResult
-{
-    BattlePresentationFrame frame;
-};
-
 struct BattleTeamEffectCommandApplication
 {
     std::vector<BattleTeamEffectEvent> events;
@@ -279,7 +274,7 @@ double resolveFrameArmorPenetratedDefense(
 class BattleFrameRunner
 {
 public:
-    BattleFrameResult runFrame(BattleRuntimeState& runtime) const;
+    BattlePresentationFrame runFrame(BattleRuntimeState& runtime) const;
 };
 
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);

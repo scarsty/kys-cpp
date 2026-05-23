@@ -1268,7 +1268,7 @@ UnitMotionSnapshotMap makeUnitMotionSnapshot(const BattleUnitStore& units)
 // Keep this type private to BattleCore.cpp and do not pass it to subsystem classes.
 struct BattleFrameContext
 {
-    BattleFrameResult result;
+    BattlePresentationFrame result;
     std::vector<BattleGameplayCommand> frameCommands;
     std::vector<BattleGameplayEvent> gameplayEvents;
     std::vector<BattleLogEvent> logEvents;
@@ -1295,7 +1295,7 @@ BattleFrameContext makeBattleFrameContext(const BattleRuntimeState& state)
     return frame;
 }
 
-BattleFrameResult consumeBattleFrameContext(BattleFrameContext&& frame)
+BattlePresentationFrame consumeBattleFrameContext(BattleFrameContext&& frame)
 {
     assert(frame.frameCommands.empty());
     return std::move(frame.result);
@@ -5015,7 +5015,7 @@ void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
     presentationFrame.attackSoundIds = std::move(frame.attackSoundIds);
     presentationFrame.rumbles = std::move(frame.rumbles);
     presentationFrame.blinkSoundCount = frame.blinkSoundCount;
-    result.frame = std::move(presentationFrame);
+    result = std::move(presentationFrame);
 }
 
 void pruneFinishedRuntimeAttacks(BattleRuntimeState& state)
@@ -5255,7 +5255,7 @@ BattleUnitFrameTickResult BattleUnitFrameTickSystem::advance(
     return result;
 }
 
-BattleFrameResult BattleFrameRunner::runFrame(BattleRuntimeState& state) const
+BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) const
 {
     assert(!state.unitStore.units.empty());
 

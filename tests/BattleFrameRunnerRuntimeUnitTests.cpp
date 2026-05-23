@@ -22,7 +22,7 @@ constexpr double MaxEffectiveBattleReach = 480.0;
 constexpr double LegacyMinimumVectorNorm = 0.0001;
 constexpr int HealEffectId = 0;
 
-BattleFrameResult runBattleFrame(BattleRuntimeState& state)
+BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
 {
     return BattleFrameRunner().runFrame(state);
 }
@@ -235,8 +235,8 @@ TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[b
     REQUIRE(runtime.attacks.attacks.size() == 1);
     CHECK(runtime.attacks.attacks[0].id == 70);
     CHECK(runtime.attacks.nextAttackId == 71);
-    CHECK(first.frame.frame == 7);
-    CHECK(second.frame.frame == 8);
+    CHECK(first.frame == 7);
+    CHECK(second.frame == 8);
 }
 
 TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][runtime_session][ownership]")
@@ -264,8 +264,8 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     REQUIRE(session.runtime().attacks.attacks.size() == 1);
     CHECK(session.runtime().attacks.attacks[0].id == 70);
     CHECK(session.runtime().attacks.nextAttackId == 71);
-    CHECK(first.frame.frame == 7);
-    CHECK(second.frame.frame == 8);
+    CHECK(first.frame == 7);
+    CHECK(second.frame == 8);
 }
 
 TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runtime_session][ownership]")
@@ -547,8 +547,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 100);
     CHECK(state.unitStore.requireUnit(2).vitals.hp == 10);
     CHECK(std::count_if(
-        result.frame.visualEvents.begin(),
-        result.frame.visualEvents.end(),
+        result.visualEvents.begin(),
+        result.visualEvents.end(),
         [](const BattleVisualEvent& event)
         {
             return event.type == BattleVisualEventType::RoleEffect
@@ -556,15 +556,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
         }) == 2);
 
     const auto healLog = std::find_if(
-        result.frame.logEvents.begin(),
-        result.frame.logEvents.end(),
+        result.logEvents.begin(),
+        result.logEvents.end(),
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Heal
                 && event.sourceUnitId == 0
                 && event.targetUnitId == 0;
         });
-    REQUIRE(healLog != result.frame.logEvents.end());
+    REQUIRE(healLog != result.logEvents.end());
     CHECK(healLog->amount == 15);
     CHECK(BattleLogTest::textOf(*healLog) == "技能群療");
 }
@@ -594,8 +594,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
 
     auto result = runBattleFrame(state);
 
-    CHECK(damageLogAmountsFor(result.frame, 1) == std::vector<int>{ 8 });
-    CHECK(damageLogSourceIdsFor(result.frame, 1) == std::vector<int>{ 0 });
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 8 });
+    CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 72);
 }
 
@@ -623,18 +623,18 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
 
     auto result = runBattleFrame(state);
 
-    CHECK(damageLogAmountsFor(result.frame, 1) == std::vector<int>{ 6 });
-    CHECK(damageLogSourceIdsFor(result.frame, 1) == std::vector<int>{ 0 });
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 6 });
+    CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 74);
-    auto bleedLog = std::find_if(result.frame.logEvents.begin(), result.frame.logEvents.end(), [](const BattleLogEvent& event)
+    auto bleedLog = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Damage
                 && event.targetUnitId == 1
                 && event.amount == 6
                 && BattleLogTest::textOf(event) == "流血";
         });
-    CHECK(bleedLog != result.frame.logEvents.end());
-    auto bleedNumber = std::find_if(result.frame.visualEvents.begin(), result.frame.visualEvents.end(), [](const BattleVisualEvent& event)
+    CHECK(bleedLog != result.logEvents.end());
+    auto bleedNumber = std::find_if(result.visualEvents.begin(), result.visualEvents.end(), [](const BattleVisualEvent& event)
         {
             return event.type == BattleVisualEventType::DamageNumber
                 && event.targetUnitId == 1
@@ -643,7 +643,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
                 && event.color.g == 120
                 && event.color.b == 60;
         });
-    CHECK(bleedNumber != result.frame.visualEvents.end());
+    CHECK(bleedNumber != result.visualEvents.end());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DecrementsInvincibility", "[battle][frame_runner][runtime][unit]")
@@ -704,8 +704,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     CHECK(state.unitStore.requireUnit(3).vitals.hp == 20);
 
     CHECK(std::count_if(
-        result.frame.visualEvents.begin(),
-        result.frame.visualEvents.end(),
+        result.visualEvents.begin(),
+        result.visualEvents.end(),
         [](const BattleVisualEvent& event)
         {
             return event.type == BattleVisualEventType::RoleEffect
@@ -713,26 +713,26 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
         }) == 2);
 
     const auto selfRegenLog = std::find_if(
-        result.frame.logEvents.begin(),
-        result.frame.logEvents.end(),
+        result.logEvents.begin(),
+        result.logEvents.end(),
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Heal
                 && event.targetUnitId == 0
                 && BattleLogTest::textOf(event) == "生命回復";
         });
-    CHECK(selfRegenLog != result.frame.logEvents.end());
+    CHECK(selfRegenLog != result.logEvents.end());
 
     const auto auraLog = std::find_if(
-        result.frame.logEvents.begin(),
-        result.frame.logEvents.end(),
+        result.logEvents.begin(),
+        result.logEvents.end(),
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Heal
                 && event.targetUnitId == 1
                 && BattleLogTest::textOf(event) == "治療光環";
         });
-    CHECK(auraLog != result.frame.logEvents.end());
+    CHECK(auraLog != result.logEvents.end());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battle][frame_runner][runtime][unit]")
@@ -763,8 +763,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
     CHECK(state.combo.units.at(0).effectActivationCounts.at(0) == 1);
 
     const auto healLog = std::find_if(
-        result.frame.logEvents.begin(),
-        result.frame.logEvents.end(),
+        result.logEvents.begin(),
+        result.logEvents.end(),
         [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Heal
@@ -773,7 +773,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
                 && event.amount == 25
                 && BattleLogTest::textOf(event) == "爆發治療";
         });
-    CHECK(healLog != result.frame.logEvents.end());
+    CHECK(healLog != result.logEvents.end());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSkillFinish", "[battle][frame_runner][runtime][unit]")
@@ -804,17 +804,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     state.attacks.attacks[1].state.projectileCancelDamage = 12;
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.frame.gameplayEvents.size() == 3);
-    CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::ProjectileCancelled);
-    CHECK(result.frame.gameplayEvents[2].effectId == 10);
-    CHECK(result.frame.gameplayEvents[2].otherAttackId == 20);
+    REQUIRE(result.gameplayEvents.size() == 3);
+    CHECK(result.gameplayEvents[2].type == BattleGameplayEventType::ProjectileCancelled);
+    CHECK(result.gameplayEvents[2].effectId == 10);
+    CHECK(result.gameplayEvents[2].otherAttackId == 20);
 
     REQUIRE(state.attacks.attacks.size() == 2);
     CHECK(state.attacks.attacks[0].state.projectileCancelWeaken == 12);
     CHECK(state.attacks.attacks[1].state.projectileCancelWeaken == 25);
 
-    REQUIRE(result.frame.logEvents.size() == 1);
-    const auto& log = result.frame.logEvents[0];
+    REQUIRE(result.logEvents.size() == 1);
+    const auto& log = result.logEvents[0];
     CHECK(log.type == BattleLogEventType::Status);
     CHECK(log.category == BattleLogCategory::ProjectileCancel);
     CHECK(log.sourceUnitId == 0);

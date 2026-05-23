@@ -1347,8 +1347,8 @@ void BattleSceneHades::runListBasedSwap()
 void BattleSceneHades::backRun1()
 {
     auto input = buildBattleFrameInput();
-    SceneBattleFrameResult result;
-    std::optional<KysChess::Battle::BattleFrameResult> frameResult;
+    SceneLegacyFrameResult result;
+    std::optional<KysChess::Battle::BattlePresentationFrame> frameResult;
     if (input.shouldAdvance)
     {
         result.advanced = true;
@@ -1356,10 +1356,10 @@ void BattleSceneHades::backRun1()
         frameResult = battle_session_->runFrame();
         applyCoreFrameResult(*frameResult);
     }
-    applyLegacyBattleFrameResult(result);
+    applyLegacyFrameResult(result);
     if (frameResult)
     {
-        playPresentationFrame(frameResult->frame);
+        playPresentationFrame(*frameResult);
     }
 }
 
@@ -1396,7 +1396,7 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
 }
 
 void BattleSceneHades::applyCoreFrameResult(
-    const KysChess::Battle::BattleFrameResult& frameResult)
+    const KysChess::Battle::BattlePresentationFrame& frame)
 {
     BattleSceneFrameDeltaBuildContext context;
     context.units = &scene_units_;
@@ -1409,11 +1409,11 @@ void BattleSceneHades::applyCoreFrameResult(
     context.deathSlowFrames = CAMERA_DEATH_SLOW_FRAMES;
     context.battleEndSlowFrames = CAMERA_BATTLE_END_SLOW_FRAMES;
     applySceneFrameDelta(frame_delta_builder_.build(
-        frameResult.frame,
+        frame,
         result_,
         context));
 
-    impact_player_.play(frameResult.frame, {
+    impact_player_.play(frame, {
         &scene_units_,
         &shake_,
         [](int effectSoundId)
@@ -1491,7 +1491,7 @@ void BattleSceneHades::applySceneFrameDelta(const BattleSceneFrameDelta& result)
     }
 }
 
-void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult& result)
+void BattleSceneHades::applyLegacyFrameResult(const SceneLegacyFrameResult& result)
 {
     if (!result.advanced)
     {

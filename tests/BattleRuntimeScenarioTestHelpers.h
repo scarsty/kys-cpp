@@ -181,10 +181,10 @@ inline BattleRescueCellSnapshot scenarioRescueCell(int x, int y, bool walkable =
 
 inline BattleScenarioFrameDigest digestScenarioFrame(
     const BattleRuntimeState& runtime,
-    const BattleFrameResult& result)
+    const BattlePresentationFrame& result)
 {
     BattleScenarioFrameDigest digest;
-    digest.frame = result.frame.frame;
+    digest.frame = result.frame;
     digest.battleEnded = runtime.result.ended;
     digest.winningTeam = runtime.result.winningTeam;
     digest.activeAttackCount = runtime.attacks.attacks.size();
@@ -214,7 +214,7 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
     }
     std::ranges::sort(digest.activeAttackIds);
 
-    for (const auto& event : result.frame.gameplayEvents)
+    for (const auto& event : result.gameplayEvents)
     {
         digest.gameplayTypes.push_back(event.type);
         switch (event.type)
@@ -230,17 +230,17 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
             break;
         }
     }
-    for (const auto& event : result.frame.logEvents)
+    for (const auto& event : result.logEvents)
     {
         digest.logTypes.push_back(event.type);
         digest.logTexts.push_back(BattleLogTest::textOf(event));
     }
-    for (const auto& event : BattlePresentationTest::damageLogsFor(result.frame))
+    for (const auto& event : BattlePresentationTest::damageLogsFor(result))
     {
         digest.damageDefenderIds.push_back(event.targetUnitId);
         digest.committedHpDamage.push_back(event.amount);
     }
-    for (const auto& event : result.frame.visualEvents)
+    for (const auto& event : result.visualEvents)
     {
         if (event.type == BattleVisualEventType::RoleEffect)
         {

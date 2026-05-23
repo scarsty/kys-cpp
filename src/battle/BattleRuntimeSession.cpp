@@ -409,10 +409,10 @@ BattleRuntimeSessionCreationResult BattleRuntimeSession::createInitialized(Battl
     };
 }
 
-BattleFrameResult BattleRuntimeSession::runFrame()
+BattlePresentationFrame BattleRuntimeSession::runFrame()
 {
     frameStarted_ = true;
-    // BattleFrameRunner is the single writer for runtime state; BattleFrameResult is a report for presentation/tests.
+    // BattleFrameRunner is the single writer for runtime state; BattlePresentationFrame is the presentation report.
     return runner_.runFrame(runtime_);
 }
 

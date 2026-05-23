@@ -64,7 +64,7 @@ protected:
     {
         bool shouldAdvance = true;
     };
-    struct SceneBattleFrameResult
+    struct SceneLegacyFrameResult
     {
         bool advanced = false;
     };
@@ -76,8 +76,8 @@ protected:
     virtual int checkResult() override;
     SceneBattleFrameInput buildBattleFrameInput();
     void applyCoreFrameResult(
-        const KysChess::Battle::BattleFrameResult& frameResult);
-    void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
+        const KysChess::Battle::BattlePresentationFrame& frame);
+    void applyLegacyFrameResult(const SceneLegacyFrameResult& result);
     void playPresentationFrame(
         const KysChess::Battle::BattlePresentationFrame& frame);
 

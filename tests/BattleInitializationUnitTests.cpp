@@ -678,19 +678,19 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[b
     for (int frame = 0; frame < 90 && !(playedAttackSound && emittedProjectile && appliedDamage); ++frame)
     {
         const auto frameResult = session.runFrame();
-        playedAttackSound = playedAttackSound || !frameResult.frame.attackSoundIds.empty();
+        playedAttackSound = playedAttackSound || !frameResult.attackSoundIds.empty();
         emittedProjectile = emittedProjectile
             || std::any_of(
-                frameResult.frame.visualEvents.begin(),
-                frameResult.frame.visualEvents.end(),
+                frameResult.visualEvents.begin(),
+                frameResult.visualEvents.end(),
                 [](const BattleVisualEvent& event)
                 {
                     return event.type == BattleVisualEventType::ProjectileSpawned;
                 });
         appliedDamage = appliedDamage
             || std::any_of(
-                frameResult.frame.logEvents.begin(),
-                frameResult.frame.logEvents.end(),
+                frameResult.logEvents.begin(),
+                frameResult.logEvents.end(),
                 [](const BattleLogEvent& event)
                 {
                     return event.type == BattleLogEventType::Damage
