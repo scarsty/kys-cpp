@@ -235,13 +235,10 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
         digest.logTypes.push_back(event.type);
         digest.logTexts.push_back(BattleLogTest::textOf(event));
     }
-    for (const auto& transaction : result.damageTransactions)
+    for (const auto& event : BattlePresentationTest::damageLogsFor(result.frame))
     {
-        if (transaction.finalHpDamage > 0)
-        {
-            digest.damageDefenderIds.push_back(transaction.defender.id);
-            digest.committedHpDamage.push_back(transaction.finalHpDamage);
-        }
+        digest.damageDefenderIds.push_back(event.targetUnitId);
+        digest.committedHpDamage.push_back(event.amount);
     }
     for (const auto& event : result.frame.visualEvents)
     {

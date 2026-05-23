@@ -594,11 +594,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    const auto& transaction = result.damageTransactions[0];
-    CHECK(transaction.finalHpDamage == 8);
-    CHECK(transaction.defender.id == 1);
-    CHECK(transaction.defender.vitals.hp == 72);
+    CHECK(damageLogAmountsFor(result.frame, 1) == std::vector<int>{ 8 });
+    CHECK(damageLogSourceIdsFor(result.frame, 1) == std::vector<int>{ 0 });
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 72);
 }
 
@@ -626,11 +623,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    const auto& transaction = result.damageTransactions[0];
-    CHECK(transaction.finalHpDamage == 6);
-    CHECK(transaction.defender.id == 1);
-    CHECK(transaction.defender.vitals.hp == 74);
+    CHECK(damageLogAmountsFor(result.frame, 1) == std::vector<int>{ 6 });
+    CHECK(damageLogSourceIdsFor(result.frame, 1) == std::vector<int>{ 0 });
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 74);
     auto bleedLog = std::find_if(result.frame.logEvents.begin(), result.frame.logEvents.end(), [](const BattleLogEvent& event)
         {

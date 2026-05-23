@@ -2373,7 +2373,7 @@ TEST_CASE("BattleFrameRunner_PrunesPendingCastWhenCasterDiesDuringDamageLifecycl
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
     CHECK_FALSE(state.unitStore.requireUnit(1).alive);
     CHECK(state.action.pendingCasts.empty());
     CHECK_FALSE(state.unitStore.requireUnit(1).haveAction);
@@ -2670,14 +2670,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    const auto& transaction = result.damageTransactions.front();
-    CHECK(transaction.defender.id == 1);
-    CHECK(transaction.defender.vitals.hp == 0);
-    CHECK(transaction.defender.vitals.mp == state.unitStore.requireUnit(1).vitals.mp);
-    CHECK_FALSE(transaction.defender.alive);
-    CHECK(transaction.finalHpDamage > 0);
-    CHECK(state.unitStore.requireUnit(1).alive == false);
+    const auto damageLogs = damageLogsFor(result.frame, 1);
+    REQUIRE(damageLogs.size() == 1);
+    CHECK(damageLogs[0].amount > 0);
+    CHECK(state.unitStore.requireUnit(1).vitals.hp == 0);
+    CHECK_FALSE(state.unitStore.requireUnit(1).alive);
     CHECK(state.result.ended);
     CHECK(state.result.winningTeam == 0);
 
@@ -2898,8 +2895,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity", "[battle][c
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.damageTransactions[0].killed);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
+    CHECK_FALSE(state.unitStore.requireUnit(1).alive);
+    CHECK_FALSE(gameplayEventsFor(result.frame, BattleGameplayEventType::UnitDied, 1).empty());
     const auto& dead = state.unitStore.requireUnit(1);
     const double deathSpeed = std::sqrt(
         dead.motion.velocity.x * dead.motion.velocity.x
@@ -2952,10 +2950,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClampsDeathKickVelocity", "[battle][co
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.damageTransactions[0].killed);
+    const auto damageAmounts = damageLogAmountsFor(result.frame, 1);
+    REQUIRE(damageAmounts.size() == 1);
+    CHECK_FALSE(state.unitStore.requireUnit(1).alive);
+    CHECK_FALSE(gameplayEventsFor(result.frame, BattleGameplayEventType::UnitDied, 1).empty());
     const auto& dead = state.unitStore.requireUnit(1);
-    CHECK(result.damageTransactions[0].finalHpDamage / 3.0 + 5.0 > 75.0);
+    CHECK(damageAmounts[0] / 3.0 + 5.0 > 75.0);
     CHECK_FALSE(dead.alive);
     CHECK(dead.motion.velocity.norm() == Catch::Approx(75.0));
     CHECK(dead.motion.velocity.z == Catch::Approx(6.0));
@@ -3003,8 +3003,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SeedsDeathKickForNextFramePhysics", "[
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.damageTransactions[0].killed);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
+    CHECK_FALSE(state.unitStore.requireUnit(1).alive);
+    CHECK_FALSE(gameplayEventsFor(result.frame, BattleGameplayEventType::UnitDied, 1).empty());
 
     const auto& dead = state.unitStore.requireUnit(1);
     CHECK_FALSE(dead.alive);
@@ -3096,12 +3097,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 2);
-    CHECK(result.damageTransactions[0].attacker.id == 2);
-    CHECK(result.damageTransactions[0].finalHpDamage == 4);
-    CHECK(result.damageTransactions[1].attacker.id == 0);
-    CHECK(result.damageTransactions[1].finalHpDamage == 3);
-    CHECK(result.damageTransactions.back().defender.vitals.hp == 3);
+    CHECK(damageLogSourceIdsFor(result.frame, 1) == std::vector<int>{ 2, 0 });
+    CHECK(damageLogAmountsFor(result.frame, 1) == std::vector<int>{ 4, 3 });
+    CHECK(state.unitStore.requireUnit(1).vitals.hp == 3);
     CHECK(std::any_of(
         result.frame.visualEvents.begin(),
         result.frame.visualEvents.end(),
@@ -3155,8 +3153,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive",
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK_FALSE(result.damageTransactions[0].killed);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
+    CHECK(state.unitStore.requireUnit(1).alive);
+    CHECK(gameplayEventsFor(result.frame, BattleGameplayEventType::UnitDied, 1).empty());
     const auto& defender = state.unitStore.requireUnit(1);
     CHECK(defender.alive);
     CHECK(defender.vitals.hp == 1);
@@ -3482,7 +3481,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
     CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(2.0f * SceneTileWidth));
     CHECK(state.unitStore.requireUnit(1).motion.position.y == Catch::Approx(3.0f * SceneTileWidth));
     CHECK(std::any_of(
@@ -3536,7 +3535,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
     CHECK(state.combo.units.at(2).forcePullProtectRemaining == 1);
     CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(180.0f));
     CHECK(state.unitStore.requireUnit(1).motion.position.y == Catch::Approx(180.0f));
@@ -3570,10 +3569,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageReward
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
     REQUIRE(state.deathEffects.store.units.size() == 2);
-    CHECK(result.damageTransactions.front().attacker.vitals.hp == 65);
-    CHECK(result.damageTransactions.front().attacker.attack == 19);
+    CHECK(state.unitStore.requireUnit(0).vitals.hp == 65);
+    CHECK(state.unitStore.requireUnit(0).stats.attack == 19);
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 65);
     CHECK(state.unitStore.requireUnit(0).stats.attack == 19);
     CHECK(state.unitStore.requireUnit(1).alive == false);
@@ -3697,10 +3696,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", 
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.damageTransactions.front().attacker.id == 0);
-    CHECK(result.damageTransactions.front().defender.id == 1);
-    CHECK(result.damageTransactions.front().finalHpDamage > 0);
+    const auto damageLogs = damageLogsFor(result.frame, 1);
+    REQUIRE(damageLogs.size() == 1);
+    CHECK(damageLogs[0].sourceUnitId == 0);
+    CHECK(damageLogs[0].amount > 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[battle][core][breakthrough]")
@@ -3710,10 +3709,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[ba
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.damageTransactions.front().defender.id == 1);
-    CHECK(result.damageTransactions.front().finalHpDamage > 0);
-    CHECK(result.damageTransactions.front().defender.vitals.hp < 100);
+    const auto damageLogs = damageLogsFor(result.frame, 1);
+    REQUIRE(damageLogs.size() == 1);
+    CHECK(damageLogs[0].amount > 0);
+    CHECK(state.unitStore.requireUnit(1).vitals.hp < 100);
     CHECK(state.damage.pendingDamage.empty());
 }
 
@@ -3729,13 +3728,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDamageTakenMpGainInsideRuntime"
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    const auto& damage = result.damageTransactions.front();
+    const auto damageAmounts = damageLogAmountsFor(result.frame, 1);
+    REQUIRE(damageAmounts.size() == 1);
     const int baseGain = static_cast<int>(
-        static_cast<double>(damage.finalHpDamage) / damage.defender.vitals.maxHp * 75.0);
+        static_cast<double>(damageAmounts[0]) / state.unitStore.requireUnit(1).vitals.maxHp * 75.0);
     const int expectedGain = static_cast<int>(baseGain * 1.5);
-    CHECK(damage.defender.vitals.mp == 5 + expectedGain);
-    CHECK(damage.defenderDelta.mpDelta == expectedGain);
     CHECK(state.unitStore.requireUnit(1).vitals.mp == 5 + expectedGain);
 }
 
@@ -3779,14 +3776,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AccumulatesDamageTakenMpGainAcrossSame
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 2);
-    const int firstGain = result.damageTransactions[0].defenderDelta.mpDelta;
-    const int secondGain = result.damageTransactions[1].defenderDelta.mpDelta;
-    CHECK(firstGain > 0);
-    CHECK(secondGain > 0);
-    CHECK(result.damageTransactions[0].defender.vitals.mp == 5 + firstGain);
-    CHECK(result.damageTransactions[1].defender.vitals.mp == 5 + firstGain + secondGain);
-    CHECK(state.unitStore.requireUnit(1).vitals.mp == 5 + firstGain + secondGain);
+    const auto damageAmounts = damageLogAmountsFor(result.frame, 1);
+    CHECK(damageAmounts == std::vector<int>{ 20, 20 });
+    const int baseGain = static_cast<int>(20.0 / 100.0 * 75.0);
+    const int expectedGainPerHit = static_cast<int>(baseGain * 1.5);
+    CHECK(expectedGainPerHit > 0);
+    CHECK(state.unitStore.requireUnit(1).vitals.mp == 5 + expectedGainPerHit * 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePreviewUsesResolvedPendingDamage", "[battle][core][breakthrough]")
@@ -3816,8 +3811,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePreviewUsesResolvedPendingDamag
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.damageTransactions[0].killed);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
+    CHECK_FALSE(state.unitStore.requireUnit(1).alive);
+    CHECK_FALSE(gameplayEventsFor(result.frame, BattleGameplayEventType::UnitDied, 1).empty());
     CHECK(std::none_of(
         result.frame.visualEvents.begin(),
         result.frame.visualEvents.end(),
@@ -3842,12 +3838,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecuteUsesCommittedPendingDamage", "[
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 2);
-    CHECK(result.damageTransactions[0].finalHpDamage == 25);
-    CHECK_FALSE(result.damageTransactions[0].executed);
-    CHECK(result.damageTransactions[1].executed);
-    CHECK(result.damageTransactions[1].killed);
+    const auto damageAmounts = damageLogAmountsFor(result.frame, 1);
+    REQUIRE(damageAmounts.size() == 2);
+    CHECK(damageAmounts[0] == 25);
+    CHECK(damageAmounts[1] > 0);
     CHECK_FALSE(state.unitStore.requireUnit(1).alive);
+    CHECK_FALSE(gameplayEventsFor(result.frame, BattleGameplayEventType::UnitDied, 1).empty());
     CHECK(std::any_of(
         result.frame.visualEvents.begin(),
         result.frame.visualEvents.end(),
@@ -3881,11 +3877,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageTakenMpGainHonorsMpBlock", "[bat
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    const auto& damage = result.damageTransactions.front();
-    CHECK(damage.defender.mpBlocked);
-    CHECK(damage.defender.vitals.mp == 5);
-    CHECK(damage.defenderDelta.mpDelta == 0);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
     CHECK(state.unitStore.requireUnit(1).vitals.mp == 5);
 }
 
@@ -3896,11 +3888,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesMainProjectileImpactFreezeInCor
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.damageTransactions.front().defenderStatus.effects.frozenTimer == 5);
-    CHECK(result.damageTransactions.front().defenderStatus.effects.frozenMaxTimer == 5);
-    CHECK(state.status.units[1].effects.frozenTimer == 5);
-    CHECK(state.status.units[1].effects.frozenMaxTimer == 5);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
+    CHECK(requireById(state.status.units, 1).effects.frozenTimer == 5);
+    CHECK(requireById(state.status.units, 1).effects.frozenMaxTimer == 5);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyImpactFreezeForNonMainProjectile", "[battle][core][breakthrough]")
@@ -3911,9 +3901,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyImpactFreezeForNonMainProj
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.damageTransactions.front().defenderStatus.effects.frozenTimer == 0);
-    CHECK(state.status.units[1].effects.frozenTimer == 0);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
+    CHECK(requireById(state.status.units, 1).effects.frozenTimer == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndInsideSameFrame", "[battle][core][breakthrough]")
@@ -3923,8 +3912,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndIns
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK_FALSE(result.damageTransactions.front().defender.alive);
+    CHECK(damageLogAmountsFor(result.frame, 1).size() == 1);
+    CHECK_FALSE(state.unitStore.requireUnit(1).alive);
+    CHECK_FALSE(gameplayEventsFor(result.frame, BattleGameplayEventType::UnitDied, 1).empty());
     CHECK(state.result.ended);
     CHECK(state.result.winningTeam == 0);
     CHECK(std::any_of(
@@ -4036,7 +4026,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
 
     CHECK(state.combo.units.at(1).dodgedLast);
     CHECK(state.damage.pendingDamage.empty());
-    CHECK(result.damageTransactions.empty());
+    CHECK(damageLogAmountsFor(result.frame).empty());
+    CHECK(gameplayEventsFor(result.frame, BattleGameplayEventType::DamageApplied).empty());
 
     const auto dodgeLog = std::find_if(
         result.frame.logEvents.begin(),
@@ -4087,8 +4078,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.damageTransactions.front().finalHpDamage == 33);
+    CHECK(damageLogAmountsFor(result.frame, 1) == std::vector<int>{ 33 });
     CHECK_FALSE(state.combo.units.at(1).dodgedLast);
 }
 
@@ -4264,7 +4254,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AggregatesProjectileContactIgnoredByIn
     CHECK(result.frame.gameplayEvents[3].type == BattleGameplayEventType::StatusApplied);
     CHECK(result.frame.gameplayEvents[3].sourceUnitId == 0);
     CHECK(result.frame.gameplayEvents[3].targetUnitId == 1);
-    CHECK(result.damageTransactions.empty());
+    CHECK(damageLogAmountsFor(result.frame).empty());
+    CHECK(gameplayEventsFor(result.frame, BattleGameplayEventType::DamageApplied).empty());
     CHECK(state.unitStore.units[1].invincible > 0);
     REQUIRE(result.frame.logEvents.size() == 1);
     CHECK(result.frame.logEvents[0].type == BattleLogEventType::Status);
