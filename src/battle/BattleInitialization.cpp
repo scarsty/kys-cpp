@@ -507,11 +507,11 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
             -delta,
             desired,
         });
-        logEvents.push_back({
-            BattleLogEventType::Status,
-            BattlePresentationCurrentFrame,
-            -1,
-            enemy.id,
+            logEvents.push_back({
+                BattleLogEventType::Status,
+                runtime.movement.frame,
+                -1,
+                enemy.id,
             0,
             BattleLogCategory::Status,
             BattleLogPerspective::Targeted,
@@ -627,7 +627,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             result.logEvents.push_back(
                 {
                     BattleLogEventType::Status,
-                    BattlePresentationCurrentFrame,
+                    runtime.movement.frame,
                     seed.unitId,
                     -1,
                     combo.shield,
@@ -702,7 +702,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
         result.logEvents.push_back(
             {
                 BattleLogEventType::Status,
-                BattlePresentationCurrentFrame,
+                runtime.movement.frame,
                 seed.unitId,
                 -1,
                 teamShield,
@@ -815,7 +815,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
                 cloneUnit.stats));
             result.logEvents.push_back({
                 BattleLogEventType::Status,
-                BattlePresentationCurrentFrame,
+                runtime.movement.frame,
                 source.sourceUnitId,
                 nextRuntimeUnitId,
                 0,

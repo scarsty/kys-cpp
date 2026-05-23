@@ -348,7 +348,6 @@ struct BattleFrameResult
     BattlePresentationFrame frame;
     std::vector<BattleAttackEvent> attackEvents;
     BattleFrameApplications applications;
-    std::vector<BattleProjectileCancelDamageCommand> projectileCancelDamageCommands;
     std::vector<BattleFrameUnitApplication> unitApplications;
     std::vector<BattleFrameMovementPresentationUnitResult> movementPresentationResults;
     std::vector<BattleBlinkTeleportDelta> blinkTeleports;

@@ -28,18 +28,6 @@ void BattleSceneReportPlayer::playLogs(
     }
 }
 
-void BattleSceneReportPlayer::playProjectileCancelDamageCommands(
-    const std::vector<KysChess::Battle::BattleProjectileCancelDamageCommand>& commands,
-    const Bindings& bindings) const
-{
-    assert(bindings.report);
-    for (const auto& command : commands)
-    {
-        bindings.report->recordProjectileCancel(command.sourceUnitId, command.damage);
-        bindings.report->recordProjectileCancel(command.otherSourceUnitId, command.otherDamage);
-    }
-}
-
 void BattleSceneReportPlayer::recordLog(
     const KysChess::Battle::BattleLogEvent& event,
     const Bindings& bindings) const
@@ -94,6 +82,11 @@ void BattleSceneReportPlayer::recordStatus(
     const KysChess::Battle::BattleLogEvent& event,
     const Bindings& bindings) const
 {
+    if (event.category == KysChess::Battle::BattleLogCategory::ProjectileCancel)
+    {
+        bindings.report->recordProjectileCancel(event.sourceUnitId, event.amount);
+        bindings.report->recordProjectileCancel(event.targetUnitId, event.secondaryAmount);
+    }
     bindings.report->recordStatus(
         resolveIdentity(bindings, event.sourceUnitId),
         resolveIdentity(bindings, event.targetUnitId),

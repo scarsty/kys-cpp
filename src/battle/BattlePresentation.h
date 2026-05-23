@@ -92,6 +92,7 @@ struct BattleLogEvent
     BattleLogPerspective perspective = BattleLogPerspective::Targeted;
     std::vector<BattleLogTextSegment> segments;
     std::string skillName;
+    int secondaryAmount = 0;
 };
 
 enum class BattleGameplayEventType

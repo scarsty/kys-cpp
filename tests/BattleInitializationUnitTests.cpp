@@ -373,6 +373,7 @@ TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWi
 TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", "[battle][initialization]")
 {
     BattleRuntimeState runtime;
+    runtime.movement.frame = 77;
     runtime.unitStore.units.push_back(runtimeUnit(0, 0, 200, 20, 30, 40));
     runtime.status.units.push_back(statusRuntime(0, 200, 20));
 
@@ -413,8 +414,10 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     CHECK(status.effects.damageImmunityTimer == 12);
     REQUIRE(result.logEvents.size() == 2);
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.logEvents[0].frame == 77);
     CHECK(result.logEvents[0].sourceUnitId == 0);
     CHECK(BattleLogTest::textOf(result.logEvents[0]) == "獲取50護盾");
+    CHECK(result.logEvents[1].frame == 77);
     CHECK(BattleLogTest::textOf(result.logEvents[1]) == "全隊獲取15護盾");
 }
 
@@ -554,6 +557,32 @@ TEST_CASE("BattleRuntimeSession_InitializesRuntimeRandomFromCreationInput", "[ba
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
     CHECK(session.runtime().random.seed() == 777u);
+}
+
+TEST_CASE("BattleRuntimeSession_StampsInitializationLogsWithCreationFrame", "[battle][initialization]")
+{
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.battleFrame = 88;
+
+    BattleSetupUnitInput source;
+    source.unitId = 0;
+    source.realRoleId = 1001;
+    source.name = "測試角色";
+    source.team = 0;
+    source.alive = true;
+    source.vitals = { 100, 100, 0, 0 };
+    source.stats = { 20, 30, 40 };
+    source.motion = { { 100, 200, 0 }, { 0, 0, 0 }, { 0, 0, 0 }, { 1, 1, 0 } };
+    source.animation = { 0, 0, 0, -1 };
+    input.units.push_back(source);
+    addRuntimeSetupSeed(input, source);
+    input.setup.units[0].baseCombo.shieldPctMaxHP = 25;
+
+    auto creation = BattleRuntimeSession::createInitialized(std::move(input));
+
+    REQUIRE(creation.initialization.logEvents.size() == 1);
+    CHECK(creation.initialization.logEvents[0].frame == 88);
 }
 
 TEST_CASE("BattleRuntimeSession_InitializedSessionAdvancesUnitsAfterSetupPlacement", "[battle][initialization][runtime]")

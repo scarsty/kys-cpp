@@ -382,6 +382,7 @@ BattleRuntimeSetupResult setupBattleRuntime(BattleRuntimeSessionCreationInput in
     populateBattleRuntimeSetupDefinitions(input.setup);
 
     auto runtime = buildCanonicalRuntime(input);
+    runtime.movement.frame = input.battleFrame;
     auto initialization = BattleInitializationSystem().initialize(runtime, input.setup);
     deriveRuntimeStores(runtime, std::move(input));
 

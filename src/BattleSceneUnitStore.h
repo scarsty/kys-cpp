@@ -40,7 +40,6 @@ public:
 
     std::span<const KysChess::Battle::BattleRuntimeUnit> runtimeUnits() const;
     std::vector<int> allyUnitIds() const;
-    int aliveUnitsOnTeam(int team) const;
 
     void setUnitShake(int unitId, int shake);
     void decreaseTransientPresentationState();

@@ -20,10 +20,6 @@ public:
         const std::vector<KysChess::Battle::BattleLogEvent>& logEvents,
         const Bindings& bindings) const;
 
-    void playProjectileCancelDamageCommands(
-        const std::vector<KysChess::Battle::BattleProjectileCancelDamageCommand>& commands,
-        const Bindings& bindings) const;
-
 private:
     void recordLog(const KysChess::Battle::BattleLogEvent& event, const Bindings& bindings) const;
     void recordDamage(const KysChess::Battle::BattleLogEvent& event, const Bindings& bindings) const;

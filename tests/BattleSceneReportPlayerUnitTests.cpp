@@ -57,11 +57,15 @@ TEST_CASE("BattleSceneReportPlayer_RecordsProjectileCancelStats", "[battle][scen
     BattleReportBuilder builder;
     BattleSceneReportPlayer player;
 
-    std::vector<KysChess::Battle::BattleProjectileCancelDamageCommand> commands = {
-        { 34, 29, 0, 1, 35, 20 },
-    };
+    KysChess::Battle::BattleLogEvent cancelLog;
+    cancelLog.type = KysChess::Battle::BattleLogEventType::Status;
+    cancelLog.sourceUnitId = 0;
+    cancelLog.targetUnitId = 1;
+    cancelLog.amount = 35;
+    cancelLog.secondaryAmount = 20;
+    cancelLog.category = KysChess::Battle::BattleLogCategory::ProjectileCancel;
 
-    player.playProjectileCancelDamageCommands(commands, { &builder, &fixture.store });
+    player.playLogs({ cancelLog }, { &builder, &fixture.store });
 
     CHECK(builder.report().cancelDamageForUnit(0) == 35);
     CHECK(builder.report().cancelDamageForUnit(1) == 20);

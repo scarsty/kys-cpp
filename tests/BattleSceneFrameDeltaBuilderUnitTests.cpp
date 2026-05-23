@@ -3,18 +3,14 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <unordered_map>
-
 namespace
 {
 BattleSceneFrameDeltaBuildContext testApplyContext(
     BattleSceneUnitStore& units,
-    std::unordered_map<int, int>& hurtFlashTimers,
     RandomDouble& random)
 {
     BattleSceneFrameDeltaBuildContext context;
     context.units = &units;
-    context.hurtFlashTimers = &hurtFlashTimers;
     context.random = &random;
     context.hurtFlashDuration = 15;
     context.blinkSoundEffectId = 11;
@@ -32,7 +28,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDeathPresentationEffects", "[bat
         BattleSceneTest::makeSetupUnit(0, 0, 0, 0, { 0, 0, 0 }),
         BattleSceneTest::makeSetupUnit(1, 1, 1, 0, { 10, 0, 0 }),
     });
-    std::unordered_map<int, int> hurtFlashTimers;
     RandomDouble random;
     random.set_seed(1);
 
@@ -57,9 +52,11 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDeathPresentationEffects", "[bat
     auto result = BattleSceneFrameDeltaBuilder().build(
         frame,
         -1,
-        testApplyContext(fixture.store, hurtFlashTimers, random));
+        testApplyContext(fixture.store, random));
 
-    CHECK(hurtFlashTimers.at(1) == 15);
+    REQUIRE(result.hurtFlashes.size() == 1);
+    CHECK(result.hurtFlashes[0].unitId == 1);
+    CHECK(result.hurtFlashes[0].frames == 15);
     REQUIRE(result.bloodEffects.size() == 1);
     CHECK(result.bloodEffects[0].followUnitId == 1);
     CHECK(result.unitDied);
@@ -77,7 +74,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_DoesNotReplayRescueRuntimeMutations", "[
         BattleSceneTest::makeSetupUnit(1, 0, 1, 0, { 10, 0, 0 }),
         BattleSceneTest::makeSetupUnit(2, 1, 5, 0, { 500, 0, 0 }),
     });
-    std::unordered_map<int, int> hurtFlashTimers;
     RandomDouble random;
 
     KysChess::Battle::BattleFrameResult frame;
@@ -95,7 +91,7 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_DoesNotReplayRescueRuntimeMutations", "[
     BattleSceneFrameDeltaBuilder().build(
         frame,
         -1,
-        testApplyContext(fixture.store, hurtFlashTimers, random));
+        testApplyContext(fixture.store, random));
 
     const auto& rescued = fixture.store.requireRuntimeUnit(0);
     CHECK(rescued.grid.x == 0);
@@ -110,7 +106,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_ReturnsBattleEndSideEffects", "[battle][
         BattleSceneTest::makeSetupUnit(0, 0, 0, 0, { 0, 0, 0 }),
         BattleSceneTest::makeSetupUnit(1, 1, 1, 0, { 10, 0, 0 }),
     });
-    std::unordered_map<int, int> hurtFlashTimers;
     RandomDouble random;
 
     KysChess::Battle::BattleFrameResult frame;
@@ -125,7 +120,7 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_ReturnsBattleEndSideEffects", "[battle][
     auto result = BattleSceneFrameDeltaBuilder().build(
         frame,
         -1,
-        testApplyContext(fixture.store, hurtFlashTimers, random));
+        testApplyContext(fixture.store, random));
 
     CHECK(result.battleEnded);
     CHECK(result.battleResult == 0);

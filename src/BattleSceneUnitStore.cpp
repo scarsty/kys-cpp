@@ -105,17 +105,6 @@ std::vector<int> BattleSceneUnitStore::allyUnitIds() const
     return ids;
 }
 
-int BattleSceneUnitStore::aliveUnitsOnTeam(int team) const
-{
-    assert(runtime_session_);
-    return static_cast<int>(std::ranges::count_if(
-        runtime_session_->runtimeUnits(),
-        [team](const KysChess::Battle::BattleRuntimeUnit& unit)
-        {
-            return unit.team == team && unit.alive;
-        }));
-}
-
 void BattleSceneUnitStore::setUnitShake(int unitId, int shake)
 {
     requirePresentation(unitId).shake = shake;

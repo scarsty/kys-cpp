@@ -20,8 +20,6 @@ TEST_CASE("BattleSceneUnitStore_InitializesDenseRowsAndRequiresByUnitId", "[batt
 
     CHECK(fixture.store.requirePresentation(0).identity.realRoleId == 1000);
     CHECK(fixture.store.requirePresentation(1).identity.team == 1);
-    CHECK(fixture.store.aliveUnitsOnTeam(0) == 1);
-    CHECK(fixture.store.aliveUnitsOnTeam(1) == 1);
 }
 
 TEST_CASE("BattleSceneUnitStore_ReadsRuntimeFieldsFromSession", "[battle][scene_unit_store]")

@@ -827,13 +827,16 @@ void appendProjectileCancellationLogEvents(
             const bool otherWins = event.otherProjectileCancelDamage > event.projectileCancelDamage;
             const int leftAttackId = otherWins ? event.otherAttackId : event.attackId;
             const int rightAttackId = otherWins ? event.attackId : event.otherAttackId;
+            const int leftSourceUnitId = otherWins ? event.otherSourceUnitId : event.sourceUnitId;
+            const int rightSourceUnitId = otherWins ? event.sourceUnitId : event.otherSourceUnitId;
             const int leftDamage = otherWins ? event.otherProjectileCancelDamage : event.projectileCancelDamage;
             const int rightDamage = otherWins ? event.projectileCancelDamage : event.otherProjectileCancelDamage;
             BattleLogEvent log;
             log.type = BattleLogEventType::Status;
-            log.sourceUnitId = otherWins ? event.otherSourceUnitId : event.sourceUnitId;
-            log.targetUnitId = otherWins ? event.sourceUnitId : event.otherSourceUnitId;
+            log.sourceUnitId = leftSourceUnitId;
+            log.targetUnitId = rightSourceUnitId;
             log.amount = leftDamage;
+            log.secondaryAmount = rightDamage;
             log.category = BattleLogCategory::ProjectileCancel;
             log.segments = formatProjectileCancelLogSegments(leftAttackId, leftDamage, rightAttackId, rightDamage);
             logEvents.push_back(std::move(log));
@@ -985,7 +988,6 @@ void advanceRuntimeUnits(
 void applyProjectileCancelDamageResults(
     BattleRuntimeState& state,
     std::vector<BattleAttackEvent>& events,
-    std::vector<BattleProjectileCancelDamageCommand>& projectileCancelDamageCommands,
     std::vector<BattleGameplayCommand>& commands)
 {
     BattleAttackSystem attackSystem;
@@ -1020,7 +1022,6 @@ void applyProjectileCancelDamageResults(
         command.damage = event.projectileCancelDamage;
         command.otherDamage = event.otherProjectileCancelDamage;
         commands.push_back(command);
-        projectileCancelDamageCommands.push_back(command);
         attackSystem.applyProjectileCancelDamage(state.attacks, event);
     }
 }
@@ -4876,7 +4877,6 @@ void advanceAttacksAndResolveHits(BattleRuntimeState& state, BattleFrameContext&
     applyProjectileCancelDamageResults(
         state,
         result.attackEvents,
-        result.projectileCancelDamageCommands,
         frameCommands);
     appendProjectileCancellationLogEvents(state.attacks, result.attackEvents, logEvents, false);
     resolveHitEvents(

@@ -7,13 +7,18 @@
 
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 struct BattleSceneFrameBloodEffectCommand
 {
     int followUnitId = -1;
     std::string path;
+};
+
+struct BattleSceneFrameHurtFlashCommand
+{
+    int unitId = -1;
+    int frames = 0;
 };
 
 struct BattleSceneFrameDelta
@@ -30,6 +35,7 @@ struct BattleSceneFrameDelta
     int jitterX = 0;
     int jitterY = 0;
     std::vector<BattleSceneFrameBloodEffectCommand> bloodEffects;
+    std::vector<BattleSceneFrameHurtFlashCommand> hurtFlashes;
     std::vector<int> effectSoundIds;
     std::vector<int> attackSoundIds;
     std::vector<KysChess::Battle::BattleFrameRumbleEvent> rumbles;
@@ -38,7 +44,6 @@ struct BattleSceneFrameDelta
 struct BattleSceneFrameDeltaBuildContext
 {
     const BattleSceneUnitStore* units = nullptr;
-    std::unordered_map<int, int>* hurtFlashTimers = nullptr;
     RandomDouble* random = nullptr;
     bool manualCameraEnabled = false;
     int hurtFlashDuration = 0;

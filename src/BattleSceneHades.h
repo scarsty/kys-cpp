@@ -78,7 +78,8 @@ protected:
     void applyCoreFrameResult(
         const KysChess::Battle::BattleFrameResult& frameResult);
     void applyLegacyBattleFrameResult(const SceneBattleFrameResult& result);
-    void playCorePresentationFrame();
+    void playPresentationFrame(
+        const KysChess::Battle::BattlePresentationFrame& frame);
 
     void initializeBattleRuntime(KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
     KysChess::Battle::BattleRuntimeSessionCreationInput makeBattleRuntimeSessionCreationInput(
@@ -92,8 +93,6 @@ protected:
     void advanceBattleFrame();
     BattleSceneCameraBounds makeCameraBounds() const;
     void applySceneFrameDelta(const BattleSceneFrameDelta& result);
-    void beginPresentationFrame();
-    void publishPresentationFrame();
     Color calculateHurtFlashColor(int unitId, const Color& baseColor) const;
 public:
     const BattleReport& getBattleReport() const { return battle_report_.report(); }
@@ -142,10 +141,8 @@ protected:
     BattleSceneCamera camera_;
     bool count_fights_won_ = true;
     unsigned int battle_random_seed_ = 1;
-    KysChess::Battle::BattlePresentationRecorder presentation_recorder_;
     BattleSceneFrameDeltaBuilder frame_delta_builder_;
     BattleSceneImpactPlayer impact_player_;
     BattleScenePresentationPlayer presentation_player_;
     BattleSceneReportPlayer report_player_;
-    KysChess::Battle::BattlePresentationFrame last_presentation_frame_;
 };

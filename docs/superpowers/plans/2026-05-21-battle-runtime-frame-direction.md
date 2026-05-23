@@ -146,7 +146,7 @@ Audit the code after `battle_session_->runFrame()` in `BattleSceneHades`. Classi
 
 Illegal gameplay mutation must move into runtime before the migration is considered complete.
 
-Current classification after the `BattleSceneHades::backRun1()` `battle_session_->runFrame()` call:
+Phase 0 classification after the `BattleSceneHades::backRun1()` `battle_session_->runFrame()` call at the start of this plan. Several bridge paths listed here were intentionally deleted later, especially in phase 5.
 
 | Call | Classification | Phase 1 consequence |
 | --- | --- | --- |
@@ -397,20 +397,30 @@ Completed in phase 4: new scenario tests were added in a separate file; existing
 
 **Goal:** Avoid repeating the previous mistake of making the scene file look cleaner while pushing complexity elsewhere.
 
+**Implementation status:** Phase 5 is complete. The detailed breakdown lives in [2026-05-23-battle-runtime-phase-5-scene-simplification-breakdown.md](2026-05-23-battle-runtime-phase-5-scene-simplification-breakdown.md).
+
+Deleted bridge paths:
+
+- Removed `BattleSceneHades::checkResult()` alive-team fallback and deleted `BattleSceneUnitStore::aliveUnitsOnTeam()`.
+- Removed `BattleSceneHades`'s `presentation_recorder_` / `last_presentation_frame_` state; initialization and runtime playback now consume `BattlePresentationFrame` directly.
+- Removed `BattleFrameResult::projectileCancelDamageCommands` and `BattleSceneReportPlayer::playProjectileCancelDamageCommands()`; projectile-cancel report stats are recorded from ordered log playback via `BattleLogEvent::secondaryAmount`.
+- Changed `BattleSceneFrameDeltaBuilder` to return hurt-flash commands in `BattleSceneFrameDelta` instead of mutating `hurt_flash_timers_` through its build context.
+- Re-evaluated scene helpers and kept `BattleScenePresentationPlayer`, `BattleSceneReportPlayer`, `BattleSceneImpactPlayer`, `BattleSceneFrameDeltaBuilder`, and `BattleSceneUnitStore` because they still own presentation/report mapping rather than pure forwarding.
+
 **Files:**
 
 - Modify: `src/BattleSceneHades.h/.cpp`
 - Modify/delete scene-side helper files only when runtime boundaries are settled.
 
-- [ ] **Step 1: Remove scene calls that exist only for gameplay synchronization**
+- [x] **Step 1: Remove scene calls that exist only for gameplay synchronization**
 
 After runtime owns gameplay consequences, delete scene-side glue whose only job was to reconcile models.
 
-- [ ] **Step 2: Keep rendering and camera code close enough to read**
+- [x] **Step 2: Keep rendering and camera code close enough to read**
 
 Do not extract rendering chunks into new files solely for line count. Extract only when the target has a clear presentation ownership and no gameplay authority.
 
-- [ ] **Step 3: Re-evaluate helper classes**
+- [x] **Step 3: Re-evaluate helper classes**
 
 Once runtime emits cleaner frame events, re-check whether `BattleSceneFrameDeltaBuilder`, `BattleSceneImpactPlayer`, `BattleSceneReportPlayer`, and `BattleScenePresentationPlayer` are still pulling their weight. Delete or merge helpers that only forward data.
 

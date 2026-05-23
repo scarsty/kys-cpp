@@ -79,8 +79,10 @@ void BattleSceneFrameDeltaBuilder::collectDamageSceneEffects(
                 damage.defender.unitId,
                 std::format("eft/bld{:03}", int(context.random->rand() * 5)),
             });
-            assert(context.hurtFlashTimers);
-            (*context.hurtFlashTimers)[damage.defender.unitId] = context.hurtFlashDuration;
+            result.hurtFlashes.push_back({
+                damage.defender.unitId,
+                context.hurtFlashDuration,
+            });
         }
 
         if (diedUnitIds.find(damage.defender.unitId) != diedUnitIds.end())

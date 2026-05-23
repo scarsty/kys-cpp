@@ -232,19 +232,14 @@ Color BattleSceneHades::calculateHurtFlashColor(int unitId, const Color& baseCol
     return BattleSceneRenderMath::hurtFlashColor(timer, baseColor);
 }
 
-void BattleSceneHades::beginPresentationFrame()
+void BattleSceneHades::playPresentationFrame(
+    const KysChess::Battle::BattlePresentationFrame& frame)
 {
-    presentation_recorder_.beginFrame(battle_frame_);
-}
-
-void BattleSceneHades::publishPresentationFrame()
-{
-    last_presentation_frame_ = presentation_recorder_.consumeFrame();
-    report_player_.playLogs(last_presentation_frame_.logEvents, {
+    report_player_.playLogs(frame.logEvents, {
         &battle_report_,
         &scene_units_,
     });
-    presentation_player_.play(last_presentation_frame_, {
+    presentation_player_.play(frame, {
         &text_effects_,
         &attack_effects_,
         &scene_units_,
@@ -263,16 +258,10 @@ void BattleSceneHades::initializeBattleRuntime(
     scene_units_.initializeFromRuntimeCreation(*battle_session_, creationInput);
     if (!initialization.logEvents.empty() || !initialization.visualEvents.empty())
     {
-        beginPresentationFrame();
-        for (const auto& event : initialization.visualEvents)
-        {
-            presentation_recorder_.recordVisual(event);
-        }
-        for (const auto& event : initialization.logEvents)
-        {
-            presentation_recorder_.recordLog(event);
-        }
-        publishPresentationFrame();
+        KysChess::Battle::BattlePresentationFrame frame;
+        frame.visualEvents = std::move(initialization.visualEvents);
+        frame.logEvents = std::move(initialization.logEvents);
+        playPresentationFrame(frame);
     }
 }
 
@@ -907,12 +896,10 @@ void BattleSceneHades::advanceBattleFrame()
         y_ = rand_.rand_int(3) - rand_.rand_int(3);
         shake_--;
     }
-    beginPresentationFrame();
     if (frozen_ > 0)
     {
         frozen_--;
         engine->gameControllerRumble(100, 100, 50);
-        publishPresentationFrame();
         battle_frame_++;
         return;
     }
@@ -1361,15 +1348,19 @@ void BattleSceneHades::backRun1()
 {
     auto input = buildBattleFrameInput();
     SceneBattleFrameResult result;
+    std::optional<KysChess::Battle::BattleFrameResult> frameResult;
     if (input.shouldAdvance)
     {
         result.advanced = true;
         advanceBattlePresentationEffects(attack_effects_, true);
-        auto frameResult = battle_session_->runFrame();
-        applyCoreFrameResult(frameResult);
+        frameResult = battle_session_->runFrame();
+        applyCoreFrameResult(*frameResult);
     }
     applyLegacyBattleFrameResult(result);
-    playCorePresentationFrame();
+    if (frameResult)
+    {
+        playPresentationFrame(frameResult->frame);
+    }
 }
 
 BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput()
@@ -1409,7 +1400,6 @@ void BattleSceneHades::applyCoreFrameResult(
 {
     BattleSceneFrameDeltaBuildContext context;
     context.units = &scene_units_;
-    context.hurtFlashTimers = &hurt_flash_timers_;
     context.random = &rand_;
     context.manualCameraEnabled = isManualCameraEnabled();
     context.hurtFlashDuration = HURT_FLASH_DURATION;
@@ -1419,19 +1409,6 @@ void BattleSceneHades::applyCoreFrameResult(
     context.deathSlowFrames = CAMERA_DEATH_SLOW_FRAMES;
     context.battleEndSlowFrames = CAMERA_BATTLE_END_SLOW_FRAMES;
     applySceneFrameDelta(frame_delta_builder_.build(frameResult, result_, context));
-
-    report_player_.playProjectileCancelDamageCommands(frameResult.projectileCancelDamageCommands, {
-        &battle_report_,
-        &scene_units_,
-    });
-    for (const auto& event : frameResult.frame.visualEvents)
-    {
-        presentation_recorder_.recordVisual(event);
-    }
-    for (const auto& event : frameResult.frame.logEvents)
-    {
-        presentation_recorder_.recordLog(event);
-    }
 
     impact_player_.play(frameResult, {
         &scene_units_,
@@ -1449,6 +1426,11 @@ void BattleSceneHades::applyCoreFrameResult(
 
 void BattleSceneHades::applySceneFrameDelta(const BattleSceneFrameDelta& result)
 {
+    for (const auto& command : result.hurtFlashes)
+    {
+        hurt_flash_timers_[command.unitId] = command.frames;
+    }
+
     for (const auto& command : result.bloodEffects)
     {
         BattleAttackEffect effect;
@@ -1539,11 +1521,6 @@ void BattleSceneHades::applyLegacyBattleFrameResult(const SceneBattleFrameResult
         calExpGot();
         setExit(true);
     }
-}
-
-void BattleSceneHades::playCorePresentationFrame()
-{
-    publishPresentationFrame();
 }
 
 void BattleSceneHades::onPressedCancel()
@@ -1670,20 +1647,5 @@ void BattleSceneHades::renderExtraRoleInfo(
 
 int BattleSceneHades::checkResult()
 {
-    if (result_ != -1)
-    {
-        return result_;
-    }
-
-    const int team0 = scene_units_.aliveUnitsOnTeam(0);
-    const int team1 = scene_units_.aliveUnitsOnTeam(1);
-    if (team0 > 0 && team1 == 0)
-    {
-        return 0;
-    }
-    if (team0 == 0 && team1 >= 0)
-    {
-        return 1;
-    }
-    return -1;
+    return result_;
 }

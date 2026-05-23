@@ -828,17 +828,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     CHECK(cancel.projectileCancelDamage == 25);
     CHECK(cancel.otherProjectileCancelDamage == 12);
 
-    REQUIRE(result.projectileCancelDamageCommands.size() == 1);
-    const auto* command = &result.projectileCancelDamageCommands[0];
-    REQUIRE(command);
-    CHECK(command->attackId == 10);
-    CHECK(command->otherAttackId == 20);
-    CHECK(command->sourceUnitId == 0);
-    CHECK(command->otherSourceUnitId == 1);
-    CHECK(command->damage == 25);
-    CHECK(command->otherDamage == 12);
-
     REQUIRE(state.attacks.attacks.size() == 2);
     CHECK(state.attacks.attacks[0].state.projectileCancelWeaken == 12);
     CHECK(state.attacks.attacks[1].state.projectileCancelWeaken == 25);
+
+    REQUIRE(result.frame.logEvents.size() == 1);
+    const auto& log = result.frame.logEvents[0];
+    CHECK(log.type == BattleLogEventType::Status);
+    CHECK(log.category == BattleLogCategory::ProjectileCancel);
+    CHECK(log.sourceUnitId == 0);
+    CHECK(log.targetUnitId == 1);
+    CHECK(log.amount == 25);
+    CHECK(log.secondaryAmount == 12);
 }
