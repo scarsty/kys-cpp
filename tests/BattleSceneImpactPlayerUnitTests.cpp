@@ -4,12 +4,12 @@
 
 TEST_CASE("BattleSceneImpactPlayer_PlansNormalHitShake", "[battle][scene_impact]")
 {
-    KysChess::Battle::BattleAttackEvent hit;
-    hit.type = KysChess::Battle::BattleAttackEventType::Hit;
-    hit.unitId = 1;
-    hit.operationType = KysChess::Battle::BattleOperationType::RangedProjectile;
-    hit.totalFrame = 30;
-    hit.ultimate = false;
+    KysChess::Battle::BattleVisualEvent hit;
+    hit.type = KysChess::Battle::BattleVisualEventType::ProjectileHit;
+    hit.targetUnitId = 1;
+    hit.effectId = 10;
+    hit.impactUnitShake = 5;
+    hit.impactRumble = true;
 
     auto commands = BattleSceneImpactPlanner().plan({ hit });
 
@@ -22,12 +22,13 @@ TEST_CASE("BattleSceneImpactPlayer_PlansNormalHitShake", "[battle][scene_impact]
 
 TEST_CASE("BattleSceneImpactPlayer_PlansUltimateHitShake", "[battle][scene_impact]")
 {
-    KysChess::Battle::BattleAttackEvent hit;
-    hit.type = KysChess::Battle::BattleAttackEventType::Hit;
-    hit.unitId = 1;
-    hit.operationType = KysChess::Battle::BattleOperationType::TrackingProjectile;
-    hit.totalFrame = 30;
-    hit.ultimate = true;
+    KysChess::Battle::BattleVisualEvent hit;
+    hit.type = KysChess::Battle::BattleVisualEventType::ProjectileHit;
+    hit.targetUnitId = 1;
+    hit.effectId = 10;
+    hit.impactUnitShake = 10;
+    hit.impactSceneShake = 10;
+    hit.impactRumble = true;
 
     auto commands = BattleSceneImpactPlanner().plan({ hit });
 
@@ -39,10 +40,11 @@ TEST_CASE("BattleSceneImpactPlayer_PlansUltimateHitShake", "[battle][scene_impac
 
 TEST_CASE("BattleSceneImpactPlayer_ScriptedImpactOnlyShakesUnit", "[battle][scene_impact]")
 {
-    KysChess::Battle::BattleAttackEvent hit;
-    hit.type = KysChess::Battle::BattleAttackEventType::Hit;
-    hit.unitId = 1;
-    hit.scriptedDamage = 12;
+    KysChess::Battle::BattleVisualEvent hit;
+    hit.type = KysChess::Battle::BattleVisualEventType::ProjectileHit;
+    hit.targetUnitId = 1;
+    hit.effectId = 10;
+    hit.impactUnitShake = 5;
 
     auto commands = BattleSceneImpactPlanner().plan({ hit });
 

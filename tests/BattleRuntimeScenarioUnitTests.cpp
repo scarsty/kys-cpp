@@ -202,10 +202,10 @@ TEST_CASE("BattleRuntimeScenario_ProjectileCancellationDigest", "[battle][scenar
     auto result = session.runFrame();
     auto digest = digestScenarioFrame(session.runtime(), result);
 
-    CHECK(digest.attackTypes == std::vector<BattleAttackEventType>{
-        BattleAttackEventType::Moved,
-        BattleAttackEventType::Moved,
-        BattleAttackEventType::ProjectileCancel,
+    CHECK(digest.attackTypes == std::vector<BattleGameplayEventType>{
+        BattleGameplayEventType::ProjectileMoved,
+        BattleGameplayEventType::ProjectileMoved,
+        BattleGameplayEventType::ProjectileCancelled,
     });
     CHECK(std::ranges::find(
         digest.gameplayTypes,
@@ -244,12 +244,9 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
 
     CHECK(digest.damageDefenderIds == std::vector<int>{ 1 });
     CHECK(digest.committedHpDamage == std::vector<int>{ 30 });
-    CHECK(digest.rescueResultCount == 1);
-    CHECK(digest.rescuePulledUnitIds == std::vector<int>{ 1 });
-    CHECK(digest.rescuePullerUnitIds == std::vector<int>{ 2 });
-    REQUIRE(digest.rescueDestinationCells.size() == 1);
-    CHECK(digest.rescueDestinationCells.front().x == 2);
-    CHECK(digest.rescueDestinationCells.front().y == 3);
+    CHECK(session.runtime().unitStore.requireUnit(1).motion.position.x == 2.0f * ScenarioTileWidth);
+    CHECK(session.runtime().unitStore.requireUnit(1).motion.position.y == 3.0f * ScenarioTileWidth);
+    CHECK(std::ranges::find(digest.roleEffectTargetUnitIds, 1) != digest.roleEffectTargetUnitIds.end());
     CHECK(digest.hpByUnitId.at(1) == 30);
     CHECK(session.runtime().unitStore.requireUnit(1).invincible == 10);
     CHECK(session.runtime().combo.units.at(2).forcePullProtectRemaining == 0);

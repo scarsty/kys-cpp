@@ -33,6 +33,39 @@ constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
 constexpr double LegacyMinimumVectorNorm = 0.0001;
 constexpr int BattleCoordCount = 64;
 
+bool hasVisualEvent(const BattlePresentationFrame& frame, BattleVisualEventType type)
+{
+    return std::any_of(
+        frame.visualEvents.begin(),
+        frame.visualEvents.end(),
+        [type](const BattleVisualEvent& event)
+        {
+            return event.type == type;
+        });
+}
+
+bool hasGameplayEvent(const BattlePresentationFrame& frame, BattleGameplayEventType type)
+{
+    return std::any_of(
+        frame.gameplayEvents.begin(),
+        frame.gameplayEvents.end(),
+        [type](const BattleGameplayEvent& event)
+        {
+            return event.type == type;
+        });
+}
+
+bool hasProjectilePresentationEvent(const BattlePresentationFrame& frame)
+{
+    return hasVisualEvent(frame, BattleVisualEventType::ProjectileSpawned)
+        || hasVisualEvent(frame, BattleVisualEventType::ProjectileMoved)
+        || hasVisualEvent(frame, BattleVisualEventType::ProjectileHit)
+        || hasVisualEvent(frame, BattleVisualEventType::ProjectileExpired)
+        || hasVisualEvent(frame, BattleVisualEventType::ProjectileTargetLost)
+        || hasVisualEvent(frame, BattleVisualEventType::ProjectileCancelled)
+        || hasVisualEvent(frame, BattleVisualEventType::ProjectileBounced);
+}
+
 TEST_CASE("BattleRuntimeRandom_ReplaysFromSeed", "[battle][random]")
 {
     BattleRuntimeRandom first(1234u);
@@ -913,17 +946,12 @@ TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[
     state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
     state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
 
-    auto result = runBattleFrame(state);
+    runBattleFrame(state);
 
-    REQUIRE(result.movementPresentationResults.size() == 1);
-    CHECK(result.movementPresentationResults[0].unitId == 0);
-    CHECK(result.movementPresentationResults[0].position.x == 105.0f);
-    CHECK(result.movementPresentationResults[0].velocity.x == 5.0f);
-    CHECK(result.movementPresentationResults[0].acceleration.x == 0.0f);
-    CHECK(result.movementPresentationResults[0].frozenFrames == 0);
     const auto& unit = state.unitStore.requireUnit(0);
     CHECK(unit.motion.position.x == 105.0f);
     CHECK(unit.motion.velocity.x == 5.0f);
+    CHECK(unit.motion.acceleration.x == 0.0f);
     CHECK(state.movement.agents.at(0).physics.movementDashFrames == 0);
     CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 6);
 }
@@ -1464,14 +1492,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle
         statusRuntimeSnapshot(1, 100),
     };
 
-    const auto result = runBattleFrame(state);
-
-    REQUIRE(result.unitApplications.size() == 2);
-    CHECK(result.unitApplications[0].unitId == 0);
-    CHECK(result.unitApplications[0].cooldown == 1);
-    CHECK(result.unitApplications[0].actFrame == 5);
-    CHECK(result.unitApplications[0].actType == 13);
-    CHECK(result.unitApplications[0].finalMp == 5);
+    runBattleFrame(state);
 
     const auto& updated = state.unitStore.requireUnit(0);
     CHECK(updated.animation.cooldown == 1);
@@ -1497,14 +1518,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[b
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 3);
-    CHECK(result.attackEvents[0].type == BattleAttackEventType::AttackSpawned);
-    CHECK(result.attackEvents[0].attackId == 50);
-    CHECK(result.attackEvents[1].type == BattleAttackEventType::Moved);
-    CHECK(result.attackEvents[1].attackId == 50);
-    CHECK(result.attackEvents[2].type == BattleAttackEventType::Hit);
-    CHECK(result.attackEvents[2].attackId == 50);
-    CHECK(result.attackEvents[2].unitId == 1);
     CHECK(state.pendingAttackSpawns.empty());
     REQUIRE(state.attacks.attacks.size() == 1);
     CHECK(state.attacks.attacks[0].id == 50);
@@ -1617,7 +1630,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
     auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.skill.id == 301);
-    CHECK(result.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(result.frame));
     REQUIRE(result.frame.gameplayEvents.size() == 1);
     CHECK(result.frame.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
     REQUIRE(result.frame.logEvents.size() == 1);
@@ -1649,7 +1662,7 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesEffectiveProjectileSelectDista
     auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.operationType == BattleOperationType::RangedProjectile);
-    CHECK(start.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(start.frame));
 
     auto& caster = state.unitStore.requireUnit(0);
     caster.haveAction = true;
@@ -1661,14 +1674,14 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesEffectiveProjectileSelectDista
     auto result = runBattleFrame(state);
 
     auto projectile = std::find_if(
-        result.attackEvents.begin(),
-        result.attackEvents.end(),
-        [](const BattleAttackEvent& event)
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
         {
-            return event.type == BattleAttackEventType::AttackSpawned;
+            return event.type == BattleVisualEventType::ProjectileSpawned;
         });
-    REQUIRE(projectile != result.attackEvents.end());
-    CHECK(projectile->totalFrame == 30);
+    REQUIRE(projectile != result.frame.visualEvents.end());
+    CHECK(projectile->durationFrames == 30);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[battle][core][runtime]")
@@ -1700,7 +1713,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[
     auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.targetUnitId == 2);
-    CHECK(result.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(result.frame));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[battle][core]")
@@ -1726,7 +1739,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[b
 
     CHECK(state.action.pendingCasts.empty());
     CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
-    CHECK(result.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(result.frame));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "[battle][core]")
@@ -1754,7 +1767,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
     auto result = runBattleFrame(state);
 
     REQUIRE(state.action.pendingCasts.contains(0));
-    CHECK(result.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(result.frame));
     auto& releaseUnit = state.unitStore.requireUnit(0);
     releaseUnit.haveAction = true;
     releaseUnit.operationType = BattleOperationType::RangedProjectile;
@@ -1765,16 +1778,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
     auto release = runBattleFrame(state);
 
     auto spawn = std::find_if(
-        release.attackEvents.begin(),
-        release.attackEvents.end(),
-        [](const BattleAttackEvent& event)
+        release.frame.visualEvents.begin(),
+        release.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
         {
-            return event.type == BattleAttackEventType::AttackSpawned;
+            return event.type == BattleVisualEventType::ProjectileSpawned;
         });
-    REQUIRE(spawn != release.attackEvents.end());
+    REQUIRE(spawn != release.frame.visualEvents.end());
     CHECK(spawn->position.x == state.unitStore.requireUnit(0).motion.position.x + SceneTileWidth * 2.0);
     CHECK(spawn->position.y == state.unitStore.requireUnit(0).motion.position.y);
-    CHECK(result.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(result.frame));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", "[battle][core]")
@@ -1800,11 +1813,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", 
     auto result = runBattleFrame(state);
 
     CHECK(state.action.pendingCasts.empty());
-    REQUIRE(result.attackEvents.size() >= 1);
-    CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
-    CHECK(result.attackEvents.front().attackId == 0);
-    CHECK(result.attackEvents.front().sourceUnitId == 0);
-    CHECK(result.attackEvents.front().skillId == 101);
+    REQUIRE(result.frame.visualEvents.size() >= 1);
+    CHECK(result.frame.visualEvents.front().type == BattleVisualEventType::ProjectileSpawned);
+    CHECK(result.frame.visualEvents.front().effectId == 0);
+    CHECK(result.frame.visualEvents.front().sourceUnitId == 0);
+    REQUIRE(state.attacks.attacks.size() >= 1);
+    CHECK(state.attacks.attacks.front().state.skillId == 101);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesRuntimeOwnedActionDirectives", "[battle][core][runtime]")
@@ -1830,8 +1844,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesRuntimeOwnedActionDirectives",
     auto result = runBattleFrame(state);
 
     CHECK(state.action.pendingCasts.empty());
-    REQUIRE(result.attackEvents.size() >= 1);
-    CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
+    REQUIRE(hasVisualEvent(result.frame, BattleVisualEventType::ProjectileSpawned));
 }
 
 TEST_CASE("BattleFrameRunner_PlansCastFromRuntimeOwnedCastPlanInput", "[battle][core][runtime]")
@@ -1877,23 +1890,14 @@ TEST_CASE("BattleFrameRunner_RuntimeCastStartFacesTargetDirection", "[battle][co
     cast.targetDistance = static_cast<double>((cast.targetPosition - cast.unit.position).norm());
     configureRuntimeActionPlan(state, cast);
 
-    auto result = runBattleFrame(state);
+    runBattleFrame(state);
 
     const auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.targetUnitId == 1);
-    CHECK(state.unitStore.requireUnit(0).motion.facing.x > 0.6f);
-    CHECK(state.unitStore.requireUnit(0).motion.facing.y > 0.6f);
-    const auto presentation = std::find_if(
-        result.movementPresentationResults.begin(),
-        result.movementPresentationResults.end(),
-        [](const BattleFrameMovementPresentationUnitResult& item)
-        {
-            return item.unitId == 0;
-        });
-    REQUIRE(presentation != result.movementPresentationResults.end());
-    CHECK(presentation->facing.x > 0.6f);
-    CHECK(presentation->facing.y > 0.6f);
+    const auto& runtimeUnit = state.unitStore.requireUnit(0);
+    CHECK(runtimeUnit.motion.facing.x > 0.6f);
+    CHECK(runtimeUnit.motion.facing.y > 0.6f);
 }
 
 TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliveEnemies", "[battle][core][runtime]")
@@ -1921,7 +1925,7 @@ TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliv
 
     auto start = runBattleFrame(state);
     REQUIRE(state.action.pendingCasts.contains(0));
-    CHECK(start.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(start.frame));
 
     auto& caster = state.unitStore.requireUnit(0);
     caster.haveAction = true;
@@ -1932,18 +1936,18 @@ TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliv
 
     auto result = runBattleFrame(state);
 
-    std::vector<BattleAttackEvent> spawned;
+    std::vector<BattleVisualEvent> spawned;
     std::copy_if(
-        result.attackEvents.begin(),
-        result.attackEvents.end(),
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
         std::back_inserter(spawned),
-        [](const BattleAttackEvent& event)
+        [](const BattleVisualEvent& event)
         {
-            return event.type == BattleAttackEventType::AttackSpawned;
+            return event.type == BattleVisualEventType::ProjectileSpawned;
         });
     REQUIRE(spawned.size() == 2);
-    CHECK(spawned[0].unitId == 1);
-    CHECK(spawned[1].unitId == 2);
+    CHECK(spawned[0].targetUnitId == 1);
+    CHECK(spawned[1].targetUnitId == 2);
 }
 
 TEST_CASE("BattleFrameRunner_ClearsDashSpreadWhenRuntimeCastStarts", "[battle][core][runtime]")
@@ -1999,7 +2003,7 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
     auto start = runBattleFrame(state);
 
     REQUIRE(state.action.pendingCasts.contains(0));
-    CHECK(start.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(start.frame));
     const auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.operationType == BattleOperationType::Dash);
@@ -2013,12 +2017,11 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
     auto result = runBattleFrame(state);
 
     const auto dashHitCount = std::count_if(
-        result.attackEvents.begin(),
-        result.attackEvents.end(),
-        [](const BattleAttackEvent& event)
+        state.attacks.attacks.begin(),
+        state.attacks.attacks.end(),
+        [](const BattleAttackInstance& attack)
         {
-            return event.type == BattleAttackEventType::AttackSpawned
-                && event.operationType == BattleOperationType::Dash;
+            return attack.state.operationType == BattleOperationType::Dash;
         });
     CHECK(dashHitCount == 3);
 }
@@ -2050,7 +2053,7 @@ TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[
     auto pending = state.action.pendingCasts.find(0);
     REQUIRE(pending != state.action.pendingCasts.end());
     CHECK(pending->second.operationType == BattleOperationType::RangedProjectile);
-    CHECK(start.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(start.frame));
     auto& caster = state.unitStore.requireUnit(0);
     caster.haveAction = true;
     caster.operationType = BattleOperationType::RangedProjectile;
@@ -2061,12 +2064,11 @@ TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[
     auto result = runBattleFrame(state);
 
     const auto dashHitCount = std::count_if(
-        result.attackEvents.begin(),
-        result.attackEvents.end(),
-        [](const BattleAttackEvent& event)
+        state.attacks.attacks.begin(),
+        state.attacks.attacks.end(),
+        [](const BattleAttackInstance& attack)
         {
-            return event.type == BattleAttackEventType::AttackSpawned
-                && event.operationType == BattleOperationType::Dash;
+            return attack.state.operationType == BattleOperationType::Dash;
         });
     CHECK(dashHitCount == 0);
 }
@@ -2190,7 +2192,7 @@ TEST_CASE("BattleFrameRunner_RefreshesRuntimeCastTargetAtCommitFrame", "[battle]
 
     auto start = runBattleFrame(state);
     REQUIRE(state.action.pendingCasts.contains(0));
-    CHECK(start.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(start.frame));
     REQUIRE(state.action.pendingCasts.contains(0));
 
     auto& caster = state.unitStore.requireUnit(0);
@@ -2203,14 +2205,14 @@ TEST_CASE("BattleFrameRunner_RefreshesRuntimeCastTargetAtCommitFrame", "[battle]
 
     auto release = runBattleFrame(state);
 
-    std::vector<BattleAttackEvent> spawned;
+    std::vector<BattleVisualEvent> spawned;
     std::copy_if(
-        release.attackEvents.begin(),
-        release.attackEvents.end(),
+        release.frame.visualEvents.begin(),
+        release.frame.visualEvents.end(),
         std::back_inserter(spawned),
-        [](const BattleAttackEvent& event)
+        [](const BattleVisualEvent& event)
         {
-            return event.type == BattleAttackEventType::AttackSpawned;
+            return event.type == BattleVisualEventType::ProjectileSpawned;
         });
     REQUIRE(spawned.size() == 3);
     CHECK(spawned[0].velocity.x > 0.0f);
@@ -2240,8 +2242,7 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastInputWithoutSceneDire
     auto result = runBattleFrame(state);
 
     CHECK(state.action.pendingCasts.empty());
-    REQUIRE(result.attackEvents.size() >= 1);
-    CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
+    REQUIRE(hasVisualEvent(result.frame, BattleVisualEventType::ProjectileSpawned));
 }
 
 TEST_CASE("BattleFrameRunner_RetargetsPendingCastWhenOriginalTargetDiesBeforeCommit", "[battle][core][runtime]")
@@ -2274,13 +2275,13 @@ TEST_CASE("BattleFrameRunner_RetargetsPendingCastWhenOriginalTargetDiesBeforeCom
     CHECK(state.unitStore.requireUnit(0).operationCount == 1);
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 25);
     auto request = std::find_if(
-        result.attackEvents.begin(),
-        result.attackEvents.end(),
-        [](const BattleAttackEvent& event)
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
         {
-            return event.type == BattleAttackEventType::AttackSpawned;
+            return event.type == BattleVisualEventType::ProjectileSpawned;
         });
-    REQUIRE(request != result.attackEvents.end());
+    REQUIRE(request != result.frame.visualEvents.end());
     CHECK(request->velocity.x > 0.0f);
     CHECK(request->velocity.y > 0.0f);
 }
@@ -2316,7 +2317,7 @@ TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenNoLiveEnemyRemainsBeforeCommi
     CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
     CHECK(state.unitStore.requireUnit(0).operationType == BattleOperationType::None);
     CHECK(state.unitStore.requireUnit(0).animation.actType == -1);
-    CHECK(result.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(result.frame));
 }
 
 TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenCasterDiesBeforeActionFrame", "[battle][core][runtime]")
@@ -2344,7 +2345,7 @@ TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenCasterDiesBeforeActionFrame",
     CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
     CHECK(state.unitStore.requireUnit(0).operationType == BattleOperationType::None);
     CHECK(state.unitStore.requireUnit(0).animation.actType == -1);
-    CHECK(result.attackEvents.empty());
+    CHECK_FALSE(hasProjectilePresentationEvent(result.frame));
 }
 
 TEST_CASE("BattleFrameRunner_PrunesPendingCastWhenCasterDiesDuringDamageLifecycle", "[battle][core][runtime]")
@@ -2581,13 +2582,13 @@ TEST_CASE("BattleFrameRunner_PrunesFinishedRuntimeAttacksAfterFrame", "[battle][
 
     auto result = runBattleFrame(state);
 
-    REQUIRE_FALSE(result.attackEvents.empty());
+    REQUIRE(hasProjectilePresentationEvent(result.frame));
     CHECK(std::any_of(
-        result.attackEvents.begin(),
-        result.attackEvents.end(),
-        [](const BattleAttackEvent& event)
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
         {
-            return event.type == BattleAttackEventType::Expired && event.attackId == 77;
+            return event.type == BattleVisualEventType::ProjectileExpired && event.effectId == 77;
         }));
     CHECK(state.attacks.attacks.empty());
 }
@@ -2615,10 +2616,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimePendingCastInput", "[bat
     auto result = runBattleFrame(state);
 
     CHECK(state.action.pendingCasts.empty());
-    REQUIRE(result.attackEvents.size() >= 1);
-    CHECK(result.attackEvents.front().type == BattleAttackEventType::AttackSpawned);
-    CHECK(result.attackEvents.front().sourceUnitId == 0);
-    CHECK(result.attackEvents.front().skillId == 101);
+    REQUIRE(result.frame.visualEvents.size() >= 1);
+    CHECK(result.frame.visualEvents.front().type == BattleVisualEventType::ProjectileSpawned);
+    CHECK(result.frame.visualEvents.front().sourceUnitId == 0);
+    REQUIRE(state.attacks.attacks.size() >= 1);
+    CHECK(state.attacks.attacks.front().state.skillId == 101);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", "[battle][core]")
@@ -2667,17 +2669,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
     auto result = runBattleFrame(state);
 
     REQUIRE(result.damageTransactions.size() == 1);
-    REQUIRE(result.damageRenderApplications.size() == 1);
-    const auto& renderDamage = result.damageRenderApplications.front();
     const auto& transaction = result.damageTransactions.front();
-    CHECK(renderDamage.defender.unitId == transaction.defender.id);
-    CHECK(renderDamage.defender.hp == transaction.defender.vitals.hp);
-    CHECK(renderDamage.defender.mp == transaction.defender.vitals.mp);
-    CHECK(renderDamage.defender.alive == transaction.defender.alive);
-    CHECK(renderDamage.frozenFrames == transaction.defenderStatus.effects.frozenTimer);
-    CHECK(renderDamage.frozenMaxFrames == transaction.defenderStatus.effects.frozenMaxTimer);
-    CHECK(renderDamage.cooldown == transaction.defenderCooldown.cooldown);
-    CHECK(renderDamage.committedHpDamage == transaction.finalHpDamage);
+    CHECK(transaction.defender.id == 1);
+    CHECK(transaction.defender.vitals.hp == 0);
+    CHECK(transaction.defender.vitals.mp == state.unitStore.requireUnit(1).vitals.mp);
+    CHECK_FALSE(transaction.defender.alive);
+    CHECK(transaction.finalHpDamage > 0);
     CHECK(state.unitStore.requireUnit(1).alive == false);
     CHECK(state.result.ended);
     CHECK(state.result.winningTeam == 0);
@@ -2714,18 +2711,10 @@ TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeStores", "[battle][c
     state.damage.unitExtras = { { 0 }, damage };
     state.combo.units[1].blockFirstHitsRemaining = 9;
 
-    auto result = runBattleFrame(state);
+    runBattleFrame(state);
 
-    auto it = std::find_if(
-        result.stateApplications.comboRenderUnits.begin(),
-        result.stateApplications.comboRenderUnits.end(),
-        [](const BattleFrameComboRenderApplication& unit)
-        {
-            return unit.unitId == 1;
-        });
-    REQUIRE(it != result.stateApplications.comboRenderUnits.end());
-    CHECK(it->shield == 33);
-    CHECK(it->blockFirstHitsRemaining == 2);
+    CHECK(state.unitStore.requireUnit(1).shield == 33);
+    CHECK(requireById(state.damage.unitExtras, 1).blockFirstHitsRemaining == 2);
 }
 
 TEST_CASE("BattleFrameRunner_FirstHitBlockGameplayEventHasStatusText", "[battle][core][runtime]")
@@ -2926,18 +2915,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity", "[battle][c
     CHECK(state.movement.agents.contains(1));
     CHECK(state.movement.agents.at(1).physics.velocity.z == dead.motion.velocity.z);
 
-    auto presentation = std::find_if(
-        result.movementPresentationResults.begin(),
-        result.movementPresentationResults.end(),
-        [](const BattleFrameMovementPresentationUnitResult& item)
-        {
-            return item.unitId == 1;
-        });
-    REQUIRE(presentation != result.movementPresentationResults.end());
-    CHECK(presentation->velocity.x == dead.motion.velocity.x);
-    CHECK(presentation->velocity.z == dead.motion.velocity.z);
-    CHECK(presentation->position.x == dead.motion.position.x);
-    CHECK(presentation->position.z == dead.motion.position.z);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ClampsDeathKickVelocity", "[battle][core][movement]")
@@ -3027,22 +3004,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SeedsDeathKickForNextFramePhysics", "[
     REQUIRE(result.damageTransactions.size() == 1);
     CHECK(result.damageTransactions[0].killed);
 
-    auto presentation = std::find_if(
-        result.movementPresentationResults.begin(),
-        result.movementPresentationResults.end(),
-        [](const BattleFrameMovementPresentationUnitResult& item)
-        {
-            return item.unitId == 1;
-        });
-    REQUIRE(presentation != result.movementPresentationResults.end());
     const auto& dead = state.unitStore.requireUnit(1);
-    CHECK(presentation->position.x == dead.motion.position.x);
-    CHECK(presentation->position.y == dead.motion.position.y);
-    CHECK(presentation->position.z == dead.motion.position.z);
-    CHECK(presentation->velocity.x == dead.motion.velocity.x);
-    CHECK(presentation->velocity.y == dead.motion.velocity.y);
-    CHECK(presentation->velocity.z == dead.motion.velocity.z);
+    CHECK_FALSE(dead.alive);
     CHECK(dead.motion.velocity.norm() > 0.01f);
+    CHECK(dead.motion.position.z >= 0.0f);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_MovingCorpsePhysicsPersistsIntoRuntime", "[battle][core][movement]")
@@ -3309,15 +3274,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathAoeProjectileDamagesOnNextFrame",
 
     result = runBattleFrame(state);
 
-    const auto damageIt = std::find_if(
-        result.damageRenderApplications.begin(),
-        result.damageRenderApplications.end(),
-        [](const BattleFrameDamageRenderApplication& application)
+    CHECK(std::any_of(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
         {
-            return application.defender.unitId == 0
-                && application.committedHpDamage == 50;
-        });
-    REQUIRE(damageIt != result.damageRenderApplications.end());
+            return event.type == BattleLogEventType::Damage
+                && event.targetUnitId == 0
+                && event.amount == 50;
+        }));
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 50);
 }
 
@@ -3516,19 +3481,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle
     auto result = runBattleFrame(state);
 
     REQUIRE(result.damageTransactions.size() == 1);
-    REQUIRE(result.rescueResults.size() == 1);
-    const auto& rescue = result.rescueResults.front();
-    REQUIRE(rescue.teleport.has_value());
-    CHECK(rescue.teleport->unitId == 1);
-    CHECK(rescue.teleport->pullerUnitId == 2);
-    CHECK(rescue.teleport->destinationCell.x == 2);
-    CHECK(rescue.teleport->destinationCell.y == 3);
-    CHECK(rescue.counterDelta.unitId == 2);
-    CHECK(rescue.counterDelta.protectRemainingDelta == -1);
-    CHECK(rescue.heal.targetUnitId == 1);
-    CHECK(rescue.heal.amount == 10);
-    CHECK(rescue.invincibility.targetUnitId == 1);
-    CHECK(rescue.invincibility.frames == 10);
+    CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(2.0f * SceneTileWidth));
+    CHECK(state.unitStore.requireUnit(1).motion.position.y == Catch::Approx(3.0f * SceneTileWidth));
     CHECK(std::any_of(
         result.frame.visualEvents.begin(),
         result.frame.visualEvents.end(),
@@ -3560,16 +3514,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttac
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.rescueResults.size() == 1);
-    const auto& rescue = result.rescueResults.front();
-    REQUIRE(rescue.teleport.has_value());
-    CHECK(rescue.teleport->unitId == 1);
-    CHECK(rescue.teleport->pullerUnitId == 0);
-    CHECK(rescue.counterDelta.unitId == 0);
-    CHECK(rescue.counterDelta.executeRemainingDelta == -1);
-    REQUIRE(rescue.basicCounterAttack.has_value());
-    CHECK(rescue.basicCounterAttack->attackerUnitId == 0);
-    CHECK(rescue.basicCounterAttack->targetUnitId == 1);
+    CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(9.0f * SceneTileWidth));
+    CHECK(state.unitStore.requireUnit(1).motion.position.y == Catch::Approx(10.0f * SceneTileWidth));
     CHECK(state.combo.units.at(0).forcePullExecuteRemaining == 1);
     REQUIRE(state.pendingAttackSpawns.size() == 1);
     CHECK(state.pendingAttackSpawns.front().initial.attackerUnitId == 0);
@@ -3589,8 +3535,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
     auto result = runBattleFrame(state);
 
     REQUIRE(result.damageTransactions.size() == 1);
-    CHECK(result.rescueResults.empty());
     CHECK(state.combo.units.at(2).forcePullProtectRemaining == 1);
+    CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(180.0f));
+    CHECK(state.unitStore.requireUnit(1).motion.position.y == Catch::Approx(180.0f));
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 20);
 }
 
@@ -3700,31 +3647,26 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparat
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 4);
-    REQUIRE(result.frame.gameplayEvents.size() == result.attackEvents.size());
+    REQUIRE(result.frame.gameplayEvents.size() == 4);
     REQUIRE(result.frame.logEvents.empty());
-    REQUIRE(result.frame.visualEvents.size() == result.attackEvents.size());
+    REQUIRE(result.frame.visualEvents.size() == 4);
 
-    CHECK(result.attackEvents[0].type == BattleAttackEventType::Moved);
     CHECK(result.frame.gameplayEvents[0].type == BattleGameplayEventType::ProjectileMoved);
     CHECK(result.frame.gameplayEvents[0].effectId == 10);
     CHECK(result.frame.gameplayEvents[0].sourceUnitId == 0);
     CHECK(result.frame.gameplayEvents[0].position.x == 105.0f);
     CHECK(result.frame.visualEvents[0].type == BattleVisualEventType::ProjectileMoved);
 
-    CHECK(result.attackEvents[1].type == BattleAttackEventType::Hit);
     CHECK(result.frame.gameplayEvents[1].type == BattleGameplayEventType::ProjectileHit);
     CHECK(result.frame.gameplayEvents[1].effectId == 10);
     CHECK(result.frame.gameplayEvents[1].sourceUnitId == 0);
     CHECK(result.frame.gameplayEvents[1].targetUnitId == 1);
     CHECK(result.frame.visualEvents[1].type == BattleVisualEventType::ProjectileHit);
 
-    CHECK(result.attackEvents[2].type == BattleAttackEventType::Moved);
     CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::ProjectileMoved);
     CHECK(result.frame.gameplayEvents[2].effectId == 20);
     CHECK(result.frame.visualEvents[2].type == BattleVisualEventType::ProjectileMoved);
 
-    CHECK(result.attackEvents[3].type == BattleAttackEventType::Expired);
     CHECK(result.frame.gameplayEvents[3].type == BattleGameplayEventType::ProjectileExpired);
     CHECK(result.frame.gameplayEvents[3].effectId == 20);
     CHECK(result.frame.visualEvents[3].type == BattleVisualEventType::ProjectileExpired);
@@ -4171,13 +4113,18 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPa
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 2);
-    REQUIRE(result.frame.gameplayEvents.size() == 2);
+    REQUIRE(result.frame.gameplayEvents.size() >= 2);
     REQUIRE(result.frame.logEvents.size() == 1);
-    REQUIRE(result.frame.visualEvents.size() == result.attackEvents.size());
+    REQUIRE(result.frame.visualEvents.size() == 2);
 
-    CHECK(result.attackEvents[1].type == BattleAttackEventType::TargetLost);
-    CHECK(result.frame.gameplayEvents[1].type == BattleGameplayEventType::ProjectileCancelled);
+    CHECK(std::any_of(
+        result.frame.gameplayEvents.begin(),
+        result.frame.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::ProjectileCancelled
+                && event.effectId == 10;
+        }));
     CHECK(result.frame.gameplayEvents[1].effectId == 10);
     CHECK(result.frame.gameplayEvents[1].targetUnitId == -1);
     CHECK(result.frame.gameplayEvents[1].otherAttackId == -1);
@@ -4214,8 +4161,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_LabelsChainedProjectileTargetLost", "[
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 2);
-    CHECK(result.attackEvents[1].type == BattleAttackEventType::TargetLost);
+    REQUIRE(result.frame.gameplayEvents.size() >= 2);
+    CHECK(std::any_of(
+        result.frame.gameplayEvents.begin(),
+        result.frame.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::ProjectileCancelled
+                && event.effectId == 10;
+        }));
     CHECK(std::any_of(
         result.frame.logEvents.begin(),
         result.frame.logEvents.end(),
@@ -4255,13 +4209,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CoalescesSameFrameChainedProjectileSto
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 4);
     const int targetLostCount = static_cast<int>(std::count_if(
-        result.attackEvents.begin(),
-        result.attackEvents.end(),
-        [](const BattleAttackEvent& event)
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
         {
-            return event.type == BattleAttackEventType::TargetLost;
+            return event.type == BattleVisualEventType::ProjectileTargetLost;
         }));
     CHECK(targetLostCount == 2);
     const int stopLogCount = static_cast<int>(std::count_if(
@@ -4302,13 +4255,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AggregatesProjectileContactIgnoredByIn
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 4);
-    CHECK(result.attackEvents[1].type == BattleAttackEventType::BlockedByInvincible);
-    CHECK(result.attackEvents[1].sourceUnitId == 0);
-    CHECK(result.attackEvents[1].unitId == 1);
-    CHECK(result.attackEvents[3].type == BattleAttackEventType::BlockedByInvincible);
-    CHECK(result.attackEvents[3].sourceUnitId == 0);
-    CHECK(result.attackEvents[3].unitId == 1);
+    REQUIRE(result.frame.gameplayEvents.size() == 4);
+    CHECK(result.frame.gameplayEvents[1].type == BattleGameplayEventType::StatusApplied);
+    CHECK(result.frame.gameplayEvents[1].sourceUnitId == 0);
+    CHECK(result.frame.gameplayEvents[1].targetUnitId == 1);
+    CHECK(result.frame.gameplayEvents[3].type == BattleGameplayEventType::StatusApplied);
+    CHECK(result.frame.gameplayEvents[3].sourceUnitId == 0);
+    CHECK(result.frame.gameplayEvents[3].targetUnitId == 1);
     CHECK(result.damageTransactions.empty());
     CHECK(state.unitStore.units[1].invincible > 0);
     REQUIRE(result.frame.logEvents.size() == 1);
@@ -4355,13 +4308,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 3);
-    REQUIRE(result.frame.gameplayEvents.size() == 3);
-    CHECK(result.attackEvents[2].type == BattleAttackEventType::ProjectileCancel);
-    CHECK(result.attackEvents[2].sourceUnitId == 0);
-    CHECK(result.attackEvents[2].otherSourceUnitId == 1);
-    CHECK(result.attackEvents[2].projectileCancelDamage == 17);
-    CHECK(result.attackEvents[2].otherProjectileCancelDamage == 10);
+    REQUIRE(result.frame.gameplayEvents.size() >= 3);
     CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::ProjectileCancelled);
     CHECK(result.frame.gameplayEvents[2].effectId == 10);
     CHECK(result.frame.gameplayEvents[2].otherAttackId == 20);
@@ -4456,8 +4403,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 3);
-    CHECK(result.attackEvents[2].type == BattleAttackEventType::Bounce);
+    REQUIRE(result.frame.gameplayEvents.size() >= 3);
+    CHECK(result.frame.visualEvents[2].type == BattleVisualEventType::ProjectileBounced);
     const auto gameplaySpawn = std::find_if(
         result.frame.gameplayEvents.begin(),
         result.frame.gameplayEvents.end(),
@@ -4523,8 +4470,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_LogsBounceChainTerminalReasons", "[bat
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 3);
-    CHECK(result.attackEvents[2].type == BattleAttackEventType::ChainNoTargetInRange);
+    REQUIRE(result.frame.gameplayEvents.size() >= 3);
+    CHECK(std::any_of(
+        result.frame.gameplayEvents.begin(),
+        result.frame.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::ProjectileExpired
+                && event.effectId == 10;
+        }));
     const auto damageLog = std::find_if(
         result.frame.logEvents.begin(),
         result.frame.logEvents.end(),

@@ -142,6 +142,10 @@ struct BattleVisualEvent
     int visualEffectId = -1;
     Pointf velocity;
     int operationKind = -1;
+    int impactEffectSoundId = -1;
+    int impactUnitShake = 0;
+    int impactSceneShake = 0;
+    bool impactRumble = false;
     bool through = false;
 };
 

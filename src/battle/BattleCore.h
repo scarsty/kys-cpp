@@ -60,16 +60,6 @@ public:
     BattleUnitFrameTickResult advance(const BattleUnitFrameTickInput& input) const;
 };
 
-struct BattleFrameUnitApplication
-{
-    int unitId{};
-    int cooldown{};
-    int actFrame{};
-    int actType{};
-    int finalMp{};
-    bool resetDashVelocity{};
-};
-
 struct BattleActionRulesConfig
 {
     double tileWidth = 0.0;
@@ -145,32 +135,6 @@ private:
     std::mt19937 rand_;
 };
 
-struct BattleFrameKnockbackDelta
-{
-    int targetUnitId{};
-    Pointf velocityDelta;
-    double velocityCap = 0.0;
-};
-
-struct BattleFrameMpRestoreDelta
-{
-    int unitId{};
-    int amount{};
-};
-
-struct BattleFrameUnitHealDelta
-{
-    int sourceUnitId{};
-    int targetUnitId{};
-    int amount{};
-};
-
-struct BattleFrameLastAttackerDelta
-{
-    int targetUnitId{};
-    int attackerUnitId{};
-};
-
 struct BattleFrameRumbleEvent
 {
     int lowFrequency{};
@@ -180,64 +144,9 @@ struct BattleFrameRumbleEvent
 
 struct BattleFrameApplications
 {
-    std::vector<BattleFrameKnockbackDelta> knockbacks;
-    std::vector<BattleFrameMpRestoreDelta> mpRestores;
-    std::vector<BattleFrameUnitHealDelta> unitHeals;
-    std::vector<BattleFrameLastAttackerDelta> lastAttackers;
     std::vector<int> attackSoundIds;
     std::vector<BattleFrameRumbleEvent> rumbles;
-};
-
-struct BattleFrameComboRenderApplication
-{
-    int unitId{};
-    int shield{};
-    int blockFirstHitsRemaining{};
-};
-
-struct BattleFrameRenderStatusUnit
-{
-    int unitId{};
-    int invincible{};
-    int frozenFrames{};
-    int frozenMaxFrames{};
-};
-
-struct BattleFrameStateApplications
-{
-    std::vector<BattleFrameRenderStatusUnit> statusRenderUnits;
-    std::vector<BattleFrameComboRenderApplication> comboRenderUnits;
-};
-
-struct BattleFrameMovementPresentationUnitResult
-{
-    int unitId{};
-    Pointf position;
-    Pointf velocity;
-    Pointf acceleration;
-    Pointf facing;
-    int frozenFrames{};
-};
-
-struct BattleFrameDamageRenderUnit
-{
-    int unitId{};
-    int hp{};
-    int mp{};
-    int invincible{};
-    bool alive{};
-};
-
-struct BattleFrameDamageRenderApplication
-{
-    BattleFrameDamageRenderUnit defender;
-    BattleFrameDamageRenderUnit attacker;
-    int frozenFrames{};
-    int frozenMaxFrames{};
-    int cooldown{};
-    int committedHpDamage{};
-    bool killed{};
-    bool critical{};
+    int blinkSoundCount{};
 };
 
 struct BattleFrameRescueUnitSnapshot
@@ -346,15 +255,8 @@ struct BattleRuntimeState
 struct BattleFrameResult
 {
     BattlePresentationFrame frame;
-    std::vector<BattleAttackEvent> attackEvents;
     BattleFrameApplications applications;
-    std::vector<BattleFrameUnitApplication> unitApplications;
-    std::vector<BattleFrameMovementPresentationUnitResult> movementPresentationResults;
-    std::vector<BattleBlinkTeleportDelta> blinkTeleports;
     std::vector<BattleDamageTransactionResult> damageTransactions;
-    std::vector<BattleFrameDamageRenderApplication> damageRenderApplications;
-    std::vector<BattleRescueRepositionResult> rescueResults;
-    BattleFrameStateApplications stateApplications;
 };
 
 struct BattleTeamEffectCommandApplication

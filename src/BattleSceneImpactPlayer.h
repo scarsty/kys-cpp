@@ -1,15 +1,10 @@
 #pragma once
 
 #include "BattleSceneUnitStore.h"
-#include "battle/BattleAttackSystem.h"
+#include "battle/BattlePresentation.h"
 
 #include <functional>
 #include <vector>
-
-namespace KysChess::Battle
-{
-struct BattleFrameResult;
-}
 
 struct BattleSceneImpactCommand
 {
@@ -24,7 +19,7 @@ class BattleSceneImpactPlanner
 {
 public:
     std::vector<BattleSceneImpactCommand> plan(
-        const std::vector<KysChess::Battle::BattleAttackEvent>& events) const;
+        const std::vector<KysChess::Battle::BattleVisualEvent>& events) const;
 };
 
 class BattleSceneImpactPlayer
@@ -39,10 +34,7 @@ public:
     };
 
     void play(
-        const std::vector<KysChess::Battle::BattleAttackEvent>& events,
-        const Bindings& bindings) const;
-    void play(
-        const KysChess::Battle::BattleFrameResult& frameResult,
+        const KysChess::Battle::BattlePresentationFrame& frame,
         const Bindings& bindings) const;
 
 private:

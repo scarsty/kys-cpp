@@ -38,13 +38,10 @@ struct BattleScenarioFrameDigest
     std::vector<std::string> logTexts;
     std::vector<int> damageDefenderIds;
     std::vector<int> committedHpDamage;
-    std::vector<BattleAttackEventType> attackTypes;
+    std::vector<BattleGameplayEventType> attackTypes;
     std::vector<int> activeAttackIds;
     std::map<int, int> projectileCancelWeakenByAttackId;
-    std::size_t rescueResultCount{};
-    std::vector<int> rescuePulledUnitIds;
-    std::vector<int> rescuePullerUnitIds;
-    std::vector<Point> rescueDestinationCells;
+    std::vector<int> roleEffectTargetUnitIds;
 };
 
 inline BattleRuntimeRulesConfig scenarioRules()
@@ -207,10 +204,6 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
     }
     std::ranges::sort(digest.aliveUnitIds);
 
-    for (const auto& event : result.attackEvents)
-    {
-        digest.attackTypes.push_back(event.type);
-    }
     for (const auto& attack : runtime.attacks.attacks)
     {
         digest.activeAttackIds.push_back(attack.id);
@@ -223,6 +216,18 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
     for (const auto& event : result.frame.gameplayEvents)
     {
         digest.gameplayTypes.push_back(event.type);
+        switch (event.type)
+        {
+        case BattleGameplayEventType::AttackSpawned:
+        case BattleGameplayEventType::ProjectileMoved:
+        case BattleGameplayEventType::ProjectileHit:
+        case BattleGameplayEventType::ProjectileExpired:
+        case BattleGameplayEventType::ProjectileCancelled:
+            digest.attackTypes.push_back(event.type);
+            break;
+        default:
+            break;
+        }
     }
     for (const auto& event : result.frame.logEvents)
     {
@@ -237,14 +242,11 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
             digest.committedHpDamage.push_back(transaction.finalHpDamage);
         }
     }
-    digest.rescueResultCount = result.rescueResults.size();
-    for (const auto& rescue : result.rescueResults)
+    for (const auto& event : result.frame.visualEvents)
     {
-        if (rescue.teleport)
+        if (event.type == BattleVisualEventType::RoleEffect)
         {
-            digest.rescuePulledUnitIds.push_back(rescue.teleport->unitId);
-            digest.rescuePullerUnitIds.push_back(rescue.teleport->pullerUnitId);
-            digest.rescueDestinationCells.push_back(rescue.teleport->destinationCell);
+            digest.roleEffectTargetUnitIds.push_back(event.targetUnitId);
         }
     }
 

@@ -105,6 +105,8 @@ void assertValidEvent(const BattleVisualEvent& event)
     case BattleVisualEventType::ProjectileHit:
         assert(event.effectId >= 0);
         assert(event.targetUnitId >= 0);
+        assert(event.impactUnitShake >= 0);
+        assert(event.impactSceneShake >= 0);
         break;
     case BattleVisualEventType::ProjectileExpired:
     case BattleVisualEventType::ProjectileTargetLost:

@@ -58,21 +58,19 @@ class BattleSceneFrameDeltaBuilder
 {
 public:
     BattleSceneFrameDelta build(
-        const KysChess::Battle::BattleFrameResult& frameResult,
+        const KysChess::Battle::BattlePresentationFrame& frame,
+        const KysChess::Battle::BattleFrameApplications& applications,
         int currentBattleResult,
         BattleSceneFrameDeltaBuildContext context) const;
 
 private:
     void collectDamageSceneEffects(
-        const KysChess::Battle::BattleFrameResult& frameResult,
+        const KysChess::Battle::BattlePresentationFrame& frame,
         int currentBattleResult,
         BattleSceneFrameDeltaBuildContext& context,
         BattleSceneFrameDelta& result) const;
     void collectFrameApplicationSceneEffects(
         const KysChess::Battle::BattleFrameApplications& applications,
-        BattleSceneFrameDelta& result) const;
-    void collectBlinkSceneEffects(
-        const std::vector<KysChess::Battle::BattleBlinkTeleportDelta>& blinkTeleports,
         const BattleSceneFrameDeltaBuildContext& context,
         BattleSceneFrameDelta& result) const;
 };

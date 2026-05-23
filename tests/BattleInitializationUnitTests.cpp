@@ -687,7 +687,15 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[b
                 {
                     return event.type == BattleVisualEventType::ProjectileSpawned;
                 });
-        appliedDamage = appliedDamage || !frameResult.damageRenderApplications.empty();
+        appliedDamage = appliedDamage
+            || std::any_of(
+                frameResult.frame.logEvents.begin(),
+                frameResult.frame.logEvents.end(),
+                [](const BattleLogEvent& event)
+                {
+                    return event.type == BattleLogEventType::Damage
+                        && event.amount > 0;
+                });
     }
 
     CHECK(playedAttackSound);

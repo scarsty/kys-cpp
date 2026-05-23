@@ -31,18 +31,16 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDeathPresentationEffects", "[bat
     RandomDouble random;
     random.set_seed(1);
 
-    KysChess::Battle::BattleFrameResult frame;
-    frame.damageRenderApplications.push_back({
-        { 1, 0, 0, 0, false },
-        { 0, 100, 20, 0, true },
-        12,
-        30,
-        7,
+    KysChess::Battle::BattlePresentationFrame frame;
+    KysChess::Battle::BattleFrameApplications applications;
+    frame.logEvents.push_back({
+        KysChess::Battle::BattleLogEventType::Damage,
+        90,
+        0,
+        1,
         44,
-        true,
-        false,
     });
-    frame.frame.gameplayEvents.push_back({
+    frame.gameplayEvents.push_back({
         KysChess::Battle::BattleGameplayEventType::UnitDied,
         90,
         0,
@@ -51,6 +49,7 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDeathPresentationEffects", "[bat
 
     auto result = BattleSceneFrameDeltaBuilder().build(
         frame,
+        applications,
         -1,
         testApplyContext(fixture.store, random));
 
@@ -76,20 +75,12 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_DoesNotReplayRescueRuntimeMutations", "[
     });
     RandomDouble random;
 
-    KysChess::Battle::BattleFrameResult frame;
-    KysChess::Battle::BattleRescueRepositionResult rescue;
-    rescue.teleport = KysChess::Battle::BattleRescueTeleportDelta{
-        0,
-        1,
-        { 3, 4 },
-        {},
-    };
-    rescue.heal = { 0, 25 };
-    rescue.invincibility = { 0, 120 };
-    frame.rescueResults.push_back(rescue);
+    KysChess::Battle::BattlePresentationFrame frame;
+    KysChess::Battle::BattleFrameApplications applications;
 
     BattleSceneFrameDeltaBuilder().build(
         frame,
+        applications,
         -1,
         testApplyContext(fixture.store, random));
 
@@ -108,8 +99,9 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_ReturnsBattleEndSideEffects", "[battle][
     });
     RandomDouble random;
 
-    KysChess::Battle::BattleFrameResult frame;
-    frame.frame.gameplayEvents.push_back({
+    KysChess::Battle::BattlePresentationFrame frame;
+    KysChess::Battle::BattleFrameApplications applications;
+    frame.gameplayEvents.push_back({
         KysChess::Battle::BattleGameplayEventType::BattleEnded,
         100,
         -1,
@@ -119,6 +111,7 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_ReturnsBattleEndSideEffects", "[battle][
 
     auto result = BattleSceneFrameDeltaBuilder().build(
         frame,
+        applications,
         -1,
         testApplyContext(fixture.store, random));
 

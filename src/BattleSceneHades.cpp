@@ -1408,9 +1408,13 @@ void BattleSceneHades::applyCoreFrameResult(
     context.battleEndZoomFrames = CAMERA_BATTLE_END_ZOOM_FRAMES;
     context.deathSlowFrames = CAMERA_DEATH_SLOW_FRAMES;
     context.battleEndSlowFrames = CAMERA_BATTLE_END_SLOW_FRAMES;
-    applySceneFrameDelta(frame_delta_builder_.build(frameResult, result_, context));
+    applySceneFrameDelta(frame_delta_builder_.build(
+        frameResult.frame,
+        frameResult.applications,
+        result_,
+        context));
 
-    impact_player_.play(frameResult, {
+    impact_player_.play(frameResult.frame, {
         &scene_units_,
         &shake_,
         [](int effectSoundId)

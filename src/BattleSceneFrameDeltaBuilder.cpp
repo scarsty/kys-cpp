@@ -44,71 +44,72 @@ BattleLifecycleSceneEffects collectBattleLifecycleSceneEffects(
 }  // namespace
 
 BattleSceneFrameDelta BattleSceneFrameDeltaBuilder::build(
-    const KysChess::Battle::BattleFrameResult& frameResult,
+    const KysChess::Battle::BattlePresentationFrame& frame,
+    const KysChess::Battle::BattleFrameApplications& applications,
     int currentBattleResult,
     BattleSceneFrameDeltaBuildContext context) const
 {
     assert(context.units);
 
     BattleSceneFrameDelta result;
-    collectDamageSceneEffects(frameResult, currentBattleResult, context, result);
-    collectFrameApplicationSceneEffects(frameResult.applications, result);
-    collectBlinkSceneEffects(frameResult.blinkTeleports, context, result);
+    collectDamageSceneEffects(frame, currentBattleResult, context, result);
+    collectFrameApplicationSceneEffects(applications, context, result);
     return result;
 }
 
 void BattleSceneFrameDeltaBuilder::collectDamageSceneEffects(
-    const KysChess::Battle::BattleFrameResult& frameResult,
+    const KysChess::Battle::BattlePresentationFrame& frame,
     int currentBattleResult,
     BattleSceneFrameDeltaBuildContext& context,
     BattleSceneFrameDelta& result) const
 {
     auto lifecycleEffects = collectBattleLifecycleSceneEffects(
         currentBattleResult,
-        frameResult.frame.gameplayEvents);
+        frame.gameplayEvents);
     result.unitDied = lifecycleEffects.unitDied;
     result.diedUnitIds = lifecycleEffects.diedUnitIds;
     std::set<int> diedUnitIds(lifecycleEffects.diedUnitIds.begin(), lifecycleEffects.diedUnitIds.end());
 
-    for (const auto& damage : frameResult.damageRenderApplications)
+    std::set<int> damagedUnitIds;
+    for (const auto& log : frame.logEvents)
     {
-        if (damage.committedHpDamage > 0)
+        if (log.type == KysChess::Battle::BattleLogEventType::Damage
+            && log.amount > 0
+            && log.targetUnitId >= 0)
         {
-            assert(context.random);
-            result.bloodEffects.push_back({
-                damage.defender.unitId,
-                std::format("eft/bld{:03}", int(context.random->rand() * 5)),
-            });
-            result.hurtFlashes.push_back({
-                damage.defender.unitId,
-                context.hurtFlashDuration,
-            });
-        }
-
-        if (diedUnitIds.find(damage.defender.unitId) != diedUnitIds.end())
-        {
-            assert(context.random);
-            const auto& defenderUnit = context.units->requireRuntimeUnit(damage.defender.unitId);
-            result.jitterX = context.random->rand_int(2) - context.random->rand_int(2);
-            result.jitterY = context.random->rand_int(2) - context.random->rand_int(2);
-            if (!context.manualCameraEnabled)
-            {
-                auto cameraFocus = defenderUnit.motion.position;
-                cameraFocus.y -= defenderUnit.motion.position.z * 2.0f;
-                result.cameraFocus = cameraFocus;
-                result.closeUpFrames = std::max(result.closeUpFrames, context.deathZoomFrames);
-            }
-            result.frozenFrames = 5;
-            result.sceneShake = 10;
-            result.slowFrames = context.deathSlowFrames;
+            damagedUnitIds.insert(log.targetUnitId);
         }
     }
 
-    for (const auto& rescue : frameResult.rescueResults)
+    for (const int unitId : damagedUnitIds)
     {
-        assert(rescue.teleport);
-        assert(rescue.teleport->unitId >= 0);
-        assert(rescue.teleport->pullerUnitId >= 0);
+        assert(context.random);
+        result.bloodEffects.push_back({
+            unitId,
+            std::format("eft/bld{:03}", int(context.random->rand() * 5)),
+        });
+        result.hurtFlashes.push_back({
+            unitId,
+            context.hurtFlashDuration,
+        });
+    }
+
+    for (const int unitId : diedUnitIds)
+    {
+        assert(context.random);
+        const auto& defenderUnit = context.units->requireRuntimeUnit(unitId);
+        result.jitterX = context.random->rand_int(2) - context.random->rand_int(2);
+        result.jitterY = context.random->rand_int(2) - context.random->rand_int(2);
+        if (!context.manualCameraEnabled)
+        {
+            auto cameraFocus = defenderUnit.motion.position;
+            cameraFocus.y -= defenderUnit.motion.position.z * 2.0f;
+            result.cameraFocus = cameraFocus;
+            result.closeUpFrames = std::max(result.closeUpFrames, context.deathZoomFrames);
+        }
+        result.frozenFrames = 5;
+        result.sceneShake = 10;
+        result.slowFrames = context.deathSlowFrames;
     }
 
     if (lifecycleEffects.battleEnded)
@@ -127,6 +128,7 @@ void BattleSceneFrameDeltaBuilder::collectDamageSceneEffects(
 
 void BattleSceneFrameDeltaBuilder::collectFrameApplicationSceneEffects(
     const KysChess::Battle::BattleFrameApplications& applications,
+    const BattleSceneFrameDeltaBuildContext& context,
     BattleSceneFrameDelta& result) const
 {
     result.attackSoundIds.insert(
@@ -137,16 +139,8 @@ void BattleSceneFrameDeltaBuilder::collectFrameApplicationSceneEffects(
         result.rumbles.end(),
         applications.rumbles.begin(),
         applications.rumbles.end());
-}
-
-void BattleSceneFrameDeltaBuilder::collectBlinkSceneEffects(
-    const std::vector<KysChess::Battle::BattleBlinkTeleportDelta>& blinkTeleports,
-    const BattleSceneFrameDeltaBuildContext& context,
-    BattleSceneFrameDelta& result) const
-{
-    for (const auto& teleport : blinkTeleports)
+    for (int i = 0; i < applications.blinkSoundCount; ++i)
     {
-        assert(teleport.unitId >= 0);
         assert(context.blinkSoundEffectId >= 0);
         result.effectSoundIds.push_back(context.blinkSoundEffectId);
     }
