@@ -16,7 +16,6 @@
 #include <map>
 #include <numeric>
 #include <optional>
-#include <print>
 #include <set>
 #include <tuple>
 #include <unordered_map>
@@ -2599,21 +2598,6 @@ void applyDamageResultToFrameState(
         unit.motion.velocity = deathKickVelocity(
             preDamageDeathKickDirection,
             transaction.finalHpDamage);
-        std::print(
-            "[death-kick] unit={} roleId={} name={} attacker={} lastHpDamage={} targetSpeed={:.2f} pos=({:.2f},{:.2f},{:.2f}) velocity=({:.2f},{:.2f},{:.2f}) speed={:.2f}\n",
-            unit.id,
-            unit.realRoleId,
-            unit.name,
-            transaction.attacker.id,
-            transaction.finalHpDamage,
-            deathKickSpeed(transaction.finalHpDamage),
-            unit.motion.position.x,
-            unit.motion.position.y,
-            unit.motion.position.z,
-            unit.motion.velocity.x,
-            unit.motion.velocity.y,
-            unit.motion.velocity.z,
-            unit.motion.velocity.norm());
         unit.motion.acceleration = { 0, 0, state.movementPhysics.config.gravity };
         unit.frozen = 0;
         unit.frozenMax = 0;

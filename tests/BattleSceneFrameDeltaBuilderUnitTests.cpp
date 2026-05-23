@@ -66,6 +66,45 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDeathPresentationEffects", "[bat
     REQUIRE(result.cameraFocus);
 }
 
+TEST_CASE("BattleSceneFrameDeltaBuilder_CoalescesDamageVisualsPerUnitPerFrame", "[battle][scene_frame_delta]")
+{
+    BattleSceneTest::StoreFixture fixture({
+        BattleSceneTest::makeSetupUnit(0, 0, 0, 0, { 0, 0, 0 }),
+        BattleSceneTest::makeSetupUnit(1, 1, 1, 0, { 10, 0, 0 }),
+    });
+    RandomDouble random;
+    random.set_seed(1);
+
+    KysChess::Battle::BattlePresentationFrame frame;
+    KysChess::Battle::BattleFrameApplications applications;
+    frame.logEvents.push_back({
+        KysChess::Battle::BattleLogEventType::Damage,
+        90,
+        0,
+        1,
+        4,
+    });
+    frame.logEvents.push_back({
+        KysChess::Battle::BattleLogEventType::Damage,
+        90,
+        2,
+        1,
+        3,
+    });
+
+    auto result = BattleSceneFrameDeltaBuilder().build(
+        frame,
+        applications,
+        -1,
+        testApplyContext(fixture.store, random));
+
+    REQUIRE(result.hurtFlashes.size() == 1);
+    CHECK(result.hurtFlashes[0].unitId == 1);
+    CHECK(result.hurtFlashes[0].frames == 15);
+    REQUIRE(result.bloodEffects.size() == 1);
+    CHECK(result.bloodEffects[0].followUnitId == 1);
+}
+
 TEST_CASE("BattleSceneFrameDeltaBuilder_DoesNotReplayRescueRuntimeMutations", "[battle][scene_frame_delta]")
 {
     BattleSceneTest::StoreFixture fixture({
