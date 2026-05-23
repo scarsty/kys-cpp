@@ -126,6 +126,7 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleProjectileTargetingSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleReportUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleRescueRepositionSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleRuntimeScenarioUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneFrameDeltaBuilderUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneImpactPlayerUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneReportPlayerUnitTests.cpp"

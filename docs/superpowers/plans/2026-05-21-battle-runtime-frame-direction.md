@@ -289,12 +289,20 @@ Completed in phase 2: `BattleCore.cpp` remains the imperative transaction owner;
 
 **Goal:** Delete the pattern that produced the current bugs.
 
-**Planning status:** Phase 3 inventory is complete, but the first local-copy implementation direction was rejected after review.
+**Implementation status:** Phase 3 is complete for the frame-time mirror synchronization pairs identified in the phase 3 breakdown. The first local-copy implementation direction was rejected after review and unwound.
 
 - See [2026-05-23-battle-runtime-phase-3-mirror-sync-breakdown.md](2026-05-23-battle-runtime-phase-3-mirror-sync-breakdown.md).
 - The corrected phase 3 rule is: pure calculation kernels below, frame-runner-owned runtime reducers above, no broad frame-time mirror state in the middle.
 - Do not fix hidden writeback by copying full runtime stores into a subsystem-owned working state. That only changes the location of the synchronization bug and adds copy cost.
-- Damage application, pending-damage preview, movement planner writeback, action state writeback, and damage/status conversion cleanup each need separate slices with frame-level verification.
+- Completed reducer cleanup:
+  - `BattleDamageApplicationSystem` was deleted; damage application now reduces pending damage inside `BattleCore.cpp::applyDamageAndLifecycle()`.
+  - pending-damage execute/block reactions now happen at damage reduction time against authoritative committed runtime state.
+  - movement planning no longer mutates a caller-owned world or returns `result.units`; it consumes a private `BattleMovementPlanInput` value and returns decisions/reservations for `commitFrameMovement()`.
+  - action frame results no longer carry copied action state; action fields are committed back to `BattleRuntimeUnit` inside the frame runner.
+- Remaining acceptable conversions:
+  - `BattleMovementPlanInput` is still a copied planning value. That is acceptable for phase 3 because it is not authoritative and has no writeback pair. Future performance work may narrow it to views, but ownership is no longer hidden there.
+  - damage/status make/write helpers still exist for setup, tests, and immediate single-transaction reducer commits. They must not be reused as broad subsystem synchronization APIs.
+- Verification on 2026-05-23: `git diff --check`, `.github\build-command.ps1 -Target kys_tests`, focused battle tests, full test suite, and `.github\build-command.ps1` all passed.
 
 **Files:**
 
@@ -315,15 +323,19 @@ Classify each match as:
 - one-frame local scratch
 - persistent mirror synchronization
 
-Completed in phase 3 inventory: the PowerShell-safe equivalent search found 123 matches across battle and `BattleScene*` files. The rejected 3A local-copy approach was unwound; no frame-time mirror pair should be considered removed until it is collapsed into a frame-runner-owned reducer or narrowed to a true calculation input. Persistent runtime synchronization remains in damage application, pending-damage preview, movement planner input/writeback, action state result/writeback, and damage/status conversion APIs. Scene `apply*Frame` calls are still classified as presentation/report synchronization and are deferred until phase 5 unless a runtime result bridge is deleted in the same change.
+Completed in phase 3 inventory: the PowerShell-safe equivalent search found 123 matches across battle and `BattleScene*` files. The rejected 3A local-copy approach was unwound; no frame-time mirror pair should be considered removed until it is collapsed into a frame-runner-owned reducer or narrowed to a true calculation input. The identified frame-time mirror pairs have now been collapsed or narrowed: damage application, pending-damage preview, movement planner input/writeback, and action state result/writeback no longer use subsystem-owned runtime copies as authority. Scene `apply*Frame` calls are still classified as presentation/report synchronization and are deferred until phase 5 unless a runtime result bridge is deleted in the same change.
 
-- [ ] **Step 2: Collapse persistent mirror synchronization into runtime reducers**
+- [x] **Step 2: Collapse persistent mirror synchronization into runtime reducers**
 
 For each persistent mirror pair, either mutate `BattleRuntimeState` directly in the visible `BattleFrameRunner` order or reduce the helper to a pure calculation input that contains only the fields needed for one calculation. Do not replace a writeback pair with a broad local copy plus state-shaped output.
 
-- [ ] **Step 3: Keep setup-time conversion narrow**
+Completed in phase 3: damage is a frame-runner-owned reducer, movement decisions are reduced by `commitFrameMovement()`, and action state is committed inside `advanceActionFrameUnits()`. `BattleMovementPlanInput` remains a private planning value, not an authoritative frame-time mirror.
+
+- [x] **Step 3: Keep setup-time conversion narrow**
 
 Setup conversion is acceptable when converting from config/scene setup into runtime creation input. It must not remain active during frame execution.
+
+Completed in phase 3: setup/test conversion helpers remain, and single-transaction damage/status conversion is used immediately by the frame reducer. Do not re-expand these helpers into a subsystem-owned working state.
 
 ---
 
@@ -331,11 +343,32 @@ Setup conversion is acceptable when converting from config/scene setup into runt
 
 **Goal:** Catch composition bugs where they happen.
 
+**Implementation status:** Phase 4 is complete for the scenario-confidence goal defined in [2026-05-23-battle-runtime-phase-4-scenario-confidence-breakdown.md](2026-05-23-battle-runtime-phase-4-scenario-confidence-breakdown.md).
+
+- Added `tests/BattleRuntimeScenarioTestHelpers.h` with a compact runtime/frame digest for scenario assertions.
+- Added `tests/BattleRuntimeScenarioUnitTests.cpp` with `[battle][scenario][runtime]` coverage for:
+  - basic `BattleRuntimeSession::createInitialized()` frame digest progression
+  - multi-frame damage, death effects, death AOE follow-up, and next-frame damage
+  - action/cast/projectile/damage composition and action-state cleanup
+  - projectile cancellation runtime/presentation digest
+  - rescue during damage lifecycle
+- Verification on 2026-05-23: `git diff --check`, `.github\build-command.ps1 -Target kys_tests`, `[battle][scenario][runtime]`, focused runtime/breakthrough tests, full test suite, and `.github\build-command.ps1` all passed.
+
 **Files:**
 
 - Add/update tests under `tests/` using `BattleRuntimeSession` and `BattleFrameRunner`.
 
-- [ ] **Step 1: Build fixed-seed frame scenarios**
+- [x] **Step 0: Break down the scenario test plan**
+
+Completed in planning: see [2026-05-23-battle-runtime-phase-4-scenario-confidence-breakdown.md](2026-05-23-battle-runtime-phase-4-scenario-confidence-breakdown.md). The plan lists:
+
+- existing `BattleRuntimeSession` / `BattleFrameRunner` scenario coverage to keep
+- recent bug fixes that deserve frame-level protection
+- the minimal fixture/helper changes needed to express scenarios without duplicating setup
+- exact scenario digests to assert, such as alive unit ids, HP/MP, pending attack count, event/log sequence, and battle result
+- execution order so each scenario can be added and verified independently
+
+- [x] **Step 1: Build fixed-seed frame scenarios**
 
 Create small scenario tests that initialize a real runtime-ish battle, run N frames, and assert a compact digest:
 
@@ -346,13 +379,17 @@ Create small scenario tests that initialize a real runtime-ish battle, run N fra
 - important log/event sequence
 - projectile count or no leaked pending attacks
 
-- [ ] **Step 2: Port known bug fixes into scenarios**
+- [x] **Step 2: Port known bug fixes into scenarios**
 
 For each recent battle bug fix worth keeping, add one scenario or adapt an existing scenario so the behavior is protected at the frame level.
 
-- [ ] **Step 3: Keep unit tests for rules, not orchestration confidence**
+Completed in phase 4: phase 3 reducer risks are now covered by scenario digest tests without deleting the narrower rule/unit tests.
+
+- [x] **Step 3: Keep unit tests for rules, not orchestration confidence**
 
 Small unit tests are still useful for damage math, cast planning, movement probing, and formatting. They should not be the main proof that battle composition works.
+
+Completed in phase 4: new scenario tests were added in a separate file; existing subsystem and frame-runner unit tests remain in place.
 
 ---
 

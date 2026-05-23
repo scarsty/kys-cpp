@@ -127,6 +127,7 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="BattleReportUnitTests.cpp" />
     <ClCompile Include="BattleLogImGuiViewUnitTests.cpp" />
     <ClCompile Include="BattleLogPresenterUnitTests.cpp" />
+    <ClCompile Include="BattleRuntimeScenarioUnitTests.cpp" />
     <ClCompile Include="BattleSceneFrameDeltaBuilderUnitTests.cpp" />
     <ClCompile Include="BattleSceneRenderMathUnitTests.cpp" />
     <ClCompile Include="BattleSceneSetupBuilderUnitTests.cpp" />
@@ -192,6 +193,7 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClInclude Include="..\src\battle\BattleTeamEffectSystem.h" />
     <ClInclude Include="..\src\battle\BattleTypes.h" />
     <ClInclude Include="BattleMovementTestHelpers.h" />
+    <ClInclude Include="BattleRuntimeScenarioTestHelpers.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
