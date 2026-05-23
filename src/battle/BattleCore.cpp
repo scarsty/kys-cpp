@@ -4914,7 +4914,6 @@ bool applyFramePendingHitReactions(
 
 void applyDamageAndLifecycle(BattleRuntimeState& state, BattleFrameContext& frame)
 {
-    auto& result = frame.result;
     const auto& frameStartMotion = frame.frameStartMotion;
     auto& logEvents = frame.logEvents;
     auto& visualEvents = frame.visualEvents;
@@ -4964,7 +4963,6 @@ void applyDamageAndLifecycle(BattleRuntimeState& state, BattleFrameContext& fram
                 transactionDeadUnitIds.begin(),
                 transactionDeadUnitIds.end());
         }
-        result.damageTransactions.push_back(transaction);
     }
     if (unitDied)
     {

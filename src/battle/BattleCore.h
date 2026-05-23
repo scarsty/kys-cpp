@@ -256,7 +256,6 @@ struct BattleFrameResult
 {
     BattlePresentationFrame frame;
     BattleFrameApplications applications;
-    std::vector<BattleDamageTransactionResult> damageTransactions;
 };
 
 struct BattleTeamEffectCommandApplication
