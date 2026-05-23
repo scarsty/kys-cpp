@@ -5,6 +5,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <utility>
+
 using namespace KysChess::Battle;
 
 TEST_CASE("BattlePresentationRecorder_BeginsFrameAndRecordsLogEvents", "[battle][presentation][unit]")
@@ -32,7 +34,13 @@ TEST_CASE("BattlePresentationRecorder_BeginFrameWithFrameOnlyStampsEvents", "[ba
 
     recorder.beginFrame(17);
     recorder.recordLog({ KysChess::Battle::BattleLogEventType::Status, BattlePresentationCurrentFrame, -1, -1, 0, BattleLogCategory::Status, BattleLogPerspective::Targeted, battleLogText("status") });
-    recorder.recordVisual({ BattleVisualEventType::FloatingText, BattlePresentationCurrentFrame, -1, 1, 0, 0, -1, 16, 0, "text" });
+    BattleVisualEvent text;
+    text.type = BattleVisualEventType::FloatingText;
+    text.targetUnitId = 1;
+    text.textSize = 16;
+    text.textMotionType = 0;
+    text.text = "text";
+    recorder.recordVisual(std::move(text));
     recorder.recordGameplay({ BattleGameplayEventType::BattleEnded });
 
     const auto& frame = recorder.frame();
@@ -77,7 +85,13 @@ TEST_CASE("BattlePresentationRecorder_ConsumeFrameMovesCurrentFrameAndResets", "
     BattlePresentationRecorder recorder;
     recorder.beginFrame(7);
     recorder.recordGameplay({ BattleGameplayEventType::ProjectileExpired, BattlePresentationCurrentFrame, 1, 3, 0, 11 });
-    recorder.recordVisual({ BattleVisualEventType::FloatingText, BattlePresentationCurrentFrame, -1, 3, 0, 0, -1, 24, 1, "text" });
+    BattleVisualEvent text;
+    text.type = BattleVisualEventType::FloatingText;
+    text.targetUnitId = 3;
+    text.textSize = 24;
+    text.textMotionType = 1;
+    text.text = "text";
+    recorder.recordVisual(std::move(text));
 
     auto consumed = recorder.consumeFrame();
 
