@@ -1,4 +1,5 @@
 #include "battle/BattleMovement.h"
+#include "BattleMovementTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -9,6 +10,7 @@
 #include <vector>
 
 using namespace KysChess::Battle;
+using namespace KysChess::Battle::Test;
 
 namespace
 {
@@ -99,10 +101,10 @@ std::vector<BattleTerrainCell> terrainGridWithVerticalWallGap(
     return cells;
 }
 
-BattleMovementFrameInput makeWorld(const std::vector<PinnedUnitSpec>& specs,
+BattleMovementPlanInput makeWorld(const std::vector<PinnedUnitSpec>& specs,
                            std::vector<BattleTerrainCell> terrain = {})
 {
-    BattleMovementFrameInput world;
+    BattleMovementPlanInput world;
     world.config = pinnedConfig();
     world.terrainCells = std::move(terrain);
 
@@ -114,15 +116,12 @@ BattleMovementFrameInput makeWorld(const std::vector<PinnedUnitSpec>& specs,
 
         BattleUnitState unit;
         unit.id = static_cast<int>(i + 1);
-        unit.realRoleId = spec.roleId;
-        unit.name = pinned->second.name;
         unit.team = spec.team;
         unit.position = spec.position;
         unit.speed = pinned->second.speed;
         unit.reach = pinned->second.reach;
         unit.style = pinned->second.style;
         unit.taXue = pinned->second.taXue;
-        unit.dashAttack = pinned->second.taXue;
         world.units.push_back(unit);
     }
     return world;
@@ -146,7 +145,7 @@ TEST_CASE("YanJi_AllyBlock_RecoversBeforeStall", "[battle][movement]")
         { 116, 1, { 520, 100, 0 } },
     });
 
-    auto run = BattleMovementSimulator(world).run(240, 1234);
+    auto run = runMovementPlanForFrames(world, 240);
     auto stats = run.stats.at(1);
     CHECK(stats.consecutiveNoProgressFrames < 45);
     CHECK(stats.consecutiveAllyBlockedFrames < 12);
@@ -201,7 +200,7 @@ TEST_CASE("SaoDi_MeleeJitter_DoesNotIdleHundredsOfFrames", "[battle][movement]")
         { 118, 1, { 560, 140, 0 } },
     });
 
-    auto run = BattleMovementSimulator(world).run(300, 55);
+    auto run = runMovementPlanForFrames(world, 300);
     auto stats = run.stats.at(1);
     CHECK(stats.consecutiveNoProgressFrames < 60);
     CHECK(stats.directionReversalCount < 30);
@@ -217,7 +216,7 @@ TEST_CASE("HuFei_HuYiDao_TaXue_DashAttackStillHappens", "[battle][movement]")
         { 116, 1, { 650, 120, 0 } },
     });
 
-    auto run = BattleMovementSimulator(world).run(260, 7);
+    auto run = runMovementPlanForFrames(world, 260);
     CHECK((run.stats.at(1).dashCount + run.stats.at(2).dashCount) > 0);
     CHECK((run.stats.at(1).attackReadyFrames + run.stats.at(2).attackReadyFrames) > 0);
 }
@@ -242,6 +241,27 @@ TEST_CASE("TaXue_DashDoesNotForceMaximumDistance", "[battle][movement]")
     CHECK(dash->value < world.config.maxDashDistance);
 }
 
+TEST_CASE("BattleMovementPlanner_TickReturnsDecisionsWithoutMutatingCallerWorld", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 100, 100, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.config.reservationHorizonFrames = 3;
+    world.units[0].dashCooldownRemaining = 999;
+
+    const auto originalPosition = world.units[0].position;
+    const auto originalVelocity = world.units[0].velocity;
+    auto tick = BattleMovementPlanner(world).tick();
+
+    REQUIRE(tick.decisions.contains(1));
+    CHECK(tick.decisions.at(1).action == MovementAction::Move);
+    CHECK(tick.decisions.at(1).destination.x > originalPosition.x);
+    CHECK(world.units[0].position.x == originalPosition.x);
+    CHECK(world.units[0].velocity.x == originalVelocity.x);
+    CHECK(world.movementReservations.empty());
+}
+
 TEST_CASE("TaXue_MeleeChaosStartsImmediatePeelDash", "[battle][movement]")
 {
     auto world = makeWorld({
@@ -264,8 +284,8 @@ TEST_CASE("TaXue_MeleeChaosStartsImmediatePeelDash", "[battle][movement]")
     CHECK(tick.decisions.at(1).action == MovementAction::Dash);
     CHECK(dash->to.x < dash->from.x);
     CHECK(std::abs(dash->to.y - dash->from.y) > 0.1);
-    CHECK(world.units[0].postDashChaosFramesRemaining == 0);
-    CHECK(world.units[0].dashCooldownRemaining == world.config.dashCooldownFrames);
+    CHECK(tick.decisions.at(1).postDashChaosFramesRemaining == 0);
+    CHECK(tick.decisions.at(1).dashCooldownRemaining == world.config.dashCooldownFrames);
 }
 
 TEST_CASE("TaXue_RangedPeelsWhenCrowded", "[battle][movement]")
@@ -275,7 +295,6 @@ TEST_CASE("TaXue_RangedPeelsWhenCrowded", "[battle][movement]")
         { 116, 1, { 300, 100, 0 } },
     });
     world.units[0].taXue = true;
-    world.units[0].dashAttack = true;
 
     auto tick = BattleMovementPlanner(world).tick();
 
@@ -290,7 +309,7 @@ TEST_CASE("TaXue_RangedPeelsWhenCrowded", "[battle][movement]")
     CHECK(dash->to.x < dash->from.x);
     REQUIRE(tick.decisions.contains(1));
     CHECK(tick.decisions.at(1).action == MovementAction::Dash);
-    CHECK(tick.units[0].dashCooldownRemaining == world.config.dashCooldownFrames);
+    CHECK(tick.decisions.at(1).dashCooldownRemaining == world.config.dashCooldownFrames);
 }
 
 TEST_CASE("MeleeSwarm_DoesNotReserveSameApproachSlot", "[battle][movement]")
@@ -303,7 +322,7 @@ TEST_CASE("MeleeSwarm_DoesNotReserveSameApproachSlot", "[battle][movement]")
         { 116, 1, { 520, 150, 0 } },
     });
 
-    auto run = BattleMovementSimulator(world).run(260, 99);
+    auto run = runMovementPlanForFrames(world, 260);
     for (int id = 1; id <= 4; ++id)
     {
         CHECK(run.stats.at(id).consecutiveAllyBlockedFrames < 15);
@@ -328,12 +347,12 @@ TEST_CASE("ReservationHorizon_AvoidsSoftReservedStepWhenAlternativeExists", "[ba
         world.frame + world.config.reservationHorizonFrames,
     };
 
-    BattleMovementPlanner(world).tick();
+    auto tick = BattleMovementPlanner(world).tick();
 
-    CHECK(world.units[0].position.x > 100.0f);
-    CHECK(world.units[0].position.y != Catch::Approx(100.0f));
-    REQUIRE(world.movementReservations.contains(1));
-    CHECK(world.movementReservations.at(1).expiresFrame == world.frame + world.config.reservationHorizonFrames);
+    CHECK(tick.decisions.at(1).destination.x > 100.0f);
+    CHECK(tick.decisions.at(1).destination.y != Catch::Approx(100.0f));
+    REQUIRE(tick.movementReservations.contains(1));
+    CHECK(tick.movementReservations.at(1).expiresFrame == tick.frame + world.config.reservationHorizonFrames);
 }
 
 TEST_CASE("ReservationHorizon_SoftReservationsFallbackInsteadOfDeadlocking", "[battle][movement]")
@@ -356,8 +375,8 @@ TEST_CASE("ReservationHorizon_SoftReservationsFallbackInsteadOfDeadlocking", "[b
     auto tick = BattleMovementPlanner(world).tick();
 
     CHECK(tick.decisions.at(1).action == MovementAction::Move);
-    CHECK(world.units[0].position.x > 100.0f);
-    CHECK(world.units[0].position.y == Catch::Approx(100.0f));
+    CHECK(tick.decisions.at(1).destination.x > 100.0f);
+    CHECK(tick.decisions.at(1).destination.y == Catch::Approx(100.0f));
 }
 
 TEST_CASE("ReservationHorizon_PrunesExpiredAndClearsAttackReadyReservations", "[battle][movement]")
@@ -373,10 +392,10 @@ TEST_CASE("ReservationHorizon_PrunesExpiredAndClearsAttackReadyReservations", "[
     world.movementReservations[1] = BattleMovementReservation{ 1, { 120, 100, 0 }, 2.0, 20 };
     world.movementReservations[2] = BattleMovementReservation{ 2, { 700, 700, 0 }, 2.0, 9 };
 
-    BattleMovementPlanner(world).tick();
+    auto tick = BattleMovementPlanner(world).tick();
 
-    CHECK_FALSE(world.movementReservations.contains(1));
-    CHECK_FALSE(world.movementReservations.contains(2));
+    CHECK_FALSE(tick.movementReservations.contains(1));
+    CHECK_FALSE(tick.movementReservations.contains(2));
 }
 
 TEST_CASE("TaXue_UnstableIgnoresReservationsAndUnitBodiesButRespectsTerrain", "[battle][movement]")
@@ -390,10 +409,10 @@ TEST_CASE("TaXue_UnstableIgnoresReservationsAndUnitBodiesButRespectsTerrain", "[
     world.units[0].velocity = { 4.55f, 0, 0 };
     world.movementReservations[2] = BattleMovementReservation{ 2, { 104.55f, 100, 0 }, 2.0, 3 };
 
-    BattleMovementPlanner(world).tick();
+    auto tick = BattleMovementPlanner(world).tick();
 
-    CHECK(world.units[0].position.x == Catch::Approx(104.55f));
-    CHECK_FALSE(world.movementReservations.contains(1));
+    CHECK(tick.decisions.at(1).destination.x == Catch::Approx(104.55f));
+    CHECK_FALSE(tick.movementReservations.contains(1));
 
     auto blocked = makeWorld({
         { 1, 0, { 100, 100, 0 } },
@@ -405,9 +424,9 @@ TEST_CASE("TaXue_UnstableIgnoresReservationsAndUnitBodiesButRespectsTerrain", "[
     blocked.units[0].dashFramesRemaining = 2;
     blocked.units[0].velocity = { 4.55f, 0, 0 };
 
-    BattleMovementPlanner(blocked).tick();
+    auto blockedTick = BattleMovementPlanner(blocked).tick();
 
-    CHECK(blocked.units[0].position.x == Catch::Approx(100.0f));
+    CHECK(blockedTick.decisions.at(1).destination.x == Catch::Approx(100.0f));
 }
 
 TEST_CASE("BattleMovementPhysicsSystem_CanIgnoreUnitCollisionButNeedsHeightToClearTerrain", "[battle][movement]")
@@ -474,7 +493,7 @@ TEST_CASE("RangedRetarget_HoldsWhenAlreadyCanShoot", "[battle][movement]")
     });
     world.units[2].alive = false;
 
-    auto run = BattleMovementSimulator(world).run(120, 22);
+    auto run = runMovementPlanForFrames(world, 120);
     CHECK(run.stats.at(1).attackReadyFrames > 40);
     CHECK(run.stats.at(1).consecutiveAllyBlockedFrames < 8);
     CHECK(countEvents(run, 1, BattleEventType::BlockedByAlly) < 12);
@@ -487,7 +506,7 @@ TEST_CASE("CorneredRanged_NoWallBumpLoop", "[battle][movement]")
         { 116, 1, { 280, 120, 0 } },
     }, terrainRectangle(80, 80, 700, 700));
 
-    auto run = BattleMovementSimulator(world).run(160, 2026);
+    auto run = runMovementPlanForFrames(world, 160);
     CHECK(run.stats.at(1).consecutiveWallBlockedFrames < 10);
     CHECK(run.stats.at(1).attackReadyFrames > 30);
 }
@@ -501,7 +520,7 @@ TEST_CASE("MeleePathing_RoutesAroundWallGapInsteadOfHolding", "[battle][movement
     world.units[0].reach = 60.0;
     world.units[1].speed = 0.0;
 
-    auto run = BattleMovementSimulator(world).run(220, 2026);
+    auto run = runMovementPlanForFrames(world, 220);
     const auto& chaser = run.world.units[0];
 
     CHECK(chaser.position.x > 5.0f * SceneTileWidth);
@@ -517,7 +536,7 @@ TEST_CASE("MeleeAcrossWall_HoldsAttackReadyBecauseMeleeHitsIgnoreTerrain", "[bat
     }, terrainGridWithVerticalWallGap(12, 5, 9));
     world.units[1].speed = 0.0;
 
-    auto run = BattleMovementSimulator(world).run(160, 2026);
+    auto run = runMovementPlanForFrames(world, 160);
     const auto& chaser = run.world.units[0];
 
     CHECK(chaser.position.y == Catch::Approx(4.0f * SceneTileWidth));
@@ -533,7 +552,7 @@ TEST_CASE("RangedAcrossWall_HoldsAttackReadyBecauseProjectilesIgnoreTerrain", "[
     }, terrainGridWithVerticalWallGap(12, 5, 9));
     world.units[1].speed = 0.0;
 
-    auto run = BattleMovementSimulator(world).run(160, 2026);
+    auto run = runMovementPlanForFrames(world, 160);
     const auto& shooter = run.world.units[0];
 
     CHECK(shooter.position.y == Catch::Approx(4.0f * SceneTileWidth));
@@ -541,7 +560,7 @@ TEST_CASE("RangedAcrossWall_HoldsAttackReadyBecauseProjectilesIgnoreTerrain", "[
     CHECK(run.stats.at(1).consecutiveNoProgressFrames == 0);
 }
 
-TEST_CASE("Deterministic_ReplaySameSeedSameEvents", "[battle][movement]")
+TEST_CASE("Deterministic_ReplaySameWorldSameEvents", "[battle][movement]")
 {
     auto make = []()
     {
@@ -552,8 +571,8 @@ TEST_CASE("Deterministic_ReplaySameSeedSameEvents", "[battle][movement]")
         });
     };
 
-    auto first = BattleMovementSimulator(make()).run(180, 888);
-    auto second = BattleMovementSimulator(make()).run(180, 888);
+    auto first = runMovementPlanForFrames(make(), 180);
+    auto second = runMovementPlanForFrames(make(), 180);
     REQUIRE(first.events.size() == second.events.size());
     for (size_t i = 0; i < first.events.size(); ++i)
     {

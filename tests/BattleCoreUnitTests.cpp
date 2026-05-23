@@ -8,6 +8,7 @@
 #include "ChessEftIds.h"
 #include "Find.h"
 #include "BattleLogTestHelpers.h"
+#include "BattleMovementTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -18,6 +19,7 @@
 #include <vector>
 
 using namespace KysChess::Battle;
+using namespace KysChess::Battle::Test;
 using namespace KysChess;
 
 namespace
@@ -156,8 +158,6 @@ BattleUnitState unit(int id, int team, Pointf position, CombatStyle style = Comb
 {
     BattleUnitState state;
     state.id = id;
-    state.realRoleId = id;
-    state.name = std::to_string(id);
     state.team = team;
     state.position = position;
     state.speed = 5.0;
@@ -166,9 +166,9 @@ BattleUnitState unit(int id, int team, Pointf position, CombatStyle style = Comb
     return state;
 }
 
-BattleMovementFrameInput worldWith(std::vector<BattleUnitState> units)
+BattleMovementPlanInput worldWith(std::vector<BattleUnitState> units)
 {
-    BattleMovementFrameInput world;
+    BattleMovementPlanInput world;
     world.config = testConfig();
     world.units = std::move(units);
     return world;
@@ -223,10 +223,9 @@ void seedRuntimeUnitsFromMovementUnits(
     }
 }
 
-void configureRuntimeMovement(BattleRuntimeState& state, BattleMovementFrameInput input)
+void configureRuntimeMovement(BattleRuntimeState& state, BattleMovementPlanInput input)
 {
     state.movement.frame = input.frame;
-    state.movement.seed = input.seed;
     state.movement.config = input.config;
     state.movement.terrainCells = std::move(input.terrainCells);
     state.movement.movementReservations = std::move(input.movementReservations);
@@ -239,7 +238,7 @@ void seedRuntimeUnitsFromWorld(BattleRuntimeState& state, int hp = 100)
     units.reserve(state.unitStore.units.size());
     for (const auto& runtime : state.unitStore.units)
     {
-        auto unit = makeBattleWorldUnitState(runtime, BattleRuntimeMoveSpeedDivisor);
+        auto unit = makeBattleMovementPlanUnit(runtime, BattleRuntimeMoveSpeedDivisor);
         unit.reach = runtime.reach;
         unit.style = runtime.style;
         units.push_back(unit);
@@ -1163,15 +1162,16 @@ TEST_CASE("BattleCore_PlannedDash_UsesSpeedScaledDistanceForNormalUnits", "[batt
     auto decision = result.decisions.at(1);
     CHECK(decision.action == MovementAction::Dash);
     CHECK(decision.dashDistance == 50.0);
-    CHECK(world.units[0].dashFramesRemaining == world.config.dashFrames);
+    CHECK(decision.dashFramesRemaining == world.config.dashFrames);
+    CHECK(decision.dashCooldownRemaining == world.config.dashCooldownFrames);
 }
 
 TEST_CASE("BattleCore_MovementStats_CountsDashStartsOnly", "[battle][core]")
 {
-    auto run = BattleMovementSimulator(worldWith({
+    auto run = runMovementPlanForFrames(worldWith({
         unit(1, 0, { 100, 100, 0 }),
         unit(2, 1, { 600, 100, 0 }),
-    })).run(6, 1);
+    }), 6);
 
     CHECK(run.stats.at(1).dashCount == 1);
     CHECK(run.stats.at(1).lastDashDistance == 50.0);
@@ -1210,7 +1210,6 @@ TEST_CASE("BattleCore_TaXue_AllowsLongDash", "[battle][core]")
 {
     auto chaser = unit(1, 0, { 100, 100, 0 });
     chaser.taXue = true;
-    chaser.dashAttack = true;
     auto world = worldWith({
         chaser,
         unit(2, 1, { 600, 100, 0 }),
@@ -1259,15 +1258,15 @@ TEST_CASE("BattleCore_SlotSwitchCooldown_BoundsRepeatedReplans", "[battle][core]
     });
     world.units[0].dashCooldownRemaining = 999;
 
-    auto first = BattleMovementPlanner(world).tick();
-    CHECK((first.decisions.at(1).blockReason == MoveBlockReason::Ally
-        || first.decisions.at(1).blockReason == MoveBlockReason::Reservation));
-    CHECK(world.units[0].slotSwitchCooldownRemaining > 0);
-    int slotAfterFirst = world.units[0].assignedSlot;
+    auto firstRun = runMovementPlanForFrames(world, 1);
+    CHECK((firstRun.stats.at(1).lastBlockReason == MoveBlockReason::Ally
+        || firstRun.stats.at(1).lastBlockReason == MoveBlockReason::Reservation));
+    CHECK(firstRun.world.units[0].slotSwitchCooldownRemaining > 0);
+    const int slotAfterFirst = firstRun.world.units[0].assignedSlot;
 
-    auto second = BattleMovementPlanner(world).tick();
-    CHECK(world.units[0].assignedSlot == slotAfterFirst);
-    CHECK(second.decisions.at(1).slot == slotAfterFirst);
+    auto secondRun = runMovementPlanForFrames(firstRun.world, 1);
+    CHECK(secondRun.world.units[0].assignedSlot == slotAfterFirst);
+    CHECK(secondRun.world.units[0].slotSwitchCooldownRemaining < firstRun.world.units[0].slotSwitchCooldownRemaining);
 }
 
 TEST_CASE("BattleUnitFrameTickSystem_AdvancesCooldownAndIdleResourceTicks", "[battle][core]")
@@ -3322,6 +3321,77 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathAoeProjectileDamagesOnNextFrame",
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 50);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAllyDeathEffectsInsideDamageLifecycle", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 120, 100, 0 }),
+        unit(2, 1, { 140, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 1, 10, { 120, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, 50, { 140, 100, 0 }),
+    };
+    state.unitStore.requireUnit(2).stats.attack = 10;
+    state.status.units = {
+        statusRuntimeSnapshot(0, 100),
+        statusRuntimeSnapshot(1, 10),
+        statusRuntimeSnapshot(2, 50),
+    };
+    queuePendingDamage(state, lethalDamageInput(0, 1));
+
+    BattleDeathEffectExtras dead;
+    dead.id = 1;
+    dead.comboIds = { 9 };
+    dead.appliedEffects.push_back({ EffectType::DeathMedical, 20, 0, "", Trigger::Always, 0, 0, 0, 9 });
+
+    BattleDeathEffectExtras ally;
+    ally.id = 2;
+    ally.shieldPctMaxHp = 30;
+    ally.comboIds = { 9 };
+    ally.appliedEffects.push_back({ EffectType::AllyDeathStatBoost, 4, 0, "", Trigger::Always, 0, 0, 0, 9 });
+    ally.appliedEffects.push_back({ EffectType::ShieldOnAllyDeath, 1, 0, "", Trigger::Always, 0, 0, 0, 9 });
+
+    state.deathEffects.store.units = { { 0 }, dead, ally };
+    state.deathEffects.store.regularSynergyComboIds.insert(9);
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.unitStore.requireUnit(2).stats.attack == 14);
+    CHECK(state.unitStore.requireUnit(2).vitals.hp == 70);
+    CHECK(state.unitStore.requireUnit(2).shield == 30);
+    CHECK(std::any_of(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.sourceUnitId == 2
+                && event.targetUnitId == 2
+                && BattleLogTest::textOf(event) == "同袍之死（攻防+4）";
+        }));
+    CHECK(std::any_of(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.sourceUnitId == 1
+                && event.targetUnitId == 2
+                && BattleLogTest::textOf(event) == "死亡醫療";
+        }));
+    CHECK(std::any_of(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.sourceUnitId == 1
+                && event.targetUnitId == 2
+                && BattleLogTest::textOf(event) == "護盾重獲（30護盾）";
+        }));
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[battle][core][breakthrough]")
 {
     auto frame = hitDamageFrameState(70, 100);
@@ -3812,6 +3882,46 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePreviewUsesResolvedPendingDamag
             return event.type == BattleVisualEventType::FloatingText
                 && event.targetUnitId == 1
                 && event.text == "處決！";
+        }));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecuteUsesCommittedPendingDamage", "[battle][core][breakthrough]")
+{
+    auto frame = hitDamageFrameState(3, 60);
+    auto& state = frame.state;
+    state.movement.frame = 1;
+    state.combo.units[0].triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::Execute, KysChess::Trigger::OnHit, 50, 100));
+    state.damage.presentationStylesByDefender[1].executeTextSize = 44;
+
+    queuePendingDamage(state, preResolvedDamageInput(0, 1, 60, 25));
+
+    auto result = runBattleFrame(state);
+
+    REQUIRE(result.damageTransactions.size() == 2);
+    CHECK(result.damageTransactions[0].finalHpDamage == 25);
+    CHECK_FALSE(result.damageTransactions[0].executed);
+    CHECK(result.damageTransactions[1].executed);
+    CHECK(result.damageTransactions[1].killed);
+    CHECK_FALSE(state.unitStore.requireUnit(1).alive);
+    CHECK(std::any_of(
+        result.frame.visualEvents.begin(),
+        result.frame.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::FloatingText
+                && event.targetUnitId == 1
+                && event.text == "處決！";
+        }));
+    CHECK(std::any_of(
+        result.frame.logEvents.begin(),
+        result.frame.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Status
+                && event.sourceUnitId == 0
+                && event.targetUnitId == 1
+                && BattleLogTest::textOf(event) == "觸發處決（斬殺線50%）";
         }));
 }
 

@@ -3,7 +3,6 @@
 #include "../Point.h"
 
 #include <map>
-#include <string>
 #include <vector>
 
 namespace KysChess::Battle
@@ -75,18 +74,14 @@ struct BattleMovementGeometry
 struct BattleUnitState
 {
     int id = -1;
-    int realRoleId = -1;
-    std::string name;
     int team = 0;
     bool alive = true;
     Pointf position;
     Pointf velocity;
     double speed = 0.0;
-    int star = 1;
     double reach = 0.0;
     CombatStyle style = CombatStyle::Melee;
     bool taXue = false;
-    bool dashAttack = false;
     bool canAttack = true;
     int targetId = -1;
     int assignedSlot = 0;
@@ -113,6 +108,12 @@ struct MovementDecision
     Pointf destination;
     int targetId = -1;
     int slot = 0;
+    int slotSwitchCooldownRemaining = 0;
+    int dashFramesRemaining = 0;
+    int dashCooldownRemaining = 0;
+    int movementDashSpreadFramesRemaining = 0;
+    int postDashRetreatFramesRemaining = 0;
+    int postDashChaosFramesRemaining = 0;
     MoveBlockReason blockReason = MoveBlockReason::None;
     int blockerId = -1;
     double dashDistance = 0.0;
@@ -168,15 +169,14 @@ struct BattleMovementAgentState
 struct BattleTickResult
 {
     int frame = 0;
-    std::vector<BattleUnitState> units;
     std::vector<BattleEvent> events;
     std::map<int, MovementDecision> decisions;
+    std::map<int, BattleMovementReservation> movementReservations;
 };
 
-struct BattleMovementFrameInput
+struct BattleMovementPlanInput
 {
     int frame = 0;
-    unsigned int seed = 1;
     BattleMovementConfig config;
     std::vector<BattleUnitState> units;
     std::vector<BattleTerrainCell> terrainCells;
@@ -191,29 +191,6 @@ struct BattleMovementState
     std::vector<BattleTerrainCell> terrainCells;
     std::map<int, BattleMovementReservation> movementReservations;
     std::map<int, BattleMovementAgentState> agents;
-};
-
-struct MovementStats
-{
-    int consecutiveBlockedFrames = 0;
-    int consecutiveAllyBlockedFrames = 0;
-    int consecutiveWallBlockedFrames = 0;
-    int consecutiveNoProgressFrames = 0;
-    int totalAllyBlockedFrames = 0;
-    int targetSwitches = 0;
-    int slotSwitches = 0;
-    int dashCount = 0;
-    double lastDashDistance = 0.0;
-    int attackReadyFrames = 0;
-    int directionReversalCount = 0;
-    MoveBlockReason lastBlockReason = MoveBlockReason::None;
-};
-
-struct MovementRunResult
-{
-    BattleMovementFrameInput world;
-    std::vector<BattleEvent> events;
-    std::map<int, MovementStats> stats;
 };
 
 }  // namespace KysChess::Battle

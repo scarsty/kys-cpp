@@ -157,9 +157,6 @@
     <ClCompile Include="battle\BattleHitResolver.cpp">
       <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="battle\BattleDamageApplicationSystem.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
     <ClCompile Include="battle\BattleRescueRepositionSystem.cpp">
       <Filter>battle</Filter>
     </ClCompile>
@@ -423,6 +420,9 @@
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="battle\BattleHitResolver.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="battle\BattleDamageQueue.h">
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="Find.h">

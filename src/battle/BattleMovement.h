@@ -83,7 +83,7 @@ bool battleMovementTaXueUnstable(const BattleUnitState& unit);
 class BattleMovementPlanner
 {
 public:
-    explicit BattleMovementPlanner(BattleMovementFrameInput& world);
+    explicit BattleMovementPlanner(BattleMovementPlanInput world);
 
     BattleTickResult tick();
     MoveProbe probeMove(const BattleUnitState& unit,
@@ -92,18 +92,7 @@ public:
                         const std::map<int, Pointf>& reservations = {}) const;
 
 private:
-    BattleMovementFrameInput& world_;
-};
-
-class BattleMovementSimulator
-{
-public:
-    explicit BattleMovementSimulator(BattleMovementFrameInput world);
-
-    MovementRunResult run(int frames, unsigned int seed);
-
-private:
-    BattleMovementFrameInput world_;
+    BattleMovementPlanInput world_;
 };
 
 }  // namespace KysChess::Battle

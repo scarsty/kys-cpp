@@ -87,7 +87,7 @@ The exact function names are not important. The important rule is that ordering 
 ## Non-Negotiables
 
 - Do not add new bridge layers unless an old bridge layer is deleted in the same change.
-- Avoid `makeXWorld` / `writeXWorld` pairs for persistent gameplay domains. They are synchronization bugs by design unless the world is local, temporary, and cannot outlive the call.
+- Avoid `makeXWorld` / `writeXWorld` pairs for persistent gameplay domains. They are synchronization bugs by design unless the input is a narrow calculation value. A subsystem-owned copy of `BattleRuntimeState`, `BattleUnitStore`, or a runtime-shaped unit vector is still a mirror world even when it only lives for one frame.
 - Scene-side code must not mutate gameplay after runtime initialization, except by sending explicit input/setup commands to runtime.
 - `BattleSceneFrameDeltaBuilder` and any successor must be visual/audio/camera/report mapping only. It must not clear combo flags, transfer combo state, apply damage, alter resources, or infer gameplay outcomes.
 - Unit tests for isolated systems are not enough. Every meaningful migration needs at least one frame-level scenario test or an existing scenario test updated to cover the full composition.
@@ -289,11 +289,12 @@ Completed in phase 2: `BattleCore.cpp` remains the imperative transaction owner;
 
 **Goal:** Delete the pattern that produced the current bugs.
 
-**Planning status:** Phase 3 inventory is complete and shows this phase is not safe as one implementation pass.
+**Planning status:** Phase 3 inventory is complete, but the first local-copy implementation direction was rejected after review.
 
 - See [2026-05-23-battle-runtime-phase-3-mirror-sync-breakdown.md](2026-05-23-battle-runtime-phase-3-mirror-sync-breakdown.md).
-- The first ready implementation slice is removing hidden runtime writeback from `BattleDamageApplicationSystem::apply()`.
-- Movement planner world writeback, action state writeback, and damage/status conversion cleanup each need separate slices with frame-level verification.
+- The corrected phase 3 rule is: pure calculation kernels below, frame-runner-owned runtime reducers above, no broad frame-time mirror state in the middle.
+- Do not fix hidden writeback by copying full runtime stores into a subsystem-owned working state. That only changes the location of the synchronization bug and adds copy cost.
+- Damage application, pending-damage preview, movement planner writeback, action state writeback, and damage/status conversion cleanup each need separate slices with frame-level verification.
 
 **Files:**
 
@@ -314,11 +315,11 @@ Classify each match as:
 - one-frame local scratch
 - persistent mirror synchronization
 
-Completed in phase 3 inventory: the PowerShell-safe equivalent search found 123 matches across battle and `BattleScene*` files. Persistent runtime synchronization remains in damage application hidden writeback, movement planner input/writeback, action state result/writeback, and damage/status conversion APIs. Scene `apply*Frame` calls are still classified as presentation/report synchronization and are deferred until phase 5 unless a runtime result bridge is deleted in the same change.
+Completed in phase 3 inventory: the PowerShell-safe equivalent search found 123 matches across battle and `BattleScene*` files. The rejected 3A local-copy approach was unwound; no frame-time mirror pair should be considered removed until it is collapsed into a frame-runner-owned reducer or narrowed to a true calculation input. Persistent runtime synchronization remains in damage application, pending-damage preview, movement planner input/writeback, action state result/writeback, and damage/status conversion APIs. Scene `apply*Frame` calls are still classified as presentation/report synchronization and are deferred until phase 5 unless a runtime result bridge is deleted in the same change.
 
-- [ ] **Step 2: Delete persistent mirror synchronization first**
+- [ ] **Step 2: Collapse persistent mirror synchronization into runtime reducers**
 
-For each persistent mirror pair, move the owning fields into `BattleRuntimeState` or reduce the helper to a pure calculation input that contains only the fields needed for the calculation.
+For each persistent mirror pair, either mutate `BattleRuntimeState` directly in the visible `BattleFrameRunner` order or reduce the helper to a pure calculation input that contains only the fields needed for one calculation. Do not replace a writeback pair with a broad local copy plus state-shaped output.
 
 - [ ] **Step 3: Keep setup-time conversion narrow**
 

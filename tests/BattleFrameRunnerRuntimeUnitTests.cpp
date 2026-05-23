@@ -39,7 +39,6 @@ BattleUnitState runtimeUnit(int id, int team, Pointf position)
 {
     BattleUnitState state;
     state.id = id;
-    state.realRoleId = id;
     state.team = team;
     state.alive = true;
     state.position = position;
@@ -52,7 +51,7 @@ BattleRuntimeUnit runtimeUnitFromWorld(const BattleUnitState& worldUnit)
 {
     BattleRuntimeUnit unit;
     unit.id = worldUnit.id;
-    unit.realRoleId = worldUnit.realRoleId;
+    unit.realRoleId = worldUnit.id;
     unit.team = worldUnit.team;
     unit.alive = worldUnit.alive;
     unit.vitals = { 100, 100, 20, 100 };

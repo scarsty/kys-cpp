@@ -41,7 +41,6 @@ set(KYS_BATTLE_SOURCES
     battle/BattleComboTriggerSystem.cpp
     battle/BattleCore.cpp
     battle/BattleCombatIntent.cpp
-    battle/BattleDamageApplicationSystem.cpp
     battle/BattleDamageSystem.cpp
     battle/BattleDeathEffectSystem.cpp
     battle/BattleEffectSystem.cpp
@@ -114,7 +113,6 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleCastSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleComboTriggerSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCoreUnitTests.cpp"
-    "${KYS_ROOT}/tests/BattleDamageApplicationSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleDamageSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleDeathEffectSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleEffectSystemUnitTests.cpp"

@@ -373,7 +373,7 @@ TEST_CASE("BattleHitResolver_ReflectsTrackingProjectile", "[battle][hit_resolver
     CHECK(command->damage == 75);
 }
 
-TEST_CASE("BattleHitResolver_ExecuteTurnsFinalDamageIntoExecutedHpCommand", "[battle][hit_resolver][unit]")
+TEST_CASE("BattleHitResolver_ExecuteHitDefersRuntimeExecuteDecision", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
     input.skill.id = 101;
@@ -386,14 +386,15 @@ TEST_CASE("BattleHitResolver_ExecuteTurnsFinalDamageIntoExecutedHpCommand", "[ba
 
     auto result = resolveHit(input);
 
-    CHECK(result.executed);
     const auto* command = firstHpDamageCommand(result);
     REQUIRE(command);
     CHECK(command->sourceUnitId == 1);
     CHECK(command->targetUnitId == 2);
-    CHECK(command->executed);
-    CHECK(command->damage == 30);
-    CHECK(BattleLogTest::joinSegments(command->segments) == "處決");
+    CHECK(command->canTriggerExecute);
+    CHECK(command->canTriggerDefenderBlock);
+    CHECK(command->damage == 20);
+    CHECK(BattleLogTest::joinSegments(command->segments).empty());
+    CHECK(result.attackerCombo.effectActivationCounts.empty());
 }
 
 TEST_CASE("BattleHitResolver_QueuesRawDamageWithoutConsumingFirstHitBlock", "[battle][hit_resolver][unit]")

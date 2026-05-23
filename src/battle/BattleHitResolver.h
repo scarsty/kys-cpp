@@ -54,7 +54,8 @@ struct BattleHpDamageCommand
     int damage{};
     bool critical{};
     bool ultimate{};
-    bool executed{};
+    bool canTriggerExecute{};
+    bool canTriggerDefenderBlock{};
     int frozenFrames{};
     std::string skillName;
     std::vector<BattleLogTextSegment> segments;
@@ -66,6 +67,7 @@ struct BattleMpDamageCommand
     int sourceUnitId{};
     int targetUnitId{};
     BattleDamageRequest damage;
+    bool canTriggerDefenderBlock{};
 };
 
 struct BattleAcceptedHitSideEffectCommand
@@ -256,7 +258,6 @@ struct BattleHitResolutionInput
     BattleHitSkillSnapshot skill;
     RoleComboState attackerCombo;
     RoleComboState defenderCombo;
-    int pendingDefenderHpDamage = 0;
     int sharedBleedMaxStacks = 1;
     int randomDamageVariance = 0;
 };
@@ -273,7 +274,6 @@ struct BattleHitResolutionResult
     bool dodged = false;
     bool reflected = false;
     bool critical = false;
-    bool executed = false;
     double shapedHpDamage = 0.0;
     int finalHpDamage = 0;
     int finalMpDamage = 0;

@@ -70,15 +70,6 @@ std::string formatCooldownIncreaseStatus(int pct, int before, int after)
     return std::format("冷卻延長（+{}%）", pct);
 }
 
-std::string formatExecuteStatus(int thresholdPct)
-{
-    if (thresholdPct <= 0)
-    {
-        return "觸發處決";
-    }
-    return std::format("觸發處決（斬殺線{}%）", thresholdPct);
-}
-
 BattleDamageUnitState makeDamageUnit(const BattleHitUnitSnapshot& unit, const RoleComboState* combo)
 {
     BattleDamageUnitState damageUnit;
@@ -376,6 +367,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                     false,
                     false,
                     false,
+                    false,
                     0,
                     "",
                     battleLogText(currentHp->reason, BattleLogTextTone::SkillName),
@@ -584,6 +576,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 input.attacker.id,
                 input.defender.id,
                 input.attackEvent.scriptedDamage,
+                false,
                 false,
                 false,
                 false,
@@ -924,60 +917,15 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         result.logEvents.push_back(sourceStatusEvent(input.defender.id, input.attacker.id, "彈反了遠程攻擊"));
     }
 
-    if (!result.reflected)
-    {
-        auto executeResult = BattleComboTriggerSystem().resolveExecuteCombo(
-            attackerCombo,
-            {
-                input.attacker.id,
-                input.defender.id,
-                input.defender.vitals.hp - input.pendingDefenderHpDamage,
-                input.defender.vitals.maxHp,
-                result.shapedHpDamage,
-                usingHpDamage,
-            },
-            random);
-        if (executeResult.executed)
-        {
-            result.executed = true;
-            result.logEvents.push_back(statusEvent(
-                input.attacker.id,
-                input.defender.id,
-                formatExecuteStatus(executeResult.thresholdPct)));
-        }
-    }
-
-    auto blockCommands = BattleComboTriggerSystem().collectDefenderBlockCommands(
-        defenderCombo,
-        { result.executed, result.reflected },
-        random);
-    for (auto blockCommand : blockCommands)
-    {
-        result.shapedHpDamage = 0;
-        switch (blockCommand)
-        {
-        case BattleDefenderBlockCommand::CounterUltimateBlock:
-            result.visualEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
-            result.logEvents.push_back(sourceStatusEvent(input.defender.id, input.attacker.id, "格擋後釋放絕招"));
-            result.commands.push_back(BattleAutoUltimateCommand{ input.defender.id, false });
-            break;
-        case BattleDefenderBlockCommand::Block:
-            result.visualEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
-            result.logEvents.push_back(sourceStatusEvent(input.defender.id, input.attacker.id, "格擋了本次攻擊"));
-            break;
-        default:
-            assert(false);
-        }
-    }
+    const bool canTriggerExecute = !result.reflected
+        && usingHpDamage
+        && BattleComboTriggerSystem().hasExecuteCombo(attackerCombo, input.attacker.id);
+    const bool canTriggerDefenderBlock = !result.reflected;
 
     std::string damageDetail;
     if (result.critical)
     {
         damageDetail = appendDetail(std::move(damageDetail), "暴擊");
-    }
-    if (result.executed)
-    {
-        damageDetail = appendDetail(std::move(damageDetail), "處決");
     }
     if (result.reflected)
     {
@@ -997,6 +945,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 input.defender.id,
                 input.attacker.id,
                 reflectedDamage,
+                false,
                 false,
                 false,
                 false,
@@ -1102,10 +1051,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     {
         int damage = static_cast<int>(result.shapedHpDamage) + input.randomDamageVariance;
         damage = std::max(0, damage);
-        if (result.executed)
-        {
-            damage = std::max(damage, input.defender.vitals.hp);
-        }
         if (damage > 0)
         {
             const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
@@ -1116,7 +1061,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 damage,
                 result.critical,
                 input.attackEvent.ultimate,
-                !result.reflected && result.executed,
+                canTriggerExecute,
+                canTriggerDefenderBlock,
                 !result.reflected ? impactFrozenFrames : 0,
                 input.skill.name,
                 battleLogText(damageDetail, BattleLogTextTone::SkillName),
@@ -1141,6 +1087,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 sourceUnitId,
                 targetUnitId,
                 request,
+                canTriggerDefenderBlock,
             });
             result.finalMpDamage = damage;
         }

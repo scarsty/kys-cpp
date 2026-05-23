@@ -95,24 +95,23 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                 result.defender,
             });
 
-            result.executed = input.request.canExecute
-                && shouldExecute({
-                    result.defender.vitals.hp,
-                    result.defender.vitals.maxHp,
-                    modified.damage,
-                    true,
-                    input.request.executeThresholdPct,
-                });
-            if (result.executed)
-            {
-                recordBattleDamageEvent(result.events,
-                                        BattleDamageEventType::ExecuteTriggered,
-                                        input.request.attackerUnitId,
-                                        input.request.defenderUnitId,
-                                        input.request.executeThresholdPct);
-            }
-
             resolvedDamage = modified.damage;
+        }
+        result.executed = input.request.canExecute
+            && shouldExecute({
+                result.defender.vitals.hp,
+                result.defender.vitals.maxHp,
+                resolvedDamage,
+                true,
+                input.request.executeThresholdPct,
+            });
+        if (result.executed)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::ExecuteTriggered,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    input.request.executeThresholdPct);
         }
 
         auto defense = resolveDefense({

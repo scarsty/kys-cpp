@@ -71,6 +71,6 @@ constexpr double BattleRuntimeMoveSpeedDivisor = 22.0;
 
 int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
 int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
-BattleUnitState makeBattleWorldUnitState(const BattleRuntimeUnit& unit, double moveSpeedDivisor);
+BattleUnitState makeBattleMovementPlanUnit(const BattleRuntimeUnit& unit, double moveSpeedDivisor);
 
 }  // namespace KysChess::Battle

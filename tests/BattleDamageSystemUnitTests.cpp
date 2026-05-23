@@ -474,6 +474,34 @@ TEST_CASE("BattleDamageSystem_TransactionInvincibilityBlocksNormalDamageButNotEx
     CHECK(executed.events[2].type == BattleDamageEventType::UnitDied);
 }
 
+TEST_CASE("BattleDamageSystem_PreResolvedExecuteRequest_UsesCurrentHpThreshold", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.baseDamage = 12;
+    input.request.preResolvedDamage = true;
+    input.request.canExecute = true;
+    input.request.executeThresholdPct = 50;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defender.vitals.hp = 60;
+    input.defender.vitals.maxHp = 200;
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.executed);
+    CHECK_FALSE(result.defender.alive);
+    CHECK(result.defender.vitals.hp == 0);
+    CHECK(result.finalHpDamage == 60);
+    REQUIRE(result.events.size() == 3);
+    CHECK(result.events[0].type == BattleDamageEventType::ExecuteTriggered);
+    CHECK(result.events[1].type == BattleDamageEventType::DamageApplied);
+    CHECK(result.events[2].type == BattleDamageEventType::UnitDied);
+}
+
 TEST_CASE("BattleDamageSystem_TransactionDeathProtectionAndKillRewardShareOutput", "[battle][damage][unit]")
 {
     BattleDamageTransactionInput protectedInput;

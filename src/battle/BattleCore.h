@@ -3,7 +3,7 @@
 #include "BattleAttackSystem.h"
 #include "BattleCastSystem.h"
 #include "BattleComboTriggerSystem.h"
-#include "BattleDamageApplicationSystem.h"
+#include "BattleDamageQueue.h"
 #include "BattleDamageSystem.h"
 #include "BattleDeathEffectSystem.h"
 #include "BattleEffectSystem.h"
@@ -26,17 +26,6 @@
 
 namespace KysChess::Battle
 {
-
-class BattleCore
-{
-public:
-    explicit BattleCore(BattleMovementFrameInput& world);
-
-    BattleTickResult tickMovement();
-
-private:
-    BattleMovementFrameInput& world_;
-};
 
 struct BattleUnitFrameTickState
 {
@@ -132,7 +121,6 @@ struct BattlePendingCastAction
 struct BattleFrameActionUnitResult
 {
     int unitId{};
-    BattleUnitFrameTickState state;
     bool castStarted = false;
     bool actionCommitted = false;
     bool castCommitted = false;
