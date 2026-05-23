@@ -4,6 +4,7 @@
 #include "battle/BattleRuntimeRules.h"
 #include "battle/BattleRuntimeSession.h"
 #include "BattleLogTestHelpers.h"
+#include "BattlePresentationTestHelpers.h"
 
 #include <algorithm>
 #include <cassert>

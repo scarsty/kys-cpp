@@ -1,5 +1,6 @@
 #include "battle/BattleCore.h"
 #include "BattleLogTestHelpers.h"
+#include "BattlePresentationTestHelpers.h"
 #include "battle/BattleHitResolver.h"
 #include "battle/BattleRuntimeSession.h"
 #include "Find.h"
@@ -11,6 +12,7 @@
 #include <vector>
 
 using namespace KysChess::Battle;
+using namespace BattlePresentationTest;
 
 namespace
 {

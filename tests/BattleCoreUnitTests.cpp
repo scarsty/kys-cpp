@@ -9,6 +9,7 @@
 #include "Find.h"
 #include "BattleLogTestHelpers.h"
 #include "BattleMovementTestHelpers.h"
+#include "BattlePresentationTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -21,6 +22,7 @@
 using namespace KysChess::Battle;
 using namespace KysChess::Battle::Test;
 using namespace KysChess;
+using namespace BattlePresentationTest;
 
 namespace
 {
