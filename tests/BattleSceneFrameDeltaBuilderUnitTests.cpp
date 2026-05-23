@@ -32,7 +32,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDeathPresentationEffects", "[bat
     random.set_seed(1);
 
     KysChess::Battle::BattlePresentationFrame frame;
-    KysChess::Battle::BattleFrameApplications applications;
     frame.logEvents.push_back({
         KysChess::Battle::BattleLogEventType::Damage,
         90,
@@ -49,7 +48,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CollectsDeathPresentationEffects", "[bat
 
     auto result = BattleSceneFrameDeltaBuilder().build(
         frame,
-        applications,
         -1,
         testApplyContext(fixture.store, random));
 
@@ -76,7 +74,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CoalescesDamageVisualsPerUnitPerFrame", 
     random.set_seed(1);
 
     KysChess::Battle::BattlePresentationFrame frame;
-    KysChess::Battle::BattleFrameApplications applications;
     frame.logEvents.push_back({
         KysChess::Battle::BattleLogEventType::Damage,
         90,
@@ -94,7 +91,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_CoalescesDamageVisualsPerUnitPerFrame", 
 
     auto result = BattleSceneFrameDeltaBuilder().build(
         frame,
-        applications,
         -1,
         testApplyContext(fixture.store, random));
 
@@ -115,11 +111,9 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_DoesNotReplayRescueRuntimeMutations", "[
     RandomDouble random;
 
     KysChess::Battle::BattlePresentationFrame frame;
-    KysChess::Battle::BattleFrameApplications applications;
 
     BattleSceneFrameDeltaBuilder().build(
         frame,
-        applications,
         -1,
         testApplyContext(fixture.store, random));
 
@@ -139,7 +133,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_ReturnsBattleEndSideEffects", "[battle][
     RandomDouble random;
 
     KysChess::Battle::BattlePresentationFrame frame;
-    KysChess::Battle::BattleFrameApplications applications;
     frame.gameplayEvents.push_back({
         KysChess::Battle::BattleGameplayEventType::BattleEnded,
         100,
@@ -150,7 +143,6 @@ TEST_CASE("BattleSceneFrameDeltaBuilder_ReturnsBattleEndSideEffects", "[battle][
 
     auto result = BattleSceneFrameDeltaBuilder().build(
         frame,
-        applications,
         -1,
         testApplyContext(fixture.store, random));
 

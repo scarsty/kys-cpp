@@ -149,12 +149,22 @@ struct BattleVisualEvent
     bool through = false;
 };
 
+struct BattleFrameRumbleEvent
+{
+    int lowFrequency{};
+    int highFrequency{};
+    int durationMs{};
+};
+
 struct BattlePresentationFrame
 {
     int frame = 0;
     std::vector<BattleGameplayEvent> gameplayEvents;
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
+    std::vector<int> attackSoundIds;
+    std::vector<BattleFrameRumbleEvent> rumbles;
+    int blinkSoundCount{};
 };
 
 class BattlePresentationRecorder

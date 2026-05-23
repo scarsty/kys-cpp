@@ -678,7 +678,7 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[b
     for (int frame = 0; frame < 90 && !(playedAttackSound && emittedProjectile && appliedDamage); ++frame)
     {
         const auto frameResult = session.runFrame();
-        playedAttackSound = playedAttackSound || !frameResult.applications.attackSoundIds.empty();
+        playedAttackSound = playedAttackSound || !frameResult.frame.attackSoundIds.empty();
         emittedProjectile = emittedProjectile
             || std::any_of(
                 frameResult.frame.visualEvents.begin(),

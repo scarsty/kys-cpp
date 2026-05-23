@@ -45,7 +45,6 @@ BattleLifecycleSceneEffects collectBattleLifecycleSceneEffects(
 
 BattleSceneFrameDelta BattleSceneFrameDeltaBuilder::build(
     const KysChess::Battle::BattlePresentationFrame& frame,
-    const KysChess::Battle::BattleFrameApplications& applications,
     int currentBattleResult,
     BattleSceneFrameDeltaBuildContext context) const
 {
@@ -53,10 +52,21 @@ BattleSceneFrameDelta BattleSceneFrameDeltaBuilder::build(
 
     BattleSceneFrameDelta result;
     collectDamageSceneEffects(frame, currentBattleResult, context, result);
-    collectFrameApplicationSceneEffects(applications, context, result);
+    result.attackSoundIds.insert(
+        result.attackSoundIds.end(),
+        frame.attackSoundIds.begin(),
+        frame.attackSoundIds.end());
+    result.rumbles.insert(
+        result.rumbles.end(),
+        frame.rumbles.begin(),
+        frame.rumbles.end());
+    for (int i = 0; i < frame.blinkSoundCount; ++i)
+    {
+        assert(context.blinkSoundEffectId >= 0);
+        result.effectSoundIds.push_back(context.blinkSoundEffectId);
+    }
     return result;
 }
-
 void BattleSceneFrameDeltaBuilder::collectDamageSceneEffects(
     const KysChess::Battle::BattlePresentationFrame& frame,
     int currentBattleResult,
@@ -123,25 +133,5 @@ void BattleSceneFrameDeltaBuilder::collectDamageSceneEffects(
         result.frozenFrames = 60;
         result.slowFrames = context.battleEndSlowFrames;
         result.sceneShake = 60;
-    }
-}
-
-void BattleSceneFrameDeltaBuilder::collectFrameApplicationSceneEffects(
-    const KysChess::Battle::BattleFrameApplications& applications,
-    const BattleSceneFrameDeltaBuildContext& context,
-    BattleSceneFrameDelta& result) const
-{
-    result.attackSoundIds.insert(
-        result.attackSoundIds.end(),
-        applications.attackSoundIds.begin(),
-        applications.attackSoundIds.end());
-    result.rumbles.insert(
-        result.rumbles.end(),
-        applications.rumbles.begin(),
-        applications.rumbles.end());
-    for (int i = 0; i < applications.blinkSoundCount; ++i)
-    {
-        assert(context.blinkSoundEffectId >= 0);
-        result.effectSoundIds.push_back(context.blinkSoundEffectId);
     }
 }

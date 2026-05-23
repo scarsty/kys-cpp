@@ -1273,6 +1273,9 @@ struct BattleFrameContext
     std::vector<BattleGameplayEvent> gameplayEvents;
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
+    std::vector<int> attackSoundIds;
+    std::vector<BattleFrameRumbleEvent> rumbles;
+    int blinkSoundCount{};
     std::vector<BattleGameplayCommand> deferredCommands;
     std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
     std::vector<BattleAttackEvent> attackEvents;
@@ -2048,7 +2051,7 @@ bool tryCommitAutoUltimate(
     int unitId,
     bool consumeMp,
     bool announceAutoUltimate,
-    BattleFrameApplications& applications,
+    std::vector<int>& attackSoundIds,
     std::vector<BattleEffectCommand>& effectCommands,
     std::vector<BattleGameplayCommand>& pendingCommands,
     std::vector<BattleGameplayEvent>& gameplayEvents,
@@ -2104,7 +2107,7 @@ bool tryCommitAutoUltimate(
     visualEvents.insert(visualEvents.end(), cast.visualEvents.begin(), cast.visualEvents.end());
     if (castInput.ultimateSkill.soundId >= 0)
     {
-        applications.attackSoundIds.push_back(castInput.ultimateSkill.soundId);
+        attackSoundIds.push_back(castInput.ultimateSkill.soundId);
     }
     if (announceAutoUltimate)
     {
@@ -3146,7 +3149,8 @@ bool applyFrameTempAttackBuffCommand(
 bool reduceFrameGameplayCommand(
     BattleRuntimeState& state,
     const BattleGameplayCommand& command,
-    BattleFrameApplications& applications,
+    std::vector<int>& attackSoundIds,
+    std::vector<BattleFrameRumbleEvent>& rumbles,
     std::vector<BattleEffectCommand>& effectCommands,
     std::vector<BattleGameplayCommand>& pending,
     std::vector<BattleTeamEffectEvent>& teamEffectEvents,
@@ -3209,7 +3213,7 @@ bool reduceFrameGameplayCommand(
             autoUltimate->unitId,
             autoUltimate->consumeMp,
             autoUltimate->announce,
-            applications,
+            attackSoundIds,
             effectCommands,
             pending,
             gameplayEvents,
@@ -3237,7 +3241,7 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* rumble = std::get_if<BattleRumbleCommand>(&command))
     {
-        applications.rumbles.push_back({
+        rumbles.push_back({
             rumble->lowFrequency,
             rumble->highFrequency,
             rumble->durationMs,
@@ -3263,7 +3267,8 @@ bool reduceFrameGameplayCommand(
 void reduceFrameGameplayCommandsImpl(
     BattleRuntimeState& state,
     std::vector<BattleGameplayCommand>& commands,
-    BattleFrameApplications& applications,
+    std::vector<int>& attackSoundIds,
+    std::vector<BattleFrameRumbleEvent>& rumbles,
     std::vector<BattleEffectCommand>& effectCommands,
     std::vector<BattleTeamEffectEvent>& teamEffectEvents,
     std::vector<BattleGameplayEvent>& gameplayEvents,
@@ -3277,7 +3282,8 @@ void reduceFrameGameplayCommandsImpl(
         if (!reduceFrameGameplayCommand(
             state,
             pending[i],
-            applications,
+            attackSoundIds,
+            rumbles,
             effectCommands,
             pending,
             teamEffectEvents,
@@ -3296,7 +3302,8 @@ void reduceFrameGameplayCommands(BattleRuntimeState& state, BattleFrameContext& 
     reduceFrameGameplayCommandsImpl(
         state,
         frame.frameCommands,
-        frame.result.applications,
+        frame.attackSoundIds,
+        frame.rumbles,
         frame.effectCommands,
         frame.teamEffectEvents,
         frame.gameplayEvents,
@@ -4585,7 +4592,6 @@ BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     const auto& movement = frame.movement;
-    auto& applications = frame.result.applications;
     auto& actionResults = frame.actionResults;
     auto& effectCommands = frame.effectCommands;
     auto& frameCommands = frame.frameCommands;
@@ -4700,7 +4706,7 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
                 }
                 if (result.actionInput.hasCast && result.actionInput.cast.decision.soundId >= 0)
                 {
-                    applications.attackSoundIds.push_back(result.actionInput.cast.decision.soundId);
+                    frame.attackSoundIds.push_back(result.actionInput.cast.decision.soundId);
                 }
                 state.pendingAttackSpawns.insert(
                     state.pendingAttackSpawns.end(),
@@ -4714,7 +4720,7 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
                     visualEvents.end(),
                     result.actionResult.visualEvents.begin(),
                     result.actionResult.visualEvents.end());
-                applications.blinkSoundCount += static_cast<int>(result.actionResult.blinkTeleports.size());
+                frame.blinkSoundCount += static_cast<int>(result.actionResult.blinkTeleports.size());
             }
         }
 
@@ -5005,7 +5011,11 @@ void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
             recorder.recordVisual(std::move(presentation));
         }
     }
-    result.frame = recorder.consumeFrame();
+    auto presentationFrame = recorder.consumeFrame();
+    presentationFrame.attackSoundIds = std::move(frame.attackSoundIds);
+    presentationFrame.rumbles = std::move(frame.rumbles);
+    presentationFrame.blinkSoundCount = frame.blinkSoundCount;
+    result.frame = std::move(presentationFrame);
 }
 
 void pruneFinishedRuntimeAttacks(BattleRuntimeState& state)

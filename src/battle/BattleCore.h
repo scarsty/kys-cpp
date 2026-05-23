@@ -135,20 +135,6 @@ private:
     std::mt19937 rand_;
 };
 
-struct BattleFrameRumbleEvent
-{
-    int lowFrequency{};
-    int highFrequency{};
-    int durationMs{};
-};
-
-struct BattleFrameApplications
-{
-    std::vector<int> attackSoundIds;
-    std::vector<BattleFrameRumbleEvent> rumbles;
-    int blinkSoundCount{};
-};
-
 struct BattleFrameRescueUnitSnapshot
 {
     BattleRescueUnitSnapshot unit;
@@ -255,7 +241,6 @@ struct BattleRuntimeState
 struct BattleFrameResult
 {
     BattlePresentationFrame frame;
-    BattleFrameApplications applications;
 };
 
 struct BattleTeamEffectCommandApplication

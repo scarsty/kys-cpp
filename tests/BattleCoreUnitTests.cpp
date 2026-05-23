@@ -2493,8 +2493,8 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastSound", "[battle][cor
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(result.applications.attackSoundIds.size() == 1);
-    CHECK(result.applications.attackSoundIds[0] == 55);
+    REQUIRE(result.frame.attackSoundIds.size() == 1);
+    CHECK(result.frame.attackSoundIds[0] == 55);
 }
 
 TEST_CASE("BattleFrameRunner_ConsumesUltimateCasterWhenRuntimeOwnedCastCommits", "[battle][core][runtime]")
@@ -3397,8 +3397,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
     CHECK(state.pendingAttackSpawns[0].initial.skillId == 401);
     CHECK(state.pendingAttackSpawns[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
     CHECK(state.pendingAttackSpawns[1].initial.strengthMultiplier == 0.35f);
-    REQUIRE(result.applications.attackSoundIds.size() == 1);
-    CHECK(result.applications.attackSoundIds[0] == 55);
+    REQUIRE(result.frame.attackSoundIds.size() == 1);
+    CHECK(result.frame.attackSoundIds[0] == 55);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimeAutoUltimateReadyInsideCore", "[battle][core][breakthrough]")
@@ -3427,8 +3427,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimeAutoUltimateReadyInsideC
                 && event.sourceUnitId == 1
                 && BattleLogTest::textOf(event) == "自動絕招·絕招";
         }));
-    REQUIRE(result.applications.attackSoundIds.size() == 1);
-    CHECK(result.applications.attackSoundIds[0] == 55);
+    REQUIRE(result.frame.attackSoundIds.size() == 1);
+    CHECK(result.frame.attackSoundIds[0] == 55);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DropsDeferredAutoUltimateWhenBattleEndsFirst", "[battle][core][breakthrough]")

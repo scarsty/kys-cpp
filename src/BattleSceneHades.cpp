@@ -1410,7 +1410,6 @@ void BattleSceneHades::applyCoreFrameResult(
     context.battleEndSlowFrames = CAMERA_BATTLE_END_SLOW_FRAMES;
     applySceneFrameDelta(frame_delta_builder_.build(
         frameResult.frame,
-        frameResult.applications,
         result_,
         context));
 

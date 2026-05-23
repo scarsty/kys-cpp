@@ -3,7 +3,7 @@
 #include "BattleSceneUnitStore.h"
 #include "Point.h"
 #include "Random.h"
-#include "battle/BattleCore.h"
+#include "battle/BattlePresentation.h"
 
 #include <optional>
 #include <string>
@@ -59,7 +59,6 @@ class BattleSceneFrameDeltaBuilder
 public:
     BattleSceneFrameDelta build(
         const KysChess::Battle::BattlePresentationFrame& frame,
-        const KysChess::Battle::BattleFrameApplications& applications,
         int currentBattleResult,
         BattleSceneFrameDeltaBuildContext context) const;
 
@@ -68,9 +67,5 @@ private:
         const KysChess::Battle::BattlePresentationFrame& frame,
         int currentBattleResult,
         BattleSceneFrameDeltaBuildContext& context,
-        BattleSceneFrameDelta& result) const;
-    void collectFrameApplicationSceneEffects(
-        const KysChess::Battle::BattleFrameApplications& applications,
-        const BattleSceneFrameDeltaBuildContext& context,
         BattleSceneFrameDelta& result) const;
 };
