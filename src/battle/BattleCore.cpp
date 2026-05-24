@@ -1273,7 +1273,6 @@ struct BattleFrameContext
     std::vector<BattleAttackEvent> attackEvents;
     BattleTickResult movement;
     std::vector<BattleTeamEffectEvent> teamEffectEvents;
-    std::vector<BattleEffectCommand> effectCommands;
     UnitMotionSnapshotMap frameStartMotion;
 };
 
@@ -2032,7 +2031,6 @@ void applyCastPostSkillInvincibility(
     BattleRuntimeState& state,
     int sourceUnitId,
     int frames,
-    std::vector<BattleEffectCommand>& effectCommands,
     std::vector<BattleLogEvent>& logEvents);
 
 bool tryCommitAutoUltimate(
@@ -2041,7 +2039,6 @@ bool tryCommitAutoUltimate(
     bool consumeMp,
     bool announceAutoUltimate,
     std::vector<int>& attackSoundIds,
-    std::vector<BattleEffectCommand>& effectCommands,
     std::vector<BattleGameplayCommand>& pendingCommands,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
@@ -2120,7 +2117,6 @@ bool tryCommitAutoUltimate(
         state,
         unitId,
         actionResult.combo.postSkillInvincFrames,
-        effectCommands,
         logEvents);
     auto castScopedCommands = collectFrameCastScopedComboCommands(
         actionResult.combo,
@@ -3140,7 +3136,6 @@ bool reduceFrameGameplayCommand(
     const BattleGameplayCommand& command,
     std::vector<int>& attackSoundIds,
     std::vector<BattleFrameRumbleEvent>& rumbles,
-    std::vector<BattleEffectCommand>& effectCommands,
     std::vector<BattleGameplayCommand>& pending,
     std::vector<BattleTeamEffectEvent>& teamEffectEvents,
     std::vector<BattleGameplayEvent>& gameplayEvents,
@@ -3203,7 +3198,6 @@ bool reduceFrameGameplayCommand(
             autoUltimate->consumeMp,
             autoUltimate->announce,
             attackSoundIds,
-            effectCommands,
             pending,
             gameplayEvents,
             logEvents,
@@ -3250,7 +3244,6 @@ void reduceFrameGameplayCommandsImpl(
     std::vector<BattleGameplayCommand>& commands,
     std::vector<int>& attackSoundIds,
     std::vector<BattleFrameRumbleEvent>& rumbles,
-    std::vector<BattleEffectCommand>& effectCommands,
     std::vector<BattleTeamEffectEvent>& teamEffectEvents,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
@@ -3265,7 +3258,6 @@ void reduceFrameGameplayCommandsImpl(
             pending[i],
             attackSoundIds,
             rumbles,
-            effectCommands,
             pending,
             teamEffectEvents,
             gameplayEvents,
@@ -3285,7 +3277,6 @@ void reduceFrameGameplayCommands(BattleRuntimeState& state, BattleFrameContext& 
         frame.frameCommands,
         frame.attackSoundIds,
         frame.rumbles,
-        frame.effectCommands,
         frame.teamEffectEvents,
         frame.gameplayEvents,
         frame.logEvents,
@@ -4181,7 +4172,6 @@ void applyCastPostSkillInvincibility(
     BattleRuntimeState& state,
     int sourceUnitId,
     int frames,
-    std::vector<BattleEffectCommand>& effectCommands,
     std::vector<BattleLogEvent>& logEvents)
 {
     if (frames <= 0)
@@ -4208,7 +4198,6 @@ void applyCastPostSkillInvincibility(
     };
     const std::vector<BattleEffectCommand> logCommands{ command };
     appendEffectCommandLogEvents(logEvents, logCommands);
-    effectCommands.push_back(std::move(command));
 }
 
 void applyRuntimeComboEvents(BattleRuntimeState& state, BattleFrameContext& frame)
@@ -4574,7 +4563,6 @@ BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     const auto& movement = frame.movement;
-    auto& effectCommands = frame.effectCommands;
     auto& frameCommands = frame.frameCommands;
     auto& gameplayEvents = frame.gameplayEvents;
     auto& logEvents = frame.logEvents;
@@ -4673,7 +4661,6 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
                         state,
                         unit.id,
                         result.actionResult.combo.postSkillInvincFrames,
-                        effectCommands,
                         logEvents);
                     auto castScopedCommands = collectFrameCastScopedComboCommands(
                         result.actionResult.combo,
