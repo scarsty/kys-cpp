@@ -1272,7 +1272,6 @@ struct BattleFrameContext
     std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
     std::vector<BattleAttackEvent> attackEvents;
     BattleTickResult movement;
-    std::vector<BattleTeamEffectEvent> teamEffectEvents;
     UnitMotionSnapshotMap frameStartMotion;
 };
 
@@ -3003,7 +3002,6 @@ void appendHealEventLog(
 bool applyFrameTeamEffectCommand(
     BattleRuntimeState& state,
     const BattleGameplayCommand& command,
-    std::vector<BattleTeamEffectEvent>& teamEffectEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
@@ -3037,10 +3035,6 @@ bool applyFrameTeamEffectCommand(
         application.logEvents.begin(),
         application.logEvents.end());
     appendTeamEffectVisualEvents(visualEvents, application.events);
-    teamEffectEvents.insert(
-        teamEffectEvents.end(),
-        application.events.begin(),
-        application.events.end());
     return true;
 }
 
@@ -3137,7 +3131,6 @@ bool reduceFrameGameplayCommand(
     std::vector<int>& attackSoundIds,
     std::vector<BattleFrameRumbleEvent>& rumbles,
     std::vector<BattleGameplayCommand>& pending,
-    std::vector<BattleTeamEffectEvent>& teamEffectEvents,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -3158,7 +3151,7 @@ bool reduceFrameGameplayCommand(
         || std::holds_alternative<BattleTeamMpRestoreCommand>(command)
         || std::holds_alternative<BattleTeamShieldCommand>(command))
     {
-        return applyFrameTeamEffectCommand(state, command, teamEffectEvents, logEvents, visualEvents);
+        return applyFrameTeamEffectCommand(state, command, logEvents, visualEvents);
     }
     if (const auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&command))
     {
@@ -3244,7 +3237,6 @@ void reduceFrameGameplayCommandsImpl(
     std::vector<BattleGameplayCommand>& commands,
     std::vector<int>& attackSoundIds,
     std::vector<BattleFrameRumbleEvent>& rumbles,
-    std::vector<BattleTeamEffectEvent>& teamEffectEvents,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -3259,7 +3251,6 @@ void reduceFrameGameplayCommandsImpl(
             attackSoundIds,
             rumbles,
             pending,
-            teamEffectEvents,
             gameplayEvents,
             logEvents,
             visualEvents))
@@ -3277,7 +3268,6 @@ void reduceFrameGameplayCommands(BattleRuntimeState& state, BattleFrameContext& 
         frame.frameCommands,
         frame.attackSoundIds,
         frame.rumbles,
-        frame.teamEffectEvents,
         frame.gameplayEvents,
         frame.logEvents,
         frame.visualEvents);
@@ -4096,7 +4086,6 @@ void applyRuntimeTeamEvents(
     BattleRuntimeState& state,
     int sourceUnitId,
     const BattleComboFrameRuntimeEvent& event,
-    std::vector<BattleTeamEffectEvent>& teamEffectEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
@@ -4142,10 +4131,6 @@ void applyRuntimeTeamEvents(
 
     appendTeamEffectLogEvents(logEvents, events, reason);
     appendTeamEffectVisualEvents(visualEvents, events);
-    teamEffectEvents.insert(
-        teamEffectEvents.end(),
-        events.begin(),
-        events.end());
 }
 
 void applyBroadcastTriggerTimer(BattleRuntimeState& state, int sourceUnitId, const BattleComboFrameRuntimeEvent& event)
@@ -4216,7 +4201,6 @@ void applyRuntimeComboEvents(BattleRuntimeState& state, BattleFrameContext& fram
                     state,
                     result.unitId,
                     event,
-                    frame.teamEffectEvents,
                     frame.logEvents,
                     frame.visualEvents);
                 break;
@@ -4276,10 +4260,6 @@ void applyPendingTeamEffects(BattleRuntimeState& state, BattleFrameContext& fram
                 application.logEvents.begin(),
                 application.logEvents.end());
             appendTeamEffectVisualEvents(frame.visualEvents, application.events);
-            frame.teamEffectEvents.insert(
-                frame.teamEffectEvents.end(),
-                application.events.begin(),
-                application.events.end());
             continue;
         }
         unappliedCommands.push_back(command);
