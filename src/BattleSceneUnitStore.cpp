@@ -2,65 +2,33 @@
 
 #include "BattleReport.h"
 #include "BattleSceneRenderMath.h"
-#include "Find.h"
 
-#include <algorithm>
 #include <cassert>
-#include <ranges>
 #include <utility>
 
 namespace
 {
 BattleSceneUnitPresentationState makeInitializedScenePresentationState(
-    const KysChess::Battle::BattleRuntimeUnit& runtimeUnit,
-    const KysChess::Battle::BattleSetupUnitInput& setup)
+    const KysChess::Battle::BattleRuntimeUnit& runtimeUnit)
 {
     BattleSceneUnitPresentationState unit;
-    unit.identity = {
-        runtimeUnit.id,
-        runtimeUnit.realRoleId,
-        runtimeUnit.team,
-        setup.headId,
-        setup.name,
-    };
     unit.unitId = runtimeUnit.id;
-    unit.sourceUnitId = runtimeUnit.presentationSourceUnitId;
-    unit.faceTowards = setup.faceTowards;
-    unit.headId = setup.headId;
-    unit.fightFrames = setup.fightFrames;
-    const bool isClone = runtimeUnit.presentationSourceUnitId != runtimeUnit.id;
-    unit.chessInstanceId = isClone ? -1 : setup.chessInstanceId;
-    unit.weaponId = isClone ? -1 : setup.weaponId;
-    unit.armorId = isClone ? -1 : setup.armorId;
-    unit.skillNames = setup.skillNames;
     return unit;
 }
 
 }  // namespace
 
 void BattleSceneUnitStore::initialize(
-    const KysChess::Battle::BattleRuntimeSession& runtimeSession,
-    std::vector<BattleSceneUnitPresentationState> presentationStates)
-{
-    runtime_session_ = &runtimeSession;
-    presentation_ = std::move(presentationStates);
-}
-
-void BattleSceneUnitStore::initializeFromRuntimeCreation(
-    const KysChess::Battle::BattleRuntimeSession& runtimeSession,
-    const KysChess::Battle::BattleRuntimeSessionCreationInput& input)
+    const KysChess::Battle::BattleRuntimeSession& runtimeSession)
 {
     std::vector<BattleSceneUnitPresentationState> presentation;
     presentation.reserve(runtimeSession.runtimeUnits().size());
     for (const auto& runtimeUnit : runtimeSession.runtimeUnits())
     {
-        const auto& setupUnit = KysChess::requireDenseBy(
-            input.units,
-            runtimeUnit.presentationSourceUnitId,
-            &KysChess::Battle::BattleSetupUnitInput::unitId);
-        presentation.push_back(makeInitializedScenePresentationState(runtimeUnit, setupUnit));
+        presentation.push_back(makeInitializedScenePresentationState(runtimeUnit));
     }
-    initialize(runtimeSession, std::move(presentation));
+    runtime_session_ = &runtimeSession;
+    presentation_ = std::move(presentation);
 }
 
 const BattleSceneUnitPresentationState& BattleSceneUnitStore::requirePresentation(int unitId) const
@@ -160,19 +128,18 @@ BattlePostBattleSummary BattleSceneUnitStore::makePostBattleSummary(
 
     auto append = [this, &report](const KysChess::Battle::BattleRuntimeUnit& source, std::vector<BattlePostBattleUnitSummary>& target)
     {
-        const auto& presentation = requirePresentation(source.id);
         BattlePostBattleUnitSummary unit;
-        unit.identity = presentation.identity;
+        unit.identity = source.identity();
         unit.star = source.star;
-        unit.chessInstanceId = presentation.chessInstanceId;
+        unit.chessInstanceId = source.chessInstanceId;
         unit.hp = source.vitals.maxHp;
         unit.maxHp = source.vitals.maxHp;
         unit.attack = source.stats.attack;
         unit.defence = source.stats.defence;
         unit.speed = source.stats.speed;
-        unit.weaponId = presentation.weaponId;
-        unit.armorId = presentation.armorId;
-        unit.skillNames = presentation.skillNames;
+        unit.weaponId = source.weaponId;
+        unit.armorId = source.armorId;
+        unit.skillNames = source.skillNames;
         unit.hpRemaining = source.vitals.hp;
         unit.maxHpRemaining = source.vitals.maxHp;
         unit.dead = !source.alive;

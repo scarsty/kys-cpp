@@ -72,9 +72,11 @@ BattleRuntimeUnit makeRuntimeUnit(
 
     BattleRuntimeUnit unit;
     unit.id = setup.unitId;
-    unit.presentationSourceUnitId = setup.unitId;
     unit.realRoleId = setup.realRoleId;
     unit.name = setup.name;
+    unit.headId = setup.headId;
+    unit.fightFrames = setup.fightFrames;
+    unit.skillNames = setup.skillNames;
     unit.team = setup.team;
     unit.alive = setup.alive;
     unit.vitals = setup.vitals;
@@ -86,6 +88,11 @@ BattleRuntimeUnit makeRuntimeUnit(
     unit.operationCount = setup.operationCount;
     unit.physicalPower = setup.physicalPower;
     unit.invincible = setup.invincible;
+    unit.star = setup.star;
+    unit.cost = setup.cost;
+    unit.weaponId = setup.weaponId;
+    unit.armorId = setup.armorId;
+    unit.chessInstanceId = setup.chessInstanceId;
     for (int magicType = 0; magicType <= 4; ++magicType)
     {
         unit.actPropertiesByMagicType.emplace(magicType, setup.actPropertiesByMagicType[magicType]);
@@ -328,11 +335,11 @@ void deriveRuntimeStores(
     }
     for (const auto& unit : runtime.unitStore.units)
     {
-        if (unit.presentationSourceUnitId == unit.id)
+        if (unit.cloneSourceUnitId < 0)
         {
             continue;
         }
-        const auto sourceSeedIt = runtime.action.planSeeds.find(unit.presentationSourceUnitId);
+        const auto sourceSeedIt = runtime.action.planSeeds.find(unit.cloneSourceUnitId);
         if (sourceSeedIt == runtime.action.planSeeds.end())
         {
             continue;

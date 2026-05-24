@@ -1,9 +1,11 @@
 #pragma once
 
+#include "../BattleUnitIdentity.h"
 #include "BattleOperation.h"
 #include "BattleTypes.h"
 #include "BattleUnitValues.h"
 
+#include <array>
 #include <map>
 #include <string>
 #include <vector>
@@ -24,9 +26,12 @@ struct BattleGridTransform
 struct BattleRuntimeUnit
 {
     int id = -1;
-    int presentationSourceUnitId = -1;
+    int cloneSourceUnitId = -1;
     int realRoleId = -1;
     std::string name;
+    int headId = -1;
+    std::array<int, 5> fightFrames{};
+    std::string skillNames;
     int team = 0;
     bool alive = true;
     BattleUnitVitals vitals;
@@ -51,6 +56,14 @@ struct BattleRuntimeUnit
     CombatStyle style = CombatStyle::Melee;
     int star = 1;
     int cost = 0;
+    int weaponId = -1;
+    int armorId = -1;
+    int chessInstanceId = -1;
+
+    BattleUnitIdentity identity() const
+    {
+        return { id, realRoleId, team, headId, name };
+    }
 };
 
 struct BattleUnitStore

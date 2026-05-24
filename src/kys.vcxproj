@@ -294,6 +294,7 @@
     <ClInclude Include="BattleSceneRenderMath.h" />
     <ClInclude Include="BattleSceneUnitStore.h" />
     <ClInclude Include="BattlePostBattleSummary.h" />
+    <ClInclude Include="BattleUnitIdentity.h" />
     <ClInclude Include="BattlePresentationEffects.h" />
     <ClInclude Include="BattleScenePresentationConstants.h" />
     <ClInclude Include="BattleSceneFrameApplier.h" />

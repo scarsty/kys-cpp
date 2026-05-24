@@ -1,11 +1,15 @@
 #pragma once
 
 #include "battle/BattlePresentation.h"
-#include "BattlePostBattleSummary.h"
 
 #include <map>
 #include <string>
 #include <vector>
+
+namespace KysChess::Battle
+{
+struct BattleRuntimeUnit;
+}
 
 struct BattleReportUnitStats
 {
@@ -67,27 +71,27 @@ class BattleReportBuilder
 {
 public:
     void recordDamage(
-        const BattleUnitIdentity* attacker,
-        const BattleUnitIdentity* defender,
+        const KysChess::Battle::BattleRuntimeUnit* attacker,
+        const KysChess::Battle::BattleRuntimeUnit* defender,
         int damage,
         const std::string& skillName,
         int frame,
         std::vector<KysChess::Battle::BattleLogTextSegment> segments = {});
     void recordHeal(
-        const BattleUnitIdentity* source,
-        const BattleUnitIdentity* target,
+        const KysChess::Battle::BattleRuntimeUnit* source,
+        const KysChess::Battle::BattleRuntimeUnit* target,
         int amount,
         std::vector<KysChess::Battle::BattleLogTextSegment> segments,
         int frame);
     void recordStatus(
-        const BattleUnitIdentity* source,
-        const BattleUnitIdentity* target,
+        const KysChess::Battle::BattleRuntimeUnit* source,
+        const KysChess::Battle::BattleRuntimeUnit* target,
         KysChess::Battle::BattleLogCategory category,
         KysChess::Battle::BattleLogPerspective perspective,
         std::vector<KysChess::Battle::BattleLogTextSegment> segments,
         int frame);
-    void recordKill(const BattleUnitIdentity* killer, const BattleUnitIdentity* victim, int frame);
-    void recordDeath(const BattleUnitIdentity* unit, int frame);
+    void recordKill(const KysChess::Battle::BattleRuntimeUnit* killer, const KysChess::Battle::BattleRuntimeUnit* victim, int frame);
+    void recordDeath(const KysChess::Battle::BattleRuntimeUnit* unit, int frame);
     void recordProjectileCancel(int unitId, int damage);
     void recordBattleEnd(int frame, int battleResult);
 

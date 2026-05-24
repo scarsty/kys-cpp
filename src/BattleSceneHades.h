@@ -59,7 +59,6 @@ protected:
     struct MovementRuntime;
     void renderExtraRoleInfo(
         const KysChess::Battle::BattleRuntimeUnit& unit,
-        const BattleSceneUnitPresentationState& presentation,
         double x,
         double y);
     virtual int checkResult() override;

@@ -390,6 +390,43 @@ BattleStatusRuntimeUnit cloneStatusUnit(
     return clone;
 }
 
+BattleRuntimeUnit makeCloneRuntimeUnit(
+    const BattleRuntimeUnit& sourceUnit,
+    const RoleComboState& cloneCombo,
+    const BattleInitializationCloneSource& source,
+    int cloneUnitId,
+    const BattleGridTransform& gridTransform,
+    const BattleInitializationCloneSpawnCell& cell)
+{
+    BattleRuntimeUnit clone;
+    clone.id = cloneUnitId;
+    clone.cloneSourceUnitId = source.sourceUnitId;
+    clone.realRoleId = source.sourceRealRoleId;
+    clone.name = sourceUnit.name;
+    clone.headId = sourceUnit.headId;
+    clone.fightFrames = sourceUnit.fightFrames;
+    clone.skillNames = sourceUnit.skillNames;
+    clone.team = sourceUnit.team;
+    clone.alive = true;
+    clone.vitals = sourceUnit.vitals;
+    clone.vitals.hp = clone.vitals.maxHp;
+    clone.stats = sourceUnit.stats;
+    clone.motion.position = positionForCloneCell(gridTransform, cell.x, cell.y);
+    clone.motion.facing = sourceUnit.motion.facing;
+    clone.animation = BattleUnitAnimationState{};
+    clone.shield = cloneCombo.shield;
+    clone.blockFirstHitsRemaining = cloneCombo.blockFirstHitsRemaining;
+    clone.mpBlocked = cloneCombo.mpBlockTimer > 0;
+    clone.mpRecoveryBonusPct = cloneCombo.mpRecoveryBonusPct;
+    clone.actPropertiesByMagicType = sourceUnit.actPropertiesByMagicType;
+    clone.grid = { cell.x, cell.y, 0 };
+    clone.reach = sourceUnit.reach;
+    clone.style = sourceUnit.style;
+    clone.star = sourceUnit.star;
+    clone.cost = sourceUnit.cost;
+    return clone;
+}
+
 BattleInitializationRoleDelta makeRoleDelta(
     int unitId,
     int star,
@@ -768,30 +805,16 @@ BattleInitializationResult BattleInitializationSystem::initialize(BattleRuntimeS
             const auto sourceComboIt = runtime.combo.units.find(source.sourceUnitId);
             assert(sourceComboIt != runtime.combo.units.end());
 
-            auto cloneUnit = sourceUnit;
-            cloneUnit.id = nextRuntimeUnitId;
-            cloneUnit.presentationSourceUnitId = source.sourceUnitId;
-            cloneUnit.realRoleId = source.sourceRealRoleId;
-            cloneUnit.alive = true;
-            cloneUnit.vitals.hp = cloneUnit.vitals.maxHp;
-            cloneUnit.motion.position = positionForCloneCell(runtime.unitStore.gridTransform, cell.x, cell.y);
-            cloneUnit.motion.velocity = { 0, 0, 0 };
-            cloneUnit.motion.acceleration = { 0, 0, 0 };
-            cloneUnit.grid = { cell.x, cell.y, 0 };
-            cloneUnit.animation.cooldown = 0;
-            cloneUnit.animation.cooldownMax = 0;
-            cloneUnit.haveAction = false;
-            cloneUnit.animation.actFrame = 0;
-            cloneUnit.animation.actType = -1;
-            cloneUnit.operationType = BattleOperationType::None;
-            cloneUnit.operationCount = 0;
-            cloneUnit.invincible = 0;
-            cloneUnit.canAttack = true;
-
             auto cloneCombo = KysChess::ChessBattleEffects::makeSummonedCloneState(
                 sourceComboIt->second,
-                cloneUnit.vitals.maxHp);
-            cloneUnit.shield = cloneCombo.shield;
+                sourceUnit.vitals.maxHp);
+            auto cloneUnit = makeCloneRuntimeUnit(
+                sourceUnit,
+                cloneCombo,
+                source,
+                nextRuntimeUnitId,
+                runtime.unitStore.gridTransform,
+                cell);
 
             runtime.unitStore.units.push_back(cloneUnit);
             runtime.status.units.push_back(cloneStatusUnit(sourceStatus, nextRuntimeUnitId, cloneCombo));

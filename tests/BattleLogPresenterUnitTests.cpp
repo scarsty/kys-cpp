@@ -1,9 +1,11 @@
 #include "BattleLogPresenter.h"
 #include "battle/BattleLogSegments.h"
+#include "BattleLogTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <string>
 #include <string_view>
 
 namespace
@@ -20,8 +22,8 @@ BattlePostBattleUnitSummary summaryUnit(int battleId, int team, const std::strin
 
 TEST_CASE("BattleLogPresenter_BuildsRowsAndFormattedEntries", "[battle][log_presenter]")
 {
-    BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
-    BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
     BattleReportBuilder builder;
     builder.recordDamage(&attacker, &defender, 20, "六脈神劍", 12, KysChess::Battle::battleLogText("連擊增傷 +20%"));
     builder.recordBattleEnd(30, 0);
@@ -47,8 +49,8 @@ TEST_CASE("BattleLogPresenter_BuildsRowsAndFormattedEntries", "[battle][log_pres
 
 TEST_CASE("BattleLogPresenter_DisambiguatesDuplicateNames", "[battle][log_presenter]")
 {
-    BattleUnitIdentity first{ 201, 2, 1, 12, "弟子" };
-    BattleUnitIdentity second{ 202, 3, 1, 13, "弟子" };
+    auto first = BattleLogTest::reportUnit(201, 2, 1, 12, "弟子");
+    auto second = BattleLogTest::reportUnit(202, 3, 1, 13, "弟子");
     BattleReportBuilder builder;
     builder.recordStatus(&first, &second, KysChess::Battle::BattleLogCategory::Status, KysChess::Battle::BattleLogPerspective::Targeted, KysChess::Battle::battleLogText("測試狀態"), 10);
 
@@ -65,8 +67,8 @@ TEST_CASE("BattleLogPresenter_DisambiguatesDuplicateNames", "[battle][log_presen
 
 TEST_CASE("BattleLogPresenter_FiltersByParticipantAndCategory", "[battle][log_presenter]")
 {
-    BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
-    BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
     BattleReportBuilder builder;
     builder.recordDamage(&attacker, &defender, 20, "六脈神劍", 12);
     builder.recordStatus(&attacker, &defender, KysChess::Battle::BattleLogCategory::Status, KysChess::Battle::BattleLogPerspective::Targeted, KysChess::Battle::battleLogText("眩暈（12幀）"), 13);
@@ -87,8 +89,8 @@ TEST_CASE("BattleLogPresenter_FiltersByParticipantAndCategory", "[battle][log_pr
 
 TEST_CASE("BattleLogPresenter_ClassifiesCastCancelAndLifecycleCategories", "[battle][log_presenter]")
 {
-    BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
-    BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
     BattleReportBuilder builder;
     builder.recordStatus(&attacker, &defender, KysChess::Battle::BattleLogCategory::Cast, KysChess::Battle::BattleLogPerspective::Targeted, KysChess::Battle::battleLogText("施放六脈神劍"), 10);
     builder.recordStatus(&attacker, &defender, KysChess::Battle::BattleLogCategory::ProjectileCancel, KysChess::Battle::BattleLogPerspective::Targeted, KysChess::Battle::battleLogText("抵消彈道 #34 vs #29（100 - 65 = 35）"), 11);
@@ -134,8 +136,8 @@ TEST_CASE("BattleLogPresenter_ColorsFramesDurationsProjectileIdsAndFormulas", "[
     constexpr auto formulaTone = BattleLogTextTone::FormulaValue;
     constexpr auto projectileTone = BattleLogTextTone::ProjectileId;
 
-    BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
-    BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
     BattleReportBuilder builder;
     builder.recordStatus(&attacker, &defender, KysChess::Battle::BattleLogCategory::Status, KysChess::Battle::BattleLogPerspective::Targeted, {
         { "眩暈（", BattleLogTextTone::SkillName },
@@ -184,8 +186,8 @@ TEST_CASE("BattleLogPresenter_ColorsFramesDurationsProjectileIdsAndFormulas", "[
 
 TEST_CASE("BattleLogPresenter_SourceOnlyStatusUsesSourceFocusedOrdering", "[battle][log_presenter]")
 {
-    BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
-    BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
     BattleReportBuilder builder;
     builder.recordStatus(
         &defender,
@@ -207,8 +209,8 @@ TEST_CASE("BattleLogPresenter_SourceOnlyStatusUsesSourceFocusedOrdering", "[batt
 
 TEST_CASE("BattleLogPresenter_OmitsDamageDetailParensWhenSegmentsHaveNoVisibleText", "[battle][log_presenter]")
 {
-    BattleUnitIdentity attacker{ 101, 1, 0, 11, "郭襄" };
-    BattleUnitIdentity defender{ 202, 2, 1, 12, "玄慈" };
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "郭襄");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "玄慈");
     BattleReportBuilder builder;
     builder.recordDamage(
         &attacker,

@@ -81,7 +81,7 @@ struct StoreFixture
           creation(KysChess::Battle::BattleRuntimeSession::createInitialized(creationInput)),
           session(std::move(creation.session))
     {
-        store.initializeFromRuntimeCreation(session, creationInput);
+        store.initialize(session);
     }
 };
 

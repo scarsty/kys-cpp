@@ -4,25 +4,14 @@
 #include "Point.h"
 #include "battle/BattleRuntimeSession.h"
 
-#include <array>
 #include <span>
-#include <string>
 #include <vector>
 
 class BattleReport;
 
 struct BattleSceneUnitPresentationState
 {
-    BattleUnitIdentity identity;
     int unitId = -1;
-    int sourceUnitId = -1;
-    int headId = -1;
-    int faceTowards = Towards_None;
-    std::array<int, 5> fightFrames{};
-    std::string skillNames;
-    int chessInstanceId = -1;
-    int weaponId = -1;
-    int armorId = -1;
     int shake = 0;
     int attention = 0;
 };
@@ -30,9 +19,7 @@ struct BattleSceneUnitPresentationState
 class BattleSceneUnitStore
 {
 public:
-    void initializeFromRuntimeCreation(
-        const KysChess::Battle::BattleRuntimeSession& runtimeSession,
-        const KysChess::Battle::BattleRuntimeSessionCreationInput& input);
+    void initialize(const KysChess::Battle::BattleRuntimeSession& runtimeSession);
 
     const BattleSceneUnitPresentationState& requirePresentation(int unitId) const;
     BattleSceneUnitPresentationState& requirePresentation(int unitId);
@@ -47,10 +34,6 @@ public:
     BattlePostBattleSummary makePostBattleSummary(const BattleReport& report, int battleResult) const;
 
 private:
-    void initialize(
-        const KysChess::Battle::BattleRuntimeSession& runtimeSession,
-        std::vector<BattleSceneUnitPresentationState> presentationStates);
-
     const KysChess::Battle::BattleRuntimeSession* runtime_session_ = nullptr;
     std::vector<BattleSceneUnitPresentationState> presentation_;
 };

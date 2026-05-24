@@ -413,6 +413,9 @@
     <ClInclude Include="BattlePostBattleSummary.h">
       <Filter>battle</Filter>
     </ClInclude>
+    <ClInclude Include="BattleUnitIdentity.h">
+      <Filter>battle</Filter>
+    </ClInclude>
     <ClInclude Include="BattlePresentationEffects.h">
       <Filter>battle</Filter>
     </ClInclude>

@@ -169,6 +169,29 @@ void addInitializedRuntimeTestUnit(
     addRuntimeSetupSeed(input, unit);
 }
 
+BattleSetupUnitInput makeRuntimeProfileTestSource()
+{
+    BattleSetupUnitInput source;
+    source.unitId = 0;
+    source.realRoleId = 1001;
+    source.name = "測試角色";
+    source.headId = 23;
+    source.team = 0;
+    source.alive = true;
+    source.vitals = { 100, 100, 0, 0 };
+    source.stats = { 20, 30, 40 };
+    source.motion = { { 100, 200, 0 }, { 0, 0, 0 }, { 0, 0, 0 }, { 1, 1, 0 } };
+    source.animation = { 0, 0, 0, -1 };
+    source.star = 3;
+    source.cost = 7;
+    source.weaponId = 71;
+    source.armorId = 82;
+    source.chessInstanceId = 99;
+    source.fightFrames = { 0, 4, 8, 12, 16 };
+    source.skillNames = "六脈神劍 北冥神功";
+    return source;
+}
+
 }  // namespace
 
 namespace KysChess
@@ -459,7 +482,26 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
 {
     BattleRuntimeState runtime;
     runtime.unitStore.gridTransform = { 36.0, 18 };
-    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
+    auto source = runtimeUnit(0, 0, 100, 20, 30, 40);
+    source.realRoleId = 1001;
+    source.name = "測試角色";
+    source.headId = 23;
+    source.fightFrames = { 0, 4, 8, 12, 16 };
+    source.skillNames = "六脈神劍";
+    source.haveAction = true;
+    source.operationType = BattleOperationType::Melee;
+    source.operationCount = 3;
+    source.physicalPower = 9;
+    source.invincible = 8;
+    source.blockFirstHitsRemaining = 5;
+    source.frozen = 6;
+    source.frozenMax = 12;
+    source.mpBlocked = true;
+    source.mpRecoveryBonusPct = 50;
+    source.weaponId = 71;
+    source.armorId = 82;
+    source.chessInstanceId = 99;
+    runtime.unitStore.units.push_back(source);
     runtime.status.units.push_back(statusRuntime(0, 100, 20));
     runtime.combo.units[0].cloneSummonCount = 1;
 
@@ -472,7 +514,11 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
 
     const auto* clone = runtime.unitStore.findUnit(1);
     REQUIRE(clone != nullptr);
-    CHECK(clone->presentationSourceUnitId == 0);
+    CHECK(clone->cloneSourceUnitId == 0);
+    CHECK(clone->name == "測試角色");
+    CHECK(clone->headId == 23);
+    CHECK(clone->fightFrames[2] == 8);
+    CHECK(clone->skillNames == "六脈神劍");
     CHECK(clone->grid.x == 3);
     CHECK(clone->grid.y == 4);
     CHECK(clone->vitals.maxHp == 100);
@@ -480,6 +526,19 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     CHECK(clone->stats.attack == 20);
     CHECK(clone->stats.defence == 30);
     CHECK(clone->stats.speed == 40);
+    CHECK_FALSE(clone->haveAction);
+    CHECK(clone->operationType == BattleOperationType::None);
+    CHECK(clone->operationCount == 0);
+    CHECK(clone->physicalPower == 0);
+    CHECK(clone->invincible == 0);
+    CHECK(clone->blockFirstHitsRemaining == 0);
+    CHECK(clone->frozen == 0);
+    CHECK(clone->frozenMax == 0);
+    CHECK_FALSE(clone->mpBlocked);
+    CHECK(clone->mpRecoveryBonusPct == 0);
+    CHECK(clone->weaponId == -1);
+    CHECK(clone->armorId == -1);
+    CHECK(clone->chessInstanceId == -1);
     CHECK(runtime.combo.units.find(1) != runtime.combo.units.end());
 }
 
@@ -521,7 +580,7 @@ TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[bat
     REQUIRE(units.size() == 2);
     const auto& sourceUnit = session.runtime().unitStore.requireUnit(0);
     const auto& cloneUnit = session.runtime().unitStore.requireUnit(1);
-    CHECK(cloneUnit.presentationSourceUnitId == 0);
+    CHECK(cloneUnit.cloneSourceUnitId == 0);
     CHECK(cloneUnit.realRoleId == 1001);
     CHECK(cloneUnit.vitals.hp == sourceUnit.vitals.hp);
     CHECK(cloneUnit.vitals.maxHp == sourceUnit.vitals.maxHp);
@@ -530,6 +589,60 @@ TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[bat
     CHECK(cloneUnit.stats.speed == sourceUnit.stats.speed);
     CHECK(cloneUnit.grid.x == 3);
     CHECK(cloneUnit.grid.y == 4);
+}
+
+TEST_CASE("BattleRuntimeSession_OwnsUnitProfileFacts", "[battle][initialization][runtime_session]")
+{
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+
+    auto source = makeRuntimeProfileTestSource();
+    input.units.push_back(source);
+    addRuntimeSetupSeed(input, source);
+
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
+    const auto& unit = session.requireRuntimeUnit(0);
+
+    CHECK(unit.identity().battleId == 0);
+    CHECK(unit.identity().realRoleId == 1001);
+    CHECK(unit.identity().team == 0);
+    CHECK(unit.identity().headId == 23);
+    CHECK(unit.identity().name == "測試角色");
+    CHECK(unit.headId == 23);
+    CHECK(unit.fightFrames[2] == 8);
+    CHECK(unit.skillNames == "六脈神劍 北冥神功");
+    CHECK(unit.weaponId == 71);
+    CHECK(unit.armorId == 82);
+    CHECK(unit.chessInstanceId == 99);
+}
+
+TEST_CASE("BattleRuntimeSession_CloneProfileKeepsRenderingWithoutRosterOwnership", "[battle][initialization][runtime_session]")
+{
+    std::map<int, RoleComboState> comboStates;
+    comboStates[0].cloneSummonCount = 1;
+
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.comboStates = comboStates;
+    input.setup.cloneCells.push_back({ 3, 4, true, false });
+
+    auto source = makeRuntimeProfileTestSource();
+    input.units.push_back(source);
+    addRuntimeSetupSeed(input, source);
+
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
+    const auto& cloneUnit = session.requireRuntimeUnit(1);
+
+    CHECK(cloneUnit.cloneSourceUnitId == 0);
+    CHECK(cloneUnit.identity().battleId == 1);
+    CHECK(cloneUnit.identity().realRoleId == 1001);
+    CHECK(cloneUnit.identity().headId == 23);
+    CHECK(cloneUnit.headId == 23);
+    CHECK(cloneUnit.fightFrames[2] == 8);
+    CHECK(cloneUnit.skillNames == "六脈神劍 北冥神功");
+    CHECK(cloneUnit.weaponId == -1);
+    CHECK(cloneUnit.armorId == -1);
+    CHECK(cloneUnit.chessInstanceId == -1);
 }
 
 TEST_CASE("BattleRuntimeSession_InitializesRuntimeRandomFromCreationInput", "[battle][initialization]")

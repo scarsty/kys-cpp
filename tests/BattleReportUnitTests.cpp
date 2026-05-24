@@ -6,8 +6,8 @@
 
 TEST_CASE("BattleReportBuilder_RecordsDamageStatsAndOrderedEvents", "[battle][report]")
 {
-    BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
-    BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
 
     BattleReportBuilder builder;
     builder.recordDamage(&attacker, &defender, 152, "六脈神劍", 221, KysChess::Battle::battleLogText("連擊增傷 +42%（3層）"));
@@ -34,8 +34,8 @@ TEST_CASE("BattleReportBuilder_RecordsDamageStatsAndOrderedEvents", "[battle][re
 
 TEST_CASE("BattleReportBuilder_BattleEndDoesNotSuppressAlreadyOrderedLaterEvents", "[battle][report]")
 {
-    BattleUnitIdentity attacker{ 101, 1, 0, 11, "段譽" };
-    BattleUnitIdentity defender{ 202, 2, 1, 12, "岳不群" };
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
 
     BattleReportBuilder builder;
     builder.recordBattleEnd(221, 0);
@@ -49,8 +49,8 @@ TEST_CASE("BattleReportBuilder_BattleEndDoesNotSuppressAlreadyOrderedLaterEvents
 
 TEST_CASE("BattleReportBuilder_RecordsLifecycleAndProjectileCancelStats", "[battle][report]")
 {
-    BattleUnitIdentity killer{ 101, 1, 0, 11, "段譽" };
-    BattleUnitIdentity victim{ 202, 2, 1, 12, "岳不群" };
+    auto killer = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto victim = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
 
     BattleReportBuilder builder;
     builder.recordKill(&killer, &victim, 20);

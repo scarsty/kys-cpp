@@ -1,7 +1,26 @@
 #include "BattleReport.h"
 
+#include "battle/BattleUnitStore.h"
+
 #include <cassert>
 #include <utility>
+
+namespace
+{
+void assignSource(BattleReportEvent& event, const KysChess::Battle::BattleRuntimeUnit& unit)
+{
+    event.sourceId = unit.id;
+    event.sourceTeam = unit.team;
+    event.sourceName = unit.name;
+}
+
+void assignTarget(BattleReportEvent& event, const KysChess::Battle::BattleRuntimeUnit& unit)
+{
+    event.targetId = unit.id;
+    event.targetTeam = unit.team;
+    event.targetName = unit.name;
+}
+}  // namespace
 
 int BattleReport::cancelDamageForUnit(int unitId) const
 {
@@ -10,8 +29,8 @@ int BattleReport::cancelDamageForUnit(int unitId) const
 }
 
 void BattleReportBuilder::recordDamage(
-    const BattleUnitIdentity* attacker,
-    const BattleUnitIdentity* defender,
+    const KysChess::Battle::BattleRuntimeUnit* attacker,
+    const KysChess::Battle::BattleRuntimeUnit* defender,
     int damage,
     const std::string& skillName,
     int frame,
@@ -19,7 +38,7 @@ void BattleReportBuilder::recordDamage(
 {
     if (attacker)
     {
-        auto& stats = report_.stats_[attacker->battleId];
+        auto& stats = report_.stats_[attacker->id];
         stats.damageDealt += damage;
         if (stats.firstDamageFrame == 0)
         {
@@ -33,7 +52,7 @@ void BattleReportBuilder::recordDamage(
     }
     if (defender)
     {
-        report_.stats_[defender->battleId].damageTaken += damage;
+        report_.stats_[defender->id].damageTaken += damage;
     }
 
     BattleReportEvent event;
@@ -42,15 +61,11 @@ void BattleReportBuilder::recordDamage(
     event.value = damage;
     if (attacker)
     {
-        event.sourceId = attacker->battleId;
-        event.sourceTeam = attacker->team;
-        event.sourceName = attacker->name;
+        assignSource(event, *attacker);
     }
     if (defender)
     {
-        event.targetId = defender->battleId;
-        event.targetTeam = defender->team;
-        event.targetName = defender->name;
+        assignTarget(event, *defender);
     }
     event.skillName = skillName;
     event.segments = std::move(segments);
@@ -58,8 +73,8 @@ void BattleReportBuilder::recordDamage(
 }
 
 void BattleReportBuilder::recordHeal(
-    const BattleUnitIdentity* source,
-    const BattleUnitIdentity* target,
+    const KysChess::Battle::BattleRuntimeUnit* source,
+    const KysChess::Battle::BattleRuntimeUnit* target,
     int amount,
     std::vector<KysChess::Battle::BattleLogTextSegment> segments,
     int frame)
@@ -71,7 +86,7 @@ void BattleReportBuilder::recordHeal(
 
     if (source)
     {
-        report_.stats_[source->battleId].lastActiveFrame = frame;
+        report_.stats_[source->id].lastActiveFrame = frame;
     }
 
     BattleReportEvent event;
@@ -81,22 +96,18 @@ void BattleReportBuilder::recordHeal(
     event.segments = std::move(segments);
     if (source)
     {
-        event.sourceId = source->battleId;
-        event.sourceTeam = source->team;
-        event.sourceName = source->name;
+        assignSource(event, *source);
     }
     if (target)
     {
-        event.targetId = target->battleId;
-        event.targetTeam = target->team;
-        event.targetName = target->name;
+        assignTarget(event, *target);
     }
     report_.events_.push_back(std::move(event));
 }
 
 void BattleReportBuilder::recordStatus(
-    const BattleUnitIdentity* source,
-    const BattleUnitIdentity* target,
+    const KysChess::Battle::BattleRuntimeUnit* source,
+    const KysChess::Battle::BattleRuntimeUnit* target,
     KysChess::Battle::BattleLogCategory category,
     KysChess::Battle::BattleLogPerspective perspective,
     std::vector<KysChess::Battle::BattleLogTextSegment> segments,
@@ -109,7 +120,7 @@ void BattleReportBuilder::recordStatus(
 
     if (source)
     {
-        report_.stats_[source->battleId].lastActiveFrame = frame;
+        report_.stats_[source->id].lastActiveFrame = frame;
     }
 
     BattleReportEvent event;
@@ -120,24 +131,23 @@ void BattleReportBuilder::recordStatus(
     event.segments = std::move(segments);
     if (source)
     {
-        event.sourceId = source->battleId;
-        event.sourceTeam = source->team;
-        event.sourceName = source->name;
+        assignSource(event, *source);
     }
     if (target)
     {
-        event.targetId = target->battleId;
-        event.targetTeam = target->team;
-        event.targetName = target->name;
+        assignTarget(event, *target);
     }
     report_.events_.push_back(std::move(event));
 }
 
-void BattleReportBuilder::recordKill(const BattleUnitIdentity* killer, const BattleUnitIdentity* victim, int frame)
+void BattleReportBuilder::recordKill(
+    const KysChess::Battle::BattleRuntimeUnit* killer,
+    const KysChess::Battle::BattleRuntimeUnit* victim,
+    int frame)
 {
     if (killer)
     {
-        report_.stats_[killer->battleId].kills++;
+        report_.stats_[killer->id].kills++;
     }
 
     BattleReportEvent event;
@@ -145,24 +155,20 @@ void BattleReportBuilder::recordKill(const BattleUnitIdentity* killer, const Bat
     event.frame = frame;
     if (killer)
     {
-        event.sourceId = killer->battleId;
-        event.sourceTeam = killer->team;
-        event.sourceName = killer->name;
+        assignSource(event, *killer);
     }
     if (victim)
     {
-        event.targetId = victim->battleId;
-        event.targetTeam = victim->team;
-        event.targetName = victim->name;
+        assignTarget(event, *victim);
     }
     report_.events_.push_back(std::move(event));
 }
 
-void BattleReportBuilder::recordDeath(const BattleUnitIdentity* unit, int frame)
+void BattleReportBuilder::recordDeath(const KysChess::Battle::BattleRuntimeUnit* unit, int frame)
 {
     if (unit)
     {
-        report_.stats_[unit->battleId].lastActiveFrame = frame;
+        report_.stats_[unit->id].lastActiveFrame = frame;
     }
     if (!unit)
     {
@@ -172,9 +178,7 @@ void BattleReportBuilder::recordDeath(const BattleUnitIdentity* unit, int frame)
     BattleReportEvent event;
     event.type = BattleReportEventType::Death;
     event.frame = frame;
-    event.targetId = unit->battleId;
-    event.targetTeam = unit->team;
-    event.targetName = unit->name;
+    assignTarget(event, *unit);
     report_.events_.push_back(std::move(event));
 }
 

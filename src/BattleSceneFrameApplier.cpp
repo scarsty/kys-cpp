@@ -16,40 +16,46 @@ void BattleSceneFrameApplier::recordLog(
     switch (event.type)
     {
     case BattleLogEventType::Damage:
+    {
         bindings_.report.recordDamage(
-            resolveIdentity(event.sourceUnitId),
-            resolveIdentity(event.targetUnitId),
+            resolveRuntimeUnit(event.sourceUnitId),
+            resolveRuntimeUnit(event.targetUnitId),
             event.amount,
             event.skillName,
             event.frame,
             event.segments);
         break;
+    }
     case BattleLogEventType::Heal:
+    {
         bindings_.report.recordHeal(
-            resolveIdentity(event.sourceUnitId),
-            resolveIdentity(event.targetUnitId),
+            resolveRuntimeUnit(event.sourceUnitId),
+            resolveRuntimeUnit(event.targetUnitId),
             event.amount,
             event.segments,
             event.frame);
         break;
+    }
     case BattleLogEventType::Status:
+    {
         if (event.category == KysChess::Battle::BattleLogCategory::ProjectileCancel)
         {
             bindings_.report.recordProjectileCancel(event.sourceUnitId, event.amount);
             bindings_.report.recordProjectileCancel(event.targetUnitId, event.secondaryAmount);
         }
         bindings_.report.recordStatus(
-            resolveIdentity(event.sourceUnitId),
-            resolveIdentity(event.targetUnitId),
+            resolveRuntimeUnit(event.sourceUnitId),
+            resolveRuntimeUnit(event.targetUnitId),
             event.category,
             event.perspective,
             event.segments,
             event.frame);
         break;
+    }
     case BattleLogEventType::UnitDied:
     {
-        const auto* killer = resolveIdentity(event.sourceUnitId);
-        const auto* victim = resolveIdentity(event.targetUnitId);
+        const auto* killer = resolveRuntimeUnit(event.sourceUnitId);
+        const auto* victim = resolveRuntimeUnit(event.targetUnitId);
         bindings_.report.recordKill(killer, victim, event.frame);
         bindings_.report.recordDeath(victim, event.frame);
         break;
@@ -60,13 +66,13 @@ void BattleSceneFrameApplier::recordLog(
     }
 }
 
-const BattleUnitIdentity* BattleSceneFrameApplier::resolveIdentity(int unitId) const
+const KysChess::Battle::BattleRuntimeUnit* BattleSceneFrameApplier::resolveRuntimeUnit(int unitId) const
 {
     if (unitId < 0)
     {
         return nullptr;
     }
-    return &bindings_.units.requirePresentation(unitId).identity;
+    return &bindings_.units.requireRuntimeUnit(unitId);
 }
 
 std::optional<BattleSceneFrameApplier::UnitView> BattleSceneFrameApplier::resolveUnitView(int unitId) const
@@ -75,11 +81,12 @@ std::optional<BattleSceneFrameApplier::UnitView> BattleSceneFrameApplier::resolv
     {
         return std::nullopt;
     }
-    const auto& unit = bindings_.units.requireRuntimeUnit(unitId);
+    const auto* unit = resolveRuntimeUnit(unitId);
+    assert(unit);
     return UnitView{
-        unit.motion.position,
-        unit.team,
-        unit.vitals.maxHp,
+        unit->motion.position,
+        unit->team,
+        unit->vitals.maxHp,
     };
 }
 

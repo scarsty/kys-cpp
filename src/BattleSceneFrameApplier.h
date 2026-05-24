@@ -84,7 +84,7 @@ private:
     template <class Effects>
     void applyFrameEffects(const KysChess::Battle::BattlePresentationFrame& frame, Effects& effects) const;
 
-    const BattleUnitIdentity* resolveIdentity(int unitId) const;
+    const KysChess::Battle::BattleRuntimeUnit* resolveRuntimeUnit(int unitId) const;
     std::optional<UnitView> resolveUnitView(int unitId) const;
     int resolveVisualTeam(int unitId) const;
     BattleAttackEffect* findProjectile(int projectileAttackId) const;

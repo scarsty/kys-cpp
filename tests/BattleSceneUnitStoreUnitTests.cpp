@@ -18,8 +18,10 @@ TEST_CASE("BattleSceneUnitStore_InitializesDenseRowsAndRequiresByUnitId", "[batt
 
     StoreFixture fixture(std::move(units));
 
-    CHECK(fixture.store.requirePresentation(0).identity.realRoleId == 1000);
-    CHECK(fixture.store.requirePresentation(1).identity.team == 1);
+    CHECK(fixture.store.requirePresentation(0).unitId == 0);
+    CHECK(fixture.store.requirePresentation(1).unitId == 1);
+    CHECK(fixture.session.requireRuntimeUnit(0).identity().realRoleId == 1000);
+    CHECK(fixture.session.requireRuntimeUnit(1).identity().team == 1);
 }
 
 TEST_CASE("BattleSceneUnitStore_ReadsRuntimeFieldsFromSession", "[battle][scene_unit_store]")
@@ -78,11 +80,11 @@ TEST_CASE("BattleSceneUnitStore_InitializesSummonedClonePlacementAndSummary", "[
     auto creation = KysChess::Battle::BattleRuntimeSession::createInitialized(input);
     auto session = std::move(creation.session);
     BattleSceneUnitStore store;
-    store.initializeFromRuntimeCreation(session, input);
+    store.initialize(session);
 
     const auto cloneUnitId = 1;
     const auto& cloneUnit = session.runtime().unitStore.requireUnit(cloneUnitId);
-    CHECK(cloneUnit.presentationSourceUnitId == 0);
+    CHECK(cloneUnit.cloneSourceUnitId == 0);
     CHECK(cloneUnit.vitals.maxHp > 0);
     CHECK(cloneUnit.stats.attack > 0);
     CHECK(cloneUnit.grid.x == 3);

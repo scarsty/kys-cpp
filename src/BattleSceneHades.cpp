@@ -287,11 +287,11 @@ void BattleSceneHades::initializeBattleRuntime(
 {
     KysChess::ChessCombo::clearActiveStates();
     auto creationInput = makeBattleRuntimeSessionCreationInput(std::move(setupBuild));
-    auto creation = KysChess::Battle::BattleRuntimeSession::createInitialized(creationInput);
+    auto creation = KysChess::Battle::BattleRuntimeSession::createInitialized(std::move(creationInput));
     auto initialization = std::move(creation.initialization);
     battle_session_.emplace(std::move(creation.session));
     KysChess::ChessCombo::getMutableStates() = initialization.comboStates;
-    scene_units_.initializeFromRuntimeCreation(*battle_session_, creationInput);
+    scene_units_.initialize(*battle_session_);
     if (!initialization.logEvents.empty() || !initialization.visualEvents.empty())
     {
         KysChess::Battle::BattlePresentationFrame frame;
@@ -587,7 +587,7 @@ void BattleSceneHades::draw()
         //if (r->Dead) { continue; }
         DrawInfo info;
         const auto& presentation = scene_units_.requirePresentation(unit.id);
-        auto path = std::format("fight/fight{:03}", presentation.headId);
+        auto path = std::format("fight/fight{:03}", unit.headId);
         info.color = { 255, 255, 255, 255 };
         info.alpha = 255;
         info.white = 0;
@@ -601,7 +601,7 @@ void BattleSceneHades::draw()
         info.tex = TextureManager::getInstance()->getTexture(
             path,
             BattleSceneRenderMath::calRenderUnitPic(
-                presentation.fightFrames,
+                unit.fightFrames,
                 unit.motion.facing,
             renderActType,
             renderActFrame));
@@ -788,7 +788,6 @@ void BattleSceneHades::draw()
         {
             renderExtraRoleInfo(
                 unit,
-                scene_units_.requirePresentation(unit.id),
                 renderWorldX(unit.motion.position.x),
                 renderWorldY(unit.motion.position.y / 2.0));
         }
@@ -1285,9 +1284,8 @@ void BattleSceneHades::runListBasedSwap()
         int maxCoordLen = 0;
         for (int unitId : allies)
         {
-            const auto& presentation = scene_units_.requirePresentation(unitId);
             const auto& unit = scene_units_.requireRuntimeUnit(unitId);
-            std::string name = presentation.identity.name;
+            std::string name = unit.name;
             std::string coord = std::format("({},{})", unit.grid.x, unit.grid.y);
             int nameLen = Font::getTextDrawSize(name);
             int coordLen = Font::getTextDrawSize(coord);
@@ -1306,9 +1304,8 @@ void BattleSceneHades::runListBasedSwap()
         std::vector<bool> animateOutlines;
         for (int i = 0; i < (int)allies.size(); i++)
         {
-            const auto& presentation = scene_units_.requirePresentation(allies[i]);
             const auto& unit = scene_units_.requireRuntimeUnit(allies[i]);
-            std::string name = presentation.identity.name;
+            std::string name = unit.name;
             std::string coord = std::format("({},{})", unit.grid.x, unit.grid.y);
             int nameLen = Font::getTextDrawSize(name);
             int coordLen = Font::getTextDrawSize(coord);
@@ -1472,7 +1469,6 @@ void BattleSceneHades::onPressedCancel()
 
 void BattleSceneHades::renderExtraRoleInfo(
     const KysChess::Battle::BattleRuntimeUnit& unit,
-    const BattleSceneUnitPresentationState& presentation,
     double x,
     double y)
 {
