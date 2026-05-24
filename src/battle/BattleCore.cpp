@@ -1263,7 +1263,6 @@ struct BattleFrameContext
     std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
     std::vector<BattleAttackEvent> attackEvents;
     BattleTickResult movement;
-    std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
     std::vector<BattleTeamEffectEvent> teamEffectEvents;
     std::vector<BattleEffectCommand> effectCommands;
     UnitMotionSnapshotMap frameStartMotion;
@@ -4421,6 +4420,7 @@ std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleR
 void commitFrameMovement(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
+    const std::vector<BattleFrameMovementPhysicsUnitResult>& physicsResults,
     BattleTickResult movement)
 {
     frame.movement = std::move(movement);
@@ -4434,7 +4434,7 @@ void commitFrameMovement(
         agent.slotSwitchCooldownRemaining = decision.slotSwitchCooldownRemaining;
     }
 
-    for (const auto& physicsResult : frame.movementPhysicsResults)
+    for (const auto& physicsResult : physicsResults)
     {
         auto& unit = state.unitStore.requireUnit(physicsResult.unitId);
         auto& physics = requireMappedById(state.movement.agents, physicsResult.unitId).physics;
@@ -4493,10 +4493,10 @@ void commitFrameMovement(
 void advanceMotionFrame(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     prepareMovementAgents(state);
-    frame.movementPhysicsResults = computeMovementPhysics(state);
-    auto movementInput = makeFrameMovementPlanInput(state, makePostPhysicsMotionMap(frame.movementPhysicsResults));
+    auto physicsResults = computeMovementPhysics(state);
+    auto movementInput = makeFrameMovementPlanInput(state, makePostPhysicsMotionMap(physicsResults));
     auto movement = BattleMovementPlanner(std::move(movementInput)).tick();
-    commitFrameMovement(state, frame, std::move(movement));
+    commitFrameMovement(state, frame, physicsResults, std::move(movement));
 }
 
 void commitActionFrameStateToRuntime(BattleRuntimeUnit& unit, const BattleUnitFrameTickState& state)
