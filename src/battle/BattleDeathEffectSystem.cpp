@@ -1,7 +1,7 @@
 #include "BattleDeathEffectSystem.h"
 
-#include "BattleCore.h"
 #include "../Find.h"
+#include "BattleUnitStore.h"
 
 #include <algorithm>
 #include <cassert>

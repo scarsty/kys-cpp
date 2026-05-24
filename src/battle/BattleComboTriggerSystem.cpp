@@ -1,7 +1,7 @@
 #include "BattleComboTriggerSystem.h"
 
-#include "BattleCore.h"
 #include "BattleDamageSystem.h"
+#include "BattleRuntimeRandom.h"
 
 #include <algorithm>
 #include <cassert>

@@ -10,15 +10,14 @@
 #include "BattleMovement.h"
 #include "BattlePresentation.h"
 #include "BattleRescueRepositionSystem.h"
+#include "BattleRuntimeRandom.h"
 #include "BattleStatusSystem.h"
 #include "BattleUnitStore.h"
 #include "BattleTeamEffectSystem.h"
 #include "BattleUnitValues.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <map>
-#include <random>
 #include <set>
 #include <string>
 #include <vector>
@@ -107,22 +106,6 @@ struct BattlePendingCastAction
     BattleCastSkillState skill;
 };
 
-class BattleRuntimeRandom
-{
-public:
-    explicit BattleRuntimeRandom(unsigned int seed = 1);
-
-    unsigned int seed() const;
-    double nextPercent();
-    int nextInt(int upperBound);
-    bool chance(int chancePct);
-    int symmetricInt(int exclusiveBound);
-
-private:
-    unsigned int seed_ = 1;
-    std::mt19937 rand_;
-};
-
 struct BattleFrameRescueUnitSnapshot
 {
     BattleRescueUnitSnapshot unit;
@@ -189,7 +172,6 @@ struct BattleRuntimeState
     struct TeamEffectState
     {
         double healAuraRadius = 0.0;
-        std::vector<BattleGameplayCommand> pendingCommands;
     } teamEffects;
 
     struct MovementPhysicsState

@@ -870,31 +870,6 @@ TEST_CASE("BattleStatusSystem_CopiesStatusEffectsAsACluster", "[battle][status]"
     CHECK(runtime.effects.damageReduceDebuffs[0].pct == 14);
 }
 
-TEST_CASE("BattleFrameRunner_RoutesTeamEffectEventsThroughCanonicalUnitStore", "[battle][core][runtime]")
-{
-    BattleRuntimeState state;
-    state.unitStore.gridTransform = { SceneTileWidth, 64 };
-    configureRuntimeMovement(state, worldWith({
-        unit(0, 0, { 100, 100, 0 }),
-        unit(1, 0, { 120, 100, 0 }),
-    }));
-    state.attacks = attackWorld();
-    state.unitStore.units = {
-        runtimeUnitSnapshot(0, 0, 40, { 100, 100, 0 }),
-        runtimeUnitSnapshot(1, 0, 80, { 120, 100, 0 }),
-    };
-    state.status.units = {
-        statusRuntimeSnapshot(0, 40),
-        statusRuntimeSnapshot(1, 80),
-    };
-    state.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 0, 10, 0, "技能群療" });
-
-    runBattleFrame(state);
-
-    CHECK(state.unitStore.requireUnit(0).vitals.hp == 50);
-    CHECK(state.unitStore.requireUnit(1).vitals.hp == 90);
-}
-
 TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -1366,30 +1341,6 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     CHECK(state.deathEffects.store.units[0].id == 1);
     CHECK_FALSE(state.result.ended);
     CHECK(state.result.winningTeam == -1);
-}
-
-TEST_CASE("BattleFrameRunner_TeamShieldDoesNotMirrorIntoCombo", "[battle][core][runtime]")
-{
-    BattleRuntimeState state;
-    configureRuntimeMovement(state, worldWith({
-        unit(0, 0, { 100, 100, 0 }),
-        unit(1, 0, { 150, 100, 0 }),
-    }));
-    state.attacks = attackWorld();
-    state.unitStore.units = {
-        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
-        runtimeUnitSnapshot(1, 0, 100, { 150, 100, 0 }),
-    };
-    state.combo.units[0] = {};
-    state.combo.units[1] = {};
-    state.teamEffects.pendingCommands.push_back(BattleTeamShieldCommand{ 0, 12, false, "測試護盾" });
-
-    runBattleFrame(state);
-
-    CHECK(state.unitStore.requireUnit(0).shield == 12);
-    CHECK(state.unitStore.requireUnit(1).shield == 12);
-    CHECK(state.combo.units.at(0).shield == 0);
-    CHECK(state.combo.units.at(1).shield == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle][core][runtime]")
@@ -2371,6 +2322,7 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 19);
     CHECK(state.unitStore.requireUnit(0).shield == 12);
     CHECK(state.unitStore.requireUnit(0).invincible == 12);
+    CHECK(state.combo.units.at(0).shield == 0);
     CHECK(state.combo.units.at(0).effectActivationCounts.at(0) == 1);
     CHECK(state.combo.units.at(0).effectActivationCounts.at(1) == 1);
 
@@ -3083,59 +3035,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive",
     CHECK(defender.invincible == 30);
     CHECK(runtime.deathPreventionUsed);
     CHECK(runtime.deathPreventionFrames == 30);
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[battle][core][breakthrough]")
-{
-    BattleRuntimeState state;
-    configureRuntimeMovement(state, worldWith({
-        unit(0, 0, { 100, 100, 0 }),
-        unit(1, 0, { 120, 100, 0 }),
-        unit(2, 1, { 180, 100, 0 }),
-    }));
-    state.attacks = attackWorld();
-    state.unitStore.units = {
-        runtimeUnitSnapshot(0, 0, 50, { 100, 100, 0 }),
-        runtimeUnitSnapshot(1, 0, 70, { 120, 100, 0 }),
-        runtimeUnitSnapshot(2, 1, 80, { 180, 100, 0 }),
-    };
-    state.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 0, 10, 0, "技能群療" });
-
-    auto result = runBattleFrame(state);
-
-    CHECK(state.unitStore.requireUnit(0).vitals.hp == 60);
-    CHECK(state.unitStore.requireUnit(1).vitals.hp == 80);
-    CHECK(std::count_if(
-        result.visualEvents.begin(),
-        result.visualEvents.end(),
-        [](const BattleVisualEvent& event)
-        {
-            return event.type == BattleVisualEventType::RoleEffect
-                && event.effectId == KysChess::EFT_HEAL;
-        }) == 2);
-}
-
-TEST_CASE("BattleFrameRunner_DropsPendingTeamEffectWhenSourceDiesBeforeApply", "[battle][core][runtime]")
-{
-    BattleRuntimeState state;
-    state.unitStore.gridTransform = { SceneTileWidth, 64 };
-    configureRuntimeMovement(state, worldWith({
-        unit(0, 0, { 100, 100, 0 }),
-        unit(1, 0, { 120, 100, 0 }),
-    }));
-    state.attacks = attackWorld();
-    state.unitStore.units = {
-        runtimeUnitSnapshot(0, 0, 40, { 100, 100, 0 }),
-        runtimeUnitSnapshot(1, 0, 80, { 120, 100, 0 }),
-    };
-    state.unitStore.requireUnit(0).alive = false;
-    state.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 0, 10, 0, "技能群療" });
-
-    auto result = runBattleFrame(state);
-
-    CHECK(result.visualEvents.empty());
-    CHECK(state.teamEffects.pendingCommands.empty());
-    CHECK(state.unitStore.requireUnit(1).vitals.hp == 80);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnCooldownFinish", "[battle][core][breakthrough]")

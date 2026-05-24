@@ -173,6 +173,7 @@
     <ClCompile Include="battle\BattlePresentationPlayback.cpp" />
     <ClCompile Include="battle\BattleProjectileTargetingSystem.cpp" />
     <ClCompile Include="battle\BattleRescueRepositionSystem.cpp" />
+    <ClCompile Include="battle\BattleRuntimeRandom.cpp" />
     <ClCompile Include="battle\BattleRuntimeRules.cpp" />
     <ClCompile Include="battle\BattleRuntimeSession.cpp" />
     <ClCompile Include="battle\BattleStatusSystem.cpp" />
@@ -336,6 +337,7 @@
     <ClInclude Include="battle\BattlePresentationPlayback.h" />
     <ClInclude Include="battle\BattleProjectileTargetingSystem.h" />
     <ClInclude Include="battle\BattleRescueRepositionSystem.h" />
+    <ClInclude Include="battle\BattleRuntimeRandom.h" />
     <ClInclude Include="battle\BattleRuntimeRules.h" />
     <ClInclude Include="battle\BattleRuntimeSession.h" />
     <ClInclude Include="battle\BattleStatusSystem.h" />

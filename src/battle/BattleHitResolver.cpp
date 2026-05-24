@@ -3,7 +3,8 @@
 #include "BattleLogSegments.h"
 #include "../ChessEftIds.h"
 #include "BattleComboTriggerSystem.h"
-#include "BattleCore.h"
+#include "BattleRuntimeRandom.h"
+#include "BattleUnitStore.h"
 
 #include <algorithm>
 #include <cassert>

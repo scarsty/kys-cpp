@@ -304,29 +304,6 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     CHECK(session.runtime().movement.agents.at(1).physics.velocity.y == unit.motion.velocity.y);
 }
 
-TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayFrameApplications", "[battle][runtime_session][ownership]")
-{
-    auto runtime = ownedRuntimeState();
-    runtime.unitStore.requireUnit(0).vitals.hp = 50;
-    runtime.unitStore.requireUnit(0).vitals.mp = 10;
-    runtime.unitStore.requireUnit(1).vitals.hp = 90;
-    runtime.unitStore.requireUnit(1).vitals.mp = 10;
-    runtime.unitStore.requireUnit(1).team = 0;
-    seedDamageExtrasFromUnits(runtime);
-    runtime.status.units = {
-        BattleStatusRuntimeUnit{ .id = 0 },
-        BattleStatusRuntimeUnit{ .id = 1 },
-    };
-    runtime.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 0, 10, 0, "測試群療" });
-
-    BattleRuntimeSession session(std::move(runtime));
-
-    session.runFrame();
-
-    CHECK(session.runtime().unitStore.requireUnit(0).vitals.hp == 60);
-    CHECK(session.runtime().unitStore.requireUnit(1).vitals.hp == 100);
-}
-
 TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[battle][runtime_session][ownership]")
 {
     BattleRuntimeSessionCreationInput input;
@@ -519,7 +496,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
 
     runBattleFrame(state);
 
-    CHECK(state.teamEffects.pendingCommands.empty());
     CHECK(state.unitStore.requireUnit(0).animation.cooldown == 0);
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 90);
     CHECK_FALSE(state.combo.units.at(0).onSkillTeamHealPending);

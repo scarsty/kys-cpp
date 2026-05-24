@@ -1,7 +1,6 @@
 #include "BattleDamageSystem.h"
 
 #include "../ChessBattleEffects.h"
-#include "BattleCore.h"
 #include "BattleResourceRules.h"
 
 #include <algorithm>

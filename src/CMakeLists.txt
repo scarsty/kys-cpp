@@ -51,6 +51,7 @@ set(KYS_BATTLE_SOURCES
     battle/BattlePresentationPlayback.cpp
     battle/BattleProjectileTargetingSystem.cpp
     battle/BattleRescueRepositionSystem.cpp
+    battle/BattleRuntimeRandom.cpp
     battle/BattleRuntimeRules.cpp
     battle/BattleRuntimeSession.cpp
     battle/BattleStatusSystem.cpp

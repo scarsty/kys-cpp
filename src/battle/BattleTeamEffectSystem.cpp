@@ -1,7 +1,7 @@
 #include "BattleTeamEffectSystem.h"
 
-#include "BattleCore.h"
 #include "BattleResourceRules.h"
+#include "BattleUnitStore.h"
 
 #include <algorithm>
 #include <cassert>
