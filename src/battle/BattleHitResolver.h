@@ -184,16 +184,6 @@ struct BattleRumbleCommand
     int durationMs{};
 };
 
-struct BattleProjectileCancelDamageCommand
-{
-    int attackId{};
-    int otherAttackId{};
-    int sourceUnitId{};
-    int otherSourceUnitId{};
-    int damage{};
-    int otherDamage{};
-};
-
 struct BattleDeathAoeProjectileCommand
 {
     int sourceUnitId{};
@@ -238,7 +228,6 @@ using BattleGameplayCommand = std::variant<
     BattleKnockbackCommand,
     BattleTempAttackBuffCommand,
     BattleRumbleCommand,
-    BattleProjectileCancelDamageCommand,
     BattleDeathAoeProjectileCommand,
     BattleUnitHealCommand,
     BattleUnitShieldCommand>;

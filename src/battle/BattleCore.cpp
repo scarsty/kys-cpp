@@ -1005,8 +1005,7 @@ void advanceRuntimeUnits(
 
 void applyProjectileCancelDamageResults(
     BattleRuntimeState& state,
-    std::vector<BattleAttackEvent>& events,
-    std::vector<BattleGameplayCommand>& commands)
+    std::vector<BattleAttackEvent>& events)
 {
     BattleAttackSystem attackSystem;
     for (auto& event : events)
@@ -1032,14 +1031,6 @@ void applyProjectileCancelDamageResults(
             attack,
             event.otherProjectileCancelDamage);
 
-        BattleProjectileCancelDamageCommand command;
-        command.attackId = event.attackId;
-        command.otherAttackId = event.otherAttackId;
-        command.sourceUnitId = event.sourceUnitId;
-        command.otherSourceUnitId = event.otherSourceUnitId;
-        command.damage = event.projectileCancelDamage;
-        command.otherDamage = event.otherProjectileCancelDamage;
-        commands.push_back(command);
         attackSystem.applyProjectileCancelDamage(state.attacks, event);
     }
 }
@@ -3242,10 +3233,6 @@ bool reduceFrameGameplayCommand(
         });
         return true;
     }
-    if (std::holds_alternative<BattleProjectileCancelDamageCommand>(command))
-    {
-        return true;
-    }
     if (const auto* heal = std::get_if<BattleUnitHealCommand>(&command))
     {
         return applyFrameUnitHealCommand(state, *heal, logEvents, visualEvents);
@@ -4767,10 +4754,7 @@ void advanceAttacksAndResolveHits(BattleRuntimeState& state, BattleFrameContext&
         attackEvents.end(),
         std::make_move_iterator(tickEvents.begin()),
         std::make_move_iterator(tickEvents.end()));
-    applyProjectileCancelDamageResults(
-        state,
-        attackEvents,
-        frameCommands);
+    applyProjectileCancelDamageResults(state, attackEvents);
     appendProjectileCancellationLogEvents(state.attacks, attackEvents, logEvents, false);
     resolveHitEvents(
         state,
