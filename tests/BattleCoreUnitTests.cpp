@@ -1695,6 +1695,49 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", 
     CHECK(state.attacks.attacks.front().state.skillId == 101);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesPreAttackLocalSpawnsInsideFrame", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 160, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.combo.units[0] = {};
+    preparePendingCastCommitFrame(state, 0);
+
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.pendingAttackSpawns.empty());
+    CHECK(state.damage.pendingDamage.empty());
+    REQUIRE(state.attacks.attacks.size() == 1);
+    CHECK(state.attacks.attacks.front().state.attackerUnitId == 0);
+    CHECK(state.attacks.attacks.front().state.skillId == 101);
+    CHECK(std::any_of(
+        result.gameplayEvents.begin(),
+        result.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::AttackSpawned
+                && event.sourceUnitId == 0;
+        }));
+
+    result = runBattleFrame(state);
+
+    CHECK(std::none_of(
+        result.gameplayEvents.begin(),
+        result.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::AttackSpawned
+                && event.sourceUnitId == 0;
+        }));
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesRuntimeOwnedActionDirectives", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -2340,6 +2383,77 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
         CHECK(BattleLogTest::textOf(*invincibilityLog) == "技能後無敵（12幀）");
         CHECK(BattleLogTest::hasSegment(*invincibilityLog, "12", BattleLogTextTone::DurationValue));
         CHECK(BattleLogTest::hasSegment(*invincibilityLog, "幀", BattleLogTextTone::DurationValue));
+}
+
+TEST_CASE("BattleFrameRunner_AppliesCastScopedMpRestoreAfterUltimateSpend", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+
+    auto& unit = state.unitStore.requireUnit(0);
+    preparePendingCastCommitFrame(state, 0);
+    unit.vitals.mp = 100;
+    unit.vitals.maxMp = 100;
+
+    KysChess::RoleComboState combo;
+    combo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::TeamMPRestore, KysChess::Trigger::OnCast, 8, 100));
+    state.combo.units[0] = combo;
+    state.ultimateCasters.insert(0);
+
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.id = 101;
+    configureRuntimeActionPlan(state, cast);
+    auto action = framePendingCastAction();
+    action.ultimate = true;
+    state.action.pendingCasts.emplace(0, action);
+
+    runBattleFrame(state);
+
+    CHECK(state.action.pendingCasts.empty());
+    CHECK(state.unitStore.requireUnit(0).vitals.mp == 8);
+}
+
+TEST_CASE("BattleFrameRunner_CastScopedMpRestoreDoesNotChangeLaterSameFrameCastSelection", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 0, { 120, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 220, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+
+    preparePendingCastCommitFrame(state, 0);
+    state.unitStore.requireUnit(0).vitals.mp = 5;
+    state.unitStore.requireUnit(0).vitals.maxMp = 100;
+    state.unitStore.requireUnit(1).animation.cooldown = 0;
+    state.unitStore.requireUnit(1).vitals.mp = 90;
+    state.unitStore.requireUnit(1).vitals.maxMp = 100;
+
+    KysChess::RoleComboState combo;
+    combo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::TeamMPRestore, KysChess::Trigger::OnCast, 10, 100));
+    state.combo.units[0] = combo;
+    state.combo.units[1] = {};
+
+    configureRuntimeActionPlan(state, frameCastInput(0, 2));
+    configureRuntimeActionPlan(state, frameCastInput(1, 2));
+    state.action.pendingCasts.emplace(0, framePendingCastAction());
+
+    runBattleFrame(state);
+
+    const auto pending = state.action.pendingCasts.find(1);
+    REQUIRE(pending != state.action.pendingCasts.end());
+    CHECK_FALSE(pending->second.ultimate);
+    CHECK(pending->second.skill.id == 301);
+    CHECK(state.unitStore.requireUnit(1).vitals.mp == 100);
 }
 
 TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastSound", "[battle][core][runtime]")
@@ -3092,6 +3206,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathAoeProjectileDamagesOnNextFrame",
     CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == 0);
     CHECK(state.pendingAttackSpawns[0].initial.scriptedDamage == 50);
     CHECK(state.pendingAttackSpawns[0].initial.scriptedStunFrames == 6);
+    CHECK(std::none_of(
+        result.gameplayEvents.begin(),
+        result.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::AttackSpawned
+                && event.sourceUnitId == 1
+                && event.targetUnitId == 0;
+        }));
+    CHECK(damageLogsFor(result, 0).empty());
 
     result = runBattleFrame(state);
 

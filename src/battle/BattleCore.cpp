@@ -200,6 +200,10 @@ bool isLastAliveInTeam(const BattleUnitStore& store, const BattleRuntimeUnit& un
 void appendTeamEffectVisualEvents(
     std::vector<BattleVisualEvent>& visualEvents,
     const std::vector<BattleTeamEffectEvent>& events);
+void appendTeamEffectLogEvents(
+    std::vector<BattleLogEvent>& logEvents,
+    const std::vector<BattleTeamEffectEvent>& events,
+    const std::string& reason);
 BattleUnitFrameTickInput makeRuntimeUnitTickInput(
     const BattleRuntimeState& state,
     const BattleRuntimeUnit& unit);
@@ -214,11 +218,33 @@ BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
     BattleUnitStore& units,
     const BattleGameplayCommand& command);
 
-std::vector<BattleGameplayCommand> collectFrameCastScopedComboCommands(
-    KysChess::RoleComboState& state,
+std::vector<BattleComboTriggerEvent> collectFrameCastScopedComboEvents(
+    KysChess::RoleComboState& combo,
     BattleRuntimeRandom& random,
-    int unitId,
-    double projectileSpeed);
+    int unitId);
+
+struct BattleFrameCastScopedComboEffects
+{
+    int unitId{};
+    double projectileSpeed{};
+    std::vector<BattleComboTriggerEvent> events;
+};
+
+void applyFrameCastScopedComboEffects(
+    BattleRuntimeState& state,
+    const BattleFrameCastScopedComboEffects& effects,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents);
+
+void applyFrameCastScopedComboEffects(
+    BattleRuntimeState& state,
+    const std::vector<BattleFrameCastScopedComboEffects>& effectQueue,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents);
 
 struct BattleRuntimeUnitFrameCommit
 {
@@ -227,11 +253,25 @@ struct BattleRuntimeUnitFrameCommit
     RoleComboState comboState;
 };
 
+struct BattleSkillFinishedTeamHeal
+{
+    int sourceUnitId{};
+    int flatHeal{};
+    int pctHeal{};
+};
+
 struct BattleRuntimeUnitsAdvanceResult
 {
     std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
-    std::vector<BattleGameplayCommand> teamEffectCommands;
+    std::vector<BattleSkillFinishedTeamHeal> skillFinishedTeamHeals;
 };
+
+void appendAttackSpawnRequests(
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    const std::vector<BattleAttackSpawnRequest>& requests)
+{
+    attackSpawns.insert(attackSpawns.end(), requests.begin(), requests.end());
+}
 
 void applyRuntimeUnitMpDelta(BattleRuntimeUnit& unit, int mpDelta)
 {
@@ -924,13 +964,11 @@ BattleRuntimeUnitsAdvanceResult advanceRuntimeUnits(BattleRuntimeState& state)
                 state.random);
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
-                BattleTeamHealCommand command{
+                result.skillFinishedTeamHeals.push_back({
                     unit.id,
                     teamHeal.flatHeal,
                     teamHeal.pctHeal,
-                    "技能群療",
-                };
-                result.teamEffectCommands.push_back(std::move(command));
+                });
             }
         }
         if (comboIt != state.combo.units.end())
@@ -1973,7 +2011,8 @@ bool tryCommitAutoUltimate(
     bool consumeMp,
     bool announceAutoUltimate,
     std::vector<int>& attackSoundIds,
-    std::vector<BattleGameplayCommand>& pendingCommands,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -2052,19 +2091,7 @@ bool tryCommitAutoUltimate(
         unitId,
         actionResult.combo.postSkillInvincFrames,
         logEvents);
-    auto castScopedCommands = collectFrameCastScopedComboCommands(
-        actionResult.combo,
-        state.random,
-        unitId,
-        committedCastProjectileSpeed(actionResult, state.projectileFollowUps.projectileSpeed));
-    pendingCommands.insert(
-        pendingCommands.end(),
-        std::make_move_iterator(castScopedCommands.begin()),
-        std::make_move_iterator(castScopedCommands.end()));
-    state.pendingAttackSpawns.insert(
-        state.pendingAttackSpawns.end(),
-        actionResult.attackSpawnRequests.begin(),
-        actionResult.attackSpawnRequests.end());
+    appendAttackSpawnRequests(attackSpawns, actionResult.attackSpawnRequests);
     logEvents.insert(
         logEvents.end(),
         actionResult.logEvents.begin(),
@@ -2073,12 +2100,24 @@ bool tryCommitAutoUltimate(
         visualEvents.end(),
         actionResult.visualEvents.begin(),
         actionResult.visualEvents.end());
+    BattleFrameCastScopedComboEffects castScopedEffects{
+        unitId,
+        committedCastProjectileSpeed(actionResult, state.projectileFollowUps.projectileSpeed),
+        collectFrameCastScopedComboEvents(actionResult.combo, state.random, unitId),
+    };
     combo = actionResult.combo;
     unit.operationCount = actionResult.operationCount;
     if (consumeMp)
     {
         unit.vitals.mp -= unit.vitals.maxMp;
     }
+    applyFrameCastScopedComboEffects(
+        state,
+        castScopedEffects,
+        attackSpawns,
+        pendingDamage,
+        logEvents,
+        visualEvents);
     return true;
 }
 
@@ -2762,6 +2801,7 @@ void applyRescueRepositionForDamage(
 
 void appendFramePendingDamage(
     BattleRuntimeState& state,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
     BattleDamageRequest request,
     std::optional<BattleDamagePresentationInput> presentation = std::nullopt,
     bool canTriggerExecute = false,
@@ -2783,7 +2823,7 @@ void appendFramePendingDamage(
     }
     intent.canTriggerExecute = canTriggerExecute;
     intent.canTriggerDefenderBlock = canTriggerDefenderBlock;
-    state.damage.pendingDamage.push_back(std::move(intent));
+    pendingDamage.push_back(std::move(intent));
 }
 
 void applyFrameDamagePresentationStyle(
@@ -2855,6 +2895,7 @@ BattleDamagePresentationInput makeFrameDamagePresentation(
 
 bool tryAppendFrameDamageTransaction(
     BattleRuntimeState& state,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
     const BattleHpDamageCommand& command)
 {
     BattleDamageRequest request;
@@ -2867,6 +2908,7 @@ bool tryAppendFrameDamageTransaction(
 
     appendFramePendingDamage(
         state,
+        pendingDamage,
         std::move(request),
         makeFrameDamagePresentation(state, command),
         command.canTriggerExecute,
@@ -2876,6 +2918,7 @@ bool tryAppendFrameDamageTransaction(
 
 bool tryAppendFrameDamageTransaction(
     BattleRuntimeState& state,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
     const BattleMpDamageCommand& command)
 {
     auto request = command.damage;
@@ -2884,6 +2927,7 @@ bool tryAppendFrameDamageTransaction(
 
     appendFramePendingDamage(
         state,
+        pendingDamage,
         std::move(request),
         std::nullopt,
         false,
@@ -2893,6 +2937,7 @@ bool tryAppendFrameDamageTransaction(
 
 bool tryAppendFrameDamageTransaction(
     BattleRuntimeState& state,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
     const BattleAcceptedHitSideEffectCommand& command)
 {
     auto request = command.damage;
@@ -2900,7 +2945,7 @@ bool tryAppendFrameDamageTransaction(
     request.defenderUnitId = command.targetUnitId;
     request.acceptedHit = true;
 
-    appendFramePendingDamage(state, std::move(request));
+    appendFramePendingDamage(state, pendingDamage, std::move(request));
     return true;
 }
 
@@ -3066,21 +3111,23 @@ bool reduceFrameGameplayCommand(
     std::vector<int>& attackSoundIds,
     std::vector<BattleFrameRumbleEvent>& rumbles,
     std::vector<BattleGameplayCommand>& pending,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
     if (const auto* hp = std::get_if<BattleHpDamageCommand>(&command))
     {
-        return tryAppendFrameDamageTransaction(state, *hp);
+        return tryAppendFrameDamageTransaction(state, pendingDamage, *hp);
     }
     if (const auto* mp = std::get_if<BattleMpDamageCommand>(&command))
     {
-        return tryAppendFrameDamageTransaction(state, *mp);
+        return tryAppendFrameDamageTransaction(state, pendingDamage, *mp);
     }
     if (const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command))
     {
-        return tryAppendFrameDamageTransaction(state, *sideEffect);
+        return tryAppendFrameDamageTransaction(state, pendingDamage, *sideEffect);
     }
     if (std::holds_alternative<BattleTeamHealCommand>(command)
         || std::holds_alternative<BattleTeamMpRestoreCommand>(command)
@@ -3090,7 +3137,7 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&command))
     {
-        state.pendingAttackSpawns.push_back(projectile->request);
+        attackSpawns.push_back(projectile->request);
         return true;
     }
     if (std::holds_alternative<BattleCurrentHpBlastCommand>(command)
@@ -3126,7 +3173,8 @@ bool reduceFrameGameplayCommand(
             autoUltimate->consumeMp,
             autoUltimate->announce,
             attackSoundIds,
-            pending,
+            attackSpawns,
+            pendingDamage,
             gameplayEvents,
             logEvents,
             visualEvents);
@@ -3172,6 +3220,8 @@ void reduceFrameGameplayCommandsImpl(
     std::vector<BattleGameplayCommand>& commands,
     std::vector<int>& attackSoundIds,
     std::vector<BattleFrameRumbleEvent>& rumbles,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -3186,6 +3236,8 @@ void reduceFrameGameplayCommandsImpl(
             attackSoundIds,
             rumbles,
             pending,
+            attackSpawns,
+            pendingDamage,
             gameplayEvents,
             logEvents,
             visualEvents))
@@ -3196,13 +3248,19 @@ void reduceFrameGameplayCommandsImpl(
     commands = std::move(unreduced);
 }
 
-void reduceFrameGameplayCommands(BattleRuntimeState& state, BattleFrameContext& frame)
+void reduceFrameGameplayCommands(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattlePendingDamageIntent>& pendingDamage)
 {
     reduceFrameGameplayCommandsImpl(
         state,
         frame.frameCommands,
         frame.attackSoundIds,
         frame.rumbles,
+        attackSpawns,
+        pendingDamage,
         frame.gameplayEvents,
         frame.logEvents,
         frame.visualEvents);
@@ -3903,7 +3961,9 @@ void applyRuntimeDeathComboConsequences(
     }
 }
 
-std::vector<BattleStatusEvent> advanceStatus(BattleRuntimeState& state)
+std::vector<BattleStatusEvent> advanceStatus(
+    BattleRuntimeState& state,
+    std::vector<BattlePendingDamageIntent>& pendingDamage)
 {
     state.status.config.frame = state.movement.frame;
     auto statusTick = BattleStatusSystem(state.status.config).tick(state.unitStore, state.status.units);
@@ -3927,7 +3987,7 @@ std::vector<BattleStatusEvent> advanceStatus(BattleRuntimeState& state)
         BattleDamagePresentationInput presentation;
         presentation.segments = battleLogText(event.reason, BattleLogTextTone::SkillName);
         applyStatusTickDamagePresentation(state, event.type, event.unitId, presentation);
-        appendFramePendingDamage(state, std::move(request), std::move(presentation));
+        appendFramePendingDamage(state, pendingDamage, std::move(request), std::move(presentation));
     }
     return std::move(statusTick.events);
 }
@@ -4092,7 +4152,7 @@ void applyCastPostSkillInvincibility(
 std::vector<BattleGameplayCommand> applyRuntimeComboEvents(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
-    const std::vector<BattleRuntimeUnitFrameCommit> &runtimeCommits)
+    const std::vector<BattleRuntimeUnitFrameCommit>& runtimeCommits)
 {
     std::vector<BattleGameplayCommand> deferredCommands;
     for (const auto& result : runtimeCommits)
@@ -4135,44 +4195,23 @@ std::vector<BattleGameplayCommand> applyRuntimeComboEvents(
     return deferredCommands;
 }
 
-void applyPendingTeamEffects(
+void applySkillFinishedTeamHeals(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
-    const std::vector<BattleGameplayCommand>& teamEffectCommands)
+    const std::vector<BattleSkillFinishedTeamHeal>& heals)
 {
-    if (state.unitStore.units.empty())
+    BattleTeamEffectSystem system;
+    for (const auto& heal : heals)
     {
-        return;
-    }
-
-    for (const auto& command : teamEffectCommands)
-    {
-        const int sourceUnitId = std::visit([](const auto& typedCommand) -> int
-            {
-                using Command = std::decay_t<decltype(typedCommand)>;
-                if constexpr (std::is_same_v<Command, BattleTeamHealCommand>
-                    || std::is_same_v<Command, BattleTeamMpRestoreCommand>
-                    || std::is_same_v<Command, BattleTeamShieldCommand>)
-                {
-                    return typedCommand.sourceUnitId;
-                }
-                return -1;
-        }, command);
-        if (sourceUnitId >= 0)
-        {
-            const auto& source = state.unitStore.requireUnit(sourceUnitId);
-            if (!source.alive)
-            {
-                continue;
-            }
-            auto application = applyBattleTeamEffectCommand(state.unitStore, command);
-            frame.logEvents.insert(
-                frame.logEvents.end(),
-                application.logEvents.begin(),
-                application.logEvents.end());
-            appendTeamEffectVisualEvents(frame.visualEvents, application.events);
-            continue;
-        }
+        const auto& source = state.unitStore.requireUnit(heal.sourceUnitId);
+        assert(source.alive);
+        auto events = system.applyTeamHeal(
+            state.unitStore,
+            heal.sourceUnitId,
+            heal.flatHeal,
+            heal.pctHeal);
+        appendTeamEffectLogEvents(frame.logEvents, events, "技能群療");
+        appendTeamEffectVisualEvents(frame.visualEvents, events);
     }
 }
 
@@ -4451,9 +4490,10 @@ BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 void advanceActionFrameUnits(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
-    const BattleTickResult& movement)
+    const BattleTickResult& movement,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattleFrameCastScopedComboEffects>& castScopedComboEffects)
 {
-    auto& frameCommands = frame.frameCommands;
     auto& gameplayEvents = frame.gameplayEvents;
     auto& logEvents = frame.logEvents;
     auto& visualEvents = frame.visualEvents;
@@ -4549,24 +4589,12 @@ void advanceActionFrameUnits(
                         unit.id,
                         actionResult.combo.postSkillInvincFrames,
                         logEvents);
-                    auto castScopedCommands = collectFrameCastScopedComboCommands(
-                        actionResult.combo,
-                        state.random,
-                        unit.id,
-                        committedCastProjectileSpeed(actionResult, state.projectileFollowUps.projectileSpeed));
-                    frameCommands.insert(
-                        frameCommands.end(),
-                        std::make_move_iterator(castScopedCommands.begin()),
-                        std::make_move_iterator(castScopedCommands.end()));
                 }
                 if (actionInput.hasCast && actionInput.cast.decision.soundId >= 0)
                 {
                     frame.attackSoundIds.push_back(actionInput.cast.decision.soundId);
                 }
-                state.pendingAttackSpawns.insert(
-                    state.pendingAttackSpawns.end(),
-                    actionResult.attackSpawnRequests.begin(),
-                    actionResult.attackSpawnRequests.end());
+                appendAttackSpawnRequests(attackSpawns, actionResult.attackSpawnRequests);
                 logEvents.insert(
                     logEvents.end(),
                     actionResult.logEvents.begin(),
@@ -4575,6 +4603,21 @@ void advanceActionFrameUnits(
                     visualEvents.end(),
                     actionResult.visualEvents.begin(),
                     actionResult.visualEvents.end());
+                if (actionInput.hasCast)
+                {
+                    auto events = collectFrameCastScopedComboEvents(
+                        actionResult.combo,
+                        state.random,
+                        unit.id);
+                    if (!events.empty())
+                    {
+                        castScopedComboEffects.push_back({
+                            unit.id,
+                            committedCastProjectileSpeed(actionResult, state.projectileFollowUps.projectileSpeed),
+                            std::move(events),
+                        });
+                    }
+                }
                 frame.blinkSoundCount += static_cast<int>(actionResult.blinkTeleports.size());
             }
         }
@@ -4609,7 +4652,11 @@ void advanceActionFrameUnits(
     }
 }
 
-void advanceAttacksAndResolveHits(BattleRuntimeState& state, BattleFrameContext& frame)
+void advanceAttacksAndResolveHits(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattlePendingDamageIntent>& pendingDamage)
 {
     auto& attackEvents = frame.attackEvents;
     auto& frameCommands = frame.frameCommands;
@@ -4618,11 +4665,11 @@ void advanceAttacksAndResolveHits(BattleRuntimeState& state, BattleFrameContext&
 
     state.attacks.frame = state.movement.frame;
     BattleAttackSystem attackSystem;
-    for (const auto& request : state.pendingAttackSpawns)
+    for (const auto& request : attackSpawns)
     {
         attackEvents.push_back(attackSystem.spawn(state.attacks, request));
     }
-    state.pendingAttackSpawns.clear();
+    attackSpawns.clear();
     auto tickEvents = attackSystem.tick(state.attacks, state.unitStore);
     attackEvents.insert(
         attackEvents.end(),
@@ -4636,7 +4683,7 @@ void advanceAttacksAndResolveHits(BattleRuntimeState& state, BattleFrameContext&
         frameCommands,
         logEvents,
         visualEvents);
-    reduceFrameGameplayCommands(state, frame);
+    reduceFrameGameplayCommands(state, frame, state.pendingAttackSpawns, pendingDamage);
 }
 
 std::string formatExecuteStatus(int thresholdPct)
@@ -4765,13 +4812,16 @@ bool applyFramePendingHitReactions(
     return true;
 }
 
-void applyDamageAndLifecycle(BattleRuntimeState& state, BattleFrameContext& frame)
+void applyDamageAndLifecycle(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    std::vector<BattlePendingDamageIntent>& pendingDamage)
 {
     const auto& frameStartMotion = frame.frameStartMotion;
     auto& logEvents = frame.logEvents;
     auto& visualEvents = frame.visualEvents;
 
-    if (state.result.ended && state.damage.pendingDamage.empty())
+    if (state.result.ended && pendingDamage.empty())
     {
         return;
     }
@@ -4780,10 +4830,10 @@ void applyDamageAndLifecycle(BattleRuntimeState& state, BattleFrameContext& fram
 
     std::vector<int> deadUnitIds;
     for (const auto pendingIndex : orderedFramePendingDamageIndexes(
-             state.damage.pendingDamage,
+             pendingDamage,
              state.damage.sortPendingDamageByDefenderMagnitude))
     {
-        const auto& intent = state.damage.pendingDamage[pendingIndex];
+        const auto& intent = pendingDamage[pendingIndex];
         if (!state.unitStore.requireUnit(intent.request.defenderUnitId).alive)
         {
             continue;
@@ -4826,7 +4876,7 @@ void applyDamageAndLifecycle(BattleRuntimeState& state, BattleFrameContext& fram
 
     updateFrameBattleResultAfterDamage(state, frame);
     expandFrameDamageFollowUpCommands(state, frame);
-    state.damage.pendingDamage.clear();
+    pendingDamage.clear();
 }
 
 void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
@@ -4987,17 +5037,70 @@ double resolveFrameArmorPenetratedDefense(
         random).defense;
 }
 
-std::vector<BattleGameplayCommand> collectFrameCastScopedComboCommands(
-    KysChess::RoleComboState& state,
+void appendProjectileFollowUpOutputEvents(
+    BattleProjectileFollowUpExpansion& followUps,
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents)
+{
+    logEvents.insert(
+        logEvents.end(),
+        std::make_move_iterator(followUps.logEvents.begin()),
+        std::make_move_iterator(followUps.logEvents.end()));
+    visualEvents.insert(
+        visualEvents.end(),
+        std::make_move_iterator(followUps.visualEvents.begin()),
+        std::make_move_iterator(followUps.visualEvents.end()));
+}
+
+void applyCurrentHpBlastCastEffect(
+    BattleRuntimeState& state,
+    const BattleCurrentHpBlastCommand& command,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents)
+{
+    auto followUps = expandBattleProjectileFollowUpCommands(
+        { command },
+        state.projectileFollowUps,
+        state.unitStore);
+    for (const auto& expanded : followUps.commands)
+    {
+        const auto* hp = std::get_if<BattleHpDamageCommand>(&expanded);
+        assert(hp);
+        tryAppendFrameDamageTransaction(state, pendingDamage, *hp);
+    }
+    appendProjectileFollowUpOutputEvents(followUps, logEvents, visualEvents);
+}
+
+void applySpiralBleedCastEffect(
+    BattleRuntimeState& state,
+    const BattleSpiralBleedProjectileCommand& command,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents)
+{
+    auto followUps = expandBattleProjectileFollowUpCommands(
+        { command },
+        state.projectileFollowUps,
+        state.unitStore);
+    for (auto& expanded : followUps.commands)
+    {
+        auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&expanded);
+        assert(projectile);
+        attackSpawns.push_back(std::move(projectile->request));
+    }
+    appendProjectileFollowUpOutputEvents(followUps, logEvents, visualEvents);
+}
+
+std::vector<BattleComboTriggerEvent> collectFrameCastScopedComboEvents(
+    KysChess::RoleComboState& combo,
     BattleRuntimeRandom& random,
-    int unitId,
-    double projectileSpeed)
+    int unitId)
 {
     assert(unitId >= 0);
-    assert(projectileSpeed >= 0.0);
 
-    auto events = BattleComboTriggerSystem().collectTriggerEvents(
-        state,
+    return BattleComboTriggerSystem().collectTriggerEvents(
+        combo,
         { BattleComboTriggerHook::AfterSkillCast, unitId, -1 },
         {
             KysChess::EffectType::CurrentHPPctBlast,
@@ -5006,48 +5109,95 @@ std::vector<BattleGameplayCommand> collectFrameCastScopedComboCommands(
             KysChess::EffectType::SpiralBleedProjectile,
         },
         random);
+}
 
-    std::vector<BattleGameplayCommand> commands;
-    for (const auto& event : events)
+void applyFrameCastScopedComboEffects(
+    BattleRuntimeState& state,
+    const BattleFrameCastScopedComboEffects& effects,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents)
+{
+    assert(effects.unitId >= 0);
+    assert(effects.projectileSpeed >= 0.0);
+
+    BattleTeamEffectSystem teamEffects;
+    for (const auto& event : effects.events)
     {
         assert(event.effect.value > 0);
         switch (event.effect.type)
         {
         case KysChess::EffectType::CurrentHPPctBlast:
-            commands.push_back(BattleCurrentHpBlastCommand{
-                unitId,
-                event.effect.value,
-                "當前生命傷害",
-            });
+            applyCurrentHpBlastCastEffect(
+                state,
+                BattleCurrentHpBlastCommand{
+                    effects.unitId,
+                    event.effect.value,
+                    "當前生命傷害",
+                },
+                pendingDamage,
+                logEvents,
+                visualEvents);
             break;
         case KysChess::EffectType::TeamMPRestore:
-            commands.push_back(BattleTeamMpRestoreCommand{
-                unitId,
-                event.effect.value,
-                "琴棋書畫",
-            });
+        {
+            auto teamEvents = teamEffects.applyTeamMp(
+                state.unitStore,
+                effects.unitId,
+                event.effect.value);
+            appendTeamEffectLogEvents(logEvents, teamEvents, "琴棋書畫");
+            appendTeamEffectVisualEvents(visualEvents, teamEvents);
             break;
+        }
         case KysChess::EffectType::FlatShield:
-            commands.push_back(BattleTeamShieldCommand{
-                unitId,
+        {
+            auto teamEvents = teamEffects.applyTeamShield(
+                state.unitStore,
+                effects.unitId,
                 event.effect.value,
-                true,
-                "全隊護盾重整",
-            });
+                true);
+            appendTeamEffectLogEvents(logEvents, teamEvents, "全隊護盾重整");
+            appendTeamEffectVisualEvents(visualEvents, teamEvents);
             break;
+        }
         case KysChess::EffectType::SpiralBleedProjectile:
-            commands.push_back(BattleSpiralBleedProjectileCommand{
-                unitId,
-                event.effect.value,
-                event.effect.value2 > 0 ? event.effect.value2 : 6,
-                projectileSpeed,
-            });
+            applySpiralBleedCastEffect(
+                state,
+                BattleSpiralBleedProjectileCommand{
+                    effects.unitId,
+                    event.effect.value,
+                    event.effect.value2 > 0 ? event.effect.value2 : 6,
+                    effects.projectileSpeed,
+                },
+                attackSpawns,
+                logEvents,
+                visualEvents);
             break;
         default:
             assert(false);
         }
     }
-    return commands;
+}
+
+void applyFrameCastScopedComboEffects(
+    BattleRuntimeState& state,
+    const std::vector<BattleFrameCastScopedComboEffects>& effectQueue,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    std::vector<BattleLogEvent>& logEvents,
+    std::vector<BattleVisualEvent>& visualEvents)
+{
+    for (const auto& effects : effectQueue)
+    {
+        applyFrameCastScopedComboEffects(
+            state,
+            effects,
+            attackSpawns,
+            pendingDamage,
+            logEvents,
+            visualEvents);
+    }
 }
 
 }  // namespace
@@ -5097,27 +5247,40 @@ BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) c
     assert(!state.unitStore.units.empty());
 
     auto frame = makeBattleFrameContext(state);
+    std::vector<BattleAttackSpawnRequest> frameAttackSpawns;
+    frameAttackSpawns.swap(state.pendingAttackSpawns);
+    std::vector<BattlePendingDamageIntent> framePendingDamage;
+    framePendingDamage.swap(state.damage.pendingDamage);
+    std::vector<BattleFrameCastScopedComboEffects> frameCastScopedComboEffects;
 
     // Tick status timers and queue status damage, e.g. poison or bleed damage transactions.
-    advanceStatus(state);
+    advanceStatus(state, framePendingDamage);
     // Tick unit cooldown/action/MP timers and collect frame combo events, e.g. skill-finished triggers.
     auto runtimeAdvance = advanceRuntimeUnits(state);
     // Apply combo timer events to runtime state, deferring auto-ultimate commands until late frame.
     auto deferredCommands = applyRuntimeComboEvents(state, frame, runtimeAdvance.runtimeCommits);
-    // Apply queued team effects whose source exists, e.g. delayed skill team heal.
-    applyPendingTeamEffects(state, frame, runtimeAdvance.teamEffectCommands);
+    // Apply skill-finished team heals whose source finished cooldown this frame.
+    applySkillFinishedTeamHeals(state, frame, runtimeAdvance.skillFinishedTeamHeals);
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
-    reduceFrameGameplayCommands(state, frame);
+    reduceFrameGameplayCommands(state, frame, frameAttackSpawns, framePendingDamage);
     // Advance and commit motion, e.g. physics and tactical movement.
     auto movement = advanceMotionFrame(state);
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
-    advanceActionFrameUnits(state, frame, movement);
+    advanceActionFrameUnits(state, frame, movement, frameAttackSpawns, frameCastScopedComboEffects);
+    // Apply cast-release effects after all units selected/committed their frame actions.
+    applyFrameCastScopedComboEffects(
+        state,
+        frameCastScopedComboEffects,
+        frameAttackSpawns,
+        framePendingDamage,
+        frame.logEvents,
+        frame.visualEvents);
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
-    reduceFrameGameplayCommands(state, frame);
+    reduceFrameGameplayCommands(state, frame, frameAttackSpawns, framePendingDamage);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
-    advanceAttacksAndResolveHits(state, frame);
+    advanceAttacksAndResolveHits(state, frame, frameAttackSpawns, framePendingDamage);
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
-    applyDamageAndLifecycle(state, frame);
+    applyDamageAndLifecycle(state, frame, framePendingDamage);
     // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
     appendProjectileCancellationLogEvents(state.attacks, frame.attackEvents, frame.logEvents, true);
     frame.frameCommands.insert(
@@ -5125,7 +5288,7 @@ BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) c
         std::make_move_iterator(deferredCommands.begin()),
         std::make_move_iterator(deferredCommands.end()));
     // Reduce late commands from damage/combo lifecycle, e.g. auto-ultimate or death-triggered projectiles.
-    reduceFrameGameplayCommands(state, frame);
+    reduceFrameGameplayCommands(state, frame, state.pendingAttackSpawns, state.damage.pendingDamage);
     assert(frame.frameCommands.empty());
     // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.
     emitPresentationFrame(state, frame);
