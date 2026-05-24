@@ -1079,7 +1079,6 @@ BattleHitResolutionInput makeHitResolutionInput(
 bool tryResolveDodgeHit(
     BattleRuntimeState& state,
     const BattleAttackEvent& event,
-    std::vector<BattleHitResolutionResult>& hitResults,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
@@ -1098,29 +1097,14 @@ bool tryResolveDodgeHit(
 
     defenderComboIt->second.dodgedLast = true;
 
-    BattleHitResolutionResult result;
-    result.attackerUnitId = event.sourceUnitId;
-    result.defenderUnitId = event.unitId;
-    if (auto attackerComboIt = state.combo.units.find(event.sourceUnitId); attackerComboIt != state.combo.units.end())
-    {
-        result.attackerCombo = attackerComboIt->second;
-    }
-    result.defenderCombo = defenderComboIt->second;
-    result.dodged = true;
-    result.logEvents.push_back(dodgeStatusEvent(event.unitId, event.sourceUnitId));
-    logEvents.insert(
-        logEvents.end(),
-        result.logEvents.begin(),
-        result.logEvents.end());
+    logEvents.push_back(dodgeStatusEvent(event.unitId, event.sourceUnitId));
     visualEvents.push_back(roleEffectEvent(event.unitId, KysChess::EFT_EVADE, CoreRoleStatusEffectFrames));
-    hitResults.push_back(std::move(result));
     return true;
 }
 
 void resolveHitEvents(
     BattleRuntimeState& state,
     const std::vector<BattleAttackEvent>& events,
-    std::vector<BattleHitResolutionResult>& hitResults,
     std::vector<BattleGameplayCommand>& commands,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -1132,7 +1116,7 @@ void resolveHitEvents(
             continue;
         }
 
-        if (event.scriptedDamage <= 0 && tryResolveDodgeHit(state, event, hitResults, logEvents, visualEvents))
+        if (event.scriptedDamage <= 0 && tryResolveDodgeHit(state, event, logEvents, visualEvents))
         {
             continue;
         }
@@ -1158,7 +1142,6 @@ void resolveHitEvents(
             visualEvents.end(),
             result.visualEvents.begin(),
             result.visualEvents.end());
-        hitResults.push_back(std::move(result));
     }
 }
 
@@ -1281,7 +1264,6 @@ struct BattleFrameContext
     std::vector<BattleAttackEvent> attackEvents;
     BattleTickResult movement;
     std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
-    std::vector<BattleHitResolutionResult> hitResults;
     std::vector<BattleTeamEffectEvent> teamEffectEvents;
     std::vector<BattleEffectCommand> effectCommands;
     UnitMotionSnapshotMap frameStartMotion;
@@ -4779,7 +4761,6 @@ void advanceAttacksAndResolveHits(BattleRuntimeState& state, BattleFrameContext&
     resolveHitEvents(
         state,
         attackEvents,
-        frame.hitResults,
         frameCommands,
         logEvents,
         visualEvents);
