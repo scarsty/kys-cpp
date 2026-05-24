@@ -249,7 +249,6 @@ BattleUnitFrameTickInput makeRuntimeUnitTickInput(
 struct BattleRuntimeUnitFrameCommit
 {
     int unitId = -1;
-    BattleUnitFrameTickResult tick;
     std::vector<BattleComboFrameRuntimeEvent> comboEvents;
     RoleComboState comboState;
 };
@@ -928,13 +927,10 @@ void appendProjectileCancellationLogEvents(
     }
 }
 
-void advanceRuntimeUnits(
-    BattleRuntimeState& state,
-    std::vector<BattleGameplayCommand>& commands,
-    std::vector<BattleRuntimeUnitFrameCommit>& runtimeCommits)
+std::vector<BattleRuntimeUnitFrameCommit> advanceRuntimeUnits(BattleRuntimeState& state)
 {
     BattleComboTriggerSystem comboSystem;
-    runtimeCommits.clear();
+    std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
     for (auto& unit : state.unitStore.units)
     {
         assert(unit.id >= 0);
@@ -947,16 +943,16 @@ void advanceRuntimeUnits(
 
         BattleRuntimeUnitFrameCommit committed;
         committed.unitId = unit.id;
-        committed.tick = BattleUnitFrameTickSystem().advance(input);
+        auto tick = BattleUnitFrameTickSystem().advance(input);
 
-        unit.animation.cooldown = committed.tick.state.cooldown;
-        unit.animation.actFrame = committed.tick.state.actFrame;
-        unit.haveAction = committed.tick.state.haveAction;
-        unit.operationType = committed.tick.state.operationType;
-        unit.animation.actType = committed.tick.state.actType;
-        unit.physicalPower = committed.tick.state.physicalPower;
-        applyRuntimeUnitMpDelta(unit, committed.tick.mpDelta);
-        if (committed.tick.resetDashVelocity)
+        unit.animation.cooldown = tick.state.cooldown;
+        unit.animation.actFrame = tick.state.actFrame;
+        unit.haveAction = tick.state.haveAction;
+        unit.operationType = tick.state.operationType;
+        unit.animation.actType = tick.state.actType;
+        unit.physicalPower = tick.state.physicalPower;
+        applyRuntimeUnitMpDelta(unit, tick.mpDelta);
+        if (tick.resetDashVelocity)
         {
             unit.motion.velocity = { 0, 0, 0 };
         }
@@ -978,7 +974,7 @@ void advanceRuntimeUnits(
                 frameEvents.begin(),
                 frameEvents.end());
         }
-        if (committed.tick.skillFinished && comboIt != state.combo.units.end())
+        if (tick.skillFinished && comboIt != state.combo.units.end())
         {
             auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
                 comboIt->second,
@@ -1001,6 +997,7 @@ void advanceRuntimeUnits(
         }
         runtimeCommits.push_back(std::move(committed));
     }
+    return runtimeCommits;
 }
 
 void applyProjectileCancelDamageResults(
@@ -1269,7 +1266,6 @@ struct BattleFrameContext
     std::vector<BattleFrameRumbleEvent> rumbles;
     int blinkSoundCount{};
     std::vector<BattleGameplayCommand> deferredCommands;
-    std::vector<BattleRuntimeUnitFrameCommit> runtimeCommits;
     std::vector<BattleAttackEvent> attackEvents;
     BattleTickResult movement;
     UnitMotionSnapshotMap frameStartMotion;
@@ -4185,9 +4181,12 @@ void applyCastPostSkillInvincibility(
     appendEffectCommandLogEvents(logEvents, logCommands);
 }
 
-void applyRuntimeComboEvents(BattleRuntimeState& state, BattleFrameContext& frame)
+void applyRuntimeComboEvents(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const std::vector<BattleRuntimeUnitFrameCommit> &runtimeCommits)
 {
-    for (const auto& result : frame.runtimeCommits)
+    for (const auto& result : runtimeCommits)
     {
         bool autoUltimateReady = false;
         for (const auto& event : result.comboEvents)
@@ -5207,9 +5206,9 @@ BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) c
     // Tick status timers and queue status damage, e.g. poison or bleed damage transactions.
     advanceStatus(state);
     // Tick unit cooldown/action/MP timers and collect frame combo events, e.g. skill-finished triggers.
-    advanceRuntimeUnits(state, frame.frameCommands, frame.runtimeCommits);
+    auto runtimeCommits = advanceRuntimeUnits(state);
     // Apply combo timer events to runtime state, deferring auto-ultimate commands until late frame.
-    applyRuntimeComboEvents(state, frame);
+    applyRuntimeComboEvents(state, frame, runtimeCommits);
     // Apply queued team effects whose source exists, e.g. delayed skill team heal.
     applyPendingTeamEffects(state, frame);
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
