@@ -248,28 +248,11 @@ BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
     BattleUnitStore& units,
     const BattleGameplayCommand& command);
 
-BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
-    const KysChess::RoleComboState& state,
-    int attackerUnitId,
-    int rollPct,
-    int defaultRange);
-int collectFrameExtraProjectileCount(
-    KysChess::RoleComboState& state,
-    BattleRuntimeRandom& random,
-    int unitId,
-    int baseCount);
 std::vector<BattleGameplayCommand> collectFrameCastScopedComboCommands(
     KysChess::RoleComboState& state,
     BattleRuntimeRandom& random,
     int unitId,
     double projectileSpeed);
-bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId);
-double resolveFrameArmorPenetratedDefense(
-    const KysChess::RoleComboState& state,
-    int attackerUnitId,
-    int targetUnitId,
-    double defense,
-    BattleRuntimeRandom& random);
 
 class BattleFrameRunner
 {

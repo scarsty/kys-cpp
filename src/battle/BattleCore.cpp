@@ -30,6 +30,24 @@ namespace
 {
 constexpr int CoreRoleStatusEffectFrames = 48;
 
+BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
+    const KysChess::RoleComboState& state,
+    int attackerUnitId,
+    int rollPct,
+    int defaultRange);
+int collectFrameExtraProjectileCount(
+    KysChess::RoleComboState& state,
+    BattleRuntimeRandom& random,
+    int unitId,
+    int baseCount);
+bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId);
+double resolveFrameArmorPenetratedDefense(
+    const KysChess::RoleComboState& state,
+    int attackerUnitId,
+    int targetUnitId,
+    double defense,
+    BattleRuntimeRandom& random);
+
 BattleVisualEvent roleEffectEvent(int targetUnitId, int effectId, int durationFrames)
 {
     BattleVisualEvent event;
@@ -5077,6 +5095,8 @@ BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState&
     return runtime;
 }
 
+namespace
+{
 BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
     const KysChess::RoleComboState& state,
     int attackerUnitId,
@@ -5104,6 +5124,25 @@ int collectFrameExtraProjectileCount(
         baseCount,
         random);
 }
+
+bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId)
+{
+    return BattleComboTriggerSystem().hasExecuteCombo(state, attackerUnitId);
+}
+
+double resolveFrameArmorPenetratedDefense(
+    const KysChess::RoleComboState& state,
+    int attackerUnitId,
+    int targetUnitId,
+    double defense,
+    BattleRuntimeRandom& random)
+{
+    return BattleComboTriggerSystem().resolveArmorPenetratedDefense(
+        state,
+        { attackerUnitId, targetUnitId, defense },
+        random).defense;
+}
+}  // namespace
 
 std::vector<BattleGameplayCommand> collectFrameCastScopedComboCommands(
     KysChess::RoleComboState& state,
@@ -5166,24 +5205,6 @@ std::vector<BattleGameplayCommand> collectFrameCastScopedComboCommands(
         }
     }
     return commands;
-}
-
-bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId)
-{
-    return BattleComboTriggerSystem().hasExecuteCombo(state, attackerUnitId);
-}
-
-double resolveFrameArmorPenetratedDefense(
-    const KysChess::RoleComboState& state,
-    int attackerUnitId,
-    int targetUnitId,
-    double defense,
-    BattleRuntimeRandom& random)
-{
-    return BattleComboTriggerSystem().resolveArmorPenetratedDefense(
-        state,
-        { attackerUnitId, targetUnitId, defense },
-        random).defense;
 }
 
 BattleUnitFrameTickResult BattleUnitFrameTickSystem::advance(
