@@ -1281,7 +1281,6 @@ struct BattleFrameContext
     std::vector<BattleAttackEvent> attackEvents;
     BattleTickResult movement;
     std::vector<BattleFrameMovementPhysicsUnitResult> movementPhysicsResults;
-    std::vector<BattleFrameActionUnitResult> actionResults;
     std::vector<BattleHitResolutionResult> hitResults;
     std::vector<BattleTeamEffectEvent> teamEffectEvents;
     std::vector<BattleEffectCommand> effectCommands;
@@ -4592,7 +4591,6 @@ BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     const auto& movement = frame.movement;
-    auto& actionResults = frame.actionResults;
     auto& effectCommands = frame.effectCommands;
     auto& frameCommands = frame.frameCommands;
     auto& gameplayEvents = frame.gameplayEvents;
@@ -4751,10 +4749,6 @@ void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& fram
             }
         }
         commitActionFrameStateToRuntime(unit, actionState);
-        if (wasActionActive || result.castStarted || result.actionCommitted)
-        {
-            actionResults.push_back(std::move(result));
-        }
     }
 }
 
