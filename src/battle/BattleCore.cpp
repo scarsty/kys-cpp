@@ -1252,8 +1252,7 @@ UnitMotionSnapshotMap makeUnitMotionSnapshot(const BattleUnitStore& units)
     return snapshots;
 }
 
-// One runFrame() transaction ledger. Persistent gameplay lives in BattleRuntimeState.
-// The only public frame output is result; every other member is frame-local scratch.
+// Private runFrame() output accumulator. Persistent gameplay lives in BattleRuntimeState.
 // Keep this type private to BattleCore.cpp and do not pass it to subsystem classes.
 struct BattleFrameContext
 {
@@ -1266,7 +1265,6 @@ struct BattleFrameContext
     std::vector<BattleFrameRumbleEvent> rumbles;
     int blinkSoundCount{};
     std::vector<BattleAttackEvent> attackEvents;
-    BattleTickResult movement;
     UnitMotionSnapshotMap frameStartMotion;
 };
 
@@ -4387,16 +4385,14 @@ std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleR
     return physicsResults;
 }
 
-void commitFrameMovement(
+BattleTickResult commitFrameMovement(
     BattleRuntimeState& state,
-    BattleFrameContext& frame,
     const std::vector<BattleFrameMovementPhysicsUnitResult>& physicsResults,
     BattleTickResult movement)
 {
-    frame.movement = std::move(movement);
-    state.movement.frame = frame.movement.frame;
-    state.movement.movementReservations = frame.movement.movementReservations;
-    for (const auto& [unitId, decision] : frame.movement.decisions)
+    state.movement.frame = movement.frame;
+    state.movement.movementReservations = movement.movementReservations;
+    for (const auto& [unitId, decision] : movement.decisions)
     {
         auto& agent = requireMappedById(state.movement.agents, unitId);
         agent.targetId = decision.targetId;
@@ -4421,13 +4417,13 @@ void commitFrameMovement(
 
     if (state.movementPhysics.terrain.walkableByCell.empty())
     {
-        return;
+        return movement;
     }
 
     assert(state.unitStore.gridTransform.tileWidth > 0.0);
     assert(state.unitStore.gridTransform.coordCount > 0);
 
-    for (const auto& [unitId, decision] : frame.movement.decisions)
+    for (const auto& [unitId, decision] : movement.decisions)
     {
         auto& runtimeUnit = state.unitStore.requireUnit(unitId);
         const auto action = decision.action;
@@ -4458,15 +4454,16 @@ void commitFrameMovement(
         physics.postDashRetreatFrames = decision.postDashRetreatFramesRemaining;
         physics.postDashChaosFrames = decision.postDashChaosFramesRemaining;
     }
+    return movement;
 }
 
-void advanceMotionFrame(BattleRuntimeState& state, BattleFrameContext& frame)
+BattleTickResult advanceMotionFrame(BattleRuntimeState& state)
 {
     prepareMovementAgents(state);
     auto physicsResults = computeMovementPhysics(state);
     auto movementInput = makeFrameMovementPlanInput(state, makePostPhysicsMotionMap(physicsResults));
     auto movement = BattleMovementPlanner(std::move(movementInput)).tick();
-    commitFrameMovement(state, frame, physicsResults, std::move(movement));
+    return commitFrameMovement(state, physicsResults, std::move(movement));
 }
 
 void commitActionFrameStateToRuntime(BattleRuntimeUnit& unit, const BattleUnitFrameTickState& state)
@@ -4540,9 +4537,11 @@ BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
     return state;
 }
 
-void advanceActionFrameUnits(BattleRuntimeState& state, BattleFrameContext& frame)
+void advanceActionFrameUnits(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattleTickResult& movement)
 {
-    const auto& movement = frame.movement;
     auto& frameCommands = frame.frameCommands;
     auto& gameplayEvents = frame.gameplayEvents;
     auto& logEvents = frame.logEvents;
@@ -5215,9 +5214,9 @@ BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) c
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
     reduceFrameGameplayCommands(state, frame);
     // Advance and commit motion, e.g. physics and tactical movement.
-    advanceMotionFrame(state, frame);
+    auto movement = advanceMotionFrame(state);
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
-    advanceActionFrameUnits(state, frame);
+    advanceActionFrameUnits(state, frame, movement);
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
     reduceFrameGameplayCommands(state, frame);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
