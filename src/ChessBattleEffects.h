@@ -236,10 +236,6 @@ struct RoleComboState
     // Mutable runtime state
     std::map<int, int> everyNthCounters;  // N value → counter
     bool dodgedLast = false;
-    int shield = 0;
-    int poisonTimer = 0;
-    int poisonTickDmg = 0;
-    int poisonSourceId = -1;
     std::map<Trigger, int> triggerTimers;
     bool lastAliveFlag = false;
     std::map<int, int> effectActivationCounts;  // effect index → count
@@ -247,10 +243,6 @@ struct RoleComboState
     std::vector<std::map<int, int>> dodgeAdaptationStacks;  // per instance: enemyID → stacks
     std::vector<int> rampingStacks;  // per instance
     std::vector<int> rampingIdleTimers;  // per instance
-    int bleedStacks = 0;
-    int bleedTimer = 0;
-    int bleedSourceId = -1;
-    int mpBlockTimer = 0;
     bool deathPreventionUsed = false;
     int forcePullProtectRemaining = 0;
     int forcePullExecuteRemaining = 0;
@@ -259,11 +251,7 @@ struct RoleComboState
     bool postSkillDashPending = false;
     bool isSummonedClone = false;
     bool blinkAttackUseWeakest = false;
-    struct TempAttackBuffInstance { int attackBonus = 0; int remainingFrames = 0; };
-    std::vector<TempAttackBuffInstance> tempAttackBuffs;
-    int damageImmunityTimer = 0;
     int autoUltimateTimer = 0;
-    int blockFirstHitsRemaining = 0;
     int goldCoefficient = 0;
     int hurtInvincFrames = 0;
     bool dashAttack = false;
@@ -273,9 +261,6 @@ struct RoleComboState
     int dmgReduceDebuffChancePct = 0;
     int dmgReduceDebuffDurationFrames = 0;
     int dmgReduceDebuffPct = 0;
-    // Mutable runtime: per-target damage reduction debuff instances
-    struct DmgReduceDebuffInstance { int remainingFrames = 0; int pct = 0; };
-    std::vector<DmgReduceDebuffInstance> dmgReduceDebuffs;
 };
 
 class ChessBattleEffects
@@ -284,7 +269,7 @@ public:
     static const std::map<std::string, EffectType>& getEffectTypeMap();
     static bool parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context);
     static void applyEffect(RoleComboState& s, const ComboEffect& e, int sourceComboId = -1);
-    static RoleComboState makeSummonedCloneState(const RoleComboState& sourceState, int cloneMaxHP);
+    static RoleComboState makeSummonedCloneState(const RoleComboState& sourceState);
     static void mergeEffects(std::map<int, RoleComboState>& states,
                               const std::vector<ComboEffect>& effects,
                              const std::vector<int>& roleIds,

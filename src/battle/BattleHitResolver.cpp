@@ -71,7 +71,10 @@ std::string formatCooldownIncreaseStatus(int pct, int before, int after)
     return std::format("冷卻延長（+{}%）", pct);
 }
 
-BattleDamageUnitState makeDamageUnit(const BattleHitUnitSnapshot& unit, const RoleComboState* combo)
+BattleDamageUnitState makeDamageUnit(
+    const BattleHitUnitSnapshot& unit,
+    const RoleComboState* combo,
+    const BattleStatusEffectState* effects)
 {
     BattleDamageUnitState damageUnit;
     damageUnit.id = unit.id;
@@ -81,13 +84,19 @@ BattleDamageUnitState makeDamageUnit(const BattleHitUnitSnapshot& unit, const Ro
     damageUnit.invincible = unit.invincible;
     if (combo)
     {
-        damageUnit.mpBlocked = combo->mpBlockTimer > 0;
         damageUnit.mpRecoveryBonusPct = combo->mpRecoveryBonusPct;
+    }
+    if (effects)
+    {
+        damageUnit.mpBlocked = effects->mpBlockTimer > 0;
     }
     return damageUnit;
 }
 
-BattleResourceUnitState makeResourceUnit(const BattleHitUnitSnapshot& unit, const RoleComboState* combo)
+BattleResourceUnitState makeResourceUnit(
+    const BattleHitUnitSnapshot& unit,
+    const RoleComboState* combo,
+    const BattleStatusEffectState* effects)
 {
     BattleResourceUnitState resource;
     resource.id = unit.id;
@@ -95,8 +104,11 @@ BattleResourceUnitState makeResourceUnit(const BattleHitUnitSnapshot& unit, cons
     resource.vitals = unit.vitals;
     if (combo)
     {
-        resource.mpBlocked = combo->mpBlockTimer > 0;
         resource.mpRecoveryBonusPct = combo->mpRecoveryBonusPct;
+    }
+    if (effects)
+    {
+        resource.mpBlocked = effects->mpBlockTimer > 0;
     }
     return resource;
 }
@@ -651,7 +663,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         true,
         makeBattleDamageModifierState(&attackerCombo),
         {},
-        makeDamageUnit(input.defender, nullptr),
+        makeDamageUnit(input.defender, nullptr, &input.defenderStatusEffects),
     }).damage;
 
     auto attackerDamage = BattleComboTriggerSystem().shapeAttackerHitDamage(
@@ -686,8 +698,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
 
         auto resources = BattleDamageSystem().applyOnHitResources({
-            makeResourceUnit(input.attacker, &attackerCombo),
-            makeResourceUnit(input.defender, &input.defenderCombo),
+            makeResourceUnit(input.attacker, &attackerCombo, &input.attackerStatusEffects),
+            makeResourceUnit(input.defender, &input.defenderCombo, &input.defenderStatusEffects),
             attackerCombo.mpOnHit,
             attackerCombo.hpOnHit,
             attackerCombo.mpDrain,
@@ -809,7 +821,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         false,
         {},
         makeBattleDamageModifierState(&defenderCombo),
-        makeDamageUnit(input.defender, &defenderCombo),
+        makeDamageUnit(input.defender, &defenderCombo, &input.defenderStatusEffects),
     }).damage;
 
     auto defenderDamage = BattleComboTriggerSystem().shapeDefenderHitDamage(
@@ -840,7 +852,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     BattleDamageModifierState lateAttackerModifier;
     lateAttackerModifier.poisonDamageAmpPct = attackerCombo.poisonDmgAmpPct;
     BattleDamageModifierState lateDefenderModifier;
-    lateDefenderModifier.poisonTimer = defenderCombo.poisonTimer;
+    lateDefenderModifier.poisonTimer = input.defenderStatusEffects.poisonTimer;
     lateDefenderModifier.maxHitPctMaxHp = defenderCombo.maxHitPctCurrentHP;
     auto lateDamage = BattleDamageSystem().applyModifiers({
         result.shapedHpDamage,
@@ -848,7 +860,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         true,
         lateAttackerModifier,
         lateDefenderModifier,
-        makeDamageUnit(input.defender, &defenderCombo),
+        makeDamageUnit(input.defender, &defenderCombo, &input.defenderStatusEffects),
     });
     result.shapedHpDamage = lateDamage.damage;
     if (lateDamage.maxHitCapped)

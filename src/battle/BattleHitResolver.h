@@ -240,6 +240,8 @@ struct BattleHitResolutionInput
     BattleHitSkillSnapshot skill;
     RoleComboState attackerCombo;
     RoleComboState defenderCombo;
+    BattleStatusEffectState attackerStatusEffects;
+    BattleStatusEffectState defenderStatusEffects;
     int sharedBleedMaxStacks = 1;
     int randomDamageVariance = 0;
 };

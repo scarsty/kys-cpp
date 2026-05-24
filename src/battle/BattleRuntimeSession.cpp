@@ -1,5 +1,7 @@
 #include "BattleRuntimeSession.h"
 
+#include "BattleRuntimeUnitSpawn.h"
+
 #include "../ChessCombo.h"
 #include "../ChessEquipment.h"
 #include "../ChessNeigong.h"
@@ -15,33 +17,6 @@ namespace KysChess::Battle
 namespace
 {
 constexpr int ProjectileGraceFrames = 5;
-constexpr int NormalDamageTextSize = 30;
-constexpr int UltDamageTextSize = 44;
-
-BattlePresentationColor damageTextColor(int team, bool emphasized)
-{
-    if (team == 0)
-    {
-        return emphasized
-            ? BattlePresentationColor{ 255, 45, 85, 255 }
-            : BattlePresentationColor{ 255, 90, 79, 255 };
-    }
-    return emphasized
-        ? BattlePresentationColor{ 47, 128, 255, 255 }
-        : BattlePresentationColor{ 102, 207, 255, 255 };
-}
-
-BattleDamagePresentationStyle makeDamagePresentationStyle(int team)
-{
-    BattleDamagePresentationStyle style;
-    style.normalDamageColor = damageTextColor(team, false);
-    style.emphasizedDamageColor = damageTextColor(team, true);
-    style.executeTextColor = { 255, 136, 48, 255 };
-    style.normalDamageTextSize = NormalDamageTextSize;
-    style.emphasizedDamageTextSize = UltDamageTextSize;
-    style.executeTextSize = UltDamageTextSize;
-    return style;
-}
 
 int getComboLookupId(int realRoleId, const RoleComboState& state)
 {
@@ -64,9 +39,7 @@ void configureAttackWorld(
     world.spendNonThroughOnHit = true;
 }
 
-BattleRuntimeUnit makeRuntimeUnit(
-    const BattleSetupUnitInput& setup,
-    const RoleComboState* combo)
+BattleRuntimeUnit makeRuntimeUnit(const BattleSetupUnitInput& setup)
 {
     assert(setup.unitId >= 0);
 
@@ -98,48 +71,7 @@ BattleRuntimeUnit makeRuntimeUnit(
         unit.actPropertiesByMagicType.emplace(magicType, setup.actPropertiesByMagicType[magicType]);
     }
     unit.grid = { setup.gridX, setup.gridY };
-    if (combo)
-    {
-        unit.shield = combo->shield;
-        unit.mpBlocked = combo->mpBlockTimer > 0;
-        unit.mpRecoveryBonusPct = combo->mpRecoveryBonusPct;
-    }
     return unit;
-}
-
-BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(const BattleRuntimeUnit& unit, const RoleComboState* combo)
-{
-    BattleDamageRuntimeUnit damage;
-    damage.id = unit.id;
-    if (combo)
-    {
-        damage.hurtInvincFrames = combo->hurtInvincFrames;
-        damage.blockFirstHitsRemaining = combo->blockFirstHitsRemaining;
-        damage.deathPrevention = combo->deathPrevention;
-        damage.deathPreventionUsed = combo->deathPreventionUsed;
-        damage.deathPreventionFrames = combo->deathPreventionFrames;
-        damage.killHealPct = combo->killHealPct;
-        damage.killInvincFrames = combo->killInvincFrames;
-        damage.bloodlustAttackPerKill = combo->bloodlustATKPerKill;
-    }
-    return damage;
-}
-
-BattleMovementAgentState makeInitializedMovementAgent(
-    int unitId,
-    const BattleMovementState& existingMovement,
-    const BattleRuntimeUnit& unit)
-{
-    if (const auto it = existingMovement.agents.find(unitId);
-        it != existingMovement.agents.end())
-    {
-        return it->second;
-    }
-    BattleMovementAgentState agent;
-    agent.physics.position = unit.motion.position;
-    agent.physics.velocity = unit.motion.velocity;
-    agent.physics.acceleration = unit.motion.acceleration;
-    return agent;
 }
 
 BattleDeathEffectStore makeDeathEffectStore(
@@ -248,57 +180,114 @@ void populateBattleRuntimeSetupDefinitions(BattleRuntimeSetupSeed& setup)
     setup.neigongDefinitions = makeBattleSetupNeigongDefinitions();
 }
 
-BattleRuntimeState buildCanonicalRuntime(const BattleRuntimeSessionCreationInput& input)
+void applyCreationComboStatesToSetup(BattleRuntimeSessionCreationInput& input)
+{
+    for (auto& seed : input.setup.units)
+    {
+        if (const auto comboIt = input.comboStates.find(seed.unitId);
+            comboIt != input.comboStates.end())
+        {
+            seed.baseCombo = comboIt->second;
+        }
+    }
+}
+
+std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(
+    const BattleRuntimeSessionCreationInput& input);
+
+BattleRuntimeState buildRuntimeFromSpawns(
+    const BattleRuntimeSessionCreationInput& input,
+    std::vector<BattleRuntimeUnitSpawn> spawns);
+
+std::map<int, BattleActionPlanSeed> makeActionPlanSeedMap(
+    const std::vector<BattleActionPlanSeed>& seeds)
+{
+    std::map<int, BattleActionPlanSeed> result;
+    for (const auto& seed : seeds)
+    {
+        result.emplace(seed.unitId, seed);
+    }
+    return result;
+}
+
+std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(
+    const BattleRuntimeSessionCreationInput& input)
+{
+    const auto actionPlans = makeActionPlanSeedMap(input.actionPlanSeeds);
+
+    std::vector<BattleRuntimeUnitSpawn> spawns;
+    spawns.reserve(input.units.size());
+    for (const auto& setup : input.units)
+    {
+        RoleComboState combo;
+        if (const auto comboIt = input.comboStates.find(setup.unitId);
+            comboIt != input.comboStates.end())
+        {
+            combo = comboIt->second;
+        }
+
+        std::optional<BattleActionPlanSeed> actionPlan;
+        if (const auto actionIt = actionPlans.find(setup.unitId);
+            actionIt != actionPlans.end())
+        {
+            actionPlan = actionIt->second;
+        }
+
+        auto spawn = makeRuntimeUnitSpawn(
+            makeRuntimeUnit(setup),
+            std::move(combo),
+            std::move(actionPlan));
+        spawn.status.effects.frozenTimer = setup.frozen;
+        spawn.status.effects.frozenMaxTimer = setup.frozenMax;
+        spawns.push_back(std::move(spawn));
+    }
+    return spawns;
+}
+
+BattleRuntimeState buildRuntimeFromSpawns(
+    const BattleRuntimeSessionCreationInput& input,
+    std::vector<BattleRuntimeUnitSpawn> spawns)
 {
     BattleRuntimeState runtime;
     runtime.unitStore.gridTransform = input.rules.gridTransform;
     runtime.random = BattleRuntimeRandom(input.randomSeed);
-    runtime.combo.units = input.comboStates;
-    runtime.unitStore.units.reserve(input.units.size());
-    runtime.status.units.reserve(input.units.size());
+    runtime.unitStore.units.reserve(spawns.size());
+    runtime.status.units.reserve(spawns.size());
+    runtime.damage.unitExtras.reserve(spawns.size());
 
-    for (const auto& setup : input.units)
+    for (auto& spawn : spawns)
     {
-        const auto comboIt = input.comboStates.find(setup.unitId);
-        auto runtimeUnit = makeRuntimeUnit(
-            setup,
-            comboIt != input.comboStates.end() ? &comboIt->second : nullptr);
-        if (comboIt != input.comboStates.end())
-        {
-            auto statusUnit = makeBattleStatusUnitState(runtimeUnit, comboIt->second);
-            statusUnit.effects.frozenTimer = setup.frozen;
-            statusUnit.effects.frozenMaxTimer = setup.frozenMax;
-            runtime.status.units.push_back(makeBattleStatusRuntimeUnit(statusUnit));
-        }
-        else
-        {
-            runtime.status.units.push_back(BattleStatusRuntimeUnit{ .id = setup.unitId });
-        }
-        runtime.unitStore.units.push_back(std::move(runtimeUnit));
+        appendRuntimeUnit(runtime, std::move(spawn));
     }
     return runtime;
+}
+
+void refreshDeathAoeDamageEffects(BattleRuntimeState& runtime)
+{
+    runtime.damage.unitEffects.clear();
+    for (const auto& unit : runtime.unitStore.units)
+    {
+        const auto stateIt = runtime.combo.units.find(unit.id);
+        if (stateIt != runtime.combo.units.end() && stateIt->second.deathAOEPct > 0)
+        {
+            runtime.damage.unitEffects.emplace(
+                unit.id,
+                BattleDamageApplicationUnitEffects{
+                    stateIt->second.deathAOEPct,
+                    stateIt->second.deathAOEStunFrames,
+                    stateIt->second.deathAOEMaxTargets,
+                });
+        }
+    }
 }
 
 void deriveRuntimeStores(
     BattleRuntimeState& runtime,
     BattleRuntimeSessionCreationInput input)
 {
-    const auto existingMovement = runtime.movement;
-
     runtime.movement.frame = input.battleFrame;
     runtime.movement.config = input.rules.movementConfig;
     runtime.movement.terrainCells = std::move(input.terrainCells);
-    runtime.movement.agents.clear();
-    for (const auto& unit : runtime.unitStore.units)
-    {
-        if (!unit.alive)
-        {
-            continue;
-        }
-        runtime.movement.agents.emplace(
-            unit.id,
-            makeInitializedMovementAgent(unit.id, existingMovement, unit));
-    }
 
     configureAttackWorld(runtime.attacks, input.rules);
     runtime.teamEffects.healAuraRadius = input.rules.teamEffectHealAuraRadius;
@@ -328,26 +317,6 @@ void deriveRuntimeStores(
     runtime.action.blinkWeakTargetDefWeight = input.rules.action.blinkWeakTargetDefWeight;
     runtime.action.strengthenedMeleeOperationCountThreshold = input.rules.action.strengthenedMeleeOperationCountThreshold;
     runtime.action.projectileBounceRange = input.rules.action.projectileBounceRange;
-    runtime.action.planSeeds.clear();
-    for (const auto& seed : input.actionPlanSeeds)
-    {
-        runtime.action.planSeeds.emplace(seed.unitId, seed);
-    }
-    for (const auto& unit : runtime.unitStore.units)
-    {
-        if (unit.cloneSourceUnitId < 0)
-        {
-            continue;
-        }
-        const auto sourceSeedIt = runtime.action.planSeeds.find(unit.cloneSourceUnitId);
-        if (sourceSeedIt == runtime.action.planSeeds.end())
-        {
-            continue;
-        }
-        auto cloneSeed = sourceSeedIt->second;
-        cloneSeed.unitId = unit.id;
-        runtime.action.planSeeds.emplace(unit.id, std::move(cloneSeed));
-    }
     runtime.action.castConfig = input.rules.castConfig;
     runtime.action.castGeometry = input.rules.castGeometry;
     runtime.action.actionRules = input.rules.action;
@@ -355,27 +324,7 @@ void deriveRuntimeStores(
     runtime.projectileFollowUps = input.rules.projectileFollowUps;
 
     runtime.damage.sortPendingDamageByDefenderMagnitude = true;
-    runtime.damage.unitExtras.clear();
-    runtime.damage.presentationStylesByDefender.clear();
-    runtime.damage.unitEffects.clear();
-    for (const auto& unit : runtime.unitStore.units)
-    {
-        const auto stateIt = runtime.combo.units.find(unit.id);
-        runtime.damage.unitExtras.push_back(makeInitialDamageRuntimeUnit(
-            unit,
-            stateIt != runtime.combo.units.end() ? &stateIt->second : nullptr));
-        runtime.damage.presentationStylesByDefender.emplace(unit.id, makeDamagePresentationStyle(unit.team));
-        if (stateIt != runtime.combo.units.end() && stateIt->second.deathAOEPct > 0)
-        {
-            runtime.damage.unitEffects.emplace(
-                unit.id,
-                BattleDamageApplicationUnitEffects{
-                    stateIt->second.deathAOEPct,
-                    stateIt->second.deathAOEStunFrames,
-                    stateIt->second.deathAOEMaxTargets,
-                });
-        }
-    }
+    refreshDeathAoeDamageEffects(runtime);
 }
 
 struct BattleRuntimeSetupResult
@@ -387,10 +336,14 @@ struct BattleRuntimeSetupResult
 BattleRuntimeSetupResult setupBattleRuntime(BattleRuntimeSessionCreationInput input)
 {
     populateBattleRuntimeSetupDefinitions(input.setup);
+    applyCreationComboStatesToSetup(input);
 
-    auto runtime = buildCanonicalRuntime(input);
-    runtime.movement.frame = input.battleFrame;
-    auto initialization = BattleInitializationSystem().initialize(runtime, input.setup);
+    auto spawns = buildCanonicalSpawns(input);
+    auto initialization = BattleInitializationSystem().initialize(
+        spawns,
+        input.setup,
+        BattleInitializationContext{ input.rules.gridTransform, input.battleFrame });
+    auto runtime = buildRuntimeFromSpawns(input, std::move(spawns));
     deriveRuntimeStores(runtime, std::move(input));
 
     return {

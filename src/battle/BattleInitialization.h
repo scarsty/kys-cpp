@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BattleCore.h"
+#include "BattleRuntimeUnitSpawn.h"
 
 #include <string>
 #include <vector>
@@ -142,11 +142,18 @@ struct BattleInitializationResult
     std::vector<BattleVisualEvent> visualEvents;
 };
 
+struct BattleInitializationContext
+{
+    BattleGridTransform gridTransform;
+    int frame{};
+};
+
 class BattleInitializationSystem
 {
 public:
-    BattleInitializationResult initialize(BattleRuntimeState& runtime,
-                                          const BattleRuntimeSetupSeed& setup) const;
+    BattleInitializationResult initialize(std::vector<BattleRuntimeUnitSpawn>& spawns,
+                                          const BattleRuntimeSetupSeed& setup,
+                                          const BattleInitializationContext& context) const;
 };
 
 }  // namespace KysChess::Battle

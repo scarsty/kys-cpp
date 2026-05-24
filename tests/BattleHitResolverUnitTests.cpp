@@ -396,7 +396,7 @@ TEST_CASE("BattleHitResolver_QueuesRawDamageWithoutConsumingFirstHitBlock", "[ba
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
-    input.defenderCombo.blockFirstHitsRemaining = 1;
+    input.defenderCombo.blockFirstHitsCount = 1;
 
     auto result = resolveHit(input);
 
@@ -404,7 +404,7 @@ TEST_CASE("BattleHitResolver_QueuesRawDamageWithoutConsumingFirstHitBlock", "[ba
     const auto* command = firstHpDamageCommand(result);
     REQUIRE(command);
     CHECK(command->damage == 50);
-    CHECK(result.defenderCombo.blockFirstHitsRemaining == 1);
+    CHECK(result.defenderCombo.blockFirstHitsCount == 1);
 }
 
 TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battle][hit_resolver][unit]")

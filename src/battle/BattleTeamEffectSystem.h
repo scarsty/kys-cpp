@@ -1,5 +1,9 @@
 #pragma once
 
+#include "../ChessBattleEffects.h"
+#include "BattleStatusSystem.h"
+
+#include <map>
 #include <vector>
 
 namespace KysChess::Battle
@@ -39,6 +43,8 @@ public:
                                                      int pctHeal) const;
 
     std::vector<BattleTeamEffectEvent> applyTeamMp(BattleUnitStore& units,
+                                                   const std::vector<BattleStatusRuntimeUnit>& statuses,
+                                                   const std::map<int, RoleComboState>& combos,
                                                    int sourceUnitId,
                                                    int amount) const;
 

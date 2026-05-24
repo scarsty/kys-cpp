@@ -216,38 +216,10 @@ std::vector<ComboEffect> ChessCombo::collectGlobalEffects(const std::vector<Acti
     return result;
 }
 
-int ChessCombo::computeTeamFlatShieldBonus(const std::map<int, RoleComboState>& states)
-{
-    int totalShield = 0;
-    std::set<int> seenComboIds;
-    for (const auto& [roleId, state] : states)
-    {
-        for (const auto& effect : state.appliedEffects)
-        {
-            if (effect.type != EffectType::FlatShield || effect.trigger != Trigger::Always || effect.value <= 0)
-            {
-                continue;
-            }
-
-            if (effect.sourceComboId >= 0)
-            {
-                if (!seenComboIds.insert(effect.sourceComboId).second)
-                {
-                    continue;
-                }
-            }
-
-            totalShield += effect.value;
-        }
-    }
-    return totalShield;
-}
-
 void ChessCombo::applyStatBuffs(const std::map<int, RoleComboState>& states)
 {
     activeStates_ = states;
     auto save = Save::getInstance();
-    int teamFlatShield = computeTeamFlatShieldBonus(states);
     for (auto& [roleId, s] : activeStates_)
     {
         Role* role = save->getRole(roleId);
@@ -264,11 +236,6 @@ void ChessCombo::applyStatBuffs(const std::map<int, RoleComboState>& states)
         if (s.pctSPD != 0) role->Speed = static_cast<int>(role->Speed * (1.0 + s.pctSPD / 100.0));
 
         role->HP = role->MaxHP;
-
-        if (s.shieldPctMaxHP > 0)
-            activeStates_[roleId].shield += role->MaxHP * s.shieldPctMaxHP / 100;
-        if (teamFlatShield > 0)
-            activeStates_[roleId].shield += teamFlatShield;
     }
 }
 

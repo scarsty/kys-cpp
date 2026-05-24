@@ -370,33 +370,16 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     }
 }
 
-RoleComboState ChessBattleEffects::makeSummonedCloneState(const RoleComboState& sourceState, int cloneMaxHP)
+RoleComboState ChessBattleEffects::makeSummonedCloneState(const RoleComboState& sourceState)
 {
-    RoleComboState cloneState;
-    for (const auto& effect : sourceState.appliedEffects)
-    {
-        applyEffect(cloneState, effect, effect.sourceComboId);
-    }
-
+    RoleComboState cloneState = sourceState;
     cloneState.cloneSummonCount = 0;
-    cloneState.forcePullProtectRemaining = cloneState.forcePullProtectCharges;
-    cloneState.forcePullExecuteRemaining = cloneState.forcePullExecuteCharges;
-    cloneState.onSkillTeamHealPending = false;
     cloneState.isSummonedClone = true;
 
-    if (cloneState.shieldPctMaxHP > 0 && cloneMaxHP > 0)
-    {
-        cloneState.shield = cloneMaxHP * cloneState.shieldPctMaxHP / 100;
-    }
-    if (cloneState.damageImmunityAfterFrames > 0)
-    {
-        cloneState.damageImmunityTimer = cloneState.damageImmunityAfterFrames;
-    }
     if (cloneState.autoUltimateAfterFrames > 0)
     {
         cloneState.autoUltimateTimer = cloneState.autoUltimateAfterFrames;
     }
-    cloneState.blockFirstHitsRemaining = cloneState.blockFirstHitsCount;
     return cloneState;
 }
 

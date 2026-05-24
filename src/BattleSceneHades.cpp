@@ -15,6 +15,7 @@
 #include "ChessUiCommon.h"
 #include "Engine.h"
 #include "Event.h"
+#include "Find.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "MainScene.h"
@@ -1541,14 +1542,24 @@ void BattleSceneHades::renderExtraRoleInfo(
                 ROLE_STATUS_BAR_WIDTH);
             int visibleShieldWidth = std::min(shieldWidth, hpFillWidth);
             Rect shieldRect = { barLeft, bar_y, visibleShieldWidth, ROLE_STATUS_BAR_HEIGHT };
-            // int shieldAlpha = std::clamp(90 + comboState->shield * 120 / std::max(1, r->MaxHP), 90, 180);
             Engine::getInstance()->renderSquareTexture(&shieldRect, { 250, 200, 0, 255 }, 255);
         }
 
-        bool hasDamageProtection = unit.invincible > 0 || unit.blockFirstHitsRemaining > 0;
+        const int firstHitBlocks = [&]()
+        {
+            if (!battle_session_)
+            {
+                return 0;
+            }
+            const auto* damage = KysChess::tryFindById(
+                battle_session_->runtime().damage.unitExtras,
+                unit.id);
+            return damage ? damage->blockFirstHitsRemaining : 0;
+        }();
+        bool hasDamageProtection = unit.invincible > 0 || firstHitBlocks > 0;
         if (hasDamageProtection)
         {
-            Color protectionColor = unit.blockFirstHitsRemaining > 0 ? Color{ 255, 220, 110, 255 } : Color{ 255, 170, 95, 255 };
+            Color protectionColor = firstHitBlocks > 0 ? Color{ 255, 220, 110, 255 } : Color{ 255, 170, 95, 255 };
             renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, protectionColor, 220);
         }
     }

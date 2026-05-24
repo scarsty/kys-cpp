@@ -104,8 +104,6 @@ class BattleStatusSystem
 public:
     explicit BattleStatusSystem(BattleStatusSystemConfig config);
 
-    BattleStatusTickResult tick(BattleStatusUnitState& unit) const;
-    BattleStatusTickResult tick(std::vector<BattleStatusUnitState>& units) const;
     BattleStatusTickResult tick(BattleUnitStore& units, BattleStatusRuntimeUnit& status) const;
     BattleStatusTickResult tick(BattleUnitStore& units, std::vector<BattleStatusRuntimeUnit>& statuses) const;
 

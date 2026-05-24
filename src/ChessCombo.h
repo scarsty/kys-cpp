@@ -88,7 +88,6 @@ public:
     static std::vector<ActiveCombo> detectCombos(const std::vector<Chess>& selected);
     static std::map<int, RoleComboState> buildComboStates(const std::vector<ActiveCombo>& active);
     static std::vector<ComboEffect> collectGlobalEffects(const std::vector<ActiveCombo>& active);
-    static int computeTeamFlatShieldBonus(const std::map<int, RoleComboState>& states);
     static void applyStatBuffs(const std::map<int, RoleComboState>& states);
     static const std::map<int, RoleComboState>& getActiveStates();
     static std::map<int, RoleComboState>& getMutableStates();

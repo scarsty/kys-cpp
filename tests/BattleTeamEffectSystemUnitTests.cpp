@@ -2,6 +2,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <map>
+
 using namespace KysChess::Battle;
 
 namespace
@@ -63,10 +65,12 @@ TEST_CASE("BattleTeamEffectSystem_TeamMp_RespectsBlockBonusAndCap", "[battle][te
         unit(2, 0, 100, 40),
         unit(3, 1, 100, 20),
     };
-    units.units[1].mpRecoveryBonusPct = 50;
-    units.units[2].mpBlocked = true;
+    std::vector<BattleStatusRuntimeUnit> statuses = { { 0 }, { 1 }, { 2 }, { 3 } };
+    statuses[2].effects.mpBlockTimer = 1;
+    std::map<int, KysChess::RoleComboState> combos;
+    combos[1].mpRecoveryBonusPct = 50;
 
-    auto events = BattleTeamEffectSystem().applyTeamMp(units, 0, 20);
+    auto events = BattleTeamEffectSystem().applyTeamMp(units, statuses, combos, 0, 20);
 
     REQUIRE(events.size() == 2);
     CHECK(unitById(units, 0).vitals.mp == 100);

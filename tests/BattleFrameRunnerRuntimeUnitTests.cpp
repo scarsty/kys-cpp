@@ -3,6 +3,7 @@
 #include "BattlePresentationTestHelpers.h"
 #include "battle/BattleHitResolver.h"
 #include "battle/BattleRuntimeSession.h"
+#include "battle/BattleRuntimeUnitSpawn.h"
 #include "Find.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -26,6 +27,9 @@ BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
 {
     return BattleFrameRunner().runFrame(state);
 }
+
+void seedDamageExtrasFromUnits(BattleRuntimeState& state);
+
 BattleMovementConfig runtimeMovementConfig()
 {
     BattleMovementGeometry geometry;
@@ -101,6 +105,11 @@ BattleRuntimeState runtimeFrameState()
     state.attacks.minimumVectorNorm = LegacyMinimumVectorNorm;
     state.attacks.bounceSpawnDistance = SceneTileWidth * 1.5;
     state.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
+    state.status.units = {
+        BattleStatusRuntimeUnit{ .id = 0 },
+        BattleStatusRuntimeUnit{ .id = 1 },
+    };
+    seedDamageExtrasFromUnits(state);
     return state;
 }
 
@@ -117,7 +126,11 @@ BattleRuntimeState ownedRuntimeState()
     runtime.attacks.minimumVectorNorm = LegacyMinimumVectorNorm;
     runtime.attacks.bounceSpawnDistance = SceneTileWidth * 1.5;
     runtime.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
-    seedEmptyComboStatesFromUnits(runtime);
+    runtime.status.units = {
+        BattleStatusRuntimeUnit{ .id = 0 },
+        BattleStatusRuntimeUnit{ .id = 1 },
+    };
+    seedDamageExtrasFromUnits(runtime);
     return runtime;
 }
 
@@ -180,16 +193,36 @@ BattleRuntimeUnit teamRuntimeUnitAt(int id, int team, int hp, Pointf position, i
 
 void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntimeUnit>& units)
 {
-    state.unitStore.units = units;
+    const auto previousCombos = state.combo.units;
+    const auto previousStatuses = state.status.units;
+    const auto previousDamageExtras = state.damage.unitExtras;
+
+    state.unitStore.units.clear();
     state.movement.agents.clear();
     state.movement.movementReservations.clear();
-    for (const auto& unit : state.unitStore.units)
+    state.combo.units.clear();
+    state.status.units.clear();
+    state.damage.unitExtras.clear();
+    state.damage.presentationStylesByDefender.clear();
+    for (auto unit : units)
     {
-        BattleMovementAgentState agent;
-        agent.physics.position = unit.motion.position;
-        agent.physics.velocity = unit.motion.velocity;
-        agent.physics.acceleration = unit.motion.acceleration;
-        state.movement.agents.emplace(unit.id, agent);
+        KysChess::RoleComboState combo;
+        if (const auto comboIt = previousCombos.find(unit.id);
+            comboIt != previousCombos.end())
+        {
+            combo = comboIt->second;
+        }
+
+        auto spawn = makeRuntimeUnitSpawn(std::move(unit), std::move(combo));
+        if (const auto* status = KysChess::tryFindById(previousStatuses, spawn.unit.id))
+        {
+            spawn.status = *status;
+        }
+        if (const auto* damage = KysChess::tryFindById(previousDamageExtras, spawn.unit.id))
+        {
+            spawn.damage = *damage;
+        }
+        appendRuntimeUnit(state, std::move(spawn));
     }
 }
 
@@ -413,18 +446,18 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
     });
-    state.combo.units.emplace(0, KysChess::RoleComboState{});
+    state.combo.units[0] = KysChess::RoleComboState{};
     state.unitStore.requireUnit(0).shield = 12;
     BattleDamageRuntimeUnit damage;
     damage.id = 0;
     damage.blockFirstHitsRemaining = 2;
-    state.damage.unitExtras.push_back(damage);
+    KysChess::requireById(state.damage.unitExtras, 0) = damage;
     state.unitStore.requireUnit(0).invincible = 4;
     BattleStatusRuntimeUnit status;
     status.id = 0;
     status.effects.frozenTimer = 3;
     status.effects.frozenMaxTimer = 9;
-    state.status.units.push_back(status);
+    KysChess::requireById(state.status.units, 0) = status;
 
     runBattleFrame(state);
 
@@ -470,8 +503,9 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
         teamRuntimeUnit(0, 0, 80),
         teamRuntimeUnit(1, 1, 100),
     });
-    state.unitStore.requireUnit(0).mpRecoveryBonusPct = 100;
-    state.unitStore.requireUnit(0).mpBlocked = true;
+    state.status.units = { { 0 }, { 1 } };
+    state.status.units[0].effects.mpBlockTimer = 2;
+    state.combo.units[0].mpRecoveryBonusPct = 100;
 
     runBattleFrame(state);
 
@@ -488,7 +522,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     combo.onSkillTeamHealPending = true;
     combo.onSkillTeamHeal = 7;
     combo.onSkillTeamHealPct = 3;
-    state.combo.units.emplace(0, combo);
+    state.combo.units[0] = combo;
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
     });
@@ -514,7 +548,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
     combo.onSkillTeamHealPending = true;
     combo.onSkillTeamHeal = 5;
     combo.onSkillTeamHealPct = 10;
-    state.combo.units.emplace(0, combo);
+    state.combo.units[0] = combo;
     applyRuntimeInput(state.unitStore.requireUnit(0), finishingSkillRuntime());
 
     auto result = runBattleFrame(state);
@@ -559,12 +593,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     poisoned.effects.poisonTimer = 3;
     poisoned.effects.poisonTickPct = 10;
     poisoned.effects.poisonSourceId = 0;
-    state.status.units.push_back(runtimeStatusUnit(poisoned));
-
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
     });
+    KysChess::requireById(state.status.units, 1) = runtimeStatusUnit(poisoned);
     seedDamageExtrasFromUnits(state);
     state.deathEffects.store.units = { { 0 }, { 1 } };
 
@@ -588,12 +621,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     bleeding.effects.bleedStacks = 6;
     bleeding.effects.bleedTimer = 1;
     bleeding.effects.bleedSourceId = 0;
-    state.status.units.push_back(runtimeStatusUnit(bleeding));
-
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
     });
+    KysChess::requireById(state.status.units, 1) = runtimeStatusUnit(bleeding);
     seedDamageExtrasFromUnits(state);
     state.deathEffects.store.units = { { 0 }, { 1 } };
 
@@ -664,7 +696,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     combo.healAuraPct = 10;
     combo.healAuraInterval = 6;
     combo.healedATKSPDBoostPct = 20;
-    state.combo.units.emplace(0, combo);
+    state.combo.units[0] = combo;
 
     auto runtime = finishingSkillRuntime();
     runtime.state.cooldown = 0;
@@ -727,7 +759,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
 
     KysChess::RoleComboState combo;
     combo.triggeredEffects.push_back(healBurst);
-    state.combo.units.emplace(0, combo);
+    state.combo.units[0] = combo;
 
     auto runtime = finishingSkillRuntime();
     runtime.state.cooldown = 0;
@@ -762,13 +794,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSk
 
     KysChess::RoleComboState combo;
     combo.postSkillInvincFrames = 12;
-    state.combo.units.emplace(0, combo);
+    state.combo.units[0] = combo;
 
     applyRuntimeInput(state.unitStore.requireUnit(0), finishingSkillRuntime());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.unitStore.requireUnit(0).invincible == 3);
+    CHECK(state.unitStore.requireUnit(0).invincible == 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand", "[battle][frame_runner][runtime][unit]")

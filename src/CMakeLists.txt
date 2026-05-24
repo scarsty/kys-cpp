@@ -53,6 +53,7 @@ set(KYS_BATTLE_SOURCES
     battle/BattleRuntimeRandom.cpp
     battle/BattleRuntimeRules.cpp
     battle/BattleRuntimeSession.cpp
+    battle/BattleRuntimeUnitSpawn.cpp
     battle/BattleStatusSystem.cpp
     battle/BattleTeamEffectSystem.cpp
 )

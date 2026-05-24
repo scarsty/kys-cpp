@@ -1,5 +1,6 @@
 #include "BattleTeamEffectSystem.h"
 
+#include "../Find.h"
 #include "BattleResourceRules.h"
 #include "BattleUnitStore.h"
 
@@ -75,6 +76,8 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleU
 }
 
 std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleUnitStore& units,
+                                                                       const std::vector<BattleStatusRuntimeUnit>& statuses,
+                                                                       const std::map<int, RoleComboState>& combos,
                                                                        int sourceUnitId,
                                                                        int amount) const
 {
@@ -89,7 +92,10 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleUni
             continue;
         }
 
-        int restore = adjustedMpRestore(unit.mpBlocked, unit.mpRecoveryBonusPct, amount);
+        const auto& status = requireById(statuses, unit.id);
+        const auto comboIt = combos.find(unit.id);
+        const int recoveryBonus = comboIt != combos.end() ? comboIt->second.mpRecoveryBonusPct : 0;
+        int restore = adjustedMpRestore(status.effects.mpBlockTimer > 0, recoveryBonus, amount);
         int before = unit.vitals.mp;
         unit.vitals.mp = std::min(unit.vitals.maxMp, unit.vitals.mp + restore);
         if (unit.vitals.mp > before)

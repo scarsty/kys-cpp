@@ -5,10 +5,12 @@
 #include "ChessCombo.h"
 #include "ChessEquipment.h"
 #include "ChessNeigong.h"
+#include "Find.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <utility>
 
 using namespace KysChess::Battle;
 using namespace KysChess;
@@ -50,6 +52,47 @@ BattleStatusRuntimeUnit& requireStatusRuntime(BattleRuntimeState& runtime, int u
         [unitId](const BattleStatusRuntimeUnit& unit) { return unit.id == unitId; });
     REQUIRE(it != runtime.status.units.end());
     return *it;
+}
+
+BattleRuntimeUnitSpawn runtimeSpawn(BattleRuntimeUnit unit, RoleComboState combo = {})
+{
+    return makeRuntimeUnitSpawn(std::move(unit), std::move(combo));
+}
+
+std::vector<BattleRuntimeUnitSpawn> runtimeSpawns(std::initializer_list<BattleRuntimeUnit> units)
+{
+    std::vector<BattleRuntimeUnitSpawn> spawns;
+    spawns.reserve(units.size());
+    for (auto unit : units)
+    {
+        spawns.push_back(runtimeSpawn(std::move(unit)));
+    }
+    return spawns;
+}
+
+BattleRuntimeUnitSpawn& requireSpawn(std::vector<BattleRuntimeUnitSpawn>& spawns, int unitId)
+{
+    const auto it = std::find_if(
+        spawns.begin(),
+        spawns.end(),
+        [unitId](const BattleRuntimeUnitSpawn& spawn) { return spawn.unit.id == unitId; });
+    REQUIRE(it != spawns.end());
+    return *it;
+}
+
+const BattleRuntimeUnitSpawn& requireSpawn(const std::vector<BattleRuntimeUnitSpawn>& spawns, int unitId)
+{
+    const auto it = std::find_if(
+        spawns.begin(),
+        spawns.end(),
+        [unitId](const BattleRuntimeUnitSpawn& spawn) { return spawn.unit.id == unitId; });
+    REQUIRE(it != spawns.end());
+    return *it;
+}
+
+BattleInitializationContext testInitializationContext(int frame = 0)
+{
+    return { { 36.0, 18 }, frame };
 }
 
 void addRuntimeSetupSeed(
@@ -250,15 +293,13 @@ const std::vector<NeigongDef>& ChessNeigong::getPool()
 
 }  // namespace KysChess
 
-TEST_CASE("BattleInitializationSystem_CompilesPureRuntimeInitializationApi", "[battle][initialization]")
+TEST_CASE("BattleInitializationSystem_CompilesSpawnInitializationApi", "[battle][initialization]")
 {
-    BattleRuntimeState runtime;
-    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
-    runtime.status.units.push_back(statusRuntime(0, 100, 20));
+    auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
 
     BattleRuntimeSetupSeed setup;
 
-    auto result = BattleInitializationSystem().initialize(runtime, setup);
+    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
 
     CHECK(result.roleDeltas.empty());
     CHECK(result.logEvents.empty());
@@ -266,9 +307,7 @@ TEST_CASE("BattleInitializationSystem_CompilesPureRuntimeInitializationApi", "[b
 
 TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "[battle][initialization]")
 {
-    BattleRuntimeState runtime;
-    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
-    runtime.status.units.push_back(statusRuntime(0, 100, 20));
+    auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
 
     RoleComboState combo;
     combo.flatHP = 25;
@@ -291,9 +330,9 @@ TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "
     seed.baseCombo = combo;
     setup.units.push_back(seed);
 
-    auto result = BattleInitializationSystem().initialize(runtime, setup);
+    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
 
-    const auto& unit = runtime.unitStore.requireUnit(0);
+    const auto& unit = requireSpawn(spawns, 0).unit;
     CHECK(unit.vitals.maxHp == 150);
     CHECK(unit.vitals.hp == 150);
     CHECK(unit.stats.attack == 27);
@@ -310,9 +349,7 @@ TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "
 
 TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWins", "[battle][initialization]")
 {
-    BattleRuntimeState runtime;
-    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
-    runtime.status.units.push_back(statusRuntime(0, 100, 20));
+    auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
 
     BattleRuntimeSetupSeed setup;
     setup.allyRoster.push_back({
@@ -358,7 +395,7 @@ TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWi
     seed.baseHiddenWeapon = 14;
     setup.units.push_back(seed);
 
-    auto result = BattleInitializationSystem().initialize(runtime, setup);
+    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
 
     const auto expected = computeStarBoostedStats(
         {
@@ -378,7 +415,7 @@ TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWi
         1,
         3);
 
-    const auto& unit = runtime.unitStore.requireUnit(0);
+    const auto& unit = requireSpawn(spawns, 0).unit;
     CHECK(unit.vitals.maxHp == expected.hp);
     CHECK(unit.vitals.hp == expected.hp);
     CHECK(unit.stats.attack == expected.atk);
@@ -395,10 +432,7 @@ TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWi
 
 TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", "[battle][initialization]")
 {
-    BattleRuntimeState runtime;
-    runtime.movement.frame = 77;
-    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 200, 20, 30, 40));
-    runtime.status.units.push_back(statusRuntime(0, 200, 20));
+    auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 200, 20, 30, 40) });
 
     RoleComboState combo;
     combo.shieldPctMaxHP = 25;
@@ -424,17 +458,17 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     seed.baseCombo = combo;
     setup.units.push_back(seed);
 
-    auto result = BattleInitializationSystem().initialize(runtime, setup);
+    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext(77));
 
-    const auto& initialized = runtime.combo.units.at(0);
-    const auto& unit = runtime.unitStore.requireUnit(0);
-    const auto& status = requireStatusRuntime(runtime, 0);
-    CHECK(initialized.shield == 65);
-    CHECK(initialized.damageImmunityTimer == 12);
+    const auto& spawn = requireSpawn(spawns, 0);
+    const auto& initialized = spawn.combo;
+    const auto& unit = spawn.unit;
+    const auto& status = spawn.status;
+    const auto& damage = spawn.damage;
     CHECK(initialized.autoUltimateTimer == 30);
-    CHECK(initialized.blockFirstHitsRemaining == 2);
     CHECK(unit.shield == 65);
     CHECK(status.effects.damageImmunityTimer == 12);
+    CHECK(damage.blockFirstHitsRemaining == 2);
     REQUIRE(result.logEvents.size() == 2);
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
     CHECK(result.logEvents[0].frame == 77);
@@ -446,13 +480,11 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
 
 TEST_CASE("BattleInitializationSystem_EnemyTopDebuffEmitsBattleLog", "[battle][initialization]")
 {
-    BattleRuntimeState runtime;
-    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
-    runtime.unitStore.units.push_back(runtimeUnit(1, 1, 100, 80, 50, 40));
-    runtime.unitStore.units.push_back(runtimeUnit(2, 1, 120, 60, 40, 40));
-    runtime.status.units.push_back(statusRuntime(0, 100, 20));
-    runtime.status.units.push_back(statusRuntime(1, 100, 80));
-    runtime.status.units.push_back(statusRuntime(2, 120, 60));
+    auto spawns = runtimeSpawns({
+        runtimeUnit(0, 0, 100, 20, 30, 40),
+        runtimeUnit(1, 1, 100, 80, 50, 40),
+        runtimeUnit(2, 1, 120, 60, 40, 40),
+    });
 
     RoleComboState combo;
     combo.enemyTopDebuffCount = 1;
@@ -463,12 +495,12 @@ TEST_CASE("BattleInitializationSystem_EnemyTopDebuffEmitsBattleLog", "[battle][i
     setup.units.push_back({ .unitId = 1, .realRoleId = 1002, .team = 1, .star = 1, .cost = 3, .baseMaxHp = 100, .baseAttack = 80, .baseDefence = 50, .baseSpeed = 40 });
     setup.units.push_back({ .unitId = 2, .realRoleId = 1003, .team = 1, .star = 1, .cost = 1, .baseMaxHp = 120, .baseAttack = 60, .baseDefence = 40, .baseSpeed = 40 });
 
-    auto result = BattleInitializationSystem().initialize(runtime, setup);
+    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
 
     REQUIRE(result.enemyTopDebuffs.size() == 1);
     CHECK(result.enemyTopDebuffs[0].unitId == 1);
-    CHECK(runtime.unitStore.requireUnit(1).stats.attack == 73);
-    CHECK(runtime.unitStore.requireUnit(1).stats.defence == 43);
+    CHECK(requireSpawn(spawns, 1).unit.stats.attack == 73);
+    CHECK(requireSpawn(spawns, 1).unit.stats.defence == 43);
     auto logIt = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
     {
         return event.type == BattleLogEventType::Status
@@ -480,8 +512,6 @@ TEST_CASE("BattleInitializationSystem_EnemyTopDebuffEmitsBattleLog", "[battle][i
 
 TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[battle][initialization]")
 {
-    BattleRuntimeState runtime;
-    runtime.unitStore.gridTransform = { 36.0, 18 };
     auto source = runtimeUnit(0, 0, 100, 20, 30, 40);
     source.realRoleId = 1001;
     source.name = "測試角色";
@@ -493,53 +523,50 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     source.operationCount = 3;
     source.physicalPower = 9;
     source.invincible = 8;
-    source.blockFirstHitsRemaining = 5;
     source.frozen = 6;
     source.frozenMax = 12;
-    source.mpBlocked = true;
-    source.mpRecoveryBonusPct = 50;
     source.weaponId = 71;
     source.armorId = 82;
     source.chessInstanceId = 99;
-    runtime.unitStore.units.push_back(source);
-    runtime.status.units.push_back(statusRuntime(0, 100, 20));
-    runtime.combo.units[0].cloneSummonCount = 1;
+
+    RoleComboState sourceCombo;
+    sourceCombo.cloneSummonCount = 1;
+    std::vector<BattleRuntimeUnitSpawn> spawns;
+    spawns.push_back(runtimeSpawn(source, sourceCombo));
 
     BattleRuntimeSetupSeed setup;
     setup.cloneSummonCount = 1;
     setup.cloneSources.push_back({ 0, 1001, 999, 3, 7, 0 });
     setup.cloneCells.push_back({ 3, 4, true, false });
 
-    auto result = BattleInitializationSystem().initialize(runtime, setup);
+    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
 
-    const auto* clone = runtime.unitStore.findUnit(1);
-    REQUIRE(clone != nullptr);
-    CHECK(clone->cloneSourceUnitId == 0);
-    CHECK(clone->name == "測試角色");
-    CHECK(clone->headId == 23);
-    CHECK(clone->fightFrames[2] == 8);
-    CHECK(clone->skillNames == "六脈神劍");
-    CHECK(clone->grid.x == 3);
-    CHECK(clone->grid.y == 4);
-    CHECK(clone->vitals.maxHp == 100);
-    CHECK(clone->vitals.hp == 100);
-    CHECK(clone->stats.attack == 20);
-    CHECK(clone->stats.defence == 30);
-    CHECK(clone->stats.speed == 40);
-    CHECK_FALSE(clone->haveAction);
-    CHECK(clone->operationType == BattleOperationType::None);
-    CHECK(clone->operationCount == 0);
-    CHECK(clone->physicalPower == 0);
-    CHECK(clone->invincible == 0);
-    CHECK(clone->blockFirstHitsRemaining == 0);
-    CHECK(clone->frozen == 0);
-    CHECK(clone->frozenMax == 0);
-    CHECK_FALSE(clone->mpBlocked);
-    CHECK(clone->mpRecoveryBonusPct == 0);
-    CHECK(clone->weaponId == -1);
-    CHECK(clone->armorId == -1);
-    CHECK(clone->chessInstanceId == -1);
-    CHECK(runtime.combo.units.find(1) != runtime.combo.units.end());
+    REQUIRE(spawns.size() == 2);
+    const auto& cloneSpawn = requireSpawn(spawns, 1);
+    const auto& clone = cloneSpawn.unit;
+    CHECK(clone.cloneSourceUnitId == 0);
+    CHECK(clone.name == "測試角色");
+    CHECK(clone.headId == 23);
+    CHECK(clone.fightFrames[2] == 8);
+    CHECK(clone.skillNames == "六脈神劍");
+    CHECK(clone.grid.x == 3);
+    CHECK(clone.grid.y == 4);
+    CHECK(clone.vitals.maxHp == 100);
+    CHECK(clone.vitals.hp == 100);
+    CHECK(clone.stats.attack == 20);
+    CHECK(clone.stats.defence == 30);
+    CHECK(clone.stats.speed == 40);
+    CHECK_FALSE(clone.haveAction);
+    CHECK(clone.operationType == BattleOperationType::None);
+    CHECK(clone.operationCount == 0);
+    CHECK(clone.physicalPower == 9);
+    CHECK(clone.invincible == 8);
+    CHECK(clone.frozen == 0);
+    CHECK(clone.frozenMax == 0);
+    CHECK(clone.weaponId == -1);
+    CHECK(clone.armorId == -1);
+    CHECK(clone.chessInstanceId == -1);
+    CHECK(cloneSpawn.combo.isSummonedClone);
 }
 
 TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[battle][initialization]")
@@ -643,6 +670,90 @@ TEST_CASE("BattleRuntimeSession_CloneProfileKeepsRenderingWithoutRosterOwnership
     CHECK(cloneUnit.weaponId == -1);
     CHECK(cloneUnit.armorId == -1);
     CHECK(cloneUnit.chessInstanceId == -1);
+}
+
+TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initialization][runtime_session]")
+{
+    std::map<int, RoleComboState> comboStates;
+    auto& sourceCombo = comboStates[0];
+    sourceCombo.cloneSummonCount = 1;
+    sourceCombo.shieldPctMaxHP = 25;
+    sourceCombo.blockFirstHitsCount = 2;
+    sourceCombo.damageImmunityAfterFrames = 12;
+    sourceCombo.damageImmunityDuration = 5;
+    sourceCombo.mpRecoveryBonusPct = 50;
+
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(36.0, 18);
+    input.comboStates = comboStates;
+    input.setup.cloneCells.push_back({ 3, 4, true, false });
+
+    auto source = makeRuntimeProfileTestSource();
+    source.animation = { 9, 10, 3, 1 };
+    source.haveAction = true;
+    source.operationType = BattleOperationType::Melee;
+    source.operationCount = 4;
+    source.physicalPower = 33;
+    source.invincible = 8;
+    source.motion.velocity = { 7, 8, 0 };
+    source.motion.acceleration = { 0, 0, -4 };
+    source.hasEquippedSkill = true;
+    source.normalSkill = makeHadesTestSkillSeed();
+    source.ultimateSkill = makeHadesTestSkillSeed(1, 2);
+
+    input.actionPlanSeeds.push_back({
+        source.unitId,
+        source.hasEquippedSkill,
+        source.normalSkill,
+        source.ultimateSkill,
+    });
+    input.units.push_back(source);
+    addRuntimeSetupSeed(input, source);
+
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
+    const auto& sourceUnit = session.requireRuntimeUnit(0);
+    const auto& cloneUnit = session.requireRuntimeUnit(1);
+    const auto& runtime = session.runtime();
+
+    CHECK(cloneUnit.cloneSourceUnitId == 0);
+    CHECK(cloneUnit.realRoleId == sourceUnit.realRoleId);
+    CHECK(cloneUnit.vitals.maxHp == sourceUnit.vitals.maxHp);
+    CHECK(cloneUnit.vitals.hp == cloneUnit.vitals.maxHp);
+    CHECK(cloneUnit.stats.attack == sourceUnit.stats.attack);
+    CHECK(cloneUnit.grid.x == 3);
+    CHECK(cloneUnit.grid.y == 4);
+    CHECK(cloneUnit.animation.cooldown == 0);
+    CHECK(cloneUnit.animation.actFrame == 0);
+    CHECK(cloneUnit.animation.actType == -1);
+    CHECK_FALSE(cloneUnit.haveAction);
+    CHECK(cloneUnit.operationType == BattleOperationType::None);
+    CHECK(cloneUnit.operationCount == 0);
+    CHECK(cloneUnit.physicalPower == sourceUnit.physicalPower);
+    CHECK(cloneUnit.invincible == sourceUnit.invincible);
+    CHECK(cloneUnit.weaponId == -1);
+    CHECK(cloneUnit.armorId == -1);
+    CHECK(cloneUnit.chessInstanceId == -1);
+
+    const auto& cloneStatus = requireById(runtime.status.units, 1);
+    CHECK(cloneStatus.effects.damageImmunityAfterFrames == 12);
+    CHECK(cloneStatus.effects.damageImmunityDuration == 5);
+    CHECK(cloneStatus.effects.damageImmunityTimer == 12);
+
+    const auto& cloneDamage = requireById(runtime.damage.unitExtras, 1);
+    CHECK(cloneDamage.blockFirstHitsRemaining == 2);
+
+    const auto cloneAgentIt = runtime.movement.agents.find(1);
+    REQUIRE(cloneAgentIt != runtime.movement.agents.end());
+    CHECK(cloneAgentIt->second.targetId == -1);
+    CHECK(cloneAgentIt->second.physics.position.x == cloneUnit.motion.position.x);
+    CHECK(cloneAgentIt->second.physics.position.y == cloneUnit.motion.position.y);
+    CHECK(cloneAgentIt->second.physics.velocity.x == cloneUnit.motion.velocity.x);
+    CHECK(cloneAgentIt->second.physics.acceleration.z == cloneUnit.motion.acceleration.z);
+
+    const auto clonePlanIt = runtime.action.planSeeds.find(1);
+    REQUIRE(clonePlanIt != runtime.action.planSeeds.end());
+    CHECK(clonePlanIt->second.unitId == 1);
+    CHECK(clonePlanIt->second.normalSkill.id == source.normalSkill.id);
 }
 
 TEST_CASE("BattleRuntimeSession_InitializesRuntimeRandomFromCreationInput", "[battle][initialization]")
@@ -818,9 +929,7 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[b
 
 TEST_CASE("BattleInitializationSystem_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization]")
 {
-    BattleRuntimeState runtime;
-    runtime.unitStore.units.push_back(runtimeUnit(0, 0, 100, 20, 30, 40));
-    runtime.status.units.push_back(statusRuntime(0, 100, 20));
+    auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
 
     BattleInitializationUnitSeed seed;
     seed.unitId = 0;
@@ -834,9 +943,9 @@ TEST_CASE("BattleInitializationSystem_ConsumesSetupAndInitializesOwnedRuntime", 
     BattleRuntimeSetupSeed setup;
     setup.units.push_back(seed);
 
-    auto result = BattleInitializationSystem().initialize(runtime, setup);
+    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
 
-    const auto& unit = runtime.unitStore.requireUnit(0);
+    const auto& unit = requireSpawn(spawns, 0).unit;
     CHECK(unit.vitals.maxHp == 125);
     CHECK(unit.vitals.hp == 125);
     CHECK(unit.vitals.maxHp == 125);
