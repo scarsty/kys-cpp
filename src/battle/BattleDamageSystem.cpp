@@ -68,6 +68,21 @@ void writeBattleResourceUnit(BattleDamageUnitState& unit, const BattleResourceUn
 
 }  // namespace
 
+BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit)
+{
+    BattleDamageRuntimeUnit runtime;
+    runtime.id = unit.id;
+    runtime.hurtInvincFrames = unit.hurtInvincFrames;
+    runtime.blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
+    runtime.deathPrevention = unit.deathPrevention;
+    runtime.deathPreventionUsed = unit.deathPreventionUsed;
+    runtime.deathPreventionFrames = unit.deathPreventionFrames;
+    runtime.killHealPct = unit.killHealPct;
+    runtime.killInvincFrames = unit.killInvincFrames;
+    runtime.bloodlustAttackPerKill = unit.bloodlustAttackPerKill;
+    return runtime;
+}
+
 BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const BattleDamageTransactionInput& input) const
 {
     assert(input.request.attackerUnitId == input.attacker.id);

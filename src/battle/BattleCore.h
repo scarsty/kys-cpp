@@ -6,7 +6,6 @@
 #include "BattleDamageQueue.h"
 #include "BattleDamageSystem.h"
 #include "BattleDeathEffectSystem.h"
-#include "BattleEffectSystem.h"
 #include "BattleHitResolver.h"
 #include "BattleMovement.h"
 #include "BattlePresentation.h"
@@ -108,17 +107,6 @@ struct BattlePendingCastAction
     BattleCastSkillState skill;
 };
 
-struct BattleFrameActionUnitResult
-{
-    int unitId{};
-    bool castStarted = false;
-    bool actionCommitted = false;
-    bool castCommitted = false;
-    BattleActionCommitInput actionInput;
-    BattleCastResult castResult;
-    BattleActionCommitResult actionResult;
-};
-
 class BattleRuntimeRandom
 {
 public:
@@ -204,11 +192,6 @@ struct BattleRuntimeState
         std::vector<BattleGameplayCommand> pendingCommands;
     } teamEffects;
 
-    struct EffectState
-    {
-        std::map<int, int> activationCounts;
-    } effects;
-
     struct MovementPhysicsState
     {
         BattleMovementPhysicsConfig config;
@@ -238,28 +221,10 @@ struct BattleRuntimeState
     std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;
 };
 
-struct BattleTeamEffectCommandApplication
-{
-    std::vector<BattleTeamEffectEvent> events;
-    std::vector<BattleLogEvent> logEvents;
-};
-
-BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
-    BattleUnitStore& units,
-    const BattleGameplayCommand& command);
-
-std::vector<BattleGameplayCommand> collectFrameCastScopedComboCommands(
-    KysChess::RoleComboState& state,
-    BattleRuntimeRandom& random,
-    int unitId,
-    double projectileSpeed);
-
 class BattleFrameRunner
 {
 public:
     BattlePresentationFrame runFrame(BattleRuntimeState& runtime) const;
 };
-
-BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
 
 }  // namespace KysChess::Battle

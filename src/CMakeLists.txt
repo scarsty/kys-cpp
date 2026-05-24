@@ -43,7 +43,6 @@ set(KYS_BATTLE_SOURCES
     battle/BattleCombatIntent.cpp
     battle/BattleDamageSystem.cpp
     battle/BattleDeathEffectSystem.cpp
-    battle/BattleEffectSystem.cpp
     battle/BattleGeometry.cpp
     battle/BattleHitResolver.cpp
     battle/BattleInitialization.cpp
@@ -115,7 +114,6 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleCoreUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleDamageSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleDeathEffectSystemUnitTests.cpp"
-    "${KYS_ROOT}/tests/BattleEffectSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleFrameRunnerRuntimeUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleHitResolverUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleInitializationUnitTests.cpp"

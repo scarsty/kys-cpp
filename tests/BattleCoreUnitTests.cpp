@@ -392,39 +392,6 @@ KysChess::AppliedEffectInstance triggeredEffect(KysChess::EffectType type,
     return effect;
 }
 
-TEST_CASE("BattleFrameCombo_CastScopedEffectsEmitGameplayCommands", "[battle][core][combo]")
-{
-    KysChess::RoleComboState combo;
-    combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::CurrentHPPctBlast, KysChess::Trigger::OnCast, 15, 100));
-    combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::TeamMPRestore, KysChess::Trigger::OnCast, 8, 100));
-    combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::FlatShield, KysChess::Trigger::OnCast, 12, 100));
-    combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::SpiralBleedProjectile, KysChess::Trigger::OnCast, 2, 100));
-    combo.triggeredEffects.back().value2 = 7;
-    combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::MPBlock, KysChess::Trigger::OnHit, 9, 100));
-
-    BattleRuntimeRandom random(1u);
-    auto commands = collectFrameCastScopedComboCommands(combo, random, 0, 5.0);
-
-    REQUIRE(commands.size() == 4);
-    CHECK(std::holds_alternative<BattleCurrentHpBlastCommand>(commands[0]));
-    CHECK(std::holds_alternative<BattleTeamMpRestoreCommand>(commands[1]));
-    CHECK(std::holds_alternative<BattleTeamShieldCommand>(commands[2]));
-    const auto* spiral = std::get_if<BattleSpiralBleedProjectileCommand>(&commands[3]);
-    REQUIRE(spiral);
-    CHECK(spiral->projectileCount == 7);
-    CHECK(spiral->projectileSpeed == 5.0);
-    CHECK(combo.effectActivationCounts[0] == 1);
-    CHECK(combo.effectActivationCounts[1] == 1);
-    CHECK(combo.effectActivationCounts[2] == 1);
-    CHECK(combo.effectActivationCounts[3] == 1);
-    CHECK(combo.effectActivationCounts.count(4) == 0);
-}
-
 BattleSkillState skill(int attackAreaType, double reach = 400.0, bool forceRanged = false)
 {
     BattleSkillState state;
@@ -1399,52 +1366,6 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     CHECK(state.deathEffects.store.units[0].id == 1);
     CHECK_FALSE(state.result.ended);
     CHECK(state.result.winningTeam == -1);
-}
-
-TEST_CASE("BattleCore_AppliesTeamEffectGameplayCommands", "[battle][core]")
-{
-    BattleUnitStore units;
-    units.units = {
-        runtimeUnitSnapshot(0, 0, 40),
-        runtimeUnitSnapshot(1, 0, 90),
-        runtimeUnitSnapshot(2, 1, 20),
-    };
-    units.units[0].vitals.mp = 10;
-    units.units[1].vitals.mp = 45;
-    units.units[1].shield = 3;
-    units.units[2].vitals.mp = 5;
-
-    auto heal = applyBattleTeamEffectCommand(
-        units,
-        BattleTeamHealCommand{ 0, 5, 10, "技能群療" });
-    REQUIRE(heal.events.size() == 2);
-    CHECK(heal.events[0].targetUnitId == 0);
-    CHECK(heal.events[0].value == 15);
-    CHECK(units.units[0].vitals.hp == 55);
-    CHECK(units.units[1].vitals.hp == 100);
-    REQUIRE(heal.logEvents.size() == 2);
-    CHECK(heal.logEvents[0].type == BattleLogEventType::Heal);
-    CHECK(BattleLogTest::textOf(heal.logEvents[0]) == "技能群療");
-
-    auto mp = applyBattleTeamEffectCommand(
-        units,
-        BattleTeamMpRestoreCommand{ 0, 8, "全隊回內" });
-    REQUIRE(mp.events.size() == 2);
-    CHECK(units.units[0].vitals.mp == 18);
-    CHECK(units.units[1].vitals.mp == 50);
-    REQUIRE(mp.logEvents.size() == 2);
-    CHECK(mp.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(BattleLogTest::textOf(mp.logEvents[0]) == "全隊回內+8MP");
-
-    auto shield = applyBattleTeamEffectCommand(
-        units,
-        BattleTeamShieldCommand{ 0, 7, true, "全隊護盾" });
-    REQUIRE(shield.events.size() == 2);
-    CHECK(units.units[0].shield == 7);
-    CHECK(units.units[1].shield == 7);
-    REQUIRE(shield.logEvents.size() == 2);
-    CHECK(shield.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(BattleLogTest::textOf(shield.logEvents[0]) == "全隊護盾（7護盾）");
 }
 
 TEST_CASE("BattleFrameRunner_TeamShieldDoesNotMirrorIntoCombo", "[battle][core][runtime]")

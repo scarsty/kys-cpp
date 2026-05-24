@@ -110,18 +110,6 @@ BattleCastInput basicInput()
     return input;
 }
 
-BattleEffectDefinition invincibilityEffect()
-{
-    BattleEffectDefinition effect;
-    effect.id = 11;
-    effect.type = "技能後無敵";
-    effect.hook = BattleHook::SkillFinished;
-    effect.target = BattleEffectTarget::Source;
-    effect.executorKey = "添加無敵幀";
-    effect.value = 30;
-    return effect;
-}
-
 void checkPoint(const Pointf& actual, const Pointf& expected)
 {
     CHECK(actual.x == Catch::Approx(expected.x));
@@ -217,13 +205,6 @@ void checkLogEventEquals(const BattleLogEvent& lhs, const BattleLogEvent& rhs)
     CHECK(lhs.skillName == rhs.skillName);
 }
 
-void checkEffectEventEquals(const BattleEffectEvent& lhs, const BattleEffectEvent& rhs)
-{
-    CHECK(lhs.hook == rhs.hook);
-    CHECK(lhs.sourceUnitId == rhs.sourceUnitId);
-    CHECK(lhs.targetUnitId == rhs.targetUnitId);
-}
-
 void checkResultEquals(const BattleCastResult& lhs, const BattleCastResult& rhs)
 {
     checkDecisionEquals(lhs.decision, rhs.decision);
@@ -258,12 +239,6 @@ void checkResultEquals(const BattleCastResult& lhs, const BattleCastResult& rhs)
     for (size_t i = 0; i < lhs.visualEvents.size(); ++i)
     {
         checkVisualEventEquals(lhs.visualEvents[i], rhs.visualEvents[i]);
-    }
-
-    REQUIRE(lhs.effectEvents.size() == rhs.effectEvents.size());
-    for (size_t i = 0; i < lhs.effectEvents.size(); ++i)
-    {
-        checkEffectEventEquals(lhs.effectEvents[i], rhs.effectEvents[i]);
     }
 }
 
@@ -926,51 +901,6 @@ TEST_CASE("BattleCastSystem_DashCastCanEmitExplicitFollowUpSkillRequest", "[batt
     CHECK(result.attackSpawnRequests[1].initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == 24);
     CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(12.0f));
-}
-
-TEST_CASE("BattleCastSystem_PostSkillHookIsEmittedForNormalAndUltimateCasts", "[battle][cast]")
-{
-    auto input = basicInput();
-
-    auto normal = BattleCastPlanner().commitSelectedCast(
-        input,
-        false,
-        BattleOperationType::Melee);
-    REQUIRE(normal.effectEvents.size() == 1);
-    CHECK(normal.effectEvents[0].hook == BattleHook::SkillFinished);
-    CHECK(normal.effectEvents[0].sourceUnitId == 1);
-    CHECK(normal.effectEvents[0].targetUnitId == 2);
-
-    input.unit.mp = input.unit.maxMp;
-    auto ultimate = BattleCastPlanner().commitSelectedCast(
-        input,
-        true,
-        BattleOperationType::RangedProjectile);
-    REQUIRE(ultimate.effectEvents.size() == 2);
-    CHECK(ultimate.effectEvents[0].hook == BattleHook::SkillFinished);
-    CHECK(ultimate.effectEvents[1].hook == BattleHook::UltimateCast);
-
-    BattleUnitStore units;
-    BattleRuntimeUnit first;
-    first.id = 0;
-    first.alive = true;
-    units.units.push_back(first);
-    BattleRuntimeUnit caster;
-    caster.id = input.unit.id;
-    caster.alive = true;
-    units.units.push_back(caster);
-    std::map<int, int> activationCounts;
-
-    BattleEffectRegistry registry;
-    registry.registerExecutor("添加無敵幀", std::make_unique<AddInvincibilityExecutor>());
-    BattleEffectDispatcher dispatcher(registry);
-    dispatcher.addEffect(invincibilityEffect());
-    auto commands = dispatcher.dispatch(units, activationCounts, normal.effectEvents[0]);
-
-    REQUIRE(commands.size() == 1);
-    CHECK(commands[0].type == BattleEffectCommandType::AddInvincibility);
-    CHECK(commands[0].targetUnitId == input.unit.id);
-    CHECK(units.units[1].invincible == 30);
 }
 
 TEST_CASE("BattleCastSystem_OutputIsDeterministicForSameSeedAndInput", "[battle][cast]")

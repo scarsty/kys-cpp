@@ -54,6 +54,8 @@ struct BattleDamageRuntimeUnit
     int bloodlustAttackPerKill = 0;
 };
 
+BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
+
 struct BattleDamageModifierState
 {
     int flatDamageIncrease = 0;

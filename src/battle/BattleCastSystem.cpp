@@ -961,11 +961,6 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
 
     result.attackSpawnRequests = makeAttackSpawnRequests(result, input, selectedSkill);
 
-    result.effectEvents.push_back({ BattleHook::SkillFinished, input.unit.id, input.targetUnitId });
-    if (result.decision.ultimate)
-    {
-        result.effectEvents.push_back({ BattleHook::UltimateCast, input.unit.id, input.targetUnitId });
-    }
 }
 
 BattleActionCommitResult BattleActionCommitSystem::commit(

@@ -3,7 +3,6 @@
 #include "../ChessBattleEffects.h"
 #include "../Point.h"
 #include "BattleAttackSystem.h"
-#include "BattleEffectSystem.h"
 #include "BattleOperation.h"
 #include "BattlePresentation.h"
 
@@ -170,7 +169,6 @@ struct BattleCastResult
     Pointf postDashRetreatVelocity;
     int postDashRetreatFrames = 0;
     std::vector<BattleVisualEvent> visualEvents;
-    std::vector<BattleEffectEvent> effectEvents;
 };
 
 struct BattleBlinkAttackCommand

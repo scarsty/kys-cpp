@@ -216,7 +216,7 @@ TEST_CASE("BattleComboTriggerSystem_TeamHeal_ChanceGateDoesNotConsumeMaxCount", 
     CHECK(state.effectActivationCounts[0] == 1);
 }
 
-TEST_CASE("BattleComboTriggerSystem_TriggeredTeamHeal_CollectsFlatAndPercentFromBattleHook", "[battle][combo][unit]")
+TEST_CASE("BattleComboTriggerSystem_TriggeredTeamHeal_CollectsFlatAndPercentFromTriggerHook", "[battle][combo][unit]")
 {
     RoleComboState state;
     state.triggeredEffects.push_back(
