@@ -345,13 +345,6 @@ TEST_CASE("BattleHitResolver_ReflectedRangedProjectileChangesActualSourceAndTarg
     CHECK(command->sourceUnitId == 2);
     CHECK(command->targetUnitId == 1);
     CHECK(BattleLogTest::joinSegments(command->segments) == "彈反");
-
-    auto reflectedAttribution = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
-        {
-            const auto* lastAttacker = std::get_if<BattleLastAttackerCommand>(&command);
-            return lastAttacker && lastAttacker->targetUnitId == 1 && lastAttacker->attackerUnitId == 2;
-        });
-    REQUIRE(reflectedAttribution != result.commands.end());
 }
 
 TEST_CASE("BattleHitResolver_ReflectsTrackingProjectile", "[battle][hit_resolver][unit]")

@@ -177,12 +177,6 @@ struct BattleTempAttackBuffCommand
     bool permanent = false;
 };
 
-struct BattleLastAttackerCommand
-{
-    int targetUnitId{};
-    int attackerUnitId{};
-};
-
 struct BattleRumbleCommand
 {
     int lowFrequency{};
@@ -243,7 +237,6 @@ using BattleGameplayCommand = std::variant<
     BattleAutoUltimateCommand,
     BattleKnockbackCommand,
     BattleTempAttackBuffCommand,
-    BattleLastAttackerCommand,
     BattleRumbleCommand,
     BattleProjectileCancelDamageCommand,
     BattleDeathAoeProjectileCommand,

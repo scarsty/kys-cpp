@@ -3215,10 +3215,6 @@ bool reduceFrameGameplayCommand(
     {
         return applyFrameTempAttackBuffCommand(state, *tempAttack, logEvents);
     }
-    if (const auto* lastAttacker = std::get_if<BattleLastAttackerCommand>(&command))
-    {
-        return true;
-    }
     if (const auto* rumble = std::get_if<BattleRumbleCommand>(&command))
     {
         rumbles.push_back({

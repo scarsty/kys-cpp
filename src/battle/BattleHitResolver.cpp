@@ -586,10 +586,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             });
             result.finalHpDamage = input.attackEvent.scriptedDamage;
         }
-        if (input.attacker.id >= 0)
-        {
-            result.commands.push_back(BattleLastAttackerCommand{ input.defender.id, input.attacker.id });
-        }
         return result;
     }
 
@@ -1091,12 +1087,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             });
             result.finalMpDamage = damage;
         }
-    }
-
-    result.commands.push_back(BattleLastAttackerCommand{ input.defender.id, input.attacker.id });
-    if (result.reflected)
-    {
-        result.commands.push_back(BattleLastAttackerCommand{ input.attacker.id, input.defender.id });
     }
 
     result.attackerCombo = std::move(attackerCombo);
