@@ -3573,8 +3573,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageReward
     REQUIRE(state.deathEffects.store.units.size() == 2);
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 65);
     CHECK(state.unitStore.requireUnit(0).stats.attack == 19);
-    CHECK(state.unitStore.requireUnit(0).vitals.hp == 65);
-    CHECK(state.unitStore.requireUnit(0).stats.attack == 19);
     CHECK(state.unitStore.requireUnit(1).alive == false);
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 0);
 }
