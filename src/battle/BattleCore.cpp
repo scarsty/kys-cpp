@@ -1265,7 +1265,6 @@ struct BattleFrameContext
     std::vector<int> attackSoundIds;
     std::vector<BattleFrameRumbleEvent> rumbles;
     int blinkSoundCount{};
-    std::vector<BattleGameplayCommand> deferredCommands;
     std::vector<BattleAttackEvent> attackEvents;
     BattleTickResult movement;
     UnitMotionSnapshotMap frameStartMotion;
@@ -4181,11 +4180,12 @@ void applyCastPostSkillInvincibility(
     appendEffectCommandLogEvents(logEvents, logCommands);
 }
 
-void applyRuntimeComboEvents(
+std::vector<BattleGameplayCommand> applyRuntimeComboEvents(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
     const std::vector<BattleRuntimeUnitFrameCommit> &runtimeCommits)
 {
+    std::vector<BattleGameplayCommand> deferredCommands;
     for (const auto& result : runtimeCommits)
     {
         bool autoUltimateReady = false;
@@ -4220,9 +4220,10 @@ void applyRuntimeComboEvents(
         }
         if (autoUltimateReady)
         {
-            frame.deferredCommands.push_back(BattleAutoUltimateCommand{ result.unitId, false, true });
+            deferredCommands.push_back(BattleAutoUltimateCommand{ result.unitId, false, true });
         }
     }
+    return deferredCommands;
 }
 
 void applyPendingTeamEffects(BattleRuntimeState& state, BattleFrameContext& frame)
@@ -5208,7 +5209,7 @@ BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) c
     // Tick unit cooldown/action/MP timers and collect frame combo events, e.g. skill-finished triggers.
     auto runtimeCommits = advanceRuntimeUnits(state);
     // Apply combo timer events to runtime state, deferring auto-ultimate commands until late frame.
-    applyRuntimeComboEvents(state, frame, runtimeCommits);
+    auto deferredCommands = applyRuntimeComboEvents(state, frame, runtimeCommits);
     // Apply queued team effects whose source exists, e.g. delayed skill team heal.
     applyPendingTeamEffects(state, frame);
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
@@ -5227,8 +5228,8 @@ BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) c
     appendProjectileCancellationLogEvents(state.attacks, frame.attackEvents, frame.logEvents, true);
     frame.frameCommands.insert(
         frame.frameCommands.end(),
-        std::make_move_iterator(frame.deferredCommands.begin()),
-        std::make_move_iterator(frame.deferredCommands.end()));
+        std::make_move_iterator(deferredCommands.begin()),
+        std::make_move_iterator(deferredCommands.end()));
     // Reduce late commands from damage/combo lifecycle, e.g. auto-ultimate or death-triggered projectiles.
     reduceFrameGameplayCommands(state, frame);
     assert(frame.frameCommands.empty());
