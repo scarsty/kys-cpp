@@ -139,7 +139,10 @@
     <ClCompile Include="BattleSceneSetupBuilder.cpp">
       <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="BattleSceneReportPlayer.cpp">
+    <ClCompile Include="BattleSceneFrameApplier.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleSceneCameraInput.cpp">
       <Filter>battle</Filter>
     </ClCompile>
     <ClCompile Include="BattleSceneUnitStore.cpp">

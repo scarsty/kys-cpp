@@ -2,7 +2,6 @@
 #include "battle/BattleCore.h"
 #include "battle/BattleLogSegments.h"
 #include "battle/BattleMovement.h"
-#include "battle/BattlePresentationPlayback.h"
 #include "battle/BattleRuntimeSession.h"
 #include "battle/BattleRuntimeRules.h"
 #include "ChessEftIds.h"
@@ -1439,15 +1438,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[b
         });
     CHECK(hitGameplayIt != result.gameplayEvents.end());
 
-    auto plan = BattlePresentationPlaybackPlanner().build(result);
-    REQUIRE(plan.commands.size() == 3);
-    CHECK(plan.commands[0].type == BattlePresentationCommandType::SpawnProjectile);
-    CHECK(plan.commands[0].projectileAttackId == 50);
-    CHECK(plan.commands[0].visualEffectId == 44);
-    CHECK(plan.commands[0].projectilePosition.x == 100.0f);
-    CHECK(plan.commands[0].projectileVelocity.x == 6.0f);
-    CHECK(plan.commands[0].projectileDurationFrames == 30);
-    CHECK(plan.commands[0].projectileOperationKind == 2);
+    REQUIRE(result.visualEvents.size() == 3);
+    CHECK(result.visualEvents[0].effectId == 50);
+    CHECK(result.visualEvents[0].visualEffectId == 44);
+    CHECK(result.visualEvents[0].position.x == 100.0f);
+    CHECK(result.visualEvents[0].velocity.x == 6.0f);
+    CHECK(result.visualEvents[0].durationFrames == 30);
+    CHECK(result.visualEvents[0].operationKind == 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battle][core]")

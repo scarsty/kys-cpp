@@ -8,13 +8,10 @@
 #include "BattleSceneRenderMath.h"
 #include "BattleScene.h"
 #include "BattleSceneCamera.h"
-#include "BattleSceneFrameDeltaBuilder.h"
-#include "BattleSceneImpactPlayer.h"
+#include "BattleSceneFrameApplier.h"
 #include "BattleSceneMapState.h"
-#include "BattleSceneReportPlayer.h"
 #include "BattleSceneSetupBuilder.h"
 #include "BattleStatsView.h"
-#include "BattleScenePresentationPlayer.h"
 #include "BattleSceneUnitStore.h"
 #include "ChessManager.h"
 #include "ChessProgress.h"
@@ -60,26 +57,17 @@ public:
 
 protected:
     struct MovementRuntime;
-    struct SceneBattleFrameInput
-    {
-        bool shouldAdvance = true;
-    };
-    struct SceneLegacyFrameResult
-    {
-        bool advanced = false;
-    };
     void renderExtraRoleInfo(
         const KysChess::Battle::BattleRuntimeUnit& unit,
         const BattleSceneUnitPresentationState& presentation,
         double x,
         double y);
     virtual int checkResult() override;
-    SceneBattleFrameInput buildBattleFrameInput();
-    void applyCoreFrameResult(
-        const KysChess::Battle::BattlePresentationFrame& frame);
-    void applyLegacyFrameResult(const SceneLegacyFrameResult& result);
-    void playPresentationFrame(
-        const KysChess::Battle::BattlePresentationFrame& frame);
+    void updateFrameApplierContext();
+    bool shouldAdvanceBattleSimulation();
+    void ageHurtFlashTimers();
+    void advanceScenePresentationFrame();
+    void finishBattleIfReady();
 
     void initializeBattleRuntime(KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
     KysChess::Battle::BattleRuntimeSessionCreationInput makeBattleRuntimeSessionCreationInput(
@@ -92,7 +80,6 @@ protected:
     int getBattleStepsThisRender();
     void advanceBattleFrame();
     BattleSceneCameraBounds makeCameraBounds() const;
-    void applySceneFrameDelta(const BattleSceneFrameDelta& result);
     Color calculateHurtFlashColor(int unitId, const Color& baseColor) const;
 public:
     const BattleReport& getBattleReport() const { return battle_report_.report(); }
@@ -141,8 +128,7 @@ protected:
     BattleSceneCamera camera_;
     bool count_fights_won_ = true;
     unsigned int battle_random_seed_ = 1;
-    BattleSceneFrameDeltaBuilder frame_delta_builder_;
-    BattleSceneImpactPlayer impact_player_;
-    BattleScenePresentationPlayer presentation_player_;
-    BattleSceneReportPlayer report_player_;
+    BattleSceneCameraBounds frame_applier_camera_bounds_{};
+    bool manual_camera_enabled_{};
+    BattleSceneFrameApplier frame_applier_;
 };

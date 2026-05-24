@@ -36,14 +36,8 @@
 
 namespace
 {
-constexpr int HURT_FLASH_DURATION = 15;
-constexpr int BLINK_SOUND_EFFECT_ID = 11;
-constexpr int CAMERA_DEATH_ZOOM_FRAMES = 30;           // death-focus hold time; original behavior used 30
-constexpr int CAMERA_BATTLE_END_ZOOM_FRAMES = 30;      // end-of-battle hold time; original behavior used 60
 constexpr float CAMERA_DEATH_ZOOM_SCALE = 0.5f;        // 0.5 == original half-screen zoom; 1.0 disables zoom
 constexpr int CAMERA_ZOOM_EASE_FRAMES = 0;             // 0 restores the old hard snap zoom; higher = softer zoom edges
-constexpr int CAMERA_DEATH_SLOW_FRAMES = 10;           // slow-motion duration after a death
-constexpr int CAMERA_BATTLE_END_SLOW_FRAMES = 30;      // slow-motion duration when the battle ends
 constexpr int CAMERA_SLOW_STEP_INTERVAL = 4;           // lower = less slow-motion, higher = slower motion
 constexpr double CORPSE_SHADOW_Y_OFFSET_RATIO = 0.1;
 constexpr double CORPSE_BODY_SCALE_X = 0.5;
@@ -161,6 +155,34 @@ std::array<int, 5> readBattleFightFramesForHeadId(int headId)
     return fightFrames;
 }
 
+struct BattleSceneRuntimeFrameEffects
+{
+    void playEffectSound(int effectSoundId)
+    {
+        Audio::getInstance()->playESound(effectSoundId);
+    }
+
+    void playAttackSound(int attackSoundId)
+    {
+        Audio::getInstance()->playASound(attackSoundId);
+    }
+
+    void rumble(int lowFrequency, int highFrequency, int durationMs)
+    {
+        Engine::getInstance()->gameControllerRumble(lowFrequency, highFrequency, durationMs);
+    }
+
+    int textDrawSize(const std::string& text)
+    {
+        return Font::getTextDrawSize(text);
+    }
+
+    int effectFrameCount(const std::string& path)
+    {
+        return TextureManager::getInstance()->getTextureGroupCount(path);
+    }
+};
+
 }    // namespace
 
 int BattleSceneHades::getOperationType(int attackAreaType)
@@ -186,11 +208,33 @@ const char* BattleSceneHades::getOperationTypeName(int operationType)
     return "未知";
 }
 
-BattleSceneHades::BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager) : roleSave_(roleSave), progress_(progress), chessManager_(chessManager)
+BattleSceneHades::BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager) :
+    roleSave_(roleSave),
+    progress_(progress),
+    chessManager_(chessManager),
+    frame_applier_({
+        battle_report_,
+        scene_units_,
+        attack_effects_,
+        text_effects_,
+        hurt_flash_timers_,
+        rand_,
+        pos_,
+        result_,
+        frozen_,
+        slow_,
+        shake_,
+        x_,
+        y_,
+        camera_,
+        frame_applier_camera_bounds_,
+        manual_camera_enabled_,
+    })
 {
     full_window_ = 1;
     COORD_COUNT = BATTLEMAP_COORD_COUNT;
     battle_map_.initialize(COORD_COUNT);
+    updateFrameApplierContext();
 }
 
 BattleSceneHades::BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager) :
@@ -232,18 +276,10 @@ Color BattleSceneHades::calculateHurtFlashColor(int unitId, const Color& baseCol
     return BattleSceneRenderMath::hurtFlashColor(timer, baseColor);
 }
 
-void BattleSceneHades::playPresentationFrame(
-    const KysChess::Battle::BattlePresentationFrame& frame)
+void BattleSceneHades::updateFrameApplierContext()
 {
-    report_player_.playLogs(frame.logEvents, {
-        &battle_report_,
-        &scene_units_,
-    });
-    presentation_player_.play(frame, {
-        &text_effects_,
-        &attack_effects_,
-        &scene_units_,
-    });
+    frame_applier_camera_bounds_ = makeCameraBounds();
+    manual_camera_enabled_ = isManualCameraEnabled();
 }
 
 void BattleSceneHades::initializeBattleRuntime(
@@ -261,7 +297,9 @@ void BattleSceneHades::initializeBattleRuntime(
         KysChess::Battle::BattlePresentationFrame frame;
         frame.visualEvents = std::move(initialization.visualEvents);
         frame.logEvents = std::move(initialization.logEvents);
-        playPresentationFrame(frame);
+        BattleSceneRuntimeFrameEffects effects;
+        updateFrameApplierContext();
+        frame_applier_.apply(frame, effects);
     }
 }
 
@@ -1346,28 +1384,40 @@ void BattleSceneHades::runListBasedSwap()
 
 void BattleSceneHades::backRun1()
 {
-    auto input = buildBattleFrameInput();
-    SceneLegacyFrameResult result;
-    std::optional<KysChess::Battle::BattlePresentationFrame> frameResult;
-    if (input.shouldAdvance)
+    if (!shouldAdvanceBattleSimulation())
     {
-        result.advanced = true;
-        advanceBattlePresentationEffects(attack_effects_, true);
-        frameResult = battle_session_->runFrame();
-        applyCoreFrameResult(*frameResult);
+        return;
     }
-    applyLegacyFrameResult(result);
-    if (frameResult)
-    {
-        playPresentationFrame(*frameResult);
-    }
+
+    advanceBattlePresentationEffects(attack_effects_, true);
+    auto frame = battle_session_->runFrame();
+    BattleSceneRuntimeFrameEffects effects;
+    updateFrameApplierContext();
+    frame_applier_.apply(frame, effects);
+    advanceScenePresentationFrame();
+    finishBattleIfReady();
 }
 
-BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput()
+bool BattleSceneHades::shouldAdvanceBattleSimulation()
 {
-    SceneBattleFrameInput input;
+    ageHurtFlashTimers();
 
-    // 更新受击闪红计时器
+    if (slow_ > 0)
+    {
+        if (battle_frame_ % CAMERA_SLOW_STEP_INTERVAL)
+        {
+            return false;
+        }
+        //x_ = rand_.rand_int(2) - rand_.rand_int(2);
+        //y_ = rand_.rand_int(2) - rand_.rand_int(2);
+        slow_--;
+    }
+    return true;
+}
+
+void BattleSceneHades::ageHurtFlashTimers()
+{
+    // 更新受擊閃紅計時器
     for (auto it = hurt_flash_timers_.begin(); it != hurt_flash_timers_.end();)
     {
         it->second--;
@@ -1380,126 +1430,13 @@ BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput(
             ++it;
         }
     }
-
-    if (slow_ > 0)
-    {
-        if (battle_frame_ % CAMERA_SLOW_STEP_INTERVAL)
-        {
-            input.shouldAdvance = false;
-            return input;
-        }
-        //x_ = rand_.rand_int(2) - rand_.rand_int(2);
-        //y_ = rand_.rand_int(2) - rand_.rand_int(2);
-        slow_--;
-    }
-    return input;
 }
 
-void BattleSceneHades::applyCoreFrameResult(
-    const KysChess::Battle::BattlePresentationFrame& frame)
+void BattleSceneHades::advanceScenePresentationFrame()
 {
-    BattleSceneFrameDeltaBuildContext context;
-    context.units = &scene_units_;
-    context.random = &rand_;
-    context.manualCameraEnabled = isManualCameraEnabled();
-    context.hurtFlashDuration = HURT_FLASH_DURATION;
-    context.blinkSoundEffectId = BLINK_SOUND_EFFECT_ID;
-    context.deathZoomFrames = CAMERA_DEATH_ZOOM_FRAMES;
-    context.battleEndZoomFrames = CAMERA_BATTLE_END_ZOOM_FRAMES;
-    context.deathSlowFrames = CAMERA_DEATH_SLOW_FRAMES;
-    context.battleEndSlowFrames = CAMERA_BATTLE_END_SLOW_FRAMES;
-    applySceneFrameDelta(frame_delta_builder_.build(
-        frame,
-        result_,
-        context));
-
-    impact_player_.play(frame, {
-        &scene_units_,
-        &shake_,
-        [](int effectSoundId)
-        {
-            Audio::getInstance()->playESound(effectSoundId);
-        },
-        [](int lowFrequency, int highFrequency, int durationMs)
-        {
-            Engine::getInstance()->gameControllerRumble(lowFrequency, highFrequency, durationMs);
-        },
-    });
-}
-
-void BattleSceneHades::applySceneFrameDelta(const BattleSceneFrameDelta& result)
-{
-    for (const auto& command : result.hurtFlashes)
-    {
-        hurt_flash_timers_[command.unitId] = command.frames;
-    }
-
-    for (const auto& command : result.bloodEffects)
-    {
-        BattleAttackEffect effect;
-        effect.FollowUnitId = command.followUnitId;
-        effect.setPath(command.path);
-        effect.TotalFrame = effect.TotalEffectFrame;
-        effect.Frame = 0;
-        effect.VisualOnly = 1;
-        attack_effects_.push_back(std::move(effect));
-    }
-    for (int soundId : result.effectSoundIds)
-    {
-        Audio::getInstance()->playESound(soundId);
-    }
-    for (int soundId : result.attackSoundIds)
-    {
-        Audio::getInstance()->playASound(soundId);
-    }
-    for (const auto& rumble : result.rumbles)
-    {
-        Engine::getInstance()->gameControllerRumble(
-            rumble.lowFrequency,
-            rumble.highFrequency,
-            rumble.durationMs);
-    }
-    if (result.unitDied)
-    {
-        x_ = result.jitterX;
-        y_ = result.jitterY;
-    }
-    if (result.cameraFocus)
-    {
-        pos_ = BattleSceneCamera::clampCenter(*result.cameraFocus, makeCameraBounds());
-        camera_.focusOn(pos_, result.closeUpFrames);
-    }
-    else if (result.closeUpFrames > 0)
-    {
-        camera_.focusOn(pos_, result.closeUpFrames);
-    }
-    if (result.frozenFrames > 0)
-    {
-        frozen_ = result.frozenFrames;
-    }
-    if (result.slowFrames > 0)
-    {
-        slow_ = result.slowFrames;
-    }
-    if (result.sceneShake > 0)
-    {
-        shake_ = result.sceneShake;
-    }
-    if (result.battleEnded)
-    {
-        result_ = result.battleResult;
-    }
-}
-
-void BattleSceneHades::applyLegacyFrameResult(const SceneLegacyFrameResult& result)
-{
-    if (!result.advanced)
-    {
-        return;
-    }
     scene_units_.decreaseTransientPresentationState();
 
-    //处理文字
+    // 處理文字
     {
         for (auto& te : text_effects_)
         {
@@ -1518,7 +1455,10 @@ void BattleSceneHades::applyLegacyFrameResult(const SceneLegacyFrameResult& resu
             }
         }
     }
+}
 
+void BattleSceneHades::finishBattleIfReady()
+{
     if (slow_ == 0 && (result_ == 0 || result_ == 1))
     {
         calExpGot();

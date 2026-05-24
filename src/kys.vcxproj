@@ -170,7 +170,6 @@
     <ClCompile Include="battle\BattleHitResolver.cpp" />
     <ClCompile Include="battle\BattleMovement.cpp" />
     <ClCompile Include="battle\BattlePresentation.cpp" />
-    <ClCompile Include="battle\BattlePresentationPlayback.cpp" />
     <ClCompile Include="battle\BattleProjectileTargetingSystem.cpp" />
     <ClCompile Include="battle\BattleRescueRepositionSystem.cpp" />
     <ClCompile Include="battle\BattleRuntimeRandom.cpp" />
@@ -180,12 +179,10 @@
     <ClCompile Include="battle\BattleTeamEffectSystem.cpp" />
     <ClCompile Include="BattleScene.cpp" />
     <ClCompile Include="BattleSceneCamera.cpp" />
-    <ClCompile Include="BattleSceneFrameDeltaBuilder.cpp" />
+    <ClCompile Include="BattleSceneCameraInput.cpp" />
+    <ClCompile Include="BattleSceneFrameApplier.cpp" />
     <ClCompile Include="BattleSceneMapState.cpp" />
-    <ClCompile Include="BattleSceneImpactPlayer.cpp" />
-    <ClCompile Include="BattleScenePresentationPlayer.cpp" />
     <ClCompile Include="BattleSceneSetupBuilder.cpp" />
-    <ClCompile Include="BattleSceneReportPlayer.cpp" />
     <ClCompile Include="BattleSceneUnitStore.cpp" />
     <ClCompile Include="BattleLogImGuiView.cpp" />
     <ClCompile Include="BattleLogPresenter.cpp" />
@@ -299,7 +296,7 @@
     <ClInclude Include="BattlePostBattleSummary.h" />
     <ClInclude Include="BattlePresentationEffects.h" />
     <ClInclude Include="BattleScenePresentationConstants.h" />
-    <ClInclude Include="BattleScenePresentationPlayer.h" />
+    <ClInclude Include="BattleSceneFrameApplier.h" />
     <ClInclude Include="BattleSceneSetupBuilder.h" />
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="Event.h" />
@@ -334,7 +331,6 @@
     <ClInclude Include="battle\BattleMovement.h" />
     <ClInclude Include="battle\BattleOperation.h" />
     <ClInclude Include="battle\BattlePresentation.h" />
-    <ClInclude Include="battle\BattlePresentationPlayback.h" />
     <ClInclude Include="battle\BattleProjectileTargetingSystem.h" />
     <ClInclude Include="battle\BattleRescueRepositionSystem.h" />
     <ClInclude Include="battle\BattleRuntimeRandom.h" />

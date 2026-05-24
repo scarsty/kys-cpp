@@ -48,7 +48,6 @@ set(KYS_BATTLE_SOURCES
     battle/BattleInitialization.cpp
     battle/BattleMovement.cpp
     battle/BattlePresentation.cpp
-    battle/BattlePresentationPlayback.cpp
     battle/BattleProjectileTargetingSystem.cpp
     battle/BattleRescueRepositionSystem.cpp
     battle/BattleRuntimeRandom.cpp
@@ -120,15 +119,13 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleInitializationUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleLogPresenterUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleMovementRealStatsTests.cpp"
-    "${KYS_ROOT}/tests/BattlePresentationPlaybackUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattlePresentationEffectsUnitTests.cpp"
     "${KYS_ROOT}/tests/BattlePresentationUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleProjectileTargetingSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleReportUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleRescueRepositionSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleRuntimeScenarioUnitTests.cpp"
-    "${KYS_ROOT}/tests/BattleSceneFrameDeltaBuilderUnitTests.cpp"
-    "${KYS_ROOT}/tests/BattleSceneImpactPlayerUnitTests.cpp"
-    "${KYS_ROOT}/tests/BattleSceneReportPlayerUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleSceneFrameApplierUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneRenderMathUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneSetupBuilderUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneUnitStoreUnitTests.cpp"
