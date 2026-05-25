@@ -32,7 +32,7 @@ constexpr int TRACKING_PROJECTILE_TOTAL_FRAME = 120;
 constexpr int DASH_HIT_TOTAL_FRAME = 30;
 constexpr double DASH_HIT_POSITION_SPACING = 2.0;
 constexpr int DASH_HIT_FRAME_STEP = 3;
-constexpr std::array<int, 4> LEGACY_CAST_FRAMES = { 25, 30, 20, 25 };
+constexpr std::array<int, 4> DEFAULT_CAST_FRAMES = { 25, 30, 20, 25 };
 constexpr double MAX_EFFECTIVE_BATTLE_REACH = 480.0;
 constexpr double BLINK_WEAK_TARGET_DEF_WEIGHT = 4.0;
 constexpr int PROJECTILE_BOUNCE_RANGE = 90;
@@ -40,7 +40,7 @@ constexpr int PROJECTILE_BOUNCE_RANGE = 90;
 BattleCastConfig makeHadesBattleCastConfig()
 {
     BattleCastConfig config;
-    config.castFrames = LEGACY_CAST_FRAMES;
+    config.castFrames = DEFAULT_CAST_FRAMES;
     config.baseCooldownFrames = { 105, 185, 115, 45 };
     config.minimumCooldownFrames = { 60, 70, 70, 45 };
     config.cooldownActPropertyDivisors = { 2, 1, 2, 0 };

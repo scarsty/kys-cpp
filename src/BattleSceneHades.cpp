@@ -188,7 +188,7 @@ struct BattleSceneRuntimeFrameEffects
 
 int BattleSceneHades::getOperationType(int attackAreaType)
 {
-    return KysChess::Battle::toLegacyOperationType(
+    return KysChess::Battle::toPresentationOperationKind(
         KysChess::Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(attackAreaType));
 }
 

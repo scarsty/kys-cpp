@@ -516,7 +516,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         ? (input.attackEvent.ultimate ? 10 : 5)
         : 0;
 
-    BattleLegacyHitShapeInput shapeInput;
+    BattleHitShapeInput shapeInput;
     shapeInput.baseDamage = baseDamage;
     shapeInput.projectileCancelDamage = input.attackEvent.projectileCancelDamage;
     shapeInput.strengthMultiplier = input.attackEvent.strengthMultiplier;
@@ -530,7 +530,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     shapeInput.attackerActProperty = input.skill.attackerActProperty;
     shapeInput.defenderActProperty = input.skill.defenderActProperty;
 
-    const auto shaped = BattleDamageSystem().shapeLegacyHitDamage(shapeInput);
+    const auto shaped = BattleDamageSystem().shapeHitDamage(shapeInput);
     result.shapedHpDamage = shaped.damage;
 
     if (shaped.frozenFrames > 0)

@@ -96,7 +96,7 @@ TEST_CASE("BattleDamageSystem_MagicBaseDamageUsesLegacyAttackDefenseCurve", "[ba
 
 TEST_CASE("BattleDamageSystem_LegacyHitShapeOwnsProjectileFalloffFacingAndOperationDamage", "[battle][damage][unit]")
 {
-    BattleLegacyHitShapeInput input;
+    BattleHitShapeInput input;
     input.baseDamage = 100.0;
     input.projectileCancelDamage = 10;
     input.strengthMultiplier = 2.0;
@@ -110,7 +110,7 @@ TEST_CASE("BattleDamageSystem_LegacyHitShapeOwnsProjectileFalloffFacingAndOperat
     input.attackerActProperty = 150;
     input.defenderActProperty = 50;
 
-    auto result = BattleDamageSystem().shapeLegacyHitDamage(input);
+    auto result = BattleDamageSystem().shapeHitDamage(input);
 
     CHECK(result.damage == Catch::Approx(430.3125));
     CHECK(result.knockbackStrength == Catch::Approx(2.0));
@@ -120,7 +120,7 @@ TEST_CASE("BattleDamageSystem_LegacyHitShapeOwnsProjectileFalloffFacingAndOperat
 
 TEST_CASE("BattleDamageSystem_LegacyDashHitShapeEmitsFreezeAndReducedDashDamage", "[battle][damage][unit]")
 {
-    BattleLegacyHitShapeInput input;
+    BattleHitShapeInput input;
     input.baseDamage = 90.0;
     input.strengthMultiplier = 1.0;
     input.frame = 0;
@@ -130,7 +130,7 @@ TEST_CASE("BattleDamageSystem_LegacyDashHitShapeEmitsFreezeAndReducedDashDamage"
     input.defenderFacing = { 1.0f, 0.0f, 0.0f };
     input.operationType = BattleOperationType::Dash;
 
-    auto result = BattleDamageSystem().shapeLegacyHitDamage(input);
+    auto result = BattleDamageSystem().shapeHitDamage(input);
 
     CHECK(result.damage == Catch::Approx(60.0));
     CHECK(result.frozenFrames == 5);

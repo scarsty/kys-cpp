@@ -39,26 +39,9 @@ inline int battleOperationIndex(BattleOperationType operation)
     return static_cast<int>(operation);
 }
 
-inline int toLegacyOperationType(BattleOperationType operation)
+inline int toPresentationOperationKind(BattleOperationType operation)
 {
     return static_cast<int>(operation);
-}
-
-inline BattleOperationType battleOperationFromLegacy(int operationType)
-{
-    switch (operationType)
-    {
-    case 0:
-        return BattleOperationType::Melee;
-    case 1:
-        return BattleOperationType::TrackingProjectile;
-    case 2:
-        return BattleOperationType::RangedProjectile;
-    case 3:
-        return BattleOperationType::Dash;
-    default:
-        return BattleOperationType::None;
-    }
 }
 
 }  // namespace KysChess::Battle

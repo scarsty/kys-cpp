@@ -467,7 +467,7 @@ int BattleDamageSystem::resolveMagicBaseDamage(const BattleMagicBaseDamageInput&
     return std::max(1, damage);
 }
 
-BattleLegacyHitShapeResult BattleDamageSystem::shapeLegacyHitDamage(const BattleLegacyHitShapeInput& input) const
+BattleHitShapeResult BattleDamageSystem::shapeHitDamage(const BattleHitShapeInput& input) const
 {
     assert(input.baseDamage >= 0.0);
     assert(input.totalFrame > 0);
@@ -498,7 +498,7 @@ BattleLegacyHitShapeResult BattleDamageSystem::shapeLegacyHitDamage(const Battle
     }
 
     damage *= battleOperationDamageMultiplier(input.operationType);
-    BattleLegacyHitShapeResult result;
+    BattleHitShapeResult result;
     if (input.operationType == BattleOperationType::Dash)
     {
         damage /= 1.5;

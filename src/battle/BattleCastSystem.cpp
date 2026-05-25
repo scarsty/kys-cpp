@@ -36,7 +36,7 @@ int advanceOperationCountAfterCommittedCast(int operationCount,
 
 namespace
 {
-constexpr double LegacyRangedSideProjectileAngle = 3.14159265358979323846 / 12.0;
+constexpr double RangedSideProjectileAngle = 3.14159265358979323846 / 12.0;
 
 BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
 {
@@ -165,7 +165,7 @@ void assignProjectileTargetOrSpread(
     if (projectileCount > 1)
     {
         const auto facing = castFacing(input);
-        const double offset = (projectileIndex - (projectileCount - 1) / 2.0) * LegacyRangedSideProjectileAngle;
+        const double offset = (projectileIndex - (projectileCount - 1) / 2.0) * RangedSideProjectileAngle;
         request.initial.velocity = normalizedTo(
             rotated(facing, offset),
             speed,
@@ -477,8 +477,8 @@ void appendRangedSideProjectiles(
         const double t = sideCount == 1
             ? 0.0
             : static_cast<double>(i) / (sideCount - 1);
-        const double angle = -LegacyRangedSideProjectileAngle
-            + t * LegacyRangedSideProjectileAngle * 2.0;
+        const double angle = -RangedSideProjectileAngle
+            + t * RangedSideProjectileAngle * 2.0;
         const double speed = (5.0 - 0.5 / sideCount * 2.0 * i)
             * selectedSkill.projectileSpeedMultiplierPct / 100.0;
 

@@ -25,7 +25,7 @@ bool passesChance(BattleRuntimeRandom& random, int chancePct)
     return random.chance(chancePct);
 }
 
-bool hookMatchesLegacyTrigger(BattleComboTriggerHook hook, Trigger trigger)
+bool hookMatchesConfiguredTrigger(BattleComboTriggerHook hook, Trigger trigger)
 {
     switch (hook)
     {
@@ -420,7 +420,7 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::collectTriggerEve
     for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
     {
         const auto& effect = state.triggeredEffects[i];
-        if (!hookMatchesLegacyTrigger(input.hook, effect.trigger) || !canActivate(state, i))
+        if (!hookMatchesConfiguredTrigger(input.hook, effect.trigger) || !canActivate(state, i))
         {
             continue;
         }
@@ -459,7 +459,7 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::matchingTriggerEf
     for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
     {
         const auto& effect = state.triggeredEffects[i];
-        if (!hookMatchesLegacyTrigger(input.hook, effect.trigger))
+        if (!hookMatchesConfiguredTrigger(input.hook, effect.trigger))
         {
             continue;
         }

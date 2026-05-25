@@ -94,7 +94,7 @@ struct BattleMagicBaseDamageInput
     int randomVariance = 0;
 };
 
-struct BattleLegacyHitShapeInput
+struct BattleHitShapeInput
 {
     double baseDamage = 0.0;
     int projectileCancelDamage = 0;
@@ -110,7 +110,7 @@ struct BattleLegacyHitShapeInput
     int defenderActProperty = 0;
 };
 
-struct BattleLegacyHitShapeResult
+struct BattleHitShapeResult
 {
     double damage = 0.0;
     int frozenFrames = 0;
@@ -366,7 +366,7 @@ public:
     BattleStatusApplyResult applyBleed(BattleStatusUnitState target, int sourceUnitId, int stacks, int maxStacks) const;
     BattleStatusApplyResult applyDamageReduceDebuff(BattleStatusUnitState target, int durationFrames, int pct) const;
     int resolveMagicBaseDamage(const BattleMagicBaseDamageInput& input) const;
-    BattleLegacyHitShapeResult shapeLegacyHitDamage(const BattleLegacyHitShapeInput& input) const;
+    BattleHitShapeResult shapeHitDamage(const BattleHitShapeInput& input) const;
     BattleDamageRequest makeScriptedHitRequest(const BattleScriptedHitRequestInput& input) const;
 };
 

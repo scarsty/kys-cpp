@@ -548,7 +548,7 @@ void applyAttackContext(BattleVisualEvent& presentation, const BattleAttackState
         presentation.visualEffectId = attack->state.visualEffectId;
         presentation.position = attack->state.position;
         presentation.velocity = attack->state.velocity;
-        presentation.operationKind = toLegacyOperationType(attack->state.operationType);
+        presentation.operationKind = toPresentationOperationKind(attack->state.operationType);
         presentation.through = attack->state.through;
     }
 }
@@ -591,7 +591,7 @@ std::vector<BattleVisualEvent> toVisualEvents(
         presentation.visualEffectId = event.visualEffectId;
         presentation.position = event.position;
         presentation.velocity = event.velocity;
-        presentation.operationKind = toLegacyOperationType(event.operationType);
+        presentation.operationKind = toPresentationOperationKind(event.operationType);
         break;
     case BattleAttackEventType::Moved:
         presentation.type = BattleVisualEventType::ProjectileMoved;
@@ -4380,13 +4380,13 @@ void clearDeadRuntimePendingActions(BattleRuntimeState& state)
 
 int actionCastFrame(const BattleRuntimeState& state, BattleOperationType operationType)
 {
-    const int legacyOperation = toLegacyOperationType(operationType);
-    if (legacyOperation < 0)
+    if (!isBattleOperation(operationType))
     {
         return 0;
     }
-    assert(static_cast<std::size_t>(legacyOperation) < state.action.castFrames.size());
-    return state.action.castFrames[legacyOperation];
+    const int operationIndex = battleOperationIndex(operationType);
+    assert(static_cast<std::size_t>(operationIndex) < state.action.castFrames.size());
+    return state.action.castFrames[operationIndex];
 }
 
 int actionRecoveryFrames(const BattleRuntimeState& state, BattleOperationType operationType)
