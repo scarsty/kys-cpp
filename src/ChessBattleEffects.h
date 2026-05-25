@@ -263,6 +263,10 @@ struct RoleComboState
     int dmgReduceDebuffPct = 0;
 };
 
+int sumAlwaysEffectValue(const RoleComboState& state, EffectType type);
+int maxAlwaysEffectValue(const RoleComboState& state, EffectType type);
+const AppliedEffectInstance* firstAlwaysEffect(const RoleComboState& state, EffectType type);
+
 class ChessBattleEffects
 {
 public:

@@ -95,6 +95,44 @@ const std::map<std::string, EffectType>& ChessBattleEffects::getEffectTypeMap()
     return effectTypeMap;
 }
 
+int sumAlwaysEffectValue(const RoleComboState& state, EffectType type)
+{
+    int total = 0;
+    for (const auto& effect : state.appliedEffects)
+    {
+        if (effect.type == type && effect.trigger == Trigger::Always)
+        {
+            total += effect.value;
+        }
+    }
+    return total;
+}
+
+int maxAlwaysEffectValue(const RoleComboState& state, EffectType type)
+{
+    int value = 0;
+    for (const auto& effect : state.appliedEffects)
+    {
+        if (effect.type == type && effect.trigger == Trigger::Always)
+        {
+            value = std::max(value, effect.value);
+        }
+    }
+    return value;
+}
+
+const AppliedEffectInstance* firstAlwaysEffect(const RoleComboState& state, EffectType type)
+{
+    for (const auto& effect : state.appliedEffects)
+    {
+        if (effect.type == type && effect.trigger == Trigger::Always)
+        {
+            return &effect;
+        }
+    }
+    return nullptr;
+}
+
 bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context)
 {
     auto mark = eNode.Mark();

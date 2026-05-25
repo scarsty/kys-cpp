@@ -111,6 +111,7 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleActionCommitUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleAttackSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCastSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessBattleEffectsUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleComboTriggerSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCoreUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleDamageSystemUnitTests.cpp"
