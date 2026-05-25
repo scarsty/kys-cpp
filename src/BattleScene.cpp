@@ -2276,7 +2276,7 @@ void BattleScene::makeEarthTexture()
     Engine::getInstance()->setRenderTarget("earth");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
-    // TODO: make this legacy ONLY
+    // TODO: Browser fallback path only
     //二者之差是屏幕中心与大纹理的中心的距离
     for (int i1 = 0; i1 < COORD_COUNT; i1++)
     {

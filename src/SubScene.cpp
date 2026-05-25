@@ -147,7 +147,7 @@ void SubScene::draw()
                 int rate = TILE_W / 18;                                 //高清模式要乘以倍率
                 int h = submap_info_->BuildingHeight(ix, iy) * rate;    //高清模式要乘以倍率
                 int num = submap_info_->Earth(ix, iy) / 2;
-                // TODO: legacy device only
+                // TODO: Browser fallback path only
                 if (GameUtil::isLegacyBrowser() || (num > 0 && h > 2 && !earth_texture))
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);

@@ -96,7 +96,7 @@ enum
     SLOTS_PER_STAR = 2,
     ROLE_TAKING_ITEM_COUNT = 4,
 
-    MAX_MAGIC_LEVEL_INDEX = 9,     // kept for legacy compat stubs
+    MAX_MAGIC_LEVEL_INDEX = 9,     // kept for old UI compile stubs
 };
 
 enum
@@ -165,7 +165,7 @@ public:
     int HP = 0, MP = 0;
     int Hurt = 0, Poison = 0, PhysicalPower = 0;
 
-    // === Legacy game fields (NOT persisted, kept for compilation of old UI code) ===
+    // === Old UI game fields (NOT persisted, kept for compilation of old UI code) ===
     int IncLife = 0, UnUse = 0;
     int Level = 0, Exp = 0;
     int ExpForMakeItem = 0;

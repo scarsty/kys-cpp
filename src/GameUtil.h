@@ -131,7 +131,7 @@ public:
         if (cached == -1)
         {
             cached = EM_ASM_INT({ return isLegacyBrowser() ? 1 : 0; });
-            std::print("Legacy browser is {}\n", cached);
+            std::print("Browser fallback is {}\n", cached);
         }
         return cached == 1;
 #else

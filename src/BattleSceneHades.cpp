@@ -567,7 +567,7 @@ void BattleSceneHades::draw()
                 int num = battle_map_.buildingLayer().data(ix, iy) / 2;
                 if (num > 0)
                 {
-                    // TODO: make this legacy only
+                    // TODO: Browser fallback path only
                     // TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y/2);
                     DrawInfo info;
                     info.tex = TextureManager::getInstance()->getTexture("smap", num);
@@ -972,8 +972,8 @@ void BattleSceneHades::onEntrance()
     int whole_scene_w = COORD_COUNT * TILE_W * 2;
     int whole_scene_h = COORD_COUNT * TILE_H * 2;
     int max_texture_size = engine->getMaxTextureSize();
-    bool is_legacy = GameUtil::isLegacyBrowser();
-    use_whole_scene_ = !is_legacy
+    bool browserNeedsFallback = GameUtil::isLegacyBrowser();
+    use_whole_scene_ = !browserNeedsFallback
         && (max_texture_size <= 0 || (whole_scene_w <= max_texture_size && whole_scene_h <= max_texture_size));
     if (use_whole_scene_)
     {
@@ -981,8 +981,8 @@ void BattleSceneHades::onEntrance()
     }
     else
     {
-        LOG("whole_scene disabled: legacy={}, required={}x{}, renderer max={}\n",
-            is_legacy, whole_scene_w, whole_scene_h, max_texture_size);
+        LOG("whole_scene disabled: browser_fallback={}, required={}x{}, renderer max={}\n",
+            browserNeedsFallback, whole_scene_w, whole_scene_h, max_texture_size);
     }
 
     assert(!extended_teammates_.empty());
