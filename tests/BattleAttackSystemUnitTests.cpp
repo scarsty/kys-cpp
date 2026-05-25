@@ -16,7 +16,7 @@ constexpr double SceneTileWidth = 36.0;
 constexpr double SceneHitRadius = SceneTileWidth * 2.0;
 constexpr double SceneBounceSpawnDistance = SceneTileWidth * 1.5;
 constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
-constexpr double LegacyMinimumVectorNorm = 0.0001;
+constexpr double TestMinimumVectorNorm = 0.0001;
 constexpr double TightTrackingHitRadius = SceneTileWidth / 8.0;
 
 BattleRuntimeUnit unit(int id, int team, double x, double y)
@@ -89,7 +89,7 @@ BattleAttackState attackWorld()
 {
     BattleAttackState world;
     world.hitRadius = SceneHitRadius;
-    world.minimumVectorNorm = LegacyMinimumVectorNorm;
+    world.minimumVectorNorm = TestMinimumVectorNorm;
     world.bounceSpawnDistance = SceneBounceSpawnDistance;
     world.defaultProjectileSpeed = SceneProjectileSpeed;
     return world;
@@ -747,7 +747,7 @@ TEST_CASE("BattleAttackSystem_FastProjectilesCancelWhenCrossingBetweenFrames", "
     CHECK(events.back().otherAttackId == 11);
 }
 
-TEST_CASE("BattleAttackSystem_ApplyProjectileCancelDamageCommitsLegacyWeakenRules", "[battle][attack][unit]")
+TEST_CASE("BattleAttackSystem_ApplyProjectileCancelDamageCommitsWeakenRules", "[battle][attack][unit]")
 {
     auto world = attackWorld();
     auto lhs = attack(10, 1, 0, 0);

@@ -20,7 +20,7 @@ namespace
 
 constexpr double SceneTileWidth = 36.0;
 constexpr double MaxEffectiveBattleReach = 480.0;
-constexpr double LegacyMinimumVectorNorm = 0.0001;
+constexpr double TestMinimumVectorNorm = 0.0001;
 constexpr int HealEffectId = 0;
 
 BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
@@ -102,7 +102,7 @@ BattleRuntimeState runtimeFrameState()
         runtimeUnit(1, 1, { 500, 100, 0 }),
     });
     state.attacks.hitRadius = SceneTileWidth * 2.0;
-    state.attacks.minimumVectorNorm = LegacyMinimumVectorNorm;
+    state.attacks.minimumVectorNorm = TestMinimumVectorNorm;
     state.attacks.bounceSpawnDistance = SceneTileWidth * 1.5;
     state.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
     state.status.units = {
@@ -123,7 +123,7 @@ BattleRuntimeState ownedRuntimeState()
         runtimeUnit(1, 1, { 500, 100, 0 }),
     });
     runtime.attacks.hitRadius = SceneTileWidth * 2.0;
-    runtime.attacks.minimumVectorNorm = LegacyMinimumVectorNorm;
+    runtime.attacks.minimumVectorNorm = TestMinimumVectorNorm;
     runtime.attacks.bounceSpawnDistance = SceneTileWidth * 1.5;
     runtime.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
     runtime.status.units = {

@@ -23,9 +23,9 @@ TEST_CASE("BattleAttackEffect_AdvanceVisualOnlyEffectsTicksOnlyVisualLifetime", 
     visualRoleEffect.TotalFrame = 3;
     effects.push_back(visualRoleEffect);
 
-    BattleAttackEffect legacyGameplayProjectile;
-    legacyGameplayProjectile.TotalFrame = 3;
-    effects.push_back(legacyGameplayProjectile);
+    BattleAttackEffect gameplayProjectile;
+    gameplayProjectile.TotalFrame = 3;
+    effects.push_back(gameplayProjectile);
 
     advanceBattleVisualOnlyEffects(effects);
 

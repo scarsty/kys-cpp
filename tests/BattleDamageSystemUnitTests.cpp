@@ -76,7 +76,7 @@ TEST_CASE("BattleDamageSystem_Modifiers_ApplyPerUnitAttackerAndDefenderRules", "
     CHECK_FALSE(result.maxHitCapped);
 }
 
-TEST_CASE("BattleDamageSystem_MagicBaseDamageUsesLegacyAttackDefenseCurve", "[battle][damage][unit]")
+TEST_CASE("BattleDamageSystem_MagicBaseDamageUsesAttackDefenseCurve", "[battle][damage][unit]")
 {
     BattleMagicBaseDamageInput input;
     input.attackerAttack = 90;
@@ -94,7 +94,7 @@ TEST_CASE("BattleDamageSystem_MagicBaseDamageUsesLegacyAttackDefenseCurve", "[ba
     CHECK(BattleDamageSystem().resolveMagicBaseDamage(input) == 1);
 }
 
-TEST_CASE("BattleDamageSystem_LegacyHitShapeOwnsProjectileFalloffFacingAndOperationDamage", "[battle][damage][unit]")
+TEST_CASE("BattleDamageSystem_HitShapeOwnsProjectileFalloffFacingAndOperationDamage", "[battle][damage][unit]")
 {
     BattleHitShapeInput input;
     input.baseDamage = 100.0;
@@ -118,7 +118,7 @@ TEST_CASE("BattleDamageSystem_LegacyHitShapeOwnsProjectileFalloffFacingAndOperat
     CHECK(result.frozenFrames == 0);
 }
 
-TEST_CASE("BattleDamageSystem_LegacyDashHitShapeEmitsFreezeAndReducedDashDamage", "[battle][damage][unit]")
+TEST_CASE("BattleDamageSystem_DashHitShapeEmitsFreezeAndReducedDashDamage", "[battle][damage][unit]")
 {
     BattleHitShapeInput input;
     input.baseDamage = 90.0;

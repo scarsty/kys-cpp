@@ -15,28 +15,28 @@ namespace
 {
 
 constexpr int SceneTileWidth = 36;
-constexpr double LegacyMinimumFacingNorm = 0.0001;
-constexpr int LegacyActionRecoveryFrames = 4;
-constexpr int LegacyDashMomentumFrames = 5;
-constexpr int LegacyNormalCastMpDelta = 5;
-constexpr int LegacyCooldownAfterCastPadding = 2;
-constexpr int LegacyCooldownMaxSpeed = 150;
-constexpr double LegacySpeedCooldownReductionRatio = 0.5;
-constexpr int LegacyMeleeHitTotalFrame = 10;
-constexpr int LegacyStrengthenedMeleeTotalFrame = 30;
-constexpr double LegacyStrengthenedMeleeSelectDistanceDivisor = 2.0;
-constexpr float LegacyStrengthenedMeleeMultiplier = 2.0f;
-constexpr int LegacyStrengthenedMeleeOperationCountThreshold = 2;
-constexpr int LegacyMeleeSplashTotalFrame = 60;
-constexpr int LegacyMeleeSplashInitialFrame = 5;
-constexpr float LegacyMeleeSplashStrengthMultiplier = 0.5f;
-constexpr int LegacyTrackingProjectileTotalFrame = 120;
-constexpr int LegacyDashHitTotalFrame = 30;
-constexpr double LegacyMeleeSplashProjectileSpeed = 3.0;
-constexpr double LegacyDashHitPositionSpacing = 2.0;
-constexpr int LegacyDashHitFrameStep = 3;
+constexpr double TestMinimumFacingNorm = 0.0001;
+constexpr int TestActionRecoveryFrames = 4;
+constexpr int TestDashMomentumFrames = 5;
+constexpr int TestNormalCastMpDelta = 5;
+constexpr int TestCooldownAfterCastPadding = 2;
+constexpr int TestCooldownMaxSpeed = 150;
+constexpr double TestSpeedCooldownReductionRatio = 0.5;
+constexpr int TestMeleeHitTotalFrame = 10;
+constexpr int TestStrengthenedMeleeTotalFrame = 30;
+constexpr double TestStrengthenedMeleeSelectDistanceDivisor = 2.0;
+constexpr float TestStrengthenedMeleeMultiplier = 2.0f;
+constexpr int TestStrengthenedMeleeOperationCountThreshold = 2;
+constexpr int TestMeleeSplashTotalFrame = 60;
+constexpr int TestMeleeSplashInitialFrame = 5;
+constexpr float TestMeleeSplashStrengthMultiplier = 0.5f;
+constexpr int TestTrackingProjectileTotalFrame = 120;
+constexpr int TestDashHitTotalFrame = 30;
+constexpr double TestMeleeSplashProjectileSpeed = 3.0;
+constexpr double TestDashHitPositionSpacing = 2.0;
+constexpr int TestDashHitFrameStep = 3;
 
-BattleCastConfig legacyCastConfig()
+BattleCastConfig testCastConfig()
 {
     BattleCastConfig config;
     config.castFrames = { 25, 30, 20, 25 };
@@ -44,26 +44,26 @@ BattleCastConfig legacyCastConfig()
     config.minimumCooldownFrames = { 60, 70, 70, 45 };
     config.cooldownActPropertyDivisors = { 2, 1, 2, 0 };
     config.recoveryFrames = {
-        LegacyActionRecoveryFrames,
-        LegacyActionRecoveryFrames,
-        LegacyActionRecoveryFrames,
-        LegacyDashMomentumFrames,
+        TestActionRecoveryFrames,
+        TestActionRecoveryFrames,
+        TestActionRecoveryFrames,
+        TestDashMomentumFrames,
     };
-    config.maxCooldownSpeed = LegacyCooldownMaxSpeed;
-    config.speedCooldownReductionRatio = LegacySpeedCooldownReductionRatio;
-    config.minimumCooldownAfterCastPadding = LegacyCooldownAfterCastPadding;
-    config.normalCastMpDelta = LegacyNormalCastMpDelta;
-    config.minimumFacingNorm = LegacyMinimumFacingNorm;
-    config.meleeHitTotalFrame = LegacyMeleeHitTotalFrame;
-    config.strengthenedMeleeTotalFrame = LegacyStrengthenedMeleeTotalFrame;
-    config.strengthenedMeleeSelectDistanceDivisor = LegacyStrengthenedMeleeSelectDistanceDivisor;
-    config.strengthenedMeleeMultiplier = LegacyStrengthenedMeleeMultiplier;
-    config.meleeSplashTotalFrame = LegacyMeleeSplashTotalFrame;
-    config.meleeSplashInitialFrame = LegacyMeleeSplashInitialFrame;
-    config.meleeSplashStrengthMultiplier = LegacyMeleeSplashStrengthMultiplier;
-    config.trackingProjectileTotalFrame = LegacyTrackingProjectileTotalFrame;
-    config.dashHitTotalFrame = LegacyDashHitTotalFrame;
-    config.strengthenedMeleeOperationCountThreshold = LegacyStrengthenedMeleeOperationCountThreshold;
+    config.maxCooldownSpeed = TestCooldownMaxSpeed;
+    config.speedCooldownReductionRatio = TestSpeedCooldownReductionRatio;
+    config.minimumCooldownAfterCastPadding = TestCooldownAfterCastPadding;
+    config.normalCastMpDelta = TestNormalCastMpDelta;
+    config.minimumFacingNorm = TestMinimumFacingNorm;
+    config.meleeHitTotalFrame = TestMeleeHitTotalFrame;
+    config.strengthenedMeleeTotalFrame = TestStrengthenedMeleeTotalFrame;
+    config.strengthenedMeleeSelectDistanceDivisor = TestStrengthenedMeleeSelectDistanceDivisor;
+    config.strengthenedMeleeMultiplier = TestStrengthenedMeleeMultiplier;
+    config.meleeSplashTotalFrame = TestMeleeSplashTotalFrame;
+    config.meleeSplashInitialFrame = TestMeleeSplashInitialFrame;
+    config.meleeSplashStrengthMultiplier = TestMeleeSplashStrengthMultiplier;
+    config.trackingProjectileTotalFrame = TestTrackingProjectileTotalFrame;
+    config.dashHitTotalFrame = TestDashHitTotalFrame;
+    config.strengthenedMeleeOperationCountThreshold = TestStrengthenedMeleeOperationCountThreshold;
     return config;
 }
 
@@ -99,15 +99,15 @@ BattleActionSkillSeed actionSkillSeedFromCastSkill(const BattleCastSkillState& s
 BattleCastInput basicInput()
 {
     BattleCastInput input;
-    input.config = legacyCastConfig();
+    input.config = testCastConfig();
     input.geometry.meleeAttackEffectOffset = SceneTileWidth * 2.0;
     input.geometry.projectileSpeed = SceneTileWidth / 3.0;
     input.geometry.projectileSpawnOffset = SceneTileWidth * 2.0;
     input.geometry.projectileBaseTravel = SceneTileWidth * 5.0;
     input.geometry.projectileTravelPerSelectDistance = SceneTileWidth;
-    input.geometry.meleeSplashProjectileSpeed = LegacyMeleeSplashProjectileSpeed;
-    input.geometry.dashHitPositionSpacing = LegacyDashHitPositionSpacing;
-    input.geometry.dashHitFrameStep = LegacyDashHitFrameStep;
+    input.geometry.meleeSplashProjectileSpeed = TestMeleeSplashProjectileSpeed;
+    input.geometry.dashHitPositionSpacing = TestDashHitPositionSpacing;
+    input.geometry.dashHitFrameStep = TestDashHitFrameStep;
     input.unit.id = 1;
     input.unit.position = { 10.0f, 20.0f, 0.0f };
     input.unit.facing = { 1.0f, 0.0f, 0.0f };
@@ -147,7 +147,7 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, const BattleCastInput
     movementGeometry.tileWidth = SceneTileWidth;
     movementGeometry.meleeAttackEffectOffset = SceneTileWidth * 2.0;
     movementGeometry.meleeAttackHitRadius = SceneTileWidth * 2.0;
-    movementGeometry.dashFrames = LegacyDashMomentumFrames;
+    movementGeometry.dashFrames = TestDashMomentumFrames;
     movementGeometry.dashCooldownFrames = 18;
     movementGeometry.maxRangedReach = 400.0;
     state.movement.config = BattleGeometry(movementGeometry).movementConfig();
@@ -160,13 +160,13 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, const BattleCastInput
     state.action.actionRules.meleeAttackReach = input.unit.meleeAttackReach;
     state.action.actionRules.dashAttackMeleeReach = input.unit.dashAttackReach;
     state.action.actionRules.meleeAttackHitRadius = SceneTileWidth * 2.0;
-    state.action.actionRules.dashMomentumFrames = LegacyDashMomentumFrames;
-    state.action.actionRules.actionRecoveryFrames = LegacyActionRecoveryFrames;
-    state.action.actionRules.dashRecoveryFrames = LegacyDashMomentumFrames;
-    state.action.actionRecoveryFrames = LegacyActionRecoveryFrames;
-    state.action.dashRecoveryFrames = LegacyDashMomentumFrames;
+    state.action.actionRules.dashMomentumFrames = TestDashMomentumFrames;
+    state.action.actionRules.actionRecoveryFrames = TestActionRecoveryFrames;
+    state.action.actionRules.dashRecoveryFrames = TestDashMomentumFrames;
+    state.action.actionRecoveryFrames = TestActionRecoveryFrames;
+    state.action.dashRecoveryFrames = TestDashMomentumFrames;
     state.attacks.hitRadius = SceneTileWidth * 2.0;
-    state.attacks.minimumVectorNorm = LegacyMinimumFacingNorm;
+    state.attacks.minimumVectorNorm = TestMinimumFacingNorm;
     state.attacks.nextAttackId = 1;
     state.attacks.bounceSpawnDistance = SceneTileWidth;
     state.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
@@ -604,7 +604,7 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][c
     CHECK_FALSE(request.initial.ultimate);
 }
 
-TEST_CASE("BattleCastSystem_MeleeSpawnUsesLegacyOriginAndFrameCount", "[battle][cast]")
+TEST_CASE("BattleCastSystem_MeleeSpawnUsesConfiguredOriginAndFrameCount", "[battle][cast]")
 {
     auto input = basicInput();
     input.normalSkill = skill(109, 0, 137.5);
@@ -629,7 +629,7 @@ TEST_CASE("BattleCastSystem_MeleeSpawnUsesLegacyOriginAndFrameCount", "[battle][
     CHECK(request.initial.strengthMultiplier == Catch::Approx(1.0f));
 }
 
-TEST_CASE("BattleCastSystem_StrengthenedMeleeSpawnUsesLegacyTrackingProjectileShape", "[battle][cast]")
+TEST_CASE("BattleCastSystem_StrengthenedMeleeSpawnUsesTrackingProjectileShape", "[battle][cast]")
 {
     auto input = basicInput();
     input.unit.operationCount = 2;
@@ -677,13 +677,13 @@ TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectile
     CHECK(result.attackSpawnRequests[1].initial.track);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == 60);
     CHECK(result.attackSpawnRequests[1].initialFrame == 5);
-    CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(LegacyMeleeSplashProjectileSpeed));
+    CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(TestMeleeSplashProjectileSpeed));
 
     CHECK(result.attackSpawnRequests[2].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
     CHECK(result.attackSpawnRequests[3].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
 }
 
-TEST_CASE("BattleCastSystem_OperationOneSpawnTracksForLegacyFrameCount", "[battle][cast]")
+TEST_CASE("BattleCastSystem_TrackingProjectileSpawnUsesConfiguredFrameCount", "[battle][cast]")
 {
     auto input = basicInput();
     input.normalSkill = skill(110, 3, 180.0);
@@ -769,7 +769,7 @@ TEST_CASE("BattleCastSystem_ExtraProjectilesPreferAlternateSpreadTargets", "[bat
     CHECK(result.attackSpawnRequests[2].initial.requirePreferredTarget);
 }
 
-TEST_CASE("BattleCastSystem_RangedAreaCastEmitsLegacySideProjectiles", "[battle][cast]")
+TEST_CASE("BattleCastSystem_RangedAreaCastEmitsSideProjectiles", "[battle][cast]")
 {
     auto input = basicInput();
     input.normalSkill = skill(120, 1, 400.0);
@@ -828,7 +828,7 @@ TEST_CASE("BattleCastSystem_RangedSideProjectilesUseProjectileSpeedMultiplier", 
     CHECK(result.attackSpawnRequests[2].initial.velocity.norm() == Catch::Approx(9.0f));
 }
 
-TEST_CASE("BattleCastSystem_TrackingUltimateEmitsLegacyTwoProjectileSpread", "[battle][cast]")
+TEST_CASE("BattleCastSystem_TrackingUltimateEmitsTwoProjectileSpread", "[battle][cast]")
 {
     auto input = basicInput();
     input.unit.mp = input.unit.maxMp;
@@ -850,8 +850,8 @@ TEST_CASE("BattleCastSystem_TrackingUltimateEmitsLegacyTwoProjectileSpread", "[b
     CHECK(result.attackSpawnRequests[1].initialFrame == 5);
     CHECK(result.attackSpawnRequests[0].initial.track);
     CHECK(result.attackSpawnRequests[1].initial.track);
-    CHECK(result.attackSpawnRequests[0].initial.totalFrame == LegacyTrackingProjectileTotalFrame);
-    CHECK(result.attackSpawnRequests[1].initial.totalFrame == LegacyTrackingProjectileTotalFrame);
+    CHECK(result.attackSpawnRequests[0].initial.totalFrame == TestTrackingProjectileTotalFrame);
+    CHECK(result.attackSpawnRequests[1].initial.totalFrame == TestTrackingProjectileTotalFrame);
 }
 
 TEST_CASE("BattleCastSystem_TrackingUltimateSpreadAssignsAlternateTarget", "[battle][cast]")
@@ -1024,20 +1024,20 @@ TEST_CASE("BattleCastSystem_AdvanceOperationCountAfterCommittedMeleeCast", "[bat
               0,
               false,
               BattleOperationType::Melee,
-              LegacyStrengthenedMeleeOperationCountThreshold) == 1);
+              TestStrengthenedMeleeOperationCountThreshold) == 1);
     CHECK(advanceOperationCountAfterCommittedCast(
               2,
               false,
               BattleOperationType::Melee,
-              LegacyStrengthenedMeleeOperationCountThreshold) == 0);
+              TestStrengthenedMeleeOperationCountThreshold) == 0);
     CHECK(advanceOperationCountAfterCommittedCast(
               1,
               true,
               BattleOperationType::Melee,
-              LegacyStrengthenedMeleeOperationCountThreshold) == 0);
+              TestStrengthenedMeleeOperationCountThreshold) == 0);
     CHECK(advanceOperationCountAfterCommittedCast(
               2,
               false,
               BattleOperationType::TrackingProjectile,
-              LegacyStrengthenedMeleeOperationCountThreshold) == 2);
+              TestStrengthenedMeleeOperationCountThreshold) == 2);
 }

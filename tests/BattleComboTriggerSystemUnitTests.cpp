@@ -821,7 +821,7 @@ TEST_CASE("BattleComboTriggerSystem_ExecuteCapability_DetectsExecuteEffect", "[b
     CHECK(BattleComboTriggerSystem().hasExecuteCombo(state, 4));
 }
 
-TEST_CASE("BattleComboTriggerSystem_ArmorPenetration_AppliesLegacyAndTriggeredPen", "[battle][combo][unit]")
+TEST_CASE("BattleComboTriggerSystem_ArmorPenetration_AppliesAlwaysAndTriggeredPen", "[battle][combo][unit]")
 {
     RoleComboState state;
     ChessBattleEffects::applyEffect(state, { EffectType::ArmorPenChance, 100 });

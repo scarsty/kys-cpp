@@ -176,7 +176,7 @@ TEST_CASE("BattleSceneFrameApplier_AppliesUnitDeathCameraFreezeSlowShakeAndBattl
     CHECK(fixture.camera.closeUpFrames() == 30);
 }
 
-TEST_CASE("BattleSceneFrameApplier_AppliesProjectileVisualEventsToLegacyAttackEffects", "[battle][scene_frame_applier]")
+TEST_CASE("BattleSceneFrameApplier_AppliesProjectileVisualEventsToSceneAttackEffects", "[battle][scene_frame_applier]")
 {
     ApplierFixture fixture;
     BattlePresentationFrame frame;

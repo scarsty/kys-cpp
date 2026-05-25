@@ -32,7 +32,7 @@ constexpr double MaxEffectiveBattleReach = 480.0;
 constexpr double SceneAttackHitRadius = SceneTileWidth * 2.0;
 constexpr double SceneBounceSpawnDistance = SceneTileWidth * 1.5;
 constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
-constexpr double LegacyMinimumVectorNorm = 0.0001;
+constexpr double TestMinimumVectorNorm = 0.0001;
 constexpr int BattleCoordCount = 64;
 
 bool hasVisualEvent(const BattlePresentationFrame& frame, BattleVisualEventType type)
@@ -199,7 +199,7 @@ BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
     }
     if (state.action.castConfig.minimumFacingNorm <= 0.0)
     {
-        state.action.castConfig.minimumFacingNorm = LegacyMinimumVectorNorm;
+        state.action.castConfig.minimumFacingNorm = TestMinimumVectorNorm;
     }
     return BattleFrameRunner().runFrame(state);
 }
@@ -408,7 +408,7 @@ BattleAttackState attackWorld()
 {
     BattleAttackState world;
     world.hitRadius = SceneAttackHitRadius;
-    world.minimumVectorNorm = LegacyMinimumVectorNorm;
+    world.minimumVectorNorm = TestMinimumVectorNorm;
     world.bounceSpawnDistance = SceneBounceSpawnDistance;
     world.defaultProjectileSpeed = SceneProjectileSpeed;
     return world;
@@ -550,7 +550,7 @@ BattleCastConfig frameCastConfig()
     config.speedCooldownReductionRatio = 0.5;
     config.minimumCooldownAfterCastPadding = 2;
     config.normalCastMpDelta = 5;
-    config.minimumFacingNorm = LegacyMinimumVectorNorm;
+    config.minimumFacingNorm = TestMinimumVectorNorm;
     config.meleeHitTotalFrame = 10;
     config.strengthenedMeleeTotalFrame = 30;
     config.strengthenedMeleeSelectDistanceDivisor = 2.0;
