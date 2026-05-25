@@ -435,10 +435,10 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 200, 20, 30, 40) });
 
     RoleComboState combo;
-    combo.shieldPctMaxHP = 25;
-    combo.damageImmunityAfterFrames = 12;
+    ChessBattleEffects::applyEffect(combo, { EffectType::ShieldPctMaxHP, 25 });
+    ChessBattleEffects::applyEffect(combo, { EffectType::DamageImmunityAfterFrames, 12 });
     combo.autoUltimateAfterFrames = 30;
-    combo.blockFirstHitsCount = 2;
+    ChessBattleEffects::applyEffect(combo, { EffectType::BlockFirstHits, 2 });
     AppliedEffectInstance teamShield;
     teamShield.type = EffectType::FlatShield;
     teamShield.trigger = Trigger::Always;
@@ -677,11 +677,10 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
     std::map<int, RoleComboState> comboStates;
     auto& sourceCombo = comboStates[0];
     sourceCombo.cloneSummonCount = 1;
-    sourceCombo.shieldPctMaxHP = 25;
-    sourceCombo.blockFirstHitsCount = 2;
-    sourceCombo.damageImmunityAfterFrames = 12;
-    sourceCombo.damageImmunityDuration = 5;
-    sourceCombo.mpRecoveryBonusPct = 50;
+    ChessBattleEffects::applyEffect(sourceCombo, { EffectType::ShieldPctMaxHP, 25 });
+    ChessBattleEffects::applyEffect(sourceCombo, { EffectType::BlockFirstHits, 2 });
+    ChessBattleEffects::applyEffect(sourceCombo, { EffectType::DamageImmunityAfterFrames, 12, 5 });
+    ChessBattleEffects::applyEffect(sourceCombo, { EffectType::MPRecoveryBonus, 50 });
 
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
@@ -801,7 +800,7 @@ TEST_CASE("BattleRuntimeSession_StampsInitializationLogsWithCreationFrame", "[ba
     source.animation = { 0, 0, 0, -1 };
     input.units.push_back(source);
     addRuntimeSetupSeed(input, source);
-    input.setup.units[0].baseCombo.shieldPctMaxHP = 25;
+    ChessBattleEffects::applyEffect(input.setup.units[0].baseCombo, { EffectType::ShieldPctMaxHP, 25 });
 
     auto creation = BattleRuntimeSession::createInitialized(std::move(input));
 

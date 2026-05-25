@@ -278,7 +278,7 @@ bool isMpBlocked(const BattleRuntimeState& state, int unitId)
 
 int mpRecoveryBonusPct(const BattleRuntimeState& state, int unitId)
 {
-    return requireMappedById(state.combo.units, unitId).mpRecoveryBonusPct;
+    return sumAlwaysEffectValue(requireMappedById(state.combo.units, unitId), EffectType::MPRecoveryBonus);
 }
 
 int adjustedRuntimeMpRestore(const BattleRuntimeState& state, int unitId, int amount)
@@ -3786,9 +3786,10 @@ void appendFrameShieldBreakCommands(
     }
     if (shieldExplosionPct > 0)
     {
+        const int defenderShieldPct = sumAlwaysEffectValue(defenderCombo, EffectType::ShieldPctMaxHP);
         int explosionDamage = std::max(
             1,
-            defenderCombo.shieldPctMaxHP * transaction.defender.vitals.maxHp / 100 * shieldExplosionPct / 100);
+            defenderShieldPct * transaction.defender.vitals.maxHp / 100 * shieldExplosionPct / 100);
         frame.frameCommands.push_back(BattleShieldExplosionCommand{
             transaction.defender.id,
             5,

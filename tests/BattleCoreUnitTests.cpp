@@ -3691,7 +3691,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDamageTakenMpGainInsideRuntime"
     auto& defender = state.unitStore.requireUnit(1);
     defender.vitals.mp = 5;
     defender.vitals.maxMp = 100;
-    state.combo.units[1].mpRecoveryBonusPct = 50;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[1],
+        { KysChess::EffectType::MPRecoveryBonus, 50 });
 
     auto result = runBattleFrame(state);
 
@@ -3735,7 +3737,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AccumulatesDamageTakenMpGainAcrossSame
     second.attacker.vitals.maxHp = 100;
     second.defender.vitals.mp = 5;
     second.defender.vitals.maxMp = 100;
-    state.combo.units[1].mpRecoveryBonusPct = 50;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[1],
+        { KysChess::EffectType::MPRecoveryBonus, 50 });
 
     queuePendingDamage(state, first);
     queuePendingDamage(state, second);

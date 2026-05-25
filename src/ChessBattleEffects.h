@@ -165,13 +165,9 @@ struct RoleComboState
     int mpOnHit = 0;
     int hpOnHit = 0;
     int mpDrain = 0;
-    int mpRecoveryBonusPct = 0;
     int skillDmgPct = 0;
     int skillReflectPct = 0;
     int cdrPct = 0;
-    int flatShield = 0;
-    int shieldPctMaxHP = 0;
-    int shieldFreezeResPct = 0;
     int healAuraPct = 0;
     int healAuraFlat = 0;
     int healAuraInterval = 0;
@@ -181,10 +177,6 @@ struct RoleComboState
     std::vector<AppliedEffectInstance> appliedEffects;
     // Generic triggered effects (non-Always triggers stored here)
     std::vector<AppliedEffectInstance> triggeredEffects;
-    int freezeReductionPct = 0;
-    int controlImmunityFrames = 0;
-    int killHealPct = 0;
-    int killInvincFrames = 0;
     int postSkillInvincFrames = 0;
     int dmgReductionPct = 0;
     // Comeback & Scaling
@@ -205,8 +197,6 @@ struct RoleComboState
     int projectileReflectPct = 0;
     int onSkillTeamHeal = 0;
     int onSkillTeamHealPct = 0;
-    bool deathPrevention = false;
-    int deathPreventionFrames = 0;
     int charmCDRChancePct = 0;
     int charmCDRAmountPct = 0;
     int offensiveCharmChancePct = 0;
@@ -220,11 +210,8 @@ struct RoleComboState
     bool forcePullExecute = false;
     int forcePullProtectCharges = 0;
     int forcePullExecuteCharges = 0;
-    int damageImmunityAfterFrames = 0;
-    int damageImmunityDuration = 0;
     int autoUltimateAfterFrames = 0;
     int ultimateExtraProjectiles = 0;
-    int blockFirstHitsCount = 0;
     bool forceRangedAttack = false;
     int forceRangedMinSelectDistance = 0;
     int projectileSpeedMultiplierPct = 100;
@@ -253,7 +240,6 @@ struct RoleComboState
     bool blinkAttackUseWeakest = false;
     int autoUltimateTimer = 0;
     int goldCoefficient = 0;
-    int hurtInvincFrames = 0;
     bool dashAttack = false;
     int dashChanceBoostPct = 0;
     int mpRatioDmgBoostPct = 0;

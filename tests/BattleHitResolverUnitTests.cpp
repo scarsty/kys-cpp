@@ -396,7 +396,9 @@ TEST_CASE("BattleHitResolver_QueuesRawDamageWithoutConsumingFirstHitBlock", "[ba
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
-    input.defenderCombo.blockFirstHitsCount = 1;
+    KysChess::ChessBattleEffects::applyEffect(
+        input.defenderCombo,
+        { KysChess::EffectType::BlockFirstHits, 1 });
 
     auto result = resolveHit(input);
 
@@ -404,7 +406,8 @@ TEST_CASE("BattleHitResolver_QueuesRawDamageWithoutConsumingFirstHitBlock", "[ba
     const auto* command = firstHpDamageCommand(result);
     REQUIRE(command);
     CHECK(command->damage == 50);
-    CHECK(result.defenderCombo.blockFirstHitsCount == 1);
+    REQUIRE(KysChess::firstAlwaysEffect(result.defenderCombo, KysChess::EffectType::BlockFirstHits) != nullptr);
+    CHECK(KysChess::firstAlwaysEffect(result.defenderCombo, KysChess::EffectType::BlockFirstHits)->value == 1);
 }
 
 TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battle][hit_resolver][unit]")

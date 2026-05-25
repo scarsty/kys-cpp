@@ -289,24 +289,24 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::MPOnHit: s.mpOnHit += e.value; break;
     case EffectType::HPOnHit: s.hpOnHit += e.value; break;
     case EffectType::MPDrain: s.mpDrain += e.value; break;
-    case EffectType::MPRecoveryBonus: s.mpRecoveryBonusPct += e.value; break;
+    case EffectType::MPRecoveryBonus: break;
     case EffectType::SkillDmgPct: s.skillDmgPct += e.value; break;
     case EffectType::SkillReflectPct: s.skillReflectPct = std::max(s.skillReflectPct, e.value); break;
     case EffectType::CDR: s.cdrPct += e.value; break;
-    case EffectType::FlatShield: s.flatShield += e.value; break;
-    case EffectType::ShieldPctMaxHP: s.shieldPctMaxHP += e.value; break;
-    case EffectType::ShieldFreezeRes: s.shieldFreezeResPct += e.value; break;
+    case EffectType::FlatShield: break;
+    case EffectType::ShieldPctMaxHP: break;
+    case EffectType::ShieldFreezeRes: break;
     case EffectType::HealAuraPct: s.healAuraPct = std::max(s.healAuraPct, e.value); if (e.value2) s.healAuraInterval = e.value2; break;
     case EffectType::HealAuraFlat: s.healAuraFlat = std::max(s.healAuraFlat, e.value); if (e.value2) s.healAuraInterval = e.value2; break;
     case EffectType::HealedATKSPDBoost: s.healedATKSPDBoostPct += e.value; break;
     case EffectType::HPRegenPct: s.hpRegenPct += e.value; if (e.value2) s.hpRegenInterval = e.value2; break;
-    case EffectType::FreezeReductionPct: s.freezeReductionPct += e.value; break;
-    case EffectType::ControlImmunityFrames: s.controlImmunityFrames += e.value; break;
-    case EffectType::KillHealPct: s.killHealPct += e.value; break;
-    case EffectType::KillInvincFrames: s.killInvincFrames = std::max(s.killInvincFrames, e.value); break;
+    case EffectType::FreezeReductionPct: break;
+    case EffectType::ControlImmunityFrames: break;
+    case EffectType::KillHealPct: break;
+    case EffectType::KillInvincFrames: break;
     case EffectType::PostSkillInvincFrames: s.postSkillInvincFrames = std::max(s.postSkillInvincFrames, e.value); break;
     case EffectType::DmgReductionPct: s.dmgReductionPct += e.value; break;
-    case EffectType::Bloodlust: s.bloodlustATKPerKill += e.value; break;
+    case EffectType::Bloodlust: break;
     case EffectType::Adaptation:
         s.adaptations.push_back({e.value, e.value2});
         s.adaptationStacks.push_back({});
@@ -340,10 +340,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::ProjectileBounce: break;
     case EffectType::OnSkillTeamHeal: s.onSkillTeamHeal = std::max(s.onSkillTeamHeal, e.value); break;
     case EffectType::OnSkillTeamHealPct: s.onSkillTeamHealPct = std::max(s.onSkillTeamHealPct, e.value); break;
-    case EffectType::DeathPrevention:
-        s.deathPrevention = true;
-        s.deathPreventionFrames = std::max(s.deathPreventionFrames, e.value);
-        break;
+    case EffectType::DeathPrevention: break;
     case EffectType::DeathMedical: break;
     case EffectType::ForcePullProtect:
         s.forcePullProtect = true;
@@ -372,15 +369,12 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::AutoUltimate: break;
     case EffectType::MPRestore: break;
     case EffectType::ShieldOnAllyDeath: break;
-    case EffectType::DamageImmunityAfterFrames:
-        s.damageImmunityAfterFrames = e.value;
-        s.damageImmunityDuration = e.value2;
-        break;
+    case EffectType::DamageImmunityAfterFrames: break;
     case EffectType::AutoUltimateAfterFrames: s.autoUltimateAfterFrames = e.value; break;
     case EffectType::UltimateExtraProjectiles: s.ultimateExtraProjectiles += e.value; break;
-    case EffectType::BlockFirstHits: s.blockFirstHitsCount = e.value; break;
+    case EffectType::BlockFirstHits: break;
     case EffectType::GoldCoefficient: s.goldCoefficient = e.value; break;
-    case EffectType::HurtInvincFrames: s.hurtInvincFrames = std::max(s.hurtInvincFrames, e.value); break;
+    case EffectType::HurtInvincFrames: break;
     case EffectType::DashAttack: s.dashAttack = true; break;
     case EffectType::DashChanceBoost: s.dashChanceBoostPct += e.value; break;
     case EffectType::MPRatioDmgBoost: s.mpRatioDmgBoostPct += e.value; break;

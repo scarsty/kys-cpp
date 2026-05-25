@@ -84,7 +84,7 @@ BattleDamageUnitState makeDamageUnit(
     damageUnit.invincible = unit.invincible;
     if (combo)
     {
-        damageUnit.mpRecoveryBonusPct = combo->mpRecoveryBonusPct;
+        damageUnit.mpRecoveryBonusPct = sumAlwaysEffectValue(*combo, EffectType::MPRecoveryBonus);
     }
     if (effects)
     {
@@ -104,7 +104,7 @@ BattleResourceUnitState makeResourceUnit(
     resource.vitals = unit.vitals;
     if (combo)
     {
-        resource.mpRecoveryBonusPct = combo->mpRecoveryBonusPct;
+        resource.mpRecoveryBonusPct = sumAlwaysEffectValue(*combo, EffectType::MPRecoveryBonus);
     }
     if (effects)
     {

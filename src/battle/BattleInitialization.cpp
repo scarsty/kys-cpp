@@ -666,9 +666,10 @@ BattleInitializationResult BattleInitializationSystem::initialize(
         unit.stats.speed = applyPercentBonus(unit.stats.speed, combo.pctSPD);
         unit.vitals.hp = unit.vitals.maxHp;
 
-        if (combo.shieldPctMaxHP > 0)
+        const int shieldPctMaxHP = sumAlwaysEffectValue(combo, EffectType::ShieldPctMaxHP);
+        if (shieldPctMaxHP > 0)
         {
-            const int shield = unit.vitals.maxHp * combo.shieldPctMaxHP / 100;
+            const int shield = unit.vitals.maxHp * shieldPctMaxHP / 100;
             result.logEvents.push_back(
                 {
                     BattleLogEventType::Status,

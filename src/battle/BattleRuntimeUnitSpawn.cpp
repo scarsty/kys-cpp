@@ -41,10 +41,18 @@ BattleDamagePresentationStyle makeDamagePresentationStyle(int team)
 
 int initialShieldFor(const BattleRuntimeUnit& unit, const RoleComboState& combo)
 {
-    int shield = combo.flatShield;
-    if (combo.shieldPctMaxHP > 0)
+    int shield = 0;
+    for (const auto& effect : combo.appliedEffects)
     {
-        shield += unit.vitals.maxHp * combo.shieldPctMaxHP / 100;
+        if (effect.type == EffectType::FlatShield && effect.trigger == Trigger::Always && effect.sourceComboId < 0)
+        {
+            shield += effect.value;
+        }
+    }
+    const int shieldPct = sumAlwaysEffectValue(combo, EffectType::ShieldPctMaxHP);
+    if (shieldPct > 0)
+    {
+        shield += unit.vitals.maxHp * shieldPct / 100;
     }
     return shield;
 }
@@ -64,14 +72,14 @@ BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(
 {
     BattleDamageRuntimeUnit damage;
     damage.id = unitId;
-    damage.hurtInvincFrames = combo.hurtInvincFrames;
-    damage.blockFirstHitsRemaining = combo.blockFirstHitsCount;
-    damage.deathPrevention = combo.deathPrevention;
+    damage.hurtInvincFrames = maxAlwaysEffectValue(combo, EffectType::HurtInvincFrames);
+    damage.blockFirstHitsRemaining = sumAlwaysEffectValue(combo, EffectType::BlockFirstHits);
+    damage.deathPrevention = maxAlwaysEffectValue(combo, EffectType::DeathPrevention) > 0;
     damage.deathPreventionUsed = combo.deathPreventionUsed;
-    damage.deathPreventionFrames = combo.deathPreventionFrames;
-    damage.killHealPct = combo.killHealPct;
-    damage.killInvincFrames = combo.killInvincFrames;
-    damage.bloodlustAttackPerKill = combo.bloodlustATKPerKill;
+    damage.deathPreventionFrames = maxAlwaysEffectValue(combo, EffectType::DeathPrevention);
+    damage.killHealPct = sumAlwaysEffectValue(combo, EffectType::KillHealPct);
+    damage.killInvincFrames = maxAlwaysEffectValue(combo, EffectType::KillInvincFrames);
+    damage.bloodlustAttackPerKill = sumAlwaysEffectValue(combo, EffectType::Bloodlust);
     return damage;
 }
 

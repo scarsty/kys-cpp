@@ -505,7 +505,9 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
     });
     state.status.units = { { 0 }, { 1 } };
     state.status.units[0].effects.mpBlockTimer = 2;
-    state.combo.units[0].mpRecoveryBonusPct = 100;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[0],
+        { KysChess::EffectType::MPRecoveryBonus, 100 });
 
     runBattleFrame(state);
 

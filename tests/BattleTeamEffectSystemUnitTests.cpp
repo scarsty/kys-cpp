@@ -68,7 +68,9 @@ TEST_CASE("BattleTeamEffectSystem_TeamMp_RespectsBlockBonusAndCap", "[battle][te
     std::vector<BattleStatusRuntimeUnit> statuses = { { 0 }, { 1 }, { 2 }, { 3 } };
     statuses[2].effects.mpBlockTimer = 1;
     std::map<int, KysChess::RoleComboState> combos;
-    combos[1].mpRecoveryBonusPct = 50;
+    KysChess::ChessBattleEffects::applyEffect(
+        combos[1],
+        { KysChess::EffectType::MPRecoveryBonus, 50 });
 
     auto events = BattleTeamEffectSystem().applyTeamMp(units, statuses, combos, 0, 20);
 

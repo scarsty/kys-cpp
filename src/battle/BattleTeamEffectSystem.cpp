@@ -94,7 +94,9 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleUni
 
         const auto& status = requireById(statuses, unit.id);
         const auto comboIt = combos.find(unit.id);
-        const int recoveryBonus = comboIt != combos.end() ? comboIt->second.mpRecoveryBonusPct : 0;
+        const int recoveryBonus = comboIt != combos.end()
+            ? sumAlwaysEffectValue(comboIt->second, EffectType::MPRecoveryBonus)
+            : 0;
         int restore = adjustedMpRestore(status.effects.mpBlockTimer > 0, recoveryBonus, amount);
         int before = unit.vitals.mp;
         unit.vitals.mp = std::min(unit.vitals.maxMp, unit.vitals.mp + restore);
