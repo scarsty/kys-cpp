@@ -193,7 +193,7 @@ BattleRuntimeUnit teamRuntimeUnitAt(int id, int team, int hp, Pointf position, i
 
 void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntimeUnit>& units)
 {
-    const auto previousCombos = state.combo.units;
+    const auto savedCombos = state.combo.units;
     const auto previousStatuses = state.status.units;
     const auto previousDamageExtras = state.damage.unitExtras;
 
@@ -208,8 +208,8 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
     for (auto unit : units)
     {
         KysChess::RoleComboState combo;
-        if (const auto comboIt = previousCombos.find(unit.id);
-            comboIt != previousCombos.end())
+        if (const auto comboIt = savedCombos.find(unit.id);
+            comboIt != savedCombos.end())
         {
             combo = comboIt->second;
         }
