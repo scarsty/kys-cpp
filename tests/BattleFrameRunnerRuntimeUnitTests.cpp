@@ -520,7 +520,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     auto state = runtimeFrameState();
 
     KysChess::RoleComboState combo;
-    combo.postSkillInvincFrames = 12;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::PostSkillInvincFrames, 12 });
     combo.onSkillTeamHealPending = true;
     combo.onSkillTeamHeal = 7;
     combo.onSkillTeamHealPct = 3;
@@ -793,7 +793,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSk
     state.unitStore.units[0].invincible = 3;
 
     KysChess::RoleComboState combo;
-    combo.postSkillInvincFrames = 12;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::PostSkillInvincFrames, 12 });
     state.combo.units[0] = combo;
 
     applyRuntimeInput(state.unitStore.requireUnit(0), finishingSkillRuntime());

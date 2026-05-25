@@ -153,7 +153,6 @@ struct RoleComboState
     std::vector<AppliedEffectInstance> appliedEffects;
     // Generic triggered effects (non-Always triggers stored here)
     std::vector<AppliedEffectInstance> triggeredEffects;
-    int postSkillInvincFrames = 0;
     // Comeback & Scaling
     int bloodlustATKPerKill = 0;
     struct AdaptationInstance { int pctPerStack; int maxStacks; };
@@ -163,9 +162,6 @@ struct RoleComboState
     struct RampingInstance { int pctPerStack; int maxStacks; };
     std::vector<RampingInstance> rampings;
     // --- New effects (expanded pool) ---
-    bool postSkillDash = false;
-    int postSkillDashFrames = 0;
-    bool blinkAttack = false;
     int cloneSummonCount = 0;
     int onSkillTeamHeal = 0;
     int onSkillTeamHealPct = 0;
@@ -179,10 +175,6 @@ struct RoleComboState
     bool forcePullExecute = false;
     int forcePullProtectCharges = 0;
     int forcePullExecuteCharges = 0;
-    bool forceRangedAttack = false;
-    int forceRangedMinSelectDistance = 0;
-    int projectileSpeedMultiplierPct = 100;
-    bool ignoreProjectileCancel = false;
 
     // Mutable runtime state
     std::map<int, int> everyNthCounters;  // N value → counter
@@ -204,8 +196,6 @@ struct RoleComboState
     bool isSummonedClone = false;
     bool blinkAttackUseWeakest = false;
     int goldCoefficient = 0;
-    bool dashAttack = false;
-    int dashChanceBoostPct = 0;
 };
 
 int sumAlwaysEffectValue(const RoleComboState& state, EffectType type);

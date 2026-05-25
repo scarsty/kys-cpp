@@ -713,7 +713,7 @@ void appendBlinkAttackCommand(
     const BattleUnitStore& units,
     BattleActionCommitResult& result)
 {
-    if (!result.combo.blinkAttack)
+    if (firstAlwaysEffect(result.combo, EffectType::BlinkAttack) == nullptr)
     {
         return;
     }

@@ -1379,7 +1379,9 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     state.unitStore.requireUnit(0).vitals.hp = 80;
 
     KysChess::RoleComboState comboState;
-    comboState.postSkillInvincFrames = 12;
+    KysChess::ChessBattleEffects::applyEffect(
+        comboState,
+        { KysChess::EffectType::PostSkillInvincFrames, 12 });
     state.combo.units[1] = comboState;
 
     BattleDeathEffectExtras deathEffectExtras;
@@ -1389,7 +1391,7 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     CHECK(state.unitStore.units.size() == 2);
     CHECK(state.damage.pendingDamage[0].request.defenderUnitId == 0);
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 80);
-    CHECK(state.combo.units.at(1).postSkillInvincFrames == 12);
+    CHECK(KysChess::maxAlwaysEffectValue(state.combo.units.at(1), KysChess::EffectType::PostSkillInvincFrames) == 12);
     CHECK(state.deathEffects.store.units[0].id == 1);
     CHECK_FALSE(state.result.ended);
     CHECK(state.result.winningTeam == -1);
@@ -1576,7 +1578,9 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesEffectiveProjectileSelectDista
     cast.normalSkill.attackAreaType = 0;
     cast.normalSkill.selectDistance = 1;
     configureRuntimeActionPlan(state, cast);
-    state.combo.units.at(0).forceRangedAttack = true;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units.at(0),
+        { KysChess::EffectType::ForceRangedAttack, 100 });
     state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto start = runBattleFrame(state);
@@ -1951,7 +1955,9 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
     auto& runtimeUnit = state.unitStore.requireUnit(0);
     runtimeUnit.animation.cooldown = 0;
     runtimeUnit.stats.speed = 360;
-    state.combo.units[0].dashAttack = true;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[0],
+        { KysChess::EffectType::DashAttack, 1 });
 
     auto cast = frameCastInput(0, 1);
     cast.unit.dashAttackEnabled = true;
@@ -2002,7 +2008,9 @@ TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[
     state.unitStore.requireUnit(0).motion.facing = { 1, 0, 0 };
     state.unitStore.requireUnit(0).stats.speed = 180;
     state.unitStore.requireUnit(0).animation.cooldown = 0;
-    state.combo.units[0].dashAttack = true;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[0],
+        { KysChess::EffectType::DashAttack, 1 });
 
     auto cast = frameCastInput(0, 1);
     cast.normalSkill.attackAreaType = 1;
@@ -2400,7 +2408,9 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
         triggeredEffect(KysChess::EffectType::TeamMPRestore, KysChess::Trigger::OnCast, 8, 100));
     combo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::FlatShield, KysChess::Trigger::OnCast, 12, 100));
-    combo.postSkillInvincFrames = 12;
+    KysChess::ChessBattleEffects::applyEffect(
+        combo,
+        { KysChess::EffectType::PostSkillInvincFrames, 12 });
     state.combo.units[0] = combo;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
@@ -3215,7 +3225,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnCo
     state.unitStore.units[0].invincible = 1;
     state.unitStore.units[0].animation.cooldown = 1;
     state.unitStore.units[0].haveAction = true;
-    state.combo.units[0].postSkillInvincFrames = 5;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[0],
+        { KysChess::EffectType::PostSkillInvincFrames, 5 });
 
     auto result = runBattleFrame(state);
 

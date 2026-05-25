@@ -1187,7 +1187,8 @@ void refreshMovementSkillProfile(
     movementUnit.reach = skill.reach > 0.0 ? skill.reach : state.action.actionRules.meleeAttackReach;
     movementUnit.style = skill.rangedStyle ? CombatStyle::Ranged : CombatStyle::Melee;
     const auto comboIt = state.combo.units.find(runtimeUnit.id);
-    const bool dashAttackEnabled = comboIt != state.combo.units.end() && comboIt->second.dashAttack;
+    const bool dashAttackEnabled = comboIt != state.combo.units.end()
+        && firstAlwaysEffect(comboIt->second, EffectType::DashAttack) != nullptr;
     movementUnit.taXue = dashAttackEnabled;
 }
 
@@ -1377,23 +1378,25 @@ bool isLastAliveInTeam(const BattleUnitStore& store, const BattleRuntimeUnit& un
 
 bool runtimeRoleForcesRangedMagic(const BattleRuntimeState& state, int unitId)
 {
-    return requireMappedById(state.combo.units, unitId).forceRangedAttack;
+    return firstAlwaysEffect(requireMappedById(state.combo.units, unitId), EffectType::ForceRangedAttack) != nullptr;
 }
 
 int runtimeForcedRangedMinSelectDistance(const BattleRuntimeState& state, int unitId)
 {
     constexpr int DefaultForcedRangedMinSelectDistance = 6;
     const auto& combo = requireMappedById(state.combo.units, unitId);
-    if (combo.forceRangedMinSelectDistance <= 0)
+    const auto* forceRanged = firstAlwaysEffect(combo, EffectType::ForceRangedAttack);
+    if (!forceRanged || forceRanged->value2 <= 0)
     {
         return DefaultForcedRangedMinSelectDistance;
     }
-    return std::max(1, combo.forceRangedMinSelectDistance);
+    return std::max(1, forceRanged->value2);
 }
 
 int runtimeProjectileSpeedMultiplierPct(const BattleRuntimeState& state, int unitId)
 {
-    return std::max(100, requireMappedById(state.combo.units, unitId).projectileSpeedMultiplierPct);
+    const auto* forceRanged = firstAlwaysEffect(requireMappedById(state.combo.units, unitId), EffectType::ForceRangedAttack);
+    return forceRanged && forceRanged->value > 0 ? forceRanged->value : 100;
 }
 
 bool runtimeForcedRangedMagic(const BattleActionSkillSeed& skill, bool forceRanged)
@@ -1728,7 +1731,7 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     if (comboIt != state.combo.units.end())
     {
         input.unit.cooldownReductionPct = comboIt->second.cdrPct;
-        input.unit.dashAttackEnabled = comboIt->second.dashAttack;
+        input.unit.dashAttackEnabled = firstAlwaysEffect(comboIt->second, EffectType::DashAttack) != nullptr;
     }
 
     input.unit.dashVelocity = unit.motion.facing;
@@ -1977,7 +1980,7 @@ void populateActionCommitLiveInput(BattleRuntimeState& state,
     actionInput.committedFacing = runtimeCastFacing(state, unit, castInput);
 
     auto& combo = requireMappedById(state.combo.units, unit.id);
-    if (combo.blinkAttack)
+    if (firstAlwaysEffect(combo, EffectType::BlinkAttack) != nullptr)
     {
         const double blinkReach = selectedSkill.blinkReach > 0.0 ? selectedSkill.blinkReach : selectedSkill.reach;
         actionInput.blinkGeometry = makeRuntimeBlinkGeometry(state, unit, blinkReach);
@@ -2074,7 +2077,7 @@ bool tryCommitAutoUltimate(
     applyCastPostSkillInvincibility(
         state,
         unitId,
-        actionResult.combo.postSkillInvincFrames,
+        maxAlwaysEffectValue(actionResult.combo, EffectType::PostSkillInvincFrames),
         logEvents);
     appendAttackSpawnRequests(attackSpawns, actionResult.attackSpawnRequests);
     logEvents.insert(
@@ -2251,7 +2254,7 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
     input.unit.movementDashActive = actionMovementDashActive(state, unit.id);
     auto& combo = requireMappedById(state.combo.units, unit.id);
     input.unit.cooldownReductionPct = combo.cdrPct;
-    input.unit.dashAttackEnabled = combo.dashAttack;
+    input.unit.dashAttackEnabled = firstAlwaysEffect(combo, EffectType::DashAttack) != nullptr;
     input.unit.dashVelocity = unit.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)
     {
@@ -4560,7 +4563,7 @@ void advanceActionFrameUnits(
                     applyCastPostSkillInvincibility(
                         state,
                         unit.id,
-                        actionResult.combo.postSkillInvincFrames,
+                        maxAlwaysEffectValue(actionResult.combo, EffectType::PostSkillInvincFrames),
                         logEvents);
                 }
                 if (actionInput.hasCast && actionInput.cast.decision.soundId >= 0)

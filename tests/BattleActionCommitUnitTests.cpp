@@ -97,7 +97,7 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
         { 1, 0, { 100, 20, 0 }, true, false },
     };
     KysChess::RoleComboState combo;
-    combo.blinkAttack = true;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::BlinkAttack, 1 });
     combo.blinkAttackUseWeakest = true;
     auto units = actionUnits();
 
@@ -144,7 +144,7 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
         { 5, 1, { 140, 20, 0 }, true, true },
     };
     KysChess::RoleComboState combo;
-    combo.blinkAttack = true;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::BlinkAttack, 1 });
     combo.blinkAttackUseWeakest = true;
     auto units = actionUnits();
 

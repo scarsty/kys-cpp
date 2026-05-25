@@ -304,7 +304,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::ControlImmunityFrames: break;
     case EffectType::KillHealPct: break;
     case EffectType::KillInvincFrames: break;
-    case EffectType::PostSkillInvincFrames: s.postSkillInvincFrames = std::max(s.postSkillInvincFrames, e.value); break;
+    case EffectType::PostSkillInvincFrames: break;
     case EffectType::DmgReductionPct: break;
     case EffectType::Bloodlust: break;
     case EffectType::Adaptation:
@@ -322,15 +322,12 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
         break;
     case EffectType::HealBurst: break;  // only meaningful as triggered
     case EffectType::BleedChance: break;
-    case EffectType::PostSkillDash:
-        s.postSkillDash = true;
-        s.postSkillDashFrames = std::max(s.postSkillDashFrames, e.value);
-        break;
+    case EffectType::PostSkillDash: break;
     case EffectType::EnemyTopDebuff:
         s.enemyTopDebuffCount = e.value;
         s.enemyTopDebuffValue = e.value2;
         break;
-    case EffectType::BlinkAttack: s.blinkAttack = true; break;
+    case EffectType::BlinkAttack: break;
     case EffectType::AllyDeathStatBoost: break;
     case EffectType::CloneSummon: s.cloneSummonCount = std::max(s.cloneSummonCount, e.value); break;
     case EffectType::ProjectileReflect: break;
@@ -369,20 +366,15 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::BlockFirstHits: break;
     case EffectType::GoldCoefficient: s.goldCoefficient = e.value; break;
     case EffectType::HurtInvincFrames: break;
-    case EffectType::DashAttack: s.dashAttack = true; break;
-    case EffectType::DashChanceBoost: s.dashChanceBoostPct += e.value; break;
+    case EffectType::DashAttack: break;
+    case EffectType::DashChanceBoost: break;
     case EffectType::MPRatioDmgBoost: break;
     case EffectType::DmgReduceDebuff: break;
     case EffectType::CurrentHPPctBlast: break;
     case EffectType::TeamMPRestore: break;
     case EffectType::SpiralBleedProjectile: break;
     case EffectType::NearbyTrackingProjectiles: break;
-    case EffectType::ForceRangedAttack:
-        s.forceRangedAttack = true;
-        if (e.value2 > 0) s.forceRangedMinSelectDistance = std::max(1, e.value2);
-        if (e.value > 0) s.projectileSpeedMultiplierPct = std::max(s.projectileSpeedMultiplierPct, e.value);
-        s.ignoreProjectileCancel = true;
-        break;
+    case EffectType::ForceRangedAttack: break;
     case EffectType::CounterUltimateBlock: break;
     case EffectType::MaxHitPctCurrentHP: break;
     case EffectType::FreeRefresh: break;
