@@ -18,13 +18,13 @@ namespace
 {
 constexpr int ProjectileGraceFrames = 5;
 
-int getComboLookupId(int realRoleId, const RoleComboState& state)
+int getComboLookupId(const BattleRuntimeUnit& unit)
 {
-    if (state.isSummonedClone)
+    if (unit.cloneSourceUnitId >= 0)
     {
         return -1;
     }
-    return realRoleId;
+    return unit.realRoleId;
 }
 
 void configureAttackWorld(
@@ -98,7 +98,7 @@ BattleDeathEffectStore makeDeathEffectStore(
         extras.shieldPctMaxHp = sumAlwaysEffectValue(stateIt->second, EffectType::ShieldPctMaxHP);
         extras.appliedEffects = stateIt->second.appliedEffects;
 
-        const int comboLookupId = getComboLookupId(unit.realRoleId, stateIt->second);
+        const int comboLookupId = getComboLookupId(unit);
         if (comboLookupId >= 0)
         {
             extras.comboIds = KysChess::ChessCombo::getCombosForRole(comboLookupId);

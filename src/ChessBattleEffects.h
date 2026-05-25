@@ -171,7 +171,6 @@ struct RoleComboState
     std::vector<int> rampingIdleTimers;  // per instance
     bool onSkillTeamHealPending = false;
     bool postSkillDashPending = false;
-    bool isSummonedClone = false;
     bool blinkAttackUseWeakest = false;
 };
 

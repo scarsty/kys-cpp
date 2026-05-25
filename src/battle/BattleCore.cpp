@@ -1587,7 +1587,7 @@ std::vector<BattleFrameRescueUnitSnapshot> makeRescueUnitSnapshots(const BattleR
         auto comboIt = state.combo.units.find(unit.id);
         if (comboIt != state.combo.units.end())
         {
-            snapshot.unit.isSummonedClone = comboIt->second.isSummonedClone;
+            snapshot.unit.isSummonedClone = unit.cloneSourceUnitId >= 0;
             snapshot.unit.forcePullProtect = firstAlwaysEffect(comboIt->second, EffectType::ForcePullProtect) != nullptr;
             snapshot.unit.forcePullExecute = firstAlwaysEffect(comboIt->second, EffectType::ForcePullExecute) != nullptr;
             const auto* rescueRuntime = tryFindBy(

@@ -565,7 +565,7 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     CHECK(clone.weaponId == -1);
     CHECK(clone.armorId == -1);
     CHECK(clone.chessInstanceId == -1);
-    CHECK(cloneSpawn.combo.isSummonedClone);
+    CHECK(cloneSpawn.unit.cloneSourceUnitId == 0);
 }
 
 TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[battle][initialization]")

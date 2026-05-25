@@ -400,7 +400,6 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
 RoleComboState ChessBattleEffects::makeSummonedCloneState(const RoleComboState& sourceState)
 {
     RoleComboState cloneState = sourceState;
-    cloneState.isSummonedClone = true;
     cloneState.effectFrameTimers.clear();
 
     for (int effectIndex = 0; effectIndex < static_cast<int>(cloneState.appliedEffects.size()); ++effectIndex)
