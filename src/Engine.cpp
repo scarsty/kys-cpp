@@ -1196,7 +1196,7 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
 }
 
 #ifdef __ANDROID__
-#include "ZipFile.h"
+#include "ZipFile2.h"
 #include "filefunc.h"
 
 void Engine::extractAssetsIfNeeded()
@@ -1229,7 +1229,7 @@ void Engine::extractAssetsIfNeeded()
     filefunc::writeFile(buf.c_str(), (int)buf.size(), tmp_zip);
 
     {
-        ZipFile zip;
+        ZipFile2 zip;
         zip.openRead(tmp_zip);
         if (!zip.opened())
         {
@@ -1251,7 +1251,7 @@ void Engine::extractAssetsIfNeeded()
             const auto data = zip.readFile(f);
             filefunc::writeFile(data.c_str(), (int)data.size(), out_path);
         }
-    }    // ZipFile 析构关闭 zip
+    }    // ZipFile2 析构自动关闭 zip
 
     remove(tmp_zip.c_str());
 

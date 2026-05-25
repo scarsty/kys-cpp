@@ -209,6 +209,9 @@
     <ClCompile Include="..\mlcc\ZipFile.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
+    <ClCompile Include="..\mlcc\ZipFile2.cpp">
+      <Filter>mlcc</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -434,6 +437,9 @@
       <Filter>cifa</Filter>
     </ClInclude>
     <ClInclude Include="..\mlcc\ZipFile.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\ZipFile2.h">
       <Filter>mlcc</Filter>
     </ClInclude>
   </ItemGroup>
