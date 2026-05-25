@@ -244,8 +244,8 @@ TEST_CASE("BattleComboTriggerSystem_PendingSkillTeamHeal_ConsumesPendingBaseHeal
 {
     RoleComboState state;
     state.onSkillTeamHealPending = true;
-    state.onSkillTeamHeal = 5;
-    state.onSkillTeamHealPct = 7;
+    ChessBattleEffects::applyEffect(state, { EffectType::OnSkillTeamHeal, 5 });
+    ChessBattleEffects::applyEffect(state, { EffectType::OnSkillTeamHealPct, 7 });
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::OnSkillTeamHeal, Trigger::OnUltimate, 11, 100));
 

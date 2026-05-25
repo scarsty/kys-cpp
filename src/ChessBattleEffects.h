@@ -145,11 +145,7 @@ struct RoleComboState
     double pctHP = 0, pctATK = 0, pctDEF = 0, pctSPD = 0;
     int fightWinGrowthHP = 0, fightWinGrowthATK = 0, fightWinGrowthDEF = 0;
 
-    // Trigger values
-    int blockChancePct = 0;
-    int stunChancePct = 0;
-    int stunFrames = 0;
-    int cdrPct = 0;
+    // Configured effects
     std::vector<AppliedEffectInstance> appliedEffects;
     // Generic triggered effects (non-Always triggers stored here)
     std::vector<AppliedEffectInstance> triggeredEffects;
@@ -160,9 +156,6 @@ struct RoleComboState
     std::vector<DodgeAdaptationInstance> dodgeAdaptations;
     struct RampingInstance { int pctPerStack; int maxStacks; };
     std::vector<RampingInstance> rampings;
-    // --- New effects (expanded pool) ---
-    int onSkillTeamHeal = 0;
-    int onSkillTeamHealPct = 0;
     int enemyTopDebuffApplied = 0;
 
     // Mutable runtime state

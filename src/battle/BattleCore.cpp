@@ -1737,7 +1737,7 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     auto comboIt = state.combo.units.find(unit.id);
     if (comboIt != state.combo.units.end())
     {
-        input.unit.cooldownReductionPct = comboIt->second.cdrPct;
+        input.unit.cooldownReductionPct = sumAlwaysEffectValue(comboIt->second, EffectType::CDR);
         input.unit.dashAttackEnabled = firstAlwaysEffect(comboIt->second, EffectType::DashAttack) != nullptr;
     }
 
@@ -2260,7 +2260,7 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
     input.unit.hasEquippedSkill = true;
     input.unit.movementDashActive = actionMovementDashActive(state, unit.id);
     auto& combo = requireMappedById(state.combo.units, unit.id);
-    input.unit.cooldownReductionPct = combo.cdrPct;
+    input.unit.cooldownReductionPct = sumAlwaysEffectValue(combo, EffectType::CDR);
     input.unit.dashAttackEnabled = firstAlwaysEffect(combo, EffectType::DashAttack) != nullptr;
     input.unit.dashVelocity = unit.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)

@@ -153,6 +153,30 @@ TEST_CASE("BattleHitResolver_FrozenSideEffectEmitsAcceptedHitCommand", "[battle]
     CHECK(command->damage.frozenFrames == 5);
 }
 
+TEST_CASE("BattleHitResolver_MainOffensiveHitAppliesConfiguredAlwaysStun", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 90;
+    KysChess::ChessBattleEffects::applyEffect(
+        input.attackerCombo,
+        { KysChess::EffectType::Stun, 7, 0, "", KysChess::Trigger::Always, 100 });
+
+    auto result = resolveHit(input);
+
+    const auto* command = firstAcceptedHitCommand(result);
+    REQUIRE(command);
+    CHECK(command->damage.frozenFrames == 7);
+    CHECK(std::any_of(
+        result.logEvents.begin(),
+        result.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Status
+                && BattleLogTest::textOf(event) == "眩暈（7幀）";
+        }));
+}
+
 TEST_CASE("BattleHitResolver_RangedSideProjectileDoesNotApplyStunEffects", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
@@ -160,8 +184,9 @@ TEST_CASE("BattleHitResolver_RangedSideProjectileDoesNotApplyStunEffects", "[bat
     input.attackEvent.mainProjectile = false;
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 90;
-    input.attackerCombo.stunChancePct = 100;
-    input.attackerCombo.stunFrames = 7;
+    KysChess::ChessBattleEffects::applyEffect(
+        input.attackerCombo,
+        { KysChess::EffectType::Stun, 7, 0, "", KysChess::Trigger::Always, 100 });
     input.attackerCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::Stun, KysChess::Trigger::OnHit, 11, 100));
 

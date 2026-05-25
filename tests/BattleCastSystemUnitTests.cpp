@@ -1,5 +1,6 @@
 #include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
+#include "battle/BattleRuntimeUnitSpawn.h"
 #include "BattleLogTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>
@@ -79,6 +80,22 @@ BattleCastSkillState skill(int id, int attackAreaType, double reach, bool forceR
     return state;
 }
 
+BattleActionSkillSeed actionSkillSeedFromCastSkill(const BattleCastSkillState& skill)
+{
+    BattleActionSkillSeed seed;
+    seed.id = skill.id;
+    seed.name = skill.name;
+    seed.soundId = skill.soundId;
+    seed.hurtType = skill.hurtType;
+    seed.attackAreaType = skill.attackAreaType;
+    seed.magicType = skill.magicType;
+    seed.visualEffectId = skill.visualEffectId;
+    seed.selectDistance = skill.selectDistance;
+    seed.actProperty = skill.actProperty;
+    seed.magicPower = skill.magicPower;
+    return seed;
+}
+
 BattleCastInput basicInput()
 {
     BattleCastInput input;
@@ -108,6 +125,58 @@ BattleCastInput basicInput()
     input.ultimateSkill.name = "絕招";
     input.ultimateSkill.visualEffectId = 41;
     return input;
+}
+
+BattleRuntimeUnit runtimeUnit(int id, int team, const BattleCastUnitState& castUnit)
+{
+    BattleRuntimeUnit unit;
+    unit.id = id;
+    unit.team = team;
+    unit.alive = true;
+    unit.vitals = { 100, 100, castUnit.mp, castUnit.maxMp };
+    unit.stats.speed = castUnit.speed;
+    unit.motion.position = castUnit.position;
+    unit.motion.facing = castUnit.facing;
+    unit.reach = castUnit.meleeAttackReach;
+    return unit;
+}
+
+void configureRuntimeActionPlan(BattleRuntimeState& state, const BattleCastInput& input)
+{
+    BattleMovementGeometry movementGeometry;
+    movementGeometry.tileWidth = SceneTileWidth;
+    movementGeometry.meleeAttackEffectOffset = SceneTileWidth * 2.0;
+    movementGeometry.meleeAttackHitRadius = SceneTileWidth * 2.0;
+    movementGeometry.dashFrames = LegacyDashMomentumFrames;
+    movementGeometry.dashCooldownFrames = 18;
+    movementGeometry.maxRangedReach = 400.0;
+    state.movement.config = BattleGeometry(movementGeometry).movementConfig();
+
+    state.action.castConfig = input.config;
+    state.action.castGeometry = input.geometry;
+    state.action.castFrames.assign(input.config.castFrames.begin(), input.config.castFrames.end());
+    state.action.actionRules.tileWidth = SceneTileWidth;
+    state.action.actionRules.maxEffectiveBattleReach = 400.0;
+    state.action.actionRules.meleeAttackReach = input.unit.meleeAttackReach;
+    state.action.actionRules.dashAttackMeleeReach = input.unit.dashAttackReach;
+    state.action.actionRules.meleeAttackHitRadius = SceneTileWidth * 2.0;
+    state.action.actionRules.dashMomentumFrames = LegacyDashMomentumFrames;
+    state.action.actionRules.actionRecoveryFrames = LegacyActionRecoveryFrames;
+    state.action.actionRules.dashRecoveryFrames = LegacyDashMomentumFrames;
+    state.action.actionRecoveryFrames = LegacyActionRecoveryFrames;
+    state.action.dashRecoveryFrames = LegacyDashMomentumFrames;
+    state.attacks.hitRadius = SceneTileWidth * 2.0;
+    state.attacks.minimumVectorNorm = LegacyMinimumFacingNorm;
+    state.attacks.nextAttackId = 1;
+    state.attacks.bounceSpawnDistance = SceneTileWidth;
+    state.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
+
+    BattleActionPlanSeed seed;
+    seed.unitId = input.unit.id;
+    seed.hasEquippedSkill = input.unit.hasEquippedSkill;
+    seed.normalSkill = actionSkillSeedFromCastSkill(input.normalSkill);
+    seed.ultimateSkill = actionSkillSeedFromCastSkill(input.ultimateSkill);
+    state.action.planSeeds[input.unit.id] = std::move(seed);
 }
 
 void checkPoint(const Pointf& actual, const Pointf& expected)
@@ -278,6 +347,35 @@ TEST_CASE("BattleCastSystem_CooldownUsesSelectedSkillActProperty", "[battle][cas
     REQUIRE(result.decision.canCast);
     REQUIRE(result.decision.ultimate);
     CHECK(result.cooldownDelta == 75);
+}
+
+TEST_CASE("BattleCastSystem_RuntimeCastPlanningUsesConfiguredCdrEffect", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.id = 0;
+    input.unit.mp = 20;
+    input.unit.maxMp = 100;
+    input.unit.hasEquippedSkill = true;
+    input.normalSkill = skill(120, 0, 137.5);
+    input.ultimateSkill = skill(220, 1, 400.0);
+    input.targetUnitId = 1;
+    input.targetDistance = 100.0;
+
+    BattleRuntimeState state;
+    KysChess::RoleComboState combo;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::CDR, 20 });
+    appendRuntimeUnit(state, makeRuntimeUnitSpawn(runtimeUnit(0, 0, input.unit), combo));
+
+    auto target = runtimeUnit(1, 1, input.unit);
+    target.motion.position = input.targetPosition;
+    appendRuntimeUnit(state, makeRuntimeUnitSpawn(target, KysChess::RoleComboState{}));
+    configureRuntimeActionPlan(state, input);
+
+    auto result = BattleFrameRunner().runFrame(state);
+
+    REQUIRE(state.action.pendingCasts.contains(0));
+    CHECK(state.unitStore.requireUnit(0).animation.cooldown == 84);
+    CHECK(result.gameplayEvents.front().type == BattleGameplayEventType::CastStarted);
 }
 
 TEST_CASE("BattleCastSystem_NormalSkillRemainsBehaviorCompatibleWhenUltimateUnavailable", "[battle][cast]")

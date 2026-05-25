@@ -362,8 +362,8 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectPendingSkillTeamHeal(
         return result;
     }
 
-    result.flatHeal = state.onSkillTeamHeal;
-    result.pctHeal = state.onSkillTeamHealPct;
+    result.flatHeal = sumAlwaysEffectValue(state, EffectType::OnSkillTeamHeal);
+    result.pctHeal = sumAlwaysEffectValue(state, EffectType::OnSkillTeamHealPct);
     auto triggered = collectTriggeredTeamHeal(state, input, random);
     result.flatHeal += triggered.flatHeal;
     result.pctHeal += triggered.pctHeal;

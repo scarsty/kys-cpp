@@ -522,8 +522,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     KysChess::RoleComboState combo;
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::PostSkillInvincFrames, 12 });
     combo.onSkillTeamHealPending = true;
-    combo.onSkillTeamHeal = 7;
-    combo.onSkillTeamHealPct = 3;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHeal, 7 });
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHealPct, 3 });
     state.combo.units[0] = combo;
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
@@ -548,8 +548,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
 
     KysChess::RoleComboState combo;
     combo.onSkillTeamHealPending = true;
-    combo.onSkillTeamHeal = 5;
-    combo.onSkillTeamHealPct = 10;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHeal, 5 });
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHealPct, 10 });
     state.combo.units[0] = combo;
     applyRuntimeInput(state.unitStore.requireUnit(0), finishingSkillRuntime());
 

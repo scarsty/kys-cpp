@@ -638,20 +638,31 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     }
 
     const bool offensiveControlEffectsAllowed = canApplyOffensiveControlEffects(input.attackEvent);
-    int legacyStunFrames = offensiveControlEffectsAllowed
-        && attackerCombo.stunChancePct > 0
-        && random.chance(attackerCombo.stunChancePct)
-        ? attackerCombo.stunFrames
-        : 0;
-    if (legacyStunFrames > 0)
+    int alwaysStunFrames = 0;
+    if (offensiveControlEffectsAllowed)
+    {
+        for (const auto& effect : attackerCombo.appliedEffects)
+        {
+            if (effect.type != EffectType::Stun || effect.trigger != Trigger::Always)
+            {
+                continue;
+            }
+            const int chancePct = effect.triggerValue > 0 ? effect.triggerValue : 100;
+            if (chancePct > 0 && random.chance(chancePct))
+            {
+                alwaysStunFrames = std::max(alwaysStunFrames, effect.value);
+            }
+        }
+    }
+    if (alwaysStunFrames > 0)
     {
         BattleDamageRequest request;
-        request.frozenFrames = legacyStunFrames;
+        request.frozenFrames = alwaysStunFrames;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
         result.logEvents.push_back(statusEvent(
             input.attacker.id,
             input.defender.id,
-            logStatusFrames("眩暈", legacyStunFrames)));
+            logStatusFrames("眩暈", alwaysStunFrames)));
     }
 
     if (offensiveControlEffectsAllowed)

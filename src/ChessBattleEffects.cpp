@@ -303,7 +303,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::NegPctDEF: s.pctDEF -= e.value; break;
     case EffectType::FlatDmgReduction: break;
     case EffectType::FlatDmgIncrease: break;
-    case EffectType::BlockChance: s.blockChancePct += e.value; break;
+    case EffectType::BlockChance: break;
     case EffectType::DodgeChance: break;
     case EffectType::DodgeThenCrit: break;
     case EffectType::CritChance: break;
@@ -322,7 +322,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::MPRecoveryBonus: break;
     case EffectType::SkillDmgPct: break;
     case EffectType::SkillReflectPct: break;
-    case EffectType::CDR: s.cdrPct += e.value; break;
+    case EffectType::CDR: break;
     case EffectType::FlatShield: break;
     case EffectType::ShieldPctMaxHP: break;
     case EffectType::ShieldFreezeRes: break;
@@ -359,8 +359,8 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::CloneSummon: break;
     case EffectType::ProjectileReflect: break;
     case EffectType::ProjectileBounce: break;
-    case EffectType::OnSkillTeamHeal: s.onSkillTeamHeal = std::max(s.onSkillTeamHeal, e.value); break;
-    case EffectType::OnSkillTeamHealPct: s.onSkillTeamHealPct = std::max(s.onSkillTeamHealPct, e.value); break;
+    case EffectType::OnSkillTeamHeal: break;
+    case EffectType::OnSkillTeamHealPct: break;
     case EffectType::DeathPrevention: break;
     case EffectType::DeathMedical: break;
     case EffectType::ForcePullProtect: break;
