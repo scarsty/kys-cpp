@@ -265,6 +265,7 @@ void seedRuntimeUnitsFromMovementUnits(
     state.status.units.clear();
     state.damage.unitExtras.clear();
     state.damage.presentationStylesByDefender.clear();
+    state.rescue.units.clear();
     state.movement.agents.clear();
     for (const auto& unit : units)
     {
@@ -286,6 +287,7 @@ void seedRuntimeUnits(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> 
     state.status.units.clear();
     state.damage.unitExtras.clear();
     state.damage.presentationStylesByDefender.clear();
+    state.rescue.units.clear();
     state.movement.agents.clear();
     state.action.planSeeds.clear();
 
@@ -997,7 +999,11 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
     KysChess::ChessBattleEffects::applyEffect(
         state.combo.units[2],
         { KysChess::EffectType::ForcePullProtect, 1 });
-    state.combo.units[2].forcePullProtectRemaining = 1;
+    state.rescue.units = {
+        { 0, 0, 0 },
+        { 1, 0, 0 },
+        { 2, 1, 0 },
+    };
     state.rescue.executeUnattendedRadius = SceneTileWidth * 3.0;
     state.rescue.counterAttack.skillId = 1;
     state.rescue.counterAttack.visualEffectId = 11;
@@ -3527,17 +3533,26 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle
         }));
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 30);
     CHECK(state.unitStore.requireUnit(1).invincible == 10);
-    CHECK(state.combo.units.at(2).forcePullProtectRemaining == 0);
+    CHECK(requireBy(
+        state.rescue.units,
+        2,
+        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttackInsideDamageLifecycle", "[battle][core][breakthrough]")
 {
     auto state = rescueDamageFrameState(20, 10);
-    state.combo.units[2].forcePullProtectRemaining = 0;
+    requireBy(
+        state.rescue.units,
+        2,
+        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining = 0;
     KysChess::ChessBattleEffects::applyEffect(
         state.combo.units[0],
         { KysChess::EffectType::ForcePullExecute, 2 });
-    state.combo.units[0].forcePullExecuteRemaining = 2;
+    requireBy(
+        state.rescue.units,
+        0,
+        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullExecuteRemaining = 2;
     state.unitStore.requireUnit(0).grid = { 10, 10 };
     state.unitStore.requireUnit(1).grid = { 5, 5 };
     state.rescue.cells = {
@@ -3550,7 +3565,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttac
 
     CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(9.0f * SceneTileWidth));
     CHECK(state.unitStore.requireUnit(1).motion.position.y == Catch::Approx(10.0f * SceneTileWidth));
-    CHECK(state.combo.units.at(0).forcePullExecuteRemaining == 1);
+    CHECK(requireBy(
+        state.rescue.units,
+        0,
+        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullExecuteRemaining == 1);
     REQUIRE(state.pendingAttackSpawns.size() == 1);
     CHECK(state.pendingAttackSpawns.front().initial.attackerUnitId == 0);
     CHECK(state.pendingAttackSpawns.front().initial.preferredTargetUnitId == 1);
@@ -3569,7 +3587,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1).size() == 1);
-    CHECK(state.combo.units.at(2).forcePullProtectRemaining == 1);
+    CHECK(requireBy(
+        state.rescue.units,
+        2,
+        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining == 1);
     CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(180.0f));
     CHECK(state.unitStore.requireUnit(1).motion.position.y == Catch::Approx(180.0f));
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 20);

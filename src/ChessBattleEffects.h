@@ -169,8 +169,6 @@ struct RoleComboState
     std::vector<std::map<int, int>> dodgeAdaptationStacks;  // per instance: enemyID → stacks
     std::vector<int> rampingStacks;  // per instance
     std::vector<int> rampingIdleTimers;  // per instance
-    int forcePullProtectRemaining = 0;
-    int forcePullExecuteRemaining = 0;
     int shieldOnAllyDeathTracker = 0;
     bool onSkillTeamHealPending = false;
     bool postSkillDashPending = false;

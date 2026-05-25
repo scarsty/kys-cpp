@@ -1,4 +1,5 @@
 #include "BattleRuntimeScenarioTestHelpers.h"
+#include "Find.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -232,7 +233,10 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
     KysChess::ChessBattleEffects::applyEffect(
         state.combo.units[2],
         { KysChess::EffectType::ForcePullProtect, 1 });
-    state.combo.units[2].forcePullProtectRemaining = 1;
+    KysChess::requireBy(
+        state.rescue.units,
+        2,
+        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining = 1;
     state.rescue.cells = {
         scenarioRescueCell(2, 3),
         scenarioRescueCell(3, 2),
@@ -251,5 +255,8 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
     CHECK(std::ranges::find(digest.roleEffectTargetUnitIds, 1) != digest.roleEffectTargetUnitIds.end());
     CHECK(digest.hpByUnitId.at(1) == 30);
     CHECK(session.runtime().unitStore.requireUnit(1).invincible == 10);
-    CHECK(session.runtime().combo.units.at(2).forcePullProtectRemaining == 0);
+    CHECK(KysChess::requireBy(
+        session.runtime().rescue.units,
+        2,
+        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining == 0);
 }

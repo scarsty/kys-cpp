@@ -156,7 +156,15 @@ struct BattleRuntimeState
 
     struct RescueState
     {
+        struct RescueUnitRuntime
+        {
+            int unitId = -1;
+            int forcePullProtectRemaining = 0;
+            int forcePullExecuteRemaining = 0;
+        };
+
         std::vector<BattleRescueCellSnapshot> cells;
+        std::vector<RescueUnitRuntime> units;
         double executeUnattendedRadius = 0.0;
         BattleFrameRescueCounterAttackConfig counterAttack;
     } rescue;

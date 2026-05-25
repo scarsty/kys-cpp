@@ -75,19 +75,6 @@ int computeTeamFlatShield(const std::map<int, RoleComboState>& comboStates)
     return totalShield;
 }
 
-int sumAlwaysEffectCharges(const RoleComboState& combo, EffectType type)
-{
-    int total = 0;
-    for (const auto& effect : combo.appliedEffects)
-    {
-        if (effect.type == type && effect.trigger == Trigger::Always)
-        {
-            total += std::max(1, effect.value);
-        }
-    }
-    return total;
-}
-
 std::string shieldLogText(const char* prefix, int shield)
 {
     return std::format("{}{}護盾", prefix, shield);
@@ -705,8 +692,6 @@ BattleInitializationResult BattleInitializationSystem::initialize(
                 combo.effectFrameTimers[effectIndex] = effect.value;
             }
         }
-        combo.forcePullProtectRemaining = sumAlwaysEffectCharges(combo, EffectType::ForcePullProtect);
-        combo.forcePullExecuteRemaining = sumAlwaysEffectCharges(combo, EffectType::ForcePullExecute);
         spawn.combo = std::move(combo);
         refreshRuntimeUnitSpawnStores(spawn);
         seededUnitIds.push_back(seed.unitId);

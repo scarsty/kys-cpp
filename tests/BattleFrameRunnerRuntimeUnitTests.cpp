@@ -204,6 +204,7 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
     state.status.units.clear();
     state.damage.unitExtras.clear();
     state.damage.presentationStylesByDefender.clear();
+    state.rescue.units.clear();
     for (auto unit : units)
     {
         KysChess::RoleComboState combo;

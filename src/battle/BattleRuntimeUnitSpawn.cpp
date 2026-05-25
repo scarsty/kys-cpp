@@ -2,6 +2,7 @@
 
 #include "BattleStatusSystem.h"
 
+#include <algorithm>
 #include <cassert>
 #include <utility>
 
@@ -55,6 +56,19 @@ int initialShieldFor(const BattleRuntimeUnit& unit, const RoleComboState& combo)
         shield += unit.vitals.maxHp * shieldPct / 100;
     }
     return shield;
+}
+
+int sumAlwaysEffectCharges(const RoleComboState& combo, EffectType type)
+{
+    int total = 0;
+    for (const auto& effect : combo.appliedEffects)
+    {
+        if (effect.type == type && effect.trigger == Trigger::Always)
+        {
+            total += std::max(1, effect.value);
+        }
+    }
+    return total;
 }
 
 }  // namespace
@@ -138,6 +152,11 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
     runtime.damage.presentationStylesByDefender.emplace(
         unitId,
         makeDamagePresentationStyle(runtime.unitStore.requireUnit(unitId).team));
+    runtime.rescue.units.push_back({
+        unitId,
+        sumAlwaysEffectCharges(runtime.combo.units.at(unitId), EffectType::ForcePullProtect),
+        sumAlwaysEffectCharges(runtime.combo.units.at(unitId), EffectType::ForcePullExecute),
+    });
     if (spawn.actionPlan)
     {
         runtime.action.planSeeds.emplace(unitId, std::move(*spawn.actionPlan));

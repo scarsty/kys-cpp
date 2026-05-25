@@ -115,6 +115,7 @@ inline void seedScenarioRuntimeStores(BattleRuntimeState& state, std::vector<Bat
     state.status.units.clear();
     state.damage.unitExtras.clear();
     state.deathEffects.store.units.clear();
+    state.rescue.units.clear();
     state.movement.agents.clear();
 
     for (const auto& unit : state.unitStore.units)
@@ -124,6 +125,7 @@ inline void seedScenarioRuntimeStores(BattleRuntimeState& state, std::vector<Bat
         state.damage.unitExtras.push_back(makeBattleDamageRuntimeUnit(
             makeBattleDamageUnitState(unit, static_cast<const BattleDamageRuntimeUnit*>(nullptr))));
         state.deathEffects.store.units.push_back({ .id = unit.id });
+        state.rescue.units.push_back({ unit.id, 0, 0 });
 
         if (unit.alive)
         {

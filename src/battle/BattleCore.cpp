@@ -1589,9 +1589,17 @@ std::vector<BattleFrameRescueUnitSnapshot> makeRescueUnitSnapshots(const BattleR
         {
             snapshot.unit.isSummonedClone = comboIt->second.isSummonedClone;
             snapshot.unit.forcePullProtect = firstAlwaysEffect(comboIt->second, EffectType::ForcePullProtect) != nullptr;
-            snapshot.unit.forcePullProtectRemaining = comboIt->second.forcePullProtectRemaining;
             snapshot.unit.forcePullExecute = firstAlwaysEffect(comboIt->second, EffectType::ForcePullExecute) != nullptr;
-            snapshot.unit.forcePullExecuteRemaining = comboIt->second.forcePullExecuteRemaining;
+            const auto* rescueRuntime = tryFindBy(
+                state.rescue.units,
+                unit.id,
+                &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId);
+            snapshot.unit.forcePullProtectRemaining = rescueRuntime
+                ? rescueRuntime->forcePullProtectRemaining
+                : 0;
+            snapshot.unit.forcePullExecuteRemaining = rescueRuntime
+                ? rescueRuntime->forcePullExecuteRemaining
+                : 0;
         }
         snapshots.push_back(std::move(snapshot));
     }
@@ -2668,16 +2676,17 @@ void commitRescueResultToRuntime(
 
     if (result.counterDelta.unitId >= 0)
     {
-        auto comboIt = state.combo.units.find(result.counterDelta.unitId);
-        if (comboIt != state.combo.units.end())
-        {
-            comboIt->second.forcePullProtectRemaining = std::max(
-                0,
-                comboIt->second.forcePullProtectRemaining + result.counterDelta.protectRemainingDelta);
-            comboIt->second.forcePullExecuteRemaining = std::max(
-                0,
-                comboIt->second.forcePullExecuteRemaining + result.counterDelta.executeRemainingDelta);
-        }
+        auto* rescueRuntime = tryFindBy(
+            state.rescue.units,
+            result.counterDelta.unitId,
+            &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId);
+        assert(rescueRuntime);
+        rescueRuntime->forcePullProtectRemaining = std::max(
+            0,
+            rescueRuntime->forcePullProtectRemaining + result.counterDelta.protectRemainingDelta);
+        rescueRuntime->forcePullExecuteRemaining = std::max(
+            0,
+            rescueRuntime->forcePullExecuteRemaining + result.counterDelta.executeRemainingDelta);
     }
 
     if (result.heal.amount > 0)
