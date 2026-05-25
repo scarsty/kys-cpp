@@ -261,31 +261,6 @@ BattleRuntimeState buildRuntimeFromSpawns(
     return runtime;
 }
 
-void refreshDeathAoeDamageEffects(BattleRuntimeState& runtime)
-{
-    runtime.damage.unitEffects.clear();
-    for (const auto& unit : runtime.unitStore.units)
-    {
-        const auto stateIt = runtime.combo.units.find(unit.id);
-        if (stateIt == runtime.combo.units.end())
-        {
-            continue;
-        }
-
-        const auto* deathAoe = firstAlwaysEffect(stateIt->second, EffectType::DeathAOE);
-        if (deathAoe && deathAoe->value > 0)
-        {
-            runtime.damage.unitEffects.emplace(
-                unit.id,
-                BattleDamageApplicationUnitEffects{
-                    deathAoe->value,
-                    deathAoe->duration,
-                    deathAoe->value2,
-                });
-        }
-    }
-}
-
 void deriveRuntimeStores(
     BattleRuntimeState& runtime,
     BattleRuntimeSessionCreationInput input)
@@ -329,7 +304,6 @@ void deriveRuntimeStores(
     runtime.projectileFollowUps = input.rules.projectileFollowUps;
 
     runtime.damage.sortPendingDamageByDefenderMagnitude = true;
-    refreshDeathAoeDamageEffects(runtime);
 }
 
 struct BattleRuntimeSetupResult

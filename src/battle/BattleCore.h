@@ -122,6 +122,10 @@ struct BattleFrameRescueCounterAttackConfig
     int totalFramePadding = 15;
 };
 
+// Persistent battle facts live here. One-frame queues and presentation accumulation
+// belong in BattleFrameContext inside BattleCore.cpp. Do not add cached copies of
+// combo/status/action facts here unless all mutations to the source fact update the
+// cache through the same owner.
 struct BattleRuntimeState
 {
     BattleUnitStore unitStore;
@@ -134,7 +138,6 @@ struct BattleRuntimeState
         bool sortPendingDamageByDefenderMagnitude = false;
         std::vector<BattleDamageRuntimeUnit> unitExtras;
         std::map<int, BattleDamagePresentationStyle> presentationStylesByDefender;
-        std::map<int, BattleDamageApplicationUnitEffects> unitEffects;
         std::vector<BattlePendingDamageIntent> pendingDamage;
     } damage;
 

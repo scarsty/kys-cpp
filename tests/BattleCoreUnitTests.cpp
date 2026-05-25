@@ -2700,6 +2700,40 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClearsRecoveredActionFrameUnitState", 
     CHECK(recovered.operationType == BattleOperationType::None);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DeadUnitActionCleanupClearsAllActionOwners", "[battle][core][ownership]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 120, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 1, 10, { 120, 100, 0 }),
+    };
+    state.unitStore.requireUnit(1).animation.cooldown = 4;
+    state.unitStore.requireUnit(1).animation.actFrame = 2;
+    state.unitStore.requireUnit(1).animation.actType = 3;
+    state.unitStore.requireUnit(1).operationType = BattleOperationType::Melee;
+    state.unitStore.requireUnit(1).haveAction = true;
+    state.action.pendingCasts.emplace(1, BattlePendingCastAction{});
+    state.ultimateCasters.insert(1);
+    state.deathEffects.store.units = { { 0 }, { 1 } };
+    queuePendingDamage(state, lethalDamageInput(0, 1));
+
+    runBattleFrame(state);
+
+    const auto& dead = state.unitStore.requireUnit(1);
+    CHECK(dead.animation.cooldown == 0);
+    CHECK(dead.animation.actFrame == 0);
+    CHECK(dead.animation.actType == -1);
+    CHECK(dead.operationType == BattleOperationType::None);
+    CHECK_FALSE(dead.haveAction);
+    CHECK(state.action.pendingCasts.count(1) == 0);
+    CHECK(state.ultimateCasters.count(1) == 0);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[battle][core]")
 {
     BattleRuntimeState state;
@@ -2738,6 +2772,33 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
     CHECK(gameplayTypes[gameplayTypes.size() - 3] == BattleGameplayEventType::DamageApplied);
     CHECK(gameplayTypes[gameplayTypes.size() - 2] == BattleGameplayEventType::UnitDied);
     CHECK(gameplayTypes[gameplayTypes.size() - 1] == BattleGameplayEventType::BattleEnded);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathClearsFrozenStatusAuthority", "[battle][core][ownership]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 120, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 1, 10, { 120, 100, 0 }),
+    };
+    state.status.units = {
+        makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(state.unitStore.units[0], state.combo.units[0])),
+        makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(state.unitStore.units[1], state.combo.units[1])),
+    };
+    state.deathEffects.store.units = { { 0 }, { 1 } };
+    queuePendingDamage(state, lethalDamageInput(0, 1));
+    requireById(state.status.units, 1).effects.frozenTimer = 5;
+    requireById(state.status.units, 1).effects.frozenMaxTimer = 8;
+
+    runBattleFrame(state);
+
+    CHECK(requireById(state.status.units, 1).effects.frozenTimer == 0);
+    CHECK(requireById(state.status.units, 1).effects.frozenMaxTimer == 0);
 }
 
 TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeStores", "[battle][core][runtime]")
@@ -3286,7 +3347,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathAoeProjectileDamagesOnNextFrame",
         runtimeUnitSnapshot(1, 1, 10, { 120.0f, 100.0f, 0.0f }),
     };
     queuePendingDamage(state, lethalDamageInput(0, 1));
-    state.damage.unitEffects[1] = { 50, 6, 1 };
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[1],
+        { EffectType::DeathAOE, 50, 1, "", Trigger::Always, 0, 6 });
     state.deathEffects.store.units = { { 0 }, { 1 } };
     state.projectileFollowUps.projectileSpeed = SceneProjectileSpeed;
     state.projectileFollowUps.minimumProjectileFrames = 20;
@@ -3726,6 +3789,44 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparat
     CHECK(result.visualEvents[3].type == BattleVisualEventType::ProjectileExpired);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesHitGeneratedProjectilesForNextFrame", "[battle][core][ownership]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 105, 100, 0 }),
+        unit(2, 1, { 140, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.combo.units[0].triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::NearbyTrackingProjectiles, KysChess::Trigger::OnHit, 80, 100));
+    state.combo.units[0].triggeredEffects.back().value2 = 45;
+
+    BattleAttackInstance projectile;
+    projectile.id = 10;
+    projectile.state.attackerUnitId = 0;
+    projectile.state.skillId = 101;
+    projectile.state.skillMagicPower = 480;
+    projectile.state.totalFrame = 30;
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
+    projectile.state.visualEffectId = 44;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
+    state.attacks.attacks.push_back(projectile);
+
+    auto result = runBattleFrame(state);
+
+    CHECK(damageLogAmountsFor(result, 1).size() == 1);
+    REQUIRE(state.pendingAttackSpawns.size() == 2);
+    CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 0);
+    CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == 1);
+    CHECK(state.pendingAttackSpawns[0].initial.suppressNearbyTrackingProjectileProc);
+    CHECK(state.pendingAttackSpawns[1].initial.attackerUnitId == 0);
+    CHECK(state.pendingAttackSpawns[1].initial.preferredTargetUnitId == 2);
+    CHECK(state.pendingAttackSpawns[1].initial.suppressNearbyTrackingProjectileProc);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", "[battle][core]")
 {
     BattleRuntimeState state;
@@ -4050,6 +4151,70 @@ TEST_CASE("BattleRuntimeSession_RunFrame_AppliesDeathComboConsequencesBeforeScen
                 && event.targetUnitId == 2
                 && BattleLogTest::textOf(event) == "獨行轉移";
         }));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_TransferredAntiComboDeathAoeUsesComboState", "[battle][core][ownership]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 120, 100, 0 }),
+        unit(2, 1, { 140, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 1, 10, { 120, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, 60, { 140, 100, 0 }),
+    };
+    state.projectileFollowUps.projectileSpeed = SceneProjectileSpeed;
+    state.projectileFollowUps.minimumProjectileFrames = 20;
+    state.projectileFollowUps.areaProjectileFramePadding = 15;
+    state.projectileFollowUps.areaSpawnDistance = SceneTileWidth;
+
+    const AppliedEffectInstance antiComboDeathAoe{
+        EffectType::DeathAOE,
+        50,
+        1,
+        "",
+        Trigger::Always,
+        0,
+        6,
+        0,
+        33,
+    };
+    state.combo.units[1].appliedEffects.push_back(antiComboDeathAoe);
+    state.deathEffects.store.units = {
+        { .id = 0 },
+        { .id = 1, .comboIds = { 33 }, .appliedEffects = { antiComboDeathAoe } },
+        { .id = 2, .comboIds = { 33 } },
+    };
+    queuePendingDamage(state, lethalDamageInput(0, 1));
+
+    auto result = runBattleFrame(state);
+
+    CHECK(std::any_of(
+        state.combo.units.at(2).appliedEffects.begin(),
+        state.combo.units.at(2).appliedEffects.end(),
+        [](const AppliedEffectInstance& effect)
+        {
+            return effect.type == EffectType::DeathAOE
+                && effect.sourceComboId == 33;
+        }));
+    REQUIRE(state.pendingAttackSpawns.size() == 1);
+    CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 1);
+    CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == 0);
+    CHECK(state.pendingAttackSpawns[0].initial.scriptedDamage == 50);
+    CHECK(state.pendingAttackSpawns[0].initial.scriptedStunFrames == 6);
+
+    queuePendingDamage(state, lethalDamageInput(0, 2));
+    result = runBattleFrame(state);
+
+    REQUIRE(state.pendingAttackSpawns.size() == 1);
+    CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 2);
+    CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == 0);
+    CHECK(state.pendingAttackSpawns[0].initial.scriptedDamage == 50);
+    CHECK(state.pendingAttackSpawns[0].initial.scriptedStunFrames == 6);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battle][core]")

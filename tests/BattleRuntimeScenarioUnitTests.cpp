@@ -98,7 +98,9 @@ TEST_CASE("BattleRuntimeScenario_DamageDeathEffectsAndFollowUpDigest", "[battle]
     });
     state.unitStore.requireUnit(2).stats.attack = 10;
     state.damage.pendingDamage.push_back(scenarioPreResolvedDamage(0, 1, 10));
-    state.damage.unitEffects[1] = { 50, 6, 1 };
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[1],
+        { KysChess::EffectType::DeathAOE, 50, 1, "", KysChess::Trigger::Always, 0, 6 });
     state.projectileFollowUps.projectileSpeed = ScenarioTileWidth / 3.0;
     state.projectileFollowUps.minimumProjectileFrames = 20;
     state.projectileFollowUps.areaProjectileFramePadding = 15;

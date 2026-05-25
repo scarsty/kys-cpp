@@ -3,19 +3,11 @@
 #include "BattleDamageSystem.h"
 #include "BattlePresentation.h"
 
-#include <map>
 #include <string>
 #include <vector>
 
 namespace KysChess::Battle
 {
-
-struct BattleDamageApplicationUnitEffects
-{
-    int deathAoePct = 0;
-    int deathAoeStunFrames = 0;
-    int deathAoeMaxTargets = 0;
-};
 
 struct BattleDamagePresentationInput
 {

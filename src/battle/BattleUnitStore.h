@@ -44,8 +44,6 @@ struct BattleRuntimeUnit
     int physicalPower = 0;
     int invincible = 0;
     int shield = 0;
-    int frozen = 0;
-    int frozenMax = 0;
     std::map<int, int> actPropertiesByMagicType;
     Point grid;
     bool canAttack = true;

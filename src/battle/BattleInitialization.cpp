@@ -419,8 +419,6 @@ BattleRuntimeUnit makeCloneRuntimeUnit(
     clone.operationCount = 0;
     clone.vitals.hp = clone.vitals.maxHp;
     clone.alive = true;
-    clone.frozen = 0;
-    clone.frozenMax = 0;
     clone.weaponId = -1;
     clone.armorId = -1;
     clone.chessInstanceId = -1;

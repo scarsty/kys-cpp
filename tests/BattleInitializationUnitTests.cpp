@@ -522,8 +522,6 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     source.operationCount = 3;
     source.physicalPower = 9;
     source.invincible = 8;
-    source.frozen = 6;
-    source.frozenMax = 12;
     source.weaponId = 71;
     source.armorId = 82;
     source.chessInstanceId = 99;
@@ -559,8 +557,8 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     CHECK(clone.operationCount == 0);
     CHECK(clone.physicalPower == 9);
     CHECK(clone.invincible == 8);
-    CHECK(clone.frozen == 0);
-    CHECK(clone.frozenMax == 0);
+    CHECK(cloneSpawn.status.effects.frozenTimer == 0);
+    CHECK(cloneSpawn.status.effects.frozenMaxTimer == 0);
     CHECK(clone.weaponId == -1);
     CHECK(clone.armorId == -1);
     CHECK(clone.chessInstanceId == -1);
