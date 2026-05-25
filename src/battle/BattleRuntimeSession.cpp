@@ -96,7 +96,6 @@ BattleDeathEffectStore makeDeathEffectStore(
         BattleDeathEffectExtras extras;
         extras.id = unit.id;
         extras.shieldPctMaxHp = sumAlwaysEffectValue(stateIt->second, EffectType::ShieldPctMaxHP);
-        extras.shieldOnAllyDeathTracker = stateIt->second.shieldOnAllyDeathTracker;
         extras.appliedEffects = stateIt->second.appliedEffects;
 
         const int comboLookupId = getComboLookupId(unit.realRoleId, stateIt->second);
