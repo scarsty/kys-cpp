@@ -175,24 +175,6 @@ struct BattleExecuteComboResult
     int effectIndex = -1;
 };
 
-struct BattleDefenderBlockInput
-{
-    bool executed = false;
-    bool reflected = false;
-};
-
-enum class BattleDefenderBlockCommand
-{
-    CounterUltimateBlock,
-    Block,
-};
-
-struct BattleStunCommand
-{
-    int frames{};
-    int effectIndex{};
-};
-
 struct BattleProjectileBouncePrimeInput
 {
     int attackerUnitId = -1;
@@ -234,35 +216,6 @@ struct BattleDamageReduceDebuffProc
     int durationFrames = 0;
 };
 
-enum class BattleOnHitComboCommandType
-{
-    MpBlock,
-    NearbyTrackingProjectiles,
-};
-
-enum class BattleShieldBreakCommandType
-{
-    ShieldExplosion,
-    AutoUltimate,
-    TempFlatAttack,
-    MpRestore,
-};
-
-struct BattleOnHitComboCommand
-{
-    BattleOnHitComboCommandType type{};
-    int value{};
-    int value2{};
-};
-
-struct BattleShieldBreakCommand
-{
-    BattleShieldBreakCommandType type{};
-    int value{};
-    int durationFrames{};
-    int effectIndex{};
-};
-
 struct BattleActivatedComboEffect
 {
     int effectIndex{};
@@ -298,17 +251,6 @@ public:
         BattleRuntimeRandom& random) const;
 
     BattleTriggeredTeamHeal collectPendingSkillTeamHeal(
-        RoleComboState& state,
-        const BattleComboTriggerInput& input,
-        BattleRuntimeRandom& random) const;
-
-    std::vector<BattleOnHitComboCommand> collectOnHitComboCommands(
-        RoleComboState& state,
-        const BattleComboTriggerInput& input,
-        bool suppressNearbyTrackingProjectiles,
-        BattleRuntimeRandom& random) const;
-
-    std::vector<BattleShieldBreakCommand> collectShieldBreakCommands(
         RoleComboState& state,
         const BattleComboTriggerInput& input,
         BattleRuntimeRandom& random) const;
@@ -358,16 +300,6 @@ public:
     bool resolveProjectileReflect(const RoleComboState& state,
                                   bool rangedProjectile,
                                   BattleRuntimeRandom& random) const;
-
-    std::vector<BattleDefenderBlockCommand> collectDefenderBlockCommands(
-        const RoleComboState& state,
-        const BattleDefenderBlockInput& input,
-        BattleRuntimeRandom& random) const;
-
-    std::vector<BattleStunCommand> collectStunCommands(
-        RoleComboState& state,
-        const BattleComboTriggerInput& input,
-        BattleRuntimeRandom& random) const;
 
     BattleProjectileBouncePrime collectProjectileBouncePrime(
         const RoleComboState& state,

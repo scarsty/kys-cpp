@@ -742,22 +742,24 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     if (offensiveControlEffectsAllowed)
     {
-        auto hitStunCommands = BattleComboTriggerSystem().collectStunCommands(
+        auto hitStunEvents = BattleComboTriggerSystem().collectTriggerEvents(
             attackerCombo,
             { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
-            random);
-        for (const auto& stunCommand : hitStunCommands)
+            { EffectType::Stun },
+            random,
+            BattleComboActivationRecording::CallerRecords);
+        for (const auto& event : hitStunEvents)
         {
             BattleDamageRequest request;
-            request.frozenFrames = stunCommand.frames;
+            request.frozenFrames = event.effect.value;
             result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
             result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
-                logStatusFrames("眩暈", stunCommand.frames)));
+                logStatusFrames("眩暈", event.effect.value)));
             BattleComboTriggerSystem().recordActivation(
                 attackerCombo,
-                static_cast<size_t>(stunCommand.effectIndex));
+                static_cast<size_t>(event.effectIndex));
         }
     }
 
@@ -894,22 +896,24 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
     }
 
-    auto beingHitStunCommands = BattleComboTriggerSystem().collectStunCommands(
+    auto beingHitStunEvents = BattleComboTriggerSystem().collectTriggerEvents(
         defenderCombo,
         { BattleComboTriggerHook::DamageTaken, input.defender.id, input.attacker.id },
-        random);
-    for (const auto& stunCommand : beingHitStunCommands)
+        { EffectType::Stun },
+        random,
+        BattleComboActivationRecording::CallerRecords);
+    for (const auto& event : beingHitStunEvents)
     {
         BattleDamageRequest request;
-        request.frozenFrames = stunCommand.frames;
+        request.frozenFrames = event.effect.value;
         result.commands.push_back(acceptedHitCommand(input.defender.id, input.attacker.id, request));
         result.logEvents.push_back(statusEvent(
             input.defender.id,
             input.attacker.id,
-            logStatusFrames("反制並眩暈對手", stunCommand.frames)));
+            logStatusFrames("反制並眩暈對手", event.effect.value)));
         BattleComboTriggerSystem().recordActivation(
             defenderCombo,
-            static_cast<size_t>(stunCommand.effectIndex));
+            static_cast<size_t>(event.effectIndex));
     }
 
     result.reflected = BattleComboTriggerSystem().resolveProjectileReflect(

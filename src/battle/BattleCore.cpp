@@ -3731,33 +3731,40 @@ void appendFrameShieldBreakCommands(
 
     auto& defenderCombo = requireMappedById(state.combo.units, transaction.defender.id);
     int shieldExplosionPct = 0;
-    auto shieldBreakCommands = BattleComboTriggerSystem().collectShieldBreakCommands(
+    auto shieldBreakEvents = BattleComboTriggerSystem().collectTriggerEvents(
         defenderCombo,
         { BattleComboTriggerHook::ShieldBreak, transaction.defender.id, transaction.defender.id },
-        state.random);
-    for (const auto& shieldBreak : shieldBreakCommands)
+        {
+            EffectType::ShieldExplosion,
+            EffectType::AutoUltimate,
+            EffectType::TempFlatATK,
+            EffectType::MPRestore,
+        },
+        state.random,
+        BattleComboActivationRecording::CallerRecords);
+    for (const auto& event : shieldBreakEvents)
     {
         bool activated = true;
-        switch (shieldBreak.type)
+        switch (event.effect.type)
         {
-        case BattleShieldBreakCommandType::ShieldExplosion:
-            shieldExplosionPct = std::max(shieldExplosionPct, shieldBreak.value);
+        case EffectType::ShieldExplosion:
+            shieldExplosionPct = std::max(shieldExplosionPct, event.effect.value);
             break;
-        case BattleShieldBreakCommandType::AutoUltimate:
+        case EffectType::AutoUltimate:
             frame.frameCommands.push_back(BattleAutoUltimateCommand{ transaction.defender.id, false });
             break;
-        case BattleShieldBreakCommandType::TempFlatAttack:
+        case EffectType::TempFlatATK:
             frame.frameCommands.push_back(BattleTempAttackBuffCommand{
                 transaction.defender.id,
-                shieldBreak.value,
-                shieldBreak.durationFrames,
-                std::format("護盾爆炸（臨時攻+{}，{}幀）", shieldBreak.value, shieldBreak.durationFrames),
+                event.effect.value,
+                event.effect.duration,
+                std::format("護盾爆炸（臨時攻+{}，{}幀）", event.effect.value, event.effect.duration),
             });
             break;
-        case BattleShieldBreakCommandType::MpRestore:
+        case EffectType::MPRestore:
         {
             int restored = std::min(
-                shieldBreak.value,
+                event.effect.value,
                 std::max(0, transaction.defender.vitals.maxMp - transaction.defender.vitals.mp));
             if (restored > 0)
             {
@@ -3781,7 +3788,7 @@ void appendFrameShieldBreakCommands(
         {
             BattleComboTriggerSystem().recordActivation(
                 defenderCombo,
-                static_cast<size_t>(shieldBreak.effectIndex));
+                static_cast<size_t>(event.effectIndex));
         }
     }
     if (shieldExplosionPct > 0)
@@ -4720,41 +4727,41 @@ bool applyFrameDefenderBlockCommands(
     assert(request.defenderUnitId >= 0);
 
     const auto& defenderCombo = requireMappedById(state.combo.units, request.defenderUnitId);
-    auto blockCommands = BattleComboTriggerSystem().collectDefenderBlockCommands(
-        defenderCombo,
-        { false, false },
-        state.random);
-    if (blockCommands.empty())
+    const bool counterUltimateBlock = defenderCombo.counterUltimateBlockChancePct > 0
+        && (defenderCombo.counterUltimateBlockChancePct >= 100
+            || state.random.chance(defenderCombo.counterUltimateBlockChancePct));
+    const bool block = defenderCombo.blockChancePct > 0
+        && (defenderCombo.blockChancePct >= 100
+            || state.random.chance(defenderCombo.blockChancePct));
+    if (!counterUltimateBlock && !block)
     {
         return false;
     }
 
-    for (auto blockCommand : blockCommands)
+    if (counterUltimateBlock)
     {
         frame.visualEvents.push_back(roleEffectEvent(
             request.defenderUnitId,
             KysChess::EFT_BLOCK,
             CoreRoleStatusEffectFrames));
-        switch (blockCommand)
-        {
-        case BattleDefenderBlockCommand::CounterUltimateBlock:
-            appendStatusEventLog(
-                frame.logEvents,
-                request.defenderUnitId,
-                request.attackerUnitId,
-                "格擋後釋放絕招");
-            frame.frameCommands.push_back(BattleAutoUltimateCommand{ request.defenderUnitId, false });
-            break;
-        case BattleDefenderBlockCommand::Block:
-            appendStatusEventLog(
-                frame.logEvents,
-                request.defenderUnitId,
-                request.attackerUnitId,
-                "格擋了本次攻擊");
-            break;
-        default:
-            assert(false);
-        }
+        appendStatusEventLog(
+            frame.logEvents,
+            request.defenderUnitId,
+            request.attackerUnitId,
+            "格擋後釋放絕招");
+        frame.frameCommands.push_back(BattleAutoUltimateCommand{ request.defenderUnitId, false });
+    }
+    if (block)
+    {
+        frame.visualEvents.push_back(roleEffectEvent(
+            request.defenderUnitId,
+            KysChess::EFT_BLOCK,
+            CoreRoleStatusEffectFrames));
+        appendStatusEventLog(
+            frame.logEvents,
+            request.defenderUnitId,
+            request.attackerUnitId,
+            "格擋了本次攻擊");
     }
     return true;
 }
