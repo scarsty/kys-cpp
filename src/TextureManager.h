@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "Engine.h"
-#include "ArchiveFile.h"
+#include "ZipFile.h"
 #include <map>
 #include <vector>
 
@@ -10,7 +10,7 @@
 
 struct GroupInfo
 {
-    ArchiveFile zip;
+    ZipFile zip;
     std::string path;
     std::string ext_ = ".png";
 };

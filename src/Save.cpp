@@ -3,7 +3,7 @@
 #include "GrpIdxFile.h"
 #include "NewSave.h"
 #include "PotConv.h"
-#include "ArchiveFile.h"
+#include "ZipFile.h"
 #include "filefunc.h"
 
 Save::Save()
@@ -79,7 +79,7 @@ bool Save::load(int num)
         return false;
     }
 
-    ArchiveFile zip;
+    ZipFile zip;
     if (ZIP_SAVE)
     {
         zip.openRead(getFilename(num, 'z'));
@@ -164,7 +164,7 @@ bool Save::load(int num)
 
 bool Save::save(int num)
 {
-    ArchiveFile zip;
+    ZipFile zip;
     if (ZIP_SAVE)
     {
         zip.create(getFilename(num, 'z'));

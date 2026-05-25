@@ -206,7 +206,7 @@
     <ClCompile Include="..\cifa\Cifa.cpp">
       <Filter>cifa</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\ArchiveFile.cpp">
+    <ClCompile Include="..\mlcc\ZipFile.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
   </ItemGroup>
@@ -433,7 +433,7 @@
     <ClInclude Include="..\cifa\Cifa.h">
       <Filter>cifa</Filter>
     </ClInclude>
-    <ClInclude Include="..\mlcc\ArchiveFile.h">
+    <ClInclude Include="..\mlcc\ZipFile.h">
       <Filter>mlcc</Filter>
     </ClInclude>
   </ItemGroup>
