@@ -271,27 +271,27 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
         s.fightWinGrowthDEF += e.value2 > 0 ? e.value2 : e.value;
         break;
     case EffectType::NegPctDEF: s.pctDEF -= e.value; break;
-    case EffectType::FlatDmgReduction: s.flatDmgReduction += e.value; break;
-    case EffectType::FlatDmgIncrease: s.flatDmgIncrease += e.value; break;
+    case EffectType::FlatDmgReduction: break;
+    case EffectType::FlatDmgIncrease: break;
     case EffectType::BlockChance: s.blockChancePct += e.value; break;
-    case EffectType::DodgeChance: s.dodgeChancePct += e.value; break;
-    case EffectType::DodgeThenCrit: s.dodgeThenCrit = true; break;
-    case EffectType::CritChance: s.critChancePct += e.value; break;
-    case EffectType::CritMultiplier: s.critMultiplier = std::max(s.critMultiplier, e.value); break;
-    case EffectType::EveryNthDouble: if (e.value > 0) s.everyNthDoubles.push_back(e.value); break;
-    case EffectType::ArmorPenChance: s.armorPenChancePct += e.value; break;
-    case EffectType::ArmorPenPct: s.armorPenPct = std::max(s.armorPenPct, e.value); break;
+    case EffectType::DodgeChance: break;
+    case EffectType::DodgeThenCrit: break;
+    case EffectType::CritChance: break;
+    case EffectType::CritMultiplier: break;
+    case EffectType::EveryNthDouble: break;
+    case EffectType::ArmorPenChance: break;
+    case EffectType::ArmorPenPct: break;
     case EffectType::ArmorPen: break;  // handled as triggered effect
     case EffectType::Stun: break;  // handled as triggered effect
-    case EffectType::KnockbackChance: s.knockbackChancePct += e.value; break;
-    case EffectType::PoisonDOT: s.poisonDOTPct += e.value; if (e.value2) s.poisonDuration = std::max(s.poisonDuration, e.value2 * 30); break;
-    case EffectType::PoisonDmgAmp: s.poisonDmgAmpPct += e.value; break;
-    case EffectType::MPOnHit: s.mpOnHit += e.value; break;
-    case EffectType::HPOnHit: s.hpOnHit += e.value; break;
-    case EffectType::MPDrain: s.mpDrain += e.value; break;
+    case EffectType::KnockbackChance: break;
+    case EffectType::PoisonDOT: break;
+    case EffectType::PoisonDmgAmp: break;
+    case EffectType::MPOnHit: break;
+    case EffectType::HPOnHit: break;
+    case EffectType::MPDrain: break;
     case EffectType::MPRecoveryBonus: break;
-    case EffectType::SkillDmgPct: s.skillDmgPct += e.value; break;
-    case EffectType::SkillReflectPct: s.skillReflectPct = std::max(s.skillReflectPct, e.value); break;
+    case EffectType::SkillDmgPct: break;
+    case EffectType::SkillReflectPct: break;
     case EffectType::CDR: s.cdrPct += e.value; break;
     case EffectType::FlatShield: break;
     case EffectType::ShieldPctMaxHP: break;
@@ -305,7 +305,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::KillHealPct: break;
     case EffectType::KillInvincFrames: break;
     case EffectType::PostSkillInvincFrames: s.postSkillInvincFrames = std::max(s.postSkillInvincFrames, e.value); break;
-    case EffectType::DmgReductionPct: s.dmgReductionPct += e.value; break;
+    case EffectType::DmgReductionPct: break;
     case EffectType::Bloodlust: break;
     case EffectType::Adaptation:
         s.adaptations.push_back({e.value, e.value2});
@@ -321,10 +321,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
         s.rampingIdleTimers.push_back(0);
         break;
     case EffectType::HealBurst: break;  // only meaningful as triggered
-    case EffectType::BleedChance:
-        s.bleedChancePct += e.value;
-        if (e.value2 > 0) s.bleedMaxStacks = e.value2;
-        break;
+    case EffectType::BleedChance: break;
     case EffectType::PostSkillDash:
         s.postSkillDash = true;
         s.postSkillDashFrames = std::max(s.postSkillDashFrames, e.value);
@@ -336,7 +333,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::BlinkAttack: s.blinkAttack = true; break;
     case EffectType::AllyDeathStatBoost: break;
     case EffectType::CloneSummon: s.cloneSummonCount = std::max(s.cloneSummonCount, e.value); break;
-    case EffectType::ProjectileReflect: s.projectileReflectPct += e.value; break;
+    case EffectType::ProjectileReflect: break;
     case EffectType::ProjectileBounce: break;
     case EffectType::OnSkillTeamHeal: s.onSkillTeamHeal = std::max(s.onSkillTeamHeal, e.value); break;
     case EffectType::OnSkillTeamHealPct: s.onSkillTeamHealPct = std::max(s.onSkillTeamHealPct, e.value); break;
@@ -354,11 +351,8 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
         break;
     case EffectType::Execute: break;  // handled as triggered effect (OnHit)
     case EffectType::MPBlock: break;  // handled as triggered effect (OnHit)
-    case EffectType::CharmCDRDebuff:
-        s.charmCDRChancePct = e.value;
-        s.charmCDRAmountPct = e.value2;
-        break;
-    case EffectType::OffensiveCharm: s.offensiveCharmChancePct = std::max(s.offensiveCharmChancePct, e.value); break;
+    case EffectType::CharmCDRDebuff: break;
+    case EffectType::OffensiveCharm: break;
     case EffectType::DeathAOE:
         s.deathAOEPct = std::max(s.deathAOEPct, e.value);
         if (e.duration > 0) s.deathAOEStunFrames = std::max(s.deathAOEStunFrames, e.duration);
@@ -371,32 +365,26 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::ShieldOnAllyDeath: break;
     case EffectType::DamageImmunityAfterFrames: break;
     case EffectType::AutoUltimateAfterFrames: break;
-    case EffectType::UltimateExtraProjectiles: s.ultimateExtraProjectiles += e.value; break;
+    case EffectType::UltimateExtraProjectiles: break;
     case EffectType::BlockFirstHits: break;
     case EffectType::GoldCoefficient: s.goldCoefficient = e.value; break;
     case EffectType::HurtInvincFrames: break;
     case EffectType::DashAttack: s.dashAttack = true; break;
     case EffectType::DashChanceBoost: s.dashChanceBoostPct += e.value; break;
-    case EffectType::MPRatioDmgBoost: s.mpRatioDmgBoostPct += e.value; break;
-    case EffectType::DmgReduceDebuff:
-        s.dmgReduceDebuffChancePct = 100;
-        s.dmgReduceDebuffDurationFrames = e.value2;
-        s.dmgReduceDebuffPct = e.value;
-        break;
+    case EffectType::MPRatioDmgBoost: break;
+    case EffectType::DmgReduceDebuff: break;
     case EffectType::CurrentHPPctBlast: break;
     case EffectType::TeamMPRestore: break;
     case EffectType::SpiralBleedProjectile: break;
-    case EffectType::NearbyTrackingProjectiles:
-        s.nearbyTrackingProjectileRange = std::max(s.nearbyTrackingProjectileRange, e.value);
-        break;
+    case EffectType::NearbyTrackingProjectiles: break;
     case EffectType::ForceRangedAttack:
         s.forceRangedAttack = true;
         if (e.value2 > 0) s.forceRangedMinSelectDistance = std::max(1, e.value2);
         if (e.value > 0) s.projectileSpeedMultiplierPct = std::max(s.projectileSpeedMultiplierPct, e.value);
         s.ignoreProjectileCancel = true;
         break;
-    case EffectType::CounterUltimateBlock: s.counterUltimateBlockChancePct = std::max(s.counterUltimateBlockChancePct, e.value); break;
-    case EffectType::MaxHitPctCurrentHP: s.maxHitPctCurrentHP = std::max(s.maxHitPctCurrentHP, e.value); break;
+    case EffectType::CounterUltimateBlock: break;
+    case EffectType::MaxHitPctCurrentHP: break;
     case EffectType::FreeRefresh: break;
     case EffectType::BattleMapChoice: break;
     }

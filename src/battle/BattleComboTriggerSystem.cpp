@@ -519,7 +519,7 @@ BattleDodgeResolution BattleComboTriggerSystem::resolveDodge(
     assert(attackerUnitId >= 0);
     assert(rollPercent >= 0.0 && rollPercent < 100.0);
 
-    int dodgeChancePct = state.dodgeChancePct;
+    int dodgeChancePct = sumAlwaysEffectValue(state, EffectType::DodgeChance);
     for (size_t i = 0; i < state.dodgeAdaptations.size(); ++i)
     {
         assert(i < state.dodgeAdaptationStacks.size());
@@ -558,26 +558,33 @@ BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
     }
 
     bool critted = false;
-    if (state.dodgedLast && state.dodgeThenCrit)
+    if (state.dodgedLast && firstAlwaysEffect(state, EffectType::DodgeThenCrit) != nullptr)
     {
         critted = true;
         state.dodgedLast = false;
     }
-    if (!critted && passesChance(random, state.critChancePct))
+    const int critChancePct = sumAlwaysEffectValue(state, EffectType::CritChance);
+    if (!critted && passesChance(random, critChancePct))
     {
         critted = true;
     }
     if (critted)
     {
-        result.damage *= state.critMultiplier / 100.0;
+        const int critMultiplier = std::max(150, maxAlwaysEffectValue(state, EffectType::CritMultiplier));
+        result.damage *= critMultiplier / 100.0;
         result.events.push_back({
             BattleAttackerHitDamageEventType::Crit,
-            state.critMultiplier,
+            critMultiplier,
         });
     }
 
-    for (int n : state.everyNthDoubles)
+    for (const auto& effect : state.appliedEffects)
     {
+        if (effect.type != EffectType::EveryNthDouble || effect.trigger != Trigger::Always || effect.value <= 0)
+        {
+            continue;
+        }
+        const int n = effect.value;
         auto& counter = state.everyNthCounters[n];
         counter++;
         if (counter >= n)
@@ -708,7 +715,7 @@ bool BattleComboTriggerSystem::resolveProjectileReflect(
     bool rangedProjectile,
     BattleRuntimeRandom& random) const
 {
-    return rangedProjectile && passesChance(random, state.projectileReflectPct);
+    return rangedProjectile && passesChance(random, sumAlwaysEffectValue(state, EffectType::ProjectileReflect));
 }
 
 BattleProjectileBouncePrime BattleComboTriggerSystem::collectProjectileBouncePrime(
@@ -793,9 +800,10 @@ BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDef
 
     BattleArmorPenetrationResult result;
     result.defense = input.defense;
-    if (passesChance(random, state.armorPenChancePct))
+    const int armorPenChancePct = sumAlwaysEffectValue(state, EffectType::ArmorPenChance);
+    if (passesChance(random, armorPenChancePct))
     {
-        result.defense *= (1.0 - state.armorPenPct / 100.0);
+        result.defense *= (1.0 - maxAlwaysEffectValue(state, EffectType::ArmorPenPct) / 100.0);
     }
 
     for (const auto& event : matchingTriggerEffects(

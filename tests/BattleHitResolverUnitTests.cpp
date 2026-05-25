@@ -210,8 +210,8 @@ TEST_CASE("BattleHitResolver_CritMarksResultAndKeepsDamageDetail", "[battle][hit
     auto input = hitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
-    input.attackerCombo.critChancePct = 100;
-    input.attackerCombo.critMultiplier = 200;
+    KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::CritChance, 100 });
+    KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::CritMultiplier, 200 });
 
     auto result = resolveHit(input);
 
@@ -230,8 +230,8 @@ TEST_CASE("BattleHitResolver_ProjectileCritKeepsDamageDetailWithoutStatusLog", "
     input.attackEvent.operationType = BattleOperationType::RangedProjectile;
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
-    input.attackerCombo.critChancePct = 100;
-    input.attackerCombo.critMultiplier = 200;
+    KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::CritChance, 100 });
+    KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::CritMultiplier, 200 });
 
     auto result = resolveHit(input);
 
@@ -267,7 +267,7 @@ TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand",
     auto input = hitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
-    input.attackerCombo.hpOnHit = 30;
+    KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::HPOnHit, 30 });
 
     auto result = resolveHit(input);
 
@@ -293,8 +293,7 @@ TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resol
     auto input = hitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
-    input.attackerCombo.poisonDOTPct = 12;
-    input.attackerCombo.poisonDuration = 60;
+    KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::PoisonDOT, 12, 2 });
 
     auto result = resolveHit(input);
 
@@ -335,7 +334,7 @@ TEST_CASE("BattleHitResolver_ReflectedRangedProjectileChangesActualSourceAndTarg
     input.attackEvent.operationType = BattleOperationType::RangedProjectile;
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 40;
-    input.defenderCombo.projectileReflectPct = 100;
+    KysChess::ChessBattleEffects::applyEffect(input.defenderCombo, { KysChess::EffectType::ProjectileReflect, 100 });
 
     auto result = resolveHit(input);
 
@@ -354,7 +353,7 @@ TEST_CASE("BattleHitResolver_ReflectsTrackingProjectile", "[battle][hit_resolver
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
-    input.defenderCombo.projectileReflectPct = 100;
+    KysChess::ChessBattleEffects::applyEffect(input.defenderCombo, { KysChess::EffectType::ProjectileReflect, 100 });
 
     auto result = resolveHit(input);
 
@@ -416,7 +415,7 @@ TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battl
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
-    input.defenderCombo.skillReflectPct = 20;
+    KysChess::ChessBattleEffects::applyEffect(input.defenderCombo, { KysChess::EffectType::SkillReflectPct, 20 });
 
     auto result = resolveHit(input);
 
@@ -437,8 +436,7 @@ TEST_CASE("BattleHitResolver_BleedAndMpBlockEmitAcceptedHitCommands", "[battle][
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
-    input.attackerCombo.bleedChancePct = 100;
-    input.attackerCombo.bleedMaxStacks = 3;
+    KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::BleedChance, 100, 3 });
     input.attackerCombo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::MPBlock, KysChess::Trigger::OnHit, 9, 100));
 
@@ -561,7 +559,7 @@ TEST_CASE("BattleHitResolver_SkillReflectDamageDoesNotTriggerDefenseEffects", "[
     auto input = hitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 80;
-    input.defenderCombo.skillReflectPct = 50;
+    KysChess::ChessBattleEffects::applyEffect(input.defenderCombo, { KysChess::EffectType::SkillReflectPct, 50 });
 
     auto result = resolveHit(input);
 

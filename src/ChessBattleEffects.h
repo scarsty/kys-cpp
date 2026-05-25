@@ -146,33 +146,14 @@ struct RoleComboState
     int fightWinGrowthHP = 0, fightWinGrowthATK = 0, fightWinGrowthDEF = 0;
 
     // Trigger values
-    int flatDmgReduction = 0;
-    int flatDmgIncrease = 0;
     int blockChancePct = 0;
-    int dodgeChancePct = 0;
-    bool dodgeThenCrit = false;
-    int critChancePct = 0;
-    int critMultiplier = 150;
-    std::vector<int> everyNthDoubles;
-    int armorPenChancePct = 0;
-    int armorPenPct = 0;
     int stunChancePct = 0;
     int stunFrames = 0;
-    int knockbackChancePct = 0;
-    int poisonDOTPct = 0;
-    int poisonDuration = 0;
-    int poisonDmgAmpPct = 0;
-    int mpOnHit = 0;
-    int hpOnHit = 0;
-    int mpDrain = 0;
-    int skillDmgPct = 0;
-    int skillReflectPct = 0;
     int cdrPct = 0;
     std::vector<AppliedEffectInstance> appliedEffects;
     // Generic triggered effects (non-Always triggers stored here)
     std::vector<AppliedEffectInstance> triggeredEffects;
     int postSkillInvincFrames = 0;
-    int dmgReductionPct = 0;
     // Comeback & Scaling
     int bloodlustATKPerKill = 0;
     struct AdaptationInstance { int pctPerStack; int maxStacks; };
@@ -182,18 +163,12 @@ struct RoleComboState
     struct RampingInstance { int pctPerStack; int maxStacks; };
     std::vector<RampingInstance> rampings;
     // --- New effects (expanded pool) ---
-    int bleedChancePct = 0;
-    int bleedMaxStacks = 5;
     bool postSkillDash = false;
     int postSkillDashFrames = 0;
     bool blinkAttack = false;
     int cloneSummonCount = 0;
-    int projectileReflectPct = 0;
     int onSkillTeamHeal = 0;
     int onSkillTeamHealPct = 0;
-    int charmCDRChancePct = 0;
-    int charmCDRAmountPct = 0;
-    int offensiveCharmChancePct = 0;
     int deathAOEPct = 0;
     int deathAOEStunFrames = 0;
     int deathAOEMaxTargets = 0;
@@ -204,14 +179,10 @@ struct RoleComboState
     bool forcePullExecute = false;
     int forcePullProtectCharges = 0;
     int forcePullExecuteCharges = 0;
-    int ultimateExtraProjectiles = 0;
     bool forceRangedAttack = false;
     int forceRangedMinSelectDistance = 0;
     int projectileSpeedMultiplierPct = 100;
     bool ignoreProjectileCancel = false;
-    int counterUltimateBlockChancePct = 0;
-    int maxHitPctCurrentHP = 0;
-    int nearbyTrackingProjectileRange = 0;
 
     // Mutable runtime state
     std::map<int, int> everyNthCounters;  // N value → counter
@@ -235,11 +206,6 @@ struct RoleComboState
     int goldCoefficient = 0;
     bool dashAttack = false;
     int dashChanceBoostPct = 0;
-    int mpRatioDmgBoostPct = 0;
-    // Damage reduce debuff: on hit, mark target to reduce their damage for X frames by Y%
-    int dmgReduceDebuffChancePct = 0;
-    int dmgReduceDebuffDurationFrames = 0;
-    int dmgReduceDebuffPct = 0;
 };
 
 int sumAlwaysEffectValue(const RoleComboState& state, EffectType type);

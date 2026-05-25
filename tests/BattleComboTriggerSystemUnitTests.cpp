@@ -625,7 +625,7 @@ TEST_CASE("BattleComboTriggerSystem_FrameTriggerEffects_FilterActiveConditionsWi
 TEST_CASE("BattleComboTriggerSystem_DodgeResolutionAddsAdaptationStacksAndConsumesExplicitRoll", "[battle][combo][unit]")
 {
     RoleComboState state;
-    state.dodgeChancePct = 10;
+    ChessBattleEffects::applyEffect(state, { EffectType::DodgeChance, 10 });
     state.dodgeAdaptations.push_back({ 5, 4 });
     state.dodgeAdaptations.push_back({ 20, 3 });
     state.dodgeAdaptationStacks.resize(2);
@@ -644,7 +644,7 @@ TEST_CASE("BattleComboTriggerSystem_DodgeResolutionAddsAdaptationStacksAndConsum
 TEST_CASE("BattleComboTriggerSystem_DodgeResolutionClampsChance", "[battle][combo][unit]")
 {
     RoleComboState state;
-    state.dodgeChancePct = 95;
+    ChessBattleEffects::applyEffect(state, { EffectType::DodgeChance, 95 });
     state.dodgeAdaptations.push_back({ 20, 10 });
     state.dodgeAdaptationStacks.resize(1);
     state.dodgeAdaptationStacks[0][3] = 2;
@@ -658,9 +658,9 @@ TEST_CASE("BattleComboTriggerSystem_DodgeResolutionClampsChance", "[battle][comb
 TEST_CASE("BattleComboTriggerSystem_AttackerHitDamage_AppliesCritNthAndRampingState", "[battle][combo][unit]")
 {
     RoleComboState state;
-    state.critChancePct = 50;
-    state.critMultiplier = 200;
-    state.everyNthDoubles.push_back(2);
+    ChessBattleEffects::applyEffect(state, { EffectType::CritChance, 50 });
+    ChessBattleEffects::applyEffect(state, { EffectType::CritMultiplier, 200 });
+    ChessBattleEffects::applyEffect(state, { EffectType::EveryNthDouble, 2 });
     state.everyNthCounters[2] = 1;
     state.rampings.push_back({ 25, 3 });
     state.rampingStacks.push_back(1);
@@ -737,7 +737,7 @@ TEST_CASE("BattleComboTriggerSystem_ExecuteCombo_RecordsOnlyTriggeredExecute", "
 TEST_CASE("BattleComboTriggerSystem_DefenderReactions_ResolveReflect", "[battle][combo][unit]")
 {
     RoleComboState state;
-    state.projectileReflectPct = 40;
+    ChessBattleEffects::applyEffect(state, { EffectType::ProjectileReflect, 40 });
 
     auto reflectHitRandom = randomForChanceSequence({ { 40, true } });
     CHECK(BattleComboTriggerSystem().resolveProjectileReflect(state, true, reflectHitRandom));
@@ -824,8 +824,8 @@ TEST_CASE("BattleComboTriggerSystem_ExecuteCapability_DetectsExecuteEffect", "[b
 TEST_CASE("BattleComboTriggerSystem_ArmorPenetration_AppliesLegacyAndTriggeredPen", "[battle][combo][unit]")
 {
     RoleComboState state;
-    state.armorPenChancePct = 100;
-    state.armorPenPct = 25;
+    ChessBattleEffects::applyEffect(state, { EffectType::ArmorPenChance, 100 });
+    ChessBattleEffects::applyEffect(state, { EffectType::ArmorPenPct, 25 });
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::ArmorPen, Trigger::OnHit, 40, 100));
 

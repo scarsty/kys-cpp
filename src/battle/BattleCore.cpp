@@ -462,11 +462,12 @@ int sharedBleedMaxStacks(const BattleRuntimeState& state, const BattleAttackEven
         return 1;
     }
     auto it = state.combo.units.find(event.sourceUnitId);
-    if (it == state.combo.units.end() || it->second.bleedChancePct <= 0)
+    if (it == state.combo.units.end() || sumAlwaysEffectValue(it->second, EffectType::BleedChance) <= 0)
     {
         return 1;
     }
-    return std::max(1, it->second.bleedMaxStacks);
+    const auto* bleed = firstAlwaysEffect(it->second, EffectType::BleedChance);
+    return std::max(1, bleed && bleed->value2 > 0 ? bleed->value2 : 5);
 }
 
 int resolveHitMagicBaseDamage(
@@ -1693,7 +1694,7 @@ void refreshRuntimeCastSkillBonuses(BattleRuntimeState& state, BattleCastInput& 
             combo,
             state.random,
             input.unit.id,
-            std::max(0, combo.ultimateExtraProjectiles));
+            std::max(0, sumAlwaysEffectValue(combo, EffectType::UltimateExtraProjectiles)));
     }
 }
 
@@ -2340,7 +2341,7 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
             combo,
             state.random,
             unit.id,
-            std::max(0, combo.ultimateExtraProjectiles));
+            std::max(0, sumAlwaysEffectValue(combo, EffectType::UltimateExtraProjectiles)));
     }
     castInput->normalSkill = selectedSkill;
     castInput->ultimateSkill = selectedSkill;
@@ -4727,12 +4728,12 @@ bool applyFrameDefenderBlockCommands(
     assert(request.defenderUnitId >= 0);
 
     const auto& defenderCombo = requireMappedById(state.combo.units, request.defenderUnitId);
-    const bool counterUltimateBlock = defenderCombo.counterUltimateBlockChancePct > 0
-        && (defenderCombo.counterUltimateBlockChancePct >= 100
-            || state.random.chance(defenderCombo.counterUltimateBlockChancePct));
-    const bool block = defenderCombo.blockChancePct > 0
-        && (defenderCombo.blockChancePct >= 100
-            || state.random.chance(defenderCombo.blockChancePct));
+    const int counterUltimateBlockChancePct = maxAlwaysEffectValue(defenderCombo, EffectType::CounterUltimateBlock);
+    const bool counterUltimateBlock = counterUltimateBlockChancePct > 0
+        && (counterUltimateBlockChancePct >= 100 || state.random.chance(counterUltimateBlockChancePct));
+    const int blockChancePct = sumAlwaysEffectValue(defenderCombo, EffectType::BlockChance);
+    const bool block = blockChancePct > 0
+        && (blockChancePct >= 100 || state.random.chance(blockChancePct));
     if (!counterUltimateBlock && !block)
     {
         return false;

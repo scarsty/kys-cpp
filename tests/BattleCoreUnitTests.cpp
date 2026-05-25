@@ -773,6 +773,34 @@ T& ensureById(std::vector<T>& items, int id)
     return items.back();
 }
 
+void applyModifierEffects(RoleComboState& combo, const BattleDamageModifierState& modifier)
+{
+    if (modifier.flatDamageIncrease != 0)
+    {
+        ChessBattleEffects::applyEffect(combo, { EffectType::FlatDmgIncrease, modifier.flatDamageIncrease });
+    }
+    if (modifier.skillDamagePct != 0)
+    {
+        ChessBattleEffects::applyEffect(combo, { EffectType::SkillDmgPct, modifier.skillDamagePct });
+    }
+    if (modifier.poisonDamageAmpPct != 0)
+    {
+        ChessBattleEffects::applyEffect(combo, { EffectType::PoisonDmgAmp, modifier.poisonDamageAmpPct });
+    }
+    if (modifier.flatDamageReduction != 0)
+    {
+        ChessBattleEffects::applyEffect(combo, { EffectType::FlatDmgReduction, modifier.flatDamageReduction });
+    }
+    if (modifier.damageReductionPct != 0)
+    {
+        ChessBattleEffects::applyEffect(combo, { EffectType::DmgReductionPct, modifier.damageReductionPct });
+    }
+    if (modifier.maxHitPctMaxHp != 0)
+    {
+        ChessBattleEffects::applyEffect(combo, { EffectType::MaxHitPctCurrentHP, modifier.maxHitPctMaxHp });
+    }
+}
+
 void queuePendingDamage(
     BattleRuntimeState& state,
     BattleDamageTransactionInput transaction,
@@ -781,12 +809,7 @@ void queuePendingDamage(
     if (transaction.attacker.id >= 0)
     {
         auto& combo = state.combo.units[transaction.attacker.id];
-        combo.flatDmgIncrease = transaction.attackerModifiers.flatDamageIncrease;
-        combo.skillDmgPct = transaction.attackerModifiers.skillDamagePct;
-        combo.poisonDmgAmpPct = transaction.attackerModifiers.poisonDamageAmpPct;
-        combo.flatDmgReduction = transaction.attackerModifiers.flatDamageReduction;
-        combo.dmgReductionPct = transaction.attackerModifiers.damageReductionPct;
-        combo.maxHitPctCurrentHP = transaction.attackerModifiers.maxHitPctMaxHp;
+        applyModifierEffects(combo, transaction.attackerModifiers);
         auto& status = ensureById(state.status.units, transaction.attacker.id);
         status.effects.poisonTimer = transaction.attackerModifiers.poisonTimer;
         status.effects.damageReduceDebuffs.clear();
@@ -806,12 +829,7 @@ void queuePendingDamage(
 
     {
         auto& combo = state.combo.units[transaction.defender.id];
-        combo.flatDmgIncrease = transaction.defenderModifiers.flatDamageIncrease;
-        combo.skillDmgPct = transaction.defenderModifiers.skillDamagePct;
-        combo.poisonDmgAmpPct = transaction.defenderModifiers.poisonDamageAmpPct;
-        combo.flatDmgReduction = transaction.defenderModifiers.flatDamageReduction;
-        combo.dmgReductionPct = transaction.defenderModifiers.damageReductionPct;
-        combo.maxHitPctCurrentHP = transaction.defenderModifiers.maxHitPctMaxHp;
+        applyModifierEffects(combo, transaction.defenderModifiers);
         auto& status = ensureById(state.status.units, transaction.defender.id);
         status.effects.poisonTimer = transaction.defenderModifiers.poisonTimer;
         status.effects.damageReduceDebuffs.clear();
@@ -3353,7 +3371,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
     auto& state = frame.state;
     configureAutoUltimateActionRuntime(state, 1, 0);
     KysChess::RoleComboState defenderCombo;
-    defenderCombo.counterUltimateBlockChancePct = 100;
+    KysChess::ChessBattleEffects::applyEffect(
+        defenderCombo,
+        { KysChess::EffectType::CounterUltimateBlock, 100 });
     state.combo.units[1] = defenderCombo;
 
     auto result = runBattleFrame(state);
@@ -3930,7 +3950,6 @@ TEST_CASE("BattleRuntimeSession_RunFrame_AppliesDeathComboConsequencesBeforeScen
     antiComboEffect.value = 35;
     antiComboEffect.sourceComboId = 33;
     state.combo.units[1].appliedEffects.push_back(antiComboEffect);
-    state.combo.units[1].dodgeChancePct = 35;
     state.combo.units[1].onSkillTeamHealPending = true;
     state.deathEffects.store.units = {
         { .id = 0 },
@@ -3945,7 +3964,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_AppliesDeathComboConsequencesBeforeScen
 
     const auto& runtime = session.runtime();
     CHECK_FALSE(runtime.combo.units.at(1).onSkillTeamHealPending);
-    CHECK(runtime.combo.units.at(2).dodgeChancePct == 35);
+    CHECK(KysChess::sumAlwaysEffectValue(runtime.combo.units.at(2), KysChess::EffectType::DodgeChance) == 35);
     CHECK(std::any_of(
         runtime.combo.units.at(2).appliedEffects.begin(),
         runtime.combo.units.at(2).appliedEffects.end(),
@@ -3989,7 +4008,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
     state.attacks.attacks.push_back(projectile);
 
     KysChess::RoleComboState defenderCombo;
-    defenderCombo.dodgeChancePct = 100;
+    KysChess::ChessBattleEffects::applyEffect(
+        defenderCombo,
+        { KysChess::EffectType::DodgeChance, 100 });
     state.combo.units[1] = defenderCombo;
 
     auto result = runBattleFrame(state);
@@ -4043,7 +4064,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][
     state.attacks.attacks.push_back(projectile);
 
     KysChess::RoleComboState defenderCombo;
-    defenderCombo.dodgeChancePct = 100;
+    KysChess::ChessBattleEffects::applyEffect(
+        defenderCombo,
+        { KysChess::EffectType::DodgeChance, 100 });
     state.combo.units[1] = defenderCombo;
 
     auto result = runBattleFrame(state);
