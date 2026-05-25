@@ -296,10 +296,10 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::FlatShield: break;
     case EffectType::ShieldPctMaxHP: break;
     case EffectType::ShieldFreezeRes: break;
-    case EffectType::HealAuraPct: s.healAuraPct = std::max(s.healAuraPct, e.value); if (e.value2) s.healAuraInterval = e.value2; break;
-    case EffectType::HealAuraFlat: s.healAuraFlat = std::max(s.healAuraFlat, e.value); if (e.value2) s.healAuraInterval = e.value2; break;
-    case EffectType::HealedATKSPDBoost: s.healedATKSPDBoostPct += e.value; break;
-    case EffectType::HPRegenPct: s.hpRegenPct += e.value; if (e.value2) s.hpRegenInterval = e.value2; break;
+    case EffectType::HealAuraPct: break;
+    case EffectType::HealAuraFlat: break;
+    case EffectType::HealedATKSPDBoost: break;
+    case EffectType::HPRegenPct: break;
     case EffectType::FreezeReductionPct: break;
     case EffectType::ControlImmunityFrames: break;
     case EffectType::KillHealPct: break;
@@ -370,7 +370,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::MPRestore: break;
     case EffectType::ShieldOnAllyDeath: break;
     case EffectType::DamageImmunityAfterFrames: break;
-    case EffectType::AutoUltimateAfterFrames: s.autoUltimateAfterFrames = e.value; break;
+    case EffectType::AutoUltimateAfterFrames: break;
     case EffectType::UltimateExtraProjectiles: s.ultimateExtraProjectiles += e.value; break;
     case EffectType::BlockFirstHits: break;
     case EffectType::GoldCoefficient: s.goldCoefficient = e.value; break;
@@ -407,10 +407,15 @@ RoleComboState ChessBattleEffects::makeSummonedCloneState(const RoleComboState& 
     RoleComboState cloneState = sourceState;
     cloneState.cloneSummonCount = 0;
     cloneState.isSummonedClone = true;
+    cloneState.effectFrameTimers.clear();
 
-    if (cloneState.autoUltimateAfterFrames > 0)
+    for (int effectIndex = 0; effectIndex < static_cast<int>(cloneState.appliedEffects.size()); ++effectIndex)
     {
-        cloneState.autoUltimateTimer = cloneState.autoUltimateAfterFrames;
+        const auto& effect = cloneState.appliedEffects[effectIndex];
+        if (effect.type == EffectType::AutoUltimateAfterFrames && effect.trigger == Trigger::Always && effect.value > 0)
+        {
+            cloneState.effectFrameTimers[effectIndex] = effect.value;
+        }
     }
     return cloneState;
 }

@@ -168,12 +168,6 @@ struct RoleComboState
     int skillDmgPct = 0;
     int skillReflectPct = 0;
     int cdrPct = 0;
-    int healAuraPct = 0;
-    int healAuraFlat = 0;
-    int healAuraInterval = 0;
-    int healedATKSPDBoostPct = 0;
-    int hpRegenPct = 0;
-    int hpRegenInterval = 0;
     std::vector<AppliedEffectInstance> appliedEffects;
     // Generic triggered effects (non-Always triggers stored here)
     std::vector<AppliedEffectInstance> triggeredEffects;
@@ -210,7 +204,6 @@ struct RoleComboState
     bool forcePullExecute = false;
     int forcePullProtectCharges = 0;
     int forcePullExecuteCharges = 0;
-    int autoUltimateAfterFrames = 0;
     int ultimateExtraProjectiles = 0;
     bool forceRangedAttack = false;
     int forceRangedMinSelectDistance = 0;
@@ -226,6 +219,7 @@ struct RoleComboState
     std::map<Trigger, int> triggerTimers;
     bool lastAliveFlag = false;
     std::map<int, int> effectActivationCounts;  // effect index → count
+    std::map<int, int> effectFrameTimers;  // effect index → frame timer
     std::vector<std::map<int, int>> adaptationStacks;  // per instance: enemyID → stacks
     std::vector<std::map<int, int>> dodgeAdaptationStacks;  // per instance: enemyID → stacks
     std::vector<int> rampingStacks;  // per instance
@@ -238,7 +232,6 @@ struct RoleComboState
     bool postSkillDashPending = false;
     bool isSummonedClone = false;
     bool blinkAttackUseWeakest = false;
-    int autoUltimateTimer = 0;
     int goldCoefficient = 0;
     bool dashAttack = false;
     int dashChanceBoostPct = 0;

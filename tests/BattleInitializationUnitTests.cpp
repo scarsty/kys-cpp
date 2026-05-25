@@ -437,7 +437,7 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     RoleComboState combo;
     ChessBattleEffects::applyEffect(combo, { EffectType::ShieldPctMaxHP, 25 });
     ChessBattleEffects::applyEffect(combo, { EffectType::DamageImmunityAfterFrames, 12 });
-    combo.autoUltimateAfterFrames = 30;
+    ChessBattleEffects::applyEffect(combo, { EffectType::AutoUltimateAfterFrames, 30 });
     ChessBattleEffects::applyEffect(combo, { EffectType::BlockFirstHits, 2 });
     AppliedEffectInstance teamShield;
     teamShield.type = EffectType::FlatShield;
@@ -465,7 +465,7 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     const auto& unit = spawn.unit;
     const auto& status = spawn.status;
     const auto& damage = spawn.damage;
-    CHECK(initialized.autoUltimateTimer == 30);
+    CHECK(initialized.effectFrameTimers.at(2) == 30);
     CHECK(unit.shield == 65);
     CHECK(status.effects.damageImmunityTimer == 12);
     CHECK(damage.blockFirstHitsRemaining == 2);

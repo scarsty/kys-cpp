@@ -3375,8 +3375,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimeAutoUltimateReadyInsideC
     auto& state = frame.state;
     configureAutoUltimateActionRuntime(state, 1, 0);
     KysChess::RoleComboState combo;
-    combo.autoUltimateAfterFrames = 1;
-    combo.autoUltimateTimer = 1;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::AutoUltimateAfterFrames, 1 });
+    combo.effectFrameTimers[0] = 1;
     state.combo.units[1] = combo;
 
     auto result = runBattleFrame(state);
@@ -3423,8 +3423,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DropsDeferredAutoUltimateWhenBattleEnd
     queuePendingDamage(state, lethalDamageInput(0, 1));
     configureAutoUltimateActionRuntime(state, 2, 1);
     KysChess::RoleComboState combo;
-    combo.autoUltimateAfterFrames = 1;
-    combo.autoUltimateTimer = 1;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::AutoUltimateAfterFrames, 1 });
+    combo.effectFrameTimers[0] = 1;
     state.combo.units[2] = combo;
 
     auto result = runBattleFrame(state);

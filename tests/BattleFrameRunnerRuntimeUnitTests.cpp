@@ -692,12 +692,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     });
 
     KysChess::RoleComboState combo;
-    combo.hpRegenPct = 20;
-    combo.hpRegenInterval = 6;
-    combo.healAuraFlat = 5;
-    combo.healAuraPct = 10;
-    combo.healAuraInterval = 6;
-    combo.healedATKSPDBoostPct = 20;
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HPRegenPct, 20, 6 });
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealAuraFlat, 5, 6 });
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealAuraPct, 10, 6 });
+    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealedATKSPDBoost, 20 });
     state.combo.units[0] = combo;
 
     auto runtime = finishingSkillRuntime();

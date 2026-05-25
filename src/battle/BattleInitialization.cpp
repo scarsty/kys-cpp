@@ -683,9 +683,13 @@ BattleInitializationResult BattleInitializationSystem::initialize(
                 });
         }
 
-        if (combo.autoUltimateAfterFrames > 0)
+        for (int effectIndex = 0; effectIndex < static_cast<int>(combo.appliedEffects.size()); ++effectIndex)
         {
-            combo.autoUltimateTimer = combo.autoUltimateAfterFrames;
+            const auto& effect = combo.appliedEffects[effectIndex];
+            if (effect.type == EffectType::AutoUltimateAfterFrames && effect.trigger == Trigger::Always && effect.value > 0)
+            {
+                combo.effectFrameTimers[effectIndex] = effect.value;
+            }
         }
         spawn.combo = std::move(combo);
         refreshRuntimeUnitSpawnStores(spawn);

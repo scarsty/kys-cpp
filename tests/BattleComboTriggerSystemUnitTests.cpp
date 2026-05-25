@@ -113,14 +113,12 @@ TEST_CASE("BattleComboTriggerSystem_FrameTriggers_BroadcastsAllyLowHpTimer", "[b
 TEST_CASE("BattleComboTriggerSystem_FrameRuntime_AdvancesTimersAndEmitsPeriodicEffects", "[battle][combo][unit]")
 {
     RoleComboState state;
-    state.autoUltimateAfterFrames = 3;
-    state.autoUltimateTimer = 1;
-    state.hpRegenPct = 12;
-    state.hpRegenInterval = 5;
-    state.healAuraFlat = 7;
-    state.healAuraPct = 9;
-    state.healAuraInterval = 5;
-    state.healedATKSPDBoostPct = 15;
+    ChessBattleEffects::applyEffect(state, { EffectType::AutoUltimateAfterFrames, 3 });
+    ChessBattleEffects::applyEffect(state, { EffectType::HPRegenPct, 12, 5 });
+    ChessBattleEffects::applyEffect(state, { EffectType::HealAuraFlat, 7, 5 });
+    ChessBattleEffects::applyEffect(state, { EffectType::HealAuraPct, 9, 5 });
+    ChessBattleEffects::applyEffect(state, { EffectType::HealedATKSPDBoost, 15 });
+    state.effectFrameTimers[0] = 1;
     state.triggerTimers[Trigger::AllyLowHPBurst] = 2;
     state.rampings.push_back({ 10, 3 });
     state.rampingStacks.push_back(2);
@@ -138,7 +136,7 @@ TEST_CASE("BattleComboTriggerSystem_FrameRuntime_AdvancesTimersAndEmitsPeriodicE
     CHECK(events[2].value == 7);
     CHECK(events[2].value2 == 9);
     CHECK(events[2].durationFrames == 15);
-    CHECK(state.autoUltimateTimer == 3);
+    CHECK(state.effectFrameTimers.at(0) == 3);
     CHECK(state.triggerTimers[Trigger::AllyLowHPBurst] == 1);
     CHECK(state.rampingStacks[0] == 0);
 }

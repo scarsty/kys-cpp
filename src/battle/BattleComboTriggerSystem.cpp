@@ -160,44 +160,72 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
     std::vector<BattleComboFrameRuntimeEvent> events;
     state.lastAliveFlag = input.lastAlive;
 
-    if (input.alive && state.autoUltimateAfterFrames > 0)
+    for (int effectIndex = 0; effectIndex < static_cast<int>(state.appliedEffects.size()); ++effectIndex)
     {
-        if (state.autoUltimateTimer > 0)
+        const auto& effect = state.appliedEffects[effectIndex];
+        if (!input.alive || effect.trigger != Trigger::Always)
         {
-            --state.autoUltimateTimer;
+            continue;
         }
-        if (state.autoUltimateTimer <= 0)
+        if (effect.type == EffectType::AutoUltimateAfterFrames && effect.value > 0)
         {
-            events.push_back({ BattleComboFrameRuntimeEventType::AutoUltimateReady });
-            state.autoUltimateTimer = state.autoUltimateAfterFrames;
+            int& timer = state.effectFrameTimers[effectIndex];
+            if (timer <= 0)
+            {
+                timer = effect.value;
+            }
+            --timer;
+            if (timer <= 0)
+            {
+                events.push_back({ BattleComboFrameRuntimeEventType::AutoUltimateReady });
+                timer = effect.value;
+            }
+        }
+        else if (effect.type == EffectType::HPRegenPct && effect.value > 0 && effect.value2 > 0 && input.frame % effect.value2 == 0)
+        {
+            events.push_back({
+                BattleComboFrameRuntimeEventType::SelfHpRegen,
+                effect.trigger,
+                effectIndex,
+                effect.value,
+            });
         }
     }
 
-    if (input.alive
-        && state.hpRegenPct > 0
-        && state.hpRegenInterval > 0
-        && input.frame % state.hpRegenInterval == 0)
+    int healAuraFlat = 0;
+    int healAuraPct = 0;
+    int healAuraInterval = 0;
+    int healedBoostPct = 0;
+    for (const auto& effect : state.appliedEffects)
     {
-        events.push_back({
-            BattleComboFrameRuntimeEventType::SelfHpRegen,
-            Trigger::Always,
-            -1,
-            state.hpRegenPct,
-        });
+        if (effect.trigger != Trigger::Always)
+        {
+            continue;
+        }
+        if (effect.type == EffectType::HealAuraFlat)
+        {
+            healAuraFlat = std::max(healAuraFlat, effect.value);
+            healAuraInterval = effect.value2 > 0 ? effect.value2 : healAuraInterval;
+        }
+        else if (effect.type == EffectType::HealAuraPct)
+        {
+            healAuraPct = std::max(healAuraPct, effect.value);
+            healAuraInterval = effect.value2 > 0 ? effect.value2 : healAuraInterval;
+        }
+        else if (effect.type == EffectType::HealedATKSPDBoost)
+        {
+            healedBoostPct += effect.value;
+        }
     }
-
-    if (input.alive
-        && (state.healAuraPct > 0 || state.healAuraFlat > 0)
-        && state.healAuraInterval > 0
-        && input.frame % state.healAuraInterval == 0)
+    if (input.alive && (healAuraPct > 0 || healAuraFlat > 0) && healAuraInterval > 0 && input.frame % healAuraInterval == 0)
     {
         events.push_back({
             BattleComboFrameRuntimeEventType::HealAura,
             Trigger::Always,
             -1,
-            state.healAuraFlat,
-            state.healAuraPct,
-            state.healedATKSPDBoostPct,
+            healAuraFlat,
+            healAuraPct,
+            healedBoostPct,
         });
     }
 
