@@ -352,11 +352,6 @@ void applyObtainedNeigongEffects(
 
 int resolveCloneCount(const BattleRuntimeSetupSeed& setup, const std::map<int, RoleComboState>& combos)
 {
-    if (setup.cloneSummonCount > 0)
-    {
-        return setup.cloneSummonCount;
-    }
-
     int cloneCount = 0;
     for (const auto& [unitId, combo] : combos)
     {

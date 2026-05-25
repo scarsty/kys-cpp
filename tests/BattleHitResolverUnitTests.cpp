@@ -51,6 +51,19 @@ BattleHitResolutionInput hitInput()
     return input;
 }
 
+struct BattleHitResolverTestInput : BattleHitResolutionInput
+{
+    KysChess::RoleComboState attackerCombo;
+    KysChess::RoleComboState defenderCombo;
+};
+
+BattleHitResolverTestInput comboHitInput()
+{
+    BattleHitResolverTestInput input;
+    static_cast<BattleHitResolutionInput&>(input) = hitInput();
+    return input;
+}
+
 BattleRuntimeUnit runtimeUnit(int id, int team, Pointf position)
 {
     BattleRuntimeUnit unit;
@@ -89,7 +102,19 @@ BattleRuntimeRandom fixedBattleRandom()
 BattleHitResolutionResult resolveHit(const BattleHitResolutionInput& input)
 {
     auto random = fixedBattleRandom();
-    return KysChess::Battle::BattleHitResolver().resolve(input, random);
+    KysChess::RoleComboState attackerCombo;
+    KysChess::RoleComboState defenderCombo;
+    return KysChess::Battle::BattleHitResolver().resolve(input, attackerCombo, defenderCombo, random);
+}
+
+BattleHitResolutionResult resolveHit(BattleHitResolverTestInput& input)
+{
+    auto random = fixedBattleRandom();
+    return KysChess::Battle::BattleHitResolver().resolve(
+        input,
+        input.attackerCombo,
+        input.defenderCombo,
+        random);
 }
 
 }  // namespace
@@ -109,7 +134,7 @@ TEST_CASE("BattleHitResolver_NonHitEvent_ReturnsNoGameplayCommands", "[battle][h
 
 TEST_CASE("BattleHitResolver_MagicUsesResolvedBaseDamage", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 70;
 
@@ -121,7 +146,7 @@ TEST_CASE("BattleHitResolver_MagicUsesResolvedBaseDamage", "[battle][hit_resolve
 
 TEST_CASE("BattleHitResolver_ProjectCancelAndStrengthShapeFinalDamage", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.attackEvent.projectileCancelDamage = 10;
     input.attackEvent.strengthMultiplier = 2.0f;
     input.attackEvent.frame = 5;
@@ -137,7 +162,7 @@ TEST_CASE("BattleHitResolver_ProjectCancelAndStrengthShapeFinalDamage", "[battle
 
 TEST_CASE("BattleHitResolver_FrozenSideEffectEmitsAcceptedHitCommand", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.attackEvent.operationType = BattleOperationType::Dash;
     input.attackEvent.totalFrame = 20;
     input.skill.id = 101;
@@ -155,7 +180,7 @@ TEST_CASE("BattleHitResolver_FrozenSideEffectEmitsAcceptedHitCommand", "[battle]
 
 TEST_CASE("BattleHitResolver_MainOffensiveHitAppliesConfiguredAlwaysStun", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 90;
     KysChess::ChessBattleEffects::applyEffect(
@@ -179,7 +204,7 @@ TEST_CASE("BattleHitResolver_MainOffensiveHitAppliesConfiguredAlwaysStun", "[bat
 
 TEST_CASE("BattleHitResolver_RangedSideProjectileDoesNotApplyStunEffects", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.attackEvent.operationType = BattleOperationType::RangedProjectile;
     input.attackEvent.mainProjectile = false;
     input.skill.id = 101;
@@ -212,7 +237,7 @@ TEST_CASE("BattleHitResolver_RangedSideProjectileDoesNotApplyStunEffects", "[bat
 
 TEST_CASE("BattleHitResolver_KnockbackIsReturnedAsCommand", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 90;
 
@@ -232,7 +257,7 @@ TEST_CASE("BattleHitResolver_KnockbackIsReturnedAsCommand", "[battle][hit_resolv
 
 TEST_CASE("BattleHitResolver_CritMarksResultAndKeepsDamageDetail", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
     KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::CritChance, 100 });
@@ -251,7 +276,7 @@ TEST_CASE("BattleHitResolver_CritMarksResultAndKeepsDamageDetail", "[battle][hit
 
 TEST_CASE("BattleHitResolver_ProjectileCritKeepsDamageDetailWithoutStatusLog", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.attackEvent.operationType = BattleOperationType::RangedProjectile;
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
@@ -271,7 +296,7 @@ TEST_CASE("BattleHitResolver_ProjectileCritKeepsDamageDetailWithoutStatusLog", "
 
 TEST_CASE("BattleHitResolver_DamageCommandLabelsProjectileSource", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.name = "降龍";
     input.skill.resolvedBaseDamage = 70;
@@ -289,7 +314,7 @@ TEST_CASE("BattleHitResolver_DamageCommandLabelsProjectileSource", "[battle][hit
 
 TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
     KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::HPOnHit, 30 });
@@ -315,7 +340,7 @@ TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand",
 
 TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
     KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::PoisonDOT, 12, 2 });
@@ -333,7 +358,7 @@ TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resol
 
 TEST_CASE("BattleHitResolver_PoisonStacksUseMaximumConfiguredDuration", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
     KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::PoisonDOT, 5, 2 });
@@ -351,7 +376,7 @@ TEST_CASE("BattleHitResolver_PoisonStacksUseMaximumConfiguredDuration", "[battle
 
 TEST_CASE("BattleHitResolver_TriggeredTeamHealEmitsCommandWithoutApplyingTeamWorld", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
     input.attackerCombo.triggeredEffects.push_back(
@@ -373,7 +398,7 @@ TEST_CASE("BattleHitResolver_TriggeredTeamHealEmitsCommandWithoutApplyingTeamWor
 
 TEST_CASE("BattleHitResolver_ReflectedRangedProjectileChangesActualSourceAndTarget", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.attackEvent.operationType = BattleOperationType::RangedProjectile;
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 40;
@@ -391,7 +416,7 @@ TEST_CASE("BattleHitResolver_ReflectedRangedProjectileChangesActualSourceAndTarg
 
 TEST_CASE("BattleHitResolver_ReflectsTrackingProjectile", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.attackEvent.operationType = BattleOperationType::TrackingProjectile;
     input.skill.id = 101;
     input.skill.hurtType = 0;
@@ -410,7 +435,7 @@ TEST_CASE("BattleHitResolver_ReflectsTrackingProjectile", "[battle][hit_resolver
 
 TEST_CASE("BattleHitResolver_ExecuteHitDefersRuntimeExecuteDecision", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 20;
@@ -429,12 +454,12 @@ TEST_CASE("BattleHitResolver_ExecuteHitDefersRuntimeExecuteDecision", "[battle][
     CHECK(command->canTriggerDefenderBlock);
     CHECK(command->damage == 20);
     CHECK(BattleLogTest::joinSegments(command->segments).empty());
-    CHECK(result.attackerCombo.effectActivationCounts.empty());
+    CHECK(input.attackerCombo.effectActivationCounts.empty());
 }
 
 TEST_CASE("BattleHitResolver_QueuesRawDamageWithoutConsumingFirstHitBlock", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
@@ -448,13 +473,13 @@ TEST_CASE("BattleHitResolver_QueuesRawDamageWithoutConsumingFirstHitBlock", "[ba
     const auto* command = firstHpDamageCommand(result);
     REQUIRE(command);
     CHECK(command->damage == 50);
-    REQUIRE(KysChess::firstAlwaysEffect(result.defenderCombo, KysChess::EffectType::BlockFirstHits) != nullptr);
-    CHECK(KysChess::firstAlwaysEffect(result.defenderCombo, KysChess::EffectType::BlockFirstHits)->value == 1);
+    REQUIRE(KysChess::firstAlwaysEffect(input.defenderCombo, KysChess::EffectType::BlockFirstHits) != nullptr);
+    CHECK(KysChess::firstAlwaysEffect(input.defenderCombo, KysChess::EffectType::BlockFirstHits)->value == 1);
 }
 
 TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
@@ -475,7 +500,7 @@ TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battl
 
 TEST_CASE("BattleHitResolver_BleedAndMpBlockEmitAcceptedHitCommands", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
@@ -503,7 +528,7 @@ TEST_CASE("BattleHitResolver_BleedAndMpBlockEmitAcceptedHitCommands", "[battle][
 
 TEST_CASE("BattleHitResolver_NearbyTrackingFollowUpEmitsGameplayCommand", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
@@ -530,7 +555,7 @@ TEST_CASE("BattleHitResolver_NearbyTrackingFollowUpEmitsGameplayCommand", "[batt
 
 TEST_CASE("BattleHitResolver_OnHitDoesNotEmitCastScopedFollowUps", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.attackEvent.operationType = BattleOperationType::RangedProjectile;
     input.attackEvent.velocity = { 4.0f, 0.0f, 0.0f };
     input.skill.id = 101;
@@ -559,7 +584,7 @@ TEST_CASE("BattleHitResolver_OnHitDoesNotEmitCastScopedFollowUps", "[battle][hit
 
 TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCommand", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.hurtType = 0;
     input.skill.resolvedBaseDamage = 50;
@@ -578,7 +603,7 @@ TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCo
 
 TEST_CASE("BattleHitResolver_SkillReflectDamageDoesNotTriggerDefenseEffects", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 80;
     KysChess::ChessBattleEffects::applyEffect(input.defenderCombo, { KysChess::EffectType::SkillReflectPct, 50 });
@@ -681,7 +706,7 @@ TEST_CASE("BattleProjectileFollowUpResolver_NearbyTrackingUsesCommandProjectileS
 
 TEST_CASE("BattleHitResolver_MpDamageSkillEmitsMpDamageCommand", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = 101;
     input.skill.hurtType = 1;
     input.skill.resolvedBaseDamage = 50;
@@ -705,7 +730,7 @@ TEST_CASE("BattleHitResolver_MpDamageSkillEmitsMpDamageCommand", "[battle][hit_r
 
 TEST_CASE("BattleHitResolver_ScriptedImpactEmitsStatusAndDamageCommands", "[battle][hit_resolver][unit]")
 {
-    auto input = hitInput();
+    auto input = comboHitInput();
     input.skill.id = -1;
     input.attackEvent.operationType = BattleOperationType::None;
     input.attackEvent.scriptedStunFrames = 12;

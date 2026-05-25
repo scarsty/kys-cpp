@@ -229,6 +229,13 @@ struct BattleFrameCastScopedComboEffects
     std::vector<BattleComboTriggerEvent> events;
 };
 
+struct BattleFrameMpRestore
+{
+    int unitId{};
+    int amount{};
+    std::string reason;
+};
+
 void applyFrameCastScopedComboEffects(
     BattleRuntimeState& state,
     const BattleFrameCastScopedComboEffects& effects,
@@ -1032,18 +1039,6 @@ void applyProjectileCancelDamageResults(
     }
 }
 
-void updateCommittedHitCombos(BattleRuntimeState& state, const BattleHitResolutionResult& result)
-{
-    if (auto it = state.combo.units.find(result.attackerUnitId); it != state.combo.units.end())
-    {
-        it->second = result.attackerCombo;
-    }
-    if (auto it = state.combo.units.find(result.defenderUnitId); it != state.combo.units.end())
-    {
-        it->second = result.defenderCombo;
-    }
-}
-
 BattleHitResolutionInput makeHitResolutionInput(
     BattleRuntimeState& state,
     const BattleAttackEvent& event)
@@ -1070,14 +1065,6 @@ BattleHitResolutionInput makeHitResolutionInput(
             attacker,
             defender,
             resolveHitMagicBaseDamage(state, event, attacker, defender));
-    }
-    if (auto comboIt = state.combo.units.find(event.sourceUnitId); comboIt != state.combo.units.end())
-    {
-        input.attackerCombo = comboIt->second;
-    }
-    if (auto comboIt = state.combo.units.find(event.unitId); comboIt != state.combo.units.end())
-    {
-        input.defenderCombo = comboIt->second;
     }
     input.attackerStatusEffects = requireById(state.status.units, event.sourceUnitId).effects;
     input.defenderStatusEffects = requireById(state.status.units, event.unitId).effects;
@@ -1130,7 +1117,9 @@ void resolveHitEvents(
         }
 
         auto input = makeHitResolutionInput(state, event);
-        auto result = BattleHitResolver().resolve(input, state.random);
+        auto& attackerCombo = requireMappedById(state.combo.units, event.sourceUnitId);
+        auto& defenderCombo = requireMappedById(state.combo.units, event.unitId);
+        auto result = BattleHitResolver().resolve(input, attackerCombo, defenderCombo, state.random);
         auto followUps = expandBattleProjectileFollowUpCommands(
             result.commands,
             state.projectileFollowUps,
@@ -1140,7 +1129,6 @@ void resolveHitEvents(
             result.visualEvents.end(),
             followUps.visualEvents.begin(),
             followUps.visualEvents.end());
-        updateCommittedHitCombos(state, result);
         commands.insert(commands.end(), result.commands.begin(), result.commands.end());
         logEvents.insert(
             logEvents.end(),
@@ -1268,6 +1256,8 @@ struct BattleFrameContext
     std::vector<BattleFrameRumbleEvent> rumbles;
     int blinkSoundCount{};
     std::vector<BattleAttackEvent> attackEvents;
+    std::vector<BattleAreaProjectileFollowUp> areaProjectileFollowUps;
+    std::vector<BattleFrameMpRestore> lateMpRestores;
     UnitMotionSnapshotMap frameStartMotion;
 };
 
@@ -2986,21 +2976,23 @@ bool applyFrameTeamEffectCommand(
     return true;
 }
 
-bool applyFrameMpRestoreCommand(
+bool applyFrameMpRestore(
     BattleRuntimeState& state,
-    const BattleMpRestoreCommand& command,
+    int unitId,
+    int amount,
+    const std::string& reason,
     std::vector<BattleLogEvent>& logEvents)
 {
-    auto& unit = state.unitStore.requireUnit(command.unitId);
+    auto& unit = state.unitStore.requireUnit(unitId);
 
-    const int restored = std::min(command.amount, std::max(0, unit.vitals.maxMp - unit.vitals.mp));
+    const int restored = std::min(amount, std::max(0, unit.vitals.maxMp - unit.vitals.mp));
     if (restored <= 0)
     {
         return true;
     }
 
     unit.vitals.mp += restored;
-    appendStatusEventLog(logEvents, command.unitId, command.unitId, command.reason);
+    appendStatusEventLog(logEvents, unitId, unitId, reason);
     return true;
 }
 
@@ -3067,9 +3059,7 @@ bool reduceFrameGameplayCommand(
         attackSpawns.push_back(projectile->request);
         return true;
     }
-    if (std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command)
-        || std::holds_alternative<BattleShieldExplosionCommand>(command)
-        || std::holds_alternative<BattleDeathAoeProjectileCommand>(command))
+    if (std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command))
     {
         auto followUps = expandBattleProjectileFollowUpCommands(
             { command },
@@ -3084,10 +3074,6 @@ bool reduceFrameGameplayCommand(
             std::make_move_iterator(followUps.visualEvents.begin()),
             std::make_move_iterator(followUps.visualEvents.end()));
         return true;
-    }
-    if (const auto* mpRestore = std::get_if<BattleMpRestoreCommand>(&command))
-    {
-        return applyFrameMpRestoreCommand(state, *mpRestore, logEvents);
     }
     if (const auto* autoUltimate = std::get_if<BattleAutoUltimateCommand>(&command))
     {
@@ -3238,7 +3224,25 @@ BattleLogEvent makeDeathPreventionLog(const BattleDamageEvent& event)
     return log;
 }
 
-void appendFrameDeathAoeCommand(
+void appendProjectileFollowUpsToFrame(
+    BattleFrameContext& frame,
+    BattleProjectileFollowUpExpansion followUps)
+{
+    frame.frameCommands.insert(
+        frame.frameCommands.end(),
+        std::make_move_iterator(followUps.commands.begin()),
+        std::make_move_iterator(followUps.commands.end()));
+    frame.visualEvents.insert(
+        frame.visualEvents.end(),
+        std::make_move_iterator(followUps.visualEvents.begin()),
+        std::make_move_iterator(followUps.visualEvents.end()));
+    frame.logEvents.insert(
+        frame.logEvents.end(),
+        std::make_move_iterator(followUps.logEvents.begin()),
+        std::make_move_iterator(followUps.logEvents.end()));
+}
+
+void appendFrameDeathAoeProjectiles(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
     const BattleDamageTransactionResult& transaction,
@@ -3250,14 +3254,19 @@ void appendFrameDeathAoeCommand(
         return;
     }
 
-    BattleDeathAoeProjectileCommand command;
-    command.sourceUnitId = deadUnitId;
-    command.trackedTargetUnitId = transaction.attacker.id;
-    command.damage = std::max(1, transaction.defender.vitals.maxHp * effectIt->second.deathAoePct / 100);
-    command.damagePct = effectIt->second.deathAoePct;
-    command.stunFrames = effectIt->second.deathAoeStunFrames;
-    command.maxTargets = effectIt->second.deathAoeMaxTargets;
-    frame.frameCommands.push_back(command);
+    const int damage = std::max(1, transaction.defender.vitals.maxHp * effectIt->second.deathAoePct / 100);
+    frame.areaProjectileFollowUps.push_back({
+        deadUnitId,
+        7,
+        transaction.attacker.id,
+        effectIt->second.deathAoeMaxTargets,
+        KysChess::EFT_DEATH_BLAST,
+        damage,
+        effectIt->second.deathAoePct,
+        effectIt->second.deathAoeStunFrames,
+        "殉爆",
+        std::format("殉爆{}%（{}幀）", effectIt->second.deathAoePct, effectIt->second.deathAoeStunFrames),
+    });
 }
 
 void appendFrameDeathEffectOutputs(BattleFrameContext& frame, const std::vector<BattleDeathEffectEvent>& events)
@@ -3606,7 +3615,7 @@ std::vector<int> appendFrameDamageLifecycle(
             event.value,
         });
 
-        appendFrameDeathAoeCommand(state, frame, transaction, event.targetUnitId);
+        appendFrameDeathAoeProjectiles(state, frame, transaction, event.targetUnitId);
         auto deathEvents = BattleDeathEffectSystem().applyAllyDeathEffects(
             state.unitStore,
             state.deathEffects.store,
@@ -3712,12 +3721,13 @@ void appendFrameShieldBreakCommands(
             break;
         case EffectType::MPRestore:
         {
+            const auto& unit = state.unitStore.requireUnit(transaction.defender.id);
             int restored = std::min(
                 event.effect.value,
-                std::max(0, transaction.defender.vitals.maxMp - transaction.defender.vitals.mp));
+                std::max(0, unit.vitals.maxMp - unit.vitals.mp));
             if (restored > 0)
             {
-                frame.frameCommands.push_back(BattleMpRestoreCommand{
+                frame.lateMpRestores.push_back({
                     transaction.defender.id,
                     restored,
                     std::format("護盾爆炸·回內力+{}", restored),
@@ -3746,12 +3756,17 @@ void appendFrameShieldBreakCommands(
         int explosionDamage = std::max(
             1,
             defenderShieldPct * transaction.defender.vitals.maxHp / 100 * shieldExplosionPct / 100);
-        frame.frameCommands.push_back(BattleShieldExplosionCommand{
+        frame.areaProjectileFollowUps.push_back({
             transaction.defender.id,
             5,
+            -1,
+            0,
             KysChess::EFT_SHIELD_BLAST,
             explosionDamage,
+            0,
+            0,
             "護盾爆炸",
+            std::format("護盾爆炸（{}傷害）", explosionDamage),
         });
     }
 }
@@ -3772,19 +3787,37 @@ void appendFrameDamageGameplayEvents(
 
 void expandFrameDamageFollowUpCommands(BattleRuntimeState& state, BattleFrameContext& frame)
 {
-    auto followUps = expandBattleProjectileFollowUpCommands(
-        frame.frameCommands,
-        state.projectileFollowUps,
-        state.unitStore);
-    frame.frameCommands = std::move(followUps.commands);
-    frame.visualEvents.insert(
-        frame.visualEvents.end(),
-        std::make_move_iterator(followUps.visualEvents.begin()),
-        std::make_move_iterator(followUps.visualEvents.end()));
-    frame.logEvents.insert(
-        frame.logEvents.end(),
-        std::make_move_iterator(followUps.logEvents.begin()),
-        std::make_move_iterator(followUps.logEvents.end()));
+    auto pendingCommands = std::move(frame.frameCommands);
+    appendProjectileFollowUpsToFrame(
+        frame,
+        expandBattleProjectileFollowUpCommands(
+            pendingCommands,
+            state.projectileFollowUps,
+            state.unitStore));
+    auto areaFollowUps = std::move(frame.areaProjectileFollowUps);
+    for (const auto& followUp : areaFollowUps)
+    {
+        appendProjectileFollowUpsToFrame(
+            frame,
+            expandBattleAreaProjectileFollowUp(
+                followUp,
+                state.projectileFollowUps,
+                state.unitStore));
+    }
+}
+
+void applyLateFrameMpRestores(BattleRuntimeState& state, BattleFrameContext& frame)
+{
+    for (const auto& restore : frame.lateMpRestores)
+    {
+        applyFrameMpRestore(
+            state,
+            restore.unitId,
+            restore.amount,
+            restore.reason,
+            frame.logEvents);
+    }
+    frame.lateMpRestores.clear();
 }
 
 bool comboEffectIsApplied(const KysChess::RoleComboState& state, int comboId)
@@ -5196,6 +5229,7 @@ BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) c
     applyDamageAndLifecycle(state, frame, framePendingDamage);
     // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
     appendProjectileCancellationLogEvents(state.attacks, frame.attackEvents, frame.logEvents, true);
+    applyLateFrameMpRestores(state, frame);
     frame.frameCommands.insert(
         frame.frameCommands.end(),
         std::make_move_iterator(deferredCommands.begin()),

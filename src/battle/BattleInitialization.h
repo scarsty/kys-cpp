@@ -109,7 +109,6 @@ struct BattleRuntimeSetupSeed
     std::vector<int> obtainedNeigongMagicIds;
     std::vector<BattleInitializationCloneSource> cloneSources;
     std::vector<BattleInitializationCloneSpawnCell> cloneCells;
-    int cloneSummonCount = 0;
 };
 
 struct BattleInitializationRoleDelta

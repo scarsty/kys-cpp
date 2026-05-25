@@ -100,22 +100,6 @@ struct BattleNearbyTrackingProjectilesCommand
     double projectileSpeed{};
 };
 
-struct BattleShieldExplosionCommand
-{
-    int sourceUnitId{};
-    int areaSize{};
-    int effectId{};
-    int damage{};
-    std::string reason;
-};
-
-struct BattleMpRestoreCommand
-{
-    int unitId{};
-    int amount{};
-    std::string reason;
-};
-
 struct BattleAutoUltimateCommand
 {
     int unitId{};
@@ -147,14 +131,18 @@ struct BattleRumbleCommand
     int durationMs{};
 };
 
-struct BattleDeathAoeProjectileCommand
+struct BattleAreaProjectileFollowUp
 {
     int sourceUnitId{};
-    int trackedTargetUnitId{};
+    int areaSize{};
+    int trackedTargetUnitId = -1;
+    int maxTargets{};
+    int effectId{};
     int damage{};
     int damagePct{};
     int stunFrames{};
-    int maxTargets{};
+    std::string reason;
+    std::string logText;
 };
 
 using BattleGameplayCommand = std::variant<
@@ -164,13 +152,10 @@ using BattleGameplayCommand = std::variant<
     BattleTeamHealCommand,
     BattleProjectileSpawnCommand,
     BattleNearbyTrackingProjectilesCommand,
-    BattleShieldExplosionCommand,
-    BattleMpRestoreCommand,
     BattleAutoUltimateCommand,
     BattleKnockbackCommand,
     BattleTempAttackBuffCommand,
-    BattleRumbleCommand,
-    BattleDeathAoeProjectileCommand>;
+    BattleRumbleCommand>;
 
 struct BattleHitResolutionInput
 {
@@ -178,8 +163,6 @@ struct BattleHitResolutionInput
     BattleHitUnitSnapshot attacker;
     BattleHitUnitSnapshot defender;
     BattleHitSkillSnapshot skill;
-    RoleComboState attackerCombo;
-    RoleComboState defenderCombo;
     BattleStatusEffectState attackerStatusEffects;
     BattleStatusEffectState defenderStatusEffects;
     int sharedBleedMaxStacks = 1;
@@ -190,8 +173,6 @@ struct BattleHitResolutionResult
 {
     int attackerUnitId{};
     int defenderUnitId{};
-    RoleComboState attackerCombo;
-    RoleComboState defenderCombo;
     std::vector<BattleGameplayCommand> commands;
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
@@ -225,10 +206,19 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     BattleProjectileFollowUpContext& context,
     const BattleUnitStore& units);
 
+BattleProjectileFollowUpExpansion expandBattleAreaProjectileFollowUp(
+    const BattleAreaProjectileFollowUp& followUp,
+    BattleProjectileFollowUpContext& context,
+    const BattleUnitStore& units);
+
 class BattleHitResolver
 {
 public:
-    BattleHitResolutionResult resolve(const BattleHitResolutionInput& input, BattleRuntimeRandom& random) const;
+    BattleHitResolutionResult resolve(
+        const BattleHitResolutionInput& input,
+        RoleComboState& attackerCombo,
+        RoleComboState& defenderCombo,
+        BattleRuntimeRandom& random) const;
 };
 
 }  // namespace KysChess::Battle

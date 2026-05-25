@@ -534,7 +534,6 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     spawns.push_back(runtimeSpawn(source, sourceCombo));
 
     BattleRuntimeSetupSeed setup;
-    setup.cloneSummonCount = 1;
     setup.cloneSources.push_back({ 0, 1001, 999, 3, 7, 0 });
     setup.cloneCells.push_back({ 3, 4, true, false });
 

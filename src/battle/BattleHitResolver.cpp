@@ -382,69 +382,56 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
             }
             continue;
         }
-        if (const auto* shieldExplosion = std::get_if<BattleShieldExplosionCommand>(&command))
-        {
-            auto targetIds = targeting.selectAreaImpactTargets(
-                units,
-                shieldExplosion->sourceUnitId,
-                shieldExplosion->areaSize,
-                0,
-                -1);
-            for (int targetId : targetIds)
-            {
-                expansion.commands.push_back(BattleProjectileSpawnCommand{
-                    makeAreaFollowUpSpawn(
-                        shieldExplosion->sourceUnitId,
-                        targetId,
-                        shieldExplosion->damage,
-                        0,
-                        shieldExplosion->effectId,
-                        context,
-                        units),
-                    shieldExplosion->reason,
-                });
-            }
-            expansion.logEvents.push_back(statusEvent(
-                shieldExplosion->sourceUnitId,
-                -1,
-                std::format("{}（{}傷害）", shieldExplosion->reason, shieldExplosion->damage)));
-            continue;
-        }
-        if (const auto* deathAoe = std::get_if<BattleDeathAoeProjectileCommand>(&command))
-        {
-            auto targetIds = targeting.selectAreaImpactTargets(
-                units,
-                deathAoe->sourceUnitId,
-                7,
-                deathAoe->maxTargets,
-                deathAoe->trackedTargetUnitId);
-            for (int targetId : targetIds)
-            {
-                expansion.commands.push_back(BattleProjectileSpawnCommand{
-                    makeAreaFollowUpSpawn(
-                        deathAoe->sourceUnitId,
-                        targetId,
-                        deathAoe->damage,
-                        deathAoe->stunFrames,
-                        KysChess::EFT_DEATH_BLAST,
-                        context,
-                        units),
-                    "殉爆",
-                });
-            }
-            expansion.logEvents.push_back(statusEvent(
-                deathAoe->sourceUnitId,
-                -1,
-                std::format("殉爆{}%（{}幀）", deathAoe->damagePct, deathAoe->stunFrames)));
-            continue;
-        }
         expansion.commands.push_back(command);
+    }
+    return expansion;
+}
+
+BattleProjectileFollowUpExpansion expandBattleAreaProjectileFollowUp(
+    const BattleAreaProjectileFollowUp& followUp,
+    BattleProjectileFollowUpContext& context,
+    const BattleUnitStore& units)
+{
+    assert(context.projectileSpeed > 0.0);
+    assert(context.minimumProjectileFrames > 0);
+    assert(followUp.areaSize > 0);
+
+    BattleProjectileFollowUpExpansion expansion;
+    BattleProjectileTargetingSystem targeting;
+    auto targetIds = targeting.selectAreaImpactTargets(
+        units,
+        followUp.sourceUnitId,
+        followUp.areaSize,
+        followUp.maxTargets,
+        followUp.trackedTargetUnitId);
+    for (int targetId : targetIds)
+    {
+        expansion.commands.push_back(BattleProjectileSpawnCommand{
+            makeAreaFollowUpSpawn(
+                followUp.sourceUnitId,
+                targetId,
+                followUp.damage,
+                followUp.stunFrames,
+                followUp.effectId,
+                context,
+                units),
+            followUp.reason,
+        });
+    }
+    if (!followUp.logText.empty())
+    {
+        expansion.logEvents.push_back(statusEvent(
+            followUp.sourceUnitId,
+            -1,
+            followUp.logText));
     }
     return expansion;
 }
 
 BattleHitResolutionResult BattleHitResolver::resolve(
     const BattleHitResolutionInput& input,
+    RoleComboState& attackerCombo,
+    RoleComboState& defenderCombo,
     BattleRuntimeRandom& random) const
 {
     assert(input.defender.id >= 0);
@@ -456,8 +443,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     BattleHitResolutionResult result;
     result.attackerUnitId = input.attacker.id;
     result.defenderUnitId = input.defender.id;
-    result.attackerCombo = input.attackerCombo;
-    result.defenderCombo = input.defenderCombo;
 
     if (input.attackEvent.type != BattleAttackEventType::Hit)
     {
@@ -548,7 +533,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         shaped.knockbackVelocityCap,
     });
 
-    auto attackerCombo = input.attackerCombo;
     const int mpRatioDmgBoostPct = sumAlwaysEffectValue(attackerCombo, EffectType::MPRatioDmgBoost);
     if (usingSkill && input.attacker.vitals.maxMp > 0 && mpRatioDmgBoostPct > 0)
     {
@@ -611,7 +595,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
         auto resources = BattleDamageSystem().applyOnHitResources({
             makeResourceUnit(input.attacker, &attackerCombo, &input.attackerStatusEffects),
-            makeResourceUnit(input.defender, &input.defenderCombo, &input.defenderStatusEffects),
+            makeResourceUnit(input.defender, &defenderCombo, &input.defenderStatusEffects),
             mpOnHit,
             hpOnHit,
             mpDrain,
@@ -740,7 +724,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         });
     }
 
-    auto defenderCombo = input.defenderCombo;
     const bool reflectableProjectile =
         input.attackEvent.operationType == BattleOperationType::RangedProjectile
         || input.attackEvent.operationType == BattleOperationType::TrackingProjectile;
@@ -1053,8 +1036,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
     }
 
-    result.attackerCombo = std::move(attackerCombo);
-    result.defenderCombo = std::move(defenderCombo);
     if (!usingHpDamage)
     {
         result.finalHpDamage = 0;
