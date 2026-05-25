@@ -340,14 +340,20 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
         }
 
         const auto comboIt = state.combo.units.find(ally.id);
-        if (comboIt == state.combo.units.end() || comboIt->second.enemyTopDebuffCount <= 0)
+        if (comboIt == state.combo.units.end())
+        {
+            continue;
+        }
+
+        const auto* topDebuff = firstAlwaysEffect(comboIt->second, EffectType::EnemyTopDebuff);
+        if (!topDebuff || topDebuff->value <= 0)
         {
             continue;
         }
 
         liveAllies++;
-        topTargets = std::max(topTargets, comboIt->second.enemyTopDebuffCount);
-        perMemberValue = std::max(perMemberValue, comboIt->second.enemyTopDebuffValue);
+        topTargets = std::max(topTargets, topDebuff->value);
+        perMemberValue = std::max(perMemberValue, topDebuff->value2);
     }
 
     std::vector<BattleRuntimeUnit*> enemyOrder;
@@ -1581,9 +1587,9 @@ std::vector<BattleFrameRescueUnitSnapshot> makeRescueUnitSnapshots(const BattleR
         if (comboIt != state.combo.units.end())
         {
             snapshot.unit.isSummonedClone = comboIt->second.isSummonedClone;
-            snapshot.unit.forcePullProtect = comboIt->second.forcePullProtect;
+            snapshot.unit.forcePullProtect = firstAlwaysEffect(comboIt->second, EffectType::ForcePullProtect) != nullptr;
             snapshot.unit.forcePullProtectRemaining = comboIt->second.forcePullProtectRemaining;
-            snapshot.unit.forcePullExecute = comboIt->second.forcePullExecute;
+            snapshot.unit.forcePullExecute = firstAlwaysEffect(comboIt->second, EffectType::ForcePullExecute) != nullptr;
             snapshot.unit.forcePullExecuteRemaining = comboIt->second.forcePullExecuteRemaining;
         }
         snapshots.push_back(std::move(snapshot));

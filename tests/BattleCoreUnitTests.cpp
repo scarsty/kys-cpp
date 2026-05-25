@@ -994,7 +994,9 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
         rescueCell(3, 2),
         rescueCell(5, 5),
     };
-    state.combo.units[2].forcePullProtect = true;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[2],
+        { KysChess::EffectType::ForcePullProtect, 1 });
     state.combo.units[2].forcePullProtectRemaining = 1;
     state.rescue.executeUnattendedRadius = SceneTileWidth * 3.0;
     state.rescue.counterAttack.skillId = 1;
@@ -3501,9 +3503,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttackInsideDamageLifecycle", "[battle][core][breakthrough]")
 {
     auto state = rescueDamageFrameState(20, 10);
-    state.combo.units[2].forcePullProtect = false;
     state.combo.units[2].forcePullProtectRemaining = 0;
-    state.combo.units[0].forcePullExecute = true;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[0],
+        { KysChess::EffectType::ForcePullExecute, 2 });
     state.combo.units[0].forcePullExecuteRemaining = 2;
     state.unitStore.requireUnit(0).grid = { 10, 10 };
     state.unitStore.requireUnit(1).grid = { 5, 5 };

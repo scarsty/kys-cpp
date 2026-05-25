@@ -75,6 +75,19 @@ int computeTeamFlatShield(const std::map<int, RoleComboState>& comboStates)
     return totalShield;
 }
 
+int sumAlwaysEffectCharges(const RoleComboState& combo, EffectType type)
+{
+    int total = 0;
+    for (const auto& effect : combo.appliedEffects)
+    {
+        if (effect.type == type && effect.trigger == Trigger::Always)
+        {
+            total += std::max(1, effect.value);
+        }
+    }
+    return total;
+}
+
 std::string shieldLogText(const char* prefix, int shield)
 {
     return std::format("{}{}護盾", prefix, shield);
@@ -361,7 +374,7 @@ int resolveCloneCount(const BattleRuntimeSetupSeed& setup, const std::map<int, R
     for (const auto& [unitId, combo] : combos)
     {
         (void)unitId;
-        cloneCount = std::max(cloneCount, combo.cloneSummonCount);
+        cloneCount = std::max(cloneCount, maxAlwaysEffectValue(combo, EffectType::CloneSummon));
     }
     return cloneCount;
 }
@@ -472,14 +485,15 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
             continue;
         }
 
-        if (spawn.combo.enemyTopDebuffCount <= 0)
+        const auto* topDebuff = firstAlwaysEffect(spawn.combo, EffectType::EnemyTopDebuff);
+        if (!topDebuff || topDebuff->value <= 0)
         {
             continue;
         }
 
         liveAllies++;
-        topTargets = std::max(topTargets, spawn.combo.enemyTopDebuffCount);
-        perMemberValue = std::max(perMemberValue, spawn.combo.enemyTopDebuffValue);
+        topTargets = std::max(topTargets, topDebuff->value);
+        perMemberValue = std::max(perMemberValue, topDebuff->value2);
     }
 
     std::vector<BattleRuntimeUnitSpawn*> enemyOrder;
@@ -691,6 +705,8 @@ BattleInitializationResult BattleInitializationSystem::initialize(
                 combo.effectFrameTimers[effectIndex] = effect.value;
             }
         }
+        combo.forcePullProtectRemaining = sumAlwaysEffectCharges(combo, EffectType::ForcePullProtect);
+        combo.forcePullExecuteRemaining = sumAlwaysEffectCharges(combo, EffectType::ForcePullExecute);
         spawn.combo = std::move(combo);
         refreshRuntimeUnitSpawnStores(spawn);
         seededUnitIds.push_back(seed.unitId);

@@ -268,14 +268,20 @@ void refreshDeathAoeDamageEffects(BattleRuntimeState& runtime)
     for (const auto& unit : runtime.unitStore.units)
     {
         const auto stateIt = runtime.combo.units.find(unit.id);
-        if (stateIt != runtime.combo.units.end() && stateIt->second.deathAOEPct > 0)
+        if (stateIt == runtime.combo.units.end())
+        {
+            continue;
+        }
+
+        const auto* deathAoe = firstAlwaysEffect(stateIt->second, EffectType::DeathAOE);
+        if (deathAoe && deathAoe->value > 0)
         {
             runtime.damage.unitEffects.emplace(
                 unit.id,
                 BattleDamageApplicationUnitEffects{
-                    stateIt->second.deathAOEPct,
-                    stateIt->second.deathAOEStunFrames,
-                    stateIt->second.deathAOEMaxTargets,
+                    deathAoe->value,
+                    deathAoe->duration,
+                    deathAoe->value2,
                 });
         }
     }

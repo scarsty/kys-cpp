@@ -229,7 +229,9 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
     state.unitStore.requireUnit(0).grid = { 10, 10 };
     state.unitStore.requireUnit(1).grid = { 5, 5 };
     state.unitStore.requireUnit(2).grid = { 3, 2 };
-    state.combo.units[2].forcePullProtect = true;
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units[2],
+        { KysChess::EffectType::ForcePullProtect, 1 });
     state.combo.units[2].forcePullProtectRemaining = 1;
     state.rescue.cells = {
         scenarioRescueCell(2, 3),

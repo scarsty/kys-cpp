@@ -487,8 +487,7 @@ TEST_CASE("BattleInitializationSystem_EnemyTopDebuffEmitsBattleLog", "[battle][i
     });
 
     RoleComboState combo;
-    combo.enemyTopDebuffCount = 1;
-    combo.enemyTopDebuffValue = 7;
+    ChessBattleEffects::applyEffect(combo, { EffectType::EnemyTopDebuff, 1, 7 });
 
     BattleRuntimeSetupSeed setup;
     setup.units.push_back({ .unitId = 0, .realRoleId = 1001, .team = 0, .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40, .baseCombo = combo });
@@ -530,7 +529,7 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     source.chessInstanceId = 99;
 
     RoleComboState sourceCombo;
-    sourceCombo.cloneSummonCount = 1;
+    ChessBattleEffects::applyEffect(sourceCombo, { EffectType::CloneSummon, 1 });
     std::vector<BattleRuntimeUnitSpawn> spawns;
     spawns.push_back(runtimeSpawn(source, sourceCombo));
 
@@ -572,7 +571,7 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
 TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[battle][initialization]")
 {
     std::map<int, RoleComboState> comboStates;
-    comboStates[0].cloneSummonCount = 1;
+    ChessBattleEffects::applyEffect(comboStates[0], { EffectType::CloneSummon, 1 });
 
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
@@ -646,7 +645,7 @@ TEST_CASE("BattleRuntimeSession_OwnsUnitProfileFacts", "[battle][initialization]
 TEST_CASE("BattleRuntimeSession_CloneProfileKeepsRenderingWithoutRosterOwnership", "[battle][initialization][runtime_session]")
 {
     std::map<int, RoleComboState> comboStates;
-    comboStates[0].cloneSummonCount = 1;
+    ChessBattleEffects::applyEffect(comboStates[0], { EffectType::CloneSummon, 1 });
 
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
@@ -676,7 +675,7 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
 {
     std::map<int, RoleComboState> comboStates;
     auto& sourceCombo = comboStates[0];
-    sourceCombo.cloneSummonCount = 1;
+    ChessBattleEffects::applyEffect(sourceCombo, { EffectType::CloneSummon, 1 });
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::ShieldPctMaxHP, 25 });
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::BlockFirstHits, 2 });
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::DamageImmunityAfterFrames, 12, 5 });

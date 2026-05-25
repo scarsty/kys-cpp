@@ -323,38 +323,23 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::HealBurst: break;  // only meaningful as triggered
     case EffectType::BleedChance: break;
     case EffectType::PostSkillDash: break;
-    case EffectType::EnemyTopDebuff:
-        s.enemyTopDebuffCount = e.value;
-        s.enemyTopDebuffValue = e.value2;
-        break;
+    case EffectType::EnemyTopDebuff: break;
     case EffectType::BlinkAttack: break;
     case EffectType::AllyDeathStatBoost: break;
-    case EffectType::CloneSummon: s.cloneSummonCount = std::max(s.cloneSummonCount, e.value); break;
+    case EffectType::CloneSummon: break;
     case EffectType::ProjectileReflect: break;
     case EffectType::ProjectileBounce: break;
     case EffectType::OnSkillTeamHeal: s.onSkillTeamHeal = std::max(s.onSkillTeamHeal, e.value); break;
     case EffectType::OnSkillTeamHealPct: s.onSkillTeamHealPct = std::max(s.onSkillTeamHealPct, e.value); break;
     case EffectType::DeathPrevention: break;
     case EffectType::DeathMedical: break;
-    case EffectType::ForcePullProtect:
-        s.forcePullProtect = true;
-        s.forcePullProtectCharges += std::max(1, e.value);
-        s.forcePullProtectRemaining += std::max(1, e.value);
-        break;
-    case EffectType::ForcePullExecute:
-        s.forcePullExecute = true;
-        s.forcePullExecuteCharges += std::max(1, e.value);
-        s.forcePullExecuteRemaining += std::max(1, e.value);
-        break;
+    case EffectType::ForcePullProtect: break;
+    case EffectType::ForcePullExecute: break;
     case EffectType::Execute: break;  // handled as triggered effect (OnHit)
     case EffectType::MPBlock: break;  // handled as triggered effect (OnHit)
     case EffectType::CharmCDRDebuff: break;
     case EffectType::OffensiveCharm: break;
-    case EffectType::DeathAOE:
-        s.deathAOEPct = std::max(s.deathAOEPct, e.value);
-        if (e.duration > 0) s.deathAOEStunFrames = std::max(s.deathAOEStunFrames, e.duration);
-        if (e.value2 > 0) s.deathAOEMaxTargets = std::max(s.deathAOEMaxTargets, e.value2);
-        break;
+    case EffectType::DeathAOE: break;
     case EffectType::ShieldExplosion: break;
     case EffectType::TempFlatATK: break;
     case EffectType::AutoUltimate: break;
@@ -364,7 +349,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::AutoUltimateAfterFrames: break;
     case EffectType::UltimateExtraProjectiles: break;
     case EffectType::BlockFirstHits: break;
-    case EffectType::GoldCoefficient: s.goldCoefficient = e.value; break;
+    case EffectType::GoldCoefficient: break;
     case EffectType::HurtInvincFrames: break;
     case EffectType::DashAttack: break;
     case EffectType::DashChanceBoost: break;
@@ -385,7 +370,6 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
 RoleComboState ChessBattleEffects::makeSummonedCloneState(const RoleComboState& sourceState)
 {
     RoleComboState cloneState = sourceState;
-    cloneState.cloneSummonCount = 0;
     cloneState.isSummonedClone = true;
     cloneState.effectFrameTimers.clear();
 
