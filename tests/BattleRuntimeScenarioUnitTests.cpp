@@ -97,7 +97,7 @@ TEST_CASE("BattleRuntimeScenario_DamageDeathEffectsAndFollowUpDigest", "[battle]
         scenarioRuntimeUnit(2, 1, 50, { 140, 100, 0 }),
     });
     state.unitStore.requireUnit(2).stats.attack = 10;
-    state.damage.pendingDamage.push_back(scenarioPreResolvedDamage(0, 1, 10));
+    state.nextFrame.queueDamage(scenarioPreResolvedDamage(0, 1, 10));
     KysChess::ChessBattleEffects::applyEffect(
         state.combo.units[1],
         { KysChess::EffectType::DeathAOE, 50, 1, "", KysChess::Trigger::Always, 0, 6 });
@@ -228,7 +228,7 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
         scenarioRuntimeUnit(1, 1, 50, { 180, 180, 0 }),
         scenarioRuntimeUnit(2, 1, 100, { 72, 72, 0 }),
     });
-    state.damage.pendingDamage.push_back(scenarioPreResolvedDamage(0, 1, 30));
+    state.nextFrame.queueDamage(scenarioPreResolvedDamage(0, 1, 30));
     state.unitStore.requireUnit(0).grid = { 10, 10 };
     state.unitStore.requireUnit(1).grid = { 5, 5 };
     state.unitStore.requireUnit(2).grid = { 3, 2 };

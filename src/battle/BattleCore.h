@@ -10,16 +10,19 @@
 #include "BattleMovement.h"
 #include "BattlePresentation.h"
 #include "BattleRescueRepositionSystem.h"
+#include "BattleRuntimeActions.h"
+#include "BattleRuntimeQueues.h"
 #include "BattleRuntimeRandom.h"
+#include "BattleRuntimeUnits.h"
 #include "BattleStatusSystem.h"
 #include "BattleUnitStore.h"
 #include "BattleTeamEffectSystem.h"
 #include "BattleUnitValues.h"
 
+#include <cassert>
 #include <cstddef>
 #include <map>
-#include <set>
-#include <string>
+#include <ranges>
 #include <vector>
 
 namespace KysChess::Battle
@@ -58,54 +61,6 @@ public:
     BattleUnitFrameTickResult advance(const BattleUnitFrameTickInput& input) const;
 };
 
-struct BattleActionRulesConfig
-{
-    double tileWidth = 0.0;
-    double maxEffectiveBattleReach = 0.0;
-    double meleeAttackHitRadius = 0.0;
-    double meleeAttackReach = 0.0;
-    double dashAttackMeleeReach = 0.0;
-    double blinkWeakTargetDefWeight = 0.0;
-    int dashMomentumFrames = 0;
-    int movementDashCooldownFrames = 0;
-    int actionRecoveryFrames = 0;
-    int dashRecoveryFrames = 0;
-    int strengthenedMeleeOperationCountThreshold = 0;
-    int projectileBounceRange = 0;
-    int coordCount = 0;
-};
-
-struct BattleActionSkillSeed
-{
-    int id = -1;
-    std::string name;
-    int soundId = -1;
-    int hurtType = 0;
-    int attackAreaType = -1;
-    int magicType = -1;
-    int visualEffectId = -1;
-    int selectDistance = 1;
-    int actProperty = 0;
-    int magicPower = 0;
-};
-
-struct BattleActionPlanSeed
-{
-    int unitId{};
-    bool hasEquippedSkill = false;
-    BattleActionSkillSeed normalSkill;
-    BattleActionSkillSeed ultimateSkill;
-};
-
-struct BattlePendingCastAction
-{
-    int unitId = -1;
-    int targetUnitId = -1;
-    bool ultimate = false;
-    BattleOperationType operationType = BattleOperationType::None;
-    BattleCastSkillState skill;
-};
-
 struct BattleFrameRescueUnitSnapshot
 {
     BattleRescueUnitSnapshot unit;
@@ -128,6 +83,7 @@ struct BattleFrameRescueCounterAttackConfig
 // cache through the same owner.
 struct BattleRuntimeState
 {
+    BattleRuntimeUnits units();
     BattleUnitStore unitStore;
     BattleMovementState movement;
     BattleAttackState attacks;
@@ -138,7 +94,6 @@ struct BattleRuntimeState
         bool sortPendingDamageByDefenderMagnitude = false;
         std::vector<BattleDamageRuntimeUnit> unitExtras;
         std::map<int, BattleDamagePresentationStyle> presentationStylesByDefender;
-        std::vector<BattlePendingDamageIntent> pendingDamage;
     } damage;
 
     struct StatusState
@@ -193,26 +148,51 @@ struct BattleRuntimeState
         int dashMomentumFrames = 0;
     } movementPhysics;
 
-    struct ActionState
-    {
-        std::map<int, BattleActionPlanSeed> planSeeds;
-        std::map<int, BattlePendingCastAction> pendingCasts;
-        BattleCastConfig castConfig;
-        BattleCastGeometry castGeometry;
-        BattleActionRulesConfig actionRules;
-        std::vector<int> castFrames;
-        int actionRecoveryFrames = 0;
-        int dashRecoveryFrames = 0;
-        double blinkWeakTargetDefWeight = 0.0;
-        int strengthenedMeleeOperationCountThreshold = 0;
-        int projectileBounceRange = 0;
-    } action;
+    BattleRuntimeActions action;
 
     BattleProjectileFollowUpContext projectileFollowUps;
-    std::set<int> ultimateCasters;
-
-    std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;
+    BattleNextFrameQueues nextFrame;
 };
+
+inline BattleRuntimeUnits BattleRuntimeState::units()
+{
+    return BattleRuntimeUnits(*this);
+}
+
+inline auto BattleRuntimeUnits::all() const
+{
+    auto* runtime = &state();
+    return runtime->unitStore.units
+        | std::views::transform(
+            [runtime](BattleRuntimeUnit& unit)
+            {
+                return BattleRuntimeUnits(*runtime).makeHandle(unit);
+            });
+}
+
+inline auto BattleRuntimeUnits::live() const
+{
+    auto* runtime = &state();
+    return runtime->unitStore.units
+        | std::views::filter([](const BattleRuntimeUnit& unit) { return unit.alive; })
+        | std::views::transform(
+            [runtime](BattleRuntimeUnit& unit)
+            {
+                return BattleRuntimeUnits(*runtime).makeHandle(unit);
+            });
+}
+
+inline auto BattleRuntimeUnits::dead() const
+{
+    auto* runtime = &state();
+    return runtime->unitStore.units
+        | std::views::filter([](const BattleRuntimeUnit& unit) { return !unit.alive; })
+        | std::views::transform(
+            [runtime](BattleRuntimeUnit& unit)
+            {
+                return BattleRuntimeUnits(*runtime).makeHandle(unit);
+            });
+}
 
 class BattleFrameRunner
 {

@@ -73,6 +73,7 @@ void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::v
 {
     state.unitStore.units.clear();
     state.movement.agents.clear();
+    state.deathEffects.store.units.clear();
     for (const auto& worldUnit : units)
     {
         state.unitStore.units.push_back(runtimeUnitFromWorld(worldUnit));
@@ -80,6 +81,7 @@ void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::v
         agent.physics.position = worldUnit.position;
         agent.physics.velocity = worldUnit.velocity;
         state.movement.agents.emplace(worldUnit.id, agent);
+        state.deathEffects.store.units.push_back({ .id = worldUnit.id });
     }
 }
 
@@ -204,6 +206,7 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
     state.status.units.clear();
     state.damage.unitExtras.clear();
     state.damage.presentationStylesByDefender.clear();
+    state.deathEffects.store.units.clear();
     state.rescue.units.clear();
     for (auto unit : units)
     {
@@ -260,12 +263,12 @@ TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[b
     request.initial.operationType = BattleOperationType::RangedProjectile;
     request.initial.position = { 100, 120, 0 };
     request.initial.velocity = { 6, 0, 0 };
-    runtime.pendingAttackSpawns.push_back(request);
+    runtime.nextFrame.queueAttack(request);
 
     auto first = runBattleFrame(runtime);
     auto second = runBattleFrame(runtime);
 
-    CHECK(runtime.pendingAttackSpawns.empty());
+    CHECK(runtime.nextFrame.queuedAttacksForTest().empty());
     REQUIRE(runtime.attacks.attacks.size() == 1);
     CHECK(runtime.attacks.attacks[0].id == 70);
     CHECK(runtime.attacks.nextAttackId == 71);
@@ -287,14 +290,14 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     request.initial.operationType = BattleOperationType::RangedProjectile;
     request.initial.position = { 100, 120, 0 };
     request.initial.velocity = { 6, 0, 0 };
-    runtime.pendingAttackSpawns.push_back(request);
+    runtime.nextFrame.queueAttack(request);
 
     BattleRuntimeSession session(std::move(runtime));
 
     const auto first = session.runFrame();
     const auto second = session.runFrame();
 
-    CHECK(session.runtime().pendingAttackSpawns.empty());
+    CHECK(session.runtime().nextFrame.queuedAttacksForTest().empty());
     REQUIRE(session.runtime().attacks.attacks.size() == 1);
     CHECK(session.runtime().attacks.attacks[0].id == 70);
     CHECK(session.runtime().attacks.nextAttackId == 71);

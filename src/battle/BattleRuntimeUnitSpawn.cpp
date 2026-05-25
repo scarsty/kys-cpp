@@ -149,6 +149,7 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
     runtime.damage.unitExtras.push_back(std::move(spawn.damage));
     runtime.movement.agents.emplace(unitId, std::move(spawn.movement));
     runtime.combo.units.emplace(unitId, std::move(spawn.combo));
+    runtime.deathEffects.store.units.push_back({ .id = unitId });
     runtime.damage.presentationStylesByDefender.emplace(
         unitId,
         makeDamagePresentationStyle(runtime.unitStore.requireUnit(unitId).team));
@@ -159,7 +160,7 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
     });
     if (spawn.actionPlan)
     {
-        runtime.action.planSeeds.emplace(unitId, std::move(*spawn.actionPlan));
+        runtime.action.planSeeds().emplace(unitId, std::move(*spawn.actionPlan));
     }
 }
 
