@@ -678,6 +678,7 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::CloneSummon, 1 });
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::ShieldPctMaxHP, 25 });
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::BlockFirstHits, 2 });
+    ChessBattleEffects::applyEffect(sourceCombo, { EffectType::DamageImmunityAfterFrames, 5, 2 });
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::DamageImmunityAfterFrames, 12, 5 });
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::MPRecoveryBonus, 50 });
 

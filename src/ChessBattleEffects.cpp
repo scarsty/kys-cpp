@@ -121,6 +121,19 @@ int maxAlwaysEffectValue(const RoleComboState& state, EffectType type)
     return value;
 }
 
+int maxAlwaysEffectValue2(const RoleComboState& state, EffectType type)
+{
+    int value = 0;
+    for (const auto& effect : state.appliedEffects)
+    {
+        if (effect.type == type && effect.trigger == Trigger::Always)
+        {
+            value = std::max(value, effect.value2);
+        }
+    }
+    return value;
+}
+
 const AppliedEffectInstance* firstAlwaysEffect(const RoleComboState& state, EffectType type)
 {
     for (const auto& effect : state.appliedEffects)
@@ -131,6 +144,23 @@ const AppliedEffectInstance* firstAlwaysEffect(const RoleComboState& state, Effe
         }
     }
     return nullptr;
+}
+
+const AppliedEffectInstance* maxAlwaysEffectByValue(const RoleComboState& state, EffectType type)
+{
+    const AppliedEffectInstance* selected = nullptr;
+    for (const auto& effect : state.appliedEffects)
+    {
+        if (effect.type != type || effect.trigger != Trigger::Always)
+        {
+            continue;
+        }
+        if (!selected || effect.value > selected->value)
+        {
+            selected = &effect;
+        }
+    }
+    return selected;
 }
 
 bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context)

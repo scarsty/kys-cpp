@@ -306,6 +306,24 @@ TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resol
     CHECK(BattleLogTest::textOf(result.logEvents[0]) == "中毒（12%·60幀）");
 }
 
+TEST_CASE("BattleHitResolver_PoisonStacksUseMaximumConfiguredDuration", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 50;
+    KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::PoisonDOT, 5, 2 });
+    KysChess::ChessBattleEffects::applyEffect(input.attackerCombo, { KysChess::EffectType::PoisonDOT, 12, 4 });
+
+    auto result = resolveHit(input);
+
+    const auto* command = firstAcceptedHitCommand(result);
+    REQUIRE(command);
+    CHECK(command->damage.poisonPct == 17);
+    CHECK(command->damage.poisonDurationFrames == 120);
+    REQUIRE_FALSE(result.logEvents.empty());
+    CHECK(BattleLogTest::textOf(result.logEvents[0]) == "中毒（17%·120幀）");
+}
+
 TEST_CASE("BattleHitResolver_TriggeredTeamHealEmitsCommandWithoutApplyingTeamWorld", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();

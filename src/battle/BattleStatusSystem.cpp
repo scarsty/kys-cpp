@@ -233,9 +233,9 @@ BattleStatusUnitState makeBattleStatusUnitState(const BattleRuntimeUnit& unit, c
     status.effects.freezeReductionPct = sumAlwaysEffectValue(state, EffectType::FreezeReductionPct);
     status.effects.shieldFreezeResPct = sumAlwaysEffectValue(state, EffectType::ShieldFreezeRes);
     status.effects.controlImmunityFrames = sumAlwaysEffectValue(state, EffectType::ControlImmunityFrames);
-    status.effects.damageImmunityAfterFrames = maxAlwaysEffectValue(state, EffectType::DamageImmunityAfterFrames);
-    if (const auto* immunity = firstAlwaysEffect(state, EffectType::DamageImmunityAfterFrames))
+    if (const auto* immunity = maxAlwaysEffectByValue(state, EffectType::DamageImmunityAfterFrames))
     {
+        status.effects.damageImmunityAfterFrames = immunity->value;
         status.effects.damageImmunityDuration = immunity->value2;
     }
     if (status.effects.damageImmunityAfterFrames > 0)

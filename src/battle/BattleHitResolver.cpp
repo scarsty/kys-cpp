@@ -624,8 +624,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     }
 
     const int poisonPct = sumAlwaysEffectValue(attackerCombo, EffectType::PoisonDOT);
-    const auto* poison = firstAlwaysEffect(attackerCombo, EffectType::PoisonDOT);
-    const int poisonDuration = poison ? poison->value2 * 30 : 0;
+    const int poisonDuration = maxAlwaysEffectValue2(attackerCombo, EffectType::PoisonDOT) * 30;
     if (poisonPct > 0)
     {
         BattleDamageRequest request;

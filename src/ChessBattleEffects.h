@@ -188,7 +188,9 @@ struct RoleComboState
 
 int sumAlwaysEffectValue(const RoleComboState& state, EffectType type);
 int maxAlwaysEffectValue(const RoleComboState& state, EffectType type);
+int maxAlwaysEffectValue2(const RoleComboState& state, EffectType type);
 const AppliedEffectInstance* firstAlwaysEffect(const RoleComboState& state, EffectType type);
+const AppliedEffectInstance* maxAlwaysEffectByValue(const RoleComboState& state, EffectType type);
 
 class ChessBattleEffects
 {
