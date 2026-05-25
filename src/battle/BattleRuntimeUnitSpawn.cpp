@@ -75,7 +75,6 @@ BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(
     damage.hurtInvincFrames = maxAlwaysEffectValue(combo, EffectType::HurtInvincFrames);
     damage.blockFirstHitsRemaining = sumAlwaysEffectValue(combo, EffectType::BlockFirstHits);
     damage.deathPrevention = maxAlwaysEffectValue(combo, EffectType::DeathPrevention) > 0;
-    damage.deathPreventionUsed = combo.deathPreventionUsed;
     damage.deathPreventionFrames = maxAlwaysEffectValue(combo, EffectType::DeathPrevention);
     damage.killHealPct = sumAlwaysEffectValue(combo, EffectType::KillHealPct);
     damage.killInvincFrames = maxAlwaysEffectValue(combo, EffectType::KillInvincFrames);

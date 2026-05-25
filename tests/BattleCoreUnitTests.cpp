@@ -3207,6 +3207,36 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive",
     CHECK(runtime.deathPreventionFrames == 30);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionUsedRuntimeDoesNotTriggerAgain", "[battle][core][breakthrough]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 200, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.deathEffects.store.units = { { 0 }, { 1 } };
+    state.damage.pendingDamage.push_back({
+        .request = {
+            .attackerUnitId = 0,
+            .defenderUnitId = 1,
+            .baseDamage = 99,
+            .preResolvedDamage = true,
+        },
+    });
+    state.unitStore.requireUnit(1).vitals.hp = 20;
+    auto& runtime = requireById(state.damage.unitExtras, 1);
+    runtime.deathPrevention = true;
+    runtime.deathPreventionFrames = 30;
+    runtime.deathPreventionUsed = true;
+
+    auto result = runBattleFrame(state);
+
+    CHECK_FALSE(state.unitStore.requireUnit(1).alive);
+    CHECK_FALSE(gameplayEventsFor(result, BattleGameplayEventType::UnitDied, 1).empty());
+    CHECK(runtime.deathPreventionUsed);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnCooldownFinish", "[battle][core][breakthrough]")
 {
     BattleRuntimeState state;
