@@ -505,13 +505,13 @@ TEST_CASE("BattleHitResolver_OnHitDoesNotEmitCastScopedFollowUps", "[battle][hit
 
     auto result = resolveHit(input);
 
+    int hpDamageCommands = 0;
     for (const auto& command : result.commands)
     {
-        CHECK_FALSE(std::holds_alternative<BattleCurrentHpBlastCommand>(command));
-        CHECK_FALSE(std::holds_alternative<BattleTeamMpRestoreCommand>(command));
-        CHECK_FALSE(std::holds_alternative<BattleTeamShieldCommand>(command));
-        CHECK_FALSE(std::holds_alternative<BattleSpiralBleedProjectileCommand>(command));
+        hpDamageCommands += std::holds_alternative<BattleHpDamageCommand>(command) ? 1 : 0;
+        CHECK_FALSE(std::holds_alternative<BattleProjectileSpawnCommand>(command));
     }
+    CHECK(hpDamageCommands == 1);
 }
 
 TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCommand", "[battle][hit_resolver][unit]")
@@ -531,27 +531,6 @@ TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCo
             return std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command);
     });
     CHECK(nearby == result.commands.end());
-}
-
-TEST_CASE("BattleProjectileFollowUpResolver_CurrentHpBlastDoesNotTriggerDefenseEffects", "[battle][hit_resolver][unit]")
-{
-    BattleProjectileFollowUpContext context;
-    BattleUnitStore units;
-    units.units = {
-        runtimeUnit(0, 0, { 0.0f, 0.0f, 0.0f }),
-        runtimeUnit(1, 1, { 40.0f, 0.0f, 0.0f }),
-    };
-
-    std::vector<BattleGameplayCommand> commands;
-    commands.push_back(BattleCurrentHpBlastCommand{ 0, 15, "當前生命傷害" });
-
-    auto expanded = expandBattleProjectileFollowUpCommands(commands, context, units);
-
-    REQUIRE(expanded.commands.size() == 1);
-    const auto* hp = std::get_if<BattleHpDamageCommand>(&expanded.commands[0]);
-    REQUIRE(hp);
-    CHECK_FALSE(hp->triggersDefenseEffects);
-    CHECK(BattleLogTest::joinSegments(hp->segments) == "當前生命傷害");
 }
 
 TEST_CASE("BattleHitResolver_SkillReflectDamageDoesNotTriggerDefenseEffects", "[battle][hit_resolver][unit]")
@@ -655,31 +634,6 @@ TEST_CASE("BattleProjectileFollowUpResolver_NearbyTrackingUsesCommandProjectileS
     CHECK(spawn->request.initial.velocity.x == Catch::Approx(20.0f));
     CHECK(spawn->request.initial.velocity.y == Catch::Approx(0.0f));
     CHECK(spawn->request.initial.velocity.z == Catch::Approx(0.0f));
-}
-
-TEST_CASE("BattleProjectileFollowUpResolver_SpiralBleedUsesCommandProjectileSpeed", "[battle][hit_resolver][unit]")
-{
-    BattleProjectileFollowUpContext context;
-    BattleUnitStore units;
-    units.units = {
-        runtimeUnit(0, 0, { 0.0f, 0.0f, 0.0f }),
-    };
-    context.projectileSpeed = 10.0;
-
-    std::vector<BattleGameplayCommand> commands;
-    commands.push_back(BattleSpiralBleedProjectileCommand{
-        0,
-        3,
-        2,
-        20.0,
-    });
-
-    auto expanded = expandBattleProjectileFollowUpCommands(commands, context, units);
-
-    REQUIRE(expanded.commands.size() == 2);
-    const auto* spawn = std::get_if<BattleProjectileSpawnCommand>(&expanded.commands[0]);
-    REQUIRE(spawn);
-    CHECK(spawn->request.spiralRadiusGrowth == Catch::Approx(18.0f));
 }
 
 TEST_CASE("BattleHitResolver_MpDamageSkillEmitsMpDamageCommand", "[battle][hit_resolver][unit]")

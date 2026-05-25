@@ -29,6 +29,7 @@ namespace KysChess::Battle
 namespace
 {
 constexpr int CoreRoleStatusEffectFrames = 48;
+constexpr double CorePi = 3.14159265358979323846;
 
 BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
     const KysChess::RoleComboState& state,
@@ -212,9 +213,9 @@ struct BattleTeamEffectCommandApplication
     std::vector<BattleLogEvent> logEvents;
 };
 
-BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
+BattleTeamEffectCommandApplication applyBattleTeamHealCommand(
     BattleRuntimeState& state,
-    const BattleGameplayCommand& command);
+    const BattleTeamHealCommand& command);
 
 std::vector<BattleComboTriggerEvent> collectFrameCastScopedComboEvents(
     KysChess::RoleComboState& combo,
@@ -2958,7 +2959,7 @@ void appendHealEventLog(
 
 bool applyFrameTeamEffectCommand(
     BattleRuntimeState& state,
-    const BattleGameplayCommand& command,
+    const BattleTeamHealCommand& command,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
 {
@@ -2967,17 +2968,7 @@ bool applyFrameTeamEffectCommand(
         return false;
     }
 
-    const int sourceUnitId = std::visit([](const auto& typedCommand) -> int
-        {
-            using Command = std::decay_t<decltype(typedCommand)>;
-            if constexpr (std::is_same_v<Command, BattleTeamHealCommand>
-                || std::is_same_v<Command, BattleTeamMpRestoreCommand>
-                || std::is_same_v<Command, BattleTeamShieldCommand>)
-            {
-                return typedCommand.sourceUnitId;
-            }
-            return -1;
-    }, command);
+    const int sourceUnitId = command.sourceUnitId;
     assert(sourceUnitId >= 0);
 
     const auto& source = state.unitStore.requireUnit(sourceUnitId);
@@ -2986,7 +2977,7 @@ bool applyFrameTeamEffectCommand(
         return true;
     }
 
-    auto application = applyBattleTeamEffectCommand(state, command);
+    auto application = applyBattleTeamHealCommand(state, command);
     logEvents.insert(
         logEvents.end(),
         application.logEvents.begin(),
@@ -3010,45 +3001,6 @@ bool applyFrameMpRestoreCommand(
 
     unit.vitals.mp += restored;
     appendStatusEventLog(logEvents, command.unitId, command.unitId, command.reason);
-    return true;
-}
-
-bool applyFrameUnitHealCommand(
-    BattleRuntimeState& state,
-    const BattleUnitHealCommand& command,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
-{
-    auto& unit = state.unitStore.requireUnit(command.targetUnitId);
-
-    const int before = unit.vitals.hp;
-    unit.vitals.hp = std::min(unit.vitals.maxHp, unit.vitals.hp + command.amount);
-    const int healed = unit.vitals.hp - before;
-    if (healed <= 0)
-    {
-        return true;
-    }
-
-    appendHealEventLog(logEvents, command.sourceUnitId, command.targetUnitId, healed, command.reason);
-    visualEvents.push_back(roleEffectEvent(
-        command.targetUnitId,
-        KysChess::EFT_HEAL,
-        CoreRoleStatusEffectFrames));
-    return true;
-}
-
-bool applyFrameUnitShieldCommand(
-    BattleRuntimeState& state,
-    const BattleUnitShieldCommand& command,
-    std::vector<BattleLogEvent>& logEvents)
-{
-    auto& runtimeUnit = state.unitStore.requireUnit(command.targetUnitId);
-    runtimeUnit.shield += command.amount;
-    appendStatusEventLog(
-        logEvents,
-        command.sourceUnitId,
-        command.targetUnitId,
-        formatStatusValue(command.reason, command.amount, "護盾"));
     return true;
 }
 
@@ -3106,21 +3058,16 @@ bool reduceFrameGameplayCommand(
     {
         return tryAppendFrameDamageTransaction(state, pendingDamage, *sideEffect);
     }
-    if (std::holds_alternative<BattleTeamHealCommand>(command)
-        || std::holds_alternative<BattleTeamMpRestoreCommand>(command)
-        || std::holds_alternative<BattleTeamShieldCommand>(command))
+    if (const auto* teamHeal = std::get_if<BattleTeamHealCommand>(&command))
     {
-        return applyFrameTeamEffectCommand(state, command, logEvents, visualEvents);
+        return applyFrameTeamEffectCommand(state, *teamHeal, logEvents, visualEvents);
     }
     if (const auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&command))
     {
         attackSpawns.push_back(projectile->request);
         return true;
     }
-    if (std::holds_alternative<BattleCurrentHpBlastCommand>(command)
-        || std::holds_alternative<BattleSpiralBleedProjectileCommand>(command)
-        || std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command)
-        || std::holds_alternative<BattleHitExtraProjectilesCommand>(command)
+    if (std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command)
         || std::holds_alternative<BattleShieldExplosionCommand>(command)
         || std::holds_alternative<BattleDeathAoeProjectileCommand>(command))
     {
@@ -3179,14 +3126,6 @@ bool reduceFrameGameplayCommand(
             rumble->durationMs,
         });
         return true;
-    }
-    if (const auto* heal = std::get_if<BattleUnitHealCommand>(&command))
-    {
-        return applyFrameUnitHealCommand(state, *heal, logEvents, visualEvents);
-    }
-    if (const auto* shield = std::get_if<BattleUnitShieldCommand>(&command))
-    {
-        return applyFrameUnitShieldCommand(state, *shield, logEvents);
     }
     assert(false);
     return false;
@@ -4931,48 +4870,20 @@ BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit)
 namespace
 {
 
-BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
+BattleTeamEffectCommandApplication applyBattleTeamHealCommand(
     BattleRuntimeState& state,
-    const BattleGameplayCommand& command)
+    const BattleTeamHealCommand& command)
 {
     auto& units = state.unitStore;
     BattleTeamEffectCommandApplication result;
     BattleTeamEffectSystem system;
-    if (const auto* heal = std::get_if<BattleTeamHealCommand>(&command))
-    {
-        assert(heal->sourceUnitId >= 0);
-        result.events = system.applyTeamHeal(
-            units,
-            heal->sourceUnitId,
-            heal->flatHeal,
-            heal->pctHeal);
-        appendTeamEffectLogEvents(result.logEvents, result.events, heal->reason);
-        return result;
-    }
-    if (const auto* mp = std::get_if<BattleTeamMpRestoreCommand>(&command))
-    {
-        assert(mp->sourceUnitId >= 0);
-        result.events = system.applyTeamMp(
-            units,
-            state.status.units,
-            state.combo.units,
-            mp->sourceUnitId,
-            mp->amount);
-        appendTeamEffectLogEvents(result.logEvents, result.events, mp->reason);
-        return result;
-    }
-    if (const auto* shield = std::get_if<BattleTeamShieldCommand>(&command))
-    {
-        assert(shield->sourceUnitId >= 0);
-        result.events = system.applyTeamShield(
-            units,
-            shield->sourceUnitId,
-            shield->amount,
-            shield->refreshOnly);
-        appendTeamEffectLogEvents(result.logEvents, result.events, shield->reason);
-        return result;
-    }
-    assert(false);
+    assert(command.sourceUnitId >= 0);
+    result.events = system.applyTeamHeal(
+        units,
+        command.sourceUnitId,
+        command.flatHeal,
+        command.pctHeal);
+    appendTeamEffectLogEvents(result.logEvents, result.events, command.reason);
     return result;
 }
 
@@ -5022,59 +4933,78 @@ double resolveFrameArmorPenetratedDefense(
         random).defense;
 }
 
-void appendProjectileFollowUpOutputEvents(
-    BattleProjectileFollowUpExpansion& followUps,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
-{
-    logEvents.insert(
-        logEvents.end(),
-        std::make_move_iterator(followUps.logEvents.begin()),
-        std::make_move_iterator(followUps.logEvents.end()));
-    visualEvents.insert(
-        visualEvents.end(),
-        std::make_move_iterator(followUps.visualEvents.begin()),
-        std::make_move_iterator(followUps.visualEvents.end()));
-}
-
 void applyCurrentHpBlastCastEffect(
     BattleRuntimeState& state,
-    const BattleCurrentHpBlastCommand& command,
+    int sourceUnitId,
+    int damagePct,
+    const std::string& reason,
     std::vector<BattlePendingDamageIntent>& pendingDamage,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+    std::vector<BattleLogEvent>&,
+    std::vector<BattleVisualEvent>&)
 {
-    auto followUps = expandBattleProjectileFollowUpCommands(
-        { command },
-        state.projectileFollowUps,
-        state.unitStore);
-    for (const auto& expanded : followUps.commands)
+    const auto& source = state.unitStore.requireUnit(sourceUnitId);
+    for (const auto& unit : state.unitStore.units)
     {
-        const auto* hp = std::get_if<BattleHpDamageCommand>(&expanded);
-        assert(hp);
-        tryAppendFrameDamageTransaction(state, pendingDamage, *hp);
+        if (!unit.alive || unit.team == source.team)
+        {
+            continue;
+        }
+        tryAppendFrameDamageTransaction(
+            state,
+            pendingDamage,
+            BattleHpDamageCommand{
+                sourceUnitId,
+                unit.id,
+                std::max(1, unit.vitals.hp * damagePct / 100),
+                false,
+                false,
+                false,
+                false,
+                0,
+                "",
+                battleLogText(reason, BattleLogTextTone::SkillName),
+                false,
+            });
     }
-    appendProjectileFollowUpOutputEvents(followUps, logEvents, visualEvents);
 }
 
 void applySpiralBleedCastEffect(
     BattleRuntimeState& state,
-    const BattleSpiralBleedProjectileCommand& command,
+    int sourceUnitId,
+    int bleedStacks,
+    int projectileCount,
+    double projectileSpeed,
     std::vector<BattleAttackSpawnRequest>& attackSpawns,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+    std::vector<BattleLogEvent>&,
+    std::vector<BattleVisualEvent>&)
 {
-    auto followUps = expandBattleProjectileFollowUpCommands(
-        { command },
-        state.projectileFollowUps,
-        state.unitStore);
-    for (auto& expanded : followUps.commands)
+    const auto& source = state.unitStore.requireUnit(sourceUnitId);
+    const auto sourcePosition = source.motion.position;
+    const int sharedHitGroupId = state.projectileFollowUps.nextSharedHitGroupId++;
+    const int count = std::max(1, projectileCount);
+    const double speed = projectileSpeed > 0.0
+        ? projectileSpeed
+        : state.projectileFollowUps.projectileSpeed;
+    for (int i = 0; i < count; ++i)
     {
-        auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&expanded);
-        assert(projectile);
-        attackSpawns.push_back(std::move(projectile->request));
+        BattleAttackSpawnRequest request;
+        request.initial.attackerUnitId = sourceUnitId;
+        request.initial.operationType = BattleOperationType::RangedProjectile;
+        request.initial.visualEffectId = 48;
+        request.initial.position = sourcePosition;
+        request.initial.totalFrame = 35;
+        request.initial.scriptedBleedStacks = bleedStacks;
+        request.initial.sharedHitGroupId = sharedHitGroupId;
+        request.initial.ignoreProjectileCancel = true;
+        request.initial.through = true;
+        request.spiralMotion = true;
+        request.spiralCenter = sourcePosition;
+        request.spiralRadius = 0.0f;
+        request.spiralRadiusGrowth = static_cast<float>(speed * 0.9);
+        request.spiralAngle = static_cast<float>(2.0 * CorePi * i / count);
+        request.spiralAngularVelocity = 0.42f;
+        attackSpawns.push_back(std::move(request));
     }
-    appendProjectileFollowUpOutputEvents(followUps, logEvents, visualEvents);
 }
 
 std::vector<BattleComboTriggerEvent> collectFrameCastScopedComboEvents(
@@ -5116,11 +5046,9 @@ void applyFrameCastScopedComboEffects(
         case KysChess::EffectType::CurrentHPPctBlast:
             applyCurrentHpBlastCastEffect(
                 state,
-                BattleCurrentHpBlastCommand{
-                    effects.unitId,
-                    event.effect.value,
-                    "當前生命傷害",
-                },
+                effects.unitId,
+                event.effect.value,
+                "當前生命傷害",
                 pendingDamage,
                 logEvents,
                 visualEvents);
@@ -5151,12 +5079,10 @@ void applyFrameCastScopedComboEffects(
         case KysChess::EffectType::SpiralBleedProjectile:
             applySpiralBleedCastEffect(
                 state,
-                BattleSpiralBleedProjectileCommand{
-                    effects.unitId,
-                    event.effect.value,
-                    event.effect.value2 > 0 ? event.effect.value2 : 6,
-                    effects.projectileSpeed,
-                },
+                effects.unitId,
+                event.effect.value,
+                event.effect.value2 > 0 ? event.effect.value2 : 6,
+                effects.projectileSpeed,
                 attackSpawns,
                 logEvents,
                 visualEvents);

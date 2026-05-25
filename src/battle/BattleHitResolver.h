@@ -85,40 +85,10 @@ struct BattleTeamHealCommand
     std::string reason;
 };
 
-struct BattleTeamMpRestoreCommand
-{
-    int sourceUnitId{};
-    int amount{};
-    std::string reason;
-};
-
-struct BattleTeamShieldCommand
-{
-    int sourceUnitId{};
-    int amount{};
-    bool refreshOnly = false;
-    std::string reason;
-};
-
 struct BattleProjectileSpawnCommand
 {
     BattleAttackSpawnRequest request;
     std::string reason;
-};
-
-struct BattleCurrentHpBlastCommand
-{
-    int sourceUnitId{};
-    int damagePct{};
-    std::string reason;
-};
-
-struct BattleSpiralBleedProjectileCommand
-{
-    int sourceUnitId{};
-    int bleedStacks{};
-    int projectileCount{};
-    double projectileSpeed{};
 };
 
 struct BattleNearbyTrackingProjectilesCommand
@@ -128,13 +98,6 @@ struct BattleNearbyTrackingProjectilesCommand
     int rangePixels{};
     int damagePct{};
     double projectileSpeed{};
-};
-
-struct BattleHitExtraProjectilesCommand
-{
-    BattleAttackEvent prototype;
-    int extraCount{};
-    int targetUnitId{};
 };
 
 struct BattleShieldExplosionCommand
@@ -194,43 +157,20 @@ struct BattleDeathAoeProjectileCommand
     int maxTargets{};
 };
 
-struct BattleUnitHealCommand
-{
-    int sourceUnitId{};
-    int targetUnitId{};
-    int amount{};
-    std::string reason;
-};
-
-struct BattleUnitShieldCommand
-{
-    int sourceUnitId{};
-    int targetUnitId{};
-    int amount{};
-    std::string reason;
-};
-
 using BattleGameplayCommand = std::variant<
     BattleHpDamageCommand,
     BattleMpDamageCommand,
     BattleAcceptedHitSideEffectCommand,
     BattleTeamHealCommand,
-    BattleTeamMpRestoreCommand,
-    BattleTeamShieldCommand,
     BattleProjectileSpawnCommand,
-    BattleCurrentHpBlastCommand,
-    BattleSpiralBleedProjectileCommand,
     BattleNearbyTrackingProjectilesCommand,
-    BattleHitExtraProjectilesCommand,
     BattleShieldExplosionCommand,
     BattleMpRestoreCommand,
     BattleAutoUltimateCommand,
     BattleKnockbackCommand,
     BattleTempAttackBuffCommand,
     BattleRumbleCommand,
-    BattleDeathAoeProjectileCommand,
-    BattleUnitHealCommand,
-    BattleUnitShieldCommand>;
+    BattleDeathAoeProjectileCommand>;
 
 struct BattleHitResolutionInput
 {

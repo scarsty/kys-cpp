@@ -17,7 +17,6 @@ namespace
 {
 
 constexpr int RoleStatusEffectFrames = 45;
-constexpr double FollowUpPi = 3.14159265358979323846;
 
 double pointMagnitude(const Pointf& point)
 {
@@ -364,62 +363,6 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     BattleProjectileTargetingSystem targeting;
     for (const auto& command : commands)
     {
-        if (const auto* currentHp = std::get_if<BattleCurrentHpBlastCommand>(&command))
-        {
-            const auto& source = units.requireUnit(currentHp->sourceUnitId);
-            for (const auto& unit : units.units)
-            {
-                if (!unit.alive || unit.team == source.team)
-                {
-                    continue;
-                }
-                expansion.commands.push_back(BattleHpDamageCommand{
-                    currentHp->sourceUnitId,
-                    unit.id,
-                    std::max(1, unit.vitals.hp * currentHp->damagePct / 100),
-                    false,
-                    false,
-                    false,
-                    false,
-                    0,
-                    "",
-                    battleLogText(currentHp->reason, BattleLogTextTone::SkillName),
-                    false,
-                });
-            }
-            continue;
-        }
-        if (const auto* spiral = std::get_if<BattleSpiralBleedProjectileCommand>(&command))
-        {
-            const auto& source = units.requireUnit(spiral->sourceUnitId);
-            const auto sourcePosition = source.motion.position;
-            const int sharedHitGroupId = context.nextSharedHitGroupId++;
-            const int projectileCount = std::max(1, spiral->projectileCount);
-            const double projectileSpeed = spiral->projectileSpeed > 0.0
-                ? spiral->projectileSpeed
-                : context.projectileSpeed;
-            for (int i = 0; i < projectileCount; ++i)
-            {
-                BattleAttackSpawnRequest request;
-                request.initial.attackerUnitId = spiral->sourceUnitId;
-                request.initial.operationType = BattleOperationType::RangedProjectile;
-                request.initial.visualEffectId = 48;
-                request.initial.position = sourcePosition;
-                request.initial.totalFrame = 35;
-                request.initial.scriptedBleedStacks = spiral->bleedStacks;
-                request.initial.sharedHitGroupId = sharedHitGroupId;
-                request.initial.ignoreProjectileCancel = true;
-                request.initial.through = true;
-                request.spiralMotion = true;
-                request.spiralCenter = sourcePosition;
-                request.spiralRadius = 0.0f;
-                request.spiralRadiusGrowth = static_cast<float>(projectileSpeed * 0.9);
-                request.spiralAngle = static_cast<float>(2.0 * FollowUpPi * i / projectileCount);
-                request.spiralAngularVelocity = 0.42f;
-                expansion.commands.push_back(BattleProjectileSpawnCommand{ std::move(request), "螺旋流血彈" });
-            }
-            continue;
-        }
         if (const auto* nearby = std::get_if<BattleNearbyTrackingProjectilesCommand>(&command))
         {
             auto targetIds = targeting.selectNearbyTargets(
@@ -436,41 +379,6 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                         context),
                     "範圍追蹤彈",
                 });
-            }
-            continue;
-        }
-        if (const auto* extra = std::get_if<BattleHitExtraProjectilesCommand>(&command))
-        {
-            for (int i = 0; i < extra->extraCount; ++i)
-            {
-                BattleAttackSpawnRequest request;
-                request.initial.attackerUnitId = extra->prototype.sourceUnitId;
-                request.initial.skillId = extra->prototype.skillId;
-                request.initial.preferredTargetUnitId = extra->targetUnitId;
-                request.initial.totalFrame = extra->prototype.totalFrame;
-                request.initial.track = extra->prototype.track
-                    || extra->prototype.operationType == BattleOperationType::Melee
-                    || extra->prototype.operationType == BattleOperationType::Dash;
-                request.initial.through = extra->prototype.through;
-                request.initial.ultimate = extra->prototype.ultimate;
-                request.initial.ignoreProjectileCancel = extra->prototype.skillId < 0;
-                request.initial.sharedHitGroupId = extra->prototype.sharedHitGroupId;
-                request.initial.visualEffectId = extra->prototype.visualEffectId;
-                request.initial.operationType = extra->prototype.operationType;
-                request.initial.scriptedDamage = extra->prototype.scriptedDamage;
-                request.initial.scriptedStunFrames = extra->prototype.scriptedStunFrames;
-                request.initial.scriptedBleedStacks = extra->prototype.scriptedBleedStacks;
-                request.initial.strengthMultiplier = extra->prototype.strengthMultiplier;
-                request.initial.suppressNearbyTrackingProjectileProc = extra->prototype.suppressNearbyTrackingProjectileProc;
-                request.initial.mainProjectile = false;
-                request.initial.position = extra->prototype.position;
-                auto prototypeVelocity = extra->prototype.velocity;
-                const double prototypeSpeed = prototypeVelocity.norm();
-                request.initial.velocity = normalizedFollowUpVelocity(
-                    extra->prototype.position,
-                    units.requireUnit(extra->targetUnitId).motion.position,
-                    prototypeSpeed > 0.01 ? prototypeSpeed : context.projectileSpeed);
-                expansion.commands.push_back(BattleProjectileSpawnCommand{ std::move(request), "命中追加彈" });
             }
             continue;
         }
