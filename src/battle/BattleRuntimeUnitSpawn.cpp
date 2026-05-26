@@ -100,6 +100,7 @@ BattleMovementAgentState makeInitialMovementAgent(
     const BattleRuntimeUnit& unit)
 {
     BattleMovementAgentState agent;
+    agent.active = unit.alive;
     agent.physics.position = unit.motion.position;
     agent.physics.velocity = unit.motion.velocity;
     agent.physics.acceleration = unit.motion.acceleration;

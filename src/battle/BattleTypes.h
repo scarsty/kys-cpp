@@ -160,6 +160,7 @@ struct BattleMovementPhysicsState
 
 struct BattleMovementAgentState
 {
+    bool active = true;
     int targetId = -1;
     int assignedSlot = 0;
     int slotSwitchCooldownRemaining = 0;
