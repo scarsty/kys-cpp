@@ -40,6 +40,7 @@ void SubScene::setID(int id)
     if (submap_info_ == nullptr)
     {
         setExit(true);
+        return;
     }
     //submap_info_->ID = submap_id_;    //这句是修正存档中可能存在的错误
     exit_music_ = submap_info_->ExitMusic;

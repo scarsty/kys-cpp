@@ -5,6 +5,7 @@ project(kys_cpp)
 set(KYS_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../../")
 set(KYS_SRC_DIR "${KYS_ROOT_DIR}/src")
 set(KYS_MLCC_DIR "${KYS_ROOT_DIR}/mlcc")
+set(KYS_CIFA_DIR "${KYS_ROOT_DIR}/cifa")
 set(KYS_OTHERS_DIR "${KYS_ROOT_DIR}/others")
 set(KYS_JNI_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../include")
 set(KYS_ANDROID_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/${ANDROID_ABI}")
@@ -213,7 +214,7 @@ add_library(main SHARED
         "${KYS_SRC_DIR}/VirtualStick.cpp"
         "${KYS_SRC_DIR}/Weather.cpp"
         "${KYS_MLCC_DIR}/ZipFile2.cpp"
-        "${KYS_MLCC_DIR}/Cifa.cpp"
+        "${KYS_CIFA_DIR}/Cifa.cpp"
         "${KYS_MLCC_DIR}/strfunc.cpp"
         "${KYS_MLCC_DIR}/filefunc.cpp"
         "${KYS_MLCC_DIR}/PotConv.cpp"
@@ -224,8 +225,7 @@ add_library(main SHARED
 
 target_include_directories(main PRIVATE
     "${KYS_SRC_DIR}"
-    "${KYS_MLCC_DIR}"
-    "${KYS_OTHERS_DIR}"
+    "${KYS_MLCC_DIR}"    "${KYS_CIFA_DIR}"    "${KYS_OTHERS_DIR}"
     "${KYS_JNI_INCLUDE_DIR}"
 )
 

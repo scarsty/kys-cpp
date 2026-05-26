@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 
 :: ============================================================
 :: 资源目录（修改此处为本地 game 资源根目录）
-set RESOURCE_DIR=D:\kys-all\_cpp\cpp版资源\game2x
+set RESOURCE_DIR=D:\kys-all\_cpp\cpp版资源\game-dragon
 :: ============================================================
 
 set PROJECT_ROOT=%~dp0

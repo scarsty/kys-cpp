@@ -1202,8 +1202,9 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
 void Engine::extractAssetsIfNeeded()
 {
     const std::string internal = SDL_GetAndroidInternalStoragePath();
-    const std::string marker = internal + "/.game_extracted";
-    const std::string dest = internal + "/game/";
+    const std::string external = SDL_GetAndroidExternalStoragePath();
+    const std::string dest = external + "/game/";
+    const std::string marker = dest + ".game_extracted";
 
     if (filefunc::fileExist(marker))
     {
