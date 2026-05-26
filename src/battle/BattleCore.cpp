@@ -1379,16 +1379,15 @@ const BattleUnitMotion& motionSnapshotForUnit(
 
 void prepareMovementAgents(BattleRuntimeState& state)
 {
-    for (auto it = state.movement.agents.begin(); it != state.movement.agents.end();)
+    assert(state.movement.agents.size() == state.unitStore.units.size());
+    for (const auto& unit : state.unitStore.units)
     {
-        const auto& unit = state.unitStore.requireUnit(it->first);
-        if (!unit.alive && !needsCorpsePhysics(unit))
+        auto& agent = requireMappedById(state.movement.agents, unit.id);
+        agent.active = unit.alive || needsCorpsePhysics(unit);
+        if (!unit.alive)
         {
-            state.movement.movementReservations.erase(it->first);
-            it = state.movement.agents.erase(it);
-            continue;
+            state.movement.movementReservations.erase(unit.id);
         }
-        ++it;
     }
 
     for (auto it = state.movement.movementReservations.begin(); it != state.movement.movementReservations.end();)
@@ -4329,11 +4328,12 @@ std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleR
     for (auto& unit : state.unitStore.units)
     {
         assert(unit.id >= 0);
-        if (!unit.alive && !needsCorpsePhysics(unit))
+        auto& agent = requireMappedById(state.movement.agents, unit.id);
+        if (!agent.active)
         {
             continue;
         }
-        auto& physics = requireMappedById(state.movement.agents, unit.id).physics;
+        auto& physics = agent.physics;
 
         BattleFrameMovementPhysicsUnitResult result;
         result.unitId = unit.id;
