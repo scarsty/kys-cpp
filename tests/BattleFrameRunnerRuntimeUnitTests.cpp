@@ -372,6 +372,43 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[ba
     CHECK(session.runtime().damage.sortPendingDamageByDefenderMagnitude);
 }
 
+TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsMovementAgentRowsForDeadUnits", "[battle][runtime_session][ownership]")
+{
+    BattleRuntimeSessionCreationInput input;
+    input.rules = makeHadesBattleRuntimeRules(SceneTileWidth, 18);
+
+    BattleSetupUnitInput live;
+    live.unitId = 0;
+    live.realRoleId = 1000;
+    live.name = "測試";
+    live.team = 0;
+    live.alive = true;
+    live.vitals = { 100, 100, 0, 100 };
+    live.stats = { 10, 10, 10 };
+    live.motion.position = { 128, 256, 0 };
+    input.units.push_back(live);
+    input.comboStates.emplace(0, KysChess::RoleComboState{});
+
+    BattleSetupUnitInput dead = live;
+    dead.unitId = 1;
+    dead.realRoleId = 1001;
+    dead.name = "死亡測試";
+    dead.team = 1;
+    dead.alive = false;
+    dead.vitals.hp = 0;
+    dead.motion.position = { 256, 256, 0 };
+    input.units.push_back(dead);
+    input.comboStates.emplace(1, KysChess::RoleComboState{});
+
+    auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
+
+    REQUIRE(session.runtime().movement.agents.size() == 2);
+    CHECK(session.runtime().movement.agents.contains(0));
+    CHECK(session.runtime().movement.agents.contains(1));
+    CHECK(session.runtime().movement.agents.at(0).active);
+    CHECK_FALSE(session.runtime().movement.agents.at(1).active);
+}
+
 TEST_CASE("BattleRuntimeSession_CreateInitializedSpendsNonThroughProjectilesOnHit", "[battle][runtime_session][ownership]")
 {
     BattleRuntimeSessionCreationInput input;

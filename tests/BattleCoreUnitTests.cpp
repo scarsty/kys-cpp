@@ -2959,10 +2959,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_KeepsMovingCorpsesInMovementPhysics", 
     CHECK(corpse.motion.position.x == 206.0f);
     CHECK(corpse.motion.position.z == 8.0f);
     CHECK(state.movement.agents.contains(1));
+    CHECK(state.movement.agents.at(1).active);
     CHECK(state.movement.agents.at(1).physics.position.x == 206.0f);
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_RemovesInertDeadUnitsFromMovementAgents", "[battle][core][movement]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_InactivatesInertDeadMovementAgents", "[battle][core][movement][ownership]")
 {
     BattleRuntimeState state;
     state.unitStore.gridTransform = { SceneTileWidth, 64 };
@@ -2984,7 +2985,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RemovesInertDeadUnitsFromMovementAgent
 
     runBattleFrame(state);
 
-    CHECK_FALSE(state.movement.agents.contains(1));
+    REQUIRE(state.movement.agents.contains(1));
+    CHECK_FALSE(state.movement.agents.at(1).active);
+    CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(200.0f));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity", "[battle][core][movement]")
