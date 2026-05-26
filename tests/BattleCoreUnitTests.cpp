@@ -884,13 +884,17 @@ TEST_CASE("BattleFrameRunner_RoutesStatusTicksThroughCanonicalUnitStore", "[batt
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({ unit(0, 0, { 100, 100, 0 }) }));
     state.attacks = attackWorld();
-    state.unitStore.units.push_back(runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }));
+    state.unitStore.units = {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+    };
     auto status = statusUnitSnapshot(0, 100);
     status.effects.mpBlockTimer = 1;
     status.effects.damageImmunityAfterFrames = 1;
     status.effects.damageImmunityDuration = 5;
     status.effects.damageImmunityTimer = 0;
-    state.status.units.push_back(makeBattleStatusRuntimeUnit(status));
+    state.status.units = {
+        makeBattleStatusRuntimeUnit(status),
+    };
 
     runBattleFrame(state);
 
