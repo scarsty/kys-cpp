@@ -189,9 +189,9 @@ private:
 };
 
 // Runtime unit membership is fixed after clone initialization. Handles and unit
-// ranges are frame-local views over stable unit/status/damage/combo/death rows.
-// Movement agent access is phase-sensitive because dead-unit cleanup may erase
-// movement agents for non-corpse units.
+// ranges are frame-local views over stable unit/status/damage/combo/death/rescue/
+// movement rows. Movement rows remain present for dead units; agent.active tells
+// movement phases whether the unit currently participates in planning/physics.
 //
 // Today: BattleRuntimeUnitHandle is a view over horizontal stores.
 // Future ownership migration is reasonable only if every per-unit store has the

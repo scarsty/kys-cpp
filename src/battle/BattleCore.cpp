@@ -126,14 +126,14 @@ BattleRuntimeUnitHandle BattleRuntimeUnits::makeHandle(BattleRuntimeUnit& core) 
 {
     auto& runtime = state();
     const int unitId = core.id;
-    auto movementIt = runtime.movement.agents.find(unitId);
+    auto& movement = requireMappedById(runtime.movement.agents, unitId);
     requireRescueRuntime(runtime, unitId);
     return {
         core,
         &requireById(runtime.status.units, unitId),
         &requireMappedById(runtime.combo.units, unitId),
         &requireById(runtime.damage.unitExtras, unitId),
-        movementIt == runtime.movement.agents.end() ? nullptr : &movementIt->second,
+        &movement,
         &requireById(runtime.deathEffects.store.units, unitId),
         &runtime.action,
         &runtime,
@@ -2010,9 +2010,8 @@ void refreshRuntimeDashAttackDetails(
 
 bool actionMovementDashActive(const BattleRuntimeState& state, int unitId)
 {
-    const auto movementIt = state.movement.agents.find(unitId);
-    return movementIt != state.movement.agents.end()
-        && movementIt->second.physics.movementDashFrames > 0;
+    const auto& movement = requireMappedById(state.movement.agents, unitId);
+    return movement.active && movement.physics.movementDashFrames > 0;
 }
 
 double committedCastProjectileSpeed(const BattleActionCommitResult& result, double fallbackSpeed)
