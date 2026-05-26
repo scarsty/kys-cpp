@@ -160,7 +160,7 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
     });
     if (spawn.actionPlan)
     {
-        runtime.action.planSeeds().emplace(unitId, std::move(*spawn.actionPlan));
+        runtime.action.setPlanSeed(std::move(*spawn.actionPlan));
     }
 }
 

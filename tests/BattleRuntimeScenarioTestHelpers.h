@@ -191,7 +191,7 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
     digest.winningTeam = runtime.result.winningTeam;
     digest.activeAttackCount = runtime.attacks.attacks.size();
     digest.pendingAttackSpawnCount = runtime.nextFrame.queuedAttacksForTest().size();
-    digest.pendingCastCount = runtime.action.pendingCastCountForTest();
+    digest.pendingCastCount = runtime.action.pendingCastCount();
 
     for (const auto& unit : runtime.unitStore.units)
     {

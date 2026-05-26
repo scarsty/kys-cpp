@@ -65,41 +65,44 @@ class BattleRuntimeUnitActionView;
 class BattleRuntimeActions
 {
 public:
-    std::map<int, BattleActionPlanSeed>& planSeeds() { return planSeeds_; }
-    const std::map<int, BattleActionPlanSeed>& planSeeds() const { return planSeeds_; }
+    const BattleActionPlanSeed* planSeed(int unitId) const
+    {
+        auto it = planSeeds_.find(unitId);
+        return it == planSeeds_.end() ? nullptr : &it->second;
+    }
 
-    const BattlePendingCastAction* pendingCastForTest(int unitId) const
+    void setPlanSeed(BattleActionPlanSeed seed)
+    {
+        planSeeds_[seed.unitId] = std::move(seed);
+    }
+
+    void clearPlanSeeds()
+    {
+        planSeeds_.clear();
+    }
+
+    const BattlePendingCastAction* pendingCast(int unitId) const
     {
         auto it = pendingCasts_.find(unitId);
         return it == pendingCasts_.end() ? nullptr : &it->second;
     }
 
-    bool hasPendingCastForTest(int unitId) const
+    bool hasPendingCast(int unitId) const
     {
-        return hasPendingCast(unitId);
+        return pendingCasts_.count(unitId) != 0;
     }
 
-    std::size_t pendingCastCountForTest() const
+    std::size_t pendingCastCount() const
     {
         return pendingCasts_.size();
     }
 
-    void setPendingCastForTest(int unitId, BattlePendingCastAction action)
+    bool hasUltimateCaster(int unitId) const
     {
-        setPendingCast(unitId, std::move(action));
+        return ultimateCasterUnitIds_.count(unitId) != 0;
     }
 
-    void markUltimateCasterForTest(int unitId)
-    {
-        markUltimateCaster(unitId);
-    }
-
-    bool hasUltimateCasterForTest(int unitId) const
-    {
-        return isUltimateCaster(unitId);
-    }
-
-    std::size_t ultimateCasterCountForTest() const
+    std::size_t ultimateCasterCount() const
     {
         return ultimateCasterUnitIds_.size();
     }
@@ -117,7 +120,7 @@ public:
 private:
     friend class BattleRuntimeUnitActionView;
 
-    BattlePendingCastAction* findPendingCast(int unitId)
+    BattlePendingCastAction* pendingCastMutable(int unitId)
     {
         auto it = pendingCasts_.find(unitId);
         return it == pendingCasts_.end() ? nullptr : &it->second;
@@ -134,11 +137,6 @@ private:
         pendingCasts_.erase(unitId);
     }
 
-    bool hasPendingCast(int unitId) const
-    {
-        return pendingCasts_.count(unitId) != 0;
-    }
-
     void markUltimateCaster(int unitId)
     {
         ultimateCasterUnitIds_.insert(unitId);
@@ -151,7 +149,7 @@ private:
 
     bool isUltimateCaster(int unitId) const
     {
-        return ultimateCasterUnitIds_.count(unitId) != 0;
+        return hasUltimateCaster(unitId);
     }
 
     void clearActionOwners(int unitId)
@@ -176,7 +174,7 @@ public:
 
     BattlePendingCastAction* pendingCast() const
     {
-        return actions_->findPendingCast(unitId_);
+        return actions_->pendingCastMutable(unitId_);
     }
 
     void setPendingCast(BattlePendingCastAction action) const
@@ -216,13 +214,7 @@ public:
 
     const BattleActionPlanSeed* planSeed() const
     {
-        auto it = actions_->planSeeds_.find(unitId_);
-        return it == actions_->planSeeds_.end() ? nullptr : &it->second;
-    }
-
-    void setPendingCastForTest(BattlePendingCastAction action) const
-    {
-        setPendingCast(std::move(action));
+        return actions_->planSeed(unitId_);
     }
 
 private:

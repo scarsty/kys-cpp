@@ -291,7 +291,7 @@ void seedRuntimeUnits(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> 
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
     state.movement.agents.clear();
-    state.action.planSeeds().clear();
+    state.action.clearPlanSeeds();
 
     for (auto& unit : units)
     {
@@ -658,7 +658,7 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, BattleCastInput input
     state.action.dashRecoveryFrames = 5;
     state.action.strengthenedMeleeOperationCountThreshold = 2;
     state.action.projectileBounceRange = 90;
-    state.action.planSeeds()[input.unit.id] = actionPlanSeedFromCastInput(input);
+    state.action.setPlanSeed(actionPlanSeedFromCastInput(input));
 }
 
 BattlePendingCastAction framePendingCastAction()
@@ -1407,6 +1407,22 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     CHECK(state.result.winningTeam == -1);
 }
 
+TEST_CASE("BattleRuntimeUnitHandle_MpRecoveryBonusStaysSeparateFromMpBlock", "[battle][core][ownership]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+    }));
+    auto runtimeUnit = state.units().require(0);
+    runtimeUnit.status().setMpBlockFrames(5);
+    KysChess::ChessBattleEffects::applyEffect(
+        state.combo.units.at(0),
+        { KysChess::EffectType::MPRecoveryBonus, 40 });
+
+    CHECK(runtimeUnit.status().mpBlocked());
+    CHECK(runtimeUnit.mpRecoveryBonusPct() == 40);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -1535,7 +1551,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battl
     auto result = runBattleFrame(state);
 
     CHECK(state.unitStore.requireUnit(0).stats.attack == 10);
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
     CHECK(result.gameplayEvents.empty());
 }
@@ -1561,7 +1577,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastPlanningRecordsStartWithoutSpawnin
 
     auto result = runBattleFrame(state);
 
-    auto pending = state.action.pendingCastForTest(0);
+    auto pending = state.action.pendingCast(0);
     REQUIRE(pending != nullptr);
     CHECK(pending->skill.id == 301);
     CHECK_FALSE(hasProjectilePresentationEvent(result));
@@ -1595,7 +1611,7 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesEffectiveProjectileSelectDista
 
     auto start = runBattleFrame(state);
 
-    auto pending = state.action.pendingCastForTest(0);
+    auto pending = state.action.pendingCast(0);
     REQUIRE(pending != nullptr);
     CHECK(pending->operationType == BattleOperationType::RangedProjectile);
     CHECK_FALSE(hasProjectilePresentationEvent(start));
@@ -1646,7 +1662,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[
 
     auto result = runBattleFrame(state);
 
-    auto pending = state.action.pendingCastForTest(0);
+    auto pending = state.action.pendingCast(0);
     REQUIRE(pending != nullptr);
     CHECK(pending->targetUnitId == 2);
     CHECK_FALSE(hasProjectilePresentationEvent(result));
@@ -1673,7 +1689,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[b
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
     CHECK_FALSE(hasProjectilePresentationEvent(result));
 }
@@ -1702,7 +1718,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.action.hasPendingCastForTest(0));
+    REQUIRE(state.action.hasPendingCast(0));
     CHECK_FALSE(hasProjectilePresentationEvent(result));
     auto& releaseUnit = state.unitStore.requireUnit(0);
     releaseUnit.haveAction = true;
@@ -1744,11 +1760,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsActionInputsBeforeAttackTick", 
     unit.animation.cooldown = 10;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     const auto* spawn = findVisualEvent(result, BattleVisualEventType::ProjectileSpawned, 0);
     REQUIRE(spawn);
     CHECK(spawn->sourceUnitId == 0);
@@ -1769,7 +1785,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesPreAttackLocalSpawnsInsideFram
     preparePendingCastCommitFrame(state, 0);
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
@@ -1817,11 +1833,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConsumesRuntimeOwnedActionDirectives",
     unit.animation.cooldown = 10;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     REQUIRE(hasVisualEvent(result, BattleVisualEventType::ProjectileSpawned));
 }
 
@@ -1844,7 +1860,7 @@ TEST_CASE("BattleFrameRunner_PlansCastFromRuntimeOwnedCastPlanInput", "[battle][
 
     auto result = runBattleFrame(state);
 
-    auto pending = state.action.pendingCastForTest(0);
+    auto pending = state.action.pendingCast(0);
     REQUIRE(pending != nullptr);
     CHECK(pending->skill.id == 301);
 }
@@ -1870,7 +1886,7 @@ TEST_CASE("BattleFrameRunner_RuntimeCastStartFacesTargetDirection", "[battle][co
 
     runBattleFrame(state);
 
-    const auto pending = state.action.pendingCastForTest(0);
+    const auto pending = state.action.pendingCast(0);
     REQUIRE(pending != nullptr);
     CHECK(pending->targetUnitId == 1);
     const auto& runtimeUnit = state.unitStore.requireUnit(0);
@@ -1902,7 +1918,7 @@ TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliv
     state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto start = runBattleFrame(state);
-    REQUIRE(state.action.hasPendingCastForTest(0));
+    REQUIRE(state.action.hasPendingCast(0));
     CHECK_FALSE(hasProjectilePresentationEvent(start));
 
     auto& caster = state.unitStore.requireUnit(0);
@@ -1948,7 +1964,7 @@ TEST_CASE("BattleFrameRunner_ClearsDashSpreadWhenRuntimeCastStarts", "[battle][c
 
     auto result = runBattleFrame(state);
 
-    REQUIRE(state.action.hasPendingCastForTest(0));
+    REQUIRE(state.action.hasPendingCast(0));
     CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 0);
 }
 
@@ -1982,9 +1998,9 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
 
     auto start = runBattleFrame(state);
 
-    REQUIRE(state.action.hasPendingCastForTest(0));
+    REQUIRE(state.action.hasPendingCast(0));
     CHECK_FALSE(hasProjectilePresentationEvent(start));
-    const auto pending = state.action.pendingCastForTest(0);
+    const auto pending = state.action.pendingCast(0);
     REQUIRE(pending != nullptr);
     CHECK(pending->operationType == BattleOperationType::Dash);
 
@@ -2032,7 +2048,7 @@ TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[
 
     auto start = runBattleFrame(state);
 
-    auto pending = state.action.pendingCastForTest(0);
+    auto pending = state.action.pendingCast(0);
     REQUIRE(pending != nullptr);
     CHECK(pending->operationType == BattleOperationType::RangedProjectile);
     CHECK_FALSE(hasProjectilePresentationEvent(start));
@@ -2081,11 +2097,11 @@ TEST_CASE("BattleFrameRunner_MeleeDashCommitSchedulesPostDashRetreat", "[battle]
     auto pending = framePendingCastAction();
     pending.operationType = BattleOperationType::Dash;
     pending.skill = cast.normalSkill;
-    state.action.setPendingCastForTest(0, pending);
+    state.units().require(0).action().setPendingCast(pending);
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK(state.movement.agents.at(0).physics.postDashRetreatVelocity.x < -3.0f);
     CHECK(std::abs(state.movement.agents.at(0).physics.postDashRetreatVelocity.y) > 1.0f);
     CHECK(state.movement.agents.at(0).physics.postDashRetreatFrames == 11);
@@ -2144,7 +2160,7 @@ TEST_CASE("BattleFrameRunner_StoresPendingCastIntentWhenCastStarts", "[battle][c
     state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     runBattleFrame(state);
-    auto pending = state.action.pendingCastForTest(0);
+    auto pending = state.action.pendingCast(0);
     REQUIRE(pending != nullptr);
     CHECK(pending->unitId == 0);
     CHECK(pending->targetUnitId == 1);
@@ -2173,9 +2189,9 @@ TEST_CASE("BattleFrameRunner_RefreshesRuntimeCastTargetAtCommitFrame", "[battle]
     state.unitStore.requireUnit(0).animation.cooldown = 0;
 
     auto start = runBattleFrame(state);
-    REQUIRE(state.action.hasPendingCastForTest(0));
+    REQUIRE(state.action.hasPendingCast(0));
     CHECK_FALSE(hasProjectilePresentationEvent(start));
-    REQUIRE(state.action.hasPendingCastForTest(0));
+    REQUIRE(state.action.hasPendingCast(0));
 
     auto& caster = state.unitStore.requireUnit(0);
     caster.haveAction = true;
@@ -2219,11 +2235,11 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastInputWithoutSceneDire
     unit.animation.cooldown = 10;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     REQUIRE(hasVisualEvent(result, BattleVisualEventType::ProjectileSpawned));
 }
 
@@ -2246,14 +2262,14 @@ TEST_CASE("BattleFrameRunner_RetargetsPendingCastWhenOriginalTargetDiesBeforeCom
     caster.vitals.maxMp = 50;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
     auto& target = state.unitStore.requireUnit(1);
     target.alive = false;
     target.vitals.hp = 0;
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK(state.unitStore.requireUnit(0).operationCount == 1);
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 25);
     auto request = std::find_if(
@@ -2286,14 +2302,14 @@ TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenNoLiveEnemyRemainsBeforeCommi
     caster.vitals.maxMp = 50;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
     auto& target = state.unitStore.requireUnit(1);
     target.alive = false;
     target.vitals.hp = 0;
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK(state.unitStore.requireUnit(0).operationCount == 1);
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 20);
     CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
@@ -2316,14 +2332,14 @@ TEST_CASE("BattleFrameRunner_CancelsPendingCastWhenCasterDiesBeforeActionFrame",
     preparePendingCastCommitFrame(state, 0);
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
     auto& caster = state.unitStore.requireUnit(0);
     caster.alive = false;
     caster.vitals.hp = 0;
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK_FALSE(state.unitStore.requireUnit(0).haveAction);
     CHECK(state.unitStore.requireUnit(0).operationType == BattleOperationType::None);
     CHECK(state.unitStore.requireUnit(0).animation.actType == -1);
@@ -2347,7 +2363,7 @@ TEST_CASE("BattleFrameRunner_PrunesPendingCastWhenCasterDiesDuringDamageLifecycl
     auto pending = framePendingCastAction();
     pending.unitId = 1;
     pending.targetUnitId = 0;
-    state.action.setPendingCastForTest(1, pending);
+    state.units().require(1).action().setPendingCast(pending);
 
     queuePendingDamage(state, lethalDamageInput(0, 1));
 
@@ -2355,7 +2371,7 @@ TEST_CASE("BattleFrameRunner_PrunesPendingCastWhenCasterDiesDuringDamageLifecycl
 
     CHECK(damageLogAmountsFor(result, 1).size() == 1);
     CHECK_FALSE(state.unitStore.requireUnit(1).alive);
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK_FALSE(state.unitStore.requireUnit(1).haveAction);
     CHECK(state.unitStore.requireUnit(1).operationType == BattleOperationType::None);
     CHECK(state.unitStore.requireUnit(1).animation.actType == -1);
@@ -2384,11 +2400,11 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastAgainstLiveComboState
     state.combo.units[0] = liveCombo;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     REQUIRE(state.combo.units.contains(0));
     REQUIRE(state.combo.units.at(0).dodgeAdaptationStacks.size() == 1);
     REQUIRE(state.combo.units.at(0).dodgeAdaptationStacks[0].contains(1));
@@ -2424,11 +2440,11 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
     state.combo.units[0] = combo;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 19);
     CHECK(state.unitStore.requireUnit(0).shield == 12);
     CHECK(state.unitStore.requireUnit(0).invincible == 12);
@@ -2470,18 +2486,18 @@ TEST_CASE("BattleFrameRunner_AppliesCastScopedMpRestoreAfterUltimateSpend", "[ba
     combo.triggeredEffects.push_back(
         triggeredEffect(KysChess::EffectType::TeamMPRestore, KysChess::Trigger::OnCast, 8, 100));
     state.combo.units[0] = combo;
-    state.action.markUltimateCasterForTest(0);
+    state.units().require(0).action().markUltimateCaster();
 
     auto cast = frameCastInput(0, 1);
     cast.normalSkill.id = 101;
     configureRuntimeActionPlan(state, cast);
     auto action = framePendingCastAction();
     action.ultimate = true;
-    state.action.setPendingCastForTest(0, action);
+    state.units().require(0).action().setPendingCast(action);
 
     runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 8);
 }
 
@@ -2511,11 +2527,11 @@ TEST_CASE("BattleFrameRunner_CastScopedMpRestoreDoesNotChangeLaterSameFrameCastS
 
     configureRuntimeActionPlan(state, frameCastInput(0, 2));
     configureRuntimeActionPlan(state, frameCastInput(1, 2));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
 
     runBattleFrame(state);
 
-    const auto pending = state.action.pendingCastForTest(1);
+    const auto pending = state.action.pendingCast(1);
     REQUIRE(pending != nullptr);
     CHECK_FALSE(pending->ultimate);
     CHECK(pending->skill.id == 301);
@@ -2542,7 +2558,7 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastSound", "[battle][cor
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
     auto action = framePendingCastAction();
     action.skill.soundId = 55;
-    state.action.setPendingCastForTest(0, action);
+    state.units().require(0).action().setPendingCast(action);
 
     auto result = runBattleFrame(state);
 
@@ -2568,19 +2584,19 @@ TEST_CASE("BattleFrameRunner_ConsumesUltimateCasterWhenRuntimeOwnedCastCommits",
     unit.animation.cooldown = 10;
     unit.vitals.mp = 100;
     unit.vitals.maxMp = 100;
-    state.action.markUltimateCasterForTest(0);
+    state.units().require(0).action().markUltimateCaster();
 
     auto cast = frameCastInput(0, 1);
     cast.normalSkill.id = 101;
     configureRuntimeActionPlan(state, cast);
     auto action = framePendingCastAction();
     action.ultimate = true;
-    state.action.setPendingCastForTest(0, action);
+    state.units().require(0).action().setPendingCast(action);
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
-    CHECK(state.action.ultimateCasterCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
+    CHECK(state.action.ultimateCasterCount() == 0);
     CHECK(state.unitStore.requireUnit(0).vitals.mp == 0);
 }
 
@@ -2607,11 +2623,11 @@ TEST_CASE("BattleFrameRunner_AppliesCommittedNormalCastMpGain", "[battle][core][
     cast.normalSkill.id = 101;
     configureRuntimeActionPlan(state, cast);
     auto action = framePendingCastAction();
-    state.action.setPendingCastForTest(0, action);
+    state.units().require(0).action().setPendingCast(action);
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     CHECK(state.unitStore.requireUnit(0).vitals.mp == state.action.castConfig.normalCastMpDelta + 1);
 }
 
@@ -2666,11 +2682,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimePendingCastInput", "[bat
     unit.animation.cooldown = 10;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
-    state.action.setPendingCastForTest(0, framePendingCastAction());
+    state.units().require(0).action().setPendingCast(framePendingCastAction());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.action.pendingCastCountForTest() == 0);
+    CHECK(state.action.pendingCastCount() == 0);
     const auto* spawn = findVisualEvent(result, BattleVisualEventType::ProjectileSpawned);
     REQUIRE(spawn);
     CHECK(spawn->sourceUnitId == 0);
@@ -2721,7 +2737,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeadUnitActionCleanupClearsAllActionOw
     deadBefore.core().animation.actType = 3;
     deadBefore.core().operationType = BattleOperationType::Melee;
     deadBefore.core().haveAction = true;
-    deadBefore.action().setPendingCastForTest(BattlePendingCastAction{});
+    deadBefore.action().setPendingCast(BattlePendingCastAction{});
     deadBefore.action().markUltimateCaster();
     queuePendingDamage(state, lethalDamageInput(0, 1));
 

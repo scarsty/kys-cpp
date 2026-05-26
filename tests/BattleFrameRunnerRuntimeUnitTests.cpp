@@ -74,6 +74,7 @@ void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::v
     state.unitStore.units.clear();
     state.movement.agents.clear();
     state.deathEffects.store.units.clear();
+    state.rescue.units.clear();
     for (const auto& worldUnit : units)
     {
         state.unitStore.units.push_back(runtimeUnitFromWorld(worldUnit));
@@ -82,6 +83,7 @@ void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::v
         agent.physics.velocity = worldUnit.velocity;
         state.movement.agents.emplace(worldUnit.id, agent);
         state.deathEffects.store.units.push_back({ .id = worldUnit.id });
+        state.rescue.units.push_back({ .unitId = worldUnit.id });
     }
 }
 

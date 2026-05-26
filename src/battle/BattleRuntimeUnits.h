@@ -1,10 +1,15 @@
 #pragma once
 
+#include "BattleAttackSystem.h"
+#include "BattleDamageQueue.h"
 #include "BattleDamageSystem.h"
 #include "BattleDeathEffectSystem.h"
+#include "BattleHitResolver.h"
 #include "BattleMovement.h"
 #include "BattleRescueRepositionSystem.h"
 #include "BattleRuntimeActions.h"
+#include "BattleRuntimeQueues.h"
+#include "BattleRuntimeRandom.h"
 #include "BattleStatusSystem.h"
 #include "BattleTypes.h"
 #include "BattleUnitStore.h"
@@ -12,7 +17,9 @@
 
 #include <algorithm>
 #include <cassert>
+#include <map>
 #include <ranges>
+#include <vector>
 
 namespace KysChess::Battle
 {
@@ -79,6 +86,11 @@ public:
         return firstAlwaysEffect(*combo_, type);
     }
 
+    BattleDamageModifierState damageModifiers() const
+    {
+        return makeBattleDamageModifierState(combo_);
+    }
+
 private:
     RoleComboState* combo_{};
 };
@@ -91,13 +103,14 @@ public:
     {
     }
 
-    BattleStatusEffectState& effects() const { return status_->effects; }
+    const BattleStatusEffectState& effects() const { return status_->effects; }
     bool frozen() const { return status_->effects.frozenTimer > 0; }
+    int frozenFrames() const { return status_->effects.frozenTimer; }
     bool mpBlocked() const { return status_->effects.mpBlockTimer > 0; }
 
-    int mpRecoveryBonusPct(const BattleRuntimeUnitComboView& combo) const
+    void setMpBlockFrames(int frames) const
     {
-        return mpBlocked() ? 0 : combo.sumAlways(EffectType::MPRecoveryBonus);
+        status_->effects.mpBlockTimer = frames;
     }
 
     void addTempAttackBuff(int attackBonus, int durationFrames) const
@@ -113,6 +126,11 @@ public:
         writeBattleStatusRuntimeUnit(*status_, unit);
     }
 
+    BattleStatusUnitState damageState(const BattleRuntimeUnit& unit) const
+    {
+        return makeBattleStatusUnitState(*status_, unit);
+    }
+
     void clearFrozen() const
     {
         status_->effects.frozenTimer = 0;
@@ -123,6 +141,11 @@ public:
     {
         status_->effects.frozenTimer = timer;
         status_->effects.frozenMaxTimer = maxTimer;
+    }
+
+    void commitFrozenPhysicsFrames(int frozenFrames) const
+    {
+        status_->effects.frozenTimer = frozenFrames;
     }
 
 private:
@@ -211,6 +234,7 @@ public:
     BattleRuntimeUnitDeathEffectsView deathEffects() const { return BattleRuntimeUnitDeathEffectsView(*deathEffects_); }
     BattleRuntimeUnitActionView action() const { return BattleRuntimeUnitActionView(*action_, id()); }
     BattleRuntimeUnitRescueView rescue() const;
+    int mpRecoveryBonusPct() const { return combo().sumAlways(EffectType::MPRecoveryBonus); }
 
 private:
     BattleRuntimeUnit* core_{};
@@ -242,5 +266,138 @@ private:
 
     BattleRuntimeState* state_{};
 };
+
+struct BattleFrameRescueUnitSnapshot
+{
+    BattleRescueUnitSnapshot unit;
+    Pointf position;
+};
+
+struct BattleFrameRescueCounterAttackConfig
+{
+    int skillId = -1;
+    int visualEffectId = -1;
+    double projectileSpeed = 0.0;
+    double meleeAttackEffectOffset = 0.0;
+    int minimumTotalFrames = 20;
+    int totalFramePadding = 15;
+};
+
+// Persistent battle facts live here. One-frame queues and presentation accumulation
+// belong in BattleFrameContext inside BattleCore.cpp. Do not add cached copies of
+// combo/status/action facts here unless all mutations to the source fact update the
+// cache through the same owner.
+struct BattleRuntimeState
+{
+    BattleRuntimeUnits units();
+    BattleUnitStore unitStore;
+    BattleMovementState movement;
+    BattleAttackState attacks;
+    BattleRuntimeRandom random;
+
+    struct DamageState
+    {
+        bool sortPendingDamageByDefenderMagnitude = false;
+        std::vector<BattleDamageRuntimeUnit> unitExtras;
+        std::map<int, BattleDamagePresentationStyle> presentationStylesByDefender;
+    } damage;
+
+    struct StatusState
+    {
+        BattleStatusSystemConfig config;
+        std::vector<BattleStatusRuntimeUnit> units;
+    } status;
+
+    struct ComboTriggerState
+    {
+        std::map<int, RoleComboState> units;
+    } combo;
+
+    struct DeathEffectState
+    {
+        BattleDeathEffectStore store;
+    } deathEffects;
+
+    struct RescueState
+    {
+        struct RescueUnitRuntime
+        {
+            int unitId = -1;
+            int forcePullProtectRemaining = 0;
+            int forcePullExecuteRemaining = 0;
+        };
+
+        std::vector<BattleRescueCellSnapshot> cells;
+        std::vector<RescueUnitRuntime> units;
+        double executeUnattendedRadius = 0.0;
+        BattleFrameRescueCounterAttackConfig counterAttack;
+    } rescue;
+
+    struct BattleResultState
+    {
+        bool ended = false;
+        int winningTeam = -1;
+        bool eventEmitted = false;
+        int endedFrame = -1;
+    } result;
+
+    struct TeamEffectState
+    {
+        double healAuraRadius = 0.0;
+    } teamEffects;
+
+    struct MovementPhysicsState
+    {
+        BattleMovementPhysicsConfig config;
+        BattleMovementPhysicsTerrain terrain;
+        std::vector<int> actionCastFrames;
+        int dashMomentumFrames = 0;
+    } movementPhysics;
+
+    BattleRuntimeActions action;
+
+    BattleProjectileFollowUpContext projectileFollowUps;
+    BattleNextFrameQueues nextFrame;
+};
+
+inline BattleRuntimeUnits BattleRuntimeState::units()
+{
+    return BattleRuntimeUnits(*this);
+}
+
+inline auto BattleRuntimeUnits::all() const
+{
+    auto* runtime = &state();
+    return runtime->unitStore.units
+        | std::views::transform(
+            [runtime](BattleRuntimeUnit& unit)
+            {
+                return BattleRuntimeUnits(*runtime).makeHandle(unit);
+            });
+}
+
+inline auto BattleRuntimeUnits::live() const
+{
+    auto* runtime = &state();
+    return runtime->unitStore.units
+        | std::views::filter([](const BattleRuntimeUnit& unit) { return unit.alive; })
+        | std::views::transform(
+            [runtime](BattleRuntimeUnit& unit)
+            {
+                return BattleRuntimeUnits(*runtime).makeHandle(unit);
+            });
+}
+
+inline auto BattleRuntimeUnits::dead() const
+{
+    auto* runtime = &state();
+    return runtime->unitStore.units
+        | std::views::filter([](const BattleRuntimeUnit& unit) { return !unit.alive; })
+        | std::views::transform(
+            [runtime](BattleRuntimeUnit& unit)
+            {
+                return BattleRuntimeUnits(*runtime).makeHandle(unit);
+            });
+}
 
 }  // namespace KysChess::Battle

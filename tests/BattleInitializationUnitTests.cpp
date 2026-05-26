@@ -746,10 +746,10 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
     CHECK(cloneAgentIt->second.physics.velocity.x == cloneUnit.motion.velocity.x);
     CHECK(cloneAgentIt->second.physics.acceleration.z == cloneUnit.motion.acceleration.z);
 
-    const auto clonePlanIt = runtime.action.planSeeds().find(1);
-    REQUIRE(clonePlanIt != runtime.action.planSeeds().end());
-    CHECK(clonePlanIt->second.unitId == 1);
-    CHECK(clonePlanIt->second.normalSkill.id == source.normalSkill.id);
+    const auto* clonePlan = runtime.action.planSeed(1);
+    REQUIRE(clonePlan != nullptr);
+    CHECK(clonePlan->unitId == 1);
+    CHECK(clonePlan->normalSkill.id == source.normalSkill.id);
 }
 
 TEST_CASE("BattleRuntimeSession_InitializesRuntimeRandomFromCreationInput", "[battle][initialization]")
