@@ -740,6 +740,7 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
 
     const auto cloneAgentIt = runtime.movement.agents.find(1);
     REQUIRE(cloneAgentIt != runtime.movement.agents.end());
+    CHECK(cloneAgentIt->second.active == cloneUnit.alive);
     CHECK(cloneAgentIt->second.targetId == -1);
     CHECK(cloneAgentIt->second.physics.position.x == cloneUnit.motion.position.x);
     CHECK(cloneAgentIt->second.physics.position.y == cloneUnit.motion.position.y);
