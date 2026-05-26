@@ -79,6 +79,7 @@ void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::v
     {
         state.unitStore.units.push_back(runtimeUnitFromWorld(worldUnit));
         BattleMovementAgentState agent;
+        agent.active = worldUnit.alive;
         agent.physics.position = worldUnit.position;
         agent.physics.velocity = worldUnit.velocity;
         state.movement.agents.emplace(worldUnit.id, agent);

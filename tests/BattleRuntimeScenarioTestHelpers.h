@@ -127,14 +127,12 @@ inline void seedScenarioRuntimeStores(BattleRuntimeState& state, std::vector<Bat
         state.deathEffects.store.units.push_back({ .id = unit.id });
         state.rescue.units.push_back({ unit.id, 0, 0 });
 
-        if (unit.alive)
-        {
-            BattleMovementAgentState agent;
-            agent.physics.position = unit.motion.position;
-            agent.physics.velocity = unit.motion.velocity;
-            agent.physics.acceleration = unit.motion.acceleration;
-            state.movement.agents.emplace(unit.id, agent);
-        }
+        BattleMovementAgentState agent;
+        agent.active = unit.alive;
+        agent.physics.position = unit.motion.position;
+        agent.physics.velocity = unit.motion.velocity;
+        agent.physics.acceleration = unit.motion.acceleration;
+        state.movement.agents.emplace(unit.id, agent);
     }
 }
 
