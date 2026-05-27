@@ -595,10 +595,9 @@ TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[bat
     auto creation = BattleRuntimeSession::createInitialized(std::move(input));
     auto& session = creation.session;
 
-    const auto& units = session.runtime().unitStore.units;
-    REQUIRE(units.size() == 2);
-    const auto& sourceUnit = session.runtime().unitStore.requireUnit(0);
-    const auto& cloneUnit = session.runtime().unitStore.requireUnit(1);
+    REQUIRE(session.runtime().unitRecords.size() == 2);
+    const auto& sourceUnit = session.runtime().unitRecords.requireCore(0);
+    const auto& cloneUnit = session.runtime().unitRecords.requireCore(1);
     CHECK(cloneUnit.cloneSourceUnitId == 0);
     CHECK(cloneUnit.realRoleId == 1001);
     CHECK(cloneUnit.vitals.hp == sourceUnit.vitals.hp);
@@ -815,15 +814,15 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionAdvancesUnitsAfterSetupPlaceme
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
-    const auto initialAlly = session.runtime().unitStore.requireUnit(0).motion.position;
-    const auto initialEnemy = session.runtime().unitStore.requireUnit(1).motion.position;
+    const auto initialAlly = session.runtime().unitRecords.requireCore(0).motion.position;
+    const auto initialEnemy = session.runtime().unitRecords.requireCore(1).motion.position;
 
     bool anyUnitMoved = false;
     for (int frame = 0; frame < 90 && !anyUnitMoved; ++frame)
     {
         session.runFrame();
-        const auto& ally = session.runtime().unitStore.requireUnit(0).motion.position;
-        const auto& enemy = session.runtime().unitStore.requireUnit(1).motion.position;
+        const auto& ally = session.runtime().unitRecords.requireCore(0).motion.position;
+        const auto& enemy = session.runtime().unitRecords.requireCore(1).motion.position;
         anyUnitMoved = ally.x != initialAlly.x
             || ally.y != initialAlly.y
             || enemy.x != initialEnemy.x
@@ -846,13 +845,13 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionSeedsAttackUnits", "[battle][i
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
-    REQUIRE(session.runtime().unitStore.units.size() == 2);
-    CHECK(session.runtime().unitStore.units[0].id == 0);
-    CHECK(session.runtime().unitStore.units[0].team == 0);
-    CHECK(session.runtime().unitStore.units[0].alive);
-    CHECK(session.runtime().unitStore.units[1].id == 1);
-    CHECK(session.runtime().unitStore.units[1].team == 1);
-    CHECK(session.runtime().unitStore.units[1].alive);
+    REQUIRE(session.runtime().unitRecords.size() == 2);
+    CHECK(session.runtime().unitRecords.requireCore(0).id == 0);
+    CHECK(session.runtime().unitRecords.requireCore(0).team == 0);
+    CHECK(session.runtime().unitRecords.requireCore(0).alive);
+    CHECK(session.runtime().unitRecords.requireCore(1).id == 1);
+    CHECK(session.runtime().unitRecords.requireCore(1).team == 1);
+    CHECK(session.runtime().unitRecords.requireCore(1).alive);
 }
 
 TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[battle][initialization][runtime]")

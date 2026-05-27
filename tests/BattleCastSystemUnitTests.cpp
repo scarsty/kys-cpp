@@ -374,7 +374,7 @@ TEST_CASE("BattleCastSystem_RuntimeCastPlanningUsesConfiguredCdrEffect", "[battl
     auto result = BattleFrameRunner().runFrame(state);
 
     REQUIRE((state.unitRecords.require(0).pendingCast() != nullptr));
-    CHECK(state.unitStore.requireUnit(0).animation.cooldown == 84);
+    CHECK(state.unitRecords.requireCore(0).animation.cooldown == 84);
     CHECK(result.gameplayEvents.front().type == BattleGameplayEventType::CastStarted);
 }
 

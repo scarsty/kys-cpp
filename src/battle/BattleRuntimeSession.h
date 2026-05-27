@@ -5,7 +5,6 @@
 
 #include <array>
 #include <map>
-#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -85,7 +84,10 @@ public:
 
     const BattleRuntimeState& runtime() const;
     const BattleRuntimeUnit& requireRuntimeUnit(int unitId) const;
-    std::span<const BattleRuntimeUnit> runtimeUnits() const;
+    auto runtimeUnits() const
+    {
+        return runtime_.unitRecords.cores();
+    }
 
 private:
     BattleRuntimeState runtime_;

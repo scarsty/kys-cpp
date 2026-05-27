@@ -496,6 +496,64 @@ public:
         return *record;
     }
 
+    BattleRuntimeUnit* findCore(int unitId)
+    {
+        auto* record = find(unitId);
+        return record == nullptr ? nullptr : &record->core;
+    }
+
+    const BattleRuntimeUnit* findCore(int unitId) const
+    {
+        const auto* record = find(unitId);
+        return record == nullptr ? nullptr : &record->core;
+    }
+
+    BattleRuntimeUnit& requireCore(int unitId)
+    {
+        return require(unitId).core;
+    }
+
+    const BattleRuntimeUnit& requireCore(int unitId) const
+    {
+        return require(unitId).core;
+    }
+
+    void writeDamageUnit(const BattleDamageUnitState& source)
+    {
+        auto& unit = requireCore(source.id);
+        unit.alive = source.alive;
+        unit.vitals = source.vitals;
+        unit.stats.attack = source.attack;
+        unit.invincible = source.invincible;
+        unit.shield = source.shield;
+    }
+
+    void setPosition(int unitId, Pointf position, const BattleGridTransform& gridTransform)
+    {
+        auto& unit = requireCore(unitId);
+        unit.motion.position = position;
+        unit.grid = gridTransform.toGrid(position);
+    }
+
+    void setMotion(
+        int unitId,
+        Pointf position,
+        Pointf velocity,
+        Pointf acceleration,
+        const BattleGridTransform& gridTransform)
+    {
+        auto& unit = requireCore(unitId);
+        unit.motion.position = position;
+        unit.motion.velocity = velocity;
+        unit.motion.acceleration = acceleration;
+        if (velocity.norm() > 0.01f)
+        {
+            unit.motion.facing = velocity;
+            unit.motion.facing.normTo(1.0f);
+        }
+        unit.grid = gridTransform.toGrid(position);
+    }
+
     std::size_t size() const { return records_.size(); }
     bool empty() const { return records_.empty(); }
 
@@ -527,6 +585,26 @@ public:
     auto all() const
     {
         return records_ | std::views::all;
+    }
+
+    auto cores()
+    {
+        return records_
+            | std::views::transform(
+                [](BattleRuntimeUnitRecord& record) -> BattleRuntimeUnit&
+                {
+                    return record.core;
+                });
+    }
+
+    auto cores() const
+    {
+        return records_
+            | std::views::transform(
+                [](const BattleRuntimeUnitRecord& record) -> const BattleRuntimeUnit&
+                {
+                    return record.core;
+                });
     }
 
     auto live()
@@ -580,7 +658,7 @@ struct BattleFrameRescueCounterAttackConfig
 struct BattleRuntimeState
 {
     BattleRuntimeUnits units();
-    BattleUnitStore unitStore;
+    BattleGridTransform gridTransform;
     BattleRuntimeUnitRecords unitRecords;
     BattleMovementState movement;
     BattleAttackState attacks;
@@ -644,7 +722,7 @@ inline BattleRuntimeUnits BattleRuntimeState::units()
 inline auto BattleRuntimeUnits::all() const
 {
     auto* runtime = &state();
-    return runtime->unitStore.units
+    return runtime->unitRecords.cores()
         | std::views::transform(
             [runtime](BattleRuntimeUnit& unit)
             {
@@ -655,7 +733,7 @@ inline auto BattleRuntimeUnits::all() const
 inline auto BattleRuntimeUnits::live() const
 {
     auto* runtime = &state();
-    return runtime->unitStore.units
+    return runtime->unitRecords.cores()
         | std::views::filter([](const BattleRuntimeUnit& unit) { return unit.alive; })
         | std::views::transform(
             [runtime](BattleRuntimeUnit& unit)
@@ -667,7 +745,7 @@ inline auto BattleRuntimeUnits::live() const
 inline auto BattleRuntimeUnits::dead() const
 {
     auto* runtime = &state();
-    return runtime->unitStore.units
+    return runtime->unitRecords.cores()
         | std::views::filter([](const BattleRuntimeUnit& unit) { return !unit.alive; })
         | std::views::transform(
             [runtime](BattleRuntimeUnit& unit)

@@ -2,7 +2,6 @@
 
 #include "../Find.h"
 #include "BattleRuntimeUnits.h"
-#include "BattleUnitStore.h"
 
 #include <algorithm>
 #include <cassert>
@@ -21,12 +20,11 @@ bool BattleDeathEffectSystem::comboAppliesToUnit(const BattleDeathEffectStore& e
     return std::find(extras.comboIds.begin(), extras.comboIds.end(), comboId) != extras.comboIds.end();
 }
 
-std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffects(BattleUnitStore& units,
-                                                                                   BattleRuntimeUnitRecords& records,
+std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffects(BattleRuntimeUnitRecords& records,
                                                                                    BattleDeathEffectStore& effects,
                                                                                    int deadUnitId) const
 {
-    auto& dead = units.requireUnit(deadUnitId);
+    auto& dead = records.requireCore(deadUnitId);
     auto& deadExtras = records.require(deadUnitId).deathEffects;
     assert(!dead.alive);
 
@@ -34,7 +32,7 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
     for (auto& allyRecord : records.all())
     {
         auto& allyExtras = allyRecord.deathEffects;
-        auto& ally = units.requireUnit(allyExtras.id);
+        auto& ally = allyRecord.core;
         if (!ally.alive || ally.id == dead.id || ally.team != dead.team)
         {
             continue;

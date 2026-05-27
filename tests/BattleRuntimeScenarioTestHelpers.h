@@ -107,11 +107,11 @@ inline BattleAttackState scenarioAttackState()
 
 inline void seedScenarioRuntimeStores(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> units)
 {
-    state.unitStore.gridTransform = { ScenarioTileWidth, ScenarioCoordCount };
+    state.gridTransform = { ScenarioTileWidth, ScenarioCoordCount };
     state.movement.frame = 0;
     state.movement.config = scenarioRules().movementConfig;
     state.attacks = scenarioAttackState();
-    state.unitStore.units.clear();
+    state.unitRecords = {};
     state.unitRecords = {};
 
     for (auto& unit : units)
@@ -175,7 +175,7 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
     digest.pendingAttackSpawnCount = runtime.nextFrame.queuedAttacksForTest().size();
     digest.pendingCastCount = runtime.unitRecords.pendingCastCount();
 
-    for (const auto& unit : runtime.unitStore.units)
+    for (const auto& unit : runtime.unitRecords.cores())
     {
         if (unit.alive)
         {

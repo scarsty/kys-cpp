@@ -54,8 +54,8 @@ TEST_CASE("BattleRuntimeSession_SwapsSetupPositionInsideRuntime", "[battle][scen
     StoreFixture fixture(std::move(units));
     fixture.session.swapSetupUnitPositions(0, 1);
 
-    const auto& first = fixture.session.runtime().unitStore.requireUnit(0);
-    const auto& second = fixture.session.runtime().unitStore.requireUnit(1);
+    const auto& first = fixture.session.runtime().unitRecords.requireCore(0);
+    const auto& second = fixture.session.runtime().unitRecords.requireCore(1);
     CHECK(first.grid.x == 3);
     CHECK(first.grid.y == 4);
     CHECK(first.motion.position.x == 30);
@@ -87,7 +87,7 @@ TEST_CASE("BattleSceneUnitStore_InitializesSummonedClonePlacementAndSummary", "[
     store.initialize(session);
 
     const auto cloneUnitId = 1;
-    const auto& cloneUnit = session.runtime().unitStore.requireUnit(cloneUnitId);
+    const auto& cloneUnit = session.runtime().unitRecords.requireCore(cloneUnitId);
     CHECK(cloneUnit.cloneSourceUnitId == 0);
     CHECK(cloneUnit.vitals.maxHp > 0);
     CHECK(cloneUnit.stats.attack > 0);

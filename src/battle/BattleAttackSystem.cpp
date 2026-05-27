@@ -2,7 +2,7 @@
 
 #include "../Find.h"
 #include "BattleMath.h"
-#include "BattleUnitStore.h"
+#include "BattleRuntimeUnits.h"
 
 #include <algorithm>
 #include <cassert>
@@ -295,7 +295,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
 
 std::vector<BattleAttackEvent> BattleAttackSystem::tick(
     BattleAttackState& world,
-    const BattleUnitStore& units) const
+    const BattleRuntimeUnitRecords& units) const
 {
     assert(world.hitRadius > 0.0);
     assert(world.minimumVectorNorm > 0.0);
@@ -458,10 +458,10 @@ int BattleAttackSystem::allocateAttackId(BattleAttackState& world) const
 
 const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
     const BattleAttackState& world,
-    const BattleUnitStore& units,
+    const BattleRuntimeUnitRecords& units,
     const BattleAttackInstance& attack) const
 {
-    const auto& attacker = units.requireUnit(attack.state.attackerUnitId);
+    const auto& attacker = units.requireCore(attack.state.attackerUnitId);
     if (!attacker.alive && !canResolveContactFromDefeatedSource(attack.state))
     {
         return nullptr;
@@ -469,7 +469,7 @@ const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
 
     if (attack.state.preferredTargetUnitId >= 0)
     {
-        const auto* preferred = units.findUnit(attack.state.preferredTargetUnitId);
+        const auto* preferred = units.findCore(attack.state.preferredTargetUnitId);
         if (preferred && preferred->alive && preferred->team != attacker.team)
         {
             return preferred;
@@ -482,9 +482,10 @@ const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
 
     const BattleRuntimeUnit* best = nullptr;
     double bestDistance = 0.0;
-    for (const auto& unit : units.units)
+    for (const auto& unitRecord : units.live())
     {
-        if (!unit.alive || unit.team == attacker.team)
+        const auto& unit = unitRecord.core;
+        if (unit.team == attacker.team)
         {
             continue;
         }
@@ -597,7 +598,7 @@ void BattleAttackSystem::trackTarget(
 
 bool BattleAttackSystem::canContactTarget(
     const BattleAttackState& world,
-    const BattleUnitStore& units,
+    const BattleRuntimeUnitRecords& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& target) const
 {
@@ -609,7 +610,7 @@ bool BattleAttackSystem::canContactTarget(
         return false;
     }
 
-    const auto& attacker = units.requireUnit(attack.state.attackerUnitId);
+    const auto& attacker = units.requireCore(attack.state.attackerUnitId);
     if ((!attacker.alive && !canResolveContactFromDefeatedSource(attack.state)) || attacker.team == target.team)
     {
         return false;
@@ -623,7 +624,7 @@ bool BattleAttackSystem::canContactTarget(
 
 bool BattleAttackSystem::contactBlockedByInvincible(
     const BattleAttackState& world,
-    const BattleUnitStore& units,
+    const BattleRuntimeUnitRecords& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& target) const
 {
@@ -635,7 +636,7 @@ bool BattleAttackSystem::contactBlockedByInvincible(
 
 bool BattleAttackSystem::canHit(
     const BattleAttackState& world,
-    const BattleUnitStore& units,
+    const BattleRuntimeUnitRecords& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& target) const
 {
@@ -649,21 +650,21 @@ bool BattleAttackSystem::canHit(
 
 const BattleRuntimeUnit* BattleAttackSystem::selectBounceTarget(
     const BattleAttackState& world,
-    const BattleUnitStore& units,
+    const BattleRuntimeUnitRecords& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& hitTarget) const
 {
     assert(attack.state.bounceRemaining > 0);
     assert(attack.state.bounceRange > 0);
 
-    const auto& attacker = units.requireUnit(attack.state.attackerUnitId);
+    const auto& attacker = units.requireCore(attack.state.attackerUnitId);
 
     const BattleRuntimeUnit* best = nullptr;
     double bestDistance = static_cast<double>(attack.state.bounceRange);
-    for (const auto& unit : units.units)
+    for (const auto& unitRecord : units.live())
     {
-        if (!unit.alive
-            || unit.team == attacker.team
+        const auto& unit = unitRecord.core;
+        if (unit.team == attacker.team
             || unit.id == hitTarget.id
             || hasHitUnit(attack, unit.id)
             || hasSharedHit(world, attack.state.sharedHitGroupId, unit.id))
@@ -741,7 +742,7 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
 
 void BattleAttackSystem::collectProjectileCancelEvents(
     const BattleAttackState& world,
-    const BattleUnitStore& units,
+    const BattleRuntimeUnitRecords& units,
     std::vector<BattleAttackEvent>& events) const
 {
     std::vector<ProjectileCancelCandidate> candidates;
@@ -752,7 +753,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
         {
             continue;
         }
-        const auto& lhsAttacker = units.requireUnit(lhs.state.attackerUnitId);
+        const auto& lhsAttacker = units.requireCore(lhs.state.attackerUnitId);
 
         for (size_t j = i + 1; j < world.attacks.size(); ++j)
         {
@@ -761,7 +762,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
             {
                 continue;
             }
-            const auto& rhsAttacker = units.requireUnit(rhs.state.attackerUnitId);
+            const auto& rhsAttacker = units.requireCore(rhs.state.attackerUnitId);
             if (lhsAttacker.team == rhsAttacker.team)
             {
                 continue;

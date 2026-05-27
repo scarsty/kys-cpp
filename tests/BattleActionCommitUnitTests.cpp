@@ -1,7 +1,7 @@
 #include "ChessBattleEffects.h"
 #include "battle/BattleCastSystem.h"
 #include "BattleLogTestHelpers.h"
-#include "battle/BattleUnitStore.h"
+#include "BattleRuntimeRecordTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -44,15 +44,13 @@ BattleRuntimeUnit unit(int id, int team, int hp, int defence, Pointf position)
     return result;
 }
 
-BattleUnitStore actionUnits()
+BattleRuntimeUnitRecords actionUnits()
 {
-    BattleUnitStore units;
-    units.units = {
+    return KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 100, 0, { 10.0f, 20.0f, 0.0f }),
         unit(1, 1, 90, 0, { 100.0f, 20.0f, 0.0f }),
         unit(2, 1, 30, 0, { 120.0f, 20.0f, 0.0f }),
-    };
-    return units;
+    });
 }
 
 }  // namespace

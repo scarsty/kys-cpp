@@ -1,5 +1,6 @@
 #include "battle/BattleCore.h"
 #include "battle/BattleDeathEffectSystem.h"
+#include "BattleRuntimeRecordTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -38,37 +39,23 @@ BattleDeathEffectExtras extras(int id)
     return state;
 }
 
-BattleRuntimeUnitRecords recordsFor(const BattleUnitStore& units, std::initializer_list<BattleDeathEffectExtras> extras)
+void assignExtras(BattleRuntimeUnitRecords& records, std::initializer_list<BattleDeathEffectExtras> extras)
 {
-    BattleRuntimeUnitRecords records;
-    for (const auto& unit : units.units)
+    for (const auto& unitExtras : extras)
     {
-        BattleRuntimeUnitRecord record;
-        record.core = unit;
-        record.deathEffects.id = unit.id;
-        for (const auto& unitExtras : extras)
-        {
-            if (unitExtras.id == unit.id)
-            {
-                record.deathEffects = unitExtras;
-                break;
-            }
-        }
-        records.append(std::move(record));
+        records.require(unitExtras.id).deathEffects = unitExtras;
     }
-    return records;
 }
 
 }  // namespace
 
 TEST_CASE("BattleDeathEffectSystem_AllyDeathStatBoost_RequiresRegularSharedCombo", "[battle][death_effect][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, false),
         unit(1, 0, true),
         unit(2, 1, true),
-    };
+    });
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 7 };
     auto dead = extras(0);
@@ -80,29 +67,28 @@ TEST_CASE("BattleDeathEffectSystem_AllyDeathStatBoost_RequiresRegularSharedCombo
     };
     auto enemy = extras(2);
     enemy.appliedEffects = { effect(EffectType::AllyDeathStatBoost, 50, 7) };
-    auto records = recordsFor(units, { dead, ally, enemy });
+    assignExtras(units, { dead, ally, enemy });
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, records, effects, 0);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::AllyStatBoost);
     CHECK(events[0].targetUnitId == 1);
     CHECK(events[0].value == 5);
-    CHECK(units.requireUnit(1).stats.attack == 15);
-    CHECK(units.requireUnit(1).stats.defence == 25);
-    CHECK(units.requireUnit(2).stats.attack == 10);
+    CHECK(units.requireCore(1).stats.attack == 15);
+    CHECK(units.requireCore(1).stats.defence == 25);
+    CHECK(units.requireCore(2).stats.attack == 10);
 }
 
 TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboAllies", "[battle][death_effect][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, false),
         unit(1, 0, true),
         unit(2, 0, true),
-    };
-    units.requireUnit(1).vitals.hp = 80;
-    units.requireUnit(2).vitals.hp = 20;
+    });
+    units.requireCore(1).vitals.hp = 80;
+    units.requireCore(2).vitals.hp = 20;
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 3 };
     auto dead = extras(0);
@@ -111,26 +97,25 @@ TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboA
     ally.comboIds = { 3 };
     auto outsider = extras(2);
     outsider.comboIds = { 4 };
-    auto records = recordsFor(units, { dead, ally, outsider });
+    assignExtras(units, { dead, ally, outsider });
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, records, effects, 0);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::DeathMedicalHeal);
     CHECK(events[0].targetUnitId == 1);
     CHECK(events[0].value == 20);
-    CHECK(units.requireUnit(1).vitals.hp == 100);
-    CHECK(units.requireUnit(2).vitals.hp == 20);
+    CHECK(units.requireCore(1).vitals.hp == 100);
+    CHECK(units.requireCore(2).vitals.hp == 20);
 }
 
 TEST_CASE("BattleDeathEffectSystem_ShieldOnAllyDeath_TracksDeathsAndAwardsShield", "[battle][death_effect][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, false),
         unit(1, 0, true),
-    };
-    units.requireUnit(1).vitals.maxHp = 200;
+    });
+    units.requireCore(1).vitals.maxHp = 200;
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 5 };
     auto dead = extras(0);
@@ -139,14 +124,14 @@ TEST_CASE("BattleDeathEffectSystem_ShieldOnAllyDeath_TracksDeathsAndAwardsShield
     ally.shieldPctMaxHp = 25;
     ally.shieldOnAllyDeathTracker = 1;
     ally.appliedEffects = { effect(EffectType::ShieldOnAllyDeath, 2, 5) };
-    auto records = recordsFor(units, { dead, ally });
+    assignExtras(units, { dead, ally });
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, records, effects, 0);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::ShieldOnAllyDeath);
     CHECK(events[0].targetUnitId == 1);
     CHECK(events[0].value == 50);
-    CHECK(units.requireUnit(1).shield == 50);
-    CHECK(records.require(1).deathEffects.shieldOnAllyDeathTracker == 0);
+    CHECK(units.requireCore(1).shield == 50);
+    CHECK(units.require(1).deathEffects.shieldOnAllyDeathTracker == 0);
 }

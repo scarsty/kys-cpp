@@ -53,12 +53,6 @@ const KysChess::Battle::BattleRuntimeUnit& BattleSceneUnitStore::requireRuntimeU
     return runtime_session_->requireRuntimeUnit(unitId);
 }
 
-std::span<const KysChess::Battle::BattleRuntimeUnit> BattleSceneUnitStore::runtimeUnits() const
-{
-    assert(runtime_session_);
-    return runtime_session_->runtimeUnits();
-}
-
 std::vector<int> BattleSceneUnitStore::allyUnitIds() const
 {
     assert(runtime_session_);

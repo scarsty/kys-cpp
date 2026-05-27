@@ -8,12 +8,12 @@
 #include <array>
 #include <map>
 #include <string>
-#include <vector>
 
 namespace KysChess::Battle
 {
 
 struct BattleDamageUnitState;
+class BattleRuntimeUnitRecords;
 
 struct BattleGridTransform
 {
@@ -61,24 +61,10 @@ struct BattleRuntimeUnit
     }
 };
 
-struct BattleUnitStore
-{
-    BattleGridTransform gridTransform;
-    std::vector<BattleRuntimeUnit> units;
-
-    BattleRuntimeUnit* findUnit(int unitId);
-    const BattleRuntimeUnit* findUnit(int unitId) const;
-    BattleRuntimeUnit& requireUnit(int unitId);
-    const BattleRuntimeUnit& requireUnit(int unitId) const;
-    void writeDamageUnit(const BattleDamageUnitState& source);
-    void setPosition(int unitId, Pointf position);
-    void setMotion(int unitId, Pointf position, Pointf velocity, Pointf acceleration);
-};
-
 constexpr double BattleRuntimeMoveSpeedDivisor = 22.0;
 
-int findNearestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
-int findFarthestEnemyUnitId(const BattleUnitStore& units, int sourceUnitId);
+int findNearestEnemyUnitId(const BattleRuntimeUnitRecords& units, int sourceUnitId);
+int findFarthestEnemyUnitId(const BattleRuntimeUnitRecords& units, int sourceUnitId);
 BattleUnitState makeBattleMovementPlanUnit(const BattleRuntimeUnit& unit, double moveSpeedDivisor);
 
 }  // namespace KysChess::Battle

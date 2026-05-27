@@ -4,7 +4,7 @@
 #include "Point.h"
 #include "battle/BattleRuntimeSession.h"
 
-#include <span>
+#include <cassert>
 #include <vector>
 
 class BattleReport;
@@ -25,7 +25,11 @@ public:
     BattleSceneUnitPresentationState& requirePresentation(int unitId);
     const KysChess::Battle::BattleRuntimeUnit& requireRuntimeUnit(int unitId) const;
 
-    std::span<const KysChess::Battle::BattleRuntimeUnit> runtimeUnits() const;
+    auto runtimeUnits() const
+    {
+        assert(runtime_session_ != nullptr);
+        return runtime_session_->runtimeUnits();
+    }
     std::vector<int> allyUnitIds() const;
 
     void setUnitShake(int unitId, int shake);

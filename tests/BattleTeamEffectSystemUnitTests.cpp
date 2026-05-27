@@ -1,4 +1,5 @@
 #include "battle/BattleCore.h"
+#include "BattleRuntimeRecordTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -25,23 +26,22 @@ BattleRuntimeUnit unit(int id, int team, int hp, int mp, int shield = 0)
     return state;
 }
 
-const BattleRuntimeUnit& unitById(const BattleUnitStore& store, int id)
+const BattleRuntimeUnit& unitById(const BattleRuntimeUnitRecords& store, int id)
 {
-    return store.requireUnit(id);
+    return store.requireCore(id);
 }
 
 }  // namespace
 
 TEST_CASE("BattleTeamEffectSystem_TeamHeal_HealsAliveSourceTeamOnly", "[battle][team_effect][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 40, 0),
         unit(1, 0, 95, 0),
         unit(2, 1, 20, 0),
         unit(3, 0, 10, 0),
-    };
-    units.units[3].alive = false;
+    });
+    units.requireCore(3).alive = false;
 
     auto events = BattleTeamEffectSystem().applyTeamHeal(units, 0, 10, 20);
 
@@ -58,28 +58,19 @@ TEST_CASE("BattleTeamEffectSystem_TeamHeal_HealsAliveSourceTeamOnly", "[battle][
 
 TEST_CASE("BattleTeamEffectSystem_TeamMp_RespectsBlockBonusAndCap", "[battle][team_effect][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 100, 80),
         unit(1, 0, 100, 70),
         unit(2, 0, 100, 40),
         unit(3, 1, 100, 20),
-    };
-    BattleRuntimeUnitRecords records;
-    for (const auto& runtimeUnit : units.units)
-    {
-        BattleRuntimeUnitRecord record;
-        record.core = runtimeUnit;
-        record.status.id = runtimeUnit.id;
-        records.append(std::move(record));
-    }
-    records.require(2).status.effects.mpBlockTimer = 1;
+    });
+    units.require(2).status.effects.mpBlockTimer = 1;
     std::map<int, KysChess::RoleComboState> combos;
     KysChess::ChessBattleEffects::applyEffect(
-        records.require(1).combo,
+        units.require(1).combo,
         { KysChess::EffectType::MPRecoveryBonus, 50 });
 
-    auto events = BattleTeamEffectSystem().applyTeamMp(units, records, 0, 20);
+    auto events = BattleTeamEffectSystem().applyTeamMp(units, 0, 20);
 
     REQUIRE(events.size() == 2);
     CHECK(unitById(units, 0).vitals.mp == 100);
@@ -92,12 +83,11 @@ TEST_CASE("BattleTeamEffectSystem_TeamMp_RespectsBlockBonusAndCap", "[battle][te
 
 TEST_CASE("BattleTeamEffectSystem_TeamShield_AddsOrRefreshes", "[battle][team_effect][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 100, 0, 30),
         unit(1, 0, 100, 0, 5),
         unit(2, 1, 100, 0, 0),
-    };
+    });
 
     auto refresh = BattleTeamEffectSystem().applyTeamShield(units, 0, 20, true);
     REQUIRE(refresh.size() == 1);
@@ -114,17 +104,16 @@ TEST_CASE("BattleTeamEffectSystem_TeamShield_AddsOrRefreshes", "[battle][team_ef
 
 TEST_CASE("BattleTeamEffectSystem_HealAura_UsesRadiusAndCooldownReduction", "[battle][team_effect][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 100, 0),
         unit(1, 0, 50, 0),
         unit(2, 0, 40, 0),
         unit(3, 1, 10, 0),
-    };
-    units.units[0].motion.position.x = 0.0f;
-    units.units[1].motion.position.x = 20.0f;
-    units.units[2].motion.position.x = 200.0f;
-    units.units[3].motion.position.x = 20.0f;
+    });
+    units.requireCore(0).motion.position.x = 0.0f;
+    units.requireCore(1).motion.position.x = 20.0f;
+    units.requireCore(2).motion.position.x = 200.0f;
+    units.requireCore(3).motion.position.x = 20.0f;
 
     auto events = BattleTeamEffectSystem().applyHealAura(units, 0, 5, 10, 50.0, 25);
 
@@ -143,17 +132,16 @@ TEST_CASE("BattleTeamEffectSystem_HealAura_UsesRadiusAndCooldownReduction", "[ba
 
 TEST_CASE("BattleTeamEffectSystem_SelfHeal_EmitsOnlyWhenHpChanges", "[battle][team_effect][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 80, 0),
-    };
+    });
 
     auto healed = BattleTeamEffectSystem().applySelfHeal(units, 0, 10);
     REQUIRE(healed.size() == 1);
     CHECK(healed[0].value == 10);
     CHECK(unitById(units, 0).vitals.hp == 90);
 
-    units.units[0].vitals.hp = 100;
+    units.requireCore(0).vitals.hp = 100;
     auto full = BattleTeamEffectSystem().applySelfHeal(units, 0, 10);
     CHECK(full.empty());
 }

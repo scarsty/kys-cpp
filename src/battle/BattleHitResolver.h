@@ -17,7 +17,7 @@ namespace KysChess::Battle
 {
 
 class BattleRuntimeRandom;
-struct BattleUnitStore;
+class BattleRuntimeUnitRecords;
 struct BattleRuntimeUnit;
 
 struct BattleHitUnitSnapshot
@@ -204,12 +204,12 @@ struct BattleProjectileFollowUpExpansion
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     const std::vector<BattleGameplayCommand>& commands,
     BattleProjectileFollowUpContext& context,
-    const BattleUnitStore& units);
+    const BattleRuntimeUnitRecords& units);
 
 BattleProjectileFollowUpExpansion expandBattleAreaProjectileFollowUp(
     const BattleAreaProjectileFollowUp& followUp,
     BattleProjectileFollowUpContext& context,
-    const BattleUnitStore& units);
+    const BattleRuntimeUnitRecords& units);
 
 class BattleHitResolver
 {

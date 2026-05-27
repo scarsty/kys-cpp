@@ -1,5 +1,6 @@
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCore.h"
+#include "BattleRuntimeRecordTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -28,25 +29,9 @@ BattleRuntimeUnit unit(int id, int team, double x, double y)
     return state;
 }
 
-BattleUnitStore unitStore(std::initializer_list<BattleRuntimeUnit> unitList)
+BattleRuntimeUnitRecords unitStore(std::initializer_list<BattleRuntimeUnit> unitList)
 {
-    BattleUnitStore store;
-    int maxId = -1;
-    for (const auto& unit : unitList)
-    {
-        maxId = std::max(maxId, unit.id);
-    }
-    store.units.resize(static_cast<std::size_t>(maxId + 1));
-    for (int id = 0; id <= maxId; ++id)
-    {
-        store.units[static_cast<std::size_t>(id)].id = id;
-        store.units[static_cast<std::size_t>(id)].alive = false;
-    }
-    for (const auto& unit : unitList)
-    {
-        store.units[static_cast<std::size_t>(unit.id)] = unit;
-    }
-    return store;
+    return KysChess::Battle::Test::runtimeRecords(unitList);
 }
 
 BattleAttackInstance attack(int id, int attackerId, double x, double y)
@@ -341,7 +326,7 @@ TEST_CASE("BattleAttackSystem_InvincibleContactEmitsNonDamagingBlockOnce", "[bat
     auto world = attackWorld();
     world.hitRadius = SceneHitRadius;
     auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 40, 0) });
-    units.requireUnit(2).invincible = 1;
+    units.requireCore(2).invincible = 1;
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.velocity = { 10, 0, 0 };
@@ -357,7 +342,7 @@ TEST_CASE("BattleAttackSystem_InvincibleContactEmitsNonDamagingBlockOnce", "[bat
     CHECK(!hasEvent(repeated, BattleAttackEventType::BlockedByInvincible, 10, 2));
     CHECK(!hasEvent(repeated, BattleAttackEventType::Hit, 10, 2));
 
-    units.requireUnit(2).invincible = 0;
+    units.requireCore(2).invincible = 0;
     auto vulnerable = BattleAttackSystem().tick(world, units);
 
     CHECK(hasEvent(vulnerable, BattleAttackEventType::Hit, 10, 2));
@@ -431,7 +416,7 @@ TEST_CASE("BattleAttackSystem_OngoingProjectileCanHitAfterSourceDies", "[battle]
         unit(1, 0, 0, 0),
         unit(2, 1, 50, 0),
     });
-    units.requireUnit(1).alive = false;
+    units.requireCore(1).alive = false;
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.velocity = { 100, 0, 0 };
@@ -539,7 +524,7 @@ TEST_CASE("BattleAttackSystem_RequiredPreferredTargetExpiresWhenTargetInvalid", 
 {
     auto world = attackWorld();
     auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 30, 0) });
-    units.units[1].alive = false;
+    units.requireCore(2).alive = false;
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.preferredTargetUnitId = 2;
     projectile.state.requirePreferredTarget = true;
@@ -636,7 +621,7 @@ TEST_CASE("BattleAttackSystem_OngoingProjectilesCanCancelAfterSourceDies", "[bat
 {
     auto world = attackWorld();
     auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
-    units.requireUnit(1).alive = false;
+    units.requireCore(1).alive = false;
     auto first = attack(10, 1, 0, 0);
     first.state.operationType = BattleOperationType::RangedProjectile;
     first.frame = world.projectileGraceFrames;

@@ -74,9 +74,7 @@ BattleRuntimeUnit makeRuntimeUnit(const BattleSetupUnitInput& setup)
     return unit;
 }
 
-BattleDeathEffectStore makeDeathEffectStore(
-    const BattleUnitStore& units,
-    BattleRuntimeUnitRecords& records)
+BattleDeathEffectStore makeDeathEffectStore(BattleRuntimeUnitRecords& records)
 {
     BattleDeathEffectStore store;
     const auto& allCombos = KysChess::ChessCombo::getAllCombos();
@@ -88,12 +86,11 @@ BattleDeathEffectStore makeDeathEffectStore(
         }
     }
 
-    for (const auto& unit : units.units)
+    for (auto& record : records.all())
     {
-        const auto& record = records.require(unit.id);
-
-        auto& extras = records.require(unit.id).deathEffects;
-        extras.id = unit.id;
+        const auto& unit = record.core;
+        auto& extras = record.deathEffects;
+        extras.id = record.id();
         extras.shieldPctMaxHp = sumAlwaysEffectValue(record.combo, EffectType::ShieldPctMaxHP);
         extras.appliedEffects = record.combo.appliedEffects;
 
@@ -246,9 +243,8 @@ BattleRuntimeState buildRuntimeFromSpawns(
     std::vector<BattleRuntimeUnitSpawn> spawns)
 {
     BattleRuntimeState runtime;
-    runtime.unitStore.gridTransform = input.rules.gridTransform;
+    runtime.gridTransform = input.rules.gridTransform;
     runtime.random = BattleRuntimeRandom(input.randomSeed);
-    runtime.unitStore.units.reserve(spawns.size());
     runtime.unitRecords.reserve(spawns.size());
 
     for (auto& spawn : spawns)
@@ -268,7 +264,7 @@ void deriveRuntimeStores(
 
     configureAttackWorld(runtime.attacks, input.rules);
     runtime.teamEffects.healAuraRadius = input.rules.teamEffectHealAuraRadius;
-    runtime.deathEffects.store = makeDeathEffectStore(runtime.unitStore, runtime.unitRecords);
+    runtime.deathEffects.store = makeDeathEffectStore(runtime.unitRecords);
 
     runtime.rescue.cells = std::move(input.rescueCells);
     runtime.rescue.executeUnattendedRadius = input.rules.rescueExecuteUnattendedRadius;
@@ -356,8 +352,8 @@ BattlePresentationFrame BattleRuntimeSession::runFrame()
 void BattleRuntimeSession::swapSetupUnitPositions(int firstUnitId, int secondUnitId)
 {
     assert(!frameStarted_);
-    auto& first = runtime_.unitStore.requireUnit(firstUnitId);
-    auto& second = runtime_.unitStore.requireUnit(secondUnitId);
+    auto& first = runtime_.unitRecords.requireCore(firstUnitId);
+    auto& second = runtime_.unitRecords.requireCore(secondUnitId);
     std::swap(first.grid, second.grid);
     std::swap(first.motion.position, second.motion.position);
     first.motion.velocity = { 0, 0, 0 };
@@ -371,12 +367,7 @@ const BattleRuntimeState& BattleRuntimeSession::runtime() const
 
 const BattleRuntimeUnit& BattleRuntimeSession::requireRuntimeUnit(int unitId) const
 {
-    return runtime_.unitStore.requireUnit(unitId);
-}
-
-std::span<const BattleRuntimeUnit> BattleRuntimeSession::runtimeUnits() const
-{
-    return runtime_.unitStore.units;
+    return runtime_.unitRecords.requireCore(unitId);
 }
 
 }  // namespace KysChess::Battle

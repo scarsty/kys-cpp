@@ -8,7 +8,6 @@
 namespace KysChess::Battle
 {
 
-struct BattleUnitStore;
 class BattleRuntimeUnitRecords;
 
 struct BattleDeathEffectExtras
@@ -44,8 +43,7 @@ struct BattleDeathEffectStore
 class BattleDeathEffectSystem
 {
 public:
-    std::vector<BattleDeathEffectEvent> applyAllyDeathEffects(BattleUnitStore& units,
-                                                              BattleRuntimeUnitRecords& records,
+    std::vector<BattleDeathEffectEvent> applyAllyDeathEffects(BattleRuntimeUnitRecords& records,
                                                               BattleDeathEffectStore& effects,
                                                               int deadUnitId) const;
 

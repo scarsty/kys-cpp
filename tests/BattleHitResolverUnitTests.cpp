@@ -1,4 +1,5 @@
 #include "battle/BattleCore.h"
+#include "BattleRuntimeRecordTestHelpers.h"
 #include "battle/BattleHitResolver.h"
 #include "BattleLogTestHelpers.h"
 #include "ChessEftIds.h"
@@ -623,14 +624,13 @@ TEST_CASE("BattleHitResolver_SkillReflectDamageDoesNotTriggerDefenseEffects", "[
 TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnCommands", "[battle][hit_resolver][unit]")
 {
     BattleProjectileFollowUpContext context;
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         runtimeUnit(0, 0, { 0.0f, 0.0f, 0.0f }),
         runtimeUnit(1, 1, { 40.0f, 0.0f, 0.0f }),
         runtimeUnit(2, 1, { 80.0f, 0.0f, 0.0f }),
-    };
-    units.units[1].grid = { 1, 0 };
-    units.units[2].grid = { 2, 0 };
+    });
+    units.requireCore(1).grid = { 1, 0 };
+    units.requireCore(2).grid = { 2, 0 };
     context.projectileSpeed = 10.0;
 
     BattleAttackEvent prototype;
@@ -670,11 +670,10 @@ TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnComman
 TEST_CASE("BattleProjectileFollowUpResolver_NearbyTrackingUsesCommandProjectileSpeed", "[battle][hit_resolver][unit]")
 {
     BattleProjectileFollowUpContext context;
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         runtimeUnit(0, 0, { 0.0f, 0.0f, 0.0f }),
         runtimeUnit(1, 1, { 80.0f, 0.0f, 0.0f }),
-    };
+    });
     context.projectileSpeed = 10.0;
 
     BattleAttackEvent prototype;

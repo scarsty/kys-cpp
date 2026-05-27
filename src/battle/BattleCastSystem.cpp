@@ -5,7 +5,7 @@
 #include "BattleMath.h"
 #include "BattleCombatIntent.h"
 #include "BattleProjectileTargetingSystem.h"
-#include "BattleUnitStore.h"
+#include "BattleRuntimeUnits.h"
 
 #include <algorithm>
 #include <cassert>
@@ -654,10 +654,10 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
 void appendBlinkTeleportDelta(
     const BattleActionCommitInput& input,
     const BattleBlinkAttackCommand& command,
-    const BattleUnitStore& units,
+    const BattleRuntimeUnitRecords& units,
     BattleActionCommitResult& result)
 {
-    const auto& target = units.requireUnit(command.targetUnitId);
+    const auto& target = units.requireCore(command.targetUnitId);
 
     std::vector<const BattleBlinkCell*> candidates;
     for (const auto& cell : input.blinkGeometry.cells)
@@ -710,7 +710,7 @@ void appendBlinkTeleportDelta(
 
 void appendBlinkAttackCommand(
     const BattleActionCommitInput& input,
-    const BattleUnitStore& units,
+    const BattleRuntimeUnitRecords& units,
     BattleActionCommitResult& result)
 {
     if (firstAlwaysEffect(result.combo, EffectType::BlinkAttack) == nullptr)
@@ -718,7 +718,7 @@ void appendBlinkAttackCommand(
         return;
     }
 
-    const auto& source = units.requireUnit(input.sourceUnitId);
+    const auto& source = units.requireCore(input.sourceUnitId);
     BattleProjectileTargetingSystem targeting;
     const bool useWeakest = result.combo.blinkAttackUseWeakest;
     int targetId = useWeakest
@@ -966,13 +966,13 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
 BattleActionCommitResult BattleActionCommitSystem::commit(
     const BattleActionCommitInput& input,
     const RoleComboState& combo,
-    const BattleUnitStore& units) const
+    const BattleRuntimeUnitRecords& units) const
 {
     assert(input.sourceUnitId >= 0);
     assert(input.blinkRandomRoll >= 0);
     assert(input.strengthenedMeleeOperationCountThreshold > 0);
 
-    const auto& source = units.requireUnit(input.sourceUnitId);
+    const auto& source = units.requireCore(input.sourceUnitId);
     assert(source.operationCount >= 0);
 
     BattleActionCommitResult result;

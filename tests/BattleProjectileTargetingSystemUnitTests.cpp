@@ -1,4 +1,5 @@
 #include "battle/BattleCore.h"
+#include "BattleRuntimeRecordTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -32,14 +33,13 @@ BattleRuntimeUnit combatUnit(int id, int team, int hp, int maxHp, int defense, i
 
 TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_AreEnemiesSortedByDistance", "[battle][projectile][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 0.0, 0.0, 0, 0),
         unit(1, 1, 100.0, 0.0, 1, 0),
         unit(2, 1, 20.0, 0.0, 0, 1),
         unit(3, 0, 10.0, 0.0, 0, 0),
         unit(4, 1, 500.0, 0.0, 5, 0),
-    };
+    });
 
     auto ids = BattleProjectileTargetingSystem().selectNearbyTargets(units, 0, 1, 120.0);
 
@@ -50,15 +50,14 @@ TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_AreEnemiesSortedByDista
 
 TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_UsesDeadCenterPosition", "[battle][projectile][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 0.0, 0.0, 0, 0),
         unit(1, 1, 100.0, 0.0, 1, 0),
         unit(2, 1, 120.0, 0.0, 1, 1),
         unit(3, 1, 70.0, 0.0, 1, -1),
         unit(4, 0, 95.0, 0.0, 1, 0),
-    };
-    units.units[1].alive = false;
+    });
+    units.requireCore(1).alive = false;
 
     auto ids = BattleProjectileTargetingSystem().selectNearbyTargets(units, 0, 1, 40.0);
 
@@ -69,14 +68,13 @@ TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_UsesDeadCenterPosition"
 
 TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_UsesGridAreaLimitAndTrackedTarget", "[battle][projectile][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 0.0, 0.0, 0, 0),
         unit(1, 1, 10.0, 0.0, 1, 0),
         unit(2, 1, 20.0, 0.0, 2, 0),
         unit(3, 1, 300.0, 0.0, 9, 9),
         unit(4, 0, 5.0, 0.0, 1, 1),
-    };
+    });
 
     auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(units, 0, 2, 1, 3);
 
@@ -87,12 +85,11 @@ TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_UsesGridAreaLimitAndTracke
 
 TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_DoesNotDuplicateTrackedTarget", "[battle][projectile][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 0.0, 0.0, 0, 0),
         unit(1, 1, 10.0, 0.0, 1, 0),
         unit(2, 1, 20.0, 0.0, 2, 0),
-    };
+    });
 
     auto ids = BattleProjectileTargetingSystem().selectAreaImpactTargets(units, 0, 2, 0, 1);
 
@@ -103,13 +100,12 @@ TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_DoesNotDuplicateTrackedTar
 
 TEST_CASE("BattleProjectileTargetingSystem_RandomEnemy_UsesExplicitIndex", "[battle][projectile][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 0.0, 0.0, 0, 0),
         unit(1, 1, 10.0, 0.0, 1, 0),
         unit(2, 1, 20.0, 0.0, 2, 0),
         unit(3, 0, 30.0, 0.0, 3, 0),
-    };
+    });
 
     CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 0) == 1);
     CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(units, 0, 1) == 2);
@@ -118,15 +114,14 @@ TEST_CASE("BattleProjectileTargetingSystem_RandomEnemy_UsesExplicitIndex", "[bat
 
 TEST_CASE("BattleProjectileTargetingSystem_WeakestVulnerableEnemy_UsesEffectiveHp", "[battle][projectile][unit]")
 {
-    BattleUnitStore units;
-    units.units = {
+    auto units = KysChess::Battle::Test::runtimeRecords({
         combatUnit(0, 0, 100, 100, 0, 0),
         combatUnit(1, 1, 60, 200, 1, 0),
         combatUnit(2, 1, 70, 100, 20, 0),
         combatUnit(3, 1, 5, 100, 0, 3),
         combatUnit(4, 1, 1, 100, 0, 0),
-    };
-    units.units[4].alive = false;
+    });
+    units.requireCore(4).alive = false;
 
     CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(units, 0, 4.0) == 2);
     CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(units, 1, 4.0) == 0);

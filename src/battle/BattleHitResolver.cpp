@@ -4,7 +4,7 @@
 #include "../ChessEftIds.h"
 #include "BattleComboTriggerSystem.h"
 #include "BattleRuntimeRandom.h"
-#include "BattleUnitStore.h"
+#include "BattleRuntimeUnits.h"
 
 #include <algorithm>
 #include <cassert>
@@ -258,10 +258,10 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
     int stunFrames,
     int visualEffectId,
     const BattleProjectileFollowUpContext& context,
-    const BattleUnitStore& units)
+    const BattleRuntimeUnitRecords& units)
 {
-    const auto& source = units.requireUnit(sourceUnitId);
-    const auto& target = units.requireUnit(targetUnitId);
+    const auto& source = units.requireCore(sourceUnitId);
+    const auto& target = units.requireCore(targetUnitId);
     auto sourcePosition = source.motion.position;
     auto targetPosition = target.motion.position;
     auto direction = targetPosition - sourcePosition;
@@ -354,7 +354,7 @@ bool canApplyOffensiveControlEffects(const BattleAttackEvent& event)
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     const std::vector<BattleGameplayCommand>& commands,
     BattleProjectileFollowUpContext& context,
-    const BattleUnitStore& units)
+    const BattleRuntimeUnitRecords& units)
 {
     assert(context.projectileSpeed > 0.0);
     assert(context.minimumProjectileFrames > 0);
@@ -375,7 +375,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
                 expansion.commands.push_back(BattleProjectileSpawnCommand{
                     makeNearbyFollowUpSpawn(
                         *nearby,
-                        units.requireUnit(targetId),
+                        units.requireCore(targetId),
                         context),
                     "範圍追蹤彈",
                 });
@@ -390,7 +390,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
 BattleProjectileFollowUpExpansion expandBattleAreaProjectileFollowUp(
     const BattleAreaProjectileFollowUp& followUp,
     BattleProjectileFollowUpContext& context,
-    const BattleUnitStore& units)
+    const BattleRuntimeUnitRecords& units)
 {
     assert(context.projectileSpeed > 0.0);
     assert(context.minimumProjectileFrames > 0);
