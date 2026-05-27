@@ -191,7 +191,6 @@ struct BattleMovementState
     BattleMovementConfig config;
     std::vector<BattleTerrainCell> terrainCells;
     std::map<int, BattleMovementReservation> movementReservations;
-    std::map<int, BattleMovementAgentState> agents;
 };
 
 }  // namespace KysChess::Battle

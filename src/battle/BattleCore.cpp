@@ -126,7 +126,7 @@ BattleRuntimeUnitHandle BattleRuntimeUnits::makeHandle(BattleRuntimeUnit& core) 
 {
     auto& runtime = state();
     const int unitId = core.id;
-    auto& movement = requireMappedById(runtime.movement.agents, unitId);
+    auto& movement = runtime.unitRecords.require(unitId).movement;
     requireRescueRuntime(runtime, unitId);
     return {
         core,
@@ -1378,10 +1378,9 @@ const BattleUnitMotion& motionSnapshotForUnit(
 
 void prepareMovementAgents(BattleRuntimeState& state)
 {
-    assert(state.movement.agents.size() == state.unitStore.units.size());
     for (const auto& unit : state.unitStore.units)
     {
-        auto& agent = requireMappedById(state.movement.agents, unit.id);
+        auto& agent = state.unitRecords.require(unit.id).movement;
         agent.active = unit.alive || needsCorpsePhysics(unit);
         if (!unit.alive)
         {
@@ -1432,7 +1431,7 @@ BattleMovementPlanInput makeFrameMovementPlanInput(
             movementUnit.speed = runtimeUnit.stats.speed;
         }
         refreshMovementSkillProfile(movementUnit, runtimeUnit, state);
-        const auto& agent = requireMappedById(state.movement.agents, runtimeUnit.id);
+        const auto& agent = state.unitRecords.require(runtimeUnit.id).movement;
         const auto& physics = postPhysicsIt != postPhysics.end()
             ? postPhysicsIt->second
             : agent.physics;
@@ -1984,7 +1983,7 @@ void schedulePostDashRetreat(BattleRuntimeState& state, int unitId, const Battle
         chaosFrames = state.movement.config.dashFrames + 1;
     }
 
-    auto& physics = requireMappedById(state.movement.agents, unitId).physics;
+    auto& physics = state.unitRecords.require(unitId).movement.physics;
     physics.postDashRetreatVelocity = retreatVelocity;
     physics.postDashRetreatFrames = retreatFrames;
     physics.postDashChaosFrames = chaosFrames;
@@ -2009,7 +2008,7 @@ void refreshRuntimeDashAttackDetails(
 
 bool actionMovementDashActive(const BattleRuntimeState& state, int unitId)
 {
-    const auto& movement = requireMappedById(state.movement.agents, unitId);
+    const auto& movement = state.unitRecords.require(unitId).movement;
     return movement.active && movement.physics.movementDashFrames > 0;
 }
 
@@ -2609,7 +2608,7 @@ void applyDamageResultToFrameState(
             preDamageDeathKickDirection,
             transaction.finalHpDamage);
         unit.motion.acceleration = { 0, 0, state.movementPhysics.config.gravity };
-        auto& agent = requireMappedById(state.movement.agents, unit.id);
+        auto& agent = state.unitRecords.require(unit.id).movement;
         agent.physics.position = unit.motion.position;
         agent.physics.velocity = unit.motion.velocity;
         agent.physics.acceleration = unit.motion.acceleration;
@@ -3201,7 +3200,7 @@ bool reduceFrameGameplayCommand(
         {
             unit.motion.velocity.normTo(static_cast<float>(knockback->velocityCap));
         }
-        requireMappedById(state.movement.agents, knockback->targetUnitId).physics.velocity = unit.motion.velocity;
+        state.unitRecords.require(knockback->targetUnitId).movement.physics.velocity = unit.motion.velocity;
         return true;
     }
     if (const auto* tempAttack = std::get_if<BattleTempAttackBuffCommand>(&command))
@@ -4326,7 +4325,7 @@ std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleR
     for (auto& unit : state.unitStore.units)
     {
         assert(unit.id >= 0);
-        auto& agent = requireMappedById(state.movement.agents, unit.id);
+        auto& agent = state.unitRecords.require(unit.id).movement;
         if (!agent.active)
         {
             continue;
@@ -4402,7 +4401,7 @@ BattleTickResult commitFrameMovement(
     state.movement.movementReservations = movement.movementReservations;
     for (const auto& [unitId, decision] : movement.decisions)
     {
-        auto& agent = requireMappedById(state.movement.agents, unitId);
+        auto& agent = state.unitRecords.require(unitId).movement;
         agent.targetId = decision.targetId;
         agent.assignedSlot = decision.slot;
         agent.slotSwitchCooldownRemaining = decision.slotSwitchCooldownRemaining;
@@ -4411,7 +4410,7 @@ BattleTickResult commitFrameMovement(
     for (const auto& physicsResult : physicsResults)
     {
         auto& unit = state.unitStore.requireUnit(physicsResult.unitId);
-        auto& physics = requireMappedById(state.movement.agents, physicsResult.unitId).physics;
+        auto& physics = state.unitRecords.require(physicsResult.unitId).movement.physics;
 
         unit.motion.position = physicsResult.state.position;
         unit.motion.velocity = physicsResult.state.velocity;
@@ -4449,7 +4448,7 @@ BattleTickResult commitFrameMovement(
             syncedVelocity,
             acceleration);
 
-        auto& physics = requireMappedById(state.movement.agents, unitId).physics;
+        auto& physics = state.unitRecords.require(unitId).movement.physics;
         physics.position = syncedPosition;
         physics.velocity = syncedVelocity;
         physics.acceleration = acceleration;
@@ -4605,7 +4604,7 @@ void advanceActionFrameUnits(
                 actionState.operationType = cast.decision.operationType;
                 actionState.cooldown = cast.animation.cooldownFrames;
                 unitRecord.setPendingCast(makePendingCastAction(castInput, cast));
-                requireMappedById(state.movement.agents, unit.id).physics.movementDashSpreadFrames = 0;
+                state.unitRecords.require(unit.id).movement.physics.movementDashSpreadFrames = 0;
             }
         }
         else if (actionState.haveAction && pendingCast)

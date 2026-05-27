@@ -738,14 +738,13 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
     const auto& cloneDamage = requireById(runtime.damage.unitExtras, 1);
     CHECK(cloneDamage.blockFirstHitsRemaining == 2);
 
-    const auto cloneAgentIt = runtime.movement.agents.find(1);
-    REQUIRE(cloneAgentIt != runtime.movement.agents.end());
-    CHECK(cloneAgentIt->second.active == cloneUnit.alive);
-    CHECK(cloneAgentIt->second.targetId == -1);
-    CHECK(cloneAgentIt->second.physics.position.x == cloneUnit.motion.position.x);
-    CHECK(cloneAgentIt->second.physics.position.y == cloneUnit.motion.position.y);
-    CHECK(cloneAgentIt->second.physics.velocity.x == cloneUnit.motion.velocity.x);
-    CHECK(cloneAgentIt->second.physics.acceleration.z == cloneUnit.motion.acceleration.z);
+    const auto& cloneAgent = runtime.unitRecords.require(1).movement;
+    CHECK(cloneAgent.active == cloneUnit.alive);
+    CHECK(cloneAgent.targetId == -1);
+    CHECK(cloneAgent.physics.position.x == cloneUnit.motion.position.x);
+    CHECK(cloneAgent.physics.position.y == cloneUnit.motion.position.y);
+    CHECK(cloneAgent.physics.velocity.x == cloneUnit.motion.velocity.x);
+    CHECK(cloneAgent.physics.acceleration.z == cloneUnit.motion.acceleration.z);
 
     const auto* clonePlan = runtime.unitRecords.require(1).actionPlan();
     REQUIRE(clonePlan != nullptr);

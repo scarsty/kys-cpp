@@ -171,7 +171,6 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
     runtime.unitStore.units.push_back(std::move(spawn.unit));
     runtime.status.units.push_back(std::move(spawn.status));
     runtime.damage.unitExtras.push_back(std::move(spawn.damage));
-    runtime.movement.agents.emplace(unitId, std::move(spawn.movement));
     runtime.combo.units.emplace(unitId, std::move(spawn.combo));
     runtime.deathEffects.store.units.push_back({ .id = unitId });
     runtime.damage.presentationStylesByDefender.emplace(

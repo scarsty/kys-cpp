@@ -72,20 +72,14 @@ BattleRuntimeUnit runtimeUnitFromWorld(const BattleUnitState& worldUnit)
 void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::vector<BattleUnitState>& units)
 {
     state.unitStore.units.clear();
-    state.movement.agents.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
     state.unitRecords = {};
     for (const auto& worldUnit : units)
     {
-        state.unitStore.units.push_back(runtimeUnitFromWorld(worldUnit));
-        BattleMovementAgentState agent;
-        agent.active = worldUnit.alive;
-        agent.physics.position = worldUnit.position;
-        agent.physics.velocity = worldUnit.velocity;
-        state.movement.agents.emplace(worldUnit.id, agent);
-        state.deathEffects.store.units.push_back({ .id = worldUnit.id });
-        state.rescue.units.push_back({ .unitId = worldUnit.id });
+        appendRuntimeUnit(
+            state,
+            makeRuntimeUnitSpawn(runtimeUnitFromWorld(worldUnit), KysChess::RoleComboState{}));
     }
 }
 
@@ -204,7 +198,6 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
     const auto previousDamageExtras = state.damage.unitExtras;
 
     state.unitStore.units.clear();
-    state.movement.agents.clear();
     state.movement.movementReservations.clear();
     state.combo.units.clear();
     state.status.units.clear();
@@ -342,8 +335,8 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
 
     const auto& unit = session.runtime().unitStore.requireUnit(1);
     CHECK(unit.motion.velocity.norm() > 0.01f);
-    CHECK(session.runtime().movement.agents.at(1).physics.velocity.x == unit.motion.velocity.x);
-    CHECK(session.runtime().movement.agents.at(1).physics.velocity.y == unit.motion.velocity.y);
+    CHECK(session.runtime().unitRecords.require(1).movement.physics.velocity.x == unit.motion.velocity.x);
+    CHECK(session.runtime().unitRecords.require(1).movement.physics.velocity.y == unit.motion.velocity.y);
 }
 
 TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][runtime_session][ownership]")
@@ -400,8 +393,8 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[ba
     CHECK(session.runtime().movement.frame == 42);
     REQUIRE(session.runtime().unitStore.units.size() == 1);
     CHECK(session.runtime().unitStore.units[0].id == 0);
-    REQUIRE(session.runtime().movement.agents.size() == 1);
-    CHECK(session.runtime().movement.agents.contains(0));
+    REQUIRE(session.runtime().unitRecords.size() == 1);
+    CHECK((session.runtime().unitRecords.find(0) != nullptr));
     CHECK(session.runtime().action.castFrames == session.runtime().movementPhysics.actionCastFrames);
     CHECK(session.runtime().damage.sortPendingDamageByDefenderMagnitude);
 }
@@ -436,11 +429,11 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsMovementAgentRowsForDeadU
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
-    REQUIRE(session.runtime().movement.agents.size() == 2);
-    CHECK(session.runtime().movement.agents.contains(0));
-    CHECK(session.runtime().movement.agents.contains(1));
-    CHECK(session.runtime().movement.agents.at(0).active);
-    CHECK_FALSE(session.runtime().movement.agents.at(1).active);
+    REQUIRE(session.runtime().unitRecords.size() == 2);
+    CHECK((session.runtime().unitRecords.find(0) != nullptr));
+    CHECK((session.runtime().unitRecords.find(1) != nullptr));
+    CHECK(session.runtime().unitRecords.require(0).movement.active);
+    CHECK_FALSE(session.runtime().unitRecords.require(1).movement.active);
 }
 
 TEST_CASE("BattleRuntimeSession_CreateInitializedSpendsNonThroughProjectilesOnHit", "[battle][runtime_session][ownership]")
@@ -501,9 +494,9 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStoresAligned
     const auto& runtime = session.runtime();
     const auto& unit = runtime.unitStore.requireUnit(0);
     REQUIRE(runtime.unitStore.units.size() == 2);
-    REQUIRE(runtime.movement.agents.contains(0));
-    CHECK(runtime.movement.agents.at(0).physics.position.x == unit.motion.position.x);
-    CHECK(runtime.movement.agents.at(0).physics.position.y == unit.motion.position.y);
+    REQUIRE((runtime.unitRecords.find(0) != nullptr));
+    CHECK(runtime.unitRecords.require(0).movement.physics.position.x == unit.motion.position.x);
+    CHECK(runtime.unitRecords.require(0).movement.physics.position.y == unit.motion.position.y);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_UsesRuntimeOwnedFrameState", "[battle][frame_runner][runtime]")

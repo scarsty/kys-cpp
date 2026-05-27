@@ -267,7 +267,6 @@ void seedRuntimeUnitsFromMovementUnits(
     state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
-    state.movement.agents.clear();
     state.unitRecords = {};
     for (const auto& unit : units)
     {
@@ -291,8 +290,7 @@ void seedRuntimeUnits(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> 
     state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
-    state.movement.agents.clear();
-        state.unitRecords = {};
+    state.unitRecords = {};
 
     for (auto& unit : units)
     {
@@ -939,10 +937,10 @@ TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[
     state.unitStore.gridTransform = { SceneTileWidth, 64 };
     state.unitStore.requireUnit(0).motion.velocity = { 5, 0, 0 };
     state.unitStore.requireUnit(0).motion.acceleration = { 0, 0, 0 };
-    state.movement.agents.at(0).physics.position = { 100, 100, 0 };
-    state.movement.agents.at(0).physics.velocity = { 5, 0, 0 };
-    state.movement.agents.at(0).physics.acceleration = { 0, 0, 0 };
-    state.movement.agents.at(0).physics.movementDashFrames = 1;
+    state.unitRecords.require(0).movement.physics.position = { 100, 100, 0 };
+    state.unitRecords.require(0).movement.physics.velocity = { 5, 0, 0 };
+    state.unitRecords.require(0).movement.physics.acceleration = { 0, 0, 0 };
+    state.unitRecords.require(0).movement.physics.movementDashFrames = 1;
     state.movementPhysics.config.gravity = 0.0f;
     state.movementPhysics.config.friction = 0.0f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
@@ -957,8 +955,8 @@ TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[
     CHECK(unit.motion.position.x == 105.0f);
     CHECK(unit.motion.velocity.x == 5.0f);
     CHECK(unit.motion.acceleration.x == 0.0f);
-    CHECK(state.movement.agents.at(0).physics.movementDashFrames == 0);
-    CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 6);
+    CHECK(state.unitRecords.require(0).movement.physics.movementDashFrames == 0);
+    CHECK(state.unitRecords.require(0).movement.physics.movementDashSpreadFrames == 6);
 }
 
 BattleRescueCellSnapshot rescueCell(int x, int y, bool walkable = true, bool occupied = false)
@@ -1495,6 +1493,26 @@ TEST_CASE("BattleRuntimeUnitRecord_ActionOwnershipReplacesRuntimeActionMaps", "[
     CHECK_FALSE(record.isUltimateCaster());
 }
 
+TEST_CASE("BattleRuntimeUnitRecord_MovementAgentLivesOnRecord", "[battle][core][movement][ownership]")
+{
+    BattleRuntimeState state;
+    BattleRuntimeUnit unit;
+    unit.id = 1;
+    unit.alive = true;
+    unit.motion.position = { 12.0f, 18.0f, 0.0f };
+
+    appendRuntimeUnit(state, makeRuntimeUnitSpawn(std::move(unit), KysChess::RoleComboState{}));
+
+    auto& record = state.unitRecords.require(1);
+    record.movement.targetId = 0;
+    record.movement.assignedSlot = 2;
+
+    CHECK(record.movement.active);
+    CHECK(record.movement.physics.position.x == 12.0f);
+    CHECK(record.movement.targetId == 0);
+    CHECK(record.movement.assignedSlot == 2);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -2026,7 +2044,7 @@ TEST_CASE("BattleFrameRunner_ClearsDashSpreadWhenRuntimeCastStarts", "[battle][c
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
     state.unitStore.requireUnit(0).animation.cooldown = 0;
-    state.movement.agents.at(0).physics.movementDashSpreadFrames = 9;
+    state.unitRecords.require(0).movement.physics.movementDashSpreadFrames = 9;
     auto cast = frameCastInput(0, 1);
     cast.normalSkill.attackAreaType = 1;
     cast.normalSkill.rangedStyle = true;
@@ -2037,7 +2055,7 @@ TEST_CASE("BattleFrameRunner_ClearsDashSpreadWhenRuntimeCastStarts", "[battle][c
     auto result = runBattleFrame(state);
 
     REQUIRE((state.unitRecords.require(0).pendingCast() != nullptr));
-    CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 0);
+    CHECK(state.unitRecords.require(0).movement.physics.movementDashSpreadFrames == 0);
 }
 
 TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts", "[battle][core][runtime]")
@@ -2174,10 +2192,10 @@ TEST_CASE("BattleFrameRunner_MeleeDashCommitSchedulesPostDashRetreat", "[battle]
     auto result = runBattleFrame(state);
 
     CHECK(state.unitRecords.pendingCastCount() == 0);
-    CHECK(state.movement.agents.at(0).physics.postDashRetreatVelocity.x < -3.0f);
-    CHECK(std::abs(state.movement.agents.at(0).physics.postDashRetreatVelocity.y) > 1.0f);
-    CHECK(state.movement.agents.at(0).physics.postDashRetreatFrames == 11);
-    CHECK(state.movement.agents.at(0).physics.postDashChaosFrames == 6);
+    CHECK(state.unitRecords.require(0).movement.physics.postDashRetreatVelocity.x < -3.0f);
+    CHECK(std::abs(state.unitRecords.require(0).movement.physics.postDashRetreatVelocity.y) > 1.0f);
+    CHECK(state.unitRecords.require(0).movement.physics.postDashRetreatFrames == 11);
+    CHECK(state.unitRecords.require(0).movement.physics.postDashChaosFrames == 6);
 }
 
 TEST_CASE("BattleFrameRunner_PostDashRetreatYieldsMovementPlannerToPhysics", "[battle][core][runtime]")
@@ -2200,18 +2218,18 @@ TEST_CASE("BattleFrameRunner_PostDashRetreatYieldsMovementPlannerToPhysics", "[b
     state.movementPhysics.terrain.coordCount = 2;
     state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
     state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
-    state.movement.agents.at(0).physics.position = { 100, 100, 0 };
-    state.movement.agents.at(0).physics.velocity = { 0, 0, 0 };
-    state.movement.agents.at(0).physics.acceleration = { 0, 0, 0 };
-    state.movement.agents.at(0).physics.postDashRetreatVelocity = { -5, 0, 0 };
-    state.movement.agents.at(0).physics.postDashRetreatFrames = 2;
-    state.movement.agents.at(1).physics.position = { 210, 100, 0 };
+    state.unitRecords.require(0).movement.physics.position = { 100, 100, 0 };
+    state.unitRecords.require(0).movement.physics.velocity = { 0, 0, 0 };
+    state.unitRecords.require(0).movement.physics.acceleration = { 0, 0, 0 };
+    state.unitRecords.require(0).movement.physics.postDashRetreatVelocity = { -5, 0, 0 };
+    state.unitRecords.require(0).movement.physics.postDashRetreatFrames = 2;
+    state.unitRecords.require(1).movement.physics.position = { 210, 100, 0 };
 
     runBattleFrame(state);
 
     CHECK(state.unitStore.requireUnit(0).motion.position.x == Catch::Approx(95.0f));
     CHECK(state.unitStore.requireUnit(0).motion.velocity.x == Catch::Approx(-5.0f));
-    CHECK(state.movement.agents.at(0).physics.postDashRetreatFrames == 1);
+    CHECK(state.unitRecords.require(0).movement.physics.postDashRetreatFrames == 1);
 }
 
 TEST_CASE("BattleFrameRunner_StoresPendingCastIntentWhenCastStarts", "[battle][core][runtime]")
@@ -2980,20 +2998,20 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     state.movementPhysics.terrain.coordCount = 2;
     state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth * 1.5;
     state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
-    state.movement.agents.at(0).physics.position = { 100, 100, 0 };
-    state.movement.agents.at(0).physics.velocity = { 5, 0, 0 };
-    state.movement.agents.at(0).physics.acceleration = { 0, 0, -4 };
-    state.movement.agents.at(0).physics.movementDashFrames = 1;
-    state.movement.agents.at(1).physics.position = { 200, 100, 0 };
-    state.movement.agents.at(1).physics.velocity = { 5, 0, 0 };
-    state.movement.agents.at(1).physics.acceleration = { 0, 0, -4 };
+    state.unitRecords.require(0).movement.physics.position = { 100, 100, 0 };
+    state.unitRecords.require(0).movement.physics.velocity = { 5, 0, 0 };
+    state.unitRecords.require(0).movement.physics.acceleration = { 0, 0, -4 };
+    state.unitRecords.require(0).movement.physics.movementDashFrames = 1;
+    state.unitRecords.require(1).movement.physics.position = { 200, 100, 0 };
+    state.unitRecords.require(1).movement.physics.velocity = { 5, 0, 0 };
+    state.unitRecords.require(1).movement.physics.acceleration = { 0, 0, -4 };
 
     runBattleFrame(state);
 
     const auto& movedUnit = state.unitStore.requireUnit(0);
     CHECK(movedUnit.motion.position.x == 105.0f);
-    CHECK(state.movement.agents.at(0).physics.movementDashFrames == 0);
-    CHECK(state.movement.agents.at(0).physics.movementDashSpreadFrames == 6);
+    CHECK(state.unitRecords.require(0).movement.physics.movementDashFrames == 0);
+    CHECK(state.unitRecords.require(0).movement.physics.movementDashSpreadFrames == 6);
 
     const auto& stoppedUnit = state.unitStore.requireUnit(1);
     CHECK(state.status.units[1].effects.frozenTimer == 1);
@@ -3015,8 +3033,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_KeepsMovingCorpsesInMovementPhysics", 
     state.unitStore.requireUnit(0).motion.velocity = { 5, 0, 0 };
     state.unitStore.requireUnit(1).motion.velocity = { 6, 0, 8 };
     state.unitStore.requireUnit(1).motion.acceleration = { 0, 0, -4 };
-    state.movement.agents.at(1).physics.velocity = { 6, 0, 8 };
-    state.movement.agents.at(1).physics.acceleration = { 0, 0, -4 };
+    state.unitRecords.require(1).movement.physics.velocity = { 6, 0, 8 };
+    state.unitRecords.require(1).movement.physics.acceleration = { 0, 0, -4 };
     state.movementPhysics.config.gravity = 0.0f;
     state.movementPhysics.config.friction = 0.0f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
@@ -3030,9 +3048,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_KeepsMovingCorpsesInMovementPhysics", 
     const auto& corpse = state.unitStore.requireUnit(1);
     CHECK(corpse.motion.position.x == 206.0f);
     CHECK(corpse.motion.position.z == 8.0f);
-    CHECK(state.movement.agents.contains(1));
-    CHECK(state.movement.agents.at(1).active);
-    CHECK(state.movement.agents.at(1).physics.position.x == 206.0f);
+    CHECK((state.unitRecords.find(1) != nullptr));
+    CHECK(state.unitRecords.require(1).movement.active);
+    CHECK(state.unitRecords.require(1).movement.physics.position.x == 206.0f);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_InactivatesInertDeadMovementAgents", "[battle][core][movement][ownership]")
@@ -3057,8 +3075,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_InactivatesInertDeadMovementAgents", "
 
     runBattleFrame(state);
 
-    REQUIRE(state.movement.agents.contains(1));
-    CHECK_FALSE(state.movement.agents.at(1).active);
+    REQUIRE((state.unitRecords.find(1) != nullptr));
+    CHECK_FALSE(state.unitRecords.require(1).movement.active);
     CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(200.0f));
 }
 
@@ -3080,7 +3098,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity", "[battle][c
     state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
     state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
     state.unitStore.requireUnit(1).motion.velocity = { -50.0f, 20.0f, 40.0f };
-    state.movement.agents.at(1).physics.velocity = state.unitStore.requireUnit(1).motion.velocity;
+    state.unitRecords.require(1).movement.physics.velocity = state.unitStore.requireUnit(1).motion.velocity;
     state.unitStore.requireUnit(0).stats.speed = 0;
     state.unitStore.requireUnit(1).stats.speed = 0;
 
@@ -3116,8 +3134,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity", "[battle][c
     CHECK(deathSpeed == Catch::Approx(20.0 / 3.0 + 5.0));
     CHECK(dead.motion.position.x == Catch::Approx(200.0f));
     CHECK(dead.motion.position.z == Catch::Approx(36.0f));
-    CHECK(state.movement.agents.contains(1));
-    CHECK(state.movement.agents.at(1).physics.velocity.z == dead.motion.velocity.z);
+    CHECK((state.unitRecords.find(1) != nullptr));
+    CHECK(state.unitRecords.require(1).movement.physics.velocity.z == dead.motion.velocity.z);
 
 }
 
@@ -3230,8 +3248,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_MovingCorpsePhysicsPersistsIntoRuntime
     state.attacks = attackWorld();
     state.unitStore.requireUnit(1).motion.velocity = { 6, 0, 8 };
     state.unitStore.requireUnit(1).motion.acceleration = { 0, 0, -4 };
-    state.movement.agents.at(1).physics.velocity = { 6, 0, 8 };
-    state.movement.agents.at(1).physics.acceleration = { 0, 0, -4 };
+    state.unitRecords.require(1).movement.physics.velocity = { 6, 0, 8 };
+    state.unitRecords.require(1).movement.physics.acceleration = { 0, 0, -4 };
     state.movementPhysics.config.gravity = -4.0f;
     state.movementPhysics.config.friction = 0.0f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
@@ -3249,7 +3267,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_MovingCorpsePhysicsPersistsIntoRuntime
     const auto& deadUnit = state.unitStore.requireUnit(1);
     CHECK(deadUnit.motion.position.z == 12.0f);
     CHECK(deadUnit.motion.velocity.z == 0.0f);
-    CHECK(state.movement.agents.at(1).physics.position.z == deadUnit.motion.position.z);
+    CHECK(state.unitRecords.require(1).movement.physics.position.z == deadUnit.motion.position.z);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameState", "[battle][core][breakthrough]")

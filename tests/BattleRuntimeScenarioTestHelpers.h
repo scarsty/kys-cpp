@@ -3,6 +3,7 @@
 #include "battle/BattleCore.h"
 #include "battle/BattleRuntimeRules.h"
 #include "battle/BattleRuntimeSession.h"
+#include "battle/BattleRuntimeUnitSpawn.h"
 #include "BattleLogTestHelpers.h"
 #include "BattlePresentationTestHelpers.h"
 
@@ -110,30 +111,17 @@ inline void seedScenarioRuntimeStores(BattleRuntimeState& state, std::vector<Bat
     state.movement.frame = 0;
     state.movement.config = scenarioRules().movementConfig;
     state.attacks = scenarioAttackState();
-    state.unitStore.units = std::move(units);
+    state.unitStore.units.clear();
     state.combo.units.clear();
     state.status.units.clear();
     state.damage.unitExtras.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
-    state.movement.agents.clear();
     state.unitRecords = {};
 
-    for (const auto& unit : state.unitStore.units)
+    for (auto& unit : units)
     {
-        state.combo.units.emplace(unit.id, RoleComboState{});
-        state.status.units.push_back(scenarioStatusUnit(unit));
-        state.damage.unitExtras.push_back(makeBattleDamageRuntimeUnit(
-            makeBattleDamageUnitState(unit, static_cast<const BattleDamageRuntimeUnit*>(nullptr))));
-        state.deathEffects.store.units.push_back({ .id = unit.id });
-        state.rescue.units.push_back({ unit.id, 0, 0 });
-
-        BattleMovementAgentState agent;
-        agent.active = unit.alive;
-        agent.physics.position = unit.motion.position;
-        agent.physics.velocity = unit.motion.velocity;
-        agent.physics.acceleration = unit.motion.acceleration;
-        state.movement.agents.emplace(unit.id, agent);
+        appendRuntimeUnit(state, makeRuntimeUnitSpawn(std::move(unit), RoleComboState{}));
     }
 }
 
