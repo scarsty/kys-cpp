@@ -120,6 +120,8 @@ TEST_CASE("BattleRuntimeScenario_DamageDeathEffectsAndFollowUpDigest", "[battle]
         { KysChess::EffectType::AllyDeathStatBoost, 4, 0, "", KysChess::Trigger::Always, 0, 0, 0, 9 });
     ally.appliedEffects.push_back(
         { KysChess::EffectType::ShieldOnAllyDeath, 1, 0, "", KysChess::Trigger::Always, 0, 0, 0, 9 });
+    state.units.require(dead.id).deathEffects = dead;
+    state.units.require(ally.id).deathEffects = ally;
     state.deathEffects.store.regularSynergyComboIds.insert(9);
 
     BattleRuntimeSession session(std::move(state));

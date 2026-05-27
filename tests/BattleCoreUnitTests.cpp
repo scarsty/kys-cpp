@@ -3571,6 +3571,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAllyDeathEffectsInsideDamageLif
     ally.comboIds = { 9 };
     ally.appliedEffects.push_back({ EffectType::AllyDeathStatBoost, 4, 0, "", Trigger::Always, 0, 0, 0, 9 });
     ally.appliedEffects.push_back({ EffectType::ShieldOnAllyDeath, 1, 0, "", Trigger::Always, 0, 0, 0, 9 });
+    state.units.require(dead.id).deathEffects = dead;
+    state.units.require(ally.id).deathEffects = ally;
     state.deathEffects.store.regularSynergyComboIds.insert(9);
 
     auto result = runBattleFrame(state);
