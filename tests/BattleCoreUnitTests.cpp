@@ -1427,6 +1427,43 @@ TEST_CASE("BattleRuntimeUnitHandle_MpRecoveryBonusStaysSeparateFromMpBlock", "[b
     CHECK(runtimeUnit.mpRecoveryBonusPct() == 40);
 }
 
+TEST_CASE("BattleRuntimeUnitRecord_OwnsPerUnitRuntimeFacts", "[battle][core][ownership]")
+{
+    BattleRuntimeUnitRecord record;
+    record.core.id = 7;
+    record.core.alive = true;
+    record.combo.onSkillTeamHealPending = true;
+    record.status.id = 7;
+    record.damage.id = 7;
+    record.movement.active = true;
+    record.deathEffects.id = 7;
+    record.rescue.unitId = 7;
+
+    BattleActionPlanSeed plan;
+    plan.unitId = 99;
+    record.setActionPlan(plan);
+
+    BattlePendingCastAction pending;
+    pending.unitId = 99;
+    pending.targetUnitId = 3;
+    record.setPendingCast(pending);
+    record.markUltimateCaster();
+
+    CHECK(record.id() == 7);
+    CHECK(record.alive());
+    REQUIRE(record.actionPlan() != nullptr);
+    CHECK(record.actionPlan()->unitId == 7);
+    REQUIRE(record.pendingCast() != nullptr);
+    CHECK(record.pendingCast()->unitId == 7);
+    CHECK(record.pendingCast()->targetUnitId == 3);
+    CHECK(record.isUltimateCaster());
+
+    record.clearActionOwners();
+
+    CHECK(record.pendingCast() == nullptr);
+    CHECK_FALSE(record.isUltimateCaster());
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle][core][runtime]")
 {
     BattleRuntimeState state;

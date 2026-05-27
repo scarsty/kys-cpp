@@ -18,13 +18,97 @@
 #include <algorithm>
 #include <cassert>
 #include <map>
+#include <optional>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 namespace KysChess::Battle
 {
 
 struct BattleRuntimeState;
+
+struct BattleRuntimeUnitActionState
+{
+    std::optional<BattleActionPlanSeed> planSeed;
+    std::optional<BattlePendingCastAction> pendingCast;
+    bool ultimateCaster = false;
+};
+
+struct BattleRescueUnitRuntime
+{
+    int unitId = -1;
+    int forcePullProtectRemaining = 0;
+    int forcePullExecuteRemaining = 0;
+};
+
+struct BattleRuntimeUnitRecord
+{
+    BattleRuntimeUnit core;
+    RoleComboState combo;
+    BattleStatusRuntimeUnit status;
+    BattleDamageRuntimeUnit damage;
+    BattleMovementAgentState movement;
+    BattleDeathEffectExtras deathEffects;
+    BattleRescueUnitRuntime rescue;
+    BattleRuntimeUnitActionState action;
+
+    int id() const { return core.id; }
+    bool alive() const { return core.alive; }
+
+    const BattleActionPlanSeed* actionPlan() const
+    {
+        return action.planSeed ? &*action.planSeed : nullptr;
+    }
+
+    void setActionPlan(BattleActionPlanSeed seed)
+    {
+        seed.unitId = id();
+        action.planSeed = std::move(seed);
+    }
+
+    BattlePendingCastAction* pendingCast()
+    {
+        return action.pendingCast ? &*action.pendingCast : nullptr;
+    }
+
+    const BattlePendingCastAction* pendingCast() const
+    {
+        return action.pendingCast ? &*action.pendingCast : nullptr;
+    }
+
+    void setPendingCast(BattlePendingCastAction pending)
+    {
+        pending.unitId = id();
+        action.pendingCast = std::move(pending);
+    }
+
+    void clearPendingCast()
+    {
+        action.pendingCast.reset();
+    }
+
+    void markUltimateCaster()
+    {
+        action.ultimateCaster = true;
+    }
+
+    void clearUltimateCaster()
+    {
+        action.ultimateCaster = false;
+    }
+
+    bool isUltimateCaster() const
+    {
+        return action.ultimateCaster;
+    }
+
+    void clearActionOwners()
+    {
+        clearPendingCast();
+        clearUltimateCaster();
+    }
+};
 
 class BattleRuntimeUnitComboView
 {
@@ -267,6 +351,98 @@ private:
     BattleRuntimeState* state_{};
 };
 
+class BattleRuntimeUnitRecords
+{
+public:
+    void reserve(std::size_t count)
+    {
+        records_.reserve(count);
+    }
+
+    void append(BattleRuntimeUnitRecord record)
+    {
+        assert(record.id() >= 0);
+        assert(find(record.id()) == nullptr);
+        records_.push_back(std::move(record));
+    }
+
+    BattleRuntimeUnitRecord* find(int unitId)
+    {
+        auto it = std::ranges::find_if(
+            records_,
+            [unitId](const BattleRuntimeUnitRecord& record)
+            {
+                return record.id() == unitId;
+            });
+        return it == records_.end() ? nullptr : &*it;
+    }
+
+    const BattleRuntimeUnitRecord* find(int unitId) const
+    {
+        auto it = std::ranges::find_if(
+            records_,
+            [unitId](const BattleRuntimeUnitRecord& record)
+            {
+                return record.id() == unitId;
+            });
+        return it == records_.end() ? nullptr : &*it;
+    }
+
+    BattleRuntimeUnitRecord& require(int unitId)
+    {
+        auto* record = find(unitId);
+        assert(record != nullptr);
+        return *record;
+    }
+
+    const BattleRuntimeUnitRecord& require(int unitId) const
+    {
+        const auto* record = find(unitId);
+        assert(record != nullptr);
+        return *record;
+    }
+
+    std::size_t size() const { return records_.size(); }
+    bool empty() const { return records_.empty(); }
+
+    auto all()
+    {
+        return records_ | std::views::all;
+    }
+
+    auto all() const
+    {
+        return records_ | std::views::all;
+    }
+
+    auto live()
+    {
+        return records_
+            | std::views::filter([](const BattleRuntimeUnitRecord& record) { return record.core.alive; });
+    }
+
+    auto live() const
+    {
+        return records_
+            | std::views::filter([](const BattleRuntimeUnitRecord& record) { return record.core.alive; });
+    }
+
+    auto dead()
+    {
+        return records_
+            | std::views::filter([](const BattleRuntimeUnitRecord& record) { return !record.core.alive; });
+    }
+
+    auto dead() const
+    {
+        return records_
+            | std::views::filter([](const BattleRuntimeUnitRecord& record) { return !record.core.alive; });
+    }
+
+private:
+    std::vector<BattleRuntimeUnitRecord> records_;
+};
+
 struct BattleFrameRescueUnitSnapshot
 {
     BattleRescueUnitSnapshot unit;
@@ -291,6 +467,7 @@ struct BattleRuntimeState
 {
     BattleRuntimeUnits units();
     BattleUnitStore unitStore;
+    BattleRuntimeUnitRecords unitRecords;
     BattleMovementState movement;
     BattleAttackState attacks;
     BattleRuntimeRandom random;
