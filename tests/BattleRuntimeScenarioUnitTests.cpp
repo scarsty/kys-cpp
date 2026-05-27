@@ -96,10 +96,10 @@ TEST_CASE("BattleRuntimeScenario_DamageDeathEffectsAndFollowUpDigest", "[battle]
         scenarioRuntimeUnit(1, 1, 10, { 120, 100, 0 }),
         scenarioRuntimeUnit(2, 1, 50, { 140, 100, 0 }),
     });
-    state.unitRecords.requireCore(2).stats.attack = 10;
+    state.units.requireCore(2).stats.attack = 10;
     state.nextFrame.queueDamage(scenarioPreResolvedDamage(0, 1, 10));
     KysChess::ChessBattleEffects::applyEffect(
-        state.unitRecords.require(1).combo,
+        state.units.require(1).combo,
         { KysChess::EffectType::DeathAOE, 50, 1, "", KysChess::Trigger::Always, 0, 6 });
     state.projectileFollowUps.projectileSpeed = ScenarioTileWidth / 3.0;
     state.projectileFollowUps.minimumProjectileFrames = 20;
@@ -193,8 +193,8 @@ TEST_CASE("BattleRuntimeScenario_ProjectileCancellationDigest", "[battle][scenar
         scenarioRuntimeUnit(0, 0, 100, { 100, 100, 0 }),
         scenarioRuntimeUnit(1, 1, 100, { 900, 900, 0 }),
     });
-    state.unitRecords.requireCore(0).style = CombatStyle::Ranged;
-    state.unitRecords.requireCore(1).style = CombatStyle::Ranged;
+    state.units.requireCore(0).style = CombatStyle::Ranged;
+    state.units.requireCore(1).style = CombatStyle::Ranged;
     state.attacks.attacks.push_back(scenarioCancelProjectile(10, 0, 25));
     state.attacks.attacks.push_back(scenarioCancelProjectile(20, 1, 12));
 
@@ -227,13 +227,13 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
         scenarioRuntimeUnit(2, 1, 100, { 72, 72, 0 }),
     });
     state.nextFrame.queueDamage(scenarioPreResolvedDamage(0, 1, 30));
-    state.unitRecords.requireCore(0).grid = { 10, 10 };
-    state.unitRecords.requireCore(1).grid = { 5, 5 };
-    state.unitRecords.requireCore(2).grid = { 3, 2 };
+    state.units.requireCore(0).grid = { 10, 10 };
+    state.units.requireCore(1).grid = { 5, 5 };
+    state.units.requireCore(2).grid = { 3, 2 };
     KysChess::ChessBattleEffects::applyEffect(
-        state.unitRecords.require(2).combo,
+        state.units.require(2).combo,
         { KysChess::EffectType::ForcePullProtect, 1 });
-    state.unitRecords.require(2).rescue.forcePullProtectRemaining = 1;
+    state.units.require(2).rescue.forcePullProtectRemaining = 1;
     state.rescue.cells = {
         scenarioRescueCell(2, 3),
         scenarioRescueCell(3, 2),
@@ -247,10 +247,10 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
 
     CHECK(digest.damageDefenderIds == std::vector<int>{ 1 });
     CHECK(digest.committedHpDamage == std::vector<int>{ 30 });
-    CHECK(session.runtime().unitRecords.requireCore(1).motion.position.x == 2.0f * ScenarioTileWidth);
-    CHECK(session.runtime().unitRecords.requireCore(1).motion.position.y == 3.0f * ScenarioTileWidth);
+    CHECK(session.runtime().units.requireCore(1).motion.position.x == 2.0f * ScenarioTileWidth);
+    CHECK(session.runtime().units.requireCore(1).motion.position.y == 3.0f * ScenarioTileWidth);
     CHECK(std::ranges::find(digest.roleEffectTargetUnitIds, 1) != digest.roleEffectTargetUnitIds.end());
     CHECK(digest.hpByUnitId.at(1) == 30);
-    CHECK(session.runtime().unitRecords.requireCore(1).invincible == 10);
-    CHECK(session.runtime().unitRecords.require(2).forcePullProtectRemaining() == 0);
+    CHECK(session.runtime().units.requireCore(1).invincible == 10);
+    CHECK(session.runtime().units.require(2).forcePullProtectRemaining() == 0);
 }

@@ -171,7 +171,7 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
     runtime.damage.presentationStylesByDefender.emplace(
         unitId,
         makeDamagePresentationStyle(record.core.team));
-    runtime.unitRecords.append(std::move(record));
+    runtime.units.append(std::move(record));
 }
 
 }  // namespace KysChess::Battle

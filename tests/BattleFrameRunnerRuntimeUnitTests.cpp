@@ -71,7 +71,7 @@ BattleRuntimeUnit runtimeUnitFromWorld(const BattleUnitState& worldUnit)
 
 void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::vector<BattleUnitState>& units)
 {
-    state.unitRecords = {};
+    state.units = {};
     for (const auto& worldUnit : units)
     {
         appendRuntimeUnit(
@@ -82,9 +82,9 @@ void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::v
 
 void seedEmptyComboStatesFromUnits(BattleRuntimeState& state)
 {
-    for (const auto& unit : state.unitRecords.cores())
+    for (const auto& unit : state.units.cores())
     {
-        state.unitRecords.require(unit.id).combo = KysChess::RoleComboState{};
+        state.units.require(unit.id).combo = KysChess::RoleComboState{};
     }
 }
 
@@ -182,25 +182,25 @@ BattleRuntimeUnit teamRuntimeUnitAt(int id, int team, int hp, Pointf position, i
 void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntimeUnit>& units)
 {
     std::map<int, KysChess::RoleComboState> savedCombos;
-    for (const auto& record : state.unitRecords.all())
+    for (const auto& record : state.units.all())
     {
         savedCombos.emplace(record.id(), record.combo);
     }
     std::map<int, BattleStatusRuntimeUnit> previousStatuses;
-    for (const auto& record : state.unitRecords.all())
+    for (const auto& record : state.units.all())
     {
         previousStatuses.emplace(record.id(), record.status);
     }
     std::map<int, BattleDamageRuntimeUnit> previousDamageExtras;
-    for (const auto& record : state.unitRecords.all())
+    for (const auto& record : state.units.all())
     {
         previousDamageExtras.emplace(record.id(), record.damage);
     }
 
-    state.unitRecords = {};
+    state.units = {};
     state.movement.movementReservations.clear();
         state.damage.presentationStylesByDefender.clear();
-            state.unitRecords = {};
+            state.units = {};
     for (auto unit : units)
     {
         KysChess::RoleComboState combo;
@@ -232,10 +232,10 @@ BattleStatusRuntimeUnit runtimeStatusUnit(const BattleStatusUnitState& unit)
 
 void seedDamageExtrasFromUnits(BattleRuntimeState& state)
 {
-    for (const auto& unit : state.unitRecords.cores())
+    for (const auto& unit : state.units.cores())
     {
-        state.unitRecords.require(unit.id).combo = KysChess::RoleComboState{};
-        state.unitRecords.require(unit.id).damage = makeBattleDamageRuntimeUnit(
+        state.units.require(unit.id).combo = KysChess::RoleComboState{};
+        state.units.require(unit.id).damage = makeBattleDamageRuntimeUnit(
             makeBattleDamageUnitState(unit, static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
     }
 }
@@ -301,10 +301,10 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
 TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runtime_session][ownership]")
 {
     auto runtime = ownedRuntimeState();
-    runtime.unitRecords.requireCore(0).stats.speed = 0;
-    runtime.unitRecords.requireCore(1).stats.speed = 0;
-    runtime.unitRecords.requireCore(1).vitals.hp = 100;
-    runtime.unitRecords.requireCore(1).motion.facing = { -1, 0, 0 };
+    runtime.units.requireCore(0).stats.speed = 0;
+    runtime.units.requireCore(1).stats.speed = 0;
+    runtime.units.requireCore(1).vitals.hp = 100;
+    runtime.units.requireCore(1).motion.facing = { -1, 0, 0 };
     seedDamageExtrasFromUnits(runtime);
 
     BattleAttackInstance attack;
@@ -316,7 +316,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     attack.state.totalFrame = 30;
     attack.frame = 29;
     attack.state.operationType = BattleOperationType::Melee;
-    attack.state.position = runtime.unitRecords.requireCore(1).motion.position;
+    attack.state.position = runtime.units.requireCore(1).motion.position;
     attack.state.velocity = { 1, 0, 0 };
     runtime.attacks.attacks.push_back(attack);
 
@@ -324,10 +324,10 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
 
     session.runFrame();
 
-    const auto& unit = session.runtime().unitRecords.requireCore(1);
+    const auto& unit = session.runtime().units.requireCore(1);
     CHECK(unit.motion.velocity.norm() > 0.01f);
-    CHECK(session.runtime().unitRecords.require(1).movement.physics.velocity.x == unit.motion.velocity.x);
-    CHECK(session.runtime().unitRecords.require(1).movement.physics.velocity.y == unit.motion.velocity.y);
+    CHECK(session.runtime().units.require(1).movement.physics.velocity.x == unit.motion.velocity.x);
+    CHECK(session.runtime().units.require(1).movement.physics.velocity.y == unit.motion.velocity.y);
 }
 
 TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][runtime_session][ownership]")
@@ -348,8 +348,8 @@ TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][
 
     appendRuntimeUnit(runtime, makeRuntimeUnitSpawn(std::move(unit), combo, plan));
 
-    REQUIRE(runtime.unitRecords.size() == 1);
-    const auto& record = runtime.unitRecords.require(4);
+    REQUIRE(runtime.units.size() == 1);
+    const auto& record = runtime.units.require(4);
     CHECK(record.core.id == 4);
     CHECK(record.combo.onSkillTeamHealPending);
     CHECK(record.status.id == 4);
@@ -382,10 +382,10 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[ba
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
     CHECK(session.runtime().movement.frame == 42);
-    REQUIRE(session.runtime().unitRecords.size() == 1);
-    CHECK(session.runtime().unitRecords.requireCore(0).id == 0);
-    REQUIRE(session.runtime().unitRecords.size() == 1);
-    CHECK((session.runtime().unitRecords.find(0) != nullptr));
+    REQUIRE(session.runtime().units.size() == 1);
+    CHECK(session.runtime().units.requireCore(0).id == 0);
+    REQUIRE(session.runtime().units.size() == 1);
+    CHECK((session.runtime().units.find(0) != nullptr));
     CHECK(session.runtime().action.castFrames == session.runtime().movementPhysics.actionCastFrames);
     CHECK(session.runtime().damage.sortPendingDamageByDefenderMagnitude);
 }
@@ -420,11 +420,11 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsMovementAgentRowsForDeadU
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
-    REQUIRE(session.runtime().unitRecords.size() == 2);
-    CHECK((session.runtime().unitRecords.find(0) != nullptr));
-    CHECK((session.runtime().unitRecords.find(1) != nullptr));
-    CHECK(session.runtime().unitRecords.require(0).movement.active);
-    CHECK_FALSE(session.runtime().unitRecords.require(1).movement.active);
+    REQUIRE(session.runtime().units.size() == 2);
+    CHECK((session.runtime().units.find(0) != nullptr));
+    CHECK((session.runtime().units.find(1) != nullptr));
+    CHECK(session.runtime().units.require(0).movement.active);
+    CHECK_FALSE(session.runtime().units.require(1).movement.active);
 }
 
 TEST_CASE("BattleRuntimeSession_CreateInitializedSpendsNonThroughProjectilesOnHit", "[battle][runtime_session][ownership]")
@@ -483,11 +483,11 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStoresAligned
     session.runFrame();
 
     const auto& runtime = session.runtime();
-    const auto& unit = runtime.unitRecords.requireCore(0);
-    REQUIRE(runtime.unitRecords.size() == 2);
-    REQUIRE((runtime.unitRecords.find(0) != nullptr));
-    CHECK(runtime.unitRecords.require(0).movement.physics.position.x == unit.motion.position.x);
-    CHECK(runtime.unitRecords.require(0).movement.physics.position.y == unit.motion.position.y);
+    const auto& unit = runtime.units.requireCore(0);
+    REQUIRE(runtime.units.size() == 2);
+    REQUIRE((runtime.units.find(0) != nullptr));
+    CHECK(runtime.units.require(0).movement.physics.position.x == unit.motion.position.x);
+    CHECK(runtime.units.require(0).movement.physics.position.y == unit.motion.position.y);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_UsesRuntimeOwnedFrameState", "[battle][frame_runner][runtime]")
@@ -496,9 +496,9 @@ TEST_CASE("BattleFrameRunner_RunFrame_UsesRuntimeOwnedFrameState", "[battle][fra
 
     BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.unitRecords.size() == 2);
-    CHECK(state.unitRecords.requireCore(0).alive);
-    CHECK(state.unitRecords.requireCore(1).alive);
+    REQUIRE(state.units.size() == 2);
+    CHECK(state.units.requireCore(0).alive);
+    CHECK(state.units.requireCore(1).alive);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][frame_runner][runtime]")
@@ -507,28 +507,28 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
     });
-    state.unitRecords.require(0).combo = KysChess::RoleComboState{};
-    state.unitRecords.requireCore(0).shield = 12;
+    state.units.require(0).combo = KysChess::RoleComboState{};
+    state.units.requireCore(0).shield = 12;
     BattleDamageRuntimeUnit damage;
     damage.id = 0;
     damage.blockFirstHitsRemaining = 2;
-    state.unitRecords.require(0).damage = damage;
-    state.unitRecords.requireCore(0).invincible = 4;
+    state.units.require(0).damage = damage;
+    state.units.requireCore(0).invincible = 4;
     BattleStatusRuntimeUnit status;
     status.id = 0;
     status.effects.frozenTimer = 3;
     status.effects.frozenMaxTimer = 9;
-    state.unitRecords.require(0).status = status;
+    state.units.require(0).status = status;
 
     runBattleFrame(state);
 
-    const auto& runtimeUnit = state.unitRecords.requireCore(0);
-    const auto& statusUnit = state.unitRecords.require(0).status;
+    const auto& runtimeUnit = state.units.requireCore(0);
+    const auto& statusUnit = state.units.require(0).status;
     CHECK(runtimeUnit.invincible == 3);
     CHECK(statusUnit.effects.frozenTimer == 3);
     CHECK(statusUnit.effects.frozenMaxTimer == 9);
     CHECK(runtimeUnit.shield == 12);
-    CHECK(state.unitRecords.require(0).damage.blockFirstHitsRemaining == 2);
+    CHECK(state.units.require(0).damage.blockFirstHitsRemaining == 2);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")
@@ -538,7 +538,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[batt
         teamRuntimeUnit(0, 0, 80),
         teamRuntimeUnit(1, 1, 100),
     });
-    auto& unit = state.unitRecords.requireCore(0);
+    auto& unit = state.units.requireCore(0);
     unit.animation.cooldown = 1;
     unit.haveAction = true;
     unit.operationType = BattleOperationType::RangedProjectile;
@@ -547,7 +547,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[batt
 
     runBattleFrame(state);
 
-    const auto& updated = state.unitRecords.requireCore(0);
+    const auto& updated = state.units.requireCore(0);
     CHECK(updated.animation.cooldown == 0);
     CHECK(updated.animation.actType == -1);
     CHECK(updated.motion.velocity.x == 0.0f);
@@ -564,15 +564,15 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
         teamRuntimeUnit(0, 0, 80),
         teamRuntimeUnit(1, 1, 100),
     });
-    state.unitRecords.require(0).status.effects.mpBlockTimer = 2;
+    state.units.require(0).status.effects.mpBlockTimer = 2;
     KysChess::ChessBattleEffects::applyEffect(
-        state.unitRecords.require(0).combo,
+        state.units.require(0).combo,
         { KysChess::EffectType::MPRecoveryBonus, 100 });
 
     runBattleFrame(state);
 
-    CHECK(state.unitRecords.requireCore(0).vitals.mp == 20);
-    CHECK(state.unitRecords.requireCore(1).vitals.mp == 21);
+    CHECK(state.units.requireCore(0).vitals.mp == 20);
+    CHECK(state.units.requireCore(1).vitals.mp == 21);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrameState", "[battle][frame_runner][runtime][unit]")
@@ -584,17 +584,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     combo.onSkillTeamHealPending = true;
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHeal, 7 });
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHealPct, 3 });
-    state.unitRecords.require(0).combo = combo;
+    state.units.require(0).combo = combo;
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
     });
-    applyRuntimeInput(state.unitRecords.requireCore(0), finishingSkillRuntime());
+    applyRuntimeInput(state.units.requireCore(0), finishingSkillRuntime());
 
     runBattleFrame(state);
 
-    CHECK(state.unitRecords.requireCore(0).animation.cooldown == 0);
-    CHECK(state.unitRecords.requireCore(0).vitals.hp == 90);
-    CHECK_FALSE(state.unitRecords.require(0).combo.onSkillTeamHealPending);
+    CHECK(state.units.requireCore(0).animation.cooldown == 0);
+    CHECK(state.units.requireCore(0).vitals.hp == 90);
+    CHECK_FALSE(state.units.require(0).combo.onSkillTeamHealPending);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStore", "[battle][frame_runner][runtime][unit]")
@@ -610,14 +610,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
     combo.onSkillTeamHealPending = true;
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHeal, 5 });
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHealPct, 10 });
-    state.unitRecords.require(0).combo = combo;
-    applyRuntimeInput(state.unitRecords.requireCore(0), finishingSkillRuntime());
+    state.units.require(0).combo = combo;
+    applyRuntimeInput(state.units.requireCore(0), finishingSkillRuntime());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.unitRecords.requireCore(0).vitals.hp == 65);
-    CHECK(state.unitRecords.requireCore(1).vitals.hp == 100);
-    CHECK(state.unitRecords.requireCore(2).vitals.hp == 10);
+    CHECK(state.units.requireCore(0).vitals.hp == 65);
+    CHECK(state.units.requireCore(1).vitals.hp == 100);
+    CHECK(state.units.requireCore(2).vitals.hp == 10);
     CHECK(std::count_if(
         result.visualEvents.begin(),
         result.visualEvents.end(),
@@ -659,14 +659,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
     });
-    state.unitRecords.require(1).status = runtimeStatusUnit(poisoned);
+    state.units.require(1).status = runtimeStatusUnit(poisoned);
     seedDamageExtrasFromUnits(state);
 
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 8 });
     CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
-    CHECK(state.unitRecords.requireCore(1).vitals.hp == 72);
+    CHECK(state.units.requireCore(1).vitals.hp == 72);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
@@ -686,14 +686,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
     });
-    state.unitRecords.require(1).status = runtimeStatusUnit(bleeding);
+    state.units.require(1).status = runtimeStatusUnit(bleeding);
     seedDamageExtrasFromUnits(state);
 
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 6 });
     CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
-    CHECK(state.unitRecords.requireCore(1).vitals.hp == 74);
+    CHECK(state.units.requireCore(1).vitals.hp == 74);
     auto bleedLog = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
         {
             return event.type == BattleLogEventType::Damage
@@ -725,14 +725,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DecrementsInvincibility", "[battle][fr
     status0.id = 0;
     BattleStatusUnitState status1;
     status1.id = 1;
-    state.unitRecords.require(0).status = runtimeStatusUnit(status0);
-    state.unitRecords.require(1).status = runtimeStatusUnit(status1);
-    state.unitRecords.requireCore(0).invincible = 3;
+    state.units.require(0).status = runtimeStatusUnit(status0);
+    state.units.require(1).status = runtimeStatusUnit(status1);
+    state.units.requireCore(0).invincible = 3;
 
     runBattleFrame(state);
 
-    CHECK(state.unitRecords.requireCore(0).invincible == 2);
-    CHECK(state.unitRecords.require(0).status.id == 0);
+    CHECK(state.units.requireCore(0).invincible == 2);
+    CHECK(state.units.require(0).status.id == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[battle][frame_runner][runtime][unit]")
@@ -752,20 +752,20 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealAuraFlat, 5, 6 });
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealAuraPct, 10, 6 });
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealedATKSPDBoost, 20 });
-    state.unitRecords.require(0).combo = combo;
+    state.units.require(0).combo = combo;
 
     auto runtime = finishingSkillRuntime();
     runtime.state.cooldown = 0;
-    applyRuntimeInput(state.unitRecords.requireCore(0), runtime);
+    applyRuntimeInput(state.units.requireCore(0), runtime);
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.unitRecords.requireCore(0).vitals.hp == 70);
-    CHECK(state.unitRecords.requireCore(1).vitals.hp == 95);
-    CHECK(state.unitRecords.requireCore(1).animation.cooldown == 39);
-    CHECK(state.unitRecords.requireCore(2).vitals.hp == 60);
-    CHECK(state.unitRecords.requireCore(2).animation.cooldown == 49);
-    CHECK(state.unitRecords.requireCore(3).vitals.hp == 20);
+    CHECK(state.units.requireCore(0).vitals.hp == 70);
+    CHECK(state.units.requireCore(1).vitals.hp == 95);
+    CHECK(state.units.requireCore(1).animation.cooldown == 39);
+    CHECK(state.units.requireCore(2).vitals.hp == 60);
+    CHECK(state.units.requireCore(2).animation.cooldown == 49);
+    CHECK(state.units.requireCore(3).vitals.hp == 20);
 
     CHECK(std::count_if(
         result.visualEvents.begin(),
@@ -815,16 +815,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
 
     KysChess::RoleComboState combo;
     combo.triggeredEffects.push_back(healBurst);
-    state.unitRecords.require(0).combo = combo;
+    state.units.require(0).combo = combo;
 
     auto runtime = finishingSkillRuntime();
     runtime.state.cooldown = 0;
-    applyRuntimeInput(state.unitRecords.requireCore(0), runtime);
+    applyRuntimeInput(state.units.requireCore(0), runtime);
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.unitRecords.requireCore(0).vitals.hp == 65);
-    CHECK(state.unitRecords.require(0).combo.effectActivationCounts.at(0) == 1);
+    CHECK(state.units.requireCore(0).vitals.hp == 65);
+    CHECK(state.units.require(0).combo.effectActivationCounts.at(0) == 1);
 
     const auto healLog = std::find_if(
         result.logEvents.begin(),
@@ -846,17 +846,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSk
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
     });
-    state.unitRecords.requireCore(0).invincible = 3;
+    state.units.requireCore(0).invincible = 3;
 
     KysChess::RoleComboState combo;
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::PostSkillInvincFrames, 12 });
-    state.unitRecords.require(0).combo = combo;
+    state.units.require(0).combo = combo;
 
-    applyRuntimeInput(state.unitRecords.requireCore(0), finishingSkillRuntime());
+    applyRuntimeInput(state.units.requireCore(0), finishingSkillRuntime());
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.unitRecords.requireCore(0).invincible == 2);
+    CHECK(state.units.requireCore(0).invincible == 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand", "[battle][frame_runner][runtime][unit]")

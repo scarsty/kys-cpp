@@ -8,7 +8,7 @@
 namespace KysChess::Battle::Test
 {
 
-inline void appendRuntimeRecord(BattleRuntimeUnitRecords& records, BattleRuntimeUnit unit, RoleComboState combo = {})
+inline void appendRuntimeRecord(BattleRuntimeUnits& records, BattleRuntimeUnit unit, RoleComboState combo = {})
 {
     BattleRuntimeUnitRecord record;
     record.core = std::move(unit);
@@ -24,9 +24,9 @@ inline void appendRuntimeRecord(BattleRuntimeUnitRecords& records, BattleRuntime
     records.append(std::move(record));
 }
 
-inline BattleRuntimeUnitRecords runtimeRecords(std::initializer_list<BattleRuntimeUnit> units)
+inline BattleRuntimeUnits runtimeRecords(std::initializer_list<BattleRuntimeUnit> units)
 {
-    BattleRuntimeUnitRecords records;
+    BattleRuntimeUnits records;
     records.reserve(units.size());
     for (auto unit : units)
     {

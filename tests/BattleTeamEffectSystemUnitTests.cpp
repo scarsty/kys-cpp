@@ -26,7 +26,7 @@ BattleRuntimeUnit unit(int id, int team, int hp, int mp, int shield = 0)
     return state;
 }
 
-const BattleRuntimeUnit& unitById(const BattleRuntimeUnitRecords& store, int id)
+const BattleRuntimeUnit& unitById(const BattleRuntimeUnits& store, int id)
 {
     return store.requireCore(id);
 }

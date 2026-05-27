@@ -201,7 +201,7 @@ BattleStatusTickResult BattleStatusSystem::tick(BattleRuntimeUnitRecord& record)
     return tickStatusTarget(config_, RuntimeStatusTickTarget{ record.core, record.status });
 }
 
-BattleStatusTickResult BattleStatusSystem::tick(BattleRuntimeUnitRecords& records) const
+BattleStatusTickResult BattleStatusSystem::tick(BattleRuntimeUnits& records) const
 {
     BattleStatusTickResult result;
     for (auto& record : records.all())

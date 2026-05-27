@@ -144,6 +144,17 @@ struct BattleRuntimeUnitRecord
         KysChess::ChessBattleEffects::applyEffect(combo, effect, comboId);
     }
 
+    bool hasComboApplied(int comboId) const
+    {
+        return std::any_of(
+            combo.appliedEffects.begin(),
+            combo.appliedEffects.end(),
+            [comboId](const AppliedEffectInstance& effect)
+            {
+                return effect.sourceComboId == comboId;
+            });
+    }
+
     const BattleStatusEffectState& statusEffects() const { return status.effects; }
     bool frozen() const { return status.effects.frozenTimer > 0; }
     int frozenFrames() const { return status.effects.frozenTimer; }
@@ -228,224 +239,7 @@ struct BattleRuntimeUnitRecord
     }
 };
 
-class BattleRuntimeUnitComboView
-{
-public:
-    explicit BattleRuntimeUnitComboView(RoleComboState& combo)
-        : combo_(&combo)
-    {
-    }
-
-    void clearPendingSkillHeal() const
-    {
-        combo_->onSkillTeamHealPending = false;
-    }
-
-    int sumAlways(EffectType type) const
-    {
-        return sumAlwaysEffectValue(*combo_, type);
-    }
-
-    int maxAlways(EffectType type) const
-    {
-        return maxAlwaysEffectValue(*combo_, type);
-    }
-
-    bool hasAlways(EffectType type) const
-    {
-        return firstAlwaysEffect(*combo_, type) != nullptr;
-    }
-
-    void applyEffect(const AppliedEffectInstance& effect, int comboId) const
-    {
-        KysChess::ChessBattleEffects::applyEffect(*combo_, effect, comboId);
-    }
-
-    bool hasAppliedEffect(EffectType type, int sourceComboId) const
-    {
-        return std::any_of(
-            combo_->appliedEffects.begin(),
-            combo_->appliedEffects.end(),
-            [type, sourceComboId](const AppliedEffectInstance& effect)
-            {
-                return effect.type == type && effect.sourceComboId == sourceComboId;
-            });
-    }
-
-    bool hasComboApplied(int comboId) const
-    {
-        return std::any_of(
-            combo_->appliedEffects.begin(),
-            combo_->appliedEffects.end(),
-            [comboId](const AppliedEffectInstance& effect)
-            {
-                return effect.sourceComboId == comboId;
-            });
-    }
-
-    const AppliedEffectInstance* firstAlways(EffectType type) const
-    {
-        return firstAlwaysEffect(*combo_, type);
-    }
-
-    BattleDamageModifierState damageModifiers() const
-    {
-        return makeBattleDamageModifierState(combo_);
-    }
-
-private:
-    RoleComboState* combo_{};
-};
-
-class BattleRuntimeUnitStatusView
-{
-public:
-    explicit BattleRuntimeUnitStatusView(BattleStatusRuntimeUnit& status)
-        : status_(&status)
-    {
-    }
-
-    const BattleStatusEffectState& effects() const { return status_->effects; }
-    bool frozen() const { return status_->effects.frozenTimer > 0; }
-    int frozenFrames() const { return status_->effects.frozenTimer; }
-    bool mpBlocked() const { return status_->effects.mpBlockTimer > 0; }
-
-    void setMpBlockFrames(int frames) const
-    {
-        status_->effects.mpBlockTimer = frames;
-    }
-
-    void addTempAttackBuff(int attackBonus, int durationFrames) const
-    {
-        status_->effects.tempAttackBuffs.push_back({
-            attackBonus,
-            durationFrames,
-        });
-    }
-
-    void writeDamageResult(const BattleStatusUnitState& unit) const
-    {
-        writeBattleStatusRuntimeUnit(*status_, unit);
-    }
-
-    BattleStatusUnitState damageState(const BattleRuntimeUnit& unit) const
-    {
-        return makeBattleStatusUnitState(*status_, unit);
-    }
-
-    void clearFrozen() const
-    {
-        status_->effects.frozenTimer = 0;
-        status_->effects.frozenMaxTimer = 0;
-    }
-
-    void setFrozenForTest(int timer, int maxTimer) const
-    {
-        status_->effects.frozenTimer = timer;
-        status_->effects.frozenMaxTimer = maxTimer;
-    }
-
-    void commitFrozenPhysicsFrames(int frozenFrames) const
-    {
-        status_->effects.frozenTimer = frozenFrames;
-    }
-
-private:
-    BattleStatusRuntimeUnit* status_{};
-};
-
-class BattleRuntimeUnitDeathEffectsView
-{
-public:
-    explicit BattleRuntimeUnitDeathEffectsView(BattleDeathEffectExtras& extras)
-        : extras_(&extras)
-    {
-    }
-
-    void transferAppliedEffect(const AppliedEffectInstance& effect) const
-    {
-        extras_->appliedEffects.push_back(effect);
-    }
-
-private:
-    BattleDeathEffectExtras* extras_{};
-};
-
-// Runtime unit membership is fixed after clone initialization. Handles and unit
-// ranges are frame-local views over stable unit/status/damage/combo/death/rescue/
-// movement rows. Movement rows remain present for dead units; agent.active tells
-// movement phases whether the unit currently participates in planning/physics.
-//
-// Today: BattleRuntimeUnitHandle is a view over horizontal stores.
-// Future ownership migration is reasonable only if every per-unit store has the
-// same lifetime as BattleRuntimeUnit and system-wide processors can still iterate
-// efficiently without rebuilding temporary horizontal arrays each frame.
-class BattleRuntimeUnitHandle
-{
-public:
-    BattleRuntimeUnitHandle(BattleRuntimeUnit& core,
-                            BattleStatusRuntimeUnit* status,
-                            RoleComboState* combo,
-                            BattleDamageRuntimeUnit* damage,
-                            BattleMovementAgentState* movement,
-                            BattleDeathEffectExtras* deathEffects,
-                            BattleRuntimeState* state)
-        : core_(&core),
-          status_(status),
-          combo_(combo),
-          damage_(damage),
-          movement_(movement),
-          deathEffects_(deathEffects),
-          state_(state)
-    {
-    }
-
-    int id() const { return core_->id; }
-    bool alive() const { return core_->alive; }
-
-    BattleRuntimeUnit& core() const { return *core_; }
-    BattleRuntimeUnitStatusView status() const { return BattleRuntimeUnitStatusView(*status_); }
-    BattleRuntimeUnitComboView combo() const { return BattleRuntimeUnitComboView(*combo_); }
-    BattleDamageRuntimeUnit& damage() const { return *damage_; }
-    BattleMovementAgentState& movement() const
-    {
-        assert(movement_ != nullptr);
-        return *movement_;
-    }
-    BattleRuntimeUnitDeathEffectsView deathEffects() const { return BattleRuntimeUnitDeathEffectsView(*deathEffects_); }
-    int mpRecoveryBonusPct() const { return combo().sumAlways(EffectType::MPRecoveryBonus); }
-
-private:
-    BattleRuntimeUnit* core_{};
-    BattleStatusRuntimeUnit* status_{};
-    RoleComboState* combo_{};
-    BattleDamageRuntimeUnit* damage_{};
-    BattleMovementAgentState* movement_{};
-    BattleDeathEffectExtras* deathEffects_{};
-    BattleRuntimeState* state_{};
-};
-
 class BattleRuntimeUnits
-{
-public:
-    explicit BattleRuntimeUnits(BattleRuntimeState& state)
-        : state_(&state)
-    {
-    }
-
-    BattleRuntimeUnitHandle require(int unitId) const;
-    auto all() const;
-    auto live() const;
-    auto dead() const;
-
-private:
-    BattleRuntimeState& state() const;
-    BattleRuntimeUnitHandle makeHandle(BattleRuntimeUnit& unit) const;
-
-    BattleRuntimeState* state_{};
-};
-
-class BattleRuntimeUnitRecords
 {
 public:
     void reserve(std::size_t count)
@@ -657,9 +451,8 @@ struct BattleFrameRescueCounterAttackConfig
 // cache through the same owner.
 struct BattleRuntimeState
 {
-    BattleRuntimeUnits units();
     BattleGridTransform gridTransform;
-    BattleRuntimeUnitRecords unitRecords;
+    BattleRuntimeUnits units;
     BattleMovementState movement;
     BattleAttackState attacks;
     BattleRuntimeRandom random;
@@ -713,45 +506,5 @@ struct BattleRuntimeState
     BattleProjectileFollowUpContext projectileFollowUps;
     BattleNextFrameQueues nextFrame;
 };
-
-inline BattleRuntimeUnits BattleRuntimeState::units()
-{
-    return BattleRuntimeUnits(*this);
-}
-
-inline auto BattleRuntimeUnits::all() const
-{
-    auto* runtime = &state();
-    return runtime->unitRecords.cores()
-        | std::views::transform(
-            [runtime](BattleRuntimeUnit& unit)
-            {
-                return BattleRuntimeUnits(*runtime).makeHandle(unit);
-            });
-}
-
-inline auto BattleRuntimeUnits::live() const
-{
-    auto* runtime = &state();
-    return runtime->unitRecords.cores()
-        | std::views::filter([](const BattleRuntimeUnit& unit) { return unit.alive; })
-        | std::views::transform(
-            [runtime](BattleRuntimeUnit& unit)
-            {
-                return BattleRuntimeUnits(*runtime).makeHandle(unit);
-            });
-}
-
-inline auto BattleRuntimeUnits::dead() const
-{
-    auto* runtime = &state();
-    return runtime->unitRecords.cores()
-        | std::views::filter([](const BattleRuntimeUnit& unit) { return !unit.alive; })
-        | std::views::transform(
-            [runtime](BattleRuntimeUnit& unit)
-            {
-                return BattleRuntimeUnits(*runtime).makeHandle(unit);
-            });
-}
 
 }  // namespace KysChess::Battle

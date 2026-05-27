@@ -295,7 +295,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
 
 std::vector<BattleAttackEvent> BattleAttackSystem::tick(
     BattleAttackState& world,
-    const BattleRuntimeUnitRecords& units) const
+    const BattleRuntimeUnits& units) const
 {
     assert(world.hitRadius > 0.0);
     assert(world.minimumVectorNorm > 0.0);
@@ -458,7 +458,7 @@ int BattleAttackSystem::allocateAttackId(BattleAttackState& world) const
 
 const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
     const BattleAttackState& world,
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack) const
 {
     const auto& attacker = units.requireCore(attack.state.attackerUnitId);
@@ -598,7 +598,7 @@ void BattleAttackSystem::trackTarget(
 
 bool BattleAttackSystem::canContactTarget(
     const BattleAttackState& world,
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& target) const
 {
@@ -624,7 +624,7 @@ bool BattleAttackSystem::canContactTarget(
 
 bool BattleAttackSystem::contactBlockedByInvincible(
     const BattleAttackState& world,
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& target) const
 {
@@ -636,7 +636,7 @@ bool BattleAttackSystem::contactBlockedByInvincible(
 
 bool BattleAttackSystem::canHit(
     const BattleAttackState& world,
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& target) const
 {
@@ -650,7 +650,7 @@ bool BattleAttackSystem::canHit(
 
 const BattleRuntimeUnit* BattleAttackSystem::selectBounceTarget(
     const BattleAttackState& world,
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& hitTarget) const
 {
@@ -742,7 +742,7 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
 
 void BattleAttackSystem::collectProjectileCancelEvents(
     const BattleAttackState& world,
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     std::vector<BattleAttackEvent>& events) const
 {
     std::vector<ProjectileCancelCandidate> candidates;

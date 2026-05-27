@@ -111,8 +111,8 @@ inline void seedScenarioRuntimeStores(BattleRuntimeState& state, std::vector<Bat
     state.movement.frame = 0;
     state.movement.config = scenarioRules().movementConfig;
     state.attacks = scenarioAttackState();
-    state.unitRecords = {};
-    state.unitRecords = {};
+    state.units = {};
+    state.units = {};
 
     for (auto& unit : units)
     {
@@ -173,9 +173,9 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
     digest.winningTeam = runtime.result.winningTeam;
     digest.activeAttackCount = runtime.attacks.attacks.size();
     digest.pendingAttackSpawnCount = runtime.nextFrame.queuedAttacksForTest().size();
-    digest.pendingCastCount = runtime.unitRecords.pendingCastCount();
+    digest.pendingCastCount = runtime.units.pendingCastCount();
 
-    for (const auto& unit : runtime.unitRecords.cores())
+    for (const auto& unit : runtime.units.cores())
     {
         if (unit.alive)
         {

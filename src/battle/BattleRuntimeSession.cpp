@@ -74,7 +74,7 @@ BattleRuntimeUnit makeRuntimeUnit(const BattleSetupUnitInput& setup)
     return unit;
 }
 
-BattleDeathEffectStore makeDeathEffectStore(BattleRuntimeUnitRecords& records)
+BattleDeathEffectStore makeDeathEffectStore(BattleRuntimeUnits& records)
 {
     BattleDeathEffectStore store;
     const auto& allCombos = KysChess::ChessCombo::getAllCombos();
@@ -245,7 +245,7 @@ BattleRuntimeState buildRuntimeFromSpawns(
     BattleRuntimeState runtime;
     runtime.gridTransform = input.rules.gridTransform;
     runtime.random = BattleRuntimeRandom(input.randomSeed);
-    runtime.unitRecords.reserve(spawns.size());
+    runtime.units.reserve(spawns.size());
 
     for (auto& spawn : spawns)
     {
@@ -264,7 +264,7 @@ void deriveRuntimeStores(
 
     configureAttackWorld(runtime.attacks, input.rules);
     runtime.teamEffects.healAuraRadius = input.rules.teamEffectHealAuraRadius;
-    runtime.deathEffects.store = makeDeathEffectStore(runtime.unitRecords);
+    runtime.deathEffects.store = makeDeathEffectStore(runtime.units);
 
     runtime.rescue.cells = std::move(input.rescueCells);
     runtime.rescue.executeUnattendedRadius = input.rules.rescueExecuteUnattendedRadius;
@@ -352,8 +352,8 @@ BattlePresentationFrame BattleRuntimeSession::runFrame()
 void BattleRuntimeSession::swapSetupUnitPositions(int firstUnitId, int secondUnitId)
 {
     assert(!frameStarted_);
-    auto& first = runtime_.unitRecords.requireCore(firstUnitId);
-    auto& second = runtime_.unitRecords.requireCore(secondUnitId);
+    auto& first = runtime_.units.requireCore(firstUnitId);
+    auto& second = runtime_.units.requireCore(secondUnitId);
     std::swap(first.grid, second.grid);
     std::swap(first.motion.position, second.motion.position);
     first.motion.velocity = { 0, 0, 0 };
@@ -367,7 +367,7 @@ const BattleRuntimeState& BattleRuntimeSession::runtime() const
 
 const BattleRuntimeUnit& BattleRuntimeSession::requireRuntimeUnit(int unitId) const
 {
-    return runtime_.unitRecords.requireCore(unitId);
+    return runtime_.units.requireCore(unitId);
 }
 
 }  // namespace KysChess::Battle

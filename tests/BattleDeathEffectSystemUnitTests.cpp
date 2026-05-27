@@ -39,7 +39,7 @@ BattleDeathEffectExtras extras(int id)
     return state;
 }
 
-void assignExtras(BattleRuntimeUnitRecords& records, std::initializer_list<BattleDeathEffectExtras> extras)
+void assignExtras(BattleRuntimeUnits& records, std::initializer_list<BattleDeathEffectExtras> extras)
 {
     for (const auto& unitExtras : extras)
     {

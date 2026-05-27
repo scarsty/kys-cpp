@@ -654,7 +654,7 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
 void appendBlinkTeleportDelta(
     const BattleActionCommitInput& input,
     const BattleBlinkAttackCommand& command,
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     BattleActionCommitResult& result)
 {
     const auto& target = units.requireCore(command.targetUnitId);
@@ -710,7 +710,7 @@ void appendBlinkTeleportDelta(
 
 void appendBlinkAttackCommand(
     const BattleActionCommitInput& input,
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     BattleActionCommitResult& result)
 {
     if (firstAlwaysEffect(result.combo, EffectType::BlinkAttack) == nullptr)
@@ -966,7 +966,7 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
 BattleActionCommitResult BattleActionCommitSystem::commit(
     const BattleActionCommitInput& input,
     const RoleComboState& combo,
-    const BattleRuntimeUnitRecords& units) const
+    const BattleRuntimeUnits& units) const
 {
     assert(input.sourceUnitId >= 0);
     assert(input.blinkRandomRoll >= 0);

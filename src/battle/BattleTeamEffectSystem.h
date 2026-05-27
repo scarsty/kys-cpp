@@ -10,8 +10,8 @@ namespace KysChess::Battle
 {
 
 struct BattleRuntimeUnit;
-class BattleRuntimeUnitRecords;
-class BattleRuntimeUnitRecords;
+class BattleRuntimeUnits;
+class BattleRuntimeUnits;
 
 enum class BattleTeamEffectEventType
 {
@@ -34,25 +34,25 @@ struct BattleTeamEffectEvent
 class BattleTeamEffectSystem
 {
 public:
-    std::vector<BattleTeamEffectEvent> applySelfHeal(BattleRuntimeUnitRecords& units,
+    std::vector<BattleTeamEffectEvent> applySelfHeal(BattleRuntimeUnits& units,
                                                      int sourceUnitId,
                                                      int pctHeal) const;
 
-    std::vector<BattleTeamEffectEvent> applyTeamHeal(BattleRuntimeUnitRecords& units,
+    std::vector<BattleTeamEffectEvent> applyTeamHeal(BattleRuntimeUnits& units,
                                                      int sourceUnitId,
                                                      int flatHeal,
                                                      int pctHeal) const;
 
-    std::vector<BattleTeamEffectEvent> applyTeamMp(BattleRuntimeUnitRecords& units,
+    std::vector<BattleTeamEffectEvent> applyTeamMp(BattleRuntimeUnits& units,
                                                    int sourceUnitId,
                                                    int amount) const;
 
-    std::vector<BattleTeamEffectEvent> applyTeamShield(BattleRuntimeUnitRecords& units,
+    std::vector<BattleTeamEffectEvent> applyTeamShield(BattleRuntimeUnits& units,
                                                        int sourceUnitId,
                                                        int amount,
                                                        bool refreshOnly) const;
 
-    std::vector<BattleTeamEffectEvent> applyHealAura(BattleRuntimeUnitRecords& units,
+    std::vector<BattleTeamEffectEvent> applyHealAura(BattleRuntimeUnits& units,
                                                      int sourceUnitId,
                                                      int flatHeal,
                                                      int pctHeal,
@@ -60,7 +60,7 @@ public:
                                                      int healedCooldownReducePct) const;
 
 private:
-    BattleRuntimeUnit& unitById(BattleRuntimeUnitRecords& units, int unitId) const;
+    BattleRuntimeUnit& unitById(BattleRuntimeUnits& units, int unitId) const;
 };
 
 }  // namespace KysChess::Battle

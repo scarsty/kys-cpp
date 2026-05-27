@@ -44,7 +44,7 @@ BattleRuntimeUnit unit(int id, int team, int hp, int defence, Pointf position)
     return result;
 }
 
-BattleRuntimeUnitRecords actionUnits()
+BattleRuntimeUnits actionUnits()
 {
     return KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 100, 0, { 10.0f, 20.0f, 0.0f }),

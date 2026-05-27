@@ -6,27 +6,27 @@ namespace KysChess::Battle
 {
 
 struct BattleRuntimeUnit;
-class BattleRuntimeUnitRecords;
+class BattleRuntimeUnits;
 
 class BattleProjectileTargetingSystem
 {
 public:
-    std::vector<int> selectNearbyTargets(const BattleRuntimeUnitRecords& units,
+    std::vector<int> selectNearbyTargets(const BattleRuntimeUnits& units,
                                          int attackerUnitId,
                                          int centerUnitId,
                                          double radius) const;
 
-    std::vector<int> selectAreaImpactTargets(const BattleRuntimeUnitRecords& units,
+    std::vector<int> selectAreaImpactTargets(const BattleRuntimeUnits& units,
                                              int originUnitId,
                                              int areaSize,
                                              int maxTargets,
                                              int trackedTargetUnitId) const;
 
-    int selectRandomEnemy(const BattleRuntimeUnitRecords& units,
+    int selectRandomEnemy(const BattleRuntimeUnits& units,
                           int sourceTeam,
                           int randomIndex) const;
 
-    int selectWeakestVulnerableEnemy(const BattleRuntimeUnitRecords& units,
+    int selectWeakestVulnerableEnemy(const BattleRuntimeUnits& units,
                                      int sourceTeam,
                                      double defenseWeight) const;
 

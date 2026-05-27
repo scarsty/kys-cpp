@@ -28,7 +28,7 @@ bool BattleProjectileTargetingSystem::withinGridArea(const BattleRuntimeUnit& or
 }
 
 std::vector<int> BattleProjectileTargetingSystem::selectNearbyTargets(
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     int attackerUnitId,
     int centerUnitId,
     double radius) const
@@ -67,7 +67,7 @@ std::vector<int> BattleProjectileTargetingSystem::selectNearbyTargets(
 }
 
 std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     int originUnitId,
     int areaSize,
     int maxTargets,
@@ -122,7 +122,7 @@ std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
 }
 
 int BattleProjectileTargetingSystem::selectRandomEnemy(
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     int sourceTeam,
     int randomIndex) const
 {
@@ -145,7 +145,7 @@ int BattleProjectileTargetingSystem::selectRandomEnemy(
 }
 
 int BattleProjectileTargetingSystem::selectWeakestVulnerableEnemy(
-    const BattleRuntimeUnitRecords& units,
+    const BattleRuntimeUnits& units,
     int sourceTeam,
     double defenseWeight) const
 {

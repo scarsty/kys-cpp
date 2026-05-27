@@ -11,14 +11,14 @@
 namespace KysChess::Battle
 {
 
-BattleRuntimeUnit& BattleTeamEffectSystem::unitById(BattleRuntimeUnitRecords& units, int unitId) const
+BattleRuntimeUnit& BattleTeamEffectSystem::unitById(BattleRuntimeUnits& units, int unitId) const
 {
     auto& unit = units.requireCore(unitId);
     assert(unit.alive);
     return unit;
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applySelfHeal(BattleRuntimeUnitRecords& units,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applySelfHeal(BattleRuntimeUnits& units,
                                                                          int sourceUnitId,
                                                                          int pctHeal) const
 {
@@ -42,7 +42,7 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applySelfHeal(BattleR
                source.vitals.hp } };
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleRuntimeUnitRecords& units,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleRuntimeUnits& units,
                                                                          int sourceUnitId,
                                                                          int flatHeal,
                                                                          int pctHeal) const
@@ -76,7 +76,7 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleR
     return events;
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleRuntimeUnitRecords& units,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleRuntimeUnits& units,
                                                                        int sourceUnitId,
                                                                        int amount) const
 {
@@ -111,7 +111,7 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleRun
     return events;
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamShield(BattleRuntimeUnitRecords& units,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamShield(BattleRuntimeUnits& units,
                                                                            int sourceUnitId,
                                                                            int amount,
                                                                            bool refreshOnly) const
@@ -138,7 +138,7 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamShield(Battl
     return events;
 }
 
-std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyHealAura(BattleRuntimeUnitRecords& units,
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyHealAura(BattleRuntimeUnits& units,
                                                                          int sourceUnitId,
                                                                          int flatHeal,
                                                                          int pctHeal,

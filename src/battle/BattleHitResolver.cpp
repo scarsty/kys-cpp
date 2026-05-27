@@ -258,7 +258,7 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
     int stunFrames,
     int visualEffectId,
     const BattleProjectileFollowUpContext& context,
-    const BattleRuntimeUnitRecords& units)
+    const BattleRuntimeUnits& units)
 {
     const auto& source = units.requireCore(sourceUnitId);
     const auto& target = units.requireCore(targetUnitId);
@@ -354,7 +354,7 @@ bool canApplyOffensiveControlEffects(const BattleAttackEvent& event)
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     const std::vector<BattleGameplayCommand>& commands,
     BattleProjectileFollowUpContext& context,
-    const BattleRuntimeUnitRecords& units)
+    const BattleRuntimeUnits& units)
 {
     assert(context.projectileSpeed > 0.0);
     assert(context.minimumProjectileFrames > 0);
@@ -390,7 +390,7 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
 BattleProjectileFollowUpExpansion expandBattleAreaProjectileFollowUp(
     const BattleAreaProjectileFollowUp& followUp,
     BattleProjectileFollowUpContext& context,
-    const BattleRuntimeUnitRecords& units)
+    const BattleRuntimeUnits& units)
 {
     assert(context.projectileSpeed > 0.0);
     assert(context.minimumProjectileFrames > 0);

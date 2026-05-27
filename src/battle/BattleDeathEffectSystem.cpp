@@ -20,7 +20,7 @@ bool BattleDeathEffectSystem::comboAppliesToUnit(const BattleDeathEffectStore& e
     return std::find(extras.comboIds.begin(), extras.comboIds.end(), comboId) != extras.comboIds.end();
 }
 
-std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffects(BattleRuntimeUnitRecords& records,
+std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffects(BattleRuntimeUnits& records,
                                                                                    BattleDeathEffectStore& effects,
                                                                                    int deadUnitId) const
 {

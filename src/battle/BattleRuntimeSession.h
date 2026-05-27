@@ -86,7 +86,7 @@ public:
     const BattleRuntimeUnit& requireRuntimeUnit(int unitId) const;
     auto runtimeUnits() const
     {
-        return runtime_.unitRecords.cores();
+        return runtime_.units.cores();
     }
 
 private:

@@ -29,7 +29,7 @@ BattleRuntimeUnit unit(int id, int team, double x, double y)
     return state;
 }
 
-BattleRuntimeUnitRecords unitStore(std::initializer_list<BattleRuntimeUnit> unitList)
+BattleRuntimeUnits unitStore(std::initializer_list<BattleRuntimeUnit> unitList)
 {
     return KysChess::Battle::Test::runtimeRecords(unitList);
 }

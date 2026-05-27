@@ -13,7 +13,7 @@ namespace KysChess::Battle
 {
 
 struct BattleDamageUnitState;
-class BattleRuntimeUnitRecords;
+class BattleRuntimeUnits;
 
 struct BattleGridTransform
 {
@@ -63,8 +63,8 @@ struct BattleRuntimeUnit
 
 constexpr double BattleRuntimeMoveSpeedDivisor = 22.0;
 
-int findNearestEnemyUnitId(const BattleRuntimeUnitRecords& units, int sourceUnitId);
-int findFarthestEnemyUnitId(const BattleRuntimeUnitRecords& units, int sourceUnitId);
+int findNearestEnemyUnitId(const BattleRuntimeUnits& units, int sourceUnitId);
+int findFarthestEnemyUnitId(const BattleRuntimeUnits& units, int sourceUnitId);
 BattleUnitState makeBattleMovementPlanUnit(const BattleRuntimeUnit& unit, double moveSpeedDivisor);
 
 }  // namespace KysChess::Battle

@@ -46,8 +46,8 @@ BattleStatusRuntimeUnit statusRuntime(int id, int hp, int attack)
 
 BattleStatusRuntimeUnit& requireStatusRuntime(BattleRuntimeState& runtime, int unitId)
 {
-    REQUIRE(runtime.unitRecords.find(unitId) != nullptr);
-    return runtime.unitRecords.require(unitId).status;
+    REQUIRE(runtime.units.find(unitId) != nullptr);
+    return runtime.units.require(unitId).status;
 }
 
 BattleRuntimeUnitSpawn runtimeSpawn(BattleRuntimeUnit unit, RoleComboState combo = {})
@@ -595,9 +595,9 @@ TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[bat
     auto creation = BattleRuntimeSession::createInitialized(std::move(input));
     auto& session = creation.session;
 
-    REQUIRE(session.runtime().unitRecords.size() == 2);
-    const auto& sourceUnit = session.runtime().unitRecords.requireCore(0);
-    const auto& cloneUnit = session.runtime().unitRecords.requireCore(1);
+    REQUIRE(session.runtime().units.size() == 2);
+    const auto& sourceUnit = session.runtime().units.requireCore(0);
+    const auto& cloneUnit = session.runtime().units.requireCore(1);
     CHECK(cloneUnit.cloneSourceUnitId == 0);
     CHECK(cloneUnit.realRoleId == 1001);
     CHECK(cloneUnit.vitals.hp == sourceUnit.vitals.hp);
@@ -725,15 +725,15 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
     CHECK(cloneUnit.armorId == -1);
     CHECK(cloneUnit.chessInstanceId == -1);
 
-    const auto& cloneStatus = runtime.unitRecords.require(1).status;
+    const auto& cloneStatus = runtime.units.require(1).status;
     CHECK(cloneStatus.effects.damageImmunityAfterFrames == 12);
     CHECK(cloneStatus.effects.damageImmunityDuration == 5);
     CHECK(cloneStatus.effects.damageImmunityTimer == 12);
 
-    const auto& cloneDamage = runtime.unitRecords.require(1).damage;
+    const auto& cloneDamage = runtime.units.require(1).damage;
     CHECK(cloneDamage.blockFirstHitsRemaining == 2);
 
-    const auto& cloneAgent = runtime.unitRecords.require(1).movement;
+    const auto& cloneAgent = runtime.units.require(1).movement;
     CHECK(cloneAgent.active == cloneUnit.alive);
     CHECK(cloneAgent.targetId == -1);
     CHECK(cloneAgent.physics.position.x == cloneUnit.motion.position.x);
@@ -741,7 +741,7 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
     CHECK(cloneAgent.physics.velocity.x == cloneUnit.motion.velocity.x);
     CHECK(cloneAgent.physics.acceleration.z == cloneUnit.motion.acceleration.z);
 
-    const auto* clonePlan = runtime.unitRecords.require(1).actionPlan();
+    const auto* clonePlan = runtime.units.require(1).actionPlan();
     REQUIRE(clonePlan != nullptr);
     CHECK(clonePlan->unitId == 1);
     CHECK(clonePlan->normalSkill.id == source.normalSkill.id);
@@ -814,15 +814,15 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionAdvancesUnitsAfterSetupPlaceme
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
-    const auto initialAlly = session.runtime().unitRecords.requireCore(0).motion.position;
-    const auto initialEnemy = session.runtime().unitRecords.requireCore(1).motion.position;
+    const auto initialAlly = session.runtime().units.requireCore(0).motion.position;
+    const auto initialEnemy = session.runtime().units.requireCore(1).motion.position;
 
     bool anyUnitMoved = false;
     for (int frame = 0; frame < 90 && !anyUnitMoved; ++frame)
     {
         session.runFrame();
-        const auto& ally = session.runtime().unitRecords.requireCore(0).motion.position;
-        const auto& enemy = session.runtime().unitRecords.requireCore(1).motion.position;
+        const auto& ally = session.runtime().units.requireCore(0).motion.position;
+        const auto& enemy = session.runtime().units.requireCore(1).motion.position;
         anyUnitMoved = ally.x != initialAlly.x
             || ally.y != initialAlly.y
             || enemy.x != initialEnemy.x
@@ -845,13 +845,13 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionSeedsAttackUnits", "[battle][i
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
-    REQUIRE(session.runtime().unitRecords.size() == 2);
-    CHECK(session.runtime().unitRecords.requireCore(0).id == 0);
-    CHECK(session.runtime().unitRecords.requireCore(0).team == 0);
-    CHECK(session.runtime().unitRecords.requireCore(0).alive);
-    CHECK(session.runtime().unitRecords.requireCore(1).id == 1);
-    CHECK(session.runtime().unitRecords.requireCore(1).team == 1);
-    CHECK(session.runtime().unitRecords.requireCore(1).alive);
+    REQUIRE(session.runtime().units.size() == 2);
+    CHECK(session.runtime().units.requireCore(0).id == 0);
+    CHECK(session.runtime().units.requireCore(0).team == 0);
+    CHECK(session.runtime().units.requireCore(0).alive);
+    CHECK(session.runtime().units.requireCore(1).id == 1);
+    CHECK(session.runtime().units.requireCore(1).team == 1);
+    CHECK(session.runtime().units.requireCore(1).alive);
 }
 
 TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[battle][initialization][runtime]")

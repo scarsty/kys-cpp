@@ -13,7 +13,7 @@
 namespace KysChess::Battle
 {
 
-class BattleRuntimeUnitRecords;
+class BattleRuntimeUnits;
 
 struct BattleCastUnitState
 {
@@ -255,7 +255,7 @@ class BattleActionCommitSystem
 public:
     BattleActionCommitResult commit(const BattleActionCommitInput& input,
                                     const RoleComboState& combo,
-                                    const BattleRuntimeUnitRecords& units) const;
+                                    const BattleRuntimeUnits& units) const;
 };
 
 }  // namespace KysChess::Battle

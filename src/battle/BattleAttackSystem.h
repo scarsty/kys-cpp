@@ -11,7 +11,7 @@ namespace KysChess::Battle
 {
 
 struct BattleRuntimeUnit;
-class BattleRuntimeUnitRecords;
+class BattleRuntimeUnits;
 
 struct BattleAttackUnit
 {
@@ -183,14 +183,14 @@ class BattleAttackSystem
 {
 public:
     BattleAttackEvent spawn(BattleAttackState& world, const BattleAttackSpawnRequest& request) const;
-    std::vector<BattleAttackEvent> tick(BattleAttackState& world, const BattleRuntimeUnitRecords& units) const;
+    std::vector<BattleAttackEvent> tick(BattleAttackState& world, const BattleRuntimeUnits& units) const;
     void applyProjectileCancelDamage(BattleAttackState& world, const BattleAttackEvent& event) const;
 
 private:
     int allocateAttackId(BattleAttackState& world) const;
     const BattleRuntimeUnit* selectTarget(
         const BattleAttackState& world,
-        const BattleRuntimeUnitRecords& units,
+        const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack) const;
     bool hasHitUnit(const BattleAttackInstance& attack, int unitId) const;
     bool hasInvincibleBlockedUnit(const BattleAttackInstance& attack, int unitId) const;
@@ -201,22 +201,22 @@ private:
     void trackTarget(BattleAttackInstance& attack, const BattleRuntimeUnit& target, double minimumVectorNorm) const;
     bool canContactTarget(
         const BattleAttackState& world,
-        const BattleRuntimeUnitRecords& units,
+        const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack,
         const BattleRuntimeUnit& target) const;
     bool contactBlockedByInvincible(
         const BattleAttackState& world,
-        const BattleRuntimeUnitRecords& units,
+        const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack,
         const BattleRuntimeUnit& target) const;
     bool canHit(
         const BattleAttackState& world,
-        const BattleRuntimeUnitRecords& units,
+        const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack,
         const BattleRuntimeUnit& target) const;
     const BattleRuntimeUnit* selectBounceTarget(
         const BattleAttackState& world,
-        const BattleRuntimeUnitRecords& units,
+        const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack,
         const BattleRuntimeUnit& hitTarget) const;
     BattleAttackInstance makeBounceAttack(
@@ -227,7 +227,7 @@ private:
         int attackId) const;
     void collectProjectileCancelEvents(
         const BattleAttackState& world,
-        const BattleRuntimeUnitRecords& units,
+        const BattleRuntimeUnits& units,
         std::vector<BattleAttackEvent>& events) const;
 };
 
