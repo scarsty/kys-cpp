@@ -135,7 +135,6 @@ BattleRuntimeUnitHandle BattleRuntimeUnits::makeHandle(BattleRuntimeUnit& core) 
         &requireById(runtime.damage.unitExtras, unitId),
         &movement,
         &requireById(runtime.deathEffects.store.units, unitId),
-        &runtime.action,
         &runtime,
     };
 }
@@ -1208,7 +1207,7 @@ void refreshMovementSkillProfile(
     const BattleRuntimeUnit& runtimeUnit,
     const BattleRuntimeState& state)
 {
-    const auto* seed = state.action.planSeed(runtimeUnit.id);
+    const auto* seed = state.unitRecords.require(runtimeUnit.id).actionPlan();
     if (!seed)
     {
         if (runtimeUnit.reach > 0.0)
@@ -2089,7 +2088,7 @@ bool tryCommitAutoUltimate(
         return true;
     }
 
-    const auto* seed = state.action.planSeed(unitId);
+    const auto* seed = state.unitRecords.require(unitId).actionPlan();
     if (!seed || seed->ultimateSkill.id < 0)
     {
         return true;
@@ -4508,7 +4507,7 @@ void cancelRuntimeAction(BattleRuntimeState& state, int unitId)
     auto actionState = makeActionRuntimeState(unit.core());
     resetActionFrameState(actionState);
     commitActionFrameStateToRuntime(unit.core(), actionState);
-    unit.action().clearOwners();
+    state.unitRecords.require(unitId).clearActionOwners();
 }
 
 void cancelDeadRuntimeActions(BattleRuntimeState& state)
@@ -4549,6 +4548,7 @@ void advanceActionFrameUnits(
     for (auto unitHandle : state.units().all())
     {
         auto& unit = unitHandle.core();
+        auto& unitRecord = state.unitRecords.require(unit.id);
         assert(unit.id >= 0);
         if (!unit.alive)
         {
@@ -4558,7 +4558,7 @@ void advanceActionFrameUnits(
 
         const BattleCastInput* castPlanInput = nullptr;
         std::optional<BattleCastInput> runtimeCastPlan;
-        const auto* runtimePlanSeed = unitHandle.action().planSeed();
+        const auto* runtimePlanSeed = unitRecord.actionPlan();
         bool usingRuntimeCastPlan = false;
         if (runtimePlanSeed
             && !unit.haveAction
@@ -4574,7 +4574,7 @@ void advanceActionFrameUnits(
             castPlanInput = &*runtimeCastPlan;
             usingRuntimeCastPlan = true;
         }
-        auto* pendingCast = unitHandle.action().pendingCast();
+        auto* pendingCast = unitRecord.pendingCast();
         bool actionCommitted = false;
         BattleActionCommitInput actionInput;
         BattleActionCommitResult actionResult;
@@ -4604,7 +4604,7 @@ void advanceActionFrameUnits(
                     : castInput.normalSkill.magicType;
                 actionState.operationType = cast.decision.operationType;
                 actionState.cooldown = cast.animation.cooldownFrames;
-                unitHandle.action().setPendingCast(makePendingCastAction(castInput, cast));
+                unitRecord.setPendingCast(makePendingCastAction(castInput, cast));
                 requireMappedById(state.movement.agents, unit.id).physics.movementDashSpreadFrames = 0;
             }
         }
@@ -4616,7 +4616,7 @@ void advanceActionFrameUnits(
                 actionCommitted = true;
                 auto maybeActionInput = tryMakeRuntimeActionCommitInput(state, movement, *pendingCast);
                 auto& combo = requireMappedById(state.combo.units, unit.id);
-                unitHandle.action().clearPendingCast();
+                unitRecord.clearPendingCast();
                 if (maybeActionInput)
                 {
                     actionInput = std::move(*maybeActionInput);
@@ -4683,7 +4683,7 @@ void advanceActionFrameUnits(
                 actionState.haveAction = false;
                 actionState.operationType = BattleOperationType::None;
                 actionState.actType = -1;
-                unitHandle.action().clearOwners();
+                unitRecord.clearActionOwners();
             }
         }
 
@@ -4694,7 +4694,7 @@ void advanceActionFrameUnits(
             {
                 applyRuntimeUnitMpDelta(state, unit, actionInput.cast.mpDelta);
                 requireMappedById(state.combo.units, unit.id) = actionResult.combo;
-                unitHandle.action().clearUltimateCaster();
+                unitRecord.clearUltimateCaster();
             }
         }
         commitActionFrameStateToRuntime(unit, actionState);

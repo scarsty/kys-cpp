@@ -747,7 +747,7 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
     CHECK(cloneAgentIt->second.physics.velocity.x == cloneUnit.motion.velocity.x);
     CHECK(cloneAgentIt->second.physics.acceleration.z == cloneUnit.motion.acceleration.z);
 
-    const auto* clonePlan = runtime.action.planSeed(1);
+    const auto* clonePlan = runtime.unitRecords.require(1).actionPlan();
     REQUIRE(clonePlan != nullptr);
     CHECK(clonePlan->unitId == 1);
     CHECK(clonePlan->normalSkill.id == source.normalSkill.id);

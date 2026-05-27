@@ -290,7 +290,6 @@ public:
                             BattleDamageRuntimeUnit* damage,
                             BattleMovementAgentState* movement,
                             BattleDeathEffectExtras* deathEffects,
-                            BattleRuntimeActions* action,
                             BattleRuntimeState* state)
         : core_(&core),
           status_(status),
@@ -298,7 +297,6 @@ public:
           damage_(damage),
           movement_(movement),
           deathEffects_(deathEffects),
-          action_(action),
           state_(state)
     {
     }
@@ -316,7 +314,6 @@ public:
         return *movement_;
     }
     BattleRuntimeUnitDeathEffectsView deathEffects() const { return BattleRuntimeUnitDeathEffectsView(*deathEffects_); }
-    BattleRuntimeUnitActionView action() const { return BattleRuntimeUnitActionView(*action_, id()); }
     BattleRuntimeUnitRescueView rescue() const;
     int mpRecoveryBonusPct() const { return combo().sumAlways(EffectType::MPRecoveryBonus); }
 
@@ -327,7 +324,6 @@ private:
     BattleDamageRuntimeUnit* damage_{};
     BattleMovementAgentState* movement_{};
     BattleDeathEffectExtras* deathEffects_{};
-    BattleRuntimeActions* action_{};
     BattleRuntimeState* state_{};
 };
 
@@ -404,6 +400,26 @@ public:
 
     std::size_t size() const { return records_.size(); }
     bool empty() const { return records_.empty(); }
+
+    std::size_t pendingCastCount() const
+    {
+        return static_cast<std::size_t>(std::ranges::count_if(
+            records_,
+            [](const BattleRuntimeUnitRecord& record)
+            {
+                return record.pendingCast() != nullptr;
+            }));
+    }
+
+    std::size_t ultimateCasterCount() const
+    {
+        return static_cast<std::size_t>(std::ranges::count_if(
+            records_,
+            [](const BattleRuntimeUnitRecord& record)
+            {
+                return record.isUltimateCaster();
+            }));
+    }
 
     auto all()
     {

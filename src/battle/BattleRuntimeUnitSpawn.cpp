@@ -182,10 +182,6 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
         sumAlwaysEffectCharges(runtime.combo.units.at(unitId), EffectType::ForcePullProtect),
         sumAlwaysEffectCharges(runtime.combo.units.at(unitId), EffectType::ForcePullExecute),
     });
-    if (spawn.actionPlan)
-    {
-        runtime.action.setPlanSeed(std::move(*spawn.actionPlan));
-    }
     runtime.unitRecords.append(std::move(record));
 }
 

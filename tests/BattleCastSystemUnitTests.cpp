@@ -176,7 +176,7 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, const BattleCastInput
     seed.hasEquippedSkill = input.unit.hasEquippedSkill;
     seed.normalSkill = actionSkillSeedFromCastSkill(input.normalSkill);
     seed.ultimateSkill = actionSkillSeedFromCastSkill(input.ultimateSkill);
-    state.action.setPlanSeed(std::move(seed));
+    state.unitRecords.require(input.unit.id).setActionPlan(std::move(seed));
 }
 
 void checkPoint(const Pointf& actual, const Pointf& expected)
@@ -373,7 +373,7 @@ TEST_CASE("BattleCastSystem_RuntimeCastPlanningUsesConfiguredCdrEffect", "[battl
 
     auto result = BattleFrameRunner().runFrame(state);
 
-    REQUIRE(state.action.hasPendingCast(0));
+    REQUIRE((state.unitRecords.require(0).pendingCast() != nullptr));
     CHECK(state.unitStore.requireUnit(0).animation.cooldown == 84);
     CHECK(result.gameplayEvents.front().type == BattleGameplayEventType::CastStarted);
 }
