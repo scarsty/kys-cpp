@@ -76,7 +76,7 @@ BattleRuntimeUnit makeRuntimeUnit(const BattleSetupUnitInput& setup)
 
 BattleDeathEffectStore makeDeathEffectStore(
     const BattleUnitStore& units,
-    const BattleRuntimeUnitRecords& records)
+    BattleRuntimeUnitRecords& records)
 {
     BattleDeathEffectStore store;
     const auto& allCombos = KysChess::ChessCombo::getAllCombos();
@@ -92,7 +92,7 @@ BattleDeathEffectStore makeDeathEffectStore(
     {
         const auto& record = records.require(unit.id);
 
-        BattleDeathEffectExtras extras;
+        auto& extras = records.require(unit.id).deathEffects;
         extras.id = unit.id;
         extras.shieldPctMaxHp = sumAlwaysEffectValue(record.combo, EffectType::ShieldPctMaxHP);
         extras.appliedEffects = record.combo.appliedEffects;
@@ -103,7 +103,6 @@ BattleDeathEffectStore makeDeathEffectStore(
             extras.comboIds = KysChess::ChessCombo::getCombosForRole(comboLookupId);
         }
 
-        store.units.push_back(std::move(extras));
     }
 
     return store;

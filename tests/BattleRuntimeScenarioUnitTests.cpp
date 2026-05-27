@@ -120,8 +120,6 @@ TEST_CASE("BattleRuntimeScenario_DamageDeathEffectsAndFollowUpDigest", "[battle]
         { KysChess::EffectType::AllyDeathStatBoost, 4, 0, "", KysChess::Trigger::Always, 0, 0, 0, 9 });
     ally.appliedEffects.push_back(
         { KysChess::EffectType::ShieldOnAllyDeath, 1, 0, "", KysChess::Trigger::Always, 0, 0, 0, 9 });
-
-    state.deathEffects.store.units = { { 0 }, dead, ally };
     state.deathEffects.store.regularSynergyComboIds.insert(9);
 
     BattleRuntimeSession session(std::move(state));
@@ -235,10 +233,7 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
     KysChess::ChessBattleEffects::applyEffect(
         state.unitRecords.require(2).combo,
         { KysChess::EffectType::ForcePullProtect, 1 });
-    KysChess::requireBy(
-        state.rescue.units,
-        2,
-        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining = 1;
+    state.unitRecords.require(2).rescue.forcePullProtectRemaining = 1;
     state.rescue.cells = {
         scenarioRescueCell(2, 3),
         scenarioRescueCell(3, 2),
@@ -257,8 +252,5 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
     CHECK(std::ranges::find(digest.roleEffectTargetUnitIds, 1) != digest.roleEffectTargetUnitIds.end());
     CHECK(digest.hpByUnitId.at(1) == 30);
     CHECK(session.runtime().unitStore.requireUnit(1).invincible == 10);
-    CHECK(KysChess::requireBy(
-        session.runtime().rescue.units,
-        2,
-        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining == 0);
+    CHECK(session.runtime().unitRecords.require(2).forcePullProtectRemaining() == 0);
 }

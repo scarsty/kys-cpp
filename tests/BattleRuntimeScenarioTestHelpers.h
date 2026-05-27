@@ -112,8 +112,6 @@ inline void seedScenarioRuntimeStores(BattleRuntimeState& state, std::vector<Bat
     state.movement.config = scenarioRules().movementConfig;
     state.attacks = scenarioAttackState();
     state.unitStore.units.clear();
-                state.deathEffects.store.units.clear();
-    state.rescue.units.clear();
     state.unitRecords = {};
 
     for (auto& unit : units)

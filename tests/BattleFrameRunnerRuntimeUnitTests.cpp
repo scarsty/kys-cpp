@@ -72,9 +72,7 @@ BattleRuntimeUnit runtimeUnitFromWorld(const BattleUnitState& worldUnit)
 void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::vector<BattleUnitState>& units)
 {
     state.unitStore.units.clear();
-    state.deathEffects.store.units.clear();
-    state.rescue.units.clear();
-    state.unitRecords = {};
+            state.unitRecords = {};
     for (const auto& worldUnit : units)
     {
         appendRuntimeUnit(
@@ -203,9 +201,7 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
     state.unitStore.units.clear();
     state.movement.movementReservations.clear();
         state.damage.presentationStylesByDefender.clear();
-    state.deathEffects.store.units.clear();
-    state.rescue.units.clear();
-    state.unitRecords = {};
+            state.unitRecords = {};
     for (auto unit : units)
     {
         KysChess::RoleComboState combo;
@@ -666,7 +662,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     });
     state.unitRecords.require(1).status = runtimeStatusUnit(poisoned);
     seedDamageExtrasFromUnits(state);
-    state.deathEffects.store.units = { { 0 }, { 1 } };
 
     auto result = runBattleFrame(state);
 
@@ -694,7 +689,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     });
     state.unitRecords.require(1).status = runtimeStatusUnit(bleeding);
     seedDamageExtrasFromUnits(state);
-    state.deathEffects.store.units = { { 0 }, { 1 } };
 
     auto result = runBattleFrame(state);
 

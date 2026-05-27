@@ -9,6 +9,7 @@ namespace KysChess::Battle
 {
 
 struct BattleUnitStore;
+class BattleRuntimeUnitRecords;
 
 struct BattleDeathEffectExtras
 {
@@ -37,7 +38,6 @@ struct BattleDeathEffectEvent
 
 struct BattleDeathEffectStore
 {
-    std::vector<BattleDeathEffectExtras> units;
     std::set<int> regularSynergyComboIds;
 };
 
@@ -45,6 +45,7 @@ class BattleDeathEffectSystem
 {
 public:
     std::vector<BattleDeathEffectEvent> applyAllyDeathEffects(BattleUnitStore& units,
+                                                              BattleRuntimeUnitRecords& records,
                                                               BattleDeathEffectStore& effects,
                                                               int deadUnitId) const;
 

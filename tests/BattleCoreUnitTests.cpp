@@ -261,9 +261,7 @@ void seedRuntimeUnitsFromMovementUnits(
         state.unitStore.gridTransform = { SceneTileWidth, 64 };
     }
     state.unitStore.units.clear();
-                state.damage.presentationStylesByDefender.clear();
-    state.deathEffects.store.units.clear();
-    state.rescue.units.clear();
+    state.damage.presentationStylesByDefender.clear();
     state.unitRecords = {};
     for (const auto& unit : units)
     {
@@ -281,9 +279,7 @@ void seedRuntimeUnitsFromMovementUnits(
 void seedRuntimeUnits(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> units)
 {
     state.unitStore.units.clear();
-                state.damage.presentationStylesByDefender.clear();
-    state.deathEffects.store.units.clear();
-    state.rescue.units.clear();
+    state.damage.presentationStylesByDefender.clear();
     state.unitRecords = {};
 
     for (auto& unit : units)
@@ -486,13 +482,10 @@ HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
     seedRuntimeUnitsFromWorld(state);
     state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
     state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
     state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
     state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
-    state.deathEffects.store.units = { { 0 }, { 1 } };
 
     BattleAttackInstance projectile;
     projectile.id = 10;
@@ -509,7 +502,6 @@ HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
         runtimeUnitSnapshot(0, 0, 80, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, defenderHp, { 105, 100, 0 }),
     };
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 80);
     state.unitRecords.require(1).status = statusRuntimeSnapshot(1, defenderHp);
     for (const auto& unit : state.unitStore.units)
@@ -848,7 +840,6 @@ TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore",
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 120, 100, 0 }),
     };
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     queuePendingDamage(state, lethalDamageInput(0, 1));
     state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
     state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 10);
@@ -973,7 +964,6 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
     state.unitStore.units[0].grid = { 10, 10 };
     state.unitStore.units[1].grid = { 5, 5 };
     state.unitStore.units[2].grid = { 3, 2 };
-    state.deathEffects.store.units = { { 0 }, { 1 }, { 2 } };
     state.rescue.cells = {
         rescueCell(2, 3),
         rescueCell(3, 2),
@@ -982,11 +972,9 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
     KysChess::ChessBattleEffects::applyEffect(
         state.unitRecords.require(2).combo,
         { KysChess::EffectType::ForcePullProtect, 1 });
-    state.rescue.units = {
-        { 0, 0, 0 },
-        { 1, 0, 0 },
-        { 2, 1, 0 },
-    };
+    state.unitRecords.require(0).rescue = { 0, 0, 0 };
+    state.unitRecords.require(1).rescue = { 1, 0, 0 };
+    state.unitRecords.require(2).rescue = { 2, 1, 0 };
     state.rescue.executeUnattendedRadius = SceneTileWidth * 3.0;
     state.rescue.counterAttack.skillId = 1;
     state.rescue.counterAttack.visualEffectId = 11;
@@ -1377,13 +1365,13 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
 
     BattleDeathEffectExtras deathEffectExtras;
     deathEffectExtras.id = 1;
-    state.deathEffects.store.units.push_back(deathEffectExtras);
+    state.unitRecords.require(deathEffectExtras.id).deathEffects = deathEffectExtras;
 
     CHECK(state.unitStore.units.size() == 2);
     CHECK(state.nextFrame.queuedDamageForTest()[0].request.defenderUnitId == 0);
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 80);
     CHECK(KysChess::maxAlwaysEffectValue(state.unitRecords.require(1).combo, KysChess::EffectType::PostSkillInvincFrames) == 12);
-    CHECK(requireById(state.deathEffects.store.units, 1).id == 1);
+    CHECK(state.unitRecords.require(1).deathEffects.id == 1);
     CHECK_FALSE(state.result.ended);
     CHECK(state.result.winningTeam == -1);
 }
@@ -1558,6 +1546,34 @@ TEST_CASE("BattleRuntimeUnitRecord_DamageStateComposesOwnedFacts", "[battle][cor
     CHECK(damage.blockFirstHitsRemaining == 2);
     CHECK(damage.mpBlocked);
     CHECK(damage.mpRecoveryBonusPct == 30);
+}
+
+TEST_CASE("BattleRuntimeUnitRecord_DeathAndRescueFactsLiveOnRecord", "[battle][core][ownership]")
+{
+    BattleRuntimeUnitRecord record;
+    record.core.id = 5;
+    record.deathEffects.id = 5;
+    record.rescue.unitId = 5;
+    record.rescue.forcePullProtectRemaining = 2;
+    record.rescue.forcePullExecuteRemaining = 3;
+
+    AppliedEffectInstance effect;
+    effect.sourceComboId = 11;
+    record.transferDeathAppliedEffect(effect);
+
+    BattleRescueCounterDelta delta;
+    delta.unitId = 5;
+    delta.protectRemainingDelta = -1;
+    delta.executeRemainingDelta = 2;
+    record.applyRescueCounterDelta(delta);
+
+    REQUIRE(record.deathEffects.appliedEffects.size() == 1);
+    CHECK(record.deathEffects.appliedEffects.front().sourceComboId == 11);
+    CHECK(record.forcePullProtectRemaining() == 1);
+    CHECK(record.forcePullExecuteRemaining() == 5);
+
+    record.clearForcePullProtect();
+    CHECK(record.forcePullProtectRemaining() == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle][core][runtime]")
@@ -2491,7 +2507,6 @@ TEST_CASE("BattleFrameRunner_PrunesPendingCastWhenCasterDiesDuringDamageLifecycl
     state.movement.frame = 1;
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     state.unitRecords.require(1).combo = {};
     preparePendingCastCommitFrame(state, 1, BattleOperationType::RangedProjectile, 0);
     configureRuntimeActionPlan(state, frameCastInput(1, 0));
@@ -2865,7 +2880,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeadUnitActionCleanupClearsAllActionOw
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 120, 100, 0 }),
     };
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     auto deadBefore = state.units().require(1);
     deadBefore.core().animation.cooldown = 4;
     deadBefore.core().animation.actFrame = 2;
@@ -2902,7 +2916,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 210, 100, 0 }),
     };
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     queuePendingDamage(state, lethalDamageInput(0, 1));
 
     auto result = runBattleFrame(state);
@@ -2942,7 +2955,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathClearsFrozenStatusAuthority", "[b
         makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(state.unitStore.units[0], state.unitRecords.require(0).combo));
     state.unitRecords.require(1).status =
         makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(state.unitStore.units[1], state.unitRecords.require(1).combo));
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     queuePendingDamage(state, lethalDamageInput(0, 1));
     state.unitRecords.require(1).status.effects.frozenTimer = 5;
     state.unitRecords.require(1).status.effects.frozenMaxTimer = 8;
@@ -3129,7 +3141,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity", "[battle][c
         unit(1, 1, { 200, 100, 0 }),
     }));
     state.attacks = attackWorld();
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     state.movementPhysics.config.gravity = -4.0f;
     state.movementPhysics.config.friction = 0.0f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
@@ -3188,7 +3199,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClampsDeathKickVelocity", "[battle][co
         unit(1, 1, { 200, 100, 0 }),
     }));
     state.attacks = attackWorld();
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     state.movementPhysics.config.gravity = -4.0f;
     state.movementPhysics.config.friction = 0.0f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
@@ -3233,7 +3243,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SeedsDeathKickForNextFramePhysics", "[
         unit(2, 0, { 120, 100, 0 }),
     }));
     state.attacks = attackWorld();
-    state.deathEffects.store.units = { { 0 }, { 1 }, { 2 } };
     state.movementPhysics.config.gravity = -4.0f;
     state.movementPhysics.config.friction = 0.0f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
@@ -3325,7 +3334,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
         runtimeUnitSnapshot(1, 1, 10, { 210, 100, 0 }),
         runtimeUnitSnapshot(2, 0, 80, { 120, 100, 0 }),
     };
-    state.deathEffects.store.units = { { 0 }, { 1 }, { 2 } };
 
     auto first = lethalDamageInput(0, 1);
     first.request.baseDamage = 3;
@@ -3399,7 +3407,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive",
         unit(1, 1, { 200, 100, 0 }),
     }));
     state.attacks = attackWorld();
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     state.nextFrame.queueDamage({
         .request = {
             .attackerUnitId = 0,
@@ -3434,7 +3441,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionUsedRuntimeDoesNotTrigg
         unit(1, 1, { 200, 100, 0 }),
     }));
     state.attacks = attackWorld();
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     state.nextFrame.queueDamage({
         .request = {
             .attackerUnitId = 0,
@@ -3500,7 +3506,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathAoeProjectileDamagesOnNextFrame",
     KysChess::ChessBattleEffects::applyEffect(
         state.unitRecords.require(1).combo,
         { EffectType::DeathAOE, 50, 1, "", Trigger::Always, 0, 6 });
-    state.deathEffects.store.units = { { 0 }, { 1 } };
     state.projectileFollowUps.projectileSpeed = SceneProjectileSpeed;
     state.projectileFollowUps.minimumProjectileFrames = 20;
     state.projectileFollowUps.areaProjectileFramePadding = 15;
@@ -3569,8 +3574,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAllyDeathEffectsInsideDamageLif
     ally.comboIds = { 9 };
     ally.appliedEffects.push_back({ EffectType::AllyDeathStatBoost, 4, 0, "", Trigger::Always, 0, 0, 0, 9 });
     ally.appliedEffects.push_back({ EffectType::ShieldOnAllyDeath, 1, 0, "", Trigger::Always, 0, 0, 0, 9 });
-
-    state.deathEffects.store.units = { { 0 }, dead, ally };
     state.deathEffects.store.regularSynergyComboIds.insert(9);
 
     auto result = runBattleFrame(state);
@@ -3697,7 +3700,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DropsDeferredAutoUltimateWhenBattleEnd
     state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
     state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 10);
     state.unitRecords.require(2).status = statusRuntimeSnapshot(2, 100);
-    state.deathEffects.store.units = { { 0 }, { 1 }, { 2 } };
 
     queuePendingDamage(state, lethalDamageInput(0, 1));
     configureAutoUltimateActionRuntime(state, 2, 1);
@@ -3742,26 +3744,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle
         }));
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 30);
     CHECK(state.unitStore.requireUnit(1).invincible == 10);
-    CHECK(requireBy(
-        state.rescue.units,
-        2,
-        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining == 0);
+    CHECK(state.unitRecords.require(2).forcePullProtectRemaining() == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttackInsideDamageLifecycle", "[battle][core][breakthrough]")
 {
     auto state = rescueDamageFrameState(20, 10);
-    requireBy(
-        state.rescue.units,
-        2,
-        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining = 0;
+    state.unitRecords.require(2).rescue.forcePullProtectRemaining = 0;
     KysChess::ChessBattleEffects::applyEffect(
         state.unitRecords.require(0).combo,
         { KysChess::EffectType::ForcePullExecute, 2 });
-    requireBy(
-        state.rescue.units,
-        0,
-        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullExecuteRemaining = 2;
+    state.unitRecords.require(0).rescue.forcePullExecuteRemaining = 2;
     state.unitStore.requireUnit(0).grid = { 10, 10 };
     state.unitStore.requireUnit(1).grid = { 5, 5 };
     state.rescue.cells = {
@@ -3774,10 +3767,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttac
 
     CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(9.0f * SceneTileWidth));
     CHECK(state.unitStore.requireUnit(1).motion.position.y == Catch::Approx(10.0f * SceneTileWidth));
-    CHECK(requireBy(
-        state.rescue.units,
-        0,
-        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullExecuteRemaining == 1);
+    CHECK(state.unitRecords.require(0).forcePullExecuteRemaining() == 1);
     REQUIRE(state.nextFrame.queuedAttacksForTest().size() == 1);
     CHECK(state.nextFrame.queuedAttacksForTest().front().initial.attackerUnitId == 0);
     CHECK(state.nextFrame.queuedAttacksForTest().front().initial.preferredTargetUnitId == 1);
@@ -3796,10 +3786,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1).size() == 1);
-    CHECK(requireBy(
-        state.rescue.units,
-        2,
-        &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId).forcePullProtectRemaining == 1);
+    CHECK(state.unitRecords.require(2).forcePullProtectRemaining() == 1);
     CHECK(state.unitStore.requireUnit(1).motion.position.x == Catch::Approx(180.0f));
     CHECK(state.unitStore.requireUnit(1).motion.position.y == Catch::Approx(180.0f));
     CHECK(state.unitStore.requireUnit(1).vitals.hp == 20);
@@ -3826,15 +3813,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageReward
     input.attacker.killHealPct = 25;
     input.attacker.bloodlustAttackPerKill = 7;
     queuePendingDamage(state, input);
-    state.deathEffects.store.units = {
-        { 0 },
-        { 1 },
-    };
-
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1).size() == 1);
-    REQUIRE(state.deathEffects.store.units.size() == 2);
+    REQUIRE(state.unitRecords.size() == 2);
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 65);
     CHECK(state.unitStore.requireUnit(0).stats.attack == 19);
     CHECK(state.unitStore.requireUnit(1).alive == false);
@@ -3854,7 +3836,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_BattleEndEventEmitsOnce", "[battle][co
         runtimeUnitSnapshot(1, 1, 10, { 210, 100, 0 }),
     };
     queuePendingDamage(state, lethalDamageInput(0, 1));
-    state.deathEffects.store.units = { { 0 }, { 1 } };
 
     auto first = runBattleFrame(state);
     auto second = runBattleFrame(state);
@@ -4056,7 +4037,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AccumulatesDamageTakenMpGainAcrossSame
     state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
     state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
     state.unitRecords.require(2).status = statusRuntimeSnapshot(2, 80);
-    state.deathEffects.store.units = { { 0 }, { 1 }, { 2 } };
 
     auto first = preResolvedDamageInput(0, 1, 100, 20);
     first.defender.vitals.mp = 5;
@@ -4262,10 +4242,15 @@ TEST_CASE("BattleRuntimeSession_RunFrame_AppliesDeathComboConsequencesBeforeScen
     antiComboEffect.sourceComboId = 33;
     state.unitRecords.require(1).combo.appliedEffects.push_back(antiComboEffect);
     state.unitRecords.require(1).combo.onSkillTeamHealPending = true;
-    state.deathEffects.store.units = {
-        { .id = 0 },
-        { .id = 1, .comboIds = { 33 }, .appliedEffects = { antiComboEffect } },
-        { .id = 2, .comboIds = { 33 } },
+    state.unitRecords.require(0).deathEffects = { .id = 0 };
+    state.unitRecords.require(1).deathEffects = {
+        .id = 1,
+        .comboIds = { 33 },
+        .appliedEffects = { antiComboEffect },
+    };
+    state.unitRecords.require(2).deathEffects = {
+        .id = 2,
+        .comboIds = { 33 },
     };
 
     queuePendingDamage(state, lethalDamageInput(0, 1));
@@ -4327,19 +4312,28 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_TransferredAntiComboDeathAoeUsesComboS
         0,
         33,
     };
-    state.deathEffects.store.units = {
-        { .id = 0 },
-        { .id = 1, .comboIds = { 33 }, .appliedEffects = { antiComboDeathAoe } },
-        { .id = 2, .comboIds = { 33 } },
+    state.unitRecords.require(0).deathEffects = { .id = 0 };
+    state.unitRecords.require(1).deathEffects = {
+        .id = 1,
+        .comboIds = { 33 },
+        .appliedEffects = { antiComboDeathAoe },
     };
-    auto deadBefore = state.units().require(1);
-    deadBefore.combo().applyEffect(antiComboDeathAoe, 33);
+    state.unitRecords.require(2).deathEffects = {
+        .id = 2,
+        .comboIds = { 33 },
+    };
+    KysChess::ChessBattleEffects::applyEffect(state.unitRecords.require(1).combo, antiComboDeathAoe, 33);
     queuePendingDamage(state, lethalDamageInput(0, 1));
 
     auto result = runBattleFrame(state);
 
-    auto target = state.units().require(2);
-    CHECK(target.combo().hasAppliedEffect(EffectType::DeathAOE, 33));
+    CHECK(std::any_of(
+        state.unitRecords.require(2).combo.appliedEffects.begin(),
+        state.unitRecords.require(2).combo.appliedEffects.end(),
+        [](const AppliedEffectInstance& effect)
+        {
+            return effect.type == EffectType::DeathAOE && effect.sourceComboId == 33;
+        }));
     REQUIRE(state.nextFrame.queuedAttacksForTest().size() == 1);
     CHECK(state.nextFrame.queuedAttacksForTest()[0].initial.attackerUnitId == 1);
     CHECK(state.nextFrame.queuedAttacksForTest()[0].initial.preferredTargetUnitId == 0);

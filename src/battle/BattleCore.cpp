@@ -115,65 +115,20 @@ BattleRuntimeUnitHandle BattleRuntimeUnits::require(int unitId) const
     return makeHandle(runtime.unitStore.requireUnit(unitId));
 }
 
-BattleRuntimeState::RescueState::RescueUnitRuntime& requireRescueRuntime(
-    BattleRuntimeState& state,
-    int unitId)
-{
-    return requireBy(state.rescue.units, unitId, &BattleRuntimeState::RescueState::RescueUnitRuntime::unitId);
-}
-
 BattleRuntimeUnitHandle BattleRuntimeUnits::makeHandle(BattleRuntimeUnit& core) const
 {
     auto& runtime = state();
     const int unitId = core.id;
     auto& movement = runtime.unitRecords.require(unitId).movement;
-    requireRescueRuntime(runtime, unitId);
     return {
         core,
         &runtime.unitRecords.require(unitId).status,
         &runtime.unitRecords.require(unitId).combo,
         &runtime.unitRecords.require(unitId).damage,
         &movement,
-        &requireById(runtime.deathEffects.store.units, unitId),
+        &runtime.unitRecords.require(unitId).deathEffects,
         &runtime,
     };
-}
-
-BattleRuntimeUnitRescueView BattleRuntimeUnitHandle::rescue() const
-{
-    assert(state_ != nullptr);
-    return BattleRuntimeUnitRescueView(*state_, id());
-}
-
-int BattleRuntimeUnitRescueView::forcePullProtectRemaining() const
-{
-    assert(state_ != nullptr);
-    return requireRescueRuntime(*state_, unitId_).forcePullProtectRemaining;
-}
-
-int BattleRuntimeUnitRescueView::forcePullExecuteRemaining() const
-{
-    assert(state_ != nullptr);
-    return requireRescueRuntime(*state_, unitId_).forcePullExecuteRemaining;
-}
-
-void BattleRuntimeUnitRescueView::clearForcePullProtect() const
-{
-    assert(state_ != nullptr);
-    requireRescueRuntime(*state_, unitId_).forcePullProtectRemaining = 0;
-}
-
-void BattleRuntimeUnitRescueView::applyCounterDelta(const BattleRescueCounterDelta& delta) const
-{
-    assert(state_ != nullptr);
-    assert(delta.unitId == unitId_);
-    auto& rescueRuntime = requireRescueRuntime(*state_, unitId_);
-    rescueRuntime.forcePullProtectRemaining = std::max(
-        0,
-        rescueRuntime.forcePullProtectRemaining + delta.protectRemainingDelta);
-    rescueRuntime.forcePullExecuteRemaining = std::max(
-        0,
-        rescueRuntime.forcePullExecuteRemaining + delta.executeRemainingDelta);
 }
 
 void BattleUnitStore::writeDamageUnit(const BattleDamageUnitState& source)
@@ -1665,8 +1620,9 @@ std::vector<BattleFrameRescueUnitSnapshot> makeRescueUnitSnapshots(BattleRuntime
         snapshot.unit.isSummonedClone = unit.core().cloneSourceUnitId >= 0;
         snapshot.unit.forcePullProtect = unit.combo().hasAlways(EffectType::ForcePullProtect);
         snapshot.unit.forcePullExecute = unit.combo().hasAlways(EffectType::ForcePullExecute);
-        snapshot.unit.forcePullProtectRemaining = unit.rescue().forcePullProtectRemaining();
-        snapshot.unit.forcePullExecuteRemaining = unit.rescue().forcePullExecuteRemaining();
+        const auto& record = state.unitRecords.require(unit.id());
+        snapshot.unit.forcePullProtectRemaining = record.forcePullProtectRemaining();
+        snapshot.unit.forcePullExecuteRemaining = record.forcePullExecuteRemaining();
         snapshots.push_back(std::move(snapshot));
     }
     return snapshots;
@@ -2733,7 +2689,7 @@ void commitRescueResultToRuntime(
 
     if (result.counterDelta.unitId >= 0)
     {
-        state.units().require(result.counterDelta.unitId).rescue().applyCounterDelta(result.counterDelta);
+        state.unitRecords.require(result.counterDelta.unitId).applyRescueCounterDelta(result.counterDelta);
     }
 
     if (result.heal.amount > 0)
@@ -3725,6 +3681,7 @@ std::vector<int> appendFrameDamageLifecycle(
         appendFrameDeathAoeProjectiles(state, frame, transaction, event.targetUnitId);
         auto deathEvents = BattleDeathEffectSystem().applyAllyDeathEffects(
             state.unitStore,
+            state.unitRecords,
             state.deathEffects.store,
             event.targetUnitId);
         appendFrameDeathEffectOutputs(frame, deathEvents);
@@ -3960,8 +3917,8 @@ BattleRuntimeUnit* findAntiComboTransferTarget(
         {
             continue;
         }
-        const auto* extras = tryFindById(state.deathEffects.store.units, candidate.id);
-        if (!extras || !unitBelongsToCombo(*extras, comboId))
+        const auto& extras = state.unitRecords.require(candidate.id).deathEffects;
+        if (!unitBelongsToCombo(extras, comboId))
         {
             continue;
         }
@@ -3983,7 +3940,7 @@ void applyRuntimeAntiComboTransfer(
     int deadUnitId,
     std::vector<BattleLogEvent>& logEvents)
 {
-    const auto& deadExtras = requireById(state.deathEffects.store.units, deadUnitId);
+    const auto& deadExtras = state.unitRecords.require(deadUnitId).deathEffects;
     const auto& deadCombo = state.unitRecords.require(deadUnitId).combo;
     auto dead = state.units().require(deadUnitId);
     for (int comboId : deadExtras.comboIds)
@@ -4008,7 +3965,7 @@ void applyRuntimeAntiComboTransfer(
                 continue;
             }
             targetHandle.combo().applyEffect(effect, comboId);
-            targetHandle.deathEffects().transferAppliedEffect(effect);
+            state.unitRecords.require(target->id).transferDeathAppliedEffect(effect);
         }
         logEvents.push_back(makeAntiComboTransferLog(deadUnitId, target->id));
     }

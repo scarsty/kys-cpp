@@ -195,6 +195,37 @@ struct BattleRuntimeUnitRecord
     {
         writeBattleDamageRuntimeUnit(damage, unit);
     }
+
+    void transferDeathAppliedEffect(const AppliedEffectInstance& effect)
+    {
+        deathEffects.appliedEffects.push_back(effect);
+    }
+
+    int forcePullProtectRemaining() const
+    {
+        return rescue.forcePullProtectRemaining;
+    }
+
+    int forcePullExecuteRemaining() const
+    {
+        return rescue.forcePullExecuteRemaining;
+    }
+
+    void clearForcePullProtect()
+    {
+        rescue.forcePullProtectRemaining = 0;
+    }
+
+    void applyRescueCounterDelta(const BattleRescueCounterDelta& delta)
+    {
+        assert(delta.unitId == id());
+        rescue.forcePullProtectRemaining = std::max(
+            0,
+            rescue.forcePullProtectRemaining + delta.protectRemainingDelta);
+        rescue.forcePullExecuteRemaining = std::max(
+            0,
+            rescue.forcePullExecuteRemaining + delta.executeRemainingDelta);
+    }
 };
 
 class BattleRuntimeUnitComboView
@@ -340,25 +371,6 @@ private:
     BattleDeathEffectExtras* extras_{};
 };
 
-class BattleRuntimeUnitRescueView
-{
-public:
-    explicit BattleRuntimeUnitRescueView(BattleRuntimeState& state, int unitId)
-        : state_(&state),
-          unitId_(unitId)
-    {
-    }
-
-    int forcePullProtectRemaining() const;
-    int forcePullExecuteRemaining() const;
-    void clearForcePullProtect() const;
-    void applyCounterDelta(const BattleRescueCounterDelta& delta) const;
-
-private:
-    BattleRuntimeState* state_{};
-    int unitId_{};
-};
-
 // Runtime unit membership is fixed after clone initialization. Handles and unit
 // ranges are frame-local views over stable unit/status/damage/combo/death/rescue/
 // movement rows. Movement rows remain present for dead units; agent.active tells
@@ -401,7 +413,6 @@ public:
         return *movement_;
     }
     BattleRuntimeUnitDeathEffectsView deathEffects() const { return BattleRuntimeUnitDeathEffectsView(*deathEffects_); }
-    BattleRuntimeUnitRescueView rescue() const;
     int mpRecoveryBonusPct() const { return combo().sumAlways(EffectType::MPRecoveryBonus); }
 
 private:
@@ -593,15 +604,7 @@ struct BattleRuntimeState
 
     struct RescueState
     {
-        struct RescueUnitRuntime
-        {
-            int unitId = -1;
-            int forcePullProtectRemaining = 0;
-            int forcePullExecuteRemaining = 0;
-        };
-
         std::vector<BattleRescueCellSnapshot> cells;
-        std::vector<RescueUnitRuntime> units;
         double executeUnattendedRadius = 0.0;
         BattleFrameRescueCounterAttackConfig counterAttack;
     } rescue;

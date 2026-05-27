@@ -38,16 +38,25 @@ BattleDeathEffectExtras extras(int id)
     return state;
 }
 
-const BattleDeathEffectExtras& extrasById(const BattleDeathEffectStore& store, int id)
+BattleRuntimeUnitRecords recordsFor(const BattleUnitStore& units, std::initializer_list<BattleDeathEffectExtras> extras)
 {
-    for (const auto& extras : store.units)
+    BattleRuntimeUnitRecords records;
+    for (const auto& unit : units.units)
     {
-        if (extras.id == id)
+        BattleRuntimeUnitRecord record;
+        record.core = unit;
+        record.deathEffects.id = unit.id;
+        for (const auto& unitExtras : extras)
         {
-            return extras;
+            if (unitExtras.id == unit.id)
+            {
+                record.deathEffects = unitExtras;
+                break;
+            }
         }
+        records.append(std::move(record));
     }
-    FAIL("extras not found");
+    return records;
 }
 
 }  // namespace
@@ -71,9 +80,9 @@ TEST_CASE("BattleDeathEffectSystem_AllyDeathStatBoost_RequiresRegularSharedCombo
     };
     auto enemy = extras(2);
     enemy.appliedEffects = { effect(EffectType::AllyDeathStatBoost, 50, 7) };
-    effects.units = { dead, ally, enemy };
+    auto records = recordsFor(units, { dead, ally, enemy });
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, records, effects, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::AllyStatBoost);
@@ -102,9 +111,9 @@ TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboA
     ally.comboIds = { 3 };
     auto outsider = extras(2);
     outsider.comboIds = { 4 };
-    effects.units = { dead, ally, outsider };
+    auto records = recordsFor(units, { dead, ally, outsider });
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, records, effects, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::DeathMedicalHeal);
@@ -130,14 +139,14 @@ TEST_CASE("BattleDeathEffectSystem_ShieldOnAllyDeath_TracksDeathsAndAwardsShield
     ally.shieldPctMaxHp = 25;
     ally.shieldOnAllyDeathTracker = 1;
     ally.appliedEffects = { effect(EffectType::ShieldOnAllyDeath, 2, 5) };
-    effects.units = { dead, ally };
+    auto records = recordsFor(units, { dead, ally });
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
+    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, records, effects, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::ShieldOnAllyDeath);
     CHECK(events[0].targetUnitId == 1);
     CHECK(events[0].value == 50);
     CHECK(units.requireUnit(1).shield == 50);
-    CHECK(extrasById(effects, 1).shieldOnAllyDeathTracker == 0);
+    CHECK(records.require(1).deathEffects.shieldOnAllyDeathTracker == 0);
 }
