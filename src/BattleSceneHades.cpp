@@ -51,6 +51,31 @@ constexpr int ROLE_STATUS_BAR_STEP_Y = ROLE_STATUS_BAR_HEIGHT + ROLE_STATUS_BAR_
 constexpr int ROLE_STATUS_BAR_MP_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y;
 constexpr int ROLE_STATUS_BAR_FROZEN_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y * 2;
 
+struct RuntimeFrozenStatus
+{
+    int frames{};
+    int maxFrames{};
+};
+
+RuntimeFrozenStatus runtimeFrozenStatusForUnit(
+    const KysChess::Battle::BattleRuntimeSession* session,
+    int unitId)
+{
+    if (session == nullptr)
+    {
+        return {};
+    }
+    const auto* record = session->runtime().units.find(unitId);
+    if (record == nullptr)
+    {
+        return {};
+    }
+    return {
+        record->status.effects.frozenTimer,
+        record->status.effects.frozenMaxTimer,
+    };
+}
+
 float smoothStep(float t)
 {
     t = (std::max)(0.0f, (std::min)(t, 1.0f));
@@ -855,9 +880,10 @@ void BattleSceneHades::draw()
         int ux = worldToUiX(wx);
         int uy = worldToUiY(wy);
         if (ux < -80 || ux >= ui_w + 80 || uy < -80 || uy >= ui_h + 80) { continue; }
-        if (unit.frozen > 0 && unit.frozenMax > 0)
+        const auto frozen = runtimeFrozenStatusForUnit(battle_session_ ? &*battle_session_ : nullptr, unit.id);
+        if (frozen.frames > 0 && frozen.maxFrames > 0)
         {
-            Font::getInstance()->draw(std::to_string(unit.frozen),
+            Font::getInstance()->draw(std::to_string(frozen.frames),
                 (std::max)(1, int(9 * sizeScale)),
                 worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y - 1),
                 { 255, 255, 255, 255 });
@@ -1551,7 +1577,7 @@ void BattleSceneHades::renderExtraRoleInfo(
             {
                 return 0;
             }
-            const auto* record = battle_session_->runtime().unitRecords.find(unit.id);
+            const auto* record = battle_session_->runtime().units.find(unit.id);
             return record != nullptr ? record->damage.blockFirstHitsRemaining : 0;
         }();
         bool hasDamageProtection = unit.invincible > 0 || firstHitBlocks > 0;
@@ -1567,11 +1593,12 @@ void BattleSceneHades::renderExtraRoleInfo(
     renderBar(y + ROLE_STATUS_BAR_MP_Y, unit.vitals.mp, unit.vitals.maxMp, mp_color, mp_shadow_color);
 
     // Frozen / cooldown bar – frozen takes priority
-    if (unit.frozen > 0 && unit.frozenMax > 0)
+    const auto frozen = runtimeFrozenStatusForUnit(battle_session_ ? &*battle_session_ : nullptr, unit.id);
+    if (frozen.frames > 0 && frozen.maxFrames > 0)
     {
         Color frozen_color = { 200, 220, 255, 192 };
         int bar_y = y + ROLE_STATUS_BAR_FROZEN_Y;
-        double perc = static_cast<double>(unit.frozen) / unit.frozenMax;
+        double perc = static_cast<double>(frozen.frames) / frozen.maxFrames;
 
         // Draw outline (same color as bar)
         renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, frozen_color, 128);
