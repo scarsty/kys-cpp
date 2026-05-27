@@ -85,10 +85,9 @@ void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::v
 
 void seedEmptyComboStatesFromUnits(BattleRuntimeState& state)
 {
-    state.combo.units.clear();
     for (const auto& unit : state.unitStore.units)
     {
-        state.combo.units.emplace(unit.id, KysChess::RoleComboState{});
+        state.unitRecords.require(unit.id).combo = KysChess::RoleComboState{};
     }
 }
 
@@ -185,7 +184,11 @@ BattleRuntimeUnit teamRuntimeUnitAt(int id, int team, int hp, Pointf position, i
 
 void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntimeUnit>& units)
 {
-    const auto savedCombos = state.combo.units;
+    std::map<int, KysChess::RoleComboState> savedCombos;
+    for (const auto& record : state.unitRecords.all())
+    {
+        savedCombos.emplace(record.id(), record.combo);
+    }
     std::map<int, BattleStatusRuntimeUnit> previousStatuses;
     for (const auto& record : state.unitRecords.all())
     {
@@ -195,7 +198,6 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
 
     state.unitStore.units.clear();
     state.movement.movementReservations.clear();
-    state.combo.units.clear();
     state.damage.unitExtras.clear();
     state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
@@ -231,11 +233,10 @@ BattleStatusRuntimeUnit runtimeStatusUnit(const BattleStatusUnitState& unit)
 
 void seedDamageExtrasFromUnits(BattleRuntimeState& state)
 {
-    state.combo.units.clear();
     state.damage.unitExtras.clear();
     for (const auto& unit : state.unitStore.units)
     {
-        state.combo.units.emplace(unit.id, KysChess::RoleComboState{});
+        state.unitRecords.require(unit.id).combo = KysChess::RoleComboState{};
         state.damage.unitExtras.push_back(makeBattleDamageRuntimeUnit(
             makeBattleDamageUnitState(unit, static_cast<const BattleDamageRuntimeUnit*>(nullptr))));
     }
@@ -508,7 +509,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
     });
-    state.combo.units[0] = KysChess::RoleComboState{};
+    state.unitRecords.require(0).combo = KysChess::RoleComboState{};
     state.unitStore.requireUnit(0).shield = 12;
     BattleDamageRuntimeUnit damage;
     damage.id = 0;
@@ -567,7 +568,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
     });
     state.unitRecords.require(0).status.effects.mpBlockTimer = 2;
     KysChess::ChessBattleEffects::applyEffect(
-        state.combo.units[0],
+        state.unitRecords.require(0).combo,
         { KysChess::EffectType::MPRecoveryBonus, 100 });
 
     runBattleFrame(state);
@@ -585,7 +586,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     combo.onSkillTeamHealPending = true;
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHeal, 7 });
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHealPct, 3 });
-    state.combo.units[0] = combo;
+    state.unitRecords.require(0).combo = combo;
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
     });
@@ -595,7 +596,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
 
     CHECK(state.unitStore.requireUnit(0).animation.cooldown == 0);
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 90);
-    CHECK_FALSE(state.combo.units.at(0).onSkillTeamHealPending);
+    CHECK_FALSE(state.unitRecords.require(0).combo.onSkillTeamHealPending);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStore", "[battle][frame_runner][runtime][unit]")
@@ -611,7 +612,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStor
     combo.onSkillTeamHealPending = true;
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHeal, 5 });
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHealPct, 10 });
-    state.combo.units[0] = combo;
+    state.unitRecords.require(0).combo = combo;
     applyRuntimeInput(state.unitStore.requireUnit(0), finishingSkillRuntime());
 
     auto result = runBattleFrame(state);
@@ -755,7 +756,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealAuraFlat, 5, 6 });
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealAuraPct, 10, 6 });
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealedATKSPDBoost, 20 });
-    state.combo.units[0] = combo;
+    state.unitRecords.require(0).combo = combo;
 
     auto runtime = finishingSkillRuntime();
     runtime.state.cooldown = 0;
@@ -818,7 +819,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
 
     KysChess::RoleComboState combo;
     combo.triggeredEffects.push_back(healBurst);
-    state.combo.units[0] = combo;
+    state.unitRecords.require(0).combo = combo;
 
     auto runtime = finishingSkillRuntime();
     runtime.state.cooldown = 0;
@@ -827,7 +828,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
     auto result = runBattleFrame(state);
 
     CHECK(state.unitStore.requireUnit(0).vitals.hp == 65);
-    CHECK(state.combo.units.at(0).effectActivationCounts.at(0) == 1);
+    CHECK(state.unitRecords.require(0).combo.effectActivationCounts.at(0) == 1);
 
     const auto healLog = std::find_if(
         result.logEvents.begin(),
@@ -853,7 +854,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSk
 
     KysChess::RoleComboState combo;
     KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::PostSkillInvincFrames, 12 });
-    state.combo.units[0] = combo;
+    state.unitRecords.require(0).combo = combo;
 
     applyRuntimeInput(state.unitStore.requireUnit(0), finishingSkillRuntime());
 

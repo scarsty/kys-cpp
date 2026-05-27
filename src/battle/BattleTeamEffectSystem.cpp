@@ -78,7 +78,6 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleU
 
 std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleUnitStore& units,
                                                                        const BattleRuntimeUnitRecords& records,
-                                                                       const std::map<int, RoleComboState>& combos,
                                                                        int sourceUnitId,
                                                                        int amount) const
 {
@@ -93,11 +92,9 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleUni
             continue;
         }
 
-        const auto& status = records.require(unit.id).status;
-        const auto comboIt = combos.find(unit.id);
-        const int recoveryBonus = comboIt != combos.end()
-            ? sumAlwaysEffectValue(comboIt->second, EffectType::MPRecoveryBonus)
-            : 0;
+        const auto& record = records.require(unit.id);
+        const int recoveryBonus = record.sumAlways(EffectType::MPRecoveryBonus);
+        const auto& status = record.status;
         int restore = adjustedMpRestore(status.effects.mpBlockTimer > 0, recoveryBonus, amount);
         int before = unit.vitals.mp;
         unit.vitals.mp = std::min(unit.vitals.maxMp, unit.vitals.mp + restore);

@@ -76,7 +76,7 @@ BattleRuntimeUnit makeRuntimeUnit(const BattleSetupUnitInput& setup)
 
 BattleDeathEffectStore makeDeathEffectStore(
     const BattleUnitStore& units,
-    const std::map<int, RoleComboState>& states)
+    const BattleRuntimeUnitRecords& records)
 {
     BattleDeathEffectStore store;
     const auto& allCombos = KysChess::ChessCombo::getAllCombos();
@@ -90,13 +90,12 @@ BattleDeathEffectStore makeDeathEffectStore(
 
     for (const auto& unit : units.units)
     {
-        const auto stateIt = states.find(unit.id);
-        assert(stateIt != states.end());
+        const auto& record = records.require(unit.id);
 
         BattleDeathEffectExtras extras;
         extras.id = unit.id;
-        extras.shieldPctMaxHp = sumAlwaysEffectValue(stateIt->second, EffectType::ShieldPctMaxHP);
-        extras.appliedEffects = stateIt->second.appliedEffects;
+        extras.shieldPctMaxHp = sumAlwaysEffectValue(record.combo, EffectType::ShieldPctMaxHP);
+        extras.appliedEffects = record.combo.appliedEffects;
 
         const int comboLookupId = getComboLookupId(unit);
         if (comboLookupId >= 0)
@@ -271,7 +270,7 @@ void deriveRuntimeStores(
 
     configureAttackWorld(runtime.attacks, input.rules);
     runtime.teamEffects.healAuraRadius = input.rules.teamEffectHealAuraRadius;
-    runtime.deathEffects.store = makeDeathEffectStore(runtime.unitStore, runtime.combo.units);
+    runtime.deathEffects.store = makeDeathEffectStore(runtime.unitStore, runtime.unitRecords);
 
     runtime.rescue.cells = std::move(input.rescueCells);
     runtime.rescue.executeUnattendedRadius = input.rules.rescueExecuteUnattendedRadius;

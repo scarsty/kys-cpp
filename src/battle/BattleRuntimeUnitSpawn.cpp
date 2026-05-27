@@ -170,15 +170,14 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
 
     runtime.unitStore.units.push_back(std::move(spawn.unit));
     runtime.damage.unitExtras.push_back(std::move(spawn.damage));
-    runtime.combo.units.emplace(unitId, std::move(spawn.combo));
     runtime.deathEffects.store.units.push_back({ .id = unitId });
     runtime.damage.presentationStylesByDefender.emplace(
         unitId,
         makeDamagePresentationStyle(record.core.team));
     runtime.rescue.units.push_back({
         unitId,
-        sumAlwaysEffectCharges(runtime.combo.units.at(unitId), EffectType::ForcePullProtect),
-        sumAlwaysEffectCharges(runtime.combo.units.at(unitId), EffectType::ForcePullExecute),
+        record.rescue.forcePullProtectRemaining,
+        record.rescue.forcePullExecuteRemaining,
     });
     runtime.unitRecords.append(std::move(record));
 }

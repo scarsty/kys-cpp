@@ -45,7 +45,6 @@ public:
 
     std::vector<BattleTeamEffectEvent> applyTeamMp(BattleUnitStore& units,
                                                    const BattleRuntimeUnitRecords& records,
-                                                   const std::map<int, RoleComboState>& combos,
                                                    int sourceUnitId,
                                                    int amount) const;
 

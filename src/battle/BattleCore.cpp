@@ -131,7 +131,7 @@ BattleRuntimeUnitHandle BattleRuntimeUnits::makeHandle(BattleRuntimeUnit& core) 
     return {
         core,
         &runtime.unitRecords.require(unitId).status,
-        &requireMappedById(runtime.combo.units, unitId),
+        &runtime.unitRecords.require(unitId).combo,
         &requireById(runtime.damage.unitExtras, unitId),
         &movement,
         &requireById(runtime.deathEffects.store.units, unitId),
@@ -418,7 +418,7 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
             continue;
         }
 
-        const auto& combo = requireMappedById(state.combo.units, ally.id);
+        const auto& combo = state.unitRecords.require(ally.id).combo;
         const auto* topDebuff = firstAlwaysEffect(combo, EffectType::EnemyTopDebuff);
         if (!topDebuff || topDebuff->value <= 0)
         {
@@ -456,7 +456,7 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
     int assignedTargets = 0;
     for (auto* enemy : enemyOrder)
     {
-        auto& combo = requireMappedById(state.combo.units, enemy->id);
+        auto& combo = state.unitRecords.require(enemy->id).combo;
 
         int desired = 0;
         if (assignedTargets < topTargets && liveAllies > 0 && perMemberValue > 0)
@@ -537,7 +537,7 @@ int sharedBleedMaxStacks(const BattleRuntimeState& state, const BattleAttackEven
     {
         return 1;
     }
-    const auto& combo = requireMappedById(state.combo.units, event.sourceUnitId);
+    const auto& combo = state.unitRecords.require(event.sourceUnitId).combo;
     if (sumAlwaysEffectValue(combo, EffectType::BleedChance) <= 0)
     {
         return 1;
@@ -553,7 +553,7 @@ int resolveHitMagicBaseDamage(
     const BattleRuntimeUnit& defender)
 {
     double defence = defender.stats.defence;
-    const auto& combo = requireMappedById(state.combo.units, attacker.id);
+    const auto& combo = state.unitRecords.require(attacker.id).combo;
     defence = resolveFrameArmorPenetratedDefense(
         combo,
         attacker.id,
@@ -1026,7 +1026,7 @@ BattleRuntimeUnitsAdvanceResult advanceRuntimeUnits(BattleRuntimeState& state)
             unit.motion.velocity = { 0, 0, 0 };
         }
 
-        auto& combo = requireMappedById(state.combo.units, unit.id);
+        auto& combo = state.unitRecords.require(unit.id).combo;
         auto frameEvents = comboSystem.advanceFrameRuntime(
             combo,
             {
@@ -1132,7 +1132,7 @@ bool tryResolveDodgeHit(
     std::vector<BattleVisualEvent>& visualEvents)
 {
     const double roll = state.random.nextPercent();
-    auto& defenderCombo = requireMappedById(state.combo.units, event.unitId);
+    auto& defenderCombo = state.unitRecords.require(event.unitId).combo;
     auto dodge = BattleComboTriggerSystem().resolveDodge(defenderCombo, event.sourceUnitId, roll);
     if (!dodge.dodged)
     {
@@ -1166,8 +1166,8 @@ void resolveHitEvents(
         }
 
         auto input = makeHitResolutionInput(state, event);
-        auto& attackerCombo = requireMappedById(state.combo.units, event.sourceUnitId);
-        auto& defenderCombo = requireMappedById(state.combo.units, event.unitId);
+        auto& attackerCombo = state.unitRecords.require(event.sourceUnitId).combo;
+        auto& defenderCombo = state.unitRecords.require(event.unitId).combo;
         auto result = BattleHitResolver().resolve(input, attackerCombo, defenderCombo, state.random);
         auto followUps = expandBattleProjectileFollowUpCommands(
             result.commands,
@@ -1229,7 +1229,7 @@ void refreshMovementSkillProfile(
         false);
     movementUnit.reach = skill.reach > 0.0 ? skill.reach : state.action.actionRules.meleeAttackReach;
     movementUnit.style = skill.rangedStyle ? CombatStyle::Ranged : CombatStyle::Melee;
-    const auto& combo = requireMappedById(state.combo.units, runtimeUnit.id);
+    const auto& combo = state.unitRecords.require(runtimeUnit.id).combo;
     movementUnit.taXue = firstAlwaysEffect(combo, EffectType::DashAttack) != nullptr;
 }
 
@@ -1463,13 +1463,13 @@ bool isLastAliveInTeam(const BattleUnitStore& store, const BattleRuntimeUnit& un
 
 bool runtimeRoleForcesRangedMagic(const BattleRuntimeState& state, int unitId)
 {
-    return firstAlwaysEffect(requireMappedById(state.combo.units, unitId), EffectType::ForceRangedAttack) != nullptr;
+    return firstAlwaysEffect(state.unitRecords.require(unitId).combo, EffectType::ForceRangedAttack) != nullptr;
 }
 
 int runtimeForcedRangedMinSelectDistance(const BattleRuntimeState& state, int unitId)
 {
     constexpr int DefaultForcedRangedMinSelectDistance = 6;
-    const auto& combo = requireMappedById(state.combo.units, unitId);
+    const auto& combo = state.unitRecords.require(unitId).combo;
     const auto* forceRanged = firstAlwaysEffect(combo, EffectType::ForceRangedAttack);
     if (!forceRanged || forceRanged->value2 <= 0)
     {
@@ -1480,7 +1480,7 @@ int runtimeForcedRangedMinSelectDistance(const BattleRuntimeState& state, int un
 
 int runtimeProjectileSpeedMultiplierPct(const BattleRuntimeState& state, int unitId)
 {
-    const auto* forceRanged = firstAlwaysEffect(requireMappedById(state.combo.units, unitId), EffectType::ForceRangedAttack);
+    const auto* forceRanged = firstAlwaysEffect(state.unitRecords.require(unitId).combo, EffectType::ForceRangedAttack);
     return forceRanged && forceRanged->value > 0 ? forceRanged->value : 100;
 }
 
@@ -1773,7 +1773,7 @@ void refreshRuntimeCastSkillBonuses(BattleRuntimeState& state, BattleCastInput& 
 {
     if (input.ultimateSkill.id >= 0 && input.unit.mp == input.unit.maxMp)
     {
-        auto& combo = requireMappedById(state.combo.units, input.unit.id);
+        auto& combo = state.unitRecords.require(input.unit.id).combo;
         input.ultimateSkill.extraProjectileCount = collectFrameExtraProjectileCount(
             combo,
             state.random,
@@ -2054,7 +2054,7 @@ void populateActionCommitLiveInput(BattleRuntimeState& state,
     actionInput.sourceUnitId = unit.id;
     actionInput.committedFacing = runtimeCastFacing(state, unit, castInput);
 
-    auto& combo = requireMappedById(state.combo.units, unit.id);
+    auto& combo = state.unitRecords.require(unit.id).combo;
     if (firstAlwaysEffect(combo, EffectType::BlinkAttack) != nullptr)
     {
         const double blinkReach = selectedSkill.blinkReach > 0.0 ? selectedSkill.blinkReach : selectedSkill.reach;
@@ -2147,7 +2147,7 @@ bool tryCommitAutoUltimate(
         castInput,
         selectedCastSkill(castInput, true),
         cast);
-    auto& combo = requireMappedById(state.combo.units, unitId);
+    auto& combo = state.unitRecords.require(unitId).combo;
     auto actionResult = BattleActionCommitSystem().commit(actionInput, combo, state.unitStore);
     applyCastPostSkillInvincibility(
         state,
@@ -2327,7 +2327,7 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
     input.unit.dashAttackReach = state.action.actionRules.dashAttackMeleeReach;
     input.unit.hasEquippedSkill = true;
     input.unit.movementDashActive = actionMovementDashActive(state, unit.id);
-    auto& combo = requireMappedById(state.combo.units, unit.id);
+    auto& combo = state.unitRecords.require(unit.id).combo;
     input.unit.cooldownReductionPct = sumAlwaysEffectValue(combo, EffectType::CDR);
     input.unit.dashAttackEnabled = firstAlwaysEffect(combo, EffectType::DashAttack) != nullptr;
     input.unit.dashVelocity = unit.motion.facing;
@@ -2382,7 +2382,7 @@ BattleActionCommitInput makeCommittedCastActionInput(
         state.action.strengthenedMeleeOperationCountThreshold;
     populateActionCommitLiveInput(state, unit, castInput, selectedSkill, actionInput);
 
-    auto& combo = requireMappedById(state.combo.units, unit.id);
+    auto& combo = state.unitRecords.require(unit.id).combo;
     auto prime = collectFrameProjectileBouncePrime(
         combo,
         unit.id,
@@ -2414,7 +2414,7 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
     auto selectedSkill = pending.skill;
     if (pending.ultimate)
     {
-        auto& combo = requireMappedById(state.combo.units, unit.id);
+        auto& combo = state.unitRecords.require(unit.id).combo;
         selectedSkill.extraProjectileCount = collectFrameExtraProjectileCount(
             combo,
             state.random,
@@ -3794,7 +3794,7 @@ void appendFrameShieldBreakCommands(
         return;
     }
 
-    auto& defenderCombo = requireMappedById(state.combo.units, transaction.defender.id);
+    auto& defenderCombo = state.unitRecords.require(transaction.defender.id).combo;
     int shieldExplosionPct = 0;
     auto shieldBreakEvents = BattleComboTriggerSystem().collectTriggerEvents(
         defenderCombo,
@@ -3965,7 +3965,7 @@ BattleRuntimeUnit* findAntiComboTransferTarget(
         {
             continue;
         }
-        const auto& combo = requireMappedById(state.combo.units, candidate.id);
+        const auto& combo = state.unitRecords.require(candidate.id).combo;
         if (comboEffectIsApplied(combo, comboId))
         {
             continue;
@@ -3984,7 +3984,7 @@ void applyRuntimeAntiComboTransfer(
     std::vector<BattleLogEvent>& logEvents)
 {
     const auto& deadExtras = requireById(state.deathEffects.store.units, deadUnitId);
-    const auto& deadCombo = requireMappedById(state.combo.units, deadUnitId);
+    const auto& deadCombo = state.unitRecords.require(deadUnitId).combo;
     auto dead = state.units().require(deadUnitId);
     for (int comboId : deadExtras.comboIds)
     {
@@ -4178,7 +4178,7 @@ void applyBroadcastTriggerTimer(BattleRuntimeState& state, int sourceUnitId, con
         {
             continue;
         }
-        requireMappedById(state.combo.units, unit.id).triggerTimers[event.trigger] = event.durationFrames;
+        state.unitRecords.require(unit.id).combo.triggerTimers[event.trigger] = event.durationFrames;
     }
 }
 
@@ -4242,7 +4242,7 @@ std::vector<BattleGameplayCommand> applyRuntimeComboEvents(
                 break;
             }
         }
-        auto& combo = requireMappedById(state.combo.units, result.unitId);
+        auto& combo = state.unitRecords.require(result.unitId).combo;
         auto committed = result.comboState;
         committed.triggerTimers = combo.triggerTimers;
         combo = std::move(committed);
@@ -4614,7 +4614,7 @@ void advanceActionFrameUnits(
             {
                 actionCommitted = true;
                 auto maybeActionInput = tryMakeRuntimeActionCommitInput(state, movement, *pendingCast);
-                auto& combo = requireMappedById(state.combo.units, unit.id);
+                auto& combo = state.unitRecords.require(unit.id).combo;
                 unitRecord.clearPendingCast();
                 if (maybeActionInput)
                 {
@@ -4692,7 +4692,7 @@ void advanceActionFrameUnits(
             if (actionInput.hasCast)
             {
                 applyRuntimeUnitMpDelta(state, unit, actionInput.cast.mpDelta);
-                requireMappedById(state.combo.units, unit.id) = actionResult.combo;
+                state.unitRecords.require(unit.id).combo = actionResult.combo;
                 unitRecord.clearUltimateCaster();
             }
         }
@@ -4762,7 +4762,7 @@ bool applyFrameExecuteReaction(
     assert(request.attackerUnitId >= 0);
     assert(request.defenderUnitId >= 0);
 
-    auto& attackerCombo = requireMappedById(state.combo.units, request.attackerUnitId);
+    auto& attackerCombo = state.unitRecords.require(request.attackerUnitId).combo;
     const auto& defender = state.unitStore.requireUnit(request.defenderUnitId);
     auto execute = BattleComboTriggerSystem().resolveExecuteCombo(
         attackerCombo,
@@ -4800,7 +4800,7 @@ bool applyFrameDefenderBlockCommands(
     assert(request.attackerUnitId >= 0);
     assert(request.defenderUnitId >= 0);
 
-    const auto& defenderCombo = requireMappedById(state.combo.units, request.defenderUnitId);
+    const auto& defenderCombo = state.unitRecords.require(request.defenderUnitId).combo;
     const int counterUltimateBlockChancePct = maxAlwaysEffectValue(defenderCombo, EffectType::CounterUltimateBlock);
     const bool counterUltimateBlock = counterUltimateBlockChancePct > 0
         && (counterUltimateBlockChancePct >= 100 || state.random.chance(counterUltimateBlockChancePct));
@@ -5182,7 +5182,6 @@ void applyFrameCastScopedComboEffects(
             auto teamEvents = teamEffects.applyTeamMp(
                 state.unitStore,
                 state.unitRecords,
-                state.combo.units,
                 effects.unitId,
                 event.effect.value);
             appendTeamEffectLogEvents(logEvents, teamEvents, "琴棋書畫");

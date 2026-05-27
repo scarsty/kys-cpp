@@ -109,6 +109,41 @@ struct BattleRuntimeUnitRecord
         clearUltimateCaster();
     }
 
+    void clearPendingSkillHeal()
+    {
+        combo.onSkillTeamHealPending = false;
+    }
+
+    int sumAlways(EffectType type) const
+    {
+        return sumAlwaysEffectValue(combo, type);
+    }
+
+    int maxAlways(EffectType type) const
+    {
+        return maxAlwaysEffectValue(combo, type);
+    }
+
+    bool hasAlways(EffectType type) const
+    {
+        return firstAlwaysEffect(combo, type) != nullptr;
+    }
+
+    const AppliedEffectInstance* firstAlways(EffectType type) const
+    {
+        return firstAlwaysEffect(combo, type);
+    }
+
+    BattleDamageModifierState damageModifiers() const
+    {
+        return makeBattleDamageModifierState(&combo);
+    }
+
+    void applyComboEffect(const AppliedEffectInstance& effect, int comboId)
+    {
+        KysChess::ChessBattleEffects::applyEffect(combo, effect, comboId);
+    }
+
     const BattleStatusEffectState& statusEffects() const { return status.effects; }
     bool frozen() const { return status.effects.frozenTimer > 0; }
     int frozenFrames() const { return status.effects.frozenTimer; }
@@ -538,11 +573,6 @@ struct BattleRuntimeState
     {
         BattleStatusSystemConfig config;
     } status;
-
-    struct ComboTriggerState
-    {
-        std::map<int, RoleComboState> units;
-    } combo;
 
     struct DeathEffectState
     {
