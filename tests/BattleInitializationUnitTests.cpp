@@ -46,12 +46,8 @@ BattleStatusRuntimeUnit statusRuntime(int id, int hp, int attack)
 
 BattleStatusRuntimeUnit& requireStatusRuntime(BattleRuntimeState& runtime, int unitId)
 {
-    const auto it = std::find_if(
-        runtime.status.units.begin(),
-        runtime.status.units.end(),
-        [unitId](const BattleStatusRuntimeUnit& unit) { return unit.id == unitId; });
-    REQUIRE(it != runtime.status.units.end());
-    return *it;
+    REQUIRE(runtime.unitRecords.find(unitId) != nullptr);
+    return runtime.unitRecords.require(unitId).status;
 }
 
 BattleRuntimeUnitSpawn runtimeSpawn(BattleRuntimeUnit unit, RoleComboState combo = {})
@@ -730,7 +726,7 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
     CHECK(cloneUnit.armorId == -1);
     CHECK(cloneUnit.chessInstanceId == -1);
 
-    const auto& cloneStatus = requireById(runtime.status.units, 1);
+    const auto& cloneStatus = runtime.unitRecords.require(1).status;
     CHECK(cloneStatus.effects.damageImmunityAfterFrames == 12);
     CHECK(cloneStatus.effects.damageImmunityDuration == 5);
     CHECK(cloneStatus.effects.damageImmunityTimer == 12);

@@ -108,6 +108,45 @@ struct BattleRuntimeUnitRecord
         clearPendingCast();
         clearUltimateCaster();
     }
+
+    const BattleStatusEffectState& statusEffects() const { return status.effects; }
+    bool frozen() const { return status.effects.frozenTimer > 0; }
+    int frozenFrames() const { return status.effects.frozenTimer; }
+    bool mpBlocked() const { return status.effects.mpBlockTimer > 0; }
+
+    void clearFrozen()
+    {
+        status.effects.frozenTimer = 0;
+        status.effects.frozenMaxTimer = 0;
+    }
+
+    void setMpBlockFrames(int frames)
+    {
+        status.effects.mpBlockTimer = frames;
+    }
+
+    void addTempAttackBuff(int attackBonus, int durationFrames)
+    {
+        status.effects.tempAttackBuffs.push_back({
+            attackBonus,
+            durationFrames,
+        });
+    }
+
+    void commitFrozenPhysicsFrames(int frozenFrames)
+    {
+        status.effects.frozenTimer = frozenFrames;
+    }
+
+    BattleStatusUnitState statusDamageState() const
+    {
+        return makeBattleStatusUnitState(status, core);
+    }
+
+    void writeStatusDamageResult(const BattleStatusUnitState& unit)
+    {
+        writeBattleStatusRuntimeUnit(status, unit);
+    }
 };
 
 class BattleRuntimeUnitComboView
@@ -498,7 +537,6 @@ struct BattleRuntimeState
     struct StatusState
     {
         BattleStatusSystemConfig config;
-        std::vector<BattleStatusRuntimeUnit> units;
     } status;
 
     struct ComboTriggerState

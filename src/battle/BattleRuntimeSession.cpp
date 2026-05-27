@@ -252,7 +252,6 @@ BattleRuntimeState buildRuntimeFromSpawns(
     runtime.random = BattleRuntimeRandom(input.randomSeed);
     runtime.unitStore.units.reserve(spawns.size());
     runtime.unitRecords.reserve(spawns.size());
-    runtime.status.units.reserve(spawns.size());
     runtime.damage.unitExtras.reserve(spawns.size());
 
     for (auto& spawn : spawns)

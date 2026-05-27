@@ -105,10 +105,6 @@ BattleRuntimeState runtimeFrameState()
     state.attacks.minimumVectorNorm = TestMinimumVectorNorm;
     state.attacks.bounceSpawnDistance = SceneTileWidth * 1.5;
     state.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
-    state.status.units = {
-        BattleStatusRuntimeUnit{ .id = 0 },
-        BattleStatusRuntimeUnit{ .id = 1 },
-    };
     seedDamageExtrasFromUnits(state);
     return state;
 }
@@ -126,10 +122,6 @@ BattleRuntimeState ownedRuntimeState()
     runtime.attacks.minimumVectorNorm = TestMinimumVectorNorm;
     runtime.attacks.bounceSpawnDistance = SceneTileWidth * 1.5;
     runtime.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
-    runtime.status.units = {
-        BattleStatusRuntimeUnit{ .id = 0 },
-        BattleStatusRuntimeUnit{ .id = 1 },
-    };
     seedDamageExtrasFromUnits(runtime);
     return runtime;
 }
@@ -194,13 +186,16 @@ BattleRuntimeUnit teamRuntimeUnitAt(int id, int team, int hp, Pointf position, i
 void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntimeUnit>& units)
 {
     const auto savedCombos = state.combo.units;
-    const auto previousStatuses = state.status.units;
+    std::map<int, BattleStatusRuntimeUnit> previousStatuses;
+    for (const auto& record : state.unitRecords.all())
+    {
+        previousStatuses.emplace(record.id(), record.status);
+    }
     const auto previousDamageExtras = state.damage.unitExtras;
 
     state.unitStore.units.clear();
     state.movement.movementReservations.clear();
     state.combo.units.clear();
-    state.status.units.clear();
     state.damage.unitExtras.clear();
     state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
@@ -216,9 +211,10 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
         }
 
         auto spawn = makeRuntimeUnitSpawn(std::move(unit), std::move(combo));
-        if (const auto* status = KysChess::tryFindById(previousStatuses, spawn.unit.id))
+        if (const auto statusIt = previousStatuses.find(spawn.unit.id);
+            statusIt != previousStatuses.end())
         {
-            spawn.status = *status;
+            spawn.status = statusIt->second;
         }
         if (const auto* damage = KysChess::tryFindById(previousDamageExtras, spawn.unit.id))
         {
@@ -311,10 +307,6 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     runtime.unitStore.requireUnit(1).vitals.hp = 100;
     runtime.unitStore.requireUnit(1).motion.facing = { -1, 0, 0 };
     seedDamageExtrasFromUnits(runtime);
-    runtime.status.units = {
-        BattleStatusRuntimeUnit{ .id = 0 },
-        BattleStatusRuntimeUnit{ .id = 1 },
-    };
 
     BattleAttackInstance attack;
     attack.id = 10;
@@ -527,12 +519,12 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     status.id = 0;
     status.effects.frozenTimer = 3;
     status.effects.frozenMaxTimer = 9;
-    KysChess::requireById(state.status.units, 0) = status;
+    state.unitRecords.require(0).status = status;
 
     runBattleFrame(state);
 
     const auto& runtimeUnit = state.unitStore.requireUnit(0);
-    const auto& statusUnit = KysChess::requireById(state.status.units, 0);
+    const auto& statusUnit = state.unitRecords.require(0).status;
     CHECK(runtimeUnit.invincible == 3);
     CHECK(statusUnit.effects.frozenTimer == 3);
     CHECK(statusUnit.effects.frozenMaxTimer == 9);
@@ -573,8 +565,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
         teamRuntimeUnit(0, 0, 80),
         teamRuntimeUnit(1, 1, 100),
     });
-    state.status.units = { { 0 }, { 1 } };
-    state.status.units[0].effects.mpBlockTimer = 2;
+    state.unitRecords.require(0).status.effects.mpBlockTimer = 2;
     KysChess::ChessBattleEffects::applyEffect(
         state.combo.units[0],
         { KysChess::EffectType::MPRecoveryBonus, 100 });
@@ -669,7 +660,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
     });
-    KysChess::requireById(state.status.units, 1) = runtimeStatusUnit(poisoned);
+    state.unitRecords.require(1).status = runtimeStatusUnit(poisoned);
     seedDamageExtrasFromUnits(state);
     state.deathEffects.store.units = { { 0 }, { 1 } };
 
@@ -697,7 +688,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
     });
-    KysChess::requireById(state.status.units, 1) = runtimeStatusUnit(bleeding);
+    state.unitRecords.require(1).status = runtimeStatusUnit(bleeding);
     seedDamageExtrasFromUnits(state);
     state.deathEffects.store.units = { { 0 }, { 1 } };
 
@@ -737,16 +728,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DecrementsInvincibility", "[battle][fr
     status0.id = 0;
     BattleStatusUnitState status1;
     status1.id = 1;
-    state.status.units = {
-        runtimeStatusUnit(status0),
-        runtimeStatusUnit(status1),
-    };
+    state.unitRecords.require(0).status = runtimeStatusUnit(status0);
+    state.unitRecords.require(1).status = runtimeStatusUnit(status1);
     state.unitStore.requireUnit(0).invincible = 3;
 
     runBattleFrame(state);
 
     CHECK(state.unitStore.requireUnit(0).invincible == 2);
-    CHECK(KysChess::requireById(state.status.units, 0).id == 0);
+    CHECK(state.unitRecords.require(0).status.id == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[battle][frame_runner][runtime][unit]")

@@ -12,6 +12,8 @@ namespace KysChess::Battle
 {
 
 struct BattleRuntimeUnit;
+struct BattleRuntimeUnitRecord;
+class BattleRuntimeUnitRecords;
 struct BattleUnitStore;
 
 struct TimedAttackBuff
@@ -104,8 +106,8 @@ class BattleStatusSystem
 public:
     explicit BattleStatusSystem(BattleStatusSystemConfig config);
 
-    BattleStatusTickResult tick(BattleUnitStore& units, BattleStatusRuntimeUnit& status) const;
-    BattleStatusTickResult tick(BattleUnitStore& units, std::vector<BattleStatusRuntimeUnit>& statuses) const;
+    BattleStatusTickResult tick(BattleUnitStore& units, BattleRuntimeUnitRecord& unit) const;
+    BattleStatusTickResult tick(BattleUnitStore& units, BattleRuntimeUnitRecords& records) const;
 
 private:
     BattleStatusSystemConfig config_;

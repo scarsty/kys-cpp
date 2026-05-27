@@ -10,6 +10,7 @@ namespace KysChess::Battle
 {
 
 struct BattleRuntimeUnit;
+class BattleRuntimeUnitRecords;
 struct BattleUnitStore;
 
 enum class BattleTeamEffectEventType
@@ -43,7 +44,7 @@ public:
                                                      int pctHeal) const;
 
     std::vector<BattleTeamEffectEvent> applyTeamMp(BattleUnitStore& units,
-                                                   const std::vector<BattleStatusRuntimeUnit>& statuses,
+                                                   const BattleRuntimeUnitRecords& records,
                                                    const std::map<int, RoleComboState>& combos,
                                                    int sourceUnitId,
                                                    int amount) const;

@@ -262,8 +262,7 @@ void seedRuntimeUnitsFromMovementUnits(
     }
     state.unitStore.units.clear();
     state.combo.units.clear();
-    state.status.units.clear();
-    state.damage.unitExtras.clear();
+        state.damage.unitExtras.clear();
     state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
@@ -285,8 +284,7 @@ void seedRuntimeUnits(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> 
 {
     state.unitStore.units.clear();
     state.combo.units.clear();
-    state.status.units.clear();
-    state.damage.unitExtras.clear();
+        state.damage.unitExtras.clear();
     state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
@@ -490,20 +488,14 @@ HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
     }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 100),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
     state.deathEffects.store.units = { { 0 }, { 1 } };
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 100),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
     state.deathEffects.store.units = { { 0 }, { 1 } };
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 100),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
     state.deathEffects.store.units = { { 0 }, { 1 } };
 
     BattleAttackInstance projectile;
@@ -522,10 +514,8 @@ HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
         runtimeUnitSnapshot(1, 1, defenderHp, { 105, 100, 0 }),
     };
     state.deathEffects.store.units = { { 0 }, { 1 } };
-    state.status.units = {
-        statusRuntimeSnapshot(0, 80),
-        statusRuntimeSnapshot(1, defenderHp),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 80);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, defenderHp);
     state.damage.unitExtras.clear();
     state.combo.units.clear();
     for (const auto& unit : state.unitStore.units)
@@ -813,7 +803,7 @@ void queuePendingDamage(
     {
         auto& combo = state.combo.units[transaction.attacker.id];
         applyModifierEffects(combo, transaction.attackerModifiers);
-        auto& status = ensureById(state.status.units, transaction.attacker.id);
+        auto& status = state.unitRecords.require(transaction.attacker.id).status;
         status.effects.poisonTimer = transaction.attackerModifiers.poisonTimer;
         status.effects.damageReduceDebuffs.clear();
         for (const auto& debuff : transaction.attackerModifiers.outgoingDamageReduceDebuffs)
@@ -833,7 +823,7 @@ void queuePendingDamage(
     {
         auto& combo = state.combo.units[transaction.defender.id];
         applyModifierEffects(combo, transaction.defenderModifiers);
-        auto& status = ensureById(state.status.units, transaction.defender.id);
+        auto& status = state.unitRecords.require(transaction.defender.id).status;
         status.effects.poisonTimer = transaction.defenderModifiers.poisonTimer;
         status.effects.damageReduceDebuffs.clear();
         for (const auto& debuff : transaction.defenderModifiers.outgoingDamageReduceDebuffs)
@@ -846,7 +836,7 @@ void queuePendingDamage(
         ensureById(state.damage.unitExtras, transaction.defender.id),
         transaction.defender);
     writeBattleStatusRuntimeUnit(
-        ensureById(state.status.units, transaction.defenderStatus.id),
+        state.unitRecords.require(transaction.defenderStatus.id).status,
         transaction.defenderStatus);
     state.nextFrame.queueDamage(pendingDamageIntent(std::move(transaction), std::move(presentation)));
 }
@@ -866,10 +856,8 @@ TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore",
     };
     state.deathEffects.store.units = { { 0 }, { 1 } };
     queuePendingDamage(state, lethalDamageInput(0, 1));
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 10),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 10);
 
     runBattleFrame(state);
 
@@ -891,9 +879,7 @@ TEST_CASE("BattleFrameRunner_RoutesStatusTicksThroughCanonicalUnitStore", "[batt
     status.effects.damageImmunityAfterFrames = 1;
     status.effects.damageImmunityDuration = 5;
     status.effects.damageImmunityTimer = 0;
-    state.status.units = {
-        makeBattleStatusRuntimeUnit(status),
-    };
+    state.unitRecords.require(0).status = makeBattleStatusRuntimeUnit(status);
 
     runBattleFrame(state);
 
@@ -981,11 +967,9 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
         unit(2, 1, { 72, 72, 0 }),
     }));
     state.attacks = attackWorld();
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, defenderHp),
-        statusRuntimeSnapshot(2, 100),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, defenderHp);
+    state.unitRecords.require(2).status = statusRuntimeSnapshot(2, 100);
     state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, defenderHp, { 180, 180, 0 }),
@@ -1513,6 +1497,28 @@ TEST_CASE("BattleRuntimeUnitRecord_MovementAgentLivesOnRecord", "[battle][core][
     CHECK(record.movement.assignedSlot == 2);
 }
 
+TEST_CASE("BattleRuntimeUnitRecord_StatusDomainMethodsMutateOwnedStatus", "[battle][core][ownership]")
+{
+    BattleRuntimeUnitRecord record;
+    record.core.id = 2;
+    record.core.vitals.hp = 50;
+    record.core.vitals.maxHp = 100;
+    record.status.id = 2;
+    record.status.effects.frozenTimer = 5;
+    record.status.effects.frozenMaxTimer = 8;
+
+    record.clearFrozen();
+    record.setMpBlockFrames(3);
+    record.addTempAttackBuff(7, 11);
+
+    CHECK(record.status.effects.frozenTimer == 0);
+    CHECK(record.status.effects.frozenMaxTimer == 0);
+    CHECK(record.status.effects.mpBlockTimer == 3);
+    REQUIRE(record.status.effects.tempAttackBuffs.size() == 1);
+    CHECK(record.status.effects.tempAttackBuffs.front().attackBonus == 7);
+    CHECK(record.status.effects.tempAttackBuffs.front().remainingFrames == 11);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -1531,10 +1537,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle
 
     auto target = runtimeUnitSnapshot(1, 1, 100, { 600, 100, 0 });
     state.unitStore.units = { grouped, target };
-    state.status.units = {
-        statusRuntimeSnapshot(0, 80),
-        statusRuntimeSnapshot(1, 100),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 80);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
 
     runBattleFrame(state);
 
@@ -1630,7 +1634,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battl
         runtimeUnitSnapshot(1, 1, 100, { 210, 100, 0 }),
     };
     state.unitStore.units[0].stats.attack = 15;
-    auto& statusUnit = requireById(state.status.units, 0);
+    auto& statusUnit = state.unitRecords.require(0).status;
     statusUnit.effects.tempAttackBuffs.push_back({ 5, 1 });
     statusUnit.effects.frozenTimer = 10;
 
@@ -1773,7 +1777,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[b
     frozenStatus.id = 0;
     frozenStatus.alive = true;
     frozenStatus.effects.frozenTimer = 3;
-    state.status.units[0] = makeBattleStatusRuntimeUnit(frozenStatus);
+    state.unitRecords.require(0).status = makeBattleStatusRuntimeUnit(frozenStatus);
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
     state.unitStore.requireUnit(0).animation.cooldown = 0;
 
@@ -2851,10 +2855,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
         unit(1, 1, { 210, 100, 0 }),
     }));
     state.attacks = attackWorld();
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 10),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 10);
     state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 210, 100, 0 }),
@@ -2895,19 +2897,19 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathClearsFrozenStatusAuthority", "[b
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 10, { 120, 100, 0 }),
     };
-    state.status.units = {
-        makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(state.unitStore.units[0], state.combo.units[0])),
-        makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(state.unitStore.units[1], state.combo.units[1])),
-    };
+    state.unitRecords.require(0).status =
+        makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(state.unitStore.units[0], state.combo.units[0]));
+    state.unitRecords.require(1).status =
+        makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(state.unitStore.units[1], state.combo.units[1]));
     state.deathEffects.store.units = { { 0 }, { 1 } };
     queuePendingDamage(state, lethalDamageInput(0, 1));
-    requireById(state.status.units, 1).effects.frozenTimer = 5;
-    requireById(state.status.units, 1).effects.frozenMaxTimer = 8;
+    state.unitRecords.require(1).status.effects.frozenTimer = 5;
+    state.unitRecords.require(1).status.effects.frozenMaxTimer = 8;
 
     runBattleFrame(state);
 
-    CHECK(requireById(state.status.units, 1).effects.frozenTimer == 0);
-    CHECK(requireById(state.status.units, 1).effects.frozenMaxTimer == 0);
+    CHECK(state.unitRecords.require(1).status.effects.frozenTimer == 0);
+    CHECK(state.unitRecords.require(1).status.effects.frozenMaxTimer == 0);
 }
 
 TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeStores", "[battle][core][runtime]")
@@ -2986,11 +2988,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     state.unitStore.requireUnit(0).motion.acceleration = { 0, 0, -4 };
     state.unitStore.requireUnit(0).motion.velocity = { 5, 0, 0 };
     state.unitStore.requireUnit(0).motion.acceleration = { 0, 0, -4 };
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 100),
-    };
-    state.status.units[1].effects.frozenTimer = 2;
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
+    state.unitRecords.require(1).status.effects.frozenTimer = 2;
     state.movementPhysics.config.gravity = -4.0f;
     state.movementPhysics.config.friction = 0.1f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
@@ -3014,7 +3014,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     CHECK(state.unitRecords.require(0).movement.physics.movementDashSpreadFrames == 6);
 
     const auto& stoppedUnit = state.unitStore.requireUnit(1);
-    CHECK(state.status.units[1].effects.frozenTimer == 1);
+    CHECK(state.unitRecords.require(1).status.effects.frozenTimer == 1);
     CHECK(stoppedUnit.motion.position.x == 200.0f);
     CHECK(stoppedUnit.motion.velocity.x == 0.0f);
 }
@@ -3425,10 +3425,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnCo
     }));
     state.movement.frame = 1;
     state.attacks = attackWorld();
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 100),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
     state.unitStore.units = {
         runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
         runtimeUnitSnapshot(1, 1, 100, { 220, 100, 0 }),
@@ -3515,11 +3513,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAllyDeathEffectsInsideDamageLif
         runtimeUnitSnapshot(2, 1, 50, { 140, 100, 0 }),
     };
     state.unitStore.requireUnit(2).stats.attack = 10;
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 10),
-        statusRuntimeSnapshot(2, 50),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 10);
+    state.unitRecords.require(2).status = statusRuntimeSnapshot(2, 50);
     queuePendingDamage(state, lethalDamageInput(0, 1));
 
     BattleDeathEffectExtras dead;
@@ -3584,7 +3580,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[ba
     runBattleFrame(state);
 
     CHECK(state.unitStore.requireUnit(1).stats.attack == 44);
-    const auto& status = requireById(state.status.units, 1);
+    const auto& status = state.unitRecords.require(1).status;
     REQUIRE(status.effects.tempAttackBuffs.size() == 1);
     CHECK(status.effects.tempAttackBuffs[0].attackBonus == 14);
     CHECK(status.effects.tempAttackBuffs[0].remainingFrames == 45);
@@ -3658,11 +3654,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DropsDeferredAutoUltimateWhenBattleEnd
         runtimeUnitSnapshot(1, 1, 10, { 180, 100, 0 }),
         runtimeUnitSnapshot(2, 0, 100, { 120, 120, 0 }),
     };
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 10),
-        statusRuntimeSnapshot(2, 100),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 10);
+    state.unitRecords.require(2).status = statusRuntimeSnapshot(2, 100);
     state.deathEffects.store.units = { { 0 }, { 1 }, { 2 } };
 
     queuePendingDamage(state, lethalDamageInput(0, 1));
@@ -4019,11 +4013,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AccumulatesDamageTakenMpGainAcrossSame
         runtimeUnitSnapshot(1, 1, 100, { 210, 100, 0 }),
         runtimeUnitSnapshot(2, 0, 80, { 120, 100, 0 }),
     };
-    state.status.units = {
-        statusRuntimeSnapshot(0, 100),
-        statusRuntimeSnapshot(1, 100),
-        statusRuntimeSnapshot(2, 80),
-    };
+    state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 100);
+    state.unitRecords.require(1).status = statusRuntimeSnapshot(1, 100);
+    state.unitRecords.require(2).status = statusRuntimeSnapshot(2, 80);
     state.deathEffects.store.units = { { 0 }, { 1 }, { 2 } };
 
     auto first = preResolvedDamageInput(0, 1, 100, 20);
@@ -4074,7 +4066,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePreviewUsesResolvedPendingDamag
         state.unitStore.requireUnit(1),
         &requireById(state.damage.unitExtras, 1));
     pending.defenderStatus = makeBattleStatusUnitState(
-        requireById(state.status.units, 1),
+        state.unitRecords.require(1).status,
         state.unitStore.requireUnit(1));
     queuePendingDamage(state, pending);
 
@@ -4142,7 +4134,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageTakenMpGainHonorsMpBlock", "[bat
     auto& defender = state.unitStore.requireUnit(1);
     defender.vitals.mp = 5;
     defender.vitals.maxMp = 100;
-    state.status.units[1].effects.mpBlockTimer = 2;
+    state.unitRecords.require(1).status.effects.mpBlockTimer = 2;
 
     auto result = runBattleFrame(state);
 
@@ -4158,8 +4150,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesMainProjectileImpactFreezeInCor
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1).size() == 1);
-    CHECK(requireById(state.status.units, 1).effects.frozenTimer == 5);
-    CHECK(requireById(state.status.units, 1).effects.frozenMaxTimer == 5);
+    CHECK(state.unitRecords.require(1).status.effects.frozenTimer == 5);
+    CHECK(state.unitRecords.require(1).status.effects.frozenMaxTimer == 5);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyImpactFreezeForNonMainProjectile", "[battle][core][breakthrough]")
@@ -4171,7 +4163,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyImpactFreezeForNonMainProj
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1).size() == 1);
-    CHECK(requireById(state.status.units, 1).effects.frozenTimer == 0);
+    CHECK(state.unitRecords.require(1).status.effects.frozenTimer == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndInsideSameFrame", "[battle][core][breakthrough]")

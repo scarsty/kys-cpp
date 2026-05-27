@@ -130,7 +130,7 @@ BattleRuntimeUnitHandle BattleRuntimeUnits::makeHandle(BattleRuntimeUnit& core) 
     requireRescueRuntime(runtime, unitId);
     return {
         core,
-        &requireById(runtime.status.units, unitId),
+        &runtime.unitRecords.require(unitId).status,
         &requireMappedById(runtime.combo.units, unitId),
         &requireById(runtime.damage.unitExtras, unitId),
         &movement,
@@ -4031,7 +4031,7 @@ std::vector<BattleStatusEvent> advanceStatus(
     std::vector<BattlePendingDamageIntent>& pendingDamage)
 {
     state.status.config.frame = state.movement.frame;
-    auto statusTick = BattleStatusSystem(state.status.config).tick(state.unitStore, state.status.units);
+    auto statusTick = BattleStatusSystem(state.status.config).tick(state.unitStore, state.unitRecords);
     for (const auto& event : statusTick.events)
     {
         if (event.type != BattleStatusEventType::PoisonDamage
@@ -5181,7 +5181,7 @@ void applyFrameCastScopedComboEffects(
         {
             auto teamEvents = teamEffects.applyTeamMp(
                 state.unitStore,
-                state.status.units,
+                state.unitRecords,
                 state.combo.units,
                 effects.unitId,
                 event.effect.value);

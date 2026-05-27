@@ -1,6 +1,7 @@
 #include "BattleStatusSystem.h"
 
 #include "../ChessBattleEffects.h"
+#include "BattleRuntimeUnits.h"
 #include "BattleUnitStore.h"
 
 #include <algorithm>
@@ -196,18 +197,18 @@ BattleStatusSystem::BattleStatusSystem(BattleStatusSystemConfig config)
 {
 }
 
-BattleStatusTickResult BattleStatusSystem::tick(BattleUnitStore& units, BattleStatusRuntimeUnit& status) const
+BattleStatusTickResult BattleStatusSystem::tick(BattleUnitStore& units, BattleRuntimeUnitRecord& record) const
 {
-    auto& unit = units.requireUnit(status.id);
-    return tickStatusTarget(config_, RuntimeStatusTickTarget{ unit, status });
+    auto& unit = units.requireUnit(record.id());
+    return tickStatusTarget(config_, RuntimeStatusTickTarget{ unit, record.status });
 }
 
-BattleStatusTickResult BattleStatusSystem::tick(BattleUnitStore& units, std::vector<BattleStatusRuntimeUnit>& statuses) const
+BattleStatusTickResult BattleStatusSystem::tick(BattleUnitStore& units, BattleRuntimeUnitRecords& records) const
 {
     BattleStatusTickResult result;
-    for (auto& status : statuses)
+    for (auto& record : records.all())
     {
-        auto unitResult = tick(units, status);
+        auto unitResult = tick(units, record);
         result.events.insert(result.events.end(), unitResult.events.begin(), unitResult.events.end());
     }
     return result;
