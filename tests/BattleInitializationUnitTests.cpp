@@ -731,7 +731,7 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
     CHECK(cloneStatus.effects.damageImmunityDuration == 5);
     CHECK(cloneStatus.effects.damageImmunityTimer == 12);
 
-    const auto& cloneDamage = requireById(runtime.damage.unitExtras, 1);
+    const auto& cloneDamage = runtime.unitRecords.require(1).damage;
     CHECK(cloneDamage.blockFirstHitsRemaining == 2);
 
     const auto& cloneAgent = runtime.unitRecords.require(1).movement;

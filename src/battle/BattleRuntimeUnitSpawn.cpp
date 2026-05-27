@@ -169,7 +169,6 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
     auto record = BattleRuntimeUnitSpawn(spawn).makeRecord();
 
     runtime.unitStore.units.push_back(std::move(spawn.unit));
-    runtime.damage.unitExtras.push_back(std::move(spawn.damage));
     runtime.deathEffects.store.units.push_back({ .id = unitId });
     runtime.damage.presentationStylesByDefender.emplace(
         unitId,

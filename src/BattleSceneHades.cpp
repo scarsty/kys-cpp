@@ -1551,10 +1551,8 @@ void BattleSceneHades::renderExtraRoleInfo(
             {
                 return 0;
             }
-            const auto* damage = KysChess::tryFindById(
-                battle_session_->runtime().damage.unitExtras,
-                unit.id);
-            return damage ? damage->blockFirstHitsRemaining : 0;
+            const auto* record = battle_session_->runtime().unitRecords.find(unit.id);
+            return record != nullptr ? record->damage.blockFirstHitsRemaining : 0;
         }();
         bool hasDamageProtection = unit.invincible > 0 || firstHitBlocks > 0;
         if (hasDamageProtection)

@@ -261,8 +261,7 @@ void seedRuntimeUnitsFromMovementUnits(
         state.unitStore.gridTransform = { SceneTileWidth, 64 };
     }
     state.unitStore.units.clear();
-            state.damage.unitExtras.clear();
-    state.damage.presentationStylesByDefender.clear();
+                state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
     state.unitRecords = {};
@@ -282,8 +281,7 @@ void seedRuntimeUnitsFromMovementUnits(
 void seedRuntimeUnits(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> units)
 {
     state.unitStore.units.clear();
-            state.damage.unitExtras.clear();
-    state.damage.presentationStylesByDefender.clear();
+                state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
     state.unitRecords = {};
@@ -514,13 +512,12 @@ HitDamageFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
     state.deathEffects.store.units = { { 0 }, { 1 } };
     state.unitRecords.require(0).status = statusRuntimeSnapshot(0, 80);
     state.unitRecords.require(1).status = statusRuntimeSnapshot(1, defenderHp);
-    state.damage.unitExtras.clear();
-        for (const auto& unit : state.unitStore.units)
+    for (const auto& unit : state.unitStore.units)
     {
         const auto damage = makeBattleDamageUnitState(
             unit,
             static_cast<const BattleDamageRuntimeUnit*>(nullptr));
-        state.damage.unitExtras.push_back(makeBattleDamageRuntimeUnit(damage));
+        state.unitRecords.require(unit.id).damage = makeBattleDamageRuntimeUnit(damage);
         state.unitRecords.require(unit.id).combo = KysChess::RoleComboState{};
     }
     return frame;
@@ -813,7 +810,7 @@ void queuePendingDamage(
     {
         state.unitStore.writeDamageUnit(transaction.attacker);
         writeBattleDamageRuntimeUnit(
-            ensureById(state.damage.unitExtras, transaction.attacker.id),
+            state.unitRecords.require(transaction.attacker.id).damage,
             transaction.attacker);
     }
 
@@ -830,7 +827,7 @@ void queuePendingDamage(
     }
     state.unitStore.writeDamageUnit(transaction.defender);
     writeBattleDamageRuntimeUnit(
-        ensureById(state.damage.unitExtras, transaction.defender.id),
+        state.unitRecords.require(transaction.defender.id).damage,
         transaction.defender);
     writeBattleStatusRuntimeUnit(
         state.unitRecords.require(transaction.defenderStatus.id).status,
@@ -1534,6 +1531,33 @@ TEST_CASE("BattleRuntimeUnitRecord_ComboDomainMethodsUseOwnedCombo", "[battle][c
     record.clearPendingSkillHeal();
 
     CHECK_FALSE(record.combo.onSkillTeamHealPending);
+}
+
+TEST_CASE("BattleRuntimeUnitRecord_DamageStateComposesOwnedFacts", "[battle][core][ownership]")
+{
+    BattleRuntimeUnitRecord record;
+    record.core.id = 3;
+    record.core.alive = true;
+    record.core.vitals.hp = 40;
+    record.core.vitals.maxHp = 100;
+    record.core.vitals.mp = 5;
+    record.core.vitals.maxMp = 20;
+    record.damage.id = 3;
+    record.damage.blockFirstHitsRemaining = 2;
+    record.status.effects.mpBlockTimer = 4;
+    AppliedEffectInstance effect;
+    effect.type = EffectType::MPRecoveryBonus;
+    effect.trigger = Trigger::Always;
+    effect.value = 30;
+    effect.sourceComboId = -1;
+    record.combo.appliedEffects.push_back(effect);
+
+    const auto damage = record.damageState();
+
+    CHECK(damage.id == 3);
+    CHECK(damage.blockFirstHitsRemaining == 2);
+    CHECK(damage.mpBlocked);
+    CHECK(damage.mpRecoveryBonusPct == 30);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle][core][runtime]")
@@ -2946,12 +2970,13 @@ TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeStores", "[battle][c
     BattleDamageRuntimeUnit damage;
     damage.id = 1;
     damage.blockFirstHitsRemaining = 2;
-    state.damage.unitExtras = { { 0 }, damage };
+    state.unitRecords.require(0).damage = { 0 };
+    state.unitRecords.require(1).damage = damage;
 
     runBattleFrame(state);
 
     CHECK(state.unitStore.requireUnit(1).shield == 33);
-    CHECK(requireById(state.damage.unitExtras, 1).blockFirstHitsRemaining == 2);
+    CHECK(state.unitRecords.require(1).damage.blockFirstHitsRemaining == 2);
 }
 
 TEST_CASE("BattleFrameRunner_FirstHitBlockGameplayEventHasStatusText", "[battle][core][runtime]")
@@ -3127,7 +3152,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity", "[battle][c
     });
     state.unitStore.requireUnit(1).vitals.hp = 20;
     writeBattleDamageRuntimeUnit(
-        requireById(state.damage.unitExtras, 1),
+        state.unitRecords.require(1).damage,
         makeBattleDamageUnitState(state.unitStore.requireUnit(1), static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
 
     auto result = runBattleFrame(state);
@@ -3182,7 +3207,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ClampsDeathKickVelocity", "[battle][co
     });
     state.unitStore.requireUnit(1).vitals.hp = 500;
     writeBattleDamageRuntimeUnit(
-        requireById(state.damage.unitExtras, 1),
+        state.unitRecords.require(1).damage,
         makeBattleDamageUnitState(state.unitStore.requireUnit(1), static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
 
     auto result = runBattleFrame(state);
@@ -3235,7 +3260,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SeedsDeathKickForNextFramePhysics", "[
     });
     state.unitStore.requireUnit(1).vitals.hp = 20;
     writeBattleDamageRuntimeUnit(
-        requireById(state.damage.unitExtras, 1),
+        state.unitRecords.require(1).damage,
         makeBattleDamageUnitState(state.unitStore.requireUnit(1), static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
 
     auto result = runBattleFrame(state);
@@ -3384,7 +3409,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionKeepsRuntimeUnitAlive",
         },
     });
     state.unitStore.requireUnit(1).vitals.hp = 20;
-    auto& runtime = requireById(state.damage.unitExtras, 1);
+    auto& runtime = state.unitRecords.require(1).damage;
     runtime.deathPrevention = true;
     runtime.deathPreventionFrames = 30;
 
@@ -3419,7 +3444,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathPreventionUsedRuntimeDoesNotTrigg
         },
     });
     state.unitStore.requireUnit(1).vitals.hp = 20;
-    auto& runtime = requireById(state.damage.unitExtras, 1);
+    auto& runtime = state.unitRecords.require(1).damage;
     runtime.deathPrevention = true;
     runtime.deathPreventionFrames = 30;
     runtime.deathPreventionUsed = true;
@@ -4076,10 +4101,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePreviewUsesResolvedPendingDamag
     pending.request.preResolvedDamage = false;
     pending.attacker = makeBattleDamageUnitState(
         state.unitStore.requireUnit(0),
-        &requireById(state.damage.unitExtras, 0));
+        &state.unitRecords.require(0).damage);
     pending.defender = makeBattleDamageUnitState(
         state.unitStore.requireUnit(1),
-        &requireById(state.damage.unitExtras, 1));
+        &state.unitRecords.require(1).damage);
     pending.defenderStatus = makeBattleStatusUnitState(
         state.unitRecords.require(1).status,
         state.unitStore.requireUnit(1));

@@ -194,12 +194,15 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
     {
         previousStatuses.emplace(record.id(), record.status);
     }
-    const auto previousDamageExtras = state.damage.unitExtras;
+    std::map<int, BattleDamageRuntimeUnit> previousDamageExtras;
+    for (const auto& record : state.unitRecords.all())
+    {
+        previousDamageExtras.emplace(record.id(), record.damage);
+    }
 
     state.unitStore.units.clear();
     state.movement.movementReservations.clear();
-    state.damage.unitExtras.clear();
-    state.damage.presentationStylesByDefender.clear();
+        state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
     state.unitRecords = {};
@@ -218,9 +221,10 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
         {
             spawn.status = statusIt->second;
         }
-        if (const auto* damage = KysChess::tryFindById(previousDamageExtras, spawn.unit.id))
+        if (const auto damageIt = previousDamageExtras.find(spawn.unit.id);
+            damageIt != previousDamageExtras.end())
         {
-            spawn.damage = *damage;
+            spawn.damage = damageIt->second;
         }
         appendRuntimeUnit(state, std::move(spawn));
     }
@@ -233,12 +237,11 @@ BattleStatusRuntimeUnit runtimeStatusUnit(const BattleStatusUnitState& unit)
 
 void seedDamageExtrasFromUnits(BattleRuntimeState& state)
 {
-    state.damage.unitExtras.clear();
-    for (const auto& unit : state.unitStore.units)
+        for (const auto& unit : state.unitStore.units)
     {
         state.unitRecords.require(unit.id).combo = KysChess::RoleComboState{};
-        state.damage.unitExtras.push_back(makeBattleDamageRuntimeUnit(
-            makeBattleDamageUnitState(unit, static_cast<const BattleDamageRuntimeUnit*>(nullptr))));
+        state.unitRecords.require(unit.id).damage = makeBattleDamageRuntimeUnit(
+            makeBattleDamageUnitState(unit, static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
     }
 }
 
@@ -514,7 +517,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     BattleDamageRuntimeUnit damage;
     damage.id = 0;
     damage.blockFirstHitsRemaining = 2;
-    KysChess::requireById(state.damage.unitExtras, 0) = damage;
+    state.unitRecords.require(0).damage = damage;
     state.unitStore.requireUnit(0).invincible = 4;
     BattleStatusRuntimeUnit status;
     status.id = 0;
@@ -530,7 +533,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     CHECK(statusUnit.effects.frozenTimer == 3);
     CHECK(statusUnit.effects.frozenMaxTimer == 9);
     CHECK(runtimeUnit.shield == 12);
-    CHECK(KysChess::requireById(state.damage.unitExtras, 0).blockFirstHitsRemaining == 2);
+    CHECK(state.unitRecords.require(0).damage.blockFirstHitsRemaining == 2);
 }
 
 TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")

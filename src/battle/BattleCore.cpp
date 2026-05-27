@@ -132,7 +132,7 @@ BattleRuntimeUnitHandle BattleRuntimeUnits::makeHandle(BattleRuntimeUnit& core) 
         core,
         &runtime.unitRecords.require(unitId).status,
         &runtime.unitRecords.require(unitId).combo,
-        &requireById(runtime.damage.unitExtras, unitId),
+        &runtime.unitRecords.require(unitId).damage,
         &movement,
         &requireById(runtime.deathEffects.store.units, unitId),
         &runtime,
@@ -2567,7 +2567,7 @@ BattleCooldownState makeBattleFrameCooldownStateImpl(const BattleRuntimeUnit& un
 void commitDamageUnitCoreToRuntime(BattleRuntimeState& state, const BattleDamageUnitState& unit)
 {
     state.unitStore.writeDamageUnit(unit);
-    writeBattleDamageRuntimeUnit(requireById(state.damage.unitExtras, unit.id), unit);
+    state.unitRecords.require(unit.id).writeDamageResult(unit);
 }
 
 void commitDamageDefenderStatusToRuntime(

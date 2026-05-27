@@ -182,6 +182,19 @@ struct BattleRuntimeUnitRecord
     {
         writeBattleStatusRuntimeUnit(status, unit);
     }
+
+    BattleDamageUnitState damageState() const
+    {
+        auto unit = makeBattleDamageUnitState(core, &damage);
+        unit.mpBlocked = status.effects.mpBlockTimer > 0;
+        unit.mpRecoveryBonusPct = sumAlways(EffectType::MPRecoveryBonus);
+        return unit;
+    }
+
+    void writeDamageResult(const BattleDamageUnitState& unit)
+    {
+        writeBattleDamageRuntimeUnit(damage, unit);
+    }
 };
 
 class BattleRuntimeUnitComboView
@@ -565,7 +578,6 @@ struct BattleRuntimeState
     struct DamageState
     {
         bool sortPendingDamageByDefenderMagnitude = false;
-        std::vector<BattleDamageRuntimeUnit> unitExtras;
         std::map<int, BattleDamagePresentationStyle> presentationStylesByDefender;
     } damage;
 
