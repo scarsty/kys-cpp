@@ -268,6 +268,7 @@ void seedRuntimeUnitsFromMovementUnits(
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
     state.movement.agents.clear();
+    state.unitRecords = {};
     for (const auto& unit : units)
     {
         auto runtime = runtimeUnitSnapshot(unit.id, unit.team, hp, unit.position);
@@ -292,6 +293,7 @@ void seedRuntimeUnits(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> 
     state.rescue.units.clear();
     state.movement.agents.clear();
     state.action.clearPlanSeeds();
+    state.unitRecords = {};
 
     for (auto& unit : units)
     {

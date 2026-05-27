@@ -134,6 +134,27 @@ BattleRuntimeUnitSpawn makeRuntimeUnitSpawn(
     return spawn;
 }
 
+BattleRuntimeUnitRecord BattleRuntimeUnitSpawn::makeRecord() &&
+{
+    BattleRuntimeUnitRecord record;
+    record.core = std::move(unit);
+    record.combo = std::move(combo);
+    record.status = std::move(status);
+    record.damage = std::move(damage);
+    record.movement = std::move(movement);
+    record.deathEffects = { .id = record.core.id };
+    record.rescue = {
+        record.core.id,
+        sumAlwaysEffectCharges(record.combo, EffectType::ForcePullProtect),
+        sumAlwaysEffectCharges(record.combo, EffectType::ForcePullExecute),
+    };
+    if (actionPlan)
+    {
+        record.setActionPlan(std::move(*actionPlan));
+    }
+    return record;
+}
+
 void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn)
 {
     const int unitId = spawn.unit.id;
@@ -145,6 +166,8 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
         assert(spawn.actionPlan->unitId == unitId);
     }
 
+    auto record = BattleRuntimeUnitSpawn(spawn).makeRecord();
+
     runtime.unitStore.units.push_back(std::move(spawn.unit));
     runtime.status.units.push_back(std::move(spawn.status));
     runtime.damage.unitExtras.push_back(std::move(spawn.damage));
@@ -153,7 +176,7 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
     runtime.deathEffects.store.units.push_back({ .id = unitId });
     runtime.damage.presentationStylesByDefender.emplace(
         unitId,
-        makeDamagePresentationStyle(runtime.unitStore.requireUnit(unitId).team));
+        makeDamagePresentationStyle(record.core.team));
     runtime.rescue.units.push_back({
         unitId,
         sumAlwaysEffectCharges(runtime.combo.units.at(unitId), EffectType::ForcePullProtect),
@@ -163,6 +186,7 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
     {
         runtime.action.setPlanSeed(std::move(*spawn.actionPlan));
     }
+    runtime.unitRecords.append(std::move(record));
 }
 
 }  // namespace KysChess::Battle

@@ -15,6 +15,8 @@ struct BattleRuntimeUnitSpawn
     BattleDamageRuntimeUnit damage;
     BattleMovementAgentState movement;
     std::optional<BattleActionPlanSeed> actionPlan;
+
+    BattleRuntimeUnitRecord makeRecord() &&;
 };
 
 BattleStatusRuntimeUnit makeInitialStatusRuntimeUnit(

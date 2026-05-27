@@ -75,6 +75,7 @@ void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::v
     state.movement.agents.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
+    state.unitRecords = {};
     for (const auto& worldUnit : units)
     {
         state.unitStore.units.push_back(runtimeUnitFromWorld(worldUnit));
@@ -211,6 +212,7 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
     state.damage.presentationStylesByDefender.clear();
     state.deathEffects.store.units.clear();
     state.rescue.units.clear();
+    state.unitRecords = {};
     for (auto unit : units)
     {
         KysChess::RoleComboState combo;
@@ -342,6 +344,37 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     CHECK(unit.motion.velocity.norm() > 0.01f);
     CHECK(session.runtime().movement.agents.at(1).physics.velocity.x == unit.motion.velocity.x);
     CHECK(session.runtime().movement.agents.at(1).physics.velocity.y == unit.motion.velocity.y);
+}
+
+TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][runtime_session][ownership]")
+{
+    BattleRuntimeState runtime;
+    BattleRuntimeUnit unit;
+    unit.id = 4;
+    unit.team = 1;
+    unit.alive = true;
+    unit.vitals.maxHp = 100;
+    unit.motion.position = { 32.0f, 48.0f, 0.0f };
+
+    KysChess::RoleComboState combo;
+    combo.onSkillTeamHealPending = true;
+
+    BattleActionPlanSeed plan;
+    plan.unitId = 99;
+
+    appendRuntimeUnit(runtime, makeRuntimeUnitSpawn(std::move(unit), combo, plan));
+
+    REQUIRE(runtime.unitRecords.size() == 1);
+    const auto& record = runtime.unitRecords.require(4);
+    CHECK(record.core.id == 4);
+    CHECK(record.combo.onSkillTeamHealPending);
+    CHECK(record.status.id == 4);
+    CHECK(record.damage.id == 4);
+    CHECK(record.movement.physics.position.x == 32.0f);
+    CHECK(record.deathEffects.id == 4);
+    CHECK(record.rescue.unitId == 4);
+    REQUIRE(record.actionPlan() != nullptr);
+    CHECK(record.actionPlan()->unitId == 4);
 }
 
 TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[battle][runtime_session][ownership]")
