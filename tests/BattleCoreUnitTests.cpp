@@ -825,7 +825,7 @@ void queuePendingDamage(
     state.nextFrame.queueDamage(pendingDamageIntent(std::move(transaction), std::move(presentation)));
 }
 
-TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore", "[battle][core][runtime]")
+TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughRuntimeUnits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
     state.gridTransform = { SceneTileWidth, 64 };
@@ -849,7 +849,7 @@ TEST_CASE("BattleFrameRunner_RoutesDamageTransactionsThroughCanonicalUnitStore",
     CHECK_FALSE(defender.alive);
 }
 
-TEST_CASE("BattleFrameRunner_RoutesStatusTicksThroughCanonicalUnitStore", "[battle][core][runtime]")
+TEST_CASE("BattleFrameRunner_RoutesStatusTicksThroughRuntimeUnits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({ unit(0, 0, { 100, 100, 0 }) }));
@@ -898,7 +898,27 @@ TEST_CASE("BattleStatusSystem_CopiesStatusEffectsAsACluster", "[battle][status]"
     CHECK(runtime.effects.damageReduceDebuffs[0].pct == 14);
 }
 
-TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughCanonicalUnitStore", "[battle][core][runtime]")
+TEST_CASE("BattleStatusSystem_UsesRecordCoreIdWhenStatusRuntimeIdDrifts", "[battle][status]")
+{
+    BattleRuntimeUnitRecord record;
+    record.core.id = 7;
+    record.core.alive = true;
+    record.core.vitals.hp = 80;
+    record.core.vitals.maxHp = 100;
+    record.core.stats.attack = 15;
+    record.status.id = 99;
+    record.status.effects.tempAttackBuffs.push_back({ 5, 1 });
+
+    auto result = BattleStatusSystem({}).tick(record);
+    auto damageState = record.statusDamageState();
+
+    REQUIRE(result.events.size() == 1);
+    CHECK(result.events.front().unitId == 7);
+    CHECK(result.events.front().sourceUnitId == 7);
+    CHECK(damageState.id == 7);
+}
+
+TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughRuntimeUnits", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({ unit(0, 0, { 100, 100, 0 }) }));

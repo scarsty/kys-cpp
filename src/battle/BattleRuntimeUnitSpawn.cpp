@@ -166,7 +166,7 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
         assert(spawn.actionPlan->unitId == unitId);
     }
 
-    auto record = BattleRuntimeUnitSpawn(spawn).makeRecord();
+    auto record = std::move(spawn).makeRecord();
 
     runtime.damage.presentationStylesByDefender.emplace(
         unitId,

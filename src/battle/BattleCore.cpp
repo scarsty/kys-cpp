@@ -2497,14 +2497,14 @@ void applyDamageResultToFrameState(
     }
 }
 
-void applyRescueDamageToUnitStore(BattleRuntimeState& state, int unitId, int hp, int invincible)
+void applyRescueDamageToRuntimeUnit(BattleRuntimeState& state, int unitId, int hp, int invincible)
 {
     auto& unit = state.units.requireCore(unitId);
     unit.vitals.hp = hp;
     unit.invincible = invincible;
 }
 
-void applyRescuePositionToUnitStore(BattleRuntimeState& state, int unitId, Pointf position)
+void applyRescuePositionToRuntimeUnit(BattleRuntimeState& state, int unitId, Pointf position)
 {
     state.units.setPosition(unitId, position, state.gridTransform);
 }
@@ -2606,7 +2606,7 @@ void commitRescueResultToRuntime(
 
     auto& pulled = state.units.requireCore(result.teleport->unitId);
     pulled.grid = result.teleport->destinationCell;
-    applyRescuePositionToUnitStore(state, pulled.id, result.teleport->destinationPosition);
+    applyRescuePositionToRuntimeUnit(state, pulled.id, result.teleport->destinationPosition);
 
     if (result.counterDelta.unitId >= 0)
     {
@@ -2627,7 +2627,7 @@ void commitRescueResultToRuntime(
         assert(result.invincibility.targetUnitId == pulled.id);
         pulled.invincible += result.invincibility.frames;
     }
-    applyRescueDamageToUnitStore(state, pulled.id, pulled.vitals.hp, pulled.invincible);
+    applyRescueDamageToRuntimeUnit(state, pulled.id, pulled.vitals.hp, pulled.invincible);
 
     if (result.basicCounterAttack)
     {

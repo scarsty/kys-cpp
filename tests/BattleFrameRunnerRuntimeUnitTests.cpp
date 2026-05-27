@@ -531,7 +531,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     CHECK(state.units.require(0).damage.blockFirstHitsRemaining == 2);
 }
 
-TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnitsFromUnitStore", "[battle][frame_runner][runtime][unit]")
+TEST_CASE("BattleFrameRunner_RunFrame_AdvancesRuntimeUnits", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
     seedRuntimeUnits(state, {
@@ -597,7 +597,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     CHECK_FALSE(state.units.require(0).combo.onSkillTeamHealPending);
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToUnitStore", "[battle][frame_runner][runtime][unit]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToRuntimeUnits", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
     seedRuntimeUnits(state, {

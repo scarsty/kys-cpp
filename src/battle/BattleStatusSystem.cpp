@@ -16,7 +16,7 @@ struct RuntimeStatusTickTarget
     BattleRuntimeUnit& unit;
     BattleStatusRuntimeUnit& status;
 
-    int id() const { return status.id; }
+    int id() const { return unit.id; }
     bool alive() const { return unit.alive; }
     int hp() const { return unit.vitals.hp; }
     int maxHp() const { return unit.vitals.maxHp; }
@@ -247,7 +247,7 @@ BattleStatusUnitState makeBattleStatusUnitState(const BattleRuntimeUnit& unit, c
 BattleStatusUnitState makeBattleStatusUnitState(const BattleStatusRuntimeUnit& status, const BattleRuntimeUnit& unit)
 {
     BattleStatusUnitState frame;
-    frame.id = status.id;
+    frame.id = unit.id;
     frame.alive = unit.alive;
     frame.hp = unit.vitals.hp;
     frame.maxHp = unit.vitals.maxHp;
