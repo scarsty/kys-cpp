@@ -80,12 +80,9 @@ BattleStatusRuntimeUnit makeInitialStatusRuntimeUnit(
     return makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(unit, combo));
 }
 
-BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(
-    int unitId,
-    const RoleComboState& combo)
+BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(const RoleComboState& combo)
 {
     BattleDamageRuntimeUnit damage;
-    damage.id = unitId;
     damage.hurtInvincFrames = maxAlwaysEffectValue(combo, EffectType::HurtInvincFrames);
     damage.blockFirstHitsRemaining = sumAlwaysEffectValue(combo, EffectType::BlockFirstHits);
     damage.deathPrevention = maxAlwaysEffectValue(combo, EffectType::DeathPrevention) > 0;
@@ -107,13 +104,13 @@ BattleMovementAgentState makeInitialMovementAgent(
     return agent;
 }
 
-void refreshRuntimeUnitSpawnStores(BattleRuntimeUnitSpawn& spawn)
+void refreshRuntimeUnitSpawnDerivedState(BattleRuntimeUnitSpawn& spawn)
 {
     assert(spawn.unit.id >= 0);
 
     spawn.unit.shield = initialShieldFor(spawn.unit, spawn.combo);
     spawn.status = makeInitialStatusRuntimeUnit(spawn.unit, spawn.combo);
-    spawn.damage = makeInitialDamageRuntimeUnit(spawn.unit.id, spawn.combo);
+    spawn.damage = makeInitialDamageRuntimeUnit(spawn.combo);
     spawn.movement = makeInitialMovementAgent(spawn.unit);
     if (spawn.actionPlan)
     {
@@ -130,7 +127,7 @@ BattleRuntimeUnitSpawn makeRuntimeUnitSpawn(
     spawn.unit = std::move(unit);
     spawn.combo = std::move(combo);
     spawn.actionPlan = std::move(actionPlan);
-    refreshRuntimeUnitSpawnStores(spawn);
+    refreshRuntimeUnitSpawnDerivedState(spawn);
     return spawn;
 }
 
@@ -142,9 +139,8 @@ BattleRuntimeUnitRecord BattleRuntimeUnitSpawn::makeRecord() &&
     record.status = std::move(status);
     record.damage = std::move(damage);
     record.movement = std::move(movement);
-    record.deathEffects = { .id = record.core.id };
+    record.deathEffects = {};
     record.rescue = {
-        record.core.id,
         sumAlwaysEffectCharges(record.combo, EffectType::ForcePullProtect),
         sumAlwaysEffectCharges(record.combo, EffectType::ForcePullExecute),
     };
@@ -159,7 +155,6 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
 {
     const int unitId = spawn.unit.id;
     assert(unitId >= 0);
-    assert(spawn.damage.id == unitId);
     if (spawn.actionPlan)
     {
         assert(spawn.actionPlan->unitId == unitId);

@@ -12,7 +12,6 @@ class BattleRuntimeUnits;
 
 struct BattleDeathEffectExtras
 {
-    int id = -1;
     int shieldPctMaxHp = 0;
     int shieldOnAllyDeathTracker = 0;
     std::vector<int> comboIds;

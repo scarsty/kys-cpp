@@ -10,7 +10,7 @@ using namespace KysChess::Battle;
 namespace
 {
 
-BattleRuntimeUnit unit(int id, int team, int hp, int mp, int shield = 0)
+BattleRuntimeUnit unit(int id, int team, int hp, int mp)
 {
     BattleRuntimeUnit state;
     state.id = id;
@@ -21,7 +21,6 @@ BattleRuntimeUnit unit(int id, int team, int hp, int mp, int shield = 0)
     state.vitals.mp = mp;
     state.vitals.maxMp = 100;
     state.animation.cooldown = 50;
-    state.shield = shield;
     state.motion.position = { static_cast<float>(id * 10.0), 0.0f, 0.0f };
     return state;
 }
@@ -84,10 +83,12 @@ TEST_CASE("BattleTeamEffectSystem_TeamMp_RespectsBlockBonusAndCap", "[battle][te
 TEST_CASE("BattleTeamEffectSystem_TeamShield_AddsOrRefreshes", "[battle][team_effect][unit]")
 {
     auto units = KysChess::Battle::Test::runtimeRecords({
-        unit(0, 0, 100, 0, 30),
-        unit(1, 0, 100, 0, 5),
-        unit(2, 1, 100, 0, 0),
+        unit(0, 0, 100, 0),
+        unit(1, 0, 100, 0),
+        unit(2, 1, 100, 0),
     });
+    units.requireCore(0).shield = 30;
+    units.requireCore(1).shield = 5;
 
     auto refresh = BattleTeamEffectSystem().applyTeamShield(units, 0, 20, true);
     REQUIRE(refresh.size() == 1);

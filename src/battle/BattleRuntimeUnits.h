@@ -37,7 +37,6 @@ struct BattleRuntimeUnitActionState
 
 struct BattleRescueUnitRuntime
 {
-    int unitId = -1;
     int forcePullProtectRemaining = 0;
     int forcePullExecuteRemaining = 0;
 };
@@ -67,14 +66,9 @@ struct BattleRuntimeUnitRecord
         action.planSeed = std::move(seed);
     }
 
-    BattlePendingCastAction* pendingCast()
+    auto pendingCast(this auto& self)
     {
-        return action.pendingCast ? &*action.pendingCast : nullptr;
-    }
-
-    const BattlePendingCastAction* pendingCast() const
-    {
-        return action.pendingCast ? &*action.pendingCast : nullptr;
+        return self.action.pendingCast ? &*self.action.pendingCast : nullptr;
     }
 
     void setPendingCast(BattlePendingCastAction pending)
@@ -250,66 +244,20 @@ public:
     void append(BattleRuntimeUnitRecord record)
     {
         assert(record.id() >= 0);
-        assert(find(record.id()) == nullptr);
+        assert(recordById(record.id()) == nullptr);
         records_.push_back(std::move(record));
     }
 
-    BattleRuntimeUnitRecord* find(int unitId)
+    decltype(auto) require(this auto& self, int unitId)
     {
-        auto it = std::ranges::find_if(
-            records_,
-            [unitId](const BattleRuntimeUnitRecord& record)
-            {
-                return record.id() == unitId;
-            });
-        return it == records_.end() ? nullptr : &*it;
-    }
-
-    const BattleRuntimeUnitRecord* find(int unitId) const
-    {
-        auto it = std::ranges::find_if(
-            records_,
-            [unitId](const BattleRuntimeUnitRecord& record)
-            {
-                return record.id() == unitId;
-            });
-        return it == records_.end() ? nullptr : &*it;
-    }
-
-    BattleRuntimeUnitRecord& require(int unitId)
-    {
-        auto* record = find(unitId);
+        auto* record = self.recordById(unitId);
         assert(record != nullptr);
         return *record;
     }
 
-    const BattleRuntimeUnitRecord& require(int unitId) const
+    decltype(auto) requireCore(this auto& self, int unitId)
     {
-        const auto* record = find(unitId);
-        assert(record != nullptr);
-        return *record;
-    }
-
-    BattleRuntimeUnit* findCore(int unitId)
-    {
-        auto* record = find(unitId);
-        return record == nullptr ? nullptr : &record->core;
-    }
-
-    const BattleRuntimeUnit* findCore(int unitId) const
-    {
-        const auto* record = find(unitId);
-        return record == nullptr ? nullptr : &record->core;
-    }
-
-    BattleRuntimeUnit& requireCore(int unitId)
-    {
-        return require(unitId).core;
-    }
-
-    const BattleRuntimeUnit& requireCore(int unitId) const
-    {
-        return require(unitId).core;
+        return (self.require(unitId).core);
     }
 
     void writeDamageUnit(const BattleDamageUnitState& source)
@@ -371,61 +319,45 @@ public:
             }));
     }
 
-    auto all()
+    auto all(this auto& self)
     {
-        return records_ | std::views::all;
+        return self.records_ | std::views::all;
     }
 
-    auto all() const
+    auto cores(this auto& self)
     {
-        return records_ | std::views::all;
-    }
-
-    auto cores()
-    {
-        return records_
+        return self.records_
             | std::views::transform(
-                [](BattleRuntimeUnitRecord& record) -> BattleRuntimeUnit&
+                [](auto& record) -> decltype(auto)
                 {
-                    return record.core;
+                    return (record.core);
                 });
     }
 
-    auto cores() const
+    auto live(this auto& self)
     {
-        return records_
-            | std::views::transform(
-                [](const BattleRuntimeUnitRecord& record) -> const BattleRuntimeUnit&
-                {
-                    return record.core;
-                });
-    }
-
-    auto live()
-    {
-        return records_
+        return self.records_
             | std::views::filter([](const BattleRuntimeUnitRecord& record) { return record.core.alive; });
     }
 
-    auto live() const
+    auto dead(this auto& self)
     {
-        return records_
-            | std::views::filter([](const BattleRuntimeUnitRecord& record) { return record.core.alive; });
-    }
-
-    auto dead()
-    {
-        return records_
-            | std::views::filter([](const BattleRuntimeUnitRecord& record) { return !record.core.alive; });
-    }
-
-    auto dead() const
-    {
-        return records_
+        return self.records_
             | std::views::filter([](const BattleRuntimeUnitRecord& record) { return !record.core.alive; });
     }
 
 private:
+    auto recordById(this auto& self, int unitId)
+    {
+        auto it = std::ranges::find_if(
+            self.records_,
+            [unitId](const BattleRuntimeUnitRecord& record)
+            {
+                return record.id() == unitId;
+            });
+        return it == self.records_.end() ? nullptr : &*it;
+    }
+
     std::vector<BattleRuntimeUnitRecord> records_;
 };
 

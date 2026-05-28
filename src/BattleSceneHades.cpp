@@ -65,14 +65,10 @@ RuntimeFrozenStatus runtimeFrozenStatusForUnit(
     {
         return {};
     }
-    const auto* record = session->runtime().units.find(unitId);
-    if (record == nullptr)
-    {
-        return {};
-    }
+    const auto& record = session->runtime().units.require(unitId);
     return {
-        record->status.effects.frozenTimer,
-        record->status.effects.frozenMaxTimer,
+        record.status.effects.frozenTimer,
+        record.status.effects.frozenMaxTimer,
     };
 }
 
@@ -1577,8 +1573,7 @@ void BattleSceneHades::renderExtraRoleInfo(
             {
                 return 0;
             }
-            const auto* record = battle_session_->runtime().units.find(unit.id);
-            return record != nullptr ? record->damage.blockFirstHitsRemaining : 0;
+            return battle_session_->runtime().units.require(unit.id).damage.blockFirstHitsRemaining;
         }();
         bool hasDamageProtection = unit.invincible > 0 || firstHitBlocks > 0;
         if (hasDamageProtection)

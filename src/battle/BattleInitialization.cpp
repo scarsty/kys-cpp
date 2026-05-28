@@ -686,7 +686,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(
             }
         }
         spawn.combo = std::move(combo);
-        refreshRuntimeUnitSpawnStores(spawn);
+        refreshRuntimeUnitSpawnDerivedState(spawn);
         seededUnitIds.push_back(seed.unitId);
     }
 
@@ -723,7 +723,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(
         }
 
         auto& spawn = requireSpawnByUnitId(spawns, seed.unitId);
-        refreshRuntimeUnitSpawnStores(spawn);
+        refreshRuntimeUnitSpawnDerivedState(spawn);
         spawn.unit.shield += teamShield;
         result.logEvents.push_back(
             {

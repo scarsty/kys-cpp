@@ -105,7 +105,7 @@ inline BattleAttackState scenarioAttackState()
     return state;
 }
 
-inline void seedScenarioRuntimeStores(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> units)
+inline void seedScenarioRuntimeUnits(BattleRuntimeState& state, std::vector<BattleRuntimeUnit> units)
 {
     state.gridTransform = { ScenarioTileWidth, ScenarioCoordCount };
     state.movement.frame = 0;

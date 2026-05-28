@@ -29,7 +29,7 @@ BattleRuntimeUnit unit(int id, int team, double x, double y)
     return state;
 }
 
-BattleRuntimeUnits unitStore(std::initializer_list<BattleRuntimeUnit> unitList)
+BattleRuntimeUnits runtimeUnits(std::initializer_list<BattleRuntimeUnit> unitList)
 {
     return KysChess::Battle::Test::runtimeRecords(unitList);
 }
@@ -271,7 +271,7 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
 {
     auto world = attackWorld();
     world.hitRadius = SceneHitRadius;
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 40, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 40, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.skillId = 101;
     projectile.state.operationType = BattleOperationType::RangedProjectile;
@@ -325,7 +325,7 @@ TEST_CASE("BattleAttackSystem_InvincibleContactEmitsNonDamagingBlockOnce", "[bat
 {
     auto world = attackWorld();
     world.hitRadius = SceneHitRadius;
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 40, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 40, 0) });
     units.requireCore(2).invincible = 1;
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
@@ -351,7 +351,7 @@ TEST_CASE("BattleAttackSystem_InvincibleContactEmitsNonDamagingBlockOnce", "[bat
 TEST_CASE("BattleAttackSystem_MeleeHitOnlyEmitsAfterHitVolumeReachesTarget", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({
+    auto units = runtimeUnits({
         unit(1, 0, 0, 0),
         unit(2, 1, SceneHitRadius + 1.0, 0),
     });
@@ -372,7 +372,7 @@ TEST_CASE("BattleAttackSystem_MeleeHitOnlyEmitsAfterHitVolumeReachesTarget", "[b
 TEST_CASE("BattleAttackSystem_RangedHitOnlyEmitsAfterProjectileReachesTarget", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({
+    auto units = runtimeUnits({
         unit(1, 0, 0, 0),
         unit(2, 1, SceneHitRadius + SceneProjectileSpeed + 1.0, 0),
     });
@@ -394,7 +394,7 @@ TEST_CASE("BattleAttackSystem_FastProjectileHitsTargetCrossedBetweenFrames", "[b
 {
     auto world = attackWorld();
     world.hitRadius = 10.0;
-    auto units = unitStore({
+    auto units = runtimeUnits({
         unit(1, 0, 0, 0),
         unit(2, 1, 50, 0),
     });
@@ -412,7 +412,7 @@ TEST_CASE("BattleAttackSystem_OngoingProjectileCanHitAfterSourceDies", "[battle]
 {
     auto world = attackWorld();
     world.hitRadius = 10.0;
-    auto units = unitStore({
+    auto units = runtimeUnits({
         unit(1, 0, 0, 0),
         unit(2, 1, 50, 0),
     });
@@ -431,7 +431,7 @@ TEST_CASE("BattleAttackSystem_FastPreferredProjectileCanHitCloseTargetBehindSpaw
 {
     auto world = attackWorld();
     world.hitRadius = 10.0;
-    auto units = unitStore({
+    auto units = runtimeUnits({
         unit(1, 0, 0, 0),
         unit(2, 1, 40, 0),
     });
@@ -449,7 +449,7 @@ TEST_CASE("BattleAttackSystem_FastPreferredProjectileCanHitCloseTargetBehindSpaw
 TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 500, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 500, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.velocity = { 3, 4, 0 };
     projectile.state.totalFrame = 1;
@@ -468,7 +468,7 @@ TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][uni
 TEST_CASE("BattleAttackSystem_HitsNearestEnemyOnceAndMarksNonThroughSpent", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 40, 0), unit(3, 1, 45, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 40, 0), unit(3, 1, 45, 0) });
     world.attacks.push_back(attack(10, 1, 0, 0));
 
     auto events = BattleAttackSystem().tick(world, units);
@@ -485,7 +485,7 @@ TEST_CASE("BattleAttackSystem_HitsNearestEnemyOnceAndMarksNonThroughSpent", "[ba
 TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameTargetTwice", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 30, 0), unit(3, 1, 120, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 30, 0), unit(3, 1, 120, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.through = true;
     world.attacks.push_back(projectile);
@@ -503,7 +503,7 @@ TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameT
 TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectiles", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 30, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 30, 0) });
     auto first = attack(10, 1, 0, 0);
     first.state.sharedHitGroupId = 7;
     first.state.through = true;
@@ -523,7 +523,7 @@ TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectil
 TEST_CASE("BattleAttackSystem_RequiredPreferredTargetExpiresWhenTargetInvalid", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 30, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 30, 0) });
     units.requireCore(2).alive = false;
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.preferredTargetUnitId = 2;
@@ -542,7 +542,7 @@ TEST_CASE("BattleAttackSystem_TrackingPreservesSpeedWhileTurningTowardTarget", "
 {
     auto world = attackWorld();
     world.hitRadius = TightTrackingHitRadius;
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 100, 100) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 100, 100) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.track = true;
     projectile.state.velocity = { 10, 0, 0 };
@@ -558,7 +558,7 @@ TEST_CASE("BattleAttackSystem_TrackingProjectileStopsSteeringAfterFirstThroughHi
 {
     auto world = attackWorld();
     world.hitRadius = TightTrackingHitRadius;
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 100, 100) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 100, 100) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.track = true;
     projectile.state.through = true;
@@ -577,7 +577,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle]
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     auto rhs = attack(11, 2, 20, 0);
@@ -595,7 +595,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDama
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     lhs.state.operationType = BattleOperationType::TrackingProjectile;
@@ -620,7 +620,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDama
 TEST_CASE("BattleAttackSystem_OngoingProjectilesCanCancelAfterSourceDies", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     units.requireCore(1).alive = false;
     auto first = attack(10, 1, 0, 0);
     first.state.operationType = BattleOperationType::RangedProjectile;
@@ -641,7 +641,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelUsesEachProjectileOncePerFrame", "
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     for (int i = 0; i < 3; ++i)
     {
         auto lhs = attack(10 + i, 1, 0, 0);
@@ -678,7 +678,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelMatchesHighestStrengthPairsFirst",
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto weakLeft = attack(10, 1, 0, 0);
     weakLeft.frame = 5;
     weakLeft.state.projectileCancelDamage = 10;
@@ -716,7 +716,7 @@ TEST_CASE("BattleAttackSystem_FastProjectilesCancelWhenCrossingBetweenFrames", "
     auto world = attackWorld();
     world.hitRadius = 10.0;
     world.projectileGraceFrames = 5;
-    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     lhs.state.velocity = { 100, 0, 0 };
@@ -766,7 +766,7 @@ TEST_CASE("BattleAttackSystem_UltimateProjectileDoesNotCancel", "[battle][attack
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     lhs.state.ultimate = true;
@@ -783,7 +783,7 @@ TEST_CASE("BattleAttackSystem_IgnoredProjectileDoesNotCancel", "[battle][attack]
 {
     auto world = attackWorld();
     world.projectileGraceFrames = 5;
-    auto units = unitStore({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
     lhs.state.ignoreProjectileCancel = true;
@@ -800,7 +800,7 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
 {
     auto world = attackWorld();
     world.nextAttackId = 20;
-    auto units = unitStore({
+    auto units = runtimeUnits({
         unit(1, 0, 0, 0),
         unit(2, 1, 20, 0),
         unit(3, 1, 80, 0),
@@ -844,7 +844,7 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
 TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 80, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 80, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.bounceRemaining = 1;
     projectile.state.bounceRange = 120;
@@ -863,7 +863,7 @@ TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[
 TEST_CASE("BattleAttackSystem_BounceLastHitReportsChainEnded", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 20, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 20, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.spawnedFromAttackId = 9;
     projectile.state.bounceRemaining = 0;
@@ -881,7 +881,7 @@ TEST_CASE("BattleAttackSystem_BounceLastHitReportsChainEnded", "[battle][attack]
 TEST_CASE("BattleAttackSystem_BounceReportsNoTargetInRangeBeforeChainEnds", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 260, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 260, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.bounceRemaining = 2;
     projectile.state.bounceRange = 120;
@@ -899,7 +899,7 @@ TEST_CASE("BattleAttackSystem_BounceReportsNoTargetInRangeBeforeChainEnds", "[ba
 TEST_CASE("BattleAttackSystem_BounceDoesNotSelectPreviouslyHitTarget", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({ unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 80, 0) });
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 80, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.bounceRemaining = 2;
     projectile.state.bounceRange = 120;
@@ -918,7 +918,7 @@ TEST_CASE("BattleAttackSystem_BounceDoesNotSelectPreviouslyHitTarget", "[battle]
 TEST_CASE("BattleAttackSystem_BounceCannotTriggerWithoutHitEvent", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    auto units = unitStore({
+    auto units = runtimeUnits({
         unit(1, 0, 0, 0),
         unit(2, 1, SceneHitRadius + 1.0, 0),
         unit(3, 1, SceneHitRadius + SceneBounceSpawnDistance, 0),

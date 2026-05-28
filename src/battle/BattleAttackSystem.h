@@ -10,6 +10,8 @@
 namespace KysChess::Battle
 {
 
+inline constexpr int OptionalPreferredTargetUnitId = -1;
+
 struct BattleRuntimeUnit;
 class BattleRuntimeUnits;
 
@@ -42,7 +44,7 @@ struct BattleAttackPayload
     int skillEffectId = -1;
     int skillAttackerActProperty = 0;
     int skillMagicPower = 0;
-    int preferredTargetUnitId = -1;
+    int preferredTargetUnitId = OptionalPreferredTargetUnitId;
     bool requirePreferredTarget = false;
     int totalFrame = 1;
     bool track = false;

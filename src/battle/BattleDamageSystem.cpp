@@ -70,7 +70,6 @@ void writeBattleResourceUnit(BattleDamageUnitState& unit, const BattleResourceUn
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit)
 {
     BattleDamageRuntimeUnit runtime;
-    runtime.id = unit.id;
     runtime.hurtInvincFrames = unit.hurtInvincFrames;
     runtime.blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
     runtime.deathPrevention = unit.deathPrevention;

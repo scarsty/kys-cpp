@@ -91,7 +91,7 @@ TEST_CASE("BattleRuntimeScenario_BasicSessionDigestTracksFramesAndRuntime", "[ba
 TEST_CASE("BattleRuntimeScenario_DamageDeathEffectsAndFollowUpDigest", "[battle][scenario][runtime]")
 {
     BattleRuntimeState state;
-    seedScenarioRuntimeStores(state, {
+    seedScenarioRuntimeUnits(state, {
         scenarioRuntimeUnit(0, 0, 100, { 100, 100, 0 }),
         scenarioRuntimeUnit(1, 1, 10, { 120, 100, 0 }),
         scenarioRuntimeUnit(2, 1, 50, { 140, 100, 0 }),
@@ -107,21 +107,19 @@ TEST_CASE("BattleRuntimeScenario_DamageDeathEffectsAndFollowUpDigest", "[battle]
     state.projectileFollowUps.areaSpawnDistance = ScenarioTileWidth;
 
     BattleDeathEffectExtras dead;
-    dead.id = 1;
     dead.comboIds = { 9 };
     dead.appliedEffects.push_back(
         { KysChess::EffectType::DeathMedical, 20, 0, "", KysChess::Trigger::Always, 0, 0, 0, 9 });
 
     BattleDeathEffectExtras ally;
-    ally.id = 2;
     ally.shieldPctMaxHp = 30;
     ally.comboIds = { 9 };
     ally.appliedEffects.push_back(
         { KysChess::EffectType::AllyDeathStatBoost, 4, 0, "", KysChess::Trigger::Always, 0, 0, 0, 9 });
     ally.appliedEffects.push_back(
         { KysChess::EffectType::ShieldOnAllyDeath, 1, 0, "", KysChess::Trigger::Always, 0, 0, 0, 9 });
-    state.units.require(dead.id).deathEffects = dead;
-    state.units.require(ally.id).deathEffects = ally;
+    state.units.require(1).deathEffects = dead;
+    state.units.require(2).deathEffects = ally;
     state.deathEffects.store.regularSynergyComboIds.insert(9);
 
     BattleRuntimeSession session(std::move(state));
@@ -191,7 +189,7 @@ TEST_CASE("BattleRuntimeScenario_ActionProjectileDamageClearsCastState", "[battl
 TEST_CASE("BattleRuntimeScenario_ProjectileCancellationDigest", "[battle][scenario][runtime]")
 {
     BattleRuntimeState state;
-    seedScenarioRuntimeStores(state, {
+    seedScenarioRuntimeUnits(state, {
         scenarioRuntimeUnit(0, 0, 100, { 100, 100, 0 }),
         scenarioRuntimeUnit(1, 1, 100, { 900, 900, 0 }),
     });
@@ -223,7 +221,7 @@ TEST_CASE("BattleRuntimeScenario_ProjectileCancellationDigest", "[battle][scenar
 TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime]")
 {
     BattleRuntimeState state;
-    seedScenarioRuntimeStores(state, {
+    seedScenarioRuntimeUnits(state, {
         scenarioRuntimeUnit(0, 0, 100, { 100, 100, 0 }),
         scenarioRuntimeUnit(1, 1, 50, { 180, 180, 0 }),
         scenarioRuntimeUnit(2, 1, 100, { 72, 72, 0 }),

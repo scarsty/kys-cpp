@@ -90,7 +90,6 @@ BattleDeathEffectStore makeDeathEffectStore(BattleRuntimeUnits& records)
     {
         const auto& unit = record.core;
         auto& extras = record.deathEffects;
-        extras.id = record.id();
         extras.shieldPctMaxHp = sumAlwaysEffectValue(record.combo, EffectType::ShieldPctMaxHP);
         extras.appliedEffects = record.combo.appliedEffects;
 
@@ -254,7 +253,7 @@ BattleRuntimeState buildRuntimeFromSpawns(
     return runtime;
 }
 
-void deriveRuntimeStores(
+void deriveRuntimeState(
     BattleRuntimeState& runtime,
     BattleRuntimeSessionCreationInput input)
 {
@@ -316,7 +315,7 @@ BattleRuntimeSetupResult setupBattleRuntime(BattleRuntimeSessionCreationInput in
         input.setup,
         BattleInitializationContext{ input.rules.gridTransform, input.battleFrame });
     auto runtime = buildRuntimeFromSpawns(input, std::move(spawns));
-    deriveRuntimeStores(runtime, std::move(input));
+    deriveRuntimeState(runtime, std::move(input));
 
     return {
         std::move(runtime),

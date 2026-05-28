@@ -15,6 +15,8 @@ struct RoleComboState;
 namespace KysChess::Battle
 {
 
+inline constexpr int OptionalDamageAttackerUnitId = -1;
+
 struct BattleRuntimeUnit;
 
 struct BattleDamageUnitState
@@ -43,7 +45,6 @@ struct BattleDamageUnitState
 
 struct BattleDamageRuntimeUnit
 {
-    int id = -1;
     int hurtInvincFrames = 0;
     int blockFirstHitsRemaining = 0;
     bool deathPrevention = false;
@@ -277,7 +278,7 @@ struct BattleDamageEvent
 
 struct BattleDamageRequest
 {
-    int attackerUnitId = -1;
+    int attackerUnitId = OptionalDamageAttackerUnitId;
     int defenderUnitId = -1;
     double baseDamage = 0.0;
     int mpDamage = 0;

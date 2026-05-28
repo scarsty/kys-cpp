@@ -352,15 +352,12 @@ TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][
     const auto& record = runtime.units.require(4);
     CHECK(record.core.id == 4);
     CHECK(record.combo.onSkillTeamHealPending);
-    CHECK(record.damage.id == 4);
     CHECK(record.movement.physics.position.x == 32.0f);
-    CHECK(record.deathEffects.id == 4);
-    CHECK(record.rescue.unitId == 4);
     REQUIRE(record.actionPlan() != nullptr);
     CHECK(record.actionPlan()->unitId == 4);
 }
 
-TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[battle][runtime_session][ownership]")
+TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeRecords", "[battle][runtime_session][ownership]")
 {
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(SceneTileWidth, 18);
@@ -384,7 +381,7 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeStores", "[ba
     REQUIRE(session.runtime().units.size() == 1);
     CHECK(session.runtime().units.requireCore(0).id == 0);
     REQUIRE(session.runtime().units.size() == 1);
-    CHECK((session.runtime().units.find(0) != nullptr));
+    CHECK(session.runtime().units.require(0).id() == 0);
     CHECK(session.runtime().action.castFrames == session.runtime().movementPhysics.actionCastFrames);
     CHECK(session.runtime().damage.sortPendingDamageByDefenderMagnitude);
 }
@@ -420,8 +417,8 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsMovementAgentRowsForDeadU
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
     REQUIRE(session.runtime().units.size() == 2);
-    CHECK((session.runtime().units.find(0) != nullptr));
-    CHECK((session.runtime().units.find(1) != nullptr));
+    CHECK(session.runtime().units.require(0).id() == 0);
+    CHECK(session.runtime().units.require(1).id() == 1);
     CHECK(session.runtime().units.require(0).movement.active);
     CHECK_FALSE(session.runtime().units.require(1).movement.active);
 }
@@ -448,7 +445,7 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedSpendsNonThroughProjectilesOnHi
     CHECK(session.runtime().attacks.spendNonThroughOnHit);
 }
 
-TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStoresAlignedAfterFrame", "[battle][runtime_session][ownership]")
+TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStateAlignedAfterFrame", "[battle][runtime_session][ownership]")
 {
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(SceneTileWidth, 18);
@@ -484,7 +481,7 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStoresAligned
     const auto& runtime = session.runtime();
     const auto& unit = runtime.units.requireCore(0);
     REQUIRE(runtime.units.size() == 2);
-    REQUIRE((runtime.units.find(0) != nullptr));
+    REQUIRE(runtime.units.require(0).id() == 0);
     CHECK(runtime.units.require(0).movement.physics.position.x == unit.motion.position.x);
     CHECK(runtime.units.require(0).movement.physics.position.y == unit.motion.position.y);
 }
@@ -509,7 +506,6 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     state.units.require(0).combo = KysChess::RoleComboState{};
     state.units.requireCore(0).shield = 12;
     BattleDamageRuntimeUnit damage;
-    damage.id = 0;
     damage.blockFirstHitsRemaining = 2;
     state.units.require(0).damage = damage;
     state.units.requireCore(0).invincible = 4;

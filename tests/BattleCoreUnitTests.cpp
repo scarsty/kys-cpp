@@ -28,16 +28,16 @@ using namespace KysChess;
 using namespace BattlePresentationTest;
 
 template <class T, class = void>
-struct HasStatusRuntimeId : std::false_type
+struct HasUnitIdMember : std::false_type
 {
 };
 
 template <class T>
-struct HasStatusRuntimeId<T, std::void_t<decltype(std::declval<T&>().id)>> : std::true_type
+struct HasUnitIdMember<T, std::void_t<decltype(std::declval<T&>().unitId)>> : std::true_type
 {
 };
 
-static_assert(!HasStatusRuntimeId<BattleStatusRuntimeUnit>::value);
+static_assert(!HasUnitIdMember<BattleRescueUnitRuntime>::value);
 
 namespace
 {
@@ -622,10 +622,7 @@ BattleActionPlanSeed actionPlanSeedFromCastInput(const BattleCastInput& input)
 
 void configureRuntimeActionPlan(BattleRuntimeState& state, BattleCastInput input)
 {
-    if (!(state.units.find(input.unit.id) != nullptr))
-    {
-        state.units.require(input.unit.id).combo = {};
-    }
+    (void)state.units.require(input.unit.id);
     state.action.castConfig = input.config;
     state.action.castGeometry = input.geometry;
     state.action.actionRules.tileWidth = SceneTileWidth;
@@ -1002,9 +999,9 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
     KysChess::ChessBattleEffects::applyEffect(
         state.units.require(2).combo,
         { KysChess::EffectType::ForcePullProtect, 1 });
-    state.units.require(0).rescue = { 0, 0, 0 };
-    state.units.require(1).rescue = { 1, 0, 0 };
-    state.units.require(2).rescue = { 2, 1, 0 };
+    state.units.require(0).rescue = { 0, 0 };
+    state.units.require(1).rescue = { 0, 0 };
+    state.units.require(2).rescue = { 1, 0 };
     state.rescue.executeUnattendedRadius = SceneTileWidth * 3.0;
     state.rescue.counterAttack.skillId = 1;
     state.rescue.counterAttack.visualEffectId = 11;
@@ -1394,14 +1391,13 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     state.units.require(1).combo = comboState;
 
     BattleDeathEffectExtras deathEffectExtras;
-    deathEffectExtras.id = 1;
-    state.units.require(deathEffectExtras.id).deathEffects = deathEffectExtras;
+    state.units.require(1).deathEffects = deathEffectExtras;
 
     CHECK(state.units.size() == 2);
     CHECK(state.nextFrame.queuedDamageForTest()[0].request.defenderUnitId == 0);
     CHECK(state.units.requireCore(0).vitals.hp == 80);
     CHECK(KysChess::maxAlwaysEffectValue(state.units.require(1).combo, KysChess::EffectType::PostSkillInvincFrames) == 12);
-    CHECK(state.units.require(1).deathEffects.id == 1);
+    CHECK(state.units.require(1).id() == 1);
     CHECK_FALSE(state.result.ended);
     CHECK(state.result.winningTeam == -1);
 }
@@ -1428,10 +1424,7 @@ TEST_CASE("BattleRuntimeUnitRecord_OwnsPerUnitRuntimeFacts", "[battle][core][own
     record.core.id = 7;
     record.core.alive = true;
     record.combo.onSkillTeamHealPending = true;
-    record.damage.id = 7;
     record.movement.active = true;
-    record.deathEffects.id = 7;
-    record.rescue.unitId = 7;
 
     BattleActionPlanSeed plan;
     plan.unitId = 99;
@@ -1558,7 +1551,6 @@ TEST_CASE("BattleRuntimeUnitRecord_DamageStateComposesOwnedFacts", "[battle][cor
     record.core.vitals.maxHp = 100;
     record.core.vitals.mp = 5;
     record.core.vitals.maxMp = 20;
-    record.damage.id = 3;
     record.damage.blockFirstHitsRemaining = 2;
     record.status.effects.mpBlockTimer = 4;
     AppliedEffectInstance effect;
@@ -1580,8 +1572,6 @@ TEST_CASE("BattleRuntimeUnitRecord_DeathAndRescueFactsLiveOnRecord", "[battle][c
 {
     BattleRuntimeUnitRecord record;
     record.core.id = 5;
-    record.deathEffects.id = 5;
-    record.rescue.unitId = 5;
     record.rescue.forcePullProtectRemaining = 2;
     record.rescue.forcePullExecuteRemaining = 3;
 
@@ -2582,7 +2572,7 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastAgainstLiveComboState
     auto result = runBattleFrame(state);
 
     CHECK(state.units.pendingCastCount() == 0);
-    REQUIRE((state.units.find(0) != nullptr));
+    CHECK(state.units.require(0).id() == 0);
     REQUIRE(state.units.require(0).combo.dodgeAdaptationStacks.size() == 1);
     REQUIRE(state.units.require(0).combo.dodgeAdaptationStacks[0].contains(1));
     CHECK(state.units.require(0).combo.dodgeAdaptationStacks[0].at(1) == 2);
@@ -2992,7 +2982,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathClearsFrozenStatusAuthority", "[b
     CHECK(state.units.require(1).status.effects.frozenMaxTimer == 0);
 }
 
-TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeStores", "[battle][core][runtime]")
+TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeRecords", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({
@@ -3007,9 +2997,8 @@ TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeStores", "[battle][c
     state.units.requireCore(1).shield = 33;
 
     BattleDamageRuntimeUnit damage;
-    damage.id = 1;
     damage.blockFirstHitsRemaining = 2;
-    state.units.require(0).damage = { 0 };
+    state.units.require(0).damage = {};
     state.units.require(1).damage = damage;
 
     runBattleFrame(state);
@@ -3127,7 +3116,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_KeepsMovingCorpsesInMovementPhysics", 
     const auto& corpse = state.units.requireCore(1);
     CHECK(corpse.motion.position.x == 206.0f);
     CHECK(corpse.motion.position.z == 8.0f);
-    CHECK((state.units.find(1) != nullptr));
+    CHECK(state.units.require(1).id() == 1);
     CHECK(state.units.require(1).movement.active);
     CHECK(state.units.require(1).movement.physics.position.x == 206.0f);
 }
@@ -3154,7 +3143,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_InactivatesInertDeadMovementAgents", "
 
     runBattleFrame(state);
 
-    REQUIRE((state.units.find(1) != nullptr));
+    REQUIRE(state.units.require(1).id() == 1);
     CHECK_FALSE(state.units.require(1).movement.active);
     CHECK(state.units.requireCore(1).motion.position.x == Catch::Approx(200.0f));
 }
@@ -3212,9 +3201,47 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDeathKickVelocity", "[battle][c
     CHECK(deathSpeed == Catch::Approx(20.0 / 3.0 + 5.0));
     CHECK(dead.motion.position.x == Catch::Approx(200.0f));
     CHECK(dead.motion.position.z == Catch::Approx(36.0f));
-    CHECK((state.units.find(1) != nullptr));
+    CHECK(state.units.require(1).id() == 1);
     CHECK(state.units.require(1).movement.physics.velocity.z == dead.motion.velocity.z);
 
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFallbackDeathKickForAttackerlessDamage", "[battle][core][movement]")
+{
+    BattleRuntimeState state;
+    state.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
+        unit(1, 1, { 200, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    state.movementPhysics.config.gravity = -4.0f;
+    state.movementPhysics.config.friction = 0.0f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.terrain.tileWidth = 100.0;
+    state.movementPhysics.terrain.coordCount = 2;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth;
+    state.movementPhysics.terrain.walkableByCell.assign(2 * 2, 1);
+
+    state.nextFrame.queueDamage({
+        .request = {
+            .attackerUnitId = OptionalDamageAttackerUnitId,
+            .defenderUnitId = 1,
+            .baseDamage = 30,
+            .preResolvedDamage = true,
+        },
+    });
+    state.units.requireCore(1).vitals.hp = 20;
+    writeBattleDamageRuntimeUnit(
+        state.units.require(1).damage,
+        makeBattleDamageUnitState(state.units.requireCore(1), static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
+
+    runBattleFrame(state);
+
+    const auto& dead = state.units.requireCore(1);
+    CHECK_FALSE(dead.alive);
+    CHECK(dead.motion.velocity.x > 0.0f);
+    CHECK(dead.motion.velocity.y == Catch::Approx(0.0f));
+    CHECK(dead.motion.velocity.z > 0.0f);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ClampsDeathKickVelocity", "[battle][core][movement]")
@@ -3591,18 +3618,16 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAllyDeathEffectsInsideDamageLif
     queuePendingDamage(state, lethalDamageInput(0, 1));
 
     BattleDeathEffectExtras dead;
-    dead.id = 1;
     dead.comboIds = { 9 };
     dead.appliedEffects.push_back({ EffectType::DeathMedical, 20, 0, "", Trigger::Always, 0, 0, 0, 9 });
 
     BattleDeathEffectExtras ally;
-    ally.id = 2;
     ally.shieldPctMaxHp = 30;
     ally.comboIds = { 9 };
     ally.appliedEffects.push_back({ EffectType::AllyDeathStatBoost, 4, 0, "", Trigger::Always, 0, 0, 0, 9 });
     ally.appliedEffects.push_back({ EffectType::ShieldOnAllyDeath, 1, 0, "", Trigger::Always, 0, 0, 0, 9 });
-    state.units.require(dead.id).deathEffects = dead;
-    state.units.require(ally.id).deathEffects = ally;
+    state.units.require(1).deathEffects = dead;
+    state.units.require(2).deathEffects = ally;
     state.deathEffects.store.regularSynergyComboIds.insert(9);
 
     auto result = runBattleFrame(state);
@@ -4271,14 +4296,12 @@ TEST_CASE("BattleRuntimeSession_RunFrame_AppliesDeathComboConsequencesBeforeScen
     antiComboEffect.sourceComboId = 33;
     state.units.require(1).combo.appliedEffects.push_back(antiComboEffect);
     state.units.require(1).combo.onSkillTeamHealPending = true;
-    state.units.require(0).deathEffects = { .id = 0 };
+    state.units.require(0).deathEffects = {};
     state.units.require(1).deathEffects = {
-        .id = 1,
         .comboIds = { 33 },
         .appliedEffects = { antiComboEffect },
     };
     state.units.require(2).deathEffects = {
-        .id = 2,
         .comboIds = { 33 },
     };
 
@@ -4341,14 +4364,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_TransferredAntiComboDeathAoeUsesComboS
         0,
         33,
     };
-    state.units.require(0).deathEffects = { .id = 0 };
+    state.units.require(0).deathEffects = {};
     state.units.require(1).deathEffects = {
-        .id = 1,
         .comboIds = { 33 },
         .appliedEffects = { antiComboDeathAoe },
     };
     state.units.require(2).deathEffects = {
-        .id = 2,
         .comboIds = { 33 },
     };
     KysChess::ChessBattleEffects::applyEffect(state.units.require(1).combo, antiComboDeathAoe, 33);
@@ -4474,6 +4495,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPa
     configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(1, 1, { 700, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 700, 120, 0 }, CombatStyle::Ranged),
     }));
     state.attacks = attackWorld();
 
@@ -4487,6 +4509,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPa
     projectile.state.velocity = { 5, 0, 0 };
 
     seedRuntimeUnitsFromWorld(state);
+    state.units.requireCore(2).alive = false;
     state.attacks.attacks.push_back(projectile);
 
     auto result = runBattleFrame(state);

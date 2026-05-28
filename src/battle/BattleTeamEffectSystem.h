@@ -11,7 +11,6 @@ namespace KysChess::Battle
 
 struct BattleRuntimeUnit;
 class BattleRuntimeUnits;
-class BattleRuntimeUnits;
 
 enum class BattleTeamEffectEventType
 {

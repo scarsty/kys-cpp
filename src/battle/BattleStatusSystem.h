@@ -14,7 +14,6 @@ namespace KysChess::Battle
 struct BattleRuntimeUnit;
 struct BattleRuntimeUnitRecord;
 class BattleRuntimeUnits;
-class BattleRuntimeUnits;
 
 struct TimedAttackBuff
 {

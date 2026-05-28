@@ -4,6 +4,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <utility>
+
 using namespace KysChess;
 using namespace KysChess::Battle;
 
@@ -32,18 +34,19 @@ BattleRuntimeUnit unit(int id, int team, bool alive)
     return state;
 }
 
-BattleDeathEffectExtras extras(int id)
+BattleDeathEffectExtras extras()
 {
     BattleDeathEffectExtras state;
-    state.id = id;
     return state;
 }
 
-void assignExtras(BattleRuntimeUnits& records, std::initializer_list<BattleDeathEffectExtras> extras)
+void assignExtras(
+    BattleRuntimeUnits& records,
+    std::initializer_list<std::pair<int, BattleDeathEffectExtras>> extras)
 {
-    for (const auto& unitExtras : extras)
+    for (const auto& [unitId, unitExtras] : extras)
     {
-        records.require(unitExtras.id).deathEffects = unitExtras;
+        records.require(unitId).deathEffects = unitExtras;
     }
 }
 
@@ -58,16 +61,16 @@ TEST_CASE("BattleDeathEffectSystem_AllyDeathStatBoost_RequiresRegularSharedCombo
     });
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 7 };
-    auto dead = extras(0);
+    auto dead = extras();
     dead.comboIds = { 7 };
-    auto ally = extras(1);
+    auto ally = extras();
     ally.appliedEffects = {
         effect(EffectType::AllyDeathStatBoost, 5, 7),
         effect(EffectType::AllyDeathStatBoost, 9, 8),
     };
-    auto enemy = extras(2);
+    auto enemy = extras();
     enemy.appliedEffects = { effect(EffectType::AllyDeathStatBoost, 50, 7) };
-    assignExtras(units, { dead, ally, enemy });
+    assignExtras(units, { { 0, dead }, { 1, ally }, { 2, enemy } });
 
     auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
 
@@ -91,13 +94,13 @@ TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboA
     units.requireCore(2).vitals.hp = 20;
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 3 };
-    auto dead = extras(0);
+    auto dead = extras();
     dead.appliedEffects = { effect(EffectType::DeathMedical, 30, 3) };
-    auto ally = extras(1);
+    auto ally = extras();
     ally.comboIds = { 3 };
-    auto outsider = extras(2);
+    auto outsider = extras();
     outsider.comboIds = { 4 };
-    assignExtras(units, { dead, ally, outsider });
+    assignExtras(units, { { 0, dead }, { 1, ally }, { 2, outsider } });
 
     auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
 
@@ -118,13 +121,13 @@ TEST_CASE("BattleDeathEffectSystem_ShieldOnAllyDeath_TracksDeathsAndAwardsShield
     units.requireCore(1).vitals.maxHp = 200;
     BattleDeathEffectStore effects;
     effects.regularSynergyComboIds = { 5 };
-    auto dead = extras(0);
+    auto dead = extras();
     dead.comboIds = { 5 };
-    auto ally = extras(1);
+    auto ally = extras();
     ally.shieldPctMaxHp = 25;
     ally.shieldOnAllyDeathTracker = 1;
     ally.appliedEffects = { effect(EffectType::ShieldOnAllyDeath, 2, 5) };
-    assignExtras(units, { dead, ally });
+    assignExtras(units, { { 0, dead }, { 1, ally } });
 
     auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
 

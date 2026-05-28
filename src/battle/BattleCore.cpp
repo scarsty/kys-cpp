@@ -1143,18 +1143,6 @@ Pointf deathKickVelocity(Pointf direction, int committedHpDamage)
     return direction;
 }
 
-Pointf deathKickDirection(const BattleRuntimeState& state, const BattleRuntimeUnit& defender, int attackerUnitId)
-{
-    if (const auto* attacker = state.units.findCore(attackerUnitId))
-    {
-        if (attacker->id != defender.id)
-        {
-            return defender.motion.position - attacker->motion.position;
-        }
-    }
-    return { 1, 0, 0 };
-}
-
 UnitMotionSnapshotMap makeUnitMotionSnapshot(const BattleRuntimeUnits& units)
 {
     UnitMotionSnapshotMap snapshots;
@@ -2467,13 +2455,21 @@ void applyDamageResultToFrameState(
 {
     const auto& preDamageDefender = state.units.requireCore(transaction.defender.id);
     const auto& defenderStartMotion = motionSnapshotForUnit(frameStartMotion, preDamageDefender);
-    const auto* attacker = state.units.findCore(transaction.attacker.id);
     Pointf preDamageDeathKickDirection = { 1, 0, 0 };
-    if (attacker && attacker->id != preDamageDefender.id)
+    if (transaction.attacker.id != OptionalDamageAttackerUnitId)
     {
-        preDamageDeathKickDirection = defenderStartMotion.position - motionSnapshotForUnit(frameStartMotion, *attacker).position;
+        assert(transaction.attacker.id >= 0);
+        const auto& attacker = state.units.requireCore(transaction.attacker.id);
+        if (attacker.id != preDamageDefender.id)
+        {
+            preDamageDeathKickDirection =
+                defenderStartMotion.position - motionSnapshotForUnit(frameStartMotion, attacker).position;
+        }
     }
-    commitDamageUnitCoreToRuntime(state, transaction.attacker);
+    if (transaction.attacker.id != OptionalDamageAttackerUnitId)
+    {
+        commitDamageUnitCoreToRuntime(state, transaction.attacker);
+    }
     commitDamageUnitCoreToRuntime(state, transaction.defender);
     commitDamageCooldownToRuntime(state, transaction);
     auto& unit = state.units.requireCore(transaction.defender.id);
@@ -3389,8 +3385,9 @@ BattleDamageTransactionInput makeFrameDamageTransactionInput(
     applyLiveStatusToDamageModifier(defender.statusEffects(), transaction.defenderModifiers);
     transaction.defenderCooldown = makeBattleFrameCooldownState(defender.core);
 
-    if (request.attackerUnitId >= 0)
+    if (request.attackerUnitId != OptionalDamageAttackerUnitId)
     {
+        assert(request.attackerUnitId >= 0);
         const auto& attacker = state.units.require(request.attackerUnitId);
         transaction.attacker = attacker.damageState();
         transaction.attackerModifiers = attacker.damageModifiers();
@@ -3398,7 +3395,7 @@ BattleDamageTransactionInput makeFrameDamageTransactionInput(
     }
     else
     {
-        transaction.attacker.id = request.attackerUnitId;
+        transaction.attacker.id = OptionalDamageAttackerUnitId;
     }
 
     return transaction;

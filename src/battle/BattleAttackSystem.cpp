@@ -467,12 +467,13 @@ const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
         return nullptr;
     }
 
-    if (attack.state.preferredTargetUnitId >= 0)
+    if (attack.state.preferredTargetUnitId != OptionalPreferredTargetUnitId)
     {
-        const auto* preferred = units.findCore(attack.state.preferredTargetUnitId);
-        if (preferred && preferred->alive && preferred->team != attacker.team)
+        assert(attack.state.preferredTargetUnitId >= 0);
+        const auto& preferred = units.requireCore(attack.state.preferredTargetUnitId);
+        if (preferred.alive && preferred.team != attacker.team)
         {
-            return preferred;
+            return &preferred;
         }
         if (attack.state.requirePreferredTarget)
         {

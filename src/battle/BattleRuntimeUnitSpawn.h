@@ -24,13 +24,12 @@ BattleStatusRuntimeUnit makeInitialStatusRuntimeUnit(
     const RoleComboState& combo);
 
 BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(
-    int unitId,
     const RoleComboState& combo);
 
 BattleMovementAgentState makeInitialMovementAgent(
     const BattleRuntimeUnit& unit);
 
-void refreshRuntimeUnitSpawnStores(BattleRuntimeUnitSpawn& spawn);
+void refreshRuntimeUnitSpawnDerivedState(BattleRuntimeUnitSpawn& spawn);
 
 BattleRuntimeUnitSpawn makeRuntimeUnitSpawn(
     BattleRuntimeUnit unit,
