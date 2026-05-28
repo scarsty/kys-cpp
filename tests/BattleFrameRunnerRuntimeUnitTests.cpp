@@ -352,7 +352,6 @@ TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][
     const auto& record = runtime.units.require(4);
     CHECK(record.core.id == 4);
     CHECK(record.combo.onSkillTeamHealPending);
-    CHECK(record.status.id == 4);
     CHECK(record.damage.id == 4);
     CHECK(record.movement.physics.position.x == 32.0f);
     CHECK(record.deathEffects.id == 4);
@@ -515,7 +514,6 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     state.units.require(0).damage = damage;
     state.units.requireCore(0).invincible = 4;
     BattleStatusRuntimeUnit status;
-    status.id = 0;
     status.effects.frozenTimer = 3;
     status.effects.frozenMaxTimer = 9;
     state.units.require(0).status = status;
@@ -732,7 +730,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DecrementsInvincibility", "[battle][fr
     runBattleFrame(state);
 
     CHECK(state.units.requireCore(0).invincible == 2);
-    CHECK(state.units.require(0).status.id == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[battle][frame_runner][runtime][unit]")

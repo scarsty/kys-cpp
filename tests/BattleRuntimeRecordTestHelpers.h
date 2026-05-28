@@ -13,7 +13,6 @@ inline void appendRuntimeRecord(BattleRuntimeUnits& records, BattleRuntimeUnit u
     BattleRuntimeUnitRecord record;
     record.core = std::move(unit);
     record.combo = std::move(combo);
-    record.status.id = record.core.id;
     record.damage.id = record.core.id;
     record.deathEffects.id = record.core.id;
     record.rescue.unitId = record.core.id;

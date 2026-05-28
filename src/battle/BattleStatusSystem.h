@@ -67,8 +67,6 @@ struct BattleStatusUnitState
 
 struct BattleStatusRuntimeUnit
 {
-    int id = -1;
-
     BattleStatusEffectState effects;
 };
 

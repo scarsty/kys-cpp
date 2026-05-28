@@ -18,12 +18,26 @@
 #include <algorithm>
 #include <map>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 using namespace KysChess::Battle;
 using namespace KysChess::Battle::Test;
 using namespace KysChess;
 using namespace BattlePresentationTest;
+
+template <class T, class = void>
+struct HasStatusRuntimeId : std::false_type
+{
+};
+
+template <class T>
+struct HasStatusRuntimeId<T, std::void_t<decltype(std::declval<T&>().id)>> : std::true_type
+{
+};
+
+static_assert(!HasStatusRuntimeId<BattleStatusRuntimeUnit>::value);
 
 namespace
 {
@@ -458,9 +472,9 @@ BattleStatusUnitState statusUnitSnapshot(int id, int hp)
     return state;
 }
 
-BattleStatusRuntimeUnit statusRuntimeSnapshot(int id, int hp)
+BattleStatusRuntimeUnit statusRuntimeSnapshot(int unitIndex, int hp)
 {
-    return makeBattleStatusRuntimeUnit(statusUnitSnapshot(id, hp));
+    return makeBattleStatusRuntimeUnit(statusUnitSnapshot(unitIndex, hp));
 }
 
 struct HitDamageFrameState
@@ -885,7 +899,6 @@ TEST_CASE("BattleStatusSystem_CopiesStatusEffectsAsACluster", "[battle][status]"
 
     auto runtime = makeBattleStatusRuntimeUnit(source);
 
-    CHECK(runtime.id == 7);
     CHECK(runtime.effects.poisonTimer == 9);
     CHECK(runtime.effects.poisonTickPct == 5);
     CHECK(runtime.effects.poisonSourceId == 3);
@@ -898,7 +911,7 @@ TEST_CASE("BattleStatusSystem_CopiesStatusEffectsAsACluster", "[battle][status]"
     CHECK(runtime.effects.damageReduceDebuffs[0].pct == 14);
 }
 
-TEST_CASE("BattleStatusSystem_UsesRecordCoreIdWhenStatusRuntimeIdDrifts", "[battle][status]")
+TEST_CASE("BattleStatusSystem_UsesRecordCoreIdWithoutStatusRuntimeId", "[battle][status]")
 {
     BattleRuntimeUnitRecord record;
     record.core.id = 7;
@@ -906,7 +919,6 @@ TEST_CASE("BattleStatusSystem_UsesRecordCoreIdWhenStatusRuntimeIdDrifts", "[batt
     record.core.vitals.hp = 80;
     record.core.vitals.maxHp = 100;
     record.core.stats.attack = 15;
-    record.status.id = 99;
     record.status.effects.tempAttackBuffs.push_back({ 5, 1 });
 
     auto result = BattleStatusSystem({}).tick(record);
@@ -1416,7 +1428,6 @@ TEST_CASE("BattleRuntimeUnitRecord_OwnsPerUnitRuntimeFacts", "[battle][core][own
     record.core.id = 7;
     record.core.alive = true;
     record.combo.onSkillTeamHealPending = true;
-    record.status.id = 7;
     record.damage.id = 7;
     record.movement.active = true;
     record.deathEffects.id = 7;
@@ -1503,7 +1514,6 @@ TEST_CASE("BattleRuntimeUnitRecord_StatusDomainMethodsMutateOwnedStatus", "[batt
     record.core.id = 2;
     record.core.vitals.hp = 50;
     record.core.vitals.maxHp = 100;
-    record.status.id = 2;
     record.status.effects.frozenTimer = 5;
     record.status.effects.frozenMaxTimer = 8;
 

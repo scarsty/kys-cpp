@@ -215,7 +215,6 @@ BattleStatusTickResult BattleStatusSystem::tick(BattleRuntimeUnits& records) con
 BattleStatusRuntimeUnit makeBattleStatusRuntimeUnit(const BattleStatusUnitState& unit)
 {
     BattleStatusRuntimeUnit status;
-    status.id = unit.id;
     writeBattleStatusRuntimeUnit(status, unit);
     return status;
 }

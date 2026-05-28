@@ -159,7 +159,6 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
 {
     const int unitId = spawn.unit.id;
     assert(unitId >= 0);
-    assert(spawn.status.id == unitId);
     assert(spawn.damage.id == unitId);
     if (spawn.actionPlan)
     {

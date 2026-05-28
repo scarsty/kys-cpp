@@ -35,15 +35,6 @@ BattleRuntimeUnit runtimeUnit(int id, int team, int maxHp, int attack, int defen
     return unit;
 }
 
-BattleStatusRuntimeUnit statusRuntime(int id, int hp, int attack)
-{
-    BattleStatusRuntimeUnit unit;
-    unit.id = id;
-    (void)hp;
-    (void)attack;
-    return unit;
-}
-
 BattleStatusRuntimeUnit& requireStatusRuntime(BattleRuntimeState& runtime, int unitId)
 {
     REQUIRE(runtime.units.find(unitId) != nullptr);
