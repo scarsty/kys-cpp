@@ -290,17 +290,17 @@ BattleRuntimeSetupResult setupBattleRuntime(BattleRuntimeSessionCreationInput in
 {
     populateBattleRuntimeSetupDefinitions(input.setup);
 
-    auto spawns = buildCanonicalSpawns(input);
-    auto initialization = BattleInitializationSystem().initialize(
-        spawns,
+    auto initialized = BattleStartInitializer(
+        buildCanonicalSpawns(input),
         input.setup,
-        BattleInitializationContext{ input.rules.gridTransform, input.battleFrame });
-    auto runtime = buildRuntimeFromSpawns(input, std::move(spawns));
+        BattleInitializationContext{ input.rules.gridTransform, input.battleFrame })
+        .initialize();
+    auto runtime = buildRuntimeFromSpawns(input, std::move(initialized.spawns));
     deriveRuntimeState(runtime, std::move(input));
 
     return {
         std::move(runtime),
-        std::move(initialization),
+        std::move(initialized.result),
     };
 }
 

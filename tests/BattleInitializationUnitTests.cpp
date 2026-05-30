@@ -82,6 +82,14 @@ BattleInitializationContext testInitializationContext(int frame = 0)
     return { { 36.0, 18 }, frame };
 }
 
+BattleInitializationOutput initializeBattleStartForTest(
+    std::vector<BattleRuntimeUnitSpawn> spawns,
+    const BattleRuntimeSetupSeed& setup,
+    BattleInitializationContext context = testInitializationContext())
+{
+    return BattleStartInitializer(std::move(spawns), setup, context).initialize();
+}
+
 void addRuntimeSetupSeed(
     BattleRuntimeSessionCreationInput& input,
     const BattleSetupUnitInput& unit)
@@ -279,19 +287,19 @@ const std::vector<NeigongDef>& ChessNeigong::getPool()
 
 }  // namespace KysChess
 
-TEST_CASE("BattleInitializationSystem_CompilesSpawnInitializationApi", "[battle][initialization]")
+TEST_CASE("BattleStartInitializer_CompilesSpawnInitializationApi", "[battle][initialization]")
 {
     auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
 
     BattleRuntimeSetupSeed setup;
 
-    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
 
-    CHECK(result.roleDeltas.empty());
-    CHECK(result.logEvents.empty());
+    CHECK(output.result.roleDeltas.empty());
+    CHECK(output.result.logEvents.empty());
 }
 
-TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "[battle][initialization]")
+TEST_CASE("BattleStartInitializer_AppliesComboStatsToImportedRuntimeUnit", "[battle][initialization]")
 {
     auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
 
@@ -316,24 +324,24 @@ TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "
     seed.baseSpeed = 40;
     setup.units.push_back(seed);
 
-    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
 
-    const auto& unit = requireSpawn(spawns, 0).unit;
+    const auto& unit = requireSpawn(output.spawns, 0).unit;
     CHECK(unit.vitals.maxHp == 150);
     CHECK(unit.vitals.hp == 150);
     CHECK(unit.stats.attack == 27);
     CHECK(unit.stats.defence == 49);
     CHECK(unit.stats.speed == 42);
-    REQUIRE(result.roleDeltas.size() == 1);
-    CHECK(result.roleDeltas[0].unitId == 0);
-    CHECK(result.roleDeltas[0].vitals.maxHp == 150);
-    CHECK(result.roleDeltas[0].vitals.hp == 150);
-    CHECK(result.roleDeltas[0].stats.attack == 27);
-    CHECK(result.roleDeltas[0].stats.defence == 49);
-    CHECK(result.roleDeltas[0].stats.speed == 42);
+    REQUIRE(output.result.roleDeltas.size() == 1);
+    CHECK(output.result.roleDeltas[0].unitId == 0);
+    CHECK(output.result.roleDeltas[0].vitals.maxHp == 150);
+    CHECK(output.result.roleDeltas[0].vitals.hp == 150);
+    CHECK(output.result.roleDeltas[0].stats.attack == 27);
+    CHECK(output.result.roleDeltas[0].stats.defence == 49);
+    CHECK(output.result.roleDeltas[0].stats.speed == 42);
 }
 
-TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWins", "[battle][initialization]")
+TEST_CASE("BattleStartInitializer_AppliesStarGrowthFromRosterAndComboFightWins", "[battle][initialization]")
 {
     auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
 
@@ -381,7 +389,7 @@ TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWi
     seed.baseHiddenWeapon = 14;
     setup.units.push_back(seed);
 
-    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
 
     const auto expected = computeStarBoostedStats(
         {
@@ -401,22 +409,22 @@ TEST_CASE("BattleInitializationSystem_AppliesStarGrowthFromRosterAndComboFightWi
         1,
         3);
 
-    const auto& unit = requireSpawn(spawns, 0).unit;
+    const auto& unit = requireSpawn(output.spawns, 0).unit;
     CHECK(unit.vitals.maxHp == expected.hp);
     CHECK(unit.vitals.hp == expected.hp);
     CHECK(unit.stats.attack == expected.atk);
     CHECK(unit.stats.defence == expected.def);
     CHECK(unit.stats.speed == expected.spd);
-    REQUIRE(result.roleDeltas.size() == 1);
-    CHECK(result.roleDeltas[0].star == 2);
-    CHECK(result.roleDeltas[0].fist == expected.fist);
-    CHECK(result.roleDeltas[0].sword == expected.sword);
-    CHECK(result.roleDeltas[0].knife == expected.knife);
-    CHECK(result.roleDeltas[0].unusual == expected.unusual);
-    CHECK(result.roleDeltas[0].hiddenWeapon == expected.hidden);
+    REQUIRE(output.result.roleDeltas.size() == 1);
+    CHECK(output.result.roleDeltas[0].star == 2);
+    CHECK(output.result.roleDeltas[0].fist == expected.fist);
+    CHECK(output.result.roleDeltas[0].sword == expected.sword);
+    CHECK(output.result.roleDeltas[0].knife == expected.knife);
+    CHECK(output.result.roleDeltas[0].unusual == expected.unusual);
+    CHECK(output.result.roleDeltas[0].hiddenWeapon == expected.hidden);
 }
 
-TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", "[battle][initialization]")
+TEST_CASE("BattleStartInitializer_InitializesShieldTimersAndBlockCounters", "[battle][initialization]")
 {
     auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 200, 20, 30, 40) });
 
@@ -444,9 +452,9 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     seed.baseSpeed = 40;
     setup.units.push_back(seed);
 
-    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext(77));
+    auto output = initializeBattleStartForTest(std::move(spawns), setup, testInitializationContext(77));
 
-    const auto& spawn = requireSpawn(spawns, 0);
+    const auto& spawn = requireSpawn(output.spawns, 0);
     const auto& initialized = spawn.combo;
     const auto& unit = spawn.unit;
     const auto& status = spawn.status;
@@ -455,16 +463,16 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     CHECK(unit.shield == 65);
     CHECK(status.effects.damageImmunityTimer == 12);
     CHECK(damage.blockFirstHitsRemaining == 2);
-    REQUIRE(result.logEvents.size() == 2);
-    CHECK(result.logEvents[0].type == BattleLogEventType::Status);
-    CHECK(result.logEvents[0].frame == 77);
-    CHECK(result.logEvents[0].sourceUnitId == 0);
-    CHECK(BattleLogTest::textOf(result.logEvents[0]) == "獲取50護盾");
-    CHECK(result.logEvents[1].frame == 77);
-    CHECK(BattleLogTest::textOf(result.logEvents[1]) == "全隊獲取15護盾");
+    REQUIRE(output.result.logEvents.size() == 2);
+    CHECK(output.result.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(output.result.logEvents[0].frame == 77);
+    CHECK(output.result.logEvents[0].sourceUnitId == 0);
+    CHECK(BattleLogTest::textOf(output.result.logEvents[0]) == "獲取50護盾");
+    CHECK(output.result.logEvents[1].frame == 77);
+    CHECK(BattleLogTest::textOf(output.result.logEvents[1]) == "全隊獲取15護盾");
 }
 
-TEST_CASE("BattleInitializationSystem_EnemyTopDebuffEmitsBattleLog", "[battle][initialization]")
+TEST_CASE("BattleStartInitializer_EnemyTopDebuffEmitsBattleLog", "[battle][initialization]")
 {
     auto spawns = runtimeSpawns({
         runtimeUnit(0, 0, 100, 20, 30, 40),
@@ -481,22 +489,22 @@ TEST_CASE("BattleInitializationSystem_EnemyTopDebuffEmitsBattleLog", "[battle][i
     setup.units.push_back({ .unitId = 1, .realRoleId = 1002, .team = 1, .star = 1, .cost = 3, .baseMaxHp = 100, .baseAttack = 80, .baseDefence = 50, .baseSpeed = 40 });
     setup.units.push_back({ .unitId = 2, .realRoleId = 1003, .team = 1, .star = 1, .cost = 1, .baseMaxHp = 120, .baseAttack = 60, .baseDefence = 40, .baseSpeed = 40 });
 
-    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
 
-    REQUIRE(result.enemyTopDebuffs.size() == 1);
-    CHECK(result.enemyTopDebuffs[0].unitId == 1);
-    CHECK(requireSpawn(spawns, 1).unit.stats.attack == 73);
-    CHECK(requireSpawn(spawns, 1).unit.stats.defence == 43);
-    auto logIt = std::find_if(result.logEvents.begin(), result.logEvents.end(), [](const BattleLogEvent& event)
+    REQUIRE(output.result.enemyTopDebuffs.size() == 1);
+    CHECK(output.result.enemyTopDebuffs[0].unitId == 1);
+    CHECK(requireSpawn(output.spawns, 1).unit.stats.attack == 73);
+    CHECK(requireSpawn(output.spawns, 1).unit.stats.defence == 43);
+    auto logIt = std::find_if(output.result.logEvents.begin(), output.result.logEvents.end(), [](const BattleLogEvent& event)
     {
         return event.type == BattleLogEventType::Status
             && event.targetUnitId == 1
             && BattleLogTest::textOf(event) == "陰險：前1名攻防-7（1名存活）";
     });
-    CHECK(logIt != result.logEvents.end());
+    CHECK(logIt != output.result.logEvents.end());
 }
 
-TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[battle][initialization]")
+TEST_CASE("BattleStartInitializer_CreatesRuntimeCloneBeforeSceneMirror", "[battle][initialization]")
 {
     auto source = runtimeUnit(0, 0, 100, 20, 30, 40);
     source.realRoleId = 1001;
@@ -522,10 +530,10 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
     setup.cloneSources.push_back({ 0, 1001, 999, 3, 7, 0 });
     setup.cloneCells.push_back({ 3, 4, true, false });
 
-    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
 
-    REQUIRE(spawns.size() == 2);
-    const auto& cloneSpawn = requireSpawn(spawns, 1);
+    REQUIRE(output.spawns.size() == 2);
+    const auto& cloneSpawn = requireSpawn(output.spawns, 1);
     const auto& clone = cloneSpawn.unit;
     CHECK(clone.cloneSourceUnitId == 0);
     CHECK(clone.name == "測試角色");
@@ -891,7 +899,7 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[b
     CHECK(appliedDamage);
 }
 
-TEST_CASE("BattleInitializationSystem_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization]")
+TEST_CASE("BattleStartInitializer_ConsumesSetupAndInitializesOwnedRuntime", "[battle][initialization]")
 {
     auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
 
@@ -907,17 +915,17 @@ TEST_CASE("BattleInitializationSystem_ConsumesSetupAndInitializesOwnedRuntime", 
     BattleRuntimeSetupSeed setup;
     setup.units.push_back(seed);
 
-    auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
 
-    const auto& unit = requireSpawn(spawns, 0).unit;
+    const auto& unit = requireSpawn(output.spawns, 0).unit;
     CHECK(unit.vitals.maxHp == 125);
     CHECK(unit.vitals.hp == 125);
     CHECK(unit.vitals.maxHp == 125);
     CHECK(unit.vitals.hp == 125);
-    REQUIRE(result.roleDeltas.size() == 1);
-    CHECK(result.roleDeltas[0].unitId == 0);
-    CHECK(result.roleDeltas[0].vitals.maxHp == 125);
-    CHECK(result.roleDeltas[0].vitals.hp == 125);
+    REQUIRE(output.result.roleDeltas.size() == 1);
+    CHECK(output.result.roleDeltas[0].unitId == 0);
+    CHECK(output.result.roleDeltas[0].vitals.maxHp == 125);
+    CHECK(output.result.roleDeltas[0].vitals.hp == 125);
 }
 
 TEST_CASE("BattleRuntimeUnit_UsesSharedUnitValueObjects", "[battle][initialization][runtime_session]")

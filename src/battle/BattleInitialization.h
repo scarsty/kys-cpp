@@ -141,18 +141,35 @@ struct BattleInitializationResult
     std::vector<BattleVisualEvent> visualEvents;
 };
 
+struct BattleInitializationOutput
+{
+    std::vector<BattleRuntimeUnitSpawn> spawns;
+    BattleInitializationResult result;
+};
+
 struct BattleInitializationContext
 {
     BattleGridTransform gridTransform;
     int frame{};
 };
 
-class BattleInitializationSystem
+class BattleStartInitializer
 {
 public:
-    BattleInitializationResult initialize(std::vector<BattleRuntimeUnitSpawn>& spawns,
-                                          const BattleRuntimeSetupSeed& setup,
-                                          const BattleInitializationContext& context) const;
+    BattleStartInitializer(std::vector<BattleRuntimeUnitSpawn> spawns,
+                           const BattleRuntimeSetupSeed& setup,
+                           BattleInitializationContext context);
+    BattleStartInitializer(const BattleStartInitializer&) = delete;
+    BattleStartInitializer& operator=(const BattleStartInitializer&) = delete;
+    BattleStartInitializer(BattleStartInitializer&&) = default;
+    BattleStartInitializer& operator=(BattleStartInitializer&&) = delete;
+
+    BattleInitializationOutput initialize() &&;
+
+private:
+    std::vector<BattleRuntimeUnitSpawn> spawns_;
+    const BattleRuntimeSetupSeed& setup_;
+    BattleInitializationContext context_;
 };
 
 }  // namespace KysChess::Battle
