@@ -205,7 +205,6 @@ struct BattleRuntimeUnitFrameCommit
 {
     int unitId = -1;
     std::vector<BattleComboFrameRuntimeEvent> comboEvents;
-    RoleComboState comboState;
 };
 
 struct BattleSkillFinishedTeamHeal
@@ -931,7 +930,6 @@ BattleRuntimeUnitsAdvanceResult advanceRuntimeUnits(BattleRuntimeState& state)
                 });
             }
         }
-        committed.comboState = combo;
         result.runtimeCommits.push_back(std::move(committed));
     }
     return result;
@@ -4032,22 +4030,49 @@ void applyRuntimeTeamEvents(
     appendTeamEffectVisualEvents(visualEvents, events);
 }
 
+bool ownsComboTriggerTimer(const RoleComboState& combo, ComboTriggerTimerKey key)
+{
+    return std::any_of(
+        combo.triggeredEffects.begin(),
+        combo.triggeredEffects.end(),
+        [key](const AppliedEffectInstance& effect)
+        {
+            return effect.trigger == key.trigger
+                && effect.sourceComboId == key.sourceComboId;
+        });
+}
+
+void setComboTriggerTimer(RoleComboState& combo, ComboTriggerTimerKey key, int durationFrames)
+{
+    assert(durationFrames > 0);
+    auto& timer = combo.triggerTimers[key];
+    timer = std::max(timer, durationFrames);
+}
+
 void applyBroadcastTriggerTimer(BattleRuntimeState& state, int sourceUnitId, const BattleComboFrameRuntimeEvent& event)
 {
     assert(event.durationFrames > 0);
+    assert(event.type == BattleComboFrameRuntimeEventType::BroadcastTriggerTimer);
+    assert(event.timerKey.trigger == event.trigger);
+
     const auto& source = state.units.requireCore(sourceUnitId);
     if (!source.alive)
     {
         return;
     }
-    for (const auto& record : state.units.live())
+
+    for (auto& record : state.units.live())
     {
         const auto& unit = record.core;
         if (unit.id == sourceUnitId || unit.team != source.team)
         {
             continue;
         }
-        state.units.require(unit.id).combo.triggerTimers[event.trigger] = event.durationFrames;
+        if (!ownsComboTriggerTimer(record.combo, event.timerKey))
+        {
+            continue;
+        }
+        setComboTriggerTimer(record.combo, event.timerKey, event.durationFrames);
     }
 }
 
@@ -4111,10 +4136,6 @@ std::vector<BattleGameplayCommand> applyRuntimeComboEvents(
                 break;
             }
         }
-        auto& combo = state.units.require(result.unitId).combo;
-        auto committed = result.comboState;
-        committed.triggerTimers = combo.triggerTimers;
-        combo = std::move(committed);
         if (autoUltimateReady)
         {
             deferredCommands.push_back(BattleAutoUltimateCommand{ result.unitId, false, true });

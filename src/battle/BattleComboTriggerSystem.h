@@ -45,6 +45,7 @@ struct BattleComboFrameRuntimeEvent
 {
     BattleComboFrameRuntimeEventType type = BattleComboFrameRuntimeEventType::SelfHpRegen;
     Trigger trigger = Trigger::Always;
+    ComboTriggerTimerKey timerKey;
     int effectIndex = -1;
     int value = 0;
     int value2 = 0;
@@ -85,6 +86,7 @@ struct BattleComboTriggerAction
 {
     BattleComboTriggerActionType type{};
     Trigger trigger{};
+    ComboTriggerTimerKey timerKey;
     int effectIndex{};
     int value{};
     int durationFrames{};

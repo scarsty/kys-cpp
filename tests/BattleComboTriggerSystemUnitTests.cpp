@@ -17,7 +17,8 @@ AppliedEffectInstance triggeredEffect(EffectType type,
                                       int value,
                                       int triggerValue = 0,
                                       int duration = 0,
-                                      int maxCount = 0)
+                                      int maxCount = 0,
+                                      int sourceComboId = -1)
 {
     AppliedEffectInstance effect;
     effect.type = type;
@@ -26,6 +27,7 @@ AppliedEffectInstance triggeredEffect(EffectType type,
     effect.triggerValue = triggerValue;
     effect.duration = duration;
     effect.maxCount = maxCount;
+    effect.sourceComboId = sourceComboId;
     return effect;
 }
 
@@ -101,13 +103,85 @@ TEST_CASE("BattleComboTriggerSystem_FrameTriggers_BroadcastsAllyLowHpTimer", "[b
     REQUIRE(actions.size() == 1);
     CHECK(actions[0].type == BattleComboTriggerActionType::BroadcastTriggerTimer);
     CHECK(actions[0].trigger == Trigger::AllyLowHPBurst);
+    CHECK(actions[0].timerKey.trigger == Trigger::AllyLowHPBurst);
+    CHECK(actions[0].timerKey.sourceComboId == -1);
     CHECK(actions[0].durationFrames == 90);
     CHECK(state.effectActivationCounts[0] == 1);
+    CHECK_FALSE(state.triggerTimers.contains({ Trigger::AllyLowHPBurst, -1 }));
 
-    state.triggerTimers[Trigger::AllyLowHPBurst] = 10;
+    state.triggerTimers[{ Trigger::AllyLowHPBurst, -1 }] = 10;
     auto blockedByTimer = system.updateFrameTriggers(state, { 20, 100, false });
     CHECK(blockedByTimer.empty());
     CHECK(state.effectActivationCounts[0] == 1);
+}
+
+TEST_CASE("BattleComboTriggerSystem_FrameTriggers_UsesSourceScopedAllyLowHpTimer", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctATK, Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
+
+    BattleComboTriggerSystem system;
+    auto actions = system.updateFrameTriggers(state, { 30, 100, false });
+
+    REQUIRE(actions.size() == 1);
+    CHECK(actions[0].type == BattleComboTriggerActionType::BroadcastTriggerTimer);
+    CHECK(actions[0].timerKey.trigger == Trigger::AllyLowHPBurst);
+    CHECK(actions[0].timerKey.sourceComboId == 17);
+    CHECK_FALSE(state.triggerTimers.contains({ Trigger::AllyLowHPBurst, 17 }));
+
+    RoleComboState stateWithDifferentSourceTimer;
+    stateWithDifferentSourceTimer.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctATK, Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
+    stateWithDifferentSourceTimer.triggerTimers[{ Trigger::AllyLowHPBurst, 18 }] = 10;
+    auto differentComboTimer = system.updateFrameTriggers(stateWithDifferentSourceTimer, { 20, 100, false });
+    REQUIRE(differentComboTimer.size() == 1);
+    CHECK(differentComboTimer[0].timerKey.sourceComboId == 17);
+
+    RoleComboState stateWithMatchingSourceTimer;
+    stateWithMatchingSourceTimer.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctATK, Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
+    stateWithMatchingSourceTimer.triggerTimers[{ Trigger::AllyLowHPBurst, 17 }] = 10;
+    auto matchingComboTimer = system.updateFrameTriggers(stateWithMatchingSourceTimer, { 20, 100, false });
+    CHECK(matchingComboTimer.empty());
+}
+
+TEST_CASE("BattleComboTriggerSystem_FrameTriggers_DoesNotSuppressSameSourceLowHpEffects", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctATK, Trigger::AllyLowHPBurst, 40, 35, 90, 1, 17));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctDEF, Trigger::AllyLowHPBurst, 30, 35, 120, 1, 17));
+
+    auto actions = BattleComboTriggerSystem().updateFrameTriggers(state, { 30, 100, false });
+
+    REQUIRE(actions.size() == 2);
+    CHECK(actions[0].timerKey.sourceComboId == 17);
+    CHECK(actions[1].timerKey.sourceComboId == 17);
+    CHECK(actions[1].durationFrames == 120);
+    CHECK(state.effectActivationCounts[0] == 1);
+    CHECK(state.effectActivationCounts[1] == 1);
+    CHECK_FALSE(state.triggerTimers.contains({ Trigger::AllyLowHPBurst, 17 }));
+}
+
+TEST_CASE("BattleComboTriggerSystem_FrameTriggerEffects_RequireMatchingTimerSource", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggerTimers[{ Trigger::AllyLowHPBurst, 17 }] = 3;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctATK, Trigger::AllyLowHPBurst, 10, 0, 0, 0, 17));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::DmgReductionPct, Trigger::AllyLowHPBurst, 20, 0, 0, 0, 18));
+
+    auto active = BattleComboTriggerSystem().activeFrameTriggerEffects(
+        state,
+        { 90, 100, false },
+        { EffectType::PctATK, EffectType::DmgReductionPct });
+
+    REQUIRE(active.size() == 1);
+    CHECK(active[0].effect.type == EffectType::PctATK);
+    CHECK(active[0].effect.sourceComboId == 17);
 }
 
 TEST_CASE("BattleComboTriggerSystem_FrameRuntime_AdvancesTimersAndEmitsPeriodicEffects", "[battle][combo][unit]")
@@ -119,7 +193,7 @@ TEST_CASE("BattleComboTriggerSystem_FrameRuntime_AdvancesTimersAndEmitsPeriodicE
     ChessBattleEffects::applyEffect(state, { EffectType::HealAuraPct, 9, 5 });
     ChessBattleEffects::applyEffect(state, { EffectType::HealedATKSPDBoost, 15 });
     state.effectFrameTimers[0] = 1;
-    state.triggerTimers[Trigger::AllyLowHPBurst] = 2;
+    state.triggerTimers[{ Trigger::AllyLowHPBurst, -1 }] = 2;
     state.rampings.push_back({ 10, 3 });
     state.rampingStacks.push_back(2);
     state.rampingIdleTimers.push_back(0);
@@ -137,7 +211,7 @@ TEST_CASE("BattleComboTriggerSystem_FrameRuntime_AdvancesTimersAndEmitsPeriodicE
     CHECK(events[2].value2 == 9);
     CHECK(events[2].durationFrames == 15);
     CHECK(state.effectFrameTimers.at(0) == 3);
-    CHECK(state.triggerTimers[Trigger::AllyLowHPBurst] == 1);
+    CHECK(state.triggerTimers[{ Trigger::AllyLowHPBurst, -1 }] == 1);
     CHECK(state.rampingStacks[0] == 0);
 }
 
@@ -590,7 +664,7 @@ TEST_CASE("BattleComboTriggerSystem_FrameTriggerEffects_FilterActiveConditionsWi
 {
     RoleComboState state;
     state.lastAliveFlag = true;
-    state.triggerTimers[Trigger::AllyLowHPBurst] = 3;
+    state.triggerTimers[{ Trigger::AllyLowHPBurst, -1 }] = 3;
     state.triggeredEffects.push_back(
         triggeredEffect(EffectType::PctATK, Trigger::WhileLowHP, 30, 50));
     state.triggeredEffects.push_back(

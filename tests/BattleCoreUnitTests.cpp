@@ -421,7 +421,9 @@ KysChess::AppliedEffectInstance triggeredEffect(KysChess::EffectType type,
                                                 KysChess::Trigger trigger,
                                                 int value,
                                                 int triggerValue = 0,
-                                                int duration = 0)
+                                                int duration = 0,
+                                                int maxCount = 0,
+                                                int sourceComboId = -1)
 {
     KysChess::AppliedEffectInstance effect;
     effect.type = type;
@@ -429,6 +431,8 @@ KysChess::AppliedEffectInstance triggeredEffect(KysChess::EffectType type,
     effect.value = value;
     effect.triggerValue = triggerValue;
     effect.duration = duration;
+    effect.maxCount = maxCount;
+    effect.sourceComboId = sourceComboId;
     return effect;
 }
 
@@ -2632,6 +2636,69 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
         CHECK(BattleLogTest::textOf(*invincibilityLog) == "技能後無敵（12幀）");
         CHECK(BattleLogTest::hasSegment(*invincibilityLog, "12", BattleLogTextTone::DurationValue));
         CHECK(BattleLogTest::hasSegment(*invincibilityLog, "幀", BattleLogTextTone::DurationValue));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_AllyLowHpBurstOnlyScopesToMatchingComboMembers", "[battle][core][combo]")
+{
+    BattleRuntimeState state;
+    state.attacks = attackWorld();
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 0, { 130, 100, 0 }),
+        unit(2, 0, { 160, 100, 0 }),
+        unit(3, 1, { 260, 100, 0 }),
+    }));
+    seedRuntimeUnits(state, {
+        runtimeUnitSnapshot(0, 0, 20, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 0, 100, { 130, 100, 0 }),
+        runtimeUnitSnapshot(2, 0, 100, { 160, 100, 0 }),
+        runtimeUnitSnapshot(3, 1, 100, { 260, 100, 0 }),
+    });
+
+    state.units.require(0).combo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
+    state.units.require(1).combo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
+    state.units.require(2).combo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 80, 35, 90, 2, 18));
+
+    auto frame = runBattleFrame(state);
+
+    (void)frame;
+    const auto key = KysChess::ComboTriggerTimerKey{ KysChess::Trigger::AllyLowHPBurst, 17 };
+    CHECK_FALSE(state.units.require(0).combo.triggerTimers.contains(key));
+    CHECK(state.units.require(1).combo.triggerTimers.at(key) > 0);
+    CHECK_FALSE(state.units.require(2).combo.triggerTimers.contains({ KysChess::Trigger::AllyLowHPBurst, 17 }));
+    CHECK_FALSE(state.units.require(2).combo.triggerTimers.contains({ KysChess::Trigger::AllyLowHPBurst, 18 }));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DirectComboMutationPreservesScopedBroadcastTimers", "[battle][core][combo][ownership]")
+{
+    BattleRuntimeState state;
+    state.attacks = attackWorld();
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 0, { 130, 100, 0 }),
+        unit(2, 1, { 260, 100, 0 }),
+    }));
+    seedRuntimeUnits(state, {
+        runtimeUnitSnapshot(0, 0, 20, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 0, 100, { 130, 100, 0 }),
+        runtimeUnitSnapshot(2, 1, 100, { 260, 100, 0 }),
+    });
+
+    state.units.require(0).combo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
+    state.units.require(1).combo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
+
+    auto frame = runBattleFrame(state);
+
+    (void)frame;
+    const auto key = KysChess::ComboTriggerTimerKey{ KysChess::Trigger::AllyLowHPBurst, 17 };
+    CHECK_FALSE(state.units.require(0).combo.triggerTimers.contains(key));
+    CHECK(state.units.require(1).combo.triggerTimers.at(key) > 0);
+    CHECK(state.units.require(0).combo.effectActivationCounts.at(0) == 1);
 }
 
 TEST_CASE("BattleFrameRunner_AppliesCastScopedMpRestoreAfterUltimateSpend", "[battle][core][runtime]")

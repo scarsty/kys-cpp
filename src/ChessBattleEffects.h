@@ -1,5 +1,6 @@
 #pragma once
 
+#include <compare>
 #include <map>
 #include <string>
 #include <vector>
@@ -138,6 +139,14 @@ struct AppliedEffectInstance : ComboEffect
     int sourceComboId = -1;  // -1 means the effect did not originate from a synergy
 };
 
+struct ComboTriggerTimerKey
+{
+    Trigger trigger = Trigger::Always;
+    int sourceComboId = -1;
+
+    auto operator<=>(const ComboTriggerTimerKey&) const = default;
+};
+
 struct RoleComboState
 {
     // Stat buffs
@@ -161,7 +170,7 @@ struct RoleComboState
     // Mutable runtime state
     std::map<int, int> everyNthCounters;  // N value → counter
     bool dodgedLast = false;
-    std::map<Trigger, int> triggerTimers;
+    std::map<ComboTriggerTimerKey, int> triggerTimers;
     bool lastAliveFlag = false;
     std::map<int, int> effectActivationCounts;  // effect index → count
     std::map<int, int> effectFrameTimers;  // effect index → frame timer

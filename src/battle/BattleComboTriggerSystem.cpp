@@ -50,6 +50,18 @@ bool hookMatchesConfiguredTrigger(BattleComboTriggerHook hook, Trigger trigger)
     }
 }
 
+ComboTriggerTimerKey triggerTimerKeyFor(const AppliedEffectInstance& effect)
+{
+    assert(effect.trigger == Trigger::AllyLowHPBurst);
+    return { effect.trigger, effect.sourceComboId };
+}
+
+bool hasActiveTriggerTimer(const RoleComboState& state, ComboTriggerTimerKey key)
+{
+    const auto timer = state.triggerTimers.find(key);
+    return timer != state.triggerTimers.end() && timer->second > 0;
+}
+
 bool isActiveFrameTrigger(const RoleComboState& state, const BattleComboFrameUnit& unit, const AppliedEffectInstance& effect)
 {
     assert(unit.maxHp > 0);
@@ -68,8 +80,7 @@ bool isActiveFrameTrigger(const RoleComboState& state, const BattleComboFrameUni
     }
     if (effect.trigger == Trigger::AllyLowHPBurst)
     {
-        auto timer = state.triggerTimers.find(effect.trigger);
-        return timer != state.triggerTimers.end() && timer->second > 0;
+        return hasActiveTriggerTimer(state, triggerTimerKeyFor(effect));
     }
     return false;
 }
@@ -118,13 +129,15 @@ std::vector<BattleComboTriggerAction> BattleComboTriggerSystem::updateFrameTrigg
         }
         else if (effect.trigger == Trigger::AllyLowHPBurst)
         {
+            const auto timerKey = triggerTimerKeyFor(effect);
             if (unit.hp * 100 < unit.maxHp * effect.triggerValue
-                && state.triggerTimers[effect.trigger] <= 0)
+                && !hasActiveTriggerTimer(state, timerKey))
             {
                 recordActivation(state, i);
                 actions.push_back({
                     BattleComboTriggerActionType::BroadcastTriggerTimer,
                     effect.trigger,
+                    timerKey,
                     static_cast<int>(i),
                     effect.value,
                     effect.duration,
@@ -139,6 +152,7 @@ std::vector<BattleComboTriggerAction> BattleComboTriggerSystem::updateFrameTrigg
             actions.push_back({
                 BattleComboTriggerActionType::HealPercentSelf,
                 effect.trigger,
+                {},
                 static_cast<int>(i),
                 effect.value,
                 effect.duration,
@@ -186,6 +200,7 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
             events.push_back({
                 BattleComboFrameRuntimeEventType::SelfHpRegen,
                 effect.trigger,
+                {},
                 effectIndex,
                 effect.value,
             });
@@ -222,6 +237,7 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
         events.push_back({
             BattleComboFrameRuntimeEventType::HealAura,
             Trigger::Always,
+            {},
             -1,
             healAuraFlat,
             healAuraPct,
@@ -240,6 +256,7 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
                 events.push_back({
                     BattleComboFrameRuntimeEventType::HealPercentSelf,
                     action.trigger,
+                    {},
                     action.effectIndex,
                     action.value,
                     0,
@@ -252,6 +269,7 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
                 events.push_back({
                     BattleComboFrameRuntimeEventType::BroadcastTriggerTimer,
                     action.trigger,
+                    action.timerKey,
                     action.effectIndex,
                     action.value,
                     0,
@@ -273,8 +291,9 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
         }
     }
 
-    for (auto& [trigger, timer] : state.triggerTimers)
+    for (auto& timerEntry : state.triggerTimers)
     {
+        auto& timer = timerEntry.second;
         if (timer > 0)
         {
             --timer;
@@ -491,11 +510,11 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::activeFrameTrigge
     for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
     {
         const auto& effect = state.triggeredEffects[i];
-        if (!isActiveFrameTrigger(state, unit, effect))
+        if (std::find(effectTypes.begin(), effectTypes.end(), effect.type) == effectTypes.end())
         {
             continue;
         }
-        if (std::find(effectTypes.begin(), effectTypes.end(), effect.type) == effectTypes.end())
+        if (!isActiveFrameTrigger(state, unit, effect))
         {
             continue;
         }
