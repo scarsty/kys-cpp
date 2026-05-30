@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <map>
 #include <ranges>
 #include <utility>
 
@@ -173,20 +174,8 @@ void populateBattleRuntimeSetupDefinitions(BattleRuntimeSetupSeed& setup)
     setup.neigongDefinitions = makeBattleSetupNeigongDefinitions();
 }
 
-void applyCreationComboStatesToSetup(BattleRuntimeSessionCreationInput& input)
-{
-    for (auto& seed : input.setup.units)
-    {
-        if (const auto comboIt = input.comboStates.find(seed.unitId);
-            comboIt != input.comboStates.end())
-        {
-            seed.baseCombo = comboIt->second;
-        }
-    }
-}
-
 std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(
-    const BattleRuntimeSessionCreationInput& input);
+    BattleRuntimeSessionCreationInput& input);
 
 BattleRuntimeState buildRuntimeFromSpawns(
     const BattleRuntimeSessionCreationInput& input,
@@ -204,21 +193,14 @@ std::map<int, BattleActionPlanSeed> makeActionPlanSeedMap(
 }
 
 std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(
-    const BattleRuntimeSessionCreationInput& input)
+    BattleRuntimeSessionCreationInput& input)
 {
     const auto actionPlans = makeActionPlanSeedMap(input.actionPlanSeeds);
 
     std::vector<BattleRuntimeUnitSpawn> spawns;
     spawns.reserve(input.units.size());
-    for (const auto& setup : input.units)
+    for (auto& setup : input.units)
     {
-        RoleComboState combo;
-        if (const auto comboIt = input.comboStates.find(setup.unitId);
-            comboIt != input.comboStates.end())
-        {
-            combo = comboIt->second;
-        }
-
         std::optional<BattleActionPlanSeed> actionPlan;
         if (const auto actionIt = actionPlans.find(setup.unitId);
             actionIt != actionPlans.end())
@@ -228,7 +210,7 @@ std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(
 
         auto spawn = makeRuntimeUnitSpawn(
             makeRuntimeUnit(setup),
-            std::move(combo),
+            std::move(setup.baseCombo),
             std::move(actionPlan));
         spawn.status.effects.frozenTimer = setup.frozen;
         spawn.status.effects.frozenMaxTimer = setup.frozenMax;
@@ -307,7 +289,6 @@ struct BattleRuntimeSetupResult
 BattleRuntimeSetupResult setupBattleRuntime(BattleRuntimeSessionCreationInput input)
 {
     populateBattleRuntimeSetupDefinitions(input.setup);
-    applyCreationComboStatesToSetup(input);
 
     auto spawns = buildCanonicalSpawns(input);
     auto initialization = BattleInitializationSystem().initialize(

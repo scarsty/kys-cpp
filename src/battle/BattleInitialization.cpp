@@ -585,7 +585,7 @@ BattleInitializationResult BattleInitializationSystem::initialize(
     {
         auto& spawn = requireSpawnByUnitId(spawns, seed.unitId);
         auto& unit = spawn.unit;
-        RoleComboState combo = seed.baseCombo;
+        auto& combo = spawn.combo;
 
         const auto& resolved = seed.team == 0 ? allyResolved : enemyResolved;
         const auto& roster = seed.team == 0 ? setup.allyRoster : setup.enemyRoster;
@@ -685,7 +685,6 @@ BattleInitializationResult BattleInitializationSystem::initialize(
                 combo.effectFrameTimers[effectIndex] = effect.value;
             }
         }
-        spawn.combo = std::move(combo);
         refreshRuntimeUnitSpawnDerivedState(spawn);
         seededUnitIds.push_back(seed.unitId);
     }

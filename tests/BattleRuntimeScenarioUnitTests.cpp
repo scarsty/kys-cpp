@@ -23,8 +23,6 @@ BattleRuntimeSessionCreationInput basicSessionInput()
         scenarioSetupUnit(0, 0, 100, { 100, 100, 0 }),
         scenarioSetupUnit(1, 1, 100, { 500, 100, 0 }),
     };
-    input.comboStates.emplace(0, KysChess::RoleComboState{});
-    input.comboStates.emplace(1, KysChess::RoleComboState{});
     return input;
 }
 
@@ -63,8 +61,6 @@ BattleRuntimeSessionCreationInput actionProjectileSessionInput()
     });
 
     input.units.push_back(scenarioSetupUnit(1, 1, 100, { 180, 100, 0 }));
-    input.comboStates.emplace(0, KysChess::RoleComboState{});
-    input.comboStates.emplace(1, KysChess::RoleComboState{});
     return input;
 }
 

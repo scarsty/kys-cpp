@@ -312,7 +312,7 @@ void BattleSceneHades::initializeBattleRuntime(
     auto creation = KysChess::Battle::BattleRuntimeSession::createInitialized(std::move(creationInput));
     auto initialization = std::move(creation.initialization);
     battle_session_.emplace(std::move(creation.session));
-    KysChess::ChessCombo::getMutableStates() = initialization.comboStates;
+    KysChess::ChessCombo::getMutableStates() = std::move(initialization.comboStates);
     scene_units_.initialize(*battle_session_);
     if (!initialization.logEvents.empty() || !initialization.visualEvents.empty())
     {
@@ -338,7 +338,6 @@ KysChess::Battle::BattleRuntimeSessionCreationInput BattleSceneHades::makeBattle
     input.randomSeed = battle_random_seed_;
     input.rules.movementPhysicsConfig.gravity = gravity_;
     input.rules.movementPhysicsConfig.friction = friction_;
-    input.comboStates = KysChess::ChessCombo::getMutableStates();
     input.battleFrame = battle_frame_;
 
     auto* basicMagic = Save::getInstance()->getMagic(1);

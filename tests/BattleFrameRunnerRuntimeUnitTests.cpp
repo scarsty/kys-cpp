@@ -373,7 +373,6 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeRecords", "[b
     unit.stats = { 10, 10, 10 };
     unit.motion.position = { 128, 256, 0 };
     input.units.push_back(unit);
-    input.comboStates.emplace(0, KysChess::RoleComboState{});
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
@@ -401,7 +400,6 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsMovementAgentRowsForDeadU
     live.stats = { 10, 10, 10 };
     live.motion.position = { 128, 256, 0 };
     input.units.push_back(live);
-    input.comboStates.emplace(0, KysChess::RoleComboState{});
 
     BattleSetupUnitInput dead = live;
     dead.unitId = 1;
@@ -412,7 +410,6 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsMovementAgentRowsForDeadU
     dead.vitals.hp = 0;
     dead.motion.position = { 256, 256, 0 };
     input.units.push_back(dead);
-    input.comboStates.emplace(1, KysChess::RoleComboState{});
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
@@ -438,7 +435,6 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedSpendsNonThroughProjectilesOnHi
     unit.stats = { 10, 10, 10 };
     unit.motion.position = { 128, 256, 0 };
     input.units.push_back(unit);
-    input.comboStates.emplace(0, KysChess::RoleComboState{});
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
@@ -461,7 +457,6 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStateAlignedA
     ally.stats = { 10, 10, 10 };
     ally.motion.position = { 128, 128, 0 };
     input.units.push_back(ally);
-    input.comboStates.emplace(0, KysChess::RoleComboState{});
 
     BattleSetupUnitInput enemy;
     enemy.unitId = 1;
@@ -473,7 +468,6 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedKeepsDerivedMotionStateAlignedA
     enemy.stats = { 10, 10, 10 };
     enemy.motion.position = { 360, 128, 0 };
     input.units.push_back(enemy);
-    input.comboStates.emplace(1, KysChess::RoleComboState{});
 
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
     session.runFrame();

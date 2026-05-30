@@ -4,7 +4,6 @@
 #include "BattleRuntimeRules.h"
 
 #include <array>
-#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,6 +27,7 @@ struct BattleSetupUnitInput
     BattleUnitStats stats;
     BattleUnitMotion motion;
     BattleUnitAnimationState animation;
+    RoleComboState baseCombo;
     int star = 1;
     int cost = 0;
     int weaponId = -1;
@@ -58,7 +58,6 @@ struct BattleRuntimeSessionCreationInput
 {
     std::vector<BattleSetupUnitInput> units;
     BattleRuntimeSetupSeed setup;
-    std::map<int, RoleComboState> comboStates;
     std::vector<BattleTerrainCell> terrainCells;
     std::vector<BattleRescueCellSnapshot> rescueCells;
     std::vector<BattleActionPlanSeed> actionPlanSeeds;

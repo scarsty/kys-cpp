@@ -2,6 +2,7 @@
 
 #include "BattleRuntimeUnitSpawn.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -24,7 +25,6 @@ struct BattleInitializationUnitSeed
     int baseKnife = 0;
     int baseUnusual = 0;
     int baseHiddenWeapon = 0;
-    RoleComboState baseCombo;
 };
 
 struct BattleInitializationCloneSpawnCell

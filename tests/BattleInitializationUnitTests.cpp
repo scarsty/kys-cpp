@@ -101,7 +101,6 @@ void addRuntimeSetupSeed(
         unit.knife,
         unit.unusual,
         unit.hiddenWeapon,
-        {},
     });
     BattleSetupRosterUnit roster{
         unit.unitId,
@@ -304,6 +303,7 @@ TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "
     combo.pctHP = 20;
     combo.pctATK = 10;
     combo.pctDEF = 50;
+    requireSpawn(spawns, 0).combo = combo;
 
     BattleRuntimeSetupSeed setup;
     BattleInitializationUnitSeed seed;
@@ -314,7 +314,6 @@ TEST_CASE("BattleInitializationSystem_AppliesComboStatsToImportedRuntimeUnit", "
     seed.baseAttack = 20;
     seed.baseDefence = 30;
     seed.baseSpeed = 40;
-    seed.baseCombo = combo;
     setup.units.push_back(seed);
 
     auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext());
@@ -432,6 +431,7 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     teamShield.value = 15;
     teamShield.sourceComboId = 77;
     combo.appliedEffects.push_back(teamShield);
+    requireSpawn(spawns, 0).combo = combo;
 
     BattleRuntimeSetupSeed setup;
     BattleInitializationUnitSeed seed;
@@ -442,7 +442,6 @@ TEST_CASE("BattleInitializationSystem_InitializesShieldTimersAndBlockCounters", 
     seed.baseAttack = 20;
     seed.baseDefence = 30;
     seed.baseSpeed = 40;
-    seed.baseCombo = combo;
     setup.units.push_back(seed);
 
     auto result = BattleInitializationSystem().initialize(spawns, setup, testInitializationContext(77));
@@ -475,9 +474,10 @@ TEST_CASE("BattleInitializationSystem_EnemyTopDebuffEmitsBattleLog", "[battle][i
 
     RoleComboState combo;
     ChessBattleEffects::applyEffect(combo, { EffectType::EnemyTopDebuff, 1, 7 });
+    requireSpawn(spawns, 0).combo = combo;
 
     BattleRuntimeSetupSeed setup;
-    setup.units.push_back({ .unitId = 0, .realRoleId = 1001, .team = 0, .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40, .baseCombo = combo });
+    setup.units.push_back({ .unitId = 0, .realRoleId = 1001, .team = 0, .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40 });
     setup.units.push_back({ .unitId = 1, .realRoleId = 1002, .team = 1, .star = 1, .cost = 3, .baseMaxHp = 100, .baseAttack = 80, .baseDefence = 50, .baseSpeed = 40 });
     setup.units.push_back({ .unitId = 2, .realRoleId = 1003, .team = 1, .star = 1, .cost = 1, .baseMaxHp = 120, .baseAttack = 60, .baseDefence = 40, .baseSpeed = 40 });
 
@@ -554,12 +554,8 @@ TEST_CASE("BattleInitializationSystem_CreatesRuntimeCloneBeforeSceneMirror", "[b
 
 TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[battle][initialization]")
 {
-    std::map<int, RoleComboState> comboStates;
-    ChessBattleEffects::applyEffect(comboStates[0], { EffectType::CloneSummon, 1 });
-
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    input.comboStates = comboStates;
     input.setup.cloneCells.push_back({ 3, 4, true, false });
 
     BattleSetupUnitInput source;
@@ -580,6 +576,7 @@ TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[bat
     source.star = 3;
     source.cost = 7;
     source.chessInstanceId = 99;
+    ChessBattleEffects::applyEffect(source.baseCombo, { EffectType::CloneSummon, 1 });
     input.units.push_back(source);
     addRuntimeSetupSeed(input, source);
 
@@ -627,15 +624,12 @@ TEST_CASE("BattleRuntimeSession_OwnsUnitProfileFacts", "[battle][initialization]
 
 TEST_CASE("BattleRuntimeSession_CloneProfileKeepsRenderingWithoutRosterOwnership", "[battle][initialization][runtime_session]")
 {
-    std::map<int, RoleComboState> comboStates;
-    ChessBattleEffects::applyEffect(comboStates[0], { EffectType::CloneSummon, 1 });
-
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    input.comboStates = comboStates;
     input.setup.cloneCells.push_back({ 3, 4, true, false });
 
     auto source = makeRuntimeProfileTestSource();
+    ChessBattleEffects::applyEffect(source.baseCombo, { EffectType::CloneSummon, 1 });
     input.units.push_back(source);
     addRuntimeSetupSeed(input, source);
 
@@ -656,8 +650,7 @@ TEST_CASE("BattleRuntimeSession_CloneProfileKeepsRenderingWithoutRosterOwnership
 
 TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initialization][runtime_session]")
 {
-    std::map<int, RoleComboState> comboStates;
-    auto& sourceCombo = comboStates[0];
+    RoleComboState sourceCombo;
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::CloneSummon, 1 });
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::ShieldPctMaxHP, 25 });
     ChessBattleEffects::applyEffect(sourceCombo, { EffectType::BlockFirstHits, 2 });
@@ -667,10 +660,10 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
 
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    input.comboStates = comboStates;
     input.setup.cloneCells.push_back({ 3, 4, true, false });
 
     auto source = makeRuntimeProfileTestSource();
+    source.baseCombo = sourceCombo;
     source.animation = { 9, 10, 3, 1 };
     source.haveAction = true;
     source.operationType = BattleOperationType::Melee;
@@ -740,11 +733,8 @@ TEST_CASE("BattleRuntimeSession_CloneUsesFreshSpawnStores", "[battle][initializa
 
 TEST_CASE("BattleRuntimeSession_InitializesRuntimeRandomFromCreationInput", "[battle][initialization]")
 {
-    std::map<int, RoleComboState> comboStates;
-
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    input.comboStates = comboStates;
     input.randomSeed = 777u;
 
     BattleSetupUnitInput source;
@@ -783,21 +773,19 @@ TEST_CASE("BattleRuntimeSession_StampsInitializationLogsWithCreationFrame", "[ba
     source.animation = { 0, 0, 0, -1 };
     input.units.push_back(source);
     addRuntimeSetupSeed(input, source);
-    ChessBattleEffects::applyEffect(input.setup.units[0].baseCombo, { EffectType::ShieldPctMaxHP, 25 });
+    ChessBattleEffects::applyEffect(input.units[0].baseCombo, { EffectType::ShieldPctMaxHP, 25 });
 
     auto creation = BattleRuntimeSession::createInitialized(std::move(input));
 
     REQUIRE(creation.initialization.logEvents.size() == 1);
     CHECK(creation.initialization.logEvents[0].frame == 88);
+    CHECK(sumAlwaysEffectValue(creation.session.runtime().units.require(0).combo, EffectType::ShieldPctMaxHP) == 25);
 }
 
 TEST_CASE("BattleRuntimeSession_InitializedSessionAdvancesUnitsAfterSetupPlacement", "[battle][initialization][runtime]")
 {
-    std::map<int, RoleComboState> comboStates;
-
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    input.comboStates = comboStates;
     input.rules.movementCollisionWorld.walkableByCell.assign(18 * 18, 1);
 
     addInitializedRuntimeTestUnit(input, 0, 1001, 0, 3, 3, Towards_RightDown);
@@ -825,11 +813,8 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionAdvancesUnitsAfterSetupPlaceme
 
 TEST_CASE("BattleRuntimeSession_InitializedSessionSeedsAttackUnits", "[battle][initialization][runtime]")
 {
-    std::map<int, RoleComboState> comboStates;
-
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    input.comboStates = comboStates;
 
     addInitializedRuntimeTestUnit(input, 0, 1001, 0, 3, 3, Towards_RightDown);
     addInitializedRuntimeTestUnit(input, 1, 1002, 1, 10, 10, Towards_LeftUp);
@@ -847,11 +832,8 @@ TEST_CASE("BattleRuntimeSession_InitializedSessionSeedsAttackUnits", "[battle][i
 
 TEST_CASE("BattleRuntimeSession_InitializedSessionResolvesProjectileCombat", "[battle][initialization][runtime]")
 {
-    std::map<int, RoleComboState> comboStates;
-
     BattleRuntimeSessionCreationInput input;
     input.rules = makeHadesBattleRuntimeRules(36.0, 18);
-    input.comboStates = comboStates;
     input.rules.movementCollisionWorld.walkableByCell.assign(18 * 18, 1);
 
     auto projectileSkill = makeHadesTestSkillSeed(1, 4, "飛刀", 55, 44);
@@ -921,7 +903,7 @@ TEST_CASE("BattleInitializationSystem_ConsumesSetupAndInitializesOwnedRuntime", 
     seed.baseAttack = 20;
     seed.baseDefence = 30;
     seed.baseSpeed = 40;
-    seed.baseCombo.flatHP = 25;
+    requireSpawn(spawns, 0).combo.flatHP = 25;
     BattleRuntimeSetupSeed setup;
     setup.units.push_back(seed);
 

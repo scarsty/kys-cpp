@@ -216,7 +216,6 @@ KysChess::Battle::BattleInitializationUnitSeed makeInitializationUnitSeed(
         unit.knife,
         unit.unusual,
         unit.hiddenWeapon,
-        {},
     };
 }
 
