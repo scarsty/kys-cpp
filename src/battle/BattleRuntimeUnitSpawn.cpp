@@ -43,14 +43,19 @@ BattleDamagePresentationStyle makeDamagePresentationStyle(int team)
 int initialShieldFor(const BattleRuntimeUnit& unit, const RoleComboState& combo)
 {
     int shield = 0;
-    for (const auto& effect : combo.appliedEffects)
+    for (RoleComboEffectId effectId : combo.effectIds(Trigger::Always, EffectType::FlatShield))
     {
-        if (effect.type == EffectType::FlatShield && effect.trigger == Trigger::Always && effect.sourceComboId < 0)
+        const auto& effect = combo.effect(effectId);
+        if (effect.origin != RoleComboEffectOrigin::Configured)
+        {
+            continue;
+        }
+        if (effect.sourceComboId < 0)
         {
             shield += effect.value;
         }
     }
-    const int shieldPct = sumAlwaysEffectValue(combo, EffectType::ShieldPctMaxHP);
+    const int shieldPct = combo.sumAlways(EffectType::ShieldPctMaxHP);
     if (shieldPct > 0)
     {
         shield += unit.vitals.maxHp * shieldPct / 100;
@@ -61,12 +66,14 @@ int initialShieldFor(const BattleRuntimeUnit& unit, const RoleComboState& combo)
 int sumAlwaysEffectCharges(const RoleComboState& combo, EffectType type)
 {
     int total = 0;
-    for (const auto& effect : combo.appliedEffects)
+    for (RoleComboEffectId effectId : combo.effectIds(Trigger::Always, type))
     {
-        if (effect.type == type && effect.trigger == Trigger::Always)
+        const auto& effect = combo.effect(effectId);
+        if (effect.origin != RoleComboEffectOrigin::Configured)
         {
-            total += std::max(1, effect.value);
+            continue;
         }
+        total += std::max(1, effect.value);
     }
     return total;
 }
@@ -83,13 +90,13 @@ BattleStatusRuntimeUnit makeInitialStatusRuntimeUnit(
 BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(const RoleComboState& combo)
 {
     BattleDamageRuntimeUnit damage;
-    damage.hurtInvincFrames = maxAlwaysEffectValue(combo, EffectType::HurtInvincFrames);
-    damage.blockFirstHitsRemaining = sumAlwaysEffectValue(combo, EffectType::BlockFirstHits);
-    damage.deathPrevention = maxAlwaysEffectValue(combo, EffectType::DeathPrevention) > 0;
-    damage.deathPreventionFrames = maxAlwaysEffectValue(combo, EffectType::DeathPrevention);
-    damage.killHealPct = sumAlwaysEffectValue(combo, EffectType::KillHealPct);
-    damage.killInvincFrames = maxAlwaysEffectValue(combo, EffectType::KillInvincFrames);
-    damage.bloodlustAttackPerKill = sumAlwaysEffectValue(combo, EffectType::Bloodlust);
+    damage.hurtInvincFrames = combo.maxAlways(EffectType::HurtInvincFrames);
+    damage.blockFirstHitsRemaining = combo.sumAlways(EffectType::BlockFirstHits);
+    damage.deathPrevention = combo.maxAlways(EffectType::DeathPrevention) > 0;
+    damage.deathPreventionFrames = combo.maxAlways(EffectType::DeathPrevention);
+    damage.killHealPct = combo.sumAlways(EffectType::KillHealPct);
+    damage.killInvincFrames = combo.maxAlways(EffectType::KillInvincFrames);
+    damage.bloodlustAttackPerKill = combo.sumAlways(EffectType::Bloodlust);
     return damage;
 }
 

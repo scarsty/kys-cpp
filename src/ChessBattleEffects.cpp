@@ -2,6 +2,7 @@
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
+#include <cassert>
 #include <format>
 #include <print>
 
@@ -90,77 +91,517 @@ static const std::map<std::string, Trigger> triggerMap = {
     {"护盾爆炸时", Trigger::OnShieldBreak},
 };
 
+namespace
+{
+
+std::span<const RoleComboEffectId> asSpan(const std::vector<RoleComboEffectId>& ids)
+{
+    return { ids.data(), ids.size() };
+}
+
+const std::vector<RoleComboEffectId>& emptyEffectIds()
+{
+    static const std::vector<RoleComboEffectId> empty;
+    return empty;
+}
+
+std::span<const RoleComboEffectId> lookupIds(
+    const std::map<RoleComboEffectLookupKey, std::vector<RoleComboEffectId>>& index,
+    Trigger trigger,
+    EffectType type)
+{
+    const auto it = index.find({ trigger, type });
+    return it == index.end() ? asSpan(emptyEffectIds()) : asSpan(it->second);
+}
+
+const RoleComboAlwaysSummary* lookupSummary(
+    const std::map<EffectType, RoleComboAlwaysSummary>& summaries,
+    EffectType type)
+{
+    const auto it = summaries.find(type);
+    return it == summaries.end() ? nullptr : &it->second;
+}
+
+void updateAlwaysSummary(
+    std::map<EffectType, RoleComboAlwaysSummary>& summaries,
+    const RoleComboEffectStore& effects,
+    RoleComboEffectId id)
+{
+    assert(id.isValid());
+    assert(static_cast<size_t>(id.value) < effects.instances.size());
+    const auto& effect = effects.instances[id.value];
+    assert(effect.id == id);
+    const auto [summaryIt, inserted] = summaries.try_emplace(
+        effect.type,
+        RoleComboAlwaysSummary{
+            effect.value,
+            effect.value,
+            effect.value2,
+            id,
+            id,
+        });
+    if (inserted)
+    {
+        return;
+    }
+
+    auto& summary = summaryIt->second;
+    assert(summary.firstId.isValid());
+    assert(summary.maxByValueId.isValid());
+    summary.sumValue += effect.value;
+    summary.maxValue = std::max(summary.maxValue, effect.value);
+    summary.maxValue2 = std::max(summary.maxValue2, effect.value2);
+    assert(static_cast<size_t>(summary.maxByValueId.value) < effects.instances.size());
+    if (effect.value > effects.instances[summary.maxByValueId.value].value)
+    {
+        summary.maxByValueId = id;
+    }
+}
+
+void updateStatBonuses(RoleComboStatBonuses& bonuses, const ComboEffect& effect)
+{
+    switch (effect.type)
+    {
+    case EffectType::FlatHP:  bonuses.flatHP += effect.value; break;
+    case EffectType::FlatATK: bonuses.flatATK += effect.value; break;
+    case EffectType::FlatDEF: bonuses.flatDEF += effect.value; break;
+    case EffectType::FlatSPD: bonuses.flatSPD += effect.value; break;
+    case EffectType::PctHP:   bonuses.pctHP += effect.value; break;
+    case EffectType::PctATK:  bonuses.pctATK += effect.value; break;
+    case EffectType::PctDEF:  bonuses.pctDEF += effect.value; break;
+    case EffectType::PctSPD:  bonuses.pctSPD += effect.value; break;
+    case EffectType::TeamFlatHP: bonuses.flatHP += effect.value; break;
+    case EffectType::TeamFlatATK: bonuses.flatATK += effect.value; break;
+    case EffectType::TeamFlatDEF: bonuses.flatDEF += effect.value; break;
+    case EffectType::TeamFlatSPD: bonuses.flatSPD += effect.value; break;
+    case EffectType::TeamPctHP: bonuses.pctHP += effect.value; break;
+    case EffectType::TeamPctATK: bonuses.pctATK += effect.value; break;
+    case EffectType::TeamPctDEF: bonuses.pctDEF += effect.value; break;
+    case EffectType::TeamPctSPD: bonuses.pctSPD += effect.value; break;
+    case EffectType::FightWinHP:
+        bonuses.fightWinGrowthHP += effect.value;
+        break;
+    case EffectType::FightWinATKDEF:
+        bonuses.fightWinGrowthATK += effect.value;
+        bonuses.fightWinGrowthDEF += effect.value2 > 0 ? effect.value2 : effect.value;
+        break;
+    case EffectType::NegPctDEF:
+        bonuses.pctDEF -= effect.value;
+        break;
+    default:
+        break;
+    }
+}
+
+}  // namespace
+
 const std::map<std::string, EffectType>& ChessBattleEffects::getEffectTypeMap()
 {
     return effectTypeMap;
 }
 
-int sumAlwaysEffectValue(const RoleComboState& state, EffectType type)
+RoleComboEffectId RoleComboState::applyConfiguredEffect(const ComboEffect& effect, int sourceComboId)
 {
-    int total = 0;
-    for (const auto& effect : state.appliedEffects)
-    {
-        if (effect.type == type && effect.trigger == Trigger::Always)
-        {
-            total += effect.value;
-        }
-    }
-    return total;
+    return appendEffect(effect, RoleComboEffectOrigin::Configured, sourceComboId);
 }
 
-int maxAlwaysEffectValue(const RoleComboState& state, EffectType type)
+RoleComboEffectId RoleComboState::grantRuntimeEffect(const ComboEffect& effect, int sourceComboId)
 {
-    int value = 0;
-    for (const auto& effect : state.appliedEffects)
-    {
-        if (effect.type == type && effect.trigger == Trigger::Always)
+    return appendEffect(effect, RoleComboEffectOrigin::RuntimeGrant, sourceComboId);
+}
+
+const RoleComboEffectInstance& RoleComboState::effect(RoleComboEffectId id) const
+{
+    assert(id.isValid());
+    assert(static_cast<size_t>(id.value) < effects_.instances.size());
+    const auto& instance = effects_.instances[id.value];
+    assert(instance.id == id);
+    return instance;
+}
+
+std::span<const RoleComboEffectId> RoleComboState::effectIdsInAppendOrder() const
+{
+    return asSpan(effects_.idsInAppendOrder);
+}
+
+std::span<const RoleComboEffectId> RoleComboState::effectIds(Trigger trigger, EffectType type) const
+{
+    return lookupIds(effects_.idsByTriggerAndType, trigger, type);
+}
+
+std::span<const RoleComboEffectId> RoleComboState::idsFromCombo(int sourceComboId) const
+{
+    const auto it = effects_.idsBySourceComboId.find(sourceComboId);
+    return it == effects_.idsBySourceComboId.end() ? asSpan(emptyEffectIds()) : asSpan(it->second);
+}
+
+const RoleComboStatBonuses& RoleComboState::statBonuses() const
+{
+    return effects_.statBonuses;
+}
+
+bool RoleComboState::isRuntimeGranted(RoleComboEffectId id) const
+{
+    return effect(id).origin == RoleComboEffectOrigin::RuntimeGrant;
+}
+
+bool RoleComboState::canActivateTriggeredEffect(RoleComboEffectId id) const
+{
+    const auto& comboEffect = effect(id);
+    assert(comboEffect.trigger != Trigger::Always);
+    const auto runtime = runtime_.byEffect.find(id);
+    const int activated = runtime == runtime_.byEffect.end() ? 0 : runtime->second.activationCount;
+    return comboEffect.maxCount <= 0 || activated < comboEffect.maxCount;
+}
+
+void RoleComboState::recordTriggeredEffectActivation(RoleComboEffectId id)
+{
+    const auto& comboEffect = effect(id);
+    assert(comboEffect.trigger != Trigger::Always);
+    ++runtime_.byEffect[id].activationCount;
+}
+
+int RoleComboState::triggeredEffectActivationCount(RoleComboEffectId id) const
+{
+    const auto runtime = runtime_.byEffect.find(id);
+    return runtime == runtime_.byEffect.end() ? 0 : runtime->second.activationCount;
+}
+
+bool RoleComboState::hasTriggeredEffectActivations() const
+{
+    return std::ranges::any_of(runtime_.byEffect, [](const auto& entry)
         {
-            value = std::max(value, effect.value);
+            return entry.second.activationCount > 0;
+        });
+}
+
+bool RoleComboState::hasActiveTriggerTimer(ComboTriggerTimerKey key) const
+{
+    const auto timer = runtime_.triggerTimers.find(key);
+    return timer != runtime_.triggerTimers.end() && timer->second > 0;
+}
+
+bool RoleComboState::ownsTriggerTimer(ComboTriggerTimerKey key) const
+{
+    for (RoleComboEffectId id : idsFromCombo(key.sourceComboId))
+    {
+        if (effect(id).trigger == key.trigger)
+        {
+            return true;
         }
     }
+    return false;
+}
+
+void RoleComboState::extendTriggerTimer(ComboTriggerTimerKey key, int durationFrames)
+{
+    assert(durationFrames > 0);
+    auto& timer = runtime_.triggerTimers[key];
+    timer = std::max(timer, durationFrames);
+}
+
+void RoleComboState::advanceTriggerTimersOneFrame()
+{
+    for (auto& timerEntry : runtime_.triggerTimers)
+    {
+        auto& timer = timerEntry.second;
+        if (timer > 0)
+        {
+            --timer;
+        }
+    }
+}
+
+void RoleComboState::setLastAliveForComboRuntime(bool lastAlive)
+{
+    runtime_.lastAliveFlag = lastAlive;
+}
+
+bool RoleComboState::lastAliveForComboRuntime() const
+{
+    return runtime_.lastAliveFlag;
+}
+
+void RoleComboState::seedAutoUltimateFrameTimers()
+{
+    for (auto& [id, state] : runtime_.byEffect)
+    {
+        state.frameTimer = 0;
+    }
+    for (RoleComboEffectId id : effectIds(Trigger::Always, EffectType::AutoUltimateAfterFrames))
+    {
+        const auto& comboEffect = effect(id);
+        if (comboEffect.value > 0)
+        {
+            setEffectFrameTimer(id, comboEffect.value);
+        }
+    }
+}
+
+bool RoleComboState::advanceAutoUltimateFrameTimer(RoleComboEffectId id, int intervalFrames)
+{
+    return advanceEffectFrameTimer(id, intervalFrames);
+}
+
+int RoleComboState::effectFrameTimerFrames(RoleComboEffectId id) const
+{
+    const auto runtime = runtime_.byEffect.find(id);
+    return runtime == runtime_.byEffect.end() ? 0 : runtime->second.frameTimer;
+}
+
+int RoleComboState::triggerTimerFrames(ComboTriggerTimerKey key) const
+{
+    const auto timer = runtime_.triggerTimers.find(key);
+    return timer == runtime_.triggerTimers.end() ? 0 : timer->second;
+}
+
+void RoleComboState::setTypePending(EffectType type, bool value)
+{
+    runtime_.byType[type].pending = value;
+}
+
+bool RoleComboState::typePending(EffectType type) const
+{
+    const auto runtime = runtime_.byType.find(type);
+    return runtime != runtime_.byType.end() && runtime->second.pending;
+}
+
+bool RoleComboState::consumeTypePending(EffectType type)
+{
+    auto& pending = runtime_.byType[type].pending;
+    const bool value = pending;
+    pending = false;
     return value;
 }
 
-int maxAlwaysEffectValue2(const RoleComboState& state, EffectType type)
+bool RoleComboState::typeToggle(EffectType type) const
 {
-    int value = 0;
-    for (const auto& effect : state.appliedEffects)
-    {
-        if (effect.type == type && effect.trigger == Trigger::Always)
-        {
-            value = std::max(value, effect.value2);
-        }
-    }
+    const auto runtime = runtime_.byType.find(type);
+    return runtime != runtime_.byType.end() && runtime->second.toggle;
+}
+
+bool RoleComboState::consumeTypeToggle(EffectType type)
+{
+    auto& toggle = runtime_.byType[type].toggle;
+    const bool value = toggle;
+    toggle = !toggle;
     return value;
 }
 
-const AppliedEffectInstance* firstAlwaysEffect(const RoleComboState& state, EffectType type)
+bool RoleComboState::advanceEffectCounter(RoleComboEffectId id, int threshold)
 {
-    for (const auto& effect : state.appliedEffects)
+    assert(threshold > 0);
+    auto& counter = runtime_.byEffect[id].counter;
+    ++counter;
+    if (counter >= threshold)
     {
-        if (effect.type == type && effect.trigger == Trigger::Always)
-        {
-            return &effect;
-        }
+        counter = 0;
+        return true;
     }
-    return nullptr;
+    return false;
 }
 
-const AppliedEffectInstance* maxAlwaysEffectByValue(const RoleComboState& state, EffectType type)
+void RoleComboState::setEffectFrameTimer(RoleComboEffectId id, int frames)
 {
-    const AppliedEffectInstance* selected = nullptr;
-    for (const auto& effect : state.appliedEffects)
+    assert(frames >= 0);
+    runtime_.byEffect[id].frameTimer = frames;
+}
+
+bool RoleComboState::advanceEffectFrameTimer(RoleComboEffectId id, int intervalFrames)
+{
+    assert(intervalFrames > 0);
+    int& timer = runtime_.byEffect[id].frameTimer;
+    if (timer <= 0)
     {
-        if (effect.type != type || effect.trigger != Trigger::Always)
+        timer = intervalFrames;
+    }
+    --timer;
+    if (timer <= 0)
+    {
+        timer = intervalFrames;
+        return true;
+    }
+    return false;
+}
+
+RoleComboStackChange RoleComboState::recordEffectStack(RoleComboEffectId id, int maxStacks, int pctPerStack)
+{
+    assert(maxStacks > 0);
+    auto& stacks = runtime_.byEffect[id].stacks;
+    const int beforeStacks = stacks;
+    stacks = std::min(stacks + 1, maxStacks);
+    return { pctPerStack, stacks, stacks > beforeStacks };
+}
+
+RoleComboStackChange RoleComboState::recordEffectStackAgainst(
+    RoleComboEffectId id,
+    int unitId,
+    int maxStacks,
+    int pctPerStack)
+{
+    assert(unitId >= 0);
+    assert(maxStacks > 0);
+    auto& stacks = runtime_.byEffect[id].stacksByUnit[unitId];
+    const int beforeStacks = stacks;
+    stacks = std::min(stacks + 1, maxStacks);
+    return { pctPerStack, stacks, stacks > beforeStacks };
+}
+
+void RoleComboState::setEffectIdleTimer(RoleComboEffectId id, int frames)
+{
+    assert(frames >= 0);
+    runtime_.byEffect[id].idleTimer = frames;
+}
+
+void RoleComboState::advanceEffectIdleTimers(std::span<const RoleComboEffectId> ids)
+{
+    for (RoleComboEffectId id : ids)
+    {
+        auto& runtime = runtime_.byEffect[id];
+        if (runtime.idleTimer > 0)
         {
-            continue;
+            --runtime.idleTimer;
         }
-        if (!selected || effect.value > selected->value)
+        else
         {
-            selected = &effect;
+            runtime.stacks = 0;
         }
     }
-    return selected;
+}
+
+int RoleComboState::effectStacks(RoleComboEffectId id) const
+{
+    const auto runtime = runtime_.byEffect.find(id);
+    return runtime == runtime_.byEffect.end() ? 0 : runtime->second.stacks;
+}
+
+int RoleComboState::effectIdleTimer(RoleComboEffectId id) const
+{
+    const auto runtime = runtime_.byEffect.find(id);
+    return runtime == runtime_.byEffect.end() ? 0 : runtime->second.idleTimer;
+}
+
+int RoleComboState::effectStacksAgainst(RoleComboEffectId id, int unitId) const
+{
+    const auto runtime = runtime_.byEffect.find(id);
+    if (runtime == runtime_.byEffect.end())
+    {
+        return 0;
+    }
+    const auto stacks = runtime->second.stacksByUnit.find(unitId);
+    return stacks == runtime->second.stacksByUnit.end() ? 0 : stacks->second;
+}
+
+int RoleComboState::setEnemyTopDebuffApplied(int desired)
+{
+    const int delta = desired - runtime_.enemyTopDebuffApplied;
+    runtime_.enemyTopDebuffApplied = desired;
+    return delta;
+}
+
+int RoleComboState::dodgeAdaptationBonusAgainst(int attackerUnitId) const
+{
+    assert(attackerUnitId >= 0);
+    int bonus = 0;
+    for (const auto& [id, descriptor] : effects_.dodgeAdaptations)
+    {
+        bonus += effectStacksAgainst(id, attackerUnitId) * descriptor.pctPerStack;
+    }
+    return bonus;
+}
+
+int RoleComboState::sumAlways(EffectType type) const
+{
+    const auto* summary = lookupSummary(effects_.alwaysByType, type);
+    return summary ? summary->sumValue : 0;
+}
+
+int RoleComboState::maxAlways(EffectType type) const
+{
+    const auto* summary = lookupSummary(effects_.alwaysByType, type);
+    return summary ? summary->maxValue : 0;
+}
+
+int RoleComboState::maxAlwaysValue2(EffectType type) const
+{
+    const auto* summary = lookupSummary(effects_.alwaysByType, type);
+    return summary ? summary->maxValue2 : 0;
+}
+
+bool RoleComboState::hasAlways(EffectType type) const
+{
+    return lookupSummary(effects_.alwaysByType, type) != nullptr;
+}
+
+const RoleComboEffectInstance* RoleComboState::firstAlways(EffectType type) const
+{
+    const auto* summary = lookupSummary(effects_.alwaysByType, type);
+    if (!summary)
+    {
+        return nullptr;
+    }
+    assert(summary->firstId.isValid());
+    return &effect(summary->firstId);
+}
+
+const RoleComboEffectInstance* RoleComboState::maxAlwaysByValue(EffectType type) const
+{
+    const auto* summary = lookupSummary(effects_.alwaysByType, type);
+    if (!summary)
+    {
+        return nullptr;
+    }
+    assert(summary->maxByValueId.isValid());
+    return &effect(summary->maxByValueId);
+}
+
+bool RoleComboState::hasComboApplied(int comboId) const
+{
+    return !idsFromCombo(comboId).empty();
+}
+
+RoleComboEffectId RoleComboState::appendEffect(
+    const ComboEffect& comboEffect,
+    RoleComboEffectOrigin origin,
+    int sourceComboId)
+{
+    const RoleComboEffectId id{ static_cast<int>(effects_.instances.size()) };
+
+    RoleComboEffectInstance instance;
+    static_cast<ComboEffect&>(instance) = comboEffect;
+    instance.id = id;
+    instance.origin = origin;
+    instance.sourceComboId = sourceComboId;
+    effects_.instances.push_back(instance);
+    effects_.idsInAppendOrder.push_back(id);
+
+    const RoleComboEffectLookupKey key{ comboEffect.trigger, comboEffect.type };
+    effects_.idsByTriggerAndType[key].push_back(id);
+    if (sourceComboId >= 0)
+    {
+        effects_.idsBySourceComboId[sourceComboId].push_back(id);
+    }
+
+    if (comboEffect.trigger == Trigger::Always)
+    {
+        updateAlwaysSummary(effects_.alwaysByType, effects_, id);
+        updateStatBonuses(effects_.statBonuses, comboEffect);
+
+        if (comboEffect.type == EffectType::Adaptation)
+        {
+            effects_.adaptations[id] = { comboEffect.value, comboEffect.value2 };
+        }
+        else if (comboEffect.type == EffectType::DodgeAdaptation)
+        {
+            effects_.dodgeAdaptations[id] = { comboEffect.value, comboEffect.value2 };
+        }
+        else if (comboEffect.type == EffectType::RampingDmg)
+        {
+            effects_.rampings[id] = { comboEffect.value, comboEffect.value2 };
+        }
+    }
+
+    return id;
 }
 
 bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context)
@@ -262,154 +703,10 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
     }
 }
 
-void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, int sourceComboId)
-{
-    AppliedEffectInstance instance;
-    static_cast<ComboEffect&>(instance) = e;
-    instance.sourceComboId = sourceComboId;
-    s.appliedEffects.push_back(instance);
-
-    if (e.trigger != Trigger::Always)
-    {
-        s.triggeredEffects.push_back(instance);
-        return;
-    }
-    switch (e.type)
-    {
-    case EffectType::FlatHP:  s.flatHP += e.value; break;
-    case EffectType::FlatATK: s.flatATK += e.value; break;
-    case EffectType::FlatDEF: s.flatDEF += e.value; break;
-    case EffectType::FlatSPD: s.flatSPD += e.value; break;
-    case EffectType::PctHP:   s.pctHP += e.value; break;
-    case EffectType::PctATK:  s.pctATK += e.value; break;
-    case EffectType::PctDEF:  s.pctDEF += e.value; break;
-    case EffectType::PctSPD:  s.pctSPD += e.value; break;
-    case EffectType::TeamFlatHP: s.flatHP += e.value; break;
-    case EffectType::TeamFlatATK: s.flatATK += e.value; break;
-    case EffectType::TeamFlatDEF: s.flatDEF += e.value; break;
-    case EffectType::TeamFlatSPD: s.flatSPD += e.value; break;
-    case EffectType::TeamPctHP: s.pctHP += e.value; break;
-    case EffectType::TeamPctATK: s.pctATK += e.value; break;
-    case EffectType::TeamPctDEF: s.pctDEF += e.value; break;
-    case EffectType::TeamPctSPD: s.pctSPD += e.value; break;
-    case EffectType::ActAsCombo: break;
-    case EffectType::FightWinHP:
-        s.fightWinGrowthHP += e.value;
-        break;
-    case EffectType::FightWinATKDEF:
-        s.fightWinGrowthATK += e.value;
-        s.fightWinGrowthDEF += e.value2 > 0 ? e.value2 : e.value;
-        break;
-    case EffectType::NegPctDEF: s.pctDEF -= e.value; break;
-    case EffectType::FlatDmgReduction: break;
-    case EffectType::FlatDmgIncrease: break;
-    case EffectType::BlockChance: break;
-    case EffectType::DodgeChance: break;
-    case EffectType::DodgeThenCrit: break;
-    case EffectType::CritChance: break;
-    case EffectType::CritMultiplier: break;
-    case EffectType::EveryNthDouble: break;
-    case EffectType::ArmorPenChance: break;
-    case EffectType::ArmorPenPct: break;
-    case EffectType::ArmorPen: break;  // handled as triggered effect
-    case EffectType::Stun: break;  // handled as triggered effect
-    case EffectType::KnockbackChance: break;
-    case EffectType::PoisonDOT: break;
-    case EffectType::PoisonDmgAmp: break;
-    case EffectType::MPOnHit: break;
-    case EffectType::HPOnHit: break;
-    case EffectType::MPDrain: break;
-    case EffectType::MPRecoveryBonus: break;
-    case EffectType::SkillDmgPct: break;
-    case EffectType::SkillReflectPct: break;
-    case EffectType::CDR: break;
-    case EffectType::FlatShield: break;
-    case EffectType::ShieldPctMaxHP: break;
-    case EffectType::ShieldFreezeRes: break;
-    case EffectType::HealAuraPct: break;
-    case EffectType::HealAuraFlat: break;
-    case EffectType::HealedATKSPDBoost: break;
-    case EffectType::HPRegenPct: break;
-    case EffectType::FreezeReductionPct: break;
-    case EffectType::ControlImmunityFrames: break;
-    case EffectType::KillHealPct: break;
-    case EffectType::KillInvincFrames: break;
-    case EffectType::PostSkillInvincFrames: break;
-    case EffectType::DmgReductionPct: break;
-    case EffectType::Bloodlust: break;
-    case EffectType::Adaptation:
-        s.adaptations.push_back({e.value, e.value2});
-        s.adaptationStacks.push_back({});
-        break;
-    case EffectType::DodgeAdaptation:
-        s.dodgeAdaptations.push_back({e.value, e.value2});
-        s.dodgeAdaptationStacks.push_back({});
-        break;
-    case EffectType::RampingDmg:
-        s.rampings.push_back({e.value, e.value2});
-        s.rampingStacks.push_back(0);
-        s.rampingIdleTimers.push_back(0);
-        break;
-    case EffectType::HealBurst: break;  // only meaningful as triggered
-    case EffectType::BleedChance: break;
-    case EffectType::PostSkillDash: break;
-    case EffectType::EnemyTopDebuff: break;
-    case EffectType::BlinkAttack: break;
-    case EffectType::AllyDeathStatBoost: break;
-    case EffectType::CloneSummon: break;
-    case EffectType::ProjectileReflect: break;
-    case EffectType::ProjectileBounce: break;
-    case EffectType::OnSkillTeamHeal: break;
-    case EffectType::OnSkillTeamHealPct: break;
-    case EffectType::DeathPrevention: break;
-    case EffectType::DeathMedical: break;
-    case EffectType::ForcePullProtect: break;
-    case EffectType::ForcePullExecute: break;
-    case EffectType::Execute: break;  // handled as triggered effect (OnHit)
-    case EffectType::MPBlock: break;  // handled as triggered effect (OnHit)
-    case EffectType::CharmCDRDebuff: break;
-    case EffectType::OffensiveCharm: break;
-    case EffectType::DeathAOE: break;
-    case EffectType::ShieldExplosion: break;
-    case EffectType::TempFlatATK: break;
-    case EffectType::AutoUltimate: break;
-    case EffectType::MPRestore: break;
-    case EffectType::ShieldOnAllyDeath: break;
-    case EffectType::DamageImmunityAfterFrames: break;
-    case EffectType::AutoUltimateAfterFrames: break;
-    case EffectType::UltimateExtraProjectiles: break;
-    case EffectType::BlockFirstHits: break;
-    case EffectType::GoldCoefficient: break;
-    case EffectType::HurtInvincFrames: break;
-    case EffectType::DashAttack: break;
-    case EffectType::DashChanceBoost: break;
-    case EffectType::MPRatioDmgBoost: break;
-    case EffectType::DmgReduceDebuff: break;
-    case EffectType::CurrentHPPctBlast: break;
-    case EffectType::TeamMPRestore: break;
-    case EffectType::SpiralBleedProjectile: break;
-    case EffectType::NearbyTrackingProjectiles: break;
-    case EffectType::ForceRangedAttack: break;
-    case EffectType::CounterUltimateBlock: break;
-    case EffectType::MaxHitPctCurrentHP: break;
-    case EffectType::FreeRefresh: break;
-    case EffectType::BattleMapChoice: break;
-    }
-}
-
 RoleComboState ChessBattleEffects::makeSummonedCloneState(const RoleComboState& sourceState)
 {
     RoleComboState cloneState = sourceState;
-    cloneState.effectFrameTimers.clear();
-
-    for (int effectIndex = 0; effectIndex < static_cast<int>(cloneState.appliedEffects.size()); ++effectIndex)
-    {
-        const auto& effect = cloneState.appliedEffects[effectIndex];
-        if (effect.type == EffectType::AutoUltimateAfterFrames && effect.trigger == Trigger::Always && effect.value > 0)
-        {
-            cloneState.effectFrameTimers[effectIndex] = effect.value;
-        }
-    }
+    cloneState.seedAutoUltimateFrameTimers();
     return cloneState;
 }
 
@@ -420,9 +717,11 @@ void ChessBattleEffects::mergeEffects(std::map<int, RoleComboState>& states,
 {
     for (int rid : roleIds)
     {
-        auto& s = states[rid];
-        for (auto& e : effects)
-            applyEffect(s, e, sourceComboId);
+        auto& state = states[rid];
+        for (const auto& effect : effects)
+        {
+            state.applyConfiguredEffect(effect, sourceComboId);
+        }
     }
 }
 

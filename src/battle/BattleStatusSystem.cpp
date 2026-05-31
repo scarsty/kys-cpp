@@ -228,10 +228,10 @@ BattleStatusUnitState makeBattleStatusUnitState(const BattleRuntimeUnit& unit, c
     status.maxHp = unit.vitals.maxHp;
     status.attack = unit.stats.attack;
     status.invincible = unit.invincible;
-    status.effects.freezeReductionPct = sumAlwaysEffectValue(state, EffectType::FreezeReductionPct);
-    status.effects.shieldFreezeResPct = sumAlwaysEffectValue(state, EffectType::ShieldFreezeRes);
-    status.effects.controlImmunityFrames = sumAlwaysEffectValue(state, EffectType::ControlImmunityFrames);
-    if (const auto* immunity = maxAlwaysEffectByValue(state, EffectType::DamageImmunityAfterFrames))
+    status.effects.freezeReductionPct = state.sumAlways(EffectType::FreezeReductionPct);
+    status.effects.shieldFreezeResPct = state.sumAlways(EffectType::ShieldFreezeRes);
+    status.effects.controlImmunityFrames = state.sumAlways(EffectType::ControlImmunityFrames);
+    if (const auto* immunity = state.maxAlwaysByValue(EffectType::DamageImmunityAfterFrames))
     {
         status.effects.damageImmunityAfterFrames = immunity->value;
         status.effects.damageImmunityDuration = immunity->value2;

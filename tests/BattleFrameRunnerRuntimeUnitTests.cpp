@@ -341,7 +341,7 @@ TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][
     unit.motion.position = { 32.0f, 48.0f, 0.0f };
 
     KysChess::RoleComboState combo;
-    combo.onSkillTeamHealPending = true;
+    combo.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
 
     BattleActionPlanSeed plan;
     plan.unitId = 99;
@@ -351,7 +351,7 @@ TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][
     REQUIRE(runtime.units.size() == 1);
     const auto& record = runtime.units.require(4);
     CHECK(record.core.id == 4);
-    CHECK(record.combo.onSkillTeamHealPending);
+    CHECK(record.combo.typePending(KysChess::EffectType::OnSkillTeamHeal));
     CHECK(record.movement.physics.position.x == 32.0f);
     REQUIRE(record.actionPlan() != nullptr);
     CHECK(record.actionPlan()->unitId == 4);
@@ -553,9 +553,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
         teamRuntimeUnit(1, 1, 100),
     });
     state.units.require(0).status.effects.mpBlockTimer = 2;
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(0).combo,
-        { KysChess::EffectType::MPRecoveryBonus, 100 });
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::MPRecoveryBonus, 100 });
 
     runBattleFrame(state);
 
@@ -568,10 +566,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     auto state = runtimeFrameState();
 
     KysChess::RoleComboState combo;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::PostSkillInvincFrames, 12 });
-    combo.onSkillTeamHealPending = true;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHeal, 7 });
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHealPct, 3 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::PostSkillInvincFrames, 12 });
+    combo.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
+    combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHeal, 7 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHealPct, 3 });
     state.units.require(0).combo = combo;
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
@@ -582,7 +580,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
 
     CHECK(state.units.requireCore(0).animation.cooldown == 0);
     CHECK(state.units.requireCore(0).vitals.hp == 90);
-    CHECK_FALSE(state.units.require(0).combo.onSkillTeamHealPending);
+    CHECK_FALSE(state.units.require(0).combo.typePending(KysChess::EffectType::OnSkillTeamHeal));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToRuntimeUnits", "[battle][frame_runner][runtime][unit]")
@@ -595,9 +593,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToRuntimeU
     });
 
     KysChess::RoleComboState combo;
-    combo.onSkillTeamHealPending = true;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHeal, 5 });
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::OnSkillTeamHealPct, 10 });
+    combo.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
+    combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHeal, 5 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHealPct, 10 });
     state.units.require(0).combo = combo;
     applyRuntimeInput(state.units.requireCore(0), finishingSkillRuntime());
 
@@ -735,10 +733,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     });
 
     KysChess::RoleComboState combo;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HPRegenPct, 20, 6 });
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealAuraFlat, 5, 6 });
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealAuraPct, 10, 6 });
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::HealedATKSPDBoost, 20 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::HPRegenPct, 20, 6 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::HealAuraFlat, 5, 6 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::HealAuraPct, 10, 6 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::HealedATKSPDBoost, 20 });
     state.units.require(0).combo = combo;
 
     auto runtime = finishingSkillRuntime();
@@ -793,7 +791,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
         teamRuntimeUnit(0, 0, 40),
     });
 
-    KysChess::AppliedEffectInstance healBurst;
+    KysChess::ComboEffectSnapshot healBurst;
     healBurst.type = KysChess::EffectType::HealBurst;
     healBurst.trigger = KysChess::Trigger::WhileLowHP;
     healBurst.triggerValue = 50;
@@ -801,7 +799,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
     healBurst.maxCount = 1;
 
     KysChess::RoleComboState combo;
-    combo.triggeredEffects.push_back(healBurst);
+    combo.applyConfiguredEffect(healBurst);
     state.units.require(0).combo = combo;
 
     auto runtime = finishingSkillRuntime();
@@ -811,7 +809,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
     auto result = runBattleFrame(state);
 
     CHECK(state.units.requireCore(0).vitals.hp == 65);
-    CHECK(state.units.require(0).combo.effectActivationCounts.at(0) == 1);
+    CHECK(state.units.require(0).combo.triggeredEffectActivationCount(KysChess::RoleComboEffectId{ 0 }) == 1);
 
     const auto healLog = std::find_if(
         result.logEvents.begin(),
@@ -836,7 +834,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSk
     state.units.requireCore(0).invincible = 3;
 
     KysChess::RoleComboState combo;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::PostSkillInvincFrames, 12 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::PostSkillInvincFrames, 12 });
     state.units.require(0).combo = combo;
 
     applyRuntimeInput(state.units.requireCore(0), finishingSkillRuntime());

@@ -75,9 +75,7 @@ TEST_CASE("BattleSceneUnitStore_InitializesSummonedClonePlacementAndSummary", "[
 
     auto input = BattleSceneTest::makeSessionInput(std::move(units));
     input.actionPlanSeeds.push_back({ 0, false, {}, {} });
-    KysChess::ChessBattleEffects::applyEffect(
-        input.units[0].baseCombo,
-        { KysChess::EffectType::CloneSummon, 1 });
+    input.units[0].baseCombo.applyConfiguredEffect({ KysChess::EffectType::CloneSummon, 1 });
     input.setup.cloneSources.push_back({ 0, 1000, 190, 1, -1, 0 });
     input.setup.cloneCells.push_back({ 3, 4, true, false });
 

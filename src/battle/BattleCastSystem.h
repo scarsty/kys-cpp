@@ -223,7 +223,6 @@ struct BattleActionCommitInput
 
 struct BattleActionCommitResult
 {
-    RoleComboState combo;
     int operationCount{};
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleBlinkAttackCommand> blinkCommands;
@@ -254,7 +253,7 @@ class BattleActionCommitSystem
 {
 public:
     BattleActionCommitResult commit(const BattleActionCommitInput& input,
-                                    const RoleComboState& combo,
+                                    RoleComboState& combo,
                                     const BattleRuntimeUnits& units) const;
 };
 

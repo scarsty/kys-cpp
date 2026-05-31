@@ -27,7 +27,7 @@
 
 namespace KysChess
 {
-struct RoleComboState;
+class RoleComboState;
 enum class Trigger;
 }
 

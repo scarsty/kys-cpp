@@ -9,7 +9,7 @@
 
 namespace KysChess
 {
-struct RoleComboState;
+class RoleComboState;
 }
 
 namespace KysChess::Battle

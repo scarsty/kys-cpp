@@ -88,10 +88,6 @@ public:
     static std::vector<ActiveCombo> detectCombos(const std::vector<Chess>& selected);
     static std::map<int, RoleComboState> buildComboStates(const std::vector<ActiveCombo>& active);
     static std::vector<ComboEffect> collectGlobalEffects(const std::vector<ActiveCombo>& active);
-    static void applyStatBuffs(const std::map<int, RoleComboState>& states);
-    static const std::map<int, RoleComboState>& getActiveStates();
-    static std::map<int, RoleComboState>& getMutableStates();
-    static void clearActiveStates();
     static std::vector<int> getCombosForRole(int roleId);
     // Build { roleId -> starLevel } map from a selection of Chess pieces.
     // An entry in the returned map means the hero is on the field.
@@ -99,9 +95,6 @@ public:
     // Calculate gold bonus from active combos with goldCoefficient
     static int calculateGoldBonus(const std::vector<ActiveCombo>& active, const std::vector<Chess>& survivors);
     static bool hasActiveEffect(const std::vector<ActiveCombo>& active, EffectType effectType);
-
-private:
-    static inline std::map<int, RoleComboState> activeStates_;
 };
 
 }  // namespace KysChess

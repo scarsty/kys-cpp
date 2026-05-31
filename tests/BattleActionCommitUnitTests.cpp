@@ -65,7 +65,7 @@ TEST_CASE("BattleActionCommit_UltimateCastSetsPendingSkillTeamHeal", "[battle][a
     auto units = actionUnits();
     auto result = BattleActionCommitSystem().commit(input, combo, units);
 
-    CHECK(result.combo.onSkillTeamHealPending);
+    CHECK(combo.typePending(KysChess::EffectType::OnSkillTeamHeal));
 }
 
 TEST_CASE("BattleActionCommit_DoesNotReplayCastVisualEvents", "[battle][action_commit][unit]")
@@ -95,8 +95,8 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
         { 1, 0, { 100, 20, 0 }, true, false },
     };
     KysChess::RoleComboState combo;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::BlinkAttack, 1 });
-    combo.blinkAttackUseWeakest = true;
+    combo.applyConfiguredEffect({ KysChess::EffectType::BlinkAttack, 1 });
+    combo.consumeTypeToggle(KysChess::EffectType::BlinkAttack);
     auto units = actionUnits();
 
     auto weakest = BattleActionCommitSystem().commit(input, combo, units);
@@ -111,10 +111,10 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     CHECK(weakest.logEvents[0].sourceUnitId == 0);
     CHECK(weakest.logEvents[0].targetUnitId == 2);
     CHECK(BattleLogTest::textOf(weakest.logEvents[0]) == "閃擊追殺");
-    CHECK_FALSE(weakest.combo.blinkAttackUseWeakest);
+    CHECK_FALSE(combo.typeToggle(KysChess::EffectType::BlinkAttack));
 
     input.blinkRandomRoll = 1;
-    auto random = BattleActionCommitSystem().commit(input, weakest.combo, units);
+    auto random = BattleActionCommitSystem().commit(input, combo, units);
 
     REQUIRE(random.blinkCommands.size() == 1);
     CHECK(random.blinkCommands[0].targetUnitId == 2);
@@ -124,7 +124,7 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     CHECK(random.logEvents[0].sourceUnitId == 0);
     CHECK(random.logEvents[0].targetUnitId == 2);
     CHECK(BattleLogTest::textOf(random.logEvents[0]) == "閃擊突襲");
-    CHECK(random.combo.blinkAttackUseWeakest);
+    CHECK(combo.typeToggle(KysChess::EffectType::BlinkAttack));
 }
 
 TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[battle][action_commit][unit]")
@@ -142,8 +142,8 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
         { 5, 1, { 140, 20, 0 }, true, true },
     };
     KysChess::RoleComboState combo;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::BlinkAttack, 1 });
-    combo.blinkAttackUseWeakest = true;
+    combo.applyConfiguredEffect({ KysChess::EffectType::BlinkAttack, 1 });
+    combo.consumeTypeToggle(KysChess::EffectType::BlinkAttack);
     auto units = actionUnits();
 
     auto result = BattleActionCommitSystem().commit(input, combo, units);

@@ -710,17 +710,18 @@ void appendBlinkTeleportDelta(
 
 void appendBlinkAttackCommand(
     const BattleActionCommitInput& input,
+    RoleComboState& combo,
     const BattleRuntimeUnits& units,
     BattleActionCommitResult& result)
 {
-    if (firstAlwaysEffect(result.combo, EffectType::BlinkAttack) == nullptr)
+    if (!combo.hasAlways(EffectType::BlinkAttack))
     {
         return;
     }
 
     const auto& source = units.requireCore(input.sourceUnitId);
     BattleProjectileTargetingSystem targeting;
-    const bool useWeakest = result.combo.blinkAttackUseWeakest;
+    const bool useWeakest = combo.typeToggle(EffectType::BlinkAttack);
     int targetId = useWeakest
             ? targeting.selectWeakestVulnerableEnemy(
             units,
@@ -750,7 +751,7 @@ void appendBlinkAttackCommand(
     };
     result.blinkCommands.push_back(command);
     appendBlinkTeleportDelta(input, command, units, result);
-    result.combo.blinkAttackUseWeakest = !useWeakest;
+    combo.consumeTypeToggle(EffectType::BlinkAttack);
 }
 
 }  // namespace
@@ -965,7 +966,7 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
 
 BattleActionCommitResult BattleActionCommitSystem::commit(
     const BattleActionCommitInput& input,
-    const RoleComboState& combo,
+    RoleComboState& combo,
     const BattleRuntimeUnits& units) const
 {
     assert(input.sourceUnitId >= 0);
@@ -976,7 +977,6 @@ BattleActionCommitResult BattleActionCommitSystem::commit(
     assert(source.operationCount >= 0);
 
     BattleActionCommitResult result;
-    result.combo = combo;
     result.operationCount = source.operationCount;
 
     if (input.hasCast)
@@ -988,7 +988,7 @@ BattleActionCommitResult BattleActionCommitSystem::commit(
             input.cast.attackSpawnRequests.end());
         if (input.cast.decision.ultimate)
         {
-            result.combo.onSkillTeamHealPending = true;
+            combo.setTypePending(EffectType::OnSkillTeamHeal, true);
         }
         result.operationCount = advanceOperationCountAfterCommittedCast(
             source.operationCount,
@@ -1004,7 +1004,7 @@ BattleActionCommitResult BattleActionCommitSystem::commit(
         }
     }
 
-    appendBlinkAttackCommand(input, units, result);
+    appendBlinkAttackCommand(input, combo, units, result);
     return result;
 }
 

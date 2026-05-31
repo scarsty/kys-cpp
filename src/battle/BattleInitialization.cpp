@@ -241,7 +241,7 @@ TeamResolvedSetup resolveTeamSetup(
                 {
                     continue;
                 }
-                KysChess::ChessBattleEffects::applyEffect(state, effect, active.id);
+                state.applyConfiguredEffect(effect, active.id);
             }
         }
 
@@ -279,7 +279,7 @@ void applyEquipmentEffects(
         }
         for (const auto& effect : definition->effects)
         {
-            KysChess::ChessBattleEffects::applyEffect(combo, effect);
+            combo.applyConfiguredEffect(effect);
         }
     };
 
@@ -293,7 +293,7 @@ void applyEquipmentEffects(
         }
         for (const auto& effect : synergy.effects)
         {
-            KysChess::ChessBattleEffects::applyEffect(combo, effect);
+            combo.applyConfiguredEffect(effect);
         }
     }
 }
@@ -317,7 +317,7 @@ void applyObtainedNeigongEffects(
         }
         for (const auto& effect : definition->effects)
         {
-            KysChess::ChessBattleEffects::applyEffect(combo, effect);
+            combo.applyConfiguredEffect(effect);
         }
     }
 }
@@ -329,16 +329,6 @@ Pointf positionForCloneCell(const BattleGridTransform& gridTransform, int x, int
         static_cast<float>(y * gridTransform.tileWidth + x * gridTransform.tileWidth),
         0.0f,
     };
-}
-
-std::map<int, RoleComboState> comboMapFromSpawns(const std::vector<BattleRuntimeUnitSpawn>& spawns)
-{
-    std::map<int, RoleComboState> result;
-    for (const auto& spawn : spawns)
-    {
-        result.emplace(spawn.unit.id, spawn.combo);
-    }
-    return result;
 }
 
 BattleRuntimeUnit makeCloneRuntimeUnit(
@@ -404,7 +394,7 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
             continue;
         }
 
-        const auto* topDebuff = firstAlwaysEffect(spawn.combo, EffectType::EnemyTopDebuff);
+        const auto* topDebuff = (spawn.combo).firstAlways(EffectType::EnemyTopDebuff);
         if (!topDebuff || topDebuff->value <= 0)
         {
             continue;
@@ -468,7 +458,7 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
             ++assignedTargets;
         }
 
-        const int delta = desired - combo.enemyTopDebuffApplied;
+        const int delta = combo.setEnemyTopDebuffApplied(desired);
         if (delta == 0)
         {
             continue;
@@ -476,7 +466,6 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
 
         enemy.stats.attack = std::max(0, enemy.stats.attack - delta);
         enemy.stats.defence = std::max(0, enemy.stats.defence - delta);
-        combo.enemyTopDebuffApplied = desired;
         deltas.push_back({
             enemy.id,
             -delta,
@@ -521,7 +510,6 @@ private:
     void summonClones();
     void applyEnemyTopDebuffs();
     void appendSeededRoleDeltas();
-    void exportComboStates();
 
     decltype(auto) spawn(this auto& self, int unitId)
     {
@@ -579,7 +567,6 @@ BattleInitializationOutput BattleStartInitializationRun::run() &&
     summonClones();
     applyEnemyTopDebuffs();
     appendSeededRoleDeltas();
-    exportComboStates();
 
     return {
         std::move(spawns_),
@@ -624,17 +611,23 @@ void BattleStartInitializationRun::initializeSeededUnits()
             baseStateIt != resolved.baseStatesByRealRoleId.end())
         {
             const auto& baseState = baseStateIt->second;
-            for (const auto& effect : baseState.appliedEffects)
+            for (RoleComboEffectId effectId : baseState.effectIdsInAppendOrder())
             {
-                KysChess::ChessBattleEffects::applyEffect(combo, effect, effect.sourceComboId);
+                const auto& effect = baseState.effect(effectId);
+                if (effect.origin != RoleComboEffectOrigin::Configured)
+                {
+                    continue;
+                }
+                combo.applyConfiguredEffect(effect, effect.sourceComboId);
             }
-            extraFightWinGrowthHP = baseState.fightWinGrowthHP;
-            extraFightWinGrowthATK = baseState.fightWinGrowthATK;
-            extraFightWinGrowthDEF = baseState.fightWinGrowthDEF;
+            const auto& baseBonuses = baseState.statBonuses();
+            extraFightWinGrowthHP = baseBonuses.fightWinGrowthHP;
+            extraFightWinGrowthATK = baseBonuses.fightWinGrowthATK;
+            extraFightWinGrowthDEF = baseBonuses.fightWinGrowthDEF;
         }
         for (const auto& [effect, sourceComboId] : resolved.teamwideEffects)
         {
-            KysChess::ChessBattleEffects::applyEffect(combo, effect, sourceComboId);
+            combo.applyConfiguredEffect(effect, sourceComboId);
         }
         applyEquipmentEffects(
             combo,
@@ -664,22 +657,23 @@ void BattleStartInitializationRun::initializeSeededUnits()
             extraFightWinGrowthDEF);
         starStatsByUnitId_[seed.unitId] = starBoostedStats;
 
-        unit.vitals.maxHp = starBoostedStats.hp + combo.flatHP;
-        unit.stats.attack = starBoostedStats.atk + combo.flatATK;
-        unit.stats.defence = starBoostedStats.def + combo.flatDEF;
-        unit.stats.speed = starBoostedStats.spd + combo.flatSPD;
+        const auto& comboStatBonuses = combo.statBonuses();
+        unit.vitals.maxHp = starBoostedStats.hp + comboStatBonuses.flatHP;
+        unit.stats.attack = starBoostedStats.atk + comboStatBonuses.flatATK;
+        unit.stats.defence = starBoostedStats.def + comboStatBonuses.flatDEF;
+        unit.stats.speed = starBoostedStats.spd + comboStatBonuses.flatSPD;
         unit.realRoleId = seed.realRoleId;
         unit.team = seed.team;
         unit.star = seed.star;
         unit.cost = seed.cost;
 
-        unit.vitals.maxHp = applyPercentBonus(unit.vitals.maxHp, combo.pctHP);
-        unit.stats.attack = applyPercentBonus(unit.stats.attack, combo.pctATK);
-        unit.stats.defence = applyPercentBonus(unit.stats.defence, combo.pctDEF);
-        unit.stats.speed = applyPercentBonus(unit.stats.speed, combo.pctSPD);
+        unit.vitals.maxHp = applyPercentBonus(unit.vitals.maxHp, comboStatBonuses.pctHP);
+        unit.stats.attack = applyPercentBonus(unit.stats.attack, comboStatBonuses.pctATK);
+        unit.stats.defence = applyPercentBonus(unit.stats.defence, comboStatBonuses.pctDEF);
+        unit.stats.speed = applyPercentBonus(unit.stats.speed, comboStatBonuses.pctSPD);
         unit.vitals.hp = unit.vitals.maxHp;
 
-        const int shieldPctMaxHP = sumAlwaysEffectValue(combo, EffectType::ShieldPctMaxHP);
+        const int shieldPctMaxHP = combo.sumAlways(EffectType::ShieldPctMaxHP);
         if (shieldPctMaxHP > 0)
         {
             const int shield = unit.vitals.maxHp * shieldPctMaxHP / 100;
@@ -696,14 +690,7 @@ void BattleStartInitializationRun::initializeSeededUnits()
                 });
         }
 
-        for (int effectIndex = 0; effectIndex < static_cast<int>(combo.appliedEffects.size()); ++effectIndex)
-        {
-            const auto& effect = combo.appliedEffects[effectIndex];
-            if (effect.type == EffectType::AutoUltimateAfterFrames && effect.trigger == Trigger::Always && effect.value > 0)
-            {
-                combo.effectFrameTimers[effectIndex] = effect.value;
-            }
-        }
+        combo.seedAutoUltimateFrameTimers();
         refreshRuntimeUnitSpawnDerivedState(spawn);
         seededUnitIds_.push_back(seed.unitId);
     }
@@ -721,9 +708,14 @@ int BattleStartInitializationRun::teamFlatShield(int team) const
         }
 
         const auto& combo = spawn(seed.unitId).combo;
-        for (const auto& effect : combo.appliedEffects)
+        for (RoleComboEffectId effectId : combo.effectIds(Trigger::Always, EffectType::FlatShield))
         {
-            if (effect.type != EffectType::FlatShield || effect.trigger != Trigger::Always || effect.value <= 0)
+            const auto& effect = combo.effect(effectId);
+            if (effect.origin != RoleComboEffectOrigin::Configured)
+            {
+                continue;
+            }
+            if (effect.value <= 0)
             {
                 continue;
             }
@@ -787,7 +779,7 @@ int BattleStartInitializationRun::cloneCount() const
     int count = 0;
     for (const auto& spawn : spawns_)
     {
-        count = std::max(count, maxAlwaysEffectValue(spawn.combo, EffectType::CloneSummon));
+        count = std::max(count, (spawn.combo).maxAlways(EffectType::CloneSummon));
     }
     return count;
 }
@@ -918,11 +910,6 @@ void BattleStartInitializationRun::appendSeededRoleDeltas()
             starStatsIt->second.unusual,
             starStatsIt->second.hidden));
     }
-}
-
-void BattleStartInitializationRun::exportComboStates()
-{
-    result_.comboStates = comboMapFromSpawns(spawns_);
 }
 
 }  // namespace

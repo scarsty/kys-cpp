@@ -46,7 +46,7 @@ struct BattleComboFrameRuntimeEvent
     BattleComboFrameRuntimeEventType type = BattleComboFrameRuntimeEventType::SelfHpRegen;
     Trigger trigger = Trigger::Always;
     ComboTriggerTimerKey timerKey;
-    int effectIndex = -1;
+    RoleComboEffectId effectId;
     int value = 0;
     int value2 = 0;
     int durationFrames = 0;
@@ -87,7 +87,7 @@ struct BattleComboTriggerAction
     BattleComboTriggerActionType type{};
     Trigger trigger{};
     ComboTriggerTimerKey timerKey;
-    int effectIndex{};
+    RoleComboEffectId effectId;
     int value{};
     int durationFrames{};
 };
@@ -96,7 +96,7 @@ struct BattleTriggeredTeamHeal
 {
     int flatHeal = 0;
     int pctHeal = 0;
-    std::vector<int> activatedEffectIndices;
+    std::vector<RoleComboEffectId> activatedEffectIds;
 };
 
 struct BattleDodgeResolution
@@ -174,7 +174,7 @@ struct BattleExecuteComboResult
 {
     bool executed = false;
     int thresholdPct = 0;
-    int effectIndex = -1;
+    RoleComboEffectId effectId;
 };
 
 struct BattleProjectileBouncePrimeInput
@@ -220,8 +220,8 @@ struct BattleDamageReduceDebuffProc
 
 struct BattleActivatedComboEffect
 {
-    int effectIndex{};
-    AppliedEffectInstance effect;
+    RoleComboEffectId effectId;
+    ComboEffectSnapshot effect;
 };
 
 struct BattleComboTriggerEvent
@@ -229,8 +229,8 @@ struct BattleComboTriggerEvent
     BattleComboTriggerHook hook{};
     int sourceUnitId{};
     int targetUnitId{};
-    int effectIndex{};
-    AppliedEffectInstance effect;
+    RoleComboEffectId effectId;
+    ComboEffectSnapshot effect;
 };
 
 class BattleComboTriggerSystem
@@ -320,10 +320,10 @@ public:
         const BattleArmorPenetrationInput& input,
         BattleRuntimeRandom& random) const;
 
-    void recordActivation(RoleComboState& state, size_t effectIndex) const;
+    void recordActivation(RoleComboState& state, RoleComboEffectId effectId) const;
 
 private:
-    bool canActivate(const RoleComboState& state, size_t effectIndex) const;
+    bool canActivate(const RoleComboState& state, RoleComboEffectId effectId) const;
 };
 
 }  // namespace KysChess::Battle

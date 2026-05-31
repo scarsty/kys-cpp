@@ -1,5 +1,4 @@
 #include "ChessModHook.h"
-#include "ChessCombo.h"
 #include "ChessSelector.h"
 #include "Event.h"
 #include "Menu.h"
@@ -76,7 +75,6 @@ bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event, Diffi
     y = MOD_ENTRY_Y;
     event = -1;
     GameState::get().reset(difficulty);
-    ChessCombo::clearActiveStates();
     needIntro_ = true;
     return true;
 }

@@ -12,9 +12,9 @@ using namespace KysChess::Battle;
 namespace
 {
 
-AppliedEffectInstance effect(EffectType type, int value, int comboId)
+ComboEffectSnapshot effect(EffectType type, int value, int comboId)
 {
-    AppliedEffectInstance instance;
+    ComboEffectSnapshot instance;
     instance.type = type;
     instance.value = value;
     instance.sourceComboId = comboId;

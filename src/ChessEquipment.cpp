@@ -46,12 +46,12 @@ void appendSynergyDef(const YAML::Node& entry, int equipmentId)
 
     if (entry["效果"] && entry["效果"].IsSequence())
     {
-        int effectIndex = 0;
+        int effectOrdinal = 0;
         for (const auto& eNode : entry["效果"])
         {
-            ++effectIndex;
+            ++effectOrdinal;
             ComboEffect eff;
-            auto effectContext = std::format("裝備羈絆裝備{}效果#{}", def.equipmentId, effectIndex);
+            auto effectContext = std::format("裝備羈絆裝備{}效果#{}", def.equipmentId, effectOrdinal);
             if (!ChessBattleEffects::parseEffect(eNode, eff, effectContext))
             {
                 continue;

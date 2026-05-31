@@ -826,12 +826,12 @@ BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* st
         return modifier;
     }
 
-    modifier.flatDamageIncrease = sumAlwaysEffectValue(*state, EffectType::FlatDmgIncrease);
-    modifier.skillDamagePct = sumAlwaysEffectValue(*state, EffectType::SkillDmgPct);
-    modifier.poisonDamageAmpPct = sumAlwaysEffectValue(*state, EffectType::PoisonDmgAmp);
-    modifier.flatDamageReduction = sumAlwaysEffectValue(*state, EffectType::FlatDmgReduction);
-    modifier.damageReductionPct = sumAlwaysEffectValue(*state, EffectType::DmgReductionPct);
-    modifier.maxHitPctMaxHp = maxAlwaysEffectValue(*state, EffectType::MaxHitPctCurrentHP);
+    modifier.flatDamageIncrease = state->sumAlways(EffectType::FlatDmgIncrease);
+    modifier.skillDamagePct = state->sumAlways(EffectType::SkillDmgPct);
+    modifier.poisonDamageAmpPct = state->sumAlways(EffectType::PoisonDmgAmp);
+    modifier.flatDamageReduction = state->sumAlways(EffectType::FlatDmgReduction);
+    modifier.damageReductionPct = state->sumAlways(EffectType::DmgReductionPct);
+    modifier.maxHitPctMaxHp = state->maxAlways(EffectType::MaxHitPctCurrentHP);
     return modifier;
 }
 

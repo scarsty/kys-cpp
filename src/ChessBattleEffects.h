@@ -2,6 +2,7 @@
 
 #include <compare>
 #include <map>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -134,9 +135,39 @@ struct ComboEffect
     int maxCount = 0;
 };
 
-struct AppliedEffectInstance : ComboEffect
+struct RoleComboEffectId
+{
+    int value = -1;
+
+    bool isValid() const { return value >= 0; }
+    auto operator<=>(const RoleComboEffectId&) const = default;
+};
+
+inline bool operator==(RoleComboEffectId id, int value)
+{
+    return id.value == value;
+}
+
+inline bool operator==(int value, RoleComboEffectId id)
+{
+    return id.value == value;
+}
+
+enum class RoleComboEffectOrigin
+{
+    Configured,
+    RuntimeGrant,
+};
+
+struct ComboEffectSnapshot : ComboEffect
 {
     int sourceComboId = -1;  // -1 means the effect did not originate from a synergy
+};
+
+struct RoleComboEffectInstance : ComboEffectSnapshot
+{
+    RoleComboEffectId id;
+    RoleComboEffectOrigin origin = RoleComboEffectOrigin::Configured;
 };
 
 struct ComboTriggerTimerKey
@@ -147,57 +178,169 @@ struct ComboTriggerTimerKey
     auto operator<=>(const ComboTriggerTimerKey&) const = default;
 };
 
-struct RoleComboState
+struct RoleComboEffectLookupKey
 {
-    // Stat buffs
-    int flatHP = 0, flatATK = 0, flatDEF = 0, flatSPD = 0;
-    double pctHP = 0, pctATK = 0, pctDEF = 0, pctSPD = 0;
-    int fightWinGrowthHP = 0, fightWinGrowthATK = 0, fightWinGrowthDEF = 0;
+    Trigger trigger = Trigger::Always;
+    EffectType type = EffectType::FlatHP;
 
-    // Configured effects
-    std::vector<AppliedEffectInstance> appliedEffects;
-    // Generic triggered effects (non-Always triggers stored here)
-    std::vector<AppliedEffectInstance> triggeredEffects;
-    // Comeback & Scaling
-    struct AdaptationInstance { int pctPerStack; int maxStacks; };
-    std::vector<AdaptationInstance> adaptations;
-    struct DodgeAdaptationInstance { int pctPerStack; int maxStacks; };
-    std::vector<DodgeAdaptationInstance> dodgeAdaptations;
-    struct RampingInstance { int pctPerStack; int maxStacks; };
-    std::vector<RampingInstance> rampings;
-    int enemyTopDebuffApplied = 0;
-
-    // Mutable runtime state
-    std::map<int, int> everyNthCounters;  // N value → counter
-    bool dodgedLast = false;
-    std::map<ComboTriggerTimerKey, int> triggerTimers;
-    bool lastAliveFlag = false;
-    std::map<int, int> effectActivationCounts;  // effect index → count
-    std::map<int, int> effectFrameTimers;  // effect index → frame timer
-    std::vector<std::map<int, int>> adaptationStacks;  // per instance: enemyID → stacks
-    std::vector<std::map<int, int>> dodgeAdaptationStacks;  // per instance: enemyID → stacks
-    std::vector<int> rampingStacks;  // per instance
-    std::vector<int> rampingIdleTimers;  // per instance
-    bool onSkillTeamHealPending = false;
-    bool postSkillDashPending = false;
-    bool blinkAttackUseWeakest = false;
+    auto operator<=>(const RoleComboEffectLookupKey&) const = default;
 };
 
-int sumAlwaysEffectValue(const RoleComboState& state, EffectType type);
-int maxAlwaysEffectValue(const RoleComboState& state, EffectType type);
-int maxAlwaysEffectValue2(const RoleComboState& state, EffectType type);
-const AppliedEffectInstance* firstAlwaysEffect(const RoleComboState& state, EffectType type);
-const AppliedEffectInstance* maxAlwaysEffectByValue(const RoleComboState& state, EffectType type);
+struct RoleComboAlwaysSummary
+{
+    int sumValue = 0;
+    int maxValue = 0;
+    int maxValue2 = 0;
+    RoleComboEffectId firstId;
+    RoleComboEffectId maxByValueId;
+};
+
+struct RoleComboStatBonuses
+{
+    int flatHP = 0;
+    int flatATK = 0;
+    int flatDEF = 0;
+    int flatSPD = 0;
+    double pctHP = 0;
+    double pctATK = 0;
+    double pctDEF = 0;
+    double pctSPD = 0;
+    int fightWinGrowthHP = 0;
+    int fightWinGrowthATK = 0;
+    int fightWinGrowthDEF = 0;
+};
+
+struct RoleComboAdaptationDescriptor
+{
+    int pctPerStack = 0;
+    int maxStacks = 0;
+};
+
+using RoleComboDodgeAdaptationDescriptor = RoleComboAdaptationDescriptor;
+
+struct RoleComboRampingDescriptor
+{
+    int pctPerStack = 0;
+    int maxStacks = 0;
+};
+
+struct RoleComboStackChange
+{
+    int pctPerStack = 0;
+    int stacks = 0;
+    bool increased = false;
+};
+
+struct RoleComboEffectStore
+{
+    std::vector<RoleComboEffectInstance> instances;
+    std::vector<RoleComboEffectId> idsInAppendOrder;
+    std::map<RoleComboEffectLookupKey, std::vector<RoleComboEffectId>> idsByTriggerAndType;
+    std::map<int, std::vector<RoleComboEffectId>> idsBySourceComboId;
+    std::map<EffectType, RoleComboAlwaysSummary> alwaysByType;
+    RoleComboStatBonuses statBonuses;
+    std::map<RoleComboEffectId, RoleComboAdaptationDescriptor> adaptations;
+    std::map<RoleComboEffectId, RoleComboDodgeAdaptationDescriptor> dodgeAdaptations;
+    std::map<RoleComboEffectId, RoleComboRampingDescriptor> rampings;
+};
+
+struct RoleComboEffectRuntimeState
+{
+    int activationCount = 0;
+    int frameTimer = 0;
+    int counter = 0;
+    int stacks = 0;
+    int idleTimer = 0;
+    std::map<int, int> stacksByUnit;
+};
+
+struct RoleComboEffectTypeRuntimeState
+{
+    bool pending = false;
+    bool toggle = false;
+};
+
+struct RoleComboRuntimeState
+{
+    int enemyTopDebuffApplied = 0;
+    std::map<ComboTriggerTimerKey, int> triggerTimers;
+    bool lastAliveFlag = false;
+    std::map<RoleComboEffectId, RoleComboEffectRuntimeState> byEffect;
+    std::map<EffectType, RoleComboEffectTypeRuntimeState> byType;
+};
+
+class RoleComboState
+{
+public:
+    RoleComboEffectId applyConfiguredEffect(const ComboEffect& effect, int sourceComboId = -1);
+    RoleComboEffectId grantRuntimeEffect(const ComboEffect& effect, int sourceComboId = -1);
+
+    const RoleComboEffectInstance& effect(RoleComboEffectId id) const;
+    std::span<const RoleComboEffectId> effectIdsInAppendOrder() const;
+    std::span<const RoleComboEffectId> effectIds(Trigger trigger, EffectType type) const;
+    std::span<const RoleComboEffectId> idsFromCombo(int sourceComboId) const;
+    const RoleComboStatBonuses& statBonuses() const;
+    bool isRuntimeGranted(RoleComboEffectId id) const;
+
+    bool canActivateTriggeredEffect(RoleComboEffectId id) const;
+    void recordTriggeredEffectActivation(RoleComboEffectId id);
+    int triggeredEffectActivationCount(RoleComboEffectId id) const;
+    bool hasTriggeredEffectActivations() const;
+    bool hasActiveTriggerTimer(ComboTriggerTimerKey key) const;
+    bool ownsTriggerTimer(ComboTriggerTimerKey key) const;
+    void extendTriggerTimer(ComboTriggerTimerKey key, int durationFrames);
+    void advanceTriggerTimersOneFrame();
+
+    void setLastAliveForComboRuntime(bool lastAlive);
+    bool lastAliveForComboRuntime() const;
+    void seedAutoUltimateFrameTimers();
+    bool advanceAutoUltimateFrameTimer(RoleComboEffectId id, int intervalFrames);
+    int effectFrameTimerFrames(RoleComboEffectId id) const;
+    int triggerTimerFrames(ComboTriggerTimerKey key) const;
+
+    void setTypePending(EffectType type, bool value);
+    bool typePending(EffectType type) const;
+    bool consumeTypePending(EffectType type);
+    bool typeToggle(EffectType type) const;
+    bool consumeTypeToggle(EffectType type);
+
+    bool advanceEffectCounter(RoleComboEffectId id, int threshold);
+    void setEffectFrameTimer(RoleComboEffectId id, int frames);
+    bool advanceEffectFrameTimer(RoleComboEffectId id, int intervalFrames);
+    RoleComboStackChange recordEffectStack(RoleComboEffectId id, int maxStacks, int pctPerStack);
+    RoleComboStackChange recordEffectStackAgainst(RoleComboEffectId id, int unitId, int maxStacks, int pctPerStack);
+    void setEffectIdleTimer(RoleComboEffectId id, int frames);
+    void advanceEffectIdleTimers(std::span<const RoleComboEffectId> ids);
+    int effectStacks(RoleComboEffectId id) const;
+    int effectIdleTimer(RoleComboEffectId id) const;
+    int effectStacksAgainst(RoleComboEffectId id, int unitId) const;
+    int setEnemyTopDebuffApplied(int desired);
+
+    int dodgeAdaptationBonusAgainst(int attackerUnitId) const;
+
+    int sumAlways(EffectType type) const;
+    int maxAlways(EffectType type) const;
+    int maxAlwaysValue2(EffectType type) const;
+    bool hasAlways(EffectType type) const;
+    const RoleComboEffectInstance* firstAlways(EffectType type) const;
+    const RoleComboEffectInstance* maxAlwaysByValue(EffectType type) const;
+    bool hasComboApplied(int comboId) const;
+
+private:
+    RoleComboEffectStore effects_;
+    RoleComboRuntimeState runtime_;
+
+    RoleComboEffectId appendEffect(const ComboEffect& effect, RoleComboEffectOrigin origin, int sourceComboId);
+};
 
 class ChessBattleEffects
 {
 public:
     static const std::map<std::string, EffectType>& getEffectTypeMap();
     static bool parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context);
-    static void applyEffect(RoleComboState& s, const ComboEffect& e, int sourceComboId = -1);
     static RoleComboState makeSummonedCloneState(const RoleComboState& sourceState);
     static void mergeEffects(std::map<int, RoleComboState>& states,
-                              const std::vector<ComboEffect>& effects,
+                             const std::vector<ComboEffect>& effects,
                              const std::vector<int>& roleIds,
                              int sourceComboId = -1);
 };

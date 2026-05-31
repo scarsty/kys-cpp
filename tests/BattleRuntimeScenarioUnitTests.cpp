@@ -94,9 +94,7 @@ TEST_CASE("BattleRuntimeScenario_DamageDeathEffectsAndFollowUpDigest", "[battle]
     });
     state.units.requireCore(2).stats.attack = 10;
     state.nextFrame.queueDamage(scenarioPreResolvedDamage(0, 1, 10));
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(1).combo,
-        { KysChess::EffectType::DeathAOE, 50, 1, "", KysChess::Trigger::Always, 0, 6 });
+    state.units.require(1).combo.applyConfiguredEffect({ KysChess::EffectType::DeathAOE, 50, 1, "", KysChess::Trigger::Always, 0, 6 });
     state.projectileFollowUps.projectileSpeed = ScenarioTileWidth / 3.0;
     state.projectileFollowUps.minimumProjectileFrames = 20;
     state.projectileFollowUps.areaProjectileFramePadding = 15;
@@ -226,9 +224,7 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
     state.units.requireCore(0).grid = { 10, 10 };
     state.units.requireCore(1).grid = { 5, 5 };
     state.units.requireCore(2).grid = { 3, 2 };
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(2).combo,
-        { KysChess::EffectType::ForcePullProtect, 1 });
+    state.units.require(2).combo.applyConfiguredEffect({ KysChess::EffectType::ForcePullProtect, 1 });
     state.units.require(2).rescue.forcePullProtectRemaining = 1;
     state.rescue.cells = {
         scenarioRescueCell(2, 3),

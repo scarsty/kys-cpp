@@ -363,7 +363,7 @@ TEST_CASE("BattleCastSystem_RuntimeCastPlanningUsesConfiguredCdrEffect", "[battl
 
     BattleRuntimeState state;
     KysChess::RoleComboState combo;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::CDR, 20 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::CDR, 20 });
     appendRuntimeUnit(state, makeRuntimeUnitSpawn(runtimeUnit(0, 0, input.unit), combo));
 
     auto target = runtimeUnit(1, 1, input.unit);

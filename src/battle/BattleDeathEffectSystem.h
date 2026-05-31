@@ -15,7 +15,7 @@ struct BattleDeathEffectExtras
     int shieldPctMaxHp = 0;
     int shieldOnAllyDeathTracker = 0;
     std::vector<int> comboIds;
-    std::vector<AppliedEffectInstance> appliedEffects;
+    std::vector<ComboEffectSnapshot> appliedEffects;
 };
 
 enum class BattleDeathEffectEventType

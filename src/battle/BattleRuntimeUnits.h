@@ -105,27 +105,27 @@ struct BattleRuntimeUnitRecord
 
     void clearPendingSkillHeal()
     {
-        combo.onSkillTeamHealPending = false;
+        combo.setTypePending(EffectType::OnSkillTeamHeal, false);
     }
 
     int sumAlways(EffectType type) const
     {
-        return sumAlwaysEffectValue(combo, type);
+        return combo.sumAlways(type);
     }
 
     int maxAlways(EffectType type) const
     {
-        return maxAlwaysEffectValue(combo, type);
+        return combo.maxAlways(type);
     }
 
     bool hasAlways(EffectType type) const
     {
-        return firstAlwaysEffect(combo, type) != nullptr;
+        return combo.hasAlways(type);
     }
 
-    const AppliedEffectInstance* firstAlways(EffectType type) const
+    const RoleComboEffectInstance* firstAlways(EffectType type) const
     {
-        return firstAlwaysEffect(combo, type);
+        return combo.firstAlways(type);
     }
 
     BattleDamageModifierState damageModifiers() const
@@ -133,20 +133,14 @@ struct BattleRuntimeUnitRecord
         return makeBattleDamageModifierState(&combo);
     }
 
-    void applyComboEffect(const AppliedEffectInstance& effect, int comboId)
+    void grantRuntimeComboEffect(const ComboEffectSnapshot& effect, int comboId)
     {
-        KysChess::ChessBattleEffects::applyEffect(combo, effect, comboId);
+        combo.grantRuntimeEffect(effect, comboId);
     }
 
     bool hasComboApplied(int comboId) const
     {
-        return std::any_of(
-            combo.appliedEffects.begin(),
-            combo.appliedEffects.end(),
-            [comboId](const AppliedEffectInstance& effect)
-            {
-                return effect.sourceComboId == comboId;
-            });
+        return combo.hasComboApplied(comboId);
     }
 
     const BattleStatusEffectState& statusEffects() const { return status.effects; }
@@ -201,7 +195,7 @@ struct BattleRuntimeUnitRecord
         writeBattleDamageRuntimeUnit(damage, unit);
     }
 
-    void transferDeathAppliedEffect(const AppliedEffectInstance& effect)
+    void transferDeathAppliedEffect(const ComboEffectSnapshot& effect)
     {
         deathEffects.appliedEffects.push_back(effect);
     }

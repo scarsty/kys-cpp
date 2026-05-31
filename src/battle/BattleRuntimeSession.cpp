@@ -91,8 +91,17 @@ BattleDeathEffectStore makeDeathEffectStore(BattleRuntimeUnits& records)
     {
         const auto& unit = record.core;
         auto& extras = record.deathEffects;
-        extras.shieldPctMaxHp = sumAlwaysEffectValue(record.combo, EffectType::ShieldPctMaxHP);
-        extras.appliedEffects = record.combo.appliedEffects;
+        extras.shieldPctMaxHp = (record.combo).sumAlways(EffectType::ShieldPctMaxHP);
+        extras.appliedEffects.clear();
+        for (KysChess::RoleComboEffectId effectId : record.combo.effectIdsInAppendOrder())
+        {
+            const auto& effect = record.combo.effect(effectId);
+            if (effect.origin != RoleComboEffectOrigin::Configured)
+            {
+                continue;
+            }
+            extras.appliedEffects.push_back(effect);
+        }
 
         const int comboLookupId = getComboLookupId(unit);
         if (comboLookupId >= 0)

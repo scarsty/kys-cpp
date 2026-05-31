@@ -297,7 +297,7 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
         }
 
         const auto& combo = state.units.require(ally.id).combo;
-        const auto* topDebuff = firstAlwaysEffect(combo, EffectType::EnemyTopDebuff);
+        const auto* topDebuff = combo.firstAlways(EffectType::EnemyTopDebuff);
         if (!topDebuff || topDebuff->value <= 0)
         {
             continue;
@@ -344,7 +344,7 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
             ++assignedTargets;
         }
 
-        const int delta = desired - combo.enemyTopDebuffApplied;
+        const int delta = combo.setEnemyTopDebuffApplied(desired);
         if (delta == 0)
         {
             continue;
@@ -352,7 +352,6 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
 
         enemy->stats.attack = std::max(0, enemy->stats.attack - delta);
         enemy->stats.defence = std::max(0, enemy->stats.defence - delta);
-        combo.enemyTopDebuffApplied = desired;
         BattleLogEvent log;
         log.type = BattleLogEventType::Status;
         log.sourceUnitId = -1;
@@ -417,11 +416,11 @@ int sharedBleedMaxStacks(const BattleRuntimeState& state, const BattleAttackEven
         return 1;
     }
     const auto& combo = state.units.require(event.sourceUnitId).combo;
-    if (sumAlwaysEffectValue(combo, EffectType::BleedChance) <= 0)
+    if (combo.sumAlways(EffectType::BleedChance) <= 0)
     {
         return 1;
     }
-    const auto* bleed = firstAlwaysEffect(combo, EffectType::BleedChance);
+    const auto* bleed = combo.firstAlways(EffectType::BleedChance);
     return std::max(1, bleed && bleed->value2 > 0 ? bleed->value2 : 5);
 }
 
@@ -1013,7 +1012,7 @@ bool tryResolveDodgeHit(
         return false;
     }
 
-    defenderCombo.dodgedLast = true;
+    defenderCombo.setTypePending(EffectType::DodgeThenCrit, true);
 
     logEvents.push_back(dodgeStatusEvent(event.unitId, event.sourceUnitId));
     visualEvents.push_back(roleEffectEvent(event.unitId, KysChess::EFT_EVADE, CoreRoleStatusEffectFrames));
@@ -1104,7 +1103,7 @@ void refreshMovementSkillProfile(
     movementUnit.reach = skill.reach > 0.0 ? skill.reach : state.action.actionRules.meleeAttackReach;
     movementUnit.style = skill.rangedStyle ? CombatStyle::Ranged : CombatStyle::Melee;
     const auto& combo = state.units.require(runtimeUnit.id).combo;
-    movementUnit.taXue = firstAlwaysEffect(combo, EffectType::DashAttack) != nullptr;
+    movementUnit.taXue = combo.hasAlways(EffectType::DashAttack);
 }
 
 using PostPhysicsMotionMap = std::map<int, BattleMovementPhysicsState>;
@@ -1325,14 +1324,14 @@ bool isLastAliveInTeam(const BattleRuntimeUnits& units, const BattleRuntimeUnit&
 
 bool runtimeRoleForcesRangedMagic(const BattleRuntimeState& state, int unitId)
 {
-    return firstAlwaysEffect(state.units.require(unitId).combo, EffectType::ForceRangedAttack) != nullptr;
+    return state.units.require(unitId).combo.hasAlways(EffectType::ForceRangedAttack);
 }
 
 int runtimeForcedRangedMinSelectDistance(const BattleRuntimeState& state, int unitId)
 {
     constexpr int DefaultForcedRangedMinSelectDistance = 6;
     const auto& combo = state.units.require(unitId).combo;
-    const auto* forceRanged = firstAlwaysEffect(combo, EffectType::ForceRangedAttack);
+    const auto* forceRanged = combo.firstAlways(EffectType::ForceRangedAttack);
     if (!forceRanged || forceRanged->value2 <= 0)
     {
         return DefaultForcedRangedMinSelectDistance;
@@ -1342,7 +1341,7 @@ int runtimeForcedRangedMinSelectDistance(const BattleRuntimeState& state, int un
 
 int runtimeProjectileSpeedMultiplierPct(const BattleRuntimeState& state, int unitId)
 {
-    const auto* forceRanged = firstAlwaysEffect(state.units.require(unitId).combo, EffectType::ForceRangedAttack);
+    const auto* forceRanged = (state.units.require(unitId).combo).firstAlways(EffectType::ForceRangedAttack);
     return forceRanged && forceRanged->value > 0 ? forceRanged->value : 100;
 }
 
@@ -1638,7 +1637,7 @@ void refreshRuntimeCastSkillBonuses(BattleRuntimeState& state, BattleCastInput& 
             combo,
             state.random,
             input.unit.id,
-            std::max(0, sumAlwaysEffectValue(combo, EffectType::UltimateExtraProjectiles)));
+            std::max(0, combo.sumAlways(EffectType::UltimateExtraProjectiles)));
     }
 }
 
@@ -1915,7 +1914,7 @@ void populateActionCommitLiveInput(BattleRuntimeState& state,
     actionInput.committedFacing = runtimeCastFacing(state, unit, castInput);
 
     auto& combo = state.units.require(unit.id).combo;
-    if (firstAlwaysEffect(combo, EffectType::BlinkAttack) != nullptr)
+    if (combo.hasAlways(EffectType::BlinkAttack))
     {
         const double blinkReach = selectedSkill.blinkReach > 0.0 ? selectedSkill.blinkReach : selectedSkill.reach;
         actionInput.blinkGeometry = makeRuntimeBlinkGeometry(state, unit, blinkReach);
@@ -2012,7 +2011,7 @@ bool tryCommitAutoUltimate(
     applyCastPostSkillInvincibility(
         state,
         unitId,
-        maxAlwaysEffectValue(actionResult.combo, EffectType::PostSkillInvincFrames),
+        combo.maxAlways(EffectType::PostSkillInvincFrames),
         logEvents);
     appendAttackSpawnRequests(attackSpawns, actionResult.attackSpawnRequests);
     logEvents.insert(
@@ -2026,9 +2025,8 @@ bool tryCommitAutoUltimate(
     BattleFrameCastScopedComboEffects castScopedEffects{
         unitId,
         committedCastProjectileSpeed(actionResult, state.projectileFollowUps.projectileSpeed),
-        collectFrameCastScopedComboEvents(actionResult.combo, state.random, unitId),
+        collectFrameCastScopedComboEvents(combo, state.random, unitId),
     };
-    combo = actionResult.combo;
     unit.operationCount = actionResult.operationCount;
     if (consumeMp)
     {
@@ -2190,8 +2188,8 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
     input.unit.hasEquippedSkill = true;
     input.unit.movementDashActive = actionMovementDashActive(state, unit.id);
     auto& combo = state.units.require(unit.id).combo;
-    input.unit.cooldownReductionPct = sumAlwaysEffectValue(combo, EffectType::CDR);
-    input.unit.dashAttackEnabled = firstAlwaysEffect(combo, EffectType::DashAttack) != nullptr;
+    input.unit.cooldownReductionPct = combo.sumAlways(EffectType::CDR);
+    input.unit.dashAttackEnabled = combo.hasAlways(EffectType::DashAttack);
     input.unit.dashVelocity = unit.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)
     {
@@ -2282,7 +2280,7 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
             combo,
             state.random,
             unit.id,
-            std::max(0, sumAlwaysEffectValue(combo, EffectType::UltimateExtraProjectiles)));
+            std::max(0, combo.sumAlways(EffectType::UltimateExtraProjectiles)));
     }
     castInput->normalSkill = selectedSkill;
     castInput->ultimateSkill = selectedSkill;
@@ -3719,12 +3717,12 @@ void appendFrameShieldBreakCommands(
         {
             BattleComboTriggerSystem().recordActivation(
                 defenderCombo,
-                static_cast<size_t>(event.effectIndex));
+                event.effectId);
         }
     }
     if (shieldExplosionPct > 0)
     {
-        const int defenderShieldPct = sumAlwaysEffectValue(defenderCombo, EffectType::ShieldPctMaxHP);
+        const int defenderShieldPct = defenderCombo.sumAlways(EffectType::ShieldPctMaxHP);
         int explosionDamage = std::max(
             1,
             defenderShieldPct * transaction.defender.vitals.maxHp / 100 * shieldExplosionPct / 100);
@@ -3794,12 +3792,7 @@ void applyLateFrameMpRestores(BattleRuntimeState& state, BattleFrameContext& fra
 
 bool comboEffectIsApplied(const KysChess::RoleComboState& state, int comboId)
 {
-    return std::ranges::any_of(
-        state.appliedEffects,
-        [comboId](const KysChess::AppliedEffectInstance& effect)
-        {
-            return effect.sourceComboId == comboId;
-        });
+    return state.hasComboApplied(comboId);
 }
 
 bool unitBelongsToCombo(const BattleDeathEffectExtras& extras, int comboId)
@@ -3867,13 +3860,10 @@ void applyRuntimeAntiComboTransfer(
         }
 
         auto& targetRecord = state.units.require(target->id);
-        for (const auto& effect : deadCombo.appliedEffects)
+        for (RoleComboEffectId effectId : deadCombo.idsFromCombo(comboId))
         {
-            if (effect.sourceComboId != comboId)
-            {
-                continue;
-            }
-            targetRecord.applyComboEffect(effect, comboId);
+            const auto& effect = deadCombo.effect(effectId);
+            targetRecord.grantRuntimeComboEffect(effect, comboId);
             state.units.require(target->id).transferDeathAppliedEffect(effect);
         }
         logEvents.push_back(makeAntiComboTransferLog(deadUnitId, target->id));
@@ -4030,24 +4020,6 @@ void applyRuntimeTeamEvents(
     appendTeamEffectVisualEvents(visualEvents, events);
 }
 
-bool ownsComboTriggerTimer(const RoleComboState& combo, ComboTriggerTimerKey key)
-{
-    return std::any_of(
-        combo.triggeredEffects.begin(),
-        combo.triggeredEffects.end(),
-        [key](const AppliedEffectInstance& effect)
-        {
-            return effect.trigger == key.trigger
-                && effect.sourceComboId == key.sourceComboId;
-        });
-}
-
-void setComboTriggerTimer(RoleComboState& combo, ComboTriggerTimerKey key, int durationFrames)
-{
-    assert(durationFrames > 0);
-    auto& timer = combo.triggerTimers[key];
-    timer = std::max(timer, durationFrames);
-}
 
 void applyBroadcastTriggerTimer(BattleRuntimeState& state, int sourceUnitId, const BattleComboFrameRuntimeEvent& event)
 {
@@ -4068,11 +4040,11 @@ void applyBroadcastTriggerTimer(BattleRuntimeState& state, int sourceUnitId, con
         {
             continue;
         }
-        if (!ownsComboTriggerTimer(record.combo, event.timerKey))
+        if (!record.combo.ownsTriggerTimer(event.timerKey))
         {
             continue;
         }
-        setComboTriggerTimer(record.combo, event.timerKey, event.durationFrames);
+        record.combo.extendTriggerTimer(event.timerKey, event.durationFrames);
     }
 }
 
@@ -4516,7 +4488,6 @@ void advanceActionFrameUnits(
                 }
                 else
                 {
-                    actionResult.combo = combo;
                     actionResult.operationCount = unit.operationCount;
                     resetActionFrameState(actionState);
                     cancelledAction = true;
@@ -4527,7 +4498,7 @@ void advanceActionFrameUnits(
                     applyCastPostSkillInvincibility(
                         state,
                         unit.id,
-                        maxAlwaysEffectValue(actionResult.combo, EffectType::PostSkillInvincFrames),
+                        combo.maxAlways(EffectType::PostSkillInvincFrames),
                         logEvents);
                 }
                 if (actionInput.hasCast && actionInput.cast.decision.soundId >= 0)
@@ -4546,7 +4517,7 @@ void advanceActionFrameUnits(
                 if (actionInput.hasCast)
                 {
                     auto events = collectFrameCastScopedComboEvents(
-                        actionResult.combo,
+                        combo,
                         state.random,
                         unit.id);
                     if (!events.empty())
@@ -4584,7 +4555,6 @@ void advanceActionFrameUnits(
             if (actionInput.hasCast)
             {
                 applyRuntimeUnitMpDelta(state, unit, actionInput.cast.mpDelta);
-                state.units.require(unit.id).combo = actionResult.combo;
                 unitRecord.clearUltimateCaster();
             }
         }
@@ -4693,10 +4663,10 @@ bool applyFrameDefenderBlockCommands(
     assert(request.defenderUnitId >= 0);
 
     const auto& defenderCombo = state.units.require(request.defenderUnitId).combo;
-    const int counterUltimateBlockChancePct = maxAlwaysEffectValue(defenderCombo, EffectType::CounterUltimateBlock);
+    const int counterUltimateBlockChancePct = defenderCombo.maxAlways(EffectType::CounterUltimateBlock);
     const bool counterUltimateBlock = counterUltimateBlockChancePct > 0
         && (counterUltimateBlockChancePct >= 100 || state.random.chance(counterUltimateBlockChancePct));
-    const int blockChancePct = sumAlwaysEffectValue(defenderCombo, EffectType::BlockChance);
+    const int blockChancePct = defenderCombo.sumAlways(EffectType::BlockChance);
     const bool block = blockChancePct > 0
         && (blockChancePct >= 100 || state.random.chance(blockChancePct));
     if (!counterUltimateBlock && !block)

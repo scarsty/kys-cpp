@@ -417,7 +417,7 @@ BattleAttackState attackWorld()
     return world;
 }
 
-KysChess::AppliedEffectInstance triggeredEffect(KysChess::EffectType type,
+KysChess::ComboEffectSnapshot triggeredEffect(KysChess::EffectType type,
                                                 KysChess::Trigger trigger,
                                                 int value,
                                                 int triggerValue = 0,
@@ -425,7 +425,7 @@ KysChess::AppliedEffectInstance triggeredEffect(KysChess::EffectType type,
                                                 int maxCount = 0,
                                                 int sourceComboId = -1)
 {
-    KysChess::AppliedEffectInstance effect;
+    KysChess::ComboEffectSnapshot effect;
     effect.type = type;
     effect.trigger = trigger;
     effect.value = value;
@@ -769,27 +769,27 @@ void applyModifierEffects(RoleComboState& combo, const BattleDamageModifierState
 {
     if (modifier.flatDamageIncrease != 0)
     {
-        ChessBattleEffects::applyEffect(combo, { EffectType::FlatDmgIncrease, modifier.flatDamageIncrease });
+        combo.applyConfiguredEffect({ EffectType::FlatDmgIncrease, modifier.flatDamageIncrease });
     }
     if (modifier.skillDamagePct != 0)
     {
-        ChessBattleEffects::applyEffect(combo, { EffectType::SkillDmgPct, modifier.skillDamagePct });
+        combo.applyConfiguredEffect({ EffectType::SkillDmgPct, modifier.skillDamagePct });
     }
     if (modifier.poisonDamageAmpPct != 0)
     {
-        ChessBattleEffects::applyEffect(combo, { EffectType::PoisonDmgAmp, modifier.poisonDamageAmpPct });
+        combo.applyConfiguredEffect({ EffectType::PoisonDmgAmp, modifier.poisonDamageAmpPct });
     }
     if (modifier.flatDamageReduction != 0)
     {
-        ChessBattleEffects::applyEffect(combo, { EffectType::FlatDmgReduction, modifier.flatDamageReduction });
+        combo.applyConfiguredEffect({ EffectType::FlatDmgReduction, modifier.flatDamageReduction });
     }
     if (modifier.damageReductionPct != 0)
     {
-        ChessBattleEffects::applyEffect(combo, { EffectType::DmgReductionPct, modifier.damageReductionPct });
+        combo.applyConfiguredEffect({ EffectType::DmgReductionPct, modifier.damageReductionPct });
     }
     if (modifier.maxHitPctMaxHp != 0)
     {
-        ChessBattleEffects::applyEffect(combo, { EffectType::MaxHitPctCurrentHP, modifier.maxHitPctMaxHp });
+        combo.applyConfiguredEffect({ EffectType::MaxHitPctCurrentHP, modifier.maxHitPctMaxHp });
     }
 }
 
@@ -1000,9 +1000,7 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
         rescueCell(3, 2),
         rescueCell(5, 5),
     };
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(2).combo,
-        { KysChess::EffectType::ForcePullProtect, 1 });
+    state.units.require(2).combo.applyConfiguredEffect({ KysChess::EffectType::ForcePullProtect, 1 });
     state.units.require(0).rescue = { 0, 0 };
     state.units.require(1).rescue = { 0, 0 };
     state.units.require(2).rescue = { 1, 0 };
@@ -1389,9 +1387,7 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     state.units.requireCore(0).vitals.hp = 80;
 
     KysChess::RoleComboState comboState;
-    KysChess::ChessBattleEffects::applyEffect(
-        comboState,
-        { KysChess::EffectType::PostSkillInvincFrames, 12 });
+    comboState.applyConfiguredEffect({ KysChess::EffectType::PostSkillInvincFrames, 12 });
     state.units.require(1).combo = comboState;
 
     BattleDeathEffectExtras deathEffectExtras;
@@ -1400,7 +1396,7 @@ TEST_CASE("BattleRuntimeState_ComposesHeadlessRuntimeStateForFullFrameRunner", "
     CHECK(state.units.size() == 2);
     CHECK(state.nextFrame.queuedDamageForTest()[0].request.defenderUnitId == 0);
     CHECK(state.units.requireCore(0).vitals.hp == 80);
-    CHECK(KysChess::maxAlwaysEffectValue(state.units.require(1).combo, KysChess::EffectType::PostSkillInvincFrames) == 12);
+    CHECK((state.units.require(1).combo).maxAlways(KysChess::EffectType::PostSkillInvincFrames) == 12);
     CHECK(state.units.require(1).id() == 1);
     CHECK_FALSE(state.result.ended);
     CHECK(state.result.winningTeam == -1);
@@ -1414,9 +1410,7 @@ TEST_CASE("BattleRuntimeUnitRecord_MpRecoveryBonusStaysSeparateFromMpBlock", "[b
     }));
     auto& runtimeUnit = state.units.require(0);
     runtimeUnit.setMpBlockFrames(5);
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(0).combo,
-        { KysChess::EffectType::MPRecoveryBonus, 40 });
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::MPRecoveryBonus, 40 });
 
     CHECK(runtimeUnit.mpBlocked());
     CHECK(runtimeUnit.sumAlways(KysChess::EffectType::MPRecoveryBonus) == 40);
@@ -1427,7 +1421,7 @@ TEST_CASE("BattleRuntimeUnitRecord_OwnsPerUnitRuntimeFacts", "[battle][core][own
     BattleRuntimeUnitRecord record;
     record.core.id = 7;
     record.core.alive = true;
-    record.combo.onSkillTeamHealPending = true;
+    record.combo.setTypePending(EffectType::OnSkillTeamHeal, true);
     record.movement.active = true;
 
     BattleActionPlanSeed plan;
@@ -1530,20 +1524,20 @@ TEST_CASE("BattleRuntimeUnitRecord_ComboDomainMethodsUseOwnedCombo", "[battle][c
 {
     BattleRuntimeUnitRecord record;
     record.core.id = 1;
-    record.combo.onSkillTeamHealPending = true;
-    AppliedEffectInstance effect;
+    record.combo.setTypePending(EffectType::OnSkillTeamHeal, true);
+    ComboEffectSnapshot effect;
     effect.type = EffectType::MPRecoveryBonus;
     effect.trigger = Trigger::Always;
     effect.value = 25;
     effect.sourceComboId = -1;
-    record.combo.appliedEffects.push_back(effect);
+    record.combo.applyConfiguredEffect(effect);
 
     CHECK(record.sumAlways(EffectType::MPRecoveryBonus) == 25);
     CHECK(record.hasAlways(EffectType::MPRecoveryBonus));
 
     record.clearPendingSkillHeal();
 
-    CHECK_FALSE(record.combo.onSkillTeamHealPending);
+    CHECK_FALSE(record.combo.typePending(EffectType::OnSkillTeamHeal));
 }
 
 TEST_CASE("BattleRuntimeUnitRecord_DamageStateComposesOwnedFacts", "[battle][core][ownership]")
@@ -1557,12 +1551,12 @@ TEST_CASE("BattleRuntimeUnitRecord_DamageStateComposesOwnedFacts", "[battle][cor
     record.core.vitals.maxMp = 20;
     record.damage.blockFirstHitsRemaining = 2;
     record.status.effects.mpBlockTimer = 4;
-    AppliedEffectInstance effect;
+    ComboEffectSnapshot effect;
     effect.type = EffectType::MPRecoveryBonus;
     effect.trigger = Trigger::Always;
     effect.value = 30;
     effect.sourceComboId = -1;
-    record.combo.appliedEffects.push_back(effect);
+    record.combo.applyConfiguredEffect(effect);
 
     const auto damage = record.damageState();
 
@@ -1579,7 +1573,7 @@ TEST_CASE("BattleRuntimeUnitRecord_DeathAndRescueFactsLiveOnRecord", "[battle][c
     record.rescue.forcePullProtectRemaining = 2;
     record.rescue.forcePullExecuteRemaining = 3;
 
-    AppliedEffectInstance effect;
+    ComboEffectSnapshot effect;
     effect.sourceComboId = 11;
     record.transferDeathAppliedEffect(effect);
 
@@ -1776,9 +1770,7 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesEffectiveProjectileSelectDista
     cast.normalSkill.attackAreaType = 0;
     cast.normalSkill.selectDistance = 1;
     configureRuntimeActionPlan(state, cast);
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(0).combo,
-        { KysChess::EffectType::ForceRangedAttack, 100 });
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::ForceRangedAttack, 100 });
     state.units.requireCore(0).animation.cooldown = 0;
 
     auto start = runBattleFrame(state);
@@ -2153,9 +2145,7 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
     auto& runtimeUnit = state.units.requireCore(0);
     runtimeUnit.animation.cooldown = 0;
     runtimeUnit.stats.speed = 360;
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(0).combo,
-        { KysChess::EffectType::DashAttack, 1 });
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::DashAttack, 1 });
 
     auto cast = frameCastInput(0, 1);
     cast.unit.dashAttackEnabled = true;
@@ -2206,9 +2196,7 @@ TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[
     state.units.requireCore(0).motion.facing = { 1, 0, 0 };
     state.units.requireCore(0).stats.speed = 180;
     state.units.requireCore(0).animation.cooldown = 0;
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(0).combo,
-        { KysChess::EffectType::DashAttack, 1 });
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::DashAttack, 1 });
 
     auto cast = frameCastInput(0, 1);
     cast.normalSkill.attackAreaType = 1;
@@ -2566,8 +2554,9 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastAgainstLiveComboState
     unit.animation.cooldown = 10;
 
     KysChess::RoleComboState liveCombo;
-    liveCombo.dodgeAdaptations.push_back({ 5, 7 });
-    liveCombo.dodgeAdaptationStacks.push_back({ { 1, 2 } });
+    const auto adaptation = liveCombo.applyConfiguredEffect({ EffectType::DodgeAdaptation, 5, 7 });
+    liveCombo.recordEffectStackAgainst(adaptation, 1, 7, 5);
+    liveCombo.recordEffectStackAgainst(adaptation, 1, 7, 5);
     state.units.require(0).combo = liveCombo;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
@@ -2577,9 +2566,7 @@ TEST_CASE("BattleFrameRunner_CommitsRuntimeOwnedPendingCastAgainstLiveComboState
 
     CHECK(state.units.pendingCastCount() == 0);
     CHECK(state.units.require(0).id() == 0);
-    REQUIRE(state.units.require(0).combo.dodgeAdaptationStacks.size() == 1);
-    REQUIRE(state.units.require(0).combo.dodgeAdaptationStacks[0].contains(1));
-    CHECK(state.units.require(0).combo.dodgeAdaptationStacks[0].at(1) == 2);
+    CHECK(state.units.require(0).combo.effectStacksAgainst(adaptation, 1) == 2);
 }
 
 TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[battle][core][runtime]")
@@ -2601,13 +2588,11 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
     unit.vitals.maxMp = 50;
 
     KysChess::RoleComboState combo;
-    combo.triggeredEffects.push_back(
+    combo.applyConfiguredEffect(
         triggeredEffect(KysChess::EffectType::TeamMPRestore, KysChess::Trigger::OnCast, 8, 100));
-    combo.triggeredEffects.push_back(
+    combo.applyConfiguredEffect(
         triggeredEffect(KysChess::EffectType::FlatShield, KysChess::Trigger::OnCast, 12, 100));
-    KysChess::ChessBattleEffects::applyEffect(
-        combo,
-        { KysChess::EffectType::PostSkillInvincFrames, 12 });
+    combo.applyConfiguredEffect({ KysChess::EffectType::PostSkillInvincFrames, 12 });
     state.units.require(0).combo = combo;
 
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
@@ -2619,8 +2604,8 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
     CHECK(state.units.requireCore(0).vitals.mp == 19);
     CHECK(state.units.requireCore(0).shield == 12);
     CHECK(state.units.requireCore(0).invincible == 12);
-    CHECK(state.units.require(0).combo.effectActivationCounts.at(0) == 1);
-    CHECK(state.units.require(0).combo.effectActivationCounts.at(1) == 1);
+    CHECK(state.units.require(0).combo.triggeredEffectActivationCount(RoleComboEffectId{ 0 }) == 1);
+    CHECK(state.units.require(0).combo.triggeredEffectActivationCount(RoleComboEffectId{ 1 }) == 1);
 
     const auto invincibilityLog = std::find_if(
         result.logEvents.begin(),
@@ -2655,21 +2640,24 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AllyLowHpBurstOnlyScopesToMatchingComb
         runtimeUnitSnapshot(3, 1, 100, { 260, 100, 0 }),
     });
 
-    state.units.require(0).combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
-    state.units.require(1).combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
-    state.units.require(2).combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 80, 35, 90, 2, 18));
+    state.units.require(0).combo.applyConfiguredEffect(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2),
+        17);
+    state.units.require(1).combo.applyConfiguredEffect(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2),
+        17);
+    state.units.require(2).combo.applyConfiguredEffect(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 80, 35, 90, 2),
+        18);
 
     auto frame = runBattleFrame(state);
 
     (void)frame;
     const auto key = KysChess::ComboTriggerTimerKey{ KysChess::Trigger::AllyLowHPBurst, 17 };
-    CHECK_FALSE(state.units.require(0).combo.triggerTimers.contains(key));
-    CHECK(state.units.require(1).combo.triggerTimers.at(key) > 0);
-    CHECK_FALSE(state.units.require(2).combo.triggerTimers.contains({ KysChess::Trigger::AllyLowHPBurst, 17 }));
-    CHECK_FALSE(state.units.require(2).combo.triggerTimers.contains({ KysChess::Trigger::AllyLowHPBurst, 18 }));
+    CHECK_FALSE(state.units.require(0).combo.triggerTimerFrames(key) > 0);
+    CHECK(state.units.require(1).combo.triggerTimerFrames(key) > 0);
+    CHECK_FALSE(state.units.require(2).combo.triggerTimerFrames({ KysChess::Trigger::AllyLowHPBurst, 17 }) > 0);
+    CHECK_FALSE(state.units.require(2).combo.triggerTimerFrames({ KysChess::Trigger::AllyLowHPBurst, 18 }) > 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DirectComboMutationPreservesScopedBroadcastTimers", "[battle][core][combo][ownership]")
@@ -2687,18 +2675,20 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DirectComboMutationPreservesScopedBroa
         runtimeUnitSnapshot(2, 1, 100, { 260, 100, 0 }),
     });
 
-    state.units.require(0).combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
-    state.units.require(1).combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2, 17));
+    state.units.require(0).combo.applyConfiguredEffect(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2),
+        17);
+    state.units.require(1).combo.applyConfiguredEffect(
+        triggeredEffect(KysChess::EffectType::PctATK, KysChess::Trigger::AllyLowHPBurst, 40, 35, 90, 2),
+        17);
 
     auto frame = runBattleFrame(state);
 
     (void)frame;
     const auto key = KysChess::ComboTriggerTimerKey{ KysChess::Trigger::AllyLowHPBurst, 17 };
-    CHECK_FALSE(state.units.require(0).combo.triggerTimers.contains(key));
-    CHECK(state.units.require(1).combo.triggerTimers.at(key) > 0);
-    CHECK(state.units.require(0).combo.effectActivationCounts.at(0) == 1);
+    CHECK_FALSE(state.units.require(0).combo.triggerTimerFrames(key) > 0);
+    CHECK(state.units.require(1).combo.triggerTimerFrames(key) > 0);
+    CHECK(state.units.require(0).combo.triggeredEffectActivationCount(RoleComboEffectId{ 0 }) == 1);
 }
 
 TEST_CASE("BattleFrameRunner_AppliesCastScopedMpRestoreAfterUltimateSpend", "[battle][core][runtime]")
@@ -2717,7 +2707,7 @@ TEST_CASE("BattleFrameRunner_AppliesCastScopedMpRestoreAfterUltimateSpend", "[ba
     unit.vitals.maxMp = 100;
 
     KysChess::RoleComboState combo;
-    combo.triggeredEffects.push_back(
+    combo.applyConfiguredEffect(
         triggeredEffect(KysChess::EffectType::TeamMPRestore, KysChess::Trigger::OnCast, 8, 100));
     state.units.require(0).combo = combo;
     state.units.require(0).markUltimateCaster();
@@ -2754,7 +2744,7 @@ TEST_CASE("BattleFrameRunner_CastScopedMpRestoreDoesNotChangeLaterSameFrameCastS
     state.units.requireCore(1).vitals.maxMp = 100;
 
     KysChess::RoleComboState combo;
-    combo.triggeredEffects.push_back(
+    combo.applyConfiguredEffect(
         triggeredEffect(KysChess::EffectType::TeamMPRestore, KysChess::Trigger::OnCast, 10, 100));
     state.units.require(0).combo = combo;
     state.units.require(1).combo = {};
@@ -3601,9 +3591,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnCo
     state.units.requireCore(0).invincible = 1;
     state.units.requireCore(0).animation.cooldown = 1;
     state.units.requireCore(0).haveAction = true;
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(0).combo,
-        { KysChess::EffectType::PostSkillInvincFrames, 5 });
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::PostSkillInvincFrames, 5 });
 
     auto result = runBattleFrame(state);
 
@@ -3624,9 +3612,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathAoeProjectileDamagesOnNextFrame",
         runtimeUnitSnapshot(1, 1, 10, { 120.0f, 100.0f, 0.0f }),
 });
     queuePendingDamage(state, lethalDamageInput(0, 1));
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(1).combo,
-        { EffectType::DeathAOE, 50, 1, "", Trigger::Always, 0, 6 });
+    state.units.require(1).combo.applyConfiguredEffect({ EffectType::DeathAOE, 50, 1, "", Trigger::Always, 0, 6 });
     state.projectileFollowUps.projectileSpeed = SceneProjectileSpeed;
     state.projectileFollowUps.minimumProjectileFrames = 20;
     state.projectileFollowUps.areaProjectileFramePadding = 15;
@@ -3736,7 +3722,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[ba
     auto frame = hitDamageFrameState(70, 100);
     auto& state = frame.state;
     KysChess::RoleComboState defenderCombo;
-    defenderCombo.triggeredEffects.push_back(
+    defenderCombo.applyConfiguredEffect(
         triggeredEffect(KysChess::EffectType::TempFlatATK, KysChess::Trigger::OnShieldBreak, 14, 100, 45));
     state.units.require(1).combo = defenderCombo;
     state.units.requireCore(1).shield = 10;
@@ -3756,9 +3742,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
     auto& state = frame.state;
     configureAutoUltimateActionRuntime(state, 1, 0);
     KysChess::RoleComboState defenderCombo;
-    KysChess::ChessBattleEffects::applyEffect(
-        defenderCombo,
-        { KysChess::EffectType::CounterUltimateBlock, 100 });
+    defenderCombo.applyConfiguredEffect({ KysChess::EffectType::CounterUltimateBlock, 100 });
     state.units.require(1).combo = defenderCombo;
 
     auto result = runBattleFrame(state);
@@ -3780,8 +3764,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimeAutoUltimateReadyInsideC
     auto& state = frame.state;
     configureAutoUltimateActionRuntime(state, 1, 0);
     KysChess::RoleComboState combo;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::AutoUltimateAfterFrames, 1 });
-    combo.effectFrameTimers[0] = 1;
+    combo.applyConfiguredEffect({ KysChess::EffectType::AutoUltimateAfterFrames, 1 });
+    combo.seedAutoUltimateFrameTimers();
     state.units.require(1).combo = combo;
 
     auto result = runBattleFrame(state);
@@ -3825,8 +3809,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DropsDeferredAutoUltimateWhenBattleEnd
     queuePendingDamage(state, lethalDamageInput(0, 1));
     configureAutoUltimateActionRuntime(state, 2, 1);
     KysChess::RoleComboState combo;
-    KysChess::ChessBattleEffects::applyEffect(combo, { KysChess::EffectType::AutoUltimateAfterFrames, 1 });
-    combo.effectFrameTimers[0] = 1;
+    combo.applyConfiguredEffect({ KysChess::EffectType::AutoUltimateAfterFrames, 1 });
+    combo.seedAutoUltimateFrameTimers();
     state.units.require(2).combo = combo;
 
     auto result = runBattleFrame(state);
@@ -3872,9 +3856,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttac
 {
     auto state = rescueDamageFrameState(20, 10);
     state.units.require(2).rescue.forcePullProtectRemaining = 0;
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(0).combo,
-        { KysChess::EffectType::ForcePullExecute, 2 });
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::ForcePullExecute, 2 });
     state.units.require(0).rescue.forcePullExecuteRemaining = 2;
     state.units.requireCore(0).grid = { 10, 10 };
     state.units.requireCore(1).grid = { 5, 5 };
@@ -4047,9 +4029,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesHitGeneratedProjectilesForNextFr
     }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    state.units.require(0).combo.triggeredEffects.push_back(
-        triggeredEffect(KysChess::EffectType::NearbyTrackingProjectiles, KysChess::Trigger::OnHit, 80, 100));
-    state.units.require(0).combo.triggeredEffects.back().value2 = 45;
+    auto nearbyTracking = triggeredEffect(KysChess::EffectType::NearbyTrackingProjectiles, KysChess::Trigger::OnHit, 80, 100);
+    nearbyTracking.value2 = 45;
+    state.units.require(0).combo.applyConfiguredEffect(nearbyTracking);
 
     BattleAttackInstance projectile;
     projectile.id = 10;
@@ -4126,9 +4108,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesDamageTakenMpGainInsideRuntime"
     auto& defender = state.units.requireCore(1);
     defender.vitals.mp = 5;
     defender.vitals.maxMp = 100;
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(1).combo,
-        { KysChess::EffectType::MPRecoveryBonus, 50 });
+    state.units.require(1).combo.applyConfiguredEffect({ KysChess::EffectType::MPRecoveryBonus, 50 });
 
     auto result = runBattleFrame(state);
 
@@ -4169,9 +4149,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AccumulatesDamageTakenMpGainAcrossSame
     second.attacker.vitals.maxHp = 100;
     second.defender.vitals.mp = 5;
     second.defender.vitals.maxMp = 100;
-    KysChess::ChessBattleEffects::applyEffect(
-        state.units.require(1).combo,
-        { KysChess::EffectType::MPRecoveryBonus, 50 });
+    state.units.require(1).combo.applyConfiguredEffect({ KysChess::EffectType::MPRecoveryBonus, 50 });
 
     queuePendingDamage(state, first);
     queuePendingDamage(state, second);
@@ -4192,7 +4170,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecutePreviewUsesResolvedPendingDamag
     auto& state = frame.state;
     state.movement.frame = 1;
     state.units.requireCore(1).stats.defence = 200;
-    state.units.require(0).combo.triggeredEffects.push_back(
+    state.units.require(0).combo.applyConfiguredEffect(
         triggeredEffect(KysChess::EffectType::Execute, KysChess::Trigger::OnHit, 5, 100));
 
     BattleDamageTransactionInput pending;
@@ -4232,7 +4210,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ExecuteUsesCommittedPendingDamage", "[
     auto frame = hitDamageFrameState(3, 60);
     auto& state = frame.state;
     state.movement.frame = 1;
-    state.units.require(0).combo.triggeredEffects.push_back(
+    state.units.require(0).combo.applyConfiguredEffect(
         triggeredEffect(KysChess::EffectType::Execute, KysChess::Trigger::OnHit, 50, 100));
     state.damage.presentationStylesByDefender[1].executeTextSize = 44;
 
@@ -4357,12 +4335,16 @@ TEST_CASE("BattleRuntimeSession_RunFrame_AppliesDeathComboConsequencesBeforeScen
     state.units.requireCore(2).realRoleId = 20;
     state.units.requireCore(2).cost = 4;
 
-    KysChess::AppliedEffectInstance antiComboEffect;
+    KysChess::ComboEffectSnapshot antiComboEffect;
     antiComboEffect.type = KysChess::EffectType::DodgeChance;
     antiComboEffect.value = 35;
     antiComboEffect.sourceComboId = 33;
-    state.units.require(1).combo.appliedEffects.push_back(antiComboEffect);
-    state.units.require(1).combo.onSkillTeamHealPending = true;
+    state.units.require(1).combo.applyConfiguredEffect(antiComboEffect, 33);
+    KysChess::ComboEffect runtimeGrant;
+    runtimeGrant.type = KysChess::EffectType::DodgeChance;
+    runtimeGrant.value = 20;
+    state.units.require(1).combo.grantRuntimeEffect(runtimeGrant, 33);
+    state.units.require(1).combo.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
     state.units.require(0).deathEffects = {};
     state.units.require(1).deathEffects = {
         .comboIds = { 33 },
@@ -4378,16 +4360,26 @@ TEST_CASE("BattleRuntimeSession_RunFrame_AppliesDeathComboConsequencesBeforeScen
     const auto result = session.runFrame();
 
     const auto& runtime = session.runtime();
-    CHECK_FALSE(runtime.units.require(1).combo.onSkillTeamHealPending);
-    CHECK(KysChess::sumAlwaysEffectValue(runtime.units.require(2).combo, KysChess::EffectType::DodgeChance) == 35);
-    CHECK(std::any_of(
-        runtime.units.require(2).combo.appliedEffects.begin(),
-        runtime.units.require(2).combo.appliedEffects.end(),
-        [](const KysChess::AppliedEffectInstance& effect)
+    CHECK_FALSE(runtime.units.require(1).combo.typePending(KysChess::EffectType::OnSkillTeamHeal));
+    CHECK((runtime.units.require(2).combo).sumAlways(KysChess::EffectType::DodgeChance) == 55);
+    const auto& transferredCombo = runtime.units.require(2).combo;
+    CHECK(std::ranges::any_of(
+        transferredCombo.idsFromCombo(33),
+        [&transferredCombo](KysChess::RoleComboEffectId effectId)
         {
-            return effect.sourceComboId == 33
+            const auto& effect = transferredCombo.effect(effectId);
+            return effect.origin == KysChess::RoleComboEffectOrigin::RuntimeGrant
                 && effect.type == KysChess::EffectType::DodgeChance
                 && effect.value == 35;
+        }));
+    CHECK(std::ranges::any_of(
+        transferredCombo.idsFromCombo(33),
+        [&transferredCombo](KysChess::RoleComboEffectId effectId)
+        {
+            const auto& effect = transferredCombo.effect(effectId);
+            return effect.origin == KysChess::RoleComboEffectOrigin::RuntimeGrant
+                && effect.type == KysChess::EffectType::DodgeChance
+                && effect.value == 20;
         }));
     CHECK(std::any_of(
         result.logEvents.begin(),
@@ -4420,7 +4412,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_TransferredAntiComboDeathAoeUsesComboS
     state.projectileFollowUps.areaProjectileFramePadding = 15;
     state.projectileFollowUps.areaSpawnDistance = SceneTileWidth;
 
-    const AppliedEffectInstance antiComboDeathAoe{
+    const ComboEffectSnapshot antiComboDeathAoe{
         EffectType::DeathAOE,
         50,
         1,
@@ -4439,17 +4431,19 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_TransferredAntiComboDeathAoeUsesComboS
     state.units.require(2).deathEffects = {
         .comboIds = { 33 },
     };
-    KysChess::ChessBattleEffects::applyEffect(state.units.require(1).combo, antiComboDeathAoe, 33);
+    state.units.require(1).combo.applyConfiguredEffect(antiComboDeathAoe, 33);
     queuePendingDamage(state, lethalDamageInput(0, 1));
 
     auto result = runBattleFrame(state);
 
-    CHECK(std::any_of(
-        state.units.require(2).combo.appliedEffects.begin(),
-        state.units.require(2).combo.appliedEffects.end(),
-        [](const AppliedEffectInstance& effect)
+    const auto& transferredCombo = state.units.require(2).combo;
+    CHECK(std::ranges::any_of(
+        transferredCombo.idsFromCombo(33),
+        [&transferredCombo](RoleComboEffectId effectId)
         {
-            return effect.type == EffectType::DeathAOE && effect.sourceComboId == 33;
+            const auto& effect = transferredCombo.effect(effectId);
+            return effect.origin == RoleComboEffectOrigin::RuntimeGrant
+                && effect.type == EffectType::DeathAOE;
         }));
     REQUIRE(state.nextFrame.queuedAttacksForTest().size() == 1);
     CHECK(state.nextFrame.queuedAttacksForTest()[0].initial.attackerUnitId == 1);
@@ -4489,14 +4483,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battl
     state.attacks.attacks.push_back(projectile);
 
     KysChess::RoleComboState defenderCombo;
-    KysChess::ChessBattleEffects::applyEffect(
-        defenderCombo,
-        { KysChess::EffectType::DodgeChance, 100 });
+    defenderCombo.applyConfiguredEffect({ KysChess::EffectType::DodgeChance, 100 });
     state.units.require(1).combo = defenderCombo;
 
     auto result = runBattleFrame(state);
 
-    CHECK(state.units.require(1).combo.dodgedLast);
+    CHECK(state.units.require(1).combo.typePending(KysChess::EffectType::DodgeThenCrit));
     CHECK(state.nextFrame.queuedDamageForTest().empty());
     CHECK(damageLogAmountsFor(result).empty());
     CHECK(gameplayEventsFor(result, BattleGameplayEventType::DamageApplied).empty());
@@ -4545,15 +4537,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesScriptedHitEvents", "[battle][
     state.attacks.attacks.push_back(projectile);
 
     KysChess::RoleComboState defenderCombo;
-    KysChess::ChessBattleEffects::applyEffect(
-        defenderCombo,
-        { KysChess::EffectType::DodgeChance, 100 });
+    defenderCombo.applyConfiguredEffect({ KysChess::EffectType::DodgeChance, 100 });
     state.units.require(1).combo = defenderCombo;
 
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 33 });
-    CHECK_FALSE(state.units.require(1).combo.dodgedLast);
+    CHECK_FALSE(state.units.require(1).combo.typePending(KysChess::EffectType::DodgeThenCrit));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPairedAttack", "[battle][core]")

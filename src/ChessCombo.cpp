@@ -191,7 +191,7 @@ std::map<int, RoleComboState> ChessCombo::buildComboStates(const std::vector<Act
             for (auto& e : thresh.effects)
             {
                 if (isTeamwideComboEffect(e.type)) continue;
-                ChessBattleEffects::applyEffect(states[rid], e, ac.id);
+                states[rid].applyConfiguredEffect(e, ac.id);
             }
     }
     return states;
@@ -215,33 +215,6 @@ std::vector<ComboEffect> ChessCombo::collectGlobalEffects(const std::vector<Acti
     }
     return result;
 }
-
-void ChessCombo::applyStatBuffs(const std::map<int, RoleComboState>& states)
-{
-    activeStates_ = states;
-    auto save = Save::getInstance();
-    for (auto& [roleId, s] : activeStates_)
-    {
-        Role* role = save->getRole(roleId);
-        if (!role) continue;
-
-        role->MaxHP += s.flatHP;
-        role->Attack += s.flatATK;
-        role->Defence += s.flatDEF;
-        role->Speed += s.flatSPD;
-
-        if (s.pctHP != 0) role->MaxHP = static_cast<int>(role->MaxHP * (1.0 + s.pctHP / 100.0));
-        if (s.pctATK != 0) role->Attack = static_cast<int>(role->Attack * (1.0 + s.pctATK / 100.0));
-        if (s.pctDEF != 0) role->Defence = static_cast<int>(role->Defence * (1.0 + s.pctDEF / 100.0));
-        if (s.pctSPD != 0) role->Speed = static_cast<int>(role->Speed * (1.0 + s.pctSPD / 100.0));
-
-        role->HP = role->MaxHP;
-    }
-}
-
-const std::map<int, RoleComboState>& ChessCombo::getActiveStates() { return activeStates_; }
-std::map<int, RoleComboState>& ChessCombo::getMutableStates() { return activeStates_; }
-void ChessCombo::clearActiveStates() { activeStates_.clear(); }
 
 std::vector<int> ChessCombo::getCombosForRole(int roleId)
 {

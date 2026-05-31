@@ -9,7 +9,6 @@
 #include "battle/BattleOperation.h"
 #include "battle/BattleStatusSystem.h"
 #include "ChessBalance.h"
-#include "ChessCombo.h"
 #include "ChessEquipment.h"
 #include "ChessNeigong.h"
 #include "ChessUiCommon.h"
@@ -307,12 +306,10 @@ void BattleSceneHades::updateFrameApplierContext()
 void BattleSceneHades::initializeBattleRuntime(
     KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild)
 {
-    KysChess::ChessCombo::clearActiveStates();
     auto creationInput = makeBattleRuntimeSessionCreationInput(std::move(setupBuild));
     auto creation = KysChess::Battle::BattleRuntimeSession::createInitialized(std::move(creationInput));
     auto initialization = std::move(creation.initialization);
     battle_session_.emplace(std::move(creation.session));
-    KysChess::ChessCombo::getMutableStates() = std::move(initialization.comboStates);
     scene_units_.initialize(*battle_session_);
     if (!initialization.logEvents.empty() || !initialization.visualEvents.empty())
     {

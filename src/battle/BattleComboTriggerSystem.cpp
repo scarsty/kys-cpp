@@ -4,7 +4,9 @@
 #include "BattleRuntimeRandom.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
+#include <span>
 #include <utility>
 
 namespace KysChess::Battle
@@ -25,44 +27,77 @@ bool passesChance(BattleRuntimeRandom& random, int chancePct)
     return random.chance(chancePct);
 }
 
-bool hookMatchesConfiguredTrigger(BattleComboTriggerHook hook, Trigger trigger)
+std::span<const Trigger> triggersForHook(BattleComboTriggerHook hook)
 {
+    static constexpr std::array<Trigger, 3> frameTriggers = {
+        Trigger::WhileLowHP,
+        Trigger::AllyLowHPBurst,
+        Trigger::LastAlive,
+    };
+    static constexpr std::array<Trigger, 2> castTriggers = {
+        Trigger::OnCast,
+        Trigger::OnUltimate,
+    };
+    static constexpr std::array<Trigger, 1> onHitTriggers = { Trigger::OnHit };
+    static constexpr std::array<Trigger, 1> onBeingHitTriggers = { Trigger::OnBeingHit };
+    static constexpr std::array<Trigger, 1> shieldBreakTriggers = { Trigger::OnShieldBreak };
+    static constexpr std::array<Trigger, 0> noTriggers = {};
+
     switch (hook)
     {
     case BattleComboTriggerHook::FrameTick:
-        return trigger == Trigger::Always
-            || trigger == Trigger::WhileLowHP
-            || trigger == Trigger::AllyLowHPBurst
-            || trigger == Trigger::LastAlive;
+        return frameTriggers;
     case BattleComboTriggerHook::AfterSkillCast:
-        return trigger == Trigger::OnCast
-            || trigger == Trigger::OnUltimate;
+        return castTriggers;
     case BattleComboTriggerHook::ProjectileHitEnemy:
     case BattleComboTriggerHook::ProjectileHitAllyOrSource:
     case BattleComboTriggerHook::DamageDealt:
-        return trigger == Trigger::OnHit;
+        return onHitTriggers;
     case BattleComboTriggerHook::DamageTaken:
-        return trigger == Trigger::OnBeingHit;
+        return onBeingHitTriggers;
     case BattleComboTriggerHook::ShieldBreak:
-        return trigger == Trigger::OnShieldBreak;
+        return shieldBreakTriggers;
     default:
-        return false;
+        return noTriggers;
     }
 }
 
-ComboTriggerTimerKey triggerTimerKeyFor(const AppliedEffectInstance& effect)
+std::vector<RoleComboEffectId> sortedCandidateIds(
+    const RoleComboState& state,
+    std::span<const Trigger> triggers,
+    std::initializer_list<EffectType> effectTypes)
+{
+    std::vector<RoleComboEffectId> ids;
+    for (Trigger trigger : triggers)
+    {
+        for (EffectType type : effectTypes)
+        {
+            for (RoleComboEffectId id : state.effectIds(trigger, type))
+            {
+                ids.push_back(id);
+            }
+        }
+    }
+    std::ranges::sort(ids, {}, &RoleComboEffectId::value);
+    return ids;
+}
+
+std::vector<RoleComboEffectId> sortedCandidateIds(
+    const RoleComboState& state,
+    Trigger trigger,
+    std::initializer_list<EffectType> effectTypes)
+{
+    std::array triggers = { trigger };
+    return sortedCandidateIds(state, std::span<const Trigger>{ triggers }, effectTypes);
+}
+
+ComboTriggerTimerKey triggerTimerKeyFor(const ComboEffectSnapshot& effect)
 {
     assert(effect.trigger == Trigger::AllyLowHPBurst);
     return { effect.trigger, effect.sourceComboId };
 }
 
-bool hasActiveTriggerTimer(const RoleComboState& state, ComboTriggerTimerKey key)
-{
-    const auto timer = state.triggerTimers.find(key);
-    return timer != state.triggerTimers.end() && timer->second > 0;
-}
-
-bool isActiveFrameTrigger(const RoleComboState& state, const BattleComboFrameUnit& unit, const AppliedEffectInstance& effect)
+bool isActiveFrameTrigger(const RoleComboState& state, const BattleComboFrameUnit& unit, const ComboEffectSnapshot& effect)
 {
     assert(unit.maxHp > 0);
 
@@ -80,27 +115,62 @@ bool isActiveFrameTrigger(const RoleComboState& state, const BattleComboFrameUni
     }
     if (effect.trigger == Trigger::AllyLowHPBurst)
     {
-        return hasActiveTriggerTimer(state, triggerTimerKeyFor(effect));
+        return state.hasActiveTriggerTimer(triggerTimerKeyFor(effect));
     }
     return false;
 }
 
-}  // namespace
-
-bool BattleComboTriggerSystem::canActivate(const RoleComboState& state, size_t effectIndex) const
+std::vector<RoleComboStackChange> applyDamageAdaptationStacks(
+    RoleComboState& state,
+    int attackerUnitId)
 {
-    assert(effectIndex < state.triggeredEffects.size());
-
-    const auto& effect = state.triggeredEffects[effectIndex];
-    auto count = state.effectActivationCounts.find(static_cast<int>(effectIndex));
-    int activated = count == state.effectActivationCounts.end() ? 0 : count->second;
-    return effect.maxCount <= 0 || activated < effect.maxCount;
+    assert(attackerUnitId >= 0);
+    std::vector<RoleComboStackChange> changes;
+    for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::Adaptation))
+    {
+        const auto& effect = state.effect(id);
+        changes.push_back(state.recordEffectStackAgainst(id, attackerUnitId, effect.value2, effect.value));
+    }
+    return changes;
 }
 
-void BattleComboTriggerSystem::recordActivation(RoleComboState& state, size_t effectIndex) const
+std::vector<RoleComboStackChange> applyDodgeAdaptationStacks(
+    RoleComboState& state,
+    int attackerUnitId)
 {
-    assert(effectIndex < state.triggeredEffects.size());
-    state.effectActivationCounts[static_cast<int>(effectIndex)]++;
+    assert(attackerUnitId >= 0);
+    std::vector<RoleComboStackChange> changes;
+    for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::DodgeAdaptation))
+    {
+        const auto& effect = state.effect(id);
+        changes.push_back(state.recordEffectStackAgainst(id, attackerUnitId, effect.value2, effect.value));
+    }
+    return changes;
+}
+
+std::vector<RoleComboStackChange> applyRampingStacks(RoleComboState& state)
+{
+    std::vector<RoleComboStackChange> changes;
+    for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::RampingDmg))
+    {
+        const auto& effect = state.effect(id);
+        auto change = state.recordEffectStack(id, effect.value2, effect.value);
+        state.setEffectIdleTimer(id, 90);
+        changes.push_back(change);
+    }
+    return changes;
+}
+
+}  // namespace
+
+bool BattleComboTriggerSystem::canActivate(const RoleComboState& state, RoleComboEffectId effectId) const
+{
+    return state.canActivateTriggeredEffect(effectId);
+}
+
+void BattleComboTriggerSystem::recordActivation(RoleComboState& state, RoleComboEffectId effectId) const
+{
+    state.recordTriggeredEffectActivation(effectId);
 }
 
 std::vector<BattleComboTriggerAction> BattleComboTriggerSystem::updateFrameTriggers(
@@ -110,10 +180,24 @@ std::vector<BattleComboTriggerAction> BattleComboTriggerSystem::updateFrameTrigg
     assert(unit.maxHp > 0);
 
     std::vector<BattleComboTriggerAction> actions;
-    for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
+    std::vector<RoleComboEffectId> ids;
+    for (Trigger trigger : triggersForHook(BattleComboTriggerHook::FrameTick))
     {
-        const auto& effect = state.triggeredEffects[i];
-        if (!canActivate(state, i))
+        for (RoleComboEffectId id : state.effectIdsInAppendOrder())
+        {
+            const auto& effect = state.effect(id);
+            if (effect.trigger == trigger)
+            {
+                ids.push_back(id);
+            }
+        }
+    }
+    std::ranges::sort(ids, {}, &RoleComboEffectId::value);
+
+    for (RoleComboEffectId id : ids)
+    {
+        const auto& effect = state.effect(id);
+        if (!canActivate(state, id))
         {
             continue;
         }
@@ -131,14 +215,14 @@ std::vector<BattleComboTriggerAction> BattleComboTriggerSystem::updateFrameTrigg
         {
             const auto timerKey = triggerTimerKeyFor(effect);
             if (unit.hp * 100 < unit.maxHp * effect.triggerValue
-                && !hasActiveTriggerTimer(state, timerKey))
+                && !state.hasActiveTriggerTimer(timerKey))
             {
-                recordActivation(state, i);
+                recordActivation(state, id);
                 actions.push_back({
                     BattleComboTriggerActionType::BroadcastTriggerTimer,
                     effect.trigger,
                     timerKey,
-                    static_cast<int>(i),
+                    id,
                     effect.value,
                     effect.duration,
                 });
@@ -148,12 +232,12 @@ std::vector<BattleComboTriggerAction> BattleComboTriggerSystem::updateFrameTrigg
 
         if (active && effect.type == EffectType::HealBurst)
         {
-            recordActivation(state, i);
+            recordActivation(state, id);
             actions.push_back({
                 BattleComboTriggerActionType::HealPercentSelf,
                 effect.trigger,
                 {},
-                static_cast<int>(i),
+                id,
                 effect.value,
                 effect.duration,
             });
@@ -168,42 +252,34 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
 {
     assert(input.frame >= 0);
     assert(input.maxHp > 0);
-    assert(state.rampingStacks.size() == state.rampingIdleTimers.size());
-    assert(state.rampings.empty() || state.rampings.size() == state.rampingStacks.size());
 
     std::vector<BattleComboFrameRuntimeEvent> events;
-    state.lastAliveFlag = input.lastAlive;
+    state.setLastAliveForComboRuntime(input.lastAlive);
 
-    for (int effectIndex = 0; effectIndex < static_cast<int>(state.appliedEffects.size()); ++effectIndex)
+    if (input.alive)
     {
-        const auto& effect = state.appliedEffects[effectIndex];
-        if (!input.alive || effect.trigger != Trigger::Always)
+        for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::AutoUltimateAfterFrames))
         {
-            continue;
-        }
-        if (effect.type == EffectType::AutoUltimateAfterFrames && effect.value > 0)
-        {
-            int& timer = state.effectFrameTimers[effectIndex];
-            if (timer <= 0)
-            {
-                timer = effect.value;
-            }
-            --timer;
-            if (timer <= 0)
+            const auto& effect = state.effect(id);
+            if (effect.value > 0 && state.advanceAutoUltimateFrameTimer(id, effect.value))
             {
                 events.push_back({ BattleComboFrameRuntimeEventType::AutoUltimateReady });
-                timer = effect.value;
             }
         }
-        else if (effect.type == EffectType::HPRegenPct && effect.value > 0 && effect.value2 > 0 && input.frame % effect.value2 == 0)
+
+        for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::HPRegenPct))
         {
-            events.push_back({
-                BattleComboFrameRuntimeEventType::SelfHpRegen,
-                effect.trigger,
-                {},
-                effectIndex,
-                effect.value,
-            });
+            const auto& effect = state.effect(id);
+            if (effect.value > 0 && effect.value2 > 0 && input.frame % effect.value2 == 0)
+            {
+                events.push_back({
+                    BattleComboFrameRuntimeEventType::SelfHpRegen,
+                    effect.trigger,
+                    {},
+                    id,
+                    effect.value,
+                });
+            }
         }
     }
 
@@ -211,26 +287,21 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
     int healAuraPct = 0;
     int healAuraInterval = 0;
     int healedBoostPct = 0;
-    for (const auto& effect : state.appliedEffects)
+    for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::HealAuraFlat))
     {
-        if (effect.trigger != Trigger::Always)
-        {
-            continue;
-        }
-        if (effect.type == EffectType::HealAuraFlat)
-        {
-            healAuraFlat = std::max(healAuraFlat, effect.value);
-            healAuraInterval = effect.value2 > 0 ? effect.value2 : healAuraInterval;
-        }
-        else if (effect.type == EffectType::HealAuraPct)
-        {
-            healAuraPct = std::max(healAuraPct, effect.value);
-            healAuraInterval = effect.value2 > 0 ? effect.value2 : healAuraInterval;
-        }
-        else if (effect.type == EffectType::HealedATKSPDBoost)
-        {
-            healedBoostPct += effect.value;
-        }
+        const auto& effect = state.effect(id);
+        healAuraFlat = std::max(healAuraFlat, effect.value);
+        healAuraInterval = effect.value2 > 0 ? effect.value2 : healAuraInterval;
+    }
+    for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::HealAuraPct))
+    {
+        const auto& effect = state.effect(id);
+        healAuraPct = std::max(healAuraPct, effect.value);
+        healAuraInterval = effect.value2 > 0 ? effect.value2 : healAuraInterval;
+    }
+    for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::HealedATKSPDBoost))
+    {
+        healedBoostPct += state.effect(id).value;
     }
     if (input.alive && (healAuraPct > 0 || healAuraFlat > 0) && healAuraInterval > 0 && input.frame % healAuraInterval == 0)
     {
@@ -238,7 +309,7 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
             BattleComboFrameRuntimeEventType::HealAura,
             Trigger::Always,
             {},
-            -1,
+            {},
             healAuraFlat,
             healAuraPct,
             healedBoostPct,
@@ -257,7 +328,7 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
                     BattleComboFrameRuntimeEventType::HealPercentSelf,
                     action.trigger,
                     {},
-                    action.effectIndex,
+                    action.effectId,
                     action.value,
                     0,
                     action.durationFrames,
@@ -270,7 +341,7 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
                     BattleComboFrameRuntimeEventType::BroadcastTriggerTimer,
                     action.trigger,
                     action.timerKey,
-                    action.effectIndex,
+                    action.effectId,
                     action.value,
                     0,
                     action.durationFrames,
@@ -279,26 +350,13 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
         }
     }
 
-    for (size_t i = 0; i < state.rampingStacks.size(); ++i)
+    std::vector<RoleComboEffectId> rampingIds;
+    for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::RampingDmg))
     {
-        if (state.rampingIdleTimers[i] > 0)
-        {
-            --state.rampingIdleTimers[i];
-        }
-        else
-        {
-            state.rampingStacks[i] = 0;
-        }
+        rampingIds.push_back(id);
     }
-
-    for (auto& timerEntry : state.triggerTimers)
-    {
-        auto& timer = timerEntry.second;
-        if (timer > 0)
-        {
-            --timer;
-        }
-    }
+    state.advanceEffectIdleTimers(rampingIds);
+    state.advanceTriggerTimersOneFrame();
 
     return events;
 }
@@ -309,10 +367,13 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTeamHeal(
     BattleRuntimeRandom& random) const
 {
     BattleTriggeredTeamHeal result;
-    for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
+    for (RoleComboEffectId id : sortedCandidateIds(
+             state,
+             trigger,
+             { EffectType::OnSkillTeamHeal, EffectType::OnSkillTeamHealPct }))
     {
-        const auto& effect = state.triggeredEffects[i];
-        if (effect.trigger != trigger || !canActivate(state, i))
+        const auto& effect = state.effect(id);
+        if (!canActivate(state, id))
         {
             continue;
         }
@@ -321,23 +382,17 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTeamHeal(
             continue;
         }
 
-        bool activated = false;
         if (effect.type == EffectType::OnSkillTeamHeal)
         {
             result.flatHeal += effect.value;
-            activated = true;
         }
-        else if (effect.type == EffectType::OnSkillTeamHealPct)
+        else
         {
+            assert(effect.type == EffectType::OnSkillTeamHealPct);
             result.pctHeal += effect.value;
-            activated = true;
         }
-
-        if (activated)
-        {
-            recordActivation(state, i);
-            result.activatedEffectIndices.push_back(static_cast<int>(i));
-        }
+        recordActivation(state, id);
+        result.activatedEffectIds.push_back(id);
     }
     return result;
 }
@@ -365,7 +420,7 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTriggeredTeamHeal(
             assert(event.effect.type == EffectType::OnSkillTeamHealPct);
             result.pctHeal += event.effect.value;
         }
-        result.activatedEffectIndices.push_back(event.effectIndex);
+        result.activatedEffectIds.push_back(event.effectId);
     }
     return result;
 }
@@ -376,18 +431,17 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectPendingSkillTeamHeal(
     BattleRuntimeRandom& random) const
 {
     BattleTriggeredTeamHeal result;
-    if (!state.onSkillTeamHealPending)
+    if (!state.consumeTypePending(EffectType::OnSkillTeamHeal))
     {
         return result;
     }
 
-    result.flatHeal = sumAlwaysEffectValue(state, EffectType::OnSkillTeamHeal);
-    result.pctHeal = sumAlwaysEffectValue(state, EffectType::OnSkillTeamHealPct);
+    result.flatHeal = state.sumAlways(EffectType::OnSkillTeamHeal);
+    result.pctHeal = state.sumAlways(EffectType::OnSkillTeamHealPct);
     auto triggered = collectTriggeredTeamHeal(state, input, random);
     result.flatHeal += triggered.flatHeal;
     result.pctHeal += triggered.pctHeal;
-    result.activatedEffectIndices = std::move(triggered.activatedEffectIndices);
-    state.onSkillTeamHealPending = false;
+    result.activatedEffectIds = std::move(triggered.activatedEffectIds);
     return result;
 }
 
@@ -401,14 +455,10 @@ std::vector<BattleActivatedComboEffect> BattleComboTriggerSystem::collectChanceE
     assert(effectTypes.size() > 0);
 
     std::vector<BattleActivatedComboEffect> result;
-    for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
+    for (RoleComboEffectId id : sortedCandidateIds(state, trigger, effectTypes))
     {
-        const auto& effect = state.triggeredEffects[i];
-        if (effect.trigger != trigger || !canActivate(state, i))
-        {
-            continue;
-        }
-        if (std::find(effectTypes.begin(), effectTypes.end(), effect.type) == effectTypes.end())
+        const auto& effect = state.effect(id);
+        if (!canActivate(state, id))
         {
             continue;
         }
@@ -419,9 +469,9 @@ std::vector<BattleActivatedComboEffect> BattleComboTriggerSystem::collectChanceE
 
         if (recording == BattleComboActivationRecording::RecordOnCollect)
         {
-            recordActivation(state, i);
+            recordActivation(state, id);
         }
-        result.push_back({ static_cast<int>(i), effect });
+        result.push_back({ id, effect });
     }
     return result;
 }
@@ -436,14 +486,10 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::collectTriggerEve
     assert(effectTypes.size() > 0);
 
     std::vector<BattleComboTriggerEvent> result;
-    for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
+    for (RoleComboEffectId id : sortedCandidateIds(state, triggersForHook(input.hook), effectTypes))
     {
-        const auto& effect = state.triggeredEffects[i];
-        if (!hookMatchesConfiguredTrigger(input.hook, effect.trigger) || !canActivate(state, i))
-        {
-            continue;
-        }
-        if (std::find(effectTypes.begin(), effectTypes.end(), effect.type) == effectTypes.end())
+        const auto& effect = state.effect(id);
+        if (!canActivate(state, id))
         {
             continue;
         }
@@ -454,13 +500,13 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::collectTriggerEve
 
         if (recording == BattleComboActivationRecording::RecordOnCollect)
         {
-            recordActivation(state, i);
+            recordActivation(state, id);
         }
         result.push_back({
             input.hook,
             input.sourceUnitId,
             input.targetUnitId,
-            static_cast<int>(i),
+            id,
             effect,
         });
     }
@@ -475,24 +521,14 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::matchingTriggerEf
     assert(effectTypes.size() > 0);
 
     std::vector<BattleComboTriggerEvent> result;
-    for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
+    for (RoleComboEffectId id : sortedCandidateIds(state, triggersForHook(input.hook), effectTypes))
     {
-        const auto& effect = state.triggeredEffects[i];
-        if (!hookMatchesConfiguredTrigger(input.hook, effect.trigger))
-        {
-            continue;
-        }
-        if (std::find(effectTypes.begin(), effectTypes.end(), effect.type) == effectTypes.end())
-        {
-            continue;
-        }
-
         result.push_back({
             input.hook,
             input.sourceUnitId,
             input.targetUnitId,
-            static_cast<int>(i),
-            effect,
+            id,
+            state.effect(id),
         });
     }
     return result;
@@ -507,13 +543,16 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::activeFrameTrigge
     assert(unit.maxHp > 0);
 
     std::vector<BattleComboTriggerEvent> result;
-    for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
+    std::vector<RoleComboEffectId> ids;
+    for (RoleComboEffectId id : sortedCandidateIds(state, triggersForHook(BattleComboTriggerHook::FrameTick), effectTypes))
     {
-        const auto& effect = state.triggeredEffects[i];
-        if (std::find(effectTypes.begin(), effectTypes.end(), effect.type) == effectTypes.end())
-        {
-            continue;
-        }
+        ids.push_back(id);
+    }
+    std::ranges::sort(ids, {}, &RoleComboEffectId::value);
+
+    for (RoleComboEffectId id : ids)
+    {
+        const auto& effect = state.effect(id);
         if (!isActiveFrameTrigger(state, unit, effect))
         {
             continue;
@@ -523,7 +562,7 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::activeFrameTrigge
             BattleComboTriggerHook::FrameTick,
             -1,
             -1,
-            static_cast<int>(i),
+            id,
             effect,
         });
     }
@@ -538,17 +577,8 @@ BattleDodgeResolution BattleComboTriggerSystem::resolveDodge(
     assert(attackerUnitId >= 0);
     assert(rollPercent >= 0.0 && rollPercent < 100.0);
 
-    int dodgeChancePct = sumAlwaysEffectValue(state, EffectType::DodgeChance);
-    for (size_t i = 0; i < state.dodgeAdaptations.size(); ++i)
-    {
-        assert(i < state.dodgeAdaptationStacks.size());
-        const auto& evade = state.dodgeAdaptations[i];
-        auto stackIt = state.dodgeAdaptationStacks[i].find(attackerUnitId);
-        if (stackIt != state.dodgeAdaptationStacks[i].end())
-        {
-            dodgeChancePct += stackIt->second * evade.pctPerStack;
-        }
-    }
+    int dodgeChancePct = state.sumAlways(EffectType::DodgeChance);
+    dodgeChancePct += state.dodgeAdaptationBonusAgainst(attackerUnitId);
 
     BattleDodgeResolution result;
     result.chancePct = std::clamp(dodgeChancePct, 0, 100);
@@ -562,8 +592,6 @@ BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
     BattleRuntimeRandom& random) const
 {
     assert(input.maxHp > 0);
-    assert(state.rampingStacks.size() == state.rampingIdleTimers.size());
-    assert(state.rampings.empty() || state.rampings.size() == state.rampingStacks.size());
 
     BattleAttackerHitDamageResult result;
     result.damage = input.damage;
@@ -576,20 +604,16 @@ BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
         result.damage *= (1.0 + event.effect.value / 100.0);
     }
 
-    bool critted = false;
-    if (state.dodgedLast && firstAlwaysEffect(state, EffectType::DodgeThenCrit) != nullptr)
-    {
-        critted = true;
-        state.dodgedLast = false;
-    }
-    const int critChancePct = sumAlwaysEffectValue(state, EffectType::CritChance);
+    bool critted = state.hasAlways(EffectType::DodgeThenCrit)
+        && state.consumeTypePending(EffectType::DodgeThenCrit);
+    const int critChancePct = state.sumAlways(EffectType::CritChance);
     if (!critted && passesChance(random, critChancePct))
     {
         critted = true;
     }
     if (critted)
     {
-        const int critMultiplier = std::max(150, maxAlwaysEffectValue(state, EffectType::CritMultiplier));
+        const int critMultiplier = std::max(150, state.maxAlways(EffectType::CritMultiplier));
         result.damage *= critMultiplier / 100.0;
         result.events.push_back({
             BattleAttackerHitDamageEventType::Crit,
@@ -597,35 +621,24 @@ BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
         });
     }
 
-    for (const auto& effect : state.appliedEffects)
+    for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::EveryNthDouble))
     {
-        if (effect.type != EffectType::EveryNthDouble || effect.trigger != Trigger::Always || effect.value <= 0)
-        {
-            continue;
-        }
-        const int n = effect.value;
-        auto& counter = state.everyNthCounters[n];
-        counter++;
-        if (counter >= n)
+        const auto& effect = state.effect(id);
+        if (effect.value > 0 && state.advanceEffectCounter(id, effect.value))
         {
             result.damage *= 2.0;
-            counter = 0;
         }
     }
 
-    for (size_t i = 0; i < state.rampings.size(); ++i)
+    for (const auto& ramping : applyRampingStacks(state))
     {
-        const auto& ramp = state.rampings[i];
-        int beforeStacks = state.rampingStacks[i];
-        state.rampingStacks[i] = std::min(state.rampingStacks[i] + 1, ramp.maxStacks);
-        state.rampingIdleTimers[i] = 90;
-        result.damage *= (1.0 + state.rampingStacks[i] * ramp.pctPerStack / 100.0);
-        if (state.rampingStacks[i] > beforeStacks)
+        result.damage *= (1.0 + ramping.stacks * ramping.pctPerStack / 100.0);
+        if (ramping.increased)
         {
             result.events.push_back({
                 BattleAttackerHitDamageEventType::RampingStack,
-                ramp.pctPerStack,
-                state.rampingStacks[i],
+                ramping.pctPerStack,
+                ramping.stacks,
             });
         }
     }
@@ -639,8 +652,6 @@ BattleDefenderHitDamageResult BattleComboTriggerSystem::shapeDefenderHitDamage(
 {
     assert(input.maxHp > 0);
     assert(input.attackerUnitId >= 0);
-    assert(state.adaptationStacks.size() == state.adaptations.size());
-    assert(state.dodgeAdaptationStacks.size() == state.dodgeAdaptations.size());
 
     BattleDefenderHitDamageResult result;
     result.damage = input.damage;
@@ -653,35 +664,27 @@ BattleDefenderHitDamageResult BattleComboTriggerSystem::shapeDefenderHitDamage(
         result.damage *= (1.0 - event.effect.value / 100.0);
     }
 
-    for (size_t i = 0; i < state.adaptations.size(); ++i)
+    for (const auto& adaptation : applyDamageAdaptationStacks(state, input.attackerUnitId))
     {
-        const auto& adapt = state.adaptations[i];
-        int& stacks = state.adaptationStacks[i][input.attackerUnitId];
-        int beforeStacks = stacks;
-        stacks = std::min(stacks + 1, adapt.maxStacks);
-        result.damage *= (1.0 - stacks * adapt.pctPerStack / 100.0);
-        if (stacks > beforeStacks)
+        result.damage *= (1.0 - adaptation.stacks * adaptation.pctPerStack / 100.0);
+        if (adaptation.increased)
         {
             result.events.push_back({
                 BattleDefenderHitDamageEventType::DamageAdaptationStack,
-                adapt.pctPerStack,
-                stacks,
+                adaptation.pctPerStack,
+                adaptation.stacks,
             });
         }
     }
 
-    for (size_t i = 0; i < state.dodgeAdaptations.size(); ++i)
+    for (const auto& adaptation : applyDodgeAdaptationStacks(state, input.attackerUnitId))
     {
-        const auto& evade = state.dodgeAdaptations[i];
-        int& stacks = state.dodgeAdaptationStacks[i][input.attackerUnitId];
-        int beforeStacks = stacks;
-        stacks = std::min(stacks + 1, evade.maxStacks);
-        if (stacks > beforeStacks)
+        if (adaptation.increased)
         {
             result.events.push_back({
                 BattleDefenderHitDamageEventType::DodgeAdaptationStack,
-                evade.pctPerStack,
-                stacks,
+                adaptation.pctPerStack,
+                adaptation.stacks,
             });
         }
     }
@@ -719,10 +722,10 @@ BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
             })
             && passesChance(random, effect.triggerValue))
         {
-            recordActivation(state, static_cast<size_t>(triggerEvent.effectIndex));
+            recordActivation(state, triggerEvent.effectId);
             result.executed = true;
             result.thresholdPct = effect.value;
-            result.effectIndex = triggerEvent.effectIndex;
+            result.effectId = triggerEvent.effectId;
             break;
         }
     }
@@ -734,7 +737,7 @@ bool BattleComboTriggerSystem::resolveProjectileReflect(
     bool rangedProjectile,
     BattleRuntimeRandom& random) const
 {
-    return rangedProjectile && passesChance(random, sumAlwaysEffectValue(state, EffectType::ProjectileReflect));
+    return rangedProjectile && passesChance(random, state.sumAlways(EffectType::ProjectileReflect));
 }
 
 BattleProjectileBouncePrime BattleComboTriggerSystem::collectProjectileBouncePrime(
@@ -819,10 +822,10 @@ BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDef
 
     BattleArmorPenetrationResult result;
     result.defense = input.defense;
-    const int armorPenChancePct = sumAlwaysEffectValue(state, EffectType::ArmorPenChance);
+    const int armorPenChancePct = state.sumAlways(EffectType::ArmorPenChance);
     if (passesChance(random, armorPenChancePct))
     {
-        result.defense *= (1.0 - maxAlwaysEffectValue(state, EffectType::ArmorPenPct) / 100.0);
+        result.defense *= (1.0 - state.maxAlways(EffectType::ArmorPenPct) / 100.0);
     }
 
     for (const auto& event : matchingTriggerEffects(
