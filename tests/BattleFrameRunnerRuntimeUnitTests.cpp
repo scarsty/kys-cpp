@@ -122,28 +122,14 @@ BattleRuntimeState ownedRuntimeState()
     return runtime;
 }
 
-BattleUnitFrameTickInput finishingSkillRuntime()
+void configureFinishingSkillRuntime(BattleRuntimeUnit& unit)
 {
-    BattleUnitFrameTickInput input;
-    input.state.cooldown = 1;
-    input.state.actType = 2;
-    input.state.operationType = BattleOperationType::RangedProjectile;
-    input.state.haveAction = true;
-    input.state.physicalPower = 4;
-    input.frame = 6;
-    input.mpRegenIntervalFrames = 3;
-    input.physicalPowerRegenIntervalFrames = 3;
-    return input;
-}
-
-void applyRuntimeInput(BattleRuntimeUnit& unit, const BattleUnitFrameTickInput& input)
-{
-    unit.animation.cooldown = input.state.cooldown;
-    unit.animation.actFrame = input.state.actFrame;
-    unit.animation.actType = input.state.actType;
-    unit.operationType = input.state.operationType;
-    unit.haveAction = input.state.haveAction;
-    unit.physicalPower = input.state.physicalPower;
+    unit.animation.cooldown = 1;
+    unit.animation.actFrame = 0;
+    unit.animation.actType = 2;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.haveAction = true;
+    unit.physicalPower = 4;
 }
 
 BattleAttackInstance cancelProjectile(int id, int attackerUnitId)
@@ -574,7 +560,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrame
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
     });
-    applyRuntimeInput(state.units.requireCore(0), finishingSkillRuntime());
+    configureFinishingSkillRuntime(state.units.requireCore(0));
 
     runBattleFrame(state);
 
@@ -597,7 +583,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToRuntimeU
     combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHeal, 5 });
     combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHealPct, 10 });
     state.units.require(0).combo = combo;
-    applyRuntimeInput(state.units.requireCore(0), finishingSkillRuntime());
+    configureFinishingSkillRuntime(state.units.requireCore(0));
 
     auto result = runBattleFrame(state);
 
@@ -739,9 +725,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[bat
     combo.applyConfiguredEffect({ KysChess::EffectType::HealedATKSPDBoost, 20 });
     state.units.require(0).combo = combo;
 
-    auto runtime = finishingSkillRuntime();
-    runtime.state.cooldown = 0;
-    applyRuntimeInput(state.units.requireCore(0), runtime);
+    configureFinishingSkillRuntime(state.units.requireCore(0));
+    state.units.requireCore(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
@@ -802,9 +787,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battl
     combo.applyConfiguredEffect(healBurst);
     state.units.require(0).combo = combo;
 
-    auto runtime = finishingSkillRuntime();
-    runtime.state.cooldown = 0;
-    applyRuntimeInput(state.units.requireCore(0), runtime);
+    configureFinishingSkillRuntime(state.units.requireCore(0));
+    state.units.requireCore(0).animation.cooldown = 0;
 
     auto result = runBattleFrame(state);
 
@@ -837,7 +821,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSk
     combo.applyConfiguredEffect({ KysChess::EffectType::PostSkillInvincFrames, 12 });
     state.units.require(0).combo = combo;
 
-    applyRuntimeInput(state.units.requireCore(0), finishingSkillRuntime());
+    configureFinishingSkillRuntime(state.units.requireCore(0));
 
     auto result = runBattleFrame(state);
 

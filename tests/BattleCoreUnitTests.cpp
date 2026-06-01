@@ -1301,33 +1301,31 @@ TEST_CASE("BattleCore_SlotSwitchCooldown_BoundsRepeatedReplans", "[battle][core]
     CHECK(secondRun.world.units[0].slotSwitchCooldownRemaining < firstRun.world.units[0].slotSwitchCooldownRemaining);
 }
 
-TEST_CASE("BattleUnitFrameTickSystem_AdvancesCooldownAndIdleResourceTicks", "[battle][core]")
+TEST_CASE("BattleRuntimeUnitRecord_AdvanceFrameTick_CommitsCooldownAndIdleResourceTicks", "[battle][core]")
 {
-    BattleUnitFrameTickState state;
-    state.cooldown = 1;
-    state.actType = 2;
-    state.operationType = BattleOperationType::Dash;
-    state.haveAction = true;
-    state.physicalPower = 9;
+    BattleRuntimeUnitRecord record;
+    record.core.id = 0;
+    record.core.animation.cooldown = 1;
+    record.core.animation.actType = 2;
+    record.core.operationType = BattleOperationType::Dash;
+    record.core.haveAction = true;
+    record.core.physicalPower = 4;
+    record.core.vitals.mp = 10;
+    record.core.vitals.maxMp = 20;
+    record.core.motion.velocity = { 3, 4, 0 };
 
-    BattleUnitFrameTickInput input;
-    input.state = state;
-    input.frame = 6;
-    input.frozen = false;
-    input.mpRegenIntervalFrames = 3;
-    input.physicalPowerRegenIntervalFrames = 3;
+    auto result = record.advanceFrameTick({ 6, 3, 3 });
 
-    auto result = BattleUnitFrameTickSystem().advance(input);
-
-    CHECK(result.state.cooldown == 0);
-    CHECK(result.state.actFrame == 0);
-    CHECK(result.state.actType == -1);
-    CHECK(result.state.operationType == BattleOperationType::None);
-    CHECK_FALSE(result.state.haveAction);
-    CHECK(result.state.physicalPower == 10);
-    CHECK(result.mpDelta == 1);
     CHECK(result.skillFinished);
-    CHECK(result.resetDashVelocity);
+    CHECK(record.core.animation.cooldown == 0);
+    CHECK(record.core.animation.actFrame == 0);
+    CHECK(record.core.animation.actType == -1);
+    CHECK(record.core.operationType == BattleOperationType::None);
+    CHECK_FALSE(record.core.haveAction);
+    CHECK(record.core.physicalPower == 5);
+    CHECK(record.core.vitals.mp == 11);
+    CHECK(record.core.motion.velocity.x == 0.0f);
+    CHECK(record.core.motion.velocity.y == 0.0f);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents", "[battle][core]")

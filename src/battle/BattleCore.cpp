@@ -154,10 +154,6 @@ void appendTeamEffectLogEvents(
     std::vector<BattleLogEvent>& logEvents,
     const std::vector<BattleTeamEffectEvent>& events,
     const std::string& reason);
-BattleUnitFrameTickInput makeRuntimeUnitTickInput(
-    const BattleRuntimeState& state,
-    const BattleRuntimeUnitRecord& unit);
-
 struct BattleTeamEffectCommandApplication
 {
     std::vector<BattleTeamEffectEvent> events;
@@ -881,24 +877,15 @@ BattleRuntimeUnitsAdvanceResult advanceRuntimeUnits(BattleRuntimeState& state)
     {
         auto& unit = unitRecord.core;
         assert(unit.id >= 0);
-        auto input = makeRuntimeUnitTickInput(state, unitRecord);
         const bool lastAlive = isLastAliveInTeam(state.units, unit);
 
         BattleRuntimeUnitFrameCommit committed;
         committed.unitId = unit.id;
-        auto tick = BattleUnitFrameTickSystem().advance(input);
-
-        unit.animation.cooldown = tick.state.cooldown;
-        unit.animation.actFrame = tick.state.actFrame;
-        unit.haveAction = tick.state.haveAction;
-        unit.operationType = tick.state.operationType;
-        unit.animation.actType = tick.state.actType;
-        unit.physicalPower = tick.state.physicalPower;
-        applyRuntimeUnitMpDelta(state, unit, tick.mpDelta);
-        if (tick.resetDashVelocity)
-        {
-            unit.motion.velocity = { 0, 0, 0 };
-        }
+        auto tick = unitRecord.advanceFrameTick({
+            state.movement.frame,
+            3,
+            3,
+        });
 
         auto& combo = state.units.require(unit.id).combo;
         auto frameEvents = comboSystem.advanceFrameRuntime(
@@ -1482,24 +1469,6 @@ BattleCastSkillState makeRuntimeCastSkillState(
     skill.rangedStyle = runtimeBattleRangedStyle(seed, forceRanged);
     skill.blinkReach = runtimeBattleBlinkReach(seed, state.action.actionRules, state.action.castGeometry);
     return skill;
-}
-
-BattleUnitFrameTickInput makeRuntimeUnitTickInput(
-    const BattleRuntimeState& state,
-    const BattleRuntimeUnitRecord& unit)
-{
-    BattleUnitFrameTickInput input;
-    input.state.cooldown = unit.core.animation.cooldown;
-    input.state.actFrame = unit.core.animation.actFrame;
-    input.state.actType = unit.core.animation.actType;
-    input.state.operationType = unit.core.operationType;
-    input.state.haveAction = unit.core.haveAction;
-    input.state.physicalPower = unit.core.physicalPower;
-    input.frame = state.movement.frame;
-    input.mpRegenIntervalFrames = 3;
-    input.physicalPowerRegenIntervalFrames = 3;
-    input.frozen = unit.frozen();
-    return input;
 }
 
 std::pair<int, int> rescueCellKey(int x, int y)
@@ -4333,7 +4302,16 @@ BattleTickResult advanceMotionFrame(BattleRuntimeState& state)
     return commitFrameMovement(state, physicsResults, std::move(movement));
 }
 
-void commitActionFrameStateToRuntime(BattleRuntimeUnit& unit, const BattleUnitFrameTickState& state)
+struct BattleActionFrameState
+{
+    int cooldown{};
+    int actFrame{};
+    int actType = -1;
+    BattleOperationType operationType = BattleOperationType::None;
+    bool haveAction{};
+};
+
+void commitActionFrameStateToRuntime(BattleRuntimeUnit& unit, const BattleActionFrameState& state)
 {
     unit.animation.cooldown = state.cooldown;
     unit.animation.actFrame = state.actFrame;
@@ -4342,19 +4320,18 @@ void commitActionFrameStateToRuntime(BattleRuntimeUnit& unit, const BattleUnitFr
     unit.haveAction = state.haveAction;
 }
 
-BattleUnitFrameTickState makeActionRuntimeState(const BattleRuntimeUnit& unit)
+BattleActionFrameState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 {
-    BattleUnitFrameTickState state;
+    BattleActionFrameState state;
     state.cooldown = unit.animation.cooldown;
     state.actFrame = unit.animation.actFrame;
     state.actType = unit.animation.actType;
     state.operationType = unit.operationType;
     state.haveAction = unit.haveAction;
-    state.physicalPower = unit.physicalPower;
     return state;
 }
 
-void resetActionFrameState(BattleUnitFrameTickState& state)
+void resetActionFrameState(BattleActionFrameState& state)
 {
     state.cooldown = 0;
     state.actFrame = 0;
@@ -5091,46 +5068,6 @@ void applyFrameCastScopedComboEffects(
 }
 
 }  // namespace
-
-BattleUnitFrameTickResult BattleUnitFrameTickSystem::advance(
-    const BattleUnitFrameTickInput& input) const
-{
-    assert(input.frame >= 0);
-    assert(input.mpRegenIntervalFrames > 0);
-    assert(input.physicalPowerRegenIntervalFrames > 0);
-    assert(input.state.cooldown >= 0);
-    assert(input.state.physicalPower >= 0);
-
-    BattleUnitFrameTickResult result;
-    result.state = input.state;
-
-    const int previousCooldown = result.state.cooldown;
-    if (!input.frozen && result.state.cooldown > 0)
-    {
-        --result.state.cooldown;
-    }
-    result.skillFinished = previousCooldown > 0 && result.state.cooldown == 0;
-
-    if (result.state.cooldown == 0)
-    {
-        if (input.frame % input.physicalPowerRegenIntervalFrames == 0)
-        {
-            ++result.state.physicalPower;
-        }
-        result.state.actFrame = 0;
-        result.resetDashVelocity = result.state.operationType == BattleOperationType::Dash;
-        result.state.operationType = BattleOperationType::None;
-        result.state.actType = -1;
-        result.state.haveAction = false;
-    }
-
-    if (input.frame % input.mpRegenIntervalFrames == 0)
-    {
-        result.mpDelta = 1;
-    }
-
-    return result;
-}
 
 BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) const
 {

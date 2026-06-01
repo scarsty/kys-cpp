@@ -26,39 +26,6 @@
 namespace KysChess::Battle
 {
 
-struct BattleUnitFrameTickState
-{
-    int cooldown = 0;
-    int actFrame = 0;
-    int actType = -1;
-    BattleOperationType operationType = BattleOperationType::None;
-    bool haveAction = false;
-    int physicalPower = 0;
-};
-
-struct BattleUnitFrameTickInput
-{
-    BattleUnitFrameTickState state;
-    int frame = 0;
-    bool frozen = false;
-    int mpRegenIntervalFrames = 0;
-    int physicalPowerRegenIntervalFrames = 0;
-};
-
-struct BattleUnitFrameTickResult
-{
-    BattleUnitFrameTickState state;
-    int mpDelta = 0;
-    bool skillFinished = false;
-    bool resetDashVelocity = false;
-};
-
-class BattleUnitFrameTickSystem
-{
-public:
-    BattleUnitFrameTickResult advance(const BattleUnitFrameTickInput& input) const;
-};
-
 class BattleFrameRunner
 {
 public:
