@@ -9,20 +9,18 @@
 namespace KysChess::Battle
 {
 
-bool BattleDeathEffectSystem::comboAppliesToUnit(const BattleDeathEffectStore& effects,
-                                                const BattleDeathEffectExtras& extras,
+bool BattleDeathEffectStore::comboAppliesToUnit(const BattleDeathEffectExtras& extras,
                                                 int comboId) const
 {
-    if (comboId < 0 || effects.regularSynergyComboIds.count(comboId) == 0)
+    if (comboId < 0 || regularSynergyComboIds.count(comboId) == 0)
     {
         return false;
     }
     return std::find(extras.comboIds.begin(), extras.comboIds.end(), comboId) != extras.comboIds.end();
 }
 
-std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffects(BattleRuntimeUnits& records,
-                                                                                   BattleDeathEffectStore& effects,
-                                                                                   int deadUnitId) const
+std::vector<BattleDeathEffectEvent> BattleDeathEffectStore::applyAllyDeathEffects(BattleRuntimeUnits& records,
+                                                                                  int deadUnitId) const
 {
     auto& dead = records.requireCore(deadUnitId);
     auto& deadExtras = records.require(deadUnitId).deathEffects;
@@ -41,7 +39,7 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
         for (const auto& effect : allyExtras.appliedEffects)
         {
             if (effect.type != EffectType::AllyDeathStatBoost
-                || !comboAppliesToUnit(effects, deadExtras, effect.sourceComboId))
+                || !comboAppliesToUnit(deadExtras, effect.sourceComboId))
             {
                 continue;
             }
@@ -61,7 +59,7 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
         for (const auto& effect : deadExtras.appliedEffects)
         {
             if (effect.type != EffectType::DeathMedical
-                || !comboAppliesToUnit(effects, allyExtras, effect.sourceComboId))
+                || !comboAppliesToUnit(allyExtras, effect.sourceComboId))
             {
                 continue;
             }
@@ -85,7 +83,7 @@ std::vector<BattleDeathEffectEvent> BattleDeathEffectSystem::applyAllyDeathEffec
         for (const auto& effect : allyExtras.appliedEffects)
         {
             if (effect.type != EffectType::ShieldOnAllyDeath
-                || !comboAppliesToUnit(effects, deadExtras, effect.sourceComboId))
+                || !comboAppliesToUnit(deadExtras, effect.sourceComboId))
             {
                 continue;
             }

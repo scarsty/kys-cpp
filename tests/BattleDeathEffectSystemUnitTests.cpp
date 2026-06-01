@@ -72,7 +72,7 @@ TEST_CASE("BattleDeathEffectSystem_AllyDeathStatBoost_RequiresRegularSharedCombo
     enemy.appliedEffects = { effect(EffectType::AllyDeathStatBoost, 50, 7) };
     assignExtras(units, { { 0, dead }, { 1, ally }, { 2, enemy } });
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
+    auto events = effects.applyAllyDeathEffects(units, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::AllyStatBoost);
@@ -102,7 +102,7 @@ TEST_CASE("BattleDeathEffectSystem_DeathMedical_UsesDeadUnitEffectAndHealsComboA
     outsider.comboIds = { 4 };
     assignExtras(units, { { 0, dead }, { 1, ally }, { 2, outsider } });
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
+    auto events = effects.applyAllyDeathEffects(units, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::DeathMedicalHeal);
@@ -129,7 +129,7 @@ TEST_CASE("BattleDeathEffectSystem_ShieldOnAllyDeath_TracksDeathsAndAwardsShield
     ally.appliedEffects = { effect(EffectType::ShieldOnAllyDeath, 2, 5) };
     assignExtras(units, { { 0, dead }, { 1, ally } });
 
-    auto events = BattleDeathEffectSystem().applyAllyDeathEffects(units, effects, 0);
+    auto events = effects.applyAllyDeathEffects(units, 0);
 
     REQUIRE(events.size() == 1);
     CHECK(events[0].type == BattleDeathEffectEventType::ShieldOnAllyDeath);

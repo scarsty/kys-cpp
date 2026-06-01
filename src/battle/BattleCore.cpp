@@ -3585,9 +3585,8 @@ std::vector<int> appendFrameDamageLifecycle(
         });
 
         appendFrameDeathAoeProjectiles(state, frame, transaction, event.targetUnitId);
-        auto deathEvents = BattleDeathEffectSystem().applyAllyDeathEffects(
+        auto deathEvents = state.deathEffects.store.applyAllyDeathEffects(
             state.units,
-            state.deathEffects.store,
             event.targetUnitId);
         appendFrameDeathEffectOutputs(frame, deathEvents);
     }

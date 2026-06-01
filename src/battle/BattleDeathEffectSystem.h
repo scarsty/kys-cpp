@@ -37,18 +37,12 @@ struct BattleDeathEffectEvent
 struct BattleDeathEffectStore
 {
     std::set<int> regularSynergyComboIds;
-};
 
-class BattleDeathEffectSystem
-{
-public:
     std::vector<BattleDeathEffectEvent> applyAllyDeathEffects(BattleRuntimeUnits& records,
-                                                              BattleDeathEffectStore& effects,
                                                               int deadUnitId) const;
 
 private:
-    bool comboAppliesToUnit(const BattleDeathEffectStore& effects,
-                            const BattleDeathEffectExtras& extras,
+    bool comboAppliesToUnit(const BattleDeathEffectExtras& extras,
                             int comboId) const;
 };
 
