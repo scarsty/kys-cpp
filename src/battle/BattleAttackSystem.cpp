@@ -256,9 +256,7 @@ bool tryApplyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAtta
     return true;
 }
 
-BattleAttackEvent BattleAttackSystem::spawn(
-    BattleAttackState& world,
-    const BattleAttackSpawnRequest& request) const
+BattleAttackEvent BattleAttackState::spawn(const BattleAttackSpawnRequest& request)
 {
     assert(request.initial.attackerUnitId >= 0);
     assert(request.initialFrame >= 0);
@@ -269,7 +267,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
     assert(request.initial.bounceRollPct >= 0 && request.initial.bounceRollPct < 100);
 
     BattleAttackInstance attack;
-    attack.id = allocateAttackId(world);
+    attack.id = allocateAttackId();
     attack.state = request.initial;
     attack.previousPosition = request.initial.position;
     attack.frame = request.initialFrame;
@@ -280,7 +278,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
     attack.spiralRadiusGrowth = request.spiralRadiusGrowth;
     attack.spiralAngle = request.spiralAngle;
     attack.spiralAngularVelocity = request.spiralAngularVelocity;
-    world.attacks.push_back(attack);
+    attacks.push_back(attack);
 
     BattleAttackEvent event;
     event.type = BattleAttackEventType::AttackSpawned;
@@ -293,24 +291,22 @@ BattleAttackEvent BattleAttackSystem::spawn(
     return event;
 }
 
-std::vector<BattleAttackEvent> BattleAttackSystem::tick(
-    BattleAttackState& world,
-    const BattleRuntimeUnits& units) const
+std::vector<BattleAttackEvent> BattleAttackState::tick(const BattleRuntimeUnits& units)
 {
-    assert(world.hitRadius > 0.0);
-    assert(world.minimumVectorNorm > 0.0);
-    assert(world.projectileGraceFrames >= 0);
-    assert(world.bounceSpawnDistance > 0.0);
-    assert(world.defaultProjectileSpeed > 0.0);
-    assert(world.minimumBounceTotalFrame > 0);
+    assert(hitRadius > 0.0);
+    assert(minimumVectorNorm > 0.0);
+    assert(projectileGraceFrames >= 0);
+    assert(bounceSpawnDistance > 0.0);
+    assert(defaultProjectileSpeed > 0.0);
+    assert(minimumBounceTotalFrame > 0);
 
     std::vector<BattleAttackEvent> events;
     std::vector<PendingBounce> pendingBounces;
 
-    const size_t initialAttackCount = world.attacks.size();
+    const size_t initialAttackCount = attacks.size();
     for (size_t i = 0; i < initialAttackCount; ++i)
     {
-        auto& attack = world.attacks[i];
+        auto& attack = attacks[i];
         assert(attack.id >= 0);
         assert(attack.state.totalFrame > 0);
         assert(attack.state.bounceRemaining >= 0);
@@ -322,7 +318,7 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(
         moveAttack(attack);
         events.push_back({ BattleAttackEventType::Moved, attack.id });
 
-        const auto* target = selectTarget(world, units, attack);
+        const auto* target = selectTarget(units, attack);
         if (!target && attack.state.requirePreferredTarget)
         {
             attack.noHurt = true;
@@ -332,10 +328,10 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(
 
         if (target && attack.state.track && attack.hitUnitIds.empty())
         {
-            trackTarget(attack, *target, world.minimumVectorNorm);
+            trackTarget(attack, *target);
         }
 
-        if (target && contactBlockedByInvincible(world, units, attack, *target))
+        if (target && contactBlockedByInvincible(units, attack, *target))
         {
             markInvincibleBlocked(attack, target->id);
             BattleAttackEvent blocked;
@@ -346,9 +342,9 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(
             blocked.frame = attack.frame;
             events.push_back(blocked);
         }
-        else if (target && canHit(world, units, attack, *target))
+        else if (target && canHit(units, attack, *target))
         {
-            markHit(world, attack, target->id);
+            markHit(attack, target->id);
             BattleAttackEvent hit;
             hit.type = BattleAttackEventType::Hit;
             hit.attackId = attack.id;
@@ -366,16 +362,16 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(
                 auto bounceSource = attack;
                 const auto* nextTarget = attack.state.bounceChancePct > 0
                     && attack.state.bounceRollPct < attack.state.bounceChancePct
-                    ? selectBounceTarget(world, units, attack, *target)
+                    ? selectBounceTarget(units, attack, *target)
                     : nullptr;
                 attack.state.bounceRemaining = 0;
                 attack.noHurt = true;
                 attack.frame = std::max(attack.state.totalFrame - 15, attack.frame);
                 if (nextTarget)
                 {
-                    const int bounceAttackId = allocateAttackId(world);
+                    const int bounceAttackId = allocateAttackId();
                     pendingBounces.push_back({
-                        makeBounceAttack(world, bounceSource, *target, *nextTarget, bounceAttackId),
+                        makeBounceAttack(bounceSource, *target, *nextTarget, bounceAttackId),
                         attack.id,
                         nextTarget->id,
                     });
@@ -386,7 +382,7 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(
                 }
             }
 
-            if (world.spendNonThroughOnHit && !attack.state.through)
+            if (spendNonThroughOnHit && !attack.state.through)
             {
                 attack.noHurt = true;
                 attack.frame = std::max(attack.state.totalFrame - 15, attack.frame);
@@ -401,7 +397,7 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(
 
     for (const auto& pending : pendingBounces)
     {
-        world.attacks.push_back(pending.attack);
+        attacks.push_back(pending.attack);
         events.push_back({
             BattleAttackEventType::Bounce,
             pending.sourceAttackId,
@@ -410,13 +406,11 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(
         });
     }
 
-    collectProjectileCancelEvents(world, units, events);
+    collectProjectileCancelEvents(units, events);
     return events;
 }
 
-void BattleAttackSystem::applyProjectileCancelDamage(
-    BattleAttackState& world,
-    const BattleAttackEvent& event) const
+void BattleAttackState::applyProjectileCancelDamage(const BattleAttackEvent& event)
 {
     assert(event.type == BattleAttackEventType::ProjectileCancel);
     assert(event.attackId >= 0);
@@ -424,8 +418,8 @@ void BattleAttackSystem::applyProjectileCancelDamage(
     assert(event.projectileCancelDamage >= 0);
     assert(event.otherProjectileCancelDamage >= 0);
 
-    auto& lhs = requireById(world.attacks, event.attackId);
-    auto& rhs = requireById(world.attacks, event.otherAttackId);
+    auto& lhs = requireById(attacks, event.attackId);
+    auto& rhs = requireById(attacks, event.otherAttackId);
     lhs.state.projectileCancelWeaken += event.otherProjectileCancelDamage;
     rhs.state.projectileCancelWeaken += event.projectileCancelDamage;
     if (lhs.state.projectileCancelWeaken > event.projectileCancelDamage)
@@ -440,24 +434,23 @@ void BattleAttackSystem::applyProjectileCancelDamage(
     }
 }
 
-int BattleAttackSystem::allocateAttackId(BattleAttackState& world) const
+int BattleAttackState::allocateAttackId()
 {
-    assert(world.nextAttackId >= 0);
-    if (world.nextAttackId == 0 && !world.attacks.empty())
+    assert(nextAttackId >= 0);
+    if (nextAttackId == 0 && !attacks.empty())
     {
-        auto maxId = world.attacks.front().id;
-        for (const auto& attack : world.attacks)
+        auto maxId = attacks.front().id;
+        for (const auto& attack : attacks)
         {
             assert(attack.id >= 0);
             maxId = std::max(maxId, attack.id);
         }
-        world.nextAttackId = maxId + 1;
+        nextAttackId = maxId + 1;
     }
-    return world.nextAttackId++;
+    return nextAttackId++;
 }
 
-const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
-    const BattleAttackState& world,
+const BattleRuntimeUnit* BattleAttackState::selectTarget(
     const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack) const
 {
@@ -500,12 +493,12 @@ const BattleRuntimeUnit* BattleAttackSystem::selectTarget(
     return best;
 }
 
-bool BattleAttackSystem::hasHitUnit(const BattleAttackInstance& attack, int unitId) const
+bool BattleAttackState::hasHitUnit(const BattleAttackInstance& attack, int unitId) const
 {
     return std::find(attack.hitUnitIds.begin(), attack.hitUnitIds.end(), unitId) != attack.hitUnitIds.end();
 }
 
-bool BattleAttackSystem::hasInvincibleBlockedUnit(const BattleAttackInstance& attack, int unitId) const
+bool BattleAttackState::hasInvincibleBlockedUnit(const BattleAttackInstance& attack, int unitId) const
 {
     return std::find(
         attack.invincibleBlockedUnitIds.begin(),
@@ -513,8 +506,7 @@ bool BattleAttackSystem::hasInvincibleBlockedUnit(const BattleAttackInstance& at
         unitId) != attack.invincibleBlockedUnitIds.end();
 }
 
-bool BattleAttackSystem::hasSharedHit(
-    const BattleAttackState& world,
+bool BattleAttackState::hasSharedHit(
     int sharedHitGroupId,
     int unitId) const
 {
@@ -522,35 +514,35 @@ bool BattleAttackSystem::hasSharedHit(
     {
         return false;
     }
-    auto it = world.sharedHitGroupTargets.find(sharedHitGroupId);
-    if (it == world.sharedHitGroupTargets.end())
+    auto it = sharedHitGroupTargets.find(sharedHitGroupId);
+    if (it == sharedHitGroupTargets.end())
     {
         return false;
     }
     return std::find(it->second.begin(), it->second.end(), unitId) != it->second.end();
 }
 
-void BattleAttackSystem::markHit(BattleAttackState& world, BattleAttackInstance& attack, int unitId) const
+void BattleAttackState::markHit(BattleAttackInstance& attack, int unitId)
 {
     assert(unitId >= 0);
     assert(!hasHitUnit(attack, unitId));
     attack.hitUnitIds.push_back(unitId);
     if (attack.state.sharedHitGroupId > 0)
     {
-        auto& sharedHits = world.sharedHitGroupTargets[attack.state.sharedHitGroupId];
+        auto& sharedHits = sharedHitGroupTargets[attack.state.sharedHitGroupId];
         assert(std::find(sharedHits.begin(), sharedHits.end(), unitId) == sharedHits.end());
         sharedHits.push_back(unitId);
     }
 }
 
-void BattleAttackSystem::markInvincibleBlocked(BattleAttackInstance& attack, int unitId) const
+void BattleAttackState::markInvincibleBlocked(BattleAttackInstance& attack, int unitId) const
 {
     assert(unitId >= 0);
     assert(!hasInvincibleBlockedUnit(attack, unitId));
     attack.invincibleBlockedUnitIds.push_back(unitId);
 }
 
-void BattleAttackSystem::moveAttack(BattleAttackInstance& attack) const
+void BattleAttackState::moveAttack(BattleAttackInstance& attack) const
 {
     const Pointf positionBeforeMove = attack.state.position;
     if (attack.spiralMotion)
@@ -582,10 +574,9 @@ void BattleAttackSystem::moveAttack(BattleAttackInstance& attack) const
     }
 }
 
-void BattleAttackSystem::trackTarget(
+void BattleAttackState::trackTarget(
     BattleAttackInstance& attack,
-    const BattleRuntimeUnit& target,
-    double minimumVectorNorm) const
+    const BattleRuntimeUnit& target) const
 {
     const double speed = attack.state.velocity.norm();
     if (speed <= minimumVectorNorm)
@@ -597,8 +588,7 @@ void BattleAttackSystem::trackTarget(
     attack.state.velocity = normalizedTo(attack.state.velocity, speed, minimumVectorNorm);
 }
 
-bool BattleAttackSystem::canContactTarget(
-    const BattleAttackState& world,
+bool BattleAttackState::canContactTarget(
     const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& target) const
@@ -606,7 +596,7 @@ bool BattleAttackSystem::canContactTarget(
     if (attack.noHurt
         || !target.alive
         || hasHitUnit(attack, target.id)
-        || hasSharedHit(world, attack.state.sharedHitGroupId, target.id))
+        || hasSharedHit(attack.state.sharedHitGroupId, target.id))
     {
         return false;
     }
@@ -620,11 +610,10 @@ bool BattleAttackSystem::canContactTarget(
     return pointSegmentDistance(
         target.motion.position,
         attack.previousPosition,
-        attack.state.position) <= world.hitRadius;
+        attack.state.position) <= hitRadius;
 }
 
-bool BattleAttackSystem::contactBlockedByInvincible(
-    const BattleAttackState& world,
+bool BattleAttackState::contactBlockedByInvincible(
     const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& target) const
@@ -632,11 +621,10 @@ bool BattleAttackSystem::contactBlockedByInvincible(
     return target.invincible > 0
         && !attack.state.executeCanHitInvincible
         && !hasInvincibleBlockedUnit(attack, target.id)
-        && canContactTarget(world, units, attack, target);
+        && canContactTarget(units, attack, target);
 }
 
-bool BattleAttackSystem::canHit(
-    const BattleAttackState& world,
+bool BattleAttackState::canHit(
     const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& target) const
@@ -646,11 +634,10 @@ bool BattleAttackSystem::canHit(
         return false;
     }
 
-    return canContactTarget(world, units, attack, target);
+    return canContactTarget(units, attack, target);
 }
 
-const BattleRuntimeUnit* BattleAttackSystem::selectBounceTarget(
-    const BattleAttackState& world,
+const BattleRuntimeUnit* BattleAttackState::selectBounceTarget(
     const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack,
     const BattleRuntimeUnit& hitTarget) const
@@ -668,7 +655,7 @@ const BattleRuntimeUnit* BattleAttackSystem::selectBounceTarget(
         if (unit.team == attacker.team
             || unit.id == hitTarget.id
             || hasHitUnit(attack, unit.id)
-            || hasSharedHit(world, attack.state.sharedHitGroupId, unit.id))
+            || hasSharedHit(attack.state.sharedHitGroupId, unit.id))
         {
             continue;
         }
@@ -687,8 +674,7 @@ const BattleRuntimeUnit* BattleAttackSystem::selectBounceTarget(
     return best;
 }
 
-BattleAttackInstance BattleAttackSystem::makeBounceAttack(
-    const BattleAttackState& world,
+BattleAttackInstance BattleAttackState::makeBounceAttack(
     const BattleAttackInstance& source,
     const BattleRuntimeUnit& hitTarget,
     const BattleRuntimeUnit& nextTarget,
@@ -709,57 +695,56 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
     bounce.state.bounceRemaining = std::max(0, source.state.bounceRemaining - 1);
 
     double speed = source.state.velocity.norm();
-    if (speed <= world.minimumVectorNorm)
+    if (speed <= minimumVectorNorm)
     {
-        speed = world.defaultProjectileSpeed;
+        speed = defaultProjectileSpeed;
     }
 
-    auto direction = normalizedTo(nextTarget.motion.position - hitTarget.motion.position, 1.0, world.minimumVectorNorm);
-    if (direction.norm() <= world.minimumVectorNorm)
+    auto direction = normalizedTo(nextTarget.motion.position - hitTarget.motion.position, 1.0, minimumVectorNorm);
+    if (direction.norm() <= minimumVectorNorm)
     {
-        direction = normalizedTo(nextTarget.motion.position - source.state.position, 1.0, world.minimumVectorNorm);
+        direction = normalizedTo(nextTarget.motion.position - source.state.position, 1.0, minimumVectorNorm);
     }
-    if (direction.norm() <= world.minimumVectorNorm)
+    if (direction.norm() <= minimumVectorNorm)
     {
         direction = { 1.0f, 0.0f, 0.0f };
     }
 
-    const auto spawnDistance = static_cast<float>(world.bounceSpawnDistance);
+    const auto spawnDistance = static_cast<float>(bounceSpawnDistance);
     bounce.state.position = hitTarget.motion.position + Pointf{
         direction.x * spawnDistance,
         direction.y * spawnDistance,
         direction.z * spawnDistance,
     };
-    bounce.state.velocity = normalizedTo(nextTarget.motion.position - bounce.state.position, speed, world.minimumVectorNorm);
-    if (bounce.state.velocity.norm() <= world.minimumVectorNorm)
+    bounce.state.velocity = normalizedTo(nextTarget.motion.position - bounce.state.position, speed, minimumVectorNorm);
+    if (bounce.state.velocity.norm() <= minimumVectorNorm)
     {
-        bounce.state.velocity = normalizedTo(direction, speed, world.minimumVectorNorm);
+        bounce.state.velocity = normalizedTo(direction, speed, minimumVectorNorm);
     }
     bounce.state.totalFrame = std::max(
-        world.minimumBounceTotalFrame,
+        minimumBounceTotalFrame,
         static_cast<int>(std::ceil(pointDistance(nextTarget.motion.position, bounce.state.position) / speed)) + 20);
     return bounce;
 }
 
-void BattleAttackSystem::collectProjectileCancelEvents(
-    const BattleAttackState& world,
+void BattleAttackState::collectProjectileCancelEvents(
     const BattleRuntimeUnits& units,
     std::vector<BattleAttackEvent>& events) const
 {
     std::vector<ProjectileCancelCandidate> candidates;
-    for (size_t i = 0; i + 1 < world.attacks.size(); ++i)
+    for (size_t i = 0; i + 1 < attacks.size(); ++i)
     {
-        const auto& lhs = world.attacks[i];
-        if (lhs.noHurt || lhs.state.ignoreProjectileCancel || lhs.frame < world.projectileGraceFrames)
+        const auto& lhs = attacks[i];
+        if (lhs.noHurt || lhs.state.ignoreProjectileCancel || lhs.frame < projectileGraceFrames)
         {
             continue;
         }
         const auto& lhsAttacker = units.requireCore(lhs.state.attackerUnitId);
 
-        for (size_t j = i + 1; j < world.attacks.size(); ++j)
+        for (size_t j = i + 1; j < attacks.size(); ++j)
         {
-            const auto& rhs = world.attacks[j];
-            if (rhs.noHurt || rhs.state.ignoreProjectileCancel || rhs.frame < world.projectileGraceFrames)
+            const auto& rhs = attacks[j];
+            if (rhs.noHurt || rhs.state.ignoreProjectileCancel || rhs.frame < projectileGraceFrames)
             {
                 continue;
             }
@@ -776,7 +761,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
                     lhs.previousPosition,
                     lhs.state.position,
                     rhs.previousPosition,
-                    rhs.state.position) < world.hitRadius)
+                    rhs.state.position) < hitRadius)
             {
                 candidates.push_back(makeProjectileCancelCandidate(lhs, rhs));
             }

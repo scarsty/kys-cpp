@@ -179,56 +179,45 @@ struct BattleAttackState
     bool spendNonThroughOnHit = true;
     std::vector<BattleAttackInstance> attacks;
     std::unordered_map<int, std::vector<int>> sharedHitGroupTargets;
-};
 
-class BattleAttackSystem
-{
-public:
-    BattleAttackEvent spawn(BattleAttackState& world, const BattleAttackSpawnRequest& request) const;
-    std::vector<BattleAttackEvent> tick(BattleAttackState& world, const BattleRuntimeUnits& units) const;
-    void applyProjectileCancelDamage(BattleAttackState& world, const BattleAttackEvent& event) const;
+    BattleAttackEvent spawn(const BattleAttackSpawnRequest& request);
+    std::vector<BattleAttackEvent> tick(const BattleRuntimeUnits& units);
+    void applyProjectileCancelDamage(const BattleAttackEvent& event);
 
 private:
-    int allocateAttackId(BattleAttackState& world) const;
+    int allocateAttackId();
     const BattleRuntimeUnit* selectTarget(
-        const BattleAttackState& world,
         const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack) const;
     bool hasHitUnit(const BattleAttackInstance& attack, int unitId) const;
     bool hasInvincibleBlockedUnit(const BattleAttackInstance& attack, int unitId) const;
-    bool hasSharedHit(const BattleAttackState& world, int sharedHitGroupId, int unitId) const;
-    void markHit(BattleAttackState& world, BattleAttackInstance& attack, int unitId) const;
+    bool hasSharedHit(int sharedHitGroupId, int unitId) const;
+    void markHit(BattleAttackInstance& attack, int unitId);
     void markInvincibleBlocked(BattleAttackInstance& attack, int unitId) const;
     void moveAttack(BattleAttackInstance& attack) const;
-    void trackTarget(BattleAttackInstance& attack, const BattleRuntimeUnit& target, double minimumVectorNorm) const;
+    void trackTarget(BattleAttackInstance& attack, const BattleRuntimeUnit& target) const;
     bool canContactTarget(
-        const BattleAttackState& world,
         const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack,
         const BattleRuntimeUnit& target) const;
     bool contactBlockedByInvincible(
-        const BattleAttackState& world,
         const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack,
         const BattleRuntimeUnit& target) const;
     bool canHit(
-        const BattleAttackState& world,
         const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack,
         const BattleRuntimeUnit& target) const;
     const BattleRuntimeUnit* selectBounceTarget(
-        const BattleAttackState& world,
         const BattleRuntimeUnits& units,
         const BattleAttackInstance& attack,
         const BattleRuntimeUnit& hitTarget) const;
     BattleAttackInstance makeBounceAttack(
-        const BattleAttackState& world,
         const BattleAttackInstance& source,
         const BattleRuntimeUnit& hitTarget,
         const BattleRuntimeUnit& nextTarget,
         int attackId) const;
     void collectProjectileCancelEvents(
-        const BattleAttackState& world,
         const BattleRuntimeUnits& units,
         std::vector<BattleAttackEvent>& events) const;
 };

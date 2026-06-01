@@ -938,7 +938,6 @@ void applyProjectileCancelDamageResults(
     BattleRuntimeState& state,
     std::vector<BattleAttackEvent>& events)
 {
-    BattleAttackSystem attackSystem;
     for (auto& event : events)
     {
         if (event.type != BattleAttackEventType::ProjectileCancel)
@@ -962,7 +961,7 @@ void applyProjectileCancelDamageResults(
             attack,
             event.otherProjectileCancelDamage);
 
-        attackSystem.applyProjectileCancelDamage(state.attacks, event);
+        state.attacks.applyProjectileCancelDamage(event);
     }
 }
 
@@ -4572,13 +4571,12 @@ void advanceAttacksAndResolveHits(
     auto& visualEvents = frame.visualEvents;
 
     state.attacks.frame = state.movement.frame;
-    BattleAttackSystem attackSystem;
     auto attackSpawns = frame.drainCurrentFrameAttacks();
     for (const auto& request : attackSpawns)
     {
-        attackEvents.push_back(attackSystem.spawn(state.attacks, request));
+        attackEvents.push_back(state.attacks.spawn(request));
     }
-    auto tickEvents = attackSystem.tick(state.attacks, state.units);
+    auto tickEvents = state.attacks.tick(state.units);
     attackEvents.insert(
         attackEvents.end(),
         std::make_move_iterator(tickEvents.begin()),
