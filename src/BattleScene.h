@@ -71,6 +71,8 @@ protected:
 
     int semi_real_ = 0;    //是否半即时
 
+    int expedition33_ = 0;    //是否33远征队模式，即格挡和破盾
+
     std::unique_ptr<BattleNetwork> network_;    // 网络连接
 
     int prev_music_ = 0;

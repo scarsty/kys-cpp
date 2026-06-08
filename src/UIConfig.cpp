@@ -7,40 +7,42 @@
 
 #include <algorithm>
 
-namespace {
-    constexpr int ROW_WIDTH = 180;
-    constexpr int ROW_HEIGHT = 28;
-    constexpr int ROW_GAP = 36;
-    constexpr int ARROW_LEFT_OFFSET = 140;
-    constexpr int VALUE_OFFSET = 162;
-    constexpr int ARROW_RIGHT_OFFSET = 250;
-    constexpr int BUTTON_Y_OFFSET = 250;
+namespace
+{
+constexpr int ROW_WIDTH = 180;
+constexpr int ROW_HEIGHT = 28;
+constexpr int ROW_GAP = 36;
+constexpr int ARROW_LEFT_OFFSET = 140;
+constexpr int VALUE_OFFSET = 162;
+constexpr int ARROW_RIGHT_OFFSET = 250;
+constexpr int BUTTON_Y_OFFSET = 250;
 
-    int clampIndex(int value, int count)
+int clampIndex(int value, int count)
+{
+    if (count <= 0)
     {
-        if (count <= 0) {
-            return 0;
-        }
-        return (std::max)(0, (std::min)(value, count - 1));
+        return 0;
     }
-
-    std::vector<std::string> createVolumeOptions()
-    {
-        std::vector<std::string> options;
-        for (int value = 0; value <= 100; value += 10)
-        {
-            options.push_back(std::to_string(value));
-        }
-        return options;
-    }
+    return (std::max)(0, (std::min)(value, count - 1));
 }
+
+std::vector<std::string> createVolumeOptions()
+{
+    std::vector<std::string> options;
+    for (int value = 0; value <= 100; value += 10)
+    {
+        options.push_back(std::to_string(value));
+    }
+    return options;
+}
+}    //namespace
 
 UIConfig::UIConfig()
 {
     auto volume_options = createVolumeOptions();
     addOption("音樂音量", "music", "volume", volume_options);
     addOption("戰鬥音效", "music", "volumewav", volume_options);
-    addOption("戰鬥模式", "game", "battle_mode", { "回合制", "半即時", "黑帝斯", "隻狼", "紙片" });
+    addOption("戰鬥模式", "game", "battle_mode", { "回合制", "半即時", "黑帝斯", "隻狼", "遠征隊" });
     addOption("格擋輔助", "game", "easy_block", { "關閉", "開啟" });
     addOption("直接勝利", "game", "battle_debug_win", { "關閉", "開啟" });
     addOption("文字設置", "game", "simplified_chinese", { "繁體", "簡體" });
@@ -132,15 +134,18 @@ void UIConfig::refreshTexts()
 
 void UIConfig::changeOption(int index, int delta)
 {
-    if (index < 0 || index >= items_.size()) {
+    if (index < 0 || index >= items_.size())
+    {
         return;
     }
     auto& item = items_[index];
     item.value += delta;
-    if (item.value < 0) {
+    if (item.value < 0)
+    {
         item.value = int(item.options.size()) - 1;
     }
-    else if (item.value >= item.options.size()) {
+    else if (item.value >= item.options.size())
+    {
         item.value = 0;
     }
 }
@@ -158,7 +163,7 @@ void UIConfig::draw()
         int row_x, row_y;
         item.row->getPosition(row_x, row_y);
         uint8_t alpha = item.row->getState() == NodeNormal ? 224 : 255;
-        TextureManager::getInstance()->renderTexture("title", 126, row_x+120, row_y, { { 255, 255, 255, 255 }, alpha }, ROW_WIDTH, ROW_HEIGHT);
+        TextureManager::getInstance()->renderTexture("title", 126, row_x + 120, row_y, { { 255, 255, 255, 255 }, alpha }, ROW_WIDTH, ROW_HEIGHT);
 
         Color value_color = item.row->getState() == NodeNormal ? Color{ 48, 32, 16, 255 } : Color{ 255, 255, 255, 255 };
         Font::getInstance()->draw(item.options[clampIndex(item.value, int(item.options.size()))], 24, row_x + VALUE_OFFSET, row_y, value_color, 255);

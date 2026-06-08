@@ -345,6 +345,8 @@ public:
 
     int WalkingStep = 0;    //行走步数，在不行动且有位移时会增加
 
+    int Sheild = 0;    //被攻击或格挡会掉盾，盾为0时才会掉血
+
 public:
     static Role* getMaxValue()
     {
