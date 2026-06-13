@@ -167,19 +167,4 @@ struct BattlePresentationFrame
     int blinkSoundCount{};
 };
 
-class BattlePresentationRecorder
-{
-public:
-    void beginFrame(int frame);
-    void recordGameplay(BattleGameplayEvent event);
-    void recordLog(BattleLogEvent event);
-    void recordVisual(BattleVisualEvent event);
-
-    const BattlePresentationFrame& frame() const;
-    BattlePresentationFrame consumeFrame();
-
-private:
-    BattlePresentationFrame frame_;
-};
-
 }  // namespace KysChess::Battle

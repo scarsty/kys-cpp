@@ -4767,29 +4767,38 @@ void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
     auto& logEvents = frame.logEvents;
     auto& visualEvents = frame.visualEvents;
 
-    BattlePresentationRecorder recorder;
-    recorder.beginFrame(state.movement.frame);
+    BattlePresentationFrame presentationFrame;
+    presentationFrame.frame = state.movement.frame;
+    const auto appendEvent = [snapshotFrame = state.movement.frame](auto& events, auto event)
+    {
+        assert(event.frame == BattlePresentationCurrentFrame || event.frame >= 0);
+        if (event.frame == BattlePresentationCurrentFrame)
+        {
+            event.frame = snapshotFrame;
+        }
+        events.push_back(std::move(event));
+    };
+
     for (auto event : gameplayEvents)
     {
-        recorder.recordGameplay(std::move(event));
+        appendEvent(presentationFrame.gameplayEvents, std::move(event));
     }
     for (auto event : visualEvents)
     {
-        recorder.recordVisual(std::move(event));
+        appendEvent(presentationFrame.visualEvents, std::move(event));
     }
     for (auto event : logEvents)
     {
-        recorder.recordLog(std::move(event));
+        appendEvent(presentationFrame.logEvents, std::move(event));
     }
     for (const auto& event : frame.attackEvents)
     {
-        recorder.recordGameplay(toGameplayEvent(event, state.attacks));
+        appendEvent(presentationFrame.gameplayEvents, toGameplayEvent(event, state.attacks));
         for (auto presentation : toVisualEvents(event, state.attacks))
         {
-            recorder.recordVisual(std::move(presentation));
+            appendEvent(presentationFrame.visualEvents, std::move(presentation));
         }
     }
-    auto presentationFrame = recorder.consumeFrame();
     presentationFrame.attackSoundIds = std::move(frame.attackSoundIds);
     presentationFrame.rumbles = std::move(frame.rumbles);
     presentationFrame.blinkSoundCount = frame.blinkSoundCount;

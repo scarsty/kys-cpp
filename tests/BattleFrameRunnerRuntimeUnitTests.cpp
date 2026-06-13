@@ -841,6 +841,15 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     CHECK(result.gameplayEvents[2].type == BattleGameplayEventType::ProjectileCancelled);
     CHECK(result.gameplayEvents[2].effectId == 10);
     CHECK(result.gameplayEvents[2].otherAttackId == 20);
+    REQUIRE_FALSE(result.visualEvents.empty());
+    CHECK(std::ranges::all_of(result.gameplayEvents, [&](const BattleGameplayEvent& event)
+        {
+            return event.frame == result.frame;
+        }));
+    CHECK(std::ranges::all_of(result.visualEvents, [&](const BattleVisualEvent& event)
+        {
+            return event.frame == result.frame;
+        }));
 
     REQUIRE(state.attacks.attacks.size() == 2);
     CHECK(state.attacks.attacks[0].state.projectileCancelWeaken == 12);
@@ -854,4 +863,5 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     CHECK(log.targetUnitId == 1);
     CHECK(log.amount == 25);
     CHECK(log.secondaryAmount == 12);
+    CHECK(log.frame == result.frame);
 }

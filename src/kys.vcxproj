@@ -169,7 +169,6 @@
     <ClCompile Include="battle\BattleGeometry.cpp" />
     <ClCompile Include="battle\BattleHitResolver.cpp" />
     <ClCompile Include="battle\BattleMovement.cpp" />
-    <ClCompile Include="battle\BattlePresentation.cpp" />
     <ClCompile Include="battle\BattleProjectileTargetingSystem.cpp" />
     <ClCompile Include="battle\BattleRescueRepositionSystem.cpp" />
     <ClCompile Include="battle\BattleRuntimeRandom.cpp" />

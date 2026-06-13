@@ -47,7 +47,6 @@ set(KYS_BATTLE_SOURCES
     battle/BattleHitResolver.cpp
     battle/BattleInitialization.cpp
     battle/BattleMovement.cpp
-    battle/BattlePresentation.cpp
     battle/BattleProjectileTargetingSystem.cpp
     battle/BattleRescueRepositionSystem.cpp
     battle/BattleRuntimeRandom.cpp
@@ -122,7 +121,6 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleLogPresenterUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleMovementRealStatsTests.cpp"
     "${KYS_ROOT}/tests/BattlePresentationEffectsUnitTests.cpp"
-    "${KYS_ROOT}/tests/BattlePresentationUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleProjectileTargetingSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleReportUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleRescueRepositionSystemUnitTests.cpp"
