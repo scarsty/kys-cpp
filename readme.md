@@ -22,7 +22,7 @@ github：https://github.com/scarsty/kys-cpp
 
 Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 ```bat
-.\vcpkg install sdl3 sdl3-ttf sdl3-mixer[fluidsynth,mpg123] sdl3-image[png,webp] lua sqlite3 libiconv asio picosha2 yaml-cpp opencv libzip
+.\vcpkg install sdl3 sdl3-ttf sdl3-mixer[fluidsynth,mpg123] sdl3-image[png,webp] lua sqlite3 libiconv asio picosha2 yaml-cpp glaze
 ```
 建议执行：
 ```bat
@@ -40,7 +40,7 @@ git submodule update --remote --rebase --recursive
 
 macOS下可使用Homebrew安装依赖：
 ```shell
-brew install cmake sdl3 sdl3_image sdl3_ttf sdl3_mixer lua@5.4 sqlite yaml-cpp opencc glaze
+brew install cmake sdl3 sdl3_image sdl3_ttf sdl3_mixer lua@5.4 sqlite yaml-cpp glaze
 ```
 
 同样建议先获取子模块：
