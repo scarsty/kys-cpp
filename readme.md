@@ -38,6 +38,36 @@ git submodule update --remote --rebase --recursive
 ```
 之后使用Visual Studio（尽量用新版）打开kys.sln，编译即可。工程为x64版本，如需要x86版请自行修改。
 
+macOS下可使用Homebrew安装依赖：
+```shell
+brew install cmake sdl3 sdl3_image sdl3_ttf sdl3_mixer lua@5.4 sqlite yaml-cpp opencc glaze
+```
+
+同样建议先获取子模块：
+
+```shell
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
+之后执行：
+
+```shell
+mkdir -p src/build
+cmake -S src -B src/build
+cmake --build src/build -j8
+```
+
+编译产物为 `src/build/kys`。
+
+运行时需要提供资源目录。
+
+```shell
+./src/build/kys kys-cpp-4in1/game
+```
+
+若提示找不到字体或资源，一般是资源根目录多套了一层；请确认传入的是具体游戏目录，而不是其上一级打包目录。
+
 上面的方法不含播放视频功能。如需要此功能，例如播放开场动画，则需先编译smallpot的动态库，比较复杂，请与作者联系。
 
 Linux下编译参考doc目录中的文档。需注意没有联机对战部分。
