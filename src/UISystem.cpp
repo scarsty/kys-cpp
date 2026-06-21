@@ -52,7 +52,7 @@ void UISystem::onPressedOK()
         if (result_ == 0)
         {
             auto text = std::make_shared<TextBox>();
-            text->setText("戰鬥配置已保存");
+            text->setText("配置已保存");
             text->setFontSize(24);
             text->runAtPosition(x, 100);
         }

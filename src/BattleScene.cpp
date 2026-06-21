@@ -36,7 +36,6 @@ BattleScene::BattleScene()
     addChild(head_self_);
     battle_cursor_ = std::make_shared<BattleCursor>(this);
     save_ = Save::getInstance();
-    semi_real_ = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
     rand_.set_seed();
     prev_music_ = Audio::getInstance()->getCurrentMusic();
 
@@ -530,6 +529,11 @@ void BattleScene::setRoleInitState(Role* r)
 
     GameUtil::clamp_int(r->HP, r->MaxHP / 10, r->MaxHP);
     GameUtil::clamp_int(r->MP, r->MaxMP / 10, r->MaxMP);
+    r->Sheild = 0;
+    if (r->Team == 1)
+    {
+        r->Sheild = r->Level / 10 + 1;
+    }
 
     // 对方==1 则 自动
     r->Auto = r->Team;
@@ -1804,10 +1808,11 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
         // 敌方红色
         background_color = { 255, 0, 0, 128 };
     }
-    int hp_max_w = 24;
+    int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
+    int hp_max_w = 24 * tile_scale;
     int hp_x = x - hp_max_w / 2;
-    int hp_y = y - 60;
-    int hp_h = 3;
+    int hp_y = y - 60 * tile_scale;
+    int hp_h = 3 * tile_scale;
     double perc = ((double)r->HP / r->MaxHP);
     if (perc < 0)
     {
@@ -1823,6 +1828,7 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
     Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
     Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
+    renderShieldInfo(r, hp_x, hp_y, hp_max_w, alpha);
 
     //Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);
     // 严禁吐槽，画框框
@@ -1830,6 +1836,26 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
     //Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + hp_h, hp_max_w, 1);
     //Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, 1, hp_h);
     //Engine::getInstance()->fillColor(outline_color, hp_x + hp_max_w, hp_y, 1, hp_h);
+}
+
+void BattleScene::renderShieldInfo(Role* r, int hp_x, int hp_y, int hp_max_w, double alpha)
+{
+    if (!expedition33_ || r == nullptr || r->Sheild <= 0)
+    {
+        return;
+    }
+    constexpr int shield_pic = 2021;
+    int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
+    int shield_size = 5 * tile_scale;
+    int shield_gap = tile_scale;
+    int shield_count = (std::min)(r->Sheild, (hp_max_w + shield_gap) / (shield_size + shield_gap));
+    int shield_x = hp_x;
+    int shield_y = hp_y + 5 * tile_scale;
+    for (int i = 0; i < shield_count; i++)
+    {
+        TextureManager::getInstance()->renderTexture("title", shield_pic, shield_x + i * (shield_size + shield_gap), shield_y,
+            { { 255, 255, 255, 255 }, uint8_t(224 * alpha) }, shield_size, shield_size);
+    }
 }
 
 void BattleScene::clearDead()

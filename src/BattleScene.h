@@ -92,6 +92,8 @@ public:
     int selectY() { return select_y_; }
 
     virtual void setHaveFailExp(bool b) { fail_exp_ = b; }    //是否输了也有经验
+    virtual void setSemiReal(bool b) { semi_real_ = b; }
+    virtual void setExpedition33(bool b) { expedition33_ = b; }
 
     virtual void readBattleInfo();                                          //读取战场人物的数据
     virtual void setRoleInitState(Role* r);                                 //初始化人物的属性
@@ -171,6 +173,7 @@ public:
         const std::vector<std::pair<int&, int>>& animated_changes = {});    // 是否渐变某些变量
 
     virtual void renderExtraRoleInfo(Role* r, int x, int y);    // 在人物上，显示血条等
+    virtual void renderShieldInfo(Role* r, int hp_x, int hp_y, int hp_max_w, double alpha);
 
     virtual void clearDead();              //清除被击退的角色
     virtual void poisonEffect(Role* r);    //中毒效果
