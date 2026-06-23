@@ -73,6 +73,8 @@ protected:
 
     int expedition33_ = 0;    //是否33远征队模式，即格挡和破盾
 
+    bool prev_block_pressed_ = false;
+
     std::unique_ptr<BattleNetwork> network_;    // 网络连接
 
     int prev_music_ = 0;
@@ -155,9 +157,9 @@ public:
     virtual void actAuto(Role* r);                         //自动
     virtual void actRest(Role* r);                         //休息
 
-    virtual void moveAnimation(Role* r, int x, int y);                                 //移动动画
-    virtual void useMagicAnimation(Role* r, Magic* m);                                 //使用武学动画
-    virtual void actionAnimation(Role* r, int style, int effect_id, int shake = 0);    //行动动画
+    virtual void moveAnimation(Role* r, int x, int y);                                                                                  //移动动画
+    virtual bool useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles = nullptr);                                 //使用武学动画
+    virtual bool actionAnimation(Role* r, int style, int effect_id, int shake = 0, const std::vector<Role*>* block_roles = nullptr);    //行动动画
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1);           //计算武学对单人的伤害
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
@@ -168,12 +170,16 @@ public:
 
     //显示数字
     virtual void showNumberAnimation(
-        int delay = animation_delay_,                                       // 跑几次
-        bool floating = true,                                               // 文字是否悬浮
-        const std::vector<std::pair<int&, int>>& animated_changes = {});    // 是否渐变某些变量
+        int delay = animation_delay_,                                        // 跑几次
+        bool floating = true,                                                // 文字是否悬浮
+        const std::vector<std::pair<int&, int>>& animated_changes = { });    // 是否渐变某些变量
 
     virtual void renderExtraRoleInfo(Role* r, int x, int y);    // 在人物上，显示血条等
     virtual void renderShieldInfo(Role* r, int hp_x, int hp_y, int hp_max_w, double alpha);
+    virtual void renderEnemyAttackCircle(int frame, int frame_count);
+    virtual bool checkEnemyAttackBlockInput();
+    virtual std::vector<Role*> getBlockingRoles(Role* attacker);
+    virtual void blockAnimation(Role* attacker, const std::vector<Role*>& roles);
 
     virtual void clearDead();              //清除被击退的角色
     virtual void poisonEffect(Role* r);    //中毒效果
