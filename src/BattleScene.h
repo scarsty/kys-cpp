@@ -6,6 +6,7 @@
 #include "Point.h"
 #include "Random.h"
 #include "Scene.h"
+#include <map>
 
 // WinSock.h(Event.cpp, SubScene.cpp, TitleScene.cpp) 和asio有冲突
 // 仅在BattleScene.cpp中include BattleNetwork
@@ -74,6 +75,8 @@ protected:
     int expedition33_ = 0;    //是否33远征队模式，即格挡和破盾
 
     bool prev_block_pressed_ = false;
+
+    std::map<Role*, Point> block_role_offsets_;
 
     std::unique_ptr<BattleNetwork> network_;    // 网络连接
 

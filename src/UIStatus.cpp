@@ -168,7 +168,7 @@ void UIStatus::draw()
     }
     font->draw(str, font_size, x + 55, y + 100, color_white);
     font->draw("生命", font_size, x + 175, y + 50, color_ability1);
-    font->draw(std::format("{:5}/", role_->HP), font_size, x + 219, y + 50, color_white);
+    font->draw(std::format("{:5}/", (std::max)(0, role_->HP)), font_size, x + 219, y + 50, color_white);
     font->draw(std::format("{:5}", role_->MaxHP), font_size, x + 285, y + 50, color_white);
     font->draw("內力", font_size, x + 175, y + 75, color_ability1);
 

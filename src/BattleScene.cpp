@@ -184,6 +184,7 @@ void BattleScene::draw()
                 auto r = role_layer_.data(ix, iy);
                 if (r)
                 {
+                    auto offset = block_role_offsets_.find(r);
                     std::string path = std::format("fight/fight{:03}", r->HeadID);
                     Color color = { 255, 255, 255, 255 };
                     uint8_t alpha = 255;
@@ -199,6 +200,11 @@ void BattleScene::draw()
                     if (r->HP <= 0)
                     {
                         alpha = dead_alpha_;
+                    }
+                    if (offset != block_role_offsets_.end())
+                    {
+                        p.x += offset->second.x;
+                        p.y += offset->second.y;
                     }
                     TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, { color, alpha });
                     renderExtraRoleInfo(r, p.x, p.y);
@@ -1148,6 +1154,7 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
 {
     // 每次攻击，每个人的文字动画数据
     std::vector<std::vector<Role::ActionShowInfo>> multi_shows;
+    std::vector<std::vector<Role*>> show_roles;
     std::vector<std::vector<Role*>> block_roles;
 
     for (int i = 0; i <= GameUtil::sign(r->AttackTwice); i++)
@@ -1160,6 +1167,7 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
 
         // 做显示部分，由于多次攻击，并且数据动画分离，需要分开保存显示信息
         multi_shows.emplace_back();
+        show_roles.emplace_back();
         block_roles.emplace_back();
         for (auto r : battle_roles_)
         {
@@ -1177,6 +1185,7 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
                     r->Show.BattleHurt = 0;
                 }
             }
+            show_roles.back().push_back(r);
             multi_shows.back().push_back(r->Show);
             r->Show.clear();
         }
@@ -1193,7 +1202,7 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
     r->Acted = 1;
 
     // multi_shows需要复制，因为已经离开此栈
-    actionAnimation_ = [this, r, magic, multi_shows, block_roles]() mutable
+    actionAnimation_ = [this, r, magic, multi_shows, show_roles, block_roles]() mutable
     {
         for (int i = 0; i < multi_shows.size(); i++)
         {
@@ -1203,9 +1212,9 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
             if (blocked)
             {
                 int reflect_hurt = 0;
-                for (int j = 0; j < battle_roles_.size(); j++)
+                for (int j = 0; j < show_roles[i].size(); j++)
                 {
-                    auto r2 = battle_roles_[j];
+                    auto r2 = show_roles[i][j];
                     if (std::find(block_roles[i].begin(), block_roles[i].end(), r2) != block_roles[i].end())
                     {
                         reflect_hurt += multi_shows[i][j].BattleHurt;
@@ -1218,16 +1227,16 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
                 }
                 else if (reflect_hurt > 0)
                 {
-                    for (int j = 0; j < battle_roles_.size(); j++)
+                    for (int j = 0; j < show_roles[i].size(); j++)
                     {
-                        if (battle_roles_[j] == r)
+                        if (show_roles[i][j] == r)
                         {
                             multi_shows[i][j].BattleHurt += reflect_hurt;
                             multi_shows[i][j].ProgressChange -= reflect_hurt / 5;
-                            battle_roles_[j]->Show = multi_shows[i][j];
-                            battle_roles_[j]->addShowString(std::format("-{}", reflect_hurt), { 255, 20, 20, 255 });
-                            multi_shows[i][j] = battle_roles_[j]->Show;
-                            battle_roles_[j]->Show.clear();
+                            show_roles[i][j]->Show = multi_shows[i][j];
+                            show_roles[i][j]->addShowString(std::format("-{}", reflect_hurt), { 255, 20, 20, 255 });
+                            multi_shows[i][j] = show_roles[i][j]->Show;
+                            show_roles[i][j]->Show.clear();
                             break;
                         }
                     }
@@ -1239,12 +1248,18 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
             for (int j = 0; j < multi_shows[i].size(); j++)
             {
                 // 读取保存的文字动画数据
-                battle_roles_[j]->Show = multi_shows[i][j];
+                auto r2 = show_roles[i][j];
+                if (std::find(battle_roles_.begin(), battle_roles_.end(), r2) == battle_roles_.end())
+                {
+                    continue;
+                }
+                r2->Show = multi_shows[i][j];
                 // 绑定，生命值和伤害值
-                animated_changes.emplace_back(battle_roles_[j]->HP, -battle_roles_[j]->Show.BattleHurt);
-                animated_changes.emplace_back(battle_roles_[j]->Progress, battle_roles_[j]->Show.ProgressChange);
+                animated_changes.emplace_back(r2->HP, -r2->Show.BattleHurt);
+                animated_changes.emplace_back(r2->Progress, r2->Show.ProgressChange);
             }
             showNumberAnimation(2, true, animated_changes);
+            clearDead();
         }
     };
 }
@@ -1599,6 +1614,11 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         {
             break;
         }
+        bool in_block_window = false;
+        if (i >= frame_count - 3 && i <= frame_count + 1)
+        {
+            in_block_window = true;
+        }
         if (expedition33_ && r->Team == 1 && i < frame_count)
         {
             auto drawAttackCircle = [this, i, frame_count](void*) -> void
@@ -1606,11 +1626,11 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
                 renderEnemyAttackCircle(i + 1, frame_count);
             };
             drawAndPresent(animation_delay_, drawAttackCircle);
-            if (i + 1 < frame_count)
+            if (!in_block_window)
             {
                 checkEnemyAttackBlockInput();
             }
-            else if (checkEnemyAttackBlockInput())
+            else if (!blocked && checkEnemyAttackBlockInput())
             {
                 if (block_roles != nullptr)
                 {
@@ -1627,6 +1647,19 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         else
         {
             drawAndPresent(animation_delay_);
+            if (expedition33_ && r->Team == 1 && in_block_window && !blocked && checkEnemyAttackBlockInput())
+            {
+                if (block_roles != nullptr)
+                {
+                    blockAnimation(r, *block_roles);
+                    blocked = true;
+                }
+                else
+                {
+                    blockAnimation(r, getBlockingRoles(r));
+                    blocked = true;
+                }
+            }
         }
     }
 
@@ -1672,7 +1705,7 @@ bool BattleScene::checkEnemyAttackBlockInput()
         || Engine::getInstance()->gameControllerGetButton(GAMEPAD_BUTTON_RIGHT_SHOULDER);
     bool pressed = block_pressed && !prev_block_pressed_;
     prev_block_pressed_ = block_pressed;
-    return pressed;
+    return true;
 }
 
 std::vector<Role*> BattleScene::getBlockingRoles(Role* attacker)
@@ -1750,6 +1783,88 @@ void BattleScene::blockAnimation(Role* attacker, const std::vector<Role*>& roles
         };
         drawAndPresent(1, drawBlock);
     }
+    block_role_offsets_.clear();
+
+    int dodge_frames = 8;
+    int rush_frames = 8;
+    int attack_frames = 8;
+    int tile_scale2 = (std::max)(1, TILE_W / TILE_W_0);
+    int dodge_dis = 48 * tile_scale2;
+    int rush_dis = 64 * tile_scale2;
+    for (int frame = 0; frame < dodge_frames; frame++)
+    {
+        double progress = double(frame + 1) / dodge_frames;
+        for (auto r : roles)
+        {
+            auto p1 = getPositionOnRender(r->X(), r->Y(), man_x_, man_y_);
+            auto p2 = getPositionOnRender(attacker->X(), attacker->Y(), man_x_, man_y_);
+            double dx = p1.x - p2.x;
+            double dy = p1.y - p2.y;
+            double length = std::sqrt(dx * dx + dy * dy);
+            if (length < 1)
+            {
+                length = 1;
+                dx = 0;
+                dy = 1;
+            }
+            block_role_offsets_[r] = { int(dx / length * dodge_dis * progress), int(dy / length * dodge_dis * progress) };
+            int frame_count = 1;
+            if (r->ActType >= 0)
+            {
+                frame_count = (std::max)(1, r->FightFrame[r->ActType]);
+            }
+            r->ActFrame = frame % frame_count;
+        }
+        drawAndPresent(1);
+    }
+    for (int frame = 0; frame < rush_frames; frame++)
+    {
+        double progress = double(frame + 1) / rush_frames;
+        for (auto r : roles)
+        {
+            auto p1 = getPositionOnRender(r->X(), r->Y(), man_x_, man_y_);
+            auto p2 = getPositionOnRender(attacker->X(), attacker->Y(), man_x_, man_y_);
+            double dx = p2.x - p1.x;
+            double dy = p2.y - p1.y;
+            double length = std::sqrt(dx * dx + dy * dy);
+            if (length < 1)
+            {
+                length = 1;
+                dx = 0;
+                dy = -1;
+            }
+            int back_x = 0;
+            int back_y = 0;
+            auto old_offset = block_role_offsets_.find(r);
+            if (old_offset != block_role_offsets_.end())
+            {
+                back_x = old_offset->second.x;
+                back_y = old_offset->second.y;
+            }
+            int target_x = int(dx / length * rush_dis);
+            int target_y = int(dy / length * rush_dis);
+            block_role_offsets_[r] = { int(back_x + (target_x - back_x) * progress), int(back_y + (target_y - back_y) * progress) };
+            int frame_count = 1;
+            if (r->ActType >= 0)
+            {
+                frame_count = (std::max)(1, r->FightFrame[r->ActType]);
+            }
+            r->ActFrame = frame % frame_count;
+        }
+        drawAndPresent(1);
+    }
+    for (int frame = 0; frame < attack_frames; frame++)
+    {
+        for (auto r : roles)
+        {
+            if (r->ActType >= 0)
+            {
+                r->ActFrame = frame % (std::max)(1, r->FightFrame[r->ActType]);
+            }
+        }
+        drawAndPresent(1);
+    }
+    block_role_offsets_.clear();
 }
 
 //r1使用武功magic攻击r2的伤害，结果为一正数
@@ -2087,7 +2202,7 @@ void BattleScene::clearDead()
         else
         {
             r->setPosition(-1, -1);
-            r->HP = 10;
+            r->HP = 0;
         }
     }
     battle_roles_ = alive;
