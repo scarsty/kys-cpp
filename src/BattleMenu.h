@@ -55,6 +55,7 @@ public:
 
     void getFarthestToAll(Role* role, std::vector<Role*> roles, int& x, int& y);
     void getNearestPosition(int x0, int y0, int& x, int& y);
+    bool getApproachPosition(Role* role, Role* target, int& x, int& y);
     Role* getNearestRole(Role* role, std::vector<Role*> roles);
     void calAIActionNearest(Role* r2, AIAction& aa, Role* r_temp = nullptr);
     int calNeedActionDistance(AIAction& aa);

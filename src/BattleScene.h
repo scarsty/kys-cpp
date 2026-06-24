@@ -78,6 +78,12 @@ protected:
 
     std::map<Role*, Point> block_role_offsets_;
 
+    struct BlockCounterInfo
+    {
+        Role* role = nullptr;
+        Magic* magic = nullptr;
+    };
+
     std::unique_ptr<BattleNetwork> network_;    // 网络连接
 
     int prev_music_ = 0;
@@ -161,8 +167,8 @@ public:
     virtual void actRest(Role* r);                         //休息
 
     virtual void moveAnimation(Role* r, int x, int y);                                                                                  //移动动画
-    virtual bool useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles = nullptr);                                 //使用武学动画
-    virtual bool actionAnimation(Role* r, int style, int effect_id, int shake = 0, const std::vector<Role*>* block_roles = nullptr);    //行动动画
+    virtual bool useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr);                                 //使用武学动画
+    virtual bool actionAnimation(Role* r, int style, int effect_id, int shake = 0, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr);    //行动动画
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1);           //计算武学对单人的伤害
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
@@ -179,10 +185,13 @@ public:
 
     virtual void renderExtraRoleInfo(Role* r, int x, int y);    // 在人物上，显示血条等
     virtual void renderShieldInfo(Role* r, int hp_x, int hp_y, int hp_max_w, double alpha);
-    virtual void renderEnemyAttackCircle(int frame, int frame_count);
+    virtual void renderEnemyAttackCircle(int frame, int frame_count, const std::vector<Role*>* target_roles = nullptr);
+    virtual void renderBlockPrompt(bool active);
     virtual bool checkEnemyAttackBlockInput();
     virtual std::vector<Role*> getBlockingRoles(Role* attacker);
-    virtual void blockAnimation(Role* attacker, const std::vector<Role*>& roles);
+    virtual void blockAnimation(Role* attacker, const std::vector<Role*>& roles, const std::vector<BlockCounterInfo>& counters = {});
+    virtual void resetBattleAnimationState();
+    virtual void syncBattleRolesFromLayer();
 
     virtual void clearDead();              //清除被击退的角色
     virtual void poisonEffect(Role* r);    //中毒效果

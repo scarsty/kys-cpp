@@ -122,6 +122,8 @@ int BattleActionMenu::autoSelect(Role* role)
     {
         auto _role_temp = *role;
         auto role_temp = &_role_temp;    //临时人物指针，用于一些含有距离衰减的计算
+        AIAction approach_action;
+        bool has_approach_action = false;
 
         //开始计算本轮的策略
         role->AI_Action = getResultFromString("結束");
@@ -313,8 +315,8 @@ int BattleActionMenu::autoSelect(Role* role)
                             }
                         }
                     }
-                    // max_hurt == -1 说明此武学从 MoveX/Y 没有任何可选格，不加入评分
-                    if (max_hurt < 0)
+                    // max_hurt <= 0 说明没有有效伤害目标，不加入评分，避免空放武学
+                    if (max_hurt <= 0)
                     {
                         continue;
                     }
@@ -323,9 +325,47 @@ int BattleActionMenu::autoSelect(Role* role)
                     ai_action.push_back(aa);
                 }
             }
+
+            //没有合适行动时，也应主动向最近敌人靠近
+            if (!role->Moved)
+            {
+                approach_action.Action = getResultFromString("結束");
+                approach_action.MoveX = role->X();
+                approach_action.MoveY = role->Y();
+                approach_action.ActionX = role->X();
+                approach_action.ActionY = role->Y();
+                double approach_point = 0;
+                for (auto r2 : enemies)
+                {
+                    AIAction aa;
+                    aa.MoveX = role->X();
+                    aa.MoveY = role->Y();
+                    aa.ActionX = r2->X();
+                    aa.ActionY = r2->Y();
+                    if (!getApproachPosition(role, r2, aa.MoveX, aa.MoveY))
+                    {
+                        continue;
+                    }
+                    if (aa.MoveX != role->X() || aa.MoveY != role->Y())
+                    {
+                        double old_dis = battle_scene_->calDistance(role->X(), role->Y(), r2->X(), r2->Y());
+                        double new_dis = battle_scene_->calDistance(aa.MoveX, aa.MoveY, r2->X(), r2->Y());
+                        double point = 0.1 + old_dis / (new_dis + 1.0);
+                        if (point > approach_point)
+                        {
+                            approach_point = point;
+                            approach_action = aa;
+                            approach_action.Action = getResultFromString("結束");
+                            approach_action.point = point;
+                            has_approach_action = true;
+                        }
+                    }
+                }
+            }
         }
         //查找最大评分的行动
         double max_point = -1;
+        bool has_positive_action = false;
         for (auto aa : ai_action)
         {
             LOG("AI {}: {} ", role->Name, getStringFromResult(aa.Action));
@@ -333,10 +373,9 @@ int BattleActionMenu::autoSelect(Role* role)
             if (aa.magic) { LOG("{} ", aa.magic->Name); }
             double r = rand.rand() * 10;    //用于同分的情况，可以随机选择
             LOG("score {:.2f}({:.2f})\n", aa.point, r);
-            //若评分仅有一个随机数的值，说明不在范围内，仅移动并结束
-            if (aa.point == 0)
+            if (aa.point > 0)
             {
-                aa.Action = getResultFromString("結束");
+                has_positive_action = true;
             }
             double p = aa.point + r;
             if (p > max_point)
@@ -345,9 +384,18 @@ int BattleActionMenu::autoSelect(Role* role)
                 setAIActionToRole(aa, role);
             }
         }
+        if (!has_positive_action && has_approach_action)
+        {
+            setAIActionToRole(approach_action, role);
+        }
+        else if (has_approach_action && role->AI_Action == getResultFromString("結束")
+            && role->AI_MoveX == role->X() && role->AI_MoveY == role->Y())
+        {
+            setAIActionToRole(approach_action, role);
+        }
     }
 
-    if (!role->Moved)
+    if (!role->Moved && (role->AI_MoveX != role->X() || role->AI_MoveY != role->Y()))
     {
         //未移动则返回移动
         return getResultFromString("移動");
@@ -414,6 +462,36 @@ void BattleActionMenu::getNearestPosition(int x0, int y0, int& x, int& y)
             }
         }
     }
+}
+
+bool BattleActionMenu::getApproachPosition(Role* role, Role* target, int& x, int& y)
+{
+    if (role == nullptr || target == nullptr)
+    {
+        return false;
+    }
+    battle_scene_->calSelectLayer(role, 0, battle_scene_->calMoveStep(role));
+    x = role->X();
+    y = role->Y();
+    int old_dis = battle_scene_->calDistance(role->X(), role->Y(), target->X(), target->Y());
+    int best_dis = old_dis;
+    for (int ix = 0; ix < BATTLEMAP_COORD_COUNT; ix++)
+    {
+        for (int iy = 0; iy < BATTLEMAP_COORD_COUNT; iy++)
+        {
+            if (battle_scene_->canSelect(ix, iy))
+            {
+                int cur_dis = battle_scene_->calDistance(ix, iy, target->X(), target->Y());
+                if (cur_dis < best_dis)
+                {
+                    best_dis = cur_dis;
+                    x = ix;
+                    y = iy;
+                }
+            }
+        }
+    }
+    return best_dis < old_dis;
 }
 
 Role* BattleActionMenu::getNearestRole(Role* role, std::vector<Role*> roles)
