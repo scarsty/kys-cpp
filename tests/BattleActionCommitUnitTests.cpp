@@ -101,11 +101,10 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
 
     auto weakest = BattleActionCommitSystem().commit(input, combo, units);
 
-    REQUIRE(weakest.blinkCommands.size() == 1);
-    CHECK(weakest.blinkCommands[0].unitId == 0);
-    CHECK(weakest.blinkCommands[0].targetUnitId == 2);
-    CHECK(weakest.blinkCommands[0].selectedWeakest);
-    CHECK(weakest.blinkCommands[0].reach == 144.0);
+    REQUIRE(weakest.blinkTeleports.size() == 1);
+    CHECK(weakest.blinkTeleports[0].unitId == 0);
+    CHECK(weakest.blinkTeleports[0].targetUnitId == 2);
+    CHECK(weakest.blinkTeleports[0].selectedWeakest);
     REQUIRE(weakest.logEvents.size() == 1);
     CHECK(weakest.logEvents[0].type == BattleLogEventType::Status);
     CHECK(weakest.logEvents[0].sourceUnitId == 0);
@@ -116,9 +115,9 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     input.blinkRandomRoll = 1;
     auto random = BattleActionCommitSystem().commit(input, combo, units);
 
-    REQUIRE(random.blinkCommands.size() == 1);
-    CHECK(random.blinkCommands[0].targetUnitId == 2);
-    CHECK_FALSE(random.blinkCommands[0].selectedWeakest);
+    REQUIRE(random.blinkTeleports.size() == 1);
+    CHECK(random.blinkTeleports[0].targetUnitId == 2);
+    CHECK_FALSE(random.blinkTeleports[0].selectedWeakest);
     REQUIRE(random.logEvents.size() == 1);
     CHECK(random.logEvents[0].type == BattleLogEventType::Status);
     CHECK(random.logEvents[0].sourceUnitId == 0);
@@ -148,7 +147,6 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
 
     auto result = BattleActionCommitSystem().commit(input, combo, units);
 
-    REQUIRE(result.blinkCommands.size() == 1);
     REQUIRE(result.blinkTeleports.size() == 1);
     const auto& teleport = result.blinkTeleports[0];
     CHECK(teleport.unitId == 0);

@@ -14,6 +14,7 @@ struct BattleActionRulesConfig
     double maxEffectiveBattleReach = 0.0;
     double meleeAttackHitRadius = 0.0;
     double meleeAttackReach = 0.0;
+    double heavyAttackReach = 0.0;
     double dashAttackMeleeReach = 0.0;
     double blinkWeakTargetDefWeight = 0.0;
     int dashMomentumFrames = 0;
@@ -53,6 +54,7 @@ struct BattlePendingCastAction
     int targetUnitId = -1;
     bool ultimate = false;
     BattleOperationType operationType = BattleOperationType::None;
+    Pointf dashVelocity;
     BattleCastSkillState skill;
 };
 

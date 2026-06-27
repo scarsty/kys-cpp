@@ -144,6 +144,7 @@
     <ClCompile Include="ChessRoleSave.cpp" />
     <ClCompile Include="ChessShop.cpp" />
     <ClCompile Include="ChessShopFlow.cpp" />
+    <ClCompile Include="ChessShopWeightDisplay.cpp" />
     <ClCompile Include="ChessSelector.cpp" />
     <ClCompile Include="ChessSelectorPresenter.cpp" />
     <ClCompile Include="ChessUiCommon.cpp" />
@@ -280,6 +281,7 @@
     <ClInclude Include="ChessScreenLayout.h" />
     <ClInclude Include="ChessShop.h" />
     <ClInclude Include="ChessShopFlow.h" />
+    <ClInclude Include="ChessShopWeightDisplay.h" />
     <ClInclude Include="ChessSelector.h" />
     <ClInclude Include="ChessSelectorPresenter.h" />
     <ClInclude Include="ChessUiCommon.h" />

@@ -517,9 +517,26 @@
             }
         };
 
-        document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
-        document.addEventListener('click', function() { Module.canvas.focus(); });
-        document.addEventListener('touchstart', function() { Module.canvas.focus(); });
+        var isExternalSaveDialogEvent = function(event) {
+            var dialog = Module.kysExternalSave;
+            return dialog && dialog.root.style.display === 'flex' && dialog.root.contains(event.target);
+        };
+
+        document.addEventListener('touchmove', function(e) {
+            if (!isExternalSaveDialogEvent(e)) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        document.addEventListener('click', function(e) {
+            if (!isExternalSaveDialogEvent(e) && Module.canvas && Module.canvas.focus) {
+                Module.canvas.focus();
+            }
+        });
+        document.addEventListener('touchstart', function(e) {
+            if (!isExternalSaveDialogEvent(e) && Module.canvas && Module.canvas.focus) {
+                Module.canvas.focus();
+            }
+        });
 
         // Right-click button for touch devices
         var rclickBtn = document.getElementById('rclick-btn');

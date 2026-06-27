@@ -4,6 +4,7 @@
 #include "ChessDetailPanels.h"
 #include "ChessMenuHelpers.h"
 #include "ChessScreenLayout.h"
+#include "ChessShopWeightDisplay.h"
 #include "GameState.h"
 
 #include <algorithm>
@@ -14,17 +15,6 @@ namespace KysChess
 
 namespace
 {
-
-std::string buildWeightString(int level)
-{
-    auto& cfg = ChessBalance::config();
-    if (level >= static_cast<int>(cfg.shopWeights.size()))
-    {
-        return "已滿級";
-    }
-    auto& weights = cfg.shopWeights[level];
-    return std::format("1費{}% 2費{}% 3費{}% 4費{}% 5費{}%", weights[0], weights[1], weights[2], weights[3], weights[4]);
-}
 
 std::vector<int> getSortedSeenRoleIds(const std::set<int>& seenRoleIds, ChessRoleSave& roleSave)
 {
@@ -70,14 +60,15 @@ void ChessShopFlow::getChess()
             menuConfig.fontSize = 32;
             menuConfig.showNav = false;
 
-            menuData.labels.push_back(gameState.strategistFreeRefreshAvailable()
+            const bool freeRefreshAvailable = gameState.strategistFreeRefreshAvailable();
+            menuData.labels.push_back(freeRefreshAvailable
                 ? std::format("刷新               免費(${})", ChessBalance::config().refreshCost)
                 : std::format("刷新               ${}", ChessBalance::config().refreshCost));
-            menuData.colors.push_back({255, 204, 229, 255});
+            menuData.colors.push_back(freeRefreshAvailable ? Color{255, 235, 120, 255} : Color{255, 204, 229, 255});
             menuData.previewData.push_back({});
-            menuConfig.outlineColors.push_back({0, 0, 0, 0});
-            menuConfig.animateOutlines.push_back(false);
-            menuConfig.outlineThicknesses.push_back(1);
+            menuConfig.outlineColors.push_back(freeRefreshAvailable ? Color{255, 215, 0, 255} : Color{0, 0, 0, 0});
+            menuConfig.animateOutlines.push_back(freeRefreshAvailable);
+            menuConfig.outlineThicknesses.push_back(freeRefreshAvailable ? 3 : 1);
 
             menuData.labels.push_back(services_.shop.isLocked() ? "[已鎖定] 點擊解鎖" : "[未鎖定] 點擊鎖定");
             menuData.colors.push_back(services_.shop.isLocked() ? Color{255, 80, 80, 255} : Color{128, 128, 128, 255});
@@ -261,14 +252,13 @@ void ChessShopFlow::buyExp()
     int nextLevel = currentLevel + 1;
     int currentPieces = services_.economy.getMaxDeploy();
     int nextPieces = std::max(nextLevel + 1, config.minBattleSize);
-    bool nextAtMax = nextLevel >= config.maxLevel;
     auto previewPanel = std::make_shared<BuyExpPreviewPanel>(
         std::format("等級 {}    經驗 {}/{}    金幣 ${}", currentLevel + 1, services_.economy.getExp(), services_.economy.getExpForNextLevel(), services_.economy.getMoney()),
         std::format("花費 ${}  獲得 {} 經驗", config.buyExpCost, config.buyExpAmount),
         std::format("出戰人數: {}", currentPieces),
-        (!nextAtMax && nextPieces > currentPieces) ? std::format("  → {}", nextPieces) : "",
-        "  " + buildWeightString(currentLevel),
-        "  " + (nextAtMax ? std::string("已滿級") : buildWeightString(nextLevel)));
+        (nextPieces > currentPieces) ? std::format("  → {}", nextPieces) : "",
+        "  " + buildShopWeightString(config, currentLevel),
+        "  " + buildNextShopWeightString(config, currentLevel));
 
     auto menu = std::make_shared<MenuText>(std::vector<std::string>{"確認購買", "取消"});
     menu->setFontSize(36);

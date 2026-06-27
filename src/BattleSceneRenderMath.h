@@ -94,7 +94,8 @@ inline int calRenderUnitPic(
         if (i == style)
         {
             const int frameCount = fightFrames[style];
-            const int clampedFrame = frame < frameCount - 2 ? frame : frameCount - 2;
+            const int lastFrame = frameCount - 1;
+            const int clampedFrame = frame < lastFrame ? frame : lastFrame;
             return total + frameCount * faceTowards + clampedFrame;
         }
         total += fightFrames[i] * 4;

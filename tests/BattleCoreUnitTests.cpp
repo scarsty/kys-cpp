@@ -99,6 +99,30 @@ bool hasGameplayEvent(const BattlePresentationFrame& frame, BattleGameplayEventT
         });
 }
 
+bool hasLogText(const BattlePresentationFrame& frame, const std::string& text)
+{
+    return std::any_of(
+        frame.logEvents.begin(),
+        frame.logEvents.end(),
+        [&text](const BattleLogEvent& event)
+        {
+            return BattleLogTest::textOf(event) == text;
+        });
+}
+
+bool hasHealVisualEvent(const BattlePresentationFrame& frame, int targetUnitId)
+{
+    return std::any_of(
+        frame.visualEvents.begin(),
+        frame.visualEvents.end(),
+        [targetUnitId](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.targetUnitId == targetUnitId
+                && event.effectId == KysChess::EFT_HEAL;
+        });
+}
+
 bool hasProjectilePresentationEvent(const BattlePresentationFrame& frame)
 {
     return hasVisualEvent(frame, BattleVisualEventType::ProjectileSpawned)
@@ -154,6 +178,7 @@ TEST_CASE("BattleRuntimeRules_HadesRulesDeriveCurrentSceneValuesFromGrid")
     REQUIRE(rules.action.actionRecoveryFrames == 4);
     REQUIRE(rules.action.dashRecoveryFrames == 5);
     REQUIRE(rules.movementPhysicsDashMomentumFrames == 5);
+    REQUIRE(rules.action.heavyAttackReach == SceneTileWidth * 6.0);
     REQUIRE(rules.action.projectileBounceRange == 90);
 }
 
@@ -633,6 +658,7 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, BattleCastInput input
     state.action.actionRules.maxEffectiveBattleReach = MaxEffectiveBattleReach;
     state.action.actionRules.meleeAttackHitRadius = SceneAttackHitRadius;
     state.action.actionRules.meleeAttackReach = input.unit.meleeAttackReach;
+    state.action.actionRules.heavyAttackReach = SceneTileWidth * 6.0;
     state.action.actionRules.dashAttackMeleeReach = input.unit.dashAttackReach > 0.0
         ? input.unit.dashAttackReach
         : 375.0;
@@ -885,6 +911,39 @@ TEST_CASE("BattleFrameRunner_RoutesStatusTicksThroughRuntimeUnits", "[battle][co
     CHECK(unit.invincible == 5);
 }
 
+TEST_CASE("BattleFrameRunner_EnemyOwnedTopDebuffRefreshTargetsAllies", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.gridTransform = { SceneTileWidth, BattleCoordCount };
+    state.movement.config = testConfig();
+    state.attacks = attackWorld();
+
+    auto allyTop = runtimeUnitSnapshot(0, 0, 100);
+    allyTop.cost = 3;
+    allyTop.star = 1;
+    allyTop.stats = { 80, 50, 20 };
+
+    auto allyOther = runtimeUnitSnapshot(1, 0, 100);
+    allyOther.cost = 1;
+    allyOther.star = 1;
+    allyOther.stats = { 60, 40, 20 };
+
+    auto enemyDebuffer = runtimeUnitSnapshot(2, 1, 100);
+    auto enemyToDie = runtimeUnitSnapshot(3, 1, 10);
+    seedRuntimeUnits(state, { allyTop, allyOther, enemyDebuffer, enemyToDie });
+
+    state.units.require(2).combo.applyConfiguredEffect({ EffectType::EnemyTopDebuff, 1, 7 });
+    queuePendingDamage(state, preResolvedDamageInput(-1, 3, 10, 20));
+
+    auto frame = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).stats.attack == 73);
+    CHECK(state.units.requireCore(0).stats.defence == 43);
+    CHECK(state.units.requireCore(1).stats.attack == 60);
+    CHECK(state.units.requireCore(1).stats.defence == 40);
+    CHECK(hasLogText(frame, "陰險：前1名攻防-7（1名存活）"));
+}
+
 TEST_CASE("BattleStatusSystem_CopiesStatusEffectsAsACluster", "[battle][status]")
 {
     BattleStatusUnitState source;
@@ -1074,6 +1133,12 @@ TEST_CASE("BattleCombatIntent_PreservesMeleeBasicForcedRangedAndDashAttackRules"
     CHECK(intent.startAttack);
     CHECK(intent.operationType == BattleOperationType::RangedProjectile);
 
+    CombatIntentInput forcedRangedArea = forcedRanged;
+    forcedRangedArea.plannedSkill = skill(3, 425.0, true);
+    intent = planner.select(forcedRangedArea);
+    CHECK(intent.startAttack);
+    CHECK(intent.operationType == BattleOperationType::RangedProjectile);
+
     CombatIntentInput meleeDash = forcedRanged;
     meleeDash.dashAttackEnabled = true;
     meleeDash.plannedSkill = skill(0, 137.5, false);
@@ -1173,7 +1238,7 @@ TEST_CASE("BattleCore_AttackReady_HoldsWhenAlreadyInRange", "[battle][core]")
 {
     auto world = worldWith({
         unit(1, 0, { 100, 100, 0 }),
-        unit(2, 1, { 210, 100, 0 }),
+        unit(2, 1, { 190, 100, 0 }),
     });
 
     auto result = BattleMovementPlanner(world).tick();
@@ -1259,7 +1324,7 @@ TEST_CASE("BattleCore_RangedHold_DoesNotBackIntoOccupiedRingWhenInRange", "[batt
     ranged.canAttack = false;
     auto world = worldWith({
         ranged,
-        unit(2, 0, { 60, 100, 0 }),
+        unit(2, 0, { 45, 100, 0 }),
         unit(3, 1, { 300, 100, 0 }),
     });
 
@@ -1289,6 +1354,7 @@ TEST_CASE("BattleCore_SlotSwitchCooldown_BoundsRepeatedReplans", "[battle][core]
         unit(3, 1, { 500, 100, 0 }),
     });
     world.units[0].dashCooldownRemaining = 999;
+    world.units[0].speed = 0.0;
 
     auto firstRun = runMovementPlanForFrames(world, 1);
     CHECK((firstRun.stats.at(1).lastBlockReason == MoveBlockReason::Ally
@@ -1306,6 +1372,7 @@ TEST_CASE("BattleRuntimeUnitRecord_AdvanceFrameTick_CommitsCooldownAndIdleResour
     BattleRuntimeUnitRecord record;
     record.core.id = 0;
     record.core.animation.cooldown = 1;
+    record.core.animation.cooldownMax = 12;
     record.core.animation.actType = 2;
     record.core.operationType = BattleOperationType::Dash;
     record.core.haveAction = true;
@@ -1318,6 +1385,7 @@ TEST_CASE("BattleRuntimeUnitRecord_AdvanceFrameTick_CommitsCooldownAndIdleResour
 
     CHECK(result.skillFinished);
     CHECK(record.core.animation.cooldown == 0);
+    CHECK(record.core.animation.cooldownMax == 0);
     CHECK(record.core.animation.actFrame == 0);
     CHECK(record.core.animation.actType == -1);
     CHECK(record.core.operationType == BattleOperationType::None);
@@ -1615,6 +1683,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesGroupedRuntimeUnitState", "[battle
 
     const auto& updated = state.units.requireCore(0);
     CHECK(updated.animation.cooldown == 1);
+    CHECK(updated.animation.cooldownMax == 60);
     CHECK(updated.animation.actFrame == 6);
     CHECK(updated.animation.actType == 13);
     CHECK(updated.vitals.mp == 5);
@@ -1688,6 +1757,46 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[b
     CHECK(presentation->velocity.x == 6.0f);
     CHECK(presentation->durationFrames == 30);
     CHECK(presentation->operationKind == 2);
+}
+
+TEST_CASE("BattleFrameRunner_BlinkAttackTeleportsRuntimeUnit", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({}));
+    state.attacks = attackWorld();
+    seedRuntimeUnits(state, {
+        runtimeUnitSnapshot(0, 0, 100, { 2304, 0, 0 }),
+        runtimeUnitSnapshot(1, 1, 100, { 2376, 72, 0 }),
+    });
+    state.gridTransform = { SceneTileWidth, BattleCoordCount };
+    state.units.setPosition(0, { 2304, 0, 0 }, state.gridTransform);
+    state.units.setPosition(1, { 2376, 72, 0 }, state.gridTransform);
+    state.movement.config = testConfig();
+    state.random = BattleRuntimeRandom(7u);
+
+    KysChess::RoleComboState combo;
+    combo.applyConfiguredEffect({ KysChess::EffectType::BlinkAttack, 1 });
+    state.units.require(0).combo = combo;
+
+    auto cast = frameCastInput(0, 1);
+    cast.unit.position = { 2304, 0, 0 };
+    cast.targetPosition = { 2376, 72, 0 };
+    cast.targetDistance = 100.0;
+    cast.normalSkill.reach = 144.0;
+    configureRuntimeActionPlan(state, cast);
+    state.units.requireCore(0).animation.cooldown = 0;
+
+    runBattleFrame(state);
+    preparePendingCastCommitFrame(state, 0, BattleOperationType::Melee, 6);
+
+    auto result = runBattleFrame(state);
+
+    CHECK(result.blinkSoundCount == 1);
+    const auto& teleported = state.units.requireCore(0);
+    CHECK(teleported.motion.position.x != 2304.0f);
+    CHECK(teleported.motion.position.x == state.units.require(0).movement.physics.position.x);
+    CHECK(teleported.grid.x != 0);
+    CHECK(teleported.motion.velocity.norm() == 0.0f);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battle][core]")
@@ -1796,6 +1905,90 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesEffectiveProjectileSelectDista
         });
     REQUIRE(projectile != result.visualEvents.end());
     CHECK(projectile->durationFrames == 30);
+}
+
+TEST_CASE("BattleFrameRunner_ForcedRangedMeleeKeepsRangedMovementProfile", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 10, 20, 0 }),
+        unit(1, 1, { 360, 20, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.attackAreaType = 0;
+    cast.normalSkill.selectDistance = 1;
+    configureRuntimeActionPlan(state, cast);
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::ForceRangedAttack, 500, 10 });
+    state.units.requireCore(0).animation.cooldown = 0;
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).style == CombatStyle::Ranged);
+    CHECK(state.units.requireCore(0).reach > state.action.actionRules.meleeAttackReach);
+    CHECK(state.units.requireCore(0).motion.position.x == Catch::Approx(10.0));
+    CHECK(state.units.requireCore(0).motion.position.y == Catch::Approx(20.0));
+    auto pending = state.units.require(0).pendingCast();
+    REQUIRE(pending != nullptr);
+    CHECK(pending->operationType == BattleOperationType::RangedProjectile);
+}
+
+TEST_CASE("BattleFrameRunner_ForcedRangedAreaSkillKeepsExtendedMovementProfile", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 10, 20, 0 }),
+        unit(1, 1, { 360, 20, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.attackAreaType = 3;
+    cast.normalSkill.selectDistance = 1;
+    configureRuntimeActionPlan(state, cast);
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::ForceRangedAttack, 500, 10 });
+    state.units.requireCore(0).animation.cooldown = 0;
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).style == CombatStyle::Ranged);
+    CHECK(state.units.requireCore(0).reach > 360.0);
+    CHECK(state.units.requireCore(0).motion.position.x == Catch::Approx(10.0));
+    CHECK(state.units.requireCore(0).motion.position.y == Catch::Approx(20.0));
+    auto pending = state.units.require(0).pendingCast();
+    REQUIRE(pending != nullptr);
+    CHECK(pending->operationType == BattleOperationType::RangedProjectile);
+}
+
+TEST_CASE("BattleFrameRunner_AreaSkillUsesHeavyReachForMovementAndCast", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 10, 20, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 214, 20, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto cast = frameCastInput(0, 1);
+    cast.ultimateSkill.attackAreaType = 3;
+    cast.ultimateSkill.selectDistance = 1;
+    configureRuntimeActionPlan(state, cast);
+    auto& caster = state.units.requireCore(0);
+    caster.animation.cooldown = 0;
+    caster.vitals.mp = caster.vitals.maxMp;
+
+    runBattleFrame(state);
+
+    CHECK(caster.style == CombatStyle::Ranged);
+    CHECK(caster.reach == Catch::Approx(SceneTileWidth * 6.0));
+    CHECK(caster.motion.position.x == Catch::Approx(10.0));
+    CHECK(caster.motion.position.y == Catch::Approx(20.0));
+    auto pending = state.units.require(0).pendingCast();
+    REQUIRE(pending != nullptr);
+    CHECK(pending->operationType == BattleOperationType::TrackingProjectile);
+    CHECK(pending->skill.reach == Catch::Approx(SceneTileWidth * 6.0));
+    CHECK(pending->skill.blinkReach == Catch::Approx(SceneTileWidth * 6.0));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[battle][core][runtime]")
@@ -2180,6 +2373,57 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
             return attack.state.operationType == BattleOperationType::Dash;
         });
     CHECK(dashHitCount == 3);
+}
+
+TEST_CASE("BattleFrameRunner_CommittedDashKeepsHitVectorWhenTargetMovesInsideMeleeReach", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Melee),
+        unit(1, 1, { 300, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+
+    auto& runtimeUnit = state.units.requireCore(0);
+    runtimeUnit.animation.cooldown = 0;
+    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::DashAttack, 1 });
+
+    auto cast = frameCastInput(0, 1);
+    cast.unit.dashAttackEnabled = true;
+    cast.unit.dashAttackReach = 350.0;
+    cast.normalSkill.attackAreaType = 0;
+    cast.normalSkill.rangedStyle = false;
+    cast.normalSkill.reach = 350.0;
+    configureRuntimeActionPlan(state, cast);
+
+    auto start = runBattleFrame(state);
+
+    auto pending = state.units.require(0).pendingCast();
+    REQUIRE(pending != nullptr);
+    REQUIRE(pending->operationType == BattleOperationType::Dash);
+    CHECK_FALSE(hasProjectilePresentationEvent(start));
+
+    state.units.setPosition(1, { 200, 100, 0 }, state.gridTransform);
+    runtimeUnit.haveAction = true;
+    runtimeUnit.operationType = BattleOperationType::Dash;
+    runtimeUnit.animation.actType = 1;
+    runtimeUnit.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::Dash)];
+    runtimeUnit.animation.cooldown = 20;
+
+    auto result = runBattleFrame(state);
+
+    const auto dashIt = std::find_if(
+        state.attacks.attacks.begin(),
+        state.attacks.attacks.end(),
+        [](const BattleAttackInstance& attack)
+        {
+            return attack.state.operationType == BattleOperationType::Dash
+                && attack.state.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit;
+        });
+    REQUIRE(dashIt != state.attacks.attacks.end());
+    CHECK(dashIt->state.velocity.norm() > TestMinimumVectorNorm);
+    CHECK(state.units.require(0).movement.physics.postDashRetreatVelocity.norm() > TestMinimumVectorNorm);
 }
 
 TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[battle][core][runtime]")
@@ -2954,6 +3198,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeadUnitActionCleanupClearsAllActionOw
 });
     auto& deadBefore = state.units.requireCore(1);
     deadBefore.animation.cooldown = 4;
+    deadBefore.animation.cooldownMax = 12;
     deadBefore.animation.actFrame = 2;
     deadBefore.animation.actType = 3;
     deadBefore.operationType = BattleOperationType::Melee;
@@ -2966,6 +3211,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeadUnitActionCleanupClearsAllActionOw
 
     const auto& dead = state.units.requireCore(1);
     CHECK(dead.animation.cooldown == 0);
+    CHECK(dead.animation.cooldownMax == 0);
     CHECK(dead.animation.actFrame == 0);
     CHECK(dead.animation.actType == -1);
     CHECK(dead.operationType == BattleOperationType::None);
@@ -3009,6 +3255,81 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
     CHECK(gameplayTypes[gameplayTypes.size() - 3] == BattleGameplayEventType::DamageApplied);
     CHECK(gameplayTypes[gameplayTypes.size() - 2] == BattleGameplayEventType::UnitDied);
     CHECK(gameplayTypes[gameplayTypes.size() - 1] == BattleGameplayEventType::BattleEnded);
+}
+
+TEST_CASE("BattleFrameRunner_AcceptedHitResourcePresentationRequiresAppliedTransaction", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 120, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+
+    auto& attacker = state.units.require(0).core;
+    attacker.vitals.hp = 60;
+    auto& defender = state.units.require(1).core;
+    defender.animation.cooldown = 20;
+    defender.animation.cooldownMax = 20;
+    defender.haveAction = true;
+    defender.operationType = BattleOperationType::Melee;
+    defender.animation.actType = 1;
+
+    auto accepted = preResolvedDamageInput(0, 1, 100, 20);
+    accepted.attacker.vitals = { 60, 100, 10, 50 };
+    accepted.defender.vitals = { 100, 100, 0, 50 };
+    accepted.request.acceptedHit = true;
+    accepted.request.hpOnHit = 30;
+    accepted.request.cooldownExtendPct = 50;
+    queuePendingDamage(state, accepted);
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).vitals.hp == 90);
+    CHECK(state.units.requireCore(1).animation.cooldown == 29);
+    CHECK(hasLogText(result, "命中回血"));
+    CHECK(hasLogText(result, "冷卻延長（+10幀）"));
+    CHECK(hasHealVisualEvent(result, 0));
+}
+
+TEST_CASE("BattleFrameRunner_BlockedAcceptedHitSuppressesResourcePresentation", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    state.gridTransform = { SceneTileWidth, 64 };
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 120, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+
+    auto& attacker = state.units.require(0).core;
+    attacker.vitals.hp = 60;
+    auto& defender = state.units.require(1).core;
+    defender.invincible = 10;
+    defender.animation.cooldown = 20;
+    defender.animation.cooldownMax = 20;
+    defender.haveAction = true;
+    defender.operationType = BattleOperationType::Melee;
+    defender.animation.actType = 1;
+
+    auto blocked = preResolvedDamageInput(0, 1, 100, 20);
+    blocked.attacker.vitals = { 60, 100, 10, 50 };
+    blocked.defender.vitals = { 100, 100, 0, 50 };
+    blocked.defender.invincible = 10;
+    blocked.defenderStatus.invincible = 10;
+    blocked.request.acceptedHit = true;
+    blocked.request.hpOnHit = 30;
+    blocked.request.cooldownExtendPct = 50;
+    queuePendingDamage(state, blocked);
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).vitals.hp == 60);
+    CHECK(state.units.requireCore(1).animation.cooldown == 19);
+    CHECK_FALSE(hasLogText(result, "命中回血"));
+    CHECK_FALSE(hasLogText(result, "冷卻延長（+10幀）"));
+    CHECK_FALSE(hasHealVisualEvent(result, 0));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathClearsFrozenStatusAuthority", "[battle][core][ownership]")

@@ -366,12 +366,12 @@ BattleSceneSetupBuildResult buildSetupUnits(std::span<const BattleSceneSetupUnit
         if (setupUnit.team == 0)
         {
             sessionInput.setup.allyRoster.push_back(rosterUnit);
-            sessionInput.setup.cloneSources.push_back(makeCloneSource(setupUnit));
         }
         else
         {
             sessionInput.setup.enemyRoster.push_back(rosterUnit);
         }
+        sessionInput.setup.cloneSources.push_back(makeCloneSource(setupUnit));
 
         sessionInput.units.push_back(std::move(setupUnit));
     }

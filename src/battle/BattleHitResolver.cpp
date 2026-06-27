@@ -1,7 +1,6 @@
 #include "BattleHitResolver.h"
 
 #include "BattleLogSegments.h"
-#include "../ChessEftIds.h"
 #include "BattleComboTriggerSystem.h"
 #include "BattleRuntimeRandom.h"
 #include "BattleRuntimeUnits.h"
@@ -15,9 +14,6 @@ namespace KysChess::Battle
 {
 namespace
 {
-
-constexpr int RoleStatusEffectFrames = 45;
-
 double pointMagnitude(const Pointf& point)
 {
     return std::sqrt(
@@ -57,19 +53,6 @@ std::string formatStackingEffectStatus(const char* label, int pctPerStack, int s
     return std::format("{} +{}%（{}層）", label, pctPerStack * stacks, stacks);
 }
 
-std::string formatCooldownIncreaseStatus(int pct, int before, int after)
-{
-    if (pct <= 0)
-    {
-        return "冷卻延長";
-    }
-    if (before > 0 && after > 0)
-    {
-        return std::format("冷卻延長（+{}%，{}→{}幀）", pct, before, after);
-    }
-    return std::format("冷卻延長（+{}%）", pct);
-}
-
 BattleDamageUnitState makeDamageUnit(
     const BattleHitUnitSnapshot& unit,
     const RoleComboState* combo,
@@ -90,38 +73,6 @@ BattleDamageUnitState makeDamageUnit(
         damageUnit.mpBlocked = effects->mpBlockTimer > 0;
     }
     return damageUnit;
-}
-
-BattleResourceUnitState makeResourceUnit(
-    const BattleHitUnitSnapshot& unit,
-    const RoleComboState* combo,
-    const BattleStatusEffectState* effects)
-{
-    BattleResourceUnitState resource;
-    resource.id = unit.id;
-    resource.alive = unit.alive;
-    resource.vitals = unit.vitals;
-    if (combo)
-    {
-        resource.mpRecoveryBonusPct = combo->sumAlways(EffectType::MPRecoveryBonus);
-    }
-    if (effects)
-    {
-        resource.mpBlocked = effects->mpBlockTimer > 0;
-    }
-    return resource;
-}
-
-BattleCooldownState makeCooldownState(const BattleHitUnitSnapshot& unit)
-{
-    BattleCooldownState cooldown;
-    cooldown.alive = unit.alive;
-    cooldown.cooldown = unit.animation.cooldown;
-    cooldown.cooldownMax = unit.animation.cooldownMax;
-    cooldown.haveAction = unit.haveAction;
-    cooldown.operationType = unit.operationType;
-    cooldown.actType = unit.animation.actType;
-    return cooldown;
 }
 
 BattleLogEvent statusEvent(int sourceUnitId, int targetUnitId, std::string text)
@@ -156,28 +107,6 @@ BattleLogEvent sourceStatusEvent(int sourceUnitId, int targetUnitId, std::string
         targetUnitId,
         battleLogText(std::move(text), BattleLogTextTone::SkillName),
         BattleLogPerspective::SourceOnly);
-}
-
-BattleLogEvent healEvent(int sourceUnitId, int targetUnitId, int amount, std::string reason)
-{
-    BattleLogEvent event;
-    event.type = BattleLogEventType::Heal;
-    event.sourceUnitId = sourceUnitId;
-    event.targetUnitId = targetUnitId;
-    event.amount = amount;
-    event.segments = battleLogText(std::move(reason), BattleLogTextTone::SkillName);
-    return event;
-}
-
-BattleVisualEvent roleEffectEvent(int targetUnitId, int effectId, int durationFrames)
-{
-    BattleVisualEvent event;
-    event.type = BattleVisualEventType::RoleEffect;
-    event.targetUnitId = targetUnitId;
-    event.effectId = effectId;
-    event.visualEffectId = effectId;
-    event.durationFrames = durationFrames;
-    return event;
 }
 
 BattleVisualEvent floatingTextEvent(int targetUnitId,
@@ -343,10 +272,19 @@ std::string projectileSourceLabel(const BattleAttackEvent& event)
     return "";
 }
 
-bool canApplyOffensiveControlEffects(const BattleAttackEvent& event)
+Pointf knockbackDirection(const BattleHitUnitSnapshot& attacker, const BattleHitUnitSnapshot& defender)
 {
-    return event.mainProjectile
-        || event.operationType != BattleOperationType::RangedProjectile;
+    auto direction = defender.motion.position - attacker.motion.position;
+    if (direction.norm() > 0.01f)
+    {
+        return direction;
+    }
+    direction = defender.motion.facing;
+    if (direction.norm() > 0.01f)
+    {
+        return direction;
+    }
+    return { 1.0f, 0.0f, 0.0f };
 }
 
 }  // namespace
@@ -525,12 +463,13 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
     }
 
-    auto velocityDelta = input.defender.motion.position - input.attacker.motion.position;
-    velocityDelta.normTo(static_cast<float>(shaped.knockbackStrength));
+    auto hitVelocity = knockbackDirection(input.attacker, input.defender);
+    hitVelocity.normTo(1.0f);
     result.commands.push_back(BattleKnockbackCommand{
         input.defender.id,
-        velocityDelta,
-        shaped.knockbackVelocityCap,
+        hitVelocity,
+        1.0,
+        1,
     });
 
     const int mpRatioDmgBoostPct = attackerCombo.sumAlways(EffectType::MPRatioDmgBoost);
@@ -593,18 +532,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         request.mpDrain = mpDrain;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
 
-        auto resources = BattleDamageSystem().applyOnHitResources({
-            makeResourceUnit(input.attacker, &attackerCombo, &input.attackerStatusEffects),
-            makeResourceUnit(input.defender, &defenderCombo, &input.defenderStatusEffects),
-            mpOnHit,
-            hpOnHit,
-            mpDrain,
-        });
-        if (resources.hpHealed > 0)
-        {
-            result.visualEvents.push_back(roleEffectEvent(input.attacker.id, KysChess::EFT_HEAL, RoleStatusEffectFrames));
-            result.logEvents.push_back(healEvent(input.attacker.id, input.attacker.id, resources.hpHealed, "命中回血"));
-        }
     }
 
     const int poisonPct = attackerCombo.sumAlways(EffectType::PoisonDOT);
@@ -621,7 +548,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             formatStatusPercentFrames("中毒", poisonPct, poisonDuration)));
     }
 
-    const bool offensiveControlEffectsAllowed = canApplyOffensiveControlEffects(input.attackEvent);
+    const bool offensiveControlEffectsAllowed = input.attackEvent.mainProjectile;
     int alwaysStunFrames = 0;
     if (offensiveControlEffectsAllowed)
     {
@@ -669,16 +596,30 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
     }
 
-    const int knockbackChancePct = attackerCombo.sumAlways(EffectType::KnockbackChance);
-    if (knockbackChancePct > 0 && random.chance(knockbackChancePct))
+    if (input.attackEvent.mainProjectile)
     {
-        auto procVelocity = input.defender.motion.position - input.attacker.motion.position;
-        procVelocity.normTo(5.0f);
-        result.commands.push_back(BattleKnockbackCommand{
-            input.defender.id,
-            procVelocity,
-            0.0,
-        });
+        for (RoleComboEffectId effectId : attackerCombo.effectIds(Trigger::Always, EffectType::KnockbackChance))
+        {
+            const auto& effect = attackerCombo.effect(effectId);
+            if (effect.value <= 0 || !random.chance(effect.value))
+            {
+                continue;
+            }
+            const int frames = std::max(1, effect.duration > 0 ? effect.duration : 3);
+            const int distance = effect.value2 > 0 ? effect.value2 : 5;
+            auto procDirection = knockbackDirection(input.attacker, input.defender);
+            procDirection.normTo(1.0f);
+            result.commands.push_back(BattleKnockbackCommand{
+                input.defender.id,
+                procDirection,
+                static_cast<double>(distance),
+                frames,
+            });
+            result.logEvents.push_back(statusEvent(
+                input.attacker.id,
+                input.defender.id,
+                std::format("擊退（{}距離·{}幀）", distance, frames)));
+        }
     }
 
     const int offensiveCharmChancePct = attackerCombo.maxAlways(EffectType::OffensiveCharm);
@@ -695,16 +636,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         request.cooldownExtendPct = offensiveCooldownExtendPct;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
 
-        auto cooldown = BattleDamageSystem().extendActiveCooldown(
-            makeCooldownState(input.defender),
-            offensiveCooldownExtendPct);
-        if (cooldown.increased)
-        {
-            result.logEvents.push_back(statusEvent(
-                input.attacker.id,
-                input.defender.id,
-                formatCooldownIncreaseStatus(offensiveCooldownExtendPct, cooldown.before, cooldown.after)));
-        }
     }
 
     auto teamHeal = BattleComboTriggerSystem().collectTriggeredTeamHeal(
@@ -795,16 +726,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         request.cooldownExtendPct = defensiveCooldownExtendPct;
         result.commands.push_back(acceptedHitCommand(input.defender.id, input.attacker.id, request));
 
-        auto cooldown = BattleDamageSystem().extendActiveCooldown(
-            makeCooldownState(input.attacker),
-            defensiveCooldownExtendPct);
-        if (cooldown.increased)
-        {
-            result.logEvents.push_back(statusEvent(
-                input.defender.id,
-                input.attacker.id,
-                formatCooldownIncreaseStatus(defensiveCooldownExtendPct, cooldown.before, cooldown.after)));
-        }
     }
 
     auto beingHitStunEvents = BattleComboTriggerSystem().collectTriggerEvents(

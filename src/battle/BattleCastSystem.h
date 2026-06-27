@@ -171,14 +171,6 @@ struct BattleCastResult
     std::vector<BattleVisualEvent> visualEvents;
 };
 
-struct BattleBlinkAttackCommand
-{
-    int unitId{};
-    int targetUnitId{};
-    bool selectedWeakest{};
-    double reach{};
-};
-
 struct BattleBlinkCell
 {
     int gridX = 0;
@@ -225,7 +217,6 @@ struct BattleActionCommitResult
 {
     int operationCount{};
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
-    std::vector<BattleBlinkAttackCommand> blinkCommands;
     std::vector<BattleBlinkTeleportDelta> blinkTeleports;
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;

@@ -6,6 +6,7 @@
 #include "battle/BattleRuntimeUnitSpawn.h"
 #include "Find.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -69,6 +70,16 @@ BattleRuntimeUnit runtimeUnitFromWorld(const BattleUnitState& worldUnit)
     return unit;
 }
 
+void configureRuntimeGrid(BattleRuntimeState& state)
+{
+    constexpr int CoordCount = 18;
+    state.gridTransform = { SceneTileWidth, CoordCount };
+    state.movementPhysics.terrain.tileWidth = SceneTileWidth;
+    state.movementPhysics.terrain.coordCount = CoordCount;
+    state.movementPhysics.terrain.defaultSeparationDistance = SceneTileWidth * 1.5;
+    state.movementPhysics.terrain.walkableByCell.assign(CoordCount * CoordCount, 1);
+}
+
 void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::vector<BattleUnitState>& units)
 {
     state.units = {};
@@ -93,6 +104,7 @@ BattleRuntimeState runtimeFrameState()
     BattleRuntimeState state;
     state.movement.frame = 6;
     state.movement.config = runtimeMovementConfig();
+    configureRuntimeGrid(state);
     seedCanonicalUnitsFromMovementUnits(state, {
         runtimeUnit(0, 0, { 100, 100, 0 }),
         runtimeUnit(1, 1, { 500, 100, 0 }),
@@ -110,6 +122,7 @@ BattleRuntimeState ownedRuntimeState()
     BattleRuntimeState runtime;
     runtime.movement.frame = 6;
     runtime.movement.config = runtimeMovementConfig();
+    configureRuntimeGrid(runtime);
     seedCanonicalUnitsFromMovementUnits(runtime, {
         runtimeUnit(0, 0, { 100, 100, 0 }),
         runtimeUnit(1, 1, { 500, 100, 0 }),
@@ -288,9 +301,13 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
 {
     auto runtime = ownedRuntimeState();
     runtime.units.requireCore(0).stats.speed = 0;
-    runtime.units.requireCore(1).stats.speed = 0;
+    runtime.units.requireCore(1).stats.speed = 10;
     runtime.units.requireCore(1).vitals.hp = 100;
     runtime.units.requireCore(1).motion.facing = { -1, 0, 0 };
+    const float attackerX = 17.0f * static_cast<float>(SceneTileWidth);
+    const float defenderX = 18.0f * static_cast<float>(SceneTileWidth);
+    runtime.units.requireCore(0).motion.position = { attackerX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
+    runtime.units.requireCore(1).motion.position = { defenderX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
     seedDamageExtrasFromUnits(runtime);
 
     BattleAttackInstance attack;
@@ -310,10 +327,146 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
 
     session.runFrame();
 
-    const auto& unit = session.runtime().units.requireCore(1);
-    CHECK(unit.motion.velocity.norm() > 0.01f);
-    CHECK(session.runtime().units.require(1).movement.physics.velocity.x == unit.motion.velocity.x);
-    CHECK(session.runtime().units.require(1).movement.physics.velocity.y == unit.motion.velocity.y);
+    const auto& hitFrameUnit = session.runtime().units.requireCore(1);
+    CHECK(hitFrameUnit.motion.position.x >= defenderX);
+    CHECK(hitFrameUnit.motion.velocity.x == Catch::Approx(1.0f));
+    CHECK(hitFrameUnit.motion.facing.x == Catch::Approx(-1.0f));
+    CHECK(hitFrameUnit.motion.facing.y == Catch::Approx(0.0f));
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames > 0);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames > session.runtime().units.require(1).movement.physics.knockbackFrames);
+
+    session.runFrame();
+
+    const auto& pushedUnit = session.runtime().units.requireCore(1);
+    CHECK(pushedUnit.motion.position.x > defenderX);
+    CHECK(pushedUnit.motion.velocity.x == Catch::Approx(0.0f));
+    CHECK(pushedUnit.motion.facing.x == Catch::Approx(-1.0f));
+    CHECK(pushedUnit.motion.facing.y == Catch::Approx(0.0f));
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames > 0);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames > session.runtime().units.require(1).movement.physics.knockbackFrames);
+
+    session.runFrame();
+
+    const auto& lockedUnit = session.runtime().units.requireCore(1);
+    CHECK(lockedUnit.motion.facing.x == Catch::Approx(-1.0f));
+    CHECK(lockedUnit.motion.facing.y == Catch::Approx(0.0f));
+}
+
+TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity", "[battle][runtime_session][ownership]")
+{
+    auto runtime = ownedRuntimeState();
+    runtime.units.requireCore(0).stats.speed = 0;
+    runtime.units.requireCore(1).stats.speed = 10;
+    runtime.units.requireCore(1).vitals.hp = 100;
+    runtime.units.requireCore(1).motion.facing = { -1, 0, 0 };
+    const float attackerX = 17.0f * static_cast<float>(SceneTileWidth);
+    const float defenderX = 18.0f * static_cast<float>(SceneTileWidth);
+    runtime.units.requireCore(0).motion.position = { attackerX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
+    runtime.units.requireCore(1).motion.position = { defenderX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
+    seedDamageExtrasFromUnits(runtime);
+    runtime.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::KnockbackChance, 100, 7, "", KysChess::Trigger::Always, 0, 4 });
+
+    BattleAttackInstance attack;
+    attack.id = 10;
+    attack.state.attackerUnitId = 0;
+    attack.state.preferredTargetUnitId = 1;
+    attack.state.skillId = 101;
+    attack.state.skillMagicPower = 120;
+    attack.state.totalFrame = 30;
+    attack.frame = 29;
+    attack.state.operationType = BattleOperationType::Melee;
+    attack.state.position = runtime.units.requireCore(1).motion.position;
+    attack.state.velocity = { 1, 0, 0 };
+    runtime.attacks.attacks.push_back(attack);
+
+    BattleRuntimeSession session(std::move(runtime));
+
+    session.runFrame();
+
+    const auto& hitFrameUnit = session.runtime().units.requireCore(1);
+    CHECK(hitFrameUnit.motion.position.x >= defenderX);
+    CHECK(hitFrameUnit.motion.velocity.x == Catch::Approx(2.15f));
+    CHECK(hitFrameUnit.motion.facing.x == Catch::Approx(-1.0f));
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 4);
+
+    session.runFrame();
+
+    const auto& pushedUnit = session.runtime().units.requireCore(1);
+    CHECK(pushedUnit.motion.position.x == Catch::Approx(defenderX + 2.15f));
+    CHECK(pushedUnit.motion.velocity.x == Catch::Approx(2.05f));
+    CHECK(pushedUnit.motion.facing.x == Catch::Approx(-1.0f));
+
+    session.runFrame();
+    session.runFrame();
+    session.runFrame();
+
+    const auto& settledUnit = session.runtime().units.requireCore(1);
+    CHECK(settledUnit.motion.position.x == Catch::Approx(defenderX + 8.0f));
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 0);
+}
+
+TEST_CASE("BattleRuntimeSession_RunFrame_TaXueIgnoresKnockback", "[battle][runtime_session][ownership]")
+{
+    auto runtime = ownedRuntimeState();
+    runtime.units.requireCore(0).stats.speed = 0;
+    runtime.units.requireCore(1).stats.speed = 0;
+    runtime.units.requireCore(1).vitals.hp = 100;
+    runtime.units.requireCore(1).motion.facing = { -1, 0, 0 };
+    const float attackerX = 17.0f * static_cast<float>(SceneTileWidth);
+    const float defenderX = 18.0f * static_cast<float>(SceneTileWidth);
+    runtime.units.requireCore(0).motion.position = { attackerX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
+    runtime.units.requireCore(1).motion.position = { defenderX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
+    seedDamageExtrasFromUnits(runtime);
+    runtime.units.require(1).combo.applyConfiguredEffect({ KysChess::EffectType::DashAttack, 1 });
+
+    BattleAttackInstance attack;
+    attack.id = 10;
+    attack.state.attackerUnitId = 0;
+    attack.state.preferredTargetUnitId = 1;
+    attack.state.skillId = 101;
+    attack.state.skillMagicPower = 120;
+    attack.state.totalFrame = 30;
+    attack.frame = 29;
+    attack.state.operationType = BattleOperationType::Melee;
+    attack.state.position = runtime.units.requireCore(1).motion.position;
+    attack.state.velocity = { 1, 0, 0 };
+    runtime.attacks.attacks.push_back(attack);
+
+    BattleRuntimeSession session(std::move(runtime));
+
+    session.runFrame();
+
+    const auto& hitUnit = session.runtime().units.requireCore(1);
+    CHECK(hitUnit.motion.position.x == Catch::Approx(defenderX));
+    CHECK(hitUnit.motion.velocity.x == Catch::Approx(0.0f));
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 0);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 0);
+    CHECK(session.runtime().units.require(1).movement.physics.postDashChaosFrames == 0);
+}
+
+TEST_CASE("BattleRuntimeSession_RunFrame_PostDashRetreatDoesNotFlipFacing", "[battle][runtime_session][ownership]")
+{
+    auto runtime = ownedRuntimeState();
+    auto& attacker = runtime.units.requireCore(0);
+    attacker.motion.position = { 17.0f * static_cast<float>(SceneTileWidth), 3.0f * static_cast<float>(SceneTileWidth), 0 };
+    attacker.motion.facing = { 1, 0, 0 };
+    attacker.motion.velocity = {};
+    runtime.units.requireCore(1).motion.position = { 18.0f * static_cast<float>(SceneTileWidth), 4.0f * static_cast<float>(SceneTileWidth), 0 };
+
+    auto& physics = runtime.units.require(0).movement.physics;
+    physics.position = attacker.motion.position;
+    physics.velocity = {};
+    physics.postDashRetreatVelocity = { -4, 0, 0 };
+    physics.postDashRetreatFrames = 2;
+
+    BattleRuntimeSession session(std::move(runtime));
+
+    session.runFrame();
+
+    const auto& retreated = session.runtime().units.requireCore(0);
+    CHECK(retreated.motion.velocity.x < 0.0f);
+    CHECK(retreated.motion.facing.x == Catch::Approx(1.0f));
+    CHECK(retreated.motion.facing.y == Catch::Approx(0.0f));
 }
 
 TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][runtime_session][ownership]")
@@ -499,7 +652,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     const auto& runtimeUnit = state.units.requireCore(0);
     const auto& statusUnit = state.units.require(0).status;
     CHECK(runtimeUnit.invincible == 3);
-    CHECK(statusUnit.effects.frozenTimer == 3);
+    CHECK(statusUnit.effects.frozenTimer == 2);
     CHECK(statusUnit.effects.frozenMaxTimer == 9);
     CHECK(runtimeUnit.shield == 12);
     CHECK(state.units.require(0).damage.blockFirstHitsRemaining == 2);

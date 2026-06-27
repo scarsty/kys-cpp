@@ -8,6 +8,7 @@
 #include "BattleResourceRules.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <format>
@@ -141,6 +142,8 @@ BattleUnitState makeBattleMovementPlanUnit(const BattleRuntimeUnit& runtimeUnit,
     unit.velocity = runtimeUnit.motion.velocity;
     unit.speed = runtimeUnit.stats.speed / moveSpeedDivisor;
     unit.canAttack = runtimeUnit.animation.cooldown == 0;
+    unit.reach = runtimeUnit.reach;
+    unit.style = runtimeUnit.style;
     return unit;
 }
 
@@ -196,6 +199,10 @@ void applyFrameCastScopedComboEffects(
 void applyFrameCastScopedComboEffects(
     BattleRuntimeState& state,
     BattleFrameContext& frame);
+
+void applyKnockbackImpulse(
+    BattleRuntimeState& state,
+    const BattleKnockbackCommand& knockback);
 
 struct BattleRuntimeUnitFrameCommit
 {
@@ -278,87 +285,95 @@ long long enemyTopDebuffSortScore(const BattleRuntimeUnit& unit)
     return score;
 }
 
+struct OpponentTopDebuffRuntimeSummary
+{
+    int liveOwners{};
+    int topTargets{};
+    int perOwnerValue{};
+};
+
 void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
                                  std::vector<BattleLogEvent>& logEvents)
 {
-    int liveAllies = 0;
-    int topTargets = 0;
-    int perMemberValue = 0;
-    for (const auto& allyRecord : state.units.live())
+    std::array<OpponentTopDebuffRuntimeSummary, 2> summaries;
+    for (const auto& ownerRecord : state.units.live())
     {
-        const auto& ally = allyRecord.core;
-        if (ally.team != 0)
-        {
-            continue;
-        }
+        const auto& owner = ownerRecord.core;
+        assert(owner.team == 0 || owner.team == 1);
 
-        const auto& combo = state.units.require(ally.id).combo;
+        const auto& combo = state.units.require(owner.id).combo;
         const auto* topDebuff = combo.firstAlways(EffectType::EnemyTopDebuff);
         if (!topDebuff || topDebuff->value <= 0)
         {
             continue;
         }
 
-        liveAllies++;
-        topTargets = std::max(topTargets, topDebuff->value);
-        perMemberValue = std::max(perMemberValue, topDebuff->value2);
+        auto& summary = summaries[owner.team];
+        summary.liveOwners++;
+        summary.topTargets = std::max(summary.topTargets, topDebuff->value);
+        summary.perOwnerValue = std::max(summary.perOwnerValue, topDebuff->value2);
     }
 
-    std::vector<BattleRuntimeUnit*> enemyOrder;
-    for (auto& unitRecord : state.units.live())
+    for (int ownerTeam = 0; ownerTeam < static_cast<int>(summaries.size()); ++ownerTeam)
     {
-        auto& unit = unitRecord.core;
-        if (unit.team == 1)
+        const auto& summary = summaries[ownerTeam];
+        const int targetTeam = 1 - ownerTeam;
+        std::vector<BattleRuntimeUnit*> targetOrder;
+        for (auto& unitRecord : state.units.live())
         {
-            enemyOrder.push_back(&unit);
-        }
-    }
-
-    std::stable_sort(
-        enemyOrder.begin(),
-        enemyOrder.end(),
-        [](const BattleRuntimeUnit* left, const BattleRuntimeUnit* right)
-        {
-            const long long leftScore = enemyTopDebuffSortScore(*left);
-            const long long rightScore = enemyTopDebuffSortScore(*right);
-            if (leftScore != rightScore)
+            auto& unit = unitRecord.core;
+            if (unit.team == targetTeam)
             {
-                return leftScore > rightScore;
+                targetOrder.push_back(&unit);
             }
-            return left->vitals.maxHp > right->vitals.maxHp;
-        });
-
-    int assignedTargets = 0;
-    for (auto* enemy : enemyOrder)
-    {
-        auto& combo = state.units.require(enemy->id).combo;
-
-        int desired = 0;
-        if (assignedTargets < topTargets && liveAllies > 0 && perMemberValue > 0)
-        {
-            desired = perMemberValue * liveAllies;
-            ++assignedTargets;
         }
 
-        const int delta = combo.setEnemyTopDebuffApplied(desired);
-        if (delta == 0)
-        {
-            continue;
-        }
+        std::stable_sort(
+            targetOrder.begin(),
+            targetOrder.end(),
+            [](const BattleRuntimeUnit* left, const BattleRuntimeUnit* right)
+            {
+                const long long leftScore = enemyTopDebuffSortScore(*left);
+                const long long rightScore = enemyTopDebuffSortScore(*right);
+                if (leftScore != rightScore)
+                {
+                    return leftScore > rightScore;
+                }
+                return left->vitals.maxHp > right->vitals.maxHp;
+            });
 
-        enemy->stats.attack = std::max(0, enemy->stats.attack - delta);
-        enemy->stats.defence = std::max(0, enemy->stats.defence - delta);
-        BattleLogEvent log;
-        log.type = BattleLogEventType::Status;
-        log.sourceUnitId = -1;
-        log.targetUnitId = enemy->id;
-        log.segments = battleLogText(std::format(
-            "陰險：前{}名攻防{}{}（{}名存活）",
-            topTargets,
-            delta > 0 ? "-" : "+",
-            std::abs(delta),
-            liveAllies), BattleLogTextTone::SkillName);
-        logEvents.push_back(std::move(log));
+        int assignedTargets = 0;
+        for (auto* target : targetOrder)
+        {
+            auto& combo = state.units.require(target->id).combo;
+
+            int desired = 0;
+            if (assignedTargets < summary.topTargets && summary.liveOwners > 0 && summary.perOwnerValue > 0)
+            {
+                desired = summary.perOwnerValue * summary.liveOwners;
+                ++assignedTargets;
+            }
+
+            const int delta = combo.setEnemyTopDebuffApplied(desired);
+            if (delta == 0)
+            {
+                continue;
+            }
+
+            target->stats.attack = std::max(0, target->stats.attack - delta);
+            target->stats.defence = std::max(0, target->stats.defence - delta);
+            BattleLogEvent log;
+            log.type = BattleLogEventType::Status;
+            log.sourceUnitId = -1;
+            log.targetUnitId = target->id;
+            log.segments = battleLogText(std::format(
+                "陰險：前{}名攻防{}{}（{}名存活）",
+                summary.topTargets,
+                delta > 0 ? "-" : "+",
+                std::abs(delta),
+                summary.liveOwners), BattleLogTextTone::SkillName);
+            logEvents.push_back(std::move(log));
+        }
     }
 }
 
@@ -1092,6 +1107,18 @@ void refreshMovementSkillProfile(
     movementUnit.taXue = combo.hasAlways(EffectType::DashAttack);
 }
 
+void refreshRuntimeMovementProfiles(BattleRuntimeState& state)
+{
+    for (auto& record : state.units.live())
+    {
+        auto& runtimeUnit = record.core;
+        auto movementUnit = makeBattleMovementPlanUnit(runtimeUnit, BattleRuntimeMoveSpeedDivisor);
+        refreshMovementSkillProfile(movementUnit, runtimeUnit, state);
+        runtimeUnit.reach = movementUnit.reach;
+        runtimeUnit.style = movementUnit.style;
+    }
+}
+
 using PostPhysicsMotionMap = std::map<int, BattleMovementPhysicsState>;
 using UnitMotionSnapshotMap = std::map<int, BattleUnitMotion>;
 
@@ -1258,6 +1285,8 @@ BattleMovementPlanInput makeFrameMovementPlanInput(
     input.config = state.movement.config;
     input.terrainCells = state.movement.terrainCells;
     input.movementReservations = state.movement.movementReservations;
+    input.yieldRequests = state.movement.yieldRequests;
+    input.detourRequests = state.movement.detourRequests;
     input.units.reserve(state.units.size());
 
     for (const auto& record : state.units.live())
@@ -1276,7 +1305,8 @@ BattleMovementPlanInput makeFrameMovementPlanInput(
         {
             movementUnit.speed = runtimeUnit.stats.speed;
         }
-        refreshMovementSkillProfile(movementUnit, runtimeUnit, state);
+        const auto& combo = state.units.require(runtimeUnit.id).combo;
+        movementUnit.taXue = combo.hasAlways(EffectType::DashAttack);
         const auto& agent = state.units.require(runtimeUnit.id).movement;
         const auto& physics = postPhysicsIt != postPhysics.end()
             ? postPhysicsIt->second
@@ -1289,6 +1319,8 @@ BattleMovementPlanInput makeFrameMovementPlanInput(
         movementUnit.postDashRetreatFramesRemaining = physics.postDashRetreatFrames;
         movementUnit.postDashChaosFramesRemaining = physics.postDashChaosFrames;
         movementUnit.movementDashSpreadFramesRemaining = physics.movementDashSpreadFrames;
+        movementUnit.knockbackFramesRemaining = physics.knockbackFrames;
+        movementUnit.knockbackControlFramesRemaining = physics.knockbackControlFrames;
         input.units.push_back(std::move(movementUnit));
     }
 
@@ -1333,7 +1365,7 @@ int runtimeProjectileSpeedMultiplierPct(const BattleRuntimeState& state, int uni
 
 bool runtimeForcedRangedMagic(const BattleActionSkillSeed& skill, bool forceRanged)
 {
-    return forceRanged && skill.attackAreaType == 0;
+    return forceRanged && (skill.attackAreaType == 0 || skill.attackAreaType == 3);
 }
 
 bool runtimeProjectileStyleMagic(const BattleActionSkillSeed& skill, bool forceRanged)
@@ -1359,7 +1391,7 @@ int runtimeEffectiveProjectileSelectDistance(
     int forcedRangedMinSelectDistance)
 {
     int selectDistance = std::max(1, skill.selectDistance);
-    if (forcedRanged && skill.attackAreaType == 0)
+    if (forcedRanged && (skill.attackAreaType == 0 || skill.attackAreaType == 3))
     {
         selectDistance = std::max(selectDistance, std::max(1, forcedRangedMinSelectDistance));
     }
@@ -1368,6 +1400,8 @@ int runtimeEffectiveProjectileSelectDistance(
 
 double runtimeBattleBlinkReach(
     const BattleActionSkillSeed& skill,
+    bool forceRanged,
+    int forcedRangedMinSelectDistance,
     const BattleActionRulesConfig& actionRules,
     const BattleCastGeometry& geometry)
 {
@@ -1375,9 +1409,15 @@ double runtimeBattleBlinkReach(
     {
         return actionRules.tileWidth * 3.0;
     }
+    if (runtimeForcedRangedMagic(skill, forceRanged))
+    {
+        return std::max(
+            actionRules.tileWidth * 3.0,
+            static_cast<double>(std::max(1, forcedRangedMinSelectDistance)) * actionRules.tileWidth);
+    }
     if (skill.attackAreaType == 3)
     {
-        return 180.0;
+        return actionRules.heavyAttackReach;
     }
     if (skill.attackAreaType == 1 || skill.attackAreaType == 2)
     {
@@ -1401,10 +1441,6 @@ double runtimeEffectiveBattleReach(
     {
         return actionRules.tileWidth * 2.0;
     }
-    if (skill.attackAreaType == 3)
-    {
-        return 180.0;
-    }
     if (runtimeProjectileStyleMagic(skill, forceRanged))
     {
         const int selectDistance = runtimeEffectiveProjectileSelectDistance(
@@ -1416,6 +1452,10 @@ double runtimeEffectiveBattleReach(
                 * projectileSpeedMultiplierPct / 100.0;
         const double rangedAttackSafetyMargin = actionRules.meleeAttackHitRadius - actionRules.tileWidth / 2.0;
         return std::max(actionRules.tileWidth * 2.0, projectileReach - rangedAttackSafetyMargin);
+    }
+    if (skill.attackAreaType == 3)
+    {
+        return actionRules.heavyAttackReach;
     }
     return actionRules.meleeAttackReach;
 }
@@ -1467,7 +1507,12 @@ BattleCastSkillState makeRuntimeCastSkillState(
         state.action.actionRules.maxEffectiveBattleReach);
     skill.forceRanged = forceRanged;
     skill.rangedStyle = runtimeBattleRangedStyle(seed, forceRanged);
-    skill.blinkReach = runtimeBattleBlinkReach(seed, state.action.actionRules, state.action.castGeometry);
+    skill.blinkReach = runtimeBattleBlinkReach(
+        seed,
+        forceRanged,
+        forcedRangedMinSelectDistance,
+        state.action.actionRules,
+        state.action.castGeometry);
     return skill;
 }
 
@@ -1646,13 +1691,22 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     }
 
     const bool ultimateReady = unit.core.vitals.maxMp > 0 && unit.core.vitals.mp >= unit.core.vitals.maxMp;
-    const auto& selectedSeed = ultimateReady && seed.ultimateSkill.id >= 0
+    const bool useUltimate = ultimateReady && seed.ultimateSkill.id >= 0;
+    const auto& selectedSeed = useUltimate
         ? seed.ultimateSkill
         : seed.normalSkill;
+    const auto selectedSkill = makeRuntimeCastSkillState(
+        state,
+        unit.core,
+        selectedSeed,
+        useUltimate,
+        consumeFrameSkillBonuses);
     input.unit.dashHitCount = 1;
-    input.unit.emitDashFollowUpSkillAttack = input.unit.dashAttackEnabled && selectedSeed.id >= 0;
-    input.unit.dashFollowUpOperationType = selectedSeed.id >= 0
-        ? BattleCombatIntentPlanner().operationTypeForAttackArea(selectedSeed.attackAreaType)
+    input.unit.emitDashFollowUpSkillAttack = input.unit.dashAttackEnabled && selectedSkill.id >= 0;
+    input.unit.dashFollowUpOperationType = selectedSkill.id >= 0
+        ? (runtimeForcedRangedMagic(selectedSeed, selectedSkill.forceRanged)
+            ? BattleOperationType::RangedProjectile
+            : BattleCombatIntentPlanner().operationTypeForAttackArea(selectedSkill.attackAreaType))
         : BattleOperationType::None;
     input.normalSkill = makeRuntimeCastSkillState(state, unit.core, seed.normalSkill, false, consumeFrameSkillBonuses);
     input.ultimateSkill = makeRuntimeCastSkillState(state, unit.core, seed.ultimateSkill, true, consumeFrameSkillBonuses);
@@ -1706,9 +1760,7 @@ Pointf runtimeDashAttackVelocity(
 
     if (selectedSkill.rangedStyle)
     {
-        const double attackRange = selectedSkill.attackAreaType == 3
-            ? 180.0
-            : std::min(selectedSkill.reach, state.action.actionRules.maxEffectiveBattleReach);
+        const double attackRange = std::min(selectedSkill.reach, state.action.actionRules.maxEffectiveBattleReach);
         const double forwardGap = std::max(0.0, input.targetDistance - attackRange);
         dashDistance = state.action.actionRules.meleeAttackHitRadius
             / state.action.actionRules.dashMomentumFrames;
@@ -1749,6 +1801,23 @@ Pointf runtimeDashAttackVelocity(
     dashDistance *= 0.8;
 
     return normalizedTo(direction, dashDistance, state.action.castConfig.minimumFacingNorm);
+}
+
+Pointf committedRuntimeDashAttackVelocity(
+    BattleRuntimeState& state,
+    const BattleRuntimeUnit& unit,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill,
+    const BattlePendingCastAction& pending)
+{
+    auto velocity = runtimeDashAttackVelocity(state, unit, input, selectedSkill);
+    if (velocity.norm() > state.action.castConfig.minimumFacingNorm)
+    {
+        return velocity;
+    }
+
+    assert(pending.dashVelocity.norm() > state.action.castConfig.minimumFacingNorm);
+    return pending.dashVelocity;
 }
 
 Pointf runtimeCastFacing(
@@ -2105,6 +2174,7 @@ BattlePendingCastAction makePendingCastAction(const BattleCastInput& castInput,
     pending.targetUnitId = cast.decision.targetUnitId;
     pending.ultimate = cast.decision.ultimate;
     pending.operationType = cast.decision.operationType;
+    pending.dashVelocity = castInput.unit.dashVelocity;
     pending.skill = selectedCastSkill(castInput, cast);
     return pending;
 }
@@ -2256,11 +2326,12 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
     if (pending.operationType == BattleOperationType::Dash)
     {
         castInput->unit.dashHitCount = rollRuntimeDashHitCount(state, unit, selectedSkill);
-        castInput->unit.dashVelocity = runtimeDashAttackVelocity(
+        castInput->unit.dashVelocity = committedRuntimeDashAttackVelocity(
             state,
             unit,
             *castInput,
-            selectedSkill);
+            selectedSkill,
+            pending);
     }
 
     auto cast = BattleCastPlanner().commitSelectedCast(
@@ -2410,6 +2481,7 @@ void commitDamageCooldownToRuntime(BattleRuntimeState& state, const BattleDamage
 {
     auto& unit = state.units.requireCore(transaction.defender.id);
     unit.animation.cooldown = transaction.defenderCooldown.cooldown;
+    unit.animation.cooldownMax = transaction.defenderCooldown.cooldownMax;
 }
 
 void applyDamageResultToFrameState(
@@ -2467,6 +2539,21 @@ void applyRescueDamageToRuntimeUnit(BattleRuntimeState& state, int unitId, int h
 void applyRescuePositionToRuntimeUnit(BattleRuntimeState& state, int unitId, Pointf position)
 {
     state.units.setPosition(unitId, position, state.gridTransform);
+}
+
+void applyBlinkTeleportToRuntimeUnit(BattleRuntimeState& state, const BattleBlinkTeleportDelta& teleport)
+{
+    state.units.setPosition(teleport.unitId, teleport.position, state.gridTransform);
+    auto& record = state.units.require(teleport.unitId);
+    auto& unit = record.core;
+    unit.grid = { teleport.gridX, teleport.gridY };
+    unit.motion.velocity = {};
+    unit.motion.acceleration = {};
+    unit.motion.facing = teleport.facing;
+    record.movement.physics.position = teleport.position;
+    record.movement.physics.velocity = {};
+    record.movement.physics.acceleration = {};
+    state.movement.movementReservations.erase(teleport.unitId);
 }
 
 BattleRescueRepositionInput makeRescueInput(
@@ -3031,13 +3118,7 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* knockback = std::get_if<BattleKnockbackCommand>(&command))
     {
-        auto& unit = state.units.requireCore(knockback->targetUnitId);
-        unit.motion.velocity += knockback->velocityDelta;
-        if (knockback->velocityCap > 0.0 && unit.motion.velocity.norm() > knockback->velocityCap)
-        {
-            unit.motion.velocity.normTo(static_cast<float>(knockback->velocityCap));
-        }
-        state.units.require(knockback->targetUnitId).movement.physics.velocity = unit.motion.velocity;
+        applyKnockbackImpulse(state, *knockback);
         return true;
     }
     if (const auto* tempAttack = std::get_if<BattleTempAttackBuffCommand>(&command))
@@ -3167,6 +3248,50 @@ std::vector<BattleLogTextSegment> formatAppliedStatusLog(
     const int currentStacks = std::max(event.value, transaction.defenderStatus.effects.bleedStacks);
     const int maxStacks = std::max(currentStacks, event.maxValue);
     return logStatusRange<BattleLogTextTone::Negative>("流血", currentStacks, maxStacks, "層");
+}
+
+std::string formatAppliedCooldownExtension(const BattleDamageEvent& event)
+{
+    if (event.value > 0)
+    {
+        return std::format("冷卻延長（+{}幀）", event.value);
+    }
+    return "冷卻延長";
+}
+
+void appendFrameDamageResourceLogEvents(
+    BattleFrameContext& frame,
+    const BattleDamageTransactionResult& transaction)
+{
+    for (const auto& event : transaction.events)
+    {
+        switch (event.type)
+        {
+        case BattleDamageEventType::HpRestored:
+            frame.visualEvents.push_back(roleEffectEvent(
+                event.targetUnitId,
+                KysChess::EFT_HEAL,
+                CoreRoleStatusEffectFrames));
+            appendHealEventLog(
+                frame.logEvents,
+                event.sourceUnitId,
+                event.targetUnitId,
+                event.value,
+                "命中回血");
+            break;
+        case BattleDamageEventType::CooldownExtended:
+            appendStatusEventLog(
+                frame.logEvents,
+                event.sourceUnitId,
+                event.targetUnitId,
+                formatAppliedCooldownExtension(event));
+            break;
+        case BattleDamageEventType::MpRestored:
+        case BattleDamageEventType::MpDrained:
+        default:
+            break;
+        }
+    }
 }
 
 BattleLogEvent makeDeathPreventionLog(const BattleDamageEvent& event)
@@ -4134,6 +4259,69 @@ PostPhysicsMotionMap makePostPhysicsMotionMap(
     return postPhysics;
 }
 
+void applyKnockbackImpulse(
+    BattleRuntimeState& state,
+    const BattleKnockbackCommand& knockback)
+{
+    auto& record = state.units.require(knockback.targetUnitId);
+    if (record.combo.hasAlways(EffectType::DashAttack))
+    {
+        return;
+    }
+
+    auto& unit = record.core;
+    auto direction = knockback.direction;
+    if (direction.norm() <= 0.01f || knockback.distance <= 0.0)
+    {
+        return;
+    }
+    direction.normTo(1.0f);
+    const int lockFrames = std::max(1, knockback.lockFrames);
+    const auto& config = state.movementPhysics.config;
+
+    auto distanceForVelocity = [&config](Pointf velocity, int frames)
+    {
+        const int activeFrames = std::max(0, frames);
+        if (activeFrames == 0)
+        {
+            return Pointf{};
+        }
+        const double distance = std::max(
+            0.0,
+            static_cast<double>(velocity.norm()) * activeFrames
+                - config.friction * static_cast<double>(activeFrames * (activeFrames - 1)) / 2.0);
+        if (distance <= 0.0)
+        {
+            return Pointf{};
+        }
+        velocity.normTo(static_cast<float>(distance));
+        return velocity;
+    };
+
+    auto remainingDistance = direction;
+    remainingDistance.normTo(static_cast<float>(knockback.distance));
+
+    auto& physics = state.units.require(knockback.targetUnitId).movement.physics;
+    if (physics.knockbackFrames > 0 || physics.knockbackControlFrames > 0)
+    {
+        remainingDistance += distanceForVelocity(unit.motion.velocity, physics.knockbackFrames);
+    }
+
+    const int combinedLockFrames = std::max(physics.knockbackFrames, lockFrames);
+    const double frictionDistance = config.friction * static_cast<double>(combinedLockFrames * (combinedLockFrames - 1)) / 2.0;
+    auto velocity = remainingDistance;
+    velocity.normTo(static_cast<float>((remainingDistance.norm() + frictionDistance) / static_cast<double>(combinedLockFrames)));
+    unit.motion.velocity = velocity;
+
+    physics.velocity = velocity;
+    physics.knockbackVelocity = velocity;
+    physics.knockbackFrames = combinedLockFrames;
+    physics.knockbackControlFrames = physics.knockbackFrames + 1;
+    physics.postDashRetreatFrames = 0;
+    physics.postDashChaosFrames = 0;
+    physics.movementDashSpreadFrames = 0;
+}
+
 std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleRuntimeState& state)
 {
     std::vector<BattleFrameMovementPhysicsUnitResult> physicsResults;
@@ -4209,6 +4397,8 @@ std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleR
         movementSnapshot.movementDashSpreadFramesRemaining = result.state.movementDashSpreadFrames;
         movementSnapshot.postDashRetreatFramesRemaining = result.state.postDashRetreatFrames;
         movementSnapshot.postDashChaosFramesRemaining = result.state.postDashChaosFrames;
+        movementSnapshot.knockbackFramesRemaining = result.state.knockbackFrames;
+        movementSnapshot.knockbackControlFramesRemaining = result.state.knockbackControlFrames;
         physicsInput.ignoreUnitCollision = !unit.alive || battleMovementTaXueUnstable(movementSnapshot);
 
         result.state = BattleMovementPhysicsSystem().advance(physicsInput);
@@ -4230,6 +4420,8 @@ BattleTickResult commitFrameMovement(
 {
     state.movement.frame = movement.frame;
     state.movement.movementReservations = movement.movementReservations;
+    state.movement.yieldRequests = movement.yieldRequests;
+    state.movement.detourRequests = movement.detourRequests;
     for (const auto& [unitId, decision] : movement.decisions)
     {
         auto& agent = state.units.require(unitId).movement;
@@ -4263,6 +4455,12 @@ BattleTickResult commitFrameMovement(
         auto& runtimeUnit = state.units.requireCore(unitId);
         const auto action = decision.action;
 
+        auto& physics = state.units.require(unitId).movement.physics;
+        if (physics.knockbackFrames > 0 || physics.knockbackControlFrames > 0)
+        {
+            continue;
+        }
+
         Pointf syncedVelocity = decision.velocity;
         if (action == MovementAction::Move)
         {
@@ -4278,9 +4476,9 @@ BattleTickResult commitFrameMovement(
             syncedPosition,
             syncedVelocity,
             acceleration,
-            state.gridTransform);
+            state.gridTransform,
+            action == MovementAction::Dash);
 
-        auto& physics = state.units.require(unitId).movement.physics;
         physics.position = syncedPosition;
         physics.velocity = syncedVelocity;
         physics.acceleration = acceleration;
@@ -4289,6 +4487,8 @@ BattleTickResult commitFrameMovement(
         physics.movementDashSpreadFrames = decision.movementDashSpreadFramesRemaining;
         physics.postDashRetreatFrames = decision.postDashRetreatFramesRemaining;
         physics.postDashChaosFrames = decision.postDashChaosFramesRemaining;
+        physics.knockbackFrames = decision.knockbackFramesRemaining;
+        physics.knockbackControlFrames = decision.knockbackControlFramesRemaining;
     }
     return movement;
 }
@@ -4296,6 +4496,7 @@ BattleTickResult commitFrameMovement(
 BattleTickResult advanceMotionFrame(BattleRuntimeState& state)
 {
     prepareMovementAgents(state);
+    refreshRuntimeMovementProfiles(state);
     auto physicsResults = computeMovementPhysics(state);
     auto movementInput = makeFrameMovementPlanInput(state, makePostPhysicsMotionMap(physicsResults));
     auto movement = BattleMovementPlanner(std::move(movementInput)).tick();
@@ -4305,6 +4506,7 @@ BattleTickResult advanceMotionFrame(BattleRuntimeState& state)
 struct BattleActionFrameState
 {
     int cooldown{};
+    int cooldownMax{};
     int actFrame{};
     int actType = -1;
     BattleOperationType operationType = BattleOperationType::None;
@@ -4314,6 +4516,7 @@ struct BattleActionFrameState
 void commitActionFrameStateToRuntime(BattleRuntimeUnit& unit, const BattleActionFrameState& state)
 {
     unit.animation.cooldown = state.cooldown;
+    unit.animation.cooldownMax = state.cooldownMax;
     unit.animation.actFrame = state.actFrame;
     unit.animation.actType = state.actType;
     unit.operationType = state.operationType;
@@ -4324,6 +4527,7 @@ BattleActionFrameState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 {
     BattleActionFrameState state;
     state.cooldown = unit.animation.cooldown;
+    state.cooldownMax = unit.animation.cooldownMax;
     state.actFrame = unit.animation.actFrame;
     state.actType = unit.animation.actType;
     state.operationType = unit.operationType;
@@ -4334,6 +4538,7 @@ BattleActionFrameState makeActionRuntimeState(const BattleRuntimeUnit& unit)
 void resetActionFrameState(BattleActionFrameState& state)
 {
     state.cooldown = 0;
+    state.cooldownMax = 0;
     state.actFrame = 0;
     state.actType = -1;
     state.operationType = BattleOperationType::None;
@@ -4442,6 +4647,7 @@ void advanceActionFrameUnits(
                     : castInput.normalSkill.magicType;
                 actionState.operationType = cast.decision.operationType;
                 actionState.cooldown = cast.animation.cooldownFrames;
+                actionState.cooldownMax = cast.animation.cooldownFrames;
                 unitRecord.setPendingCast(makePendingCastAction(castInput, cast));
                 state.units.require(unit.id).movement.physics.movementDashSpreadFrames = 0;
             }
@@ -4481,6 +4687,10 @@ void advanceActionFrameUnits(
                     frame.attackSoundIds.push_back(actionInput.cast.decision.soundId);
                 }
                 appendAttackSpawnRequests(frame.currentFrameAttacks(), actionResult.attackSpawnRequests);
+                for (const auto& teleport : actionResult.blinkTeleports)
+                {
+                    applyBlinkTeleportToRuntimeUnit(state, teleport);
+                }
                 logEvents.insert(
                     logEvents.end(),
                     actionResult.logEvents.begin(),
@@ -4735,6 +4945,7 @@ void applyDamageAndLifecycle(
         appendFrameShieldBreakCommands(state, frame, transaction);
         appendFrameDamageOutputEvents(frame, presentation, transaction);
         appendFrameDamagePreDeathLogEvents(frame, transaction);
+        appendFrameDamageResourceLogEvents(frame, transaction);
         appendFrameDamageGameplayEvents(frame, transaction);
         auto transactionDeadUnitIds = appendFrameDamageLifecycle(state, frame, transaction);
         appendFrameDamageKillRewardLogEvents(frame, transaction);

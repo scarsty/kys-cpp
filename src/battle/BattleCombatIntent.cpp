@@ -49,14 +49,20 @@ CombatIntent BattleCombatIntentPlanner::select(const CombatIntentInput& input) c
         return intent;
     }
 
-    if (input.plannedSkill.attackAreaType == 0)
+    if (input.plannedSkill.forceRanged
+        && (input.plannedSkill.attackAreaType == 0 || input.plannedSkill.attackAreaType == 3))
     {
-        if (input.plannedSkill.forceRanged && input.targetDistance <= input.plannedSkill.reach)
+        if (input.targetDistance <= input.plannedSkill.reach)
         {
             intent.startAttack = true;
             intent.operationType = BattleOperationType::RangedProjectile;
         }
-        else if (!input.plannedSkill.forceRanged && input.targetDistance <= input.meleeAttackReach)
+        return intent;
+    }
+
+    if (input.plannedSkill.attackAreaType == 0)
+    {
+        if (input.targetDistance <= input.meleeAttackReach)
         {
             intent.startAttack = true;
             intent.operationType = BattleOperationType::Melee;

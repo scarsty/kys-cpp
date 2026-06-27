@@ -33,6 +33,18 @@ TEST_CASE("BattleSceneRenderMath_CalculatesRenderPicFromFramesAndFacing", "[batt
     CHECK(BattleSceneRenderMath::calRenderUnitPic(frames, leftUp, 2, 3) == 4 * 4 + 5 * 4 + 6 * Towards_LeftUp + 3);
 }
 
+TEST_CASE("BattleSceneRenderMath_ClampsPastActionEndToDeclaredLastFrame", "[battle][scene_render_math]")
+{
+    std::array<int, 5> frames{ 4, 5, 6, 7, 8 };
+    Pointf leftUp{ -1, -1, 0 };
+    const int style = 2;
+    const int lastFrame = frames[style] - 1;
+    const int lastPic = 4 * 4 + 5 * 4 + frames[style] * Towards_LeftUp + lastFrame;
+
+    CHECK(BattleSceneRenderMath::calRenderUnitPic(frames, leftUp, style, lastFrame) == lastPic);
+    CHECK(BattleSceneRenderMath::calRenderUnitPic(frames, leftUp, style, lastFrame + 20) == lastPic);
+}
+
 TEST_CASE("BattleSceneRenderMath_DecreasesValuesToZero", "[battle][scene_render_math]")
 {
     int integerValue = 2;

@@ -569,6 +569,7 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
             BattleAttackCastSubrequestKind::MeleeSplash);
         splash.initial.totalFrame = input.config.meleeSplashTotalFrame;
         splash.initial.track = true;
+        splash.initial.mainProjectile = false;
         splash.initialFrame = input.config.meleeSplashInitialFrame;
         assert(input.geometry.meleeSplashProjectileSpeed > 0.0);
         splash.initial.velocity = normalizedTo(
@@ -653,11 +654,13 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
 
 void appendBlinkTeleportDelta(
     const BattleActionCommitInput& input,
-    const BattleBlinkAttackCommand& command,
+    int targetUnitId,
+    bool selectedWeakest,
+    double reach,
     const BattleRuntimeUnits& units,
     BattleActionCommitResult& result)
 {
-    const auto& target = units.requireCore(command.targetUnitId);
+    const auto& target = units.requireCore(targetUnitId);
 
     std::vector<const BattleBlinkCell*> candidates;
     for (const auto& cell : input.blinkGeometry.cells)
@@ -671,7 +674,7 @@ void appendBlinkTeleportDelta(
         {
             continue;
         }
-        if (pointDistance(cell.position, target.motion.position) > command.reach)
+        if (pointDistance(cell.position, target.motion.position) > reach)
         {
             continue;
         }
@@ -693,8 +696,8 @@ void appendBlinkTeleportDelta(
 
     result.blinkTeleports.push_back({
         input.sourceUnitId,
-        command.targetUnitId,
-        command.selectedWeakest,
+        targetUnitId,
+        selectedWeakest,
         cell.gridX,
         cell.gridY,
         cell.position,
@@ -703,8 +706,8 @@ void appendBlinkTeleportDelta(
     BattleLogEvent log;
     log.type = BattleLogEventType::Status;
     log.sourceUnitId = input.sourceUnitId;
-    log.targetUnitId = command.targetUnitId;
-    log.segments = battleLogText(command.selectedWeakest ? "閃擊追殺" : "閃擊突襲", BattleLogTextTone::SkillName);
+    log.targetUnitId = targetUnitId;
+    log.segments = battleLogText(selectedWeakest ? "閃擊追殺" : "閃擊突襲", BattleLogTextTone::SkillName);
     result.logEvents.push_back(std::move(log));
 }
 
@@ -743,14 +746,7 @@ void appendBlinkAttackCommand(
         return;
     }
 
-    BattleBlinkAttackCommand command{
-        input.sourceUnitId,
-        targetId,
-        useWeakest,
-        input.blinkReach,
-    };
-    result.blinkCommands.push_back(command);
-    appendBlinkTeleportDelta(input, command, units, result);
+    appendBlinkTeleportDelta(input, targetId, useWeakest, input.blinkReach, units, result);
     combo.consumeTypeToggle(EffectType::BlinkAttack);
 }
 

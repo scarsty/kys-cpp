@@ -110,8 +110,9 @@ struct BattleAutoUltimateCommand
 struct BattleKnockbackCommand
 {
     int targetUnitId{};
-    Pointf velocityDelta;
-    double velocityCap{};
+    Pointf direction;
+    double distance = 0.0;
+    int lockFrames = 1;
 };
 
 struct BattleTempAttackBuffCommand

@@ -15,6 +15,7 @@ find_package(imgui CONFIG REQUIRED)
 # Source files
 file(GLOB SRC_LIST
     ../src/*.cpp
+    ../src/battle/*.cpp
     ../mlcc/strfunc.cpp
     ../mlcc/filefunc.cpp
     ../mlcc/ZipFile.cpp

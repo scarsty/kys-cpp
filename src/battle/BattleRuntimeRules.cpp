@@ -101,6 +101,7 @@ BattleRuntimeRulesConfig makeHadesBattleRuntimeRules(double tileWidth, int coord
     const double meleeAttackReach = meleeAttackEffectOffset + meleeAttackHitRadius - meleeAttackSafetyMargin;
     const double meleeLocalTargetRadius = meleeAttackReach + meleeAttackEffectOffset;
     const double dashAttackMeleeReach = meleeAttackReach + meleeLocalTargetRadius;
+    const double heavyAttackReach = tileWidth * 6.0;
 
     BattleRuntimeRulesConfig rules;
     rules.gridTransform = { tileWidth, coordCount };
@@ -132,6 +133,7 @@ BattleRuntimeRulesConfig makeHadesBattleRuntimeRules(double tileWidth, int coord
     rules.action.tileWidth = tileWidth;
     rules.action.meleeAttackHitRadius = meleeAttackHitRadius;
     rules.action.meleeAttackReach = meleeAttackReach;
+    rules.action.heavyAttackReach = heavyAttackReach;
     rules.action.dashAttackMeleeReach = dashAttackMeleeReach;
     rules.action.blinkWeakTargetDefWeight = BLINK_WEAK_TARGET_DEF_WEIGHT;
     rules.action.dashMomentumFrames = DASH_MOMENTUM_FRAMES;

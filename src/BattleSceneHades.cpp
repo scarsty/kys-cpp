@@ -366,19 +366,24 @@ KysChess::Battle::BattleRuntimeSessionCreationInput BattleSceneHades::makeBattle
 
     auto& obtained = progress_.getObtainedNeigong();
     input.setup.obtainedNeigongMagicIds.assign(obtained.begin(), obtained.end());
-    for (const auto& [x, y] : clone_spawn_positions_)
+    auto appendCloneSpawnCells = [&](const std::vector<std::pair<int, int>>& positions, int team)
     {
-        bool occupied = false;
-        for (const auto& unit : input.units)
+        for (const auto& [x, y] : positions)
         {
-            if (unit.alive && unit.gridX == x && unit.gridY == y)
+            bool occupied = false;
+            for (const auto& unit : input.units)
             {
-                occupied = true;
-                break;
+                if (unit.alive && unit.gridX == x && unit.gridY == y)
+                {
+                    occupied = true;
+                    break;
+                }
             }
+            input.setup.cloneCells.push_back({ x, y, true, occupied, team });
         }
-        input.setup.cloneCells.push_back({ x, y, true, occupied });
-    }
+    };
+    appendCloneSpawnCells(clone_spawn_positions_, 0);
+    appendCloneSpawnCells(enemy_clone_spawn_positions_, 1);
     return input;
 }
 

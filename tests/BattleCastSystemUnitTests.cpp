@@ -375,6 +375,7 @@ TEST_CASE("BattleCastSystem_RuntimeCastPlanningUsesConfiguredCdrEffect", "[battl
 
     REQUIRE((state.units.require(0).pendingCast() != nullptr));
     CHECK(state.units.requireCore(0).animation.cooldown == 84);
+    CHECK(state.units.requireCore(0).animation.cooldownMax == 84);
     CHECK(result.gameplayEvents.front().type == BattleGameplayEventType::CastStarted);
 }
 
@@ -675,6 +676,7 @@ TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectile
     CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::MeleeSplash);
     CHECK(result.attackSpawnRequests[1].initial.strengthMultiplier == Catch::Approx(0.5f));
     CHECK(result.attackSpawnRequests[1].initial.track);
+    CHECK_FALSE(result.attackSpawnRequests[1].initial.mainProjectile);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == 60);
     CHECK(result.attackSpawnRequests[1].initialFrame == 5);
     CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(TestMeleeSplashProjectileSpeed));

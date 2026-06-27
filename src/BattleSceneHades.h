@@ -90,6 +90,7 @@ public:
     void setEnemyWeapons(const std::vector<int>& weapons) { enemy_weapons_ = weapons; }
     void setEnemyArmors(const std::vector<int>& armors) { enemy_armors_ = armors; }
     void setCloneSpawnPositions(const std::vector<std::pair<int, int>>& positions) { clone_spawn_positions_ = positions; }
+    void setEnemyCloneSpawnPositions(const std::vector<std::pair<int, int>>& positions) { enemy_clone_spawn_positions_ = positions; }
     void setCountFightsWon(bool countFightsWon) { count_fights_won_ = countFightsWon; }
 
     static int getOperationType(int attackAreaType);
@@ -110,6 +111,7 @@ protected:
     std::vector<int> enemy_weapons_;
     std::vector<int> enemy_armors_;
     std::vector<std::pair<int, int>> clone_spawn_positions_;
+    std::vector<std::pair<int, int>> enemy_clone_spawn_positions_;
     std::unordered_map<int, int> hurt_flash_timers_;
     BattleSceneUnitStore scene_units_;
     std::deque<BattleAttackEffect> attack_effects_;

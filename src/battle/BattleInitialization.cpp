@@ -6,6 +6,7 @@
 #include "../Find.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <format>
@@ -35,6 +36,13 @@ struct TeamResolvedSetup
 {
     std::map<int, RoleComboState> baseStatesByRealRoleId;
     std::vector<std::pair<ComboEffect, int>> teamwideEffects;
+};
+
+struct OpponentTopDebuffSummary
+{
+    int liveOwners{};
+    int topTargets{};
+    int perOwnerValue{};
 };
 
 int applyPercentBonus(int value, double pct)
@@ -383,16 +391,15 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
     int frame,
     std::vector<BattleLogEvent>& logEvents)
 {
-    int liveAllies = 0;
-    int topTargets = 0;
-    int perMemberValue = 0;
+    std::array<OpponentTopDebuffSummary, 2> summaries;
     for (const auto& spawn : spawns)
     {
-        const auto& ally = spawn.unit;
-        if (!ally.alive || ally.team != 0)
+        const auto& owner = spawn.unit;
+        if (!owner.alive)
         {
             continue;
         }
+        assert(owner.team == 0 || owner.team == 1);
 
         const auto* topDebuff = (spawn.combo).firstAlways(EffectType::EnemyTopDebuff);
         if (!topDebuff || topDebuff->value <= 0)
@@ -400,19 +407,10 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
             continue;
         }
 
-        liveAllies++;
-        topTargets = std::max(topTargets, topDebuff->value);
-        perMemberValue = std::max(perMemberValue, topDebuff->value2);
-    }
-
-    std::vector<BattleRuntimeUnitSpawn*> enemyOrder;
-    for (auto& spawn : spawns)
-    {
-        const auto& unit = spawn.unit;
-        if (unit.team == 1 && unit.alive)
-        {
-            enemyOrder.push_back(&spawn);
-        }
+        auto& summary = summaries[owner.team];
+        summary.liveOwners++;
+        summary.topTargets = std::max(summary.topTargets, topDebuff->value);
+        summary.perOwnerValue = std::max(summary.perOwnerValue, topDebuff->value2);
     }
 
     auto sortScore = [](const BattleRuntimeUnit& unit)
@@ -430,66 +428,81 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
         return score;
     };
 
-    std::stable_sort(
-        enemyOrder.begin(),
-        enemyOrder.end(),
-        [&sortScore](const BattleRuntimeUnitSpawn* left, const BattleRuntimeUnitSpawn* right)
-        {
-            const long long leftScore = sortScore(left->unit);
-            const long long rightScore = sortScore(right->unit);
-            if (leftScore != rightScore)
-            {
-                return leftScore > rightScore;
-            }
-            return left->unit.vitals.maxHp > right->unit.vitals.maxHp;
-        });
-
     std::vector<BattleInitializationEnemyTopDebuffDelta> deltas;
-    int assignedTargets = 0;
-    for (auto* enemySpawn : enemyOrder)
+    for (int ownerTeam = 0; ownerTeam < static_cast<int>(summaries.size()); ++ownerTeam)
     {
-        auto& enemy = enemySpawn->unit;
-        auto& combo = enemySpawn->combo;
-
-        int desired = 0;
-        if (assignedTargets < topTargets && liveAllies > 0 && perMemberValue > 0)
+        const auto& summary = summaries[ownerTeam];
+        const int targetTeam = 1 - ownerTeam;
+        std::vector<BattleRuntimeUnitSpawn*> targetOrder;
+        for (auto& spawn : spawns)
         {
-            desired = perMemberValue * liveAllies;
-            ++assignedTargets;
+            const auto& unit = spawn.unit;
+            if (unit.team == targetTeam && unit.alive)
+            {
+                targetOrder.push_back(&spawn);
+            }
         }
 
-        const int delta = combo.setEnemyTopDebuffApplied(desired);
-        if (delta == 0)
-        {
-            continue;
-        }
+        std::stable_sort(
+            targetOrder.begin(),
+            targetOrder.end(),
+            [&sortScore](const BattleRuntimeUnitSpawn* left, const BattleRuntimeUnitSpawn* right)
+            {
+                const long long leftScore = sortScore(left->unit);
+                const long long rightScore = sortScore(right->unit);
+                if (leftScore != rightScore)
+                {
+                    return leftScore > rightScore;
+                }
+                return left->unit.vitals.maxHp > right->unit.vitals.maxHp;
+            });
 
-        enemy.stats.attack = std::max(0, enemy.stats.attack - delta);
-        enemy.stats.defence = std::max(0, enemy.stats.defence - delta);
-        deltas.push_back({
-            enemy.id,
-            -delta,
-            -delta,
-            desired,
-        });
-        logEvents.push_back({
-            BattleLogEventType::Status,
-            frame,
-            -1,
-            enemy.id,
-            0,
-            BattleLogCategory::Status,
-            BattleLogPerspective::Targeted,
-            logSegments<BattleLogTextTone::SkillName>(
-                "陰險：前",
-                std::pair{ BattleLogTextTone::ResourceValue, topTargets },
-                "名攻防",
-                std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, delta > 0 ? "-" : "+" },
-                std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, std::abs(delta) },
-                "（",
-                std::pair{ BattleLogTextTone::ResourceValue, liveAllies },
-                "名存活）"),
-        });
+        int assignedTargets = 0;
+        for (auto* targetSpawn : targetOrder)
+        {
+            auto& target = targetSpawn->unit;
+            auto& combo = targetSpawn->combo;
+
+            int desired = 0;
+            if (assignedTargets < summary.topTargets && summary.liveOwners > 0 && summary.perOwnerValue > 0)
+            {
+                desired = summary.perOwnerValue * summary.liveOwners;
+                ++assignedTargets;
+            }
+
+            const int delta = combo.setEnemyTopDebuffApplied(desired);
+            if (delta == 0)
+            {
+                continue;
+            }
+
+            target.stats.attack = std::max(0, target.stats.attack - delta);
+            target.stats.defence = std::max(0, target.stats.defence - delta);
+            deltas.push_back({
+                target.id,
+                -delta,
+                -delta,
+                desired,
+            });
+            logEvents.push_back({
+                BattleLogEventType::Status,
+                frame,
+                -1,
+                target.id,
+                0,
+                BattleLogCategory::Status,
+                BattleLogPerspective::Targeted,
+                logSegments<BattleLogTextTone::SkillName>(
+                    "陰險：前",
+                    std::pair{ BattleLogTextTone::ResourceValue, summary.topTargets },
+                    "名攻防",
+                    std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, delta > 0 ? "-" : "+" },
+                    std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, std::abs(delta) },
+                    "（",
+                    std::pair{ BattleLogTextTone::ResourceValue, summary.liveOwners },
+                    "名存活）"),
+            });
+        }
     }
 
     return deltas;
@@ -523,7 +536,7 @@ private:
     void appendSpawn(BattleRuntimeUnitSpawn spawn);
 
     int teamFlatShield(int team) const;
-    int cloneCount() const;
+    std::map<int, int> cloneCountByTeam() const;
 
     const TeamResolvedSetup& resolvedForTeam(int team) const;
     const std::vector<BattleSetupRosterUnit>& rosterForTeam(int team) const;
@@ -774,20 +787,25 @@ void BattleStartInitializationRun::applyTeamFlatShields()
     }
 }
 
-int BattleStartInitializationRun::cloneCount() const
+std::map<int, int> BattleStartInitializationRun::cloneCountByTeam() const
 {
-    int count = 0;
+    std::map<int, int> countByTeam;
     for (const auto& spawn : spawns_)
     {
-        count = std::max(count, (spawn.combo).maxAlways(EffectType::CloneSummon));
+        const int count = (spawn.combo).maxAlways(EffectType::CloneSummon);
+        if (count <= 0)
+        {
+            continue;
+        }
+        countByTeam[spawn.unit.team] = std::max(countByTeam[spawn.unit.team], count);
     }
-    return count;
+    return countByTeam;
 }
 
 void BattleStartInitializationRun::summonClones()
 {
-    const int count = cloneCount();
-    if (count <= 0 || setup_.cloneSources.empty())
+    const auto countByTeam = cloneCountByTeam();
+    if (countByTeam.empty() || setup_.cloneSources.empty())
     {
         return;
     }
@@ -809,81 +827,98 @@ void BattleStartInitializationRun::summonClones()
             return left.sourceOrder < right.sourceOrder;
         });
 
-    std::set<int> usedInstanceIds;
-    std::vector<BattleInitializationCloneSource> cloneCandidates;
-    std::vector<BattleInitializationCloneSource> fallbackCandidates;
-    for (const auto& source : cloneSources)
+    int nextRuntimeUnitId = static_cast<int>(spawns_.size());
+    std::set<std::pair<int, int>> usedCloneCells;
+    for (const auto& [team, count] : countByTeam)
     {
-        if (source.chessInstanceId >= 0)
+        std::set<int> usedInstanceIds;
+        std::vector<BattleInitializationCloneSource> cloneCandidates;
+        std::vector<BattleInitializationCloneSource> fallbackCandidates;
+        for (const auto& source : cloneSources)
         {
-            if (!usedInstanceIds.insert(source.chessInstanceId).second)
+            const auto& sourceSpawn = spawn(source.sourceUnitId);
+            if (sourceSpawn.unit.team != team)
             {
-                fallbackCandidates.push_back(source);
                 continue;
             }
+            if (source.chessInstanceId >= 0)
+            {
+                if (!usedInstanceIds.insert(source.chessInstanceId).second)
+                {
+                    fallbackCandidates.push_back(source);
+                    continue;
+                }
+            }
+            cloneCandidates.push_back(source);
         }
-        cloneCandidates.push_back(source);
-    }
-    cloneCandidates.insert(cloneCandidates.end(), fallbackCandidates.begin(), fallbackCandidates.end());
+        cloneCandidates.insert(cloneCandidates.end(), fallbackCandidates.begin(), fallbackCandidates.end());
 
-    int nextRuntimeUnitId = static_cast<int>(spawns_.size());
-    int spawned = 0;
-    for (const auto& cell : setup_.cloneCells)
-    {
-        if (spawned >= count || cloneCandidates.empty())
+        int spawned = 0;
+        for (const auto& cell : setup_.cloneCells)
         {
-            break;
+            if (spawned >= count || cloneCandidates.empty())
+            {
+                break;
+            }
+            if (cell.team >= 0 && cell.team != team)
+            {
+                continue;
+            }
+            if (!cell.walkable || cell.occupied)
+            {
+                continue;
+            }
+            if (!usedCloneCells.insert({ cell.x, cell.y }).second)
+            {
+                continue;
+            }
+
+            const auto& source = cloneCandidates[spawned % cloneCandidates.size()];
+            const auto& sourceSpawn = spawn(source.sourceUnitId);
+            const auto& sourceUnit = sourceSpawn.unit;
+
+            auto cloneCombo = KysChess::ChessBattleEffects::makeSummonedCloneState(sourceSpawn.combo);
+            auto cloneUnit = makeCloneRuntimeUnit(
+                sourceUnit,
+                nextRuntimeUnitId,
+                context_.gridTransform,
+                cell);
+
+            std::optional<BattleActionPlanSeed> cloneActionPlan;
+            if (sourceSpawn.actionPlan)
+            {
+                cloneActionPlan = sourceSpawn.actionPlan;
+            }
+            auto cloneSpawn = makeRuntimeUnitSpawn(
+                std::move(cloneUnit),
+                std::move(cloneCombo),
+                std::move(cloneActionPlan));
+
+            result_.roleDeltas.push_back(makeRoleDelta(
+                nextRuntimeUnitId,
+                cloneSpawn.unit.star,
+                cloneSpawn.unit.vitals,
+                cloneSpawn.unit.stats));
+            result_.logEvents.push_back({
+                BattleLogEventType::Status,
+                context_.frame,
+                source.sourceUnitId,
+                nextRuntimeUnitId,
+                0,
+                BattleLogCategory::Status,
+                BattleLogPerspective::Targeted,
+                logSegments<BattleLogTextTone::SkillName>(
+                    "七截分身（落點 ",
+                    std::pair{ BattleLogTextTone::ResourceValue, cell.x },
+                    ", ",
+                    std::pair{ BattleLogTextTone::ResourceValue, cell.y },
+                    "）"),
+            });
+            appendSpawn(std::move(cloneSpawn));
+
+            ++nextRuntimeUnitId;
+            ++spawned;
         }
-        if (!cell.walkable || cell.occupied)
-        {
-            continue;
-        }
-
-        const auto& source = cloneCandidates[spawned % cloneCandidates.size()];
-        const auto& sourceSpawn = spawn(source.sourceUnitId);
-        const auto& sourceUnit = sourceSpawn.unit;
-
-        auto cloneCombo = KysChess::ChessBattleEffects::makeSummonedCloneState(sourceSpawn.combo);
-        auto cloneUnit = makeCloneRuntimeUnit(
-            sourceUnit,
-            nextRuntimeUnitId,
-            context_.gridTransform,
-            cell);
-
-        std::optional<BattleActionPlanSeed> cloneActionPlan;
-        if (sourceSpawn.actionPlan)
-        {
-            cloneActionPlan = sourceSpawn.actionPlan;
-        }
-        auto cloneSpawn = makeRuntimeUnitSpawn(
-            std::move(cloneUnit),
-            std::move(cloneCombo),
-            std::move(cloneActionPlan));
-
-        result_.roleDeltas.push_back(makeRoleDelta(
-            nextRuntimeUnitId,
-            cloneSpawn.unit.star,
-            cloneSpawn.unit.vitals,
-            cloneSpawn.unit.stats));
-        result_.logEvents.push_back({
-            BattleLogEventType::Status,
-            context_.frame,
-            source.sourceUnitId,
-            nextRuntimeUnitId,
-            0,
-            BattleLogCategory::Status,
-            BattleLogPerspective::Targeted,
-            logSegments<BattleLogTextTone::SkillName>(
-                "七截分身（落點 ",
-                std::pair{ BattleLogTextTone::ResourceValue, cell.x },
-                ", ",
-                std::pair{ BattleLogTextTone::ResourceValue, cell.y },
-                "）"),
-        });
-        appendSpawn(std::move(cloneSpawn));
-
-        ++nextRuntimeUnitId;
-        ++spawned;
     }
 }
 

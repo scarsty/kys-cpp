@@ -32,6 +32,7 @@ struct BattleInitializationCloneSpawnCell
     int y = 0;
     bool walkable = false;
     bool occupied = false;
+    int team = -1;
 };
 
 struct BattleInitializationCloneSource

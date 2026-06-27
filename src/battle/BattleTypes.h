@@ -91,6 +91,8 @@ struct BattleUnitState
     int movementDashSpreadFramesRemaining = 0;
     int postDashRetreatFramesRemaining = 0;
     int postDashChaosFramesRemaining = 0;
+    int knockbackFramesRemaining = 0;
+    int knockbackControlFramesRemaining = 0;
 };
 
 struct MoveProbe
@@ -114,6 +116,8 @@ struct MovementDecision
     int movementDashSpreadFramesRemaining = 0;
     int postDashRetreatFramesRemaining = 0;
     int postDashChaosFramesRemaining = 0;
+    int knockbackFramesRemaining = 0;
+    int knockbackControlFramesRemaining = 0;
     MoveBlockReason blockReason = MoveBlockReason::None;
     int blockerId = -1;
     double dashDistance = 0.0;
@@ -145,6 +149,23 @@ struct BattleMovementReservation
     int expiresFrame = 0;
 };
 
+struct BattleMovementYieldRequest
+{
+    int unitId = -1;
+    int requesterUnitId = -1;
+    Pointf requesterPosition;
+    Pointf desiredPosition;
+    int expiresFrame = 0;
+};
+
+struct BattleMovementDetourRequest
+{
+    int unitId = -1;
+    int blockerUnitId = -1;
+    Pointf direction;
+    int expiresFrame = 0;
+};
+
 struct BattleMovementPhysicsState
 {
     Pointf position;
@@ -156,6 +177,9 @@ struct BattleMovementPhysicsState
     Pointf postDashRetreatVelocity;
     int postDashRetreatFrames = 0;
     int postDashChaosFrames = 0;
+    Pointf knockbackVelocity;
+    int knockbackFrames = 0;
+    int knockbackControlFrames = 0;
 };
 
 struct BattleMovementAgentState
@@ -173,6 +197,8 @@ struct BattleTickResult
     std::vector<BattleEvent> events;
     std::map<int, MovementDecision> decisions;
     std::map<int, BattleMovementReservation> movementReservations;
+    std::map<int, BattleMovementYieldRequest> yieldRequests;
+    std::map<int, BattleMovementDetourRequest> detourRequests;
 };
 
 struct BattleMovementPlanInput
@@ -182,6 +208,8 @@ struct BattleMovementPlanInput
     std::vector<BattleUnitState> units;
     std::vector<BattleTerrainCell> terrainCells;
     std::map<int, BattleMovementReservation> movementReservations;
+    std::map<int, BattleMovementYieldRequest> yieldRequests;
+    std::map<int, BattleMovementDetourRequest> detourRequests;
 };
 
 struct BattleMovementState
@@ -191,6 +219,8 @@ struct BattleMovementState
     BattleMovementConfig config;
     std::vector<BattleTerrainCell> terrainCells;
     std::map<int, BattleMovementReservation> movementReservations;
+    std::map<int, BattleMovementYieldRequest> yieldRequests;
+    std::map<int, BattleMovementDetourRequest> detourRequests;
 };
 
 }  // namespace KysChess::Battle

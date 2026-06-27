@@ -232,6 +232,29 @@ TEST_CASE("BattleHitResolver_RangedSideProjectileDoesNotApplyStunEffects", "[bat
         }));
 }
 
+TEST_CASE("BattleHitResolver_SpawnedMeleeSplashDoesNotApplyStunEffects", "[battle][hit_resolver][unit]")
+{
+    auto input = comboHitInput();
+    input.attackEvent.operationType = BattleOperationType::Melee;
+    input.attackEvent.mainProjectile = false;
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 90;
+    input.attackerCombo.applyConfiguredEffect({ KysChess::EffectType::Stun, 7, 0, "", KysChess::Trigger::Always, 100 });
+    input.attackerCombo.applyConfiguredEffect(
+        triggeredEffect(KysChess::EffectType::Stun, KysChess::Trigger::OnHit, 11, 100));
+
+    auto result = resolveHit(input);
+
+    CHECK(std::none_of(
+        result.commands.begin(),
+        result.commands.end(),
+        [](const BattleGameplayCommand& command)
+        {
+            const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command);
+            return sideEffect && sideEffect->damage.frozenFrames > 0;
+        }));
+}
+
 TEST_CASE("BattleHitResolver_KnockbackIsReturnedAsCommand", "[battle][hit_resolver][unit]")
 {
     auto input = comboHitInput();
@@ -247,9 +270,99 @@ TEST_CASE("BattleHitResolver_KnockbackIsReturnedAsCommand", "[battle][hit_resolv
     REQUIRE(knockback != result.commands.end());
     const auto& command = std::get<BattleKnockbackCommand>(*knockback);
     CHECK(command.targetUnitId == 2);
-    CHECK(command.velocityDelta.x == Catch::Approx(2.0f));
-    CHECK(command.velocityDelta.y == Catch::Approx(0.0f));
-    CHECK(command.velocityCap == Catch::Approx(3.0));
+    CHECK(command.direction.x == Catch::Approx(1.0f));
+    CHECK(command.direction.y == Catch::Approx(0.0f));
+    CHECK(command.distance == Catch::Approx(1.0));
+    CHECK(command.lockFrames == 1);
+}
+
+TEST_CASE("BattleHitResolver_KnockbackChanceUsesFacingWhenUnitsOverlap", "[battle][hit_resolver][unit]")
+{
+    auto input = comboHitInput();
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 90;
+    input.attacker.motion.position = input.defender.motion.position;
+    input.defender.motion.facing = { -1.0f, 0.0f, 0.0f };
+    input.attackerCombo.applyConfiguredEffect({ KysChess::EffectType::KnockbackChance, 100, 7, "", KysChess::Trigger::Always, 0, 4 });
+
+    auto result = resolveHit(input);
+
+    std::vector<BattleKnockbackCommand> knockbacks;
+    for (const auto& command : result.commands)
+    {
+        if (const auto* knockback = std::get_if<BattleKnockbackCommand>(&command))
+        {
+            knockbacks.push_back(*knockback);
+        }
+    }
+
+    REQUIRE(knockbacks.size() == 2);
+    CHECK(knockbacks[0].direction.x == Catch::Approx(-1.0f));
+    CHECK(knockbacks[0].direction.y == Catch::Approx(0.0f));
+    CHECK(knockbacks[0].distance == Catch::Approx(1.0));
+    CHECK(knockbacks[0].lockFrames == 1);
+    CHECK(knockbacks[1].direction.x == Catch::Approx(-1.0f));
+    CHECK(knockbacks[1].direction.y == Catch::Approx(0.0f));
+    CHECK(knockbacks[1].distance == Catch::Approx(7.0));
+    CHECK(knockbacks[1].lockFrames == 4);
+
+    auto log = std::find_if(
+        result.logEvents.begin(),
+        result.logEvents.end(),
+        [](const BattleLogEvent& event)
+        {
+            return BattleLogTest::textOf(event) == "擊退（7距離·4幀）";
+        });
+    REQUIRE(log != result.logEvents.end());
+    CHECK(log->type == BattleLogEventType::Status);
+    CHECK(log->sourceUnitId == input.attacker.id);
+    CHECK(log->targetUnitId == input.defender.id);
+}
+
+TEST_CASE("BattleHitResolver_SideProjectileDoesNotProcKnockbackChance", "[battle][hit_resolver][unit]")
+{
+    auto input = comboHitInput();
+    input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.attackEvent.mainProjectile = false;
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 90;
+    input.attackerCombo.applyConfiguredEffect({ KysChess::EffectType::KnockbackChance, 100, 7, "", KysChess::Trigger::Always, 0, 4 });
+
+    auto result = resolveHit(input);
+
+    int knockbackCount = 0;
+    for (const auto& command : result.commands)
+    {
+        if (std::holds_alternative<BattleKnockbackCommand>(command))
+        {
+            ++knockbackCount;
+        }
+    }
+
+    CHECK(knockbackCount == 1);
+}
+
+TEST_CASE("BattleHitResolver_RangedMainProjectileCanProcKnockbackChance", "[battle][hit_resolver][unit]")
+{
+    auto input = comboHitInput();
+    input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.attackEvent.mainProjectile = true;
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 90;
+    input.attackerCombo.applyConfiguredEffect({ KysChess::EffectType::KnockbackChance, 100, 7, "", KysChess::Trigger::Always, 0, 4 });
+
+    auto result = resolveHit(input);
+
+    int knockbackCount = 0;
+    for (const auto& command : result.commands)
+    {
+        if (std::holds_alternative<BattleKnockbackCommand>(command))
+        {
+            ++knockbackCount;
+        }
+    }
+
+    CHECK(knockbackCount == 2);
 }
 
 TEST_CASE("BattleHitResolver_CritMarksResultAndKeepsDamageDetail", "[battle][hit_resolver][unit]")
@@ -309,7 +422,7 @@ TEST_CASE("BattleHitResolver_DamageCommandLabelsProjectileSource", "[battle][hit
     CHECK(BattleLogTest::joinSegments(damage->segments).find("絕招追蹤彈") != std::string::npos);
 }
 
-TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand", "[battle][hit_resolver][unit]")
+TEST_CASE("BattleHitResolver_HpOnHitEmitsAcceptedHitCommandOnly", "[battle][hit_resolver][unit]")
 {
     auto input = comboHitInput();
     input.skill.id = 101;
@@ -328,11 +441,7 @@ TEST_CASE("BattleHitResolver_HpOnHitEmitsHealPresentationAndAcceptedHitCommand",
         {
             return event.type == BattleLogEventType::Heal;
         });
-    REQUIRE(heal != result.logEvents.end());
-    CHECK(heal->sourceUnitId == 1);
-    CHECK(heal->targetUnitId == 1);
-    CHECK(heal->amount == 20);
-    CHECK(BattleLogTest::textOf(*heal) == "命中回血");
+    CHECK(heal == result.logEvents.end());
 }
 
 TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resolver][unit]")

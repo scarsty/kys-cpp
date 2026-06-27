@@ -278,11 +278,20 @@ TEST_CASE("BattleDamageSystem_CooldownExtension_RequiresActiveActionAndCaps", "[
     CHECK(result.before == 50);
     CHECK(result.after == 75);
     CHECK(result.unit.cooldown == 75);
+    CHECK(result.unit.cooldownMax == 100);
+
+    state.cooldown = 100;
+    result = BattleDamageSystem().extendActiveCooldown(state, 25);
+    CHECK(result.increased);
+    CHECK(result.unit.cooldown == 125);
+    CHECK(result.unit.cooldownMax == 125);
 
     state.cooldown = 125;
+    state.cooldownMax = 100;
     result = BattleDamageSystem().extendActiveCooldown(state, 25);
     CHECK_FALSE(result.increased);
     CHECK(result.unit.cooldown == 125);
+    CHECK(result.unit.cooldownMax == 100);
 
     state.cooldown = 50;
     state.haveAction = false;

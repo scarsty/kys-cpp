@@ -35,27 +35,7 @@ if(WIN32)
     list(APPEND KYS_COMMON_DEFINITIONS _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN NOMINMAX)
 endif()
 
-set(KYS_BATTLE_SOURCES
-    battle/BattleAttackSystem.cpp
-    battle/BattleCastSystem.cpp
-    battle/BattleComboTriggerSystem.cpp
-    battle/BattleCore.cpp
-    battle/BattleCombatIntent.cpp
-    battle/BattleDamageSystem.cpp
-    battle/BattleDeathEffectSystem.cpp
-    battle/BattleGeometry.cpp
-    battle/BattleHitResolver.cpp
-    battle/BattleInitialization.cpp
-    battle/BattleMovement.cpp
-    battle/BattleProjectileTargetingSystem.cpp
-    battle/BattleRescueRepositionSystem.cpp
-    battle/BattleRuntimeRandom.cpp
-    battle/BattleRuntimeRules.cpp
-    battle/BattleRuntimeSession.cpp
-    battle/BattleRuntimeUnitSpawn.cpp
-    battle/BattleStatusSystem.cpp
-    battle/BattleTeamEffectSystem.cpp
-)
+file(GLOB KYS_BATTLE_SOURCES CONFIGURE_DEPENDS "battle/*.cpp")
 
 add_library(kys_battle_core STATIC ${KYS_BATTLE_SOURCES})
 target_include_directories(kys_battle_core PUBLIC ${KYS_COMMON_INCLUDES})
@@ -111,6 +91,7 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleAttackSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCastSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessBattleEffectsUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessShopWeightDisplayUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleComboTriggerSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCoreUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleDamageSystemUnitTests.cpp"

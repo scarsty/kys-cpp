@@ -24,6 +24,7 @@ struct MovementStats
     double lastDashDistance = 0.0;
     int attackReadyFrames = 0;
     int directionReversalCount = 0;
+    int directionSharpTurnCount = 0;
     MoveBlockReason lastBlockReason = MoveBlockReason::None;
 };
 
@@ -52,12 +53,16 @@ inline void applyMovementDecisionToPlanWorld(BattleMovementPlanInput& world, con
     unit.movementDashSpreadFramesRemaining = decision.movementDashSpreadFramesRemaining;
     unit.postDashRetreatFramesRemaining = decision.postDashRetreatFramesRemaining;
     unit.postDashChaosFramesRemaining = decision.postDashChaosFramesRemaining;
+    unit.knockbackFramesRemaining = decision.knockbackFramesRemaining;
+    unit.knockbackControlFramesRemaining = decision.knockbackControlFramesRemaining;
 }
 
 inline void applyMovementTickToPlanWorld(BattleMovementPlanInput& world, const BattleTickResult& result)
 {
     world.frame = result.frame;
     world.movementReservations = result.movementReservations;
+    world.yieldRequests = result.yieldRequests;
+    world.detourRequests = result.detourRequests;
     for (const auto& entry : result.decisions)
     {
         applyMovementDecisionToPlanWorld(world, entry.second);
@@ -163,7 +168,12 @@ inline MovementRunResult runMovementPlanForFrames(BattleMovementPlanInput world,
             {
                 auto currentDir = normalizedTo(unit.velocity, 1.0, 0.01);
                 auto lastDir = normalizedTo(lastDirections[unit.id], 1.0, 0.01);
-                if (dot2d(currentDir, lastDir) < -0.5)
+                const double turnDot = dot2d(currentDir, lastDir);
+                if (turnDot < 0.5)
+                {
+                    stats.directionSharpTurnCount++;
+                }
+                if (turnDot < -0.5)
                 {
                     stats.directionReversalCount++;
                 }

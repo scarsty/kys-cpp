@@ -164,6 +164,30 @@ TEST_CASE("BattleSceneSetupBuilder_EmitsRuntimeSeedRowsWithSetupUnits", "[battle
     CHECK(result.sessionInput.actionPlanSeeds[0].hasEquippedSkill == result.sessionInput.units[0].hasEquippedSkill);
 }
 
+TEST_CASE("BattleSceneSetupBuilder_EmitsCloneSourcesForBothTeams", "[battle][scene_setup]")
+{
+    Role ally = makeSavedRole(1001);
+    Role enemy = makeSavedRole(1002);
+    enemy.MaxHP = 140;
+    enemy.Attack = 31;
+    enemy.Defence = 17;
+
+    std::vector<KysChess::BattleSceneSetupBuilder::BattleSceneSetupUnitRequest> requests;
+    requests.push_back({ .unitId = 0, .source = &ally, .team = 0, .gridX = 2, .gridY = 3, .star = 2, .faceTowardsFallback = Towards_RightDown, .sourceOrder = 0 });
+    requests.push_back({ .unitId = 1, .source = &enemy, .team = 1, .gridX = 7, .gridY = 8, .star = 3, .faceTowardsFallback = Towards_LeftUp, .sourceOrder = 1 });
+    for (auto& request : requests)
+    {
+        populateSetupFacts(request);
+    }
+
+    const auto result = KysChess::BattleSceneSetupBuilder::buildSetupUnits(requests);
+
+    REQUIRE(result.sessionInput.setup.cloneSources.size() == 2);
+    CHECK(result.sessionInput.setup.cloneSources[0].sourceUnitId == 0);
+    CHECK(result.sessionInput.setup.cloneSources[1].sourceUnitId == 1);
+    CHECK(result.sessionInput.setup.cloneSources[1].power == enemy.MaxHP + enemy.Attack + enemy.Defence);
+}
+
 TEST_CASE("BattleSceneSetupBuilder_AssignsDenseUnitsInProvidedOrder", "[battle][scene_setup]")
 {
     Role first = makeSavedRole(1001);

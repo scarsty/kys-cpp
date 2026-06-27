@@ -28,6 +28,7 @@ BattleRuntimeUnitFrameTickResult BattleRuntimeUnitRecord::advanceFrameTick(
 
     if (core.animation.cooldown == 0)
     {
+        core.animation.cooldownMax = 0;
         if (config.frame % config.physicalPowerRegenIntervalFrames == 0)
         {
             ++core.physicalPower;

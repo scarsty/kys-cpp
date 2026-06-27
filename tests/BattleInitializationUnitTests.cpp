@@ -125,19 +125,19 @@ void addRuntimeSetupSeed(
     if (unit.team == 0)
     {
         input.setup.allyRoster.push_back(roster);
-        input.setup.cloneSources.push_back({
-            unit.unitId,
-            unit.realRoleId,
-            unit.vitals.maxHp + unit.stats.attack + unit.stats.defence,
-            unit.star,
-            unit.chessInstanceId,
-            unit.sourceOrder,
-        });
     }
     else
     {
         input.setup.enemyRoster.push_back(roster);
     }
+    input.setup.cloneSources.push_back({
+        unit.unitId,
+        unit.realRoleId,
+        unit.vitals.maxHp + unit.stats.attack + unit.stats.defence,
+        unit.star,
+        unit.chessInstanceId,
+        unit.sourceOrder,
+    });
 }
 
 BattleActionSkillSeed makeHadesTestSkillSeed(
@@ -503,6 +503,33 @@ TEST_CASE("BattleStartInitializer_EnemyTopDebuffEmitsBattleLog", "[battle][initi
     CHECK(logIt != output.result.logEvents.end());
 }
 
+TEST_CASE("BattleStartInitializer_EnemyOwnedTopDebuffTargetsAllies", "[battle][initialization]")
+{
+    auto spawns = runtimeSpawns({
+        runtimeUnit(0, 0, 100, 80, 50, 40),
+        runtimeUnit(1, 0, 120, 60, 40, 40),
+        runtimeUnit(2, 1, 100, 20, 30, 40),
+    });
+
+    RoleComboState enemyCombo;
+    enemyCombo.applyConfiguredEffect({ EffectType::EnemyTopDebuff, 1, 7 });
+    requireSpawn(spawns, 2).combo = enemyCombo;
+
+    BattleRuntimeSetupSeed setup;
+    setup.units.push_back({ .unitId = 0, .realRoleId = 1001, .team = 0, .star = 1, .cost = 3, .baseMaxHp = 100, .baseAttack = 80, .baseDefence = 50, .baseSpeed = 40 });
+    setup.units.push_back({ .unitId = 1, .realRoleId = 1002, .team = 0, .star = 1, .cost = 1, .baseMaxHp = 120, .baseAttack = 60, .baseDefence = 40, .baseSpeed = 40 });
+    setup.units.push_back({ .unitId = 2, .realRoleId = 2001, .team = 1, .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40 });
+
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
+
+    REQUIRE(output.result.enemyTopDebuffs.size() == 1);
+    CHECK(output.result.enemyTopDebuffs[0].unitId == 0);
+    CHECK(requireSpawn(output.spawns, 0).unit.stats.attack == 73);
+    CHECK(requireSpawn(output.spawns, 0).unit.stats.defence == 43);
+    CHECK(requireSpawn(output.spawns, 1).unit.stats.attack == 60);
+    CHECK(requireSpawn(output.spawns, 1).unit.stats.defence == 40);
+}
+
 TEST_CASE("BattleStartInitializer_CreatesRuntimeCloneBeforeSceneMirror", "[battle][initialization]")
 {
     auto source = runtimeUnit(0, 0, 100, 20, 30, 40);
@@ -557,6 +584,63 @@ TEST_CASE("BattleStartInitializer_CreatesRuntimeCloneBeforeSceneMirror", "[battl
     CHECK(clone.armorId == -1);
     CHECK(clone.chessInstanceId == -1);
     CHECK(cloneSpawn.unit.cloneSourceUnitId == 0);
+}
+
+TEST_CASE("BattleStartInitializer_EnemyCloneSummonUsesEnemySource", "[battle][initialization]")
+{
+    auto ally = runtimeUnit(0, 0, 300, 80, 60, 40);
+    ally.realRoleId = 1001;
+    ally.name = "我方高戰力";
+
+    auto enemy = runtimeUnit(1, 1, 100, 20, 10, 30);
+    enemy.realRoleId = 2001;
+    enemy.name = "敵方七截";
+
+    RoleComboState enemyCombo;
+    enemyCombo.applyConfiguredEffect({ EffectType::CloneSummon, 1 });
+
+    std::vector<BattleRuntimeUnitSpawn> spawns;
+    spawns.push_back(runtimeSpawn(ally));
+    spawns.push_back(runtimeSpawn(enemy, enemyCombo));
+
+    BattleRuntimeSetupSeed setup;
+    setup.cloneSources.push_back({ 0, 1001, 440, 3, 7, 0 });
+    setup.cloneSources.push_back({ 1, 2001, 130, 1, -1, 1 });
+    setup.cloneCells.push_back({ 3, 4, true, false });
+
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
+
+    REQUIRE(output.spawns.size() == 3);
+    const auto& clone = requireSpawn(output.spawns, 2).unit;
+    CHECK(clone.cloneSourceUnitId == 1);
+    CHECK(clone.team == 1);
+    CHECK(clone.realRoleId == 2001);
+    CHECK(clone.name == "敵方七截");
+}
+
+TEST_CASE("BattleStartInitializer_EnemyCloneSummonUsesEnemySpawnCell", "[battle][initialization]")
+{
+    auto enemy = runtimeUnit(0, 1, 100, 20, 10, 30);
+    enemy.realRoleId = 2001;
+
+    RoleComboState enemyCombo;
+    enemyCombo.applyConfiguredEffect({ EffectType::CloneSummon, 1 });
+
+    std::vector<BattleRuntimeUnitSpawn> spawns;
+    spawns.push_back(runtimeSpawn(enemy, enemyCombo));
+
+    BattleRuntimeSetupSeed setup;
+    setup.cloneSources.push_back({ 0, 2001, 130, 1, -1, 0 });
+    setup.cloneCells.push_back({ 3, 4, true, false, 0 });
+    setup.cloneCells.push_back({ 9, 10, true, false, 1 });
+
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
+
+    REQUIRE(output.spawns.size() == 2);
+    const auto& clone = requireSpawn(output.spawns, 1).unit;
+    CHECK(clone.team == 1);
+    CHECK(clone.grid.x == 9);
+    CHECK(clone.grid.y == 10);
 }
 
 TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[battle][initialization]")

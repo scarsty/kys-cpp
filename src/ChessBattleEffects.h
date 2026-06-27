@@ -135,6 +135,9 @@ struct ComboEffect
     int maxCount = 0;
 };
 
+std::string comboEffectDesc(const ComboEffect& eff);
+std::string comboEffectCompactDesc(const ComboEffect& eff);
+
 struct RoleComboEffectId
 {
     int value = -1;

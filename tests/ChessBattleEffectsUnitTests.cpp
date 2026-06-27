@@ -43,6 +43,14 @@ TEST_CASE("ChessBattleEffects_StoresConfiguredEffectsWithStableIds", "[battle][e
     CHECK(state.effectIdsInAppendOrder().size() == 3);
 }
 
+TEST_CASE("ChessBattleEffects_ComboEffectDescSeparatesChanceTriggerFromDescription", "[chess][effects]")
+{
+    ComboEffect eff = effect(EffectType::NearbyTrackingProjectiles, 220, 40, Trigger::OnHit);
+    eff.triggerValue = 25;
+
+    CHECK(comboEffectDesc(eff) == "25%擊中觸發: 命中時向220範圍內敵人各發一枚40%追蹤彈");
+}
+
 TEST_CASE("ChessBattleEffects_RuntimeGrantsShareStoreButKeepOrigin", "[battle][effects]")
 {
     RoleComboState state;

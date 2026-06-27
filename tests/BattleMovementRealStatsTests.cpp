@@ -101,6 +101,78 @@ std::vector<BattleTerrainCell> terrainGridWithVerticalWallGap(
     return cells;
 }
 
+struct AsciiTerrainFixture
+{
+    std::vector<BattleTerrainCell> terrain;
+    Pointf rescuedPosition;
+    std::vector<Pointf> enemyPositions;
+    std::vector<Pointf> teammatePositions;
+};
+
+AsciiTerrainFixture narrowDefenseTerrain()
+{
+    const std::vector<std::string> rows = {
+        "............##....#..##.#####.",
+        "..............................",
+        "...###########################",
+        "...#########..................",
+        "...########...................",
+        "...#######....................",
+        "#..#####.............T........",
+        "#..####...E...................",
+        "...####.......................",
+        "...##................T........",
+        "...##....E....................",
+        "#..###........................",
+        "#..###...............T........",
+        "#..####.....E.................",
+        "######........................",
+        "#..#.....E...........T........",
+        "#..#.................+....#...",
+        "#..#..........E......+..#####.",
+        "...#.................T.#####X.",
+        "...#....E...E........+..#####.",
+        "...#...............E.+..#####.",
+        "...#...............E.T..#####.",
+        "...###.............E.....###..",
+        "...###....E...E..E.E......####",
+        "...###....................#...",
+        "...####...................#...",
+        "...####...................##..",
+        "...###....................##..",
+        "...###....................##..",
+        "...###....................###.",
+    };
+
+    AsciiTerrainFixture fixture;
+    for (int x = 0; x < static_cast<int>(rows.front().size()); ++x)
+    {
+        for (int y = 0; y < static_cast<int>(rows.size()); ++y)
+        {
+            const char tile = rows[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
+            const Pointf position{
+                static_cast<float>(x * SceneTileWidth),
+                static_cast<float>(y * SceneTileWidth),
+                0.0f,
+            };
+            fixture.terrain.push_back({ position, tile != '#' });
+            if (tile == 'X')
+            {
+                fixture.rescuedPosition = position;
+            }
+            else if (tile == 'E')
+            {
+                fixture.enemyPositions.push_back(position);
+            }
+            else if (tile == 'T')
+            {
+                fixture.teammatePositions.push_back(position);
+            }
+        }
+    }
+    return fixture;
+}
+
 BattleMovementPlanInput makeWorld(const std::vector<PinnedUnitSpec>& specs,
                            std::vector<BattleTerrainCell> terrain = {})
 {
@@ -330,6 +402,214 @@ TEST_CASE("MeleeSwarm_DoesNotReserveSameApproachSlot", "[battle][movement]")
     }
 }
 
+TEST_CASE("MeleeOverlap_SeparatesBeforeAttackReady", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 100, 100, 0 } },
+        { 29, 0, { 110, 100, 0 } },
+        { 116, 1, { 190, 100, 0 } },
+    });
+    world.units[2].speed = 0.0;
+
+    auto tick = BattleMovementPlanner(world).tick();
+
+    CHECK(tick.decisions.at(1).action == MovementAction::Move);
+    CHECK(tick.decisions.at(1).destination.x < 100.0f);
+    CHECK(tick.decisions.at(1).destination.x != Catch::Approx(world.units[0].position.x));
+}
+
+TEST_CASE("MeleeMovement_UsesCastMeleeReachBeforeHolding", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 100, 100, 0 } },
+        { 116, 1, { 220, 100, 0 } },
+    });
+    world.units[1].speed = 0.0;
+    REQUIRE(world.config.meleeAttackReach < 120.0);
+    REQUIRE(world.units[0].reach > 120.0);
+
+    auto tick = BattleMovementPlanner(world).tick();
+
+    REQUIRE(tick.decisions.contains(1));
+    CHECK(tick.decisions.at(1).action == MovementAction::Move);
+    CHECK(tick.decisions.at(1).destination.x > world.units[0].position.x);
+}
+
+TEST_CASE("MeleeDetour_CommitsAroundAllyPairInsteadOfOscillating", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 100, 100, 0 } },
+        { 29, 0, { 152, 82, 0 } },
+        { 72, 0, { 152, 118, 0 } },
+        { 116, 1, { 320, 100, 0 } },
+    });
+    world.units[0].dashCooldownRemaining = 999;
+    world.units[1].speed = 0.0;
+    world.units[2].speed = 0.0;
+    world.units[3].speed = 0.0;
+
+    auto run = runMovementPlanForFrames(world, 30);
+    const auto& chaser = run.world.units[0];
+
+    CHECK(std::abs(chaser.position.y - 100.0f) > world.config.engagementDeadband);
+    CHECK(run.stats.at(1).directionReversalCount < 4);
+    CHECK(run.stats.at(1).directionSharpTurnCount < 4);
+    CHECK(run.stats.at(1).consecutiveNoProgressFrames < 10);
+}
+
+TEST_CASE("MeleeCooperation_FrontlinerYieldsNextFrameWhenNotAttackReady", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 210, 100, 0 } },
+        { 29, 0, { 155, 100, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.units[0].canAttack = false;
+    world.units[2].speed = 0.0;
+
+    auto first = BattleMovementPlanner(world).tick();
+    applyMovementTickToPlanWorld(world, first);
+    auto second = BattleMovementPlanner(world).tick();
+
+    REQUIRE(second.decisions.contains(1));
+    const auto& frontliner = second.decisions.at(1);
+    CHECK(frontliner.action == MovementAction::Move);
+    CHECK(std::abs(frontliner.destination.y - 100.0f) > 0.1f);
+}
+
+TEST_CASE("MeleeCooperation_FrontlinerYieldsWhenOutsideCastReach", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 185, 100, 0 } },
+        { 29, 0, { 130, 100, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.units[2].speed = 0.0;
+    REQUIRE(world.config.meleeAttackReach < 115.0);
+    REQUIRE(world.units[0].reach >= 115.0);
+    world.yieldRequests[1] = BattleMovementYieldRequest{
+        1,
+        2,
+        world.units[1].position,
+        world.units[2].position,
+        world.frame + 3,
+    };
+
+    auto tick = BattleMovementPlanner(world).tick();
+
+    REQUIRE(tick.decisions.contains(1));
+    const auto& frontliner = tick.decisions.at(1);
+    CHECK(frontliner.action == MovementAction::Move);
+    CHECK(std::abs(frontliner.destination.y - 100.0f) > 0.1f);
+}
+
+TEST_CASE("MeleeCooperation_FrontlinerKeepsYieldLaneOpenBriefly", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 185, 100, 0 } },
+        { 29, 0, { 130, 100, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.units[2].speed = 0.0;
+    REQUIRE(world.config.meleeAttackReach < 115.0);
+    world.yieldRequests[1] = BattleMovementYieldRequest{
+        1,
+        2,
+        world.units[1].position,
+        world.units[2].position,
+        world.frame + 4,
+    };
+
+    auto first = BattleMovementPlanner(world).tick();
+    REQUIRE(first.decisions.contains(1));
+    CHECK(first.decisions.at(1).action == MovementAction::Move);
+    CHECK(std::abs(first.decisions.at(1).destination.y - 100.0f) > 0.1f);
+    applyMovementTickToPlanWorld(world, first);
+    const float offsetAfterYield = std::abs(world.units[0].position.y - 100.0f);
+    REQUIRE(offsetAfterYield > 0.1f);
+
+    auto second = BattleMovementPlanner(world).tick();
+    applyMovementTickToPlanWorld(world, second);
+    const float offsetAfterFollowup = std::abs(world.units[0].position.y - 100.0f);
+
+    CHECK(offsetAfterFollowup >= offsetAfterYield);
+}
+
+TEST_CASE("MeleeCooperation_RearApproachAsksFrontlinerBeforeHardBlock", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 185, 100, 0 } },
+        { 29, 0, { 130, 100, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.units[2].speed = 0.0;
+    REQUIRE(world.config.meleeAttackReach < 115.0);
+
+    auto first = BattleMovementPlanner(world).tick();
+    REQUIRE(first.decisions.contains(2));
+    CHECK(first.decisions.at(2).action == MovementAction::Move);
+    REQUIRE(first.yieldRequests.contains(1));
+    applyMovementTickToPlanWorld(world, first);
+
+    auto second = BattleMovementPlanner(world).tick();
+    REQUIRE(second.decisions.contains(1));
+    const auto& frontliner = second.decisions.at(1);
+    CHECK(frontliner.action == MovementAction::Move);
+    CHECK(std::abs(frontliner.destination.y - 100.0f) > 0.1f);
+}
+
+TEST_CASE("MeleeCooperation_FrontlinerKeepsAttackReadyWhenAbleToAttack", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 210, 100, 0 } },
+        { 29, 0, { 155, 100, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.units[2].speed = 0.0;
+
+    auto first = BattleMovementPlanner(world).tick();
+    applyMovementTickToPlanWorld(world, first);
+    auto second = BattleMovementPlanner(world).tick();
+
+    REQUIRE(second.decisions.contains(1));
+    CHECK(second.decisions.at(1).action == MovementAction::AttackReady);
+}
+
+TEST_CASE("MeleeCooperation_FrontlineSoftSpreadOpensStableGap", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 210, 72, 0 } },
+        { 29, 0, { 210, 128, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    });
+    world.units[0].canAttack = false;
+    world.units[1].canAttack = false;
+    world.units[2].speed = 0.0;
+
+    const double startingGap = pointDistance(world.units[0].position, world.units[1].position);
+    REQUIRE(startingGap > world.config.bodyRadius);
+    REQUIRE(startingGap < world.config.bodyRadius + world.config.engagementDeadband);
+
+    auto first = BattleMovementPlanner(world).tick();
+
+    REQUIRE(first.decisions.contains(1));
+    REQUIRE(first.decisions.contains(2));
+    CHECK(first.decisions.at(1).action == MovementAction::Move);
+    CHECK(first.decisions.at(2).action == MovementAction::Move);
+    CHECK(first.decisions.at(1).destination.y < world.units[0].position.y);
+    CHECK(first.decisions.at(2).destination.y > world.units[1].position.y);
+
+    auto run = runMovementPlanForFrames(world, 24);
+    const double settledGap = pointDistance(run.world.units[0].position, run.world.units[1].position);
+    CHECK(settledGap >= world.config.bodyRadius + world.config.engagementDeadband * 0.75);
+    CHECK(run.stats.at(1).directionSharpTurnCount <= 1);
+    CHECK(run.stats.at(2).directionSharpTurnCount <= 1);
+
+    auto settled = BattleMovementPlanner(run.world).tick();
+    CHECK(settled.decisions.at(1).action == MovementAction::AttackReady);
+    CHECK(settled.decisions.at(2).action == MovementAction::AttackReady);
+}
+
 TEST_CASE("ReservationHorizon_AvoidsSoftReservedStepWhenAlternativeExists", "[battle][movement]")
 {
     auto world = makeWorld({
@@ -376,7 +656,8 @@ TEST_CASE("ReservationHorizon_SoftReservationsFallbackInsteadOfDeadlocking", "[b
 
     CHECK(tick.decisions.at(1).action == MovementAction::Move);
     CHECK(tick.decisions.at(1).destination.x > 100.0f);
-    CHECK(tick.decisions.at(1).destination.y == Catch::Approx(100.0f));
+    CHECK(tick.decisions.at(1).destination.y != Catch::Approx(100.0f));
+    REQUIRE(tick.movementReservations.contains(1));
 }
 
 TEST_CASE("ReservationHorizon_PrunesExpiredAndClearsAttackReadyReservations", "[battle][movement]")
@@ -526,6 +807,38 @@ TEST_CASE("MeleePathing_RoutesAroundWallGapInsteadOfHolding", "[battle][movement
     CHECK(chaser.position.x > 5.0f * SceneTileWidth);
     CHECK(run.stats.at(1).consecutiveWallBlockedFrames < 30);
     CHECK(run.stats.at(1).consecutiveNoProgressFrames < 60);
+}
+
+TEST_CASE("NarrowDefenseRescuePocket_RoutesAlongObstacle", "[battle][movement]")
+{
+    auto fixture = narrowDefenseTerrain();
+    std::vector<PinnedUnitSpec> specs;
+    specs.push_back({ 116, 0, fixture.rescuedPosition });
+    for (const auto& position : fixture.teammatePositions)
+    {
+        specs.push_back({ 97, 0, position });
+    }
+    for (const auto& position : fixture.enemyPositions)
+    {
+        specs.push_back({ 4, 1, position });
+    }
+
+    auto world = makeWorld(specs, std::move(fixture.terrain));
+    world.units[0].dashCooldownRemaining = 999;
+    world.units[0].reach = 60.0;
+    for (std::size_t i = 1; i < world.units.size(); ++i)
+    {
+        world.units[i].speed = 0.0;
+    }
+
+    auto run = runMovementPlanForFrames(world, 360);
+    const auto& rescued = run.world.units[0];
+
+    CHECK(rescued.position.x < fixture.rescuedPosition.x - SceneTileWidth * 2.0);
+    CHECK(rescued.position.y > fixture.rescuedPosition.y);
+    CHECK(run.stats.at(1).consecutiveWallBlockedFrames < 30);
+    CHECK(run.stats.at(1).consecutiveAllyBlockedFrames < 30);
+    CHECK(run.stats.at(1).consecutiveNoProgressFrames < 70);
 }
 
 TEST_CASE("MeleeAcrossWall_HoldsAttackReadyBecauseMeleeHitsIgnoreTerrain", "[battle][movement]")

@@ -672,6 +672,7 @@ BattleCooldownIncreaseResult BattleDamageSystem::extendActiveCooldown(BattleCool
     }
 
     result.unit.cooldown = std::min(cap, unit.cooldown + extension);
+    result.unit.cooldownMax = std::max(unit.cooldownMax, result.unit.cooldown);
     result.after = result.unit.cooldown;
     result.increased = result.after > result.before;
     return result;

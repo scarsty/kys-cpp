@@ -94,10 +94,11 @@ void drawNeigongDetail(const NeigongDef& ng, PanelFrame frame, int ownedState = 
         header.line(owned ? "已獲得" : "未獲得", fs, owned ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255}, 8);
     }
     PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
+    const int bodyMaxWidth = frame.w - 20;
     body.line("效果:", fs, {200, 200, 200, 255});
     for (auto& eff : ng.effects)
     {
-        body.line("  " + comboEffectDesc(eff), fs, {220, 220, 220, 255}, 2);
+        drawWrappedCursorText(body, comboEffectDesc(eff), fs, {220, 220, 220, 255}, bodyMaxWidth, 2, 24);
     }
 }
 
@@ -116,12 +117,13 @@ void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, co
     header.line(std::format("層級: {}", tierName[std::min(eq.tier - 1, 3)]), fs, ChessNeigong::GetTierColor(eq.tier));
 
     PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
+    const int bodyMaxWidth = frame.w - 20;
     if (!eq.effects.empty())
     {
         body.line("特殊效果:", fs, {255, 200, 100, 255});
         for (auto& eff : eq.effects)
         {
-            body.line(comboEffectDesc(eff), fs - 2, {220, 220, 100, 255}, 2);
+            drawWrappedCursorText(body, comboEffectDesc(eff), fs - 2, {220, 220, 100, 255}, bodyMaxWidth, 2);
         }
     }
     std::vector<const EquipmentSynergyDef*> matchingSynergies;
@@ -167,7 +169,7 @@ void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, co
                     line += comboEffectCompactDesc(synergy->effects[i]);
                 }
             }
-            body.line(line, fs - 2, {220, 220, 100, 255}, 2);
+            drawWrappedCursorText(body, line, fs - 2, {220, 220, 100, 255}, bodyMaxWidth, 2);
         }
     }
     if (!equippedBy.empty())

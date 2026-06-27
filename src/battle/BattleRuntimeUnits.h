@@ -243,6 +243,19 @@ struct BattleRuntimeUnitRecord
 
 class BattleRuntimeUnits
 {
+    std::vector<BattleRuntimeUnitRecord> records_;
+
+    auto recordById(this auto& self, int unitId)
+    {
+        auto it = std::ranges::find_if(
+            self.records_,
+            [unitId](const BattleRuntimeUnitRecord& record)
+            {
+                return record.id() == unitId;
+            });
+        return it == self.records_.end() ? nullptr : &*it;
+    }
+
 public:
     void reserve(std::size_t count)
     {
@@ -290,13 +303,14 @@ public:
         Pointf position,
         Pointf velocity,
         Pointf acceleration,
-        const BattleGridTransform& gridTransform)
+        const BattleGridTransform& gridTransform,
+        bool updateFacingFromVelocity)
     {
         auto& unit = requireCore(unitId);
         unit.motion.position = position;
         unit.motion.velocity = velocity;
         unit.motion.acceleration = acceleration;
-        if (velocity.norm() > 0.01f)
+        if (updateFacingFromVelocity && velocity.norm() > 0.01f)
         {
             unit.motion.facing = velocity;
             unit.motion.facing.normTo(1.0f);
@@ -353,20 +367,6 @@ public:
         return self.records_
             | std::views::filter([](const BattleRuntimeUnitRecord& record) { return !record.core.alive; });
     }
-
-private:
-    auto recordById(this auto& self, int unitId)
-    {
-        auto it = std::ranges::find_if(
-            self.records_,
-            [unitId](const BattleRuntimeUnitRecord& record)
-            {
-                return record.id() == unitId;
-            });
-        return it == self.records_.end() ? nullptr : &*it;
-    }
-
-    std::vector<BattleRuntimeUnitRecord> records_;
 };
 
 struct BattleFrameRescueUnitSnapshot
