@@ -543,6 +543,11 @@ BattleRescueRepositionResult BattleRescueRepositionSystem::resolve(
     }
 
     auto candidates = pullCandidates(input);
+    if (candidates.empty())
+    {
+        return {};
+    }
+
     BattleRescueSearchSpace searchSpace(input, pulled);
     std::sort(candidates.begin(), candidates.end(), [&](const auto* lhs, const auto* rhs)
         {

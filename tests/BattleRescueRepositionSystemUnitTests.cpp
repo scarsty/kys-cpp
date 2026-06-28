@@ -189,6 +189,26 @@ TEST_CASE("BattleRescueReposition_NoCommandWhenNoLegalCellExists", "[battle][res
     CHECK(result.counterDelta.unitId == -1);
 }
 
+TEST_CASE("BattleRescueReposition_NoCandidatesSkipsLargeSearchSpace", "[battle][rescue_reposition][unit][performance]")
+{
+    BattleRescueRepositionInput input;
+    input.mode = BattleRescuePullMode::Protect;
+    input.pulledUnitId = 10;
+    input.pullerTeam = 1;
+    input.units = {
+        unit(10, 1, { 128, 128 }),
+        unit(20, 0, { 140, 140 }),
+    };
+    appendOpenCells(input, 512, 512);
+
+    const auto startedAt = std::chrono::steady_clock::now();
+    auto result = BattleRescueRepositionSystem().resolve(input);
+    const auto elapsed = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startedAt).count();
+
+    CHECK_FALSE(result.teleport.has_value());
+    CHECK(elapsed < 5.0);
+}
+
 TEST_CASE("BattleRescueReposition_ProtectionPullCachesConnectivityOnLargeOpenMap", "[battle][rescue_reposition][unit][performance]")
 {
     BattleRescueRepositionInput input;

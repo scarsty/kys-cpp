@@ -30,6 +30,16 @@ struct ProjectileCancelCandidate
     int weakestDamage = 0;
 };
 
+struct ProjectileCancelSearchCandidate
+{
+    const BattleAttackInstance* attack{};
+    int team{};
+    double minX{};
+    double maxX{};
+    double minY{};
+    double maxY{};
+};
+
 bool isProjectileOperation(BattleOperationType operationType)
 {
     return operationType == BattleOperationType::RangedProjectile
@@ -110,6 +120,16 @@ double segmentSegmentDistance(Pointf lhsStart, Pointf lhsEnd, Pointf rhsStart, P
         pointSegmentDistance(rhsStart, lhsStart, lhsEnd),
         pointSegmentDistance(rhsEnd, lhsStart, lhsEnd),
     });
+}
+
+bool segmentBoundsCanOverlap(
+    const ProjectileCancelSearchCandidate& lhs,
+    const ProjectileCancelSearchCandidate& rhs)
+{
+    return lhs.minX <= rhs.maxX
+        && rhs.minX <= lhs.maxX
+        && lhs.minY <= rhs.maxY
+        && rhs.minY <= lhs.maxY;
 }
 
 void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& state)
@@ -195,6 +215,32 @@ bool betterProjectileCancelCandidate(
         return lhs.event.attackId < rhs.event.attackId;
     }
     return lhs.event.otherAttackId < rhs.event.otherAttackId;
+}
+
+ProjectileCancelSearchCandidate makeProjectileCancelSearchCandidate(
+    const BattleAttackInstance& attack,
+    int team,
+    double hitRadius)
+{
+    ProjectileCancelSearchCandidate candidate;
+    candidate.attack = &attack;
+    candidate.team = team;
+    candidate.minX = std::min(attack.previousPosition.x, attack.state.position.x) - hitRadius;
+    candidate.maxX = std::max(attack.previousPosition.x, attack.state.position.x) + hitRadius;
+    candidate.minY = std::min(attack.previousPosition.y, attack.state.position.y) - hitRadius;
+    candidate.maxY = std::max(attack.previousPosition.y, attack.state.position.y) + hitRadius;
+    return candidate;
+}
+
+bool projectileCancelSearchCandidateLess(
+    const ProjectileCancelSearchCandidate& lhs,
+    const ProjectileCancelSearchCandidate& rhs)
+{
+    if (lhs.minX != rhs.minX)
+    {
+        return lhs.minX < rhs.minX;
+    }
+    return lhs.attack->id < rhs.attack->id;
 }
 
 bool canResolveContactFromDefeatedSource(const BattleAttackPayload& attack)
@@ -731,39 +777,50 @@ void BattleAttackState::collectProjectileCancelEvents(
     const BattleRuntimeUnits& units,
     std::vector<BattleAttackEvent>& events) const
 {
-    std::vector<ProjectileCancelCandidate> candidates;
-    for (size_t i = 0; i + 1 < attacks.size(); ++i)
+    std::vector<ProjectileCancelSearchCandidate> searchCandidates;
+    searchCandidates.reserve(attacks.size());
+    for (const auto& attack : attacks)
     {
-        const auto& lhs = attacks[i];
-        if (lhs.noHurt || lhs.state.ignoreProjectileCancel || lhs.frame < projectileGraceFrames)
+        if (attack.noHurt || attack.state.ignoreProjectileCancel || attack.frame < projectileGraceFrames || attack.state.ultimate)
         {
             continue;
         }
-        const auto& lhsAttacker = units.requireCore(lhs.state.attackerUnitId);
+        const auto& attacker = units.requireCore(attack.state.attackerUnitId);
+        searchCandidates.push_back(makeProjectileCancelSearchCandidate(attack, attacker.team, hitRadius));
+    }
+    if (searchCandidates.size() < 2)
+    {
+        return;
+    }
 
-        for (size_t j = i + 1; j < attacks.size(); ++j)
+    std::sort(searchCandidates.begin(), searchCandidates.end(), projectileCancelSearchCandidateLess);
+
+    std::vector<ProjectileCancelCandidate> candidates;
+    for (size_t i = 0; i + 1 < searchCandidates.size(); ++i)
+    {
+        const auto& lhs = searchCandidates[i];
+        for (size_t j = i + 1; j < searchCandidates.size(); ++j)
         {
-            const auto& rhs = attacks[j];
-            if (rhs.noHurt || rhs.state.ignoreProjectileCancel || rhs.frame < projectileGraceFrames)
+            const auto& rhs = searchCandidates[j];
+            if (rhs.minX > lhs.maxX)
+            {
+                break;
+            }
+            if (lhs.team == rhs.team)
             {
                 continue;
             }
-            const auto& rhsAttacker = units.requireCore(rhs.state.attackerUnitId);
-            if (lhsAttacker.team == rhsAttacker.team)
-            {
-                continue;
-            }
-            if (lhs.state.ultimate || rhs.state.ultimate)
+            if (!segmentBoundsCanOverlap(lhs, rhs))
             {
                 continue;
             }
             if (segmentSegmentDistance(
-                    lhs.previousPosition,
-                    lhs.state.position,
-                    rhs.previousPosition,
-                    rhs.state.position) < hitRadius)
+                    lhs.attack->previousPosition,
+                    lhs.attack->state.position,
+                    rhs.attack->previousPosition,
+                    rhs.attack->state.position) < hitRadius)
             {
-                candidates.push_back(makeProjectileCancelCandidate(lhs, rhs));
+                candidates.push_back(makeProjectileCancelCandidate(*lhs.attack, *rhs.attack));
             }
         }
     }

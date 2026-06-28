@@ -16,6 +16,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <map>
 #include <string>
 #include <type_traits>
@@ -684,6 +685,7 @@ BattlePendingCastAction framePendingCastAction()
     pending.targetUnitId = 1;
     pending.ultimate = false;
     pending.operationType = BattleOperationType::RangedProjectile;
+    pending.castFrame = 6;
     pending.skill = cast.normalSkill;
     return pending;
 }
@@ -699,6 +701,10 @@ void preparePendingCastCommitFrame(BattleRuntimeState& state,
     unit.operationType = operationType;
     unit.animation.actType = 1;
     unit.animation.cooldown = 10;
+    if (auto* pending = state.units.require(unitId).pendingCast())
+    {
+        pending->castFrame = actFrame;
+    }
 }
 
 void configureAutoUltimateActionRuntime(BattleRuntimeState& state, int unitId, int targetUnitId)
@@ -1030,6 +1036,20 @@ BattleRescueCellSnapshot rescueCell(int x, int y, bool walkable = true, bool occ
         occupied ? 99 : -1,
         { static_cast<float>(x * SceneTileWidth), static_cast<float>(y * SceneTileWidth), 0.0f },
     };
+}
+
+std::vector<BattleRescueCellSnapshot> rescueOpenCells(int width, int height)
+{
+    std::vector<BattleRescueCellSnapshot> cells;
+    cells.reserve(width * height);
+    for (int x = 0; x < width; ++x)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            cells.push_back(rescueCell(x, y));
+        }
+    }
+    return cells;
 }
 
 BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
@@ -2571,6 +2591,48 @@ TEST_CASE("BattleFrameRunner_StoresPendingCastIntentWhenCastStarts", "[battle][c
     CHECK(pending->operationType == BattleOperationType::RangedProjectile);
 }
 
+TEST_CASE("BattleFrameRunner_CastStartJittersPendingReleaseFrame", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.action.castFrames = { 6, 6, 6, 6 };
+    state.random = BattleRuntimeRandom(2u);
+
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.rangedStyle = true;
+    cast.normalSkill.reach = 400.0;
+    configureRuntimeActionPlan(state, cast);
+    state.action.castFrames = { 6, 6, 6, 6 };
+    state.units.requireCore(0).animation.cooldown = 0;
+
+    BattleRuntimeRandom expectedRandom(2u);
+    const int baseCastFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    const int expectedReleaseFrame = baseCastFrame + expectedRandom.nextInt(3) - 1;
+    REQUIRE(expectedReleaseFrame != baseCastFrame);
+
+    runBattleFrame(state);
+
+    auto pending = state.units.require(0).pendingCast();
+    REQUIRE(pending != nullptr);
+    CHECK(pending->castFrame == expectedReleaseFrame);
+
+    auto& caster = state.units.requireCore(0);
+    caster.animation.actFrame = expectedReleaseFrame - 1;
+    auto early = runBattleFrame(state);
+    CHECK_FALSE(hasProjectilePresentationEvent(early));
+    REQUIRE(state.units.require(0).pendingCast() != nullptr);
+
+    auto release = runBattleFrame(state);
+    CHECK(hasVisualEvent(release, BattleVisualEventType::ProjectileSpawned));
+    CHECK(state.units.require(0).pendingCast() == nullptr);
+}
+
 TEST_CASE("BattleFrameRunner_RefreshesRuntimeCastTargetAtCommitFrame", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
@@ -3204,7 +3266,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeadUnitActionCleanupClearsAllActionOw
     deadBefore.animation.actType = 3;
     deadBefore.operationType = BattleOperationType::Melee;
     deadBefore.haveAction = true;
-    state.units.require(1).setPendingCast(BattlePendingCastAction{});
+    BattlePendingCastAction pending;
+    pending.castFrame = 6;
+    state.units.require(1).setPendingCast(pending);
     state.units.require(1).markUltimateCaster();
     queuePendingDamage(state, lethalDamageInput(0, 1));
 
@@ -4245,6 +4309,24 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
     CHECK(state.units.requireCore(1).motion.position.x == Catch::Approx(180.0f));
     CHECK(state.units.requireCore(1).motion.position.y == Catch::Approx(180.0f));
     CHECK(state.units.requireCore(1).vitals.hp == 20);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_NoRescueCandidatesSkipsLargeRescueCellSnapshot", "[battle][core][performance]")
+{
+    auto state = rescueDamageFrameState(50, 30);
+    state.units.require(2).combo = {};
+    state.units.require(2).rescue = {};
+    state.rescue.executeUnattendedRadius = 0.0;
+    state.rescue.cells = rescueOpenCells(512, 512);
+
+    const auto startedAt = std::chrono::steady_clock::now();
+    auto result = runBattleFrame(state);
+    const auto elapsed = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startedAt).count();
+
+    CHECK(damageLogAmountsFor(result, 1).size() == 1);
+    CHECK(state.units.requireCore(1).motion.position.x == Catch::Approx(180.0f));
+    CHECK(state.units.requireCore(1).motion.position.y == Catch::Approx(180.0f));
+    CHECK(elapsed < 8.0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageRewards", "[battle][core]")

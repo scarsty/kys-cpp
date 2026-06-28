@@ -6,6 +6,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <initializer_list>
 #include <iterator>
 
@@ -794,6 +795,35 @@ TEST_CASE("BattleAttackSystem_IgnoredProjectileDoesNotCancel", "[battle][attack]
     auto events = world.tick(units);
 
     CHECK(!hasEvent(events, BattleAttackEventType::ProjectileCancel, 10));
+}
+
+TEST_CASE("BattleAttackSystem_ProjectileCancelSkipsDistantPairsQuickly", "[battle][attack][unit][performance]")
+{
+    auto world = attackWorld();
+    world.hitRadius = 10.0;
+    world.projectileGraceFrames = 0;
+    auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
+    for (int index = 0; index < 1200; ++index)
+    {
+        auto projectile = attack(1000 + index, index % 2 == 0 ? 1 : 2, index * 100.0, index % 2 == 0 ? 0.0 : 10000.0);
+        projectile.frame = 5;
+        projectile.state.velocity = { 1, 0, 0 };
+        projectile.state.projectileCancelDamage = 1;
+        world.attacks.push_back(projectile);
+    }
+
+    const auto startedAt = std::chrono::steady_clock::now();
+    auto events = world.tick(units);
+    const auto elapsed = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startedAt).count();
+
+    CHECK(std::none_of(
+        events.begin(),
+        events.end(),
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::ProjectileCancel;
+        }));
+    CHECK(elapsed < 25.0);
 }
 
 TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTarget", "[battle][attack][unit]")

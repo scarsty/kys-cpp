@@ -54,6 +54,7 @@ struct BattlePendingCastAction
     int targetUnitId = -1;
     bool ultimate = false;
     BattleOperationType operationType = BattleOperationType::None;
+    int castFrame{};
     Pointf dashVelocity;
     BattleCastSkillState skill;
 };
