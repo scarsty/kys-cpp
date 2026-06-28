@@ -385,6 +385,12 @@ struct BattleFrameRescueCounterAttackConfig
     int totalFramePadding = 15;
 };
 
+struct BattleFrameProfilingConfig
+{
+    bool enabled = false;
+    double slowFrameThresholdMs = 4.0;
+};
+
 // Persistent battle facts live here. One-frame queues and presentation accumulation
 // belong in BattleFrameContext inside BattleCore.cpp. Do not add cached copies of
 // combo/status/action facts here unless all mutations to the source fact update the
@@ -445,6 +451,7 @@ struct BattleRuntimeState
 
     BattleProjectileFollowUpContext projectileFollowUps;
     BattleNextFrameQueues nextFrame;
+    BattleFrameProfilingConfig profiling;
 };
 
 }  // namespace KysChess::Battle

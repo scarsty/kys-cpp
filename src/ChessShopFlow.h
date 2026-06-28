@@ -12,7 +12,7 @@ public:
 
     void getChess();
     void sellChess();
-    void buyExp();
+    bool buyExp();
     void showBanMenu();
     int showForcedBanSelection(int slots, int maxTier);
 

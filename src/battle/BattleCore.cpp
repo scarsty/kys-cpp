@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <format>
 #include <iterator>
@@ -19,6 +20,7 @@
 #include <optional>
 #include <set>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -31,6 +33,173 @@ namespace
 {
 constexpr int CoreRoleStatusEffectFrames = 48;
 constexpr double CorePi = 3.14159265358979323846;
+
+using BattleFrameProfileClock = std::chrono::steady_clock;
+
+double battleFrameProfileMilliseconds(
+    BattleFrameProfileClock::time_point startedAt,
+    BattleFrameProfileClock::time_point endedAt)
+{
+    return std::chrono::duration<double, std::milli>(endedAt - startedAt).count();
+}
+
+std::string formatBattleFrameProfileMilliseconds(double value)
+{
+    return std::format("{:.2f}", value);
+}
+
+struct BattleFrameProfileStep
+{
+    const char* label;
+    double milliseconds;
+};
+
+struct BattleFrameProfile
+{
+    explicit BattleFrameProfile(BattleFrameProfilingConfig config)
+        : config(config)
+    {
+        if (enabled())
+        {
+            startedAt = BattleFrameProfileClock::now();
+        }
+    }
+
+    bool enabled() const
+    {
+        return config.enabled;
+    }
+
+    void record(const char* label, BattleFrameProfileClock::time_point startedAt)
+    {
+        if (!enabled())
+        {
+            return;
+        }
+        steps.push_back({
+            label,
+            battleFrameProfileMilliseconds(startedAt, BattleFrameProfileClock::now()),
+        });
+    }
+
+    void finish()
+    {
+        if (enabled())
+        {
+            totalMilliseconds = battleFrameProfileMilliseconds(startedAt, BattleFrameProfileClock::now());
+        }
+    }
+
+    bool shouldLog() const
+    {
+        return enabled()
+            && (config.slowFrameThresholdMs <= 0.0 || totalMilliseconds >= config.slowFrameThresholdMs);
+    }
+
+    BattleFrameProfilingConfig config;
+    BattleFrameProfileClock::time_point startedAt;
+    double totalMilliseconds{};
+    std::vector<BattleFrameProfileStep> steps;
+};
+
+template <typename Fn>
+decltype(auto) profileBattleFrameStep(BattleFrameProfile& profile, const char* label, Fn&& fn)
+{
+    using Result = std::invoke_result_t<Fn>;
+    if (!profile.enabled())
+    {
+        if constexpr (std::is_void_v<Result>)
+        {
+            std::forward<Fn>(fn)();
+            return;
+        }
+        else
+        {
+            return std::forward<Fn>(fn)();
+        }
+    }
+
+    const auto startedAt = BattleFrameProfileClock::now();
+    if constexpr (std::is_void_v<Result>)
+    {
+        std::forward<Fn>(fn)();
+        profile.record(label, startedAt);
+        return;
+    }
+    else
+    {
+        auto result = std::forward<Fn>(fn)();
+        profile.record(label, startedAt);
+        return result;
+    }
+}
+
+void appendBattleFrameProfileSegment(
+    std::vector<BattleLogTextSegment>& segments,
+    std::string text,
+    BattleLogTextTone tone = BattleLogTextTone::SystemAccent)
+{
+    segments.push_back({ std::move(text), tone });
+}
+
+void appendBattleFrameProfileMs(
+    std::vector<BattleLogTextSegment>& segments,
+    double milliseconds)
+{
+    appendBattleFrameProfileSegment(
+        segments,
+        formatBattleFrameProfileMilliseconds(milliseconds),
+        BattleLogTextTone::DurationValue);
+    appendBattleFrameProfileSegment(segments, "ms", BattleLogTextTone::DurationValue);
+}
+
+void appendBattleFrameProfileLog(BattlePresentationFrame& frame, const BattleFrameProfile& profile)
+{
+    if (!profile.shouldLog())
+    {
+        return;
+    }
+
+    BattleLogEvent log;
+    log.type = BattleLogEventType::Status;
+    log.frame = frame.frame;
+    log.segments = logSegments<BattleLogTextTone::SystemAccent>("戰鬥幀耗時 ");
+    appendBattleFrameProfileMs(log.segments, profile.totalMilliseconds);
+
+    if (!profile.steps.empty())
+    {
+        const auto slowest = std::max_element(
+            profile.steps.begin(),
+            profile.steps.end(),
+            [](const BattleFrameProfileStep& lhs, const BattleFrameProfileStep& rhs)
+            {
+                return lhs.milliseconds < rhs.milliseconds;
+            });
+        assert(slowest != profile.steps.end());
+
+        appendBattleFrameProfileSegment(log.segments, "（最慢 ");
+        appendBattleFrameProfileSegment(log.segments, slowest->label, BattleLogTextTone::SkillName);
+        appendBattleFrameProfileSegment(log.segments, " ");
+        appendBattleFrameProfileMs(log.segments, slowest->milliseconds);
+        appendBattleFrameProfileSegment(log.segments, "；");
+
+        bool first = true;
+        for (const auto& step : profile.steps)
+        {
+            if (!first)
+            {
+                appendBattleFrameProfileSegment(log.segments, "，");
+            }
+            first = false;
+            appendBattleFrameProfileSegment(log.segments, step.label, BattleLogTextTone::SkillName);
+            appendBattleFrameProfileSegment(log.segments, " ");
+            appendBattleFrameProfileMs(log.segments, step.milliseconds);
+        }
+        appendBattleFrameProfileSegment(log.segments, "）");
+    }
+
+    frame.logEvents.push_back(std::move(log));
+}
 
 BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
     const KysChess::RoleComboState& state,
@@ -1148,7 +1317,7 @@ Pointf deathKickVelocity(Pointf direction, int committedHpDamage)
     {
         direction = { 1, 0, 0 };
     }
-    direction.normTo(horizontalSpeed);
+    direction.normTo(static_cast<float>(horizontalSpeed));
     direction.z = static_cast<float>(verticalSpeed);
     return direction;
 }
@@ -4275,6 +4444,11 @@ PostPhysicsMotionMap makePostPhysicsMotionMap(
     return postPhysics;
 }
 
+bool frozenUnitShouldAdvancePhysics(const BattleMovementPhysicsState& state)
+{
+    return state.knockbackFrames > 0 || state.knockbackControlFrames > 0;
+}
+
 void applyKnockbackImpulse(
     BattleRuntimeState& state,
     const BattleKnockbackCommand& knockback)
@@ -4375,15 +4549,19 @@ std::vector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(BattleR
         result.state.acceleration = unit.motion.acceleration;
         result.frozenFrames = state.units.require(unit.id).frozenFrames();
 
+        const bool frozenThisFrame = result.frozenFrames > 0;
         if (result.frozenFrames > 0)
         {
             --result.frozenFrames;
-            physicsResults.push_back(std::move(result));
-            continue;
+            if (!frozenUnitShouldAdvancePhysics(result.state))
+            {
+                physicsResults.push_back(std::move(result));
+                continue;
+            }
         }
 
         bool actionDashActive = false;
-        if (unit.operationType == BattleOperationType::Dash && unit.haveAction)
+        if (!frozenThisFrame && unit.operationType == BattleOperationType::Dash && unit.haveAction)
         {
             const auto operation = static_cast<int>(unit.operationType);
             assert(operation >= 0 && operation < static_cast<int>(state.movementPhysics.actionCastFrames.size()));
@@ -5317,43 +5495,85 @@ BattlePresentationFrame BattleFrameRunner::runFrame(BattleRuntimeState& state) c
     assert(!state.units.empty());
 
     auto frame = BattleFrameContext::begin(state);
+    BattleFrameProfile profile(state.profiling);
 
     // Tick status timers and queue status damage, e.g. poison or bleed damage transactions.
-    advanceStatus(state, frame.currentFrameDamage());
+    profileBattleFrameStep(profile, "狀態", [&]
+        {
+            advanceStatus(state, frame.currentFrameDamage());
+        });
     // Tick unit cooldown/action/MP timers and collect frame combo events, e.g. skill-finished triggers.
-    auto runtimeAdvance = advanceRuntimeUnits(state);
+    auto runtimeAdvance = profileBattleFrameStep(profile, "單位/連擊", [&]
+        {
+            return advanceRuntimeUnits(state);
+        });
     // Apply combo timer events to runtime state, deferring auto-ultimate commands until late frame.
-    auto deferredCommands = applyRuntimeComboEvents(state, frame, runtimeAdvance.runtimeCommits);
+    auto deferredCommands = profileBattleFrameStep(profile, "連擊套用", [&]
+        {
+            return applyRuntimeComboEvents(state, frame, runtimeAdvance.runtimeCommits);
+        });
     // Apply skill-finished team heals whose source finished cooldown this frame.
-    applySkillFinishedTeamHeals(state, frame, runtimeAdvance.skillFinishedTeamHeals);
+    profileBattleFrameStep(profile, "技能群療", [&]
+        {
+            applySkillFinishedTeamHeals(state, frame, runtimeAdvance.skillFinishedTeamHeals);
+        });
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
-    reduceCommandsBeforeMovement(state, frame);
+    profileBattleFrameStep(profile, "命令(移動前)", [&]
+        {
+            reduceCommandsBeforeMovement(state, frame);
+        });
     // Advance and commit motion, e.g. physics and tactical movement.
-    auto movement = advanceMotionFrame(state);
+    auto movement = profileBattleFrameStep(profile, "移動", [&]
+        {
+            return advanceMotionFrame(state);
+        });
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
-    advanceActionFrameUnits(state, frame, movement);
+    profileBattleFrameStep(profile, "行動", [&]
+        {
+            advanceActionFrameUnits(state, frame, movement);
+        });
     // Apply cast-release effects after all units selected/committed their frame actions.
-    applyFrameCastScopedComboEffects(state, frame);
+    profileBattleFrameStep(profile, "施放連擊", [&]
+        {
+            applyFrameCastScopedComboEffects(state, frame);
+        });
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
-    reduceCommandsBeforeAttacks(state, frame);
+    profileBattleFrameStep(profile, "命令(攻擊前)", [&]
+        {
+            reduceCommandsBeforeAttacks(state, frame);
+        });
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
-    advanceAttacksAndResolveHits(state, frame);
+    profileBattleFrameStep(profile, "攻擊/命中", [&]
+        {
+            advanceAttacksAndResolveHits(state, frame);
+        });
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
-    applyDamageAndLifecycle(state, frame);
-    // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
-    appendProjectileCancellationLogEvents(state.attacks, frame.attackEvents, frame.logEvents, true);
-    applyLateFrameMpRestores(state, frame);
-    for (auto& command : deferredCommands)
-    {
-        frame.queueCommand(std::move(command));
-    }
-    // Reduce late commands from damage/combo lifecycle, e.g. auto-ultimate or death-triggered projectiles.
-    reduceCommandsAfterDamageLifecycle(state, frame);
-    assert(frame.drainCommands().empty());
-    // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.
-    emitPresentationFrame(state, frame);
-    // Runtime maintenance: remove projectiles/melee attacks whose animation lifetime has finished.
-    pruneFinishedRuntimeAttacks(state);
+    profileBattleFrameStep(profile, "傷害/挪移", [&]
+        {
+            applyDamageAndLifecycle(state, frame);
+        });
+    profileBattleFrameStep(profile, "後處理", [&]
+        {
+            // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
+            appendProjectileCancellationLogEvents(state.attacks, frame.attackEvents, frame.logEvents, true);
+            applyLateFrameMpRestores(state, frame);
+            for (auto& command : deferredCommands)
+            {
+                frame.queueCommand(std::move(command));
+            }
+            // Reduce late commands from damage/combo lifecycle, e.g. auto-ultimate or death-triggered projectiles.
+            reduceCommandsAfterDamageLifecycle(state, frame);
+            assert(frame.drainCommands().empty());
+        });
+    profileBattleFrameStep(profile, "輸出", [&]
+        {
+            // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.
+            emitPresentationFrame(state, frame);
+            // Runtime maintenance: remove projectiles/melee attacks whose animation lifetime has finished.
+            pruneFinishedRuntimeAttacks(state);
+        });
+    profile.finish();
+    appendBattleFrameProfileLog(frame.result, profile);
     return consumeBattleFrameContext(std::move(frame));
 }
 

@@ -239,13 +239,13 @@ void ChessShopFlow::sellChess()
     }
 }
 
-void ChessShopFlow::buyExp()
+bool ChessShopFlow::buyExp()
 {
     auto& config = ChessBalance::config();
     if (services_.economy.getLevel() >= config.maxLevel)
     {
         showChessMessage("已達最高等級！");
-        return;
+        return false;
     }
 
     int currentLevel = services_.economy.getLevel();
@@ -268,11 +268,11 @@ void ChessShopFlow::buyExp()
     menu->runAtPosition(menuAnchor.x, menuAnchor.y);
     if (menu->getResult() != 0)
     {
-        return;
+        return false;
     }
     if (!services_.economy.spend(config.buyExpCost))
     {
-        return;
+        return false;
     }
 
     int oldLevel = services_.economy.getLevel();
@@ -285,6 +285,7 @@ void ChessShopFlow::buyExp()
     {
         showChessMessage(std::format("經驗{}/{}", services_.economy.getExp(), services_.economy.getExpForNextLevel()));
     }
+    return true;
 }
 
 void ChessShopFlow::showBanMenu()

@@ -287,6 +287,7 @@ void deriveRuntimeState(
     runtime.projectileFollowUps = input.rules.projectileFollowUps;
 
     runtime.damage.sortPendingDamageByDefenderMagnitude = true;
+    runtime.profiling = input.profiling;
 }
 
 struct BattleRuntimeSetupResult

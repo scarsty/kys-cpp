@@ -49,8 +49,8 @@ private:
     void reloadPool();
     void loadPoolNode(const YAML::Node& root);
     void generateShop(int level);
-    Role* selectFromPool(int tier, const std::unordered_set<int>& alreadySelected);
-    bool tierHasCandidate(int tier, const std::unordered_set<int>& alreadySelected) const;
+    Role* selectFromPool(int tier);
+    bool tierHasCandidate(int tier) const;
     int getRoleTier(int roleId) const;
 
     ChessRandom& random_;

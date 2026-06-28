@@ -7,6 +7,7 @@
 #include "ChessBalance.h"
 #include "ChessRandom.h"
 #include "ChessRoleSave.h"
+#include "ChessShopRoll.h"
 #include "GameUtil.h"
 #include "yaml-cpp/yaml.h"
 
@@ -143,45 +144,23 @@ Color ChessPool::GetTierColor(int tier)
     return kTierColors[std::clamp(tier - 1, 0, static_cast<int>(kTierColors.size()) - 1)];
 }
 
-Role* ChessPool::selectFromPool(int tier, const std::unordered_set<int>& alreadySelected)
+Role* ChessPool::selectFromPool(int tier)
 {
     ensurePoolLoaded();
     const auto& roles = rolesByTier_[tier - 1];
 
-    std::vector<int> candidates;
-    std::vector<int> rejectedCandidates;
-    for (auto roleId : roles)
-    {
-        if (banned_.contains(roleId) || alreadySelected.contains(roleId))
-        {
-            continue;
-        }
-        if (tier <= 4 && rejected_.contains(roleId))
-        {
-            rejectedCandidates.push_back(roleId);
-            continue;
-        }
-        candidates.push_back(roleId);
-    }
-
-    auto& pool = candidates.empty() ? rejectedCandidates : candidates;
-    if (pool.empty())
+    const auto candidates = buildShopCandidateBuckets(roles, tier, banned_, rejected_);
+    if (candidates.empty())
     {
         return nullptr;
     }
+    const auto& pool = candidates.selectable();
     return roleSave_.getRole(pool[random_.shopRandInt(static_cast<int>(pool.size()))]);
 }
 
-bool ChessPool::tierHasCandidate(int tier, const std::unordered_set<int>& alreadySelected) const
+bool ChessPool::tierHasCandidate(int tier) const
 {
-    for (auto roleId : rolesByTier_[tier - 1])
-    {
-        if (!banned_.contains(roleId) && !alreadySelected.contains(roleId))
-        {
-            return true;
-        }
-    }
-    return false;
+    return tierHasShopCandidate(rolesByTier_[tier - 1], tier, banned_, rejected_);
 }
 
 void ChessPool::setBannedRoleIds(const std::set<int>& banned)
@@ -194,7 +173,6 @@ void ChessPool::generateShop(int level)
 {
     ensurePoolLoaded();
 
-    std::unordered_set<int> selected;
     current_.clear();
     current_.reserve(ChessBalance::config().shopSlotCount);
 
@@ -205,7 +183,7 @@ void ChessPool::generateShop(int level)
         std::array<int, 5> weights = {};
         for (int t = 0; t < 5; ++t)
         {
-            if (tierHasCandidate(t + 1, selected))
+            if (tierHasCandidate(t + 1))
             {
                 weights[t] = ChessBalance::config().shopWeights[level][t];
                 totalWeight += weights[t];
@@ -229,14 +207,13 @@ void ChessPool::generateShop(int level)
             }
         }
 
-        auto* role = selectFromPool(selectedTier, selected);
+        auto* role = selectFromPool(selectedTier);
         if (!role)
         {
             break;
         }
 
         current_.emplace_back(role, selectedTier);
-        selected.insert(role->ID);
     }
 }
 

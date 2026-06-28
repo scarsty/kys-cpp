@@ -2,6 +2,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <chrono>
+
 using namespace KysChess::Battle;
 
 namespace
@@ -22,6 +24,18 @@ BattleRescueUnitSnapshot unit(int id, int team, Point cell)
 BattleRescueCellSnapshot cell(int x, int y, bool occupied = false)
 {
     return { x, y, true, occupied, occupied ? 99 : -1, { static_cast<float>(x * 10), static_cast<float>(y * 10), 0.0f } };
+}
+
+void appendOpenCells(BattleRescueRepositionInput& input, int width, int height)
+{
+    input.cells.reserve(width * height);
+    for (int x = 0; x < width; ++x)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            input.cells.push_back(cell(x, y));
+        }
+    }
 }
 
 }  // namespace
@@ -173,4 +187,31 @@ TEST_CASE("BattleRescueReposition_NoCommandWhenNoLegalCellExists", "[battle][res
     CHECK_FALSE(result.teleport.has_value());
     CHECK_FALSE(result.basicCounterAttack.has_value());
     CHECK(result.counterDelta.unitId == -1);
+}
+
+TEST_CASE("BattleRescueReposition_ProtectionPullCachesConnectivityOnLargeOpenMap", "[battle][rescue_reposition][unit][performance]")
+{
+    BattleRescueRepositionInput input;
+    input.mode = BattleRescuePullMode::Protect;
+    input.pulledUnitId = 10;
+    input.pullerTeam = 1;
+    input.units = {
+        unit(10, 1, { 32, 32 }),
+        unit(20, 0, { 40, 40 }),
+    };
+    for (int index = 0; index < 16; ++index)
+    {
+        auto puller = unit(100 + index, 1, { 8 + index % 4 * 8, 8 + index / 4 * 8 });
+        puller.forcePullProtect = true;
+        puller.forcePullProtectRemaining = 1;
+        input.units.push_back(puller);
+    }
+    appendOpenCells(input, 64, 64);
+
+    const auto startedAt = std::chrono::steady_clock::now();
+    auto result = BattleRescueRepositionSystem().resolve(input);
+    const auto elapsed = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startedAt).count();
+
+    REQUIRE(result.teleport.has_value());
+    CHECK(elapsed < 50.0);
 }

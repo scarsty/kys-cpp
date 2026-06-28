@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <map>
 #include <string>
 #include <vector>
@@ -96,6 +97,29 @@ std::vector<BattleTerrainCell> terrainGridWithVerticalWallGap(
                 },
                 !wall,
             });
+        }
+    }
+    return cells;
+}
+
+Pointf isometricGridPosition(int coordCount, int x, int y)
+{
+    return {
+        static_cast<float>((-y + x + coordCount) * SceneTileWidth),
+        static_cast<float>((y + x) * SceneTileWidth),
+        0.0f,
+    };
+}
+
+std::vector<BattleTerrainCell> isometricTerrainGrid(int coordCount)
+{
+    std::vector<BattleTerrainCell> cells;
+    cells.reserve(static_cast<std::size_t>(coordCount * coordCount));
+    for (int x = 0; x < coordCount; ++x)
+    {
+        for (int y = 0; y < coordCount; ++y)
+        {
+            cells.push_back({ isometricGridPosition(coordCount, x, y), true });
         }
     }
     return cells;
@@ -332,6 +356,37 @@ TEST_CASE("BattleMovementPlanner_TickReturnsDecisionsWithoutMutatingCallerWorld"
     CHECK(world.units[0].position.x == originalPosition.x);
     CHECK(world.units[0].velocity.x == originalVelocity.x);
     CHECK(world.movementReservations.empty());
+}
+
+TEST_CASE("BattleMovementPlanner_CrowdedIsometricTerrainFrameStaysWithinDebugBudget", "[battle][movement][performance]")
+{
+    constexpr int CoordCount = 64;
+    std::vector<PinnedUnitSpec> specs;
+    specs.reserve(32);
+    for (int index = 0; index < 16; ++index)
+    {
+        const int row = index % 8;
+        const int column = index / 8;
+        specs.push_back({
+            index % 3 == 0 ? 97 : 29,
+            0,
+            isometricGridPosition(CoordCount, 8 + column * 2, 10 + row * 5),
+        });
+        specs.push_back({
+            index % 3 == 0 ? 116 : 118,
+            1,
+            isometricGridPosition(CoordCount, 52 - column * 2, 10 + row * 5),
+        });
+    }
+
+    auto world = makeWorld(specs, isometricTerrainGrid(CoordCount));
+    const auto startedAt = std::chrono::steady_clock::now();
+    auto tick = BattleMovementPlanner(world).tick();
+    const auto elapsed = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startedAt).count();
+
+    CAPTURE(elapsed);
+    CHECK(tick.decisions.size() == specs.size());
+    CHECK(elapsed < 2.0);
 }
 
 TEST_CASE("TaXue_MeleeChaosStartsImmediatePeelDash", "[battle][movement]")

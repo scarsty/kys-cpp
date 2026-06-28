@@ -118,6 +118,8 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="ChessBattleEffectsUnitTests.cpp" />
     <ClCompile Include="ChessContextMenuUnitTests.cpp" />
     <ClCompile Include="ChessChallengeMenuUnitTests.cpp" />
+    <ClCompile Include="ChessShopFlowUnitTests.cpp" />
+    <ClCompile Include="ChessShopRollUnitTests.cpp" />
     <ClCompile Include="ChessShopWeightDisplayUnitTests.cpp" />
     <ClCompile Include="BattleComboTriggerSystemUnitTests.cpp" />
     <ClCompile Include="BattleCoreUnitTests.cpp" />
@@ -169,6 +171,7 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="..\src\ChessBattleEffects.cpp" />
     <ClCompile Include="..\src\ChessChallengeMenu.cpp" />
     <ClCompile Include="..\src\ChessContextMenu.cpp" />
+    <ClCompile Include="..\src\ChessShopRoll.cpp" />
     <ClCompile Include="..\src\ChessShopWeightDisplay.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -200,6 +203,7 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClInclude Include="..\src\battle\BattleTypes.h" />
     <ClInclude Include="..\src\ChessChallengeMenu.h" />
     <ClInclude Include="..\src\ChessContextMenu.h" />
+    <ClInclude Include="..\src\ChessShopRoll.h" />
     <ClInclude Include="BattleMovementTestHelpers.h" />
     <ClInclude Include="BattleRuntimeScenarioTestHelpers.h" />
   </ItemGroup>

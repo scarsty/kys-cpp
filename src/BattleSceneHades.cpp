@@ -58,6 +58,7 @@ constexpr int BATTLE_CONTROL_PLAY_TEXTURE_ID = 333;
 constexpr int BATTLE_CONTROL_PAUSE_TEXTURE_ID = 334;
 constexpr int BATTLE_CONTROL_LOG_TEXTURE_ID = 335;
 constexpr int BATTLE_CONTROL_SPEED_TEXTURE_ID = 336;
+constexpr double BATTLE_FRAME_PROFILE_SLOW_MS = 4.0;
 
 struct RuntimeFrozenStatus
 {
@@ -389,6 +390,8 @@ KysChess::Battle::BattleRuntimeSessionCreationInput BattleSceneHades::makeBattle
     input.rules.movementPhysicsConfig.gravity = gravity_;
     input.rules.movementPhysicsConfig.friction = friction_;
     input.battleFrame = battle_frame_;
+    input.profiling.enabled = true;
+    input.profiling.slowFrameThresholdMs = BATTLE_FRAME_PROFILE_SLOW_MS;
 
     auto* basicMagic = Save::getInstance()->getMagic(1);
     assert(basicMagic);

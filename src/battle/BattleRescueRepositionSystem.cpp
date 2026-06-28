@@ -6,9 +6,9 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <queue>
-#include <set>
 #include <string>
 #include <utility>
 
@@ -30,109 +30,176 @@ int distanceCells(Point lhs, Point rhs)
     return std::abs(lhs.x - rhs.x) + std::abs(lhs.y - rhs.y);
 }
 
-const BattleRescueCellSnapshot* findCell(const BattleRescueRepositionInput& input, Point cell)
-{
-    auto it = std::ranges::find_if(input.cells, [&](const BattleRescueCellSnapshot& snapshot)
-        {
-            return snapshot.x == cell.x && snapshot.y == cell.y;
-        });
-    return it == std::ranges::end(input.cells) ? nullptr : &*it;
-}
+constexpr int NeighborOffsets[4][2] = {
+    { 1, 0 },
+    { -1, 0 },
+    { 0, 1 },
+    { 0, -1 },
+};
 
-bool cellWalkable(const BattleRescueRepositionInput& input, Point cell)
+struct BattleRescueSearchSpace
 {
-    const auto* snapshot = findCell(input, cell);
-    return snapshot && snapshot->walkable;
-}
-
-bool aliveBattleMemberAt(const BattleRescueRepositionInput& input, const BattleRescueUnitSnapshot& pulled, Point cell)
-{
-    for (const auto& unit : input.units)
+    BattleRescueSearchSpace(
+        const BattleRescueRepositionInput& input,
+        const BattleRescueUnitSnapshot& pulled)
     {
-        if (unit.id == pulled.id || !unit.alive || unit.isSummonedClone)
+        if (!input.cells.empty())
         {
-            continue;
+            buildCellIndex(input.cells);
         }
-        if (unit.cell.x == cell.x && unit.cell.y == cell.y)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool connectedToRestOfBattle(const BattleRescueRepositionInput& input, const BattleRescueUnitSnapshot& pulled, Point cell)
-{
-    if (!cellWalkable(input, cell))
-    {
-        return false;
+        buildConnectedCells(input, pulled);
     }
 
-    std::queue<Point> frontier;
-    std::set<std::pair<int, int>> visited;
-    frontier.push(cell);
-    visited.insert({ cell.x, cell.y });
-
-    constexpr int NeighborOffsets[4][2] = {
-        { 1, 0 },
-        { -1, 0 },
-        { 0, 1 },
-        { 0, -1 },
-    };
-
-    while (!frontier.empty())
+    const BattleRescueCellSnapshot* findCell(Point cell) const
     {
-        const Point current = frontier.front();
-        frontier.pop();
-        if (aliveBattleMemberAt(input, pulled, current))
+        const std::size_t index = findCellIndex(cell);
+        return index == MissingCellIndex ? nullptr : cellsByIndex[index];
+    }
+
+    const BattleRescueCellSnapshot& requireCell(Point cell) const
+    {
+        const std::size_t index = findCellIndex(cell);
+        assert(index != MissingCellIndex);
+        return *cellsByIndex[index];
+    }
+
+    bool legalDestination(const BattleRescueUnitSnapshot& pulled, Point cell) const
+    {
+        if (cell.x == pulled.cell.x && cell.y == pulled.cell.y)
         {
-            return true;
+            return false;
         }
 
-        for (const auto& [dx, dy] : NeighborOffsets)
+        const std::size_t index = findCellIndex(cell);
+        if (index == MissingCellIndex)
         {
-            Point next{ current.x + dx, current.y + dy };
-            auto key = std::pair{ next.x, next.y };
-            if (visited.contains(key) || !cellWalkable(input, next))
+            return false;
+        }
+        const auto& snapshot = *cellsByIndex[index];
+        if (!snapshot.walkable || connectedCells[index] == 0)
+        {
+            return false;
+        }
+        return !snapshot.occupied || snapshot.occupantUnitId == pulled.id;
+    }
+
+private:
+    void buildCellIndex(const std::vector<BattleRescueCellSnapshot>& cells)
+    {
+        minX = cells.front().x;
+        minY = cells.front().y;
+        int maxX = minX;
+        int maxY = minY;
+        for (const auto& cell : cells)
+        {
+            minX = std::min(minX, cell.x);
+            minY = std::min(minY, cell.y);
+            maxX = std::max(maxX, cell.x);
+            maxY = std::max(maxY, cell.y);
+        }
+
+        width = maxX - minX + 1;
+        height = maxY - minY + 1;
+        cellsByIndex.assign(static_cast<std::size_t>(width) * static_cast<std::size_t>(height), nullptr);
+        connectedCells.assign(cellsByIndex.size(), 0);
+
+        for (const auto& cell : cells)
+        {
+            const std::size_t index = cellIndex({ cell.x, cell.y });
+            assert(cellsByIndex[index] == nullptr);
+            cellsByIndex[index] = &cell;
+        }
+    }
+
+    std::size_t cellIndex(Point cell) const
+    {
+        assert(width > 0);
+        assert(height > 0);
+        assert(cell.x >= minX);
+        assert(cell.y >= minY);
+        assert(cell.x < minX + width);
+        assert(cell.y < minY + height);
+        return static_cast<std::size_t>(cell.x - minX) * static_cast<std::size_t>(height)
+            + static_cast<std::size_t>(cell.y - minY);
+    }
+
+    std::size_t findCellIndex(Point cell) const
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return MissingCellIndex;
+        }
+        if (cell.x < minX || cell.y < minY || cell.x >= minX + width || cell.y >= minY + height)
+        {
+            return MissingCellIndex;
+        }
+        const std::size_t index = cellIndex(cell);
+        return cellsByIndex[index] == nullptr ? MissingCellIndex : index;
+    }
+
+    bool walkable(std::size_t index) const
+    {
+        assert(index != MissingCellIndex);
+        assert(cellsByIndex[index]);
+        return cellsByIndex[index]->walkable;
+    }
+
+    void addConnectedSeed(std::queue<Point>& frontier, Point cell)
+    {
+        const std::size_t index = findCellIndex(cell);
+        if (index == MissingCellIndex || !walkable(index))
+        {
+            return;
+        }
+        if (connectedCells[index] == 0)
+        {
+            connectedCells[index] = 1;
+            frontier.push(cell);
+        }
+    }
+
+    void buildConnectedCells(
+        const BattleRescueRepositionInput& input,
+        const BattleRescueUnitSnapshot& pulled)
+    {
+        std::queue<Point> frontier;
+        for (const auto& unit : input.units)
+        {
+            if (unit.id == pulled.id || !unit.alive || unit.isSummonedClone)
             {
                 continue;
             }
-            visited.insert(key);
-            frontier.push(next);
+            addConnectedSeed(frontier, unit.cell);
+        }
+
+        while (!frontier.empty())
+        {
+            const Point current = frontier.front();
+            frontier.pop();
+
+            for (const auto& [dx, dy] : NeighborOffsets)
+            {
+                Point next{ current.x + dx, current.y + dy };
+                const std::size_t index = findCellIndex(next);
+                if (index == MissingCellIndex || connectedCells[index] != 0 || !walkable(index))
+                {
+                    continue;
+                }
+                connectedCells[index] = 1;
+                frontier.push(next);
+            }
         }
     }
 
-    return false;
-}
+    static constexpr std::size_t MissingCellIndex = std::numeric_limits<std::size_t>::max();
 
-bool legalCell(const BattleRescueRepositionInput& input, const BattleRescueUnitSnapshot& pulled, Point cell)
-{
-    if (cell.x == pulled.cell.x && cell.y == pulled.cell.y)
-    {
-        return false;
-    }
-
-    const auto* snapshot = findCell(input, cell);
-    if (!snapshot)
-    {
-        return false;
-    }
-    if (!snapshot->walkable || !connectedToRestOfBattle(input, pulled, cell))
-    {
-        return false;
-    }
-    return !snapshot->occupied || snapshot->occupantUnitId == pulled.id;
-}
-
-const BattleRescueCellSnapshot& requireCell(const BattleRescueRepositionInput& input, Point cell)
-{
-    auto it = std::ranges::find_if(input.cells, [&](const BattleRescueCellSnapshot& snapshot)
-        {
-            return snapshot.x == cell.x && snapshot.y == cell.y;
-        });
-    assert(it != std::ranges::end(input.cells));
-    return *it;
-}
+    int minX{};
+    int minY{};
+    int width{};
+    int height{};
+    std::vector<const BattleRescueCellSnapshot*> cellsByIndex;
+    std::vector<std::uint8_t> connectedCells;
+};
 
 std::vector<const BattleRescueUnitSnapshot*> pullCandidates(const BattleRescueRepositionInput& input)
 {
@@ -160,7 +227,7 @@ std::vector<const BattleRescueUnitSnapshot*> pullCandidates(const BattleRescueRe
 }
 
 std::vector<Point> executeCellsForPuller(
-    const BattleRescueRepositionInput& input,
+    const BattleRescueSearchSpace& searchSpace,
     const BattleRescueUnitSnapshot& pulled,
     const BattleRescueUnitSnapshot& puller)
 {
@@ -174,7 +241,7 @@ std::vector<Point> executeCellsForPuller(
                 continue;
             }
             Point cell{ puller.cell.x + dx, puller.cell.y + dy };
-            if (legalCell(input, pulled, cell))
+            if (searchSpace.legalDestination(pulled, cell))
             {
                 cells.push_back(cell);
             }
@@ -195,6 +262,86 @@ std::vector<Point> executeCellsForPuller(
             return lhs.y < rhs.y;
         });
     return cells;
+}
+
+std::vector<Point> protectionCellsForPuller(
+    const BattleRescueSearchSpace& searchSpace,
+    const BattleRescueUnitSnapshot& pulled,
+    const BattleRescueUnitSnapshot& puller)
+{
+    std::vector<Point> cells;
+    cells.reserve(2 * ProtectSearchRadius * ProtectSearchRadius + 2 * ProtectSearchRadius + 1);
+    for (int dx = -ProtectSearchRadius; dx <= ProtectSearchRadius; ++dx)
+    {
+        const int remainingDistance = ProtectSearchRadius - std::abs(dx);
+        for (int dy = -remainingDistance; dy <= remainingDistance; ++dy)
+        {
+            Point cell{ puller.cell.x + dx, puller.cell.y + dy };
+            if (searchSpace.legalDestination(pulled, cell))
+            {
+                cells.push_back(cell);
+            }
+        }
+    }
+    return cells;
+}
+
+struct ProtectionContext
+{
+    int pullerTeam{};
+    std::vector<const BattleRescueUnitSnapshot*> units;
+    Point allyCenter{};
+    Point enemyCenter{};
+    Point backrow{};
+    double backrowLength{};
+};
+
+ProtectionContext makeProtectionContext(
+    const BattleRescueRepositionInput& input,
+    const BattleRescueUnitSnapshot& pulled)
+{
+    ProtectionContext context;
+    context.pullerTeam = input.pullerTeam;
+
+    Point allySum;
+    Point enemySum;
+    int allyCount = 0;
+    int enemyCount = 0;
+    context.units.reserve(input.units.size());
+    for (const auto& unit : input.units)
+    {
+        if (!unit.alive || unit.id == pulled.id)
+        {
+            continue;
+        }
+        context.units.push_back(&unit);
+        if (unit.team == input.pullerTeam)
+        {
+            allySum.x += unit.cell.x;
+            allySum.y += unit.cell.y;
+            ++allyCount;
+        }
+        else
+        {
+            enemySum.x += unit.cell.x;
+            enemySum.y += unit.cell.y;
+            ++enemyCount;
+        }
+    }
+    if (allyCount > 0)
+    {
+        context.allyCenter.x = allySum.x / allyCount;
+        context.allyCenter.y = allySum.y / allyCount;
+    }
+    if (enemyCount > 0)
+    {
+        context.enemyCenter.x = enemySum.x / enemyCount;
+        context.enemyCenter.y = enemySum.y / enemyCount;
+    }
+    context.backrow = { context.allyCenter.x - context.enemyCenter.x, context.allyCenter.y - context.enemyCenter.y };
+    context.backrowLength = std::sqrt(static_cast<double>(
+        context.backrow.x * context.backrow.x + context.backrow.y * context.backrow.y));
+    return context;
 }
 
 struct ProtectionChoice
@@ -247,8 +394,7 @@ bool betterProtectionChoice(const ProtectionChoice& lhs, const ProtectionChoice&
 }
 
 ProtectionChoice protectionChoiceForCell(
-    const BattleRescueRepositionInput& input,
-    const BattleRescueUnitSnapshot& pulled,
+    const ProtectionContext& context,
     const BattleRescueUnitSnapshot& puller,
     Point cell)
 {
@@ -261,50 +407,10 @@ ProtectionChoice protectionChoiceForCell(
     choice.allySupport = 0;
     choice.pullerDistance = distanceCells(cell, puller.cell);
 
-    Point allyCenter;
-    Point enemyCenter;
-    int allyCount = 0;
-    int enemyCount = 0;
-    for (const auto& unit : input.units)
+    for (const auto* unit : context.units)
     {
-        if (!unit.alive || unit.id == pulled.id)
-        {
-            continue;
-        }
-        if (unit.team == input.pullerTeam)
-        {
-            allyCenter.x += unit.cell.x;
-            allyCenter.y += unit.cell.y;
-            ++allyCount;
-        }
-        else
-        {
-            enemyCenter.x += unit.cell.x;
-            enemyCenter.y += unit.cell.y;
-            ++enemyCount;
-        }
-    }
-    if (allyCount > 0)
-    {
-        allyCenter.x /= allyCount;
-        allyCenter.y /= allyCount;
-    }
-    if (enemyCount > 0)
-    {
-        enemyCenter.x /= enemyCount;
-        enemyCenter.y /= enemyCount;
-    }
-    const Point backrow{ allyCenter.x - enemyCenter.x, allyCenter.y - enemyCenter.y };
-    const double backrowLength = std::sqrt(static_cast<double>(backrow.x * backrow.x + backrow.y * backrow.y));
-
-    for (const auto& unit : input.units)
-    {
-        if (!unit.alive || unit.id == pulled.id)
-        {
-            continue;
-        }
-        const int distance = distanceCells(cell, unit.cell);
-        if (unit.team == input.pullerTeam)
+        const int distance = distanceCells(cell, unit->cell);
+        if (unit->team == context.pullerTeam)
         {
             if (distance <= SupportRadius)
             {
@@ -324,35 +430,29 @@ ProtectionChoice protectionChoiceForCell(
     {
         choice.enemyMinDistance = 1000000;
     }
-    if (backrowLength > 0.0001)
+    if (context.backrowLength > 0.0001)
     {
-        const Point candidateFromAlly{ cell.x - allyCenter.x, cell.y - allyCenter.y };
-        choice.backrowScore = (candidateFromAlly.x * backrow.x + candidateFromAlly.y * backrow.y) / backrowLength;
+        const Point candidateFromAlly{ cell.x - context.allyCenter.x, cell.y - context.allyCenter.y };
+        choice.backrowScore = (candidateFromAlly.x * context.backrow.x + candidateFromAlly.y * context.backrow.y)
+            / context.backrowLength;
     }
     return choice;
 }
 
 ProtectionChoice resolveProtectionChoice(
     const BattleRescueRepositionInput& input,
+    const BattleRescueSearchSpace& searchSpace,
     const BattleRescueUnitSnapshot& pulled,
     const std::vector<const BattleRescueUnitSnapshot*>& candidates)
 {
+    const auto context = makeProtectionContext(input, pulled);
     ProtectionChoice best;
     for (const auto* puller : candidates)
     {
         ProtectionChoice bestForPuller;
-        for (const auto& cellSnapshot : input.cells)
+        for (const Point cell : protectionCellsForPuller(searchSpace, pulled, *puller))
         {
-            Point cell{ cellSnapshot.x, cellSnapshot.y };
-            if (distanceCells(cell, puller->cell) > ProtectSearchRadius)
-            {
-                continue;
-            }
-            if (!legalCell(input, pulled, cell))
-            {
-                continue;
-            }
-            auto choice = protectionChoiceForCell(input, pulled, *puller, cell);
+            auto choice = protectionChoiceForCell(context, *puller, cell);
             if (betterProtectionChoice(choice, bestForPuller))
             {
                 bestForPuller = choice;
@@ -443,6 +543,7 @@ BattleRescueRepositionResult BattleRescueRepositionSystem::resolve(
     }
 
     auto candidates = pullCandidates(input);
+    BattleRescueSearchSpace searchSpace(input, pulled);
     std::sort(candidates.begin(), candidates.end(), [&](const auto* lhs, const auto* rhs)
         {
             const int lhsDistance = distanceCells(lhs->cell, pulled.cell);
@@ -459,21 +560,21 @@ BattleRescueRepositionResult BattleRescueRepositionSystem::resolve(
     {
         for (const auto* puller : candidates)
         {
-            auto cells = executeCellsForPuller(input, pulled, *puller);
+            auto cells = executeCellsForPuller(searchSpace, pulled, *puller);
             if (cells.empty())
             {
                 continue;
             }
-            commitExecuteResult(result, pulled, *puller, requireCell(input, cells.front()));
+            commitExecuteResult(result, pulled, *puller, searchSpace.requireCell(cells.front()));
             return result;
         }
         return result;
     }
 
-    auto choice = resolveProtectionChoice(input, pulled, candidates);
+    auto choice = resolveProtectionChoice(input, searchSpace, pulled, candidates);
     if (choice.valid)
     {
-        commitProtectionResult(result, pulled, *choice.puller, requireCell(input, choice.cell));
+        commitProtectionResult(result, pulled, *choice.puller, searchSpace.requireCell(choice.cell));
     }
     return result;
 }

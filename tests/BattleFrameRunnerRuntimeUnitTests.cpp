@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -241,6 +242,28 @@ void seedDamageExtrasFromUnits(BattleRuntimeState& state)
 
 }  // namespace
 
+TEST_CASE("BattleFrameRunner_RunFrame_AppendsProfilingLogWhenEnabled", "[battle][frame_runner][runtime][profiling]")
+{
+    auto state = runtimeFrameState();
+    state.profiling.enabled = true;
+    state.profiling.slowFrameThresholdMs = 0.0;
+
+    auto frame = runBattleFrame(state);
+
+    const auto log = std::find_if(frame.logEvents.begin(), frame.logEvents.end(), [](const BattleLogEvent& event)
+        {
+            return BattleLogTest::textOf(event).starts_with("戰鬥幀耗時 ");
+        });
+    REQUIRE(log != frame.logEvents.end());
+    CHECK(log->type == BattleLogEventType::Status);
+    CHECK(log->sourceUnitId == -1);
+    CHECK(log->targetUnitId == -1);
+
+    const std::string text = BattleLogTest::textOf(*log);
+    CHECK(text.find("連擊") != std::string::npos);
+    CHECK(text.find("傷害/挪移") != std::string::npos);
+}
+
 TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[battle][frame_runner][runtime][ownership]")
 {
     auto runtime = ownedRuntimeState();
@@ -328,28 +351,34 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     session.runFrame();
 
     const auto& hitFrameUnit = session.runtime().units.requireCore(1);
+    const float hitFrameX = hitFrameUnit.motion.position.x;
     CHECK(hitFrameUnit.motion.position.x >= defenderX);
     CHECK(hitFrameUnit.motion.velocity.x == Catch::Approx(1.0f));
     CHECK(hitFrameUnit.motion.facing.x == Catch::Approx(-1.0f));
     CHECK(hitFrameUnit.motion.facing.y == Catch::Approx(0.0f));
-    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames > 0);
-    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames > session.runtime().units.require(1).movement.physics.knockbackFrames);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 1);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 2);
+    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 5);
 
     session.runFrame();
 
     const auto& pushedUnit = session.runtime().units.requireCore(1);
-    CHECK(pushedUnit.motion.position.x > defenderX);
-    CHECK(pushedUnit.motion.velocity.x == Catch::Approx(0.0f));
+    CHECK(session.runtime().attacks.attacks.empty());
+    CHECK(pushedUnit.motion.position.x == Catch::Approx(hitFrameX + 1.0f));
+    CHECK(pushedUnit.motion.velocity.x == Catch::Approx(0.9f));
     CHECK(pushedUnit.motion.facing.x == Catch::Approx(-1.0f));
     CHECK(pushedUnit.motion.facing.y == Catch::Approx(0.0f));
-    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames > 0);
-    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames > session.runtime().units.require(1).movement.physics.knockbackFrames);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 0);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 1);
+    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 4);
 
     session.runFrame();
 
     const auto& lockedUnit = session.runtime().units.requireCore(1);
     CHECK(lockedUnit.motion.facing.x == Catch::Approx(-1.0f));
     CHECK(lockedUnit.motion.facing.y == Catch::Approx(0.0f));
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 0);
+    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 3);
 }
 
 TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity", "[battle][runtime_session][ownership]")
@@ -384,25 +413,33 @@ TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity",
     session.runFrame();
 
     const auto& hitFrameUnit = session.runtime().units.requireCore(1);
+    const float hitFrameX = hitFrameUnit.motion.position.x;
     CHECK(hitFrameUnit.motion.position.x >= defenderX);
     CHECK(hitFrameUnit.motion.velocity.x == Catch::Approx(2.15f));
     CHECK(hitFrameUnit.motion.facing.x == Catch::Approx(-1.0f));
     CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 4);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 5);
+    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 5);
 
     session.runFrame();
 
     const auto& pushedUnit = session.runtime().units.requireCore(1);
-    CHECK(pushedUnit.motion.position.x == Catch::Approx(defenderX + 2.15f));
-    CHECK(pushedUnit.motion.velocity.x == Catch::Approx(2.05f));
+    CHECK(pushedUnit.motion.position.x == Catch::Approx(hitFrameX + 2.15f));
+    CHECK(pushedUnit.motion.velocity.x == Catch::Approx(2.05f).margin(0.0001f));
     CHECK(pushedUnit.motion.facing.x == Catch::Approx(-1.0f));
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 3);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 4);
+    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 4);
 
     session.runFrame();
     session.runFrame();
     session.runFrame();
 
     const auto& settledUnit = session.runtime().units.requireCore(1);
-    CHECK(settledUnit.motion.position.x == Catch::Approx(defenderX + 8.0f));
+    CHECK(settledUnit.motion.position.x == Catch::Approx(hitFrameX + 8.0f));
     CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 0);
+    CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 1);
+    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 1);
 }
 
 TEST_CASE("BattleRuntimeSession_RunFrame_TaXueIgnoresKnockback", "[battle][runtime_session][ownership]")

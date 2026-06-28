@@ -248,6 +248,7 @@
     <ClCompile Include="ChessMenuHelpers.cpp" />
     <ClCompile Include="ChessDetailPanels.cpp" />
     <ClCompile Include="ChessShopFlow.cpp" />
+    <ClCompile Include="ChessShopRoll.cpp" />
     <ClCompile Include="ChessShopWeightDisplay.cpp" />
     <ClCompile Include="ChessInfoFlow.cpp" />
     <ClCompile Include="ChessRewardFlow.cpp" />
@@ -531,6 +532,7 @@
     <ClInclude Include="ChessScreenLayout.h" />
     <ClInclude Include="ChessDetailPanels.h" />
     <ClInclude Include="ChessShopFlow.h" />
+    <ClInclude Include="ChessShopRoll.h" />
     <ClInclude Include="ChessShopWeightDisplay.h" />
     <ClInclude Include="ChessInfoFlow.h" />
     <ClInclude Include="ChessRewardFlow.h" />

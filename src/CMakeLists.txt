@@ -94,6 +94,8 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/ChessBattleEffectsUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessContextMenuUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessChallengeMenuUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessShopFlowUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessShopRollUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessShopWeightDisplayUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleComboTriggerSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCoreUnitTests.cpp"

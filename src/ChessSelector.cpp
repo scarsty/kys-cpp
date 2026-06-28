@@ -116,7 +116,11 @@ int ChessSelector::runBattle(
 
 void ChessSelector::buyExp()
 {
-    ChessShopFlow(services()).buyExp();
+    ChessShopFlow flow(services());
+    while (flow.buyExp())
+    {
+        UISave::autoSave();
+    }
 }
 
 void ChessSelector::manageBans()
