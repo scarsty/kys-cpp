@@ -135,6 +135,7 @@ struct BattleDamageDefenseInput
     bool reflected = false;
     bool defenderWasInvincible = false;
     BattleDamageUnitState defender;
+    bool blockFirstHitWithoutConsuming = false;
 };
 
 struct BattleDamageDefenseResult
@@ -328,6 +329,7 @@ struct BattleDamageTransactionInput
     BattleDamageModifierState defenderModifiers;
     BattleStatusUnitState defenderStatus;
     BattleCooldownState defenderCooldown;
+    bool blockFirstHitWithoutConsuming = false;
 };
 
 struct BattleDamageTransactionResult

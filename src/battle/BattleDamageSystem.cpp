@@ -133,6 +133,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             input.request.reflected,
             result.defender.invincible > 0,
             result.defender,
+            input.blockFirstHitWithoutConsuming,
         });
         result.defender = defense.defender;
         result.shieldAbsorbed = defense.shieldAbsorbed;
@@ -550,10 +551,13 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
     if (!input.executed
         && !input.reflected
         && result.damage > 0
-        && result.defender.blockFirstHitsRemaining > 0)
+        && (input.blockFirstHitWithoutConsuming || result.defender.blockFirstHitsRemaining > 0))
     {
         result.damage = 0;
-        result.defender.blockFirstHitsRemaining--;
+        if (!input.blockFirstHitWithoutConsuming)
+        {
+            result.defender.blockFirstHitsRemaining--;
+        }
         result.blockedByFirstHit = true;
         return result;
     }

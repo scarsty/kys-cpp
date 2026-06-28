@@ -9,6 +9,10 @@
 namespace
 {
 
+constexpr Color kLockedSelectionOutline{245, 245, 230, 235};
+constexpr Color kLockedSelectionFill{255, 255, 255, 32};
+constexpr int kLockedSelectionThickness = 2;
+
 struct VisibleMenuItems
 {
     std::vector<std::string> displays;
@@ -371,9 +375,8 @@ void SuperMenuText::dealEvent(EngineEvent& e)
             {
                 // Second tap on same item - commit
                 tapLockTime_ = -1.0;
-                // Clear the green outline
                 auto btn = std::dynamic_pointer_cast<Button>(selections_->getChild(selectionIdx));
-                if (btn) btn->clearCustomOutline();
+                if (btn) btn->clearSelectionOverlay();
 
                 if (extraOpts_.confirmation_)
                 {
@@ -397,7 +400,7 @@ void SuperMenuText::dealEvent(EngineEvent& e)
             else
             {
                 // First tap - lock selection, show details
-                // Clear previous locked item outline
+                // Clear previous locked item overlay
                 if (lastTappedIdx_ >= 0)
                 {
                     for (int i = 0; i < activeIndices_.size(); i++)
@@ -405,19 +408,17 @@ void SuperMenuText::dealEvent(EngineEvent& e)
                         if (activeIndices_[i] == lastTappedIdx_)
                         {
                             auto btn = std::dynamic_pointer_cast<Button>(selections_->getChild(i));
-                            if (btn) btn->clearCustomOutline();
+                            if (btn) btn->clearSelectionOverlay();
                             break;
                         }
                     }
                 }
                 lastTappedIdx_ = itemIdx;
                 tapLockTime_ = Engine::getTicks();  // record when lock happened
-                // Apply green outline to locked item
                 auto btn = std::dynamic_pointer_cast<Button>(selections_->getChild(selectionIdx));
                 if (btn)
                 {
-                    btn->setCustomOutline({100, 255, 100, 255});
-                    btn->setOutlineThickness(2);
+                    btn->setSelectionOverlay(kLockedSelectionOutline, kLockedSelectionFill, kLockedSelectionThickness);
                 }
                 selections_->forceActiveChild(selectionIdx);
                 selections_->setResult(-1);

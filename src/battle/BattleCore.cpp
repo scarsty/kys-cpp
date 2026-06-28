@@ -1182,6 +1182,17 @@ public:
     std::vector<BattleAttackSpawnRequest>& currentFrameAttacks() { return attackSpawns_; }
     std::vector<BattlePendingDamageIntent>& currentFrameDamage() { return pendingDamage_; }
 
+    bool firstHitBlockActiveForFrame(int unitId) const
+    {
+        return firstHitBlockActiveDefenders_.contains(unitId);
+    }
+
+    void activateFirstHitBlockForFrame(int unitId)
+    {
+        assert(unitId >= 0);
+        firstHitBlockActiveDefenders_.insert(unitId);
+    }
+
     void queueCommand(BattleGameplayCommand command)
     {
         frameCommands_.push_back(std::move(command));
@@ -1219,6 +1230,7 @@ private:
     std::vector<BattleFrameMpRestore> lateMpRestores_;
     std::vector<BattleAttackSpawnRequest> attackSpawns_;
     std::vector<BattlePendingDamageIntent> pendingDamage_;
+    std::set<int> firstHitBlockActiveDefenders_;
     UnitMotionSnapshotMap frameStartMotion_;
 
 public:
@@ -1558,8 +1570,10 @@ std::vector<BattleRescueCellSnapshot> makeRescueCellSnapshots(const BattleRuntim
     auto cells = state.rescue.cells;
     for (auto& cell : cells)
     {
-        cell.occupied = false;
-        cell.occupantUnitId = -1;
+        if (!cell.occupied)
+        {
+            cell.occupantUnitId = -1;
+        }
         const auto occupantIt = occupantByCell.find(rescueCellKey(cell.x, cell.y));
         if (occupantIt == occupantByCell.end())
         {
@@ -3460,12 +3474,14 @@ std::vector<std::size_t> orderedFramePendingDamageIndexes(
 
 BattleDamageTransactionInput makeFrameDamageTransactionInput(
     BattleRuntimeState& state,
-    const BattleDamageRequest& request)
+    const BattleDamageRequest& request,
+    bool blockFirstHitWithoutConsuming = false)
 {
     assert(request.defenderUnitId >= 0);
 
     BattleDamageTransactionInput transaction;
     transaction.request = request;
+    transaction.blockFirstHitWithoutConsuming = blockFirstHitWithoutConsuming;
 
     const auto& defender = state.units.require(request.defenderUnitId);
     transaction.defender = defender.damageState();
@@ -4939,7 +4955,14 @@ void applyDamageAndLifecycle(
         }
 
         auto transaction = BattleDamageSystem().resolveTransaction(
-            makeFrameDamageTransactionInput(state, request));
+            makeFrameDamageTransactionInput(
+                state,
+                request,
+                frame.firstHitBlockActiveForFrame(request.defenderUnitId)));
+        if (transaction.blockedByFirstHit)
+        {
+            frame.activateFirstHitBlockForFrame(transaction.defender.id);
+        }
         applyFrameDamageTakenMpGain(transaction);
         applyDamageResultToFrameState(state, transaction, frameStartMotion);
         appendFrameShieldBreakCommands(state, frame, transaction);

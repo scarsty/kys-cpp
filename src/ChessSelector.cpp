@@ -1,6 +1,7 @@
 #include "ChessSelector.h"
 
 #include "ChessBattleFlow.h"
+#include "ChessContextMenu.h"
 #include "ChessDetailPanels.h"
 #include "ChessChallengeFlow.h"
 #include "ChessEquipmentFlow.h"
@@ -16,11 +17,30 @@
 #include "SystemSettings.h"
 #include "UISave.h"
 
+#include <assert.h>
+#include <optional>
+
 namespace KysChess
 {
 
 namespace
 {
+std::optional<ChessContextMenuAction> runContextActionMenu(const std::vector<ChessContextMenuItem>& items, int x, int y)
+{
+    auto menu = std::make_shared<MenuText>(chessContextMenuLabels(items));
+    menu->setFontSize(36);
+    menu->arrange(0, 0, 0, 45);
+    menu->runAtPosition(x, y);
+
+    const int result = menu->getResult();
+    if (result < 0)
+    {
+        return std::nullopt;
+    }
+    assert(result < static_cast<int>(items.size()));
+    return items[result].action;
+}
+
 class BattleSystemMenuNode : public RunNode
 {
 public:
@@ -139,67 +159,65 @@ void ChessSelector::showContextMenu()
 {
     while (true)
     {
-        const auto banEnabled = GameState::get().hasBanSystem();
-        std::vector<std::string> menuItems{
-            "購買棋子",
-            "出售棋子",
-            "選擇出戰",
-            "進入戰鬥",
-            "購買經驗",
-            "逆天改命",
-            "查看羈絆",
-            "棋子一覽",
-            "查看內功",
-            "遠征挑戰",
-            "系統設定",
-            "裝備管理",
-        };
-        if (banEnabled)
-        {
-            menuItems.push_back("禁棋管理");
-        }
-        menuItems.push_back("遊戲說明");
-        auto menu = std::make_shared<MenuText>(menuItems);
-        menu->setFontSize(36);
-        menu->arrange(0, 0, 0, 45);
-        menu->runAtPosition(200, 60);
-
-        const auto result = menu->getResult();
-        const auto banIndex = banEnabled ? 12 : -1;
-        const auto guideIndex = banEnabled ? 13 : 12;
-        if (result == -1)
+        const auto action = runContextActionMenu(buildChessContextMenu(), 200, 60);
+        if (!action)
         {
             return;
         }
-        if (banEnabled && result == banIndex)
-        {
-            manageBans();
-            UISave::autoSave();
-            continue;
-        }
-        if (result == guideIndex)
-        {
-            showGameGuide();
-            UISave::autoSave();
-            continue;
-        }
 
-        switch (result)
+        bool didAction = true;
+        switch (*action)
         {
-        case 0: getChess(); break;
-        case 1: sellChess(); break;
-        case 2: selectForBattle(); break;
-        case 3: enterBattle(); break;
-        case 4: buyExp(); break;
-        case 5: rerollBattleSeed(); break;
-        case 6: viewCombos(); break;
-        case 7: viewChessPool(); break;
-        case 8: viewNeigong(); break;
-        case 9: showExpeditionChallenge(); break;
-        case 10: showSystemMenu(); break;
-        case 11: manageEquipment(); break;
+        case ChessContextMenuAction::BuyChess: getChess(); break;
+        case ChessContextMenuAction::SellChess: sellChess(); break;
+        case ChessContextMenuAction::SelectForBattle: selectForBattle(); break;
+        case ChessContextMenuAction::EnterBattle: enterBattle(); break;
+        case ChessContextMenuAction::BuyExp: buyExp(); break;
+        case ChessContextMenuAction::OpenEquipmentMenu: manageEquipment(); break;
+        case ChessContextMenuAction::OpenStrategyMenu:
+        {
+            const auto strategyAction = runContextActionMenu(buildChessStrategyMenu(GameState::get().hasBanSystem()), 200, 60);
+            if (!strategyAction)
+            {
+                didAction = false;
+                break;
+            }
+            switch (*strategyAction)
+            {
+            case ChessContextMenuAction::ShowPositionSwap: showPositionSwap(); break;
+            case ChessContextMenuAction::RerollBattleSeed: rerollBattleSeed(); break;
+            case ChessContextMenuAction::ManageBans: manageBans(); break;
+            default: assert(false); break;
+            }
+            break;
         }
-        UISave::autoSave();
+        case ChessContextMenuAction::OpenInfoMenu:
+        {
+            const auto infoAction = runContextActionMenu(buildChessInfoMenu(), 200, 60);
+            if (!infoAction)
+            {
+                didAction = false;
+                break;
+            }
+            switch (*infoAction)
+            {
+            case ChessContextMenuAction::ViewCombos: viewCombos(); break;
+            case ChessContextMenuAction::ViewChessPool: viewChessPool(); break;
+            case ChessContextMenuAction::ViewNeigong: viewNeigong(); break;
+            case ChessContextMenuAction::ShowGameGuide: showGameGuide(); break;
+            default: assert(false); break;
+            }
+            break;
+        }
+        case ChessContextMenuAction::ShowExpeditionChallenge: showExpeditionChallenge(); break;
+        case ChessContextMenuAction::ShowSystemSettings: showSystemMenu(); break;
+        case ChessContextMenuAction::ShowGameGuide: showGameGuide(); break;
+        default: assert(false); break;
+        }
+        if (didAction)
+        {
+            UISave::autoSave();
+        }
     }
 }
 
@@ -216,6 +234,11 @@ void ChessSelector::showNeigongReward()
 void ChessSelector::viewNeigong()
 {
     ChessInfoFlow(services()).viewNeigong();
+}
+
+void ChessSelector::showPositionSwap()
+{
+    ChessInfoFlow(services()).showPositionSwap();
 }
 
 void ChessSelector::manageEquipment()
@@ -239,7 +262,6 @@ void ChessSelector::showSystemMenu()
 {
     auto settings = SystemSettings::getInstance()->snapshot();
     BattleSystemMenuData data;
-    data.positionSwapEnabled = settings.positionSwapEnabled;
     data.musicVolume = settings.musicVolume;
     data.soundVolume = settings.soundVolume;
     data.manualCamera = settings.manualCamera;
@@ -255,7 +277,6 @@ void ChessSelector::showSystemMenu()
 
     auto result = engine->getBattleSystemMenuData();
     SystemSettingsData updated = settings;
-    updated.positionSwapEnabled = result.positionSwapEnabled;
     updated.musicVolume = result.musicVolume;
     updated.soundVolume = result.soundVolume;
     updated.manualCamera = result.manualCamera;

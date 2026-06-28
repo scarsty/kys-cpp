@@ -250,6 +250,8 @@
     <ClCompile Include="ChessRewardFlow.cpp" />
     <ClCompile Include="ChessBattleFlow.cpp" />
     <ClCompile Include="ChessChallengeFlow.cpp" />
+    <ClCompile Include="ChessChallengeMenu.cpp" />
+    <ClCompile Include="ChessContextMenu.cpp" />
     <ClCompile Include="ChessEquipmentFlow.cpp" />
     <ClCompile Include="UIRoleStatusMenu.cpp" />
     <ClCompile Include="UIStatusDrawable.cpp" />
@@ -528,6 +530,8 @@
     <ClInclude Include="ChessRewardFlow.h" />
     <ClInclude Include="ChessBattleFlow.h" />
     <ClInclude Include="ChessChallengeFlow.h" />
+    <ClInclude Include="ChessChallengeMenu.h" />
+    <ClInclude Include="ChessContextMenu.h" />
     <ClInclude Include="ChessEquipmentFlow.h" />
     <ClInclude Include="UIRoleStatusMenu.h" />
     <ClInclude Include="UIStatusDrawable.h" />

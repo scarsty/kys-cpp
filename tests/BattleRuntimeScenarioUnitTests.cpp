@@ -227,6 +227,7 @@ TEST_CASE("BattleRuntimeScenario_DeathRescueDigest", "[battle][scenario][runtime
     state.units.require(2).combo.applyConfiguredEffect({ KysChess::EffectType::ForcePullProtect, 1 });
     state.units.require(2).rescue.forcePullProtectRemaining = 1;
     state.rescue.cells = {
+        scenarioRescueCell(2, 2, true, true),
         scenarioRescueCell(2, 3),
         scenarioRescueCell(3, 2),
         scenarioRescueCell(5, 5),

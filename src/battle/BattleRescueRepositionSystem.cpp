@@ -7,6 +7,8 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <queue>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -28,6 +30,81 @@ int distanceCells(Point lhs, Point rhs)
     return std::abs(lhs.x - rhs.x) + std::abs(lhs.y - rhs.y);
 }
 
+const BattleRescueCellSnapshot* findCell(const BattleRescueRepositionInput& input, Point cell)
+{
+    auto it = std::ranges::find_if(input.cells, [&](const BattleRescueCellSnapshot& snapshot)
+        {
+            return snapshot.x == cell.x && snapshot.y == cell.y;
+        });
+    return it == std::ranges::end(input.cells) ? nullptr : &*it;
+}
+
+bool cellWalkable(const BattleRescueRepositionInput& input, Point cell)
+{
+    const auto* snapshot = findCell(input, cell);
+    return snapshot && snapshot->walkable;
+}
+
+bool aliveBattleMemberAt(const BattleRescueRepositionInput& input, const BattleRescueUnitSnapshot& pulled, Point cell)
+{
+    for (const auto& unit : input.units)
+    {
+        if (unit.id == pulled.id || !unit.alive || unit.isSummonedClone)
+        {
+            continue;
+        }
+        if (unit.cell.x == cell.x && unit.cell.y == cell.y)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool connectedToRestOfBattle(const BattleRescueRepositionInput& input, const BattleRescueUnitSnapshot& pulled, Point cell)
+{
+    if (!cellWalkable(input, cell))
+    {
+        return false;
+    }
+
+    std::queue<Point> frontier;
+    std::set<std::pair<int, int>> visited;
+    frontier.push(cell);
+    visited.insert({ cell.x, cell.y });
+
+    constexpr int NeighborOffsets[4][2] = {
+        { 1, 0 },
+        { -1, 0 },
+        { 0, 1 },
+        { 0, -1 },
+    };
+
+    while (!frontier.empty())
+    {
+        const Point current = frontier.front();
+        frontier.pop();
+        if (aliveBattleMemberAt(input, pulled, current))
+        {
+            return true;
+        }
+
+        for (const auto& [dx, dy] : NeighborOffsets)
+        {
+            Point next{ current.x + dx, current.y + dy };
+            auto key = std::pair{ next.x, next.y };
+            if (visited.contains(key) || !cellWalkable(input, next))
+            {
+                continue;
+            }
+            visited.insert(key);
+            frontier.push(next);
+        }
+    }
+
+    return false;
+}
+
 bool legalCell(const BattleRescueRepositionInput& input, const BattleRescueUnitSnapshot& pulled, Point cell)
 {
     if (cell.x == pulled.cell.x && cell.y == pulled.cell.y)
@@ -35,19 +112,16 @@ bool legalCell(const BattleRescueRepositionInput& input, const BattleRescueUnitS
         return false;
     }
 
-    auto it = std::ranges::find_if(input.cells, [&](const BattleRescueCellSnapshot& snapshot)
-        {
-            return snapshot.x == cell.x && snapshot.y == cell.y;
-        });
-    if (it == std::ranges::end(input.cells))
+    const auto* snapshot = findCell(input, cell);
+    if (!snapshot)
     {
         return false;
     }
-    if (!it->walkable)
+    if (!snapshot->walkable || !connectedToRestOfBattle(input, pulled, cell))
     {
         return false;
     }
-    return !it->occupied || it->occupantUnitId == pulled.id;
+    return !snapshot->occupied || snapshot->occupantUnitId == pulled.id;
 }
 
 const BattleRescueCellSnapshot& requireCell(const BattleRescueRepositionInput& input, Point cell)

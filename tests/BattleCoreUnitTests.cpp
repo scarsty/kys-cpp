@@ -178,7 +178,7 @@ TEST_CASE("BattleRuntimeRules_HadesRulesDeriveCurrentSceneValuesFromGrid")
     REQUIRE(rules.action.actionRecoveryFrames == 4);
     REQUIRE(rules.action.dashRecoveryFrames == 5);
     REQUIRE(rules.movementPhysicsDashMomentumFrames == 5);
-    REQUIRE(rules.action.heavyAttackReach == SceneTileWidth * 6.0);
+    REQUIRE(rules.action.heavyAttackReach == SceneTileWidth * 4.0);
     REQUIRE(rules.action.projectileBounceRange == 90);
 }
 
@@ -658,7 +658,7 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, BattleCastInput input
     state.action.actionRules.maxEffectiveBattleReach = MaxEffectiveBattleReach;
     state.action.actionRules.meleeAttackHitRadius = SceneAttackHitRadius;
     state.action.actionRules.meleeAttackReach = input.unit.meleeAttackReach;
-    state.action.actionRules.heavyAttackReach = SceneTileWidth * 6.0;
+    state.action.actionRules.heavyAttackReach = SceneTileWidth * 4.0;
     state.action.actionRules.dashAttackMeleeReach = input.unit.dashAttackReach > 0.0
         ? input.unit.dashAttackReach
         : 375.0;
@@ -1055,6 +1055,7 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
     state.units.requireCore(1).grid = { 5, 5 };
     state.units.requireCore(2).grid = { 3, 2 };
     state.rescue.cells = {
+        rescueCell(2, 2, true, true),
         rescueCell(2, 3),
         rescueCell(3, 2),
         rescueCell(5, 5),
@@ -1966,7 +1967,7 @@ TEST_CASE("BattleFrameRunner_AreaSkillUsesHeavyReachForMovementAndCast", "[battl
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({
         unit(0, 0, { 10, 20, 0 }, CombatStyle::Ranged),
-        unit(1, 1, { 214, 20, 0 }),
+        unit(1, 1, { 152, 20, 0 }),
     }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
@@ -1981,14 +1982,14 @@ TEST_CASE("BattleFrameRunner_AreaSkillUsesHeavyReachForMovementAndCast", "[battl
     runBattleFrame(state);
 
     CHECK(caster.style == CombatStyle::Ranged);
-    CHECK(caster.reach == Catch::Approx(SceneTileWidth * 6.0));
+    CHECK(caster.reach == Catch::Approx(SceneTileWidth * 4.0));
     CHECK(caster.motion.position.x == Catch::Approx(10.0));
     CHECK(caster.motion.position.y == Catch::Approx(20.0));
     auto pending = state.units.require(0).pendingCast();
     REQUIRE(pending != nullptr);
     CHECK(pending->operationType == BattleOperationType::TrackingProjectile);
-    CHECK(pending->skill.reach == Catch::Approx(SceneTileWidth * 6.0));
-    CHECK(pending->skill.blinkReach == Catch::Approx(SceneTileWidth * 6.0));
+    CHECK(pending->skill.reach == Catch::Approx(SceneTileWidth * 4.0));
+    CHECK(pending->skill.blinkReach == Catch::Approx(SceneTileWidth * 4.0));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[battle][core][runtime]")
@@ -3413,6 +3414,38 @@ TEST_CASE("BattleFrameRunner_FirstHitBlockGameplayEventHasStatusText", "[battle]
         });
     REQUIRE(event != result.gameplayEvents.end());
     CHECK(event->text == "格擋了首輪傷害");
+}
+
+TEST_CASE("BattleFrameRunner_FirstHitBlockCoversWholeDamageFrame", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }),
+        unit(1, 1, { 120, 100, 0 }),
+        unit(2, 0, { 140, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnits(state, {
+        runtimeUnitSnapshot(0, 0, 100, { 100, 100, 0 }),
+        runtimeUnitSnapshot(1, 1, 100, { 120, 100, 0 }),
+        runtimeUnitSnapshot(2, 0, 100, { 140, 100, 0 }),
+});
+    state.units.require(0).combo = KysChess::RoleComboState{};
+    state.units.require(1).combo = KysChess::RoleComboState{};
+    state.units.require(2).combo = KysChess::RoleComboState{};
+
+    auto first = preResolvedDamageInput(0, 1, 100, 20);
+    first.defender.blockFirstHitsRemaining = 1;
+    queuePendingDamage(state, first);
+
+    auto second = preResolvedDamageInput(2, 1, 100, 30);
+    second.defender.blockFirstHitsRemaining = 1;
+    queuePendingDamage(state, second);
+
+    runBattleFrame(state);
+
+    CHECK(state.units.requireCore(1).vitals.hp == 100);
+    CHECK(state.units.require(1).damage.blockFirstHitsRemaining == 0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[battle][core][movement]")

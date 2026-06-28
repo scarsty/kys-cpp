@@ -461,7 +461,6 @@ void ImGuiLayer::renderBattleSystemMenuWindow()
             ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed, label_column_w);
             ImGui::TableSetupColumn("control", ImGuiTableColumnFlags_WidthStretch, 1.0f);
 
-            drawSettingRow("啟動佈陣", [&](float control_width) { drawCenteredCheckbox("##position_swap_enabled", &system_menu_.positionSwapEnabled, control_width); });
             drawSettingRow("手動鏡頭", [&](float control_width) { drawCenteredCheckbox("##manual_camera_enabled", &system_menu_.manualCamera, control_width); });
             drawSettingRow("顯示戰鬥日誌", [&](float control_width) { drawCenteredCheckbox("##show_battle_log_enabled", &system_menu_.showBattleLog, control_width); });
             drawSettingRow("音樂", [&](float control_width) { drawVolumeSlider("##music_volume", &system_menu_.musicVolume, control_width, [&]() { Audio::getInstance()->setVolume(system_menu_.musicVolume); }); });

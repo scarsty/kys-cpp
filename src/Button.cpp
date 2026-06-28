@@ -1,6 +1,7 @@
 ﻿#include "Button.h"
 #include "Font.h"
 #include "TextureManager.h"
+#include <algorithm>
 #include <cmath>
 
 Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/) :
@@ -94,10 +95,13 @@ void Button::draw()
             outline = { 180, 170, 140, 200 };
         }
 
+        const auto& customOutline = visual_layers_.customOutline();
+        const auto& selectionOverlay = visual_layers_.selectionOverlay();
+
         // Apply custom outline color if set
-        if (custom_outline_)
+        if (customOutline)
         {
-            outline = *custom_outline_;
+            outline = *customOutline;
         }
 
         uint8_t alpha = alpha_;
@@ -144,9 +148,30 @@ void Button::draw()
                     bx - off, by - off, bw + 2 * off, bh + 2 * off, r + off, phase);
             }
         }
-        else if (custom_outline_ || state_ != NodeNormal)
+        else if (customOutline || state_ != NodeNormal)
         {
             Engine::getInstance()->drawRoundedRect(outline, bx, by, bw, bh, radius);
+        }
+
+        if (selectionOverlay)
+        {
+            Color fill = selectionOverlay->fill;
+            fill.a = (uint8_t)(fill.a * alpha / 255);
+            if (fill.a > 0)
+            {
+                Engine::getInstance()->fillRoundedRect(fill, bx, by, bw, bh, radius);
+            }
+
+            Color selectionOutline = selectionOverlay->outline;
+            selectionOutline.a = (uint8_t)(selectionOutline.a * alpha / 255);
+            const int baseOffset = (customOutline || animate_outline_ || state_ != NodeNormal) ? std::max(1, outline_thickness_) : 0;
+            for (int t = 0; t < selectionOverlay->thickness; t++)
+            {
+                int off = baseOffset + t;
+                int r = std::max(0, radius - off);
+                Engine::getInstance()->drawRoundedRect(selectionOutline,
+                    bx - off, by - off, bw + 2 * off, bh + 2 * off, r + off);
+            }
         }
 
         if (!text_.empty())
@@ -156,7 +181,7 @@ void Button::draw()
             {
                 color_text = { 240, 230, 210, 255 };
             }
-            if (state_ == NodePass)
+            if (state_ == NodePass && !visual_layers_.keepsTextColorDuringSelection())
             {
                 color_text = { 255, 255, 255, 255 };
             }

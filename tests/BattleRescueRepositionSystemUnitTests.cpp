@@ -40,6 +40,7 @@ TEST_CASE("BattleRescueReposition_ProtectionPullSelectsLegalDestination", "[batt
     input.units[1].forcePullProtect = true;
     input.units[1].forcePullProtectRemaining = 1;
     input.cells = {
+        cell(2, 2, true),
         cell(2, 3),
         cell(3, 2, true),
         cell(5, 5),
@@ -57,6 +58,67 @@ TEST_CASE("BattleRescueReposition_ProtectionPullSelectsLegalDestination", "[batt
     CHECK(result.heal.amount == 10);
     CHECK(result.invincibility.targetUnitId == 10);
     CHECK(result.invincibility.frames == 10);
+}
+
+TEST_CASE("BattleRescueReposition_ProtectionPullSkipsDisconnectedWalkableCells", "[battle][rescue_reposition][unit]")
+{
+    BattleRescueRepositionInput input;
+    input.mode = BattleRescuePullMode::Protect;
+    input.pulledUnitId = 10;
+    input.pullerTeam = 1;
+    input.units = {
+        unit(10, 1, { 5, 5 }),
+        unit(11, 1, { 2, 2 }),
+        unit(20, 0, { 2, 4 }),
+    };
+    input.units[1].forcePullProtect = true;
+    input.units[1].forcePullProtectRemaining = 1;
+    input.cells = {
+        cell(2, 1),
+        cell(2, 2, true),
+        cell(2, 3),
+        cell(3, 1),
+        cell(3, 2),
+        cell(3, 3),
+        cell(7, 7),
+    };
+
+    auto result = BattleRescueRepositionSystem().resolve(input);
+
+    REQUIRE(result.teleport.has_value());
+    const bool choseDisconnectedCell = result.teleport->destinationCell.x == 7
+        && result.teleport->destinationCell.y == 7;
+    CHECK_FALSE(choseDisconnectedCell);
+}
+
+TEST_CASE("BattleRescueReposition_ProtectionPullAllowsLivePullerWhenAnotherMemberIsDead", "[battle][rescue_reposition][unit]")
+{
+    BattleRescueRepositionInput input;
+    input.mode = BattleRescuePullMode::Protect;
+    input.pulledUnitId = 10;
+    input.pullerTeam = 1;
+    input.units = {
+        unit(10, 1, { 5, 5 }),
+        unit(11, 1, { 2, 2 }),
+        unit(12, 1, { 3, 2 }),
+    };
+    input.units[1].forcePullProtect = true;
+    input.units[1].forcePullProtectRemaining = 1;
+    input.units[2].alive = false;
+    input.units[2].forcePullProtect = true;
+    input.units[2].forcePullProtectRemaining = 1;
+    input.cells = {
+        cell(2, 2, true),
+        cell(2, 3),
+        cell(3, 2),
+        cell(5, 5),
+    };
+
+    auto result = BattleRescueRepositionSystem().resolve(input);
+
+    REQUIRE(result.teleport.has_value());
+    CHECK(result.teleport->pullerUnitId == 11);
+    CHECK(result.counterDelta.unitId == 11);
 }
 
 TEST_CASE("BattleRescueReposition_ExecutePullConsumesExecuteCounterAndRequestsCounterAttack", "[battle][rescue_reposition][unit]")
@@ -101,6 +163,7 @@ TEST_CASE("BattleRescueReposition_NoCommandWhenNoLegalCellExists", "[battle][res
     input.units[1].forcePullProtect = true;
     input.units[1].forcePullProtectRemaining = 1;
     input.cells = {
+        cell(2, 2, true),
         { 2, 3, false, false, -1, { 20.0f, 30.0f, 0.0f } },
         cell(5, 5),
     };

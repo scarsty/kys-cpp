@@ -47,6 +47,7 @@ public:
     void viewCombos();
     void showNeigongReward();
     void viewNeigong();
+    void showPositionSwap();
     void manageEquipment();
     void showExpeditionChallenge();
     void showGameGuide();

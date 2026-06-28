@@ -131,6 +131,8 @@
     <ClCompile Include="Chess.cpp" />
     <ClCompile Include="ChessBattleFlow.cpp" />
     <ClCompile Include="ChessChallengeFlow.cpp" />
+    <ClCompile Include="ChessChallengeMenu.cpp" />
+    <ClCompile Include="ChessContextMenu.cpp" />
     <ClCompile Include="ChessDetailPanels.cpp" />
     <ClCompile Include="ChessEconomy.cpp" />
     <ClCompile Include="ChessEquipmentFlow.cpp" />
@@ -267,6 +269,8 @@
     <ClInclude Include="Chess.h" />
     <ClInclude Include="ChessBattleFlow.h" />
     <ClInclude Include="ChessChallengeFlow.h" />
+    <ClInclude Include="ChessChallengeMenu.h" />
+    <ClInclude Include="ChessContextMenu.h" />
     <ClInclude Include="ChessDetailPanels.h" />
     <ClInclude Include="ChessEconomy.h" />
     <ClInclude Include="ChessEquipmentFlow.h" />

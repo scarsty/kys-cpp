@@ -1,6 +1,7 @@
 #include "ChessEquipmentFlow.h"
 
 #include "ChessBalance.h"
+#include "ChessContextMenu.h"
 #include "ChessDetailPanels.h"
 #include "ChessEquipment.h"
 #include "ChessMenuHelpers.h"
@@ -68,14 +69,18 @@ void ChessEquipmentFlow::manageEquipment()
     while (true)
     {
         IndexedMenuData menuData;
-        menuData.labels = {
-            std::format("神兵商店               ${}", ChessBalance::config().legendaryShop.price),
-            "裝備一覽",
-        };
-        menuData.colors = {
-            {255, 140, 255, 255},
-            {220, 220, 220, 255},
-        };
+        const auto items = buildChessEquipmentMenu(true);
+        for (const auto& item : items)
+        {
+            if (item.action == ChessContextMenuAction::BuyLegendaryEquipment)
+            {
+                menuData.labels.push_back(std::format("{}               ${}", item.label, ChessBalance::config().legendaryShop.price));
+                menuData.colors.push_back({255, 140, 255, 255});
+                continue;
+            }
+            menuData.labels.push_back(item.label);
+            menuData.colors.push_back({220, 220, 220, 255});
+        }
         IndexedMenuConfig menuConfig;
         menuConfig.fontSize = 32;
         auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
@@ -89,13 +94,19 @@ void ChessEquipmentFlow::manageEquipment()
         {
             return;
         }
-        if (selected == 0)
+        assert(selected < static_cast<int>(items.size()));
+        switch (items[selected].action)
         {
+        case ChessContextMenuAction::ShowEquipmentInventory:
+            showEquipmentInventory();
+            return;
+        case ChessContextMenuAction::BuyLegendaryEquipment:
             buyLegendaryEquipment();
             continue;
+        default:
+            assert(false);
+            return;
         }
-        showEquipmentInventory();
-        return;
     }
 }
 

@@ -2,6 +2,7 @@
 
 #include "ChessBalance.h"
 #include "ChessBattleFlow.h"
+#include "ChessChallengeMenu.h"
 #include "ChessDetailPanels.h"
 #include "ChessMenuHelpers.h"
 #include "ChessRewardFlow.h"
@@ -30,23 +31,13 @@ void ChessChallengeFlow::showExpeditionChallenge()
     auto manager = makeChessManager(services_);
     for (;;)
     {
-        IndexedMenuData menuData;
-        for (int i = 0; i < static_cast<int>(config.challenges.size()); ++i)
-        {
-            auto& challenge = config.challenges[i];
-            bool done = services_.progress.isChallengeCompleted(i);
-            menuData.labels.push_back(std::format("{}{}", done ? "[已通關] " : "", challenge.name));
-            menuData.colors.push_back(done ? Color{120, 120, 120, 255} : Color{255, 200, 100, 255});
-        }
-
-        IndexedMenuConfig menuConfig;
-        menuConfig.perPage = static_cast<int>(menuData.labels.size());
-        auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
-        menuConfig.x = menuAnchor.x;
-        menuConfig.y = menuAnchor.y;
-        auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
+        const auto menuSetup = buildChallengeMenuSetup(config.challenges, services_.progress, ChessScreenLayout::browseMenuAnchor());
+        auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(
+            {menuSetup.config.x, menuSetup.config.y},
+            menuSetup.data.labels,
+            menuSetup.config.fontSize);
         auto detailPanel = std::make_shared<ChallengeDetailPanel>(config.challenges, services_.progress, services_.roleSave, detailFrame);
-        auto menu = makeIndexedMenu("遠征挑戰", menuData, menuConfig, {detailPanel});
+        auto menu = makeIndexedMenu("遠征挑戰", menuSetup.data, menuSetup.config, {detailPanel});
         menu->run();
 
         int sel = menu->getResult();
