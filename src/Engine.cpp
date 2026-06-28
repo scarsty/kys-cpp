@@ -1292,13 +1292,13 @@ void Engine::renderImGuiOverlay() const
     imgui_->render(window_, renderer_, main_texture_w, main_texture_h, SDL_GetRendererName(renderer_));
 }
 
-void Engine::showBattleLogOverlay(const BattleLogViewModel& model) const
+void Engine::showBattleLogOverlay(const BattleLogViewModel& model, bool respectUserSetting) const
 {
     if (!imgui_)
     {
         return;
     }
-    if (!SystemSettings::getInstance()->data().showBattleLog)
+    if (respectUserSetting && !SystemSettings::getInstance()->data().showBattleLog)
     {
         return;
     }

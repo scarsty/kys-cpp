@@ -98,3 +98,10 @@ TEST_CASE("equipment menu puts legendary shop second once unlocked", "[chess][co
     CHECK(items[0].action == ChessContextMenuAction::ShowEquipmentInventory);
     CHECK(items[1].action == ChessContextMenuAction::BuyLegendaryEquipment);
 }
+
+TEST_CASE("context menu y anchor centers visible rows inside chess content", "[chess][context-menu]")
+{
+    CHECK(centerChessContextMenuY(11) == 112);
+    CHECK(centerChessContextMenuY(3) == 292);
+    CHECK(centerChessContextMenuY(20) == 45);
+}

@@ -25,12 +25,17 @@ namespace KysChess
 
 namespace
 {
-std::optional<ChessContextMenuAction> runContextActionMenu(const std::vector<ChessContextMenuItem>& items, int x, int y)
+constexpr int kContextMenuX = 200;
+constexpr int kContextMenuFontSize = 36;
+constexpr int kContextMenuRowSpacing = 45;
+
+std::optional<ChessContextMenuAction> runContextActionMenu(const std::vector<ChessContextMenuItem>& items)
 {
     auto menu = std::make_shared<MenuText>(chessContextMenuLabels(items));
-    menu->setFontSize(36);
-    menu->arrange(0, 0, 0, 45);
-    menu->runAtPosition(x, y);
+    menu->setFontSize(kContextMenuFontSize);
+    menu->arrange(0, 0, 0, kContextMenuRowSpacing);
+    const auto region = ChessScreenLayout::fullContentRegion();
+    menu->runAtPosition(kContextMenuX, centerChessContextMenuY(items.size(), region.y, region.h, kContextMenuRowSpacing));
 
     const int result = menu->getResult();
     if (result < 0)
@@ -159,7 +164,7 @@ void ChessSelector::showContextMenu()
 {
     while (true)
     {
-        const auto action = runContextActionMenu(buildChessContextMenu(), 200, 60);
+        const auto action = runContextActionMenu(buildChessContextMenu());
         if (!action)
         {
             return;
@@ -176,7 +181,7 @@ void ChessSelector::showContextMenu()
         case ChessContextMenuAction::OpenEquipmentMenu: manageEquipment(); break;
         case ChessContextMenuAction::OpenStrategyMenu:
         {
-            const auto strategyAction = runContextActionMenu(buildChessStrategyMenu(GameState::get().hasBanSystem()), 200, 60);
+            const auto strategyAction = runContextActionMenu(buildChessStrategyMenu(GameState::get().hasBanSystem()));
             if (!strategyAction)
             {
                 didAction = false;
@@ -193,7 +198,7 @@ void ChessSelector::showContextMenu()
         }
         case ChessContextMenuAction::OpenInfoMenu:
         {
-            const auto infoAction = runContextActionMenu(buildChessInfoMenu(), 200, 60);
+            const auto infoAction = runContextActionMenu(buildChessInfoMenu());
             if (!infoAction)
             {
                 didAction = false;

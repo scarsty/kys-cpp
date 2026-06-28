@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -40,5 +41,10 @@ std::vector<ChessContextMenuItem> buildChessStrategyMenu(bool banEnabled);
 std::vector<ChessContextMenuItem> buildChessInfoMenu();
 std::vector<ChessContextMenuItem> buildChessEquipmentMenu(bool legendaryShopUnlocked);
 std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMenuItem>& items);
+int centerChessContextMenuY(
+    std::size_t itemCount,
+    int contentY = 45,
+    int contentHeight = 630,
+    int rowSpacing = 45);
 
 }    // namespace KysChess

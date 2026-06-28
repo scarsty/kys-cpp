@@ -791,6 +791,7 @@ void GuidePanel::drawPanel()
     ChessScreenLayout::drawPanel(frame);
     auto* font = Font::getInstance();
     auto& cfg = ChessBalance::config();
+    auto& ngCfg = ChessNeigong::config();
     auto& gameState = GameState::get();
     constexpr int titleFs = 22;
     constexpr int bodyFs = 19;
@@ -811,50 +812,115 @@ void GuidePanel::drawPanel()
         std::vector<GuideLine> lines;
     };
 
+    auto formatTierPrices = [&]() {
+        std::string result;
+        for (int i = 0; i < static_cast<int>(cfg.tierPrices.size()); ++i)
+        {
+            if (!result.empty())
+            {
+                result += "、";
+            }
+            result += std::format("{}費{}金", i + 1, cfg.tierPrices[i]);
+        }
+        return result;
+    };
+
+    auto formatEquipmentRewardLine = [&]() {
+        if (cfg.playerEquipmentRewards.empty())
+        {
+            return std::string("· 本難度沒有固定裝備獎勵，主要從遠征挑戰與商店取得裝備");
+        }
+
+        const auto& firstReward = cfg.playerEquipmentRewards.front();
+        int firstFight = firstReward.fight;
+        int maxTier = firstReward.maxTier;
+        for (const auto& reward : cfg.playerEquipmentRewards)
+        {
+            firstFight = std::min(firstFight, reward.fight);
+            maxTier = std::max(maxTier, reward.maxTier);
+        }
+        return std::format("· 固定裝備獎勵共{}次，最早第{}回，最高{}階", cfg.playerEquipmentRewards.size(), firstFight, maxTier);
+    };
+
+    auto formatLegendaryShopLine = [&]() {
+        if (cfg.legendaryShop.unlockFight <= 0)
+        {
+            return std::string("· 神兵商店未開放，可從獎勵與挑戰取得裝備");
+        }
+        return std::format("· 神兵商店第{}回後開放，每件{}金", cfg.legendaryShop.unlockFight, cfg.legendaryShop.price);
+    };
+
+    auto formatChallengeLine = [&]() {
+        if (cfg.challenges.empty())
+        {
+            return std::string("· 目前沒有遠征挑戰配置");
+        }
+        return std::format("· 遠征挑戰共{}關，不占主線回合，勝後獎勵各領一次", cfg.challenges.size());
+    };
+
+    auto formatBanUnlockLine = [&]() {
+        if (cfg.banUnlocks.empty())
+        {
+            return std::string("· 禁棋會把已見過的角色逐出棋池，助你收束門路");
+        }
+
+        const auto& firstUnlock = cfg.banUnlocks.front();
+        int firstAfterFight = firstUnlock.afterFight;
+        int maxTier = firstUnlock.maxTier;
+        for (const auto& unlock : cfg.banUnlocks)
+        {
+            firstAfterFight = std::min(firstAfterFight, unlock.afterFight);
+            maxTier = std::max(maxTier, unlock.maxTier);
+        }
+        return std::format("· 額外禁棋共{}段，最早第{}回後解鎖，最高可禁{}費", cfg.banUnlocks.size(), firstAfterFight, maxTier);
+    };
+
     std::vector<GuideSection> sections{
         {
             "基本流程",
             {
                 {"· 每回合先在商店招募棋子、整隊佈陣，再入局交鋒"},
-                {"· 戰鬥全自動進行，勝後進下一回；每四回合有一位強敵"},
-                {std::format("· 共{}回，撐到最後便算破局", cfg.totalFights)},
+                {std::format("· 戰鬥全自動進行，共{}回；每{}回有一位強敵", cfg.totalFights, cfg.bossInterval)},
+                {std::format("· 勝利得{}經驗，強敵勝利得{}經驗", cfg.battleExp, cfg.bossBattleExp)},
             },
         },
         {
             "棋子與升星",
             {
-                {"· 棋子分一至五費，費用越高越難遇見"},
+                {std::format("· 商店每回合{}格可選，棋子分一至五費，越高費越難遇見", cfg.shopSlotCount)},
+                {std::format("· {}；星級價格按{}倍計", formatTierPrices(), cfg.starCostMult)},
                 {"· 三枚相同合成二星，三枚二星再成三星，升星後屬性大增"},
             },
         },
         {
             "經濟與等級",
             {
-                {std::format("· 金幣可用於招募、刷新商店(${})、購買經驗(${})", cfg.refreshCost, cfg.buyExpCost)},
-                {std::format("· 存款可生利息，每10金幣多得1金，上限{}金", cfg.interestMax)},
-                {"· 提升等級可增加上陣人數，並提高高費棋子的現身機會"},
+                {std::format("· 初始{}金，刷新商店{}金，購買經驗{}金換{}點", cfg.initialMoney, cfg.refreshCost, cfg.buyExpCost, cfg.buyExpAmount)},
+                {std::format("· 存款按{}%生利息，上限{}金；強敵獎勵另加{}金", cfg.interestPercent, cfg.interestMax, cfg.bossRewardBonus)},
+                {std::format("· 最高{}級，背包{}格，最低{}人出戰", cfg.maxLevel, cfg.benchSize, cfg.minBattleSize)},
             },
         },
         {
             "羈絆",
             {
                 {"· 同門同路的棋子同時上陣，可激活羈絆效果"},
-                {"· 羈絆常比單追高費更穩，成局時記得先看羈絆一覽"},
+                {"· 羈絆人數、反向羈絆、星級加成與效果皆以羈絆一覽為準"},
             },
         },
         {
             "裝備與內功",
             {
                 {"· 裝備管理可將武器、防具授予棋子，補強前排或成全主力"},
-                {"· Boss回合會送內功，固定回合獎勵裝備"},
-                {". 都是後期定勝負的關鍵"}
+                {formatEquipmentRewardLine()},
+                {formatLegendaryShopLine()},
+                {std::format("· 強敵戰後可選{}本內功，重抽{}金", ngCfg.choiceCount, ngCfg.rerollCost)},
             },
         },
         {
             "遠征挑戰",
             {
-                {"· 遠征挑戰是局外試煉，不占回合，隨時可去闖關"},
-                {"· 勝後可領金幣、棋子、裝備等獎勵，每個挑戰只領一次"},
+                {formatChallengeLine()},
+                {"· 獎勵可能包含金幣、棋子、升星、內功或裝備"},
             },
         },
     };
@@ -864,9 +930,9 @@ void GuidePanel::drawPanel()
         GuideSection advancedModeSection{
             std::format("{}棋局", ChessBalance::difficultyDisplayNameTraditional(gameState.difficulty())),
             {
-                {std::format("· 棋池更大，商店每回合多開一格，共{}格可選", cfg.shopSlotCount), {200, 230, 255, 255}},
+                {std::format("· 本難度商店每回合{}格可選，最高{}級", cfg.shopSlotCount, cfg.maxLevel), {200, 230, 255, 255}},
                 {std::format("· 開局可禁{}名棋子；每升1級，再增{}名禁位", gameState.banBaseCount(), gameState.banCountPerLevel()), {255, 210, 150, 255}},
-                {"· 禁棋會把已見過的角色逐出棋池，助你在大棋池中收束門路"},
+                {formatBanUnlockLine()},
             },
         };
         sections.insert(sections.begin() + 3, std::move(advancedModeSection));

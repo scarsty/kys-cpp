@@ -1,5 +1,7 @@
 #include "BattleSceneHades.h"
 #include "Audio.h"
+#include "BattleLogPresenter.h"
+#include "BattleScenePauseControl.h"
 #include "BattleScenePresentationConstants.h"
 #include "BattleSceneSetupBuilder.h"
 #include "BattleStarStats.h"
@@ -49,6 +51,13 @@ constexpr int ROLE_STATUS_BAR_Y = -120;
 constexpr int ROLE_STATUS_BAR_STEP_Y = ROLE_STATUS_BAR_HEIGHT + ROLE_STATUS_BAR_HEIGHT / 3;
 constexpr int ROLE_STATUS_BAR_MP_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y;
 constexpr int ROLE_STATUS_BAR_FROZEN_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y * 2;
+constexpr int BATTLE_CONTROL_BUTTON_SIZE = 64;
+constexpr int BATTLE_CONTROL_BUTTON_GAP = 8;
+constexpr int BATTLE_CONTROL_BUTTON_MARGIN = 12;
+constexpr int BATTLE_CONTROL_PLAY_TEXTURE_ID = 333;
+constexpr int BATTLE_CONTROL_PAUSE_TEXTURE_ID = 334;
+constexpr int BATTLE_CONTROL_LOG_TEXTURE_ID = 335;
+constexpr int BATTLE_CONTROL_SPEED_TEXTURE_ID = 336;
 
 struct RuntimeFrozenStatus
 {
@@ -69,6 +78,50 @@ RuntimeFrozenStatus runtimeFrozenStatusForUnit(
         record.status.effects.frozenTimer,
         record.status.effects.frozenMaxTimer,
     };
+}
+
+struct BattleControlLayout
+{
+    Rect speed{};
+    Rect log{};
+    Rect pause{};
+};
+
+bool pointInRect(const Point& point, const Rect& rect)
+{
+    return point.x >= rect.x && point.x < rect.x + rect.w
+        && point.y >= rect.y && point.y < rect.y + rect.h;
+}
+
+Point uiPointFromWindowPoint(int x, int y)
+{
+    int windowW = 0;
+    int windowH = 0;
+    int uiW = 0;
+    int uiH = 0;
+    Engine::getInstance()->getWindowSize(windowW, windowH);
+    Engine::getInstance()->getUISize(uiW, uiH);
+    assert(windowW > 0);
+    assert(windowH > 0);
+    return {
+        x * uiW / windowW,
+        y * uiH / windowH,
+    };
+}
+
+BattleControlLayout battleControlLayout(int uiWidth, bool logVisible)
+{
+    BattleControlLayout layout;
+    int x = uiWidth - BATTLE_CONTROL_BUTTON_MARGIN - BATTLE_CONTROL_BUTTON_SIZE;
+    layout.pause = { x, BATTLE_CONTROL_BUTTON_MARGIN, BATTLE_CONTROL_BUTTON_SIZE, BATTLE_CONTROL_BUTTON_SIZE };
+    x -= BATTLE_CONTROL_BUTTON_SIZE + BATTLE_CONTROL_BUTTON_GAP;
+    layout.log = { x, BATTLE_CONTROL_BUTTON_MARGIN, BATTLE_CONTROL_BUTTON_SIZE, BATTLE_CONTROL_BUTTON_SIZE };
+    if (logVisible)
+    {
+        x -= BATTLE_CONTROL_BUTTON_SIZE + BATTLE_CONTROL_BUTTON_GAP;
+    }
+    layout.speed = { x, BATTLE_CONTROL_BUTTON_MARGIN, BATTLE_CONTROL_BUTTON_SIZE, BATTLE_CONTROL_BUTTON_SIZE };
+    return layout;
 }
 
 float smoothStep(float t)
@@ -277,7 +330,7 @@ void BattleSceneHades::setID(int id)
 
 bool BattleSceneHades::isManualCameraEnabled() const
 {
-    return SystemSettings::getInstance()->data().manualCamera;
+    return battle_paused_ || SystemSettings::getInstance()->data().manualCamera;
 }
 
 BattleSceneCameraBounds BattleSceneHades::makeCameraBounds() const
@@ -904,6 +957,7 @@ void BattleSceneHades::draw()
 
     // Draw total frames elapsed on top left
     Font::getInstance()->draw(std::to_string(battle_frame_), 20, 10, 10, { 255, 255, 255, 255 }, 200);
+    drawBattleControls();
 
     //if (result_ >= 0)
     //{
@@ -913,9 +967,18 @@ void BattleSceneHades::draw()
 
 void BattleSceneHades::dealEvent(EngineEvent& e)
 {
-    if (auto manualCenter = camera_.handleManualInput(e, pos_, makeCameraBounds()))
+    const bool battleControlHandled = handleBattleControlEvent(e);
+    if (!battleControlHandled)
     {
-        pos_ = *manualCenter;
+        if (auto manualCenter = camera_.handleManualInput(e, pos_, makeCameraBounds(), isManualCameraEnabled()))
+        {
+            pos_ = *manualCenter;
+        }
+    }
+
+    if (battle_paused_ || Engine::getInstance()->isBattleLogOverlayOpen())
+    {
+        return;
     }
 
     int steps = getBattleStepsThisRender();
@@ -927,6 +990,156 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
 
 void BattleSceneHades::dealEvent2(EngineEvent& e)
 {
+}
+
+bool BattleSceneHades::canToggleBattlePause() const
+{
+    return battleSceneCanTogglePause(camera_.closeUpActive(), result_);
+}
+
+void BattleSceneHades::toggleBattlePause()
+{
+    setBattlePaused(!battle_paused_);
+}
+
+void BattleSceneHades::setBattlePaused(bool paused)
+{
+    if (paused && !canToggleBattlePause())
+    {
+        return;
+    }
+    battle_paused_ = paused;
+    updateFrameApplierContext();
+}
+
+void BattleSceneHades::showInBattleLog()
+{
+    auto model = BattleLogPresenter().present(makePostBattleSummary(), battle_report_.report());
+    if (result_ < 0)
+    {
+        model.title = "戰鬥中日誌";
+        model.resultText = "戰鬥中";
+        model.totalFrames = battle_frame_;
+    }
+    Engine::getInstance()->showBattleLogOverlay(model, false);
+}
+
+void BattleSceneHades::cycleBattleSpeed()
+{
+    auto* settings = SystemSettings::getInstance();
+    auto updated = settings->snapshot();
+    updated.battleSpeed = nextBattleSpeedSetting(updated.battleSpeed);
+    settings->update(updated);
+    half_speed_step_on_next_render_ = true;
+}
+
+bool BattleSceneHades::handleBattleControlEvent(EngineEvent& e)
+{
+    if ((e.type != EVENT_MOUSE_BUTTON_DOWN && e.type != EVENT_MOUSE_BUTTON_UP)
+        || e.button.button != BUTTON_LEFT)
+    {
+        return false;
+    }
+
+    int uiW = 0;
+    int uiH = 0;
+    Engine::getInstance()->getUISize(uiW, uiH);
+    const auto layout = battleControlLayout(uiW, battle_paused_);
+    const Point uiPoint = uiPointFromWindowPoint(e.button.x, e.button.y);
+
+    auto hitsVisibleControl = [&]()
+    {
+        return pointInRect(uiPoint, layout.pause)
+            || pointInRect(uiPoint, layout.speed)
+            || (battle_paused_ && pointInRect(uiPoint, layout.log));
+    };
+
+    if (!hitsVisibleControl())
+    {
+        return false;
+    }
+
+    if (e.type == EVENT_MOUSE_BUTTON_DOWN)
+    {
+        return true;
+    }
+
+    if (pointInRect(uiPoint, layout.pause))
+    {
+        toggleBattlePause();
+        return true;
+    }
+    if (pointInRect(uiPoint, layout.speed))
+    {
+        cycleBattleSpeed();
+        return true;
+    }
+    if (battle_paused_ && pointInRect(uiPoint, layout.log))
+    {
+        showInBattleLog();
+        return true;
+    }
+    return true;
+}
+
+void BattleSceneHades::drawBattleControls()
+{
+    int uiW = 0;
+    int uiH = 0;
+    Engine::getInstance()->getUISize(uiW, uiH);
+    const auto layout = battleControlLayout(uiW, battle_paused_);
+    const bool pauseEnabled = canToggleBattlePause();
+    const auto* settings = SystemSettings::getInstance();
+    const std::string speedText(battleSpeedDisplayText(settings->data().battleSpeed));
+
+    auto* engine = Engine::getInstance();
+    auto drawIconButton = [&](const Rect& rect, int textureId, bool enabled)
+    {
+        const uint8_t alpha = enabled ? 255 : 96;
+        engine->fillRoundedRect({ 0, 0, 0, 95 }, rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10, 14);
+        TextureManager::getInstance()->renderTexture(
+            "title",
+            textureId,
+            rect.x,
+            rect.y,
+            TextureManager::RenderInfo{ { 255, 255, 255, 255 }, alpha },
+            rect.w,
+            rect.h);
+        if (!enabled)
+        {
+            engine->fillRoundedRect({ 0, 0, 0, 80 }, rect.x + 4, rect.y + 4, rect.w - 8, rect.h - 8, 12);
+        }
+    };
+
+    auto drawSpeedButton = [&]()
+    {
+        const Rect& rect = layout.speed;
+        engine->fillRoundedRect({ 0, 0, 0, 95 }, rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10, 14);
+        TextureManager::getInstance()->renderTexture(
+            "title",
+            BATTLE_CONTROL_SPEED_TEXTURE_ID,
+            rect.x,
+            rect.y,
+            TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255 },
+            rect.w,
+            rect.h);
+        const int fontSize = 20;
+        const int textW = Font::getTextDrawSize(speedText) * fontSize / 2;
+        const int textX = rect.x + (rect.w - textW) / 2;
+        const int textY = rect.y + (rect.h - fontSize) / 2 + 2;
+        Font::getInstance()->draw(speedText, fontSize, textX + 1, textY + 1, { 24, 18, 10, 255 }, 180);
+        Font::getInstance()->draw(speedText, fontSize, textX, textY, { 245, 222, 128, 255 }, 255);
+    };
+
+    drawSpeedButton();
+    if (battle_paused_)
+    {
+        drawIconButton(layout.log, BATTLE_CONTROL_LOG_TEXTURE_ID, true);
+    }
+    drawIconButton(
+        layout.pause,
+        battle_paused_ ? BATTLE_CONTROL_PLAY_TEXTURE_ID : BATTLE_CONTROL_PAUSE_TEXTURE_ID,
+        pauseEnabled || battle_paused_);
 }
 
 int BattleSceneHades::getBattleStepsThisRender()
@@ -984,6 +1197,8 @@ void BattleSceneHades::advanceBattleFrame()
 void BattleSceneHades::onEntrance()
 {
     previous_refresh_interval_ = RunNode::getRefreshInterval();
+    battle_paused_ = false;
+    Engine::getInstance()->hideBattleLogOverlay();
 
     calViewRegion();
 
@@ -1166,6 +1381,7 @@ void BattleSceneHades::onEntrance()
 
     battle_frame_ = 0;
     half_speed_step_on_next_render_ = true;
+    battle_paused_ = false;
     camera_.reset(pos_);
     pos_ = BattleSceneCamera::clampCenter(pos_, makeCameraBounds());
 
@@ -1185,6 +1401,7 @@ void BattleSceneHades::onExit()
     }
 
     Engine::getInstance()->destroyTexture("whole_scene");
+    Engine::getInstance()->hideBattleLogOverlay();
     use_whole_scene_ = false;
 
     // hurt_flash_timers_.clear();

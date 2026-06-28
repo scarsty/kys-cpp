@@ -110,6 +110,7 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleRescueRepositionSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleRuntimeScenarioUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneFrameApplierUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleScenePauseControlUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneRenderMathUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneSetupBuilderUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneUnitStoreUnitTests.cpp"

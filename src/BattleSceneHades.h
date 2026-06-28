@@ -67,6 +67,13 @@ protected:
     void ageHurtFlashTimers();
     void advanceScenePresentationFrame();
     void finishBattleIfReady();
+    bool handleBattleControlEvent(EngineEvent& e);
+    void drawBattleControls();
+    bool canToggleBattlePause() const;
+    void toggleBattlePause();
+    void setBattlePaused(bool paused);
+    void showInBattleLog();
+    void cycleBattleSpeed();
 
     void initializeBattleRuntime(KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
     KysChess::Battle::BattleRuntimeSessionCreationInput makeBattleRuntimeSessionCreationInput(
@@ -126,6 +133,7 @@ protected:
     double previous_refresh_interval_ = 0.0;
     int battle_frame_ = 0;
     bool half_speed_step_on_next_render_ = true;
+    bool battle_paused_ = false;
     BattleSceneCamera camera_;
     bool count_fights_won_ = true;
     unsigned int battle_random_seed_ = 1;

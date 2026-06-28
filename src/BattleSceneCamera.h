@@ -20,7 +20,8 @@ public:
     std::optional<Pointf> handleManualInput(
         const EngineEvent& event,
         const Pointf& center,
-        BattleSceneCameraBounds bounds);
+        BattleSceneCameraBounds bounds,
+        bool enabled);
     Pointf updateAuto(
         const Pointf& center,
         const BattleSceneUnitStore& units,

@@ -186,6 +186,7 @@
     <ClCompile Include="BattleSceneCameraInput.cpp" />
     <ClCompile Include="BattleSceneFrameApplier.cpp" />
     <ClCompile Include="BattleSceneMapState.cpp" />
+    <ClCompile Include="BattleScenePauseControl.cpp" />
     <ClCompile Include="BattleSceneSetupBuilder.cpp" />
     <ClCompile Include="BattleSceneUnitStore.cpp" />
     <ClCompile Include="BattleLogImGuiView.cpp" />
@@ -298,6 +299,7 @@
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="BattleSceneHades.h" />
     <ClInclude Include="BattleSceneMapState.h" />
+    <ClInclude Include="BattleScenePauseControl.h" />
     <ClInclude Include="BattleSceneRenderMath.h" />
     <ClInclude Include="BattleSceneUnitStore.h" />
     <ClInclude Include="BattlePostBattleSummary.h" />

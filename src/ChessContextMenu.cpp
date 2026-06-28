@@ -1,5 +1,8 @@
 #include "ChessContextMenu.h"
 
+#include <algorithm>
+#include <assert.h>
+
 namespace KysChess
 {
 
@@ -63,6 +66,15 @@ std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMe
         labels.push_back(item.label);
     }
     return labels;
+}
+
+int centerChessContextMenuY(std::size_t itemCount, int contentY, int contentHeight, int rowSpacing)
+{
+    assert(contentHeight > 0);
+    assert(rowSpacing > 0);
+
+    const int menuHeight = static_cast<int>(itemCount) * rowSpacing;
+    return std::max(contentY, contentY + (contentHeight - menuHeight) / 2);
 }
 
 }    // namespace KysChess

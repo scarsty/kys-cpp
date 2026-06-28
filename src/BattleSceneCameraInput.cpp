@@ -1,14 +1,14 @@
 #include "BattleSceneCamera.h"
 
 #include "Engine.h"
-#include "SystemSettings.h"
 
 std::optional<Pointf> BattleSceneCamera::handleManualInput(
     const EngineEvent& event,
     const Pointf& center,
-    BattleSceneCameraBounds bounds)
+    BattleSceneCameraBounds bounds,
+    bool enabled)
 {
-    if (!SystemSettings::getInstance()->data().manualCamera)
+    if (!enabled)
     {
         manualDragging_ = false;
         return std::nullopt;

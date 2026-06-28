@@ -398,7 +398,7 @@ public:
     void renderPresent() const;
     bool processImGuiEvent(const EngineEvent& e) const;
     void renderImGuiOverlay() const;
-    void showBattleLogOverlay(const BattleLogViewModel& model) const;
+    void showBattleLogOverlay(const BattleLogViewModel& model, bool respectUserSetting = true) const;
     void hideBattleLogOverlay() const;
     bool isBattleLogOverlayOpen() const;
     void showBattleSystemMenu(const BattleSystemMenuData& data) const;
