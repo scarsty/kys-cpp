@@ -23,5 +23,9 @@ public:
     int head_x_, head_y_;
 
     int battle_mode_ = 0;
+
+private:
+    static int getTitleTextureID(int battle_mode);
+    static int getTitleTextureY(int texture_id);
 };
 

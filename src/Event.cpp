@@ -28,7 +28,7 @@ Event::Event()
     talk_box_->addChild(talk_box_up_);
     talk_box_->addChild(talk_box_down_, 0, 400);
     menu2_ = std::make_shared<MenuText>();
-    menu2_->setStrings({ "確認（Y）", "取消（N）" });
+    menu2_->setStrings({ "確認", "取消" });
     menu2_->setPosition(400, 300);
     menu2_->setFontSize(24);
     menu2_->setHaveBox(true);
@@ -135,12 +135,8 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
 
     if (use_script_)
     {
-        auto cifa_script = std::format("{}script/event-cifa/{}.c", GameUtil::PATH(), event_id);
+        auto cifa_script = std::format("{}script/event-cifa/{}.cifa", GameUtil::PATH(), event_id);
         auto script = std::format("{}script/event/ka{}.lua", GameUtil::PATH(), event_id);
-        if (!filefunc::fileExist(script))
-        {
-            script = std::format("{}script/oldevent/oldevent_{}.lua", GameUtil::PATH(), event_id);
-        }
         LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, cifa_script);
         if (filefunc::fileExist(cifa_script))
         {

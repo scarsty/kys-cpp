@@ -7,17 +7,7 @@
 
 #include <algorithm>
 
-namespace
-{
-constexpr int ROW_WIDTH = 180;
-constexpr int ROW_HEIGHT = 28;
-constexpr int ROW_GAP = 36;
-constexpr int ARROW_LEFT_OFFSET = 140;
-constexpr int VALUE_OFFSET = 162;
-constexpr int ARROW_RIGHT_OFFSET = 250;
-constexpr int BUTTON_Y_OFFSET = 250;
-
-int clampIndex(int value, int count)
+int UIConfig::clampIndex(int value, int count)
 {
     if (count <= 0)
     {
@@ -26,7 +16,7 @@ int clampIndex(int value, int count)
     return (std::max)(0, (std::min)(value, count - 1));
 }
 
-std::vector<std::string> createVolumeOptions()
+std::vector<std::string> UIConfig::createVolumeOptions()
 {
     std::vector<std::string> options;
     for (int value = 0; value <= 100; value += 10)
@@ -35,7 +25,6 @@ std::vector<std::string> createVolumeOptions()
     }
     return options;
 }
-}    //namespace
 
 UIConfig::UIConfig()
 {

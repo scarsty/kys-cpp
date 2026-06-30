@@ -75,7 +75,14 @@ void Button::draw()
         {
             color_text = color_press_;
         }
-        Font::getInstance()->drawWithBox(text_, font_size_, x + text_x_, y + text_y_, color_text, 255, alpha);
+        if (have_box_)
+        {
+            Font::getInstance()->drawWithBox(text_, font_size_, x + text_x_, y + text_y_, color_text, 255, alpha);
+        }
+        else
+        {
+            Font::getInstance()->draw(text_, font_size_, x + text_x_, y + text_y_, color_text, alpha);
+        }
     }
 }
 

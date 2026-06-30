@@ -508,7 +508,7 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
         || e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
     {
         auto menu2 = std::make_shared<MenuText>();
-        menu2->setStrings({ "確認（Y）", "取消（N）" });
+        menu2->setStrings({ "確認", "取消" });
         menu2->setPosition(400, 300);
         menu2->setFontSize(24);
         menu2->setHaveBox(true);

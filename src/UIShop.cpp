@@ -3,6 +3,7 @@
 #include "Font.h"
 #include "PotConv.h"
 #include "Save.h"
+#include "TextureManager.h"
 #include "strfunc.h"
 
 UIShop::UIShop()
@@ -12,7 +13,10 @@ UIShop::UIShop()
     {
         auto text = std::make_shared<Button>();
         text->setFontSize(24);
-        addChild(text, 0, 30 + 25 * i);
+        text->setSize(SHOP_ROW_WIDTH, SHOP_ROW_HEIGHT);
+        text->setHaveBox(false);
+        text->setTextColor(SHOP_TEXT_COLOR, SHOP_TEXT_ACTIVE_COLOR, SHOP_TEXT_ACTIVE_COLOR);
+        addChild(text, 0, 30 + SHOP_ROW_HEIGHT * i);
 
         auto button_left = std::make_shared<Button>();
         text->addChild(button_left, 36 * 12 + 36, 5);
@@ -26,13 +30,13 @@ UIShop::UIShop()
     }
     button_ok_ = std::make_shared<Button>();
     button_ok_->setText("確認");
-    addChild(button_ok_, 0, 190);
+    addChild(button_ok_, SHOP_BUTTON_X, 30 + SHOP_ROW_HEIGHT * (SHOP_ITEM_COUNT + 1));
     button_cancel_ = std::make_shared<Button>();
     button_cancel_->setText("取消");
-    addChild(button_cancel_, 100, 190);
+    addChild(button_cancel_, SHOP_BUTTON_X + SHOP_BUTTON_GAP, 30 + SHOP_ROW_HEIGHT * (SHOP_ITEM_COUNT + 1));
     button_clear_ = std::make_shared<Button>();
     button_clear_->setText("清除");
-    addChild(button_clear_, 200, 190);
+    addChild(button_clear_, SHOP_BUTTON_X + SHOP_BUTTON_GAP * 2, 30 + SHOP_ROW_HEIGHT * (SHOP_ITEM_COUNT + 1));
 
     setPosition(200, 230);
 
@@ -56,6 +60,8 @@ void UIShop::draw()
     std::string str;
     auto font = Font::getInstance();
 
+    TextureManager::getInstance()->renderTexture("title", 126, x + SHOP_BOX_X, y + SHOP_BOX_Y, { { 255, 255, 255, 255 }, 255 }, SHOP_BOX_WIDTH, SHOP_BOX_HEIGHT);
+
     str = "品名             價格    存貨    持有    計劃";
     font->draw(str, 24, x, y, { 200, 150, 50, 255 });
 
@@ -73,16 +79,16 @@ void UIShop::draw()
 
     int need_money = calNeedMoney();
     str = std::format("總計銀兩{:8}", need_money);
-    font->draw(str, 24, 300 + x, y + 25 + 6 * 25, { 255, 255, 255, 255 });
+    font->draw(str, 24, x + SHOP_MONEY_X, y + 30 + SHOP_ITEM_COUNT * SHOP_ROW_HEIGHT, SHOP_TEXT_COLOR);
 
-    Color c = { 255, 255, 255, 255 };
+    Color c = SHOP_TEXT_COLOR;
     int money = Save::getInstance()->getMoneyCountInBag();
     str = std::format("持有銀兩{:8}", money);
     if (money < need_money)
     {
-        c = { 250, 50, 50, 255 };
+        c = SHOP_MONEY_WARNING_COLOR;
     }
-    font->draw(str, 24, 300 + x, y + 25 + 7 * 25, c);
+    font->draw(str, 24, x + SHOP_MONEY_X, y + 30 + (SHOP_ITEM_COUNT + 1) * SHOP_ROW_HEIGHT, c);
 }
 
 void UIShop::dealEvent(EngineEvent& e)
@@ -149,13 +155,31 @@ void UIShop::onPressedOK()
     {
         if (calNeedMoney() <= Save::getInstance()->getMoneyCountInBag())
         {
-            for (int i = 0; i < SHOP_ITEM_COUNT; i++)
+            auto menu = std::make_shared<MenuText>();
+            menu->setStrings({ "確認", "取消" });
+            menu->setPosition(x_ + SHOP_HINT_X, y_ + SHOP_HINT_Y);
+            menu->setFontSize(24);
+            menu->setHaveBox(true);
+            menu->setText("確認購買？");
+            menu->arrange(0, 50, 150, 0);
+            if (menu->run() == 0)
             {
-                Event::getInstance()->addItemWithoutHint(shop_->ItemID[i], plan_buy_[i]);
-                shop_->Total[i] -= plan_buy_[i];
+                for (int i = 0; i < SHOP_ITEM_COUNT; i++)
+                {
+                    Event::getInstance()->addItemWithoutHint(shop_->ItemID[i], plan_buy_[i]);
+                    shop_->Total[i] -= plan_buy_[i];
+                }
+                Event::getInstance()->addItemWithoutHint(Item::MoneyItemID, -calNeedMoney());
+                exitWithResult(0);
             }
-            Event::getInstance()->addItemWithoutHint(Item::MoneyItemID, -calNeedMoney());
-            exitWithResult(0);
+        }
+        else
+        {
+            auto text = std::make_shared<TextBox>();
+            text->setText("銀兩不足");
+            text->setFontSize(24);
+            text->setTextColor(SHOP_MONEY_WARNING_COLOR);
+            text->runAtPosition(x_ + SHOP_HINT_X, y_ + SHOP_HINT_Y);
         }
     }
     if (button_cancel_->getState() == NodePress)

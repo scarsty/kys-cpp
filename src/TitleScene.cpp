@@ -16,39 +16,30 @@
 #include "Weather.h"
 #include <cstdlib>
 
-namespace {
-    int normalizeTitleBattleMode(int battle_mode)
+int TitleScene::getTitleTextureID(int battle_mode)
+{
+    if (battle_mode == 2)
     {
-        if (battle_mode < 0 || battle_mode > 4)
-        {
-            return 0;
-        }
-        return battle_mode;
+        return 153;
     }
+    return 154;
+}
 
-    int getTitleTextureID(int battle_mode)
+int TitleScene::getTitleTextureY(int texture_id)
+{
+    auto texture = TextureManager::getInstance()->getTexture("title", texture_id);
+    if (texture == nullptr)
     {
-        if (battle_mode == 2)
-        {
-            return 153;
-        }
-        return 154;
+        return 0;
     }
-
-    int getTitleTextureY(int battle_mode)
-    {
-        if (battle_mode == 2)
-        {
-            return 0;
-        }
-        return 90;
-    }
+    texture->load();
+    return (Engine::getInstance()->getUIHeight() - texture->h) / 2;
 }
 
 TitleScene::TitleScene()
 {
     full_window_ = 1;
-    battle_mode_ = normalizeTitleBattleMode(GameUtil::getInstance()->getInt("game", "battle_mode"));
+    battle_mode_ = GameUtil::getInstance()->getInt("game", "battle_mode");
     menu_ = std::make_shared<Menu>();
     menu_->setPosition(560, 550);
     menu_->addChild<Button>(-180, 0)->setTexture("title", 3, 23, 23);
@@ -96,7 +87,8 @@ TitleScene::~TitleScene()
 void TitleScene::draw()
 {
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, Engine::getInstance()->getWindowWidth(), Engine::getInstance()->getWindowHeight());
-    TextureManager::getInstance()->renderTexture("title", getTitleTextureID(battle_mode_), 0, getTitleTextureY(battle_mode_));
+    int title_texture_id = getTitleTextureID(battle_mode_);
+    TextureManager::getInstance()->renderTexture("title", title_texture_id, 0, getTitleTextureY(title_texture_id));
     Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
     return;
     //屏蔽随机头像

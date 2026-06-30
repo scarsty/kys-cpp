@@ -34,10 +34,20 @@ private:
     std::shared_ptr<Button> button_ok_;
     std::shared_ptr<Button> button_cancel_;
 
+    static constexpr int ROW_WIDTH = 180;
+    static constexpr int ROW_HEIGHT = 28;
+    static constexpr int ROW_GAP = 36;
+    static constexpr int ARROW_LEFT_OFFSET = 140;
+    static constexpr int VALUE_OFFSET = 162;
+    static constexpr int ARROW_RIGHT_OFFSET = 250;
+    static constexpr int BUTTON_Y_OFFSET = 250;
+
     void addOption(const std::string& label, const std::string& section, const std::string& key, const std::vector<std::string>& options);
     void loadConfig();
     void saveConfig();
     void refreshTexts();
     void changeOption(int index, int delta);
     bool isConfigItemActive() const;
+    static int clampIndex(int value, int count);
+    static std::vector<std::string> createVolumeOptions();
 };
