@@ -9,6 +9,7 @@
 #include "TitleScene.h"
 #include "Types.h"
 #include "UIKeyConfig.h"
+#include <algorithm>
 
 Application::Application()
 {
@@ -24,13 +25,15 @@ int Application::run()
     // 首次运行时将 assets/game.zip 解压到内部存储，引擎初始化前完成
     Engine::extractAssetsIfNeeded();
 #endif
+    static constexpr int UI_WIDTH = 1280;
+    static constexpr int UI_HEIGHT = 720;
 
     auto game = GameUtil::getInstance();
     renderer_ = game->getString("game", "renderer", "");
     title_ = game->getString("game", "title", "All Heroes in Kam Yung Stories");
 
     auto engine = Engine::getInstance();
-    engine->setUISize(1280, 720);
+    engine->setUISize(UI_WIDTH, UI_HEIGHT);
     engine->init(nullptr, 0, 0, renderer_);
     engine->setWindowTitle(title_);
     engine->addEventWatch([](void*, EngineEvent* e) -> bool
@@ -55,7 +58,9 @@ int Application::run()
         nullptr);
 
     //引擎初始化之后才能创建纹理
-    engine->createAssistTexture("scene", 1280, 720);
+    int render_width = (std::max)(1, game->getInt("game", "render_width", UI_WIDTH));
+    int render_height = (std::max)(1, game->getInt("game", "render_height", UI_HEIGHT));
+    engine->createAssistTexture("scene", render_width, render_height);
 
     config();
 

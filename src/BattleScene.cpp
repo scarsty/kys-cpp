@@ -1636,10 +1636,13 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
         }
         r->FaceTowards = calTowards(r->X(), r->Y(), way[i].x, way[i].y);
         r->setPosition(way[i].x, way[i].y);
-        //setPosition(r->X(), r->Y());
+        man_x_ = r->X();
+        man_y_ = r->Y();
         drawAndPresent(2);
     }
     r->setPosition(x, y);
+    man_x_ = r->X();
+    man_y_ = r->Y();
     r->Moved = 1;
     select_layer_.setAll(-1);
 }
@@ -1748,19 +1751,22 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         {
             in_block_window = true;
         }
-        if (expedition33_ && r->Team == 1 && i < frame_count)
+        if (expedition33_ && i < frame_count)
         {
-            auto drawAttackCircle = [this, i, frame_count, block_roles, in_block_window](void*) -> void
+            auto drawAttackCircle = [this, i, frame_count, block_roles, in_block_window, r](void*) -> void
             {
-                renderEnemyAttackCircle(i + 1, frame_count, block_roles);
-                renderBlockPrompt(in_block_window);
+                renderAttackTimingCircle(i + 1, frame_count, block_roles);
+                if (r->Team == 1)
+                {
+                    renderBlockPrompt(in_block_window);
+                }
             };
             drawAndPresent(animation_delay_, drawAttackCircle);
-            if (!in_block_window)
+            if (r->Team == 1 && !in_block_window)
             {
                 checkEnemyAttackBlockInput();
             }
-            else if (!blocked && checkEnemyAttackBlockInput())
+            else if (r->Team == 1 && !blocked && checkEnemyAttackBlockInput())
             {
                 if (block_roles != nullptr)
                 {
@@ -1816,7 +1822,7 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     return blocked;
 }
 
-void BattleScene::renderEnemyAttackCircle(int frame, int frame_count, const std::vector<Role*>* target_roles)
+void BattleScene::renderAttackTimingCircle(int frame, int frame_count, const std::vector<Role*>* target_roles)
 {
     if (frame_count <= 0)
     {
@@ -1836,32 +1842,9 @@ void BattleScene::renderEnemyAttackCircle(int frame, int frame_count, const std:
     int max_size = int(std::sqrt(ui_w * ui_w + ui_h * ui_h)) + 64 * tile_scale;
     int min_size = 6 * tile_scale;
     int size = int(min_size + (max_size - min_size) * progress);
-    int target_x = select_x_;
-    int target_y = select_y_;
-    if (target_roles != nullptr)
-    {
-        int target_count = 0;
-        int sum_x = 0;
-        int sum_y = 0;
-        for (auto r : *target_roles)
-        {
-            if (r != nullptr && std::find(battle_roles_.begin(), battle_roles_.end(), r) != battle_roles_.end())
-            {
-                sum_x += r->X();
-                sum_y += r->Y();
-                target_count++;
-            }
-        }
-        if (target_count > 0)
-        {
-            target_x = sum_x / target_count;
-            target_y = sum_y / target_count;
-        }
-    }
-    auto p = getPositionOnRender(target_x, target_y, man_x_, man_y_);
-    int x = p.x + x_ - size / 2 + tex->dx * size / tex->w;
-    int y = p.y + y_ - size / 2 + tex->dy * size / tex->h;
-    TextureManager::getInstance()->renderTexture("title", circle_pic, x, y, { { 255, 255, 255, 255 }, 192 }, size, size);
+    auto engine = Engine::getInstance();
+    engine->setColor(tex->getTexture(), { 255, 255, 255, 192 });
+    engine->renderTexture(tex->getTexture(), ui_w / 2 - size / 2, ui_h / 2 - size / 2, size, size);
 }
 
 void BattleScene::renderBlockPrompt(bool active)
@@ -1962,8 +1945,10 @@ void BattleScene::blockAnimation(Role* attacker, const std::vector<Role*>& roles
         }
         auto drawBlock = [this, valid_roles, tex, tile_scale, frame, total_frames](void*) -> void
         {
+            auto engine = Engine::getInstance();
+            engine->setRenderTarget("scene");
             double light = total_frames - frame;
-            double zoom_max = 1.0 * Engine::getInstance()->getUIWidth() / tex->w;
+            double zoom_max = 1.0 * render_center_x_ * 2 / tex->w;
             double zoom = zoom_max * light / total_frames;
             int w = int(tex->w * zoom);
             int h = int(tex->h * zoom);
@@ -1975,6 +1960,7 @@ void BattleScene::blockAnimation(Role* attacker, const std::vector<Role*>& roles
                 int y = p.y + y_ - 32 * tile_scale - h / 2;
                 TextureManager::getInstance()->renderTexture("title", 203, x, y, { { 255, 255, 255, 255 }, alpha, zoom, zoom, 0, 0 });
             }
+            engine->renderTextureToMain("scene");
         };
         drawAndPresent(1, drawBlock);
     }
@@ -2070,6 +2056,8 @@ void BattleScene::blockAnimation(Role* attacker, const std::vector<Role*>& roles
         }
         auto drawCounterEffect = [this, attacker, counters, frame, attack_frames](void*) -> void
         {
+            auto engine = Engine::getInstance();
+            engine->setRenderTarget("scene");
             auto p = getPositionOnRender(attacker->X(), attacker->Y(), man_x_, man_y_);
             for (auto counter : counters)
             {
@@ -2086,6 +2074,7 @@ void BattleScene::blockAnimation(Role* attacker, const std::vector<Role*>& roles
                 int effect_frame = frame * effect_count / attack_frames;
                 TextureManager::getInstance()->renderTexture(path, effect_frame, p.x, p.y, { { 255, 255, 255, 255 }, 224 });
             }
+            engine->renderTextureToMain("scene");
         };
         drawAndPresent(counter_effect_delay, drawCounterEffect);
     }

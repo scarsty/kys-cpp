@@ -185,7 +185,7 @@ public:
 
     virtual void renderExtraRoleInfo(Role* r, int x, int y);    // 在人物上，显示血条等
     virtual void renderShieldInfo(Role* r, int hp_x, int hp_y, int hp_max_w, double alpha);
-    virtual void renderEnemyAttackCircle(int frame, int frame_count, const std::vector<Role*>* target_roles = nullptr);
+    virtual void renderAttackTimingCircle(int frame, int frame_count, const std::vector<Role*>* target_roles = nullptr);
     virtual void renderBlockPrompt(bool active);
     virtual bool checkEnemyAttackBlockInput();
     virtual std::vector<Role*> getBlockingRoles(Role* attacker);
