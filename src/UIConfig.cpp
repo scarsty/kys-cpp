@@ -152,10 +152,15 @@ void UIConfig::draw()
         int row_x, row_y;
         item.row->getPosition(row_x, row_y);
         uint8_t alpha = item.row->getState() == NodeNormal ? 224 : 255;
-        TextureManager::getInstance()->renderTexture("title", 126, row_x + 120, row_y, { { 255, 255, 255, 255 }, alpha }, ROW_WIDTH, ROW_HEIGHT);
+        auto value = item.options[clampIndex(item.value, int(item.options.size()))];
+        auto rect = Font::getBoxRect(0, 24, row_x, row_y);
+        int value_right = VALUE_OFFSET + 24 * Font::getTextDrawSize(value) / 2;
+        int arrow_right = ARROW_RIGHT_OFFSET + ROW_HEIGHT;
+        rect.w = (std::max)(value_right, arrow_right) + 20;
+        TextureManager::getInstance()->renderTexture("title", 126, rect.x, rect.y, { { 255, 255, 255, 255 }, alpha }, rect.w, rect.h);
 
         Color value_color = item.row->getState() == NodeNormal ? Color{ 48, 32, 16, 255 } : Color{ 255, 255, 255, 255 };
-        Font::getInstance()->draw(item.options[clampIndex(item.value, int(item.options.size()))], 24, row_x + VALUE_OFFSET, row_y, value_color, 255);
+        Font::getInstance()->draw(value, 24, row_x + VALUE_OFFSET, row_y, value_color, 255);
     }
 }
 

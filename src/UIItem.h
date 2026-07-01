@@ -50,6 +50,7 @@ public:
     int showAddedProperty(int size, Color c, int x, int y);
 
     Item* current_item_ = nullptr;
+    Item* dropped_item_ = nullptr;
     std::shared_ptr<Button> current_button_{ nullptr };
     std::shared_ptr<Button> drag_item_{ nullptr };
     std::vector<Item*> available_items_;

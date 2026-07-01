@@ -78,7 +78,10 @@ void Head::draw()
             alpha_ribbon = 96;
         }
         TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_, { color, 255, 0.5, 0.5 });
-        TextBox::draw();
+        if (!text_.empty())
+        {
+            font->drawWithBox(text_, font_size_, x_ + text_x_, y_ + text_y_, color_normal_, 255, 192);
+        }
         font->draw(role_->Name, 16, x_ + 117, y_ + 9, white, alpha_text);
         Rect r1 = { 0, 0, 0, 0 };
         font->draw(std::format("{}", role_->Level), 16, x_ + 99 - 4 * GameUtil::digit(role_->Level), y_ + 5, { 250, 200, 50, 255 }, alpha_text);

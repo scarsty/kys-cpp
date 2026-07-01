@@ -4,6 +4,7 @@
 class Button : public TextBox
 {
     uint8_t alpha_ = 255;
+    bool move_on_state_ = true;
 
 public:
     Button() { resize_with_text_ = true; }
@@ -19,6 +20,7 @@ public:
     int getTexutreID() { return texture_normal_id_; }
 
     void setAlpha(uint8_t alpha) { alpha_ = alpha; }
+    void setMoveOnState(bool move) { move_on_state_ = move; }
 
     int button_id_ = -1;
 };

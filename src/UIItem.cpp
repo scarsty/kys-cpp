@@ -6,6 +6,7 @@
 #include "Save.h"
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
+#include "TextureManager.h"
 #include "UI.h"
 
 UIItem::UIItem()
@@ -19,6 +20,7 @@ UIItem::UIItem()
         item_buttons_[i] = b;
         b->setPosition(i % item_each_line_ * 85 + 40, i / item_each_line_ * 85 + 100);
         b->setAlpha(192);
+        b->setMoveOnState(false);
         //b->setTexture("item", Save::getInstance()->getItemByBagIndex(i)->ID);
     }
     title_ = std::make_shared<MenuText>();
@@ -40,6 +42,7 @@ UIItem::UIItem()
     drag_item_ = std::make_shared<Button>();
     drag_item_->setTexture("item", -1);
     drag_item_->setAlpha(128);
+    drag_item_->setMoveOnState(false);
     addChild(drag_item_);
 }
 
@@ -174,23 +177,17 @@ void UIItem::checkCurrentItem()
     current_item_ = nullptr;
     if (current_button_)
     {
+        dropped_item_ = nullptr;
         int x, y;
         current_button_->getPosition(x, y);
         current_item_ = Save::getInstance()->getItem(current_button_->getTexutreID());
         //让光标显示出来
-        if (current_button_->getState() == NodePass)
-        {
-            x += 2;
-        }
-        if (current_button_->getState() == NodePress)
-        {
-            y += 2;
-        }
         cursor_->setPosition(x, y);
         cursor_->setVisible(true);
     }
     else
     {
+        current_item_ = dropped_item_;
         cursor_->setVisible(false);
     }
 }
@@ -226,6 +223,7 @@ void UIItem::dealEvent(EngineEvent& e)
         {
             if (current_button_)
             {
+                dropped_item_ = nullptr;
                 drag_item_->setTexture("item", current_button_->getTexutreID());
             }
         }
@@ -467,17 +465,23 @@ void UIItem::showItemProperty(Item* item)
     Font::getInstance()->draw(std::to_string(Save::getInstance()->getItemCountInBag(current_item_->ID)), 24, x_ + 260, y_ + 370, { 255, 255, 255, 255 });
 
     //使用者
-    std::string str;
-    if (item->User >= 0)
+    Role* user_role = nullptr;
+    if ((item->ItemType == 1 || item->ItemType == 2) && item->User >= 0)
     {
-        auto role = Save::getInstance()->getRole(item->User);
-        if (role)
-        {
-            str = std::format("[使用者：{}]", role->Name);
-        }
+        user_role = Save::getInstance()->getRole(item->User);
     }
+    auto draw_user = [this, user_role](int)
+    {
+        if (user_role)
+        {
+            TextureManager::getInstance()->renderTexture("head", user_role->HeadID, x_ + 520, y_ + 355, { { 255, 255, 255, 255 }, 255, 0.35, 0.35 });
+            Font::getInstance()->draw(user_role->Name, 18, x_ + 570, y_ + 370, { 255, 255, 255, 255 });
+            Font::getInstance()->draw("正在使用", 18, x_ + 570, y_ + 390, { 255, 215, 0, 255 });
+        }
+    };
 
-    int l0 = Font::getInstance()->draw(item->Introduction + str, 20, x_ + 20, y_ + 400, { 255, 255, 255, 255 });
+    int l0 = Font::getInstance()->draw(item->Introduction, 20, x_ + 20, y_ + 400, { 255, 255, 255, 255 });
+    int bottom_y = 400 + 20 * l0;
 
     int x = 10, y = 410 + 20 * l0;
     int size = 20;
@@ -493,12 +497,15 @@ void UIItem::showItemProperty(Item* item)
         MainScene::getInstance()->getManPosition(man_x, man_y);
         auto str = std::format("當前坐標 {}, {}", man_x, man_y);
         addOneProperty(str, 1);
-        y = showAddedProperty(size, c, x, y);
+        l = showAddedProperty(size, c, x, y);
+        bottom_y = (std::max)(bottom_y, y + l * size);
+        y += l * size + 10;
     }
 
     //剧情物品不继续显示了
     if (item->ItemType == 0)
     {
+        draw_user(bottom_y);
         return;
     }
 
@@ -541,11 +548,13 @@ void UIItem::showItemProperty(Item* item)
         addOneProperty(str, 1);
     }
     l = showAddedProperty(size, c, x, y);
+    bottom_y = (std::max)(bottom_y, y + l * size);
     //以下显示物品需求
 
     //药品和暗器类不继续显示了
     if (item->ItemType == 3 || item->ItemType == 4)
     {
+        draw_user(bottom_y);
         return;
     }
 
@@ -595,6 +604,7 @@ void UIItem::showItemProperty(Item* item)
     }
 
     l = showAddedProperty(size, c, x, y);
+    bottom_y = (std::max)(bottom_y, y + l * size);
 
     y += l * size + 10;
     c = { 51, 250, 255, 255 };
@@ -608,7 +618,9 @@ void UIItem::showItemProperty(Item* item)
             addOneProperty(str, item->MakeItemCount[i]);
         }
     }
-    showAddedProperty(size, c, x, y);
+    l = showAddedProperty(size, c, x, y);
+    bottom_y = (std::max)(bottom_y, y + l * size);
+    draw_user(bottom_y);
 }
 
 void UIItem::addOneProperty(const std::string& format_str, int v)
@@ -715,6 +727,7 @@ void UIItem::onPressedOK()
             if (role && role->canUseItem(current_item_))
             {
                 role->equip(current_item_);
+                dropped_item_ = current_item_;
             }
         }
         else if (current_item_->ItemType == 4)

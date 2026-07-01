@@ -52,14 +52,17 @@ void Button::draw()
     {
         id = texture_pass_id_;
         alpha = 240;
-        x += 2;
+        if (move_on_state_) { x += 2; }
     }
     else if (state_ == NodePress)
     {
         id = texture_press_id_;
         alpha = 255;
-        x += 2;
-        y += 2;
+        if (move_on_state_)
+        {
+            x += 2;
+            y += 2;
+        }
     }
     if (alpha_ != 255) { alpha = alpha_; }
     TextureManager::getInstance()->renderTexture(texture_path_, id, x, y, { color, alpha });

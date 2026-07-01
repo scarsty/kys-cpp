@@ -33,33 +33,42 @@ TeamMenu::~TeamMenu()
 
 void TeamMenu::onEntrance()
 {
+    int visible_index = 0;
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto r = Save::getInstance()->getTeamMate(i);
+        auto head = heads_[i];
+        bool visible = r != nullptr;
         if (r)
         {
-            heads_[i]->setRole(r);
+            head->setRole(r);
             if (mode_ == 0 && item_)
             {
                 if (!r->canUseItem(item_))
                 {
-                    heads_[i]->setText("不適合");
+                    head->setText("不適合");
                 }
                 if (r->PracticeItem == item_->ID || r->Equip0 == item_->ID || r->Equip1 == item_->ID)
                 {
-                    heads_[i]->setText("使用中");
+                    head->setText("使用中");
+                }
+                if ((item_->ItemType == 1 || item_->ItemType == 2) && !r->canUseItem(item_))
+                {
+                    visible = false;
                 }
             }
+        }
+        head->setVisible(visible);
+        if (visible)
+        {
+            head->setPosition(x_ + visible_index % 2 * 250, y_ + visible_index / 2 * 100);
+            visible_index++;
         }
     }
     if (mode_ == 0)
     {
         button_all_->setVisible(false);
         button_ok_->setVisible(false);
-    }
-    for (auto h : heads_)
-    {
-        h->setVisible(h->getRole());
     }
 }
 
