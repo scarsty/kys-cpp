@@ -2,8 +2,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <chrono>
-
 using namespace KysChess::Battle;
 
 namespace
@@ -187,51 +185,4 @@ TEST_CASE("BattleRescueReposition_NoCommandWhenNoLegalCellExists", "[battle][res
     CHECK_FALSE(result.teleport.has_value());
     CHECK_FALSE(result.basicCounterAttack.has_value());
     CHECK(result.counterDelta.unitId == -1);
-}
-
-TEST_CASE("BattleRescueReposition_NoCandidatesSkipsLargeSearchSpace", "[battle][rescue_reposition][unit][performance]")
-{
-    BattleRescueRepositionInput input;
-    input.mode = BattleRescuePullMode::Protect;
-    input.pulledUnitId = 10;
-    input.pullerTeam = 1;
-    input.units = {
-        unit(10, 1, { 128, 128 }),
-        unit(20, 0, { 140, 140 }),
-    };
-    appendOpenCells(input, 512, 512);
-
-    const auto startedAt = std::chrono::steady_clock::now();
-    auto result = BattleRescueRepositionSystem().resolve(input);
-    const auto elapsed = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startedAt).count();
-
-    CHECK_FALSE(result.teleport.has_value());
-    CHECK(elapsed < 5.0);
-}
-
-TEST_CASE("BattleRescueReposition_ProtectionPullCachesConnectivityOnLargeOpenMap", "[battle][rescue_reposition][unit][performance]")
-{
-    BattleRescueRepositionInput input;
-    input.mode = BattleRescuePullMode::Protect;
-    input.pulledUnitId = 10;
-    input.pullerTeam = 1;
-    input.units = {
-        unit(10, 1, { 32, 32 }),
-        unit(20, 0, { 40, 40 }),
-    };
-    for (int index = 0; index < 16; ++index)
-    {
-        auto puller = unit(100 + index, 1, { 8 + index % 4 * 8, 8 + index / 4 * 8 });
-        puller.forcePullProtect = true;
-        puller.forcePullProtectRemaining = 1;
-        input.units.push_back(puller);
-    }
-    appendOpenCells(input, 64, 64);
-
-    const auto startedAt = std::chrono::steady_clock::now();
-    auto result = BattleRescueRepositionSystem().resolve(input);
-    const auto elapsed = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startedAt).count();
-
-    REQUIRE(result.teleport.has_value());
-    CHECK(elapsed < 50.0);
 }

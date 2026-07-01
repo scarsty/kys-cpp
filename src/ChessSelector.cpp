@@ -277,6 +277,7 @@ void ChessSelector::showSystemMenu()
     data.battleSpeed = settings.battleSpeed;
     data.simplifiedChinese = settings.simplifiedChinese;
     data.showBattleLog = settings.showBattleLog;
+    data.debugLatencyLog = settings.debugLatencyLog;
 
     auto* engine = Engine::getInstance();
     engine->showBattleSystemMenu(data);
@@ -292,6 +293,7 @@ void ChessSelector::showSystemMenu()
     updated.battleSpeed = result.battleSpeed;
     updated.simplifiedChinese = result.simplifiedChinese;
     updated.showBattleLog = result.showBattleLog;
+    updated.debugLatencyLog = result.debugLatencyLog;
     SystemSettings::getInstance()->update(updated);
 }
 

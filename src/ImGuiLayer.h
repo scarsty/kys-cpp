@@ -19,6 +19,7 @@ struct BattleSystemMenuData
     int battleSpeed = 1;
     bool simplifiedChinese = true;
     bool showBattleLog = true;
+    bool debugLatencyLog = false;
 };
 
 struct ChangelogLine

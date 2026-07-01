@@ -17,6 +17,13 @@ Write-Host "========================================"
 
 # Step 1: Build MSVC Release
 Write-Host "[1/6] Building MSVC Release..."
+$iconGenerator = Join-Path $PSScriptRoot 'tools\GenerateAppIcons.ps1'
+& powershell -ExecutionPolicy Bypass -File $iconGenerator -Target Windows
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Icon generation failed!"
+    exit 1
+}
+
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 if (-not (Test-Path $vswhere)) {
     Write-Error "Visual Studio not found!"
@@ -130,4 +137,3 @@ if (-not [string]::IsNullOrWhiteSpace($ZipPath)) {
     $zipInfo = Get-Item $ZipPath
     Write-Host "Windows zip created: $ZipPath ($(Format-FileSize -Bytes $zipInfo.Length))"
 }
-

@@ -31,6 +31,12 @@ foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $buildDir)
 
 Ensure-PathExists -Path $gameDir -Message "Game assets not found at $gameDir"
 
+& powershell -ExecutionPolicy Bypass -File (Join-Path $paths.ProjectDir 'tools\GenerateAppIcons.ps1') -Target Wasm
+if ($LASTEXITCODE -ne 0)
+{
+    throw 'WASM icon generation failed.'
+}
+
 Write-Host '=== Packaging into dist/ ==='
 if (Test-Path $distDir)
 {
@@ -42,6 +48,11 @@ New-Item -ItemType Directory -Force -Path (Join-Path $distDir 'kys') | Out-Null
 
 Copy-Item -Force (Join-Path $buildDir 'index.html') $distDir
 Copy-Item -Force -Path (Get-WasmBuildArtifactPaths -BuildDir $buildDir) -Destination $distDir
+Copy-Item -Force (Join-Path $paths.WasmDir 'favicon.png') $distDir
+Copy-Item -Force (Join-Path $paths.WasmDir 'apple-touch-icon.png') $distDir
+Copy-Item -Force (Join-Path $paths.WasmDir 'icon-192.png') $distDir
+Copy-Item -Force (Join-Path $paths.WasmDir 'icon-512.png') $distDir
+Copy-Item -Force (Join-Path $paths.WasmDir 'site.webmanifest') $distDir
 Copy-ReleaseGameAssets -SourceGameDir $gameDir -DestinationGameDir (Join-Path $distDir 'kys\game') -Version $Version
 
 # Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'

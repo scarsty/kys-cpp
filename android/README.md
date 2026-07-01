@@ -53,7 +53,7 @@ keytool -genkeypair -v -keystore android/debug.keystore `
 
 ### 5. Launcher icon generation
 
-The Android build now regenerates the launcher mipmaps from `android/kys_chess_icon.png` before `preBuild` runs, and the app uses an adaptive launcher icon on Android 8+ so the launcher can apply rounded masks correctly. The generator writes:
+The Android build regenerates launcher mipmaps from the shared source icon at `assets/app_icon.png` before `preBuild` runs, and the app uses an adaptive launcher icon on Android 8+ so the launcher can apply rounded masks correctly. The generator writes:
 
 - `app/src/main/res/mipmap-mdpi/ic_launcher.png` at 48x48
 - `app/src/main/res/mipmap-hdpi/ic_launcher.png` at 72x72
@@ -62,7 +62,7 @@ The Android build now regenerates the launcher mipmaps from `android/kys_chess_i
 - `app/src/main/res/mipmap-xxxhdpi/ic_launcher.png` at 192x192
 - `app/src/main/res/drawable/ic_launcher_foreground.png` for the adaptive icon foreground
 
-If you want to refresh them manually, run `android/generate_launcher_icons.ps1`.
+If you want to refresh them manually, run `tools/GenerateAppIcons.ps1 -Target Android` from the repository root.
 
 ## Building
 

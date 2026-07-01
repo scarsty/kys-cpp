@@ -104,7 +104,8 @@ function Get-DefaultReleaseSettingsJson
    "manualCamera": false,
    "battleSpeed": 1,
    "simplifiedChinese": false,
-   "showBattleLog": false
+   "showBattleLog": false,
+   "debugLatencyLog": false
 }
 '@
 }

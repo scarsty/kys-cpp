@@ -463,6 +463,7 @@ void ImGuiLayer::renderBattleSystemMenuWindow()
 
             drawSettingRow("手動鏡頭", [&](float control_width) { drawCenteredCheckbox("##manual_camera_enabled", &system_menu_.manualCamera, control_width); });
             drawSettingRow("顯示戰鬥日誌", [&](float control_width) { drawCenteredCheckbox("##show_battle_log_enabled", &system_menu_.showBattleLog, control_width); });
+            drawSettingRow("偵錯耗時日誌", [&](float control_width) { drawCenteredCheckbox("##debug_latency_log_enabled", &system_menu_.debugLatencyLog, control_width); });
             drawSettingRow("音樂", [&](float control_width) { drawVolumeSlider("##music_volume", &system_menu_.musicVolume, control_width, [&]() { Audio::getInstance()->setVolume(system_menu_.musicVolume); }); });
             drawSettingRow("音效", [&](float control_width) { drawVolumeSlider("##sound_volume", &system_menu_.soundVolume, control_width, [&]() { Audio::getInstance()->setVolumeWav(system_menu_.soundVolume); }); });
             drawSettingRow("戰鬥速度", [&](float control_width) { drawBattleSpeedRow(control_width); });

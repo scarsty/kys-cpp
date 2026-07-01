@@ -70,8 +70,28 @@ target_link_libraries(kys_game_lib PUBLIC
     SmallPot
 )
 
-add_executable(kys kys.cpp)
+set(KYS_PLATFORM_SOURCES)
+if(WIN32)
+    find_program(KYS_POWERSHELL powershell)
+    if(KYS_POWERSHELL)
+        add_custom_command(
+            OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/kys.ico"
+            COMMAND "${KYS_POWERSHELL}" -ExecutionPolicy Bypass -File "${KYS_ROOT}/tools/GenerateAppIcons.ps1" -Target Windows
+            DEPENDS "${KYS_ROOT}/assets/app_icon.png" "${KYS_ROOT}/tools/GenerateAppIcons.ps1"
+            COMMENT "Generating Windows app icon"
+            VERBATIM
+        )
+        add_custom_target(kys_app_icon DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/kys.ico")
+    endif()
+    list(APPEND KYS_PLATFORM_SOURCES kys.rc)
+endif()
+
+add_executable(kys kys.cpp ${KYS_PLATFORM_SOURCES})
 target_link_libraries(kys PRIVATE kys_game_lib)
+
+if(TARGET kys_app_icon)
+    add_dependencies(kys kys_app_icon)
+endif()
 
 if(MSVC)
     target_compile_options(kys PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)

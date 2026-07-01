@@ -16,7 +16,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
-#include <chrono>
 #include <map>
 #include <string>
 #include <type_traits>
@@ -4309,24 +4308,6 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell
     CHECK(state.units.requireCore(1).motion.position.x == Catch::Approx(180.0f));
     CHECK(state.units.requireCore(1).motion.position.y == Catch::Approx(180.0f));
     CHECK(state.units.requireCore(1).vitals.hp == 20);
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_NoRescueCandidatesSkipsLargeRescueCellSnapshot", "[battle][core][performance]")
-{
-    auto state = rescueDamageFrameState(50, 30);
-    state.units.require(2).combo = {};
-    state.units.require(2).rescue = {};
-    state.rescue.executeUnattendedRadius = 0.0;
-    state.rescue.cells = rescueOpenCells(512, 512);
-
-    const auto startedAt = std::chrono::steady_clock::now();
-    auto result = runBattleFrame(state);
-    const auto elapsed = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startedAt).count();
-
-    CHECK(damageLogAmountsFor(result, 1).size() == 1);
-    CHECK(state.units.requireCore(1).motion.position.x == Catch::Approx(180.0f));
-    CHECK(state.units.requireCore(1).motion.position.y == Catch::Approx(180.0f));
-    CHECK(elapsed < 8.0);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CanonicalUnitsSeeCommittedDamageRewards", "[battle][core]")

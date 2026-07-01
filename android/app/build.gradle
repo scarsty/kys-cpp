@@ -5,8 +5,8 @@ plugins {
 def releaseVersionName = (project.findProperty('releaseVersionName') ?: '1.0').toString()
 def releaseVersionCode = Integer.parseInt((project.findProperty('releaseVersionCode') ?: '1').toString())
 def releaseGameDir = project.findProperty('gameDir')?.toString()
-def launcherIconSource = file("${project.rootDir}/kys_chess_icon.png")
-def launcherIconScript = file("${project.rootDir}/generate_launcher_icons.ps1")
+def launcherIconSource = file("${project.rootDir}/../assets/app_icon.png")
+def launcherIconScript = file("${project.rootDir}/../tools/GenerateAppIcons.ps1")
 def launcherIconOutputs = [
     'src/main/res/mipmap-mdpi/ic_launcher.png',
     'src/main/res/mipmap-hdpi/ic_launcher.png',
@@ -89,8 +89,8 @@ tasks.register('copyGameAssets', Exec) {
 }
 
 tasks.register('generateLauncherIcons', Exec) {
-    workingDir project.rootDir
-    commandLine 'powershell', '-ExecutionPolicy', 'Bypass', '-File', 'generate_launcher_icons.ps1'
+    workingDir project.rootDir.parentFile
+    commandLine 'powershell', '-ExecutionPolicy', 'Bypass', '-File', 'tools/GenerateAppIcons.ps1', '-Target', 'Android'
     inputs.file(launcherIconSource)
     inputs.file(launcherIconScript)
     outputs.files(launcherIconOutputs)

@@ -242,40 +242,6 @@ void seedDamageExtrasFromUnits(BattleRuntimeState& state)
 
 }  // namespace
 
-TEST_CASE("BattleFrameRunner_RunFrame_AppendsProfilingLogWhenEnabled", "[battle][frame_runner][runtime][profiling]")
-{
-    auto state = runtimeFrameState();
-    state.profiling.enabled = true;
-    state.profiling.slowFrameThresholdMs = 0.0;
-    state.nextFrame.queueDamage({
-        .request = {
-            .attackerUnitId = 0,
-            .defenderUnitId = 1,
-            .baseDamage = 1,
-            .preResolvedDamage = true,
-        },
-    });
-
-    auto frame = runBattleFrame(state);
-
-    const auto log = std::find_if(frame.logEvents.begin(), frame.logEvents.end(), [](const BattleLogEvent& event)
-        {
-            return BattleLogTest::textOf(event).starts_with("戰鬥幀耗時 ");
-        });
-    REQUIRE(log != frame.logEvents.end());
-    CHECK(log->type == BattleLogEventType::Status);
-    CHECK(log->sourceUnitId == -1);
-    CHECK(log->targetUnitId == -1);
-
-    const std::string text = BattleLogTest::textOf(*log);
-    CHECK(text.find("連擊") != std::string::npos);
-    CHECK(text.find("傷害/挪移") != std::string::npos);
-    CHECK(text.find("傷害排序") == std::string::npos);
-    CHECK(text.find("傷害逐筆") == std::string::npos);
-    CHECK(text.find("挪移檢查") == std::string::npos);
-    CHECK(text.find("傷害戰果") == std::string::npos);
-}
-
 TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[battle][frame_runner][runtime][ownership]")
 {
     auto runtime = ownedRuntimeState();

@@ -1,0 +1,19 @@
+{
+  "name": "\u91d1\u7fa4\u81ea\u8d70\u68cb",
+  "short_name": "\u91d1\u7fa4\u81ea\u8d70\u68cb",
+  "display": "fullscreen",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

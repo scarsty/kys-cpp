@@ -390,7 +390,7 @@ KysChess::Battle::BattleRuntimeSessionCreationInput BattleSceneHades::makeBattle
     input.rules.movementPhysicsConfig.gravity = gravity_;
     input.rules.movementPhysicsConfig.friction = friction_;
     input.battleFrame = battle_frame_;
-    input.profiling.enabled = true;
+    input.profiling.enabled = SystemSettings::getInstance()->data().debugLatencyLog;
     input.profiling.slowFrameThresholdMs = BATTLE_FRAME_PROFILE_SLOW_MS;
 
     auto* basicMagic = Save::getInstance()->getMagic(1);
