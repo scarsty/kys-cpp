@@ -114,6 +114,7 @@ enum class EffectType
     DmgReduceDebuff,
     CurrentHPPctBlast,
     TeamMPRestore,
+    EnemyMpDamageAll,
     SpiralBleedProjectile,
     NearbyTrackingProjectiles,
     ForceRangedAttack,

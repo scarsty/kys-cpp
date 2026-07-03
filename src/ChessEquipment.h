@@ -20,6 +20,19 @@ struct EquipmentDef
     const Item* getItem() const;
 };
 
+inline std::vector<const EquipmentDef*> filterEquipmentByMaxTier(const std::vector<EquipmentDef>& equipments, int maxTier)
+{
+    std::vector<const EquipmentDef*> result;
+    for (const auto& equipment : equipments)
+    {
+        if (equipment.tier <= maxTier)
+        {
+            result.push_back(&equipment);
+        }
+    }
+    return result;
+}
+
 struct EquipmentSynergyDef
 {
     std::vector<int> roleIds;

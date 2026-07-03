@@ -15,8 +15,7 @@ enum class ChessContextMenuAction
     EnterBattle,
     BuyExp,
     OpenEquipmentMenu,
-    OpenStrategyMenu,
-    OpenInfoMenu,
+    OpenOverviewMenu,
     ShowExpeditionChallenge,
     ShowSystemSettings,
     ShowPositionSwap,
@@ -36,9 +35,8 @@ struct ChessContextMenuItem
     ChessContextMenuAction action;
 };
 
-std::vector<ChessContextMenuItem> buildChessContextMenu();
-std::vector<ChessContextMenuItem> buildChessStrategyMenu(bool banEnabled);
-std::vector<ChessContextMenuItem> buildChessInfoMenu();
+std::vector<ChessContextMenuItem> buildChessContextMenu(bool banEnabled);
+std::vector<ChessContextMenuItem> buildChessOverviewMenu();
 std::vector<ChessContextMenuItem> buildChessEquipmentMenu(bool legendaryShopUnlocked);
 std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMenuItem>& items);
 int centerChessContextMenuY(

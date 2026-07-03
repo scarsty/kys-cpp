@@ -1,6 +1,7 @@
 #include "ChessBattleEffects.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <yaml-cpp/yaml.h>
 
 #include <vector>
 
@@ -49,6 +50,36 @@ TEST_CASE("ChessBattleEffects_ComboEffectDescSeparatesChanceTriggerFromDescripti
     eff.triggerValue = 25;
 
     CHECK(comboEffectDesc(eff) == "25%擊中觸發: 命中時向220範圍內敵人各發一枚40%追蹤彈");
+}
+
+TEST_CASE("ChessBattleEffects_ShieldBreakCompactDescOmitsDefaultChance", "[chess][effects]")
+{
+    ComboEffect alwaysShieldBreak = effect(EffectType::AutoUltimate, 1, 0, Trigger::OnShieldBreak);
+    CHECK(comboEffectCompactDesc(alwaysShieldBreak) == "盾爆·自動絕招");
+
+    ComboEffect chanceShieldBreak = alwaysShieldBreak;
+    chanceShieldBreak.triggerValue = 50;
+    CHECK(comboEffectCompactDesc(chanceShieldBreak) == "盾爆50%·自動絕招");
+}
+
+TEST_CASE("ChessBattleEffects_ParseAndDescribeEnemyMpDamageAll", "[chess][effects]")
+{
+    auto node = YAML::Load(R"(
+类型: 全场杀内
+数值: 10
+触发: 攻擊出手時概率
+触发参数: 100
+)");
+
+    ComboEffect eff;
+    REQUIRE(ChessBattleEffects::parseEffect(node, eff, "測試全場殺內"));
+
+    CHECK(eff.type == EffectType::EnemyMpDamageAll);
+    CHECK(eff.value == 10);
+    CHECK(eff.trigger == Trigger::OnCast);
+    CHECK(eff.triggerValue == 100);
+    CHECK(comboEffectDesc(eff) == "全場敵人內力-10");
+    CHECK(comboEffectCompactDesc(eff) == "全敵內-10");
 }
 
 TEST_CASE("ChessBattleEffects_RuntimeGrantsShareStoreButKeepOrigin", "[battle][effects]")

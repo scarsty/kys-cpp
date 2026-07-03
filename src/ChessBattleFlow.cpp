@@ -836,7 +836,7 @@ void ChessBattleFlow::enterBattle()
     }
     if (maxTier > 0 && equipCount > 0)
     {
-        auto tierEquip = ChessEquipment::getByTier(maxTier);
+        auto tierEquip = filterEquipmentByMaxTier(ChessEquipment::getAll(), maxTier);
         if (!tierEquip.empty())
         {
             std::vector<const EquipmentDef*> weaponEquip;

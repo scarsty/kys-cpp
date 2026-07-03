@@ -67,8 +67,8 @@ private:
 class ComboCatalogDetailPanel : public DrawableOnCall
 {
 public:
-    ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::map<int, int> starByRole);
-    ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::map<int, int> starByRole, PanelFrame frame);
+    ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::vector<Chess> selectedChess);
+    ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::vector<Chess> selectedChess, PanelFrame frame);
 
 private:
     void drawPanel();
@@ -76,6 +76,7 @@ private:
     const std::vector<ComboDef>& combos_;
     ChessPool& pool_;
     ChessRoleSave& roleSave_;
+    std::vector<Chess> selectedChess_;
     std::map<int, int> starByRole_;
     PanelFrame frame_;
 };

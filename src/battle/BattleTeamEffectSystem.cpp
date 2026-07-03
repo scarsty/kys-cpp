@@ -111,6 +111,37 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleRun
     return events;
 }
 
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyEnemyMpDamageAll(BattleRuntimeUnits& units,
+                                                                                 int sourceUnitId,
+                                                                                 int amount) const
+{
+    assert(amount > 0);
+
+    auto& source = unitById(units, sourceUnitId);
+    std::vector<BattleTeamEffectEvent> events;
+    for (auto& unitRecord : units.live())
+    {
+        auto& unit = unitRecord.core;
+        if (unit.team == source.team)
+        {
+            continue;
+        }
+
+        int before = unit.vitals.mp;
+        unit.vitals.mp = std::max(0, unit.vitals.mp - amount);
+        if (unit.vitals.mp < before)
+        {
+            events.push_back({ BattleTeamEffectEventType::MpDamage,
+                               sourceUnitId,
+                               unit.id,
+                               before - unit.vitals.mp,
+                               before,
+                               unit.vitals.mp });
+        }
+    }
+    return events;
+}
+
 std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamShield(BattleRuntimeUnits& units,
                                                                            int sourceUnitId,
                                                                            int amount,

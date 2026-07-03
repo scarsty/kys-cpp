@@ -97,9 +97,10 @@ void ChessInfoFlow::viewCombos()
 {
     auto& allCombos = ChessCombo::getAllCombos();
     auto manager = makeChessManager(services_);
-    auto starByRole = ChessCombo::buildStarMap(manager.getSelectedForBattle());
+    auto selectedChess = manager.getSelectedForBattle();
 
     std::vector<ComboDef> filteredCombos;
+    std::vector<std::pair<std::string, std::string>> labelRows;
     IndexedMenuData menuData;
     for (auto& combo : allCombos)
     {
@@ -109,24 +110,20 @@ void ChessInfoFlow::viewCombos()
         if (availableCount == 0) continue;
 
         filteredCombos.push_back(combo);
-        auto [owned, effective] = computeOwnership(combo, starByRole);
-        std::string padded = combo.name;
-        while (padded.size() < 14) padded += "　";
-        int extra = effective - owned;
-        int denominator = combo.isAntiCombo ? (combo.thresholds.empty() ? 1 : combo.thresholds[0].count) : availableCount;
-        std::string countPrefix = combo.isAntiCombo ? "独" : (combo.starSynergyBonus ? "★" : "　");
-        std::string bonusPart = (combo.starSynergyBonus && extra > 0) ? std::format("+{:<2}", extra) : "   ";
-        std::string countFmt = std::format("{}{:2}{}/{:2}", countPrefix, owned, bonusPart, denominator);
-        menuData.labels.push_back(std::format("{}({})", padded, countFmt));
-        menuData.colors.push_back(owned > 0 ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255});
+        auto progress = evaluateComboProgress(combo, selectedChess);
+        labelRows.push_back({combo.name, formatComboProgressCount(progress)});
+        menuData.colors.push_back(progress.physicalCount > 0 ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255});
     }
+    menuData.labels = buildAlignedComboCatalogLabels(labelRows, [](const std::string& text) {
+        return Font::getTextDrawSize(text);
+    });
 
     IndexedMenuConfig menuConfig;
     auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
     menuConfig.x = menuAnchor.x;
     menuConfig.y = menuAnchor.y;
     auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
-    auto detailPanel = std::make_shared<ComboCatalogDetailPanel>(filteredCombos, services_.shop.pool(), services_.roleSave, starByRole, detailFrame);
+    auto detailPanel = std::make_shared<ComboCatalogDetailPanel>(filteredCombos, services_.shop.pool(), services_.roleSave, selectedChess, detailFrame);
     auto menu = makeIndexedMenu("羈絆一覽", menuData, menuConfig, {detailPanel});
     menu->run();
 }

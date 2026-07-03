@@ -304,7 +304,7 @@ void ChessUIStatus::draw()
     if (!roleCombos.empty())
     {
         auto& gameState = KysChess::GameState::get();
-        auto starByRole = KysChess::ChessCombo::buildStarMap(KysChess::ChessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy()).getSelectedForBattle());
+        auto selectedChess = KysChess::ChessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy()).getSelectedForBattle();
         auto& allCombos = KysChess::ChessCombo::getAllCombos();
         layout.finalizeComboColumns(static_cast<int>(roleCombos.size()));
         for (int index = 0; index < roleCombos.size(); ++index)
@@ -317,11 +317,8 @@ void ChessUIStatus::draw()
             }
             auto cid = roleCombos[index];
             auto& combo = allCombos[(int)cid];
-            auto [owned, effective] = KysChess::computeOwnership(combo, starByRole);
-            bool active = false;
-            for (auto& t : combo.thresholds)
-                if (effective >= t.count) { active = true; break; }
-            Color labelColor = active ? Color{0, 255, 100, 255} : Color{180, 180, 180, 255};
+            auto progress = KysChess::evaluateComboProgress(combo, selectedChess);
+            Color labelColor = progress.active ? Color{0, 255, 100, 255} : Color{180, 180, 180, 255};
             font->draw(combo.name, layout.smallFontSize, layout.combo.x + colIndex * layout.comboColWidth, layout.sectionContentY + row * (layout.smallFontSize + kComboRowGap), labelColor);
         }
     }

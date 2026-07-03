@@ -70,6 +70,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"伤害降低", EffectType::DmgReduceDebuff},
     {"当前生命伤害", EffectType::CurrentHPPctBlast},
     {"全队回内", EffectType::TeamMPRestore},
+    {"全場殺內", EffectType::EnemyMpDamageAll}, {"全场杀内", EffectType::EnemyMpDamageAll},
     {"螺旋流血弹", EffectType::SpiralBleedProjectile},
     {"范围追踪弹", EffectType::NearbyTrackingProjectiles},
     {"远程化", EffectType::ForceRangedAttack},
@@ -205,7 +206,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
             if (eff.trigger == Trigger::OnUltimate) return "絕招·";
             if (eff.trigger == Trigger::OnHit && eff.triggerValue < 100) return std::format("擊中{}%·", eff.triggerValue);
             if (eff.trigger == Trigger::OnBeingHit && eff.triggerValue < 100) return std::format("被擊{}%·", eff.triggerValue);
-            if (eff.trigger == Trigger::OnShieldBreak && eff.triggerValue < 100) return std::format("盾爆{}%·", eff.triggerValue);
+            if (eff.trigger == Trigger::OnShieldBreak && eff.triggerValue > 0 && eff.triggerValue < 100) return std::format("盾爆{}%·", eff.triggerValue);
             if (eff.trigger == Trigger::OnShieldBreak) return "盾爆·";
             return "";
         }
@@ -348,6 +349,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::DmgReduceDebuff: desc = compact ? std::format("降傷標記{}%/{}幀", eff.value, eff.value2) : std::format("攻擊標記目標降傷{}%/{}幀", eff.value, eff.value2); break;
     case EffectType::CurrentHPPctBlast: desc = compact ? std::format("全敵現血-{}%", eff.value) : std::format("全敵當前生命-{}%", eff.value); break;
     case EffectType::TeamMPRestore: desc = compact ? std::format("全隊回{}MP", eff.value) : std::format("全隊回復{}MP", eff.value); break;
+    case EffectType::EnemyMpDamageAll: desc = compact ? std::format("全敵內-{}", eff.value) : std::format("全場敵人內力-{}", eff.value); break;
     case EffectType::SpiralBleedProjectile: desc = compact ? std::format("擴張螺旋彈+{}層", eff.value) : std::format("發射高速擴張螺旋流血彈並附加{}層流血", eff.value); break;
     case EffectType::NearbyTrackingProjectiles:
     {

@@ -78,6 +78,33 @@ TEST_CASE("BattleTeamEffectSystem_TeamMp_RespectsBlockBonusAndCap", "[battle][te
     CHECK(events[1].value == 30);
 }
 
+TEST_CASE("BattleTeamEffectSystem_EnemyMpDamageAll_DrainsAliveEnemiesOnly", "[battle][team_effect][unit]")
+{
+    auto units = KysChess::Battle::Test::runtimeRecords({
+        unit(0, 0, 100, 80),
+        unit(1, 0, 100, 70),
+        unit(2, 1, 100, 20),
+        unit(3, 1, 100, 6),
+        unit(4, 1, 100, 0),
+    });
+    units.requireCore(3).alive = false;
+
+    auto events = BattleTeamEffectSystem().applyEnemyMpDamageAll(units, 0, 10);
+
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].type == BattleTeamEffectEventType::MpDamage);
+    CHECK(events[0].sourceUnitId == 0);
+    CHECK(events[0].targetUnitId == 2);
+    CHECK(events[0].value == 10);
+    CHECK(events[0].before == 20);
+    CHECK(events[0].after == 10);
+    CHECK(unitById(units, 0).vitals.mp == 80);
+    CHECK(unitById(units, 1).vitals.mp == 70);
+    CHECK(unitById(units, 2).vitals.mp == 10);
+    CHECK(unitById(units, 3).vitals.mp == 6);
+    CHECK(unitById(units, 4).vitals.mp == 0);
+}
+
 TEST_CASE("BattleTeamEffectSystem_TeamShield_AddsOrRefreshes", "[battle][team_effect][unit]")
 {
     auto units = KysChess::Battle::Test::runtimeRecords({

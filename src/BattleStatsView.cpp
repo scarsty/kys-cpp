@@ -109,14 +109,16 @@ static BattleStatsView::ComboEntry makeComboEntry(const KysChess::ActiveCombo& a
     ce.name = combo.name;
     ce.memberCount = ac.memberCount;
     ce.physicalMemberCount = ac.physicalMemberCount;
-    ce.totalMembers = (int)combo.memberRoleIds.size();
     ce.starSynergyBonus = combo.starSynergyBonus;
     ce.isAntiCombo = combo.isAntiCombo;
     if (ac.activeThresholdIdx >= 0 && ac.activeThresholdIdx < (int)combo.thresholds.size())
     {
         auto& thresh = combo.thresholds[ac.activeThresholdIdx];
         ce.thresholdName = thresh.name;
-        ce.thresholdCount = thresh.count;
+        int nextThresholdIdx = ac.activeThresholdIdx + 1;
+        ce.displayTargetCount = nextThresholdIdx < static_cast<int>(combo.thresholds.size())
+            ? combo.thresholds[nextThresholdIdx].count
+            : thresh.count;
     }
     return ce;
 }
@@ -397,10 +399,14 @@ void BattleStatsView::drawComboList(const std::vector<ComboEntry>& combos, int x
     comboLines.reserve(combos.size());
     for (const auto& c : combos)
     {
-        // For anti-combos use threshold count (1) as denominator; otherwise total pool size.
-        int denom = c.isAntiCombo ? c.thresholdCount : c.totalMembers;
-        std::string countStr = KysChess::formatComboCount(
-            c.physicalMemberCount, c.memberCount, denom, c.starSynergyBonus, c.isAntiCombo);
+        KysChess::ComboProgress progress;
+        progress.physicalCount = c.physicalMemberCount;
+        progress.effectiveCount = c.memberCount;
+        progress.displayTargetCount = c.displayTargetCount;
+        progress.active = true;
+        progress.starSynergyBonus = c.starSynergyBonus;
+        progress.isAntiCombo = c.isAntiCombo;
+        std::string countStr = KysChess::formatComboProgressCount(progress);
         comboLines.push_back(std::format("{} ({}) {}", c.name, countStr, c.thresholdName));
     }
 

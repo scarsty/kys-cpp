@@ -425,6 +425,31 @@ TEST_CASE("MeleeSwarm_DoesNotReserveSameApproachSlot", "[battle][movement]")
     }
 }
 
+TEST_CASE("MeleeSwarm_ApproachPreservesSideLanesBeforeContact", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 100, 80, 0 } },
+        { 29, 0, { 100, 120, 0 } },
+        { 72, 0, { 55, 100, 0 } },
+        { 116, 1, { 360, 100, 0 } },
+    });
+    for (auto& unit : world.units)
+    {
+        unit.dashCooldownRemaining = 999;
+    }
+    world.units[3].speed = 0.0;
+
+    auto run = runMovementPlanForFrames(world, 35);
+
+    const auto& top = run.world.units[0];
+    const auto& bottom = run.world.units[1];
+    CHECK(top.position.y < 80.0f);
+    CHECK(bottom.position.y > 100.0f);
+    CHECK(pointDistance(top.position, bottom.position) >= world.config.bodyRadius);
+    CHECK(run.stats.at(1).totalAllyBlockedFrames == 0);
+    CHECK(run.stats.at(2).totalAllyBlockedFrames == 0);
+}
+
 TEST_CASE("MeleeOverlap_SeparatesBeforeAttackReady", "[battle][movement]")
 {
     auto world = makeWorld({
@@ -731,6 +756,27 @@ TEST_CASE("TaXue_UnstableIgnoresReservationsAndUnitBodiesButRespectsTerrain", "[
     auto blockedTick = BattleMovementPlanner(blocked).tick();
 
     CHECK(blockedTick.decisions.at(1).destination.x == Catch::Approx(100.0f));
+}
+
+TEST_CASE("TaXue_ActiveDashCannotSkipAcrossTerrainWall", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 1, 0, { 100, 100, 0 } },
+        { 116, 1, { 300, 100, 0 } },
+    }, {
+        { { 100, 100, 0 }, true },
+        { { 150, 100, 0 }, false },
+        { { 200, 100, 0 }, true },
+    });
+    world.units[0].dashFramesRemaining = 2;
+    world.units[0].velocity = { 100.0f, 0.0f, 0.0f };
+
+    auto tick = BattleMovementPlanner(world).tick();
+
+    CHECK(tick.decisions.at(1).destination.x == Catch::Approx(100.0f));
+    CHECK(tick.decisions.at(1).velocity.norm() == Catch::Approx(0.0f));
+    CHECK(tick.decisions.at(1).dashFramesRemaining == 0);
+    CHECK(tick.decisions.at(1).action != MovementAction::Dash);
 }
 
 TEST_CASE("BattleMovementPhysicsSystem_CanIgnoreUnitCollisionButNeedsHeightToClearTerrain", "[battle][movement]")

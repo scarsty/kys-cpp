@@ -25,7 +25,7 @@ std::vector<std::string> labelsOf(const std::vector<ChessContextMenuItem>& items
 
 TEST_CASE("chess context menu keeps frequent actions at the first level", "[chess][context-menu]")
 {
-    const auto items = buildChessContextMenu();
+    const auto items = buildChessContextMenu(false);
 
     CHECK(labelsOf(items) == std::vector<std::string>{
                                 "購買棋子",
@@ -34,53 +34,58 @@ TEST_CASE("chess context menu keeps frequent actions at the first level", "[ches
                                 "進入戰鬥",
                                 "購買經驗",
                                 "裝備管理",
-                                "棋局策略",
-                                "情報一覽",
+                                "棋局總覽",
                                 "遠征挑戰",
                                 "系統設定",
                                 "遊戲說明",
                             });
-    REQUIRE(items.size() == 11);
+    REQUIRE(items.size() == 10);
     CHECK(items[0].action == ChessContextMenuAction::BuyChess);
     CHECK(items[4].action == ChessContextMenuAction::BuyExp);
-    CHECK(items[6].action == ChessContextMenuAction::OpenStrategyMenu);
-    CHECK(items[7].action == ChessContextMenuAction::OpenInfoMenu);
-    CHECK(items[9].action == ChessContextMenuAction::ShowSystemSettings);
-    CHECK(items[10].action == ChessContextMenuAction::ShowGameGuide);
+    CHECK(items[6].action == ChessContextMenuAction::OpenOverviewMenu);
+    CHECK(items[8].action == ChessContextMenuAction::ShowSystemSettings);
+    CHECK(items[9].action == ChessContextMenuAction::ShowGameGuide);
 }
 
-TEST_CASE("strategy menu groups run-shaping actions", "[chess][context-menu]")
+TEST_CASE("chess context menu puts ban management at the first level once unlocked", "[chess][context-menu]")
 {
-    CHECK(labelsOf(buildChessStrategyMenu(false)) == std::vector<std::string>{
-                                                     "排兵佈陣",
-                                                     "逆天改命",
-                                                 });
+    const auto items = buildChessContextMenu(true);
+    CHECK(labelsOf(items) == std::vector<std::string>{
+                               "購買棋子",
+                               "出售棋子",
+                               "選擇出戰",
+                               "進入戰鬥",
+                               "購買經驗",
+                               "禁棋管理",
+                               "裝備管理",
+                               "棋局總覽",
+                               "遠征挑戰",
+                               "系統設定",
+                               "遊戲說明",
+                           });
+    REQUIRE(items.size() == 11);
+    CHECK(items[5].action == ChessContextMenuAction::ManageBans);
+    CHECK(items[6].action == ChessContextMenuAction::OpenEquipmentMenu);
+    CHECK(items[7].action == ChessContextMenuAction::OpenOverviewMenu);
+}
 
-    const auto items = buildChessStrategyMenu(true);
+TEST_CASE("overview menu groups strategy and reference screens", "[chess][context-menu]")
+{
+    const auto items = buildChessOverviewMenu();
+
     CHECK(labelsOf(items) == std::vector<std::string>{
                                "排兵佈陣",
                                "逆天改命",
-                               "禁棋管理",
-                           });
-    REQUIRE(items.size() == 3);
-    CHECK(items[0].action == ChessContextMenuAction::ShowPositionSwap);
-    CHECK(items[1].action == ChessContextMenuAction::RerollBattleSeed);
-    CHECK(items[2].action == ChessContextMenuAction::ManageBans);
-}
-
-TEST_CASE("info menu groups reference catalog screens", "[chess][context-menu]")
-{
-    const auto items = buildChessInfoMenu();
-
-    CHECK(labelsOf(items) == std::vector<std::string>{
                                "查看羈絆",
                                "棋子一覽",
                                "查看內功",
                            });
-    REQUIRE(items.size() == 3);
-    CHECK(items[0].action == ChessContextMenuAction::ViewCombos);
-    CHECK(items[1].action == ChessContextMenuAction::ViewChessPool);
-    CHECK(items[2].action == ChessContextMenuAction::ViewNeigong);
+    REQUIRE(items.size() == 5);
+    CHECK(items[0].action == ChessContextMenuAction::ShowPositionSwap);
+    CHECK(items[1].action == ChessContextMenuAction::RerollBattleSeed);
+    CHECK(items[2].action == ChessContextMenuAction::ViewCombos);
+    CHECK(items[3].action == ChessContextMenuAction::ViewChessPool);
+    CHECK(items[4].action == ChessContextMenuAction::ViewNeigong);
 }
 
 TEST_CASE("equipment menu puts legendary shop second once unlocked", "[chess][context-menu]")
@@ -101,6 +106,7 @@ TEST_CASE("equipment menu puts legendary shop second once unlocked", "[chess][co
 
 TEST_CASE("context menu y anchor centers visible rows inside chess content", "[chess][context-menu]")
 {
+    CHECK(centerChessContextMenuY(10) == 135);
     CHECK(centerChessContextMenuY(11) == 112);
     CHECK(centerChessContextMenuY(3) == 292);
     CHECK(centerChessContextMenuY(20) == 45);

@@ -217,7 +217,7 @@ void ComboInfoPanel::drawPanel()
     }
 
     auto& allCombos = ChessCombo::getAllCombos();
-    auto starByRole = ChessCombo::buildStarMap(manager_.getSelectedForBattle());
+    auto selectedChess = manager_.getSelectedForBattle();
     auto frame = frame_;
     ChessScreenLayout::drawPanel(frame, {0, 0, 0, 160});
 
@@ -240,36 +240,29 @@ void ComboInfoPanel::drawPanel()
         for (auto cid : roleCombos)
         {
             auto& combo = allCombos[static_cast<int>(cid)];
-            auto [owned, effective] = computeOwnership(combo, starByRole);
+            auto progress = evaluateComboProgress(combo, selectedChess);
 
-            const ComboThreshold* lastActive = nullptr;
-            const ComboThreshold* nextThreshold = nullptr;
-            for (auto& threshold : combo.thresholds)
+            const ComboThreshold* activeThreshold = nullptr;
+            if (progress.activeThresholdIdx >= 0)
             {
-                if (effective >= threshold.count)
-                {
-                    lastActive = &threshold;
-                }
-                else if (!nextThreshold)
-                {
-                    nextThreshold = &threshold;
-                }
+                activeThreshold = &combo.thresholds[progress.activeThresholdIdx];
+            }
+            const ComboThreshold* nextThreshold = nullptr;
+            if (progress.nextThresholdIdx >= 0)
+            {
+                nextThreshold = &combo.thresholds[progress.nextThresholdIdx];
             }
 
-            const ComboThreshold* shownThreshold = lastActive ? lastActive : nextThreshold;
+            const ComboThreshold* shownThreshold = activeThreshold ? activeThreshold : nextThreshold;
             if (!shownThreshold && !combo.thresholds.empty())
             {
                 shownThreshold = &combo.thresholds.back();
             }
 
-            bool active = lastActive != nullptr;
-            int denominator = (nextThreshold ? nextThreshold : (lastActive ? lastActive : &combo.thresholds.back()))->count;
-            std::string countText = formatComboCount(owned, effective, denominator, combo.starSynergyBonus, combo.isAntiCombo);
-
             ComboBlock block;
-            block.header = std::format("{} ({})", combo.name, countText);
-            block.headerColor = active ? Color{0, 255, 100, 255} : Color{200, 200, 200, 255};
-            block.effectColor = active ? Color{180, 220, 255, 255} : Color{180, 180, 180, 255};
+            block.header = std::format("{} ({})", combo.name, formatComboProgressCount(progress));
+            block.headerColor = progress.active ? Color{0, 255, 100, 255} : Color{200, 200, 200, 255};
+            block.effectColor = progress.active ? Color{180, 220, 255, 255} : Color{180, 180, 180, 255};
 
             auto headerLines = wrapDisplayText(block.header, headerUnits);
             if (!headerLines.empty())
@@ -444,17 +437,18 @@ void OwnedRosterPanel::drawPanel()
     }
 }
 
-ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::map<int, int> starByRole)
-    : ComboCatalogDetailPanel(combos, pool, roleSave, std::move(starByRole), ChessScreenLayout::comboCatalogDetailPanel())
+ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::vector<Chess> selectedChess)
+    : ComboCatalogDetailPanel(combos, pool, roleSave, std::move(selectedChess), ChessScreenLayout::comboCatalogDetailPanel())
 {
 }
 
-ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::map<int, int> starByRole, PanelFrame frame)
+ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::vector<Chess> selectedChess, PanelFrame frame)
     : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , combos_(combos)
     , pool_(pool)
     , roleSave_(roleSave)
-    , starByRole_(std::move(starByRole))
+    , selectedChess_(std::move(selectedChess))
+    , starByRole_(ChessCombo::buildStarMap(selectedChess_))
     , frame_(frame)
 {
 }
@@ -474,8 +468,7 @@ void ComboCatalogDetailPanel::drawPanel()
     auto* font = Font::getInstance();
     font->draw(combo.name, fs + 4, frame.x + 10, frame.y + 10, {255, 255, 100, 255});
 
-    auto [ownedCount, effective] = computeOwnership(combo, starByRole_);
-    (void)ownedCount;
+    auto progress = evaluateComboProgress(combo, selectedChess_);
 
     PanelTextCursor memberCursor{font, frame.x + 10, frame.y + 45};
     memberCursor.line("成員:", fs, {200, 200, 200, 255});
@@ -517,7 +510,7 @@ void ComboCatalogDetailPanel::drawPanel()
     int effectPixelWidth = frame.x + frame.w - thresholdCursor.x - 10;
     for (auto& threshold : combo.thresholds)
     {
-        bool tierActive = effective >= threshold.count;
+        bool tierActive = progress.effectiveCount >= threshold.count;
         Color tierColor = tierActive ? Color{0, 255, 0, 255} : Color{255, 200, 100, 255};
         Color effectColor = tierActive ? Color{180, 220, 255, 255} : Color{200, 200, 200, 255};
         std::string tierMark = tierActive ? " ✓" : "";

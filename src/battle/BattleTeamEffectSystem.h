@@ -16,6 +16,7 @@ enum class BattleTeamEffectEventType
 {
     Heal,
     MpRestore,
+    MpDamage,
     ShieldGain,
     CooldownReduced,
 };
@@ -45,6 +46,10 @@ public:
     std::vector<BattleTeamEffectEvent> applyTeamMp(BattleRuntimeUnits& units,
                                                    int sourceUnitId,
                                                    int amount) const;
+
+    std::vector<BattleTeamEffectEvent> applyEnemyMpDamageAll(BattleRuntimeUnits& units,
+                                                             int sourceUnitId,
+                                                             int amount) const;
 
     std::vector<BattleTeamEffectEvent> applyTeamShield(BattleRuntimeUnits& units,
                                                        int sourceUnitId,

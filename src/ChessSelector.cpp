@@ -168,7 +168,7 @@ void ChessSelector::showContextMenu()
 {
     while (true)
     {
-        const auto action = runContextActionMenu(buildChessContextMenu());
+        const auto action = runContextActionMenu(buildChessContextMenu(GameState::get().hasBanSystem()));
         if (!action)
         {
             return;
@@ -182,38 +182,23 @@ void ChessSelector::showContextMenu()
         case ChessContextMenuAction::SelectForBattle: selectForBattle(); break;
         case ChessContextMenuAction::EnterBattle: enterBattle(); break;
         case ChessContextMenuAction::BuyExp: buyExp(); break;
+        case ChessContextMenuAction::ManageBans: manageBans(); break;
         case ChessContextMenuAction::OpenEquipmentMenu: manageEquipment(); break;
-        case ChessContextMenuAction::OpenStrategyMenu:
+        case ChessContextMenuAction::OpenOverviewMenu:
         {
-            const auto strategyAction = runContextActionMenu(buildChessStrategyMenu(GameState::get().hasBanSystem()));
-            if (!strategyAction)
+            const auto overviewAction = runContextActionMenu(buildChessOverviewMenu());
+            if (!overviewAction)
             {
                 didAction = false;
                 break;
             }
-            switch (*strategyAction)
+            switch (*overviewAction)
             {
             case ChessContextMenuAction::ShowPositionSwap: showPositionSwap(); break;
             case ChessContextMenuAction::RerollBattleSeed: rerollBattleSeed(); break;
-            case ChessContextMenuAction::ManageBans: manageBans(); break;
-            default: assert(false); break;
-            }
-            break;
-        }
-        case ChessContextMenuAction::OpenInfoMenu:
-        {
-            const auto infoAction = runContextActionMenu(buildChessInfoMenu());
-            if (!infoAction)
-            {
-                didAction = false;
-                break;
-            }
-            switch (*infoAction)
-            {
             case ChessContextMenuAction::ViewCombos: viewCombos(); break;
             case ChessContextMenuAction::ViewChessPool: viewChessPool(); break;
             case ChessContextMenuAction::ViewNeigong: viewNeigong(); break;
-            case ChessContextMenuAction::ShowGameGuide: showGameGuide(); break;
             default: assert(false); break;
             }
             break;

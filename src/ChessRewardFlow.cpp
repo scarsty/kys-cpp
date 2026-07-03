@@ -208,12 +208,7 @@ void ChessRewardFlow::showEquipmentReward()
     }
     if (!rewardCfg) return;
 
-    auto& allEquip = ChessEquipment::getAll();
-    std::vector<const EquipmentDef*> candidates;
-    for (auto& eq : allEquip)
-    {
-        if (eq.tier <= rewardCfg->maxTier) candidates.push_back(&eq);
-    }
+    auto candidates = filterEquipmentByMaxTier(ChessEquipment::getAll(), rewardCfg->maxTier);
     if (candidates.empty()) return;
 
     bool rerolled = false;
@@ -532,14 +527,8 @@ bool ChessRewardFlow::rewardEquipment(int maxTier, int specificId)
         return true;
     }
 
-    auto& allEquip = ChessEquipment::getAll();
     IndexedMenuData menuData;
-    std::vector<const EquipmentDef*> detailEquipments;
-    for (auto& eq : allEquip)
-    {
-        if (eq.tier > maxTier) continue;
-        detailEquipments.push_back(&eq);
-    }
+    auto detailEquipments = filterEquipmentByMaxTier(ChessEquipment::getAll(), maxTier);
     if (detailEquipments.empty())
     {
         return false;

@@ -2927,6 +2927,54 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
         CHECK(BattleLogTest::hasSegment(*invincibilityLog, "幀", BattleLogTextTone::DurationValue));
 }
 
+TEST_CASE("BattleFrameRunner_EnemyMpDamageAllTriggersOnceOnActionCommit", "[battle][core][runtime]")
+{
+    auto makeState = []()
+    {
+        BattleRuntimeState state;
+        configureRuntimeMovement(state, worldWith({
+            unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+            unit(1, 1, { 220, 100, 0 }),
+            unit(2, 1, { 240, 100, 0 }),
+            unit(3, 0, { 120, 100, 0 }),
+        }));
+        state.attacks = attackWorld();
+        seedRuntimeUnitsFromWorld(state);
+        auto& unit = state.units.requireCore(0);
+        unit.haveAction = true;
+        unit.animation.actFrame = 6;
+        unit.operationType = BattleOperationType::RangedProjectile;
+        unit.animation.actType = 1;
+        unit.animation.cooldown = 10;
+        state.units.requireCore(0).vitals.mp = 30;
+        state.units.requireCore(1).vitals.mp = 25;
+        state.units.requireCore(2).vitals.mp = 6;
+        state.units.requireCore(3).vitals.mp = 40;
+
+        configureRuntimeActionPlan(state, frameCastInput(0, 1));
+        state.units.require(0).setPendingCast(framePendingCastAction());
+        return state;
+    };
+
+    auto baseline = makeState();
+    runBattleFrame(baseline);
+
+    auto state = makeState();
+    KysChess::RoleComboState combo;
+    combo.applyConfiguredEffect(
+        triggeredEffect(KysChess::EffectType::EnemyMpDamageAll, KysChess::Trigger::OnCast, 10, 100));
+    state.units.require(0).combo = combo;
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).vitals.mp == baseline.units.requireCore(0).vitals.mp);
+    CHECK(state.units.requireCore(1).vitals.mp == baseline.units.requireCore(1).vitals.mp - 10);
+    CHECK(state.units.requireCore(2).vitals.mp == 0);
+    CHECK(state.units.requireCore(3).vitals.mp == baseline.units.requireCore(3).vitals.mp);
+    CHECK(state.units.require(0).combo.triggeredEffectActivationCount(RoleComboEffectId{ 0 }) == 1);
+    CHECK(hasLogText(result, "全場殺內-10MP"));
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AllyLowHpBurstOnlyScopesToMatchingComboMembers", "[battle][core][combo]")
 {
     BattleRuntimeState state;

@@ -4347,6 +4347,10 @@ void appendTeamEffectLogEvents(
             log.type = BattleLogEventType::Status;
             log.segments = battleLogText(std::format("{}+{}MP", reason, event.value), BattleLogTextTone::SkillName);
             break;
+        case BattleTeamEffectEventType::MpDamage:
+            log.type = BattleLogEventType::Status;
+            log.segments = battleLogText(std::format("{}-{}MP", reason, event.value), BattleLogTextTone::SkillName);
+            break;
         case BattleTeamEffectEventType::ShieldGain:
             log.type = BattleLogEventType::Status;
             log.segments = battleLogText(formatStatusValue(reason, event.value, "護盾"), BattleLogTextTone::SkillName);
@@ -4375,6 +4379,7 @@ void appendTeamEffectVisualEvents(
                 CoreRoleStatusEffectFrames));
             break;
         case BattleTeamEffectEventType::MpRestore:
+        case BattleTeamEffectEventType::MpDamage:
         case BattleTeamEffectEventType::ShieldGain:
         case BattleTeamEffectEventType::CooldownReduced:
             break;
@@ -5566,6 +5571,7 @@ std::vector<BattleComboTriggerEvent> collectFrameCastScopedComboEvents(
         {
             KysChess::EffectType::CurrentHPPctBlast,
             KysChess::EffectType::TeamMPRestore,
+            KysChess::EffectType::EnemyMpDamageAll,
             KysChess::EffectType::FlatShield,
             KysChess::EffectType::SpiralBleedProjectile,
         },
@@ -5606,6 +5612,16 @@ void applyFrameCastScopedComboEffects(
                 effects.unitId,
                 event.effect.value);
             appendTeamEffectLogEvents(logEvents, teamEvents, "琴棋書畫");
+            appendTeamEffectVisualEvents(visualEvents, teamEvents);
+            break;
+        }
+        case KysChess::EffectType::EnemyMpDamageAll:
+        {
+            auto teamEvents = teamEffects.applyEnemyMpDamageAll(
+                state.units,
+                effects.unitId,
+                event.effect.value);
+            appendTeamEffectLogEvents(logEvents, teamEvents, "全場殺內");
             appendTeamEffectVisualEvents(visualEvents, teamEvents);
             break;
         }

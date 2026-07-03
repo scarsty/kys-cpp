@@ -67,6 +67,15 @@ int deterministicSide(int unitId, int slot)
     return ((unitId * 37 + slot * 17) & 1) == 0 ? 1 : -1;
 }
 
+double combatSlotAngle(int slot)
+{
+    if (slot == 0)
+    {
+        return 0.0;
+    }
+    return kPi / 4.0 * std::abs(slot) * (slot > 0 ? 1.0 : -1.0);
+}
+
 const BattleUnitState* nearestEnemy(const BattleMovementPlanInput& world, const BattleUnitState& unit)
 {
     const BattleUnitState* best = nullptr;
@@ -580,10 +589,126 @@ Pointf combatSlotPosition(const BattleMovementPlanInput& world,
     double radius = unit.style == CombatStyle::Ranged
         ? std::clamp(unit.reach - world.config.engagementDeadband, world.config.meleeAttackReach, world.config.maxRangedReach)
         : std::max(world.config.engagementArriveDistance, world.config.meleeAttackReach - world.config.engagementDeadband);
-    double angleStep = kPi / 4.0;
-    int side = deterministicSide(unit.id, slot);
-    double angle = angleStep * ((slot + 1) / 2) * side;
-    return target.position + rotated(away, angle) * radius;
+    return target.position + rotated(away, combatSlotAngle(slot)) * radius;
+}
+
+struct MeleeApproachSlotEntry
+{
+    int unitId = -1;
+    double signedLateral = 0.0;
+    double targetDistance = 0.0;
+};
+
+int slotForApproachIndex(int index, int count)
+{
+    assert(index >= 0);
+    assert(index < count);
+    if (count == 1)
+    {
+        return 0;
+    }
+
+    int slot = count / 2 - index;
+    if (count % 2 == 0 && slot <= 0)
+    {
+        --slot;
+    }
+    return std::clamp(slot, -4, 4);
+}
+
+int defaultMeleeApproachSlot(const BattleMovementPlanInput& world,
+                             const BattleUnitState& unit,
+                             const BattleUnitState& target)
+{
+    Pointf approachCentroid;
+    std::vector<const BattleUnitState*> contenders;
+    for (const auto& other : world.units)
+    {
+        if (!other.alive
+            || other.team != unit.team
+            || other.style != CombatStyle::Melee
+            || other.speed <= 0.0
+            || battleMovementTaXueUnstable(other))
+        {
+            continue;
+        }
+
+        const auto* otherTarget = nearestEnemy(world, other);
+        if (!otherTarget || otherTarget->id != target.id)
+        {
+            continue;
+        }
+
+        approachCentroid += other.position;
+        contenders.push_back(&other);
+    }
+
+    const int approachCount = static_cast<int>(contenders.size());
+    assert(approachCount > 0);
+    approachCentroid.x /= static_cast<float>(approachCount);
+    approachCentroid.y /= static_cast<float>(approachCount);
+    approachCentroid.z /= static_cast<float>(approachCount);
+
+    auto approach = target.position - approachCentroid;
+    approach.z = 0;
+    if (approach.norm() <= 0.01f)
+    {
+        approach = target.position - unit.position;
+        approach.z = 0;
+    }
+    if (approach.norm() <= 0.01f)
+    {
+        approach = { 1.0f, 0.0f, 0.0f };
+    }
+    approach = unitVector(approach);
+    const Pointf lateral{ -approach.y, approach.x, 0.0f };
+
+    std::vector<MeleeApproachSlotEntry> entries;
+    entries.reserve(static_cast<std::size_t>(approachCount));
+    for (const auto* other : contenders)
+    {
+        entries.push_back({
+            other->id,
+            dot2d(other->position - target.position, lateral),
+            distance2d(other->position, target.position),
+        });
+    }
+
+    std::ranges::sort(entries, [](const MeleeApproachSlotEntry& lhs, const MeleeApproachSlotEntry& rhs)
+        {
+            if (lhs.signedLateral != rhs.signedLateral)
+            {
+                return lhs.signedLateral < rhs.signedLateral;
+            }
+            if (lhs.targetDistance != rhs.targetDistance)
+            {
+                return lhs.targetDistance < rhs.targetDistance;
+            }
+            return lhs.unitId < rhs.unitId;
+        });
+
+    const auto entry = std::ranges::find(entries, unit.id, &MeleeApproachSlotEntry::unitId);
+    assert(entry != entries.end());
+    return slotForApproachIndex(static_cast<int>(std::distance(entries.begin(), entry)), static_cast<int>(entries.size()));
+}
+
+int meleeApproachSlot(const BattleMovementPlanInput& world,
+                      const BattleUnitState& unit,
+                      const BattleUnitState& target)
+{
+    if (unit.speed <= 0.0)
+    {
+        return unit.assignedSlot;
+    }
+    if (battleMovementTaXueUnstable(unit))
+    {
+        return unit.assignedSlot;
+    }
+    if (unit.assignedSlot != 0)
+    {
+        return unit.assignedSlot;
+    }
+    return defaultMeleeApproachSlot(world, unit, target);
 }
 
 bool reservationConflicts(const BattleMovementPlanInput& world,
@@ -1884,7 +2009,9 @@ BattleTickResult BattleMovementPlanner::tick()
         if (unit->dashFramesRemaining > 0)
         {
             auto next = unit->position + unit->velocity;
-            auto probe = probeMoveInWorld(world_, terrain, *unit, next, true, reservations, true, true);
+            auto probe = terrain.segmentClear(unit->position, next)
+                ? probeMoveInWorld(world_, terrain, *unit, next, true, reservations, true, true)
+                : MoveProbe{ false, MoveBlockReason::Wall, -1 };
             if (probe.canMove)
             {
                 unit->position = next;
@@ -1894,8 +2021,22 @@ BattleTickResult BattleMovementPlanner::tick()
                 recordEvent(result.events, BattleEventType::Movement, *unit, decision);
             }
             clearMovementReservation(world_, unit->id);
-            unit->dashFramesRemaining--;
-            if (unit->dashFramesRemaining <= 0)
+            if (probe.canMove)
+            {
+                unit->dashFramesRemaining--;
+            }
+            else
+            {
+                unit->velocity = {};
+                unit->dashFramesRemaining = 0;
+                decision.blockReason = probe.reason;
+                decision.blockerId = probe.blockerId;
+                if (probe.reason == MoveBlockReason::Wall)
+                {
+                    recordEvent(result.events, BattleEventType::BlockedByWall, *unit, decision);
+                }
+            }
+            if (probe.canMove && unit->dashFramesRemaining <= 0)
             {
                 recordEvent(result.events, BattleEventType::DashEnd, *unit, decision);
             }
@@ -2056,7 +2197,9 @@ BattleTickResult BattleMovementPlanner::tick()
         }
         else if (unit->style == CombatStyle::Melee && targetDistance > world_.config.meleeAttackReach)
         {
-            desired = target->position;
+            desired = terrain.segmentClear(unit->position, target->position)
+                ? combatSlotPosition(world_, *unit, *target, meleeApproachSlot(world_, *unit, *target))
+                : target->position;
         }
 
         bool shouldPlanDash = unit->dashCooldownRemaining <= 0
