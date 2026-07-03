@@ -74,6 +74,8 @@ protected:
 
     int expedition33_ = 0;    //是否33远征队模式，即格挡和破盾
 
+    int easy_block_ = 0;    //格挡辅助：远征队下格挡和附加进攻自动成功
+
     bool prev_block_pressed_ = false;
 
     std::map<Role*, Point> block_role_offsets_;
@@ -83,6 +85,32 @@ protected:
         Role* role = nullptr;
         Magic* magic = nullptr;
     };
+
+    struct BlockLightOverlay
+    {
+        std::vector<Role*> roles;
+        int frame = -1;
+        int total_frames = 0;
+    };
+
+    struct PointMagicOverlay
+    {
+        Point position;
+        std::vector<Magic*> magics;
+        int frame = -1;
+        int total_frames = 0;
+    };
+
+    struct LayerMagicOverlay
+    {
+        Magic* magic = nullptr;
+        int frame = -1;
+        int total_frames = 0;
+    };
+
+    BlockLightOverlay block_light_overlay_;
+    PointMagicOverlay point_magic_overlay_;
+    LayerMagicOverlay layer_magic_overlay_;
 
     std::unique_ptr<BattleNetwork> network_;    // 网络连接
 
@@ -167,8 +195,8 @@ public:
     virtual void actRest(Role* r);                         //休息
 
     virtual void moveAnimation(Role* r, int x, int y);                                                                                  //移动动画
-    virtual bool useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr);                                 //使用武学动画
-    virtual bool actionAnimation(Role* r, int style, int effect_id, int shake = 0, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr);    //行动动画
+    virtual bool useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr);                              //使用武学动画
+    virtual bool actionAnimation(Role* r, int style, int effect_id, int shake = 0, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr);    //行动动画
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1);           //计算武学对单人的伤害
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
@@ -187,9 +215,11 @@ public:
     virtual void renderShieldInfo(Role* r, int hp_x, int hp_y, int hp_max_w, double alpha);
     virtual void renderAttackTimingCircle(int frame, int frame_count, const std::vector<Role*>* target_roles = nullptr);
     virtual void renderBlockPrompt(bool active);
+    virtual void renderBattleSceneOverlays();
     virtual bool checkEnemyAttackBlockInput();
     virtual std::vector<Role*> getBlockingRoles(Role* attacker);
     virtual void blockAnimation(Role* attacker, const std::vector<Role*>& roles, const std::vector<BlockCounterInfo>& counters = {});
+    virtual void attackTimingSuccessAnimation(Role* attacker, Magic* magic, const std::vector<Role*>& roles);
     virtual void resetBattleAnimationState();
     virtual void syncBattleRolesFromLayer();
 

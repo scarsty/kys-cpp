@@ -38,6 +38,7 @@ BattleScene::BattleScene()
     save_ = Save::getInstance();
     rand_.set_seed();
     prev_music_ = Audio::getInstance()->getCurrentMusic();
+    easy_block_ = GameUtil::getInstance()->getInt("game", "easy_block", 0);
 
     // 战场不画云。
     //cloud_group_ = std::make_shared<CloudGroup>();
@@ -220,6 +221,7 @@ void BattleScene::draw()
             }
         }
     }
+    renderBattleSceneOverlays();
     Engine::getInstance()->renderTextureToMain("scene");
 
     if (semi_real_)
@@ -1168,7 +1170,8 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
     std::vector<std::vector<Role*>> show_roles;
     std::vector<std::vector<Role*>> block_roles;
 
-    for (int i = 0; i <= GameUtil::sign(r->AttackTwice); i++)
+    int attack_count = expedition33_ ? 1 : 1 + GameUtil::sign(r->AttackTwice);
+    for (int i = 0; i < attack_count; i++)
     {
         int level_index = r->getMagicLevelIndex(magic->ID);
         //计算伤害
@@ -1240,7 +1243,18 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
                     counters.push_back({ r2, counter_magic });
                 }
             }
-            bool blocked = useMagicAnimation(r, magic, &block_roles[i], &counters);
+            bool timing_success = false;
+            bool blocked = useMagicAnimation(r, magic, &block_roles[i], &counters, &timing_success);
+            if (expedition33_ && r->Team == 0 && timing_success && magic->HurtType == 0)
+            {
+                attackTimingSuccessAnimation(r, magic, block_roles[i]);
+            }
+            std::vector<int> base_hurts;
+            base_hurts.reserve(multi_shows[i].size());
+            for (const auto& show : multi_shows[i])
+            {
+                base_hurts.push_back(show.BattleHurt);
+            }
             if (blocked)
             {
                 int reflect_hurt = 0;
@@ -1304,6 +1318,36 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
                         r2->Sheild--;
                         multi_shows[i][j].clear();
                     }
+                }
+            }
+            if (expedition33_ && r->Team == 0 && timing_success && magic->HurtType == 0)
+            {
+                int shield_count = r->Sheild;
+                int damage_multiplier = 1 + shield_count;
+                if (shield_count > 0)
+                {
+                    r->Sheild = 0;
+                }
+                for (int j = 0; j < show_roles[i].size(); j++)
+                {
+                    auto r2 = show_roles[i][j];
+                    int hurt = base_hurts[j];
+                    if (r2 == nullptr || r2->Team == r->Team || hurt <= 0)
+                    {
+                        continue;
+                    }
+                    if (r2->Sheild > 0)
+                    {
+                        r2->Sheild--;
+                        continue;
+                    }
+                    int extra_hurt = hurt * damage_multiplier;
+                    multi_shows[i][j].BattleHurt += extra_hurt;
+                    multi_shows[i][j].ProgressChange -= extra_hurt / 5;
+                    r2->Show = multi_shows[i][j];
+                    r2->addShowString(std::format("-{}", extra_hurt), { 255, 80, 20, 255 });
+                    multi_shows[i][j] = r2->Show;
+                    r2->Show.clear();
                 }
             }
 
@@ -1648,19 +1692,23 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
 }
 
 //使用武学动画
-bool BattleScene::useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles, const std::vector<BlockCounterInfo>* counters)
+bool BattleScene::useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles, const std::vector<BlockCounterInfo>* counters, bool* timing_success)
 {
     if (r && m)
     {
         Audio::getInstance()->playASound(m->SoundID);    //这里播放音效严格说不正确，不管了
-        return actionAnimation(r, m->MagicType, m->EffectID, r->Attack / 20, block_roles, counters);
+        return actionAnimation(r, m->MagicType, m->EffectID, r->Attack / 20, block_roles, counters, timing_success);
     }
     return false;
 }
 
-bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /*= 0*/, const std::vector<Role*>* block_roles /*= nullptr*/, const std::vector<BlockCounterInfo>* counters /*= nullptr*/)
+bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /*= 0*/, const std::vector<Role*>* block_roles /*= nullptr*/, const std::vector<BlockCounterInfo>* counters /*= nullptr*/, bool* timing_success /*= nullptr*/)
 {
     bool blocked = false;
+    if (timing_success != nullptr)
+    {
+        *timing_success = false;
+    }
     if (r->X() != select_x_ || r->Y() != select_y_)
     {
         r->FaceTowards = calTowards(r->X(), r->Y(), select_x_, select_y_);
@@ -1746,27 +1794,50 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         {
             break;
         }
+        int timing_window = 7;
+        if (expedition33_)
+        {
+            bool wider_timing = false;
+            if (r->Team == 0 && timing_success != nullptr)
+            {
+                wider_timing = r->AttackTwice > 0;
+            }
+            else if (r->Team == 1 && block_roles != nullptr)
+            {
+                for (auto block_role : *block_roles)
+                {
+                    if (block_role != nullptr && block_role->Team != r->Team && block_role->AttackTwice > 0)
+                    {
+                        wider_timing = true;
+                        break;
+                    }
+                }
+            }
+            if (wider_timing)
+            {
+                timing_window = 12;
+            }
+        }
         bool in_block_window = false;
-        if (i >= frame_count - 7 && i <= frame_count + 7)
+        if (i >= frame_count - timing_window && i <= frame_count + timing_window)
         {
             in_block_window = true;
         }
-        if (expedition33_ && i < frame_count)
+        bool can_timing_action = (r->Team == 1 && !blocked)
+            || (r->Team == 0 && timing_success != nullptr && !*timing_success);
+        if (expedition33_ && can_timing_action && i <= frame_count + timing_window)
         {
-            auto drawAttackCircle = [this, i, frame_count, block_roles, in_block_window, r](void*) -> void
+            auto drawAttackCircle = [this, i, frame_count, block_roles, in_block_window](void*) -> void
             {
                 renderAttackTimingCircle(i + 1, frame_count, block_roles);
-                if (r->Team == 1)
-                {
-                    renderBlockPrompt(in_block_window);
-                }
+                renderBlockPrompt(in_block_window);
             };
             drawAndPresent(animation_delay_, drawAttackCircle);
-            if (r->Team == 1 && !in_block_window)
+            if (!in_block_window)
             {
                 checkEnemyAttackBlockInput();
             }
-            else if (r->Team == 1 && !blocked && checkEnemyAttackBlockInput())
+            else if (r->Team == 1 && !blocked && (easy_block_ || checkEnemyAttackBlockInput()))
             {
                 if (block_roles != nullptr)
                 {
@@ -1786,11 +1857,15 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
                     blocked = true;
                 }
             }
+            else if (r->Team == 0 && in_block_window && timing_success != nullptr && !*timing_success && (easy_block_ || checkEnemyAttackBlockInput()))
+            {
+                *timing_success = true;
+            }
         }
         else
         {
             drawAndPresent(animation_delay_);
-            if (expedition33_ && r->Team == 1 && in_block_window && !blocked && checkEnemyAttackBlockInput())
+            if (expedition33_ && r->Team == 1 && in_block_window && !blocked && (easy_block_ || checkEnemyAttackBlockInput()))
             {
                 if (block_roles != nullptr)
                 {
@@ -1850,12 +1925,82 @@ void BattleScene::renderAttackTimingCircle(int frame, int frame_count, const std
 void BattleScene::renderBlockPrompt(bool active)
 {
     const std::string prompt = "文字变红时按下RB或E";
-    int font_size = 18;
+    int font_size = 26;
     int text_w = Font::getTextDrawSize(prompt) * font_size / 2;
-    int x = 80 + 250 / 2 - text_w / 2;
-    int y = 195;
+    int ui_w = Engine::getInstance()->getUIWidth();
+    int ui_h = Engine::getInstance()->getUIHeight();
+    int x = ui_w / 2 - text_w / 2;
+    int y = ui_h / 2 + 60;
     Color color = active ? Color{ 255, 40, 40, 255 } : Color{ 255, 255, 255, 255 };
     Font::getInstance()->draw(prompt, font_size, x, y, color, 255);
+}
+
+void BattleScene::renderBattleSceneOverlays()
+{
+    if (block_light_overlay_.frame >= 0 && block_light_overlay_.total_frames > 0)
+    {
+        constexpr int block_pic = 203;
+        auto tex = TextureManager::getInstance()->getTexture("title", block_pic);
+        if (tex != nullptr)
+        {
+            int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
+            double light = block_light_overlay_.total_frames - block_light_overlay_.frame;
+            double zoom_max = 1.0 * render_center_x_ * 2 / tex->w;
+            double zoom = zoom_max * light / block_light_overlay_.total_frames;
+            int w = int(tex->w * zoom);
+            int h = int(tex->h * zoom);
+            uint8_t alpha = uint8_t(192 + 63 * light / block_light_overlay_.total_frames);
+            for (auto r : block_light_overlay_.roles)
+            {
+                if (r == nullptr)
+                {
+                    continue;
+                }
+                auto p = getPositionOnRender(r->X(), r->Y(), man_x_, man_y_);
+                int x = p.x + x_ - w / 2;
+                int y = p.y + y_ - 32 * tile_scale - h / 2;
+                TextureManager::getInstance()->renderTexture("title", block_pic, x, y, { { 255, 255, 255, 255 }, alpha, zoom, zoom, 0, 0 });
+            }
+        }
+    }
+    if (point_magic_overlay_.frame >= 0 && point_magic_overlay_.total_frames > 0)
+    {
+        for (auto magic : point_magic_overlay_.magics)
+        {
+            if (magic == nullptr)
+            {
+                continue;
+            }
+            auto path = std::format("eft/eft{:03}", magic->EffectID);
+            int effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
+            if (effect_count <= 0)
+            {
+                continue;
+            }
+            int effect_frame = point_magic_overlay_.frame * effect_count / point_magic_overlay_.total_frames;
+            TextureManager::getInstance()->renderTexture(path, effect_frame, point_magic_overlay_.position.x, point_magic_overlay_.position.y, { { 255, 255, 255, 255 }, 224 });
+        }
+    }
+    if (layer_magic_overlay_.magic != nullptr && layer_magic_overlay_.frame >= 0 && layer_magic_overlay_.total_frames > 0)
+    {
+        auto path = std::format("eft/eft{:03}", layer_magic_overlay_.magic->EffectID);
+        int effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
+        if (effect_count > 0)
+        {
+            int effect_frame = layer_magic_overlay_.frame * effect_count / layer_magic_overlay_.total_frames;
+            for (int ix = 0; ix < COORD_COUNT; ix++)
+            {
+                for (int iy = 0; iy < COORD_COUNT; iy++)
+                {
+                    if (haveEffect(ix, iy))
+                    {
+                        auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
+                        TextureManager::getInstance()->renderTexture(path, effect_frame, p.x, p.y, { { 255, 255, 255, 255 }, 224 });
+                    }
+                }
+            }
+        }
+    }
 }
 
 bool BattleScene::checkEnemyAttackBlockInput()
@@ -1943,27 +2088,10 @@ void BattleScene::blockAnimation(Role* attacker, const std::vector<Role*>& roles
             }
             r->FaceTowards = calTowards(r->X(), r->Y(), attacker->X(), attacker->Y());
         }
-        auto drawBlock = [this, valid_roles, tex, tile_scale, frame, total_frames](void*) -> void
-        {
-            auto engine = Engine::getInstance();
-            engine->setRenderTarget("scene");
-            double light = total_frames - frame;
-            double zoom_max = 1.0 * render_center_x_ * 2 / tex->w;
-            double zoom = zoom_max * light / total_frames;
-            int w = int(tex->w * zoom);
-            int h = int(tex->h * zoom);
-            uint8_t alpha = uint8_t(192 + 63 * light / total_frames);
-            for (auto r : valid_roles)
-            {
-                auto p = getPositionOnRender(r->X(), r->Y(), man_x_, man_y_);
-                int x = p.x + x_ - w / 2;
-                int y = p.y + y_ - 32 * tile_scale - h / 2;
-                TextureManager::getInstance()->renderTexture("title", 203, x, y, { { 255, 255, 255, 255 }, alpha, zoom, zoom, 0, 0 });
-            }
-            engine->renderTextureToMain("scene");
-        };
-        drawAndPresent(1, drawBlock);
+        block_light_overlay_ = { valid_roles, frame, total_frames };
+        drawAndPresent(1);
     }
+    block_light_overlay_ = {};
     block_role_offsets_.clear();
 
     int dodge_frames = 8;
@@ -2054,36 +2182,163 @@ void BattleScene::blockAnimation(Role* attacker, const std::vector<Role*>& roles
                 r->ActFrame = frame * role_frame_count / attack_frames;
             }
         }
-        auto drawCounterEffect = [this, attacker, counters, frame, attack_frames](void*) -> void
+        point_magic_overlay_.position = getPositionOnRender(attacker->X(), attacker->Y(), man_x_, man_y_);
+        point_magic_overlay_.magics.clear();
+        for (auto counter : counters)
         {
-            auto engine = Engine::getInstance();
-            engine->setRenderTarget("scene");
-            auto p = getPositionOnRender(attacker->X(), attacker->Y(), man_x_, man_y_);
-            for (auto counter : counters)
+            if (counter.magic != nullptr)
             {
-                if (counter.magic == nullptr)
-                {
-                    continue;
-                }
-                auto path = std::format("eft/eft{:03}", counter.magic->EffectID);
-                int effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
-                if (effect_count <= 0)
-                {
-                    continue;
-                }
-                int effect_frame = frame * effect_count / attack_frames;
-                TextureManager::getInstance()->renderTexture(path, effect_frame, p.x, p.y, { { 255, 255, 255, 255 }, 224 });
+                point_magic_overlay_.magics.push_back(counter.magic);
             }
-            engine->renderTextureToMain("scene");
-        };
-        drawAndPresent(counter_effect_delay, drawCounterEffect);
+        }
+        point_magic_overlay_.frame = frame;
+        point_magic_overlay_.total_frames = attack_frames;
+        drawAndPresent(counter_effect_delay);
     }
+    point_magic_overlay_ = {};
+    block_role_offsets_.clear();
+}
+
+void BattleScene::attackTimingSuccessAnimation(Role* attacker, Magic* magic, const std::vector<Role*>& roles)
+{
+    if (attacker == nullptr || magic == nullptr || std::find(battle_roles_.begin(), battle_roles_.end(), attacker) == battle_roles_.end())
+    {
+        return;
+    }
+    std::vector<Role*> valid_roles;
+    for (auto r : roles)
+    {
+        if (r != nullptr && std::find(battle_roles_.begin(), battle_roles_.end(), r) != battle_roles_.end())
+        {
+            valid_roles.push_back(r);
+        }
+    }
+    struct OffsetGuard
+    {
+        BattleScene* scene = nullptr;
+        ~OffsetGuard()
+        {
+            if (scene != nullptr)
+            {
+                scene->block_role_offsets_.clear();
+            }
+        }
+    } offset_guard { this };
+
+    int act_type = magic->MagicType;
+    if (act_type < 0 || act_type >= 5 || attacker->FightFrame[act_type] <= 0)
+    {
+        act_type = -1;
+        for (int i = 0; i < 5; i++)
+        {
+            if (attacker->FightFrame[i] > 0)
+            {
+                act_type = i;
+                break;
+            }
+        }
+    }
+    attacker->ActType = act_type;
+    if (!valid_roles.empty())
+    {
+        attacker->FaceTowards = calTowards(attacker->X(), attacker->Y(), valid_roles.front()->X(), valid_roles.front()->Y());
+    }
+
+    auto getTargetPosition = [this, &valid_roles]() -> Point
+    {
+        if (valid_roles.empty())
+        {
+            return getPositionOnRender(select_x_, select_y_, man_x_, man_y_);
+        }
+        int sum_x = 0;
+        int sum_y = 0;
+        for (auto r : valid_roles)
+        {
+            auto p = getPositionOnRender(r->X(), r->Y(), man_x_, man_y_);
+            sum_x += p.x;
+            sum_y += p.y;
+        }
+        return { sum_x / int(valid_roles.size()), sum_y / int(valid_roles.size()) };
+    };
+
+    int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
+    int back_dis = 36 * tile_scale;
+    int rush_dis = 72 * tile_scale;
+    int back_frames = 6;
+    int rush_frames = 6;
+    Audio::getInstance()->playASound(10);
+    for (int frame = 0; frame < back_frames; frame++)
+    {
+        double progress = double(frame + 1) / back_frames;
+        auto p1 = getPositionOnRender(attacker->X(), attacker->Y(), man_x_, man_y_);
+        auto p2 = getTargetPosition();
+        double dx = p1.x - p2.x;
+        double dy = p1.y - p2.y;
+        double length = std::sqrt(dx * dx + dy * dy);
+        if (length < 1)
+        {
+            length = 1;
+            dx = 0;
+            dy = 1;
+        }
+        block_role_offsets_[attacker] = { int(dx / length * back_dis * progress), int(dy / length * back_dis * progress) };
+        int frame_count = act_type >= 0 ? (std::max)(1, attacker->FightFrame[act_type]) : 1;
+        attacker->ActFrame = frame % frame_count;
+        drawAndPresent(1);
+    }
+    for (int frame = 0; frame < rush_frames; frame++)
+    {
+        double progress = double(frame + 1) / rush_frames;
+        auto p1 = getPositionOnRender(attacker->X(), attacker->Y(), man_x_, man_y_);
+        auto p2 = getTargetPosition();
+        double dx = p2.x - p1.x;
+        double dy = p2.y - p1.y;
+        double length = std::sqrt(dx * dx + dy * dy);
+        if (length < 1)
+        {
+            length = 1;
+            dx = 0;
+            dy = -1;
+        }
+        auto old_offset = block_role_offsets_.find(attacker);
+        int back_x = old_offset != block_role_offsets_.end() ? old_offset->second.x : 0;
+        int back_y = old_offset != block_role_offsets_.end() ? old_offset->second.y : 0;
+        int target_x = int(dx / length * rush_dis);
+        int target_y = int(dy / length * rush_dis);
+        block_role_offsets_[attacker] = { int(back_x + (target_x - back_x) * progress), int(back_y + (target_y - back_y) * progress) };
+        int frame_count = act_type >= 0 ? (std::max)(1, attacker->FightFrame[act_type]) : 1;
+        attacker->ActFrame = frame % frame_count;
+        drawAndPresent(1);
+    }
+    auto path = std::format("eft/eft{:03}", magic->EffectID);
+    int effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
+    int effect_frames = (std::max)(8, effect_count);
+    for (int frame = 0; frame < effect_frames; frame++)
+    {
+        if (effect_count <= 0)
+        {
+            break;
+        }
+        if (act_type >= 0)
+        {
+            int role_frame_count = (std::max)(1, attacker->FightFrame[act_type]);
+            attacker->ActFrame = frame * role_frame_count / effect_frames;
+        }
+        layer_magic_overlay_ = { magic, frame, effect_frames };
+        drawAndPresent(1);
+    }
+    layer_magic_overlay_ = {};
+    attacker->ActFrame = 0;
+    attacker->ActType = -1;
     block_role_offsets_.clear();
 }
 
 void BattleScene::resetBattleAnimationState()
 {
     block_role_offsets_.clear();
+    block_light_overlay_ = {};
+    point_magic_overlay_ = {};
+    layer_magic_overlay_ = {};
     effect_frame_ = 0;
     effect_id_ = -1;
     x_ = 0;

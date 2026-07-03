@@ -47,6 +47,7 @@ private:
     void saveConfig();
     void refreshTexts();
     void changeOption(int index, int delta);
+    OptionItem* findOption(const std::string& section, const std::string& key);
     bool isConfigItemActive() const;
     static int clampIndex(int value, int count);
     static std::vector<std::string> createVolumeOptions();

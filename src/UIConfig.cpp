@@ -86,31 +86,71 @@ void UIConfig::addOption(const std::string& label, const std::string& section, c
     items_.push_back(std::move(item));
 }
 
+UIConfig::OptionItem* UIConfig::findOption(const std::string& section, const std::string& key)
+{
+    for (auto& item : items_)
+    {
+        if (item.section == section && item.key == key)
+        {
+            return &item;
+        }
+    }
+    return nullptr;
+}
+
 void UIConfig::loadConfig()
 {
-    items_[0].value = clampIndex(GameUtil::getInstance()->getInt("music", "volume", 20) / 10, int(items_[0].options.size()));
-    items_[1].value = clampIndex(GameUtil::getInstance()->getInt("music", "volumewav", 50) / 10, int(items_[1].options.size()));
-
+    for (auto& item : items_)
+    {
+        int value = GameUtil::getInstance()->getInt(item.section, item.key, 0);
+        if (item.section == "music" && (item.key == "volume" || item.key == "volumewav"))
+        {
+            value /= 10;
+        }
+        item.value = clampIndex(value, int(item.options.size()));
+    }
+    if (auto item = findOption("music", "volume"))
+    {
+        item->value = clampIndex(GameUtil::getInstance()->getInt("music", "volume", 20) / 10, int(item->options.size()));
+    }
+    if (auto item = findOption("music", "volumewav"))
+    {
+        item->value = clampIndex(GameUtil::getInstance()->getInt("music", "volumewav", 50) / 10, int(item->options.size()));
+    }
     int battle_mode = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
-    bool debug_win = battle_mode == -1 || GameUtil::getInstance()->getInt("game", "battle_debug_win", 0) != 0;
-    items_[2].value = clampIndex(battle_mode, int(items_[2].options.size()));
-    items_[3].value = GameUtil::getInstance()->getInt("game", "easy_block", 0) ? 1 : 0;
-    items_[4].value = debug_win ? 1 : 0;
-    items_[5].value = GameUtil::getInstance()->getInt("game", "simplified_chinese", 0) ? 1 : 0;
+    if (auto item = findOption("game", "battle_mode"))
+    {
+        item->value = clampIndex(battle_mode, int(item->options.size()));
+    }
+    if (auto item = findOption("game", "battle_debug_win"))
+    {
+        item->value = battle_mode == -1 || GameUtil::getInstance()->getInt("game", "battle_debug_win", 0) != 0 ? 1 : 0;
+    }
 }
 
 void UIConfig::saveConfig()
 {
-    GameUtil::getInstance()->setKey("music", "volume", std::to_string(items_[0].value * 10));
-    GameUtil::getInstance()->setKey("music", "volumewav", std::to_string(items_[1].value * 10));
-    GameUtil::getInstance()->setKey("game", "battle_mode", std::to_string(items_[2].value));
-    GameUtil::getInstance()->setKey("game", "easy_block", std::to_string(items_[3].value));
-    GameUtil::getInstance()->setKey("game", "battle_debug_win", std::to_string(items_[4].value));
-    GameUtil::getInstance()->setKey("game", "simplified_chinese", std::to_string(items_[5].value));
-
-    Audio::getInstance()->setVolume(items_[0].value * 10);
-    Audio::getInstance()->setVolumeWav(items_[1].value * 10);
-    Font::getInstance()->setSimplified(items_[5].value);
+    for (auto& item : items_)
+    {
+        int value = item.value;
+        if (item.section == "music" && (item.key == "volume" || item.key == "volumewav"))
+        {
+            value *= 10;
+        }
+        GameUtil::getInstance()->setKey(item.section, item.key, std::to_string(value));
+    }
+    if (auto item = findOption("music", "volume"))
+    {
+        Audio::getInstance()->setVolume(item->value * 10);
+    }
+    if (auto item = findOption("music", "volumewav"))
+    {
+        Audio::getInstance()->setVolumeWav(item->value * 10);
+    }
+    if (auto item = findOption("game", "simplified_chinese"))
+    {
+        Font::getInstance()->setSimplified(item->value);
+    }
 }
 
 void UIConfig::refreshTexts()
