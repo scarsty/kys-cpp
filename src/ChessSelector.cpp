@@ -9,10 +9,10 @@
 #include "ChessScreenLayout.h"
 #include "ChessRewardFlow.h"
 #include "ChessShopFlow.h"
+#include "ChessSystemSettingsMenu.h"
 #include "ChessUiCommon.h"
 #include "Engine.h"
 #include "GameState.h"
-#include "ImGuiLayer.h"
 #include "Menu.h"
 #include "SystemSettings.h"
 #include "UISave.h"
@@ -46,17 +46,6 @@ std::optional<ChessContextMenuAction> runContextActionMenu(const std::vector<Che
     return items[result].action;
 }
 
-class BattleSystemMenuNode : public RunNode
-{
-public:
-    void backRun() override
-    {
-        if (!Engine::getInstance()->isBattleSystemMenuOpen())
-        {
-            exitWithResult(0);
-        }
-    }
-};
 }    // namespace
 
 ChessSelector::ChessSelector(
@@ -254,32 +243,18 @@ void ChessSelector::showGameGuide()
 
 void ChessSelector::showSystemMenu()
 {
-    auto settings = SystemSettings::getInstance()->snapshot();
-    BattleSystemMenuData data;
-    data.musicVolume = settings.musicVolume;
-    data.soundVolume = settings.soundVolume;
-    data.manualCamera = settings.manualCamera;
-    data.battleSpeed = settings.battleSpeed;
-    data.simplifiedChinese = settings.simplifiedChinese;
-    data.showBattleLog = settings.showBattleLog;
-    data.debugLatencyLog = settings.debugLatencyLog;
+    auto original = SystemSettings::getInstance()->snapshot();
+    auto menu = std::make_shared<ChessSystemSettingsMenu>(original);
+    const int result = menu->run();
 
-    auto* engine = Engine::getInstance();
-    engine->showBattleSystemMenu(data);
-
-    auto waitNode = std::make_shared<BattleSystemMenuNode>();
-    waitNode->run();
-
-    auto result = engine->getBattleSystemMenuData();
-    SystemSettingsData updated = settings;
-    updated.musicVolume = result.musicVolume;
-    updated.soundVolume = result.soundVolume;
-    updated.manualCamera = result.manualCamera;
-    updated.battleSpeed = result.battleSpeed;
-    updated.simplifiedChinese = result.simplifiedChinese;
-    updated.showBattleLog = result.showBattleLog;
-    updated.debugLatencyLog = result.debugLatencyLog;
-    SystemSettings::getInstance()->update(updated);
+    if (result >= 0)
+    {
+        SystemSettings::getInstance()->update(menu->settings());
+    }
+    else
+    {
+        SystemSettings::getInstance()->update(original, false);
+    }
 }
 
 }    // namespace KysChess

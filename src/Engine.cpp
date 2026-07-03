@@ -1323,42 +1323,6 @@ bool Engine::isBattleLogOverlayOpen() const
     return imgui_->isBattleLogOpen();
 }
 
-void Engine::showBattleSystemMenu(const BattleSystemMenuData& data) const
-{
-    if (!imgui_)
-    {
-        return;
-    }
-    imgui_->showBattleSystemMenu(data);
-}
-
-void Engine::hideBattleSystemMenu() const
-{
-    if (!imgui_)
-    {
-        return;
-    }
-    imgui_->hideBattleSystemMenu();
-}
-
-bool Engine::isBattleSystemMenuOpen() const
-{
-    if (!imgui_)
-    {
-        return false;
-    }
-    return imgui_->isBattleSystemMenuOpen();
-}
-
-BattleSystemMenuData Engine::getBattleSystemMenuData() const
-{
-    if (!imgui_)
-    {
-        return {};
-    }
-    return imgui_->getBattleSystemMenuData();
-}
-
 void Engine::showChangelogWindow(const ChangelogData& data) const
 {
     if (!imgui_)

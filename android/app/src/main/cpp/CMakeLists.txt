@@ -28,17 +28,9 @@ endif()
 
 # Project root (kys-cpp/)
 set(KYS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../..")
+include("${KYS_ROOT}/cmake/KysSources.cmake")
 
-# Source files — mirrors wasm/CMakeLists.txt
-file(GLOB KYS_SRC
-    "${KYS_ROOT}/src/*.cpp"
-    "${KYS_ROOT}/mlcc/strfunc.cpp"
-    "${KYS_ROOT}/mlcc/filefunc.cpp"
-    "${KYS_ROOT}/mlcc/ZipFile.cpp"
-    "${KYS_ROOT}/mlcc/SQLite3Wrapper.cpp"
-    "${KYS_ROOT}/mlcc/SimpleCC.cpp"
-    "${KYS_ROOT}/others/Hanz2Piny.cpp"
-)
+kys_collect_all_game_sources(KYS_SRC "${KYS_ROOT}")
 
 add_library(main SHARED ${KYS_SRC})
 

@@ -65,7 +65,6 @@ using AudioSpec = SDL_AudioSpec;
 //这里直接使用SDL的事件结构
 using EngineEvent = SDL_Event;
 struct BattleLogViewModel;
-struct BattleSystemMenuData;
 struct ChangelogData;
 
 //这里直接照搬SDL
@@ -401,10 +400,6 @@ public:
     void showBattleLogOverlay(const BattleLogViewModel& model, bool respectUserSetting = true) const;
     void hideBattleLogOverlay() const;
     bool isBattleLogOverlayOpen() const;
-    void showBattleSystemMenu(const BattleSystemMenuData& data) const;
-    void hideBattleSystemMenu() const;
-    bool isBattleSystemMenuOpen() const;
-    BattleSystemMenuData getBattleSystemMenuData() const;
     void showChangelogWindow(const ChangelogData& data) const;
     void hideChangelogWindow() const;
     bool isChangelogWindowOpen() const;

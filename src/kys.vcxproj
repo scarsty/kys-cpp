@@ -150,6 +150,7 @@
     <ClCompile Include="ChessShopWeightDisplay.cpp" />
     <ClCompile Include="ChessSelector.cpp" />
     <ClCompile Include="ChessSelectorPresenter.cpp" />
+    <ClCompile Include="ChessSystemSettingsMenu.cpp" />
     <ClCompile Include="ChessUiCommon.cpp" />
     <ClCompile Include="ChessUIStatus.cpp" />
     <ClCompile Include="Engine.cpp" />
@@ -291,6 +292,7 @@
     <ClInclude Include="ChessShopWeightDisplay.h" />
     <ClInclude Include="ChessSelector.h" />
     <ClInclude Include="ChessSelectorPresenter.h" />
+    <ClInclude Include="ChessSystemSettingsMenu.h" />
     <ClInclude Include="ChessUiCommon.h" />
     <ClInclude Include="ChessUIStatus.h" />
     <ClInclude Include="Engine.h" />

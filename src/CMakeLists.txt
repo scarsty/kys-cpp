@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 
 set(KYS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
+include("${KYS_ROOT}/cmake/KysSources.cmake")
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,22 +36,15 @@ if(WIN32)
     list(APPEND KYS_COMMON_DEFINITIONS _WIN32_WINNT=0x0601 WIN32_LEAN_AND_MEAN NOMINMAX)
 endif()
 
-file(GLOB KYS_BATTLE_SOURCES CONFIGURE_DEPENDS "battle/*.cpp")
+kys_collect_battle_sources(KYS_BATTLE_SOURCES "${KYS_ROOT}")
 
 add_library(kys_battle_core STATIC ${KYS_BATTLE_SOURCES})
 target_include_directories(kys_battle_core PUBLIC ${KYS_COMMON_INCLUDES})
 
-set(KYS_GAME_SUPPORT_SOURCES
-    "${KYS_ROOT}/mlcc/strfunc.cpp"
-    "${KYS_ROOT}/mlcc/filefunc.cpp"
-    "${KYS_ROOT}/mlcc/ZipFile.cpp"
-    "${KYS_ROOT}/mlcc/SQLite3Wrapper.cpp"
-    "${KYS_ROOT}/mlcc/SimpleCC.cpp"
-    "${KYS_ROOT}/others/Hanz2Piny.cpp"
-)
-
-file(GLOB KYS_GAME_LIB_SOURCES CONFIGURE_DEPENDS "*.cpp")
-list(REMOVE_ITEM KYS_GAME_LIB_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/kys.cpp")
+kys_collect_support_sources(KYS_GAME_SUPPORT_SOURCES "${KYS_ROOT}")
+kys_collect_top_level_sources(KYS_GAME_LIB_SOURCES "${KYS_ROOT}")
+get_filename_component(KYS_ENTRY_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/kys.cpp" REALPATH)
+list(REMOVE_ITEM KYS_GAME_LIB_SOURCES "${KYS_ENTRY_SOURCE}")
 
 add_library(kys_game_lib STATIC ${KYS_GAME_LIB_SOURCES} ${KYS_GAME_SUPPORT_SOURCES})
 target_include_directories(kys_game_lib PUBLIC ${KYS_COMMON_INCLUDES})
@@ -119,6 +113,7 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/ChessShopFlowUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessShopRollUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessShopWeightDisplayUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessSystemSettingsMenuUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleComboTriggerSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCoreUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleDamageSystemUnitTests.cpp"

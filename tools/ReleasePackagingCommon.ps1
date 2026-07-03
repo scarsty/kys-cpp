@@ -3,6 +3,10 @@ $ErrorActionPreference = 'Stop'
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
+$script:utf8NoBomEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = $script:utf8NoBomEncoding
+$OutputEncoding = $script:utf8NoBomEncoding
+
 function Ensure-PathExists
 {
     param(

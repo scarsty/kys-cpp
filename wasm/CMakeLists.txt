@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(kys-wasm)
 
+set(KYS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
+include("${KYS_ROOT}/cmake/KysSources.cmake")
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -12,17 +15,7 @@ endif()
 
 find_package(imgui CONFIG REQUIRED)
 
-# Source files
-file(GLOB SRC_LIST
-    ../src/*.cpp
-    ../src/battle/*.cpp
-    ../mlcc/strfunc.cpp
-    ../mlcc/filefunc.cpp
-    ../mlcc/ZipFile.cpp
-    ../mlcc/SQLite3Wrapper.cpp
-    ../mlcc/SimpleCC.cpp
-    ../others/Hanz2Piny.cpp
-)
+kys_collect_all_game_sources(SRC_LIST "${KYS_ROOT}")
 
 # Include directories
 include_directories(

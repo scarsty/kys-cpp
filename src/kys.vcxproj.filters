@@ -257,6 +257,7 @@
     <ClCompile Include="ChessChallengeMenu.cpp" />
     <ClCompile Include="ChessContextMenu.cpp" />
     <ClCompile Include="ChessEquipmentFlow.cpp" />
+    <ClCompile Include="ChessSystemSettingsMenu.cpp" />
     <ClCompile Include="UIRoleStatusMenu.cpp" />
     <ClCompile Include="UIStatusDrawable.cpp" />
     <ClCompile Include="TempStore.cpp" />
@@ -545,6 +546,7 @@
     <ClInclude Include="UIStatusDrawable.h" />
     <ClInclude Include="TempStore.h" />
     <ClInclude Include="ChessSelector.h" />
+    <ClInclude Include="ChessSystemSettingsMenu.h" />
     <ClInclude Include="Chess.h" />
     <ClInclude Include="SystemSettings.h">
       <Filter>engine</Filter>
