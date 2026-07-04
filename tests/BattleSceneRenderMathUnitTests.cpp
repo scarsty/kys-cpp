@@ -68,3 +68,13 @@ TEST_CASE("BattleSceneRenderMath_AppliesHurtFlashColorOnlyDuringActiveTimer", "[
     CHECK(BattleSceneRenderMath::hurtFlashColor(3, base).r == 255);
     CHECK(BattleSceneRenderMath::hurtFlashColor(3, base).a == 40);
 }
+
+TEST_CASE("BattleSceneRenderMath_MapsWindowPointThroughPresentedGameRect", "[battle][scene_render_math]")
+{
+    const Rect presentRect{ 160, 0, 1600, 900 };
+
+    CHECK(BattleSceneRenderMath::windowPointToUiPoint({ 160, 0 }, presentRect, 1280, 720).x == 0);
+    CHECK(BattleSceneRenderMath::windowPointToUiPoint({ 160, 0 }, presentRect, 1280, 720).y == 0);
+    CHECK(BattleSceneRenderMath::windowPointToUiPoint({ 1760, 900 }, presentRect, 1280, 720).x == 1280);
+    CHECK(BattleSceneRenderMath::windowPointToUiPoint({ 1760, 900 }, presentRect, 1280, 720).y == 720);
+}

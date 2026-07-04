@@ -96,18 +96,20 @@ bool pointInRect(const Point& point, const Rect& rect)
 
 Point uiPointFromWindowPoint(int x, int y)
 {
-    int windowW = 0;
-    int windowH = 0;
+    int presentX = 0;
+    int presentY = 0;
+    int presentW = 0;
+    int presentH = 0;
     int uiW = 0;
     int uiH = 0;
-    Engine::getInstance()->getWindowSize(windowW, windowH);
-    Engine::getInstance()->getUISize(uiW, uiH);
-    assert(windowW > 0);
-    assert(windowH > 0);
-    return {
-        x * uiW / windowW,
-        y * uiH / windowH,
-    };
+    auto* engine = Engine::getInstance();
+    engine->getPresentRect(presentX, presentY, presentW, presentH);
+    engine->getUISize(uiW, uiH);
+    return BattleSceneRenderMath::windowPointToUiPoint(
+        { x, y },
+        { presentX, presentY, presentW, presentH },
+        uiW,
+        uiH);
 }
 
 BattleControlLayout battleControlLayout(int uiWidth, bool logVisible)

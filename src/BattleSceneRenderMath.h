@@ -138,4 +138,16 @@ inline Color hurtFlashColor(int timer, const Color& baseColor)
     }
     return baseColor;
 }
+
+inline Point windowPointToUiPoint(const Point& windowPoint, const Rect& presentRect, int uiWidth, int uiHeight)
+{
+    assert(presentRect.w > 0);
+    assert(presentRect.h > 0);
+    assert(uiWidth > 0);
+    assert(uiHeight > 0);
+    return {
+        (windowPoint.x - presentRect.x) * uiWidth / presentRect.w,
+        (windowPoint.y - presentRect.y) * uiHeight / presentRect.h,
+    };
+}
 }  // namespace BattleSceneRenderMath
