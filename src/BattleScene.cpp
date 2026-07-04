@@ -317,7 +317,10 @@ void BattleScene::dealEvent(EngineEvent& e)
             role->Progress -= 1000;
             resetRolesAct();
         }
-        poisonEffect(role);
+        if (role->HP > 0 && !role->Dead)
+        {
+            poisonEffect(role);
+        }
     }
 
     //清除被击退的人物
@@ -1755,6 +1758,19 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     // 动作做到一半时，显示特效
     int cycles = frame_count / 2 + effect_count + max_dis - min_dis + 1;
     r->ActFrame = 0;
+    auto drawSuccessPrompt = [this, frame_count, block_roles](int frame) -> void
+    {
+        auto drawSuccess = [this, frame, frame_count, block_roles](void*) -> void
+        {
+            renderAttackTimingCircle(frame + 1, frame_count, block_roles);
+            renderBlockPrompt(TimingPromptState::Success);
+        };
+        constexpr int success_prompt_frames = 5;
+        for (int j = 0; j < success_prompt_frames; j++)
+        {
+            drawAndPresent(animation_delay_, drawSuccess);
+        }
+    };
     for (int i = 0; i < cycles; i++)
     {
         r->ActFrame++;
@@ -1830,7 +1846,7 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
             auto drawAttackCircle = [this, i, frame_count, block_roles, in_block_window](void*) -> void
             {
                 renderAttackTimingCircle(i + 1, frame_count, block_roles);
-                renderBlockPrompt(in_block_window);
+                renderBlockPrompt(in_block_window ? TimingPromptState::Press : TimingPromptState::Ready);
             };
             drawAndPresent(animation_delay_, drawAttackCircle);
             if (!in_block_window)
@@ -1839,6 +1855,7 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
             }
             else if (r->Team == 1 && !blocked && (easy_block_ || checkEnemyAttackBlockInput()))
             {
+                drawSuccessPrompt(i);
                 if (block_roles != nullptr)
                 {
                     if (counters != nullptr)
@@ -1859,6 +1876,7 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
             }
             else if (r->Team == 0 && in_block_window && timing_success != nullptr && !*timing_success && (easy_block_ || checkEnemyAttackBlockInput()))
             {
+                drawSuccessPrompt(i);
                 *timing_success = true;
             }
         }
@@ -1867,6 +1885,7 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
             drawAndPresent(animation_delay_);
             if (expedition33_ && r->Team == 1 && in_block_window && !blocked && (easy_block_ || checkEnemyAttackBlockInput()))
             {
+                drawSuccessPrompt(i);
                 if (block_roles != nullptr)
                 {
                     if (counters != nullptr)
@@ -1922,17 +1941,31 @@ void BattleScene::renderAttackTimingCircle(int frame, int frame_count, const std
     engine->renderTexture(tex->getTexture(), ui_w / 2 - size / 2, ui_h / 2 - size / 2, size, size);
 }
 
-void BattleScene::renderBlockPrompt(bool active)
+void BattleScene::renderBlockPrompt(TimingPromptState state)
 {
-    const std::string prompt = "文字变红时按下RB或E";
+    const std::string prompt = state == TimingPromptState::Ready ? "准备" : (state == TimingPromptState::Press ? "按E键" : "成功");
     int font_size = 26;
-    int text_w = Font::getTextDrawSize(prompt) * font_size / 2;
+    constexpr int button_pic = 300;
+    int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
     int ui_w = Engine::getInstance()->getUIWidth();
     int ui_h = Engine::getInstance()->getUIHeight();
+    int text_w = Font::getTextDrawSize(prompt) * font_size / 2;
+    auto button_tex = state == TimingPromptState::Press ? TextureManager::getInstance()->getTexture("title", button_pic) : nullptr;
+    if (button_tex != nullptr)
+    {
+        button_tex->load();
+    }
     int x = ui_w / 2 - text_w / 2;
     int y = ui_h / 2 + 60;
-    Color color = active ? Color{ 255, 40, 40, 255 } : Color{ 255, 255, 255, 255 };
+    Color color = state == TimingPromptState::Success ? Color{ 255, 150, 40, 255 } : (state == TimingPromptState::Press ? Color{ 255, 40, 40, 255 } : Color{ 255, 255, 255, 255 });
     Font::getInstance()->draw(prompt, font_size, x, y, color, 255);
+    if (button_tex != nullptr)
+    {
+        auto engine = Engine::getInstance();
+        int icon_size = 36 * tile_scale;
+        engine->setColor(button_tex->getTexture(), { 255, 255, 255, 160 });
+        engine->renderTexture(button_tex->getTexture(), ui_w / 2 - icon_size / 2, ui_h / 2 - icon_size / 2, icon_size, icon_size);
+    }
 }
 
 void BattleScene::renderBattleSceneOverlays()
@@ -2006,7 +2039,7 @@ void BattleScene::renderBattleSceneOverlays()
 bool BattleScene::checkEnemyAttackBlockInput()
 {
     bool block_pressed = Engine::getInstance()->checkKeyPress(K_E)
-        || Engine::getInstance()->gameControllerGetButton(GAMEPAD_BUTTON_RIGHT_SHOULDER);
+        || Engine::getInstance()->gameControllerGetButton(GAMEPAD_BUTTON_SOUTH);
     bool pressed = block_pressed && !prev_block_pressed_;
     prev_block_pressed_ = block_pressed;
     return pressed;
@@ -2848,6 +2881,7 @@ void BattleScene::calExpGot()
         show_exp->setText("失敗也有經驗");
     }
     show_exp->setRoles(alive_teammate);
+    Engine::flushEvent();
     show_exp->run();
 
     //升级，修炼物品

@@ -108,6 +108,13 @@ protected:
         int total_frames = 0;
     };
 
+    enum class TimingPromptState
+    {
+        Ready,
+        Press,
+        Success,
+    };
+
     BlockLightOverlay block_light_overlay_;
     PointMagicOverlay point_magic_overlay_;
     LayerMagicOverlay layer_magic_overlay_;
@@ -214,7 +221,7 @@ public:
     virtual void renderExtraRoleInfo(Role* r, int x, int y);    // 在人物上，显示血条等
     virtual void renderShieldInfo(Role* r, int hp_x, int hp_y, int hp_max_w, double alpha);
     virtual void renderAttackTimingCircle(int frame, int frame_count, const std::vector<Role*>* target_roles = nullptr);
-    virtual void renderBlockPrompt(bool active);
+    virtual void renderBlockPrompt(TimingPromptState state);
     virtual void renderBattleSceneOverlays();
     virtual bool checkEnemyAttackBlockInput();
     virtual std::vector<Role*> getBlockingRoles(Role* attacker);

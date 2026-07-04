@@ -526,7 +526,7 @@ public:
 
     static int pushEvent(EngineEvent& e) { return SDL_PushEvent(&e); }
 
-    static void flushEvent() { SDL_FlushEvent(0); }
+    static void flushEvent() { SDL_FlushEvents(SDL_EVENT_FIRST, SDL_EVENT_LAST); }
 
     static void free(void* mem) { SDL_free(mem); }
 

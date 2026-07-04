@@ -25,6 +25,7 @@ private:
     int volume_ = 20;
     int volume_wav_ = 50;
     int current_music_index_ = -1;
+    std::unordered_map<int, Sint64> music_positions_;
 
     MIX_Track* track_music_{};
     std::vector<MIX_Track*> track_wav_;
@@ -58,6 +59,7 @@ public:
 private:
     MUSIC loadMusic(const std::string& file);
     static WAV loadWav(const std::string& file);
+    void saveCurrentMusicPosition();
     void playMusic(MUSIC m);
     void playWav(WAV w, int volume, int track_num = -1);
 };

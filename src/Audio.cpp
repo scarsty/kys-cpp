@@ -79,8 +79,14 @@ void Audio::playMusic(int num)
     {
         return;
     }
+    saveCurrentMusicPosition();
     stopMusic();
     playMusic(music_[num]);
+    auto it = music_positions_.find(num);
+    if (it != music_positions_.end() && it->second > 0)
+    {
+        MIX_SetTrackPlaybackPosition(track_music_, it->second);
+    }
     current_music_ = music_[num];
     current_music_index_ = num;
 }
@@ -126,6 +132,7 @@ void Audio::resumeMusic()
 
 void Audio::stopMusic()
 {
+    saveCurrentMusicPosition();
     MIX_StopTrack(track_music_, 1000);
 }
 
@@ -169,6 +176,19 @@ MUSIC Audio::loadMusic(const std::string& file)
 WAV Audio::loadWav(const std::string& file)
 {
     return MIX_LoadAudio(nullptr, file.c_str(), false);
+}
+
+void Audio::saveCurrentMusicPosition()
+{
+    if (current_music_index_ < 0 || track_music_ == nullptr)
+    {
+        return;
+    }
+    Sint64 position = MIX_GetTrackPlaybackPosition(track_music_);
+    if (position >= 0)
+    {
+        music_positions_[current_music_index_] = position;
+    }
 }
 
 void Audio::playMusic(MUSIC m)
