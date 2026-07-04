@@ -1326,29 +1326,46 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
             if (expedition33_ && r->Team == 0 && timing_success && magic->HurtType == 0)
             {
                 int shield_count = r->Sheild;
-                int damage_multiplier = 1 + shield_count;
                 if (shield_count > 0)
                 {
                     r->Sheild = 0;
                 }
+                std::vector<bool> shield_blocked(show_roles[i].size(), false);
                 for (int j = 0; j < show_roles[i].size(); j++)
                 {
                     auto r2 = show_roles[i][j];
                     int hurt = base_hurts[j];
-                    if (r2 == nullptr || r2->Team == r->Team || hurt <= 0)
+                    if (r2 == nullptr || r2->Team == r->Team || hurt <= 0 || r2->Sheild <= 0)
+                    {
+                        continue;
+                    }
+                    int shield_used = (std::min)(r2->Sheild, shield_count);
+                    r2->Sheild -= shield_used;
+                    shield_count -= shield_used;
+                    if (r2->Sheild > 0)
+                    {
+                        r2->Sheild--;
+                        shield_blocked[j] = true;
+                    }
+                }
+                int damage_multiplier = 1 + shield_count;
+                for (int j = 0; j < show_roles[i].size(); j++)
+                {
+                    auto r2 = show_roles[i][j];
+                    int hurt = base_hurts[j];
+                    if (r2 == nullptr || r2->Team == r->Team || hurt <= 0 || shield_blocked[j])
                     {
                         continue;
                     }
                     if (r2->Sheild > 0)
                     {
-                        r2->Sheild--;
                         continue;
                     }
                     int extra_hurt = hurt * damage_multiplier;
                     multi_shows[i][j].BattleHurt += extra_hurt;
                     multi_shows[i][j].ProgressChange -= extra_hurt / 5;
                     r2->Show = multi_shows[i][j];
-                    r2->addShowString(std::format("-{}", extra_hurt), { 255, 80, 20, 255 });
+                    r2->addShowString(std::format("-{}", extra_hurt), { 255, 20, 20, 255 });
                     multi_shows[i][j] = r2->Show;
                     r2->Show.clear();
                 }
