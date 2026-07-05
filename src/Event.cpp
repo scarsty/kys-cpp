@@ -459,13 +459,13 @@ bool Event::tryBattle(int battle_id, int get_exp)
         //battle->setHaveFailExp(get_exp);
         result = battle->run();
     }
-    //else if (battle_mode == 4)
-    //{
-    //    auto battle = std::make_shared<BattleScenePaper>();
-    //    battle->setID(battle_id);
-    //    //battle->setHaveFailExp(get_exp);
-    //    result = battle->run();
-    //}
+    else if (battle_mode == 5)
+    {
+        auto battle = std::make_shared<BattleScenePaper>();
+        battle->setID(battle_id);
+        //battle->setHaveFailExp(get_exp);
+        result = battle->run();
+    }
     clearTalkBox();
     return result == 0;
 }

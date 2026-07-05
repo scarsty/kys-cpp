@@ -105,8 +105,8 @@ void BattleScenePaper::draw()
 
                 v.push_back({ 0, 0, 0 });
                 v.push_back({ wf, 0, 0 });
-                v.push_back({ wf, hf * 2, 0 });
-                v.push_back({ 0, hf * 2, 0 });
+                v.push_back({ wf, hf, 0 });
+                v.push_back({ 0, hf, 0 });
                 //for (auto& p : v)
                 //{
                 //    p.x -= wf / 2;
@@ -117,36 +117,34 @@ void BattleScenePaper::draw()
             auto x1 = role_->Pos.x;
             auto y1 = role_->Pos.y / 2;
             x1 = wf / 2;
-            y1 = hf;
-            camera_.pos = { x1 + cos(camera_angle_) * camera_distance_ * cos(camera_height_angle_), y1 + sin(camera_angle_) * camera_distance_ * cos(camera_height_angle_), camera_distance_ * sin(camera_height_angle_) };
+            y1 = hf / 2;
+            camera_.pos = { x1 + cos(camera_angle_) * camera_distance_, y1 + sin(camera_angle_) * camera_distance_, camera_height_ };
             camera_.center = { x1, y1, 0 };
-            auto v2 = camera_.getProj(v);
-            //LOG("{},{}\n", v2[4].x, v2[4].y);
-            //v2.pop_back();
-            //for (auto& p : v2)
-            //{
-            //    p.x += 400;
-            //    p.y += 300;
-            //}
-
-            /*v.push_back({ 1.0f * rect1.x + 0.25f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
-            v.push_back({ 1.0f * rect1.x + 0.75f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
-            v.push_back({ 1.0f * (rect1.x + rect1.w), 1.0f * (rect1.y + 0.75f * rect1.h) });
-            v.push_back({ 1.0f * rect1.x, 1.0f * (rect1.y + 0.75f * rect1.h) });*/
-
-            //std::vector<FPoint> vf;
-            for (auto& p : v2)
-            {
-                vf.push_back({ float(p.x), float(p.y) });
-            }
-            std::vector<FPoint> vr;
-            for (auto& p : v)
-            {
-                vr.push_back({ float(p.x), float(p.y) });
-            }
+            camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
             Engine::getInstance()->setRenderTarget("scene");
-            Rect* rect0 = nullptr;
-            Engine::getInstance()->renderTexture(earth_texture, rect0, vf, vr);
+            constexpr int mesh_x = 32;
+            constexpr int mesh_y = 32;
+            for (int iy = 0; iy < mesh_y; iy++)
+            {
+                for (int ix = 0; ix < mesh_x; ix++)
+                {
+                    float x0 = wf * ix / mesh_x;
+                    float x2 = wf * (ix + 1) / mesh_x;
+                    float y0 = hf * iy / mesh_y;
+                    float y2 = hf * (iy + 1) / mesh_y;
+                    std::vector<Pointf> ground = { { x0, y0, 0 }, { x2, y0, 0 }, { x2, y2, 0 }, { x0, y2, 0 } };
+                    auto projected = camera_.getProj(ground);
+                    std::vector<FPoint> dst;
+                    for (auto& p : projected)
+                    {
+                        dst.push_back({ float(p.x), float(p.y) });
+                    }
+                    std::vector<FPoint> src = { { x0, y0 }, { x2, y0 }, { x2, y2 }, { x0, y2 } };
+                    Engine::getInstance()->renderTexture(earth_texture, nullptr, dst, src);
+                }
+            }
+            Engine::getInstance()->renderTextureToMain("scene");
+            return;
         }
 
         struct DrawInfo
@@ -764,33 +762,8 @@ void BattleScenePaper::onEntrance()
     }
     addChild(Weather::getInstance());
 
-    Engine::getInstance()->createRenderedTexture("earth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+     makeEarthTexture();
     Engine::getInstance()->createRenderedTexture("earth2", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-
-    if (Engine::getInstance()->getTexture("earth"))
-    {
-        Engine::getInstance()->setRenderTarget("earth");
-        Engine::getInstance()->fillColor({ 128, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-        for (int ix = 0; ix < 64; ix++)
-        {
-            for (int iy = 0; iy < 64; iy++)
-            {
-                /*int ix = man_x_ + i + (sum / 2);
-                int iy = man_y_ - i + (sum - sum / 2);*/
-                auto p = pos45To90(ix, iy);
-                if (!isOutLine(ix, iy))
-                {
-                    int num = earth_layer_.data(ix, iy) / 2;
-                    Color color = { 255, 255, 255, 255 };
-                    bool need_draw = true;
-                    if (need_draw && num > 0)
-                    {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, { color });
-                    }
-                }
-            }
-        }
-    }
 
     Engine::getInstance()->setRenderTarget("earth2");
     Engine::getInstance()->fillColor(Color(0, 0, 0, 0), 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);

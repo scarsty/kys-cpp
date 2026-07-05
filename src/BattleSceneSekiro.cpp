@@ -59,21 +59,60 @@ void BattleSceneSekiro::draw()
     {
         Engine::getInstance()->setRenderTarget(whole_scene);
         Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-        for (int sum = -view_sum_region_ - 3; sum <= view_sum_region_ + 13; sum++)
+        auto earth_tex = Engine::getInstance()->getTexture("earth");
+        if (earth_tex)
         {
-            for (int i = -view_width_region_; i <= view_width_region_; i++)
+            //此画法节省资源
+            Color c = { 255, 255, 255, 255 };
+            Engine::getInstance()->setColor(earth_tex, c);
+            auto p = getPositionOnWholeEarth(man_x_, man_y_);
+            int w = render_center_x_ * 2;
+            int h = render_center_y_ * 2;
+            Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
+            Rect rect1 = rect0;
+            //注意这种画法，地面最上面会缺一块
+            rect0.y += TILE_H * 2;
+            if (rect0.x < 0)
             {
-                int ix = man_x_ + i + (sum / 2);
-                int iy = man_y_ - i + (sum - sum / 2);
-                auto p = pos45To90(ix, iy);
-                if (!isOutLine(ix, iy))
+                rect1.x -= rect0.x;
+                rect0.x = 0;
+            }
+            if (rect0.y < 0)
+            {
+                rect1.y -= rect0.y;
+                rect0.y = 0;
+            }
+            if (rect0.x + rect0.w > COORD_COUNT * TILE_W * 2)
+            {
+                rect1.w -= (rect0.x + rect0.w - COORD_COUNT * TILE_W * 2);
+                rect0.w = COORD_COUNT * TILE_W * 2 - rect0.x;
+            }
+            if (rect0.y + rect0.h > COORD_COUNT * TILE_H * 2)
+            {
+                rect1.h -= (rect0.y + rect0.h - COORD_COUNT * TILE_H * 2);
+                rect0.h = COORD_COUNT * TILE_H * 2 - rect0.y;
+            }
+            std::vector<Color> cv(4, { 255, 255, 255, 255 });
+            Engine::getInstance()->renderTextureLight(earth_tex, &rect0, &rect1, cv, { 0.25, 0, 0, 0 });
+        }
+        else
+        {
+            for (int sum = -view_sum_region_ - 3; sum <= view_sum_region_ + 13; sum++)
+            {
+                for (int i = -view_width_region_; i <= view_width_region_; i++)
                 {
-                    int num = earth_layer_.data(ix, iy) / 2;
-                    Color color = { 255, 255, 255, 255 };
-                    bool need_draw = true;
-                    if (need_draw && num > 0)
+                    int ix = man_x_ + i + (sum / 2);
+                    int iy = man_y_ - i + (sum - sum / 2);
+                    auto p = pos45To90(ix, iy);
+                    if (!isOutLine(ix, iy))
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, { color });
+                        int num = earth_layer_.data(ix, iy) / 2;
+                        Color color = { 255, 255, 255, 255 };
+                        bool need_draw = true;
+                        if (need_draw && num > 0)
+                        {
+                            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, { color });
+                        }
                     }
                 }
             }
@@ -316,7 +355,6 @@ void BattleSceneSekiro::draw()
         rect0.h = std::min(rect0.h, COORD_COUNT * TILE_H * 2 - rect0.y);
         rect1.w = rect0.w;
         rect1.h = rect0.h;
-        rect0.y -= 40;    //为了刀光在正中，往下调一点
         for (auto& te : text_effects_)
         {
             Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.color, 255);
@@ -345,7 +383,7 @@ void BattleSceneSekiro::draw()
         w *= zoom;
         h *= zoom;
         int x = Engine::getInstance()->getUIWidth() / 2 - w / 2;
-        int y = Engine::getInstance()->getUIHeight() / 2 - h / 2;
+        int y = Engine::getInstance()->getUIHeight() / 2 - h / 2 - 40;
         TextureManager::getInstance()->renderTexture("title", 203, x, y,
             { sword_light_color_, 255, zoom, zoom, 0, 0 });
         //if (sword_light_ > 30)
@@ -413,7 +451,10 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
         || e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_BACK)
     {
         if (r->Auto == 0) { r->Auto = 1; }
-        else { r->Auto = 0; }
+        else
+        {
+            r->Auto = 0;
+        }
     }
     if (e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE
         || e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
@@ -658,6 +699,8 @@ void BattleSceneSekiro::onEntrance()
         h->setPosition(30, 40);
     }
     addChild(Weather::getInstance());
+
+    makeEarthTexture();
 
     //此处创建了一个大的纹理，用于渲染整个场景
     Engine::getInstance()->createRenderedTexture("whole_scene", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
@@ -1667,10 +1710,11 @@ void BattleSceneSekiro::renderExtraRoleInfo(Role* r, double x, double y)
         // 敌方红色
         background_color = { 255, 0, 0, 128 };
     }
-    int hp_max_w = 24;
+    int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
+    int hp_max_w = 24 * tile_scale;
     int hp_x = x - hp_max_w / 2;
-    int hp_y = y - 60;
-    int hp_h = 3;
+    int hp_y = y - 60 * tile_scale;
+    int hp_h = 3 * tile_scale;
     double perc = ((double)r->HP / r->MaxHP);
     if (perc < 0)
     {
@@ -1681,15 +1725,15 @@ void BattleSceneSekiro::renderExtraRoleInfo(Role* r, double x, double y)
     {
         alpha = dead_alpha_ / 255.0;
     }
-    Rect r0 = { hp_x - 1, hp_y - 1, hp_max_w + 2, hp_h + 2 };
+    Rect r0 = { hp_x - tile_scale, hp_y - tile_scale, hp_max_w + 2 * tile_scale, hp_h + 2 * tile_scale };
     Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
     Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 128 * alpha);
     //架势条
     background_color = { 255, 165, 0, 128 };
-    int posture = r->Posture * (hp_max_w + 2) / MAX_POSTURE;
+    int posture = r->Posture * (hp_max_w + 2 * tile_scale) / MAX_POSTURE;
     posture = posture / 2 * 2;
-    Rect r2 = { hp_x + hp_max_w / 2 - posture / 2, hp_y + 5, posture, hp_h - 1 };
+    Rect r2 = { hp_x + hp_max_w / 2 - posture / 2, hp_y + 5 * tile_scale, posture, hp_h - tile_scale };
     Engine::getInstance()->renderSquareTexture(&r2, background_color, 192 * alpha);
 }
 

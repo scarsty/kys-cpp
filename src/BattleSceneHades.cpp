@@ -1672,10 +1672,11 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
         // 敌方红色
         background_color = { 255, 0, 0, 128 };
     }
-    int hp_max_w = 24;
+    int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
+    int hp_max_w = 24 * tile_scale;
     int hp_x = x - hp_max_w / 2;
-    int hp_y = y - 60;
-    int hp_h = 3;
+    int hp_y = y - 60 * tile_scale;
+    int hp_h = 3 * tile_scale;
     double perc = ((double)r->HP / r->MaxHP);
     if (perc < 0)
     {
@@ -1686,7 +1687,7 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     {
         alpha = dead_alpha_ / 255.0;
     }
-    Rect r0 = { hp_x - 1, hp_y - 1, hp_max_w + 2, hp_h + 2 };
+    Rect r0 = { hp_x - tile_scale, hp_y - tile_scale, hp_max_w + 2 * tile_scale, hp_h + 2 * tile_scale };
     Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
     Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);

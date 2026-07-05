@@ -476,16 +476,56 @@ void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, i
 
 void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v, const std::vector<FPoint>& v2)
 {
-    // 占位符实现：暂时不支持透视变换
-    // TODO: 如需透视变换需要使用 SDL_RenderGeometry 或其他方法
-    if (rect0)
+    if (!t || v.size() < 4)
     {
-        renderTexture(t, rect0, rect0);
+        if (rect0)
+        {
+            renderTexture(t, rect0, rect0);
+        }
+        else
+        {
+            renderTexture(t);
+        }
+        return;
+    }
+
+    float tw = 1.0f, th = 1.0f;
+    SDL_GetTextureSize(t, &tw, &th);
+
+    FPoint src[4];
+    if (v2.size() >= 4)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            src[i] = v2[i];
+        }
+    }
+    else if (rect0)
+    {
+        src[0] = { float(rect0->x), float(rect0->y) };
+        src[1] = { float(rect0->x + rect0->w), float(rect0->y) };
+        src[2] = { float(rect0->x + rect0->w), float(rect0->y + rect0->h) };
+        src[3] = { float(rect0->x), float(rect0->y + rect0->h) };
     }
     else
     {
-        renderTexture(t);
+        src[0] = { 0, 0 };
+        src[1] = { tw, 0 };
+        src[2] = { tw, th };
+        src[3] = { 0, th };
     }
+
+    SDL_Vertex vertices[4];
+    for (int i = 0; i < 4; i++)
+    {
+        vertices[i].position = v[i];
+        vertices[i].tex_coord = { src[i].x / tw, src[i].y / th };
+        vertices[i].color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    }
+
+    int indices[6] = { 0, 1, 2, 2, 3, 0 };
+    SDL_RenderGeometry(renderer_, t, vertices, 4, indices, 6);
+    render_times_++;
 }
 
 void Engine::renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors,

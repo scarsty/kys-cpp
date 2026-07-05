@@ -46,6 +46,7 @@ protected:
 
     float camera_angle_ = M_PI / 2;
     float camera_distance_ = 1000;
+    float camera_height_ = 500;
     float camera_height_angle_ = M_PI / 4;
 };
 
