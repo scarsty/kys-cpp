@@ -6,6 +6,8 @@
 #include "TeamMenu.h"
 #include "Weather.h"
 
+#include <algorithm>
+
 BattleScenePaper::BattleScenePaper()
 {
     keys_ = *UIKeyConfig::getKeyConfig();
@@ -84,17 +86,9 @@ void BattleScenePaper::draw()
         //地面的z轴为0
 
         Engine::getInstance()->setRenderTarget(earth_texture2);
-        Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2, BLENDMODE_NONE);
+            Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_W * 2, BLENDMODE_NONE);
         if (role_)
         {
-            auto r1 = findNearestEnemy(role_->Team, role_->Pos);
-            auto towards = r1->Pos - role_->Pos;
-            towards.normTo(10000);
-            camera_.pos.x = role_->Pos.x - towards.x;
-            camera_.pos.y = role_->Pos.y - towards.y;
-
-            camera_.pos.z = 3000;
-
             float wf, hf;
             std::vector<Pointf> v;
             {
@@ -113,17 +107,48 @@ void BattleScenePaper::draw()
                 //    p.y -= hf / 2;
                 //}
             }
-            //camera_.pos = {wf/2,hf/2,100};
-            auto x1 = role_->Pos.x;
-            auto y1 = role_->Pos.y / 2;
-            x1 = wf / 2;
-            y1 = hf / 2;
-            camera_.pos = { x1 + cos(camera_angle_) * camera_distance_, y1 + sin(camera_angle_) * camera_distance_, camera_height_ };
-            camera_.center = { x1, y1, 0 };
+            auto x1 = wf / 2;
+            auto y1 = hf / 2;
+            if (camera_focus_.norm() == 0)
+            {
+                camera_focus_ = { x1, y1, 0 };
+            }
+            if (auto enemy = findNearestEnemy(role_->Team, role_->Pos))
+            {
+                camera_focus_ = { enemy->Pos.x, enemy->Pos.y, 0 };
+            }
+            auto camera_dir = Pointf{ role_->Pos.x - camera_focus_.x, role_->Pos.y - camera_focus_.y, 0 };
+            if (camera_dir.norm() == 0)
+            {
+                camera_dir = role_->RealTowards;
+                camera_dir.z = 0;
+                if (camera_dir.norm() == 0)
+                {
+                    camera_dir = { 0, 1, 0 };
+                }
+            }
+            camera_dir.normTo(400);
+            camera_pos_ = { role_->Pos.x + camera_dir.x, role_->Pos.y + camera_dir.y, 200 };
+            camera_.center = camera_focus_;
+            camera_.pos = camera_pos_;
+            camera_height_ = camera_pos_.z;
+            camera_distance_ = Pointf{ camera_pos_.x - camera_focus_.x, camera_pos_.y - camera_focus_.y, 0 }.norm();
+            camera_angle_ = std::atan2(camera_pos_.y - camera_focus_.y, camera_pos_.x - camera_focus_.x);
             camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
             Engine::getInstance()->setRenderTarget("scene");
-            constexpr int mesh_x = 32;
-            constexpr int mesh_y = 32;
+            auto in_camera_front = [&](const std::vector<Pointf>& points)
+            {
+                for (auto& p : points)
+                {
+                    if (camera_.getDepth(p) <= camera_.getNearPlane())
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            constexpr int mesh_x = 64;
+            constexpr int mesh_y = 64;
             for (int iy = 0; iy < mesh_y; iy++)
             {
                 for (int ix = 0; ix < mesh_x; ix++)
@@ -133,6 +158,10 @@ void BattleScenePaper::draw()
                     float y0 = hf * iy / mesh_y;
                     float y2 = hf * (iy + 1) / mesh_y;
                     std::vector<Pointf> ground = { { x0, y0, 0 }, { x2, y0, 0 }, { x2, y2, 0 }, { x0, y2, 0 } };
+                    if (!in_camera_front(ground))
+                    {
+                        continue;
+                    }
                     auto projected = camera_.getProj(ground);
                     std::vector<FPoint> dst;
                     for (auto& p : projected)
@@ -142,6 +171,161 @@ void BattleScenePaper::draw()
                     std::vector<FPoint> src = { { x0, y0 }, { x2, y0 }, { x2, y2 }, { x0, y2 } };
                     Engine::getInstance()->renderTexture(earth_texture, nullptr, dst, src);
                 }
+            }
+
+            struct PaperBuilding
+            {
+                TextureWarpper* tex = nullptr;
+                Pointf anchor;
+                int sort_key = 0;
+            };
+
+            std::vector<PaperBuilding> buildings;
+            buildings.reserve(COORD_COUNT * COORD_COUNT / 4);
+            for (int ix = 0; ix < COORD_COUNT; ix++)
+            {
+                for (int iy = 0; iy < COORD_COUNT; iy++)
+                {
+                    int num = building_layer_.data(ix, iy) / 2;
+                    if (num <= 0)
+                    {
+                        continue;
+                    }
+                    auto tex = TextureManager::getInstance()->getTexture("smap", num);
+                    if (!tex)
+                    {
+                        continue;
+                    }
+                    auto p = pos45To90(ix, iy);
+                        buildings.push_back({ tex, { p.x, p.y, 0 }, ix + iy });
+                }
+            }
+            std::sort(buildings.begin(), buildings.end(), [](const PaperBuilding& a, const PaperBuilding& b)
+            {
+                return a.sort_key < b.sort_key;
+            });
+
+            Pointf view_dir = camera_.center - camera_.pos;
+            view_dir.z = 0;
+            if (view_dir.norm() == 0)
+            {
+                view_dir = { 0, 1, 0 };
+            }
+            view_dir.normTo(1);
+            Pointf paper_right = { -view_dir.y, view_dir.x, 0 };
+
+            auto render_paper_texture = [&](TextureWarpper* tex, const Pointf& anchor, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255)
+            {
+                if (!tex)
+                {
+                    return;
+                }
+                tex->load();
+                auto texture = tex->getTexture();
+                if (!texture)
+                {
+                    return;
+                }
+                float left = -float(tex->dx);
+                float right = float(tex->w - tex->dx);
+                float top = float(tex->dy);
+                float bottom = float(tex->dy - tex->h);
+                std::vector<Pointf> paper = {
+                    anchor + paper_right * left + Pointf{ 0, 0, top },
+                    anchor + paper_right * right + Pointf{ 0, 0, top },
+                    anchor + paper_right * right + Pointf{ 0, 0, bottom },
+                    anchor + paper_right * left + Pointf{ 0, 0, bottom },
+                };
+                if (!in_camera_front(paper))
+                {
+                    return;
+                }
+                auto projected = camera_.getProj(paper);
+                std::vector<FPoint> dst;
+                for (auto& p : projected)
+                {
+                    dst.push_back({ float(p.x), float(p.y) });
+                }
+                std::vector<FPoint> src = { { 0, 0 }, { float(tex->w), 0 }, { float(tex->w), float(tex->h) }, { 0, float(tex->h) } };
+                Color c = color;
+                c.a = alpha;
+                Engine::getInstance()->setColor(texture, c);
+                Engine::getInstance()->renderTexture(texture, nullptr, dst, src);
+            };
+
+            struct PaperSprite
+            {
+                TextureWarpper* tex = nullptr;
+                Pointf anchor;
+                Color color{ 255, 255, 255, 255 };
+                uint8_t alpha = 255;
+                float depth = 0;
+                int turn = 1;
+            };
+
+            auto calc_depth = [&](const Pointf& p)
+            {
+                auto v = p - camera_.pos;
+                auto n = view_dir;
+                return v.x * n.x + v.y * n.y;
+            };
+
+            auto to_paper_anchor = [](Pointf p)
+            {
+                 return Pointf{ p.x, p.y, p.z };
+            };
+
+            for (auto& b : buildings)
+            {
+                render_paper_texture(b.tex, b.anchor);
+            }
+
+            std::vector<PaperSprite> sprites;
+            for (auto r : battle_roles_)
+            {
+                if (!r)
+                {
+                    continue;
+                }
+                PaperSprite sprite;
+                sprite.tex = TextureManager::getInstance()->getTexture(std::format("fight/fight{:03}", r->HeadID), calRolePic(r, r->ActType, r->ActFrame));
+                sprite.anchor = to_paper_anchor(r->Pos);
+                sprite.alpha = r->Attention ? 255 - r->Attention * 4 : 255;
+                sprite.turn = r->Dead ? 0 : 1;
+                if (battle_cursor_->isRunning() && !acting_role_->isAuto())
+                {
+                    sprite.color = inEffect(acting_role_, r) ? Color{ 255, 255, 255, 255 } : Color{ 128, 128, 128, 255 };
+                }
+                if (result_ == -1 && r->Shake)
+                {
+                    sprite.anchor.x += -2.5 + rand_.rand() * 5;
+                }
+                sprite.depth = calc_depth(sprite.anchor);
+                sprites.emplace_back(sprite);
+            }
+
+            for (auto& ae : attack_effects_)
+            {
+                PaperSprite sprite;
+                int frame = ae.TotalEffectFrame > 0 ? ae.Frame % ae.TotalEffectFrame : 0;
+                sprite.tex = TextureManager::getInstance()->getTexture(ae.Path, frame);
+                sprite.anchor = to_paper_anchor(ae.FollowRole ? ae.FollowRole->Pos : ae.Pos);
+                sprite.alpha = uint8_t(GameUtil::clamp(255 * (ae.TotalFrame * 1.25 - ae.Frame) / (ae.TotalFrame * 1.25), 0.0, 255.0));
+                sprite.depth = calc_depth(sprite.anchor);
+                sprites.emplace_back(sprite);
+            }
+
+            std::sort(sprites.begin(), sprites.end(), [](const PaperSprite& a, const PaperSprite& b)
+            {
+                if (a.depth != b.depth)
+                {
+                    return a.depth > b.depth;
+                }
+                return a.turn < b.turn;
+            });
+            for (auto& sprite : sprites)
+            {
+                render_paper_texture(sprite.tex, sprite.anchor, sprite.color, sprite.alpha);
             }
             Engine::getInstance()->renderTextureToMain("scene");
             return;
@@ -762,11 +946,39 @@ void BattleScenePaper::onEntrance()
     }
     addChild(Weather::getInstance());
 
-     makeEarthTexture();
-    Engine::getInstance()->createRenderedTexture("earth2", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    const int paper_earth_w = COORD_COUNT * TILE_W * 2;
+    const int paper_earth_h = COORD_COUNT * TILE_W * 2;
+    Engine::getInstance()->createRenderedTexture("earth", paper_earth_w, paper_earth_h);
+    Engine::getInstance()->setRenderTarget("earth");
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, paper_earth_w, paper_earth_h);
+    if (TextureManager::getInstance()->getTextureGroup("battle-earth")->getTextureCount() > 0)
+    {
+        auto tex = TextureManager::getInstance()->getTexture("battle-earth", info_->BattleFieldID);
+        if (tex)
+        {
+            TextureManager::getInstance()->renderTexture(tex, 0, 0, {}, paper_earth_w, paper_earth_h);
+        }
+    }
+    else
+    {
+        for (int ix = 0; ix < COORD_COUNT; ix++)
+        {
+            for (int iy = 0; iy < COORD_COUNT; iy++)
+            {
+                auto p = pos45To90(ix, iy);
+                int num = earth_layer_.data(ix, iy) / 2;
+                if (num > 0)
+                {
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                }
+            }
+        }
+    }
+
+    Engine::getInstance()->createRenderedTexture("earth2", paper_earth_w, paper_earth_h);
 
     Engine::getInstance()->setRenderTarget("earth2");
-    Engine::getInstance()->fillColor(Color(0, 0, 0, 0), 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    Engine::getInstance()->fillColor(Color(0, 0, 0, 0), 0, 0, paper_earth_w, paper_earth_h);
 
     //首先设置位置和阵营，其他的后面统一处理
     //敌方

@@ -44,9 +44,11 @@ protected:
 
     int easy_block_ = 0;
 
+    Pointf camera_pos_ = { 1500, 1500, 200 };
+    Pointf camera_focus_ = { 1500, 1500, 0 };
     float camera_angle_ = M_PI / 2;
-    float camera_distance_ = 1000;
-    float camera_height_ = 500;
+    float camera_distance_ = 0;
+    float camera_height_ = 200;
     float camera_height_angle_ = M_PI / 4;
 };
 

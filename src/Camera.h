@@ -13,6 +13,8 @@ class Camera
     // 近裁剪面到相机的距离；比它更近的点会被钳到该距离，避免透视除零或异常放大。
     void setNearPlane(float near_plane) { near_plane_ = near_plane; }
 
+    float getDepth(const Pointf& p);
+    float getNearPlane() const { return near_plane_; }
     std::vector<Pointf> getProj(const std::vector<Pointf>& v);
 
 private:

@@ -50,7 +50,19 @@ void ShowExp::draw()
     for (int i = 0; i < roles_.size(); i++)
     {
         auto r = roles_[i];
-        int x = x_ + i % 5 * 180, y = y_ + 50 + i / 5 * 100;
+        constexpr int row_count = 3;
+        constexpr int item_width = 180;
+        constexpr int row_height = 100;
+        int row = i / row_count;
+        int col = i % row_count;
+        int count_in_row = int(roles_.size()) - row * row_count;
+        if (count_in_row > row_count)
+        {
+            count_in_row = row_count;
+        }
+        int row_width = count_in_row * item_width;
+        int row_x = Engine::getInstance()->getUIWidth() / 2 - row_width / 2;
+        int x = row_x + col * item_width, y = y_ + 50 + row * row_height;
         TextureManager::getInstance()->renderTexture("head", r->HeadID, x, y, { { 255, 255, 255, 255 }, 255, 0.5, 0.5 });
         Font::getInstance()->draw(std::format("{}", r->Name), 20, x + 90, y + 30, { 255, 255, 255, 255 });
         Font::getInstance()->draw(std::format("{}", r->ExpGot), 20, x + 90, y + 55, { 255, 255, 255, 255 });

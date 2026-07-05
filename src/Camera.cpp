@@ -30,6 +30,16 @@ void Camera::setViewport(float w, float h)
     if (h > 0) { viewport_h_ = h; }
 }
 
+float Camera::getDepth(const Pointf& p)
+{
+    auto forward = normalized(center - pos);
+    if (forward.norm() == 0)
+    {
+        forward = { 0, 1, 0 };
+    }
+    return dot(p - pos, forward);
+}
+
 std::vector<Pointf> Camera::getProj(const std::vector<Pointf>& v)
 {
     std::vector<Pointf> out;
