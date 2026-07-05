@@ -86,7 +86,7 @@ void BattleScenePaper::draw()
         //地面的z轴为0
 
         Engine::getInstance()->setRenderTarget(earth_texture2);
-            Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_W * 2, BLENDMODE_NONE);
+        Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_W * 2, BLENDMODE_NONE);
         if (role_)
         {
             float wf, hf;
@@ -136,6 +136,17 @@ void BattleScenePaper::draw()
             camera_angle_ = std::atan2(camera_pos_.y - camera_focus_.y, camera_pos_.x - camera_focus_.x);
             camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
             Engine::getInstance()->setRenderTarget("scene");
+            auto render_texture_3d = [&](Texture* texture, const std::vector<Pointf>& world, const std::vector<FPoint>& src)
+            {
+                auto projected = camera_.getProj(world);
+                std::vector<FPoint> dst;
+                dst.reserve(projected.size());
+                for (auto& p : projected)
+                {
+                    dst.push_back({ float(p.x), float(p.y) });
+                }
+                Engine::getInstance()->renderTexture(texture, nullptr, dst, src);
+            };
             auto in_camera_front = [&](const std::vector<Pointf>& points)
             {
                 for (auto& p : points)
@@ -147,8 +158,8 @@ void BattleScenePaper::draw()
                 }
                 return true;
             };
-            constexpr int mesh_x = 64;
-            constexpr int mesh_y = 64;
+            constexpr int mesh_x = 128;
+            constexpr int mesh_y = 128;
             for (int iy = 0; iy < mesh_y; iy++)
             {
                 for (int ix = 0; ix < mesh_x; ix++)
@@ -162,14 +173,8 @@ void BattleScenePaper::draw()
                     {
                         continue;
                     }
-                    auto projected = camera_.getProj(ground);
-                    std::vector<FPoint> dst;
-                    for (auto& p : projected)
-                    {
-                        dst.push_back({ float(p.x), float(p.y) });
-                    }
                     std::vector<FPoint> src = { { x0, y0 }, { x2, y0 }, { x2, y2 }, { x0, y2 } };
-                    Engine::getInstance()->renderTexture(earth_texture, nullptr, dst, src);
+                    render_texture_3d(earth_texture, ground, src);
                 }
             }
 
@@ -187,7 +192,7 @@ void BattleScenePaper::draw()
                 for (int iy = 0; iy < COORD_COUNT; iy++)
                 {
                     int num = building_layer_.data(ix, iy) / 2;
-                    if (num <= 0)
+                    if (num <= 0 || isPaperWallTile(num))
                     {
                         continue;
                     }
@@ -197,13 +202,13 @@ void BattleScenePaper::draw()
                         continue;
                     }
                     auto p = pos45To90(ix, iy);
-                        buildings.push_back({ tex, { p.x, p.y, 0 }, ix + iy });
+                    buildings.push_back({ tex, { p.x, p.y, 0 }, ix + iy });
                 }
             }
             std::sort(buildings.begin(), buildings.end(), [](const PaperBuilding& a, const PaperBuilding& b)
-            {
-                return a.sort_key < b.sort_key;
-            });
+                {
+                    return a.sort_key < b.sort_key;
+                });
 
             Pointf view_dir = camera_.center - camera_.pos;
             view_dir.z = 0;
@@ -214,7 +219,7 @@ void BattleScenePaper::draw()
             view_dir.normTo(1);
             Pointf paper_right = { -view_dir.y, view_dir.x, 0 };
 
-            auto render_paper_texture = [&](TextureWarpper* tex, const Pointf& anchor, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255)
+            auto render_paper_texture = [&](TextureWarpper* tex, const Pointf& anchor, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, int rot = 0)
             {
                 if (!tex)
                 {
@@ -230,27 +235,33 @@ void BattleScenePaper::draw()
                 float right = float(tex->w - tex->dx);
                 float top = float(tex->dy);
                 float bottom = float(tex->dy - tex->h);
+                auto local_point = [&](float x, float z)
+                {
+                    if (rot == 90)
+                    {
+                        return anchor + paper_right * -z + Pointf{ 0, 0, x };
+                    }
+                    if (rot == 270)
+                    {
+                        return anchor + paper_right * z + Pointf{ 0, 0, -x };
+                    }
+                    return anchor + paper_right * x + Pointf{ 0, 0, z };
+                };
                 std::vector<Pointf> paper = {
-                    anchor + paper_right * left + Pointf{ 0, 0, top },
-                    anchor + paper_right * right + Pointf{ 0, 0, top },
-                    anchor + paper_right * right + Pointf{ 0, 0, bottom },
-                    anchor + paper_right * left + Pointf{ 0, 0, bottom },
+                    local_point(left, top),
+                    local_point(right, top),
+                    local_point(right, bottom),
+                    local_point(left, bottom),
                 };
                 if (!in_camera_front(paper))
                 {
                     return;
                 }
-                auto projected = camera_.getProj(paper);
-                std::vector<FPoint> dst;
-                for (auto& p : projected)
-                {
-                    dst.push_back({ float(p.x), float(p.y) });
-                }
                 std::vector<FPoint> src = { { 0, 0 }, { float(tex->w), 0 }, { float(tex->w), float(tex->h) }, { 0, float(tex->h) } };
                 Color c = color;
                 c.a = alpha;
                 Engine::getInstance()->setColor(texture, c);
-                Engine::getInstance()->renderTexture(texture, nullptr, dst, src);
+                render_texture_3d(texture, paper, src);
             };
 
             struct PaperSprite
@@ -261,6 +272,7 @@ void BattleScenePaper::draw()
                 uint8_t alpha = 255;
                 float depth = 0;
                 int turn = 1;
+                int rot = 0;
             };
 
             auto calc_depth = [&](const Pointf& p)
@@ -272,7 +284,7 @@ void BattleScenePaper::draw()
 
             auto to_paper_anchor = [](Pointf p)
             {
-                 return Pointf{ p.x, p.y, p.z };
+                return Pointf{ p.x, p.y, p.z };
             };
 
             for (auto& b : buildings)
@@ -292,6 +304,11 @@ void BattleScenePaper::draw()
                 sprite.anchor = to_paper_anchor(r->Pos);
                 sprite.alpha = r->Attention ? 255 - r->Attention * 4 : 255;
                 sprite.turn = r->Dead ? 0 : 1;
+                if (r->Dead || r->HP <= 0)
+                {
+                    sprite.rot = r->FaceTowards >= 2 ? 90 : 270;
+                    sprite.turn = 0;
+                }
                 if (battle_cursor_->isRunning() && !acting_role_->isAuto())
                 {
                     sprite.color = inEffect(acting_role_, r) ? Color{ 255, 255, 255, 255 } : Color{ 128, 128, 128, 255 };
@@ -316,16 +333,16 @@ void BattleScenePaper::draw()
             }
 
             std::sort(sprites.begin(), sprites.end(), [](const PaperSprite& a, const PaperSprite& b)
-            {
-                if (a.depth != b.depth)
                 {
-                    return a.depth > b.depth;
-                }
-                return a.turn < b.turn;
-            });
+                    if (a.depth != b.depth)
+                    {
+                        return a.depth > b.depth;
+                    }
+                    return a.turn < b.turn;
+                });
             for (auto& sprite : sprites)
             {
-                render_paper_texture(sprite.tex, sprite.anchor, sprite.color, sprite.alpha);
+                render_paper_texture(sprite.tex, sprite.anchor, sprite.color, sprite.alpha, sprite.rot);
             }
             Engine::getInstance()->renderTextureToMain("scene");
             return;
@@ -510,7 +527,7 @@ void BattleScenePaper::draw()
         }
         if (!vf.empty())
         {
-            Engine::getInstance()->renderTexture(earth_texture2, nullptr, vf, {});
+            Engine::getInstance()->renderTexture(earth_texture2, nullptr, vf, { });
         }
         for (int turn = 0; turn < 2; turn++)
         {
@@ -527,6 +544,15 @@ void BattleScenePaper::draw()
                     { d.color, d.alpha, scaley, 1, double(d.rot), d.white });
 
                 auto tex = TextureManager::getInstance()->getTexture(d.path, d.num);
+                if (!tex)
+                {
+                    continue;
+                }
+                tex->load();
+                if (!tex->getTexture())
+                {
+                    continue;
+                }
 
                 FRect rect = { d.p.x, d.p.y / 2 - d.p.z, float(tex->w), float(tex->h) };
 
@@ -684,7 +710,10 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
         || e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_BACK)
     {
         if (r->Auto == 0) { r->Auto = 1; }
-        else { r->Auto = 0; }
+        else
+        {
+            r->Auto = 0;
+        }
     }
     if (e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE
         || e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
@@ -956,7 +985,7 @@ void BattleScenePaper::onEntrance()
         auto tex = TextureManager::getInstance()->getTexture("battle-earth", info_->BattleFieldID);
         if (tex)
         {
-            TextureManager::getInstance()->renderTexture(tex, 0, 0, {}, paper_earth_w, paper_earth_h);
+            TextureManager::getInstance()->renderTexture(tex, 0, 0, { }, paper_earth_w, paper_earth_h);
         }
     }
     else
@@ -1811,6 +1840,10 @@ void BattleScenePaper::AI(Role* r)
                                 {
                                     continue;
                                 }
+                                if (isOutLine(x, y))
+                                {
+                                    continue;
+                                }
                                 auto p1 = pos45To90(x, y);
                                 double dis1 = dis_layer.data(x, y) + 1 * (rand_.rand() - rand_.rand());
                                 if (canWalk90(p1, r) && dis1 < max_dis45)
@@ -2022,6 +2055,26 @@ Role* BattleScenePaper::findNearestEnemy(int team, Pointf p)
         }
     }
     return r0;
+}
+
+bool BattleScenePaper::isPaperWallTile(int num)
+{
+    return (num >= 701 && num <= 1139)
+        || (num >= 1410 && num <= 1436)
+        || (num >= 1505 && num <= 1621)
+        || (num >= 1816 && num <= 1849)
+        || (num >= 2116 && num <= 2144)
+        || (num >= 2184 && num <= 2285);
+}
+
+bool BattleScenePaper::isBuilding(int x, int y)
+{
+    int num = building_layer_.data(x, y) / 2;
+    if (isPaperWallTile(num))
+    {
+        return false;
+    }
+    return BattleSceneAct::isBuilding(x, y);
 }
 
 Role* BattleScenePaper::findFarthestEnemy(int team, Pointf p)

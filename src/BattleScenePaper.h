@@ -15,13 +15,13 @@ public:
     virtual void onEntrance() override;
     virtual void onExit() override;
 
-    virtual void backRun() override {}
+    virtual void backRun() override { }
 
     virtual void backRun1();
     void Action(Role* r);
     void AI(Role* r);
 
-    virtual void onPressedCancel() override {}
+    virtual void onPressedCancel() override { }
 
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
@@ -34,6 +34,8 @@ public:
 
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     virtual int calRolePic(Role* r, int style, int frame) override;
+    bool isPaperWallTile(int num);
+    virtual bool isBuilding(int x, int y) override;
 
 protected:
     const double MAX_POSTURE = 100;

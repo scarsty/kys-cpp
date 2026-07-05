@@ -195,6 +195,7 @@
     <ClInclude Include=".\..\mlcc\ZipFile2.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Engine.h" />
+    <ClInclude Include="TextureManager.h" />
     <ClInclude Include="..\mlcc\filefunc.h" />
     <ClInclude Include="..\mlcc\fmt1.h" />
     <ClInclude Include="..\mlcc\INIReader.h" />

@@ -206,10 +206,7 @@
     <ClCompile Include="..\cifa\Cifa.cpp">
       <Filter>cifa</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\ZipFile.cpp">
-      <Filter>mlcc</Filter>
-    </ClCompile>
-    <ClCompile Include="..\mlcc\ZipFile2.cpp">
+    <ClCompile Include=".\..\mlcc\ZipFile2.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
   </ItemGroup>
@@ -394,9 +391,6 @@
     <ClInclude Include="Point.h">
       <Filter>point</Filter>
     </ClInclude>
-    <ClInclude Include="TextureManager.h">
-      <Filter>texture</Filter>
-    </ClInclude>
     <ClInclude Include="BattleSceneAct.h">
       <Filter>battle</Filter>
     </ClInclude>
@@ -436,11 +430,11 @@
     <ClInclude Include="..\cifa\Cifa.h">
       <Filter>cifa</Filter>
     </ClInclude>
-    <ClInclude Include="..\mlcc\ZipFile.h">
+    <ClInclude Include=".\..\mlcc\ZipFile2.h">
       <Filter>mlcc</Filter>
     </ClInclude>
-    <ClInclude Include="..\mlcc\ZipFile2.h">
-      <Filter>mlcc</Filter>
+    <ClInclude Include="TextureManager.h">
+      <Filter>texture</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
