@@ -34,6 +34,7 @@ public:
 
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     virtual int calRolePic(Role* r, int style, int frame) override;
+    int realTowardsToCameraFaceTowards(const Pointf& dir, const Pointf& view_dir, const Pointf& paper_right, int current_face_towards);
     bool isPaperWallTile(int num);
     virtual bool isBuilding(int x, int y) override;
 

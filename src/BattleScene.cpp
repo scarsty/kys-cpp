@@ -962,6 +962,10 @@ void BattleScene::calDistanceLayer(int x, int y, MapSquareInt& distance_layer, i
         auto check_next = [&](Point p1) -> void
         {
             //未计算过且可以走的格子参与下一步的计算
+            if (isOutLine(p1.x, p1.y))
+            {
+                return;
+            }
             if (distance_layer.data(p1.x, p1.y) == max_step + 1 && canWalk(p1.x, p1.y))
             {
                 distance_layer.data(p1.x, p1.y) = step + 1;

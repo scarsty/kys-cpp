@@ -182,7 +182,6 @@ void BattleScenePaper::draw()
             {
                 TextureWarpper* tex = nullptr;
                 Pointf anchor;
-                int sort_key = 0;
             };
 
             std::vector<PaperBuilding> buildings;
@@ -202,13 +201,9 @@ void BattleScenePaper::draw()
                         continue;
                     }
                     auto p = pos45To90(ix, iy);
-                    buildings.push_back({ tex, { p.x, p.y, 0 }, ix + iy });
+                    buildings.push_back({ tex, { p.x, p.y, 0 } });
                 }
             }
-            std::sort(buildings.begin(), buildings.end(), [](const PaperBuilding& a, const PaperBuilding& b)
-                {
-                    return a.sort_key < b.sort_key;
-                });
 
             Pointf view_dir = camera_.center - camera_.pos;
             view_dir.z = 0;
@@ -217,7 +212,7 @@ void BattleScenePaper::draw()
                 view_dir = { 0, 1, 0 };
             }
             view_dir.normTo(1);
-            Pointf paper_right = { -view_dir.y, view_dir.x, 0 };
+            Pointf paper_right = { view_dir.y, -view_dir.x, 0 };
 
             auto render_paper_texture = [&](TextureWarpper* tex, const Pointf& anchor, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, int rot = 0)
             {
@@ -287,12 +282,16 @@ void BattleScenePaper::draw()
                 return Pointf{ p.x, p.y, p.z };
             };
 
+            std::vector<PaperSprite> sprites;
             for (auto& b : buildings)
             {
-                render_paper_texture(b.tex, b.anchor);
+                PaperSprite sprite;
+                sprite.tex = b.tex;
+                sprite.anchor = b.anchor;
+                sprite.depth = calc_depth(sprite.anchor);
+                sprites.emplace_back(sprite);
             }
 
-            std::vector<PaperSprite> sprites;
             for (auto r : battle_roles_)
             {
                 if (!r)
@@ -300,6 +299,10 @@ void BattleScenePaper::draw()
                     continue;
                 }
                 PaperSprite sprite;
+                if (r->RealTowards.norm() > 0.001)
+                {
+                    r->FaceTowards = realTowardsToCameraFaceTowards(r->RealTowards, view_dir, paper_right, r->FaceTowards);
+                }
                 sprite.tex = TextureManager::getInstance()->getTexture(std::format("fight/fight{:03}", r->HeadID), calRolePic(r, r->ActType, r->ActFrame));
                 sprite.anchor = to_paper_anchor(r->Pos);
                 sprite.alpha = r->Attention ? 255 - r->Attention * 4 : 255;
@@ -750,39 +753,24 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
                     //LOG("{} {}, ", axis_x, axis_y);
                     axis_x = GameUtil::clamp(axis_x, -20000, 20000);
                     axis_y = GameUtil::clamp(axis_y, -20000, 20000);
-                    Pointf axis{ float(axis_x), float(axis_y) };
-                    axis *= 1.0 / 20000;    // / sqrt(2.0);
-                    r->RealTowards = axis;
-                    //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
-                    axis.normTo(speed);
-                    pos += axis;
                 }
-                Pointf direct;
-                if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(K_LEFT))
+                float input_right = axis_x / 20000.0f;
+                float input_forward = -axis_y / 20000.0f;
+                if (engine->checkKeyPress(K_A))
                 {
-                    direct.x = -1;
-                    r->FaceTowards = Towards_LeftDown;
-                    camera_angle_ += 0.01;
+                    input_right -= 1;
                 }
-                if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(K_RIGHT))
+                if (engine->checkKeyPress(K_D))
                 {
-                    direct.x = 1;
-                    r->FaceTowards = Towards_RightUp;
-                    camera_angle_ -= 0.01;
+                    input_right += 1;
                 }
-                if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(K_UP))
+                if (engine->checkKeyPress(K_W))
                 {
-                    direct.y = -1;
-                    r->FaceTowards = Towards_LeftUp;
-                    camera_height_angle_ += 0.01;
-                    camera_height_angle_ = std::min(camera_height_angle_, float(M_PI / 2));
+                    input_forward += 1;
                 }
-                if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(K_DOWN))
+                if (engine->checkKeyPress(K_S))
                 {
-                    direct.y = 1;
-                    r->FaceTowards = Towards_RightDown;
-                    camera_height_angle_ -= 0.01;
-                    camera_height_angle_ = std::max(camera_height_angle_, 0.0f);
+                    input_forward -= 1;
                 }
                 if (engine->checkKeyPress(K_Z))
                 {
@@ -794,20 +782,23 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
                     camera_distance_ -= 50;
                     camera_distance_ = std::max(camera_distance_, 0.0f);
                 }
+                Pointf view_dir = camera_.center - camera_.pos;
+                view_dir.z = 0;
+                if (view_dir.norm() == 0)
+                {
+                    view_dir = r->RealTowards;
+                    view_dir.z = 0;
+                }
+                if (view_dir.norm() == 0)
+                {
+                    view_dir = { 0, 1, 0 };
+                }
+                view_dir.normTo(1);
+                Pointf paper_right = { view_dir.y, -view_dir.x, 0 };
+                Pointf direct = paper_right * input_right + view_dir * input_forward;
                 direct.normTo(speed);
                 pos += direct;
-                //这样来看同时用手柄和键盘会走得很快，就这样吧
             }
-        }
-        if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(keys_.Right)
-            || engine->checkKeyPress(K_UP) && engine->checkKeyPress(K_RIGHT))
-        {
-            r->FaceTowards = Towards_RightUp;
-        }
-        if (engine->checkKeyPress(keys_.Down) && engine->checkKeyPress(keys_.Left)
-            || engine->checkKeyPress(K_DOWN) && engine->checkKeyPress(K_LEFT))
-        {
-            r->FaceTowards = Towards_LeftDown;
         }
         //实际的朝向可以不能走到
         if (pos.x != r->Pos.x || pos.y != r->Pos.y)
@@ -2055,6 +2046,31 @@ Role* BattleScenePaper::findNearestEnemy(int team, Pointf p)
         }
     }
     return r0;
+}
+
+int BattleScenePaper::realTowardsToCameraFaceTowards(const Pointf& dir, const Pointf& view_dir, const Pointf& paper_right, int current_face_towards)
+{
+    Pointf n = dir;
+    n.z = 0;
+    if (n.norm() == 0)
+    {
+        return current_face_towards;
+    }
+    n.normTo(1);
+    float right = n.x * paper_right.x + n.y * paper_right.y;
+    float forward = n.x * view_dir.x + n.y * view_dir.y;
+    constexpr float right_epsilon = 0.2f;
+    if (std::abs(right) < right_epsilon)
+    {
+        bool keep_right = current_face_towards == Towards_RightUp || current_face_towards == Towards_RightDown;
+        return keep_right ? (forward > 0 ? Towards_RightUp : Towards_RightDown)
+                          : (forward > 0 ? Towards_LeftUp : Towards_LeftDown);
+    }
+    if (right > 0 && forward > 0) { return Towards_RightUp; }
+    if (right > 0 && forward <= 0) { return Towards_RightDown; }
+    if (right < 0 && forward >= 0) { return Towards_LeftUp; }
+    if (right < 0 && forward < 0) { return Towards_LeftDown; }
+    return Towards_None;
 }
 
 bool BattleScenePaper::isPaperWallTile(int num)
