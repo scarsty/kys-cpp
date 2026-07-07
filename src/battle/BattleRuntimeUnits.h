@@ -45,6 +45,7 @@ struct BattleRuntimeUnitActionState
     std::optional<BattleActionPlanSeed> planSeed;
     std::optional<BattlePendingCastAction> pendingCast;
     bool ultimateCaster = false;
+    bool cooldownFromUltimate = false;
 };
 
 struct BattleRescueUnitRuntime
@@ -53,10 +54,38 @@ struct BattleRescueUnitRuntime
     int forcePullExecuteRemaining = 0;
 };
 
+struct BattleUnitSkillEffectState
+{
+    int magicId = -1;
+    BattleEffectState effects;
+};
+
+struct BattleUnitMagicEffectRuntime
+{
+    BattleUnitSkillEffectState normal;
+    BattleUnitSkillEffectState ultimate;
+
+    decltype(auto) slot(this auto& self, BattleSkillSlot slot)
+    {
+        switch (slot)
+        {
+        case BattleSkillSlot::Normal:
+            return (self.normal);
+        case BattleSkillSlot::Ultimate:
+            return (self.ultimate);
+        case BattleSkillSlot::None:
+            break;
+        }
+        assert(false);
+        return (self.normal);
+    }
+};
+
 struct BattleRuntimeUnitRecord
 {
     BattleRuntimeUnit core;
     RoleComboState combo;
+    BattleUnitMagicEffectRuntime skillEffects;
     BattleStatusRuntimeUnit status;
     BattleDamageRuntimeUnit damage;
     BattleMovementAgentState movement;
@@ -99,6 +128,7 @@ struct BattleRuntimeUnitRecord
     void markUltimateCaster()
     {
         action.ultimateCaster = true;
+        action.cooldownFromUltimate = true;
     }
 
     void clearUltimateCaster()
@@ -109,6 +139,21 @@ struct BattleRuntimeUnitRecord
     bool isUltimateCaster() const
     {
         return action.ultimateCaster;
+    }
+
+    void setSkillCooldownUltimate(bool ultimate)
+    {
+        action.cooldownFromUltimate = ultimate;
+    }
+
+    void clearSkillCooldownSource()
+    {
+        action.cooldownFromUltimate = false;
+    }
+
+    bool isSkillCooldownUltimate() const
+    {
+        return action.cooldownFromUltimate;
     }
 
     void clearActionOwners()

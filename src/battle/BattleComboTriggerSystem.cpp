@@ -11,6 +11,26 @@
 
 namespace KysChess::Battle
 {
+
+std::array<BattleEffectSource, 2> orderedBattleEffectSources(const BattleEffectSources& sources)
+{
+    return { sources.combo, sources.skill };
+}
+
+BattleEffectSource battleEffectSourceForStore(
+    const BattleEffectSources& sources,
+    BattleEffectStoreRef store)
+{
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (source.state && source.ref == store)
+        {
+            return source;
+        }
+    }
+    return {};
+}
+
 namespace
 {
 
@@ -62,8 +82,28 @@ std::span<const Trigger> triggersForHook(BattleComboTriggerHook hook)
     }
 }
 
+bool isOnHitHook(BattleComboTriggerHook hook)
+{
+    return hook == BattleComboTriggerHook::ProjectileHitEnemy
+        || hook == BattleComboTriggerHook::ProjectileHitAllyOrSource
+        || hook == BattleComboTriggerHook::DamageDealt;
+}
+
+bool triggerMatchesInput(Trigger trigger, const BattleComboTriggerInput& input)
+{
+    if (trigger == Trigger::OnUltimate && !input.ultimate)
+    {
+        return false;
+    }
+    if (trigger == Trigger::OnHit && isOnHitHook(input.hook) && !input.mainProjectile)
+    {
+        return false;
+    }
+    return true;
+}
+
 std::vector<RoleComboEffectId> sortedCandidateIds(
-    const RoleComboState& state,
+    const BattleEffectState& state,
     std::span<const Trigger> triggers,
     std::initializer_list<EffectType> effectTypes)
 {
@@ -83,12 +123,36 @@ std::vector<RoleComboEffectId> sortedCandidateIds(
 }
 
 std::vector<RoleComboEffectId> sortedCandidateIds(
-    const RoleComboState& state,
+    const BattleEffectState& state,
     Trigger trigger,
     std::initializer_list<EffectType> effectTypes)
 {
     std::array triggers = { trigger };
     return sortedCandidateIds(state, std::span<const Trigger>{ triggers }, effectTypes);
+}
+
+std::vector<RoleComboEffectId> sortedCandidateIds(
+    const BattleEffectState& state,
+    const BattleComboTriggerInput& input,
+    std::initializer_list<EffectType> effectTypes)
+{
+    std::vector<RoleComboEffectId> ids;
+    for (Trigger trigger : triggersForHook(input.hook))
+    {
+        if (!triggerMatchesInput(trigger, input))
+        {
+            continue;
+        }
+        for (EffectType type : effectTypes)
+        {
+            for (RoleComboEffectId id : state.effectIds(trigger, type))
+            {
+                ids.push_back(id);
+            }
+        }
+    }
+    std::ranges::sort(ids, {}, &RoleComboEffectId::value);
+    return ids;
 }
 
 ComboTriggerTimerKey triggerTimerKeyFor(const ComboEffectSnapshot& effect)
@@ -162,6 +226,221 @@ std::vector<RoleComboStackChange> applyRampingStacks(RoleComboState& state)
 }
 
 }  // namespace
+
+int BattleEffectReader::sumAlways(const BattleEffectSources& sources, EffectType type) const
+{
+    int total = 0;
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (source.state)
+        {
+            total += source.state->sumAlways(type);
+        }
+    }
+    return total;
+}
+
+int BattleEffectReader::maxAlways(const BattleEffectSources& sources, EffectType type) const
+{
+    int result = 0;
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (source.state)
+        {
+            result = std::max(result, source.state->maxAlways(type));
+        }
+    }
+    return result;
+}
+
+int BattleEffectReader::maxAlwaysValue2(const BattleEffectSources& sources, EffectType type) const
+{
+    int result = 0;
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (source.state)
+        {
+            result = std::max(result, source.state->maxAlwaysValue2(type));
+        }
+    }
+    return result;
+}
+
+bool BattleEffectReader::hasAlways(const BattleEffectSources& sources, EffectType type) const
+{
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (source.state && source.state->hasAlways(type))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+const RoleComboEffectInstance* BattleEffectReader::firstAlways(
+    const BattleEffectSources& sources,
+    EffectType type) const
+{
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (!source.state)
+        {
+            continue;
+        }
+        if (const auto* effect = source.state->firstAlways(type))
+        {
+            return effect;
+        }
+    }
+    return nullptr;
+}
+
+BattleEffectRef BattleEffectReader::firstAlwaysRef(
+    const BattleEffectSources& sources,
+    EffectType type) const
+{
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (!source.state)
+        {
+            continue;
+        }
+        for (RoleComboEffectId id : source.state->effectIds(Trigger::Always, type))
+        {
+            return { source.ref, id };
+        }
+    }
+    return {};
+}
+
+std::optional<ComboEffectSnapshot> BattleEffectReader::maxAlwaysPair(
+    const BattleEffectSources& sources,
+    EffectType type) const
+{
+    std::optional<ComboEffectSnapshot> best;
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (!source.state)
+        {
+            continue;
+        }
+        for (RoleComboEffectId id : source.state->effectIds(Trigger::Always, type))
+        {
+            const auto& effect = source.state->effect(id);
+            if (!best || effect.value > best->value)
+            {
+                best = effect;
+            }
+        }
+    }
+    return best;
+}
+
+std::vector<BattleEffectTriggerEvent> BattleEffectReader::collectTriggerEvents(
+    const BattleEffectSources& sources,
+    const BattleComboTriggerInput& input,
+    std::initializer_list<EffectType> effectTypes,
+    BattleRuntimeRandom& random,
+    BattleComboActivationRecording recording) const
+{
+    assert(effectTypes.size() > 0);
+
+    std::vector<BattleEffectTriggerEvent> result;
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (!source.state)
+        {
+            continue;
+        }
+        for (RoleComboEffectId id : sortedCandidateIds(*source.state, input, effectTypes))
+        {
+            const auto& effect = source.state->effect(id);
+            if (!source.state->canActivateTriggeredEffect(id))
+            {
+                continue;
+            }
+            if (effect.triggerValue > 0 && !passesChance(random, effect.triggerValue))
+            {
+                continue;
+            }
+            if (recording == BattleComboActivationRecording::RecordOnCollect)
+            {
+                source.state->recordTriggeredEffectActivation(id);
+            }
+            result.push_back({
+                input.hook,
+                input.sourceUnitId,
+                input.targetUnitId,
+                { source.ref, id },
+                effect,
+            });
+        }
+    }
+    return result;
+}
+
+std::vector<BattleEffectTriggerEvent> BattleEffectReader::matchingTriggerEvents(
+    const BattleEffectSources& sources,
+    const BattleComboTriggerInput& input,
+    std::initializer_list<EffectType> effectTypes) const
+{
+    assert(effectTypes.size() > 0);
+
+    std::vector<BattleEffectTriggerEvent> result;
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (!source.state)
+        {
+            continue;
+        }
+        for (RoleComboEffectId id : sortedCandidateIds(*source.state, input, effectTypes))
+        {
+            result.push_back({
+                input.hook,
+                input.sourceUnitId,
+                input.targetUnitId,
+                { source.ref, id },
+                source.state->effect(id),
+            });
+        }
+    }
+    return result;
+}
+
+void BattleEffectCommands::recordActivation(
+    const BattleEffectSources& sources,
+    BattleEffectRef effectRef) const
+{
+    auto source = battleEffectSourceForStore(sources, effectRef.store);
+    assert(source.state != nullptr);
+    source.state->recordTriggeredEffectActivation(effectRef.localId);
+}
+
+bool BattleEffectCommands::consumeTypePending(
+    const BattleEffectSources& sources,
+    EffectType type) const
+{
+    bool consumed = false;
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (source.state && source.state->consumeTypePending(type))
+        {
+            consumed = true;
+        }
+    }
+    return consumed;
+}
+
+bool BattleEffectCommands::advanceEffectCounter(
+    const BattleEffectSources& sources,
+    BattleEffectRef effectRef,
+    int threshold) const
+{
+    auto source = battleEffectSourceForStore(sources, effectRef.store);
+    assert(source.state != nullptr);
+    return source.state->advanceEffectCounter(effectRef.localId, threshold);
+}
 
 bool BattleComboTriggerSystem::canActivate(const RoleComboState& state, RoleComboEffectId effectId) const
 {
@@ -483,31 +762,24 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::collectTriggerEve
     BattleRuntimeRandom& random,
     BattleComboActivationRecording recording) const
 {
-    assert(effectTypes.size() > 0);
-
     std::vector<BattleComboTriggerEvent> result;
-    for (RoleComboEffectId id : sortedCandidateIds(state, triggersForHook(input.hook), effectTypes))
+    BattleEffectSources sources;
+    sources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &state };
+    auto events = BattleEffectReader().collectTriggerEvents(
+        sources,
+        input,
+        effectTypes,
+        random,
+        recording);
+    result.reserve(events.size());
+    for (const auto& event : events)
     {
-        const auto& effect = state.effect(id);
-        if (!canActivate(state, id))
-        {
-            continue;
-        }
-        if (effect.triggerValue > 0 && !passesChance(random, effect.triggerValue))
-        {
-            continue;
-        }
-
-        if (recording == BattleComboActivationRecording::RecordOnCollect)
-        {
-            recordActivation(state, id);
-        }
         result.push_back({
-            input.hook,
-            input.sourceUnitId,
-            input.targetUnitId,
-            id,
-            effect,
+            event.hook,
+            event.sourceUnitId,
+            event.targetUnitId,
+            event.effectRef.localId,
+            event.effect,
         });
     }
     return result;
@@ -521,7 +793,7 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::matchingTriggerEf
     assert(effectTypes.size() > 0);
 
     std::vector<BattleComboTriggerEvent> result;
-    for (RoleComboEffectId id : sortedCandidateIds(state, triggersForHook(input.hook), effectTypes))
+    for (RoleComboEffectId id : sortedCandidateIds(state, input, effectTypes))
     {
         result.push_back({
             input.hook,
@@ -693,7 +965,7 @@ BattleDefenderHitDamageResult BattleComboTriggerSystem::shapeDefenderHitDamage(
 }
 
 BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
-    RoleComboState& state,
+    const BattleEffectSources& sources,
     const BattleExecuteComboInput& input,
     BattleRuntimeRandom& random) const
 {
@@ -701,8 +973,8 @@ BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
     assert(input.targetUnitId >= 0);
 
     BattleExecuteComboResult result;
-    for (const auto& triggerEvent : matchingTriggerEffects(
-             state,
+    for (const auto& triggerEvent : BattleEffectReader().matchingTriggerEvents(
+             sources,
              { BattleComboTriggerHook::DamageDealt, input.attackerUnitId, input.targetUnitId },
              { EffectType::Execute }))
     {
@@ -722,14 +994,24 @@ BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
             })
             && passesChance(random, effect.triggerValue))
         {
-            recordActivation(state, triggerEvent.effectId);
+            BattleEffectCommands().recordActivation(sources, triggerEvent.effectRef);
             result.executed = true;
             result.thresholdPct = effect.value;
-            result.effectId = triggerEvent.effectId;
+            result.effectId = triggerEvent.effectRef.localId;
             break;
         }
     }
     return result;
+}
+
+BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
+    RoleComboState& state,
+    const BattleExecuteComboInput& input,
+    BattleRuntimeRandom& random) const
+{
+    BattleEffectSources sources;
+    sources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &state };
+    return resolveExecuteCombo(sources, input, random);
 }
 
 bool BattleComboTriggerSystem::resolveProjectileReflect(
@@ -741,7 +1023,7 @@ bool BattleComboTriggerSystem::resolveProjectileReflect(
 }
 
 BattleProjectileBouncePrime BattleComboTriggerSystem::collectProjectileBouncePrime(
-    const RoleComboState& state,
+    const BattleEffectSources& sources,
     const BattleProjectileBouncePrimeInput& input) const
 {
     assert(input.attackerUnitId >= 0);
@@ -750,8 +1032,8 @@ BattleProjectileBouncePrime BattleComboTriggerSystem::collectProjectileBouncePri
 
     BattleProjectileBouncePrime prime;
     prime.rollPct = input.rollPct;
-    for (const auto& event : matchingTriggerEffects(
-             state,
+    for (const auto& event : BattleEffectReader().matchingTriggerEvents(
+             sources,
              { BattleComboTriggerHook::ProjectileHitEnemy, input.attackerUnitId, -1 },
              { EffectType::ProjectileBounce }))
     {
@@ -776,16 +1058,28 @@ BattleProjectileBouncePrime BattleComboTriggerSystem::collectProjectileBouncePri
     return prime;
 }
 
+BattleProjectileBouncePrime BattleComboTriggerSystem::collectProjectileBouncePrime(
+    const RoleComboState& state,
+    const BattleProjectileBouncePrimeInput& input) const
+{
+    BattleEffectSources sources;
+    sources.combo = {
+        { BattleEffectSourceKind::Combo, BattleSkillSlot::None },
+        const_cast<RoleComboState*>(&state),
+    };
+    return collectProjectileBouncePrime(sources, input);
+}
+
 int BattleComboTriggerSystem::collectExtraProjectileCount(
-    RoleComboState& state,
+    const BattleEffectSources& sources,
     const BattleComboTriggerInput& input,
     int baseCount,
     BattleRuntimeRandom& random) const
 {
     assert(baseCount >= 0);
     int count = baseCount;
-    for (const auto& event : collectTriggerEvents(
-             state,
+    for (const auto& event : BattleEffectReader().collectTriggerEvents(
+             sources,
              input,
              { EffectType::UltimateExtraProjectiles },
              random))
@@ -794,6 +1088,17 @@ int BattleComboTriggerSystem::collectExtraProjectileCount(
         count += event.effect.value;
     }
     return count;
+}
+
+int BattleComboTriggerSystem::collectExtraProjectileCount(
+    RoleComboState& state,
+    const BattleComboTriggerInput& input,
+    int baseCount,
+    BattleRuntimeRandom& random) const
+{
+    BattleEffectSources sources;
+    sources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &state };
+    return collectExtraProjectileCount(sources, input, baseCount, random);
 }
 
 bool BattleComboTriggerSystem::hasExecuteCombo(
@@ -812,7 +1117,7 @@ bool BattleComboTriggerSystem::hasExecuteCombo(
 }
 
 BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDefense(
-    const RoleComboState& state,
+    const BattleEffectSources& sources,
     const BattleArmorPenetrationInput& input,
     BattleRuntimeRandom& random) const
 {
@@ -822,15 +1127,22 @@ BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDef
 
     BattleArmorPenetrationResult result;
     result.defense = input.defense;
-    const int armorPenChancePct = state.sumAlways(EffectType::ArmorPenChance);
+    BattleEffectReader reader;
+    const int armorPenChancePct = reader.sumAlways(sources, EffectType::ArmorPenChance);
     if (passesChance(random, armorPenChancePct))
     {
-        result.defense *= (1.0 - state.maxAlways(EffectType::ArmorPenPct) / 100.0);
+        result.defense *= (1.0 - reader.maxAlways(sources, EffectType::ArmorPenPct) / 100.0);
     }
 
-    for (const auto& event : matchingTriggerEffects(
-             state,
-             { BattleComboTriggerHook::DamageDealt, input.attackerUnitId, input.targetUnitId },
+    for (const auto& event : reader.matchingTriggerEvents(
+             sources,
+             {
+                 BattleComboTriggerHook::DamageDealt,
+                 input.attackerUnitId,
+                 input.targetUnitId,
+                 input.ultimate,
+                 input.mainProjectile,
+             },
              { EffectType::ArmorPen }))
     {
         if (passesChance(random, event.effect.triggerValue))
@@ -839,6 +1151,19 @@ BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDef
         }
     }
     return result;
+}
+
+BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDefense(
+    const RoleComboState& state,
+    const BattleArmorPenetrationInput& input,
+    BattleRuntimeRandom& random) const
+{
+    BattleEffectSources sources;
+    sources.combo = {
+        { BattleEffectSourceKind::Combo, BattleSkillSlot::None },
+        const_cast<RoleComboState*>(&state),
+    };
+    return resolveArmorPenetratedDefense(sources, input, random);
 }
 
 }  // namespace KysChess::Battle

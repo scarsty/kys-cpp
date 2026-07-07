@@ -1,13 +1,11 @@
 import argparse
-import re
 import sqlite3
 import sys
 from pathlib import Path
 
-sys.stdout.reconfigure(encoding='utf-8')
+from chess_pool_io import parse_pool_entries
 
-ROLE_LINE_RE = re.compile(r'^\s*-\s+(\d+)\s+#\s+(.+)$')
-TIER_LINE_RE = re.compile(r'^\s*(?:#|-)\s*费用:\s*(\d+)\s*$')
+sys.stdout.reconfigure(encoding='utf-8')
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,19 +30,8 @@ def parse_args() -> argparse.Namespace:
 
 def parse_pool(pool_path: Path) -> dict[int, list[tuple[int, str]]]:
     pool: dict[int, list[tuple[int, str]]] = {}
-    current_tier: int | None = None
-
-    for raw_line in pool_path.read_text(encoding='utf-8').splitlines():
-        line = raw_line.rstrip()
-        tier_match = TIER_LINE_RE.match(line)
-        if tier_match:
-            current_tier = int(tier_match.group(1))
-            pool.setdefault(current_tier, [])
-            continue
-
-        role_match = ROLE_LINE_RE.match(line)
-        if role_match and current_tier is not None:
-            pool[current_tier].append((int(role_match.group(1)), role_match.group(2).strip()))
+    for entry in parse_pool_entries(pool_path):
+        pool.setdefault(entry.star, []).append((entry.role_id, entry.comment_name))
 
     return pool
 

@@ -2,7 +2,9 @@
 
 #include "ChessBattleEffects.h"
 
+#include <array>
 #include <initializer_list>
+#include <optional>
 #include <vector>
 
 namespace KysChess::Battle
@@ -80,6 +82,58 @@ struct BattleComboTriggerInput
     BattleComboTriggerHook hook = BattleComboTriggerHook::FrameTick;
     int sourceUnitId = -1;
     int targetUnitId = -1;
+    bool ultimate = false;
+    bool mainProjectile = true;
+};
+
+enum class BattleEffectSourceKind
+{
+    Combo,
+    Skill,
+};
+
+enum class BattleSkillSlot
+{
+    None,
+    Normal,
+    Ultimate,
+};
+
+struct BattleEffectStoreRef
+{
+    BattleEffectSourceKind kind = BattleEffectSourceKind::Combo;
+    BattleSkillSlot slot = BattleSkillSlot::None;
+
+    auto operator<=>(const BattleEffectStoreRef&) const = default;
+};
+
+struct BattleEffectRef
+{
+    BattleEffectStoreRef store;
+    RoleComboEffectId localId;
+};
+
+struct BattleEffectSource
+{
+    BattleEffectStoreRef ref;
+    BattleEffectState* state = nullptr;
+};
+
+struct BattleEffectSources
+{
+    BattleEffectSource combo;
+    BattleEffectSource skill;
+};
+
+std::array<BattleEffectSource, 2> orderedBattleEffectSources(const BattleEffectSources& sources);
+BattleEffectSource battleEffectSourceForStore(
+    const BattleEffectSources& sources,
+    BattleEffectStoreRef store);
+
+struct BattleSkillEffectRef
+{
+    int unitId = -1;
+    BattleSkillSlot slot = BattleSkillSlot::None;
 };
 
 struct BattleComboTriggerAction
@@ -197,6 +251,8 @@ struct BattleArmorPenetrationInput
     int attackerUnitId = -1;
     int targetUnitId = -1;
     double defense = 0.0;
+    bool ultimate = false;
+    bool mainProjectile = true;
 };
 
 struct BattleArmorPenetrationResult
@@ -231,6 +287,47 @@ struct BattleComboTriggerEvent
     int targetUnitId{};
     RoleComboEffectId effectId;
     ComboEffectSnapshot effect;
+};
+
+struct BattleEffectTriggerEvent
+{
+    BattleComboTriggerHook hook{};
+    int sourceUnitId{};
+    int targetUnitId{};
+    BattleEffectRef effectRef;
+    ComboEffectSnapshot effect;
+};
+
+class BattleEffectReader
+{
+public:
+    int sumAlways(const BattleEffectSources& sources, EffectType type) const;
+    int maxAlways(const BattleEffectSources& sources, EffectType type) const;
+    int maxAlwaysValue2(const BattleEffectSources& sources, EffectType type) const;
+    bool hasAlways(const BattleEffectSources& sources, EffectType type) const;
+    const RoleComboEffectInstance* firstAlways(const BattleEffectSources& sources, EffectType type) const;
+    BattleEffectRef firstAlwaysRef(const BattleEffectSources& sources, EffectType type) const;
+    std::optional<ComboEffectSnapshot> maxAlwaysPair(const BattleEffectSources& sources, EffectType type) const;
+
+    std::vector<BattleEffectTriggerEvent> collectTriggerEvents(
+        const BattleEffectSources& sources,
+        const BattleComboTriggerInput& input,
+        std::initializer_list<EffectType> effectTypes,
+        BattleRuntimeRandom& random,
+        BattleComboActivationRecording recording = BattleComboActivationRecording::RecordOnCollect) const;
+
+    std::vector<BattleEffectTriggerEvent> matchingTriggerEvents(
+        const BattleEffectSources& sources,
+        const BattleComboTriggerInput& input,
+        std::initializer_list<EffectType> effectTypes) const;
+};
+
+class BattleEffectCommands
+{
+public:
+    void recordActivation(const BattleEffectSources& sources, BattleEffectRef effectRef) const;
+    bool consumeTypePending(const BattleEffectSources& sources, EffectType type) const;
+    bool advanceEffectCounter(const BattleEffectSources& sources, BattleEffectRef effectRef, int threshold) const;
 };
 
 class BattleComboTriggerSystem
@@ -295,6 +392,11 @@ public:
         const BattleDefenderHitDamageInput& input) const;
 
     BattleExecuteComboResult resolveExecuteCombo(
+        const BattleEffectSources& sources,
+        const BattleExecuteComboInput& input,
+        BattleRuntimeRandom& random) const;
+
+    BattleExecuteComboResult resolveExecuteCombo(
         RoleComboState& state,
         const BattleExecuteComboInput& input,
         BattleRuntimeRandom& random) const;
@@ -304,8 +406,18 @@ public:
                                   BattleRuntimeRandom& random) const;
 
     BattleProjectileBouncePrime collectProjectileBouncePrime(
+        const BattleEffectSources& sources,
+        const BattleProjectileBouncePrimeInput& input) const;
+
+    BattleProjectileBouncePrime collectProjectileBouncePrime(
         const RoleComboState& state,
         const BattleProjectileBouncePrimeInput& input) const;
+
+    int collectExtraProjectileCount(
+        const BattleEffectSources& sources,
+        const BattleComboTriggerInput& input,
+        int baseCount,
+        BattleRuntimeRandom& random) const;
 
     int collectExtraProjectileCount(
         RoleComboState& state,
@@ -314,6 +426,11 @@ public:
         BattleRuntimeRandom& random) const;
 
     bool hasExecuteCombo(const RoleComboState& state, int attackerUnitId) const;
+
+    BattleArmorPenetrationResult resolveArmorPenetratedDefense(
+        const BattleEffectSources& sources,
+        const BattleArmorPenetrationInput& input,
+        BattleRuntimeRandom& random) const;
 
     BattleArmorPenetrationResult resolveArmorPenetratedDefense(
         const RoleComboState& state,

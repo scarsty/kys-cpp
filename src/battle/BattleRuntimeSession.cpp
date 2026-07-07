@@ -2,6 +2,7 @@
 
 #include "BattleRuntimeUnitSpawn.h"
 
+#include "../ChessBattleEffects.h"
 #include "../ChessCombo.h"
 #include "../ChessEquipment.h"
 #include "../ChessNeigong.h"
@@ -181,6 +182,7 @@ void populateBattleRuntimeSetupDefinitions(BattleRuntimeSetupSeed& setup)
     setup.equipmentDefinitions = makeBattleSetupEquipmentDefinitions();
     setup.equipmentSynergies = makeBattleSetupEquipmentSynergyDefinitions();
     setup.neigongDefinitions = makeBattleSetupNeigongDefinitions();
+    KysChess::ChessBattleEffects::loadDefaultMagicEffectsFile(setup.magicEffectDefinitions);
 }
 
 std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(

@@ -76,6 +76,56 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamHeal(BattleR
     return events;
 }
 
+std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyLowestAllyHeal(
+    BattleRuntimeUnits& units,
+    int sourceUnitId,
+    int flatHeal,
+    int pctHeal) const
+{
+    assert(flatHeal > 0 || pctHeal > 0);
+
+    auto& source = unitById(units, sourceUnitId);
+    BattleRuntimeUnit* target = nullptr;
+    for (auto& unitRecord : units.live())
+    {
+        auto& unit = unitRecord.core;
+        if (unit.team != source.team || unit.vitals.hp >= unit.vitals.maxHp)
+        {
+            continue;
+        }
+        if (!target)
+        {
+            target = &unit;
+            continue;
+        }
+        const long long lhs = static_cast<long long>(unit.vitals.hp) * target->vitals.maxHp;
+        const long long rhs = static_cast<long long>(target->vitals.hp) * unit.vitals.maxHp;
+        if (lhs < rhs || (lhs == rhs && unit.id < target->id))
+        {
+            target = &unit;
+        }
+    }
+    if (!target)
+    {
+        return {};
+    }
+
+    const int amount = flatHeal + target->vitals.maxHp * pctHeal / 100;
+    assert(amount > 0);
+    const int before = target->vitals.hp;
+    target->vitals.hp = std::min(target->vitals.maxHp, target->vitals.hp + amount);
+    if (target->vitals.hp <= before)
+    {
+        return {};
+    }
+    return { { BattleTeamEffectEventType::Heal,
+               sourceUnitId,
+               target->id,
+               target->vitals.hp - before,
+               before,
+               target->vitals.hp } };
+}
+
 std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleRuntimeUnits& units,
                                                                        int sourceUnitId,
                                                                        int amount) const

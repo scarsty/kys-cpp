@@ -444,6 +444,86 @@ TEST_CASE("BattleHitResolver_HpOnHitEmitsAcceptedHitCommandOnly", "[battle][hit_
     CHECK(heal == result.logEvents.end());
 }
 
+TEST_CASE("BattleHitResolver_OffensiveSkillEffectsJoinComboHitFlow", "[battle][hit_resolver][magic]")
+{
+    auto input = comboHitInput();
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 50;
+    input.attackEvent.skillEffectRef = { 1, BattleSkillSlot::Normal };
+    input.attackerCombo.applyConfiguredEffect({ KysChess::EffectType::MPOnHit, 3 });
+
+    KysChess::BattleEffectState skillEffects;
+    skillEffects.applyConfiguredEffect({ KysChess::EffectType::MPOnHit, 7 });
+
+    BattleEffectSources attackerSources;
+    attackerSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &input.attackerCombo };
+    attackerSources.skill = { { BattleEffectSourceKind::Skill, BattleSkillSlot::Normal }, &skillEffects };
+    BattleEffectSources defenderSources;
+    defenderSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &input.defenderCombo };
+
+    auto random = fixedBattleRandom();
+    auto result = BattleHitResolver().resolve(input, attackerSources, defenderSources, random);
+
+    const auto* command = firstAcceptedHitCommand(result);
+    REQUIRE(command);
+    CHECK(command->damage.mpOnHit == 10);
+}
+
+TEST_CASE("BattleHitResolver_TriggeredSkillOffensiveCharmExtendsCooldown", "[battle][hit_resolver][magic]")
+{
+    auto input = comboHitInput();
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 50;
+    input.attackEvent.skillEffectRef = { 1, BattleSkillSlot::Normal };
+
+    KysChess::BattleEffectState skillEffects;
+    auto charm = triggeredEffect(KysChess::EffectType::OffensiveCharm, KysChess::Trigger::OnHit, 100, 100);
+    charm.value2 = 35;
+    skillEffects.applyConfiguredEffect(charm);
+    auto debuff = charm;
+    debuff.type = KysChess::EffectType::CharmCDRDebuff;
+    skillEffects.applyConfiguredEffect(debuff);
+
+    BattleEffectSources attackerSources;
+    attackerSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &input.attackerCombo };
+    attackerSources.skill = { { BattleEffectSourceKind::Skill, BattleSkillSlot::Normal }, &skillEffects };
+    BattleEffectSources defenderSources;
+    defenderSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &input.defenderCombo };
+
+    auto random = fixedBattleRandom();
+    auto result = BattleHitResolver().resolve(input, attackerSources, defenderSources, random);
+
+    const auto* command = firstAcceptedHitCommand(result);
+    REQUIRE(command);
+    CHECK(command->damage.cooldownExtendPct == 35);
+}
+
+TEST_CASE("BattleHitResolver_BleedUsesSelectedEffectPairAcrossSources", "[battle][hit_resolver][magic]")
+{
+    auto input = comboHitInput();
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 50;
+    input.attackEvent.skillEffectRef = { 1, BattleSkillSlot::Normal };
+    input.attackerCombo.applyConfiguredEffect({ KysChess::EffectType::BleedChance, 40, 1 });
+
+    KysChess::BattleEffectState skillEffects;
+    skillEffects.applyConfiguredEffect({ KysChess::EffectType::BleedChance, 60, 4 });
+
+    BattleEffectSources attackerSources;
+    attackerSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &input.attackerCombo };
+    attackerSources.skill = { { BattleEffectSourceKind::Skill, BattleSkillSlot::Normal }, &skillEffects };
+    BattleEffectSources defenderSources;
+    defenderSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &input.defenderCombo };
+
+    auto random = fixedBattleRandom();
+    auto result = BattleHitResolver().resolve(input, attackerSources, defenderSources, random);
+
+    const auto* command = firstAcceptedHitCommand(result);
+    REQUIRE(command);
+    CHECK(command->damage.bleedStacks == 1);
+    CHECK(command->damage.bleedMaxStacks == 4);
+}
+
 TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resolver][unit]")
 {
     auto input = comboHitInput();
@@ -460,6 +540,37 @@ TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resol
     REQUIRE_FALSE(result.logEvents.empty());
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
     CHECK(BattleLogTest::textOf(result.logEvents[0]) == "中毒（12%·60幀）");
+}
+
+TEST_CASE("BattleHitResolver_TriggeredSelectedSkillPoisonEmitsAcceptedHitCommand", "[battle][hit_resolver][magic]")
+{
+    auto input = comboHitInput();
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 50;
+    input.attackEvent.skillEffectRef = { 1, BattleSkillSlot::Ultimate };
+
+    auto poison = triggeredEffect(KysChess::EffectType::PoisonDOT, KysChess::Trigger::OnHit, 8, 100);
+    poison.value2 = 3;
+    KysChess::BattleEffectState skillEffects;
+    const auto poisonId = skillEffects.applyConfiguredEffect(poison);
+
+    BattleEffectSources attackerSources;
+    attackerSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &input.attackerCombo };
+    attackerSources.skill = { { BattleEffectSourceKind::Skill, BattleSkillSlot::Ultimate }, &skillEffects };
+    BattleEffectSources defenderSources;
+    defenderSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &input.defenderCombo };
+
+    auto random = fixedBattleRandom();
+    auto result = BattleHitResolver().resolve(input, attackerSources, defenderSources, random);
+
+    const auto* command = firstAcceptedHitCommand(result);
+    REQUIRE(command);
+    CHECK(command->damage.poisonPct == 8);
+    CHECK(command->damage.poisonDurationFrames == 90);
+    CHECK(skillEffects.triggeredEffectActivationCount(poisonId) == 1);
+    REQUIRE_FALSE(result.logEvents.empty());
+    CHECK(result.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(BattleLogTest::textOf(result.logEvents[0]) == "中毒（8%·90幀）");
 }
 
 TEST_CASE("BattleHitResolver_PoisonStacksUseMaximumConfiguredDuration", "[battle][hit_resolver][unit]")

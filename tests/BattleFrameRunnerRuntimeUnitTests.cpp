@@ -781,6 +781,46 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToRuntimeU
     CHECK(BattleLogTest::textOf(*healLog) == "技能群療");
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesUltimateSourceWhenCommittedCastFinishes", "[battle][frame_runner][runtime][magic]")
+{
+    auto state = runtimeFrameState();
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 50),
+        teamRuntimeUnit(1, 0, 80),
+        teamRuntimeUnit(2, 1, 100),
+    });
+
+    KysChess::RoleComboState combo;
+    combo.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
+    combo.applyConfiguredEffect({
+        KysChess::EffectType::OnSkillTeamHeal,
+        15,
+        0,
+        "",
+        KysChess::Trigger::OnUltimate,
+        100,
+    });
+    state.units.require(0).combo = combo;
+
+    configureFinishingSkillRuntime(state.units.requireCore(0));
+    state.units.require(0).markUltimateCaster();
+    state.units.require(0).clearUltimateCaster();
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).vitals.hp == 65);
+    CHECK(state.units.requireCore(1).vitals.hp == 95);
+    CHECK_FALSE(state.units.require(0).combo.typePending(KysChess::EffectType::OnSkillTeamHeal));
+    CHECK(std::count_if(
+        result.visualEvents.begin(),
+        result.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.effectId == HealEffectId;
+        }) == 2);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();

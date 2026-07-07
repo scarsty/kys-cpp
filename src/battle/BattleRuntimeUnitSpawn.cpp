@@ -119,9 +119,9 @@ void refreshRuntimeUnitSpawnDerivedState(BattleRuntimeUnitSpawn& spawn)
     spawn.status = makeInitialStatusRuntimeUnit(spawn.unit, spawn.combo);
     spawn.damage = makeInitialDamageRuntimeUnit(spawn.combo);
     spawn.movement = makeInitialMovementAgent(spawn.unit);
-    if (spawn.actionPlan)
+    if (spawn.actionPlanSeed)
     {
-        spawn.actionPlan->unitId = spawn.unit.id;
+        spawn.actionPlanSeed->unitId = spawn.unit.id;
     }
 }
 
@@ -133,7 +133,7 @@ BattleRuntimeUnitSpawn makeRuntimeUnitSpawn(
     BattleRuntimeUnitSpawn spawn;
     spawn.unit = std::move(unit);
     spawn.combo = std::move(combo);
-    spawn.actionPlan = std::move(actionPlan);
+    spawn.actionPlanSeed = std::move(actionPlan);
     refreshRuntimeUnitSpawnDerivedState(spawn);
     return spawn;
 }
@@ -143,6 +143,7 @@ BattleRuntimeUnitRecord BattleRuntimeUnitSpawn::makeRecord() &&
     BattleRuntimeUnitRecord record;
     record.core = std::move(unit);
     record.combo = std::move(combo);
+    record.skillEffects = std::move(skillEffects);
     record.status = std::move(status);
     record.damage = std::move(damage);
     record.movement = std::move(movement);
@@ -151,9 +152,9 @@ BattleRuntimeUnitRecord BattleRuntimeUnitSpawn::makeRecord() &&
         sumAlwaysEffectCharges(record.combo, EffectType::ForcePullProtect),
         sumAlwaysEffectCharges(record.combo, EffectType::ForcePullExecute),
     };
-    if (actionPlan)
+    if (actionPlanSeed)
     {
-        record.setActionPlan(std::move(*actionPlan));
+        record.setActionPlan(std::move(*actionPlanSeed));
     }
     return record;
 }
@@ -162,9 +163,9 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
 {
     const int unitId = spawn.unit.id;
     assert(unitId >= 0);
-    if (spawn.actionPlan)
+    if (spawn.actionPlanSeed)
     {
-        assert(spawn.actionPlan->unitId == unitId);
+        assert(spawn.actionPlanSeed->unitId == unitId);
     }
 
     auto record = std::move(spawn).makeRecord();

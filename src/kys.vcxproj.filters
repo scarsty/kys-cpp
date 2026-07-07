@@ -251,6 +251,7 @@
     <ClCompile Include="ChessShopRoll.cpp" />
     <ClCompile Include="ChessShopWeightDisplay.cpp" />
     <ClCompile Include="ChessInfoFlow.cpp" />
+    <ClCompile Include="ChessMagicEffectDisplay.cpp" />
     <ClCompile Include="ChessRewardFlow.cpp" />
     <ClCompile Include="ChessBattleFlow.cpp" />
     <ClCompile Include="ChessChallengeFlow.cpp" />
@@ -527,6 +528,7 @@
       <Filter>mlcc</Filter>
     </ClInclude>
     <ClInclude Include="ChessUIStatus.h" />
+    <ClInclude Include="ChessMagicEffectDisplay.h" />
     <ClInclude Include="ChessPool.h" />
     <ClInclude Include="ChessUiCommon.h" />
     <ClInclude Include="ChessMenuHelpers.h" />

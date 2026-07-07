@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../ChessBattleEffects.h"
 #include "BattleRuntimeUnitSpawn.h"
 
 #include <string>
@@ -106,6 +107,7 @@ struct BattleRuntimeSetupSeed
     std::vector<BattleSetupEquipmentDefinition> equipmentDefinitions;
     std::vector<BattleSetupEquipmentSynergyDefinition> equipmentSynergies;
     std::vector<BattleSetupNeigongDefinition> neigongDefinitions;
+    std::vector<ChessMagicEffectDefinition> magicEffectDefinitions;
     std::vector<int> obtainedNeigongMagicIds;
     std::vector<BattleInitializationCloneSource> cloneSources;
     std::vector<BattleInitializationCloneSpawnCell> cloneCells;

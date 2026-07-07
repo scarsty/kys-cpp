@@ -3,6 +3,7 @@
 #include "BattleSceneHades.h"
 #include "ChessCombo.h"
 #include "ChessEquipment.h"
+#include "ChessMagicEffectDisplay.h"
 #include "ChessManager.h"
 #include "ChessPool.h"
 #include "ChessScreenLayout.h"
@@ -27,6 +28,7 @@ constexpr int kMagicBottomReserve = 10;
 constexpr int kMagicValueMinOffset = 92;
 constexpr int kMagicValuePreferredOffset = 110;
 constexpr int kMagicValueMaxOffset = 130;
+constexpr int kMagicEffectInset = 10;
 constexpr int kComboRowGap = 2;
 constexpr int kEquipIconOffsetX = 46;
 constexpr int kEquipIconSize = 28;
@@ -173,6 +175,7 @@ void ChessUIStatus::draw()
     Color color_ability1 = { 255, 250, 205, 255 };
     Color color_red = { 255, 90, 60, 255 };
     Color color_magic = { 236, 200, 40, 255 };
+    Color color_magic_effect = { 150, 220, 255, 255 };
     Color color_purple = { 208, 152, 208, 255 };
     Color color_equip = { 210, 230, 220, 255 };
     Color color_inactive = { 180, 180, 180, 255 };
@@ -246,8 +249,13 @@ void ChessUIStatus::draw()
 
     font->draw("武學", layout.titleFontSize, layout.magic.x, layout.magic.y, color_name);
     auto magics = chess_.role->getLearnedMagics(chess_.star);
-    layout.finalizeMagicColumns(static_cast<int>(magics.size()));
-    for (int i = 0; i < magics.size(); i++)
+    auto magicRows = buildChessMagicEffectDisplayRows(
+        *chess_.role,
+        chess_.star,
+        magics,
+        chessMagicEffectDefinitionsForDisplay());
+    layout.finalizeMagicColumns(static_cast<int>(magicRows.size()));
+    for (int i = 0; i < static_cast<int>(magicRows.size()); i++)
     {
         int colIndex = i / layout.magicAvailableRows;
         int row = i % layout.magicAvailableRows;
@@ -255,14 +263,20 @@ void ChessUIStatus::draw()
         {
             break;
         }
-        auto magic = magics[i];
+        const auto& magicRow = magicRows[i];
         int colX = layout.magic.x + colIndex * (layout.magicColWidth + layout.gap);
         int rowY = layout.magicStartY + row * layout.lineHeight;
-        int skillAtk = chess_.role->getMagicPower(magic, chess_.star);
-        int opType = BattleSceneHades::getOperationType(magic->AttackAreaType);
+        if (magicRow.kind == ChessMagicEffectDisplayLineKind::Effect)
+        {
+            font->draw(magicRow.text, layout.smallFontSize, colX + kMagicEffectInset, rowY, color_magic_effect);
+            continue;
+        }
+
+        int skillAtk = chess_.role->getMagicPower(magicRow.magic, chess_.star);
+        int opType = BattleSceneHades::getOperationType(magicRow.magic->AttackAreaType);
         const char* opName = BattleSceneHades::getOperationTypeName(opType);
         int magicValueX = colX + std::min(kMagicValueMaxOffset, std::max(kMagicValueMinOffset, layout.magicColWidth - kMagicValuePreferredOffset));
-        font->draw(std::format("{}", magic->Name), layout.fontSize, colX, rowY, color_ability1);
+        font->draw(magicRow.text, layout.fontSize, colX, rowY, magicRow.ultimate ? color_magic : color_ability1);
         font->draw(std::format("{:4} {}", skillAtk, opName), layout.fontSize, magicValueX, rowY, color_white);
     }
 

@@ -248,22 +248,34 @@ void appendBattleFrameProfileLog(BattlePresentationFrame& frame, const BattleFra
 }
 
 BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
-    const KysChess::RoleComboState& state,
+    const BattleEffectSources& sources,
     int attackerUnitId,
     int rollPct,
     int defaultRange);
 int collectFrameExtraProjectileCount(
-    KysChess::RoleComboState& state,
+    const BattleEffectSources& sources,
     BattleRuntimeRandom& random,
     int unitId,
-    int baseCount);
+    int baseCount,
+    bool ultimate);
+int collectFramePostSkillInvincFrames(
+    const BattleEffectSources& sources,
+    BattleRuntimeRandom& random,
+    int unitId,
+    bool ultimate);
 bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId);
 double resolveFrameArmorPenetratedDefense(
-    const KysChess::RoleComboState& state,
+    const BattleEffectSources& sources,
     int attackerUnitId,
     int targetUnitId,
     double defense,
+    bool ultimate,
+    bool mainProjectile,
     BattleRuntimeRandom& random);
+BattleEffectSources makeBattleEffectSources(
+    BattleRuntimeState& state,
+    int unitId,
+    BattleSkillEffectRef skillRef);
 
 BattleVisualEvent roleEffectEvent(int targetUnitId, int effectId, int durationFrames)
 {
@@ -382,16 +394,17 @@ BattleTeamEffectCommandApplication applyBattleTeamHealCommand(
     BattleRuntimeState& state,
     const BattleTeamHealCommand& command);
 
-std::vector<BattleComboTriggerEvent> collectFrameCastScopedComboEvents(
-    KysChess::RoleComboState& combo,
+std::vector<BattleEffectTriggerEvent> collectFrameCastScopedComboEvents(
+    const BattleEffectSources& sources,
     BattleRuntimeRandom& random,
-    int unitId);
+    int unitId,
+    bool ultimate);
 
 struct BattleFrameCastScopedComboEffects
 {
     int unitId{};
     double projectileSpeed{};
-    std::vector<BattleComboTriggerEvent> events;
+    std::vector<BattleEffectTriggerEvent> events;
 };
 
 struct BattleFrameMpRestore
@@ -635,19 +648,15 @@ BattleHitSkillSnapshot makeHitSkillSnapshot(
     return skill;
 }
 
-int sharedBleedMaxStacks(const BattleRuntimeState& state, const BattleAttackEvent& event)
+int sharedBleedMaxStacks(BattleRuntimeState& state, const BattleAttackEvent& event)
 {
     if (event.scriptedBleedStacks <= 0)
     {
         return 1;
     }
-    const auto& combo = state.units.require(event.sourceUnitId).combo;
-    if (combo.sumAlways(EffectType::BleedChance) <= 0)
-    {
-        return 1;
-    }
-    const auto* bleed = combo.firstAlways(EffectType::BleedChance);
-    return std::max(1, bleed && bleed->value2 > 0 ? bleed->value2 : 5);
+    auto summary = resolveBattleBleedEffectSummary(
+        makeBattleEffectSources(state, event.sourceUnitId, event.skillEffectRef));
+    return summary.hasBleedChance ? summary.maxStacks : 1;
 }
 
 int resolveHitMagicBaseDamage(
@@ -657,12 +666,14 @@ int resolveHitMagicBaseDamage(
     const BattleRuntimeUnit& defender)
 {
     double defence = defender.stats.defence;
-    const auto& combo = state.units.require(attacker.id).combo;
+    auto attackerSources = makeBattleEffectSources(state, attacker.id, event.skillEffectRef);
     defence = resolveFrameArmorPenetratedDefense(
-        combo,
+        attackerSources,
         attacker.id,
         defender.id,
         defence,
+        event.ultimate,
+        event.mainProjectile,
         state.random);
 
     return BattleDamageSystem().resolveMagicBaseDamage({
@@ -1133,10 +1144,12 @@ BattleRuntimeUnitsAdvanceResult advanceRuntimeUnits(BattleRuntimeState& state)
             frameEvents.end());
         if (tick.skillFinished)
         {
+            const bool cooldownFromUltimate = unitRecord.isSkillCooldownUltimate();
             auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
                 combo,
-                { BattleComboTriggerHook::AfterSkillCast, unit.id, -1 },
+                { BattleComboTriggerHook::AfterSkillCast, unit.id, -1, cooldownFromUltimate, true },
                 state.random);
+            unitRecord.clearSkillCooldownSource();
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
                 result.skillFinishedTeamHeals.push_back({
@@ -1214,6 +1227,41 @@ BattleHitResolutionInput makeHitResolutionInput(
     return input;
 }
 
+BattleEffectSources makeBattleEffectSources(
+    BattleRuntimeState& state,
+    int unitId,
+    BattleSkillEffectRef skillRef = {})
+{
+    auto& record = state.units.require(unitId);
+    BattleEffectSources sources;
+    sources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &record.combo };
+    if (skillRef.slot != BattleSkillSlot::None)
+    {
+        assert(skillRef.unitId == unitId);
+        sources.skill = {
+            { BattleEffectSourceKind::Skill, skillRef.slot },
+            &record.skillEffects.slot(skillRef.slot).effects,
+        };
+    }
+    return sources;
+}
+
+BattleSkillEffectRef skillEffectRefForCast(int unitId, bool ultimate)
+{
+    return {
+        unitId,
+        ultimate ? BattleSkillSlot::Ultimate : BattleSkillSlot::Normal,
+    };
+}
+
+BattleEffectSources makeSelectedCastEffectSources(
+    BattleRuntimeState& state,
+    int unitId,
+    bool ultimate)
+{
+    return makeBattleEffectSources(state, unitId, skillEffectRefForCast(unitId, ultimate));
+}
+
 bool tryResolveDodgeHit(
     BattleRuntimeState& state,
     const BattleAttackEvent& event,
@@ -1255,9 +1303,9 @@ void resolveHitEvents(
         }
 
         auto input = makeHitResolutionInput(state, event);
-        auto& attackerCombo = state.units.require(event.sourceUnitId).combo;
-        auto& defenderCombo = state.units.require(event.unitId).combo;
-        auto result = BattleHitResolver().resolve(input, attackerCombo, defenderCombo, state.random);
+        auto attackerSources = makeBattleEffectSources(state, event.sourceUnitId, event.skillEffectRef);
+        auto defenderSources = makeBattleEffectSources(state, event.unitId);
+        auto result = BattleHitResolver().resolve(input, attackerSources, defenderSources, state.random);
         auto followUps = expandBattleProjectileFollowUpCommands(
             result.commands,
             state.projectileFollowUps,
@@ -1874,12 +1922,12 @@ void refreshRuntimeCastSkillBonuses(BattleRuntimeState& state, BattleCastInput& 
 {
     if (input.ultimateSkill.id >= 0 && input.unit.mp == input.unit.maxMp)
     {
-        auto& combo = state.units.require(input.unit.id).combo;
         input.ultimateSkill.extraProjectileCount = collectFrameExtraProjectileCount(
-            combo,
+            makeSelectedCastEffectSources(state, input.unit.id, true),
             state.random,
             input.unit.id,
-            std::max(0, combo.sumAlways(EffectType::UltimateExtraProjectiles)));
+            0,
+            true);
     }
 }
 
@@ -1908,7 +1956,6 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     input.unit.hasEquippedSkill = seed.hasEquippedSkill;
     input.unit.movementDashActive = movementDashActive;
     input.unit.frozen = unit.frozen();
-    input.unit.cooldownReductionPct = unit.sumAlways(EffectType::CDR);
     input.unit.dashAttackEnabled = unit.hasAlways(EffectType::DashAttack);
 
     input.unit.dashVelocity = unit.core.motion.facing;
@@ -1924,6 +1971,9 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     const auto& selectedSeed = useUltimate
         ? seed.ultimateSkill
         : seed.normalSkill;
+    input.unit.cooldownReductionPct = BattleEffectReader().sumAlways(
+        makeSelectedCastEffectSources(state, unit.id(), useUltimate),
+        EffectType::CDR);
     const auto selectedSkill = makeRuntimeCastSkillState(
         state,
         unit.core,
@@ -2275,10 +2325,11 @@ bool tryCommitAutoUltimate(
         cast);
     auto& combo = state.units.require(unitId).combo;
     auto actionResult = BattleActionCommitSystem().commit(actionInput, combo, state.units);
+    auto castSources = makeSelectedCastEffectSources(state, unitId, true);
     applyCastPostSkillInvincibility(
         state,
         unitId,
-        combo.maxAlways(EffectType::PostSkillInvincFrames),
+        collectFramePostSkillInvincFrames(castSources, state.random, unitId, true),
         logEvents);
     appendAttackSpawnRequests(attackSpawns, actionResult.attackSpawnRequests);
     logEvents.insert(
@@ -2292,7 +2343,7 @@ bool tryCommitAutoUltimate(
     BattleFrameCastScopedComboEffects castScopedEffects{
         unitId,
         committedCastProjectileSpeed(actionResult, state.projectileFollowUps.projectileSpeed),
-        collectFrameCastScopedComboEvents(combo, state.random, unitId),
+        collectFrameCastScopedComboEvents(castSources, state.random, unitId, true),
     };
     unit.operationCount = actionResult.operationCount;
     if (consumeMp)
@@ -2482,7 +2533,9 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
     input.unit.hasEquippedSkill = true;
     input.unit.movementDashActive = actionMovementDashActive(state, unit.id);
     auto& combo = state.units.require(unit.id).combo;
-    input.unit.cooldownReductionPct = combo.sumAlways(EffectType::CDR);
+    input.unit.cooldownReductionPct = BattleEffectReader().sumAlways(
+        makeSelectedCastEffectSources(state, unit.id, pending.ultimate),
+        EffectType::CDR);
     input.unit.dashAttackEnabled = combo.hasAlways(EffectType::DashAttack);
     input.unit.dashVelocity = unit.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)
@@ -2537,9 +2590,8 @@ BattleActionCommitInput makeCommittedCastActionInput(
         state.action.strengthenedMeleeOperationCountThreshold;
     populateActionCommitLiveInput(state, unit, castInput, selectedSkill, actionInput);
 
-    auto& combo = state.units.require(unit.id).combo;
     auto prime = collectFrameProjectileBouncePrime(
-        combo,
+        makeSelectedCastEffectSources(state, unit.id, cast.decision.ultimate),
         unit.id,
         state.random.nextInt(100),
         state.action.projectileBounceRange);
@@ -2569,12 +2621,12 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
     auto selectedSkill = pending.skill;
     if (pending.ultimate)
     {
-        auto& combo = state.units.require(unit.id).combo;
         selectedSkill.extraProjectileCount = collectFrameExtraProjectileCount(
-            combo,
+            makeSelectedCastEffectSources(state, unit.id, true),
             state.random,
             unit.id,
-            std::max(0, combo.sumAlways(EffectType::UltimateExtraProjectiles)));
+            0,
+            true);
     }
     castInput->normalSkill = selectedSkill;
     castInput->ultimateSkill = selectedSkill;
@@ -3082,7 +3134,8 @@ void appendFramePendingDamage(
     BattleDamageRequest request,
     std::optional<BattleDamagePresentationInput> presentation = std::nullopt,
     bool canTriggerExecute = false,
-    bool canTriggerDefenderBlock = false)
+    bool canTriggerDefenderBlock = false,
+    BattleSkillEffectRef skillEffectRef = {})
 {
     assert(request.defenderUnitId >= 0);
 
@@ -3100,6 +3153,7 @@ void appendFramePendingDamage(
     }
     intent.canTriggerExecute = canTriggerExecute;
     intent.canTriggerDefenderBlock = canTriggerDefenderBlock;
+    intent.skillEffectRef = skillEffectRef;
     pendingDamage.push_back(std::move(intent));
 }
 
@@ -3189,7 +3243,8 @@ bool tryAppendFrameDamageTransaction(
         std::move(request),
         makeFrameDamagePresentation(state, command),
         command.canTriggerExecute,
-        command.canTriggerDefenderBlock);
+        command.canTriggerDefenderBlock,
+        command.skillEffectRef);
     return true;
 }
 
@@ -4994,6 +5049,11 @@ void advanceActionFrameUnits(
                 actionState.cooldownMax = cast.animation.cooldownFrames;
                 const int castFrame = jitteredActionCastFrame(state, cast.decision.operationType);
                 unitRecord.setPendingCast(makePendingCastAction(castInput, cast, castFrame));
+                unitRecord.setSkillCooldownUltimate(cast.decision.ultimate);
+                if (cast.decision.ultimate)
+                {
+                    unitRecord.markUltimateCaster();
+                }
                 state.units.require(unit.id).movement.physics.movementDashSpreadFrames = 0;
             }
         }
@@ -5021,11 +5081,19 @@ void advanceActionFrameUnits(
                 }
                 if (actionInput.hasCast)
                 {
+                    auto castSources = makeSelectedCastEffectSources(
+                        state,
+                        unit.id,
+                        actionInput.cast.decision.ultimate);
                     schedulePostDashRetreat(state, unit.id, actionInput.cast);
                     applyCastPostSkillInvincibility(
                         state,
                         unit.id,
-                        combo.maxAlways(EffectType::PostSkillInvincFrames),
+                        collectFramePostSkillInvincFrames(
+                            castSources,
+                            state.random,
+                            unit.id,
+                            actionInput.cast.decision.ultimate),
                         logEvents);
                 }
                 if (actionInput.hasCast && actionInput.cast.decision.soundId >= 0)
@@ -5047,10 +5115,15 @@ void advanceActionFrameUnits(
                     actionResult.visualEvents.end());
                 if (actionInput.hasCast)
                 {
+                    auto castSources = makeSelectedCastEffectSources(
+                        state,
+                        unit.id,
+                        actionInput.cast.decision.ultimate);
                     auto events = collectFrameCastScopedComboEvents(
-                        combo,
+                        castSources,
                         state.random,
-                        unit.id);
+                        unit.id,
+                        actionInput.cast.decision.ultimate);
                     if (!events.empty())
                     {
                         frame.castScopedComboEffects.push_back({
@@ -5148,24 +5221,26 @@ void appendDamagePresentationDetail(BattleDamagePresentationInput& presentation,
 bool applyFrameExecuteReaction(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
+    const BattlePendingDamageIntent& intent,
     BattleDamageRequest& request,
     BattleDamagePresentationInput& presentation)
 {
     assert(request.attackerUnitId >= 0);
     assert(request.defenderUnitId >= 0);
 
-    auto& attackerCombo = state.units.require(request.attackerUnitId).combo;
+    auto attackerSources = makeBattleEffectSources(state, request.attackerUnitId, intent.skillEffectRef);
     const auto& defender = state.units.requireCore(request.defenderUnitId);
-    auto execute = BattleComboTriggerSystem().resolveExecuteCombo(
-        attackerCombo,
-        {
+    const BattleExecuteComboInput executeInput{
             request.attackerUnitId,
             request.defenderUnitId,
             defender.vitals.hp,
             defender.vitals.maxHp,
             request.baseDamage,
             true,
-        },
+    };
+    const auto execute = BattleComboTriggerSystem().resolveExecuteCombo(
+        attackerSources,
+        executeInput,
         state.random);
     if (!execute.executed)
     {
@@ -5240,7 +5315,7 @@ bool applyFramePendingHitReactions(
     BattleDamagePresentationInput& presentation)
 {
     const bool executed = intent.canTriggerExecute
-        && applyFrameExecuteReaction(state, frame, request, presentation);
+        && applyFrameExecuteReaction(state, frame, intent, request, presentation);
     if (!executed
         && intent.canTriggerDefenderBlock
         && applyFrameDefenderBlockCommands(state, frame, request))
@@ -5438,31 +5513,46 @@ BattleTeamEffectCommandApplication applyBattleTeamHealCommand(
 }
 
 BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
-    const KysChess::RoleComboState& state,
+    const BattleEffectSources& sources,
     int attackerUnitId,
     int rollPct,
     int defaultRange)
 {
     return BattleComboTriggerSystem().collectProjectileBouncePrime(
-        state,
-        {
-            attackerUnitId,
-            rollPct,
-            defaultRange,
-        });
+        sources,
+        { attackerUnitId, rollPct, defaultRange });
 }
 
 int collectFrameExtraProjectileCount(
-    KysChess::RoleComboState& state,
+    const BattleEffectSources& sources,
     BattleRuntimeRandom& random,
     int unitId,
-    int baseCount)
+    int baseCount,
+    bool ultimate)
 {
     return BattleComboTriggerSystem().collectExtraProjectileCount(
-        state,
-        { BattleComboTriggerHook::AfterSkillCast, unitId, -1 },
+        sources,
+        { BattleComboTriggerHook::AfterSkillCast, unitId, -1, ultimate, true },
         baseCount,
         random);
+}
+
+int collectFramePostSkillInvincFrames(
+    const BattleEffectSources& sources,
+    BattleRuntimeRandom& random,
+    int unitId,
+    bool ultimate)
+{
+    int frames = BattleEffectReader().maxAlways(sources, EffectType::PostSkillInvincFrames);
+    for (const auto& event : BattleEffectReader().collectTriggerEvents(
+             sources,
+             { BattleComboTriggerHook::AfterSkillCast, unitId, -1, ultimate, true },
+             { EffectType::PostSkillInvincFrames },
+             random))
+    {
+        frames = std::max(frames, event.effect.value);
+    }
+    return frames;
 }
 
 bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId)
@@ -5471,15 +5561,17 @@ bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUni
 }
 
 double resolveFrameArmorPenetratedDefense(
-    const KysChess::RoleComboState& state,
+    const BattleEffectSources& sources,
     int attackerUnitId,
     int targetUnitId,
     double defense,
+    bool ultimate,
+    bool mainProjectile,
     BattleRuntimeRandom& random)
 {
     return BattleComboTriggerSystem().resolveArmorPenetratedDefense(
-        state,
-        { attackerUnitId, targetUnitId, defense },
+        sources,
+        { attackerUnitId, targetUnitId, defense, ultimate, mainProjectile },
         random).defense;
 }
 
@@ -5519,9 +5611,20 @@ void applyCurrentHpBlastCastEffect(
     }
 }
 
+BattleSkillEffectRef skillEffectRefForTriggerEvent(const BattleEffectTriggerEvent& event)
+{
+    if (event.effectRef.store.kind != BattleEffectSourceKind::Skill)
+    {
+        return {};
+    }
+    assert(event.effectRef.store.slot != BattleSkillSlot::None);
+    return { event.sourceUnitId, event.effectRef.store.slot };
+}
+
 void applySpiralBleedCastEffect(
     BattleRuntimeState& state,
     int sourceUnitId,
+    BattleSkillEffectRef skillEffectRef,
     int bleedStacks,
     int projectileCount,
     double projectileSpeed,
@@ -5545,6 +5648,7 @@ void applySpiralBleedCastEffect(
         request.initial.position = sourcePosition;
         request.initial.totalFrame = 35;
         request.initial.scriptedBleedStacks = bleedStacks;
+        request.initial.skillEffectRef = skillEffectRef;
         request.initial.sharedHitGroupId = sharedHitGroupId;
         request.initial.ignoreProjectileCancel = true;
         request.initial.through = true;
@@ -5558,22 +5662,26 @@ void applySpiralBleedCastEffect(
     }
 }
 
-std::vector<BattleComboTriggerEvent> collectFrameCastScopedComboEvents(
-    KysChess::RoleComboState& combo,
+std::vector<BattleEffectTriggerEvent> collectFrameCastScopedComboEvents(
+    const BattleEffectSources& sources,
     BattleRuntimeRandom& random,
-    int unitId)
+    int unitId,
+    bool ultimate)
 {
     assert(unitId >= 0);
 
-    return BattleComboTriggerSystem().collectTriggerEvents(
-        combo,
-        { BattleComboTriggerHook::AfterSkillCast, unitId, -1 },
+    return BattleEffectReader().collectTriggerEvents(
+        sources,
+        { BattleComboTriggerHook::AfterSkillCast, unitId, -1, ultimate, true },
         {
             KysChess::EffectType::CurrentHPPctBlast,
             KysChess::EffectType::TeamMPRestore,
             KysChess::EffectType::EnemyMpDamageAll,
             KysChess::EffectType::FlatShield,
             KysChess::EffectType::SpiralBleedProjectile,
+            KysChess::EffectType::MPRestore,
+            KysChess::EffectType::ControlImmunityFrames,
+            KysChess::EffectType::LowestAllyHeal,
         },
         random);
 }
@@ -5640,6 +5748,7 @@ void applyFrameCastScopedComboEffects(
             applySpiralBleedCastEffect(
                 state,
                 effects.unitId,
+                skillEffectRefForTriggerEvent(event),
                 event.effect.value,
                 event.effect.value2 > 0 ? event.effect.value2 : 6,
                 effects.projectileSpeed,
@@ -5647,6 +5756,56 @@ void applyFrameCastScopedComboEffects(
                 logEvents,
                 visualEvents);
             break;
+        case KysChess::EffectType::MPRestore:
+        {
+            auto& unit = state.units.requireCore(effects.unitId);
+            const int before = unit.vitals.mp;
+            applyRuntimeUnitMpDelta(state, unit, event.effect.value);
+            if (unit.vitals.mp > before)
+            {
+                std::vector<BattleTeamEffectEvent> teamEvents = {
+                    { BattleTeamEffectEventType::MpRestore,
+                      effects.unitId,
+                      effects.unitId,
+                      unit.vitals.mp - before,
+                      before,
+                      unit.vitals.mp },
+                };
+                appendTeamEffectLogEvents(logEvents, teamEvents, "武功回內");
+                appendTeamEffectVisualEvents(visualEvents, teamEvents);
+            }
+            break;
+        }
+        case KysChess::EffectType::ControlImmunityFrames:
+        {
+            auto& record = state.units.require(effects.unitId);
+            const int before = record.status.effects.controlImmunityFrames;
+            record.status.effects.controlImmunityFrames = std::max(before, event.effect.value);
+            if (record.status.effects.controlImmunityFrames > before)
+            {
+                appendStatusEventLog(
+                    logEvents,
+                    effects.unitId,
+                    effects.unitId,
+                    std::format("僵直吸收{}幀", event.effect.value));
+                visualEvents.push_back(roleEffectEvent(
+                    effects.unitId,
+                    KysChess::EFT_BLOCK,
+                    CoreRoleStatusEffectFrames));
+            }
+            break;
+        }
+        case KysChess::EffectType::LowestAllyHeal:
+        {
+            auto teamEvents = teamEffects.applyLowestAllyHeal(
+                state.units,
+                effects.unitId,
+                event.effect.value,
+                event.effect.value2);
+            appendTeamEffectLogEvents(logEvents, teamEvents, "最低友方治療");
+            appendTeamEffectVisualEvents(visualEvents, teamEvents);
+            break;
+        }
         default:
             assert(false);
         }

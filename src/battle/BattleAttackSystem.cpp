@@ -156,6 +156,7 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& sta
     event.mainProjectile = state.mainProjectile;
     event.sharedHitGroupId = state.sharedHitGroupId;
     event.projectileCancelDamage = state.projectileCancelWeaken;
+    event.skillEffectRef = state.skillEffectRef;
     event.position = state.position;
     event.velocity = state.velocity;
     event.totalFrame = state.totalFrame;

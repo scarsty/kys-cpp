@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BattleComboTriggerSystem.h"
 #include "BattleDamageSystem.h"
 #include "BattlePresentation.h"
 
@@ -41,6 +42,7 @@ struct BattlePendingDamageIntent
     BattleDamagePresentationInput presentation;
     bool canTriggerExecute = false;
     bool canTriggerDefenderBlock = false;
+    BattleSkillEffectRef skillEffectRef;
 };
 
 }  // namespace KysChess::Battle

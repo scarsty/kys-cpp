@@ -150,6 +150,31 @@ public:
     int MagicPower[ROLE_MAGIC_COUNT] = {};     // direct power value per slot
     std::string Name, Nick;
 
+    static int normalizeMagicStar(int stars)
+    {
+        int maxStar = ROLE_MAGIC_COUNT / SLOTS_PER_STAR;
+        if (stars < 1)
+        {
+            return 1;
+        }
+        if (stars > maxStar)
+        {
+            return maxStar;
+        }
+        return stars;
+    }
+
+    static int getMagicSlotStart(int stars)
+    {
+        return (normalizeMagicStar(stars) - 1) * SLOTS_PER_STAR;
+    }
+
+    static int getMagicSlotEnd(int stars)
+    {
+        int end = getMagicSlotStart(stars) + SLOTS_PER_STAR;
+        return end > ROLE_MAGIC_COUNT ? ROLE_MAGIC_COUNT : end;
+    }
+
     // Helper: how many magic slots available at a given star level
     static int getAvailableMagicSlots(int stars) { return (stars * 2 < ROLE_MAGIC_COUNT) ? stars * 2 : ROLE_MAGIC_COUNT; }
 };
@@ -265,8 +290,8 @@ public:
     int getLearnedMagicCount();
     int getMagicLevelIndex(Magic* magic);       // deprecated compat: returns 0
     int getMagicLevelIndex(int magic_id);       // deprecated compat: returns 0
-    int getMagicPower(Magic* magic, int star = 0);   // star=0 means use this->Star
-    int getMagicPower(int magic_id, int star = 0);
+    int getMagicPower(Magic* magic, int star = 0) const;   // star=0 means use this->Star
+    int getMagicPower(int magic_id, int star = 0) const;
     int getMagicOfRoleIndex(Magic* magic);
     int getEquipMagicOfRoleIndex(Magic* magic);
 

@@ -2927,6 +2927,44 @@ TEST_CASE("BattleFrameRunner_CommitsCastScopedComboEffectsOnActionCommit", "[bat
         CHECK(BattleLogTest::hasSegment(*invincibilityLog, "幀", BattleLogTextTone::DurationValue));
 }
 
+TEST_CASE("BattleFrameRunner_CastScopedSkillSpiralBleedCarriesSkillEffectRef", "[battle][core][runtime][magic]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    auto& unit = state.units.requireCore(0);
+    unit.haveAction = true;
+    unit.animation.actFrame = 6;
+    unit.operationType = BattleOperationType::RangedProjectile;
+    unit.animation.actType = 1;
+    unit.animation.cooldown = 10;
+
+    auto spiral = triggeredEffect(KysChess::EffectType::SpiralBleedProjectile, KysChess::Trigger::OnCast, 2, 100);
+    spiral.value2 = 1;
+    state.units.require(0).skillEffects.normal.effects.applyConfiguredEffect(spiral);
+
+    configureRuntimeActionPlan(state, frameCastInput(0, 1));
+    state.units.require(0).setPendingCast(framePendingCastAction());
+
+    runBattleFrame(state);
+
+    const auto& attacks = state.attacks.attacks;
+    const auto spiralIt = std::find_if(
+        attacks.begin(),
+        attacks.end(),
+        [](const BattleAttackInstance& attack)
+        {
+            return attack.state.scriptedBleedStacks == 2;
+        });
+    REQUIRE(spiralIt != attacks.end());
+    CHECK(spiralIt->state.skillEffectRef.unitId == 0);
+    CHECK(spiralIt->state.skillEffectRef.slot == BattleSkillSlot::Normal);
+}
+
 TEST_CASE("BattleFrameRunner_EnemyMpDamageAllTriggersOnceOnActionCommit", "[battle][core][runtime]")
 {
     auto makeState = []()
@@ -5360,6 +5398,79 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
     CHECK(spawnEvent.position.x != 0.0f);
     CHECK(spawnEvent.velocity.x > 0.0f);
     CHECK(spawnEvent.operationKind == 2);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesSelectedSkillArmorPenForBaseDamage", "[battle][core][magic]")
+{
+    auto runDamage = [](bool withSkillArmorPen)
+    {
+        BattleRuntimeState state;
+        configureRuntimeMovement(state, worldWith({
+            unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+            unit(1, 1, { 105, 100, 0 }),
+        }));
+        state.attacks = attackWorld();
+        seedRuntimeUnitsFromWorld(state);
+        state.units.requireCore(0).stats.attack = 50;
+        state.units.requireCore(1).stats.defence = 80;
+        if (withSkillArmorPen)
+        {
+            state.units.require(0).skillEffects.normal.effects.applyConfiguredEffect(
+                triggeredEffect(KysChess::EffectType::ArmorPen, KysChess::Trigger::OnHit, 100, 100));
+        }
+
+        BattleAttackInstance projectile;
+        projectile.id = 10;
+        projectile.state.attackerUnitId = 0;
+        projectile.state.skillId = 101;
+        projectile.state.skillMagicPower = 840;
+        projectile.state.skillEffectRef = { 0, BattleSkillSlot::Normal };
+        projectile.state.totalFrame = 30;
+        projectile.state.operationType = BattleOperationType::RangedProjectile;
+        projectile.state.position = { 100, 100, 0 };
+        projectile.state.velocity = { 5, 0, 0 };
+        state.attacks.attacks.push_back(projectile);
+
+        auto result = runBattleFrame(state);
+        const auto damageAmounts = damageLogAmountsFor(result, 1);
+        REQUIRE(damageAmounts.size() == 1);
+        return damageAmounts[0];
+    };
+
+    CHECK(runDamage(true) > runDamage(false));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesSelectedSkillBleedCapForScriptedBleed", "[battle][core][magic]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 105, 100, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    state.units.require(0).skillEffects.normal.effects.applyConfiguredEffect(
+        { KysChess::EffectType::BleedChance, 100, 4 });
+
+    auto defenderStatus = statusUnitSnapshot(1, 100);
+    defenderStatus.effects.bleedStacks = 3;
+    defenderStatus.effects.bleedTimer = 5;
+    state.units.require(1).status = makeBattleStatusRuntimeUnit(defenderStatus);
+
+    BattleAttackInstance projectile;
+    projectile.id = 10;
+    projectile.state.attackerUnitId = 0;
+    projectile.state.scriptedBleedStacks = 2;
+    projectile.state.skillEffectRef = { 0, BattleSkillSlot::Normal };
+    projectile.state.totalFrame = 30;
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
+    state.attacks.attacks.push_back(projectile);
+
+    runBattleFrame(state);
+
+    CHECK(state.units.require(1).status.effects.bleedStacks == 4);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_LogsBounceChainTerminalReasons", "[battle][core]")

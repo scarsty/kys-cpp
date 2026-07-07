@@ -321,7 +321,7 @@ TEST_CASE("BattleComboTriggerSystem_PendingSkillTeamHeal_ConsumesPendingBaseHeal
     auto random = fixedBattleRandom();
     auto result = BattleComboTriggerSystem().collectPendingSkillTeamHeal(
         state,
-        { BattleComboTriggerHook::AfterSkillCast, 3, -1 },
+        { BattleComboTriggerHook::AfterSkillCast, 3, -1, true, true },
         random);
 
     CHECK(result.flatHeal == 16);
@@ -479,6 +479,73 @@ TEST_CASE("BattleComboTriggerSystem_TriggerEvents_EmitInEffectOrder", "[battle][
     CHECK(events[0].effect.type == EffectType::Stun);
     CHECK(events[1].effectId == 1);
     CHECK(events[1].effect.type == EffectType::MPBlock);
+}
+
+TEST_CASE("BattleEffectReader_CombinesComboAndSkillWithoutLosingSourceIdentity", "[battle][combo][magic]")
+{
+    RoleComboState combo;
+    BattleEffectState skill;
+    const auto comboId = combo.applyConfiguredEffect({ EffectType::MPOnHit, 5 });
+    const auto skillId = skill.applyConfiguredEffect({ EffectType::MPOnHit, 7 });
+    skill.applyConfiguredEffect(triggeredEffect(EffectType::Stun, Trigger::OnHit, 9, 100));
+
+    BattleEffectSources sources;
+    sources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &combo };
+    sources.skill = { { BattleEffectSourceKind::Skill, BattleSkillSlot::Normal }, &skill };
+
+    BattleEffectReader reader;
+    CHECK(reader.sumAlways(sources, EffectType::MPOnHit) == 12);
+    CHECK(reader.firstAlwaysRef(sources, EffectType::MPOnHit).store.kind == BattleEffectSourceKind::Combo);
+    CHECK(reader.firstAlwaysRef(sources, EffectType::MPOnHit).localId == comboId);
+
+    auto random = fixedBattleRandom();
+    auto events = reader.collectTriggerEvents(
+        sources,
+        { BattleComboTriggerHook::DamageDealt, 1, 2, false, true },
+        { EffectType::Stun },
+        random,
+        BattleComboActivationRecording::CallerRecords);
+
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].effectRef.store.kind == BattleEffectSourceKind::Skill);
+    CHECK(events[0].effectRef.store.slot == BattleSkillSlot::Normal);
+    CHECK(events[0].effectRef.localId == RoleComboEffectId{ 1 });
+    CHECK(skill.triggeredEffectActivationCount(RoleComboEffectId{ 1 }) == 0);
+
+    BattleEffectCommands().recordActivation(sources, events[0].effectRef);
+    CHECK(skill.triggeredEffectActivationCount(RoleComboEffectId{ 1 }) == 1);
+    CHECK(combo.triggeredEffectActivationCount(comboId) == 0);
+    CHECK(skill.effect(skillId).value == 7);
+}
+
+TEST_CASE("BattleComboTriggerSystem_TriggerInputFiltersUltimateAndSideProjectiles", "[battle][combo][magic]")
+{
+    RoleComboState state;
+    state.applyConfiguredEffect(triggeredEffect(EffectType::UltimateExtraProjectiles, Trigger::OnUltimate, 2, 100));
+    state.applyConfiguredEffect(triggeredEffect(EffectType::MPBlock, Trigger::OnHit, 12, 100));
+
+    auto normalRandom = fixedBattleRandom();
+    CHECK(BattleComboTriggerSystem().collectTriggerEvents(
+        state,
+        { BattleComboTriggerHook::AfterSkillCast, 1, -1, false, true },
+        { EffectType::UltimateExtraProjectiles },
+        normalRandom).empty());
+
+    auto ultimateRandom = fixedBattleRandom();
+    auto ultimate = BattleComboTriggerSystem().collectTriggerEvents(
+        state,
+        { BattleComboTriggerHook::AfterSkillCast, 1, -1, true, true },
+        { EffectType::UltimateExtraProjectiles },
+        ultimateRandom);
+    REQUIRE(ultimate.size() == 1);
+    CHECK(ultimate[0].effect.type == EffectType::UltimateExtraProjectiles);
+
+    auto sideRandom = fixedBattleRandom();
+    CHECK(BattleComboTriggerSystem().collectTriggerEvents(
+        state,
+        { BattleComboTriggerHook::DamageDealt, 1, 2, false, false },
+        { EffectType::MPBlock },
+        sideRandom).empty());
 }
 
 TEST_CASE("BattleComboTriggerSystem_TriggerEvents_SameSeedProducesSameEventStream", "[battle][combo][unit]")
@@ -900,7 +967,7 @@ TEST_CASE("BattleComboTriggerSystem_ExtraProjectileCount_AddsFlatAndTriggeredEff
     auto random = fixedBattleRandom();
     auto count = BattleComboTriggerSystem().collectExtraProjectileCount(
         state,
-        { BattleComboTriggerHook::AfterSkillCast, 4, -1 },
+        { BattleComboTriggerHook::AfterSkillCast, 4, -1, true, true },
         3,
         random);
 

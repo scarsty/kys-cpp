@@ -122,6 +122,7 @@ enum class EffectType
     MaxHitPctCurrentHP,
     FreeRefresh,
     BattleMapChoice,
+    LowestAllyHeal,
 };
 
 struct ComboEffect
@@ -273,7 +274,7 @@ struct RoleComboRuntimeState
     std::map<EffectType, RoleComboEffectTypeRuntimeState> byType;
 };
 
-class RoleComboState
+class BattleEffectState
 {
 public:
     RoleComboEffectId applyConfiguredEffect(const ComboEffect& effect, int sourceComboId = -1);
@@ -337,11 +338,26 @@ private:
     RoleComboEffectId appendEffect(const ComboEffect& effect, RoleComboEffectOrigin origin, int sourceComboId);
 };
 
+class RoleComboState : public BattleEffectState
+{
+};
+
+struct ChessMagicEffectDefinition
+{
+    int magicId = -1;
+    std::string name;
+    std::vector<ComboEffect> effects;
+    std::string purpose;
+};
+
 class ChessBattleEffects
 {
 public:
     static const std::map<std::string, EffectType>& getEffectTypeMap();
     static bool parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context);
+    static bool parseMagicEffects(const YAML::Node& root, std::vector<ChessMagicEffectDefinition>& out, const std::string& context);
+    static bool loadMagicEffectsFile(const std::string& path, std::vector<ChessMagicEffectDefinition>& out);
+    static bool loadDefaultMagicEffectsFile(std::vector<ChessMagicEffectDefinition>& out);
     static RoleComboState makeSummonedCloneState(const RoleComboState& sourceState);
     static void mergeEffects(std::map<int, RoleComboState>& states,
                              const std::vector<ComboEffect>& effects,

@@ -6,38 +6,6 @@
 #include "strfunc.h"
 #include <climits>
 
-namespace
-{
-int normalizeMagicStar(int star)
-{
-    int max_star = ROLE_MAGIC_COUNT / SLOTS_PER_STAR;
-    if (star < 1)
-    {
-        return 1;
-    }
-    if (star > max_star)
-    {
-        return max_star;
-    }
-    return star;
-}
-
-int getMagicSlotStart(int star)
-{
-    return (normalizeMagicStar(star) - 1) * SLOTS_PER_STAR;
-}
-
-int getMagicSlotEnd(int star)
-{
-    int end = getMagicSlotStart(star) + SLOTS_PER_STAR;
-    if (end > ROLE_MAGIC_COUNT)
-    {
-        end = ROLE_MAGIC_COUNT;
-    }
-    return end;
-}
-}    // namespace
-
 //设置人物坐标，若输入值为负，相当于从人物层清除
 void Role::setPosition(int x, int y)
 {
@@ -98,17 +66,17 @@ int Role::getMagicLevelIndex(int magic_id)
 }
 
 //新接口：获取角色对某武学的威力值（受Star限制）
-int Role::getMagicPower(Magic* magic, int star)
+int Role::getMagicPower(Magic* magic, int star) const
 {
     if (!magic) return 0;
     return getMagicPower(magic->ID, star);
 }
 
-int Role::getMagicPower(int magic_id, int star)
+int Role::getMagicPower(int magic_id, int star) const
 {
     int effective_star = (star > 0) ? star : Star;
-    int start = getMagicSlotStart(effective_star);
-    int end = getMagicSlotEnd(effective_star);
+    int start = RoleSave::getMagicSlotStart(effective_star);
+    int end = RoleSave::getMagicSlotEnd(effective_star);
     for (int i = start; i < end; i++)
     {
         if (MagicID[i] == magic_id)
@@ -159,8 +127,8 @@ std::vector<Magic*> Role::getLearnedMagics(int star)
 {
     std::vector<Magic*> v;
     int effective_star = (star > 0) ? star : Star;
-    int start = getMagicSlotStart(effective_star);
-    int end = getMagicSlotEnd(effective_star);
+    int start = RoleSave::getMagicSlotStart(effective_star);
+    int end = RoleSave::getMagicSlotEnd(effective_star);
     for (int i = start; i < end; i++)
     {
         auto m = Save::getInstance()->getMagic(MagicID[i]);

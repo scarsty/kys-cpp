@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Point.h"
+#include "BattleComboTriggerSystem.h"
 #include "BattleOperation.h"
 
 #include <string>
@@ -65,6 +66,7 @@ struct BattleAttackPayload
     int scriptedBleedStacks = 0;
     int projectileCancelDamage = 0;
     int projectileCancelWeaken = 0;
+    BattleSkillEffectRef skillEffectRef;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     float strengthMultiplier = 1.0f;
     bool suppressNearbyTrackingProjectileProc = false;
@@ -160,6 +162,7 @@ struct BattleAttackEvent
     int sharedHitGroupId = 0;
     int projectileCancelDamage = 0;
     int otherProjectileCancelDamage = 0;
+    BattleSkillEffectRef skillEffectRef;
     Pointf position;
     Pointf velocity;
     int frame = 0;

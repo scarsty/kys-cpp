@@ -60,6 +60,7 @@ struct BattleHpDamageCommand
     std::string skillName;
     std::vector<BattleLogTextSegment> segments;
     bool triggersDefenseEffects = true;
+    BattleSkillEffectRef skillEffectRef;
 };
 
 struct BattleMpDamageCommand
@@ -202,6 +203,15 @@ struct BattleProjectileFollowUpExpansion
     std::vector<BattleVisualEvent> visualEvents;
 };
 
+struct BattleBleedEffectSummary
+{
+    int chancePct{};
+    int maxStacks = 1;
+    bool hasBleedChance{};
+};
+
+BattleBleedEffectSummary resolveBattleBleedEffectSummary(const BattleEffectSources& sources);
+
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     const std::vector<BattleGameplayCommand>& commands,
     BattleProjectileFollowUpContext& context,
@@ -219,6 +229,12 @@ public:
         const BattleHitResolutionInput& input,
         RoleComboState& attackerCombo,
         RoleComboState& defenderCombo,
+        BattleRuntimeRandom& random) const;
+
+    BattleHitResolutionResult resolve(
+        const BattleHitResolutionInput& input,
+        BattleEffectSources attackerSources,
+        BattleEffectSources defenderSources,
         BattleRuntimeRandom& random) const;
 };
 

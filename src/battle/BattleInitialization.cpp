@@ -330,6 +330,54 @@ void applyObtainedNeigongEffects(
     }
 }
 
+BattleUnitSkillEffectState makeSkillEffectState(
+    int magicId,
+    const BattleRuntimeSetupSeed& setup)
+{
+    BattleUnitSkillEffectState state;
+    if (magicId < 0)
+    {
+        return state;
+    }
+
+    state.magicId = magicId;
+    const auto* definition = tryFindBy(
+        setup.magicEffectDefinitions,
+        magicId,
+        &ChessMagicEffectDefinition::magicId);
+    if (!definition)
+    {
+        return state;
+    }
+
+    for (const auto& effect : definition->effects)
+    {
+        state.effects.applyConfiguredEffect(effect);
+    }
+    return state;
+}
+
+BattleUnitMagicEffectRuntime makeSkillEffectsFromActionPlan(
+    const BattleActionPlanSeed* actionPlan,
+    const BattleRuntimeSetupSeed& setup)
+{
+    BattleUnitMagicEffectRuntime runtime;
+    if (!actionPlan)
+    {
+        return runtime;
+    }
+
+    runtime.ultimate = makeSkillEffectState(actionPlan->ultimateSkill.id, setup);
+    return runtime;
+}
+
+void rebuildSpawnSkillEffects(
+    BattleRuntimeUnitSpawn& spawn,
+    const BattleRuntimeSetupSeed& setup)
+{
+    spawn.skillEffects = makeSkillEffectsFromActionPlan(spawn.actionPlan(), setup);
+}
+
 Pointf positionForCloneCell(const BattleGridTransform& gridTransform, int x, int y)
 {
     return {
@@ -518,6 +566,7 @@ public:
     BattleInitializationOutput run() &&;
 
 private:
+    void initializeSkillEffectStates();
     void initializeSeededUnits();
     void applyTeamFlatShields();
     void summonClones();
@@ -575,6 +624,7 @@ BattleStartInitializationRun::BattleStartInitializationRun(
 
 BattleInitializationOutput BattleStartInitializationRun::run() &&
 {
+    initializeSkillEffectStates();
     initializeSeededUnits();
     applyTeamFlatShields();
     summonClones();
@@ -594,6 +644,14 @@ void BattleStartInitializationRun::appendSpawn(BattleRuntimeUnitSpawn spawn)
     assert(!spawnIndexByUnitId_.contains(unitId));
     spawnIndexByUnitId_.emplace(unitId, spawns_.size());
     spawns_.push_back(std::move(spawn));
+}
+
+void BattleStartInitializationRun::initializeSkillEffectStates()
+{
+    for (auto& spawn : spawns_)
+    {
+        rebuildSpawnSkillEffects(spawn, setup_);
+    }
 }
 
 const TeamResolvedSetup& BattleStartInitializationRun::resolvedForTeam(int team) const
@@ -885,14 +943,15 @@ void BattleStartInitializationRun::summonClones()
                 cell);
 
             std::optional<BattleActionPlanSeed> cloneActionPlan;
-            if (sourceSpawn.actionPlan)
+            if (const auto* sourcePlan = sourceSpawn.actionPlan())
             {
-                cloneActionPlan = sourceSpawn.actionPlan;
+                cloneActionPlan = *sourcePlan;
             }
             auto cloneSpawn = makeRuntimeUnitSpawn(
                 std::move(cloneUnit),
                 std::move(cloneCombo),
                 std::move(cloneActionPlan));
+            rebuildSpawnSkillEffects(cloneSpawn, setup_);
 
             result_.roleDeltas.push_back(makeRoleDelta(
                 nextRuntimeUnitId,

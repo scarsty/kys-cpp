@@ -171,3 +171,27 @@ TEST_CASE("BattleTeamEffectSystem_SelfHeal_EmitsOnlyWhenHpChanges", "[battle][te
     auto full = BattleTeamEffectSystem().applySelfHeal(units, 0, 10);
     CHECK(full.empty());
 }
+
+TEST_CASE("BattleTeamEffectSystem_LowestAllyHealSelectsLowestHpPctThenUnitId", "[battle][team_effect][magic]")
+{
+    auto units = KysChess::Battle::Test::runtimeRecords({
+        unit(0, 0, 40, 0),
+        unit(1, 0, 20, 0),
+        unit(2, 0, 10, 0),
+        unit(3, 1, 1, 0),
+    });
+    units.requireCore(0).vitals.hp = 50;
+    units.requireCore(0).vitals.maxHp = 200;
+    units.requireCore(1).vitals.maxHp = 100;
+    units.requireCore(2).vitals.maxHp = 50;
+
+    auto events = BattleTeamEffectSystem().applyLowestAllyHeal(units, 0, 15, 10);
+
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].type == BattleTeamEffectEventType::Heal);
+    CHECK(events[0].sourceUnitId == 0);
+    CHECK(events[0].targetUnitId == 1);
+    CHECK(events[0].value == 25);
+    CHECK(unitById(units, 1).vitals.hp == 45);
+    CHECK(unitById(units, 2).vitals.hp == 10);
+}

@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cmath>
 #include <format>
+#include <utility>
 
 namespace KysChess::Battle
 {
@@ -162,6 +163,7 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     request.initial.scriptedDamage = command.prototype.scriptedDamage;
     request.initial.scriptedStunFrames = command.prototype.scriptedStunFrames;
     request.initial.scriptedBleedStacks = command.prototype.scriptedBleedStacks;
+    request.initial.skillEffectRef = command.prototype.skillEffectRef;
     request.initial.sharedHitGroupId = command.prototype.sharedHitGroupId;
     request.initial.strengthMultiplier = command.prototype.strengthMultiplier
         * static_cast<float>(std::max(1, command.damagePct) / 100.0);
@@ -272,6 +274,173 @@ std::string projectileSourceLabel(const BattleAttackEvent& event)
     return "";
 }
 
+bool passesPercentChance(BattleRuntimeRandom& random, int chancePct)
+{
+    if (chancePct <= 0)
+    {
+        return false;
+    }
+    if (chancePct >= 100)
+    {
+        return true;
+    }
+    return random.chance(chancePct);
+}
+
+BattleDamageModifierState makeDamageModifierState(const BattleEffectSources& sources)
+{
+    BattleDamageModifierState modifier;
+    BattleEffectReader reader;
+    modifier.flatDamageIncrease = reader.sumAlways(sources, EffectType::FlatDmgIncrease);
+    modifier.skillDamagePct = reader.sumAlways(sources, EffectType::SkillDmgPct);
+    modifier.poisonDamageAmpPct = reader.sumAlways(sources, EffectType::PoisonDmgAmp);
+    modifier.flatDamageReduction = reader.sumAlways(sources, EffectType::FlatDmgReduction);
+    modifier.damageReductionPct = reader.sumAlways(sources, EffectType::DmgReductionPct);
+    modifier.maxHitPctMaxHp = reader.maxAlways(sources, EffectType::MaxHitPctCurrentHP);
+    return modifier;
+}
+
+BattleComboTriggerInput damageDealtTriggerInput(const BattleHitResolutionInput& input)
+{
+    return {
+        BattleComboTriggerHook::DamageDealt,
+        input.attacker.id,
+        input.defender.id,
+        input.attackEvent.ultimate,
+        input.attackEvent.mainProjectile,
+    };
+}
+
+int resolveOffensiveCooldownExtendPct(
+    const BattleEffectSources& attackerSources,
+    const BattleComboTriggerInput& input,
+    BattleRuntimeRandom& random)
+{
+    const BattleEffectState* selectedState = nullptr;
+    int selectedChancePct = 0;
+    for (const auto& source : orderedBattleEffectSources(attackerSources))
+    {
+        if (!source.state)
+        {
+            continue;
+        }
+        const int chancePct = source.state->maxAlways(EffectType::OffensiveCharm);
+        if (chancePct > selectedChancePct)
+        {
+            selectedChancePct = chancePct;
+            selectedState = source.state;
+        }
+    }
+    if (selectedState && selectedChancePct > 0 && passesPercentChance(random, selectedChancePct))
+    {
+        const auto* charm = selectedState->firstAlways(EffectType::CharmCDRDebuff);
+        if (charm && charm->value2 > 0)
+        {
+            return charm->value2;
+        }
+    }
+
+    for (const auto& event : BattleEffectReader().matchingTriggerEvents(
+             attackerSources,
+             input,
+             { EffectType::OffensiveCharm }))
+    {
+        auto source = battleEffectSourceForStore(attackerSources, event.effectRef.store);
+        assert(source.state != nullptr);
+        if (!source.state->canActivateTriggeredEffect(event.effectRef.localId))
+        {
+            continue;
+        }
+        if (!passesPercentChance(random, event.effect.triggerValue)
+            || !passesPercentChance(random, event.effect.value))
+        {
+            continue;
+        }
+
+        int cooldownExtendPct = 0;
+        for (RoleComboEffectId id : source.state->effectIds(event.effect.trigger, EffectType::CharmCDRDebuff))
+        {
+            const auto& debuff = source.state->effect(id);
+            if (debuff.value == event.effect.value
+                && debuff.triggerValue == event.effect.triggerValue
+                && debuff.value2 > 0)
+            {
+                cooldownExtendPct = debuff.value2;
+                break;
+            }
+        }
+        if (cooldownExtendPct <= 0)
+        {
+            continue;
+        }
+
+        BattleEffectCommands().recordActivation(attackerSources, event.effectRef);
+        return cooldownExtendPct;
+    }
+
+    return 0;
+}
+
+bool hasExecuteEffect(
+    const BattleEffectSources& attackerSources,
+    const BattleComboTriggerInput& input)
+{
+    for (const auto& source : orderedBattleEffectSources(attackerSources))
+    {
+        if (!source.state)
+        {
+            continue;
+        }
+        for (RoleComboEffectId id : source.state->effectIds(Trigger::OnHit, EffectType::Execute))
+        {
+            if (!input.mainProjectile)
+            {
+                continue;
+            }
+            const auto& effect = source.state->effect(id);
+            if (effect.triggerValue > 0 && effect.value > 0)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+struct BattlePoisonEffectSummary
+{
+    int pct{};
+    int durationFrames{};
+};
+
+BattlePoisonEffectSummary resolvePoisonEffectSummary(
+    const BattleEffectSources& sources,
+    const BattleComboTriggerInput& input,
+    BattleRuntimeRandom& random)
+{
+    BattlePoisonEffectSummary result;
+    BattleEffectReader reader;
+    result.pct = reader.sumAlways(sources, EffectType::PoisonDOT);
+    result.durationFrames = reader.maxAlwaysValue2(sources, EffectType::PoisonDOT) * 30;
+
+    for (const auto& event : reader.collectTriggerEvents(
+             sources,
+             input,
+             { EffectType::PoisonDOT },
+             random,
+             BattleComboActivationRecording::CallerRecords))
+    {
+        if (event.effect.value <= 0)
+        {
+            continue;
+        }
+        result.pct += event.effect.value;
+        result.durationFrames = std::max(result.durationFrames, event.effect.value2 * 30);
+        BattleEffectCommands().recordActivation(sources, event.effectRef);
+    }
+    return result;
+}
+
 Pointf knockbackDirection(const BattleHitUnitSnapshot& attacker, const BattleHitUnitSnapshot& defender)
 {
     auto direction = defender.motion.position - attacker.motion.position;
@@ -288,6 +457,35 @@ Pointf knockbackDirection(const BattleHitUnitSnapshot& attacker, const BattleHit
 }
 
 }  // namespace
+
+BattleBleedEffectSummary resolveBattleBleedEffectSummary(const BattleEffectSources& sources)
+{
+    BattleBleedEffectSummary result;
+    int maxStacks = 0;
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (!source.state)
+        {
+            continue;
+        }
+        for (RoleComboEffectId id : source.state->effectIds(Trigger::Always, EffectType::BleedChance))
+        {
+            const auto& effect = source.state->effect(id);
+            if (effect.value <= 0)
+            {
+                continue;
+            }
+            result.hasBleedChance = true;
+            result.chancePct += effect.value;
+            maxStacks = std::max(maxStacks, effect.value2 > 0 ? effect.value2 : 5);
+        }
+    }
+    if (result.hasBleedChance)
+    {
+        result.maxStacks = std::max(1, maxStacks);
+    }
+    return result;
+}
 
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     const std::vector<BattleGameplayCommand>& commands,
@@ -372,6 +570,19 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     RoleComboState& defenderCombo,
     BattleRuntimeRandom& random) const
 {
+    BattleEffectSources attackerSources;
+    attackerSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &attackerCombo };
+    BattleEffectSources defenderSources;
+    defenderSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &defenderCombo };
+    return resolve(input, attackerSources, defenderSources, random);
+}
+
+BattleHitResolutionResult BattleHitResolver::resolve(
+    const BattleHitResolutionInput& input,
+    BattleEffectSources attackerSources,
+    BattleEffectSources defenderSources,
+    BattleRuntimeRandom& random) const
+{
     assert(input.defender.id >= 0);
     const bool scriptedInput = input.attackEvent.scriptedDamage > 0
         || input.attackEvent.scriptedStunFrames > 0
@@ -386,6 +597,13 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     {
         return result;
     }
+
+    assert(attackerSources.combo.state != nullptr);
+    assert(defenderSources.combo.state != nullptr);
+    auto& attackerCombo = *static_cast<RoleComboState*>(attackerSources.combo.state);
+    auto& defenderCombo = *static_cast<RoleComboState*>(defenderSources.combo.state);
+    BattleEffectReader effectReader;
+    BattleEffectCommands effectCommands;
 
     const bool scriptedImpact = scriptedInput;
     if (scriptedImpact)
@@ -472,7 +690,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         1,
     });
 
-    const int mpRatioDmgBoostPct = attackerCombo.sumAlways(EffectType::MPRatioDmgBoost);
+    const int mpRatioDmgBoostPct = effectReader.sumAlways(attackerSources, EffectType::MPRatioDmgBoost);
     if (usingSkill && input.attacker.vitals.maxMp > 0 && mpRatioDmgBoostPct > 0)
     {
         const double mpRatio = static_cast<double>(input.attacker.vitals.mp) / input.attacker.vitals.maxMp;
@@ -493,7 +711,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         result.shapedHpDamage,
         usingSkill,
         true,
-        makeBattleDamageModifierState(&attackerCombo),
+        makeDamageModifierState(attackerSources),
         {},
         makeDamageUnit(input.defender, nullptr, &input.defenderStatusEffects),
     }).damage;
@@ -521,9 +739,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
     }
 
-    const int mpOnHit = attackerCombo.sumAlways(EffectType::MPOnHit);
-    const int hpOnHit = attackerCombo.sumAlways(EffectType::HPOnHit);
-    const int mpDrain = attackerCombo.sumAlways(EffectType::MPDrain);
+    const int mpOnHit = effectReader.sumAlways(attackerSources, EffectType::MPOnHit);
+    const int hpOnHit = effectReader.sumAlways(attackerSources, EffectType::HPOnHit);
+    const int mpDrain = effectReader.sumAlways(attackerSources, EffectType::MPDrain);
     if (mpOnHit > 0 || hpOnHit > 0 || mpDrain > 0)
     {
         BattleDamageRequest request;
@@ -534,18 +752,20 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     }
 
-    const int poisonPct = attackerCombo.sumAlways(EffectType::PoisonDOT);
-    const int poisonDuration = attackerCombo.maxAlwaysValue2(EffectType::PoisonDOT) * 30;
-    if (poisonPct > 0)
+    const auto poison = resolvePoisonEffectSummary(
+        attackerSources,
+        damageDealtTriggerInput(input),
+        random);
+    if (poison.pct > 0)
     {
         BattleDamageRequest request;
-        request.poisonPct = poisonPct;
-        request.poisonDurationFrames = poisonDuration;
+        request.poisonPct = poison.pct;
+        request.poisonDurationFrames = poison.durationFrames;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
         result.logEvents.push_back(statusEvent(
             input.attacker.id,
             input.defender.id,
-            formatStatusPercentFrames("中毒", poisonPct, poisonDuration)));
+            formatStatusPercentFrames("中毒", poison.pct, poison.durationFrames)));
     }
 
     const bool offensiveControlEffectsAllowed = input.attackEvent.mainProjectile;
@@ -575,9 +795,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     if (offensiveControlEffectsAllowed)
     {
-        auto hitStunEvents = BattleComboTriggerSystem().collectTriggerEvents(
-            attackerCombo,
-            { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
+        auto hitStunEvents = effectReader.collectTriggerEvents(
+            attackerSources,
+            damageDealtTriggerInput(input),
             { EffectType::Stun },
             random,
             BattleComboActivationRecording::CallerRecords);
@@ -590,9 +810,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 input.attacker.id,
                 input.defender.id,
                 logStatusFrames("眩暈", event.effect.value)));
-            BattleComboTriggerSystem().recordActivation(
-                attackerCombo,
-                event.effectId);
+            effectCommands.recordActivation(attackerSources, event.effectRef);
         }
     }
 
@@ -622,14 +840,10 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
     }
 
-    const int offensiveCharmChancePct = attackerCombo.maxAlways(EffectType::OffensiveCharm);
-    const auto* offensiveCharm = attackerCombo.firstAlways(EffectType::CharmCDRDebuff);
-    const int offensiveCooldownExtendPct = offensiveCharmChancePct > 0
-        && offensiveCharm
-        && offensiveCharm->value2 > 0
-        && random.chance(offensiveCharmChancePct)
-        ? offensiveCharm->value2
-        : 0;
+    const int offensiveCooldownExtendPct = resolveOffensiveCooldownExtendPct(
+        attackerSources,
+        damageDealtTriggerInput(input),
+        random);
     if (offensiveCooldownExtendPct > 0)
     {
         BattleDamageRequest request;
@@ -692,7 +906,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     }
 
     BattleDamageModifierState lateAttackerModifier;
-    lateAttackerModifier.poisonDamageAmpPct = attackerCombo.sumAlways(EffectType::PoisonDmgAmp);
+    lateAttackerModifier.poisonDamageAmpPct = effectReader.sumAlways(attackerSources, EffectType::PoisonDmgAmp);
     BattleDamageModifierState lateDefenderModifier;
     lateDefenderModifier.poisonTimer = input.defenderStatusEffects.poisonTimer;
     lateDefenderModifier.maxHitPctMaxHp = defenderCombo.maxAlways(EffectType::MaxHitPctCurrentHP);
@@ -764,7 +978,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     const bool canTriggerExecute = !result.reflected
         && usingHpDamage
-        && BattleComboTriggerSystem().hasExecuteCombo(attackerCombo, input.attacker.id);
+        && hasExecuteEffect(attackerSources, damageDealtTriggerInput(input));
     const bool canTriggerDefenderBlock = !result.reflected;
 
     std::string damageDetail;
@@ -806,15 +1020,13 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     if (!result.reflected)
     {
         BattleBleedProc bleedProc;
-        const auto* bleed = attackerCombo.firstAlways(EffectType::BleedChance);
-        const int bleedChancePct = attackerCombo.sumAlways(EffectType::BleedChance);
+        const auto bleed = resolveBattleBleedEffectSummary(attackerSources);
         bleedProc.applies = result.shapedHpDamage > 0
-            && bleedChancePct > 0
-            && random.chance(bleedChancePct);
+            && passesPercentChance(random, bleed.chancePct);
         if (bleedProc.applies)
         {
             bleedProc.stacks = 1;
-            bleedProc.maxStacks = bleed && bleed->value2 > 0 ? bleed->value2 : 5;
+            bleedProc.maxStacks = bleed.maxStacks;
         }
         if (bleedProc.applies)
         {
@@ -825,16 +1037,16 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
 
         BattleDamageReduceDebuffProc damageReduceDebuff;
-        const auto* alwaysDamageReduceDebuff = attackerCombo.firstAlways(EffectType::DmgReduceDebuff);
+        const auto* alwaysDamageReduceDebuff = effectReader.firstAlways(attackerSources, EffectType::DmgReduceDebuff);
         if (result.shapedHpDamage > 0 && alwaysDamageReduceDebuff && alwaysDamageReduceDebuff->value2 > 0)
         {
             damageReduceDebuff.applies = true;
             damageReduceDebuff.pct = alwaysDamageReduceDebuff->value;
             damageReduceDebuff.durationFrames = alwaysDamageReduceDebuff->value2;
         }
-        auto damageReduceEvents = BattleComboTriggerSystem().collectTriggerEvents(
-            attackerCombo,
-            { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
+        auto damageReduceEvents = effectReader.collectTriggerEvents(
+            attackerSources,
+            damageDealtTriggerInput(input),
             { EffectType::DmgReduceDebuff },
             random);
         if (!damageReduceDebuff.applies && !damageReduceEvents.empty())
@@ -859,9 +1071,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 formatStatusPercentFrames("傷害降低", damageReduceDebuff.pct, damageReduceDebuff.durationFrames)));
         }
 
-        auto mpBlockEvents = BattleComboTriggerSystem().collectTriggerEvents(
-            attackerCombo,
-            { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
+        auto mpBlockEvents = effectReader.collectTriggerEvents(
+            attackerSources,
+            damageDealtTriggerInput(input),
             { KysChess::EffectType::MPBlock },
             random);
         for (const auto& mpBlock : mpBlockEvents)
@@ -875,12 +1087,12 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 logStatusFrames("封內", mpBlock.effect.value)));
         }
 
-        std::vector<BattleComboTriggerEvent> followUpEvents;
+        std::vector<BattleEffectTriggerEvent> followUpEvents;
         if (!input.attackEvent.suppressNearbyTrackingProjectileProc)
         {
-            followUpEvents = BattleComboTriggerSystem().collectTriggerEvents(
-                attackerCombo,
-                { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
+            followUpEvents = effectReader.collectTriggerEvents(
+                attackerSources,
+                damageDealtTriggerInput(input),
                 { KysChess::EffectType::NearbyTrackingProjectiles },
                 random);
         }
@@ -916,7 +1128,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         {
             const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
             const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;
-            result.commands.push_back(BattleHpDamageCommand{
+            BattleHpDamageCommand command{
                 sourceUnitId,
                 targetUnitId,
                 damage,
@@ -928,7 +1140,12 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 input.skill.name,
                 battleLogText(damageDetail, BattleLogTextTone::SkillName),
                 !result.reflected,
-            });
+            };
+            if (!result.reflected)
+            {
+                command.skillEffectRef = input.attackEvent.skillEffectRef;
+            }
+            result.commands.push_back(std::move(command));
             result.finalHpDamage = damage;
         }
     }

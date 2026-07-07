@@ -43,6 +43,11 @@ public:
                                                      int flatHeal,
                                                      int pctHeal) const;
 
+    std::vector<BattleTeamEffectEvent> applyLowestAllyHeal(BattleRuntimeUnits& units,
+                                                           int sourceUnitId,
+                                                           int flatHeal,
+                                                           int pctHeal) const;
+
     std::vector<BattleTeamEffectEvent> applyTeamMp(BattleRuntimeUnits& units,
                                                    int sourceUnitId,
                                                    int amount) const;

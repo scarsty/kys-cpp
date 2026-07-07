@@ -138,6 +138,7 @@
     <ClCompile Include="ChessEquipmentFlow.cpp" />
     <ClCompile Include="ChessEquipmentInventory.cpp" />
     <ClCompile Include="ChessInfoFlow.cpp" />
+    <ClCompile Include="ChessMagicEffectDisplay.cpp" />
     <ClCompile Include="ChessMenuHelpers.cpp" />
     <ClCompile Include="ChessProgress.cpp" />
     <ClCompile Include="ChessRandom.cpp" />
@@ -279,6 +280,7 @@
     <ClInclude Include="ChessEquipmentFlow.h" />
     <ClInclude Include="ChessEquipmentInventory.h" />
     <ClInclude Include="ChessInfoFlow.h" />
+    <ClInclude Include="ChessMagicEffectDisplay.h" />
     <ClInclude Include="ChessMenuHelpers.h" />
     <ClInclude Include="ChessProgress.h" />
     <ClInclude Include="ChessRandom.h" />

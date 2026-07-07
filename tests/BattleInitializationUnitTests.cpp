@@ -643,6 +643,92 @@ TEST_CASE("BattleStartInitializer_EnemyCloneSummonUsesEnemySpawnCell", "[battle]
     CHECK(clone.grid.y == 10);
 }
 
+TEST_CASE("BattleStartInitializer_BuildsUltimateSkillEffectStateOnlyFromMagicDefinitions", "[battle][initialization][magic]")
+{
+    auto unit = runtimeUnit(0, 0, 100, 20, 30, 40);
+    BattleActionSkillSeed normal = makeHadesTestSkillSeed();
+    normal.id = 5;
+    BattleActionSkillSeed ultimate = makeHadesTestSkillSeed();
+    ultimate.id = 26;
+
+    BattleActionPlanSeed plan;
+    plan.unitId = 0;
+    plan.hasEquippedSkill = true;
+    plan.normalSkill = normal;
+    plan.ultimateSkill = ultimate;
+
+    std::vector<BattleRuntimeUnitSpawn> spawns;
+    spawns.push_back(makeRuntimeUnitSpawn(std::move(unit), RoleComboState{}, plan));
+
+    BattleRuntimeSetupSeed setup;
+    setup.magicEffectDefinitions.push_back({
+        5,
+        "寒冰綿掌",
+        {
+            ComboEffect{ EffectType::MPOnHit, 7 },
+        },
+    });
+    setup.magicEffectDefinitions.push_back({
+        26,
+        "降龍十八掌",
+        {
+            ComboEffect{ EffectType::Stun, 14, 0, "", Trigger::OnHit, 100 },
+        },
+    });
+
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
+
+    const auto& skillEffects = requireSpawn(output.spawns, 0).skillEffects;
+    CHECK(skillEffects.normal.magicId == -1);
+    CHECK(skillEffects.normal.effects.sumAlways(EffectType::MPOnHit) == 0);
+    CHECK(skillEffects.ultimate.magicId == 26);
+    REQUIRE(skillEffects.ultimate.effects.effectIds(Trigger::OnHit, EffectType::Stun).size() == 1);
+    CHECK(skillEffects.ultimate.effects.effect(RoleComboEffectId{ 0 }).value == 14);
+}
+
+TEST_CASE("BattleStartInitializer_CloneRebuildsFreshSkillEffectRuntimeFromActionPlan", "[battle][initialization][magic]")
+{
+    auto source = runtimeUnit(0, 0, 100, 20, 30, 40);
+    source.realRoleId = 1001;
+
+    RoleComboState sourceCombo;
+    sourceCombo.applyConfiguredEffect({ EffectType::CloneSummon, 1 });
+
+    BattleActionSkillSeed ultimate = makeHadesTestSkillSeed();
+    ultimate.id = 5;
+    BattleActionPlanSeed plan;
+    plan.unitId = 0;
+    plan.hasEquippedSkill = true;
+    plan.ultimateSkill = ultimate;
+
+    std::vector<BattleRuntimeUnitSpawn> spawns;
+    spawns.push_back(makeRuntimeUnitSpawn(source, sourceCombo, plan));
+
+    BattleRuntimeSetupSeed setup;
+    setup.cloneSources.push_back({ 0, 1001, 130, 1, -1, 0 });
+    setup.cloneCells.push_back({ 3, 4, true, false });
+    setup.magicEffectDefinitions.push_back({
+        5,
+        "寒冰綿掌",
+        {
+            ComboEffect{ EffectType::Stun, 9, 0, "", Trigger::OnHit, 100, 0, 1 },
+        },
+    });
+
+    requireSpawn(spawns, 0).skillEffects.ultimate.effects.applyConfiguredEffect(
+        ComboEffect{ EffectType::Stun, 9, 0, "", Trigger::OnHit, 100, 0, 1 });
+    requireSpawn(spawns, 0).skillEffects.ultimate.effects.recordTriggeredEffectActivation(RoleComboEffectId{ 0 });
+
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
+
+    REQUIRE(output.spawns.size() == 2);
+    const auto& cloneSkillEffects = requireSpawn(output.spawns, 1).skillEffects.ultimate.effects;
+    REQUIRE(cloneSkillEffects.effectIds(Trigger::OnHit, EffectType::Stun).size() == 1);
+    CHECK(cloneSkillEffects.triggeredEffectActivationCount(RoleComboEffectId{ 0 }) == 0);
+    CHECK(requireSpawn(output.spawns, 1).skillEffects.normal.magicId == -1);
+    CHECK(requireSpawn(output.spawns, 1).actionPlan()->ultimateSkill.id == 5);
+}
+
 TEST_CASE("BattleRuntimeSession_CreatesCloneRuntimeRowsWithoutRoleMirror", "[battle][initialization]")
 {
     BattleRuntimeSessionCreationInput input;

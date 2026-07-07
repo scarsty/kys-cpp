@@ -1,4 +1,6 @@
 #include "ChessBattleEffects.h"
+#include "ChessMagicEffectDisplay.h"
+#include "Types.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <yaml-cpp/yaml.h>
@@ -245,4 +247,153 @@ TEST_CASE("ChessBattleEffects_RuntimeStateTracksEffectTypePendingAndToggles", "[
     CHECK(state.typeToggle(EffectType::BlinkAttack));
     CHECK(state.consumeTypeToggle(EffectType::BlinkAttack));
     CHECK_FALSE(state.typeToggle(EffectType::BlinkAttack));
+}
+
+TEST_CASE("ChessBattleEffects_MagicYamlLoadsDefinitionsAndNormalizesOffensiveCharmPair", "[battle][effects][magic]")
+{
+    auto root = YAML::Load(R"(
+武功效果:
+  - 武功: 5
+    名称: 寒冰綿掌
+    用途: 普通
+    效果:
+      - 类型: 攻击冷却延长
+        数值: 30
+        附加参数: 35
+        触发: 攻击命中时概率
+        触发参数: 100
+)");
+
+    std::vector<ChessMagicEffectDefinition> definitions;
+    REQUIRE(ChessBattleEffects::parseMagicEffects(root, definitions, "測試武功效果"));
+
+    REQUIRE(definitions.size() == 1);
+    CHECK(definitions[0].magicId == 5);
+    REQUIRE(definitions[0].effects.size() == 2);
+    CHECK(definitions[0].effects[0].type == EffectType::OffensiveCharm);
+    CHECK(definitions[0].effects[0].value == 30);
+    CHECK(definitions[0].effects[0].value2 == 35);
+    CHECK(definitions[0].effects[0].trigger == Trigger::OnHit);
+    CHECK(definitions[0].effects[1].type == EffectType::CharmCDRDebuff);
+    CHECK(definitions[0].effects[1].value == 30);
+    CHECK(definitions[0].effects[1].value2 == 35);
+    CHECK(definitions[0].effects[1].trigger == Trigger::OnHit);
+}
+
+TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", "[chess][effects][magic]")
+{
+    Role role;
+    role.Star = 1;
+    role.MagicID[0] = 5;
+    role.MagicPower[0] = 40;
+    role.MagicID[1] = 26;
+    role.MagicPower[1] = 80;
+
+    Magic normal;
+    normal.ID = 5;
+    normal.Name = "寒冰綿掌";
+    Magic ultimate;
+    ultimate.ID = 26;
+    ultimate.Name = "降龍十八掌";
+
+    ComboEffect stun = effect(EffectType::Stun, 14, 0, Trigger::OnHit);
+    stun.triggerValue = 100;
+    ComboEffect charm = effect(EffectType::OffensiveCharm, 30, 35, Trigger::OnHit);
+    charm.triggerValue = 100;
+    ComboEffect charmPayload = charm;
+    charmPayload.type = EffectType::CharmCDRDebuff;
+
+    std::vector<Magic*> magics{ &normal, &ultimate };
+    std::vector<ChessMagicEffectDefinition> definitions{
+        { 26, "降龍十八掌", { stun, charm, charmPayload }, "普通+絕招" },
+    };
+
+    auto rows = buildChessMagicEffectDisplayRows(role, 1, magics, definitions);
+
+    REQUIRE(rows.size() == 4);
+    CHECK(rows[0].kind == ChessMagicEffectDisplayLineKind::Skill);
+    CHECK(rows[0].text == "寒冰綿掌");
+    CHECK_FALSE(rows[0].ultimate);
+    CHECK(rows[1].kind == ChessMagicEffectDisplayLineKind::Skill);
+    CHECK(rows[1].text == "降龍十八掌");
+    CHECK(rows[1].ultimate);
+    CHECK(rows[2].kind == ChessMagicEffectDisplayLineKind::Effect);
+    CHECK(rows[2].text == "眩暈(14幀)");
+    CHECK(rows[3].kind == ChessMagicEffectDisplayLineKind::Effect);
+    CHECK(rows[3].text == "30%增敵CD35%");
+}
+
+TEST_CASE("ChessBattleEffects_DisabledMagicEffectsSkipRuntimeDefinitionsAndPanelRows", "[battle][effects][magic]")
+{
+    auto root = YAML::Load(R"(
+啟用: false
+武功效果:
+  - 武功: 26
+    名稱: 降龍十八掌
+    用途: 絕招
+    效果:
+      - 类型: 眩晕
+        数值: 14
+        触发: 攻击命中时概率
+        触发参数: 100
+)");
+
+    std::vector<ChessMagicEffectDefinition> definitions;
+    REQUIRE(ChessBattleEffects::parseMagicEffects(root, definitions, "停用武功效果"));
+    CHECK(definitions.empty());
+
+    Role role;
+    role.Star = 1;
+    role.MagicID[0] = 5;
+    role.MagicPower[0] = 40;
+    role.MagicID[1] = 26;
+    role.MagicPower[1] = 80;
+
+    Magic normal;
+    normal.ID = 5;
+    normal.Name = "寒冰綿掌";
+    Magic ultimate;
+    ultimate.ID = 26;
+    ultimate.Name = "降龍十八掌";
+
+    std::vector<Magic*> magics{ &normal, &ultimate };
+    auto rows = buildChessMagicEffectDisplayRows(role, 1, magics, definitions);
+
+    REQUIRE(rows.size() == 2);
+    CHECK(rows[0].kind == ChessMagicEffectDisplayLineKind::Skill);
+    CHECK(rows[0].text == "寒冰綿掌");
+    CHECK_FALSE(rows[0].ultimate);
+    CHECK(rows[1].kind == ChessMagicEffectDisplayLineKind::Skill);
+    CHECK(rows[1].text == "降龍十八掌");
+    CHECK(rows[1].ultimate);
+}
+
+TEST_CASE("ChessBattleEffects_MagicYamlRejectsDuplicateIdsAndInvalidPassiveScope", "[battle][effects][magic]")
+{
+    auto duplicate = YAML::Load(R"(
+武功效果:
+  - 武功: 1
+    效果:
+      - 类型: 眩晕
+        数值: 8
+        触发: 攻击命中时概率
+        触发参数: 100
+  - 武功: 1
+    效果:
+      - 类型: 眩晕
+        数值: 8
+        触发: 攻击命中时概率
+        触发参数: 100
+)");
+    auto passive = YAML::Load(R"(
+武功效果:
+  - 武功: 94
+    效果:
+      - 类型: 死亡庇护
+        数值: 60
+)");
+
+    std::vector<ChessMagicEffectDefinition> definitions;
+    CHECK_FALSE(ChessBattleEffects::parseMagicEffects(duplicate, definitions, "重複武功"));
+    CHECK_FALSE(ChessBattleEffects::parseMagicEffects(passive, definitions, "被動武功"));
 }

@@ -323,6 +323,10 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
     request.initial.preferredTargetUnitId = input.targetUnitId;
     request.initial.position = input.unit.position + scaled(facing, spawnOffsetForOperation(input.geometry, operationType));
     request.initial.ultimate = result.decision.ultimate;
+    request.initial.skillEffectRef = {
+        input.unit.id,
+        result.decision.ultimate ? BattleSkillSlot::Ultimate : BattleSkillSlot::Normal,
+    };
     request.initial.castSubrequestKind = kind;
     return request;
 }

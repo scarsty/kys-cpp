@@ -1,26 +1,9 @@
 #!/usr/bin/env python3
 import sqlite3
-import re
 from pathlib import Path
 
+from chess_pool_io import load_cost_mapping
 
-TIER_LINE_RE = re.compile(r'^\s*(?:#|-)\s*费用:\s*(\d+)\s*$')
-ROLE_LINE_RE = re.compile(r'^\s*-\s*(\d+)\b')
-
-def load_cost_mapping(yaml_path):
-    """Load role ID to cost mapping from chess_pool.yaml"""
-    cost_map = {}
-    current_tier = None
-    for raw_line in yaml_path.read_text(encoding='utf-8').splitlines():
-        line = raw_line.rstrip()
-        tier_match = TIER_LINE_RE.match(line)
-        if tier_match:
-            current_tier = int(tier_match.group(1))
-            continue
-        role_match = ROLE_LINE_RE.match(line)
-        if role_match and current_tier is not None:
-            cost_map[int(role_match.group(1))] = current_tier
-    return cost_map
 
 def update_database(db_path, cost_map):
     """Update role cost/tiering in database"""

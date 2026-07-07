@@ -11,12 +11,18 @@ struct BattleRuntimeUnitSpawn
 {
     BattleRuntimeUnit unit;
     RoleComboState combo;
+    BattleUnitMagicEffectRuntime skillEffects;
     BattleStatusRuntimeUnit status;
     BattleDamageRuntimeUnit damage;
     BattleMovementAgentState movement;
-    std::optional<BattleActionPlanSeed> actionPlan;
+    std::optional<BattleActionPlanSeed> actionPlanSeed;
 
     BattleRuntimeUnitRecord makeRecord() &&;
+
+    const BattleActionPlanSeed* actionPlan() const
+    {
+        return actionPlanSeed ? &*actionPlanSeed : nullptr;
+    }
 };
 
 BattleStatusRuntimeUnit makeInitialStatusRuntimeUnit(
