@@ -822,13 +822,16 @@ void Engine::renderMainTextureToWindow()
 void Engine::createRenderedTexture(const std::string& name, int w, int h)
 {
     auto tex = tex_map_[name];
-    int w0, h0;
-    getTextureSize(tex, w0, h0);
-    if (w0 == w && h0 == h)
+    if (tex)
     {
-        return;
+        int w0, h0;
+        getTextureSize(tex, w0, h0);
+        if (w0 == w && h0 == h)
+        {
+            return;
+        }
+        destroyTexture(tex);
     }
-    destroyTexture(tex_map_[name]);
     tex_map_[name] = createRenderedTexture(w, h);
 }
 

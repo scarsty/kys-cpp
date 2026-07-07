@@ -5,6 +5,7 @@
 #include "MainScene.h"
 #include "TeamMenu.h"
 #include "Weather.h"
+#include "filefunc.h"
 
 #include <algorithm>
 
@@ -184,13 +185,61 @@ void BattleScenePaper::draw()
                 Pointf anchor;
             };
 
+            struct PaperWallEdge
+            {
+                std::vector<Pointf> world;
+                float depth = 0;
+                int tile_num = 0;
+            };
+
             std::vector<PaperBuilding> buildings;
             buildings.reserve(COORD_COUNT * COORD_COUNT / 4);
+            std::vector<PaperWallEdge> wall_edges;
+            wall_edges.reserve(COORD_COUNT * COORD_COUNT / 2);
+            Pointf view_dir = camera_.center - camera_.pos;
+            view_dir.z = 0;
+            if (view_dir.norm() == 0)
+            {
+                view_dir = { 0, 1, 0 };
+            }
+            view_dir.normTo(1);
+            auto calc_depth = [&](const Pointf& p)
+            {
+                auto v = p - camera_.pos;
+                auto n = view_dir;
+                return v.x * n.x + v.y * n.y;
+            };
+            auto is_paper_wall_at = [&](int x, int y)
+            {
+                return !isOutLine(x, y) && isPaperWallTile(building_layer_.data(x, y) / 2);
+            };
+            auto add_wall_edge = [&](Pointf a, Pointf b, int tile_num)
+            {
+                constexpr float wall_h = 80.0f;
+                PaperWallEdge edge;
+                edge.world = { { a.x, a.y, wall_h }, { b.x, b.y, wall_h }, { b.x, b.y, 0 }, { a.x, a.y, 0 } };
+                Pointf mid = { (a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f, wall_h * 0.5f };
+                edge.depth = calc_depth(mid);
+                edge.tile_num = tile_num;
+                wall_edges.emplace_back(std::move(edge));
+            };
             for (int ix = 0; ix < COORD_COUNT; ix++)
             {
                 for (int iy = 0; iy < COORD_COUNT; iy++)
                 {
                     int num = building_layer_.data(ix, iy) / 2;
+                    if (isPaperWallTile(num))
+                    {
+                        auto p00 = pos45To90(ix, iy);
+                        auto p10 = pos45To90(ix + 1, iy);
+                        auto p01 = pos45To90(ix, iy + 1);
+                        auto p11 = pos45To90(ix + 1, iy + 1);
+                        if (!is_paper_wall_at(ix, iy - 1)) { add_wall_edge(p00, p10, num); }
+                        if (!is_paper_wall_at(ix + 1, iy)) { add_wall_edge(p10, p11, num); }
+                        if (!is_paper_wall_at(ix, iy + 1)) { add_wall_edge(p11, p01, num); }
+                        if (!is_paper_wall_at(ix - 1, iy)) { add_wall_edge(p01, p00, num); }
+                        continue;
+                    }
                     if (num <= 0 || isPaperWallTile(num))
                     {
                         continue;
@@ -204,14 +253,6 @@ void BattleScenePaper::draw()
                     buildings.push_back({ tex, { p.x, p.y, 0 } });
                 }
             }
-
-            Pointf view_dir = camera_.center - camera_.pos;
-            view_dir.z = 0;
-            if (view_dir.norm() == 0)
-            {
-                view_dir = { 0, 1, 0 };
-            }
-            view_dir.normTo(1);
             Pointf paper_right = { view_dir.y, -view_dir.x, 0 };
 
             auto render_paper_texture = [&](TextureWarpper* tex, const Pointf& anchor, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, int rot = 0)
@@ -261,20 +302,16 @@ void BattleScenePaper::draw()
 
             struct PaperSprite
             {
+                Texture* texture = nullptr;
                 TextureWarpper* tex = nullptr;
                 Pointf anchor;
+                std::vector<Pointf> world;
+                std::vector<FPoint> src;
                 Color color{ 255, 255, 255, 255 };
                 uint8_t alpha = 255;
                 float depth = 0;
                 int turn = 1;
                 int rot = 0;
-            };
-
-            auto calc_depth = [&](const Pointf& p)
-            {
-                auto v = p - camera_.pos;
-                auto n = view_dir;
-                return v.x * n.x + v.y * n.y;
             };
 
             auto to_paper_anchor = [](Pointf p)
@@ -283,6 +320,71 @@ void BattleScenePaper::draw()
             };
 
             std::vector<PaperSprite> sprites;
+            auto engine = Engine::getInstance();
+            bool need_draw_wall_texture = true;
+            if (auto old_wall_texture = engine->getTexture("paper-wall-edge"))
+            {
+                int old_w = 0;
+                int old_h = 0;
+                Engine::getTextureSize(old_wall_texture, old_w, old_h);
+                need_draw_wall_texture = old_w != 16 || old_h != 16;
+            }
+            engine->createRenderedTexture("paper-wall-edge", 16, 16);
+            auto wall_texture = engine->getTexture("paper-wall-edge");
+            if (need_draw_wall_texture)
+            {
+                auto prev_target = engine->getRenderTarget();
+                engine->setRenderTarget(wall_texture);
+                engine->fillColor({ 70, 62, 50, 235 }, 0, 0, 16, 16, BLENDMODE_NONE);
+                engine->fillColor({ 94, 84, 66, 235 }, 0, 1, 16, 1, BLENDMODE_NONE);
+                engine->fillColor({ 47, 42, 35, 235 }, 0, 4, 16, 1, BLENDMODE_NONE);
+                engine->fillColor({ 88, 78, 61, 235 }, 0, 8, 16, 1, BLENDMODE_NONE);
+                engine->fillColor({ 42, 37, 31, 235 }, 0, 12, 16, 1, BLENDMODE_NONE);
+                engine->fillColor({ 104, 92, 72, 210 }, 0, 15, 16, 1, BLENDMODE_NONE);
+                engine->setRenderTarget(prev_target);
+            }
+            std::unordered_map<int, TextureWarpper*> paper_wall_texture_cache;
+            auto get_paper_wall_texture = [&](int tile_num) -> TextureWarpper*
+            {
+                auto it = paper_wall_texture_cache.find(tile_num);
+                if (it != paper_wall_texture_cache.end())
+                {
+                    return it->second;
+                }
+                TextureWarpper* tex = nullptr;
+                auto filename = GameUtil::PATH() + "resource/paper-wall-texture/" + std::to_string(tile_num) + ".png";
+                if (filefunc::fileExist(filename))
+                {
+                    tex = TextureManager::getInstance()->getTexture("paper-wall-texture", tile_num);
+                    if (tex)
+                    {
+                        tex->load();
+                        if (!tex->getTexture())
+                        {
+                            tex = nullptr;
+                        }
+                    }
+                }
+                paper_wall_texture_cache[tile_num] = tex;
+                return tex;
+            };
+            for (auto& edge : wall_edges)
+            {
+                PaperSprite sprite;
+                if (auto tex = get_paper_wall_texture(edge.tile_num))
+                {
+                    sprite.texture = tex->getTexture();
+                    sprite.src = { { 0, 0 }, { float(tex->w), 0 }, { float(tex->w), float(tex->h) }, { 0, float(tex->h) } };
+                }
+                else
+                {
+                    sprite.texture = wall_texture;
+                    sprite.src = { { 0, 0 }, { 16, 0 }, { 16, 16 }, { 0, 16 } };
+                }
+                sprite.world = edge.world;
+                sprite.depth = edge.depth;
+                sprites.emplace_back(std::move(sprite));
+            }
             for (auto& b : buildings)
             {
                 PaperSprite sprite;
@@ -345,7 +447,17 @@ void BattleScenePaper::draw()
                 });
             for (auto& sprite : sprites)
             {
-                render_paper_texture(sprite.tex, sprite.anchor, sprite.color, sprite.alpha, sprite.rot);
+                    if (sprite.texture && sprite.world.size() == 4)
+                    {
+                        if (in_camera_front(sprite.world))
+                        {
+                            render_texture_3d(sprite.texture, sprite.world, sprite.src);
+                        }
+                    }
+                    else
+                    {
+                        render_paper_texture(sprite.tex, sprite.anchor, sprite.color, sprite.alpha, sprite.rot);
+                    }
             }
             Engine::getInstance()->renderTextureToMain("scene");
             return;
@@ -2088,7 +2200,7 @@ bool BattleScenePaper::isBuilding(int x, int y)
     int num = building_layer_.data(x, y) / 2;
     if (isPaperWallTile(num))
     {
-        return false;
+        return true;
     }
     return BattleSceneAct::isBuilding(x, y);
 }
