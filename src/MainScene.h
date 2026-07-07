@@ -11,11 +11,7 @@ public:
     ~MainScene();
 
 public:
-    static std::shared_ptr<MainScene> getInstance()
-    {
-        static std::shared_ptr<MainScene> ms = std::make_shared<MainScene>();
-        return ms;
-    }
+    static std::shared_ptr<MainScene> getInstance();
 
     MapSquare<Object> earth_layer_, surface_layer_, building_layer_;
     MapSquareInt build_x_layer_, build_y_layer_, entrance_layer_;

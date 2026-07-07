@@ -170,6 +170,7 @@
     <ClCompile Include="TitleScene.cpp" />
     <ClCompile Include="kys.cpp" />
     <ClCompile Include="MainScene.cpp" />
+    <ClCompile Include="MainScenePaper.cpp" />
     <ClCompile Include="Menu.cpp" />
     <ClCompile Include="Point.cpp" />
     <ClCompile Include="Save.cpp" />
@@ -246,6 +247,7 @@
     <ClInclude Include="UI.h" />
     <ClInclude Include="TitleScene.h" />
     <ClInclude Include="MainScene.h" />
+    <ClInclude Include="MainScenePaper.h" />
     <ClInclude Include="Menu.h" />
     <ClInclude Include="Point.h" />
     <ClInclude Include="Save.h" />

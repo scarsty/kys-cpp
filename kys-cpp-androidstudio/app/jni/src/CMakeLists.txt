@@ -178,6 +178,7 @@ add_library(main SHARED
         "${KYS_SRC_DIR}/InputBox.cpp"
         "${KYS_SRC_DIR}/kys.cpp"
         "${KYS_SRC_DIR}/MainScene.cpp"
+        "${KYS_SRC_DIR}/MainScenePaper.cpp"
         "${KYS_SRC_DIR}/Menu.cpp"
         "${KYS_SRC_DIR}/NewSave.cpp"
         "${KYS_SRC_DIR}/Object.cpp"

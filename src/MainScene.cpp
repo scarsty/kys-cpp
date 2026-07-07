@@ -3,6 +3,7 @@
 #include "Fade.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
+#include "MainScenePaper.h"
 #include "Random.h"
 #include "Save.h"
 #include "SubScene.h"
@@ -49,6 +50,21 @@ MainScene::MainScene()
 
 MainScene::~MainScene()
 {
+}
+
+std::shared_ptr<MainScene> MainScene::getInstance()
+{
+    static std::shared_ptr<MainScene> ms = []() -> std::shared_ptr<MainScene>
+    {
+        if (GameUtil::getInstance()->getInt("game", "battle_mode") == 5)
+        {
+            LOG("Main scene mode: Paper\n");
+            return std::make_shared<MainScenePaper>();
+        }
+        LOG("Main scene mode: Normal\n");
+        return std::make_shared<MainScene>();
+    }();
+    return ms;
 }
 
 void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)

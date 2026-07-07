@@ -55,6 +55,9 @@
     <ClCompile Include="MainScene.cpp">
       <Filter>scene</Filter>
     </ClCompile>
+    <ClCompile Include="MainScenePaper.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
     <ClCompile Include="SubScene.cpp">
       <Filter>scene</Filter>
     </ClCompile>
@@ -263,6 +266,9 @@
       <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="MainScene.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="MainScenePaper.h">
       <Filter>scene</Filter>
     </ClInclude>
     <ClInclude Include="Scene.h">
