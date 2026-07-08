@@ -175,6 +175,9 @@
     <ClCompile Include="battle\BattleRuntimeUnits.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="battle\BattleEffectRuntimeRegistry.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="Font.cpp">
       <Filter>font</Filter>
     </ClCompile>
@@ -456,6 +459,9 @@
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="battle\BattleRuntimeUnitSpawn.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="battle\BattleEffectRuntimeRegistry.h">
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="Font.h">

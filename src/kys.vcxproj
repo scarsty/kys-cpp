@@ -171,6 +171,7 @@
     <ClCompile Include="battle\BattleCombatIntent.cpp" />
     <ClCompile Include="battle\BattleDamageSystem.cpp" />
     <ClCompile Include="battle\BattleDeathEffectSystem.cpp" />
+    <ClCompile Include="battle\BattleEffectRuntimeRegistry.cpp" />
     <ClCompile Include="battle\BattleInitialization.cpp" />
     <ClCompile Include="battle\BattleGeometry.cpp" />
     <ClCompile Include="battle\BattleHitResolver.cpp" />
@@ -339,6 +340,7 @@
     <ClInclude Include="battle\BattleDamageQueue.h" />
     <ClInclude Include="battle\BattleDamageSystem.h" />
     <ClInclude Include="battle\BattleDeathEffectSystem.h" />
+    <ClInclude Include="battle\BattleEffectRuntimeRegistry.h" />
     <ClInclude Include="Find.h" />
     <ClInclude Include="battle\BattleInitialization.h" />
     <ClInclude Include="battle\BattleGeometry.h" />

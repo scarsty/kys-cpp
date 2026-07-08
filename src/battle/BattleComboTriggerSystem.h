@@ -354,6 +354,11 @@ public:
         const BattleComboTriggerInput& input,
         BattleRuntimeRandom& random) const;
 
+    BattleTriggeredTeamHeal collectPendingSkillTeamHeal(
+        const BattleEffectSources& sources,
+        const BattleComboTriggerInput& input,
+        BattleRuntimeRandom& random) const;
+
     std::vector<BattleActivatedComboEffect> collectChanceEffects(
         RoleComboState& state,
         Trigger trigger,

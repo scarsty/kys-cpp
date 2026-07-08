@@ -1,6 +1,7 @@
 #include "ChessBattleEffects.h"
 #include "ChessMagicEffectDisplay.h"
 #include "Types.h"
+#include "battle/BattleEffectRuntimeRegistry.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <yaml-cpp/yaml.h>
@@ -249,6 +250,21 @@ TEST_CASE("ChessBattleEffects_RuntimeStateTracksEffectTypePendingAndToggles", "[
     CHECK_FALSE(state.typeToggle(EffectType::BlinkAttack));
 }
 
+TEST_CASE("ChessBattleEffects_RuntimeStateClearsEveryEffectTypePending", "[battle][effects]")
+{
+    RoleComboState state;
+
+    state.setTypePending(EffectType::OnSkillTeamHeal, true);
+    state.setTypePending(EffectType::DodgeThenCrit, true);
+    state.consumeTypeToggle(EffectType::BlinkAttack);
+
+    state.clearTypePending();
+
+    CHECK_FALSE(state.typePending(EffectType::OnSkillTeamHeal));
+    CHECK_FALSE(state.typePending(EffectType::DodgeThenCrit));
+    CHECK(state.typeToggle(EffectType::BlinkAttack));
+}
+
 TEST_CASE("ChessBattleEffects_MagicYamlLoadsDefinitionsAndNormalizesOffensiveCharmPair", "[battle][effects][magic]")
 {
     auto root = YAML::Load(R"(
@@ -278,6 +294,58 @@ TEST_CASE("ChessBattleEffects_MagicYamlLoadsDefinitionsAndNormalizesOffensiveCha
     CHECK(definitions[0].effects[1].value == 30);
     CHECK(definitions[0].effects[1].value2 == 35);
     CHECK(definitions[0].effects[1].trigger == Trigger::OnHit);
+}
+
+TEST_CASE("BattleEffectRuntimeRegistry_DefinesSelectedSkillMagicPolicy", "[battle][effects][magic]")
+{
+    using KysChess::Battle::BattleEffectRuntimePhase;
+
+    CHECK(KysChess::Battle::isSelectedSkillMagicAllowed(EffectType::PoisonDOT, Trigger::OnHit));
+    CHECK(KysChess::Battle::runtimePhaseFor(EffectType::PoisonDOT, Trigger::OnHit)
+        == BattleEffectRuntimePhase::HitStatusPayload);
+    CHECK(KysChess::Battle::isUltimateOnlyMagicEffect(EffectType::PoisonDOT, Trigger::OnHit));
+
+    CHECK(KysChess::Battle::runtimePhaseFor(EffectType::OnSkillTeamHeal, Trigger::Always)
+        == BattleEffectRuntimePhase::CastFinish);
+    CHECK_FALSE(KysChess::Battle::isSelectedSkillMagicAllowed(EffectType::OnSkillTeamHeal, Trigger::Always));
+
+    CHECK(KysChess::Battle::isSelectedSkillMagicAllowed(EffectType::OnSkillTeamHeal, Trigger::OnUltimate));
+    CHECK(KysChess::Battle::runtimePhaseFor(EffectType::OnSkillTeamHeal, Trigger::OnUltimate)
+        == BattleEffectRuntimePhase::CastFinish);
+    CHECK(KysChess::Battle::isUltimateOnlyMagicEffect(EffectType::OnSkillTeamHeal, Trigger::OnUltimate));
+}
+
+TEST_CASE("ChessBattleEffects_MagicYamlUsesRuntimeRegistryForCastFinishScope", "[battle][effects][magic]")
+{
+    auto ultimateFinishHeal = YAML::Load(R"(
+武功效果:
+  - 武功: 26
+    名稱: 降龍十八掌
+    用途: 普通
+    效果:
+      - 类型: 群体施治
+        数值: 12
+        触发: 绝招时
+        触发参数: 100
+)");
+    auto alwaysFinishHeal = YAML::Load(R"(
+武功效果:
+  - 武功: 26
+    名稱: 降龍十八掌
+    用途: 絕招
+    效果:
+      - 类型: 群体施治
+        数值: 12
+)");
+
+    std::vector<ChessMagicEffectDefinition> definitions;
+    REQUIRE(ChessBattleEffects::parseMagicEffects(ultimateFinishHeal, definitions, "絕招完成群療"));
+    REQUIRE(definitions.size() == 1);
+    REQUIRE(definitions[0].effects.size() == 1);
+    CHECK(definitions[0].effects[0].type == EffectType::OnSkillTeamHeal);
+    CHECK(definitions[0].effects[0].trigger == Trigger::OnUltimate);
+
+    CHECK_FALSE(ChessBattleEffects::parseMagicEffects(alwaysFinishHeal, definitions, "Always 群療"));
 }
 
 TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", "[chess][effects][magic]")

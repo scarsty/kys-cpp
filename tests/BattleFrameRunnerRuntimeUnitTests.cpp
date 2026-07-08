@@ -821,6 +821,47 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesUltimateSourceWhenCommittedCastFin
         }) == 2);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_TriggersSelectedUltimateMagicTeamHealOnCooldownFinish", "[battle][frame_runner][runtime][magic]")
+{
+    auto state = runtimeFrameState();
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 50),
+        teamRuntimeUnit(1, 0, 80),
+        teamRuntimeUnit(2, 1, 100),
+    });
+
+    auto& skillEffects = state.units.require(0).skillEffects.ultimate.effects;
+    skillEffects.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
+    const auto effectId = skillEffects.applyConfiguredEffect({
+        KysChess::EffectType::OnSkillTeamHeal,
+        12,
+        0,
+        "",
+        KysChess::Trigger::OnUltimate,
+        100,
+    });
+
+    configureFinishingSkillRuntime(state.units.requireCore(0));
+    state.units.require(0).markUltimateCaster();
+    state.units.require(0).clearUltimateCaster();
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).vitals.hp == 62);
+    CHECK(state.units.requireCore(1).vitals.hp == 92);
+    CHECK_FALSE(state.units.require(0).skillEffects.ultimate.effects.typePending(KysChess::EffectType::OnSkillTeamHeal));
+    CHECK(state.units.require(0).skillEffects.ultimate.effects.triggeredEffectActivationCount(effectId) == 1);
+    CHECK(state.units.require(0).combo.triggeredEffectActivationCount(KysChess::RoleComboEffectId{ 0 }) == 0);
+    CHECK(std::count_if(
+        result.visualEvents.begin(),
+        result.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.effectId == HealEffectId;
+        }) == 2);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();

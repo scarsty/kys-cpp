@@ -45,7 +45,7 @@ struct BattleRuntimeUnitActionState
     std::optional<BattleActionPlanSeed> planSeed;
     std::optional<BattlePendingCastAction> pendingCast;
     bool ultimateCaster = false;
-    bool cooldownFromUltimate = false;
+    BattleSkillEffectRef cooldownFinishSkillEffectRef;
 };
 
 struct BattleRescueUnitRuntime
@@ -64,6 +64,12 @@ struct BattleUnitMagicEffectRuntime
 {
     BattleUnitSkillEffectState normal;
     BattleUnitSkillEffectState ultimate;
+
+    void clearPendingEffects()
+    {
+        normal.effects.clearTypePending();
+        ultimate.effects.clearTypePending();
+    }
 
     decltype(auto) slot(this auto& self, BattleSkillSlot slot)
     {
@@ -128,7 +134,7 @@ struct BattleRuntimeUnitRecord
     void markUltimateCaster()
     {
         action.ultimateCaster = true;
-        action.cooldownFromUltimate = true;
+        setSkillCooldownUltimate(true);
     }
 
     void clearUltimateCaster()
@@ -143,28 +149,43 @@ struct BattleRuntimeUnitRecord
 
     void setSkillCooldownUltimate(bool ultimate)
     {
-        action.cooldownFromUltimate = ultimate;
+        action.cooldownFinishSkillEffectRef = ultimate
+            ? BattleSkillEffectRef{ id(), BattleSkillSlot::Ultimate }
+            : BattleSkillEffectRef{};
     }
 
     void clearSkillCooldownSource()
     {
-        action.cooldownFromUltimate = false;
+        action.cooldownFinishSkillEffectRef = {};
     }
 
     bool isSkillCooldownUltimate() const
     {
-        return action.cooldownFromUltimate;
+        return action.cooldownFinishSkillEffectRef.slot == BattleSkillSlot::Ultimate;
+    }
+
+    BattleSkillEffectRef skillCooldownSource() const
+    {
+        return action.cooldownFinishSkillEffectRef;
     }
 
     void clearActionOwners()
     {
         clearPendingCast();
         clearUltimateCaster();
+        clearSkillCooldownSource();
     }
 
-    void clearPendingSkillHeal()
+    void clearPendingEffects()
     {
-        combo.setTypePending(EffectType::OnSkillTeamHeal, false);
+        combo.clearTypePending();
+        skillEffects.clearPendingEffects();
+    }
+
+    void clearAllPending()
+    {
+        clearActionOwners();
+        clearPendingEffects();
     }
 
     int sumAlways(EffectType type) const

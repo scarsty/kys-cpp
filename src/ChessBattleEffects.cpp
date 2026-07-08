@@ -1,5 +1,6 @@
 #include "ChessBattleEffects.h"
 #include "GameUtil.h"
+#include "battle/BattleEffectRuntimeRegistry.h"
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
@@ -569,6 +570,14 @@ void BattleEffectState::setTypePending(EffectType type, bool value)
     runtime_.byType[type].pending = value;
 }
 
+void BattleEffectState::clearTypePending()
+{
+    for (auto& entry : runtime_.byType)
+    {
+        entry.second.pending = false;
+    }
+}
+
 bool BattleEffectState::typePending(EffectType type) const
 {
     const auto runtime = runtime_.byType.find(type);
@@ -915,86 +924,6 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
 namespace
 {
 
-bool magicEffectHasSelectedSkillScope(const ComboEffect& effect)
-{
-    switch (effect.trigger)
-    {
-    case Trigger::Always:
-        switch (effect.type)
-        {
-        case EffectType::CDR:
-        case EffectType::FlatDmgIncrease:
-        case EffectType::SkillDmgPct:
-        case EffectType::MPRatioDmgBoost:
-        case EffectType::PoisonDmgAmp:
-        case EffectType::ArmorPenChance:
-        case EffectType::ArmorPenPct:
-        case EffectType::MPOnHit:
-        case EffectType::HPOnHit:
-        case EffectType::MPDrain:
-        case EffectType::PoisonDOT:
-        case EffectType::BleedChance:
-        case EffectType::DmgReduceDebuff:
-        case EffectType::OffensiveCharm:
-        case EffectType::CharmCDRDebuff:
-            return true;
-        default:
-            return false;
-        }
-    case Trigger::OnCast:
-    case Trigger::OnUltimate:
-        switch (effect.type)
-        {
-        case EffectType::PostSkillInvincFrames:
-        case EffectType::UltimateExtraProjectiles:
-        case EffectType::FlatShield:
-        case EffectType::CurrentHPPctBlast:
-        case EffectType::TeamMPRestore:
-        case EffectType::EnemyMpDamageAll:
-        case EffectType::SpiralBleedProjectile:
-        case EffectType::MPRestore:
-        case EffectType::ControlImmunityFrames:
-        case EffectType::LowestAllyHeal:
-            return true;
-        default:
-            return false;
-        }
-    case Trigger::OnHit:
-        switch (effect.type)
-        {
-        case EffectType::ArmorPen:
-        case EffectType::Stun:
-        case EffectType::KnockbackChance:
-        case EffectType::PoisonDOT:
-        case EffectType::PoisonDmgAmp:
-        case EffectType::MPOnHit:
-        case EffectType::HPOnHit:
-        case EffectType::MPDrain:
-        case EffectType::Execute:
-        case EffectType::DmgReduceDebuff:
-        case EffectType::MPBlock:
-        case EffectType::NearbyTrackingProjectiles:
-        case EffectType::ProjectileBounce:
-        case EffectType::OffensiveCharm:
-        case EffectType::CharmCDRDebuff:
-        case EffectType::BleedChance:
-        case EffectType::SkillDmgPct:
-        case EffectType::FlatDmgIncrease:
-        case EffectType::MPRatioDmgBoost:
-            return true;
-        default:
-            return false;
-        }
-    case Trigger::WhileLowHP:
-    case Trigger::AllyLowHPBurst:
-    case Trigger::LastAlive:
-    case Trigger::OnBeingHit:
-    case Trigger::OnShieldBreak:
-        return false;
-    }
-    return false;
-}
-
 std::vector<ComboEffect> normalizedMagicEffects(const ComboEffect& effect)
 {
     if (effect.type != EffectType::OffensiveCharm)
@@ -1117,12 +1046,19 @@ bool ChessBattleEffects::parseMagicEffects(
             }
             for (const auto& normalized : normalizedMagicEffects(parsed))
             {
-                if (!magicEffectHasSelectedSkillScope(normalized))
+                if (!Battle::isSelectedSkillMagicAllowed(normalized.type, normalized.trigger))
                 {
                     return printMagicLoadError(
                         effectNode,
                         context,
                         std::format("武功 {} 的效果沒有第一階段武功作用域", definition.magicId));
+                }
+                if (!Battle::isUltimateOnlyMagicEffect(normalized.type, normalized.trigger))
+                {
+                    return printMagicLoadError(
+                        effectNode,
+                        context,
+                        std::format("武功 {} 的效果不符合目前只支援絕招武功效果的策略", definition.magicId));
                 }
                 definition.effects.push_back(normalized);
             }

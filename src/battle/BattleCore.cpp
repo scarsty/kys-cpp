@@ -1144,10 +1144,16 @@ BattleRuntimeUnitsAdvanceResult advanceRuntimeUnits(BattleRuntimeState& state)
             frameEvents.end());
         if (tick.skillFinished)
         {
-            const bool cooldownFromUltimate = unitRecord.isSkillCooldownUltimate();
+            const auto cooldownSkillRef = unitRecord.skillCooldownSource();
             auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
-                combo,
-                { BattleComboTriggerHook::AfterSkillCast, unit.id, -1, cooldownFromUltimate, true },
+                makeBattleEffectSources(state, unit.id, cooldownSkillRef),
+                {
+                    BattleComboTriggerHook::AfterSkillCast,
+                    unit.id,
+                    -1,
+                    cooldownSkillRef.slot == BattleSkillSlot::Ultimate,
+                    true,
+                },
                 state.random);
             unitRecord.clearSkillCooldownSource();
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
@@ -1260,6 +1266,23 @@ BattleEffectSources makeSelectedCastEffectSources(
     bool ultimate)
 {
     return makeBattleEffectSources(state, unitId, skillEffectRefForCast(unitId, ultimate));
+}
+
+void markSelectedCastFinishPending(
+    BattleRuntimeState& state,
+    int unitId,
+    bool ultimate)
+{
+    if (!ultimate)
+    {
+        return;
+    }
+
+    auto sources = makeSelectedCastEffectSources(state, unitId, true);
+    if (sources.skill.state)
+    {
+        sources.skill.state->setTypePending(EffectType::OnSkillTeamHeal, true);
+    }
 }
 
 bool tryResolveDodgeHit(
@@ -2325,6 +2348,7 @@ bool tryCommitAutoUltimate(
         cast);
     auto& combo = state.units.require(unitId).combo;
     auto actionResult = BattleActionCommitSystem().commit(actionInput, combo, state.units);
+    markSelectedCastFinishPending(state, unitId, true);
     auto castSources = makeSelectedCastEffectSources(state, unitId, true);
     applyCastPostSkillInvincibility(
         state,
@@ -4345,7 +4369,7 @@ void applyRuntimeDeathComboConsequences(
 {
     for (int deadUnitId : deadUnitIds)
     {
-        state.units.require(deadUnitId).clearPendingSkillHeal();
+        state.units.require(deadUnitId).clearAllPending();
         applyRuntimeAntiComboTransfer(state, deadUnitId, logEvents);
     }
 }
@@ -4941,7 +4965,7 @@ void cancelRuntimeAction(BattleRuntimeState& state, int unitId)
     auto actionState = makeActionRuntimeState(unit.core);
     resetActionFrameState(actionState);
     commitActionFrameStateToRuntime(unit.core, actionState);
-    unit.clearActionOwners();
+    unit.clearAllPending();
 }
 
 void cancelDeadRuntimeActions(BattleRuntimeState& state)
@@ -5072,6 +5096,13 @@ void advanceActionFrameUnits(
                     actionInput = std::move(*maybeActionInput);
                     state.units.requireCore(unit.id).motion.facing = actionInput.committedFacing;
                     actionResult = BattleActionCommitSystem().commit(actionInput, combo, state.units);
+                    if (actionInput.hasCast)
+                    {
+                        markSelectedCastFinishPending(
+                            state,
+                            unit.id,
+                            actionInput.cast.decision.ultimate);
+                    }
                 }
                 else
                 {

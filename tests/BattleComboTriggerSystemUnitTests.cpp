@@ -330,6 +330,35 @@ TEST_CASE("BattleComboTriggerSystem_PendingSkillTeamHeal_ConsumesPendingBaseHeal
     CHECK(state.triggeredEffectActivationCount(RoleComboEffectId{ 2 }) == 1);
 }
 
+TEST_CASE("BattleComboTriggerSystem_PendingSkillTeamHeal_CombinesComboPayloadAndSelectedSkillTrigger", "[battle][combo][magic]")
+{
+    RoleComboState combo;
+    BattleEffectState skill;
+    combo.setTypePending(EffectType::OnSkillTeamHeal, true);
+    combo.applyConfiguredEffect({ EffectType::OnSkillTeamHeal, 5 });
+    combo.applyConfiguredEffect({ EffectType::OnSkillTeamHealPct, 7 });
+    skill.setTypePending(EffectType::OnSkillTeamHeal, true);
+    const auto skillId = skill.applyConfiguredEffect(
+        triggeredEffect(EffectType::OnSkillTeamHeal, Trigger::OnUltimate, 11, 100));
+
+    BattleEffectSources sources;
+    sources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &combo };
+    sources.skill = { { BattleEffectSourceKind::Skill, BattleSkillSlot::Ultimate }, &skill };
+
+    auto random = fixedBattleRandom();
+    auto result = BattleComboTriggerSystem().collectPendingSkillTeamHeal(
+        sources,
+        { BattleComboTriggerHook::AfterSkillCast, 3, -1, true, true },
+        random);
+
+    CHECK(result.flatHeal == 16);
+    CHECK(result.pctHeal == 7);
+    CHECK_FALSE(combo.typePending(EffectType::OnSkillTeamHeal));
+    CHECK_FALSE(skill.typePending(EffectType::OnSkillTeamHeal));
+    CHECK(combo.triggeredEffectActivationCount(RoleComboEffectId{ 0 }) == 0);
+    CHECK(skill.triggeredEffectActivationCount(skillId) == 1);
+}
+
 TEST_CASE("BattleComboTriggerSystem_TriggerEvents_FilterNearbyTrackingWhenSuppressed", "[battle][combo][unit]")
 {
     RoleComboState state;

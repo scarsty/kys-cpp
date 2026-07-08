@@ -709,18 +709,64 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectPendingSkillTeamHeal(
     const BattleComboTriggerInput& input,
     BattleRuntimeRandom& random) const
 {
+    BattleEffectSources sources;
+    sources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &state };
+    return collectPendingSkillTeamHeal(sources, input, random);
+}
+
+BattleTriggeredTeamHeal BattleComboTriggerSystem::collectPendingSkillTeamHeal(
+    const BattleEffectSources& sources,
+    const BattleComboTriggerInput& input,
+    BattleRuntimeRandom& random) const
+{
+    BattleEffectSources pendingSources;
+    for (const auto& source : orderedBattleEffectSources(sources))
+    {
+        if (!source.state || !source.state->consumeTypePending(EffectType::OnSkillTeamHeal))
+        {
+            continue;
+        }
+        if (source.ref.kind == BattleEffectSourceKind::Combo)
+        {
+            pendingSources.combo = source;
+        }
+        else
+        {
+            assert(source.ref.kind == BattleEffectSourceKind::Skill);
+            pendingSources.skill = source;
+        }
+    }
+
     BattleTriggeredTeamHeal result;
-    if (!state.consumeTypePending(EffectType::OnSkillTeamHeal))
+    if (!pendingSources.combo.state && !pendingSources.skill.state)
     {
         return result;
     }
 
-    result.flatHeal = state.sumAlways(EffectType::OnSkillTeamHeal);
-    result.pctHeal = state.sumAlways(EffectType::OnSkillTeamHealPct);
-    auto triggered = collectTriggeredTeamHeal(state, input, random);
-    result.flatHeal += triggered.flatHeal;
-    result.pctHeal += triggered.pctHeal;
-    result.activatedEffectIds = std::move(triggered.activatedEffectIds);
+    if (pendingSources.combo.state)
+    {
+        result.flatHeal = pendingSources.combo.state->sumAlways(EffectType::OnSkillTeamHeal);
+        result.pctHeal = pendingSources.combo.state->sumAlways(EffectType::OnSkillTeamHealPct);
+    }
+
+    auto triggered = BattleEffectReader().collectTriggerEvents(
+        pendingSources,
+        input,
+        { EffectType::OnSkillTeamHeal, EffectType::OnSkillTeamHealPct },
+        random);
+    for (const auto& event : triggered)
+    {
+        if (event.effect.type == EffectType::OnSkillTeamHeal)
+        {
+            result.flatHeal += event.effect.value;
+        }
+        else
+        {
+            assert(event.effect.type == EffectType::OnSkillTeamHealPct);
+            result.pctHeal += event.effect.value;
+        }
+        result.activatedEffectIds.push_back(event.effectRef.localId);
+    }
     return result;
 }
 

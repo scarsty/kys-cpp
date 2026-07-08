@@ -304,6 +304,7 @@ public:
     int triggerTimerFrames(ComboTriggerTimerKey key) const;
 
     void setTypePending(EffectType type, bool value);
+    void clearTypePending();
     bool typePending(EffectType type) const;
     bool consumeTypePending(EffectType type);
     bool typeToggle(EffectType type) const;

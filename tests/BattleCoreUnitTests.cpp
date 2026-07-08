@@ -1528,11 +1528,13 @@ TEST_CASE("BattleRuntimeUnitRecord_OwnsPerUnitRuntimeFacts", "[battle][core][own
     CHECK(record.pendingCast()->unitId == 7);
     CHECK(record.pendingCast()->targetUnitId == 3);
     CHECK(record.isUltimateCaster());
+    CHECK(record.skillCooldownSource().slot == BattleSkillSlot::Ultimate);
 
     record.clearActionOwners();
 
     CHECK(record.pendingCast() == nullptr);
     CHECK_FALSE(record.isUltimateCaster());
+    CHECK(record.skillCooldownSource().slot == BattleSkillSlot::None);
 }
 
 TEST_CASE("BattleRuntimeUnitRecord_ActionOwnershipReplacesRuntimeActionMaps", "[battle][core][ownership]")
@@ -1558,11 +1560,13 @@ TEST_CASE("BattleRuntimeUnitRecord_ActionOwnershipReplacesRuntimeActionMaps", "[
     REQUIRE(record.pendingCast() != nullptr);
     CHECK(record.pendingCast()->unitId == 0);
     CHECK(record.isUltimateCaster());
+    CHECK(record.skillCooldownSource().slot == BattleSkillSlot::Ultimate);
 
     record.clearActionOwners();
 
     CHECK(record.pendingCast() == nullptr);
     CHECK_FALSE(record.isUltimateCaster());
+    CHECK(record.skillCooldownSource().slot == BattleSkillSlot::None);
 }
 
 TEST_CASE("BattleRuntimeUnitRecord_MovementAgentLivesOnRecord", "[battle][core][movement][ownership]")
@@ -1611,6 +1615,8 @@ TEST_CASE("BattleRuntimeUnitRecord_ComboDomainMethodsUseOwnedCombo", "[battle][c
     BattleRuntimeUnitRecord record;
     record.core.id = 1;
     record.combo.setTypePending(EffectType::OnSkillTeamHeal, true);
+    record.skillEffects.ultimate.effects.setTypePending(EffectType::OnSkillTeamHeal, true);
+    record.setSkillCooldownUltimate(true);
     ComboEffectSnapshot effect;
     effect.type = EffectType::MPRecoveryBonus;
     effect.trigger = Trigger::Always;
@@ -1621,9 +1627,36 @@ TEST_CASE("BattleRuntimeUnitRecord_ComboDomainMethodsUseOwnedCombo", "[battle][c
     CHECK(record.sumAlways(EffectType::MPRecoveryBonus) == 25);
     CHECK(record.hasAlways(EffectType::MPRecoveryBonus));
 
-    record.clearPendingSkillHeal();
+    record.clearPendingEffects();
 
     CHECK_FALSE(record.combo.typePending(EffectType::OnSkillTeamHeal));
+    CHECK_FALSE(record.skillEffects.ultimate.effects.typePending(EffectType::OnSkillTeamHeal));
+    CHECK(record.skillCooldownSource().slot == BattleSkillSlot::Ultimate);
+}
+
+TEST_CASE("BattleRuntimeUnitRecord_ClearAllPendingDropsActionAndEffectPendingState", "[battle][core][ownership]")
+{
+    BattleRuntimeUnitRecord record;
+    record.core.id = 1;
+    record.combo.setTypePending(EffectType::OnSkillTeamHeal, true);
+    record.combo.setTypePending(EffectType::DodgeThenCrit, true);
+    record.skillEffects.normal.effects.setTypePending(EffectType::OnSkillTeamHeal, true);
+    record.skillEffects.ultimate.effects.setTypePending(EffectType::DodgeThenCrit, true);
+
+    BattlePendingCastAction pending;
+    pending.targetUnitId = 2;
+    record.setPendingCast(pending);
+    record.markUltimateCaster();
+
+    record.clearAllPending();
+
+    CHECK(record.pendingCast() == nullptr);
+    CHECK_FALSE(record.isUltimateCaster());
+    CHECK(record.skillCooldownSource().slot == BattleSkillSlot::None);
+    CHECK_FALSE(record.combo.typePending(EffectType::OnSkillTeamHeal));
+    CHECK_FALSE(record.combo.typePending(EffectType::DodgeThenCrit));
+    CHECK_FALSE(record.skillEffects.normal.effects.typePending(EffectType::OnSkillTeamHeal));
+    CHECK_FALSE(record.skillEffects.ultimate.effects.typePending(EffectType::DodgeThenCrit));
 }
 
 TEST_CASE("BattleRuntimeUnitRecord_DamageStateComposesOwnedFacts", "[battle][core][ownership]")
@@ -2009,6 +2042,68 @@ TEST_CASE("BattleFrameRunner_AreaSkillUsesHeavyReachForMovementAndCast", "[battl
     CHECK(pending->operationType == BattleOperationType::TrackingProjectile);
     CHECK(pending->skill.reach == Catch::Approx(SceneTileWidth * 4.0));
     CHECK(pending->skill.blinkReach == Catch::Approx(SceneTileWidth * 4.0));
+}
+
+TEST_CASE("BattleFrameRunner_UltimateCommitMarksSelectedSkillTeamHealForCooldownFinish", "[battle][core][runtime][magic]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 10, 20, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 152, 20, 0 }),
+        unit(2, 0, { 50, 20, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+
+    auto cast = frameCastInput(0, 1);
+    cast.ultimateSkill.attackAreaType = 3;
+    cast.ultimateSkill.selectDistance = 1;
+    configureRuntimeActionPlan(state, cast);
+
+    auto& caster = state.units.requireCore(0);
+    caster.animation.cooldown = 0;
+    caster.vitals.hp = 50;
+    caster.vitals.mp = caster.vitals.maxMp;
+    auto& ally = state.units.requireCore(2);
+    ally.vitals.hp = 70;
+    ally.vitals.maxHp = 100;
+
+    auto& skillEffects = state.units.require(0).skillEffects.ultimate.effects;
+    const auto effectId = skillEffects.applyConfiguredEffect({
+        EffectType::OnSkillTeamHeal,
+        12,
+        0,
+        "",
+        Trigger::OnUltimate,
+        100,
+    });
+
+    runBattleFrame(state);
+    auto* pending = state.units.require(0).pendingCast();
+    REQUIRE(pending != nullptr);
+    CHECK_FALSE(skillEffects.typePending(EffectType::OnSkillTeamHeal));
+
+    preparePendingCastCommitFrame(
+        state,
+        0,
+        pending->operationType,
+        pending->castFrame);
+    runBattleFrame(state);
+
+    CHECK(state.units.require(0).pendingCast() == nullptr);
+    CHECK(skillEffects.typePending(EffectType::OnSkillTeamHeal));
+    CHECK(state.units.require(0).skillCooldownSource().slot == BattleSkillSlot::Ultimate);
+
+    state.units.requireCore(0).animation.cooldown = 1;
+    auto finish = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).vitals.hp == 62);
+    CHECK(state.units.requireCore(2).vitals.hp == 82);
+    CHECK_FALSE(skillEffects.typePending(EffectType::OnSkillTeamHeal));
+    CHECK(state.units.require(0).skillCooldownSource().slot == BattleSkillSlot::None);
+    CHECK(skillEffects.triggeredEffectActivationCount(effectId) == 1);
+    CHECK(hasHealVisualEvent(finish, 0));
+    CHECK(hasHealVisualEvent(finish, 2));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[battle][core][runtime]")
