@@ -56,12 +56,12 @@ std::shared_ptr<MainScene> MainScene::getInstance()
 {
     static std::shared_ptr<MainScene> ms = []() -> std::shared_ptr<MainScene>
     {
-        if (GameUtil::getInstance()->getInt("game", "battle_mode") == 5)
-        {
-            LOG("Main scene mode: Paper\n");
-            return std::make_shared<MainScenePaper>();
-        }
-        LOG("Main scene mode: Normal\n");
+        //if (GameUtil::getInstance()->getInt("game", "battle_mode") == 5)
+        //{
+        //    LOG("Main scene mode: Paper\n");
+        //    return std::make_shared<MainScenePaper>();
+        //}
+        //LOG("Main scene mode: Normal\n");
         return std::make_shared<MainScene>();
     }();
     return ms;
@@ -230,7 +230,7 @@ void MainScene::draw()
         brightness_v[0] = 1;
         brightness_v[2] = 0;
         TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y,
-            { { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, {}, brightness_v });
+            { { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, { }, brightness_v });
     }
     auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
     TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { { 255, 255, 255, 255 }, 128 });
