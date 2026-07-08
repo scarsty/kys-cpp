@@ -24,6 +24,16 @@ constexpr float PAPER_GROUND_RADIAL_FADE_END_RATIO = 0.48f;
 constexpr uint8_t PAPER_GROUND_EDGE_MIN_ALPHA = 0;
 constexpr uint8_t PAPER_GROUND_HORIZON_MIN_ALPHA = 0;
 constexpr int PAPER_GROUND_EDGE_STRETCH_SOURCE_DIVISOR = 16;
+constexpr float PAPER_FREE_CAMERA_ROTATE_SPEED = 0.035f;
+constexpr float PAPER_FREE_CAMERA_HEIGHT_SPEED = 6.0f;
+constexpr float PAPER_CAMERA_DEFAULT_DISTANCE = 400.0f;
+constexpr float PAPER_CAMERA_MIN_DISTANCE = 220.0f;
+constexpr float PAPER_CAMERA_MAX_DISTANCE = 900.0f;
+constexpr float PAPER_CAMERA_ZOOM_STEP = 24.0f;
+constexpr float PAPER_CAMERA_WHEEL_ZOOM_STEP = 80.0f;
+constexpr float PAPER_CAMERA_MIN_HEIGHT = 80.0f;
+constexpr float PAPER_CAMERA_MAX_HEIGHT = 500.0f;
+constexpr int PAPER_LOCK_MARK_TEXTURE = 201;
 
 BattleScenePaper::BattleScenePaper()
 {
@@ -124,26 +134,51 @@ void BattleScenePaper::draw()
             {
                 camera_focus_ = { x1, y1, 0 };
             }
-            if (auto enemy = findNearestEnemy(role_->Team, role_->Pos))
+            Role* locked_role = camera_locked_ ? findNearestEnemy(role_->Team, role_->Pos) : nullptr;
+            if (locked_role)
             {
-                camera_focus_ = { enemy->Pos.x, enemy->Pos.y, 0 };
+                camera_focus_ = { locked_role->Pos.x, locked_role->Pos.y, 0 };
             }
-            auto camera_dir = Pointf{ role_->Pos.x - camera_focus_.x, role_->Pos.y - camera_focus_.y, 0 };
-            if (camera_dir.norm() == 0)
+            else
             {
-                camera_dir = role_->RealTowards;
-                camera_dir.z = 0;
+                camera_focus_ = { role_->Pos.x, role_->Pos.y, 0 };
+            }
+            Pointf camera_dir;
+            if (camera_locked_)
+            {
+                camera_dir = Pointf{ role_->Pos.x - camera_focus_.x, role_->Pos.y - camera_focus_.y, 0 };
                 if (camera_dir.norm() == 0)
                 {
-                    camera_dir = { 0, 1, 0 };
+                    camera_dir = role_->RealTowards;
+                    camera_dir.z = 0;
+                    if (camera_dir.norm() == 0)
+                    {
+                        camera_dir = { 0, 1, 0 };
+                    }
                 }
+                camera_dir.normTo(PAPER_CAMERA_DEFAULT_DISTANCE);
+                camera_distance_ = PAPER_CAMERA_DEFAULT_DISTANCE;
+                camera_angle_ = std::atan2(camera_dir.y, camera_dir.x);
+                camera_pos_ = { role_->Pos.x + camera_dir.x, role_->Pos.y + camera_dir.y, camera_height_ };
             }
-            camera_dir.normTo(400);
-            camera_pos_ = { role_->Pos.x + camera_dir.x, role_->Pos.y + camera_dir.y, 200 };
+            else
+            {
+                if (camera_distance_ <= 0)
+                {
+                    camera_distance_ = PAPER_CAMERA_DEFAULT_DISTANCE;
+                }
+                camera_height_ = std::clamp(camera_height_, PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
+                camera_dir = { std::cos(camera_angle_) * camera_distance_, std::sin(camera_angle_) * camera_distance_, 0 };
+                camera_pos_ = { camera_focus_.x + camera_dir.x, camera_focus_.y + camera_dir.y, camera_height_ };
+            }
             camera_.center = camera_focus_;
             camera_.pos = camera_pos_;
             camera_height_ = camera_pos_.z;
-            camera_distance_ = Pointf{ camera_pos_.x - camera_focus_.x, camera_pos_.y - camera_focus_.y, 0 }.norm();
+            if (!camera_locked_)
+            {
+                camera_distance_ = Pointf{ camera_pos_.x - camera_focus_.x, camera_pos_.y - camera_focus_.y, 0 }.norm();
+                free_camera_distance_ = camera_distance_;
+            }
             camera_angle_ = std::atan2(camera_pos_.y - camera_focus_.y, camera_pos_.x - camera_focus_.x);
             camera_.setFov(PaperSky::CameraFov);
             camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
@@ -612,6 +647,23 @@ void BattleScenePaper::draw()
                         render_paper_texture(sprite.tex, sprite.anchor, sprite.color, sprite.alpha, sprite.rot);
                     }
             }
+            if (locked_role && locked_role->Dead == 0 && locked_role->HP > 0)
+            {
+                Pointf marker_world = locked_role->Pos + Pointf{ 0, 0, TILE_W * 1.5f };
+                if (camera_.getDepth(marker_world) > camera_.getNearPlane())
+                {
+                    auto projected = camera_.getProj({ marker_world });
+                    if (!projected.empty())
+                    {
+                        auto tex = TextureManager::getInstance()->getTexture("title", PAPER_LOCK_MARK_TEXTURE);
+                        float zoom = 0.5f + 0.06f * std::sin(current_frame_ * 0.16f);
+                        int mark_x = int(projected[0].x) - (tex ? int(tex->w * zoom * 0.5f) : 0);
+                        int mark_y = int(projected[0].y) - (tex ? int(tex->h * zoom * 0.5f) : 0);
+                        TextureManager::getInstance()->renderTexture("title", PAPER_LOCK_MARK_TEXTURE, mark_x, mark_y,
+                            { { 255, 255, 255, 255 }, 224, zoom, zoom });
+                    }
+                }
+            }
             Engine::getInstance()->renderTextureToMain("scene");
             return;
         }
@@ -983,6 +1035,22 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
             r->Auto = 0;
         }
     }
+    if ((e.type == EVENT_KEY_UP && e.key.key == K_Q)
+        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_MIDDLE)
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_RIGHT_STICK))
+    {
+        camera_locked_ = !camera_locked_;
+        if (!camera_locked_)
+        {
+            camera_distance_ = free_camera_distance_ > 0 ? free_camera_distance_ : PAPER_CAMERA_DEFAULT_DISTANCE;
+        }
+    }
+    if (!camera_locked_ && e.type == EVENT_MOUSE_WHEEL && e.wheel.y != 0)
+    {
+        free_camera_distance_ = std::clamp(free_camera_distance_ - e.wheel.y * PAPER_CAMERA_WHEEL_ZOOM_STEP,
+            PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
+        camera_distance_ = free_camera_distance_;
+    }
     if (e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE
         || e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
     {
@@ -1037,15 +1105,46 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
                 {
                     input_forward -= 1;
                 }
-                if (engine->checkKeyPress(K_Z))
+                if (!camera_locked_)
                 {
-                    camera_distance_ += 50;
-                    camera_distance_ = std::min(camera_distance_, 100000.0f);
+                    if (engine->checkKeyPress(K_Z))
+                    {
+                        free_camera_distance_ += PAPER_CAMERA_ZOOM_STEP;
+                    }
+                    if (engine->checkKeyPress(K_X))
+                    {
+                        free_camera_distance_ -= PAPER_CAMERA_ZOOM_STEP;
+                    }
+                    auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
+                    auto right_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER);
+                    if (left_trigger > 6000)
+                    {
+                        free_camera_distance_ += PAPER_CAMERA_ZOOM_STEP * GameUtil::clamp(left_trigger, 0, 20000) / 20000.0f;
+                    }
+                    if (right_trigger > 6000)
+                    {
+                        free_camera_distance_ -= PAPER_CAMERA_ZOOM_STEP * GameUtil::clamp(right_trigger, 0, 20000) / 20000.0f;
+                    }
+                    free_camera_distance_ = std::clamp(free_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
+                    camera_distance_ = free_camera_distance_;
                 }
-                if (engine->checkKeyPress(K_X))
+                if (!camera_locked_)
                 {
-                    camera_distance_ -= 50;
-                    camera_distance_ = std::max(camera_distance_, 0.0f);
+                    float camera_rotate = 0;
+                    float camera_height_delta = 0;
+                    if (engine->checkKeyPress(K_LEFT)) { camera_rotate -= 1; }
+                    if (engine->checkKeyPress(K_RIGHT)) { camera_rotate += 1; }
+                    if (engine->checkKeyPress(K_UP)) { camera_height_delta += 1; }
+                    if (engine->checkKeyPress(K_DOWN)) { camera_height_delta -= 1; }
+                    auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
+                    auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
+                    if (std::abs(right_axis_x) < 6000) { right_axis_x = 0; }
+                    if (std::abs(right_axis_y) < 6000) { right_axis_y = 0; }
+                    camera_rotate += GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f;
+                    camera_height_delta += GameUtil::clamp(-right_axis_y, -20000, 20000) / 20000.0f;
+                    camera_angle_ += camera_rotate * PAPER_FREE_CAMERA_ROTATE_SPEED;
+                    camera_height_ = std::clamp(camera_height_ + camera_height_delta * PAPER_FREE_CAMERA_HEIGHT_SPEED,
+                        PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
                 }
                 Pointf view_dir = camera_.center - camera_.pos;
                 view_dir.z = 0;
@@ -1091,7 +1190,7 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
             }
             //equip_magics_[i]->setState(NodeNormal);
         }
-        if (switch_magic_ == 0
+        if (camera_locked_ && switch_magic_ == 0
             && (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT)
                 || engine->checkKeyPress(K_LEFT)))
         {
@@ -1114,7 +1213,7 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
             r->EquipMagic[0] = v[index]->ID;
             switch_magic_ = 20;
         }
-        if (switch_magic_ == 0
+        if (camera_locked_ && switch_magic_ == 0
             && (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT)
                 || engine->checkKeyPress(K_RIGHT)))
         {

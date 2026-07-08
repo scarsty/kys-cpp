@@ -54,8 +54,10 @@ protected:
     Pointf camera_focus_ = { 1500, 1500, 0 };
     float camera_angle_ = M_PI / 2;
     float camera_distance_ = 0;
+    float free_camera_distance_ = 400;
     float camera_height_ = 200;
     float camera_height_angle_ = M_PI / 4;
+    bool camera_locked_ = false;
     PaperSky paper_sky_;
 };
 
