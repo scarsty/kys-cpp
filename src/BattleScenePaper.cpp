@@ -26,6 +26,7 @@ constexpr float PAPER_GROUND_RADIAL_FADE_START_RATIO = 0.29f;
 constexpr float PAPER_GROUND_RADIAL_FADE_END_RATIO = 0.35355339f;
 constexpr uint8_t PAPER_GROUND_EDGE_MIN_ALPHA = 0;
 constexpr uint8_t PAPER_GROUND_HORIZON_MIN_ALPHA = 48;
+constexpr int PAPER_GROUND_EDGE_STRETCH_SOURCE_DIVISOR = 16;
 
 Color mixColor(const Color& from, const Color& to, float factor)
 {
@@ -1569,18 +1570,9 @@ void BattleScenePaper::onEntrance()
         SDL_SetTextureScaleMode(earth_texture, SDL_SCALEMODE_LINEAR);
         engine->setRenderTarget(earth_base_texture);
         engine->fillColor({ 0, 0, 0, 0 }, 0, 0, base_earth_texture_w, base_earth_texture_h, BLENDMODE_NONE);
-        /*
-        if (TextureManager::getInstance()->getTextureGroup("battle-earth")->getTextureCount() > 0)
-        {
-            auto tex = TextureManager::getInstance()->getTexture("battle-earth", info_->BattleFieldID);
-            if (tex)
-            {
-                TextureManager::getInstance()->renderTexture(tex,
-                    base_earth_offset_x, base_earth_offset_y, { }, base_earth_w, base_earth_h);
-            }
-        }
-        else
-        */
+
+        auto texture_manager = TextureManager::getInstance();
+        auto render_smap_ground = [&]()
         {
             struct GroundTile
             {
@@ -1599,7 +1591,6 @@ void BattleScenePaper::onEntrance()
 
             std::vector<GroundTile> ground_tiles;
             ground_tiles.reserve(COORD_COUNT * COORD_COUNT);
-            auto texture_manager = TextureManager::getInstance();
             auto tile_index = [&](int ix, int iy)
             {
                 return ix + iy * COORD_COUNT;
@@ -1708,7 +1699,7 @@ void BattleScenePaper::onEntrance()
             auto get_extension_source_index = [&](int ix, int iy)
             {
                 int original_index = get_original_tile_index(ix, iy);
-                if (original_index >= 0 || (ix >= 0 && ix < COORD_COUNT && iy >= 0 && iy < COORD_COUNT))
+                if (original_index >= 0)
                 {
                     return original_index;
                 }
@@ -1776,6 +1767,71 @@ void BattleScenePaper::onEntrance()
             for (const auto& tile : ground_draw_tiles)
             {
                 render_ground_tile(tile);
+            }
+        };
+
+        render_smap_ground();
+
+        auto battle_earth_group = texture_manager->getTextureGroup("battle-earth");
+        if (battle_earth_group->getTextureCount() > 0)
+        {
+            std::string battle_earth_filename = std::to_string(info_->BattleFieldID) + battle_earth_group->info_.ext_;
+            if (!battle_earth_group->getFileContent(battle_earth_filename).empty())
+            {
+                auto tex = texture_manager->getTexture("battle-earth", info_->BattleFieldID);
+                if (tex)
+                {
+                    tex->load();
+                    auto texture = tex->getTexture();
+                    if (texture)
+                    {
+                        int texture_w = tex->w;
+                        int texture_h = tex->h;
+                        engine->getTextureSize(texture, texture_w, texture_h);
+                        Engine::setColor(texture, { 255, 255, 255, 255 });
+                        if (texture_w > 0 && texture_h > 0)
+                        {
+                            int center_x = base_earth_offset_x - tex->dx;
+                            int center_y = base_earth_offset_y - tex->dy;
+                            int right_x = center_x + base_earth_w;
+                            int bottom_y = center_y + base_earth_h;
+                            int left_w = std::max(0, center_x);
+                            int top_h = std::max(0, center_y);
+                            int right_w = std::max(0, base_earth_texture_w - right_x);
+                            int bottom_h = std::max(0, base_earth_texture_h - bottom_y);
+                            int strip_w = std::clamp(texture_w / PAPER_GROUND_EDGE_STRETCH_SOURCE_DIVISOR, 1, texture_w);
+                            int strip_h = std::clamp(texture_h / PAPER_GROUND_EDGE_STRETCH_SOURCE_DIVISOR, 1, texture_h);
+
+                            auto render_texture_rect = [&](Rect source, Rect destination)
+                            {
+                                if (source.w <= 0 || source.h <= 0 || destination.w <= 0 || destination.h <= 0)
+                                {
+                                    return;
+                                }
+                                engine->renderTexture(texture, &source, &destination);
+                            };
+
+                            Rect full_source = { 0, 0, texture_w, texture_h };
+                            Rect center_destination = { center_x, center_y, base_earth_w, base_earth_h };
+                            render_texture_rect(full_source, center_destination);
+
+                            Rect left_source = { 0, 0, strip_w, texture_h };
+                            Rect right_source = { texture_w - strip_w, 0, strip_w, texture_h };
+                            Rect top_source = { 0, 0, texture_w, strip_h };
+                            Rect bottom_source = { 0, texture_h - strip_h, texture_w, strip_h };
+                            render_texture_rect(left_source, { 0, center_y, left_w, base_earth_h });
+                            render_texture_rect(right_source, { right_x, center_y, right_w, base_earth_h });
+                            render_texture_rect(top_source, { center_x, 0, base_earth_w, top_h });
+                            render_texture_rect(bottom_source, { center_x, bottom_y, base_earth_w, bottom_h });
+
+                            render_texture_rect({ 0, 0, strip_w, strip_h }, { 0, 0, left_w, top_h });
+                            render_texture_rect({ texture_w - strip_w, 0, strip_w, strip_h }, { right_x, 0, right_w, top_h });
+                            render_texture_rect({ 0, texture_h - strip_h, strip_w, strip_h }, { 0, bottom_y, left_w, bottom_h });
+                            render_texture_rect({ texture_w - strip_w, texture_h - strip_h, strip_w, strip_h },
+                                { right_x, bottom_y, right_w, bottom_h });
+                        }
+                    }
+                }
             }
         }
 
