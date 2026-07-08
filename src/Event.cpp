@@ -136,14 +136,21 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     if (use_script_)
     {
         auto cifa_script = std::format("{}script/event-cifa/{}.cifa", GameUtil::PATH(), event_id);
+        auto cifa_c_script = std::format("{}script/event-cifa/{}.c", GameUtil::PATH(), event_id);
         auto script = std::format("{}script/event/ka{}.lua", GameUtil::PATH(), event_id);
-        LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, cifa_script);
         if (filefunc::fileExist(cifa_script))
         {
+            LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, cifa_script);
             ret = ScriptCifa::getInstance()->runScript(cifa_script) == 0;
+        }
+        else if (filefunc::fileExist(cifa_c_script))
+        {
+            LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, cifa_c_script);
+            ret = ScriptCifa::getInstance()->runScript(cifa_c_script) == 0;
         }
         else
         {
+            LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, script);
             ret = ScriptLua::getInstance()->runScript(script) == 0;
         }
     }
