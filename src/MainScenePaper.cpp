@@ -47,11 +47,14 @@ bool MainScenePaper::inCameraFront(const std::vector<Pointf>& points)
 
 bool MainScenePaper::isMountainTexture(int pic) const
 {
-    static constexpr std::array<int, 28> mountain_pics = {
+    static constexpr std::array<int, 53> mountain_pics = {
         1194, 1195, 1196, 1197, 1198, 1199, 1200, 1201,
         1202, 1203, 1204, 1205, 1206, 1207, 1208, 1209,
-        1374, 1381, 1383, 1386, 1390, 1405, 1407, 1408,
-        1410, 1412, 1413, 1443,
+        1348, 1349, 1362, 1363, 1367, 1374, 1375, 1376,
+        1377, 1381, 1383, 1386, 1388, 1390, 1395, 1399,
+        1404, 1405, 1406, 1407, 1408, 1410, 1412, 1413,
+        1417, 1419, 1420, 1422, 1423, 1443, 1449, 1450,
+        1451, 1452, 1453, 1455, 1457,
     };
     return std::ranges::find(mountain_pics, pic) != mountain_pics.end();
 }
@@ -97,6 +100,8 @@ void MainScenePaper::onEntrance()
 {
     MainScene::onEntrance();
     camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
+    paper_sky_.reset();
+    paper_sky_.generateClouds();
 }
 
 void MainScenePaper::draw()
@@ -111,7 +116,10 @@ void MainScenePaper::draw()
     camera_pos_ = man_pos + camera_back * CameraDistance + Pointf{ 0, 0, camera_height_ };
     camera_.center = camera_focus_;
     camera_.pos = camera_pos_;
+    camera_.setFov(PaperSky::CameraFov);
     camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
+
+    paper_sky_.render(engine, render_center_x_ * 2, render_center_y_ * 2, camera_.pos, camera_.center);
 
     const int earth_size = TILE_W * 480 * 2;
     if (TextureManager::getInstance()->getTextureGroup("mmap-earth")->getTextureCount() > 0)
@@ -207,6 +215,11 @@ void MainScenePaper::draw()
         int max_x = std::numeric_limits<int>::min();
         int max_y = std::numeric_limits<int>::min();
     };
+
+    auto is_valid_footprint = [](const Footprint& fp)
+    {
+        return fp.min_x <= fp.max_x && fp.min_y <= fp.max_y;
+    };
     std::unordered_map<int, Footprint> mountain_footprints;
     auto footprint_key = [&](int x, int y)
     {
@@ -250,80 +263,49 @@ void MainScenePaper::draw()
                     {
                         continue;
                     }
-                    auto footprint_it = mountain_footprints.find(footprint_key(ix, iy));
-                    if (footprint_it == mountain_footprints.end())
-                    {
-                        continue;
-                    }
                     float ground_v = float(std::clamp(tex->dy, 1, tex->h));
                     float height = ground_v;
-                    auto& fp = footprint_it->second;
-                    std::vector<Pointf> base = {
-                        pos45To90(fp.min_x, fp.min_y),
-                        pos45To90(fp.max_x + 1, fp.min_y),
-                        pos45To90(fp.max_x + 1, fp.max_y + 1),
-                        pos45To90(fp.min_x, fp.max_y + 1),
-                    };
-                    Pointf base_center = (base[0] + base[1] + base[2] + base[3]) * 0.25;
-                    float peak_offset = float(tex->w) * 0.5f - float(tex->dx);
-                    Pointf ground_anchor = p + paper_right * peak_offset;
-                    Pointf base_offset = ground_anchor - base_center;
-                    base_offset.z = 0;
-                    for (auto& point : base)
+                    auto footprint_it = mountain_footprints.find(footprint_key(ix, iy));
+                    std::vector<Pointf> base;
+                    if (footprint_it != mountain_footprints.end() && is_valid_footprint(footprint_it->second))
                     {
-                        point = point + base_offset;
+                        auto& fp = footprint_it->second;
+                        base = {
+                            pos45To90(fp.min_x, fp.min_y),
+                            pos45To90(fp.max_x + 1, fp.min_y),
+                            pos45To90(fp.max_x + 1, fp.max_y + 1),
+                            pos45To90(fp.min_x, fp.max_y + 1),
+                        };
                     }
-                    base_center = (base[0] + base[1] + base[2] + base[3]) * 0.25;
-                    Pointf top = ground_anchor + Pointf{ 0, 0, height };
+                    else
+                    {
+                        float base_radius = float(std::max(tex->dx, tex->w - tex->dx));
+                        float base_depth = float(std::max(tex->dy, tex->h - tex->dy)) * 0.5f;
+                        base = {
+                            p + Pointf{ -base_radius, -base_depth, 0 },
+                            p + Pointf{ base_radius, -base_depth, 0 },
+                            p + Pointf{ base_radius, base_depth, 0 },
+                            p + Pointf{ -base_radius, base_depth, 0 },
+                        };
+                    }
+                    Pointf base_center = (base[0] + base[1] + base[2] + base[3]) * 0.25;
+                    Pointf top = base_center + Pointf{ 0, 0, height };
                     std::vector<std::vector<Pointf>> faces = {
                         { base[0], base[1], top, top },
                         { base[1], base[2], top, top },
                         { base[2], base[3], top, top },
                         { base[3], base[0], top, top },
                     };
-                    Pointf to_man = man_pos - base_center;
-                    to_man.z = 0;
-                    if (to_man.norm() == 0)
+                    for (int k = 0; k < int(faces.size()); k++)
                     {
-                        to_man = view_dir;
-                    }
-                    to_man.normTo(1);
-                    std::vector<std::pair<float, int>> face_scores;
-                    for (int i = 0; i < int(faces.size()); i++)
-                    {
-                        Pointf face_dir = (faces[i][0] + faces[i][1]) * 0.5 - base_center;
-                        face_dir.z = 0;
-                        face_dir.normTo(1);
-                        face_scores.push_back({ face_dir.x * to_man.x + face_dir.y * to_man.y, i });
-                    }
-                    std::sort(face_scores.begin(), face_scores.end(), [](const auto& a, const auto& b)
-                        {
-                            return a.first > b.first;
-                        });
-                    int face_count = std::min(2, int(face_scores.size()));
-                    std::vector<int> visible_faces;
-                    visible_faces.reserve(face_count);
-                    for (int k = 0; k < face_count; k++)
-                    {
-                        visible_faces.push_back(face_scores[k].second);
-                    }
-                    std::sort(visible_faces.begin(), visible_faces.end(), [&](int a, int b)
-                        {
-                            Pointf ca = (faces[a][0] + faces[a][1] + faces[a][2]) * (1.0 / 3.0);
-                            Pointf cb = (faces[b][0] + faces[b][1] + faces[b][2]) * (1.0 / 3.0);
-                            return (ca.x - base_center.x) * paper_right.x + (ca.y - base_center.y) * paper_right.y < (cb.x - base_center.x) * paper_right.x + (cb.y - base_center.y) * paper_right.y;
-                        });
-                    for (int k = 0; k < int(visible_faces.size()); k++)
-                    {
-                        int face_index = visible_faces[k];
-                        auto& face = faces[face_index];
+                        auto& face = faces[k];
                         Pointf center = (face[0] + face[1] + face[2]) * (1.0 / 3.0);
                         float mid_x = float(tex->w) * 0.5f;
                         float top_x = mid_x;
                         float y0 = 0;
                         float y1 = ground_v;
                         std::vector<FPoint> src;
-                        if (k > 0)
+                        if (k == 1 || k == 2)
                         {
                             src = { { mid_x, y1 }, { float(tex->w), y1 }, { top_x, y0 }, { top_x, y0 } };
                         }

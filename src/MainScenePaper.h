@@ -1,5 +1,6 @@
 #pragma once
 #include "MainScene.h"
+#include "PaperSky.h"
 
 class MainScenePaper : public MainScene
 {
@@ -21,4 +22,5 @@ private:
     Pointf camera_focus_ = { 0, 0, 0 };
     float camera_yaw_ = 0.0f;
     float camera_height_ = 150.0f;
+    PaperSky paper_sky_;
 };

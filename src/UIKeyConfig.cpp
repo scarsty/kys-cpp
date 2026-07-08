@@ -59,6 +59,7 @@ void UIKeyConfig::onPressedOK()
     {
         *getKeyConfig() = key_;
         GameUtil::getInstance()->setKey("game", "key", toString());
+        GameUtil::getInstance()->saveConfig();
         setExit(true);
     }
     if (result_ == 10)

@@ -194,6 +194,9 @@
     <ClCompile Include="BattleScenePaper.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="PaperSky.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="..\mlcc\SimpleCC.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
@@ -416,6 +419,9 @@
       <Filter>camera</Filter>
     </ClInclude>
     <ClInclude Include="BattleScenePaper.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="PaperSky.h">
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="..\mlcc\SimpleCC.h">

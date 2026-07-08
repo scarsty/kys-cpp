@@ -20,6 +20,8 @@ private:
     ~GameUtil();
 
 public:
+    void saveConfig();
+
     static GameUtil* getInstance()
     {
         static GameUtil gu;

@@ -3,7 +3,6 @@
 #include "Event.h"
 #include "GameUtil.h"
 #include "MainScene.h"
-#include "RunNode.h"
 #include "TeamMenu.h"
 #include "Weather.h"
 #include "filefunc.h"
@@ -12,12 +11,6 @@
 #include <cmath>
 #include <limits>
 
-namespace
-{
-constexpr float PAPER_SKY_PI = 3.14159265358979323846f;
-constexpr float PAPER_CAMERA_FOV = 60.0f;
-constexpr const char* PAPER_SKY_TEXTURE = "resource/sky/paper-sky.png";
-constexpr float PAPER_SKY_HORIZON_RATIO = 0.74f;
 constexpr float PAPER_GROUND_EXTENSION_MARGIN_RATIO = 1.0f;
 constexpr float PAPER_GROUND_MESH_CENTER_RATIO = 0.64f;
 constexpr int PAPER_GROUND_MESH_TARGET_DIVISIONS = 160;
@@ -31,246 +24,6 @@ constexpr float PAPER_GROUND_RADIAL_FADE_END_RATIO = 0.48f;
 constexpr uint8_t PAPER_GROUND_EDGE_MIN_ALPHA = 0;
 constexpr uint8_t PAPER_GROUND_HORIZON_MIN_ALPHA = 0;
 constexpr int PAPER_GROUND_EDGE_STRETCH_SOURCE_DIVISOR = 16;
-
-Color mixColor(const Color& from, const Color& to, float factor)
-{
-    factor = std::clamp(factor, 0.0f, 1.0f);
-    auto mix_channel = [factor](uint8_t a, uint8_t b)
-    {
-        return uint8_t(a + (b - a) * factor);
-    };
-    return {
-        mix_channel(from.r, to.r),
-        mix_channel(from.g, to.g),
-        mix_channel(from.b, to.b),
-        mix_channel(from.a, to.a)
-    };
-}
-
-void fillVerticalGradient(Engine* engine, int width, int y0, int y1,
-    Color top_color, Color bottom_color, int band_height)
-{
-    if (!engine || width <= 0 || y1 <= y0)
-    {
-        return;
-    }
-    band_height = std::max(1, band_height);
-    int height = y1 - y0;
-    for (int y = y0; y < y1; y += band_height)
-    {
-        int current_height = std::min(band_height, y1 - y);
-        float factor = height > 1 ? float(y - y0) / float(height - 1) : 0.0f;
-        engine->fillColor(mixColor(top_color, bottom_color, factor),
-            0, y, width, current_height, BLENDMODE_NONE);
-    }
-}
-
-void fillStretchedVerticalGradient(Engine* engine, int width, int y0, int visible_y1, int gradient_y1,
-    Color top_color, Color bottom_color, int band_height)
-{
-    if (!engine || width <= 0 || visible_y1 <= y0)
-    {
-        return;
-    }
-    band_height = std::max(1, band_height);
-    int gradient_height = std::max(1, gradient_y1 - y0);
-    for (int y = y0; y < visible_y1; y += band_height)
-    {
-        int current_height = std::min(band_height, visible_y1 - y);
-        float factor = gradient_height > 1 ? float(y - y0) / float(gradient_height - 1) : 0.0f;
-        engine->fillColor(mixColor(top_color, bottom_color, factor),
-            0, y, width, current_height, BLENDMODE_NONE);
-    }
-}
-
-float normalizeAngle(float angle)
-{
-    angle = std::fmod(angle + PAPER_SKY_PI, 2.0f * PAPER_SKY_PI);
-    if (angle < 0)
-    {
-        angle += 2.0f * PAPER_SKY_PI;
-    }
-    return angle - PAPER_SKY_PI;
-}
-
-float smoothStep(float edge0, float edge1, float value)
-{
-    if (edge1 <= edge0)
-    {
-        return value >= edge1 ? 1.0f : 0.0f;
-    }
-    float t = std::clamp((value - edge0) / (edge1 - edge0), 0.0f, 1.0f);
-    return t * t * (3.0f - 2.0f * t);
-}
-
-float getPaperHorizontalFovRadians(int viewport_width, int viewport_height)
-{
-    float aspect = float(std::max(1, viewport_width)) / float(std::max(1, viewport_height));
-    float vertical_fov = PAPER_CAMERA_FOV * PAPER_SKY_PI / 180.0f;
-    return 2.0f * std::atan(std::tan(vertical_fov * 0.5f) * aspect);
-}
-
-int getPaperSkyDestinationHeight(int horizon_y, int viewport_height)
-{
-    return std::clamp(int(horizon_y / PAPER_SKY_HORIZON_RATIO),
-        int(viewport_height * 0.45f), int(viewport_height * 1.18f));
-}
-
-Texture* getPaperSkyTexture()
-{
-    static bool tried = false;
-    static Texture* texture = nullptr;
-    if (!tried)
-    {
-        tried = true;
-        texture = Engine::getInstance()->loadImage(GameUtil::PATH() + PAPER_SKY_TEXTURE);
-    }
-    return texture;
-}
-
-void renderTextureQuad(Engine* engine, Texture* texture, float x, float y, float w, float h,
-    float source_x, float source_y, float source_w, float source_h, Color color)
-{
-    if (!engine || !texture || w <= 0 || h <= 0 || source_w <= 0 || source_h <= 0)
-    {
-        return;
-    }
-
-    std::vector<FPoint> destination = {
-        { x, y },
-        { x + w, y },
-        { x + w, y + h },
-        { x, y + h },
-    };
-    std::vector<FPoint> source = {
-        { source_x, source_y },
-        { source_x + source_w, source_y },
-        { source_x + source_w, source_y + source_h },
-        { source_x, source_y + source_h },
-    };
-    std::vector<Color> colors(4, color);
-    std::vector<int> indices = { 0, 1, 2, 2, 3, 0 };
-    engine->renderTextureMesh(texture, destination, source, colors, indices);
-}
-
-void renderWrappedSkyTexture(Engine* engine, Texture* texture, int viewport_width, int viewport_height,
-    int horizon_y, float yaw, float horizontal_fov)
-{
-    if (!engine || !texture || viewport_width <= 0 || viewport_height <= 0)
-    {
-        return;
-    }
-
-    int texture_width = 0;
-    int texture_height = 0;
-    engine->getTextureSize(texture, texture_width, texture_height);
-    if (texture_width <= 0 || texture_height <= 0)
-    {
-        return;
-    }
-
-    int destination_height = getPaperSkyDestinationHeight(horizon_y, viewport_height);
-    int source_width = std::clamp(int(float(texture_width) * horizontal_fov / (2.0f * PAPER_SKY_PI)),
-        1, texture_width);
-
-    float normalized_yaw = yaw / (2.0f * PAPER_SKY_PI);
-    float source_x_float = std::fmod(normalized_yaw * texture_width - source_width * 0.5f, float(texture_width));
-    if (source_x_float < 0)
-    {
-        source_x_float += texture_width;
-    }
-    int source_x = int(source_x_float);
-
-    auto render_slice = [&](int sx, int sw, int dx, int dw)
-    {
-        if (sw <= 0 || dw <= 0)
-        {
-            return;
-        }
-        Rect source{ sx, 0, sw, texture_height };
-        Rect destination{ dx, 0, dw, destination_height };
-        engine->renderTexture(texture, &source, &destination);
-    };
-
-    int remaining_source_width = source_width;
-    int destination_x = 0;
-    while (remaining_source_width > 0)
-    {
-        int slice_width = std::min(remaining_source_width, texture_width - source_x);
-        int destination_width = remaining_source_width == slice_width
-            ? viewport_width - destination_x
-            : int(float(slice_width) / source_width * viewport_width);
-        render_slice(source_x, slice_width, destination_x, destination_width);
-        remaining_source_width -= slice_width;
-        destination_x += destination_width;
-        source_x = 0;
-    }
-}
-
-void renderSkyCloudLayer(Engine* engine, int viewport_width, int viewport_height, int horizon_y,
-    float pitch, float yaw, float horizontal_fov, const std::vector<PaperSkyCloud>& clouds)
-{
-    if (!engine || viewport_width <= 0 || viewport_height <= 0 || horizontal_fov <= 0 || clouds.empty())
-    {
-        return;
-    }
-
-    float focal = viewport_height * 0.5f
-        / std::tan(PAPER_CAMERA_FOV * PAPER_SKY_PI / 180.0f * 0.5f);
-    float margin = horizontal_fov * 0.55f;
-    float time = float(RunNode::getShowTimes()) / 60.0f;
-
-    auto texture_manager = TextureManager::getInstance();
-    for (const auto& cloud : clouds)
-    {
-        float delta = normalizeAngle(cloud.angle + time * cloud.drift_speed - yaw * cloud.parallax);
-        if (delta < -horizontal_fov * 0.5f - margin || delta > horizontal_fov * 0.5f + margin)
-        {
-            continue;
-        }
-
-        auto tex = texture_manager->getTexture("cloud", cloud.texture_id);
-        if (!tex)
-        {
-            continue;
-        }
-        tex->load();
-        auto texture = tex->getTexture();
-        if (!texture)
-        {
-            continue;
-        }
-
-        float draw_w = viewport_width * cloud.width_ratio;
-        float draw_h = draw_w * float(tex->h) / std::max(1.0f, float(tex->w));
-        float cloud_elevation = std::clamp(31.0f - cloud.y_ratio * 38.0f, 6.0f, 30.0f)
-            * PAPER_SKY_PI / 180.0f;
-        float vertical_angle = std::clamp(-pitch + cloud_elevation, -1.35f, 1.35f);
-        float projected_y = viewport_height * 0.5f - focal * std::tan(vertical_angle);
-        float draw_x = viewport_width * 0.5f + delta / horizontal_fov * viewport_width - draw_w * 0.5f;
-        float draw_y = projected_y - draw_h * 0.48f
-            + std::sin(time * 0.55f + cloud.phase) * draw_h * 0.025f;
-        float clipped_top = std::max(0.0f, draw_y);
-        float clipped_bottom = std::min(float(viewport_height), draw_y + draw_h);
-        if (clipped_bottom <= clipped_top)
-        {
-            continue;
-        }
-
-        int alpha = std::clamp(int(cloud.alpha + std::sin(time * 0.35f + cloud.phase) * 5.0f), 0, 255);
-        Engine::setColor(texture, { 255, 255, 255, 255 });
-        float source_y = (clipped_top - draw_y) / std::max(1.0f, draw_h) * tex->h;
-        float source_h = (clipped_bottom - clipped_top) / std::max(1.0f, draw_h) * tex->h;
-        renderTextureQuad(engine, texture, draw_x, clipped_top, draw_w, clipped_bottom - clipped_top,
-            0.0f, source_y, float(tex->w), source_h, { 255, 255, 255, uint8_t(alpha) });
-    }
-}
-
-float clampTextureCoordinate(float value, float max_value)
-{
-    return std::clamp(value, 0.0f, max_value);
-}
-}
 
 BattleScenePaper::BattleScenePaper()
 {
@@ -305,69 +58,6 @@ BattleScenePaper::BattleScenePaper()
         addChild(h);
     }
     easy_block_ = GameUtil::getInstance()->getInt("game", "easy_block", 0);
-}
-
-void BattleScenePaper::generatePaperSkyClouds()
-{
-    paper_sky_clouds_.clear();
-
-    auto texture_manager = TextureManager::getInstance();
-    int cloud_texture_count = texture_manager->getTextureGroup("cloud")->getTextureCount();
-    if (cloud_texture_count <= 0)
-    {
-        return;
-    }
-
-    auto random_float = [&](float min_value, float max_value)
-    {
-        return min_value + float(rand_.rand()) * (max_value - min_value);
-    };
-    auto lerp = [](float from, float to, float factor)
-    {
-        return from + (to - from) * factor;
-    };
-
-    int cloud_count = std::max(34 + rand_.rand_int(15), cloud_texture_count);
-    int texture_offset = rand_.rand_int(cloud_texture_count);
-    paper_sky_clouds_.reserve(cloud_count);
-
-    for (int i = 0; i < cloud_count; i++)
-    {
-        float angle_step = 2.0f * PAPER_SKY_PI / float(cloud_count);
-        float angle = -PAPER_SKY_PI + (float(i) + random_float(-0.35f, 0.35f)) * angle_step;
-        float depth = std::clamp(float(rand_.rand()), 0.0f, 1.0f);
-        float depth_curve = smoothStep(0.0f, 1.0f, depth);
-        float speed_depth_curve = depth_curve * depth_curve;
-        float speed = lerp(0.00015f, 0.018f, speed_depth_curve) * random_float(0.45f, 1.85f);
-        if (rand_.rand() < 0.5)
-        {
-            speed = -speed;
-        }
-
-        PaperSkyCloud cloud;
-        cloud.texture_id = i < cloud_texture_count
-            ? (i + texture_offset) % cloud_texture_count
-            : rand_.rand_int(cloud_texture_count);
-        cloud.angle = normalizeAngle(angle);
-        cloud.y_ratio = std::clamp(lerp(0.04f, 0.72f, depth_curve) + random_float(-0.055f, 0.055f),
-            0.02f, 0.78f);
-        float size_depth_curve = depth_curve * depth_curve;
-        cloud.width_ratio = std::clamp(lerp(0.0385f, 0.434f, size_depth_curve) * random_float(0.75f, 1.16f),
-            0.028f, 0.504f);
-        cloud.alpha = uint8_t(std::clamp(int(lerp(30.0f, 220.0f, depth_curve)
-            * random_float(0.78f, 1.15f)), 24, 232));
-        cloud.parallax = std::clamp(lerp(0.46f, 1.45f, depth_curve) + random_float(-0.08f, 0.08f),
-            0.40f, 1.55f);
-        cloud.drift_speed = speed;
-        cloud.phase = random_float(0.0f, 2.0f * PAPER_SKY_PI);
-        paper_sky_clouds_.push_back(cloud);
-    }
-
-    std::sort(paper_sky_clouds_.begin(), paper_sky_clouds_.end(),
-        [](const PaperSkyCloud& a, const PaperSkyCloud& b)
-        {
-            return a.width_ratio < b.width_ratio;
-        });
 }
 
 void BattleScenePaper::draw()
@@ -455,61 +145,11 @@ void BattleScenePaper::draw()
             camera_height_ = camera_pos_.z;
             camera_distance_ = Pointf{ camera_pos_.x - camera_focus_.x, camera_pos_.y - camera_focus_.y, 0 }.norm();
             camera_angle_ = std::atan2(camera_pos_.y - camera_focus_.y, camera_pos_.x - camera_focus_.x);
-            camera_.setFov(PAPER_CAMERA_FOV);
+            camera_.setFov(PaperSky::CameraFov);
             camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
             Engine::getInstance()->setRenderTarget("scene");
-            auto render_skybox = [&]()
-            {
-                auto engine = Engine::getInstance();
-                int viewport_w = render_center_x_ * 2;
-                int viewport_h = render_center_y_ * 2;
-                if (!engine || viewport_w <= 0 || viewport_h <= 0)
-                {
-                    return;
-                }
-
-                Pointf forward = camera_.center - camera_.pos;
-                float horizontal_length = std::sqrt(forward.x * forward.x + forward.y * forward.y);
-                if (horizontal_length < 0.001f)
-                {
-                    horizontal_length = 0.001f;
-                }
-                float pitch = std::atan2(forward.z, horizontal_length);
-                float focal = viewport_h * 0.5f
-                    / std::tan(PAPER_CAMERA_FOV * PAPER_SKY_PI / 180.0f * 0.5f);
-                int horizon_y = int(viewport_h * 0.5f + focal * std::tan(pitch));
-                horizon_y = std::clamp(horizon_y, int(viewport_h * 0.08f), int(viewport_h * 0.74f));
-
-                float sky_yaw = -std::atan2(forward.y, forward.x);
-                if (!paper_sky_yaw_initialized_)
-                {
-                    paper_sky_yaw_ = sky_yaw;
-                    paper_sky_yaw_initialized_ = true;
-                }
-                else
-                {
-                    paper_sky_yaw_ += normalizeAngle(sky_yaw - paper_sky_yaw_);
-                }
-                sky_yaw = paper_sky_yaw_;
-                float horizontal_fov = getPaperHorizontalFovRadians(viewport_w, viewport_h);
-                Texture* sky_texture = getPaperSkyTexture();
-                if (sky_texture)
-                {
-                    fillVerticalGradient(engine, viewport_w, 0, viewport_h,
-                        { 73, 133, 188, 255 }, { 91, 110, 83, 255 }, 1);
-                    renderWrappedSkyTexture(engine, sky_texture, viewport_w, viewport_h, horizon_y, sky_yaw, horizontal_fov);
-                }
-                else
-                {
-                    int sky_destination_height = std::max(viewport_h,
-                        getPaperSkyDestinationHeight(horizon_y, viewport_h));
-                    fillStretchedVerticalGradient(engine, viewport_w, 0, viewport_h, sky_destination_height,
-                        { 38, 82, 142, 255 }, { 172, 202, 224, 255 }, 4);
-                }
-                renderSkyCloudLayer(engine, viewport_w, viewport_h, horizon_y, pitch, sky_yaw,
-                    horizontal_fov, paper_sky_clouds_);
-            };
-            render_skybox();
+            paper_sky_.render(Engine::getInstance(), render_center_x_ * 2, render_center_y_ * 2,
+                camera_.pos, camera_.center);
             auto render_texture_3d = [&](Texture* texture, const std::vector<Pointf>& world, const std::vector<FPoint>& src)
             {
                 auto projected = camera_.getProj(world);
@@ -626,19 +266,19 @@ void BattleScenePaper::draw()
                     for (int ix = 0; ix < int(mesh_x_lines.size()); ix++)
                     {
                         float x = mesh_x_lines[ix];
-                        float source_x = clampTextureCoordinate(x + ground_source_offset_x, ground_texture_wf);
-                        float source_y = clampTextureCoordinate(y + ground_source_offset_y, ground_texture_hf);
+                        float source_x = std::clamp(x + ground_source_offset_x, 0.0f, ground_texture_wf);
+                        float source_y = std::clamp(y + ground_source_offset_y, 0.0f, ground_texture_hf);
                         float distance_to_edge = std::min(
                             std::min(source_x, ground_texture_wf - source_x),
                             std::min(source_y, ground_texture_hf - source_y));
-                        float fade = smoothStep(0.0f, ground_edge_fade_distance, distance_to_edge);
+                        float fade = PaperSky::smoothStep(0.0f, ground_edge_fade_distance, distance_to_edge);
                         float alpha = PAPER_GROUND_EDGE_MIN_ALPHA
                             + (255.0f - PAPER_GROUND_EDGE_MIN_ALPHA) * fade;
                         float center_dx = source_x - ground_center_x;
                         float center_dy = source_y - ground_center_y;
                         float center_distance = std::sqrt(center_dx * center_dx + center_dy * center_dy);
                         float radial_fade = 1.0f
-                            - smoothStep(ground_radial_fade_start, ground_radial_fade_end, center_distance);
+                            - PaperSky::smoothStep(ground_radial_fade_start, ground_radial_fade_end, center_distance);
                         alpha = std::min(alpha, 255.0f * radial_fade);
                         world.push_back({ x, y, 0 });
                         src.push_back({ source_x, source_y });
@@ -654,7 +294,7 @@ void BattleScenePaper::draw()
                 for (size_t i = 0; i < world.size(); i++)
                 {
                     float depth = camera_.getDepth(world[i]);
-                    float horizon_fade = smoothStep(horizon_fade_start, horizon_fade_end, depth);
+                    float horizon_fade = PaperSky::smoothStep(horizon_fade_start, horizon_fade_end, depth);
                     float horizon_alpha = PAPER_GROUND_HORIZON_MIN_ALPHA
                         + (255.0f - PAPER_GROUND_HORIZON_MIN_ALPHA) * (1.0f - horizon_fade);
                     colors[i].a = std::min(colors[i].a, uint8_t(std::clamp(horizon_alpha, 0.0f, 255.0f)));
@@ -1580,8 +1220,8 @@ void BattleScenePaper::dealEvent2(EngineEvent& e)
 
 void BattleScenePaper::onEntrance()
 {
-    paper_sky_yaw_initialized_ = false;
-    generatePaperSkyClouds();
+    paper_sky_.reset();
+    paper_sky_.generateClouds();
     calViewRegion();
     Audio::getInstance()->playMusic(info_->Music);
     //注意此时才能得到窗口的大小，用来设置头像的位置

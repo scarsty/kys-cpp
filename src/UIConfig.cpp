@@ -245,6 +245,7 @@ void UIConfig::onPressedOK()
     if (button_ok_->getState() == NodePress)
     {
         saveConfig();
+        GameUtil::getInstance()->saveConfig();
         exitWithResult(0);
         return;
     }

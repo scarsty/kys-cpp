@@ -7,5 +7,9 @@ GameUtil::GameUtil()
 
 GameUtil::~GameUtil()
 {
+}
+
+void GameUtil::saveConfig()
+{
     saveFile(GameUtil::PATH() + "config/kysmod.ini");
 }

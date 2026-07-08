@@ -1,23 +1,12 @@
 ﻿#pragma once
 #include "BattleSceneAct.h"
 #include "Head.h"
+#include "PaperSky.h"
 #include "UIKeyConfig.h"
 #include <cstdint>
 #include <deque>
 #include <unordered_map>
 #include <vector>
-
-struct PaperSkyCloud
-{
-    int texture_id = 0;
-    float angle = 0;
-    float y_ratio = 0;
-    float width_ratio = 1;
-    uint8_t alpha = 255;
-    float parallax = 1;
-    float drift_speed = 0;
-    float phase = 0;
-};
 
 class BattleScenePaper : public BattleSceneAct
 {
@@ -67,11 +56,7 @@ protected:
     float camera_distance_ = 0;
     float camera_height_ = 200;
     float camera_height_angle_ = M_PI / 4;
-    float paper_sky_yaw_ = 0;
-    bool paper_sky_yaw_initialized_ = false;
-    std::vector<PaperSkyCloud> paper_sky_clouds_;
-
-    void generatePaperSkyClouds();
+    PaperSky paper_sky_;
 };
 
 //暂时设计：
