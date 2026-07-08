@@ -24,6 +24,7 @@
 #include "SystemSettings.h"
 #include "TextureManager.h"
 #include "Weather.h"
+#include "filefunc.h"
 #include "strfunc.h"
 
 #include <algorithm>
@@ -34,6 +35,7 @@
 #include <format>
 #include <numeric>
 #include <set>
+#include <unordered_map>
 #include <utility>
 
 namespace
@@ -59,6 +61,39 @@ constexpr int BATTLE_CONTROL_PAUSE_TEXTURE_ID = 334;
 constexpr int BATTLE_CONTROL_LOG_TEXTURE_ID = 335;
 constexpr int BATTLE_CONTROL_SPEED_TEXTURE_ID = 336;
 constexpr double BATTLE_FRAME_PROFILE_SLOW_MS = 4.0;
+constexpr float PAPER_CAMERA_FOV = 60.0f;
+constexpr float PAPER_CAMERA_DISTANCE = 650.0f;
+constexpr float PAPER_CAMERA_HEIGHT = 300.0f;
+constexpr float PAPER_CAMERA_DEATH_ZOOM_SCALE = 0.72f;
+constexpr float PAPER_FREE_CAMERA_ROTATE_SPEED = 0.035f;
+constexpr float PAPER_FREE_CAMERA_HEIGHT_SPEED = 6.0f;
+constexpr float PAPER_FREE_CAMERA_PAN_SPEED = 10.0f;
+constexpr float PAPER_CAMERA_MIN_DISTANCE = 220.0f;
+constexpr float PAPER_CAMERA_MAX_DISTANCE = 1200.0f;
+constexpr float PAPER_CAMERA_ZOOM_STEP = 24.0f;
+constexpr float PAPER_CAMERA_MIN_HEIGHT = 80.0f;
+constexpr float PAPER_CAMERA_MAX_HEIGHT = 520.0f;
+constexpr int PAPER_CAMERA_DEATH_ZOOM_FRAMES = BattleSceneFrameApplierDetail::CAMERA_DEATH_ZOOM_FRAMES;
+constexpr float PAPER_GROUND_MESH_CENTER_RATIO = 0.64f;
+constexpr int PAPER_GROUND_MESH_TARGET_DIVISIONS = 160;
+constexpr int PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE = 10;
+constexpr int PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE = 18;
+constexpr float PAPER_GROUND_EDGE_FADE_TILE_COUNT = 16.0f;
+constexpr float PAPER_GROUND_HORIZON_FADE_START_RATIO = 0.72f;
+constexpr float PAPER_GROUND_HORIZON_FADE_END_RATIO = 1.35f;
+constexpr float PAPER_GROUND_RADIAL_FADE_START_RATIO = 0.34f;
+constexpr float PAPER_GROUND_RADIAL_FADE_END_RATIO = 0.48f;
+constexpr uint8_t PAPER_GROUND_EDGE_MIN_ALPHA = 0;
+constexpr uint8_t PAPER_GROUND_HORIZON_MIN_ALPHA = 0;
+bool isPaperWallTile(int num)
+{
+    return (num >= 701 && num <= 1139)
+        || (num >= 1410 && num <= 1436)
+        || (num >= 1505 && num <= 1621)
+        || (num >= 1816 && num <= 1849)
+        || (num >= 2116 && num <= 2144)
+        || (num >= 2184 && num <= 2285);
+}
 
 struct RuntimeFrozenStatus
 {
@@ -79,6 +114,82 @@ RuntimeFrozenStatus runtimeFrozenStatusForUnit(
         record.status.effects.frozenTimer,
         record.status.effects.frozenMaxTimer,
     };
+}
+
+Pointf normalizeOr(Pointf value, Pointf fallback)
+{
+    if (value.norm() == 0)
+    {
+        value = fallback;
+    }
+    if (value.norm() != 0)
+    {
+        value.normTo(1);
+    }
+    return value;
+}
+
+int realTowardsToPaperFaceTowards(const Pointf& dir, const Pointf& viewDir, const Pointf& paperRight, int currentFaceTowards)
+{
+    Pointf n = dir;
+    n.z = 0;
+    if (n.norm() == 0)
+    {
+        return currentFaceTowards;
+    }
+    n.normTo(1);
+    const float right = n.x * paperRight.x + n.y * paperRight.y;
+    const float forward = n.x * viewDir.x + n.y * viewDir.y;
+    constexpr float rightEpsilon = 0.2f;
+    if (std::abs(right) < rightEpsilon)
+    {
+        const bool keepRight = currentFaceTowards == Towards_RightUp || currentFaceTowards == Towards_RightDown;
+        return keepRight ? (forward > 0 ? Towards_RightUp : Towards_RightDown)
+                         : (forward > 0 ? Towards_LeftUp : Towards_LeftDown);
+    }
+    if (right > 0 && forward > 0) { return Towards_RightUp; }
+    if (right > 0 && forward <= 0) { return Towards_RightDown; }
+    if (right < 0 && forward >= 0) { return Towards_LeftUp; }
+    if (right < 0 && forward < 0) { return Towards_LeftDown; }
+    return currentFaceTowards;
+}
+
+bool pointsInCameraFront(Camera& camera, const std::vector<Pointf>& points)
+{
+    for (const auto& point : points)
+    {
+        if (camera.getDepth(point) <= camera.getNearPlane())
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+void renderProjectedQuad(Camera& camera, Texture* texture, const std::vector<Pointf>& world, const std::vector<FPoint>& source)
+{
+    if (!texture || world.size() != 4 || !pointsInCameraFront(camera, world))
+    {
+        return;
+    }
+    auto projected = camera.getProj(world);
+    std::vector<FPoint> destination;
+    destination.reserve(projected.size());
+    for (const auto& point : projected)
+    {
+        destination.push_back({ static_cast<float>(point.x), static_cast<float>(point.y) });
+    }
+    Engine::getInstance()->renderTexture(texture, nullptr, destination, source);
+}
+
+float smoothStep(float edge0, float edge1, float value)
+{
+    if (edge1 <= edge0)
+    {
+        return value >= edge1 ? 1.0f : 0.0f;
+    }
+    const float t = std::clamp((value - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
 }
 
 struct BattleControlLayout
@@ -333,7 +444,9 @@ void BattleSceneHades::setID(int id)
 
 bool BattleSceneHades::isManualCameraEnabled() const
 {
-    return battle_paused_ || SystemSettings::getInstance()->data().manualCamera;
+    return battle_paused_
+        || SystemSettings::getInstance()->data().manualCamera
+        || SystemSettings::getInstance()->data().paperBattleView;
 }
 
 BattleSceneCameraBounds BattleSceneHades::makeCameraBounds() const
@@ -467,6 +580,16 @@ void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
 
 void BattleSceneHades::draw()
 {
+    if (SystemSettings::getInstance()->data().paperBattleView)
+    {
+        drawPaperView();
+        return;
+    }
+    drawClassicView();
+}
+
+void BattleSceneHades::drawClassicView()
+{
     constexpr int kCullMargin = 96;
 
     auto* engine = Engine::getInstance();
@@ -565,35 +688,18 @@ void BattleSceneHades::draw()
         return int(rect1.y + (world_y - rect0.y) * viewScaleY);
     };
 
-    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
+    auto earth_tex = Engine::getInstance()->getTexture("earth_base");
+    if (earth_tex)
     {
-        for (int i = -view_width_region_; i <= view_width_region_; i++)
-        {
-            int ix = man_x_ + i + (sum / 2);
-            int iy = man_y_ - i + (sum - sum / 2);
-            auto p = battle_map_.pos45To90(ix, iy);
-            if (!battle_map_.isOutLine(ix, iy))
-            {
-                int num = battle_map_.earthLayer().data(ix, iy) / 2;
-                Color color = { 255, 255, 255, 255 };
-                bool need_draw = true;
-                if (need_draw && num > 0)
-                {
-                    TextureManager::getInstance()->renderTexture("smap", num, renderWorldX(p.x), renderWorldY(p.y / 2.0), TextureManager::RenderInfo{ color });
-                }
-            }
-        }
-    }
-
-    auto earth_tex = Engine::getInstance()->getTexture("earth");
-    if (earth_tex && use_whole_scene)
-    {
-        //此画法节省资源
         Color c = { 255, 255, 255, 255 };
         engine->setColor(earth_tex, c);
+        int earthTextureW = COORD_COUNT * TILE_W * 2;
+        int earthTextureH = COORD_COUNT * TILE_H * 2;
+        Engine::getTextureSize(earth_tex, earthTextureW, earthTextureH);
+        const int earthOffsetX = std::max(0, (earthTextureW - COORD_COUNT * TILE_W * 2) / 2);
+        const int earthOffsetY = std::max(0, (earthTextureH - COORD_COUNT * TILE_H * 2) / 2);
         Rect earth_src = rect0;
-        Rect earth_dst = rect0;
-        //注意这种画法，地面最上面会缺一块
+        Rect earth_dst = use_whole_scene ? rect0 : rect1;
         earth_src.y += TILE_H * 2;
         if (earth_src.x < 0)
         {
@@ -615,8 +721,40 @@ void BattleSceneHades::draw()
             earth_dst.h -= (earth_src.y + earth_src.h - COORD_COUNT * TILE_H * 2);
             earth_src.h = COORD_COUNT * TILE_H * 2 - earth_src.y;
         }
-        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
-        engine->renderTextureLight(earth_tex, &earth_src, &earth_dst, color_v, { 0.25f, 0.0f, 0.0f, 0.0f });
+        earth_src.x += earthOffsetX;
+        earth_src.y += earthOffsetY;
+        if (earth_src.w > 0 && earth_src.h > 0 && earth_dst.w > 0 && earth_dst.h > 0)
+        {
+            if (use_whole_scene)
+            {
+                std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+                engine->renderTextureLight(earth_tex, &earth_src, &earth_dst, color_v, { 0.25f, 0.0f, 0.0f, 0.0f });
+            }
+            else
+            {
+                engine->renderTexture(earth_tex, &earth_src, &earth_dst);
+            }
+        }
+    }
+
+    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
+    {
+        for (int i = -view_width_region_; i <= view_width_region_; i++)
+        {
+            int ix = man_x_ + i + (sum / 2);
+            int iy = man_y_ - i + (sum - sum / 2);
+            auto p = battle_map_.pos45To90(ix, iy);
+            if (!battle_map_.isOutLine(ix, iy))
+            {
+                int num = battle_map_.earthLayer().data(ix, iy) / 2;
+                Color color = { 255, 255, 255, 255 };
+                bool need_draw = earth_tex == nullptr;
+                if (need_draw && num > 0)
+                {
+                    TextureManager::getInstance()->renderTexture("smap", num, renderWorldX(p.x), renderWorldY(p.y / 2.0), TextureManager::RenderInfo{ color });
+                }
+            }
+        }
     }
 
     struct DrawInfo
@@ -970,10 +1108,629 @@ void BattleSceneHades::draw()
     //}
 }
 
+void BattleSceneHades::drawPaperView()
+{
+    auto* engine = Engine::getInstance();
+    const int sceneW = render_center_x_ * 2;
+    const int sceneH = render_center_y_ * 2;
+
+    engine->setRenderTarget("scene");
+    engine->fillColor({ 72, 94, 118, 255 }, 0, 0, sceneW, sceneH);
+    engine->fillColor({ 42, 48, 46, 255 }, 0, sceneH * 2 / 3, sceneW, sceneH / 3);
+
+    paper_camera_.setViewport(static_cast<float>(sceneW), static_cast<float>(sceneH));
+    paper_camera_.setFov(PAPER_CAMERA_FOV);
+    paper_camera_.setNearPlane(8.0f);
+    paper_camera_.center = { pos_.x, pos_.y, 0.0f };
+    paper_camera_distance_ = std::clamp(paper_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
+    paper_camera_height_ = std::clamp(paper_camera_height_, PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
+        const float deathZoomBlend = cameraZoomBlend(paper_death_zoom_frames_, PAPER_CAMERA_DEATH_ZOOM_FRAMES);
+        const float effectivePaperCameraDistance = paper_camera_distance_
+            * (1.0f + (PAPER_CAMERA_DEATH_ZOOM_SCALE - 1.0f) * deathZoomBlend);
+        paper_camera_.pos = {
+            pos_.x + std::cos(paper_camera_angle_) * effectivePaperCameraDistance,
+            pos_.y + std::sin(paper_camera_angle_) * effectivePaperCameraDistance,
+            paper_camera_height_
+        };
+
+        if (shake_ > 0)
+        {
+            Pointf viewDir = paper_camera_.center - paper_camera_.pos;
+            viewDir.z = 0;
+            viewDir = normalizeOr(viewDir, { 0, 1, 0 });
+            const Pointf paperRight = normalizeOr({ viewDir.y, -viewDir.x, 0 }, { 1, 0, 0 });
+            const Pointf shakeOffset = paperRight * static_cast<float>(x_ * 2) + viewDir * static_cast<float>(y_ * 2);
+            paper_camera_.center += shakeOffset;
+            paper_camera_.pos += shakeOffset;
+        }
+
+    paper_sky_.render(engine, sceneW, sceneH, paper_camera_.pos, paper_camera_.center);
+
+    Pointf viewDir = paper_camera_.center - paper_camera_.pos;
+    viewDir.z = 0;
+    viewDir = normalizeOr(viewDir, { 0, 1, 0 });
+    const Pointf paperRight = normalizeOr({ viewDir.y, -viewDir.x, 0 }, { 1, 0, 0 });
+
+    auto earthTexture = engine->getTexture("earth");
+    if (earthTexture)
+    {
+        Engine::setColor(earthTexture, { 255, 255, 255, 255 });
+
+        int earthW = 0;
+        int earthH = 0;
+        Engine::getTextureSize(earthTexture, earthW, earthH);
+        const float originalW = static_cast<float>(BATTLE_COORD_COUNT * TILE_W * 2);
+        const float originalH = static_cast<float>(BATTLE_COORD_COUNT * TILE_W * 2);
+        const float textureW = static_cast<float>(std::max(1, earthW));
+        const float textureH = static_cast<float>(std::max(1, earthH));
+        const float groundSourceOffsetX = std::max(0.0f, (textureW - originalW) * 0.5f);
+        const float groundSourceOffsetY = std::max(0.0f, (textureH - originalH) * 0.5f);
+        const float minX = -groundSourceOffsetX;
+        const float minY = -groundSourceOffsetY;
+        const float maxX = textureW - groundSourceOffsetX;
+        const float maxY = textureH - groundSourceOffsetY;
+
+        auto makeGroundMeshLines = [](float minValue, float maxValue, float originalSize)
+        {
+            std::vector<float> lines;
+            lines.reserve(PAPER_GROUND_MESH_TARGET_DIVISIONS + PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE * 2 + 8);
+            auto addLine = [&](float value)
+            {
+                lines.push_back(std::clamp(value, minValue, maxValue));
+            };
+            auto addSegment = [&](float start, float end, int divisions)
+            {
+                if (start > maxValue || end < minValue)
+                {
+                    return;
+                }
+                start = std::clamp(start, minValue, maxValue);
+                end = std::clamp(end, minValue, maxValue);
+                if (end < start)
+                {
+                    return;
+                }
+                divisions = std::max(1, divisions);
+                for (int i = 0; i <= divisions; ++i)
+                {
+                    const float factor = static_cast<float>(i) / divisions;
+                    addLine(start + (end - start) * factor);
+                }
+            };
+
+            const float centerMargin = originalSize * (1.0f - PAPER_GROUND_MESH_CENTER_RATIO) * 0.5f;
+            const float originalMin = 0.0f;
+            const float originalMax = originalSize;
+            const float centerMin = originalMin + centerMargin;
+            const float centerMax = originalMax - centerMargin;
+            const int centerDivisions = std::max(16,
+                PAPER_GROUND_MESH_TARGET_DIVISIONS
+                - PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE * 2
+                - PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE * 2);
+
+            addSegment(minValue, originalMin, PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE);
+            addSegment(originalMin, centerMin, PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE);
+            addSegment(centerMin, centerMax, centerDivisions);
+            addSegment(centerMax, originalMax, PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE);
+            addSegment(originalMax, maxValue, PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE);
+
+            std::sort(lines.begin(), lines.end());
+            std::vector<float> uniqueLines;
+            uniqueLines.reserve(lines.size());
+            for (float value : lines)
+            {
+                if (uniqueLines.empty() || std::abs(value - uniqueLines.back()) > 0.25f)
+                {
+                    uniqueLines.push_back(value);
+                }
+            }
+            if (uniqueLines.size() < 2)
+            {
+                uniqueLines = { minValue, maxValue };
+            }
+            return uniqueLines;
+        };
+
+        const auto meshXLines = makeGroundMeshLines(minX, maxX, originalW);
+        const auto meshYLines = makeGroundMeshLines(minY, maxY, originalH);
+        const int meshX = static_cast<int>(meshXLines.size()) - 1;
+        const int meshY = static_cast<int>(meshYLines.size()) - 1;
+        const float groundEdgeFadeDistance = static_cast<float>(TILE_W) * PAPER_GROUND_EDGE_FADE_TILE_COUNT;
+        const float horizonFadeStart = std::max(groundEdgeFadeDistance, originalW * PAPER_GROUND_HORIZON_FADE_START_RATIO);
+        const float horizonFadeEnd = std::max(horizonFadeStart + groundEdgeFadeDistance, originalW * PAPER_GROUND_HORIZON_FADE_END_RATIO);
+        const float groundCenterX = textureW * 0.5f;
+        const float groundCenterY = textureH * 0.5f;
+        const float groundRadialBase = std::min(textureW, textureH);
+        const float groundRadialFadeStart = groundRadialBase * PAPER_GROUND_RADIAL_FADE_START_RATIO;
+        const float groundRadialFadeEnd = groundRadialBase * PAPER_GROUND_RADIAL_FADE_END_RATIO;
+
+        std::vector<Pointf> world;
+        std::vector<FPoint> source;
+        std::vector<Color> colors;
+        world.reserve(meshXLines.size() * meshYLines.size());
+        source.reserve(meshXLines.size() * meshYLines.size());
+        colors.reserve(meshXLines.size() * meshYLines.size());
+
+        for (float sourceY : meshYLines)
+        {
+            for (float sourceX : meshXLines)
+            {
+                const float clampedSourceX = std::clamp(sourceX + groundSourceOffsetX, 0.0f, textureW);
+                const float clampedSourceY = std::clamp(sourceY + groundSourceOffsetY, 0.0f, textureH);
+                const float distanceToEdge = std::min(
+                    std::min(clampedSourceX, textureW - clampedSourceX),
+                    std::min(clampedSourceY, textureH - clampedSourceY));
+                const float edgeFade = smoothStep(0.0f, groundEdgeFadeDistance, distanceToEdge);
+                float alpha = PAPER_GROUND_EDGE_MIN_ALPHA + (255.0f - PAPER_GROUND_EDGE_MIN_ALPHA) * edgeFade;
+                const float centerDx = clampedSourceX - groundCenterX;
+                const float centerDy = clampedSourceY - groundCenterY;
+                const float centerDistance = std::sqrt(centerDx * centerDx + centerDy * centerDy);
+                const float radialFade = 1.0f - smoothStep(groundRadialFadeStart, groundRadialFadeEnd, centerDistance);
+                alpha = std::min(alpha, 255.0f * radialFade);
+
+                world.push_back({ sourceX, sourceY, 0 });
+                source.push_back({ clampedSourceX, clampedSourceY });
+                colors.push_back({ 255, 255, 255, static_cast<uint8_t>(std::clamp(alpha, 0.0f, 255.0f)) });
+            }
+        }
+
+        const auto projected = paper_camera_.getProj(world);
+        std::vector<FPoint> destination;
+        std::vector<float> depths;
+        destination.reserve(projected.size());
+        depths.reserve(world.size());
+        for (size_t i = 0; i < world.size(); ++i)
+        {
+            const float depth = paper_camera_.getDepth(world[i]);
+            const float horizonFade = smoothStep(horizonFadeStart, horizonFadeEnd, depth);
+            const float horizonAlpha = PAPER_GROUND_HORIZON_MIN_ALPHA
+                + (255.0f - PAPER_GROUND_HORIZON_MIN_ALPHA) * (1.0f - horizonFade);
+            colors[i].a = std::min(colors[i].a, static_cast<uint8_t>(std::clamp(horizonAlpha, 0.0f, 255.0f)));
+            destination.push_back({ static_cast<float>(projected[i].x), static_cast<float>(projected[i].y) });
+            depths.push_back(depth);
+        }
+
+        std::vector<int> indices;
+        indices.reserve(meshX * meshY * 6);
+        auto indexOf = [&](int ix, int iy)
+        {
+            return iy * (meshX + 1) + ix;
+        };
+        for (int iy = 0; iy < meshY; ++iy)
+        {
+            for (int ix = 0; ix < meshX; ++ix)
+            {
+                const int i0 = indexOf(ix, iy);
+                const int i1 = indexOf(ix + 1, iy);
+                const int i2 = indexOf(ix + 1, iy + 1);
+                const int i3 = indexOf(ix, iy + 1);
+                if (depths[i0] <= paper_camera_.getNearPlane()
+                    || depths[i1] <= paper_camera_.getNearPlane()
+                    || depths[i2] <= paper_camera_.getNearPlane()
+                    || depths[i3] <= paper_camera_.getNearPlane())
+                {
+                    continue;
+                }
+                indices.insert(indices.end(), { i0, i1, i2, i2, i3, i0 });
+            }
+        }
+
+        engine->renderTextureMesh(earthTexture, destination, source, colors, indices);
+    }
+
+    struct PaperSprite
+    {
+        Texture* texture = nullptr;
+        TextureWarpper* tex = nullptr;
+        Pointf anchor;
+        Pointf sortAnchor;
+        std::vector<Pointf> world;
+        std::vector<FPoint> source;
+        Color color{ 255, 255, 255, 255 };
+        uint8_t alpha = 255;
+        int rot = 0;
+        int turn = 1;
+    };
+
+    std::vector<PaperSprite> sprites;
+    sprites.reserve(scene_units_.runtimeUnits().size() + attack_effects_.size() + 512);
+
+    const auto cameraCell = battle_map_.pos90To45(pos_.x, pos_.y);
+    const int buildingMargin = 8;
+    auto paperDepth = [&](const Pointf& point)
+    {
+        return paper_camera_.getDepth(point);
+    };
+    auto isPaperWallAt = [&](int x, int y)
+    {
+        return !battle_map_.isOutLine(x, y)
+            && isPaperWallTile(battle_map_.buildingLayer().data(x, y) / 2);
+    };
+
+    bool needDrawWallTexture = true;
+    if (auto oldWallTexture = engine->getTexture("paper-wall-edge"))
+    {
+        int oldW = 0;
+        int oldH = 0;
+        Engine::getTextureSize(oldWallTexture, oldW, oldH);
+        needDrawWallTexture = oldW != 16 || oldH != 16;
+    }
+    engine->createRenderedTexture("paper-wall-edge", 16, 16);
+    auto wallTexture = engine->getTexture("paper-wall-edge");
+    if (needDrawWallTexture)
+    {
+        auto previousTarget = engine->getRenderTarget();
+        engine->setRenderTarget(wallTexture);
+        engine->fillColor({ 70, 62, 50, 235 }, 0, 0, 16, 16, BLENDMODE_NONE);
+        engine->fillColor({ 94, 84, 66, 235 }, 0, 1, 16, 1, BLENDMODE_NONE);
+        engine->fillColor({ 47, 42, 35, 235 }, 0, 4, 16, 1, BLENDMODE_NONE);
+        engine->fillColor({ 88, 78, 61, 235 }, 0, 8, 16, 1, BLENDMODE_NONE);
+        engine->fillColor({ 42, 37, 31, 235 }, 0, 12, 16, 1, BLENDMODE_NONE);
+        engine->fillColor({ 104, 92, 72, 210 }, 0, 15, 16, 1, BLENDMODE_NONE);
+        engine->setRenderTarget(previousTarget);
+    }
+
+    std::unordered_map<int, TextureWarpper*> paperWallTextureCache;
+    auto getPaperWallTexture = [&](int tile) -> TextureWarpper*
+    {
+        auto it = paperWallTextureCache.find(tile);
+        if (it != paperWallTextureCache.end())
+        {
+            return it->second;
+        }
+
+        TextureWarpper* tex = nullptr;
+        const auto filename = GameUtil::PATH() + "resource/paper-wall-texture/" + std::to_string(tile) + ".png";
+        if (filefunc::fileExist(filename))
+        {
+            tex = TextureManager::getInstance()->getTexture("paper-wall-texture", tile);
+            if (tex)
+            {
+                tex->load();
+                if (!tex->getTexture())
+                {
+                    tex = nullptr;
+                }
+            }
+        }
+        paperWallTextureCache[tile] = tex;
+        return tex;
+    };
+
+    auto addWallEdge = [&](const Pointf& a, const Pointf& b, int tile)
+    {
+        constexpr float wallHeight = 80.0f;
+        const std::vector<Pointf> world = {
+            { a.x, a.y, wallHeight },
+            { b.x, b.y, wallHeight },
+            { b.x, b.y, 0.0f },
+            { a.x, a.y, 0.0f },
+        };
+        PaperSprite sprite;
+        if (auto tex = getPaperWallTexture(tile))
+        {
+            sprite.texture = tex->getTexture();
+            sprite.source = {
+                { 0, 0 },
+                { static_cast<float>(tex->w), 0 },
+                { static_cast<float>(tex->w), static_cast<float>(tex->h) },
+                { 0, static_cast<float>(tex->h) },
+            };
+        }
+        else
+        {
+            sprite.texture = wallTexture;
+            sprite.source = { { 0, 0 }, { 16, 0 }, { 16, 16 }, { 0, 16 } };
+        }
+        sprite.world = world;
+        sprite.sortAnchor = { (a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f, wallHeight * 0.5f };
+        sprites.emplace_back(std::move(sprite));
+    };
+
+    for (int sum = -view_sum_region_ - buildingMargin; sum <= view_sum_region_ + 15 + buildingMargin; ++sum)
+    {
+        for (int i = -view_width_region_ - buildingMargin; i <= view_width_region_ + buildingMargin; ++i)
+        {
+            const int ix = cameraCell.x + i + (sum / 2);
+            const int iy = cameraCell.y - i + (sum - sum / 2);
+            if (battle_map_.isOutLine(ix, iy))
+            {
+                continue;
+            }
+            const int tile = battle_map_.buildingLayer().data(ix, iy) / 2;
+            if (tile <= 0)
+            {
+                continue;
+            }
+            if (isPaperWallTile(tile))
+            {
+                auto p00 = battle_map_.pos45To90(ix, iy);
+                auto p10 = battle_map_.pos45To90(ix + 1, iy);
+                auto p01 = battle_map_.pos45To90(ix, iy + 1);
+                auto p11 = battle_map_.pos45To90(ix + 1, iy + 1);
+                if (!isPaperWallAt(ix, iy - 1))
+                {
+                    addWallEdge(p00, p10, tile);
+                }
+                if (!isPaperWallAt(ix + 1, iy))
+                {
+                    addWallEdge(p10, p11, tile);
+                }
+                if (!isPaperWallAt(ix, iy + 1))
+                {
+                    addWallEdge(p11, p01, tile);
+                }
+                if (!isPaperWallAt(ix - 1, iy))
+                {
+                    addWallEdge(p01, p00, tile);
+                }
+                continue;
+            }
+            auto tex = TextureManager::getInstance()->getTexture("smap", tile);
+            if (!tex)
+            {
+                continue;
+            }
+            auto anchor = battle_map_.pos45To90(ix, iy);
+            PaperSprite sprite;
+            sprite.tex = tex;
+            sprite.anchor = anchor;
+            sprite.sortAnchor = anchor + Pointf{ 0, 18, 0 };
+            sprites.push_back(std::move(sprite));
+        }
+    }
+
+    for (const auto& unit : scene_units_.runtimeUnits())
+    {
+        const auto& presentation = scene_units_.requirePresentation(unit.id);
+        const int faceTowards = realTowardsToPaperFaceTowards(
+            unit.motion.facing,
+            viewDir,
+            paperRight,
+            realTowardsToFaceTowards(unit.motion.facing));
+        const int renderActType = unit.alive ? unit.animation.actType : -1;
+        const int renderActFrame = unit.alive ? unit.animation.actFrame : 0;
+        auto tex = TextureManager::getInstance()->getTexture(
+            std::format("fight/fight{:03}", unit.headId),
+            BattleSceneRenderMath::calRenderUnitPic(
+                unit.fightFrames,
+                BattleSceneRenderMath::realTowardsFromFaceTowards(faceTowards),
+                renderActType,
+                renderActFrame));
+        if (!tex)
+        {
+            continue;
+        }
+        tex->load();
+        if (!tex->getTexture())
+        {
+            continue;
+        }
+
+        PaperSprite sprite;
+        sprite.tex = tex;
+        sprite.anchor = unit.motion.position;
+        sprite.sortAnchor = sprite.anchor;
+        sprite.alpha = presentation.attention ? 255 - presentation.attention * 4 : 255;
+        sprite.color = calculateHurtFlashColor(unit.id, sprite.color);
+        if (result_ == -1 && presentation.shake)
+        {
+            sprite.anchor.x += shakeJitter(battle_frame_, unit.id);
+        }
+        if (!unit.alive)
+        {
+            sprite.rot = faceTowards >= 2 ? 90 : 270;
+            sprite.turn = 0;
+        }
+        sprites.push_back(std::move(sprite));
+    }
+
+    for (const auto& effect : attack_effects_)
+    {
+        const int frame = effect.TotalEffectFrame > 0 ? effect.Frame % effect.TotalEffectFrame : 0;
+        auto tex = TextureManager::getInstance()->getTexture(effect.Path, frame);
+        if (!tex)
+        {
+            continue;
+        }
+        Pointf effectPosition = effect.Pos;
+        if (effect.FollowUnitId >= 0)
+        {
+            effectPosition = scene_units_.requireRuntimeUnit(effect.FollowUnitId).motion.position + effect.Pos;
+        }
+
+        PaperSprite sprite;
+        sprite.tex = tex;
+        sprite.anchor = effectPosition;
+        sprite.sortAnchor = effectPosition + Pointf{ 0, 220, 0 };
+        sprite.alpha = static_cast<uint8_t>(std::clamp(
+            255.0 * (effect.TotalFrame * 1.25 - effect.Frame) / (effect.TotalFrame * 1.25),
+            0.0,
+            255.0));
+        sprites.push_back(std::move(sprite));
+    }
+
+    std::sort(sprites.begin(), sprites.end(), [&](const PaperSprite& lhs, const PaperSprite& rhs)
+        {
+            const float leftDepth = paperDepth(lhs.sortAnchor);
+            const float rightDepth = paperDepth(rhs.sortAnchor);
+            if (leftDepth != rightDepth)
+            {
+                return leftDepth > rightDepth;
+            }
+            return lhs.turn < rhs.turn;
+        });
+
+    auto renderPaperTexture = [&](const PaperSprite& sprite)
+    {
+        if (sprite.texture && sprite.world.size() == 4 && sprite.source.size() == 4)
+        {
+            if (pointsInCameraFront(paper_camera_, sprite.world))
+            {
+                renderProjectedQuad(paper_camera_, sprite.texture, sprite.world, sprite.source);
+            }
+            return;
+        }
+        if (!sprite.tex)
+        {
+            return;
+        }
+        sprite.tex->load();
+        auto* texture = sprite.tex->getTexture();
+        if (!texture)
+        {
+            return;
+        }
+        const float left = -static_cast<float>(sprite.tex->dx);
+        const float right = static_cast<float>(sprite.tex->w - sprite.tex->dx);
+        const float top = static_cast<float>(sprite.tex->dy);
+        const float bottom = static_cast<float>(sprite.tex->dy - sprite.tex->h);
+        auto localPoint = [&](float x, float z)
+        {
+            if (sprite.rot == 90)
+            {
+                return sprite.anchor + paperRight * -z + Pointf{ 0, 0, x };
+            }
+            if (sprite.rot == 270)
+            {
+                return sprite.anchor + paperRight * z + Pointf{ 0, 0, -x };
+            }
+            return sprite.anchor + paperRight * x + Pointf{ 0, 0, z };
+        };
+        const std::vector<Pointf> world = {
+            localPoint(left, top),
+            localPoint(right, top),
+            localPoint(right, bottom),
+            localPoint(left, bottom),
+        };
+        const std::vector<FPoint> source = {
+            { 0, 0 },
+            { static_cast<float>(sprite.tex->w), 0 },
+            { static_cast<float>(sprite.tex->w), static_cast<float>(sprite.tex->h) },
+            { 0, static_cast<float>(sprite.tex->h) },
+        };
+        Color color = sprite.color;
+        color.a = sprite.alpha;
+        Engine::setColor(texture, color);
+        renderProjectedQuad(paper_camera_, texture, world, source);
+    };
+
+    for (const auto& sprite : sprites)
+    {
+        renderPaperTexture(sprite);
+    }
+
+    for (const auto& unit : scene_units_.runtimeUnits())
+    {
+        if (!unit.alive)
+        {
+            continue;
+        }
+        Pointf barWorld = unit.motion.position;
+        if (paper_camera_.getDepth(barWorld) <= paper_camera_.getNearPlane())
+        {
+            continue;
+        }
+        const auto projected = paper_camera_.getProj({ barWorld });
+        if (!projected.empty())
+        {
+            renderExtraRoleInfo(unit, projected.front().x, projected.front().y);
+        }
+    }
+
+    engine->renderTextureToMain("scene");
+
+    for (const auto& text : text_effects_)
+    {
+        Pointf textWorld = text.Pos;
+        double screenYOffset = 0.0;
+        if (text.Type == 0)
+        {
+            textWorld.y += static_cast<float>(text.Frame * 2);
+            screenYOffset = -static_cast<double>(text.Frame);
+        }
+        textWorld.z += 80;
+        if (paper_camera_.getDepth(textWorld) <= paper_camera_.getNearPlane())
+        {
+            continue;
+        }
+        const auto projected = paper_camera_.getProj({ textWorld });
+        if (!projected.empty())
+        {
+            Font::getInstance()->draw(text.Text, text.Size, projected.front().x, projected.front().y + screenYOffset, text.color, 255);
+        }
+    }
+
+    Font::getInstance()->draw(std::to_string(battle_frame_), 20, 10, 10, { 255, 255, 255, 255 }, 200);
+    drawBattleControls();
+}
+
 void BattleSceneHades::dealEvent(EngineEvent& e)
 {
     const bool battleControlHandled = handleBattleControlEvent(e);
-    if (!battleControlHandled)
+    if (!battleControlHandled && SystemSettings::getInstance()->data().paperBattleView)
+    {
+        auto engine = Engine::getInstance();
+        if (engine->checkKeyPress(K_Z))
+        {
+            paper_camera_distance_ += PAPER_CAMERA_ZOOM_STEP;
+        }
+        if (engine->checkKeyPress(K_X))
+        {
+            paper_camera_distance_ -= PAPER_CAMERA_ZOOM_STEP;
+        }
+        paper_camera_distance_ = std::clamp(paper_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
+
+        float cameraRotate = 0.0f;
+        float cameraHeightDelta = 0.0f;
+        Pointf cameraPan;
+        if (engine->checkKeyPress(K_LEFT))
+        {
+            cameraRotate -= 1.0f;
+        }
+        if (engine->checkKeyPress(K_RIGHT))
+        {
+            cameraRotate += 1.0f;
+        }
+        if (engine->checkKeyPress(K_UP))
+        {
+            cameraHeightDelta += 1.0f;
+        }
+        if (engine->checkKeyPress(K_DOWN))
+        {
+            cameraHeightDelta -= 1.0f;
+        }
+        Pointf forward = { -std::cos(paper_camera_angle_), -std::sin(paper_camera_angle_), 0.0f };
+        forward = normalizeOr(forward, { 0, 1, 0 });
+        const Pointf right = normalizeOr({ -forward.y, forward.x, 0.0f }, { 1, 0, 0 });
+        if (engine->checkKeyPress(K_W))
+        {
+            cameraPan += forward;
+        }
+        if (engine->checkKeyPress(K_S))
+        {
+            cameraPan += -forward;
+        }
+        if (engine->checkKeyPress(K_A))
+        {
+            cameraPan += -right;
+        }
+        if (engine->checkKeyPress(K_D))
+        {
+            cameraPan += right;
+        }
+        if (cameraPan.norm() != 0)
+        {
+            cameraPan.normTo(PAPER_FREE_CAMERA_PAN_SPEED);
+            pos_ = BattleSceneCamera::clampCenter(pos_ + cameraPan, makeCameraBounds());
+        }
+        paper_camera_angle_ += cameraRotate * PAPER_FREE_CAMERA_ROTATE_SPEED;
+        paper_camera_height_ = std::clamp(
+            paper_camera_height_ + cameraHeightDelta * PAPER_FREE_CAMERA_HEIGHT_SPEED,
+            PAPER_CAMERA_MIN_HEIGHT,
+            PAPER_CAMERA_MAX_HEIGHT);
+    }
+    else if (!battleControlHandled)
     {
         if (auto manualCenter = camera_.handleManualInput(e, pos_, makeCameraBounds(), isManualCameraEnabled()))
         {
@@ -1175,6 +1932,10 @@ void BattleSceneHades::advanceBattleFrame()
         y_ = rand_.rand_int(3) - rand_.rand_int(3);
         shake_--;
     }
+    if (paper_death_zoom_frames_ > 0)
+    {
+        --paper_death_zoom_frames_;
+    }
     if (frozen_ > 0)
     {
         frozen_--;
@@ -1204,6 +1965,8 @@ void BattleSceneHades::onEntrance()
     previous_refresh_interval_ = RunNode::getRefreshInterval();
     battle_paused_ = false;
     Engine::getInstance()->hideBattleLogOverlay();
+    paper_sky_.reset();
+    paper_sky_.generateClouds();
 
     calViewRegion();
 
@@ -1392,6 +2155,47 @@ void BattleSceneHades::onEntrance()
 
     initializeBattleRuntime(std::move(setupBuild));
     runPreBattlePositionSwapIfEnabled();
+
+    auto paperDefaultCameraAngle = [&]() -> std::optional<float>
+    {
+        double bestDistanceSquared = -1.0;
+        Pointf selectedAlly;
+        Pointf selectedEnemy;
+        for (const auto& ally : scene_units_.runtimeUnits())
+        {
+            if (!ally.alive || ally.team != 0)
+            {
+                continue;
+            }
+            for (const auto& enemy : scene_units_.runtimeUnits())
+            {
+                if (!enemy.alive || enemy.team != 1)
+                {
+                    continue;
+                }
+                const Pointf delta = enemy.motion.position - ally.motion.position;
+                const double distanceSquared = delta.x * delta.x + delta.y * delta.y;
+                if (bestDistanceSquared < 0.0 || distanceSquared < bestDistanceSquared)
+                {
+                    bestDistanceSquared = distanceSquared;
+                    selectedAlly = ally.motion.position;
+                    selectedEnemy = enemy.motion.position;
+                }
+            }
+        }
+
+        Pointf direction = selectedEnemy - selectedAlly;
+        direction.z = 0.0f;
+        if (direction.norm() == 0)
+        {
+            return std::nullopt;
+        }
+        return static_cast<float>(std::atan2(-direction.y, -direction.x));
+    };
+    if (auto angle = paperDefaultCameraAngle())
+    {
+        paper_camera_angle_ = *angle;
+    }
 
     Audio::getInstance()->playMusic(KysChess::getRandomBattleMusic());
     // Audio::getInstance()->playMusic(info_->Music);
@@ -1637,6 +2441,17 @@ void BattleSceneHades::backRun1()
     BattleSceneRuntimeFrameEffects effects;
     updateFrameApplierContext();
     frame_applier_.apply(frame, effects);
+        if (SystemSettings::getInstance()->data().paperBattleView)
+        {
+            for (const auto& event : frame.gameplayEvents)
+            {
+                if (event.type == KysChess::Battle::BattleGameplayEventType::UnitDied)
+                {
+                    paper_death_zoom_frames_ = PAPER_CAMERA_DEATH_ZOOM_FRAMES;
+                    break;
+                }
+            }
+        }
     advanceScenePresentationFrame();
     finishBattleIfReady();
 }

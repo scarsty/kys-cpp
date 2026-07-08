@@ -50,6 +50,7 @@ private:
     {
         ManualCamera,
         ShowBattleLog,
+        PaperBattleView,
         DebugLatencyLog,
         MusicVolume,
         SoundVolume,

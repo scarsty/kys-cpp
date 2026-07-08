@@ -16,6 +16,7 @@
 #include "ChessManager.h"
 #include "ChessProgress.h"
 #include "ChessRoleSave.h"
+#include "PaperSky.h"
 #include <array>
 #include <cstddef>
 #include <deque>
@@ -87,6 +88,8 @@ protected:
     void advanceBattleFrame();
     BattleSceneCameraBounds makeCameraBounds() const;
     Color calculateHurtFlashColor(int unitId, const Color& baseColor) const;
+    void drawClassicView();
+    void drawPaperView();
 public:
     const BattleReport& getBattleReport() const { return battle_report_.report(); }
     BattlePostBattleSummary makePostBattleSummary() const;
@@ -140,4 +143,10 @@ protected:
     BattleSceneCameraBounds frame_applier_camera_bounds_{};
     bool manual_camera_enabled_{};
     BattleSceneFrameApplier frame_applier_;
+    Camera paper_camera_;
+    PaperSky paper_sky_;
+    float paper_camera_angle_ = -2.53f;
+    float paper_camera_distance_ = 650.0f;
+    float paper_camera_height_ = 300.0f;
+    int paper_death_zoom_frames_ = 0;
 };

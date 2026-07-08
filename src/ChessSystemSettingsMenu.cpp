@@ -234,6 +234,10 @@ void ChessSystemSettingsMenu::activateSelectedRow()
         settings_.showBattleLog = !settings_.showBattleLog;
         applyPreview();
         break;
+    case Row::PaperBattleView:
+        settings_.paperBattleView = !settings_.paperBattleView;
+        applyPreview();
+        break;
     case Row::DebugLatencyLog:
         settings_.debugLatencyLog = !settings_.debugLatencyLog;
         applyPreview();
@@ -448,6 +452,7 @@ void ChessSystemSettingsMenu::draw()
     const std::array<std::string, static_cast<int>(Row::Count)> labels = {
         "手動鏡頭",
         "顯示戰鬥日誌",
+        "紙片3D戰場",
         "偵錯耗時日誌",
         "音樂",
         "音效",
@@ -504,6 +509,10 @@ void ChessSystemSettingsMenu::draw()
         case Row::ShowBattleLog:
             value = boolText(settings_.showBattleLog);
             valueColor = settingsToggleValueColor(settings_.showBattleLog);
+            break;
+        case Row::PaperBattleView:
+            value = boolText(settings_.paperBattleView);
+            valueColor = settingsToggleValueColor(settings_.paperBattleView);
             break;
         case Row::DebugLatencyLog:
             value = boolText(settings_.debugLatencyLog);

@@ -11,6 +11,7 @@ struct SystemSettingsData
     int battleSpeed = 1;
     bool simplifiedChinese = true;
     bool showBattleLog = true;
+    bool paperBattleView = false;
     bool debugLatencyLog = false;
 };
 

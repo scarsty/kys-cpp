@@ -127,6 +127,9 @@
     <ClCompile Include="Object.cpp">
       <Filter>chemistry</Filter>
     </ClCompile>
+    <ClCompile Include="PaperSky.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="..\others\Hanz2Piny.cpp">
       <Filter>hanzi2pinyin</Filter>
     </ClCompile>
@@ -276,6 +279,9 @@
       <Filter>texture</Filter>
     </ClInclude>
     <ClInclude Include="BattleCursor.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="PaperSky.h">
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="BattleMap.h">

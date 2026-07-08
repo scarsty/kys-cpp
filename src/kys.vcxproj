@@ -210,6 +210,7 @@
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="NewSave.cpp" />
     <ClCompile Include="Object.cpp" />
+    <ClCompile Include="PaperSky.cpp" />
     <ClCompile Include="ParticleExample.cpp" />
     <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="Cloud.cpp" />
@@ -325,6 +326,7 @@
     <ClInclude Include="ChessCombo.h" />
     <ClInclude Include="ChessModHook.h" />
     <ClInclude Include="ChessPool.h" />
+    <ClInclude Include="PaperSky.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Audio.h" />
