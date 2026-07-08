@@ -18,14 +18,18 @@ constexpr float PAPER_SKY_PI = 3.14159265358979323846f;
 constexpr float PAPER_CAMERA_FOV = 60.0f;
 constexpr const char* PAPER_SKY_TEXTURE = "resource/sky/paper-sky.png";
 constexpr float PAPER_SKY_HORIZON_RATIO = 0.74f;
-constexpr int PAPER_GROUND_TEXTURE_SCALE = 3;
-constexpr float PAPER_GROUND_EDGE_FADE_TILE_COUNT = 18.0f;
+constexpr float PAPER_GROUND_EXTENSION_MARGIN_RATIO = 1.0f;
+constexpr float PAPER_GROUND_MESH_CENTER_RATIO = 0.64f;
+constexpr int PAPER_GROUND_MESH_TARGET_DIVISIONS = 160;
+constexpr int PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE = 10;
+constexpr int PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE = 18;
+constexpr float PAPER_GROUND_EDGE_FADE_TILE_COUNT = 16.0f;
 constexpr float PAPER_GROUND_HORIZON_FADE_START_RATIO = 0.72f;
 constexpr float PAPER_GROUND_HORIZON_FADE_END_RATIO = 1.35f;
-constexpr float PAPER_GROUND_RADIAL_FADE_START_RATIO = 0.29f;
-constexpr float PAPER_GROUND_RADIAL_FADE_END_RATIO = 0.35355339f;
+constexpr float PAPER_GROUND_RADIAL_FADE_START_RATIO = 0.34f;
+constexpr float PAPER_GROUND_RADIAL_FADE_END_RATIO = 0.48f;
 constexpr uint8_t PAPER_GROUND_EDGE_MIN_ALPHA = 0;
-constexpr uint8_t PAPER_GROUND_HORIZON_MIN_ALPHA = 48;
+constexpr uint8_t PAPER_GROUND_HORIZON_MIN_ALPHA = 0;
 constexpr int PAPER_GROUND_EDGE_STRETCH_SOURCE_DIVISOR = 16;
 
 Color mixColor(const Color& from, const Color& to, float factor)
@@ -530,12 +534,74 @@ void BattleScenePaper::draw()
             };
             auto render_ground_mesh = [&]()
             {
-                constexpr int mesh_x = 160;
-                constexpr int mesh_y = 160;
                 float min_x = -ground_source_offset_x;
                 float min_y = -ground_source_offset_y;
                 float max_x = ground_texture_wf - ground_source_offset_x;
                 float max_y = ground_texture_hf - ground_source_offset_y;
+                auto make_ground_mesh_lines = [&](float min_value, float max_value, float original_size)
+                {
+                    std::vector<float> lines;
+                    lines.reserve(384);
+                    auto add_line = [&](float value)
+                    {
+                        lines.push_back(std::clamp(value, min_value, max_value));
+                    };
+                    auto add_segment = [&](float start, float end, int divisions)
+                    {
+                        if (start > max_value || end < min_value)
+                        {
+                            return;
+                        }
+                        start = std::clamp(start, min_value, max_value);
+                        end = std::clamp(end, min_value, max_value);
+                        if (end < start)
+                        {
+                            return;
+                        }
+                        divisions = std::max(1, divisions);
+                        for (int i = 0; i <= divisions; i++)
+                        {
+                            float factor = float(i) / divisions;
+                            add_line(start + (end - start) * factor);
+                        }
+                    };
+
+                    float center_margin = original_size * (1.0f - PAPER_GROUND_MESH_CENTER_RATIO) * 0.5f;
+                    float original_min = 0.0f;
+                    float original_max = original_size;
+                    float center_min = original_min + center_margin;
+                    float center_max = original_max - center_margin;
+                    int center_divisions = std::max(16,
+                        PAPER_GROUND_MESH_TARGET_DIVISIONS
+                        - PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE * 2
+                        - PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE * 2);
+
+                    add_segment(min_value, original_min, PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE);
+                    add_segment(original_min, center_min, PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE);
+                    add_segment(center_min, center_max, center_divisions);
+                    add_segment(center_max, original_max, PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE);
+                    add_segment(original_max, max_value, PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE);
+
+                    std::sort(lines.begin(), lines.end());
+                    std::vector<float> unique_lines;
+                    unique_lines.reserve(lines.size());
+                    for (float value : lines)
+                    {
+                        if (unique_lines.empty() || std::abs(value - unique_lines.back()) > 0.25f)
+                        {
+                            unique_lines.push_back(value);
+                        }
+                    }
+                    if (unique_lines.size() < 2)
+                    {
+                        unique_lines = { min_value, max_value };
+                    }
+                    return unique_lines;
+                };
+                std::vector<float> mesh_x_lines = make_ground_mesh_lines(min_x, max_x, wf);
+                std::vector<float> mesh_y_lines = make_ground_mesh_lines(min_y, max_y, hf);
+                int mesh_x = int(mesh_x_lines.size()) - 1;
+                int mesh_y = int(mesh_y_lines.size()) - 1;
                 float ground_edge_fade_distance = float(TILE_W) * PAPER_GROUND_EDGE_FADE_TILE_COUNT;
                 float horizon_fade_start = std::max(ground_edge_fade_distance,
                     wf * PAPER_GROUND_HORIZON_FADE_START_RATIO);
@@ -550,16 +616,16 @@ void BattleScenePaper::draw()
                 std::vector<Pointf> world;
                 std::vector<FPoint> src;
                 std::vector<Color> colors;
-                world.reserve((mesh_x + 1) * (mesh_y + 1));
-                src.reserve((mesh_x + 1) * (mesh_y + 1));
-                colors.reserve((mesh_x + 1) * (mesh_y + 1));
+                world.reserve(mesh_x_lines.size() * mesh_y_lines.size());
+                src.reserve(mesh_x_lines.size() * mesh_y_lines.size());
+                colors.reserve(mesh_x_lines.size() * mesh_y_lines.size());
 
-                for (int iy = 0; iy <= mesh_y; iy++)
+                for (int iy = 0; iy < int(mesh_y_lines.size()); iy++)
                 {
-                    float y = min_y + (max_y - min_y) * iy / mesh_y;
-                    for (int ix = 0; ix <= mesh_x; ix++)
+                    float y = mesh_y_lines[iy];
+                    for (int ix = 0; ix < int(mesh_x_lines.size()); ix++)
                     {
-                        float x = min_x + (max_x - min_x) * ix / mesh_x;
+                        float x = mesh_x_lines[ix];
                         float source_x = clampTextureCoordinate(x + ground_source_offset_x, ground_texture_wf);
                         float source_y = clampTextureCoordinate(y + ground_source_offset_y, ground_texture_hf);
                         float distance_to_edge = std::min(
@@ -1534,24 +1600,33 @@ void BattleScenePaper::onEntrance()
     auto engine = Engine::getInstance();
     Texture* earth_base_texture = nullptr;
     Texture* earth_texture = nullptr;
+    int selected_ground_extension_margin = 0;
     int requested_base_earth_w = base_earth_w;
     int requested_base_earth_h = base_earth_h;
     int requested_paper_earth_w = paper_earth_w;
     int requested_paper_earth_h = paper_earth_h;
-    for (int ground_texture_scale = PAPER_GROUND_TEXTURE_SCALE; ground_texture_scale >= 1; ground_texture_scale--)
+    int requested_ground_extension_margin = std::max(0,
+        int(std::round(COORD_COUNT * PAPER_GROUND_EXTENSION_MARGIN_RATIO)));
+    for (int ground_extension_margin = requested_ground_extension_margin; ground_extension_margin >= 0;)
     {
-        requested_base_earth_w = base_earth_w * ground_texture_scale;
-        requested_base_earth_h = base_earth_h * ground_texture_scale;
-        requested_paper_earth_w = paper_earth_w * ground_texture_scale;
-        requested_paper_earth_h = paper_earth_h * ground_texture_scale;
+        requested_base_earth_w = base_earth_w + ground_extension_margin * TILE_W * 4;
+        requested_base_earth_h = base_earth_h + ground_extension_margin * TILE_H * 4;
+        requested_paper_earth_w = paper_earth_w + ground_extension_margin * TILE_W * 4;
+        requested_paper_earth_h = paper_earth_h + ground_extension_margin * TILE_W * 4;
         engine->createRenderedTexture("earth_base", requested_base_earth_w, requested_base_earth_h);
         engine->createRenderedTexture("earth", requested_paper_earth_w, requested_paper_earth_h);
         earth_base_texture = engine->getTexture("earth_base");
         earth_texture = engine->getTexture("earth");
         if (earth_base_texture && earth_texture)
         {
+            selected_ground_extension_margin = ground_extension_margin;
             break;
         }
+        if (ground_extension_margin == 0)
+        {
+            break;
+        }
+        ground_extension_margin /= 2;
     }
 
     if (earth_base_texture && earth_texture)
@@ -1732,11 +1807,12 @@ void BattleScenePaper::onEntrance()
             };
 
             std::vector<GroundDrawTile> ground_draw_tiles;
-            ground_draw_tiles.reserve(COORD_COUNT * COORD_COUNT
-                * PAPER_GROUND_TEXTURE_SCALE * PAPER_GROUND_TEXTURE_SCALE);
-            for (int iy = -COORD_COUNT; iy < COORD_COUNT * 2; iy++)
+            int ground_extension_margin = selected_ground_extension_margin;
+            int ground_draw_tile_count = COORD_COUNT + ground_extension_margin * 2;
+            ground_draw_tiles.reserve(ground_draw_tile_count * ground_draw_tile_count);
+            for (int iy = -ground_extension_margin; iy < COORD_COUNT + ground_extension_margin; iy++)
             {
-                for (int ix = -COORD_COUNT; ix < COORD_COUNT * 2; ix++)
+                for (int ix = -ground_extension_margin; ix < COORD_COUNT + ground_extension_margin; ix++)
                 {
                     int source_index = get_extension_source_index(ix, iy);
                     if (source_index >= 0)
