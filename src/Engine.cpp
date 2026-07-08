@@ -528,6 +528,42 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
     render_times_++;
 }
 
+void Engine::renderTextureMesh(Texture* t, const std::vector<FPoint>& v, const std::vector<FPoint>& v2,
+    const std::vector<Color>& colors, const std::vector<int>& indices)
+{
+    if (!t || v.empty() || v.size() != v2.size() || indices.empty())
+    {
+        return;
+    }
+
+    float tw = 1.0f, th = 1.0f;
+    SDL_GetTextureSize(t, &tw, &th);
+
+    std::vector<SDL_Vertex> vertices(v.size());
+    bool use_vertex_colors = colors.size() == v.size();
+    for (size_t i = 0; i < v.size(); i++)
+    {
+        vertices[i].position = v[i];
+        vertices[i].tex_coord = { v2[i].x / tw, v2[i].y / th };
+        if (use_vertex_colors)
+        {
+            vertices[i].color = {
+                colors[i].r / 255.0f,
+                colors[i].g / 255.0f,
+                colors[i].b / 255.0f,
+                colors[i].a / 255.0f
+            };
+        }
+        else
+        {
+            vertices[i].color = { 1.0f, 1.0f, 1.0f, 1.0f };
+        }
+    }
+
+    SDL_RenderGeometry(renderer_, t, vertices.data(), int(vertices.size()), indices.data(), int(indices.size()));
+    render_times_++;
+}
+
 void Engine::renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors,
     const std::vector<float>& brightness_v, double angle)
 {
