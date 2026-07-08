@@ -64,7 +64,6 @@ constexpr double BATTLE_FRAME_PROFILE_SLOW_MS = 4.0;
 constexpr float PAPER_CAMERA_FOV = 60.0f;
 constexpr float PAPER_CAMERA_DISTANCE = 650.0f;
 constexpr float PAPER_CAMERA_HEIGHT = 300.0f;
-constexpr float PAPER_CAMERA_DEATH_ZOOM_SCALE = 0.72f;
 constexpr float PAPER_FREE_CAMERA_ROTATE_SPEED = 0.035f;
 constexpr float PAPER_FREE_CAMERA_HEIGHT_SPEED = 6.0f;
 constexpr float PAPER_FREE_CAMERA_PAN_SPEED = 10.0f;
@@ -73,7 +72,9 @@ constexpr float PAPER_CAMERA_MAX_DISTANCE = 1200.0f;
 constexpr float PAPER_CAMERA_ZOOM_STEP = 24.0f;
 constexpr float PAPER_CAMERA_MIN_HEIGHT = 80.0f;
 constexpr float PAPER_CAMERA_MAX_HEIGHT = 520.0f;
-constexpr int PAPER_CAMERA_DEATH_ZOOM_FRAMES = BattleSceneFrameApplierDetail::CAMERA_DEATH_ZOOM_FRAMES;
+constexpr int PAPER_DEATH_SHAKE_FRAMES = 60;
+constexpr float PAPER_AUTO_CENTER_DEAD_ZONE = 18.0f;
+constexpr float PAPER_AUTO_CENTER_MAX_STEP = 16.0f;
 constexpr float PAPER_GROUND_MESH_CENTER_RATIO = 0.64f;
 constexpr int PAPER_GROUND_MESH_TARGET_DIVISIONS = 160;
 constexpr int PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE = 10;
@@ -580,12 +581,150 @@ void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
 
 void BattleSceneHades::draw()
 {
-    if (SystemSettings::getInstance()->data().paperBattleView)
+    const bool requestedPaperView = SystemSettings::getInstance()->data().paperBattleView;
+    if (requestedPaperView != active_paper_battle_view_)
+    {
+        switchBattleViewMode(requestedPaperView);
+    }
+    if (active_paper_battle_view_)
     {
         drawPaperView();
         return;
     }
     drawClassicView();
+}
+
+std::optional<float> BattleSceneHades::defaultPaperCameraAngleFromRuntimeUnits() const
+{
+    if (!battle_session_)
+    {
+        return std::nullopt;
+    }
+
+    double bestDistanceSquared = -1.0;
+    Pointf selectedAlly;
+    Pointf selectedEnemy;
+    for (const auto& ally : scene_units_.runtimeUnits())
+    {
+        if (!ally.alive || ally.team != 0)
+        {
+            continue;
+        }
+        for (const auto& enemy : scene_units_.runtimeUnits())
+        {
+            if (!enemy.alive || enemy.team != 1)
+            {
+                continue;
+            }
+            const Pointf delta = enemy.motion.position - ally.motion.position;
+            const double distanceSquared = delta.x * delta.x + delta.y * delta.y;
+            if (bestDistanceSquared < 0.0 || distanceSquared < bestDistanceSquared)
+            {
+                bestDistanceSquared = distanceSquared;
+                selectedAlly = ally.motion.position;
+                selectedEnemy = enemy.motion.position;
+            }
+        }
+    }
+
+    Pointf direction = selectedEnemy - selectedAlly;
+    direction.z = 0.0f;
+    if (direction.norm() == 0)
+    {
+        return std::nullopt;
+    }
+    return static_cast<float>(std::atan2(-direction.y, -direction.x));
+}
+
+std::optional<Pointf> BattleSceneHades::defaultPaperCameraCenterFromRuntimeUnits() const
+{
+    if (!battle_session_)
+    {
+        return std::nullopt;
+    }
+
+    double bestDistanceSquared = -1.0;
+    Pointf selectedAlly;
+    Pointf selectedEnemy;
+    for (const auto& ally : scene_units_.runtimeUnits())
+    {
+        if (!ally.alive || ally.team != 0)
+        {
+            continue;
+        }
+        for (const auto& enemy : scene_units_.runtimeUnits())
+        {
+            if (!enemy.alive || enemy.team != 1)
+            {
+                continue;
+            }
+            const Pointf delta = enemy.motion.position - ally.motion.position;
+            const double distanceSquared = delta.x * delta.x + delta.y * delta.y;
+            if (bestDistanceSquared < 0.0 || distanceSquared < bestDistanceSquared)
+            {
+                bestDistanceSquared = distanceSquared;
+                selectedAlly = ally.motion.position;
+                selectedEnemy = enemy.motion.position;
+            }
+        }
+    }
+
+    if (bestDistanceSquared < 0.0)
+    {
+        return std::nullopt;
+    }
+    Pointf center = (selectedAlly + selectedEnemy) * 0.5;
+    center.z = 0.0f;
+    return BattleSceneCamera::clampCenter(center, makeCameraBounds());
+}
+
+void BattleSceneHades::updatePaperCameraAutoCenter(bool snap)
+{
+    auto center = defaultPaperCameraCenterFromRuntimeUnits();
+    if (!center)
+    {
+        return;
+    }
+    if (snap)
+    {
+        pos_ = *center;
+        return;
+    }
+
+    Pointf delta = *center - pos_;
+    delta.z = 0.0f;
+    const float distance = delta.norm();
+    if (distance <= PAPER_AUTO_CENTER_DEAD_ZONE)
+    {
+        return;
+    }
+    const float step = std::min(PAPER_AUTO_CENTER_MAX_STEP, distance - PAPER_AUTO_CENTER_DEAD_ZONE);
+    delta.normTo(step);
+    pos_ = BattleSceneCamera::clampCenter(pos_ + delta, makeCameraBounds());
+}
+
+void BattleSceneHades::switchBattleViewMode(bool paperView)
+{
+    active_paper_battle_view_ = paperView;
+    pos_ = BattleSceneCamera::clampCenter(pos_, makeCameraBounds());
+    x_ = 0;
+    y_ = 0;
+    if (paperView)
+    {
+        paper_camera_auto_center_ = true;
+        if (auto angle = defaultPaperCameraAngleFromRuntimeUnits())
+        {
+            paper_camera_angle_ = *angle;
+        }
+        updatePaperCameraAutoCenter(true);
+        paper_camera_distance_ = std::clamp(paper_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
+        paper_camera_height_ = std::clamp(paper_camera_height_, PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
+    }
+    else
+    {
+        camera_.reset(pos_);
+    }
+    updateFrameApplierContext();
 }
 
 void BattleSceneHades::drawClassicView()
@@ -1114,6 +1253,11 @@ void BattleSceneHades::drawPaperView()
     const int sceneW = render_center_x_ * 2;
     const int sceneH = render_center_y_ * 2;
 
+    if (paper_camera_auto_center_)
+    {
+        updatePaperCameraAutoCenter(false);
+    }
+
     engine->setRenderTarget("scene");
     engine->fillColor({ 72, 94, 118, 255 }, 0, 0, sceneW, sceneH);
     engine->fillColor({ 42, 48, 46, 255 }, 0, sceneH * 2 / 3, sceneW, sceneH / 3);
@@ -1124,25 +1268,22 @@ void BattleSceneHades::drawPaperView()
     paper_camera_.center = { pos_.x, pos_.y, 0.0f };
     paper_camera_distance_ = std::clamp(paper_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
     paper_camera_height_ = std::clamp(paper_camera_height_, PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
-        const float deathZoomBlend = cameraZoomBlend(paper_death_zoom_frames_, PAPER_CAMERA_DEATH_ZOOM_FRAMES);
-        const float effectivePaperCameraDistance = paper_camera_distance_
-            * (1.0f + (PAPER_CAMERA_DEATH_ZOOM_SCALE - 1.0f) * deathZoomBlend);
-        paper_camera_.pos = {
-            pos_.x + std::cos(paper_camera_angle_) * effectivePaperCameraDistance,
-            pos_.y + std::sin(paper_camera_angle_) * effectivePaperCameraDistance,
-            paper_camera_height_
-        };
+    paper_camera_.pos = {
+        pos_.x + std::cos(paper_camera_angle_) * paper_camera_distance_,
+        pos_.y + std::sin(paper_camera_angle_) * paper_camera_distance_,
+        paper_camera_height_
+    };
 
-        if (shake_ > 0)
-        {
-            Pointf viewDir = paper_camera_.center - paper_camera_.pos;
-            viewDir.z = 0;
-            viewDir = normalizeOr(viewDir, { 0, 1, 0 });
-            const Pointf paperRight = normalizeOr({ viewDir.y, -viewDir.x, 0 }, { 1, 0, 0 });
-            const Pointf shakeOffset = paperRight * static_cast<float>(x_ * 2) + viewDir * static_cast<float>(y_ * 2);
-            paper_camera_.center += shakeOffset;
-            paper_camera_.pos += shakeOffset;
-        }
+    if (shake_ > 0)
+    {
+        Pointf viewDir = paper_camera_.center - paper_camera_.pos;
+        viewDir.z = 0;
+        viewDir = normalizeOr(viewDir, { 0, 1, 0 });
+        const Pointf paperRight = normalizeOr({ viewDir.y, -viewDir.x, 0 }, { 1, 0, 0 });
+        const Pointf shakeOffset = paperRight * static_cast<float>(x_ * 2) + viewDir * static_cast<float>(y_ * 2);
+        paper_camera_.center += shakeOffset;
+        paper_camera_.pos += shakeOffset;
+    }
 
     paper_sky_.render(engine, sceneW, sceneH, paper_camera_.pos, paper_camera_.center);
 
@@ -1330,6 +1471,7 @@ void BattleSceneHades::drawPaperView()
         uint8_t alpha = 255;
         int rot = 0;
         int turn = 1;
+        bool subdivideVertical = false;
     };
 
     std::vector<PaperSprite> sprites;
@@ -1543,10 +1685,18 @@ void BattleSceneHades::drawPaperView()
         sprite.tex = tex;
         sprite.anchor = effectPosition;
         sprite.sortAnchor = effectPosition + Pointf{ 0, 220, 0 };
-        sprite.alpha = static_cast<uint8_t>(std::clamp(
-            255.0 * (effect.TotalFrame * 1.25 - effect.Frame) / (effect.TotalFrame * 1.25),
-            0.0,
-            255.0));
+        sprite.subdivideVertical = true;
+        if (effect.FollowUnitId >= 0)
+        {
+            sprite.alpha = 255;
+        }
+        else
+        {
+            sprite.alpha = static_cast<uint8_t>(std::clamp(
+                255.0 * (effect.TotalFrame * 1.25 - effect.Frame) / (effect.TotalFrame * 1.25),
+                0.0,
+                255.0));
+        }
         sprites.push_back(std::move(sprite));
     }
 
@@ -1612,7 +1762,34 @@ void BattleSceneHades::drawPaperView()
         Color color = sprite.color;
         color.a = sprite.alpha;
         Engine::setColor(texture, color);
-        renderProjectedQuad(paper_camera_, texture, world, source);
+        if (sprite.subdivideVertical && sprite.tex->h > 64)
+        {
+            const int segmentCount = std::clamp((sprite.tex->h + 63) / 64, 2, 16);
+            for (int segment = 0; segment < segmentCount; ++segment)
+            {
+                const float t0 = static_cast<float>(segment) / segmentCount;
+                const float t1 = static_cast<float>(segment + 1) / segmentCount;
+                const float z0 = top + (bottom - top) * t0;
+                const float z1 = top + (bottom - top) * t1;
+                const std::vector<Pointf> segmentWorld = {
+                    localPoint(left, z0),
+                    localPoint(right, z0),
+                    localPoint(right, z1),
+                    localPoint(left, z1),
+                };
+                const std::vector<FPoint> segmentSource = {
+                    { 0, static_cast<float>(sprite.tex->h) * t0 },
+                    { static_cast<float>(sprite.tex->w), static_cast<float>(sprite.tex->h) * t0 },
+                    { static_cast<float>(sprite.tex->w), static_cast<float>(sprite.tex->h) * t1 },
+                    { 0, static_cast<float>(sprite.tex->h) * t1 },
+                };
+                renderProjectedQuad(paper_camera_, texture, segmentWorld, segmentSource);
+            }
+        }
+        else
+        {
+            renderProjectedQuad(paper_camera_, texture, world, source);
+        }
     };
 
     for (const auto& sprite : sprites)
@@ -1668,6 +1845,24 @@ void BattleSceneHades::drawPaperView()
 void BattleSceneHades::dealEvent(EngineEvent& e)
 {
     const bool battleControlHandled = handleBattleControlEvent(e);
+    if (!battleControlHandled && e.type == EVENT_KEY_UP && e.key.key == K_P)
+    {
+        auto* settings = SystemSettings::getInstance();
+        auto updated = settings->snapshot();
+        updated.paperBattleView = !updated.paperBattleView;
+        settings->update(updated);
+        switchBattleViewMode(updated.paperBattleView);
+        return;
+    }
+    if (!battleControlHandled && e.type == EVENT_KEY_UP && e.key.key == K_O && SystemSettings::getInstance()->data().paperBattleView)
+    {
+        paper_camera_auto_center_ = !paper_camera_auto_center_;
+        if (paper_camera_auto_center_)
+        {
+            updatePaperCameraAutoCenter(true);
+        }
+        return;
+    }
     if (!battleControlHandled && SystemSettings::getInstance()->data().paperBattleView)
     {
         auto engine = Engine::getInstance();
@@ -1721,8 +1916,11 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
         }
         if (cameraPan.norm() != 0)
         {
-            cameraPan.normTo(PAPER_FREE_CAMERA_PAN_SPEED);
-            pos_ = BattleSceneCamera::clampCenter(pos_ + cameraPan, makeCameraBounds());
+            if (!paper_camera_auto_center_)
+            {
+                cameraPan.normTo(PAPER_FREE_CAMERA_PAN_SPEED);
+                pos_ = BattleSceneCamera::clampCenter(pos_ + cameraPan, makeCameraBounds());
+            }
         }
         paper_camera_angle_ += cameraRotate * PAPER_FREE_CAMERA_ROTATE_SPEED;
         paper_camera_height_ = std::clamp(
@@ -1932,10 +2130,6 @@ void BattleSceneHades::advanceBattleFrame()
         y_ = rand_.rand_int(3) - rand_.rand_int(3);
         shake_--;
     }
-    if (paper_death_zoom_frames_ > 0)
-    {
-        --paper_death_zoom_frames_;
-    }
     if (frozen_ > 0)
     {
         frozen_--;
@@ -1964,6 +2158,8 @@ void BattleSceneHades::onEntrance()
 {
     previous_refresh_interval_ = RunNode::getRefreshInterval();
     battle_paused_ = false;
+    active_paper_battle_view_ = SystemSettings::getInstance()->data().paperBattleView;
+    paper_camera_auto_center_ = true;
     Engine::getInstance()->hideBattleLogOverlay();
     paper_sky_.reset();
     paper_sky_.generateClouds();
@@ -2156,45 +2352,13 @@ void BattleSceneHades::onEntrance()
     initializeBattleRuntime(std::move(setupBuild));
     runPreBattlePositionSwapIfEnabled();
 
-    auto paperDefaultCameraAngle = [&]() -> std::optional<float>
-    {
-        double bestDistanceSquared = -1.0;
-        Pointf selectedAlly;
-        Pointf selectedEnemy;
-        for (const auto& ally : scene_units_.runtimeUnits())
-        {
-            if (!ally.alive || ally.team != 0)
-            {
-                continue;
-            }
-            for (const auto& enemy : scene_units_.runtimeUnits())
-            {
-                if (!enemy.alive || enemy.team != 1)
-                {
-                    continue;
-                }
-                const Pointf delta = enemy.motion.position - ally.motion.position;
-                const double distanceSquared = delta.x * delta.x + delta.y * delta.y;
-                if (bestDistanceSquared < 0.0 || distanceSquared < bestDistanceSquared)
-                {
-                    bestDistanceSquared = distanceSquared;
-                    selectedAlly = ally.motion.position;
-                    selectedEnemy = enemy.motion.position;
-                }
-            }
-        }
-
-        Pointf direction = selectedEnemy - selectedAlly;
-        direction.z = 0.0f;
-        if (direction.norm() == 0)
-        {
-            return std::nullopt;
-        }
-        return static_cast<float>(std::atan2(-direction.y, -direction.x));
-    };
-    if (auto angle = paperDefaultCameraAngle())
+    if (auto angle = defaultPaperCameraAngleFromRuntimeUnits())
     {
         paper_camera_angle_ = *angle;
+    }
+    if (active_paper_battle_view_)
+    {
+        updatePaperCameraAutoCenter(true);
     }
 
     Audio::getInstance()->playMusic(KysChess::getRandomBattleMusic());
@@ -2447,7 +2611,7 @@ void BattleSceneHades::backRun1()
             {
                 if (event.type == KysChess::Battle::BattleGameplayEventType::UnitDied)
                 {
-                    paper_death_zoom_frames_ = PAPER_CAMERA_DEATH_ZOOM_FRAMES;
+                    shake_ = std::max(shake_, PAPER_DEATH_SHAKE_FRAMES);
                     break;
                 }
             }

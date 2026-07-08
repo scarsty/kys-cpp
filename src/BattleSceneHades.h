@@ -84,6 +84,10 @@ protected:
     void runPositionSwapLoop();
     void runListBasedSwap();
     bool isManualCameraEnabled() const;
+    std::optional<float> defaultPaperCameraAngleFromRuntimeUnits() const;
+    std::optional<Pointf> defaultPaperCameraCenterFromRuntimeUnits() const;
+    void updatePaperCameraAutoCenter(bool snap);
+    void switchBattleViewMode(bool paperView);
     int getBattleStepsThisRender();
     void advanceBattleFrame();
     BattleSceneCameraBounds makeCameraBounds() const;
@@ -137,6 +141,8 @@ protected:
     int battle_frame_ = 0;
     bool half_speed_step_on_next_render_ = true;
     bool battle_paused_ = false;
+    bool active_paper_battle_view_ = false;
+    bool paper_camera_auto_center_ = true;
     BattleSceneCamera camera_;
     bool count_fights_won_ = true;
     unsigned int battle_random_seed_ = 1;
@@ -148,5 +154,4 @@ protected:
     float paper_camera_angle_ = -2.53f;
     float paper_camera_distance_ = 650.0f;
     float paper_camera_height_ = 300.0f;
-    int paper_death_zoom_frames_ = 0;
 };
