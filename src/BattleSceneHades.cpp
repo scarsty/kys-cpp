@@ -62,8 +62,6 @@ constexpr int BATTLE_CONTROL_LOG_TEXTURE_ID = 335;
 constexpr int BATTLE_CONTROL_SPEED_TEXTURE_ID = 336;
 constexpr double BATTLE_FRAME_PROFILE_SLOW_MS = 4.0;
 constexpr float PAPER_CAMERA_FOV = 60.0f;
-constexpr float PAPER_CAMERA_DISTANCE = 650.0f;
-constexpr float PAPER_CAMERA_HEIGHT = 300.0f;
 constexpr float PAPER_FREE_CAMERA_ROTATE_SPEED = 0.035f;
 constexpr float PAPER_FREE_CAMERA_HEIGHT_SPEED = 6.0f;
 constexpr float PAPER_FREE_CAMERA_PAN_SPEED = 10.0f;
@@ -196,6 +194,8 @@ float smoothStep(float edge0, float edge1, float value)
 struct BattleControlLayout
 {
     Rect speed{};
+    Rect paperView{};
+    Rect cameraMode{};
     Rect log{};
     Rect pause{};
 };
@@ -224,18 +224,28 @@ Point uiPointFromWindowPoint(int x, int y)
         uiH);
 }
 
-BattleControlLayout battleControlLayout(int uiWidth, bool logVisible)
+BattleControlLayout battleControlLayout(int uiWidth, bool logVisible, bool cameraModeVisible)
 {
     BattleControlLayout layout;
     int x = uiWidth - BATTLE_CONTROL_BUTTON_MARGIN - BATTLE_CONTROL_BUTTON_SIZE;
-    layout.pause = { x, BATTLE_CONTROL_BUTTON_MARGIN, BATTLE_CONTROL_BUTTON_SIZE, BATTLE_CONTROL_BUTTON_SIZE };
-    x -= BATTLE_CONTROL_BUTTON_SIZE + BATTLE_CONTROL_BUTTON_GAP;
-    layout.log = { x, BATTLE_CONTROL_BUTTON_MARGIN, BATTLE_CONTROL_BUTTON_SIZE, BATTLE_CONTROL_BUTTON_SIZE };
+    auto takeButton = [&]()
+    {
+        Rect rect = { x, BATTLE_CONTROL_BUTTON_MARGIN, BATTLE_CONTROL_BUTTON_SIZE, BATTLE_CONTROL_BUTTON_SIZE };
+        x -= BATTLE_CONTROL_BUTTON_SIZE + BATTLE_CONTROL_BUTTON_GAP;
+        return rect;
+    };
+
+    layout.pause = takeButton();
     if (logVisible)
     {
-        x -= BATTLE_CONTROL_BUTTON_SIZE + BATTLE_CONTROL_BUTTON_GAP;
+        layout.log = takeButton();
     }
-    layout.speed = { x, BATTLE_CONTROL_BUTTON_MARGIN, BATTLE_CONTROL_BUTTON_SIZE, BATTLE_CONTROL_BUTTON_SIZE };
+    if (cameraModeVisible)
+    {
+        layout.cameraMode = takeButton();
+    }
+    layout.paperView = takeButton();
+    layout.speed = takeButton();
     return layout;
 }
 
@@ -447,7 +457,7 @@ bool BattleSceneHades::isManualCameraEnabled() const
 {
     return battle_paused_
         || SystemSettings::getInstance()->data().manualCamera
-        || SystemSettings::getInstance()->data().paperBattleView;
+        || active_paper_battle_view_;
 }
 
 BattleSceneCameraBounds BattleSceneHades::makeCameraBounds() const
@@ -581,11 +591,6 @@ void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
 
 void BattleSceneHades::draw()
 {
-    const bool requestedPaperView = SystemSettings::getInstance()->data().paperBattleView;
-    if (requestedPaperView != active_paper_battle_view_)
-    {
-        switchBattleViewMode(requestedPaperView);
-    }
     if (active_paper_battle_view_)
     {
         drawPaperView();
@@ -717,6 +722,7 @@ void BattleSceneHades::switchBattleViewMode(bool paperView)
             paper_camera_angle_ = *angle;
         }
         updatePaperCameraAutoCenter(true);
+        paper_camera_auto_center_ = battlePaperCameraAutoCenterAfterEntry();
         paper_camera_distance_ = std::clamp(paper_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
         paper_camera_height_ = std::clamp(paper_camera_height_, PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
     }
@@ -1845,25 +1851,12 @@ void BattleSceneHades::drawPaperView()
 void BattleSceneHades::dealEvent(EngineEvent& e)
 {
     const bool battleControlHandled = handleBattleControlEvent(e);
-    if (!battleControlHandled && e.type == EVENT_KEY_UP && e.key.key == K_P)
+    if (!battleControlHandled && e.type == EVENT_KEY_UP && e.key.key == K_O && active_paper_battle_view_)
     {
-        auto* settings = SystemSettings::getInstance();
-        auto updated = settings->snapshot();
-        updated.paperBattleView = !updated.paperBattleView;
-        settings->update(updated);
-        switchBattleViewMode(updated.paperBattleView);
+        togglePaperCameraMode();
         return;
     }
-    if (!battleControlHandled && e.type == EVENT_KEY_UP && e.key.key == K_O && SystemSettings::getInstance()->data().paperBattleView)
-    {
-        paper_camera_auto_center_ = !paper_camera_auto_center_;
-        if (paper_camera_auto_center_)
-        {
-            updatePaperCameraAutoCenter(true);
-        }
-        return;
-    }
-    if (!battleControlHandled && SystemSettings::getInstance()->data().paperBattleView)
+    if (!battleControlHandled && active_paper_battle_view_)
     {
         auto engine = Engine::getInstance();
         if (engine->checkKeyPress(K_Z))
@@ -1993,6 +1986,28 @@ void BattleSceneHades::cycleBattleSpeed()
     half_speed_step_on_next_render_ = true;
 }
 
+void BattleSceneHades::togglePaperBattleView()
+{
+    const bool nextPaperView = !active_paper_battle_view_;
+    auto* settings = SystemSettings::getInstance();
+    auto updated = settings->snapshot();
+    if (updated.paperBattleView != nextPaperView)
+    {
+        updated.paperBattleView = nextPaperView;
+        settings->update(updated);
+    }
+    switchBattleViewMode(nextPaperView);
+}
+
+void BattleSceneHades::togglePaperCameraMode()
+{
+    paper_camera_auto_center_ = !paper_camera_auto_center_;
+    if (paper_camera_auto_center_)
+    {
+        updatePaperCameraAutoCenter(true);
+    }
+}
+
 bool BattleSceneHades::handleBattleControlEvent(EngineEvent& e)
 {
     if ((e.type != EVENT_MOUSE_BUTTON_DOWN && e.type != EVENT_MOUSE_BUTTON_UP)
@@ -2004,13 +2019,15 @@ bool BattleSceneHades::handleBattleControlEvent(EngineEvent& e)
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto layout = battleControlLayout(uiW, battle_paused_);
+    const auto layout = battleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
     const Point uiPoint = uiPointFromWindowPoint(e.button.x, e.button.y);
 
     auto hitsVisibleControl = [&]()
     {
         return pointInRect(uiPoint, layout.pause)
             || pointInRect(uiPoint, layout.speed)
+            || pointInRect(uiPoint, layout.paperView)
+            || (active_paper_battle_view_ && pointInRect(uiPoint, layout.cameraMode))
             || (battle_paused_ && pointInRect(uiPoint, layout.log));
     };
 
@@ -2034,6 +2051,16 @@ bool BattleSceneHades::handleBattleControlEvent(EngineEvent& e)
         cycleBattleSpeed();
         return true;
     }
+    if (pointInRect(uiPoint, layout.paperView))
+    {
+        togglePaperBattleView();
+        return true;
+    }
+    if (active_paper_battle_view_ && pointInRect(uiPoint, layout.cameraMode))
+    {
+        togglePaperCameraMode();
+        return true;
+    }
     if (battle_paused_ && pointInRect(uiPoint, layout.log))
     {
         showInBattleLog();
@@ -2047,10 +2074,12 @@ void BattleSceneHades::drawBattleControls()
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto layout = battleControlLayout(uiW, battle_paused_);
+    const auto layout = battleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
     const bool pauseEnabled = canToggleBattlePause();
     const auto* settings = SystemSettings::getInstance();
     const std::string speedText(battleSpeedDisplayText(settings->data().battleSpeed));
+    const std::string paperViewText(battlePaperViewDisplayText(active_paper_battle_view_));
+    const std::string paperCameraModeText(battlePaperCameraModeDisplayText(paper_camera_auto_center_));
 
     auto* engine = Engine::getInstance();
     auto drawIconButton = [&](const Rect& rect, int textureId, bool enabled)
@@ -2071,27 +2100,34 @@ void BattleSceneHades::drawBattleControls()
         }
     };
 
-    auto drawSpeedButton = [&]()
+    auto drawTextButton = [&](const Rect& rect, int textureId, const std::string& text)
     {
-        const Rect& rect = layout.speed;
         engine->fillRoundedRect({ 0, 0, 0, 95 }, rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10, 14);
-        TextureManager::getInstance()->renderTexture(
-            "title",
-            BATTLE_CONTROL_SPEED_TEXTURE_ID,
-            rect.x,
-            rect.y,
-            TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255 },
-            rect.w,
-            rect.h);
+        if (textureId >= 0)
+        {
+            TextureManager::getInstance()->renderTexture(
+                "title",
+                textureId,
+                rect.x,
+                rect.y,
+                TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255 },
+                rect.w,
+                rect.h);
+        }
         const int fontSize = 20;
-        const int textW = Font::getTextDrawSize(speedText) * fontSize / 2;
+        const int textW = Font::getTextDrawSize(text) * fontSize / 2;
         const int textX = rect.x + (rect.w - textW) / 2;
         const int textY = rect.y + (rect.h - fontSize) / 2 + 2;
-        Font::getInstance()->draw(speedText, fontSize, textX + 1, textY + 1, { 24, 18, 10, 255 }, 180);
-        Font::getInstance()->draw(speedText, fontSize, textX, textY, { 245, 222, 128, 255 }, 255);
+        Font::getInstance()->draw(text, fontSize, textX + 1, textY + 1, { 24, 18, 10, 255 }, 180);
+        Font::getInstance()->draw(text, fontSize, textX, textY, { 245, 222, 128, 255 }, 255);
     };
 
-    drawSpeedButton();
+    drawTextButton(layout.speed, BATTLE_CONTROL_SPEED_TEXTURE_ID, speedText);
+    drawTextButton(layout.paperView, BATTLE_CONTROL_SPEED_TEXTURE_ID, paperViewText);
+    if (active_paper_battle_view_)
+    {
+        drawTextButton(layout.cameraMode, BATTLE_CONTROL_SPEED_TEXTURE_ID, paperCameraModeText);
+    }
     if (battle_paused_)
     {
         drawIconButton(layout.log, BATTLE_CONTROL_LOG_TEXTURE_ID, true);
@@ -2158,7 +2194,9 @@ void BattleSceneHades::onEntrance()
 {
     previous_refresh_interval_ = RunNode::getRefreshInterval();
     battle_paused_ = false;
-    active_paper_battle_view_ = SystemSettings::getInstance()->data().paperBattleView;
+    active_paper_battle_view_ = battleSceneInitialPaperView(
+        SystemSettings::getInstance()->data().paperBattleView,
+        progress_.isPositionSwapEnabled());
     paper_camera_auto_center_ = true;
     Engine::getInstance()->hideBattleLogOverlay();
     paper_sky_.reset();
@@ -2352,13 +2390,18 @@ void BattleSceneHades::onEntrance()
     initializeBattleRuntime(std::move(setupBuild));
     runPreBattlePositionSwapIfEnabled();
 
-    if (auto angle = defaultPaperCameraAngleFromRuntimeUnits())
+    if (SystemSettings::getInstance()->data().paperBattleView && !active_paper_battle_view_)
+    {
+        switchBattleViewMode(true);
+    }
+    else if (auto angle = defaultPaperCameraAngleFromRuntimeUnits())
     {
         paper_camera_angle_ = *angle;
     }
     if (active_paper_battle_view_)
     {
         updatePaperCameraAutoCenter(true);
+        paper_camera_auto_center_ = battlePaperCameraAutoCenterAfterEntry();
     }
 
     Audio::getInstance()->playMusic(KysChess::getRandomBattleMusic());
@@ -2605,17 +2648,17 @@ void BattleSceneHades::backRun1()
     BattleSceneRuntimeFrameEffects effects;
     updateFrameApplierContext();
     frame_applier_.apply(frame, effects);
-        if (SystemSettings::getInstance()->data().paperBattleView)
+    if (active_paper_battle_view_)
+    {
+        for (const auto& event : frame.gameplayEvents)
         {
-            for (const auto& event : frame.gameplayEvents)
+            if (event.type == KysChess::Battle::BattleGameplayEventType::UnitDied)
             {
-                if (event.type == KysChess::Battle::BattleGameplayEventType::UnitDied)
-                {
-                    shake_ = std::max(shake_, PAPER_DEATH_SHAKE_FRAMES);
-                    break;
-                }
+                shake_ = std::max(shake_, PAPER_DEATH_SHAKE_FRAMES);
+                break;
             }
         }
+    }
     advanceScenePresentationFrame();
     finishBattleIfReady();
 }

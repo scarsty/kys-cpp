@@ -5,6 +5,7 @@
 #include "battle/BattleRuntimeSession.h"
 #include "BattlePostBattleSummary.h"
 #include "BattlePresentationEffects.h"
+#include "BattleScenePauseControl.h"
 #include "BattleSceneRenderMath.h"
 #include "BattleScene.h"
 #include "BattleSceneCamera.h"
@@ -75,6 +76,8 @@ protected:
     void setBattlePaused(bool paused);
     void showInBattleLog();
     void cycleBattleSpeed();
+    void togglePaperBattleView();
+    void togglePaperCameraMode();
 
     void initializeBattleRuntime(KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
     KysChess::Battle::BattleRuntimeSessionCreationInput makeBattleRuntimeSessionCreationInput(
@@ -152,6 +155,6 @@ protected:
     Camera paper_camera_;
     PaperSky paper_sky_;
     float paper_camera_angle_ = -2.53f;
-    float paper_camera_distance_ = 650.0f;
-    float paper_camera_height_ = 300.0f;
+    float paper_camera_distance_ = battleScenePaperCameraDefaults().distance;
+    float paper_camera_height_ = battleScenePaperCameraDefaults().height;
 };

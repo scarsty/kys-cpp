@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import re
+import sqlite3
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
@@ -15,14 +17,16 @@ from eft_viewer import ArchiveAccessor, load_image_variants, load_offsets
 APP_TITLE = "KYS Fight Frame Viewer"
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIGHT_ROOT = ROOT / "work" / "game-dev" / "resource" / "fight"
-DEFAULT_CONFIG_ROOT = ROOT / "work" / "game-dev" / "config"
+DEFAULT_DB_PATH = ROOT / "work" / "game-dev" / "save" / "game.db"
 FIGHT_STYLE_COUNT = 5
 FIGHT_DIRECTION_COUNT = 4
 DEFAULT_FIGHT_ID = 605
 DEFAULT_INTERVAL_MS = 100
 TEXT_NUMBER_PATTERN = re.compile(r"[+-]?\d+")
-ROLE_LINE_PATTERN = re.compile(r"^\s*-\s*(\d+)(?:\s*#\s*(.+?))?\s*$")
 FIGHT_PACK_PATTERN = re.compile(r"^fight(\d+)\.zip$", re.IGNORECASE)
+ROLE_ID_COLUMN = "\u7f16\u53f7"
+ROLE_FIGHT_COLUMN = "\u5934\u50cf"
+ROLE_NAME_COLUMN = "\u540d\u5b57"
 RESAMPLING = getattr(Image, "Resampling", Image)
 VIEW_MODE_SINGLE = "single"
 VIEW_MODE_ACTION = "action"
@@ -76,18 +80,20 @@ class OffsetLayout:
 @dataclass(frozen=True)
 class RoleMetadata:
     role_id: int
+    fight_id: int
     name: str
 
 
 @dataclass(frozen=True)
 class RoleOption:
     role_id: int
+    fight_id: int
     name: str
     path: Path
 
     @property
     def label(self) -> str:
-        return f"{self.role_id} {self.name}"
+        return f"{self.role_id} {self.name} (戰鬥圖 {self.fight_id})"
 
 
 @dataclass(frozen=True)
@@ -142,41 +148,51 @@ def parse_fightframe_text(text: str) -> list[int]:
     return frame_counts
 
 
-def parse_role_metadata(text: str) -> list[RoleMetadata]:
-    metadata: list[RoleMetadata] = []
-    for line in text.splitlines():
-        match = ROLE_LINE_PATTERN.match(line)
-        if match is None:
-            continue
-        role_id = int(match.group(1))
-        name = (match.group(2) or "").strip() or f"角色 {role_id}"
-        metadata.append(RoleMetadata(role_id=role_id, name=name))
-    return metadata
+def load_role_metadata(db_path: Path = DEFAULT_DB_PATH) -> list[RoleMetadata]:
+    if not db_path.exists():
+        return []
+
+    with closing(sqlite3.connect(db_path)) as con:
+        con.row_factory = sqlite3.Row
+        rows = con.execute(
+            f"""
+            SELECT "{ROLE_ID_COLUMN}", "{ROLE_FIGHT_COLUMN}", "{ROLE_NAME_COLUMN}"
+            FROM role
+            ORDER BY "{ROLE_ID_COLUMN}"
+            """
+        ).fetchall()
+
+    return [
+        RoleMetadata(
+            role_id=int(row[ROLE_ID_COLUMN]),
+            fight_id=int(row[ROLE_FIGHT_COLUMN]),
+            name=str(row[ROLE_NAME_COLUMN]),
+        )
+        for row in rows
+    ]
 
 
-def discover_role_options(config_root: Path = DEFAULT_CONFIG_ROOT, fight_root: Path = DEFAULT_FIGHT_ROOT) -> list[RoleOption]:
+def discover_role_options(db_path: Path = DEFAULT_DB_PATH, fight_root: Path = DEFAULT_FIGHT_ROOT) -> list[RoleOption]:
     options: list[RoleOption] = []
-    seen: set[int] = set()
-    pool_path = config_root / "chess_pool.yaml"
-    if pool_path.exists():
-        for metadata in parse_role_metadata(pool_path.read_text(encoding="utf-8-sig")):
-            try:
-                path = resolve_fight_path(str(metadata.role_id), fight_root)
-            except FileNotFoundError:
-                continue
-            options.append(RoleOption(role_id=metadata.role_id, name=metadata.name, path=path))
-            seen.add(metadata.role_id)
+    seen_fight_ids: set[int] = set()
+    for metadata in load_role_metadata(db_path):
+        try:
+            path = resolve_fight_path(str(metadata.fight_id), fight_root)
+        except FileNotFoundError:
+            continue
+        options.append(RoleOption(role_id=metadata.role_id, fight_id=metadata.fight_id, name=metadata.name, path=path))
+        seen_fight_ids.add(metadata.fight_id)
 
     if fight_root.exists():
         for path in sorted(fight_root.glob("fight*.zip")):
             match = FIGHT_PACK_PATTERN.match(path.name)
             if match is None:
                 continue
-            role_id = int(match.group(1))
-            if role_id in seen:
+            fight_id = int(match.group(1))
+            if fight_id in seen_fight_ids:
                 continue
-            options.append(RoleOption(role_id=role_id, name=f"角色 {role_id}", path=path.resolve()))
-            seen.add(role_id)
+            options.append(RoleOption(role_id=fight_id, fight_id=fight_id, name=f"角色 {fight_id}", path=path.resolve()))
+            seen_fight_ids.add(fight_id)
     return options
 
 
@@ -757,14 +773,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Preview KYS fight animation frames with offsets.")
     parser.add_argument("fight", nargs="?", help="Fight id, fight zip, or extracted fight directory. Defaults to 605.")
     parser.add_argument("--fight-root", default=str(DEFAULT_FIGHT_ROOT), help="Directory used when resolving numeric fight ids.")
-    parser.add_argument("--config-root", default=str(DEFAULT_CONFIG_ROOT), help="Directory used for discovering named chess roles.")
+    parser.add_argument("--db", default=str(DEFAULT_DB_PATH), help="game.db path used for role names and fight ids.")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     fight_root = Path(args.fight_root)
-    role_options = discover_role_options(Path(args.config_root), fight_root)
+    role_options = discover_role_options(Path(args.db), fight_root)
     source = resolve_fight_path(args.fight, fight_root)
     root = tk.Tk()
     FightFrameViewerApp(root, source, role_options=role_options)

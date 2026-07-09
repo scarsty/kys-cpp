@@ -36,3 +36,28 @@ std::string_view battleSpeedDisplayText(int battleSpeed)
     assert(false);
     return "常速";
 }
+
+bool battleSceneInitialPaperView(bool paperBattleViewSetting, bool positionSwapEnabled)
+{
+    return paperBattleViewSetting && !positionSwapEnabled;
+}
+
+std::string_view battlePaperViewDisplayText(bool paperView)
+{
+    return paperView ? "3D" : "2D";
+}
+
+std::string_view battlePaperCameraModeDisplayText(bool autoCenter)
+{
+    return autoCenter ? "跟隨" : "自由";
+}
+
+bool battlePaperCameraAutoCenterAfterEntry()
+{
+    return false;
+}
+
+BattleScenePaperCameraDefaults battleScenePaperCameraDefaults()
+{
+    return { 580.0f, 240.0f };
+}

@@ -20,3 +20,35 @@ TEST_CASE("BattleScenePauseControl_CyclesSpeedHalfNormalDouble", "[battle][pause
     CHECK(battleSpeedDisplayText(1) == "常速");
     CHECK(battleSpeedDisplayText(0) == "倍速");
 }
+
+TEST_CASE("BattleScenePauseControl_PositionSwapStartsPaperBattleInClassicView", "[battle][pause_control]")
+{
+    CHECK(battleSceneInitialPaperView(true, false));
+    CHECK_FALSE(battleSceneInitialPaperView(true, true));
+    CHECK_FALSE(battleSceneInitialPaperView(false, false));
+    CHECK_FALSE(battleSceneInitialPaperView(false, true));
+}
+
+TEST_CASE("BattleScenePauseControl_DisplaysPaperViewToggleState", "[battle][pause_control]")
+{
+    CHECK(battlePaperViewDisplayText(false) == "2D");
+    CHECK(battlePaperViewDisplayText(true) == "3D");
+}
+
+TEST_CASE("BattleScenePauseControl_DisplaysPaperCameraModeState", "[battle][pause_control]")
+{
+    CHECK(battlePaperCameraModeDisplayText(false) == "自由");
+    CHECK(battlePaperCameraModeDisplayText(true) == "跟隨");
+}
+
+TEST_CASE("BattleScenePauseControl_PaperCameraStartsFreeAfterInitialSnap", "[battle][pause_control]")
+{
+    CHECK_FALSE(battlePaperCameraAutoCenterAfterEntry());
+}
+
+TEST_CASE("BattleScenePauseControl_UsesImmersivePaperCameraDefaults", "[battle][pause_control]")
+{
+    const auto defaults = battleScenePaperCameraDefaults();
+    CHECK(defaults.distance == 580.0f);
+    CHECK(defaults.height == 240.0f);
+}
