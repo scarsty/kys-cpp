@@ -439,23 +439,39 @@ private:
         db.execute(cmd);
 
         // INSERT
+        std::string insert_cmd = "insert into " + table_name + " values(";
+        for (size_t i = 0; i < N; i++)
+        {
+            insert_cmd += "?,";
+        }
+        insert_cmd.pop_back();
+        insert_cmd += ")";
         for (auto& data1 : data)
         {
-            std::string cmd1 = "insert into " + table_name + " values(";
+            auto stmt = db.prepare(insert_cmd);
+            if (!stmt.isValid())
+            {
+                LOG("{}\n", db.getErrorMessage());
+                return;
+            }
+            bool bind_ok = true;
             glz::for_each<N>([&]<size_t I>() {
                 decltype(auto) val = glz::get_member(data1, glz::get<2 * I + 1>(tup));
                 using MemberType = std::remove_cvref_t<decltype(val)>;
                 if constexpr (std::is_integral_v<MemberType>)
-                    cmd1 += std::to_string(val) + ",";
+                    bind_ok = stmt.bind(int(I + 1), val) && bind_ok;
                 else
-                    cmd1 += "'" + std::string(val) + "',";
+                    bind_ok = stmt.bind(int(I + 1), std::string(val).c_str()) && bind_ok;
             });
-            cmd1.pop_back();
-            cmd1 += ")";
-            auto ret1 = db.execute(cmd1);
-            if (!ret1)
+            if (!bind_ok)
             {
                 LOG("{}\n", db.getErrorMessage());
+                return;
+            }
+            if (!stmt.execute())
+            {
+                LOG("{}\n", db.getErrorMessage());
+                return;
             }
         }
     }
@@ -483,7 +499,7 @@ private:
         int count = 0;
         while (stmt.step())
         {
-            if (count + 1 >= (int)data.size())
+            if (count >= (int)data.size())
             {
                 data.emplace_back();
             }

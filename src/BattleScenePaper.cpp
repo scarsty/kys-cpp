@@ -173,6 +173,12 @@ void BattleScenePaper::draw()
             }
             camera_.center = camera_focus_;
             camera_.pos = camera_pos_;
+            if (shake_ > 0)
+            {
+                Pointf shake_offset = { x_ * 2.0f, y_ * 2.0f, 0 };
+                camera_.center += shake_offset;
+                camera_.pos += shake_offset;
+            }
             camera_height_ = camera_pos_.z;
             if (!camera_locked_)
             {
@@ -185,7 +191,7 @@ void BattleScenePaper::draw()
             Engine::getInstance()->setRenderTarget("scene");
             paper_sky_.render(Engine::getInstance(), render_center_x_ * 2, render_center_y_ * 2,
                 camera_.pos, camera_.center);
-            auto render_texture_3d = [&](Texture* texture, const std::vector<Pointf>& world, const std::vector<FPoint>& src)
+            auto render_texture_3d = [&](Texture* texture, const std::vector<Pointf>& world, const std::vector<FPoint>& src, Color color = { 255, 255, 255, 255 })
             {
                 auto projected = camera_.getProj(world);
                 std::vector<FPoint> dst;
@@ -194,7 +200,9 @@ void BattleScenePaper::draw()
                 {
                     dst.push_back({ float(p.x), float(p.y) });
                 }
-                Engine::getInstance()->renderTexture(texture, nullptr, dst, src);
+                std::vector<Color> colors(dst.size(), color);
+                std::vector<int> indices = { 0, 1, 2, 2, 3, 0 };
+                Engine::getInstance()->renderTextureMesh(texture, dst, src, colors, indices);
             };
             auto in_camera_front = [&](const std::vector<Pointf>& points)
             {
@@ -484,8 +492,7 @@ void BattleScenePaper::draw()
                 std::vector<FPoint> src = { { 0, 0 }, { float(tex->w), 0 }, { float(tex->w), float(tex->h) }, { 0, float(tex->h) } };
                 Color c = color;
                 c.a = alpha;
-                Engine::getInstance()->setColor(texture, c);
-                render_texture_3d(texture, paper, src);
+                render_texture_3d(texture, paper, src, c);
             };
 
             struct PaperSprite
@@ -620,7 +627,8 @@ void BattleScenePaper::draw()
                 int frame = ae.TotalEffectFrame > 0 ? ae.Frame % ae.TotalEffectFrame : 0;
                 sprite.tex = TextureManager::getInstance()->getTexture(ae.Path, frame);
                 sprite.anchor = to_paper_anchor(ae.FollowRole ? ae.FollowRole->Pos : ae.Pos);
-                sprite.alpha = uint8_t(GameUtil::clamp(255 * (ae.TotalFrame * 1.25 - ae.Frame) / (ae.TotalFrame * 1.25), 0.0, 255.0));
+                //sprite.alpha = uint8_t(GameUtil::clamp(224 * (ae.TotalFrame * 1.25 - ae.Frame) / (ae.TotalFrame * 1.25), 0.0, 224.0));
+                sprite.alpha = 230;
                 sprite.depth = calc_depth(sprite.anchor);
                 sprites.emplace_back(sprite);
             }
@@ -639,7 +647,7 @@ void BattleScenePaper::draw()
                     {
                         if (in_camera_front(sprite.world))
                         {
-                            render_texture_3d(sprite.texture, sprite.world, sprite.src);
+                            render_texture_3d(sprite.texture, sprite.world, sprite.src, sprite.color);
                         }
                     }
                     else
@@ -2052,7 +2060,7 @@ void BattleScenePaper::backRun1()
                 //dying_ = r;
                 pos_ = r->Pos;
                 frozen_ = 5;
-                shake_ = 10;
+                shake_ = std::max(shake_, 12);
                 slow_ = 10;
                 close_up_ = 30;
             }

@@ -420,49 +420,69 @@ void Save::runSql(const std::string& cmd)
 {
     if (cmd.find("update ") != 0) { return; }
     SQLite3Wrapper db("");
-    //if (db.)
+
+    size_t table_begin = cmd.find_first_not_of(' ', 6);
+    if (table_begin == std::string::npos) { return; }
+    size_t table_end = cmd.find_first_of(" \t\r\n", table_begin);
+    std::string table = cmd.substr(table_begin, table_end - table_begin);
+
+    auto refresh_ptrs = [this]()
     {
-        if (cmd.find("base ") != std::string::npos)
+        updateAllPtrVector();
+        makeMapsAndRepairID();
+    };
+
+    auto run_on_table = [&](auto save_table, auto load_table, bool refresh = false)
+    {
+        save_table();
+        NewSave::runSql(db, cmd);
+        load_table();
+        if (refresh)
         {
-            NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1);
-            NewSave::runSql(db, cmd);
-            NewSave::LoadDBBaseInfo(db, (BaseInfo*)this, 1);
+            refresh_ptrs();
         }
-        else if (cmd.find("bag ") != std::string::npos)
-        {
-            NewSave::SaveDBItemList(db, Items, ITEM_IN_BAG_COUNT);
-            NewSave::runSql(db, cmd);
-            NewSave::LoadDBItemList(db, Items, ITEM_IN_BAG_COUNT);
-        }
-        else if (cmd.find("role ") != std::string::npos)
-        {
-            NewSave::SaveDBRoleSave(db, roles_mem_);
-            NewSave::runSql(db, cmd);
-            NewSave::LoadDBRoleSave(db, roles_mem_);
-        }
-        else if (cmd.find("item ") != std::string::npos)
-        {
-            NewSave::SaveDBItemSave(db, items_mem_);
-            NewSave::runSql(db, cmd);
-            NewSave::LoadDBItemSave(db, items_mem_);
-        }
-        else if (cmd.find("submap ") != std::string::npos)
-        {
-            NewSave::SaveDBSubMapInfoSave(db, submap_infos_mem_);
-            NewSave::runSql(db, cmd);
-            NewSave::LoadDBSubMapInfoSave(db, submap_infos_mem_);
-        }
-        else if (cmd.find("magic ") != std::string::npos)
-        {
-            NewSave::SaveDBMagicSave(db, magics_mem_);
-            NewSave::runSql(db, cmd);
-            NewSave::LoadDBMagicSave(db, magics_mem_);
-        }
-        else if (cmd.find("shop ") != std::string::npos)
-        {
-            NewSave::SaveDBShopSave(db, shops_mem_);
-            NewSave::runSql(db, cmd);
-            NewSave::LoadDBShopSave(db, shops_mem_);
-        }
+    };
+
+    if (table == "base")
+    {
+        run_on_table(
+            [&]() { NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1); },
+            [&]() { NewSave::LoadDBBaseInfo(db, (BaseInfo*)this, 1); });
+    }
+    else if (table == "bag")
+    {
+        run_on_table(
+            [&]() { NewSave::SaveDBItemList(db, Items, ITEM_IN_BAG_COUNT); },
+            [&]() { NewSave::LoadDBItemList(db, Items, ITEM_IN_BAG_COUNT); });
+    }
+    else if (table == "role")
+    {
+        run_on_table(
+            [&]() { NewSave::SaveDBRoleSave(db, roles_mem_); },
+            [&]() { NewSave::LoadDBRoleSave(db, roles_mem_); }, true);
+    }
+    else if (table == "item")
+    {
+        run_on_table(
+            [&]() { NewSave::SaveDBItemSave(db, items_mem_); },
+            [&]() { NewSave::LoadDBItemSave(db, items_mem_); }, true);
+    }
+    else if (table == "submap")
+    {
+        run_on_table(
+            [&]() { NewSave::SaveDBSubMapInfoSave(db, submap_infos_mem_); },
+            [&]() { NewSave::LoadDBSubMapInfoSave(db, submap_infos_mem_); }, true);
+    }
+    else if (table == "magic")
+    {
+        run_on_table(
+            [&]() { NewSave::SaveDBMagicSave(db, magics_mem_); },
+            [&]() { NewSave::LoadDBMagicSave(db, magics_mem_); }, true);
+    }
+    else if (table == "shop")
+    {
+        run_on_table(
+            [&]() { NewSave::SaveDBShopSave(db, shops_mem_); },
+            [&]() { NewSave::LoadDBShopSave(db, shops_mem_); }, true);
     }
 }

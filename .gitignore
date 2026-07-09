@@ -31,3 +31,4 @@ kys-cpp-androidstudio/.gradle
 kys-cpp-androidstudio/.idea
 kys-cpp-androidstudio/app/jni/include/
 build.log
+vcpkg_installed
