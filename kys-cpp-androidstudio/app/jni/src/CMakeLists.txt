@@ -184,6 +184,7 @@ add_library(main SHARED
         "${KYS_SRC_DIR}/Object.cpp"
         "${KYS_SRC_DIR}/ParticleExample.cpp"
         "${KYS_SRC_DIR}/ParticleSystem.cpp"
+        "${KYS_SRC_DIR}/PaperSky.cpp"
         "${KYS_SRC_DIR}/Point.cpp"
         "${KYS_SRC_DIR}/RandomRole.cpp"
         "${KYS_SRC_DIR}/RunNode.cpp"

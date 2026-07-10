@@ -275,6 +275,7 @@ void Engine::setWindowPosition(int x, int y) const
 
 void Engine::createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h)
 {
+    resetRenderTarget();
     if (tex_)
     {
         SDL_DestroyTexture(tex_);
@@ -318,6 +319,63 @@ void Engine::createAssistTexture(const std::string& name, int w, int h)
     tex = createTexture((SDL_PixelFormat)pixfmt, TEXTUREACCESS_TARGET, w, h);
     //tex_ = createRenderedTexture(768, 480);
     //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
+}
+
+bool Engine::resizeRenderTexturesToWindow()
+{
+    if (!window_ || !tex_)
+    {
+        return false;
+    }
+
+    int windowW = 0;
+    int windowH = 0;
+    getWindowSize(windowW, windowH);
+    if (windowW <= 0 || windowH <= 0)
+    {
+        return false;
+    }
+
+    const int baseUiW = std::max(1, base_ui_w_);
+    const int baseUiH = std::max(1, base_ui_h_);
+    const double windowAspect = static_cast<double>(windowW) / windowH;
+    const double baseAspect = static_cast<double>(baseUiW) / baseUiH;
+    int newUiW = baseUiW;
+    int newUiH = baseUiH;
+    if (windowAspect >= baseAspect)
+    {
+        newUiW = std::max(baseUiW, static_cast<int>(std::round(windowAspect * baseUiH)));
+    }
+    else
+    {
+        newUiH = std::max(baseUiH, static_cast<int>(std::round(baseUiW / windowAspect)));
+    }
+    bool resized = false;
+    if (newUiW != ui_w_ || newUiH != ui_h_)
+    {
+        ui_w_ = newUiW;
+        ui_h_ = newUiH;
+        createMainTexture(SDL_PixelFormat(0), TEXTUREACCESS_TARGET, ui_w_, ui_h_);
+        resized = true;
+    }
+
+    auto sceneTexture = tex_map_.find("scene");
+    if (sceneTexture != tex_map_.end() && sceneTexture->second)
+    {
+        int sceneW = 0;
+        int sceneH = 0;
+        getTextureSize(sceneTexture->second, sceneW, sceneH);
+        const int newSceneH = std::max(1, sceneH > 0 ? sceneH : newUiH);
+        const int newSceneW = std::max(1, static_cast<int>(std::round(static_cast<double>(windowW) * newSceneH / windowH)));
+        if (newSceneW != sceneW || newSceneH != sceneH)
+        {
+            createAssistTexture("scene", newSceneW, newSceneH);
+            resized = true;
+        }
+    }
+
+    setPresentPosition(tex_);
+    return resized;
 }
 
 void Engine::setPresentPosition(Texture* tex)
@@ -838,7 +896,7 @@ void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend)
 {
     if (w < 0 || h < 0)
     {
-        getWindowSize(w, h);
+        SDL_GetCurrentRenderOutputSize(renderer_, &w, &h);
     }
     Rect r{ x, y, w, h };
     SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
@@ -1031,7 +1089,7 @@ int Engine::pollEvent(EngineEvent& e)
             || e.type == EVENT_WINDOW_MAXIMIZED
             || e.type == EVENT_WINDOW_RESTORED)
         {
-            setPresentPosition(tex_);
+            resizeRenderTexturesToWindow();
         }
     }
     return r;

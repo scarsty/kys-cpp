@@ -21,6 +21,32 @@ RunNode::~RunNode()
 {
 }
 
+void RunNode::onWindowResized()
+{
+    for (auto& child : childs_)
+    {
+        if (child)
+        {
+            child->onWindowResized();
+        }
+    }
+}
+
+void RunNode::notifyWindowResized()
+{
+    for (auto& node : root_)
+    {
+        if (node)
+        {
+            node->onWindowResized();
+        }
+    }
+    if (use_virtual_stick_)
+    {
+        virtual_stick()->onWindowResized();
+    }
+}
+
 void RunNode::drawAll()
 {
     //从最后一个独占屏幕的场景开始画
@@ -398,6 +424,13 @@ void RunNode::dealEventSelfChilds(bool check_event)
             LOG("Controllers changed\n");
             Engine::getInstance()->checkGameControllers();
         }
+        if (e.type == EVENT_WINDOW_RESIZED
+            || e.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+            || e.type == EVENT_WINDOW_MAXIMIZED
+            || e.type == EVENT_WINDOW_RESTORED)
+        {
+            notifyWindowResized();
+        }
         if (use_virtual_stick_)
         {
             virtual_stick()->dealEvent(e);
@@ -435,7 +468,11 @@ bool RunNode::isSpecialEvent(EngineEvent& e)
         || e.type == EVENT_DID_ENTER_BACKGROUND
         || e.type == EVENT_WILL_ENTER_FOREGROUND
         || e.type == EVENT_GAMEPAD_ADDED
-        || e.type == EVENT_GAMEPAD_REMOVED;
+        || e.type == EVENT_GAMEPAD_REMOVED
+        || e.type == EVENT_WINDOW_RESIZED
+        || e.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+        || e.type == EVENT_WINDOW_MAXIMIZED
+        || e.type == EVENT_WINDOW_RESTORED;
 }
 
 //获取子节点的状态
@@ -510,6 +547,8 @@ void RunNode::present()
         Font::getInstance()->draw(std::format("Render texture time is {}", Engine::getInstance()->getRenderTimes()), 20, w - 300, h - 35);
         e->resetRenderTimes();
     }
+    e->resetRenderTarget();
+    e->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1, BLENDMODE_NONE);
     e->renderMainTextureToWindow();
     Font::getInstance()->executeDrawCalls();
     e->renderPresent();

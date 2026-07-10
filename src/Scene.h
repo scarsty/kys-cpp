@@ -14,6 +14,12 @@ public:
 
     virtual void dealEvent(EngineEvent& e) override {}
 
+    virtual void onWindowResized() override
+    {
+        calViewRegion();
+        RunNode::onWindowResized();
+    }
+
     static const int TILE_W_0 = 18;    //小图块大小X基准
     static const int TILE_H_0 = 9;    //小图块大小Y基准
     static inline int TILE_W = 18;     //小图块大小X

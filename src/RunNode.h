@@ -52,6 +52,8 @@ public:
 
     virtual ~RunNode();
 
+    virtual void onWindowResized();
+
     static void setRefreshInterval(double i) { refresh_interval_ = i; }
 
     static double getRefreshInterval() { return refresh_interval_; }
@@ -63,6 +65,8 @@ public:
     static void setUseVirtualStick(int u) { use_virtual_stick_ = u; }
 
     static void drawAll();
+
+    static void notifyWindowResized();
 
     static void addIntoDrawTop(std::shared_ptr<RunNode> element) { root_.push_back(element); }
 

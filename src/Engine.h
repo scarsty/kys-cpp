@@ -271,6 +271,7 @@ private:
     bool keep_ratio_ = true;
 
     int ui_w_ = 1024, ui_h_ = 640;
+    int base_ui_w_ = 1024, base_ui_h_ = 640;
     int win_w_, win_h_, min_x_, min_y_, max_x_, max_y_;
     double rotation_ = 0;
     double ratio_x_ = 1, ratio_y_ = 1;
@@ -317,6 +318,8 @@ public:
     {
         ui_w_ = w;
         ui_h_ = h;
+        base_ui_w_ = w;
+        base_ui_h_ = h;
     }
 
     void getUISize(int& w, int& h) const
@@ -334,6 +337,7 @@ public:
     void createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h);
     void resizeMainTexture(int w, int h) const;
     void createAssistTexture(const std::string& name, int w, int h);
+    bool resizeRenderTexturesToWindow();
     void setPresentPosition(Texture* tex);    //设置贴图的位置
 
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }

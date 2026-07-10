@@ -24,6 +24,7 @@ int Application::run()
 #ifdef __ANDROID__
     // 首次运行时将 assets/game.zip 解压到内部存储，引擎初始化前完成
     Engine::extractAssetsIfNeeded();
+    GameUtil::PATH() = GameUtil::autoGamePath();
 #endif
     static constexpr int UI_WIDTH = 1280;
     static constexpr int UI_HEIGHT = 720;
