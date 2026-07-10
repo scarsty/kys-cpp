@@ -155,6 +155,10 @@
     <ClCompile Include="ChessUiCommon.cpp" />
     <ClCompile Include="ChessUIStatus.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="PointerInput.cpp" />
+    <ClCompile Include="BattleSceneControls.cpp" />
+    <ClCompile Include="BattleScenePaperCameraTouch.cpp" />
+    <ClCompile Include="PaperCameraControlMath.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\mlcc\filefunc.cpp" />
     <ClCompile Include="..\others\Hanz2Piny.cpp" />
@@ -262,7 +266,6 @@
     <ClCompile Include="UIStatusDrawable.cpp" />
     <ClCompile Include="UISystem.cpp" />
     <ClCompile Include="Video.cpp" />
-    <ClCompile Include="VirtualStick.cpp" />
     <ClCompile Include="Weather.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -300,6 +303,10 @@
     <ClInclude Include="ChessUiCommon.h" />
     <ClInclude Include="ChessUIStatus.h" />
     <ClInclude Include="Engine.h" />
+    <ClInclude Include="PointerInput.h" />
+    <ClInclude Include="BattleSceneControls.h" />
+    <ClInclude Include="BattleScenePaperCameraTouch.h" />
+    <ClInclude Include="PaperCameraControlMath.h" />
     <ClInclude Include="..\mlcc\filefunc.h" />
     <ClInclude Include="..\mlcc\fmt1.h" />
     <ClInclude Include="..\mlcc\INIReader.h" />
@@ -415,7 +422,6 @@
     <ClInclude Include="UIStatusDrawable.h" />
     <ClInclude Include="UISystem.h" />
     <ClInclude Include="Video.h" />
-    <ClInclude Include="VirtualStick.h" />
     <ClInclude Include="Weather.h" />
   </ItemGroup>
   <ItemGroup>

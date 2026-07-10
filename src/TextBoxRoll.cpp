@@ -42,20 +42,16 @@ void TextBoxRoll::dealEvent(EngineEvent& e)
     {
         return;
     }
-    switch (e.type)
-    {
-    case EVENT_MOUSE_WHEEL:
-        if (e.wheel.y < 0)
-        {
-            begin_line_++;
-        }
-        else
-        {
-            begin_line_--;
-        }
-        break;
-    default:
-        break;
-    }
     begin_line_ = GameUtil::limit(begin_line_, 0, int(texts_.size() - roll_line_));
+}
+
+RunNode::PointerResult TextBoxRoll::onPointerEvent(const PointerEvent& event)
+{
+    if (roll_line_ <= 0 || event.phase != PointerPhase::Wheel)
+    {
+        return RunNode::onPointerEvent(event);
+    }
+    begin_line_ += event.wheel.y < 0 ? 1 : -1;
+    begin_line_ = GameUtil::limit(begin_line_, 0, int(texts_.size() - roll_line_));
+    return PointerResult::Handled;
 }

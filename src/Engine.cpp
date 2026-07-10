@@ -11,6 +11,10 @@
 #include <emscripten.h>
 #endif
 
+#ifdef __ANDROID__
+void notifyAndroidInputReady();
+#endif
+
 std::unordered_map<Texture*, Color> Engine::color_cache_;
 #ifdef _MSC_VER
 #ifndef NOMINMAX
@@ -56,15 +60,26 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 #endif
 #ifdef __ANDROID__
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
-    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
 #endif
-
-
+#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+    SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
+    SDL_SetHint(SDL_HINT_PEN_TOUCH_EVENTS, "0");
+#endif
 #ifndef _WINDLL
     if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
     {
         return -1;
     }
+#endif
+    if (!PointerInput::instance().initializeActions())
+    {
+        return -1;
+    }
+#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
+    SDL_SetEventEnabled(SDL_EVENT_PINCH_BEGIN, false);
+    SDL_SetEventEnabled(SDL_EVENT_PINCH_UPDATE, false);
+    SDL_SetEventEnabled(SDL_EVENT_PINCH_END, false);
 #endif
     window_mode_ = handle_type;
     if (handle)
@@ -167,6 +182,9 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         imgui_ = std::make_unique<ImGuiLayer>();
     }
     imgui_->init(window_, renderer_);
+#ifdef __ANDROID__
+    notifyAndroidInputReady();
+#endif
     return 0;
 }
 
@@ -335,49 +353,45 @@ Texture* Engine::cloneTexture(Texture* source) const
     return clone;
 }
 
-void Engine::setPresentPosition(Texture* tex)
+void Engine::setPresentPosition(Texture* tex, const EngineEvent* sourceEvent)
 {
     if (!tex)
     {
         return;
     }
-    int w_dst = 0, h_dst = 0;
-    int w_src = 0, h_src = 0;
-    getWindowSize(w_dst, h_dst);
-    getTextureSize(tex, w_src, h_src);
-    w_src *= ratio_x_;
-    h_src *= ratio_y_;
-    if (keep_ratio_)
+    PresentLayoutInput input;
+    getWindowSize(input.windowWidth, input.windowHeight);
+    getTextureSize(tex, input.textureWidth, input.textureHeight);
+    input.uiWidth = ui_w_;
+    input.uiHeight = ui_h_;
+    input.keepRatio = keep_ratio_;
+    input.rotation = rotation_;
+    input.ratioX = ratio_x_;
+    input.ratioY = ratio_y_;
+    if (input.windowWidth <= 0 || input.windowHeight <= 0
+        || input.textureWidth <= 0 || input.textureHeight <= 0
+        || input.uiWidth <= 0 || input.uiHeight <= 0)
     {
-        if (w_src == 0 || h_src == 0)
-        {
-            return;
-        }
-        double ratio = std::min(1.0 * w_dst / w_src, 1.0 * h_dst / h_src);
-        if (rotation_ == 90 || rotation_ == 270)
-        {
-            ratio = std::min(1.0 * w_dst / h_src, 1.0 * h_dst / w_src);
-        }
-        rect_.x = (w_dst - w_src * ratio) / 2;
-        rect_.y = (h_dst - h_src * ratio) / 2;
-        rect_.w = w_src * ratio;
-        rect_.h = h_src * ratio;
+        return;
     }
-    else
+
+    auto geometry = computePresentLayout(input, present_geometry_revision_ + 1);
+    if (published_present_geometry_.windowWidth == geometry.windowWidth
+        && published_present_geometry_.windowHeight == geometry.windowHeight
+        && published_present_geometry_.presentRect.x == geometry.presentRect.x
+        && published_present_geometry_.presentRect.y == geometry.presentRect.y
+        && published_present_geometry_.presentRect.w == geometry.presentRect.w
+        && published_present_geometry_.presentRect.h == geometry.presentRect.h
+        && published_present_geometry_.uiWidth == geometry.uiWidth
+        && published_present_geometry_.uiHeight == geometry.uiHeight)
     {
-        //unfinshed
-        rect_.x = 0;
-        rect_.y = 0;
-        rect_.w = w_dst;
-        rect_.h = h_dst;
-        if (rotation_ == 90 || rotation_ == 270)
-        {
-            rect_.x = (h_dst - w_dst) / 2;
-            rect_.y = (w_dst - h_dst) / 2;
-            rect_.w = h_dst;
-            rect_.h = w_dst;
-        }
+        return;
     }
+    ++present_geometry_revision_;
+    geometry.revision = present_geometry_revision_;
+    rect_ = geometry.presentRect;
+    published_present_geometry_ = geometry;
+    PointerInput::instance().publishPresentGeometry(geometry, sourceEvent);
 }
 
 Texture* Engine::createTexture(PixelFormat pix_fmt, TextureAccess a, int w, int h) const
@@ -728,6 +742,7 @@ void Engine::destroy()
     {
         SDL_DestroyWindow(window_);
     }
+    PointerInput::instance().clearActionPayloads();
 
 #ifndef _WINDLL
     SDL_Quit();
@@ -806,7 +821,30 @@ void Engine::toWhite(Surface* sur)
 
 bool Engine::setKeepRatio(bool b)
 {
-    return keep_ratio_ = b;
+    keep_ratio_ = b;
+    setPresentPosition(tex_);
+    return keep_ratio_;
+}
+
+void Engine::setUISize(int w, int h)
+{
+    ui_w_ = w;
+    ui_h_ = h;
+    setPresentPosition(tex_);
+}
+
+double Engine::setRotation(double r)
+{
+    rotation_ = r;
+    setPresentPosition(tex_);
+    return rotation_;
+}
+
+void Engine::setRatio(double x, double y)
+{
+    ratio_x_ = x;
+    ratio_y_ = y;
+    setPresentPosition(tex_);
 }
 
 Texture* Engine::transRGBABitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const
@@ -1262,6 +1300,24 @@ bool Engine::processImGuiEvent(const EngineEvent& e) const
     return imgui_->processEvent(e);
 }
 
+bool Engine::processImGuiPrimaryTouch(const TouchSample& sample) const
+{
+    return imgui_ && imgui_->processPrimaryTouch(sample);
+}
+
+void Engine::cancelImGuiPrimaryTouch() const
+{
+    if (imgui_)
+    {
+        imgui_->cancelPrimaryTouch();
+    }
+}
+
+bool Engine::processImGuiApplicationCancel() const
+{
+    return imgui_ && imgui_->processApplicationCancel();
+}
+
 void Engine::renderImGuiOverlay() const
 {
     if (!imgui_)
@@ -1437,37 +1493,6 @@ void Engine::putAudioStreamCallback(void* userdata, SDL_AudioStream* stream, int
     }
 }
 
-void Engine::getMouseState(int& x, int& y)
-{
-    float xf, yf;
-    SDL_GetMouseState(&xf, &yf);
-    x = xf;
-    y = yf;
-}
-
-void Engine::getMouseStateInStartWindow(int& x, int& y) const
-{
-    getMouseState(x, y);
-    int w, h;
-    getWindowSize(w, h);
-    x = x * ui_w_ / w;
-    y = y * ui_h_ / h;
-}
-
-void Engine::setMouseState(int x, int y) const
-{
-    SDL_WarpMouseInWindow(window_, x, y);
-}
-
-void Engine::setMouseStateInStartWindow(int x, int y) const
-{
-    int w, h;
-    getWindowSize(w, h);
-    x = x * w / ui_w_;
-    y = y * h / ui_h_;
-    SDL_WarpMouseInWindow(window_, x, y);
-}
-
 int Engine::pollEvent(EngineEvent& e) const
 {
     int r = SDL_PollEvent(&e);
@@ -1508,7 +1533,6 @@ bool Engine::gameControllerGetButton(int key)
             }
             i++;
         }
-        if (!pressed) { pressed = virtual_stick_button_[key] != 0; }
         if (pressed)
         {
             prev_controller_press_ = getTicks();
@@ -1545,7 +1569,7 @@ int16_t Engine::gameControllerGetAxis(int axis)
             return ret;
         }
     }
-    return virtual_stick_axis_[axis];
+    return 0;
 }
 
 void Engine::gameControllerRumble(int l, int h, uint32_t time) const
@@ -1715,24 +1739,9 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
 #include <emscripten.h>
 extern "C" {
 EMSCRIPTEN_KEEPALIVE
-void inject_right_click()
+void request_cancel()
 {
-    float mx, my;
-    SDL_GetMouseState(&mx, &my);
-    SDL_Event down = {};
-    down.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
-    down.button.button = SDL_BUTTON_RIGHT;
-    down.button.x = mx;
-    down.button.y = my;
-    down.button.down = true;
-    SDL_PushEvent(&down);
-    SDL_Event up = {};
-    up.type = SDL_EVENT_MOUSE_BUTTON_UP;
-    up.button.button = SDL_BUTTON_RIGHT;
-    up.button.x = mx;
-    up.button.y = my;
-    up.button.down = false;
-    SDL_PushEvent(&up);
+    PointerInput::instance().enqueueApplicationCancelAction();
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -1764,24 +1773,27 @@ void resize_to_viewport(int w, int h, int css_w, int css_h)
 #include <jni.h>
 extern "C" {
 JNIEXPORT void JNICALL
-Java_com_kysgame_kyschess_KysActivity_nativeInjectRightClick(JNIEnv* env, jclass cls)
+Java_com_kysgame_kyschess_KysActivity_nativeRequestCancel(JNIEnv* env, jclass cls)
 {
-    float mx, my;
-    SDL_GetMouseState(&mx, &my);
-    SDL_Event down = {};
-    down.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
-    down.button.button = SDL_BUTTON_RIGHT;
-    down.button.x = mx;
-    down.button.y = my;
-    down.button.down = true;
-    SDL_PushEvent(&down);
-    SDL_Event up = {};
-    up.type = SDL_EVENT_MOUSE_BUTTON_UP;
-    up.button.button = SDL_BUTTON_RIGHT;
-    up.button.x = mx;
-    up.button.y = my;
-    up.button.down = false;
-    SDL_PushEvent(&up);
+    PointerInput::instance().enqueueApplicationCancelAction();
 }
+}
+
+void notifyAndroidInputReady()
+{
+    auto* env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+    auto activity = static_cast<jobject>(SDL_GetAndroidActivity());
+    if (!env || !activity)
+    {
+        return;
+    }
+    auto activityClass = env->GetObjectClass(activity);
+    auto method = env->GetMethodID(activityClass, "onNativeInputReady", "()V");
+    if (method)
+    {
+        env->CallVoidMethod(activity, method);
+    }
+    env->DeleteLocalRef(activityClass);
+    env->DeleteLocalRef(activity);
 }
 #endif

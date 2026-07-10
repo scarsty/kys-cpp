@@ -264,20 +264,10 @@ void MainScene::dealEvent(EngineEvent& e)
         Console c;
     }
     if ((e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
-        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_RIGHT)
         //|| (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
         || engine->gameControllerGetButton(GAMEPAD_BUTTON_START))
     {
-        auto& gameState = KysChess::GameState::get();
-        KysChess::ChessSelector selector(
-            gameState.roleSave(),
-            gameState.equipmentInventory(),
-            gameState.roster(),
-            gameState.shop(),
-            gameState.progress(),
-            gameState.economy(),
-            gameState.random());
-        selector.showContextMenu();
+        onPressedCancel();
     }
     //LOG("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;
@@ -368,71 +358,68 @@ void MainScene::dealEvent(EngineEvent& e)
     }
     calCursorPosition(man_x_, man_y_);
 
-    //鼠标寻路
-    if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
+}
+
+RunNode::PointerResult MainScene::onPointerEvent(const PointerEvent& event)
+{
+    if (event.button != SDL_BUTTON_LEFT)
     {
-        setMouseEventPoint(-1, -1);
-        int mx, my;
-        Engine::getInstance()->getMouseStateInStartWindow(mx, my);
-        Point p = getMousePosition(mx, my, x, y);
-        way_que_.clear();
-        if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)
+        return Scene::onPointerEvent(event);
+    }
+    if (event.phase == PointerPhase::ButtonDown)
+    {
+        return event.insidePresent ? PointerResult::Captured : PointerResult::Ignored;
+    }
+    if (event.phase != PointerPhase::ButtonUp)
+    {
+        return PointerResult::Handled;
+    }
+
+    const int x = man_x_;
+    const int y = man_y_;
+    setMouseEventPoint(-1, -1);
+    Point p = getMousePosition(event.uiPosition.x, event.uiPosition.y, x, y);
+    way_que_.clear();
+    if (canWalk(p.x, p.y))
+    {
+        FindWay(x, y, p.x, p.y);
+    }
+    if (isBuilding(p.x, p.y))
+    {
+        const int buildingX = build_x_layer_.data(p.x, p.y);
+        const int buildingY = build_y_layer_.data(p.x, p.y);
+        bool foundEntrance = false;
+        for (int ix = buildingX + 1; ix > buildingX - 9 && !foundEntrance; --ix)
         {
-            FindWay(x, y, p.x, p.y);
-        }
-        //如果是建筑，在此建筑的附近试图查找入口
-        if (isBuilding(p.x, p.y))
-        {
-            int buiding_x = build_x_layer_.data(p.x, p.y);
-            int buiding_y = build_y_layer_.data(p.x, p.y);
-            bool found_entrance = false;
-            for (int ix = buiding_x + 1; ix > buiding_x - 9; ix--)
+            for (int iy = buildingY + 1; iy > buildingY - 9; --iy)
             {
-                for (int iy = buiding_y + 1; iy > buiding_y - 9; iy--)
+                if (build_x_layer_.data(ix, iy) == buildingX
+                    && build_y_layer_.data(ix, iy) == buildingY
+                    && checkEntrance(ix, iy, true))
                 {
-                    if (build_x_layer_.data(ix, iy) == buiding_x && build_y_layer_.data(ix, iy) == buiding_y && checkEntrance(ix, iy, true))
-                    {
-                        p.x = ix;
-                        p.y = iy;    //p的值变化了
-                        found_entrance = true;
-                        break;
-                    }
-                }
-                if (found_entrance)
-                {
+                    p = {ix, iy};
+                    foundEntrance = true;
                     break;
                 }
             }
-            if (found_entrance)
+        }
+        if (foundEntrance)
+        {
+            std::vector<Point> candidates;
+            if (canWalk(p.x - 1, p.y)) candidates.push_back({p.x - 1, p.y});
+            if (canWalk(p.x + 1, p.y)) candidates.push_back({p.x + 1, p.y});
+            if (canWalk(p.x, p.y - 1)) candidates.push_back({p.x, p.y - 1});
+            if (canWalk(p.x, p.y + 1)) candidates.push_back({p.x, p.y + 1});
+            if (!candidates.empty())
             {
-                //在入口四周查找一个可以走到的地方
-                std::vector<Point> ps;
-                if (canWalk(p.x - 1, p.y))
-                {
-                    ps.push_back({ p.x - 1, p.y });
-                }
-                if (canWalk(p.x + 1, p.y))
-                {
-                    ps.push_back({ p.x + 1, p.y });
-                }
-                if (canWalk(p.x, p.y - 1))
-                {
-                    ps.push_back({ p.x, p.y - 1 });
-                }
-                if (canWalk(p.x, p.y + 1))
-                {
-                    ps.push_back({ p.x, p.y + 1 });
-                }
-                if (!ps.empty())
-                {
-                    RandomDouble r;
-                    int i = r.rand_int(ps.size());
-                    FindWay(x, y, ps[i].x, ps[i].y);
-                    setMouseEventPoint(p.x, p.y);
-                }
+                RandomDouble random;
+                const auto& destination = candidates[random.rand_int(candidates.size())];
+                FindWay(x, y, destination.x, destination.y);
+                setMouseEventPoint(p.x, p.y);
             }
         }
     }
+    return PointerResult::Handled;
 }
 
 void MainScene::onEntrance()
@@ -452,6 +439,16 @@ void MainScene::onExit()
 
 void MainScene::onPressedCancel()
 {
+    auto& gameState = KysChess::GameState::get();
+    KysChess::ChessSelector selector(
+        gameState.roleSave(),
+        gameState.equipmentInventory(),
+        gameState.roster(),
+        gameState.shop(),
+        gameState.progress(),
+        gameState.economy(),
+        gameState.random());
+    selector.showContextMenu();
 }
 
 void MainScene::tryWalk(int x, int y)

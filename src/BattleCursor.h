@@ -4,7 +4,46 @@
 #include "Types.h"
 #include "UIStatus.h"
 
+#include <optional>
+
 class BattleScene;
+
+enum class BattleCursorPointerAction { Ignore, Update, UpdateAndCapture, UpdateAndConfirm, Cancel };
+
+class BattleCursorPointerState
+{
+public:
+    BattleCursorPointerAction process(const PointerEvent& event)
+    {
+        const PointerIdentity identity{event.source, event.pointerId, event.button};
+        if (event.phase == PointerPhase::Motion)
+        {
+            return BattleCursorPointerAction::Update;
+        }
+        if (event.phase == PointerPhase::ButtonDown && event.button == SDL_BUTTON_LEFT)
+        {
+            if (!event.insidePresent || pointer_) return BattleCursorPointerAction::Ignore;
+            pointer_ = identity;
+            return BattleCursorPointerAction::UpdateAndCapture;
+        }
+        if (event.phase == PointerPhase::ButtonUp && pointer_ && *pointer_ == identity)
+        {
+            pointer_.reset();
+            return BattleCursorPointerAction::UpdateAndConfirm;
+        }
+        if (event.phase == PointerPhase::Cancel && pointer_
+            && pointer_->source == identity.source
+            && pointer_->pointerId == identity.pointerId)
+        {
+            pointer_.reset();
+            return BattleCursorPointerAction::Cancel;
+        }
+        return BattleCursorPointerAction::Ignore;
+    }
+
+private:
+    std::optional<PointerIdentity> pointer_;
+};
 
 //因为战斗场景的操作分为多种情况，写在原处比较麻烦，故单独列出一类用以操作光标
 //注意，AI选择目标的行为也在这里面
@@ -42,11 +81,16 @@ public:
     BattleScene* battle_scene_ = nullptr;
 
     virtual void dealEvent(EngineEvent& e) override;
+    PointerResult onPointerEvent(const PointerEvent& event) override;
 
     void setCursor(int x, int y);
+    void updateCursorFromPointer(SDL_FPoint position);
 
     virtual void onEntrance() override;
 
     virtual void onPressedOK() override { exitWithResult(0); }
     virtual void onPressedCancel() override { exitWithResult(-1); }
+
+private:
+    BattleCursorPointerState pointer_state_;
 };

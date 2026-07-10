@@ -17,13 +17,11 @@ Button::~Button()
 void Button::dealEvent(EngineEvent& e)
 {
     result_ = -1;
-    if (e.type == EVENT_MOUSE_BUTTON_UP)
-    {
-        if (inSide(e.button.x, e.button.y))
-        {
-            result_ = 0;
-        }
-    }
+}
+
+RunNode::PointerResult Button::onPointerEvent(const PointerEvent& event)
+{
+    return RunNode::onPointerEvent(event);
 }
 
 void Button::draw()

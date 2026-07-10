@@ -42,6 +42,7 @@ public:
 
     void draw() override;
     void dealEvent(EngineEvent& e) override;
+    PointerResult onPointerEvent(const PointerEvent& event) override;
     void onPressedOK() override;
     void onPressedCancel() override;
 
@@ -95,7 +96,6 @@ private:
     Row rowFromIndex(int index) const;
     int rowTop(const Layout& layout, Row row) const;
     std::optional<Row> rowAt(const Layout& layout, int x, int y) const;
-    std::optional<PointerPosition> pointerPosition(const EngineEvent& e) const;
     bool isActionRow(Row row) const;
     int actionX(const Layout& layout, Row row) const;
     bool isVolumeRow(Row row) const;
@@ -117,6 +117,7 @@ private:
     int inputGuardFrames_ = 8;
     bool suppressNextOk_ = false;
     bool suppressNextCancel_ = false;
+    std::optional<Row> pointerDownRow_;
 };
 
 }    // namespace KysChess

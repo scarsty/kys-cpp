@@ -73,6 +73,9 @@ set(EM_LINK_FLAGS
     "-lidbfs.js"
     "-sASYNCIFY_IMPORTS=__syscall_openat"
     "-sASSERTIONS=1"
+    "-sNO_DISABLE_EXCEPTION_CATCHING"
+    "-sEXCEPTION_STACK_TRACES=1"
+    "--profiling-funcs"
     "--shell-file ${CMAKE_SOURCE_DIR}/shell.html"
     "-sEXPORTED_RUNTIME_METHODS=['ccall']"
 )

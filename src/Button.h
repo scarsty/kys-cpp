@@ -49,9 +49,12 @@ public:
 
     //void InitMumber();
     void dealEvent(EngineEvent& e) override;
+    PointerResult onPointerEvent(const PointerEvent& event) override;
     void draw() override;
 
     int getTexutreID() { return texture_normal_id_; }
+
+    void onPressedOK() override { result_ = 0; }
 
     void setAlpha(uint8_t alpha) { alpha_ = alpha; }
     void setTextOnly(bool t) { text_only_ = t; }
@@ -64,7 +67,6 @@ public:
     void setAnimateOutline(bool a) { animate_outline_ = a; }
     void setOutlineThickness(int t) { outline_thickness_ = t; }
 
-    int button_id_ = -1;
 };
 
 class ButtonGetKey : public Button

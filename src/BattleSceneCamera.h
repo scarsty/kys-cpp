@@ -18,10 +18,11 @@ class BattleSceneCamera
 {
 public:
     std::optional<Pointf> handleManualInput(
-        const EngineEvent& event,
+        const PointerEvent& event,
         const Pointf& center,
         BattleSceneCameraBounds bounds,
         bool enabled);
+    bool manualDragging() const { return manualDragging_; }
     Pointf updateAuto(
         const Pointf& center,
         const BattleSceneUnitStore& units,

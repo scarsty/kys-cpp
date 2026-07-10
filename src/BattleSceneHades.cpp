@@ -3,6 +3,7 @@
 #include "BattleLogPresenter.h"
 #include "BattleScenePauseControl.h"
 #include "BattleScenePresentationConstants.h"
+#include "PaperCameraControlMath.h"
 #include "BattleSceneSetupBuilder.h"
 #include "BattleStarStats.h"
 #include "battle/BattleAttackSystem.h"
@@ -53,9 +54,6 @@ constexpr int ROLE_STATUS_BAR_Y = -120;
 constexpr int ROLE_STATUS_BAR_STEP_Y = ROLE_STATUS_BAR_HEIGHT + ROLE_STATUS_BAR_HEIGHT / 3;
 constexpr int ROLE_STATUS_BAR_MP_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y;
 constexpr int ROLE_STATUS_BAR_FROZEN_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y * 2;
-constexpr int BATTLE_CONTROL_BUTTON_SIZE = 64;
-constexpr int BATTLE_CONTROL_BUTTON_GAP = 8;
-constexpr int BATTLE_CONTROL_BUTTON_MARGIN = 12;
 constexpr int BATTLE_CONTROL_PLAY_TEXTURE_ID = 333;
 constexpr int BATTLE_CONTROL_PAUSE_TEXTURE_ID = 334;
 constexpr int BATTLE_CONTROL_LOG_TEXTURE_ID = 335;
@@ -212,64 +210,6 @@ float smoothStep(float edge0, float edge1, float value)
     }
     const float t = std::clamp((value - edge0) / (edge1 - edge0), 0.0f, 1.0f);
     return t * t * (3.0f - 2.0f * t);
-}
-
-struct BattleControlLayout
-{
-    Rect speed{};
-    Rect paperView{};
-    Rect cameraMode{};
-    Rect log{};
-    Rect pause{};
-};
-
-bool pointInRect(const Point& point, const Rect& rect)
-{
-    return point.x >= rect.x && point.x < rect.x + rect.w
-        && point.y >= rect.y && point.y < rect.y + rect.h;
-}
-
-Point uiPointFromWindowPoint(int x, int y)
-{
-    int presentX = 0;
-    int presentY = 0;
-    int presentW = 0;
-    int presentH = 0;
-    int uiW = 0;
-    int uiH = 0;
-    auto* engine = Engine::getInstance();
-    engine->getPresentRect(presentX, presentY, presentW, presentH);
-    engine->getUISize(uiW, uiH);
-    return BattleSceneRenderMath::windowPointToUiPoint(
-        { x, y },
-        { presentX, presentY, presentW, presentH },
-        uiW,
-        uiH);
-}
-
-BattleControlLayout battleControlLayout(int uiWidth, bool logVisible, bool cameraModeVisible)
-{
-    BattleControlLayout layout;
-    int x = uiWidth - BATTLE_CONTROL_BUTTON_MARGIN - BATTLE_CONTROL_BUTTON_SIZE;
-    auto takeButton = [&]()
-    {
-        Rect rect = { x, BATTLE_CONTROL_BUTTON_MARGIN, BATTLE_CONTROL_BUTTON_SIZE, BATTLE_CONTROL_BUTTON_SIZE };
-        x -= BATTLE_CONTROL_BUTTON_SIZE + BATTLE_CONTROL_BUTTON_GAP;
-        return rect;
-    };
-
-    layout.pause = takeButton();
-    if (logVisible)
-    {
-        layout.log = takeButton();
-    }
-    if (cameraModeVisible)
-    {
-        layout.cameraMode = takeButton();
-    }
-    layout.paperView = takeButton();
-    layout.speed = takeButton();
-    return layout;
 }
 
 float smoothStep(float t)
@@ -746,6 +686,9 @@ void BattleSceneHades::updatePaperCameraAutoCenter(bool snap)
 
 void BattleSceneHades::switchBattleViewMode(bool paperView)
 {
+    paper_camera_touch_.reset();
+    battle_control_capture_.reset();
+    invalidatePointerOwnership();
     active_paper_battle_view_ = paperView;
     pos_ = clampCameraCenterForActiveView(pos_);
     x_ = 0;
@@ -1939,13 +1882,12 @@ void BattleSceneHades::drawPaperView()
 
 void BattleSceneHades::dealEvent(EngineEvent& e)
 {
-    const bool battleControlHandled = handleBattleControlEvent(e);
-    if (!battleControlHandled && e.type == EVENT_KEY_UP && e.key.key == K_O && active_paper_battle_view_)
+    if (e.type == EVENT_KEY_UP && e.key.key == K_O && active_paper_battle_view_)
     {
         togglePaperCameraMode();
         return;
     }
-    if (!battleControlHandled && active_paper_battle_view_)
+    if (active_paper_battle_view_)
     {
         auto engine = Engine::getInstance();
         if (engine->checkKeyPress(K_Z))
@@ -1977,32 +1919,17 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
         {
             cameraHeightDelta -= 1.0f;
         }
-        Pointf forward = { -std::cos(paper_camera_angle_), -std::sin(paper_camera_angle_), 0.0f };
-        forward = normalizeOr(forward, { 0, 1, 0 });
-        const Pointf right = normalizeOr({ -forward.y, forward.x, 0.0f }, { 1, 0, 0 });
-        if (engine->checkKeyPress(K_W))
-        {
-            cameraPan += forward;
-        }
-        if (engine->checkKeyPress(K_S))
-        {
-            cameraPan += -forward;
-        }
-        if (engine->checkKeyPress(K_A))
-        {
-            cameraPan += -right;
-        }
-        if (engine->checkKeyPress(K_D))
-        {
-            cameraPan += right;
-        }
+        cameraPan = paperKeyboardPanVector(
+            paper_camera_angle_,
+            engine->checkKeyPress(K_W),
+            engine->checkKeyPress(K_S),
+            engine->checkKeyPress(K_A),
+            engine->checkKeyPress(K_D));
         if (cameraPan.norm() != 0)
         {
-            if (!paper_camera_auto_center_)
-            {
-                cameraPan.normTo(PAPER_FREE_CAMERA_PAN_SPEED);
-                pos_ = clampPaperCameraCenter(pos_ + cameraPan);
-            }
+            paper_camera_auto_center_ = false;
+            cameraPan.normTo(PAPER_FREE_CAMERA_PAN_SPEED);
+            pos_ = clampPaperCameraCenter(pos_ + cameraPan);
         }
         paper_camera_angle_ += cameraRotate * PAPER_FREE_CAMERA_ROTATE_SPEED;
         paper_camera_height_ = std::clamp(
@@ -2010,14 +1937,6 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
             PAPER_CAMERA_MIN_HEIGHT,
             PAPER_CAMERA_MAX_HEIGHT);
     }
-    else if (!battleControlHandled)
-    {
-        if (auto manualCenter = camera_.handleManualInput(e, pos_, makeCameraBounds(), isManualCameraEnabled()))
-        {
-            pos_ = *manualCenter;
-        }
-    }
-
     if (battle_paused_ || Engine::getInstance()->isBattleLogOverlayOpen())
     {
         return;
@@ -2028,6 +1947,121 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
     {
         advanceBattleFrame();
     }
+}
+
+RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& event)
+{
+    const PointerIdentity pointer{event.source, event.pointerId, event.button};
+    int uiW = 0;
+    int uiH = 0;
+    Engine::getInstance()->getUISize(uiW, uiH);
+    const auto controls = makeBattleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
+
+    if (event.phase == PointerPhase::ButtonDown && event.button == SDL_BUTTON_LEFT)
+    {
+        if (battle_control_capture_.onDown(pointer, event.uiPosition, controls) != BattleControlId::None)
+        {
+            return PointerResult::Captured;
+        }
+    }
+    if (battle_control_capture_.owns(pointer))
+    {
+        if (event.phase == PointerPhase::ButtonUp)
+        {
+            activateBattleControl(battle_control_capture_.onUp(pointer, event.uiPosition, controls));
+        }
+        else if (event.phase == PointerPhase::Cancel)
+        {
+            battle_control_capture_.cancel(pointer);
+        }
+        return PointerResult::Handled;
+    }
+
+    if (!active_paper_battle_view_)
+    {
+        if (auto center = camera_.handleManualInput(event, pos_, makeCameraBounds(), isManualCameraEnabled()))
+        {
+            pos_ = *center;
+        }
+        if (event.phase == PointerPhase::ButtonDown && camera_.manualDragging())
+        {
+            return PointerResult::Captured;
+        }
+        if (event.phase == PointerPhase::Motion && camera_.manualDragging())
+        {
+            return PointerResult::Handled;
+        }
+        if (event.phase == PointerPhase::ButtonUp || event.phase == PointerPhase::Cancel)
+        {
+            return PointerResult::Handled;
+        }
+    }
+    return RunNode::onPointerEvent(event);
+}
+
+TouchPolicy BattleSceneHades::touchPolicy() const
+{
+    return active_paper_battle_view_ ? TouchPolicy::DirectTouch : TouchPolicy::PrimaryPointer;
+}
+
+void BattleSceneHades::onTouchSample(const TouchSample& sample)
+{
+    if (!active_paper_battle_view_ || Engine::getInstance()->isBattleLogOverlayOpen())
+    {
+        paper_camera_touch_.reset();
+        return;
+    }
+
+    int uiW = 0;
+    int uiH = 0;
+    Engine::getInstance()->getUISize(uiW, uiH);
+    const auto controls = makeBattleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
+    for (const auto& action : paper_camera_touch_.process(sample, controls))
+    {
+        switch (action.type)
+        {
+        case PaperCameraTouchActionType::ControlActivated:
+            activateBattleControl(action.control);
+            break;
+        case PaperCameraTouchActionType::PanActivated:
+            paper_camera_auto_center_ = false;
+            break;
+        case PaperCameraTouchActionType::Pan:
+            pos_ = clampPaperCameraCenter(pos_ + paperTouchPanDelta(
+                paper_camera_angle_,
+                paper_camera_distance_,
+                paper_camera_height_,
+                PAPER_CAMERA_FOV,
+                static_cast<float>(uiH),
+                action.delta.x,
+                action.delta.y));
+            break;
+        case PaperCameraTouchActionType::Pair:
+            if (action.previousSpan > 0.001f && action.currentSpan > 0.001f)
+            {
+                paper_camera_distance_ = std::clamp(
+                    paperTouchPinchDistance(paper_camera_distance_, action.previousSpan, action.currentSpan),
+                    PAPER_CAMERA_MIN_DISTANCE,
+                    PAPER_CAMERA_MAX_DISTANCE);
+            }
+            paper_camera_angle_ += paperTouchRotationDelta(action.delta.x, static_cast<float>(uiW));
+            paper_camera_height_ = std::clamp(
+                paper_camera_height_ + paperTouchHeightDelta(
+                    action.delta.y,
+                    static_cast<float>(uiH),
+                    PAPER_CAMERA_MIN_HEIGHT,
+                    PAPER_CAMERA_MAX_HEIGHT),
+                PAPER_CAMERA_MIN_HEIGHT,
+                PAPER_CAMERA_MAX_HEIGHT);
+            break;
+        }
+    }
+}
+
+void BattleSceneHades::onPointerInputReset()
+{
+    paper_camera_touch_.reset();
+    battle_control_capture_.reset();
 }
 
 void BattleSceneHades::dealEvent2(EngineEvent& e)
@@ -2050,7 +2084,11 @@ void BattleSceneHades::setBattlePaused(bool paused)
     {
         return;
     }
-    battle_paused_ = paused;
+    if (battle_paused_ != paused)
+    {
+        battle_paused_ = paused;
+        ++battle_control_layout_revision_;
+    }
     updateFrameApplierContext();
 }
 
@@ -2064,6 +2102,9 @@ void BattleSceneHades::showInBattleLog()
         model.totalFrames = battle_frame_;
     }
     Engine::getInstance()->showBattleLogOverlay(model, false);
+    paper_camera_touch_.reset();
+    battle_control_capture_.reset();
+    invalidatePointerOwnership();
 }
 
 void BattleSceneHades::cycleBattleSpeed()
@@ -2097,65 +2138,28 @@ void BattleSceneHades::togglePaperCameraMode()
     }
 }
 
-bool BattleSceneHades::handleBattleControlEvent(EngineEvent& e)
+void BattleSceneHades::activateBattleControl(BattleControlId control)
 {
-    if ((e.type != EVENT_MOUSE_BUTTON_DOWN && e.type != EVENT_MOUSE_BUTTON_UP)
-        || e.button.button != BUTTON_LEFT)
+    switch (control)
     {
-        return false;
-    }
-
-    int uiW = 0;
-    int uiH = 0;
-    Engine::getInstance()->getUISize(uiW, uiH);
-    const auto layout = battleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
-    const Point uiPoint = uiPointFromWindowPoint(e.button.x, e.button.y);
-
-    auto hitsVisibleControl = [&]()
-    {
-        return pointInRect(uiPoint, layout.pause)
-            || pointInRect(uiPoint, layout.speed)
-            || pointInRect(uiPoint, layout.paperView)
-            || (active_paper_battle_view_ && pointInRect(uiPoint, layout.cameraMode))
-            || (battle_paused_ && pointInRect(uiPoint, layout.log));
-    };
-
-    if (!hitsVisibleControl())
-    {
-        return false;
-    }
-
-    if (e.type == EVENT_MOUSE_BUTTON_DOWN)
-    {
-        return true;
-    }
-
-    if (pointInRect(uiPoint, layout.pause))
-    {
+    case BattleControlId::Pause:
         toggleBattlePause();
-        return true;
-    }
-    if (pointInRect(uiPoint, layout.speed))
-    {
+        break;
+    case BattleControlId::Speed:
         cycleBattleSpeed();
-        return true;
-    }
-    if (pointInRect(uiPoint, layout.paperView))
-    {
+        break;
+    case BattleControlId::PaperView:
         togglePaperBattleView();
-        return true;
-    }
-    if (active_paper_battle_view_ && pointInRect(uiPoint, layout.cameraMode))
-    {
+        break;
+    case BattleControlId::CameraMode:
         togglePaperCameraMode();
-        return true;
-    }
-    if (battle_paused_ && pointInRect(uiPoint, layout.log))
-    {
+        break;
+    case BattleControlId::Log:
         showInBattleLog();
-        return true;
+        break;
+    case BattleControlId::None:
+        break;
     }
-    return true;
 }
 
 void BattleSceneHades::drawBattleControls()
@@ -2163,7 +2167,7 @@ void BattleSceneHades::drawBattleControls()
     int uiW = 0;
     int uiH = 0;
     Engine::getInstance()->getUISize(uiW, uiH);
-    const auto layout = battleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
+    const auto layout = makeBattleControlLayout(uiW, battle_paused_, active_paper_battle_view_);
     const bool pauseEnabled = canToggleBattlePause();
     const auto* settings = SystemSettings::getInstance();
     const std::string speedText(battleSpeedDisplayText(settings->data().battleSpeed));
@@ -2211,18 +2215,18 @@ void BattleSceneHades::drawBattleControls()
         Font::getInstance()->draw(text, fontSize, textX, textY, { 245, 222, 128, 255 }, 255);
     };
 
-    drawTextButton(layout.speed, BATTLE_CONTROL_SPEED_TEXTURE_ID, speedText);
-    drawTextButton(layout.paperView, BATTLE_CONTROL_SPEED_TEXTURE_ID, paperViewText);
+    drawTextButton(*layout.rect(BattleControlId::Speed), BATTLE_CONTROL_SPEED_TEXTURE_ID, speedText);
+    drawTextButton(*layout.rect(BattleControlId::PaperView), BATTLE_CONTROL_SPEED_TEXTURE_ID, paperViewText);
     if (active_paper_battle_view_)
     {
-        drawTextButton(layout.cameraMode, BATTLE_CONTROL_SPEED_TEXTURE_ID, paperCameraModeText);
+        drawTextButton(*layout.rect(BattleControlId::CameraMode), BATTLE_CONTROL_SPEED_TEXTURE_ID, paperCameraModeText);
     }
     if (battle_paused_)
     {
-        drawIconButton(layout.log, BATTLE_CONTROL_LOG_TEXTURE_ID, true);
+        drawIconButton(*layout.rect(BattleControlId::Log), BATTLE_CONTROL_LOG_TEXTURE_ID, true);
     }
     drawIconButton(
-        layout.pause,
+        *layout.rect(BattleControlId::Pause),
         battle_paused_ ? BATTLE_CONTROL_PLAY_TEXTURE_ID : BATTLE_CONTROL_PAUSE_TEXTURE_ID,
         pauseEnabled || battle_paused_);
 }
@@ -2555,37 +2559,50 @@ public:
 
     void dealEvent(EngineEvent& e) override
     {
-        // Tile-click swap
-        if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
+    }
+
+    PointerResult onPointerEvent(const PointerEvent& event) override
+    {
+        if (event.button != SDL_BUTTON_LEFT)
         {
-            auto p = battle_->getMousePosition(battle_->man_x_, battle_->man_y_);
-            int clickedUnitId = -1;
-            for (int unitId : battle_->scene_units_.allyUnitIds())
+            return RunNode::onPointerEvent(event);
+        }
+        if (event.phase == PointerPhase::ButtonDown)
+        {
+            return event.insidePresent ? PointerResult::Captured : PointerResult::Ignored;
+        }
+        if (event.phase != PointerPhase::ButtonUp)
+        {
+            return PointerResult::Handled;
+        }
+
+        const auto p = battle_->getMousePosition(
+            event.uiPosition.x,
+            event.uiPosition.y,
+            battle_->man_x_,
+            battle_->man_y_);
+        int clickedUnitId = -1;
+        for (int unitId : battle_->scene_units_.allyUnitIds())
+        {
+            const auto& unit = battle_->scene_units_.requireRuntimeUnit(unitId);
+            if (unit.grid.x == p.x && unit.grid.y == p.y)
             {
-                const auto& unit = battle_->scene_units_.requireRuntimeUnit(unitId);
-                if (unit.grid.x == p.x && unit.grid.y == p.y)
-                {
-                    clickedUnitId = unitId;
-                    break;
-                }
-            }
-            if (clickedUnitId < 0)
-            {
-                return;
-            }
-            if (battle_->swapSelectedUnitId_ < 0)
-            {
-                battle_->swapSelectedUnitId_ = clickedUnitId;
-            }
-            else if (clickedUnitId != battle_->swapSelectedUnitId_)
-            {
-                assert(battle_->battle_session_.has_value());
-                battle_->battle_session_->swapSetupUnitPositions(
-                    battle_->swapSelectedUnitId_,
-                    clickedUnitId);
-                battle_->swapSelectedUnitId_ = -1;
+                clickedUnitId = unitId;
+                break;
             }
         }
+        if (clickedUnitId < 0) return PointerResult::Handled;
+        if (battle_->swapSelectedUnitId_ < 0)
+        {
+            battle_->swapSelectedUnitId_ = clickedUnitId;
+        }
+        else if (clickedUnitId != battle_->swapSelectedUnitId_)
+        {
+            assert(battle_->battle_session_.has_value());
+            battle_->battle_session_->swapSetupUnitPositions(battle_->swapSelectedUnitId_, clickedUnitId);
+            battle_->swapSelectedUnitId_ = -1;
+        }
+        return PointerResult::Handled;
     }
 
     void onPressedCancel() override
@@ -2597,7 +2614,7 @@ public:
         if (menu->getResult() == 0)
         {
             battle_->swapSelectedUnitId_ = -1;
-            exit_ = true;
+            setExit(true);
         }
     }
 };

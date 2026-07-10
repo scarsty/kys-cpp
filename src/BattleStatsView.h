@@ -72,6 +72,7 @@ public:
 
     void draw() override;
     void dealEvent(EngineEvent& e) override;
+    PointerResult onPointerEvent(const PointerEvent& event) override;
     void backRun() override;
 
 private:
@@ -85,7 +86,7 @@ private:
     int battleId_ = -1;
     bool postBattleLogShown_ = false;
     int postBattleLogOpenFrame_ = -1;
-    bool postBattleMouseReleaseArmed_ = false;
+    bool postBattlePointerReleaseArmed_ = false;
     bool postBattleKeyboardReleaseArmed_ = false;
     bool postBattleGamepadReleaseArmed_ = false;
     int battleLogTotalFrames_ = 0;

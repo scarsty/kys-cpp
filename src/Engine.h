@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "Color.h"
+#include "PointerInput.h"
 
 #include "SDL3/SDL.h"
 #include "SDL3_image/SDL_image.h"
@@ -80,6 +81,7 @@ enum EngineEventType
     EVENT_DID_ENTER_BACKGROUND = SDL_EVENT_DID_ENTER_BACKGROUND,
     EVENT_WILL_ENTER_FOREGROUND = SDL_EVENT_WILL_ENTER_FOREGROUND,
     EVENT_DID_ENTER_FOREGROUND = SDL_EVENT_DID_ENTER_FOREGROUND,
+    EVENT_TERMINATING = SDL_EVENT_TERMINATING,
     //window
     //BP_WINDOWEVENT = SDL_WINDOWEVENT,
     //BP_SYSWMEVENT = SDL_SYSWMEVENT,
@@ -112,6 +114,7 @@ enum EngineEventType
     EVENT_FINGER_DOWN = SDL_EVENT_FINGER_DOWN,
     EVENT_FINGER_UP = SDL_EVENT_FINGER_UP,
     EVENT_FINGER_MOTION = SDL_EVENT_FINGER_MOTION,
+    EVENT_FINGER_CANCELED = SDL_EVENT_FINGER_CANCELED,
 
     //剪贴板
     EVENT_CLIPBOARD_UPDATE = SDL_EVENT_CLIPBOARD_UPDATE,
@@ -282,6 +285,8 @@ private:
     //Texture* tex2_ = nullptr;
     //Texture* logo_ = nullptr;
     Rect rect_;
+    uint64_t present_geometry_revision_{};
+    PresentGeometrySnapshot published_present_geometry_{};
     bool full_screen_ = false;
     bool keep_ratio_ = true;
 
@@ -331,11 +336,7 @@ public:
     void setWindowIsMaximized(bool b) const;
     void setWindowSize(int w, int h);
 
-    void setUISize(int w, int h)
-    {
-        ui_w_ = w;
-        ui_h_ = h;
-    }
+    void setUISize(int w, int h);
 
     void getUISize(int& w, int& h) const
     {
@@ -353,7 +354,7 @@ public:
     void resizeMainTexture(int w, int h) const;
     void createAssistTexture(const std::string& name, int w, int h);
     Texture* cloneTexture(Texture* source) const;
-    void setPresentPosition(Texture* tex);    //设置贴图的位置
+    void setPresentPosition(Texture* tex, const EngineEvent* sourceEvent = nullptr);    //設定貼圖的位置
 
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() const { return rect_.w; }
@@ -396,6 +397,9 @@ public:
 
     void renderPresent() const;
     bool processImGuiEvent(const EngineEvent& e) const;
+    bool processImGuiPrimaryTouch(const TouchSample& sample) const;
+    void cancelImGuiPrimaryTouch() const;
+    bool processImGuiApplicationCancel() const;
     void renderImGuiOverlay() const;
     void showBattleLogOverlay(const BattleLogViewModel& model, bool respectUserSetting = true) const;
     void hideBattleLogOverlay() const;
@@ -443,15 +447,11 @@ public:
     bool setKeepRatio(bool b);
     Texture* transRGBABitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const;
 
-    double setRotation(double r) { return rotation_ = r; }
+    double setRotation(double r);
 
     void resetWindowPosition();
 
-    void setRatio(double x, double y)
-    {
-        ratio_x_ = x;
-        ratio_y_ = y;
-    }
+    void setRatio(double x, double y);
 
     static void setColor(Texture* tex, Color c);
     void fillColor(Color color, int x, int y, int w, int h, BlendMode blend = BLENDMODE_BLEND) const;
@@ -556,10 +556,6 @@ public:
         }
     }
 
-    static void getMouseState(int& x, int& y);
-    void getMouseStateInStartWindow(int& x, int& y) const;
-    void setMouseState(int x, int y) const;
-    void setMouseStateInStartWindow(int x, int y) const;
     int pollEvent(EngineEvent& e) const;
 
     static int pollEvent() { return SDL_PollEvent(nullptr); }
@@ -572,11 +568,6 @@ public:
 
     static bool checkKeyPress(Keycode key);
 
-    static bool checkMouseButtonPress(MouseButton button)
-    {
-        return SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MASK(button);
-    }
-
     static void addEventWatch(SDL_EventFilter filter, void* userdata)
     {
         SDL_AddEventWatch(filter, userdata);
@@ -588,8 +579,6 @@ private:
     Gamepad* cur_game_controller_ = nullptr;
     double prev_controller_press_ = 0;
     double interval_controller_press_ = 0;
-    std::unordered_map<int, int> virtual_stick_button_;
-    int16_t virtual_stick_axis_[6] = { 0 };
 
 public:
     bool gameControllerGetButton(int key);
@@ -597,26 +586,6 @@ public:
     void gameControllerRumble(int l, int h, uint32_t time) const;
 
     void setInterValControllerPress(double t) { interval_controller_press_ = t; }
-
-    void setGameControllerButton(int key, int value) { virtual_stick_button_[key] = value; }
-
-    void setGameControllerAxis(int axis, int16_t value) { virtual_stick_axis_[axis] = value; }
-
-    void clearGameControllerButton()
-    {
-        for (auto& i : virtual_stick_button_)
-        {
-            i.second = 0;
-        }
-    }
-
-    void clearGameControllerAxis()
-    {
-        for (auto& i : virtual_stick_axis_)
-        {
-            i = 0;
-        }
-    }
 
     void checkGameControllers();
 

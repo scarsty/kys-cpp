@@ -55,7 +55,7 @@ void InputBox::dealEvent(EngineEvent& e)
             //if (!text_.empty())
             //{
             result_ = 0;
-            exit_ = true;
+            setExit(true);
             //}
         }
         break;

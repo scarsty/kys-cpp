@@ -140,38 +140,6 @@ std::optional<ChessSystemSettingsMenu::Row> ChessSystemSettingsMenu::rowAt(const
     return std::nullopt;
 }
 
-std::optional<ChessSystemSettingsMenu::PointerPosition> ChessSystemSettingsMenu::pointerPosition(const EngineEvent& e) const
-{
-    auto* engine = Engine::getInstance();
-    int uiW = 0;
-    int uiH = 0;
-    int windowW = 0;
-    int windowH = 0;
-    engine->getUISize(uiW, uiH);
-    engine->getWindowSize(windowW, windowH);
-
-    switch (e.type)
-    {
-    case EVENT_MOUSE_BUTTON_DOWN:
-    case EVENT_MOUSE_BUTTON_UP:
-        return PointerPosition{
-            static_cast<int>(std::lround(e.button.x * uiW / windowW)),
-            static_cast<int>(std::lround(e.button.y * uiH / windowH))};
-    case EVENT_MOUSE_MOTION:
-        return PointerPosition{
-            static_cast<int>(std::lround(e.motion.x * uiW / windowW)),
-            static_cast<int>(std::lround(e.motion.y * uiH / windowH))};
-    case EVENT_FINGER_DOWN:
-    case EVENT_FINGER_UP:
-    case EVENT_FINGER_MOTION:
-        return PointerPosition{
-            static_cast<int>(std::lround(e.tfinger.x * uiW)),
-            static_cast<int>(std::lround(e.tfinger.y * uiH))};
-    default:
-        return std::nullopt;
-    }
-}
-
 bool ChessSystemSettingsMenu::isVolumeRow(Row row) const
 {
     return row == Row::MusicVolume || row == Row::SoundVolume;
@@ -316,47 +284,6 @@ void ChessSystemSettingsMenu::dealEvent(EngineEvent& e)
         return;
     }
 
-    const auto currentLayout = layout();
-    if (auto pointer = pointerPosition(e))
-    {
-        if (e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_FINGER_DOWN)
-        {
-            if (auto row = rowAt(currentLayout, pointer->x, pointer->y))
-            {
-                selectedRow_ = *row;
-                if (isVolumeRow(*row))
-                {
-                    startSliderDrag(*row, pointer->x);
-                }
-            }
-        }
-        else if (e.type == EVENT_MOUSE_MOTION || e.type == EVENT_FINGER_MOTION)
-        {
-            if (draggingSlider_)
-            {
-                updateSliderDrag(pointer->x);
-            }
-            else if (auto row = rowAt(currentLayout, pointer->x, pointer->y))
-            {
-                selectedRow_ = *row;
-            }
-        }
-        else if (e.type == EVENT_MOUSE_BUTTON_UP || e.type == EVENT_FINGER_UP)
-        {
-            suppressNextOk_ = true;
-            if (draggingSlider_)
-            {
-                updateSliderDrag(pointer->x);
-                stopSliderDrag();
-            }
-            else if (auto row = rowAt(currentLayout, pointer->x, pointer->y))
-            {
-                selectedRow_ = *row;
-                activateSelectedRow();
-            }
-        }
-    }
-
     if (e.type == EVENT_KEY_DOWN)
     {
         switch (e.key.key)
@@ -402,6 +329,70 @@ void ChessSystemSettingsMenu::dealEvent(EngineEvent& e)
             break;
         }
     }
+}
+
+RunNode::PointerResult ChessSystemSettingsMenu::onPointerEvent(const PointerEvent& event)
+{
+    if (inputGuardFrames_ > 0)
+    {
+        return PointerResult::Handled;
+    }
+    const auto currentLayout = layout();
+    const int x = static_cast<int>(std::lround(event.uiPosition.x));
+    const int y = static_cast<int>(std::lround(event.uiPosition.y));
+    if (event.phase == PointerPhase::ButtonDown && event.button == SDL_BUTTON_LEFT)
+    {
+        if (!event.insidePresent) return PointerResult::Ignored;
+        pointerDownRow_ = rowAt(currentLayout, x, y);
+        if (!pointerDownRow_)
+        {
+            return PointerResult::Ignored;
+        }
+        selectedRow_ = *pointerDownRow_;
+        if (isVolumeRow(*pointerDownRow_))
+        {
+            startSliderDrag(*pointerDownRow_, x);
+        }
+        return PointerResult::Captured;
+    }
+    if (event.phase == PointerPhase::Motion)
+    {
+        if (draggingSlider_)
+        {
+            updateSliderDrag(x);
+        }
+        else if (auto row = rowAt(currentLayout, x, y))
+        {
+            selectedRow_ = *row;
+        }
+        return PointerResult::Handled;
+    }
+    if (event.phase == PointerPhase::ButtonUp && event.button == SDL_BUTTON_LEFT)
+    {
+        if (draggingSlider_)
+        {
+            updateSliderDrag(x);
+            stopSliderDrag();
+        }
+        else if (pointerDownRow_)
+        {
+            const auto upRow = rowAt(currentLayout, x, y);
+            if (upRow && *upRow == *pointerDownRow_)
+            {
+                selectedRow_ = *upRow;
+                activateSelectedRow();
+            }
+        }
+        pointerDownRow_.reset();
+        return PointerResult::Handled;
+    }
+    if (event.phase == PointerPhase::Cancel)
+    {
+        stopSliderDrag();
+        pointerDownRow_.reset();
+        return PointerResult::Handled;
+    }
+    return PointerResult::Ignored;
 }
 
 void ChessSystemSettingsMenu::onPressedOK()

@@ -31,18 +31,32 @@ int Application::run()
         {
             if (e->type == EVENT_QUIT)
             {
-                //退出游戏
-                return false;
+                return true;
+            }
+            if (e->type == EVENT_WINDOW_RESIZED
+                || e->type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+                || e->type == EVENT_WINDOW_MAXIMIZED
+                || e->type == EVENT_WINDOW_RESTORED)
+            {
+                auto* engine = Engine::getInstance();
+                engine->setPresentPosition(engine->getMainTexture(), e);
             }
             if (e->type == EVENT_DID_ENTER_BACKGROUND)
             {
-                //暂停音频
-                Audio::getInstance()->pauseMusic();
+                EngineEvent queued = *e;
+                SDL_PeepEvents(&queued, 1, SDL_ADDEVENT, 0, 0);
+                return false;
             }
             if (e->type == EVENT_DID_ENTER_FOREGROUND)
             {
-                //恢复音频
-                Audio::getInstance()->resumeMusic();
+                EngineEvent queued = *e;
+                SDL_PeepEvents(&queued, 1, SDL_ADDEVENT, 0, 0);
+                return false;
+            }
+            if (e->type == EVENT_TERMINATING)
+            {
+                Audio::getInstance()->pauseMusic();
+                return false;
             }
             return true;
         },
@@ -68,7 +82,6 @@ void Application::config()
     TextureManager::getInstance()->setLoadAll(game->getInt("game", "load_all_png", 0));
     UIKeyConfig::readFromString(game->getString("game", "key", ""));
     Scene::setKeyWalkDealy(game->getInt("game", "walk_speed", 20));
-    RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 0));
     RunNode ::setRenderMessage(game->getInt("game", "render_message", 0));
     Engine::initUIStyle();
 

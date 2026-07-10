@@ -31,6 +31,7 @@ bool isGuardedOverlayEventType(Uint32 type)
     case SDL_EVENT_FINGER_DOWN:
     case SDL_EVENT_FINGER_UP:
     case SDL_EVENT_FINGER_MOTION:
+    case SDL_EVENT_FINGER_CANCELED:
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP:
     case SDL_EVENT_TEXT_INPUT:
@@ -87,6 +88,7 @@ void ImGuiLayer::shutdown()
 
     initialized_ = false;
     visible_ = false;
+    primary_touch_routing_ = {};
 }
 
 bool ImGuiLayer::processEvent(const SDL_Event& event)
@@ -110,9 +112,7 @@ bool ImGuiLayer::processEvent(const SDL_Event& event)
         }
     }
 
-    if (((battle_log_.model.open && battle_log_.inputGuardFrames > 0)
-            || (changelog_.open && changelog_input_guard_frames_ > 0))
-        && isGuardedOverlayEventType(event.type))
+    if (isOverlayInputGuardActive() && isGuardedOverlayEventType(event.type))
     {
         return true;
     }
@@ -126,6 +126,118 @@ bool ImGuiLayer::processEvent(const SDL_Event& event)
     }
 
     return wantsCaptureEvent(event);
+}
+
+bool ImGuiLayer::processPrimaryTouch(const TouchSample& sample)
+{
+    if (!initialized_)
+    {
+        return false;
+    }
+
+    auto makeMotion = [&]()
+    {
+        SDL_Event event = {};
+        event.type = SDL_EVENT_MOUSE_MOTION;
+        event.motion.timestamp = sample.timestamp;
+        event.motion.windowID = sample.windowId;
+        event.motion.which = SDL_TOUCH_MOUSEID;
+        event.motion.x = sample.windowPosition.x;
+        event.motion.y = sample.windowPosition.y;
+        event.motion.xrel = sample.windowDelta.x;
+        event.motion.yrel = sample.windowDelta.y;
+        return event;
+    };
+    auto makeButton = [&](bool down)
+    {
+        SDL_Event event = {};
+        event.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+        event.button.timestamp = sample.timestamp;
+        event.button.windowID = sample.windowId;
+        event.button.which = SDL_TOUCH_MOUSEID;
+        event.button.button = SDL_BUTTON_LEFT;
+        event.button.down = down;
+        event.button.clicks = 1;
+        event.button.x = sample.windowPosition.x;
+        event.button.y = sample.windowPosition.y;
+        return event;
+    };
+
+    const auto previousPosition = primary_touch_position_;
+    const auto route = primary_touch_routing_.route(sample.phase, isOverlayInputGuardActive());
+    if (!route.forwardToBackend)
+    {
+        primary_touch_position_ = sample.windowPosition;
+        return route.consumed;
+    }
+
+    bool captured = false;
+    switch (sample.phase)
+    {
+    case TouchPhase::Down:
+        captured = processPrimaryTouchBackendEvent(makeMotion());
+        captured = processPrimaryTouchBackendEvent(makeButton(true)) || captured;
+        break;
+    case TouchPhase::Motion:
+        captured = processPrimaryTouchBackendEvent(makeMotion());
+        break;
+    case TouchPhase::Up:
+        if (sample.windowPosition.x != previousPosition.x
+            || sample.windowPosition.y != previousPosition.y)
+        {
+            captured = processPrimaryTouchBackendEvent(makeMotion());
+        }
+        captured = processPrimaryTouchBackendEvent(makeButton(false)) || captured;
+        break;
+    case TouchPhase::Canceled:
+        captured = processPrimaryTouchBackendEvent(makeButton(false));
+        break;
+    }
+    primary_touch_position_ = sample.windowPosition;
+    return captured;
+}
+
+void ImGuiLayer::cancelPrimaryTouch()
+{
+    if (!initialized_ || !primary_touch_routing_.cancelNeedsBackendRelease())
+    {
+        return;
+    }
+    SDL_Event event = {};
+    event.type = SDL_EVENT_MOUSE_BUTTON_UP;
+    event.button.which = SDL_TOUCH_MOUSEID;
+    event.button.button = SDL_BUTTON_LEFT;
+    event.button.down = false;
+    event.button.x = primary_touch_position_.x;
+    event.button.y = primary_touch_position_.y;
+    processPrimaryTouchBackendEvent(event);
+}
+
+bool ImGuiLayer::isOverlayInputGuardActive() const
+{
+    return (battle_log_.model.open && battle_log_.inputGuardFrames > 0)
+        || (changelog_.open && changelog_input_guard_frames_ > 0);
+}
+
+bool ImGuiLayer::processPrimaryTouchBackendEvent(const SDL_Event& event)
+{
+    ImGui_ImplSDL3_ProcessEvent(&event);
+    return wantsCaptureEvent(event);
+}
+
+bool ImGuiLayer::processApplicationCancel()
+{
+    if (battle_log_.model.open)
+    {
+        hideBattleLog();
+        return true;
+    }
+    if (changelog_.open)
+    {
+        hideChangelog();
+        return true;
+    }
+    return false;
 }
 
 void ImGuiLayer::render(SDL_Window* window, SDL_Renderer* renderer, int main_texture_w, int main_texture_h, const char* renderer_name)
@@ -196,6 +308,7 @@ bool ImGuiLayer::wantsCaptureEvent(const SDL_Event& event) const
     case SDL_EVENT_FINGER_DOWN:
     case SDL_EVENT_FINGER_UP:
     case SDL_EVENT_FINGER_MOTION:
+    case SDL_EVENT_FINGER_CANCELED:
         return battle_log_.model.open || changelog_.open || io.WantCaptureMouse;
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP:

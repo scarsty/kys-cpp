@@ -42,6 +42,7 @@ public:
     void checkCurrentItem();
     virtual void draw() override { showItemProperty(current_item_); }
     virtual void dealEvent(EngineEvent& e) override;
+    PointerResult onPointerEvent(const PointerEvent& event) override;
 
     void showItemProperty(Item* item);
     std::vector<std::string> properties_;

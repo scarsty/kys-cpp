@@ -3,7 +3,7 @@
 #include "Engine.h"
 
 std::optional<Pointf> BattleSceneCamera::handleManualInput(
-    const EngineEvent& event,
+    const PointerEvent& event,
     const Pointf& center,
     BattleSceneCameraBounds bounds,
     bool enabled)
@@ -14,49 +14,34 @@ std::optional<Pointf> BattleSceneCamera::handleManualInput(
         return std::nullopt;
     }
 
-    auto* engine = Engine::getInstance();
-    switch (event.type)
+    switch (event.phase)
     {
-    case EVENT_MOUSE_BUTTON_DOWN:
-        if (event.button.button == BUTTON_LEFT)
+    case PointerPhase::ButtonDown:
+        if (event.button == BUTTON_LEFT)
         {
-            int presentX = 0;
-            int presentY = 0;
-            int presentW = 0;
-            int presentH = 0;
-            engine->getPresentRect(presentX, presentY, presentW, presentH);
-            manualDragging_ = presentW > 0
-                && presentH > 0
-                && event.button.x >= presentX
-                && event.button.x < presentX + presentW
-                && event.button.y >= presentY
-                && event.button.y < presentY + presentH;
+            manualDragging_ = event.insidePresent;
         }
         break;
-    case EVENT_MOUSE_BUTTON_UP:
-        if (event.button.button == BUTTON_LEFT)
+    case PointerPhase::ButtonUp:
+    case PointerPhase::Cancel:
+        if (event.button == BUTTON_LEFT)
         {
             manualDragging_ = false;
         }
         break;
-    case EVENT_MOUSE_MOTION:
+    case PointerPhase::Motion:
         if (manualDragging_)
         {
-            int presentX = 0;
-            int presentY = 0;
-            int presentW = 0;
-            int presentH = 0;
-            engine->getPresentRect(presentX, presentY, presentW, presentH);
-            if (presentW > 0 && presentH > 0)
-            {
-                double worldDeltaX = static_cast<double>(event.motion.xrel) * (bounds.renderCenterX * 2.0 / presentW);
-                double worldDeltaY = static_cast<double>(event.motion.yrel) * (bounds.renderCenterY * 2.0 / presentH);
-                Pointf nextCenter = center;
-                nextCenter.x -= static_cast<float>(worldDeltaX);
-                nextCenter.y -= static_cast<float>(worldDeltaY * 2.0);
-                return clampCenter(nextCenter, bounds);
-            }
+            const auto& geometry = PointerInput::instance().presentGeometry();
+            const double worldDeltaX = event.uiDelta.x * (bounds.renderCenterX * 2.0 / geometry.uiWidth);
+            const double worldDeltaY = event.uiDelta.y * (bounds.renderCenterY * 2.0 / geometry.uiHeight);
+            Pointf nextCenter = center;
+            nextCenter.x -= static_cast<float>(worldDeltaX);
+            nextCenter.y -= static_cast<float>(worldDeltaY * 2.0);
+            return clampCenter(nextCenter, bounds);
         }
+        break;
+    case PointerPhase::Wheel:
         break;
     }
     return std::nullopt;

@@ -48,21 +48,6 @@ void BattleCursor::dealEvent(EngineEvent& e)
                 Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
             }
         }
-        if (e.type == EVENT_MOUSE_MOTION)
-        {
-            //线型的特殊处理一下
-            if (magic_ && magic_->AttackAreaType == 1)
-            {
-                int tw = battle_scene_->getTowardsByMouse(e.motion.x, e.motion.y);
-                Scene::getTowardsPosition(role_->X(), role_->Y(), tw, &x, &y);
-            }
-            else
-            {
-                auto p = battle_scene_->getMousePosition(e.motion.x, e.motion.y, role_->X(), role_->Y());
-                x = p.x;
-                y = p.y;
-            }
-        }
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP))
         {
             Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_RightUp, &x, &y);
@@ -81,6 +66,55 @@ void BattleCursor::dealEvent(EngineEvent& e)
         }
         setCursor(x, y);
     }
+}
+
+RunNode::PointerResult BattleCursor::onPointerEvent(const PointerEvent& event)
+{
+    if (!battle_scene_ || !role_ || role_->isAuto())
+    {
+        return RunNode::onPointerEvent(event);
+    }
+    switch (pointer_state_.process(event))
+    {
+    case BattleCursorPointerAction::UpdateAndCapture:
+        updateCursorFromPointer(event.uiPosition);
+        return PointerResult::Captured;
+    case BattleCursorPointerAction::UpdateAndConfirm:
+        updateCursorFromPointer(event.uiPosition);
+        onPressedOK();
+        return PointerResult::Handled;
+    case BattleCursorPointerAction::Update:
+        updateCursorFromPointer(event.uiPosition);
+        return PointerResult::Handled;
+    case BattleCursorPointerAction::Cancel:
+        return PointerResult::Handled;
+    case BattleCursorPointerAction::Ignore:
+        return PointerResult::Ignored;
+    }
+    assert(false);
+    return PointerResult::Ignored;
+}
+
+void BattleCursor::updateCursorFromPointer(SDL_FPoint position)
+{
+    int x = -1;
+    int y = -1;
+    if (magic_ && magic_->AttackAreaType == 1)
+    {
+        const int towards = battle_scene_->getTowardsByMouse(position.x, position.y);
+        Scene::getTowardsPosition(role_->X(), role_->Y(), towards, &x, &y);
+    }
+    else
+    {
+        const auto point = battle_scene_->getMousePosition(
+            position.x,
+            position.y,
+            role_->X(),
+            role_->Y());
+        x = point.x;
+        y = point.y;
+    }
+    setCursor(x, y);
 }
 
 void BattleCursor::setCursor(int x, int y)

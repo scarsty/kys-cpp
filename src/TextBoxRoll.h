@@ -18,6 +18,7 @@ private:
 public:
     virtual void draw() override;
     virtual void dealEvent(EngineEvent& e) override;
+    PointerResult onPointerEvent(const PointerEvent& event) override;
     void setTexts(TextColorLines texts) { texts_ = texts; }
     void setRollLine(int rl) { roll_line_ = rl; }
 };

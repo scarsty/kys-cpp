@@ -52,6 +52,7 @@ public:
 
     virtual void draw() override;
     virtual void dealEvent(EngineEvent& e) override;
+    PointerResult onPointerEvent(const PointerEvent& event) override;
     virtual void backRun() override;
     virtual void onEntrance() override;
     virtual void onExit() override;
@@ -86,10 +87,11 @@ public:
     void forceExit();
     void forceJumpSubScene(int submap_id, int x, int y);
 
+    void openQuickChessMenu();
+
     void setForceBeginEvent(int e) { force_begin_event_ = e; }
 
     void fillEarth();
 
     void reDrawEarthTexture();
 };
-

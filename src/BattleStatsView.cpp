@@ -145,7 +145,7 @@ void BattleStatsView::setupPreBattle(
     clearPostBattleBackground();
     postBattleLogShown_ = false;
     postBattleLogOpenFrame_ = -1;
-    postBattleMouseReleaseArmed_ = false;
+    postBattlePointerReleaseArmed_ = false;
     postBattleKeyboardReleaseArmed_ = false;
     postBattleGamepadReleaseArmed_ = false;
     battleLogTotalFrames_ = 0;
@@ -197,7 +197,7 @@ void BattleStatsView::setupPostBattle(
     postBattleBackground_ = Engine::getInstance()->cloneTexture(Engine::getInstance()->getMainTexture());
     postBattleLogShown_ = false;
     postBattleLogOpenFrame_ = -1;
-    postBattleMouseReleaseArmed_ = false;
+    postBattlePointerReleaseArmed_ = false;
     postBattleKeyboardReleaseArmed_ = false;
     postBattleGamepadReleaseArmed_ = false;
     battleReport_ = &report;
@@ -642,8 +642,7 @@ void BattleStatsView::dealEvent(EngineEvent& e)
 
     if (isPreBattle_)
     {
-        if (e.type == EVENT_KEY_UP || e.type == EVENT_GAMEPAD_BUTTON_UP
-            || e.type == EVENT_MOUSE_BUTTON_UP)
+        if (e.type == EVENT_KEY_UP || e.type == EVENT_GAMEPAD_BUTTON_UP)
         {
             setExit(true);
         }
@@ -652,22 +651,6 @@ void BattleStatsView::dealEvent(EngineEvent& e)
 
     if (postBattleLogShown_ || postBattleLogOpenFrame_ >= 0)
     {
-        return;
-    }
-
-    if (e.type == EVENT_MOUSE_BUTTON_DOWN && e.button.button == BUTTON_LEFT)
-    {
-        postBattleMouseReleaseArmed_ = true;
-        return;
-    }
-
-    if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
-    {
-        if (postBattleMouseReleaseArmed_)
-        {
-            postBattleMouseReleaseArmed_ = false;
-            queuePostBattleLogOpen();
-        }
         return;
     }
 
@@ -701,6 +684,39 @@ void BattleStatsView::dealEvent(EngineEvent& e)
             queuePostBattleLogOpen();
         }
     }
+}
+
+RunNode::PointerResult BattleStatsView::onPointerEvent(const PointerEvent& event)
+{
+    if (event.button != SDL_BUTTON_LEFT)
+    {
+        return RunNode::onPointerEvent(event);
+    }
+    if (event.phase == PointerPhase::ButtonDown)
+    {
+        if (!event.insidePresent) return PointerResult::Ignored;
+        postBattlePointerReleaseArmed_ = true;
+        return PointerResult::Captured;
+    }
+    if (event.phase == PointerPhase::ButtonUp)
+    {
+        if (isPreBattle_)
+        {
+            setExit(true);
+        }
+        else if (postBattlePointerReleaseArmed_ && !postBattleLogShown_ && postBattleLogOpenFrame_ < 0)
+        {
+            queuePostBattleLogOpen();
+        }
+        postBattlePointerReleaseArmed_ = false;
+        return PointerResult::Handled;
+    }
+    if (event.phase == PointerPhase::Cancel)
+    {
+        postBattlePointerReleaseArmed_ = false;
+        return PointerResult::Handled;
+    }
+    return PointerResult::Handled;
 }
 
 void BattleStatsView::backRun()

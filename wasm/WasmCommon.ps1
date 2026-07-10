@@ -267,6 +267,32 @@ function Get-WasmManifestFileName
     'kys_manifest.js'
 }
 
+function Write-WasmAssetManifest
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$WasmDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$GameDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath
+    )
+
+    Ensure-PathExists -Path $GameDir -Message "Game assets not found at $GameDir"
+
+    Write-Host '=== Generating manifest ==='
+    Invoke-ProjectPython -ProjectDir $ProjectDir -ArgumentList @(
+        (Join-Path $WasmDir 'gen_manifest.py'),
+        $GameDir,
+        $OutputPath
+    )
+}
+
 function Get-WasmBuildArtifactNames
 {
     @(

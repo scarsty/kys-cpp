@@ -2,6 +2,8 @@
 #include "Engine.h"
 #include <functional>
 #include <memory>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #define CONNECT(a, b) a##b
@@ -10,10 +12,47 @@
 //为了避免纠结，子类全部使用共享指针
 class RunNode : public std::enable_shared_from_this<RunNode>
 {
+public:
+    enum class PointerResult
+    {
+        Ignored,
+        Handled,
+        Captured,
+        Released,
+    };
+
+protected:
+    static bool isUncapturedPointerActivation(const PointerEvent& event)
+    {
+        return (event.source == PointerSource::Mouse || event.source == PointerSource::Touch)
+            && event.button == SDL_BUTTON_LEFT
+            && event.phase == PointerPhase::ButtonUp;
+    }
+
+    template <class Handler>
+    static std::optional<std::pair<std::size_t, PointerResult>> routePointerEventPath(
+        std::size_t count,
+        Handler&& handler)
+    {
+        for (std::size_t index = 0; index < count; ++index)
+        {
+            const auto result = handler(index);
+            if (result != PointerResult::Ignored)
+            {
+                return std::pair{index, result};
+            }
+        }
+        return std::nullopt;
+    }
+
 private:
     static std::vector<std::shared_ptr<RunNode>> root_;    //所有需要绘制的内容都存储在这个静态向量中
     static double global_prev_present_ticks_;
     static double refresh_interval_;
+    static std::vector<RunNode*> run_owner_stack_;
+    static uint64_t ownership_epoch_;
+    static std::weak_ptr<RunNode> pointer_capture_;
+    static PointerIdentity pointer_capture_identity_;
 
 private:
     bool is_private_ = false;
@@ -43,9 +82,10 @@ protected:
     int tag_;
 
     static int render_message_;
-    static int use_virtual_stick_;
 
     int deal_event_ = 1;
+
+    static void invalidatePointerOwnership();
 
 public:
     RunNode() {}
@@ -59,8 +99,6 @@ public:
     static int getShowTimes() { return global_prev_present_ticks_ / refresh_interval_; }
 
     static void setRenderMessage(int m) { render_message_ = m; }
-
-    static void setUseVirtualStick(int u) { use_virtual_stick_ = u; }
 
     static void drawAll();
 
@@ -130,9 +168,8 @@ public:
 
     bool mouseIn()
     {
-        int x, y;
-        Engine::getInstance()->getMouseState(x, y);
-        return inSide(x, y);
+        const auto position = PointerInput::instance().logicalPointerUiPosition();
+        return inSideUi(position.x, position.y);
     }
 
     bool inSideInStartWindow(int x, int y)
@@ -141,13 +178,18 @@ public:
         return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
     }
 
+    bool inSideUi(float x, float y) const
+    {
+        return visible_ && x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
+    }
+
     int getResult() { return result_; }
 
     void setResult(int r) { result_ = r; }
 
     bool getVisible() { return visible_; }
 
-    void setVisible(bool v) { visible_ = v; }
+    void setVisible(bool v);
 
     void setDealEvent(int d) { deal_event_ = d; }
 
@@ -189,7 +231,7 @@ public:
     int findNextVisibleChild(int i0, Direct direct);
     int findFristVisibleChild();
 
-    void setExit(bool e) { exit_ = e; }
+    void setExit(bool e);
 
     bool isRunning() { return running_; }
 
@@ -221,6 +263,16 @@ public:
 
     virtual void dealEvent2(EngineEvent& e) {}    //处理事件，执行模式和动画模式都会被执行，可用于制动
 
+    virtual PointerResult onPointerEvent(const PointerEvent& event);
+
+    virtual void onTouchSample(const TouchSample& sample) {}
+
+    virtual void onPointerInputReset() {}
+
+    virtual TouchPolicy touchPolicy() const { return TouchPolicy::PrimaryPointer; }
+
+    virtual uint64_t controlLayoutRevision() const { return 0; }
+
     virtual void onEntrance() {}    //进入本节点的事件，例如亮屏等
 
     virtual void onExit() {}    //离开本节点的事件，例如黑屏等
@@ -238,12 +290,31 @@ public:
     bool isPressCancel(EngineEvent& e);
 
 private:
+    struct RoutedPointerEvent
+    {
+        std::shared_ptr<RunNode> target;
+        PointerResult result{};
+    };
+
     void drawSelfChilds();
     void checkStateSelfChilds(EngineEvent& e, bool check_event = false);
     void backRunSelfChilds();
     void dealEventSelfChilds(bool check_event = false);
-
-    bool isSpecialEvent(EngineEvent& e);    //是否为游戏需要处理的类型
+    std::shared_ptr<RunNode> findPointerTarget(SDL_FPoint uiPoint);
+    bool collectPointerTargetPath(
+        const std::shared_ptr<RunNode>& target,
+        std::vector<std::shared_ptr<RunNode>>& path);
+    std::optional<RoutedPointerEvent> routePointerEventToAncestors(
+        const std::shared_ptr<RunNode>& target,
+        const PointerEvent& event);
+    bool notifyPointerActivationPath(const std::shared_ptr<RunNode>& target);
+    bool bubblePointerEventPath(const std::shared_ptr<RunNode>& target, const PointerEvent& event);
+    void clearPointerHoverSelfChilds();
+    void dispatchPointerEvent(const PointerEvent& event);
+    void handleLegacyGlobalEvent(const EngineEvent& event);
+    bool containsPointerTarget(const std::shared_ptr<RunNode>& target) const;
+    static void cancelPointerCapture();
+    static void cancelPointerCaptureForSubtree(const RunNode* subtree);
     int checkChildState();
     void checkSelfState(EngineEvent& e);
     static void present();

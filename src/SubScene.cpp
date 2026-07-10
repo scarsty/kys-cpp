@@ -251,10 +251,9 @@ void SubScene::draw()
             chess_btn_w_ = labelW;
             chess_btn_h_ = labelH;
             // Check hover
-            int mx, my;
-            engine->getMouseStateInStartWindow(mx, my);
-            bool hovered = (mx >= labelX && mx < labelX + labelW
-                && my >= labelY && my < labelY + labelH);
+            const auto pointer = PointerInput::instance().logicalPointerUiPosition();
+            bool hovered = (pointer.x >= labelX && pointer.x < labelX + labelW
+                && pointer.y >= labelY && pointer.y < labelY + labelH);
             if (hovered)
             {
                 // Hover: brighter box + outline glow
@@ -317,52 +316,16 @@ void SubScene::dealEvent(EngineEvent& e)
         {
             chessTriggered = true;
         }
-        if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
-        {
-            int mx, my;
-            Engine::getInstance()->getMouseStateInStartWindow(mx, my);
-            if (mx >= chess_btn_x_ && mx < chess_btn_x_ + chess_btn_w_
-                && my >= chess_btn_y_ && my < chess_btn_y_ + chess_btn_h_)
-            {
-                chessTriggered = true;
-            }
-        }
         if (chessTriggered)
         {
-            // Find the first NPC event and teleport beside it
-            for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
-            {
-                auto ev = submap_info_->Event(i);
-                if (ev && ev->Event1 > 0)
-                {
-                    int ex = ev->X(), ey = ev->Y();
-                    // Teleport player one tile away (try south/east/west/north)
-                    static const int dx[] = { 0, 1, -1, 0 };
-                    static const int dy[] = { 1, 0, 0, -1 };
-                    for (int d = 0; d < 4; d++)
-                    {
-                        int tx = ex + dx[d], ty = ey + dy[d];
-                        if (canWalk(tx, ty))
-                        {
-                            setManViewPosition(tx, ty);
-                            towards_ = calTowards(tx, ty, ex, ey);
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
-            chess_menu_active_ = true;
-            chess_mod_->showContextMenu();
-            chess_menu_active_ = false;
+            openQuickChessMenu();
         }
     }
     if ((e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
-        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_RIGHT)
         //|| (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
         || engine->gameControllerGetButton(GAMEPAD_BUTTON_START))
     {
-        chess_mod_->showMenu();
+        onPressedCancel();
     }
 
     //键盘走路部分，检测4个方向键
@@ -464,37 +427,88 @@ void SubScene::dealEvent(EngineEvent& e)
 
     calCursorPosition(view_x_, view_y_);
 
-    //鼠标寻路
-    if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
+}
+
+RunNode::PointerResult SubScene::onPointerEvent(const PointerEvent& event)
+{
+    if (event.button != SDL_BUTTON_LEFT)
     {
-        if (GameUtil::isMobileDevice() && Engine::getTicks() - GameUtil::lastDialogDismissTime() < GameUtil::DIALOG_DISMISS_DELAY_MS)
+        return Scene::onPointerEvent(event);
+    }
+    if (event.phase == PointerPhase::ButtonDown)
+    {
+        return event.insidePresent ? PointerResult::Captured : PointerResult::Ignored;
+    }
+    if (event.phase != PointerPhase::ButtonUp)
+    {
+        return PointerResult::Handled;
+    }
+    if (GameUtil::isMobileDevice()
+        && Engine::getTicks() - GameUtil::lastDialogDismissTime() < GameUtil::DIALOG_DISMISS_DELAY_MS)
+    {
+        return PointerResult::Handled;
+    }
+
+    if (submap_id_ == 53
+        && event.uiPosition.x >= chess_btn_x_ && event.uiPosition.x < chess_btn_x_ + chess_btn_w_
+        && event.uiPosition.y >= chess_btn_y_ && event.uiPosition.y < chess_btn_y_ + chess_btn_h_)
+    {
+        openQuickChessMenu();
+        return PointerResult::Handled;
+    }
+
+    const int x = man_x_;
+    const int y = man_y_;
+    setMouseEventPoint(-1, -1);
+    const Point p = getMousePosition(event.uiPosition.x, event.uiPosition.y, x, y);
+    way_que_.clear();
+    if (isCannotPassEvent(p.x, p.y))
+    {
+        FindWay(x, y, p.x, p.y);
+        if (!way_que_.empty())
         {
-            return;
-        }
-        setMouseEventPoint(-1, -1);
-        int mx, my;
-        Engine::getInstance()->getMouseStateInStartWindow(mx, my);
-        Point p = getMousePosition(mx, my, x, y);
-        way_que_.clear();
-        if (isCannotPassEvent(p.x, p.y))    //存在事件点则仅会走到倒数第二格
-        {
-            FindWay(x, y, p.x, p.y);
-            if (way_que_.size() >= 1)
-            {
-                way_que_ = std::vector<Point>(way_que_.begin() + 1, way_que_.end());
-                setMouseEventPoint(p.x, p.y);
-            }
-        }
-        else if (isCanPassEvent1(p.x, p.y) && calDistance(p.x, p.y, x, y) == 1)    //身边的特殊事件点，仅用于硝石
-        {
-            FindWay(x, y, x, y);
+            way_que_ = std::vector<Point>(way_que_.begin() + 1, way_que_.end());
             setMouseEventPoint(p.x, p.y);
         }
-        else if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)
-        {
-            FindWay(x, y, p.x, p.y);
-        }
     }
+    else if (isCanPassEvent1(p.x, p.y) && calDistance(p.x, p.y, x, y) == 1)
+    {
+        FindWay(x, y, x, y);
+        setMouseEventPoint(p.x, p.y);
+    }
+    else if (canWalk(p.x, p.y))
+    {
+        FindWay(x, y, p.x, p.y);
+    }
+    return PointerResult::Handled;
+}
+
+void SubScene::openQuickChessMenu()
+{
+    for (int i = 0; i < SUBMAP_EVENT_COUNT; ++i)
+    {
+        auto event = submap_info_->Event(i);
+        if (!event || event->Event1 <= 0) continue;
+        const int eventX = event->X();
+        const int eventY = event->Y();
+        static const int dx[] = {0, 1, -1, 0};
+        static const int dy[] = {1, 0, 0, -1};
+        for (int direction = 0; direction < 4; ++direction)
+        {
+            const int x = eventX + dx[direction];
+            const int y = eventY + dy[direction];
+            if (canWalk(x, y))
+            {
+                setManViewPosition(x, y);
+                towards_ = calTowards(x, y, eventX, eventY);
+                break;
+            }
+        }
+        break;
+    }
+    chess_menu_active_ = true;
+    chess_mod_->showContextMenu();
+    chess_menu_active_ = false;
 }
 
 void SubScene::backRun()
@@ -577,6 +591,7 @@ void SubScene::onExit()
 
 void SubScene::onPressedCancel()
 {
+    chess_mod_->showMenu();
 }
 
 //冗余过多待清理

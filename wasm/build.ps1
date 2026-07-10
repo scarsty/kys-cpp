@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$DepsDir
+    [string]$DepsDir,
+    [string]$GameDir
 )
 
 Set-StrictMode -Version Latest
@@ -25,6 +26,18 @@ if ([string]::IsNullOrWhiteSpace($DepsDir))
 }
 
 Ensure-PathExists -Path (Join-Path $DepsDir 'lib') -Message "Dependencies not found at $DepsDir. Run rebuild.ps1 for the vcpkg flow or populate wasm_deps first."
+
+$gameTarget = $GameDir
+if ([string]::IsNullOrWhiteSpace($gameTarget))
+{
+    $gameTarget = Join-Path $paths.ProjectDir 'work\game-dev'
+}
+Ensure-GameJunction -LinkPath (Join-Path $paths.BuildDir 'kys\game') -TargetPath $gameTarget
+Write-WasmAssetManifest `
+    -ProjectDir $paths.ProjectDir `
+    -WasmDir $paths.WasmDir `
+    -GameDir $gameTarget `
+    -OutputPath (Join-Path $paths.BuildDir (Get-WasmManifestFileName))
 
 Invoke-WasmConfigureBuild -WasmDir $paths.WasmDir -BuildDir $paths.BuildDir -DepsDir $DepsDir
 

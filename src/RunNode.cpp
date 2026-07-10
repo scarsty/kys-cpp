@@ -3,19 +3,16 @@
 #include "Font.h"
 #include "GameUtil.h"
 #include "UISystem.h"
-#include "VirtualStick.h"
+#include <cassert>
 
 std::vector<std::shared_ptr<RunNode>> RunNode::root_;
 double RunNode::global_prev_present_ticks_ = 0;
 double RunNode::refresh_interval_ = 16.666666;
 int RunNode::render_message_ = 0;
-int RunNode::use_virtual_stick_ = 0;
-
-static std::shared_ptr<VirtualStick>& virtual_stick()
-{
-    static std::shared_ptr<VirtualStick> v = std::make_shared<VirtualStick>();
-    return v;
-}
+std::vector<RunNode*> RunNode::run_owner_stack_;
+uint64_t RunNode::ownership_epoch_ = 0;
+std::weak_ptr<RunNode> RunNode::pointer_capture_;
+PointerIdentity RunNode::pointer_capture_identity_{};
 
 RunNode::~RunNode()
 {
@@ -37,10 +34,6 @@ void RunNode::drawAll()
     {
         root_[i]->drawSelfChilds();
     }
-    if (use_virtual_stick_)
-    {
-        virtual_stick()->drawSelfChilds();
-    }
 }
 
 //从绘制的根节点移除
@@ -51,6 +44,7 @@ std::shared_ptr<RunNode> RunNode::removeFromDraw(std::shared_ptr<RunNode> elemen
         if (!root_.empty())
         {
             element = root_.back();
+            cancelPointerCaptureForSubtree(element.get());
             root_.pop_back();
             return element;
         }
@@ -61,9 +55,9 @@ std::shared_ptr<RunNode> RunNode::removeFromDraw(std::shared_ptr<RunNode> elemen
         {
             if (root_[i] == element)
             {
+                cancelPointerCaptureForSubtree(element.get());
                 root_.erase(root_.begin() + i);
                 return element;
-                break;
             }
         }
     }
@@ -91,6 +85,7 @@ void RunNode::removeChild(std::shared_ptr<RunNode> element)
     {
         if (childs_[i] == element)
         {
+            cancelPointerCaptureForSubtree(element.get());
             childs_.erase(childs_.begin() + i);
             break;
         }
@@ -100,6 +95,10 @@ void RunNode::removeChild(std::shared_ptr<RunNode> element)
 //清除子节点
 void RunNode::clearChilds()
 {
+    for (const auto& child : childs_)
+    {
+        cancelPointerCaptureForSubtree(child.get());
+    }
     childs_.clear();
 }
 
@@ -126,7 +125,7 @@ void RunNode::setAllChildVisible(bool v)
 {
     for (auto c : childs_)
     {
-        c->visible_ = v;
+        c->setVisible(v);
     }
 }
 
@@ -231,14 +230,13 @@ void RunNode::checkFrame()
 {
     if (stay_frame_ > 0 && current_frame_ >= stay_frame_)
     {
-        exit_ = true;
+        setExit(true);
     }
 }
 
 bool RunNode::isPressOK(EngineEvent& e)
 {
     bool ret = (e.type == EVENT_KEY_UP && (e.key.key == K_RETURN || e.key.key == K_SPACE))
-        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
         || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_SOUTH);
     return ret;
 }
@@ -246,9 +244,361 @@ bool RunNode::isPressOK(EngineEvent& e)
 bool RunNode::isPressCancel(EngineEvent& e)
 {
     bool ret = (e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
-        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_RIGHT)
-        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_EAST);
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_EAST)
+        || PointerInput::instance().isApplicationCancelEvent(e);
     return ret;
+}
+
+void RunNode::setExit(bool e)
+{
+    if (e && !exit_)
+    {
+        cancelPointerCaptureForSubtree(this);
+    }
+    if (e && !exit_ && running_)
+    {
+        ++ownership_epoch_;
+    }
+    exit_ = e;
+}
+
+void RunNode::setVisible(bool visible)
+{
+    if (!visible && visible_)
+    {
+        cancelPointerCaptureForSubtree(this);
+    }
+    visible_ = visible;
+}
+
+void RunNode::invalidatePointerOwnership()
+{
+    Engine::getInstance()->cancelImGuiPrimaryTouch();
+    PointerInput::instance().rejectActiveTouchContacts();
+    cancelPointerCapture();
+    if (!run_owner_stack_.empty())
+    {
+        run_owner_stack_.back()->onPointerInputReset();
+    }
+    ++ownership_epoch_;
+}
+
+void RunNode::cancelPointerCapture()
+{
+    auto captured = pointer_capture_.lock();
+    if (!captured)
+    {
+        pointer_capture_.reset();
+        return;
+    }
+    pointer_capture_.reset();
+    PointerEvent cancel;
+    cancel.phase = PointerPhase::Cancel;
+    cancel.source = pointer_capture_identity_.source;
+    cancel.pointerId = pointer_capture_identity_.pointerId;
+    cancel.button = pointer_capture_identity_.button;
+    cancel.uiPosition = PointerInput::instance().logicalPointerUiPosition();
+    captured->onPointerEvent(cancel);
+    if (!run_owner_stack_.empty())
+    {
+        run_owner_stack_.back()->bubblePointerEventPath(captured, cancel);
+    }
+}
+
+void RunNode::cancelPointerCaptureForSubtree(const RunNode* subtree)
+{
+    auto captured = pointer_capture_.lock();
+    if (pointerCaptureInvalidationNeeded(
+        static_cast<bool>(captured),
+        captured && subtree->containsPointerTarget(captured)))
+    {
+        const bool rejectContacts = pointerCaptureContactRejectionNeeded(pointer_capture_identity_.source);
+        cancelPointerCapture();
+        if (rejectContacts)
+        {
+            Engine::getInstance()->cancelImGuiPrimaryTouch();
+            PointerInput::instance().rejectActiveTouchContacts();
+        }
+    }
+}
+
+RunNode::PointerResult RunNode::onPointerEvent(const PointerEvent& event)
+{
+    if (event.phase == PointerPhase::Motion)
+    {
+        state_ = inSideUi(event.uiPosition.x, event.uiPosition.y) ? NodePass : NodeNormal;
+        return state_ == NodePass ? PointerResult::Handled : PointerResult::Ignored;
+    }
+    if (event.button == SDL_BUTTON_LEFT && event.phase == PointerPhase::ButtonDown
+        && inSideUi(event.uiPosition.x, event.uiPosition.y))
+    {
+        state_ = NodePress;
+        return PointerResult::Captured;
+    }
+    if (event.button == SDL_BUTTON_LEFT
+        && (event.phase == PointerPhase::ButtonUp || event.phase == PointerPhase::Cancel))
+    {
+        state_ = event.phase == PointerPhase::ButtonUp
+            && inSideUi(event.uiPosition.x, event.uiPosition.y)
+            ? NodePress
+            : NodeNormal;
+        return PointerResult::Released;
+    }
+    return PointerResult::Ignored;
+}
+
+std::shared_ptr<RunNode> RunNode::findPointerTarget(SDL_FPoint uiPoint)
+{
+    if (!visible_ && !full_window_)
+    {
+        return nullptr;
+    }
+    for (int i = static_cast<int>(childs_.size()) - 1; i >= 0; --i)
+    {
+        if (auto target = childs_[i]->findPointerTarget(uiPoint))
+        {
+            return target;
+        }
+    }
+    if (inSideUi(uiPoint.x, uiPoint.y))
+    {
+        return shared_from_this();
+    }
+    return nullptr;
+}
+
+bool RunNode::collectPointerTargetPath(
+    const std::shared_ptr<RunNode>& target,
+    std::vector<std::shared_ptr<RunNode>>& path)
+{
+    if (shared_from_this() == target)
+    {
+        path.push_back(shared_from_this());
+        return true;
+    }
+    for (auto& child : childs_)
+    {
+        if (child->collectPointerTargetPath(target, path))
+        {
+            path.push_back(shared_from_this());
+            return true;
+        }
+    }
+    return false;
+}
+
+std::optional<RunNode::RoutedPointerEvent> RunNode::routePointerEventToAncestors(
+    const std::shared_ptr<RunNode>& target,
+    const PointerEvent& event)
+{
+    std::vector<std::shared_ptr<RunNode>> path;
+    const bool found = collectPointerTargetPath(target, path);
+    assert(found);
+    const auto routed = routePointerEventPath(path.size(), [&](std::size_t index)
+    {
+        return path[index]->onPointerEvent(event);
+    });
+    if (!routed)
+    {
+        return std::nullopt;
+    }
+    return RoutedPointerEvent{path[routed->first], routed->second};
+}
+
+bool RunNode::notifyPointerActivationPath(const std::shared_ptr<RunNode>& target)
+{
+    if (shared_from_this() == target)
+    {
+        onPressedOK();
+        return true;
+    }
+    for (auto& child : childs_)
+    {
+        if (child->notifyPointerActivationPath(target))
+        {
+            onPressedOK();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool RunNode::bubblePointerEventPath(const std::shared_ptr<RunNode>& target, const PointerEvent& event)
+{
+    if (shared_from_this() == target)
+    {
+        return true;
+    }
+    for (auto& child : childs_)
+    {
+        if (child->bubblePointerEventPath(target, event))
+        {
+            onPointerEvent(event);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool RunNode::containsPointerTarget(const std::shared_ptr<RunNode>& target) const
+{
+    if (target.get() == this) return true;
+    for (const auto& child : childs_)
+    {
+        if (child->containsPointerTarget(target)) return true;
+    }
+    return false;
+}
+
+void RunNode::clearPointerHoverSelfChilds()
+{
+    for (auto& child : childs_)
+    {
+        child->clearPointerHoverSelfChilds();
+    }
+    if (state_ == NodePass)
+    {
+        state_ = NodeNormal;
+    }
+}
+
+void RunNode::dispatchPointerEvent(const PointerEvent& event)
+{
+    const PointerIdentity identity{event.source, event.pointerId, event.button};
+    if (event.source == PointerSource::Mouse && event.button == SDL_BUTTON_RIGHT
+        && event.phase == PointerPhase::ButtonUp)
+    {
+        onPressedCancel();
+        return;
+    }
+
+    if (event.phase == PointerPhase::Motion && pointer_capture_.expired())
+    {
+        clearPointerHoverSelfChilds();
+    }
+
+    if (event.phase == PointerPhase::ButtonDown)
+    {
+        auto target = findPointerTarget(event.uiPosition);
+        if (!target)
+        {
+            target = shared_from_this();
+        }
+        const auto routed = routePointerEventToAncestors(target, event);
+        if (routed && routed->result == PointerResult::Captured)
+        {
+            pointer_capture_ = routed->target;
+            pointer_capture_identity_ = identity;
+            bubblePointerEventPath(routed->target, event);
+            if (!routed->target->visible_ || routed->target->exit_
+                || !containsPointerTarget(routed->target))
+            {
+                cancelPointerCapture();
+            }
+        }
+        return;
+    }
+
+    if (auto captured = pointer_capture_.lock())
+    {
+        if (!captured->visible_ || captured->exit_ || !containsPointerTarget(captured))
+        {
+            cancelPointerCapture();
+            return;
+        }
+        if (pointer_capture_identity_.source == identity.source
+            && pointer_capture_identity_.pointerId == identity.pointerId
+            && (event.phase == PointerPhase::Motion || pointer_capture_identity_.button == identity.button))
+        {
+            const auto result = captured->onPointerEvent(event);
+            bubblePointerEventPath(captured, event);
+            if (event.phase == PointerPhase::ButtonUp || event.phase == PointerPhase::Cancel)
+            {
+                pointer_capture_.reset();
+                if (result == PointerResult::Released
+                    && event.phase == PointerPhase::ButtonUp
+                    && captured->inSideUi(event.uiPosition.x, event.uiPosition.y))
+                {
+                    notifyPointerActivationPath(captured);
+                }
+            }
+            return;
+        }
+    }
+
+    if (isUncapturedPointerActivation(event))
+    {
+        onPressedOK();
+        return;
+    }
+
+    if (event.phase == PointerPhase::Wheel)
+    {
+        auto target = findPointerTarget(event.uiPosition);
+        if (!target)
+        {
+            target = shared_from_this();
+        }
+        routePointerEventToAncestors(target, event);
+        return;
+    }
+
+    auto target = findPointerTarget(event.uiPosition);
+    if (!target)
+    {
+        target = shared_from_this();
+    }
+    target->onPointerEvent(event);
+}
+
+void RunNode::handleLegacyGlobalEvent(const EngineEvent& event)
+{
+    if (event.type == EVENT_WINDOW_RESIZED
+        || event.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+        || event.type == EVENT_WINDOW_MAXIMIZED
+        || event.type == EVENT_WINDOW_RESTORED)
+    {
+        Engine::getInstance()->setPresentPosition(Engine::getInstance()->getMainTexture());
+        ++ownership_epoch_;
+    }
+    if (event.type == EVENT_WINDOW_HIDDEN || event.type == EVENT_WINDOW_FOCUS_LOST)
+    {
+        Engine::getInstance()->cancelImGuiPrimaryTouch();
+#ifdef __EMSCRIPTEN__
+        PointerInput::instance().resetTouchState();
+#else
+        PointerInput::instance().rejectActiveTouchContacts();
+#endif
+        cancelPointerCapture();
+        if (!run_owner_stack_.empty()) run_owner_stack_.back()->onPointerInputReset();
+        ++ownership_epoch_;
+    }
+    if (event.type == EVENT_DID_ENTER_BACKGROUND)
+    {
+        Audio::getInstance()->pauseMusic();
+        Engine::getInstance()->cancelImGuiPrimaryTouch();
+#ifdef __EMSCRIPTEN__
+        PointerInput::instance().resetTouchState();
+#else
+        PointerInput::instance().rejectActiveTouchContacts();
+#endif
+        cancelPointerCapture();
+        if (!run_owner_stack_.empty()) run_owner_stack_.back()->onPointerInputReset();
+        ++ownership_epoch_;
+    }
+    if (event.type == EVENT_DID_ENTER_FOREGROUND)
+    {
+        Audio::getInstance()->resumeMusic();
+    }
+    if (event.type == EVENT_GAMEPAD_ADDED || event.type == EVENT_GAMEPAD_REMOVED)
+    {
+        LOG("Controllers changed\n");
+        Engine::getInstance()->checkGameControllers();
+    }
+    if (event.type == EVENT_QUIT || event.type == EVENT_WINDOW_CLOSE_REQUESTED)
+    {
+        UISystem::askExit(1);
+    }
 }
 
 //画出自身和子节点
@@ -335,132 +685,182 @@ void RunNode::backRunSelfChilds()
 //检测事件
 void RunNode::dealEventSelfChilds(bool check_event)
 {
-    if (check_event)
-    {
-        auto handleWindowGeometryEvent = [](const EngineEvent& event) {
-            if (event.type == EVENT_WINDOW_RESIZED
-                || event.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
-                || event.type == EVENT_WINDOW_MAXIMIZED
-                || event.type == EVENT_WINDOW_RESTORED)
-            {
-                auto* engine = Engine::getInstance();
-                engine->setPresentPosition(engine->getMainTexture());
-            }
-        };
-        EngineEvent e;
-        e.type = EVENT_FIRST;
-        //此处这样设计的原因是某些系统下会连续生成一大串事件，如果每个循环仅处理一个会造成响应慢
-#ifdef __EMSCRIPTEN__
-        // On WASM, process ALL queued events per frame. The browser batches
-        // many mouse motion events between frames; processing only one per
-        // frame creates a backlog that manifests as mouse lag.
-        EngineEvent e_temp;
-        while (Engine::getInstance()->pollEvent(e_temp))
-        {
-            if (isSpecialEvent(e_temp))
-            {
-                e = e_temp;
-                handleWindowGeometryEvent(e);
-                bool consumed_by_imgui = Engine::getInstance()->processImGuiEvent(e);
-                if (use_virtual_stick_)
-                {
-                    virtual_stick()->dealEvent(e);
-                }
-                if (!consumed_by_imgui)
-                {
-                    checkStateSelfChilds(e, check_event);
-                }
-                if (e.type == EVENT_QUIT
-                    || (e.type == EVENT_WINDOW_CLOSE_REQUESTED))
-                {
-                    UISystem::askExit(1);
-                }
-            }
-        }
-        // Always run at least once even with no events, so idle logic
-        // (animations, timers, AI) still ticks every frame.
-        if (e.type == EVENT_FIRST)
-        {
-            checkStateSelfChilds(e, check_event);
-        }
-#else
-        while (Engine::getInstance()->pollEvent(e))
-        {
-            if (isSpecialEvent(e))
-            {
-                break;
-            }
-        }
-        if (e.type == EVENT_GAMEPAD_AXIS_MOTION)
-        {
-            //摇杆移动会产生大量事件，暂时不处理
-            EngineEvent e1;
-            while (Engine::getInstance()->pollEvent(e1)) {};
-        }
-        handleWindowGeometryEvent(e);
-        //SDL3中，这两个事件需要在AddEventWatch处理
-        if (e.type == EVENT_DID_ENTER_BACKGROUND)
-        {
-            //暂停音频
-            Audio::getInstance()->pauseMusic();
-        }
-        if (e.type == EVENT_DID_ENTER_FOREGROUND)
-        {
-            //恢复音频
-            Audio::getInstance()->resumeMusic();
-        }
-        if (e.type == EVENT_GAMEPAD_ADDED || e.type == EVENT_GAMEPAD_REMOVED)
-        {
-            LOG("Controllers changed\n");
-            Engine::getInstance()->checkGameControllers();
-        }
-        bool consumed_by_imgui = Engine::getInstance()->processImGuiEvent(e);
-        if (use_virtual_stick_)
-        {
-            virtual_stick()->dealEvent(e);
-        }
-        if (!consumed_by_imgui)
-        {
-            checkStateSelfChilds(e, check_event);
-        }
-        if (e.type == EVENT_QUIT
-            || (e.type == EVENT_WINDOW_CLOSE_REQUESTED))
-        {
-            UISystem::askExit(1);
-        }
-#endif
-    }
-    else
-    {
-        Engine::pollEvent();
-    }
-}
+    auto& input = PointerInput::instance();
+    input.pumpSdlEvents();
 
-//是否为游戏需要处理的类型，避免丢失一些操作
-bool RunNode::isSpecialEvent(EngineEvent& e)
-{
-    //LOG("type = {}\n", e.type);
-    return e.type == EVENT_QUIT
-        || e.type == EVENT_WINDOW_CLOSE_REQUESTED
-        || e.type == EVENT_WINDOW_RESIZED
-        || e.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
-        || e.type == EVENT_WINDOW_MAXIMIZED
-        || e.type == EVENT_WINDOW_RESTORED
-        || e.type == EVENT_KEY_DOWN
-        || e.type == EVENT_KEY_UP
-        || e.type == EVENT_TEXT_EDITING
-        || e.type == EVENT_TEXT_INPUT
-        || e.type == EVENT_MOUSE_MOTION
-        || e.type == EVENT_MOUSE_BUTTON_DOWN
-        || e.type == EVENT_MOUSE_BUTTON_UP
-        || e.type == EVENT_MOUSE_WHEEL
-        || e.type == EVENT_GAMEPAD_AXIS_MOTION
-        || e.type == EVENT_GAMEPAD_BUTTON_DOWN
-        || e.type == EVENT_GAMEPAD_BUTTON_UP
-        || e.type == EVENT_DID_ENTER_BACKGROUND
-        || e.type == EVENT_WILL_ENTER_FOREGROUND
-        || e.type == EVENT_GAMEPAD_ADDED
-        || e.type == EVENT_GAMEPAD_REMOVED;
+    if (!check_event)
+    {
+        while (!input.empty() && input.frontIsPointer())
+        {
+            const auto event = input.popPending();
+            if (event.type == EVENT_FINGER_DOWN
+                || event.type == EVENT_FINGER_MOTION
+                || event.type == EVENT_FINGER_UP
+                || event.type == SDL_EVENT_FINGER_CANCELED)
+            {
+                input.processFingerEvent(event);
+            }
+        }
+        input.rejectActiveTouchContacts();
+        if (!input.empty())
+        {
+            const auto event = input.popPending();
+            if (input.isPresentGeometryEvent(event))
+            {
+                if (auto sourceEvent = input.applyPresentGeometryEvent(event))
+                {
+                    input.discardCorrelatedGeometryEvent(*sourceEvent);
+                    handleLegacyGlobalEvent(*sourceEvent);
+                    Engine::getInstance()->processImGuiEvent(*sourceEvent);
+                }
+            }
+            else
+            {
+                handleLegacyGlobalEvent(event);
+                if (input.isApplicationCancelEvent(event))
+                {
+                    Engine::getInstance()->processImGuiApplicationCancel();
+                }
+                else
+                {
+                    Engine::getInstance()->processImGuiEvent(event);
+                }
+            }
+        }
+        while (!input.empty() && input.frontIsPointer())
+        {
+            const auto event = input.popPending();
+            if (event.type == EVENT_FINGER_DOWN
+                || event.type == EVENT_FINGER_MOTION
+                || event.type == EVENT_FINGER_UP
+                || event.type == SDL_EVENT_FINGER_CANCELED)
+            {
+                input.processFingerEvent(event);
+            }
+        }
+        input.rejectActiveTouchContacts();
+        cancelPointerCapture();
+        onPointerInputReset();
+        Engine::getInstance()->cancelImGuiPrimaryTouch();
+        ++ownership_epoch_;
+        return;
+    }
+
+    RunNode* const frameOwner = run_owner_stack_.empty() ? nullptr : run_owner_stack_.back();
+    const PointerDispatchRevision frameRevision{
+        ownership_epoch_,
+        frameOwner ? frameOwner->controlLayoutRevision() : 0,
+    };
+    auto ownerStillValid = [&]()
+    {
+        return !run_owner_stack_.empty()
+            && run_owner_stack_.back() == frameOwner
+            && pointerDispatchCanContinue(
+                frameRevision,
+                {ownership_epoch_, frameOwner->controlLayoutRevision()})
+            && !exit_;
+    };
+
+    while (!input.empty() && input.frontIsPointer())
+    {
+        const auto event = input.popPending();
+        if (isResidualSyntheticPointerEvent(event))
+        {
+            continue;
+        }
+
+        if (event.type == EVENT_MOUSE_MOTION
+            || event.type == EVENT_MOUSE_BUTTON_DOWN
+            || event.type == EVENT_MOUSE_BUTTON_UP
+            || event.type == EVENT_MOUSE_WHEEL)
+        {
+            const bool consumedByImGui = Engine::getInstance()->processImGuiEvent(event);
+            const auto pointer = input.makeMousePointerEvent(event);
+            if (!consumedByImGui)
+            {
+                dispatchPointerEvent(pointer);
+            }
+        }
+        else if (auto finger = input.processFingerEvent(event))
+        {
+            if (finger->primary)
+            {
+                const bool captured = Engine::getInstance()->processImGuiPrimaryTouch(finger->sample);
+                if (finger->sample.phase == TouchPhase::Down)
+                {
+                    input.setImGuiOwnsTouchSequence(captured);
+                }
+            }
+
+            if (!input.imguiOwnsTouchSequence())
+            {
+                if (touchPolicy() == TouchPolicy::DirectTouch)
+                {
+                    onTouchSample(finger->sample);
+                }
+                else if (finger->primaryGameEligible)
+                {
+                    dispatchPointerEvent(input.makeTouchPointerEvent(finger->sample));
+                }
+            }
+            if (finger->physicalSequenceEnded)
+            {
+                input.setImGuiOwnsTouchSequence(false);
+            }
+        }
+
+        if (!ownerStillValid())
+        {
+            return;
+        }
+    }
+
+    EngineEvent updateEvent = {};
+    updateEvent.type = EVENT_FIRST;
+    if (!input.empty())
+    {
+        const auto event = input.popPending();
+        if (input.isPresentGeometryEvent(event))
+        {
+            auto sourceEvent = input.applyPresentGeometryEvent(event);
+            Engine::getInstance()->cancelImGuiPrimaryTouch();
+            input.rejectActiveTouchContacts();
+            cancelPointerCapture();
+            onPointerInputReset();
+            ++ownership_epoch_;
+            if (sourceEvent)
+            {
+                input.discardCorrelatedGeometryEvent(*sourceEvent);
+                if (!Engine::getInstance()->processImGuiEvent(*sourceEvent))
+                {
+                    updateEvent = *sourceEvent;
+                }
+            }
+        }
+        else
+        {
+            handleLegacyGlobalEvent(event);
+            const bool consumedByImGui = input.isApplicationCancelEvent(event)
+                ? Engine::getInstance()->processImGuiApplicationCancel()
+                : Engine::getInstance()->processImGuiEvent(event);
+            if (consumedByImGui && input.isApplicationCancelEvent(event))
+            {
+                Engine::getInstance()->cancelImGuiPrimaryTouch();
+                input.rejectActiveTouchContacts();
+                cancelPointerCapture();
+                onPointerInputReset();
+                ++ownership_epoch_;
+            }
+            if (!consumedByImGui)
+            {
+                updateEvent = event;
+            }
+        }
+    }
+    if (frameOwner == (run_owner_stack_.empty() ? nullptr : run_owner_stack_.back()) && !exit_)
+    {
+        checkStateSelfChilds(updateEvent, true);
+    }
 }
 
 //获取子节点的状态
@@ -479,31 +879,6 @@ int RunNode::checkChildState()
 
 void RunNode::checkSelfState(EngineEvent& e)
 {
-    //检测鼠标经过，按下等状态
-    //BP_MOUSEMOTION似乎有些问题，待查
-    //LOG("{} ", e.type);
-    if (e.type == EVENT_MOUSE_MOTION)
-    {
-        if (inSide(e.motion.x, e.motion.y))
-        {
-            state_ = NodePass;
-        }
-        else
-        {
-            state_ = NodeNormal;
-        }
-    }
-    if ((e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_BUTTON_UP) && e.button.button == BUTTON_LEFT)
-    {
-        if (inSide(e.button.x, e.button.y))
-        {
-            state_ = NodePress;
-        }
-        else
-        {
-            state_ = NodeNormal;
-        }
-    }
     if ((e.type == EVENT_KEY_DOWN || e.type == EVENT_KEY_UP) && (e.key.key == K_RETURN || e.key.key == K_SPACE))
     {
         //按下键盘的空格或者回车时，将pass的按键改为press
@@ -514,8 +889,6 @@ void RunNode::checkSelfState(EngineEvent& e)
     }
     if ((e.type == EVENT_GAMEPAD_BUTTON_DOWN || e.type == EVENT_GAMEPAD_BUTTON_UP) && e.gbutton.button == GAMEPAD_BUTTON_SOUTH)
     {
-        //int x, y;
-        //Engine::getInstance()->getMouseState(x, y);
         if (state_ == NodePass)
         {
             state_ = NodePress;
@@ -566,6 +939,15 @@ int RunNode::run(bool in_root /*= true*/)
     {
         addIntoDrawTop(shared_from_this());
     }
+    if (!run_owner_stack_.empty())
+    {
+        cancelPointerCapture();
+        run_owner_stack_.back()->onPointerInputReset();
+    }
+    PointerInput::instance().rejectActiveTouchContacts();
+    Engine::getInstance()->cancelImGuiPrimaryTouch();
+    run_owner_stack_.push_back(this);
+    ++ownership_epoch_;
     onEntrance();
     running_ = true;
     while (true)
@@ -588,7 +970,14 @@ int RunNode::run(bool in_root /*= true*/)
         present();
     }
     running_ = false;
+    cancelPointerCaptureForSubtree(this);
+    PointerInput::instance().rejectActiveTouchContacts();
+    Engine::getInstance()->cancelImGuiPrimaryTouch();
+    onPointerInputReset();
     onExit();
+    assert(!run_owner_stack_.empty() && run_owner_stack_.back() == this);
+    run_owner_stack_.pop_back();
+    ++ownership_epoch_;
     GameUtil::lastDialogDismissTime() = Engine::getTicks();
     if (in_root)
     {
@@ -601,8 +990,8 @@ void RunNode::exitAll(int begin)
 {
     for (int i = begin; i < root_.size(); i++)
     {
-        root_[i]->exit_ = true;
-        root_[i]->visible_ = false;
+        root_[i]->setExit(true);
+        root_[i]->setVisible(false);
     }
 }
 

@@ -24,6 +24,15 @@ struct SuperMenuTextExtraOptions
     bool exitable_ = false;
 };
 
+enum class SuperMenuTapAction { Lock, Commit };
+
+constexpr SuperMenuTapAction superMenuTapAction(bool doubleTapMode, int item, int lockedItem)
+{
+    return doubleTapMode && lockedItem != item
+        ? SuperMenuTapAction::Lock
+        : SuperMenuTapAction::Commit;
+}
+
 class SuperMenuText : public RunNode
 {
 public:
@@ -32,6 +41,9 @@ public:
 
     virtual ~SuperMenuText() = default;
     void dealEvent(EngineEvent& e) override;
+    PointerResult onPointerEvent(const PointerEvent& event) override;
+    void onPressedOK() override;
+    void onPressedCancel() override;
     virtual void setInputPosition(int x, int y);
     void addDrawableOnCall(std::shared_ptr<DrawableOnCall> doc);
     void setMatchFunction(std::function<bool(const std::string&, const std::string&)> match);
@@ -76,9 +88,10 @@ private:
     void search(const std::string& text);
     void updateMaxPages();
     void updateNavigationButtons();
-    bool canFlipPage();
     void setActiveItems(const std::vector<int>& itemIndices, bool forceFirstActive);
     void applyCurrentPage(bool forceFirstActive);
+    void consumeSelectionResult();
+    bool confirmSelection(int selectionIdx);
 
     std::shared_ptr<InputBox> inputBox_;    // Only present if needed, always added as child if present
     std::shared_ptr<TextBox> titleBox_;
@@ -102,11 +115,4 @@ private:
     int inputX_ = 0, inputY_ = 0;
     bool doubleTapMode_ = false;
     int lastTappedIdx_ = -1;
-    // Timestamp (ms) when lastTappedIdx_ was locked. Used to enforce a
-    // minimum gap between lock and commit so burst events from a single
-    // touch gesture (WASM batches touchstart→touchend→synthetic mousedown
-    // →mouseup all in one rAF callback) cannot fire both actions at once.
-    double tapLockTime_ = -1.0;
-    double lastPageFlipTime_ = -1.0;
-    static constexpr double kDoubleTapMinIntervalMs = 200.0;
 };

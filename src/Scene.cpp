@@ -180,9 +180,8 @@ Point Scene::getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y)
 
 Point Scene::getMousePosition(int view_x, int view_y)
 {
-    int mouse_x, mouse_y;
-    Engine::getInstance()->getMouseStateInStartWindow(mouse_x, mouse_y);
-    return getMousePosition(mouse_x, mouse_y, view_x, view_y);
+    const auto pointer = PointerInput::instance().logicalPointerUiPosition();
+    return getMousePosition(pointer.x, pointer.y, view_x, view_y);
 }
 
 void Scene::calCursorPosition(int x, int y)

@@ -2,6 +2,7 @@
 #include "../others/Hanz2Piny.h"
 #include "Font.h"
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <numeric>
 #include <utility>
@@ -177,7 +178,6 @@ void SuperMenuText::flipPage(int pageIncrement)
     if (currentPage_ + pageIncrement >= 0 && currentPage_ + pageIncrement < maxPages_)
     {
         lastTappedIdx_ = -1;       // Reset locked item when changing pages
-        tapLockTime_ = -1.0;       // Reset lock timestamp on page change
         currentPage_ += pageIncrement;
         applyCurrentPage(false);
     }
@@ -242,19 +242,6 @@ void SuperMenuText::updateNavigationButtons()
 
 void SuperMenuText::dealEvent(EngineEvent& e)
 {
-    if (previousButton_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
-    {
-        if (canFlipPage()) flipPage(-1);
-        previousButton_->setState(NodeNormal);
-        previousButton_->setResult(-1);
-    }
-    else if (nextButton_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
-    {
-        if (canFlipPage()) flipPage(1);
-        nextButton_->setState(NodeNormal);
-        nextButton_->setResult(-1);
-    }
-
     bool research = false;
     std::string searchText;
     if (inputBox_)
@@ -280,14 +267,6 @@ void SuperMenuText::dealEvent(EngineEvent& e)
     {
         switch (e.type)
         {
-        case EVENT_MOUSE_BUTTON_UP:
-            if (e.button.button == BUTTON_RIGHT)
-            {
-                result_ = -1;
-                setExit(true);
-            }
-
-            break;
         case EVENT_KEY_UP:
         {
             if (e.key.key == K_ESCAPE)
@@ -310,16 +289,6 @@ void SuperMenuText::dealEvent(EngineEvent& e)
         case K_PAGEDOWN:
             flipPage(1);
             break;
-        }
-        break;
-    case EVENT_MOUSE_WHEEL:
-        if (e.wheel.y > 0)
-        {
-            flipPage(-1);
-        }
-        else if (e.wheel.y < 0)
-        {
-            flipPage(1);
         }
         break;
     default:
@@ -355,97 +324,100 @@ void SuperMenuText::dealEvent(EngineEvent& e)
         }
     }
 
-    if (selections_->getResult() >= 0)
+    consumeSelectionResult();
+}
+
+void SuperMenuText::consumeSelectionResult()
+{
+    if (selections_->getResult() < 0) return;
+
+    const int selectionIdx = selections_->getResult();
+    assert(selectionIdx >= 0 && selectionIdx < activeIndices_.size());
+    const int itemIdx = activeIndices_[selectionIdx];
+
+    if (superMenuTapAction(doubleTapMode_, itemIdx, lastTappedIdx_) == SuperMenuTapAction::Lock)
     {
-        int selectionIdx = selections_->getResult();
-        int itemIdx = activeIndices_[selectionIdx];
-
-        if (doubleTapMode_)
+        if (lastTappedIdx_ >= 0)
         {
-            // Double-tap mode: first tap locks selection, second tap commits.
-            // Guard: require at least kDoubleTapMinIntervalMs between lock and
-            // commit so that a burst of events from a single browser gesture
-            // (WASM batches touch + synthetic mouse events in one rAF frame)
-            // cannot fire both lock and commit at once.
-            bool allowCommit = (lastTappedIdx_ == itemIdx)
-                && (tapLockTime_ >= 0.0)
-                && (Engine::getTicks() - tapLockTime_ >= kDoubleTapMinIntervalMs);
-
-            if (allowCommit)
+            for (int i = 0; i < activeIndices_.size(); i++)
             {
-                // Second tap on same item - commit
-                tapLockTime_ = -1.0;
-                auto btn = std::dynamic_pointer_cast<Button>(selections_->getChild(selectionIdx));
-                if (btn) btn->clearSelectionOverlay();
-
-                if (extraOpts_.confirmation_)
+                if (activeIndices_[i] == lastTappedIdx_)
                 {
-                    auto confirm = std::make_shared<MenuText>();
-                    confirm->setStrings({ "確認", "取消" });
-                    confirm->setFontSize(fontSize_);
-                    confirm->setHaveBox(true);
-                    confirm->arrange(150, 350, 150, 0);
-                    confirm->run();
-                    confirm->setExit(true);
-                    if (confirm->getResult() != 0)
-                    {
-                        selections_->forceActiveChild(selectionIdx);
-                        selections_->setResult(-1);
-                        return;
-                    }
+                    auto button = std::dynamic_pointer_cast<Button>(selections_->getChild(i));
+                    if (button) button->clearSelectionOverlay();
+                    break;
                 }
-                result_ = itemIdx;
-                setExit(true);
-            }
-            else
-            {
-                // First tap - lock selection, show details
-                // Clear previous locked item overlay
-                if (lastTappedIdx_ >= 0)
-                {
-                    for (int i = 0; i < activeIndices_.size(); i++)
-                    {
-                        if (activeIndices_[i] == lastTappedIdx_)
-                        {
-                            auto btn = std::dynamic_pointer_cast<Button>(selections_->getChild(i));
-                            if (btn) btn->clearSelectionOverlay();
-                            break;
-                        }
-                    }
-                }
-                lastTappedIdx_ = itemIdx;
-                tapLockTime_ = Engine::getTicks();  // record when lock happened
-                auto btn = std::dynamic_pointer_cast<Button>(selections_->getChild(selectionIdx));
-                if (btn)
-                {
-                    btn->setSelectionOverlay(kLockedSelectionOutline, kLockedSelectionFill, kLockedSelectionThickness);
-                }
-                selections_->forceActiveChild(selectionIdx);
-                selections_->setResult(-1);
             }
         }
-        else
+        lastTappedIdx_ = itemIdx;
+        auto button = std::dynamic_pointer_cast<Button>(selections_->getChild(selectionIdx));
+        if (button)
         {
-            // Normal mode: single tap commits
-            if (extraOpts_.confirmation_)
-            {
-                auto confirm = std::make_shared<MenuText>();
-                confirm->setStrings({ "確認", "取消" });
-                confirm->setFontSize(fontSize_);
-                confirm->setHaveBox(true);
-                confirm->arrange(150, 350, 150, 0);
-                confirm->run();
-                confirm->setExit(true);
-                if (confirm->getResult() != 0)
-                {
-                    selections_->forceActiveChild(selectionIdx);
-                    selections_->setResult(-1);
-                    return;
-                }
-            }
-            result_ = itemIdx;
-            setExit(true);
+            button->setSelectionOverlay(kLockedSelectionOutline, kLockedSelectionFill, kLockedSelectionThickness);
         }
+        selections_->forceActiveChild(selectionIdx);
+        selections_->setResult(-1);
+        return;
+    }
+
+    auto button = std::dynamic_pointer_cast<Button>(selections_->getChild(selectionIdx));
+    if (button) button->clearSelectionOverlay();
+    if (!confirmSelection(selectionIdx)) return;
+    result_ = itemIdx;
+    setExit(true);
+}
+
+bool SuperMenuText::confirmSelection(int selectionIdx)
+{
+    if (!extraOpts_.confirmation_) return true;
+
+    auto confirm = std::make_shared<MenuText>();
+    confirm->setStrings({ "確認", "取消" });
+    confirm->setFontSize(fontSize_);
+    confirm->setHaveBox(true);
+    confirm->arrange(150, 350, 150, 0);
+    confirm->run();
+    confirm->setExit(true);
+    if (confirm->getResult() == 0) return true;
+
+    selections_->forceActiveChild(selectionIdx);
+    selections_->setResult(-1);
+    return false;
+}
+
+RunNode::PointerResult SuperMenuText::onPointerEvent(const PointerEvent& event)
+{
+    if (event.phase == PointerPhase::Wheel)
+    {
+        if (event.wheel.y > 0) flipPage(-1);
+        else if (event.wheel.y < 0) flipPage(1);
+        return PointerResult::Handled;
+    }
+    return RunNode::onPointerEvent(event);
+}
+
+void SuperMenuText::onPressedOK()
+{
+    if (previousButton_->getState() == NodePress)
+    {
+        flipPage(-1);
+        previousButton_->setState(NodeNormal);
+        previousButton_->setResult(-1);
+    }
+    else if (nextButton_->getState() == NodePress)
+    {
+        flipPage(1);
+        nextButton_->setState(NodeNormal);
+        nextButton_->setResult(-1);
+    }
+    consumeSelectionResult();
+}
+
+void SuperMenuText::onPressedCancel()
+{
+    if (extraOpts_.exitable_)
+    {
+        exitWithResult(-1);
     }
 }
 
@@ -465,14 +437,6 @@ void SuperMenuText::onExit()
         inputBox_->onExit();
     }
     RunNode::onExit();
-}
-
-bool SuperMenuText::canFlipPage()
-{
-    if (!doubleTapMode_) return true;
-    bool allow = lastPageFlipTime_ < 0.0 || (Engine::getTicks() - lastPageFlipTime_ >= kDoubleTapMinIntervalMs);
-    if (allow) lastPageFlipTime_ = Engine::getTicks();
-    return allow;
 }
 
 void SuperMenuText::setActiveItems(const std::vector<int>& itemIndices, bool forceFirstActive)

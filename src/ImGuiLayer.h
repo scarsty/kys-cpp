@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BattleLogImGuiView.h"
+#include "PointerInput.h"
 
 #include <string>
 #include <vector>
@@ -25,6 +26,44 @@ struct ChangelogData
     std::vector<ChangelogLine> lines;
 };
 
+struct ImGuiPrimaryTouchRoute
+{
+    bool forwardToBackend{};
+    bool consumed{};
+};
+
+class ImGuiPrimaryTouchRouting
+{
+public:
+    ImGuiPrimaryTouchRoute route(TouchPhase phase, bool guarded)
+    {
+        if (phase == TouchPhase::Down)
+        {
+            state_ = guarded ? State::Suppressed : State::Forwarded;
+        }
+        const auto state = state_;
+        if (phase == TouchPhase::Up || phase == TouchPhase::Canceled)
+        {
+            state_ = State::None;
+        }
+        return {
+            state == State::Forwarded,
+            state == State::Suppressed,
+        };
+    }
+
+    bool cancelNeedsBackendRelease()
+    {
+        const bool release = state_ == State::Forwarded;
+        state_ = State::None;
+        return release;
+    }
+
+private:
+    enum class State { None, Forwarded, Suppressed };
+    State state_ = State::None;
+};
+
 class ImGuiLayer
 {
 public:
@@ -32,6 +71,9 @@ public:
     void shutdown();
 
     bool processEvent(const SDL_Event& event);
+    bool processPrimaryTouch(const TouchSample& sample);
+    void cancelPrimaryTouch();
+    bool processApplicationCancel();
     void render(SDL_Window* window, SDL_Renderer* renderer, int main_texture_w, int main_texture_h, const char* renderer_name);
     void showBattleLog(const BattleLogViewModel& model);
     void hideBattleLog();
@@ -42,6 +84,8 @@ public:
 
 private:
     bool wantsCaptureEvent(const SDL_Event& event) const;
+    bool isOverlayInputGuardActive() const;
+    bool processPrimaryTouchBackendEvent(const SDL_Event& event);
     void renderBattleLogWindow();
     void renderChangelogWindow();
 
@@ -55,4 +99,6 @@ private:
     BattleLogWindowState battle_log_;
     BattleLogImGuiView battle_log_view_;
     ChangelogData changelog_;
+    ImGuiPrimaryTouchRouting primary_touch_routing_;
+    SDL_FPoint primary_touch_position_{};
 };

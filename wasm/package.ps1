@@ -53,7 +53,13 @@ Copy-Item -Force (Join-Path $paths.WasmDir 'apple-touch-icon.png') $distDir
 Copy-Item -Force (Join-Path $paths.WasmDir 'icon-192.png') $distDir
 Copy-Item -Force (Join-Path $paths.WasmDir 'icon-512.png') $distDir
 Copy-Item -Force (Join-Path $paths.WasmDir 'site.webmanifest') $distDir
-Copy-ReleaseGameAssets -SourceGameDir $gameDir -DestinationGameDir (Join-Path $distDir 'kys\game') -Version $Version
+$distGameDir = Join-Path $distDir 'kys\game'
+Copy-ReleaseGameAssets -SourceGameDir $gameDir -DestinationGameDir $distGameDir -Version $Version
+Write-WasmAssetManifest `
+    -ProjectDir $paths.ProjectDir `
+    -WasmDir $paths.WasmDir `
+    -GameDir $distGameDir `
+    -OutputPath (Join-Path $distDir (Get-WasmManifestFileName))
 
 # Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'
 # /*

@@ -58,7 +58,7 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         #status { margin-top: 0.75rem; font-size: 0.85rem; color: #888; }
-        #rclick-btn, #fs-btn {
+        #cancel-btn, #fs-btn {
             position: fixed;
             width: 3.5rem; height: 3.5rem;
             border-radius: 50%;
@@ -73,10 +73,10 @@
             -webkit-tap-highlight-color: transparent;
             user-select: none;
         }
-        #rclick-btn { bottom: 2rem; right: 2rem; }
+        #cancel-btn { bottom: 2rem; right: 2rem; }
         #fs-btn { bottom: 2rem; left: 2rem; display: flex; }
-        #rclick-btn:active, #fs-btn:active { background: rgba(255,255,255,0.3); }
-        @media (pointer: coarse) { #rclick-btn, #fs-btn { display: flex !important; } }
+        #cancel-btn:active, #fs-btn:active { background: rgba(255,255,255,0.3); }
+        @media (pointer: coarse) { #cancel-btn, #fs-btn { display: flex !important; } }
         /* #mobile-indicator {
             position: fixed;
             top: 0.5rem;
@@ -99,7 +99,7 @@
     </div>
     <div id="wrap">
         <canvas id="canvas" width="1280" height="720" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
-        <button id="rclick-btn" aria-label="Right click">✕</button>
+        <button id="cancel-btn" aria-label="Cancel">✕</button>
         <button id="fs-btn" aria-label="Expand viewport">⛶</button>
     </div>
     <script>
@@ -520,47 +520,36 @@
             }
         };
 
-        var isExternalSaveDialogEvent = function(event) {
+        var isExcludedDomEvent = function(event) {
             var dialog = Module.kysExternalSave;
-            return dialog && dialog.root.style.display === 'flex' && dialog.root.contains(event.target);
+            var inDialog = dialog && dialog.root.style.display === 'flex' && dialog.root.contains(event.target);
+            var cancel = document.getElementById('cancel-btn');
+            return inDialog || (cancel && cancel.contains(event.target));
         };
 
         document.addEventListener('touchmove', function(e) {
-            if (!isExternalSaveDialogEvent(e)) {
+            if (!isExcludedDomEvent(e)) {
                 e.preventDefault();
             }
         }, { passive: false });
         document.addEventListener('click', function(e) {
-            if (!isExternalSaveDialogEvent(e) && Module.canvas && Module.canvas.focus) {
+            if (!isExcludedDomEvent(e) && Module.canvas && Module.canvas.focus) {
                 Module.canvas.focus();
             }
         });
         document.addEventListener('touchstart', function(e) {
-            if (!isExternalSaveDialogEvent(e) && Module.canvas && Module.canvas.focus) {
+            if (!isExcludedDomEvent(e) && Module.canvas && Module.canvas.focus) {
                 Module.canvas.focus();
             }
         });
 
-        // Right-click button for touch devices
-        var rclickBtn = document.getElementById('rclick-btn');
-        rclickBtn.addEventListener('touchstart', function(e) {
+        var cancelBtn = document.getElementById('cancel-btn');
+        cancelBtn.addEventListener('pointerdown', function(e) {
             e.preventDefault();
             e.stopPropagation();
             if (Module.ccall) {
-                Module.ccall('inject_right_click', null, [], []);
+                Module.ccall('request_cancel', null, [], []);
             }
-        });
-
-        var lastTouchX = null, lastTouchY = null;
-        document.getElementById('canvas').addEventListener('touchstart', function(e) {
-            var rect = e.target.getBoundingClientRect();
-            lastTouchX = e.touches[0].clientX - rect.left;
-            lastTouchY = e.touches[0].clientY - rect.top;
-        });
-        document.getElementById('canvas').addEventListener('touchmove', function(e) {
-            var rect = e.target.getBoundingClientRect();
-            lastTouchX = e.touches[0].clientX - rect.left;
-            lastTouchY = e.touches[0].clientY - rect.top;
         });
 
         // Desktop: viewport expand button. Mobile: explicit browser fullscreen.
@@ -639,7 +628,7 @@
         function onViewportChange() {
             syncCanvasSize();
             if (isMobileDevice) {
-                rclickBtn.style.display = 'flex';
+                cancelBtn.style.display = 'flex';
                 fsBtn.style.display = 'flex';
             }
         }
@@ -701,7 +690,7 @@
             }
             // Restore buttons when page becomes visible again
             if (!document.hidden && isMobileDevice) {
-                rclickBtn.style.display = 'flex';
+                cancelBtn.style.display = 'flex';
                 fsBtn.style.display = 'flex';
             }
         });

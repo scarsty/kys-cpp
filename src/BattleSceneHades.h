@@ -9,6 +9,8 @@
 #include "BattleSceneRenderMath.h"
 #include "BattleScene.h"
 #include "BattleSceneCamera.h"
+#include "BattleSceneControls.h"
+#include "BattleScenePaperCameraTouch.h"
 #include "BattleSceneFrameApplier.h"
 #include "BattleSceneMapState.h"
 #include "BattleSceneSetupBuilder.h"
@@ -48,6 +50,11 @@ public:
     virtual void draw() override;
     virtual void dealEvent(EngineEvent& e) override;     //战场主循环
     virtual void dealEvent2(EngineEvent& e) override;    //用于停止自动
+    virtual PointerResult onPointerEvent(const PointerEvent& event) override;
+    virtual void onTouchSample(const TouchSample& sample) override;
+    virtual void onPointerInputReset() override;
+    virtual TouchPolicy touchPolicy() const override;
+    virtual uint64_t controlLayoutRevision() const override { return battle_control_layout_revision_; }
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void calExpGot() override;
@@ -69,7 +76,7 @@ protected:
     void ageHurtFlashTimers();
     void advanceScenePresentationFrame();
     void finishBattleIfReady();
-    bool handleBattleControlEvent(EngineEvent& e);
+    void activateBattleControl(BattleControlId control);
     void drawBattleControls();
     bool canToggleBattlePause() const;
     void toggleBattlePause();
@@ -159,4 +166,7 @@ protected:
     float paper_camera_angle_ = -2.53f;
     float paper_camera_distance_ = battleScenePaperCameraDefaults().distance;
     float paper_camera_height_ = battleScenePaperCameraDefaults().height;
+    BattleControlCapture battle_control_capture_;
+    BattleScenePaperCameraTouch paper_camera_touch_;
+    uint64_t battle_control_layout_revision_{};
 };

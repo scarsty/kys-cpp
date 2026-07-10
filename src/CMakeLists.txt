@@ -134,6 +134,10 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleSceneSetupBuilderUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneUnitStoreUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleTeamEffectSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/PointerInputUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleSceneControlsUnitTests.cpp"
+    "${KYS_ROOT}/tests/PaperCameraControlMathUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleScenePaperCameraTouchUnitTests.cpp"
 )
 
 add_executable(kys_tests

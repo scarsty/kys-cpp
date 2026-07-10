@@ -208,8 +208,17 @@
     <ClCompile Include="Engine.cpp">
       <Filter>engine</Filter>
     </ClCompile>
-    <ClCompile Include="VirtualStick.cpp">
-      <Filter>VirtualStick</Filter>
+    <ClCompile Include="PointerInput.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleSceneControls.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleScenePaperCameraTouch.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="PaperCameraControlMath.cpp">
+      <Filter>battle</Filter>
     </ClCompile>
     <ClCompile Include="Point.cpp">
       <Filter>point</Filter>
@@ -422,6 +431,18 @@
     <ClInclude Include="BattleSceneHades.h">
       <Filter>battle</Filter>
     </ClInclude>
+    <ClInclude Include="PointerInput.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneControls.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleScenePaperCameraTouch.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="PaperCameraControlMath.h">
+      <Filter>battle</Filter>
+    </ClInclude>
     <ClInclude Include="BattleSceneMapState.h">
       <Filter>battle</Filter>
     </ClInclude>
@@ -502,9 +523,6 @@
     </ClInclude>
     <ClInclude Include="Engine.h">
       <Filter>engine</Filter>
-    </ClInclude>
-    <ClInclude Include="VirtualStick.h">
-      <Filter>VirtualStick</Filter>
     </ClInclude>
     <ClInclude Include="Point.h">
       <Filter>point</Filter>
@@ -615,9 +633,6 @@
     </Filter>
     <Filter Include="mlcc">
       <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="VirtualStick">
-      <UniqueIdentifier>{c64953ab-6bc5-432f-98db-3bc7d331e2a6}</UniqueIdentifier>
     </Filter>
     <Filter Include="point">
       <UniqueIdentifier>{b22155ca-ee9e-42e3-8eef-d2d74109b5c4}</UniqueIdentifier>

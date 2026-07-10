@@ -206,44 +206,8 @@ Item* UIItem::getAvailableItem(int i)
 
 void UIItem::dealEvent(EngineEvent& e)
 {
-    auto engine = Engine::getInstance();
+    auto* engine = Engine::getInstance();
     checkCurrentItem();
-    if (e.type == EVENT_MOUSE_WHEEL)
-    {
-        if (e.wheel.y > 0)
-        {
-            leftup_index_ -= item_each_line_;
-        }
-        else if (e.wheel.y < 0)
-        {
-            leftup_index_ += item_each_line_;
-        }
-    }
-
-    //拖拽物品
-    {
-        if (e.type == EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT && drag_item_->getTexutreID() < 0)
-        {
-            if (current_button_)
-            {
-                drag_item_->setTexture("item", current_button_->getTexutreID());
-            }
-        }
-        if (drag_item_->getTexutreID() >= 0)
-        {
-            int x, y;
-            engine->getMouseStateInStartWindow(x, y);
-            current_item_ = Save::getInstance()->getItem(drag_item_->getTexutreID());
-            int w, h;
-            drag_item_->getSize(w, h);
-            drag_item_->setPosition(x - w / 2, y - h / 2);
-        }
-        //放在获取物品指针后面
-        if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT && drag_item_->getTexutreID() >= 0)
-        {
-            drag_item_->setTexture("item", -1);
-        }
-    }
 
     //此处处理键盘响应
     if (focus_ == 1)
@@ -454,6 +418,39 @@ void UIItem::dealEvent(EngineEvent& e)
             forceActiveChild();
         }
     }
+}
+
+RunNode::PointerResult UIItem::onPointerEvent(const PointerEvent& event)
+{
+    if (event.phase == PointerPhase::Wheel)
+    {
+        leftup_index_ += event.wheel.y > 0 ? -item_each_line_ : item_each_line_;
+        return PointerResult::Handled;
+    }
+    if (event.button != SDL_BUTTON_LEFT)
+    {
+        return Menu::onPointerEvent(event);
+    }
+    if (event.phase == PointerPhase::ButtonDown && drag_item_->getTexutreID() < 0 && current_button_)
+    {
+        drag_item_->setTexture("item", current_button_->getTexutreID());
+    }
+    if (drag_item_->getTexutreID() >= 0)
+    {
+        current_item_ = Save::getInstance()->getItem(drag_item_->getTexutreID());
+        int w = 0;
+        int h = 0;
+        drag_item_->getSize(w, h);
+        drag_item_->setPosition(
+            static_cast<int>(event.uiPosition.x) - w / 2,
+            static_cast<int>(event.uiPosition.y) - h / 2);
+        if (event.phase == PointerPhase::ButtonUp || event.phase == PointerPhase::Cancel)
+        {
+            drag_item_->setTexture("item", -1);
+        }
+        return PointerResult::Handled;
+    }
+    return Menu::onPointerEvent(event);
 }
 
 void UIItem::showItemProperty(Item* item)

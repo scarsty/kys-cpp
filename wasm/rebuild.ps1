@@ -27,12 +27,11 @@ if ([string]::IsNullOrWhiteSpace($gameTarget))
 Ensure-PathExists -Path $gameTarget -Message "Game assets not found at $gameTarget"
 Ensure-GameJunction -LinkPath (Join-Path $paths.BuildDir 'kys\game') -TargetPath $gameTarget
 
-Write-Host '=== Generating manifest ==='
-Invoke-ProjectPython -ProjectDir $paths.ProjectDir -ArgumentList @(
-    (Join-Path $paths.WasmDir 'gen_manifest.py'),
-    $gameTarget,
-    (Join-Path $paths.BuildDir (Get-WasmManifestFileName))
-)
+Write-WasmAssetManifest `
+    -ProjectDir $paths.ProjectDir `
+    -WasmDir $paths.WasmDir `
+    -GameDir $gameTarget `
+    -OutputPath (Join-Path $paths.BuildDir (Get-WasmManifestFileName))
 
 Invoke-WasmConfigureBuild -WasmDir $paths.WasmDir -BuildDir $paths.BuildDir -DepsDir $paths.VcpkgWasm
 

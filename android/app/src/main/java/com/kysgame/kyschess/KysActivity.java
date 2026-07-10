@@ -34,7 +34,9 @@ public class KysActivity extends SDLActivity {
     private static final String PREFS_NAME = "kys_prefs";
     private static final String PREF_ASSET_MARKER = "asset_marker";
 
-    public static native void nativeInjectRightClick();
+    public static native void nativeRequestCancel();
+
+    private TextView cancelButton;
 
     private int dp(int value) {
         return Math.round(TypedValue.applyDimension(
@@ -54,7 +56,7 @@ public class KysActivity extends SDLActivity {
         extractAssetsIfNeeded();
         super.onCreate(savedInstanceState);
         enterImmersiveFullscreen();
-        addRightClickOverlay();
+        addCancelOverlay();
     }
 
     @Override
@@ -254,19 +256,28 @@ public class KysActivity extends SDLActivity {
         }
     }
 
-    private void addRightClickOverlay() {
+    public void onNativeInputReady() {
         runOnUiThread(() -> {
-            // Find the SDL content view
+            if (cancelButton != null) {
+                cancelButton.setEnabled(true);
+            }
+        });
+    }
+
+    private void addCancelOverlay() {
+        runOnUiThread(() -> {
             ViewGroup contentView = findViewById(android.R.id.content);
             if (contentView == null) return;
 
-            // Create the right-click button
             TextView btn = new TextView(this);
             btn.setText("✕");
+            btn.setContentDescription("Cancel");
             btn.setTextSize(32);
             btn.setTextColor(0xCCFFFFFF);
             btn.setBackgroundColor(0x44000000);
             btn.setPadding(32, 16, 32, 16);
+            btn.setEnabled(false);
+            cancelButton = btn;
 
             FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -280,13 +291,14 @@ public class KysActivity extends SDLActivity {
                     case MotionEvent.ACTION_DOWN:
                         return true;
                     case MotionEvent.ACTION_UP:
-                        nativeInjectRightClick();
+                        if (btn.isEnabled()) {
+                            nativeRequestCancel();
+                        }
                         return true;
                 }
                 return false;
             });
 
-            // Wrap in FrameLayout overlay
             FrameLayout overlay = new FrameLayout(this);
             overlay.addView(btn, params);
             contentView.addView(overlay, new ViewGroup.LayoutParams(
