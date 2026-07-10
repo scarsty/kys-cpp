@@ -2,6 +2,7 @@
 #include "Event.h"
 #include "EventMacro.h"
 #include "Font.h"
+#include "Menu.h"
 #include "NewSave.h"
 #include "PotConv.h"
 #include "filefunc.h"
@@ -375,6 +376,46 @@ int ScriptCifa::registerEventFunctions()
         int index = args.empty() ? 0 : int(args[0]);
         std::string str = Event::getInstance()->getTalkContent(index);
         return cifa::Object(str);
+    });
+
+    cifa_.register_function("menu", [](cifa::ObjectVector& args) -> cifa::Object
+    {
+        if (args.size() < 3 || !args[2].isType<std::vector<cifa::Object>>())
+        {
+            return cifa::Object(0.0);
+        }
+        int x = int(args[0]);
+        int y = int(args[1]);
+        int n = args.size() >= 4 ? int(args[3]) : 0;
+        auto& arr = args[2].ref<std::vector<cifa::Object>>();
+
+        std::vector<std::string> items;
+        for (int i = 1; i <= n && i < (int)arr.size(); i++)
+        {
+            if (arr[i].isType<std::string>())
+            {
+                items.push_back(std::string(arr[i]));
+            }
+        }
+        if (items.empty())
+        {
+            for (auto& item : arr)
+            {
+                if (item.isType<std::string>())
+                {
+                    items.push_back(std::string(item));
+                }
+            }
+        }
+        if (items.empty())
+        {
+            return cifa::Object(0.0);
+        }
+
+        auto menu = std::make_shared<MenuText>();
+        menu->setStrings(items);
+        menu->setPosition(x, y);
+        return cifa::Object(double(menu->run() + 1));
     });
 
     cifa_.register_function("getitemamount", [](cifa::ObjectVector& args) -> cifa::Object

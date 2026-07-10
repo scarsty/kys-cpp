@@ -1018,6 +1018,61 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     auto r = role_;
+    if ((e.type == EVENT_KEY_UP && e.key.key == K_Q)
+        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_MIDDLE)
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_RIGHT_STICK))
+    {
+        camera_locked_ = !camera_locked_;
+        if (!camera_locked_)
+        {
+            camera_distance_ = free_camera_distance_ > 0 ? free_camera_distance_ : PAPER_CAMERA_DEFAULT_DISTANCE;
+        }
+    }
+    if (!camera_locked_ && e.type == EVENT_MOUSE_WHEEL && e.wheel.y != 0)
+    {
+        free_camera_distance_ = std::clamp(free_camera_distance_ - e.wheel.y * PAPER_CAMERA_WHEEL_ZOOM_STEP,
+            PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
+        camera_distance_ = free_camera_distance_;
+    }
+    if (!camera_locked_)
+    {
+        if (engine->checkKeyPress(K_Z))
+        {
+            free_camera_distance_ += PAPER_CAMERA_ZOOM_STEP;
+        }
+        if (engine->checkKeyPress(K_X))
+        {
+            free_camera_distance_ -= PAPER_CAMERA_ZOOM_STEP;
+        }
+        auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
+        auto right_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER);
+        if (left_trigger > 6000)
+        {
+            free_camera_distance_ += PAPER_CAMERA_ZOOM_STEP * GameUtil::clamp(left_trigger, 0, 20000) / 20000.0f;
+        }
+        if (right_trigger > 6000)
+        {
+            free_camera_distance_ -= PAPER_CAMERA_ZOOM_STEP * GameUtil::clamp(right_trigger, 0, 20000) / 20000.0f;
+        }
+        free_camera_distance_ = std::clamp(free_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
+        camera_distance_ = free_camera_distance_;
+
+        float camera_rotate = 0;
+        float camera_height_delta = 0;
+        if (engine->checkKeyPress(K_LEFT)) { camera_rotate -= 1; }
+        if (engine->checkKeyPress(K_RIGHT)) { camera_rotate += 1; }
+        if (engine->checkKeyPress(K_UP)) { camera_height_delta += 1; }
+        if (engine->checkKeyPress(K_DOWN)) { camera_height_delta -= 1; }
+        auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
+        auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
+        if (std::abs(right_axis_x) < 6000) { right_axis_x = 0; }
+        if (std::abs(right_axis_y) < 6000) { right_axis_y = 0; }
+        camera_rotate += GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f;
+        camera_height_delta += GameUtil::clamp(-right_axis_y, -20000, 20000) / 20000.0f;
+        camera_angle_ += camera_rotate * PAPER_FREE_CAMERA_ROTATE_SPEED;
+        camera_height_ = std::clamp(camera_height_ + camera_height_delta * PAPER_FREE_CAMERA_HEIGHT_SPEED,
+            PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
+    }
     //LOG("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
     //show_auto_->setVisible(r->Auto);
     if (shake_ > 0)
@@ -1064,22 +1119,6 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
         {
             r->Auto = 0;
         }
-    }
-    if ((e.type == EVENT_KEY_UP && e.key.key == K_Q)
-        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_MIDDLE)
-        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_RIGHT_STICK))
-    {
-        camera_locked_ = !camera_locked_;
-        if (!camera_locked_)
-        {
-            camera_distance_ = free_camera_distance_ > 0 ? free_camera_distance_ : PAPER_CAMERA_DEFAULT_DISTANCE;
-        }
-    }
-    if (!camera_locked_ && e.type == EVENT_MOUSE_WHEEL && e.wheel.y != 0)
-    {
-        free_camera_distance_ = std::clamp(free_camera_distance_ - e.wheel.y * PAPER_CAMERA_WHEEL_ZOOM_STEP,
-            PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
-        camera_distance_ = free_camera_distance_;
     }
     if (e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE
         || e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
@@ -1134,47 +1173,6 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
                 if (engine->checkKeyPress(K_S))
                 {
                     input_forward -= 1;
-                }
-                if (!camera_locked_)
-                {
-                    if (engine->checkKeyPress(K_Z))
-                    {
-                        free_camera_distance_ += PAPER_CAMERA_ZOOM_STEP;
-                    }
-                    if (engine->checkKeyPress(K_X))
-                    {
-                        free_camera_distance_ -= PAPER_CAMERA_ZOOM_STEP;
-                    }
-                    auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
-                    auto right_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER);
-                    if (left_trigger > 6000)
-                    {
-                        free_camera_distance_ += PAPER_CAMERA_ZOOM_STEP * GameUtil::clamp(left_trigger, 0, 20000) / 20000.0f;
-                    }
-                    if (right_trigger > 6000)
-                    {
-                        free_camera_distance_ -= PAPER_CAMERA_ZOOM_STEP * GameUtil::clamp(right_trigger, 0, 20000) / 20000.0f;
-                    }
-                    free_camera_distance_ = std::clamp(free_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
-                    camera_distance_ = free_camera_distance_;
-                }
-                if (!camera_locked_)
-                {
-                    float camera_rotate = 0;
-                    float camera_height_delta = 0;
-                    if (engine->checkKeyPress(K_LEFT)) { camera_rotate -= 1; }
-                    if (engine->checkKeyPress(K_RIGHT)) { camera_rotate += 1; }
-                    if (engine->checkKeyPress(K_UP)) { camera_height_delta += 1; }
-                    if (engine->checkKeyPress(K_DOWN)) { camera_height_delta -= 1; }
-                    auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
-                    auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
-                    if (std::abs(right_axis_x) < 6000) { right_axis_x = 0; }
-                    if (std::abs(right_axis_y) < 6000) { right_axis_y = 0; }
-                    camera_rotate += GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f;
-                    camera_height_delta += GameUtil::clamp(-right_axis_y, -20000, 20000) / 20000.0f;
-                    camera_angle_ += camera_rotate * PAPER_FREE_CAMERA_ROTATE_SPEED;
-                    camera_height_ = std::clamp(camera_height_ + camera_height_delta * PAPER_FREE_CAMERA_HEIGHT_SPEED,
-                        PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
                 }
                 Pointf view_dir = camera_.center - camera_.pos;
                 view_dir.z = 0;
