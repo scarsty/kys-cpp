@@ -40,6 +40,7 @@ public:
     void geItemsByType(int item_type);
 
     void checkCurrentItem();
+    virtual void onEntrance() override;
     virtual void draw() override { showItemProperty(current_item_); }
     virtual void dealEvent(EngineEvent& e) override;
 
@@ -51,11 +52,15 @@ public:
 
     Item* current_item_ = nullptr;
     Item* dropped_item_ = nullptr;
+    bool clear_current_item_after_drag_ok_ = false;
     std::shared_ptr<Button> current_button_{ nullptr };
     std::shared_ptr<Button> drag_item_{ nullptr };
     std::vector<Item*> available_items_;
+    Item* used_item_ = nullptr;
 
     Item* getCurrentItem() { return current_item_; }
+    Item* getUsedItem() { return used_item_; }
+    void clearUsedItem() { used_item_ = nullptr; }
 
     virtual void onPressedOK() override;
     virtual void onPressedCancel() override;

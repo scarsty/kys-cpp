@@ -50,6 +50,11 @@ UIItem::~UIItem()
 {
 }
 
+void UIItem::onEntrance()
+{
+    used_item_ = nullptr;
+}
+
 void UIItem::setForceItemType(std::set<int> f)
 {
     force_item_type_ = f;
@@ -240,6 +245,7 @@ void UIItem::dealEvent(EngineEvent& e)
         if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT && drag_item_->getTexutreID() >= 0)
         {
             drag_item_->setTexture("item", -1);
+            clear_current_item_after_drag_ok_ = true;
         }
     }
 
@@ -674,7 +680,12 @@ void UIItem::onPressedOK()
     {
         return;
     }
+    if (current_button_ == nullptr && current_item_ == dropped_item_)
+    {
+        return;
+    }
 
+    used_item_ = current_item_;
     //在使用剧情物品的时候，返回一个结果，主UI判断此时可以退出
     if (current_item_->ItemType == 0)
     {
@@ -735,6 +746,13 @@ void UIItem::onPressedOK()
             //似乎不需要特殊处理
         }
         UI::getInstance()->setVisible(true);
+    }
+    if (clear_current_item_after_drag_ok_)
+    {
+        current_item_ = dropped_item_;
+        current_button_ = nullptr;
+        clear_current_item_after_drag_ok_ = false;
+        setAllChildState(NodeNormal);
     }
     setExit(true);    //用于战斗时。平时物品栏不是以根节点运行，设置这个没有作用
 }

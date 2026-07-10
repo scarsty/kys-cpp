@@ -445,9 +445,9 @@ void UIStatus::onPressedOK()
         setVisible(false);
         menu->runAtPosition(300, 0);
         setVisible(true);
-        if (menu->getCurrentItem())
+        if (menu->getUsedItem())
         {
-            role_->equip(menu->getCurrentItem());
+            role_->equip(menu->getUsedItem());
         }
         UI::getInstance()->setVisible(true);
     };

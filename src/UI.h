@@ -40,7 +40,7 @@ public:
 
     void onPressedOK() override;
     DEFAULT_CANCEL_EXIT;
-    Item* getUsedItem() { return ui_item_->getCurrentItem(); }
+    Item* getUsedItem() { return ui_item_->getUsedItem(); }
 
     std::vector<std::shared_ptr<Head>> heads_ptrs_;    //方便一些操作
 };

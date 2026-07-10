@@ -158,6 +158,21 @@ void Menu::dealEvent(EngineEvent& e)
         }
         forceActiveChild();
     }
+    if (e.type == EVENT_MOUSE_MOTION
+        || ((e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_BUTTON_UP) && e.button.button == BUTTON_LEFT))
+    {
+        size_t active_child = active_child_;
+        if (active_child_ >= 0 && active_child < childs_.size() && childs_[active_child]->getState() != NodeNormal)
+        {
+            for (size_t i = 0; i < childs_.size(); i++)
+            {
+                if (i != active_child && childs_[i]->getState() != NodeNormal)
+                {
+                    childs_[i]->setState(NodeNormal);
+                }
+            }
+        }
+    }
 }
 
 void Menu::arrange(int x, int y, int inc_x, int inc_y)

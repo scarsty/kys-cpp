@@ -204,10 +204,33 @@ void UI::backRun()
 
 void UI::onPressedOK()
 {
+    //按钮的响应
+    if (button_status_->getState() == NodePress)
+    {
+        childs_[ui_index_] = ui_status_;
+        current_button_ = button_status_->getTag();
+        ui_item_->clearUsedItem();
+        return;
+    }
+    if (button_item_->getState() == NodePress)
+    {
+        childs_[ui_index_] = ui_item_;
+        current_button_ = button_item_->getTag();
+        ui_item_->clearUsedItem();
+        return;
+    }
+    if (button_system_->getState() == NodePress)
+    {
+        childs_[ui_index_] = ui_system_;
+        current_button_ = button_system_->getTag();
+        ui_item_->clearUsedItem();
+        return;
+    }
+
     //这里检测是否使用了物品，返回物品的id
     if (childs_[ui_index_] == ui_item_)
     {
-        auto item = ui_item_->getCurrentItem();
+        auto item = ui_item_->getUsedItem();
         if (item && item->ItemType == 0)
         {
             setExit(true);
@@ -224,21 +247,5 @@ void UI::onPressedOK()
         }
     }
 
-    //按钮的响应
-    if (button_status_->getState() == NodePress)
-    {
-        childs_[ui_index_] = ui_status_;
-        current_button_ = button_status_->getTag();
-    }
-    if (button_item_->getState() == NodePress)
-    {
-        childs_[ui_index_] = ui_item_;
-        current_button_ = button_item_->getTag();
-    }
-    if (button_system_->getState() == NodePress)
-    {
-        childs_[ui_index_] = ui_system_;
-        current_button_ = button_system_->getTag();
-    }
     //current_button_ = childs_[0]->getTag();
 }

@@ -507,6 +507,7 @@ void BattleScenePaper::draw()
                 float depth = 0;
                 int turn = 1;
                 int rot = 0;
+                int order = 0;
             };
 
             auto to_paper_anchor = [](Pointf p)
@@ -515,6 +516,12 @@ void BattleScenePaper::draw()
             };
 
             std::vector<PaperSprite> sprites;
+            int sprite_order = 0;
+            auto push_sprite = [&](PaperSprite sprite)
+            {
+                sprite.order = sprite_order++;
+                sprites.emplace_back(std::move(sprite));
+            };
             auto engine = Engine::getInstance();
             bool need_draw_wall_texture = true;
             if (auto old_wall_texture = engine->getTexture("paper-wall-edge"))
@@ -577,8 +584,9 @@ void BattleScenePaper::draw()
                     sprite.src = { { 0, 0 }, { 16, 0 }, { 16, 16 }, { 0, 16 } };
                 }
                 sprite.world = edge.world;
+                sprite.anchor = { (edge.world[0].x + edge.world[2].x) * 0.5f, (edge.world[0].y + edge.world[2].y) * 0.5f, 0 };
                 sprite.depth = edge.depth;
-                sprites.emplace_back(std::move(sprite));
+                push_sprite(std::move(sprite));
             }
             for (auto& b : buildings)
             {
@@ -586,7 +594,7 @@ void BattleScenePaper::draw()
                 sprite.tex = b.tex;
                 sprite.anchor = b.anchor;
                 sprite.depth = calc_depth(sprite.anchor);
-                sprites.emplace_back(sprite);
+                push_sprite(std::move(sprite));
             }
 
             for (auto r : battle_roles_)
@@ -618,7 +626,7 @@ void BattleScenePaper::draw()
                     sprite.anchor.x += -2.5 + rand_.rand() * 5;
                 }
                 sprite.depth = calc_depth(sprite.anchor);
-                sprites.emplace_back(sprite);
+                push_sprite(std::move(sprite));
             }
 
             for (auto& ae : attack_effects_)
@@ -630,16 +638,30 @@ void BattleScenePaper::draw()
                 //sprite.alpha = uint8_t(GameUtil::clamp(224 * (ae.TotalFrame * 1.25 - ae.Frame) / (ae.TotalFrame * 1.25), 0.0, 224.0));
                 sprite.alpha = 230;
                 sprite.depth = calc_depth(sprite.anchor);
-                sprites.emplace_back(sprite);
+                push_sprite(std::move(sprite));
             }
 
             std::sort(sprites.begin(), sprites.end(), [](const PaperSprite& a, const PaperSprite& b)
                 {
-                    if (a.depth != b.depth)
+                    constexpr float depth_epsilon = 1.0f;
+                    float depth_delta = a.depth - b.depth;
+                    if (std::abs(depth_delta) > depth_epsilon)
                     {
-                        return a.depth > b.depth;
+                        return depth_delta > 0;
                     }
-                    return a.turn < b.turn;
+                    if (a.anchor.y != b.anchor.y)
+                    {
+                        return a.anchor.y < b.anchor.y;
+                    }
+                    if (a.anchor.x != b.anchor.x)
+                    {
+                        return a.anchor.x < b.anchor.x;
+                    }
+                    if (a.turn != b.turn)
+                    {
+                        return a.turn < b.turn;
+                    }
+                    return a.order < b.order;
                 });
             for (auto& sprite : sprites)
             {
