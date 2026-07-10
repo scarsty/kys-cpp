@@ -181,6 +181,29 @@ void renderProjectedQuad(Camera& camera, Texture* texture, const std::vector<Poi
     Engine::getInstance()->renderTexture(texture, nullptr, destination, source);
 }
 
+Texture* ensurePaperCursorFloorTexture(Engine& engine)
+{
+    bool needDrawTexture = true;
+    if (auto texture = engine.getTexture("paper-cursor-floor"))
+    {
+        int width = 0;
+        int height = 0;
+        Engine::getTextureSize(texture, width, height);
+        needDrawTexture = width != 1 || height != 1;
+    }
+
+    engine.createRenderedTexture("paper-cursor-floor", 1, 1);
+    auto texture = engine.getTexture("paper-cursor-floor");
+    if (texture && needDrawTexture)
+    {
+        auto previousTarget = engine.getRenderTarget();
+        engine.setRenderTarget(texture);
+        engine.fillColor({ 255, 255, 255, 255 }, 0, 0, 1, 1, BLENDMODE_NONE);
+        engine.setRenderTarget(previousTarget);
+    }
+    return texture;
+}
+
 float smoothStep(float edge0, float edge1, float value)
 {
     if (edge1 <= edge0)
@@ -470,6 +493,19 @@ BattleSceneCameraBounds BattleSceneHades::makeCameraBounds() const
     };
 }
 
+Pointf BattleSceneHades::clampPaperCameraCenter(Pointf center) const
+{
+    const float groundExtent = static_cast<float>(COORD_COUNT * TILE_W * 2);
+    return BattleSceneRenderMath::clampPaperCameraCenter(center, groundExtent, groundExtent);
+}
+
+Pointf BattleSceneHades::clampCameraCenterForActiveView(Pointf center) const
+{
+    return active_paper_battle_view_
+        ? clampPaperCameraCenter(center)
+        : BattleSceneCamera::clampCenter(center, makeCameraBounds());
+}
+
 Color BattleSceneHades::calculateHurtFlashColor(int unitId, const Color& baseColor) const
 {
     auto it = hurt_flash_timers_.find(unitId);
@@ -680,7 +716,7 @@ std::optional<Pointf> BattleSceneHades::defaultPaperCameraCenterFromRuntimeUnits
     }
     Pointf center = (selectedAlly + selectedEnemy) * 0.5;
     center.z = 0.0f;
-    return BattleSceneCamera::clampCenter(center, makeCameraBounds());
+    return clampPaperCameraCenter(center);
 }
 
 void BattleSceneHades::updatePaperCameraAutoCenter(bool snap)
@@ -705,13 +741,13 @@ void BattleSceneHades::updatePaperCameraAutoCenter(bool snap)
     }
     const float step = std::min(PAPER_AUTO_CENTER_MAX_STEP, distance - PAPER_AUTO_CENTER_DEAD_ZONE);
     delta.normTo(step);
-    pos_ = BattleSceneCamera::clampCenter(pos_ + delta, makeCameraBounds());
+    pos_ = clampPaperCameraCenter(pos_ + delta);
 }
 
 void BattleSceneHades::switchBattleViewMode(bool paperView)
 {
     active_paper_battle_view_ = paperView;
-    pos_ = BattleSceneCamera::clampCenter(pos_, makeCameraBounds());
+    pos_ = clampCameraCenterForActiveView(pos_);
     x_ = 0;
     y_ = 0;
     if (paperView)
@@ -832,6 +868,8 @@ void BattleSceneHades::drawClassicView()
         }
         return int(rect1.y + (world_y - rect0.y) * viewScaleY);
     };
+    const bool cursorFloorActive = battle_cursor_->isRunning() && !acting_role_->isAuto();
+    const bool cursorFloorActionMode = cursorFloorActive && battle_cursor_->getMode() == BattleCursor::Action;
 
     auto earth_tex = Engine::getInstance()->getTexture("earth_base");
     if (earth_tex)
@@ -892,11 +930,17 @@ void BattleSceneHades::drawClassicView()
             if (!battle_map_.isOutLine(ix, iy))
             {
                 int num = battle_map_.earthLayer().data(ix, iy) / 2;
-                Color color = { 255, 255, 255, 255 };
-                bool need_draw = earth_tex == nullptr;
-                if (need_draw && num > 0)
+                const bool selectable = canSelect(ix, iy);
+                const auto floorDraw = BattleSceneRenderMath::battleCursorFloorDraw(
+                    cursorFloorActive,
+                    cursorFloorActionMode,
+                    selectable,
+                    haveEffect(ix, iy),
+                    ix == select_x_ && iy == select_y_,
+                    earth_tex != nullptr);
+                if (floorDraw.shouldDraw && num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, renderWorldX(p.x), renderWorldY(p.y / 2.0), TextureManager::RenderInfo{ color });
+                    TextureManager::getInstance()->renderTexture("smap", num, renderWorldX(p.x), renderWorldY(p.y / 2.0), TextureManager::RenderInfo{ floorDraw.color });
                 }
             }
         }
@@ -1153,7 +1197,7 @@ void BattleSceneHades::drawClassicView()
             renderExtraRoleInfo(
                 unit,
                 renderWorldX(unit.motion.position.x),
-                renderWorldY(unit.motion.position.y / 2.0));
+                renderWorldY(unit.motion.position.y / 2.0) + ROLE_STATUS_BAR_Y);
         }
     }
 
@@ -1465,6 +1509,34 @@ void BattleSceneHades::drawPaperView()
         engine->renderTextureMesh(earthTexture, destination, source, colors, indices);
     }
 
+    const bool cursorFloorActive = battle_cursor_->isRunning() && !acting_role_->isAuto();
+    if (cursorFloorActive && canSelect(select_x_, select_y_))
+    {
+        const auto floorDraw = BattleSceneRenderMath::battleCursorFloorDraw(
+            cursorFloorActive,
+            battle_cursor_->getMode() == BattleCursor::Action,
+            true,
+            haveEffect(select_x_, select_y_),
+            true,
+            true);
+        auto cursorFloorTexture = ensurePaperCursorFloorTexture(*engine);
+        if (cursorFloorTexture && floorDraw.shouldDraw)
+        {
+            auto color = floorDraw.color;
+            color.a = 145;
+            Engine::setColor(cursorFloorTexture, color);
+
+            const auto p00 = battle_map_.pos45To90(select_x_, select_y_);
+            const auto p10 = battle_map_.pos45To90(select_x_ + 1, select_y_);
+            const auto p11 = battle_map_.pos45To90(select_x_ + 1, select_y_ + 1);
+            const auto p01 = battle_map_.pos45To90(select_x_, select_y_ + 1);
+            const auto quad = BattleSceneRenderMath::paperFloorQuad(p00, p10, p11, p01, 1.5f);
+            const std::vector<Pointf> world(quad.begin(), quad.end());
+            const std::vector<FPoint> source = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
+            renderProjectedQuad(paper_camera_, cursorFloorTexture, world, source);
+        }
+    }
+
     struct PaperSprite
     {
         Texture* texture = nullptr;
@@ -1482,6 +1554,8 @@ void BattleSceneHades::drawPaperView()
 
     std::vector<PaperSprite> sprites;
     sprites.reserve(scene_units_.runtimeUnits().size() + attack_effects_.size() + 512);
+    std::unordered_map<int, float> roleInfoAnchorZByUnitId;
+    roleInfoAnchorZByUnitId.reserve(scene_units_.runtimeUnits().size());
 
     const auto cameraCell = battle_map_.pos90To45(pos_.x, pos_.y);
     const int buildingMargin = 8;
@@ -1661,6 +1735,7 @@ void BattleSceneHades::drawPaperView()
         sprite.sortAnchor = sprite.anchor;
         sprite.alpha = presentation.attention ? 255 - presentation.attention * 4 : 255;
         sprite.color = calculateHurtFlashColor(unit.id, sprite.color);
+        roleInfoAnchorZByUnitId[unit.id] = BattleSceneRenderMath::paperRoleInfoAnchorZ(tex->dy);
         if (result_ == -1 && presentation.shake)
         {
             sprite.anchor.x += shakeJitter(battle_frame_, unit.id);
@@ -1809,7 +1884,13 @@ void BattleSceneHades::drawPaperView()
         {
             continue;
         }
+        const auto anchorZ = roleInfoAnchorZByUnitId.find(unit.id);
+        if (anchorZ == roleInfoAnchorZByUnitId.end())
+        {
+            continue;
+        }
         Pointf barWorld = unit.motion.position;
+        barWorld.z += anchorZ->second;
         if (paper_camera_.getDepth(barWorld) <= paper_camera_.getNearPlane())
         {
             continue;
@@ -1825,14 +1906,18 @@ void BattleSceneHades::drawPaperView()
 
     for (const auto& text : text_effects_)
     {
-        Pointf textWorld = text.Pos;
+        assert(text.PaperAnchor.has_value());
+        Pointf textWorld = *text.PaperAnchor;
+        if (text.PaperFollowUnitId >= 0)
+        {
+            textWorld = scene_units_.requireRuntimeUnit(text.PaperFollowUnitId).motion.position;
+        }
         double screenYOffset = 0.0;
         if (text.Type == 0)
         {
-            textWorld.y += static_cast<float>(text.Frame * 2);
             screenYOffset = -static_cast<double>(text.Frame);
         }
-        textWorld.z += 80;
+        textWorld.z += BattleSceneRenderMath::paperFloatingTextAnchorZ();
         if (paper_camera_.getDepth(textWorld) <= paper_camera_.getNearPlane())
         {
             continue;
@@ -1840,7 +1925,11 @@ void BattleSceneHades::drawPaperView()
         const auto projected = paper_camera_.getProj({ textWorld });
         if (!projected.empty())
         {
-            Font::getInstance()->draw(text.Text, text.Size, projected.front().x, projected.front().y + screenYOffset, text.color, 255);
+            Font::getInstance()->draw(text.Text, text.Size,
+                projected.front().x + text.PaperScreenOffsetX,
+                projected.front().y + screenYOffset,
+                text.color,
+                255);
         }
     }
 
@@ -1912,7 +2001,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
             if (!paper_camera_auto_center_)
             {
                 cameraPan.normTo(PAPER_FREE_CAMERA_PAN_SPEED);
-                pos_ = BattleSceneCamera::clampCenter(pos_ + cameraPan, makeCameraBounds());
+                pos_ = clampPaperCameraCenter(pos_ + cameraPan);
             }
         }
         paper_camera_angle_ += cameraRotate * PAPER_FREE_CAMERA_ROTATE_SPEED;
@@ -2178,7 +2267,7 @@ void BattleSceneHades::advanceBattleFrame()
     {
         if (isManualCameraEnabled())
         {
-            pos_ = BattleSceneCamera::clampCenter(pos_, makeCameraBounds());
+            pos_ = clampCameraCenterForActiveView(pos_);
         }
         else
         {
@@ -2385,7 +2474,7 @@ void BattleSceneHades::onEntrance()
     half_speed_step_on_next_render_ = true;
     battle_paused_ = false;
     camera_.reset(pos_);
-    pos_ = BattleSceneCamera::clampCenter(pos_, makeCameraBounds());
+    pos_ = clampCameraCenterForActiveView(pos_);
 
     initializeBattleRuntime(std::move(setupBuild));
     runPreBattlePositionSwapIfEnabled();
@@ -2738,16 +2827,19 @@ void BattleSceneHades::onPressedCancel()
 void BattleSceneHades::renderExtraRoleInfo(
     const KysChess::Battle::BattleRuntimeUnit& unit,
     double x,
-    double y)
+    double statusBarY)
 {
     if (!unit.alive)
     {
         return;
     }
 
-    // 画个血条
+    // 畫個血條
     Color outline_color = { 0, 0, 0, 128 };
     const int barLeft = int(std::round(x - ROLE_STATUS_BAR_WIDTH / 2.0));
+    const int hpBarY = static_cast<int>(std::round(statusBarY));
+    const int mpBarY = hpBarY + (ROLE_STATUS_BAR_MP_Y - ROLE_STATUS_BAR_Y);
+    const int extraBarY = hpBarY + (ROLE_STATUS_BAR_FROZEN_Y - ROLE_STATUS_BAR_Y);
 
     auto renderOutline = [&](int bar_x, int bar_y, int width, int height, Color color, int alpha)
     {
@@ -2783,19 +2875,19 @@ void BattleSceneHades::renderExtraRoleInfo(
         renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, outline_color, 128 * alpha);
     };
 
-    Color background_color = { 0, 255, 0, 128 };    // 我方绿色
-    Color shadow_color = { 64, 64, 64, 128 };       // 背景阴影
+    Color background_color = { 0, 255, 0, 128 };    // 我方綠色
+    Color shadow_color = { 64, 64, 64, 128 };       // 背景陰影
     if (unit.team == 1)
     {
-        // 敌方红色
+        // 敵方紅色
         background_color = { 255, 0, 0, 128 };
     }
 
-    renderBar(y + ROLE_STATUS_BAR_Y, unit.vitals.hp, unit.vitals.maxHp, background_color, shadow_color);
+    renderBar(hpBarY, unit.vitals.hp, unit.vitals.maxHp, background_color, shadow_color);
 
     if (unit.vitals.maxHp > 0 && unit.vitals.hp > 0)
     {
-        int bar_y = y + ROLE_STATUS_BAR_Y;
+        int bar_y = hpBarY;
         int hpFillWidth = std::clamp(
             static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(unit.vitals.hp) / unit.vitals.maxHp))),
             0,
@@ -2830,14 +2922,14 @@ void BattleSceneHades::renderExtraRoleInfo(
 
     Color mp_color = { 0, 0, 255, 128 };
     Color mp_shadow_color = { 64, 64, 64, 128 };
-    renderBar(y + ROLE_STATUS_BAR_MP_Y, unit.vitals.mp, unit.vitals.maxMp, mp_color, mp_shadow_color);
+    renderBar(mpBarY, unit.vitals.mp, unit.vitals.maxMp, mp_color, mp_shadow_color);
 
     // Frozen / cooldown bar – frozen takes priority
     const auto frozen = runtimeFrozenStatusForUnit(battle_session_ ? &*battle_session_ : nullptr, unit.id);
     if (frozen.frames > 0 && frozen.maxFrames > 0)
     {
         Color frozen_color = { 200, 220, 255, 192 };
-        int bar_y = y + ROLE_STATUS_BAR_FROZEN_Y;
+        int bar_y = extraBarY;
         double perc = static_cast<double>(frozen.frames) / frozen.maxFrames;
 
         // Draw outline (same color as bar)
@@ -2850,7 +2942,7 @@ void BattleSceneHades::renderExtraRoleInfo(
     else if (unit.animation.cooldown > 0 && unit.animation.cooldownMax > 0)
     {
         Color cd_color = { 255, 210, 140, 160 };
-        int bar_y = y + ROLE_STATUS_BAR_FROZEN_Y;
+        int bar_y = extraBarY;
         double perc = static_cast<double>(unit.animation.cooldown) / unit.animation.cooldownMax;
 
         renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, cd_color, 100);

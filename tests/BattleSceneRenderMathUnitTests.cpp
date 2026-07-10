@@ -78,3 +78,101 @@ TEST_CASE("BattleSceneRenderMath_MapsWindowPointThroughPresentedGameRect", "[bat
     CHECK(BattleSceneRenderMath::windowPointToUiPoint({ 1760, 900 }, presentRect, 1280, 720).x == 1280);
     CHECK(BattleSceneRenderMath::windowPointToUiPoint({ 1760, 900 }, presentRect, 1280, 720).y == 720);
 }
+
+TEST_CASE("BattleSceneRenderMath_ClampsPaperCameraWithoutClassicHalfY", "[battle][scene_render_math]")
+{
+    const Pointf inside{ 2000.0f, 4000.0f, 35.0f };
+    const auto unchanged = BattleSceneRenderMath::clampPaperCameraCenter(inside, 4608.0f, 4608.0f);
+
+    CHECK(unchanged.x == 2000.0f);
+    CHECK(unchanged.y == 4000.0f);
+    CHECK(unchanged.z == 0.0f);
+
+    const Pointf outside{ -20.0f, 4700.0f, 9.0f };
+    const auto clamped = BattleSceneRenderMath::clampPaperCameraCenter(outside, 4608.0f, 4608.0f);
+
+    CHECK(clamped.x == 0.0f);
+    CHECK(clamped.y == 4608.0f);
+    CHECK(clamped.z == 0.0f);
+}
+
+TEST_CASE("BattleSceneRenderMath_AnchorsPaperRoleInfoAboveSpriteTop", "[battle][scene_render_math]")
+{
+    CHECK(BattleSceneRenderMath::paperRoleInfoAnchorZ(120) == 62.0f);
+    CHECK(BattleSceneRenderMath::paperRoleInfoAnchorZ(-12) == 42.0f);
+    CHECK(BattleSceneRenderMath::paperRoleInfoAnchorZ(300) == 64.0f);
+}
+
+TEST_CASE("BattleSceneRenderMath_UsesStablePaperFloatingTextHeight", "[battle][scene_render_math]")
+{
+    CHECK(BattleSceneRenderMath::paperFloatingTextAnchorZ() == 80.0f);
+}
+
+TEST_CASE("BattleSceneRenderMath_DrawsSelectedCursorFloorOverCachedGround", "[battle][scene_render_math]")
+{
+    const auto draw = BattleSceneRenderMath::battleCursorFloorDraw(
+        true,
+        false,
+        true,
+        false,
+        true,
+        true);
+
+    CHECK(draw.shouldDraw);
+    CHECK(draw.color.r == 255);
+    CHECK(draw.color.g == 255);
+    CHECK(draw.color.b == 255);
+    CHECK(draw.color.a == 255);
+}
+
+TEST_CASE("BattleSceneRenderMath_PreservesCursorRangeFloorTintRules", "[battle][scene_render_math]")
+{
+    const auto selectable = BattleSceneRenderMath::battleCursorFloorDraw(
+        true,
+        false,
+        true,
+        false,
+        false,
+        true);
+    CHECK(selectable.shouldDraw);
+    CHECK(selectable.color.r == 128);
+
+    const auto unavailable = BattleSceneRenderMath::battleCursorFloorDraw(
+        true,
+        false,
+        false,
+        false,
+        false,
+        true);
+    CHECK_FALSE(unavailable.shouldDraw);
+    CHECK(unavailable.color.r == 64);
+
+    const auto actionEffect = BattleSceneRenderMath::battleCursorFloorDraw(
+        true,
+        true,
+        true,
+        true,
+        false,
+        true);
+    CHECK(actionEffect.shouldDraw);
+    CHECK(actionEffect.color.r == 192);
+}
+
+TEST_CASE("BattleSceneRenderMath_LiftsPaperCursorFloorQuadAboveGround", "[battle][scene_render_math]")
+{
+    const auto quad = BattleSceneRenderMath::paperFloorQuad(
+        { 10.0f, 20.0f, 0.0f },
+        { 46.0f, 56.0f, 0.0f },
+        { 10.0f, 92.0f, 0.0f },
+        { -26.0f, 56.0f, 0.0f },
+        1.5f);
+
+    CHECK(quad[0].x == 10.0f);
+    CHECK(quad[1].y == 56.0f);
+    CHECK(quad[2].x == 10.0f);
+    CHECK(quad[3].y == 56.0f);
+    for (const auto& point : quad)
+    {
+        CHECK(point.z == 1.5f);
+    }
+}

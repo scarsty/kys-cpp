@@ -161,12 +161,19 @@ inline std::vector<int> diedUnitIdsFor(const std::vector<KysChess::Battle::Battl
     return unitIds;
 }
 
+inline float floatingTextScreenOffsetXFor(
+    const std::string& text,
+    auto& effects)
+{
+    return -static_cast<float>(7.5 * effects.textDrawSize(text));
+}
+
 inline Pointf floatingTextPositionFor(
     Pointf position,
     const std::string& text,
     auto& effects)
 {
-    position.x -= static_cast<float>(7.5 * effects.textDrawSize(text));
+    position.x += floatingTextScreenOffsetXFor(text, effects);
     position.y -= 50;
     return position;
 }
@@ -342,10 +349,14 @@ void BattleSceneFrameApplier::spawnFloatingText(
     if (auto unit = resolveUnitView(event.targetUnitId))
     {
         effect.Pos = BattleSceneFrameApplierDetail::floatingTextPositionFor(unit->position, event.text, effects);
+        effect.PaperAnchor = unit->position;
+        effect.PaperFollowUnitId = event.targetUnitId;
+        effect.PaperScreenOffsetX = BattleSceneFrameApplierDetail::floatingTextScreenOffsetXFor(event.text, effects);
     }
     else
     {
         effect.Pos = event.position;
+        effect.PaperAnchor = event.position;
     }
     effect.Size = event.textSize;
     effect.Type = event.textMotionType;
@@ -388,6 +399,9 @@ void BattleSceneFrameApplier::spawnDamageNumber(
     effect.Text = std::to_string(-event.amount);
     effect.color = BattleSceneFrameApplierDetail::toSceneColor(event.color);
     effect.Pos = BattleSceneFrameApplierDetail::floatingTextPositionFor(unit->position, effect.Text, effects);
+    effect.PaperAnchor = unit->position;
+    effect.PaperFollowUnitId = event.targetUnitId;
+    effect.PaperScreenOffsetX = BattleSceneFrameApplierDetail::floatingTextScreenOffsetXFor(effect.Text, effects);
     effect.Size = BattleSceneFrameApplierDetail::damageTextSize(event.textSize, event.amount, unit->maxHp);
     effect.color.a = BattleSceneFrameApplierDetail::damageTextAlpha(event.amount, unit->maxHp);
     bindings_.textEffects.push_back(std::move(effect));

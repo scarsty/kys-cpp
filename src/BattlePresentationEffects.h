@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <deque>
 #include <format>
+#include <optional>
 #include <string>
 
 struct BattleAttackEffect
@@ -52,11 +53,14 @@ struct BattleAttackEffect
 struct BattleTextEffect
 {
     Pointf Pos;
+    std::optional<Pointf> PaperAnchor;
     std::string Text;
     int Size = 15;
     int Frame = 0;
+    int PaperFollowUnitId = -1;
     Color color;
     int Type = 0;
+    float PaperScreenOffsetX{};
 };
 
 inline void advanceBattleVisualOnlyEffects(std::deque<BattleAttackEffect>& effects)

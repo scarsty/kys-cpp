@@ -62,7 +62,7 @@ protected:
     void renderExtraRoleInfo(
         const KysChess::Battle::BattleRuntimeUnit& unit,
         double x,
-        double y);
+        double statusBarY);
     virtual int checkResult() override;
     void updateFrameApplierContext();
     bool shouldAdvanceBattleSimulation();
@@ -94,6 +94,8 @@ protected:
     int getBattleStepsThisRender();
     void advanceBattleFrame();
     BattleSceneCameraBounds makeCameraBounds() const;
+    Pointf clampPaperCameraCenter(Pointf center) const;
+    Pointf clampCameraCenterForActiveView(Pointf center) const;
     Color calculateHurtFlashColor(int unitId, const Color& baseColor) const;
     void drawClassicView();
     void drawPaperView();

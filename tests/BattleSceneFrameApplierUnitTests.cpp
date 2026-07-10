@@ -240,3 +240,29 @@ TEST_CASE("BattleSceneFrameApplier_AppliesVisualImpactShakeSoundAndRumble", "[ba
     CHECK(fixture.effects.rumbles[0].highFrequency == 100);
     CHECK(fixture.effects.rumbles[0].durationMs == 50);
 }
+
+TEST_CASE("BattleSceneFrameApplier_StoresSeparatePaperAnchorForTargetedText", "[battle][scene_frame_applier]")
+{
+    ApplierFixture fixture;
+    BattlePresentationFrame frame;
+    BattleVisualEvent number;
+    number.type = BattleVisualEventType::DamageNumber;
+    number.targetUnitId = 1;
+    number.amount = 50;
+    number.textSize = 24;
+    frame.visualEvents.push_back(number);
+
+    fixture.applier.apply(frame, fixture.effects);
+
+    REQUIRE(fixture.textEffects.size() == 1);
+    const auto& effect = fixture.textEffects.front();
+    CHECK(effect.Text == "-50");
+    CHECK(effect.Pos.x == 77.5f);
+    CHECK(effect.Pos.y == -50.0f);
+    CHECK(effect.PaperFollowUnitId == 1);
+    REQUIRE(effect.PaperAnchor.has_value());
+    CHECK(effect.PaperAnchor->x == 100.0f);
+    CHECK(effect.PaperAnchor->y == 0.0f);
+    CHECK(effect.PaperAnchor->z == 0.0f);
+    CHECK(effect.PaperScreenOffsetX == -22.5f);
+}

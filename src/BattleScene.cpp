@@ -1,6 +1,7 @@
 ﻿#include "BattleScene.h"
 #include "Audio.h"
 #include "BattleNetwork.h"    //必须在Audio之前
+#include "BattleSceneRenderMath.h"
 #include "ChessUiCommon.h"
 #include "DrawableOnCall.h"
 #include "Event.h"
@@ -169,42 +170,17 @@ void BattleScene::draw()
             if (!isOutLine(ix, iy))
             {
                 int num = earth_layer_.data(ix, iy) / 2;
-                Color color = { 255, 255, 255, 255 };
-                bool need_draw = (earth_texture == nullptr);
-                if (need_change_earth_color_)
+                const bool selectable = canSelect(ix, iy);
+                const auto floorDraw = BattleSceneRenderMath::battleCursorFloorDraw(
+                    need_change_earth_color_,
+                    battle_cursor_->getMode() == BattleCursor::Action,
+                    selectable,
+                    haveEffect(ix, iy),
+                    ix == select_x_ && iy == select_y_,
+                    earth_texture != nullptr);
+                if (floorDraw.shouldDraw && num > 0)
                 {
-                    if (select_layer_.data(ix, iy) < 0)
-                    {
-                        color = { 64, 64, 64, 255 };
-                        need_draw = (earth_texture == nullptr);
-                    }
-                    else
-                    {
-                        color = { 128, 128, 128, 255 };
-                        need_draw = true;
-                    }
-                    if (battle_cursor_->getMode() == BattleCursor::Action)
-                    {
-                        if (haveEffect(ix, iy))
-                        {
-                            if (!canSelect(ix, iy))
-                            {
-                                color = { 160, 160, 160, 255 };
-                            }
-                            else
-                            {
-                                color = { 192, 192, 192, 255 };
-                            }
-                        }
-                    }
-                    if (ix == select_x_ && iy == select_y_)
-                    {
-                        color = { 255, 255, 255, 255 };
-                    }
-                }
-                if (need_draw && num > 0)
-                {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, TextureManager::RenderInfo{ color });
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, TextureManager::RenderInfo{ floorDraw.color });
                 }
             }
         }
