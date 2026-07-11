@@ -82,6 +82,7 @@ bool ChessBalance::loadConfig(const std::string& path)
         if (n["生命倍率"]) c.starHPMult = n["生命倍率"].as<double>();
         if (n["攻击倍率"]) c.starAtkMult = n["攻击倍率"].as<double>();
         if (n["防御倍率"]) c.starDefMult = n["防御倍率"].as<double>();
+        if (n["武功倍率"]) c.starMartialMult = n["武功倍率"].as<double>();
         if (n["速度倍率"]) c.starSpdMult = n["速度倍率"].as<double>();
         if (n["固定生命"]) c.starFlatHP = n["固定生命"].as<int>();
         if (n["固定攻击"]) c.starFlatAtk = n["固定攻击"].as<int>();

@@ -30,6 +30,7 @@ struct BalanceConfig
     double starHPMult = 0.80;
     double starAtkMult = 0.80;
     double starDefMult = 0.50;
+    double starMartialMult = 0.50;
     double starSpdMult = 0.25;
     int starFlatHP = 200;
     int starFlatAtk = 15;

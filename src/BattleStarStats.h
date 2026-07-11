@@ -58,6 +58,7 @@ inline StarBoostedStats computeStarBoostedStats(
     const double hpMultiplier = 1.0 + cfg.starHPMult * starLevel;
     const double attackMultiplier = 1.0 + cfg.starAtkMult * starLevel;
     const double defenceMultiplier = 1.0 + cfg.starDefMult * starLevel;
+    const double martialMultiplier = 1.0 + cfg.starMartialMult * starLevel;
     const double speedMultiplier = 1.0 + cfg.starSpdMult * starLevel;
     const int actionFlat = 15 * starLevel;
 
@@ -66,11 +67,11 @@ inline StarBoostedStats computeStarBoostedStats(
         static_cast<int>(stats.attack * attackMultiplier) + cfg.starFlatAtk * starLevel + winATK,
         static_cast<int>(stats.defence * defenceMultiplier) + cfg.starFlatDef * starLevel + winDEF,
         static_cast<int>(stats.speed * speedMultiplier) + winSPD,
-        static_cast<int>(stats.fist * defenceMultiplier) + actionFlat + winWeapon,
-        static_cast<int>(stats.sword * defenceMultiplier) + actionFlat + winWeapon,
-        static_cast<int>(stats.knife * defenceMultiplier) + actionFlat + winWeapon,
-        static_cast<int>(stats.unusual * defenceMultiplier) + actionFlat + winWeapon,
-        static_cast<int>(stats.hiddenWeapon * defenceMultiplier) + actionFlat + winWeapon,
+        static_cast<int>(stats.fist * martialMultiplier) + actionFlat + winWeapon,
+        static_cast<int>(stats.sword * martialMultiplier) + actionFlat + winWeapon,
+        static_cast<int>(stats.knife * martialMultiplier) + actionFlat + winWeapon,
+        static_cast<int>(stats.unusual * martialMultiplier) + actionFlat + winWeapon,
+        static_cast<int>(stats.hiddenWeapon * martialMultiplier) + actionFlat + winWeapon,
     };
 }
 
