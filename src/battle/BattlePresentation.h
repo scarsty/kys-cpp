@@ -2,7 +2,9 @@
 
 #include "../Point.h"
 
+#include <cassert>
 #include <cstdint>
+#include <format>
 #include <string>
 #include <vector>
 
@@ -10,6 +12,21 @@ namespace KysChess::Battle
 {
 
 inline constexpr int BattlePresentationCurrentFrame = -1;
+
+inline std::string criticalMultiplierLabel(int criticalMultiplier)
+{
+    assert(criticalMultiplier >= 100);
+
+    if (criticalMultiplier % 100 == 0)
+    {
+        return std::format("x{}", criticalMultiplier / 100);
+    }
+    if (criticalMultiplier % 10 == 0)
+    {
+        return std::format("x{:.1f}", criticalMultiplier / 100.0);
+    }
+    return std::format("x{:.2f}", criticalMultiplier / 100.0);
+}
 
 struct BattlePresentationColor
 {
@@ -133,6 +150,7 @@ struct BattleVisualEvent
     int durationFrames = 0;
     int effectId = -1;
     int textSize = 0;
+    int criticalMultiplier = 0;
     int textMotionType = 0;
     std::string text;
     std::string skillName;

@@ -376,12 +376,14 @@ TEST_CASE("BattleHitResolver_CritMarksResultAndKeepsDamageDetail", "[battle][hit
     auto result = resolveHit(input);
 
     CHECK(result.critical);
+    CHECK(result.criticalMultiplier == 200);
     CHECK(result.shapedHpDamage == Catch::Approx(100.0));
     CHECK(result.logEvents.empty());
     const auto* command = firstHpDamageCommand(result);
     REQUIRE(command);
     CHECK(command->critical);
-    CHECK(BattleLogTest::joinSegments(command->segments) == "暴擊");
+    CHECK(command->criticalMultiplier == 200);
+    CHECK(BattleLogTest::joinSegments(command->segments) == "暴擊 x2");
 }
 
 TEST_CASE("BattleHitResolver_ProjectileCritKeepsDamageDetailWithoutStatusLog", "[battle][hit_resolver][unit]")
@@ -396,12 +398,14 @@ TEST_CASE("BattleHitResolver_ProjectileCritKeepsDamageDetailWithoutStatusLog", "
     auto result = resolveHit(input);
 
     CHECK(result.critical);
+    CHECK(result.criticalMultiplier == 200);
     CHECK(result.shapedHpDamage == Catch::Approx(100.0));
     CHECK(result.logEvents.empty());
     const auto* command = firstHpDamageCommand(result);
     REQUIRE(command);
     CHECK(command->critical);
-    CHECK(BattleLogTest::joinSegments(command->segments) == "暴擊");
+    CHECK(command->criticalMultiplier == 200);
+    CHECK(BattleLogTest::joinSegments(command->segments) == "暴擊 x2");
 }
 
 TEST_CASE("BattleHitResolver_DamageCommandLabelsProjectileSource", "[battle][hit_resolver][unit]")

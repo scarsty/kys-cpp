@@ -14,6 +14,7 @@ struct BattleDamagePresentationInput
 {
     bool enabled = false;
     bool critical = false;
+    int criticalMultiplier = 0;
     bool ultimate = false;
     bool executed = false;
     std::string skillName;

@@ -508,7 +508,7 @@ BattleHitShapeResult BattleDamageSystem::shapeHitDamage(const BattleHitShapeInpu
     if (input.usingSkill)
     {
         int actDiff = input.attackerActProperty - input.defenderActProperty;
-        damage *= 1.0 + std::clamp((actDiff / 200.0), -0.25, 0.25);
+        damage *= 1.0 + std::clamp((actDiff / 400.0), -0.15, 0.15);
     }
 
     result.damage = damage;

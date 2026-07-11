@@ -60,6 +60,7 @@ struct BattleHpDamageCommand
     std::string skillName;
     std::vector<BattleLogTextSegment> segments;
     bool triggersDefenseEffects = true;
+    int criticalMultiplier{};
     BattleSkillEffectRef skillEffectRef;
 };
 
@@ -181,6 +182,7 @@ struct BattleHitResolutionResult
     bool dodged = false;
     bool reflected = false;
     bool critical = false;
+    int criticalMultiplier = 0;
     double shapedHpDamage = 0.0;
     int finalHpDamage = 0;
     int finalMpDamage = 0;

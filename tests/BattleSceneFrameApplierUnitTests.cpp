@@ -266,3 +266,21 @@ TEST_CASE("BattleSceneFrameApplier_StoresSeparatePaperAnchorForTargetedText", "[
     CHECK(effect.PaperAnchor->z == 0.0f);
     CHECK(effect.PaperScreenOffsetX == -22.5f);
 }
+
+TEST_CASE("BattleSceneFrameApplier_DamageNumberShowsCriticalMultiplier", "[battle][scene_frame_applier]")
+{
+    ApplierFixture fixture;
+    BattlePresentationFrame frame;
+    BattleVisualEvent number;
+    number.type = BattleVisualEventType::DamageNumber;
+    number.targetUnitId = 1;
+    number.amount = 125;
+    number.criticalMultiplier = 150;
+    number.textSize = 24;
+    frame.visualEvents.push_back(number);
+
+    fixture.applier.apply(frame, fixture.effects);
+
+    REQUIRE(fixture.textEffects.size() == 1);
+    CHECK(fixture.textEffects.front().Text == "-125 (x1.5)");
+}

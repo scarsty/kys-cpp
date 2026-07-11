@@ -899,6 +899,10 @@ void BattleStartInitializationRun::summonClones()
             {
                 continue;
             }
+            if (sourceSpawn.combo.maxAlways(EffectType::CloneSummon) <= 0)
+            {
+                continue;
+            }
             if (source.chessInstanceId >= 0)
             {
                 if (!usedInstanceIds.insert(source.chessInstanceId).second)

@@ -65,6 +65,14 @@ TEST_CASE("ChessBattleEffects_ShieldBreakCompactDescOmitsDefaultChance", "[chess
     CHECK(comboEffectCompactDesc(chanceShieldBreak) == "盾爆50%·自動絕招");
 }
 
+TEST_CASE("ChessBattleEffects_AdditiveStatDescriptionsUseOneSign", "[chess][effects]")
+{
+    CHECK(comboEffectDesc(effect(EffectType::FlatSPD, -15)) == "速度-15");
+    CHECK(comboEffectCompactDesc(effect(EffectType::FlatSPD, -15)) == "速-15");
+    CHECK(comboEffectDesc(effect(EffectType::PctATK, -7)) == "攻擊-7%");
+    CHECK(comboEffectDesc(effect(EffectType::TeamFlatDEF, 10)) == "全隊防禦+10");
+}
+
 TEST_CASE("ChessBattleEffects_ParseAndDescribeEnemyMpDamageAll", "[chess][effects]")
 {
     auto node = YAML::Load(R"(

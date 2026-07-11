@@ -4066,6 +4066,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
     secondPresentation.skillName = "終段";
     secondPresentation.segments = battleLogText("第二段");
     secondPresentation.critical = true;
+    secondPresentation.criticalMultiplier = 150;
     secondPresentation.emphasizedDamageColor = { 40, 50, 60, 255 };
     secondPresentation.emphasizedDamageTextSize = 33;
 
@@ -4085,6 +4086,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
             return event.type == BattleVisualEventType::DamageNumber
                 && event.targetUnitId == 1
                 && event.amount == 4
+                && event.criticalMultiplier == 150
                 && event.textSize == 33
                 && event.color.r == 40;
         }));

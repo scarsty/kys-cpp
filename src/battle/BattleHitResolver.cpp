@@ -727,6 +727,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         {
         case BattleAttackerHitDamageEventType::Crit:
             result.critical = true;
+            result.criticalMultiplier = damageEvent.value;
             break;
         case BattleAttackerHitDamageEventType::RampingStack:
             result.logEvents.push_back(statusEvent(
@@ -984,7 +985,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     std::string damageDetail;
     if (result.critical)
     {
-        damageDetail = appendDetail(std::move(damageDetail), "暴擊");
+        damageDetail = appendDetail(
+            std::move(damageDetail),
+            std::format("暴擊 {}", criticalMultiplierLabel(result.criticalMultiplier)));
     }
     if (result.reflected)
     {
@@ -1141,6 +1144,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 battleLogText(damageDetail, BattleLogTextTone::SkillName),
                 !result.reflected,
             };
+            command.criticalMultiplier = result.criticalMultiplier;
             if (!result.reflected)
             {
                 command.skillEffectRef = input.attackEvent.skillEffectRef;

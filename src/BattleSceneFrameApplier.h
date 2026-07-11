@@ -133,6 +133,21 @@ inline std::uint8_t damageTextAlpha(int damage, int maxHp)
     return static_cast<std::uint8_t>(192 + (255 - 192) * impactScale);
 }
 
+inline std::string damageNumberText(int damage, int criticalMultiplier)
+{
+    assert(damage > 0);
+    assert(criticalMultiplier == 0 || criticalMultiplier >= 100);
+
+    if (criticalMultiplier == 0)
+    {
+        return std::to_string(-damage);
+    }
+    return std::format(
+        "-{} ({})",
+        damage,
+        KysChess::Battle::criticalMultiplierLabel(criticalMultiplier));
+}
+
 inline std::set<int> damagedUnitIdsFor(const std::vector<KysChess::Battle::BattleLogEvent>& logs)
 {
     std::set<int> unitIds;
@@ -396,7 +411,7 @@ void BattleSceneFrameApplier::spawnDamageNumber(
     assert(event.amount > 0);
 
     BattleTextEffect effect;
-    effect.Text = std::to_string(-event.amount);
+    effect.Text = BattleSceneFrameApplierDetail::damageNumberText(event.amount, event.criticalMultiplier);
     effect.color = BattleSceneFrameApplierDetail::toSceneColor(event.color);
     effect.Pos = BattleSceneFrameApplierDetail::floatingTextPositionFor(unit->position, effect.Text, effects);
     effect.PaperAnchor = unit->position;

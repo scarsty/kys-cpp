@@ -9,6 +9,7 @@
 #include <format>
 #include <print>
 #include <set>
+#include <string_view>
 
 namespace KysChess
 {
@@ -212,6 +213,9 @@ void updateStatBonuses(RoleComboStatBonuses& bonuses, const ComboEffect& effect)
 
 std::string comboEffectLabel(const ComboEffect& eff, bool compact)
 {
+    const auto signedValue = [](int value, std::string_view suffix = {}) {
+        return std::format("{:+}{}", value, suffix);
+    };
     auto triggerPrefix = [&]() -> std::string {
         if (compact)
         {
@@ -255,21 +259,21 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     std::string desc;
     switch (eff.type)
     {
-    case EffectType::FlatHP: desc = compact ? std::format("生+{}", eff.value) : std::format("生命+{}", eff.value); break;
-    case EffectType::FlatATK: desc = compact ? std::format("攻+{}", eff.value) : std::format("攻擊+{}", eff.value); break;
-    case EffectType::FlatDEF: desc = compact ? std::format("防+{}", eff.value) : std::format("防禦+{}", eff.value); break;
-    case EffectType::FlatSPD: desc = compact ? std::format("速+{}", eff.value) : std::format("速度+{}", eff.value); break;
-    case EffectType::PctHP: desc = compact ? std::format("生+{}%", eff.value) : std::format("生命+{}%", eff.value); break;
-    case EffectType::PctATK: desc = compact ? std::format("攻+{}%", eff.value) : std::format("攻擊+{}%", eff.value); break;
-    case EffectType::PctDEF: desc = compact ? std::format("防+{}%", eff.value) : std::format("防禦+{}%", eff.value); break;
-    case EffectType::TeamFlatHP: desc = compact ? std::format("全生+{}", eff.value) : std::format("全隊生命+{}", eff.value); break;
-    case EffectType::TeamFlatATK: desc = compact ? std::format("全攻+{}", eff.value) : std::format("全隊攻擊+{}", eff.value); break;
-    case EffectType::TeamFlatDEF: desc = compact ? std::format("全防+{}", eff.value) : std::format("全隊防禦+{}", eff.value); break;
-    case EffectType::TeamFlatSPD: desc = compact ? std::format("全速+{}", eff.value) : std::format("全隊速度+{}", eff.value); break;
-    case EffectType::TeamPctHP: desc = compact ? std::format("全生+{}%", eff.value) : std::format("全隊生命+{}%", eff.value); break;
-    case EffectType::TeamPctATK: desc = compact ? std::format("全攻+{}%", eff.value) : std::format("全隊攻擊+{}%", eff.value); break;
-    case EffectType::TeamPctDEF: desc = compact ? std::format("全防+{}%", eff.value) : std::format("全隊防禦+{}%", eff.value); break;
-    case EffectType::TeamPctSPD: desc = compact ? std::format("全速+{}%", eff.value) : std::format("全隊速度+{}%", eff.value); break;
+    case EffectType::FlatHP: desc = std::format("{}{}", compact ? "生" : "生命", signedValue(eff.value)); break;
+    case EffectType::FlatATK: desc = std::format("{}{}", compact ? "攻" : "攻擊", signedValue(eff.value)); break;
+    case EffectType::FlatDEF: desc = std::format("{}{}", compact ? "防" : "防禦", signedValue(eff.value)); break;
+    case EffectType::FlatSPD: desc = std::format("{}{}", compact ? "速" : "速度", signedValue(eff.value)); break;
+    case EffectType::PctHP: desc = std::format("{}{}", compact ? "生" : "生命", signedValue(eff.value, "%")); break;
+    case EffectType::PctATK: desc = std::format("{}{}", compact ? "攻" : "攻擊", signedValue(eff.value, "%")); break;
+    case EffectType::PctDEF: desc = std::format("{}{}", compact ? "防" : "防禦", signedValue(eff.value, "%")); break;
+    case EffectType::TeamFlatHP: desc = std::format("{}{}", compact ? "全生" : "全隊生命", signedValue(eff.value)); break;
+    case EffectType::TeamFlatATK: desc = std::format("{}{}", compact ? "全攻" : "全隊攻擊", signedValue(eff.value)); break;
+    case EffectType::TeamFlatDEF: desc = std::format("{}{}", compact ? "全防" : "全隊防禦", signedValue(eff.value)); break;
+    case EffectType::TeamFlatSPD: desc = std::format("{}{}", compact ? "全速" : "全隊速度", signedValue(eff.value)); break;
+    case EffectType::TeamPctHP: desc = std::format("{}{}", compact ? "全生" : "全隊生命", signedValue(eff.value, "%")); break;
+    case EffectType::TeamPctATK: desc = std::format("{}{}", compact ? "全攻" : "全隊攻擊", signedValue(eff.value, "%")); break;
+    case EffectType::TeamPctDEF: desc = std::format("{}{}", compact ? "全防" : "全隊防禦", signedValue(eff.value, "%")); break;
+    case EffectType::TeamPctSPD: desc = std::format("{}{}", compact ? "全速" : "全隊速度", signedValue(eff.value, "%")); break;
     case EffectType::ActAsCombo: desc = std::format("計作{}", eff.text); break;
     case EffectType::FightWinHP:
         desc = std::format("每勝生命+{}", eff.value);

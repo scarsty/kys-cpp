@@ -3241,6 +3241,7 @@ BattleDamagePresentationInput makeFrameDamagePresentation(
 {
     BattleDamagePresentationInput presentation;
     presentation.critical = command.critical;
+    presentation.criticalMultiplier = command.criticalMultiplier;
     presentation.ultimate = command.ultimate;
     presentation.skillName = command.skillName;
     presentation.segments = command.segments;
@@ -3967,6 +3968,7 @@ void appendFrameDamageOutputEvents(
         number.type = BattleVisualEventType::DamageNumber;
         number.targetUnitId = transaction.defender.id;
         number.amount = hpDamage;
+        number.criticalMultiplier = presentation.criticalMultiplier;
         number.color = selectDamageColor(presentation);
         number.textSize = selectDamageTextSize(presentation);
         frame.visualEvents.push_back(std::move(number));

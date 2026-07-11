@@ -586,6 +586,63 @@ TEST_CASE("BattleStartInitializer_CreatesRuntimeCloneBeforeSceneMirror", "[battl
     CHECK(cloneSpawn.unit.cloneSourceUnitId == 0);
 }
 
+TEST_CASE("BattleStartInitializer_CloneSummonSelectsHighestRankedSynergyMember", "[battle][initialization]")
+{
+    auto lowerRankedMember = runtimeUnit(0, 0, 100, 20, 30, 40);
+    lowerRankedMember.realRoleId = 1001;
+    lowerRankedMember.name = "真武低星成員";
+
+    auto highestRankedMember = runtimeUnit(1, 0, 100, 20, 30, 40);
+    highestRankedMember.realRoleId = 1002;
+    highestRankedMember.name = "真武高星成員";
+
+    auto strongerNonMember = runtimeUnit(2, 0, 100, 20, 30, 40);
+    strongerNonMember.realRoleId = 1003;
+    strongerNonMember.name = "羈絆外高星角色";
+
+    auto spawns = runtimeSpawns({ lowerRankedMember, highestRankedMember, strongerNonMember });
+
+    BattleRuntimeSetupSeed setup;
+    setup.comboDefinitions.push_back({
+        .id = 9002,
+        .name = "真武測試羈絆",
+        .memberRoleIds = { 1001, 1002 },
+        .thresholds = {
+            {
+                .count = 2,
+                .effects = { ComboEffect{ EffectType::CloneSummon, 1 } },
+            },
+        },
+    });
+    setup.units = {
+        { .unitId = 0, .realRoleId = 1001, .team = 0, .star = 1, .cost = 1, .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40 },
+        { .unitId = 1, .realRoleId = 1002, .team = 0, .star = 2, .cost = 1, .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40 },
+        { .unitId = 2, .realRoleId = 1003, .team = 0, .star = 3, .cost = 1, .baseMaxHp = 100, .baseAttack = 20, .baseDefence = 30, .baseSpeed = 40 },
+    };
+    setup.allyRoster = {
+        { .unitId = 0, .realRoleId = 1001, .team = 0, .star = 1, .cost = 1, .chessInstanceId = 10, .sourceOrder = 0 },
+        { .unitId = 1, .realRoleId = 1002, .team = 0, .star = 2, .cost = 1, .chessInstanceId = 11, .sourceOrder = 1 },
+        { .unitId = 2, .realRoleId = 1003, .team = 0, .star = 3, .cost = 1, .chessInstanceId = 12, .sourceOrder = 2 },
+    };
+    setup.cloneSources = {
+        { .sourceUnitId = 0, .sourceRealRoleId = 1001, .power = 100, .star = 1, .chessInstanceId = 10, .sourceOrder = 0 },
+        { .sourceUnitId = 1, .sourceRealRoleId = 1002, .power = 200, .star = 2, .chessInstanceId = 11, .sourceOrder = 1 },
+        { .sourceUnitId = 2, .sourceRealRoleId = 1003, .power = 999, .star = 3, .chessInstanceId = 12, .sourceOrder = 2 },
+    };
+    setup.cloneCells.push_back({ 3, 4, true, false });
+
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
+
+    CHECK(requireSpawn(output.spawns, 0).combo.maxAlways(EffectType::CloneSummon) == 1);
+    CHECK(requireSpawn(output.spawns, 1).combo.maxAlways(EffectType::CloneSummon) == 1);
+    CHECK(requireSpawn(output.spawns, 2).combo.maxAlways(EffectType::CloneSummon) == 0);
+    REQUIRE(output.spawns.size() == 4);
+    const auto& clone = requireSpawn(output.spawns, 3).unit;
+    CHECK(clone.cloneSourceUnitId == 1);
+    CHECK(clone.realRoleId == 1002);
+    CHECK(clone.name == "真武高星成員");
+}
+
 TEST_CASE("BattleStartInitializer_EnemyCloneSummonUsesEnemySource", "[battle][initialization]")
 {
     auto ally = runtimeUnit(0, 0, 300, 80, 60, 40);
