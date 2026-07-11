@@ -7,11 +7,11 @@
 #include <deque>
 #include <optional>
 #include <set>
-#include <unordered_map>
-#include <mutex>
 
 enum class PointerPhase { Motion, ButtonDown, ButtonUp, Cancel, Wheel };
 enum class PointerSource { Mouse, Touch };
+enum class PointerActivationScope { HitTargetOnly, Anywhere };
+enum class PointerActivationAction { Ignore, Hold, Activate, Cancel };
 enum class TouchPhase { Down, Motion, Up, Canceled };
 enum class TouchCancelScope { Contact, All };
 enum class TouchPolicy { PrimaryPointer, DirectTouch };
@@ -72,6 +72,67 @@ struct PointerEvent
     SDL_WindowID windowId{};
 };
 
+constexpr bool pointerActivationSequenceShouldStart(
+    PointerActivationScope scope,
+    const PointerEvent& event,
+    bool pointerDownWasHandled)
+{
+    return scope == PointerActivationScope::Anywhere
+        && !pointerDownWasHandled
+        && (event.source == PointerSource::Mouse || event.source == PointerSource::Touch)
+        && event.button == SDL_BUTTON_LEFT
+        && event.phase == PointerPhase::ButtonDown;
+}
+
+class PointerActivationSequence
+{
+public:
+    bool start(const PointerEvent& event)
+    {
+        if (identity_
+            || (event.source != PointerSource::Mouse && event.source != PointerSource::Touch)
+            || event.button != SDL_BUTTON_LEFT
+            || event.phase != PointerPhase::ButtonDown)
+        {
+            return false;
+        }
+        identity_ = PointerIdentity{event.source, event.pointerId, event.button};
+        return true;
+    }
+
+    PointerActivationAction process(const PointerEvent& event)
+    {
+        if (!identity_
+            || identity_->source != event.source
+            || identity_->pointerId != event.pointerId)
+        {
+            return PointerActivationAction::Ignore;
+        }
+        if (event.phase == PointerPhase::Motion)
+        {
+            return PointerActivationAction::Hold;
+        }
+        if (event.phase == PointerPhase::Cancel)
+        {
+            reset();
+            return PointerActivationAction::Cancel;
+        }
+        if (event.phase == PointerPhase::ButtonUp && identity_->button == event.button)
+        {
+            reset();
+            return PointerActivationAction::Activate;
+        }
+        return PointerActivationAction::Ignore;
+    }
+
+    bool active() const { return identity_.has_value(); }
+    const std::optional<PointerIdentity>& identity() const { return identity_; }
+    void reset() { identity_.reset(); }
+
+private:
+    std::optional<PointerIdentity> identity_;
+};
+
 struct PresentLayoutInput
 {
     int windowWidth{};
@@ -115,6 +176,7 @@ struct TouchSample
 };
 
 PresentGeometrySnapshot computePresentLayout(const PresentLayoutInput& input, std::uint64_t revision);
+bool applyWindowResizeToPresentLayout(PresentLayoutInput& input, const SDL_Event& event);
 TouchSample makeTouchSample(
     TouchPhase phase,
     TouchFingerKey key,
@@ -159,11 +221,7 @@ public:
     bool initializeActions();
     bool enqueueApplicationCancelAction() const;
     bool isApplicationCancelEvent(const SDL_Event& event) const;
-    bool publishPresentGeometry(PresentGeometrySnapshot geometry, const SDL_Event* sourceEvent = nullptr);
-    bool isPresentGeometryEvent(const SDL_Event& event) const;
-    std::optional<SDL_Event> applyPresentGeometryEvent(const SDL_Event& event);
-    bool discardCorrelatedGeometryEvent(const SDL_Event& sourceEvent);
-    void clearActionPayloads();
+    void commitPresentGeometry(PresentGeometrySnapshot geometry) { geometry_ = geometry; }
     void pumpSdlEvents();
     void enqueueForTest(const SDL_Event& event) { pending_.push_back(event); }
     std::size_t pendingCount() const { return pending_.size(); }
@@ -171,7 +229,6 @@ public:
     bool frontIsPointer() const;
     SDL_Event popPending();
 
-    void setPresentGeometry(PresentGeometrySnapshot geometry) { geometry_ = geometry; }
     const PresentGeometrySnapshot& presentGeometry() const { return geometry_; }
     PointerEvent makeMousePointerEvent(const SDL_Event& event);
     PointerEvent makeTouchPointerEvent(const TouchSample& sample) const;
@@ -185,12 +242,6 @@ public:
     static bool isPointerEventType(std::uint32_t type);
 
 private:
-    struct PresentGeometryPayload
-    {
-        PresentGeometrySnapshot geometry{};
-        std::optional<SDL_Event> sourceEvent;
-    };
-
     SDL_FPoint toUiPosition(SDL_FPoint windowPosition) const;
     SDL_FPoint toUiDelta(SDL_FPoint windowDelta) const;
     bool insidePresent(SDL_FPoint windowPosition) const;
@@ -206,8 +257,4 @@ private:
     bool imguiOwnsTouchSequence_{};
     bool primaryGameSequenceActive_{};
     std::uint32_t applicationCancelEventType_{};
-    std::uint32_t presentGeometryEventType_{};
-    std::uint32_t nextGeometrySerial_ = 1;
-    std::mutex geometryPayloadMutex_;
-    std::unordered_map<std::uint32_t, PresentGeometryPayload> geometryPayloads_;
 };

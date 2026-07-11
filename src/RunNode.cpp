@@ -13,6 +13,8 @@ std::vector<RunNode*> RunNode::run_owner_stack_;
 uint64_t RunNode::ownership_epoch_ = 0;
 std::weak_ptr<RunNode> RunNode::pointer_capture_;
 PointerIdentity RunNode::pointer_capture_identity_{};
+std::weak_ptr<RunNode> RunNode::pointer_activation_owner_;
+PointerActivationSequence RunNode::pointer_activation_sequence_;
 
 RunNode::~RunNode()
 {
@@ -285,6 +287,7 @@ void RunNode::invalidatePointerOwnership()
 
 void RunNode::cancelPointerCapture()
 {
+    cancelPointerActivationCapture();
     auto captured = pointer_capture_.lock();
     if (!captured)
     {
@@ -305,14 +308,28 @@ void RunNode::cancelPointerCapture()
     }
 }
 
+void RunNode::cancelPointerActivationCapture()
+{
+    pointer_activation_owner_.reset();
+    pointer_activation_sequence_.reset();
+}
+
 void RunNode::cancelPointerCaptureForSubtree(const RunNode* subtree)
 {
     auto captured = pointer_capture_.lock();
-    if (pointerCaptureInvalidationNeeded(
+    const bool targetCaptureInvalidated = pointerCaptureInvalidationNeeded(
         static_cast<bool>(captured),
-        captured && subtree->containsPointerTarget(captured)))
+        captured && subtree->containsPointerTarget(captured));
+    auto activationOwner = pointer_activation_owner_.lock();
+    const bool activationCaptureInvalidated = activationOwner
+        && subtree->containsPointerTarget(activationOwner);
+    if (targetCaptureInvalidated || activationCaptureInvalidated)
     {
-        const bool rejectContacts = pointerCaptureContactRejectionNeeded(pointer_capture_identity_.source);
+        const auto activationIdentity = pointer_activation_sequence_.identity();
+        const bool rejectContacts = (targetCaptureInvalidated
+                && pointerCaptureContactRejectionNeeded(pointer_capture_identity_.source))
+            || (activationCaptureInvalidated && activationIdentity
+                && pointerCaptureContactRejectionNeeded(activationIdentity->source));
         cancelPointerCapture();
         if (rejectContacts)
         {
@@ -472,9 +489,43 @@ void RunNode::dispatchPointerEvent(const PointerEvent& event)
         return;
     }
 
-    if (event.phase == PointerPhase::Motion && pointer_capture_.expired())
+    if (event.phase == PointerPhase::Motion
+        && pointer_capture_.expired()
+        && !pointer_activation_sequence_.active())
     {
         clearPointerHoverSelfChilds();
+    }
+
+    if (pointer_activation_sequence_.active())
+    {
+        auto activationOwner = pointer_activation_owner_.lock();
+        if (!activationOwner
+            || activationOwner.get() != this
+            || !activationOwner->visible_
+            || activationOwner->exit_
+            || !containsPointerTarget(activationOwner))
+        {
+            cancelPointerActivationCapture();
+        }
+        else
+        {
+            const auto action = pointer_activation_sequence_.process(event);
+            if (action == PointerActivationAction::Hold)
+            {
+                return;
+            }
+            if (action == PointerActivationAction::Activate)
+            {
+                pointer_activation_owner_.reset();
+                activationOwner->onPressedOK();
+                return;
+            }
+            if (action == PointerActivationAction::Cancel)
+            {
+                pointer_activation_owner_.reset();
+                return;
+            }
+        }
     }
 
     if (event.phase == PointerPhase::ButtonDown)
@@ -495,6 +546,15 @@ void RunNode::dispatchPointerEvent(const PointerEvent& event)
             {
                 cancelPointerCapture();
             }
+        }
+        else if (pointerActivationSequenceShouldStart(
+            pointerActivationScope(),
+            event,
+            routed.has_value()))
+        {
+            const bool started = pointer_activation_sequence_.start(event);
+            assert(started);
+            pointer_activation_owner_ = shared_from_this();
         }
         return;
     }
@@ -526,12 +586,6 @@ void RunNode::dispatchPointerEvent(const PointerEvent& event)
         }
     }
 
-    if (isUncapturedPointerActivation(event))
-    {
-        onPressedOK();
-        return;
-    }
-
     if (event.phase == PointerPhase::Wheel)
     {
         auto target = findPointerTarget(event.uiPosition);
@@ -553,13 +607,18 @@ void RunNode::dispatchPointerEvent(const PointerEvent& event)
 
 void RunNode::handleLegacyGlobalEvent(const EngineEvent& event)
 {
-    if (event.type == EVENT_WINDOW_RESIZED
-        || event.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+    if (event.type == EVENT_WINDOW_RESIZED)
+    {
+        Engine::getInstance()->commitPresentPosition(
+            Engine::getInstance()->getMainTexture(),
+            event);
+        invalidatePointerOwnership();
+    }
+    if (event.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
         || event.type == EVENT_WINDOW_MAXIMIZED
         || event.type == EVENT_WINDOW_RESTORED)
     {
-        Engine::getInstance()->setPresentPosition(Engine::getInstance()->getMainTexture());
-        ++ownership_epoch_;
+        invalidatePointerOwnership();
     }
     if (event.type == EVENT_WINDOW_HIDDEN || event.type == EVENT_WINDOW_FOCUS_LOST)
     {
@@ -705,26 +764,14 @@ void RunNode::dealEventSelfChilds(bool check_event)
         if (!input.empty())
         {
             const auto event = input.popPending();
-            if (input.isPresentGeometryEvent(event))
+            handleLegacyGlobalEvent(event);
+            if (input.isApplicationCancelEvent(event))
             {
-                if (auto sourceEvent = input.applyPresentGeometryEvent(event))
-                {
-                    input.discardCorrelatedGeometryEvent(*sourceEvent);
-                    handleLegacyGlobalEvent(*sourceEvent);
-                    Engine::getInstance()->processImGuiEvent(*sourceEvent);
-                }
+                Engine::getInstance()->processImGuiApplicationCancel();
             }
             else
             {
-                handleLegacyGlobalEvent(event);
-                if (input.isApplicationCancelEvent(event))
-                {
-                    Engine::getInstance()->processImGuiApplicationCancel();
-                }
-                else
-                {
-                    Engine::getInstance()->processImGuiEvent(event);
-                }
+                Engine::getInstance()->processImGuiEvent(event);
             }
         }
         while (!input.empty() && input.frontIsPointer())
@@ -820,41 +867,21 @@ void RunNode::dealEventSelfChilds(bool check_event)
     if (!input.empty())
     {
         const auto event = input.popPending();
-        if (input.isPresentGeometryEvent(event))
+        handleLegacyGlobalEvent(event);
+        const bool consumedByImGui = input.isApplicationCancelEvent(event)
+            ? Engine::getInstance()->processImGuiApplicationCancel()
+            : Engine::getInstance()->processImGuiEvent(event);
+        if (consumedByImGui && input.isApplicationCancelEvent(event))
         {
-            auto sourceEvent = input.applyPresentGeometryEvent(event);
             Engine::getInstance()->cancelImGuiPrimaryTouch();
             input.rejectActiveTouchContacts();
             cancelPointerCapture();
             onPointerInputReset();
             ++ownership_epoch_;
-            if (sourceEvent)
-            {
-                input.discardCorrelatedGeometryEvent(*sourceEvent);
-                if (!Engine::getInstance()->processImGuiEvent(*sourceEvent))
-                {
-                    updateEvent = *sourceEvent;
-                }
-            }
         }
-        else
+        if (!consumedByImGui)
         {
-            handleLegacyGlobalEvent(event);
-            const bool consumedByImGui = input.isApplicationCancelEvent(event)
-                ? Engine::getInstance()->processImGuiApplicationCancel()
-                : Engine::getInstance()->processImGuiEvent(event);
-            if (consumedByImGui && input.isApplicationCancelEvent(event))
-            {
-                Engine::getInstance()->cancelImGuiPrimaryTouch();
-                input.rejectActiveTouchContacts();
-                cancelPointerCapture();
-                onPointerInputReset();
-                ++ownership_epoch_;
-            }
-            if (!consumedByImGui)
-            {
-                updateEvent = event;
-            }
+            updateEvent = event;
         }
     }
     if (frameOwner == (run_owner_stack_.empty() ? nullptr : run_owner_stack_.back()) && !exit_)

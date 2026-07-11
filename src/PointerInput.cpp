@@ -46,6 +46,17 @@ PresentGeometrySnapshot computePresentLayout(const PresentLayoutInput& input, st
     return geometry;
 }
 
+bool applyWindowResizeToPresentLayout(PresentLayoutInput& input, const SDL_Event& event)
+{
+    if (event.type != SDL_EVENT_WINDOW_RESIZED)
+    {
+        return false;
+    }
+    input.windowWidth = event.window.data1;
+    input.windowHeight = event.window.data2;
+    return true;
+}
+
 TouchSample makeTouchSample(
     TouchPhase phase,
     TouchFingerKey key,
@@ -167,104 +178,13 @@ bool PointerInput::initializeActions()
     {
         return true;
     }
-    const auto firstType = SDL_RegisterEvents(2);
+    const auto firstType = SDL_RegisterEvents(1);
     if (firstType == 0)
     {
         return false;
     }
     applicationCancelEventType_ = firstType;
-    presentGeometryEventType_ = firstType + 1;
     return true;
-}
-
-bool PointerInput::publishPresentGeometry(PresentGeometrySnapshot geometry, const SDL_Event* sourceEvent)
-{
-    if (geometry_.windowWidth == 0)
-    {
-        geometry_ = geometry;
-        return true;
-    }
-    const bool unchanged = geometry_.windowWidth == geometry.windowWidth
-        && geometry_.windowHeight == geometry.windowHeight
-        && geometry_.presentRect.x == geometry.presentRect.x
-        && geometry_.presentRect.y == geometry.presentRect.y
-        && geometry_.presentRect.w == geometry.presentRect.w
-        && geometry_.presentRect.h == geometry.presentRect.h
-        && geometry_.uiWidth == geometry.uiWidth
-        && geometry_.uiHeight == geometry.uiHeight;
-    if (unchanged || presentGeometryEventType_ == 0)
-    {
-        return unchanged;
-    }
-
-    std::uint32_t serial{};
-    {
-        const std::scoped_lock lock(geometryPayloadMutex_);
-        serial = nextGeometrySerial_++;
-        PresentGeometryPayload payload;
-        payload.geometry = geometry;
-        if (sourceEvent) payload.sourceEvent = *sourceEvent;
-        geometryPayloads_.emplace(serial, std::move(payload));
-    }
-
-    SDL_Event marker = {};
-    marker.type = presentGeometryEventType_;
-    marker.user.code = static_cast<Sint32>(serial);
-    if (SDL_PeepEvents(&marker, 1, SDL_ADDEVENT, 0, 0) == 1)
-    {
-        return true;
-    }
-    const std::scoped_lock lock(geometryPayloadMutex_);
-    geometryPayloads_.erase(serial);
-    return false;
-}
-
-bool PointerInput::isPresentGeometryEvent(const SDL_Event& event) const
-{
-    return presentGeometryEventType_ != 0 && event.type == presentGeometryEventType_;
-}
-
-std::optional<SDL_Event> PointerInput::applyPresentGeometryEvent(const SDL_Event& event)
-{
-    if (!isPresentGeometryEvent(event))
-    {
-        return std::nullopt;
-    }
-    PresentGeometryPayload payload;
-    {
-        const std::scoped_lock lock(geometryPayloadMutex_);
-        const auto serial = static_cast<std::uint32_t>(event.user.code);
-        const auto it = geometryPayloads_.find(serial);
-        if (it == geometryPayloads_.end())
-        {
-            return std::nullopt;
-        }
-        payload = std::move(it->second);
-        geometryPayloads_.erase(it);
-    }
-    geometry_ = payload.geometry;
-    return payload.sourceEvent;
-}
-
-bool PointerInput::discardCorrelatedGeometryEvent(const SDL_Event& sourceEvent)
-{
-    if (pending_.empty() || pending_.front().type != sourceEvent.type)
-    {
-        return false;
-    }
-    if (sourceEvent.type >= SDL_EVENT_WINDOW_FIRST && sourceEvent.type <= SDL_EVENT_WINDOW_LAST
-        && pending_.front().window.windowID != sourceEvent.window.windowID)
-    {
-        return false;
-    }
-    pending_.pop_front();
-    return true;
-}
-
-void PointerInput::clearActionPayloads()
-{
-    const std::scoped_lock lock(geometryPayloadMutex_);
-    geometryPayloads_.clear();
 }
 
 bool PointerInput::enqueueApplicationCancelAction() const

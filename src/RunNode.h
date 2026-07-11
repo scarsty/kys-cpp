@@ -22,13 +22,6 @@ public:
     };
 
 protected:
-    static bool isUncapturedPointerActivation(const PointerEvent& event)
-    {
-        return (event.source == PointerSource::Mouse || event.source == PointerSource::Touch)
-            && event.button == SDL_BUTTON_LEFT
-            && event.phase == PointerPhase::ButtonUp;
-    }
-
     template <class Handler>
     static std::optional<std::pair<std::size_t, PointerResult>> routePointerEventPath(
         std::size_t count,
@@ -53,6 +46,8 @@ private:
     static uint64_t ownership_epoch_;
     static std::weak_ptr<RunNode> pointer_capture_;
     static PointerIdentity pointer_capture_identity_;
+    static std::weak_ptr<RunNode> pointer_activation_owner_;
+    static PointerActivationSequence pointer_activation_sequence_;
 
 private:
     bool is_private_ = false;
@@ -271,6 +266,8 @@ public:
 
     virtual TouchPolicy touchPolicy() const { return TouchPolicy::PrimaryPointer; }
 
+    virtual PointerActivationScope pointerActivationScope() const { return PointerActivationScope::HitTargetOnly; }
+
     virtual uint64_t controlLayoutRevision() const { return 0; }
 
     virtual void onEntrance() {}    //进入本节点的事件，例如亮屏等
@@ -314,6 +311,7 @@ private:
     void handleLegacyGlobalEvent(const EngineEvent& event);
     bool containsPointerTarget(const std::shared_ptr<RunNode>& target) const;
     static void cancelPointerCapture();
+    static void cancelPointerActivationCapture();
     static void cancelPointerCaptureForSubtree(const RunNode* subtree);
     int checkChildState();
     void checkSelfState(EngineEvent& e);

@@ -1,8 +1,10 @@
 #include "PointerInput.h"
 #include "BattleCursor.h"
 #include "BattleSceneCamera.h"
+#include "Menu.h"
+#include "ShowExp.h"
 #include "SuperMenuText.h"
-#include "Talk.h"
+#include "TextBox.h"
 #include "ImGuiLayer.h"
 
 #include <catch2/catch_approx.hpp>
@@ -24,10 +26,6 @@ public:
         return routePointerEventPath(count, std::forward<Handler>(handler));
     }
 
-    static bool uncapturedPointerActivation(const PointerEvent& event)
-    {
-        return isUncapturedPointerActivation(event);
-    }
 };
 }
 
@@ -173,7 +171,7 @@ TEST_CASE("PointerInput converts native mouse events without querying device sta
     geometry.presentRect = {160, 0, 1600, 900};
     geometry.uiWidth = 1280;
     geometry.uiHeight = 720;
-    input.setPresentGeometry(geometry);
+    input.commitPresentGeometry(geometry);
 
     SDL_Event down = {};
     down.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
@@ -205,40 +203,62 @@ TEST_CASE("PointerInput converts native mouse events without querying device sta
     CHECK(wheelPointer.uiPosition.y == Approx(180.0f));
 }
 
-TEST_CASE("PointerInput commits queued present geometry before discarding its correlated raw wrapper", "[pointer_input]")
+TEST_CASE("PointerInput commits present geometry synchronously on the game thread", "[pointer_input]")
 {
-    REQUIRE(SDL_InitSubSystem(SDL_INIT_EVENTS));
-    SDL_FlushEvents(SDL_EVENT_FIRST, SDL_EVENT_LAST);
-
     PointerInput input;
-    REQUIRE(input.initializeActions());
     PresentGeometrySnapshot initial{1, 1280, 720, {0, 0, 1280, 720}, 1280, 720};
-    REQUIRE(input.publishPresentGeometry(initial));
+    input.commitPresentGeometry(initial);
+    PresentGeometrySnapshot resized{2, 1920, 1080, {0, 0, 1920, 1080}, 1280, 720};
+    input.commitPresentGeometry(resized);
+
+    CHECK(input.presentGeometry().revision == 2);
+    CHECK(input.empty());
+}
+
+TEST_CASE("Queued pointer keeps old geometry until its following resize is consumed", "[pointer_input][present_geometry]")
+{
+    PointerInput input;
+    const PresentGeometrySnapshot layout0{1, 1280, 720, {0, 0, 1280, 720}, 1280, 720};
+    input.commitPresentGeometry(layout0);
+
+    SDL_Event unrelated = {};
+    unrelated.type = SDL_EVENT_USER;
+    input.enqueueForTest(unrelated);
+
+    SDL_Event pointer = {};
+    pointer.type = SDL_EVENT_MOUSE_MOTION;
+    pointer.motion.x = 640.0f;
+    pointer.motion.y = 360.0f;
+    input.enqueueForTest(pointer);
 
     SDL_Event resize = {};
     resize.type = SDL_EVENT_WINDOW_RESIZED;
-    resize.window.windowID = 5;
-    PresentGeometrySnapshot resized{2, 1920, 1080, {0, 0, 1920, 1080}, 1280, 720};
-    REQUIRE(input.publishPresentGeometry(resized, &resize));
-    input.pumpSdlEvents();
+    resize.window.data1 = 1920;
+    resize.window.data2 = 1080;
     input.enqueueForTest(resize);
 
-    REQUIRE(input.pendingCount() == 2);
-    const auto marker = input.popPending();
-    REQUIRE(input.isPresentGeometryEvent(marker));
-    const auto embedded = input.applyPresentGeometryEvent(marker);
-    REQUIRE(embedded.has_value());
-    CHECK(embedded->type == SDL_EVENT_WINDOW_RESIZED);
-    CHECK(input.presentGeometry().revision == 2);
-    CHECK(input.discardCorrelatedGeometryEvent(*embedded));
-    CHECK(input.empty());
+    CHECK(input.popPending().type == SDL_EVENT_USER);
+    const auto queuedPointer = input.makeMousePointerEvent(input.popPending());
+    CHECK(queuedPointer.uiPosition.x == Approx(640.0f));
+    CHECK(queuedPointer.uiPosition.y == Approx(360.0f));
 
+    PresentLayoutInput resizedLayout;
+    resizedLayout.textureWidth = 1280;
+    resizedLayout.textureHeight = 720;
+    resizedLayout.uiWidth = 1280;
+    resizedLayout.uiHeight = 720;
+    REQUIRE(applyWindowResizeToPresentLayout(resizedLayout, input.popPending()));
+    input.commitPresentGeometry(computePresentLayout(resizedLayout, 2));
+
+    CHECK(input.presentGeometry().revision == 2);
+    CHECK(input.presentGeometry().windowWidth == 1920);
+    CHECK(input.presentGeometry().windowHeight == 1080);
 }
 
 TEST_CASE("PointerInput rejects late contact events after a hard reset until a fresh down", "[pointer_input]")
 {
     PointerInput input;
-    input.setPresentGeometry({1, 1280, 720, {0, 0, 1280, 720}, 1280, 720});
+    input.commitPresentGeometry({1, 1280, 720, {0, 0, 1280, 720}, 1280, 720});
     SDL_Event down = {};
     down.type = SDL_EVENT_FINGER_DOWN;
     down.tfinger.touchID = SDL_TouchID{1};
@@ -308,7 +328,7 @@ TEST_CASE("Pointer route keeps a capturing child ahead of its ancestor", "[point
 TEST_CASE("Ignored child lets the 2D camera ancestor capture and drag", "[pointer_routing][battle_camera]")
 {
     auto& input = PointerInput::instance();
-    input.setPresentGeometry({1, 1280, 720, {0, 0, 1280, 720}, 1280, 720});
+    input.commitPresentGeometry({1, 1280, 720, {0, 0, 1280, 720}, 1280, 720});
 
     BattleSceneCamera camera;
     const BattleSceneCameraBounds bounds{6400.0f, 6400.0f, 320.0f, 240.0f};
@@ -348,9 +368,9 @@ TEST_CASE("Ignored child lets the 2D camera ancestor capture and drag", "[pointe
     CHECK_FALSE(camera.manualDragging());
 }
 
-TEST_CASE("Talk activates for a matching left press and release anywhere", "[talk_pointer]")
+TEST_CASE("Popup activation advances once for a matching left press and release", "[pointer_routing][popup_text]")
 {
-    TalkPointerState state;
+    PointerActivationSequence sequence;
     PointerEvent event;
     event.source = PointerSource::Mouse;
     event.pointerId = 4;
@@ -358,40 +378,74 @@ TEST_CASE("Talk activates for a matching left press and release anywhere", "[tal
     event.insidePresent = false;
 
     event.phase = PointerPhase::ButtonDown;
-    CHECK(state.process(event) == TalkPointerAction::Capture);
+    REQUIRE(sequence.start(event));
     event.phase = PointerPhase::ButtonUp;
-    CHECK(state.process(event) == TalkPointerAction::Activate);
+    CHECK(sequence.process(event) == PointerActivationAction::Activate);
+    CHECK(sequence.process(event) == PointerActivationAction::Ignore);
 }
 
-TEST_CASE("Talk cancel clears its left press without activation", "[talk_pointer]")
+TEST_CASE("Popup release without a preceding press does nothing", "[pointer_routing][popup_text]")
 {
-    TalkPointerState state;
+    PointerActivationSequence sequence;
+    PointerEvent event;
+    event.source = PointerSource::Touch;
+    event.pointerId = 9;
+    event.button = SDL_BUTTON_LEFT;
+    event.phase = PointerPhase::ButtonUp;
+
+    CHECK(sequence.process(event) == PointerActivationAction::Ignore);
+}
+
+TEST_CASE("Popup cancel clears its press without activation", "[pointer_routing][popup_text]")
+{
+    PointerActivationSequence sequence;
     PointerEvent event;
     event.source = PointerSource::Mouse;
     event.pointerId = 4;
     event.button = SDL_BUTTON_LEFT;
     event.phase = PointerPhase::ButtonDown;
-    REQUIRE(state.process(event) == TalkPointerAction::Capture);
+    REQUIRE(sequence.start(event));
 
     event.phase = PointerPhase::Cancel;
-    CHECK(state.process(event) == TalkPointerAction::Cancel);
+    CHECK(sequence.process(event) == PointerActivationAction::Cancel);
     event.phase = PointerPhase::ButtonUp;
-    CHECK(state.process(event) == TalkPointerAction::Ignore);
+    CHECK(sequence.process(event) == PointerActivationAction::Ignore);
 }
 
-TEST_CASE("Uncaptured left release activates the run owner", "[pointer_routing][popup_text]")
+TEST_CASE("A child capture prevents popup background activation", "[pointer_routing][popup_text]")
 {
     PointerEvent event;
     event.source = PointerSource::Mouse;
+    event.pointerId = 2;
     event.button = SDL_BUTTON_LEFT;
-    event.phase = PointerPhase::ButtonUp;
-    CHECK(PointerRouteProbe::uncapturedPointerActivation(event));
-
     event.phase = PointerPhase::ButtonDown;
-    CHECK_FALSE(PointerRouteProbe::uncapturedPointerActivation(event));
-    event.phase = PointerPhase::ButtonUp;
+
+    CHECK_FALSE(pointerActivationSequenceShouldStart(
+        PointerActivationScope::Anywhere,
+        event,
+        true));
+}
+
+TEST_CASE("Normal owners do not accept blank-space activation", "[pointer_routing][popup_text]")
+{
+    PointerEvent event;
     event.source = PointerSource::Touch;
-    CHECK(PointerRouteProbe::uncapturedPointerActivation(event));
+    event.pointerId = 7;
+    event.button = SDL_BUTTON_LEFT;
+    event.phase = PointerPhase::ButtonDown;
+
+    CHECK(pointerActivationSequenceShouldStart(
+        PointerActivationScope::Anywhere,
+        event,
+        false));
+    CHECK_FALSE(pointerActivationSequenceShouldStart(
+        PointerActivationScope::HitTargetOnly,
+        event,
+        false));
+    CHECK(TextBox::kPointerActivationScope == PointerActivationScope::HitTargetOnly);
+    CHECK(Menu::kPointerActivationScope == PointerActivationScope::HitTargetOnly);
+    CHECK(DismissibleTextBox::kPointerActivationScope == PointerActivationScope::Anywhere);
+    CHECK(ShowExp::kPointerActivationScope == PointerActivationScope::Anywhere);
 }
 
 TEST_CASE("Battle cursor updates the target for short press sequences", "[pointer_migration]")

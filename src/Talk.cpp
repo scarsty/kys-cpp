@@ -2,7 +2,6 @@
 #include "Engine.h"
 #include "Font.h"
 #include "TextureManager.h"
-#include <cassert>
 #include <string>
 
 void Talk::draw()
@@ -37,24 +36,6 @@ void Talk::draw()
             Font::getInstance()->draw(content_lines_[i], 24, x_text, y_ + 75 + 34 * (i - current_line_), { 255, 255, 255, 255 });
         }
     }
-}
-
-RunNode::PointerResult Talk::onPointerEvent(const PointerEvent& event)
-{
-    switch (pointer_state_.process(event))
-    {
-    case TalkPointerAction::Capture:
-        return PointerResult::Captured;
-    case TalkPointerAction::Activate:
-        onPressedOK();
-        return PointerResult::Handled;
-    case TalkPointerAction::Cancel:
-        return PointerResult::Released;
-    case TalkPointerAction::Ignore:
-        return RunNode::onPointerEvent(event);
-    }
-    assert(false);
-    return PointerResult::Ignored;
 }
 
 void Talk::onPressedOK()

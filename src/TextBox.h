@@ -5,6 +5,8 @@
 class TextBox : public RunNode
 {
 public:
+    static constexpr PointerActivationScope kPointerActivationScope = PointerActivationScope::HitTargetOnly;
+
     TextBox() {}
     virtual ~TextBox() {}
 
@@ -56,4 +58,12 @@ public:
 
     virtual void onPressedOK() override { exitWithResult(0); }
     virtual void onPressedCancel() override { exitWithResult(-1); }
+};
+
+class DismissibleTextBox : public TextBox
+{
+public:
+    static constexpr PointerActivationScope kPointerActivationScope = PointerActivationScope::Anywhere;
+
+    PointerActivationScope pointerActivationScope() const override { return kPointerActivationScope; }
 };

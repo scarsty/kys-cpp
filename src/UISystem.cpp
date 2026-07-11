@@ -60,7 +60,7 @@ void UISystem::onPressedOK()
         if (result_ >= 0)
         {
             GameUtil::getInstance()->setKey("game", "battle_mode", std::to_string(result_));
-            auto text = std::make_shared<TextBox>();
+            auto text = std::make_shared<DismissibleTextBox>();
             mode = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
             text->setText("戰鬥模式已設置為：" + modes[mode]);
             text->setFontSize(24);

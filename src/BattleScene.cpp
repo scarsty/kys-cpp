@@ -1773,7 +1773,7 @@ int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item, int dis)
 
 void BattleScene::showMagicName(std::string name)
 {
-    auto magic_name = std::make_shared<TextBox>();
+    auto magic_name = std::make_shared<DismissibleTextBox>();
     magic_name->setText(name);
     int x = Engine::getInstance()->getUIWidth() / 2 - Font::getTextDrawSize(name) * 10 / 2 - 10;
     magic_name->setPosition(x, 150);

@@ -290,6 +290,7 @@ void Engine::createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h
         tex_ = createTexture(pixfmt, a, w, h);
     }
     setPresentPosition(tex_);
+    commitCurrentPresentPosition(tex_);
 }
 
 void Engine::resizeMainTexture(int w, int h) const
@@ -353,14 +354,13 @@ Texture* Engine::cloneTexture(Texture* source) const
     return clone;
 }
 
-void Engine::setPresentPosition(Texture* tex, const EngineEvent* sourceEvent)
+std::optional<PresentLayoutInput> Engine::makePresentLayoutInput(Texture* tex) const
 {
     if (!tex)
     {
-        return;
+        return std::nullopt;
     }
     PresentLayoutInput input;
-    getWindowSize(input.windowWidth, input.windowHeight);
     getTextureSize(tex, input.textureWidth, input.textureHeight);
     input.uiWidth = ui_w_;
     input.uiHeight = ui_h_;
@@ -368,30 +368,72 @@ void Engine::setPresentPosition(Texture* tex, const EngineEvent* sourceEvent)
     input.rotation = rotation_;
     input.ratioX = ratio_x_;
     input.ratioY = ratio_y_;
-    if (input.windowWidth <= 0 || input.windowHeight <= 0
-        || input.textureWidth <= 0 || input.textureHeight <= 0
+    if (input.textureWidth <= 0 || input.textureHeight <= 0
         || input.uiWidth <= 0 || input.uiHeight <= 0)
+    {
+        return std::nullopt;
+    }
+    return input;
+}
+
+void Engine::setPresentPosition(Texture* tex)
+{
+    auto input = makePresentLayoutInput(tex);
+    if (!input)
     {
         return;
     }
+    getWindowSize(input->windowWidth, input->windowHeight);
+    if (input->windowWidth <= 0 || input->windowHeight <= 0)
+    {
+        return;
+    }
+    rect_ = computePresentLayout(*input, 0).presentRect;
+}
 
+void Engine::commitPresentLayout(PresentLayoutInput input)
+{
+    if (input.windowWidth <= 0 || input.windowHeight <= 0)
+    {
+        return;
+    }
     auto geometry = computePresentLayout(input, present_geometry_revision_ + 1);
-    if (published_present_geometry_.windowWidth == geometry.windowWidth
-        && published_present_geometry_.windowHeight == geometry.windowHeight
-        && published_present_geometry_.presentRect.x == geometry.presentRect.x
-        && published_present_geometry_.presentRect.y == geometry.presentRect.y
-        && published_present_geometry_.presentRect.w == geometry.presentRect.w
-        && published_present_geometry_.presentRect.h == geometry.presentRect.h
-        && published_present_geometry_.uiWidth == geometry.uiWidth
-        && published_present_geometry_.uiHeight == geometry.uiHeight)
+    if (committed_present_geometry_.windowWidth == geometry.windowWidth
+        && committed_present_geometry_.windowHeight == geometry.windowHeight
+        && committed_present_geometry_.presentRect.x == geometry.presentRect.x
+        && committed_present_geometry_.presentRect.y == geometry.presentRect.y
+        && committed_present_geometry_.presentRect.w == geometry.presentRect.w
+        && committed_present_geometry_.presentRect.h == geometry.presentRect.h
+        && committed_present_geometry_.uiWidth == geometry.uiWidth
+        && committed_present_geometry_.uiHeight == geometry.uiHeight)
     {
         return;
     }
     ++present_geometry_revision_;
     geometry.revision = present_geometry_revision_;
-    rect_ = geometry.presentRect;
-    published_present_geometry_ = geometry;
-    PointerInput::instance().publishPresentGeometry(geometry, sourceEvent);
+    committed_present_geometry_ = geometry;
+    PointerInput::instance().commitPresentGeometry(geometry);
+}
+
+void Engine::commitCurrentPresentPosition(Texture* tex)
+{
+    auto input = makePresentLayoutInput(tex);
+    if (!input)
+    {
+        return;
+    }
+    getWindowSize(input->windowWidth, input->windowHeight);
+    commitPresentLayout(*input);
+}
+
+void Engine::commitPresentPosition(Texture* tex, const EngineEvent& event)
+{
+    auto input = makePresentLayoutInput(tex);
+    if (!input || !applyWindowResizeToPresentLayout(*input, event))
+    {
+        return;
+    }
+    commitPresentLayout(*input);
 }
 
 Texture* Engine::createTexture(PixelFormat pix_fmt, TextureAccess a, int w, int h) const
@@ -742,8 +784,6 @@ void Engine::destroy()
     {
         SDL_DestroyWindow(window_);
     }
-    PointerInput::instance().clearActionPayloads();
-
 #ifndef _WINDLL
     SDL_Quit();
 #endif
@@ -823,6 +863,7 @@ bool Engine::setKeepRatio(bool b)
 {
     keep_ratio_ = b;
     setPresentPosition(tex_);
+    commitCurrentPresentPosition(tex_);
     return keep_ratio_;
 }
 
@@ -831,12 +872,14 @@ void Engine::setUISize(int w, int h)
     ui_w_ = w;
     ui_h_ = h;
     setPresentPosition(tex_);
+    commitCurrentPresentPosition(tex_);
 }
 
 double Engine::setRotation(double r)
 {
     rotation_ = r;
     setPresentPosition(tex_);
+    commitCurrentPresentPosition(tex_);
     return rotation_;
 }
 
@@ -845,6 +888,7 @@ void Engine::setRatio(double x, double y)
     ratio_x_ = x;
     ratio_y_ = y;
     setPresentPosition(tex_);
+    commitCurrentPresentPosition(tex_);
 }
 
 Texture* Engine::transRGBABitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const

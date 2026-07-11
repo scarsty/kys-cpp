@@ -164,7 +164,7 @@ void ChessInfoFlow::viewNeigong()
 
 void ChessInfoFlow::showGameGuide()
 {
-    auto box = std::make_shared<TextBox>();
+    auto box = std::make_shared<DismissibleTextBox>();
     box->setText("　");
     box->setHaveBox(false);
     box->setFontSize(1);

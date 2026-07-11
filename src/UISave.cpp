@@ -111,7 +111,7 @@ bool UISave::load(int r)
     }
     else
     {
-        auto text = std::make_shared<TextBox>();
+        auto text = std::make_shared<DismissibleTextBox>();
         text->setText("存檔讀取失敗!");
         text->setFontSize(24);
         text->setTextColor({255, 0, 0});

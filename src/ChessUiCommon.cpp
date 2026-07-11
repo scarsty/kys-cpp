@@ -80,7 +80,7 @@ ChessSelectorPresenter& chessPresenter()
 
 void showChessMessage(const std::string& text, int fontSize)
 {
-    auto box = std::make_shared<TextBox>();
+    auto box = std::make_shared<DismissibleTextBox>();
     box->setText(text);
     box->setFontSize(fontSize);
     box->runCentered(Engine::getInstance()->getUIHeight() / 2);

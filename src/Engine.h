@@ -286,7 +286,7 @@ private:
     //Texture* logo_ = nullptr;
     Rect rect_;
     uint64_t present_geometry_revision_{};
-    PresentGeometrySnapshot published_present_geometry_{};
+    PresentGeometrySnapshot committed_present_geometry_{};
     bool full_screen_ = false;
     bool keep_ratio_ = true;
 
@@ -354,7 +354,8 @@ public:
     void resizeMainTexture(int w, int h) const;
     void createAssistTexture(const std::string& name, int w, int h);
     Texture* cloneTexture(Texture* source) const;
-    void setPresentPosition(Texture* tex, const EngineEvent* sourceEvent = nullptr);    //設定貼圖的位置
+    void setPresentPosition(Texture* tex);    //設定貼圖的位置
+    void commitPresentPosition(Texture* tex, const EngineEvent& event);
 
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() const { return rect_.w; }
@@ -380,6 +381,10 @@ public:
     void getAssistTextureSize(const std::string& name, int& w, int& h) { getTextureSize(tex_map_[name], w, h); }
 
 private:
+    std::optional<PresentLayoutInput> makePresentLayoutInput(Texture* tex) const;
+    void commitCurrentPresentPosition(Texture* tex);
+    void commitPresentLayout(PresentLayoutInput input);
+
     Texture* createTexture(PixelFormat pix_fmt, TextureAccess a, int w, int h) const;
     Texture* createYUVTexture(int w, int h) const;
     static void updateYUVTexture(Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);

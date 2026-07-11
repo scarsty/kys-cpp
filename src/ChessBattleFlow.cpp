@@ -930,7 +930,7 @@ void ChessBattleFlow::enterBattle()
             services_.shop.pool().refresh(services_.economy.getLevel());
         }
 
-        auto text = std::make_shared<TextBox>();
+        auto text = std::make_shared<DismissibleTextBox>();
         std::string levelMsg = (services_.economy.getLevel() > oldLevel) ? std::format(" 升級！等級{}", services_.economy.getLevel() + 1) : "";
         std::string nextInfo = battleProgress.isGameComplete() ? " 通關！"
             : battleProgress.isBossFight() ? std::format(" 下一關：第{}關(Boss)", battleProgress.getFight() + 1)
@@ -975,7 +975,7 @@ void ChessBattleFlow::enterBattle()
     {
         services_.random.setEnemyCallCount(savedEnemyCallCount);
         services_.random.restore();
-        auto text = std::make_shared<TextBox>();
+        auto text = std::make_shared<DismissibleTextBox>();
         text->setText("戰鬥失敗！請調整陣容後再試");
         text->setFontSize(32);
         text->runCentered(Engine::getInstance()->getUIHeight() / 2);

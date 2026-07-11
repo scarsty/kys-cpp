@@ -33,14 +33,6 @@ int Application::run()
             {
                 return true;
             }
-            if (e->type == EVENT_WINDOW_RESIZED
-                || e->type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
-                || e->type == EVENT_WINDOW_MAXIMIZED
-                || e->type == EVENT_WINDOW_RESTORED)
-            {
-                auto* engine = Engine::getInstance();
-                engine->setPresentPosition(engine->getMainTexture(), e);
-            }
             if (e->type == EVENT_DID_ENTER_BACKGROUND)
             {
                 EngineEvent queued = *e;
