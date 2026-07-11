@@ -9,14 +9,18 @@
 class DrawableOnCall : public RunNode {
 public:
     DrawableOnCall(std::function<void(DrawableOnCall*)> draw);
+    DrawableOnCall(std::function<void(DrawableOnCall*)> draw, std::function<void(DrawableOnCall*, EngineEvent&)> deal_event);
     virtual ~DrawableOnCall() = default;
     virtual void onEntrance() { if (entrance_) entrance_(); }
     void setEntrance(std::function<void()> en) { entrance_ = en; }
+    void setDealEvent(std::function<void(DrawableOnCall*, EngineEvent&)> deal_event) { deal_event_ = deal_event; }
     void updateScreenWithID(int id);
     int getID();
     virtual void draw();
+    virtual void dealEvent(EngineEvent& e) override;
 private:
     int id_;
     std::function<void(DrawableOnCall*)> draw_;
+    std::function<void(DrawableOnCall*, EngineEvent&)> deal_event_;
     std::function<void()> entrance_;
 };

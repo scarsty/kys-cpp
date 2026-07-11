@@ -1,4 +1,5 @@
 #include "ScriptCifa.h"
+#include "DrawableOnCall.h"
 #include "Event.h"
 #include "EventMacro.h"
 #include "Font.h"
@@ -75,33 +76,20 @@ ScriptCifa::ScriptCifa()
 int ScriptCifa::runScript(const std::string& filename)
 {
     std::string content = filefunc::readFileToString(filename);
-    LOG("{}\n", content);
+    //LOG("{}\n", content);
     std::transform(content.begin(), content.end(), content.begin(), ::tolower);
     return runScriptString(content);
 }
 
 int ScriptCifa::runScriptString(const std::string& content)
 {
-    try
+    cifa_.set_output_error(true);
+    cifa_.run_script(content);
+    if (cifa_.has_error())
     {
-        cifa_.run_script(content);
-        if (cifa_.has_error())
-        {
-            cifa_.print_errors();
-            cifa_.set_output_error(true);
-            return 1;
-        }
-        return 0;
-    }
-    catch (const ScriptExitException&)
-    {
-        return 0;
-    }
-    catch (const std::exception& e)
-    {
-        LOG("\nError: {}\n", e.what());
         return 1;
     }
+    return 0;
 }
 
 int ScriptCifa::registerEventFunctions()
@@ -117,13 +105,6 @@ int ScriptCifa::registerEventFunctions()
     }
 
 #define REGISTER_CIFA(function) REGISTER_CIFA_ALIAS(#function, function)
-
-    // exit - 立即终止脚本执行
-    cifa_.register_function("exit", [](cifa::ObjectVector&) -> cifa::Object
-    {
-        throw ScriptExitException{};
-        return {};
-    });
 
     REGISTER_CIFA(oldTalk);
     REGISTER_CIFA(addItem);
@@ -371,11 +352,78 @@ int ScriptCifa::registerEventFunctions()
         return {};
     });
 
+    cifa_.register_function("showmessage", [](cifa::ObjectVector& args) -> cifa::Object
+    {
+        if (args.size() < 3) { return cifa::Object(0.0); }
+        std::string str = std::string(args[0]);
+        int x = int(args[1]), y = int(args[2]);
+
+        auto node = std::make_shared<DrawableOnCall>(
+            [str, x, y](DrawableOnCall*)
+            {
+                Font::getInstance()->drawWithBox(str, 20, x, y, { 255, 255, 255, 255 });
+            },
+            [](DrawableOnCall* node, EngineEvent& e)
+            {
+                if (e.type == EVENT_KEY_UP)
+                {
+                    switch (e.key.key)
+                    {
+                    case SDLK_Y: node->exitWithResult(1); break;
+                    case SDLK_SPACE:
+                    case SDLK_RETURN: node->exitWithResult(1); break;
+                    case SDLK_ESCAPE: node->exitWithResult(0); break;
+                    default: node->exitWithResult(0); break;
+                    }
+                }
+                else if (e.type == EVENT_MOUSE_BUTTON_UP)
+                {
+                    if (e.button.button == BUTTON_LEFT)
+                    {
+                        node->exitWithResult(1);
+                    }
+                    else if (e.button.button == BUTTON_RIGHT)
+                    {
+                        node->exitWithResult(0);
+                    }
+                }
+                else if (e.type == EVENT_QUIT || e.type == EVENT_WINDOW_CLOSE_REQUESTED)
+                {
+                    node->exitWithResult(0);
+                }
+            });
+
+        return cifa::Object(double(node->run()));
+    });
+
+    cifa_.register_function("drawlength", [](cifa::ObjectVector& args) -> cifa::Object
+    {
+        if (args.empty()) { return cifa::Object(0.0); }
+        return cifa::Object(double(Font::getTextDrawSize(std::string(args[0]))));
+    });
+
     cifa_.register_function("gettalk", [](cifa::ObjectVector& args) -> cifa::Object
     {
         int index = args.empty() ? 0 : int(args[0]);
         std::string str = Event::getInstance()->getTalkContent(index);
         return cifa::Object(str);
+    });
+
+    cifa_.register_function("getitemname", [](cifa::ObjectVector& args) -> cifa::Object
+    {
+        int id = args.empty() ? 0 : int(args[0]);
+        auto item = Save::getInstance()->getItem(id);
+        return cifa::Object(item ? std::string(item->Name) : std::string());
+    });
+
+    cifa_.register_function("getteam", [](cifa::ObjectVector& args) -> cifa::Object
+    {
+        int index = args.empty() ? 0 : int(args[0]);
+        if (index < 0 || index >= TEAMMATE_COUNT)
+        {
+            return cifa::Object(-1.0);
+        }
+        return cifa::Object(double(Save::getInstance()->getTeamMateID(index)));
     });
 
     cifa_.register_function("menu", [](cifa::ObjectVector& args) -> cifa::Object
@@ -386,8 +434,8 @@ int ScriptCifa::registerEventFunctions()
         }
         int x = int(args[0]);
         int y = int(args[1]);
-        int n = args.size() >= 4 ? int(args[3]) : 0;
         auto& arr = args[2].ref<std::vector<cifa::Object>>();
+        int n = args.size() >= 4 ? int(args[3]) : int(arr.size()) - 1;
 
         std::vector<std::string> items;
         for (int i = 1; i <= n && i < (int)arr.size(); i++)
@@ -395,16 +443,6 @@ int ScriptCifa::registerEventFunctions()
             if (arr[i].isType<std::string>())
             {
                 items.push_back(std::string(arr[i]));
-            }
-        }
-        if (items.empty())
-        {
-            for (auto& item : arr)
-            {
-                if (item.isType<std::string>())
-                {
-                    items.push_back(std::string(item));
-                }
             }
         }
         if (items.empty())

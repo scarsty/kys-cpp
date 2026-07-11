@@ -263,40 +263,6 @@ std::string lua2cifa(std::string str)
     }
 
     // ─────────────────────────────────────────────────
-    // 预处理 C：消解 showmessage 后跟 jump_flag 的模式
-    //   "x[28672] = showmessage(..., CODE);" 之后出现
-    //   "if jump_flag == false then ..." → "if x[28672] != CODE then ..."
-    //   "if jump_flag then ..."           → "if x[28672] == CODE then ..."
-    // ─────────────────────────────────────────────────
-    {
-        std::string last_code;
-        for (int i = 0; i < (int)lines.size(); i++)
-        {
-            std::string t = trim_str(lines[i]);
-            if (t.find("showmessage(") != std::string::npos && t.find("x[28672]") != std::string::npos)
-            {
-                auto pos_close = t.rfind(')');
-                auto pos_comma = t.rfind(',', pos_close);
-                if (pos_comma != std::string::npos && pos_close > pos_comma)
-                {
-                    last_code = trim_str(t.substr(pos_comma + 1, pos_close - pos_comma - 1));
-                }
-            }
-            if (t.find("jump_flag") != std::string::npos && t.find("jump_flag = true") == std::string::npos && t.find("jump_flag = false") == std::string::npos && !last_code.empty())
-            {
-                if (t.find("jump_flag == false") != std::string::npos)
-                {
-                    strfunc::replaceAllSubStringRef(lines[i], "jump_flag == false", "x[28672] != " + last_code);
-                }
-                else
-                {
-                    strfunc::replaceAllSubStringRef(lines[i], "jump_flag", "x[28672] == " + last_code);
-                }
-            }
-        }
-    }
-
-    // ─────────────────────────────────────────────────
     // 第一遍：识别所有向后 goto 对
     //   ::labelN:: 在第 i 行 → 该行变为 "do {"（循环开始）
     //   if COND then goto labelN end; 在第 j 行（j>i）→ 该行变为 "} while (COND);"
@@ -520,6 +486,8 @@ std::string lua2cifa(std::string str)
     // 后处理：去除 Lua 标准库前缀（math./string. 在 Cifa 中直接使用函数名）
     strfunc::replaceAllSubStringRef(result, "math.random(", "random(");
     strfunc::replaceAllSubStringRef(result, "string.format(", "sprintf(");
+    strfunc::replaceAllSubStringRef(result, "jump_flag == false", "!x[28672]");
+    strfunc::replaceAllSubStringRef(result, "jump_flag", "x[28672]");
     // string.rep(" ", EXPR) → sprintf("%-*s", EXPR, "")（生成 EXPR 个空格）
     {
         const std::string pat = "string.rep(\" \", ";

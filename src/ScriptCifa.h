@@ -5,10 +5,6 @@
 #include <string>
 #include <type_traits>
 
-struct ScriptExitException
-{
-};
-
 class ScriptCifa
 {
 public:

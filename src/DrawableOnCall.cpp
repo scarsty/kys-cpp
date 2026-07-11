@@ -4,6 +4,11 @@ DrawableOnCall::DrawableOnCall(std::function<void(DrawableOnCall*)> draw) : draw
 {
 }
 
+DrawableOnCall::DrawableOnCall(std::function<void(DrawableOnCall*)> draw, std::function<void(DrawableOnCall*, EngineEvent&)> deal_event) :
+    draw_(draw), deal_event_(deal_event), id_(-1)
+{
+}
+
 void DrawableOnCall::updateScreenWithID(int id)
 {
     id_ = id;
@@ -17,4 +22,12 @@ int DrawableOnCall::getID()
 void DrawableOnCall::draw()
 {
     draw_(this);
+}
+
+void DrawableOnCall::dealEvent(EngineEvent& e)
+{
+    if (deal_event_)
+    {
+        deal_event_(this, e);
+    }
 }

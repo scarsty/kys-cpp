@@ -60,6 +60,9 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         Prop props;
         props.set(SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
         props.set(SDL_PROP_WINDOW_CREATE_MAXIMIZED_BOOLEAN, maximized);
+    #ifdef __ANDROID__
+        props.set(SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
+    #endif
         props.set(SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, ui_w_);
         props.set(SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, ui_h_);
         props.set(SDL_PROP_WINDOW_CREATE_TITLE_STRING, title_.c_str());
