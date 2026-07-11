@@ -2,15 +2,13 @@
 #include "Engine.h"
 #include "Event.h"
 #include "GameUtil.h"
-#include "ScriptLua.h"
 #include "UIConfig.h"
-#include "UIKeyConfig.h"
 #include "UISave.h"
 
 UISystem::UISystem()
 {
     title_ = std::make_shared<MenuText>();
-    title_->setStrings({ "讀取進度", "保存進度", "我的代碼", "遊戲配置", "離開遊戲" });
+    title_->setStrings({ "讀取進度", "保存進度", "遊戲配置", "離開遊戲" });
     title_->setFontSize(24);
     title_->arrange(100, 50, 120, 0);
     title_->setLRStyle(1);
@@ -43,19 +41,8 @@ void UISystem::onPressedOK()
     }
     else if (title_->getResult() == 2)
     {
-        ScriptLua::getInstance()->runScript(GameUtil::PATH() + "script/1.lua");
-    }
-    else if (title_->getResult() == 3)
-    {
         auto menu = std::make_shared<UIConfig>();
         result_ = menu->runAtPosition(x, 100);
-        if (result_ == 0)
-        {
-            auto text = std::make_shared<TextBox>();
-            text->setText("配置已保存");
-            text->setFontSize(24);
-            text->runAtPosition(x, 100);
-        }
     }
     else if (title_->getResult() == title_->getChildCount() - 1)
     {
@@ -74,7 +61,7 @@ int UISystem::askExit(int mode)
         auto menu = std::make_shared<MenuText>();
         menu->setStrings({ "我點錯了", "離開遊戲", "返回開頭" });
         menu->setFontSize(24);
-        int x = 880, y = 100;
+        int x = 760, y = 100;
         if (mode == 1)
         {
             //menu->getChild(1)->setVisible(false);

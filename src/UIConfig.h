@@ -40,7 +40,6 @@ private:
     static constexpr int ARROW_LEFT_OFFSET = 140;
     static constexpr int VALUE_OFFSET = 162;
     static constexpr int ARROW_RIGHT_OFFSET = 250;
-    static constexpr int BUTTON_Y_OFFSET = 250;
 
     void addOption(const std::string& label, const std::string& section, const std::string& key, const std::vector<std::string>& options);
     void loadConfig();

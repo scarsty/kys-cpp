@@ -21,7 +21,7 @@ Engine::~Engine()
     destroy();
 }
 
-int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximized, const std::string& str)
+int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximized, const std::string& str, int fullscreen)
 {
     if (inited_)
     {
@@ -60,9 +60,11 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         Prop props;
         props.set(SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
         props.set(SDL_PROP_WINDOW_CREATE_MAXIMIZED_BOOLEAN, maximized);
-    #ifdef __ANDROID__
+#ifdef __ANDROID__
         props.set(SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
-    #endif
+#else
+        props.set(SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, fullscreen != 0);
+#endif
         props.set(SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, ui_w_);
         props.set(SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, ui_h_);
         props.set(SDL_PROP_WINDOW_CREATE_TITLE_STRING, title_.c_str());
@@ -790,11 +792,16 @@ bool Engine::isFullScreen()
     return full_screen_;
 }
 
-void Engine::toggleFullscreen()
+void Engine::setFullScreen(bool b)
 {
-    full_screen_ = !full_screen_;
+    full_screen_ = b;
     SDL_SetWindowFullscreen(window_, full_screen_);
     renderClear();
+}
+
+void Engine::toggleFullscreen()
+{
+    setFullScreen(!isFullScreen());
 }
 
 Texture* Engine::loadImage(const std::string& filename, int as_white)

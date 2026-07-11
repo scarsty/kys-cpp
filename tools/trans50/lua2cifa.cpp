@@ -263,6 +263,50 @@ std::string lua2cifa(std::string str)
     }
 
     // ─────────────────────────────────────────────────
+    // 预处理 C：合并 showmessage 后跟 jump_flag 的模式
+    //   "x[28672] = showmessage(...);" 之后出现
+    //   "if jump_flag == false then ..." → "if !showmessage(...) then ..."
+    //   "if jump_flag then ..."           → "if showmessage(...) then ..."
+    // ─────────────────────────────────────────────────
+    {
+        int last_show_line = -1;
+        std::string last_show_expr;
+        const std::string prefix = "x[28672] = ";
+        for (int i = 0; i < (int)lines.size(); i++)
+        {
+            std::string t = trim_str(lines[i]);
+            auto show_pos = t.find("showmessage(");
+            if (t.substr(0, prefix.size()) == prefix && show_pos != std::string::npos)
+            {
+                last_show_line = i;
+                last_show_expr = trim_str(t.substr(prefix.size()));
+                if (!last_show_expr.empty() && last_show_expr.back() == ';')
+                {
+                    last_show_expr.pop_back();
+                }
+                continue;
+            }
+
+            if (last_show_line < 0 || t.find("jump_flag") == std::string::npos || t.substr(0, 3) != "if ")
+            {
+                continue;
+            }
+
+            if (t.find("jump_flag == false") != std::string::npos)
+            {
+                strfunc::replaceAllSubStringRef(lines[i], "jump_flag == false", "!" + last_show_expr);
+            }
+            else
+            {
+                strfunc::replaceAllSubStringRef(lines[i], "jump_flag", last_show_expr);
+            }
+            lines[last_show_line].clear();
+            last_show_line = -1;
+            last_show_expr.clear();
+        }
+    }
+
+    // ─────────────────────────────────────────────────
     // 第一遍：识别所有向后 goto 对
     //   ::labelN:: 在第 i 行 → 该行变为 "do {"（循环开始）
     //   if COND then goto labelN end; 在第 j 行（j>i）→ 该行变为 "} while (COND);"

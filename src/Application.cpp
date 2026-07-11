@@ -32,10 +32,11 @@ int Application::run()
     auto game = GameUtil::getInstance();
     renderer_ = game->getString("game", "renderer", "");
     title_ = game->getString("game", "title", "All Heroes in Kam Yung Stories");
+    int fullscreen = game->getInt("game", "fullscreen", 0);
 
     auto engine = Engine::getInstance();
     engine->setUISize(UI_WIDTH, UI_HEIGHT);
-    engine->init(nullptr, 0, 0, renderer_);
+    engine->init(nullptr, 0, 0, renderer_, fullscreen);
     engine->setWindowTitle(title_);
     engine->addEventWatch([](void*, EngineEvent* e) -> bool
         {

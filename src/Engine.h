@@ -286,7 +286,7 @@ private:
     std::unordered_map<std::string, Texture*> tex_map_;
 
 public:
-    int init(void* handle = nullptr, int handle_type = 0, int maximized = 0, const std::string& str = "");
+    int init(void* handle = nullptr, int handle_type = 0, int maximized = 0, const std::string& str = "", int fullscreen = 0);
 
     Window* getWindow() const { return window_; }
 
@@ -420,6 +420,7 @@ public:
 
     void destroy() const;
     bool isFullScreen();
+    void setFullScreen(bool b);
     void toggleFullscreen();
     Texture* loadImage(const std::string& filename, int as_white = 0);
     Texture* loadImageFromMemory(const std::string& content, int as_white = 0) const;

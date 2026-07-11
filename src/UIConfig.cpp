@@ -1,6 +1,7 @@
 #include "UIConfig.h"
 
 #include "Audio.h"
+#include "Engine.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "TextureManager.h"
@@ -35,19 +36,21 @@ UIConfig::UIConfig()
     addOption("格擋輔助", "game", "easy_block", { "關閉", "開啟" });
     addOption("直接勝利", "game", "battle_debug_win", { "關閉", "開啟" });
     addOption("文字設置", "game", "simplified_chinese", { "繁體", "簡體" });
+    addOption("全屏", "game", "fullscreen", { "關閉", "開啟" });
 
+    const int button_y = int(items_.size()) * ROW_GAP;
     button_ok_ = std::make_shared<Button>();
     button_ok_->setFontSize(24);
     button_ok_->setText("確認");
-    addChild(button_ok_, 100, BUTTON_Y_OFFSET);
+    addChild(button_ok_, 100, button_y);
 
     button_cancel_ = std::make_shared<Button>();
     button_cancel_->setFontSize(24);
     button_cancel_->setText("取消");
-    addChild(button_cancel_, 200, BUTTON_Y_OFFSET);
+    addChild(button_cancel_, 200, button_y);
 
     w_ = ROW_WIDTH;
-    h_ = BUTTON_Y_OFFSET + 30;
+    h_ = button_y + 30;
 
     loadConfig();
     refreshTexts();
@@ -151,6 +154,10 @@ void UIConfig::saveConfig()
     {
         Font::getInstance()->setSimplified(item->value);
     }
+    if (auto item = findOption("game", "fullscreen"))
+    {
+        Engine::getInstance()->setFullScreen(item->value != 0);
+    }
 }
 
 void UIConfig::refreshTexts()
@@ -246,7 +253,7 @@ void UIConfig::onPressedOK()
     {
         saveConfig();
         GameUtil::getInstance()->saveConfig();
-        exitWithResult(0);
+        exitWithResult(-1);
         return;
     }
     if (button_cancel_->getState() == NodePress)
