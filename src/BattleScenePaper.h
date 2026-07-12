@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "BattleSceneAct.h"
 #include "Head.h"
-#include "PaperSky.h"
 #include "UIKeyConfig.h"
 #include <cstdint>
 #include <deque>
@@ -12,7 +11,7 @@ class BattleScenePaper : public BattleSceneAct
 {
 public:
     BattleScenePaper();
-    virtual void draw() override;
+    virtual void draw() override { drawPaperPresentation(); }
     virtual void dealEvent(EngineEvent& e) override;     //战场主循环
     virtual void dealEvent2(EngineEvent& e) override;    //用于停止自动
     virtual void onEntrance() override;
@@ -37,28 +36,15 @@ public:
 
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     virtual int calRolePic(Role* r, int style, int frame) override;
-    int realTowardsToCameraFaceTowards(const Pointf& dir, const Pointf& view_dir, const Pointf& paper_right, int current_face_towards);
-    bool isPaperWallTile(int num);
     virtual bool isBuilding(int x, int y) override;
 
 protected:
     const double MAX_POSTURE = 100;
 
-    int sword_light_ = 0;
-    Color sword_light_color_ = { 255, 255, 255, 255 };
     int switch_magic_ = 0;
 
     int easy_block_ = 0;
 
-    Pointf camera_pos_ = { 1500, 1500, 200 };
-    Pointf camera_focus_ = { 1500, 1500, 0 };
-    float camera_angle_ = M_PI / 2;
-    float camera_distance_ = 0;
-    float free_camera_distance_ = 400;
-    float camera_height_ = 200;
-    float camera_height_angle_ = M_PI / 4;
-    bool camera_locked_ = false;
-    PaperSky paper_sky_;
 };
 
 //暂时设计：

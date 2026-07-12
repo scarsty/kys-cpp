@@ -2,9 +2,12 @@
 #include <deque>
 
 #include "BattleScene.h"
+#include "Camera.h"
 #include "Font.h"
+#include "PaperSky.h"
 #include "TextureManager.h"
 #include "UIKeyConfig.h"
+#include <cmath>
 
 //在即时战斗场景中，使用的是物理坐标，在画面上显示时y方向需要除以2
 //x和y方向的最大值都是地面的宽度，即TILE_W * 64 * 2
@@ -91,12 +94,20 @@ public:
     int slow_ = 0;
     int shake_ = 0;
     int close_up_ = 0;
+    int sword_light_ = 0;
+    Color sword_light_color_ = { 255, 255, 255, 255 };
 
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每帧
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //发动攻击
     std::unordered_map<std::string, std::function<void(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
 
     void setID(int id);
+
+    bool usePaperPresentation() const;
+    void initializePaperPresentation();
+    void drawPaperPresentation();
+    void handlePaperPresentationEvent(EngineEvent& e);
+    Role* findNearestEnemy(int team, Pointf p);
 
     bool canWalk45(int x, int y)
     {
@@ -147,4 +158,20 @@ public:
         if (i > 0) { i -= v; }
         if (i < 0) { i = 0; }
     }
+
+protected:
+    int realTowardsToCameraFaceTowards(const Pointf& dir, const Pointf& view_dir,
+        const Pointf& paper_right, int current_face_towards);
+    bool isPaperWallTile(int num) const;
+    Pointf getPaperMoveDirection(float input_right, float input_forward) const;
+
+    Pointf camera_pos_ = { 1500, 1500, 200 };
+    Pointf camera_focus_ = { 1500, 1500, 0 };
+    float camera_angle_ = M_PI / 2;
+    float camera_distance_ = 0;
+    float free_camera_distance_ = 400;
+    float camera_height_ = 200;
+    bool camera_locked_ = false;
+    Camera camera_;
+    PaperSky paper_sky_;
 };

@@ -70,7 +70,7 @@ BattleScenePaper::BattleScenePaper()
     easy_block_ = GameUtil::getInstance()->getInt("game", "easy_block", 0);
 }
 
-void BattleScenePaper::draw()
+void BattleSceneAct::drawPaperPresentation()
 {
     //在这个模式下，使用的是直角坐标
     Engine::getInstance()->setRenderTarget("scene");
@@ -2742,7 +2742,7 @@ Role* BattleScenePaper::findNearestEnemy(int team, Pointf p)
     return r0;
 }
 
-int BattleScenePaper::realTowardsToCameraFaceTowards(const Pointf& dir, const Pointf& view_dir, const Pointf& paper_right, int current_face_towards)
+int BattleSceneAct::realTowardsToCameraFaceTowards(const Pointf& dir, const Pointf& view_dir, const Pointf& paper_right, int current_face_towards)
 {
     Pointf n = dir;
     n.z = 0;
@@ -2767,7 +2767,7 @@ int BattleScenePaper::realTowardsToCameraFaceTowards(const Pointf& dir, const Po
     return Towards_None;
 }
 
-bool BattleScenePaper::isPaperWallTile(int num)
+bool BattleSceneAct::isPaperWallTile(int num) const
 {
     return (num >= 701 && num <= 1139)
         || (num >= 1410 && num <= 1436)

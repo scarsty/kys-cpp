@@ -43,6 +43,12 @@ BattleSceneSekiro::BattleSceneSekiro()
 
 void BattleSceneSekiro::draw()
 {
+    if (usePaperPresentation())
+    {
+        drawPaperPresentation();
+        return;
+    }
+
     //在这个模式下，使用的是直角坐标
     Engine::getInstance()->setRenderTarget("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
@@ -407,6 +413,7 @@ void BattleSceneSekiro::draw()
 
 void BattleSceneSekiro::dealEvent(EngineEvent& e)
 {
+    handlePaperPresentationEvent(e);
     auto engine = Engine::getInstance();
     auto r = role_;
     //LOG("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
@@ -486,51 +493,66 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
                 auto axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFTY);
                 if (abs(axis_x) < 6000) { axis_x = 0; }
                 if (abs(axis_y) < 6000) { axis_y = 0; }
-                if (axis_x != 0 || axis_y != 0)
+                if (usePaperPresentation())
                 {
-                    //LOG("{} {}, ", axis_x, axis_y);
                     axis_x = GameUtil::clamp(axis_x, -20000, 20000);
                     axis_y = GameUtil::clamp(axis_y, -20000, 20000);
-                    Pointf axis{ float(axis_x), float(axis_y) };
-                    axis *= 1.0 / 20000;    // / sqrt(2.0);
-                    r->RealTowards = axis;
-                    //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
-                    axis.normTo(speed);
-                    pos += axis;
+                    float input_right = axis_x / 20000.0f;
+                    float input_forward = -axis_y / 20000.0f;
+                    if (engine->checkKeyPress(K_A)) { input_right -= 1; }
+                    if (engine->checkKeyPress(K_D)) { input_right += 1; }
+                    if (engine->checkKeyPress(K_W)) { input_forward += 1; }
+                    if (engine->checkKeyPress(K_S)) { input_forward -= 1; }
+                    auto direct = getPaperMoveDirection(input_right, input_forward);
+                    direct.normTo(speed);
+                    pos += direct;
                 }
-                Pointf direct;
-                if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(K_LEFT))
+                else
                 {
-                    direct.x = -1;
-                    r->FaceTowards = Towards_LeftDown;
+                    if (axis_x != 0 || axis_y != 0)
+                    {
+                        axis_x = GameUtil::clamp(axis_x, -20000, 20000);
+                        axis_y = GameUtil::clamp(axis_y, -20000, 20000);
+                        Pointf axis{ float(axis_x), float(axis_y) };
+                        axis *= 1.0 / 20000;
+                        r->RealTowards = axis;
+                        axis.normTo(speed);
+                        pos += axis;
+                    }
+                    Pointf direct;
+                    if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(K_LEFT))
+                    {
+                        direct.x = -1;
+                        r->FaceTowards = Towards_LeftDown;
+                    }
+                    if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(K_RIGHT))
+                    {
+                        direct.x = 1;
+                        r->FaceTowards = Towards_RightUp;
+                    }
+                    if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(K_UP))
+                    {
+                        direct.y = -1;
+                        r->FaceTowards = Towards_LeftUp;
+                    }
+                    if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(K_DOWN))
+                    {
+                        direct.y = 1;
+                        r->FaceTowards = Towards_RightDown;
+                    }
+                    direct.normTo(speed);
+                    pos += direct;
                 }
-                if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(K_RIGHT))
-                {
-                    direct.x = 1;
-                    r->FaceTowards = Towards_RightUp;
-                }
-                if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(K_UP))
-                {
-                    direct.y = -1;
-                    r->FaceTowards = Towards_LeftUp;
-                }
-                if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(K_DOWN))
-                {
-                    direct.y = 1;
-                    r->FaceTowards = Towards_RightDown;
-                }
-                direct.normTo(speed);
-                pos += direct;
                 //这样来看同时用手柄和键盘会走得很快，就这样吧
             }
         }
-        if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(keys_.Right)
-            || engine->checkKeyPress(K_UP) && engine->checkKeyPress(K_RIGHT))
+        if (!usePaperPresentation() && (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(keys_.Right)
+            || engine->checkKeyPress(K_UP) && engine->checkKeyPress(K_RIGHT)))
         {
             r->FaceTowards = Towards_RightUp;
         }
-        if (engine->checkKeyPress(keys_.Down) && engine->checkKeyPress(keys_.Left)
-            || engine->checkKeyPress(K_DOWN) && engine->checkKeyPress(K_LEFT))
+        if (!usePaperPresentation() && (engine->checkKeyPress(keys_.Down) && engine->checkKeyPress(keys_.Left)
+            || engine->checkKeyPress(K_DOWN) && engine->checkKeyPress(K_LEFT)))
         {
             r->FaceTowards = Towards_LeftDown;
         }
@@ -701,6 +723,10 @@ void BattleSceneSekiro::onEntrance()
     addChild(Weather::getInstance());
 
     makeEarthTexture();
+    if (usePaperPresentation())
+    {
+        initializePaperPresentation();
+    }
 
     //此处创建了一个大的纹理，用于渲染整个场景
     Engine::getInstance()->createRenderedTexture("whole_scene", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
@@ -1696,7 +1722,7 @@ void BattleSceneSekiro::setRoleInitState(Role* r)
     r->Posture = 25;
 }
 
-void BattleSceneSekiro::renderExtraRoleInfo(Role* r, double x, double y)
+void BattleSceneSekiro::renderExtraRoleInfo(Role* r, int x, int y)
 {
     if (r == nullptr || r->Dead)
     {

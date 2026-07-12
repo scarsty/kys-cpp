@@ -56,7 +56,6 @@ std::shared_ptr<MainScene> MainScene::getInstance()
 {
     static std::shared_ptr<MainScene> ms = []() -> std::shared_ptr<MainScene>
     {
-        //if (GameUtil::getInstance()->getInt("game", "battle_mode") == 5)
         //{
         //    LOG("Main scene mode: Paper\n");
         //    return std::make_shared<MainScenePaper>();

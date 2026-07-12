@@ -4,7 +4,6 @@
 #include "TextureManager.h"
 
 #include "BattleSceneHades.h"
-#include "BattleScenePaper.h"
 #include "BattleSceneSekiro.h"
 
 VirtualStick::VirtualStick()
@@ -90,8 +89,9 @@ void VirtualStick::updateLayout()
 
 void VirtualStick::dealEvent(EngineEvent& e)
 {
-    bool is_action = RunNode::topIsType<BattleSceneHades>() || RunNode::topIsType<BattleSceneSekiro>();
-    bool is_paper = RunNode::topIsType<BattleScenePaper>();
+    auto battle_act = RunNode::getPointerFromRoot<BattleSceneAct>();
+    bool is_action = battle_act != nullptr;
+    bool is_paper = is_action && battle_act->usePaperPresentation();
     if (is_paper)
     {
         setStyle(2);

@@ -9,8 +9,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerWorkingDirectory>..\..\cpp版资源</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>.\game-riverlake</LocalDebuggerCommandArguments>
-    <LocalDebuggerCommandArgumentsHistory>.\game|.\game-RiverLake|.\game-ptt|.\game-dragon|.\game-riverlake|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArguments>.\game-dragon</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArgumentsHistory>.\game|.\game-RiverLake|.\game-riverlake|.\game-ptt|.\game-dragon|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>

@@ -160,7 +160,6 @@ add_library(main SHARED
         "${KYS_SRC_DIR}/BattleScene.cpp"
         "${KYS_SRC_DIR}/BattleSceneAct.cpp"
         "${KYS_SRC_DIR}/BattleSceneHades.cpp"
-        "${KYS_SRC_DIR}/BattleScenePaper.cpp"
         "${KYS_SRC_DIR}/BattleSceneSekiro.cpp"
         "${KYS_SRC_DIR}/Button.cpp"
         "${KYS_SRC_DIR}/Camera.cpp"

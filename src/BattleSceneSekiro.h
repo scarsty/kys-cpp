@@ -26,7 +26,7 @@ public:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
 
-    void renderExtraRoleInfo(Role* r, double x, double y);
+    void renderExtraRoleInfo(Role* r, int x, int y) override;
     Role* findNearestEnemy(int team, Pointf p);
     Role* findFarthestEnemy(int team, Pointf p);
     int calCast(int act_type, int operation_type, Role* r);
@@ -38,8 +38,6 @@ public:
 protected:
     const double MAX_POSTURE = 100;
 
-    int sword_light_ = 0;
-    Color sword_light_color_ = { 255, 255, 255, 255 };
     int switch_magic_ = 0;
 
     int easy_block_ = 0;

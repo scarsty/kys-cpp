@@ -119,7 +119,6 @@
     <ClCompile Include="..\mlcc\SimpleCC.cpp" />
     <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp" />
     <ClCompile Include="BattleSceneAct.cpp" />
-    <ClCompile Include="BattleScenePaper.cpp" />
     <ClCompile Include="PaperSky.cpp" />
     <ClCompile Include=".\..\mlcc\ZipFile2.cpp" />
     <ClCompile Include="Camera.cpp" />
@@ -193,7 +192,6 @@
     <ClInclude Include="..\mlcc\SimpleCC.h" />
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h" />
     <ClInclude Include="BattleSceneAct.h" />
-    <ClInclude Include="BattleScenePaper.h" />
     <ClInclude Include="PaperSky.h" />
     <ClInclude Include=".\..\mlcc\ZipFile2.h" />
     <ClInclude Include="Camera.h" />

@@ -36,7 +36,7 @@ protected:
     std::shared_ptr<Button> button_item_;
     std::shared_ptr<TextBox> show_auto_;
 
-    void renderExtraRoleInfo(Role* r, double x, double y);
+    void renderExtraRoleInfo(Role* r, int x, int y) override;
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;

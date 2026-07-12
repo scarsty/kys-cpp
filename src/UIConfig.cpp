@@ -32,7 +32,8 @@ UIConfig::UIConfig()
     auto volume_options = createVolumeOptions();
     addOption("音樂音量", "music", "volume", volume_options);
     addOption("戰鬥音效", "music", "volumewav", volume_options);
-    addOption("戰鬥模式", "game", "battle_mode", { "回合制", "半即時", "黑帝斯", "隻狼", "遠征隊", "紙片" });
+    addOption("戰鬥模式", "game", "battle_mode", { "回合制", "半即時", "黑帝斯", "隻狼", "遠征隊" });
+    addOption("戰鬥畫法", "game", "battle_presentation", { "經典", "紙片" });
     addOption("格擋輔助", "game", "easy_block", { "關閉", "開啟" });
     addOption("直接勝利", "game", "battle_debug_win", { "關閉", "開啟" });
     addOption("文字設置", "game", "simplified_chinese", { "繁體", "簡體" });
@@ -124,6 +125,10 @@ void UIConfig::loadConfig()
     if (auto item = findOption("game", "battle_mode"))
     {
         item->value = clampIndex(battle_mode, int(item->options.size()));
+        if (battle_mode != item->value)
+        {
+            GameUtil::getInstance()->setKey("game", "battle_mode", std::to_string(item->value));
+        }
     }
     if (auto item = findOption("game", "battle_debug_win"))
     {
