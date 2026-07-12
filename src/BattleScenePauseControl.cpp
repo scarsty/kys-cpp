@@ -59,5 +59,6 @@ bool battlePaperCameraAutoCenterAfterEntry()
 
 BattleScenePaperCameraDefaults battleScenePaperCameraDefaults()
 {
-    return { 580.0f, 240.0f };
+    // Use a wider, right-rotated default with a 37.5-degree downward viewing angle.
+    return { 440.0f, 337.62387471f };
 }

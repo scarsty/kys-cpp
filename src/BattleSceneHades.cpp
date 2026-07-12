@@ -59,6 +59,7 @@ constexpr int BATTLE_CONTROL_LOG_TEXTURE_ID = 335;
 constexpr int BATTLE_CONTROL_SPEED_TEXTURE_ID = 336;
 constexpr double BATTLE_FRAME_PROFILE_SLOW_MS = 4.0;
 constexpr float PAPER_CAMERA_FOV = 60.0f;
+constexpr float PAPER_CAMERA_CLASSIC_VIEW_ANGLE = -0.17453292520f;
 constexpr float PAPER_FREE_CAMERA_ROTATE_SPEED = 0.035f;
 constexpr float PAPER_FREE_CAMERA_HEIGHT_SPEED = 6.0f;
 constexpr float PAPER_FREE_CAMERA_PAN_SPEED = 10.0f;
@@ -176,6 +177,63 @@ void renderProjectedQuad(Camera& camera, Texture* texture, const std::vector<Poi
         destination.push_back({ static_cast<float>(point.x), static_cast<float>(point.y) });
     }
     Engine::getInstance()->renderTexture(texture, nullptr, destination, source);
+}
+
+void renderProjectedPlaneMesh(Camera& camera, Texture* texture, const std::vector<Pointf>& world,
+    const std::vector<FPoint>& source, int columns, int rows)
+{
+    if (!texture || world.size() != 4 || source.size() != 4 || !pointsInCameraFront(camera, world))
+    {
+        return;
+    }
+
+    columns = std::clamp(columns, 1, 32);
+    rows = std::clamp(rows, 1, 32);
+    std::vector<FPoint> destination;
+    std::vector<FPoint> meshSource;
+    std::vector<int> indices;
+    destination.reserve((columns + 1) * (rows + 1));
+    meshSource.reserve((columns + 1) * (rows + 1));
+    indices.reserve(columns * rows * 6);
+
+    for (int row = 0; row <= rows; ++row)
+    {
+        const float v = static_cast<float>(row) / rows;
+        for (int column = 0; column <= columns; ++column)
+        {
+            const float u = static_cast<float>(column) / columns;
+            const Pointf top = world[0] * (1.0f - u) + world[1] * u;
+            const Pointf bottom = world[3] * (1.0f - u) + world[2] * u;
+            const auto projected = camera.getProj({ top * (1.0f - v) + bottom * v }).front();
+            destination.push_back({ projected.x, projected.y });
+
+            const FPoint sourceTop = {
+                source[0].x + (source[1].x - source[0].x) * u,
+                source[0].y + (source[1].y - source[0].y) * u,
+            };
+            const FPoint sourceBottom = {
+                source[3].x + (source[2].x - source[3].x) * u,
+                source[3].y + (source[2].y - source[3].y) * u,
+            };
+            meshSource.push_back({
+                sourceTop.x + (sourceBottom.x - sourceTop.x) * v,
+                sourceTop.y + (sourceBottom.y - sourceTop.y) * v,
+            });
+        }
+    }
+
+    for (int row = 0; row < rows; ++row)
+    {
+        for (int column = 0; column < columns; ++column)
+        {
+            const int topLeft = row * (columns + 1) + column;
+            const int topRight = topLeft + 1;
+            const int bottomLeft = topLeft + columns + 1;
+            const int bottomRight = bottomLeft + 1;
+            indices.insert(indices.end(), { topLeft, topRight, bottomRight, bottomRight, bottomLeft, topLeft });
+        }
+    }
+    Engine::getInstance()->renderTextureMesh(texture, destination, meshSource, {}, indices);
 }
 
 Texture* ensurePaperCursorFloorTexture(Engine& engine)
@@ -566,44 +624,8 @@ void BattleSceneHades::draw()
 
 std::optional<float> BattleSceneHades::defaultPaperCameraAngleFromRuntimeUnits() const
 {
-    if (!activeRuntimeSession())
-    {
-        return std::nullopt;
-    }
-
-    double bestDistanceSquared = -1.0;
-    Pointf selectedAlly;
-    Pointf selectedEnemy;
-    for (const auto& ally : scene_units_.runtimeUnits())
-    {
-        if (!ally.alive || ally.team != 0)
-        {
-            continue;
-        }
-        for (const auto& enemy : scene_units_.runtimeUnits())
-        {
-            if (!enemy.alive || enemy.team != 1)
-            {
-                continue;
-            }
-            const Pointf delta = enemy.motion.position - ally.motion.position;
-            const double distanceSquared = delta.x * delta.x + delta.y * delta.y;
-            if (bestDistanceSquared < 0.0 || distanceSquared < bestDistanceSquared)
-            {
-                bestDistanceSquared = distanceSquared;
-                selectedAlly = ally.motion.position;
-                selectedEnemy = enemy.motion.position;
-            }
-        }
-    }
-
-    Pointf direction = selectedEnemy - selectedAlly;
-    direction.z = 0.0f;
-    if (direction.norm() == 0)
-    {
-        return std::nullopt;
-    }
-    return static_cast<float>(std::atan2(-direction.y, -direction.x));
+    // Keep a stable near-top-down direction so switching from 2D does not rotate to the enemy formation.
+    return PAPER_CAMERA_CLASSIC_VIEW_ANGLE;
 }
 
 std::optional<Pointf> BattleSceneHades::defaultPaperCameraCenterFromRuntimeUnits() const
@@ -684,13 +706,12 @@ void BattleSceneHades::switchBattleViewMode(bool paperView)
     y_ = 0;
     if (paperView)
     {
-        paper_camera_auto_center_ = true;
         if (auto angle = defaultPaperCameraAngleFromRuntimeUnits())
         {
             paper_camera_angle_ = *angle;
         }
-        updatePaperCameraAutoCenter(true);
-        paper_camera_auto_center_ = battlePaperCameraAutoCenterAfterEntry();
+        // The classic view already initialized pos_; preserve it as the 3D entry center.
+        paper_camera_auto_center_ = false;
         paper_camera_distance_ = std::clamp(paper_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
         paper_camera_height_ = std::clamp(paper_camera_height_, PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
     }
@@ -1483,10 +1504,16 @@ void BattleSceneHades::drawPaperView()
         int rot = 0;
         int turn = 1;
         bool subdivideVertical = false;
+        bool faceCamera = false;
+        bool usePerspectiveMesh = false;
+        bool debugRoleTexture = false;
+        int debugHeadId = -1;
     };
 
     std::vector<PaperSprite> sprites;
     sprites.reserve(scene_units_.runtimeUnits().size() + attack_effects_.size() + 512);
+    std::vector<std::pair<FPoint, std::string>> roleTextureDebugLabels;
+    roleTextureDebugLabels.reserve(scene_units_.runtimeUnits().size());
     std::unordered_map<int, float> roleInfoAnchorZByUnitId;
     roleInfoAnchorZByUnitId.reserve(scene_units_.runtimeUnits().size());
 
@@ -1579,6 +1606,7 @@ void BattleSceneHades::drawPaperView()
         }
         sprite.world = world;
         sprite.sortAnchor = { (a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f, wallHeight * 0.5f };
+        sprite.usePerspectiveMesh = true;
         sprites.emplace_back(std::move(sprite));
     };
 
@@ -1631,6 +1659,7 @@ void BattleSceneHades::drawPaperView()
             sprite.tex = tex;
             sprite.anchor = anchor;
             sprite.sortAnchor = anchor + Pointf{ 0, 18, 0 };
+            sprite.usePerspectiveMesh = true;
             sprites.push_back(std::move(sprite));
         }
     }
@@ -1666,6 +1695,8 @@ void BattleSceneHades::drawPaperView()
         sprite.tex = tex;
         sprite.anchor = unit.motion.position;
         sprite.sortAnchor = sprite.anchor;
+        sprite.debugRoleTexture = true;
+        sprite.debugHeadId = unit.headId;
         sprite.alpha = presentation.attention ? 255 - presentation.attention * 4 : 255;
         sprite.color = calculateHurtFlashColor(unit.id, sprite.color);
         roleInfoAnchorZByUnitId[unit.id] = BattleSceneRenderMath::paperRoleInfoAnchorZ(tex->dy);
@@ -1699,7 +1730,7 @@ void BattleSceneHades::drawPaperView()
         sprite.tex = tex;
         sprite.anchor = effectPosition;
         sprite.sortAnchor = effectPosition + Pointf{ 0, 220, 0 };
-        sprite.subdivideVertical = true;
+        sprite.faceCamera = true;
         if (effect.FollowUnitId >= 0)
         {
             sprite.alpha = 255;
@@ -1731,7 +1762,14 @@ void BattleSceneHades::drawPaperView()
         {
             if (pointsInCameraFront(paper_camera_, sprite.world))
             {
-                renderProjectedQuad(paper_camera_, sprite.texture, sprite.world, sprite.source);
+                if (sprite.usePerspectiveMesh)
+                {
+                    renderProjectedPlaneMesh(paper_camera_, sprite.texture, sprite.world, sprite.source, 4, 4);
+                }
+                else
+                {
+                    renderProjectedQuad(paper_camera_, sprite.texture, sprite.world, sprite.source);
+                }
             }
             return;
         }
@@ -1749,8 +1787,20 @@ void BattleSceneHades::drawPaperView()
         const float right = static_cast<float>(sprite.tex->w - sprite.tex->dx);
         const float top = static_cast<float>(sprite.tex->dy);
         const float bottom = static_cast<float>(sprite.tex->dy - sprite.tex->h);
+        const Pointf cameraForward = normalizeOr(paper_camera_.center - paper_camera_.pos, { 0, 1, 0 });
+        const Pointf cameraUp = normalizeOr(
+            {
+                paperRight.y * cameraForward.z - paperRight.z * cameraForward.y,
+                paperRight.z * cameraForward.x - paperRight.x * cameraForward.z,
+                paperRight.x * cameraForward.y - paperRight.y * cameraForward.x,
+            },
+            { 0, 0, 1 });
         auto localPoint = [&](float x, float z)
         {
+            if (sprite.faceCamera)
+            {
+                return sprite.anchor + paperRight * x + cameraUp * z;
+            }
             if (sprite.rot == 90)
             {
                 return sprite.anchor + paperRight * -z + Pointf{ 0, 0, x };
@@ -1776,7 +1826,46 @@ void BattleSceneHades::drawPaperView()
         Color color = sprite.color;
         color.a = sprite.alpha;
         Engine::setColor(texture, color);
-        if (sprite.subdivideVertical && sprite.tex->h > 64)
+        if (sprite.debugRoleTexture || sprite.usePerspectiveMesh)
+        {
+            constexpr int maxCellSize = 32;
+            const int columnCount = std::clamp((sprite.tex->w + maxCellSize - 1) / maxCellSize, 1, 32);
+            const int rowCount = std::clamp((sprite.tex->h + maxCellSize - 1) / maxCellSize, 1, 32);
+            std::vector<FPoint> destination;
+            std::vector<FPoint> meshSource;
+            std::vector<int> indices;
+            destination.reserve((columnCount + 1) * (rowCount + 1));
+            meshSource.reserve((columnCount + 1) * (rowCount + 1));
+            indices.reserve(columnCount * rowCount * 6);
+
+            for (int row = 0; row <= rowCount; ++row)
+            {
+                const float v = static_cast<float>(row) / rowCount;
+                const float z = top + (bottom - top) * v;
+                for (int column = 0; column <= columnCount; ++column)
+                {
+                    const float u = static_cast<float>(column) / columnCount;
+                    const float x = left + (right - left) * u;
+                    const auto projected = paper_camera_.getProj({ localPoint(x, z) }).front();
+                    destination.push_back({ projected.x, projected.y });
+                    meshSource.push_back({ static_cast<float>(sprite.tex->w) * u, static_cast<float>(sprite.tex->h) * v });
+                }
+            }
+
+            for (int row = 0; row < rowCount; ++row)
+            {
+                for (int column = 0; column < columnCount; ++column)
+                {
+                    const int topLeft = row * (columnCount + 1) + column;
+                    const int topRight = topLeft + 1;
+                    const int bottomLeft = topLeft + columnCount + 1;
+                    const int bottomRight = bottomLeft + 1;
+                    indices.insert(indices.end(), { topLeft, topRight, bottomRight, bottomRight, bottomLeft, topLeft });
+                }
+            }
+            engine->renderTextureMesh(texture, destination, meshSource, {}, indices);
+        }
+        else if (sprite.subdivideVertical && sprite.tex->h > 64)
         {
             const int segmentCount = std::clamp((sprite.tex->h + 63) / 64, 2, 16);
             for (int segment = 0; segment < segmentCount; ++segment)
@@ -1804,6 +1893,46 @@ void BattleSceneHades::drawPaperView()
         {
             renderProjectedQuad(paper_camera_, texture, world, source);
         }
+
+        /*
+        // Temporarily disabled texture-placement diagnostics. Uncomment this block and the label loop below
+        // to inspect the projected canvas, its anchor, and the parsed frame offset again.
+        if (sprite.debugRoleTexture && pointsInCameraFront(paper_camera_, world))
+        {
+            constexpr int gridDivisions = 4;
+            for (int grid = 1; grid < gridDivisions; ++grid)
+            {
+                const float t = static_cast<float>(grid) / gridDivisions;
+                const auto gridTop = paper_camera_.getProj({ localPoint(left + (right - left) * t, top) }).front();
+                const auto gridBottom = paper_camera_.getProj({ localPoint(left + (right - left) * t, bottom) }).front();
+                const auto gridLeft = paper_camera_.getProj({ localPoint(left, top + (bottom - top) * t) }).front();
+                const auto gridRight = paper_camera_.getProj({ localPoint(right, top + (bottom - top) * t) }).front();
+                engine->drawLine({ 255, 255, 255, 80 }, { gridTop.x, gridTop.y }, { gridBottom.x, gridBottom.y });
+                engine->drawLine({ 255, 255, 255, 80 }, { gridLeft.x, gridLeft.y }, { gridRight.x, gridRight.y });
+            }
+            const auto projected = paper_camera_.getProj(world);
+            for (int index = 0; index < 4; ++index)
+            {
+                const auto& from = projected[index];
+                const auto& to = projected[(index + 1) % 4];
+                engine->drawLine({ 255, 255, 255, 180 }, { from.x, from.y }, { to.x, to.y });
+            }
+
+            if (paper_camera_.getDepth(sprite.anchor) > paper_camera_.getNearPlane())
+            {
+                const auto anchor = paper_camera_.getProj({ sprite.anchor }).front();
+                constexpr float crossRadius = 7.0f;
+                engine->drawLine({ 255, 64, 64, 255 },
+                    { anchor.x - crossRadius, anchor.y }, { anchor.x + crossRadius, anchor.y });
+                engine->drawLine({ 255, 64, 64, 255 },
+                    { anchor.x, anchor.y - crossRadius }, { anchor.x, anchor.y + crossRadius });
+                roleTextureDebugLabels.emplace_back(
+                    FPoint{ anchor.x + 10.0f, anchor.y + 10.0f },
+                    std::format("H{} {}x{} d{},{}", sprite.debugHeadId, sprite.tex->w, sprite.tex->h,
+                        sprite.tex->dx, sprite.tex->dy));
+            }
+        }
+        */
     };
 
     for (const auto& sprite : sprites)
@@ -1836,6 +1965,13 @@ void BattleSceneHades::drawPaperView()
     }
 
     engine->renderTextureToMain("scene");
+
+    /* Temporarily disabled companion labels for the texture-placement diagnostics above.
+    for (const auto& [position, label] : roleTextureDebugLabels)
+    {
+        Font::getInstance()->draw(label, 12, position.x, position.y, { 255, 240, 255, 255 }, 255);
+    }
+    */
 
     for (const auto& text : text_effects_)
     {
@@ -2340,8 +2476,8 @@ void BattleSceneHades::onEntrance()
     }
     if (active_paper_battle_view_)
     {
-        updatePaperCameraAutoCenter(true);
-        paper_camera_auto_center_ = battlePaperCameraAutoCenterAfterEntry();
+        // Preserve the classic-view center selected during runtime initialization.
+        paper_camera_auto_center_ = false;
     }
     const auto& prepared = *session_transition_source_->lastBattlePrepared();
     if (prepared.kind == KysChess::PreparedChessBattleKind::Standalone)

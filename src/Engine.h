@@ -460,6 +460,7 @@ public:
 
     static void setColor(Texture* tex, Color c);
     void fillColor(Color color, int x, int y, int w, int h, BlendMode blend = BLENDMODE_BLEND) const;
+    void drawLine(Color color, FPoint start, FPoint end, BlendMode blend = BLENDMODE_BLEND) const;
     void fillRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend = BLENDMODE_BLEND) const;
     void drawRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend = BLENDMODE_BLEND) const;
     void drawAnimatedRoundedRect(Color color, int x, int y, int w, int h, int radius, double phase, int dotCount = 2, double dotLength = 0.12, BlendMode blend = BLENDMODE_BLEND) const;

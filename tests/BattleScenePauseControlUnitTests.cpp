@@ -46,9 +46,9 @@ TEST_CASE("BattleScenePauseControl_PaperCameraStartsFreeAfterInitialSnap", "[bat
     CHECK_FALSE(battlePaperCameraAutoCenterAfterEntry());
 }
 
-TEST_CASE("BattleScenePauseControl_UsesImmersivePaperCameraDefaults", "[battle][pause_control]")
+TEST_CASE("BattleScenePauseControl_UsesClassicLikePaperCameraDefaults", "[battle][pause_control]")
 {
     const auto defaults = battleScenePaperCameraDefaults();
-    CHECK(defaults.distance == 580.0f);
-    CHECK(defaults.height == 240.0f);
+    CHECK(defaults.distance == 440.0f);
+    CHECK(defaults.height == 337.62387471f);
 }

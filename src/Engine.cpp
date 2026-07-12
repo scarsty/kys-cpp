@@ -965,6 +965,14 @@ void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend)
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
 }
 
+void Engine::drawLine(Color color, FPoint start, FPoint end, BlendMode blend) const
+{
+    SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
+    SDL_SetRenderDrawBlendMode(renderer_, blend);
+    SDL_RenderLine(renderer_, start.x, start.y, end.x, end.y);
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+}
+
 void Engine::fillRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend) const
 {
     if (w <= 0 || h <= 0) { return; }
