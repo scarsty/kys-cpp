@@ -32,7 +32,8 @@ UIConfig::UIConfig()
     auto volume_options = createVolumeOptions();
     addOption("音樂音量", "music", "volume", volume_options);
     addOption("戰鬥音效", "music", "volumewav", volume_options);
-    addOption("戰鬥模式", "game", "battle_mode", { "回合制", "半即時", "黑帝斯", "隻狼", "遠征隊" });
+    addOption("戰鬥模式", "game", "battle_mode", { "回合制", "半即時", "黑帝斯", "隻狼" });
+    addOption("遠征隊規則", "game", "expedition33", { "關閉", "開啟" });
     addOption("戰鬥畫法", "game", "battle_presentation", { "經典", "紙片" });
     addOption("格擋輔助", "game", "easy_block", { "關閉", "開啟" });
     addOption("直接勝利", "game", "battle_debug_win", { "關閉", "開啟" });
@@ -122,6 +123,12 @@ void UIConfig::loadConfig()
         item->value = clampIndex(GameUtil::getInstance()->getInt("music", "volumewav", 50) / 10, int(item->options.size()));
     }
     int battle_mode = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
+    if (battle_mode == 4)
+    {
+        battle_mode = 0;
+        GameUtil::getInstance()->setKey("game", "battle_mode", "0");
+        GameUtil::getInstance()->setKey("game", "expedition33", "1");
+    }
     if (auto item = findOption("game", "battle_mode"))
     {
         item->value = clampIndex(battle_mode, int(item->options.size()));

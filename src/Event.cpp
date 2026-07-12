@@ -441,12 +441,20 @@ bool Event::tryBattle(int battle_id, int get_exp)
         return true;
     }
     int battle_mode = GameUtil::getInstance()->getInt("game", "battle_mode");
+    bool expedition33 = GameUtil::getInstance()->getInt("game", "expedition33", 0) != 0;
+    if (battle_mode == 4)
+    {
+        battle_mode = 0;
+        expedition33 = true;
+        GameUtil::getInstance()->setKey("game", "battle_mode", "0");
+        GameUtil::getInstance()->setKey("game", "expedition33", "1");
+    }
     LOG("Battle mode: {}\n", battle_mode);
-    if (battle_mode == 0 || battle_mode == 1 || battle_mode == 4)
+    if (battle_mode == 0 || battle_mode == 1)
     {
         auto battle = std::make_shared<BattleScene>();
         battle->setSemiReal(battle_mode == 1);
-        battle->setExpedition33(battle_mode == 4);
+        battle->setExpedition33(expedition33);
         battle->setID(battle_id);
         battle->setHaveFailExp(get_exp);
         result = battle->run();

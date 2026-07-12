@@ -1036,6 +1036,23 @@ void BattleSceneAct::drawPaperPresentation()
                 }
             }
             Engine::getInstance()->renderTextureToMain("scene");
+            if (sword_light_)
+            {
+                auto tex = TextureManager::getInstance()->getTexture("title", 203);
+                if (tex)
+                {
+                    int w = tex->w;
+                    int h = tex->h;
+                    double zoom_max = 1.0 * Engine::getInstance()->getUIWidth() / w;
+                    double zoom = zoom_max * sword_light_ / 20;
+                    w = int(w * zoom);
+                    h = int(h * zoom);
+                    int x = Engine::getInstance()->getUIWidth() / 2 - w / 2;
+                    int y = Engine::getInstance()->getUIHeight() / 2 - h / 2 + swordLightYOffset();
+                    TextureManager::getInstance()->renderTexture("title", 203, x, y,
+                        { sword_light_color_, 255, zoom, zoom, 0, 0 });
+                }
+            }
             return;
         }
 
