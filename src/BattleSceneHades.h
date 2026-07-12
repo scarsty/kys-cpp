@@ -35,6 +35,9 @@ protected:
     std::vector<std::shared_ptr<Button>> button_magics_;
     std::shared_ptr<Button> button_item_;
     std::shared_ptr<TextBox> show_auto_;
+    std::vector<std::shared_ptr<Head>> team_heads_;
+
+    void layoutTeamHeads();
 
     void renderExtraRoleInfo(Role* r, int x, int y) override;
     //int calHurt(Role* r0, Role* r1);

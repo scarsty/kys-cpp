@@ -52,9 +52,11 @@ public:
     struct TextEffect
     {
         Pointf Pos;
+        Pointf PaperPos;
         std::string Text;
         int Size = 30;
         int Frame = 0;
+        int PaperRise = 0;
         Color color;
         int Type = 0;    //0-缓缓向上, 1-原地不动
 
@@ -64,6 +66,7 @@ public:
             color = c;
             if (r)
             {
+                PaperPos = r->Pos;
                 Pos = r->Pos;
                 Pos.x -= 7.5 * Font::getTextDrawSize(Text);
                 Pos.y -= 50;
@@ -93,6 +96,7 @@ public:
     int frozen_ = 0;
     int slow_ = 0;
     int shake_ = 0;
+    int paper_shake_ = 0;
     int close_up_ = 0;
     int sword_light_ = 0;
     Color sword_light_color_ = { 255, 255, 255, 255 };

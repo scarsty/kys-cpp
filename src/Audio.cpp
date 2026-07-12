@@ -191,6 +191,15 @@ void Audio::saveCurrentMusicPosition()
     }
 }
 
+void Audio::setVolume(int v)
+{
+    volume_ = v;
+    if (track_music_)
+    {
+        MIX_SetTrackGain(track_music_, volume_ / 100.0);
+    }
+}
+
 void Audio::playMusic(MUSIC m)
 {
     MIX_SetTrackGain(track_music_, volume_ / 100.0);

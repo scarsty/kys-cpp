@@ -1123,6 +1123,7 @@ void BattleSceneSekiro::backRun1()
                 pos_ = r->Pos;
                 frozen_ = 5;
                 shake_ = 10;
+                paper_shake_ = 10;
                 slow_ = 10;
                 close_up_ = 30;
             }
@@ -1137,7 +1138,11 @@ void BattleSceneSekiro::backRun1()
     {
         for (auto& te : text_effects_)
         {
-            if (te.Type == 0) { te.Pos.y -= 2; }
+            if (te.Type == 0)
+            {
+                te.Pos.y -= 2;
+                te.PaperRise += 2;
+            }
             te.Frame++;
         }
         for (auto it = text_effects_.begin(); it != text_effects_.end();)
@@ -1188,7 +1193,8 @@ void BattleSceneSekiro::backRun1()
                 close_up_ = 60;
                 frozen_ = 60;
                 slow_ = 30;
-                shake_ = 40;
+                shake_ = 60;
+                paper_shake_ = 60;
                 result_ = battle_result;
             }
             if (slow_ == 0 && (result_ == 0 || result_ == 1))
@@ -1434,9 +1440,10 @@ void BattleSceneSekiro::Action(Role* r)
         if (r->OperationType == 1)
         {
             r->ActFrame++;
-            if (r->ActFrame >= 7)
+            if (r->ActFrame == 7)
             {
                 shake_ = 1;
+                paper_shake_ = 1;
             }
         }
         else
@@ -1564,7 +1571,7 @@ void BattleSceneSekiro::AI(Role* r)
                         {
                             for (int y = p_self45.y - 1; y <= p_self45.y + 1; y++)
                             {
-                                if (calDistance(x, y, p_self45.x, p_self45.y) != 1)
+                                if (isOutLine(x, y) || calDistance(x, y, p_self45.x, p_self45.y) != 1)
                                 {
                                     continue;
                                 }

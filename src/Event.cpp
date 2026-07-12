@@ -14,6 +14,7 @@
 #include "ScriptLua.h"
 #include "SubScene.h"
 #include "Talk.h"
+#include "TextureManager.h"
 #include "UIShop.h"
 #include "filefunc.h"
 #include "strfunc.h"
@@ -33,13 +34,38 @@ Event::Event()
     menu2_->setHaveBox(true);
     menu2_->arrange(0, 50, 150, 0);
     text_box_ = std::make_shared<TextBox>();
-    text_box_->setPosition(Engine::getInstance()->getUIWidth() / 2 - 100, 200);
     text_box_->setTextPosition(-20, 100);
+    layoutEventUI();
     event_node_ = std::make_shared<DrawNode>();
 }
 
 Event::~Event()
 {
+}
+
+void Event::layoutEventUI()
+{
+    constexpr int menu_width = 150;
+    constexpr int menu_height = 100;
+    int ui_width = Engine::getInstance()->getUIWidth();
+    int ui_height = Engine::getInstance()->getUIHeight();
+    menu2_->setPosition(ui_width / 2 - menu_width / 2, ui_height / 2 - menu_height / 2);
+    talk_box_up_->setPosition(0, 0);
+    talk_box_down_->setPosition(0, std::max(0, ui_height - 320));
+}
+
+void Event::showTextNotice(const std::string& text)
+{
+    constexpr int font_size = 20;
+    layoutEventUI();
+    int ui_width = Engine::getInstance()->getUIWidth();
+    int ui_height = Engine::getInstance()->getUIHeight();
+    int text_width = font_size * Font::getTextDrawSize(text) / 2;
+    text_box_->setTexture("", -1);
+    text_box_->setPosition(ui_width / 2 - text_width / 2, ui_height / 2 - font_size / 2);
+    text_box_->setTextPosition(0, 0);
+    text_box_->setText(text);
+    text_box_->run();
 }
 
 bool Event::loadEventData()
@@ -348,6 +374,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 
 void Event::newTalk(const std::string& talk_content, int head_id, int style, int voice)
 {
+    layoutEventUI();
     auto talk = talk_box_up_;
     if (style % 2 != 0)
     {
@@ -387,13 +414,49 @@ void Event::newTalk(const std::string& talk_content, int head_id, int style, int
     talk->run(false);
 }
 
-//获得物品，有提示
+//获得物品，有提示（仅底层，无提示框）
 void Event::addItem(int item_id, int count)
 {
+    addItemWithNotice(item_id, count, "");
+}
+
+//获得物品，含提示（带可选的提示文字）
+void Event::addItemWithNotice(int item_id, int count, const std::string& notice)
+{
     addItemWithoutHint(item_id, count);
-    text_box_->setText(std::format("獲得{}  {}", Save::getInstance()->getItem(item_id)->Name, count));
+    layoutEventUI();
+    constexpr int font_size = 20;
+    constexpr int text_gap = 28;
+    auto text = std::format("獲得{}  {}", Save::getInstance()->getItem(item_id)->Name, count);
+    auto item_texture = TextureManager::getInstance()->getTexture("item", item_id);
+    if (item_texture)
+    {
+        item_texture->load();
+    }
+    int texture_width = item_texture ? item_texture->w : 0;
+    int texture_height = item_texture ? item_texture->h : 0;
+    int text_width = font_size * Font::getTextDrawSize(text) / 2;
+    int content_height = texture_height + text_gap + font_size;
+    int ui_width = Engine::getInstance()->getUIWidth();
+    int ui_height = Engine::getInstance()->getUIHeight();
+    text_box_->setPosition(ui_width / 2 - texture_width / 2, ui_height / 2 - content_height / 2);
+    text_box_->setTextPosition(texture_width / 2 - text_width / 2, texture_height + text_gap);
+    text_box_->setText(text);
     text_box_->setTexture("item", item_id);
+    std::shared_ptr<TextBox> notice_box;
+    if (!notice.empty())
+    {
+        notice_box = std::make_shared<TextBox>();
+        notice_box->setText(notice);
+        notice_box->setPosition(ui_width / 2 - Font::getTextDrawSize(notice) * font_size / 4,
+            ui_height / 2 - content_height / 2 - font_size - text_gap);
+        text_box_->addChild(notice_box);
+    }
     text_box_->run();
+    if (notice_box)
+    {
+        text_box_->removeChild(notice_box);
+    }
     text_box_->setTexture("item", -1);
 }
 
@@ -428,6 +491,7 @@ bool Event::isUsingItem(int item_id)
 //询问战斗
 bool Event::askBattle()
 {
+    layoutEventUI();
     menu2_->setText("是否與之過招？");
     return menu2_->run() == 0;
 }
@@ -442,13 +506,6 @@ bool Event::tryBattle(int battle_id, int get_exp)
     }
     int battle_mode = GameUtil::getInstance()->getInt("game", "battle_mode");
     bool expedition33 = GameUtil::getInstance()->getInt("game", "expedition33", 0) != 0;
-    if (battle_mode == 4)
-    {
-        battle_mode = 0;
-        expedition33 = true;
-        GameUtil::getInstance()->setKey("game", "battle_mode", "0");
-        GameUtil::getInstance()->setKey("game", "expedition33", "1");
-    }
     LOG("Battle mode: {}\n", battle_mode);
     if (battle_mode == 0 || battle_mode == 1)
     {
@@ -487,6 +544,7 @@ void Event::changeMainMapMusic(int music_id)
 
 bool Event::askJoin()
 {
+    layoutEventUI();
     menu2_->setText("是否要求加入？");
     return menu2_->run() == 0;
 }
@@ -517,6 +575,7 @@ void Event::join(int role_id)
 
 bool Event::askRest()
 {
+    layoutEventUI();
     menu2_->setText("請選擇是或否？");
     return menu2_->run() == 0;
 }
@@ -791,8 +850,7 @@ void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
     auto m = Save::getInstance()->getMagic(magic_id);
     r->learnMagic(m);
     if (no_display) { return; }
-    text_box_->setText(std::format("{}習得武學{}", r->Name, m->Name));
-    text_box_->run();
+    showTextNotice(std::format("{}習得武學{}", r->Name, m->Name));
 }
 
 void Event::addIQ(int role_id, int value)
@@ -800,8 +858,7 @@ void Event::addIQ(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->IQ;
     r->IQ = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->IQ);
-    text_box_->setText(std::format("{}資質增加{}", r->Name, r->IQ - v0));
-    text_box_->run();
+    showTextNotice(std::format("{}資質增加{}", r->Name, r->IQ - v0));
 }
 
 void Event::setRoleMagic(int role_id, int magic_index_role, int magic_id, int level)
@@ -970,8 +1027,7 @@ void Event::addSpeed(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Speed;
     r->Speed = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->Speed);
-    text_box_->setText(std::format("{}輕功增加{}", r->Name, r->Speed - v0));
-    text_box_->run();
+    showTextNotice(std::format("{}輕功增加{}", r->Name, r->Speed - v0));
 }
 
 void Event::addMaxMP(int role_id, int value)
@@ -980,8 +1036,7 @@ void Event::addMaxMP(int role_id, int value)
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->MP);
     r->MP = GameUtil::clamp(r->MP + value, 0, r->MaxMP);
-    text_box_->setText(std::format("{}內力增加{}", r->Name, r->MaxMP - v0));
-    text_box_->run();
+    showTextNotice(std::format("{}內力增加{}", r->Name, r->MaxMP - v0));
 }
 
 void Event::addAttack(int role_id, int value)
@@ -989,8 +1044,7 @@ void Event::addAttack(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Attack;
     r->Attack = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->Attack);
-    text_box_->setText(std::format("{}武力增加{}", r->Name, r->Attack - v0));
-    text_box_->run();
+    showTextNotice(std::format("{}武力增加{}", r->Name, r->Attack - v0));
 }
 
 void Event::addMaxHP(int role_id, int value)
@@ -999,8 +1053,7 @@ void Event::addMaxHP(int role_id, int value)
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->HP);
     r->HP = GameUtil::clamp(r->HP + value, 0, r->MaxHP);
-    text_box_->setText(std::format("{}生命增加{}", r->Name, r->MaxHP - v0));
-    text_box_->run();
+    showTextNotice(std::format("{}生命增加{}", r->Name, r->MaxHP - v0));
 }
 
 void Event::setMPType(int role_id, int value)
@@ -1021,14 +1074,12 @@ void Event::askSoftStar()
 
 void Event::showMorality()
 {
-    text_box_->setText(std::format("你的道德指數為{}", Save::getInstance()->getRole(0)->Morality));
-    text_box_->run();
+    showTextNotice(std::format("你的道德指數為{}", Save::getInstance()->getRole(0)->Morality));
 }
 
 void Event::showFame()
 {
-    text_box_->setText(std::format("你的聲望指數為{}", Save::getInstance()->getRole(0)->Fame));
-    text_box_->run();
+    showTextNotice(std::format("你的聲望指數為{}", Save::getInstance()->getRole(0)->Fame));
 }
 
 void Event::openAllSubMap()

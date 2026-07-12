@@ -38,8 +38,6 @@ UIShop::UIShop()
     button_clear_->setText("清除");
     addChild(button_clear_, SHOP_BUTTON_X + SHOP_BUTTON_GAP * 2, 30 + SHOP_ROW_HEIGHT * (SHOP_ITEM_COUNT + 1));
 
-    setPosition(200, 230);
-
     //的前面几个是物品项，后面3个是按钮
 }
 
@@ -50,6 +48,13 @@ UIShop::~UIShop()
 void UIShop::setShopID(int id)
 {
     shop_ = Save::getInstance()->getShop(id);
+}
+
+void UIShop::onEntrance()
+{
+    int ui_width = Engine::getInstance()->getUIWidth();
+    int ui_height = Engine::getInstance()->getUIHeight();
+    setPosition(ui_width / 2 - SHOP_BOX_WIDTH / 2, ui_height / 2 - SHOP_PANEL_HEIGHT / 2);
 }
 
 void UIShop::draw()
@@ -157,7 +162,8 @@ void UIShop::onPressedOK()
         {
             auto menu = std::make_shared<MenuText>();
             menu->setStrings({ "確認", "取消" });
-            menu->setPosition(x_ + SHOP_HINT_X, y_ + SHOP_HINT_Y);
+            menu->setPosition(Engine::getInstance()->getUIWidth() / 2 - 75,
+                Engine::getInstance()->getUIHeight() / 2 - 50);
             menu->setFontSize(24);
             menu->setHaveBox(true);
             menu->setText("確認購買？");
@@ -179,7 +185,8 @@ void UIShop::onPressedOK()
             text->setText("銀兩不足");
             text->setFontSize(24);
             text->setTextColor(SHOP_MONEY_WARNING_COLOR);
-            text->runAtPosition(x_ + SHOP_HINT_X, y_ + SHOP_HINT_Y);
+            text->runAtPosition(Engine::getInstance()->getUIWidth() / 2 - 60,
+                Engine::getInstance()->getUIHeight() / 2 - 12);
         }
     }
     if (button_cancel_->getState() == NodePress)

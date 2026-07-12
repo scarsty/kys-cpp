@@ -20,6 +20,7 @@ public:
 
     virtual void draw() override;
     virtual void dealEvent(EngineEvent& e) override;
+    virtual void onEntrance() override;
     virtual void onPressedOK() override;
     int calNeedMoney();
 
@@ -37,6 +38,7 @@ private:
     static constexpr int SHOP_HINT_Y = 285;
     static constexpr int SHOP_ROW_HEIGHT = 32;
     static constexpr int SHOP_ROW_WIDTH = 600;
+    static constexpr int SHOP_PANEL_HEIGHT = 270;
     static constexpr Color SHOP_TEXT_COLOR = { 48, 32, 16, 255 };
     static constexpr Color SHOP_TEXT_ACTIVE_COLOR = { 96, 24, 16, 255 };
     static constexpr Color SHOP_MONEY_WARNING_COLOR = { 180, 32, 24, 255 };

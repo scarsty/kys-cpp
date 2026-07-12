@@ -28,6 +28,7 @@ constexpr float PAPER_CAMERA_ZOOM_STEP = 24.0f;
 constexpr float PAPER_CAMERA_WHEEL_ZOOM_STEP = 80.0f;
 constexpr float PAPER_CAMERA_MIN_HEIGHT = 80.0f;
 constexpr float PAPER_CAMERA_MAX_HEIGHT = 500.0f;
+constexpr float PAPER_ROLE_INFO_TOP_GAP = 4.0f;
 }
 
 bool BattleSceneAct::usePaperPresentation() const
@@ -481,11 +482,13 @@ void BattleSceneAct::drawPaperPresentation()
             }
             camera_.center = camera_focus_;
             camera_.pos = camera_pos_;
-            if (shake_ > 0)
+            if (paper_shake_ > 0)
             {
-                Pointf shake_offset = { x_ * 2.0f, y_ * 2.0f, 0 };
+                Pointf shake_offset = { float(rand_.rand_int(3) - rand_.rand_int(3)) * 2.0f,
+                    float(rand_.rand_int(3) - rand_.rand_int(3)) * 2.0f, 0 };
                 camera_.center += shake_offset;
                 camera_.pos += shake_offset;
+                paper_shake_--;
             }
             camera_height_ = camera_pos_.z;
             if (!camera_locked_)
@@ -1010,7 +1013,7 @@ void BattleSceneAct::drawPaperPresentation()
                 {
                     continue;
                 }
-                Pointf bar_world = r->Pos + Pointf{ 0, 0, TILE_W * 1.5f };
+                Pointf bar_world = r->Pos + Pointf{ 0, 0, TILE_W * 3.5f };
                 if (camera_.getDepth(bar_world) <= camera_.getNearPlane())
                 {
                     continue;
@@ -1018,12 +1021,14 @@ void BattleSceneAct::drawPaperPresentation()
                 auto projected = camera_.getProj({ bar_world });
                 if (!projected.empty())
                 {
-                    renderExtraRoleInfo(r, int(projected[0].x), int(projected[0].y));
+                    int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
+                    int bar_anchor_y = int(projected[0].y) + 61 * tile_scale - int(PAPER_ROLE_INFO_TOP_GAP);
+                    renderExtraRoleInfo(r, int(projected[0].x), bar_anchor_y);
                 }
             }
             for (const auto& te : text_effects_)
             {
-                Pointf text_world = te.Pos;
+                Pointf text_world = te.PaperPos;
                 text_world.z += TILE_W * 1.5f;
                 if (camera_.getDepth(text_world) <= camera_.getNearPlane())
                 {
@@ -1032,7 +1037,15 @@ void BattleSceneAct::drawPaperPresentation()
                 auto projected = camera_.getProj({ text_world });
                 if (!projected.empty())
                 {
-                    Font::getInstance()->draw(te.Text, te.Size, int(projected[0].x), int(projected[0].y), te.color, 255);
+                    int ui_width = 0;
+                    int ui_height = 0;
+                    Engine::getInstance()->getUISize(ui_width, ui_height);
+                    float scene_to_ui_x = float(ui_width) / (render_center_x_ * 2);
+                    float scene_to_ui_y = float(ui_height) / (render_center_y_ * 2);
+                    float text_x = projected[0].x - 7.5f * Font::getTextDrawSize(te.Text);
+                    float text_y = projected[0].y - 4.0f - te.PaperRise;
+                    Font::getInstance()->draw(te.Text, te.Size, int(text_x * scene_to_ui_x),
+                        int(text_y * scene_to_ui_y), te.color, 255);
                 }
             }
             Engine::getInstance()->renderTextureToMain("scene");

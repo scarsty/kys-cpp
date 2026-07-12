@@ -80,6 +80,7 @@ BattleSceneHades::~BattleSceneHades()
 
 void BattleSceneHades::draw()
 {
+    layoutTeamHeads();
     if (usePaperPresentation())
     {
         drawPaperPresentation();
@@ -403,6 +404,26 @@ void BattleSceneHades::draw()
     //{
     //    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     //}
+}
+
+void BattleSceneHades::layoutTeamHeads()
+{
+    constexpr int team_head_width = 250;
+    constexpr int team_head_right_margin = 10;
+    constexpr int team_head_top_margin = 10;
+    constexpr int team_head_row_height = 80;
+    int ui_width = Engine::getInstance()->getUIWidth();
+    int ui_height = Engine::getInstance()->getUIHeight();
+    int x = ui_width - team_head_width - team_head_right_margin;
+    for (int i = 0; i < int(team_heads_.size()); i++)
+    {
+        team_heads_[i]->setPosition(x, team_head_top_margin + team_head_row_height * i);
+    }
+    for (int i = 0; i < int(head_boss_.size()); i++)
+    {
+        auto& head = head_boss_[i];
+        head->setPosition(ui_width / 2 - head->getWidth() / 2, ui_height - 50 - 25 * i);
+    }
 }
 
 void BattleSceneHades::dealEvent(EngineEvent& e)
@@ -817,9 +838,12 @@ void BattleSceneHades::onEntrance()
             auto head = std::make_shared<Head>();
             head->setRole(r);
             head->setAlwaysLight(true);
-            addChild(head, Engine::getInstance()->getWindowWidth() - 280, 10 + 80 * i++);
+            team_heads_.push_back(head);
+            addChild(head);
+            i++;
         }
     }
+    layoutTeamHeads();
 
     //head_self_->setRole(role_);
 
@@ -1099,6 +1123,7 @@ void BattleSceneHades::backRun1()
                 pos_ = r->Pos;
                 frozen_ = 5;
                 shake_ = 10;
+                paper_shake_ = 10;
                 slow_ = 10;
                 close_up_ = 30;
             }
@@ -1112,7 +1137,11 @@ void BattleSceneHades::backRun1()
     {
         for (auto& te : text_effects_)
         {
-            if (te.Type == 0) { te.Pos.y -= 2; }
+            if (te.Type == 0)
+            {
+                te.Pos.y -= 2;
+                te.PaperRise += 2;
+            }
             te.Frame++;
         }
         for (auto it = text_effects_.begin(); it != text_effects_.end();)
@@ -1164,6 +1193,7 @@ void BattleSceneHades::backRun1()
                 frozen_ = 60;
                 slow_ = 40;
                 shake_ = 60;
+                paper_shake_ = 60;
                 result_ = battle_result;
             }
             if (slow_ == 0 && (result_ == 0 || result_ == 1))
@@ -1434,9 +1464,10 @@ void BattleSceneHades::Action(Role* r)
         if (r->OperationType == 1)
         {
             r->ActFrame++;
-            if (r->ActFrame >= 7)
+            if (r->ActFrame == 7)
             {
                 shake_ = 1;
+                paper_shake_ = 1;
             }
         }
         else
@@ -1557,7 +1588,7 @@ void BattleSceneHades::AI(Role* r)
                         {
                             for (int y = p_self45.y - 1; y <= p_self45.y + 1; y++)
                             {
-                                if (calDistance(x, y, p_self45.x, p_self45.y) != 1)
+                                if (isOutLine(x, y) || calDistance(x, y, p_self45.x, p_self45.y) != 1)
                                 {
                                     continue;
                                 }

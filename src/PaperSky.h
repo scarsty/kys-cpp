@@ -33,6 +33,9 @@ private:
     static constexpr float Pi = 3.14159265358979323846f;
     static constexpr const char* TexturePath = "resource/sky/paper-sky.png";
     static constexpr float HorizonRatio = 0.74f;
+    static constexpr int CloudWindLayerCount = 3;
+    static constexpr float CloudWindDirections[CloudWindLayerCount] = { -1.0f, 1.0f, -1.0f };
+    static constexpr float CloudWindSpeeds[CloudWindLayerCount] = { 0.0012f, 0.0055f, 0.0160f };
 
     float yaw_ = 0;
     bool yaw_initialized_ = false;

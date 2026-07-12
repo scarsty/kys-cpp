@@ -63,6 +63,8 @@ private:
 
 private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);
+    void layoutEventUI();
+    void showTextNotice(const std::string& text);
 
 public:
     int getLeaveEvent(Role* role);
@@ -78,6 +80,7 @@ public:
     void oldTalk(int talk_id, int head_id, int style);
     void newTalk(const std::string& talk_content, int head_id, int style, int voice);
     void addItem(int item_id, int count);
+    void addItemWithNotice(int item_id, int count, const std::string& notice);
     void modifyEvent(int submap_id, int event_index, int cannotWalk, int Num, int Event1, int Event2, int Event3,
         int BeginPic1, int EndPic, int BeginPic2, int PicDelay, int x, int y);
     bool isUsingItem(int item_id);

@@ -49,7 +49,7 @@ public:
 
     void stopWav();
 
-    void setVolume(int v) { volume_ = v; }
+    void setVolume(int v);
     void setVolumeWav(int v) { volume_wav_ = v; }
 
     void playVoice(int voice_id, int volume = -1);

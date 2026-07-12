@@ -21,6 +21,9 @@ void ShowRoleDifference::draw()
 {
     if (role1_ == nullptr || role2_ == nullptr) { return; }
 
+    setPosition(Engine::getInstance()->getUIWidth() / 2 - 150,
+        Engine::getInstance()->getUIHeight() / 2 - 180);
+
     //if (black_screen_)
     //{
     Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
@@ -32,7 +35,7 @@ void ShowRoleDifference::draw()
     if (role1_ && role2_ && role1_->ID == role2_->ID)
     {
         head1_->setRole(role2_);
-        head1_->setPosition(Engine::getInstance()->getUIWidth() / 2 - 150, 50);
+        head1_->setPosition(x_, y_ - 130);
         head2_->setRole(nullptr);
     }
 

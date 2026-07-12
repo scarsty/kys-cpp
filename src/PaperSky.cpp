@@ -289,12 +289,9 @@ void PaperSky::generateClouds()
         float angle = -Pi + (float(i) + random_float(-0.35f, 0.35f)) * angle_step;
         float depth = std::clamp(float(random.rand()), 0.0f, 1.0f);
         float depth_curve = smoothStep(0.0f, 1.0f, depth);
-        float speed_depth_curve = depth_curve * depth_curve;
-        float speed = lerp(0.00015f, 0.018f, speed_depth_curve) * random_float(0.45f, 1.85f);
-        if (random.rand() < 0.5)
-        {
-            speed = -speed;
-        }
+        int wind_layer = std::min(int(depth_curve * CloudWindLayerCount), CloudWindLayerCount - 1);
+        float speed = CloudWindDirections[wind_layer] * CloudWindSpeeds[wind_layer]
+            * random_float(0.82f, 1.18f);
 
         Cloud cloud;
         cloud.texture_id = i < cloud_texture_count

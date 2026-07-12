@@ -37,9 +37,10 @@ private:
     static constexpr int ROW_WIDTH = 180;
     static constexpr int ROW_HEIGHT = 28;
     static constexpr int ROW_GAP = 36;
-    static constexpr int ARROW_LEFT_OFFSET = 140;
-    static constexpr int VALUE_OFFSET = 162;
+    static constexpr int ARROW_WIDTH = 16;
+    static constexpr int ARROW_LEFT_OFFSET = 150;
     static constexpr int ARROW_RIGHT_OFFSET = 250;
+    static constexpr int BUTTON_TOP_GAP = 18;
 
     void addOption(const std::string& label, const std::string& section, const std::string& key, const std::vector<std::string>& options);
     void loadConfig();

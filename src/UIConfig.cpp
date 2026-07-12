@@ -37,10 +37,10 @@ UIConfig::UIConfig()
     addOption("戰鬥畫法", "game", "battle_presentation", { "經典", "紙片" });
     addOption("格擋輔助", "game", "easy_block", { "關閉", "開啟" });
     addOption("直接勝利", "game", "battle_debug_win", { "關閉", "開啟" });
-    addOption("文字設置", "game", "simplified_chinese", { "繁體", "簡體" });
+    addOption("文字顯示", "game", "simplified_chinese", { "繁體", "簡體" });
     addOption("全屏", "game", "fullscreen", { "關閉", "開啟" });
 
-    const int button_y = int(items_.size()) * ROW_GAP;
+    const int button_y = int(items_.size()) * ROW_GAP + BUTTON_TOP_GAP;
     button_ok_ = std::make_shared<Button>();
     button_ok_->setFontSize(24);
     button_ok_->setText("確認");
@@ -123,12 +123,6 @@ void UIConfig::loadConfig()
         item->value = clampIndex(GameUtil::getInstance()->getInt("music", "volumewav", 50) / 10, int(item->options.size()));
     }
     int battle_mode = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
-    if (battle_mode == 4)
-    {
-        battle_mode = 0;
-        GameUtil::getInstance()->setKey("game", "battle_mode", "0");
-        GameUtil::getInstance()->setKey("game", "expedition33", "1");
-    }
     if (auto item = findOption("game", "battle_mode"))
     {
         item->value = clampIndex(battle_mode, int(item->options.size()));
@@ -212,14 +206,16 @@ void UIConfig::draw()
         item.row->getPosition(row_x, row_y);
         uint8_t alpha = item.row->getState() == NodeNormal ? 224 : 255;
         auto value = item.options[clampIndex(item.value, int(item.options.size()))];
+        int value_width = 24 * Font::getTextDrawSize(value) / 2;
+        int value_x = (ARROW_LEFT_OFFSET + ARROW_WIDTH + ARROW_RIGHT_OFFSET - value_width) / 2;
         auto rect = Font::getBoxRect(0, 24, row_x, row_y);
-        int value_right = VALUE_OFFSET + 24 * Font::getTextDrawSize(value) / 2;
-        int arrow_right = ARROW_RIGHT_OFFSET + ROW_HEIGHT;
+        int value_right = value_x + value_width;
+        int arrow_right = ARROW_RIGHT_OFFSET + ARROW_WIDTH;
         rect.w = (std::max)(value_right, arrow_right) + 20;
         TextureManager::getInstance()->renderTexture("title", 126, rect.x, rect.y, { { 255, 255, 255, 255 }, alpha }, rect.w, rect.h);
 
         Color value_color = item.row->getState() == NodeNormal ? Color{ 48, 32, 16, 255 } : Color{ 255, 255, 255, 255 };
-        Font::getInstance()->draw(value, 24, row_x + VALUE_OFFSET, row_y, value_color, 255);
+        Font::getInstance()->draw(value, 24, row_x + value_x, row_y, value_color, 255);
     }
 }
 

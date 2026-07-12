@@ -1,6 +1,7 @@
 ﻿#include "Talk.h"
 #include "Engine.h"
 #include "Font.h"
+#include "GameUtil.h"
 #include "TextureManager.h"
 #include <string>
 
@@ -11,24 +12,30 @@ void Talk::draw()
 
     if (!content_.empty())
     {
-        x_ = 250;
+        constexpr int dialog_width = 530;
+        constexpr int portrait_width = 200;
+        constexpr int dialog_margin = 20;
+        int max_dialog_x = std::max(dialog_margin, w - dialog_width - dialog_margin);
+        int left_dialog_x = GameUtil::clamp(w / 2 - 390, dialog_margin, max_dialog_x);
+        int right_dialog_x = GameUtil::clamp(w / 2 - 140, dialog_margin, max_dialog_x);
+        x_ = left_dialog_x;
         int x_text = x_ + 25;
         if (head_id_ >= 0)
         {
             if (head_style_ == 0)
             {
-                x_ = 250;    // Adjust x_ for left-aligned head
-                TextureManager::getInstance()->renderTexture("head", head_id_, x_ - 200, y_ + 50);
+                x_ = left_dialog_x;
+                TextureManager::getInstance()->renderTexture("head", head_id_, std::max(0, x_ - portrait_width), y_ + 50);
                 x_text = x_ + 25;
             }
             else
             {
-                x_ = w - 530 - 250;    // Adjust x_ for right-aligned head
+                x_ = right_dialog_x;
                 x_text = x_ + 25;
-                TextureManager::getInstance()->renderTexture("head", head_id_, x_ + 530 + 50, y_ + 50);
+                TextureManager::getInstance()->renderTexture("head", head_id_, std::min(w - portrait_width, x_ + dialog_width + 50), y_ + 50);
             }
         }
-        Engine::getInstance()->fillColor({ 0, 0, 0, 160 }, x_, y_ + 65, 530, 150);
+        Engine::getInstance()->fillColor({ 0, 0, 0, 160 }, x_, y_ + 65, dialog_width, 150);
         int end_line = current_line_ + height_;
         if (end_line > content_lines_.size()) { end_line = content_lines_.size(); }
         for (int i = current_line_; i < end_line; i++)
