@@ -4,6 +4,7 @@
 #include "Point.h"
 #include "battle/BattleRuntimeSession.h"
 
+#include <array>
 #include <cassert>
 #include <vector>
 
@@ -14,12 +15,14 @@ struct BattleSceneUnitPresentationState
     int unitId = -1;
     int shake = 0;
     int attention = 0;
+    std::array<int, 5> fightFrames{};
 };
 
 class BattleSceneUnitStore
 {
 public:
-    void initialize(const KysChess::Battle::BattleRuntimeSession& runtimeSession);
+    std::vector<int> initialize(const KysChess::Battle::BattleRuntimeSession& runtimeSession);
+    std::vector<int> synchronizeRuntimeUnits();
 
     const BattleSceneUnitPresentationState& requirePresentation(int unitId) const;
     BattleSceneUnitPresentationState& requirePresentation(int unitId);
@@ -33,8 +36,8 @@ public:
     std::vector<int> allyUnitIds() const;
 
     void setUnitShake(int unitId, int shake);
+    void setFightFrames(int unitId, std::array<int, 5> fightFrames);
     void decreaseTransientPresentationState();
-    Pointf facingTowardNearestEnemy(int unitId) const;
     BattlePostBattleSummary makePostBattleSummary(const BattleReport& report, int battleResult) const;
 
 private:

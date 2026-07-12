@@ -358,13 +358,6 @@ TEST_CASE("ChessBattleEffects_MagicYamlUsesRuntimeRegistryForCastFinishScope", "
 
 TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", "[chess][effects][magic]")
 {
-    Role role;
-    role.Star = 1;
-    role.MagicID[0] = 5;
-    role.MagicPower[0] = 40;
-    role.MagicID[1] = 26;
-    role.MagicPower[1] = 80;
-
     Magic normal;
     normal.ID = 5;
     normal.Name = "寒冰綿掌";
@@ -379,12 +372,12 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
     ComboEffect charmPayload = charm;
     charmPayload.type = EffectType::CharmCDRDebuff;
 
-    std::vector<Magic*> magics{ &normal, &ultimate };
+    std::vector<const MagicSave*> magics{ &normal, &ultimate };
     std::vector<ChessMagicEffectDefinition> definitions{
         { 26, "降龍十八掌", { stun, charm, charmPayload }, "普通+絕招" },
     };
 
-    auto rows = buildChessMagicEffectDisplayRows(role, 1, magics, definitions);
+    auto rows = buildChessMagicEffectDisplayRows(magics, definitions, ultimate.ID);
 
     REQUIRE(rows.size() == 4);
     CHECK(rows[0].kind == ChessMagicEffectDisplayLineKind::Skill);
@@ -418,13 +411,6 @@ TEST_CASE("ChessBattleEffects_DisabledMagicEffectsSkipRuntimeDefinitionsAndPanel
     REQUIRE(ChessBattleEffects::parseMagicEffects(root, definitions, "停用武功效果"));
     CHECK(definitions.empty());
 
-    Role role;
-    role.Star = 1;
-    role.MagicID[0] = 5;
-    role.MagicPower[0] = 40;
-    role.MagicID[1] = 26;
-    role.MagicPower[1] = 80;
-
     Magic normal;
     normal.ID = 5;
     normal.Name = "寒冰綿掌";
@@ -432,8 +418,8 @@ TEST_CASE("ChessBattleEffects_DisabledMagicEffectsSkipRuntimeDefinitionsAndPanel
     ultimate.ID = 26;
     ultimate.Name = "降龍十八掌";
 
-    std::vector<Magic*> magics{ &normal, &ultimate };
-    auto rows = buildChessMagicEffectDisplayRows(role, 1, magics, definitions);
+    std::vector<const MagicSave*> magics{ &normal, &ultimate };
+    auto rows = buildChessMagicEffectDisplayRows(magics, definitions, ultimate.ID);
 
     REQUIRE(rows.size() == 2);
     CHECK(rows[0].kind == ChessMagicEffectDisplayLineKind::Skill);

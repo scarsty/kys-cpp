@@ -112,7 +112,13 @@ std::vector<BattleCastProjectileTarget> orderedAlternateProjectileTargets(
         {
             return leftDelta < rightDelta;
         }
-        return pointDistance(left.position, launchPosition) < pointDistance(right.position, launchPosition);
+        const double leftDistance = pointDistance(left.position, launchPosition);
+        const double rightDistance = pointDistance(right.position, launchPosition);
+        if (leftDistance != rightDistance)
+        {
+            return leftDistance < rightDistance;
+        }
+        return left.unitId < right.unitId;
     });
     return targets;
 }
@@ -903,6 +909,7 @@ void appendCastActionStartOutput(BattleCastResult& result,
     gameplayEvent.sourceUnitId = input.unit.id;
     gameplayEvent.targetUnitId = input.targetUnitId;
     gameplayEvent.effectId = selectedSkill.id;
+    gameplayEvent.skillId = selectedSkill.id;
     result.gameplayEvents.push_back(gameplayEvent);
 
     BattleLogEvent logEvent;
@@ -910,6 +917,7 @@ void appendCastActionStartOutput(BattleCastResult& result,
     logEvent.sourceUnitId = input.unit.id;
     logEvent.targetUnitId = input.targetUnitId;
     logEvent.skillName = selectedSkill.name;
+    logEvent.skillId = selectedSkill.id;
     if (selectedSkill.name.empty())
     {
         logEvent.segments = battleLogText("出手");

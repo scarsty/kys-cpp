@@ -72,12 +72,6 @@ std::string trimLine(std::string line)
 
 }    // namespace
 
-ChessSelectorPresenter& chessPresenter()
-{
-    static ChessSelectorPresenter value;
-    return value;
-}
-
 void showChessMessage(const std::string& text, int fontSize)
 {
     auto box = std::make_shared<DismissibleTextBox>();
@@ -105,17 +99,6 @@ bool isChessSceneMusic(int musicId)
 {
     return containsMusicId(kChessMusicIds, musicId);
 }
-
-ChessManager makeChessManager(ChessRoster& roster, ChessEquipmentInventory& equipmentInventory, ChessEconomy& economy)
-{
-    return ChessManager(roster, equipmentInventory, economy);
-}
-
-ChessManager makeChessManager(const ChessSelectorServices& services)
-{
-    return makeChessManager(services.roster, services.equipmentInventory, services.economy);
-}
-
 
 std::vector<std::string> wrapDisplayText(const std::string& text, int maxWidth)
 {

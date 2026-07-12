@@ -38,6 +38,18 @@ void RunNode::drawAll()
     }
 }
 
+bool RunNode::runOwnerExitRequested()
+{
+    for (const auto* owner : run_owner_stack_)
+    {
+        if (owner->exit_)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 //从绘制的根节点移除
 std::shared_ptr<RunNode> RunNode::removeFromDraw(std::shared_ptr<RunNode> element)
 {

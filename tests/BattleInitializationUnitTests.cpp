@@ -1,10 +1,6 @@
 #include "battle/BattleInitialization.h"
 #include "BattleLogTestHelpers.h"
 #include "battle/BattleRuntimeSession.h"
-#include "BattleStarStats.h"
-#include "ChessCombo.h"
-#include "ChessEquipment.h"
-#include "ChessNeigong.h"
 #include "Find.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -17,12 +13,6 @@ using namespace KysChess;
 
 namespace
 {
-
-const BalanceConfig& chessBalanceConfig()
-{
-    static BalanceConfig config;
-    return config;
-}
 
 BattleRuntimeUnit runtimeUnit(int id, int team, int maxHp, int attack, int defence, int speed)
 {
@@ -231,61 +221,6 @@ BattleSetupUnitInput makeRuntimeProfileTestSource()
 
 }  // namespace
 
-namespace KysChess
-{
-
-const BalanceConfig& ChessBalance::config()
-{
-    return chessBalanceConfig();
-}
-
-const std::vector<ComboDef>& ChessCombo::getAllCombos()
-{
-    static const std::vector<ComboDef> combos{
-        {
-            9001,
-            "測試分身連攜",
-            { 1001 },
-            {
-                {
-                    1,
-                    "一人",
-                    {
-                        ComboEffect{ EffectType::CloneSummon, 1 },
-                    },
-                },
-            },
-            false,
-            false,
-        },
-    };
-    return combos;
-}
-
-std::vector<int> ChessCombo::getCombosForRole(int)
-{
-    return {};
-}
-
-const std::vector<EquipmentDef>& ChessEquipment::getAll()
-{
-    static const std::vector<EquipmentDef> equipment;
-    return equipment;
-}
-
-const std::vector<EquipmentSynergyDef>& ChessEquipment::getAllSynergies()
-{
-    static const std::vector<EquipmentSynergyDef> synergies;
-    return synergies;
-}
-
-const std::vector<NeigongDef>& ChessNeigong::getPool()
-{
-    static const std::vector<NeigongDef> pool;
-    return pool;
-}
-
-}  // namespace KysChess
 
 TEST_CASE("BattleStartInitializer_CompilesSpawnInitializationApi", "[battle][initialization]")
 {
@@ -403,6 +338,7 @@ TEST_CASE("BattleStartInitializer_AppliesStarGrowthFromRosterAndComboFightWins",
             13,
             14,
         },
+        setup.starGrowth,
         2,
         3,
         2,

@@ -6,6 +6,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys", "src\kys.vcxproj", "{
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_tests", "tests\kys_tests.vcxproj", "{6B9D8E6F-7A5B-45A7-9F3A-2C8104D6E0D1}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_battle_core", "src\kys_battle_core.vcxproj", "{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_chess_core", "src\kys_chess_core.vcxproj", "{7A398F58-3406-4937-B9F8-64A7123144E3}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_chess_cli", "src\kys_chess_cli.vcxproj", "{D907D3E2-CB15-4279-91A8-DB7089D12051}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -20,6 +26,18 @@ Global
 		{6B9D8E6F-7A5B-45A7-9F3A-2C8104D6E0D1}.Debug|x64.Build.0 = Debug|x64
 		{6B9D8E6F-7A5B-45A7-9F3A-2C8104D6E0D1}.Release|x64.ActiveCfg = Release|x64
 		{6B9D8E6F-7A5B-45A7-9F3A-2C8104D6E0D1}.Release|x64.Build.0 = Release|x64
+		{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}.Debug|x64.ActiveCfg = Debug|x64
+		{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}.Debug|x64.Build.0 = Debug|x64
+		{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}.Release|x64.ActiveCfg = Release|x64
+		{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}.Release|x64.Build.0 = Release|x64
+		{7A398F58-3406-4937-B9F8-64A7123144E3}.Debug|x64.ActiveCfg = Debug|x64
+		{7A398F58-3406-4937-B9F8-64A7123144E3}.Debug|x64.Build.0 = Debug|x64
+		{7A398F58-3406-4937-B9F8-64A7123144E3}.Release|x64.ActiveCfg = Release|x64
+		{7A398F58-3406-4937-B9F8-64A7123144E3}.Release|x64.Build.0 = Release|x64
+		{D907D3E2-CB15-4279-91A8-DB7089D12051}.Debug|x64.ActiveCfg = Debug|x64
+		{D907D3E2-CB15-4279-91A8-DB7089D12051}.Debug|x64.Build.0 = Debug|x64
+		{D907D3E2-CB15-4279-91A8-DB7089D12051}.Release|x64.ActiveCfg = Release|x64
+		{D907D3E2-CB15-4279-91A8-DB7089D12051}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

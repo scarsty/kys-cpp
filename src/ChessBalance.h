@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Save.h"
+#include "ChessDiagnostics.h"
 #include <array>
 #include <map>
 #include <string>
@@ -46,6 +46,7 @@ struct BalanceConfig
     // Economy
     int initialMoney = 20;
     int refreshCost = 2;
+    int enemyRerollCost = 3;
     int buyExpCost = 5;
     int buyExpAmount = 5;
     int battleExp = 4;
@@ -115,10 +116,11 @@ struct BalanceConfig
 
     // Expedition challenges
     enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp1to2, StarUp2to3, GetEquipment, GetSpecificEquipment };
-    struct ChallengeReward { ChallengeRewardType type; int value = 0; int value2 = 0; };
+    struct ChallengeReward { std::string id; ChallengeRewardType type; int value = 0; int value2 = 0; };
     using ChallengeEnemy = BattlePieceDef;
     struct ChallengeDef
     {
+        std::string id;
         std::string name;
         std::string description;
         std::vector<ChallengeEnemy> enemies;
@@ -130,19 +132,20 @@ struct BalanceConfig
 class ChessBalance
 {
 public:
-    static bool loadConfig(const std::string& path);
-    static void setDifficulty(Difficulty d);
-    static Difficulty getDifficulty();
     static const char* difficultyConfigSuffix(Difficulty d);
     static const char* difficultyDisplayNameTraditional(Difficulty d);
-    static const BalanceConfig& config();
-
-private:
-    static inline BalanceConfig config_;
-    static inline Difficulty difficulty_ = Difficulty::Easy;
-    static inline bool loaded_ = false;
 };
 
-bool parseBattlePieceNode(const YAML::Node& node, BattlePieceDef& out, const std::string& context);
+bool parseBattlePieceNode(
+    const YAML::Node& node,
+    BattlePieceDef& out,
+    const std::string& context,
+    const ChessDiagnosticSink& diagnostics = {});
+bool loadBalanceConfig(
+    const std::string& balancePath,
+    const std::string& challengePath,
+    const ChessTextConverter& toTraditional,
+    const ChessDiagnosticSink& diagnostics,
+    BalanceConfig& out);
 
 }    // namespace KysChess

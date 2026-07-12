@@ -1,34 +1,37 @@
 #include "ChessBalance.h"
 
-#include "Font.h"
-#include "GameUtil.h"
 #include "yaml-cpp/yaml.h"
 
 #include <array>
 #include <print>
+#include <set>
 #include <vector>
 
 namespace KysChess
 {
 
-bool parseBattlePieceNode(const YAML::Node& node, BattlePieceDef& out, const std::string& context)
+bool parseBattlePieceNode(
+    const YAML::Node& node,
+    BattlePieceDef& out,
+    const std::string& context,
+    const ChessDiagnosticSink& diagnostics)
 {
     auto mark = node.Mark();
     auto fail = [&](const std::string& msg) {
-        if (!mark.is_null())
-            std::print("【棋子配置】「{}」(第{}行，第{}列) {}\n", context, mark.line + 1, mark.column + 1, msg);
-        else
-            std::print("【棋子配置】「{}」{}\n", context, msg);
+        const auto detail = !mark.is_null()
+            ? std::format("「{}」(第{}行，第{}列) {}", context, mark.line + 1, mark.column + 1, msg)
+            : std::format("「{}」{}", context, msg);
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "棋子配置", detail);
         return false;
     };
 
     if (!node)
-        return fail("棋子节点为空");
+        return fail("棋子節點為空");
 
     if (node.IsSequence())
     {
         if (node.size() < 2)
-            return fail("数组写法至少需要 [角色ID, 星级]");
+            return fail("陣列寫法至少需要 [角色ID, 星級]");
 
         try
         {
@@ -40,16 +43,16 @@ bool parseBattlePieceNode(const YAML::Node& node, BattlePieceDef& out, const std
         }
         catch (const YAML::Exception& ex)
         {
-            return fail(std::format("数组写法解析失败: {}", ex.what()));
+            return fail(std::format("陣列寫法解析失敗: {}", ex.what()));
         }
     }
 
     if (!node.IsMap())
-        return fail("棋子节点必须是数组或映射表");
+        return fail("棋子節點必須是陣列或映射表");
 
     auto roleNode = node["角色ID"] ? node["角色ID"] : node["角色"];
     if (!roleNode)
-        return fail("缺少「角色ID」字段");
+        return fail("缺少「角色ID」欄位");
 
     try
     {
@@ -61,17 +64,26 @@ bool parseBattlePieceNode(const YAML::Node& node, BattlePieceDef& out, const std
     }
     catch (const YAML::Exception& ex)
     {
-        return fail(std::format("映射写法解析失败: {}", ex.what()));
+        return fail(std::format("映射寫法解析失敗: {}", ex.what()));
     }
 }
 
-bool ChessBalance::loadConfig(const std::string& path)
+bool loadBalanceConfig(
+    const std::string& path,
+    const std::string& challengePath,
+    const ChessTextConverter& toTraditional,
+    const ChessDiagnosticSink& diagnostics,
+    BalanceConfig& out)
 {
     YAML::Node root;
     try { root = YAML::LoadFile(path); }
     catch (const YAML::Exception& e)
     {
-        std::print("【平衡配置】无法读取文件 {}: {}\n", path, e.what());
+        emitChessDiagnostic(
+            diagnostics,
+            ChessDiagnosticSeverity::Error,
+            "平衡配置",
+            std::format("無法讀取檔案 {}: {}", path, e.what()));
         return false;
     }
 
@@ -102,6 +114,7 @@ bool ChessBalance::loadConfig(const std::string& path)
     {
         if (n["初始金币"]) c.initialMoney = n["初始金币"].as<int>();
         if (n["刷新费用"]) c.refreshCost = n["刷新费用"].as<int>();
+        if (n["逆天改命费用"]) c.enemyRerollCost = n["逆天改命费用"].as<int>();
         if (n["购买经验费用"]) c.buyExpCost = n["购买经验费用"].as<int>();
         if (n["购买经验数量"]) c.buyExpAmount = n["购买经验数量"].as<int>();
         if (n["战斗经验"]) c.battleExp = n["战斗经验"].as<int>();
@@ -192,28 +205,58 @@ bool ChessBalance::loadConfig(const std::string& path)
     }
 
     try {
-        auto ch = YAML::LoadFile(GameUtil::PATH() + "config/chess_challenge.yaml");
+        auto ch = YAML::LoadFile(challengePath);
         if (ch["远征挑战"])
         {
+            std::set<std::string> challengeIds;
             for (const auto& entry : ch["远征挑战"])
             {
                 BalanceConfig::ChallengeDef def;
-                def.name = Font::getInstance()->S2T(entry["名称"].as<std::string>());
-                if (entry["描述"]) def.description = Font::getInstance()->S2T(entry["描述"].as<std::string>());
+                if (!entry["ID"])
+                    return false;
+                def.id = entry["ID"].as<std::string>();
+                if (def.id.empty() || !challengeIds.insert(def.id).second)
+                {
+                    emitChessDiagnostic(
+                        diagnostics,
+                        ChessDiagnosticSeverity::Error,
+                        "遠征挑戰配置",
+                        std::format("遠征挑戰 ID「{}」空白或重複", def.id));
+                    return false;
+                }
+                def.name = toTraditional(entry["名称"].as<std::string>());
+                if (entry["描述"]) def.description = toTraditional(entry["描述"].as<std::string>());
                 for (const auto& e : entry["敌人"])
                 {
                     BattlePieceDef piece;
-                    auto pieceContext = std::format("远征挑战「{}」敌人#{}", def.name, def.enemies.size() + 1);
-                    if (!parseBattlePieceNode(e, piece, pieceContext))
+                    auto pieceContext = std::format("遠征挑戰「{}」敵人#{}", def.name, def.enemies.size() + 1);
+                    if (!parseBattlePieceNode(e, piece, pieceContext, diagnostics))
                         return false;
                     def.enemies.push_back(piece);
                 }
                 if (entry["奖励"])
                 {
+                    std::set<std::string> rewardIds;
                     for (const auto& r : entry["奖励"])
                     {
                         BalanceConfig::ChallengeReward reward;
+                        if (!r["ID"])
+                            return false;
+                        reward.id = r["ID"].as<std::string>();
+                        if (reward.id.empty() || !rewardIds.insert(reward.id).second)
+                        {
+                            emitChessDiagnostic(
+                                diagnostics,
+                                ChessDiagnosticSeverity::Error,
+                                "遠征挑戰配置",
+                                std::format(
+                                    "遠征挑戰「{}」的獎勵 ID「{}」空白或重複",
+                                    def.id,
+                                    reward.id));
+                            return false;
+                        }
                         auto t = r["类型"].as<std::string>();
+                        bool recognized = true;
                         if (t == "获取金币") reward.type = BalanceConfig::ChallengeRewardType::Gold;
                         else if (t == "获取棋子") reward.type = BalanceConfig::ChallengeRewardType::GetPiece;
                         else if (t == "获取内功") reward.type = BalanceConfig::ChallengeRewardType::GetNeigong;
@@ -225,6 +268,19 @@ bool ChessBalance::loadConfig(const std::string& path)
                             reward.type = BalanceConfig::ChallengeRewardType::GetSpecificEquipment;
                             reward.value = r["装备ID"].as<int>();
                         }
+                        else
+                        {
+                            recognized = false;
+                        }
+                        if (!recognized)
+                        {
+                            emitChessDiagnostic(
+                                diagnostics,
+                                ChessDiagnosticSeverity::Error,
+                                "遠征挑戰配置",
+                                std::format("遠征挑戰「{}」含未知獎勵類型「{}」", def.id, t));
+                            return false;
+                        }
                         if (r["数值"]) reward.value = r["数值"].as<int>();
                         else if (r["最高费用"]) reward.value = r["最高费用"].as<int>();
                         else if (r["最高层级"]) reward.value = r["最高层级"].as<int>();
@@ -234,7 +290,16 @@ bool ChessBalance::loadConfig(const std::string& path)
                 c.challenges.push_back(std::move(def));
             }
         }
-    } catch (...) {}
+    }
+    catch (const YAML::Exception& ex)
+    {
+        emitChessDiagnostic(
+            diagnostics,
+            ChessDiagnosticSeverity::Error,
+            "遠征挑戰配置",
+            std::format("無法讀取檔案 {}: {}", challengePath, ex.what()));
+        return false;
+    }
 
     if (root["敌人装备"])
     {
@@ -262,20 +327,9 @@ bool ChessBalance::loadConfig(const std::string& path)
         }
     }
 
-    config_ = std::move(c);
-    std::print("【平衡配置】加载成功\n");
+    out = std::move(c);
+    emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Info, "平衡配置", "載入成功");
     return true;
-}
-
-void ChessBalance::setDifficulty(Difficulty d)
-{
-    difficulty_ = d;
-    loaded_ = false;
-}
-
-Difficulty ChessBalance::getDifficulty()
-{
-    return difficulty_;
 }
 
 const char* ChessBalance::difficultyConfigSuffix(Difficulty d)
@@ -296,24 +350,11 @@ const char* ChessBalance::difficultyDisplayNameTraditional(Difficulty d)
 {
     switch (d)
     {
-    case Difficulty::Easy:
-        return "簡單";
-    case Difficulty::Normal:
-        return "標準";
-    case Difficulty::Hard:
-        return "困難";
+    case Difficulty::Easy: return "簡單";
+    case Difficulty::Normal: return "標準";
+    case Difficulty::Hard: return "困難";
     }
     return "簡單";
-}
-
-const BalanceConfig& ChessBalance::config()
-{
-    if (!loaded_)
-    {
-        loaded_ = true;
-        loadConfig(GameUtil::PATH() + std::format("config/chess_balance_{}.yaml", difficultyConfigSuffix(difficulty_)));
-    }
-    return config_;
 }
 
 }    // namespace KysChess

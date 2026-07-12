@@ -65,6 +65,7 @@
       <AdditionalIncludeDirectories>../src;../mod;../mlcc;../local/include;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\include;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <ExceptionHandling>Sync</ExceptionHandling>
       <AdditionalOptions>/Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
       <TranslateIncludes>false</TranslateIncludes>
@@ -91,6 +92,7 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
       <AdditionalIncludeDirectories>../src;../mod;../mlcc;../local/include;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\include;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpplatest</LanguageStandard>
+      <ExceptionHandling>Sync</ExceptionHandling>
       <AdditionalOptions>/Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
@@ -115,15 +117,32 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="ButtonUnitTests.cpp" />
     <ClCompile Include="BattleInitializationUnitTests.cpp" />
     <ClCompile Include="BattleCastSystemUnitTests.cpp" />
+    <ClCompile Include="BattleRuntimeRandomUnitTests.cpp" />
+    <ClCompile Include="HeadlessBattleRunnerUnitTests.cpp" />
     <ClCompile Include="ChessBattleEffectsUnitTests.cpp" />
-    <ClCompile Include="ChessComboProgressUnitTests.cpp" />
+    <ClCompile Include="ChessCanonicalEncodingUnitTests.cpp" />
     <ClCompile Include="ChessContextMenuUnitTests.cpp" />
-    <ClCompile Include="ChessInfoFlowUnitTests.cpp" />
-    <ClCompile Include="ChessChallengeMenuUnitTests.cpp" />
-    <ClCompile Include="ChessShopFlowUnitTests.cpp" />
-    <ClCompile Include="ChessShopRollUnitTests.cpp" />
-    <ClCompile Include="ChessShopWeightDisplayUnitTests.cpp" />
+    <ClCompile Include="ChessGameContentUnitTests.cpp" />
+    <ClCompile Include="ChessGameSessionUnitTests.cpp" />
+    <ClCompile Include="ChessStandaloneBattleUnitTests.cpp" />
+    <ClCompile Include="ChessGuiSessionParityUnitTests.cpp" />
+    <ClCompile Include="ChessBattlePlannerUnitTests.cpp" />
+    <ClCompile Include="ChessBattleGuiHeadlessParityUnitTests.cpp" />
+    <ClCompile Include="ChessProgressionRulesUnitTests.cpp" />
+    <ClCompile Include="ChessScriptedRunUnitTests.cpp" />
+    <ClCompile Include="ChessObservationTextUnitTests.cpp" />
+    <ClCompile Include="ChessSessionCheckpointUnitTests.cpp" />
     <ClCompile Include="ChessSystemSettingsMenuUnitTests.cpp" />
+    <ClCompile Include="ChessJsonProtocolUnitTests.cpp" />
+    <ClCompile Include="ChessMenuFormattingUnitTests.cpp" />
+    <ClCompile Include="ChessCliControllerUnitTests.cpp" />
+    <ClCompile Include="ChessCoreDependencyUnitTests.cpp" />
+    <ClCompile Include="ChessReplayVerifierUnitTests.cpp" />
+    <ClCompile Include="ChessReplayArchiveUnitTests.cpp" />
+    <ClCompile Include="ChessReplayGoldenUnitTests.cpp" />
+    <ClCompile Include="ChessRunRandomUnitTests.cpp" />
+    <ClCompile Include="ChessEquipmentUnitTests.cpp" />
+    <ClCompile Include="ChessComboResolutionParityUnitTests.cpp" />
     <ClCompile Include="BattleComboTriggerSystemUnitTests.cpp" />
     <ClCompile Include="BattleCoreUnitTests.cpp" />
     <ClCompile Include="BattleFrameRunnerRuntimeUnitTests.cpp" />
@@ -139,7 +158,6 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="BattleSceneFrameApplierUnitTests.cpp" />
     <ClCompile Include="BattleScenePauseControlUnitTests.cpp" />
     <ClCompile Include="BattleSceneRenderMathUnitTests.cpp" />
-    <ClCompile Include="BattleSceneSetupBuilderUnitTests.cpp" />
     <ClCompile Include="BattleSceneUnitStoreUnitTests.cpp" />
     <ClCompile Include="BattleProjectileTargetingSystemUnitTests.cpp" />
     <ClCompile Include="BattleRescueRepositionSystemUnitTests.cpp" />
@@ -148,27 +166,6 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="BattleSceneControlsUnitTests.cpp" />
     <ClCompile Include="PaperCameraControlMathUnitTests.cpp" />
     <ClCompile Include="BattleScenePaperCameraTouchUnitTests.cpp" />
-    <ClCompile Include="..\src\battle\BattleCore.cpp" />
-    <ClCompile Include="..\src\battle\BattleCombatIntent.cpp" />
-    <ClCompile Include="..\src\battle\BattleComboTriggerSystem.cpp" />
-    <ClCompile Include="..\src\battle\BattleDamageSystem.cpp" />
-    <ClCompile Include="..\src\battle\BattleDeathEffectSystem.cpp" />
-    <ClCompile Include="..\src\battle\BattleEffectRuntimeRegistry.cpp" />
-    <ClCompile Include="..\src\battle\BattleGeometry.cpp" />
-    <ClCompile Include="..\src\battle\BattleHitResolver.cpp" />
-    <ClCompile Include="..\src\battle\BattleMovement.cpp" />
-    <ClCompile Include="..\src\battle\BattleProjectileTargetingSystem.cpp" />
-    <ClCompile Include="..\src\battle\BattleRescueRepositionSystem.cpp" />
-    <ClCompile Include="..\src\battle\BattleRuntimeRandom.cpp" />
-    <ClCompile Include="..\src\battle\BattleRuntimeRules.cpp" />
-    <ClCompile Include="..\src\battle\BattleRuntimeSession.cpp" />
-    <ClCompile Include="..\src\battle\BattleRuntimeUnitSpawn.cpp" />
-    <ClCompile Include="..\src\battle\BattleRuntimeUnits.cpp" />
-    <ClCompile Include="..\src\battle\BattleStatusSystem.cpp" />
-    <ClCompile Include="..\src\battle\BattleTeamEffectSystem.cpp" />
-    <ClCompile Include="..\src\battle\BattleAttackSystem.cpp" />
-    <ClCompile Include="..\src\battle\BattleCastSystem.cpp" />
-    <ClCompile Include="..\src\battle\BattleInitialization.cpp" />
     <ClCompile Include="..\src\BattleSceneCamera.cpp" />
     <ClCompile Include="..\src\BattleSceneCameraInput.cpp" />
     <ClCompile Include="..\src\PointerInput.cpp" />
@@ -177,16 +174,10 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="..\src\PaperCameraControlMath.cpp" />
     <ClCompile Include="..\src\BattleSceneFrameApplier.cpp" />
     <ClCompile Include="..\src\BattleScenePauseControl.cpp" />
-    <ClCompile Include="..\src\BattleSceneSetupBuilder.cpp" />
     <ClCompile Include="..\src\BattleSceneUnitStore.cpp" />
     <ClCompile Include="..\src\BattleLogPresenter.cpp" />
-    <ClCompile Include="..\src\BattleReport.cpp" />
-    <ClCompile Include="..\src\ChessBattleEffects.cpp" />
     <ClCompile Include="..\src\ChessMagicEffectDisplay.cpp" />
-    <ClCompile Include="..\src\ChessChallengeMenu.cpp" />
     <ClCompile Include="..\src\ChessContextMenu.cpp" />
-    <ClCompile Include="..\src\ChessShopRoll.cpp" />
-    <ClCompile Include="..\src\ChessShopWeightDisplay.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\battle\BattleAttackSystem.h" />
@@ -216,12 +207,14 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClInclude Include="..\src\battle\BattleStatusSystem.h" />
     <ClInclude Include="..\src\battle\BattleTeamEffectSystem.h" />
     <ClInclude Include="..\src\battle\BattleTypes.h" />
-    <ClInclude Include="..\src\ChessChallengeMenu.h" />
-    <ClInclude Include="..\src\ChessContextMenu.h" />
     <ClInclude Include="..\src\ChessMagicEffectDisplay.h" />
-    <ClInclude Include="..\src\ChessShopRoll.h" />
     <ClInclude Include="BattleMovementTestHelpers.h" />
     <ClInclude Include="BattleRuntimeScenarioTestHelpers.h" />
+    <ClInclude Include="ChessGameSessionTestHelpers.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\src\kys_battle_core.vcxproj"><Project>{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}</Project></ProjectReference>
+    <ProjectReference Include="..\src\kys_chess_core.vcxproj"><Project>{7A398F58-3406-4937-B9F8-64A7123144E3}</Project></ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

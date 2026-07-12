@@ -27,8 +27,6 @@ private:
         static std::string v;
         return v;
     }
-    static std::string loadReleaseVersion();
-
 public:
     static GameUtil* getInstance()
     {

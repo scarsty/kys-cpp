@@ -7,7 +7,6 @@
 #include <cmath>
 #include <limits>
 #include <optional>
-#include <print>
 #include <queue>
 #include <ranges>
 #include <utility>
@@ -1876,25 +1875,6 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
     {
         --state.movementDashCooldown;
     }
-    const bool firstCorpseLanding = !input.unitAlive && startPosition.z > 0.0f && state.position.z <= 0.0f;
-    if (firstCorpseLanding)
-    {
-        std::print(
-            "[corpse-land] unit={} startPos=({:.2f},{:.2f},{:.2f}) startVelocity=({:.2f},{:.2f},{:.2f}) impactPos=({:.2f},{:.2f},{:.2f}) impactVelocity=({:.2f},{:.2f},{:.2f})\n",
-            input.unitId,
-            startPosition.x,
-            startPosition.y,
-            startPosition.z,
-            startVelocity.x,
-            startVelocity.y,
-            startVelocity.z,
-            state.position.x,
-            state.position.y,
-            state.position.z,
-            state.velocity.x,
-            state.velocity.y,
-            state.velocity.z);
-    }
     if (state.position.z < 0)
     {
         state.position.z = 0;
@@ -1913,21 +1893,6 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
     if (state.position.z == 0)
     {
         state.velocity.z = 0;
-    }
-    if (firstCorpseLanding)
-    {
-        std::print(
-            "[corpse-bounce] unit={} clampedPos=({:.2f},{:.2f},{:.2f}) bounceVelocity=({:.2f},{:.2f},{:.2f}) acceleration=({:.2f},{:.2f},{:.2f})\n",
-            input.unitId,
-            state.position.x,
-            state.position.y,
-            state.position.z,
-            state.velocity.x,
-            state.velocity.y,
-            state.velocity.z,
-            state.acceleration.x,
-            state.acceleration.y,
-            state.acceleration.z);
     }
     if (state.velocity.norm() < 0.1)
     {

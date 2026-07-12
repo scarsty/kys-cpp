@@ -9,18 +9,26 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 link_directories("${KYS_ROOT}/local/lib/x64")
 
-find_package(SDL3 CONFIG REQUIRED)
-find_package(SDL3_image CONFIG REQUIRED)
-find_package(SDL3_mixer CONFIG REQUIRED)
-find_package(SDL3_ttf CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
-find_package(unofficial-lua CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 find_package(libzip CONFIG REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
-find_package(Catch2 CONFIG REQUIRED)
-find_package(FluidSynth CONFIG REQUIRED)
-include(Catch)
+
+set(KYS_BUILD_GRAPHICAL_COMPONENTS OFF)
+if(KYS_BUILD_GAME OR BUILD_TESTING)
+    set(KYS_BUILD_GRAPHICAL_COMPONENTS ON)
+    find_package(SDL3 CONFIG REQUIRED)
+    find_package(SDL3_image CONFIG REQUIRED)
+    find_package(SDL3_mixer CONFIG REQUIRED)
+    find_package(SDL3_ttf CONFIG REQUIRED)
+    find_package(imgui CONFIG REQUIRED)
+    find_package(unofficial-lua CONFIG REQUIRED)
+    find_package(FluidSynth CONFIG REQUIRED)
+endif()
+
+if(BUILD_TESTING)
+    find_package(Catch2 CONFIG REQUIRED)
+    include(Catch)
+endif()
 
 set(KYS_COMMON_INCLUDES
     "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -40,80 +48,140 @@ kys_collect_battle_sources(KYS_BATTLE_SOURCES "${KYS_ROOT}")
 
 add_library(kys_battle_core STATIC ${KYS_BATTLE_SOURCES})
 target_include_directories(kys_battle_core PUBLIC ${KYS_COMMON_INCLUDES})
+target_compile_definitions(kys_battle_core PRIVATE KYS_HEADLESS_CORE NOMINMAX)
 
-kys_collect_support_sources(KYS_GAME_SUPPORT_SOURCES "${KYS_ROOT}")
-kys_collect_top_level_sources(KYS_GAME_LIB_SOURCES "${KYS_ROOT}")
-get_filename_component(KYS_ENTRY_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/kys.cpp" REALPATH)
-list(REMOVE_ITEM KYS_GAME_LIB_SOURCES "${KYS_ENTRY_SOURCE}")
-
-add_library(kys_game_lib STATIC ${KYS_GAME_LIB_SOURCES} ${KYS_GAME_SUPPORT_SOURCES})
-target_include_directories(kys_game_lib PUBLIC ${KYS_COMMON_INCLUDES})
-target_compile_definitions(kys_game_lib PUBLIC ${KYS_COMMON_DEFINITIONS})
-target_link_libraries(kys_game_lib PUBLIC
+kys_collect_chess_core_sources(KYS_CHESS_CORE_SOURCES "${KYS_ROOT}")
+add_library(kys_chess_core STATIC ${KYS_CHESS_CORE_SOURCES})
+target_include_directories(kys_chess_core PUBLIC ${KYS_COMMON_INCLUDES})
+target_compile_definitions(kys_chess_core PRIVATE KYS_HEADLESS_CORE NOMINMAX)
+target_link_libraries(kys_chess_core PUBLIC
     kys_battle_core
-    SDL3::SDL3
-    SDL3_image::SDL3_image
-    SDL3_mixer::SDL3_mixer
-    SDL3_ttf::SDL3_ttf
-    imgui::imgui
-    unofficial::lua::lua
     unofficial::sqlite3::sqlite3
     yaml-cpp::yaml-cpp
     libzip::zip
-    FluidSynth::libfluidsynth
-    SmallPot
 )
 
-set(KYS_PLATFORM_SOURCES)
-if(WIN32)
-    find_program(KYS_POWERSHELL powershell)
-    if(KYS_POWERSHELL)
-        add_custom_command(
-            OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/kys.ico"
-            COMMAND "${KYS_POWERSHELL}" -ExecutionPolicy Bypass -File "${KYS_ROOT}/tools/GenerateAppIcons.ps1" -Target Windows
-            DEPENDS "${KYS_ROOT}/assets/app_icon.png" "${KYS_ROOT}/tools/GenerateAppIcons.ps1"
-            COMMENT "Generating Windows app icon"
-            VERBATIM
-        )
-        add_custom_target(kys_app_icon DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/kys.ico")
-    endif()
-    list(APPEND KYS_PLATFORM_SOURCES kys.rc)
+if(KYS_BUILD_GRAPHICAL_COMPONENTS)
+    kys_collect_support_sources(KYS_GAME_SUPPORT_SOURCES "${KYS_ROOT}")
+    kys_collect_top_level_sources(KYS_GAME_LIB_SOURCES "${KYS_ROOT}")
+    kys_collect_chess_core_sources(KYS_CHESS_CORE_SOURCES "${KYS_ROOT}")
+    list(REMOVE_ITEM KYS_GAME_LIB_SOURCES ${KYS_CHESS_CORE_SOURCES})
+    list(REMOVE_ITEM KYS_GAME_SUPPORT_SOURCES
+        "${KYS_ROOT}/mlcc/filefunc.cpp"
+        "${KYS_ROOT}/mlcc/SimpleCC.cpp"
+        "${KYS_ROOT}/mlcc/SQLite3Wrapper.cpp"
+    )
+    get_filename_component(KYS_ENTRY_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/kys.cpp" REALPATH)
+    list(REMOVE_ITEM KYS_GAME_LIB_SOURCES "${KYS_ENTRY_SOURCE}")
+
+    add_library(kys_game_lib STATIC ${KYS_GAME_LIB_SOURCES} ${KYS_GAME_SUPPORT_SOURCES})
+    target_include_directories(kys_game_lib PUBLIC ${KYS_COMMON_INCLUDES})
+    target_compile_definitions(kys_game_lib PUBLIC ${KYS_COMMON_DEFINITIONS})
+    target_link_libraries(kys_game_lib PUBLIC
+        kys_battle_core
+        kys_chess_core
+        SDL3::SDL3
+        SDL3_image::SDL3_image
+        SDL3_mixer::SDL3_mixer
+        SDL3_ttf::SDL3_ttf
+        imgui::imgui
+        unofficial::lua::lua
+        unofficial::sqlite3::sqlite3
+        yaml-cpp::yaml-cpp
+        libzip::zip
+        FluidSynth::libfluidsynth
+        SmallPot
+    )
 endif()
 
-add_executable(kys kys.cpp ${KYS_PLATFORM_SOURCES})
-target_link_libraries(kys PRIVATE kys_game_lib)
+if(KYS_BUILD_GAME)
+    set(KYS_PLATFORM_SOURCES)
+    if(WIN32)
+        find_program(KYS_POWERSHELL powershell)
+        if(KYS_POWERSHELL)
+            add_custom_command(
+                OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/kys.ico"
+                COMMAND "${KYS_POWERSHELL}" -ExecutionPolicy Bypass -File "${KYS_ROOT}/tools/GenerateAppIcons.ps1" -Target Windows
+                DEPENDS "${KYS_ROOT}/assets/app_icon.png" "${KYS_ROOT}/tools/GenerateAppIcons.ps1"
+                COMMENT "Generating Windows app icon"
+                VERBATIM
+            )
+            add_custom_target(kys_app_icon DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/kys.ico")
+        endif()
+        list(APPEND KYS_PLATFORM_SOURCES kys.rc)
+    endif()
 
-if(TARGET kys_app_icon)
-    add_dependencies(kys kys_app_icon)
+    add_executable(kys kys.cpp ${KYS_PLATFORM_SOURCES})
+    target_link_libraries(kys PRIVATE kys_game_lib)
+
+    if(TARGET kys_app_icon)
+        add_dependencies(kys kys_app_icon)
+    endif()
+endif()
+
+if(KYS_BUILD_CHESS_CLI)
+    add_executable(kys_chess_cli "${KYS_ROOT}/cli/ChessCliMain.cpp")
+    target_include_directories(kys_chess_cli PRIVATE ${KYS_COMMON_INCLUDES})
+    target_compile_definitions(kys_chess_cli PRIVATE KYS_HEADLESS_CORE NOMINMAX)
+    target_link_libraries(kys_chess_cli PRIVATE kys_chess_core kys_battle_core)
 endif()
 
 if(MSVC)
-    target_compile_options(kys PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
-    target_compile_options(kys_game_lib PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
     target_compile_options(kys_battle_core PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+    target_compile_options(kys_chess_core PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8 /fp:strict)
+    target_compile_options(kys_battle_core PRIVATE /fp:strict)
+    if(TARGET kys_game_lib)
+        target_compile_options(kys_game_lib PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+    endif()
+    if(TARGET kys)
+        target_compile_options(kys PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+    endif()
+    if(TARGET kys_chess_cli)
+        target_compile_options(kys_chess_cli PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8 /fp:strict)
+    endif()
 endif()
 
-add_custom_command(TARGET kys POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${KYS_ROOT}/work/game-dev/config"
-    COMMAND "${CMAKE_COMMAND}" -E copy_directory "${KYS_ROOT}/config" "${KYS_ROOT}/work/game-dev/config"
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KYS_ROOT}/docs/更新日志.md" "${KYS_ROOT}/work/game-dev/config/changelog.md"
-)
+if(TARGET kys)
+    add_custom_command(TARGET kys POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${KYS_ROOT}/work/game-dev/config"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${KYS_ROOT}/config" "${KYS_ROOT}/work/game-dev/config"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${KYS_ROOT}/docs/更新日志.md" "${KYS_ROOT}/work/game-dev/config/changelog.md"
+    )
+endif()
 
-set(KYS_TEST_SOURCES
+if(BUILD_TESTING)
+    set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/TestMain.cpp"
     "${KYS_ROOT}/tests/BattleActionCommitUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleAttackSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/ButtonUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCastSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleRuntimeRandomUnitTests.cpp"
+    "${KYS_ROOT}/tests/HeadlessBattleRunnerUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessBattleEffectsUnitTests.cpp"
-    "${KYS_ROOT}/tests/ChessComboProgressUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessCanonicalEncodingUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessContextMenuUnitTests.cpp"
-    "${KYS_ROOT}/tests/ChessInfoFlowUnitTests.cpp"
-    "${KYS_ROOT}/tests/ChessChallengeMenuUnitTests.cpp"
-    "${KYS_ROOT}/tests/ChessShopFlowUnitTests.cpp"
-    "${KYS_ROOT}/tests/ChessShopRollUnitTests.cpp"
-    "${KYS_ROOT}/tests/ChessShopWeightDisplayUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessGameContentUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessGameSessionUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessStandaloneBattleUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessGuiSessionParityUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessBattlePlannerUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessBattleGuiHeadlessParityUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessProgressionRulesUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessScriptedRunUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessObservationTextUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessSessionCheckpointUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessSystemSettingsMenuUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessJsonProtocolUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessMenuFormattingUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessCliControllerUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessCoreDependencyUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessReplayVerifierUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessReplayArchiveUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessReplayGoldenUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessRunRandomUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessEquipmentUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessComboResolutionParityUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleComboTriggerSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCoreUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleDamageSystemUnitTests.cpp"
@@ -121,6 +189,7 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleFrameRunnerRuntimeUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleHitResolverUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleInitializationUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleLogImGuiViewUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleLogPresenterUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleMovementRealStatsTests.cpp"
     "${KYS_ROOT}/tests/BattlePresentationEffectsUnitTests.cpp"
@@ -131,24 +200,28 @@ set(KYS_TEST_SOURCES
     "${KYS_ROOT}/tests/BattleSceneFrameApplierUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleScenePauseControlUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneRenderMathUnitTests.cpp"
-    "${KYS_ROOT}/tests/BattleSceneSetupBuilderUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneUnitStoreUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleTeamEffectSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/PointerInputUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleSceneControlsUnitTests.cpp"
     "${KYS_ROOT}/tests/PaperCameraControlMathUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleScenePaperCameraTouchUnitTests.cpp"
-)
+    )
 
-add_executable(kys_tests
-    ${KYS_TEST_SOURCES}
-)
-target_include_directories(kys_tests PRIVATE ${KYS_COMMON_INCLUDES})
-target_compile_definitions(kys_tests PRIVATE ${KYS_COMMON_DEFINITIONS})
-target_link_libraries(kys_tests PRIVATE kys_game_lib Catch2::Catch2)
+    add_executable(kys_tests
+        ${KYS_TEST_SOURCES}
+    )
+    target_include_directories(kys_tests PRIVATE ${KYS_COMMON_INCLUDES})
+    target_compile_definitions(kys_tests PRIVATE ${KYS_COMMON_DEFINITIONS})
+    target_link_libraries(kys_tests PRIVATE kys_game_lib Catch2::Catch2)
 
-if(MSVC)
-    target_compile_options(kys_tests PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+    if(MSVC)
+        target_compile_options(kys_tests PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+    endif()
+
+    catch_discover_tests(
+        kys_tests
+        TEST_PREFIX "kys_tests::"
+        WORKING_DIRECTORY "${KYS_ROOT}"
+    )
 endif()
-
-catch_discover_tests(kys_tests TEST_PREFIX "kys_tests::")

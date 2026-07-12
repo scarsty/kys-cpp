@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BattleOutcome.h"
+
 #include "BattleAttackSystem.h"
 #include "BattleDamageQueue.h"
 #include "BattleDamageSystem.h"
@@ -498,7 +500,10 @@ struct BattleRuntimeState
         int winningTeam = -1;
         bool eventEmitted = false;
         int endedFrame = -1;
+        BattleOutcome outcome = BattleOutcome::InProgress;
     } result;
+
+    int maximumFrames = 36000;
 
     struct TeamEffectState
     {

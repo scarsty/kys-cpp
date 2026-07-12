@@ -3,6 +3,7 @@
 #include "Engine.h"
 #include "Point.h"
 #include "Types.h"
+#include "battle/BattleFacing.h"
 
 #include <algorithm>
 #include <array>
@@ -23,20 +24,7 @@ inline constexpr int FightStyleFallbacks[FightStyleCount][FightStyleCount - 1] =
 
 inline Pointf realTowardsFromFaceTowards(int faceTowards)
 {
-    switch (faceTowards)
-    {
-    case Towards_RightDown:
-        return { 1, 1, 0 };
-    case Towards_RightUp:
-        return { 1, -1, 0 };
-    case Towards_LeftDown:
-        return { -1, 1, 0 };
-    case Towards_LeftUp:
-        return { -1, -1, 0 };
-    default:
-        assert(false);
-        return {};
-    }
+    return KysChess::Battle::realTowardsFromFaceTowards(faceTowards);
 }
 
 inline int firstAvailableRenderFightStyle(const std::array<int, FightStyleCount>& fightFrames)
@@ -181,6 +169,20 @@ inline BattleCursorFloorDraw battleCursorFloorDraw(
         draw.color = { 255, 255, 255, 255 };
     }
     return draw;
+}
+
+inline bool shouldUseWholeSceneTexture(
+    bool legacyBrowser,
+    int maximumTextureSize,
+    int requiredWidth,
+    int requiredHeight)
+{
+    assert(requiredWidth > 0);
+    assert(requiredHeight > 0);
+    return !legacyBrowser
+        && (maximumTextureSize <= 0
+            || (requiredWidth <= maximumTextureSize
+                && requiredHeight <= maximumTextureSize));
 }
 
 inline Point windowPointToUiPoint(const Point& windowPoint, const Rect& presentRect, int uiWidth, int uiHeight)

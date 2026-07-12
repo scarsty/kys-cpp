@@ -16,14 +16,28 @@ unsigned int BattleRuntimeRandom::seed() const
     return seed_;
 }
 
+std::uint64_t BattleRuntimeRandom::rawDrawCount() const
+{
+    return rawDrawCount_;
+}
+
+void BattleRuntimeRandom::restore(std::uint64_t rawDrawCount)
+{
+    rand_.seed(seed_);
+    rand_.discard(rawDrawCount);
+    rawDrawCount_ = rawDrawCount;
+}
+
 double BattleRuntimeRandom::nextPercent()
 {
+    ++rawDrawCount_;
     return static_cast<double>(rand_() % 10000u) / 100.0;
 }
 
 int BattleRuntimeRandom::nextInt(int upperBound)
 {
     assert(upperBound > 0);
+    ++rawDrawCount_;
     return static_cast<int>(rand_() % static_cast<std::uint32_t>(upperBound));
 }
 

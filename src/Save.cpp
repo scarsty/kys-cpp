@@ -251,11 +251,6 @@ bool Save::load(int num)
     }
 
     auto jsonPath = SavePersistence::slotJsonLoadFilename(num);
-    if (!prepareChessMode())
-    {
-        return false;
-    }
-
     SavePersistence::SlotData slotData;
     if (!SavePersistence::readSlotJson(jsonPath, slotData))
     {
@@ -263,8 +258,12 @@ bool Save::load(int num)
         return false;
     }
 
+    if (!KysChess::ChessModHook::importGameData(slotData.gameData, *this))
+    {
+        LOG("WARNING: 無法讀取自走棋存檔 '{}'\n", jsonPath);
+        return false;
+    }
     SavePersistence::applySceneState(slotData.scene, *this);
-    KysChess::ChessModHook::importGameData(slotData.gameData);
 
     return true;
 }
@@ -306,6 +305,10 @@ bool Save::importSlotJson(int num, const std::string& payload)
 {
     SavePersistence::SlotData slotData;
     if (const auto result = glz::read<SavePersistence::kReadOptions>(slotData, payload); result)
+    {
+        return false;
+    }
+    if (!KysChess::ChessModHook::isGameDataReadable(slotData.gameData))
     {
         return false;
     }

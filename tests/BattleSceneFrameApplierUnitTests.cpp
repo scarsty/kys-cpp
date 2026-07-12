@@ -16,7 +16,6 @@ namespace
 struct ApplierFixture
 {
     BattleSceneTest::StoreFixture fixture;
-    BattleReportBuilder report;
     std::deque<BattleAttackEffect> attackEffects;
     std::deque<BattleTextEffect> textEffects;
     std::unordered_map<int, int> hurtFlashTimers;
@@ -86,7 +85,6 @@ struct ApplierFixture
     BattleSceneFrameApplier::Bindings makeBindings()
     {
         return {
-            report,
             fixture.store,
             attackEffects,
             textEffects,
@@ -107,7 +105,7 @@ struct ApplierFixture
 };
 }  // namespace
 
-TEST_CASE("BattleSceneFrameApplier_RecordsReportDamageDeathBattleEndAndProjectileCancel", "[battle][scene_frame_applier]")
+TEST_CASE("BattleSceneFrameApplier_DoesNotOwnBattleReportMutation", "[battle][scene_frame_applier]")
 {
     ApplierFixture fixture;
     BattlePresentationFrame frame;
@@ -127,17 +125,8 @@ TEST_CASE("BattleSceneFrameApplier_RecordsReportDamageDeathBattleEndAndProjectil
 
     fixture.applier.apply(frame, fixture.effects);
 
-    const auto& events = fixture.report.report().events();
-    REQUIRE(events.size() == 4);
-    CHECK(events[0].type == BattleReportEventType::Damage);
-    CHECK(events[0].sourceName == "段譽");
-    CHECK(events[0].targetName == "岳不群");
-    CHECK(events[0].value == 152);
-    CHECK(events[1].type == BattleReportEventType::Kill);
-    CHECK(events[2].type == BattleReportEventType::Death);
-    CHECK(events[3].type == BattleReportEventType::BattleEnd);
-    CHECK(fixture.report.report().cancelDamageForUnit(0) == 35);
-    CHECK(fixture.report.report().cancelDamageForUnit(1) == 20);
+    CHECK(fixture.attackEffects.size() == 1);
+    CHECK(fixture.hurtFlashTimers.at(1) == 15);
 }
 
 TEST_CASE("BattleSceneFrameApplier_CoalescesDamageSceneEffectsPerDamagedUnitPerFrame", "[battle][scene_frame_applier]")

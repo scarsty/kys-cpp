@@ -158,6 +158,15 @@ TEST_CASE("BattleSceneRenderMath_PreservesCursorRangeFloorTintRules", "[battle][
     CHECK(actionEffect.color.r == 192);
 }
 
+TEST_CASE("BattleSceneRenderMath_WholeSceneTextureRespectsBrowserAndRendererLimits", "[battle][scene_render_math]")
+{
+    CHECK_FALSE(BattleSceneRenderMath::shouldUseWholeSceneTexture(true, 8192, 4096, 4096));
+    CHECK(BattleSceneRenderMath::shouldUseWholeSceneTexture(false, 0, 4096, 4096));
+    CHECK(BattleSceneRenderMath::shouldUseWholeSceneTexture(false, 4096, 4096, 4096));
+    CHECK_FALSE(BattleSceneRenderMath::shouldUseWholeSceneTexture(false, 4095, 4096, 4095));
+    CHECK_FALSE(BattleSceneRenderMath::shouldUseWholeSceneTexture(false, 4095, 4095, 4096));
+}
+
 TEST_CASE("BattleSceneRenderMath_LiftsPaperCursorFloorQuadAboveGround", "[battle][scene_render_math]")
 {
     const auto quad = BattleSceneRenderMath::paperFloorQuad(

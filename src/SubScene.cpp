@@ -1,11 +1,10 @@
 ﻿#include "SubScene.h"
 #include "Audio.h"
 #include "BattleScene.h"
-#include "ChessBalance.h"
-#include "ChessManager.h"
+#include "ChessApplicationSessionHost.h"
+#include "ChessGameSession.h"
 #include "ChessModHook.h"
-#include "ChessNeigong.h"
-#include "ChessSelector.h"
+#include "ChessPresentationHelpers.h"
 #include "ChessUiCommon.h"
 #include "Console.h"
 #include "Event.h"
@@ -13,17 +12,17 @@
 #include "MainScene.h"
 #include "ParticleExample.h"
 #include "Random.h"
-#include "GameState.h"
 #include "TextureManager.h"
 #include "UI.h"
 #include "Weather.h"
+#include <algorithm>
 #include <format>
 
 SubScene::SubScene()
 {
     full_window_ = 1;
     COORD_COUNT = SUBMAP_COORD_COUNT;
-    chess_mod_ = std::make_unique<KysChess::ChessMod>(KysChess::GameState::get());
+    chess_mod_ = std::make_unique<KysChess::ChessMod>(KysChess::applicationChessSession());
     cloud_group_ = std::make_shared<CloudGroup>();
     cloud_group_->init(2, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     addChild(cloud_group_);
@@ -209,10 +208,9 @@ void SubScene::draw()
     if (submap_id_ == 53)
     {
         using namespace KysChess;
-        auto& gd = GameState::get();
-        auto& economy = gd.economy();
-        auto& progress = gd.progress();
-        auto& cfg = ChessBalance::config();
+        const auto& session = applicationChessSession();
+        const auto observation = session.observe();
+        const auto& cfg = session.content().balance();
         auto* engine = Engine::getInstance();
         auto* font = Font::getInstance();
         int w = engine->getUIWidth(), fs = 18, x = 10, y = 6;
@@ -224,14 +222,16 @@ void SubScene::draw()
             x += fs * Font::getTextDrawSize(s) / 2 + 12;
         };
 
-        int fight = progress.battleProgress().getFight();
-        seg(std::format("第{}關{}", fight + 1, progress.battleProgress().isBossFight() ? "(Boss)" : ""), {255, 200, 100, 255});
-        seg(std::format("${}", economy.getMoney()), {255, 215, 0, 255});
-        seg(std::format("Lv{} {}/{}", economy.getLevel() + 1, economy.getExp(), economy.getExpForNextLevel()), {100, 200, 255, 255});
-        auto chessManager = KysChess::ChessManager(gd.roster(), gd.equipmentInventory(), gd.economy());
-        seg(std::format("出戰{}/{}", chessManager.getSelectedCount(), economy.getMaxDeploy()), {100, 255, 100, 255});
-        seg(std::format("背包{}/{}", chessManager.getBenchCount(), cfg.benchSize), {200, 180, 255, 255});
-        const char* diffName = KysChess::ChessBalance::difficultyDisplayNameTraditional(gd.difficulty());
+        const bool boss = cfg.bossInterval > 0 && (observation.fight + 1) % cfg.bossInterval == 0;
+        seg(std::format("第{}關{}", observation.fight + 1, boss ? "(Boss)" : ""), {255, 200, 100, 255});
+        seg(std::format("${}", observation.money), {255, 215, 0, 255});
+        seg(std::format("Lv{} {}/{}", observation.level + 1, observation.experience, observation.experienceForNextLevel), {100, 200, 255, 255});
+        const int deployed = static_cast<int>(std::ranges::count_if(
+            observation.roster,
+            [](const ChessSessionPiece& piece) { return piece.deployed; }));
+        seg(std::format("出戰{}/{}", deployed, observation.maximumDeployment), {100, 255, 100, 255});
+        seg(std::format("背包{}/{}", observation.roster.size() - deployed, cfg.benchSize), {200, 180, 255, 255});
+        const char* diffName = chessDifficultyDisplayName(session.content().difficulty());
         seg(std::format("[{}]", diffName), {255, 150, 150, 255});
 
         // Quick-access chess button (bottom-right of screen)
@@ -268,12 +268,12 @@ void SubScene::draw()
         }
 
         // Obtained neigong icons (right-aligned)
-        auto& obtained = gd.progress().getObtainedNeigong();
-        auto& pool = ChessNeigong::getPool();
+        const auto& obtained = session.state().obtainedNeigongIds;
+        const auto& pool = session.content().neigong();
         int iconX = w - 10;
-        for (int i = (int)obtained.size() - 1; i >= 0; --i)
+        for (auto i = obtained.rbegin(); i != obtained.rend(); ++i)
             for (auto& ng : pool)
-                if (ng.magicId == obtained[i])
+                if (ng.magicId == *i)
                 {
                     iconX -= 22;
                     TextureManager::getInstance()->renderTexture("item", ng.itemId, iconX, 4,

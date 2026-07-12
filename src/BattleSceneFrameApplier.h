@@ -1,7 +1,6 @@
 #pragma once
 
 #include "BattlePresentationEffects.h"
-#include "BattleReport.h"
 #include "BattleSceneCamera.h"
 #include "BattleScenePresentationConstants.h"
 #include "BattleSceneUnitStore.h"
@@ -26,7 +25,6 @@ class BattleSceneFrameApplier
 public:
     struct Bindings
     {
-        BattleReportBuilder& report;
         BattleSceneUnitStore& units;
         std::deque<BattleAttackEffect>& attackEffects;
         std::deque<BattleTextEffect>& textEffects;
@@ -80,7 +78,6 @@ private:
     void cancelProjectile(const KysChess::Battle::BattleVisualEvent& event) const;
     template <class Effects>
     void bounceProjectile(const KysChess::Battle::BattleVisualEvent& event, Effects& effects) const;
-    void recordLog(const KysChess::Battle::BattleLogEvent& event) const;
     template <class Effects>
     void applyFrameEffects(const KysChess::Battle::BattlePresentationFrame& frame, Effects& effects) const;
 
@@ -220,10 +217,6 @@ void BattleSceneFrameApplier::apply(
     for (const auto& event : frame.visualEvents)
     {
         applyImpactEvent(event, effects);
-    }
-    for (const auto& event : frame.logEvents)
-    {
-        recordLog(event);
     }
     for (const auto& event : frame.visualEvents)
     {

@@ -1,51 +1,13 @@
 #include "ChessMagicEffectDisplay.h"
 
 #include <algorithm>
+#include <cassert>
 #include <utility>
 
 namespace KysChess
 {
 namespace
 {
-
-int magicPowerForStar(const Role& role, int magicId, int star)
-{
-    const int effectiveStar = star > 0 ? star : role.Star;
-    const int start = RoleSave::getMagicSlotStart(effectiveStar);
-    const int end = RoleSave::getMagicSlotEnd(effectiveStar);
-    for (int i = start; i < end; ++i)
-    {
-        if (role.MagicID[i] == magicId)
-        {
-            return role.MagicPower[i];
-        }
-    }
-    return 0;
-}
-
-Magic* selectedUltimateMagic(
-    const Role& role,
-    int star,
-    const std::vector<Magic*>& magics)
-{
-    if (role.UsingMagic)
-    {
-        return role.UsingMagic;
-    }
-
-    Magic* selected = nullptr;
-    int selectedPower = 0;
-    for (auto* magic : magics)
-    {
-        const int power = magic ? magicPowerForStar(role, magic->ID, star) : 0;
-        if (!selected || power > selectedPower)
-        {
-            selected = magic;
-            selectedPower = power;
-        }
-    }
-    return selected;
-}
 
 const ChessMagicEffectDefinition* findDefinition(
     const std::vector<ChessMagicEffectDefinition>& definitions,
@@ -98,14 +60,13 @@ std::string displayTextForMagicEffect(
 }  // namespace
 
 std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(
-    const Role& role,
-    int star,
-    const std::vector<Magic*>& magics,
-    const std::vector<ChessMagicEffectDefinition>& definitions)
+    const std::vector<const MagicSave*>& magics,
+    const std::vector<ChessMagicEffectDefinition>& definitions,
+    int ultimateMagicId)
 {
     std::vector<ChessMagicEffectDisplayLine> rows;
-    const auto* ultimateMagic = selectedUltimateMagic(role, star, magics);
-    const int ultimateMagicId = ultimateMagic ? ultimateMagic->ID : -1;
+    assert(ultimateMagicId < 0
+        || std::ranges::contains(magics, ultimateMagicId, &MagicSave::ID));
 
     for (auto* magic : magics)
     {
@@ -144,17 +105,6 @@ std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(
     }
 
     return rows;
-}
-
-const std::vector<ChessMagicEffectDefinition>& chessMagicEffectDefinitionsForDisplay()
-{
-    static const std::vector<ChessMagicEffectDefinition> definitions = []
-    {
-        std::vector<ChessMagicEffectDefinition> loaded;
-        ChessBattleEffects::loadDefaultMagicEffectsFile(loaded);
-        return loaded;
-    }();
-    return definitions;
 }
 
 }  // namespace KysChess

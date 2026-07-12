@@ -1,19 +1,17 @@
 #include "BattleSceneHades.h"
 #include "Audio.h"
 #include "BattleLogPresenter.h"
+#include "BattleSetupFactory.h"
 #include "BattleScenePauseControl.h"
 #include "BattleScenePresentationConstants.h"
 #include "PaperCameraControlMath.h"
-#include "BattleSceneSetupBuilder.h"
-#include "BattleStarStats.h"
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattleInitialization.h"
 #include "battle/BattleOperation.h"
 #include "battle/BattleStatusSystem.h"
-#include "ChessBalance.h"
-#include "ChessEquipment.h"
-#include "ChessNeigong.h"
+#include "ChessGameSession.h"
+#include "ChessGuiBattleFlow.h"
 #include "ChessUiCommon.h"
 #include "Engine.h"
 #include "Event.h"
@@ -21,7 +19,7 @@
 #include "Font.h"
 #include "GameUtil.h"
 #include "MainScene.h"
-#include "Save.h"
+#include "Menu.h"
 #include "SystemSettings.h"
 #include "TextureManager.h"
 #include "Weather.h"
@@ -36,6 +34,7 @@
 #include <format>
 #include <numeric>
 #include <set>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 
@@ -370,12 +369,9 @@ const char* BattleSceneHades::getOperationTypeName(int operationType)
     return "未知";
 }
 
-BattleSceneHades::BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager) :
-    roleSave_(roleSave),
-    progress_(progress),
-    chessManager_(chessManager),
+BattleSceneHades::BattleSceneHades(KysChess::ChessGameSession& session) :
+    session_transition_source_(&session),
     frame_applier_({
-        battle_report_,
         scene_units_,
         attack_effects_,
         text_effects_,
@@ -396,15 +392,20 @@ BattleSceneHades::BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::
     full_window_ = 1;
     COORD_COUNT = BATTLEMAP_COORD_COUNT;
     battle_map_.initialize(COORD_COUNT);
+    assert(session.state().preparedBattle);
+    assert(session.state().preparedBattle->chosenMapId >= 0);
+    setID(session.state().preparedBattle->chosenMapId);
     updateFrameApplierContext();
 }
 
-BattleSceneHades::BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager) :
-    BattleSceneHades(roleSave, progress, chessManager)
+const KysChess::Battle::BattleRuntimeSession* BattleSceneHades::activeRuntimeSession() const
 {
-    setID(id);
+    if (formation_preview_runtime_)
+    {
+        return &*formation_preview_runtime_;
+    }
+    return session_transition_source_->presentationBattleRuntime();
 }
-
 BattleSceneHades::~BattleSceneHades()
 {
 }
@@ -413,7 +414,14 @@ void BattleSceneHades::setID(int id)
 {
     battle_id_ = id;
     info_ = BattleMap::getInstance()->getBattleInfo(id);
-    battle_map_.loadBattlefield(info_->BattleFieldID);
+    assert(info_);
+    const auto& content = session_transition_source_->content();
+    const auto map = content.battleMaps().find(id);
+    assert(map != content.battleMaps().end());
+    assert(info_->BattleFieldID == map->second.battlefieldId);
+    const auto battlefield = content.battlefields().find(map->second.battlefieldId);
+    assert(battlefield != content.battlefields().end());
+    battle_map_.loadBattlefield(battlefield->second);
 }
 
 bool BattleSceneHades::isManualCameraEnabled() const
@@ -459,109 +467,90 @@ void BattleSceneHades::updateFrameApplierContext()
     manual_camera_enabled_ = isManualCameraEnabled();
 }
 
-void BattleSceneHades::initializeBattleRuntime(
-    KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild)
+void BattleSceneHades::initializeSceneRuntime(
+    const KysChess::Battle::BattleRuntimeSession& runtime)
 {
-    auto creationInput = makeBattleRuntimeSessionCreationInput(std::move(setupBuild));
-    auto creation = KysChess::Battle::BattleRuntimeSession::createInitialized(std::move(creationInput));
-    auto initialization = std::move(creation.initialization);
-    battle_session_.emplace(std::move(creation.session));
-    scene_units_.initialize(*battle_session_);
-    if (!initialization.logEvents.empty() || !initialization.visualEvents.empty())
+    initializeScenePresentationUnits(scene_units_.initialize(runtime));
+
+    const auto cameraCenter = KysChess::chessGuiInitialBattleCameraCenter(
+        runtime.runtimeUnits(),
+        [this](int x, int y) { return battle_map_.pos45To90(x, y); });
+    pos_ = cameraCenter.world;
+    const auto cameraCell = battle_map_.pos90To45(pos_.x, pos_.y);
+    man_x_ = cameraCell.x;
+    man_y_ = cameraCell.y;
+    battle_frame_ = 0;
+    half_speed_step_on_next_render_ = true;
+    battle_paused_ = false;
+    camera_.reset(pos_);
+    pos_ = clampCameraCenterForActiveView(pos_);
+}
+
+void BattleSceneHades::initializeScenePresentationUnits(const std::vector<int>& unitIds)
+{
+    for (const int unitId : unitIds)
     {
-        KysChess::Battle::BattlePresentationFrame frame;
-        frame.visualEvents = std::move(initialization.visualEvents);
-        frame.logEvents = std::move(initialization.logEvents);
+        const auto& unit = scene_units_.requireRuntimeUnit(unitId);
+        scene_units_.setFightFrames(unitId, readBattleFightFramesForHeadId(unit.headId));
+    }
+}
+
+void BattleSceneHades::initializeFormationPreviewRuntime()
+{
+    assert(session_transition_source_);
+    assert(session_transition_source_->state().phase == KysChess::ChessSessionPhase::BattlePreparation);
+    assert(session_transition_source_->state().preparedBattle);
+    auto input = KysChess::BattleSetupFactory::build(
+        *session_transition_source_->state().preparedBattle,
+        session_transition_source_->content(),
+        session_transition_source_->state().obtainedNeigongIds,
+        session_transition_source_->state().options.battleFrameLimit);
+    auto creation = KysChess::Battle::BattleRuntimeSession::createInitialized(std::move(input));
+    formation_preview_runtime_.emplace(std::move(creation.session));
+    initializeSceneRuntime(*formation_preview_runtime_);
+}
+
+void BattleSceneHades::initializeSessionBattleRuntime()
+{
+    assert(session_transition_source_);
+    const auto* runtime = session_transition_source_->pendingBattleRuntime();
+    const auto* initialization = session_transition_source_->pendingBattleInitialization();
+    assert(runtime);
+    assert(initialization);
+    initializeSceneRuntime(*runtime);
+    battle_report_.consumeInitialization(*initialization, *runtime);
+
+    KysChess::Battle::BattlePresentationFrame frame;
+    frame.visualEvents = initialization->visualEvents;
+    frame.logEvents = initialization->logEvents;
+    if (!frame.logEvents.empty() || !frame.visualEvents.empty())
+    {
         BattleSceneRuntimeFrameEffects effects;
         updateFrameApplierContext();
         frame_applier_.apply(frame, effects);
     }
-}
 
-void BattleSceneHades::setBattleRuntimeRandomSeed(unsigned int seed)
-{
-    battle_random_seed_ = seed;
-}
-
-KysChess::Battle::BattleRuntimeSessionCreationInput BattleSceneHades::makeBattleRuntimeSessionCreationInput(
-    KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild)
-{
-    auto input = std::move(setupBuild.sessionInput);
-    input.rules = KysChess::Battle::makeHadesBattleRuntimeRules(TILE_W, BATTLE_COORD_COUNT);
-    input.randomSeed = battle_random_seed_;
-    input.rules.movementPhysicsConfig.gravity = gravity_;
-    input.rules.movementPhysicsConfig.friction = friction_;
-    input.battleFrame = battle_frame_;
-    input.profiling.enabled = SystemSettings::getInstance()->data().debugLatencyLog;
-    input.profiling.slowFrameThresholdMs = BATTLE_FRAME_PROFILE_SLOW_MS;
-
-    auto* basicMagic = Save::getInstance()->getMagic(1);
-    assert(basicMagic);
-    input.rescueCounterAttackSkillId = basicMagic->ID;
-
-    input.terrainCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
-    input.rescueCells.reserve(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT);
-    input.rules.movementCollisionWorld.walkableByCell.assign(BATTLE_COORD_COUNT * BATTLE_COORD_COUNT, 0);
-    for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
-    {
-        for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
-        {
-            const auto position = battle_map_.pos45To90(x, y);
-            const bool walkable = battle_map_.canWalk45(x, y);
-            input.terrainCells.push_back({ position, walkable });
-            input.rescueCells.push_back({
-                x,
-                y,
-                walkable,
-                false,
-                -1,
-                position,
-            });
-            const auto movementCellIndex = static_cast<std::size_t>(y * BATTLE_COORD_COUNT + x);
-            input.rules.movementCollisionWorld.walkableByCell[movementCellIndex] = walkable ? 1 : 0;
-        }
-    }
-
-    auto& obtained = progress_.getObtainedNeigong();
-    input.setup.obtainedNeigongMagicIds.assign(obtained.begin(), obtained.end());
-    auto appendCloneSpawnCells = [&](const std::vector<std::pair<int, int>>& positions, int team)
-    {
-        for (const auto& [x, y] : positions)
-        {
-            bool occupied = false;
-            for (const auto& unit : input.units)
-            {
-                if (unit.alive && unit.gridX == x && unit.gridY == y)
-                {
-                    occupied = true;
-                    break;
-                }
-            }
-            input.setup.cloneCells.push_back({ x, y, true, occupied, team });
-        }
-    };
-    appendCloneSpawnCells(clone_spawn_positions_, 0);
-    appendCloneSpawnCells(enemy_clone_spawn_positions_, 1);
-    return input;
 }
 
 void BattleSceneHades::runPreBattlePositionSwapIfEnabled()
 {
-    if (progress_.isPositionSwapEnabled())
+    if (!session_transition_source_->state().options.positionSwapEnabled)
     {
-        auto prompt = std::make_shared<MenuText>(std::vector<std::string>{ "地圖佈陣", "列表佈陣", "直接開戰" });
-        prompt->setFontSize(36);
-        prompt->arrange(0, 0, 0, 45);
-        prompt->runAtPosition(300, 220);
-        int choice = prompt->getResult();
-        if (choice == 0)
-        {
-            runPositionSwapLoop();
-        }
-        else if (choice == 1)
-        {
-            runListBasedSwap();
-        }
+        return;
+    }
+
+    auto prompt = std::make_shared<MenuText>(
+        std::vector<std::string>{"地圖佈陣", "列表佈陣", "直接開戰"});
+    prompt->setFontSize(36);
+    prompt->arrange(0, 0, 0, 45);
+    prompt->runAtPosition(300, 220);
+    if (prompt->getResult() == 0)
+    {
+        runPositionSwapLoop();
+    }
+    else if (prompt->getResult() == 1)
+    {
+        runListBasedSwap();
     }
 }
 
@@ -577,7 +566,7 @@ void BattleSceneHades::draw()
 
 std::optional<float> BattleSceneHades::defaultPaperCameraAngleFromRuntimeUnits() const
 {
-    if (!battle_session_)
+    if (!activeRuntimeSession())
     {
         return std::nullopt;
     }
@@ -619,7 +608,7 @@ std::optional<float> BattleSceneHades::defaultPaperCameraAngleFromRuntimeUnits()
 
 std::optional<Pointf> BattleSceneHades::defaultPaperCameraCenterFromRuntimeUnits() const
 {
-    if (!battle_session_)
+    if (!activeRuntimeSession())
     {
         return std::nullopt;
     }
@@ -952,10 +941,10 @@ void BattleSceneHades::drawClassicView()
         info.tex = TextureManager::getInstance()->getTexture(
             path,
             BattleSceneRenderMath::calRenderUnitPic(
-                unit.fightFrames,
+                presentation.fightFrames,
                 unit.motion.facing,
-            renderActType,
-            renderActFrame));
+                renderActType,
+                renderActFrame));
         if (!info.tex)
         {
             continue;
@@ -1150,7 +1139,7 @@ void BattleSceneHades::drawClassicView()
         if (is_visible_world(selectedPosition.x, selectedPosition.y / 2.0))
         {
             engine->fillColor(
-                { 255, 255, 0, 80 },
+                {255, 255, 0, 80},
                 renderWorldX(selectedPosition.x - 15),
                 renderWorldY(selectedPosition.y / 2.0 - 5),
                 std::max(1, int(30 * viewScaleX)),
@@ -1205,7 +1194,7 @@ void BattleSceneHades::drawClassicView()
         int ux = worldToUiX(wx);
         int uy = worldToUiY(wy);
         if (ux < -80 || ux >= ui_w + 80 || uy < -80 || uy >= ui_h + 80) { continue; }
-        const auto frozen = runtimeFrozenStatusForUnit(battle_session_ ? &*battle_session_ : nullptr, unit.id);
+        const auto frozen = runtimeFrozenStatusForUnit(activeRuntimeSession(), unit.id);
         if (frozen.frames > 0 && frozen.maxFrames > 0)
         {
             Font::getInstance()->draw(std::to_string(frozen.frames),
@@ -1222,11 +1211,12 @@ void BattleSceneHades::drawClassicView()
         }
         if (positionSwapActive_ && unit.team == 0)
         {
-            std::string coord = std::format("({},{})", unit.grid.x, unit.grid.y);
-            Font::getInstance()->draw(coord,
+            Font::getInstance()->draw(
+                std::format("({},{})", unit.grid.x, unit.grid.y),
                 (std::max)(1, int(28 * sizeScale)),
-                worldToUiX(wx - 5), worldToUiY(wy - 5),
-                { 255, 255, 100, 255 });
+                worldToUiX(wx - 5),
+                worldToUiY(wy - 5),
+                {255, 255, 100, 255});
         }
     }
 
@@ -1658,7 +1648,7 @@ void BattleSceneHades::drawPaperView()
         auto tex = TextureManager::getInstance()->getTexture(
             std::format("fight/fight{:03}", unit.headId),
             BattleSceneRenderMath::calRenderUnitPic(
-                unit.fightFrames,
+                presentation.fightFrames,
                 BattleSceneRenderMath::realTowardsFromFaceTowards(faceTowards),
                 renderActType,
                 renderActFrame));
@@ -2285,204 +2275,61 @@ void BattleSceneHades::advanceBattleFrame()
 
 void BattleSceneHades::onEntrance()
 {
+    assert(session_transition_source_);
     previous_refresh_interval_ = RunNode::getRefreshInterval();
     battle_paused_ = false;
     active_paper_battle_view_ = battleSceneInitialPaperView(
         SystemSettings::getInstance()->data().paperBattleView,
-        progress_.isPositionSwapEnabled());
+        session_transition_source_->state().options.positionSwapEnabled);
     paper_camera_auto_center_ = true;
     Engine::getInstance()->hideBattleLogOverlay();
     paper_sky_.reset();
     paper_sky_.generateClouds();
 
     calViewRegion();
-
     addChild(Weather::getInstance());
-
     battle_map_.makeEarthTexture(render_center_x_, render_center_y_);
 
     auto* engine = Engine::getInstance();
-    int whole_scene_w = COORD_COUNT * TILE_W * 2;
-    int whole_scene_h = COORD_COUNT * TILE_H * 2;
-    int max_texture_size = engine->getMaxTextureSize();
-    bool browserNeedsFallback = GameUtil::isLegacyBrowser();
-    use_whole_scene_ = !browserNeedsFallback
-        && (max_texture_size <= 0 || (whole_scene_w <= max_texture_size && whole_scene_h <= max_texture_size));
+    const int wholeSceneWidth = COORD_COUNT * TILE_W * 2;
+    const int wholeSceneHeight = COORD_COUNT * TILE_H * 2;
+    const int maximumTextureSize = engine->getMaxTextureSize();
+    const bool browserNeedsFallback = GameUtil::isLegacyBrowser();
+    use_whole_scene_ = BattleSceneRenderMath::shouldUseWholeSceneTexture(
+        browserNeedsFallback,
+        maximumTextureSize,
+        wholeSceneWidth,
+        wholeSceneHeight);
     if (use_whole_scene_)
     {
-        engine->createRenderedTexture("whole_scene", whole_scene_w, whole_scene_h);
+        engine->createRenderedTexture("whole_scene", wholeSceneWidth, wholeSceneHeight);
     }
     else
     {
         LOG("whole_scene disabled: browser_fallback={}, required={}x{}, renderer max={}\n",
-            browserNeedsFallback, whole_scene_w, whole_scene_h, max_texture_size);
+            browserNeedsFallback,
+            wholeSceneWidth,
+            wholeSceneHeight,
+            maximumTextureSize);
     }
 
-    assert(!extended_teammates_.empty());
-
-    using KysChess::BattleSceneSetupBuilder::BattleSceneSetupUnitRequest;
-
-    std::vector<BattleSceneSetupUnitRequest> enemyRequests;
-    std::vector<BattleSceneSetupUnitRequest> allyRequests;
-
-    auto getAllyEquipment = [&](size_t index)
+    if (session_transition_source_->state().phase == KysChess::ChessSessionPhase::BattlePreparation)
     {
-        int weaponId = index < teammate_weapons_.size() ? teammate_weapons_[index] : -1;
-        int armorId = index < teammate_armors_.size() ? teammate_armors_[index] : -1;
-        if (weaponId >= 0 || armorId >= 0)
+        initializeFormationPreviewRuntime();
+        runPreBattlePositionSwapIfEnabled();
+        if (RunNode::runOwnerExitRequested())
         {
-            return std::pair{ weaponId, armorId };
+            setExit(true);
+            return;
         }
 
-        assert(index < extended_teammates_.size());
-        const auto& teammate = extended_teammates_[index];
-        if (teammate.weaponId >= 0 || teammate.armorId >= 0)
-        {
-            return std::pair{ teammate.weaponId, teammate.armorId };
-        }
-
-        auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ teammate.chessInstanceId });
-        if (!chess)
-        {
-            return std::pair{ -1, -1 };
-        }
-        return std::pair{ chess->weaponInstance.itemId, chess->armorInstance.itemId };
-    };
-    auto getEnemyEquipment = [&](size_t index)
-    {
-        return std::pair{
-            index < enemy_weapons_.size() ? enemy_weapons_[index] : -1,
-            index < enemy_armors_.size() ? enemy_armors_[index] : -1,
-        };
-    };
-    auto getTeammateFightsWon = [&](size_t index)
-    {
-        assert(index < extended_teammates_.size());
-        const int chessInstanceId = extended_teammates_[index].chessInstanceId;
-        if (chessInstanceId < 0)
-        {
-            return 0;
-        }
-
-        auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ chessInstanceId });
-        return chess ? chess->fightsWon : 0;
-    };
-
-    for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
-    {
-        auto* source = roleSave_.getRole(info_->Enemy[i]);
-        if (!source)
-        {
-            continue;
-        }
-
-        const auto [weaponId, armorId] = getEnemyEquipment(enemyRequests.size());
-        BattleSceneSetupUnitRequest request;
-        request.source = source;
-        request.team = 1;
-        request.gridX = info_->EnemyX[i];
-        request.gridY = info_->EnemyY[i];
-        request.star = KysChess::normalizeBattleStar(i < static_cast<int>(enemy_stars_.size()) ? enemy_stars_[i] : 0);
-        request.faceTowardsFallback = source->FaceTowards != Towards_None
-            ? source->FaceTowards
-            : Towards_RightDown;
-        request.weaponId = weaponId;
-        request.armorId = armorId;
-        request.sourceOrder = static_cast<int>(enemyRequests.size());
-        enemyRequests.push_back(std::move(request));
-        LOG("Adding enemy role {} name {}\n", source->ID, source->Name);
+        KysChess::ChessAction start;
+        start.type = KysChess::ChessActionType::StartBattle;
+        const auto started = session_transition_source_->beginAction(start);
+        assert(started.accepted && started.transitionPending);
     }
-    assert(!enemyRequests.empty());
-
-    allyRequests.reserve(extended_teammates_.size());
-    for (size_t index = 0; index < extended_teammates_.size(); ++index)
-    {
-        const auto& teammate = extended_teammates_[index];
-        auto* source = roleSave_.getRole(teammate.ID);
-        assert(source);
-
-        const auto [weaponId, armorId] = getAllyEquipment(index);
-        BattleSceneSetupUnitRequest request;
-        request.source = source;
-        request.team = 0;
-        request.gridX = teammate.X;
-        request.gridY = teammate.Y;
-        request.star = KysChess::normalizeBattleStar(teammate.star);
-        request.faceTowardsFallback = source->FaceTowards;
-        request.weaponId = weaponId;
-        request.armorId = armorId;
-        request.chessInstanceId = teammate.chessInstanceId;
-        request.fightsWon = getTeammateFightsWon(index);
-        request.sourceOrder = static_cast<int>(index);
-        allyRequests.push_back(std::move(request));
-    }
-    assert(!allyRequests.empty());
-
-    std::vector<std::size_t> enemyIndexes(enemyRequests.size());
-    std::iota(enemyIndexes.begin(), enemyIndexes.end(), 0);
-    std::sort(enemyIndexes.begin(), enemyIndexes.end(), [&](std::size_t lhs, std::size_t rhs)
-        {
-            const auto* left = enemyRequests[lhs].source;
-            const auto* right = enemyRequests[rhs].source;
-            assert(left);
-            assert(right);
-            return left->MaxHP + left->Attack < right->MaxHP + right->Attack;
-        });
-    int nextUnitId = 0;
-    for (const auto index : enemyIndexes)
-    {
-        enemyRequests[index].unitId = nextUnitId++;
-    }
-    for (auto& request : allyRequests)
-    {
-        request.unitId = nextUnitId++;
-    }
-
-    auto applySharedSetupCallbacks = [&](BattleSceneSetupUnitRequest& request)
-    {
-        assert(request.source);
-        request.gravity = gravity_;
-        request.position = battle_map_.pos45To90(request.gridX, request.gridY);
-        request.fightFrames = readBattleFightFramesForHeadId(request.source->HeadID);
-        for (int index = 0; index < ROLE_MAGIC_COUNT; ++index)
-        {
-            request.magicSlots[index] = Save::getInstance()->getMagic(request.source->MagicID[index]);
-        }
-    };
-
-    std::vector<BattleSceneSetupUnitRequest> setupRequests;
-    setupRequests.reserve(enemyRequests.size() + allyRequests.size());
-    setupRequests.insert(setupRequests.end(), enemyRequests.begin(), enemyRequests.end());
-    setupRequests.insert(setupRequests.end(), allyRequests.begin(), allyRequests.end());
-    for (auto& request : setupRequests)
-    {
-        applySharedSetupCallbacks(request);
-    }
-    auto setupBuild = KysChess::BattleSceneSetupBuilder::buildSetupUnits(setupRequests);
-
-    int sx = 0;
-    int sy = 0;
-    for (const auto& ally : allyRequests)
-    {
-        sx += ally.gridX;
-        sy += ally.gridY;
-    }
-    pos_ = battle_map_.pos45To90(
-        sx / static_cast<int>(allyRequests.size()),
-        sy / static_cast<int>(allyRequests.size()));
-    auto cameraCell = battle_map_.pos90To45(pos_.x, pos_.y);
-    man_x_ = cameraCell.x;
-    man_y_ = cameraCell.y;
-
-    battle_frame_ = 0;
-    half_speed_step_on_next_render_ = true;
-    battle_paused_ = false;
-    camera_.reset(pos_);
-    pos_ = clampCameraCenterForActiveView(pos_);
-
-    initializeBattleRuntime(std::move(setupBuild));
-    runPreBattlePositionSwapIfEnabled();
-
+    initializeSessionBattleRuntime();
+    formation_preview_runtime_.reset();
     if (SystemSettings::getInstance()->data().paperBattleView && !active_paper_battle_view_)
     {
         switchBattleViewMode(true);
@@ -2496,11 +2343,18 @@ void BattleSceneHades::onEntrance()
         updatePaperCameraAutoCenter(true);
         paper_camera_auto_center_ = battlePaperCameraAutoCenterAfterEntry();
     }
-
-    Audio::getInstance()->playMusic(KysChess::getRandomBattleMusic());
-    // Audio::getInstance()->playMusic(info_->Music);
+    const auto& prepared = *session_transition_source_->lastBattlePrepared();
+    if (prepared.kind == KysChess::PreparedChessBattleKind::Standalone)
+    {
+        const auto map = session_transition_source_->content().battleMaps().find(battle_id_);
+        assert(map != session_transition_source_->content().battleMaps().end());
+        Audio::getInstance()->playMusic(map->second.musicId);
+    }
+    else
+    {
+        Audio::getInstance()->playMusic(KysChess::getRandomBattleMusic());
+    }
 }
-
 void BattleSceneHades::onExit()
 {
     if (previous_refresh_interval_ > 0.0)
@@ -2519,30 +2373,6 @@ void BattleSceneHades::onExit()
 
 void BattleSceneHades::calExpGot()
 {
-    if (result_ != 0)
-    {
-        return;
-    }
-
-    if (!count_fights_won_)
-    {
-        return;
-    }
-
-    std::set<int> rewardedInstanceIds;
-    for (const auto& teammate : extended_teammates_)
-    {
-        if (teammate.chessInstanceId < 0)
-        {
-            continue;
-        }
-        if (!rewardedInstanceIds.insert(teammate.chessInstanceId).second)
-        {
-            continue;
-        }
-
-        chessManager_.incrementFightsWon(KysChess::ChessInstanceID{ teammate.chessInstanceId });
-    }
 }
 
 BattlePostBattleSummary BattleSceneHades::makePostBattleSummary() const
@@ -2552,12 +2382,10 @@ BattlePostBattleSummary BattleSceneHades::makePostBattleSummary() const
 
 class PositionSwapNode : public RunNode
 {
-    BattleSceneHades* battle_;
-
 public:
-    PositionSwapNode(BattleSceneHades* b) : battle_(b) { }
+    explicit PositionSwapNode(BattleSceneHades* battle) : battle_(battle) {}
 
-    void dealEvent(EngineEvent& e) override
+    void dealEvent(EngineEvent&) override
     {
     }
 
@@ -2576,30 +2404,40 @@ public:
             return PointerResult::Handled;
         }
 
-        const auto p = battle_->getMousePosition(
+        const auto position = battle_->getMousePosition(
             event.uiPosition.x,
             event.uiPosition.y,
             battle_->man_x_,
             battle_->man_y_);
         int clickedUnitId = -1;
-        for (int unitId : battle_->scene_units_.allyUnitIds())
+        for (const int unitId : battle_->scene_units_.allyUnitIds())
         {
             const auto& unit = battle_->scene_units_.requireRuntimeUnit(unitId);
-            if (unit.grid.x == p.x && unit.grid.y == p.y)
+            if (unit.grid.x == position.x && unit.grid.y == position.y)
             {
                 clickedUnitId = unitId;
                 break;
             }
         }
-        if (clickedUnitId < 0) return PointerResult::Handled;
+        if (clickedUnitId < 0)
+        {
+            return PointerResult::Handled;
+        }
         if (battle_->swapSelectedUnitId_ < 0)
         {
             battle_->swapSelectedUnitId_ = clickedUnitId;
         }
         else if (clickedUnitId != battle_->swapSelectedUnitId_)
         {
-            assert(battle_->battle_session_.has_value());
-            battle_->battle_session_->swapSetupUnitPositions(battle_->swapSelectedUnitId_, clickedUnitId);
+            KysChess::ChessAction action;
+            action.type = KysChess::ChessActionType::SwapPositions;
+            action.chessInstanceId = battle_->swapSelectedUnitId_;
+            action.targetChessInstanceId = clickedUnitId;
+            const auto result = battle_->session_transition_source_->beginAction(action);
+            assert(result.accepted);
+            battle_->formation_preview_runtime_->swapSetupUnitPositions(
+                battle_->swapSelectedUnitId_,
+                clickedUnitId);
             battle_->swapSelectedUnitId_ = -1;
         }
         return PointerResult::Handled;
@@ -2607,7 +2445,8 @@ public:
 
     void onPressedCancel() override
     {
-        auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "佈陣完成", "繼續調整" });
+        auto menu = std::make_shared<MenuText>(
+            std::vector<std::string>{"佈陣完成", "繼續調整"});
         menu->setFontSize(36);
         menu->arrange(0, 0, 0, 45);
         menu->runAtPosition(400, 300);
@@ -2617,6 +2456,9 @@ public:
             setExit(true);
         }
     }
+
+private:
+    BattleSceneHades* battle_{};
 };
 
 void BattleSceneHades::runPositionSwapLoop()
@@ -2631,80 +2473,57 @@ void BattleSceneHades::runPositionSwapLoop()
 void BattleSceneHades::runListBasedSwap()
 {
     positionSwapActive_ = true;
-    auto allies = scene_units_.allyUnitIds();
+    const auto allies = scene_units_.allyUnitIds();
     if (allies.size() < 2)
     {
         positionSwapActive_ = false;
         return;
     }
 
-    // Build menu items with proper alignment using getTextDrawSize
-    // Name is left-aligned, coordinates are right-aligned
-    auto buildNames = [&](int highlight = -1)
-    {
-        // First pass: find max name width and max coord width separately
-        int maxNameLen = 0;
-        int maxCoordLen = 0;
-        for (int unitId : allies)
+    const auto buildNames = [&](int highlight = -1) {
+        int maximumNameWidth = 0;
+        int maximumCoordinateWidth = 0;
+        for (const int unitId : allies)
         {
             const auto& unit = scene_units_.requireRuntimeUnit(unitId);
-            std::string name = unit.name;
-            std::string coord = std::format("({},{})", unit.grid.x, unit.grid.y);
-            int nameLen = Font::getTextDrawSize(name);
-            int coordLen = Font::getTextDrawSize(coord);
-            if (nameLen > maxNameLen)
-            {
-                maxNameLen = nameLen;
-            }
-            if (coordLen > maxCoordLen)
-            {
-                maxCoordLen = coordLen;
-            }
+            maximumNameWidth = std::max(maximumNameWidth, Font::getTextDrawSize(unit.name));
+            maximumCoordinateWidth = std::max(
+                maximumCoordinateWidth,
+                Font::getTextDrawSize(std::format("({},{})", unit.grid.x, unit.grid.y)));
         }
+
         std::vector<std::string> names;
         std::vector<Color> colors;
         std::vector<Color> outlineColors;
         std::vector<bool> animateOutlines;
-        for (int i = 0; i < (int)allies.size(); i++)
+        for (int index = 0; index < static_cast<int>(allies.size()); ++index)
         {
-            const auto& unit = scene_units_.requireRuntimeUnit(allies[i]);
-            std::string name = unit.name;
-            std::string coord = std::format("({},{})", unit.grid.x, unit.grid.y);
-            int nameLen = Font::getTextDrawSize(name);
-            int coordLen = Font::getTextDrawSize(coord);
-            // Pad name to max, then pad coord prefix so coords right-align
-            int gap = (maxNameLen - nameLen) + (maxCoordLen - coordLen) + 2;
-            std::string s = std::format("{}{}{}", name, std::string(gap, ' '), coord);
-            names.push_back(s);
-            colors.push_back({ 255, 255, 255, 255 });
-            if (i == highlight)
-            {
-                outlineColors.push_back({ 255, 255, 100, 255 });
-                animateOutlines.push_back(true);
-            }
-            else
-            {
-                outlineColors.push_back({ 0, 0, 0, 0 });
-                animateOutlines.push_back(false);
-            }
+            const auto& unit = scene_units_.requireRuntimeUnit(allies[index]);
+            const auto coordinate = std::format("({},{})", unit.grid.x, unit.grid.y);
+            const int gap = maximumNameWidth - Font::getTextDrawSize(unit.name)
+                + maximumCoordinateWidth - Font::getTextDrawSize(coordinate)
+                + 2;
+            names.push_back(std::format("{}{}{}", unit.name, std::string(gap, ' '), coordinate));
+            colors.push_back({255, 255, 255, 255});
+            outlineColors.push_back(index == highlight ? Color{255, 255, 100, 255} : Color{});
+            animateOutlines.push_back(index == highlight);
         }
         return std::make_tuple(names, colors, outlineColors, animateOutlines);
     };
 
-    while (true)
+    for (;;)
     {
-        // Pick first role
-        auto [names1, colors1, outlines1, anim1] = buildNames();
-        auto menu1 = std::make_shared<MenuText>();
-        menu1->setStrings(names1, colors1, outlines1, anim1);
-        menu1->setFontSize(28);
-        menu1->arrange(0, 0, 0, 36);
-        menu1->runAtPosition(100, 100);
-        int sel1 = menu1->getResult();
-        if (sel1 < 0 || sel1 >= (int)allies.size())
+        auto [firstNames, firstColors, firstOutlines, firstAnimations] = buildNames();
+        auto firstMenu = std::make_shared<MenuText>();
+        firstMenu->setStrings(firstNames, firstColors, firstOutlines, firstAnimations);
+        firstMenu->setFontSize(28);
+        firstMenu->arrange(0, 0, 0, 36);
+        firstMenu->runAtPosition(100, 100);
+        const int first = firstMenu->getResult();
+        if (first < 0)
         {
-            // Cancelled first pick — ask to confirm or continue
-            auto confirm = std::make_shared<MenuText>(std::vector<std::string>{ "佈陣完成", "繼續調整" });
+            auto confirm = std::make_shared<MenuText>(
+                std::vector<std::string>{"佈陣完成", "繼續調整"});
             confirm->setFontSize(36);
             confirm->arrange(0, 0, 0, 45);
             confirm->runAtPosition(400, 300);
@@ -2715,28 +2534,25 @@ void BattleSceneHades::runListBasedSwap()
             continue;
         }
 
-        // Pick second role — highlight the first selection
-        auto [names2, colors2, outlines2, anim2] = buildNames(sel1);
-        auto menu2 = std::make_shared<MenuText>();
-        menu2->setStrings(names2, colors2, outlines2, anim2);
-        menu2->setFontSize(28);
-        menu2->arrange(0, 0, 0, 36);
-        menu2->runAtPosition(100, 100);
-        int sel2 = menu2->getResult();
-        if (sel2 < 0 || sel2 >= (int)allies.size())
+        auto [secondNames, secondColors, secondOutlines, secondAnimations] = buildNames(first);
+        auto secondMenu = std::make_shared<MenuText>();
+        secondMenu->setStrings(secondNames, secondColors, secondOutlines, secondAnimations);
+        secondMenu->setFontSize(28);
+        secondMenu->arrange(0, 0, 0, 36);
+        secondMenu->runAtPosition(100, 100);
+        const int second = secondMenu->getResult();
+        if (second < 0 || second == first)
         {
-            continue;    // cancelled second pick, retry
-        }
-        if (sel2 == sel1)
-        {
-            continue;    // same role, retry
+            continue;
         }
 
-        // Perform swap
-        assert(battle_session_.has_value());
-        battle_session_->swapSetupUnitPositions(
-            allies[sel1],
-            allies[sel2]);
+        KysChess::ChessAction action;
+        action.type = KysChess::ChessActionType::SwapPositions;
+        action.chessInstanceId = allies[first];
+        action.targetChessInstanceId = allies[second];
+        const auto result = session_transition_source_->beginAction(action);
+        assert(result.accepted);
+        formation_preview_runtime_->swapSetupUnitPositions(allies[first], allies[second]);
     }
     swapSelectedUnitId_ = -1;
     positionSwapActive_ = false;
@@ -2750,7 +2566,17 @@ void BattleSceneHades::backRun1()
     }
 
     advanceBattlePresentationEffects(attack_effects_, true);
-    auto frame = battle_session_->runFrame();
+    KysChess::Battle::BattlePresentationFrame frame;
+    auto advance = session_transition_source_->advanceAutomatic(1);
+    assert(advance.frames.size() <= 1);
+    initializeScenePresentationUnits(scene_units_.synchronizeRuntimeUnits());
+    if (!advance.frames.empty())
+    {
+        frame = std::move(advance.frames.front());
+    }
+    const auto* runtime = activeRuntimeSession();
+    assert(runtime);
+    battle_report_.consumeFrame(frame, *runtime);
     BattleSceneRuntimeFrameEffects effects;
     updateFrameApplierContext();
     frame_applier_.apply(frame, effects);
@@ -2765,6 +2591,11 @@ void BattleSceneHades::backRun1()
             }
         }
     }
+    KysChess::captureChessGuiBattleCompletion(
+        completed_action_result_,
+        advance.completedAction,
+        session_transition_source_->state().lastBattleOutcome,
+        result_);
     advanceScenePresentationFrame();
     finishBattleIfReady();
 }
@@ -2833,6 +2664,7 @@ void BattleSceneHades::finishBattleIfReady()
     if (slow_ == 0 && (result_ == 0 || result_ == 1))
     {
         calExpGot();
+        completed_scene_run_ = true;
         setExit(true);
     }
 }
@@ -2923,11 +2755,12 @@ void BattleSceneHades::renderExtraRoleInfo(
 
         const int firstHitBlocks = [&]()
         {
-            if (!battle_session_)
+            const auto* runtime = activeRuntimeSession();
+            if (!runtime)
             {
                 return 0;
             }
-            return battle_session_->runtime().units.require(unit.id).damage.blockFirstHitsRemaining;
+            return runtime->runtime().units.require(unit.id).damage.blockFirstHitsRemaining;
         }();
         bool hasDamageProtection = unit.invincible > 0 || firstHitBlocks > 0;
         if (hasDamageProtection)
@@ -2942,7 +2775,7 @@ void BattleSceneHades::renderExtraRoleInfo(
     renderBar(mpBarY, unit.vitals.mp, unit.vitals.maxMp, mp_color, mp_shadow_color);
 
     // Frozen / cooldown bar – frozen takes priority
-    const auto frozen = runtimeFrozenStatusForUnit(battle_session_ ? &*battle_session_ : nullptr, unit.id);
+    const auto frozen = runtimeFrozenStatusForUnit(activeRuntimeSession(), unit.id);
     if (frozen.frames > 0 && frozen.maxFrames > 0)
     {
         Color frozen_color = { 200, 220, 255, 192 };

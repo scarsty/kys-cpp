@@ -2,7 +2,7 @@
 
 ## Status
 
-This design has completed architectural review. The contract corrections identified during review have been incorporated, and this document is the stable source of truth for feature behavior, ownership boundaries, deterministic execution, replay verification, and save/timeline semantics.
+This design has completed architectural review. The contract corrections identified during review, including the 2026-07-12 snapshot-load simplification, have been incorporated. This document is the stable source of truth for feature behavior, ownership boundaries, deterministic execution, explicit replay verification, and save/timeline semantics.
 
 Implementation sequencing, concrete file migrations, checklists, and build/test checkpoints live in the separate [implementation plan](../plans/2026-07-11-headless-auto-chess-replay.md). Architectural changes must update this specification first; sequencing or file-level discoveries update the execution plan only.
 
@@ -10,7 +10,7 @@ Implementation sequencing, concrete file migrations, checklists, and build/test 
 
 The auto-chess game must be playable without rendering, audio, or graphical input. A human or agent must be able to inspect game state, enumerate legal decisions, take actions, resolve battles, and understand results through text or structured data.
 
-The same game must also support deterministic replay verification. Given a declared ruleset and root random seed, a verifier must be able to replay every recorded player decision, reject illegal or altered actions, reproduce automatic outcomes, and confirm the final pieces, equipment, progress, and result.
+The same game must also support deterministic replay verification. Given an exact `game_version`, its immutable content, the original root random seed, and the complete selected action history from action 1, a verifier must be able to replay every recorded player decision, reject illegal or altered actions, reproduce automatic outcomes, and confirm the final pieces, equipment, progress, and result.
 
 The design has the following concrete goals:
 
@@ -20,7 +20,7 @@ The design has the following concrete goals:
 - describe battles with an initial ASCII board, meaningful battle events, and a final summary;
 - record every gameplay decision using stable semantic identifiers;
 - reproduce all automatic events from a versioned deterministic random seed;
-- verify action legality and state evolution at every decision boundary;
+- verify action legality and state evolution at every decision boundary when explicit verification is requested;
 - keep the existing graphical game on the same rule implementation as headless play;
 - avoid a second implementation of shop, reward, battle, or progression rules.
 
@@ -30,8 +30,9 @@ The first implementation does not need to:
 
 - stream every movement frame in the normal text format;
 - reproduce camera, animation, sound, particle, rumble, or other visual state;
-- provide backward compatibility for obsolete replay versions or rulesets;
-- provide runtime backward compatibility for old auto-chess save/checkpoint schemas;
+- provide backward compatibility for saves or replays from a different `game_version`;
+- migrate obsolete auto-chess save/checkpoint shapes;
+- validate player honesty during ordinary trusted local save loading;
 - prove that a player did not search many seeds before choosing one;
 - support multiple concurrently simulated sessions inside one process initially;
 - ship MCP before the core session and CLI protocol are stable.
@@ -56,7 +57,7 @@ These are extraction and ownership problems. The battle rules themselves must no
 
 ## Target Architecture
 
-Create one deterministic, UI-independent `ChessGameSession` as the sole owner of run-level gameplay state, rules, decisions, pending automatic work, and the active replay journal. Inject one immutable `ChessGameContent` snapshot containing all gameplay definitions and the ruleset identity.
+Create one deterministic, UI-independent `ChessGameSession` as the sole owner of run-level gameplay state, rules, decisions, pending automatic work, and the active replay journal. Inject one immutable `ChessGameContent` snapshot containing all gameplay definitions and the exact game version.
 
 ```mermaid
 flowchart LR
@@ -181,7 +182,7 @@ Config-defined entities that are currently addressed only by vector index, espec
 
 `GameState` must become instance-owned by `ChessGameSession`. The graphical application may retain one application-owned session host, but session logic may not retrieve a global singleton.
 
-Fields currently accessed through `GameState::get()`, including seen roles, bans, and strategist refresh state, must be passed through session state explicitly.
+Fields currently accessed through `GameState::get()`, including seen roles, bans, and configured free-shop-refresh effect state, must be passed through session state explicitly.
 
 Gameplay-affecting options must be included in session state/rules and the replay header. Pre-battle position swapping must not depend on global `SystemSettings` during verification.
 
@@ -189,7 +190,7 @@ All role, magic, item, equipment, combo, internal-skill, challenge, map, terrain
 
 Battle setup must copy all gameplay facts it needs into runtime input so battle results do not depend on mutable `Role` HP or MP left behind by another presentation path. Headless gameplay code may not load content through `Font`, `Save::getInstance()`, `BattleMap::getInstance()`, or mutable `GameUtil::PATH()`.
 
-`GameDataStore` remains the internal persistent run-state structure after it is migrated to the new versioned fields, stream state, stable challenge IDs, and session options. Old serialized shapes are rejected. Replay verification still starts from a new run and recorded actions rather than trusting a supplied final save.
+The GUI-facing `GameDataStore` is only a wrapper around the serialized session checkpoint. The checkpoint owns the complete state snapshot, RNG state, and full selected journal from action 1. Ordinary loading trusts that snapshot; explicit replay verification still starts from a new run and recorded actions rather than using the supplied final save as its initial state.
 
 ## Run-Level Rule Extraction
 
@@ -264,7 +265,7 @@ The headless runner does not own termination rules. GUI and headless callers use
 - a simultaneous wipe is a player defeat at the frame where it occurs;
 - timeout is reported distinctly but has defeat progression semantics: no rewards, no fight advance, no fights-won increment, and preparation RNG rollback.
 
-The maximum frame count and outcome semantics are part of the ruleset identity.
+The maximum frame count and outcome semantics are gameplay behavior of the exact game version.
 
 ## Shared Battle Reporting
 
@@ -464,11 +465,11 @@ The planner captures streams 3 through 6 immediately before battle preparation.
 
 This matrix is applied only by the shared session outcome handler.
 
-### Determinism Profile
+### Build Determinism Expectations
 
-The first supported profile is `win-x64-msvc-v143-fp-strict-v1`. Shared battle and chess core targets use strict floating-point semantics, and Debug and Release must accept the same golden replays and produce the same golden battle digests.
+Shared battle and chess core targets use strict floating-point semantics, and Debug and Release must accept the same golden replays and produce the same golden battle digests. The persisted format does not carry a separate determinism profile, engine replay version, RNG version, or ruleset identity. `game_version` is the only compatibility gate.
 
-Other builds must declare a different profile and are rejected until they have profile-specific golden coverage. Android and WASM are not silently claimed replay-compatible.
+Platform-specific golden coverage remains useful for detecting implementation divergence, but it does not add another persisted compatibility dimension. A divergent build fails explicit replay verification through its independently reconstructed actions, state, event, RNG, or chain checkpoints.
 
 ## Replay Format
 
@@ -479,12 +480,7 @@ A replay contains a header, decision records, and a footer record.
 The header contains:
 
 - magic identifier;
-- replay format version;
-- engine replay version;
-- run RNG algorithm version;
-- battle RNG algorithm version;
-- determinism profile;
-- ruleset hash;
+- exact `game_version`;
 - difficulty;
 - root seed;
 - gameplay-affecting options.
@@ -505,7 +501,7 @@ Each accepted player decision records:
 
 The record is appended only after the accepted action and all automatic work reach the next stable decision boundary or `Complete`. Its pre-state hash refers to the boundary before `beginAction()`; its post-state/event/RNG hashes refer to the finalized boundary after automatic work.
 
-The minimal replay does not store automatically generated enemy or reward results as trusted input. Those results are reproduced by the verifier. Optional diagnostic records may include them for readability, but verification ignores them as authority.
+The authoritative replay retains every accepted action from action 1 but does not store automatically generated enemy or reward results as trusted input. Those results are reproduced by the verifier. Optional diagnostic records may include them for readability, but verification ignores them as authority.
 
 ### Footer Record
 
@@ -523,7 +519,7 @@ Every export ends with a footer containing:
 The first JSONL shape is:
 
 ```json
-{"record":"header","magic":"KYS_CHESS_REPLAY","replay_format_version":1,"engine_replay_version":1,"run_rng":"run_rng_xoshiro256ss_v1","battle_rng":"battle_rng_mt19937_mod_v1","determinism_profile":"win-x64-msvc-v143-fp-strict-v1","ruleset_hash":"<64 hex>","difficulty":"normal","root_seed":"0x0000000000003039","options":{"position_swap_enabled":true,"battle_frame_limit":36000}}
+{"record":"header","magic":"KYS_CHESS_REPLAY","game_version":"<exact game version>","difficulty":"normal","root_seed":"0x0000000000003039","options":{"position_swap_enabled":true,"battle_frame_limit":36000}}
 {"record":"decision","sequence":1,"phase":"Management","decision_kind":"refresh_shop","action":{"type":"refresh_shop"},"pre_state_hash":"<64 hex>","post_state_hash":"<64 hex>","event_hash":"<64 hex>","rng_digest":"<64 hex>","previous_chain_hash":"<64 hex>","chain_hash":"<64 hex>"}
 {"record":"footer","status":"in_progress","terminal_chain_hash":"<64 hex>","final_state_hash":"<64 hex>","result":"in_progress","fight_reached":0}
 ```
@@ -572,7 +568,7 @@ The normal run-state hash includes:
 - the complete prepared battle: kind/ID, enemy lineup/equipment, sorted ally instance IDs, map candidates/chosen map, battle seed, deterministic unit IDs, base formation, applied swaps, and preparation RNG checkpoint;
 - the `RNG1` projection.
 
-The preparation checkpoint canonically encodes its captured `enemyPlanKey` followed by stream tags 3 through 6 and their captured raw-draw counters. Save snapshots may cache the four xoshiro state words per stream, but canonical authority remains the root seed, key, and counters reproduced by the journal.
+The preparation checkpoint canonically encodes its captured `enemyPlanKey` followed by stream tags 3 through 6 and their captured raw-draw counters. Ordinary save loading restores the complete stored RNG state directly. An explicit verifier independently reproduces the root seed, key, counters, and stream evolution from the journal.
 
 Configured challenge/reward string IDs use canonical string encoding. Generated numeric role, magic, item, chess-instance, equipment-instance, map, skill, status, and resource IDs use fixed-width numeric encoding. Configured reward choices must have unique configured IDs; generated choices with the same semantic payload are deduplicated before legal actions are exposed.
 
@@ -589,27 +585,17 @@ A transition with no semantic events hashes the valid `EVT1` encoding with a zer
 
 A chain detects alteration or corruption when the expected terminal hash is trusted separately. It does not by itself prevent an attacker from rewriting a whole replay and recomputing the chain; legality still comes from deterministic replay.
 
-## Ruleset Identity
+## Game Version Compatibility
 
-The verifier only accepts a replay when its replay version and ruleset identity are supported exactly.
+Every replay and checkpoint carries one exact `game_version`, loaded from `config/release.ini` with `dev` as the development fallback. The current immutable `ChessGameContent` carries the same value.
 
-The ruleset hash covers:
+Normal save import and load require exact string equality with the running game version. There is no persisted ruleset hash, determinism profile, engine replay version, RNG version, or checkpoint schema version, and there are no migration or backward-compatibility branches. Gameplay code or data changes that should invalidate existing saves and replays require a game-version change.
 
-- replay, run RNG, battle RNG, canonical encoding, and semantic-event protocol versions;
-- determinism profile;
-- the 36,000-frame timeout and simultaneous-wipe policy;
-- relevant top-level `config/chess_*.yaml` content;
-- canonical role, magic, item, equipment, and internal-skill gameplay data;
-- battle map and terrain gameplay data;
-- compiled gameplay rule version.
-
-Raw SQLite file bytes should not be used as the only data identity because physically different database files can contain the same logical records. Hash the canonical gameplay records required by auto-chess.
-
-The hash is computed from the injected immutable `ChessGameContent` snapshot, not mutable static caches or raw file locations. When gameplay code or data intentionally changes, increment the replay/ruleset version or produce a different ruleset hash. Obsolete formats and determinism profiles are rejected instead of maintained through compatibility branches.
+The state, event, RNG, snapshot, and chain hashes do not select compatibility. They remain diagnostic checkpoints for explicit verification and corruption diagnosis.
 
 ## Replay Verification
 
-Verification always begins from a fresh session. It does not trust a serialized final `GameDataStore`.
+Explicit verification always begins from a fresh session using the replay header's original seed and options. It requires the replay's exact `game_version` to match the verifier's immutable content and does not trust a serialized final snapshot as its starting point.
 
 For each decision record, the verifier:
 
@@ -621,14 +607,13 @@ For each decision record, the verifier:
 6. compares derived-event, RNG, post-state, and chain hashes;
 7. stops at the first mismatch with the sequence number and mismatch category.
 
-After the last decision, it verifies the footer state and final chain hash. A `complete` footer must reproduce `Complete` with result `campaign_complete`; an `in_progress` footer must reproduce the declared stable decision boundary and current semantic state.
+After the last decision, it verifies the footer state and final chain hash. A `complete` footer must reproduce `Complete` with result `campaign_complete`; an `in_progress` footer must reproduce the declared stable decision boundary and current semantic state. Re-execution is authoritative; the stored hashes are inexpensive checkpoints that locate the first divergence.
 
 Verifier failure categories should distinguish:
 
 - malformed replay;
-- unsupported replay version;
-- unsupported determinism profile;
-- ruleset mismatch;
+- incompatible game version;
+- difficulty or runtime-option mismatch;
 - pre-state mismatch;
 - illegal action;
 - RNG divergence;
@@ -666,24 +651,32 @@ This makes save/load discoverable to an LLM in the same way that shop refresh, s
 
 A headless/session save should contain:
 
-- save format version;
-- engine replay version and ruleset hash;
-- root seed and gameplay options;
-- replay sequence number;
-- terminal chain hash at that sequence;
-- canonical state snapshot;
-- canonical state hash;
-- named RNG state or counters;
-- current phase and pending decision;
-- the complete active journal header and all decision records through the saved sequence;
+- exact `game_version`;
+- the canonical state snapshot, including current phase, options, and any pending decision;
+- complete named RNG state, including the original root seed;
+- `snapshot_hash` as a diagnostic checkpoint;
+- `replay_jsonl`, containing the original replay header, every accepted action from action 1 through the saved boundary, and the footer;
 - a monotonic save revision;
 - presentation-only metadata such as an optional label or wall-clock display time.
 
-The complete active journal is mandatory save-file content, not an optional external reference. A copied save must be self-contained: after loading it, the player can continue making decisions and later export a complete final journal without requiring the original process, another save file, or a separate replay sidecar.
+The complete active journal is mandatory save-file content, not an optional external reference. It is never compacted, truncated, or replaced by a snapshot-origin history. A copied save must be self-contained: after loading it, the player can continue making decisions and later export a complete final journal from the original action 1 without requiring the original process, another save file, or a separate replay sidecar.
 
-Snapshots exist for fast restoration. They are not accepted as proof merely because their embedded hashes are internally consistent; a player who edits a local file can recompute an ordinary SHA-256 hash. Save revisions participate only in save metadata, not gameplay hashes; wall-clock timestamps never participate in canonical encoding.
+Snapshots exist for fast trusted local restoration. They are not proof: a player who edits a local file can also recompute an ordinary SHA-256 hash. Save revisions participate only in save metadata, not gameplay hashes; wall-clock timestamps never participate in canonical encoding.
 
-When loading a checkpoint, the implementation validates that its embedded journal reproduces the checkpoint chain and state hash. It may use the state snapshot as a fast restoration cache after validation. The final standalone verifier remains able to ignore snapshots and replay the final active action history from the root seed.
+Normal loading parses the checkpoint and embedded journal for syntax/readability, requires exact `game_version` equality, and rejects a snapshot that cannot be represented at a stable supported boundary. It then directly restores state, RNG state, and the complete journal. It does **not** replay historical actions, enforce replay runtime-option policy, or validate pre-state, post-state, event, RNG, snapshot, footer, or chain hashes. Local players may edit their own saves; ordinary load performance takes priority over treating a local save as an authenticated database journal.
+
+The graphical application builds this restored session as a detached replacement, prepares the legacy map/database state only after that replacement is ready, and commits through the existing in-place session object so GUI references remain valid. Immutable content is cached by difficulty: a normal same-difficulty load performs no content reload, while a cold load performs at most one.
+
+### Future Explicit Save/Journal Validation
+
+A later upload/audit mode may validate whether a submitted final state is legally reachable. That mode must ignore the submitted snapshot as an initial state and:
+
+1. create a fresh session from the journal header's original root seed, difficulty, and options;
+2. replay every accepted action from action 1 without compaction or truncation;
+3. reject the first illegal action or state/event/RNG/chain divergence;
+4. compare the independently reconstructed final state and RNG state with the submitted snapshot and any required legacy-save projection.
+
+Per-action state, event, RNG, and chain hashes remain because they are relatively cheap and identify the first divergence during this explicit audit. `event_hash` diagnoses a difference in emitted semantic effects even when the persistent state happens to match; it is not the mechanism that detects a direct money or inventory edit. A deliberate player may rewrite unkeyed hashes, so legality always comes from independent replay and final deep comparison.
 
 ### Active Journal Replacement
 
@@ -701,6 +694,8 @@ A1 A2 A3 A4 C1 C2
 
 `B1 B2 B3` are abandoned actions and do not appear in the final gameplay journal. The load operation itself also does not need to appear in that final journal because it did not produce a new gameplay state from `A4`; it selected the already saved `A1...A4` timeline as the new journal head.
 
+This timeline replacement is not journal compaction. The selected save still contains every action from the run's original action 1 through `A4`; it never treats the snapshot as a new initial state. Only the intentionally abandoned suffix is excluded from the newly selected active timeline.
+
 This is the required behavior when save/load is part of the game. The final verifier proves that the final active journal is a legal path from the seed to the claimed result. It does not attempt to report discarded experiments that the game intentionally permits the player to erase by loading.
 
 The live CLI or MCP response to a load should still make the replacement obvious to the acting LLM:
@@ -714,7 +709,7 @@ timeline_replaced:
   current_state_hash: ...
 ```
 
-This response belongs to the interactive session transcript, not the final gameplay journal. An optional diagnostic host audit may retain all save, load, and discarded interactions for debugging, but it is separate from the compact final replay proof.
+This response belongs to the interactive session transcript, not the final gameplay journal. An optional diagnostic host audit may retain all save, load, and discarded interactions for debugging, but it is separate from the complete selected-timeline replay.
 
 ### Decision-Boundary Saves
 
@@ -751,7 +746,7 @@ Structured observation includes, per slot:
 - monotonic save revision and optional presentation timestamp;
 - fight, level, gold, roster count, and short roster summary;
 - replay sequence and state hash when available;
-- ruleset compatibility;
+- exact game-version compatibility;
 - whether loading is currently permitted.
 
 The short summary lets an LLM choose a useful rollback point without first loading every slot. A separate `inspect_save(slot)` operation may return the complete saved observation without changing the active timeline.
@@ -765,11 +760,11 @@ Save and load should be represented as session operations, not ordinary determin
 - `load(slot)` replaces the active snapshot and journal prefix with the saved versions;
 - `inspect_save(slot)` reads external metadata without changing state or RNG;
 - `export_save(slot)` returns the portable checkpoint envelope without changing state or RNG;
-- `import_save(slot, payload)` validates and stores a compatible checkpoint without making it active.
+- `import_save(slot, payload)` checks syntax/readability and exact game version, then stores the checkpoint without making it active.
 
 `observe()` returns deterministic gameplay state and legal gameplay actions. The session controller wraps it as `SessionObservation` with available session operations and save-slot metadata. Human CLI help and MCP tool descriptions must explain the distinction and rollback behavior.
 
-This separation keeps the final journal minimal while still making save/load first-class and obvious during interactive play.
+This separation keeps save/load out of gameplay actions while retaining the complete selected journal from action 1.
 
 ### MCP Save Tools
 
@@ -780,34 +775,35 @@ The MCP adapter should expose the same visible save-slot mechanic as the graphic
 - `save_game(slot)` overwrites the slot with the current state and journal prefix;
 - `load_game(slot)` replaces the current state and journal head and reports how many current actions were discarded;
 - `export_save(slot)` exports a portable save envelope;
-- `import_save(slot, payload)` imports a compatible save into a slot without silently making it the active game.
+- `import_save(slot, payload)` imports an exact-version readable save into a slot without silently making it the active game.
 
 The normal action tool must not accept arbitrary serialized state as an action payload.
 
 ### Save Format Compatibility Policy
 
-The new checkpoint schema replaces the old auto-chess slot shape. Runtime loading does not support snapshot-origin journals or synthesize missing action history.
+The current checkpoint shape replaces the old auto-chess slot shape. Runtime loading does not support snapshot-origin journals or synthesize missing action history.
 
-- compatible new-format checkpoints contain the complete journal prefix and can continue producing a fully verifiable replay from the original root seed;
-- incompatible or old auto-chess slot versions are rejected with a stable error;
+- compatible checkpoints contain the exact current `game_version` and the complete journal prefix from action 1, so continued play can later produce a fully verifiable replay from the original root seed;
+- saves from another game version are not guaranteed to work and are rejected rather than migrated;
+- malformed or unrepresentable checkpoints are rejected with a stable error;
 - replay files remain separate authoritative verification inputs;
 - ordinary non-auto-chess scene persistence is outside this replay contract.
 
-The existing `SavePersistence::SlotData` representation must be replaced or extended into a public versioned checkpoint envelope owned by the headless save abstraction. Saving captures the current state and journal prefix. Loading restores the journal, `GameDataStore`, RNG state, phase, pending decision, and options. Subsequent accepted actions append to that restored journal, and the next save writes the resulting active journal again.
+The graphical `SavePersistence::SlotData` embeds the public checkpoint owned by the headless save abstraction. Saving captures the current state and full journal prefix. Loading restores the journal, state, RNG state, phase, pending decision, and options. Subsequent accepted actions append to that restored journal, and the next save writes the resulting active journal again.
 
 ### Security Limitation
 
-Because the game intentionally allows rollback, the compact final journal cannot and should not prove that no discarded timelines existed. It proves only that the final selected timeline is legal.
+Because the game intentionally allows rollback, the complete final selected journal cannot and should not prove that no discarded timelines existed. It proves only that the final selected timeline is legal.
 
 If a separate competition later requires proof that no rollback occurred, that would be a different ironman mode with externally enforced save policy or trusted checkpoint logging. It must not redefine ordinary save/load behavior.
 
 ## Compression and Storage
 
-Start with compact JSONL for visibility during development. Canonical hashes do not depend on the JSON representation.
+Use JSONL for visibility during development. Canonical hashes do not depend on the JSON representation. Archive compression may reduce physical size, but it must never compact, truncate, or omit action history.
 
 Once stable, package a replay as a deflated `.kysreplay` archive using the existing libzip dependency. The archive may contain:
 
-- `replay.jsonl` for the authoritative compact record;
+- `replay.jsonl` for the complete authoritative selected-timeline record;
 - `summary.txt` for human inspection;
 - optional battle logs or diagnostic traces.
 
@@ -817,7 +813,7 @@ Only the authoritative replay record is required for verification. Diagnostic fi
 
 Offline verification proves:
 
-> The recorded actions form a legal playthrough for the declared seed, gameplay options, engine replay version, determinism profile, and ruleset, and they deterministically produce the claimed verified state.
+> The complete recorded actions from action 1 form a legal playthrough for the declared seed, gameplay options, difficulty, and exact game version, and they deterministically produce the claimed verified state.
 
 It does not prove that the seed was selected fairly or that the player did not explore other seeds first.
 
@@ -859,8 +855,8 @@ The implementation requires the following test groups.
 - named stream isolation prevents reward calls from changing shop or enemy results;
 - every preparation rollback-matrix row restores exactly the intended streams;
 - total-order tie cases produce stable gameplay iteration;
-- restart-and-resume from a decision record reproduces the same next state where checkpoints are supported;
-- Windows x64 MSVC v143 Debug and Release accept the same golden replays and battle digests.
+- snapshot resume restores the next decision boundary without replaying history;
+- Windows x64 MSVC v145 Debug and Release accept the same golden replays and battle digests.
 
 ### Battle Parity Tests
 
@@ -876,8 +872,8 @@ The implementation requires the following test groups.
 - canonical ordering independence;
 - modified action rejection at the exact sequence;
 - removed, inserted, duplicated, reordered, and truncated record rejection;
-- RNG, event, state, chain, and ruleset mismatch detection;
-- unsupported determinism-profile rejection;
+- RNG, event, state, and chain mismatch detection;
+- exact game-version and runtime-option mismatch rejection;
 - stable-boundary `in_progress` footer verification and terminal `campaign_complete` footer verification;
 - final roster and equipment verification;
 - one committed short golden replay and one complete scripted run.
@@ -894,9 +890,11 @@ The implementation requires the following test groups.
 - new actions append to the restored prefix and verify as one linear final timeline;
 - save-slot storage remains available after loading an earlier gameplay state;
 - save revisions/timestamps do not change gameplay hashes;
-- edited snapshots fail replay-prefix validation;
-- incompatible old checkpoint schemas are rejected explicitly;
-- the full verifier succeeds while ignoring all snapshot caches.
+- normal load accepts a representable edited snapshot without replaying or validating its journal;
+- structurally readable journal corruption does not trigger implicit load-time verification;
+- exact game-version mismatch and unrepresentable snapshots reject transactionally;
+- the explicit verifier starts from the original seed, identifies the first divergence, and succeeds without using a snapshot as its initial state;
+- the saved journal always begins at action 1 and survives save/export/import/load without compaction or truncation.
 
 ### CLI and MCP Tests
 
@@ -927,13 +925,15 @@ The feature is complete when:
 - post-clear management and expedition challenges remain playable until `finish_run`;
 - stable-boundary replay export verifies with an `in_progress` footer, and `finish_run` produces `campaign_complete`;
 - observations and MCP tools make save, inspect, and rollback capabilities obvious to an LLM;
+- ordinary save loading directly restores the trusted snapshot, RNG state, and journal without replaying history or validating replay runtime options or state/event/RNG/footer/chain hashes;
+- every checkpoint retains the selected journal from action 1 without compaction, truncation, or a snapshot-origin history;
 - runs can be saved, closed, and resumed without changing the saved journal prefix;
-- compatible saves can be exported/imported without activating them, while old checkpoint schemas are rejected;
+- exact-version saves can be exported/imported without activating them, while malformed or different-version saves are rejected;
 - loading an earlier compatible checkpoint restores its journal prefix and removes the abandoned suffix from the active journal;
 - the final verifier accepts the selected final timeline without requiring discarded rollback attempts;
 - a verifier can reconstruct the run from seed and actions and validate the final pieces and equipment;
-- the Windows x64 MSVC v143 Debug and Release builds accept the same committed golden replays;
-- altered, illegal, corrupted, truncated, or wrong-ruleset replays are rejected precisely;
+- the Windows x64 MSVC v145 Debug and Release builds accept the same committed golden replays;
+- altered, illegal, corrupted, truncated, or wrong-game-version replays are rejected precisely;
 - no duplicated gameplay implementation exists between GUI, CLI, verifier, or MCP.
 
 ## Implementation Readiness Assessment

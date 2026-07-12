@@ -1,11 +1,11 @@
 ﻿#include "Console.h"
 #include "BattleNetwork.h"
 #include "BattleScene.h"
-#include "ChessPool.h"
-#include "ChessRewardFlow.h"
-#include "ChessSelector.h"
+#include "ChessApplicationSessionHost.h"
+#include "ChessBalance.h"
+#include "ChessGuiSessionAdapter.h"
+#include "ChessStandaloneBattle.h"
 #include "DrawableOnCall.h"
-#include "DynamicChessMap.h"
 #include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -13,22 +13,142 @@
 #include "MainScene.h"
 #include "Save.h"
 #include "SuperMenuText.h"
-#include "GameState.h"
 #include "TextBox.h"
 #include "TextureManager.h"
 #include "UISave.h"
 #include "strfunc.h"
 #include "yaml-cpp/yaml.h"
 #include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <format>
 #include <functional>
+#include <initializer_list>
 #include <iostream>
 #include <print>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+namespace
+{
+
+YAML::Node firstNode(const YAML::Node& root, std::initializer_list<const char*> keys)
+{
+    for (const auto* key : keys)
+    {
+        if (const auto node = root[key])
+        {
+            return node;
+        }
+    }
+    return {};
+}
+
+bool loadStandaloneTeam(
+    const YAML::Node& node,
+    std::string_view label,
+    std::vector<KysChess::ChessStandaloneBattlePiece>& pieces)
+{
+    if (!node || !node.IsSequence())
+    {
+        std::print("【測試】「{}」必須是棋子列表\n", label);
+        return false;
+    }
+    for (const auto& entry : node)
+    {
+        KysChess::BattlePieceDef piece;
+        const auto context = std::format(
+            "測試配置{}棋子#{}",
+            label,
+            pieces.size() + 1);
+        if (!KysChess::parseBattlePieceNode(entry, piece, context))
+        {
+            return false;
+        }
+        pieces.push_back({
+            piece.roleId,
+            piece.star,
+            piece.weaponId,
+            piece.armorId,
+        });
+    }
+    return true;
+}
+
+void runConfiguredChessBattle()
+{
+    const std::string path = GameUtil::PATH() + "config/chess_test.yaml";
+    YAML::Node config;
+    try
+    {
+        config = YAML::LoadFile(path);
+    }
+    catch (const YAML::Exception& error)
+    {
+        std::print("【測試】無法讀取 {}：{}\n", path, error.what());
+        return;
+    }
+
+    KysChess::ChessStandaloneBattleRequest request;
+    request.profile = KysChess::ChessStandaloneBattleProfile::AutoChess;
+    request.stableBattleId = "console:test";
+    if (!loadStandaloneTeam(firstNode(config, {"我方"}), "我方", request.allies)
+        || !loadStandaloneTeam(firstNode(config, {"敵方", "敌方"}), "敵方", request.enemies))
+    {
+        return;
+    }
+
+    const auto mapNode = firstNode(config, {"戰場ID", "战场ID"});
+    const int mapId = mapNode ? mapNode.as<int>(-1) : -1;
+    if (mapId >= 0)
+    {
+        request.mapId = mapId;
+    }
+    const auto seedNode = firstNode(config, {"隨機種子", "随机种子"});
+    const int configuredSeed = seedNode ? seedNode.as<int>(-1) : -1;
+    request.rootSeed = configuredSeed >= 0
+        ? static_cast<std::uint64_t>(configuredSeed)
+        : static_cast<std::uint64_t>(
+            std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    if (configuredSeed >= 0)
+    {
+        request.battleSeed = static_cast<std::uint32_t>(configuredSeed);
+    }
+
+    if (const auto neigong = firstNode(config, {"內功", "内功"}))
+    {
+        for (const auto& magicId : neigong)
+        {
+            request.obtainedNeigongIds.insert(magicId.as<int>());
+        }
+    }
+
+    auto& applicationSession = KysChess::applicationChessSession();
+    request.options = applicationSession.state().options;
+    std::string error;
+    auto standalone = KysChess::ChessStandaloneBattle::prepare(
+        applicationSession.sharedContent(),
+        request,
+        error);
+    if (!standalone)
+    {
+        std::print("【測試】無法準備戰鬥：{}\n", error);
+        return;
+    }
+
+    auto session = std::move(*standalone).createSession();
+    KysChess::ChessGuiSessionAdapter(*session).runPreparedBattle();
+    const bool victory = session->state().lastBattleOutcome
+        == KysChess::Battle::BattleOutcome::PlayerVictory;
+    std::print("【測試】戰鬥結束，結果：{}\n", victory ? "勝利" : "失敗");
+}
+
+}
 
 Console::Console()
 {
@@ -55,141 +175,18 @@ Console::Console()
     }
     if (code == "showmethemoney")
     {
-        KysChess::GameState::get().economy().make(100);
+        std::print("此代碼會改寫可驗證遊戲狀態，現已停用；請使用獨立測試戰鬥。\n");
     }
     else if (splits[0] == "item" || splits[0] == "裝備" || splits[0] == "物品")
     {
-        auto& gd = KysChess::GameState::get();
-        KysChess::ChessRewardFlow rewardFlow({
-            gd.roleSave(),
-            gd.equipmentInventory(),
-            gd.roster(),
-            gd.shop(),
-            gd.progress(),
-            gd.economy(),
-            gd.random(),
-        });
-        KysChess::BalanceConfig::ChallengeReward reward{
-            KysChess::BalanceConfig::ChallengeRewardType::GetEquipment,
-            99,
-            0,
-        };
-        if (rewardFlow.applyReward(reward))
-        {
-            UISave::autoSave();
-        }
+        std::print("此代碼會改寫可驗證遊戲狀態，現已停用；請使用獨立測試戰鬥。\n");
     }
     else if (code == "test")
     {
-        std::string path = GameUtil::PATH() + "config/chess_test.yaml";
-        YAML::Node cfg;
-        try
-        {
-            cfg = YAML::LoadFile(path);
-        } catch (...)
-        {
-            std::print("【测试】无法读取 {}\n", path);
-            return;
-        }
-
-        // Parse config
-        DynamicBattleRoles roles;
-        auto loadTeam = [&](const YAML::Node& teamNode, bool isEnemy, const char* teamLabel) {
-            if (!teamNode || !teamNode.IsSequence())
-            {
-                std::print("【测试】「{}」必须是棋子列表\n", teamLabel);
-                return false;
-            }
-
-            for (const auto& entry : teamNode)
-            {
-                KysChess::BattlePieceDef piece;
-                auto context = std::format("测试配置{}棋子#{}", teamLabel, isEnemy ? roles.enemy_ids.size() + 1 : roles.teammate_ids.size() + 1);
-                if (!KysChess::parseBattlePieceNode(entry, piece, context))
-                    return false;
-
-                if (isEnemy)
-                {
-                    roles.enemy_ids.push_back(piece.roleId);
-                    roles.enemy_stars.push_back(piece.star);
-                    roles.enemy_weapons.push_back(piece.weaponId);
-                    roles.enemy_armors.push_back(piece.armorId);
-                }
-                else
-                {
-                    roles.teammate_ids.push_back(piece.roleId);
-                    roles.teammate_stars.push_back(piece.star);
-                    roles.teammate_weapons.push_back(piece.weaponId);
-                    roles.teammate_armors.push_back(piece.armorId);
-                }
-            }
-            return true;
-        };
-
-        if (!loadTeam(cfg["我方"], false, "我方"))
-        {
-            return;
-        }
-        if (!loadTeam(cfg["敌方"], true, "敌方"))
-        {
-            return;
-        }
-        int battle_id = cfg["战场ID"].as<int>(-1);
-        int seed = cfg["随机种子"].as<int>(-1);
-
-        // 先保存原狀，測試用內功不能寫進自動存檔。
-        auto& gd = KysChess::GameState::get();
-        auto savedNeigong = gd.progress().getObtainedNeigong();
-        UISave::autoSave();
-        std::print("【测试】已自动存档\n");
-
-        // 暫時覆蓋內功
-        if (cfg["内功"])
-        {
-            std::vector<int> testNg;
-            for (const auto& n : cfg["内功"])
-            {
-                testNg.push_back(n.as<int>());
-            }
-            gd.progress().setObtainedNeigong(std::move(testNg));
-        }
-
-        // Build ally Chess vector for runBattle
-        std::vector<KysChess::Chess> allyChess;
-        for (size_t i = 0; i < roles.teammate_ids.size(); i++)
-        {
-            auto r = KysChess::GameState::get().roleSave().getRole(roles.teammate_ids[i]);
-            if (!r) continue;
-
-            KysChess::Chess chess{ r, roles.teammate_stars[i] };
-            if (i < roles.teammate_instances.size())
-            {
-                KysChess::ChessInstanceID chessInstanceId{roles.teammate_instances[i]};
-                auto& collection = KysChess::GameState::get().roster().items();
-                auto it = collection.find(chessInstanceId);
-                if (it != collection.end())
-                    chess = it->second;
-                else
-                    chess.id = chessInstanceId;
-            }
-
-            allyChess.push_back(chess);
-        }
-
-        KysChess::ChessSelector selector(
-            gd.roleSave(),
-            gd.equipmentInventory(),
-            gd.roster(),
-            gd.shop(),
-            gd.progress(),
-            gd.economy(),
-            gd.random());
-        int result = selector.runBattle(roles, allyChess, static_cast<unsigned int>(seed), battle_id);
-        std::print("【测试】战斗结束，结果：{}\n", result == 0 ? "胜利" : "失败");
-
-        // 讀回自動存檔後再強制還原內功，避免測試戰鬥流程中途存到臨時進度。
-        UISave::loadAuto();
-        gd.progress().setObtainedNeigong(savedNeigong);
-        std::print("【测试】已恢复存档\n");
+        runConfiguredChessBattle();
+    }
+    else
+    {
+        std::print("未知神秘代碼：{}\n", code);
     }
 }

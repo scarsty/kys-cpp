@@ -4,6 +4,7 @@
 #include "BattleSceneRenderMath.h"
 
 #include <cassert>
+#include <algorithm>
 #include <utility>
 
 namespace
@@ -18,17 +19,38 @@ BattleSceneUnitPresentationState makeInitializedScenePresentationState(
 
 }  // namespace
 
-void BattleSceneUnitStore::initialize(
+std::vector<int> BattleSceneUnitStore::initialize(
     const KysChess::Battle::BattleRuntimeSession& runtimeSession)
 {
-    std::vector<BattleSceneUnitPresentationState> presentation;
-    presentation.reserve(runtimeSession.runtimeUnits().size());
-    for (const auto& runtimeUnit : runtimeSession.runtimeUnits())
-    {
-        presentation.push_back(makeInitializedScenePresentationState(runtimeUnit));
-    }
     runtime_session_ = &runtimeSession;
-    presentation_ = std::move(presentation);
+    presentation_.clear();
+    return synchronizeRuntimeUnits();
+}
+
+std::vector<int> BattleSceneUnitStore::synchronizeRuntimeUnits()
+{
+    assert(runtime_session_);
+    std::vector<int> addedUnitIds;
+    for (const auto& runtimeUnit : runtime_session_->runtimeUnits())
+    {
+        assert(runtimeUnit.id >= 0);
+        const auto requiredSize = static_cast<std::size_t>(runtimeUnit.id + 1);
+        if (presentation_.size() < requiredSize)
+        {
+            presentation_.resize(requiredSize);
+        }
+        auto& state = presentation_[static_cast<std::size_t>(runtimeUnit.id)];
+        if (state.unitId == -1)
+        {
+            state = makeInitializedScenePresentationState(runtimeUnit);
+            addedUnitIds.push_back(runtimeUnit.id);
+        }
+        else
+        {
+            assert(state.unitId == runtimeUnit.id);
+        }
+    }
+    return addedUnitIds;
 }
 
 const BattleSceneUnitPresentationState& BattleSceneUnitStore::requirePresentation(int unitId) const
@@ -72,6 +94,11 @@ void BattleSceneUnitStore::setUnitShake(int unitId, int shake)
     requirePresentation(unitId).shake = shake;
 }
 
+void BattleSceneUnitStore::setFightFrames(int unitId, std::array<int, 5> fightFrames)
+{
+    requirePresentation(unitId).fightFrames = fightFrames;
+}
+
 void BattleSceneUnitStore::decreaseTransientPresentationState()
 {
     for (auto& state : presentation_)
@@ -79,37 +106,6 @@ void BattleSceneUnitStore::decreaseTransientPresentationState()
         BattleSceneRenderMath::decreaseToZero(state.shake);
         BattleSceneRenderMath::decreaseToZero(state.attention);
     }
-}
-
-Pointf BattleSceneUnitStore::facingTowardNearestEnemy(int unitId) const
-{
-    assert(runtime_session_);
-    const auto& source = runtime_session_->requireRuntimeUnit(unitId);
-    const KysChess::Battle::BattleRuntimeUnit* nearest = nullptr;
-    float nearestDistance = 0.0f;
-    for (const auto& candidate : runtime_session_->runtimeUnits())
-    {
-        if (!candidate.alive || candidate.team == source.team)
-        {
-            continue;
-        }
-        auto delta = candidate.motion.position - source.motion.position;
-        const auto distance = delta.norm();
-        if (!nearest || distance < nearestDistance)
-        {
-            nearest = &candidate;
-            nearestDistance = distance;
-        }
-    }
-    if (!nearest)
-    {
-        return source.motion.facing;
-    }
-
-    auto facing = nearest->motion.position - source.motion.position;
-    facing.z = 0;
-    facing.normTo(1.0f);
-    return facing;
 }
 
 BattlePostBattleSummary BattleSceneUnitStore::makePostBattleSummary(

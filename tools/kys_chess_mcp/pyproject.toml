@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kys-chess-mcp"
+version = "0.1.0"
+description = "Thin MCP transport for the deterministic KYS auto-chess CLI"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.0"]
+
+[project.scripts]
+kys-chess-mcp = "kys_chess_mcp.server:main"

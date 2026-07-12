@@ -32,6 +32,54 @@ function(kys_collect_support_sources out_var kys_root)
     set(${out_var} ${sources} PARENT_SCOPE)
 endfunction()
 
+function(kys_collect_chess_core_sources out_var kys_root)
+    kys_normalize_root(kys_root_abs "${kys_root}")
+    set(sources
+        "${kys_root_abs}/src/BattlefieldData.cpp"
+        "${kys_root_abs}/src/BattleReport.cpp"
+        "${kys_root_abs}/src/BattleReportCollector.cpp"
+        "${kys_root_abs}/src/BattleSetupFactory.cpp"
+        "${kys_root_abs}/src/BattleSummaryBuilder.cpp"
+        "${kys_root_abs}/src/HeadlessBattleRunner.cpp"
+        "${kys_root_abs}/src/ChessAsciiBoard.cpp"
+        "${kys_root_abs}/src/ChessBalance.cpp"
+        "${kys_root_abs}/src/ChessBattleEffects.cpp"
+        "${kys_root_abs}/src/ChessBattleMapCatalog.cpp"
+        "${kys_root_abs}/src/ChessBattlePlanner.cpp"
+        "${kys_root_abs}/src/ChessBattleText.cpp"
+        "${kys_root_abs}/src/ChessCanonicalEncoding.cpp"
+        "${kys_root_abs}/src/ChessCliController.cpp"
+        "${kys_root_abs}/src/ChessCombo.cpp"
+        "${kys_root_abs}/src/ChessContentLoader.cpp"
+        "${kys_root_abs}/src/ChessDiagnostics.cpp"
+        "${kys_root_abs}/src/ChessEquipment.cpp"
+        "${kys_root_abs}/src/ChessGameContent.cpp"
+        "${kys_root_abs}/src/ChessGameSession.cpp"
+        "${kys_root_abs}/src/GameVersion.cpp"
+        "${kys_root_abs}/src/ChessJsonProtocol.cpp"
+        "${kys_root_abs}/src/ChessManagementRules.cpp"
+        "${kys_root_abs}/src/ChessNeigong.cpp"
+        "${kys_root_abs}/src/ChessObservationText.cpp"
+        "${kys_root_abs}/src/ChessProgressionRules.cpp"
+        "${kys_root_abs}/src/ChessReplayArchive.cpp"
+        "${kys_root_abs}/src/ChessReplayHash.cpp"
+        "${kys_root_abs}/src/ChessReplayJournal.cpp"
+        "${kys_root_abs}/src/ChessReplayJson.cpp"
+        "${kys_root_abs}/src/ChessReplayVerifier.cpp"
+        "${kys_root_abs}/src/ChessRewardRules.cpp"
+        "${kys_root_abs}/src/ChessRunRandom.cpp"
+        "${kys_root_abs}/src/ChessSaveStore.cpp"
+        "${kys_root_abs}/src/ChessSessionCheckpoint.cpp"
+        "${kys_root_abs}/src/ChessStandaloneBattle.cpp"
+        "${kys_root_abs}/src/GrpIdxFile.cpp"
+        "${kys_root_abs}/src/InMemZipReader.cpp"
+        "${kys_root_abs}/mlcc/filefunc.cpp"
+        "${kys_root_abs}/mlcc/SimpleCC.cpp"
+        "${kys_root_abs}/mlcc/SQLite3Wrapper.cpp"
+    )
+    set(${out_var} ${sources} PARENT_SCOPE)
+endfunction()
+
 function(kys_collect_all_game_sources out_var kys_root)
     kys_collect_top_level_sources(top_level_sources "${kys_root}")
     kys_collect_battle_sources(battle_sources "${kys_root}")

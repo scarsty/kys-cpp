@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup><Filter Include="battle"><UniqueIdentifier>{FC8D5B20-9C7E-4826-B7E8-6D61BFD153E1}</UniqueIdentifier></Filter></ItemGroup>
+</Project>

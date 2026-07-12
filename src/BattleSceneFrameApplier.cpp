@@ -9,63 +9,6 @@ BattleSceneFrameApplier::BattleSceneFrameApplier(Bindings bindings)
 {
 }
 
-void BattleSceneFrameApplier::recordLog(
-    const KysChess::Battle::BattleLogEvent& event) const
-{
-    using KysChess::Battle::BattleLogEventType;
-    switch (event.type)
-    {
-    case BattleLogEventType::Damage:
-    {
-        bindings_.report.recordDamage(
-            resolveRuntimeUnit(event.sourceUnitId),
-            resolveRuntimeUnit(event.targetUnitId),
-            event.amount,
-            event.skillName,
-            event.frame,
-            event.segments);
-        break;
-    }
-    case BattleLogEventType::Heal:
-    {
-        bindings_.report.recordHeal(
-            resolveRuntimeUnit(event.sourceUnitId),
-            resolveRuntimeUnit(event.targetUnitId),
-            event.amount,
-            event.segments,
-            event.frame);
-        break;
-    }
-    case BattleLogEventType::Status:
-    {
-        if (event.category == KysChess::Battle::BattleLogCategory::ProjectileCancel)
-        {
-            bindings_.report.recordProjectileCancel(event.sourceUnitId, event.amount);
-            bindings_.report.recordProjectileCancel(event.targetUnitId, event.secondaryAmount);
-        }
-        bindings_.report.recordStatus(
-            resolveRuntimeUnit(event.sourceUnitId),
-            resolveRuntimeUnit(event.targetUnitId),
-            event.category,
-            event.perspective,
-            event.segments,
-            event.frame);
-        break;
-    }
-    case BattleLogEventType::UnitDied:
-    {
-        const auto* killer = resolveRuntimeUnit(event.sourceUnitId);
-        const auto* victim = resolveRuntimeUnit(event.targetUnitId);
-        bindings_.report.recordKill(killer, victim, event.frame);
-        bindings_.report.recordDeath(victim, event.frame);
-        break;
-    }
-    case BattleLogEventType::BattleEnded:
-        bindings_.report.recordBattleEnd(event.frame, event.amount);
-        break;
-    }
-}
-
 const KysChess::Battle::BattleRuntimeUnit* BattleSceneFrameApplier::resolveRuntimeUnit(int unitId) const
 {
     if (unitId < 0)

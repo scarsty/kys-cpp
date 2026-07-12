@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ChessGameContent.h"
 #include "Point.h"
 #include "Types.h"
 
@@ -7,7 +8,7 @@ class BattleSceneMapState
 {
 public:
     void initialize(int coordCount);
-    void loadBattlefield(int battlefieldId);
+    void loadBattlefield(const KysChess::ChessBattlefieldDefinition& battlefield);
     void makeEarthTexture(int renderCenterX, int renderCenterY);
 
     bool isOutLine(int x, int y);

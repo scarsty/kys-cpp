@@ -11,7 +11,7 @@ param(
     [string]$Solution = 'd:\projects\kys-cpp\kys-cpp\kys.sln',
     [string]$Configuration = 'Debug',
     [string]$Platform = 'x64',
-    [string[]]$Target = @('kys', 'kys_tests'),
+    [string[]]$Target = @('kys', 'kys_tests', 'kys_chess_cli'),
     [string]$Verbosity = 'minimal',
     [switch]$NoLogo
 )

@@ -1145,6 +1145,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 !result.reflected,
             };
             command.criticalMultiplier = result.criticalMultiplier;
+            command.skillId = input.skill.id;
             if (!result.reflected)
             {
                 command.skillEffectRef = input.attackEvent.skillEffectRef;

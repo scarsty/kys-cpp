@@ -2,10 +2,6 @@
 
 #include "BattleRuntimeUnitSpawn.h"
 
-#include "../ChessBattleEffects.h"
-#include "../ChessCombo.h"
-#include "../ChessEquipment.h"
-#include "../ChessNeigong.h"
 #include "../Find.h"
 
 #include <algorithm>
@@ -76,15 +72,16 @@ BattleRuntimeUnit makeRuntimeUnit(const BattleSetupUnitInput& setup)
     return unit;
 }
 
-BattleDeathEffectStore makeDeathEffectStore(BattleRuntimeUnits& records)
+BattleDeathEffectStore makeDeathEffectStore(
+    BattleRuntimeUnits& records,
+    const BattleRuntimeSetupSeed& setup)
 {
     BattleDeathEffectStore store;
-    const auto& allCombos = KysChess::ChessCombo::getAllCombos();
-    for (int comboId = 0; comboId < static_cast<int>(allCombos.size()); ++comboId)
+    for (const auto& combo : setup.comboDefinitions)
     {
-        if (!allCombos[comboId].isAntiCombo)
+        if (!combo.isAntiCombo)
         {
-            store.regularSynergyComboIds.insert(comboId);
+            store.regularSynergyComboIds.insert(combo.id);
         }
     }
 
@@ -107,82 +104,18 @@ BattleDeathEffectStore makeDeathEffectStore(BattleRuntimeUnits& records)
         const int comboLookupId = getComboLookupId(unit);
         if (comboLookupId >= 0)
         {
-            extras.comboIds = KysChess::ChessCombo::getCombosForRole(comboLookupId);
+            for (const auto& combo : setup.comboDefinitions)
+            {
+                if (std::ranges::find(combo.memberRoleIds, comboLookupId) != combo.memberRoleIds.end())
+                {
+                    extras.comboIds.push_back(combo.id);
+                }
+            }
         }
 
     }
 
     return store;
-}
-
-std::vector<BattleSetupComboDefinition> makeBattleSetupComboDefinitions()
-{
-    std::vector<BattleSetupComboDefinition> definitions;
-    for (const auto& combo : KysChess::ChessCombo::getAllCombos())
-    {
-        BattleSetupComboDefinition definition;
-        definition.id = combo.id;
-        definition.name = combo.name;
-        definition.memberRoleIds = combo.memberRoleIds;
-        definition.isAntiCombo = combo.isAntiCombo;
-        definition.starSynergyBonus = combo.starSynergyBonus;
-        definition.thresholds.reserve(combo.thresholds.size());
-        for (const auto& threshold : combo.thresholds)
-        {
-            definition.thresholds.push_back({ threshold.count, threshold.effects });
-        }
-        definitions.push_back(std::move(definition));
-    }
-    return definitions;
-}
-
-std::vector<BattleSetupEquipmentDefinition> makeBattleSetupEquipmentDefinitions()
-{
-    std::vector<BattleSetupEquipmentDefinition> definitions;
-    for (const auto& equipment : KysChess::ChessEquipment::getAll())
-    {
-        definitions.push_back({
-            equipment.itemId,
-            equipment.equipType,
-            equipment.effects,
-            equipment.actAsComboNames,
-        });
-    }
-    return definitions;
-}
-
-std::vector<BattleSetupEquipmentSynergyDefinition> makeBattleSetupEquipmentSynergyDefinitions()
-{
-    std::vector<BattleSetupEquipmentSynergyDefinition> definitions;
-    for (const auto& synergy : KysChess::ChessEquipment::getAllSynergies())
-    {
-        definitions.push_back({
-            synergy.roleIds,
-            synergy.equipmentId,
-            synergy.effects,
-            synergy.actAsComboNames,
-        });
-    }
-    return definitions;
-}
-
-std::vector<BattleSetupNeigongDefinition> makeBattleSetupNeigongDefinitions()
-{
-    std::vector<BattleSetupNeigongDefinition> definitions;
-    for (const auto& neigong : KysChess::ChessNeigong::getPool())
-    {
-        definitions.push_back({ neigong.magicId, neigong.effects });
-    }
-    return definitions;
-}
-
-void populateBattleRuntimeSetupDefinitions(BattleRuntimeSetupSeed& setup)
-{
-    setup.comboDefinitions = makeBattleSetupComboDefinitions();
-    setup.equipmentDefinitions = makeBattleSetupEquipmentDefinitions();
-    setup.equipmentSynergies = makeBattleSetupEquipmentSynergyDefinitions();
-    setup.neigongDefinitions = makeBattleSetupNeigongDefinitions();
-    KysChess::ChessBattleEffects::loadDefaultMagicEffectsFile(setup.magicEffectDefinitions);
 }
 
 std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(
@@ -256,7 +189,7 @@ void deriveRuntimeState(
 
     configureAttackWorld(runtime.attacks, input.rules);
     runtime.teamEffects.healAuraRadius = input.rules.teamEffectHealAuraRadius;
-    runtime.deathEffects.store = makeDeathEffectStore(runtime.units);
+    runtime.deathEffects.store = makeDeathEffectStore(runtime.units, input.setup);
 
     runtime.rescue.cells = std::move(input.rescueCells);
     runtime.rescue.executeUnattendedRadius = input.rules.rescueExecuteUnattendedRadius;
@@ -287,6 +220,7 @@ void deriveRuntimeState(
     runtime.action.actionRules = input.rules.action;
 
     runtime.projectileFollowUps = input.rules.projectileFollowUps;
+    runtime.maximumFrames = input.rules.maximumFrames;
 
     runtime.damage.sortPendingDamageByDefenderMagnitude = true;
     runtime.profiling = input.profiling;
@@ -300,8 +234,6 @@ struct BattleRuntimeSetupResult
 
 BattleRuntimeSetupResult setupBattleRuntime(BattleRuntimeSessionCreationInput input)
 {
-    populateBattleRuntimeSetupDefinitions(input.setup);
-
     auto initialized = BattleStartInitializer(
         buildCanonicalSpawns(input),
         input.setup,
@@ -337,7 +269,30 @@ BattlePresentationFrame BattleRuntimeSession::runFrame()
 {
     frameStarted_ = true;
     // BattleFrameRunner is the single writer for runtime state; BattlePresentationFrame is the presentation report.
-    return runner_.runFrame(runtime_);
+    auto frame = runner_.runFrame(runtime_);
+    if (!runtime_.result.ended && runtime_.movement.frame >= runtime_.maximumFrames)
+    {
+        runtime_.result.ended = true;
+        runtime_.result.winningTeam = 1;
+        runtime_.result.endedFrame = runtime_.maximumFrames;
+        runtime_.result.eventEmitted = true;
+        runtime_.result.outcome = BattleOutcome::Timeout;
+        frame.gameplayEvents.push_back({
+            BattleGameplayEventType::BattleEnded,
+            runtime_.maximumFrames,
+            -1,
+            -1,
+            runtime_.result.winningTeam,
+        });
+        frame.logEvents.push_back({
+            BattleLogEventType::BattleEnded,
+            runtime_.maximumFrames,
+            -1,
+            -1,
+            runtime_.result.winningTeam,
+        });
+    }
+    return frame;
 }
 
 

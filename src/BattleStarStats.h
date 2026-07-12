@@ -1,7 +1,5 @@
 #pragma once
 
-#include "ChessBalance.h"
-
 #include <cmath>
 
 namespace KysChess
@@ -33,6 +31,23 @@ struct StarBoostedStats
     int hidden = 0;
 };
 
+struct BattleStarGrowthConfig
+{
+    double hpMultiplierPerStar = 0.80;
+    double attackMultiplierPerStar = 0.80;
+    double defenceMultiplierPerStar = 0.50;
+    double martialMultiplierPerStar = 0.50;
+    double speedMultiplierPerStar = 0.25;
+    int flatHpPerStar = 200;
+    int flatAttackPerStar = 15;
+    int flatDefencePerStar = 10;
+    double hpPerWin = 15.0;
+    double attackPerWin = 2.0;
+    double defencePerWin = 2.0;
+    double weaponSkillPerWin = 0.0;
+    double speedPerWin = 0.0;
+};
+
 inline int normalizeBattleStar(int star)
 {
     return (std::max)(star, 1);
@@ -40,32 +55,32 @@ inline int normalizeBattleStar(int star)
 
 inline StarBoostedStats computeStarBoostedStats(
     const BattleStarStatInputs& stats,
+    const BattleStarGrowthConfig& config,
     int stars,
     int fightsWon = 0,
     int extraFightWinGrowthHP = 0,
     int extraFightWinGrowthAtk = 0,
     int extraFightWinGrowthDef = 0)
 {
-    auto& cfg = ChessBalance::config();
     const int normalizedStars = normalizeBattleStar(stars);
     const int normalizedFightsWon = (std::max)(fightsWon, 0);
     const int starLevel = normalizedStars - 1;
-    const int winHP = static_cast<int>(std::floor(normalizedFightsWon * (cfg.fightWinGrowthHP + extraFightWinGrowthHP)));
-    const int winATK = static_cast<int>(std::floor(normalizedFightsWon * (cfg.fightWinGrowthAtk + extraFightWinGrowthAtk)));
-    const int winDEF = static_cast<int>(std::floor(normalizedFightsWon * (cfg.fightWinGrowthDef + extraFightWinGrowthDef)));
-    const int winSPD = static_cast<int>(std::floor(normalizedFightsWon * cfg.fightWinGrowthSpeed));
-    const int winWeapon = static_cast<int>(std::floor(normalizedFightsWon * cfg.fightWinGrowthWeapon));
-    const double hpMultiplier = 1.0 + cfg.starHPMult * starLevel;
-    const double attackMultiplier = 1.0 + cfg.starAtkMult * starLevel;
-    const double defenceMultiplier = 1.0 + cfg.starDefMult * starLevel;
-    const double martialMultiplier = 1.0 + cfg.starMartialMult * starLevel;
-    const double speedMultiplier = 1.0 + cfg.starSpdMult * starLevel;
+    const int winHP = static_cast<int>(std::floor(normalizedFightsWon * (config.hpPerWin + extraFightWinGrowthHP)));
+    const int winATK = static_cast<int>(std::floor(normalizedFightsWon * (config.attackPerWin + extraFightWinGrowthAtk)));
+    const int winDEF = static_cast<int>(std::floor(normalizedFightsWon * (config.defencePerWin + extraFightWinGrowthDef)));
+    const int winSPD = static_cast<int>(std::floor(normalizedFightsWon * config.speedPerWin));
+    const int winWeapon = static_cast<int>(std::floor(normalizedFightsWon * config.weaponSkillPerWin));
+    const double hpMultiplier = 1.0 + config.hpMultiplierPerStar * starLevel;
+    const double attackMultiplier = 1.0 + config.attackMultiplierPerStar * starLevel;
+    const double defenceMultiplier = 1.0 + config.defenceMultiplierPerStar * starLevel;
+    const double martialMultiplier = 1.0 + config.martialMultiplierPerStar * starLevel;
+    const double speedMultiplier = 1.0 + config.speedMultiplierPerStar * starLevel;
     const int actionFlat = 15 * starLevel;
 
     return {
-        static_cast<int>(stats.maxHp * hpMultiplier) + cfg.starFlatHP * starLevel + winHP,
-        static_cast<int>(stats.attack * attackMultiplier) + cfg.starFlatAtk * starLevel + winATK,
-        static_cast<int>(stats.defence * defenceMultiplier) + cfg.starFlatDef * starLevel + winDEF,
+        static_cast<int>(stats.maxHp * hpMultiplier) + config.flatHpPerStar * starLevel + winHP,
+        static_cast<int>(stats.attack * attackMultiplier) + config.flatAttackPerStar * starLevel + winATK,
+        static_cast<int>(stats.defence * defenceMultiplier) + config.flatDefencePerStar * starLevel + winDEF,
         static_cast<int>(stats.speed * speedMultiplier) + winSPD,
         static_cast<int>(stats.fist * martialMultiplier) + actionFlat + winWeapon,
         static_cast<int>(stats.sword * martialMultiplier) + actionFlat + winWeapon,

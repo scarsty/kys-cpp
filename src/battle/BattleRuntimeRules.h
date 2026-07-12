@@ -23,6 +23,7 @@ struct BattleRuntimeRulesConfig
     double rescueExecuteUnattendedRadius = 0.0;
     double minimumVectorNorm = 0.0;
     int movementPhysicsDashMomentumFrames = 0;
+    int maximumFrames = 36000;
 };
 
 BattleRuntimeRulesConfig makeHadesBattleRuntimeRules(double tileWidth, int coordCount);

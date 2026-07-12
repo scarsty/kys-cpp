@@ -1,9 +1,10 @@
 ﻿#include "Event.h"
 #include "Audio.h"
-#include "BattleScene.h"
 #include "BattleSceneHades.h"
-#include "ChessManager.h"
-#include "GameState.h"
+#include "BattleScene.h"
+#include "ChessApplicationSessionHost.h"
+#include "ChessGuiBattleFlow.h"
+#include "ChessStandaloneBattle.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
@@ -13,9 +14,112 @@
 #include "Script.h"
 #include "SubScene.h"
 #include "Talk.h"
+#include "TeamMenu.h"
 #include "UIShop.h"
 #include "filefunc.h"
 #include "strfunc.h"
+
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cstdint>
+#include <format>
+
+namespace
+{
+
+void appendUniqueRole(std::vector<Role*>& roles, Role* role)
+{
+    if (role && !std::ranges::contains(roles, role))
+    {
+        roles.push_back(role);
+    }
+}
+
+std::vector<Role*> chooseClassicHadesAllies(const BattleInfo& info)
+{
+    std::vector<Role*> allies;
+    auto* save = Save::getInstance();
+    if (info.AutoTeamMate[0] >= 0)
+    {
+        for (const int roleId : info.AutoTeamMate)
+        {
+            appendUniqueRole(allies, save->getRole(roleId));
+        }
+    }
+
+    auto teamMenu = std::make_shared<TeamMenu>();
+    teamMenu->setMode(1);
+    teamMenu->setForceMainRole(true);
+    teamMenu->run();
+    for (auto* role : teamMenu->getRoles())
+    {
+        if (allies.size() >= TEAMMATE_COUNT)
+        {
+            break;
+        }
+        appendUniqueRole(allies, role);
+    }
+    return allies;
+}
+
+KysChess::ChessStandaloneBattleRequest classicHadesRequest(
+    int battleId,
+    const BattleInfo& info,
+    const std::vector<Role*>& allies)
+{
+    KysChess::ChessStandaloneBattleRequest request;
+    request.profile = KysChess::ChessStandaloneBattleProfile::ClassicHades;
+    request.stableBattleId = std::format("classic:{}", battleId);
+    request.rootSeed = static_cast<std::uint64_t>(
+        std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    request.mapId = battleId;
+    request.options.positionSwapEnabled = false;
+
+    for (auto* role : allies)
+    {
+        assert(role);
+        request.roleOverrides[role->ID] = static_cast<const RoleSave&>(*role);
+        request.allies.push_back({role->ID});
+    }
+    for (int index = 0; index < BATTLE_ENEMY_COUNT; ++index)
+    {
+        auto* role = Save::getInstance()->getRole(info.Enemy[index]);
+        if (!role)
+        {
+            continue;
+        }
+        request.roleOverrides[role->ID] = static_cast<const RoleSave&>(*role);
+        request.enemies.push_back({role->ID});
+    }
+    return request;
+}
+
+void restoreClassicHadesAllyVitals(
+    const KysChess::ChessGameSession& session,
+    const std::vector<Role*>& allies)
+{
+    const auto* result = session.lastBattleResult();
+    assert(result);
+    assert(session.lastBattlePrepared());
+    const auto& prepared = *session.lastBattlePrepared();
+    for (const auto& unit : prepared.units)
+    {
+        if (unit.team != 0)
+        {
+            continue;
+        }
+        auto* role = Save::getInstance()->getRole(unit.roleId);
+        assert(role && std::ranges::contains(allies, role));
+        const auto& runtime = result->finalRuntime.units.require(unit.unitId).core;
+        role->HP = runtime.vitals.hp;
+        role->MP = runtime.vitals.mp;
+        role->PhysicalPower = runtime.physicalPower;
+        role->Dead = runtime.alive ? 0 : 1;
+    }
+}
+
+}
 
 Event::Event()
 {
@@ -432,32 +536,47 @@ bool Event::tryBattle(int battle_id, int get_exp)
         battle->setHaveFailExp(get_exp);
         result = battle->run();
     }
-    else if (battle_mode == 2)
+    else if (battle_mode >= 2 && battle_mode <= 4)
     {
-        auto& gameState = KysChess::GameState::get();
-        KysChess::ChessManager chessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy());
-        auto battle = std::make_shared<BattleSceneHades>(gameState.roleSave(), gameState.progress(), chessManager);
-        battle->setID(battle_id);
-        //battle->setHaveFailExp(get_exp);
-        result = battle->run();
-    }
-    else if (battle_mode == 3)
-    {
-        auto& gameState = KysChess::GameState::get();
-        KysChess::ChessManager chessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy());
-        auto battle = std::make_shared<BattleSceneHades>(gameState.roleSave(), gameState.progress(), chessManager);
-        battle->setID(battle_id);
-        //battle->setHaveFailExp(get_exp);
-        result = battle->run();
-    }
-    else if (battle_mode == 4)
-    {
-        auto& gameState = KysChess::GameState::get();
-        KysChess::ChessManager chessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy());
-        auto battle = std::make_shared<BattleSceneHades>(gameState.roleSave(), gameState.progress(), chessManager);
-        battle->setID(battle_id);
-        //battle->setHaveFailExp(get_exp);
-        result = battle->run();
+        const auto* info = BattleMap::getInstance()->getBattleInfo(battle_id);
+        assert(info);
+        const auto allies = chooseClassicHadesAllies(*info);
+        if (RunNode::runOwnerExitRequested())
+        {
+            result = 1;
+        }
+        else
+        {
+            assert(!allies.empty());
+            auto request = classicHadesRequest(battle_id, *info, allies);
+            std::string error;
+            auto standalone = KysChess::ChessStandaloneBattle::prepare(
+                KysChess::applicationChessSession().sharedContent(),
+                request,
+                error);
+            assert(standalone && error.empty());
+            if (!standalone)
+            {
+                LOG("無法準備獨立即時戰鬥：{}\n", error);
+                result = 1;
+            }
+            else
+            {
+                auto session = std::move(*standalone).createSession();
+                auto battle = std::make_shared<BattleSceneHades>(*session);
+                result = battle->run();
+                if (KysChess::chessGuiBattleReadyForPostBattle(
+                        battle->completedSceneRun(),
+                        battle->completedActionResult()))
+                {
+                    restoreClassicHadesAllyVitals(*session, allies);
+                }
+                else
+                {
+                    result = 1;
+                }
+            }
+        }
     }
     else if (battle_mode == -1)
     {

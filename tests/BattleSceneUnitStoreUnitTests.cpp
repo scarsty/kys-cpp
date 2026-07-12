@@ -26,6 +26,30 @@ TEST_CASE("BattleSceneUnitStore_InitializesDenseRowsAndRequiresByUnitId", "[batt
     CHECK(fixture.session.requireRuntimeUnit(1).identity().team == 1);
 }
 
+TEST_CASE("BattleSceneUnitStore_IndexesPresentationByNonZeroUnitId", "[battle][scene_unit_store]")
+{
+    std::vector<KysChess::Battle::BattleSetupUnitInput> units;
+    units.push_back(makeSetupUnit(1, 0, 1, 2, { 10, 20, 0 }));
+    units.push_back(makeSetupUnit(2, 1, 5, 6, { 30, 40, 0 }));
+
+    StoreFixture fixture(std::move(units));
+
+    CHECK(fixture.store.requirePresentation(1).unitId == 1);
+    CHECK(fixture.store.requirePresentation(2).unitId == 2);
+}
+
+TEST_CASE("BattleSceneUnitStore_IndexesPresentationByNonContiguousUnitId", "[battle][scene_unit_store]")
+{
+    std::vector<KysChess::Battle::BattleSetupUnitInput> units;
+    units.push_back(makeSetupUnit(2, 0, 1, 2, { 10, 20, 0 }));
+    units.push_back(makeSetupUnit(7, 1, 5, 6, { 30, 40, 0 }));
+
+    StoreFixture fixture(std::move(units));
+
+    CHECK(fixture.store.requirePresentation(2).unitId == 2);
+    CHECK(fixture.store.requirePresentation(7).unitId == 7);
+}
+
 TEST_CASE("BattleSceneUnitStore_ReadsRuntimeFieldsFromSession", "[battle][scene_unit_store]")
 {
     std::vector<KysChess::Battle::BattleSetupUnitInput> units;
@@ -43,6 +67,18 @@ TEST_CASE("BattleSceneUnitStore_ReadsRuntimeFieldsFromSession", "[battle][scene_
     CHECK(stored.stats.attack == 30);
     CHECK(stored.motion.position.x == 10);
     CHECK(stored.animation.actFrame == 7);
+}
+
+TEST_CASE("BattleSceneUnitStore_OwnsPresentationFightFrames", "[battle][scene_unit_store]")
+{
+    std::vector<KysChess::Battle::BattleSetupUnitInput> units;
+    units.push_back(makeSetupUnit(3, 0, 1, 2, {10, 20, 0}));
+    StoreFixture fixture(std::move(units));
+
+    fixture.store.setFightFrames(3, {2, 4, 6, 8, 10});
+
+    CHECK(fixture.store.requirePresentation(3).fightFrames == std::array<int, 5>{2, 4, 6, 8, 10});
+    CHECK(fixture.store.requireRuntimeUnit(3).fightFrames == std::array<int, 5>{});
 }
 
 TEST_CASE("BattleRuntimeSession_SwapsSetupPositionInsideRuntime", "[battle][scene_unit_store]")
@@ -100,18 +136,4 @@ TEST_CASE("BattleSceneUnitStore_InitializesSummonedClonePlacementAndSummary", "[
     CHECK(summary.allies[1].attack == cloneUnit.stats.attack);
     CHECK(summary.allies[1].defence == cloneUnit.stats.defence);
     CHECK(summary.allies[1].speed == cloneUnit.stats.speed);
-}
-
-TEST_CASE("BattleSceneUnitStore_FacesTowardNearestAliveEnemy", "[battle][scene_unit_store]")
-{
-    std::vector<KysChess::Battle::BattleSetupUnitInput> units;
-    units.push_back(makeSetupUnit(0, 0, 1, 2, { 0, 0, 0 }));
-    units.push_back(makeSetupUnit(1, 1, 3, 4, { 10, 0, 0 }));
-    units.push_back(makeSetupUnit(2, 1, 5, 6, { 100, 0, 0 }));
-
-    StoreFixture fixture(std::move(units));
-    auto facing = fixture.store.facingTowardNearestEnemy(0);
-
-    CHECK(facing.x == 1.0f);
-    CHECK(facing.y == 0.0f);
 }

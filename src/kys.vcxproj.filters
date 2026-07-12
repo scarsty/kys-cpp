@@ -79,9 +79,6 @@
     <ClCompile Include="Script.cpp">
       <Filter>event</Filter>
     </ClCompile>
-    <ClCompile Include="GrpIdxFile.cpp">
-      <Filter>save</Filter>
-    </ClCompile>
     <ClCompile Include="Save.cpp">
       <Filter>save</Filter>
     </ClCompile>
@@ -107,6 +104,15 @@
       <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="Console.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ChessContextMenu.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ChessGuiSessionAdapter.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ChessSystemSettingsMenu.cpp">
       <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="DrawableOnCall.cpp">
@@ -136,13 +142,13 @@
     <ClCompile Include="BattleSceneHades.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="BattleStatsView.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="BattleSceneMapState.cpp">
       <Filter>battle</Filter>
     </ClCompile>
     <ClCompile Include="BattleScenePauseControl.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="BattleSceneSetupBuilder.cpp">
       <Filter>battle</Filter>
     </ClCompile>
     <ClCompile Include="BattleSceneFrameApplier.cpp">
@@ -158,27 +164,6 @@
       <Filter>battle</Filter>
     </ClCompile>
     <ClCompile Include="BattleLogPresenter.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="BattleReport.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="battle\BattleHitResolver.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="battle\BattleRescueRepositionSystem.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="battle\BattleRuntimeRules.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="battle\BattleRuntimeUnitSpawn.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="battle\BattleRuntimeUnits.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="battle\BattleEffectRuntimeRegistry.cpp">
       <Filter>battle</Filter>
     </ClCompile>
     <ClCompile Include="Font.cpp">
@@ -197,9 +182,6 @@
       <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="..\mlcc\strfunc.cpp">
-      <Filter>mlcc</Filter>
-    </ClCompile>
-    <ClCompile Include="..\mlcc\filefunc.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
     <ClCompile Include="RunNodeFromJson.cpp">
@@ -248,37 +230,13 @@
     <ClCompile Include="Camera.cpp">
       <Filter>camera</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\SimpleCC.cpp">
-      <Filter>mlcc</Filter>
-    </ClCompile>
-    <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp">
-      <Filter>mlcc</Filter>
-    </ClCompile>
     <ClCompile Include="..\mlcc\ZipFile.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
-    <ClCompile Include="ChessUIStatus.cpp" />
-    <ClCompile Include="ChessPool.cpp" />
     <ClCompile Include="ChessUiCommon.cpp" />
-    <ClCompile Include="ChessMenuHelpers.cpp" />
-    <ClCompile Include="ChessDetailPanels.cpp" />
-    <ClCompile Include="ChessShopFlow.cpp" />
-    <ClCompile Include="ChessShopRoll.cpp" />
-    <ClCompile Include="ChessShopWeightDisplay.cpp" />
-    <ClCompile Include="ChessInfoFlow.cpp" />
     <ClCompile Include="ChessMagicEffectDisplay.cpp" />
-    <ClCompile Include="ChessRewardFlow.cpp" />
-    <ClCompile Include="ChessBattleFlow.cpp" />
-    <ClCompile Include="ChessChallengeFlow.cpp" />
-    <ClCompile Include="ChessChallengeMenu.cpp" />
-    <ClCompile Include="ChessContextMenu.cpp" />
-    <ClCompile Include="ChessEquipmentFlow.cpp" />
-    <ClCompile Include="ChessSystemSettingsMenu.cpp" />
     <ClCompile Include="UIRoleStatusMenu.cpp" />
-    <ClCompile Include="UIStatusDrawable.cpp" />
     <ClCompile Include="TempStore.cpp" />
-    <ClCompile Include="ChessSelector.cpp" />
-    <ClCompile Include="Chess.cpp" />
     <ClCompile Include="SystemSettings.cpp">
       <Filter>engine</Filter>
     </ClCompile>
@@ -431,6 +389,9 @@
     <ClInclude Include="BattleSceneHades.h">
       <Filter>battle</Filter>
     </ClInclude>
+    <ClInclude Include="BattleStatsView.h">
+      <Filter>battle</Filter>
+    </ClInclude>
     <ClInclude Include="PointerInput.h">
       <Filter>engine</Filter>
     </ClInclude>
@@ -450,9 +411,6 @@
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="BattleSceneRenderMath.h">
-      <Filter>battle</Filter>
-    </ClInclude>
-    <ClInclude Include="BattleSceneSetupBuilder.h">
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="BattleSceneUnitStore.h">
@@ -557,29 +515,26 @@
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h">
       <Filter>mlcc</Filter>
     </ClInclude>
-    <ClInclude Include="ChessUIStatus.h" />
     <ClInclude Include="ChessMagicEffectDisplay.h" />
-    <ClInclude Include="ChessPool.h" />
+    <ClInclude Include="ChessContextMenu.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ChessGuiSessionAdapter.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ChessGuiBattleFlow.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ChessMenuFormatting.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ChessSystemSettingsMenu.h">
+      <Filter>ui</Filter>
+    </ClInclude>
     <ClInclude Include="ChessUiCommon.h" />
-    <ClInclude Include="ChessMenuHelpers.h" />
     <ClInclude Include="ChessScreenLayout.h" />
-    <ClInclude Include="ChessDetailPanels.h" />
-    <ClInclude Include="ChessShopFlow.h" />
-    <ClInclude Include="ChessShopRoll.h" />
-    <ClInclude Include="ChessShopWeightDisplay.h" />
-    <ClInclude Include="ChessInfoFlow.h" />
-    <ClInclude Include="ChessRewardFlow.h" />
-    <ClInclude Include="ChessBattleFlow.h" />
-    <ClInclude Include="ChessChallengeFlow.h" />
-    <ClInclude Include="ChessChallengeMenu.h" />
-    <ClInclude Include="ChessContextMenu.h" />
-    <ClInclude Include="ChessEquipmentFlow.h" />
     <ClInclude Include="UIRoleStatusMenu.h" />
-    <ClInclude Include="UIStatusDrawable.h" />
     <ClInclude Include="TempStore.h" />
-    <ClInclude Include="ChessSelector.h" />
-    <ClInclude Include="ChessSystemSettingsMenu.h" />
-    <ClInclude Include="Chess.h" />
     <ClInclude Include="SystemSettings.h">
       <Filter>engine</Filter>
     </ClInclude>

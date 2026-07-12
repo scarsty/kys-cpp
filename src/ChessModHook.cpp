@@ -1,11 +1,18 @@
 #include "ChessModHook.h"
-#include "ChessSelector.h"
+#include "ChessApplicationSessionHost.h"
+#include "ChessGuiSessionAdapter.h"
+#include "ChessPresentationHelpers.h"
+#include "GameDataStore.h"
+#include "GameUtil.h"
 #include "Event.h"
 #include "Menu.h"
 #include "Talk.h"
-#include "GameState.h"
 #include "Save.h"
 #include "UISave.h"
+#include "ChessSessionCheckpoint.h"
+#include <algorithm>
+#include <chrono>
+#include <exception>
 #include <format>
 
 namespace KysChess
@@ -22,24 +29,21 @@ static constexpr int SHIP_X1 = 109;
 static constexpr int SHIP_Y1 = 99;
 static bool needIntro_ = false;
 
-ChessMod::ChessMod(GameState& gameState)
-    : gameState_(gameState)
+std::uint64_t nextGuiSaveRevision()
+{
+    static std::uint64_t previous{};
+    const auto now = static_cast<std::uint64_t>(
+        std::chrono::system_clock::now().time_since_epoch().count());
+    previous = std::max(previous + 1, now);
+    return previous;
+}
+
+ChessMod::ChessMod(ChessGameSession& session)
+    : session_(session)
 {
 }
 
     ChessMod::~ChessMod() = default;
-
-ChessSelector ChessMod::makeSelector() const
-{
-    return ChessSelector(
-        gameState_.roleSave(),
-        gameState_.equipmentInventory(),
-        gameState_.roster(),
-        gameState_.shop(),
-        gameState_.progress(),
-        gameState_.economy(),
-        gameState_.random());
-}
 
 void ChessModHook::initializeSaveState(::Save& save)
 {
@@ -74,7 +78,7 @@ bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event, Diffi
     x = MOD_ENTRY_X;
     y = MOD_ENTRY_Y;
     event = -1;
-    GameState::get().reset(difficulty);
+    resetApplicationChessSession(difficulty);
     needIntro_ = true;
     return true;
 }
@@ -103,10 +107,10 @@ void ChessMod::onSubSceneEntrance(int submap_id)
         talk->run();
 
         // Difficulty was already chosen at the title screen; show explanation if non-Easy.
-        auto difficulty = gameState_.difficulty();
+        auto difficulty = session_.content().difficulty();
         if (difficulty != Difficulty::Easy)
         {
-            const auto& cfg = ChessBalance::config();
+            const auto& cfg = session_.content().balance();
             auto advancedModeTalk = std::make_shared<Talk>(
                 std::format(
                     "此局乃{}棋式，江湖譜牒更廣，棋池尤深。"
@@ -114,10 +118,10 @@ void ChessMod::onSubSceneEntrance(int submap_id)
                     "但旁門雜流既多，若不先行剪除，便難聚攏心中武學。"
                     "故自開局起，你可先封禁{}名棋子；往後每升一重境界，便再添{}道禁令。"
                     "境界愈高，可斷去的岔路愈多，方能在大江湖中收束成局。此局共{}關，且看少俠能走到哪一步。",
-                    ChessBalance::difficultyDisplayNameTraditional(difficulty),
+                    chessDifficultyDisplayName(difficulty),
                     cfg.shopSlotCount,
-                    gameState_.banBaseCount(),
-                    gameState_.banCountPerLevel(),
+                    cfg.banBaseCount,
+                    cfg.banCountPerLevel,
                     cfg.totalFights),
                 115);
             advancedModeTalk->run();
@@ -132,8 +136,7 @@ bool ChessMod::blockExit(int submap_id) const
 
 void ChessMod::showContextMenu()
 {
-    auto selector = makeSelector();
-    selector.showContextMenu();
+    ChessGuiSessionAdapter(session_).showContextMenu();
 }
 
 void ChessMod::showMenu()
@@ -169,12 +172,63 @@ void ChessMod::showMenu()
 
 GameDataStore ChessModHook::exportGameData()
 {
-    return GameState::get().exportStore();
+    GameDataStore store;
+    store.chessSessionCheckpointJson = ChessSessionCheckpoint::capture(
+        applicationChessSession(),
+        nextGuiSaveRevision(),
+        "圖形介面存檔").serializeJson();
+    return store;
 }
 
-void ChessModHook::importGameData(const GameDataStore& store)
+bool ChessModHook::isGameDataReadable(const GameDataStore& store)
 {
-    GameState::get().importStore(store);
+    if (store.chessSessionCheckpointJson.empty())
+    {
+        return false;
+    }
+    ChessCheckpointError error;
+    const auto checkpoint = ChessSessionCheckpoint::parseJson(
+        store.chessSessionCheckpointJson,
+        error);
+    return checkpoint && checkpoint->gameVersion == GameUtil::VERSION();
+}
+
+bool ChessModHook::importGameData(const GameDataStore& store, ::Save& save)
+{
+    if (store.chessSessionCheckpointJson.empty())
+    {
+        return false;
+    }
+    ChessCheckpointError error;
+    const auto checkpoint = ChessSessionCheckpoint::parseJson(
+        store.chessSessionCheckpointJson,
+        error);
+    if (!checkpoint || checkpoint->gameVersion != GameUtil::VERSION())
+    {
+        return false;
+    }
+
+    std::unique_ptr<ChessGameSession> replacement;
+    try
+    {
+        auto& host = ChessApplicationSessionHost::instance();
+        error = host.prepareRestore(*checkpoint, replacement);
+        if (error != ChessCheckpointError::None)
+        {
+            return false;
+        }
+        if (!save.prepareChessMode())
+        {
+            return false;
+        }
+        host.commitRestore(std::move(replacement));
+    }
+    catch (const std::exception& exception)
+    {
+        LOG("讀取自走棋存檔失敗：{}\n", exception.what());
+        return false;
+    }
+    return true;
 }
 
 }    // namespace KysChess

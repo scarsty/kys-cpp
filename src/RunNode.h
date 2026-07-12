@@ -97,6 +97,9 @@ public:
 
     static void drawAll();
 
+    // 僅在目前模態節點已返回後查詢；執行中的節點正常結束時也會暫時帶有 exit_。
+    static bool runOwnerExitRequested();
+
     static void addIntoDrawTop(std::shared_ptr<RunNode> element) { root_.push_back(element); }
 
     static std::shared_ptr<RunNode> removeFromDraw(std::shared_ptr<RunNode> element);

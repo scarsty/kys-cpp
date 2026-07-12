@@ -8,14 +8,13 @@ class Save;
 namespace KysChess
 {
 
-class ChessSelector;
-class GameState;
+class ChessGameSession;
 struct GameDataStore;
 
 class ChessMod
 {
 public:
-    explicit ChessMod(GameState& gameState);
+    explicit ChessMod(ChessGameSession& session);
     ~ChessMod();
 
     void onSubSceneEntrance(int submapId);
@@ -25,9 +24,7 @@ public:
     void showContextMenu();
 
 private:
-    ChessSelector makeSelector() const;
-
-    GameState& gameState_;
+    ChessGameSession& session_;
 };
 
 class ChessModHook
@@ -36,7 +33,8 @@ public:
     static void initializeSaveState(::Save& save);
     static bool overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty);
     static GameDataStore exportGameData();
-    static void importGameData(const GameDataStore& store);
+    static bool isGameDataReadable(const GameDataStore& store);
+    static bool importGameData(const GameDataStore& store, ::Save& save);
 };
 
 }    // namespace KysChess

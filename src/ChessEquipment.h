@@ -1,13 +1,12 @@
 #pragma once
 #include "ChessBattleEffects.h"
+#include "ChessDiagnostics.h"
 #include "Types.h"
 #include <string>
 #include <vector>
 
 namespace KysChess
 {
-
-struct Chess;
 
 struct EquipmentDef
 {
@@ -17,7 +16,6 @@ struct EquipmentDef
     std::vector<ComboEffect> effects;
     std::vector<std::string> actAsComboNames;
 
-    const Item* getItem() const;
 };
 
 inline std::vector<const EquipmentDef*> filterEquipmentByMaxTier(const std::vector<EquipmentDef>& equipments, int maxTier)
@@ -41,17 +39,11 @@ struct EquipmentSynergyDef
     std::vector<std::string> actAsComboNames;
 };
 
-class ChessEquipment
-{
-public:
-    static void loadConfig();
-    static const std::vector<EquipmentDef>& getAll();
-    static const EquipmentDef* getById(int itemId);
-    static std::vector<const EquipmentDef*> getByTier(int tier);
-    static const std::vector<EquipmentSynergyDef>& getAllSynergies();
-    static std::vector<const EquipmentSynergyDef*> getSynergiesFor(int roleId, int weaponId, int armorId);
-    static void applyActiveSynergies(Chess& chess);
-    static std::vector<Chess> withActiveSynergies(std::vector<Chess> chesses);
-};
+bool loadChessEquipment(
+    const std::string& path,
+    const ChessTextConverter& toTraditional,
+    const ChessDiagnosticSink& diagnostics,
+    std::vector<EquipmentDef>& equipment,
+    std::vector<EquipmentSynergyDef>& synergies);
 
 }    // namespace KysChess

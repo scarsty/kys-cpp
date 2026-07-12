@@ -1,28 +1,14 @@
 ﻿#include "GameUtil.h"
 
+#include "GameVersion.h"
+
 GameUtil::GameUtil()
 {
     loadFile(GameUtil::PATH() + "config/kysmod.ini");
-    versionStorage() = loadReleaseVersion();
+    versionStorage() = KysChess::loadGameVersion(GameUtil::PATH());
 }
 
 GameUtil::~GameUtil()
 {
     saveFile(GameUtil::PATH() + "config/kysmod.ini");
-}
-
-std::string GameUtil::loadReleaseVersion()
-{
-    INIReaderNormal releaseConfig;
-    if (releaseConfig.loadFile(GameUtil::PATH() + "config/release.ini") != 0)
-    {
-        return "dev";
-    }
-
-    auto version = releaseConfig.getString("release", "version", "");
-    if (version.empty())
-    {
-        return "dev";
-    }
-    return version;
 }

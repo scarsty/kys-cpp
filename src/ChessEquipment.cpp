@@ -1,24 +1,22 @@
 #include "ChessEquipment.h"
 #include "ChessBattleEffects.h"
-#include "Chess.h"
-#include "Font.h"
-#include "GameUtil.h"
-#include "Save.h"
 #include "yaml-cpp/yaml.h"
 #include <algorithm>
 #include <format>
+#include <print>
 
 namespace KysChess
 {
 
-static std::vector<EquipmentDef> pool_;
-static std::vector<EquipmentSynergyDef> synergies_;
-static bool loaded_ = false;
-
 namespace
 {
 
-void appendSynergyDef(const YAML::Node& entry, int equipmentId)
+void appendSynergyDef(
+    const YAML::Node& entry,
+    int equipmentId,
+    const ChessTextConverter& toTraditional,
+    const ChessDiagnosticSink& diagnostics,
+    std::vector<EquipmentSynergyDef>& synergies)
 {
     EquipmentSynergyDef def;
     def.equipmentId = equipmentId;
@@ -52,37 +50,43 @@ void appendSynergyDef(const YAML::Node& entry, int equipmentId)
             ++effectOrdinal;
             ComboEffect eff;
             auto effectContext = std::format("裝備羈絆裝備{}效果#{}", def.equipmentId, effectOrdinal);
-            if (!ChessBattleEffects::parseEffect(eNode, eff, effectContext))
+            if (!ChessBattleEffects::parseEffect(eNode, eff, effectContext, diagnostics))
             {
                 continue;
             }
             if (eff.type == EffectType::ActAsCombo)
             {
-                def.actAsComboNames.push_back(Font::getInstance()->S2T(eff.text));
+                def.actAsComboNames.push_back(toTraditional(eff.text));
                 continue;
             }
             def.effects.push_back(eff);
         }
     }
 
-    synergies_.push_back(def);
+    synergies.push_back(def);
 }
 
 }    // namespace
 
-const Item* EquipmentDef::getItem() const
+bool loadChessEquipment(
+    const std::string& path,
+    const ChessTextConverter& toTraditional,
+    const ChessDiagnosticSink& diagnostics,
+    std::vector<EquipmentDef>& equipment,
+    std::vector<EquipmentSynergyDef>& synergies)
 {
-    return Save::getInstance()->getItem(itemId);
-}
-
-void ChessEquipment::loadConfig()
-{
-    if (loaded_) return;
-    loaded_ = true;
-
+    equipment.clear();
+    synergies.clear();
     YAML::Node config;
-    try { config = YAML::LoadFile(GameUtil::PATH() + "config/chess_equipment.yaml"); }
-    catch (...) { return; }
+    try
+    {
+        config = YAML::LoadFile(path);
+    }
+    catch (const YAML::Exception& ex)
+    {
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "裝備配置", std::format("無法讀取檔案 {}: {}", path, ex.what()));
+        return false;
+    }
 
     if (config["装备列表"])
     {
@@ -99,11 +103,11 @@ void ChessEquipment::loadConfig()
                 {
                     ComboEffect eff;
                     auto effectContext = std::format("裝備{}效果#{}", def.itemId, def.effects.size() + 1);
-                    if (ChessBattleEffects::parseEffect(eNode, eff, effectContext))
+                    if (ChessBattleEffects::parseEffect(eNode, eff, effectContext, diagnostics))
                     {
                         if (eff.type == EffectType::ActAsCombo)
                         {
-                            def.actAsComboNames.push_back(Font::getInstance()->S2T(eff.text));
+                            def.actAsComboNames.push_back(toTraditional(eff.text));
                         }
                         def.effects.push_back(eff);
                     }
@@ -114,104 +118,15 @@ void ChessEquipment::loadConfig()
             {
                 for (const auto& synergyNode : entry["装备羁绊"])
                 {
-                    appendSynergyDef(synergyNode, def.itemId);
+                    appendSynergyDef(synergyNode, def.itemId, toTraditional, diagnostics, synergies);
                 }
             }
 
-            pool_.push_back(def);
+            equipment.push_back(def);
         }
     }
-}
-
-const std::vector<EquipmentDef>& ChessEquipment::getAll()
-{
-    loadConfig();
-    return pool_;
-}
-
-const EquipmentDef* ChessEquipment::getById(int itemId)
-{
-    loadConfig();
-    for (auto& eq : pool_)
-        if (eq.itemId == itemId) return &eq;
-    return nullptr;
-}
-
-std::vector<const EquipmentDef*> ChessEquipment::getByTier(int tier)
-{
-    loadConfig();
-    std::vector<const EquipmentDef*> result;
-    for (auto& eq : pool_)
-        if (eq.tier == tier) result.push_back(&eq);
-    return result;
-}
-
-const std::vector<EquipmentSynergyDef>& ChessEquipment::getAllSynergies()
-{
-    loadConfig();
-    return synergies_;
-}
-
-std::vector<const EquipmentSynergyDef*> ChessEquipment::getSynergiesFor(int roleId, int weaponId, int armorId)
-{
-    loadConfig();
-    std::vector<const EquipmentSynergyDef*> result;
-    for (auto& synergy : synergies_)
-    {
-        if (std::find(synergy.roleIds.begin(), synergy.roleIds.end(), roleId) == synergy.roleIds.end())
-        {
-            continue;
-        }
-        if (synergy.equipmentId == weaponId || synergy.equipmentId == armorId)
-        {
-            result.push_back(&synergy);
-        }
-    }
-    return result;
-}
-
-void ChessEquipment::applyActiveSynergies(Chess& chess)
-{
-    chess.actAsComboNames.clear();
-
-    auto appendEquipmentActAs = [&](int itemId)
-    {
-        auto* equipment = getById(itemId);
-        if (!equipment)
-        {
-            return;
-        }
-        chess.actAsComboNames.insert(
-            chess.actAsComboNames.end(),
-            equipment->actAsComboNames.begin(),
-            equipment->actAsComboNames.end());
-    };
-
-    appendEquipmentActAs(chess.weaponInstance.itemId);
-    appendEquipmentActAs(chess.armorInstance.itemId);
-
-    if (!chess.role)
-    {
-        return;
-    }
-
-    auto synergies = getSynergiesFor(chess.role->ID, chess.weaponInstance.itemId, chess.armorInstance.itemId);
-    for (auto* synergy : synergies)
-    {
-        chess.actAsComboNames.insert(
-            chess.actAsComboNames.end(),
-            synergy->actAsComboNames.begin(),
-            synergy->actAsComboNames.end());
-    }
-}
-
-std::vector<Chess> ChessEquipment::withActiveSynergies(std::vector<Chess> chesses)
-{
-    for (auto& chess : chesses)
-    {
-        applyActiveSynergies(chess);
-    }
-    return chesses;
+    emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Info, "裝備配置", std::format("成功載入{}件裝備", equipment.size()));
+    return true;
 }
 
 }    // namespace KysChess

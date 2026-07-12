@@ -5,6 +5,7 @@
 #include "battle/BattleRuntimeSession.h"
 #include "BattlePostBattleSummary.h"
 #include "BattlePresentationEffects.h"
+#include "BattleReportCollector.h"
 #include "BattleScenePauseControl.h"
 #include "BattleSceneRenderMath.h"
 #include "BattleScene.h"
@@ -13,12 +14,8 @@
 #include "BattleScenePaperCameraTouch.h"
 #include "BattleSceneFrameApplier.h"
 #include "BattleSceneMapState.h"
-#include "BattleSceneSetupBuilder.h"
-#include "BattleStatsView.h"
 #include "BattleSceneUnitStore.h"
-#include "ChessManager.h"
-#include "ChessProgress.h"
-#include "ChessRoleSave.h"
+#include "ChessSessionTypes.h"
 #include "PaperSky.h"
 #include <array>
 #include <cstddef>
@@ -32,6 +29,7 @@
 namespace KysChess
 {
 class RoleComboState;
+class ChessGameSession;
 enum class Trigger;
 }
 
@@ -41,8 +39,7 @@ class BattleSceneHades : public BattleScene
 {
     friend class PositionSwapNode;
 public:
-    BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager);
-    BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager);
+    explicit BattleSceneHades(KysChess::ChessGameSession& session);
     virtual ~BattleSceneHades();
     void setID(int id);
 
@@ -86,13 +83,14 @@ protected:
     void togglePaperBattleView();
     void togglePaperCameraMode();
 
-    void initializeBattleRuntime(KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
-    KysChess::Battle::BattleRuntimeSessionCreationInput makeBattleRuntimeSessionCreationInput(
-        KysChess::BattleSceneSetupBuilder::BattleSceneSetupBuildResult setupBuild);
+    void initializeSceneRuntime(const KysChess::Battle::BattleRuntimeSession& runtime);
+    void initializeScenePresentationUnits(const std::vector<int>& unitIds);
+    void initializeFormationPreviewRuntime();
+    void initializeSessionBattleRuntime();
     void runPreBattlePositionSwapIfEnabled();
-
     void runPositionSwapLoop();
     void runListBasedSwap();
+    const KysChess::Battle::BattleRuntimeSession* activeRuntimeSession() const;
     bool isManualCameraEnabled() const;
     std::optional<float> defaultPaperCameraAngleFromRuntimeUnits() const;
     std::optional<Pointf> defaultPaperCameraCenterFromRuntimeUnits() const;
@@ -108,36 +106,23 @@ protected:
     void drawPaperView();
 public:
     const BattleReport& getBattleReport() const { return battle_report_.report(); }
+    bool completedSceneRun() const { return completed_scene_run_; }
+    const std::optional<KysChess::ChessActionResult>& completedActionResult() const
+    {
+        return completed_action_result_;
+    }
     BattlePostBattleSummary makePostBattleSummary() const;
-    void setBattleRuntimeRandomSeed(unsigned int seed);
-    void setEnemyStars(const std::vector<int>& stars) { enemy_stars_ = stars; }
-    void setTeammateWeapons(const std::vector<int>& weapons) { teammate_weapons_ = weapons; }
-    void setTeammateArmors(const std::vector<int>& armors) { teammate_armors_ = armors; }
-    void setEnemyWeapons(const std::vector<int>& weapons) { enemy_weapons_ = weapons; }
-    void setEnemyArmors(const std::vector<int>& armors) { enemy_armors_ = armors; }
-    void setCloneSpawnPositions(const std::vector<std::pair<int, int>>& positions) { clone_spawn_positions_ = positions; }
-    void setEnemyCloneSpawnPositions(const std::vector<std::pair<int, int>>& positions) { enemy_clone_spawn_positions_ = positions; }
-    void setCountFightsWon(bool countFightsWon) { count_fights_won_ = countFightsWon; }
-
     static int getOperationType(int attackAreaType);
     static const char* getOperationTypeName(int operationType);
 
 protected:
     bool use_whole_scene_ = false;
-    KysChess::ChessRoleSave& roleSave_;
-    KysChess::ChessProgress& progress_;
-    KysChess::ChessManager& chessManager_;
-    BattleReportBuilder battle_report_;
+    BattleReportCollector battle_report_;
+    KysChess::ChessGameSession* session_transition_source_ = nullptr;
+    std::optional<KysChess::ChessActionResult> completed_action_result_;
     int swapSelectedUnitId_ = -1;
     bool positionSwapActive_ = false;
-    std::optional<KysChess::Battle::BattleRuntimeSession> battle_session_;
-    std::vector<int> enemy_stars_;
-    std::vector<int> teammate_weapons_;
-    std::vector<int> teammate_armors_;
-    std::vector<int> enemy_weapons_;
-    std::vector<int> enemy_armors_;
-    std::vector<std::pair<int, int>> clone_spawn_positions_;
-    std::vector<std::pair<int, int>> enemy_clone_spawn_positions_;
+    std::optional<KysChess::Battle::BattleRuntimeSession> formation_preview_runtime_;
     std::unordered_map<int, int> hurt_flash_timers_;
     BattleSceneUnitStore scene_units_;
     std::deque<BattleAttackEffect> attack_effects_;
@@ -151,13 +136,12 @@ protected:
     int shake_ = 0;
     double previous_refresh_interval_ = 0.0;
     int battle_frame_ = 0;
+    bool completed_scene_run_{};
     bool half_speed_step_on_next_render_ = true;
     bool battle_paused_ = false;
     bool active_paper_battle_view_ = false;
     bool paper_camera_auto_center_ = true;
     BattleSceneCamera camera_;
-    bool count_fights_won_ = true;
-    unsigned int battle_random_seed_ = 1;
     BattleSceneCameraBounds frame_applier_camera_bounds_{};
     bool manual_camera_enabled_{};
     BattleSceneFrameApplier frame_applier_;

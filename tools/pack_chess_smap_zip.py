@@ -2,7 +2,8 @@
 """Pack only the SMAP assets needed for chess battle into a zip archive.
 
 The packer derives its input set from the live game data used by chess battle:
-- dynamic battle maps listed in ``src/DynamicChessMap.cpp``
+- curated battle IDs listed in ``src/ChessBattleMapCatalog.cpp``
+- battle-to-battlefield mappings from ``work/game-dev/resource/war.sta``
 - battlefield layers from ``work/game-dev/resource/warfld.idx`` + ``warfld.grp``
 - main scene submap 53 from ``work/game-dev/save/allsin.grp`` + ``alldef.grp``
 
@@ -25,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORK_ROOT = ROOT / "work" / "game-dev"
 DEFAULT_OUTPUT = DEFAULT_WORK_ROOT / "resource" / "smap.chess-battle.zip"
-DEFAULT_DYNAMIC_MAP_SOURCE = ROOT / "src" / "DynamicChessMap.cpp"
+DEFAULT_BATTLE_MAP_CATALOG = ROOT / "src" / "ChessBattleMapCatalog.cpp"
 DEFAULT_MAIN_SUBMAP_ID = 53
 
 SUBMAP_COORD_COUNT = 64
@@ -35,6 +36,9 @@ SUBMAP_CELL_COUNT = SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT
 BATTLEMAP_COORD_COUNT = 64
 BATTLEMAP_SAVE_LAYER_COUNT = 2
 BATTLEMAP_CELL_COUNT = BATTLEMAP_COORD_COUNT * BATTLEMAP_COORD_COUNT
+BATTLE_INFO_RECORD_SIZE = 186
+BATTLE_INFO_ID_OFFSET = 0
+BATTLE_INFO_BATTLEFIELD_ID_OFFSET = 12
 
 SUBMAP_EXTRA_IDS = {1, *range(2501, 2529)}
 
@@ -68,12 +72,69 @@ def count_sqlite_rows(db_path: Path, table_name: str) -> int:
         return int(row[0])
 
 
-def parse_dynamic_battlefield_ids(source_path: Path) -> list[tuple[int, int]]:
-    text = read_text(source_path)
-    matches = re.findall(r"\{\s*(\d+),\s*(\d+),\s*(\d+),", text)
-    if not matches:
-        raise RuntimeError(f"No dynamic battle maps found in {source_path}")
-    return [(int(battle_id), int(battlefield_id)) for battle_id, battlefield_id, _ in matches]
+def parse_curated_battle_ids(catalog_path: Path) -> list[int]:
+    text = read_text(catalog_path)
+    declaration = "static const std::vector<ChessBattleMapCatalogEntry> maps"
+    declaration_offset = text.find(declaration)
+    if declaration_offset < 0:
+        raise RuntimeError(f"Curated battle map catalog was not found in {catalog_path}")
+
+    return_offset = text.find("return maps;", declaration_offset)
+    if return_offset < 0:
+        raise RuntimeError(f"Curated battle map catalog terminator was not found in {catalog_path}")
+
+    catalog_text = text[declaration_offset:return_offset]
+    matches = re.findall(
+        r"(?m)^\s*\{\s*$\n\s*(\d+)\s*,\s*$\n\s*\d+\s*,\s*$\n\s*\{\{",
+        catalog_text,
+    )
+    battle_ids = [int(battle_id) for battle_id in matches]
+    if not battle_ids:
+        raise RuntimeError(f"No curated battle maps found in {catalog_path}")
+    if len(battle_ids) != len(set(battle_ids)):
+        raise RuntimeError(f"Duplicate curated battle IDs found in {catalog_path}")
+    return battle_ids
+
+
+def read_battlefield_ids_by_battle_id(war_sta_path: Path) -> dict[int, int]:
+    payload = read_packaged_bytes(war_sta_path)
+    if len(payload) % BATTLE_INFO_RECORD_SIZE != 0:
+        raise RuntimeError(
+            f"{war_sta_path} size {len(payload)} is not divisible by "
+            f"BattleInfo record size {BATTLE_INFO_RECORD_SIZE}"
+        )
+
+    result: dict[int, int] = {}
+    for record_offset in range(0, len(payload), BATTLE_INFO_RECORD_SIZE):
+        battle_id = struct.unpack_from(
+            "<h",
+            payload,
+            record_offset + BATTLE_INFO_ID_OFFSET,
+        )[0]
+        battlefield_id = struct.unpack_from(
+            "<h",
+            payload,
+            record_offset + BATTLE_INFO_BATTLEFIELD_ID_OFFSET,
+        )[0]
+        # Match ChessContentLoader's std::map::emplace behavior: the first
+        # record for a battle ID is authoritative and later duplicates are ignored.
+        result.setdefault(battle_id, battlefield_id)
+    return result
+
+
+def resolve_curated_battlefields(
+    catalog_path: Path,
+    war_sta_path: Path,
+) -> list[tuple[int, int]]:
+    battle_ids = parse_curated_battle_ids(catalog_path)
+    battlefield_ids = read_battlefield_ids_by_battle_id(war_sta_path)
+    missing = [battle_id for battle_id in battle_ids if battle_id not in battlefield_ids]
+    if missing:
+        raise RuntimeError(
+            f"Curated battle IDs missing from {war_sta_path}: "
+            f"{', '.join(map(str, missing))}"
+        )
+    return [(battle_id, battlefield_ids[battle_id]) for battle_id in battle_ids]
 
 
 def read_cumulative_offsets(idx_path: Path) -> list[int]:
@@ -207,10 +268,10 @@ def parse_args() -> argparse.Namespace:
         help="Base game working directory (default: work/game-dev)",
     )
     parser.add_argument(
-        "--dynamic-map-source",
+        "--battle-map-catalog",
         type=Path,
-        default=DEFAULT_DYNAMIC_MAP_SOURCE,
-        help="Source file that defines the dynamic chess battle table",
+        default=DEFAULT_BATTLE_MAP_CATALOG,
+        help="C++ source file that defines the curated auto-chess battle map catalog",
     )
     parser.add_argument(
         "--main-submap-id",
@@ -238,10 +299,13 @@ def main() -> int:
     if not index_path.is_file():
         raise SystemExit(f"Missing index.ka: {index_path}")
 
-    dynamic_maps = parse_dynamic_battlefield_ids(args.dynamic_map_source.resolve())
+    curated_battles = resolve_curated_battlefields(
+        args.battle_map_catalog.resolve(),
+        work_root / "resource" / "war.sta",
+    )
     selected_ids = collect_ids_from_submap(work_root, args.main_submap_id)
     selected_battlefield_ids: set[int] = set()
-    for _, battlefield_id in dynamic_maps:
+    for _, battlefield_id in curated_battles:
         selected_battlefield_ids.add(battlefield_id)
         selected_ids.update(collect_ids_from_battlefield(work_root, battlefield_id))
 
@@ -256,7 +320,7 @@ def main() -> int:
     output_path = args.output.resolve()
     write_zip(output_path, index_path, texture_files)
 
-    print(f"dynamic battles: {len(dynamic_maps)}")
+    print(f"curated battles: {len(curated_battles)}")
     print(f"battlefields included: {len(selected_battlefield_ids)}")
     print(f"selected texture ids: {len(selected_ids)}")
     print(f"packed texture files: {len(texture_files)}")

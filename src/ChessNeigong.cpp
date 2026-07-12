@@ -1,65 +1,55 @@
 #include "ChessNeigong.h"
 
 #include "ChessBattleEffects.h"
-#include "GameUtil.h"
-#include "Save.h"
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
-#include <array>
 #include <format>
 #include <print>
 
 namespace KysChess
 {
 
-namespace
+bool loadChessNeigong(
+    const std::string& path,
+    std::span<Item* const> items,
+    const std::function<const Magic*(int)>& findMagic,
+    const ChessDiagnosticSink& diagnostics,
+    NeigongConfig& config,
+    std::vector<NeigongDef>& pool)
 {
+    config = {};
+    pool.clear();
 
-const std::array<Color, 4> kNeigongTierColors = {{
-    {100, 200, 100, 255},
-    {100, 150, 255, 255},
-    {255, 150, 50, 255},
-    {255, 100, 255, 255},
-}};
-
-}    // namespace
-
-const NeigongConfig& ChessNeigong::config()
-{
-    if (!configLoaded_)
+    YAML::Node ng;
+    try
     {
-        configLoaded_ = true;
-        try {
-            auto ng = YAML::LoadFile(GameUtil::PATH() + "config/chess_neigong.yaml");
-            if (ng["刷新费用"]) config_.rerollCost = ng["刷新费用"].as<int>();
-            if (ng["选择数量"]) config_.choiceCount = ng["选择数量"].as<int>();
-            if (ng["Boss可选层级"])
-                for (const auto& kv : ng["Boss可选层级"])
-                {
-                    int idx = kv.first.as<int>();
-                    for (const auto& t : kv.second)
-                        config_.tiersByBoss[idx].push_back(t.as<int>());
-                }
-        } catch (...) {}
+        ng = YAML::LoadFile(path);
     }
-    return config_;
-}
-
-const std::vector<NeigongDef>& ChessNeigong::getPool()
-{
-    if (!pool_.empty()) return pool_;
+    catch (const YAML::Exception& ex)
+    {
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "內功配置", std::format("無法讀取檔案 {}: {}", path, ex.what()));
+        return false;
+    }
+    if (ng["刷新费用"]) config.rerollCost = ng["刷新费用"].as<int>();
+    if (ng["选择数量"]) config.choiceCount = ng["选择数量"].as<int>();
+    if (ng["Boss可选层级"])
+    {
+        for (const auto& kv : ng["Boss可选层级"])
+        {
+            const int index = kv.first.as<int>();
+            for (const auto& tier : kv.second)
+            {
+                config.tiersByBoss[index].push_back(tier.as<int>());
+            }
+        }
+    }
 
     // Build item lookup: magicId -> itemId for 秘籍 (ItemType==2)
     std::map<int, int> magicToItem;
-    for (auto* item : Save::getInstance()->getItems())
+    for (auto* item : items)
         if (item && item->ItemType == 2 && item->MagicID > 0)
             magicToItem.try_emplace(item->MagicID, item->ID);
-
-    // Load YAML for tier assignments and effects
-    YAML::Node ng;
-    try { ng = YAML::LoadFile(GameUtil::PATH() + "config/chess_neigong.yaml"); }
-    catch (...) { return pool_; }
 
     // Parse tier assignments
     std::map<int, int> magicTier;
@@ -72,18 +62,17 @@ const std::vector<NeigongDef>& ChessNeigong::getPool()
         }
 
     // Build pool
-    auto save = Save::getInstance();
     for (auto& [magicId, tier] : magicTier)
     {
         auto itItem = magicToItem.find(magicId);
         if (itItem == magicToItem.end()) continue;
 
-        auto* magic = save->getMagic(magicId);
+        auto* magic = findMagic(magicId);
         NeigongDef def;
         def.magicId = magicId;
         def.itemId = itItem->second;
         def.tier = tier;
-        def.name = magic ? magic->Name : std::format("内功{}", magicId);
+        def.name = magic ? magic->Name : std::format("內功{}", magicId);
 
         auto effNode = ng["效果"][std::to_string(magicId)];
         if (effNode && effNode.IsSequence())
@@ -91,24 +80,19 @@ const std::vector<NeigongDef>& ChessNeigong::getPool()
             for (const auto& eNode : effNode)
             {
                 ComboEffect eff;
-                auto effectContext = std::format("内功「{}」效果#{}", def.name, def.effects.size() + 1);
-                if (ChessBattleEffects::parseEffect(eNode, eff, effectContext))
+                auto effectContext = std::format("內功「{}」效果#{}", def.name, def.effects.size() + 1);
+                if (ChessBattleEffects::parseEffect(eNode, eff, effectContext, diagnostics))
                     def.effects.push_back(eff);
             }
         }
-        pool_.push_back(std::move(def));
+        pool.push_back(std::move(def));
     }
 
-    std::sort(pool_.begin(), pool_.end(),
+    std::sort(pool.begin(), pool.end(),
         [](auto& a, auto& b) { return a.tier != b.tier ? a.tier < b.tier : a.magicId < b.magicId; });
 
-    std::print("【内功配置】加载{}个内功\n", pool_.size());
-    return pool_;
-}
-
-Color ChessNeigong::GetTierColor(int tier)
-{
-    return kNeigongTierColors[std::clamp(tier - 1, 0, static_cast<int>(kNeigongTierColors.size()) - 1)];
+    emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Info, "內功配置", std::format("載入{}個內功", pool.size()));
+    return true;
 }
 
 }    // namespace KysChess

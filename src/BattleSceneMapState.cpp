@@ -1,6 +1,5 @@
 #include "BattleSceneMapState.h"
 
-#include "BattleMap.h"
 #include "Engine.h"
 #include "GameUtil.h"
 #include "Scene.h"
@@ -25,12 +24,20 @@ void BattleSceneMapState::initialize(int coordCount)
     buildingLayer_.resize(coordCount_);
 }
 
-void BattleSceneMapState::loadBattlefield(int battlefieldId)
+void BattleSceneMapState::loadBattlefield(const KysChess::ChessBattlefieldDefinition& battlefield)
 {
     assert(coordCount_ > 0);
-    battlefieldId_ = battlefieldId;
-    BattleMap::getInstance()->copyLayerData(battlefieldId_, 0, &earthLayer_);
-    BattleMap::getInstance()->copyLayerData(battlefieldId_, 1, &buildingLayer_);
+    assert(battlefield.layers.size() == static_cast<std::size_t>(2 * coordCount_ * coordCount_));
+    battlefieldId_ = battlefield.id;
+    for (int x = 0; x < coordCount_; ++x)
+    {
+        for (int y = 0; y < coordCount_; ++y)
+        {
+            const auto index = static_cast<std::size_t>(x + coordCount_ * y);
+            earthLayer_.data(x, y) = battlefield.layers[index];
+            buildingLayer_.data(x, y) = battlefield.layers[index + coordCount_ * coordCount_];
+        }
+    }
 }
 
 bool BattleSceneMapState::isOutLine(int x, int y)

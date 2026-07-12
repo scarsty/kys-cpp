@@ -1,7 +1,7 @@
 ﻿#include "MainScene.h"
-#include "ChessSelector.h"
+#include "ChessApplicationSessionHost.h"
+#include "ChessGuiSessionAdapter.h"
 #include "Console.h"
-#include "GameState.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "Random.h"
@@ -439,16 +439,8 @@ void MainScene::onExit()
 
 void MainScene::onPressedCancel()
 {
-    auto& gameState = KysChess::GameState::get();
-    KysChess::ChessSelector selector(
-        gameState.roleSave(),
-        gameState.equipmentInventory(),
-        gameState.roster(),
-        gameState.shop(),
-        gameState.progress(),
-        gameState.economy(),
-        gameState.random());
-    selector.showContextMenu();
+    KysChess::ChessGuiSessionAdapter(
+        KysChess::applicationChessSession()).showContextMenu();
 }
 
 void MainScene::tryWalk(int x, int y)

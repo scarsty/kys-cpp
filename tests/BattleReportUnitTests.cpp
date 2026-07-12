@@ -10,13 +10,13 @@ TEST_CASE("BattleReportBuilder_RecordsDamageStatsAndOrderedEvents", "[battle][re
     auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
 
     BattleReportBuilder builder;
-    builder.recordDamage(&attacker, &defender, 152, "六脈神劍", 221, KysChess::Battle::battleLogText("連擊增傷 +42%（3層）"));
+    builder.recordDamage(&attacker, &defender, 152, "六脈神劍", 221, KysChess::Battle::battleLogText("連擊增傷 +42%（3層）"), 91);
     builder.recordBattleEnd(221, 0);
 
     const auto& report = builder.report();
     REQUIRE(report.stats().contains(101));
     CHECK(report.stats().at(101).damageDealt == 152);
-    CHECK(report.stats().at(101).damagePerSkill.at("六脈神劍") == 152);
+    CHECK(report.stats().at(101).damagePerSkillId.at(91) == 152);
     REQUIRE(report.stats().contains(202));
     CHECK(report.stats().at(202).damageTaken == 152);
     CHECK(report.battleEndFrame() == 221);
@@ -28,6 +28,8 @@ TEST_CASE("BattleReportBuilder_RecordsDamageStatsAndOrderedEvents", "[battle][re
     CHECK(events[0].sourceName == "段譽");
     CHECK(events[0].targetName == "岳不群");
     CHECK(events[0].value == 152);
+    CHECK(events[0].skillId == 91);
+    CHECK(events[0].resourceId == KysChess::Battle::BattleResourceSemanticId::HitPoints);
     CHECK(BattleLogTest::joinSegments(events[0].segments) == "連擊增傷 +42%（3層）");
     CHECK(events[1].type == BattleReportEventType::BattleEnd);
 }
@@ -45,6 +47,20 @@ TEST_CASE("BattleReportBuilder_BattleEndDoesNotSuppressAlreadyOrderedLaterEvents
     REQUIRE(events.size() == 2);
     CHECK(events[0].type == BattleReportEventType::BattleEnd);
     CHECK(events[1].type == BattleReportEventType::Damage);
+}
+
+TEST_CASE("BattleReportBuilder_AggregatesSkillDamageByStableIdNotLocalizedName", "[battle][report][determinism]")
+{
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
+    BattleReportBuilder builder;
+
+    builder.recordDamage(&attacker, &defender, 20, "顯示名稱甲", 10, {}, 91);
+    builder.recordDamage(&attacker, &defender, 30, "顯示名稱乙", 11, {}, 91);
+
+    const auto& bySkill = builder.report().stats().at(101).damagePerSkillId;
+    REQUIRE(bySkill.size() == 1);
+    CHECK(bySkill.at(91) == 50);
 }
 
 TEST_CASE("BattleReportBuilder_RecordsLifecycleAndProjectileCancelStats", "[battle][report]")

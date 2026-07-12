@@ -18,17 +18,14 @@ enum class ChessMagicEffectDisplayLineKind
 struct ChessMagicEffectDisplayLine
 {
     ChessMagicEffectDisplayLineKind kind = ChessMagicEffectDisplayLineKind::Skill;
-    Magic* magic = nullptr;
+    const MagicSave* magic = nullptr;
     std::string text;
     bool ultimate = false;
 };
 
 std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(
-    const Role& role,
-    int star,
-    const std::vector<Magic*>& magics,
-    const std::vector<ChessMagicEffectDefinition>& definitions);
-
-const std::vector<ChessMagicEffectDefinition>& chessMagicEffectDefinitionsForDisplay();
+    const std::vector<const MagicSave*>& magics,
+    const std::vector<ChessMagicEffectDefinition>& definitions,
+    int ultimateMagicId);
 
 }  // namespace KysChess

@@ -741,6 +741,7 @@ void applyAttackContext(BattleGameplayEvent& gameplay, const BattleAttackState& 
     {
         gameplay.sourceUnitId = attack->state.attackerUnitId;
         gameplay.position = attack->state.position;
+        gameplay.skillId = attack->state.skillId;
     }
 }
 
@@ -2718,8 +2719,15 @@ BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
     switch (event.type)
     {
     case BattleDamageEventType::DamageApplied:
+        gameplay.resourceId = BattleResourceSemanticId::HitPoints;
+        gameplay.type = BattleGameplayEventType::DamageApplied;
+        break;
     case BattleDamageEventType::MpDamageApplied:
+        gameplay.resourceId = BattleResourceSemanticId::MagicPoints;
+        gameplay.type = BattleGameplayEventType::DamageApplied;
+        break;
     case BattleDamageEventType::ShieldAbsorbed:
+        gameplay.resourceId = BattleResourceSemanticId::Shield;
         gameplay.type = BattleGameplayEventType::DamageApplied;
         break;
     case BattleDamageEventType::UnitDied:
@@ -2727,19 +2735,43 @@ BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
         break;
     case BattleDamageEventType::StatusApplied:
         gameplay.type = BattleGameplayEventType::StatusApplied;
+        gameplay.statusId = static_cast<BattleStatusSemanticId>(static_cast<int>(event.statusType));
         gameplay.text = toStatusText(event);
         break;
     case BattleDamageEventType::HpRestored:
+        gameplay.resourceId = BattleResourceSemanticId::HitPoints;
+        gameplay.type = BattleGameplayEventType::ResourceChanged;
+        break;
     case BattleDamageEventType::MpRestored:
     case BattleDamageEventType::MpDrained:
+        gameplay.resourceId = BattleResourceSemanticId::MagicPoints;
+        gameplay.type = BattleGameplayEventType::ResourceChanged;
+        break;
     case BattleDamageEventType::CooldownExtended:
+        gameplay.resourceId = BattleResourceSemanticId::Cooldown;
+        gameplay.type = BattleGameplayEventType::ResourceChanged;
+        break;
     case BattleDamageEventType::KillRewardApplied:
+        gameplay.resourceId = BattleResourceSemanticId::Attack;
         gameplay.type = BattleGameplayEventType::ResourceChanged;
         break;
     case BattleDamageEventType::BlockedByInvincible:
+        gameplay.statusId = BattleStatusSemanticId::BlockedByInvincible;
+        gameplay.type = BattleGameplayEventType::StatusApplied;
+        gameplay.text = toStatusText(event);
+        break;
     case BattleDamageEventType::BlockedByFirstHit:
+        gameplay.statusId = BattleStatusSemanticId::BlockedByFirstHit;
+        gameplay.type = BattleGameplayEventType::StatusApplied;
+        gameplay.text = toStatusText(event);
+        break;
     case BattleDamageEventType::DeathPrevented:
+        gameplay.statusId = BattleStatusSemanticId::DeathPrevented;
+        gameplay.type = BattleGameplayEventType::StatusApplied;
+        gameplay.text = toStatusText(event);
+        break;
     case BattleDamageEventType::ExecuteTriggered:
+        gameplay.statusId = BattleStatusSemanticId::ExecuteTriggered;
         gameplay.type = BattleGameplayEventType::StatusApplied;
         gameplay.text = toStatusText(event);
         break;
@@ -3244,6 +3276,7 @@ BattleDamagePresentationInput makeFrameDamagePresentation(
     presentation.criticalMultiplier = command.criticalMultiplier;
     presentation.ultimate = command.ultimate;
     presentation.skillName = command.skillName;
+    presentation.skillId = command.skillId;
     presentation.segments = command.segments;
     applyFrameDamagePresentationStyle(state, command.targetUnitId, presentation);
     return presentation;
@@ -3798,15 +3831,18 @@ void updateFrameBattleResultAfterDamage(BattleRuntimeState& state, BattleFrameCo
     {
         aliveTeams.insert(record.core.team);
     }
-    if (aliveTeams.size() != 1)
+    if (aliveTeams.size() > 1)
     {
         return;
     }
 
     state.result.ended = true;
-    state.result.winningTeam = *aliveTeams.begin();
+    state.result.winningTeam = aliveTeams.empty() ? 1 : *aliveTeams.begin();
     state.result.endedFrame = state.movement.frame;
     state.result.eventEmitted = true;
+    state.result.outcome = state.result.winningTeam == 0
+        ? BattleOutcome::PlayerVictory
+        : BattleOutcome::PlayerDefeat;
 
     frame.gameplayEvents.push_back({
         BattleGameplayEventType::BattleEnded,
@@ -3980,6 +4016,8 @@ void appendFrameDamageOutputEvents(
     damageLog.targetUnitId = transaction.defender.id;
     damageLog.amount = hpDamage;
     damageLog.skillName = presentation.skillName;
+    damageLog.skillId = presentation.skillId;
+    damageLog.resourceId = BattleResourceSemanticId::HitPoints;
     damageLog.segments = presentation.segments;
     frame.logEvents.push_back(std::move(damageLog));
 }
@@ -4000,6 +4038,7 @@ void appendFrameDamagePreDeathLogEvents(
         log.sourceUnitId = event.sourceUnitId;
         log.targetUnitId = event.targetUnitId;
         log.amount = event.value;
+        log.statusId = static_cast<BattleStatusSemanticId>(static_cast<int>(event.statusType));
         log.segments = formatAppliedStatusLog(transaction, event);
         frame.logEvents.push_back(std::move(log));
     }
@@ -4237,7 +4276,8 @@ void appendFrameShieldBreakCommands(
 
 void appendFrameDamageGameplayEvents(
     BattleFrameContext& frame,
-    const BattleDamageTransactionResult& transaction)
+    const BattleDamageTransactionResult& transaction,
+    int skillId)
 {
     for (const auto& event : transaction.events)
     {
@@ -4245,7 +4285,12 @@ void appendFrameDamageGameplayEvents(
         {
             continue;
         }
-        frame.gameplayEvents.push_back(toGameplayEvent(event));
+        auto gameplay = toGameplayEvent(event);
+        if (gameplay.type == BattleGameplayEventType::DamageApplied)
+        {
+            gameplay.skillId = skillId;
+        }
+        frame.gameplayEvents.push_back(std::move(gameplay));
     }
 }
 
@@ -5415,7 +5460,7 @@ void applyDamageAndLifecycle(
                 appendFrameDamageOutputEvents(frame, presentation, transaction);
                 appendFrameDamagePreDeathLogEvents(frame, transaction);
                 appendFrameDamageResourceLogEvents(frame, transaction);
-                appendFrameDamageGameplayEvents(frame, transaction);
+                appendFrameDamageGameplayEvents(frame, transaction, presentation.skillId);
                 auto transactionDeadUnitIds = appendFrameDamageLifecycle(state, frame, transaction);
                 appendFrameDamageKillRewardLogEvents(frame, transaction);
                 profileBattleFrameStep(profile, "挪移檢查", [&]

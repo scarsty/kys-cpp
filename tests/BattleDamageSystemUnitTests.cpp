@@ -112,7 +112,7 @@ TEST_CASE("BattleDamageSystem_HitShapeOwnsProjectileFalloffFacingAndOperationDam
 
     auto result = BattleDamageSystem().shapeHitDamage(input);
 
-    CHECK(result.damage == Catch::Approx(430.3125));
+    CHECK(result.damage == Catch::Approx(395.8875));
     CHECK(result.knockbackStrength == Catch::Approx(2.0));
     CHECK(result.knockbackVelocityCap == Catch::Approx(3.0));
     CHECK(result.frozenFrames == 0);

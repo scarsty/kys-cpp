@@ -16,7 +16,7 @@ struct BattleReportUnitStats
     int damageDealt = 0;
     int damageTaken = 0;
     int kills = 0;
-    std::map<std::string, int> damagePerSkill;
+    std::map<int, int> damagePerSkillId;
     int firstDamageFrame = 0;
     int lastActiveFrame = 0;
 };
@@ -45,6 +45,9 @@ struct BattleReportEvent
     std::string sourceName;
     std::string targetName;
     std::string skillName;
+    int skillId = -1;
+    KysChess::Battle::BattleStatusSemanticId statusId = KysChess::Battle::BattleStatusSemanticId::None;
+    KysChess::Battle::BattleResourceSemanticId resourceId = KysChess::Battle::BattleResourceSemanticId::None;
     std::vector<KysChess::Battle::BattleLogTextSegment> segments;
 };
 
@@ -76,20 +79,24 @@ public:
         int damage,
         const std::string& skillName,
         int frame,
-        std::vector<KysChess::Battle::BattleLogTextSegment> segments = {});
+        std::vector<KysChess::Battle::BattleLogTextSegment> segments = {},
+        int skillId = -1);
     void recordHeal(
         const KysChess::Battle::BattleRuntimeUnit* source,
         const KysChess::Battle::BattleRuntimeUnit* target,
         int amount,
         std::vector<KysChess::Battle::BattleLogTextSegment> segments,
-        int frame);
+        int frame,
+        KysChess::Battle::BattleResourceSemanticId resourceId = KysChess::Battle::BattleResourceSemanticId::HitPoints);
     void recordStatus(
         const KysChess::Battle::BattleRuntimeUnit* source,
         const KysChess::Battle::BattleRuntimeUnit* target,
         KysChess::Battle::BattleLogCategory category,
         KysChess::Battle::BattleLogPerspective perspective,
         std::vector<KysChess::Battle::BattleLogTextSegment> segments,
-        int frame);
+        int frame,
+        KysChess::Battle::BattleStatusSemanticId statusId = KysChess::Battle::BattleStatusSemanticId::None,
+        KysChess::Battle::BattleResourceSemanticId resourceId = KysChess::Battle::BattleResourceSemanticId::None);
     void recordKill(const KysChess::Battle::BattleRuntimeUnit* killer, const KysChess::Battle::BattleRuntimeUnit* victim, int frame);
     void recordDeath(const KysChess::Battle::BattleRuntimeUnit* unit, int frame);
     void recordProjectileCancel(int unitId, int damage);

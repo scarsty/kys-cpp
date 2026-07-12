@@ -34,7 +34,8 @@ void BattleReportBuilder::recordDamage(
     int damage,
     const std::string& skillName,
     int frame,
-    std::vector<KysChess::Battle::BattleLogTextSegment> segments)
+    std::vector<KysChess::Battle::BattleLogTextSegment> segments,
+    int skillId)
 {
     if (attacker)
     {
@@ -45,9 +46,9 @@ void BattleReportBuilder::recordDamage(
             stats.firstDamageFrame = frame;
         }
         stats.lastActiveFrame = frame;
-        if (!skillName.empty())
+        if (skillId >= 0)
         {
-            stats.damagePerSkill[skillName] += damage;
+            stats.damagePerSkillId[skillId] += damage;
         }
     }
     if (defender)
@@ -68,6 +69,8 @@ void BattleReportBuilder::recordDamage(
         assignTarget(event, *defender);
     }
     event.skillName = skillName;
+    event.skillId = skillId;
+    event.resourceId = KysChess::Battle::BattleResourceSemanticId::HitPoints;
     event.segments = std::move(segments);
     report_.events_.push_back(std::move(event));
 }
@@ -77,7 +80,8 @@ void BattleReportBuilder::recordHeal(
     const KysChess::Battle::BattleRuntimeUnit* target,
     int amount,
     std::vector<KysChess::Battle::BattleLogTextSegment> segments,
-    int frame)
+    int frame,
+    KysChess::Battle::BattleResourceSemanticId resourceId)
 {
     if (amount <= 0)
     {
@@ -93,6 +97,7 @@ void BattleReportBuilder::recordHeal(
     event.type = BattleReportEventType::Heal;
     event.frame = frame;
     event.value = amount;
+    event.resourceId = resourceId;
     event.segments = std::move(segments);
     if (source)
     {
@@ -111,7 +116,9 @@ void BattleReportBuilder::recordStatus(
     KysChess::Battle::BattleLogCategory category,
     KysChess::Battle::BattleLogPerspective perspective,
     std::vector<KysChess::Battle::BattleLogTextSegment> segments,
-    int frame)
+    int frame,
+    KysChess::Battle::BattleStatusSemanticId statusId,
+    KysChess::Battle::BattleResourceSemanticId resourceId)
 {
     if (segments.empty())
     {
@@ -128,6 +135,8 @@ void BattleReportBuilder::recordStatus(
     event.frame = frame;
     event.category = category;
     event.perspective = perspective;
+    event.statusId = statusId;
+    event.resourceId = resourceId;
     event.segments = std::move(segments);
     if (source)
     {

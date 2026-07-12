@@ -1,53 +1,169 @@
 #include "ChessCombo.h"
-#include "Chess.h"
-#include "ChessPool.h"
-#include "Font.h"
-#include "Save.h"
-#include "GameUtil.h"
+
+#include "ChessGameContent.h"
+#include "ChessSessionTypes.h"
+#include "battle/ChessComboResolver.h"
+
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
-#include <print>
+#include <array>
+#include <cassert>
+#include <format>
+#include <ranges>
 
 namespace KysChess
 {
-
 namespace
 {
 
-bool isTeamwideComboEffect(EffectType effectType)
+int equipmentItemId(const ChessSessionState& state, int equipmentInstanceId)
 {
-    switch (effectType)
+    if (equipmentInstanceId < 0)
     {
-    case EffectType::TeamFlatHP:
-    case EffectType::TeamFlatATK:
-    case EffectType::TeamFlatDEF:
-    case EffectType::TeamFlatSPD:
-    case EffectType::TeamPctHP:
-    case EffectType::TeamPctATK:
-    case EffectType::TeamPctDEF:
-    case EffectType::TeamPctSPD:
-        return true;
-    default:
-        return false;
+        return -1;
     }
+    const auto found = state.equipmentInventory.find(equipmentInstanceId);
+    assert(found != state.equipmentInventory.end());
+    return found->second.itemId;
 }
 
-}  // namespace
+std::vector<ChessComboResolverUnit> resolverUnits(
+    const ChessSessionState& state,
+    const ChessGameContent& content)
+{
+    std::vector<ChessComboResolverUnit> result;
+    for (const auto& [instanceId, piece] : state.roster)
+    {
+        if (!piece.deployed)
+        {
+            continue;
+        }
+        const auto* role = content.role(piece.roleId);
+        result.push_back({
+            piece.roleId,
+            piece.star,
+            role ? std::optional<int>{role->Cost} : std::nullopt,
+            equipmentItemId(state, piece.weaponInstanceId),
+            equipmentItemId(state, piece.armorInstanceId),
+        });
+    }
+    return result;
+}
 
-std::vector<ComboDef> loadFromYaml(const std::string& path)
+std::vector<ChessComboResolverEquipmentRule> resolverEquipmentRules(
+    const ChessGameContent& content)
+{
+    std::vector<ChessComboResolverEquipmentRule> result;
+    for (const auto& equipment : content.equipment())
+    {
+        if (!equipment.actAsComboNames.empty())
+        {
+            result.push_back({equipment.itemId, {}, equipment.actAsComboNames});
+        }
+    }
+    for (const auto& synergy : content.equipmentSynergies())
+    {
+        if (!synergy.actAsComboNames.empty())
+        {
+            result.push_back({synergy.equipmentId, synergy.roleIds, synergy.actAsComboNames});
+        }
+    }
+    return result;
+}
+
+ChessComboResolverDefinition resolverDefinition(const ComboDef& combo)
+{
+    ChessComboResolverDefinition result;
+    result.id = combo.id;
+    result.name = combo.name;
+    result.memberRoleIds = combo.memberRoleIds;
+    result.isAntiCombo = combo.isAntiCombo;
+    result.starSynergyBonus = combo.starSynergyBonus;
+    for (const auto& threshold : combo.thresholds)
+    {
+        result.thresholdCounts.push_back(threshold.count);
+    }
+    return result;
+}
+
+std::vector<ResolvedChessCombo> resolveRosterCombos(
+    const ChessSessionState& state,
+    const ChessGameContent& content)
+{
+    const auto units = resolverUnits(state, content);
+    const auto equipmentRules = resolverEquipmentRules(content);
+    std::vector<ChessComboResolverDefinition> definitions;
+    definitions.reserve(content.combos().size());
+    for (const auto& combo : content.combos())
+    {
+        definitions.push_back(resolverDefinition(combo));
+    }
+    return resolveChessCombos(units, equipmentRules, definitions);
+}
+
+}
+
+ChessComboProgress chessComboProgress(
+    const ComboDef& combo,
+    const ResolvedChessCombo& resolved)
+{
+    ChessComboProgress progress;
+    progress.memberRoleIds = resolved.memberRoleIds;
+    progress.physicalCount = resolved.physicalMemberCount;
+    progress.effectiveCount = resolved.effectiveMemberCount;
+    progress.activeThresholdIndex = resolved.activeThresholdIndex;
+    progress.nextThresholdIndex = resolved.nextThresholdIndex;
+    progress.active = progress.activeThresholdIndex >= 0;
+    progress.isAntiCombo = combo.isAntiCombo;
+    progress.starSynergyBonus = combo.starSynergyBonus;
+    if (!combo.thresholds.empty())
+    {
+        progress.displayTargetCount = combo.isAntiCombo
+            ? combo.thresholds.front().count
+            : progress.nextThresholdIndex >= 0
+                ? combo.thresholds[progress.nextThresholdIndex].count
+                : combo.thresholds.back().count;
+    }
+    return progress;
+}
+
+std::string formatChessComboProgressCount(const ChessComboProgress& progress)
+{
+    if (progress.isAntiCombo)
+    {
+        return progress.active
+            ? std::format("獨/{} ✓", progress.displayTargetCount)
+            : std::format("獨/{}", progress.displayTargetCount);
+    }
+
+    const int extraStars = progress.effectiveCount - progress.physicalCount;
+    std::string result = progress.starSynergyBonus && extraStars > 0
+        ? std::format("{}+{}/{}", progress.physicalCount, extraStars, progress.displayTargetCount)
+        : std::format("{}/{}", progress.physicalCount, progress.displayTargetCount);
+    if (progress.active)
+    {
+        result += " ✓";
+    }
+    return result;
+}
+
+std::vector<ComboDef> loadChessCombos(
+    const std::string& path,
+    const ChessTextConverter& toTraditional,
+    const ChessDiagnosticSink& diagnostics)
 {
     YAML::Node root;
     try { root = YAML::LoadFile(path); }
     catch (const YAML::Exception& e)
     {
-        std::print("【羁绊配置】无法读取文件 {}: {}\n", path, e.what());
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("無法讀取檔案 {}: {}", path, e.what()));
         return {};
     }
 
     if (!root["羁绊"])
     {
-        std::print("【羁绊配置】文件缺少「羁绊」根节点\n");
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", "檔案缺少「羈絆」根節點");
         return {};
     }
 
@@ -57,34 +173,50 @@ std::vector<ComboDef> loadFromYaml(const std::string& path)
     for (const auto& node : root["羁绊"])
     {
         ComboDef def;
-        if (!node["名称"]) { std::print("【羁绊配置】第{}个羁绊缺少「名称」\n", idx + 1); return {}; }
-        def.name = Font::getInstance()->S2T(node["名称"].as<std::string>());
+        if (!node["名称"])
+        {
+            emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("第{}個羈絆缺少「名稱」", idx + 1));
+            return {};
+        }
+        def.name = toTraditional(node["名称"].as<std::string>());
         def.id = idx;
         def.isAntiCombo = node["反向羁绊"] && node["反向羁绊"].as<bool>();
         def.starSynergyBonus = node["星级羁绊加成"] && node["星级羁绊加成"].as<bool>();
 
-        if (!node["成员"]) { std::print("【羁绊配置】「{}」缺少「成员」\n", def.name); return {}; }
+        if (!node["成员"])
+        {
+            emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」缺少「成員」", def.name));
+            return {};
+        }
         for (const auto& member : node["成员"])
             def.memberRoleIds.push_back(member.as<int>());
 
-        if (!node["阈值"]) { std::print("【羁绊配置】「{}」缺少「阈值」\n", def.name); return {}; }
+        if (!node["阈值"])
+        {
+            emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」缺少「閾值」", def.name));
+            return {};
+        }
         for (const auto& tNode : node["阈值"])
         {
             ComboThreshold thresh;
             if (!tNode["人数"] || !tNode["名称"])
             {
-                std::print("【羁绊配置】「{}」阈值缺少「人数」或「名称」\n", def.name);
+                emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」閾值缺少「人數」或「名稱」", def.name));
                 return {};
             }
             thresh.count = tNode["人数"].as<int>();
-            thresh.name = Font::getInstance()->S2T(tNode["名称"].as<std::string>());
+            thresh.name = toTraditional(tNode["名称"].as<std::string>());
 
-            if (!tNode["效果"]) { std::print("【羁绊配置】「{}」阈值「{}」缺少「效果」\n", def.name, thresh.name); return {}; }
+            if (!tNode["效果"])
+            {
+                emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」閾值「{}」缺少「效果」", def.name, thresh.name));
+                return {};
+            }
             for (const auto& eNode : tNode["效果"])
             {
                 ComboEffect eff;
-                auto effectContext = std::format("羁绊「{}」阈值「{}」效果#{}", def.name, thresh.name, thresh.effects.size() + 1);
-                if (!ChessBattleEffects::parseEffect(eNode, eff, effectContext))
+                auto effectContext = std::format("羈絆「{}」閾值「{}」效果#{}", def.name, thresh.name, thresh.effects.size() + 1);
+                if (!ChessBattleEffects::parseEffect(eNode, eff, effectContext, diagnostics))
                     return {};
                 thresh.effects.push_back(eff);
             }
@@ -94,172 +226,104 @@ std::vector<ComboDef> loadFromYaml(const std::string& path)
         idx++;
     }
 
-    std::print("【羁绊配置】成功加载{}个羁绊\n", combos.size());
+    emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Info, "羈絆配置", std::format("成功載入{}個羈絆", combos.size()));
     return combos;
 }
 
-std::map<int, int> ChessCombo::buildStarMap(const std::vector<Chess>& selected)
+ChessComboProgress evaluateChessComboProgress(
+    const ChessSessionState& state,
+    const ChessGameContent& content,
+    const ComboDef& combo)
 {
-    std::map<int, int> result;
-    for (auto& ch : selected)
-        if (ch.role) result[ch.role->ID] = ch.star;
-    return result;
+    const auto units = resolverUnits(state, content);
+    const auto equipmentRules = resolverEquipmentRules(content);
+    const std::array definitions{resolverDefinition(combo)};
+    const auto resolved = resolveChessCombos(units, equipmentRules, definitions);
+    assert(resolved.size() == 1);
+    return chessComboProgress(combo, resolved.front());
 }
 
-const std::vector<ComboDef>& ChessCombo::getAllCombos()
+bool chessRosterHasActiveComboEffect(
+    const ChessSessionState& state,
+    const ChessGameContent& content,
+    EffectType effectType)
 {
-    static std::vector<ComboDef> allCombos{loadFromYaml(GameUtil::PATH() + "config/chess_combos.yaml")};
-    return allCombos;
-}
-
-std::vector<ActiveCombo> ChessCombo::detectCombos(const std::vector<Chess>& selected)
-{
-    std::map<int, int> starByRole;
-    std::map<std::string, std::set<int>> actAsByComboName;
-    for (auto& c : selected)
+    const auto resolved = resolveRosterCombos(state, content);
+    assert(resolved.size() == content.combos().size());
+    for (std::size_t index = 0; index < content.combos().size(); ++index)
     {
-        if (!c.role) continue;
-        starByRole[c.role->ID] = c.star;
-    }
-    actAsByComboName = detail::buildComboActAsMap(selected);
-
-    std::vector<ActiveCombo> result;
-    for (auto& combo : getAllCombos())
-    {
-        ActiveCombo ac;
-        ac.id = combo.id;
-        ac.memberRoleIds = detail::collectPresentComboMembers(combo, starByRole, actAsByComboName);
-        ac.memberCount = static_cast<int>(ac.memberRoleIds.size());
-        if (ac.memberCount == 0) continue;
-
-        ac.physicalMemberCount = ac.memberCount;
-        if (combo.starSynergyBonus)
-            for (int rid : ac.memberRoleIds)
-                ac.memberCount += starByRole[rid] - 1;
-
-        if (combo.isAntiCombo)
-        {
-            int bestId = -1, bestTier = -1;
-            for (int rid : ac.memberRoleIds)
-            {
-                auto* role = Save::getInstance()->getRole(rid);
-                int t = role ? role->Cost : -1;
-                if (t > bestTier) { bestTier = t; bestId = rid; }
-            }
-            ac.memberRoleIds.clear();
-            ac.memberRoleIds.insert(bestId);
-            ac.memberCount = 1;
-            ac.physicalMemberCount = 1;
-            ac.isAntiCombo = true;
-            ac.activeThresholdIdx = 0;
-        }
-        else
-        {
-            for (int i = (int)combo.thresholds.size() - 1; i >= 0; --i)
-                if (ac.memberCount >= combo.thresholds[i].count) { ac.activeThresholdIdx = i; break; }
-        }
-        result.push_back(ac);
-    }
-    return result;
-}
-
-std::map<int, RoleComboState> ChessCombo::buildComboStates(const std::vector<ActiveCombo>& active)
-{
-    std::map<int, RoleComboState> states;
-    for (auto& ac : active)
-    {
-        if (ac.activeThresholdIdx < 0) continue;
-        auto& combo = getAllCombos()[(int)ac.id];
-        auto& thresh = combo.thresholds[ac.activeThresholdIdx];
-        for (int rid : ac.memberRoleIds)
-            for (auto& e : thresh.effects)
-            {
-                if (isTeamwideComboEffect(e.type)) continue;
-                states[rid].applyConfiguredEffect(e, ac.id);
-            }
-    }
-    return states;
-}
-
-std::vector<ComboEffect> ChessCombo::collectGlobalEffects(const std::vector<ActiveCombo>& active)
-{
-    std::vector<ComboEffect> result;
-    for (auto& ac : active)
-    {
-        if (ac.activeThresholdIdx < 0) continue;
-        auto& combo = getAllCombos()[(int)ac.id];
-        auto& thresh = combo.thresholds[ac.activeThresholdIdx];
-        for (auto& effect : thresh.effects)
-        {
-            if (isTeamwideComboEffect(effect.type))
-            {
-                result.push_back(effect);
-            }
-        }
-    }
-    return result;
-}
-
-std::vector<int> ChessCombo::getCombosForRole(int roleId)
-{
-    std::vector<int> result;
-    for (auto& combo : getAllCombos())
-        for (int rid : combo.memberRoleIds)
-            if (rid == roleId) { result.push_back(combo.id); break; }
-    return result;
-}
-
-int ChessCombo::calculateGoldBonus(const std::vector<ActiveCombo>& active, const std::vector<Chess>& survivors)
-{
-    auto& combos = getAllCombos();
-    std::set<int> survivorIds;
-    int maxStar = 0;
-    for (auto& chess : survivors)
-    {
-        survivorIds.insert(chess.role->ID);
-        maxStar = std::max(maxStar, chess.star);
-    }
-
-    for (auto& ac : active)
-    {
-        if (ac.activeThresholdIdx < 0) continue;
-        auto& combo = combos[static_cast<int>(ac.id)];
-        auto& thresh = combo.thresholds[ac.activeThresholdIdx];
-
-        for (auto& effect : thresh.effects)
-        {
-            if (effect.type == EffectType::GoldCoefficient)
-            {
-                for (int roleId : ac.memberRoleIds)
-                {
-                    if (survivorIds.count(roleId))
-                        return maxStar * effect.value;
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-bool ChessCombo::hasActiveEffect(const std::vector<ActiveCombo>& active, EffectType effectType)
-{
-    auto& combos = getAllCombos();
-    for (const auto& ac : active)
-    {
-        if (ac.activeThresholdIdx < 0)
+        const auto& combo = content.combos()[index];
+        const auto& active = resolved[index];
+        assert(active.id == combo.id);
+        if (active.activeThresholdIndex < 0)
         {
             continue;
         }
-        auto& threshold = combos[static_cast<int>(ac.id)].thresholds[ac.activeThresholdIdx];
-        for (const auto& effect : threshold.effects)
+        const auto& threshold = combo.thresholds[active.activeThresholdIndex];
+        if (std::ranges::any_of(threshold.effects, [&](const ComboEffect& effect) {
+                return effect.type == effectType;
+            }))
         {
-            if (effect.type == effectType)
-            {
-                return true;
-            }
+            return true;
         }
     }
     return false;
 }
+
+ChessComboGoldBonus resolveChessComboGoldBonus(
+    const ChessSessionState& state,
+    const ChessGameContent& content,
+    const std::set<int>& survivingChessInstanceIds)
+{
+    int maximumSurvivorStar = 0;
+    for (const int instanceId : survivingChessInstanceIds)
+    {
+        maximumSurvivorStar = std::max(maximumSurvivorStar, state.roster.at(instanceId).star);
+    }
+    if (maximumSurvivorStar == 0)
+    {
+        return {};
+    }
+
+    const auto resolved = resolveRosterCombos(state, content);
+    assert(resolved.size() == content.combos().size());
+    for (std::size_t index = 0; index < content.combos().size(); ++index)
+    {
+        const auto& combo = content.combos()[index];
+        const auto& active = resolved[index];
+        assert(active.id == combo.id);
+        if (active.activeThresholdIndex < 0)
+        {
+            continue;
+        }
+        const auto& threshold = combo.thresholds[active.activeThresholdIndex];
+        for (const auto& effect : threshold.effects)
+        {
+            if (effect.type != EffectType::GoldCoefficient)
+            {
+                continue;
+            }
+            const bool comboMemberSurvived = std::ranges::any_of(
+                 survivingChessInstanceIds,
+                 [&](int instanceId) {
+                     return active.memberRoleIds.contains(state.roster.at(instanceId).roleId);
+                 });
+            if (comboMemberSurvived)
+            {
+                return {maximumSurvivorStar * effect.value, combo.id};
+            }
+        }
+    }
+    return {};
+}
+
+int calculateChessComboGoldBonus(
+    const ChessSessionState& state,
+    const ChessGameContent& content,
+    const std::set<int>& survivingChessInstanceIds)
+{
+    return resolveChessComboGoldBonus(state, content, survivingChessInstanceIds).amount;
+}
+
 
 }  // namespace KysChess

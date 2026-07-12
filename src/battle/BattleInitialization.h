@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../ChessBattleEffects.h"
+#include "../BattleStarStats.h"
+#include "ChessComboResolver.h"
 #include "BattleRuntimeUnitSpawn.h"
 
 #include <string>
@@ -100,6 +102,7 @@ struct BattleSetupRosterUnit
 
 struct BattleRuntimeSetupSeed
 {
+    BattleStarGrowthConfig starGrowth;
     std::vector<BattleInitializationUnitSeed> units;
     std::vector<BattleSetupRosterUnit> allyRoster;
     std::vector<BattleSetupRosterUnit> enemyRoster;
@@ -112,6 +115,10 @@ struct BattleRuntimeSetupSeed
     std::vector<BattleInitializationCloneSource> cloneSources;
     std::vector<BattleInitializationCloneSpawnCell> cloneCells;
 };
+
+std::vector<ResolvedChessCombo> resolveBattleSetupCombos(
+    const std::vector<BattleSetupRosterUnit>& roster,
+    const BattleRuntimeSetupSeed& setup);
 
 struct BattleInitializationRoleDelta
 {

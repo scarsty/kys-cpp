@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ChessDiagnostics.h"
+
 #include <compare>
 #include <map>
 #include <span>
@@ -355,10 +357,9 @@ class ChessBattleEffects
 {
 public:
     static const std::map<std::string, EffectType>& getEffectTypeMap();
-    static bool parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context);
-    static bool parseMagicEffects(const YAML::Node& root, std::vector<ChessMagicEffectDefinition>& out, const std::string& context);
-    static bool loadMagicEffectsFile(const std::string& path, std::vector<ChessMagicEffectDefinition>& out);
-    static bool loadDefaultMagicEffectsFile(std::vector<ChessMagicEffectDefinition>& out);
+    static bool parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context, const ChessDiagnosticSink& diagnostics = {});
+    static bool parseMagicEffects(const YAML::Node& root, std::vector<ChessMagicEffectDefinition>& out, const std::string& context, const ChessDiagnosticSink& diagnostics = {});
+    static bool loadMagicEffectsFile(const std::string& path, std::vector<ChessMagicEffectDefinition>& out, const ChessDiagnosticSink& diagnostics = {});
     static RoleComboState makeSummonedCloneState(const RoleComboState& sourceState);
     static void mergeEffects(std::map<int, RoleComboState>& states,
                              const std::vector<ComboEffect>& effects,

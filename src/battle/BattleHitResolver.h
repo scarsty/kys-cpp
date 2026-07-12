@@ -62,6 +62,7 @@ struct BattleHpDamageCommand
     bool triggersDefenseEffects = true;
     int criticalMultiplier{};
     BattleSkillEffectRef skillEffectRef;
+    int skillId = -1;
 };
 
 struct BattleMpDamageCommand

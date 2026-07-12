@@ -32,6 +32,16 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "windows-msvc-x64-headless-debug",
+      "displayName": "Windows MSVC x64 Headless Debug",
+      "inherits": "windows-msvc-x64-debug",
+      "binaryDir": "${sourceDir}/build/windows-msvc-x64-headless-debug",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF",
+        "KYS_BUILD_GAME": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -46,6 +56,15 @@
       "configurePreset": "windows-msvc-x64-release",
       "configuration": "Release",
       "jobs": 0
+    },
+    {
+      "name": "windows-msvc-x64-headless-debug",
+      "configurePreset": "windows-msvc-x64-headless-debug",
+      "configuration": "Debug",
+      "jobs": 0,
+      "targets": [
+        "kys_chess_cli"
+      ]
     }
   ],
   "testPresets": [

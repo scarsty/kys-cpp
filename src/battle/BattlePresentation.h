@@ -77,6 +77,31 @@ enum class BattleLogTextTone
     Negative,
 };
 
+enum class BattleStatusSemanticId
+{
+    None = -1,
+    Frozen = 1,
+    Poison = 2,
+    Bleed = 3,
+    DamageReduceDebuff = 4,
+    MpBlocked = 5,
+    BlockedByInvincible = 6,
+    BlockedByFirstHit = 7,
+    DeathPrevented = 8,
+    ExecuteTriggered = 9,
+};
+
+enum class BattleResourceSemanticId
+{
+    None = -1,
+    HitPoints = 1,
+    MagicPoints = 2,
+    Shield = 3,
+    Cooldown = 4,
+    Attack = 5,
+    Invincibility = 6,
+};
+
 struct BattleLogTextSegment
 {
     std::string text;
@@ -110,6 +135,9 @@ struct BattleLogEvent
     std::vector<BattleLogTextSegment> segments;
     std::string skillName;
     int secondaryAmount = 0;
+    int skillId = -1;
+    BattleStatusSemanticId statusId = BattleStatusSemanticId::None;
+    BattleResourceSemanticId resourceId = BattleResourceSemanticId::None;
 };
 
 enum class BattleGameplayEventType
@@ -138,6 +166,9 @@ struct BattleGameplayEvent
     Pointf position;
     std::string text;
     int otherAttackId = -1;
+    int skillId = -1;
+    BattleStatusSemanticId statusId = BattleStatusSemanticId::None;
+    BattleResourceSemanticId resourceId = BattleResourceSemanticId::None;
 };
 
 struct BattleVisualEvent

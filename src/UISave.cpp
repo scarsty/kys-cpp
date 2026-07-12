@@ -76,15 +76,20 @@ bool UISave::load(int r)
     auto sub_scene = getPointerFromRoot<SubScene>();    //可以知道在不在子场景中
     auto save = Save::getInstance();
     auto main_scene = MainScene::getInstance();
-    if (save->load(r))
-    {
-        ScenePreloader::showPromptAndPreload("加載中...", [targetSubmap = save->InSubMap]() {
+    bool loadSucceeded = false;
+    ScenePreloader::showPromptAndPreload("讀取中...", [save, r, &loadSucceeded]() {
+        loadSucceeded = save->load(r);
+        if (loadSucceeded)
+        {
             ScenePreloader::preloadSubSceneAssets(53);
-            if (targetSubmap >= 0 && targetSubmap != 53)
+            if (save->InSubMap >= 0 && save->InSubMap != 53)
             {
-                ScenePreloader::preloadSubSceneAssets(targetSubmap);
+                ScenePreloader::preloadSubSceneAssets(save->InSubMap);
             }
-        });
+        }
+    });
+    if (loadSucceeded)
+    {
         main_scene->setManPosition(save->MainMapX, save->MainMapY);
         main_scene->setTowards(save->FaceTowards);
         if (save->InSubMap >= 0)

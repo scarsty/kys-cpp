@@ -1,13 +1,10 @@
 #include "ChessBattleEffects.h"
-#include "GameUtil.h"
 #include "battle/BattleEffectRuntimeRegistry.h"
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
 #include <cassert>
-#include <filesystem>
 #include <format>
-#include <print>
 #include <set>
 #include <string_view>
 
@@ -120,16 +117,6 @@ std::span<const RoleComboEffectId> lookupIds(
 {
     const auto it = index.find({ trigger, type });
     return it == index.end() ? asSpan(emptyEffectIds()) : asSpan(it->second);
-}
-
-std::string defaultMagicEffectsConfigPath()
-{
-    const std::string gamePath = GameUtil::PATH() + "config/chess_magic_effects.yaml";
-    if (std::filesystem::exists(gamePath))
-    {
-        return gamePath;
-    }
-    return "config/chess_magic_effects.yaml";
 }
 
 const RoleComboAlwaysSummary* lookupSummary(
@@ -344,18 +331,18 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::DeathMedical: desc = compact ? std::format("死療{}%", eff.value) : std::format("死亡醫療{}%HP", eff.value); break;
     case EffectType::ForcePullProtect: desc = compact ? std::format("保護挪移{}次", eff.value) : std::format("一場{}次隊友低血挪移並保護", eff.value); break;
     case EffectType::ForcePullExecute: desc = compact ? std::format("處決挪移{}次", eff.value) : std::format("一場{}次敵方殘血挪移", eff.value); break;
-    case EffectType::ProjectileBounce: desc = compact ?  std::format("彈道彈射{}次", eff.value) : std::format("彈道{}半径内彈射{}次", eff.value2, eff.value); break;
-    case EffectType::Execute: desc = std::format("斩殺<{}%", eff.value); break;
-    case EffectType::MPBlock: desc = std::format("封内力回復{}幀", eff.value); break;
+    case EffectType::ProjectileBounce: desc = compact ?  std::format("彈道彈射{}次", eff.value) : std::format("彈道{}半徑內彈射{}次", eff.value2, eff.value); break;
+    case EffectType::Execute: desc = std::format("斬殺<{}%", eff.value); break;
+    case EffectType::MPBlock: desc = std::format("封內力回復{}幀", eff.value); break;
     case EffectType::CharmCDRDebuff: desc = std::format("{}%增敵CD{}%", eff.value, eff.value2); break;
     case EffectType::OffensiveCharm: desc = std::format("攻擊傾城{}%", eff.value); break;
     case EffectType::DeathAOE:
         desc = eff.value2 > 0 ? std::format("殉爆{}%最多{}敵", eff.value, eff.value2) : std::format("殉爆{}%", eff.value);
         break;
     case EffectType::ShieldExplosion: desc = "護盾解除"; break;
-    case EffectType::TempFlatATK: desc = compact ? std::format("临时攻+{}", eff.value) : std::format("临时攻击+{}", eff.value); break;
+    case EffectType::TempFlatATK: desc = compact ? std::format("臨時攻+{}", eff.value) : std::format("臨時攻擊+{}", eff.value); break;
     case EffectType::AutoUltimate: desc = "自動絕招"; break;
-    case EffectType::MPRestore: desc = std::format("回内力+{}", eff.value); break;
+    case EffectType::MPRestore: desc = std::format("回內力+{}", eff.value); break;
     case EffectType::ShieldOnAllyDeath: desc = compact ? std::format("每{}友死獲盾", eff.value) : std::format("每{}友死獲盾", eff.value); break;
     case EffectType::DamageImmunityAfterFrames: desc = std::format("每{}幀免傷{}幀", eff.value, eff.value2); break;
     case EffectType::AutoUltimateAfterFrames: desc = std::format("每{}幀自動絕招", eff.value); break;
@@ -826,21 +813,25 @@ RoleComboEffectId BattleEffectState::appendEffect(
     return id;
 }
 
-bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context)
+bool ChessBattleEffects::parseEffect(
+    const YAML::Node& eNode,
+    ComboEffect& out,
+    const std::string& context,
+    const ChessDiagnosticSink& diagnostics)
 {
     auto mark = eNode.Mark();
     auto fail = [&](const std::string& msg) {
-        if (!mark.is_null())
-            std::print("【效果配置】「{}」(第{}行，第{}列) {}\n", context, mark.line + 1, mark.column + 1, msg);
-        else
-            std::print("【效果配置】「{}」{}\n", context, msg);
+        const auto detail = !mark.is_null()
+            ? std::format("「{}」(第{}行，第{}列) {}", context, mark.line + 1, mark.column + 1, msg)
+            : std::format("「{}」{}", context, msg);
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "效果配置", detail);
         return false;
     };
 
     auto readString = [&](const char* key, std::string& dst, bool required) {
         auto node = eNode[key];
         if (!node)
-            return !required ? true : fail(std::format("缺少「{}」字段", key));
+            return !required ? true : fail(std::format("缺少「{}」欄位", key));
         try
         {
             dst = node.as<std::string>();
@@ -848,14 +839,14 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
         }
         catch (const YAML::Exception& ex)
         {
-            return fail(std::format("「{}」字段不是有效字符串: {}", key, ex.what()));
+            return fail(std::format("「{}」欄位不是有效字串: {}", key, ex.what()));
         }
     };
 
     auto readInt = [&](const char* key, int& dst, bool required) {
         auto node = eNode[key];
         if (!node)
-            return !required ? true : fail(std::format("缺少「{}」字段", key));
+            return !required ? true : fail(std::format("缺少「{}」欄位", key));
         try
         {
             dst = node.as<int>();
@@ -863,12 +854,12 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
         }
         catch (const YAML::Exception& ex)
         {
-            return fail(std::format("「{}」字段不是有效整数: {}", key, ex.what()));
+            return fail(std::format("「{}」欄位不是有效整數: {}", key, ex.what()));
         }
     };
 
     if (!eNode || !eNode.IsMap())
-        return fail("效果节点必须是映射表");
+        return fail("效果節點必須是映射表");
 
     try
     {
@@ -880,7 +871,7 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
 
         auto etIt = effectTypeMap.find(typeName);
         if (etIt == effectTypeMap.end())
-            return fail(std::format("效果类型「{}」无法识别", typeName));
+            return fail(std::format("效果類型「{}」無法識別", typeName));
 
         out.type = etIt->second;
         const bool requiresValue = out.type != EffectType::ActAsCombo;
@@ -907,7 +898,7 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
 
             auto trIt = triggerMap.find(trigName);
             if (trIt == triggerMap.end())
-                return fail(std::format("触发类型「{}」无法识别", trigName));
+                return fail(std::format("觸發類型「{}」無法識別", trigName));
 
             out.trigger = trIt->second;
             if (!readInt("触发参数", out.triggerValue, false))
@@ -921,7 +912,7 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
     }
     catch (const YAML::Exception& ex)
     {
-        return fail(std::format("解析效果时发生 YAML 异常: {}", ex.what()));
+        return fail(std::format("解析效果時發生 YAML 異常: {}", ex.what()));
     }
 }
 
@@ -940,16 +931,20 @@ std::vector<ComboEffect> normalizedMagicEffects(const ComboEffect& effect)
     return { effect, debuff };
 }
 
-bool printMagicLoadError(const YAML::Node& node, const std::string& context, const std::string& message)
+bool reportMagicLoadError(
+    const YAML::Node& node,
+    const std::string& context,
+    const std::string& message,
+    const ChessDiagnosticSink& diagnostics)
 {
     const auto mark = node.Mark();
     if (!mark.is_null())
     {
-        std::print("【武功效果】「{}」(第{}行，第{}列) {}\n", context, mark.line + 1, mark.column + 1, message);
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "武功效果", std::format("「{}」(第{}行，第{}列) {}", context, mark.line + 1, mark.column + 1, message));
     }
     else
     {
-        std::print("【武功效果】「{}」{}\n", context, message);
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "武功效果", std::format("「{}」{}", context, message));
     }
     return false;
 }
@@ -959,12 +954,13 @@ bool printMagicLoadError(const YAML::Node& node, const std::string& context, con
 bool ChessBattleEffects::parseMagicEffects(
     const YAML::Node& root,
     std::vector<ChessMagicEffectDefinition>& out,
-    const std::string& context)
+    const std::string& context,
+    const ChessDiagnosticSink& diagnostics)
 {
     out.clear();
     if (!root || !root.IsMap())
     {
-        return printMagicLoadError(root, context, "根節點必須是映射表");
+        return reportMagicLoadError(root, context, "根節點必須是映射表", diagnostics);
     }
 
     if (const auto enabled = root["啟用"])
@@ -978,18 +974,18 @@ bool ChessBattleEffects::parseMagicEffects(
         }
         catch (const YAML::Exception& ex)
         {
-            return printMagicLoadError(enabled, context, std::format("「啟用」欄位不是有效布林值: {}", ex.what()));
+            return reportMagicLoadError(enabled, context, std::format("「啟用」欄位不是有效布林值: {}", ex.what()), diagnostics);
         }
     }
 
     const auto entries = root["武功效果"];
     if (!entries)
     {
-        return printMagicLoadError(root, context, "缺少「武功效果」根節點");
+        return reportMagicLoadError(root, context, "缺少「武功效果」根節點", diagnostics);
     }
     if (!entries.IsSequence())
     {
-        return printMagicLoadError(entries, context, "「武功效果」必須是列表");
+        return reportMagicLoadError(entries, context, "「武功效果」必須是列表", diagnostics);
     }
 
     std::set<int> seenMagicIds;
@@ -997,7 +993,7 @@ bool ChessBattleEffects::parseMagicEffects(
     {
         if (!entryNode || !entryNode.IsMap())
         {
-            return printMagicLoadError(entryNode, context, "武功項目必須是映射表");
+            return reportMagicLoadError(entryNode, context, "武功項目必須是映射表", diagnostics);
         }
 
         ChessMagicEffectDefinition definition;
@@ -1005,7 +1001,7 @@ bool ChessBattleEffects::parseMagicEffects(
         {
             if (!entryNode["武功"])
             {
-                return printMagicLoadError(entryNode, context, "缺少「武功」字段");
+                return reportMagicLoadError(entryNode, context, "缺少「武功」欄位", diagnostics);
             }
             definition.magicId = entryNode["武功"].as<int>();
             if (entryNode["名称"])
@@ -1023,28 +1019,28 @@ bool ChessBattleEffects::parseMagicEffects(
         }
         catch (const YAML::Exception& ex)
         {
-            return printMagicLoadError(entryNode, context, std::format("武功欄位解析失敗: {}", ex.what()));
+            return reportMagicLoadError(entryNode, context, std::format("武功欄位解析失敗: {}", ex.what()), diagnostics);
         }
 
         if (definition.magicId < 0)
         {
-            return printMagicLoadError(entryNode, context, "「武功」必須是非負整數");
+            return reportMagicLoadError(entryNode, context, "「武功」必須是非負整數", diagnostics);
         }
         if (!seenMagicIds.insert(definition.magicId).second)
         {
-            return printMagicLoadError(entryNode, context, std::format("武功 {} 重複定義", definition.magicId));
+            return reportMagicLoadError(entryNode, context, std::format("武功 {} 重複定義", definition.magicId), diagnostics);
         }
 
         const auto effectNodes = entryNode["效果"];
         if (!effectNodes || !effectNodes.IsSequence() || effectNodes.size() == 0)
         {
-            return printMagicLoadError(entryNode, context, std::format("武功 {} 缺少有效「效果」列表", definition.magicId));
+            return reportMagicLoadError(entryNode, context, std::format("武功 {} 缺少有效「效果」列表", definition.magicId), diagnostics);
         }
 
         for (const auto& effectNode : effectNodes)
         {
             ComboEffect parsed;
-            if (!parseEffect(effectNode, parsed, std::format("{}:武功{}", context, definition.magicId)))
+            if (!parseEffect(effectNode, parsed, std::format("{}:武功{}", context, definition.magicId), diagnostics))
             {
                 return false;
             }
@@ -1052,17 +1048,19 @@ bool ChessBattleEffects::parseMagicEffects(
             {
                 if (!Battle::isSelectedSkillMagicAllowed(normalized.type, normalized.trigger))
                 {
-                    return printMagicLoadError(
+                    return reportMagicLoadError(
                         effectNode,
                         context,
-                        std::format("武功 {} 的效果沒有第一階段武功作用域", definition.magicId));
+                        std::format("武功 {} 的效果沒有第一階段武功作用域", definition.magicId),
+                        diagnostics);
                 }
                 if (!Battle::isUltimateOnlyMagicEffect(normalized.type, normalized.trigger))
                 {
-                    return printMagicLoadError(
+                    return reportMagicLoadError(
                         effectNode,
                         context,
-                        std::format("武功 {} 的效果不符合目前只支援絕招武功效果的策略", definition.magicId));
+                        std::format("武功 {} 的效果不符合目前只支援絕招武功效果的策略", definition.magicId),
+                        diagnostics);
                 }
                 definition.effects.push_back(normalized);
             }
@@ -1075,23 +1073,19 @@ bool ChessBattleEffects::parseMagicEffects(
 
 bool ChessBattleEffects::loadMagicEffectsFile(
     const std::string& path,
-    std::vector<ChessMagicEffectDefinition>& out)
+    std::vector<ChessMagicEffectDefinition>& out,
+    const ChessDiagnosticSink& diagnostics)
 {
     try
     {
-        return parseMagicEffects(YAML::LoadFile(path), out, path);
+        return parseMagicEffects(YAML::LoadFile(path), out, path, diagnostics);
     }
     catch (const YAML::Exception& ex)
     {
-        std::print("【武功效果】讀取「{}」失敗: {}\n", path, ex.what());
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "武功效果", std::format("讀取「{}」失敗: {}", path, ex.what()));
         out.clear();
         return false;
     }
-}
-
-bool ChessBattleEffects::loadDefaultMagicEffectsFile(std::vector<ChessMagicEffectDefinition>& out)
-{
-    return loadMagicEffectsFile(defaultMagicEffectsConfigPath(), out);
 }
 
 RoleComboState ChessBattleEffects::makeSummonedCloneState(const RoleComboState& sourceState)

@@ -233,6 +233,9 @@ void checkGameplayEventEquals(const BattleGameplayEvent& lhs, const BattleGamepl
     CHECK(lhs.targetUnitId == rhs.targetUnitId);
     CHECK(lhs.amount == rhs.amount);
     CHECK(lhs.effectId == rhs.effectId);
+    CHECK(lhs.skillId == rhs.skillId);
+    CHECK(lhs.statusId == rhs.statusId);
+    CHECK(lhs.resourceId == rhs.resourceId);
     checkPoint(lhs.position, rhs.position);
     CHECK(lhs.text == rhs.text);
     CHECK(lhs.otherAttackId == rhs.otherAttackId);
@@ -272,6 +275,9 @@ void checkLogEventEquals(const BattleLogEvent& lhs, const BattleLogEvent& rhs)
     CHECK(lhs.category == rhs.category);
     CHECK(BattleLogTest::joinSegments(lhs.segments) == BattleLogTest::joinSegments(rhs.segments));
     CHECK(lhs.skillName == rhs.skillName);
+    CHECK(lhs.skillId == rhs.skillId);
+    CHECK(lhs.statusId == rhs.statusId);
+    CHECK(lhs.resourceId == rhs.resourceId);
 }
 
 void checkResultEquals(const BattleCastResult& lhs, const BattleCastResult& rhs)
@@ -483,12 +489,14 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsResourceDeltasTimingAndEvents", 
     CHECK(result.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
     CHECK(result.gameplayEvents[0].sourceUnitId == 1);
     CHECK(result.gameplayEvents[0].targetUnitId == 2);
+    CHECK(result.gameplayEvents[0].skillId == 106);
     REQUIRE(result.logEvents.size() == 1);
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
     CHECK(result.logEvents[0].sourceUnitId == 1);
     CHECK(result.logEvents[0].targetUnitId == 2);
     CHECK(BattleLogTest::textOf(result.logEvents[0]) == "施放野球拳");
     CHECK(result.logEvents[0].skillName == "野球拳");
+    CHECK(result.logEvents[0].skillId == 106);
     REQUIRE(result.visualEvents.size() == 1);
     CHECK(result.visualEvents[0].type == BattleVisualEventType::RoleEffect);
     CHECK(result.visualEvents[0].targetUnitId == 1);
@@ -769,6 +777,31 @@ TEST_CASE("BattleCastSystem_ExtraProjectilesPreferAlternateSpreadTargets", "[bat
     CHECK(result.attackSpawnRequests[2].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
     CHECK(result.attackSpawnRequests[2].initial.preferredTargetUnitId == 4);
     CHECK(result.attackSpawnRequests[2].initial.requirePreferredTarget);
+}
+
+TEST_CASE("BattleCastSystem_AlternateSpreadTargetsBreakEqualGeometryByUnitId", "[battle][cast][determinism]")
+{
+    auto input = basicInput();
+    input.unit.mp = input.unit.maxMp;
+    input.ultimateSkill = skill(230, 1, 400.0);
+    input.ultimateSkill.selectDistance = 4;
+    input.ultimateSkill.extraProjectileCount = 2;
+    input.targetUnitId = 2;
+    input.targetPosition = { 82.0f, 20.0f, 0.0f };
+    input.targetDistance = 72.0;
+    input.projectileSpreadTargets = {
+        { 9, { 82.0f, 56.0f, 0.0f } },
+        { 4, { 82.0f, 56.0f, 0.0f } },
+    };
+
+    const auto result = BattleCastPlanner().commitSelectedCast(
+        input,
+        true,
+        BattleOperationType::RangedProjectile);
+
+    REQUIRE(result.attackSpawnRequests.size() == 6);
+    CHECK(result.attackSpawnRequests[1].initial.preferredTargetUnitId == 4);
+    CHECK(result.attackSpawnRequests[2].initial.preferredTargetUnitId == 9);
 }
 
 TEST_CASE("BattleCastSystem_RangedAreaCastEmitsSideProjectiles", "[battle][cast]")

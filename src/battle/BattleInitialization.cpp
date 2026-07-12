@@ -1,5 +1,6 @@
 #include "BattleInitialization.h"
 
+#include "ChessComboResolver.h"
 #include "BattleLogSegments.h"
 #include "../BattleStarStats.h"
 #include "../ChessBattleEffects.h"
@@ -21,16 +22,6 @@ namespace KysChess::Battle
 
 namespace
 {
-
-struct ActiveSetupCombo
-{
-    int id = -1;
-    int memberCount = 0;
-    int physicalMemberCount = 0;
-    int activeThresholdIdx = -1;
-    bool isAntiCombo = false;
-    std::set<int> memberRoleIds;
-};
 
 struct TeamResolvedSetup
 {
@@ -92,137 +83,75 @@ bool equipmentSynergyActive(
     return std::find(synergy.roleIds.begin(), synergy.roleIds.end(), roleId) != synergy.roleIds.end();
 }
 
-std::vector<std::string> collectActAsComboNames(
-    const BattleRuntimeSetupSeed& setup,
-    const BattleSetupRosterUnit& unit)
+std::vector<ChessComboResolverUnit> comboResolverUnits(
+    const std::vector<BattleSetupRosterUnit>& roster)
 {
-    std::vector<std::string> names;
-
-    auto appendEquipmentActAs = [&](int itemId)
+    std::vector<ChessComboResolverUnit> result;
+    result.reserve(roster.size());
+    for (const auto& unit : roster)
     {
-        const auto* definition = tryFindBy(setup.equipmentDefinitions, itemId, &BattleSetupEquipmentDefinition::itemId);
-        if (!definition)
-        {
-            return;
-        }
-        names.insert(names.end(), definition->actAsComboNames.begin(), definition->actAsComboNames.end());
-    };
-
-    appendEquipmentActAs(unit.weaponId);
-    appendEquipmentActAs(unit.armorId);
-
-    for (const auto& synergy : setup.equipmentSynergies)
-    {
-        if (!equipmentSynergyActive(synergy, unit.realRoleId, unit.weaponId, unit.armorId))
-        {
-            continue;
-        }
-
-        names.insert(names.end(), synergy.actAsComboNames.begin(), synergy.actAsComboNames.end());
+        result.push_back({
+            unit.realRoleId,
+            unit.star,
+            unit.cost,
+            unit.weaponId,
+            unit.armorId,
+        });
     }
-
-    return names;
+    return result;
 }
 
-std::vector<ActiveSetupCombo> detectCombos(
+std::vector<ChessComboResolverEquipmentRule> comboResolverEquipmentRules(
+    const BattleRuntimeSetupSeed& setup)
+{
+    std::vector<ChessComboResolverEquipmentRule> result;
+    for (const auto& equipment : setup.equipmentDefinitions)
+    {
+        if (!equipment.actAsComboNames.empty())
+        {
+            result.push_back({equipment.itemId, {}, equipment.actAsComboNames});
+        }
+    }
+    for (const auto& synergy : setup.equipmentSynergies)
+    {
+        if (!synergy.actAsComboNames.empty())
+        {
+            result.push_back({synergy.equipmentId, synergy.roleIds, synergy.actAsComboNames});
+        }
+    }
+    return result;
+}
+
+std::vector<ChessComboResolverDefinition> comboResolverDefinitions(
+    const BattleRuntimeSetupSeed& setup)
+{
+    std::vector<ChessComboResolverDefinition> result;
+    result.reserve(setup.comboDefinitions.size());
+    for (const auto& combo : setup.comboDefinitions)
+    {
+        ChessComboResolverDefinition definition;
+        definition.id = combo.id;
+        definition.name = combo.name;
+        definition.memberRoleIds = combo.memberRoleIds;
+        definition.isAntiCombo = combo.isAntiCombo;
+        definition.starSynergyBonus = combo.starSynergyBonus;
+        for (const auto& threshold : combo.thresholds)
+        {
+            definition.thresholdCounts.push_back(threshold.count);
+        }
+        result.push_back(std::move(definition));
+    }
+    return result;
+}
+
+std::vector<ResolvedChessCombo> resolveBattleSetupCombosImpl(
     const std::vector<BattleSetupRosterUnit>& roster,
     const BattleRuntimeSetupSeed& setup)
 {
-    std::map<int, int> starByRole;
-    std::map<int, int> costByRole;
-    std::map<std::string, std::set<int>> actAsByComboName;
-    for (const auto& unit : roster)
-    {
-        starByRole[unit.realRoleId] = unit.star;
-        costByRole[unit.realRoleId] = unit.cost;
-        for (const auto& comboName : collectActAsComboNames(setup, unit))
-        {
-            actAsByComboName[comboName].insert(unit.realRoleId);
-        }
-    }
-
-    std::vector<ActiveSetupCombo> result;
-    for (const auto& combo : setup.comboDefinitions)
-    {
-        ActiveSetupCombo active;
-        active.id = combo.id;
-
-        auto addMember = [&](int roleId)
-        {
-            if (!starByRole.contains(roleId))
-            {
-                return;
-            }
-            if (active.memberRoleIds.insert(roleId).second)
-            {
-                active.memberCount++;
-            }
-        };
-
-        for (int roleId : combo.memberRoleIds)
-        {
-            addMember(roleId);
-        }
-        if (const auto actAsIt = actAsByComboName.find(combo.name); actAsIt != actAsByComboName.end())
-        {
-            for (int roleId : actAsIt->second)
-            {
-                addMember(roleId);
-            }
-        }
-        if (active.memberCount == 0)
-        {
-            continue;
-        }
-
-        active.physicalMemberCount = active.memberCount;
-        if (combo.starSynergyBonus)
-        {
-            for (int roleId : active.memberRoleIds)
-            {
-                active.memberCount += starByRole[roleId] - 1;
-            }
-        }
-
-        if (combo.isAntiCombo)
-        {
-            int bestRoleId = -1;
-            int bestCost = -1;
-            for (int roleId : active.memberRoleIds)
-            {
-                const int cost = costByRole.contains(roleId) ? costByRole[roleId] : -1;
-                if (cost > bestCost)
-                {
-                    bestCost = cost;
-                    bestRoleId = roleId;
-                }
-            }
-            active.memberRoleIds.clear();
-            if (bestRoleId >= 0)
-            {
-                active.memberRoleIds.insert(bestRoleId);
-                active.memberCount = 1;
-                active.physicalMemberCount = 1;
-                active.isAntiCombo = true;
-                active.activeThresholdIdx = 0;
-            }
-        }
-        else
-        {
-            for (int thresholdIndex = static_cast<int>(combo.thresholds.size()) - 1; thresholdIndex >= 0; --thresholdIndex)
-            {
-                if (active.memberCount >= combo.thresholds[thresholdIndex].count)
-                {
-                    active.activeThresholdIdx = thresholdIndex;
-                    break;
-                }
-            }
-        }
-
-        result.push_back(std::move(active));
-    }
-
-    return result;
+    return resolveChessCombos(
+        comboResolverUnits(roster),
+        comboResolverEquipmentRules(setup),
+        comboResolverDefinitions(setup));
 }
 
 TeamResolvedSetup resolveTeamSetup(
@@ -230,15 +159,15 @@ TeamResolvedSetup resolveTeamSetup(
     const BattleRuntimeSetupSeed& setup)
 {
     TeamResolvedSetup resolved;
-    for (const auto& active : detectCombos(roster, setup))
+    for (const auto& active : resolveBattleSetupCombosImpl(roster, setup))
     {
-        if (active.activeThresholdIdx < 0)
+        if (active.activeThresholdIndex < 0)
         {
             continue;
         }
 
         const auto& comboDefinition = requireById(setup.comboDefinitions, active.id);
-        const auto& threshold = comboDefinition.thresholds[active.activeThresholdIdx];
+        const auto& threshold = comboDefinition.thresholds[active.activeThresholdIndex];
 
         for (int roleId : active.memberRoleIds)
         {
@@ -721,6 +650,7 @@ void BattleStartInitializationRun::initializeSeededUnits()
                 seed.baseUnusual,
                 seed.baseHiddenWeapon,
             },
+            setup_.starGrowth,
             normalizedStar,
             fightsWon,
             extraFightWinGrowthHP,
@@ -1011,6 +941,13 @@ void BattleStartInitializationRun::appendSeededRoleDeltas()
 }
 
 }  // namespace
+
+std::vector<ResolvedChessCombo> resolveBattleSetupCombos(
+    const std::vector<BattleSetupRosterUnit>& roster,
+    const BattleRuntimeSetupSeed& setup)
+{
+    return resolveBattleSetupCombosImpl(roster, setup);
+}
 
 BattleStartInitializer::BattleStartInitializer(
     std::vector<BattleRuntimeUnitSpawn> spawns,

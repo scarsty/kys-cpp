@@ -1,12 +1,15 @@
 #pragma once
 
 #include "ChessBattleEffects.h"
-#include "Color.h"
+#include "ChessDiagnostics.h"
+#include "Types.h"
 
 #include <array>
 #include <map>
 #include <string>
 #include <vector>
+#include <functional>
+#include <span>
 namespace KysChess
 {
 
@@ -26,17 +29,12 @@ struct NeigongConfig
     std::map<int, std::vector<int>> tiersByBoss;
 };
 
-class ChessNeigong
-{
-public:
-    static const NeigongConfig& config();
-    static const std::vector<NeigongDef>& getPool();
-    static Color GetTierColor(int tier);
-
-private:
-    static inline NeigongConfig config_;
-    static inline std::vector<NeigongDef> pool_;
-    static inline bool configLoaded_ = false;
-};
+bool loadChessNeigong(
+    const std::string& path,
+    std::span<Item* const> items,
+    const std::function<const Magic*(int)>& findMagic,
+    const ChessDiagnosticSink& diagnostics,
+    NeigongConfig& config,
+    std::vector<NeigongDef>& pool);
 
 }    // namespace KysChess

@@ -40,21 +40,21 @@ work/game-dev/resource/smap.atlas.json
 
 ## pack_chess_smap_zip.py
 
-根据棋局模式实际会用到的资源，打包更小的 `smap.zip`。脚本会扫描 `DynamicChessMap.cpp` 里的动态战斗地图，读取 `warfld.idx` / `warfld.grp` 的战场层数据，并合并主场景 `53` 的地形与事件资源，最后把需要的贴图和 `index.ka` 写入一个 zip。
+根據棋局模式實際會用到的資源，打包更小的 `smap.zip`。腳本會從 `ChessBattleMapCatalog.cpp` 讀取策劃過的戰鬥 ID，再由 `war.sta` 解析其戰場 ID，讀取 `warfld.idx` / `warfld.grp` 的戰場圖層資料，並合併主場景 `53` 的地形與事件資源，最後把需要的貼圖和 `index.ka` 寫入一個 zip。
 
-默认用法：
+預設用法：
 
 ```bash
 python tools/pack_chess_smap_zip.py
 ```
 
-默认输出：
+預設輸出：
 
 ```text
 work/game-dev/resource/smap.chess-battle.zip
 ```
 
-如果要直接替换运行时读取的包，可以把输出路径改成 `work/game-dev/resource/smap.zip`。
+如果要直接替換執行時讀取的套件，可以把輸出路徑改成 `work/game-dev/resource/smap.zip`。若要檢查另一份目錄，可用 `--battle-map-catalog` 指定對應的 `ChessBattleMapCatalog.cpp`。
 
 
 ## convert_index_ka_to_txt.py
