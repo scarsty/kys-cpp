@@ -611,7 +611,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         if (input.attackEvent.scriptedStunFrames > 0 || input.attackEvent.scriptedBleedStacks > 0)
         {
             BattleDamageRequest request;
-            request.frozenFrames = input.attackEvent.scriptedStunFrames;
+            request.stunFrames = input.attackEvent.scriptedStunFrames;
             request.bleedStacks = input.attackEvent.scriptedBleedStacks;
             request.bleedMaxStacks = input.attackEvent.scriptedBleedStacks > 0
                 ? input.sharedBleedMaxStacks
@@ -677,7 +677,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     if (shaped.frozenFrames > 0)
     {
         BattleDamageRequest request;
-        request.frozenFrames = shaped.frozenFrames;
+        request.hitstunFrames = shaped.frozenFrames;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
     }
 
@@ -763,10 +763,14 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         request.poisonPct = poison.pct;
         request.poisonDurationFrames = poison.durationFrames;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-        result.logEvents.push_back(statusEvent(
+        auto poisonLog = statusEvent(
             input.attacker.id,
             input.defender.id,
-            formatStatusPercentFrames("中毒", poison.pct, poison.durationFrames)));
+            formatStatusPercentFrames("中毒", poison.pct, poison.durationFrames));
+        poisonLog.statusId = BattleStatusSemanticId::PoisonPayload;
+        poisonLog.amount = poison.pct;
+        poisonLog.secondaryAmount = poison.durationFrames / 30;
+        result.logEvents.push_back(std::move(poisonLog));
     }
 
     const bool offensiveControlEffectsAllowed = input.attackEvent.mainProjectile;
@@ -786,7 +790,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     if (alwaysStunFrames > 0)
     {
         BattleDamageRequest request;
-        request.frozenFrames = alwaysStunFrames;
+        request.stunFrames = alwaysStunFrames;
         result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
         result.logEvents.push_back(statusEvent(
             input.attacker.id,
@@ -805,7 +809,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         for (const auto& event : hitStunEvents)
         {
             BattleDamageRequest request;
-            request.frozenFrames = event.effect.value;
+            request.stunFrames = event.effect.value;
             result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
             result.logEvents.push_back(statusEvent(
                 input.attacker.id,
@@ -834,10 +838,14 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 static_cast<double>(distance),
                 frames,
             });
-            result.logEvents.push_back(statusEvent(
+            auto knockbackLog = statusEvent(
                 input.attacker.id,
                 input.defender.id,
-                std::format("擊退（{}距離·{}幀）", distance, frames)));
+                std::format("擊退（{}距離·{}幀）", distance, frames));
+            knockbackLog.statusId = BattleStatusSemanticId::Knockback;
+            knockbackLog.amount = distance;
+            knockbackLog.secondaryAmount = frames;
+            result.logEvents.push_back(std::move(knockbackLog));
         }
     }
 
@@ -952,7 +960,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     for (const auto& event : beingHitStunEvents)
     {
         BattleDamageRequest request;
-        request.frozenFrames = event.effect.value;
+        request.stunFrames = event.effect.value;
         result.commands.push_back(acceptedHitCommand(input.defender.id, input.attacker.id, request));
         result.logEvents.push_back(statusEvent(
             input.defender.id,
@@ -1163,7 +1171,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             BattleDamageRequest request;
             request.mpDamage = damage;
             request.mpOnHit = static_cast<int>(damage * 0.8);
-            request.frozenFrames = !result.reflected ? impactFrozenFrames : 0;
+            request.hitstunFrames = !result.reflected ? impactFrozenFrames : 0;
             const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
             const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;
             result.commands.push_back(BattleMpDamageCommand{

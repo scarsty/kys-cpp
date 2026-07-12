@@ -2,6 +2,69 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
+
+QueuedSdlEvent::QueuedSdlEvent(const SDL_Event& event) :
+    event_(event)
+{
+    switch (event_.type)
+    {
+    case SDL_EVENT_TEXT_EDITING:
+        event_.edit.text = copyString(event_.edit.text);
+        break;
+    case SDL_EVENT_TEXT_EDITING_CANDIDATES:
+        event_.edit_candidates.candidates = copyStringList(
+            event_.edit_candidates.candidates,
+            event_.edit_candidates.num_candidates);
+        break;
+    case SDL_EVENT_TEXT_INPUT:
+        event_.text.text = copyString(event_.text.text);
+        break;
+    case SDL_EVENT_DROP_BEGIN:
+    case SDL_EVENT_DROP_FILE:
+    case SDL_EVENT_DROP_TEXT:
+    case SDL_EVENT_DROP_COMPLETE:
+    case SDL_EVENT_DROP_POSITION:
+        event_.drop.source = copyString(event_.drop.source);
+        event_.drop.data = copyString(event_.drop.data);
+        break;
+    case SDL_EVENT_CLIPBOARD_UPDATE:
+        event_.clipboard.mime_types = copyStringList(
+            event_.clipboard.mime_types,
+            event_.clipboard.num_mime_types);
+        break;
+    default:
+        break;
+    }
+}
+
+const char* QueuedSdlEvent::copyString(const char* source)
+{
+    if (!source)
+    {
+        return nullptr;
+    }
+    const auto size = std::strlen(source) + 1;
+    auto copy = std::make_unique<char[]>(size);
+    std::memcpy(copy.get(), source, size);
+    const auto* result = copy.get();
+    strings_.push_back(std::move(copy));
+    return result;
+}
+
+const char** QueuedSdlEvent::copyStringList(const char* const* source, int count)
+{
+    if (!source)
+    {
+        return nullptr;
+    }
+    stringList_ = std::make_unique<const char*[]>(count);
+    for (int i = 0; i < count; ++i)
+    {
+        stringList_[i] = copyString(source[i]);
+    }
+    return stringList_.get();
+}
 
 PresentGeometrySnapshot computePresentLayout(const PresentLayoutInput& input, std::uint64_t revision)
 {
@@ -208,7 +271,7 @@ void PointerInput::pumpSdlEvents()
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
-        pending_.push_back(event);
+        pending_.emplace_back(event);
     }
 }
 
@@ -232,13 +295,13 @@ bool PointerInput::isPointerEventType(std::uint32_t type)
 
 bool PointerInput::frontIsPointer() const
 {
-    return !pending_.empty() && isPointerEventType(pending_.front().type);
+    return !pending_.empty() && isPointerEventType(pending_.front().event().type);
 }
 
-SDL_Event PointerInput::popPending()
+QueuedSdlEvent PointerInput::popPending()
 {
     assert(!pending_.empty());
-    const auto event = pending_.front();
+    auto event = std::move(pending_.front());
     pending_.pop_front();
     return event;
 }

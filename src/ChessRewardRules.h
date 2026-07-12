@@ -7,6 +7,10 @@
 namespace KysChess
 {
 
+std::string chessChallengeRewardDescription(
+    const ChessGameContent& content,
+    const BalanceConfig::ChallengeReward& reward);
+
 class ChessRewardRules
 {
 public:

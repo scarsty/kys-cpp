@@ -38,7 +38,7 @@ struct ActionDto
     std::optional<int> first_unit_id;
     std::optional<int> second_unit_id;
     std::optional<std::string> reward_id;
-    std::optional<std::string> challenge_id;
+    std::optional<std::string> challenge_name;
 };
 
 struct HeaderDto
@@ -154,72 +154,92 @@ ActionDto actionDto(const ChessAction& action)
         dto.second_unit_id = action.targetChessInstanceId;
         break;
     case ChessActionType::ChooseReward: dto.reward_id = action.rewardId; break;
-    case ChessActionType::StartChallenge: dto.challenge_id = action.challengeId; break;
+    case ChessActionType::StartChallenge: dto.challenge_name = action.challengeName; break;
     default: break;
     }
     return dto;
 }
 
-std::optional<ChessAction> actionFromDto(const ActionDto& dto)
+std::optional<ChessAction> actionFromDto(const ActionDto& dto, std::string* error = nullptr)
 {
     const auto type = chessActionTypeFromId(dto.type);
     if (!type)
     {
+        if (error)
+        {
+            *error = dto.type.empty()
+                ? "缺少操作 type"
+                : std::format("未知操作 type：{}", dto.type);
+        }
         return std::nullopt;
     }
+    const auto require = [&](bool present, std::string_view field, std::string_view typeName) {
+        if (!present && error)
+        {
+            *error = std::format(
+                "操作 {} 缺少必要欄位 {}（{}）。範例：{}",
+                dto.type,
+                field,
+                typeName,
+                chessActionExampleJson(*type));
+        }
+        return present;
+    };
     ChessAction action;
     action.type = *type;
     switch (*type)
     {
     case ChessActionType::BuyShopSlot:
-        if (!dto.slot) return std::nullopt;
+        if (!require(dto.slot.has_value(), "slot", "整數")) return std::nullopt;
         action.shopSlot = *dto.slot;
         break;
     case ChessActionType::SetShopLocked:
-        if (!dto.locked) return std::nullopt;
+        if (!require(dto.locked.has_value(), "locked", "布林值")) return std::nullopt;
         action.value = *dto.locked;
         break;
     case ChessActionType::SellChess:
-        if (!dto.chess_instance_id) return std::nullopt;
+        if (!require(dto.chess_instance_id.has_value(), "chess_instance_id", "整數")) return std::nullopt;
         action.chessInstanceId = *dto.chess_instance_id;
         break;
     case ChessActionType::SetDeployment:
-        if (!dto.chess_instance_ids) return std::nullopt;
+        if (!require(dto.chess_instance_ids.has_value(), "chess_instance_ids", "整數陣列")) return std::nullopt;
         action.chessInstanceIds = *dto.chess_instance_ids;
         break;
     case ChessActionType::AddBan:
-        if (!dto.role_id) return std::nullopt;
+        if (!require(dto.role_id.has_value(), "role_id", "整數")) return std::nullopt;
         action.roleId = *dto.role_id;
         break;
     case ChessActionType::Equip:
-        if (!dto.equipment_instance_id || !dto.target_chess_instance_id) return std::nullopt;
+        if (!require(dto.equipment_instance_id.has_value(), "equipment_instance_id", "整數")
+            || !require(dto.target_chess_instance_id.has_value(), "target_chess_instance_id", "整數")) return std::nullopt;
         action.equipmentInstanceId = *dto.equipment_instance_id;
         action.targetChessInstanceId = *dto.target_chess_instance_id;
         break;
     case ChessActionType::BuyLegendaryEquipment:
-        if (!dto.item_id) return std::nullopt;
+        if (!require(dto.item_id.has_value(), "item_id", "整數")) return std::nullopt;
         action.itemId = *dto.item_id;
         break;
     case ChessActionType::SetPositionSwapEnabled:
-        if (!dto.enabled) return std::nullopt;
+        if (!require(dto.enabled.has_value(), "enabled", "布林值")) return std::nullopt;
         action.value = *dto.enabled;
         break;
     case ChessActionType::ChooseMap:
-        if (!dto.map_id) return std::nullopt;
+        if (!require(dto.map_id.has_value(), "map_id", "整數")) return std::nullopt;
         action.mapId = *dto.map_id;
         break;
     case ChessActionType::SwapPositions:
-        if (!dto.first_unit_id || !dto.second_unit_id) return std::nullopt;
+        if (!require(dto.first_unit_id.has_value(), "first_unit_id", "整數")
+            || !require(dto.second_unit_id.has_value(), "second_unit_id", "整數")) return std::nullopt;
         action.chessInstanceId = *dto.first_unit_id;
         action.targetChessInstanceId = *dto.second_unit_id;
         break;
     case ChessActionType::ChooseReward:
-        if (!dto.reward_id) return std::nullopt;
+        if (!require(dto.reward_id.has_value(), "reward_id", "字串")) return std::nullopt;
         action.rewardId = *dto.reward_id;
         break;
     case ChessActionType::StartChallenge:
-        if (!dto.challenge_id) return std::nullopt;
-        action.challengeId = *dto.challenge_id;
+        if (!require(dto.challenge_name.has_value(), "challenge_name", "字串")) return std::nullopt;
+        action.challengeName = *dto.challenge_name;
         break;
     default: break;
     }
@@ -312,6 +332,67 @@ std::optional<ChessAction> parseChessActionJson(std::string_view json)
 {
     const auto dto = readLine<ReplayJsonDetail::ActionDto>(json);
     return dto ? actionFromDto(*dto) : std::nullopt;
+}
+
+std::optional<ChessAction> parseChessActionJson(std::string_view json, std::string& error)
+{
+    const auto dto = readLine<ReplayJsonDetail::ActionDto>(json);
+    if (!dto)
+    {
+        error = "操作不是有效 JSON 物件";
+        return std::nullopt;
+    }
+    return actionFromDto(*dto, &error);
+}
+
+std::string chessActionPayloadSchema(ChessActionType type)
+{
+    switch (type)
+    {
+    case ChessActionType::BuyShopSlot: return R"({"type":"buy_shop_slot","slot":"整數"})";
+    case ChessActionType::SetShopLocked: return R"({"type":"set_shop_locked","locked":"布林值"})";
+    case ChessActionType::SellChess: return R"({"type":"sell_chess","chess_instance_id":"整數"})";
+    case ChessActionType::SetDeployment: return R"({"type":"set_deployment","chess_instance_ids":"整數陣列"})";
+    case ChessActionType::AddBan: return R"({"type":"add_ban","role_id":"整數"})";
+    case ChessActionType::Equip: return R"({"type":"equip","equipment_instance_id":"整數","target_chess_instance_id":"整數"})";
+    case ChessActionType::BuyLegendaryEquipment: return R"({"type":"buy_legendary_equipment","item_id":"整數"})";
+    case ChessActionType::SetPositionSwapEnabled: return R"({"type":"set_position_swap_enabled","enabled":"布林值"})";
+    case ChessActionType::ChooseMap: return R"({"type":"choose_map","map_id":"整數"})";
+    case ChessActionType::SwapPositions: return R"({"type":"swap_positions","first_unit_id":"整數","second_unit_id":"整數"})";
+    case ChessActionType::ChooseReward: return R"({"type":"choose_reward","reward_id":"字串"})";
+    case ChessActionType::StartChallenge: return R"({"type":"start_challenge","challenge_name":"字串"})";
+    default:
+        return std::format(R"({{"type":"{}"}})", chessActionTypeId(type));
+    }
+}
+
+std::string chessActionExampleJson(ChessActionType type)
+{
+    ChessAction action;
+    action.type = type;
+    switch (type)
+    {
+    case ChessActionType::BuyShopSlot: action.shopSlot = 0; break;
+    case ChessActionType::SetShopLocked: action.value = true; break;
+    case ChessActionType::SellChess: action.chessInstanceId = 1; break;
+    case ChessActionType::SetDeployment: action.chessInstanceIds = {1, 2}; break;
+    case ChessActionType::AddBan: action.roleId = 610; break;
+    case ChessActionType::Equip:
+        action.equipmentInstanceId = 1;
+        action.targetChessInstanceId = 1;
+        break;
+    case ChessActionType::BuyLegendaryEquipment: action.itemId = 47; break;
+    case ChessActionType::SetPositionSwapEnabled: action.value = true; break;
+    case ChessActionType::ChooseMap: action.mapId = 1; break;
+    case ChessActionType::SwapPositions:
+        action.chessInstanceId = 1;
+        action.targetChessInstanceId = 2;
+        break;
+    case ChessActionType::ChooseReward: action.rewardId = "equipment:47"; break;
+    case ChessActionType::StartChallenge: action.challengeName = "聚賢莊內"; break;
+    default: break;
+    }
+    return serializeChessActionJson(action);
 }
 
 std::string serializeChessReplayJsonl(const ChessReplay& replay)

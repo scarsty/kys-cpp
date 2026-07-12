@@ -2,6 +2,7 @@
 
 #include "ChessGameContent.h"
 #include "ChessManagementRules.h"
+#include "ChessRewardRules.h"
 #include "ChessScreenLayout.h"
 
 #include <algorithm>
@@ -60,7 +61,7 @@ inline ChessMenuPresentation chessRewardMenuPresentation(
     {
         return kChessCompactMenuPresentation;
     }
-    if (!pending.challengeId.empty())
+    if (!pending.challengeName.empty())
     {
         if (pending.kind == ChessRewardKind::InternalSkill)
         {
@@ -650,35 +651,6 @@ inline std::string chessVictoryComboBonusText(
     return std::format("({}+${})", source ? source->name : "羈絆", bonus);
 }
 
-inline std::string chessChallengeRewardDescription(
-    const ChessGameContent& content,
-    const BalanceConfig::ChallengeReward& reward)
-{
-    using Type = BalanceConfig::ChallengeRewardType;
-    switch (reward.type)
-    {
-    case Type::Gold:
-        return std::format("獲取{}金幣", reward.value);
-    case Type::GetPiece:
-        return std::format("獲取棋子(最高{}費)", reward.value);
-    case Type::GetNeigong:
-        return std::format("獲取內功(最高{}階)", reward.value);
-    case Type::StarUp1to2:
-        return std::format("升星★→★★(最高{}費)", reward.value);
-    case Type::StarUp2to3:
-        return std::format("升星★★→★★★(最高{}費)", reward.value);
-    case Type::GetEquipment:
-        return std::format("獲取裝備(最高{}階)", reward.value);
-    case Type::GetSpecificEquipment:
-        if (const auto* item = content.item(reward.value))
-        {
-            return std::format("獲取指定裝備: {}", item->name);
-        }
-        return "獲取指定裝備";
-    }
-    std::unreachable();
-}
-
 inline const char* chessChallengeCompletionLabel(bool completed)
 {
     return completed ? "[已通關]" : "";
@@ -689,15 +661,15 @@ inline Color chessChallengeMenuRowColor(bool completed)
     return completed ? Color{120, 120, 120, 255} : Color{255, 200, 100, 255};
 }
 
-inline std::vector<std::string> chessChallengeBrowseIds(const ChessGameContent& content)
+inline std::vector<std::string> chessChallengeBrowseNames(const ChessGameContent& content)
 {
-    std::vector<std::string> ids;
-    ids.reserve(content.balance().challenges.size());
+    std::vector<std::string> names;
+    names.reserve(content.balance().challenges.size());
     for (const auto& challenge : content.balance().challenges)
     {
-        ids.push_back(challenge.id);
+        names.push_back(challenge.name);
     }
-    return ids;
+    return names;
 }
 
 inline std::string chessChallengeEnemyDescription(

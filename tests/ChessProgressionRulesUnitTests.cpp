@@ -247,12 +247,12 @@ TEST_CASE("challenge rewards filter unavailable choices and complete only after 
     data.roles.emplace(role.ID, role);
     data.poolRoleIds = {role.ID};
     BalanceConfig::ChallengeDef challenge;
-    challenge.id = "availability";
+    challenge.name = "可用性";
     challenge.rewards = {
-        {"piece", BalanceConfig::ChallengeRewardType::GetPiece, 1},
-        {"neigong", BalanceConfig::ChallengeRewardType::GetNeigong, 1},
-        {"star", BalanceConfig::ChallengeRewardType::StarUp1to2, 1},
-        {"gold", BalanceConfig::ChallengeRewardType::Gold, 5},
+        {BalanceConfig::ChallengeRewardType::GetPiece, 1},
+        {BalanceConfig::ChallengeRewardType::GetNeigong, 1},
+        {BalanceConfig::ChallengeRewardType::StarUp1to2, 1},
+        {BalanceConfig::ChallengeRewardType::Gold, 5},
     };
     ChessGameContent content(std::move(data));
     ChessSessionState state;
@@ -263,16 +263,16 @@ TEST_CASE("challenge rewards filter unavailable choices and complete only after 
 
     REQUIRE(state.pendingRewards.size() == 1);
     REQUIRE(state.pendingRewards.front().options.size() == 1);
-    CHECK(state.pendingRewards.front().options.front().id == "gold");
-    CHECK_FALSE(state.completedChallengeIds.contains(challenge.id));
+    CHECK(state.pendingRewards.front().options.front().id == "獲取5金幣");
+    CHECK_FALSE(state.completedChallengeNames.contains(challenge.name));
 
     ChessAction choose;
     choose.type = ChessActionType::ChooseReward;
-    choose.rewardId = "gold";
+    choose.rewardId = "獲取5金幣";
     ChessRunRandom random(3);
     ChessRewardRules::apply(state, content, random, choose, events);
     CHECK(state.money == 5);
-    CHECK(state.completedChallengeIds.contains(challenge.id));
+    CHECK(state.completedChallengeNames.contains(challenge.name));
 }
 
 TEST_CASE("challenge star rewards reuse cascading merge rules", "[chess][reward][challenge][merge]")
@@ -284,8 +284,8 @@ TEST_CASE("challenge star rewards reuse cascading merge rules", "[chess][reward]
     role.Cost = 1;
     data.roles.emplace(role.ID, role);
     BalanceConfig::ChallengeDef challenge;
-    challenge.id = "star-chain";
-    challenge.rewards = {{"upgrade", BalanceConfig::ChallengeRewardType::StarUp1to2, 1}};
+    challenge.name = "連鎖升星";
+    challenge.rewards = {{BalanceConfig::ChallengeRewardType::StarUp1to2, 1}};
     ChessGameContent content(std::move(data));
     ChessSessionState state;
     state.nextChessInstanceId = 4;
@@ -298,7 +298,7 @@ TEST_CASE("challenge star rewards reuse cascading merge rules", "[chess][reward]
 
     ChessAction outer;
     outer.type = ChessActionType::ChooseReward;
-    outer.rewardId = "upgrade";
+    outer.rewardId = "升星★→★★(最高1費)";
     ChessRewardRules::apply(state, content, random, outer, events);
     REQUIRE(state.pendingRewards.front().kind == ChessRewardKind::StarUpgrade);
     ChessAction inner;
@@ -308,7 +308,7 @@ TEST_CASE("challenge star rewards reuse cascading merge rules", "[chess][reward]
 
     REQUIRE(state.roster.size() == 1);
     CHECK(state.roster.begin()->second.star == 3);
-    CHECK(state.completedChallengeIds.contains(challenge.id));
+    CHECK(state.completedChallengeNames.contains(challenge.name));
 }
 
 TEST_CASE("timeout progression rolls preparation streams back transactionally", "[chess][progression][battle][determinism]")

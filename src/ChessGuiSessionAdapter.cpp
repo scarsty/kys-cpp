@@ -2950,14 +2950,14 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
         SessionMenuData data;
         std::vector<ChessMenuColumnRow> labelRows;
         std::vector<const BalanceConfig::ChallengeDef*> rows;
-        for (const auto& id : descriptor.candidateStableIds)
+        for (const auto& name : descriptor.candidateStableIds)
         {
             const auto found = std::ranges::find(
                 session_.content().balance().challenges,
-                id,
-                &BalanceConfig::ChallengeDef::id);
+                name,
+                &BalanceConfig::ChallengeDef::name);
             assert(found != session_.content().balance().challenges.end());
-            const bool complete = session_.state().completedChallengeIds.contains(id);
+            const bool complete = session_.state().completedChallengeNames.contains(name);
             labelRows.push_back({
                 chessMenuPrefixWithSeparator(chessChallengeCompletionLabel(complete)),
                 found->name,
@@ -2983,7 +2983,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
             PanelTextCursor cursor{Font::getInstance(), panelFrame.x + 10, panelFrame.y + 10};
             cursor.line(challenge.name, fontSize + 4, {255, 255, 100, 255}, 6);
             cursor.line(challenge.description, fontSize, {200, 200, 200, 255}, 8);
-            if (session_.state().completedChallengeIds.contains(challenge.id))
+            if (session_.state().completedChallengeNames.contains(challenge.name))
             {
                 cursor.line(chessChallengeCompletionLabel(true), fontSize, {0, 255, 0, 255}, 8);
             }
@@ -3024,7 +3024,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
 
         ChessAction action;
         action.type = ChessActionType::StartChallenge;
-        action.challengeId = descriptor.candidateStableIds[choice];
+        action.challengeName = descriptor.candidateStableIds[choice];
         const auto result = submitGuiAction(action);
         if (!result.accepted)
         {
@@ -3099,10 +3099,12 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             {
                 const auto challenge = std::ranges::find(
                     session_.content().balance().challenges,
-                    pending.challengeId,
-                    &BalanceConfig::ChallengeDef::id);
+                    pending.challengeName,
+                    &BalanceConfig::ChallengeDef::name);
                 assert(challenge != session_.content().balance().challenges.end());
-                const auto reward = std::ranges::find(challenge->rewards, option.id, &BalanceConfig::ChallengeReward::id);
+                const auto reward = std::ranges::find_if(challenge->rewards, [&](const auto& candidate) {
+                    return chessChallengeRewardDescription(session_.content(), candidate) == option.id;
+                });
                 assert(reward != challenge->rewards.end());
                 labelRows.push_back({{}, chessChallengeRewardDescription(session_.content(), *reward), {}, {}});
                 data.colors.push_back({255, 255, 100, 255});
@@ -3393,7 +3395,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
         assert(session_.state().preparedBattle);
         const auto prepared = *session_.state().preparedBattle;
         const bool repeatedChallenge = prepared.kind == PreparedChessBattleKind::Challenge
-            && session_.state().completedChallengeIds.contains(prepared.stableBattleId);
+            && session_.state().completedChallengeNames.contains(prepared.stableBattleId);
         const int oldLevel = session_.state().level;
         auto battle = std::make_shared<BattleSceneHades>(session_);
         battle->setNoExp();
@@ -3707,7 +3709,7 @@ void ChessGuiSessionAdapter::showContextMenu()
         case ChessContextMenuAction::ShowExpeditionChallenge:
         {
             ChessLegalActionDescriptor descriptor{ChessActionType::StartChallenge};
-            descriptor.candidateStableIds = chessChallengeBrowseIds(session_.content());
+            descriptor.candidateStableIds = chessChallengeBrowseNames(session_.content());
             if (descriptor.candidateStableIds.empty())
             {
                 break;

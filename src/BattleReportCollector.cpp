@@ -1,5 +1,7 @@
 #include "BattleReportCollector.h"
 
+#include <algorithm>
+
 namespace
 {
 
@@ -61,8 +63,9 @@ void BattleReportCollector::consumeLog(
     case BattleLogEventType::Status:
         if (event.category == KysChess::Battle::BattleLogCategory::ProjectileCancel)
         {
-            builder_.recordProjectileCancel(event.sourceUnitId, event.amount);
-            builder_.recordProjectileCancel(event.targetUnitId, event.secondaryAmount);
+            const int cancelledPotentialDamage = std::min(event.amount, event.secondaryAmount);
+            builder_.recordProjectileCancel(event.sourceUnitId, cancelledPotentialDamage);
+            builder_.recordProjectileCancel(event.targetUnitId, cancelledPotentialDamage);
         }
         builder_.recordStatus(
             resolveUnit(session, event.sourceUnitId),
@@ -72,7 +75,18 @@ void BattleReportCollector::consumeLog(
             event.segments,
             event.frame,
             event.statusId,
-            event.resourceId);
+            event.resourceId,
+            event.amount,
+            event.secondaryAmount,
+            event.previousAmount,
+            event.newAmount,
+            event.effectId,
+            event.otherEffectId,
+            event.semanticSourceTeam,
+            event.semanticSourceKind,
+            event.semanticSourceName,
+            event.skillName,
+            event.skillId);
         return;
     case BattleLogEventType::UnitDied:
         builder_.recordKill(

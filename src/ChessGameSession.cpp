@@ -179,9 +179,9 @@ ChessGameplayObservation ChessGameSession::observe() const
     observation.obtainedNeigongIds.assign(
         state_.obtainedNeigongIds.begin(),
         state_.obtainedNeigongIds.end());
-    observation.completedChallengeIds.assign(
-        state_.completedChallengeIds.begin(),
-        state_.completedChallengeIds.end());
+    observation.completedChallengeNames.assign(
+        state_.completedChallengeNames.begin(),
+        state_.completedChallengeNames.end());
     for (const auto& combo : content_->combos())
     {
         const auto progress = evaluateChessComboProgress(state_, *content_, combo);
@@ -395,10 +395,10 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
         {
             action = {};
             action.type = ChessActionType::StartChallenge;
-            action.challengeId = definition.id;
+            action.challengeName = definition.name;
             if (validateAction(action) == ChessRuleErrorCode::None)
             {
-                challenge.candidateStableIds.push_back(definition.id);
+                challenge.candidateStableIds.push_back(definition.name);
             }
         }
         if (!challenge.candidateStableIds.empty())
@@ -476,8 +476,8 @@ ChessRuleErrorCode ChessGameSession::validateAction(const ChessAction& action) c
             }
             return std::ranges::contains(
                 content_->balance().challenges,
-                action.challengeId,
-                &BalanceConfig::ChallengeDef::id)
+                action.challengeName,
+                &BalanceConfig::ChallengeDef::name)
                 ? ChessRuleErrorCode::None
                 : ChessRuleErrorCode::UnknownChallenge;
         }
@@ -562,12 +562,12 @@ void ChessGameSession::applyAction(
         {
             const auto found = std::ranges::find(
                 content_->balance().challenges,
-                action.challengeId,
-                &BalanceConfig::ChallengeDef::id);
+                action.challengeName,
+                &BalanceConfig::ChallengeDef::name);
             state_.preparedBattle = ChessBattlePlanner::prepareChallenge(
                 state_, *content_, random_, *found);
             state_.phase = ChessSessionPhase::BattlePreparation;
-            events.push_back({ChessSemanticEventType::BattlePrepared, {}, {}, {}, action.challengeId});
+            events.push_back({ChessSemanticEventType::BattlePrepared, {}, {}, {}, action.challengeName});
             return;
         }
         if (action.type == ChessActionType::FinishRun)
@@ -770,6 +770,14 @@ ChessActionResult ChessGameSession::submitAndDrain(const ChessAction& action)
             return std::move(*advance.completedAction);
         }
     }
+}
+
+void ChessGameSession::grantUnjournaledCheatMoney(int amount)
+{
+    assert(isStableDecisionBoundary());
+    assert(amount > 0);
+    assert(state_.money <= std::numeric_limits<int>::max() - amount);
+    state_.money += amount;
 }
 
 std::optional<ChessReplay> ChessGameSession::exportReplay() const

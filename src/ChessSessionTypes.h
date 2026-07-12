@@ -148,7 +148,7 @@ struct ChessAction
     int roleId{};
     int itemId{};
     int mapId{};
-    std::string challengeId;
+    std::string challengeName;
     std::string rewardId;
     std::vector<int> chessInstanceIds;
 };
@@ -212,7 +212,7 @@ struct ChessPendingReward
     int choiceCount{};
     std::vector<int> eligibleTiers;
     bool rerolled = false;
-    std::string challengeId;
+    std::string challengeName;
 
     auto operator<=>(const ChessPendingReward&) const = default;
 };
@@ -238,7 +238,7 @@ struct ChessSessionState
     std::set<int> rejectedRoleIds;
     std::set<int> seenRoleIds;
     std::set<int> bannedRoleIds;
-    std::set<std::string> completedChallengeIds;
+    std::set<std::string> completedChallengeNames;
     std::set<int> obtainedNeigongIds;
     std::optional<PreparedChessBattle> preparedBattle;
     std::vector<ChessPendingReward> pendingRewards;
@@ -290,7 +290,7 @@ struct ChessGameplayObservation
     std::vector<int> bans;
     std::vector<int> seenRoles;
     std::vector<int> obtainedNeigongIds;
-    std::vector<std::string> completedChallengeIds;
+    std::vector<std::string> completedChallengeNames;
     std::vector<ChessObservedCombo> combos;
     std::optional<PreparedChessBattle> preparedBattle;
     std::optional<ChessPendingReward> pendingReward;

@@ -594,6 +594,13 @@ void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
             log.type = BattleLogEventType::Status;
             log.sourceUnitId = -1;
             log.targetUnitId = target->id;
+            log.amount = -delta;
+            log.previousAmount = -(desired - delta);
+            log.newAmount = -desired;
+            log.statusId = BattleStatusSemanticId::EnemyTopDebuff;
+            log.semanticSourceTeam = ownerTeam;
+            log.semanticSourceKind = "combo";
+            log.semanticSourceName = "陰險";
             log.segments = battleLogText(std::format(
                 "陰險：前{}名攻防{}{}（{}名存活）",
                 summary.topTargets,
@@ -1048,6 +1055,8 @@ void appendProjectileCancellationLogEvents(
             log.targetUnitId = rightSourceUnitId;
             log.amount = leftDamage;
             log.secondaryAmount = rightDamage;
+            log.effectId = leftAttackId;
+            log.otherEffectId = rightAttackId;
             log.category = BattleLogCategory::ProjectileCancel;
             log.segments = formatProjectileCancelLogSegments(leftAttackId, leftDamage, rightAttackId, rightDamage);
             logEvents.push_back(std::move(log));
@@ -2693,8 +2702,10 @@ std::string toStatusText(const BattleDamageEvent& event)
     };
     switch (event.statusType)
     {
-    case BattleDamageStatusType::Frozen:
+    case BattleDamageStatusType::Hitstun:
         return withValue("受擊硬直");
+    case BattleDamageStatusType::Stun:
+        return withValue("眩暈");
     case BattleDamageStatusType::Poison:
         return withValue("中毒");
     case BattleDamageStatusType::Bleed:
@@ -3292,7 +3303,7 @@ bool tryAppendFrameDamageTransaction(
     request.defenderUnitId = command.targetUnitId;
     request.baseDamage = command.damage;
     request.preResolvedDamage = true;
-    request.frozenFrames = command.frozenFrames;
+    request.hitstunFrames = command.frozenFrames;
     request.triggersDefenseEffects = command.triggersDefenseEffects;
 
     appendFramePendingDamage(
@@ -3343,12 +3354,18 @@ void appendStatusEventLog(
     std::vector<BattleLogEvent>& logEvents,
     int sourceUnitId,
     int targetUnitId,
-    std::string text)
+    std::string text,
+    BattleStatusSemanticId statusId = BattleStatusSemanticId::None,
+    BattleResourceSemanticId resourceId = BattleResourceSemanticId::None,
+    int amount = 0)
 {
     BattleLogEvent event;
     event.type = BattleLogEventType::Status;
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
+    event.amount = amount;
+    event.statusId = statusId;
+    event.resourceId = resourceId;
     event.segments = battleLogText(std::move(text), BattleLogTextTone::SkillName);
     logEvents.push_back(std::move(event));
 }
@@ -3358,13 +3375,15 @@ void appendHealEventLog(
     int sourceUnitId,
     int targetUnitId,
     int amount,
-    std::string text)
+    std::string text,
+    BattleResourceSemanticId resourceId = BattleResourceSemanticId::HitPoints)
 {
     BattleLogEvent event;
     event.type = BattleLogEventType::Heal;
     event.sourceUnitId = sourceUnitId;
     event.targetUnitId = targetUnitId;
     event.amount = amount;
+    event.resourceId = resourceId;
     event.segments = battleLogText(std::move(text), BattleLogTextTone::SkillName);
     logEvents.push_back(std::move(event));
 }
@@ -3651,8 +3670,10 @@ std::vector<BattleLogTextSegment> formatAppliedStatusLog(const BattleDamageEvent
     };
     switch (event.statusType)
     {
-    case BattleDamageStatusType::Frozen:
+    case BattleDamageStatusType::Hitstun:
         return logStatusFrames<BattleLogTextTone::Negative>("受擊硬直", event.value);
+    case BattleDamageStatusType::Stun:
+        return logStatusFrames<BattleLogTextTone::Negative>("眩暈", event.value);
     case BattleDamageStatusType::Poison:
         return withValue("中毒");
     case BattleDamageStatusType::Bleed:
@@ -3716,10 +3737,30 @@ void appendFrameDamageResourceLogEvents(
                 frame.logEvents,
                 event.sourceUnitId,
                 event.targetUnitId,
-                formatAppliedCooldownExtension(event));
+                formatAppliedCooldownExtension(event),
+                BattleStatusSemanticId::None,
+                BattleResourceSemanticId::Cooldown,
+                event.value);
             break;
         case BattleDamageEventType::MpRestored:
+            appendHealEventLog(
+                frame.logEvents,
+                event.sourceUnitId,
+                event.targetUnitId,
+                event.value,
+                "回復內力",
+                BattleResourceSemanticId::MagicPoints);
+            break;
         case BattleDamageEventType::MpDrained:
+            appendStatusEventLog(
+                frame.logEvents,
+                event.sourceUnitId,
+                event.targetUnitId,
+                "吸取內力",
+                BattleStatusSemanticId::MagicPointsDrained,
+                BattleResourceSemanticId::MagicPoints,
+                event.value);
+            break;
         default:
             break;
         }

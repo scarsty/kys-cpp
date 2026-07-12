@@ -77,12 +77,37 @@ TEST_CASE("BattleReportBuilder_RecordsLifecycleAndProjectileCancelStats", "[batt
     const auto& report = builder.report();
     REQUIRE(report.stats().contains(101));
     CHECK(report.stats().at(101).kills == 1);
-    CHECK(report.cancelDamageForUnit(101) == 100);
-    CHECK(report.cancelDamageForUnit(202) == 0);
+    CHECK(report.projectilePotentialDamageCancelledForUnit(101) == 100);
+    CHECK(report.projectileCancellationCountForUnit(101) == 2);
+    CHECK(report.projectilePotentialDamageCancelledForUnit(202) == 0);
+    CHECK(report.projectileCancellationCountForUnit(202) == 0);
 
     const auto& events = report.events();
     REQUIRE(events.size() == 2);
     CHECK(events[0].type == BattleReportEventType::Kill);
     CHECK(events[1].type == BattleReportEventType::Death);
     CHECK(events[1].targetName == "岳不群");
+}
+
+TEST_CASE("BattleReportBuilder_PreservesStructuredStatusMagnitude", "[battle][report]")
+{
+    auto attacker = BattleLogTest::reportUnit(101, 1, 0, 11, "段譽");
+    auto defender = BattleLogTest::reportUnit(202, 2, 1, 12, "岳不群");
+    BattleReportBuilder builder;
+
+    builder.recordStatus(
+        &attacker,
+        &defender,
+        KysChess::Battle::BattleLogCategory::Status,
+        KysChess::Battle::BattleLogPerspective::Targeted,
+        KysChess::Battle::logStatusFrames("眩暈", 12),
+        30,
+        KysChess::Battle::BattleStatusSemanticId::Stun,
+        KysChess::Battle::BattleResourceSemanticId::None,
+        12);
+
+    REQUIRE(builder.report().events().size() == 1);
+    CHECK(builder.report().events().front().value == 12);
+    CHECK(builder.report().events().front().statusId
+        == KysChess::Battle::BattleStatusSemanticId::Stun);
 }

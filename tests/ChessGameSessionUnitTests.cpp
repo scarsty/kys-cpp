@@ -1,5 +1,6 @@
 #include "ChessGameSession.h"
 #include "ChessGameSessionTestHelpers.h"
+#include "ChessReplayVerifier.h"
 #include "ChessRuntimeConstants.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -85,6 +86,59 @@ TEST_CASE("legal actions omit unaffordable concrete management actions", "[chess
     CHECK_FALSE(std::ranges::contains(legal, ChessActionType::BuyExp, &ChessLegalActionDescriptor::type));
     CHECK_FALSE(std::ranges::contains(legal, ChessActionType::RerollEnemySeed, &ChessLegalActionDescriptor::type));
     CHECK(std::ranges::contains(legal, ChessActionType::SetShopLocked, &ChessLegalActionDescriptor::type));
+}
+
+TEST_CASE("unjournaled money cheat remains playable but fails explicit verification",
+          "[chess][session][cheat][replay]")
+{
+    const auto content = managementContent(0);
+    ChessGameSession session(content, 10);
+    ChessAction lock;
+    lock.type = ChessActionType::SetShopLocked;
+    lock.value = true;
+    REQUIRE(session.submitAndDrain(lock).accepted);
+    const auto baselineReplay = session.exportReplay();
+    REQUIRE(baselineReplay);
+    CHECK(ChessReplayVerifier::verify(content, *baselineReplay).valid);
+    CHECK_FALSE(std::ranges::contains(
+        session.legalActions(),
+        ChessActionType::RefreshShop,
+        &ChessLegalActionDescriptor::type));
+    const auto randomBeforeCheat = session.random().state();
+    const auto chainBeforeCheat = session.journal().chainHash();
+    REQUIRE(session.journal().decisions().size() == 1);
+    const auto firstRecordChain = session.journal().decisions().front().chainHash;
+
+    session.grantUnjournaledCheatMoney(100);
+
+    CHECK(session.state().money == 100);
+    CHECK(session.random().state() == randomBeforeCheat);
+    REQUIRE(session.journal().decisions().size() == 1);
+    CHECK(session.journal().chainHash() == chainBeforeCheat);
+    CHECK(session.journal().decisions().front().chainHash == firstRecordChain);
+    CHECK(std::ranges::contains(
+        session.legalActions(),
+        ChessActionType::RefreshShop,
+        &ChessLegalActionDescriptor::type));
+
+    const auto immediateReplay = session.exportReplay();
+    REQUIRE(immediateReplay);
+    const auto immediateVerification = ChessReplayVerifier::verify(content, *immediateReplay);
+    CHECK_FALSE(immediateVerification.valid);
+    CHECK(immediateVerification.mismatch == ChessReplayMismatch::Footer);
+    CHECK(immediateVerification.sequence == 1);
+
+    ChessAction refresh;
+    refresh.type = ChessActionType::RefreshShop;
+    const auto refreshResult = session.submitAndDrain(refresh);
+    REQUIRE(refreshResult.accepted);
+    CHECK(session.state().money == 98);
+    const auto continuedReplay = session.exportReplay();
+    REQUIRE(continuedReplay);
+    const auto continuedVerification = ChessReplayVerifier::verify(content, *continuedReplay);
+    CHECK_FALSE(continuedVerification.valid);
+    CHECK(continuedVerification.mismatch == ChessReplayMismatch::PreState);
+    CHECK(continuedVerification.sequence == 2);
 }
 
 TEST_CASE("enemy plan reroll spends the configured cost transactionally", "[chess][session][reroll][config]")
@@ -261,10 +315,10 @@ TEST_CASE("one deployed piece can prepare campaign and challenge battles", "[che
         ChessActionType::StartChallenge,
         &ChessLegalActionDescriptor::type);
     REQUIRE(challengeAction != challengeActions.end());
-    CHECK(challengeAction->candidateStableIds == std::vector<std::string>{"single-piece"});
+    CHECK(challengeAction->candidateStableIds == std::vector<std::string>{"單騎遠征"});
     ChessAction startChallenge;
     startChallenge.type = ChessActionType::StartChallenge;
-    startChallenge.challengeId = "single-piece";
+    startChallenge.challengeName = "單騎遠征";
     CHECK(expedition.submitAndDrain(startChallenge).accepted);
 }
 
@@ -291,7 +345,7 @@ TEST_CASE("post-clear management keeps challenges legal until finish run", "[che
         ChessActionType::StartChallenge,
         &ChessLegalActionDescriptor::type);
     REQUIRE(challenge != legal.end());
-    CHECK(challenge->candidateStableIds == std::vector<std::string>{"single-piece"});
+    CHECK(challenge->candidateStableIds == std::vector<std::string>{"單騎遠征"});
     CHECK(std::ranges::contains(
         legal,
         ChessActionType::FinishRun,
@@ -299,7 +353,7 @@ TEST_CASE("post-clear management keeps challenges legal until finish run", "[che
 
     ChessAction startChallenge;
     startChallenge.type = ChessActionType::StartChallenge;
-    startChallenge.challengeId = "single-piece";
+    startChallenge.challengeName = "單騎遠征";
     REQUIRE(session.submitAndDrain(startChallenge).accepted);
     CHECK(session.state().phase == ChessSessionPhase::BattlePreparation);
 

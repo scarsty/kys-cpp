@@ -205,28 +205,28 @@ bool challengeRewardAvailable(
 
 void completeChallengeReward(
     ChessSessionState& state,
-    std::string challengeId,
+    std::string challengeName,
     std::vector<ChessSemanticEvent>& events)
 {
-    if (challengeId.empty())
+    if (challengeName.empty())
     {
         return;
     }
-    state.completedChallengeIds.insert(challengeId);
-    events.push_back({ChessSemanticEventType::ChallengeCompleted, {}, {}, {}, std::move(challengeId)});
+    state.completedChallengeNames.insert(challengeName);
+    events.push_back({ChessSemanticEventType::ChallengeCompleted, {}, {}, {}, std::move(challengeName)});
 }
 
 bool enqueueNestedChallengeChoice(
     ChessSessionState& state,
     const ChessGameContent& content,
     const ChessRewardOption& selected,
-    const std::string& challengeId,
+    const std::string& challengeName,
     std::vector<ChessSemanticEvent>& events)
 {
     using RT = BalanceConfig::ChallengeRewardType;
     ChessPendingReward pending;
     pending.id = selected.id;
-    pending.challengeId = challengeId;
+    pending.challengeName = challengeName;
     const auto type = static_cast<RT>(selected.value);
     const int parameter = selected.value2;
     if (type == RT::GetPiece)
@@ -303,6 +303,35 @@ bool enqueueNestedChallengeChoice(
 
 }
 
+std::string chessChallengeRewardDescription(
+    const ChessGameContent& content,
+    const BalanceConfig::ChallengeReward& reward)
+{
+    using Type = BalanceConfig::ChallengeRewardType;
+    switch (reward.type)
+    {
+    case Type::Gold:
+        return std::format("獲取{}金幣", reward.value);
+    case Type::GetPiece:
+        return std::format("獲取棋子(最高{}費)", reward.value);
+    case Type::GetNeigong:
+        return std::format("獲取內功(最高{}階)", reward.value);
+    case Type::StarUp1to2:
+        return std::format("升星★→★★(最高{}費)", reward.value);
+    case Type::StarUp2to3:
+        return std::format("升星★★→★★★(最高{}費)", reward.value);
+    case Type::GetEquipment:
+        return std::format("獲取裝備(最高{}階)", reward.value);
+    case Type::GetSpecificEquipment:
+        if (const auto* item = content.item(reward.value))
+        {
+            return std::format("獲取指定裝備: {}", item->name);
+        }
+        return "獲取指定裝備";
+    }
+    std::unreachable();
+}
+
 void ChessRewardRules::enqueueCampaignRewards(
     ChessSessionState& state,
     const ChessGameContent& content,
@@ -368,9 +397,9 @@ void ChessRewardRules::enqueueChallengeReward(
     std::vector<ChessSemanticEvent>& events)
 {
     ChessPendingReward pending;
-    pending.id = std::format("challenge_reward:{}", challenge.id);
+    pending.id = std::format("遠征獎勵：{}", challenge.name);
     pending.kind = ChessRewardKind::ChallengeReward;
-    pending.challengeId = challenge.id;
+    pending.challengeName = challenge.name;
     for (const auto& reward : challenge.rewards)
     {
         if (!challengeRewardAvailable(state, content, reward))
@@ -378,7 +407,7 @@ void ChessRewardRules::enqueueChallengeReward(
             continue;
         }
         pending.options.push_back({
-            reward.id,
+            chessChallengeRewardDescription(content, reward),
             ChessRewardKind::ChallengeReward,
             static_cast<int>(reward.type),
             reward.value,
@@ -482,7 +511,7 @@ void ChessRewardRules::apply(
 
     const auto selected = *std::ranges::find(pending.options, action.rewardId, &ChessRewardOption::id);
     const auto pendingKind = pending.kind;
-    const auto challengeId = pending.challengeId;
+    const auto challengeName = pending.challengeName;
     const bool challengeNeedsNestedChoice = pendingKind == ChessRewardKind::ChallengeReward
         && static_cast<BalanceConfig::ChallengeRewardType>(selected.value)
             != BalanceConfig::ChallengeRewardType::Gold
@@ -531,14 +560,14 @@ void ChessRewardRules::apply(
                 state,
                 content,
                 selected,
-                challengeId,
+                challengeName,
                 events);
             assert(nestedChallengeChoice);
         }
     }
     if (!nestedChallengeChoice)
     {
-        completeChallengeReward(state, challengeId, events);
+        completeChallengeReward(state, challengeName, events);
     }
     events.push_back({ChessSemanticEventType::RewardChosen, {}, {}, {}, action.rewardId});
 }

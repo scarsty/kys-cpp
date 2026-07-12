@@ -33,6 +33,8 @@ public:
     ChessActionResult beginAction(const ChessAction& action);
     ChessAutomaticAdvanceResult advanceAutomatic(int frameBudget);
     ChessActionResult submitAndDrain(const ChessAction& action);
+    // 明確的作弊入口：改寫目前狀態但不寫入日誌，讓顯式驗證偵測差異。
+    void grantUnjournaledCheatMoney(int amount);
     std::optional<ChessReplay> exportReplay() const;
 
     const ChessSessionState& state() const { return state_; }

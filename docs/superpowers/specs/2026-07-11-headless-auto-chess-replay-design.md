@@ -665,6 +665,8 @@ Snapshots exist for fast trusted local restoration. They are not proof: a player
 
 Normal loading parses the checkpoint and embedded journal for syntax/readability, requires exact `game_version` equality, and rejects a snapshot that cannot be represented at a stable supported boundary. It then directly restores state, RNG state, and the complete journal. It does **not** replay historical actions, enforce replay runtime-option policy, or validate pre-state, post-state, event, RNG, snapshot, footer, or chain hashes. Local players may edit their own saves; ordinary load performance takes priority over treating a local save as an authenticated database journal.
 
+Deliberate built-in cheats such as `showmethemoney` are session-owned mutations allowed only at a stable decision boundary. They are not `ChessAction` values, emit no gameplay event, consume no RNG, and append nothing to the journal. Normal action legality uses the resulting current state, and ordinary saves persist and restore it without validation. Exporting immediately exposes the difference at the replay footer/final-state comparison; taking another accepted action first exposes it at that action's pre-state hash. The later uploaded-save validator still performs the independent replay and final state/RNG comparison described below.
+
 The graphical application builds this restored session as a detached replacement, prepares the legacy map/database state only after that replacement is ready, and commits through the existing in-place session object so GUI references remain valid. Immutable content is cached by difficulty: a normal same-difficulty load performs no content reload, while a cold load performs at most one.
 
 ### Future Explicit Save/Journal Validation

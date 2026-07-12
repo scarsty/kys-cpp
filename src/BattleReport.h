@@ -43,11 +43,17 @@ struct BattleReportEvent
     KysChess::Battle::BattleLogCategory category = KysChess::Battle::BattleLogCategory::Status;
     KysChess::Battle::BattleLogPerspective perspective = KysChess::Battle::BattleLogPerspective::Targeted;
     std::string sourceName;
+    std::string sourceKind;
     std::string targetName;
     std::string skillName;
     int skillId = -1;
     KysChess::Battle::BattleStatusSemanticId statusId = KysChess::Battle::BattleStatusSemanticId::None;
     KysChess::Battle::BattleResourceSemanticId resourceId = KysChess::Battle::BattleResourceSemanticId::None;
+    int secondaryValue{};
+    int previousValue{};
+    int newValue{};
+    int effectId = -1;
+    int secondaryEffectId = -1;
     std::vector<KysChess::Battle::BattleLogTextSegment> segments;
 };
 
@@ -58,13 +64,15 @@ public:
     const std::vector<BattleReportEvent>& events() const { return events_; }
     int battleEndFrame() const { return battleEndFrame_; }
     int battleResult() const { return battleResult_; }
-    int cancelDamageForUnit(int unitId) const;
+    int projectilePotentialDamageCancelledForUnit(int unitId) const;
+    int projectileCancellationCountForUnit(int unitId) const;
 
 private:
     friend class BattleReportBuilder;
 
     std::map<int, BattleReportUnitStats> stats_;
-    std::map<int, int> cancelDamageByUnit_;
+    std::map<int, int> projectilePotentialDamageCancelledByUnit_;
+    std::map<int, int> projectileCancellationCountByUnit_;
     std::vector<BattleReportEvent> events_;
     int battleEndFrame_ = 0;
     int battleResult_ = -1;
@@ -96,7 +104,18 @@ public:
         std::vector<KysChess::Battle::BattleLogTextSegment> segments,
         int frame,
         KysChess::Battle::BattleStatusSemanticId statusId = KysChess::Battle::BattleStatusSemanticId::None,
-        KysChess::Battle::BattleResourceSemanticId resourceId = KysChess::Battle::BattleResourceSemanticId::None);
+        KysChess::Battle::BattleResourceSemanticId resourceId = KysChess::Battle::BattleResourceSemanticId::None,
+        int value = 0,
+        int secondaryValue = 0,
+        int previousValue = 0,
+        int newValue = 0,
+        int effectId = -1,
+        int secondaryEffectId = -1,
+        int semanticSourceTeam = -1,
+        std::string semanticSourceKind = {},
+        std::string semanticSourceName = {},
+        std::string skillName = {},
+        int skillId = -1);
     void recordKill(const KysChess::Battle::BattleRuntimeUnit* killer, const KysChess::Battle::BattleRuntimeUnit* victim, int frame);
     void recordDeath(const KysChess::Battle::BattleRuntimeUnit* unit, int frame);
     void recordProjectileCancel(int unitId, int damage);

@@ -55,7 +55,7 @@ TEST_CASE("ASCII board preserves coordinates and stable unit tokens", "[chess][t
 
     CHECK(board.contains(" 18 19 20 21 22"));
     CHECK(board.contains(" 30   .  . A1  .  ."));
-    CHECK(board.contains("A1 測試棋子 role=10 ★1 HP=500"));
+    CHECK(board.contains("A1 測試棋子 我方 ★1 (20,30)"));
 }
 
 TEST_CASE("battle text uses semantic IDs and omits movement traces", "[chess][text][battle]")

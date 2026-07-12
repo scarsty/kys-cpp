@@ -494,6 +494,7 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsResourceDeltasTimingAndEvents", 
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
     CHECK(result.logEvents[0].sourceUnitId == 1);
     CHECK(result.logEvents[0].targetUnitId == 2);
+    CHECK(result.logEvents[0].category == BattleLogCategory::Cast);
     CHECK(BattleLogTest::textOf(result.logEvents[0]) == "施放野球拳");
     CHECK(result.logEvents[0].skillName == "野球拳");
     CHECK(result.logEvents[0].skillId == 106);

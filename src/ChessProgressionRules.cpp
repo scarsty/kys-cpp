@@ -16,9 +16,9 @@ namespace
 
 const BalanceConfig::ChallengeDef& requireChallenge(
     const ChessGameContent& content,
-    const std::string& id)
+    const std::string& name)
 {
-    const auto found = std::ranges::find(content.balance().challenges, id, &BalanceConfig::ChallengeDef::id);
+    const auto found = std::ranges::find(content.balance().challenges, name, &BalanceConfig::ChallengeDef::name);
     assert(found != content.balance().challenges.end());
     return *found;
 }
@@ -76,7 +76,7 @@ void ChessProgressionRules::applyBattleResult(
 
     if (prepared.kind == PreparedChessBattleKind::Challenge)
     {
-        const bool repeated = state.completedChallengeIds.contains(prepared.stableBattleId);
+        const bool repeated = state.completedChallengeNames.contains(prepared.stableBattleId);
         if (repeated)
         {
             random.restorePreparation(prepared.preparationCheckpoint);

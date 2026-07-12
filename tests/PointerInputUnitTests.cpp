@@ -11,6 +11,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstddef>
+#include <string>
 #include <utility>
 
 using Catch::Approx;
@@ -154,11 +155,93 @@ TEST_CASE("PointerInput preserves pointer and legacy queue order", "[pointer_inp
 
     REQUIRE(input.pendingCount() == 3);
     CHECK(input.frontIsPointer());
-    CHECK(input.popPending().type == SDL_EVENT_FINGER_DOWN);
+    CHECK(input.popPending().event().type == SDL_EVENT_FINGER_DOWN);
     CHECK_FALSE(input.frontIsPointer());
-    CHECK(input.popPending().type == SDL_EVENT_KEY_UP);
+    CHECK(input.popPending().event().type == SDL_EVENT_KEY_UP);
     CHECK(input.frontIsPointer());
-    CHECK(input.popPending().type == SDL_EVENT_FINGER_UP);
+    CHECK(input.popPending().event().type == SDL_EVENT_FINGER_UP);
+}
+
+TEST_CASE("PointerInput owns SDL temporary event payloads", "[pointer_input][event_lifetime]")
+{
+    SECTION("text input and editing")
+    {
+        PointerInput input;
+        char inputText[] = "showmethemoney";
+        SDL_Event textInput = {};
+        textInput.type = SDL_EVENT_TEXT_INPUT;
+        textInput.text.text = inputText;
+        input.enqueueForTest(textInput);
+
+        char editingText[] = "候選";
+        SDL_Event textEditing = {};
+        textEditing.type = SDL_EVENT_TEXT_EDITING;
+        textEditing.edit.text = editingText;
+        input.enqueueForTest(textEditing);
+
+        inputText[0] = 'X';
+        editingText[0] = 'X';
+
+        const auto queuedInput = input.popPending();
+        CHECK(std::string(queuedInput.event().text.text) == "showmethemoney");
+        const auto queuedEditing = input.popPending();
+        CHECK(std::string(queuedEditing.event().edit.text) == "候選");
+    }
+
+    SECTION("IME candidates")
+    {
+        PointerInput input;
+        char first[] = "第一";
+        char second[] = "第二";
+        const char* candidates[] = {first, second};
+        SDL_Event event = {};
+        event.type = SDL_EVENT_TEXT_EDITING_CANDIDATES;
+        event.edit_candidates.candidates = candidates;
+        event.edit_candidates.num_candidates = 2;
+        input.enqueueForTest(event);
+
+        first[0] = 'X';
+        second[0] = 'X';
+
+        const auto queued = input.popPending();
+        REQUIRE(queued.event().edit_candidates.candidates != nullptr);
+        CHECK(std::string(queued.event().edit_candidates.candidates[0]) == "第一");
+        CHECK(std::string(queued.event().edit_candidates.candidates[1]) == "第二");
+    }
+
+    SECTION("drop and clipboard data")
+    {
+        PointerInput input;
+        char source[] = "Explorer";
+        char path[] = "save.dat";
+        SDL_Event drop = {};
+        drop.type = SDL_EVENT_DROP_FILE;
+        drop.drop.source = source;
+        drop.drop.data = path;
+        input.enqueueForTest(drop);
+
+        char firstMime[] = "text/plain";
+        char secondMime[] = "text/html";
+        const char* mimeTypes[] = {firstMime, secondMime};
+        SDL_Event clipboard = {};
+        clipboard.type = SDL_EVENT_CLIPBOARD_UPDATE;
+        clipboard.clipboard.mime_types = mimeTypes;
+        clipboard.clipboard.num_mime_types = 2;
+        input.enqueueForTest(clipboard);
+
+        source[0] = 'X';
+        path[0] = 'X';
+        firstMime[0] = 'X';
+        secondMime[0] = 'X';
+
+        const auto queuedDrop = input.popPending();
+        CHECK(std::string(queuedDrop.event().drop.source) == "Explorer");
+        CHECK(std::string(queuedDrop.event().drop.data) == "save.dat");
+        const auto queuedClipboard = input.popPending();
+        REQUIRE(queuedClipboard.event().clipboard.mime_types != nullptr);
+        CHECK(std::string(queuedClipboard.event().clipboard.mime_types[0]) == "text/plain");
+        CHECK(std::string(queuedClipboard.event().clipboard.mime_types[1]) == "text/html");
+    }
 }
 
 TEST_CASE("PointerInput converts native mouse events without querying device state", "[pointer_input]")
@@ -237,8 +320,9 @@ TEST_CASE("Queued pointer keeps old geometry until its following resize is consu
     resize.window.data2 = 1080;
     input.enqueueForTest(resize);
 
-    CHECK(input.popPending().type == SDL_EVENT_USER);
-    const auto queuedPointer = input.makeMousePointerEvent(input.popPending());
+    CHECK(input.popPending().event().type == SDL_EVENT_USER);
+    const auto pointerEvent = input.popPending();
+    const auto queuedPointer = input.makeMousePointerEvent(pointerEvent.event());
     CHECK(queuedPointer.uiPosition.x == Approx(640.0f));
     CHECK(queuedPointer.uiPosition.y == Approx(360.0f));
 
@@ -247,7 +331,8 @@ TEST_CASE("Queued pointer keeps old geometry until its following resize is consu
     resizedLayout.textureHeight = 720;
     resizedLayout.uiWidth = 1280;
     resizedLayout.uiHeight = 720;
-    REQUIRE(applyWindowResizeToPresentLayout(resizedLayout, input.popPending()));
+    const auto resizeEvent = input.popPending();
+    REQUIRE(applyWindowResizeToPresentLayout(resizedLayout, resizeEvent.event()));
     input.commitPresentGeometry(computePresentLayout(resizedLayout, 2));
 
     CHECK(input.presentGeometry().revision == 2);

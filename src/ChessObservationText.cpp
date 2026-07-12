@@ -116,12 +116,12 @@ std::string ChessObservationText::format(
                 magicId);
         }
     }
-    if (!observation.completedChallengeIds.empty())
+    if (!observation.completedChallengeNames.empty())
     {
         text += "已完成遠征：";
-        for (const auto& challengeId : observation.completedChallengeIds)
+        for (const auto& challengeName : observation.completedChallengeNames)
         {
-            text += " " + challengeId;
+            text += " " + challengeName;
         }
         text += "\n";
     }

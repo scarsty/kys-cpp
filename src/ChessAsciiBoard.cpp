@@ -75,14 +75,13 @@ std::string ChessAsciiBoard::render(
     {
         const auto* role = content.role(unit.realRoleId);
         text += std::format(
-            "{} {} role={} ★{} HP={} 武器={} 防具={}\n",
+            "{} {} {} ★{} ({},{})\n",
             tokenByUnit.at(unit.unitId),
             role ? role->Name : "未知角色",
-            unit.realRoleId,
+            unit.team == 0 ? "我方" : "敵方",
             unit.star,
-            unit.vitals.maxHp,
-            unit.weaponId,
-            unit.armorId);
+            unit.gridX,
+            unit.gridY);
     }
     return text;
 }

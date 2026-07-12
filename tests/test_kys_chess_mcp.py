@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = ROOT / "tools" / "kys_chess_mcp"
 sys.path.insert(0, str(PACKAGE_ROOT))
 
-from kys_chess_mcp.server import CliSession
+from kys_chess_mcp.server import CliSession, create_server
 
 
 CLI = Path(os.environ.get("KYS_CHESS_CLI", ROOT / "x64" / "Debug" / "kys_chess_cli.exe"))
@@ -64,6 +64,7 @@ class McpAdapterTests(unittest.TestCase):
                 )
                 request_pair("observe")
                 request_pair("legal_actions")
+                request_pair("inspect_role", {"role_id": 10})
                 request_pair(
                     "act",
                     {"action": {"type": "set_shop_locked", "locked": True}},
@@ -99,6 +100,11 @@ class McpAdapterTests(unittest.TestCase):
             "observe_game",
             "list_legal_actions",
             "take_action",
+            "inspect_role",
+            "inspect_combo",
+            "inspect_equipment",
+            "inspect_prepared_battle",
+            "inspect_last_battle",
             "list_saves",
             "inspect_save",
             "save_game",
@@ -126,6 +132,20 @@ class McpAdapterTests(unittest.TestCase):
             self.assertIn(tool, docstrings)
             for fragment in fragments:
                 self.assertIn(fragment, docstrings[tool])
+
+        class StubSession:
+            def request(self, method, params=None):
+                return {"method": method, "params": params or {}}
+
+        tools = create_server(StubSession())._tool_manager._tools
+        new_schema = tools["new_game"].parameters["properties"]
+        self.assertEqual(new_schema["difficulty"]["enum"], ["easy", "normal", "hard"])
+        self.assertEqual(new_schema["detail"]["enum"], ["compact", "full"])
+        self.assertEqual(new_schema["seed"]["pattern"], r"^0x[0-9a-fA-F]{16}$")
+        self.assertEqual(
+            tools["take_action"].parameters["properties"]["detail"]["enum"],
+            ["compact", "full"],
+        )
 
     def test_adapter_owns_and_closes_one_cli_process(self):
         adapter = CliSession(CLI)

@@ -172,19 +172,17 @@ TEST_CASE("battle map catalog exposes usable formation capacities", "[chess][con
     CHECK_FALSE(ChessBattleMapCatalog::entries().front().allyClonePositions.empty());
 }
 
-TEST_CASE("challenge configuration rejects duplicate challenge identifiers", "[chess][content][config]")
+TEST_CASE("challenge configuration rejects duplicate challenge names", "[chess][content][config]")
 {
     TemporaryConfigDirectory files;
     const auto balance = files.write("balance.yaml", "{}\n");
     const auto challenges = files.write(
         "challenge.yaml",
-        "远征挑战:\n"
-        "  - ID: repeated\n"
-        "    名称: 第一場\n"
-        "    敌人: []\n"
-        "  - ID: repeated\n"
-        "    名称: 第二場\n"
-        "    敌人: []\n");
+        "遠征挑戰:\n"
+        "  - 名稱: 重複名稱\n"
+        "    敵人: []\n"
+        "  - 名稱: 重複名稱\n"
+        "    敵人: []\n");
     ChessDiagnosticCollector diagnostics;
     BalanceConfig result;
 
@@ -197,23 +195,20 @@ TEST_CASE("challenge configuration rejects duplicate challenge identifiers", "[c
     CHECK(diagnostics.hasErrors());
 }
 
-TEST_CASE("challenge configuration rejects duplicate reward identifiers in one choice", "[chess][content][config]")
+TEST_CASE("challenge configuration rejects duplicate reward meanings in one choice", "[chess][content][config]")
 {
     TemporaryConfigDirectory files;
     const auto balance = files.write("balance.yaml", "{}\n");
     const auto challenges = files.write(
         "challenge.yaml",
-        "远征挑战:\n"
-        "  - ID: reward_test\n"
-        "    名称: 獎勵測試\n"
-        "    敌人: []\n"
-        "    奖励:\n"
-        "      - ID: repeated\n"
-        "        类型: 获取金币\n"
-        "        数值: 1\n"
-        "      - ID: repeated\n"
-        "        类型: 获取金币\n"
-        "        数值: 2\n");
+        "遠征挑戰:\n"
+        "  - 名稱: 獎勵測試\n"
+        "    敵人: []\n"
+        "    獎勵:\n"
+        "      - 類型: 獲取金幣\n"
+        "        數值: 1\n"
+        "      - 類型: 獲取金幣\n"
+        "        數值: 1\n");
     ChessDiagnosticCollector diagnostics;
     BalanceConfig result;
 

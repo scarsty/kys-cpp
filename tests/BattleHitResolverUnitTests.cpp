@@ -176,7 +176,7 @@ TEST_CASE("BattleHitResolver_FrozenSideEffectEmitsAcceptedHitCommand", "[battle]
     CHECK(command->sourceUnitId == 1);
     CHECK(command->targetUnitId == 2);
     CHECK(command->damage.acceptedHit);
-    CHECK(command->damage.frozenFrames == 5);
+    CHECK(command->damage.hitstunFrames == 5);
 }
 
 TEST_CASE("BattleHitResolver_MainOffensiveHitAppliesConfiguredAlwaysStun", "[battle][hit_resolver][unit]")
@@ -190,7 +190,7 @@ TEST_CASE("BattleHitResolver_MainOffensiveHitAppliesConfiguredAlwaysStun", "[bat
 
     const auto* command = firstAcceptedHitCommand(result);
     REQUIRE(command);
-    CHECK(command->damage.frozenFrames == 7);
+    CHECK(command->damage.stunFrames == 7);
     CHECK(std::any_of(
         result.logEvents.begin(),
         result.logEvents.end(),
@@ -220,7 +220,7 @@ TEST_CASE("BattleHitResolver_RangedSideProjectileDoesNotApplyStunEffects", "[bat
         [](const BattleGameplayCommand& command)
         {
             const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command);
-            return sideEffect && sideEffect->damage.frozenFrames > 0;
+            return sideEffect && sideEffect->damage.stunFrames > 0;
         }));
     CHECK(std::none_of(
         result.logEvents.begin(),
@@ -251,7 +251,7 @@ TEST_CASE("BattleHitResolver_SpawnedMeleeSplashDoesNotApplyStunEffects", "[battl
         [](const BattleGameplayCommand& command)
         {
             const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command);
-            return sideEffect && sideEffect->damage.frozenFrames > 0;
+            return sideEffect && sideEffect->damage.stunFrames > 0;
         }));
 }
 
@@ -543,6 +543,9 @@ TEST_CASE("BattleHitResolver_PoisonEmitsAcceptedHitCommand", "[battle][hit_resol
     CHECK(command->damage.poisonDurationFrames == 60);
     REQUIRE_FALSE(result.logEvents.empty());
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.logEvents[0].statusId == BattleStatusSemanticId::PoisonPayload);
+    CHECK(result.logEvents[0].amount == 12);
+    CHECK(result.logEvents[0].secondaryAmount == 2);
     CHECK(BattleLogTest::textOf(result.logEvents[0]) == "中毒（12%·60幀）");
 }
 
@@ -574,10 +577,13 @@ TEST_CASE("BattleHitResolver_TriggeredSelectedSkillPoisonEmitsAcceptedHitCommand
     CHECK(skillEffects.triggeredEffectActivationCount(poisonId) == 1);
     REQUIRE_FALSE(result.logEvents.empty());
     CHECK(result.logEvents[0].type == BattleLogEventType::Status);
+    CHECK(result.logEvents[0].statusId == BattleStatusSemanticId::PoisonPayload);
+    CHECK(result.logEvents[0].amount == 8);
+    CHECK(result.logEvents[0].secondaryAmount == 3);
     CHECK(BattleLogTest::textOf(result.logEvents[0]) == "中毒（8%·90幀）");
 }
 
-TEST_CASE("BattleHitResolver_PoisonStacksUseMaximumConfiguredDuration", "[battle][hit_resolver][unit]")
+TEST_CASE("BattleHitResolver_PoisonSourcesSumStrengthAndUseMaximumDuration", "[battle][hit_resolver][unit]")
 {
     auto input = comboHitInput();
     input.skill.id = 101;
@@ -968,7 +974,7 @@ TEST_CASE("BattleHitResolver_ScriptedImpactEmitsStatusAndDamageCommands", "[batt
         {
             sawStatus = sideEffect->sourceUnitId == 1
                 && sideEffect->targetUnitId == 2
-                && sideEffect->damage.frozenFrames == 12
+                && sideEffect->damage.stunFrames == 12
                 && sideEffect->damage.bleedStacks == 2
                 && sideEffect->damage.bleedMaxStacks == 4;
         }

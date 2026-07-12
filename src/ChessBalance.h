@@ -116,11 +116,10 @@ struct BalanceConfig
 
     // Expedition challenges
     enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp1to2, StarUp2to3, GetEquipment, GetSpecificEquipment };
-    struct ChallengeReward { std::string id; ChallengeRewardType type; int value = 0; int value2 = 0; };
+    struct ChallengeReward { ChallengeRewardType type{}; int value = 0; int value2 = 0; };
     using ChallengeEnemy = BattlePieceDef;
     struct ChallengeDef
     {
-        std::string id;
         std::string name;
         std::string description;
         std::vector<ChallengeEnemy> enemies;

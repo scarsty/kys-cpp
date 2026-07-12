@@ -20,6 +20,7 @@ struct ResponseView
     bool ok{};
     std::optional<glz::raw_json> result;
     std::optional<std::string> error_code;
+    std::optional<std::string> error_message;
 };
 
 struct ExportView { std::string replay_jsonl; };
@@ -77,6 +78,11 @@ TEST_CASE("JSON protocol preserves request identifiers and session state", "[che
     REQUIRE(observed.result);
     CHECK(observed.result->str.contains("\"free_shop_refresh_available\""));
     CHECK(observed.result->str.contains("\"free_shop_refresh_granted_fight\""));
+    CHECK(observed.result->str.contains("\"relevant_roles\""));
+    CHECK(observed.result->str.contains("\"name\""));
+    CHECK(observed.result->str.contains("\"base_stats\""));
+    CHECK(observed.result->str.contains("\"abilities\""));
+    CHECK(observed.result->str.contains("\"combos\":[]"));
     CHECK_FALSE(observed.result->str.contains("strategist"));
     SessionObservationView sessionObservation;
     constexpr auto options = glz::opts{.error_on_unknown_keys = false};
@@ -92,6 +98,29 @@ TEST_CASE("JSON protocol preserves request identifiers and session state", "[che
     CHECK(sessionObservation.load_consequence.contains("捨棄"));
     CHECK(sessionObservation.load_consequence.contains("保留存檔目錄"));
     CHECK(protocol.session()->observe().stateHash == stateHash);
+}
+
+TEST_CASE("JSON protocol publishes action schemas and explains malformed payloads", "[chess][protocol][actions]")
+{
+    ChessJsonProtocol protocol(managementContent());
+    REQUIRE(parseResponse(protocol.handleLine(
+        R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000007"}})")).ok);
+
+    const auto legal = parseResponse(protocol.handleLine(
+        R"({"id":2,"method":"legal_actions","params":{}})"));
+    REQUIRE(legal.ok);
+    REQUIRE(legal.result);
+    CHECK(legal.result->str.contains("\"action_schema\""));
+    CHECK(legal.result->str.contains("\"chess_instance_ids\":\"整數陣列\""));
+    CHECK(legal.result->str.contains("\"example\""));
+
+    const auto invalid = parseResponse(protocol.handleLine(
+        R"({"id":3,"method":"act","params":{"action":{"type":"set_deployment","ids":[1]}}})"));
+    CHECK_FALSE(invalid.ok);
+    CHECK(invalid.error_code == "invalid_action");
+    REQUIRE(invalid.error_message);
+    CHECK(invalid.error_message->contains("chess_instance_ids"));
+    CHECK(invalid.error_message->contains("範例"));
 }
 
 TEST_CASE("JSON protocol act matches direct session execution", "[chess][protocol][determinism]")

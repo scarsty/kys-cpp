@@ -5,8 +5,10 @@
 #include <compare>
 #include <cstdint>
 #include <deque>
+#include <memory>
 #include <optional>
 #include <set>
+#include <vector>
 
 enum class PointerPhase { Motion, ButtonDown, ButtonUp, Cancel, Wheel };
 enum class PointerSource { Mouse, Touch };
@@ -190,6 +192,27 @@ TouchSample makeTouchSample(
     const PresentGeometrySnapshot& geometry);
 bool isResidualSyntheticPointerEvent(const SDL_Event& event);
 
+class QueuedSdlEvent
+{
+public:
+    explicit QueuedSdlEvent(const SDL_Event& event);
+    QueuedSdlEvent(QueuedSdlEvent&&) noexcept = default;
+    QueuedSdlEvent& operator=(QueuedSdlEvent&&) noexcept = default;
+    QueuedSdlEvent(const QueuedSdlEvent&) = delete;
+    QueuedSdlEvent& operator=(const QueuedSdlEvent&) = delete;
+
+    const SDL_Event& event() const { return event_; }
+
+private:
+    const char* copyString(const char* source);
+    const char** copyStringList(const char* const* source, int count);
+
+private:
+    SDL_Event event_{};
+    std::vector<std::unique_ptr<char[]>> strings_;
+    std::unique_ptr<const char*[]> stringList_;
+};
+
 class PrimaryPointerTracker
 {
 public:
@@ -223,11 +246,11 @@ public:
     bool isApplicationCancelEvent(const SDL_Event& event) const;
     void commitPresentGeometry(PresentGeometrySnapshot geometry) { geometry_ = geometry; }
     void pumpSdlEvents();
-    void enqueueForTest(const SDL_Event& event) { pending_.push_back(event); }
+    void enqueueForTest(const SDL_Event& event) { pending_.emplace_back(event); }
     std::size_t pendingCount() const { return pending_.size(); }
     bool empty() const { return pending_.empty(); }
     bool frontIsPointer() const;
-    SDL_Event popPending();
+    QueuedSdlEvent popPending();
 
     const PresentGeometrySnapshot& presentGeometry() const { return geometry_; }
     PointerEvent makeMousePointerEvent(const SDL_Event& event);
@@ -247,7 +270,7 @@ private:
     bool insidePresent(SDL_FPoint windowPosition) const;
 
 private:
-    std::deque<SDL_Event> pending_;
+    std::deque<QueuedSdlEvent> pending_;
     PresentGeometrySnapshot geometry_{};
     PrimaryPointerTracker primaryTracker_;
     std::set<TouchFingerKey> physicalContacts_;

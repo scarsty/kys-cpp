@@ -260,7 +260,8 @@ enum class BattleDamageEventType
 enum class BattleDamageStatusType
 {
     None,
-    Frozen,
+    Hitstun,
+    Stun,
     Poison,
     Bleed,
     DamageReduceDebuff,
@@ -296,7 +297,8 @@ struct BattleDamageRequest
     int mpDrain = 0;
     int cooldownExtendPct = 0;
 
-    int frozenFrames = 0;
+    int hitstunFrames = 0;
+    int stunFrames = 0;
     int frozenLowHpImmunityPct = 25;
     int poisonPct = 0;
     int poisonDurationFrames = 0;

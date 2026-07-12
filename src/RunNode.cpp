@@ -763,7 +763,8 @@ void RunNode::dealEventSelfChilds(bool check_event)
     {
         while (!input.empty() && input.frontIsPointer())
         {
-            const auto event = input.popPending();
+            const auto queuedEvent = input.popPending();
+            const auto& event = queuedEvent.event();
             if (event.type == EVENT_FINGER_DOWN
                 || event.type == EVENT_FINGER_MOTION
                 || event.type == EVENT_FINGER_UP
@@ -775,7 +776,8 @@ void RunNode::dealEventSelfChilds(bool check_event)
         input.rejectActiveTouchContacts();
         if (!input.empty())
         {
-            const auto event = input.popPending();
+            const auto queuedEvent = input.popPending();
+            const auto& event = queuedEvent.event();
             handleLegacyGlobalEvent(event);
             if (input.isApplicationCancelEvent(event))
             {
@@ -788,7 +790,8 @@ void RunNode::dealEventSelfChilds(bool check_event)
         }
         while (!input.empty() && input.frontIsPointer())
         {
-            const auto event = input.popPending();
+            const auto queuedEvent = input.popPending();
+            const auto& event = queuedEvent.event();
             if (event.type == EVENT_FINGER_DOWN
                 || event.type == EVENT_FINGER_MOTION
                 || event.type == EVENT_FINGER_UP
@@ -822,7 +825,8 @@ void RunNode::dealEventSelfChilds(bool check_event)
 
     while (!input.empty() && input.frontIsPointer())
     {
-        const auto event = input.popPending();
+        const auto queuedEvent = input.popPending();
+        const auto& event = queuedEvent.event();
         if (isResidualSyntheticPointerEvent(event))
         {
             continue;
@@ -876,9 +880,11 @@ void RunNode::dealEventSelfChilds(bool check_event)
 
     EngineEvent updateEvent = {};
     updateEvent.type = EVENT_FIRST;
+    std::optional<QueuedSdlEvent> updateQueuedEvent;
     if (!input.empty())
     {
-        const auto event = input.popPending();
+        updateQueuedEvent.emplace(input.popPending());
+        const auto& event = updateQueuedEvent->event();
         handleLegacyGlobalEvent(event);
         const bool consumedByImGui = input.isApplicationCancelEvent(event)
             ? Engine::getInstance()->processImGuiApplicationCancel()

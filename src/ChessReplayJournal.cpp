@@ -72,7 +72,7 @@ std::vector<std::uint8_t> canonicalChessAction(const ChessAction& action)
         writer.writeString(action.rewardId);
         break;
     case ChessActionType::StartChallenge:
-        writer.writeString(action.challengeId);
+        writer.writeString(action.challengeName);
         break;
     case ChessActionType::RefreshShop:
     case ChessActionType::BuyExp:
@@ -158,10 +158,10 @@ std::vector<std::uint8_t> canonicalChessState(
     writeIntSet(state.seenRoleIds);
     writeIntSet(state.bannedRoleIds);
     writeIntSet(state.obtainedNeigongIds);
-    writer.writeCollectionSize(state.completedChallengeIds.size());
-    for (const auto& id : state.completedChallengeIds)
+    writer.writeCollectionSize(state.completedChallengeNames.size());
+    for (const auto& name : state.completedChallengeNames)
     {
-        writer.writeString(id);
+        writer.writeString(name);
     }
     writer.writeOptionalPresence(state.preparedBattle.has_value());
     if (state.preparedBattle)
@@ -224,7 +224,7 @@ std::vector<std::uint8_t> canonicalChessState(
             writer.writeI32(tier);
         }
         writer.writeBool(pending.rerolled);
-        writer.writeString(pending.challengeId);
+        writer.writeString(pending.challengeName);
         writer.writeCollectionSize(pending.options.size());
         for (const auto& option : pending.options)
         {

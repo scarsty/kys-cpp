@@ -71,7 +71,7 @@ bool parseBattlePieceNode(
 bool loadBalanceConfig(
     const std::string& path,
     const std::string& challengePath,
-    const ChessTextConverter& toTraditional,
+    const ChessTextConverter&,
     const ChessDiagnosticSink& diagnostics,
     BalanceConfig& out)
 {
@@ -206,27 +206,24 @@ bool loadBalanceConfig(
 
     try {
         auto ch = YAML::LoadFile(challengePath);
-        if (ch["远征挑战"])
+        if (ch["遠征挑戰"])
         {
-            std::set<std::string> challengeIds;
-            for (const auto& entry : ch["远征挑战"])
+            std::set<std::string> challengeNames;
+            for (const auto& entry : ch["遠征挑戰"])
             {
                 BalanceConfig::ChallengeDef def;
-                if (!entry["ID"])
-                    return false;
-                def.id = entry["ID"].as<std::string>();
-                if (def.id.empty() || !challengeIds.insert(def.id).second)
+                def.name = entry["名稱"].as<std::string>();
+                if (def.name.empty() || !challengeNames.insert(def.name).second)
                 {
                     emitChessDiagnostic(
                         diagnostics,
                         ChessDiagnosticSeverity::Error,
                         "遠征挑戰配置",
-                        std::format("遠征挑戰 ID「{}」空白或重複", def.id));
+                        std::format("遠征挑戰名稱「{}」空白或重複", def.name));
                     return false;
                 }
-                def.name = toTraditional(entry["名称"].as<std::string>());
-                if (entry["描述"]) def.description = toTraditional(entry["描述"].as<std::string>());
-                for (const auto& e : entry["敌人"])
+                if (entry["描述"]) def.description = entry["描述"].as<std::string>();
+                for (const auto& e : entry["敵人"])
                 {
                     BattlePieceDef piece;
                     auto pieceContext = std::format("遠征挑戰「{}」敵人#{}", def.name, def.enemies.size() + 1);
@@ -234,39 +231,24 @@ bool loadBalanceConfig(
                         return false;
                     def.enemies.push_back(piece);
                 }
-                if (entry["奖励"])
+                if (entry["獎勵"])
                 {
-                    std::set<std::string> rewardIds;
-                    for (const auto& r : entry["奖励"])
+                    std::set<std::pair<int, int>> rewards;
+                    for (const auto& r : entry["獎勵"])
                     {
                         BalanceConfig::ChallengeReward reward;
-                        if (!r["ID"])
-                            return false;
-                        reward.id = r["ID"].as<std::string>();
-                        if (reward.id.empty() || !rewardIds.insert(reward.id).second)
-                        {
-                            emitChessDiagnostic(
-                                diagnostics,
-                                ChessDiagnosticSeverity::Error,
-                                "遠征挑戰配置",
-                                std::format(
-                                    "遠征挑戰「{}」的獎勵 ID「{}」空白或重複",
-                                    def.id,
-                                    reward.id));
-                            return false;
-                        }
-                        auto t = r["类型"].as<std::string>();
+                        auto t = r["類型"].as<std::string>();
                         bool recognized = true;
-                        if (t == "获取金币") reward.type = BalanceConfig::ChallengeRewardType::Gold;
-                        else if (t == "获取棋子") reward.type = BalanceConfig::ChallengeRewardType::GetPiece;
-                        else if (t == "获取内功") reward.type = BalanceConfig::ChallengeRewardType::GetNeigong;
+                        if (t == "獲取金幣") reward.type = BalanceConfig::ChallengeRewardType::Gold;
+                        else if (t == "獲取棋子") reward.type = BalanceConfig::ChallengeRewardType::GetPiece;
+                        else if (t == "獲取內功") reward.type = BalanceConfig::ChallengeRewardType::GetNeigong;
                         else if (t == "升星1到2") reward.type = BalanceConfig::ChallengeRewardType::StarUp1to2;
                         else if (t == "升星2到3") reward.type = BalanceConfig::ChallengeRewardType::StarUp2to3;
-                        else if (t == "获取装备") reward.type = BalanceConfig::ChallengeRewardType::GetEquipment;
-                        else if (t == "获取指定装备")
+                        else if (t == "獲取裝備") reward.type = BalanceConfig::ChallengeRewardType::GetEquipment;
+                        else if (t == "獲取指定裝備")
                         {
                             reward.type = BalanceConfig::ChallengeRewardType::GetSpecificEquipment;
-                            reward.value = r["装备ID"].as<int>();
+                            reward.value = r["裝備ID"].as<int>();
                         }
                         else
                         {
@@ -278,12 +260,21 @@ bool loadBalanceConfig(
                                 diagnostics,
                                 ChessDiagnosticSeverity::Error,
                                 "遠征挑戰配置",
-                                std::format("遠征挑戰「{}」含未知獎勵類型「{}」", def.id, t));
+                                std::format("遠征挑戰「{}」含未知獎勵類型「{}」", def.name, t));
                             return false;
                         }
-                        if (r["数值"]) reward.value = r["数值"].as<int>();
-                        else if (r["最高费用"]) reward.value = r["最高费用"].as<int>();
-                        else if (r["最高层级"]) reward.value = r["最高层级"].as<int>();
+                        if (r["數值"]) reward.value = r["數值"].as<int>();
+                        else if (r["最高費用"]) reward.value = r["最高費用"].as<int>();
+                        else if (r["最高層級"]) reward.value = r["最高層級"].as<int>();
+                        if (!rewards.emplace(static_cast<int>(reward.type), reward.value).second)
+                        {
+                            emitChessDiagnostic(
+                                diagnostics,
+                                ChessDiagnosticSeverity::Error,
+                                "遠征挑戰配置",
+                                std::format("遠征挑戰「{}」含重複獎勵", def.name));
+                            return false;
+                        }
                         def.rewards.push_back(reward);
                     }
                 }

@@ -80,15 +80,20 @@ enum class BattleLogTextTone
 enum class BattleStatusSemanticId
 {
     None = -1,
-    Frozen = 1,
-    Poison = 2,
-    Bleed = 3,
-    DamageReduceDebuff = 4,
-    MpBlocked = 5,
-    BlockedByInvincible = 6,
-    BlockedByFirstHit = 7,
-    DeathPrevented = 8,
-    ExecuteTriggered = 9,
+    Hitstun = 1,
+    Stun = 2,
+    Poison = 3,
+    Bleed = 4,
+    DamageReduceDebuff = 5,
+    MpBlocked = 6,
+    BlockedByInvincible = 7,
+    BlockedByFirstHit = 8,
+    DeathPrevented = 9,
+    ExecuteTriggered = 10,
+    Knockback = 11,
+    EnemyTopDebuff = 12,
+    MagicPointsDrained = 13,
+    PoisonPayload = 14,
 };
 
 enum class BattleResourceSemanticId
@@ -135,9 +140,16 @@ struct BattleLogEvent
     std::vector<BattleLogTextSegment> segments;
     std::string skillName;
     int secondaryAmount = 0;
+    int previousAmount = 0;
+    int newAmount = 0;
+    int effectId = -1;
+    int otherEffectId = -1;
     int skillId = -1;
     BattleStatusSemanticId statusId = BattleStatusSemanticId::None;
     BattleResourceSemanticId resourceId = BattleResourceSemanticId::None;
+    int semanticSourceTeam = -1;
+    std::string semanticSourceKind;
+    std::string semanticSourceName;
 };
 
 enum class BattleGameplayEventType

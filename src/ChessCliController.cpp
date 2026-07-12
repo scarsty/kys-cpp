@@ -222,7 +222,7 @@ std::string ChessCliController::executeInteractive(
     else if (verb == "start") action.type = ChessActionType::StartBattle;
     else if (verb == "reroll_reward") action.type = ChessActionType::RerollReward;
     else if (verb == "reward") { action.type = ChessActionType::ChooseReward; stream >> action.rewardId; }
-    else if (verb == "challenge") { action.type = ChessActionType::StartChallenge; stream >> action.challengeId; }
+    else if (verb == "challenge") { action.type = ChessActionType::StartChallenge; stream >> action.challengeName; }
     else if (verb == "finish") action.type = ChessActionType::FinishRun;
     else return "未知指令；輸入 help 查看可用指令。\n";
     return submitAction(action, mode);

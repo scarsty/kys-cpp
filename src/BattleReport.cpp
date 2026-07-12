@@ -22,10 +22,16 @@ void assignTarget(BattleReportEvent& event, const KysChess::Battle::BattleRuntim
 }
 }  // namespace
 
-int BattleReport::cancelDamageForUnit(int unitId) const
+int BattleReport::projectilePotentialDamageCancelledForUnit(int unitId) const
 {
-    const auto it = cancelDamageByUnit_.find(unitId);
-    return it == cancelDamageByUnit_.end() ? 0 : it->second;
+    const auto it = projectilePotentialDamageCancelledByUnit_.find(unitId);
+    return it == projectilePotentialDamageCancelledByUnit_.end() ? 0 : it->second;
+}
+
+int BattleReport::projectileCancellationCountForUnit(int unitId) const
+{
+    const auto it = projectileCancellationCountByUnit_.find(unitId);
+    return it == projectileCancellationCountByUnit_.end() ? 0 : it->second;
 }
 
 void BattleReportBuilder::recordDamage(
@@ -118,7 +124,18 @@ void BattleReportBuilder::recordStatus(
     std::vector<KysChess::Battle::BattleLogTextSegment> segments,
     int frame,
     KysChess::Battle::BattleStatusSemanticId statusId,
-    KysChess::Battle::BattleResourceSemanticId resourceId)
+    KysChess::Battle::BattleResourceSemanticId resourceId,
+    int value,
+    int secondaryValue,
+    int previousValue,
+    int newValue,
+    int effectId,
+    int secondaryEffectId,
+    int semanticSourceTeam,
+    std::string semanticSourceKind,
+    std::string semanticSourceName,
+    std::string skillName,
+    int skillId)
 {
     if (segments.empty())
     {
@@ -137,10 +154,27 @@ void BattleReportBuilder::recordStatus(
     event.perspective = perspective;
     event.statusId = statusId;
     event.resourceId = resourceId;
+    event.value = value;
+    event.secondaryValue = secondaryValue;
+    event.previousValue = previousValue;
+    event.newValue = newValue;
+    event.effectId = effectId;
+    event.secondaryEffectId = secondaryEffectId;
+    event.sourceKind = std::move(semanticSourceKind);
+    event.skillName = std::move(skillName);
+    event.skillId = skillId;
     event.segments = std::move(segments);
     if (source)
     {
         assignSource(event, *source);
+    }
+    else if (semanticSourceTeam >= 0)
+    {
+        event.sourceTeam = semanticSourceTeam;
+    }
+    if (!semanticSourceName.empty())
+    {
+        event.sourceName = std::move(semanticSourceName);
     }
     if (target)
     {
@@ -195,7 +229,8 @@ void BattleReportBuilder::recordProjectileCancel(int unitId, int damage)
 {
     assert(unitId >= 0);
     assert(damage >= 0);
-    report_.cancelDamageByUnit_[unitId] += damage;
+    report_.projectilePotentialDamageCancelledByUnit_[unitId] += damage;
+    ++report_.projectileCancellationCountByUnit_[unitId];
 }
 
 void BattleReportBuilder::recordBattleEnd(int frame, int battleResult)

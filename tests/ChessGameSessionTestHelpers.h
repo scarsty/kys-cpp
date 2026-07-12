@@ -143,7 +143,6 @@ inline std::shared_ptr<const ChessGameContent> singlePieceChallengeContent(int t
     data.poolRoleIds = {role.ID};
 
     BalanceConfig::ChallengeDef challenge;
-    challenge.id = "single-piece";
     challenge.name = "單騎遠征";
     challenge.enemies.push_back({role.ID, 1});
     data.balance.challenges.push_back(std::move(challenge));

@@ -133,7 +133,7 @@ BattlePostBattleSummary BattleSceneUnitStore::makePostBattleSummary(
         unit.hpRemaining = source.vitals.hp;
         unit.maxHpRemaining = source.vitals.maxHp;
         unit.dead = !source.alive;
-        unit.cancelDmg = report.cancelDamageForUnit(source.id);
+        unit.cancelDmg = report.projectilePotentialDamageCancelledForUnit(source.id);
         target.push_back(std::move(unit));
     };
 

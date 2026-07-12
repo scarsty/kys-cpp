@@ -37,6 +37,8 @@
 namespace
 {
 
+constexpr int kShowMeTheMoneyGold = 100;
+
 YAML::Node firstNode(const YAML::Node& root, std::initializer_list<const char*> keys)
 {
     for (const auto* key : keys)
@@ -175,7 +177,8 @@ Console::Console()
     }
     if (code == "showmethemoney")
     {
-        std::print("此代碼會改寫可驗證遊戲狀態，現已停用；請使用獨立測試戰鬥。\n");
+        KysChess::applicationChessSession().grantUnjournaledCheatMoney(kShowMeTheMoneyGold);
+        std::print("金幣增加{}。\n", kShowMeTheMoneyGold);
     }
     else if (splits[0] == "item" || splits[0] == "裝備" || splits[0] == "物品")
     {

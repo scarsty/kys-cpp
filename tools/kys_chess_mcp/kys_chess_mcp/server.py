@@ -6,7 +6,14 @@ import os
 from pathlib import Path
 import subprocess
 import threading
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
+
+
+Difficulty = Literal["easy", "normal", "hard"]
+Detail = Literal["compact", "full"]
+Seed = Annotated[str, Field(pattern=r"^0x[0-9a-fA-F]{16}$")]
 
 
 def default_cli_path() -> Path:
@@ -95,9 +102,10 @@ def create_server(session: CliSession | None = None):
 
     @server.tool()
     def new_game(
-        difficulty: str = "normal",
-        seed: str = "0x0000000000000001",
+        difficulty: Difficulty = "normal",
+        seed: Seed = "0x0000000000000001",
         position_swap_enabled: bool = True,
+        detail: Detail = "full",
     ) -> dict[str, Any]:
         """建立可驗證的新棋局；seed 必須是固定 16 位十六進位字串。"""
         return cli.request(
@@ -106,23 +114,49 @@ def create_server(session: CliSession | None = None):
                 "difficulty": difficulty,
                 "seed": seed,
                 "position_swap_enabled": position_swap_enabled,
+                "detail": detail,
             },
         )
 
     @server.tool()
-    def observe_game() -> dict[str, Any]:
-        """取得棋局、存檔欄位與可用工作階段操作；載入存檔會替換時間線並捨棄目前後綴。"""
-        return cli.request("observe")
+    def observe_game(detail: Detail = "compact") -> dict[str, Any]:
+        """取得棋局；compact 只含變動狀態，full 含完整定義；載入存檔會替換時間線並捨棄目前後綴。"""
+        return cli.request("observe", {"detail": detail})
 
     @server.tool()
     def list_legal_actions() -> dict[str, Any]:
-        """列出目前決策邊界的參數化合法遊戲操作。"""
+        """列出目前合法操作、每種操作的 action_schema、可直接提交的 example，以及帶名稱與說明的候選值。"""
         return cli.request("legal_actions")
 
     @server.tool()
-    def take_action(action: dict[str, Any]) -> dict[str, Any]:
-        """提交一個型別化遊戲操作；只有接受的操作會加入可驗證重播。"""
-        return cli.request("act", {"action": action})
+    def take_action(action: dict[str, Any], detail: Detail = "compact") -> dict[str, Any]:
+        """提交完整 action；compact 戰報只含決策摘要，完整軌跡可用 inspect_last_battle；戰敗仍會自動補回完整角色資料。"""
+        return cli.request("act", {"action": action, "detail": detail})
+
+    @server.tool()
+    def inspect_role(role_id: int) -> dict[str, Any]:
+        """檢視一名角色的完整屬性、各星級武學威力、範圍與羈絆。"""
+        return cli.request("inspect_role", {"role_id": role_id})
+
+    @server.tool()
+    def inspect_combo(combo_name: str) -> dict[str, Any]:
+        """依繁體中文名稱檢視羈絆成員、目前進度、門檻及效果。"""
+        return cli.request("inspect_combo", {"combo_name": combo_name})
+
+    @server.tool()
+    def inspect_equipment(item_id: int) -> dict[str, Any]:
+        """檢視裝備的基礎屬性、特殊效果、計入羈絆及角色專屬加成。"""
+        return cli.request("inspect_equipment", {"item_id": item_id})
+
+    @server.tool()
+    def inspect_prepared_battle() -> dict[str, Any]:
+        """完整檢視目前已準備戰鬥的地圖、地形、雙方屬性、武學、裝備及啟用羈絆。"""
+        return cli.request("inspect_prepared_battle")
+
+    @server.tool()
+    def inspect_last_battle() -> dict[str, Any]:
+        """完整檢視上一場戰鬥的開局棋盤、結構化效果軌跡與逐單位統計。"""
+        return cli.request("inspect_last_battle")
 
     @server.tool()
     def list_saves() -> dict[str, Any]:

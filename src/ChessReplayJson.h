@@ -24,5 +24,8 @@ std::string chessActionTypeId(ChessActionType type);
 std::optional<ChessActionType> chessActionTypeFromId(std::string_view id);
 std::string serializeChessActionJson(const ChessAction& action);
 std::optional<ChessAction> parseChessActionJson(std::string_view json);
+std::optional<ChessAction> parseChessActionJson(std::string_view json, std::string& error);
+std::string chessActionPayloadSchema(ChessActionType type);
+std::string chessActionExampleJson(ChessActionType type);
 
 }

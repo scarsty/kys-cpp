@@ -461,24 +461,27 @@ std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
                 -delta,
                 desired,
             });
-            logEvents.push_back({
-                BattleLogEventType::Status,
-                frame,
-                -1,
-                target.id,
-                0,
-                BattleLogCategory::Status,
-                BattleLogPerspective::Targeted,
-                logSegments<BattleLogTextTone::SkillName>(
-                    "陰險：前",
-                    std::pair{ BattleLogTextTone::ResourceValue, summary.topTargets },
-                    "名攻防",
-                    std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, delta > 0 ? "-" : "+" },
-                    std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, std::abs(delta) },
-                    "（",
-                    std::pair{ BattleLogTextTone::ResourceValue, summary.liveOwners },
-                    "名存活）"),
-            });
+            BattleLogEvent log;
+            log.type = BattleLogEventType::Status;
+            log.frame = frame;
+            log.targetUnitId = target.id;
+            log.amount = -delta;
+            log.previousAmount = -(desired - delta);
+            log.newAmount = -desired;
+            log.statusId = BattleStatusSemanticId::EnemyTopDebuff;
+            log.semanticSourceTeam = ownerTeam;
+            log.semanticSourceKind = "combo";
+            log.semanticSourceName = "陰險";
+            log.segments = logSegments<BattleLogTextTone::SkillName>(
+                "陰險：前",
+                std::pair{ BattleLogTextTone::ResourceValue, summary.topTargets },
+                "名攻防",
+                std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, delta > 0 ? "-" : "+" },
+                std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, std::abs(delta) },
+                "（",
+                std::pair{ BattleLogTextTone::ResourceValue, summary.liveOwners },
+                "名存活）");
+            logEvents.push_back(std::move(log));
         }
     }
 

@@ -661,7 +661,7 @@ PreparedChessBattle ChessBattlePlanner::prepareChallenge(
 {
     PreparedChessBattle battle;
     battle.kind = PreparedChessBattleKind::Challenge;
-    battle.stableBattleId = challenge.id;
+    battle.stableBattleId = challenge.name;
     battle.preparationCheckpoint = random.checkpointPreparation();
     appendAllies(battle, state);
     int unitId = static_cast<int>(battle.units.size()) + 1;

@@ -349,10 +349,14 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             }
         }
 
-        if (canApplyStatusEffects && input.request.frozenFrames > 0)
+        auto applyControlFrames = [&](BattleDamageStatusType statusType, int requestedFrames)
         {
+            if (!canApplyStatusEffects || requestedFrames <= 0)
+            {
+                return;
+            }
             assert(input.defenderStatus.id == input.request.defenderUnitId);
-            int frames = input.request.frozenFrames;
+            int frames = requestedFrames;
             if (!(result.defenderStatus.maxHp > 0
                     && result.defenderStatus.hp * 100 < result.defenderStatus.maxHp * input.request.frozenLowHpImmunityPct))
             {
@@ -376,13 +380,15 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                     result.defenderStatus.effects.frozenTimer += frames;
                     result.defenderStatus.effects.frozenMaxTimer = result.defenderStatus.effects.frozenTimer;
                     recordBattleStatusEvent(result.events,
-                                            BattleDamageStatusType::Frozen,
+                                            statusType,
                                             input.request.attackerUnitId,
                                             input.request.defenderUnitId,
                                             frames);
                 }
             }
-        }
+        };
+        applyControlFrames(BattleDamageStatusType::Hitstun, input.request.hitstunFrames);
+        applyControlFrames(BattleDamageStatusType::Stun, input.request.stunFrames);
 
         if (canApplyStatusEffects && input.request.mpBlockFrames > 0)
         {
@@ -529,7 +535,7 @@ BattleDamageRequest BattleDamageSystem::makeScriptedHitRequest(
     request.attackerUnitId = input.attackerUnitId;
     request.defenderUnitId = input.defenderUnitId;
     request.acceptedHit = true;
-    request.frozenFrames = input.stunFrames;
+    request.stunFrames = input.stunFrames;
     request.bleedStacks = input.bleedStacks;
     request.bleedMaxStacks = input.bleedMaxStacks;
     return request;

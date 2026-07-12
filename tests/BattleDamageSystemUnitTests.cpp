@@ -152,7 +152,7 @@ TEST_CASE("BattleDamageSystem_ScriptedHitRequestCarriesAcceptedStatusPayloads", 
     CHECK(request.attackerUnitId == 11);
     CHECK(request.defenderUnitId == 22);
     CHECK(request.acceptedHit);
-    CHECK(request.frozenFrames == 7);
+    CHECK(request.stunFrames == 7);
     CHECK(request.bleedStacks == 3);
     CHECK(request.bleedMaxStacks == 9);
 }
@@ -700,7 +700,7 @@ TEST_CASE("BattleDamageSystem_TransactionOnHitStatusesAreEmittedByTransaction", 
     input.request.bleedMaxStacks = 3;
     input.request.damageReduceDebuffDurationFrames = 45;
     input.request.damageReduceDebuffPct = 30;
-    input.request.frozenFrames = 5;
+    input.request.hitstunFrames = 5;
     input.request.mpBlockFrames = 9;
     input.attacker = unit();
     input.attacker.id = 1;
@@ -738,7 +738,7 @@ TEST_CASE("BattleDamageSystem_TransactionOnHitStatusesAreEmittedByTransaction", 
     CHECK(statuses[0] == BattleDamageStatusType::Poison);
     CHECK(statuses[1] == BattleDamageStatusType::Bleed);
     CHECK(statuses[2] == BattleDamageStatusType::DamageReduceDebuff);
-    CHECK(statuses[3] == BattleDamageStatusType::Frozen);
+    CHECK(statuses[3] == BattleDamageStatusType::Hitstun);
     CHECK(statuses[4] == BattleDamageStatusType::MpBlocked);
 }
 
@@ -776,7 +776,7 @@ TEST_CASE("BattleDamageSystem_TransactionAcceptedZeroDamageEffectsCanApplyStatus
     input.request.attackerUnitId = 1;
     input.request.defenderUnitId = 2;
     input.request.acceptedHit = true;
-    input.request.frozenFrames = 6;
+    input.request.stunFrames = 6;
     input.request.bleedStacks = 1;
     input.request.bleedMaxStacks = 3;
     input.attacker = unit();
@@ -792,7 +792,7 @@ TEST_CASE("BattleDamageSystem_TransactionAcceptedZeroDamageEffectsCanApplyStatus
     CHECK(result.defenderStatus.effects.bleedStacks == 1);
     REQUIRE(result.events.size() == 2);
     CHECK(result.events[0].statusType == BattleDamageStatusType::Bleed);
-    CHECK(result.events[1].statusType == BattleDamageStatusType::Frozen);
+    CHECK(result.events[1].statusType == BattleDamageStatusType::Stun);
 }
 
 TEST_CASE("BattleDamageSystem_TransactionInvincibilityBlocksAcceptedHitStatusEffects", "[battle][damage][unit]")
@@ -801,7 +801,7 @@ TEST_CASE("BattleDamageSystem_TransactionInvincibilityBlocksAcceptedHitStatusEff
     input.request.attackerUnitId = 1;
     input.request.defenderUnitId = 2;
     input.request.acceptedHit = true;
-    input.request.frozenFrames = 6;
+    input.request.stunFrames = 6;
     input.request.bleedStacks = 1;
     input.request.bleedMaxStacks = 3;
     input.request.poisonPct = 12;
@@ -833,7 +833,7 @@ TEST_CASE("BattleDamageSystem_TransactionFrozenAppliesResistanceAndControlImmuni
     input.request.attackerUnitId = 1;
     input.request.defenderUnitId = 2;
     input.request.acceptedHit = true;
-    input.request.frozenFrames = 10;
+    input.request.stunFrames = 10;
     input.attacker = unit();
     input.attacker.id = 1;
     input.defender = unit();
@@ -850,7 +850,7 @@ TEST_CASE("BattleDamageSystem_TransactionFrozenAppliesResistanceAndControlImmuni
     CHECK(result.defenderStatus.effects.frozenTimer == 2);
     CHECK(result.defenderStatus.effects.frozenMaxTimer == 2);
     REQUIRE(result.events.size() == 1);
-    CHECK(result.events[0].statusType == BattleDamageStatusType::Frozen);
+    CHECK(result.events[0].statusType == BattleDamageStatusType::Stun);
     CHECK(result.events[0].value == 2);
 
     input.defenderStatus.hp = 40;

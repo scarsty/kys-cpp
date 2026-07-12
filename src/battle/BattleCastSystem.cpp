@@ -916,6 +916,7 @@ void appendCastActionStartOutput(BattleCastResult& result,
     logEvent.type = BattleLogEventType::Status;
     logEvent.sourceUnitId = input.unit.id;
     logEvent.targetUnitId = input.targetUnitId;
+    logEvent.category = BattleLogCategory::Cast;
     logEvent.skillName = selectedSkill.name;
     logEvent.skillId = selectedSkill.id;
     if (selectedSkill.name.empty())

@@ -88,7 +88,7 @@ TEST_CASE("legacy browse menu typography and reward overrides stay explicit", "[
     CHECK((chessRewardMenuPresentation(campaignEquipment, 4) == ChessMenuPresentation{36, 4}));
 
     auto challengeEquipment = campaignEquipment;
-    challengeEquipment.challengeId = "challenge";
+    challengeEquipment.challengeName = "遠征";
     CHECK((chessRewardMenuPresentation(challengeEquipment, 7) == ChessMenuPresentation{36, 10}));
 
     ChessPendingReward campaignNeigong;
@@ -96,12 +96,12 @@ TEST_CASE("legacy browse menu typography and reward overrides stay explicit", "[
     CHECK((chessRewardMenuPresentation(campaignNeigong, 5) == ChessMenuPresentation{36, 5}));
 
     auto challengeNeigong = campaignNeigong;
-    challengeNeigong.challengeId = "challenge";
+    challengeNeigong.challengeName = "遠征";
     CHECK((chessRewardMenuPresentation(challengeNeigong, 7) == ChessMenuPresentation{36, 16}));
 
     ChessPendingReward challengeReward;
     challengeReward.kind = ChessRewardKind::ChallengeReward;
-    challengeReward.challengeId = "challenge";
+    challengeReward.challengeName = "遠征";
     CHECK((chessRewardMenuPresentation(challengeReward, 3) == ChessMenuPresentation{36, 3}));
 
     ChessPendingReward pieceReward;
@@ -433,13 +433,13 @@ TEST_CASE("challenge rewards retain configured limits and specific equipment nam
     const ChessGameContent content(std::move(data));
     using Type = BalanceConfig::ChallengeRewardType;
 
-    CHECK(chessChallengeRewardDescription(content, {"gold", Type::Gold, 23}) == "獲取23金幣");
-    CHECK(chessChallengeRewardDescription(content, {"piece", Type::GetPiece, 4}) == "獲取棋子(最高4費)");
-    CHECK(chessChallengeRewardDescription(content, {"neigong", Type::GetNeigong, 3}) == "獲取內功(最高3階)");
-    CHECK(chessChallengeRewardDescription(content, {"star12", Type::StarUp1to2, 2}) == "升星★→★★(最高2費)");
-    CHECK(chessChallengeRewardDescription(content, {"star23", Type::StarUp2to3, 5}) == "升星★★→★★★(最高5費)");
-    CHECK(chessChallengeRewardDescription(content, {"equipment", Type::GetEquipment, 4}) == "獲取裝備(最高4階)");
-    CHECK(chessChallengeRewardDescription(content, {"specific", Type::GetSpecificEquipment, 99}) == "獲取指定裝備: 倚天劍");
+    CHECK(chessChallengeRewardDescription(content, {Type::Gold, 23}) == "獲取23金幣");
+    CHECK(chessChallengeRewardDescription(content, {Type::GetPiece, 4}) == "獲取棋子(最高4費)");
+    CHECK(chessChallengeRewardDescription(content, {Type::GetNeigong, 3}) == "獲取內功(最高3階)");
+    CHECK(chessChallengeRewardDescription(content, {Type::StarUp1to2, 2}) == "升星★→★★(最高2費)");
+    CHECK(chessChallengeRewardDescription(content, {Type::StarUp2to3, 5}) == "升星★★→★★★(最高5費)");
+    CHECK(chessChallengeRewardDescription(content, {Type::GetEquipment, 4}) == "獲取裝備(最高4階)");
+    CHECK(chessChallengeRewardDescription(content, {Type::GetSpecificEquipment, 99}) == "獲取指定裝備: 倚天劍");
 
     CHECK(std::string(chessChallengeCompletionLabel(false)).empty());
     CHECK(std::string(chessChallengeCompletionLabel(true)) == "[已通關]");
@@ -460,16 +460,16 @@ TEST_CASE("challenge browsing is driven by configured rows rather than current l
 {
     ChessGameContentData data;
     data.balance.challenges.resize(3);
-    data.balance.challenges[0].id = "first";
-    data.balance.challenges[1].id = "second";
-    data.balance.challenges[2].id = "third";
+    data.balance.challenges[0].name = "第一場";
+    data.balance.challenges[1].name = "第二場";
+    data.balance.challenges[2].name = "第三場";
     const auto content = std::make_shared<const ChessGameContent>(std::move(data));
     const ChessGameSession session(content, 1);
 
     CHECK(std::ranges::none_of(session.legalActions(), [](const ChessLegalActionDescriptor& action) {
         return action.type == ChessActionType::StartChallenge;
     }));
-    CHECK((chessChallengeBrowseIds(*content) == std::vector<std::string>{"first", "second", "third"}));
+    CHECK((chessChallengeBrowseNames(*content) == std::vector<std::string>{"第一場", "第二場", "第三場"}));
 }
 
 TEST_CASE("star reward title derives one shared source and target pair from session state", "[chess][menu-formatting][reward]")
