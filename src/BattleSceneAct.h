@@ -4,7 +4,7 @@
 #include "BattleScene.h"
 #include "Camera.h"
 #include "Font.h"
-#include "PaperSky.h"
+#include "PaperPresentation.h"
 #include "TextureManager.h"
 #include "UIKeyConfig.h"
 #include <cmath>
@@ -177,6 +177,6 @@ protected:
     float free_camera_distance_ = 400;
     float camera_height_ = 200;
     bool camera_locked_ = false;
+    PaperPresentation paper_presentation_;
     Camera camera_;
-    PaperSky paper_sky_;
 };

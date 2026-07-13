@@ -5,19 +5,6 @@
 
 namespace
 {
-constexpr float PAPER_GROUND_EXTENSION_MARGIN_RATIO = 1.0f;
-constexpr float PAPER_GROUND_MESH_CENTER_RATIO = 0.64f;
-constexpr int PAPER_GROUND_MESH_TARGET_DIVISIONS = 160;
-constexpr int PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE = 10;
-constexpr int PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE = 18;
-constexpr float PAPER_GROUND_EDGE_FADE_TILE_COUNT = 16.0f;
-constexpr float PAPER_GROUND_HORIZON_FADE_START_RATIO = 0.72f;
-constexpr float PAPER_GROUND_HORIZON_FADE_END_RATIO = 1.35f;
-constexpr float PAPER_GROUND_RADIAL_FADE_START_RATIO = 0.34f;
-constexpr float PAPER_GROUND_RADIAL_FADE_END_RATIO = 0.48f;
-constexpr uint8_t PAPER_GROUND_EDGE_MIN_ALPHA = 0;
-constexpr uint8_t PAPER_GROUND_HORIZON_MIN_ALPHA = 0;
-constexpr int PAPER_GROUND_EDGE_STRETCH_SOURCE_DIVISOR = 16;
 constexpr int PAPER_LOCK_MARK_TEXTURE = 201;
 constexpr float PAPER_FREE_CAMERA_ROTATE_SPEED = 0.035f;
 constexpr float PAPER_FREE_CAMERA_HEIGHT_SPEED = 6.0f;
@@ -38,254 +25,17 @@ bool BattleSceneAct::usePaperPresentation() const
 
 void BattleSceneAct::initializePaperPresentation()
 {
-    paper_sky_.reset();
-    paper_sky_.generateClouds();
-
-    const int base_earth_w = COORD_COUNT * TILE_W * 2;
-    const int base_earth_h = COORD_COUNT * TILE_H * 2;
-    const int paper_earth_size = COORD_COUNT * TILE_W * 2;
-    const int requested_extension = 0;
-    const int square_fill_extension = COORD_COUNT;
-    auto engine = Engine::getInstance();
-    int extension = requested_extension;
-    int earth_base_w = base_earth_w;
-    int earth_base_h = base_earth_h;
-    int paper_earth_w = paper_earth_size;
-    int paper_earth_h = paper_earth_size;
-    Texture* earth_base_texture = nullptr;
-    Texture* earth_texture = nullptr;
-    for (;;)
-    {
-        earth_base_w = base_earth_w + extension * TILE_W * 4;
-        earth_base_h = base_earth_h + extension * TILE_H * 4;
-        paper_earth_w = paper_earth_size + extension * TILE_W * 4;
-        paper_earth_h = paper_earth_size + extension * TILE_W * 4;
-        engine->createRenderedTexture("earth_base", earth_base_w, earth_base_h);
-        engine->createRenderedTexture("earth", paper_earth_w, paper_earth_h);
-        earth_base_texture = engine->getTexture("earth_base");
-        earth_texture = engine->getTexture("earth");
-        if ((earth_base_texture && earth_texture) || extension == 0)
-        {
-            break;
-        }
-        extension /= 2;
-    }
-
-    int actual_base_earth_w = earth_base_w;
-    int actual_base_earth_h = earth_base_h;
-    int actual_paper_earth_w = paper_earth_w;
-    int actual_paper_earth_h = paper_earth_h;
-    if (earth_base_texture)
-    {
-        engine->getTextureSize(earth_base_texture, actual_base_earth_w, actual_base_earth_h);
-    }
-    if (earth_texture)
-    {
-        engine->getTextureSize(earth_texture, actual_paper_earth_w, actual_paper_earth_h);
-    }
-    const int base_offset_x = std::max(0, (actual_base_earth_w - base_earth_w) / 2);
-    const int base_offset_y = std::max(0, (actual_base_earth_h - base_earth_h) / 2);
-    if (earth_base_texture)
-    {
-        Engine::setTextureBlendMode(earth_base_texture);
-        SDL_SetTextureScaleMode(earth_base_texture, SDL_SCALEMODE_NEAREST);
-        engine->setRenderTarget(earth_base_texture);
-        engine->fillColor({ 0, 0, 0, 0 }, 0, 0, actual_base_earth_w, actual_base_earth_h, BLENDMODE_NONE);
-
-        auto texture_manager = TextureManager::getInstance();
-        struct GroundTile
-        {
-            TextureWarpper* texture = nullptr;
-            int ix = 0;
-            int iy = 0;
-        };
-        std::vector<GroundTile> ground_tiles;
-        ground_tiles.reserve(COORD_COUNT * COORD_COUNT);
-        auto tile_index = [&](int x, int y)
-        {
-            return x + y * COORD_COUNT;
-        };
-        std::vector<int> ground_tile_indices(COORD_COUNT * COORD_COUNT, -1);
-        std::vector<int> row_first_valid(COORD_COUNT, -1);
-        std::vector<int> row_last_valid(COORD_COUNT, -1);
-        std::vector<int> column_first_valid(COORD_COUNT, -1);
-        std::vector<int> column_last_valid(COORD_COUNT, -1);
-        for (int iy = 0; iy < COORD_COUNT; iy++)
-        {
-            for (int ix = 0; ix < COORD_COUNT; ix++)
-            {
-                int num = earth_layer_.data(ix, iy) / 2;
-                auto texture = num > 0 ? texture_manager->getTexture("smap", num) : nullptr;
-                if (!texture)
-                {
-                    continue;
-                }
-                int source_index = int(ground_tiles.size());
-                ground_tiles.push_back({ texture, ix, iy });
-                ground_tile_indices[tile_index(ix, iy)] = source_index;
-                if (row_first_valid[iy] < 0) { row_first_valid[iy] = ix; }
-                row_last_valid[iy] = ix;
-                if (column_first_valid[ix] < 0) { column_first_valid[ix] = iy; }
-                column_last_valid[ix] = iy;
-            }
-        }
-        std::vector<int> edge_tile_indices;
-        constexpr int neighbor_offsets[4][2] = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
-        for (int index = 0; index < int(ground_tiles.size()); index++)
-        {
-            const auto& tile = ground_tiles[index];
-            for (const auto& offset : neighbor_offsets)
-            {
-                int x = tile.ix + offset[0];
-                int y = tile.iy + offset[1];
-                if (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT
-                    || ground_tile_indices[tile_index(x, y)] < 0)
-                {
-                    edge_tile_indices.push_back(index);
-                    break;
-                }
-            }
-        }
-        if (edge_tile_indices.empty())
-        {
-            for (int index = 0; index < int(ground_tiles.size()); index++)
-            {
-                edge_tile_indices.push_back(index);
-            }
-        }
-        auto get_original_tile_index = [&](int x, int y)
-        {
-            if (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT)
-            {
-                return -1;
-            }
-            return ground_tile_indices[tile_index(x, y)];
-        };
-        auto find_nearest_edge_tile = [&](int x, int y)
-        {
-            int best_index = -1;
-            int best_distance = std::numeric_limits<int>::max();
-            for (int source_index : edge_tile_indices)
-            {
-                const auto& tile = ground_tiles[source_index];
-                int dx = tile.ix - x;
-                int dy = tile.iy - y;
-                int distance = dx * dx + dy * dy;
-                if (distance < best_distance)
-                {
-                    best_distance = distance;
-                    best_index = source_index;
-                }
-            }
-            return best_index;
-        };
-        auto get_extension_source_index = [&](int x, int y)
-        {
-            int source_index = get_original_tile_index(x, y);
-            if (source_index >= 0)
-            {
-                return source_index;
-            }
-            int source_x = std::clamp(x, 0, COORD_COUNT - 1);
-            int source_y = std::clamp(y, 0, COORD_COUNT - 1);
-            if (y < 0 && column_first_valid[source_x] >= 0) { source_y = column_first_valid[source_x]; }
-            else if (y >= COORD_COUNT && column_last_valid[source_x] >= 0) { source_y = column_last_valid[source_x]; }
-            if (x < 0 && row_first_valid[source_y] >= 0) { source_x = row_first_valid[source_y]; }
-            else if (x >= COORD_COUNT && row_last_valid[source_y] >= 0) { source_x = row_last_valid[source_y]; }
-            source_index = get_original_tile_index(source_x, source_y);
-            return source_index >= 0 ? source_index : find_nearest_edge_tile(x, y);
-        };
-        for (int iy = -square_fill_extension; iy < COORD_COUNT + square_fill_extension; iy++)
-        {
-            for (int ix = -square_fill_extension; ix < COORD_COUNT + square_fill_extension; ix++)
-            {
-                int source_index = get_extension_source_index(ix, iy);
-                if (source_index < 0)
-                {
-                    continue;
-                }
-                auto texture = ground_tiles[source_index].texture;
-                texture->load();
-                auto source_texture = texture->getTexture();
-                if (!source_texture)
-                {
-                    continue;
-                }
-                Engine::setColor(source_texture, { 255, 255, 255, 255 });
-                auto position = pos45To90(ix, iy);
-                engine->renderTexture(source_texture, base_offset_x + int(position.x) - texture->dx,
-                    base_offset_y + int(std::round(position.y * TILE_H / float(TILE_W))) - texture->dy, texture->w, texture->h);
-            }
-        }
-
-        auto battle_earth_group = texture_manager->getTextureGroup("battle-earth");
-        std::string battle_earth_filename;
-        if (battle_earth_group->getTextureCount() > 0)
-        {
-            battle_earth_filename = std::to_string(info_->BattleFieldID) + battle_earth_group->info_.ext_;
-        }
-        if (!battle_earth_filename.empty() && !battle_earth_group->getFileContent(battle_earth_filename).empty())
-        {
-            auto texture = texture_manager->getTexture("battle-earth", info_->BattleFieldID);
-            if (texture)
-            {
-                texture->load();
-                auto source_texture = texture->getTexture();
-                if (source_texture)
-                {
-                    Engine::setColor(source_texture, { 255, 255, 255, 255 });
-                    int source_w = texture->w;
-                    int source_h = texture->h;
-                    engine->getTextureSize(source_texture, source_w, source_h);
-                    int center_x = base_offset_x - texture->dx;
-                    int center_y = base_offset_y - texture->dy;
-                    int strip_w = std::clamp(source_w / PAPER_GROUND_EDGE_STRETCH_SOURCE_DIVISOR, 1, source_w);
-                    int strip_h = std::clamp(source_h / PAPER_GROUND_EDGE_STRETCH_SOURCE_DIVISOR, 1, source_h);
-                    auto render_piece = [&](Rect source, Rect destination)
-                    {
-                        if (source.w > 0 && source.h > 0 && destination.w > 0 && destination.h > 0)
-                        {
-                            engine->renderTexture(source_texture, &source, &destination);
-                        }
-                    };
-                    render_piece({ 0, 0, source_w, source_h }, { center_x, center_y, base_earth_w, base_earth_h });
-                    render_piece({ 0, 0, strip_w, source_h }, { 0, center_y, center_x, base_earth_h });
-                    render_piece({ source_w - strip_w, 0, strip_w, source_h },
-                        { center_x + base_earth_w, center_y, actual_base_earth_w - center_x - base_earth_w, base_earth_h });
-                    render_piece({ 0, 0, source_w, strip_h }, { center_x, 0, base_earth_w, center_y });
-                    render_piece({ 0, source_h - strip_h, source_w, strip_h },
-                        { center_x, center_y + base_earth_h, base_earth_w, actual_base_earth_h - center_y - base_earth_h });
-                    render_piece({ 0, 0, strip_w, strip_h }, { 0, 0, center_x, center_y });
-                    render_piece({ source_w - strip_w, 0, strip_w, strip_h },
-                        { center_x + base_earth_w, 0, actual_base_earth_w - center_x - base_earth_w, center_y });
-                    render_piece({ 0, source_h - strip_h, strip_w, strip_h },
-                        { 0, center_y + base_earth_h, center_x, actual_base_earth_h - center_y - base_earth_h });
-                    render_piece({ source_w - strip_w, source_h - strip_h, strip_w, strip_h },
-                        { center_x + base_earth_w, center_y + base_earth_h,
-                            actual_base_earth_w - center_x - base_earth_w, actual_base_earth_h - center_y - base_earth_h });
-                }
-            }
-        }
-    }
-
-    if (earth_texture && earth_base_texture)
-    {
-        Engine::setTextureBlendMode(earth_texture);
-        SDL_SetTextureScaleMode(earth_texture, SDL_SCALEMODE_LINEAR);
-        engine->setRenderTarget(earth_texture);
-        engine->fillColor({ 0, 0, 0, 0 }, 0, 0, actual_paper_earth_w, actual_paper_earth_h, BLENDMODE_NONE);
-        Engine::setColor(earth_base_texture, { 255, 255, 255, 255 });
-        Rect source = { 0, 0, actual_base_earth_w, actual_base_earth_h };
-        Rect destination = { 0, 0, actual_paper_earth_w, actual_paper_earth_h };
-        engine->renderTexture(earth_base_texture, &source, &destination);
-    }
-
-    engine->createRenderedTexture("earth2", paper_earth_size, paper_earth_size);
-    if (auto earth_texture2 = engine->getTexture("earth2"))
-    {
-        engine->setRenderTarget(earth_texture2);
-        engine->fillColor({ 0, 0, 0, 0 }, 0, 0, paper_earth_size, paper_earth_size, BLENDMODE_NONE);
-    }
+    paper_presentation_.initialize();
+    paper_presentation_.initializeScene(Engine::getInstance(), {
+        .earth_layer = &earth_layer_,
+        .building_layer = &building_layer_,
+        .battle_field_id = info_->BattleFieldID,
+        .coordinate_count = COORD_COUNT,
+        .tile_width = TILE_W,
+        .tile_height = TILE_H,
+        .to_world = [this](int x, int y) { return pos45To90(x, y); },
+        .is_wall_tile = [this](int tile_number) { return isPaperWallTile(tile_number); },
+    });
 }
 
 void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
@@ -499,267 +249,6 @@ void BattleSceneAct::drawPaperPresentation()
             camera_angle_ = std::atan2(camera_pos_.y - camera_focus_.y, camera_pos_.x - camera_focus_.x);
             camera_.setFov(PaperSky::CameraFov);
             camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
-            Engine::getInstance()->setRenderTarget("scene");
-            paper_sky_.render(Engine::getInstance(), render_center_x_ * 2, render_center_y_ * 2,
-                camera_.pos, camera_.center);
-            auto render_texture_3d = [&](Texture* texture, const std::vector<Pointf>& world, const std::vector<FPoint>& src, Color color = { 255, 255, 255, 255 })
-            {
-                auto projected = camera_.getProj(world);
-                std::vector<FPoint> dst;
-                dst.reserve(projected.size());
-                for (auto& p : projected)
-                {
-                    dst.push_back({ float(p.x), float(p.y) });
-                }
-                std::vector<Color> colors(dst.size(), color);
-                std::vector<int> indices = { 0, 1, 2, 2, 3, 0 };
-                Engine::getInstance()->renderTextureMesh(texture, dst, src, colors, indices);
-            };
-            auto render_texture_3d_mesh = [&](Texture* texture, const std::vector<Pointf>& world,
-                const std::vector<FPoint>& src, int columns, int rows, Color color = { 255, 255, 255, 255 })
-            {
-                if (!texture || world.size() != 4 || src.size() != 4)
-                {
-                    return;
-                }
-                columns = std::clamp(columns, 1, 32);
-                rows = std::clamp(rows, 1, 32);
-                std::vector<FPoint> dst;
-                std::vector<FPoint> mesh_src;
-                std::vector<int> indices;
-                dst.reserve((columns + 1) * (rows + 1));
-                mesh_src.reserve((columns + 1) * (rows + 1));
-                indices.reserve(columns * rows * 6);
-
-                for (int row = 0; row <= rows; ++row)
-                {
-                    float v = float(row) / rows;
-                    for (int column = 0; column <= columns; ++column)
-                    {
-                        float u = float(column) / columns;
-                        Pointf top = world[0] * (1.0f - u) + world[1] * u;
-                        Pointf bottom = world[3] * (1.0f - u) + world[2] * u;
-                        auto projected = camera_.getProj({ top * (1.0f - v) + bottom * v }).front();
-                        dst.push_back({ projected.x, projected.y });
-
-                        FPoint source_top = {
-                            src[0].x + (src[1].x - src[0].x) * u,
-                            src[0].y + (src[1].y - src[0].y) * u,
-                        };
-                        FPoint source_bottom = {
-                            src[3].x + (src[2].x - src[3].x) * u,
-                            src[3].y + (src[2].y - src[3].y) * u,
-                        };
-                        mesh_src.push_back({
-                            source_top.x + (source_bottom.x - source_top.x) * v,
-                            source_top.y + (source_bottom.y - source_top.y) * v,
-                        });
-                    }
-                }
-
-                for (int row = 0; row < rows; ++row)
-                {
-                    for (int column = 0; column < columns; ++column)
-                    {
-                        int top_left = row * (columns + 1) + column;
-                        int top_right = top_left + 1;
-                        int bottom_left = top_left + columns + 1;
-                        int bottom_right = bottom_left + 1;
-                        indices.insert(indices.end(), { top_left, top_right, bottom_right, bottom_right, bottom_left, top_left });
-                    }
-                }
-                std::vector<Color> colors(dst.size(), color);
-                Engine::getInstance()->renderTextureMesh(texture, dst, mesh_src, colors, indices);
-            };
-            auto in_camera_front = [&](const std::vector<Pointf>& points)
-            {
-                for (auto& p : points)
-                {
-                    if (camera_.getDepth(p) <= camera_.getNearPlane())
-                    {
-                        return false;
-                    }
-                }
-                return true;
-            };
-            auto render_ground_mesh = [&]()
-            {
-                float min_x = -ground_source_offset_x;
-                float min_y = -ground_source_offset_y;
-                float max_x = ground_texture_wf - ground_source_offset_x;
-                float max_y = ground_texture_hf - ground_source_offset_y;
-                auto make_ground_mesh_lines = [&](float min_value, float max_value, float original_size)
-                {
-                    std::vector<float> lines;
-                    lines.reserve(384);
-                    auto add_line = [&](float value)
-                    {
-                        lines.push_back(std::clamp(value, min_value, max_value));
-                    };
-                    auto add_segment = [&](float start, float end, int divisions)
-                    {
-                        if (start > max_value || end < min_value)
-                        {
-                            return;
-                        }
-                        start = std::clamp(start, min_value, max_value);
-                        end = std::clamp(end, min_value, max_value);
-                        if (end < start)
-                        {
-                            return;
-                        }
-                        divisions = std::max(1, divisions);
-                        for (int i = 0; i <= divisions; i++)
-                        {
-                            float factor = float(i) / divisions;
-                            add_line(start + (end - start) * factor);
-                        }
-                    };
-
-                    float center_margin = original_size * (1.0f - PAPER_GROUND_MESH_CENTER_RATIO) * 0.5f;
-                    float original_min = 0.0f;
-                    float original_max = original_size;
-                    float center_min = original_min + center_margin;
-                    float center_max = original_max - center_margin;
-                    int center_divisions = std::max(16,
-                        PAPER_GROUND_MESH_TARGET_DIVISIONS
-                        - PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE * 2
-                        - PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE * 2);
-
-                    add_segment(min_value, original_min, PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE);
-                    add_segment(original_min, center_min, PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE);
-                    add_segment(center_min, center_max, center_divisions);
-                    add_segment(center_max, original_max, PAPER_GROUND_MESH_ORIGINAL_EDGE_DIVISIONS_PER_SIDE);
-                    add_segment(original_max, max_value, PAPER_GROUND_MESH_EXTENSION_DIVISIONS_PER_SIDE);
-
-                    std::sort(lines.begin(), lines.end());
-                    std::vector<float> unique_lines;
-                    unique_lines.reserve(lines.size());
-                    for (float value : lines)
-                    {
-                        if (unique_lines.empty() || std::abs(value - unique_lines.back()) > 0.25f)
-                        {
-                            unique_lines.push_back(value);
-                        }
-                    }
-                    if (unique_lines.size() < 2)
-                    {
-                        unique_lines = { min_value, max_value };
-                    }
-                    return unique_lines;
-                };
-                std::vector<float> mesh_x_lines = make_ground_mesh_lines(min_x, max_x, wf);
-                std::vector<float> mesh_y_lines = make_ground_mesh_lines(min_y, max_y, hf);
-                int mesh_x = int(mesh_x_lines.size()) - 1;
-                int mesh_y = int(mesh_y_lines.size()) - 1;
-                float ground_edge_fade_distance = float(TILE_W) * PAPER_GROUND_EDGE_FADE_TILE_COUNT;
-                float horizon_fade_start = std::max(ground_edge_fade_distance,
-                    wf * PAPER_GROUND_HORIZON_FADE_START_RATIO);
-                float horizon_fade_end = std::max(horizon_fade_start + ground_edge_fade_distance,
-                    wf * PAPER_GROUND_HORIZON_FADE_END_RATIO);
-                float ground_center_x = ground_texture_wf * 0.5f;
-                float ground_center_y = ground_texture_hf * 0.5f;
-                float ground_radial_base = std::min(ground_texture_wf, ground_texture_hf);
-                float ground_radial_fade_start = ground_radial_base * PAPER_GROUND_RADIAL_FADE_START_RATIO;
-                float ground_radial_fade_end = ground_radial_base * PAPER_GROUND_RADIAL_FADE_END_RATIO;
-
-                std::vector<Pointf> world;
-                std::vector<FPoint> src;
-                std::vector<Color> colors;
-                world.reserve(mesh_x_lines.size() * mesh_y_lines.size());
-                src.reserve(mesh_x_lines.size() * mesh_y_lines.size());
-                colors.reserve(mesh_x_lines.size() * mesh_y_lines.size());
-
-                for (int iy = 0; iy < int(mesh_y_lines.size()); iy++)
-                {
-                    float y = mesh_y_lines[iy];
-                    for (int ix = 0; ix < int(mesh_x_lines.size()); ix++)
-                    {
-                        float x = mesh_x_lines[ix];
-                        float source_x = std::clamp(x + ground_source_offset_x, 0.0f, ground_texture_wf);
-                        float source_y = std::clamp(y + ground_source_offset_y, 0.0f, ground_texture_hf);
-                        float distance_to_edge = std::min(
-                            std::min(source_x, ground_texture_wf - source_x),
-                            std::min(source_y, ground_texture_hf - source_y));
-                        float fade = PaperSky::smoothStep(0.0f, ground_edge_fade_distance, distance_to_edge);
-                        float alpha = PAPER_GROUND_EDGE_MIN_ALPHA
-                            + (255.0f - PAPER_GROUND_EDGE_MIN_ALPHA) * fade;
-                        float center_dx = source_x - ground_center_x;
-                        float center_dy = source_y - ground_center_y;
-                        float center_distance = std::sqrt(center_dx * center_dx + center_dy * center_dy);
-                        float radial_fade = 1.0f
-                            - PaperSky::smoothStep(ground_radial_fade_start, ground_radial_fade_end, center_distance);
-                        alpha = std::min(alpha, 255.0f * radial_fade);
-                        world.push_back({ x, y, 0 });
-                        src.push_back({ source_x, source_y });
-                        colors.push_back({ 255, 255, 255, uint8_t(std::clamp(alpha, 0.0f, 255.0f)) });
-                    }
-                }
-
-                auto projected = camera_.getProj(world);
-                std::vector<FPoint> dst;
-                std::vector<float> depths;
-                dst.reserve(projected.size());
-                depths.reserve(world.size());
-                for (size_t i = 0; i < world.size(); i++)
-                {
-                    float depth = camera_.getDepth(world[i]);
-                    float horizon_fade = PaperSky::smoothStep(horizon_fade_start, horizon_fade_end, depth);
-                    float horizon_alpha = PAPER_GROUND_HORIZON_MIN_ALPHA
-                        + (255.0f - PAPER_GROUND_HORIZON_MIN_ALPHA) * (1.0f - horizon_fade);
-                    colors[i].a = std::min(colors[i].a, uint8_t(std::clamp(horizon_alpha, 0.0f, 255.0f)));
-
-                    dst.push_back({ projected[i].x, projected[i].y });
-                    depths.push_back(depth);
-                }
-
-                std::vector<int> indices;
-                indices.reserve(mesh_x * mesh_y * 6);
-                auto index_of = [&](int ix, int iy)
-                {
-                    return iy * (mesh_x + 1) + ix;
-                };
-                for (int iy = 0; iy < mesh_y; iy++)
-                {
-                    for (int ix = 0; ix < mesh_x; ix++)
-                    {
-                        int i0 = index_of(ix, iy);
-                        int i1 = index_of(ix + 1, iy);
-                        int i2 = index_of(ix + 1, iy + 1);
-                        int i3 = index_of(ix, iy + 1);
-                        if (depths[i0] <= camera_.getNearPlane()
-                            || depths[i1] <= camera_.getNearPlane()
-                            || depths[i2] <= camera_.getNearPlane()
-                            || depths[i3] <= camera_.getNearPlane())
-                        {
-                            continue;
-                        }
-                        indices.insert(indices.end(), { i0, i1, i2, i2, i3, i0 });
-                    }
-                }
-
-                Engine::getInstance()->renderTextureMesh(earth_texture, dst, src, colors, indices);
-            };
-            Engine::getInstance()->setRenderTarget("scene");
-            render_ground_mesh();
-
-            struct PaperBuilding
-            {
-                TextureWarpper* tex = nullptr;
-                Pointf anchor;
-            };
-
-            struct PaperWallEdge
-            {
-                std::vector<Pointf> world;
-                float depth = 0;
-                int tile_num = 0;
-            };
-
-            std::vector<PaperBuilding> buildings;
-            buildings.reserve(COORD_COUNT * COORD_COUNT / 4);
-            std::vector<PaperWallEdge> wall_edges;
-            wall_edges.reserve(COORD_COUNT * COORD_COUNT / 2);
             Pointf view_dir = camera_.center - camera_.pos;
             view_dir.z = 0;
             if (view_dir.norm() == 0)
@@ -767,137 +256,14 @@ void BattleSceneAct::drawPaperPresentation()
                 view_dir = { 0, 1, 0 };
             }
             view_dir.normTo(1);
+            Pointf paper_right = { view_dir.y, -view_dir.x, 0 };
             auto calc_depth = [&](const Pointf& p)
             {
                 auto v = p - camera_.pos;
                 auto n = view_dir;
                 return v.x * n.x + v.y * n.y;
             };
-            auto is_paper_wall_at = [&](int x, int y)
-            {
-                return !isOutLine(x, y) && isPaperWallTile(building_layer_.data(x, y) / 2);
-            };
-            auto add_wall_edge = [&](Pointf a, Pointf b, int tile_num)
-            {
-                constexpr float wall_h = 80.0f;
-                PaperWallEdge edge;
-                edge.world = { { a.x, a.y, wall_h }, { b.x, b.y, wall_h }, { b.x, b.y, 0 }, { a.x, a.y, 0 } };
-                Pointf mid = { (a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f, wall_h * 0.5f };
-                edge.depth = calc_depth(mid);
-                edge.tile_num = tile_num;
-                wall_edges.emplace_back(std::move(edge));
-            };
-            for (int ix = 0; ix < COORD_COUNT; ix++)
-            {
-                for (int iy = 0; iy < COORD_COUNT; iy++)
-                {
-                    int num = building_layer_.data(ix, iy) / 2;
-                    if (isPaperWallTile(num))
-                    {
-                        auto p00 = pos45To90(ix, iy);
-                        auto p10 = pos45To90(ix + 1, iy);
-                        auto p01 = pos45To90(ix, iy + 1);
-                        auto p11 = pos45To90(ix + 1, iy + 1);
-                        if (!is_paper_wall_at(ix, iy - 1)) { add_wall_edge(p00, p10, num); }
-                        if (!is_paper_wall_at(ix + 1, iy)) { add_wall_edge(p10, p11, num); }
-                        if (!is_paper_wall_at(ix, iy + 1)) { add_wall_edge(p11, p01, num); }
-                        if (!is_paper_wall_at(ix - 1, iy)) { add_wall_edge(p01, p00, num); }
-                        continue;
-                    }
-                    if (num <= 0 || isPaperWallTile(num))
-                    {
-                        continue;
-                    }
-                    auto tex = TextureManager::getInstance()->getTexture("smap", num);
-                    if (!tex)
-                    {
-                        continue;
-                    }
-                    auto p = pos45To90(ix, iy);
-                    buildings.push_back({ tex, { p.x, p.y, 0 } });
-                }
-            }
-            Pointf paper_right = { view_dir.y, -view_dir.x, 0 };
-
-            auto render_paper_texture = [&](TextureWarpper* tex, const Pointf& anchor, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, int rot = 0, bool face_camera = false)
-            {
-                if (!tex)
-                {
-                    return;
-                }
-                tex->load();
-                auto texture = tex->getTexture();
-                if (!texture)
-                {
-                    return;
-                }
-                float left = -float(tex->dx);
-                float right = float(tex->w - tex->dx);
-                float top = float(tex->dy);
-                float bottom = float(tex->dy - tex->h);
-                Pointf camera_forward = camera_.center - camera_.pos;
-                camera_forward.normTo(1);
-                Pointf camera_up = {
-                    paper_right.y * camera_forward.z - paper_right.z * camera_forward.y,
-                    paper_right.z * camera_forward.x - paper_right.x * camera_forward.z,
-                    paper_right.x * camera_forward.y - paper_right.y * camera_forward.x,
-                };
-                camera_up.normTo(1);
-                auto local_point = [&](float x, float z)
-                {
-                    if (face_camera)
-                    {
-                        return anchor + paper_right * x + camera_up * z;
-                    }
-                    if (rot == 90)
-                    {
-                        return anchor + paper_right * -z + Pointf{ 0, 0, x };
-                    }
-                    if (rot == 270)
-                    {
-                        return anchor + paper_right * z + Pointf{ 0, 0, -x };
-                    }
-                    return anchor + paper_right * x + Pointf{ 0, 0, z };
-                };
-                std::vector<Pointf> paper = {
-                    local_point(left, top),
-                    local_point(right, top),
-                    local_point(right, bottom),
-                    local_point(left, bottom),
-                };
-                if (!in_camera_front(paper))
-                {
-                    return;
-                }
-                std::vector<FPoint> src = { { 0, 0 }, { float(tex->w), 0 }, { float(tex->w), float(tex->h) }, { 0, float(tex->h) } };
-                Color c = color;
-                c.a = alpha;
-                if (face_camera)
-                {
-                    render_texture_3d(texture, paper, src, c);
-                    return;
-                }
-                int columns = std::clamp((tex->w + 31) / 32, 1, 32);
-                int rows = std::clamp((tex->h + 31) / 32, 1, 32);
-                render_texture_3d_mesh(texture, paper, src, columns, rows, c);
-            };
-
-            struct PaperSprite
-            {
-                Texture* texture = nullptr;
-                TextureWarpper* tex = nullptr;
-                Pointf anchor;
-                std::vector<Pointf> world;
-                std::vector<FPoint> src;
-                Color color{ 255, 255, 255, 255 };
-                uint8_t alpha = 255;
-                float depth = 0;
-                int turn = 1;
-                int rot = 0;
-                bool use_perspective_mesh = false;
-                bool face_camera = false;
-                int order = 0;
-            };
+            using PaperSprite = PaperRenderSprite;
 
             auto to_paper_anchor = [](Pointf p)
             {
@@ -911,82 +277,6 @@ void BattleSceneAct::drawPaperPresentation()
                 sprite.order = sprite_order++;
                 sprites.emplace_back(std::move(sprite));
             };
-            auto engine = Engine::getInstance();
-            bool need_draw_wall_texture = true;
-            if (auto old_wall_texture = engine->getTexture("paper-wall-edge"))
-            {
-                int old_w = 0;
-                int old_h = 0;
-                Engine::getTextureSize(old_wall_texture, old_w, old_h);
-                need_draw_wall_texture = old_w != 16 || old_h != 16;
-            }
-            engine->createRenderedTexture("paper-wall-edge", 16, 16);
-            auto wall_texture = engine->getTexture("paper-wall-edge");
-            if (need_draw_wall_texture)
-            {
-                auto prev_target = engine->getRenderTarget();
-                engine->setRenderTarget(wall_texture);
-                engine->fillColor({ 70, 62, 50, 235 }, 0, 0, 16, 16, BLENDMODE_NONE);
-                engine->fillColor({ 94, 84, 66, 235 }, 0, 1, 16, 1, BLENDMODE_NONE);
-                engine->fillColor({ 47, 42, 35, 235 }, 0, 4, 16, 1, BLENDMODE_NONE);
-                engine->fillColor({ 88, 78, 61, 235 }, 0, 8, 16, 1, BLENDMODE_NONE);
-                engine->fillColor({ 42, 37, 31, 235 }, 0, 12, 16, 1, BLENDMODE_NONE);
-                engine->fillColor({ 104, 92, 72, 210 }, 0, 15, 16, 1, BLENDMODE_NONE);
-                engine->setRenderTarget(prev_target);
-            }
-            std::unordered_map<int, TextureWarpper*> paper_wall_texture_cache;
-            auto get_paper_wall_texture = [&](int tile_num) -> TextureWarpper*
-            {
-                auto it = paper_wall_texture_cache.find(tile_num);
-                if (it != paper_wall_texture_cache.end())
-                {
-                    return it->second;
-                }
-                TextureWarpper* tex = nullptr;
-                auto filename = GameUtil::PATH() + "resource/paper-wall-texture/" + std::to_string(tile_num) + ".png";
-                if (filefunc::fileExist(filename))
-                {
-                    tex = TextureManager::getInstance()->getTexture("paper-wall-texture", tile_num);
-                    if (tex)
-                    {
-                        tex->load();
-                        if (!tex->getTexture())
-                        {
-                            tex = nullptr;
-                        }
-                    }
-                }
-                paper_wall_texture_cache[tile_num] = tex;
-                return tex;
-            };
-            for (auto& edge : wall_edges)
-            {
-                PaperSprite sprite;
-                if (auto tex = get_paper_wall_texture(edge.tile_num))
-                {
-                    sprite.texture = tex->getTexture();
-                    sprite.src = { { 0, 0 }, { float(tex->w), 0 }, { float(tex->w), float(tex->h) }, { 0, float(tex->h) } };
-                }
-                else
-                {
-                    sprite.texture = wall_texture;
-                    sprite.src = { { 0, 0 }, { 16, 0 }, { 16, 16 }, { 0, 16 } };
-                }
-                sprite.world = edge.world;
-                sprite.anchor = { (edge.world[0].x + edge.world[2].x) * 0.5f, (edge.world[0].y + edge.world[2].y) * 0.5f, 0 };
-                sprite.depth = edge.depth;
-                sprite.use_perspective_mesh = true;
-                push_sprite(std::move(sprite));
-            }
-            for (auto& b : buildings)
-            {
-                PaperSprite sprite;
-                sprite.tex = b.tex;
-                sprite.anchor = b.anchor;
-                sprite.depth = calc_depth(sprite.anchor);
-                push_sprite(std::move(sprite));
-            }
-
             for (auto r : battle_roles_)
             {
                 if (!r)
@@ -1004,7 +294,7 @@ void BattleSceneAct::drawPaperPresentation()
                 sprite.turn = r->Dead ? 0 : 1;
                 if (r->Dead || r->HP <= 0)
                 {
-                    sprite.rot = r->FaceTowards >= 2 ? 90 : 270;
+                    sprite.rotation = r->FaceTowards >= 2 ? 90 : 270;
                     sprite.turn = 0;
                 }
                 if (battle_cursor_->isRunning() && !acting_role_->isAuto())
@@ -1033,108 +323,36 @@ void BattleSceneAct::drawPaperPresentation()
                 push_sprite(std::move(sprite));
             }
 
-            std::sort(sprites.begin(), sprites.end(), [](const PaperSprite& a, const PaperSprite& b)
-                {
-                    constexpr float depth_epsilon = 1.0f;
-                    float depth_delta = a.depth - b.depth;
-                    if (std::abs(depth_delta) > depth_epsilon)
-                    {
-                        return depth_delta > 0;
-                    }
-                    if (a.anchor.y != b.anchor.y)
-                    {
-                        return a.anchor.y < b.anchor.y;
-                    }
-                    if (a.anchor.x != b.anchor.x)
-                    {
-                        return a.anchor.x < b.anchor.x;
-                    }
-                    if (a.turn != b.turn)
-                    {
-                        return a.turn < b.turn;
-                    }
-                    return a.order < b.order;
-                });
-            for (auto& sprite : sprites)
-            {
-                    if (sprite.texture && sprite.world.size() == 4)
-                    {
-                        if (in_camera_front(sprite.world))
-                        {
-                            if (sprite.use_perspective_mesh)
-                            {
-                                render_texture_3d_mesh(sprite.texture, sprite.world, sprite.src, 4, 4, sprite.color);
-                            }
-                            else
-                            {
-                                render_texture_3d(sprite.texture, sprite.world, sprite.src, sprite.color);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        render_paper_texture(sprite.tex, sprite.anchor, sprite.color, sprite.alpha, sprite.rot,
-                            sprite.face_camera);
-                    }
-            }
+            PaperFrame paper_frame;
+            paper_frame.camera = &camera_;
+            paper_frame.sprites = std::move(sprites);
             if (locked_role && locked_role->Dead == 0 && locked_role->HP > 0)
             {
-                Pointf marker_world = locked_role->Pos + Pointf{ 0, 0, TILE_W * 1.5f };
-                if (camera_.getDepth(marker_world) > camera_.getNearPlane())
-                {
-                    auto projected = camera_.getProj({ marker_world });
-                    if (!projected.empty())
-                    {
-                        auto tex = TextureManager::getInstance()->getTexture("title", PAPER_LOCK_MARK_TEXTURE);
-                        float zoom = 0.5f + 0.06f * std::sin(current_frame_ * 0.16f);
-                        int mark_x = int(projected[0].x) - (tex ? int(tex->w * zoom * 0.5f) : 0);
-                        int mark_y = int(projected[0].y) - (tex ? int(tex->h * zoom * 0.5f) : 0);
-                        TextureManager::getInstance()->renderTexture("title", PAPER_LOCK_MARK_TEXTURE, mark_x, mark_y,
-                            { { 255, 255, 255, 255 }, 224, zoom, zoom });
-                    }
-                }
+                paper_frame.locked_position = &locked_role->Pos;
             }
+            paper_frame.role_info_anchors.reserve(battle_roles_.size());
             for (auto r : battle_roles_)
             {
                 if (!r)
                 {
                     continue;
                 }
-                Pointf bar_world = r->Pos + Pointf{ 0, 0, TILE_W * 3.5f };
-                if (camera_.getDepth(bar_world) <= camera_.getNearPlane())
-                {
-                    continue;
-                }
-                auto projected = camera_.getProj({ bar_world });
-                if (!projected.empty())
-                {
-                    int tile_scale = (std::max)(1, TILE_W / TILE_W_0);
-                    int bar_anchor_y = int(projected[0].y) + 61 * tile_scale - int(PAPER_ROLE_INFO_TOP_GAP);
-                    renderExtraRoleInfo(r, int(projected[0].x), bar_anchor_y);
-                }
+                paper_frame.role_info_anchors.push_back({ r, r->Pos });
             }
+            paper_frame.text_effects.reserve(text_effects_.size());
             for (const auto& te : text_effects_)
             {
-                Pointf text_world = te.PaperPos;
-                text_world.z += TILE_W * 1.5f;
-                if (camera_.getDepth(text_world) <= camera_.getNearPlane())
-                {
-                    continue;
-                }
-                auto projected = camera_.getProj({ text_world });
-                if (!projected.empty())
-                {
-                    int ui_width = 0;
-                    int ui_height = 0;
-                    Engine::getInstance()->getUISize(ui_width, ui_height);
-                    float scene_to_ui_x = float(ui_width) / (render_center_x_ * 2);
-                    float scene_to_ui_y = float(ui_height) / (render_center_y_ * 2);
-                    float text_x = projected[0].x - 7.5f * Font::getTextDrawSize(te.Text);
-                    float text_y = projected[0].y - 4.0f - te.PaperRise;
-                    Font::getInstance()->draw(te.Text, te.Size, int(text_x * scene_to_ui_x),
-                        int(text_y * scene_to_ui_y), te.color, 255);
-                }
+                paper_frame.text_effects.push_back({ te.PaperPos, te.Text, te.Size, te.PaperRise, te.color });
             }
+            paper_frame.current_frame = current_frame_;
+            paper_frame.tile_width = TILE_W;
+            paper_frame.tile_width_base = TILE_W_0;
+            paper_frame.lock_texture_id = PAPER_LOCK_MARK_TEXTURE;
+            paper_frame.role_info_top_gap = PAPER_ROLE_INFO_TOP_GAP;
+            paper_frame.scene_width = render_center_x_ * 2;
+            paper_frame.scene_height = render_center_y_ * 2;
+            paper_frame.render_role_info = [this](Role* role, int x, int y) { renderExtraRoleInfo(role, x, y); };
+            paper_presentation_.renderScene(Engine::getInstance(), paper_frame);
             Engine::getInstance()->renderTextureToMain("scene");
             if (sword_light_)
             {
