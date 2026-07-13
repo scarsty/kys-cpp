@@ -2,8 +2,6 @@
 
 金庸群侠传复刻版，为区别于其他语言的复刻版，添加后缀cpp。
 
-<img src='pic/title.jpg' />
-
 除了经典的回合制战斗外，还包含半即时战斗（含进度条），以及两种完全即时战斗模式。即模仿黑帝斯和只狼的战斗系统。可以通过修改ini文件中的battle_mode来切换。
 
 github：https://github.com/scarsty/kys-cpp
@@ -92,11 +90,11 @@ If the codes are used in Jin Yong's novels related games, the game is strictly p
 
 ## 运行截图
 
+2x高清素材图使用深度学习模型放大，增加了一点伪光照。
+
 <img src='pic/1.png' />
 
 <img src='pic/2.png' />
-
-以下2张是使用了高清素材，还增加了一点伪光照。
 
 <img src='pic/3.png' />
 
@@ -108,9 +106,7 @@ If the codes are used in Jin Yong's novels related games, the game is strictly p
 
 ## 剧情脚本
 
-脚本一般是用使用Lua执行，也可以使用mlcc中的Cifa的类c风格脚本。在高清版素材中尝试了Cifa脚本（参考<https://github.com/scarsty/kys-cpp-script>下的game2x目录）。
-
-因为剧情流程很简单，大部分脚本可以由正则简单转换，少数需要手动修正。
+剧情脚本使用作者自己编写的类c风格脚本Cifa(<https://github.com/scarsty/cifa>)执行，也可以使用Lua（可能功能不全）。
 
 ## 其他
 
