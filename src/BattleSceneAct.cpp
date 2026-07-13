@@ -44,8 +44,8 @@ void BattleSceneAct::initializePaperPresentation()
     const int base_earth_w = COORD_COUNT * TILE_W * 2;
     const int base_earth_h = COORD_COUNT * TILE_H * 2;
     const int paper_earth_size = COORD_COUNT * TILE_W * 2;
-    const int requested_extension = std::max(0,
-        int(std::round(COORD_COUNT * PAPER_GROUND_EXTENSION_MARGIN_RATIO)));
+    const int requested_extension = 0;
+    const int square_fill_extension = COORD_COUNT;
     auto engine = Engine::getInstance();
     int extension = requested_extension;
     int earth_base_w = base_earth_w;
@@ -195,9 +195,9 @@ void BattleSceneAct::initializePaperPresentation()
             source_index = get_original_tile_index(source_x, source_y);
             return source_index >= 0 ? source_index : find_nearest_edge_tile(x, y);
         };
-        for (int iy = -extension; iy < COORD_COUNT + extension; iy++)
+        for (int iy = -square_fill_extension; iy < COORD_COUNT + square_fill_extension; iy++)
         {
-            for (int ix = -extension; ix < COORD_COUNT + extension; ix++)
+            for (int ix = -square_fill_extension; ix < COORD_COUNT + square_fill_extension; ix++)
             {
                 int source_index = get_extension_source_index(ix, iy);
                 if (source_index < 0)
@@ -515,6 +515,62 @@ void BattleSceneAct::drawPaperPresentation()
                 std::vector<int> indices = { 0, 1, 2, 2, 3, 0 };
                 Engine::getInstance()->renderTextureMesh(texture, dst, src, colors, indices);
             };
+            auto render_texture_3d_mesh = [&](Texture* texture, const std::vector<Pointf>& world,
+                const std::vector<FPoint>& src, int columns, int rows, Color color = { 255, 255, 255, 255 })
+            {
+                if (!texture || world.size() != 4 || src.size() != 4)
+                {
+                    return;
+                }
+                columns = std::clamp(columns, 1, 32);
+                rows = std::clamp(rows, 1, 32);
+                std::vector<FPoint> dst;
+                std::vector<FPoint> mesh_src;
+                std::vector<int> indices;
+                dst.reserve((columns + 1) * (rows + 1));
+                mesh_src.reserve((columns + 1) * (rows + 1));
+                indices.reserve(columns * rows * 6);
+
+                for (int row = 0; row <= rows; ++row)
+                {
+                    float v = float(row) / rows;
+                    for (int column = 0; column <= columns; ++column)
+                    {
+                        float u = float(column) / columns;
+                        Pointf top = world[0] * (1.0f - u) + world[1] * u;
+                        Pointf bottom = world[3] * (1.0f - u) + world[2] * u;
+                        auto projected = camera_.getProj({ top * (1.0f - v) + bottom * v }).front();
+                        dst.push_back({ projected.x, projected.y });
+
+                        FPoint source_top = {
+                            src[0].x + (src[1].x - src[0].x) * u,
+                            src[0].y + (src[1].y - src[0].y) * u,
+                        };
+                        FPoint source_bottom = {
+                            src[3].x + (src[2].x - src[3].x) * u,
+                            src[3].y + (src[2].y - src[3].y) * u,
+                        };
+                        mesh_src.push_back({
+                            source_top.x + (source_bottom.x - source_top.x) * v,
+                            source_top.y + (source_bottom.y - source_top.y) * v,
+                        });
+                    }
+                }
+
+                for (int row = 0; row < rows; ++row)
+                {
+                    for (int column = 0; column < columns; ++column)
+                    {
+                        int top_left = row * (columns + 1) + column;
+                        int top_right = top_left + 1;
+                        int bottom_left = top_left + columns + 1;
+                        int bottom_right = bottom_left + 1;
+                        indices.insert(indices.end(), { top_left, top_right, bottom_right, bottom_right, bottom_left, top_left });
+                    }
+                }
+                std::vector<Color> colors(dst.size(), color);
+                Engine::getInstance()->renderTextureMesh(texture, dst, mesh_src, colors, indices);
+            };
             auto in_camera_front = [&](const std::vector<Pointf>& points)
             {
                 for (auto& p : points)
@@ -763,7 +819,7 @@ void BattleSceneAct::drawPaperPresentation()
             }
             Pointf paper_right = { view_dir.y, -view_dir.x, 0 };
 
-            auto render_paper_texture = [&](TextureWarpper* tex, const Pointf& anchor, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, int rot = 0)
+            auto render_paper_texture = [&](TextureWarpper* tex, const Pointf& anchor, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, int rot = 0, bool face_camera = false)
             {
                 if (!tex)
                 {
@@ -779,8 +835,20 @@ void BattleSceneAct::drawPaperPresentation()
                 float right = float(tex->w - tex->dx);
                 float top = float(tex->dy);
                 float bottom = float(tex->dy - tex->h);
+                Pointf camera_forward = camera_.center - camera_.pos;
+                camera_forward.normTo(1);
+                Pointf camera_up = {
+                    paper_right.y * camera_forward.z - paper_right.z * camera_forward.y,
+                    paper_right.z * camera_forward.x - paper_right.x * camera_forward.z,
+                    paper_right.x * camera_forward.y - paper_right.y * camera_forward.x,
+                };
+                camera_up.normTo(1);
                 auto local_point = [&](float x, float z)
                 {
+                    if (face_camera)
+                    {
+                        return anchor + paper_right * x + camera_up * z;
+                    }
                     if (rot == 90)
                     {
                         return anchor + paper_right * -z + Pointf{ 0, 0, x };
@@ -804,7 +872,14 @@ void BattleSceneAct::drawPaperPresentation()
                 std::vector<FPoint> src = { { 0, 0 }, { float(tex->w), 0 }, { float(tex->w), float(tex->h) }, { 0, float(tex->h) } };
                 Color c = color;
                 c.a = alpha;
-                render_texture_3d(texture, paper, src, c);
+                if (face_camera)
+                {
+                    render_texture_3d(texture, paper, src, c);
+                    return;
+                }
+                int columns = std::clamp((tex->w + 31) / 32, 1, 32);
+                int rows = std::clamp((tex->h + 31) / 32, 1, 32);
+                render_texture_3d_mesh(texture, paper, src, columns, rows, c);
             };
 
             struct PaperSprite
@@ -819,6 +894,8 @@ void BattleSceneAct::drawPaperPresentation()
                 float depth = 0;
                 int turn = 1;
                 int rot = 0;
+                bool use_perspective_mesh = false;
+                bool face_camera = false;
                 int order = 0;
             };
 
@@ -898,6 +975,7 @@ void BattleSceneAct::drawPaperPresentation()
                 sprite.world = edge.world;
                 sprite.anchor = { (edge.world[0].x + edge.world[2].x) * 0.5f, (edge.world[0].y + edge.world[2].y) * 0.5f, 0 };
                 sprite.depth = edge.depth;
+                sprite.use_perspective_mesh = true;
                 push_sprite(std::move(sprite));
             }
             for (auto& b : buildings)
@@ -951,6 +1029,7 @@ void BattleSceneAct::drawPaperPresentation()
                 float alpha = 255.0f * (fade_duration - ae.Frame) / fade_duration;
                 sprite.alpha = uint8_t(std::clamp(alpha, 0.0f, 255.0f));
                 sprite.depth = calc_depth(sprite.anchor);
+                sprite.face_camera = true;
                 push_sprite(std::move(sprite));
             }
 
@@ -982,12 +1061,20 @@ void BattleSceneAct::drawPaperPresentation()
                     {
                         if (in_camera_front(sprite.world))
                         {
-                            render_texture_3d(sprite.texture, sprite.world, sprite.src, sprite.color);
+                            if (sprite.use_perspective_mesh)
+                            {
+                                render_texture_3d_mesh(sprite.texture, sprite.world, sprite.src, 4, 4, sprite.color);
+                            }
+                            else
+                            {
+                                render_texture_3d(sprite.texture, sprite.world, sprite.src, sprite.color);
+                            }
                         }
                     }
                     else
                     {
-                        render_paper_texture(sprite.tex, sprite.anchor, sprite.color, sprite.alpha, sprite.rot);
+                        render_paper_texture(sprite.tex, sprite.anchor, sprite.color, sprite.alpha, sprite.rot,
+                            sprite.face_camera);
                     }
             }
             if (locked_role && locked_role->Dead == 0 && locked_role->HP > 0)

@@ -22,7 +22,7 @@ Application::~Application()
 int Application::run()
 {
 #ifdef __ANDROID__
-    // 首次运行时将 assets/game.zip 解压到内部存储，引擎初始化前完成
+    // 首次运行时将 assets/game.zip 解压到默认游戏目录，引擎初始化前完成
     Engine::extractAssetsIfNeeded();
     GameUtil::PATH() = GameUtil::autoGamePath();
 #endif

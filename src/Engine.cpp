@@ -594,13 +594,16 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
 void Engine::renderTextureMesh(Texture* t, const std::vector<FPoint>& v, const std::vector<FPoint>& v2,
     const std::vector<Color>& colors, const std::vector<int>& indices)
 {
-    if (!t || v.empty() || v.size() != v2.size() || indices.empty())
+    if (v.empty() || v.size() != v2.size() || indices.empty())
     {
         return;
     }
 
     float tw = 1.0f, th = 1.0f;
-    SDL_GetTextureSize(t, &tw, &th);
+    if (t)
+    {
+        SDL_GetTextureSize(t, &tw, &th);
+    }
 
     std::vector<SDL_Vertex> vertices(v.size());
     bool use_vertex_colors = colors.size() == v.size();
@@ -1348,10 +1351,18 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
 
 void Engine::extractAssetsIfNeeded()
 {
-    const std::string internal = SDL_GetAndroidInternalStoragePath();
     const std::string external = SDL_GetAndroidExternalStoragePath();
-    const std::string dest = external + "/game/";
+    const std::string dest = "/sdcard/kys-cpp/game/";
     const std::string marker = dest + ".game_extracted";
+    auto create_parent_dirs = [](const std::string& path) {
+        size_t pos = path.find('/', 1);
+        while (pos != std::string::npos)
+        {
+            SDL_CreateDirectory(path.substr(0, pos).c_str());
+            pos = path.find('/', pos + 1);
+        }
+        SDL_CreateDirectory(path.c_str());
+    };
 
     if (filefunc::fileExist(marker))
     {
@@ -1373,7 +1384,7 @@ void Engine::extractAssetsIfNeeded()
     SDL_CloseIO(io);
 
     // 写入临时文件（libzip 需要文件路径）
-    const std::string tmp_zip = internal + "/.game_tmp.zip";
+    const std::string tmp_zip = external + "/.game_tmp.zip";
     filefunc::writeFile(buf.c_str(), (int)buf.size(), tmp_zip);
 
     {
@@ -1387,13 +1398,25 @@ void Engine::extractAssetsIfNeeded()
 
         for (const auto& f : zip.getFileNames())
         {
-            const std::string out_path = dest + f;
+            std::string normalized = f;
+            for (char& c : normalized)
+            {
+                if (c == '\\')
+                {
+                    c = '/';
+                }
+            }
+            if (normalized.empty() || normalized.back() == '/')
+            {
+                continue;
+            }
+            const std::string out_path = dest + normalized;
 
             // 创建父目录
             const size_t slash = out_path.rfind('/');
             if (slash != std::string::npos)
             {
-                SDL_CreateDirectory(out_path.substr(0, slash).c_str());
+                create_parent_dirs(out_path.substr(0, slash));
             }
 
             const auto data = zip.readFile(f);

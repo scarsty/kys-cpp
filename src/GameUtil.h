@@ -51,11 +51,6 @@ public:
         {
             s = std::string(SDL_GetAndroidExternalStoragePath()) + "/game/";
         }
-        if (!filefunc::fileExist(s + "config/kysmod.ini"))
-        {
-            // 使用 extractAssetsIfNeeded() 解压到内部存储的路径
-            s = std::string(SDL_GetAndroidInternalStoragePath()) + "/game/";
-        }
 #endif
         return s;
     }

@@ -11,10 +11,10 @@ set PROJECT_ROOT=%~dp0
 set ANDROID_DIR=%PROJECT_ROOT%kys-cpp-androidstudio
 set ASSETS_DIR=%ANDROID_DIR%\app\src\main\assets
 set GAME_ZIP=%ASSETS_DIR%\game.zip
+set ZIP_SCRIPT=%PROJECT_ROOT%build-android-game-zip.ps1
 set OUTPUT_APK=%ANDROID_DIR%\app\build\outputs\apk\release\kys-cpp-release.apk
 set SDK_DIR=C:\Users\%USERNAME%\AppData\Local\Android\Sdk
 set ADB=%SDK_DIR%\platform-tools\adb.exe
-set SEVENZIP=C:\Program Files\7-Zip\7z.exe
 set APP_PACKAGE=org.libsdl.kys_cpp
 set APP_ACTIVITY=org.libsdl.app.SDLActivity
 
@@ -49,21 +49,11 @@ echo.
 echo [1/3] 正在打包资源为 game.zip...
 if exist "%GAME_ZIP%" del /f /q "%GAME_ZIP%"
 
-if exist "%SEVENZIP%" (
-    echo 使用 7-Zip 压缩...
-    "%SEVENZIP%" a -tzip -mx=1 "%GAME_ZIP%" "%RESOURCE_DIR%\*" -r
-    if !ERRORLEVEL! NEQ 0 (
-        echo [错误] 7-Zip 压缩失败
-        exit /b 1
-    )
-) else (
-    echo 使用 PowerShell Compress-Archive 压缩...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$src = '%RESOURCE_DIR%'; $dst = '%GAME_ZIP%'; Compress-Archive -Path \"$src\*\" -DestinationPath $dst -Force"
-    if !ERRORLEVEL! NEQ 0 (
-        echo [错误] PowerShell 压缩失败
-        exit /b 1
-    )
+echo 使用 PowerShell ZipArchive 压缩...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ZIP_SCRIPT%" -SourceDir "%RESOURCE_DIR%" -Destination "%GAME_ZIP%"
+if !ERRORLEVEL! NEQ 0 (
+    echo [错误] PowerShell 压缩失败
+    exit /b 1
 )
 
 if not exist "%GAME_ZIP%" (

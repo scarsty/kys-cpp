@@ -619,7 +619,7 @@ public:
     }
 
 #ifdef __ANDROID__
-    // 首次运行时将 assets/game.zip 解压到 Android 内部存储的 game/ 子目录
+    // 首次运行时将 assets/game.zip 解压到 Android 默认游戏目录
     // 用标记文件 .game_extracted 防止重复解压
     static void extractAssetsIfNeeded();
 #endif

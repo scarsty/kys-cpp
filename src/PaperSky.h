@@ -18,6 +18,14 @@ public:
         const Pointf& camera_pos, const Pointf& camera_center);
 
 private:
+    enum class SkyMode
+    {
+        Day,
+        Dusk,
+        Night,
+        Dawn,
+    };
+
     struct Cloud
     {
         int texture_id = 0;
@@ -31,7 +39,6 @@ private:
     };
 
     static constexpr float Pi = 3.14159265358979323846f;
-    static constexpr const char* TexturePath = "resource/sky/paper-sky.png";
     static constexpr float HorizonRatio = 0.74f;
     static constexpr int CloudWindLayerCount = 3;
     static constexpr float CloudWindDirections[CloudWindLayerCount] = { -1.0f, 1.0f, -1.0f };
@@ -39,25 +46,24 @@ private:
 
     float yaw_ = 0;
     bool yaw_initialized_ = false;
-    Texture* texture_ = nullptr;
-    bool texture_tried_ = false;
+    SkyMode sky_mode_ = SkyMode::Day;
     std::vector<Cloud> clouds_;
 
     float normalizeAngle(float angle) const;
     float getHorizontalFovRadians(int viewport_width, int viewport_height) const;
     int getDestinationHeight(int horizon_y, int viewport_height) const;
-    Texture* getTexture();
     Color mixColor(const Color& from, const Color& to, float factor) const;
+    void fillDisk(Engine* engine, int center_x, int center_y, int radius, Color inner_color, Color outer_color);
     void fillVerticalGradient(Engine* engine, int width, int y0, int y1,
         Color top_color, Color bottom_color, int band_height);
     void fillStretchedVerticalGradient(Engine* engine, int width, int y0, int visible_y1, int gradient_y1,
         Color top_color, Color bottom_color, int band_height);
     void renderTextureQuad(Engine* engine, Texture* texture, float x, float y, float w, float h,
         float source_x, float source_y, float source_w, float source_h, Color color);
-    void renderWrappedTexture(Engine* engine, Texture* texture, int viewport_width, int viewport_height,
-        int horizon_y, float yaw, float horizontal_fov);
     void renderCloudLayer(Engine* engine, int viewport_width, int viewport_height, int horizon_y,
         float pitch, float yaw, float horizontal_fov);
-    void renderFallbackGradient(Engine* engine, int viewport_width, int viewport_height, int horizon_y);
-    void renderTextureGradientBackdrop(Engine* engine, int viewport_width, int viewport_height);
+    void renderProgramSky(Engine* engine, int viewport_width, int viewport_height, int horizon_y,
+        float pitch, float yaw, float horizontal_fov);
+    void renderStars(Engine* engine, int viewport_width, int viewport_height, int horizon_y,
+        float yaw, float horizontal_fov);
 };
