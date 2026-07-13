@@ -167,7 +167,6 @@ protected:
     virtual int swordLightYOffset() const { return 0; }
     int realTowardsToCameraFaceTowards(const Pointf& dir, const Pointf& view_dir,
         const Pointf& paper_right, int current_face_towards);
-    bool isPaperWallTile(int num) const;
     Pointf getPaperMoveDirection(float input_right, float input_forward) const;
 
     Pointf camera_pos_ = { 1500, 1500, 200 };

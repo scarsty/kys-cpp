@@ -54,6 +54,12 @@ struct PaperTextEffect
     Color color;
 };
 
+struct PaperGroundOverlay
+{
+    std::vector<Pointf> world;
+    Color color;
+};
+
 struct PaperScene
 {
     MapSquareInt* earth_layer = nullptr;
@@ -63,13 +69,13 @@ struct PaperScene
     int tile_width = 0;
     int tile_height = 0;
     std::function<Pointf(int, int)> to_world;
-    std::function<bool(int)> is_wall_tile;
 };
 
 struct PaperFrame
 {
     Camera* camera = nullptr;
     std::vector<PaperRenderSprite> sprites;
+    std::vector<PaperGroundOverlay> ground_overlays;
     std::vector<PaperRoleInfoAnchor> role_info_anchors;
     std::vector<PaperTextEffect> text_effects;
     const Pointf* locked_position = nullptr;
@@ -89,9 +95,11 @@ public:
     void initialize();
     void renderGroundMesh(Engine* engine, const PaperGroundTargets& targets,
         Camera& camera, int coordinate_count, int tile_width) const;
+    void renderGroundOverlays(Engine* engine, Camera& camera,
+        const std::vector<PaperGroundOverlay>& overlays) const;
     void appendMapSprites(Engine* engine, Camera& camera, MapSquareInt& building_layer,
         int coordinate_count, const std::function<Pointf(int, int)>& to_world,
-        const std::function<bool(int)>& is_wall_tile, std::vector<PaperRenderSprite>& sprites) const;
+        std::vector<PaperRenderSprite>& sprites) const;
     void renderSprites(Engine* engine, Camera& camera, std::vector<PaperRenderSprite>& sprites) const;
     void renderLockMarker(Engine* engine, Camera& camera, const Pointf& position,
         int current_frame, int tile_width, int texture_id) const;
@@ -101,15 +109,18 @@ public:
     void renderTextEffects(Engine* engine, Camera& camera, const std::vector<PaperTextEffect>& effects,
         int tile_width, int scene_width, int scene_height) const;
     void initializeScene(Engine* engine, const PaperScene& scene);
+    const Pointf& initialFocus() const { return initial_focus_; }
     void renderScene(Engine* engine, PaperFrame& frame);
     void renderSky(Engine* engine, int viewport_width, int viewport_height,
         const Pointf& camera_pos, const Pointf& camera_center);
 
 private:
+    static bool isWallTile(int tile_number);
     PaperGroundTargets createGroundTargets(Engine* engine, int coordinate_count,
         int tile_width, int tile_height, int requested_extension);
     void bakeGround(Engine* engine);
     PaperSky sky_;
     PaperGroundTargets ground_targets_;
     PaperScene scene_;
+    Pointf initial_focus_;
 };

@@ -16,7 +16,19 @@
 #include "strfunc.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <string>
+
+namespace
+{
+constexpr float PaperCameraRotateSpeed = 0.035f;
+constexpr float PaperCameraHeightSpeed = 6.0f;
+constexpr float PaperCameraZoomStep = 24.0f;
+constexpr float PaperCameraMinDistance = 220.0f;
+constexpr float PaperCameraMaxDistance = 900.0f;
+constexpr float PaperCameraMinHeight = 80.0f;
+constexpr float PaperCameraMaxHeight = 500.0f;
+}
 
 BattleScene::BattleScene()
 {
@@ -70,8 +82,335 @@ void BattleScene::setID(int id)
     effect_layer_.setAll(-1);
 }
 
+int BattleScene::getTowardsByKey(Keycode key)
+{
+    if (!usePaperPresentation())
+    {
+        return Scene::getTowardsByKey(key);
+    }
+    FPoint screen_direction;
+    switch (key)
+    {
+    case K_LEFT: screen_direction = { -1, 0 }; break;
+    case K_RIGHT: screen_direction = { 1, 0 }; break;
+    case K_UP: screen_direction = { 0, -1 }; break;
+    case K_DOWN: screen_direction = { 0, 1 }; break;
+    default: return Towards_None;
+    }
+    int ui_width = 0;
+    int ui_height = 0;
+    Engine::getInstance()->getUISize(ui_width, ui_height);
+    return getTowardsByMouse(int((render_center_x_ + screen_direction.x * render_center_x_) * ui_width
+        / (render_center_x_ * 2.0f)), int((render_center_y_ + screen_direction.y * render_center_y_) * ui_height
+        / (render_center_y_ * 2.0f)));
+}
+
+int BattleScene::getTowardsByMouse(int mouse_x, int mouse_y)
+{
+    if (!usePaperPresentation())
+    {
+        return Scene::getTowardsByMouse(mouse_x, mouse_y);
+    }
+    int ui_width = 0;
+    int ui_height = 0;
+    Engine::getInstance()->getUISize(ui_width, ui_height);
+    FPoint mouse = { mouse_x * render_center_x_ * 2.0f / ui_width, mouse_y * render_center_y_ * 2.0f / ui_height };
+    Pointf origin = pos45To90(select_x_, select_y_);
+    auto projected_origin = paper_camera_.getProj({ origin });
+    if (projected_origin.empty())
+    {
+        return Towards_None;
+    }
+    FPoint target = { mouse.x - projected_origin[0].x, mouse.y - projected_origin[0].y };
+    float target_length = std::hypot(target.x, target.y);
+    if (target_length < 1.0f)
+    {
+        return Towards_None;
+    }
+    target.x /= target_length;
+    target.y /= target_length;
+    int best_towards = Towards_None;
+    float best_dot = -2.0f;
+    for (int towards = Towards_RightUp; towards <= Towards_LeftDown; towards++)
+    {
+        int x = select_x_;
+        int y = select_y_;
+        getTowardsPosition(select_x_, select_y_, towards, &x, &y);
+        auto projected = paper_camera_.getProj({ pos45To90(x, y) });
+        if (projected.empty())
+        {
+            continue;
+        }
+        FPoint direction = { projected[0].x - projected_origin[0].x, projected[0].y - projected_origin[0].y };
+        float length = std::hypot(direction.x, direction.y);
+        if (length < 1.0f)
+        {
+            continue;
+        }
+        float dot = (direction.x * target.x + direction.y * target.y) / length;
+        if (dot > best_dot)
+        {
+            best_dot = dot;
+            best_towards = towards;
+        }
+    }
+    return best_towards;
+}
+
+Point BattleScene::getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y)
+{
+    if (!usePaperPresentation())
+    {
+        return Scene::getMousePosition(mouse_x, mouse_y, view_x, view_y);
+    }
+    int ui_width = 0;
+    int ui_height = 0;
+    Engine::getInstance()->getUISize(ui_width, ui_height);
+    FPoint mouse = { mouse_x * render_center_x_ * 2.0f / ui_width, mouse_y * render_center_y_ * 2.0f / ui_height };
+    Point result = { view_x, view_y };
+    float best_distance = std::numeric_limits<float>::max();
+    for (int x = 0; x < COORD_COUNT; x++)
+    {
+        for (int y = 0; y < COORD_COUNT; y++)
+        {
+            Pointf point = pos45To90(x, y);
+            if (paper_camera_.getDepth(point) <= paper_camera_.getNearPlane())
+            {
+                continue;
+            }
+            auto projected = paper_camera_.getProj({ point });
+            if (projected.empty())
+            {
+                continue;
+            }
+            float dx = projected[0].x - mouse.x;
+            float dy = projected[0].y - mouse.y;
+            float distance = dx * dx + dy * dy;
+            if (distance < best_distance)
+            {
+                best_distance = distance;
+                result = { x, y };
+            }
+        }
+    }
+    return result;
+}
+
+bool BattleScene::usePaperPresentation() const
+{
+    return GameUtil::getInstance()->getInt("game", "battle_presentation", 0) != 0;
+}
+
+void BattleScene::initializePaperPresentation()
+{
+    paper_presentation_.initialize();
+    paper_presentation_.initializeScene(Engine::getInstance(), {
+        .earth_layer = &earth_layer_,
+        .building_layer = &building_layer_,
+        .battle_field_id = info_->BattleFieldID,
+        .coordinate_count = COORD_COUNT,
+        .tile_width = TILE_W,
+        .tile_height = TILE_H,
+        .to_world = [this](int x, int y) { return pos45To90(x, y); },
+    });
+    auto focus = pos90To45(paper_presentation_.initialFocus().x, paper_presentation_.initialFocus().y);
+    select_x_ = focus.x;
+    select_y_ = focus.y;
+}
+
+void BattleScene::drawPaperPresentation()
+{
+    auto engine = Engine::getInstance();
+    float rotate = 0;
+    float height_delta = 0;
+    if (engine->checkKeyPress(K_J)) { rotate -= 1; }
+    if (engine->checkKeyPress(K_L)) { rotate += 1; }
+    if (engine->checkKeyPress(K_I)) { height_delta += 1; }
+    if (engine->checkKeyPress(K_K)) { height_delta -= 1; }
+    if (engine->checkKeyPress(K_Z)) { paper_camera_distance_ += PaperCameraZoomStep; }
+    if (engine->checkKeyPress(K_X)) { paper_camera_distance_ -= PaperCameraZoomStep; }
+    paper_camera_angle_ += rotate * PaperCameraRotateSpeed;
+    paper_camera_distance_ = std::clamp(paper_camera_distance_, PaperCameraMinDistance, PaperCameraMaxDistance);
+    paper_camera_height_ = std::clamp(paper_camera_height_ + height_delta * PaperCameraHeightSpeed,
+        PaperCameraMinHeight, PaperCameraMaxHeight);
+
+    Pointf focus = paper_camera_follow_role_
+        ? pos45To90(paper_camera_follow_role_->X(), paper_camera_follow_role_->Y())
+        : pos45To90(select_x_, select_y_);
+    paper_camera_.center = focus;
+    paper_camera_.pos = focus + Pointf{
+        std::cos(paper_camera_angle_) * paper_camera_distance_,
+        std::sin(paper_camera_angle_) * paper_camera_distance_,
+        paper_camera_height_
+    };
+    paper_camera_.setFov(PaperSky::CameraFov);
+    paper_camera_.setViewport(float(render_center_x_ * 2), float(render_center_y_ * 2));
+
+    Pointf view_direction = paper_camera_.center - paper_camera_.pos;
+    view_direction.z = 0;
+    if (view_direction.norm() == 0)
+    {
+        view_direction = { 0, 1, 0 };
+    }
+    view_direction.normTo(1);
+    Pointf paper_right = { view_direction.y, -view_direction.x, 0 };
+    auto calc_depth = [&](const Pointf& position)
+    {
+        Pointf offset = position - paper_camera_.pos;
+        return offset.x * view_direction.x + offset.y * view_direction.y;
+    };
+
+    std::vector<PaperRenderSprite> sprites;
+    sprites.reserve(battle_roles_.size());
+    auto cal_paper_role_pic = [](Role* role, int visible_face)
+    {
+        int style = role->ActType;
+        if (style < 0 || style >= 5 || role->FightFrame[style] <= 0)
+        {
+            for (int index = 0; index < 5; index++)
+            {
+                if (role->FightFrame[index] > 0)
+                {
+                    return role->FightFrame[index] * visible_face;
+                }
+            }
+            return visible_face;
+        }
+        int total = 0;
+        for (int index = 0; index < style; index++)
+        {
+            total += role->FightFrame[index] * 4;
+        }
+        return total + role->FightFrame[style] * visible_face + role->ActFrame;
+    };
+    for (auto role : battle_roles_)
+    {
+        if (!role)
+        {
+            continue;
+        }
+        PaperRenderSprite sprite;
+        Pointf position = pos45To90(role->X(), role->Y());
+        auto offset = block_role_offsets_.find(role);
+        if (offset != block_role_offsets_.end())
+        {
+            position += paper_right * float(offset->second.x) + Pointf{ 0, 0, float(-offset->second.y) };
+        }
+        int facing_x = role->X();
+        int facing_y = role->Y();
+        getTowardsPosition(role->X(), role->Y(), role->FaceTowards, &facing_x, &facing_y);
+        Pointf facing = pos45To90(facing_x, facing_y) - pos45To90(role->X(), role->Y());
+        facing.z = 0;
+        facing.normTo(1);
+        float right = facing.x * paper_right.x + facing.y * paper_right.y;
+        float forward = facing.x * view_direction.x + facing.y * view_direction.y;
+        int visible_face = right >= 0 ? (forward >= 0 ? Towards_RightUp : Towards_RightDown)
+            : (forward >= 0 ? Towards_LeftUp : Towards_LeftDown);
+        sprite.tex = TextureManager::getInstance()->getTexture(
+            std::format("fight/fight{:03}", role->HeadID), cal_paper_role_pic(role, visible_face));
+        sprite.anchor = position;
+        sprite.alpha = role->HP <= 0 ? dead_alpha_ : 255;
+        if (battle_cursor_->isRunning() && acting_role_ && !acting_role_->isAuto())
+        {
+            sprite.color = inEffect(acting_role_, role) ? Color{ 255, 255, 255, 255 } : Color{ 128, 128, 128, 255 };
+        }
+        sprite.depth = calc_depth(position);
+        sprites.push_back(std::move(sprite));
+    }
+
+    if (effect_id_ >= 0 && acting_role_)
+    {
+        std::string path = std::format("eft/eft{:03}", effect_id_);
+        for (int x = 0; x < COORD_COUNT; x++)
+        {
+            for (int y = 0; y < COORD_COUNT; y++)
+            {
+                if (!haveEffect(x, y))
+                {
+                    continue;
+                }
+                PaperRenderSprite sprite;
+                Pointf position = pos45To90(x, y);
+                int distance = calDistance(acting_role_->X(), acting_role_->Y(), x, y);
+                int texture_frame = effect_frame_ - distance;
+                if (effect_attack_area_type_ == 3)
+                {
+                    texture_frame += rand_.rand_int(3) - rand_.rand_int(3);
+                }
+                sprite.tex = TextureManager::getInstance()->getTexture(path, texture_frame);
+                if (!sprite.tex)
+                {
+                    continue;
+                }
+                sprite.anchor = position;
+                sprite.alpha = 224;
+                sprite.face_camera = true;
+                sprite.depth = calc_depth(position);
+                sprites.push_back(std::move(sprite));
+            }
+        }
+    }
+
+    PaperFrame frame;
+    frame.camera = &paper_camera_;
+    frame.sprites = std::move(sprites);
+    if (battle_cursor_->isRunning() && acting_role_ && !acting_role_->isAuto())
+    {
+        frame.ground_overlays.reserve(COORD_COUNT * COORD_COUNT);
+        for (int x = 0; x < COORD_COUNT; x++)
+        {
+            for (int y = 0; y < COORD_COUNT; y++)
+            {
+                int select_value = select_layer_.data(x, y);
+                bool in_effect = battle_cursor_->getMode() == BattleCursor::Action && haveEffect(x, y);
+                Color color = select_value < 0 ? Color{ 0, 0, 0, 128 } : Color{ 255, 255, 255, 64 };
+                if (in_effect)
+                {
+                    color = canSelect(x, y) ? Color{ 255, 255, 255, 112 } : Color{ 255, 255, 255, 88 };
+                }
+                if (x == select_x_ && y == select_y_)
+                {
+                    color = { 255, 255, 255, 144 };
+                }
+                Pointf p00 = pos45To90(x, y);
+                Pointf p10 = pos45To90(x + 1, y);
+                Pointf p01 = pos45To90(x, y + 1);
+                Pointf p11 = pos45To90(x + 1, y + 1);
+                frame.ground_overlays.push_back({ { p00, p10, p11, p01 }, color });
+            }
+        }
+    }
+    frame.role_info_anchors.reserve(battle_roles_.size());
+    for (auto role : battle_roles_)
+    {
+        if (role)
+        {
+            frame.role_info_anchors.push_back({ role, pos45To90(role->X(), role->Y()) });
+        }
+    }
+    frame.current_frame = effect_frame_;
+    frame.tile_width = TILE_W;
+    frame.tile_width_base = TILE_W_0;
+    frame.lock_texture_id = 201;
+    frame.scene_width = render_center_x_ * 2;
+    frame.scene_height = render_center_y_ * 2;
+    frame.render_role_info = [this](Role* role, int x, int y) { renderExtraRoleInfo(role, x, y); };
+    paper_presentation_.renderScene(engine, frame);
+    renderBattleSceneOverlays();
+    engine->renderTextureToMain("scene");
+    if (result_ >= 0)
+    {
+        Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    }
+}
+
 void BattleScene::draw()
 {
+    if (usePaperPresentation())
+    {
+        drawPaperPresentation();
+        return;
+    }
     Engine::getInstance()->setRenderTarget("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
@@ -145,14 +484,8 @@ void BattleScene::draw()
                     {
                         if (haveEffect(ix, iy))
                         {
-                            if (!canSelect(ix, iy))
-                            {
-                                color = { 160, 160, 160, 255 };
-                            }
-                            else
-                            {
-                                color = { 192, 192, 192, 255 };
-                            }
+                            need_draw = true;
+                            color = { 192, 192, 192, 255 };
                         }
                     }
                     if (ix == select_x_ && iy == select_y_)
@@ -215,7 +548,11 @@ void BattleScene::draw()
                 {
                     std::string path = std::format("eft/eft{:03}", effect_id_);
                     int dis = calDistance(acting_role_->X(), acting_role_->Y(), ix, iy);
-                    num = effect_frame_ - dis + rand_.rand_int(3) - rand_.rand_int(3);
+                    num = effect_frame_ - dis;
+                    if (effect_attack_area_type_ == 3)
+                    {
+                        num += rand_.rand_int(3) - rand_.rand_int(3);
+                    }
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { { 255, 255, 255, 255 }, 224 });
                 }
             }
@@ -366,7 +703,14 @@ void BattleScene::onEntrance()
     //RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
     addChild(Weather::getInstance());
 
-    makeEarthTexture();    //先生成地面，可以减少一些画图次数，不使用
+    if (usePaperPresentation())
+    {
+        initializePaperPresentation();
+    }
+    else
+    {
+        makeEarthTexture();    //先生成地面，可以减少一些画图次数，不使用
+    }
 
     readBattleInfo();
     //初始状态
@@ -1662,6 +2006,13 @@ void BattleScene::actRest(Role* r)
 
 void BattleScene::moveAnimation(Role* r, int x, int y)
 {
+    struct CameraFollowGuard
+    {
+        BattleScene* scene;
+        ~CameraFollowGuard() { scene->paper_camera_follow_role_ = nullptr; }
+    } camera_follow_guard { this };
+    paper_camera_follow_role_ = r;
+
     //从目标往回找确定路线
     std::vector<Point> way;
     auto check_next = [&](Point p1, int step) -> bool
@@ -1721,12 +2072,13 @@ bool BattleScene::useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>*
     if (r && m)
     {
         Audio::getInstance()->playASound(m->SoundID);    //这里播放音效严格说不正确，不管了
-        return actionAnimation(r, m->MagicType, m->EffectID, r->Attack / 20, block_roles, counters, timing_success);
+        return actionAnimation(r, m->MagicType, m->EffectID, r->Attack / 20,
+            block_roles, counters, timing_success, m->AttackAreaType);
     }
     return false;
 }
 
-bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /*= 0*/, const std::vector<Role*>* block_roles /*= nullptr*/, const std::vector<BlockCounterInfo>* counters /*= nullptr*/, bool* timing_success /*= nullptr*/)
+bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /*= 0*/, const std::vector<Role*>* block_roles /*= nullptr*/, const std::vector<BlockCounterInfo>* counters /*= nullptr*/, bool* timing_success /*= nullptr*/, int attack_area_type /*= -1*/)
 {
     bool blocked = false;
     if (timing_success != nullptr)
@@ -1758,6 +2110,7 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     //Audio::getInstance()->playASound(style);
 
     effect_id_ = effect_id;
+    effect_attack_area_type_ = attack_area_type;
     auto path = std::format("eft/eft{:03}", effect_id_);
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
     //由近到远的动画效果
@@ -1932,6 +2285,7 @@ bool BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     r->ActType = -1;
     effect_frame_ = 0;
     effect_id_ = -1;
+    effect_attack_area_type_ = -1;
     x_ = 0;
     y_ = 0;
     return blocked;
@@ -2395,6 +2749,7 @@ void BattleScene::resetBattleAnimationState()
     layer_magic_overlay_ = {};
     effect_frame_ = 0;
     effect_id_ = -1;
+    effect_attack_area_type_ = -1;
     x_ = 0;
     y_ = 0;
     prev_block_pressed_ = false;
@@ -2633,7 +2988,29 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
         {
             for (auto r : battle_roles_)
             {
-                auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
+                Point p;
+                if (usePaperPresentation())
+                {
+                    Pointf world = pos45To90(r->X(), r->Y()) + Pointf{ 0, 0, TILE_W * 1.5f };
+                    if (paper_camera_.getDepth(world) <= paper_camera_.getNearPlane())
+                    {
+                        continue;
+                    }
+                    auto projected = paper_camera_.getProj({ world });
+                    if (projected.empty())
+                    {
+                        continue;
+                    }
+                    int ui_width = 0;
+                    int ui_height = 0;
+                    Engine::getInstance()->getUISize(ui_width, ui_height);
+                    p = { int(projected[0].x * ui_width / (render_center_x_ * 2.0f)),
+                        int(projected[0].y * ui_height / (render_center_y_ * 2.0f)) };
+                }
+                else
+                {
+                    p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
+                }
                 // 有越界保护，直接显示就好了
                 if (r->Show.Effect != -1)
                 {

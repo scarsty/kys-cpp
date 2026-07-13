@@ -3,6 +3,7 @@
 #include "BattleMap.h"
 #include "BattleMenu.h"
 #include "Cloud.h"
+#include "PaperPresentation.h"
 #include "Point.h"
 #include "Random.h"
 #include "Scene.h"
@@ -22,6 +23,9 @@ public:
     BattleScene(int id);
     virtual ~BattleScene();
     void setID(int id);
+    int getTowardsByKey(Keycode key);
+    int getTowardsByMouse(int mouse_x, int mouse_y);
+    Point getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);
 
     //继承自基类的函数
     virtual void draw() override;
@@ -32,6 +36,10 @@ public:
     virtual void backRun() override;
 
 protected:
+    bool usePaperPresentation() const;
+    void initializePaperPresentation();
+    void drawPaperPresentation();
+
     int battle_id_ = 0;
     BattleInfo* info_;
 
@@ -62,6 +70,7 @@ protected:
     int show_number_y_ = 0;
     int effect_id_ = -1;
     int effect_frame_ = 0;
+    int effect_attack_area_type_ = -1;
     int dead_alpha_ = 255;
     static const int animation_delay_ = 2;
 
@@ -124,6 +133,12 @@ protected:
     int prev_music_ = 0;
 
     std::shared_ptr<CloudGroup> cloud_group_;
+    PaperPresentation paper_presentation_;
+    Camera paper_camera_;
+    Role* paper_camera_follow_role_ = nullptr;
+    float paper_camera_angle_ = M_PI * 0.25f;
+    float paper_camera_distance_ = 510.0f;
+    float paper_camera_height_ = 260.0f;
 
 public:
     void setSelectPosition(int x, int y)    //设置选择的坐标
@@ -203,7 +218,7 @@ public:
 
     virtual void moveAnimation(Role* r, int x, int y);                                                                                  //移动动画
     virtual bool useMagicAnimation(Role* r, Magic* m, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr);                              //使用武学动画
-    virtual bool actionAnimation(Role* r, int style, int effect_id, int shake = 0, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr);    //行动动画
+    virtual bool actionAnimation(Role* r, int style, int effect_id, int shake = 0, const std::vector<Role*>* block_roles = nullptr, const std::vector<BlockCounterInfo>* counters = nullptr, bool* timing_success = nullptr, int attack_area_type = -1);    //行动动画
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1);           //计算武学对单人的伤害
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害

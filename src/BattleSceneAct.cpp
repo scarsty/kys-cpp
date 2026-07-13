@@ -34,8 +34,13 @@ void BattleSceneAct::initializePaperPresentation()
         .tile_width = TILE_W,
         .tile_height = TILE_H,
         .to_world = [this](int x, int y) { return pos45To90(x, y); },
-        .is_wall_tile = [this](int tile_number) { return isPaperWallTile(tile_number); },
     });
+    camera_focus_ = paper_presentation_.initialFocus();
+    camera_pos_ = camera_focus_ + Pointf{
+        std::cos(camera_angle_) * free_camera_distance_,
+        std::sin(camera_angle_) * free_camera_distance_,
+        camera_height_
+    };
 }
 
 void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
@@ -76,6 +81,10 @@ void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
         if (engine->checkKeyPress(K_RIGHT)) { rotate += 1; }
         if (engine->checkKeyPress(K_UP)) { height_delta += 1; }
         if (engine->checkKeyPress(K_DOWN)) { height_delta -= 1; }
+        if (engine->checkKeyPress(K_J)) { rotate -= 1; }
+        if (engine->checkKeyPress(K_L)) { rotate += 1; }
+        if (engine->checkKeyPress(K_I)) { height_delta += 1; }
+        if (engine->checkKeyPress(K_K)) { height_delta -= 1; }
         auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
         auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
         if (std::abs(right_axis_x) >= 6000) { rotate += GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f; }
@@ -87,7 +96,6 @@ void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
         camera_distance_ = free_camera_distance_;
     }
 }
-
 Pointf BattleSceneAct::getPaperMoveDirection(float input_right, float input_forward) const
 {
     Pointf view_direction = camera_.center - camera_.pos;
@@ -173,7 +181,6 @@ void BattleSceneAct::drawPaperPresentation()
 
         Engine::getInstance()->setRenderTarget(earth_texture2);
         Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_W * 2, BLENDMODE_NONE);
-        if (role_)
         {
             float wf = float(COORD_COUNT * TILE_W * 2);
             float hf = float(COORD_COUNT * TILE_W * 2);
@@ -193,12 +200,12 @@ void BattleSceneAct::drawPaperPresentation()
             {
                 camera_focus_ = { x1, y1, 0 };
             }
-            Role* locked_role = camera_locked_ ? findNearestEnemy(role_->Team, role_->Pos) : nullptr;
+            Role* locked_role = role_ && camera_locked_ ? findNearestEnemy(role_->Team, role_->Pos) : nullptr;
             if (locked_role)
             {
                 camera_focus_ = { locked_role->Pos.x, locked_role->Pos.y, 0 };
             }
-            else
+            else if (role_)
             {
                 camera_focus_ = { role_->Pos.x, role_->Pos.y, 0 };
             }
@@ -715,14 +722,3 @@ int BattleSceneAct::realTowardsToCameraFaceTowards(const Pointf& dir, const Poin
     if (right < 0 && forward < 0) { return Towards_LeftDown; }
     return Towards_None;
 }
-
-bool BattleSceneAct::isPaperWallTile(int num) const
-{
-    return (num >= 701 && num <= 1139)
-        || (num >= 1410 && num <= 1436)
-        || (num >= 1505 && num <= 1621)
-        || (num >= 1816 && num <= 1849)
-        || (num >= 2116 && num <= 2144)
-        || (num >= 2184 && num <= 2285);
-}
-

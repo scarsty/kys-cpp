@@ -79,6 +79,39 @@ void PaperPresentation::renderTextEffects(Engine* engine, Camera& camera, const 
 void PaperPresentation::initializeScene(Engine* engine, const PaperScene& scene)
 {
     scene_ = scene;
+    int center = scene_.coordinate_count / 2;
+    int focus_x = center;
+    int focus_y = center;
+    int nearest_distance = std::numeric_limits<int>::max();
+    if (scene_.to_world)
+    {
+        for (int x = 0; x < scene_.coordinate_count; x++)
+        {
+            for (int y = 0; y < scene_.coordinate_count; y++)
+            {
+                bool has_earth = scene_.earth_layer && scene_.earth_layer->data(x, y) > 0;
+                bool has_building = scene_.building_layer && scene_.building_layer->data(x, y) > 0;
+                if (!has_earth && !has_building)
+                {
+                    continue;
+                }
+                int dx = x - center;
+                int dy = y - center;
+                int distance = dx * dx + dy * dy;
+                if (distance < nearest_distance)
+                {
+                    nearest_distance = distance;
+                    focus_x = x;
+                    focus_y = y;
+                }
+            }
+        }
+        initial_focus_ = scene_.to_world(focus_x, focus_y);
+    }
+    else
+    {
+        initial_focus_ = {};
+    }
     createGroundTargets(engine, scene_.coordinate_count, scene_.tile_width, scene_.tile_height, 0);
     bakeGround(engine);
 }
@@ -94,11 +127,12 @@ void PaperPresentation::renderScene(Engine* engine, PaperFrame& frame)
     engine->fillColor({ 0, 0, 0, 255 }, 0, 0, frame.scene_width, frame.scene_height);
     renderSky(engine, frame.scene_width, frame.scene_height, camera.pos, camera.center);
     renderGroundMesh(engine, ground_targets_, camera, scene_.coordinate_count, scene_.tile_width);
+    renderGroundOverlays(engine, camera, frame.ground_overlays);
     std::vector<PaperRenderSprite> scene_sprites;
-    if (scene_.building_layer && scene_.to_world && scene_.is_wall_tile)
+    if (scene_.building_layer && scene_.to_world)
     {
         appendMapSprites(engine, camera, *scene_.building_layer, scene_.coordinate_count,
-            scene_.to_world, scene_.is_wall_tile, scene_sprites);
+            scene_.to_world, scene_sprites);
     }
     scene_sprites.insert(scene_sprites.end(), std::make_move_iterator(frame.sprites.begin()),
         std::make_move_iterator(frame.sprites.end()));
@@ -489,9 +523,53 @@ void PaperPresentation::renderGroundMesh(Engine* engine, const PaperGroundTarget
     engine->renderTextureMesh(targets.texture, destination, source, colors, indices);
 }
 
+void PaperPresentation::renderGroundOverlays(Engine* engine, Camera& camera,
+    const std::vector<PaperGroundOverlay>& overlays) const
+{
+    for (const auto& overlay : overlays)
+    {
+        if (overlay.world.size() != 4)
+        {
+            continue;
+        }
+        bool in_front = true;
+        for (const auto& point : overlay.world)
+        {
+            if (camera.getDepth(point) <= camera.getNearPlane())
+            {
+                in_front = false;
+                break;
+            }
+        }
+        if (!in_front)
+        {
+            continue;
+        }
+        auto projected = camera.getProj(overlay.world);
+        std::vector<FPoint> destination;
+        destination.reserve(projected.size());
+        for (const auto& point : projected)
+        {
+            destination.push_back({ point.x, point.y });
+        }
+        engine->renderTextureMesh(nullptr, destination, std::vector<FPoint>(4),
+            std::vector<Color>(4, overlay.color), { 0, 1, 2, 2, 3, 0 });
+    }
+}
+
+bool PaperPresentation::isWallTile(int tile_number)
+{
+    return (tile_number >= 701 && tile_number <= 1139)
+        || (tile_number >= 1410 && tile_number <= 1436)
+        || (tile_number >= 1505 && tile_number <= 1621)
+        || (tile_number >= 1816 && tile_number <= 1849)
+        || (tile_number >= 2116 && tile_number <= 2144)
+        || (tile_number >= 2184 && tile_number <= 2285);
+}
+
 void PaperPresentation::appendMapSprites(Engine* engine, Camera& camera, MapSquareInt& building_layer,
     int coordinate_count, const std::function<Pointf(int, int)>& to_world,
-    const std::function<bool(int)>& is_wall_tile, std::vector<PaperRenderSprite>& sprites) const
+    std::vector<PaperRenderSprite>& sprites) const
 {
     struct WallEdge
     {
@@ -511,7 +589,7 @@ void PaperPresentation::appendMapSprites(Engine* engine, Camera& camera, MapSqua
     auto is_wall_at = [&](int x, int y)
     {
         return x >= 0 && x < coordinate_count && y >= 0 && y < coordinate_count
-            && is_wall_tile(building_layer.data(x, y) / 2);
+            && isWallTile(building_layer.data(x, y) / 2);
     };
     std::vector<WallEdge> wall_edges;
     int sprite_order = int(sprites.size());
@@ -525,7 +603,7 @@ void PaperPresentation::appendMapSprites(Engine* engine, Camera& camera, MapSqua
         for (int y = 0; y < coordinate_count; y++)
         {
             int tile_number = building_layer.data(x, y) / 2;
-            if (is_wall_tile(tile_number))
+            if (isWallTile(tile_number))
             {
                 Pointf p00 = to_world(x, y);
                 Pointf p10 = to_world(x + 1, y);

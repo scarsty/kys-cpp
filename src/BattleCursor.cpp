@@ -65,19 +65,23 @@ void BattleCursor::dealEvent(EngineEvent& e)
         }
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP))
         {
-            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_RightUp, &x, &y);
+            int tw = battle_scene_->getTowardsByKey(K_UP);
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
         }
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_DOWN))
         {
-            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_LeftDown, &x, &y);
+            int tw = battle_scene_->getTowardsByKey(K_DOWN);
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
         }
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT))
         {
-            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_LeftUp, &x, &y);
+            int tw = battle_scene_->getTowardsByKey(K_LEFT);
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
         }
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT))
         {
-            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_RightDown, &x, &y);
+            int tw = battle_scene_->getTowardsByKey(K_RIGHT);
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
         }
         setCursor(x, y);
     }
@@ -120,6 +124,10 @@ void BattleCursor::onEntrance()
     Engine::getInstance()->getWindowSize(w, h);
     head_selected_->setPosition(w - 400, h - 150);
     battle_scene_->towards_ = role_->FaceTowards;
+    if (mode_ == Action)
+    {
+        battle_scene_->calEffectLayer(role_, battle_scene_->selectX(), battle_scene_->selectY(), magic_, level_index_);
+    }
 
     if (role_->isAuto() || role_->Networked)
     {
