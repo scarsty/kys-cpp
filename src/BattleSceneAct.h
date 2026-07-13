@@ -164,6 +164,24 @@ public:
     }
 
 protected:
+    struct ClassicDrawInfo
+    {
+        std::string path;
+        int num = 0;
+        Pointf p;
+        Color color{ 255, 255, 255, 255 };
+        uint8_t alpha = 255;
+        int rot = 0;
+        int rot2 = 0;
+        int shadow = 0;
+        uint8_t white = 0;
+        int breathless = 0;
+        int draw_turn = 1;
+    };
+
+    void drawClassicPresentation();
+    virtual void adjustClassicRoleDrawInfo(Role* role, ClassicDrawInfo& info) {}
+    virtual void drawClassicExtraEffects() {}
     virtual int swordLightYOffset() const { return 0; }
     int realTowardsToCameraFaceTowards(const Pointf& dir, const Pointf& view_dir,
         const Pointf& paper_right, int current_face_towards);

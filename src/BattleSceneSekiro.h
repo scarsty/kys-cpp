@@ -36,6 +36,8 @@ public:
     virtual int calRolePic(Role* r, int style, int frame) override;
 
 protected:
+    void adjustClassicRoleDrawInfo(Role* role, ClassicDrawInfo& info) override;
+    void drawClassicExtraEffects() override;
     int swordLightYOffset() const override { return -40; }
 
     const double MAX_POSTURE = 100;
