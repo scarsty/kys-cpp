@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = ROOT / "tools" / "kys_chess_mcp"
 sys.path.insert(0, str(PACKAGE_ROOT))
 
-from kys_chess_mcp.server import CliSession, create_server
+from kys_chess_mcp.server import AUTO_SAVE_SLOT, CliSession, create_server
 
 
 CLI = Path(os.environ.get("KYS_CHESS_CLI", ROOT / "x64" / "Debug" / "kys_chess_cli.exe"))
@@ -48,7 +48,11 @@ class McpAdapterTests(unittest.TestCase):
     def test_adapter_responses_equal_direct_jsonl(self):
         direct = DirectJsonl()
         try:
-            with tempfile.TemporaryDirectory() as save_dir, CliSession(CLI, save_dir=save_dir) as adapter:
+            with tempfile.TemporaryDirectory() as save_dir, CliSession(
+                CLI,
+                save_dir=save_dir,
+                autosave=False,
+            ) as adapter:
                 def request_pair(method, params=None):
                     adapter_response = adapter.request(method, params)
                     direct_response = direct.request(method, params)
@@ -164,6 +168,14 @@ class McpAdapterTests(unittest.TestCase):
             tools["take_action"].parameters["properties"]["detail"]["default"],
             "summary",
         )
+        self.assertEqual(
+            tools["inspect_prepared_battle"].parameters["properties"]["detail"]["enum"],
+            ["summary", "compact", "full"],
+        )
+        self.assertEqual(
+            tools["inspect_prepared_battle"].parameters["properties"]["detail"]["default"],
+            "summary",
+        )
 
     def test_adapter_owns_and_closes_one_cli_process(self):
         with tempfile.TemporaryDirectory() as save_dir:
@@ -221,6 +233,56 @@ class McpAdapterTests(unittest.TestCase):
                 loaded = second.request("load_game", {"slot": "長期"})
                 self.assertTrue(loaded["ok"])
                 self.assertEqual(loaded["result"]["loaded_slot"], "長期")
+
+    def test_accepted_actions_update_a_durable_autosave(self):
+        with tempfile.TemporaryDirectory() as save_dir:
+            with CliSession(CLI, save_dir=save_dir) as first:
+                self.assertTrue(first.request(
+                    "new",
+                    {"difficulty": "normal", "seed": "0x0000000000000047"},
+                )["ok"])
+                accepted = first.request(
+                    "act",
+                    {"action": {"type": "refresh_shop"}},
+                )
+                self.assertTrue(accepted["ok"])
+                self.assertTrue(accepted["result"]["accepted"])
+                expected = first.request("observe", {"detail": "compact"})["result"]["game_state"]
+                saves = first.request("list_saves")["result"]
+                autosave = next(slot for slot in saves if slot["slot"] == AUTO_SAVE_SLOT)
+                self.assertEqual(autosave["label"], "自動存檔")
+                revision = autosave["revision"]
+
+                rejected = first.request(
+                    "act",
+                    {"action": {"type": "buy_shop_slot", "slot": 99}},
+                )
+                self.assertTrue(rejected["ok"])
+                self.assertFalse(rejected["result"]["accepted"])
+                unchanged = next(
+                    slot
+                    for slot in first.request("list_saves")["result"]
+                    if slot["slot"] == AUTO_SAVE_SLOT
+                )
+                self.assertEqual(unchanged["revision"], revision)
+
+            with CliSession(CLI, save_dir=save_dir) as second:
+                discovered = second.request("list_saves")
+                self.assertTrue(discovered["ok"])
+                persisted = next(
+                    slot for slot in discovered["result"] if slot["slot"] == AUTO_SAVE_SLOT
+                )
+                self.assertEqual(persisted["label"], "自動存檔")
+                self.assertTrue(persisted["persisted"])
+                self.assertTrue(second.request(
+                    "new",
+                    {"difficulty": "normal", "seed": "0x0000000000000048"},
+                )["ok"])
+                loaded = second.request("load_game", {"slot": AUTO_SAVE_SLOT})
+                self.assertTrue(loaded["ok"])
+                restored = second.request("observe", {"detail": "compact"})["result"]["game_state"]
+                self.assertEqual(restored["state_hash"], expected["state_hash"])
+                self.assertEqual(restored["money"], expected["money"])
 
 
 if __name__ == "__main__":

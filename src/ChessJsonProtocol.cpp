@@ -55,6 +55,7 @@ struct ActParams
 };
 
 struct ObserveParams { std::string detail = "full"; };
+struct InspectPreparedBattleParams { std::string detail = "summary"; };
 struct RoleParams { int role_id = -1; };
 struct ComboParams { std::string combo_name; };
 struct EquipmentParams { int item_id = -1; };
@@ -74,6 +75,7 @@ struct ImportSaveParams { std::string slot; std::string payload; };
 
 enum class ObservationDetail { Compact, Full };
 enum class ActionResponseDetail { Summary, Compact, Full };
+enum class PreparedBattleDetail { ObservationCompact, Summary, Compact, Full };
 
 std::optional<ObservationDetail> parseObservationDetail(std::string_view value)
 {
@@ -87,6 +89,14 @@ std::optional<ActionResponseDetail> parseActionResponseDetail(std::string_view v
     if (value == "summary") return ActionResponseDetail::Summary;
     if (value == "compact") return ActionResponseDetail::Compact;
     if (value == "full") return ActionResponseDetail::Full;
+    return std::nullopt;
+}
+
+std::optional<PreparedBattleDetail> parsePreparedBattleDetail(std::string_view value)
+{
+    if (value == "summary") return PreparedBattleDetail::Summary;
+    if (value == "compact") return PreparedBattleDetail::Compact;
+    if (value == "full") return PreparedBattleDetail::Full;
     return std::nullopt;
 }
 
@@ -227,13 +237,13 @@ struct NamedIdDto { int id{}; std::string name; };
 struct PreparedUnitDto
 {
     int unit_id{};
-    int chess_instance_id = -1;
-    int role_id{};
+    std::optional<int> chess_instance_id;
+    std::optional<int> role_id;
     std::string name;
     std::string team;
     int star{};
-    std::string weapon;
-    std::string armor;
+    std::optional<std::string> weapon;
+    std::optional<std::string> armor;
     int x{};
     int y{};
     std::optional<RoleStatsDto> preview_stats;
@@ -244,17 +254,17 @@ struct MapDto { int map_id{}; std::string name; };
 struct ComboDto;
 struct PreparedBattleDto
 {
-    std::string battle_id;
-    std::string metadata_scope;
+    std::optional<std::string> battle_id;
+    std::optional<std::string> metadata_scope;
     std::vector<PreparedUnitDto> units;
-    std::vector<MapDto> map_candidates;
-    int chosen_map_id = -1;
+    std::optional<std::vector<MapDto>> map_candidates;
+    std::optional<int> chosen_map_id;
     std::string chosen_map_name;
-    std::string coordinate_system;
-    std::string board;
-    std::vector<ComboDto> ally_synergies;
-    std::vector<ComboDto> enemy_synergies;
-    std::uint32_t battle_seed{};
+    std::optional<std::string> coordinate_system;
+    std::optional<std::string> board;
+    std::optional<std::vector<ComboDto>> ally_synergies;
+    std::optional<std::vector<ComboDto>> enemy_synergies;
+    std::optional<std::uint32_t> battle_seed;
 };
 struct SkillDamageDto
 {
@@ -1055,7 +1065,8 @@ ComboDto comboDto(
 std::vector<ComboDto> preparedTeamSynergies(
     const ChessGameContent& content,
     const PreparedChessBattle& battle,
-    int team)
+    int team,
+    bool full)
 {
     ChessSessionState state;
     int nextPieceId = 1;
@@ -1101,7 +1112,7 @@ std::vector<ComboDto> preparedTeamSynergies(
             progress.physicalCount,
             progress.effectiveCount,
             progress.activeThresholdIndex,
-            true,
+            full,
             &progress.contributions));
     }
     return result;
@@ -1123,46 +1134,66 @@ std::string mapName(const ChessGameContent& content, int mapId)
 PreparedBattleDto preparedBattleDto(
     const ChessGameContent& content,
     const PreparedChessBattle& battle,
-    bool full = true)
+    PreparedBattleDetail detail = PreparedBattleDetail::Full)
 {
     PreparedBattleDto prepared;
-    prepared.battle_id = battle.stableBattleId;
-    prepared.metadata_scope = full ? "complete" : "omitted_compact";
-    prepared.chosen_map_id = battle.chosenMapId;
-    prepared.coordinate_system = "x 向右增加，y 向下增加；A 表示我方、E 表示敵方、# 是障礙、~ 是水域、. 是可通行地面";
-    for (const int mapId : battle.mapCandidates)
+    const bool observationCompact = detail == PreparedBattleDetail::ObservationCompact;
+    const bool compact = detail == PreparedBattleDetail::Compact;
+    const bool full = detail == PreparedBattleDetail::Full;
+    if (observationCompact || full)
     {
-        prepared.map_candidates.push_back({mapId, mapName(content, mapId)});
+        prepared.battle_id = battle.stableBattleId;
+        prepared.metadata_scope = full ? "complete" : "omitted_compact";
+        prepared.chosen_map_id = battle.chosenMapId;
+        prepared.coordinate_system = "x 向右增加，y 向下增加；A 表示我方、E 表示敵方、# 是障礙、~ 是水域、. 是可通行地面";
+        prepared.map_candidates.emplace();
+        for (const int mapId : battle.mapCandidates)
+        {
+            prepared.map_candidates->push_back({mapId, mapName(content, mapId)});
+        }
+        prepared.battle_seed = battle.battleSeed;
+    }
+    if (full)
+    {
+        prepared.board.emplace();
     }
     if (battle.chosenMapId >= 0)
     {
         prepared.chosen_map_name = mapName(content, battle.chosenMapId);
-        if (full)
+        if (!observationCompact)
         {
             prepared.board = ChessAsciiBoard::render(battle, content);
         }
     }
-    if (full)
+    if (compact || full)
     {
-        prepared.ally_synergies = preparedTeamSynergies(content, battle, 0);
-        prepared.enemy_synergies = preparedTeamSynergies(content, battle, 1);
+        prepared.ally_synergies = preparedTeamSynergies(content, battle, 0, full);
+        prepared.enemy_synergies = preparedTeamSynergies(content, battle, 1, full);
     }
-    prepared.battle_seed = battle.battleSeed;
     for (const auto& unit : battle.units)
     {
         const auto* role = content.role(unit.roleId);
         assert(role);
         PreparedUnitDto unitDto;
         unitDto.unit_id = unit.unitId;
-        unitDto.chess_instance_id = unit.chessInstanceId;
-        unitDto.role_id = unit.roleId;
         unitDto.name = role->Name;
         unitDto.team = teamName(unit.team);
         unitDto.star = unit.star;
-        unitDto.weapon = itemName(content, unit.weaponItemId);
-        unitDto.armor = itemName(content, unit.armorItemId);
         unitDto.x = unit.x;
         unitDto.y = unit.y;
+        if (observationCompact || full)
+        {
+            unitDto.chess_instance_id = unit.chessInstanceId;
+            unitDto.role_id = unit.roleId;
+        }
+        if (observationCompact || full || (compact && unit.weaponItemId >= 0))
+        {
+            unitDto.weapon = itemName(content, unit.weaponItemId);
+        }
+        if (observationCompact || full || (compact && unit.armorItemId >= 0))
+        {
+            unitDto.armor = itemName(content, unit.armorItemId);
+        }
         if (full)
         {
             unitDto.preview_stats = preparedUnitStats(content, *role, unit);
@@ -1431,7 +1462,10 @@ ObservationDto observationDto(
     }
     if (observation.preparedBattle)
     {
-        dto.prepared_battle = preparedBattleDto(content, *observation.preparedBattle, full);
+        dto.prepared_battle = preparedBattleDto(
+            content,
+            *observation.preparedBattle,
+            full ? PreparedBattleDetail::Full : PreparedBattleDetail::ObservationCompact);
     }
     if (observation.pendingReward)
     {
@@ -2946,7 +2980,7 @@ BattleResultDto battleResultDto(
     dto.detail = full ? "full" : "compact";
     if (full)
     {
-        dto.initial_board = preparedBattleDto(content, prepared);
+        dto.initial_board = preparedBattleDto(content, prepared, PreparedBattleDetail::Full);
         dto.effect_activations.emplace();
     }
     auto assignMetric = [full](std::optional<int>& field, int value)
@@ -3642,6 +3676,17 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
     }
     if (request->method == "inspect_prepared_battle")
     {
+        const auto params = readJson<InspectPreparedBattleParams>(request->params.str);
+        const auto detail = params ? parsePreparedBattleDetail(params->detail) : std::nullopt;
+        if (!params || !detail)
+        {
+            return response(
+                request->id,
+                false,
+                {},
+                "invalid_params",
+                "detail 必須是 summary、compact 或 full");
+        }
         const auto observation = session_->observe();
         if (!observation.preparedBattle)
         {
@@ -3649,7 +3694,8 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         }
         return response(request->id, true, writeJson(preparedBattleDto(
             session_->content(),
-            *observation.preparedBattle)));
+            *observation.preparedBattle,
+            *detail)));
     }
     if (request->method == "inspect_last_battle")
     {

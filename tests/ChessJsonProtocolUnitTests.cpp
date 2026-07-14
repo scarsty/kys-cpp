@@ -173,8 +173,8 @@ TEST_CASE("JSON protocol inspects authoritative challenge stars and equipment",
     CHECK(easy.result->str.contains("\"forced_bans_enabled\":false"));
 }
 
-TEST_CASE("JSON protocol compact prepared battle omits unavailable unit metadata",
-          "[chess][protocol][compact][prepared]")
+TEST_CASE("JSON protocol prepared battle inspection layers positioning and metadata",
+          "[chess][protocol][inspect][prepared]")
 {
     ChessJsonProtocol protocol(configuredMapChoiceContent());
     REQUIRE(parseResponse(protocol.handleLine(
@@ -187,6 +187,13 @@ TEST_CASE("JSON protocol compact prepared battle omits unavailable unit metadata
         R"({"id":4,"method":"act","params":{"action":{"type":"buy_shop_slot","slot":2}}})")).ok);
     REQUIRE(parseResponse(protocol.handleLine(
         R"({"id":5,"method":"act","params":{"action":{"type":"set_deployment","chess_instance_ids":[4]}}})")).ok);
+    auto* session = const_cast<ChessGameSession*>(protocol.session());
+    REQUIRE(session);
+    auto checkpoint = ChessSessionCheckpoint::capture(*session, 1);
+    checkpoint.state.equipmentInventory.emplace(1, ChessEquipmentInstance{1, 500, 4});
+    checkpoint.state.roster.at(4).weaponInstanceId = 1;
+    checkpoint.state.nextEquipmentInstanceId = 2;
+    REQUIRE(checkpoint.restore(*session) == ChessCheckpointError::None);
     const auto prepared = parseResponse(protocol.handleLine(
         R"({"id":6,"method":"act","params":{"detail":"compact","action":{"type":"prepare_battle"}}})"));
 
@@ -196,6 +203,72 @@ TEST_CASE("JSON protocol compact prepared battle omits unavailable unit metadata
     CHECK_FALSE(prepared.result->str.contains("\"preview_stats\""));
     CHECK_FALSE(prepared.result->str.contains("\"stats_note\""));
     CHECK_FALSE(prepared.result->str.contains("\"abilities\""));
+
+    REQUIRE(parseResponse(protocol.handleLine(
+        R"({"id":7,"method":"act","params":{"action":{"type":"choose_map","map_id":7}}})")).ok);
+    const auto summary = parseResponse(protocol.handleLine(
+        R"({"id":8,"method":"inspect_prepared_battle","params":{}})"));
+    const auto compact = parseResponse(protocol.handleLine(
+        R"({"id":9,"method":"inspect_prepared_battle","params":{"detail":"compact"}})"));
+    const auto full = parseResponse(protocol.handleLine(
+        R"({"id":10,"method":"inspect_prepared_battle","params":{"detail":"full"}})"));
+
+    REQUIRE(summary.ok);
+    REQUIRE(summary.result);
+    CHECK(summary.result->str.contains("\"chosen_map_name\""));
+    CHECK(summary.result->str.contains("\"board\""));
+    CHECK(summary.result->str.contains("\"unit_id\""));
+    CHECK(summary.result->str.contains("\"name\":\"選圖測試棋子\""));
+    CHECK(summary.result->str.contains("\"team\":\"我方\""));
+    CHECK(summary.result->str.contains("\"star\":2"));
+    CHECK(summary.result->str.contains("\"x\":"));
+    CHECK(summary.result->str.contains("\"y\":"));
+    for (const auto* omitted : {
+             "\"battle_id\"",
+             "\"metadata_scope\"",
+             "\"map_candidates\"",
+             "\"chosen_map_id\"",
+             "\"coordinate_system\"",
+             "\"battle_seed\"",
+             "\"chess_instance_id\"",
+             "\"role_id\"",
+             "\"weapon\"",
+             "\"armor\"",
+             "\"ally_synergies\"",
+             "\"enemy_synergies\"",
+             "\"preview_stats\"",
+             "\"abilities\"",
+         })
+    {
+        CAPTURE(omitted);
+        CHECK_FALSE(summary.result->str.contains(omitted));
+    }
+
+    REQUIRE(compact.ok);
+    REQUIRE(compact.result);
+    CHECK(compact.result->str.contains("\"weapon\":\"配置選圖劍\""));
+    CHECK(compact.result->str.contains(
+        "\"ally_synergies\":[{\"name\":\"配置選圖羈絆\",\"physical_count\":1,\"effective_count\":2}]"));
+    CHECK(compact.result->str.contains("\"enemy_synergies\":[]"));
+    CHECK_FALSE(compact.result->str.contains("\"thresholds\""));
+    CHECK_FALSE(compact.result->str.contains("\"contributions\""));
+    CHECK_FALSE(compact.result->str.contains("\"preview_stats\""));
+    CHECK_FALSE(compact.result->str.contains("\"abilities\""));
+
+    REQUIRE(full.ok);
+    REQUIRE(full.result);
+    CHECK(full.result->str.contains("\"metadata_scope\":\"complete\""));
+    CHECK(full.result->str.contains("\"role_id\":10"));
+    CHECK(full.result->str.contains("\"weapon\":\"配置選圖劍\""));
+    CHECK(full.result->str.contains("\"preview_stats\""));
+    CHECK(full.result->str.contains("\"abilities\""));
+    CHECK(full.result->str.contains("\"thresholds\""));
+    CHECK(full.result->str.contains("\"contributions\""));
+
+    const auto invalid = parseResponse(protocol.handleLine(
+        R"({"id":11,"method":"inspect_prepared_battle","params":{"detail":"verbose"}})"));
+    CHECK_FALSE(invalid.ok);
+    CHECK(invalid.error_code == "invalid_params");
 }
 
 TEST_CASE("JSON protocol compact observation stays lean for a developed roster",

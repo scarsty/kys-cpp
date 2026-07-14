@@ -92,6 +92,8 @@ inline std::shared_ptr<const ChessGameContent> configuredMapChoiceContent()
         {{EffectType::BattleMapChoice, 1}},
     });
     data.combos.push_back(std::move(combo));
+    data.items.emplace(500, ChessItemDefinition{
+        500, -1, 0, 1, 0, 10, 0, 0, 0, 0, 0, 0, 0, "配置選圖劍"});
     data.equipment.push_back({500, 1, 0, {}, {"配置選圖羈絆"}});
 
     for (const int mapId : {7, 8})

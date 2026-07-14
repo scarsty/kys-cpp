@@ -15,6 +15,9 @@ from pydantic import Field
 Difficulty = Literal["easy", "normal", "hard"]
 Detail = Literal["compact", "full"]
 ActionDetail = Literal["summary", "compact", "full"]
+PreparedBattleDetail = Literal["summary", "compact", "full"]
+AUTO_SAVE_SLOT = "autosave"
+AUTO_SAVE_LABEL = "自動存檔"
 Seed = Annotated[
     str,
     Field(
@@ -46,6 +49,7 @@ class CliSession:
         executable: Path | str | None = None,
         extra_args: list[str] | None = None,
         save_dir: Path | str | None = None,
+        autosave: bool = True,
     ):
         self._command = [str(executable or default_cli_path()), "--jsonl", *(extra_args or [])]
         configured_save_dir = os.environ.get("KYS_CHESS_MCP_SAVE_DIR")
@@ -59,6 +63,7 @@ class CliSession:
         self._lock = threading.Lock()
         self._diagnostics: deque[str] = deque(maxlen=200)
         self._has_active_session = False
+        self._autosave_enabled = autosave
         self._start_process()
 
     def _start_process(self) -> None:
@@ -182,6 +187,29 @@ class CliSession:
                     f"[MCP 存檔] 無法還原欄位「{slot}」：{response.get('error_message', '未知錯誤')}"
                 )
 
+    def _update_autosave(self) -> None:
+        if not self._autosave_enabled:
+            return
+        saved = self._internal_request(
+            "save_game",
+            {"slot": AUTO_SAVE_SLOT, "label": AUTO_SAVE_LABEL},
+        )
+        if not saved.get("ok"):
+            self._diagnostics.append(
+                f"[MCP 自動存檔] 無法建立存檔：{saved.get('error_message', '未知錯誤')}"
+            )
+            return
+        exported = self._internal_request("export_save", {"slot": AUTO_SAVE_SLOT})
+        if not exported.get("ok"):
+            self._diagnostics.append(
+                f"[MCP 自動存檔] 無法匯出存檔：{exported.get('error_message', '未知錯誤')}"
+            )
+            return
+        try:
+            self._persist_save(AUTO_SAVE_SLOT, exported["result"]["payload"])
+        except (OSError, KeyError, TypeError) as error:
+            self._diagnostics.append(f"[MCP 自動存檔] 無法寫入持久存檔：{error}")
+
     def _recover_transport(self, request_id: int, error: CliTransportError) -> dict[str, Any]:
         session_lost = self._has_active_session
         self._has_active_session = False
@@ -236,6 +264,14 @@ class CliSession:
                 if response.get("ok") and method == "new":
                     self._has_active_session = True
                     self._restore_persisted_saves()
+                elif (
+                    response.get("ok")
+                    and method == "act"
+                    and response.get("result", {}).get("accepted") is True
+                ):
+                    self._update_autosave()
+                elif response.get("ok") and method == "load_game":
+                    self._update_autosave()
                 elif response.get("ok") and method == "save_game":
                     slot = str((params or {})["slot"])
                     exported = self._internal_request("export_save", {"slot": slot})
@@ -256,6 +292,8 @@ class CliSession:
             "cli_running": self._process.poll() is None,
             "active_in_memory_session": self._has_active_session,
             "persistent_save_directory": str(self._save_dir),
+            "autosave_enabled": self._autosave_enabled,
+            "autosave_slot": AUTO_SAVE_SLOT,
             "diagnostics": self.diagnostics(),
         }
 
@@ -300,7 +338,7 @@ def create_server(session: CliSession | None = None):
         position_swap_enabled: bool = True,
         detail: Detail = "full",
     ) -> dict[str, Any]:
-        """建立可驗證的新棋局；seed 必須是 0x 前綴加上固定 16 位十六進位數字。"""
+        """建立可驗證的新棋局；seed 必須是 0x 前綴加上固定 16 位十六進位數字；若要接續上次進度，建立同難度棋局後先載入 autosave。"""
         return cli.request(
             "new",
             {
@@ -379,9 +417,11 @@ def create_server(session: CliSession | None = None):
         return cli.request("inspect_challenge", {"challenge_name": challenge_name})
 
     @server.tool()
-    def inspect_prepared_battle() -> dict[str, Any]:
-        """完整檢視目前已準備戰鬥的地圖、地形、雙方屬性、武學、裝備及啟用羈絆。"""
-        return cli.request("inspect_prepared_battle")
+    def inspect_prepared_battle(
+        detail: PreparedBattleDetail = "summary",
+    ) -> dict[str, Any]:
+        """檢視已準備戰鬥；summary 只含地圖、棋盤與座標，compact 增加裝備與啟用羈絆，full 才含完整除錯資料。"""
+        return cli.request("inspect_prepared_battle", {"detail": detail})
 
     @server.tool()
     def inspect_last_battle() -> dict[str, Any]:
@@ -390,7 +430,7 @@ def create_server(session: CliSession | None = None):
 
     @server.tool()
     def list_saves() -> dict[str, Any]:
-        """不需先建立棋局即可列出持久存檔；建立棋局後才會判定相容性並可載入。"""
+        """不需先建立棋局即可列出持久存檔與 autosave；建立棋局後才會判定相容性並可載入。"""
         return cli.request("list_saves")
 
     @server.tool()
@@ -405,7 +445,7 @@ def create_server(session: CliSession | None = None):
 
     @server.tool()
     def load_game(slot: str) -> dict[str, Any]:
-        """替換目前狀態、亂數與重播前綴；回應會明示 discarded_active_actions，存檔目錄仍保留。"""
+        """替換目前狀態、亂數與重播前綴並更新 autosave；回應會明示 discarded_active_actions，存檔目錄仍保留。"""
         return cli.request("load_game", {"slot": slot})
 
     @server.tool()
