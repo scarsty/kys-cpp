@@ -481,6 +481,10 @@ void MainScenePaper::dealEvent(EngineEvent& e)
     {
         camera_distance_ -= CameraZoomStep;
     }
+    camera_distance_ /= engine->consumeTouchPinchScale();
+    auto touch_pan = engine->consumeTouchCameraPan();
+    camera_yaw_ += touch_pan.x / engine->getUIWidth() * Pi;
+    camera_height_ = std::clamp(camera_height_ - touch_pan.y / engine->getUIHeight() * 220.0f, 80.0f, 300.0f);
     auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
     auto right_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER);
     if (left_trigger > 6000)

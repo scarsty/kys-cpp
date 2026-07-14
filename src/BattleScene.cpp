@@ -415,6 +415,13 @@ void BattleScene::handlePaperCameraEvent()
 
     if (engine->checkKeyPress(K_Z)) { paper_camera_distance_ += PaperCameraZoomStep; }
     if (engine->checkKeyPress(K_X)) { paper_camera_distance_ -= PaperCameraZoomStep; }
+    paper_camera_distance_ /= engine->consumeTouchPinchScale();
+    auto touch_pan = engine->consumeTouchCameraPan();
+    paper_camera_angle_ += touch_pan.x / engine->getUIWidth() * M_PI;
+    paper_camera_pitch_ = std::clamp(paper_camera_pitch_ - touch_pan.y / engine->getUIHeight()
+            * (PaperCameraMaxHeight - PaperCameraMinHeight) / paper_camera_distance_,
+        std::atan(PaperCameraMinHeight / paper_camera_distance_),
+        std::atan(PaperCameraMaxHeight / paper_camera_distance_));
     auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
     auto right_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER);
     if (left_trigger > 6000) { paper_camera_distance_ += PaperCameraZoomStep * GameUtil::clamp(left_trigger, 0, 20000) / 20000.0f; }

@@ -28,6 +28,8 @@ private:
     int right_axis_x_ = 0;
     int right_axis_y_ = 0;
     double axis_radius_ = 0;
+    double previous_pinch_distance_ = 0;
+    FPoint previous_pinch_center_{};
 
     std::unordered_map<std::shared_ptr<Button>, Interval> button_interval_;
 
@@ -36,7 +38,7 @@ public:
     virtual void dealEvent(EngineEvent& e) override;
     virtual void draw() override;
     virtual void onWindowResized() override;
-    void setStyle(int style);    //0-使用方向键 1-使用摇杆
+    void setStyle(int style);    //0-使用方向键，1-使用左摇杆
 
 private:
     void updateLayout();

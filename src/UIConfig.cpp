@@ -230,6 +230,16 @@ void UIConfig::dealEvent(EngineEvent& e)
         }
         first_press++;
     }
+    else if (isConfigItemActive() && Engine::getInstance()->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT))
+    {
+        changeOption(active_child_, -1);
+        Engine::getInstance()->setInterValControllerPress(200);
+    }
+    else if (isConfigItemActive() && Engine::getInstance()->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT))
+    {
+        changeOption(active_child_, 1);
+        Engine::getInstance()->setInterValControllerPress(200);
+    }
     else
     {
         Menu::dealEvent(e);

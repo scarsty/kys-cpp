@@ -557,6 +557,8 @@ private:
     double interval_controller_press_ = 0;
     std::unordered_map<int, int> virtual_stick_button_;
     int16_t virtual_stick_axis_[6] = { 0 };
+    float touch_pinch_scale_ = 1.0f;
+    SDL_FPoint touch_camera_pan_{};
 
 public:
     bool gameControllerGetButton(int key);
@@ -568,6 +570,24 @@ public:
     void setGameControllerButton(int key, int value) { virtual_stick_button_[key] = value; }
 
     void setGameControllerAxis(int axis, int16_t value) { virtual_stick_axis_[axis] = value; }
+
+    void setTouchPinchScale(float scale) { touch_pinch_scale_ = scale; }
+
+    float consumeTouchPinchScale()
+    {
+        float scale = touch_pinch_scale_;
+        touch_pinch_scale_ = 1.0f;
+        return scale;
+    }
+
+    void setTouchCameraPan(float x, float y) { touch_camera_pan_ = { x, y }; }
+
+    SDL_FPoint consumeTouchCameraPan()
+    {
+        SDL_FPoint pan = touch_camera_pan_;
+        touch_camera_pan_ = {};
+        return pan;
+    }
 
     void clearGameControllerButton()
     {

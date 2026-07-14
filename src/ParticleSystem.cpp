@@ -163,7 +163,7 @@ void ParticleSystem::addParticles(int count)
         particle_data_[i].size = (std::max)(0.0f, particle_data_[i].size);
     }
 
-    if (_endSize != START_SIZE_EQUAL_TO_END_SIZE)
+    if (_endSize != static_cast<float>(START_SIZE_EQUAL_TO_END_SIZE))
     {
         for (int i = start; i < _particleCount; ++i)
         {
@@ -267,7 +267,7 @@ void ParticleSystem::addParticles(int count)
             particle_data_[i].modeB.degreesPerSecond = Deg2Rad(modeB.rotatePerSecond + modeB.rotatePerSecondVar * RANDOM_M11(&RANDSEED));
         }
 
-        if (modeB.endRadius == START_RADIUS_EQUAL_TO_END_RADIUS)
+        if (modeB.endRadius == static_cast<float>(START_RADIUS_EQUAL_TO_END_RADIUS))
         {
             for (int i = start; i < _particleCount; ++i)
             {
@@ -335,7 +335,7 @@ void ParticleSystem::update()
         {
             _elapsed = 0.f;
         }
-        if (_duration != DURATION_INFINITY && _duration < _elapsed)
+        if (_duration != static_cast<float>(DURATION_INFINITY) && _duration < _elapsed)
         {
             this->stopSystem();
         }

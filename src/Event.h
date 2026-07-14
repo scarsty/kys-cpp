@@ -155,7 +155,8 @@ public:
     {
         if (talk_id < 0 || talk_id >= talk_contents_.size())
         {
-            return "";
+            static const std::string empty;
+            return empty;
         }
         return talk_contents_[talk_id];
     }

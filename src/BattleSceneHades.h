@@ -49,7 +49,7 @@ protected:
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
-    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1)
+    int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1) override
     {
         //计算武学对单人的伤害
         //注意原公式中距离为1是无衰减的

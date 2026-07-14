@@ -5,6 +5,7 @@
 
 #include "BattleSceneHades.h"
 #include "BattleSceneSekiro.h"
+#include "MainScenePaper.h"
 
 VirtualStick::VirtualStick()
 {
@@ -91,30 +92,17 @@ void VirtualStick::dealEvent(EngineEvent& e)
 {
     auto battle_act = RunNode::getPointerFromRoot<BattleSceneAct>();
     auto battle = RunNode::getPointerFromRoot<BattleScene>();
+    auto main_paper = RunNode::getPointerFromRoot<MainScenePaper>();
     bool is_action = battle_act != nullptr;
     bool is_paper = is_action && battle_act->usePaperPresentation();
     bool is_turn_based_paper = battle && !is_action
         && GameUtil::getInstance()->getInt("game", "battle_presentation", 0) != 0;
-    if (is_paper)
-    {
-        setStyle(2);
-    }
-    else if (is_action)
-    {
-        setStyle(1);
-    }
-    else if (is_turn_based_paper)
-    {
-        setStyle(3);
-    }
-    else
-    {
-        setStyle(0);
-    }
+    bool is_any_paper = is_paper || is_turn_based_paper || main_paper != nullptr;
+    setStyle(is_action ? 1 : 0);
     int num = 0;
-    SDL_GetTouchDevices(&num);
-    //LOG("{}", num);
     auto engine = Engine::getInstance();
+    engine->setTouchPinchScale(1.0f);
+    engine->setTouchCameraPan(0, 0);
     engine->clearGameControllerButton();
     engine->clearGameControllerAxis();
     left_axis_x_ = 0;
@@ -137,8 +125,9 @@ void VirtualStick::dealEvent(EngineEvent& e)
         b->state_ = NodeNormal;
     }
     auto touch = SDL_GetTouchDevices(&num);
+    bool pinch_active = false;
     for (int i_device = 0; i_device < num; i_device++)
-    {        
+    {
         if (!touch)
         {
             continue;
@@ -148,6 +137,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
         finger_pp = SDL_GetTouchFingers(*touch, &fingers);
         bool is_press = false;
         bool is_press2 = false;    //将按键范围扩大一点，避免按到键中间被当成鼠标操作
+        std::vector<std::pair<int, int>> pinch_points;
         for (int i = 0; i < fingers; i++)
         {
             auto s = finger_pp[i];
@@ -166,6 +156,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
             {
                 continue;
             }
+            bool finger_in_control = false;
             for (auto c : childs_)
             {
                 auto b = std::dynamic_pointer_cast<Button>(c);
@@ -176,8 +167,9 @@ void VirtualStick::dealEvent(EngineEvent& e)
                 y2 -= h2 / 2;
                 w2 *= 2;
                 h2 *= 2;
-                is_press2 = is_press2
-                    || (x >= x2 && x < x2 + w2 && y >= y2 && y < y2 + h2);
+                bool in_control = x >= x2 && x < x2 + w2 && y >= y2 && y < y2 + h2;
+                is_press2 = is_press2 || in_control;
+                finger_in_control = finger_in_control || in_control;
                 if (b != button_left_axis_ && b != button_right_axis_)
                 {
                     b->state_ = NodeNormal;
@@ -239,6 +231,25 @@ void VirtualStick::dealEvent(EngineEvent& e)
                     }
                 }
             }
+            if (!finger_in_control)
+            {
+                pinch_points.emplace_back(x, y);
+            }
+        }
+        if (is_any_paper && pinch_points.size() >= 2)
+        {
+            auto [x0, y0] = pinch_points[0];
+            auto [x1, y1] = pinch_points[1];
+            double distance = std::hypot(double(x1 - x0), double(y1 - y0));
+            FPoint center = { (x0 + x1) * 0.5f, (y0 + y1) * 0.5f };
+            if (previous_pinch_distance_ > 0 && distance > 0)
+            {
+                engine->setTouchPinchScale(std::clamp(float(distance / previous_pinch_distance_), 0.94f, 1.06f));
+                engine->setTouchCameraPan(center.x - previous_pinch_center_.x, center.y - previous_pinch_center_.y);
+            }
+            previous_pinch_distance_ = distance;
+            previous_pinch_center_ = center;
+            pinch_active = true;
         }
         if (!is_action && !is_paper)
         {
@@ -286,9 +297,18 @@ void VirtualStick::dealEvent(EngineEvent& e)
         }
         if (is_press)
         {
+            if (!pinch_active)
+            {
+                previous_pinch_distance_ = 0;
+            }
             return;
         }
         touch++;
+    }
+    if (!pinch_active)
+    {
+        previous_pinch_distance_ = 0;
+        previous_pinch_center_ = {};
     }
 }
 
@@ -317,7 +337,7 @@ void VirtualStick::setStyle(int style)
         button_left_axis_->setVisible(false);
         button_right_axis_->setVisible(false);
     }
-    else if (style == 1)
+    else
     {
         button_up_->setVisible(false);
         button_down_->setVisible(false);
@@ -325,23 +345,5 @@ void VirtualStick::setStyle(int style)
         button_right_->setVisible(false);
         button_left_axis_->setVisible(true);
         button_right_axis_->setVisible(false);
-    }
-    else if (style == 2)
-    {
-        button_up_->setVisible(false);
-        button_down_->setVisible(false);
-        button_left_->setVisible(false);
-        button_right_->setVisible(false);
-        button_left_axis_->setVisible(true);
-        button_right_axis_->setVisible(true);
-    }
-    else if (style == 3)
-    {
-        button_up_->setVisible(true);
-        button_down_->setVisible(true);
-        button_left_->setVisible(true);
-        button_right_->setVisible(true);
-        button_left_axis_->setVisible(false);
-        button_right_axis_->setVisible(true);
     }
 }
