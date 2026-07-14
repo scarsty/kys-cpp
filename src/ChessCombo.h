@@ -2,6 +2,7 @@
 
 #include "ChessBattleEffects.h"
 #include "ChessDiagnostics.h"
+#include "battle/ChessComboResolver.h"
 
 #include <set>
 #include <string>
@@ -42,6 +43,7 @@ struct ChessComboProgress
     bool active = false;
     bool isAntiCombo = false;
     bool starSynergyBonus = false;
+    std::vector<ResolvedChessComboContribution> contributions;
 };
 
 std::vector<ComboDef> loadChessCombos(

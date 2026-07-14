@@ -64,7 +64,6 @@ struct BattleRuntimeSessionCreationInput
     BattleRuntimeRulesConfig rules;
     unsigned int randomSeed = 1;
     int battleFrame = 0;
-    int rescueCounterAttackSkillId = -1;
     BattleFrameProfilingConfig profiling;
 };
 

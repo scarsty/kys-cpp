@@ -156,7 +156,11 @@ class ChessCliTests(unittest.TestCase):
                 },
                 {"id": 5, "method": "act", "params": {"action": {"type": "prepare_battle"}}},
                 {"id": 6, "method": "inspect_prepared_battle", "params": {}},
-                {"id": 7, "method": "act", "params": {"action": {"type": "start_battle"}}},
+                {
+                    "id": 7,
+                    "method": "act",
+                    "params": {"detail": "compact", "action": {"type": "start_battle"}},
+                },
                 {"id": 8, "method": "inspect_last_battle", "params": {}},
             ]
         )
@@ -166,29 +170,17 @@ class ChessCliTests(unittest.TestCase):
         self.assertTrue(all(response["ok"] for response in responses))
         self.assertIn("board", responses[-3]["result"])
         self.assertEqual(responses[-3]["result"]["units"][0]["team"], "我方")
-        compact_battle = responses[-2]["result"]["battle"]
-        self.assertEqual(compact_battle["detail"], "compact")
-        self.assertNotIn("initial_board", compact_battle)
-        self.assertNotIn("effect_activations", compact_battle)
-        self.assertTrue(compact_battle["important_effects"])
-        self.assertTrue(all("effect_activations" not in unit for unit in compact_battle["unit_stats"]))
-        self.assertTrue(all("initial_combat_stats" not in unit for unit in compact_battle["unit_stats"]))
-        self.assertTrue(all("stun_applications" not in unit for unit in compact_battle["unit_stats"]))
-        opening_debuff = next(
-            effect
-            for effect in compact_battle["important_effects"]
-            if effect["type"] == "opening_enemy_debuff"
-        )
-        self.assertEqual(opening_debuff["source_kind"], "combo")
-        self.assertEqual(opening_debuff["source_name"], "陰險")
-        self.assertNotEqual(opening_debuff["source_team"], opening_debuff["target_team"])
+        compact_action = responses[-2]["result"]
+        self.assertNotIn("battle", compact_action)
+        self.assertEqual(compact_action["next_observation"]["detail"], "compact")
+        self.assertNotIn("relevant_roles", compact_action["next_observation"])
+        self.assertTrue(all(
+            "current_stats" not in unit
+            for unit in compact_action["next_observation"]["roster"]
+        ))
 
         battle = responses[-1]["result"]
         self.assertEqual(battle["detail"], "full")
-        self.assertLess(
-            len(json.dumps(compact_battle, ensure_ascii=False)),
-            len(json.dumps(battle, ensure_ascii=False)),
-        )
         self.assertGreaterEqual(len(battle["initial_board"]["units"]), 2)
         self.assertTrue(all(unit["name"] for unit in battle["initial_board"]["units"]))
         self.assertTrue(battle["initial_board"]["chosen_map_name"])
@@ -216,6 +208,9 @@ class ChessCliTests(unittest.TestCase):
         self.assertEqual(debuff_change["previous_value"], 0)
         self.assertLess(debuff_change["new_value"], 0)
         self.assertEqual(debuff_change["delta"], debuff_change["new_value"])
+        self.assertEqual(debuff_change["source_kind"], "combo")
+        self.assertEqual(debuff_change["source_name"], "陰險")
+        self.assertNotEqual(debuff_change["source_team"], debuff_change["target_team"])
         weakened_debuff = next(
             effect
             for effect in battle["effect_activations"]
@@ -314,7 +309,10 @@ class ChessCliTests(unittest.TestCase):
                 {
                     "id": 4,
                     "method": "act",
-                    "params": {"action": {"type": "set_shop_locked", "locked": True}},
+                    "params": {
+                        "detail": "compact",
+                        "action": {"type": "set_shop_locked", "locked": True},
+                    },
                 },
                 {"id": 5, "method": "observe", "params": {"detail": "compact"}},
                 {"id": 6, "method": "inspect_equipment", "params": {"item_id": 61}},
@@ -326,6 +324,12 @@ class ChessCliTests(unittest.TestCase):
             json.loads(line) for line in completed.stdout.splitlines()
         ]
         game = created["result"]["game_state"]
+        self.assertEqual(game["interest_gold"], 1)
+        self.assertEqual(game["next_interest_threshold"], 20)
+        self.assertEqual(game["maximum_interest_gold"], 3)
+        self.assertEqual(game["projected_base_victory_gold"], 5)
+        self.assertEqual(game["projected_victory_income"], 6)
+        self.assertTrue(game["projected_victory_income_excludes_conditional_bonuses"])
         self.assertTrue(game["relevant_roles"])
         role = game["relevant_roles"][0]
         self.assertTrue(role["name"])
@@ -357,13 +361,11 @@ class ChessCliTests(unittest.TestCase):
         self.assertIn("chess_instance_ids", invalid["error_message"])
         self.assertIn("範例", invalid["error_message"])
         next_game = locked["result"]["next_observation"]
-        self.assertEqual(
-            next_game["role_metadata_scope"],
-            "omitted_compact",
-        )
-        self.assertEqual(next_game["relevant_roles"], [])
+        self.assertNotIn("role_metadata_scope", next_game)
+        self.assertNotIn("equipment_metadata_scope", next_game)
+        self.assertNotIn("relevant_roles", next_game)
         self.assertEqual(compact["result"]["game_state"]["detail"], "compact")
-        self.assertEqual(compact["result"]["game_state"]["relevant_roles"], [])
+        self.assertNotIn("relevant_roles", compact["result"]["game_state"])
         equipment_info = equipment["result"]
         self.assertIn("base_stat_effects", equipment_info)
         self.assertIn("special_effects", equipment_info)
@@ -371,7 +373,7 @@ class ChessCliTests(unittest.TestCase):
         self.assertEqual(combo["result"]["name"], "刀客")
         self.assertTrue(combo["result"]["thresholds"])
 
-    def test_defeat_restores_complete_role_metadata_for_recovery(self):
+    def test_defeat_uses_summary_then_targeted_full_observation_for_recovery(self):
         completed = run_jsonl(
             [
                 {
@@ -390,18 +392,109 @@ class ChessCliTests(unittest.TestCase):
                     "params": {"action": {"type": "set_deployment", "chess_instance_ids": [1, 2]}},
                 },
                 {"id": 5, "method": "act", "params": {"action": {"type": "prepare_battle"}}},
-                {"id": 6, "method": "act", "params": {"action": {"type": "start_battle"}}},
+                {
+                    "id": 6,
+                    "method": "act",
+                    "params": {"detail": "full", "action": {"type": "start_battle"}},
+                },
                 {"id": 7, "method": "act", "params": {"action": {"type": "prepare_battle"}}},
                 {"id": 8, "method": "act", "params": {"action": {"type": "start_battle"}}},
+                {"id": 9, "method": "observe", "params": {"detail": "full"}},
             ]
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        response = json.loads(completed.stdout.splitlines()[-1])
+        responses = [json.loads(line) for line in completed.stdout.splitlines()]
+        first_victory = responses[5]
+        gold = next(
+            event
+            for event in first_victory["result"]["events"]
+            if event["type"] == "gold_awarded"
+        )
+        self.assertEqual(
+            gold["total_gold"],
+            gold["base_gold"] + gold["interest_gold"] + gold["other_gold"],
+        )
+        self.assertNotIn("primary_id", gold)
+        self.assertNotIn("secondary_id", gold)
+        self.assertNotIn("value", gold)
+
+        response = responses[-2]
         self.assertEqual(response["result"]["battle"]["outcome"], "player_defeat")
-        game = response["result"]["next_observation"]
+        self.assertNotIn("next_observation", response["result"])
+        game = responses[-1]["result"]["game_state"]
         self.assertEqual(game["detail"], "full")
-        self.assertEqual(game["role_metadata_scope"], "complete_after_defeat")
+        self.assertEqual(game["role_metadata_scope"], "complete")
         self.assertTrue(game["relevant_roles"])
+
+    def test_poison_reports_drain_payload_application_and_ticks_separately(self):
+        completed = run_jsonl(
+            [
+                {
+                    "id": 1,
+                    "method": "new",
+                    "params": {
+                        "difficulty": "normal",
+                        "seed": "0x0000000000000001",
+                    },
+                },
+                {"id": 2, "method": "act", "params": {"action": {"type": "buy_shop_slot", "slot": 0}}},
+                {"id": 3, "method": "act", "params": {"action": {"type": "buy_shop_slot", "slot": 1}}},
+                {
+                    "id": 4,
+                    "method": "act",
+                    "params": {"action": {"type": "set_deployment", "chess_instance_ids": [1, 2]}},
+                },
+                {"id": 5, "method": "act", "params": {"action": {"type": "prepare_battle"}}},
+                {"id": 6, "method": "act", "params": {"action": {"type": "start_battle"}}},
+                {"id": 7, "method": "inspect_last_battle", "params": {}},
+            ]
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        responses = [json.loads(line) for line in completed.stdout.splitlines()]
+        self.assertIn("battle", responses[-2]["result"])
+        self.assertNotIn("unit_stats", responses[-2]["result"]["battle"])
+
+        full = responses[-1]["result"]
+        poison_units = [
+            unit for unit in full["unit_stats"] if unit["poison_payload_events"] > 0
+        ]
+        self.assertEqual(len(poison_units), 2)
+        self.assertTrue(all(unit["magic_points_drained"] > 0 for unit in poison_units))
+        self.assertTrue(
+            all(
+                unit["poison_application_events"] <= unit["poison_payload_events"]
+                for unit in poison_units
+            )
+        )
+        self.assertTrue(all(unit["poison_ticks"] > 0 for unit in poison_units))
+        self.assertTrue(all(unit["poison_damage"] > 0 for unit in poison_units))
+
+        drain = next(
+            event
+            for event in full["effect_activations"]
+            if event["type"] == "magic_points_drained"
+        )
+        self.assertGreater(drain["value"], 0)
+        self.assertNotEqual(drain["source_unit_id"], drain["target_unit_id"])
+        self.assertTrue(
+            any(
+                event["type"] == "magic_points_restored"
+                for event in full["effect_activations"]
+            )
+        )
+        payload = next(
+            event
+            for event in full["effect_activations"]
+            if event["type"] == "poison_payload"
+        )
+        self.assertEqual(payload["poison_percent"], 7)
+        self.assertEqual(payload["scheduled_ticks"], 3)
+        self.assertTrue(
+            any(
+                event["type"] == "poison_applied"
+                for event in full["effect_activations"]
+            )
+        )
 
     def test_equipment_reward_description_separates_character_effects(self):
         completed = run_jsonl(
@@ -426,7 +519,11 @@ class ChessCliTests(unittest.TestCase):
                 {"id": 7, "method": "act", "params": {"action": {"type": "prepare_battle"}}},
                 {"id": 8, "method": "act", "params": {"action": {"type": "start_battle"}}},
                 {"id": 9, "method": "act", "params": {"action": {"type": "prepare_battle"}}},
-                {"id": 10, "method": "act", "params": {"action": {"type": "start_battle"}}},
+                {
+                    "id": 10,
+                    "method": "act",
+                    "params": {"detail": "compact", "action": {"type": "start_battle"}},
+                },
             ]
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)

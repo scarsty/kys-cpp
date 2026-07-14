@@ -57,7 +57,7 @@ bool parseBattlePieceNode(
     try
     {
         out.roleId = roleNode.as<int>();
-        if (node["星级"]) out.star = node["星级"].as<int>();
+        if (node["星級"]) out.star = node["星級"].as<int>();
         if (node["武器"]) out.weaponId = node["武器"].as<int>();
         if (node["防具"]) out.armorId = node["防具"].as<int>();
         return true;

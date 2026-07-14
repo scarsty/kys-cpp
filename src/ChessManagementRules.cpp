@@ -107,7 +107,33 @@ void mergeAvailablePieces(
                 state.equipmentInventory.at(equipmentId).assignedChessInstanceId =
                     equipmentId == upgraded.armorInstanceId ? upgraded.instanceId : -1;
             }
-            events.push_back({ChessSemanticEventType::ChessMerged, upgraded.instanceId, roleId, upgraded.star, {}});
+            for (auto& event : events)
+            {
+                if (event.merge && std::ranges::contains(consumed, event.primaryId))
+                {
+                    event.merge->recursiveMergeFollowed = true;
+                }
+            }
+            ChessSemanticEvent event{
+                ChessSemanticEventType::ChessMerged,
+                upgraded.instanceId,
+                roleId,
+                upgraded.star,
+            };
+            ChessMergeEventDetail detail;
+            detail.consumedInstanceIds = std::move(consumed);
+            detail.inheritedFightsWon = fightsWon;
+            detail.deployed = deployed;
+            if (upgraded.weaponInstanceId >= 0)
+            {
+                detail.transferredEquipmentInstanceIds.push_back(upgraded.weaponInstanceId);
+            }
+            if (upgraded.armorInstanceId >= 0)
+            {
+                detail.transferredEquipmentInstanceIds.push_back(upgraded.armorInstanceId);
+            }
+            event.merge = std::move(detail);
+            events.push_back(std::move(event));
         }
     }
 }
@@ -254,6 +280,15 @@ int ChessManagementRules::maximumBanCount(const ChessSessionState& state, const 
     return count;
 }
 
+std::vector<int> ChessManagementRules::shopCandidatesForTier(
+    const ChessSessionState& state,
+    const ChessGameContent& content,
+    int tier)
+{
+    assert(tier >= 1 && tier <= 5);
+    return candidatesForTier(state, content, tier);
+}
+
 int ChessManagementRules::pieceValue(const ChessGameContent& content, int roleId, int star)
 {
     const auto* role = content.role(roleId);
@@ -272,6 +307,12 @@ ChessRuleErrorCode ChessManagementRules::validate(
         && !state.pendingRewards.empty()
         && state.pendingRewards.front().kind == ChessRewardKind::ForcedBan;
     if (state.phase != ChessSessionPhase::Management && !forcedBan)
+    {
+        return ChessRuleErrorCode::WrongPhase;
+    }
+    if (forcedBan
+        && action.type != ChessActionType::AddBan
+        && action.type != ChessActionType::SkipForcedBans)
     {
         return ChessRuleErrorCode::WrongPhase;
     }
@@ -559,10 +600,24 @@ void ChessManagementRules::apply(
         events.push_back({ChessSemanticEventType::PositionSwapOptionChanged, {}, {}, action.value ? 1 : 0, {}});
         return;
     case ChessActionType::RerollEnemySeed:
+    {
+        const auto previousEnemyPlanKey = random.enemyPlanIdentity();
         state.money -= balance.enemyRerollCost;
         random.rerollEnemySeed();
-        events.push_back({ChessSemanticEventType::EnemyPlanRerolled, {}, {}, balance.enemyRerollCost, {}});
+        ChessSemanticEvent event{
+            ChessSemanticEventType::EnemyPlanRerolled,
+            {},
+            {},
+            balance.enemyRerollCost,
+        };
+        event.enemyPlanReroll = ChessEnemyPlanRerollEventDetail{
+            balance.enemyRerollCost,
+            previousEnemyPlanKey,
+            random.enemyPlanIdentity(),
+        };
+        events.push_back(std::move(event));
         return;
+    }
     default:
         std::unreachable();
     }
@@ -622,7 +677,15 @@ void ChessManagementRules::upgradePiece(
 {
     auto& piece = state.roster.at(chessInstanceId);
     piece.star = newStar;
-    events.push_back({ChessSemanticEventType::ChessMerged, chessInstanceId, piece.roleId, newStar});
+    ChessSemanticEvent event{ChessSemanticEventType::ChessMerged, chessInstanceId, piece.roleId, newStar};
+    ChessMergeEventDetail detail;
+    detail.consumedInstanceIds = {chessInstanceId};
+    detail.inheritedFightsWon = piece.fightsWon;
+    detail.deployed = piece.deployed;
+    if (piece.weaponInstanceId >= 0) detail.transferredEquipmentInstanceIds.push_back(piece.weaponInstanceId);
+    if (piece.armorInstanceId >= 0) detail.transferredEquipmentInstanceIds.push_back(piece.armorInstanceId);
+    event.merge = std::move(detail);
+    events.push_back(std::move(event));
     mergeAvailablePieces(state, content, piece.roleId, events);
 }
 

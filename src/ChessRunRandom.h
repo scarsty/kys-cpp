@@ -51,6 +51,7 @@ public:
 
     std::uint64_t rootSeed() const { return rootSeed_; }
     std::uint64_t enemyPlanKey() const { return enemyPlanKey_; }
+    std::uint64_t enemyPlanIdentity() const;
     const ChessRngStreamState& streamState(ChessRngStream stream) const;
 
     std::uint64_t nextRaw(ChessRngStream stream);

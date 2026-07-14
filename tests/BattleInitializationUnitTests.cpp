@@ -522,6 +522,30 @@ TEST_CASE("BattleStartInitializer_CreatesRuntimeCloneBeforeSceneMirror", "[battl
     CHECK(cloneSpawn.unit.cloneSourceUnitId == 0);
 }
 
+TEST_CASE("BattleStartInitializer_CloneUnitIdFollowsHighestExistingUnitId", "[battle][initialization]")
+{
+    auto ally = runtimeUnit(1, 0, 100, 20, 30, 40);
+    auto enemy = runtimeUnit(2, 1, 100, 20, 30, 40);
+
+    RoleComboState enemyCombo;
+    enemyCombo.applyConfiguredEffect({ EffectType::CloneSummon, 1 });
+
+    std::vector<BattleRuntimeUnitSpawn> spawns;
+    spawns.push_back(runtimeSpawn(ally));
+    spawns.push_back(runtimeSpawn(enemy, enemyCombo));
+
+    BattleRuntimeSetupSeed setup;
+    setup.cloneSources.push_back({ 2, 2001, 150, 1, -1, 0 });
+    setup.cloneCells.push_back({ 3, 4, true, false, 1 });
+
+    auto output = initializeBattleStartForTest(std::move(spawns), setup);
+
+    REQUIRE(output.spawns.size() == 3);
+    const auto& clone = requireSpawn(output.spawns, 3).unit;
+    CHECK(clone.cloneSourceUnitId == 2);
+    CHECK(clone.team == 1);
+}
+
 TEST_CASE("BattleStartInitializer_CloneSummonSelectsHighestRankedSynergyMember", "[battle][initialization]")
 {
     auto lowerRankedMember = runtimeUnit(0, 0, 100, 20, 30, 40);
@@ -779,6 +803,7 @@ TEST_CASE("BattleRuntimeSession_OwnsUnitProfileFacts", "[battle][initialization]
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
     const auto& unit = session.requireRuntimeUnit(0);
 
+    CHECK(session.runtime().rescue.counterAttack.skillId == 1);
     CHECK(unit.identity().battleId == 0);
     CHECK(unit.identity().realRoleId == 1001);
     CHECK(unit.identity().team == 0);

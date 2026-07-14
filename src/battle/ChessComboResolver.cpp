@@ -26,15 +26,22 @@ bool equipmentRuleApplies(
     return std::ranges::contains(rule.comboNames, comboName);
 }
 
-bool unitQualifies(
+std::vector<int> qualifyingEquipmentItems(
     const ChessComboResolverUnit& unit,
     const ChessComboResolverDefinition& definition,
     std::span<const ChessComboResolverEquipmentRule> equipmentRules)
 {
-    return std::ranges::contains(definition.memberRoleIds, unit.roleId)
-        || std::ranges::any_of(equipmentRules, [&](const auto& rule) {
-            return equipmentRuleApplies(rule, unit, definition.name);
-        });
+    std::vector<int> result;
+    for (const auto& rule : equipmentRules)
+    {
+        if (equipmentRuleApplies(rule, unit, definition.name))
+        {
+            result.push_back(rule.equipmentItemId);
+        }
+    }
+    std::ranges::sort(result);
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+    return result;
 }
 
 }
@@ -50,6 +57,8 @@ std::vector<ResolvedChessCombo> resolveChessCombos(
     {
         std::map<int, int> starByRole;
         std::map<int, int> costByRole;
+        std::map<int, std::vector<int>> unitIdsByRole;
+        std::map<int, std::vector<int>> equipmentItemsByRole;
         std::set<int> qualifyingRoleIds;
         for (const auto& unit : units)
         {
@@ -60,7 +69,20 @@ std::vector<ResolvedChessCombo> resolveChessCombos(
             {
                 costByRole[unit.roleId] = *unit.cost;
             }
-            if (unitQualifies(unit, definition, equipmentRules))
+            if (unit.unitId >= 0)
+            {
+                unitIdsByRole[unit.roleId].push_back(unit.unitId);
+            }
+            auto equipmentItems = qualifyingEquipmentItems(unit, definition, equipmentRules);
+            if (!equipmentItems.empty())
+            {
+                auto& aggregated = equipmentItemsByRole[unit.roleId];
+                aggregated.insert(aggregated.end(), equipmentItems.begin(), equipmentItems.end());
+                std::ranges::sort(aggregated);
+                aggregated.erase(std::unique(aggregated.begin(), aggregated.end()), aggregated.end());
+            }
+            if (std::ranges::contains(definition.memberRoleIds, unit.roleId)
+                || !equipmentItems.empty())
             {
                 qualifyingRoleIds.insert(unit.roleId);
             }
@@ -72,8 +94,18 @@ std::vector<ResolvedChessCombo> resolveChessCombos(
         for (const int roleId : qualifyingRoleIds)
         {
             resolved.memberRoleIds.insert(roleId);
-            ++resolved.physicalMemberCount;
-            resolved.effectiveMemberCount += definition.starSynergyBonus ? starByRole.at(roleId) : 1;
+            ResolvedChessComboContribution contribution;
+            contribution.roleId = roleId;
+            contribution.unitIds = unitIdsByRole[roleId];
+            contribution.countedStar = starByRole.at(roleId);
+            contribution.starBonusPoints = definition.starSynergyBonus
+                ? contribution.countedStar - 1
+                : 0;
+            contribution.naturalMember = std::ranges::contains(definition.memberRoleIds, roleId);
+            contribution.equipmentItemIds = equipmentItemsByRole[roleId];
+            resolved.physicalMemberCount += contribution.physicalPoints;
+            resolved.effectiveMemberCount += contribution.physicalPoints + contribution.starBonusPoints;
+            resolved.contributions.push_back(std::move(contribution));
         }
 
         if (definition.thresholdCounts.empty())
@@ -96,12 +128,21 @@ std::vector<ResolvedChessCombo> resolveChessCombos(
                 }
             }
             resolved.memberRoleIds.clear();
+            resolved.contributions.erase(
+                std::remove_if(
+                    resolved.contributions.begin(),
+                    resolved.contributions.end(),
+                    [&](const auto& contribution) { return contribution.roleId != selectedRoleId; }),
+                resolved.contributions.end());
             if (selectedRoleId >= 0)
             {
                 resolved.memberRoleIds.insert(selectedRoleId);
                 resolved.physicalMemberCount = 1;
                 resolved.effectiveMemberCount = 1;
                 resolved.activeThresholdIndex = 0;
+                assert(resolved.contributions.size() == 1);
+                resolved.contributions.front().physicalPoints = 1;
+                resolved.contributions.front().starBonusPoints = 0;
             }
             else
             {

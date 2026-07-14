@@ -39,6 +39,10 @@ public:
         int amount);
     static int maximumDeploymentAtLevel(const ChessGameContent& content, int level);
     static int maximumBanCount(const ChessSessionState& state, const ChessGameContent& content);
+    static std::vector<int> shopCandidatesForTier(
+        const ChessSessionState& state,
+        const ChessGameContent& content,
+        int tier);
     static int pieceValue(const ChessGameContent& content, int roleId, int star);
     static bool wouldGrantPieceMerge(const ChessSessionState& state, int roleId);
     static bool canGrantPiece(

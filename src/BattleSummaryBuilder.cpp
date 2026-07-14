@@ -25,6 +25,7 @@ BattleSummary BattleSummaryBuilder::build(
             unit.team,
             unit.vitals.hp,
             unit.vitals.mp,
+            unit.cloneSourceUnitId >= 0,
         });
     }
     std::ranges::sort(result.survivors, {}, &BattleSurvivorSummary::unitId);

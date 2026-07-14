@@ -46,6 +46,7 @@ std::vector<ChessComboResolverUnit> resolverUnits(
             role ? std::optional<int>{role->Cost} : std::nullopt,
             equipmentItemId(state, piece.weaponInstanceId),
             equipmentItemId(state, piece.armorInstanceId),
+            piece.instanceId,
         });
     }
     return result;
@@ -117,6 +118,7 @@ ChessComboProgress chessComboProgress(
     progress.active = progress.activeThresholdIndex >= 0;
     progress.isAntiCombo = combo.isAntiCombo;
     progress.starSynergyBonus = combo.starSynergyBonus;
+    progress.contributions = resolved.contributions;
     if (!combo.thresholds.empty())
     {
         progress.displayTargetCount = combo.isAntiCombo

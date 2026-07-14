@@ -2,6 +2,7 @@
 #include "ChessContentLoader.h"
 #include "ChessBattleMapCatalog.h"
 #include "ChessGameContent.h"
+#include "ChessNeigong.h"
 #include "GameVersion.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -221,6 +222,38 @@ TEST_CASE("challenge configuration rejects duplicate reward meanings in one choi
     CHECK(diagnostics.hasErrors());
 }
 
+TEST_CASE("challenge configuration reads Traditional Chinese star and equipment fields",
+          "[chess][content][challenge]")
+{
+    TemporaryConfigDirectory files;
+    const auto balance = files.write("balance.yaml", "{}\n");
+    const auto challenges = files.write(
+        "challenge.yaml",
+        "遠征挑戰:\n"
+        "  - 名稱: 權威資料\n"
+        "    敵人:\n"
+        "      - 角色ID: 10\n"
+        "        星級: 3\n"
+        "        武器: 100\n"
+        "        防具: 200\n"
+        "    獎勵: []\n");
+    ChessDiagnosticCollector diagnostics;
+    BalanceConfig result;
+
+    REQUIRE(loadBalanceConfig(
+        balance.generic_string(),
+        challenges.generic_string(),
+        [](std::string_view text) { return std::string(text); },
+        diagnostics.sink(),
+        result));
+
+    REQUIRE(result.challenges.size() == 1);
+    REQUIRE(result.challenges.front().enemies.size() == 1);
+    CHECK(result.challenges.front().enemies.front().star == 3);
+    CHECK(result.challenges.front().enemies.front().weaponId == 100);
+    CHECK(result.challenges.front().enemies.front().armorId == 200);
+}
+
 TEST_CASE("pool configuration rejects duplicate role identifiers", "[chess][content][config]")
 {
     TemporaryConfigDirectory files;
@@ -243,6 +276,44 @@ TEST_CASE("content lookups use stable numeric identifiers", "[chess][content]")
     CHECK(content.magic(5)->Name == "測試武功");
     REQUIRE(content.item(9));
     CHECK(content.item(9)->name == "測試裝備");
+}
+
+TEST_CASE("internal skill configuration can override legacy names with Traditional Chinese",
+          "[chess][content][neigong]")
+{
+    TemporaryConfigDirectory files;
+    const auto config = files.write(
+        "chess_neigong.yaml",
+        "选择数量: 1\n"
+        "层级分配:\n"
+        "  - 层级: 1\n"
+        "    武功: [93]\n"
+        "名稱:\n"
+        "  93: 聖火神功\n"
+        "效果:\n"
+        "  93: []\n");
+    Item item;
+    item.ID = 1;
+    item.ItemType = 2;
+    item.MagicID = 93;
+    Magic magic;
+    magic.ID = 93;
+    magic.Name = "舊版名稱";
+    std::vector<Item*> items{&item};
+    ChessDiagnosticCollector diagnostics;
+    NeigongConfig resultConfig;
+    std::vector<NeigongDef> pool;
+
+    REQUIRE(loadChessNeigong(
+        config.generic_string(),
+        items,
+        [&](int magicId) -> const Magic* { return magicId == magic.ID ? &magic : nullptr; },
+        diagnostics.sink(),
+        resultConfig,
+        pool));
+
+    REQUIRE(pool.size() == 1);
+    CHECK(pool.front().name == "聖火神功");
 }
 
 TEST_CASE("diagnostics are collected without writing protocol output", "[chess][content]")

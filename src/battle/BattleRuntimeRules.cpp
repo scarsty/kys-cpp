@@ -11,6 +11,7 @@ namespace
 {
 
 constexpr double MINIMUM_VECTOR_NORM = 0.0001;
+constexpr int RESCUE_COUNTER_ATTACK_SKILL_ID = 1;
 constexpr int ACTION_RECOVERY_FRAMES = 4;
 constexpr int DASH_MOMENTUM_FRAMES = 5;
 constexpr int MOVEMENT_DASH_COOLDOWN_FRAMES = 18;
@@ -118,6 +119,7 @@ BattleRuntimeRulesConfig makeHadesBattleRuntimeRules(double tileWidth, int coord
     rules.teamEffectHealAuraRadius = tileWidth * 6.0;
     rules.rescueExecuteUnattendedRadius = tileWidth * 3.0;
     rules.minimumVectorNorm = MINIMUM_VECTOR_NORM;
+    rules.rescueCounterAttack.skillId = RESCUE_COUNTER_ATTACK_SKILL_ID;
     rules.rescueCounterAttack.visualEffectId = 11;
     rules.rescueCounterAttack.projectileSpeed = tileWidth / 3.0;
     rules.rescueCounterAttack.meleeAttackEffectOffset = meleeAttackEffectOffset;

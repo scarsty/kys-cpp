@@ -106,6 +106,14 @@ int ChessRunRandom::nextInt(ChessRngStream stream, int upperBound)
     return static_cast<int>(nextBounded(stream, static_cast<std::uint64_t>(upperBound)));
 }
 
+std::uint64_t ChessRunRandom::enemyPlanIdentity() const
+{
+    std::uint64_t state = rootSeed_
+        ^ rotateLeft(enemyPlanKey_ + 0xA0761D6478BD642FULL, 23);
+    const auto identity = splitMix64(state);
+    return identity != 0 ? identity : 0xE7037ED1A0B428DBULL;
+}
+
 void ChessRunRandom::rerollEnemySeed()
 {
     enemyPlanKey_ = nextRaw(ChessRngStream::EnemyReroll);

@@ -156,10 +156,16 @@ ChessGameplayObservation ChessGameSession::observe() const
     observation.difficulty = content_->difficulty();
     observation.options = state_.options;
     observation.money = state_.money;
+    observation.interestGold = ChessProgressionRules::interestGold(state_, *content_);
+    observation.nextInterestThreshold = ChessProgressionRules::nextInterestThreshold(state_, *content_);
+    observation.maximumInterestGold = content_->balance().interestMax;
+    observation.projectedBaseVictoryGold = ChessProgressionRules::baseVictoryGold(state_, *content_);
+    observation.projectedVictoryIncome = ChessProgressionRules::projectedVictoryIncome(state_, *content_);
     observation.experience = state_.experience;
     observation.experienceForNextLevel = ChessManagementRules::experienceForNextLevel(state_, *content_);
     observation.level = state_.level;
     observation.maximumDeployment = ChessManagementRules::maximumDeployment(state_, *content_);
+    observation.maximumBanCount = ChessManagementRules::maximumBanCount(state_, *content_);
     observation.fight = state_.fight;
     observation.campaignComplete = state_.campaignComplete;
     observation.shopLocked = state_.shopLocked;
@@ -191,6 +197,7 @@ ChessGameplayObservation ChessGameSession::observe() const
             progress.effectiveCount,
             progress.activeThresholdIndex,
             progress.nextThresholdIndex,
+            progress.contributions,
         });
     }
     observation.preparedBattle = state_.preparedBattle;
@@ -342,10 +349,19 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
     if (!state_.equipmentInventory.empty() && !state_.roster.empty())
     {
         ChessLegalActionDescriptor equip{ChessActionType::Equip};
+        std::vector<int> assigned;
         for (const auto& [id, equipment] : state_.equipmentInventory)
         {
-            equip.candidateIds.push_back(id);
+            if (equipment.assignedChessInstanceId < 0)
+            {
+                equip.candidateIds.push_back(id);
+            }
+            else
+            {
+                assigned.push_back(id);
+            }
         }
+        equip.candidateIds.insert(equip.candidateIds.end(), assigned.begin(), assigned.end());
         result.push_back(std::move(equip));
     }
     if (content_->balance().legendaryShop.unlockFight > 0

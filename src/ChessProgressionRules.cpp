@@ -39,6 +39,49 @@ void updateSurvivorWins(ChessSessionState& state, const BattleSummary& summary)
 
 }
 
+int ChessProgressionRules::baseVictoryGold(
+    const ChessSessionState& state,
+    const ChessGameContent& content)
+{
+    const auto& balance = content.balance();
+    const int completedFight = state.fight + 1;
+    const int growthDivisor = std::max(1, balance.totalFights - 1);
+    const bool boss = balance.bossInterval > 0 && completedFight % balance.bossInterval == 0;
+    return balance.rewardBase
+        + state.fight * balance.rewardGrowth / growthDivisor
+        + (boss ? balance.bossRewardBonus : 0);
+}
+
+int ChessProgressionRules::interestGold(
+    const ChessSessionState& state,
+    const ChessGameContent& content)
+{
+    const auto& balance = content.balance();
+    return std::min(state.money * balance.interestPercent / 100, balance.interestMax);
+}
+
+std::optional<int> ChessProgressionRules::nextInterestThreshold(
+    const ChessSessionState& state,
+    const ChessGameContent& content)
+{
+    const auto& balance = content.balance();
+    const int current = interestGold(state, content);
+    if (balance.interestPercent <= 0 || current >= balance.interestMax)
+    {
+        return std::nullopt;
+    }
+    const int numerator = (current + 1) * 100;
+    return numerator / balance.interestPercent
+        + (numerator % balance.interestPercent != 0 ? 1 : 0);
+}
+
+int ChessProgressionRules::projectedVictoryIncome(
+    const ChessSessionState& state,
+    const ChessGameContent& content)
+{
+    return baseVictoryGold(state, content) + interestGold(state, content);
+}
+
 void ChessProgressionRules::applyBattleResult(
     ChessSessionState& state,
     const ChessGameContent& content,
@@ -117,12 +160,9 @@ void ChessProgressionRules::applyBattleResult(
         content,
         EffectType::FreeRefresh);
     const int completedFight = state.fight + 1;
-    const int growthDivisor = std::max(1, balance.totalFights - 1);
     const bool boss = balance.bossInterval > 0 && completedFight % balance.bossInterval == 0;
-    const int reward = balance.rewardBase
-        + state.fight * balance.rewardGrowth / growthDivisor
-        + (boss ? balance.bossRewardBonus : 0);
-    const int interest = std::min(state.money * balance.interestPercent / 100, balance.interestMax);
+    const int reward = baseVictoryGold(state, content);
+    const int interest = interestGold(state, content);
     const int goldAwarded = reward + interest + comboGoldBonus.amount;
     state.money += goldAwarded;
     const int experienceAwarded = boss ? balance.bossBattleExp : balance.battleExp;

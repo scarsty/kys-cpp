@@ -16,6 +16,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <utility>
 
 namespace KysChess
@@ -50,13 +51,17 @@ struct NewParams
 struct ActParams
 {
     glz::raw_json action;
-    std::string detail = "compact";
+    std::string detail = "summary";
 };
 
 struct ObserveParams { std::string detail = "full"; };
 struct RoleParams { int role_id = -1; };
 struct ComboParams { std::string combo_name; };
 struct EquipmentParams { int item_id = -1; };
+struct ChallengeParams { std::string challenge_name; };
+struct ShopSlotParams { int slot = -1; };
+struct ChessInstanceParams { int chess_instance_id = -1; };
+struct ShopOddsParams { std::optional<int> level; };
 
 struct VerifyParams
 {
@@ -68,11 +73,20 @@ struct SaveParams { std::string slot; std::string label; };
 struct ImportSaveParams { std::string slot; std::string payload; };
 
 enum class ObservationDetail { Compact, Full };
+enum class ActionResponseDetail { Summary, Compact, Full };
 
 std::optional<ObservationDetail> parseObservationDetail(std::string_view value)
 {
     if (value == "compact") return ObservationDetail::Compact;
     if (value == "full") return ObservationDetail::Full;
+    return std::nullopt;
+}
+
+std::optional<ActionResponseDetail> parseActionResponseDetail(std::string_view value)
+{
+    if (value == "summary") return ActionResponseDetail::Summary;
+    if (value == "compact") return ActionResponseDetail::Compact;
+    if (value == "full") return ActionResponseDetail::Full;
     return std::nullopt;
 }
 
@@ -182,7 +196,8 @@ struct PieceDto
     int star{};
     bool deployed{};
     int fights_won{};
-    RoleStatsDto current_stats;
+    std::optional<RoleStatsDto> current_stats;
+    std::optional<std::string> current_stats_note;
 };
 struct EquipmentInfoDto
 {
@@ -196,10 +211,11 @@ struct EquipmentInfoDto
     std::string name;
     int tier{};
     std::string type;
-    std::vector<std::string> base_stat_effects;
-    std::vector<std::string> special_effects;
-    std::vector<std::string> counts_as_combos;
-    std::vector<CharacterBonus> character_bonuses;
+    std::optional<std::vector<std::string>> base_stat_effects;
+    std::optional<std::vector<std::string>> special_effects;
+    std::optional<std::vector<std::string>> counts_as_combos;
+    std::optional<std::vector<CharacterBonus>> character_bonuses;
+    std::optional<std::string> combo_counting_note;
 };
 struct EquipmentDto
 {
@@ -220,15 +236,16 @@ struct PreparedUnitDto
     std::string armor;
     int x{};
     int y{};
-    RoleStatsDto preview_stats;
-    std::string stats_note;
-    std::vector<AbilityDto> abilities;
+    std::optional<RoleStatsDto> preview_stats;
+    std::optional<std::string> stats_note;
+    std::optional<std::vector<AbilityDto>> abilities;
 };
 struct MapDto { int map_id{}; std::string name; };
 struct ComboDto;
 struct PreparedBattleDto
 {
     std::string battle_id;
+    std::string metadata_scope;
     std::vector<PreparedUnitDto> units;
     std::vector<MapDto> map_candidates;
     int chosen_map_id = -1;
@@ -254,6 +271,7 @@ struct BattleSurvivorDto
     std::string team;
     int hp{};
     int mp{};
+    bool summoned{};
 };
 struct BattleUnitStatsDto
 {
@@ -277,6 +295,7 @@ struct BattleUnitStatsDto
     std::optional<int> healing_done;
     std::optional<int> magic_points_restored;
     std::optional<int> magic_points_drained;
+    std::optional<int> magic_points_drain_events;
     std::optional<int> projectile_potential_damage_cancelled;
     std::optional<int> projectile_cancellations;
     std::optional<int> blocks;
@@ -380,14 +399,119 @@ struct RewardOptionDto
     int chess_instance_id = -1;
     std::optional<EquipmentInfoDto> equipment;
 };
+struct ChallengeEnemyDto
+{
+    int role_id{};
+    std::string name;
+    int star{};
+    std::optional<EquipmentInfoDto> weapon;
+    std::optional<EquipmentInfoDto> armor;
+};
+struct ChallengeRewardDto
+{
+    std::string description;
+};
+struct ChallengeDto
+{
+    std::string name;
+    std::string description;
+    int enemy_count{};
+    std::vector<ChallengeEnemyDto> enemies;
+    std::vector<ChallengeRewardDto> rewards;
+};
+struct ShopTierOddsDto
+{
+    int tier{};
+    int configured_weight{};
+    double probability{};
+    int available_role_count{};
+    std::vector<NamedIdDto> available_roles;
+};
+struct ShopOddsDto
+{
+    int level{};
+    int total_effective_weight{};
+    std::vector<ShopTierOddsDto> tiers;
+    std::string pool_note;
+};
+struct ShopPurchaseSynergyDto
+{
+    std::string name;
+    int current{};
+    int after_purchase{};
+};
+struct ShopSlotInspectionDto
+{
+    struct CopiesByStar { int star{}; int count{}; };
+    int slot{};
+    bool occupied{};
+    int role_id = -1;
+    std::string name;
+    int cost{};
+    int shop_tier{};
+    int owned_copies{};
+    std::vector<CopiesByStar> copies_by_star;
+    bool purchase_legal{};
+    std::string purchase_error;
+    int gold_cost{};
+    int projected_gold_after{};
+    std::string purchase_result;
+    std::vector<ShopPurchaseSynergyDto> synergies;
+    double level_tier_probability{};
+};
+struct ShopInspectionDto
+{
+    int money{};
+    int level{};
+    std::vector<ShopSlotInspectionDto> slots;
+    ShopOddsDto odds;
+};
+struct ChessInstanceInspectionDto
+{
+    PieceDto chess;
+    int one_star_equivalent_copies{};
+    int same_star_copies{};
+    int copies_required_for_next_star{};
+    std::vector<EquipmentDto> equipment;
+    std::vector<ComboDto> synergy_contributions;
+};
+struct BanInspectionDto
+{
+    struct TierGroup
+    {
+        int cost{};
+        std::vector<NamedIdDto> roles;
+    };
+    int current_ban_count{};
+    int maximum_ban_count{};
+    int remaining_ban_capacity{};
+    std::vector<TierGroup> current_bans_by_cost;
+    std::vector<TierGroup> eligible_bans_by_cost;
+    std::string effect_timing;
+    std::string forced_phase_note;
+};
 struct PendingRewardDto
 {
+    struct OptionGroup
+    {
+        std::string label;
+        int count{};
+    };
     std::string id;
     std::string kind;
-    std::vector<RewardOptionDto> options;
+    int option_count{};
+    std::optional<std::string> option_count_description;
+    std::optional<std::vector<RewardOptionDto>> options;
     int reroll_cost{};
     std::vector<int> eligible_tiers;
+    std::vector<OptionGroup> option_groups;
     bool rerolled{};
+    std::optional<int> maximum_selections;
+    std::optional<int> remaining_selections;
+    std::optional<int> current_ban_count;
+    std::optional<int> maximum_total_bans;
+    std::optional<bool> selection_optional;
+    std::optional<std::string> decision_requirement;
 };
 struct ComboThresholdDto
 {
@@ -396,45 +520,75 @@ struct ComboThresholdDto
     std::vector<std::string> effects;
     bool active{};
 };
+struct ComboContributionDto
+{
+    int role_id{};
+    std::string role_name;
+    std::vector<int> unit_ids;
+    int counted_star{};
+    int physical_points{};
+    int star_bonus_points{};
+    int effective_points{};
+    bool natural_member{};
+    std::vector<NamedIdDto> equipment_sources;
+    std::string explanation;
+};
 struct ComboDto
 {
     std::string name;
     int physical_count{};
     int effective_count{};
-    std::vector<std::string> members;
-    std::vector<ComboThresholdDto> thresholds;
+    std::optional<std::vector<std::string>> members;
+    std::optional<std::vector<ComboThresholdDto>> thresholds;
+    std::optional<std::vector<ComboContributionDto>> contributions;
+    std::optional<std::string> count_explanation;
 };
 struct ObservationDto
 {
     std::string detail;
     std::string phase;
-    std::string difficulty;
-    bool position_swap_enabled{};
+    std::optional<std::string> difficulty;
+    std::optional<bool> position_swap_enabled;
     int money{};
+    std::optional<int> interest_gold;
+    std::optional<int> next_interest_threshold;
+    std::optional<int> maximum_interest_gold;
+    int total_campaign_rounds{};
+    std::optional<int> boss_interval;
+    std::optional<bool> forced_bans_enabled;
+    std::optional<int> projected_base_victory_gold;
+    std::optional<int> projected_victory_income;
+    std::optional<bool> projected_victory_income_excludes_conditional_bonuses;
     int experience{};
     int experience_for_next_level{};
     int level{};
     int maximum_deployment{};
+    std::optional<int> current_ban_count;
+    std::optional<int> maximum_ban_count;
+    std::optional<int> remaining_ban_capacity;
+    std::optional<std::string> ban_effect_timing;
     int fight{};
     bool campaign_complete{};
-    bool shop_locked{};
-    bool free_shop_refresh_available{};
-    int free_shop_refresh_granted_fight = -1;
+    std::optional<bool> shop_locked;
+    std::optional<bool> free_shop_refresh_available;
+    std::optional<int> free_shop_refresh_granted_fight;
     std::vector<ShopSlotDto> shop;
     std::vector<PieceDto> roster;
-    std::string role_metadata_scope = "complete";
-    std::vector<RoleDto> relevant_roles;
+    std::optional<std::string> role_metadata_scope;
+    std::optional<std::vector<RoleDto>> relevant_roles;
+    std::optional<std::string> equipment_metadata_scope;
     std::vector<EquipmentDto> equipment_inventory;
-    std::vector<NamedIdDto> bans;
-    std::vector<NamedIdDto> obtained_internal_skills;
+    std::optional<std::vector<NamedIdDto>> bans;
+    std::optional<std::vector<NamedIdDto>> obtained_internal_skills;
     std::vector<std::string> completed_challenges;
     std::vector<ComboDto> combos;
     std::optional<PreparedBattleDto> prepared_battle;
     std::optional<PendingRewardDto> pending_reward;
-    std::string last_battle_outcome;
-    std::string last_battle_outcome_description;
-    int last_battle_end_frame{};
-    std::string last_battle_digest;
+    std::optional<std::string> last_battle_outcome;
+    std::optional<std::string> last_battle_outcome_description;
+    std::optional<int> last_battle_end_frame;
+    std::optional<std::string> last_battle_digest;
+    std::vector<std::string> legal_action_types;
     std::string state_hash;
 };
 
@@ -550,6 +704,49 @@ void addItemStats(RoleStatsDto& stats, const ChessItemDefinition* item)
     stats.knife += item->addKnife;
     stats.unusual += item->addUnusual;
     stats.hidden_weapon += item->addHiddenWeapon;
+}
+
+PieceDto pieceDto(
+    const ChessGameContent& content,
+    const ChessGameplayObservation& observation,
+    const ChessSessionPiece& piece,
+    bool full)
+{
+    const auto* role = content.role(piece.roleId);
+    assert(role);
+    PieceDto dto{};
+    dto.instance_id = piece.instanceId;
+    dto.role_id = piece.roleId;
+    dto.name = role->Name;
+    dto.star = piece.star;
+    dto.deployed = piece.deployed;
+    dto.fights_won = piece.fightsWon;
+    if (!full)
+    {
+        return dto;
+    }
+    auto currentStats = pieceRoleStats(
+        *role,
+        content.balance(),
+        piece.star,
+        piece.fightsWon);
+    const auto addEquipmentInstanceStats = [&](int equipmentInstanceId) {
+        if (equipmentInstanceId < 0)
+        {
+            return;
+        }
+        const auto equipment = std::ranges::find(
+            observation.equipmentInventory,
+            equipmentInstanceId,
+            &ChessEquipmentInstance::instanceId);
+        assert(equipment != observation.equipmentInventory.end());
+        addItemStats(currentStats, content.item(equipment->itemId));
+    };
+    addEquipmentInstanceStats(piece.weaponInstanceId);
+    addEquipmentInstanceStats(piece.armorInstanceId);
+    dto.current_stats = currentStats;
+    dto.current_stats_note = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果於開戰時套用";
+    return dto;
 }
 
 RoleStatsDto preparedUnitStats(
@@ -705,23 +902,31 @@ EquipmentInfoDto equipmentInfoDto(
     {
         return dto;
     }
-    appendItemStat(dto.base_stat_effects, "生命", item->addMaxHP);
-    appendItemStat(dto.base_stat_effects, "攻擊", item->addAttack);
-    appendItemStat(dto.base_stat_effects, "防禦", item->addDefence);
-    appendItemStat(dto.base_stat_effects, "速度", item->addSpeed);
-    appendItemStat(dto.base_stat_effects, "拳掌", item->addFist);
-    appendItemStat(dto.base_stat_effects, "御劍", item->addSword);
-    appendItemStat(dto.base_stat_effects, "耍刀", item->addKnife);
-    appendItemStat(dto.base_stat_effects, "特殊", item->addUnusual);
-    appendItemStat(dto.base_stat_effects, "暗器", item->addHiddenWeapon);
+    dto.base_stat_effects.emplace();
+    dto.special_effects.emplace();
+    dto.counts_as_combos.emplace();
+    dto.character_bonuses.emplace();
+    appendItemStat(*dto.base_stat_effects, "生命", item->addMaxHP);
+    appendItemStat(*dto.base_stat_effects, "攻擊", item->addAttack);
+    appendItemStat(*dto.base_stat_effects, "防禦", item->addDefence);
+    appendItemStat(*dto.base_stat_effects, "速度", item->addSpeed);
+    appendItemStat(*dto.base_stat_effects, "拳掌", item->addFist);
+    appendItemStat(*dto.base_stat_effects, "御劍", item->addSword);
+    appendItemStat(*dto.base_stat_effects, "耍刀", item->addKnife);
+    appendItemStat(*dto.base_stat_effects, "特殊", item->addUnusual);
+    appendItemStat(*dto.base_stat_effects, "暗器", item->addHiddenWeapon);
     for (const auto& effect : definition.effects)
     {
         if (effect.type != EffectType::ActAsCombo)
         {
-            dto.special_effects.push_back(comboEffectDesc(effect));
+            dto.special_effects->push_back(comboEffectDesc(effect));
         }
     }
-    dto.counts_as_combos = definition.actAsComboNames;
+    *dto.counts_as_combos = definition.actAsComboNames;
+    if (!dto.counts_as_combos->empty())
+    {
+        dto.combo_counting_note = "讓裝備者視為該羈絆的一名成員；同一角色在同一羈絆只計一次，裝在原成員身上不會額外加點";
+    }
     for (const auto& synergy : content.equipmentSynergies())
     {
         if (synergy.equipmentId != itemId)
@@ -740,7 +945,7 @@ EquipmentInfoDto equipmentInfoDto(
         {
             bonus.effects.push_back(comboEffectDesc(effect));
         }
-        dto.character_bonuses.push_back(std::move(bonus));
+        dto.character_bonuses->push_back(std::move(bonus));
     }
     return dto;
 }
@@ -762,7 +967,8 @@ ComboDto comboDto(
     int physicalCount,
     int effectiveCount,
     int activeThresholdIndex,
-    bool full = true)
+    bool full = true,
+    const std::vector<ResolvedChessComboContribution>* contributions = nullptr)
 {
     ComboDto dto;
     dto.name = definition.name;
@@ -770,22 +976,69 @@ ComboDto comboDto(
     dto.effective_count = effectiveCount;
     if (full)
     {
+        dto.count_explanation = "physical_count 是不重複角色數；effective_count 再加上此羈絆允許的星級加點；裝備只讓非成員取得成員資格，不會讓同一角色重複計點";
+        dto.members.emplace();
+        dto.thresholds.emplace();
+        dto.contributions.emplace();
+    }
+    if (full && contributions)
+    {
+        for (const auto& contribution : *contributions)
+        {
+            const auto* role = content.role(contribution.roleId);
+            assert(role);
+            ComboContributionDto contributionDto;
+            contributionDto.role_id = contribution.roleId;
+            contributionDto.role_name = role->Name;
+            contributionDto.unit_ids = contribution.unitIds;
+            contributionDto.counted_star = contribution.countedStar;
+            contributionDto.physical_points = contribution.physicalPoints;
+            contributionDto.star_bonus_points = contribution.starBonusPoints;
+            contributionDto.effective_points = contribution.physicalPoints
+                + contribution.starBonusPoints;
+            contributionDto.natural_member = contribution.naturalMember;
+            for (const int itemId : contribution.equipmentItemIds)
+            {
+                contributionDto.equipment_sources.push_back({itemId, itemName(content, itemId)});
+            }
+            if (contribution.naturalMember && !contribution.equipmentItemIds.empty())
+            {
+                contributionDto.explanation = "角色本身已屬於羈絆；裝備亦可計作此羈絆，但不重複加點";
+            }
+            else if (!contribution.equipmentItemIds.empty())
+            {
+                contributionDto.explanation = "角色由裝備取得此羈絆的成員資格";
+            }
+            else
+            {
+                contributionDto.explanation = "角色本身屬於此羈絆";
+            }
+            if (contribution.starBonusPoints > 0)
+            {
+                contributionDto.explanation += std::format(
+                    "；{}★另提供 {} 點星級加成",
+                    contribution.countedStar,
+                    contribution.starBonusPoints);
+            }
+            dto.contributions->push_back(std::move(contributionDto));
+        }
+    }
+    if (full)
+    {
         for (const int roleId : definition.memberRoleIds)
         {
             const auto* role = content.role(roleId);
             assert(role);
-            dto.members.push_back(role->Name);
+            dto.members->push_back(role->Name);
         }
+    }
+    if (!full)
+    {
+        return dto;
     }
     for (int index = 0; index < static_cast<int>(definition.thresholds.size()); ++index)
     {
         const auto& threshold = definition.thresholds[index];
-        if (!full
-            && index != activeThresholdIndex
-            && index != activeThresholdIndex + 1)
-        {
-            continue;
-        }
         ComboThresholdDto thresholdDto;
         thresholdDto.required_count = threshold.count;
         thresholdDto.name = threshold.name;
@@ -794,7 +1047,7 @@ ComboDto comboDto(
         {
             thresholdDto.effects.push_back(comboEffectDesc(effect));
         }
-        dto.thresholds.push_back(std::move(thresholdDto));
+        dto.thresholds->push_back(std::move(thresholdDto));
     }
     return dto;
 }
@@ -847,7 +1100,9 @@ std::vector<ComboDto> preparedTeamSynergies(
             definition,
             progress.physicalCount,
             progress.effectiveCount,
-            progress.activeThresholdIndex));
+            progress.activeThresholdIndex,
+            true,
+            &progress.contributions));
     }
     return result;
 }
@@ -872,6 +1127,7 @@ PreparedBattleDto preparedBattleDto(
 {
     PreparedBattleDto prepared;
     prepared.battle_id = battle.stableBattleId;
+    prepared.metadata_scope = full ? "complete" : "omitted_compact";
     prepared.chosen_map_id = battle.chosenMapId;
     prepared.coordinate_system = "x 向右增加，y 向下增加；A 表示我方、E 表示敵方、# 是障礙、~ 是水域、. 是可通行地面";
     for (const int mapId : battle.mapCandidates)
@@ -911,9 +1167,10 @@ PreparedBattleDto preparedBattleDto(
         {
             unitDto.preview_stats = preparedUnitStats(content, *role, unit);
             unitDto.stats_note = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果另見隊伍羈絆及裝備說明";
+            unitDto.abilities.emplace();
             for (const auto& [magic, power] : chessRoleMagicsForStar(content, *role, unit.star))
             {
-                unitDto.abilities.push_back(abilityDto(content, *magic, {{unit.star, power}}));
+                unitDto.abilities->push_back(abilityDto(content, *magic, {{unit.star, power}}));
             }
         }
         prepared.units.push_back(std::move(unitDto));
@@ -957,19 +1214,19 @@ RewardOptionDto rewardOptionDto(
         dto.equipment = equipmentInfoDto(content, option.value);
         dto.label = dto.equipment->name;
         dto.description = std::format("{}階{}", dto.equipment->tier, dto.equipment->type);
-        for (const auto& effect : dto.equipment->base_stat_effects)
+        for (const auto& effect : *dto.equipment->base_stat_effects)
         {
             dto.description += "；基礎：" + effect;
         }
-        for (const auto& effect : dto.equipment->special_effects)
+        for (const auto& effect : *dto.equipment->special_effects)
         {
             dto.description += "；特殊：" + effect;
         }
-        for (const auto& comboName : dto.equipment->counts_as_combos)
+        for (const auto& comboName : *dto.equipment->counts_as_combos)
         {
             dto.description += "；計作" + comboName;
         }
-        for (const auto& bonus : dto.equipment->character_bonuses)
+        for (const auto& bonus : *dto.equipment->character_bonuses)
         {
             dto.description += "；角色加成(";
             for (std::size_t index = 0; index < bonus.roles.size(); ++index)
@@ -1073,26 +1330,45 @@ ObservationDto observationDto(
     const ChessGameplayObservation& observation,
     const ChessGameContent& content,
     ObservationDetail detail = ObservationDetail::Full,
-    std::string roleMetadataScope = {})
+    std::string roleMetadataScope = {},
+    std::span<const ChessLegalActionDescriptor> legalActions = {})
 {
-    ObservationDto dto;
+    ObservationDto dto{};
     const bool full = detail == ObservationDetail::Full;
     dto.detail = full ? "full" : "compact";
     dto.phase = phaseText(observation.phase);
-    dto.difficulty = observation.difficulty == Difficulty::Easy
-        ? "easy"
-        : observation.difficulty == Difficulty::Normal ? "normal" : "hard";
-    dto.position_swap_enabled = observation.options.positionSwapEnabled;
     dto.money = observation.money;
+    dto.total_campaign_rounds = content.balance().totalFights;
     dto.experience = observation.experience;
     dto.experience_for_next_level = observation.experienceForNextLevel;
     dto.level = observation.level;
     dto.maximum_deployment = observation.maximumDeployment;
     dto.fight = observation.fight;
     dto.campaign_complete = observation.campaignComplete;
-    dto.shop_locked = observation.shopLocked;
-    dto.free_shop_refresh_available = observation.freeShopRefreshAvailable;
-    dto.free_shop_refresh_granted_fight = observation.freeShopRefreshGrantedFight;
+    if (full)
+    {
+        dto.difficulty = observation.difficulty == Difficulty::Easy
+            ? "easy"
+            : observation.difficulty == Difficulty::Normal ? "normal" : "hard";
+        dto.position_swap_enabled = observation.options.positionSwapEnabled;
+        dto.interest_gold = observation.interestGold;
+        dto.next_interest_threshold = observation.nextInterestThreshold;
+        dto.maximum_interest_gold = observation.maximumInterestGold;
+        dto.boss_interval = content.balance().bossInterval;
+        dto.forced_bans_enabled = !content.balance().banUnlocks.empty();
+        dto.projected_base_victory_gold = observation.projectedBaseVictoryGold;
+        dto.projected_victory_income = observation.projectedVictoryIncome;
+        dto.projected_victory_income_excludes_conditional_bonuses = true;
+        dto.current_ban_count = static_cast<int>(observation.bans.size());
+        dto.maximum_ban_count = observation.maximumBanCount;
+        dto.remaining_ban_capacity = std::max(
+            0,
+            observation.maximumBanCount - static_cast<int>(observation.bans.size()));
+        dto.ban_effect_timing = "禁棋只影響之後生成或刷新的商店；目前商店既有棋子不會被移除，仍可購買";
+        dto.shop_locked = observation.shopLocked;
+        dto.free_shop_refresh_available = observation.freeShopRefreshAvailable;
+        dto.free_shop_refresh_granted_fight = observation.freeShopRefreshGrantedFight;
+    }
     for (int index = 0; index < static_cast<int>(observation.shop.size()); ++index)
     {
         const auto& slot = observation.shop[index];
@@ -1108,17 +1384,7 @@ ObservationDto observationDto(
     auto relevantRoleIds = observationRelevantRoleIds(observation);
     for (const auto& piece : observation.roster)
     {
-        const auto* role = content.role(piece.roleId);
-        assert(role);
-        dto.roster.push_back({
-            piece.instanceId,
-            piece.roleId,
-            role->Name,
-            piece.star,
-            piece.deployed,
-            piece.fightsWon,
-            pieceRoleStats(*role, content.balance(), piece.star, piece.fightsWon),
-        });
+        dto.roster.push_back(ProtocolDetail::pieceDto(content, observation, piece, full));
     }
     for (const auto& equipment : observation.equipmentInventory)
     {
@@ -1128,22 +1394,27 @@ ObservationDto observationDto(
             equipment.assignedChessInstanceId,
         });
     }
-    for (const int roleId : observation.bans)
+    if (full)
     {
-        const auto* role = content.role(roleId);
-        assert(role);
-        dto.bans.push_back({roleId, role->Name});
-    }
-    for (const int magicId : observation.obtainedNeigongIds)
-    {
-        const auto found = std::ranges::find(content.neigong(), magicId, &NeigongDef::magicId);
-        assert(found != content.neigong().end());
-        dto.obtained_internal_skills.push_back({magicId, found->name});
+        dto.bans.emplace();
+        for (const int roleId : observation.bans)
+        {
+            const auto* role = content.role(roleId);
+            assert(role);
+            dto.bans->push_back({roleId, role->Name});
+        }
+        dto.obtained_internal_skills.emplace();
+        for (const int magicId : observation.obtainedNeigongIds)
+        {
+            const auto found = std::ranges::find(content.neigong(), magicId, &NeigongDef::magicId);
+            assert(found != content.neigong().end());
+            dto.obtained_internal_skills->push_back({magicId, found->name});
+        }
     }
     dto.completed_challenges = observation.completedChallengeNames;
     for (const auto& combo : observation.combos)
     {
-        if (combo.physicalCount == 0)
+        if (combo.physicalCount == 0 || (!full && combo.activeThresholdIndex < 0))
         {
             continue;
         }
@@ -1155,7 +1426,8 @@ ObservationDto observationDto(
             combo.physicalCount,
             combo.effectiveCount,
             combo.activeThresholdIndex,
-            full));
+            full,
+            &combo.contributions));
     }
     if (observation.preparedBattle)
     {
@@ -1166,56 +1438,136 @@ ObservationDto observationDto(
         PendingRewardDto pending;
         pending.id = observation.pendingReward->id;
         pending.kind = rewardKindId(observation.pendingReward->kind);
+        const auto optionAvailable = [&](const ChessRewardOption& option) {
+            return observation.pendingReward->kind != ChessRewardKind::ForcedBan
+                || !std::ranges::contains(observation.bans, option.value);
+        };
+        pending.option_count = static_cast<int>(std::ranges::count_if(
+            observation.pendingReward->options,
+            optionAvailable));
         pending.reroll_cost = observation.pendingReward->rerollCost;
         pending.eligible_tiers = observation.pendingReward->eligibleTiers;
         pending.rerolled = observation.pendingReward->rerolled;
-        for (const auto& option : observation.pendingReward->options)
+        if (observation.pendingReward->kind == ChessRewardKind::ForcedBan)
         {
-            int starUpgradeRoleId = -1;
-            if (option.kind == ChessRewardKind::StarUpgrade)
+            pending.option_count_description = "目前仍可選的禁棋候選角色數量，不是剩餘選擇次數";
+            pending.maximum_selections = observation.pendingReward->choiceCount;
+            pending.remaining_selections = observation.pendingReward->parameter;
+            pending.current_ban_count = static_cast<int>(observation.bans.size());
+            pending.maximum_total_bans = observation.maximumBanCount;
+            pending.selection_optional = true;
+            pending.decision_requirement = "此階段強制先完成禁棋決策：可禁用至多剩餘次數，也可直接略過；略過不會消耗仍可於之後使用的禁棋容量";
+        }
+        if (observation.pendingReward->kind == ChessRewardKind::Equipment)
+        {
+            std::map<std::string, int> groups;
+            for (const auto& option : observation.pendingReward->options)
             {
-                const auto piece = std::ranges::find(observation.roster, option.value, &ChessSessionPiece::instanceId);
-                assert(piece != observation.roster.end());
-                starUpgradeRoleId = piece->roleId;
+                const auto& definition = requireEquipment(content, option.value);
+                ++groups[std::format(
+                    "{}階{}",
+                    definition.tier,
+                    definition.equipType == 0 ? "武器" : "防具")];
             }
-            pending.options.push_back(rewardOptionDto(
-                content,
-                *observation.pendingReward,
-                option,
-                starUpgradeRoleId));
+            for (const auto& [label, count] : groups)
+            {
+                pending.option_groups.push_back({label, count});
+            }
+        }
+        const bool largeEquipmentChoice = observation.pendingReward->kind == ChessRewardKind::Equipment
+            && observation.pendingReward->options.size() > 12;
+        if (full
+            || (observation.pendingReward->kind != ChessRewardKind::ForcedBan
+                && !largeEquipmentChoice))
+        {
+            pending.options.emplace();
+            for (const auto& option : observation.pendingReward->options)
+            {
+                if (!optionAvailable(option))
+                {
+                    continue;
+                }
+                int starUpgradeRoleId = -1;
+                if (option.kind == ChessRewardKind::StarUpgrade)
+                {
+                    const auto piece = std::ranges::find(
+                        observation.roster,
+                        option.value,
+                        &ChessSessionPiece::instanceId);
+                    assert(piece != observation.roster.end());
+                    starUpgradeRoleId = piece->roleId;
+                }
+                pending.options->push_back(rewardOptionDto(
+                    content,
+                    *observation.pendingReward,
+                    option,
+                    starUpgradeRoleId));
+            }
         }
         dto.pending_reward = std::move(pending);
     }
-    dto.role_metadata_scope = !roleMetadataScope.empty()
-        ? std::move(roleMetadataScope)
-        : full ? "complete" : "omitted_compact";
     if (full)
     {
+        dto.role_metadata_scope = !roleMetadataScope.empty()
+            ? std::move(roleMetadataScope)
+            : "complete";
+        dto.equipment_metadata_scope = "complete";
+        dto.relevant_roles.emplace();
         for (const int roleId : relevantRoleIds)
         {
-            dto.relevant_roles.push_back(roleDto(content, roleId));
+            dto.relevant_roles->push_back(roleDto(content, roleId));
         }
     }
-    dto.last_battle_outcome = battleOutcomeId(observation.lastBattleOutcome);
-    dto.last_battle_outcome_description = battleOutcomeDescription(observation.lastBattleOutcome);
-    dto.last_battle_end_frame = observation.lastBattleEndFrame;
-    dto.last_battle_digest = chessSha256Hex(observation.lastBattleDigest);
+    if (full || observation.lastBattleOutcome != Battle::BattleOutcome::InProgress)
+    {
+        dto.last_battle_outcome = battleOutcomeId(observation.lastBattleOutcome);
+        dto.last_battle_outcome_description = battleOutcomeDescription(observation.lastBattleOutcome);
+        dto.last_battle_end_frame = observation.lastBattleEndFrame;
+    }
+    if (full)
+    {
+        dto.last_battle_digest = chessSha256Hex(observation.lastBattleDigest);
+    }
+    for (const auto& legal : legalActions)
+    {
+        dto.legal_action_types.push_back(chessActionTypeId(legal.type));
+    }
     dto.state_hash = chessSha256Hex(observation.stateHash);
     return dto;
 }
 
 struct LegalActionDto
 {
+    struct EconomicPreview
+    {
+        int current_gold{};
+        int gold_cost{};
+        int projected_gold_after{};
+        std::optional<int> experience_gained;
+        std::optional<int> projected_experience_after;
+        std::optional<int> projected_level_after;
+        std::optional<int> affected_option_count;
+        std::optional<bool> consumes_free_shop_refresh;
+        std::string result;
+    };
     std::string type;
     std::string description;
     glz::raw_json action_schema = "{}";
     glz::raw_json example = "{}";
+    std::optional<std::string> example_note;
+    std::optional<EconomicPreview> economic_preview;
     struct Candidate
     {
         std::optional<int> id;
         std::string value;
         std::string label;
         std::string description;
+        std::optional<std::string> group;
+        std::optional<int> assigned_chess_instance_id;
+        std::optional<std::string> assigned_to;
+        std::optional<int> gold_cost;
+        std::optional<int> gold_gain;
+        std::optional<int> projected_gold_after;
     };
     struct FieldCandidates
     {
@@ -1254,10 +1606,28 @@ struct SessionObservationDto
 struct SemanticEventDto
 {
     std::string type;
-    int primary_id{};
-    int secondary_id{};
-    int value{};
-    std::string stable_id;
+    std::optional<int> primary_id;
+    std::optional<int> secondary_id;
+    std::optional<int> value;
+    std::optional<std::string> stable_id;
+    std::optional<int> base_gold;
+    std::optional<int> interest_gold;
+    std::optional<int> other_gold;
+    std::optional<int> total_gold;
+    std::optional<std::string> other_gold_source;
+    std::optional<int> role_id;
+    std::optional<std::string> role_name;
+    std::optional<std::vector<int>> consumed_instance_ids;
+    std::optional<int> new_instance_id;
+    std::optional<int> result_star;
+    std::optional<int> inherited_fights_won;
+    std::optional<bool> deployed;
+    std::optional<std::vector<int>> transferred_equipment_instance_ids;
+    std::optional<bool> recursive_merge_followed;
+    std::optional<int> cost;
+    std::optional<std::string> previous_enemy_plan_key;
+    std::optional<std::string> new_enemy_plan_key;
+    std::optional<std::string> effect;
 };
 
 struct ActionResultDto
@@ -1269,11 +1639,69 @@ struct ActionResultDto
     ObservationDto next_observation;
     std::optional<BattleResultDto> battle;
     std::uint64_t replay_sequence{};
-    std::string pre_state_hash;
-    std::string post_state_hash;
-    std::string event_hash;
-    std::string rng_digest;
-    std::string chain_hash;
+    std::optional<std::string> pre_state_hash;
+    std::optional<std::string> post_state_hash;
+    std::optional<std::string> event_hash;
+    std::optional<std::string> rng_digest;
+    std::optional<std::string> chain_hash;
+};
+
+struct SummaryActionChangesDto
+{
+    struct Merge
+    {
+        int role_id{};
+        std::string role_name;
+        int new_instance_id{};
+        int result_star{};
+    };
+    std::optional<int> money;
+    std::optional<int> experience;
+    std::optional<int> level;
+    std::optional<int> fight;
+    bool shop_changed{};
+    bool roster_changed{};
+    bool deployment_changed{};
+    bool equipment_changed{};
+    bool bans_changed{};
+    bool reward_changed{};
+    bool prepared_battle_changed{};
+    std::vector<Merge> merged_units;
+};
+
+struct SummaryBattleDto
+{
+    std::string outcome;
+    std::string outcome_description;
+    int end_frame{};
+};
+
+struct SummaryActionResultDto
+{
+    bool accepted{};
+    std::string error_code;
+    std::string description;
+    std::vector<std::string> events;
+    SummaryActionChangesDto changes;
+    std::string phase;
+    std::vector<std::string> legal_action_types;
+    std::string state_hash;
+    std::optional<SummaryBattleDto> battle;
+};
+
+struct CompactRejectedObservationDto
+{
+    std::string phase;
+    std::vector<std::string> legal_action_types;
+    std::string state_hash;
+};
+
+struct CompactRejectedActionResultDto
+{
+    bool accepted{};
+    std::string error_code;
+    std::string description;
+    CompactRejectedObservationDto next_observation;
 };
 
 struct ReplayExportDto { std::string replay_jsonl; };
@@ -1345,9 +1773,9 @@ std::string actionDescription(ChessActionType type)
     case ChessActionType::SellChess: return "出售指定棋子實例";
     case ChessActionType::SetDeployment: return "以棋子實例清單完整取代目前出戰陣容；空陣列代表全部下陣";
     case ChessActionType::BuyExp: return "購買經驗值";
-    case ChessActionType::AddBan: return "禁用已遇過的指定角色";
-    case ChessActionType::SkipForcedBans: return "略過剩餘強制禁棋選擇";
-    case ChessActionType::Equip: return "將裝備實例交給指定棋子實例";
+    case ChessActionType::AddBan: return "禁用指定角色；只影響之後生成或刷新的商店，目前商店既有棋子仍可購買";
+    case ChessActionType::SkipForcedBans: return "結束目前的獨佔禁棋決策階段而不再立即選擇；不消耗之後仍可使用的禁棋容量";
+    case ChessActionType::Equip: return "將裝備實例交給指定棋子實例；已分配裝備會從原持有者移動";
     case ChessActionType::BuyLegendaryEquipment: return "購買指定神兵";
     case ChessActionType::SetPositionSwapEnabled: return "設定戰前是否允許交換站位";
     case ChessActionType::RerollEnemySeed: return "付費重抽下一戰敵方規劃";
@@ -1367,21 +1795,71 @@ std::string challengeDescription(
     const ChessGameContent& content,
     const BalanceConfig::ChallengeDef& challenge)
 {
-    std::string result = challenge.description + "；敵方：";
-    for (std::size_t index = 0; index < challenge.enemies.size(); ++index)
+    const int equippedWeapons = static_cast<int>(std::ranges::count_if(
+        challenge.enemies,
+        [](const auto& enemy) { return enemy.weaponId >= 0; }));
+    const int equippedArmor = static_cast<int>(std::ranges::count_if(
+        challenge.enemies,
+        [](const auto& enemy) { return enemy.armorId >= 0; }));
+    std::string starSummary = "無敵人";
+    if (!challenge.enemies.empty())
     {
-        if (index > 0) result += "、";
-        const auto* role = content.role(challenge.enemies[index].roleId);
-        assert(role);
-        result += std::format("{} {}★", role->Name, challenge.enemies[index].star);
+        const auto [minimumStar, maximumStar] = std::ranges::minmax_element(
+            challenge.enemies,
+            {},
+            &BalanceConfig::ChallengeEnemy::star);
+        starSummary = minimumStar->star == maximumStar->star
+            ? std::format("全 {}★", minimumStar->star)
+            : std::format("{}★至 {}★", minimumStar->star, maximumStar->star);
     }
-    result += "；獎勵擇一：";
+    std::string result = std::format(
+        "{}；{} 名敵人；{}；武器 {}/{}、防具 {}/{}；獎勵擇一：",
+        challenge.description,
+        challenge.enemies.size(),
+        starSummary,
+        equippedWeapons,
+        challenge.enemies.size(),
+        equippedArmor,
+        challenge.enemies.size());
     for (std::size_t index = 0; index < challenge.rewards.size(); ++index)
     {
         if (index > 0) result += "、";
         result += chessChallengeRewardDescription(content, challenge.rewards[index]);
     }
     return result;
+}
+
+ChallengeDto challengeDto(
+    const ChessGameContent& content,
+    const BalanceConfig::ChallengeDef& challenge)
+{
+    ChallengeDto dto;
+    dto.name = challenge.name;
+    dto.description = challenge.description;
+    dto.enemy_count = static_cast<int>(challenge.enemies.size());
+    for (const auto& enemy : challenge.enemies)
+    {
+        const auto* role = content.role(enemy.roleId);
+        assert(role);
+        ChallengeEnemyDto enemyDto;
+        enemyDto.role_id = enemy.roleId;
+        enemyDto.name = role->Name;
+        enemyDto.star = enemy.star;
+        if (enemy.weaponId >= 0)
+        {
+            enemyDto.weapon = equipmentInfoDto(content, enemy.weaponId);
+        }
+        if (enemy.armorId >= 0)
+        {
+            enemyDto.armor = equipmentInfoDto(content, enemy.armorId);
+        }
+        dto.enemies.push_back(std::move(enemyDto));
+    }
+    for (const auto& reward : challenge.rewards)
+    {
+        dto.rewards.push_back({chessChallengeRewardDescription(content, reward)});
+    }
+    return dto;
 }
 
 std::string legalActionExampleJson(
@@ -1413,9 +1891,19 @@ std::string legalActionExampleJson(
         action.roleId = descriptor.candidateIds.front();
         break;
     case ChessActionType::Equip:
+    {
         action.equipmentInstanceId = descriptor.candidateIds.front();
-        action.targetChessInstanceId = session.state().roster.begin()->first;
+        const auto& equipment = session.state().equipmentInventory.at(action.equipmentInstanceId);
+        const auto alternateTarget = std::ranges::find_if(
+            session.state().roster,
+            [&](const auto& entry) {
+                return entry.first != equipment.assignedChessInstanceId;
+            });
+        action.targetChessInstanceId = alternateTarget != session.state().roster.end()
+            ? alternateTarget->first
+            : session.state().roster.begin()->first;
         break;
+    }
     case ChessActionType::BuyLegendaryEquipment:
         action.itemId = descriptor.candidateIds.front();
         break;
@@ -1458,6 +1946,74 @@ LegalActionDto legalActionDto(
     dto.maximum_selection = descriptor.maximumSelection;
     const auto& content = session.content();
     const auto& state = session.state();
+    const auto economicPreview = [&]() -> std::optional<LegalActionDto::EconomicPreview> {
+        LegalActionDto::EconomicPreview preview;
+        preview.current_gold = state.money;
+        switch (descriptor.type)
+        {
+        case ChessActionType::RefreshShop:
+            preview.gold_cost = state.freeShopRefreshAvailable ? 0 : content.balance().refreshCost;
+            preview.projected_gold_after = state.money - preview.gold_cost;
+            preview.affected_option_count = static_cast<int>(state.shop.size());
+            preview.consumes_free_shop_refresh = state.freeShopRefreshAvailable;
+            preview.result = std::format(
+                "重新生成全部 {} 個商店欄位並解除商店鎖定",
+                state.shop.size());
+            return preview;
+        case ChessActionType::BuyExp:
+        {
+            auto projected = state;
+            ChessManagementRules::gainExperience(
+                projected,
+                content,
+                content.balance().buyExpAmount);
+            preview.gold_cost = content.balance().buyExpCost;
+            preview.projected_gold_after = state.money - preview.gold_cost;
+            preview.experience_gained = content.balance().buyExpAmount;
+            preview.projected_experience_after = projected.experience;
+            preview.projected_level_after = projected.level;
+            preview.result = std::format(
+                "獲得 {} 經驗；購買後為等級 {}、累積經驗 {}",
+                content.balance().buyExpAmount,
+                projected.level,
+                projected.experience);
+            return preview;
+        }
+        case ChessActionType::RerollEnemySeed:
+            preview.gold_cost = content.balance().enemyRerollCost;
+            preview.projected_gold_after = state.money - preview.gold_cost;
+            preview.result = "重新生成下一戰的敵方陣容、裝備、地圖與戰鬥種子";
+            return preview;
+        case ChessActionType::RerollReward:
+            assert(!state.pendingRewards.empty());
+            preview.gold_cost = state.pendingRewards.front().rerollCost;
+            preview.projected_gold_after = state.money - preview.gold_cost;
+            preview.affected_option_count = static_cast<int>(state.pendingRewards.front().options.size());
+            preview.result = std::format(
+                "重新抽取目前獎勵的 {} 個選項；每份獎勵最多重抽一次",
+                state.pendingRewards.front().options.size());
+            return preview;
+        case ChessActionType::BuyLegendaryEquipment:
+            preview.gold_cost = content.balance().legendaryShop.price;
+            preview.projected_gold_after = state.money - preview.gold_cost;
+            preview.affected_option_count = 1;
+            preview.result = "取得所選的 4 階裝備實例並放入裝備庫";
+            return preview;
+        default:
+            return std::nullopt;
+        }
+    }();
+    dto.economic_preview = economicPreview;
+    if (descriptor.type == ChessActionType::Equip)
+    {
+        const auto& equipment = state.equipmentInventory.at(descriptor.candidateIds.front());
+        if (equipment.assignedChessInstanceId >= 0)
+        {
+            dto.example_note = state.roster.size() > 1
+                ? "範例會把目前已裝備的項目移給另一名棋子"
+                : "目前沒有未分配裝備或其他棋子；範例合法，但不會改變持有者";
+        }
+    }
     std::vector<LegalActionDto::Candidate> primaryCandidates;
     for (const int id : descriptor.candidateIds)
     {
@@ -1468,8 +2024,15 @@ LegalActionDto legalActionDto(
             const auto& slot = state.shop.at(id);
             const auto* role = content.role(slot.roleId);
             assert(role);
+            const int cost = ChessManagementRules::pieceValue(content, slot.roleId, 1);
             candidate.label = role->Name;
-            candidate.description = std::format("商店欄位 {}；{}費", id, role->Cost);
+            candidate.description = std::format(
+                "商店欄位 {}；{}費角色；價格 {} 金幣",
+                id,
+                role->Cost,
+                cost);
+            candidate.gold_cost = cost;
+            candidate.projected_gold_after = state.money - cost;
         }
         else if (descriptor.type == ChessActionType::SellChess
             || descriptor.type == ChessActionType::SetDeployment)
@@ -1479,6 +2042,13 @@ LegalActionDto legalActionDto(
             assert(role);
             candidate.label = role->Name;
             candidate.description = std::format("棋子實例 {}；{}★{}", id, piece.star, piece.deployed ? "；目前出戰" : "");
+            if (descriptor.type == ChessActionType::SellChess)
+            {
+                const int gain = ChessManagementRules::pieceValue(content, piece.roleId, piece.star);
+                candidate.gold_gain = gain;
+                candidate.projected_gold_after = state.money + gain;
+                candidate.description += std::format("；出售獲得 {} 金幣", gain);
+            }
         }
         else if (descriptor.type == ChessActionType::AddBan)
         {
@@ -1492,13 +2062,39 @@ LegalActionDto legalActionDto(
             const auto& equipment = state.equipmentInventory.at(id);
             const auto info = equipmentInfoDto(content, equipment.itemId);
             candidate.label = info.name;
-            candidate.description = std::format("裝備實例 {}；{}階{}", id, info.tier, info.type);
+            candidate.assigned_chess_instance_id = equipment.assignedChessInstanceId;
+            if (equipment.assignedChessInstanceId < 0)
+            {
+                candidate.label += "（未分配）";
+                candidate.description = std::format("裝備實例 {}；{}階{}；未分配", id, info.tier, info.type);
+            }
+            else
+            {
+                const auto& owner = state.roster.at(equipment.assignedChessInstanceId);
+                const auto* ownerRole = content.role(owner.roleId);
+                assert(ownerRole);
+                candidate.label += std::format("（{}已裝備）", ownerRole->Name);
+                candidate.assigned_to = std::format(
+                    "{}（棋子實例 {}）",
+                    ownerRole->Name,
+                    equipment.assignedChessInstanceId);
+                candidate.description = std::format(
+                    "裝備實例 {}；{}階{}；目前由{}（棋子實例 {}）裝備",
+                    id,
+                    info.tier,
+                    info.type,
+                    ownerRole->Name,
+                    equipment.assignedChessInstanceId);
+            }
         }
         else if (descriptor.type == ChessActionType::BuyLegendaryEquipment)
         {
             const auto info = equipmentInfoDto(content, id);
+            const int cost = content.balance().legendaryShop.price;
             candidate.label = info.name;
-            candidate.description = std::format("{}階{}", info.tier, info.type);
+            candidate.description = std::format("{}階{}；價格 {} 金幣", info.tier, info.type, cost);
+            candidate.gold_cost = cost;
+            candidate.projected_gold_after = state.money - cost;
         }
         else if (descriptor.type == ChessActionType::ChooseMap)
         {
@@ -1537,6 +2133,13 @@ LegalActionDto legalActionDto(
                 starUpgradeRoleId);
             candidate.label = reward.label;
             candidate.description = reward.description;
+            if (reward.equipment)
+            {
+                candidate.group = std::format(
+                    "{}階{}",
+                    reward.equipment->tier,
+                    reward.equipment->type);
+            }
         }
         else if (descriptor.type == ChessActionType::StartChallenge)
         {
@@ -1594,6 +2197,243 @@ LegalActionDto legalActionDto(
     return dto;
 }
 
+ShopOddsDto shopOddsDto(const ChessGameSession& session, int level)
+{
+    const auto& content = session.content();
+    const auto& state = session.state();
+    assert(level >= 0 && level < static_cast<int>(content.balance().shopWeights.size()));
+    ShopOddsDto dto{};
+    dto.level = level;
+    for (int tier = 1; tier <= 5; ++tier)
+    {
+        const auto candidates = ChessManagementRules::shopCandidatesForTier(state, content, tier);
+        if (!candidates.empty())
+        {
+            dto.total_effective_weight += content.balance().shopWeights[level][tier - 1];
+        }
+    }
+    for (int tier = 1; tier <= 5; ++tier)
+    {
+        ShopTierOddsDto tierDto{};
+        tierDto.tier = tier;
+        tierDto.configured_weight = content.balance().shopWeights[level][tier - 1];
+        const auto candidates = ChessManagementRules::shopCandidatesForTier(state, content, tier);
+        tierDto.available_role_count = static_cast<int>(candidates.size());
+        if (!candidates.empty() && dto.total_effective_weight > 0)
+        {
+            tierDto.probability = static_cast<double>(tierDto.configured_weight)
+                / dto.total_effective_weight;
+        }
+        for (const int roleId : candidates)
+        {
+            const auto* role = content.role(roleId);
+            assert(role);
+            tierDto.available_roles.push_back({roleId, role->Name});
+        }
+        dto.tiers.push_back(std::move(tierDto));
+    }
+    dto.pool_note = "機率只在目前仍有候選角色的費用層級間重新正規化；候選已排除禁棋及本次刷新避免立即重複的角色";
+    return dto;
+}
+
+ShopSlotInspectionDto shopSlotInspectionDto(const ChessGameSession& session, int slotIndex)
+{
+    const auto& state = session.state();
+    const auto& content = session.content();
+    assert(slotIndex >= 0 && slotIndex < static_cast<int>(state.shop.size()));
+    ShopSlotInspectionDto dto{};
+    dto.slot = slotIndex;
+    const auto& slot = state.shop[slotIndex];
+    if (slot.roleId < 0)
+    {
+        return dto;
+    }
+    const auto* role = content.role(slot.roleId);
+    assert(role);
+    dto.occupied = true;
+    dto.role_id = role->ID;
+    dto.name = role->Name;
+    dto.cost = role->Cost;
+    dto.shop_tier = slot.tier;
+    for (int star = 1; star <= 3; ++star)
+    {
+        const int count = static_cast<int>(std::ranges::count_if(
+            state.roster,
+            [&](const auto& entry) {
+                return entry.second.roleId == role->ID && entry.second.star == star;
+            }));
+        dto.copies_by_star.push_back({star, count});
+        dto.owned_copies += count * (star == 1 ? 1 : star == 2 ? 3 : 9);
+    }
+    const int price = ChessManagementRules::pieceValue(content, role->ID, 1);
+    dto.gold_cost = price;
+    dto.projected_gold_after = state.money - price;
+    ChessAction purchase;
+    purchase.type = ChessActionType::BuyShopSlot;
+    purchase.shopSlot = slotIndex;
+    const auto validation = ChessManagementRules::validate(state, content, purchase);
+    dto.purchase_legal = validation == ChessRuleErrorCode::None;
+    dto.purchase_error = ruleErrorId(validation);
+
+    auto projected = state;
+    std::vector<ChessSemanticEvent> projectedEvents;
+    if (ChessManagementRules::canGrantPiece(projected, content, role->ID))
+    {
+        ChessManagementRules::grantPiece(projected, content, role->ID, projectedEvents);
+        int resultStar = 1;
+        for (const auto& event : projectedEvents)
+        {
+            if (event.type == ChessSemanticEventType::ChessMerged
+                && event.secondaryId == role->ID)
+            {
+                resultStar = std::max(resultStar, event.value);
+            }
+        }
+        dto.purchase_result = resultStar > 1
+            ? std::format("merge_to_{}_star", resultStar)
+            : "add_1_star";
+    }
+    else
+    {
+        dto.purchase_result = "bench_full";
+    }
+    for (const auto& combo : content.combos())
+    {
+        if (!std::ranges::contains(combo.memberRoleIds, role->ID))
+        {
+            continue;
+        }
+        const auto current = evaluateChessComboProgress(state, content, combo);
+        const auto afterPurchase = evaluateChessComboProgress(projected, content, combo);
+        dto.synergies.push_back({
+            combo.name,
+            current.effectiveCount,
+            afterPurchase.effectiveCount,
+        });
+    }
+    const auto odds = shopOddsDto(session, state.level);
+    dto.level_tier_probability = odds.tiers.at(slot.tier - 1).probability;
+    return dto;
+}
+
+ShopInspectionDto shopInspectionDto(const ChessGameSession& session)
+{
+    ShopInspectionDto dto{};
+    dto.money = session.state().money;
+    dto.level = session.state().level;
+    for (int slot = 0; slot < static_cast<int>(session.state().shop.size()); ++slot)
+    {
+        dto.slots.push_back(shopSlotInspectionDto(session, slot));
+    }
+    dto.odds = shopOddsDto(session, session.state().level);
+    return dto;
+}
+
+ChessInstanceInspectionDto chessInstanceInspectionDto(
+    const ChessGameSession& session,
+    const ChessSessionPiece& piece)
+{
+    const auto observation = session.observe();
+    ChessInstanceInspectionDto dto{};
+    dto.chess = pieceDto(session.content(), observation, piece, true);
+    for (const auto& [instanceId, owned] : session.state().roster)
+    {
+        if (owned.roleId != piece.roleId)
+        {
+            continue;
+        }
+        dto.one_star_equivalent_copies += owned.star == 1 ? 1 : owned.star == 2 ? 3 : 9;
+        if (owned.star == piece.star)
+        {
+            ++dto.same_star_copies;
+        }
+    }
+    dto.copies_required_for_next_star = piece.star >= 3
+        ? 0
+        : std::max(0, 3 - dto.same_star_copies);
+    for (const int equipmentInstanceId : {piece.weaponInstanceId, piece.armorInstanceId})
+    {
+        if (equipmentInstanceId < 0)
+        {
+            continue;
+        }
+        const auto& equipment = session.state().equipmentInventory.at(equipmentInstanceId);
+        dto.equipment.push_back({
+            equipment.instanceId,
+            equipmentInfoDto(session.content(), equipment.itemId),
+            equipment.assignedChessInstanceId,
+        });
+    }
+    for (const auto& observedCombo : observation.combos)
+    {
+        const auto contribution = std::ranges::find_if(
+            observedCombo.contributions,
+            [&](const auto& item) {
+                return std::ranges::contains(item.unitIds, piece.instanceId);
+            });
+        if (contribution == observedCombo.contributions.end())
+        {
+            continue;
+        }
+        const auto definition = std::ranges::find(
+            session.content().combos(),
+            observedCombo.comboId,
+            &ComboDef::id);
+        assert(definition != session.content().combos().end());
+        dto.synergy_contributions.push_back(comboDto(
+            session.content(),
+            *definition,
+            observedCombo.physicalCount,
+            observedCombo.effectiveCount,
+            observedCombo.activeThresholdIndex,
+            true,
+            &observedCombo.contributions));
+    }
+    return dto;
+}
+
+BanInspectionDto banInspectionDto(const ChessGameSession& session)
+{
+    BanInspectionDto dto{};
+    const auto& state = session.state();
+    const auto& content = session.content();
+    dto.current_ban_count = static_cast<int>(state.bannedRoleIds.size());
+    dto.maximum_ban_count = ChessManagementRules::maximumBanCount(state, content);
+    dto.remaining_ban_capacity = std::max(0, dto.maximum_ban_count - dto.current_ban_count);
+    const auto groupedRoles = [&](const std::vector<int>& roleIds) {
+        std::map<int, std::vector<NamedIdDto>> groups;
+        for (const int roleId : roleIds)
+        {
+            const auto* role = content.role(roleId);
+            assert(role);
+            groups[role->Cost].push_back({roleId, role->Name});
+        }
+        std::vector<BanInspectionDto::TierGroup> result;
+        for (auto& [cost, roles] : groups)
+        {
+            result.push_back({cost, std::move(roles)});
+        }
+        return result;
+    };
+    dto.current_bans_by_cost = groupedRoles(std::vector<int>(
+        state.bannedRoleIds.begin(),
+        state.bannedRoleIds.end()));
+    std::vector<int> eligible;
+    const auto legalActions = session.legalActions();
+    const auto legalBan = std::ranges::find(
+        legalActions,
+        ChessActionType::AddBan,
+        &ChessLegalActionDescriptor::type);
+    if (legalBan != legalActions.end())
+    {
+        eligible = legalBan->candidateIds;
+    }
+    dto.eligible_bans_by_cost = groupedRoles(eligible);
+    dto.effect_timing = "禁棋只影響之後生成或刷新的商店；目前商店既有棋子仍可購買";
+    dto.forced_phase_note = "強制禁棋只強制先解決獨佔決策階段；可選擇禁棋或略過，略過不消耗禁棋容量";
+    return dto;
+}
+
 std::string semanticEventTypeId(ChessSemanticEventType type)
 {
     switch (type)
@@ -1632,6 +2472,186 @@ std::string semanticEventTypeId(ChessSemanticEventType type)
     case ChessSemanticEventType::ExperienceAwarded: return "experience_awarded";
     }
     std::unreachable();
+}
+
+SemanticEventDto semanticEventDto(
+    const ChessGameContent& content,
+    const ChessSemanticEvent& event)
+{
+    SemanticEventDto dto;
+    dto.type = semanticEventTypeId(event.type);
+    if (event.type == ChessSemanticEventType::GoldAwarded)
+    {
+        dto.base_gold = event.primaryId;
+        dto.interest_gold = event.secondaryId;
+        dto.other_gold = event.value - event.primaryId - event.secondaryId;
+        dto.total_gold = event.value;
+        if (event.stableId.starts_with("combo:"))
+        {
+            int comboId{};
+            const auto idText = std::string_view(event.stableId).substr(6);
+            const auto parsed = std::from_chars(
+                idText.data(),
+                idText.data() + idText.size(),
+                comboId);
+            if (parsed.ec == std::errc{} && parsed.ptr == idText.data() + idText.size())
+            {
+                const auto combo = std::ranges::find(content.combos(), comboId, &ComboDef::id);
+                if (combo != content.combos().end()) dto.other_gold_source = combo->name;
+            }
+        }
+        return dto;
+    }
+    if (event.type == ChessSemanticEventType::ChessMerged && event.merge)
+    {
+        const auto* role = content.role(event.secondaryId);
+        assert(role);
+        dto.role_id = event.secondaryId;
+        dto.role_name = role->Name;
+        dto.consumed_instance_ids = event.merge->consumedInstanceIds;
+        dto.new_instance_id = event.primaryId;
+        dto.result_star = event.value;
+        dto.inherited_fights_won = event.merge->inheritedFightsWon;
+        dto.deployed = event.merge->deployed;
+        dto.transferred_equipment_instance_ids = event.merge->transferredEquipmentInstanceIds;
+        dto.recursive_merge_followed = event.merge->recursiveMergeFollowed;
+        return dto;
+    }
+    if (event.type == ChessSemanticEventType::EnemyPlanRerolled && event.enemyPlanReroll)
+    {
+        dto.cost = event.enemyPlanReroll->cost;
+        dto.previous_enemy_plan_key = std::format(
+            "0x{:016x}",
+            event.enemyPlanReroll->previousEnemyPlanKey);
+        dto.new_enemy_plan_key = std::format(
+            "0x{:016x}",
+            event.enemyPlanReroll->newEnemyPlanKey);
+        dto.effect = "下一次準備戰鬥時重新生成敵方陣容、裝備、地圖與戰鬥種子";
+        return dto;
+    }
+    dto.primary_id = event.primaryId;
+    dto.secondary_id = event.secondaryId;
+    dto.value = event.value;
+    dto.stable_id = event.stableId;
+    return dto;
+}
+
+bool deploymentChanged(const ChessSessionState& before, const ChessSessionState& after)
+{
+    if (before.roster.size() != after.roster.size())
+    {
+        return true;
+    }
+    for (const auto& [instanceId, piece] : before.roster)
+    {
+        const auto found = after.roster.find(instanceId);
+        if (found == after.roster.end() || found->second.deployed != piece.deployed)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+SummaryActionResultDto summaryActionResultDto(
+    const ChessGameSession& session,
+    const ChessSessionState& before,
+    const ChessActionResult& actionResult,
+    ChessActionType actionType)
+{
+    const auto& after = session.state();
+    SummaryActionResultDto dto{};
+    dto.accepted = actionResult.accepted;
+    dto.error_code = ruleErrorId(actionResult.error);
+    dto.description = actionResult.description;
+    for (const auto& event : actionResult.events)
+    {
+        dto.events.push_back(semanticEventTypeId(event.type));
+        if (event.type == ChessSemanticEventType::ChessMerged)
+        {
+            const auto* role = session.content().role(event.secondaryId);
+            assert(role);
+            dto.changes.merged_units.push_back({
+                event.secondaryId,
+                role->Name,
+                event.primaryId,
+                event.value,
+            });
+        }
+    }
+    const auto assignDelta = [](std::optional<int>& field, int value) {
+        if (value != 0)
+        {
+            field = value;
+        }
+    };
+    assignDelta(dto.changes.money, after.money - before.money);
+    assignDelta(dto.changes.experience, after.experience - before.experience);
+    assignDelta(dto.changes.level, after.level - before.level);
+    assignDelta(dto.changes.fight, after.fight - before.fight);
+    dto.changes.shop_changed = after.shop != before.shop;
+    dto.changes.roster_changed = after.roster != before.roster;
+    dto.changes.deployment_changed = deploymentChanged(before, after);
+    dto.changes.equipment_changed = after.equipmentInventory != before.equipmentInventory;
+    dto.changes.bans_changed = after.bannedRoleIds != before.bannedRoleIds;
+    dto.changes.reward_changed = after.pendingRewards != before.pendingRewards;
+    dto.changes.prepared_battle_changed = after.preparedBattle != before.preparedBattle;
+    for (const auto& event : actionResult.events)
+    {
+        switch (event.type)
+        {
+        case ChessSemanticEventType::ShopRefreshed:
+            dto.changes.shop_changed = true;
+            break;
+        case ChessSemanticEventType::ChessPurchased:
+        case ChessSemanticEventType::ChessMerged:
+        case ChessSemanticEventType::ChessSold:
+            dto.changes.roster_changed = true;
+            break;
+        case ChessSemanticEventType::DeploymentChanged:
+            dto.changes.deployment_changed = true;
+            break;
+        case ChessSemanticEventType::EquipmentAcquired:
+        case ChessSemanticEventType::EquipmentAssigned:
+        case ChessSemanticEventType::LegendaryEquipmentPurchased:
+            dto.changes.equipment_changed = true;
+            break;
+        case ChessSemanticEventType::RoleBanned:
+            dto.changes.bans_changed = true;
+            break;
+        case ChessSemanticEventType::RewardOffered:
+        case ChessSemanticEventType::RewardRerolled:
+        case ChessSemanticEventType::RewardChosen:
+        case ChessSemanticEventType::ForcedBansSkipped:
+            dto.changes.reward_changed = true;
+            break;
+        case ChessSemanticEventType::BattlePrepared:
+        case ChessSemanticEventType::MapChosen:
+        case ChessSemanticEventType::FormationSwapped:
+        case ChessSemanticEventType::BattleStarted:
+        case ChessSemanticEventType::BattleEnded:
+            dto.changes.prepared_battle_changed = true;
+            break;
+        default:
+            break;
+        }
+    }
+    dto.phase = phaseText(after.phase);
+    for (const auto& legal : session.legalActions())
+    {
+        dto.legal_action_types.push_back(chessActionTypeId(legal.type));
+    }
+    dto.state_hash = chessSha256Hex(session.observe().stateHash);
+    if (actionType == ChessActionType::StartBattle && session.lastBattleResult())
+    {
+        const auto& battle = *session.lastBattleResult();
+        dto.battle = SummaryBattleDto{
+            battleOutcomeId(battle.summary.outcome),
+            battleOutcomeDescription(battle.summary.outcome),
+            battle.summary.endFrame,
+        };
+    }
+    return dto;
 }
 
 std::string battleOutcomeId(Battle::BattleOutcome outcome)
@@ -1687,6 +2707,7 @@ struct UnitCombatAggregate
     int healingDone{};
     int magicPointsRestored{};
     int magicPointsDrained{};
+    int magicPointsDrainEvents{};
     int blocks{};
     int dodges{};
     int poisonPayloadEvents{};
@@ -1707,6 +2728,7 @@ struct UnitCombatAggregate
     int deathPreventionTriggers{};
     BattleUnitStatsDto::DamageBreakdown damage;
     std::map<std::string, int> nonSkillDamageSources;
+    std::map<std::string, int> nonSkillDamageSourceCounts;
 };
 
 void addDamageCategory(
@@ -1726,12 +2748,14 @@ void addDamageCategory(
         return;
     }
     aggregate.nonSkillDamageSources[text] += event.value;
+    ++aggregate.nonSkillDamageSourceCounts[text];
     if (containsText(text, "中毒") || containsText(text, "流血"))
     {
         aggregate.damage.status += event.value;
         return;
     }
-    if (std::ranges::any_of(content.combos(), [&](const auto& combo) {
+    if (containsText(text, "殉爆")
+        || std::ranges::any_of(content.combos(), [&](const auto& combo) {
             return containsText(text, combo.name);
         }))
     {
@@ -1864,6 +2888,7 @@ void addCombatEffect(UnitCombatAggregate& aggregate, const BattleReportEvent& ev
     if (event.statusId == Battle::BattleStatusSemanticId::MagicPointsDrained)
     {
         aggregate.magicPointsDrained += event.value;
+        ++aggregate.magicPointsDrainEvents;
     }
     if (event.statusId == Battle::BattleStatusSemanticId::Bleed) ++aggregate.bleedApplications;
     if (event.statusId == Battle::BattleStatusSemanticId::Hitstun)
@@ -1946,6 +2971,7 @@ BattleResultDto battleResultDto(
             teamName(survivor.team),
             survivor.hp,
             survivor.mp,
+            survivor.summoned,
         });
     }
     int allyDamage{};
@@ -2068,10 +3094,11 @@ BattleResultDto battleResultDto(
         assignMetric(stats.healing_done, aggregate.healingDone);
         assignMetric(stats.magic_points_restored, aggregate.magicPointsRestored);
         assignMetric(stats.magic_points_drained, aggregate.magicPointsDrained);
+        assignMetric(stats.magic_points_drain_events, aggregate.magicPointsDrainEvents);
         assignMetric(stats.blocks, aggregate.blocks);
-            assignMetric(stats.dodges, aggregate.dodges);
-            assignMetric(stats.poison_payload_events, aggregate.poisonPayloadEvents);
-            assignMetric(stats.poison_application_events, aggregate.poisonApplicationEvents);
+        assignMetric(stats.dodges, aggregate.dodges);
+        assignMetric(stats.poison_payload_events, aggregate.poisonPayloadEvents);
+        assignMetric(stats.poison_application_events, aggregate.poisonApplicationEvents);
         assignMetric(stats.poison_ticks, aggregate.poisonTicks);
         assignMetric(stats.poison_damage, aggregate.poisonDamage);
         assignMetric(stats.bleed_applications, aggregate.bleedApplications);
@@ -2096,6 +3123,9 @@ BattleResultDto battleResultDto(
         const int enemyDefenceDebuff = metricValue(stats.enemy_defence_debuff);
         const int projectileCancelled = metricValue(stats.projectile_potential_damage_cancelled);
         const int projectileCancellations = metricValue(stats.projectile_cancellations);
+        const int magicPointsDrained = metricValue(stats.magic_points_drained);
+        const int magicPointsDrainEvents = metricValue(stats.magic_points_drain_events);
+        const int magicPointsRestored = metricValue(stats.magic_points_restored);
         const int poisonPayloadEvents = metricValue(stats.poison_payload_events);
         const int poisonApplicationEvents = metricValue(stats.poison_application_events);
         const int poisonTicks = metricValue(stats.poison_ticks);
@@ -2159,6 +3189,16 @@ BattleResultDto battleResultDto(
                 projectileCancelled,
                 projectileCancellations));
         appendSourceImportantEffect(
+            "magic_points_drained",
+            magicPointsDrainEvents,
+            magicPointsDrained,
+            std::format(
+                "[{}] {}吸取 {} MP，實際回復 {} MP",
+                teamName(unit.team),
+                role->Name,
+                magicPointsDrained,
+                magicPointsRestored));
+        appendSourceImportantEffect(
             "poison_activity",
             poisonPayloadEvents,
             0,
@@ -2198,6 +3238,23 @@ BattleResultDto battleResultDto(
                 teamName(unit.team),
                 role->Name,
                 deathPreventionTriggers));
+        for (const auto& [source, damage] : aggregate.nonSkillDamageSources)
+        {
+            if (!containsText(source, "殉爆"))
+            {
+                continue;
+            }
+            appendSourceImportantEffect(
+                "death_explosion_damage",
+                aggregate.nonSkillDamageSourceCounts.at(source),
+                damage,
+                std::format(
+                    "[{}] {}的殉爆觸發 {} 次，共造成 {} 點傷害",
+                    teamName(unit.team),
+                    role->Name,
+                    aggregate.nonSkillDamageSourceCounts.at(source),
+                    damage));
+        }
         if (unit.team == 0) allyDamage += stats.damage_dealt;
         else enemyDamage += stats.damage_dealt;
         if (stats.damage_dealt > topDamage)
@@ -2224,8 +3281,16 @@ BattleResultDto battleResultDto(
     }
     const int allySurvivors = static_cast<int>(std::ranges::count_if(
         battle.summary.survivors,
-        [](const auto& survivor) { return survivor.team == 0; }));
-    const int enemySurvivors = static_cast<int>(battle.summary.survivors.size()) - allySurvivors;
+        [](const auto& survivor) { return survivor.team == 0 && !survivor.summoned; }));
+    const int enemySurvivors = static_cast<int>(std::ranges::count_if(
+        battle.summary.survivors,
+        [](const auto& survivor) { return survivor.team == 1 && !survivor.summoned; }));
+    const int allySummonedSurvivors = static_cast<int>(std::ranges::count_if(
+        battle.summary.survivors,
+        [](const auto& survivor) { return survivor.team == 0 && survivor.summoned; }));
+    const int enemySummonedSurvivors = static_cast<int>(std::ranges::count_if(
+        battle.summary.survivors,
+        [](const auto& survivor) { return survivor.team == 1 && survivor.summoned; }));
     const int allyCount = static_cast<int>(std::ranges::count(prepared.units, 0, &PreparedChessBattleUnit::team));
     const int enemyCount = static_cast<int>(prepared.units.size()) - allyCount;
     dto.summary = std::format(
@@ -2237,6 +3302,13 @@ BattleResultDto battleResultDto(
         enemyCount,
         allyDamage,
         enemyDamage);
+    if (allySummonedSurvivors > 0 || enemySummonedSurvivors > 0)
+    {
+        dto.summary += std::format(
+            "；另有召喚單位存活我方 {}、敵方 {}",
+            allySummonedSurvivors,
+            enemySummonedSurvivors);
+    }
     if (topUnit)
     {
         const auto* role = content.role(topUnit->roleId);
@@ -2293,16 +3365,28 @@ SessionObservationDto sessionObservationDto(
     const ChessSaveStore& saves,
     ObservationDetail detail = ObservationDetail::Full)
 {
-    SessionObservationDto result;
-    result.game_state = observationDto(session.observe(), session.content(), detail);
+    SessionObservationDto result{};
+    const auto legalActions = session.legalActions();
+    result.game_state = observationDto(
+        session.observe(),
+        session.content(),
+        detail,
+        {},
+        legalActions);
     for (const auto& slot : saves.list(session))
     {
         result.save_slots.push_back(saveSlotDto(slot));
     }
     result.operations = {
         "inspect_role",
+        "inspect_shop_slot",
+        "inspect_shop",
+        "get_shop_odds",
+        "inspect_chess_instance",
+        "inspect_bans",
         "inspect_combo",
         "inspect_equipment",
+        "inspect_challenge",
         "inspect_prepared_battle",
         "inspect_last_battle",
         "list_saves",
@@ -2312,7 +3396,6 @@ SessionObservationDto sessionObservationDto(
         "export_save",
         "import_save",
         "export_replay",
-        "verify_replay",
     };
     result.load_consequence = "載入會替換目前遊戲狀態、亂數與完整重播紀錄，捨棄存檔點之後的目前行動，但保留存檔目錄。";
     return result;
@@ -2430,6 +3513,57 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         }
         return response(request->id, true, writeJson(legal));
     }
+    if (request->method == "inspect_shop_slot")
+    {
+        const auto params = readJson<ShopSlotParams>(request->params.str);
+        if (!params
+            || params->slot < 0
+            || params->slot >= static_cast<int>(session_->state().shop.size()))
+        {
+            return response(request->id, false, {}, "invalid_shop_slot", "商店欄位不存在");
+        }
+        return response(
+            request->id,
+            true,
+            writeJson(shopSlotInspectionDto(*session_, params->slot)));
+    }
+    if (request->method == "inspect_shop")
+    {
+        return response(request->id, true, writeJson(shopInspectionDto(*session_)));
+    }
+    if (request->method == "get_shop_odds")
+    {
+        const auto params = readJson<ShopOddsParams>(request->params.str);
+        const int level = params && params->level
+            ? *params->level
+            : session_->state().level;
+        if (!params
+            || level < 0
+            || level >= static_cast<int>(session_->content().balance().shopWeights.size()))
+        {
+            return response(request->id, false, {}, "invalid_level", "等級超出商店機率表範圍");
+        }
+        return response(request->id, true, writeJson(shopOddsDto(*session_, level)));
+    }
+    if (request->method == "inspect_chess_instance")
+    {
+        const auto params = readJson<ChessInstanceParams>(request->params.str);
+        const auto piece = params
+            ? session_->state().roster.find(params->chess_instance_id)
+            : session_->state().roster.end();
+        if (!params || piece == session_->state().roster.end())
+        {
+            return response(request->id, false, {}, "unknown_chess_instance", "棋子實例不存在");
+        }
+        return response(
+            request->id,
+            true,
+            writeJson(chessInstanceInspectionDto(*session_, piece->second)));
+    }
+    if (request->method == "inspect_bans")
+    {
+        return response(request->id, true, writeJson(banInspectionDto(*session_)));
+    }
     if (request->method == "inspect_role")
     {
         const auto params = readJson<RoleParams>(request->params.str);
@@ -2466,7 +3600,9 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             *definition,
             progress->physicalCount,
             progress->effectiveCount,
-            progress->activeThresholdIndex)));
+            progress->activeThresholdIndex,
+            true,
+            &progress->contributions)));
     }
     if (request->method == "inspect_equipment")
     {
@@ -2485,6 +3621,24 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             request->id,
             true,
             writeJson(equipmentInfoDto(session_->content(), params->item_id)));
+    }
+    if (request->method == "inspect_challenge")
+    {
+        const auto params = readJson<ChallengeParams>(request->params.str);
+        const auto definition = params
+            ? std::ranges::find(
+                session_->content().balance().challenges,
+                params->challenge_name,
+                &BalanceConfig::ChallengeDef::name)
+            : session_->content().balance().challenges.end();
+        if (!params || definition == session_->content().balance().challenges.end())
+        {
+            return response(request->id, false, {}, "invalid_challenge", "遠征挑戰不存在");
+        }
+        return response(
+            request->id,
+            true,
+            writeJson(challengeDto(session_->content(), *definition)));
     }
     if (request->method == "inspect_prepared_battle")
     {
@@ -2517,7 +3671,7 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             ? parseChessActionJson(params->action.str, actionError)
             : std::nullopt;
         const auto requestedDetail = params
-            ? parseObservationDetail(params->detail)
+            ? parseActionResponseDetail(params->detail)
             : std::nullopt;
         if (params && !requestedDetail)
         {
@@ -2526,7 +3680,7 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
                 false,
                 {},
                 "invalid_params",
-                "detail 必須是 compact 或 full");
+                "detail 必須是 summary、compact 或 full");
         }
         if (!action)
         {
@@ -2537,45 +3691,60 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
                 "invalid_action",
                 params ? actionError : "缺少 action JSON 物件");
         }
+        const auto before = session_->state();
         const auto result = session_->submitAndDrain(*action);
-        auto responseDetail = *requestedDetail;
-        std::string roleMetadataScope;
-        if (action->type == ChessActionType::StartBattle
-            && session_->lastBattleResult()
-            && Battle::hasDefeatProgressionSemantics(session_->lastBattleResult()->summary.outcome))
+        if (*requestedDetail == ActionResponseDetail::Summary)
         {
-            responseDetail = ObservationDetail::Full;
-            roleMetadataScope = "complete_after_defeat";
+            return response(request->id, true, writeJson(summaryActionResultDto(
+                *session_,
+                before,
+                result,
+                action->type)));
         }
-        ActionResultDto dto{
-            result.accepted,
-            ruleErrorId(result.error),
-            result.description,
+        if (!result.accepted && *requestedDetail == ActionResponseDetail::Compact)
+        {
+            CompactRejectedActionResultDto rejected{};
+            rejected.accepted = false;
+            rejected.error_code = ruleErrorId(result.error);
+            rejected.description = result.description;
+            rejected.next_observation.phase = phaseText(session_->state().phase);
+            for (const auto& legal : session_->legalActions())
+            {
+                rejected.next_observation.legal_action_types.push_back(
+                    chessActionTypeId(legal.type));
+            }
+            rejected.next_observation.state_hash = chessSha256Hex(session_->observe().stateHash);
+            return response(request->id, true, writeJson(rejected));
+        }
+        const auto responseDetail = *requestedDetail == ActionResponseDetail::Full
+            ? ObservationDetail::Full
+            : ObservationDetail::Compact;
+        const auto legalActions = session_->legalActions();
+        ActionResultDto dto{};
+        dto.accepted = result.accepted;
+        dto.error_code = ruleErrorId(result.error);
+        dto.description = result.description;
+        dto.next_observation = observationDto(
+            session_->observe(),
+            session_->content(),
+            responseDetail,
             {},
-            observationDto(
-                session_->observe(),
-                session_->content(),
-                responseDetail,
-                std::move(roleMetadataScope)),
-            std::nullopt,
-            result.replaySequence,
-            chessSha256Hex(result.preStateHash),
-            chessSha256Hex(result.postStateHash),
-            chessSha256Hex(result.eventHash),
-            chessSha256Hex(result.rngDigest),
-            chessSha256Hex(result.chainHash),
-        };
+            legalActions);
+        dto.replay_sequence = result.replaySequence;
+        if (*requestedDetail == ActionResponseDetail::Full)
+        {
+            dto.pre_state_hash = chessSha256Hex(result.preStateHash);
+            dto.post_state_hash = chessSha256Hex(result.postStateHash);
+            dto.event_hash = chessSha256Hex(result.eventHash);
+            dto.rng_digest = chessSha256Hex(result.rngDigest);
+            dto.chain_hash = chessSha256Hex(result.chainHash);
+        }
         for (const auto& event : result.events)
         {
-            dto.events.push_back({
-                semanticEventTypeId(event.type),
-                event.primaryId,
-                event.secondaryId,
-                event.value,
-                event.stableId,
-            });
+            dto.events.push_back(semanticEventDto(session_->content(), event));
         }
         if (result.accepted
+            && *requestedDetail == ActionResponseDetail::Full
             && action->type == ChessActionType::StartBattle
             && session_->lastBattlePrepared()
             && session_->lastBattleResult())
@@ -2584,7 +3753,7 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
                 session_->content(),
                 *session_->lastBattlePrepared(),
                 *session_->lastBattleResult(),
-                *requestedDetail);
+                responseDetail);
         }
         return response(request->id, true, writeJson(dto));
     }

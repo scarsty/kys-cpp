@@ -16,6 +16,18 @@ struct ChessComboResolverUnit
     std::optional<int> cost;
     int weaponItemId = -1;
     int armorItemId = -1;
+    int unitId = -1;
+};
+
+struct ResolvedChessComboContribution
+{
+    int roleId = -1;
+    std::vector<int> unitIds;
+    int countedStar = 1;
+    int physicalPoints = 1;
+    int starBonusPoints{};
+    bool naturalMember{};
+    std::vector<int> equipmentItemIds;
 };
 
 struct ChessComboResolverEquipmentRule
@@ -44,6 +56,7 @@ struct ResolvedChessCombo
     int activeThresholdIndex = -1;
     int nextThresholdIndex = -1;
     bool isAntiCombo = false;
+    std::vector<ResolvedChessComboContribution> contributions;
 };
 
 std::vector<ResolvedChessCombo> resolveChessCombos(

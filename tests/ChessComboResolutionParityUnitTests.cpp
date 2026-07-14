@@ -249,11 +249,40 @@ TEST_CASE("equipment combo substitution resolves the same role-restricted member
     CHECK(progress.physicalCount == 2);
     CHECK(progress.effectiveCount == 2);
     CHECK(progress.activeThresholdIndex == 0);
+    REQUIRE(progress.contributions.size() == 2);
+    const auto equippedContribution = std::ranges::find(
+        progress.contributions,
+        20,
+        &ResolvedChessComboContribution::roleId);
+    REQUIRE(equippedContribution != progress.contributions.end());
+    CHECK_FALSE(equippedContribution->naturalMember);
+    CHECK(equippedContribution->equipmentItemIds == std::vector<int>{500});
+    CHECK(equippedContribution->physicalPoints == 1);
+    CHECK(equippedContribution->starBonusPoints == 0);
 
     const auto spawns = initializedBattleSpawns(pieces, combo, equipment, synergies);
     CHECK(requireSpawn(spawns, 1).combo.sumAlways(EffectType::FlatDEF) == 11);
     CHECK(requireSpawn(spawns, 2).combo.sumAlways(EffectType::FlatDEF) == 11);
     CHECK(requireSpawn(spawns, 3).combo.sumAlways(EffectType::FlatDEF) == 0);
+}
+
+TEST_CASE("equipment combo substitution does not double-count an existing member",
+          "[chess][combo][equipment][provenance]")
+{
+    const std::vector<TestPiece> pieces{{1, 10, 1, 1, 500}};
+    const auto combo = testCombo(11, "真武七截陣", {10}, 2, {EffectType::FlatDEF, 11});
+    EquipmentDef equipment{500, 3, 0};
+    equipment.actAsComboNames = {"真武七截陣"};
+    const auto content = testContent(pieces, combo, {equipment});
+    const auto state = sessionState(pieces);
+
+    const auto progress = evaluateChessComboProgress(state, *content, content->combos().front());
+
+    CHECK(progress.physicalCount == 1);
+    CHECK(progress.effectiveCount == 1);
+    REQUIRE(progress.contributions.size() == 1);
+    CHECK(progress.contributions.front().naturalMember);
+    CHECK(progress.contributions.front().equipmentItemIds == std::vector<int>{500});
 }
 
 TEST_CASE("anti-combo resolution selects the same highest-cost deterministic member in both paths",

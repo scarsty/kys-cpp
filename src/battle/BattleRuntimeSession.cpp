@@ -194,7 +194,6 @@ void deriveRuntimeState(
     runtime.rescue.cells = std::move(input.rescueCells);
     runtime.rescue.executeUnattendedRadius = input.rules.rescueExecuteUnattendedRadius;
     runtime.rescue.counterAttack = input.rules.rescueCounterAttack;
-    runtime.rescue.counterAttack.skillId = input.rescueCounterAttackSkillId;
 
     runtime.movementPhysics.config = input.rules.movementPhysicsConfig;
     runtime.movementPhysics.terrain.tileWidth = input.rules.movementCollisionWorld.tileWidth;

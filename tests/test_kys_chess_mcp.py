@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 
@@ -47,7 +48,7 @@ class McpAdapterTests(unittest.TestCase):
     def test_adapter_responses_equal_direct_jsonl(self):
         direct = DirectJsonl()
         try:
-            with CliSession(CLI) as adapter:
+            with tempfile.TemporaryDirectory() as save_dir, CliSession(CLI, save_dir=save_dir) as adapter:
                 def request_pair(method, params=None):
                     adapter_response = adapter.request(method, params)
                     direct_response = direct.request(method, params)
@@ -65,6 +66,15 @@ class McpAdapterTests(unittest.TestCase):
                 request_pair("observe")
                 request_pair("legal_actions")
                 request_pair("inspect_role", {"role_id": 10})
+                request_pair("inspect_shop_slot", {"slot": 0})
+                request_pair("inspect_shop")
+                request_pair("get_shop_odds")
+                request_pair("inspect_bans")
+                request_pair(
+                    "act",
+                    {"action": {"type": "buy_shop_slot", "slot": 0}},
+                )
+                request_pair("inspect_chess_instance", {"chess_instance_id": 1})
                 request_pair(
                     "act",
                     {"action": {"type": "set_shop_locked", "locked": True}},
@@ -85,11 +95,7 @@ class McpAdapterTests(unittest.TestCase):
                     {"action": {"type": "set_shop_locked", "locked": False}},
                 )
                 request_pair("load_game", {"slot": "1"})
-                exported_replay = request_pair("export_replay")
-                request_pair(
-                    "verify_replay",
-                    {"replay_jsonl": exported_replay["result"]["replay_jsonl"]},
-                )
+                request_pair("export_replay")
         finally:
             direct.close()
 
@@ -98,11 +104,18 @@ class McpAdapterTests(unittest.TestCase):
         for tool in (
             "new_game",
             "observe_game",
+            "get_diagnostics",
             "list_legal_actions",
             "take_action",
+            "inspect_shop_slot",
+            "inspect_shop",
+            "get_shop_odds",
+            "inspect_chess_instance",
+            "inspect_bans",
             "inspect_role",
             "inspect_combo",
             "inspect_equipment",
+            "inspect_challenge",
             "inspect_prepared_battle",
             "inspect_last_battle",
             "list_saves",
@@ -112,9 +125,9 @@ class McpAdapterTests(unittest.TestCase):
             "export_save",
             "import_save",
             "export_replay",
-            "verify_replay",
         ):
             self.assertIn(f"def {tool}(", source)
+        self.assertNotIn("def verify_replay(", source)
 
         tree = ast.parse(source)
         docstrings = {
@@ -124,7 +137,7 @@ class McpAdapterTests(unittest.TestCase):
         }
         expected_rollback_descriptions = {
             "observe_game": ("替換時間線", "捨棄目前後綴"),
-            "list_saves": ("前綴", "捨棄目前較新的行動"),
+            "list_saves": ("不需先建立棋局", "判定相容性"),
             "load_game": ("重播前綴", "discarded_active_actions", "存檔目錄仍保留"),
             "import_save": ("不會靜默載入", "替換目前時間線"),
         }
@@ -142,20 +155,72 @@ class McpAdapterTests(unittest.TestCase):
         self.assertEqual(new_schema["difficulty"]["enum"], ["easy", "normal", "hard"])
         self.assertEqual(new_schema["detail"]["enum"], ["compact", "full"])
         self.assertEqual(new_schema["seed"]["pattern"], r"^0x[0-9a-fA-F]{16}$")
+        self.assertIn("0x 前綴", new_schema["seed"]["description"])
         self.assertEqual(
             tools["take_action"].parameters["properties"]["detail"]["enum"],
-            ["compact", "full"],
+            ["summary", "compact", "full"],
+        )
+        self.assertEqual(
+            tools["take_action"].parameters["properties"]["detail"]["default"],
+            "summary",
         )
 
     def test_adapter_owns_and_closes_one_cli_process(self):
-        adapter = CliSession(CLI)
-        response = adapter.request(
-            "new",
-            {"difficulty": "normal", "seed": "0x0000000000000043"},
-        )
-        self.assertTrue(response["ok"])
-        adapter.close()
-        self.assertIsNotNone(adapter._process.poll())
+        with tempfile.TemporaryDirectory() as save_dir:
+            adapter = CliSession(CLI, save_dir=save_dir)
+            response = adapter.request(
+                "new",
+                {"difficulty": "normal", "seed": "0x0000000000000043"},
+            )
+            self.assertTrue(response["ok"])
+            adapter.close()
+            self.assertIsNotNone(adapter._process.poll())
+
+    def test_adapter_surfaces_diagnostics_and_recovers_after_cli_exit(self):
+        with tempfile.TemporaryDirectory() as save_dir, CliSession(CLI, save_dir=save_dir) as adapter:
+            self.assertTrue(adapter.request(
+                "new",
+                {"difficulty": "normal", "seed": "0x0000000000000044"},
+            )["ok"])
+            adapter._diagnostics.append("native assertion: 測試崩潰")
+            adapter._process.terminate()
+            adapter._process.wait(timeout=5)
+
+            failure = adapter.request("observe")
+
+            self.assertFalse(failure["ok"])
+            self.assertEqual(failure["error_code"], "cli_process_exited")
+            self.assertTrue(failure["restarted"])
+            self.assertTrue(failure["session_lost"])
+            self.assertIn("native assertion: 測試崩潰", failure["error_message"])
+            self.assertEqual(adapter.request("observe")["error_code"], "no_session")
+
+    def test_named_saves_survive_adapter_restart(self):
+        with tempfile.TemporaryDirectory() as save_dir:
+            with CliSession(CLI, save_dir=save_dir) as first:
+                self.assertTrue(first.request(
+                    "new",
+                    {"difficulty": "normal", "seed": "0x0000000000000045"},
+                )["ok"])
+                self.assertTrue(first.request("save_game", {"slot": "長期", "label": "持久"})["ok"])
+
+            with CliSession(CLI, save_dir=save_dir) as second:
+                discovered = second.request("list_saves")
+                self.assertTrue(discovered["ok"])
+                self.assertEqual([slot["slot"] for slot in discovered["result"]], ["長期"])
+                self.assertIsNone(discovered["result"][0]["compatible"])
+                self.assertEqual(discovered["result"][0]["difficulty"], "normal")
+                self.assertTrue(discovered["result"][0]["persisted"])
+                self.assertTrue(second.request(
+                    "new",
+                    {"difficulty": "normal", "seed": "0x0000000000000046"},
+                )["ok"])
+                listed = second.request("list_saves")
+                self.assertTrue(listed["ok"])
+                self.assertEqual([slot["slot"] for slot in listed["result"]], ["長期"])
+                loaded = second.request("load_game", {"slot": "長期"})
+                self.assertTrue(loaded["ok"])
+                self.assertEqual(loaded["result"]["loaded_slot"], "長期")
 
 
 if __name__ == "__main__":

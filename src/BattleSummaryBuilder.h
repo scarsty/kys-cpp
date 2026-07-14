@@ -17,6 +17,7 @@ struct BattleSurvivorSummary
     int team = -1;
     int hp{};
     int mp{};
+    bool summoned{};
 
     auto operator<=>(const BattleSurvivorSummary&) const = default;
 };

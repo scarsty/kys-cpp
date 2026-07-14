@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,20 @@ from pydantic import Field
 
 Difficulty = Literal["easy", "normal", "hard"]
 Detail = Literal["compact", "full"]
-Seed = Annotated[str, Field(pattern=r"^0x[0-9a-fA-F]{16}$")]
+ActionDetail = Literal["summary", "compact", "full"]
+Seed = Annotated[
+    str,
+    Field(
+        pattern=r"^0x[0-9a-fA-F]{16}$",
+        description="0x 前綴加上固定 16 位十六進位數字，例如 0x000000000000BEEF",
+    ),
+]
+
+
+class CliTransportError(RuntimeError):
+    def __init__(self, message: str, exit_code: int | None = None):
+        super().__init__(message)
+        self.exit_code = exit_code
 
 
 def default_cli_path() -> Path:
@@ -27,11 +41,29 @@ def default_cli_path() -> Path:
 class CliSession:
     """Owns one protocol-clean CLI JSONL process."""
 
-    def __init__(self, executable: Path | str | None = None, extra_args: list[str] | None = None):
-        command = [str(executable or default_cli_path()), "--jsonl"]
-        command.extend(extra_args or [])
+    def __init__(
+        self,
+        executable: Path | str | None = None,
+        extra_args: list[str] | None = None,
+        save_dir: Path | str | None = None,
+    ):
+        self._command = [str(executable or default_cli_path()), "--jsonl", *(extra_args or [])]
+        configured_save_dir = os.environ.get("KYS_CHESS_MCP_SAVE_DIR")
+        local_app_data = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+        self._save_dir = Path(save_dir or configured_save_dir or local_app_data / "kys_chess_mcp" / "saves")
+        self._save_dir.mkdir(parents=True, exist_ok=True)
+        self._process: subprocess.Popen[str]
+        self._stderr_thread: threading.Thread
+        self._next_id = 1
+        self._next_internal_id = 1
+        self._lock = threading.Lock()
+        self._diagnostics: deque[str] = deque(maxlen=200)
+        self._has_active_session = False
+        self._start_process()
+
+    def _start_process(self) -> None:
         self._process = subprocess.Popen(
-            command,
+            self._command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -39,53 +71,214 @@ class CliSession:
             encoding="utf-8",
             bufsize=1,
         )
-        self._next_id = 1
-        self._lock = threading.Lock()
-        self._diagnostics: deque[str] = deque(maxlen=200)
-        self._stderr_thread = threading.Thread(target=self._drain_stderr, daemon=True)
+        self._stderr_thread = threading.Thread(
+            target=self._drain_stderr,
+            args=(self._process,),
+            daemon=True,
+        )
         self._stderr_thread.start()
 
-    def _drain_stderr(self) -> None:
-        assert self._process.stderr is not None
-        for line in self._process.stderr:
+    def _drain_stderr(self, process: subprocess.Popen[str]) -> None:
+        assert process.stderr is not None
+        for line in process.stderr:
             self._diagnostics.append(line.rstrip())
 
-    def request(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        with self._lock:
-            if self._process.poll() is not None:
-                raise RuntimeError(f"棋局程序已結束，exit={self._process.returncode}")
-            request_id = self._next_id
-            self._next_id += 1
-            payload = {"id": request_id, "method": method, "params": params or {}}
-            assert self._process.stdin is not None
-            assert self._process.stdout is not None
+    def _exchange(self, request_id: int | str, method: str, params: dict[str, Any] | None) -> dict[str, Any]:
+        exit_code = self._process.poll()
+        if exit_code is not None:
+            raise CliTransportError(f"棋局程序已結束，exit={exit_code}", exit_code)
+        payload = {"id": request_id, "method": method, "params": params or {}}
+        assert self._process.stdin is not None
+        assert self._process.stdout is not None
+        try:
             self._process.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
             self._process.stdin.flush()
             line = self._process.stdout.readline()
-            if not line:
-                raise RuntimeError("棋局程序未傳回回應")
+        except (BrokenPipeError, OSError) as error:
+            raise CliTransportError(f"無法與棋局程序通訊：{error}", self._process.poll()) from error
+        if not line:
+            try:
+                exit_code = self._process.wait(timeout=0.25)
+            except subprocess.TimeoutExpired:
+                exit_code = self._process.poll()
+            raise CliTransportError("棋局程序未傳回回應", exit_code)
+        try:
             response = json.loads(line)
-            if response.get("id") != request_id:
-                raise RuntimeError("棋局程序回應識別碼不相符")
+        except json.JSONDecodeError as error:
+            raise CliTransportError(f"棋局程序傳回無效 JSON：{error}", self._process.poll()) from error
+        if response.get("id") != request_id:
+            raise CliTransportError("棋局程序回應識別碼不相符", self._process.poll())
+        return response
+
+    def _internal_request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        request_id = f"mcp-internal-{self._next_internal_id}"
+        self._next_internal_id += 1
+        return self._exchange(request_id, method, params)
+
+    def _slot_path(self, slot: str) -> Path:
+        digest = hashlib.sha256(slot.encode("utf-8")).hexdigest()
+        return self._save_dir / f"{digest}.json"
+
+    def _persist_save(self, slot: str, payload: str) -> None:
+        target = self._slot_path(slot)
+        temporary = target.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps({"slot": slot, "payload": payload}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        temporary.replace(target)
+
+    def _persistent_save_summaries(self) -> list[dict[str, Any]]:
+        summaries: list[dict[str, Any]] = []
+        for path in sorted(self._save_dir.glob("*.json")):
+            try:
+                stored = json.loads(path.read_text(encoding="utf-8"))
+                checkpoint = json.loads(stored["payload"])
+                state = checkpoint["state"]
+                replay_records = [
+                    json.loads(line)
+                    for line in checkpoint.get("replay_jsonl", "").splitlines()
+                    if line.strip()
+                ]
+                header = next(
+                    (record for record in replay_records if record.get("record") == "header"),
+                    {},
+                )
+                summaries.append({
+                    "slot": str(stored["slot"]),
+                    "occupied": True,
+                    "revision": int(checkpoint.get("save_revision", 0)),
+                    "label": str(checkpoint.get("label", "")),
+                    "fight": int(state.get("fight", 0)),
+                    "level": int(state.get("level", 0)),
+                    "money": int(state.get("money", 0)),
+                    "roster_count": len(state.get("roster", {})),
+                    "replay_sequence": sum(
+                        record.get("record") == "decision" for record in replay_records
+                    ),
+                    "state_hash": str(checkpoint.get("snapshot_hash", "")),
+                    "compatible": None,
+                    "compatibility_scope": "建立棋局後依遊戲版本與難度判定",
+                    "difficulty": header.get("difficulty"),
+                    "game_version": checkpoint.get("game_version"),
+                    "persisted": True,
+                })
+            except (OSError, KeyError, TypeError, ValueError) as error:
+                self._diagnostics.append(f"[MCP 存檔] 無法列出 {path.name}：{error}")
+        return summaries
+
+    def _restore_persisted_saves(self) -> None:
+        for path in sorted(self._save_dir.glob("*.json")):
+            try:
+                stored = json.loads(path.read_text(encoding="utf-8"))
+                slot = stored["slot"]
+                payload = stored["payload"]
+            except (OSError, KeyError, json.JSONDecodeError) as error:
+                self._diagnostics.append(f"[MCP 存檔] 無法讀取 {path.name}：{error}")
+                continue
+            response = self._internal_request("import_save", {"slot": slot, "payload": payload})
+            if not response.get("ok"):
+                self._diagnostics.append(
+                    f"[MCP 存檔] 無法還原欄位「{slot}」：{response.get('error_message', '未知錯誤')}"
+                )
+
+    def _recover_transport(self, request_id: int, error: CliTransportError) -> dict[str, Any]:
+        session_lost = self._has_active_session
+        self._has_active_session = False
+        if self._process.poll() is None:
+            self._process.terminate()
+            try:
+                self._process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+                self._process.wait(timeout=1)
+        self._stderr_thread.join(timeout=0.5)
+        diagnostics = list(self._diagnostics)
+        self._close_process_streams()
+        restarted = False
+        restart_error = ""
+        try:
+            self._start_process()
+            restarted = True
+        except OSError as start_error:
+            restart_error = str(start_error)
+        diagnostic_text = "\n".join(diagnostics[-40:])
+        message = str(error)
+        if diagnostic_text:
+            message += f"\nCLI 診斷：\n{diagnostic_text}"
+        if restart_error:
+            message += f"\n重新啟動失敗：{restart_error}"
+        elif restarted:
+            message += "\nCLI 已重新啟動；原本的記憶體內棋局已遺失，請先建立新棋局，再載入持久存檔。"
+        return {
+            "id": request_id,
+            "ok": False,
+            "error_code": "cli_process_exited",
+            "error_message": message,
+            "exit_code": error.exit_code,
+            "diagnostics": diagnostics,
+            "restarted": restarted,
+            "session_lost": session_lost,
+        }
+
+    def request(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        with self._lock:
+            request_id = self._next_id
+            self._next_id += 1
+            if method == "list_saves" and not self._has_active_session:
+                return {
+                    "id": request_id,
+                    "ok": True,
+                    "result": self._persistent_save_summaries(),
+                }
+            try:
+                response = self._exchange(request_id, method, params)
+                if response.get("ok") and method == "new":
+                    self._has_active_session = True
+                    self._restore_persisted_saves()
+                elif response.get("ok") and method == "save_game":
+                    slot = str((params or {})["slot"])
+                    exported = self._internal_request("export_save", {"slot": slot})
+                    if exported.get("ok"):
+                        self._persist_save(slot, exported["result"]["payload"])
+                elif response.get("ok") and method == "import_save":
+                    slot = str((params or {})["slot"])
+                    self._persist_save(slot, str((params or {})["payload"]))
+            except CliTransportError as error:
+                return self._recover_transport(request_id, error)
             return response
 
     def diagnostics(self) -> list[str]:
         return list(self._diagnostics)
 
-    def close(self) -> None:
-        if self._process.poll() is not None:
-            return
+    def diagnostic_status(self) -> dict[str, Any]:
+        return {
+            "cli_running": self._process.poll() is None,
+            "active_in_memory_session": self._has_active_session,
+            "persistent_save_directory": str(self._save_dir),
+            "diagnostics": self.diagnostics(),
+        }
+
+    def _close_process_streams(self) -> None:
         if self._process.stdin is not None:
             self._process.stdin.close()
-        try:
-            self._process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self._process.terminate()
-            self._process.wait(timeout=5)
         if self._process.stdout is not None:
             self._process.stdout.close()
         if self._process.stderr is not None:
             self._process.stderr.close()
+
+    def close(self) -> None:
+        with self._lock:
+            if self._process.poll() is None:
+                if self._process.stdin is not None:
+                    self._process.stdin.close()
+                try:
+                    self._process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self._process.terminate()
+                    self._process.wait(timeout=5)
+            self._stderr_thread.join(timeout=0.5)
+            self._close_process_streams()
 
     def __enter__(self) -> "CliSession":
         return self
@@ -107,7 +300,7 @@ def create_server(session: CliSession | None = None):
         position_swap_enabled: bool = True,
         detail: Detail = "full",
     ) -> dict[str, Any]:
-        """建立可驗證的新棋局；seed 必須是固定 16 位十六進位字串。"""
+        """建立可驗證的新棋局；seed 必須是 0x 前綴加上固定 16 位十六進位數字。"""
         return cli.request(
             "new",
             {
@@ -124,14 +317,46 @@ def create_server(session: CliSession | None = None):
         return cli.request("observe", {"detail": detail})
 
     @server.tool()
+    def get_diagnostics() -> dict[str, Any]:
+        """取得 CLI 執行狀態、持久存檔目錄及最近的原生 stderr 診斷。"""
+        status = getattr(cli, "diagnostic_status", None)
+        return status() if status else {"diagnostics": []}
+
+    @server.tool()
     def list_legal_actions() -> dict[str, Any]:
         """列出目前合法操作、每種操作的 action_schema、可直接提交的 example，以及帶名稱與說明的候選值。"""
         return cli.request("legal_actions")
 
     @server.tool()
-    def take_action(action: dict[str, Any], detail: Detail = "compact") -> dict[str, Any]:
-        """提交完整 action；compact 戰報只含決策摘要，完整軌跡可用 inspect_last_battle；戰敗仍會自動補回完整角色資料。"""
+    def take_action(action: dict[str, Any], detail: ActionDetail = "summary") -> dict[str, Any]:
+        """提交 action；summary 只回變更，compact 回精簡現況，full 才含完整除錯與驗證資料。"""
         return cli.request("act", {"action": action, "detail": detail})
+
+    @server.tool()
+    def inspect_shop_slot(slot: int) -> dict[str, Any]:
+        """分析單一商店欄位的價格、持有份數、合成結果、羈絆變化與當前抽取機率。"""
+        return cli.request("inspect_shop_slot", {"slot": slot})
+
+    @server.tool()
+    def inspect_shop() -> dict[str, Any]:
+        """一次分析目前全部商店欄位及當前等級的費用機率。"""
+        return cli.request("inspect_shop")
+
+    @server.tool()
+    def get_shop_odds(level: int | None = None) -> dict[str, Any]:
+        """取得指定或目前等級的商店費用機率與實際可用角色池。"""
+        params = {} if level is None else {"level": level}
+        return cli.request("get_shop_odds", params)
+
+    @server.tool()
+    def inspect_chess_instance(chess_instance_id: int) -> dict[str, Any]:
+        """檢視棋子實例的實際屬性、裝備、升星進度、出戰狀態與羈絆貢獻。"""
+        return cli.request("inspect_chess_instance", {"chess_instance_id": chess_instance_id})
+
+    @server.tool()
+    def inspect_bans() -> dict[str, Any]:
+        """檢視目前禁棋、剩餘容量、依費用分組的可選角色及生效時機。"""
+        return cli.request("inspect_bans")
 
     @server.tool()
     def inspect_role(role_id: int) -> dict[str, Any]:
@@ -149,6 +374,11 @@ def create_server(session: CliSession | None = None):
         return cli.request("inspect_equipment", {"item_id": item_id})
 
     @server.tool()
+    def inspect_challenge(challenge_name: str) -> dict[str, Any]:
+        """依繁體中文名稱檢視遠征的權威敵人星級、裝備與獎勵。"""
+        return cli.request("inspect_challenge", {"challenge_name": challenge_name})
+
+    @server.tool()
     def inspect_prepared_battle() -> dict[str, Any]:
         """完整檢視目前已準備戰鬥的地圖、地形、雙方屬性、武學、裝備及啟用羈絆。"""
         return cli.request("inspect_prepared_battle")
@@ -160,7 +390,7 @@ def create_server(session: CliSession | None = None):
 
     @server.tool()
     def list_saves() -> dict[str, Any]:
-        """列出外部存檔目錄；載入任何欄位都會回到該前綴並捨棄目前較新的行動。"""
+        """不需先建立棋局即可列出持久存檔；建立棋局後才會判定相容性並可載入。"""
         return cli.request("list_saves")
 
     @server.tool()
@@ -192,11 +422,6 @@ def create_server(session: CliSession | None = None):
     def export_replay() -> dict[str, Any]:
         """匯出目前選定時間線的權威 JSONL 重播。"""
         return cli.request("export_replay")
-
-    @server.tool()
-    def verify_replay(replay_jsonl: str) -> dict[str, Any]:
-        """由不可變規則、根種子及接受的決策重新建立全新棋局並驗證重播。"""
-        return cli.request("verify_replay", {"replay_jsonl": replay_jsonl})
 
     return server
 

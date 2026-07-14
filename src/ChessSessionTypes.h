@@ -4,6 +4,7 @@
 #include "ChessReplayHash.h"
 #include "PreparedChessBattle.h"
 #include "battle/BattleOutcome.h"
+#include "battle/ChessComboResolver.h"
 #include "battle/BattlePresentation.h"
 
 #include <cstdint>
@@ -153,6 +154,22 @@ struct ChessAction
     std::vector<int> chessInstanceIds;
 };
 
+struct ChessMergeEventDetail
+{
+    std::vector<int> consumedInstanceIds;
+    int inheritedFightsWon{};
+    bool deployed{};
+    std::vector<int> transferredEquipmentInstanceIds;
+    bool recursiveMergeFollowed{};
+};
+
+struct ChessEnemyPlanRerollEventDetail
+{
+    int cost{};
+    std::uint64_t previousEnemyPlanKey{};
+    std::uint64_t newEnemyPlanKey{};
+};
+
 struct ChessSemanticEvent
 {
     ChessSemanticEventType type{};
@@ -160,6 +177,8 @@ struct ChessSemanticEvent
     int secondaryId{};
     int value{};
     std::string stableId;
+    std::optional<ChessMergeEventDetail> merge;
+    std::optional<ChessEnemyPlanRerollEventDetail> enemyPlanReroll;
 };
 
 struct ChessSessionPiece
@@ -265,6 +284,7 @@ struct ChessObservedCombo
     int effectiveCount{};
     int activeThresholdIndex = -1;
     int nextThresholdIndex = -1;
+    std::vector<ResolvedChessComboContribution> contributions;
 
     auto operator<=>(const ChessObservedCombo&) const = default;
 };
@@ -275,10 +295,16 @@ struct ChessGameplayObservation
     Difficulty difficulty = Difficulty::Easy;
     ChessSessionOptions options;
     int money{};
+    int interestGold{};
+    std::optional<int> nextInterestThreshold;
+    int maximumInterestGold{};
+    int projectedBaseVictoryGold{};
+    int projectedVictoryIncome{};
     int experience{};
     int experienceForNextLevel{};
     int level{};
     int maximumDeployment{};
+    int maximumBanCount{};
     int fight{};
     bool campaignComplete{};
     bool shopLocked{};

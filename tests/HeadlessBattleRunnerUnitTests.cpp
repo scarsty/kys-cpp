@@ -35,6 +35,23 @@ TEST_CASE("shared runtime emits one exact timeout event", "[battle][headless][de
     CHECK(chessSha256Hex(result.digest) == "f33b93309040c774cb9fdd11273c109f7452827b2626a0c09ee0ee2e2de2720a");
 }
 
+TEST_CASE("battle summary marks surviving summoned clones separately", "[battle][headless][summary][summon]")
+{
+    auto input = timeoutInput();
+    input.units.back().baseCombo.applyConfiguredEffect({ EffectType::CloneSummon, 1 });
+    input.setup.cloneSources.push_back({ 2, 2, 100, 1, -1, 0 });
+    input.setup.cloneCells.push_back({ 3, 4, true, false, 1 });
+
+    const auto result = HeadlessBattleRunner::run(input);
+
+    const auto summoned = std::ranges::find(result.summary.survivors, 3, &BattleSurvivorSummary::unitId);
+    REQUIRE(summoned != result.summary.survivors.end());
+    CHECK(summoned->summoned);
+    const auto initialEnemy = std::ranges::find(result.summary.survivors, 2, &BattleSurvivorSummary::unitId);
+    REQUIRE(initialEnemy != result.summary.survivors.end());
+    CHECK_FALSE(initialEnemy->summoned);
+}
+
 TEST_CASE("simultaneous wipe is player defeat", "[battle][headless][determinism]")
 {
     BattleRuntimeState runtime;

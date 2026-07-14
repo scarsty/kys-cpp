@@ -72,7 +72,13 @@ bool loadChessNeigong(
         def.magicId = magicId;
         def.itemId = itItem->second;
         def.tier = tier;
-        def.name = magic ? magic->Name : std::format("內功{}", magicId);
+        const auto configuredNames = ng["名稱"];
+        const auto configuredName = configuredNames
+            ? configuredNames[std::to_string(magicId)]
+            : YAML::Node{};
+        def.name = configuredName
+            ? configuredName.as<std::string>()
+            : magic ? magic->Name : std::format("內功{}", magicId);
 
         auto effNode = ng["效果"][std::to_string(magicId)];
         if (effNode && effNode.IsSequence())

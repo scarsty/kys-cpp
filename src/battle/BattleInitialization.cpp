@@ -96,6 +96,7 @@ std::vector<ChessComboResolverUnit> comboResolverUnits(
             unit.cost,
             unit.weaponId,
             unit.armorId,
+            unit.unitId,
         });
     }
     return result;
@@ -818,7 +819,11 @@ void BattleStartInitializationRun::summonClones()
             return left.sourceOrder < right.sourceOrder;
         });
 
-    int nextRuntimeUnitId = static_cast<int>(spawns_.size());
+    int nextRuntimeUnitId{};
+    for (const auto& spawn : spawns_)
+    {
+        nextRuntimeUnitId = std::max(nextRuntimeUnitId, spawn.unit.id + 1);
+    }
     std::set<std::pair<int, int>> usedCloneCells;
     for (const auto& [team, count] : countByTeam)
     {

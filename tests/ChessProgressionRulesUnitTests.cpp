@@ -37,6 +37,11 @@ TEST_CASE("campaign victory derives progression from runtime survivors", "[chess
     battle.digest[0] = 9;
     std::vector<ChessSemanticEvent> events;
 
+    CHECK(ChessProgressionRules::interestGold(state, content) == 2);
+    CHECK(ChessProgressionRules::nextInterestThreshold(state, content) == 30);
+    CHECK(ChessProgressionRules::baseVictoryGold(state, content) == 3);
+    CHECK(ChessProgressionRules::projectedVictoryIncome(state, content) == 5);
+
     ChessProgressionRules::applyBattleResult(state, content, random, battle, events);
 
     CHECK(state.fight == 1);
@@ -228,6 +233,12 @@ TEST_CASE("forced bans use configured pool candidates and reject direct override
     ChessAction illegalTier = unseenConfigured;
     illegalTier.roleId = 30;
     CHECK(ChessManagementRules::validate(state, content, illegalTier) == ChessRuleErrorCode::InvalidRole);
+
+    ChessAction buyDuringForcedBan;
+    buyDuringForcedBan.type = ChessActionType::BuyShopSlot;
+    buyDuringForcedBan.shopSlot = 0;
+    CHECK(ChessManagementRules::validate(state, content, buyDuringForcedBan)
+        == ChessRuleErrorCode::WrongPhase);
 
     ChessRunRandom random(2);
     ChessManagementRules::apply(state, content, random, unseenConfigured, events);

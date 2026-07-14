@@ -173,6 +173,7 @@ TEST_CASE("BattleRuntimeRules_HadesRulesDeriveCurrentSceneValuesFromGrid")
     REQUIRE(rules.projectileFollowUps.nearbyProjectileFramePadding == 18);
     REQUIRE(rules.projectileFollowUps.areaProjectileFramePadding == 15);
     REQUIRE(rules.projectileFollowUps.areaSpawnDistance == SceneTileWidth * 1.5);
+    REQUIRE(rules.rescueCounterAttack.skillId == 1);
     REQUIRE(rules.rescueCounterAttack.projectileSpeed == SceneProjectileSpeed);
     REQUIRE(rules.rescueCounterAttack.meleeAttackEffectOffset == SceneTileWidth * 2.0);
     REQUIRE(rules.action.actionRecoveryFrames == 4);
@@ -1084,12 +1085,7 @@ BattleRuntimeState rescueDamageFrameState(int defenderHp, int damage)
     state.units.require(1).rescue = { 0, 0 };
     state.units.require(2).rescue = { 1, 0 };
     state.rescue.executeUnattendedRadius = SceneTileWidth * 3.0;
-    state.rescue.counterAttack.skillId = 1;
-    state.rescue.counterAttack.visualEffectId = 11;
-    state.rescue.counterAttack.projectileSpeed = SceneProjectileSpeed;
-    state.rescue.counterAttack.meleeAttackEffectOffset = SceneTileWidth * 2.0;
-    state.rescue.counterAttack.minimumTotalFrames = 20;
-    state.rescue.counterAttack.totalFramePadding = 15;
+    state.rescue.counterAttack = makeHadesBattleRuntimeRules(SceneTileWidth, 64).rescueCounterAttack;
     return state;
 }
 
