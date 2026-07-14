@@ -90,8 +90,11 @@ void VirtualStick::updateLayout()
 void VirtualStick::dealEvent(EngineEvent& e)
 {
     auto battle_act = RunNode::getPointerFromRoot<BattleSceneAct>();
+    auto battle = RunNode::getPointerFromRoot<BattleScene>();
     bool is_action = battle_act != nullptr;
     bool is_paper = is_action && battle_act->usePaperPresentation();
+    bool is_turn_based_paper = battle && !is_action
+        && GameUtil::getInstance()->getInt("game", "battle_presentation", 0) != 0;
     if (is_paper)
     {
         setStyle(2);
@@ -99,6 +102,10 @@ void VirtualStick::dealEvent(EngineEvent& e)
     else if (is_action)
     {
         setStyle(1);
+    }
+    else if (is_turn_based_paper)
+    {
+        setStyle(3);
     }
     else
     {
@@ -185,7 +192,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
                             intval.prev_press = engine->getTicks();
                             is_press = true;
                             intval.interval = 20;
-                            if (is_action || is_paper)
+                            if (is_action || is_paper || is_turn_based_paper)
                             {
                                 intval.interval = 0;
                             }
@@ -224,7 +231,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
                             is_press = true;
                             b->state_ = NodePress;
                             intval.interval = 0;
-                            if (is_action || is_paper)
+                            if (is_action || is_paper || is_turn_based_paper)
                             {
                                 intval.interval = 0;
                             }
@@ -326,6 +333,15 @@ void VirtualStick::setStyle(int style)
         button_left_->setVisible(false);
         button_right_->setVisible(false);
         button_left_axis_->setVisible(true);
+        button_right_axis_->setVisible(true);
+    }
+    else if (style == 3)
+    {
+        button_up_->setVisible(true);
+        button_down_->setVisible(true);
+        button_left_->setVisible(true);
+        button_right_->setVisible(true);
+        button_left_axis_->setVisible(false);
         button_right_axis_->setVisible(true);
     }
 }

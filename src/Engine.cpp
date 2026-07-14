@@ -1154,30 +1154,22 @@ bool Engine::gameControllerGetButton(int key)
 
 int16_t Engine::gameControllerGetAxis(int axis)
 {
-    if (getTicks() > prev_controller_press_ + interval_controller_press_)
+    int16_t ret = 0;
+    for (auto gc : game_controllers_)
     {
-        int16_t ret = 0;
-        for (auto gc : game_controllers_)
+        if (gc)
         {
-            if (gc)
-            {
-                ret = SDL_GetGamepadAxis(gc, SDL_GamepadAxis(axis));
-            }
-            if (ret)
-            {
-                cur_game_controller_ = gc;
-                break;
-            }
+            ret = SDL_GetGamepadAxis(gc, SDL_GamepadAxis(axis));
         }
         if (ret)
         {
-            prev_controller_press_ = getTicks();
+            cur_game_controller_ = gc;
+            break;
         }
-        interval_controller_press_ = 0;
-        if (ret != 0)
-        {
-            return ret;
-        }
+    }
+    if (ret != 0)
+    {
+        return ret;
     }
     return virtual_stick_axis_[axis];
 }
@@ -1193,7 +1185,7 @@ void Engine::gameControllerRumble(int l, int h, uint32_t time) const
 void Engine::checkGameControllers()
 {
     int num_joysticks = 0;
-    SDL_GetJoysticks(&num_joysticks);
+    auto joystick_ids = SDL_GetJoysticks(&num_joysticks);
     if (num_joysticks <= 0)
     {
         std::print("Warning: No joysticks connected!\n");
@@ -1206,7 +1198,8 @@ void Engine::checkGameControllers()
         nintendo_switch_.resize(game_controllers_.size());
         for (int i = 0; i < game_controllers_.size(); i++)
         {
-            game_controllers_[i] = SDL_OpenGamepad(i);
+            auto joystick_id = joystick_ids[i];
+            game_controllers_[i] = SDL_OpenGamepad(joystick_id);
             if (game_controllers_[i])
             {
                 std::string name = SDL_GetGamepadName(game_controllers_[i]);
@@ -1215,10 +1208,11 @@ void Engine::checkGameControllers()
             }
             else
             {
-                std::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
+                std::print("Warning: Unable to open game controller {}! SDL Error: {}\n", joystick_id, SDL_GetError());
             }
         }
     }
+    SDL_free(joystick_ids);
 }
 
 Texture* Engine::createRectTexture(int w, int h, int style) const

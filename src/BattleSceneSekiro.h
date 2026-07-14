@@ -15,8 +15,6 @@ public:
     virtual void onEntrance() override;
     virtual void onExit() override;
 
-    virtual void backRun() override {}
-
     virtual void backRun1();
     void Action(Role* r);
     void AI(Role* r);

@@ -39,6 +39,7 @@ protected:
     bool usePaperPresentation() const;
     void initializePaperPresentation();
     void drawPaperPresentation();
+    void handlePaperCameraEvent();
 
     int battle_id_ = 0;
     BattleInfo* info_;
@@ -138,6 +139,7 @@ protected:
     Role* paper_camera_follow_role_ = nullptr;
     float paper_camera_angle_ = M_PI * 0.25f;
     float paper_camera_distance_ = 510.0f;
+    float paper_camera_pitch_ = 0.47f;
     float paper_camera_height_ = 260.0f;
 
 public:

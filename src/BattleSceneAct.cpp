@@ -350,18 +350,22 @@ void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
 
         float rotate = 0;
         float height_delta = 0;
-        if (engine->checkKeyPress(K_LEFT)) { rotate -= 1; }
-        if (engine->checkKeyPress(K_RIGHT)) { rotate += 1; }
-        if (engine->checkKeyPress(K_UP)) { height_delta += 1; }
-        if (engine->checkKeyPress(K_DOWN)) { height_delta -= 1; }
-        if (engine->checkKeyPress(K_J)) { rotate -= 1; }
-        if (engine->checkKeyPress(K_L)) { rotate += 1; }
-        if (engine->checkKeyPress(K_I)) { height_delta += 1; }
-        if (engine->checkKeyPress(K_K)) { height_delta -= 1; }
+        if (engine->checkKeyPress(K_LEFT)) { rotate += 1; }
+        if (engine->checkKeyPress(K_RIGHT)) { rotate -= 1; }
+        if (engine->checkKeyPress(K_UP)) { height_delta -= 1; }
+        if (engine->checkKeyPress(K_DOWN)) { height_delta += 1; }
+        if (engine->checkKeyPress(K_J)) { rotate += 1; }
+        if (engine->checkKeyPress(K_L)) { rotate -= 1; }
+        if (engine->checkKeyPress(K_I)) { height_delta -= 1; }
+        if (engine->checkKeyPress(K_K)) { height_delta += 1; }
         auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
         auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
-        if (std::abs(right_axis_x) >= 6000) { rotate += GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f; }
-        if (std::abs(right_axis_y) >= 6000) { height_delta += GameUtil::clamp(-right_axis_y, -20000, 20000) / 20000.0f; }
+        if (std::abs(right_axis_x) >= 6000) { rotate -= GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f; }
+        if (std::abs(right_axis_y) >= 6000)
+        {
+            camera_height_ += GameUtil::clamp(right_axis_y, -20000, 20000) / 20000.0f
+                * free_camera_distance_ * PAPER_FREE_CAMERA_ROTATE_SPEED;
+        }
         camera_angle_ += rotate * PAPER_FREE_CAMERA_ROTATE_SPEED;
         camera_height_ = std::clamp(camera_height_ + height_delta * PAPER_FREE_CAMERA_HEIGHT_SPEED,
             PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);

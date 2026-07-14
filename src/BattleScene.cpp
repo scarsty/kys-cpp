@@ -216,23 +216,13 @@ void BattleScene::initializePaperPresentation()
     auto focus = pos90To45(paper_presentation_.initialFocus().x, paper_presentation_.initialFocus().y);
     select_x_ = focus.x;
     select_y_ = focus.y;
+    paper_camera_pitch_ = std::atan(paper_camera_height_ / paper_camera_distance_);
 }
 
 void BattleScene::drawPaperPresentation()
 {
     auto engine = Engine::getInstance();
-    float rotate = 0;
-    float height_delta = 0;
-    if (engine->checkKeyPress(K_J)) { rotate -= 1; }
-    if (engine->checkKeyPress(K_L)) { rotate += 1; }
-    if (engine->checkKeyPress(K_I)) { height_delta += 1; }
-    if (engine->checkKeyPress(K_K)) { height_delta -= 1; }
-    if (engine->checkKeyPress(K_Z)) { paper_camera_distance_ += PaperCameraZoomStep; }
-    if (engine->checkKeyPress(K_X)) { paper_camera_distance_ -= PaperCameraZoomStep; }
-    paper_camera_angle_ += rotate * PaperCameraRotateSpeed;
-    paper_camera_distance_ = std::clamp(paper_camera_distance_, PaperCameraMinDistance, PaperCameraMaxDistance);
-    paper_camera_height_ = std::clamp(paper_camera_height_ + height_delta * PaperCameraHeightSpeed,
-        PaperCameraMinHeight, PaperCameraMaxHeight);
+    paper_camera_height_ = paper_camera_distance_ * std::tan(paper_camera_pitch_);
 
     Pointf focus = paper_camera_follow_role_
         ? pos45To90(paper_camera_follow_role_->X(), paper_camera_follow_role_->Y())
@@ -402,6 +392,39 @@ void BattleScene::drawPaperPresentation()
     {
         Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     }
+}
+
+void BattleScene::handlePaperCameraEvent()
+{
+    if (!usePaperPresentation())
+    {
+        return;
+    }
+
+    auto engine = Engine::getInstance();
+    float rotate = 0;
+    float pitch_delta = 0;
+    if (engine->checkKeyPress(K_J)) { rotate += 1; }
+    if (engine->checkKeyPress(K_L)) { rotate -= 1; }
+    if (engine->checkKeyPress(K_I)) { pitch_delta -= 1; }
+    if (engine->checkKeyPress(K_K)) { pitch_delta += 1; }
+    auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
+    auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
+    if (std::abs(right_axis_x) >= 6000) { rotate -= GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f; }
+    if (std::abs(right_axis_y) >= 6000) { pitch_delta += GameUtil::clamp(right_axis_y, -20000, 20000) / 20000.0f; }
+
+    if (engine->checkKeyPress(K_Z)) { paper_camera_distance_ += PaperCameraZoomStep; }
+    if (engine->checkKeyPress(K_X)) { paper_camera_distance_ -= PaperCameraZoomStep; }
+    auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
+    auto right_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER);
+    if (left_trigger > 6000) { paper_camera_distance_ += PaperCameraZoomStep * GameUtil::clamp(left_trigger, 0, 20000) / 20000.0f; }
+    if (right_trigger > 6000) { paper_camera_distance_ -= PaperCameraZoomStep * GameUtil::clamp(right_trigger, 0, 20000) / 20000.0f; }
+
+    paper_camera_angle_ += rotate * PaperCameraRotateSpeed;
+    paper_camera_distance_ = std::clamp(paper_camera_distance_, PaperCameraMinDistance, PaperCameraMaxDistance);
+    paper_camera_pitch_ = std::clamp(paper_camera_pitch_ + pitch_delta * PaperCameraRotateSpeed,
+        std::atan(PaperCameraMinHeight / paper_camera_distance_),
+        std::atan(PaperCameraMaxHeight / paper_camera_distance_));
 }
 
 void BattleScene::draw()
@@ -736,6 +759,8 @@ void BattleScene::onExit()
 
 void BattleScene::backRun()
 {
+    handlePaperCameraEvent();
+
     // 战场不画云。
     //if (cloud_group_)
     //{

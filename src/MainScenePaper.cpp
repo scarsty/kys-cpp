@@ -1,6 +1,7 @@
 #include "MainScenePaper.h"
 #include "Console.h"
 #include "Engine.h"
+#include "GameUtil.h"
 #include "Random.h"
 #include "SubScene.h"
 #include "TextureManager.h"
@@ -14,9 +15,12 @@
 
 namespace
 {
-constexpr float CameraDistance = 450.0f;
 constexpr float CameraRotateStep = 0.06f;
 constexpr float CameraHeightStep = 8.0f;
+constexpr float ControllerCameraRotateSpeed = 0.035f;
+constexpr float CameraZoomStep = 24.0f;
+constexpr float CameraMinDistance = 220.0f;
+constexpr float CameraMaxDistance = 900.0f;
 constexpr float Pi = 3.14159265358979323846f;
 }
 
@@ -107,13 +111,24 @@ void MainScenePaper::onEntrance()
 void MainScenePaper::draw()
 {
     auto engine = Engine::getInstance();
+    auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
+    auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
+    if (std::abs(right_axis_x) >= 6000)
+    {
+        camera_yaw_ -= GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f * ControllerCameraRotateSpeed;
+    }
+    if (std::abs(right_axis_y) >= 6000)
+    {
+        camera_height_ = std::clamp(camera_height_ + GameUtil::clamp(right_axis_y, -20000, 20000) / 20000.0f * camera_distance_ * ControllerCameraRotateSpeed,
+            80.0f, 300.0f);
+    }
     engine->setRenderTarget("scene");
     engine->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
 
     auto man_pos = pos45To90(man_x_, man_y_);
     camera_focus_ = man_pos;
     Pointf camera_back = { std::sin(camera_yaw_), -std::cos(camera_yaw_), 0 };
-    camera_pos_ = man_pos + camera_back * CameraDistance + Pointf{ 0, 0, camera_height_ };
+    camera_pos_ = man_pos + camera_back * camera_distance_ + Pointf{ 0, 0, camera_height_ };
     camera_.center = camera_focus_;
     camera_.pos = camera_pos_;
     camera_.setFov(PaperSky::CameraFov);
@@ -444,20 +459,39 @@ void MainScenePaper::dealEvent(EngineEvent& e)
 
     if (engine->checkKeyPress(K_LEFT))
     {
-        camera_yaw_ -= CameraRotateStep;
+        camera_yaw_ += CameraRotateStep;
     }
     if (engine->checkKeyPress(K_RIGHT))
     {
-        camera_yaw_ += CameraRotateStep;
+        camera_yaw_ -= CameraRotateStep;
     }
     if (engine->checkKeyPress(K_UP))
     {
-        camera_height_ = std::min(300.0f, camera_height_ + CameraHeightStep);
+        camera_height_ = std::max(80.0f, camera_height_ - CameraHeightStep);
     }
     if (engine->checkKeyPress(K_DOWN))
     {
-        camera_height_ = std::max(80.0f, camera_height_ - CameraHeightStep);
+        camera_height_ = std::min(300.0f, camera_height_ + CameraHeightStep);
     }
+    if (engine->checkKeyPress(K_Z))
+    {
+        camera_distance_ += CameraZoomStep;
+    }
+    if (engine->checkKeyPress(K_X))
+    {
+        camera_distance_ -= CameraZoomStep;
+    }
+    auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
+    auto right_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER);
+    if (left_trigger > 6000)
+    {
+        camera_distance_ += CameraZoomStep * GameUtil::clamp(left_trigger, 0, 20000) / 20000.0f;
+    }
+    if (right_trigger > 6000)
+    {
+        camera_distance_ -= CameraZoomStep * GameUtil::clamp(right_trigger, 0, 20000) / 20000.0f;
+    }
+    camera_distance_ = std::clamp(camera_distance_, CameraMinDistance, CameraMaxDistance);
     if (camera_yaw_ > Pi)
     {
         camera_yaw_ -= Pi * 2.0f;

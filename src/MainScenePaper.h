@@ -21,6 +21,7 @@ private:
     Pointf camera_pos_ = { 0, 0, 500 };
     Pointf camera_focus_ = { 0, 0, 0 };
     float camera_yaw_ = 0.0f;
+    float camera_distance_ = 450.0f;
     float camera_height_ = 150.0f;
     PaperSky paper_sky_;
 };
