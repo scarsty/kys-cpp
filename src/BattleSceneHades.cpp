@@ -2031,19 +2031,19 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
         Pointf cameraPan;
         if (engine->checkKeyPress(K_LEFT))
         {
-            cameraRotate -= 1.0f;
+            cameraRotate += 1.0f;
         }
         if (engine->checkKeyPress(K_RIGHT))
         {
-            cameraRotate += 1.0f;
+            cameraRotate -= 1.0f;
         }
         if (engine->checkKeyPress(K_UP))
         {
-            cameraHeightDelta += 1.0f;
+            cameraHeightDelta -= 1.0f;
         }
         if (engine->checkKeyPress(K_DOWN))
         {
-            cameraHeightDelta -= 1.0f;
+            cameraHeightDelta += 1.0f;
         }
         cameraPan = paperKeyboardPanVector(
             paper_camera_angle_,
