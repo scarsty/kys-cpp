@@ -10,13 +10,9 @@ github：https://github.com/scarsty/kys-cpp
 
 资源文件：<http://pan.baidu.com/s/1sl2X9wD>
 
-这是一个以SDL为基础实现的2D游戏框架，同时相当于提供了一个使用该框架制作DOS游戏《金庸群侠传》移植版的范例。
-
 目前的开发分支为“纸片”，即试图营造一个真3D效果，但因素材限制，只能以纸片形式展示。
 
 ## 如何编译
-
-建议使用C++23。
 
 Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 ```bat
@@ -34,7 +30,7 @@ git submodule update --init --recursive
 # 可选
 git submodule update --remote --rebase --recursive
 ```
-之后使用Visual Studio（尽量用新版）打开kys.sln，编译即可。工程为x64版本，如需要x86版请自行修改。
+之后使用安装了“使用 C++ 的桌面开发”工作负载的 Visual Studio 打开 `kys.sln`，编译 `x64` 配置即可。当前工程使用 v145 工具集，Visual Studio 2026 已验证；如需要 x86 版请自行修改工程。
 
 macOS下可使用Homebrew安装依赖：
 ```shell

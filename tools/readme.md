@@ -1,20 +1,18 @@
 # tools
 
-xia、trans50、abc用于转换旧版资源。
-
-cuthug是一个例程，用于将整张大地图地面切成8*8分块的例程，参看“高清素材的方案”。
+xia、trans50、abc 用于转换旧版资源。
 
 ## xia
 
 贴图转换工具，用法为：
 
 ```
-xia.exe idx文件名 grp文件名 输出目录 是否需要闪烁（0或1）
+xia.exe idx文件名 grp文件名 输出目录 是否拆分同编号的多张图片（0或1）
 ```
 
 一般将exe和批处理文件放到DOS游戏目录，直接执行即可。
 
-注意，战斗文件和头像文件是不需要闪烁的。
+最后一个参数为 `1` 时，编号相同的多张图片会导出为 `编号_帧号.png`；为 `0` 时只保留每个编号的第一张图片。它不是闪烁开关。地图资源通常需要拆分，头像和战斗贴图通常不需要。
 
 你也可以查看批处理的内容，自己进行一些设定。
 
@@ -257,3 +255,38 @@ void check_script(std::string path)
 void trans_fight_frame(std::string path0)
 ```
 仅用于转换金庸水浒传及相关MOD的战斗帧数格式。一般不需要。
+
+## Python 资源脚本
+
+以下脚本需要 Python 3 和 Pillow（`pip install pillow`）。它们会直接改写指定资源或输出目录，执行前应备份资源。
+
+### 大地图切片
+
+`cut_huge_map.py` 取代原有的 cuthug C++/OpenCV 工程。默认读取当前目录的 `map.png`，放入 `17280×8640` 的透明画布后按 8×8 顺序切片，仅输出像素并非完全相同的块；默认输出文件名为 `0.png` 到 `63.png`。
+
+```shell
+python tools/cut_huge_map.py
+python tools/cut_huge_map.py map.png --output work/game-dev/resource/battle-earth
+```
+
+可通过 `--canvas-width`、`--canvas-height` 和 `--grid` 调整画布与切片网格。参看“高清素材的方案”。
+
+### PNG 转 WebP
+
+`convert_png_to_webp.py` 可递归处理资源目录或单个 ZIP，将 PNG 转为 WebP；目录中的原 PNG 会被删除，ZIP 会原地重新打包。默认使用无损 WebP，也可指定有损质量：
+
+```shell
+python tools/convert_png_to_webp.py work/game-dev/resource
+python tools/convert_png_to_webp.py work/game-dev/resource --lossy --quality 90 -j 4
+```
+
+### Paper 墙体贴图
+
+`rectify_wall_textures.py` 从 `resource/smap` 的已知墙体编号生成 Paper 墙面纹理候选，默认输出到 `resource/paper-wall-texture`，不会覆盖原始 `smap`：
+
+```shell
+python tools/rectify_wall_textures.py
+python tools/rectify_wall_textures.py --ids 701 702 1410 --mode strip --width 32 --height 128
+```
+
+该脚本只生成待筛选的候选纹理，墙体效果仍需人工检查。
