@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ChessCatalogQueries.h"
 #include "ChessGameContent.h"
 #include "ChessManagementRules.h"
 #include "ChessRewardRules.h"
@@ -586,63 +587,19 @@ inline std::vector<std::string> buildChessEquipmentSynergyDetailLines(
     const ChessGameContent& content,
     int equipmentId)
 {
-    std::vector<std::string> lines;
-    for (const auto& synergy : content.equipmentSynergies())
-    {
-        if (synergy.equipmentId != equipmentId)
-        {
-            continue;
-        }
-
-        std::string line;
-        for (std::size_t index = 0; index < synergy.roleIds.size(); ++index)
-        {
-            if (index > 0)
-            {
-                line += "/";
-            }
-            const auto* role = content.role(synergy.roleIds[index]);
-            line += role ? role->Name : std::to_string(synergy.roleIds[index]);
-        }
-        line += ": ";
-
-        if (!synergy.actAsComboNames.empty())
-        {
-            line += "計作";
-            for (std::size_t index = 0; index < synergy.actAsComboNames.size(); ++index)
-            {
-                if (index > 0)
-                {
-                    line += "/";
-                }
-                line += synergy.actAsComboNames[index];
-            }
-        }
-
-        for (std::size_t index = 0; index < synergy.effects.size(); ++index)
-        {
-            if (!synergy.actAsComboNames.empty() || index > 0)
-            {
-                line += "，";
-            }
-            line += comboEffectCompactDesc(synergy.effects[index]);
-        }
-        lines.push_back(std::move(line));
-    }
-    return lines;
+    return chessEquipmentSynergyDetailLines(content, equipmentId);
 }
 
 inline std::string chessVictoryComboBonusText(
     const ChessGameContent& content,
-    const ChessSemanticEvent& goldEvent,
+    const ChessGoldAwardedEventDetail& gold,
     int bonus)
 {
-    assert(goldEvent.type == ChessSemanticEventType::GoldAwarded);
     assert(bonus > 0);
     const ComboDef* source = nullptr;
     for (const auto& combo : content.combos())
     {
-        if (goldEvent.stableId == std::format("combo:{}", combo.id))
+        if (gold.sourceComboId == combo.id)
         {
             source = &combo;
             break;

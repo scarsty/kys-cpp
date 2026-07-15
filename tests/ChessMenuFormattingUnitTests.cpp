@@ -466,7 +466,7 @@ TEST_CASE("challenge browsing is driven by configured rows rather than current l
     const auto content = std::make_shared<const ChessGameContent>(std::move(data));
     const ChessGameSession session(content, 1);
 
-    CHECK(std::ranges::none_of(session.legalActions(), [](const ChessLegalActionDescriptor& action) {
+    CHECK(std::ranges::none_of(session.legalActions(), [](const ChessActionOffer& action) {
         return action.type == ChessActionType::StartChallenge;
     }));
     CHECK((chessChallengeBrowseNames(*content) == std::vector<std::string>{"第一場", "第二場", "第三場"}));
@@ -496,11 +496,11 @@ TEST_CASE("victory combo bonus uses the configured source combo name", "[chess][
     combo.name = "配置經濟羈絆";
     data.combos.push_back(std::move(combo));
     const ChessGameContent content(std::move(data));
-    ChessSemanticEvent gold{ChessSemanticEventType::GoldAwarded, 3, 2, 11, "combo:17"};
+    ChessGoldAwardedEventDetail gold{3, 2, 6, 11, 17};
 
     CHECK(chessVictoryComboBonusText(content, gold, 6) == "(配置經濟羈絆+$6)");
 
-    gold.stableId.clear();
+    gold.sourceComboId = -1;
     CHECK(chessVictoryComboBonusText(content, gold, 6) == "(羈絆+$6)");
 }
 

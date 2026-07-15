@@ -17,16 +17,16 @@ public:
 
 private:
     ChessActionResult submitGuiAction(const ChessAction& action);
-    ChessGuiFlowResult chooseAndSubmit(const ChessLegalActionDescriptor& descriptor);
+    ChessGuiFlowResult chooseAndSubmit(const ChessActionOffer& offer);
     void showShop();
     void chooseChess(ChessActionType actionType);
     void chooseDeployment();
     void showBanManagement();
-    void chooseBan(const ChessLegalActionDescriptor& descriptor);
+    void chooseBan(const ChessActionOffer& offer);
     void showEquipmentMenu();
     void showEquipmentInventory();
-    void chooseEquipment(const ChessLegalActionDescriptor& descriptor);
-    void chooseLegendary(const ChessLegalActionDescriptor& descriptor);
+    void chooseEquipment(const ChessActionOffer& offer);
+    void chooseLegendary(const ChessActionOffer& offer);
     void showOverviewMenu();
     void showPositionSwap();
     void showEnemyReroll();
@@ -35,10 +35,10 @@ private:
     void viewNeigong();
     void showGameGuide();
     void showSystemSettings();
-    ChessGuiFlowResult chooseChallenge(const ChessLegalActionDescriptor& descriptor);
-    ChessGuiFlowResult chooseReward(const ChessLegalActionDescriptor& descriptor);
-    void chooseMap(const ChessLegalActionDescriptor& descriptor);
-    void chooseSwap(const ChessLegalActionDescriptor& descriptor);
+    ChessGuiFlowResult chooseChallenge(const ChessActionOffer& offer);
+    ChessGuiFlowResult chooseReward(const ChessActionOffer& offer);
+    void chooseMap(const ChessActionOffer& offer);
+    void chooseSwap(const ChessActionOffer& offer);
     ChessGuiFlowResult drainPreparedBattle();
     ChessGuiFlowResult drainRewards(bool stopBeforeForcedBan = false);
     void showBattlePreview() const;

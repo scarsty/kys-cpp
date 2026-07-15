@@ -1,5 +1,7 @@
 #include "ChessBattleText.h"
 
+#include "ChessCatalogQueries.h"
+
 #include <format>
 #include <map>
 
@@ -35,14 +37,10 @@ std::string ChessBattleText::formatHeader(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content)
 {
-    const auto map = content.battleMaps().find(prepared.chosenMapId);
-    const std::string mapName = map == content.battleMaps().end() || map->second.name.empty()
-        ? std::format("戰場{}", prepared.chosenMapId)
-        : map->second.name;
     return std::format(
         "第 {} 戰：{}  map={}  battle_seed={}\n",
         fight,
-        mapName,
+        chessBattleMapDisplayName(content, prepared.chosenMapId),
         prepared.chosenMapId,
         prepared.battleSeed);
 }

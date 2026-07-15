@@ -1,12 +1,11 @@
 #include "ChessGuiSessionAdapter.h"
 
 #include "BattleSceneHades.h"
-#include "BattleSetupFactory.h"
 #include "BattleStatsView.h"
-#include "BattleStarStats.h"
 #include "BattlefieldData.h"
 #include "Audio.h"
 #include "ChessBattleMapCatalog.h"
+#include "ChessCatalogQueries.h"
 #include "ChessCombo.h"
 #include "ChessContextMenu.h"
 #include "ChessEftIds.h"
@@ -15,6 +14,7 @@
 #include "ChessMagicEffectDisplay.h"
 #include "ChessMenuFormatting.h"
 #include "ChessPresentationHelpers.h"
+#include "ChessPreparedBattleAnalysis.h"
 #include "ChessScreenLayout.h"
 #include "ChessSystemSettingsMenu.h"
 #include "ChessUiCommon.h"
@@ -244,19 +244,6 @@ const char* rewardTierLabel(int tier)
     return labels[std::clamp(tier, 1, 4) - 1];
 }
 
-std::string battleMapDisplayName(const ChessGameContent& content, int battleId)
-{
-    const auto catalogName = ChessBattleMapCatalog::displayName(battleId);
-    if (!catalogName.empty())
-    {
-        return std::string(catalogName);
-    }
-    const auto found = content.battleMaps().find(battleId);
-    return found != content.battleMaps().end() && !found->second.name.empty()
-        ? found->second.name
-        : std::format("戰場 {}", battleId);
-}
-
 struct BattlePreviewUnit
 {
     std::string name;
@@ -284,25 +271,18 @@ struct BattlePreviewPresentation
 };
 
 std::vector<std::string> activeBattleComboLines(
-    const ChessGameContent& content,
-    const std::vector<ResolvedChessCombo>& resolvedCombos)
+    const std::vector<ChessComboMetadata>& synergies)
 {
     std::vector<std::string> result;
-    for (const auto& resolved : resolvedCombos)
+    for (const auto& synergy : synergies)
     {
-        if (resolved.activeThresholdIndex < 0)
-        {
-            continue;
-        }
-        const auto combo = std::ranges::find(content.combos(), resolved.id, &ComboDef::id);
-        assert(combo != content.combos().end());
-        assert(resolved.activeThresholdIndex < static_cast<int>(combo->thresholds.size()));
-        const auto progress = chessComboProgress(*combo, resolved);
+        assert(synergy.activeThresholdIndex >= 0);
+        assert(synergy.activeThresholdIndex < static_cast<int>(synergy.thresholds.size()));
         result.push_back(std::format(
             "{} ({}) {}",
-            combo->name,
-            formatChessComboProgressCount(progress),
-            combo->thresholds[resolved.activeThresholdIndex].name));
+            synergy.name,
+            synergy.progressCount,
+            synergy.thresholds[synergy.activeThresholdIndex].name));
     }
     return result;
 }
@@ -311,60 +291,37 @@ BattlePreviewPresentation makeBattlePreviewPresentation(
     const ChessGameSession& session,
     const PreparedChessBattle& prepared)
 {
-    auto input = BattleSetupFactory::build(
+    const auto analysis = analyzePreparedChessBattle(
         prepared,
         session.content(),
         session.state().obtainedNeigongIds,
         session.state().options.battleFrameLimit);
+    assert(analysis.combatInitialized);
 
     BattlePreviewPresentation result;
-    result.mapId = prepared.chosenMapId;
-    result.mapName = battleMapDisplayName(session.content(), prepared.chosenMapId);
-    result.allyComboLines = activeBattleComboLines(
-        session.content(),
-        Battle::resolveBattleSetupCombos(input.setup.allyRoster, input.setup));
-    result.enemyComboLines = activeBattleComboLines(
-        session.content(),
-        Battle::resolveBattleSetupCombos(input.setup.enemyRoster, input.setup));
-
-    std::set<int> seenMagicIds;
-    const auto appendSkillAssets = [&](const Battle::BattleActionSkillSeed& skill) {
-        if (skill.id < 0 || !seenMagicIds.insert(skill.id).second)
-        {
-            return;
-        }
-        if (skill.soundId >= 0)
-        {
-            result.attackSoundIds.push_back(skill.soundId);
-        }
-        if (skill.visualEffectId >= 0)
-        {
-            result.effectSoundIds.push_back(skill.visualEffectId);
-        }
-    };
-    for (const auto& unit : input.units)
+    result.mapId = analysis.identity.chosenMapId;
+    result.mapName = analysis.identity.chosenMapName;
+    result.allyComboLines = activeBattleComboLines(analysis.allySynergies);
+    result.enemyComboLines = activeBattleComboLines(analysis.enemySynergies);
+    result.attackSoundIds = analysis.presentationAssets.attackSoundIds;
+    result.effectSoundIds = analysis.presentationAssets.effectIds;
+    for (const auto& analyzedUnit : analysis.units)
     {
-        appendSkillAssets(unit.normalSkill);
-        appendSkillAssets(unit.ultimateSkill);
-    }
-
-    auto creation = Battle::BattleRuntimeSession::createInitialized(std::move(input));
-    for (const auto& preparedUnit : prepared.units)
-    {
-        const auto& runtimeUnit = creation.session.requireRuntimeUnit(preparedUnit.unitId);
+        assert(analyzedUnit.initializedCombatStats);
+        const auto& stats = *analyzedUnit.initializedCombatStats;
         BattlePreviewUnit unit{
-            runtimeUnit.name,
-            runtimeUnit.skillNames,
-            runtimeUnit.headId,
-            runtimeUnit.star,
-            runtimeUnit.vitals.maxHp,
-            runtimeUnit.stats.attack,
-            runtimeUnit.stats.defence,
-            runtimeUnit.stats.speed,
-            runtimeUnit.weaponId,
-            runtimeUnit.armorId,
+            analyzedUnit.name,
+            analyzedUnit.skillNames,
+            analyzedUnit.headId,
+            analyzedUnit.star,
+            stats.maxHp,
+            stats.attack,
+            stats.defence,
+            stats.speed,
+            analyzedUnit.weaponItemId,
+            analyzedUnit.armorItemId,
         };
-        (runtimeUnit.team == 0 ? result.allies : result.enemies).push_back(std::move(unit));
+        (analyzedUnit.team == 0 ? result.allies : result.enemies).push_back(std::move(unit));
     }
     return result;
 }
@@ -460,12 +417,12 @@ const ChessSessionPiece* rosterPiece(const ChessSessionState& state, int instanc
     return found == state.roster.end() ? nullptr : &found->second;
 }
 
-std::optional<ChessLegalActionDescriptor> legalAction(
+std::optional<ChessActionOffer> legalAction(
     const ChessGameSession& session,
     ChessActionType type)
 {
     const auto legal = session.legalActions();
-    const auto found = std::ranges::find(legal, type, &ChessLegalActionDescriptor::type);
+    const auto found = std::ranges::find(legal, type, &ChessActionOffer::type);
     return found == legal.end() ? std::nullopt : std::optional(*found);
 }
 
@@ -478,15 +435,16 @@ void showShopPurchaseFeedback(
         ChessSemanticEventType::ChessPurchased,
         &ChessSemanticEvent::type);
     assert(purchased != result.events.end());
-    const auto* role = session.content().role(purchased->secondaryId);
+    const auto& purchase = chessSemanticEventDetail<ChessPurchasedEventDetail>(*purchased);
+    const auto* role = session.content().role(purchase.roleId);
     assert(role);
     const bool merged = std::ranges::contains(
         result.events,
         ChessSemanticEventType::ChessMerged,
         &ChessSemanticEvent::type);
     showChessMessage(merged
-        ? std::format("消費{}，{}升星！", purchased->value, role->Name)
-        : std::format("消費{}，獲取{}", purchased->value, role->Name));
+        ? std::format("消費{}，{}升星！", purchase.cost, role->Name)
+        : std::format("消費{}，獲取{}", purchase.cost, role->Name));
     if (merged)
     {
         playChessUpgradeSound();
@@ -507,7 +465,9 @@ void showCampaignVictoryFeedback(
         ChessSemanticEventType::ExperienceAwarded,
         &ChessSemanticEvent::type);
     assert(gold != result.events.end() && experience != result.events.end());
-    const int comboBonus = gold->value - gold->primaryId - gold->secondaryId;
+    const auto& goldDetail = chessSemanticEventDetail<ChessGoldAwardedEventDetail>(*gold);
+    const auto& experienceDetail = chessSemanticEventDetail<ChessExperienceAwardedEventDetail>(*experience);
+    const int comboBonus = goldDetail.otherGold;
     const auto& state = session.state();
     const auto& balance = session.content().balance();
     const std::string levelMessage = state.level > oldLevel
@@ -520,19 +480,19 @@ void showCampaignVictoryFeedback(
         : nextIsBoss
             ? std::format(" 下一關：第{}關(Boss)", state.fight + 1)
             : std::format(" 下一關：第{}關", state.fight + 1);
-    const std::string interestMessage = gold->secondaryId > 0
-        ? std::format("(利息+${})", gold->secondaryId)
+    const std::string interestMessage = goldDetail.interestGold > 0
+        ? std::format("(利息+${})", goldDetail.interestGold)
         : std::string{};
     const std::string comboMessage = comboBonus > 0
-        ? chessVictoryComboBonusText(session.content(), *gold, comboBonus)
+        ? chessVictoryComboBonusText(session.content(), goldDetail, comboBonus)
         : std::string{};
     auto text = std::make_shared<DismissibleTextBox>();
     text->setText(std::format(
         "勝利！獲得${}{}{} 經驗+{}{}{}",
-        gold->primaryId,
+        goldDetail.baseGold,
         interestMessage,
         comboMessage,
-        experience->value,
+        experienceDetail.amount,
         levelMessage,
         nextInformation));
     text->setFontSize(32);
@@ -759,7 +719,7 @@ std::shared_ptr<DrawableOnCall> makeBattleMapPreviewPanel(
         const auto* catalog = ChessBattleMapCatalog::find(mapId);
 
         PanelTextCursor cursor{Font::getInstance(), panelFrame.x + 12, panelFrame.y + 10};
-        cursor.line(battleMapDisplayName(session.content(), mapId), 25, {255, 215, 0, 255}, 4);
+        cursor.line(chessBattleMapDisplayName(session.content(), mapId), 25, {255, 215, 0, 255}, 4);
         cursor.line(
             std::format(
                 "我方上限{}　敵軍上限{}",
@@ -945,34 +905,9 @@ void drawRoleDetail(
 
     const auto* piece = rosterPiece(session.state(), instanceId);
     const int fightsWon = piece ? piece->fightsWon : 0;
-    const auto& balance = session.content().balance();
-    const auto boosted = computeStarBoostedStats(
-        {
-            role->MaxHP,
-            role->Attack,
-            role->Defence,
-            role->Speed,
-            role->Fist,
-            role->Sword,
-            role->Knife,
-            role->Unusual,
-            role->HiddenWeapon,
-        },
-        {
-            balance.starHPMult,
-            balance.starAtkMult,
-            balance.starDefMult,
-            balance.starMartialMult,
-            balance.starSpdMult,
-            balance.starFlatHP,
-            balance.starFlatAtk,
-            balance.starFlatDef,
-            balance.fightWinGrowthHP,
-            balance.fightWinGrowthAtk,
-            balance.fightWinGrowthDef,
-            balance.fightWinGrowthWeapon,
-            balance.fightWinGrowthSpeed,
-        },
+    const auto stats = chessRoleStats(
+        *role,
+        session.content().balance(),
         star,
         fightsWon);
 
@@ -1009,21 +944,21 @@ void drawRoleDetail(
     Color mpColor = colorWhite;
     if (role->MPType == 0) mpColor = colorPurple;
     else if (role->MPType == 1) mpColor = colorMagic;
-    layout.statsColumn.line(statsY + layout.lineHeight * 0, "生命", std::format("{:5}/{:5}", boosted.hp, boosted.hp), colorWhite);
+    layout.statsColumn.line(statsY + layout.lineHeight * 0, "生命", std::format("{:5}/{:5}", stats.maxHp, stats.maxHp), colorWhite);
     layout.statsColumn.line(
         statsY + layout.lineHeight * 1,
         "內力",
         formatChessRolePreviewMp(GameUtil::MAX_MP),
         mpColor);
-    layout.statsColumn.line(statsY + layout.lineHeight * 2 + kStatsDetailOffsetY, "攻擊", std::format("{:5}", boosted.atk), selectStatColor(boosted.atk, Role::getMaxValue()->Attack));
-    layout.statsColumn.line(statsY + layout.lineHeight * 3 + kStatsDetailOffsetY, "防禦", std::format("{:5}", boosted.def), selectStatColor(boosted.def, Role::getMaxValue()->Defence));
-    layout.statsColumn.line(statsY + layout.lineHeight * 4 + kStatsDetailOffsetY, "輕功", std::format("{:5}", boosted.spd), selectStatColor(boosted.spd, Role::getMaxValue()->Speed));
+    layout.statsColumn.line(statsY + layout.lineHeight * 2 + kStatsDetailOffsetY, "攻擊", std::format("{:5}", stats.attack), selectStatColor(stats.attack, Role::getMaxValue()->Attack));
+    layout.statsColumn.line(statsY + layout.lineHeight * 3 + kStatsDetailOffsetY, "防禦", std::format("{:5}", stats.defence), selectStatColor(stats.defence, Role::getMaxValue()->Defence));
+    layout.statsColumn.line(statsY + layout.lineHeight * 4 + kStatsDetailOffsetY, "輕功", std::format("{:5}", stats.speed), selectStatColor(stats.speed, Role::getMaxValue()->Speed));
 
     const int skillY = layout.avatar.y + layout.avatar.h + kSkillTopGap;
-    layout.skillCol1.line(skillY + layout.lineHeight * 0, "拳掌", std::format("{:5}", boosted.fist), selectStatColor(boosted.fist, Role::getMaxValue()->Fist));
-    layout.skillCol2.line(skillY + layout.lineHeight * 0, "御劍", std::format("{:5}", boosted.sword), selectStatColor(boosted.sword, Role::getMaxValue()->Sword));
-    layout.skillCol1.line(skillY + layout.lineHeight * 1, "耍刀", std::format("{:5}", boosted.knife), selectStatColor(boosted.knife, Role::getMaxValue()->Knife));
-    layout.skillCol2.line(skillY + layout.lineHeight * 1, "特殊", std::format("{:5}", boosted.unusual), selectStatColor(boosted.unusual, Role::getMaxValue()->Unusual));
+    layout.skillCol1.line(skillY + layout.lineHeight * 0, "拳掌", std::format("{:5}", stats.fist), selectStatColor(stats.fist, Role::getMaxValue()->Fist));
+    layout.skillCol2.line(skillY + layout.lineHeight * 0, "御劍", std::format("{:5}", stats.sword), selectStatColor(stats.sword, Role::getMaxValue()->Sword));
+    layout.skillCol1.line(skillY + layout.lineHeight * 1, "耍刀", std::format("{:5}", stats.knife), selectStatColor(stats.knife, Role::getMaxValue()->Knife));
+    layout.skillCol2.line(skillY + layout.lineHeight * 1, "特殊", std::format("{:5}", stats.unusual), selectStatColor(stats.unusual, Role::getMaxValue()->Unusual));
 
     font->draw("武學", layout.titleFontSize, layout.magic.x, layout.magic.y, colorName);
     const auto selectedMagics = chessRoleMagicsForStar(session.content(), *role, star);
@@ -1973,9 +1908,10 @@ void ChessGuiSessionAdapter::chooseChess(ChessActionType actionType)
                 ChessSemanticEventType::ChessSold,
                 &ChessSemanticEvent::type);
             assert(sold != result.events.end());
-            const auto* role = session_.content().role(sold->secondaryId);
+            const auto& sale = chessSemanticEventDetail<ChessSoldEventDetail>(*sold);
+            const auto* role = session_.content().role(sale.roleId);
             assert(role);
-            showChessMessage(std::format("售出棋子{}，獲得${}", role->Name, sold->value));
+            showChessMessage(std::format("售出棋子{}，獲得${}", role->Name, sale.goldGained));
         }
         if (actionType != ChessActionType::SellChess)
         {
@@ -2164,16 +2100,18 @@ void ChessGuiSessionAdapter::showBanManagement()
     }
 }
 
-void ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descriptor)
+void ChessGuiSessionAdapter::chooseBan(const ChessActionOffer& descriptor)
 {
+    const auto& offer = chessActionOfferDetail<ChessRoleSelectionOffer>(descriptor);
     const bool forced = session_.state().phase == ChessSessionPhase::RewardChoice
         && !session_.state().pendingRewards.empty()
         && session_.state().pendingRewards.front().kind == ChessRewardKind::ForcedBan;
     SessionMenuData data;
     std::vector<ChessMenuColumnRow> labelRows;
     std::vector<int> roleIds;
-    for (const int roleId : descriptor.candidateIds)
+    for (const auto& candidate : offer.candidates)
     {
+        const int roleId = candidate.roleId;
         const auto* role = session_.content().role(roleId);
         assert(role);
         labelRows.push_back({
@@ -2212,7 +2150,7 @@ void ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
     {
         ChessAction action;
         action.type = ChessActionType::AddBan;
-        action.roleId = descriptor.candidateIds[choice];
+        action.roleId = offer.candidates[choice].roleId;
         const auto result = submitGuiAction(action);
         if (!result.accepted)
         {
@@ -2276,14 +2214,23 @@ void ChessGuiSessionAdapter::showEquipmentMenu()
             return;
         case ChessContextMenuAction::BuyLegendaryEquipment:
         {
-            ChessLegalActionDescriptor legendary{ChessActionType::BuyLegendaryEquipment};
+            ChessActionOffer legendary;
+            legendary.type = ChessActionType::BuyLegendaryEquipment;
+            legendary.minimumSelection = 1;
+            legendary.maximumSelection = 1;
+            ChessItemSelectionOffer legendaryItems;
             for (const auto& equipment : session_.content().equipment())
             {
                 if (equipment.tier == 4)
                 {
-                    legendary.candidateIds.push_back(equipment.itemId);
+                    legendaryItems.candidates.push_back({
+                        equipment.itemId,
+                        session_.content().balance().legendaryShop.price,
+                        session_.state().money - session_.content().balance().legendaryShop.price,
+                    });
                 }
             }
+            legendary.payload = std::move(legendaryItems);
             chooseLegendary(legendary);
             if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
             {
@@ -2395,22 +2342,31 @@ void ChessGuiSessionAdapter::showEquipmentInventory()
             showChessMessage("目前沒有可裝備的棋子");
             continue;
         }
-        ChessLegalActionDescriptor selectedEquipment = *descriptor;
-        selectedEquipment.candidateIds = {rows[selected].instanceId};
+        ChessActionOffer selectedEquipment = *descriptor;
+        auto selectedOffer = chessActionOfferDetail<ChessEquipmentAssignmentOffer>(selectedEquipment);
+        const auto selectedCandidate = std::ranges::find(
+            selectedOffer.equipment,
+            rows[selected].instanceId,
+            &ChessEquipmentOfferCandidate::equipmentInstanceId);
+        assert(selectedCandidate != selectedOffer.equipment.end());
+        selectedOffer.equipment = {*selectedCandidate};
+        selectedEquipment.payload = std::move(selectedOffer);
         chooseEquipment(selectedEquipment);
     }
 }
 
-void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& descriptor)
+void ChessGuiSessionAdapter::chooseEquipment(const ChessActionOffer& descriptor)
 {
-    assert(descriptor.candidateIds.size() == 1 || !descriptor.candidateIds.empty());
-    int equipmentId = descriptor.candidateIds.front();
-    if (descriptor.candidateIds.size() > 1)
+    const auto& offer = chessActionOfferDetail<ChessEquipmentAssignmentOffer>(descriptor);
+    assert(!offer.equipment.empty());
+    int equipmentId = offer.equipment.front().equipmentInstanceId;
+    if (offer.equipment.size() > 1)
     {
         SessionMenuData equipmentData;
         std::vector<ChessMenuColumnRow> equipmentRows;
-        for (const int id : descriptor.candidateIds)
+        for (const auto& candidate : offer.equipment)
         {
+            const int id = candidate.equipmentInstanceId;
             const auto* instance = equipmentInstance(session_.state(), id);
             assert(instance);
             const auto* item = session_.content().item(instance->itemId);
@@ -2428,29 +2384,28 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
         {
             return;
         }
-        equipmentId = descriptor.candidateIds[choice];
+        equipmentId = offer.equipment[choice].equipmentInstanceId;
     }
 
-    const auto observation = session_.observe();
     SessionMenuData pieceData;
     std::vector<ChessMenuColumnRow> pieceRows;
     std::vector<int> roleIds;
     std::vector<int> starRows;
     std::vector<int> instanceIds;
-    for (const auto& piece : observation.roster)
+    for (const auto& candidate : offer.targets)
     {
-        const auto* role = session_.content().role(piece.roleId);
+        const auto* role = session_.content().role(candidate.roleId);
         assert(role);
         pieceRows.push_back({
-            piece.deployed ? "[戰]" : "",
+            candidate.deployed ? "[戰]" : "",
             role->Name,
-            chessStars(piece.star),
-            std::format("${}", ChessManagementRules::pieceValue(session_.content(), piece.roleId, piece.star)),
+            chessStars(candidate.star),
+            std::format("${}", ChessManagementRules::pieceValue(session_.content(), candidate.roleId, candidate.star)),
         });
         pieceData.colors.push_back(chessPieceTierColor(role->Cost));
-        roleIds.push_back(piece.roleId);
-        starRows.push_back(piece.star);
-        instanceIds.push_back(piece.instanceId);
+        roleIds.push_back(candidate.roleId);
+        starRows.push_back(candidate.star);
+        instanceIds.push_back(candidate.chessInstanceId);
     }
     pieceData.labels = alignedMenuLabels(pieceRows);
     const auto anchor = ChessScreenLayout::browseMenuAnchor();
@@ -2470,7 +2425,7 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
     ChessAction action;
     action.type = ChessActionType::Equip;
     action.equipmentInstanceId = equipmentId;
-    action.targetChessInstanceId = observation.roster[selected].instanceId;
+    action.targetChessInstanceId = offer.targets[selected].chessInstanceId;
     const auto result = submitGuiAction(action);
     if (!result.accepted)
     {
@@ -2478,15 +2433,17 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
     }
 }
 
-void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& descriptor)
+void ChessGuiSessionAdapter::chooseLegendary(const ChessActionOffer& descriptor)
 {
+    const auto& offer = chessActionOfferDetail<ChessItemSelectionOffer>(descriptor);
     for (;;)
     {
         SessionMenuData data;
         std::vector<ChessMenuColumnRow> labelRows;
         std::vector<const EquipmentDef*> definitions;
-        for (const int itemId : descriptor.candidateIds)
+        for (const auto& candidate : offer.candidates)
         {
+            const int itemId = candidate.itemId;
             const auto* definition = equipmentDefinition(session_.content(), itemId);
             assert(definition);
             const auto* item = session_.content().item(itemId);
@@ -2527,7 +2484,7 @@ void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& d
         }
         ChessAction action;
         action.type = ChessActionType::BuyLegendaryEquipment;
-        action.itemId = descriptor.candidateIds[choice];
+        action.itemId = offer.candidates[choice].itemId;
         const auto result = submitGuiAction(action);
         if (!result.accepted)
         {
@@ -2938,8 +2895,9 @@ void ChessGuiSessionAdapter::showSystemSettings()
     }
 }
 
-ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActionDescriptor& descriptor)
+ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessActionOffer& descriptor)
 {
+    const auto& offer = chessActionOfferDetail<ChessChallengeSelectionOffer>(descriptor);
     for (;;)
     {
         if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
@@ -2950,8 +2908,9 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
         SessionMenuData data;
         std::vector<ChessMenuColumnRow> labelRows;
         std::vector<const BalanceConfig::ChallengeDef*> rows;
-        for (const auto& name : descriptor.candidateStableIds)
+        for (const auto& candidate : offer.candidates)
         {
+            const auto& name = candidate.challengeName;
             const auto found = std::ranges::find(
                 session_.content().balance().challenges,
                 name,
@@ -3024,7 +2983,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
 
         ChessAction action;
         action.type = ChessActionType::StartChallenge;
-        action.challengeName = descriptor.candidateStableIds[choice];
+        action.challengeName = offer.candidates[choice].challengeName;
         const auto result = submitGuiAction(action);
         if (!result.accepted)
         {
@@ -3040,9 +2999,9 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
     }
 }
 
-ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDescriptor& descriptor)
+ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessActionOffer& descriptor)
 {
-    (void)descriptor;
+    assert(descriptor.type == ChessActionType::ChooseReward);
     for (;;)
     {
         if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
@@ -3051,6 +3010,14 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
         }
         assert(!session_.state().pendingRewards.empty());
         const auto pending = session_.state().pendingRewards.front();
+        const auto currentOffer = legalAction(session_, ChessActionType::ChooseReward);
+        assert(currentOffer);
+        const auto& rewardOffer = chessActionOfferDetail<ChessRewardSelectionOffer>(*currentOffer);
+        assert(rewardOffer.candidates.size() == pending.options.size());
+        for (std::size_t index = 0; index < pending.options.size(); ++index)
+        {
+            assert(rewardOffer.candidates[index].rewardId == pending.options[index].id);
+        }
         SessionMenuData data;
         std::vector<ChessMenuColumnRow> labelRows;
         for (const auto& option : pending.options)
@@ -3266,7 +3233,8 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
         {
             const auto merged = std::ranges::find(result.events, ChessSemanticEventType::ChessMerged, &ChessSemanticEvent::type);
             assert(merged != result.events.end());
-            const auto* role = session_.content().role(merged->secondaryId);
+            const auto& merge = chessSemanticEventDetail<ChessMergeEventDetail>(*merged);
+            const auto* role = session_.content().role(merge.roleId);
             assert(role);
             showChessMessage(std::format("{}升星至{}★！", role->Name, selected.value2));
         }
@@ -3288,12 +3256,16 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
     }
 }
 
-void ChessGuiSessionAdapter::chooseMap(const ChessLegalActionDescriptor& descriptor)
+void ChessGuiSessionAdapter::chooseMap(const ChessActionOffer& descriptor)
 {
+    const auto& offer = chessActionOfferDetail<ChessMapSelectionOffer>(descriptor);
     SessionMenuData data;
-    for (const int mapId : descriptor.candidateIds)
+    std::vector<int> mapIds;
+    for (const auto& candidate : offer.candidates)
     {
-        data.labels.push_back(battleMapDisplayName(session_.content(), mapId));
+        const int mapId = candidate.mapId;
+        mapIds.push_back(mapId);
+        data.labels.push_back(chessBattleMapDisplayName(session_.content(), mapId));
         data.colors.push_back({230, 230, 220, 255});
     }
     const int choice = runIndexedMenu(
@@ -3302,7 +3274,7 @@ void ChessGuiSessionAdapter::chooseMap(const ChessLegalActionDescriptor& descrip
         32,
         12,
         ChessScreenLayout::browseMenuAnchor(),
-        {makeBattleMapPreviewPanel(session_, descriptor.candidateIds)},
+        {makeBattleMapPreviewPanel(session_, mapIds)},
         false,
         true,
         false);
@@ -3310,7 +3282,7 @@ void ChessGuiSessionAdapter::chooseMap(const ChessLegalActionDescriptor& descrip
     {
         ChessAction action;
         action.type = ChessActionType::ChooseMap;
-        action.mapId = descriptor.candidateIds[choice];
+        action.mapId = offer.candidates[choice].mapId;
         const auto result = submitGuiAction(action);
         if (!result.accepted)
         {
@@ -3319,14 +3291,16 @@ void ChessGuiSessionAdapter::chooseMap(const ChessLegalActionDescriptor& descrip
     }
 }
 
-void ChessGuiSessionAdapter::chooseSwap(const ChessLegalActionDescriptor& descriptor)
+void ChessGuiSessionAdapter::chooseSwap(const ChessActionOffer& descriptor)
 {
+    const auto& offer = chessActionOfferDetail<ChessPositionSwapOffer>(descriptor);
     SessionMenuData data;
     std::vector<ChessMenuColumnRow> labelRows;
     std::vector<int> roleIds;
     std::vector<int> starRows;
-    for (const int unitId : descriptor.candidateIds)
+    for (const auto& candidate : offer.candidates)
     {
+        const int unitId = candidate.unitId;
         const auto& prepared = *session_.state().preparedBattle;
         const auto found = std::ranges::find(prepared.units, unitId, &PreparedChessBattleUnit::unitId);
         assert(found != prepared.units.end());
@@ -3346,8 +3320,8 @@ void ChessGuiSessionAdapter::chooseSwap(const ChessLegalActionDescriptor& descri
     if (second < 0) return;
     ChessAction action;
     action.type = ChessActionType::SwapPositions;
-    action.chessInstanceId = descriptor.candidateIds[first];
-    action.targetChessInstanceId = descriptor.candidateIds[second];
+    action.chessInstanceId = offer.candidates[first].unitId;
+    action.targetChessInstanceId = offer.candidates[second].unitId;
     const auto result = submitGuiAction(action);
     if (!result.accepted)
     {
@@ -3378,7 +3352,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
             return ChessGuiFlowResult::Aborted;
         }
         const auto legal = session_.legalActions();
-        if (const auto map = std::ranges::find(legal, ChessActionType::ChooseMap, &ChessLegalActionDescriptor::type); map != legal.end())
+        if (const auto map = std::ranges::find(legal, ChessActionType::ChooseMap, &ChessActionOffer::type); map != legal.end())
         {
             chooseMap(*map);
             if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
@@ -3509,7 +3483,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainRewards(bool stopBeforeForcedBan
             return ChessGuiFlowResult::Continue;
         }
         const auto legal = session_.legalActions();
-        const auto ban = std::ranges::find(legal, ChessActionType::AddBan, &ChessLegalActionDescriptor::type);
+        const auto ban = std::ranges::find(legal, ChessActionType::AddBan, &ChessActionOffer::type);
         if (ban != legal.end())
         {
             chooseBan(*ban);
@@ -3536,7 +3510,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainRewards(bool stopBeforeForcedBan
             }
             continue;
         }
-        const auto choose = std::ranges::find(legal, ChessActionType::ChooseReward, &ChessLegalActionDescriptor::type);
+        const auto choose = std::ranges::find(legal, ChessActionType::ChooseReward, &ChessActionOffer::type);
         if (choose != legal.end())
         {
             if (chooseReward(*choose) == ChessGuiFlowResult::Aborted)
@@ -3552,7 +3526,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainRewards(bool stopBeforeForcedBan
     return currentChessGuiFlowResult();
 }
 
-ChessGuiFlowResult ChessGuiSessionAdapter::chooseAndSubmit(const ChessLegalActionDescriptor& descriptor)
+ChessGuiFlowResult ChessGuiSessionAdapter::chooseAndSubmit(const ChessActionOffer& descriptor)
 {
     ChessAction action;
     action.type = descriptor.type;
@@ -3708,12 +3682,20 @@ void ChessGuiSessionAdapter::showContextMenu()
             break;
         case ChessContextMenuAction::ShowExpeditionChallenge:
         {
-            ChessLegalActionDescriptor descriptor{ChessActionType::StartChallenge};
-            descriptor.candidateStableIds = chessChallengeBrowseNames(session_.content());
-            if (descriptor.candidateStableIds.empty())
+            ChessActionOffer descriptor;
+            descriptor.type = ChessActionType::StartChallenge;
+            ChessChallengeSelectionOffer challenges;
+            for (auto& name : chessChallengeBrowseNames(session_.content()))
+            {
+                challenges.candidates.push_back({std::move(name)});
+            }
+            if (challenges.candidates.empty())
             {
                 break;
             }
+            descriptor.minimumSelection = 1;
+            descriptor.maximumSelection = 1;
+            descriptor.payload = std::move(challenges);
             if (chooseChallenge(descriptor) == ChessGuiFlowResult::Aborted)
             {
                 return;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ChessActionOffers.h"
 #include "ChessGameContent.h"
 #include "ChessSessionTypes.h"
 
@@ -12,7 +13,7 @@ public:
     static std::string format(
         const ChessGameplayObservation& observation,
         const ChessGameContent& content,
-        const std::vector<ChessLegalActionDescriptor>& legalActions);
+        const std::vector<ChessActionOffer>& legalActions);
 };
 
 }

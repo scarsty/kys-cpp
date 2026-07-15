@@ -96,10 +96,7 @@ void ChessProgressionRules::applyBattleResult(
     state.lastBattleDigest = battle.digest;
     events.push_back({
         ChessSemanticEventType::BattleEnded,
-        {},
-        {},
-        static_cast<int>(battle.summary.outcome),
-        prepared.stableBattleId,
+        ChessBattleEndedEventDetail{battle.summary.outcome, prepared.stableBattleId},
     });
 
     if (prepared.kind == PreparedChessBattleKind::Standalone)
@@ -173,24 +170,31 @@ void ChessProgressionRules::applyBattleResult(
     state.fight = completedFight;
     events.push_back({
         ChessSemanticEventType::GoldAwarded,
-        reward,
-        interest,
-        goldAwarded,
-        comboGoldBonus.sourceComboId >= 0
-            ? std::format("combo:{}", comboGoldBonus.sourceComboId)
-            : std::string{},
+        ChessGoldAwardedEventDetail{
+            reward,
+            interest,
+            comboGoldBonus.amount,
+            goldAwarded,
+            comboGoldBonus.sourceComboId,
+        },
     });
-    events.push_back({ChessSemanticEventType::ExperienceAwarded, {}, {}, experienceAwarded});
+    events.push_back({
+        ChessSemanticEventType::ExperienceAwarded,
+        ChessExperienceAwardedEventDetail{experienceAwarded},
+    });
     if (leveled)
     {
-        events.push_back({ChessSemanticEventType::LevelChanged, {}, {}, state.level});
+        events.push_back({ChessSemanticEventType::LevelChanged, ChessLevelChangedEventDetail{state.level}});
     }
-    events.push_back({ChessSemanticEventType::FightAdvanced, {}, {}, state.fight});
+    events.push_back({ChessSemanticEventType::FightAdvanced, ChessFightAdvancedEventDetail{state.fight}});
     if (grantsFreeRefresh && !state.freeShopRefreshAvailable)
     {
         state.freeShopRefreshAvailable = true;
         state.freeShopRefreshGrantedFight = state.fight;
-        events.push_back({ChessSemanticEventType::FreeShopRefreshGranted, {}, {}, state.fight});
+        events.push_back({
+            ChessSemanticEventType::FreeShopRefreshGranted,
+            ChessFreeShopRefreshGrantedEventDetail{state.fight},
+        });
     }
 
     ChessRewardRules::enqueueCampaignRewards(state, content, random, completedFight, events);

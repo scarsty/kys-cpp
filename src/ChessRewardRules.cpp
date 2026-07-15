@@ -38,10 +38,10 @@ void exposeRewardBoundary(ChessSessionState& state, std::vector<ChessSemanticEve
         state.phase = ChessSessionPhase::RewardChoice;
         events.push_back({
             ChessSemanticEventType::RewardOffered,
-            {},
-            {},
-            static_cast<int>(state.pendingRewards.front().options.size()),
-            state.pendingRewards.front().id,
+            ChessRewardOfferedEventDetail{
+                state.pendingRewards.front().id,
+                static_cast<int>(state.pendingRewards.front().options.size()),
+            },
         });
     }
 }
@@ -213,7 +213,10 @@ void completeChallengeReward(
         return;
     }
     state.completedChallengeNames.insert(challengeName);
-    events.push_back({ChessSemanticEventType::ChallengeCompleted, {}, {}, {}, std::move(challengeName)});
+    events.push_back({
+        ChessSemanticEventType::ChallengeCompleted,
+        ChessChallengeCompletedEventDetail{std::move(challengeName)},
+    });
 }
 
 bool enqueueNestedChallengeChoice(
@@ -505,7 +508,14 @@ void ChessRewardRules::apply(
         pending.options = pending.kind == ChessRewardKind::Equipment
             ? equipmentOptions(content, random, pending.parameter, pending.choiceCount)
             : neigongOptions(state, content, random, pending.eligibleTiers, pending.choiceCount);
-        events.push_back({ChessSemanticEventType::RewardRerolled, {}, {}, pending.rerollCost, pending.id});
+        events.push_back({
+            ChessSemanticEventType::RewardRerolled,
+            ChessRewardRerolledEventDetail{
+                pending.id,
+                pending.rerollCost,
+                static_cast<int>(pending.options.size()),
+            },
+        });
         return;
     }
 
@@ -526,7 +536,10 @@ void ChessRewardRules::apply(
     else if (pendingKind == ChessRewardKind::InternalSkill)
     {
         state.obtainedNeigongIds.insert(selected.value);
-        events.push_back({ChessSemanticEventType::InternalSkillAcquired, selected.value});
+        events.push_back({
+            ChessSemanticEventType::InternalSkillAcquired,
+            ChessInternalSkillAcquiredEventDetail{selected.value},
+        });
     }
     else if (pendingKind == ChessRewardKind::Piece)
     {
@@ -548,7 +561,10 @@ void ChessRewardRules::apply(
         if (type == RT::Gold)
         {
             state.money += selected.value2;
-            events.push_back({ChessSemanticEventType::GoldAwarded, {}, {}, selected.value2});
+            events.push_back({
+                ChessSemanticEventType::GoldAwarded,
+                ChessGoldAwardedEventDetail{{}, {}, selected.value2, selected.value2, -1},
+            });
         }
         else if (type == RT::GetSpecificEquipment)
         {
@@ -569,7 +585,15 @@ void ChessRewardRules::apply(
     {
         completeChallengeReward(state, challengeName, events);
     }
-    events.push_back({ChessSemanticEventType::RewardChosen, {}, {}, {}, action.rewardId});
+    events.push_back({
+        ChessSemanticEventType::RewardChosen,
+        ChessRewardChosenEventDetail{
+            action.rewardId,
+            selected.kind,
+            selected.value,
+            selected.value2,
+        },
+    });
 }
 
 }

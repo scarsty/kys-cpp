@@ -6,6 +6,7 @@
 #include <regex>
 #include <set>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 namespace
@@ -119,6 +120,18 @@ bool containsAny(
     });
 }
 
+std::size_t countOccurrences(std::string_view text, std::string_view token)
+{
+    std::size_t count{};
+    for (std::size_t position = 0;
+         (position = text.find(token, position)) != std::string_view::npos;
+         position += token.size())
+    {
+        ++count;
+    }
+    return count;
+}
+
 std::set<std::string> gameplayRuleCalls(const std::filesystem::path& source)
 {
     const auto text = readText(source);
@@ -207,6 +220,79 @@ TEST_CASE("graphical adapters do not call gameplay mutation owners", "[chess][de
             CHECK(allowedQueries.contains(call));
         }
     }
+}
+
+TEST_CASE("shared chess read models remain frontend neutral",
+          "[chess][dependency][read-model][source-scan]")
+{
+    const auto root = std::filesystem::current_path() / "src";
+    const std::vector<std::string> forbidden{
+        "ChessJson",
+        "ChessGui",
+        "<glaze/",
+        "\"Engine.h\"",
+        "\"Audio.h\"",
+        "\"Font.h\"",
+        "\"RunNode.h\"",
+    };
+    for (const auto* name : {
+             "ChessActionOffers.h",
+             "ChessActionOffers.cpp",
+             "ChessCatalogQueries.h",
+             "ChessCatalogQueries.cpp",
+             "ChessGameQueries.h",
+             "ChessGameQueries.cpp",
+             "ChessPreparedBattleAnalysis.h",
+             "ChessPreparedBattleAnalysis.cpp",
+             "ChessBattleAnalysis.h",
+             "ChessBattleAnalysis.cpp",
+         })
+    {
+        const auto source = root / name;
+        CAPTURE(source.string());
+        CHECK_FALSE(containsAny(source, forbidden));
+    }
+}
+
+TEST_CASE("JSON protocol is routing-only and raw state access stays infrastructure-scoped",
+          "[chess][dependency][json][source-scan]")
+{
+    const auto root = std::filesystem::current_path() / "src";
+    const auto protocol = readText(root / "ChessJsonProtocol.cpp");
+    CHECK(protocol.contains("#include \"ChessJsonCodec.h\""));
+    CHECK_FALSE(containsAny(
+        root / "ChessJsonProtocol.cpp",
+        {
+            "ChessCatalogQueries",
+            "ChessGameQueries",
+            "ChessPreparedBattleAnalysis",
+            "ChessBattleAnalysis",
+            "queryChess",
+            "analyzeChess",
+            "BattleReportEvent",
+            "UnitCombatAggregate",
+            "struct RoleStatsDto",
+            "struct ObservationDto",
+        }));
+    CHECK(countOccurrences(protocol, "state()") == 1);
+    CHECK(protocol.contains("const auto before = session_->state();"));
+    CHECK(countOccurrences(protocol, "content()") == 1);
+    CHECK(protocol.contains("session_->content().gameVersion()"));
+
+    const auto codec = readText(root / "ChessJsonCodec.cpp");
+    CHECK(codec.contains("queryChessShop("));
+    CHECK(codec.contains("queryChessInstance("));
+    CHECK(codec.contains("queryChessBans("));
+    CHECK(codec.contains("analyzePreparedChessBattle("));
+    CHECK(codec.contains("analyzeChessBattleResult("));
+    CHECK_FALSE(codec.contains("UnitCombatAggregate"));
+    CHECK_FALSE(codec.contains("battleEventText"));
+
+    const auto dtos = readText(root / "ChessJsonDtos.h");
+    CHECK_FALSE(dtos.contains("ChessSessionState"));
+    CHECK_FALSE(dtos.contains("ChessGameContent"));
+    CHECK_FALSE(dtos.contains("Engine"));
+    CHECK_FALSE(dtos.contains("Audio"));
 }
 
 TEST_CASE("retired auto-chess rule paths remain deleted", "[chess][dependency][legacy][source-scan]")

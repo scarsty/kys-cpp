@@ -109,10 +109,12 @@ TEST_CASE("configured victory economy grants combo gold and one persisted free r
     CHECK(state.freeShopRefreshGrantedFight == 1);
     const auto gold = std::ranges::find(events, ChessSemanticEventType::GoldAwarded, &ChessSemanticEvent::type);
     REQUIRE(gold != events.end());
-    CHECK(gold->primaryId == 3);
-    CHECK(gold->secondaryId == 0);
-    CHECK(gold->value == 9);
-    CHECK(gold->stableId == "combo:7");
+    const auto& detail = chessSemanticEventDetail<ChessGoldAwardedEventDetail>(*gold);
+    CHECK(detail.baseGold == 3);
+    CHECK(detail.interestGold == 0);
+    CHECK(detail.otherGold == 6);
+    CHECK(detail.totalGold == 9);
+    CHECK(detail.sourceComboId == 7);
 
     state.money = 0;
     ChessAction refresh;
@@ -126,7 +128,7 @@ TEST_CASE("configured victory economy grants combo gold and one persisted free r
     REQUIRE(refreshEvents.size() == 2);
     CHECK(refreshEvents.front().type == ChessSemanticEventType::FreeShopRefreshConsumed);
     CHECK(refreshEvents.back().type == ChessSemanticEventType::ShopRefreshed);
-    CHECK(refreshEvents.back().value == 0);
+    CHECK(chessSemanticEventDetail<ChessShopRefreshedEventDetail>(refreshEvents.back()).cost == 0);
 }
 
 TEST_CASE("experience gain uses one shared legacy level step", "[chess][progression][experience]")
