@@ -5,6 +5,7 @@
 #include "battle/BattleRuntimeSession.h"
 
 #include <set>
+#include <vector>
 
 namespace KysChess
 {
@@ -14,6 +15,10 @@ class BattleSetupFactory
 public:
     static void populateBaseFormation(
         PreparedChessBattle& prepared,
+        const ChessGameContent& content);
+
+    static std::vector<PreparedChessBattleUnit> resolvePreparedFormation(
+        const PreparedChessBattle& prepared,
         const ChessGameContent& content);
 
     static Battle::BattleRuntimeSessionCreationInput build(

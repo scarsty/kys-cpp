@@ -2,6 +2,8 @@
 
 `kys_chess_cli` 是唯一的遊戲規則程序；Python MCP 服務只維護一個 JSONL 子程序並轉送要求。GUI、CLI、存檔與重播驗證都使用同一個 `ChessGameSession`。
 
+JSON／MCP 的角色、裝備、羈絆與遠征中繼資料由 `ChessCatalogQueries` 提供，商店、棋子與禁棋檢視由 `ChessGameQueries` 提供，戰後檢視由 `ChessBattleAnalysis` 提供。這些是應用層讀取服務，不代表圖形介面使用相同的完整投影。圖形介面只共用確實需要一致的目錄基礎計算，以及 `ChessPreparedBattleAnalysis` 的完整戰前初始化結果；合法行動與語意事件仍使用既有的 `ChessGameSession` 契約。JSON 的欄位、detail 分層及錯誤信封由 `ChessJsonDtos`、`ChessJsonCodec` 與 `ChessJsonProtocol` 負責。
+
 ## 啟動
 
 ```powershell
@@ -18,7 +20,7 @@
 
 接著使用 `observe`、`legal_actions` 與 `act`。`observe` 同時列出遊戲狀態、存檔欄位及工作階段操作，並附上目前決策相關的角色名稱、數值、武學、羈絆、裝備及獎勵效果。未擁有任何成員的羈絆不會塞入觀察結果。難度規則直接以 `total_campaign_rounds`、`boss_interval`、`forced_bans_enabled` 與 `maximum_interest_gold` 呈現，例如簡單難度會明示 28 輪且不啟用強制禁棋。
 
-`legal_actions` 的每一列都包含可直接提交的 `action_schema`、`example`、候選值名稱與說明。會花費金幣的操作另有 `economic_preview`，列出目前金幣、實際費用、操作後金幣與結果；購買經驗還會預估操作後等級及經驗，刷新類操作會列出受影響的欄位或選項數。商店棋子、出售棋子及神兵候選也各自列出 `gold_cost`／`gold_gain` 與 `projected_gold_after`。例如部署操作為：
+`legal_actions` 的每一列都包含可直接提交的 `action_schema`、`example`、候選值名稱與說明。`minimum_selection` 與 `maximum_selection` 現在表示該決策真正需要的選取數：單選通常為 `1/1`、交換站位為 `2/2`、可選多人出戰則由目前出戰上限決定，不再以預設零值佔位。這是讀取模型重構中唯一刻意調整的 MCP 可見數值；欄位名稱與操作語意不變。會花費金幣的操作另有 `economic_preview`，列出目前金幣、實際費用、操作後金幣與結果；購買經驗還會預估操作後等級及經驗，刷新類操作會列出受影響的欄位或選項數。商店棋子、出售棋子及神兵候選也各自列出 `gold_cost`／`gold_gain` 與 `projected_gold_after`。例如部署操作為：
 
 ```json
 {"type":"set_deployment","chess_instance_ids":[1,2]}

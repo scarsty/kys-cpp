@@ -6,7 +6,7 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
-TEST_CASE("management queries are pure and share authoritative projections",
+TEST_CASE("management inspection queries are pure",
           "[chess][game-queries][purity]")
 {
     ChessGameSession session(managementContent(), 51);
@@ -17,20 +17,15 @@ TEST_CASE("management queries are pure and share authoritative projections",
     const auto chainBefore = session.journal().chainHash();
     const auto decisionCountBefore = session.journal().decisions().size();
     const auto hashBefore = session.observe().stateHash;
-    const auto validate = [&](const ChessAction& action) { return session.validateAction(action); };
-
-    const auto observation = queryChessGameplayObservation(
-        session.state(), session.content(), session.random());
     const auto odds = queryChessShopOdds(session.state(), session.content(), session.state().level);
-    const auto slot = queryChessShopSlot(session.state(), session.content(), 2, validate);
-    const auto shop = queryChessShop(session.state(), session.content(), validate);
+    const auto slot = queryChessShopSlot(session.state(), session.content(), 2);
+    const auto shop = queryChessShop(session.state(), session.content());
     const auto piece = queryChessInstance(
         session.state(),
         session.content(),
         session.state().roster.begin()->first);
     const auto bans = queryChessBans(session.state(), session.content(), session.legalActions());
 
-    CHECK(observation.stateHash == hashBefore);
     CHECK(odds.tiers.front().probability == 1.0);
     CHECK(slot.ownedCopies == 2);
     CHECK(slot.projectedResult == ChessProjectedPurchaseResult::Merge);

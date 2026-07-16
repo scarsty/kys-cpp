@@ -49,8 +49,8 @@ ChessReplayVerificationResult ChessReplayVerifier::verify(
         if (expected.preStateHash != session.observe().stateHash)
             return mismatch(ChessReplayMismatch::PreState, sequence, "前置狀態雜湊不相符");
         const auto legal = session.legalActions();
-        if (std::ranges::none_of(legal, [&](const ChessActionOffer& offer) {
-                return offer.type == expected.action.type;
+        if (std::ranges::none_of(legal, [&](const ChessLegalActionDescriptor& descriptor) {
+                return descriptor.type == expected.action.type;
             }))
         {
             return mismatch(ChessReplayMismatch::IllegalAction, sequence, "記錄的操作不在合法操作集合內");

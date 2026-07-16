@@ -69,6 +69,9 @@ struct ChessPreparedBattleAnalysis
     std::string initializedStatsNote;
 };
 
+ChessPreparedBattleAnalysis projectPreparedChessBattle(
+    const PreparedChessBattle& prepared,
+    const ChessGameContent& content);
 ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content,

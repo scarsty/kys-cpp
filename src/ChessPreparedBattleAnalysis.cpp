@@ -64,11 +64,9 @@ void appendSkillAssets(
 
 }  // namespace
 
-ChessPreparedBattleAnalysis analyzePreparedChessBattle(
+ChessPreparedBattleAnalysis projectPreparedChessBattle(
     const PreparedChessBattle& prepared,
-    const ChessGameContent& content,
-    const std::set<int>& obtainedNeigongIds,
-    int maximumFrames)
+    const ChessGameContent& content)
 {
     ChessPreparedBattleAnalysis result;
     result.identity.kind = prepared.kind;
@@ -86,10 +84,10 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
             chessBattleMapDisplayName(content, mapId),
         });
     }
-    result.baselineStatsNote = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果另見隊伍羈絆及裝備說明";
-    result.initializedStatsNote = "已計入星級、勝場成長、裝備基礎屬性、羈絆、內功與裝備特殊效果的開戰數值";
-
-    for (const auto& source : prepared.units)
+    const auto formation = prepared.chosenMapId < 0 && !prepared.mapCandidates.empty()
+        ? prepared.units
+        : BattleSetupFactory::resolvePreparedFormation(prepared, content);
+    for (const auto& source : formation)
     {
         const auto* role = content.role(source.roleId);
         assert(role);
@@ -108,9 +106,28 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
         unit.weaponName = chessItemDisplayName(content, source.weaponItemId);
         unit.armorItemId = source.armorItemId;
         unit.armorName = chessItemDisplayName(content, source.armorItemId);
+        result.units.push_back(std::move(unit));
+    }
+    return result;
+}
+
+ChessPreparedBattleAnalysis analyzePreparedChessBattle(
+    const PreparedChessBattle& prepared,
+    const ChessGameContent& content,
+    const std::set<int>& obtainedNeigongIds,
+    int maximumFrames)
+{
+    auto result = projectPreparedChessBattle(prepared, content);
+    result.baselineStatsNote = "已計入星級、勝場成長與裝備基礎屬性；羈絆與裝備特殊效果另見隊伍羈絆及裝備說明";
+    result.initializedStatsNote = "已計入星級、勝場成長、裝備基礎屬性、羈絆、內功與裝備特殊效果的開戰數值";
+    for (std::size_t index = 0; index < prepared.units.size(); ++index)
+    {
+        const auto& source = prepared.units[index];
+        auto& unit = result.units[index];
+        const auto* role = content.role(source.roleId);
+        assert(role);
         unit.baselineStats = chessPreparedUnitBaselineStats(content, source);
         unit.abilities = chessAbilitiesForRoleStar(content, *role, source.star);
-        result.units.push_back(std::move(unit));
     }
 
     if (prepared.chosenMapId < 0 && !prepared.mapCandidates.empty())

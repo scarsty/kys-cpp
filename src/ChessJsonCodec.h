@@ -100,10 +100,10 @@ ObservationDto observationDto(
     const ChessGameContent& content,
     ObservationDetail detail = ObservationDetail::Full,
     std::string roleMetadataScope = {},
-    std::span<const ChessActionOffer> legalActions = {});
+    std::span<const ChessLegalActionDescriptor> legalActions = {});
 LegalActionDto legalActionDto(
     const ChessGameSession& session,
-    const ChessActionOffer& offer);
+    const ChessLegalActionDescriptor& descriptor);
 std::optional<ShopOddsDto> inspectShopOddsDto(
     const ChessGameSession& session,
     std::optional<int> level);

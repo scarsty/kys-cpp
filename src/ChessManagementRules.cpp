@@ -109,16 +109,18 @@ void mergeAvailablePieces(
             }
             for (auto& event : events)
             {
-                auto* detail = std::get_if<ChessMergeEventDetail>(&event.payload);
-                if (detail && std::ranges::contains(consumed, detail->newInstanceId))
+                if (event.merge && std::ranges::contains(consumed, event.primaryId))
                 {
-                    detail->recursiveMergeFollowed = true;
+                    event.merge->recursiveMergeFollowed = true;
                 }
             }
+            ChessSemanticEvent event{
+                ChessSemanticEventType::ChessMerged,
+                upgraded.instanceId,
+                roleId,
+                upgraded.star,
+            };
             ChessMergeEventDetail detail;
-            detail.newInstanceId = upgraded.instanceId;
-            detail.roleId = roleId;
-            detail.resultStar = upgraded.star;
             detail.consumedInstanceIds = std::move(consumed);
             detail.inheritedFightsWon = fightsWon;
             detail.deployed = deployed;
@@ -130,7 +132,8 @@ void mergeAvailablePieces(
             {
                 detail.transferredEquipmentInstanceIds.push_back(upgraded.armorInstanceId);
             }
-            events.push_back({ChessSemanticEventType::ChessMerged, std::move(detail)});
+            event.merge = std::move(detail);
+            events.push_back(std::move(event));
         }
     }
 }
@@ -472,12 +475,12 @@ void ChessManagementRules::apply(
             events.push_back({ChessSemanticEventType::FreeShopRefreshConsumed});
         }
         refreshShop(state, content, random);
-        events.push_back({ChessSemanticEventType::ShopRefreshed, ChessShopRefreshedEventDetail{cost}});
+        events.push_back({ChessSemanticEventType::ShopRefreshed, {}, {}, cost, {}});
         return;
     }
     case ChessActionType::SetShopLocked:
         state.shopLocked = action.value;
-        events.push_back({ChessSemanticEventType::ShopLockChanged, ChessShopLockChangedEventDetail{action.value}});
+        events.push_back({ChessSemanticEventType::ShopLockChanged, {}, {}, action.value ? 1 : 0, {}});
         return;
     case ChessActionType::BuyShopSlot:
     {
@@ -503,23 +506,17 @@ void ChessManagementRules::apply(
             state.equipmentInventory.at(piece.armorInstanceId).assignedChessInstanceId = -1;
         }
         state.money += price;
-        events.push_back({
-            ChessSemanticEventType::ChessSold,
-            ChessSoldEventDetail{action.chessInstanceId, piece.roleId, price},
-        });
+        events.push_back({ChessSemanticEventType::ChessSold, action.chessInstanceId, piece.roleId, price, {}});
         return;
     }
     case ChessActionType::BuyExp:
     {
         state.money -= balance.buyExpCost;
         const bool leveled = gainExperience(state, content, balance.buyExpAmount);
-        events.push_back({
-            ChessSemanticEventType::ExperiencePurchased,
-            ChessExperiencePurchasedEventDetail{balance.buyExpAmount},
-        });
+        events.push_back({ChessSemanticEventType::ExperiencePurchased, {}, {}, balance.buyExpAmount, {}});
         if (leveled)
         {
-            events.push_back({ChessSemanticEventType::LevelChanged, ChessLevelChangedEventDetail{state.level}});
+            events.push_back({ChessSemanticEventType::LevelChanged, {}, {}, state.level, {}});
         }
         return;
     }
@@ -530,17 +527,12 @@ void ChessManagementRules::apply(
         {
             piece.deployed = selected.contains(id);
         }
-        events.push_back({
-            ChessSemanticEventType::DeploymentChanged,
-            ChessDeploymentChangedEventDetail{
-                std::vector<int>(selected.begin(), selected.end()),
-            },
-        });
+        events.push_back({ChessSemanticEventType::DeploymentChanged, {}, {}, static_cast<int>(selected.size()), {}});
         return;
     }
     case ChessActionType::AddBan:
         state.bannedRoleIds.insert(action.roleId);
-        events.push_back({ChessSemanticEventType::RoleBanned, ChessRoleBannedEventDetail{action.roleId}});
+        events.push_back({ChessSemanticEventType::RoleBanned, action.roleId, {}, {}, {}});
         if (forcedBan)
         {
             auto& pending = state.pendingRewards.front();
@@ -565,7 +557,6 @@ void ChessManagementRules::apply(
         auto& equipment = state.equipmentInventory.at(action.equipmentInstanceId);
         const auto* definition = equipmentDefinition(content, equipment.itemId);
         assert(definition);
-        const int previousChessInstanceId = equipment.assignedChessInstanceId;
         if (equipment.assignedChessInstanceId >= 0)
         {
             auto& oldPiece = state.roster.at(equipment.assignedChessInstanceId);
@@ -578,7 +569,6 @@ void ChessManagementRules::apply(
         auto& targetSlot = definition->equipType == 0
             ? target.weaponInstanceId
             : target.armorInstanceId;
-        const int displacedEquipmentInstanceId = targetSlot;
         if (targetSlot >= 0)
         {
             state.equipmentInventory.at(targetSlot).assignedChessInstanceId = -1;
@@ -587,13 +577,9 @@ void ChessManagementRules::apply(
         equipment.assignedChessInstanceId = target.instanceId;
         events.push_back({
             ChessSemanticEventType::EquipmentAssigned,
-            ChessEquipmentAssignedEventDetail{
-                equipment.instanceId,
-                equipment.itemId,
-                target.instanceId,
-                previousChessInstanceId,
-                displacedEquipmentInstanceId,
-            },
+            equipment.instanceId,
+            target.instanceId,
+            equipment.itemId,
         });
         return;
     }
@@ -603,34 +589,33 @@ void ChessManagementRules::apply(
         const int instanceId = grantEquipment(state, action.itemId, events);
         events.push_back({
             ChessSemanticEventType::LegendaryEquipmentPurchased,
-            ChessLegendaryEquipmentPurchasedEventDetail{
-                instanceId,
-                action.itemId,
-                balance.legendaryShop.price,
-            },
+            instanceId,
+            action.itemId,
+            balance.legendaryShop.price,
         });
         return;
     }
     case ChessActionType::SetPositionSwapEnabled:
         state.options.positionSwapEnabled = action.value;
-        events.push_back({
-            ChessSemanticEventType::PositionSwapOptionChanged,
-            ChessPositionSwapOptionChangedEventDetail{action.value},
-        });
+        events.push_back({ChessSemanticEventType::PositionSwapOptionChanged, {}, {}, action.value ? 1 : 0, {}});
         return;
     case ChessActionType::RerollEnemySeed:
     {
         const auto previousEnemyPlanKey = random.enemyPlanIdentity();
         state.money -= balance.enemyRerollCost;
         random.rerollEnemySeed();
-        events.push_back({
+        ChessSemanticEvent event{
             ChessSemanticEventType::EnemyPlanRerolled,
-            ChessEnemyPlanRerollEventDetail{
-                balance.enemyRerollCost,
-                previousEnemyPlanKey,
-                random.enemyPlanIdentity(),
-            },
-        });
+            {},
+            {},
+            balance.enemyRerollCost,
+        };
+        event.enemyPlanReroll = ChessEnemyPlanRerollEventDetail{
+            balance.enemyRerollCost,
+            previousEnemyPlanKey,
+            random.enemyPlanIdentity(),
+        };
+        events.push_back(std::move(event));
         return;
     }
     default:
@@ -650,10 +635,7 @@ int ChessManagementRules::grantPiece(
     piece.instanceId = state.nextChessInstanceId++;
     piece.roleId = roleId;
     state.roster.emplace(piece.instanceId, piece);
-    events.push_back({
-        ChessSemanticEventType::ChessPurchased,
-        ChessPurchasedEventDetail{piece.instanceId, roleId, eventValue},
-    });
+    events.push_back({ChessSemanticEventType::ChessPurchased, piece.instanceId, roleId, eventValue});
     mergeAvailablePieces(state, content, roleId, events);
     return piece.instanceId;
 }
@@ -682,10 +664,7 @@ int ChessManagementRules::grantEquipment(
     equipment.instanceId = state.nextEquipmentInstanceId++;
     equipment.itemId = itemId;
     state.equipmentInventory.emplace(equipment.instanceId, equipment);
-    events.push_back({
-        ChessSemanticEventType::EquipmentAcquired,
-        ChessEquipmentAcquiredEventDetail{equipment.instanceId, itemId},
-    });
+    events.push_back({ChessSemanticEventType::EquipmentAcquired, equipment.instanceId, itemId});
     return equipment.instanceId;
 }
 
@@ -698,16 +677,15 @@ void ChessManagementRules::upgradePiece(
 {
     auto& piece = state.roster.at(chessInstanceId);
     piece.star = newStar;
+    ChessSemanticEvent event{ChessSemanticEventType::ChessMerged, chessInstanceId, piece.roleId, newStar};
     ChessMergeEventDetail detail;
-    detail.newInstanceId = chessInstanceId;
-    detail.roleId = piece.roleId;
-    detail.resultStar = newStar;
     detail.consumedInstanceIds = {chessInstanceId};
     detail.inheritedFightsWon = piece.fightsWon;
     detail.deployed = piece.deployed;
     if (piece.weaponInstanceId >= 0) detail.transferredEquipmentInstanceIds.push_back(piece.weaponInstanceId);
     if (piece.armorInstanceId >= 0) detail.transferredEquipmentInstanceIds.push_back(piece.armorInstanceId);
-    events.push_back({ChessSemanticEventType::ChessMerged, std::move(detail)});
+    event.merge = std::move(detail);
+    events.push_back(std::move(event));
     mergeAvailablePieces(state, content, piece.roleId, events);
 }
 

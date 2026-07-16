@@ -1,8 +1,6 @@
 #include "ChessGameQueries.h"
 
 #include "ChessManagementRules.h"
-#include "ChessProgressionRules.h"
-#include "ChessReplayJournal.h"
 
 #include <algorithm>
 #include <cassert>
@@ -11,72 +9,6 @@
 
 namespace KysChess
 {
-
-ChessGameplayObservation queryChessGameplayObservation(
-    const ChessSessionState& state,
-    const ChessGameContent& content,
-    const ChessRunRandom& random)
-{
-    ChessGameplayObservation observation;
-    observation.phase = state.phase;
-    observation.difficulty = content.difficulty();
-    observation.options = state.options;
-    observation.money = state.money;
-    observation.interestGold = ChessProgressionRules::interestGold(state, content);
-    observation.nextInterestThreshold = ChessProgressionRules::nextInterestThreshold(state, content);
-    observation.maximumInterestGold = content.balance().interestMax;
-    observation.projectedBaseVictoryGold = ChessProgressionRules::baseVictoryGold(state, content);
-    observation.projectedVictoryIncome = ChessProgressionRules::projectedVictoryIncome(state, content);
-    observation.experience = state.experience;
-    observation.experienceForNextLevel = ChessManagementRules::experienceForNextLevel(state, content);
-    observation.level = state.level;
-    observation.maximumDeployment = ChessManagementRules::maximumDeployment(state, content);
-    observation.maximumBanCount = ChessManagementRules::maximumBanCount(state, content);
-    observation.fight = state.fight;
-    observation.campaignComplete = state.campaignComplete;
-    observation.shopLocked = state.shopLocked;
-    observation.freeShopRefreshAvailable = state.freeShopRefreshAvailable;
-    observation.freeShopRefreshGrantedFight = state.freeShopRefreshGrantedFight;
-    observation.shop = state.shop;
-    for (const auto& [id, piece] : state.roster)
-    {
-        observation.roster.push_back(piece);
-    }
-    for (const auto& [id, equipment] : state.equipmentInventory)
-    {
-        observation.equipmentInventory.push_back(equipment);
-    }
-    observation.bans.assign(state.bannedRoleIds.begin(), state.bannedRoleIds.end());
-    observation.seenRoles.assign(state.seenRoleIds.begin(), state.seenRoleIds.end());
-    observation.obtainedNeigongIds.assign(
-        state.obtainedNeigongIds.begin(),
-        state.obtainedNeigongIds.end());
-    observation.completedChallengeNames.assign(
-        state.completedChallengeNames.begin(),
-        state.completedChallengeNames.end());
-    for (const auto& combo : content.combos())
-    {
-        const auto progress = evaluateChessComboProgress(state, content, combo);
-        observation.combos.push_back({
-            combo.id,
-            progress.physicalCount,
-            progress.effectiveCount,
-            progress.activeThresholdIndex,
-            progress.nextThresholdIndex,
-            progress.contributions,
-        });
-    }
-    observation.preparedBattle = state.preparedBattle;
-    if (!state.pendingRewards.empty())
-    {
-        observation.pendingReward = state.pendingRewards.front();
-    }
-    observation.lastBattleOutcome = state.lastBattleOutcome;
-    observation.lastBattleEndFrame = state.lastBattleEndFrame;
-    observation.lastBattleDigest = state.lastBattleDigest;
-    observation.stateHash = canonicalChessStateHash(state, random);
-    return observation;
-}
 
 ChessShopOddsAnalysis queryChessShopOdds(
     const ChessSessionState& state,
@@ -114,8 +46,7 @@ ChessShopOddsAnalysis queryChessShopOdds(
 ChessShopSlotAnalysis queryChessShopSlot(
     const ChessSessionState& state,
     const ChessGameContent& content,
-    int slotIndex,
-    const ChessActionValidator& validate)
+    int slotIndex)
 {
     assert(slotIndex >= 0 && slotIndex < static_cast<int>(state.shop.size()));
     ChessShopSlotAnalysis result;
@@ -146,7 +77,7 @@ ChessShopSlotAnalysis queryChessShopSlot(
     ChessAction purchase;
     purchase.type = ChessActionType::BuyShopSlot;
     purchase.shopSlot = slotIndex;
-    result.purchaseError = validate(purchase);
+    result.purchaseError = ChessManagementRules::validate(state, content, purchase);
 
     auto projected = state;
     std::vector<ChessSemanticEvent> projectedEvents;
@@ -160,13 +91,12 @@ ChessShopSlotAnalysis queryChessShopSlot(
             {
                 continue;
             }
-            const auto& merge = chessSemanticEventDetail<ChessMergeEventDetail>(event);
-            if (merge.roleId == role->ID)
+            if (event.secondaryId == role->ID)
             {
                 result.projectedResult = ChessProjectedPurchaseResult::Merge;
                 result.projectedResultStar = std::max(
                     result.projectedResultStar,
-                    merge.resultStar);
+                    event.value);
             }
         }
     }
@@ -192,15 +122,14 @@ ChessShopSlotAnalysis queryChessShopSlot(
 
 ChessShopAnalysis queryChessShop(
     const ChessSessionState& state,
-    const ChessGameContent& content,
-    const ChessActionValidator& validate)
+    const ChessGameContent& content)
 {
     ChessShopAnalysis result;
     result.money = state.money;
     result.level = state.level;
     for (int slot = 0; slot < static_cast<int>(state.shop.size()); ++slot)
     {
-        result.slots.push_back(queryChessShopSlot(state, content, slot, validate));
+        result.slots.push_back(queryChessShopSlot(state, content, slot));
     }
     result.odds = queryChessShopOdds(state, content, state.level);
     return result;
@@ -272,7 +201,7 @@ ChessInstanceAnalysis queryChessInstance(
 ChessBanAnalysis queryChessBans(
     const ChessSessionState& state,
     const ChessGameContent& content,
-    const std::vector<ChessActionOffer>& offers)
+    const std::vector<ChessLegalActionDescriptor>& legalActions)
 {
     ChessBanAnalysis result;
     result.currentBanCount = static_cast<int>(state.bannedRoleIds.size());
@@ -297,13 +226,13 @@ ChessBanAnalysis queryChessBans(
         state.bannedRoleIds.begin(),
         state.bannedRoleIds.end()));
     std::vector<int> eligible;
-    const auto legalBan = std::ranges::find(offers, ChessActionType::AddBan, &ChessActionOffer::type);
-    if (legalBan != offers.end())
+    const auto legalBan = std::ranges::find(
+        legalActions,
+        ChessActionType::AddBan,
+        &ChessLegalActionDescriptor::type);
+    if (legalBan != legalActions.end())
     {
-        for (const auto& candidate : chessActionOfferDetail<ChessRoleSelectionOffer>(*legalBan).candidates)
-        {
-            eligible.push_back(candidate.roleId);
-        }
+        eligible = legalBan->candidateIds;
     }
     result.eligibleBansByCost = groupedRoles(eligible);
     result.effectTiming = "禁棋只影響之後生成或刷新的商店；目前商店既有棋子仍可購買";

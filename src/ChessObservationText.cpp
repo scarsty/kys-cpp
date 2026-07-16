@@ -64,7 +64,7 @@ std::string activeComboEffectSourceText(
 std::string ChessObservationText::format(
     const ChessGameplayObservation& observation,
     const ChessGameContent& content,
-    const std::vector<ChessActionOffer>& legalActions)
+    const std::vector<ChessLegalActionDescriptor>& legalActions)
 {
     std::string text = std::format(
         "難度：{}  階段：{}  第{}戰  等級{}  經驗{}/{}  金幣${}\n",
@@ -182,62 +182,18 @@ std::string ChessObservationText::format(
     for (const auto& action : legalActions)
     {
         text += std::format("  {}", chessActionTypeId(action.type));
-        std::vector<int> candidateIds;
-        std::vector<std::string> candidateStableIds;
-        switch (action.type)
-        {
-        case ChessActionType::BuyShopSlot:
-            for (const auto& candidate : chessActionOfferDetail<ChessShopSlotSelectionOffer>(action).candidates)
-                candidateIds.push_back(candidate.slot);
-            break;
-        case ChessActionType::SellChess:
-        case ChessActionType::SetDeployment:
-            for (const auto& candidate : chessActionOfferDetail<ChessPieceSelectionOffer>(action).candidates)
-                candidateIds.push_back(candidate.chessInstanceId);
-            break;
-        case ChessActionType::AddBan:
-            for (const auto& candidate : chessActionOfferDetail<ChessRoleSelectionOffer>(action).candidates)
-                candidateIds.push_back(candidate.roleId);
-            break;
-        case ChessActionType::Equip:
-            for (const auto& candidate : chessActionOfferDetail<ChessEquipmentAssignmentOffer>(action).equipment)
-                candidateIds.push_back(candidate.equipmentInstanceId);
-            break;
-        case ChessActionType::BuyLegendaryEquipment:
-            for (const auto& candidate : chessActionOfferDetail<ChessItemSelectionOffer>(action).candidates)
-                candidateIds.push_back(candidate.itemId);
-            break;
-        case ChessActionType::ChooseMap:
-            for (const auto& candidate : chessActionOfferDetail<ChessMapSelectionOffer>(action).candidates)
-                candidateIds.push_back(candidate.mapId);
-            break;
-        case ChessActionType::SwapPositions:
-            for (const auto& candidate : chessActionOfferDetail<ChessPositionSwapOffer>(action).candidates)
-                candidateIds.push_back(candidate.unitId);
-            break;
-        case ChessActionType::ChooseReward:
-            for (const auto& candidate : chessActionOfferDetail<ChessRewardSelectionOffer>(action).candidates)
-                candidateStableIds.push_back(candidate.rewardId);
-            break;
-        case ChessActionType::StartChallenge:
-            for (const auto& candidate : chessActionOfferDetail<ChessChallengeSelectionOffer>(action).candidates)
-                candidateStableIds.push_back(candidate.challengeName);
-            break;
-        default:
-            break;
-        }
-        if (!candidateIds.empty())
+        if (!action.candidateIds.empty())
         {
             text += " ids=";
-            for (const int id : candidateIds)
+            for (const int id : action.candidateIds)
             {
                 text += std::format("{} ", id);
             }
         }
-        if (!candidateStableIds.empty())
+        if (!action.candidateStableIds.empty())
         {
             text += " 選項=";
-            for (const auto& id : candidateStableIds)
+            for (const auto& id : action.candidateStableIds)
             {
                 text += id + " ";
             }

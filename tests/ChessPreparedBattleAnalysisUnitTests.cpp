@@ -29,6 +29,43 @@ PreparedChessBattle analysisBattle()
 
 }  // namespace
 
+TEST_CASE("prepared battle projection shares resolved runtime formation without initializing combat",
+          "[chess][prepared-analysis][projection]")
+{
+    const auto content = configuredMapChoiceContent();
+    auto prepared = analysisBattle();
+    prepared.units[0].x = 2;
+    prepared.units[0].y = 3;
+    prepared.units[1].x = 7;
+    prepared.units[1].y = 8;
+
+    const auto resolved = BattleSetupFactory::resolvePreparedFormation(prepared, *content);
+    const auto projection = projectPreparedChessBattle(prepared, *content);
+    const auto input = BattleSetupFactory::build(prepared, *content, {}, 36000);
+
+    CHECK_FALSE(projection.combatInitialized);
+    CHECK(projection.allySynergies.empty());
+    REQUIRE(projection.units.size() == prepared.units.size());
+    for (const auto& unit : projection.units)
+    {
+        const auto expected = std::ranges::find(
+            resolved,
+            unit.unitId,
+            &PreparedChessBattleUnit::unitId);
+        const auto runtimeInput = std::ranges::find(
+            input.units,
+            unit.unitId,
+            &Battle::BattleSetupUnitInput::unitId);
+        REQUIRE(expected != resolved.end());
+        REQUIRE(runtimeInput != input.units.end());
+        CHECK(unit.x == expected->x);
+        CHECK(unit.y == expected->y);
+        CHECK(unit.x == runtimeInput->gridX);
+        CHECK(unit.y == runtimeInput->gridY);
+        CHECK_FALSE(unit.initializedCombatStats);
+    }
+}
+
 TEST_CASE("prepared battle analysis uses final formation and initialized runtime stats",
           "[chess][prepared-analysis][parity]")
 {

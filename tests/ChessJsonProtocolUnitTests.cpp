@@ -50,6 +50,12 @@ struct SessionObservationView
     std::vector<std::string> operations;
     std::string load_consequence;
 };
+struct LegalActionCardinalityView
+{
+    std::string type;
+    int minimum_selection{};
+    int maximum_selection{};
+};
 struct ImportSaveParams { std::string slot; std::string payload; };
 struct ImportSaveRequest { glz::raw_json id = "8"; std::string method = "import_save"; ImportSaveParams params; };
 
@@ -71,6 +77,30 @@ int substringCount(std::string_view text, std::string_view needle)
         ++count;
     }
     return count;
+}
+
+std::vector<LegalActionCardinalityView> legalActionCardinalities(
+    ChessJsonProtocol& protocol,
+    int requestId)
+{
+    const auto response = parseResponse(protocol.handleLine(std::format(
+        R"({{"id":{},"method":"legal_actions","params":{{}}}})",
+        requestId)));
+    REQUIRE(response.ok);
+    REQUIRE(response.result);
+    std::vector<LegalActionCardinalityView> actions;
+    constexpr auto options = glz::opts{.error_on_unknown_keys = false};
+    REQUIRE_FALSE(glz::read<options>(actions, response.result->str));
+    return actions;
+}
+
+const LegalActionCardinalityView& requireLegalAction(
+    const std::vector<LegalActionCardinalityView>& actions,
+    std::string_view type)
+{
+    const auto found = std::ranges::find(actions, type, &LegalActionCardinalityView::type);
+    REQUIRE(found != actions.end());
+    return *found;
 }
 
 }
@@ -383,6 +413,14 @@ TEST_CASE("JSON protocol keeps compact forced-ban and rejected-action responses 
     CHECK(pendingJson.contains("\"eligible_tiers\":[1]"));
     CHECK_FALSE(pendingJson.contains("\"options\""));
 
+    const auto legal = legalActionCardinalities(protocol, 20);
+    const auto& ban = requireLegalAction(legal, "add_ban");
+    CHECK(ban.minimum_selection == 1);
+    CHECK(ban.maximum_selection == 1);
+    const auto& skip = requireLegalAction(legal, "skip_forced_bans");
+    CHECK(skip.minimum_selection == 0);
+    CHECK(skip.maximum_selection == 0);
+
     const auto rejected = parseResponse(protocol.handleLine(
         R"({"id":3,"method":"act","params":{"detail":"compact","action":{"type":"buy_shop_slot","slot":0}}})"));
     REQUIRE(rejected.ok);
@@ -604,6 +642,77 @@ TEST_CASE("JSON protocol publishes action schemas and explains malformed payload
     REQUIRE(invalid.error_message);
     CHECK(invalid.error_message->contains("chess_instance_ids"));
     CHECK(invalid.error_message->contains("範例"));
+}
+
+TEST_CASE("JSON protocol publishes authoritative action cardinalities",
+          "[chess][protocol][actions][cardinality]")
+{
+    ChessJsonProtocol managementProtocol(managementContent());
+    REQUIRE(parseResponse(managementProtocol.handleLine(
+        R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000017"}})")).ok);
+    const auto management = legalActionCardinalities(managementProtocol, 2);
+    const auto& refresh = requireLegalAction(management, "refresh_shop");
+    CHECK(refresh.minimum_selection == 0);
+    CHECK(refresh.maximum_selection == 0);
+    const auto& buy = requireLegalAction(management, "buy_shop_slot");
+    CHECK(buy.minimum_selection == 1);
+    CHECK(buy.maximum_selection == 1);
+    const auto& deployment = requireLegalAction(management, "set_deployment");
+    CHECK(deployment.minimum_selection == 0);
+    CHECK(deployment.maximum_selection == 2);
+
+    const auto content = configuredMapChoiceContent();
+    ChessJsonProtocol protocol(content);
+    REQUIRE(parseResponse(protocol.handleLine(
+        R"({"id":3,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000018"}})")).ok);
+    auto* session = const_cast<ChessGameSession*>(protocol.session());
+    REQUIRE(session);
+
+    auto managementCheckpoint = ChessSessionCheckpoint::capture(*session, 1);
+    managementCheckpoint.state.roster.emplace(1, ChessSessionPiece{1, 10, 1});
+    managementCheckpoint.state.equipmentInventory.emplace(1, ChessEquipmentInstance{1, 500});
+    REQUIRE(managementCheckpoint.restore(*session) == ChessCheckpointError::None);
+    const auto equipment = legalActionCardinalities(protocol, 4);
+    const auto& sell = requireLegalAction(equipment, "sell_chess");
+    CHECK(sell.minimum_selection == 1);
+    CHECK(sell.maximum_selection == 1);
+    const auto& equip = requireLegalAction(equipment, "equip");
+    CHECK(equip.minimum_selection == 1);
+    CHECK(equip.maximum_selection == 1);
+
+    auto preparedCheckpoint = ChessSessionCheckpoint::capture(*session, 2);
+    PreparedChessBattle prepared;
+    prepared.stableBattleId = "cardinality";
+    prepared.mapCandidates = {7, 8};
+    prepared.units = {
+        {1, 1, 10, 0},
+        {2, 2, 10, 0},
+    };
+    preparedCheckpoint.state.phase = ChessSessionPhase::BattlePreparation;
+    preparedCheckpoint.state.options.positionSwapEnabled = true;
+    preparedCheckpoint.state.preparedBattle = std::move(prepared);
+    REQUIRE(preparedCheckpoint.restore(*session) == ChessCheckpointError::None);
+    const auto preparation = legalActionCardinalities(protocol, 5);
+    const auto& map = requireLegalAction(preparation, "choose_map");
+    CHECK(map.minimum_selection == 1);
+    CHECK(map.maximum_selection == 1);
+    const auto& swap = requireLegalAction(preparation, "swap_positions");
+    CHECK(swap.minimum_selection == 2);
+    CHECK(swap.maximum_selection == 2);
+
+    auto rewardCheckpoint = ChessSessionCheckpoint::capture(*session, 3);
+    ChessPendingReward pending;
+    pending.id = "piece:cardinality";
+    pending.kind = ChessRewardKind::Piece;
+    pending.options.push_back({"piece:10", ChessRewardKind::Piece, 10});
+    rewardCheckpoint.state.phase = ChessSessionPhase::RewardChoice;
+    rewardCheckpoint.state.preparedBattle.reset();
+    rewardCheckpoint.state.pendingRewards = {std::move(pending)};
+    REQUIRE(rewardCheckpoint.restore(*session) == ChessCheckpointError::None);
+    const auto rewards = legalActionCardinalities(protocol, 6);
+    const auto& reward = requireLegalAction(rewards, "choose_reward");
+    CHECK(reward.minimum_selection == 1);
+    CHECK(reward.maximum_selection == 1);
 }
 
 TEST_CASE("JSON protocol summary actions return changes without embedding observation metadata",

@@ -592,14 +592,15 @@ inline std::vector<std::string> buildChessEquipmentSynergyDetailLines(
 
 inline std::string chessVictoryComboBonusText(
     const ChessGameContent& content,
-    const ChessGoldAwardedEventDetail& gold,
+    const ChessSemanticEvent& goldEvent,
     int bonus)
 {
+    assert(goldEvent.type == ChessSemanticEventType::GoldAwarded);
     assert(bonus > 0);
     const ComboDef* source = nullptr;
     for (const auto& combo : content.combos())
     {
-        if (gold.sourceComboId == combo.id)
+        if (goldEvent.stableId == std::format("combo:{}", combo.id))
         {
             source = &combo;
             break;

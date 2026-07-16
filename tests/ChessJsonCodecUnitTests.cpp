@@ -112,13 +112,15 @@ TEST_CASE("JSON codec battle projection omits full-only data in compact detail",
     CHECK(full.contains("\"initial_combat_stats\""));
 }
 
-TEST_CASE("JSON codec reads equipment and reward meaning from typed event payloads",
-          "[chess][json-codec][semantic-events]")
+TEST_CASE("JSON codec preserves the stable semantic event wire projection",
+          "[chess][json-codec][events]")
 {
     const auto content = managementContent();
     const ChessSemanticEvent equipment{
         ChessSemanticEventType::EquipmentAssigned,
-        ChessEquipmentAssignedEventDetail{11, 100, 2, 1, 22},
+        11,
+        2,
+        100,
     };
     const auto equipmentJson = writeJson(semanticEventDto(*content, equipment));
     CHECK(equipmentJson.contains("\"type\":\"equipment_assigned\""));
@@ -128,12 +130,10 @@ TEST_CASE("JSON codec reads equipment and reward meaning from typed event payloa
 
     const ChessSemanticEvent reward{
         ChessSemanticEventType::RewardChosen,
-        ChessRewardChosenEventDetail{
-            "equipment:102",
-            ChessRewardKind::Equipment,
-            102,
-            3,
-        },
+        {},
+        {},
+        {},
+        "equipment:102",
     };
     const auto rewardJson = writeJson(semanticEventDto(*content, reward));
     CHECK(rewardJson.contains("\"type\":\"reward_chosen\""));

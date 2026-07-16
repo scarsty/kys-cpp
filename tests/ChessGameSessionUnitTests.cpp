@@ -83,11 +83,11 @@ TEST_CASE("legal actions omit unaffordable concrete management actions", "[chess
     ChessGameSession session(managementContent(0), 10);
     const auto legal = session.legalActions();
 
-    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::RefreshShop, &ChessActionOffer::type));
-    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::BuyShopSlot, &ChessActionOffer::type));
-    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::BuyExp, &ChessActionOffer::type));
-    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::RerollEnemySeed, &ChessActionOffer::type));
-    CHECK(std::ranges::contains(legal, ChessActionType::SetShopLocked, &ChessActionOffer::type));
+    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::RefreshShop, &ChessLegalActionDescriptor::type));
+    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::BuyShopSlot, &ChessLegalActionDescriptor::type));
+    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::BuyExp, &ChessLegalActionDescriptor::type));
+    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::RerollEnemySeed, &ChessLegalActionDescriptor::type));
+    CHECK(std::ranges::contains(legal, ChessActionType::SetShopLocked, &ChessLegalActionDescriptor::type));
 }
 
 TEST_CASE("unjournaled money cheat remains playable but fails explicit verification",
@@ -105,7 +105,7 @@ TEST_CASE("unjournaled money cheat remains playable but fails explicit verificat
     CHECK_FALSE(std::ranges::contains(
         session.legalActions(),
         ChessActionType::RefreshShop,
-        &ChessActionOffer::type));
+        &ChessLegalActionDescriptor::type));
     const auto randomBeforeCheat = session.random().state();
     const auto chainBeforeCheat = session.journal().chainHash();
     REQUIRE(session.journal().decisions().size() == 1);
@@ -121,7 +121,7 @@ TEST_CASE("unjournaled money cheat remains playable but fails explicit verificat
     CHECK(std::ranges::contains(
         session.legalActions(),
         ChessActionType::RefreshShop,
-        &ChessActionOffer::type));
+        &ChessLegalActionDescriptor::type));
 
     const auto immediateReplay = session.exportReplay();
     REQUIRE(immediateReplay);
@@ -163,11 +163,12 @@ TEST_CASE("enemy plan reroll spends the configured cost transactionally", "[ches
     CHECK(funded.random().enemyPlanKey() != oldKey);
     REQUIRE(accepted.events.size() == 1);
     CHECK(accepted.events.front().type == ChessSemanticEventType::EnemyPlanRerolled);
-    const auto& rerollDetail = chessSemanticEventDetail<ChessEnemyPlanRerollEventDetail>(accepted.events.front());
-    CHECK(rerollDetail.cost == 3);
-    CHECK(rerollDetail.previousEnemyPlanKey == oldIdentity);
-    CHECK(rerollDetail.newEnemyPlanKey == funded.random().enemyPlanIdentity());
-    CHECK(rerollDetail.previousEnemyPlanKey != 0);
+    CHECK(accepted.events.front().value == 3);
+    REQUIRE(accepted.events.front().enemyPlanReroll);
+    CHECK(accepted.events.front().enemyPlanReroll->cost == 3);
+    CHECK(accepted.events.front().enemyPlanReroll->previousEnemyPlanKey == oldIdentity);
+    CHECK(accepted.events.front().enemyPlanReroll->newEnemyPlanKey == funded.random().enemyPlanIdentity());
+    CHECK(accepted.events.front().enemyPlanReroll->previousEnemyPlanKey != 0);
 }
 
 TEST_CASE("forced-ban reward choice rejects management actions absent from legal actions",
@@ -185,7 +186,7 @@ TEST_CASE("forced-ban reward choice rejects management actions absent from legal
     REQUIRE(legal.size() == 2);
     CHECK(legal[0].type == ChessActionType::AddBan);
     CHECK(legal[1].type == ChessActionType::SkipForcedBans);
-    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::BuyShopSlot, &ChessActionOffer::type));
+    CHECK_FALSE(std::ranges::contains(legal, ChessActionType::BuyShopSlot, &ChessLegalActionDescriptor::type));
     const auto before = session.observe().stateHash;
 
     const auto rejected = session.submitAndDrain(buySlot(0));
@@ -203,8 +204,8 @@ TEST_CASE("shop purchases merge deterministically and stale slots reject", "[che
     REQUIRE(first.accepted);
     REQUIRE(first.events.size() == 1);
     CHECK(first.events[0].type == ChessSemanticEventType::ChessPurchased);
-    CHECK(chessSemanticEventDetail<ChessPurchasedEventDetail>(first.events[0]).roleId == 10);
-    CHECK(chessSemanticEventDetail<ChessPurchasedEventDetail>(first.events[0]).cost == 1);
+    CHECK(first.events[0].secondaryId == 10);
+    CHECK(first.events[0].value == 1);
     const auto stale = session.submitAndDrain(buySlot(0));
     CHECK_FALSE(stale.accepted);
     CHECK(stale.error == ChessRuleErrorCode::EmptyShopSlot);
@@ -214,18 +215,18 @@ TEST_CASE("shop purchases merge deterministically and stale slots reject", "[che
     REQUIRE(third.accepted);
     REQUIRE(third.events.size() == 2);
     CHECK(third.events[0].type == ChessSemanticEventType::ChessPurchased);
-    CHECK(chessSemanticEventDetail<ChessPurchasedEventDetail>(third.events[0]).roleId == 10);
-    CHECK(chessSemanticEventDetail<ChessPurchasedEventDetail>(third.events[0]).cost == 1);
+    CHECK(third.events[0].secondaryId == 10);
+    CHECK(third.events[0].value == 1);
     CHECK(third.events[1].type == ChessSemanticEventType::ChessMerged);
-    const auto& merge = chessSemanticEventDetail<ChessMergeEventDetail>(third.events[1]);
-    CHECK(merge.roleId == 10);
-    CHECK(merge.resultStar == 2);
-    CHECK(merge.consumedInstanceIds == std::vector<int>{1, 2, 3});
-    CHECK(merge.newInstanceId == 4);
-    CHECK(merge.inheritedFightsWon == 0);
-    CHECK_FALSE(merge.deployed);
-    CHECK(merge.transferredEquipmentInstanceIds.empty());
-    CHECK_FALSE(merge.recursiveMergeFollowed);
+    CHECK(third.events[1].secondaryId == 10);
+    CHECK(third.events[1].value == 2);
+    REQUIRE(third.events[1].merge);
+    CHECK(third.events[1].merge->consumedInstanceIds == std::vector<int>{1, 2, 3});
+    CHECK(third.events[1].primaryId == 4);
+    CHECK(third.events[1].merge->inheritedFightsWon == 0);
+    CHECK_FALSE(third.events[1].merge->deployed);
+    CHECK(third.events[1].merge->transferredEquipmentInstanceIds.empty());
+    CHECK_FALSE(third.events[1].merge->recursiveMergeFollowed);
     REQUIRE(session.state().roster.size() == 1);
     CHECK(session.state().roster.begin()->second.star == 2);
     CHECK(session.journal().decisions().size() == 3);
@@ -252,7 +253,7 @@ TEST_CASE("configured map decision rejects overrides after selection", "[chess][
     CHECK(std::ranges::contains(
         session.legalActions(),
         ChessActionType::ChooseMap,
-        &ChessActionOffer::type));
+        &ChessLegalActionDescriptor::type));
 
     ChessAction choose;
     choose.type = ChessActionType::ChooseMap;
@@ -261,7 +262,7 @@ TEST_CASE("configured map decision rejects overrides after selection", "[chess][
     CHECK_FALSE(std::ranges::contains(
         session.legalActions(),
         ChessActionType::ChooseMap,
-        &ChessActionOffer::type));
+        &ChessLegalActionDescriptor::type));
     const auto selectedState = session.observe().stateHash;
     choose.mapId = session.state().preparedBattle->mapCandidates.back();
 
@@ -290,7 +291,7 @@ TEST_CASE("inactive configured map effect never exposes a choice", "[chess][sess
     CHECK_FALSE(std::ranges::contains(
         session.legalActions(),
         ChessActionType::ChooseMap,
-        &ChessActionOffer::type));
+        &ChessLegalActionDescriptor::type));
 
     ChessAction choose;
     choose.type = ChessActionType::ChooseMap;
@@ -339,7 +340,7 @@ TEST_CASE("one deployed piece can prepare campaign and challenge battles", "[che
     CHECK(std::ranges::contains(
         campaign.legalActions(),
         ChessActionType::PrepareBattle,
-        &ChessActionOffer::type));
+        &ChessLegalActionDescriptor::type));
     ChessAction prepare;
     prepare.type = ChessActionType::PrepareBattle;
     CHECK(campaign.submitAndDrain(prepare).accepted);
@@ -352,11 +353,9 @@ TEST_CASE("one deployed piece can prepare campaign and challenge battles", "[che
     const auto challengeAction = std::ranges::find(
         challengeActions,
         ChessActionType::StartChallenge,
-        &ChessActionOffer::type);
+        &ChessLegalActionDescriptor::type);
     REQUIRE(challengeAction != challengeActions.end());
-    const auto& campaignChallenges = chessActionOfferDetail<ChessChallengeSelectionOffer>(*challengeAction);
-    REQUIRE(campaignChallenges.candidates.size() == 1);
-    CHECK(campaignChallenges.candidates.front().challengeName == "單騎遠征");
+    CHECK(challengeAction->candidateStableIds == std::vector<std::string>{"單騎遠征"});
     ChessAction startChallenge;
     startChallenge.type = ChessActionType::StartChallenge;
     startChallenge.challengeName = "單騎遠征";
@@ -380,19 +379,17 @@ TEST_CASE("post-clear management keeps challenges legal until finish run", "[che
     CHECK_FALSE(std::ranges::contains(
         legal,
         ChessActionType::PrepareBattle,
-        &ChessActionOffer::type));
+        &ChessLegalActionDescriptor::type));
     const auto challenge = std::ranges::find(
         legal,
         ChessActionType::StartChallenge,
-        &ChessActionOffer::type);
+        &ChessLegalActionDescriptor::type);
     REQUIRE(challenge != legal.end());
-    const auto& postClearChallenges = chessActionOfferDetail<ChessChallengeSelectionOffer>(*challenge);
-    REQUIRE(postClearChallenges.candidates.size() == 1);
-    CHECK(postClearChallenges.candidates.front().challengeName == "單騎遠征");
+    CHECK(challenge->candidateStableIds == std::vector<std::string>{"單騎遠征"});
     CHECK(std::ranges::contains(
         legal,
         ChessActionType::FinishRun,
-        &ChessActionOffer::type));
+        &ChessLegalActionDescriptor::type));
 
     ChessAction startChallenge;
     startChallenge.type = ChessActionType::StartChallenge;
@@ -449,11 +446,11 @@ TEST_CASE("piece merging preserves wins and the legacy best-equipment owner orde
         CHECK(upgraded.weaponInstanceId == 22);
         CHECK(state.equipmentInventory.at(11).assignedChessInstanceId == -1);
         CHECK(state.equipmentInventory.at(22).assignedChessInstanceId == upgraded.instanceId);
-        const auto& merge = chessSemanticEventDetail<ChessMergeEventDetail>(events.back());
-        CHECK(merge.consumedInstanceIds == std::vector<int>{1, 2, 3});
-        CHECK(merge.inheritedFightsWon == 7);
-        CHECK(merge.deployed);
-        CHECK(merge.transferredEquipmentInstanceIds == std::vector<int>{22});
+        REQUIRE(events.back().merge);
+        CHECK(events.back().merge->consumedInstanceIds == std::vector<int>{1, 2, 3});
+        CHECK(events.back().merge->inheritedFightsWon == 7);
+        CHECK(events.back().merge->deployed);
+        CHECK(events.back().merge->transferredEquipmentInstanceIds == std::vector<int>{22});
     }
 
     SECTION("equal tiers keep the first consumed piece owner")
@@ -487,11 +484,11 @@ TEST_CASE("piece merging preserves wins and the legacy best-equipment owner orde
         ChessManagementRules::grantPiece(state, content, 10, events);
 
         REQUIRE(events.size() == 3);
-        const auto& firstMerge = chessSemanticEventDetail<ChessMergeEventDetail>(events[1]);
-        const auto& secondMerge = chessSemanticEventDetail<ChessMergeEventDetail>(events[2]);
-        CHECK(firstMerge.recursiveMergeFollowed);
-        CHECK_FALSE(secondMerge.recursiveMergeFollowed);
-        CHECK(std::ranges::contains(secondMerge.consumedInstanceIds, firstMerge.newInstanceId));
+        REQUIRE(events[1].merge);
+        REQUIRE(events[2].merge);
+        CHECK(events[1].merge->recursiveMergeFollowed);
+        CHECK_FALSE(events[2].merge->recursiveMergeFollowed);
+        CHECK(std::ranges::contains(events[2].merge->consumedInstanceIds, events[1].primaryId));
         REQUIRE(state.roster.size() == 1);
         CHECK(state.roster.begin()->second.star == 3);
     }

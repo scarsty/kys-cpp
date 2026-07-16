@@ -109,6 +109,15 @@ void assignFormation(
     }
 }
 
+const ChessBattleMapDefinition* battleMapDefinition(
+    const PreparedChessBattle& prepared,
+    const ChessGameContent& content)
+{
+    assert(prepared.chosenMapId >= 0 || content.battleMaps().empty());
+    const auto found = content.battleMaps().find(prepared.chosenMapId);
+    return found == content.battleMaps().end() ? nullptr : &found->second;
+}
+
 void appendDefinitions(
     Battle::BattleRuntimeSetupSeed& setup,
     const ChessGameContent& content)
@@ -158,14 +167,24 @@ void BattleSetupFactory::populateBaseFormation(
     PreparedChessBattle& prepared,
     const ChessGameContent& content)
 {
-    assert(prepared.chosenMapId >= 0 || content.battleMaps().empty());
-    const ChessBattleMapDefinition* map = nullptr;
-    if (const auto found = content.battleMaps().find(prepared.chosenMapId);
-        found != content.battleMaps().end())
+    assignFormation(prepared.units, battleMapDefinition(prepared, content));
+}
+
+std::vector<PreparedChessBattleUnit> BattleSetupFactory::resolvePreparedFormation(
+    const PreparedChessBattle& prepared,
+    const ChessGameContent& content)
+{
+    auto formation = prepared.units;
+    assignFormation(formation, battleMapDefinition(prepared, content));
+    for (const auto& [firstId, secondId] : prepared.formationSwaps)
     {
-        map = &found->second;
+        auto first = std::ranges::find(formation, firstId, &PreparedChessBattleUnit::unitId);
+        auto second = std::ranges::find(formation, secondId, &PreparedChessBattleUnit::unitId);
+        assert(first != formation.end() && second != formation.end());
+        std::swap(first->x, second->x);
+        std::swap(first->y, second->y);
     }
-    assignFormation(prepared.units, map);
+    return formation;
 }
 
 Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
@@ -174,13 +193,7 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
     const std::set<int>& obtainedNeigongIds,
     int maximumFrames)
 {
-    assert(prepared.chosenMapId >= 0 || content.battleMaps().empty());
-    const ChessBattleMapDefinition* map = nullptr;
-    if (const auto found = content.battleMaps().find(prepared.chosenMapId);
-        found != content.battleMaps().end())
-    {
-        map = &found->second;
-    }
+    const auto* map = battleMapDefinition(prepared, content);
     const ChessBattlefieldDefinition* battlefield = nullptr;
     if (map)
     {
@@ -192,17 +205,7 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
     }
     BattlefieldData terrain(battlefield);
 
-    auto preparedFormation = prepared;
-    populateBaseFormation(preparedFormation, content);
-    auto& formation = preparedFormation.units;
-    for (const auto& [firstId, secondId] : prepared.formationSwaps)
-    {
-        auto first = std::ranges::find(formation, firstId, &PreparedChessBattleUnit::unitId);
-        auto second = std::ranges::find(formation, secondId, &PreparedChessBattleUnit::unitId);
-        assert(first != formation.end() && second != formation.end());
-        std::swap(first->x, second->x);
-        std::swap(first->y, second->y);
-    }
+    const auto formation = resolvePreparedFormation(prepared, content);
 
     Battle::BattleRuntimeSessionCreationInput input;
     input.randomSeed = prepared.battleSeed;

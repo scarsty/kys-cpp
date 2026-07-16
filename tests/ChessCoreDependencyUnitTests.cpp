@@ -222,7 +222,7 @@ TEST_CASE("graphical adapters do not call gameplay mutation owners", "[chess][de
     }
 }
 
-TEST_CASE("shared chess read models remain frontend neutral",
+TEST_CASE("chess application read models remain frontend neutral",
           "[chess][dependency][read-model][source-scan]")
 {
     const auto root = std::filesystem::current_path() / "src";
@@ -236,8 +236,6 @@ TEST_CASE("shared chess read models remain frontend neutral",
         "\"RunNode.h\"",
     };
     for (const auto* name : {
-             "ChessActionOffers.h",
-             "ChessActionOffers.cpp",
              "ChessCatalogQueries.h",
              "ChessCatalogQueries.cpp",
              "ChessGameQueries.h",

@@ -336,15 +336,17 @@ PreparedBattleDto preparedBattleDto(
     const std::set<int>& obtainedNeigongIds,
     int maximumFrames)
 {
-    const auto analysis = analyzePreparedChessBattle(
-        battle,
-        content,
-        obtainedNeigongIds,
-        maximumFrames);
-    PreparedBattleDto prepared;
     const bool observationCompact = detail == PreparedBattleDetail::ObservationCompact;
     const bool compact = detail == PreparedBattleDetail::Compact;
     const bool full = detail == PreparedBattleDetail::Full;
+    const auto analysis = compact || full
+        ? analyzePreparedChessBattle(
+            battle,
+            content,
+            obtainedNeigongIds,
+            maximumFrames)
+        : projectPreparedChessBattle(battle, content);
+    PreparedBattleDto prepared;
     if (observationCompact || full)
     {
         prepared.battle_id = analysis.identity.stableBattleId;
@@ -582,7 +584,7 @@ ObservationDto observationDto(
     const ChessGameContent& content,
     ObservationDetail detail,
     std::string roleMetadataScope,
-    std::span<const ChessActionOffer> legalActions)
+    std::span<const ChessLegalActionDescriptor> legalActions)
 {
     ObservationDto dto{};
     const bool full = detail == ObservationDetail::Full;
@@ -929,73 +931,68 @@ std::optional<ChallengeDto> inspectChallengeDto(
 
 std::string legalActionExampleJson(
     const ChessGameSession& session,
-    const ChessActionOffer& offer)
+    const ChessLegalActionDescriptor& descriptor)
 {
     ChessAction action;
-    action.type = offer.type;
-    switch (offer.type)
+    action.type = descriptor.type;
+    switch (descriptor.type)
     {
     case ChessActionType::BuyShopSlot:
-        action.shopSlot = chessActionOfferDetail<ChessShopSlotSelectionOffer>(offer).candidates.front().slot;
+        action.shopSlot = descriptor.candidateIds.front();
         break;
     case ChessActionType::SetShopLocked:
     case ChessActionType::SetPositionSwapEnabled:
         action.value = true;
         break;
     case ChessActionType::SellChess:
-        action.chessInstanceId = chessActionOfferDetail<ChessPieceSelectionOffer>(offer).candidates.front().chessInstanceId;
+        action.chessInstanceId = descriptor.candidateIds.front();
         break;
     case ChessActionType::SetDeployment:
-    {
-        const auto& candidates = chessActionOfferDetail<ChessPieceSelectionOffer>(offer).candidates;
-        for (std::size_t index = 0;
-             index < std::min(candidates.size(), static_cast<std::size_t>(offer.maximumSelection));
-             ++index)
-        {
-            action.chessInstanceIds.push_back(candidates[index].chessInstanceId);
-        }
+        action.chessInstanceIds.assign(
+            descriptor.candidateIds.begin(),
+            descriptor.candidateIds.begin() + std::min<std::size_t>(
+                descriptor.candidateIds.size(),
+                static_cast<std::size_t>(descriptor.maximumSelection)));
         break;
-    }
     case ChessActionType::AddBan:
-        action.roleId = chessActionOfferDetail<ChessRoleSelectionOffer>(offer).candidates.front().roleId;
+        action.roleId = descriptor.candidateIds.front();
         break;
     case ChessActionType::Equip:
     {
-        const auto& detail = chessActionOfferDetail<ChessEquipmentAssignmentOffer>(offer);
-        const auto& equipment = detail.equipment.front();
-        action.equipmentInstanceId = equipment.equipmentInstanceId;
+        action.equipmentInstanceId = descriptor.candidateIds.front();
+        const auto& equipment = session.state().equipmentInventory.at(action.equipmentInstanceId);
         const auto alternateTarget = std::ranges::find_if(
-            detail.targets,
-            [&](const auto& candidate) {
-                return candidate.chessInstanceId != equipment.assignedChessInstanceId;
+            session.state().roster,
+            [&](const auto& entry) {
+                return entry.first != equipment.assignedChessInstanceId;
             });
-        action.targetChessInstanceId = alternateTarget != detail.targets.end()
-            ? alternateTarget->chessInstanceId
-            : detail.targets.front().chessInstanceId;
+        action.targetChessInstanceId = alternateTarget != session.state().roster.end()
+            ? alternateTarget->first
+            : session.state().roster.begin()->first;
         break;
     }
     case ChessActionType::BuyLegendaryEquipment:
-        action.itemId = chessActionOfferDetail<ChessItemSelectionOffer>(offer).candidates.front().itemId;
+        action.itemId = descriptor.candidateIds.front();
         break;
     case ChessActionType::ChooseMap:
-        action.mapId = chessActionOfferDetail<ChessMapSelectionOffer>(offer).candidates.front().mapId;
+        action.mapId = descriptor.candidateIds.front();
         break;
     case ChessActionType::SwapPositions:
-    {
-        const auto& candidates = chessActionOfferDetail<ChessPositionSwapOffer>(offer).candidates;
-        if (candidates.size() < 2)
+        if (descriptor.candidateIds.size() >= 2)
         {
-            return chessActionPayloadSchema(offer.type);
+            action.chessInstanceId = descriptor.candidateIds[0];
+            action.targetChessInstanceId = descriptor.candidateIds[1];
         }
-        action.chessInstanceId = candidates[0].unitId;
-        action.targetChessInstanceId = candidates[1].unitId;
+        else
+        {
+            return chessActionPayloadSchema(descriptor.type);
+        }
         break;
-    }
     case ChessActionType::ChooseReward:
-        action.rewardId = chessActionOfferDetail<ChessRewardSelectionOffer>(offer).candidates.front().rewardId;
+        action.rewardId = descriptor.candidateStableIds.front();
         break;
     case ChessActionType::StartChallenge:
-        action.challengeName = chessActionOfferDetail<ChessChallengeSelectionOffer>(offer).candidates.front().challengeName;
+        action.challengeName = descriptor.candidateStableIds.front();
         break;
     default:
         break;
@@ -1005,250 +1002,193 @@ std::string legalActionExampleJson(
 
 LegalActionDto legalActionDto(
     const ChessGameSession& session,
-    const ChessActionOffer& offer)
+    const ChessLegalActionDescriptor& descriptor)
 {
     LegalActionDto dto;
-    dto.type = chessActionTypeId(offer.type);
-    dto.description = actionDescription(offer.type);
-    dto.action_schema = glz::raw_json(chessActionPayloadSchema(offer.type));
-    dto.example = glz::raw_json(legalActionExampleJson(session, offer));
-    dto.minimum_selection = offer.minimumSelection;
-    dto.maximum_selection = offer.maximumSelection;
+    dto.type = chessActionTypeId(descriptor.type);
+    dto.description = actionDescription(descriptor.type);
+    dto.action_schema = glz::raw_json(chessActionPayloadSchema(descriptor.type));
+    dto.example = glz::raw_json(legalActionExampleJson(session, descriptor));
+    dto.minimum_selection = descriptor.minimumSelection;
+    dto.maximum_selection = descriptor.maximumSelection;
     const auto& content = session.content();
     const auto& state = session.state();
-
-    if (offer.economicConsequence)
-    {
-        const auto& consequence = *offer.economicConsequence;
+    const auto economicPreview = [&]() -> std::optional<LegalActionDto::EconomicPreview> {
         LegalActionDto::EconomicPreview preview;
-        preview.current_gold = consequence.currentGold;
-        preview.gold_cost = consequence.goldCost;
-        preview.projected_gold_after = consequence.projectedGoldAfter;
-        preview.experience_gained = consequence.experienceGained;
-        preview.projected_experience_after = consequence.projectedExperienceAfter;
-        preview.projected_level_after = consequence.projectedLevelAfter;
-        preview.affected_option_count = consequence.affectedOptionCount;
-        preview.consumes_free_shop_refresh = consequence.consumesFreeShopRefresh;
-        switch (offer.type)
+        preview.current_gold = state.money;
+        switch (descriptor.type)
         {
         case ChessActionType::RefreshShop:
+            preview.gold_cost = state.freeShopRefreshAvailable ? 0 : content.balance().refreshCost;
+            preview.projected_gold_after = state.money - preview.gold_cost;
+            preview.affected_option_count = static_cast<int>(state.shop.size());
+            preview.consumes_free_shop_refresh = state.freeShopRefreshAvailable;
             preview.result = std::format(
                 "重新生成全部 {} 個商店欄位並解除商店鎖定",
-                consequence.affectedOptionCount.value());
-            break;
+                state.shop.size());
+            return preview;
         case ChessActionType::BuyExp:
+        {
+            auto projected = state;
+            ChessManagementRules::gainExperience(
+                projected,
+                content,
+                content.balance().buyExpAmount);
+            preview.gold_cost = content.balance().buyExpCost;
+            preview.projected_gold_after = state.money - preview.gold_cost;
+            preview.experience_gained = content.balance().buyExpAmount;
+            preview.projected_experience_after = projected.experience;
+            preview.projected_level_after = projected.level;
             preview.result = std::format(
                 "獲得 {} 經驗；購買後為等級 {}、累積經驗 {}",
-                consequence.experienceGained.value(),
-                consequence.projectedLevelAfter.value(),
-                consequence.projectedExperienceAfter.value());
-            break;
+                content.balance().buyExpAmount,
+                projected.level,
+                projected.experience);
+            return preview;
+        }
         case ChessActionType::RerollEnemySeed:
+            preview.gold_cost = content.balance().enemyRerollCost;
+            preview.projected_gold_after = state.money - preview.gold_cost;
             preview.result = "重新生成下一戰的敵方陣容、裝備、地圖與戰鬥種子";
-            break;
+            return preview;
         case ChessActionType::RerollReward:
+            assert(!state.pendingRewards.empty());
+            preview.gold_cost = state.pendingRewards.front().rerollCost;
+            preview.projected_gold_after = state.money - preview.gold_cost;
+            preview.affected_option_count = static_cast<int>(state.pendingRewards.front().options.size());
             preview.result = std::format(
                 "重新抽取目前獎勵的 {} 個選項；每份獎勵最多重抽一次",
-                consequence.affectedOptionCount.value());
-            break;
+                state.pendingRewards.front().options.size());
+            return preview;
         case ChessActionType::BuyLegendaryEquipment:
+            preview.gold_cost = content.balance().legendaryShop.price;
+            preview.projected_gold_after = state.money - preview.gold_cost;
+            preview.affected_option_count = 1;
             preview.result = "取得所選的 4 階裝備實例並放入裝備庫";
-            break;
+            return preview;
         default:
-            break;
+            return std::nullopt;
         }
-        dto.economic_preview = std::move(preview);
-    }
-
-    std::vector<LegalActionDto::Candidate> primaryCandidates;
-    std::string primaryField;
-    bool primaryMultiple = false;
-    switch (offer.type)
+    }();
+    dto.economic_preview = economicPreview;
+    if (descriptor.type == ChessActionType::Equip)
     {
-    case ChessActionType::BuyShopSlot:
-        primaryField = "slot";
-        for (const auto& candidate : chessActionOfferDetail<ChessShopSlotSelectionOffer>(offer).candidates)
+        const auto& equipment = state.equipmentInventory.at(descriptor.candidateIds.front());
+        if (equipment.assignedChessInstanceId >= 0)
         {
-            const auto* role = content.role(candidate.roleId);
-            assert(role);
-            LegalActionDto::Candidate dtoCandidate;
-            dtoCandidate.id = candidate.slot;
-            dtoCandidate.value = std::to_string(candidate.slot);
-            dtoCandidate.label = role->Name;
-            dtoCandidate.description = std::format(
-                "商店欄位 {}；{}費角色；價格 {} 金幣",
-                candidate.slot,
-                role->Cost,
-                candidate.cost);
-            dtoCandidate.gold_cost = candidate.cost;
-            dtoCandidate.projected_gold_after = candidate.projectedGoldAfter;
-            primaryCandidates.push_back(std::move(dtoCandidate));
-        }
-        break;
-    case ChessActionType::SellChess:
-    case ChessActionType::SetDeployment:
-        primaryField = offer.type == ChessActionType::SellChess
-            ? "chess_instance_id"
-            : "chess_instance_ids";
-        primaryMultiple = offer.type == ChessActionType::SetDeployment;
-        for (const auto& candidate : chessActionOfferDetail<ChessPieceSelectionOffer>(offer).candidates)
-        {
-            const auto* role = content.role(candidate.roleId);
-            assert(role);
-            LegalActionDto::Candidate dtoCandidate;
-            dtoCandidate.id = candidate.chessInstanceId;
-            dtoCandidate.value = std::to_string(candidate.chessInstanceId);
-            dtoCandidate.label = role->Name;
-            dtoCandidate.description = std::format(
-                "棋子實例 {}；{}★{}",
-                candidate.chessInstanceId,
-                candidate.star,
-                candidate.deployed ? "；目前出戰" : "");
-            if (offer.type == ChessActionType::SellChess)
-            {
-                dtoCandidate.gold_gain = candidate.goldGain;
-                dtoCandidate.projected_gold_after = candidate.projectedGoldAfter;
-                dtoCandidate.description += std::format(
-                    "；出售獲得 {} 金幣",
-                    candidate.goldGain.value());
-            }
-            primaryCandidates.push_back(std::move(dtoCandidate));
-        }
-        break;
-    case ChessActionType::AddBan:
-        primaryField = "role_id";
-        for (const auto& candidate : chessActionOfferDetail<ChessRoleSelectionOffer>(offer).candidates)
-        {
-            const auto* role = content.role(candidate.roleId);
-            assert(role);
-            primaryCandidates.push_back({
-                candidate.roleId,
-                std::to_string(candidate.roleId),
-                role->Name,
-                std::format("{}費棋子", role->Cost),
-            });
-        }
-        break;
-    case ChessActionType::Equip:
-    {
-        primaryField = "equipment_instance_id";
-        const auto& detail = chessActionOfferDetail<ChessEquipmentAssignmentOffer>(offer);
-        for (const auto& candidate : detail.equipment)
-        {
-            const auto info = equipmentInfoDto(content, candidate.itemId);
-            LegalActionDto::Candidate dtoCandidate;
-            dtoCandidate.id = candidate.equipmentInstanceId;
-            dtoCandidate.value = std::to_string(candidate.equipmentInstanceId);
-            dtoCandidate.label = info.name;
-            dtoCandidate.assigned_chess_instance_id = candidate.assignedChessInstanceId;
-            if (candidate.assignedChessInstanceId < 0)
-            {
-                dtoCandidate.label += "（未分配）";
-                dtoCandidate.description = std::format(
-                    "裝備實例 {}；{}階{}；未分配",
-                    candidate.equipmentInstanceId,
-                    info.tier,
-                    info.type);
-            }
-            else
-            {
-                const auto& owner = state.roster.at(candidate.assignedChessInstanceId);
-                const auto* ownerRole = content.role(owner.roleId);
-                assert(ownerRole);
-                dtoCandidate.label += std::format("（{}已裝備）", ownerRole->Name);
-                dtoCandidate.assigned_to = std::format(
-                    "{}（棋子實例 {}）",
-                    ownerRole->Name,
-                    candidate.assignedChessInstanceId);
-                dtoCandidate.description = std::format(
-                    "裝備實例 {}；{}階{}；目前由{}（棋子實例 {}）裝備",
-                    candidate.equipmentInstanceId,
-                    info.tier,
-                    info.type,
-                    ownerRole->Name,
-                    candidate.assignedChessInstanceId);
-            }
-            primaryCandidates.push_back(std::move(dtoCandidate));
-        }
-        if (!detail.equipment.empty() && detail.equipment.front().assignedChessInstanceId >= 0)
-        {
-            dto.example_note = detail.targets.size() > 1
+            dto.example_note = state.roster.size() > 1
                 ? "範例會把目前已裝備的項目移給另一名棋子"
                 : "目前沒有未分配裝備或其他棋子；範例合法，但不會改變持有者";
         }
-        LegalActionDto::FieldCandidates targets;
-        targets.field = "target_chess_instance_id";
-        for (const auto& candidate : detail.targets)
-        {
-            const auto* role = content.role(candidate.roleId);
-            assert(role);
-            targets.candidates.push_back({
-                candidate.chessInstanceId,
-                std::to_string(candidate.chessInstanceId),
-                role->Name,
-                std::format("{}★{}", candidate.star, candidate.deployed ? "；目前出戰" : ""),
-            });
-        }
-        dto.candidates_by_field.push_back(std::move(targets));
-        break;
     }
-    case ChessActionType::BuyLegendaryEquipment:
-        primaryField = "item_id";
-        for (const auto& candidate : chessActionOfferDetail<ChessItemSelectionOffer>(offer).candidates)
+    std::vector<LegalActionDto::Candidate> primaryCandidates;
+    for (const int id : descriptor.candidateIds)
+    {
+        LegalActionDto::Candidate candidate;
+        candidate.id = id;
+        if (descriptor.type == ChessActionType::BuyShopSlot)
         {
-            const auto info = equipmentInfoDto(content, candidate.itemId);
-            LegalActionDto::Candidate dtoCandidate;
-            dtoCandidate.id = candidate.itemId;
-            dtoCandidate.value = std::to_string(candidate.itemId);
-            dtoCandidate.label = info.name;
-            dtoCandidate.description = std::format(
-                "{}階{}；價格 {} 金幣",
-                info.tier,
-                info.type,
-                candidate.cost);
-            dtoCandidate.gold_cost = candidate.cost;
-            dtoCandidate.projected_gold_after = candidate.projectedGoldAfter;
-            primaryCandidates.push_back(std::move(dtoCandidate));
-        }
-        break;
-    case ChessActionType::ChooseMap:
-        primaryField = "map_id";
-        for (const auto& candidate : chessActionOfferDetail<ChessMapSelectionOffer>(offer).candidates)
-        {
-            primaryCandidates.push_back({
-                candidate.mapId,
-                std::to_string(candidate.mapId),
-                chessBattleMapDisplayName(content, candidate.mapId),
-            });
-        }
-        break;
-    case ChessActionType::SwapPositions:
-        primaryField = "first_unit_id";
-        for (const auto& candidate : chessActionOfferDetail<ChessPositionSwapOffer>(offer).candidates)
-        {
-            const auto* role = content.role(candidate.roleId);
+            const auto& slot = state.shop.at(id);
+            const auto* role = content.role(slot.roleId);
             assert(role);
-            primaryCandidates.push_back({
-                candidate.unitId,
-                std::to_string(candidate.unitId),
-                role->Name,
-                std::format(
-                    "戰鬥單位 {}；位置 ({},{})",
-                    candidate.unitId,
-                    candidate.x,
-                    candidate.y),
-            });
+            const int cost = ChessManagementRules::pieceValue(content, slot.roleId, 1);
+            candidate.label = role->Name;
+            candidate.description = std::format(
+                "商店欄位 {}；{}費角色；價格 {} 金幣",
+                id,
+                role->Cost,
+                cost);
+            candidate.gold_cost = cost;
+            candidate.projected_gold_after = state.money - cost;
         }
-        break;
-    case ChessActionType::ChooseReward:
-        primaryField = "reward_id";
-        for (const auto& candidate : chessActionOfferDetail<ChessRewardSelectionOffer>(offer).candidates)
+        else if (descriptor.type == ChessActionType::SellChess
+            || descriptor.type == ChessActionType::SetDeployment)
+        {
+            const auto& piece = state.roster.at(id);
+            const auto* role = content.role(piece.roleId);
+            assert(role);
+            candidate.label = role->Name;
+            candidate.description = std::format("棋子實例 {}；{}★{}", id, piece.star, piece.deployed ? "；目前出戰" : "");
+            if (descriptor.type == ChessActionType::SellChess)
+            {
+                const int gain = ChessManagementRules::pieceValue(content, piece.roleId, piece.star);
+                candidate.gold_gain = gain;
+                candidate.projected_gold_after = state.money + gain;
+                candidate.description += std::format("；出售獲得 {} 金幣", gain);
+            }
+        }
+        else if (descriptor.type == ChessActionType::AddBan)
+        {
+            const auto* role = content.role(id);
+            assert(role);
+            candidate.label = role->Name;
+            candidate.description = std::format("{}費棋子", role->Cost);
+        }
+        else if (descriptor.type == ChessActionType::Equip)
+        {
+            const auto& equipment = state.equipmentInventory.at(id);
+            const auto info = equipmentInfoDto(content, equipment.itemId);
+            candidate.label = info.name;
+            candidate.assigned_chess_instance_id = equipment.assignedChessInstanceId;
+            if (equipment.assignedChessInstanceId < 0)
+            {
+                candidate.label += "（未分配）";
+                candidate.description = std::format("裝備實例 {}；{}階{}；未分配", id, info.tier, info.type);
+            }
+            else
+            {
+                const auto& owner = state.roster.at(equipment.assignedChessInstanceId);
+                const auto* ownerRole = content.role(owner.roleId);
+                assert(ownerRole);
+                candidate.label += std::format("（{}已裝備）", ownerRole->Name);
+                candidate.assigned_to = std::format(
+                    "{}（棋子實例 {}）",
+                    ownerRole->Name,
+                    equipment.assignedChessInstanceId);
+                candidate.description = std::format(
+                    "裝備實例 {}；{}階{}；目前由{}（棋子實例 {}）裝備",
+                    id,
+                    info.tier,
+                    info.type,
+                    ownerRole->Name,
+                    equipment.assignedChessInstanceId);
+            }
+        }
+        else if (descriptor.type == ChessActionType::BuyLegendaryEquipment)
+        {
+            const auto info = equipmentInfoDto(content, id);
+            const int cost = content.balance().legendaryShop.price;
+            candidate.label = info.name;
+            candidate.description = std::format("{}階{}；價格 {} 金幣", info.tier, info.type, cost);
+            candidate.gold_cost = cost;
+            candidate.projected_gold_after = state.money - cost;
+        }
+        else if (descriptor.type == ChessActionType::ChooseMap)
+        {
+            candidate.label = chessBattleMapDisplayName(content, id);
+        }
+        else if (descriptor.type == ChessActionType::SwapPositions)
+        {
+            assert(state.preparedBattle);
+            const auto unit = std::ranges::find(state.preparedBattle->units, id, &PreparedChessBattleUnit::unitId);
+            assert(unit != state.preparedBattle->units.end());
+            const auto* role = content.role(unit->roleId);
+            assert(role);
+            candidate.label = role->Name;
+            candidate.description = std::format("戰鬥單位 {}；位置 ({},{})", id, unit->x, unit->y);
+        }
+        candidate.value = std::to_string(id);
+        primaryCandidates.push_back(std::move(candidate));
+    }
+    for (const auto& value : descriptor.candidateStableIds)
+    {
+        LegalActionDto::Candidate candidate;
+        candidate.value = value;
+        candidate.label = value;
+        if (descriptor.type == ChessActionType::ChooseReward)
         {
             assert(!state.pendingRewards.empty());
-            const auto option = std::ranges::find(
-                state.pendingRewards.front().options,
-                candidate.rewardId,
-                &ChessRewardOption::id);
+            const auto option = std::ranges::find(state.pendingRewards.front().options, value, &ChessRewardOption::id);
             assert(option != state.pendingRewards.front().options.end());
             const int starUpgradeRoleId = option->kind == ChessRewardKind::StarUpgrade
                 ? state.roster.at(option->value).roleId
@@ -1258,54 +1198,68 @@ LegalActionDto legalActionDto(
                 state.pendingRewards.front(),
                 *option,
                 starUpgradeRoleId);
-            LegalActionDto::Candidate dtoCandidate;
-            dtoCandidate.value = candidate.rewardId;
-            dtoCandidate.label = reward.label;
-            dtoCandidate.description = reward.description;
+            candidate.label = reward.label;
+            candidate.description = reward.description;
             if (reward.equipment)
             {
-                dtoCandidate.group = std::format(
+                candidate.group = std::format(
                     "{}階{}",
                     reward.equipment->tier,
                     reward.equipment->type);
             }
-            primaryCandidates.push_back(std::move(dtoCandidate));
         }
-        break;
-    case ChessActionType::StartChallenge:
-        primaryField = "challenge_name";
-        for (const auto& candidate : chessActionOfferDetail<ChessChallengeSelectionOffer>(offer).candidates)
+        else if (descriptor.type == ChessActionType::StartChallenge)
         {
-            const auto challenge = std::ranges::find(
-                content.balance().challenges,
-                candidate.challengeName,
-                &BalanceConfig::ChallengeDef::name);
+            const auto challenge = std::ranges::find(content.balance().challenges, value, &BalanceConfig::ChallengeDef::name);
             assert(challenge != content.balance().challenges.end());
-            primaryCandidates.push_back({
-                {},
-                candidate.challengeName,
-                candidate.challengeName,
-                challengeDescription(content, *challenge),
-            });
+            candidate.description = challengeDescription(content, *challenge);
         }
-        break;
-    default:
-        break;
+        primaryCandidates.push_back(std::move(candidate));
     }
-
+    const auto primaryField = [&]() -> std::string {
+        switch (descriptor.type)
+        {
+        case ChessActionType::BuyShopSlot: return "slot";
+        case ChessActionType::SellChess: return "chess_instance_id";
+        case ChessActionType::SetDeployment: return "chess_instance_ids";
+        case ChessActionType::AddBan: return "role_id";
+        case ChessActionType::Equip: return "equipment_instance_id";
+        case ChessActionType::BuyLegendaryEquipment: return "item_id";
+        case ChessActionType::ChooseMap: return "map_id";
+        case ChessActionType::SwapPositions: return "first_unit_id";
+        case ChessActionType::ChooseReward: return "reward_id";
+        case ChessActionType::StartChallenge: return "challenge_name";
+        default: return {};
+        }
+    }();
     if (!primaryField.empty())
     {
-        dto.candidates_by_field.insert(
-            dto.candidates_by_field.begin(),
-            {primaryField, primaryMultiple, primaryCandidates});
-    }
-    if (offer.type == ChessActionType::SwapPositions)
-    {
         dto.candidates_by_field.push_back({
-            "second_unit_id",
-            false,
-            std::move(primaryCandidates),
+            primaryField,
+            descriptor.type == ChessActionType::SetDeployment,
+            primaryCandidates,
         });
+    }
+    if (descriptor.type == ChessActionType::Equip)
+    {
+        LegalActionDto::FieldCandidates targets;
+        targets.field = "target_chess_instance_id";
+        for (const auto& [instanceId, piece] : state.roster)
+        {
+            const auto* role = content.role(piece.roleId);
+            assert(role);
+            targets.candidates.push_back({
+                instanceId,
+                std::to_string(instanceId),
+                role->Name,
+                std::format("{}★{}", piece.star, piece.deployed ? "；目前出戰" : ""),
+            });
+        }
+        dto.candidates_by_field.push_back(std::move(targets));
+    }
+    else if (descriptor.type == ChessActionType::SwapPositions)
+    {
+        dto.candidates_by_field.push_back({"second_unit_id", false, primaryCandidates});
     }
     return dto;
 }
@@ -1417,16 +1371,14 @@ std::optional<ShopSlotInspectionDto> inspectShopSlotDto(
         queryChessShopSlot(
             session.state(),
             session.content(),
-            slotIndex,
-            [&](const ChessAction& action) { return session.validateAction(action); }));
+            slotIndex));
 }
 
 ShopInspectionDto shopInspectionDto(const ChessGameSession& session)
 {
     const auto analysis = queryChessShop(
         session.state(),
-        session.content(),
-        [&](const ChessAction& action) { return session.validateAction(action); });
+        session.content());
     ShopInspectionDto dto;
     dto.money = analysis.money;
     dto.level = analysis.level;
@@ -1566,118 +1518,61 @@ SemanticEventDto semanticEventDto(
 {
     SemanticEventDto dto;
     dto.type = semanticEventTypeId(event.type);
-    const auto assignStable = [&dto](ChessSemanticEventStableFields stable)
-    {
-        dto.primary_id = stable.primaryId;
-        dto.secondary_id = stable.secondaryId;
-        dto.value = stable.value;
-        dto.stable_id = std::move(stable.stableId);
-    };
     if (event.type == ChessSemanticEventType::GoldAwarded)
     {
-        const auto& detail = chessSemanticEventDetail<ChessGoldAwardedEventDetail>(event);
-        dto.base_gold = detail.baseGold;
-        dto.interest_gold = detail.interestGold;
-        dto.other_gold = detail.otherGold;
-        dto.total_gold = detail.totalGold;
-        if (detail.sourceComboId >= 0)
+        dto.base_gold = event.primaryId;
+        dto.interest_gold = event.secondaryId;
+        dto.other_gold = event.value - event.primaryId - event.secondaryId;
+        dto.total_gold = event.value;
+        if (event.stableId.starts_with("combo:"))
         {
-            const auto combo = std::ranges::find(
-                content.combos(),
-                detail.sourceComboId,
-                &ComboDef::id);
-            if (combo != content.combos().end())
+            int comboId{};
+            const auto idText = std::string_view(event.stableId).substr(6);
+            const auto parsed = std::from_chars(
+                idText.data(),
+                idText.data() + idText.size(),
+                comboId);
+            if (parsed.ec == std::errc{} && parsed.ptr == idText.data() + idText.size())
             {
-                dto.other_gold_source = combo->name;
+                const auto combo = std::ranges::find(content.combos(), comboId, &ComboDef::id);
+                if (combo != content.combos().end()) dto.other_gold_source = combo->name;
             }
         }
         return dto;
     }
-    if (event.type == ChessSemanticEventType::ChessMerged)
+    if (event.type == ChessSemanticEventType::ChessMerged && event.merge)
     {
-        const auto& detail = chessSemanticEventDetail<ChessMergeEventDetail>(event);
-        const auto* role = content.role(detail.roleId);
+        const auto* role = content.role(event.secondaryId);
         assert(role);
-        dto.role_id = detail.roleId;
+        dto.role_id = event.secondaryId;
         dto.role_name = role->Name;
-        dto.consumed_instance_ids = detail.consumedInstanceIds;
-        dto.new_instance_id = detail.newInstanceId;
-        dto.result_star = detail.resultStar;
-        dto.inherited_fights_won = detail.inheritedFightsWon;
-        dto.deployed = detail.deployed;
-        dto.transferred_equipment_instance_ids = detail.transferredEquipmentInstanceIds;
-        dto.recursive_merge_followed = detail.recursiveMergeFollowed;
+        dto.consumed_instance_ids = event.merge->consumedInstanceIds;
+        dto.new_instance_id = event.primaryId;
+        dto.result_star = event.value;
+        dto.inherited_fights_won = event.merge->inheritedFightsWon;
+        dto.deployed = event.merge->deployed;
+        dto.transferred_equipment_instance_ids = event.merge->transferredEquipmentInstanceIds;
+        dto.recursive_merge_followed = event.merge->recursiveMergeFollowed;
         return dto;
     }
-    if (event.type == ChessSemanticEventType::EnemyPlanRerolled)
+    if (event.type == ChessSemanticEventType::EnemyPlanRerolled && event.enemyPlanReroll)
     {
-        const auto& detail = chessSemanticEventDetail<ChessEnemyPlanRerollEventDetail>(event);
-        dto.cost = detail.cost;
+        dto.cost = event.enemyPlanReroll->cost;
         dto.previous_enemy_plan_key = std::format(
             "0x{:016x}",
-            detail.previousEnemyPlanKey);
+            event.enemyPlanReroll->previousEnemyPlanKey);
         dto.new_enemy_plan_key = std::format(
             "0x{:016x}",
-            detail.newEnemyPlanKey);
+            event.enemyPlanReroll->newEnemyPlanKey);
         dto.effect = "下一次準備戰鬥時重新生成敵方陣容、裝備、地圖與戰鬥種子";
         return dto;
     }
-    if (event.type == ChessSemanticEventType::EquipmentAcquired)
-    {
-        const auto& detail =
-            chessSemanticEventDetail<ChessEquipmentAcquiredEventDetail>(event);
-        assignStable({detail.equipmentInstanceId, detail.itemId, {}, {}});
-        return dto;
-    }
-    if (event.type == ChessSemanticEventType::EquipmentAssigned)
-    {
-        const auto& detail =
-            chessSemanticEventDetail<ChessEquipmentAssignedEventDetail>(event);
-        assignStable({
-            detail.equipmentInstanceId,
-            detail.targetChessInstanceId,
-            detail.itemId,
-            {},
-        });
-        return dto;
-    }
-    if (event.type == ChessSemanticEventType::LegendaryEquipmentPurchased)
-    {
-        const auto& detail =
-            chessSemanticEventDetail<ChessLegendaryEquipmentPurchasedEventDetail>(event);
-        assignStable({
-            detail.equipmentInstanceId,
-            detail.itemId,
-            detail.cost,
-            {},
-        });
-        return dto;
-    }
-    if (event.type == ChessSemanticEventType::RewardOffered)
-    {
-        const auto& detail =
-            chessSemanticEventDetail<ChessRewardOfferedEventDetail>(event);
-        assignStable({{}, {}, detail.optionCount, detail.rewardId});
-        return dto;
-    }
-    if (event.type == ChessSemanticEventType::RewardRerolled)
-    {
-        const auto& detail =
-            chessSemanticEventDetail<ChessRewardRerolledEventDetail>(event);
-        assignStable({{}, {}, detail.cost, detail.rewardId});
-        return dto;
-    }
-    if (event.type == ChessSemanticEventType::RewardChosen)
-    {
-        const auto& detail =
-            chessSemanticEventDetail<ChessRewardChosenEventDetail>(event);
-        assignStable({{}, {}, {}, detail.rewardId});
-        return dto;
-    }
-    assignStable(chessSemanticEventStableFields(event));
+    dto.primary_id = event.primaryId;
+    dto.secondary_id = event.secondaryId;
+    dto.value = event.value;
+    dto.stable_id = event.stableId;
     return dto;
 }
-
 bool deploymentChanged(const ChessSessionState& before, const ChessSessionState& after)
 {
     if (before.roster.size() != after.roster.size())
@@ -1711,14 +1606,13 @@ SummaryActionResultDto summaryActionResultDto(
         dto.events.push_back(semanticEventTypeId(event.type));
         if (event.type == ChessSemanticEventType::ChessMerged)
         {
-            const auto& merge = chessSemanticEventDetail<ChessMergeEventDetail>(event);
-            const auto* role = session.content().role(merge.roleId);
+            const auto* role = session.content().role(event.secondaryId);
             assert(role);
             dto.changes.merged_units.push_back({
-                merge.roleId,
+                event.secondaryId,
                 role->Name,
-                merge.newInstanceId,
-                merge.resultStar,
+                event.primaryId,
+                event.value,
             });
         }
     }

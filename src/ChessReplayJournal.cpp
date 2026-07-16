@@ -252,12 +252,11 @@ ChessSha256 canonicalChessEventHash(const std::vector<ChessSemanticEvent>& event
     writer.writeCollectionSize(events.size());
     for (const auto& event : events)
     {
-        const auto fields = chessSemanticEventStableFields(event);
         writer.writeU16(static_cast<std::uint16_t>(event.type));
-        writer.writeI32(fields.primaryId);
-        writer.writeI32(fields.secondaryId);
-        writer.writeI32(fields.value);
-        writer.writeString(fields.stableId);
+        writer.writeI32(event.primaryId);
+        writer.writeI32(event.secondaryId);
+        writer.writeI32(event.value);
+        writer.writeString(event.stableId);
     }
     return chessSha256(writer.bytes());
 }

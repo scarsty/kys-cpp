@@ -1,9 +1,7 @@
 #include "ChessGameSession.h"
 
 #include "BattleSetupFactory.h"
-#include "ChessActionOffers.h"
 #include "ChessBattlePlanner.h"
-#include "ChessGameQueries.h"
 #include "ChessProgressionRules.h"
 #include "ChessRewardRules.h"
 #include "ChessRuntimeConstants.h"
@@ -28,6 +26,18 @@ std::string difficultyId(Difficulty difficulty)
     case Difficulty::Hard: return "hard";
     }
     std::unreachable();
+}
+
+ChessLegalActionDescriptor selectionAction(
+    ChessActionType type,
+    int minimumSelection,
+    int maximumSelection)
+{
+    ChessLegalActionDescriptor descriptor;
+    descriptor.type = type;
+    descriptor.minimumSelection = minimumSelection;
+    descriptor.maximumSelection = maximumSelection;
+    return descriptor;
 }
 
 }
@@ -153,15 +163,287 @@ void ChessGameSession::replaceWith(ChessGameSession&& other)
 
 ChessGameplayObservation ChessGameSession::observe() const
 {
-    return queryChessGameplayObservation(state_, *content_, random_);
+    ChessGameplayObservation observation;
+    observation.phase = state_.phase;
+    observation.difficulty = content_->difficulty();
+    observation.options = state_.options;
+    observation.money = state_.money;
+    observation.interestGold = ChessProgressionRules::interestGold(state_, *content_);
+    observation.nextInterestThreshold = ChessProgressionRules::nextInterestThreshold(state_, *content_);
+    observation.maximumInterestGold = content_->balance().interestMax;
+    observation.projectedBaseVictoryGold = ChessProgressionRules::baseVictoryGold(state_, *content_);
+    observation.projectedVictoryIncome = ChessProgressionRules::projectedVictoryIncome(state_, *content_);
+    observation.experience = state_.experience;
+    observation.experienceForNextLevel = ChessManagementRules::experienceForNextLevel(state_, *content_);
+    observation.level = state_.level;
+    observation.maximumDeployment = ChessManagementRules::maximumDeployment(state_, *content_);
+    observation.maximumBanCount = ChessManagementRules::maximumBanCount(state_, *content_);
+    observation.fight = state_.fight;
+    observation.campaignComplete = state_.campaignComplete;
+    observation.shopLocked = state_.shopLocked;
+    observation.freeShopRefreshAvailable = state_.freeShopRefreshAvailable;
+    observation.freeShopRefreshGrantedFight = state_.freeShopRefreshGrantedFight;
+    observation.shop = state_.shop;
+    for (const auto& [id, piece] : state_.roster)
+    {
+        observation.roster.push_back(piece);
+    }
+    for (const auto& [id, equipment] : state_.equipmentInventory)
+    {
+        observation.equipmentInventory.push_back(equipment);
+    }
+    observation.bans.assign(state_.bannedRoleIds.begin(), state_.bannedRoleIds.end());
+    observation.seenRoles.assign(state_.seenRoleIds.begin(), state_.seenRoleIds.end());
+    observation.obtainedNeigongIds.assign(
+        state_.obtainedNeigongIds.begin(),
+        state_.obtainedNeigongIds.end());
+    observation.completedChallengeNames.assign(
+        state_.completedChallengeNames.begin(),
+        state_.completedChallengeNames.end());
+    for (const auto& combo : content_->combos())
+    {
+        const auto progress = evaluateChessComboProgress(state_, *content_, combo);
+        observation.combos.push_back({
+            combo.id,
+            progress.physicalCount,
+            progress.effectiveCount,
+            progress.activeThresholdIndex,
+            progress.nextThresholdIndex,
+            progress.contributions,
+        });
+    }
+    observation.preparedBattle = state_.preparedBattle;
+    if (!state_.pendingRewards.empty())
+    {
+        observation.pendingReward = state_.pendingRewards.front();
+    }
+    observation.lastBattleOutcome = state_.lastBattleOutcome;
+    observation.lastBattleEndFrame = state_.lastBattleEndFrame;
+    observation.lastBattleDigest = state_.lastBattleDigest;
+    observation.stateHash = canonicalChessStateHash(state_, random_);
+    return observation;
 }
 
-std::vector<ChessActionOffer> ChessGameSession::legalActions() const
+std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
 {
-    return buildChessActionOffers(
-        state_,
-        *content_,
-        [this](const ChessAction& action) { return validateAction(action); });
+    if (state_.phase == ChessSessionPhase::Complete)
+    {
+        return {};
+    }
+    if (state_.phase == ChessSessionPhase::BattlePreparation)
+    {
+        std::vector<ChessLegalActionDescriptor> result;
+        assert(state_.preparedBattle);
+        if (state_.preparedBattle->chosenMapId < 0
+            && !state_.preparedBattle->mapCandidates.empty())
+        {
+            auto choose = selectionAction(ChessActionType::ChooseMap, 1, 1);
+            choose.candidateIds = state_.preparedBattle->mapCandidates;
+            result.push_back(std::move(choose));
+        }
+        if (state_.options.positionSwapEnabled)
+        {
+            auto swap = selectionAction(ChessActionType::SwapPositions, 2, 2);
+            for (const auto& unit : state_.preparedBattle->units)
+            {
+                if (unit.team == 0)
+                {
+                    swap.candidateIds.push_back(unit.unitId);
+                }
+            }
+            result.push_back(std::move(swap));
+        }
+        if (state_.preparedBattle->chosenMapId >= 0 || state_.preparedBattle->mapCandidates.empty())
+        {
+            result.push_back({ChessActionType::StartBattle});
+        }
+        return result;
+    }
+    if (state_.phase == ChessSessionPhase::RewardChoice)
+    {
+        assert(!state_.pendingRewards.empty());
+        const auto& pending = state_.pendingRewards.front();
+        if (pending.kind == ChessRewardKind::ForcedBan)
+        {
+            auto ban = selectionAction(ChessActionType::AddBan, 1, 1);
+            for (const auto& option : pending.options)
+            {
+                ChessAction action;
+                action.type = ChessActionType::AddBan;
+                action.roleId = option.value;
+                if (validateAction(action) == ChessRuleErrorCode::None)
+                {
+                    ban.candidateIds.push_back(option.value);
+                }
+            }
+            return {std::move(ban), {ChessActionType::SkipForcedBans}};
+        }
+        auto choose = selectionAction(ChessActionType::ChooseReward, 1, 1);
+        for (const auto& option : pending.options)
+        {
+            choose.candidateStableIds.push_back(option.id);
+        }
+        std::vector<ChessLegalActionDescriptor> result{std::move(choose)};
+        ChessAction reroll;
+        reroll.type = ChessActionType::RerollReward;
+        if (validateAction(reroll) == ChessRuleErrorCode::None)
+        {
+            result.push_back({ChessActionType::RerollReward});
+        }
+        return result;
+    }
+    if (state_.phase != ChessSessionPhase::Management)
+    {
+        return {};
+    }
+    std::vector<ChessLegalActionDescriptor> result;
+    ChessAction action;
+    action.type = ChessActionType::RefreshShop;
+    if (validateAction(action) == ChessRuleErrorCode::None)
+    {
+        result.push_back({ChessActionType::RefreshShop});
+    }
+    result.push_back({ChessActionType::SetShopLocked});
+    auto buy = selectionAction(ChessActionType::BuyShopSlot, 1, 1);
+    for (int slot = 0; slot < static_cast<int>(state_.shop.size()); ++slot)
+    {
+        action = {};
+        action.type = ChessActionType::BuyShopSlot;
+        action.shopSlot = slot;
+        if (validateAction(action) == ChessRuleErrorCode::None)
+        {
+            buy.candidateIds.push_back(slot);
+        }
+    }
+    if (!buy.candidateIds.empty())
+    {
+        result.push_back(std::move(buy));
+    }
+    auto sell = selectionAction(ChessActionType::SellChess, 1, 1);
+    auto deployment = selectionAction(
+        ChessActionType::SetDeployment,
+        0,
+        ChessManagementRules::maximumDeployment(state_, *content_));
+    for (const auto& [id, piece] : state_.roster)
+    {
+        sell.candidateIds.push_back(id);
+        deployment.candidateIds.push_back(id);
+    }
+    if (!sell.candidateIds.empty())
+    {
+        result.push_back(std::move(sell));
+    }
+    result.push_back(std::move(deployment));
+    if (state_.bannedRoleIds.size()
+        < static_cast<std::size_t>(ChessManagementRules::maximumBanCount(state_, *content_)))
+    {
+        auto ban = selectionAction(ChessActionType::AddBan, 1, 1);
+        for (const int roleId : state_.seenRoleIds)
+        {
+            action = {};
+            action.type = ChessActionType::AddBan;
+            action.roleId = roleId;
+            if (validateAction(action) == ChessRuleErrorCode::None)
+            {
+                ban.candidateIds.push_back(roleId);
+            }
+        }
+        if (!ban.candidateIds.empty())
+        {
+            result.push_back(std::move(ban));
+        }
+    }
+    result.push_back({ChessActionType::SetPositionSwapEnabled});
+    action = {};
+    action.type = ChessActionType::RerollEnemySeed;
+    if (validateAction(action) == ChessRuleErrorCode::None)
+    {
+        result.push_back({ChessActionType::RerollEnemySeed});
+    }
+    if (!state_.equipmentInventory.empty() && !state_.roster.empty())
+    {
+        auto equip = selectionAction(ChessActionType::Equip, 1, 1);
+        std::vector<int> assigned;
+        for (const auto& [id, equipment] : state_.equipmentInventory)
+        {
+            if (equipment.assignedChessInstanceId < 0)
+            {
+                equip.candidateIds.push_back(id);
+            }
+            else
+            {
+                assigned.push_back(id);
+            }
+        }
+        equip.candidateIds.insert(equip.candidateIds.end(), assigned.begin(), assigned.end());
+        result.push_back(std::move(equip));
+    }
+    if (content_->balance().legendaryShop.unlockFight > 0
+        && state_.fight >= content_->balance().legendaryShop.unlockFight)
+    {
+        auto legendary = selectionAction(
+            ChessActionType::BuyLegendaryEquipment,
+            1,
+            1);
+        for (const auto& equipment : content_->equipment())
+        {
+            if (equipment.tier == 4)
+            {
+                action = {};
+                action.type = ChessActionType::BuyLegendaryEquipment;
+                action.itemId = equipment.itemId;
+                if (validateAction(action) == ChessRuleErrorCode::None)
+                {
+                    legendary.candidateIds.push_back(equipment.itemId);
+                }
+            }
+        }
+        if (!legendary.candidateIds.empty())
+        {
+            result.push_back(std::move(legendary));
+        }
+    }
+    action = {};
+    action.type = ChessActionType::BuyExp;
+    if (validateAction(action) == ChessRuleErrorCode::None)
+    {
+        result.push_back({ChessActionType::BuyExp});
+    }
+    const int deployed = static_cast<int>(std::ranges::count_if(state_.roster, [](const auto& entry) {
+        return entry.second.deployed;
+    }));
+    if (deployed > 0)
+    {
+        if (!state_.campaignComplete)
+        {
+            action = {};
+            action.type = ChessActionType::PrepareBattle;
+            if (validateAction(action) == ChessRuleErrorCode::None)
+            {
+                result.push_back({ChessActionType::PrepareBattle});
+            }
+        }
+        auto challenge = selectionAction(ChessActionType::StartChallenge, 1, 1);
+        for (const auto& definition : content_->balance().challenges)
+        {
+            action = {};
+            action.type = ChessActionType::StartChallenge;
+            action.challengeName = definition.name;
+            if (validateAction(action) == ChessRuleErrorCode::None)
+            {
+                challenge.candidateStableIds.push_back(definition.name);
+            }
+        }
+        if (!challenge.candidateStableIds.empty())
+        {
+            result.push_back(std::move(challenge));
+        }
+    }
+    if (state_.campaignComplete)
+    {
+        result.push_back({ChessActionType::FinishRun});
+    }
+    return result;
 }
 
 std::string ChessGameSession::errorDescription(ChessRuleErrorCode error)
@@ -306,10 +588,7 @@ void ChessGameSession::applyAction(
         {
             state_.preparedBattle = ChessBattlePlanner::prepareCampaign(state_, *content_, random_);
             state_.phase = ChessSessionPhase::BattlePreparation;
-            events.push_back({
-                ChessSemanticEventType::BattlePrepared,
-                ChessBattlePreparedEventDetail{state_.preparedBattle->stableBattleId},
-            });
+            events.push_back({ChessSemanticEventType::BattlePrepared, {}, {}, {}, state_.preparedBattle->stableBattleId});
             return;
         }
         if (action.type == ChessActionType::StartChallenge)
@@ -321,10 +600,7 @@ void ChessGameSession::applyAction(
             state_.preparedBattle = ChessBattlePlanner::prepareChallenge(
                 state_, *content_, random_, *found);
             state_.phase = ChessSessionPhase::BattlePreparation;
-            events.push_back({
-                ChessSemanticEventType::BattlePrepared,
-                ChessBattlePreparedEventDetail{action.challengeName},
-            });
+            events.push_back({ChessSemanticEventType::BattlePrepared, {}, {}, {}, action.challengeName});
             return;
         }
         if (action.type == ChessActionType::FinishRun)
@@ -342,7 +618,7 @@ void ChessGameSession::applyAction(
         {
             state_.preparedBattle->chosenMapId = action.mapId;
             BattleSetupFactory::populateBaseFormation(*state_.preparedBattle, *content_);
-            events.push_back({ChessSemanticEventType::MapChosen, ChessMapChosenEventDetail{action.mapId}});
+            events.push_back({ChessSemanticEventType::MapChosen, action.mapId});
             return;
         }
         if (action.type == ChessActionType::SwapPositions)
@@ -352,10 +628,8 @@ void ChessGameSession::applyAction(
                 action.targetChessInstanceId);
             events.push_back({
                 ChessSemanticEventType::FormationSwapped,
-                ChessFormationSwappedEventDetail{
-                    action.chessInstanceId,
-                    action.targetChessInstanceId,
-                },
+                action.chessInstanceId,
+                action.targetChessInstanceId,
             });
             return;
         }
@@ -436,10 +710,7 @@ ChessActionResult ChessGameSession::beginAction(const ChessAction& action)
     assert(state_.preparedBattle);
     lastBattlePrepared_ = state_.preparedBattle;
     state_.phase = ChessSessionPhase::BattleResolution;
-    events.push_back({
-        ChessSemanticEventType::BattleStarted,
-        ChessBattleStartedEventDetail{state_.preparedBattle->stableBattleId},
-    });
+    events.push_back({ChessSemanticEventType::BattleStarted, {}, {}, {}, state_.preparedBattle->stableBattleId});
     auto input = BattleSetupFactory::build(
         *state_.preparedBattle,
         *content_,

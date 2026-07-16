@@ -1,9 +1,7 @@
 #pragma once
 
-#include "ChessActionOffers.h"
 #include "ChessCatalogQueries.h"
 #include "ChessGameContent.h"
-#include "ChessRunRandom.h"
 
 #include <optional>
 #include <string>
@@ -103,10 +101,6 @@ struct ChessBanAnalysis
     std::string forcedPhaseNote;
 };
 
-ChessGameplayObservation queryChessGameplayObservation(
-    const ChessSessionState& state,
-    const ChessGameContent& content,
-    const ChessRunRandom& random);
 ChessShopOddsAnalysis queryChessShopOdds(
     const ChessSessionState& state,
     const ChessGameContent& content,
@@ -114,12 +108,10 @@ ChessShopOddsAnalysis queryChessShopOdds(
 ChessShopSlotAnalysis queryChessShopSlot(
     const ChessSessionState& state,
     const ChessGameContent& content,
-    int slot,
-    const ChessActionValidator& validate);
+    int slot);
 ChessShopAnalysis queryChessShop(
     const ChessSessionState& state,
-    const ChessGameContent& content,
-    const ChessActionValidator& validate);
+    const ChessGameContent& content);
 ChessInstanceAnalysis queryChessInstance(
     const ChessSessionState& state,
     const ChessGameContent& content,
@@ -127,6 +119,6 @@ ChessInstanceAnalysis queryChessInstance(
 ChessBanAnalysis queryChessBans(
     const ChessSessionState& state,
     const ChessGameContent& content,
-    const std::vector<ChessActionOffer>& offers);
+    const std::vector<ChessLegalActionDescriptor>& legalActions);
 
 }  // namespace KysChess
