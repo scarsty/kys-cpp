@@ -20,7 +20,6 @@ public:
     void onSubSceneEntrance(int submapId);
     bool interceptEvent(int submapId, int eventId);
     bool blockExit(int submapId) const;
-    void showMenu();
     void showContextMenu();
 
 private:

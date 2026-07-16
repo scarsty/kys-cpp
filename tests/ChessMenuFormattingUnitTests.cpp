@@ -76,6 +76,23 @@ TEST_CASE("menu action and equipment rows share the same measured columns", "[ch
     CHECK(testDisplayWidth(labels[2]) == width);
 }
 
+TEST_CASE("equipment inventory alignment does not reserve unused global columns",
+          "[chess][menu-formatting][equipment]")
+{
+    const auto labels = buildAlignedChessMenuLabels(
+        {
+            {"[初階] ", "射雕弓", " [已裝]", ""},
+            {"[初階] ", "越女劍", "", ""},
+        },
+        testDisplayWidth,
+        ChessMenuColumnMinimumWidths{0, 0, 0});
+
+    REQUIRE(labels.size() == 2);
+    CHECK(testDisplayWidth(labels[0]) == testDisplayWidth(labels[1]));
+    CHECK(testDisplayWidth(labels[0]) < ChessScreenLayout::getDefaultMenuItemUnits());
+    CHECK(labels[0].contains(" [已裝]"));
+}
+
 TEST_CASE("legacy browse menu typography and reward overrides stay explicit", "[chess][menu-formatting][legacy]")
 {
     CHECK((kChessBrowseMenuPresentation == ChessMenuPresentation{36, 10}));

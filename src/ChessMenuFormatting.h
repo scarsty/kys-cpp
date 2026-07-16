@@ -25,6 +25,13 @@ struct ChessMenuColumnRow
     std::string right;
 };
 
+struct ChessMenuColumnMinimumWidths
+{
+    int name = ChessScreenLayout::kMenuNameUnits;
+    int middle = ChessScreenLayout::kMenuStarUnits;
+    int right = ChessScreenLayout::kMenuCostUnits;
+};
+
 struct ChessMenuPresentation
 {
     int fontSize{};
@@ -518,11 +525,12 @@ std::string padLeftToDisplayWidth(std::string text, int targetWidth, DisplayWidt
 template <typename DisplayWidth>
 std::vector<std::string> buildAlignedChessMenuLabels(
     const std::vector<ChessMenuColumnRow>& rows,
-    DisplayWidth displayWidth)
+    DisplayWidth displayWidth,
+    ChessMenuColumnMinimumWidths minimumWidths = {})
 {
-    int nameWidth = ChessScreenLayout::kMenuNameUnits;
-    int middleWidth = ChessScreenLayout::kMenuStarUnits;
-    int rightWidth = ChessScreenLayout::kMenuCostUnits;
+    int nameWidth = minimumWidths.name;
+    int middleWidth = minimumWidths.middle;
+    int rightWidth = minimumWidths.right;
     for (const auto& row : rows)
     {
         nameWidth = std::max(nameWidth, displayWidth(row.prefix + row.name));

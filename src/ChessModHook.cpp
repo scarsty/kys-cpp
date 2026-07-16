@@ -4,11 +4,8 @@
 #include "ChessPresentationHelpers.h"
 #include "GameDataStore.h"
 #include "GameUtil.h"
-#include "Event.h"
-#include "Menu.h"
 #include "Talk.h"
 #include "Save.h"
-#include "UISave.h"
 #include "ChessSessionCheckpoint.h"
 #include <algorithm>
 #include <chrono>
@@ -137,37 +134,6 @@ bool ChessMod::blockExit(int submap_id) const
 void ChessMod::showContextMenu()
 {
     ChessGuiSessionAdapter(session_).showContextMenu();
-}
-
-void ChessMod::showMenu()
-{
-    auto menu = std::make_shared<MenuText>();
-    menu->setStrings({ "讀取進度", "保存進度", "返回開頭" });
-    menu->setFontSize(40);
-    menu->arrange(0, 0, 0, 49);
-    menu->runAtPosition(200, 200);
-    int r = menu->getResult();
-    if (r == 0 || r == 1)
-    {
-        auto ui_save = std::make_shared<UISave>();
-        ui_save->setMode(r);
-        ui_save->setFontSize(36);
-        ui_save->arrange(0, 0, 0, 45);
-        ui_save->runAtPosition(200, 260);
-    }
-    else if (r == 2)
-    {
-        auto confirm = std::make_shared<MenuText>();
-        confirm->setStrings({ "確認返回開頭", "     否     " });
-        confirm->setFontSize(40);
-        confirm->arrange(0, 0, 0, 49);
-        confirm->runAtPosition(200, 200);
-        if (confirm->getResult() == 0)
-        {
-            RunNode::exitAll(1);
-            Event::getInstance()->forceExit();
-        }
-    }
 }
 
 GameDataStore ChessModHook::exportGameData()

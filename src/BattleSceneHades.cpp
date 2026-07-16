@@ -823,6 +823,12 @@ void BattleSceneHades::drawClassicView()
     };
     const bool cursorFloorActive = battle_cursor_->isRunning() && !acting_role_->isAuto();
     const bool cursorFloorActionMode = cursorFloorActive && battle_cursor_->getMode() == BattleCursor::Action;
+    std::optional<Point> swapSelectedCell;
+    if (swapSelectedUnitId_ >= 0)
+    {
+        const auto& selected = scene_units_.requireRuntimeUnit(swapSelectedUnitId_);
+        swapSelectedCell = Point{selected.grid.x, selected.grid.y};
+    }
 
     auto earth_tex = Engine::getInstance()->getTexture("earth_base");
     if (earth_tex)
@@ -894,6 +900,16 @@ void BattleSceneHades::drawClassicView()
                 if (floorDraw.shouldDraw && num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, renderWorldX(p.x), renderWorldY(p.y / 2.0), TextureManager::RenderInfo{ floorDraw.color });
+                }
+                const bool selectedForSwap = swapSelectedCell
+                    && swapSelectedCell->x == ix
+                    && swapSelectedCell->y == iy;
+                const bool hoveredForSwap = swapHoverCell_
+                    && swapHoverCell_->x == ix
+                    && swapHoverCell_->y == iy;
+                if (selectedForSwap || hoveredForSwap)
+                {
+                    renderMouseCursorFloor(renderWorldX(p.x), renderWorldY(p.y / 2.0));
                 }
             }
         }
@@ -1154,20 +1170,6 @@ void BattleSceneHades::drawClassicView()
         }
     }
 
-    if (swapSelectedUnitId_ >= 0)
-    {
-        const auto& selectedPosition = scene_units_.requireRuntimeUnit(swapSelectedUnitId_).motion.position;
-        if (is_visible_world(selectedPosition.x, selectedPosition.y / 2.0))
-        {
-            engine->fillColor(
-                {255, 255, 0, 80},
-                renderWorldX(selectedPosition.x - 15),
-                renderWorldY(selectedPosition.y / 2.0 - 5),
-                std::max(1, int(30 * viewScaleX)),
-                std::max(1, int(10 * viewScaleY)));
-        }
-    }
-
     if (use_whole_scene)
     {
         Color c = { 255, 255, 255, 255 };
@@ -1206,7 +1208,7 @@ void BattleSceneHades::drawClassicView()
         }
     }
 
-    // Role info text (frozen timer, swap coordinates)
+    // Role info text
     for (const auto& unit : scene_units_.runtimeUnits())
     {
         if (!unit.alive) { continue; }
@@ -1229,15 +1231,6 @@ void BattleSceneHades::drawClassicView()
                 (std::max)(1, int(9 * sizeScale)),
                 worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y - 1),
                 { 230, 195, 120, 240 });
-        }
-        if (positionSwapActive_ && unit.team == 0)
-        {
-            Font::getInstance()->draw(
-                std::format("({},{})", unit.grid.x, unit.grid.y),
-                (std::max)(1, int(28 * sizeScale)),
-                worldToUiX(wx - 5),
-                worldToUiY(wy - 5),
-                {255, 255, 100, 255});
         }
     }
 
@@ -2527,12 +2520,18 @@ public:
 
     PointerResult onPointerEvent(const PointerEvent& event) override
     {
+        if (event.phase == PointerPhase::Motion)
+        {
+            updateHoverCell(event);
+            return PointerResult::Handled;
+        }
         if (event.button != SDL_BUTTON_LEFT)
         {
             return RunNode::onPointerEvent(event);
         }
         if (event.phase == PointerPhase::ButtonDown)
         {
+            updateHoverCell(event);
             return event.insidePresent ? PointerResult::Captured : PointerResult::Ignored;
         }
         if (event.phase != PointerPhase::ButtonUp)
@@ -2540,11 +2539,12 @@ public:
             return PointerResult::Handled;
         }
 
-        const auto position = battle_->getMousePosition(
-            event.uiPosition.x,
-            event.uiPosition.y,
-            battle_->man_x_,
-            battle_->man_y_);
+        updateHoverCell(event);
+        if (!battle_->swapHoverCell_)
+        {
+            return PointerResult::Handled;
+        }
+        const auto position = *battle_->swapHoverCell_;
         int clickedUnitId = -1;
         for (const int unitId : battle_->scene_units_.allyUnitIds())
         {
@@ -2594,25 +2594,47 @@ public:
     }
 
 private:
+    void updateHoverCell(const PointerEvent& event)
+    {
+        if (!event.insidePresent)
+        {
+            battle_->swapHoverCell_.reset();
+            return;
+        }
+        const auto position = battle_->getMousePosition(
+            event.uiPosition.x,
+            event.uiPosition.y,
+            battle_->man_x_,
+            battle_->man_y_);
+        if (battle_->battle_map_.isOutLine(position.x, position.y))
+        {
+            battle_->swapHoverCell_.reset();
+            return;
+        }
+        battle_->swapHoverCell_ = position;
+    }
+
     BattleSceneHades* battle_{};
 };
 
 void BattleSceneHades::runPositionSwapLoop()
 {
     swapSelectedUnitId_ = -1;
-    positionSwapActive_ = true;
+    swapHoverCell_ = getMousePosition(man_x_, man_y_);
+    if (battle_map_.isOutLine(swapHoverCell_->x, swapHoverCell_->y))
+    {
+        swapHoverCell_.reset();
+    }
     auto node = std::make_shared<PositionSwapNode>(this);
     node->run();
-    positionSwapActive_ = false;
+    swapHoverCell_.reset();
 }
 
 void BattleSceneHades::runListBasedSwap()
 {
-    positionSwapActive_ = true;
     const auto allies = scene_units_.allyUnitIds();
     if (allies.size() < 2)
     {
-        positionSwapActive_ = false;
         return;
     }
 
@@ -2691,7 +2713,6 @@ void BattleSceneHades::runListBasedSwap()
         formation_preview_runtime_->swapSetupUnitPositions(allies[first], allies[second]);
     }
     swapSelectedUnitId_ = -1;
-    positionSwapActive_ = false;
 }
 
 void BattleSceneHades::backRun1()

@@ -121,7 +121,7 @@ protected:
     KysChess::ChessGameSession* session_transition_source_ = nullptr;
     std::optional<KysChess::ChessActionResult> completed_action_result_;
     int swapSelectedUnitId_ = -1;
-    bool positionSwapActive_ = false;
+    std::optional<Point> swapHoverCell_;
     std::optional<KysChess::Battle::BattleRuntimeSession> formation_preview_runtime_;
     std::unordered_map<int, int> hurt_flash_timers_;
     BattleSceneUnitStore scene_units_;

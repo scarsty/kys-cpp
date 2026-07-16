@@ -22,12 +22,13 @@ private:
     void chooseChess(ChessActionType actionType);
     void chooseDeployment();
     void showBanManagement();
-    void chooseBan(const ChessLegalActionDescriptor& descriptor);
+    bool chooseBan(const ChessLegalActionDescriptor& descriptor);
     void showEquipmentMenu();
     void showEquipmentInventory();
     void chooseEquipment(const ChessLegalActionDescriptor& descriptor);
     void chooseLegendary(const ChessLegalActionDescriptor& descriptor);
     void showOverviewMenu();
+    bool showSystemMenu();
     void showPositionSwap();
     void showEnemyReroll();
     void viewCombos();

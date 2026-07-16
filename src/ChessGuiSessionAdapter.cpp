@@ -20,6 +20,7 @@
 #include "ChessUiCommon.h"
 #include "DrawableOnCall.h"
 #include "Engine.h"
+#include "Event.h"
 #include "GameUtil.h"
 #include "Menu.h"
 #include "ScenePreloader.h"
@@ -870,6 +871,38 @@ std::optional<ChessContextMenuAction> runContextActionMenu(
     }
     assert(result < static_cast<int>(items.size()));
     return items[result].action;
+}
+
+int runSaveSlotMenu(int mode)
+{
+    auto menu = std::make_shared<UISave>();
+    menu->setMode(mode);
+    menu->setFontSize(kContextMenuFontSize);
+    menu->arrange(0, 0, 0, kContextMenuRowSpacing);
+    const auto region = ChessScreenLayout::fullContentRegion();
+    return menu->runAtPosition(
+        kContextMenuX,
+        centerChessContextMenuY(
+            menu->getChildCount(),
+            region.y,
+            region.h,
+            kContextMenuRowSpacing));
+}
+
+bool confirmReturnToTitle()
+{
+    auto menu = std::make_shared<MenuText>(std::vector<std::string>{"確認返回開頭", "取消"});
+    menu->setFontSize(kContextMenuFontSize);
+    menu->arrange(0, 0, 0, kContextMenuRowSpacing);
+    const auto region = ChessScreenLayout::fullContentRegion();
+    return menu->runAtPosition(
+               kContextMenuX,
+               centerChessContextMenuY(
+                   menu->getChildCount(),
+                   region.y,
+                   region.h,
+                   kContextMenuRowSpacing))
+        == 0;
 }
 
 void drawRoleDetail(
@@ -2096,7 +2129,7 @@ void ChessGuiSessionAdapter::showBanManagement()
     }
 }
 
-void ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descriptor)
+bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descriptor)
 {
     const bool forced = session_.state().phase == ChessSessionPhase::RewardChoice
         && !session_.state().pendingRewards.empty()
@@ -2140,23 +2173,25 @@ void ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
         anchor,
         {makeRoleDetailPanel(session_, roleIds, {}, {}, frame)},
         false);
-    if (choice >= 0)
+    if (choice < 0)
     {
-        ChessAction action;
-        action.type = ChessActionType::AddBan;
-        action.roleId = descriptor.candidateIds[choice];
-        const auto result = submitGuiAction(action);
-        if (!result.accepted)
-        {
-            showChessMessage(result.description);
-        }
-        else
-        {
-            const auto* role = session_.content().role(action.roleId);
-            assert(role);
-            showChessMessage(std::format("禁棋：{}", role->Name));
-        }
+        return false;
     }
+    ChessAction action;
+    action.type = ChessActionType::AddBan;
+    action.roleId = descriptor.candidateIds[choice];
+    const auto result = submitGuiAction(action);
+    if (!result.accepted)
+    {
+        showChessMessage(result.description);
+    }
+    else
+    {
+        const auto* role = session_.content().role(action.roleId);
+        assert(role);
+        showChessMessage(std::format("禁棋：{}", role->Name));
+    }
+    return true;
 }
 
 void ChessGuiSessionAdapter::showEquipmentMenu()
@@ -2283,7 +2318,10 @@ void ChessGuiSessionAdapter::showEquipmentInventory()
             });
             data.colors.push_back(row.owned ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255});
         }
-        data.labels = alignedMenuLabels(labelRows);
+        data.labels = buildAlignedChessMenuLabels(
+            labelRows,
+            menuDisplayWidth,
+            ChessMenuColumnMinimumWidths{0, 0, 0});
         const auto anchor = ChessScreenLayout::browseMenuAnchor();
         const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
             anchor,
@@ -2386,14 +2424,14 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
     }
     pieceData.labels = alignedMenuLabels(pieceRows);
     const auto anchor = ChessScreenLayout::browseMenuAnchor();
-    const auto frame = ChessScreenLayout::browseDetailRegionForMenu(anchor, pieceData.labels, 32);
+    const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, pieceData.labels, 32, 8);
     const int selected = runIndexedMenu(
         "選擇棋子",
         pieceData,
         32,
         12,
         anchor,
-        {makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, frame)},
+        {makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, panels.status)},
         false);
     if (selected < 0)
     {
@@ -2492,6 +2530,47 @@ void ChessGuiSessionAdapter::showOverviewMenu()
     case ChessContextMenuAction::ViewChessPool: viewChessPool(); break;
     case ChessContextMenuAction::ViewNeigong: viewNeigong(); break;
     default: assert(false); break;
+    }
+}
+
+bool ChessGuiSessionAdapter::showSystemMenu()
+{
+    for (;;)
+    {
+        const auto action = runContextActionMenu(buildChessSystemMenu());
+        if (!action)
+        {
+            return false;
+        }
+        switch (*action)
+        {
+        case ChessContextMenuAction::LoadProgress:
+            if (runSaveSlotMenu(0) >= 0)
+            {
+                return true;
+            }
+            break;
+        case ChessContextMenuAction::SaveProgress:
+            runSaveSlotMenu(1);
+            break;
+        case ChessContextMenuAction::ShowSystemSettings:
+            showSystemSettings();
+            break;
+        case ChessContextMenuAction::ShowGameGuide:
+            showGameGuide();
+            break;
+        case ChessContextMenuAction::ReturnToTitle:
+            if (confirmReturnToTitle())
+            {
+                RunNode::exitAll(1);
+                Event::getInstance()->forceExit();
+                return true;
+            }
+            break;
+        default:
+            assert(false);
+            break;
+        }
     }
 }
 
@@ -3444,27 +3523,17 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainRewards(bool stopBeforeForcedBan
         const auto ban = std::ranges::find(legal, ChessActionType::AddBan, &ChessLegalActionDescriptor::type);
         if (ban != legal.end())
         {
-            chooseBan(*ban);
+            const bool selected = chooseBan(*ban);
             if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
             {
                 return ChessGuiFlowResult::Aborted;
             }
-            if (session_.state().phase == ChessSessionPhase::RewardChoice)
+            if (!selected)
             {
-                auto confirm = std::make_shared<MenuText>(std::vector<std::string>{"繼續選擇", "跳過剩餘禁棋"});
-                confirm->setFontSize(36);
-                confirm->arrange(0, 0, 0, 45);
-                confirm->runAtPosition(200, 200);
-                if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
-                {
-                    return ChessGuiFlowResult::Aborted;
-                }
-                if (confirm->getResult() == 1)
-                {
-                    ChessAction skip;
-                    skip.type = ChessActionType::SkipForcedBans;
-                    submitGuiAction(skip);
-                }
+                ChessAction skip;
+                skip.type = ChessActionType::SkipForcedBans;
+                const auto result = submitGuiAction(skip);
+                assert(result.accepted);
             }
             continue;
         }
@@ -3547,20 +3616,33 @@ void ChessGuiSessionAdapter::showContextMenu()
             chooseDeployment();
             break;
         case ChessContextMenuAction::EnterBattle:
-            if (session_.state().campaignComplete)
+            switch (chessBattleEntryFlow(session_.state().phase, session_.state().campaignComplete))
             {
-                showChessMessage("恭喜通關！");
-            }
-            else if (const auto descriptor = legalAction(session_, ChessActionType::PrepareBattle))
-            {
-                if (chooseAndSubmit(*descriptor) == ChessGuiFlowResult::Aborted)
+            case ChessBattleEntryFlow::ResumePreparedBattle:
+                if (drainPreparedBattle() == ChessGuiFlowResult::Aborted)
                 {
                     return;
                 }
-            }
-            else
-            {
-                showChessMessage("出戰棋子不足，請先選擇出戰陣容");
+                break;
+            case ChessBattleEntryFlow::CampaignComplete:
+                showChessMessage("恭喜通關！");
+                break;
+            case ChessBattleEntryFlow::PrepareBattle:
+                if (const auto descriptor = legalAction(session_, ChessActionType::PrepareBattle))
+                {
+                    if (chooseAndSubmit(*descriptor) == ChessGuiFlowResult::Aborted)
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    showChessMessage("出戰棋子不足，請先選擇出戰陣容");
+                }
+                break;
+            case ChessBattleEntryFlow::Unavailable:
+                showChessMessage("目前階段不允許進入戰鬥");
+                break;
             }
             break;
         case ChessContextMenuAction::BuyExp:
@@ -3652,11 +3734,11 @@ void ChessGuiSessionAdapter::showContextMenu()
             }
             break;
         }
-        case ChessContextMenuAction::ShowSystemSettings:
-            showSystemSettings();
-            break;
-        case ChessContextMenuAction::ShowGameGuide:
-            showGameGuide();
+        case ChessContextMenuAction::OpenSystemMenu:
+            if (showSystemMenu())
+            {
+                return;
+            }
             break;
         default:
             assert(false);

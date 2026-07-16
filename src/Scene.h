@@ -95,6 +95,7 @@ public:
 
     Point getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);
     Point getMousePosition(int view_x, int view_y);
+    static void renderMouseCursorFloor(int x, int y);
     void calCursorPosition(int x, int y);
 
     void FindWay(int Mx, int My, int Fx, int Fy);

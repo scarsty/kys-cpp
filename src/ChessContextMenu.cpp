@@ -25,8 +25,7 @@ std::vector<ChessContextMenuItem> buildChessContextMenu(bool banEnabled)
             {"裝備管理", ChessContextMenuAction::OpenEquipmentMenu},
             {"棋局總覽", ChessContextMenuAction::OpenOverviewMenu},
             {"遠征挑戰", ChessContextMenuAction::ShowExpeditionChallenge},
-            {"系統設定", ChessContextMenuAction::ShowSystemSettings},
-            {"遊戲說明", ChessContextMenuAction::ShowGameGuide},
+            {"系統選單", ChessContextMenuAction::OpenSystemMenu},
         });
     return items;
 }
@@ -52,6 +51,36 @@ std::vector<ChessContextMenuItem> buildChessEquipmentMenu(bool legendaryShopUnlo
         items.push_back({"神兵商店", ChessContextMenuAction::BuyLegendaryEquipment});
     }
     return items;
+}
+
+std::vector<ChessContextMenuItem> buildChessSystemMenu()
+{
+    return {
+        {"讀取進度", ChessContextMenuAction::LoadProgress},
+        {"儲存進度", ChessContextMenuAction::SaveProgress},
+        {"系統設定", ChessContextMenuAction::ShowSystemSettings},
+        {"遊戲說明", ChessContextMenuAction::ShowGameGuide},
+        {"返回開頭", ChessContextMenuAction::ReturnToTitle},
+    };
+}
+
+ChessBattleEntryFlow chessBattleEntryFlow(ChessSessionPhase phase, bool campaignComplete)
+{
+    if (phase == ChessSessionPhase::BattlePreparation)
+    {
+        return ChessBattleEntryFlow::ResumePreparedBattle;
+    }
+    if (phase == ChessSessionPhase::Management)
+    {
+        return campaignComplete
+            ? ChessBattleEntryFlow::CampaignComplete
+            : ChessBattleEntryFlow::PrepareBattle;
+    }
+    if (phase == ChessSessionPhase::Complete)
+    {
+        return ChessBattleEntryFlow::CampaignComplete;
+    }
+    return ChessBattleEntryFlow::Unavailable;
 }
 
 std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMenuItem>& items)

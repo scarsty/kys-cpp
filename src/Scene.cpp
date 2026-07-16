@@ -1,5 +1,6 @@
 ﻿#include "Scene.h"
 #include "GameUtil.h"
+#include "TextureManager.h"
 #include <map>
 #include <queue>
 
@@ -182,6 +183,16 @@ Point Scene::getMousePosition(int view_x, int view_y)
 {
     const auto pointer = PointerInput::instance().logicalPointerUiPosition();
     return getMousePosition(pointer.x, pointer.y, view_x, view_y);
+}
+
+void Scene::renderMouseCursorFloor(int x, int y)
+{
+    TextureManager::getInstance()->renderTexture(
+        "smap",
+        1,
+        x,
+        y,
+        TextureManager::RenderInfo{{255, 255, 255, 255}, 128});
 }
 
 void Scene::calCursorPosition(int x, int y)

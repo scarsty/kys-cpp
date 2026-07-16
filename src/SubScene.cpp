@@ -154,7 +154,7 @@ void SubScene::draw()
                 //鼠标位置
                 if (ix == cursor_x_ && iy == cursor_y_)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", 1, p.x, p.y - h, TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 128 });
+                    renderMouseCursorFloor(p.x, p.y - h);
                 }
                 std::vector<Color> color_v(4, { 255, 255, 255, 255 });
                 std::vector<float> brightness_v = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -591,7 +591,7 @@ void SubScene::onExit()
 
 void SubScene::onPressedCancel()
 {
-    chess_mod_->showMenu();
+    chess_mod_->showContextMenu();
 }
 
 //冗余过多待清理

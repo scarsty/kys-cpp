@@ -36,15 +36,13 @@ TEST_CASE("chess context menu keeps frequent actions at the first level", "[ches
                                 "裝備管理",
                                 "棋局總覽",
                                 "遠征挑戰",
-                                "系統設定",
-                                "遊戲說明",
+                                "系統選單",
                             });
-    REQUIRE(items.size() == 10);
+    REQUIRE(items.size() == 9);
     CHECK(items[0].action == ChessContextMenuAction::BuyChess);
     CHECK(items[4].action == ChessContextMenuAction::BuyExp);
     CHECK(items[6].action == ChessContextMenuAction::OpenOverviewMenu);
-    CHECK(items[8].action == ChessContextMenuAction::ShowSystemSettings);
-    CHECK(items[9].action == ChessContextMenuAction::ShowGameGuide);
+    CHECK(items[8].action == ChessContextMenuAction::OpenSystemMenu);
 }
 
 TEST_CASE("chess context menu puts ban management at the first level once unlocked", "[chess][context-menu]")
@@ -60,13 +58,29 @@ TEST_CASE("chess context menu puts ban management at the first level once unlock
                                "裝備管理",
                                "棋局總覽",
                                "遠征挑戰",
-                               "系統設定",
-                               "遊戲說明",
+                               "系統選單",
                            });
-    REQUIRE(items.size() == 11);
+    REQUIRE(items.size() == 10);
     CHECK(items[5].action == ChessContextMenuAction::ManageBans);
     CHECK(items[6].action == ChessContextMenuAction::OpenEquipmentMenu);
     CHECK(items[7].action == ChessContextMenuAction::OpenOverviewMenu);
+}
+
+TEST_CASE("system menu owns persistence and application commands", "[chess][context-menu][save]")
+{
+    const auto items = buildChessSystemMenu();
+
+    CHECK(labelsOf(items) == std::vector<std::string>{
+                               "讀取進度",
+                               "儲存進度",
+                               "系統設定",
+                               "遊戲說明",
+                               "返回開頭",
+                           });
+    REQUIRE(items.size() == 5);
+    CHECK(items[0].action == ChessContextMenuAction::LoadProgress);
+    CHECK(items[1].action == ChessContextMenuAction::SaveProgress);
+    CHECK(items[4].action == ChessContextMenuAction::ReturnToTitle);
 }
 
 TEST_CASE("overview menu groups strategy and reference screens", "[chess][context-menu]")
@@ -102,6 +116,18 @@ TEST_CASE("equipment menu puts legendary shop second once unlocked", "[chess][co
     REQUIRE(items.size() == 2);
     CHECK(items[0].action == ChessContextMenuAction::ShowEquipmentInventory);
     CHECK(items[1].action == ChessContextMenuAction::BuyLegendaryEquipment);
+}
+
+TEST_CASE("battle entry resumes a prepared battle restored from a save", "[chess][context-menu][save]")
+{
+    CHECK(chessBattleEntryFlow(ChessSessionPhase::BattlePreparation, false)
+        == ChessBattleEntryFlow::ResumePreparedBattle);
+    CHECK(chessBattleEntryFlow(ChessSessionPhase::BattlePreparation, true)
+        == ChessBattleEntryFlow::ResumePreparedBattle);
+    CHECK(chessBattleEntryFlow(ChessSessionPhase::Management, false)
+        == ChessBattleEntryFlow::PrepareBattle);
+    CHECK(chessBattleEntryFlow(ChessSessionPhase::Management, true)
+        == ChessBattleEntryFlow::CampaignComplete);
 }
 
 TEST_CASE("context menu y anchor centers visible rows inside chess content", "[chess][context-menu]")

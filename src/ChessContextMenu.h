@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ChessSessionTypes.h"
+
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -17,6 +19,9 @@ enum class ChessContextMenuAction
     OpenEquipmentMenu,
     OpenOverviewMenu,
     ShowExpeditionChallenge,
+    OpenSystemMenu,
+    LoadProgress,
+    SaveProgress,
     ShowSystemSettings,
     ShowPositionSwap,
     RerollBattleSeed,
@@ -27,6 +32,15 @@ enum class ChessContextMenuAction
     ShowGameGuide,
     ShowEquipmentInventory,
     BuyLegendaryEquipment,
+    ReturnToTitle,
+};
+
+enum class ChessBattleEntryFlow
+{
+    PrepareBattle,
+    ResumePreparedBattle,
+    CampaignComplete,
+    Unavailable,
 };
 
 struct ChessContextMenuItem
@@ -38,6 +52,8 @@ struct ChessContextMenuItem
 std::vector<ChessContextMenuItem> buildChessContextMenu(bool banEnabled);
 std::vector<ChessContextMenuItem> buildChessOverviewMenu();
 std::vector<ChessContextMenuItem> buildChessEquipmentMenu(bool legendaryShopUnlocked);
+std::vector<ChessContextMenuItem> buildChessSystemMenu();
+ChessBattleEntryFlow chessBattleEntryFlow(ChessSessionPhase phase, bool campaignComplete);
 std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMenuItem>& items);
 int centerChessContextMenuY(
     std::size_t itemCount,
