@@ -34,6 +34,7 @@ TeamMenu::~TeamMenu()
 void TeamMenu::onEntrance()
 {
     int visible_index = 0;
+    bool has_usable_role = false;
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto r = Save::getInstance()->getTeamMate(i);
@@ -44,6 +45,7 @@ void TeamMenu::onEntrance()
             head->setRole(r);
             if (mode_ == 0 && item_)
             {
+                has_usable_role = has_usable_role || r->canUseItem(item_);
                 if (!r->canUseItem(item_))
                 {
                     head->setText("不適合");
@@ -69,6 +71,10 @@ void TeamMenu::onEntrance()
     {
         button_all_->setVisible(false);
         button_ok_->setVisible(false);
+        if (item_ && !has_usable_role)
+        {
+            setText("隊中無人可用");
+        }
     }
 }
 

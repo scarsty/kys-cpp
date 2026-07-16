@@ -1,5 +1,6 @@
 ﻿#include "UIStatus.h"
 #include "BattleMenu.h"
+#include "Engine.h"
 #include "Event.h"
 #include "Font.h"
 #include "Save.h"
@@ -404,7 +405,8 @@ void UIStatus::onPressedOK()
         //int count = menu->getChildCount();
         //role_->Auto = 0;    //.....
         //role_->Team = 0;
-        menu->setPosition(730, 630 - 30 * role_->getLearnedMagicCount());
+        menu->setPosition(Engine::getInstance()->getUIWidth() - 300,
+            630 - 30 * role_->getLearnedMagicCount());
         menu->run();
         if (menu->getMagic())
         {
@@ -420,7 +422,8 @@ void UIStatus::onPressedOK()
     {
         auto menu = std::make_shared<BattleEquipItemMenu>();
         menu->setRole(role_);
-        menu->setPosition(730, 630 - 30 * menu->getChildCount());
+        menu->setPosition(Engine::getInstance()->getUIWidth() - 300,
+            630 - 30 * menu->getChildCount());
         menu->run();
         if (menu->getItem())
         {

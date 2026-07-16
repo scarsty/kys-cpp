@@ -165,7 +165,10 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
     auto current = getChild(i0);
 
     double min1 = 9999, min2 = 9999 * 10;
-    int i1 = i0, i2 = i0;
+    int i1 = i0;
+    int wrap_index = i0;
+    int wrap_distance = -1;
+    int wrap_offset = 999999;
     //1表示平行于按键方向上的距离，2表示垂直于按键方向上的距离
     for (int i = 0; i < childs_.size(); i++)
     {
@@ -197,8 +200,20 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
         default:
             break;
         }
-        if (dis1 <= 0)
+        if (dis1 == 0)
         {
+            continue;
+        }
+        if (dis1 < 0)
+        {
+            int opposite_distance = -dis1;
+            if (opposite_distance > wrap_distance
+                || (opposite_distance == wrap_distance && dis2 < wrap_offset))
+            {
+                wrap_distance = opposite_distance;
+                wrap_offset = dis2;
+                wrap_index = i;
+            }
             continue;
         }
         deg = atan2(dis2, dis1) * 180 / 3.14159265;
@@ -215,7 +230,7 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
         }
     }
     if (i1 != i0) { return i1; }
-    return i2;
+    return wrap_index;
 }
 
 int RunNode::findFristVisibleChild()

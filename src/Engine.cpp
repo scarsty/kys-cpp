@@ -1219,7 +1219,7 @@ Texture* Engine::createRectTexture(int w, int h, int style) const
 {
     auto square_s = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA8888);
 
-    //SDL_FillSurfaceRect(square_s, nullptr, 0xffffffff);
+    //SDL_FillSurfaceRect(square_s, nullptr, 0xffffffff);ai
     Rect r = { 0, 0, 1, 1 };
     auto& x = r.x;
     auto& y = r.y;

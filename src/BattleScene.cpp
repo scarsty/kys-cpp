@@ -115,7 +115,7 @@ int BattleScene::getTowardsByMouse(int mouse_x, int mouse_y)
     int ui_height = 0;
     Engine::getInstance()->getUISize(ui_width, ui_height);
     FPoint mouse = { mouse_x * render_center_x_ * 2.0f / ui_width, mouse_y * render_center_y_ * 2.0f / ui_height };
-    Pointf origin = pos45To90(select_x_, select_y_);
+    Pointf origin = paperTileCenter(select_x_, select_y_);
     auto projected_origin = paper_camera_.getProj({ origin });
     if (projected_origin.empty())
     {
@@ -136,7 +136,7 @@ int BattleScene::getTowardsByMouse(int mouse_x, int mouse_y)
         int x = select_x_;
         int y = select_y_;
         getTowardsPosition(select_x_, select_y_, towards, &x, &y);
-        auto projected = paper_camera_.getProj({ pos45To90(x, y) });
+        auto projected = paper_camera_.getProj({ paperTileCenter(x, y) });
         if (projected.empty())
         {
             continue;
@@ -173,7 +173,7 @@ Point BattleScene::getMousePosition(int mouse_x, int mouse_y, int view_x, int vi
     {
         for (int y = 0; y < COORD_COUNT; y++)
         {
-            Pointf point = pos45To90(x, y);
+            Pointf point = paperTileCenter(x, y);
             if (paper_camera_.getDepth(point) <= paper_camera_.getNearPlane())
             {
                 continue;
@@ -225,8 +225,8 @@ void BattleScene::drawPaperPresentation()
     paper_camera_height_ = paper_camera_distance_ * std::tan(paper_camera_pitch_);
 
     Pointf focus = paper_camera_follow_role_
-        ? pos45To90(paper_camera_follow_role_->X(), paper_camera_follow_role_->Y())
-        : pos45To90(select_x_, select_y_);
+        ? paperTileCenter(paper_camera_follow_role_->X(), paper_camera_follow_role_->Y())
+        : paperTileCenter(select_x_, select_y_);
     paper_camera_.center = focus;
     paper_camera_.pos = focus + Pointf{
         std::cos(paper_camera_angle_) * paper_camera_distance_,
@@ -280,7 +280,7 @@ void BattleScene::drawPaperPresentation()
             continue;
         }
         PaperRenderSprite sprite;
-        Pointf position = pos45To90(role->X(), role->Y());
+        Pointf position = paperTileCenter(role->X(), role->Y());
         auto offset = block_role_offsets_.find(role);
         if (offset != block_role_offsets_.end())
         {
@@ -289,7 +289,7 @@ void BattleScene::drawPaperPresentation()
         int facing_x = role->X();
         int facing_y = role->Y();
         getTowardsPosition(role->X(), role->Y(), role->FaceTowards, &facing_x, &facing_y);
-        Pointf facing = pos45To90(facing_x, facing_y) - pos45To90(role->X(), role->Y());
+        Pointf facing = paperTileCenter(facing_x, facing_y) - paperTileCenter(role->X(), role->Y());
         facing.z = 0;
         facing.normTo(1);
         float right = facing.x * paper_right.x + facing.y * paper_right.y;
@@ -320,7 +320,7 @@ void BattleScene::drawPaperPresentation()
                     continue;
                 }
                 PaperRenderSprite sprite;
-                Pointf position = pos45To90(x, y);
+                Pointf position = paperTileCenter(x, y);
                 int distance = calDistance(acting_role_->X(), acting_role_->Y(), x, y);
                 int texture_frame = effect_frame_ - distance;
                 if (effect_attack_area_type_ == 3)
@@ -375,7 +375,7 @@ void BattleScene::drawPaperPresentation()
     {
         if (role)
         {
-            frame.role_info_anchors.push_back({ role, pos45To90(role->X(), role->Y()) });
+            frame.role_info_anchors.push_back({ role, paperTileCenter(role->X(), role->Y()) });
         }
     }
     frame.current_frame = effect_frame_;

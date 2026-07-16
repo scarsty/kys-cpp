@@ -542,7 +542,7 @@ void BattleMagicMenu::setRole(Role* r)
         {
             std::string s = m->Name;
             s += std::string(12 - Font::getTextDrawSize(s), ' ');
-            magic_names.push_back(std::format("{}{}  ", s, role_->getRoleShowLearnedMagicLevel(i)));
+            magic_names.push_back(std::format("{}{:2}  ", s, role_->getRoleShowLearnedMagicLevel(i)));
         }
         else
         {
@@ -608,7 +608,7 @@ void BattleEquipItemMenu::setRole(Role* r)
 
         std::string s = item->Name;
         s += std::string(12 - Font::getTextDrawSize(s), ' ');
-        item_names.push_back(std::format("{}{}  ", s, count));
+        item_names.push_back(std::format("{}{:3}  ", s, count));
     }
     setStrings(item_names);
 

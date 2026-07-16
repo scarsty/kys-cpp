@@ -36,6 +36,9 @@ public:
 
     int getItemDetailType(Item* item);
     Item* getAvailableItem(int i);
+    void moveItemCursor(Direct direct);
+    void updateFocusFromMouse(EngineEvent& e);
+    void syncFocusState();
 
     void geItemsByType(int item_type);
 

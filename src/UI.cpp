@@ -78,6 +78,7 @@ void UI::dealEvent(EngineEvent& e)
         //如在物品栏则判断是否在使用，或者可以使用，设置对应的头像状态
         if (childs_[ui_index_] == ui_item_)
         {
+            head->setState(NodeNormal);
             Item* item = ui_item_->getCurrentItem();
             if (item)
             {

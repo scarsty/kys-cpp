@@ -269,6 +269,11 @@ public:
         return p;
     }
 
+    Pointf paperTileCenter(int x, int y)
+    {
+        return pos45To90(x, y) + Pointf{ 0, float(TILE_W), 0 };
+    }
+
     Point pos90To45(double x, double y)    //直角坐标转为45度
     {
         x -= COORD_COUNT * TILE_W;

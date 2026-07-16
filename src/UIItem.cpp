@@ -188,7 +188,7 @@ void UIItem::checkCurrentItem()
         current_item_ = Save::getInstance()->getItem(current_button_->getTexutreID());
         //让光标显示出来
         cursor_->setPosition(x, y);
-        cursor_->setVisible(true);
+        cursor_->setVisible(focus_ == 1);
     }
     else
     {
@@ -206,10 +206,103 @@ Item* UIItem::getAvailableItem(int i)
     return nullptr;
 }
 
+void UIItem::moveItemCursor(Direct direct)
+{
+    switch (direct)
+    {
+    case DirectLeft:
+        if (active_child_ > 0)
+        {
+            active_child_--;
+        }
+        else if (leftup_index_ > 0)
+        {
+            leftup_index_ -= item_each_line_;
+            active_child_ = item_each_line_ - 1;
+        }
+        break;
+    case DirectRight:
+        if (active_child_ < item_each_line_ * line_count_ - 1)
+        {
+            active_child_++;
+        }
+        else
+        {
+            leftup_index_ += item_each_line_;
+            if (leftup_index_ <= max_leftup_)
+            {
+                active_child_ = item_each_line_ * (line_count_ - 1);
+            }
+        }
+        break;
+    case DirectUp:
+        if (active_child_ < item_each_line_ && leftup_index_ == 0)
+        {
+            focus_ = 0;
+        }
+        else if (active_child_ < item_each_line_)
+        {
+            leftup_index_ -= item_each_line_;
+        }
+        else
+        {
+            active_child_ -= item_each_line_;
+        }
+        break;
+    case DirectDown:
+        if (active_child_ < item_each_line_ * (line_count_ - 1))
+        {
+            active_child_ += item_each_line_;
+        }
+        else
+        {
+            leftup_index_ += item_each_line_;
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+void UIItem::updateFocusFromMouse(EngineEvent& e)
+{
+    if (e.type != EVENT_MOUSE_MOTION
+        && !((e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_BUTTON_UP) && e.button.button == BUTTON_LEFT))
+    {
+        return;
+    }
+    for (auto& button : item_buttons_)
+    {
+        if (button->mouseIn())
+        {
+            focus_ = 1;
+            return;
+        }
+    }
+    if (!title_->checkAllMouseNotIn())
+    {
+        focus_ = 0;
+    }
+}
+
+void UIItem::syncFocusState()
+{
+    title_->setDealEvent(focus_ == 0);
+    if (focus_ == 1)
+    {
+        title_->setAllChildState(NodeNormal);
+    }
+    cursor_->setVisible(focus_ == 1 && current_button_ != nullptr);
+}
+
 void UIItem::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     checkCurrentItem();
+    const int previous_focus = focus_;
+    const int previous_active_child = active_child_;
+    const int previous_leftup_index = leftup_index_;
+    updateFocusFromMouse(e);
     if (e.type == EVENT_MOUSE_WHEEL)
     {
         if (e.wheel.y > 0)
@@ -258,59 +351,19 @@ void UIItem::dealEvent(EngineEvent& e)
             {
             case K_LEFT:
             case K_A:
-                if (active_child_ > 0)
-                {
-                    active_child_--;
-                }
-                else
-                {
-                    if (leftup_index_ > 0)
-                    {
-                        leftup_index_ -= item_each_line_;
-                        active_child_ = item_each_line_ - 1;
-                    }
-                }
+                moveItemCursor(DirectLeft);
                 break;
             case K_RIGHT:
             case K_D:
-                if (active_child_ < item_each_line_ * line_count_ - 1)
-                {
-                    active_child_++;
-                }
-                else
-                {
-                    leftup_index_ += item_each_line_;
-                    if (leftup_index_ <= max_leftup_)
-                    {
-                        active_child_ = item_each_line_ * (line_count_ - 1);
-                    }
-                }
+                moveItemCursor(DirectRight);
                 break;
             case K_UP:
             case K_W:
-                if (active_child_ < item_each_line_ && leftup_index_ == 0)
-                {
-                    focus_ = 0;
-                }
-                else if (active_child_ < item_each_line_)
-                {
-                    leftup_index_ -= item_each_line_;
-                }
-                else
-                {
-                    active_child_ -= item_each_line_;
-                }
+                moveItemCursor(DirectUp);
                 break;
             case K_DOWN:
             case K_S:
-                if (active_child_ < item_each_line_ * (line_count_ - 1))
-                {
-                    active_child_ += item_each_line_;
-                }
-                else
-                {
-                    leftup_index_ += item_each_line_;
-                }
+                moveItemCursor(DirectDown);
                 break;
             default:
                 break;
@@ -328,136 +381,43 @@ void UIItem::dealEvent(EngineEvent& e)
             focus_ = 1;
         }
     }
-    if (false && e.type == EVENT_GAMEPAD_BUTTON_UP)
+    if (focus_ == 1)
     {
-        //LOG("button: {}\n", e.gbutton.button);
-        title_->setDealEvent(1);
-        switch (e.gbutton.button)
-        {
-        case GAMEPAD_BUTTON_DPAD_LEFT:
-            if (active_child_ > 0)
-            {
-                active_child_--;
-            }
-            else
-            {
-                if (leftup_index_ > 0)
-                {
-                    leftup_index_ -= item_each_line_;
-                    active_child_ = item_each_line_ - 1;
-                }
-            }
-            break;
-        case GAMEPAD_BUTTON_DPAD_RIGHT:
-            if (active_child_ < item_each_line_ * line_count_ - 1)
-            {
-                active_child_++;
-            }
-            else
-            {
-                leftup_index_ += item_each_line_;
-                if (leftup_index_ <= max_leftup_)
-                {
-                    active_child_ = item_each_line_ * (line_count_ - 1);
-                }
-            }
-            break;
-        case GAMEPAD_BUTTON_DPAD_UP:
-            if (active_child_ < item_each_line_ && leftup_index_ == 0)
-            {
-            }
-            else if (active_child_ < item_each_line_)
-            {
-                leftup_index_ -= item_each_line_;
-            }
-            else
-            {
-                active_child_ -= item_each_line_;
-            }
-            break;
-        case GAMEPAD_BUTTON_DPAD_DOWN:
-            if (active_child_ < item_each_line_ * (line_count_ - 1))
-            {
-                active_child_ += item_each_line_;
-            }
-            else
-            {
-                leftup_index_ += item_each_line_;
-            }
-            break;
-        default:
-            break;
-        }
-        forceActiveChild();
-    }
-    if (true)
-    {
-        title_->setDealEvent(1);
-
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT))
         {
-            if (active_child_ > 0)
-            {
-                active_child_--;
-            }
-            else
-            {
-                if (leftup_index_ > 0)
-                {
-                    leftup_index_ -= item_each_line_;
-                    active_child_ = item_each_line_ - 1;
-                }
-            }
+            moveItemCursor(DirectLeft);
             engine->setInterValControllerPress(100);
             forceActiveChild();
         }
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT))
         {
-            if (active_child_ < item_each_line_ * line_count_ - 1)
-            {
-                active_child_++;
-            }
-            else
-            {
-                leftup_index_ += item_each_line_;
-                if (leftup_index_ <= max_leftup_)
-                {
-                    active_child_ = item_each_line_ * (line_count_ - 1);
-                }
-            }
+            moveItemCursor(DirectRight);
             engine->setInterValControllerPress(100);
             forceActiveChild();
         }
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP))
         {
-            if (active_child_ < item_each_line_ && leftup_index_ == 0)
-            {
-            }
-            else if (active_child_ < item_each_line_)
-            {
-                leftup_index_ -= item_each_line_;
-            }
-            else
-            {
-                active_child_ -= item_each_line_;
-            }
+            moveItemCursor(DirectUp);
             engine->setInterValControllerPress(100);
             forceActiveChild();
         }
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_DOWN))
         {
-            if (active_child_ < item_each_line_ * (line_count_ - 1))
-            {
-                active_child_ += item_each_line_;
-            }
-            else
-            {
-                leftup_index_ += item_each_line_;
-            }
+            moveItemCursor(DirectDown);
             engine->setInterValControllerPress(100);
             forceActiveChild();
         }
     }
+    if (focus_ != previous_focus && focus_ == 1)
+    {
+        forceActiveChild();
+    }
+    if (drag_item_->getTexutreID() < 0
+        && (focus_ != previous_focus || active_child_ != previous_active_child || leftup_index_ != previous_leftup_index))
+    {
+        checkCurrentItem();
+    }
+    syncFocusState();
 }
 
 void UIItem::showItemProperty(Item* item)
