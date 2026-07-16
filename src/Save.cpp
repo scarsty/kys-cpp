@@ -270,6 +270,10 @@ bool Save::load(int num)
 
 bool Save::save(int num)
 {
+    if (!KysChess::ChessModHook::canSaveGameData())
+    {
+        return false;
+    }
     auto slotPath = SavePersistence::slotJsonFilename(num);
     auto slotData = SavePersistence::captureSlotData(*this);
     if (!SavePersistence::writeSlotJson(slotPath, slotData))

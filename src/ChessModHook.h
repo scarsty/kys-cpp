@@ -21,6 +21,7 @@ public:
     bool interceptEvent(int submapId, int eventId);
     bool blockExit(int submapId) const;
     void showContextMenu();
+    void showSystemMenu();
 
 private:
     ChessGameSession& session_;
@@ -31,6 +32,7 @@ class ChessModHook
 public:
     static void initializeSaveState(::Save& save);
     static bool overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty);
+    static bool canSaveGameData();
     static GameDataStore exportGameData();
     static bool isGameDataReadable(const GameDataStore& store);
     static bool importGameData(const GameDataStore& store, ::Save& save);

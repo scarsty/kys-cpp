@@ -95,6 +95,117 @@ const BattleUnitState* nearestEnemy(const BattleMovementPlanInput& world, const 
     return best;
 }
 
+const BattleUnitState* assignedEnemy(const BattleMovementPlanInput& world, const BattleUnitState& unit)
+{
+    const auto* assigned = tryFindById(world.units, unit.targetId);
+    if (assigned && assigned->alive && assigned->team != unit.team)
+    {
+        return assigned;
+    }
+    return nearestEnemy(world, unit);
+}
+
+double comfortableMeleeSpacing(const BattleMovementConfig& config)
+{
+    return config.bodyRadius + config.engagementDeadband;
+}
+
+void assignMovementTargets(BattleMovementPlanInput& world)
+{
+    struct MeleeTargetingEntry
+    {
+        int unitId{};
+        double nearestDistance{};
+    };
+
+    std::map<int, int> meleeClaimsByTarget;
+    std::vector<MeleeTargetingEntry> unassignedMelee;
+    unassignedMelee.reserve(world.units.size());
+
+    for (auto& unit : world.units)
+    {
+        if (!unit.alive)
+        {
+            continue;
+        }
+
+        const auto* nearest = nearestEnemy(world, unit);
+        if (!nearest)
+        {
+            unit.targetId = -1;
+            continue;
+        }
+        if (unit.style == CombatStyle::Ranged)
+        {
+            unit.targetId = nearest->id;
+            continue;
+        }
+
+        if (unit.speed <= 0.0)
+        {
+            unit.targetId = nearest->id;
+            if (distance2d(unit.position, nearest->position) <= world.config.meleeAttackReach)
+            {
+                ++meleeClaimsByTarget[nearest->id];
+            }
+            continue;
+        }
+
+        const auto* current = tryFindById(world.units, unit.targetId);
+        if (current && (!current->alive || current->team == unit.team))
+        {
+            current = nullptr;
+        }
+        if (current)
+        {
+            ++meleeClaimsByTarget[current->id];
+            continue;
+        }
+
+        unassignedMelee.push_back({ unit.id, distance2d(unit.position, nearest->position) });
+    }
+
+    std::ranges::sort(unassignedMelee, [](const MeleeTargetingEntry& lhs, const MeleeTargetingEntry& rhs)
+        {
+            if (lhs.nearestDistance != rhs.nearestDistance)
+            {
+                return lhs.nearestDistance < rhs.nearestDistance;
+            }
+            return lhs.unitId < rhs.unitId;
+        });
+
+    const double claimSpacing = comfortableMeleeSpacing(world.config);
+    for (const auto& entry : unassignedMelee)
+    {
+        auto& unit = requireById(world.units, entry.unitId);
+        const BattleUnitState* best = nullptr;
+        double bestScore = std::numeric_limits<double>::max();
+        double bestDistance = std::numeric_limits<double>::max();
+        for (const auto& candidate : world.units)
+        {
+            if (!candidate.alive || candidate.team == unit.team)
+            {
+                continue;
+            }
+
+            const double distance = distance2d(unit.position, candidate.position);
+            const double score = distance + meleeClaimsByTarget[candidate.id] * claimSpacing;
+            if (!best
+                || score < bestScore
+                || (score == bestScore && distance < bestDistance)
+                || (score == bestScore && distance == bestDistance && candidate.id < best->id))
+            {
+                best = &candidate;
+                bestScore = score;
+                bestDistance = distance;
+            }
+        }
+        assert(best);
+        unit.targetId = best->id;
+        ++meleeClaimsByTarget[best->id];
+    }
+}
+
 std::vector<int> movementOrder(const BattleMovementPlanInput& world)
 {
     struct MovementOrderEntry
@@ -110,7 +221,7 @@ std::vector<int> movementOrder(const BattleMovementPlanInput& world)
     {
         if (unit.alive)
         {
-            const auto* target = nearestEnemy(world, unit);
+            const auto* target = assignedEnemy(world, unit);
             const double distance = target
                 ? distance2d(unit.position, target->position)
                 : std::numeric_limits<double>::max();
@@ -632,7 +743,7 @@ int defaultMeleeApproachSlot(const BattleMovementPlanInput& world,
             continue;
         }
 
-        const auto* otherTarget = nearestEnemy(world, other);
+        const auto* otherTarget = assignedEnemy(world, other);
         if (!otherTarget || otherTarget->id != target.id)
         {
             continue;
@@ -822,7 +933,7 @@ bool sharesFrontlineTarget(const BattleMovementPlanInput& world,
         return false;
     }
 
-    const auto* otherTarget = nearestEnemy(world, other);
+    const auto* otherTarget = assignedEnemy(world, other);
     if (!otherTarget || otherTarget->id != target.id)
     {
         return false;
@@ -874,7 +985,7 @@ std::optional<Pointf> frontlineSoftSpreadDirection(const BattleMovementPlanInput
     awayFromTarget = unitVector(awayFromTarget);
 
     Pointf direction;
-    const double comfortableSpacing = world.config.bodyRadius + world.config.engagementDeadband;
+    const double comfortableSpacing = comfortableMeleeSpacing(world.config);
     for (const auto& other : world.units)
     {
         if (!sharesFrontlineTarget(world, unit, other, target))
@@ -1932,6 +2043,7 @@ BattleTickResult BattleMovementPlanner::tick()
     pruneMovementReservations(world_);
     pruneMovementYieldRequests(world_);
     pruneMovementDetourRequests(world_);
+    assignMovementTargets(world_);
     const BattleMovementTerrainLookup terrain(world_);
     std::map<int, Pointf> reservations;
     std::map<int, BattleMovementYieldRequest> pendingYieldRequests;
@@ -2014,7 +2126,7 @@ BattleTickResult BattleMovementPlanner::tick()
             unit->dashCooldownRemaining--;
         }
 
-        const auto* target = nearestEnemy(world_, *unit);
+        const auto* target = assignedEnemy(world_, *unit);
         if (!target)
         {
             clearMovementReservation(world_, unit->id);

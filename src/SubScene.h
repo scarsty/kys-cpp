@@ -37,7 +37,6 @@ public:
 
     // Chess quick-access button bounds (for click detection)
     int chess_btn_x_ = 0, chess_btn_y_ = 0, chess_btn_w_ = 0, chess_btn_h_ = 0;
-    bool chess_menu_active_ = false;
 
 public:
     SubMapInfo* getMapInfo() { return submap_info_; }
@@ -57,6 +56,7 @@ public:
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void onPressedCancel() override;
+    virtual void onPressedContextMenu() override;
 
     void tryWalk(int x, int y);
 

@@ -2134,6 +2134,31 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_SelectsCastTargetFromRuntimeUnits", "[
     CHECK_FALSE(hasProjectilePresentationEvent(result));
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_MeleeCastsHonorDistributedMovementTargets", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 70, 0 }),
+        unit(1, 0, { 100, 130, 0 }),
+        unit(2, 1, { 190, 100, 0 }),
+        unit(3, 1, { 195, 130, 0 }),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+    configureRuntimeActionPlan(state, frameCastInput(0, -1));
+    configureRuntimeActionPlan(state, frameCastInput(1, -1));
+    state.units.requireCore(0).animation.cooldown = 0;
+    state.units.requireCore(1).animation.cooldown = 0;
+
+    runBattleFrame(state);
+
+    const auto first = state.units.require(0).pendingCast();
+    const auto second = state.units.require(1).pendingCast();
+    REQUIRE(first != nullptr);
+    REQUIRE(second != nullptr);
+    CHECK(first->targetUnitId != second->targetUnitId);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[battle][core]")
 {
     BattleRuntimeState state;

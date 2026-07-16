@@ -1,4 +1,5 @@
 #include "ChessGuiSessionAdapter.h"
+#include "ChessGuiSavePolicy.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessJsonProtocol.h"
 #include "ChessReplayJson.h"
@@ -29,6 +30,39 @@ TEST_CASE("GUI adapter and direct session calls produce identical hashes", "[che
     CHECK(gui.eventHash == direct.eventHash);
     CHECK(gui.rngDigest == direct.rngDigest);
     CHECK(gui.chainHash == direct.chainHash);
+}
+
+TEST_CASE("GUI persistence only replaces a save from the overworld management phase", "[chess][gui][save]")
+{
+    CHECK(isChessGuiSavePhaseContinuable(ChessSessionPhase::Management));
+    CHECK_FALSE(isChessGuiSavePhaseContinuable(ChessSessionPhase::BattlePreparation));
+    CHECK_FALSE(isChessGuiSavePhaseContinuable(ChessSessionPhase::BattleResolution));
+    CHECK_FALSE(isChessGuiSavePhaseContinuable(ChessSessionPhase::RewardChoice));
+    CHECK_FALSE(isChessGuiSavePhaseContinuable(ChessSessionPhase::Complete));
+
+    const auto content = managementContent();
+    ChessGameSession session(content, 321);
+    REQUIRE(session.submitAndDrain(buySlot(0)).accepted);
+
+    ChessAction deploy;
+    deploy.type = ChessActionType::SetDeployment;
+    deploy.chessInstanceIds = {session.state().roster.begin()->first};
+    REQUIRE(session.submitAndDrain(deploy).accepted);
+    CHECK(canPersistChessGuiState(session));
+
+    ChessAction prepare;
+    prepare.type = ChessActionType::PrepareBattle;
+    REQUIRE(session.submitAndDrain(prepare).accepted);
+    CHECK(session.state().phase == ChessSessionPhase::BattlePreparation);
+    CHECK_FALSE(canPersistChessGuiState(session));
+
+    ChessAction start;
+    start.type = ChessActionType::StartBattle;
+    const auto started = session.beginAction(start);
+    REQUIRE(started.accepted);
+    REQUIRE(started.transitionPending);
+    CHECK(session.state().phase == ChessSessionPhase::BattleResolution);
+    CHECK_FALSE(canPersistChessGuiState(session));
 }
 
 TEST_CASE("GUI adapter and JSONL playthrough export identical replays", "[chess][gui][cli][parity][determinism]")

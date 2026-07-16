@@ -49,6 +49,7 @@ public:
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void onPressedCancel() override;
+    virtual void onPressedContextMenu() override;
 
     void tryWalk(int x, int y);
     void setEntrance();

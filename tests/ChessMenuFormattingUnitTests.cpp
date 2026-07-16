@@ -79,18 +79,38 @@ TEST_CASE("menu action and equipment rows share the same measured columns", "[ch
 TEST_CASE("equipment inventory alignment does not reserve unused global columns",
           "[chess][menu-formatting][equipment]")
 {
-    const auto labels = buildAlignedChessMenuLabels(
+    const auto labels = buildContentSizedAlignedChessMenuLabels(
         {
             {"[初階] ", "射雕弓", " [已裝]", ""},
             {"[初階] ", "越女劍", "", ""},
         },
-        testDisplayWidth,
-        ChessMenuColumnMinimumWidths{0, 0, 0});
+        testDisplayWidth);
 
     REQUIRE(labels.size() == 2);
     CHECK(testDisplayWidth(labels[0]) == testDisplayWidth(labels[1]));
     CHECK(testDisplayWidth(labels[0]) < ChessScreenLayout::getDefaultMenuItemUnits());
     CHECK(labels[0].contains(" [已裝]"));
+}
+
+TEST_CASE("equipment reward alignment does not reserve unused global columns",
+          "[chess][menu-formatting][equipment][reward]")
+{
+    const std::vector<ChessMenuColumnRow> rows{
+        {"[中階] ", "綠波香露刀", "", ""},
+        {"[高階] ", "大燕傳國玉璽", "", ""},
+        {"", "刷新", "", "$4"},
+    };
+
+    const auto labels = buildAlignedChessRewardMenuLabels(
+        ChessRewardKind::Equipment,
+        rows,
+        testDisplayWidth);
+
+    REQUIRE(labels.size() == 3);
+    const int width = testDisplayWidth(labels.front());
+    CHECK(testDisplayWidth(labels[1]) == width);
+    CHECK(testDisplayWidth(labels[2]) == width);
+    CHECK(width < ChessScreenLayout::getDefaultMenuItemUnits());
 }
 
 TEST_CASE("legacy browse menu typography and reward overrides stay explicit", "[chess][menu-formatting][legacy]")

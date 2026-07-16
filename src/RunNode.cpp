@@ -497,7 +497,7 @@ void RunNode::dispatchPointerEvent(const PointerEvent& event)
     if (event.source == PointerSource::Mouse && event.button == SDL_BUTTON_RIGHT
         && event.phase == PointerPhase::ButtonUp)
     {
-        onPressedCancel();
+        onPressedContextMenu();
         return;
     }
 

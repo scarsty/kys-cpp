@@ -425,6 +425,22 @@ TEST_CASE("MeleeSwarm_DoesNotReserveSameApproachSlot", "[battle][movement]")
     }
 }
 
+TEST_CASE("MeleeTargeting_SpreadsAcrossNearbyEnemies", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 100, 80, 0 } },
+        { 29, 0, { 100, 120, 0 } },
+        { 116, 1, { 320, 100, 0 } },
+        { 118, 1, { 350, 140, 0 } },
+    });
+    world.units[2].speed = 0.0;
+    world.units[3].speed = 0.0;
+
+    auto movement = BattleMovementPlanner(world).tick();
+
+    CHECK(movement.decisions.at(1).targetId != movement.decisions.at(2).targetId);
+}
+
 TEST_CASE("MeleeSwarm_ApproachPreservesSideLanesBeforeContact", "[battle][movement]")
 {
     auto world = makeWorld({

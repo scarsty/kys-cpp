@@ -118,18 +118,6 @@ TEST_CASE("equipment menu puts legendary shop second once unlocked", "[chess][co
     CHECK(items[1].action == ChessContextMenuAction::BuyLegendaryEquipment);
 }
 
-TEST_CASE("battle entry resumes a prepared battle restored from a save", "[chess][context-menu][save]")
-{
-    CHECK(chessBattleEntryFlow(ChessSessionPhase::BattlePreparation, false)
-        == ChessBattleEntryFlow::ResumePreparedBattle);
-    CHECK(chessBattleEntryFlow(ChessSessionPhase::BattlePreparation, true)
-        == ChessBattleEntryFlow::ResumePreparedBattle);
-    CHECK(chessBattleEntryFlow(ChessSessionPhase::Management, false)
-        == ChessBattleEntryFlow::PrepareBattle);
-    CHECK(chessBattleEntryFlow(ChessSessionPhase::Management, true)
-        == ChessBattleEntryFlow::CampaignComplete);
-}
-
 TEST_CASE("context menu y anchor centers visible rows inside chess content", "[chess][context-menu]")
 {
     CHECK(centerChessContextMenuY(10) == 135);

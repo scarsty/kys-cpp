@@ -443,6 +443,12 @@ void MainScene::onPressedCancel()
         KysChess::applicationChessSession()).showContextMenu();
 }
 
+void MainScene::onPressedContextMenu()
+{
+    KysChess::ChessGuiSessionAdapter(
+        KysChess::applicationChessSession()).showSystemMenu();
+}
+
 void MainScene::tryWalk(int x, int y)
 {
     if (canWalk(x, y))

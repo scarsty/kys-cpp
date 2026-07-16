@@ -1,5 +1,6 @@
 #include "ChessModHook.h"
 #include "ChessApplicationSessionHost.h"
+#include "ChessGuiSavePolicy.h"
 #include "ChessGuiSessionAdapter.h"
 #include "ChessPresentationHelpers.h"
 #include "GameDataStore.h"
@@ -11,6 +12,7 @@
 #include <chrono>
 #include <exception>
 #include <format>
+#include <optional>
 
 namespace KysChess
 {
@@ -25,6 +27,25 @@ static constexpr int SHIP_Y = 100;
 static constexpr int SHIP_X1 = 109;
 static constexpr int SHIP_Y1 = 99;
 static bool needIntro_ = false;
+
+static std::optional<ChessSessionCheckpoint> parseGuiSaveCheckpoint(const GameDataStore& store)
+{
+    if (store.chessSessionCheckpointJson.empty())
+    {
+        return std::nullopt;
+    }
+    ChessCheckpointError error;
+    auto checkpoint = ChessSessionCheckpoint::parseJson(
+        store.chessSessionCheckpointJson,
+        error);
+    if (!checkpoint
+        || checkpoint->gameVersion != GameUtil::VERSION()
+        || !isChessGuiSavePhaseContinuable(checkpoint->state.phase))
+    {
+        return std::nullopt;
+    }
+    return checkpoint;
+}
 
 std::uint64_t nextGuiSaveRevision()
 {
@@ -136,6 +157,16 @@ void ChessMod::showContextMenu()
     ChessGuiSessionAdapter(session_).showContextMenu();
 }
 
+void ChessMod::showSystemMenu()
+{
+    ChessGuiSessionAdapter(session_).showSystemMenu();
+}
+
+bool ChessModHook::canSaveGameData()
+{
+    return canPersistChessGuiState(applicationChessSession());
+}
+
 GameDataStore ChessModHook::exportGameData()
 {
     GameDataStore store;
@@ -148,32 +179,18 @@ GameDataStore ChessModHook::exportGameData()
 
 bool ChessModHook::isGameDataReadable(const GameDataStore& store)
 {
-    if (store.chessSessionCheckpointJson.empty())
-    {
-        return false;
-    }
-    ChessCheckpointError error;
-    const auto checkpoint = ChessSessionCheckpoint::parseJson(
-        store.chessSessionCheckpointJson,
-        error);
-    return checkpoint && checkpoint->gameVersion == GameUtil::VERSION();
+    return parseGuiSaveCheckpoint(store).has_value();
 }
 
 bool ChessModHook::importGameData(const GameDataStore& store, ::Save& save)
 {
-    if (store.chessSessionCheckpointJson.empty())
-    {
-        return false;
-    }
-    ChessCheckpointError error;
-    const auto checkpoint = ChessSessionCheckpoint::parseJson(
-        store.chessSessionCheckpointJson,
-        error);
-    if (!checkpoint || checkpoint->gameVersion != GameUtil::VERSION())
+    const auto checkpoint = parseGuiSaveCheckpoint(store);
+    if (!checkpoint)
     {
         return false;
     }
 
+    ChessCheckpointError error;
     std::unique_ptr<ChessGameSession> replacement;
     try
     {

@@ -14,6 +14,7 @@ public:
     ChessActionResult submitAction(const ChessAction& action) { return session_.submitAndDrain(action); }
     ChessGuiFlowResult runPreparedBattle() { return drainPreparedBattle(); }
     void showContextMenu();
+    void showSystemMenu();
 
 private:
     ChessActionResult submitGuiAction(const ChessAction& action);
@@ -28,7 +29,7 @@ private:
     void chooseEquipment(const ChessLegalActionDescriptor& descriptor);
     void chooseLegendary(const ChessLegalActionDescriptor& descriptor);
     void showOverviewMenu();
-    bool showSystemMenu();
+    bool runSystemMenu();
     void showPositionSwap();
     void showEnemyReroll();
     void viewCombos();

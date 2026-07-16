@@ -64,25 +64,6 @@ std::vector<ChessContextMenuItem> buildChessSystemMenu()
     };
 }
 
-ChessBattleEntryFlow chessBattleEntryFlow(ChessSessionPhase phase, bool campaignComplete)
-{
-    if (phase == ChessSessionPhase::BattlePreparation)
-    {
-        return ChessBattleEntryFlow::ResumePreparedBattle;
-    }
-    if (phase == ChessSessionPhase::Management)
-    {
-        return campaignComplete
-            ? ChessBattleEntryFlow::CampaignComplete
-            : ChessBattleEntryFlow::PrepareBattle;
-    }
-    if (phase == ChessSessionPhase::Complete)
-    {
-        return ChessBattleEntryFlow::CampaignComplete;
-    }
-    return ChessBattleEntryFlow::Unavailable;
-}
-
 std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMenuItem>& items)
 {
     std::vector<std::string> labels;

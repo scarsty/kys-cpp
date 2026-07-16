@@ -233,6 +233,11 @@ public:
 
     bool isRunning() { return running_; }
 
+    bool isCurrentRunOwner() const
+    {
+        return !run_owner_stack_.empty() && run_owner_stack_.back() == this;
+    }
+
     void exitWithResult(int r)
     {
         setExit(true);
@@ -279,7 +284,9 @@ public:
 
     virtual void onPressedOK() {}    //按下回车或鼠标左键的事件，子类视情况继承或者留空
 
-    virtual void onPressedCancel() {}    //按下esc或鼠标右键的事件，子类视情况继承或者留空
+    virtual void onPressedCancel() {}    // 按下 Esc 的事件，子類視情況覆寫或留空
+
+    virtual void onPressedContextMenu() { onPressedCancel(); }    // 按下滑鼠右鍵的事件，預設沿用取消操作
 
     void setStayFrame(int s) { stay_frame_ = s; }
 

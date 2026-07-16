@@ -235,7 +235,7 @@ void SubScene::draw()
         seg(std::format("[{}]", diffName), {255, 150, 150, 255});
 
         // Quick-access chess button (bottom-right of screen)
-        if (!chess_menu_active_)
+        if (isCurrentRunOwner())
         {
             int btnFs = 70;
             std::string label = "[Q] 棋局";
@@ -449,7 +449,7 @@ RunNode::PointerResult SubScene::onPointerEvent(const PointerEvent& event)
         return PointerResult::Handled;
     }
 
-    if (submap_id_ == 53
+    if (submap_id_ == 53 && isCurrentRunOwner()
         && event.uiPosition.x >= chess_btn_x_ && event.uiPosition.x < chess_btn_x_ + chess_btn_w_
         && event.uiPosition.y >= chess_btn_y_ && event.uiPosition.y < chess_btn_y_ + chess_btn_h_)
     {
@@ -506,9 +506,7 @@ void SubScene::openQuickChessMenu()
         }
         break;
     }
-    chess_menu_active_ = true;
     chess_mod_->showContextMenu();
-    chess_menu_active_ = false;
 }
 
 void SubScene::backRun()
@@ -594,6 +592,11 @@ void SubScene::onPressedCancel()
     chess_mod_->showContextMenu();
 }
 
+void SubScene::onPressedContextMenu()
+{
+    chess_mod_->showSystemMenu();
+}
+
 //冗余过多待清理
 void SubScene::tryWalk(int x, int y)
 {
@@ -640,9 +643,7 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
         }
         if (id > 0)
         {
-            chess_menu_active_ = true;
             bool intercepted = chess_mod_->interceptEvent(submap_info_->ID, id);
-            chess_menu_active_ = false;
             if (intercepted) { return true; }
             return Event::getInstance()->callEvent(id, this, submap_info_->ID, item_id, event_index_submap, x, y);
         }

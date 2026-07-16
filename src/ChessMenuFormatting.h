@@ -551,6 +551,30 @@ std::vector<std::string> buildAlignedChessMenuLabels(
 }
 
 template <typename DisplayWidth>
+std::vector<std::string> buildContentSizedAlignedChessMenuLabels(
+    const std::vector<ChessMenuColumnRow>& rows,
+    DisplayWidth displayWidth)
+{
+    return buildAlignedChessMenuLabels(
+        rows,
+        displayWidth,
+        ChessMenuColumnMinimumWidths{0, 0, 0});
+}
+
+template <typename DisplayWidth>
+std::vector<std::string> buildAlignedChessRewardMenuLabels(
+    ChessRewardKind rewardKind,
+    const std::vector<ChessMenuColumnRow>& rows,
+    DisplayWidth displayWidth)
+{
+    if (rewardKind == ChessRewardKind::Equipment)
+    {
+        return buildContentSizedAlignedChessMenuLabels(rows, displayWidth);
+    }
+    return buildAlignedChessMenuLabels(rows, displayWidth);
+}
+
+template <typename DisplayWidth>
 std::vector<std::string> buildAlignedComboCatalogLabels(
     const std::vector<std::pair<std::string, std::string>>& rows,
     DisplayWidth displayWidth)

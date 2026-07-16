@@ -1,7 +1,5 @@
 #pragma once
 
-#include "ChessSessionTypes.h"
-
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -35,14 +33,6 @@ enum class ChessContextMenuAction
     ReturnToTitle,
 };
 
-enum class ChessBattleEntryFlow
-{
-    PrepareBattle,
-    ResumePreparedBattle,
-    CampaignComplete,
-    Unavailable,
-};
-
 struct ChessContextMenuItem
 {
     std::string label;
@@ -53,7 +43,6 @@ std::vector<ChessContextMenuItem> buildChessContextMenu(bool banEnabled);
 std::vector<ChessContextMenuItem> buildChessOverviewMenu();
 std::vector<ChessContextMenuItem> buildChessEquipmentMenu(bool legendaryShopUnlocked);
 std::vector<ChessContextMenuItem> buildChessSystemMenu();
-ChessBattleEntryFlow chessBattleEntryFlow(ChessSessionPhase phase, bool campaignComplete);
 std::vector<std::string> chessContextMenuLabels(const std::vector<ChessContextMenuItem>& items);
 int centerChessContextMenuY(
     std::size_t itemCount,

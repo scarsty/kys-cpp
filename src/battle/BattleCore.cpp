@@ -1906,7 +1906,6 @@ BattleCastInput refreshedCastInput(BattleRuntimeState& state,
                                    const BattleTickResult& movement,
                                    BattleCastInput input)
 {
-    (void)movement;
     const auto& source = state.units.require(input.unit.id);
     input.unit.position = source.core.motion.position;
     input.unit.facing = source.core.motion.facing;
@@ -1919,7 +1918,17 @@ BattleCastInput refreshedCastInput(BattleRuntimeState& state,
     input.unit.frozen = source.frozen();
     if (input.targetUnitId < 0)
     {
-        input.targetUnitId = findNearestEnemyUnitId(state.units, input.unit.id);
+        const auto movementDecision = movement.decisions.find(input.unit.id);
+        if (movementDecision != movement.decisions.end()
+            && movementDecision->second.targetId >= 0
+            && state.units.requireCore(movementDecision->second.targetId).alive)
+        {
+            input.targetUnitId = movementDecision->second.targetId;
+        }
+        if (input.targetUnitId < 0)
+        {
+            input.targetUnitId = findNearestEnemyUnitId(state.units, input.unit.id);
+        }
     }
     if (input.targetUnitId >= 0)
     {
