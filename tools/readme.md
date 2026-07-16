@@ -269,7 +269,7 @@ python tools/cut_huge_map.py
 python tools/cut_huge_map.py map.png --output work/game-dev/resource/battle-earth
 ```
 
-可通过 `--canvas-width`、`--canvas-height` 和 `--grid` 调整画布与切片网格。参看“高清素材的方案”。
+可通过 `--canvas-width`、`--canvas-height` 和 `--grid` 调整画布与切片网格。参看“图片资源”。
 
 ### PNG 转 WebP
 

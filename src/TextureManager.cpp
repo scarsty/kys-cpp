@@ -123,13 +123,24 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         }
 
         int max_num = -1;
+        std::string image_ext;
+        bool mixed_image_formats = false;
         for (auto& f : files)
         {
-            if (strfunc::toLowerCase(filefunc::getFileExt(f)) != "png" && strfunc::toLowerCase(filefunc::getFileExt(f)) != "webp")
+            auto ext = strfunc::toLowerCase(filefunc::getFileExt(f));
+            if (ext != "png" && ext != "webp")
             {
                 continue;
             }
-            info_.ext_ = filefunc::getFileExt(f);
+            if (image_ext.empty())
+            {
+                image_ext = ext;
+            }
+            else if (image_ext != ext)
+            {
+                mixed_image_formats = true;
+                break;
+            }
             auto name = filefunc::getFileMainNameWithoutPath(f);
             auto nums = strfunc::findNumbers<int>(name);
             if (!nums.empty())
@@ -137,9 +148,14 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
                 max_num = (std::max)(max_num, nums[0]);
             }
         }
-        if (!info_.ext_.contains("."))
+        if (mixed_image_formats)
         {
-            info_.ext_ = "." + info_.ext_;
+            LOG("Texture group {} mixes PNG and WebP files; use one image format per group\n", info_.path);
+            return;
+        }
+        if (!image_ext.empty())
+        {
+            info_.ext_ = "." + image_ext;
         }
 
         group_.resize((std::max)(0, max_num + 1));
