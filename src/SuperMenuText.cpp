@@ -24,11 +24,11 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
     std::function<bool(const std::string&, const std::string&)> match = [&](const std::string& text, const std::string& name) -> bool
     {
         std::string pinyin = Hanz2Piny::hanz2pinyin(name);
-        int p = 0;
-        for (int i = 0; i < text.size(); i++)
+        std::string::size_type p = 0;
+        for (std::string::size_type i = 0; i < text.size(); i++)
         {
-            int p1 = pinyin.find_first_of(text[i], p);
-            if (p1 < 0)
+            const auto p1 = pinyin.find_first_of(text[i], p);
+            if (p1 == std::string::npos)
             {
                 return false;
             }

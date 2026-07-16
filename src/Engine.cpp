@@ -5,7 +5,6 @@
 #include <cmath>
 #include <vector>
 #ifdef _MSC_VER
-#define NOMINMAX
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
 #endif

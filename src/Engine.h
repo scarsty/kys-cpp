@@ -12,7 +12,9 @@
 #include <unordered_map>
 
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 
 #ifndef M_PI
 #define M_PI 3.141592653589793
