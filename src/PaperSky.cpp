@@ -57,6 +57,62 @@ int PaperSky::destinationHeight(int horizonY, int viewportHeight) const
         static_cast<int>(viewportHeight * 1.18f));
 }
 
+void PaperSky::fillDisk(Engine* engine, int centerX, int centerY, int radius,
+    Color innerColor, Color outerColor) const
+{
+    if (!engine || radius <= 0)
+    {
+        return;
+    }
+
+    constexpr int Segments = 64;
+    const int rings = std::clamp(radius / 3, 8, 24);
+    std::vector<FPoint> vertices;
+    std::vector<FPoint> source;
+    std::vector<Color> colors;
+    std::vector<int> indices;
+    vertices.reserve(1 + rings * Segments);
+    source.reserve(1 + rings * Segments);
+    colors.reserve(1 + rings * Segments);
+
+    vertices.push_back({ static_cast<float>(centerX), static_cast<float>(centerY) });
+    source.push_back({ 0.0f, 0.0f });
+    colors.push_back(innerColor);
+    for (int ring = 1; ring <= rings; ++ring)
+    {
+        const float factor = static_cast<float>(ring) / rings;
+        const float ringRadius = radius * factor;
+        const Color color = mixColor(innerColor, outerColor, factor);
+        for (int segment = 0; segment < Segments; ++segment)
+        {
+            const float angle = 2.0f * Pi * segment / Segments;
+            vertices.push_back({ centerX + std::cos(angle) * ringRadius, centerY + std::sin(angle) * ringRadius });
+            source.push_back({ 0.0f, 0.0f });
+            colors.push_back(color);
+        }
+    }
+
+    const auto ringIndex = [](int ring, int segment)
+    {
+        return 1 + (ring - 1) * Segments + (segment % Segments);
+    };
+    for (int segment = 0; segment < Segments; ++segment)
+    {
+        indices.insert(indices.end(), { 0, ringIndex(1, segment), ringIndex(1, segment + 1) });
+    }
+    for (int ring = 1; ring < rings; ++ring)
+    {
+        for (int segment = 0; segment < Segments; ++segment)
+        {
+            indices.insert(indices.end(), {
+                ringIndex(ring, segment), ringIndex(ring, segment + 1), ringIndex(ring + 1, segment + 1),
+                ringIndex(ring + 1, segment + 1), ringIndex(ring + 1, segment), ringIndex(ring, segment)
+            });
+        }
+    }
+    engine->renderTextureMesh(nullptr, vertices, source, colors, indices);
+}
+
 Texture* PaperSky::texture()
 {
     if (!texture_tried_)
@@ -85,11 +141,28 @@ void PaperSky::fillVerticalGradient(Engine* engine, int width, int y0, int y1,
     }
 }
 
+void PaperSky::fillStretchedVerticalGradient(Engine* engine, int width, int y0, int visibleY1, int gradientY1,
+    Color topColor, Color bottomColor, int bandHeight) const
+{
+    if (!engine || width <= 0 || visibleY1 <= y0)
+    {
+        return;
+    }
+    bandHeight = std::max(1, bandHeight);
+    const int gradientHeight = std::max(1, gradientY1 - y0);
+    for (int y = y0; y < visibleY1; y += bandHeight)
+    {
+        const int currentHeight = std::min(bandHeight, visibleY1 - y);
+        const float factor = gradientHeight > 1 ? static_cast<float>(y - y0) / (gradientHeight - 1) : 0.0f;
+        engine->fillColor(mixColor(topColor, bottomColor, factor),
+            0, y, width, currentHeight, BLENDMODE_NONE);
+    }
+}
+
 void PaperSky::renderFallbackGradient(Engine* engine, int viewportWidth, int viewportHeight, int horizonY) const
 {
-    const int skyDestinationHeight = std::max(viewportHeight, destinationHeight(horizonY, viewportHeight));
-    fillVerticalGradient(engine, viewportWidth, 0, skyDestinationHeight,
-        { 38, 82, 142, 255 }, { 172, 202, 224, 255 }, 4);
+    const float horizontalFov = horizontalFovRadians(viewportWidth, viewportHeight);
+    renderProgramSky(engine, viewportWidth, viewportHeight, horizonY, 0.0f, yaw_, horizontalFov);
 }
 
 void PaperSky::renderTextureBackdrop(Engine* engine, int viewportWidth, int viewportHeight) const
@@ -172,6 +245,8 @@ void PaperSky::reset()
 {
     yaw_ = 0.0f;
     yaw_initialized_ = false;
+    RandomDouble random;
+    sky_mode_ = static_cast<SkyMode>(random.rand_int(4));
 }
 
 void PaperSky::generateClouds()
@@ -288,6 +363,104 @@ void PaperSky::renderCloudLayer(Engine* engine, int viewportWidth, int viewportH
     }
 }
 
+void PaperSky::renderStars(Engine* engine, int viewportWidth, int viewportHeight, int horizonY,
+    float yaw, float horizontalFov) const
+{
+    if (!engine || viewportWidth <= 0 || viewportHeight <= 0 || horizontalFov <= 0.0f)
+    {
+        return;
+    }
+
+    constexpr int StarCount = 96;
+    const int starBottom = std::clamp(horizonY, static_cast<int>(viewportHeight * 0.12f), static_cast<int>(viewportHeight * 0.74f));
+    for (int index = 0; index < StarCount; ++index)
+    {
+        const float angle = -Pi + (index + 0.37f * std::sin(index * 12.9898f)) * (2.0f * Pi / StarCount);
+        const float delta = normalizeAngle(angle - yaw);
+        if (delta < -horizontalFov * 0.55f || delta > horizontalFov * 0.55f)
+        {
+            continue;
+        }
+        float heightFactor = std::fmod(std::sin(index * 78.233f) * 43758.5453f, 1.0f);
+        if (heightFactor < 0.0f)
+        {
+            heightFactor += 1.0f;
+        }
+        const int x = static_cast<int>(viewportWidth * 0.5f + delta / horizontalFov * viewportWidth);
+        const int y = static_cast<int>(12 + heightFactor * std::max(1, starBottom - 24));
+        const int size = index % 7 == 0 ? 2 : 1;
+        const uint8_t alpha = static_cast<uint8_t>(110 + (index * 37) % 110);
+        engine->fillColor({ 235, 240, 255, alpha }, x, y, size, size, BLENDMODE_BLEND);
+    }
+}
+
+void PaperSky::renderProgramSky(Engine* engine, int viewportWidth, int viewportHeight, int horizonY,
+    float pitch, float yaw, float horizontalFov) const
+{
+    struct Palette
+    {
+        Color zenith;
+        Color mid;
+        Color horizon;
+        Color sunInner;
+        Color sunOuter;
+        float sunAngle;
+        float sunElevation;
+        bool stars;
+    };
+
+    Palette palette{};
+    switch (sky_mode_)
+    {
+    case SkyMode::Dusk:
+        palette = { { 90, 54, 92, 255 }, { 148, 79, 91, 255 }, { 214, 132, 96, 255 },
+            { 255, 204, 128, 210 }, { 220, 104, 82, 20 }, 0.75f, 0.10f, false };
+        break;
+    case SkyMode::Night:
+        palette = { { 6, 13, 34, 255 }, { 16, 26, 52, 255 }, { 31, 41, 68, 255 },
+            { 224, 232, 255, 205 }, { 105, 124, 180, 24 }, -0.90f, 0.35f, true };
+        break;
+    case SkyMode::Dawn:
+        palette = { { 82, 100, 143, 255 }, { 151, 128, 152, 255 }, { 219, 166, 139, 255 },
+            { 255, 226, 168, 215 }, { 235, 148, 116, 22 }, -0.55f, 0.12f, false };
+        break;
+    case SkyMode::Day:
+    default:
+        palette = { { 54, 107, 169, 255 }, { 104, 157, 204, 255 }, { 176, 208, 228, 255 },
+            { 255, 246, 180, 205 }, { 255, 255, 220, 16 }, 0.25f, 0.42f, false };
+        break;
+    }
+
+    const int skyDestinationHeight = std::max(viewportHeight, destinationHeight(horizonY, viewportHeight));
+    const int midY = std::clamp(static_cast<int>(skyDestinationHeight * 0.58f), 1, viewportHeight);
+    fillStretchedVerticalGradient(engine, viewportWidth, 0, midY, midY, palette.zenith, palette.mid, 3);
+    fillStretchedVerticalGradient(engine, viewportWidth, midY, viewportHeight, skyDestinationHeight,
+        palette.mid, palette.horizon, 3);
+
+    if (palette.stars)
+    {
+        renderStars(engine, viewportWidth, viewportHeight, horizonY, yaw, horizontalFov);
+    }
+
+    const float sunDelta = normalizeAngle(palette.sunAngle - yaw);
+    if (sunDelta < -horizontalFov * 0.65f || sunDelta > horizontalFov * 0.65f)
+    {
+        return;
+    }
+    const int sunX = static_cast<int>(viewportWidth * 0.5f + sunDelta / horizontalFov * viewportWidth);
+    const int sunY = static_cast<int>(horizonY - std::tan(palette.sunElevation - pitch) * viewportHeight * 0.42f);
+    const int sunRadius = std::max(18, viewportHeight / (palette.stars ? 18 : 12));
+    if (palette.stars)
+    {
+        fillDisk(engine, sunX, sunY, sunRadius, palette.sunInner, palette.sunInner);
+        return;
+    }
+    fillDisk(engine, sunX, sunY, sunRadius * 3, palette.sunOuter,
+        { palette.sunOuter.r, palette.sunOuter.g, palette.sunOuter.b, 0 });
+    fillDisk(engine, sunX, sunY, sunRadius, palette.sunInner,
+        { palette.sunInner.r, palette.sunInner.g, palette.sunInner.b, 0 });
+}
+
 void PaperSky::render(Engine* engine, int viewportWidth, int viewportHeight,
     const Pointf& cameraPos, const Pointf& cameraCenter)
 {
@@ -325,7 +498,7 @@ void PaperSky::render(Engine* engine, int viewportWidth, int viewportHeight,
     }
     else
     {
-        renderFallbackGradient(engine, viewportWidth, viewportHeight, horizonY);
+        renderProgramSky(engine, viewportWidth, viewportHeight, horizonY, pitch, yaw_, horizontalFovRadians(viewportWidth, viewportHeight));
     }
     renderCloudLayer(engine, viewportWidth, viewportHeight, horizonY, pitch, yaw_, horizontalFovRadians(viewportWidth, viewportHeight));
 }

@@ -16,6 +16,14 @@ public:
         const Pointf& cameraPos, const Pointf& cameraCenter);
 
 private:
+    enum class SkyMode
+    {
+        Day,
+        Dusk,
+        Night,
+        Dawn,
+    };
+
     struct Cloud
     {
         int texture_id = 0;
@@ -34,6 +42,7 @@ private:
 
     float yaw_ = 0.0f;
     bool yaw_initialized_ = false;
+    SkyMode sky_mode_ = SkyMode::Day;
     Texture* texture_ = nullptr;
     bool texture_tried_ = false;
     std::vector<Cloud> clouds_;
@@ -44,7 +53,11 @@ private:
     float horizontalFovRadians(int viewportWidth, int viewportHeight) const;
     int destinationHeight(int horizonY, int viewportHeight) const;
     Texture* texture();
+    void fillDisk(Engine* engine, int centerX, int centerY, int radius,
+        Color innerColor, Color outerColor) const;
     void fillVerticalGradient(Engine* engine, int width, int y0, int y1,
+        Color topColor, Color bottomColor, int bandHeight) const;
+    void fillStretchedVerticalGradient(Engine* engine, int width, int y0, int visibleY1, int gradientY1,
         Color topColor, Color bottomColor, int bandHeight) const;
     void renderFallbackGradient(Engine* engine, int viewportWidth, int viewportHeight, int horizonY) const;
     void renderTextureBackdrop(Engine* engine, int viewportWidth, int viewportHeight) const;
@@ -53,5 +66,9 @@ private:
     void renderWrappedTexture(Engine* engine, Texture* skyTexture, int viewportWidth, int viewportHeight,
         int horizonY, float yaw, float horizontalFov) const;
     void renderCloudLayer(Engine* engine, int viewportWidth, int viewportHeight, int horizonY,
+        float pitch, float yaw, float horizontalFov) const;
+    void renderStars(Engine* engine, int viewportWidth, int viewportHeight, int horizonY,
+        float yaw, float horizontalFov) const;
+    void renderProgramSky(Engine* engine, int viewportWidth, int viewportHeight, int horizonY,
         float pitch, float yaw, float horizontalFov) const;
 };
