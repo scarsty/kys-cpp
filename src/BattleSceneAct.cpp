@@ -339,6 +339,12 @@ void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
         free_camera_distance_ = std::clamp(free_camera_distance_ - e.wheel.y * PAPER_CAMERA_WHEEL_ZOOM_STEP,
             PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
     }
+    if (!camera_locked_
+        && e.type == EVENT_MOUSE_MOTION
+        && engine->checkMouseButtonPress(BUTTON_RIGHT))
+    {
+        engine->setTouchCameraPan(-e.motion.xrel, -e.motion.yrel);
+    }
     if (!camera_locked_)
     {
         if (engine->checkKeyPress(K_Z)) { free_camera_distance_ += PAPER_CAMERA_ZOOM_STEP; }
@@ -360,10 +366,6 @@ void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
         if (engine->checkKeyPress(K_RIGHT)) { rotate -= 1; }
         if (engine->checkKeyPress(K_UP)) { height_delta -= 1; }
         if (engine->checkKeyPress(K_DOWN)) { height_delta += 1; }
-        if (engine->checkKeyPress(K_J)) { rotate += 1; }
-        if (engine->checkKeyPress(K_L)) { rotate -= 1; }
-        if (engine->checkKeyPress(K_I)) { height_delta -= 1; }
-        if (engine->checkKeyPress(K_K)) { height_delta += 1; }
         auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
         auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
         if (std::abs(right_axis_x) >= 6000) { rotate -= GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f; }

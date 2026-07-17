@@ -24,6 +24,7 @@ namespace
 constexpr float PaperCameraRotateSpeed = 0.035f;
 constexpr float PaperCameraHeightSpeed = 6.0f;
 constexpr float PaperCameraZoomStep = 24.0f;
+constexpr float PaperCameraWheelZoomStep = 80.0f;
 constexpr float PaperCameraMinDistance = 220.0f;
 constexpr float PaperCameraMaxDistance = 900.0f;
 constexpr float PaperCameraMinHeight = 80.0f;
@@ -404,10 +405,6 @@ void BattleScene::handlePaperCameraEvent()
     auto engine = Engine::getInstance();
     float rotate = 0;
     float pitch_delta = 0;
-    if (engine->checkKeyPress(K_J)) { rotate += 1; }
-    if (engine->checkKeyPress(K_L)) { rotate -= 1; }
-    if (engine->checkKeyPress(K_I)) { pitch_delta -= 1; }
-    if (engine->checkKeyPress(K_K)) { pitch_delta += 1; }
     auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
     auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
     if (std::abs(right_axis_x) >= 6000) { rotate -= GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f; }
@@ -432,6 +429,24 @@ void BattleScene::handlePaperCameraEvent()
     paper_camera_pitch_ = std::clamp(paper_camera_pitch_ + pitch_delta * PaperCameraRotateSpeed,
         std::atan(PaperCameraMinHeight / paper_camera_distance_),
         std::atan(PaperCameraMaxHeight / paper_camera_distance_));
+}
+
+void BattleScene::handlePaperCameraInput(EngineEvent& e)
+{
+    if (!usePaperPresentation())
+    {
+        return;
+    }
+
+    if (e.type == EVENT_MOUSE_WHEEL && e.wheel.y != 0)
+    {
+        paper_camera_distance_ = std::clamp(paper_camera_distance_ - e.wheel.y * PaperCameraWheelZoomStep,
+            PaperCameraMinDistance, PaperCameraMaxDistance);
+    }
+    if (e.type == EVENT_MOUSE_MOTION && Engine::checkMouseButtonPress(BUTTON_RIGHT))
+    {
+        Engine::getInstance()->setTouchCameraPan(-e.motion.xrel, -e.motion.yrel);
+    }
 }
 
 void BattleScene::draw()
@@ -617,6 +632,8 @@ void BattleScene::draw()
 
 void BattleScene::dealEvent(EngineEvent& e)
 {
+    handlePaperCameraInput(e);
+
     if (battle_roles_.empty())
     {
         exitWithResult(0);

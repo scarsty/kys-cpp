@@ -81,6 +81,7 @@ void BattleActionMenu::dealEvent(EngineEvent& e)
     {
         return;
     }
+    battle_scene_->handlePaperCameraInput(e);
     //如果是ai，计算行动，不再进入其他循环
     if (role_->isAuto())
     {

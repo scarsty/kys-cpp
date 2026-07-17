@@ -34,6 +34,7 @@ public:
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void backRun() override;
+    void handlePaperCameraInput(EngineEvent& e);
 
 protected:
     bool usePaperPresentation() const;
