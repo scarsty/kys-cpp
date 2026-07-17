@@ -53,6 +53,7 @@ UIItem::~UIItem()
 void UIItem::onEntrance()
 {
     used_item_ = nullptr;
+    touch_confirm_item_ = nullptr;
 }
 
 void UIItem::setForceItemType(std::set<int> f)
@@ -298,6 +299,9 @@ void UIItem::syncFocusState()
 void UIItem::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
+    const bool is_touch_tap = e.type == EVENT_MOUSE_BUTTON_UP
+        && e.button.which == SDL_TOUCH_MOUSEID
+        && e.button.button == BUTTON_LEFT;
     checkCurrentItem();
     const int previous_focus = focus_;
     const int previous_active_child = active_child_;
@@ -416,6 +420,28 @@ void UIItem::dealEvent(EngineEvent& e)
         && (focus_ != previous_focus || active_child_ != previous_active_child || leftup_index_ != previous_leftup_index))
     {
         checkCurrentItem();
+    }
+    if (is_touch_tap)
+    {
+        const bool tapped_item = current_button_
+            && current_button_->inSide(e.button.x, e.button.y);
+        if (tapped_item && touch_confirm_item_ == current_item_)
+        {
+            touch_confirm_item_ = nullptr;
+        }
+        else if (tapped_item)
+        {
+            touch_confirm_item_ = current_item_;
+            e.type = EVENT_FIRST;
+        }
+        else
+        {
+            touch_confirm_item_ = nullptr;
+        }
+    }
+    else if (touch_confirm_item_ != current_item_)
+    {
+        touch_confirm_item_ = nullptr;
     }
     syncFocusState();
 }

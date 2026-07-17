@@ -60,6 +60,7 @@ public:
     std::shared_ptr<Button> drag_item_{ nullptr };
     std::vector<Item*> available_items_;
     Item* used_item_ = nullptr;
+    Item* touch_confirm_item_ = nullptr;
 
     Item* getCurrentItem() { return current_item_; }
     Item* getUsedItem() { return used_item_; }

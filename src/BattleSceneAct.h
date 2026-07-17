@@ -194,6 +194,7 @@ protected:
     float camera_angle_ = M_PI / 2;
     float camera_distance_ = 0;
     float free_camera_distance_ = 400;
+    float free_camera_pitch_ = std::atan(200.0f / 400.0f);
     float camera_height_ = 200;
     bool camera_locked_ = false;
     PaperPresentation paper_presentation_;

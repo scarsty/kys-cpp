@@ -309,6 +309,7 @@ void BattleSceneAct::initializePaperPresentation()
         .to_world = [this](int x, int y) { return pos45To90(x, y); },
     });
     camera_focus_ = paper_presentation_.initialFocus();
+    free_camera_pitch_ = std::atan(camera_height_ / free_camera_distance_);
     camera_pos_ = camera_focus_ + Pointf{
         std::cos(camera_angle_) * free_camera_distance_,
         std::sin(camera_angle_) * free_camera_distance_,
@@ -332,6 +333,7 @@ void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
         if (!camera_locked_)
         {
             camera_distance_ = free_camera_distance_ > 0 ? free_camera_distance_ : PAPER_CAMERA_DEFAULT_DISTANCE;
+            free_camera_pitch_ = std::atan(camera_height_ / camera_distance_);
         }
     }
     if (!camera_locked_ && e.type == EVENT_MOUSE_WHEEL && e.wheel.y != 0)
@@ -352,9 +354,8 @@ void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
         free_camera_distance_ /= engine->consumeTouchPinchScale();
         auto touch_pan = engine->consumeTouchCameraPan();
         camera_angle_ += touch_pan.x / engine->getUIWidth() * M_PI;
-        camera_height_ = std::clamp(camera_height_ - touch_pan.y / engine->getUIHeight()
-                * (PAPER_CAMERA_MAX_HEIGHT - PAPER_CAMERA_MIN_HEIGHT),
-            PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
+        free_camera_pitch_ -= touch_pan.y / engine->getUIHeight()
+            * (PAPER_CAMERA_MAX_HEIGHT - PAPER_CAMERA_MIN_HEIGHT) / free_camera_distance_;
         auto left_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER);
         auto right_trigger = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER);
         if (left_trigger > 6000) { free_camera_distance_ += PAPER_CAMERA_ZOOM_STEP * GameUtil::clamp(left_trigger, 0, 20000) / 20000.0f; }
@@ -371,13 +372,16 @@ void BattleSceneAct::handlePaperPresentationEvent(EngineEvent& e)
         if (std::abs(right_axis_x) >= 6000) { rotate -= GameUtil::clamp(right_axis_x, -20000, 20000) / 20000.0f; }
         if (std::abs(right_axis_y) >= 6000)
         {
-            camera_height_ += GameUtil::clamp(right_axis_y, -20000, 20000) / 20000.0f
-                * free_camera_distance_ * PAPER_FREE_CAMERA_ROTATE_SPEED;
+            free_camera_pitch_ += GameUtil::clamp(right_axis_y, -20000, 20000) / 20000.0f
+                * PAPER_FREE_CAMERA_ROTATE_SPEED;
         }
         camera_angle_ += rotate * PAPER_FREE_CAMERA_ROTATE_SPEED;
-        camera_height_ = std::clamp(camera_height_ + height_delta * PAPER_FREE_CAMERA_HEIGHT_SPEED,
-            PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
         free_camera_distance_ = std::clamp(free_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
+        free_camera_pitch_ += height_delta * PAPER_FREE_CAMERA_HEIGHT_SPEED / free_camera_distance_;
+        free_camera_pitch_ = std::clamp(free_camera_pitch_,
+            std::atan(PAPER_CAMERA_MIN_HEIGHT / free_camera_distance_),
+            std::atan(PAPER_CAMERA_MAX_HEIGHT / free_camera_distance_));
+        camera_height_ = free_camera_distance_ * std::tan(free_camera_pitch_);
         camera_distance_ = free_camera_distance_;
     }
 }
@@ -518,7 +522,8 @@ void BattleSceneAct::drawPaperPresentation()
                 {
                     camera_distance_ = PAPER_CAMERA_DEFAULT_DISTANCE;
                 }
-                camera_height_ = std::clamp(camera_height_, PAPER_CAMERA_MIN_HEIGHT, PAPER_CAMERA_MAX_HEIGHT);
+                free_camera_distance_ = camera_distance_;
+                camera_height_ = camera_distance_ * std::tan(free_camera_pitch_);
                 camera_dir = { std::cos(camera_angle_) * camera_distance_, std::sin(camera_angle_) * camera_distance_, 0 };
                 camera_pos_ = { camera_focus_.x + camera_dir.x, camera_focus_.y + camera_dir.y, camera_height_ };
             }

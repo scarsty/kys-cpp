@@ -289,7 +289,6 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
             if (r->PhysicalPower >= 30
                 && (engine->checkKeyPress(keys_.Heavy)
                     || engine->gameControllerGetButton(GAMEPAD_BUTTON_NORTH)
-                    || (e.type == EVENT_MOUSE_WHEEL && e.wheel.y > 0)
                     || (e.type == EVENT_MOUSE_BUTTON_DOWN && e.button.button == BUTTON_MIDDLE)))
             {
                 index = 1;
@@ -304,7 +303,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
             if (r->PhysicalPower >= 10
                 && (engine->checkKeyPress(keys_.Slash)
                     || engine->gameControllerGetButton(GAMEPAD_BUTTON_SOUTH)
-                    || (e.type == EVENT_MOUSE_WHEEL && e.wheel.y < 0)))
+                    ))
             {
                 index = 3;
             }

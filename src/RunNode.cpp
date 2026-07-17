@@ -459,7 +459,13 @@ void RunNode::dealEventSelfChilds(bool check_event)
     }
     else
     {
-        Engine::pollEvent();
+        EngineEvent e{};
+        e.type = EVENT_FIRST;
+        if (use_virtual_stick_)
+        {
+            virtual_stick()->dealEvent(e);
+        }
+        checkStateSelfChilds(e, check_event);
     }
 }
 

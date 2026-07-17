@@ -177,16 +177,26 @@ void VirtualStick::dealEvent(EngineEvent& e)
                     if (b->inSideInStartWindow(x, y))
                     {
                         auto& intval = button_interval_[b];
-                        if (engine->getTicks() - intval.prev_press > intval.interval)
+                        const bool is_direction_button = b == button_up_
+                            || b == button_down_
+                            || b == button_left_
+                            || b == button_right_;
+                        if (is_direction_button || engine->getTicks() - intval.prev_press > intval.interval)
                         {
                             b->state_ = NodePress;
                             engine->setGameControllerButton(b->button_id_, 1);
-                            intval.prev_press = engine->getTicks();
-                            is_press = true;
-                            intval.interval = 20;
-                            if (is_action || is_paper || is_turn_based_paper)
+                            if (!is_direction_button)
                             {
-                                intval.interval = 0;
+                                intval.prev_press = engine->getTicks();
+                            }
+                            is_press = true;
+                            if (!is_direction_button)
+                            {
+                                intval.interval = 20;
+                                if (is_action || is_paper || is_turn_based_paper)
+                                {
+                                    intval.interval = 0;
+                                }
                             }
                         }
                     }
