@@ -66,6 +66,7 @@ constexpr float PAPER_FREE_CAMERA_PAN_SPEED = 10.0f;
 constexpr float PAPER_CAMERA_MIN_DISTANCE = 220.0f;
 constexpr float PAPER_CAMERA_MAX_DISTANCE = 1200.0f;
 constexpr float PAPER_CAMERA_ZOOM_STEP = 24.0f;
+constexpr float PAPER_CAMERA_MOUSE_WHEEL_ZOOM_STEP = 80.0f;
 constexpr float PAPER_CAMERA_MIN_HEIGHT = 80.0f;
 constexpr float PAPER_CAMERA_MAX_HEIGHT = 520.0f;
 constexpr int PAPER_DEATH_SHAKE_FRAMES = 60;
@@ -2096,6 +2097,34 @@ RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& even
         return PointerResult::Handled;
     }
 
+    if (active_paper_battle_view_
+        && event.source == PointerSource::Mouse
+        && event.phase == PointerPhase::Motion
+        && Engine::checkMouseButtonPress(SDL_BUTTON_RIGHT))
+    {
+        paper_camera_angle_ -= paperTouchRotationDelta(event.uiDelta.x, static_cast<float>(uiW));
+        paper_camera_height_ = std::clamp(
+            paper_camera_height_ - paperTouchHeightDelta(
+                event.uiDelta.y,
+                static_cast<float>(uiH),
+                PAPER_CAMERA_MIN_HEIGHT,
+                PAPER_CAMERA_MAX_HEIGHT),
+            PAPER_CAMERA_MIN_HEIGHT,
+            PAPER_CAMERA_MAX_HEIGHT);
+        return PointerResult::Handled;
+    }
+
+    if (active_paper_battle_view_
+        && event.source == PointerSource::Mouse
+        && event.phase == PointerPhase::Wheel)
+    {
+        paper_camera_distance_ = std::clamp(
+            paper_camera_distance_ - event.wheel.y * PAPER_CAMERA_MOUSE_WHEEL_ZOOM_STEP,
+            PAPER_CAMERA_MIN_DISTANCE,
+            PAPER_CAMERA_MAX_DISTANCE);
+        return PointerResult::Handled;
+    }
+
     if (!active_paper_battle_view_)
     {
         if (auto center = camera_.handleManualInput(event, pos_, makeCameraBounds(), isManualCameraEnabled()))
@@ -2185,6 +2214,14 @@ void BattleSceneHades::onPointerInputReset()
 
 void BattleSceneHades::dealEvent2(EngineEvent& e)
 {
+}
+
+void BattleSceneHades::onPressedContextMenu()
+{
+    if (!active_paper_battle_view_)
+    {
+        BattleScene::onPressedContextMenu();
+    }
 }
 
 bool BattleSceneHades::canToggleBattlePause() const

@@ -55,6 +55,7 @@ public:
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void calExpGot() override;
+    virtual void onPressedContextMenu() override;
 
     virtual void backRun() override {}
 
