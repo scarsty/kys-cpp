@@ -1,6 +1,7 @@
 ﻿#include "Engine.h"
 
 #include "SDL3_image/SDL_image.h"
+#include "UIRenderer.h"
 #include "strfunc.h"
 #include <cmath>
 #include <vector>
@@ -906,6 +907,11 @@ void Engine::setColor(Texture* tex, Color c)
 
 void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend) const
 {
+    if (!UIRenderer::getInstance()->isExecuting() && getRenderTarget() == tex_)
+    {
+        UIRenderer::getInstance()->fillColor(color, x, y, w, h, blend);
+        return;
+    }
     if (w < 0 || h < 0)
     {
         SDL_GetCurrentRenderOutputSize(renderer_, &w, &h);
@@ -1308,6 +1314,11 @@ int Engine::showMessage(const std::string& content) const
 void Engine::renderSquareTexture(Rect* rect, Color color, uint8_t alpha)
 {
     color.a = alpha;
+    if (!UIRenderer::getInstance()->isExecuting() && getRenderTarget() == tex_)
+    {
+        UIRenderer::getInstance()->drawTexture(square_, *rect, color);
+        return;
+    }
     setColor(square_, color);
     renderTexture(square_, nullptr, rect);
 }

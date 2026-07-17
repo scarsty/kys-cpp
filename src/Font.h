@@ -5,8 +5,12 @@
 #include <string>
 #include <unordered_map>
 
+class UIRenderer;
+
 class Font
 {
+    friend class UIRenderer;
+
 private:
     Font();
 
@@ -24,16 +28,6 @@ private:
     std::unordered_map<std::string, std::string> t2s_buffer_;    //缓存繁体转简体的结果
 
     SimpleCC cct2s_;
-
-    struct DrawCall
-    {
-        std::string text;
-        int size;
-        int x, y;
-        Color color;
-        uint8_t alpha;
-    };
-    std::vector<DrawCall> draw_calls_;
 
     int renderText(const std::string& text, int size, int x, int y, Color color, uint8_t alpha);
 

@@ -2,6 +2,7 @@
 #include "GameUtil.h"
 #include "PotConv.h"
 #include "TextureManager.h"
+#include "UIRenderer.h"
 #include <iostream>
 
 Font::Font()
@@ -29,7 +30,7 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
     {
         return 0;
     }
-    draw_calls_.push_back({ text, size, x, y, color, alpha });
+    UIRenderer::getInstance()->drawText(text, size, x, y, color, alpha);
 
     int lines = 1;
     for (char c : text)
@@ -142,40 +143,14 @@ int Font::renderText(const std::string& text, int size, int x, int y, Color colo
 //应在 renderMainTextureToWindow() 之后、renderPresent() 之前调用
 void Font::executeDrawCalls()
 {
-    if (draw_calls_.empty())
-    {
-        return;
-    }
-
-    int px, py, pw, ph;
-    Engine::getInstance()->getPresentRect(px, py, pw, ph);
-    int ui_w, ui_h;
-    Engine::getInstance()->getUISize(ui_w, ui_h);
-
-    if (pw <= 0 || ph <= 0 || ui_w <= 0 || ui_h <= 0)
-    {
-        draw_calls_.clear();
-        return;
-    }
-
-    float sx = float(pw) / ui_w;
-    float sy = float(ph) / ui_h;
-
-    for (auto& call : draw_calls_)
-    {
-        int wx = px + int(call.x * sx);
-        int wy = py + int(call.y * sy);
-        int wsize = std::max(1, int(call.size * sx));
-        renderText(call.text, wsize, wx, wy, call.color, call.alpha);
-    }
-
-    draw_calls_.clear();
+    UIRenderer::getInstance()->execute();
 }
 
 void Font::drawWithBox(const std::string& text, int size, int x, int y, Color color, uint8_t alpha, uint8_t alpha_box)
 {
     auto r = getBoxRect(getTextDrawSize(text), size, x, y);
-    TextureManager::getInstance()->renderTexture("title", 126, r.x, r.y, { { 255, 255, 255, 255 }, alpha_box }, r.w, r.h);
+    UIRenderer::getInstance()->drawTexture(TextureManager::getInstance()->getTexture("title", 126),
+        r.x, r.y, { { 255, 255, 255, 255 }, alpha_box }, r.w, r.h);
     draw(text, size, x, y, color, alpha);
 }
 

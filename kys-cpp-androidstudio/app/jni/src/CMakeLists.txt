@@ -208,6 +208,7 @@ add_library(main SHARED
         "${KYS_SRC_DIR}/UIConfig.cpp"
         "${KYS_SRC_DIR}/UIItem.cpp"
         "${KYS_SRC_DIR}/UIKeyConfig.cpp"
+        "${KYS_SRC_DIR}/UIRenderer.cpp"
         "${KYS_SRC_DIR}/UISave.cpp"
         "${KYS_SRC_DIR}/UIShop.cpp"
         "${KYS_SRC_DIR}/UIStatus.cpp"

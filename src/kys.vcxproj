@@ -183,6 +183,7 @@
     <ClCompile Include="UISave.cpp" />
     <ClCompile Include="UIShop.cpp" />
     <ClCompile Include="UIStatus.cpp" />
+    <ClCompile Include="UIRenderer.cpp" />
     <ClCompile Include="UISystem.cpp" />
     <ClCompile Include="Video.cpp" />
     <ClCompile Include="VirtualStick.cpp" />
@@ -258,6 +259,7 @@
     <ClInclude Include="Types.h" />
     <ClInclude Include="UIItem.h" />
     <ClInclude Include="UIConfig.h" />
+    <ClInclude Include="UIRenderer.h" />
     <ClInclude Include="UIKeyConfig.h" />
     <ClInclude Include="UISave.h" />
     <ClInclude Include="UIShop.h" />

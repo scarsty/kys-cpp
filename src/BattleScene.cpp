@@ -12,6 +12,7 @@
 #include "ShowExp.h"
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
+#include "UIRenderer.h"
 #include "Weather.h"
 #include "strfunc.h"
 #include <algorithm>
@@ -2360,9 +2361,8 @@ void BattleScene::renderAttackTimingCircle(int frame, int frame_count, const std
     int max_size = int(std::sqrt(ui_w * ui_w + ui_h * ui_h)) + 64 * tile_scale;
     int min_size = 6 * tile_scale;
     int size = int(min_size + (max_size - min_size) * progress);
-    auto engine = Engine::getInstance();
-    engine->setColor(tex->getTexture(), { 255, 255, 255, 192 });
-    engine->renderTexture(tex->getTexture(), ui_w / 2 - size / 2, ui_h / 2 - size / 2, size, size);
+    UIRenderer::getInstance()->drawTexture(tex, ui_w / 2 - size / 2, ui_h / 2 - size / 2,
+        { { 255, 255, 255, 255 }, 192 }, size, size);
 }
 
 void BattleScene::renderBlockPrompt(TimingPromptState state)
@@ -2385,10 +2385,10 @@ void BattleScene::renderBlockPrompt(TimingPromptState state)
     Font::getInstance()->draw(prompt, font_size, x, y, color, 255);
     if (button_tex != nullptr)
     {
-        auto engine = Engine::getInstance();
         int icon_size = 36 * tile_scale;
-        engine->setColor(button_tex->getTexture(), { 255, 255, 255, 160 });
-        engine->renderTexture(button_tex->getTexture(), ui_w / 2 - icon_size / 2, ui_h / 2 - icon_size / 2, icon_size, icon_size);
+        UIRenderer::getInstance()->drawTexture(button_tex,
+            ui_w / 2 - icon_size / 2, ui_h / 2 - icon_size / 2,
+            { { 255, 255, 255, 255 }, 160 }, icon_size, icon_size);
     }
 }
 
