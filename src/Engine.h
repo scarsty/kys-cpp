@@ -574,6 +574,11 @@ public:
 
     static bool checkKeyPress(Keycode key);
 
+    static bool checkMouseButtonPress(int button)
+    {
+        return (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MASK(button)) != 0;
+    }
+
     static void addEventWatch(SDL_EventFilter filter, void* userdata)
     {
         SDL_AddEventWatch(filter, userdata);

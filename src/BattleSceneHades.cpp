@@ -66,6 +66,7 @@ constexpr float PAPER_FREE_CAMERA_PAN_SPEED = 10.0f;
 constexpr float PAPER_CAMERA_MIN_DISTANCE = 220.0f;
 constexpr float PAPER_CAMERA_MAX_DISTANCE = 1200.0f;
 constexpr float PAPER_CAMERA_ZOOM_STEP = 24.0f;
+constexpr float PAPER_CAMERA_MOUSE_WHEEL_ZOOM_STEP = 80.0f;
 constexpr float PAPER_CAMERA_MIN_HEIGHT = 80.0f;
 constexpr float PAPER_CAMERA_MAX_HEIGHT = 520.0f;
 constexpr int PAPER_DEATH_SHAKE_FRAMES = 60;
@@ -82,6 +83,17 @@ constexpr float PAPER_GROUND_RADIAL_FADE_START_RATIO = 0.34f;
 constexpr float PAPER_GROUND_RADIAL_FADE_END_RATIO = 0.48f;
 constexpr uint8_t PAPER_GROUND_EDGE_MIN_ALPHA = 0;
 constexpr uint8_t PAPER_GROUND_HORIZON_MIN_ALPHA = 0;
+
+void zoomPaperCameraKeepingPitch(float& distance, float& height, float targetDistance)
+{
+    assert(distance > 0.0f);
+    const float heightPerDistance = height / distance;
+    const float minDistance = std::max(PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MIN_HEIGHT / heightPerDistance);
+    const float maxDistance = std::min(PAPER_CAMERA_MAX_DISTANCE, PAPER_CAMERA_MAX_HEIGHT / heightPerDistance);
+    distance = std::clamp(targetDistance, minDistance, maxDistance);
+    height = distance * heightPerDistance;
+}
+
 bool isPaperWallTile(int num)
 {
     return (num >= 701 && num <= 1139)
@@ -2009,15 +2021,16 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
     if (active_paper_battle_view_)
     {
         auto engine = Engine::getInstance();
+        float targetDistance = paper_camera_distance_;
         if (engine->checkKeyPress(K_Z))
         {
-            paper_camera_distance_ += PAPER_CAMERA_ZOOM_STEP;
+            targetDistance += PAPER_CAMERA_ZOOM_STEP;
         }
         if (engine->checkKeyPress(K_X))
         {
-            paper_camera_distance_ -= PAPER_CAMERA_ZOOM_STEP;
+            targetDistance -= PAPER_CAMERA_ZOOM_STEP;
         }
-        paper_camera_distance_ = std::clamp(paper_camera_distance_, PAPER_CAMERA_MIN_DISTANCE, PAPER_CAMERA_MAX_DISTANCE);
+        zoomPaperCameraKeepingPitch(paper_camera_distance_, paper_camera_height_, targetDistance);
 
         float cameraRotate = 0.0f;
         float cameraHeightDelta = 0.0f;
@@ -2096,6 +2109,34 @@ RunNode::PointerResult BattleSceneHades::onPointerEvent(const PointerEvent& even
         return PointerResult::Handled;
     }
 
+    if (active_paper_battle_view_
+        && event.source == PointerSource::Mouse
+        && event.phase == PointerPhase::Motion
+        && Engine::checkMouseButtonPress(SDL_BUTTON_RIGHT))
+    {
+        paper_camera_angle_ -= paperTouchRotationDelta(event.uiDelta.x, static_cast<float>(uiW));
+        paper_camera_height_ = std::clamp(
+            paper_camera_height_ - paperTouchHeightDelta(
+                event.uiDelta.y,
+                static_cast<float>(uiH),
+                PAPER_CAMERA_MIN_HEIGHT,
+                PAPER_CAMERA_MAX_HEIGHT),
+            PAPER_CAMERA_MIN_HEIGHT,
+            PAPER_CAMERA_MAX_HEIGHT);
+        return PointerResult::Handled;
+    }
+
+    if (active_paper_battle_view_
+        && event.source == PointerSource::Mouse
+        && event.phase == PointerPhase::Wheel)
+    {
+        zoomPaperCameraKeepingPitch(
+            paper_camera_distance_,
+            paper_camera_height_,
+            paper_camera_distance_ - event.wheel.y * PAPER_CAMERA_MOUSE_WHEEL_ZOOM_STEP);
+        return PointerResult::Handled;
+    }
+
     if (!active_paper_battle_view_)
     {
         if (auto center = camera_.handleManualInput(event, pos_, makeCameraBounds(), isManualCameraEnabled()))
@@ -2158,10 +2199,10 @@ void BattleSceneHades::onTouchSample(const TouchSample& sample)
         case PaperCameraTouchActionType::Pair:
             if (action.previousSpan > 0.001f && action.currentSpan > 0.001f)
             {
-                paper_camera_distance_ = std::clamp(
-                    paperTouchPinchDistance(paper_camera_distance_, action.previousSpan, action.currentSpan),
-                    PAPER_CAMERA_MIN_DISTANCE,
-                    PAPER_CAMERA_MAX_DISTANCE);
+                zoomPaperCameraKeepingPitch(
+                    paper_camera_distance_,
+                    paper_camera_height_,
+                    paperTouchPinchDistance(paper_camera_distance_, action.previousSpan, action.currentSpan));
             }
             paper_camera_angle_ += paperTouchRotationDelta(action.delta.x, static_cast<float>(uiW));
             paper_camera_height_ = std::clamp(
@@ -2185,6 +2226,14 @@ void BattleSceneHades::onPointerInputReset()
 
 void BattleSceneHades::dealEvent2(EngineEvent& e)
 {
+}
+
+void BattleSceneHades::onPressedContextMenu()
+{
+    if (!active_paper_battle_view_)
+    {
+        BattleScene::onPressedContextMenu();
+    }
 }
 
 bool BattleSceneHades::canToggleBattlePause() const
