@@ -254,7 +254,7 @@ TEST_CASE("game guide derives economy equipment and reward details from content"
     const auto& equipment = guideSection(sections, "裝備與內功");
     CHECK(equipment.lines[1].text == "· 固定裝備獎勵共2次，最早第4回，最高4階");
     CHECK(equipment.lines[2].text == "· 神兵商店第13回後開放，每件37金");
-    CHECK(equipment.lines[3].text == "· 強敵戰後可選5本內功，重抽6金");
+    CHECK(equipment.lines[3].text == "· 強敵戰後可選5本內功；刷新後選擇新候選加收6金");
     CHECK(guideSection(sections, "遠征挑戰").lines[0].text == "· 遠征挑戰共3關，不佔主線回合，勝後獎勵各領一次");
 }
 
@@ -523,6 +523,16 @@ TEST_CASE("star reward title derives one shared source and target pair from sess
     };
 
     CHECK(chessStarUpgradeRewardTitle(state, pending) == "選擇升星 2★→3★");
+}
+
+TEST_CASE("reward option cost column marks only paid rerolled choices", "[chess][menu-formatting][reward]")
+{
+    ChessRewardOption original{"equipment:1", ChessRewardKind::Equipment, 1};
+    ChessRewardOption rerolled{"equipment:2", ChessRewardKind::Equipment, 2};
+    rerolled.goldCost = 4;
+
+    CHECK(chessRewardOptionCostColumn(original).empty());
+    CHECK(chessRewardOptionCostColumn(rerolled) == "+$4");
 }
 
 TEST_CASE("victory combo bonus uses the configured source combo name", "[chess][menu-formatting][combo][config]")

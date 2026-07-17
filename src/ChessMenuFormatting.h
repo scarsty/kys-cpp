@@ -59,6 +59,11 @@ inline std::string chessEquipmentAssignmentColumn(bool assigned)
     return assigned ? " [已裝]" : std::string{};
 }
 
+inline std::string chessRewardOptionCostColumn(const ChessRewardOption& option)
+{
+    return option.goldCost > 0 ? std::format("+${}", option.goldCost) : std::string{};
+}
+
 inline ChessMenuPresentation chessRewardMenuPresentation(
     const ChessPendingReward& pending,
     int displayedRows)
@@ -458,7 +463,10 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(const Ches
                 {"· 裝備管理可將武器、防具授予棋子，補強前排或成全主力"},
                 {formatEquipmentRewardLine()},
                 {formatLegendaryShopLine()},
-                {std::format("· 強敵戰後可選{}本內功，重抽{}金", neigong.choiceCount, neigong.rerollCost)},
+                {std::format(
+                    "· 強敵戰後可選{}本內功；刷新後選擇新候選加收{}金",
+                    neigong.choiceCount,
+                    neigong.rerollCost)},
             },
         },
         {

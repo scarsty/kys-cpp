@@ -302,6 +302,7 @@ struct RewardOptionDto
     std::string kind;
     std::string label;
     std::string description;
+    int gold_cost{};
     int role_id = -1;
     int chess_instance_id = -1;
     std::optional<EquipmentInfoDto> equipment;

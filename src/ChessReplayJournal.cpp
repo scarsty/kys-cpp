@@ -232,6 +232,7 @@ std::vector<std::uint8_t> canonicalChessState(
             writer.writeU16(static_cast<std::uint16_t>(option.kind));
             writer.writeI32(option.value);
             writer.writeI32(option.value2);
+            writer.writeI32(option.goldCost);
         }
     }
     writer.writeU16(static_cast<std::uint16_t>(state.lastBattleOutcome));

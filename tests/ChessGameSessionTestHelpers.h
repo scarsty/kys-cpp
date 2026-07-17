@@ -9,6 +9,28 @@
 namespace KysChess::Test
 {
 
+inline void enableFastTestBattle(
+    ChessGameContentData& data,
+    ChessRoleDefinition& role)
+{
+    constexpr int magicId = 1;
+    role.Speed = 100;
+    role.Fist = 100;
+    for (int index = 0; index < ROLE_MAGIC_COUNT; ++index)
+    {
+        role.MagicID[index] = magicId;
+        role.MagicPower[index] = 500;
+    }
+
+    ChessMagicDefinition magic;
+    magic.ID = magicId;
+    magic.Name = "快速測試武學";
+    magic.MagicType = 1;
+    magic.AttackAreaType = 0;
+    magic.SelectDistance = 4;
+    data.magics.try_emplace(magic.ID, std::move(magic));
+}
+
 inline std::shared_ptr<const ChessGameContent> managementContent(int initialMoney = 100)
 {
     ChessGameContentData data;
@@ -33,6 +55,7 @@ inline std::shared_ptr<const ChessGameContent> managementContent(int initialMone
     role.Cost = 1;
     role.MaxHP = 500;
     role.Attack = 50;
+    enableFastTestBattle(data, role);
     data.roles.emplace(role.ID, role);
     data.poolRoleIds.push_back(role.ID);
     return std::make_shared<const ChessGameContent>(std::move(data));
@@ -69,6 +92,7 @@ inline std::shared_ptr<const ChessGameContent> configuredMapChoiceContent()
     ally.Cost = 1;
     ally.MaxHP = 500;
     ally.Attack = 50;
+    enableFastTestBattle(data, ally);
     data.roles.emplace(ally.ID, ally);
     ChessRoleDefinition enemy = ally;
     enemy.ID = 20;

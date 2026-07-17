@@ -203,7 +203,7 @@ EquipmentInfoDto equipmentInfoDto(
     dto.item_id = metadata.itemId;
     dto.name = metadata.name;
     dto.tier = metadata.tier;
-    dto.type = metadata.equipType == 0 ? "武器" : "防具";
+    dto.type = chessEquipmentTypeName(metadata.equipType);
     if (!full)
     {
         return dto;
@@ -462,6 +462,7 @@ RewardOptionDto rewardOptionDto(
     RewardOptionDto dto;
     dto.id = option.id;
     dto.kind = rewardKindId(option.kind);
+    dto.gold_cost = option.goldCost;
     if (option.kind == ChessRewardKind::Equipment)
     {
         dto.equipment = equipmentInfoDto(content, option.value);
@@ -535,6 +536,10 @@ RewardOptionDto rewardOptionDto(
         assert(pending.kind == ChessRewardKind::ChallengeReward);
         dto.label = option.id;
         dto.description = option.id;
+    }
+    if (option.goldCost > 0)
+    {
+        dto.description += std::format("；選擇需支付 {} 金幣", option.goldCost);
     }
     return dto;
 }
@@ -697,8 +702,9 @@ ObservationDto observationDto(
         pending.id = observation.pendingReward->id;
         pending.kind = rewardKindId(observation.pendingReward->kind);
         const auto optionAvailable = [&](const ChessRewardOption& option) {
-            return observation.pendingReward->kind != ChessRewardKind::ForcedBan
-                || !std::ranges::contains(observation.bans, option.value);
+            return option.goldCost <= observation.money
+                && (observation.pendingReward->kind != ChessRewardKind::ForcedBan
+                    || !std::ranges::contains(observation.bans, option.value));
         };
         pending.option_count = static_cast<int>(std::ranges::count_if(
             observation.pendingReward->options,
@@ -721,11 +727,15 @@ ObservationDto observationDto(
             std::map<std::string, int> groups;
             for (const auto& option : observation.pendingReward->options)
             {
+                if (!optionAvailable(option))
+                {
+                    continue;
+                }
                 const auto definition = chessEquipmentMetadata(content, option.value);
                 ++groups[std::format(
                     "{}階{}",
                     definition.tier,
-                    definition.equipType == 0 ? "武器" : "防具")];
+                    chessEquipmentTypeName(definition.equipType))];
             }
             for (const auto& [label, count] : groups)
             {
@@ -733,7 +743,7 @@ ObservationDto observationDto(
             }
         }
         const bool largeEquipmentChoice = observation.pendingReward->kind == ChessRewardKind::Equipment
-            && observation.pendingReward->options.size() > 12;
+            && pending.option_count > 12;
         if (full
             || (observation.pendingReward->kind != ChessRewardKind::ForcedBan
                 && !largeEquipmentChoice))
@@ -852,7 +862,7 @@ std::string actionDescription(ChessActionType type)
     case ChessActionType::ChooseMap: return "選擇戰場";
     case ChessActionType::SwapPositions: return "交換兩個我方戰鬥單位的位置";
     case ChessActionType::StartBattle: return "依目前預覽與站位開始並結算戰鬥";
-    case ChessActionType::RerollReward: return "付費刷新目前獎勵選項";
+    case ChessActionType::RerollReward: return "保留目前獎勵，刷新並追加需付費的新候選選項";
     case ChessActionType::ChooseReward: return "選擇目前獎勵選項";
     case ChessActionType::StartChallenge: return "依遠征名稱開始挑戰，不使用額外英文 ID";
     case ChessActionType::FinishRun: return "結束已通關的本局";
@@ -1053,12 +1063,13 @@ LegalActionDto legalActionDto(
             return preview;
         case ChessActionType::RerollReward:
             assert(!state.pendingRewards.empty());
-            preview.gold_cost = state.pendingRewards.front().rerollCost;
-            preview.projected_gold_after = state.money - preview.gold_cost;
-            preview.affected_option_count = static_cast<int>(state.pendingRewards.front().options.size());
+            preview.gold_cost = 0;
+            preview.projected_gold_after = state.money;
+            preview.affected_option_count = state.pendingRewards.front().choiceCount;
             preview.result = std::format(
-                "重新抽取目前獎勵的 {} 個選項；每份獎勵最多重抽一次",
-                state.pendingRewards.front().options.size());
+                "保留目前選項，追加最多 {} 個不重複的新選項；只有選擇新選項時才支付 {} 金幣",
+                state.pendingRewards.front().choiceCount,
+                state.pendingRewards.front().rerollCost);
             return preview;
         case ChessActionType::BuyLegendaryEquipment:
             preview.gold_cost = content.balance().legendaryShop.price;
@@ -1200,6 +1211,11 @@ LegalActionDto legalActionDto(
                 starUpgradeRoleId);
             candidate.label = reward.label;
             candidate.description = reward.description;
+            if (option->goldCost > 0)
+            {
+                candidate.gold_cost = option->goldCost;
+                candidate.projected_gold_after = state.money - option->goldCost;
+            }
             if (reward.equipment)
             {
                 candidate.group = std::format(

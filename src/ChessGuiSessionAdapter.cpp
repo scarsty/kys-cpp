@@ -582,7 +582,10 @@ void drawEquipmentDetail(
     PanelTextCursor header{Font::getInstance(), frame.x + 150, frame.y + 10};
     header.line(item ? item->name : "???", fontSize + 4, {255, 255, 100, 255}, 6);
     header.line(
-        std::format("層級: {}", rewardTierLabel(equipment.tier)),
+        std::format(
+            "層級: {}　類型: {}",
+            rewardTierLabel(equipment.tier),
+            chessEquipmentTypeName(equipment.equipType)),
         fontSize,
         chessRewardTierColor(equipment.tier));
 
@@ -3069,9 +3072,16 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
         }
         assert(!session_.state().pendingRewards.empty());
         const auto pending = session_.state().pendingRewards.front();
+        std::vector<ChessRewardOption> availableOptions;
+        std::ranges::copy_if(
+            pending.options,
+            std::back_inserter(availableOptions),
+            [&](const ChessRewardOption& option) {
+                return option.goldCost <= session_.state().money;
+            });
         SessionMenuData data;
         std::vector<ChessMenuColumnRow> labelRows;
-        for (const auto& option : pending.options)
+        for (const auto& option : availableOptions)
         {
             if (option.kind == ChessRewardKind::Equipment)
             {
@@ -3082,7 +3092,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                     chessMenuPrefixWithSeparator(std::format("[{}]", rewardTierLabel(definition->tier))),
                     item ? item->name : "未知裝備",
                     {},
-                    {},
+                    chessRewardOptionCostColumn(option),
                 });
                 data.colors.push_back(chessRewardTierColor(definition->tier));
             }
@@ -3094,7 +3104,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                     chessMenuPrefixWithSeparator(std::format("[{}]", rewardTierLabel(found->tier))),
                     found->name,
                     {},
-                    {},
+                    chessRewardOptionCostColumn(option),
                 });
                 data.colors.push_back(chessRewardTierColor(found->tier));
             }
@@ -3102,7 +3112,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             {
                 const auto* role = session_.content().role(option.value);
                 assert(role);
-                labelRows.push_back({{}, role->Name, chessStars(1), {}});
+                labelRows.push_back({{}, role->Name, chessStars(1), chessRewardOptionCostColumn(option)});
                 data.colors.push_back(chessPieceTierColor(role->Cost));
             }
             else if (option.kind == ChessRewardKind::StarUpgrade)
@@ -3110,7 +3120,12 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 const auto& piece = session_.state().roster.at(option.value);
                 const auto* role = session_.content().role(piece.roleId);
                 assert(role);
-                labelRows.push_back({{}, role->Name, std::format("{}→{}", chessStars(piece.star), chessStars(option.value2)), {}});
+                labelRows.push_back({
+                    {},
+                    role->Name,
+                    std::format("{}→{}", chessStars(piece.star), chessStars(option.value2)),
+                    chessRewardOptionCostColumn(option),
+                });
                 data.colors.push_back(chessPieceTierColor(role->Cost));
             }
             else
@@ -3124,14 +3139,21 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                     return chessChallengeRewardDescription(session_.content(), candidate) == option.id;
                 });
                 assert(reward != challenge->rewards.end());
-                labelRows.push_back({{}, chessChallengeRewardDescription(session_.content(), *reward), {}, {}});
+                labelRows.push_back({
+                    {},
+                    chessChallengeRewardDescription(session_.content(), *reward),
+                    {},
+                    chessRewardOptionCostColumn(option),
+                });
                 data.colors.push_back({255, 255, 100, 255});
             }
         }
-        const bool showReroll = !pending.rerolled && pending.rerollCost > 0;
+        const bool showReroll = !pending.rerolled
+            && pending.rerollCost > 0
+            && session_.state().money >= pending.rerollCost;
         if (showReroll)
         {
-            labelRows.push_back({{}, "刷新", {}, std::format("${}", pending.rerollCost)});
+            labelRows.push_back({{}, "刷新更多選項", {}, {}});
             data.colors.push_back({128, 128, 128, 255});
         }
         data.labels = buildAlignedChessRewardMenuLabels(
@@ -3147,8 +3169,8 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
         if (pending.kind == ChessRewardKind::Equipment)
         {
             std::vector<const EquipmentDef*> equipments;
-            equipments.reserve(pending.options.size());
-            for (const auto& option : pending.options)
+            equipments.reserve(availableOptions.size());
+            for (const auto& option : availableOptions)
             {
                 assert(option.kind == ChessRewardKind::Equipment);
                 const auto* equipment = equipmentDefinition(session_.content(), option.value);
@@ -3171,8 +3193,8 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 data.labels,
                 menuPresentation.fontSize);
             std::vector<const NeigongDef*> neigongs;
-            neigongs.reserve(pending.options.size());
-            for (const auto& option : pending.options)
+            neigongs.reserve(availableOptions.size());
+            for (const auto& option : availableOptions)
             {
                 const auto found = std::ranges::find(
                     session_.content().neigong(),
@@ -3192,10 +3214,10 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             std::vector<int> roleIds;
             std::vector<int> starRows;
             std::vector<int> instanceIds;
-            roleIds.reserve(pending.options.size());
-            starRows.reserve(pending.options.size());
-            instanceIds.reserve(pending.options.size());
-            for (const auto& option : pending.options)
+            roleIds.reserve(availableOptions.size());
+            starRows.reserve(availableOptions.size());
+            instanceIds.reserve(availableOptions.size());
+            for (const auto& option : availableOptions)
             {
                 const auto preview = chessRewardRolePreview(session_.state(), option);
                 assert(preview);
@@ -3239,7 +3261,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             }
             continue;
         }
-        if (showReroll && choice == static_cast<int>(pending.options.size()))
+        if (showReroll && choice == static_cast<int>(availableOptions.size()))
         {
             ChessAction reroll;
             reroll.type = ChessActionType::RerollReward;
@@ -3251,7 +3273,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             continue;
         }
 
-        const auto selected = pending.options[choice];
+        const auto selected = availableOptions[choice];
         ChessAction action;
         action.type = ChessActionType::ChooseReward;
         action.rewardId = selected.id;

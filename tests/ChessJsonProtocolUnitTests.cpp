@@ -938,18 +938,22 @@ TEST_CASE("JSON protocol previews reward reroll and legendary equipment costs",
         });
     }
     REQUIRE(pending.options.size() == 2);
+    pending.options.back().goldCost = 7;
     rewardCheckpoint.state.pendingRewards.push_back(std::move(pending));
     REQUIRE(rewardCheckpoint.restore(*session) == ChessCheckpointError::None);
     const auto rewardLegal = parseResponse(protocol.handleLine(
         R"({"id":3,"method":"legal_actions","params":{}})"));
     REQUIRE(rewardLegal.ok);
     REQUIRE(rewardLegal.result);
+    CHECK(rewardLegal.result->str.contains("\"gold_cost\":7"));
+    CHECK(rewardLegal.result->str.contains("\"projected_gold_after\":93"));
     const auto rerollStart = rewardLegal.result->str.find("\"type\":\"reroll_reward\"");
     REQUIRE(rerollStart != std::string::npos);
     const auto reroll = rewardLegal.result->str.substr(rerollStart);
-    CHECK(reroll.contains("\"gold_cost\":7"));
-    CHECK(reroll.contains("\"projected_gold_after\":93"));
+    CHECK(reroll.contains("\"gold_cost\":0"));
+    CHECK(reroll.contains("\"projected_gold_after\":100"));
     CHECK(reroll.contains("\"affected_option_count\":2"));
+    CHECK(reroll.contains("只有選擇新選項時才支付 7 金幣"));
 }
 
 TEST_CASE("JSON protocol act matches direct session execution", "[chess][protocol][determinism]")

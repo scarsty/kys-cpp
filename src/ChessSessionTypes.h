@@ -217,6 +217,7 @@ struct ChessRewardOption
     ChessRewardKind kind{};
     int value{};
     int value2{};
+    int goldCost{};
 
     auto operator<=>(const ChessRewardOption&) const = default;
 };

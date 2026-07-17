@@ -18,6 +18,11 @@ struct EquipmentDef
 
 };
 
+inline const char* chessEquipmentTypeName(int equipType)
+{
+    return equipType == 0 ? "武器" : "防具";
+}
+
 inline std::vector<const EquipmentDef*> filterEquipmentByMaxTier(const std::vector<EquipmentDef>& equipments, int maxTier)
 {
     std::vector<const EquipmentDef*> result;

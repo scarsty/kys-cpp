@@ -281,7 +281,13 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
         auto choose = selectionAction(ChessActionType::ChooseReward, 1, 1);
         for (const auto& option : pending.options)
         {
-            choose.candidateStableIds.push_back(option.id);
+            ChessAction action;
+            action.type = ChessActionType::ChooseReward;
+            action.rewardId = option.id;
+            if (validateAction(action) == ChessRuleErrorCode::None)
+            {
+                choose.candidateStableIds.push_back(option.id);
+            }
         }
         std::vector<ChessLegalActionDescriptor> result{std::move(choose)};
         ChessAction reroll;

@@ -175,7 +175,12 @@ std::string ChessObservationText::format(
         text += std::format("待選獎勵 {}：\n", observation.pendingReward->id);
         for (const auto& option : observation.pendingReward->options)
         {
-            text += std::format("  {}\n", option.id);
+            if (option.goldCost <= observation.money)
+            {
+                text += option.goldCost > 0
+                    ? std::format("  {} +${}\n", option.id, option.goldCost)
+                    : std::format("  {}\n", option.id);
+            }
         }
     }
     text += "可用操作：\n";

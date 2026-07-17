@@ -167,15 +167,72 @@ TEST_CASE("reward choice and reroll are explicit deterministic boundaries", "[ch
     reroll.type = ChessActionType::RerollReward;
     REQUIRE(ChessRewardRules::validate(state, content, reroll) == ChessRuleErrorCode::None);
     ChessRewardRules::apply(state, content, random, reroll, events);
-    CHECK(state.money == 9);
+    CHECK(state.money == 10);
     CHECK(state.pendingRewards.front().rerolled);
+    for (const auto& option : firstOptions)
+    {
+        CHECK(std::ranges::contains(state.pendingRewards.front().options, option.id, &ChessRewardOption::id));
+    }
+    for (const auto& option : state.pendingRewards.front().options)
+    {
+        const bool original = std::ranges::contains(firstOptions, option.id, &ChessRewardOption::id);
+        CHECK(option.goldCost == (original ? 0 : 1));
+    }
 
     ChessAction choose;
     choose.type = ChessActionType::ChooseReward;
-    choose.rewardId = state.pendingRewards.front().options.front().id;
+    choose.rewardId = firstOptions.front().id;
     ChessRewardRules::apply(state, content, random, choose, events);
+    CHECK(state.money == 10);
     CHECK(state.phase == ChessSessionPhase::Management);
     REQUIRE(state.equipmentInventory.size() == 1);
+}
+
+TEST_CASE("rerolled reward choices are unique and charge only when selected", "[chess][reward][economy]")
+{
+    ChessGameContentData data;
+    data.equipment = {
+        {101, 1, 0},
+        {102, 1, 1},
+    };
+    ChessGameContent content(std::move(data));
+    ChessSessionState state;
+    state.money = 4;
+    state.phase = ChessSessionPhase::RewardChoice;
+    ChessPendingReward pending;
+    pending.id = "測試裝備獎勵";
+    pending.kind = ChessRewardKind::Equipment;
+    pending.options = {{"equipment:101", ChessRewardKind::Equipment, 101}};
+    pending.rerollCost = 4;
+    pending.parameter = 1;
+    pending.choiceCount = 2;
+    state.pendingRewards.push_back(std::move(pending));
+    ChessRunRandom random(9);
+    std::vector<ChessSemanticEvent> events;
+
+    ChessAction reroll;
+    reroll.type = ChessActionType::RerollReward;
+    REQUIRE(ChessRewardRules::validate(state, content, reroll) == ChessRuleErrorCode::None);
+    ChessRewardRules::apply(state, content, random, reroll, events);
+
+    CHECK(state.money == 4);
+    REQUIRE(state.pendingRewards.front().options.size() == 2);
+    const auto paid = std::ranges::find(
+        state.pendingRewards.front().options,
+        102,
+        &ChessRewardOption::value);
+    REQUIRE(paid != state.pendingRewards.front().options.end());
+    CHECK(paid->goldCost == 4);
+
+    ChessAction choose;
+    choose.type = ChessActionType::ChooseReward;
+    choose.rewardId = paid->id;
+    state.money = 3;
+    CHECK(ChessRewardRules::validate(state, content, choose) == ChessRuleErrorCode::InsufficientGold);
+    state.money = 4;
+    ChessRewardRules::apply(state, content, random, choose, events);
+    CHECK(state.money == 0);
+    CHECK(state.phase == ChessSessionPhase::Management);
 }
 
 TEST_CASE("boss internal-skill rewards use the exact configured boss tier set", "[chess][reward][config]")
