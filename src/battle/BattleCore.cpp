@@ -3887,7 +3887,7 @@ void updateFrameBattleResultAfterDamage(BattleRuntimeState& state, BattleFrameCo
     }
 
     state.result.ended = true;
-    state.result.winningTeam = aliveTeams.empty() ? 1 : *aliveTeams.begin();
+    state.result.winningTeam = aliveTeams.empty() ? 0 : *aliveTeams.begin();
     state.result.endedFrame = state.movement.frame;
     state.result.eventEmitted = true;
     state.result.outcome = state.result.winningTeam == 0

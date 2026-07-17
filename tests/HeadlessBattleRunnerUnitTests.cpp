@@ -52,7 +52,7 @@ TEST_CASE("battle summary marks surviving summoned clones separately", "[battle]
     CHECK_FALSE(initialEnemy->summoned);
 }
 
-TEST_CASE("simultaneous wipe is player defeat", "[battle][headless][determinism]")
+TEST_CASE("simultaneous wipe is player victory", "[battle][headless][determinism]")
 {
     BattleRuntimeState runtime;
     seedScenarioRuntimeUnits(runtime, {
@@ -66,8 +66,8 @@ TEST_CASE("simultaneous wipe is player defeat", "[battle][headless][determinism]
     const auto frame = session.runFrame();
 
     CHECK(session.runtime().result.ended);
-    CHECK(session.runtime().result.outcome == BattleOutcome::PlayerDefeat);
-    CHECK(session.runtime().result.winningTeam == 1);
+    CHECK(session.runtime().result.outcome == BattleOutcome::PlayerVictory);
+    CHECK(session.runtime().result.winningTeam == 0);
     CHECK(std::ranges::count_if(frame.gameplayEvents, [](const auto& event) {
         return event.type == BattleGameplayEventType::BattleEnded;
     }) == 1);
