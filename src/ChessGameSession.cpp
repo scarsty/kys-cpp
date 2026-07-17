@@ -220,7 +220,7 @@ ChessGameplayObservation ChessGameSession::observe() const
     observation.lastBattleOutcome = state_.lastBattleOutcome;
     observation.lastBattleEndFrame = state_.lastBattleEndFrame;
     observation.lastBattleDigest = state_.lastBattleDigest;
-    observation.stateHash = canonicalChessStateHash(state_, random_);
+    observation.stateHash = chessStateHash(state_, random_);
     return observation;
 }
 
@@ -665,43 +665,38 @@ ChessActionResult ChessGameSession::finalizeAction(
 {
     ChessActionResult result;
     result.accepted = true;
-    result.preStateHash = preStateHash;
     result.events = std::move(events);
-    result.postStateHash = canonicalChessStateHash(state_, random_);
-    result.eventHash = canonicalChessEventHash(result.events);
-    result.rngDigest = canonicalChessRngDigest(random_);
+    const auto postStateHash = chessStateHash(state_, random_);
+    const auto eventHash = chessEventHash(result.events);
+    const auto rngDigest = chessRngDigest(random_);
     const auto& record = journal_.append(
         phase,
         action,
-        result.preStateHash,
-        result.postStateHash,
-        result.eventHash,
-        result.rngDigest);
-    result.replaySequence = record.sequence;
-    result.chainHash = record.chainHash;
+        preStateHash,
+        postStateHash,
+        eventHash,
+        rngDigest);
+    result.replaySequence = journal_.decisions().size();
+    result.evidenceHash = record.evidenceHash;
     return result;
 }
 
 ChessActionResult ChessGameSession::beginAction(const ChessAction& action)
 {
     ChessActionResult result;
-    result.preStateHash = canonicalChessStateHash(state_, random_);
+    const auto preStateHash = chessStateHash(state_, random_);
     if (pendingTransition_)
     {
         result.error = ChessRuleErrorCode::TransitionPending;
         result.description = errorDescription(result.error);
-        result.postStateHash = result.preStateHash;
-        result.rngDigest = canonicalChessRngDigest(random_);
-        result.chainHash = journal_.chainHash();
+        result.evidenceHash = journal_.evidenceHash();
         return result;
     }
     result.error = validateAction(action);
     if (result.error != ChessRuleErrorCode::None)
     {
         result.description = errorDescription(result.error);
-        result.postStateHash = result.preStateHash;
-        result.rngDigest = canonicalChessRngDigest(random_);
-        result.chainHash = journal_.chainHash();
+        result.evidenceHash = journal_.evidenceHash();
         return result;
     }
 
@@ -710,7 +705,7 @@ ChessActionResult ChessGameSession::beginAction(const ChessAction& action)
     if (action.type != ChessActionType::StartBattle)
     {
         applyAction(action, events);
-        return finalizeAction(phase, action, result.preStateHash, std::move(events));
+        return finalizeAction(phase, action, preStateHash, std::move(events));
     }
 
     assert(state_.preparedBattle);
@@ -726,13 +721,12 @@ ChessActionResult ChessGameSession::beginAction(const ChessAction& action)
     pendingTransition_ = std::make_unique<PendingTransition>(
         phase,
         action,
-        result.preStateHash,
+        preStateHash,
         std::move(events),
         std::move(creation));
     result.accepted = true;
     result.transitionPending = true;
-    result.rngDigest = canonicalChessRngDigest(random_);
-    result.chainHash = journal_.chainHash();
+    result.evidenceHash = journal_.evidenceHash();
     return result;
 }
 
@@ -825,7 +819,7 @@ std::optional<ChessReplay> ChessGameSession::exportReplay() const
     {
         return std::nullopt;
     }
-    return journal_.exportReplay(state_, canonicalChessStateHash(state_, random_));
+    return journal_.exportReplay(state_, chessStateHash(state_, random_));
 }
 
 }

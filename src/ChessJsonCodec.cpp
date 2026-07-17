@@ -1750,11 +1750,7 @@ ActionResultDto actionResultDto(
     dto.replay_sequence = actionResult.replaySequence;
     if (detail == ActionResponseDetail::Full)
     {
-        dto.pre_state_hash = chessSha256Hex(actionResult.preStateHash);
-        dto.post_state_hash = chessSha256Hex(actionResult.postStateHash);
-        dto.event_hash = chessSha256Hex(actionResult.eventHash);
-        dto.rng_digest = chessSha256Hex(actionResult.rngDigest);
-        dto.chain_hash = chessSha256Hex(actionResult.chainHash);
+        dto.evidence_hash = chessEvidenceHashHex(actionResult.evidenceHash);
     }
     for (const auto& event : actionResult.events)
     {

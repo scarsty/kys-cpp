@@ -466,5 +466,5 @@ TEST_CASE("battle transition advances incrementally and journals only at the bou
     CHECK_FALSE(completed->transitionPending);
     CHECK_FALSE(session.transitionPending());
     CHECK(session.journal().decisions().size() == journalSizeBeforeBattle + 1);
-    CHECK(completed->replaySequence == session.journal().decisions().back().sequence);
+    CHECK(completed->replaySequence == session.journal().decisions().size());
 }

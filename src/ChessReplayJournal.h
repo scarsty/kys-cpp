@@ -6,12 +6,9 @@
 namespace KysChess
 {
 
-std::vector<std::uint8_t> canonicalChessAction(const ChessAction& action);
-std::vector<std::uint8_t> canonicalChessState(const ChessSessionState& state, const ChessRunRandom& random);
-ChessSha256 canonicalChessStateHash(const ChessSessionState& state, const ChessRunRandom& random);
-ChessSha256 canonicalChessEventHash(const std::vector<ChessSemanticEvent>& events);
-ChessSha256 canonicalChessRngDigest(const ChessRunRandom& random);
-std::vector<std::uint8_t> canonicalChessReplayHeader(const ChessReplayHeader& header);
+ChessSha256 chessStateHash(const ChessSessionState& state, const ChessRunRandom& random);
+ChessSha256 chessEventHash(const std::vector<ChessSemanticEvent>& events);
+ChessSha256 chessRngDigest(const ChessRunRandom& random);
 
 class ChessReplayJournal
 {
@@ -21,7 +18,7 @@ public:
 
     const ChessReplayHeader& header() const { return header_; }
     const std::vector<ChessReplayDecisionRecord>& decisions() const { return decisions_; }
-    const ChessSha256& chainHash() const { return chainHash_; }
+    const ChessEvidenceHash& evidenceHash() const { return evidenceHash_; }
 
     const ChessReplayDecisionRecord& append(
         ChessSessionPhase phase,
@@ -36,7 +33,7 @@ public:
 private:
     ChessReplayHeader header_;
     std::vector<ChessReplayDecisionRecord> decisions_;
-    ChessSha256 chainHash_{};
+    ChessEvidenceHash evidenceHash_{};
 };
 
 }

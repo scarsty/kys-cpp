@@ -13,23 +13,14 @@ bool sameDecision(
     const ChessReplayDecisionRecord& first,
     const ChessReplayDecisionRecord& second)
 {
-    return first.sequence == second.sequence
-        && first.phase == second.phase
-        && canonicalChessAction(first.action) == canonicalChessAction(second.action)
-        && first.preStateHash == second.preStateHash
-        && first.postStateHash == second.postStateHash
-        && first.eventHash == second.eventHash
-        && first.rngDigest == second.rngDigest
-        && first.previousChainHash == second.previousChainHash
-        && first.chainHash == second.chainHash;
+    return first == second;
 }
 
 std::size_t commonJournalPrefix(
     const ChessReplayJournal& current,
     const ChessReplay& restored)
 {
-    if (canonicalChessReplayHeader(current.header())
-        != canonicalChessReplayHeader(restored.header))
+    if (current.header() != restored.header)
     {
         return 0;
     }
@@ -133,12 +124,34 @@ ChessCheckpointError ChessSaveStore::importSave(
     {
         return error;
     }
-    if (checkpoint->gameVersion != gameVersion)
+    return importCheckpoint(std::move(slotId), std::move(*checkpoint), gameVersion);
+}
+
+ChessCheckpointError ChessSaveStore::importSave(
+    std::string slotId,
+    const ChessSessionCheckpointData& data,
+    std::string_view gameVersion)
+{
+    ChessCheckpointError error;
+    auto checkpoint = ChessSessionCheckpoint::fromData(data, error);
+    if (!checkpoint)
+    {
+        return error;
+    }
+    return importCheckpoint(std::move(slotId), std::move(*checkpoint), gameVersion);
+}
+
+ChessCheckpointError ChessSaveStore::importCheckpoint(
+    std::string slotId,
+    ChessSessionCheckpoint checkpoint,
+    std::string_view gameVersion)
+{
+    if (checkpoint.gameVersion != gameVersion)
     {
         return ChessCheckpointError::IncompatibleGameVersion;
     }
-    nextRevision_ = std::max(nextRevision_, checkpoint->saveRevision + 1);
-    slots_.insert_or_assign(std::move(slotId), std::move(*checkpoint));
+    nextRevision_ = std::max(nextRevision_, checkpoint.saveRevision + 1);
+    slots_.insert_or_assign(std::move(slotId), std::move(checkpoint));
     return ChessCheckpointError::None;
 }
 

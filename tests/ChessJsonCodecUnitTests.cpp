@@ -38,7 +38,7 @@ TEST_CASE("JSON codec keeps summary compact and full action projections distinct
     CHECK(summary.contains("\"events\":[\"shop_lock_changed\"]"));
     CHECK(summary.contains("\"state_hash\""));
     CHECK_FALSE(summary.contains("\"next_observation\""));
-    CHECK_FALSE(summary.contains("\"pre_state_hash\""));
+    CHECK_FALSE(summary.contains("\"evidence_hash\""));
 
     ChessGameSession compactSession(content, 72);
     const auto compactResult = compactSession.submitAndDrain(shopLockAction());
@@ -50,7 +50,7 @@ TEST_CASE("JSON codec keeps summary compact and full action projections distinct
         ActionResponseDetail::Compact));
     CHECK(compact.contains("\"next_observation\""));
     CHECK(compact.contains("\"detail\":\"compact\""));
-    CHECK_FALSE(compact.contains("\"pre_state_hash\""));
+    CHECK_FALSE(compact.contains("\"evidence_hash\""));
     CHECK_FALSE(compact.contains("\"relevant_roles\""));
 
     ChessGameSession fullSession(content, 73);
@@ -62,11 +62,7 @@ TEST_CASE("JSON codec keeps summary compact and full action projections distinct
         ChessActionType::SetShopLocked,
         ActionResponseDetail::Full));
     CHECK(full.contains("\"detail\":\"full\""));
-    CHECK(full.contains("\"pre_state_hash\""));
-    CHECK(full.contains("\"post_state_hash\""));
-    CHECK(full.contains("\"event_hash\""));
-    CHECK(full.contains("\"rng_digest\""));
-    CHECK(full.contains("\"chain_hash\""));
+    CHECK(full.contains("\"evidence_hash\""));
     CHECK(full.contains("\"relevant_roles\""));
 }
 

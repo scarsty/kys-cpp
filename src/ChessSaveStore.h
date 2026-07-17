@@ -49,8 +49,16 @@ public:
         std::string slotId,
         std::string_view payload,
         std::string_view gameVersion);
+    ChessCheckpointError importSave(
+        std::string slotId,
+        const ChessSessionCheckpointData& data,
+        std::string_view gameVersion);
 
 private:
+    ChessCheckpointError importCheckpoint(
+        std::string slotId,
+        ChessSessionCheckpoint checkpoint,
+        std::string_view gameVersion);
     std::map<std::string, ChessSessionCheckpoint> slots_;
     std::uint64_t nextRevision_ = 1;
 };

@@ -124,11 +124,11 @@ class CliSession:
         digest = hashlib.sha256(slot.encode("utf-8")).hexdigest()
         return self._save_dir / f"{digest}.json"
 
-    def _persist_save(self, slot: str, payload: str) -> None:
+    def _persist_save(self, slot: str, checkpoint: dict[str, Any]) -> None:
         target = self._slot_path(slot)
         temporary = target.with_suffix(".tmp")
         temporary.write_text(
-            json.dumps({"slot": slot, "payload": payload}, ensure_ascii=False),
+            json.dumps({"slot": slot, "checkpoint": checkpoint}, ensure_ascii=False),
             encoding="utf-8",
         )
         temporary.replace(target)
@@ -138,17 +138,11 @@ class CliSession:
         for path in sorted(self._save_dir.glob("*.json")):
             try:
                 stored = json.loads(path.read_text(encoding="utf-8"))
-                checkpoint = json.loads(stored["payload"])
+                checkpoint = stored["checkpoint"]
                 state = checkpoint["state"]
-                replay_records = [
-                    json.loads(line)
-                    for line in checkpoint.get("replay_jsonl", "").splitlines()
-                    if line.strip()
-                ]
-                header = next(
-                    (record for record in replay_records if record.get("record") == "header"),
-                    {},
-                )
+                replay = checkpoint.get("replay", {})
+                header = replay.get("header", {})
+                decisions = replay.get("decisions", [])
                 summaries.append({
                     "slot": str(stored["slot"]),
                     "occupied": True,
@@ -158,9 +152,7 @@ class CliSession:
                     "level": int(state.get("level", 0)),
                     "money": int(state.get("money", 0)),
                     "roster_count": len(state.get("roster", {})),
-                    "replay_sequence": sum(
-                        record.get("record") == "decision" for record in replay_records
-                    ),
+                    "replay_sequence": len(decisions),
                     "state_hash": str(checkpoint.get("snapshot_hash", "")),
                     "compatible": None,
                     "compatibility_scope": "建立棋局後依遊戲版本與難度判定",
@@ -177,11 +169,14 @@ class CliSession:
             try:
                 stored = json.loads(path.read_text(encoding="utf-8"))
                 slot = stored["slot"]
-                payload = stored["payload"]
-            except (OSError, KeyError, json.JSONDecodeError) as error:
+                checkpoint = stored["checkpoint"]
+            except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
                 self._diagnostics.append(f"[MCP 存檔] 無法讀取 {path.name}：{error}")
                 continue
-            response = self._internal_request("import_save", {"slot": slot, "payload": payload})
+            response = self._internal_request(
+                "import_save",
+                {"slot": slot, "checkpoint": checkpoint},
+            )
             if not response.get("ok"):
                 self._diagnostics.append(
                     f"[MCP 存檔] 無法還原欄位「{slot}」：{response.get('error_message', '未知錯誤')}"
@@ -206,7 +201,7 @@ class CliSession:
             )
             return
         try:
-            self._persist_save(AUTO_SAVE_SLOT, exported["result"]["payload"])
+            self._persist_save(AUTO_SAVE_SLOT, exported["result"]["checkpoint"])
         except (OSError, KeyError, TypeError) as error:
             self._diagnostics.append(f"[MCP 自動存檔] 無法寫入持久存檔：{error}")
 
@@ -276,10 +271,10 @@ class CliSession:
                     slot = str((params or {})["slot"])
                     exported = self._internal_request("export_save", {"slot": slot})
                     if exported.get("ok"):
-                        self._persist_save(slot, exported["result"]["payload"])
+                        self._persist_save(slot, exported["result"]["checkpoint"])
                 elif response.get("ok") and method == "import_save":
                     slot = str((params or {})["slot"])
-                    self._persist_save(slot, str((params or {})["payload"]))
+                    self._persist_save(slot, dict((params or {})["checkpoint"]))
             except CliTransportError as error:
                 return self._recover_transport(request_id, error)
             return response
@@ -454,9 +449,9 @@ def create_server(session: CliSession | None = None):
         return cli.request("export_save", {"slot": slot})
 
     @server.tool()
-    def import_save(slot: str, payload: str) -> dict[str, Any]:
+    def import_save(slot: str, checkpoint: dict[str, Any]) -> dict[str, Any]:
         """驗證並存入可攜存檔；不會靜默載入或替換目前時間線。"""
-        return cli.request("import_save", {"slot": slot, "payload": payload})
+        return cli.request("import_save", {"slot": slot, "checkpoint": checkpoint})
 
     @server.tool()
     def export_replay() -> dict[str, Any]:

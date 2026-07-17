@@ -71,7 +71,7 @@ flowchart LR
     Session --> State["Run state and legal actions"]
     Session --> Planner["Enemy, reward, and map planning"]
     Session --> Battle["BattleRuntimeSession"]
-    Session --> Replay["Action recorder and state hashes"]
+    Session --> Replay["Action recorder and cumulative evidence"]
 
     Battle --> Events["Gameplay and log events"]
     Events --> Text["ASCII board and battle log"]
@@ -145,7 +145,7 @@ The finalized action result contains:
 - acceptance or a stable rule error code and human description;
 - semantic events derived from the action and all automatic work through the next boundary;
 - the next observation or terminal result;
-- replay sequence, state hashes, RNG digest, and chain hash.
+- replay sequence and cumulative evidence hash.
 
 ## Typed Player Actions
 
@@ -174,9 +174,9 @@ Actions use semantic identifiers rather than the current position of an item in 
 
 `legalActions()` does not enumerate every possible deployment subset. It returns parameterized descriptors such as candidate chess instance IDs and minimum/maximum selection counts. Bans remain monotonic, matching current gameplay; there is no unban action.
 
-Config-defined entities that are currently addressed only by vector index, especially challenges and configured challenge rewards, must receive explicit string IDs. Generated reward IDs use their stable semantic target: equipment item ID, internal-skill magic ID, piece role ID, or chess instance ID. A shop slot remains usable as an action argument because its containing pre-state hash proves which piece occupied the slot.
+Config-defined entities that are currently addressed only by vector index, especially challenges and configured challenge rewards, must receive explicit string IDs. Generated reward IDs use their stable semantic target: equipment item ID, internal-skill magic ID, piece role ID, or chess instance ID. A shop slot remains usable as an action argument because the cumulative evidence commits to the pre-state that identifies which piece occupied the slot.
 
-`mapId` is the stable dynamic battle-map ID currently represented by the selected battle-map record. Deployment IDs are semantically unordered and canonicalized in ascending chess-instance-ID order; explicit pre-battle swaps, not deployment payload ordering, determine formation.
+`mapId` is the stable dynamic battle-map ID currently represented by the selected battle-map record. Deployment state is represented by the `deployed` flag on roster entries in the ordered roster map. The submitted deployment action payload is hashed exactly as received; explicit pre-battle swaps, not deployment payload ordering, determine formation.
 
 ## Instance-Owned Game State
 
@@ -190,7 +190,7 @@ All role, magic, item, equipment, combo, internal-skill, challenge, map, terrain
 
 Battle setup must copy all gameplay facts it needs into runtime input so battle results do not depend on mutable `Role` HP or MP left behind by another presentation path. Headless gameplay code may not load content through `Font`, `Save::getInstance()`, `BattleMap::getInstance()`, or mutable `GameUtil::PATH()`.
 
-The GUI-facing `GameDataStore` is only a wrapper around the serialized session checkpoint. The checkpoint owns the complete state snapshot, RNG state, and full selected journal from action 1. Ordinary loading trusts that snapshot; explicit replay verification still starts from a new run and recorded actions rather than using the supplied final save as its initial state.
+The GUI-facing `GameDataStore` directly embeds the typed session checkpoint. The checkpoint owns the complete state snapshot, RNG state, and full selected journal from action 1. Ordinary loading trusts that snapshot; explicit replay verification still starts from a new run and recorded actions rather than using the supplied final save as its initial state.
 
 ## Run-Level Rule Extraction
 
@@ -228,7 +228,7 @@ The planner:
 
 Preparing a battle consumes its random values once. Inspecting the prepared battle does not consume more randomness.
 
-The prepared battle is part of canonical session state. It includes battle kind and ID, enemy lineup and equipment, ally instance IDs, map candidates and chosen map, battle seed, deterministic unit IDs, base formation, applied swaps, and the preparation RNG checkpoint.
+The prepared battle is part of hashed session state. It includes battle kind and ID, enemy lineup and equipment, ally instance IDs, map candidates and chosen map, battle seed, deterministic unit IDs, base formation, applied swaps, and the preparation RNG checkpoint.
 
 Every gameplay ordering uses a total comparator. In particular, equal-strength enemies and equal-star equipment assignments must use stable role, source-order, instance, or item-ID tie-breakers rather than relying on unspecified equivalent-element order.
 
@@ -373,7 +373,7 @@ In JSONL mode, stdout is reserved for protocol messages and diagnostics go to st
 - `export_replay`;
 - `verify_replay`.
 
-Each request has a caller-provided request ID, and each response echoes it. `act` uses `submitAndDrain()`; an accepted response is emitted only at the next stable boundary and includes derived events, the next phase, and replay hashes. A `load_game` response includes the restored replay sequence and the number of actions removed from the previously active suffix.
+Each request has a caller-provided request ID, and each response echoes it. `act` uses `submitAndDrain()`; an accepted response is emitted only at the next stable boundary and includes derived events, the next phase, and cumulative replay evidence. A `load_game` response includes the restored replay sequence and the number of actions removed from the previously active suffix.
 
 The CLI executable should live outside the current top-level source glob or the source collection must explicitly exclude its `main()` from `kys_game_lib`.
 
@@ -446,7 +446,7 @@ Stream tags are protocol constants:
 
 Bounded sampling for `upperBound > 0` computes `threshold = (-upperBound) % upperBound` in unsigned 64-bit arithmetic, rejects raw draws below `threshold`, and returns `draw % upperBound`. A stream counter counts raw xoshiro output words, including rejected samples.
 
-The RNG digest canonically encodes `enemyPlanKey`, then every stream tag and raw-draw counter in tag order. Failed actions, observations, legal-action enumeration, save inspection, and rejected loads consume no randomness.
+The RNG digest directly encodes the complete `ChessRunRandomState`: root seed, enemy-plan key, every stream's xoshiro words, and every raw-draw counter. Failed actions, observations, legal-action enumeration, save inspection, and rejected loads consume no randomness.
 
 The battle runtime uses its battle-local seed with the separately versioned `battle_rng_mt19937_mod_v1` algorithm. Fixed output vectors are part of the determinism tests. A prepared battle records its battle seed before combat begins.
 
@@ -469,7 +469,7 @@ This matrix is applied only by the shared session outcome handler.
 
 Shared battle and chess core targets use strict floating-point semantics, and Debug and Release must accept the same golden replays and produce the same golden battle digests. The persisted format does not carry a separate determinism profile, engine replay version, RNG version, or ruleset identity. `game_version` is the only compatibility gate.
 
-Platform-specific golden coverage remains useful for detecting implementation divergence, but it does not add another persisted compatibility dimension. A divergent build fails explicit replay verification through its independently reconstructed actions, state, event, RNG, or chain checkpoints.
+Platform-specific golden coverage remains useful for detecting implementation divergence, but it does not add another persisted compatibility dimension. A divergent build fails explicit replay verification through its independently reconstructed cumulative evidence.
 
 ## Replay Format
 
@@ -489,17 +489,10 @@ The header contains:
 
 Each accepted player decision records:
 
-- monotonic sequence number;
-- phase and decision kind;
 - typed action payload;
-- pre-state hash;
-- post-state hash;
-- derived-event hash;
-- named RNG counters or RNG digest;
-- previous chain hash;
-- resulting chain hash.
+- one cumulative `evidence_hash`.
 
-The record is appended only after the accepted action and all automatic work reach the next stable decision boundary or `Complete`. Its pre-state hash refers to the boundary before `beginAction()`; its post-state/event/RNG hashes refer to the finalized boundary after automatic work.
+The record is appended only after the accepted action and all automatic work reach the next stable decision boundary or `Complete`. Sequence is the decision array index, phase is reconstructed from the session, and decision kind is the typed action's `type`. The evidence hash commits to the preceding evidence, sequence, phase, action, pre-state hash, post-state hash, derived-event hash, and RNG digest. Those component hashes are computed transiently but are not persisted separately.
 
 The authoritative replay retains every accepted action from action 1 but does not store automatically generated enemy or reward results as trusted input. Those results are reproduced by the verifier. Optional diagnostic records may include them for readability, but verification ignores them as authority.
 
@@ -508,7 +501,7 @@ The authoritative replay retains every accepted action from action 1 but does no
 Every export ends with a footer containing:
 
 - status: `in_progress` or `complete`;
-- terminal chain hash;
+- terminal evidence hash;
 - final semantic state hash;
 - result: `in_progress` or `campaign_complete`;
 - fight reached;
@@ -520,70 +513,49 @@ The first JSONL shape is:
 
 ```json
 {"record":"header","magic":"KYS_CHESS_REPLAY","game_version":"<exact game version>","difficulty":"normal","root_seed":"0x0000000000003039","options":{"position_swap_enabled":true,"battle_frame_limit":36000}}
-{"record":"decision","sequence":1,"phase":"Management","decision_kind":"refresh_shop","action":{"type":"refresh_shop"},"pre_state_hash":"<64 hex>","post_state_hash":"<64 hex>","event_hash":"<64 hex>","rng_digest":"<64 hex>","previous_chain_hash":"<64 hex>","chain_hash":"<64 hex>"}
-{"record":"footer","status":"in_progress","terminal_chain_hash":"<64 hex>","final_state_hash":"<64 hex>","result":"in_progress","fight_reached":0}
+{"record":"decision","action":{"type":"refresh_shop"},"evidence_hash":"<32 hex>"}
+{"record":"footer","status":"in_progress","terminal_evidence_hash":"<32 hex>","final_state_hash":"<64 hex>","result":"in_progress","fight_reached":0}
 ```
 
 After `finish_run`, the alternative footer uses `"status":"complete"` and `"result":"campaign_complete"`.
 
-## Canonical State and Event Hashing
+## Direct BEVE State and Event Hashing
 
-Hashing uses an explicit canonical byte encoding rather than relying on JSON object ordering or native struct layout.
+Hashing uses `glz::write_beve_untagged` on the actual runtime aggregates. There is no second normalized state DTO and no field-by-field hash writer. Each payload is wrapped by a BEVE tuple containing a domain string, unsigned 16-bit format version, and the payload values before hashing.
 
-Canonical encoding version 1 uses:
+The session structures are already deterministic by construction:
 
-- little-endian byte order;
-- booleans as one byte, exactly 0 or 1;
-- enums and variant tags as unsigned 16-bit values;
-- numeric gameplay IDs and values as declared fixed-width 32-bit integers;
-- signed integers encoded as their fixed-width two's-complement bit pattern;
-- seeds, replay sequences, RNG counters, and save revisions as unsigned 64-bit values;
-- strings as validated UTF-8 with no normalization, encoded as an unsigned 32-bit byte length followed by bytes;
-- optional values as a one-byte presence flag followed by the value when present;
-- collections as an unsigned 32-bit count followed by canonical elements;
-- raw 32-byte SHA-256 values inside canonical input and lowercase hexadecimal only at JSON boundaries.
+- keyed state uses `std::map` and `std::set`, so iteration order is stable without hash-time sorting;
+- vectors preserve their stored runtime order, including shop slots, map candidates, reward options, formation swaps, submitted deployment IDs, and semantic events;
+- fixed arrays preserve index order;
+- relevant enums use explicit underlying integer types;
+- strings are hashed as their stored bytes.
 
-Each top-level projection begins with a four-byte ASCII domain tag and unsigned 16-bit version:
+Hashing does not reinterpret native struct memory, so padding and addresses never participate. Adding a declared aggregate member automatically adds it to the BEVE payload. Changing the order of a stored vector intentionally changes the hash; hashing does not silently turn vectors into sets.
 
-- `HDR1`: replay header fields in the JSON header order defined above;
-- `ACT1`: action variant tag followed by payload fields in action-definition order;
-- `STA1`: semantic gameplay state;
-- `EVT1`: semantic event count followed by events in occurrence order;
-- `RNG1`: enemy plan key followed by stream tag/counter pairs in tag order.
+The domain-separated payloads are:
 
-Maps and sets are sorted by canonical key bytes. Semantically unordered ID collections are sorted numerically or lexicographically. Semantically ordered collections preserve order. Shop entries preserve slot order; event lists preserve occurrence order. Deployment is a set and is sorted by chess instance ID; prepared ally source order is therefore ascending chess instance ID before explicit position swaps.
+- `KYS_CHESS_STATE`: complete `ChessSessionState` followed by complete `ChessRunRandomState`;
+- `KYS_CHESS_EVENTS`: the complete semantic-event vector, including optional structured detail;
+- `KYS_CHESS_RNG`: complete `ChessRunRandomState`;
+- `KYS_CHESS_REPLAY_HEADER`: the typed replay header;
+- `KYS_CHESS_REPLAY_EVIDENCE`: previous evidence, sequence, phase, exact typed action, and the transient pre-state, post-state, event, and RNG hashes;
+- `KYS_CHESS_BATTLE`: the stable battle digest view.
 
-Native struct bytes, padding, pointers, addresses, raw floating-point values, localized labels, timestamps, UI state, camera state, visual events, sound, and animation are forbidden.
+The normal state hash therefore covers every declared session field, including difficulty, actual session options and battle-frame limit, instance IDs, deployment flags, prepared-battle vector order, full preparation checkpoint words, optional pending decisions, last battle result, and the full run RNG state. Ordinary save loading restores that same stored state directly. An explicit verifier independently reproduces it from the replay header and actions.
 
-The normal run-state hash includes:
+The battle runtime deliberately retains a smaller stable digest view because presentation and transient battle machinery are not replay authority. That view contains digest events in occurrence order, outcome, end frame, final unit vitals/stats/relevant statuses, and report statistics keyed by skill ID, then BEVE-encodes the aggregate in one operation. `ProjectileMoved`, purely visual events, positions, localized text, and human-formatted log strings remain excluded.
 
-- difficulty, economy, level/experience, fight progress, and `campaignComplete`;
-- roster instances and stars in chess-instance-ID order;
-- sorted deployment IDs;
-- equipment instances and assignments in equipment-instance-ID order;
-- shop contents in slot order, lock state, and sorted rejected-role IDs;
-- sorted bans, seen roles, completed challenge IDs, and obtained internal-skill IDs;
-- pending reward/map/forced-ban decision and its stable candidate IDs;
-- current phase and gameplay-affecting session options;
-- the complete prepared battle: kind/ID, enemy lineup/equipment, sorted ally instance IDs, map candidates/chosen map, battle seed, deterministic unit IDs, base formation, applied swaps, and preparation RNG checkpoint;
-- the `RNG1` projection.
-
-The preparation checkpoint canonically encodes its captured `enemyPlanKey` followed by stream tags 3 through 6 and their captured raw-draw counters. Ordinary save loading restores the complete stored RNG state directly. An explicit verifier independently reproduces the root seed, key, counters, and stream evolution from the journal.
-
-Configured challenge/reward string IDs use canonical string encoding. Generated numeric role, magic, item, chess-instance, equipment-instance, map, skill, status, and resource IDs use fixed-width numeric encoding. Configured reward choices must have unique configured IDs; generated choices with the same semantic payload are deduplicated before legal actions are exposed.
-
-The battle digest includes `BattleDigestEvent` values in occurrence order, battle outcome, end frame, final unit vitals, structured relevant statuses, report statistics keyed by skill ID, and persistent effects such as fights won. The digest event field order is type, frame, source unit ID, target unit ID, amount, effect/skill/status/resource ID, and related attack ID. Fields unused by an event type encode their declared sentinel value. It excludes `ProjectileMoved`, purely visual events, positions, localized text, and human-formatted log strings.
-
-Use SHA-256 through the existing `picosha2` dependency. The chain is conceptually:
+Use SHA-256 through the existing `picosha2` dependency for state, event, RNG, battle, snapshot, and final-state digests. Cumulative replay evidence takes the leading 128 bits of its SHA-256 result, which gives compact 32-character hexadecimal evidence while retaining ample collision resistance for replay divergence detection. The evidence chain is conceptually:
 
 ```text
-chain[0] = SHA256("KYS_CHESS_REPLAY_CHAIN_V1" || canonicalReplayHeader)
-chain[i] = SHA256(chain[i-1] || canonicalAction || postStateHash || eventHash || rngDigest)
+evidence[0] = Trunc128(SHA256(BEVE("KYS_CHESS_REPLAY_HEADER", 1, replayHeader)))
+evidence[i] = Trunc128(SHA256(BEVE("KYS_CHESS_REPLAY_EVIDENCE", 1, evidence[i-1], sequence, phase, action, preStateHash, postStateHash, eventHash, rngDigest)))
 ```
 
-A transition with no semantic events hashes the valid `EVT1` encoding with a zero event count; it never substitutes an all-zero hash.
+A transition with no semantic events hashes the BEVE encoding of an empty event vector; it never substitutes an all-zero hash.
 
-A chain detects alteration or corruption when the expected terminal hash is trusted separately. It does not by itself prevent an attacker from rewriting a whole replay and recomputing the chain; legality still comes from deterministic replay.
+The evidence chain detects alteration or corruption when the expected terminal hash is trusted separately. It does not by itself prevent an attacker from rewriting a whole replay and recomputing the evidence; legality still comes from deterministic replay.
 
 ## Game Version Compatibility
 
@@ -591,7 +563,7 @@ Every replay and checkpoint carries one exact `game_version`, loaded from `confi
 
 Normal save import and load require exact string equality with the running game version. There is no persisted ruleset hash, determinism profile, engine replay version, RNG version, or checkpoint schema version, and there are no migration or backward-compatibility branches. Gameplay code or data changes that should invalidate existing saves and replays require a game-version change.
 
-The state, event, RNG, snapshot, and chain hashes do not select compatibility. They remain diagnostic checkpoints for explicit verification and corruption diagnosis.
+State, event, RNG, snapshot, and evidence hashes do not select compatibility. Within the replay format, only cumulative evidence and the final state hash are persisted; checkpoints additionally carry their snapshot hash and typed state.
 
 ## Replay Verification
 
@@ -599,27 +571,22 @@ Explicit verification always begins from a fresh session using the replay header
 
 For each decision record, the verifier:
 
-1. confirms the current phase and pre-state hash;
-2. enumerates legal actions;
-3. confirms the recorded typed action is legal;
-4. calls `beginAction()`;
-5. calls `advanceAutomatic()` until the next decision boundary;
-6. compares derived-event, RNG, post-state, and chain hashes;
-7. stops at the first mismatch with the sequence number and mismatch category.
+1. enumerates legal actions;
+2. confirms the recorded typed action is legal;
+3. calls `beginAction()`;
+4. calls `advanceAutomatic()` until the next decision boundary;
+5. compares the reconstructed cumulative evidence hash;
+6. stops at the first mismatch with the sequence number.
 
-After the last decision, it verifies the footer state and final chain hash. A `complete` footer must reproduce `Complete` with result `campaign_complete`; an `in_progress` footer must reproduce the declared stable decision boundary and current semantic state. Re-execution is authoritative; the stored hashes are inexpensive checkpoints that locate the first divergence.
+After the last decision, it verifies the footer state and terminal evidence hash. A `complete` footer must reproduce `Complete` with result `campaign_complete`; an `in_progress` footer must reproduce the declared stable decision boundary and current semantic state. Re-execution is authoritative; the stored evidence locates the first divergent decision.
 
 Verifier failure categories should distinguish:
 
 - malformed replay;
 - incompatible game version;
 - difficulty or runtime-option mismatch;
-- pre-state mismatch;
 - illegal action;
-- RNG divergence;
-- derived-event divergence;
-- post-state mismatch;
-- chain mismatch;
+- evidence mismatch;
 - truncated replay;
 - unexpected extra decisions.
 
@@ -652,20 +619,20 @@ This makes save/load discoverable to an LLM in the same way that shop refresh, s
 A headless/session save should contain:
 
 - exact `game_version`;
-- the canonical state snapshot, including current phase, options, and any pending decision;
+- the complete typed state snapshot, including current phase, options, and any pending decision;
 - complete named RNG state, including the original root seed;
 - `snapshot_hash` as a diagnostic checkpoint;
-- `replay_jsonl`, containing the original replay header, every accepted action from action 1 through the saved boundary, and the footer;
+- a native `replay` object containing the original replay header, every accepted action and evidence hash from action 1 through the saved boundary, and the footer;
 - a monotonic save revision;
 - presentation-only metadata such as an optional label or wall-clock display time.
 
 The complete active journal is mandatory save-file content, not an optional external reference. It is never compacted, truncated, or replaced by a snapshot-origin history. A copied save must be self-contained: after loading it, the player can continue making decisions and later export a complete final journal from the original action 1 without requiring the original process, another save file, or a separate replay sidecar.
 
-Snapshots exist for fast trusted local restoration. They are not proof: a player who edits a local file can also recompute an ordinary SHA-256 hash. Save revisions participate only in save metadata, not gameplay hashes; wall-clock timestamps never participate in canonical encoding.
+Snapshots exist for fast trusted local restoration. They are not proof: a player who edits a local file can also recompute an ordinary SHA-256 hash. Save revisions participate only in save metadata, not gameplay hashes; wall-clock timestamps never participate in BEVE hash payloads.
 
-Normal loading parses the checkpoint and embedded journal for syntax/readability, requires exact `game_version` equality, and rejects a snapshot that cannot be represented at a stable supported boundary. It then directly restores state, RNG state, and the complete journal. It does **not** replay historical actions, enforce replay runtime-option policy, or validate pre-state, post-state, event, RNG, snapshot, footer, or chain hashes. Local players may edit their own saves; ordinary load performance takes priority over treating a local save as an authenticated database journal.
+Normal loading parses the checkpoint and embedded journal for syntax/readability, requires exact `game_version` equality, and rejects a snapshot that cannot be represented at a stable supported boundary. It then directly restores state, RNG state, and the complete journal. It does **not** replay historical actions, enforce replay runtime-option policy, or validate evidence, snapshot, or footer hashes. Local players may edit their own saves; ordinary load performance takes priority over treating a local save as an authenticated database journal.
 
-Deliberate built-in cheats such as `showmethemoney` are session-owned mutations allowed only at a stable decision boundary. They are not `ChessAction` values, emit no gameplay event, consume no RNG, and append nothing to the journal. Normal action legality uses the resulting current state, and ordinary saves persist and restore it without validation. Exporting immediately exposes the difference at the replay footer/final-state comparison; taking another accepted action first exposes it at that action's pre-state hash. The later uploaded-save validator still performs the independent replay and final state/RNG comparison described below.
+Deliberate built-in cheats such as `showmethemoney` are session-owned mutations allowed only at a stable decision boundary. They are not `ChessAction` values, emit no gameplay event, consume no RNG, and append nothing to the journal. Normal action legality uses the resulting current state, and ordinary saves persist and restore it without validation. Exporting immediately exposes the difference at the replay footer/final-state comparison; taking another accepted action first changes that action's cumulative evidence. The later uploaded-save validator still performs the independent replay and final state/RNG comparison described below.
 
 The graphical application builds this restored session as a detached replacement, prepares the legacy map/database state only after that replacement is ready, and commits through the existing in-place session object so GUI references remain valid. Immutable content is cached by difficulty: a normal same-difficulty load performs no content reload, while a cold load performs at most one.
 
@@ -675,10 +642,10 @@ A later upload/audit mode may validate whether a submitted final state is legall
 
 1. create a fresh session from the journal header's original root seed, difficulty, and options;
 2. replay every accepted action from action 1 without compaction or truncation;
-3. reject the first illegal action or state/event/RNG/chain divergence;
+3. reject the first illegal action or cumulative-evidence divergence;
 4. compare the independently reconstructed final state and RNG state with the submitted snapshot and any required legacy-save projection.
 
-Per-action state, event, RNG, and chain hashes remain because they are relatively cheap and identify the first divergence during this explicit audit. `event_hash` diagnoses a difference in emitted semantic effects even when the persistent state happens to match; it is not the mechanism that detects a direct money or inventory edit. A deliberate player may rewrite unkeyed hashes, so legality always comes from independent replay and final deep comparison.
+Each action persists only one cumulative evidence hash. The recorder still computes state, event, and RNG component hashes transiently and folds them into that evidence, including the pre-state so snapshot edits between actions cannot disappear through a converging transition. A deliberate player may rewrite unkeyed hashes, so legality always comes from independent replay and final deep comparison.
 
 ### Active Journal Replacement
 
@@ -757,12 +724,12 @@ The short summary lets an LLM choose a useful rollback point without first loadi
 
 Save and load should be represented as session operations, not ordinary deterministic gameplay actions:
 
-- gameplay actions are appended to the active replay journal and affect state hashes;
+- gameplay actions are appended to the active replay journal and extend cumulative evidence;
 - `save(slot)` copies the current snapshot and journal prefix into external slot storage but does not change gameplay state or RNG;
 - `load(slot)` replaces the active snapshot and journal prefix with the saved versions;
 - `inspect_save(slot)` reads external metadata without changing state or RNG;
 - `export_save(slot)` returns the portable checkpoint envelope without changing state or RNG;
-- `import_save(slot, payload)` checks syntax/readability and exact game version, then stores the checkpoint without making it active.
+- `import_save(slot, checkpoint)` checks syntax/readability and exact game version, then stores the native checkpoint object without making it active.
 
 `observe()` returns deterministic gameplay state and legal gameplay actions. The session controller wraps it as `SessionObservation` with available session operations and save-slot metadata. Human CLI help and MCP tool descriptions must explain the distinction and rollback behavior.
 
@@ -777,7 +744,7 @@ The MCP adapter should expose the same visible save-slot mechanic as the graphic
 - `save_game(slot)` overwrites the slot with the current state and journal prefix;
 - `load_game(slot)` replaces the current state and journal head and reports how many current actions were discarded;
 - `export_save(slot)` exports a portable save envelope;
-- `import_save(slot, payload)` imports an exact-version readable save into a slot without silently making it the active game.
+- `import_save(slot, checkpoint)` imports an exact-version readable native checkpoint into a slot without silently making it the active game.
 
 The normal action tool must not accept arbitrary serialized state as an action payload.
 
@@ -801,7 +768,7 @@ If a separate competition later requires proof that no rollback occurred, that w
 
 ## Compression and Storage
 
-Use JSONL for visibility during development. Canonical hashes do not depend on the JSON representation. Archive compression may reduce physical size, but it must never compact, truncate, or omit action history.
+Use JSONL for visibility during development. BEVE hashes do not depend on the JSON representation. Archive compression may reduce physical size, but it must never compact, truncate, or omit action history.
 
 Once stable, package a replay as a deflated `.kysreplay` archive using the existing libzip dependency. The archive may contain:
 
@@ -823,7 +790,7 @@ If stronger legitimacy is later required, add a challenge mode with:
 
 - a server- or tournament-issued unpredictable seed;
 - a signed replay header or seed commitment;
-- an authoritative verifier retaining the terminal chain hash;
+- an authoritative verifier retaining the terminal evidence hash;
 - optional submission metadata outside the gameplay replay.
 
 This security layer does not change the deterministic session or action format.
@@ -871,10 +838,10 @@ The implementation requires the following test groups.
 ### Replay Tests
 
 - serialization round-trip;
-- canonical ordering independence;
+- ordered map/set insertion-history independence and exact stored-vector ordering;
 - modified action rejection at the exact sequence;
 - removed, inserted, duplicated, reordered, and truncated record rejection;
-- RNG, event, state, and chain mismatch detection;
+- cumulative evidence mismatch detection;
 - exact game-version and runtime-option mismatch rejection;
 - stable-boundary `in_progress` footer verification and terminal `campaign_complete` footer verification;
 - final roster and equipment verification;
@@ -922,12 +889,12 @@ The feature is complete when:
 - GUI and headless execution share the exact 36,000-frame timeout and simultaneous-wipe policy;
 - each battle produces an initial ASCII board, meaningful logs, and a final summary;
 - the graphical game routes the same decisions through `ChessGameSession`;
-- a GUI playthrough and equivalent CLI playthrough produce the same replay hashes;
+- a GUI playthrough and equivalent CLI playthrough produce the same cumulative replay evidence;
 - every accepted decision is recorded automatically;
 - post-clear management and expedition challenges remain playable until `finish_run`;
 - stable-boundary replay export verifies with an `in_progress` footer, and `finish_run` produces `campaign_complete`;
 - observations and MCP tools make save, inspect, and rollback capabilities obvious to an LLM;
-- ordinary save loading directly restores the trusted snapshot, RNG state, and journal without replaying history or validating replay runtime options or state/event/RNG/footer/chain hashes;
+- ordinary save loading directly restores the trusted snapshot, RNG state, and journal without replaying history or validating replay runtime options, evidence, or footer hashes;
 - every checkpoint retains the selected journal from action 1 without compaction, truncation, or a snapshot-origin history;
 - runs can be saved, closed, and resumed without changing the saved journal prefix;
 - exact-version saves can be exported/imported without activating them, while malformed or different-version saves are rejected;

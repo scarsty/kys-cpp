@@ -676,7 +676,16 @@ inline std::string chessChallengeEnemyDescription(
 {
     const auto* role = content.role(enemy.roleId);
     assert(role);
-    return std::format("  {} {} ({}費)", role->Name, chessStars(enemy.star), role->Cost);
+    auto description = std::format("  {} {} ({}費)", role->Name, chessStars(enemy.star), role->Cost);
+    if (enemy.weaponId >= 0)
+    {
+        description += std::format("　{}", chessItemDisplayName(content, enemy.weaponId));
+    }
+    if (enemy.armorId >= 0)
+    {
+        description += std::format("{}{}", enemy.weaponId >= 0 ? "／" : "　", chessItemDisplayName(content, enemy.armorId));
+    }
+    return description;
 }
 
 struct ChessRewardRolePreview

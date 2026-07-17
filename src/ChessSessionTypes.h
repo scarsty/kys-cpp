@@ -152,6 +152,8 @@ struct ChessAction
     std::string challengeName;
     std::string rewardId;
     std::vector<int> chessInstanceIds;
+
+    auto operator<=>(const ChessAction&) const = default;
 };
 
 struct ChessMergeEventDetail
@@ -161,6 +163,8 @@ struct ChessMergeEventDetail
     bool deployed{};
     std::vector<int> transferredEquipmentInstanceIds;
     bool recursiveMergeFollowed{};
+
+    auto operator<=>(const ChessMergeEventDetail&) const = default;
 };
 
 struct ChessEnemyPlanRerollEventDetail
@@ -168,6 +172,8 @@ struct ChessEnemyPlanRerollEventDetail
     int cost{};
     std::uint64_t previousEnemyPlanKey{};
     std::uint64_t newEnemyPlanKey{};
+
+    auto operator<=>(const ChessEnemyPlanRerollEventDetail&) const = default;
 };
 
 struct ChessSemanticEvent
@@ -179,6 +185,8 @@ struct ChessSemanticEvent
     std::string stableId;
     std::optional<ChessMergeEventDetail> merge;
     std::optional<ChessEnemyPlanRerollEventDetail> enemyPlanReroll;
+
+    auto operator<=>(const ChessSemanticEvent&) const = default;
 };
 
 struct ChessSessionPiece
@@ -335,11 +343,7 @@ struct ChessActionResult
     std::string description;
     std::vector<ChessSemanticEvent> events;
     std::uint64_t replaySequence{};
-    ChessSha256 preStateHash{};
-    ChessSha256 postStateHash{};
-    ChessSha256 eventHash{};
-    ChessSha256 rngDigest{};
-    ChessSha256 chainHash{};
+    ChessEvidenceHash evidenceHash{};
 };
 
 struct ChessAutomaticAdvanceResult

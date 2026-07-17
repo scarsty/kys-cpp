@@ -1,103 +1,54 @@
 #include "HeadlessBattleRunner.h"
 
-#include "ChessCanonicalEncoding.h"
-
 #include <algorithm>
 
 namespace KysChess
 {
+
+struct HeadlessBattleDigestUnit
+{
+    int id{};
+    int realRoleId{};
+    int team{};
+    bool alive{};
+    Battle::BattleUnitVitals vitals;
+    int shield{};
+    int invincible{};
+    Battle::BattleUnitStats stats;
+    int star{};
+    int chessInstanceId{};
+    Battle::BattleStatusEffectState status;
+};
+
 ChessSha256 HeadlessBattleRunner::digest(const HeadlessBattleResult& result)
 {
-    ChessCanonicalWriter writer("BTL1");
-    writer.writeCollectionSize(result.digestEvents.size());
-    for (const auto& event : result.digestEvents)
-    {
-        writer.writeU16(static_cast<std::uint16_t>(event.type));
-        writer.writeI32(event.frame);
-        writer.writeI32(event.sourceUnitId);
-        writer.writeI32(event.targetUnitId);
-        writer.writeI32(event.amount);
-        writer.writeI32(event.stableEffectId);
-        writer.writeI32(event.skillId);
-        writer.writeI32(static_cast<int>(event.statusId));
-        writer.writeI32(static_cast<int>(event.resourceId));
-        writer.writeI32(event.relatedAttackId);
-    }
-    writer.writeU16(static_cast<std::uint16_t>(result.summary.outcome));
-    writer.writeI32(result.summary.endFrame);
-
-    std::vector<const Battle::BattleRuntimeUnitRecord*> units;
+    std::vector<HeadlessBattleDigestUnit> units;
+    units.reserve(result.finalRuntime.units.size());
     for (const auto& record : result.finalRuntime.units.all())
     {
-        units.push_back(&record);
+        const auto& unit = record.core;
+        units.push_back({
+            unit.id,
+            unit.realRoleId,
+            unit.team,
+            unit.alive,
+            unit.vitals,
+            unit.shield,
+            unit.invincible,
+            unit.stats,
+            unit.star,
+            unit.chessInstanceId,
+            record.status.effects,
+        });
     }
-    std::ranges::sort(units, {}, [](const auto* record) { return record->id(); });
-    writer.writeCollectionSize(units.size());
-    for (const auto* record : units)
-    {
-        const auto& unit = record->core;
-        const auto& status = record->status.effects;
-        writer.writeI32(unit.id);
-        writer.writeI32(unit.realRoleId);
-        writer.writeI32(unit.team);
-        writer.writeBool(unit.alive);
-        writer.writeI32(unit.vitals.hp);
-        writer.writeI32(unit.vitals.maxHp);
-        writer.writeI32(unit.vitals.mp);
-        writer.writeI32(unit.vitals.maxMp);
-        writer.writeI32(unit.shield);
-        writer.writeI32(unit.invincible);
-        writer.writeI32(unit.stats.attack);
-        writer.writeI32(unit.stats.defence);
-        writer.writeI32(unit.stats.speed);
-        writer.writeI32(unit.star);
-        writer.writeI32(unit.chessInstanceId);
-        writer.writeI32(status.poisonTimer);
-        writer.writeI32(status.poisonTickPct);
-        writer.writeI32(status.poisonSourceId);
-        writer.writeI32(status.bleedStacks);
-        writer.writeI32(status.bleedTimer);
-        writer.writeI32(status.bleedSourceId);
-        writer.writeI32(status.frozenTimer);
-        writer.writeI32(status.frozenMaxTimer);
-        writer.writeI32(status.freezeReductionPct);
-        writer.writeI32(status.shieldFreezeResPct);
-        writer.writeI32(status.controlImmunityFrames);
-        writer.writeI32(status.mpBlockTimer);
-        writer.writeI32(status.damageImmunityAfterFrames);
-        writer.writeI32(status.damageImmunityDuration);
-        writer.writeI32(status.damageImmunityTimer);
-        writer.writeCollectionSize(status.tempAttackBuffs.size());
-        for (const auto& buff : status.tempAttackBuffs)
-        {
-            writer.writeI32(buff.attackBonus);
-            writer.writeI32(buff.remainingFrames);
-        }
-        writer.writeCollectionSize(status.damageReduceDebuffs.size());
-        for (const auto& debuff : status.damageReduceDebuffs)
-        {
-            writer.writeI32(debuff.remainingFrames);
-            writer.writeI32(debuff.pct);
-        }
-    }
-
-    writer.writeCollectionSize(result.report.stats().size());
-    for (const auto& [unitId, stats] : result.report.stats())
-    {
-        writer.writeI32(unitId);
-        writer.writeI32(stats.damageDealt);
-        writer.writeI32(stats.damageTaken);
-        writer.writeI32(stats.kills);
-        writer.writeI32(stats.firstDamageFrame);
-        writer.writeI32(stats.lastActiveFrame);
-        writer.writeCollectionSize(stats.damagePerSkillId.size());
-        for (const auto& [skillId, damage] : stats.damagePerSkillId)
-        {
-            writer.writeI32(skillId);
-            writer.writeI32(damage);
-        }
-    }
-    return chessSha256(writer.bytes());
+    std::ranges::sort(units, {}, &HeadlessBattleDigestUnit::id);
+    return chessBeveSha256(
+        "KYS_CHESS_BATTLE",
+        result.digestEvents,
+        result.summary.outcome,
+        result.summary.endFrame,
+        units,
+        result.report.stats());
 }
 
 HeadlessBattleResult HeadlessBattleRunner::run(Battle::BattleRuntimeSessionCreationInput input)

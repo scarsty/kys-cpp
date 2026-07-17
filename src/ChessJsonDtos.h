@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ChessSessionCheckpoint.h"
+
 #include <glaze/json.hpp>
 
 #include <cstdint>
@@ -57,7 +59,7 @@ struct VerifyParams
 
 struct SlotParams { std::string slot; };
 struct SaveParams { std::string slot; std::string label; };
-struct ImportSaveParams { std::string slot; std::string payload; };
+struct ImportSaveParams { std::string slot; ChessSessionCheckpointData checkpoint; };
 
 struct RoleStatsDto
 {
@@ -603,11 +605,7 @@ struct ActionResultDto
     ObservationDto next_observation;
     std::optional<BattleResultDto> battle;
     std::uint64_t replay_sequence{};
-    std::optional<std::string> pre_state_hash;
-    std::optional<std::string> post_state_hash;
-    std::optional<std::string> event_hash;
-    std::optional<std::string> rng_digest;
-    std::optional<std::string> chain_hash;
+    std::optional<std::string> evidence_hash;
 };
 
 struct SummaryActionChangesDto
@@ -678,8 +676,8 @@ struct ReplayVerificationDto
 };
 
 struct SaveResultDto { std::string slot; std::uint64_t revision{}; };
-struct InspectSaveDto { SaveSlotDto summary; std::string payload; };
-struct ExportSaveDto { std::string payload; };
+struct InspectSaveDto { SaveSlotDto summary; ChessSessionCheckpointData checkpoint; };
+struct ExportSaveDto { ChessSessionCheckpointData checkpoint; };
 struct TimelineReplacementDto
 {
     std::string loaded_slot;

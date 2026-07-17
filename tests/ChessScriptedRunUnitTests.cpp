@@ -122,7 +122,7 @@ TEST_CASE("actual configuration gameplay smoke has stable roster equipment and h
     CHECK(session.state().lastBattleOutcome == Battle::BattleOutcome::PlayerVictory);
     CHECK(session.state().lastBattleEndFrame == 847);
     CHECK(session.state().fight == 1);
-    CHECK(chessSha256Hex(session.observe().stateHash) == "410fb76b0187124bc459d19a6cd865f7e92660c55a7158004a8c2e60e6a83699");
+    CHECK(chessSha256Hex(session.observe().stateHash) == "a1c36243ba8af777517b5c9943b115845f3408996603c7803714f1856dfe98dd");
     const auto replay = session.exportReplay();
     REQUIRE(replay);
     CHECK(ChessReplayVerifier::verify(content, *replay).valid);

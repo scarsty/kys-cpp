@@ -42,12 +42,6 @@ ChessReplayVerificationResult ChessReplayVerifier::verify(
     {
         const auto& expected = replay.decisions[index];
         const std::uint64_t sequence = index + 1;
-        if (expected.sequence != sequence)
-            return mismatch(ChessReplayMismatch::Sequence, sequence, "決策序號不連續");
-        if (expected.phase != session.state().phase)
-            return mismatch(ChessReplayMismatch::Phase, sequence, "決策階段不相符");
-        if (expected.preStateHash != session.observe().stateHash)
-            return mismatch(ChessReplayMismatch::PreState, sequence, "前置狀態雜湊不相符");
         const auto legal = session.legalActions();
         if (std::ranges::none_of(legal, [&](const ChessLegalActionDescriptor& descriptor) {
                 return descriptor.type == expected.action.type;
@@ -66,20 +60,12 @@ ChessReplayVerificationResult ChessReplayVerifier::verify(
                 actual = std::move(*advance.completedAction);
             }
         }
-        if (actual.eventHash != expected.eventHash)
-            return mismatch(ChessReplayMismatch::Event, sequence, "事件雜湊不相符");
-        if (actual.rngDigest != expected.rngDigest)
-            return mismatch(ChessReplayMismatch::Rng, sequence, "亂數摘要不相符");
-        if (actual.postStateHash != expected.postStateHash)
-            return mismatch(ChessReplayMismatch::PostState, sequence, "後置狀態雜湊不相符");
-        const auto& actualRecord = session.journal().decisions().back();
-        if (actualRecord.previousChainHash != expected.previousChainHash
-            || actualRecord.chainHash != expected.chainHash)
-            return mismatch(ChessReplayMismatch::Chain, sequence, "鏈式雜湊不相符");
+        if (actual.evidenceHash != expected.evidenceHash)
+            return mismatch(ChessReplayMismatch::Evidence, sequence, "驗證證據雜湊不相符");
     }
     const auto actualReplay = session.exportReplay();
     if (!actualReplay
-        || actualReplay->footer.terminalChainHash != replay.footer.terminalChainHash
+        || actualReplay->footer.terminalEvidenceHash != replay.footer.terminalEvidenceHash
         || actualReplay->footer.finalStateHash != replay.footer.finalStateHash
         || actualReplay->footer.complete != replay.footer.complete
         || actualReplay->footer.fightReached != replay.footer.fightReached)

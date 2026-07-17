@@ -1,8 +1,10 @@
 #include "ChessSaveStore.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessReplayVerifier.h"
+#include "GameDataStore.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <glaze/json.hpp>
 
 using namespace KysChess;
 using namespace KysChess::Test;
@@ -29,6 +31,11 @@ TEST_CASE("self-contained checkpoint JSON directly restores its snapshot and ful
 
     const auto checkpoint = ChessSessionCheckpoint::capture(session, 4, "第一戰前");
     const auto payload = checkpoint.serializeJson();
+    CHECK(payload.contains("\"replay\":{"));
+    CHECK(payload.contains("\"evidence_hash\""));
+    CHECK_FALSE(payload.contains("replay_jsonl"));
+    CHECK_FALSE(payload.contains("pre_state_hash"));
+    CHECK_FALSE(payload.contains("chain_hash"));
     ChessCheckpointError error;
     const auto parsed = ChessSessionCheckpoint::parseJson(payload, error);
 
@@ -44,8 +51,15 @@ TEST_CASE("self-contained checkpoint JSON directly restores its snapshot and ful
     CHECK(restored.state() == session.state());
     CHECK(restored.random().state() == session.random().state());
     REQUIRE(restored.journal().decisions().size() == session.journal().decisions().size());
-    CHECK(restored.journal().decisions().front().chainHash
-        == session.journal().decisions().front().chainHash);
+    CHECK(restored.journal().decisions().front().evidenceHash
+        == session.journal().decisions().front().evidenceHash);
+
+    const GameDataStore gameData{checkpoint.toData()};
+    const auto gameDataJson = glz::write_json(gameData);
+    REQUIRE(gameDataJson);
+    CHECK(gameDataJson->contains("\"chessSessionCheckpoint\":{"));
+    CHECK_FALSE(gameDataJson->contains("chessSessionCheckpointJson"));
+    CHECK_FALSE(gameDataJson->contains("\\\"game_version\\\""));
 }
 
 TEST_CASE("direct restore only rejects incompatible or unrepresentable snapshots", "[chess][checkpoint][save]")
@@ -89,17 +103,17 @@ TEST_CASE("snapshot cheats load immediately and explicit replay audit finds firs
     REQUIRE(store.load("cheat", restored, replacement) == ChessCheckpointError::None);
     CHECK(restored.state().money == source.state().money + 100);
     REQUIRE(restored.journal().decisions().size() == originalPrefix.size());
-    CHECK(restored.journal().decisions().front().chainHash == originalPrefix.front().chainHash);
+    CHECK(restored.journal().decisions().front().evidenceHash == originalPrefix.front().evidenceHash);
 
     REQUIRE(restored.submitAndDrain(lockAction(false)).accepted);
     const auto replay = restored.exportReplay();
     REQUIRE(replay);
     REQUIRE(replay->decisions.size() == originalPrefix.size() + 1);
-    CHECK(replay->decisions.front().chainHash == originalPrefix.front().chainHash);
+    CHECK(replay->decisions.front().evidenceHash == originalPrefix.front().evidenceHash);
 
     const auto verification = ChessReplayVerifier::verify(content, *replay);
     CHECK_FALSE(verification.valid);
-    CHECK(verification.mismatch == ChessReplayMismatch::PreState);
+    CHECK(verification.mismatch == ChessReplayMismatch::Evidence);
     CHECK(verification.sequence == 2);
 }
 
@@ -109,7 +123,7 @@ TEST_CASE("structurally valid journal corruption can load without implicit verif
     ChessGameSession source(content, 78);
     REQUIRE(source.submitAndDrain(lockAction(true)).accepted);
     auto checkpoint = ChessSessionCheckpoint::capture(source, 1);
-    checkpoint.replay.decisions.front().preStateHash.front() ^= 0xff;
+    checkpoint.replay.decisions.front().evidenceHash.front() ^= 0xff;
 
     ChessSaveStore store;
     REQUIRE(store.importSave(
@@ -126,7 +140,7 @@ TEST_CASE("structurally valid journal corruption can load without implicit verif
     REQUIRE(replay);
     const auto verification = ChessReplayVerifier::verify(content, *replay);
     CHECK_FALSE(verification.valid);
-    CHECK(verification.mismatch == ChessReplayMismatch::PreState);
+    CHECK(verification.mismatch == ChessReplayMismatch::Evidence);
     CHECK(verification.sequence == 1);
 }
 

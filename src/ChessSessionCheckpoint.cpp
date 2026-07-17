@@ -1,8 +1,6 @@
 #include "ChessSessionCheckpoint.h"
 
 #include "ChessGameSession.h"
-#include "ChessReplayJson.h"
-
 #include <glaze/json.hpp>
 
 #include <cassert>
@@ -10,29 +8,6 @@
 
 namespace KysChess
 {
-namespace CheckpointDetail
-{
-
-struct CheckpointDto
-{
-    std::string game_version;
-    std::string replay_jsonl;
-    ChessSessionState state;
-    ChessRunRandomState random;
-    std::string snapshot_hash;
-    std::uint64_t save_revision{};
-    std::string label;
-};
-
-}
-
-namespace
-{
-
-using CheckpointDetail::CheckpointDto;
-
-}
-
 ChessSessionCheckpoint ChessSessionCheckpoint::capture(
     const ChessGameSession& session,
     std::uint64_t revision,
@@ -46,7 +21,7 @@ ChessSessionCheckpoint ChessSessionCheckpoint::capture(
     result.replay = std::move(*replay);
     result.state = session.state();
     result.random = session.random().state();
-    result.snapshotHash = canonicalChessStateHash(result.state, session.random());
+    result.snapshotHash = chessStateHash(result.state, session.random());
     result.saveRevision = revision;
     result.label = std::move(checkpointLabel);
     return result;
@@ -77,37 +52,29 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
     return ChessCheckpointError::None;
 }
 
-std::string ChessSessionCheckpoint::serializeJson() const
+ChessSessionCheckpointData ChessSessionCheckpoint::toData() const
 {
-    CheckpointDto dto;
-    dto.game_version = gameVersion;
-    dto.replay_jsonl = serializeChessReplayJsonl(replay);
-    dto.state = state;
-    dto.random = random;
-    dto.snapshot_hash = chessSha256Hex(snapshotHash);
-    dto.save_revision = saveRevision;
-    dto.label = label;
-    const auto result = glz::write_json(dto);
-    return result ? result.value() : std::string{};
+    ChessSessionCheckpointData data;
+    data.game_version = gameVersion;
+    data.replay = chessReplayData(replay);
+    data.state = state;
+    data.random = random;
+    data.snapshot_hash = chessSha256Hex(snapshotHash);
+    data.save_revision = saveRevision;
+    data.label = label;
+    return data;
 }
 
-std::optional<ChessSessionCheckpoint> ChessSessionCheckpoint::parseJson(
-    std::string_view json,
+std::optional<ChessSessionCheckpoint> ChessSessionCheckpoint::fromData(
+    const ChessSessionCheckpointData& data,
     ChessCheckpointError& error)
 {
-    CheckpointDto dto;
-    constexpr auto options = glz::opts{.error_on_unknown_keys = false};
-    if (glz::read<options>(dto, json))
-    {
-        error = ChessCheckpointError::Malformed;
-        return std::nullopt;
-    }
     ChessReplayJsonError replayError;
-    auto replay = parseChessReplayJsonl(dto.replay_jsonl, replayError);
+    auto replay = parseChessReplayData(data.replay, replayError);
     ChessSha256 hash{};
     try
     {
-        hash = chessSha256FromHex(dto.snapshot_hash);
+        hash = chessSha256FromHex(data.snapshot_hash);
     }
     catch (const std::invalid_argument&)
     {
@@ -120,15 +87,35 @@ std::optional<ChessSessionCheckpoint> ChessSessionCheckpoint::parseJson(
         return std::nullopt;
     }
     ChessSessionCheckpoint result;
-    result.gameVersion = std::move(dto.game_version);
+    result.gameVersion = data.game_version;
     result.replay = std::move(*replay);
-    result.state = std::move(dto.state);
-    result.random = dto.random;
+    result.state = data.state;
+    result.random = data.random;
     result.snapshotHash = hash;
-    result.saveRevision = dto.save_revision;
-    result.label = std::move(dto.label);
+    result.saveRevision = data.save_revision;
+    result.label = data.label;
     error = ChessCheckpointError::None;
     return result;
+}
+
+std::string ChessSessionCheckpoint::serializeJson() const
+{
+    const auto result = glz::write_json(toData());
+    return result ? result.value() : std::string{};
+}
+
+std::optional<ChessSessionCheckpoint> ChessSessionCheckpoint::parseJson(
+    std::string_view json,
+    ChessCheckpointError& error)
+{
+    ChessSessionCheckpointData data;
+    constexpr auto options = glz::opts{.error_on_unknown_keys = false};
+    if (glz::read<options>(data, json))
+    {
+        error = ChessCheckpointError::Malformed;
+        return std::nullopt;
+    }
+    return fromData(data, error);
 }
 
 }

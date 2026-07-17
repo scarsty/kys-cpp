@@ -2,12 +2,14 @@
 
 #include "Color.h"
 
+#include <cstdint>
+
 struct Item;
 
 namespace KysChess
 {
 
-enum class Difficulty;
+enum class Difficulty : std::uint8_t;
 
 const Item* chessEquipmentDisplayItem(int itemId);
 Color chessPieceTierColor(int tier);

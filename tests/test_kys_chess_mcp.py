@@ -91,7 +91,7 @@ class McpAdapterTests(unittest.TestCase):
                     "import_save",
                     {
                         "slot": "copy",
-                        "payload": exported_save["result"]["payload"],
+                        "checkpoint": exported_save["result"]["checkpoint"],
                     },
                 )
                 request_pair(
@@ -215,6 +215,13 @@ class McpAdapterTests(unittest.TestCase):
                     {"difficulty": "normal", "seed": "0x0000000000000045"},
                 )["ok"])
                 self.assertTrue(first.request("save_game", {"slot": "長期", "label": "持久"})["ok"])
+
+            persisted_files = list(Path(save_dir).glob("*.json"))
+            self.assertEqual(len(persisted_files), 1)
+            stored = json.loads(persisted_files[0].read_text(encoding="utf-8"))
+            self.assertIn("checkpoint", stored)
+            self.assertNotIn("payload", stored)
+            self.assertIsInstance(stored["checkpoint"]["replay"]["decisions"], list)
 
             with CliSession(CLI, save_dir=save_dir) as second:
                 discovered = second.request("list_saves")

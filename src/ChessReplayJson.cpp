@@ -16,31 +16,6 @@ namespace KysChess
 namespace ReplayJsonDetail
 {
 
-struct OptionsDto
-{
-    bool position_swap_enabled = true;
-    int battle_frame_limit = 36000;
-};
-
-struct ActionDto
-{
-    std::string type;
-    std::optional<int> slot;
-    std::optional<bool> locked;
-    std::optional<int> chess_instance_id;
-    std::optional<std::vector<int>> chess_instance_ids;
-    std::optional<int> role_id;
-    std::optional<int> equipment_instance_id;
-    std::optional<int> target_chess_instance_id;
-    std::optional<int> item_id;
-    std::optional<bool> enabled;
-    std::optional<int> map_id;
-    std::optional<int> first_unit_id;
-    std::optional<int> second_unit_id;
-    std::optional<std::string> reward_id;
-    std::optional<std::string> challenge_name;
-};
-
 struct HeaderDto
 {
     std::string record;
@@ -48,29 +23,21 @@ struct HeaderDto
     std::string game_version;
     std::string difficulty;
     std::string root_seed;
-    OptionsDto options;
+    ChessReplayOptionsData options;
 };
 
 struct DecisionDto
 {
     std::string record;
-    std::uint64_t sequence{};
-    std::string phase;
-    std::string decision_kind;
-    glz::raw_json action;
-    std::string pre_state_hash;
-    std::string post_state_hash;
-    std::string event_hash;
-    std::string rng_digest;
-    std::string previous_chain_hash;
-    std::string chain_hash;
+    ChessActionData action;
+    std::string evidence_hash;
 };
 
 struct FooterDto
 {
     std::string record;
     std::string status;
-    std::string terminal_chain_hash;
+    std::string terminal_evidence_hash;
     std::string final_state_hash;
     std::string result;
     int fight_reached{};
@@ -87,29 +54,6 @@ namespace
 {
 
 using namespace ReplayJsonDetail;
-
-std::string phaseId(ChessSessionPhase phase)
-{
-    switch (phase)
-    {
-    case ChessSessionPhase::Management: return "Management";
-    case ChessSessionPhase::BattlePreparation: return "BattlePreparation";
-    case ChessSessionPhase::BattleResolution: return "BattleResolution";
-    case ChessSessionPhase::RewardChoice: return "RewardChoice";
-    case ChessSessionPhase::Complete: return "Complete";
-    }
-    std::unreachable();
-}
-
-std::optional<ChessSessionPhase> phaseFromId(std::string_view id)
-{
-    if (id == "Management") return ChessSessionPhase::Management;
-    if (id == "BattlePreparation") return ChessSessionPhase::BattlePreparation;
-    if (id == "BattleResolution") return ChessSessionPhase::BattleResolution;
-    if (id == "RewardChoice") return ChessSessionPhase::RewardChoice;
-    if (id == "Complete") return ChessSessionPhase::Complete;
-    return std::nullopt;
-}
 
 std::string rootSeedText(std::uint64_t seed)
 {
@@ -131,9 +75,9 @@ std::optional<std::uint64_t> parseRootSeed(std::string_view text)
     return value;
 }
 
-ActionDto actionDto(const ChessAction& action)
+ChessActionData actionData(const ChessAction& action)
 {
-    ActionDto dto;
+    ChessActionData dto;
     dto.type = chessActionTypeId(action.type);
     switch (action.type)
     {
@@ -160,7 +104,7 @@ ActionDto actionDto(const ChessAction& action)
     return dto;
 }
 
-std::optional<ChessAction> actionFromDto(const ActionDto& dto, std::string* error = nullptr)
+std::optional<ChessAction> actionFromData(const ChessActionData& dto, std::string* error = nullptr)
 {
     const auto type = chessActionTypeFromId(dto.type);
     if (!type)
@@ -278,6 +222,19 @@ bool parseHash(std::string_view text, ChessSha256& output)
     }
 }
 
+bool parseHash(std::string_view text, ChessEvidenceHash& output)
+{
+    try
+    {
+        output = chessEvidenceHashFromHex(text);
+        return true;
+    }
+    catch (const std::invalid_argument&)
+    {
+        return false;
+    }
+}
+
 }
 
 std::string chessActionTypeId(ChessActionType type)
@@ -325,24 +282,24 @@ std::optional<ChessActionType> chessActionTypeFromId(std::string_view id)
 
 std::string serializeChessActionJson(const ChessAction& action)
 {
-    return writeLine(actionDto(action));
+    return writeLine(actionData(action));
 }
 
 std::optional<ChessAction> parseChessActionJson(std::string_view json)
 {
-    const auto dto = readLine<ReplayJsonDetail::ActionDto>(json);
-    return dto ? actionFromDto(*dto) : std::nullopt;
+    const auto dto = readLine<ChessActionData>(json);
+    return dto ? actionFromData(*dto) : std::nullopt;
 }
 
 std::optional<ChessAction> parseChessActionJson(std::string_view json, std::string& error)
 {
-    const auto dto = readLine<ReplayJsonDetail::ActionDto>(json);
+    const auto dto = readLine<ChessActionData>(json);
     if (!dto)
     {
         error = "操作不是有效 JSON 物件";
         return std::nullopt;
     }
-    return actionFromDto(*dto, &error);
+    return actionFromData(*dto, &error);
 }
 
 std::string chessActionPayloadSchema(ChessActionType type)
@@ -395,44 +352,109 @@ std::string chessActionExampleJson(ChessActionType type)
     return serializeChessActionJson(action);
 }
 
-std::string serializeChessReplayJsonl(const ChessReplay& replay)
+ChessReplayData chessReplayData(const ChessReplay& replay)
 {
-    using namespace ReplayJsonDetail;
-    std::string output;
-    HeaderDto header{
-        "header",
+    ChessReplayData data;
+    data.header = {
         "KYS_CHESS_REPLAY",
         replay.header.gameVersion,
         replay.header.difficulty,
         rootSeedText(replay.header.rootSeed),
         {replay.header.options.positionSwapEnabled, replay.header.options.battleFrameLimit},
     };
-    output += writeLine(header) + "\n";
     for (const auto& record : replay.decisions)
     {
-        DecisionDto decision;
-        decision.record = "decision";
-        decision.sequence = record.sequence;
-        decision.phase = phaseId(record.phase);
-        decision.decision_kind = chessActionTypeId(record.action.type);
-        decision.action = writeLine(actionDto(record.action));
-        decision.pre_state_hash = chessSha256Hex(record.preStateHash);
-        decision.post_state_hash = chessSha256Hex(record.postStateHash);
-        decision.event_hash = chessSha256Hex(record.eventHash);
-        decision.rng_digest = chessSha256Hex(record.rngDigest);
-        decision.previous_chain_hash = chessSha256Hex(record.previousChainHash);
-        decision.chain_hash = chessSha256Hex(record.chainHash);
-        output += writeLine(decision) + "\n";
+        data.decisions.push_back({
+            actionData(record.action),
+            chessEvidenceHashHex(record.evidenceHash),
+        });
     }
-    FooterDto footer{
-        "footer",
+    data.footer = {
         replay.footer.complete ? "complete" : "in_progress",
-        chessSha256Hex(replay.footer.terminalChainHash),
+        chessEvidenceHashHex(replay.footer.terminalEvidenceHash),
         chessSha256Hex(replay.footer.finalStateHash),
         replay.footer.complete ? "campaign_complete" : "in_progress",
         replay.footer.fightReached,
     };
-    output += writeLine(footer) + "\n";
+    return data;
+}
+
+std::optional<ChessReplay> parseChessReplayData(
+    const ChessReplayData& data,
+    ChessReplayJsonError& error)
+{
+    ChessReplay replay;
+    const auto seed = parseRootSeed(data.header.root_seed);
+    if (data.header.magic != "KYS_CHESS_REPLAY"
+        || data.header.game_version.empty()
+        || !seed)
+    {
+        error = {0, "重播標頭無效"};
+        return std::nullopt;
+    }
+    replay.header.gameVersion = data.header.game_version;
+    replay.header.difficulty = data.header.difficulty;
+    replay.header.rootSeed = *seed;
+    replay.header.options = {
+        data.header.options.position_swap_enabled,
+        data.header.options.battle_frame_limit,
+    };
+    for (std::size_t index = 0; index < data.decisions.size(); ++index)
+    {
+        const auto action = actionFromData(data.decisions[index].action);
+        ChessReplayDecisionRecord record;
+        if (!action || !parseHash(data.decisions[index].evidence_hash, record.evidenceHash))
+        {
+            error = {index + 1, "決策記錄無效"};
+            return std::nullopt;
+        }
+        record.action = *action;
+        replay.decisions.push_back(std::move(record));
+    }
+    if (!parseHash(data.footer.terminal_evidence_hash, replay.footer.terminalEvidenceHash)
+        || !parseHash(data.footer.final_state_hash, replay.footer.finalStateHash)
+        || (data.footer.status != "in_progress" && data.footer.status != "complete")
+        || (data.footer.status == "complete" && data.footer.result != "campaign_complete")
+        || (data.footer.status == "in_progress" && data.footer.result != "in_progress"))
+    {
+        error = {data.decisions.size() + 1, "重播頁尾無效"};
+        return std::nullopt;
+    }
+    replay.footer.complete = data.footer.status == "complete";
+    replay.footer.fightReached = data.footer.fight_reached;
+    error = {};
+    return replay;
+}
+
+std::string serializeChessReplayJsonl(const ChessReplay& replay)
+{
+    using namespace ReplayJsonDetail;
+    const auto data = chessReplayData(replay);
+    std::string output;
+    output += writeLine(HeaderDto{
+        "header",
+        data.header.magic,
+        data.header.game_version,
+        data.header.difficulty,
+        data.header.root_seed,
+        data.header.options,
+    }) + "\n";
+    for (const auto& record : data.decisions)
+    {
+        output += writeLine(DecisionDto{
+            "decision",
+            record.action,
+            record.evidence_hash,
+        }) + "\n";
+    }
+    output += writeLine(FooterDto{
+        "footer",
+        data.footer.status,
+        data.footer.terminal_evidence_hash,
+        data.footer.final_state_hash,
+        data.footer.result,
+        data.footer.fight_reached,
+    }) + "\n";
     return output;
 }
 
@@ -441,7 +463,7 @@ std::optional<ChessReplay> parseChessReplayJsonl(
     ChessReplayJsonError& error)
 {
     using namespace ReplayJsonDetail;
-    ChessReplay replay;
+    ChessReplayData data;
     bool sawHeader = false;
     bool sawFooter = false;
     std::size_t lineNumber = 0;
@@ -462,25 +484,24 @@ std::optional<ChessReplay> parseChessReplayJsonl(
         }
         if (tag->record == "header")
         {
-            if (sawHeader || !replay.decisions.empty() || sawFooter)
+            if (sawHeader || !data.decisions.empty() || sawFooter)
             {
                 error = {lineNumber, "重複或錯置的標頭"};
                 return std::nullopt;
             }
             const auto dto = readLine<HeaderDto>(line);
-            const auto seed = dto ? parseRootSeed(dto->root_seed) : std::nullopt;
-            if (!dto
-                || dto->magic != "KYS_CHESS_REPLAY"
-                || dto->game_version.empty()
-                || !seed)
+            if (!dto)
             {
                 error = {lineNumber, "重播標頭無效"};
                 return std::nullopt;
             }
-            replay.header.gameVersion = dto->game_version;
-            replay.header.difficulty = dto->difficulty;
-            replay.header.rootSeed = *seed;
-            replay.header.options = {dto->options.position_swap_enabled, dto->options.battle_frame_limit};
+            data.header = {
+                dto->magic,
+                dto->game_version,
+                dto->difficulty,
+                dto->root_seed,
+                dto->options,
+            };
             sawHeader = true;
         }
         else if (tag->record == "decision")
@@ -491,26 +512,12 @@ std::optional<ChessReplay> parseChessReplayJsonl(
                 return std::nullopt;
             }
             const auto dto = readLine<DecisionDto>(line);
-            const auto phase = dto ? phaseFromId(dto->phase) : std::nullopt;
-            const auto actionDtoValue = dto ? readLine<ActionDto>(dto->action.str) : std::nullopt;
-            const auto action = actionDtoValue ? actionFromDto(*actionDtoValue) : std::nullopt;
-            ChessReplayDecisionRecord record;
-            if (!dto || !phase || !action
-                || dto->decision_kind != chessActionTypeId(action->type)
-                || !parseHash(dto->pre_state_hash, record.preStateHash)
-                || !parseHash(dto->post_state_hash, record.postStateHash)
-                || !parseHash(dto->event_hash, record.eventHash)
-                || !parseHash(dto->rng_digest, record.rngDigest)
-                || !parseHash(dto->previous_chain_hash, record.previousChainHash)
-                || !parseHash(dto->chain_hash, record.chainHash))
+            if (!dto)
             {
                 error = {lineNumber, "決策記錄無效"};
                 return std::nullopt;
             }
-            record.sequence = dto->sequence;
-            record.phase = *phase;
-            record.action = *action;
-            replay.decisions.push_back(std::move(record));
+            data.decisions.push_back({dto->action, dto->evidence_hash});
         }
         else if (tag->record == "footer")
         {
@@ -520,18 +527,18 @@ std::optional<ChessReplay> parseChessReplayJsonl(
                 return std::nullopt;
             }
             const auto dto = readLine<FooterDto>(line);
-            if (!dto
-                || !parseHash(dto->terminal_chain_hash, replay.footer.terminalChainHash)
-                || !parseHash(dto->final_state_hash, replay.footer.finalStateHash)
-                || (dto->status != "in_progress" && dto->status != "complete")
-                || (dto->status == "complete" && dto->result != "campaign_complete")
-                || (dto->status == "in_progress" && dto->result != "in_progress"))
+            if (!dto)
             {
                 error = {lineNumber, "重播頁尾無效"};
                 return std::nullopt;
             }
-            replay.footer.complete = dto->status == "complete";
-            replay.footer.fightReached = dto->fight_reached;
+            data.footer = {
+                dto->status,
+                dto->terminal_evidence_hash,
+                dto->final_state_hash,
+                dto->result,
+                dto->fight_reached,
+            };
             sawFooter = true;
         }
         else
@@ -544,6 +551,11 @@ std::optional<ChessReplay> parseChessReplayJsonl(
     {
         error = {lineNumber, "重播缺少標頭或頁尾"};
         return std::nullopt;
+    }
+    auto replay = parseChessReplayData(data, error);
+    if (!replay)
+    {
+        error.line = error.line == 0 ? 1 : error.line + 1;
     }
     return replay;
 }

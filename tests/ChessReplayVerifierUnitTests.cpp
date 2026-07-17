@@ -68,7 +68,7 @@ TEST_CASE("fresh session verifier accepts an unmodified replay", "[chess][replay
     CHECK(result.sequence == 3);
 }
 
-TEST_CASE("fresh session verifier identifies altered action state and chain data", "[chess][replay][verify]")
+TEST_CASE("fresh session verifier identifies altered actions and evidence", "[chess][replay][verify]")
 {
     SECTION("altered action")
     {
@@ -76,7 +76,7 @@ TEST_CASE("fresh session verifier identifies altered action state and chain data
         replay.decisions[1].action.shopSlot = 1;
         const auto result = ChessReplayVerifier::verify(managementContent(), replay);
         CHECK_FALSE(result.valid);
-        CHECK(result.mismatch == ChessReplayMismatch::PostState);
+        CHECK(result.mismatch == ChessReplayMismatch::Evidence);
         CHECK(result.sequence == 2);
     }
 
@@ -90,41 +90,14 @@ TEST_CASE("fresh session verifier identifies altered action state and chain data
         CHECK(result.sequence == 1);
     }
 
-    SECTION("altered RNG digest")
+    SECTION("altered evidence")
     {
         auto replay = shortReplay();
-        replay.decisions[0].rngDigest[0] ^= 1;
+        replay.decisions[1].evidenceHash[0] ^= 1;
         const auto result = ChessReplayVerifier::verify(managementContent(), replay);
         CHECK_FALSE(result.valid);
-        CHECK(result.mismatch == ChessReplayMismatch::Rng);
-    }
-
-    SECTION("altered event digest")
-    {
-        auto replay = shortReplay();
-        replay.decisions[0].eventHash[0] ^= 1;
-        const auto result = ChessReplayVerifier::verify(managementContent(), replay);
-        CHECK_FALSE(result.valid);
-        CHECK(result.mismatch == ChessReplayMismatch::Event);
-    }
-
-    SECTION("altered pre-state digest")
-    {
-        auto replay = shortReplay();
-        replay.decisions[1].preStateHash[0] ^= 1;
-        const auto result = ChessReplayVerifier::verify(managementContent(), replay);
-        CHECK_FALSE(result.valid);
-        CHECK(result.mismatch == ChessReplayMismatch::PreState);
+        CHECK(result.mismatch == ChessReplayMismatch::Evidence);
         CHECK(result.sequence == 2);
-    }
-
-    SECTION("altered chain")
-    {
-        auto replay = shortReplay();
-        replay.decisions[0].chainHash[0] ^= 1;
-        const auto result = ChessReplayVerifier::verify(managementContent(), replay);
-        CHECK_FALSE(result.valid);
-        CHECK(result.mismatch == ChessReplayMismatch::Chain);
     }
 }
 
@@ -136,7 +109,7 @@ TEST_CASE("fresh session verifier rejects sequence and footer changes", "[chess]
         replay.decisions.erase(replay.decisions.begin() + 1);
         const auto result = ChessReplayVerifier::verify(managementContent(), replay);
         CHECK_FALSE(result.valid);
-        CHECK(result.mismatch == ChessReplayMismatch::Sequence);
+        CHECK(result.mismatch == ChessReplayMismatch::IllegalAction);
     }
 
     SECTION("duplicated decision")
@@ -145,32 +118,16 @@ TEST_CASE("fresh session verifier rejects sequence and footer changes", "[chess]
         replay.decisions.insert(replay.decisions.begin() + 1, replay.decisions.front());
         const auto result = ChessReplayVerifier::verify(managementContent(), replay);
         CHECK_FALSE(result.valid);
-        CHECK(result.mismatch == ChessReplayMismatch::Sequence);
+        CHECK(result.mismatch == ChessReplayMismatch::Evidence);
     }
 
-    SECTION("inserted decision with contiguous sequence")
-    {
-        auto replay = shortReplay();
-        replay.decisions.insert(replay.decisions.begin() + 1, replay.decisions.front());
-        for (std::size_t index = 0; index < replay.decisions.size(); ++index)
-        {
-            replay.decisions[index].sequence = index + 1;
-        }
-        const auto result = ChessReplayVerifier::verify(managementContent(), replay);
-        CHECK_FALSE(result.valid);
-        CHECK(result.mismatch == ChessReplayMismatch::PreState);
-        CHECK(result.sequence == 2);
-    }
-
-    SECTION("reordered decisions with contiguous sequence")
+    SECTION("reordered decisions")
     {
         auto replay = shortReplay();
         std::swap(replay.decisions[0], replay.decisions[1]);
-        replay.decisions[0].sequence = 1;
-        replay.decisions[1].sequence = 2;
         const auto result = ChessReplayVerifier::verify(managementContent(), replay);
         CHECK_FALSE(result.valid);
-        CHECK(result.mismatch == ChessReplayMismatch::PreState);
+        CHECK(result.mismatch == ChessReplayMismatch::Evidence);
         CHECK(result.sequence == 1);
     }
 

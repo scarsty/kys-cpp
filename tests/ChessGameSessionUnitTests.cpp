@@ -54,11 +54,10 @@ TEST_CASE("accepted management actions journal from sequence one", "[chess][sess
     CHECK(result.replaySequence == 1);
     CHECK(session.observe().shopLocked);
     REQUIRE(session.journal().decisions().size() == 1);
-    CHECK(session.journal().decisions()[0].preStateHash == result.preStateHash);
-    CHECK(session.journal().decisions()[0].postStateHash == result.postStateHash);
+    CHECK(session.journal().decisions()[0].evidenceHash == result.evidenceHash);
     const auto replay = session.exportReplay();
     REQUIRE(replay);
-    CHECK(replay->footer.finalStateHash == result.postStateHash);
+    CHECK(replay->footer.finalStateHash == session.observe().stateHash);
 }
 
 TEST_CASE("rejected actions mutate no state RNG or journal", "[chess][session][management]")
@@ -107,17 +106,17 @@ TEST_CASE("unjournaled money cheat remains playable but fails explicit verificat
         ChessActionType::RefreshShop,
         &ChessLegalActionDescriptor::type));
     const auto randomBeforeCheat = session.random().state();
-    const auto chainBeforeCheat = session.journal().chainHash();
+    const auto evidenceBeforeCheat = session.journal().evidenceHash();
     REQUIRE(session.journal().decisions().size() == 1);
-    const auto firstRecordChain = session.journal().decisions().front().chainHash;
+    const auto firstRecordEvidence = session.journal().decisions().front().evidenceHash;
 
     session.grantUnjournaledCheatMoney(100);
 
     CHECK(session.state().money == 100);
     CHECK(session.random().state() == randomBeforeCheat);
     REQUIRE(session.journal().decisions().size() == 1);
-    CHECK(session.journal().chainHash() == chainBeforeCheat);
-    CHECK(session.journal().decisions().front().chainHash == firstRecordChain);
+    CHECK(session.journal().evidenceHash() == evidenceBeforeCheat);
+    CHECK(session.journal().decisions().front().evidenceHash == firstRecordEvidence);
     CHECK(std::ranges::contains(
         session.legalActions(),
         ChessActionType::RefreshShop,
@@ -139,7 +138,7 @@ TEST_CASE("unjournaled money cheat remains playable but fails explicit verificat
     REQUIRE(continuedReplay);
     const auto continuedVerification = ChessReplayVerifier::verify(content, *continuedReplay);
     CHECK_FALSE(continuedVerification.valid);
-    CHECK(continuedVerification.mismatch == ChessReplayMismatch::PreState);
+    CHECK(continuedVerification.mismatch == ChessReplayMismatch::IllegalAction);
     CHECK(continuedVerification.sequence == 2);
 }
 

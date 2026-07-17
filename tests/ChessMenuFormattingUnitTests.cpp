@@ -462,6 +462,10 @@ TEST_CASE("challenge rewards retain configured limits and specific equipment nam
     item.id = 99;
     item.name = "倚天劍";
     data.items.emplace(item.id, item);
+    ChessItemDefinition armor;
+    armor.id = 100;
+    armor.name = "金絲甲";
+    data.items.emplace(armor.id, armor);
     ChessRoleDefinition enemyRole;
     enemyRole.ID = 7;
     enemyRole.Name = "金輪法王";
@@ -491,6 +495,8 @@ TEST_CASE("challenge rewards retain configured limits and specific equipment nam
     CHECK(completedColor.b == 120);
     CHECK(completedColor.a == 255);
     CHECK(chessChallengeEnemyDescription(content, {7, 2}) == "  金輪法王 ★★ (4費)");
+    CHECK(chessChallengeEnemyDescription(content, {7, 2, 99, 100})
+        == "  金輪法王 ★★ (4費)　倚天劍／金絲甲");
 }
 
 TEST_CASE("challenge browsing is driven by configured rows rather than current legality", "[chess][menu-formatting][challenge]")

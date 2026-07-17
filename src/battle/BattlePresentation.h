@@ -77,7 +77,7 @@ enum class BattleLogTextTone
     Negative,
 };
 
-enum class BattleStatusSemanticId
+enum class BattleStatusSemanticId : std::int16_t
 {
     None = -1,
     Hitstun = 1,
@@ -96,7 +96,7 @@ enum class BattleStatusSemanticId
     PoisonPayload = 14,
 };
 
-enum class BattleResourceSemanticId
+enum class BattleResourceSemanticId : std::int16_t
 {
     None = -1,
     HitPoints = 1,
@@ -152,7 +152,7 @@ struct BattleLogEvent
     std::string semanticSourceName;
 };
 
-enum class BattleGameplayEventType
+enum class BattleGameplayEventType : std::uint8_t
 {
     CastStarted,
     AttackSpawned,

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <memory>
 
 namespace KysChess
@@ -10,7 +11,7 @@ class ChessGameSession;
 class ChessGameContent;
 struct ChessSessionCheckpoint;
 enum class ChessCheckpointError;
-enum class Difficulty;
+enum class Difficulty : std::uint8_t;
 
 class ChessApplicationSessionHost
 {

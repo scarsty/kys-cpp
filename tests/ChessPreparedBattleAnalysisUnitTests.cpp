@@ -142,7 +142,7 @@ TEST_CASE("prepared battle analysis is a pure session query", "[chess][prepared-
     const auto stateBefore = session.state();
     const auto randomBefore = session.random().state();
     const auto decisionCountBefore = session.journal().decisions().size();
-    const auto chainBefore = session.journal().chainHash();
+    const auto evidenceBefore = session.journal().evidenceHash();
     const auto hashBefore = session.observe().stateHash;
     const auto analysis = analyzePreparedChessBattle(
         *session.state().preparedBattle,
@@ -154,6 +154,6 @@ TEST_CASE("prepared battle analysis is a pure session query", "[chess][prepared-
     CHECK(session.state() == stateBefore);
     CHECK(session.random().state() == randomBefore);
     CHECK(session.journal().decisions().size() == decisionCountBefore);
-    CHECK(session.journal().chainHash() == chainBefore);
+    CHECK(session.journal().evidenceHash() == evidenceBefore);
     CHECK(session.observe().stateHash == hashBefore);
 }

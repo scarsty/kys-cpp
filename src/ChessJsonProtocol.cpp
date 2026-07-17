@@ -333,7 +333,7 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         const auto summary = std::ranges::find(summaries, params->slot, &ChessSaveSlotSummary::slotId);
         return response(request->id, true, writeJson(InspectSaveDto{
             saveSlotDto(*summary),
-            checkpoint->serializeJson(),
+            checkpoint->toData(),
         }));
     }
     if (request->method == "load_game")
@@ -360,12 +360,12 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
     if (request->method == "export_save")
     {
         const auto params = readJson<SlotParams>(request->params.str);
-        const auto payload = params ? saves_.exportSave(params->slot) : std::nullopt;
-        if (!payload)
+        const auto* checkpoint = params ? saves_.inspect(params->slot) : nullptr;
+        if (!checkpoint)
         {
             return response(request->id, false, {}, "save_not_found", "存檔不存在");
         }
-        return response(request->id, true, writeJson(ExportSaveDto{*payload}));
+        return response(request->id, true, writeJson(ExportSaveDto{checkpoint->toData()}));
     }
     if (request->method == "import_save")
     {
@@ -376,7 +376,7 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         }
         const auto error = saves_.importSave(
             params->slot,
-            params->payload,
+            params->checkpoint,
             session_->content().gameVersion());
         if (error != ChessCheckpointError::None)
         {

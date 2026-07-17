@@ -34,28 +34,26 @@ This document is the single mutable execution ledger:
 - [x] Confirm that post-clear challenges remain available until `finish_run`.
 - [x] Confirm the revised design and this task sequence agree before production code begins.
 
-### Task 1: Deterministic RNG, canonical writer, and hash primitives
+### Task 1: Deterministic RNG, direct BEVE hashing, and hash primitives
 
 **Files:**
 - Create: `src/ChessRunRandom.h`
 - Create: `src/ChessRunRandom.cpp`
-- Create: `src/ChessCanonicalEncoding.h`
-- Create: `src/ChessCanonicalEncoding.cpp`
 - Create: `src/ChessReplayHash.h`
 - Create: `src/ChessReplayHash.cpp`
 - Modify: `src/ChessRandom.h`, `src/ChessRandom.cpp` and then delete them after all callers migrate
 - Modify: `src/battle/BattleRuntimeRandom.h`
 - Modify: `src/battle/BattleRuntimeRandom.cpp`
 - Create: `tests/ChessRunRandomUnitTests.cpp`
-- Create: `tests/ChessCanonicalEncodingUnitTests.cpp`
+- Create: `tests/ChessReplayHashUnitTests.cpp`
 - Create: `tests/BattleRuntimeRandomUnitTests.cpp`
 - Modify project/source lists used by MSBuild and CMake
 
 - [x] Write fixed SplitMix64, xoshiro256**, stream-derivation, bounded-sampling, raw-counter, checkpoint/restore, reroll-family reset, and stream-isolation golden tests.
 - [x] Write fixed battle-runtime RNG vectors for seed, `nextInt`, `chance`, and `symmetricInt`.
 - [x] Implement the versioned generators without standard-library distributions.
-- [x] Implement the canonical writer and SHA-256 helpers with exact byte-vector goldens.
-- [x] Add chain-hash golden tests and malformed canonical-value assertions.
+- [x] Implement direct domain-separated Glaze BEVE hashing and SHA-256 helpers without a normalized session DTO.
+- [x] Add replay-evidence, container-order, full-state, and hexadecimal conversion tests.
 - [x] Build `kys_tests`, run focused determinism tests in Debug, then run the same goldens in Release.
 
 ### Task 2: Immutable injected content and game-version foundation
@@ -101,7 +99,7 @@ This document is the single mutable execution ledger:
 - Create: `tests/ChessCoreDependencyUnitTests.cpp`
 
 - [x] Move battle runtime sources into `kys_battle_core`.
-- [x] Move content, deterministic RNG, canonical encoding, run-state, and later session-domain sources into `kys_chess_core`, which references `kys_battle_core`.
+- [x] Move content, deterministic RNG, direct BEVE hashing, run-state, and later session-domain sources into `kys_chess_core`, which references `kys_battle_core`.
 - [x] Remove the same source files from the GUI executable and direct test compilation lists; GUI and tests link the libraries instead.
 - [x] Compile both core libraries with strict floating-point options; no separate persisted determinism profile is used.
 - [x] Add a dependency scan/test proving core headers and sources do not include or link `Engine`, `Audio`, `Font`, `RunNode`, `SystemSettings`, ImGui, SDL renderer, or SDL mixer presentation code.
@@ -369,7 +367,7 @@ This document is the single mutable execution ledger:
 - [x] Package authoritative `replay.jsonl`, optional `summary.txt`, and optional diagnostics with libzip.
 - [x] Ignore non-authoritative files during verification.
 - [x] Test archive round-trip, missing/duplicate authoritative entry, corrupt zip, and diagnostic tampering.
-- [x] Do not change canonical hashes when switching between plain JSONL and archive transport.
+- [x] Do not change BEVE hashes when switching between plain JSONL and archive transport.
 
 ### Task 16: Self-contained checkpoints, save slots, and timeline replacement
 

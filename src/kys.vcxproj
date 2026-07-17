@@ -223,7 +223,6 @@
     <ClInclude Include="ChessGameSession.h" />
     <ClInclude Include="ChessMagicEffectDisplay.h" />
     <ClInclude Include="ChessManagementRules.h" />
-    <ClInclude Include="ChessCanonicalEncoding.h" />
     <ClInclude Include="ChessReplayHash.h" />
     <ClInclude Include="ChessReplayJournal.h" />
     <ClInclude Include="ChessReplayJson.h" />

@@ -49,7 +49,6 @@ function(kys_collect_chess_core_sources out_var kys_root)
         "${kys_root_abs}/src/ChessBattlePlanner.cpp"
         "${kys_root_abs}/src/ChessBattleText.cpp"
         "${kys_root_abs}/src/ChessCatalogQueries.cpp"
-        "${kys_root_abs}/src/ChessCanonicalEncoding.cpp"
         "${kys_root_abs}/src/ChessCliController.cpp"
         "${kys_root_abs}/src/ChessCombo.cpp"
         "${kys_root_abs}/src/ChessContentLoader.cpp"

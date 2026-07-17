@@ -24,8 +24,8 @@ TEST_CASE("interactive commands submit the same typed actions as direct play", "
     const auto expected = direct.submitAndDrain(action);
 
     REQUIRE(controller.protocol().session());
-    CHECK(controller.protocol().session()->observe().stateHash == expected.postStateHash);
-    CHECK(controller.protocol().session()->journal().chainHash() == expected.chainHash);
+    CHECK(controller.protocol().session()->observe().stateHash == direct.observe().stateHash);
+    CHECK(controller.protocol().session()->journal().evidenceHash() == expected.evidenceHash);
 }
 
 TEST_CASE("JSONL controller writes exactly one protocol response per line", "[chess][cli][protocol]")

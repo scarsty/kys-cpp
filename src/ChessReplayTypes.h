@@ -11,27 +11,26 @@ struct ChessReplayHeader
     std::string difficulty;
     std::uint64_t rootSeed{};
     ChessSessionOptions options;
+
+    auto operator<=>(const ChessReplayHeader&) const = default;
 };
 
 struct ChessReplayDecisionRecord
 {
-    std::uint64_t sequence{};
-    ChessSessionPhase phase{};
     ChessAction action;
-    ChessSha256 preStateHash{};
-    ChessSha256 postStateHash{};
-    ChessSha256 eventHash{};
-    ChessSha256 rngDigest{};
-    ChessSha256 previousChainHash{};
-    ChessSha256 chainHash{};
+    ChessEvidenceHash evidenceHash{};
+
+    auto operator<=>(const ChessReplayDecisionRecord&) const = default;
 };
 
 struct ChessReplayFooter
 {
     bool complete = false;
-    ChessSha256 terminalChainHash{};
+    ChessEvidenceHash terminalEvidenceHash{};
     ChessSha256 finalStateHash{};
     int fightReached{};
+
+    auto operator<=>(const ChessReplayFooter&) const = default;
 };
 
 struct ChessReplay
@@ -39,6 +38,8 @@ struct ChessReplay
     ChessReplayHeader header;
     std::vector<ChessReplayDecisionRecord> decisions;
     ChessReplayFooter footer;
+
+    auto operator<=>(const ChessReplay&) const = default;
 };
 
 }

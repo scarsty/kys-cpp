@@ -160,7 +160,7 @@ if(BUILD_TESTING)
     "${KYS_ROOT}/tests/HeadlessBattleRunnerUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessBattleEffectsUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessBattleAnalysisUnitTests.cpp"
-    "${KYS_ROOT}/tests/ChessCanonicalEncodingUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessReplayHashUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessCatalogQueriesUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessContextMenuUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessGameContentUnitTests.cpp"

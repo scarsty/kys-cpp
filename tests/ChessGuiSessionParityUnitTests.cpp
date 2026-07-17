@@ -11,7 +11,7 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
-TEST_CASE("GUI adapter and direct session calls produce identical hashes", "[chess][gui][parity][determinism]")
+TEST_CASE("GUI adapter and direct session calls produce identical evidence", "[chess][gui][parity][determinism]")
 {
     const auto content = managementContent();
     ChessGameSession guiSession(content, 321);
@@ -26,10 +26,7 @@ TEST_CASE("GUI adapter and direct session calls produce identical hashes", "[che
 
     REQUIRE(gui.accepted);
     REQUIRE(direct.accepted);
-    CHECK(gui.postStateHash == direct.postStateHash);
-    CHECK(gui.eventHash == direct.eventHash);
-    CHECK(gui.rngDigest == direct.rngDigest);
-    CHECK(gui.chainHash == direct.chainHash);
+    CHECK(gui.evidenceHash == direct.evidenceHash);
 }
 
 TEST_CASE("GUI persistence only replaces a save from the overworld management phase", "[chess][gui][save]")
@@ -92,7 +89,7 @@ TEST_CASE("GUI adapter and JSONL playthrough export identical replays", "[chess]
         REQUIRE(response.contains(R"("accepted":true)"));
         REQUIRE(jsonl.session());
         CHECK(jsonl.session()->observe().stateHash == guiSession.observe().stateHash);
-        CHECK(jsonl.session()->journal().chainHash() == guiSession.journal().chainHash());
+        CHECK(jsonl.session()->journal().evidenceHash() == guiSession.journal().evidenceHash());
     };
 
     submitBoth(buySlot(0));

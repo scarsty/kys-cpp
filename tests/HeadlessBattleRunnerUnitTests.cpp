@@ -32,7 +32,7 @@ TEST_CASE("shared runtime emits one exact timeout event", "[battle][headless][de
     REQUIRE(result.digestEvents.size() == 1);
     CHECK(result.digestEvents.front().type == BattleGameplayEventType::BattleEnded);
     CHECK(result.digestEvents.front().frame == 1);
-    CHECK(chessSha256Hex(result.digest) == "f33b93309040c774cb9fdd11273c109f7452827b2626a0c09ee0ee2e2de2720a");
+    CHECK(chessSha256Hex(result.digest) == "2707c7d01c8df2674649188b0d5e70221e9e90785ccd3205d7fc587ebdecbf8f");
 }
 
 TEST_CASE("battle summary marks surviving summoned clones separately", "[battle][headless][summary][summon]")

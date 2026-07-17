@@ -9,14 +9,8 @@ enum class ChessReplayMismatch
 {
     None,
     Header,
-    Sequence,
-    Phase,
-    PreState,
     IllegalAction,
-    Event,
-    Rng,
-    PostState,
-    Chain,
+    Evidence,
     Footer,
 };
 

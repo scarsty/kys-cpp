@@ -40,7 +40,7 @@ compact 現況固定保留階段、金幣、等級／經驗、主線進度、商
 
 compact 強制禁棋觀察只保留 `pending_reward` 的識別碼、種類與進度摘要；`option_count` 是目前仍可選的角色池數量，`maximum_selections` 與 `remaining_selections` 才是本次最多可選及尚可選的禁棋數。`selection_optional: true` 與 `decision_requirement` 明示「強制」指必須先解決此獨佔決策階段，可以選擇禁棋，也可以略過；略過不消耗之後仍可使用的禁棋容量。完整候選只由 `legal_actions` 的 `add_ban` 欄位提供，避免同一份大型角色清單重複兩次。其他獎勵仍在 compact 觀察保留選項與效果，因為裝備及內功比較本身就是目前決策所需資訊。若裝備候選超過 12 項，compact 觀察改以 `option_groups` 彙整各階武器／防具並保留 `option_count`，實際完整候選仍由合法操作提供。遠征獎勵的規則本來就是從全部合格裝備中選擇，因此通訊層只分組、不擅自過濾或改變遊戲機制。
 
-summary 或 compact `act` 都不回傳 `pre_state_hash`、`post_state_hash`、`event_hash`、`rng_digest`、`chain_hash` 或 `last_battle_digest`。只保留 `state_hash` 作為不透明的狀態版本記號，用來確認拒絕操作沒有改變棋局或偵測快取過期；`detail: "full"` 才保留全部驗證雜湊。
+summary 或 compact `act` 都不回傳 `evidence_hash` 或 `last_battle_digest`。只保留 `state_hash` 作為不透明的狀態版本記號，用來確認拒絕操作沒有改變棋局或偵測快取過期；`detail: "full"` 另回傳該決策的 128 位元累積 `evidence_hash`。狀態與戰鬥摘要仍使用完整 SHA-256，只有每步重播證據截短為 32 個十六進位字元。
 
 裝備效果依來源分為 `base_stat_effects`、`special_effects`、`counts_as_combos` 與 `character_bonuses`。管理階段棋子的 `current_stats` 包含星級成長、勝場成長及裝備基礎屬性；`current_stats_note` 說明裝備特殊效果與羈絆效果要到戰鬥初始化才會套用。武學以單一項目的 `power_by_star` 列出各星威力。合法操作另有 `candidates_by_field`，例如 `equip` 會分別列出 `equipment_instance_id` 與 `target_chess_instance_id` 候選。未分配裝備排在已裝備項目前面，候選的 `assigned_chess_instance_id` 與 `assigned_to` 會明示目前持有者，自動範例優先選用未分配裝備；若只剩已分配裝備，範例會優先選擇另一名棋子，沒有其他目標時則由 `example_note` 明示該範例不會改變持有者。`equip` 本來就包含轉移已裝備項目的語意，因此不另增功能重複的移動操作。
 
@@ -64,7 +64,7 @@ full 戰報的 `initial_combat_stats` 是全部開戰效果套用後的實際屬
 
 ## 存檔與時間線替換
 
-`save_game`、`load_game`、`inspect_save`、`export_save` 與 `import_save` 是工作階段操作，不是遊戲行動，因此不消耗亂數，也不會加入最終重播。
+`save_game`、`load_game`、`inspect_save`、`export_save` 與 `import_save` 是工作階段操作，不是遊戲行動，因此不消耗亂數，也不會加入最終重播。`export_save` 回傳原生 `checkpoint` 物件，`import_save` 也接受同一物件，不再把存檔 JSON 包成跳脫字串。
 
 載入較早存檔會：
 

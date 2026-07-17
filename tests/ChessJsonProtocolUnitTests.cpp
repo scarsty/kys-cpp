@@ -44,7 +44,7 @@ struct ActionResultView
     ActionObservationView next_observation;
 };
 struct TimelineView { std::uint64_t discarded_active_actions{}; std::uint64_t restored_sequence{}; };
-struct SavePayloadView { std::string payload; };
+struct SaveCheckpointView { ChessSessionCheckpointData checkpoint; };
 struct SessionObservationView
 {
     std::vector<std::string> operations;
@@ -56,7 +56,7 @@ struct LegalActionCardinalityView
     int minimum_selection{};
     int maximum_selection{};
 };
-struct ImportSaveParams { std::string slot; std::string payload; };
+struct ImportSaveParams { std::string slot; ChessSessionCheckpointData checkpoint; };
 struct ImportSaveRequest { glz::raw_json id = "8"; std::string method = "import_save"; ImportSaveParams params; };
 
 ResponseView parseResponse(const std::string& json)
@@ -869,22 +869,14 @@ TEST_CASE("JSON protocol publishes economic previews and keeps verification hash
     REQUIRE(compact.result);
     CHECK(compact.result->str.contains("\"state_hash\""));
     CHECK_FALSE(compact.result->str.contains("\"last_battle_digest\""));
-    CHECK_FALSE(compact.result->str.contains("\"pre_state_hash\""));
-    CHECK_FALSE(compact.result->str.contains("\"post_state_hash\""));
-    CHECK_FALSE(compact.result->str.contains("\"event_hash\""));
-    CHECK_FALSE(compact.result->str.contains("\"rng_digest\""));
-    CHECK_FALSE(compact.result->str.contains("\"chain_hash\""));
+    CHECK_FALSE(compact.result->str.contains("\"evidence_hash\""));
 
     const auto full = parseResponse(protocol.handleLine(
         R"({"id":4,"method":"act","params":{"detail":"full","action":{"type":"set_shop_locked","locked":false}}})"));
     REQUIRE(full.ok);
     REQUIRE(full.result);
     CHECK(full.result->str.contains("\"last_battle_digest\""));
-    CHECK(full.result->str.contains("\"pre_state_hash\""));
-    CHECK(full.result->str.contains("\"post_state_hash\""));
-    CHECK(full.result->str.contains("\"event_hash\""));
-    CHECK(full.result->str.contains("\"rng_digest\""));
-    CHECK(full.result->str.contains("\"chain_hash\""));
+    CHECK(full.result->str.contains("\"evidence_hash\""));
 }
 
 TEST_CASE("JSON protocol previews reward reroll and legendary equipment costs",
@@ -983,8 +975,8 @@ TEST_CASE("JSON protocol act matches direct session execution", "[chess][protoco
     CHECK(actionResult.next_observation.phase == "Management");
     REQUIRE(protocol.session());
     CHECK(protocol.session()->state().shopLocked);
-    CHECK(protocol.session()->observe().stateHash == expected.postStateHash);
-    CHECK(protocol.session()->journal().chainHash() == expected.chainHash);
+    CHECK(protocol.session()->observe().stateHash == direct.observe().stateHash);
+    CHECK(protocol.session()->journal().evidenceHash() == expected.evidenceHash);
 }
 
 TEST_CASE("JSON protocol exports and verifies its active replay", "[chess][protocol][replay]")
@@ -1098,9 +1090,12 @@ TEST_CASE("JSON protocol exports and imports a portable save without activation"
         R"({"id":3,"method":"export_save","params":{"slot":"source"}})"));
     REQUIRE(exported.ok);
     REQUIRE(exported.result);
-    SavePayloadView payload;
+    CHECK(exported.result->str.contains("\"checkpoint\":{"));
+    CHECK_FALSE(exported.result->str.contains("\"payload\""));
+    CHECK_FALSE(exported.result->str.contains("replay_jsonl"));
+    SaveCheckpointView payload;
     REQUIRE_FALSE(glz::read_json(payload, exported.result->str));
-    const auto request = glz::write_json(ImportSaveRequest{{"8"}, "import_save", {"copy", payload.payload}});
+    const auto request = glz::write_json(ImportSaveRequest{{"8"}, "import_save", {"copy", payload.checkpoint}});
     REQUIRE(request);
     CHECK(parseResponse(protocol.handleLine(request.value())).ok);
     CHECK(contentLoads == 1);
@@ -1110,13 +1105,13 @@ TEST_CASE("JSON protocol exports and imports a portable save without activation"
     CHECK(protocol.session()->journal().decisions().empty());
 
     ChessCheckpointError checkpointError;
-    auto incompatible = ChessSessionCheckpoint::parseJson(payload.payload, checkpointError);
+    auto incompatible = ChessSessionCheckpoint::fromData(payload.checkpoint, checkpointError);
     REQUIRE(incompatible);
     incompatible->gameVersion = "另一個遊戲版本";
     const auto incompatibleRequest = glz::write_json(ImportSaveRequest{
         {"10"},
         "import_save",
-        {"incompatible", incompatible->serializeJson()},
+        {"incompatible", incompatible->toData()},
     });
     REQUIRE(incompatibleRequest);
     const auto incompatibleResponse = parseResponse(protocol.handleLine(incompatibleRequest.value()));

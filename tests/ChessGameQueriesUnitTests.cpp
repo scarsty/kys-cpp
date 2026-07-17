@@ -14,7 +14,7 @@ TEST_CASE("management inspection queries are pure",
     REQUIRE(session.submitAndDrain(buySlot(1)).accepted);
     const auto stateBefore = session.state();
     const auto randomBefore = session.random().state();
-    const auto chainBefore = session.journal().chainHash();
+    const auto evidenceBefore = session.journal().evidenceHash();
     const auto decisionCountBefore = session.journal().decisions().size();
     const auto hashBefore = session.observe().stateHash;
     const auto odds = queryChessShopOdds(session.state(), session.content(), session.state().level);
@@ -37,7 +37,7 @@ TEST_CASE("management inspection queries are pure",
 
     CHECK(session.state() == stateBefore);
     CHECK(session.random().state() == randomBefore);
-    CHECK(session.journal().chainHash() == chainBefore);
+    CHECK(session.journal().evidenceHash() == evidenceBefore);
     CHECK(session.journal().decisions().size() == decisionCountBefore);
     CHECK(session.observe().stateHash == hashBefore);
 }

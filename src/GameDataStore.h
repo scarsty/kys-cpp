@@ -1,13 +1,13 @@
 #pragma once
 
-#include <string>
+#include "ChessSessionCheckpoint.h"
 
 namespace KysChess
 {
 
 struct GameDataStore
 {
-    std::string chessSessionCheckpointJson;
+    ChessSessionCheckpointData chessSessionCheckpoint;
 };
 
 }

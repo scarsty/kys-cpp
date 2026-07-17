@@ -2,6 +2,7 @@
 
 #include "ChessDiagnostics.h"
 #include <array>
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -14,7 +15,7 @@ class Node;
 namespace KysChess
 {
 
-enum class Difficulty { Easy, Normal, Hard };
+enum class Difficulty : std::uint8_t { Easy, Normal, Hard };
 
 struct BattlePieceDef
 {

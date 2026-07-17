@@ -30,13 +30,9 @@ static bool needIntro_ = false;
 
 static std::optional<ChessSessionCheckpoint> parseGuiSaveCheckpoint(const GameDataStore& store)
 {
-    if (store.chessSessionCheckpointJson.empty())
-    {
-        return std::nullopt;
-    }
     ChessCheckpointError error;
-    auto checkpoint = ChessSessionCheckpoint::parseJson(
-        store.chessSessionCheckpointJson,
+    auto checkpoint = ChessSessionCheckpoint::fromData(
+        store.chessSessionCheckpoint,
         error);
     if (!checkpoint
         || checkpoint->gameVersion != GameUtil::VERSION()
@@ -170,10 +166,10 @@ bool ChessModHook::canSaveGameData()
 GameDataStore ChessModHook::exportGameData()
 {
     GameDataStore store;
-    store.chessSessionCheckpointJson = ChessSessionCheckpoint::capture(
+    store.chessSessionCheckpoint = ChessSessionCheckpoint::capture(
         applicationChessSession(),
         nextGuiSaveRevision(),
-        "圖形介面存檔").serializeJson();
+        "圖形介面存檔").toData();
     return store;
 }
 
