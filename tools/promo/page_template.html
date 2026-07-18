@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>金群自走棋 · 珍珑棋局 — 玩法指南与宣传页</title>
+<style>
+:root{
+  --bg:#0f0b08; --panel:#1b150e; --panel2:#241c12; --ink:#eadfc8; --muted:#a6957c;
+  --gold:#c9a35f; --gold2:#e6c988; --red:#b03a2a; --red2:#d4573f; --line:#3d2f1d;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Noto Serif SC","Source Han Serif SC","STSong","SimSun",serif;
+  font-size:16px; line-height:1.85;
+}
+h1,h2,h3,.kai{font-family:"Kaiti SC","STKaiti","KaiTi","DFKai-SB",serif}
+a{color:var(--gold2); text-decoration:none}
+a:hover{color:#fff}
+img{display:block; max-width:100%}
+.wrap{max-width:1080px; margin:0 auto; padding:0 20px}
+
+/* ===== 顶栏 ===== */
+nav{
+  position:sticky; top:0; z-index:100;
+  background:rgba(15,11,8,.93); backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);
+}
+nav .wrap{display:flex; align-items:center; gap:18px; height:52px; overflow-x:auto; scrollbar-width:none}
+nav .wrap::-webkit-scrollbar{display:none}
+nav .brand{font-family:"Kaiti SC","STKaiti","KaiTi",serif; font-size:20px; color:var(--gold2); white-space:nowrap}
+nav .links{display:flex; gap:14px; flex:1; white-space:nowrap}
+nav .links a{color:var(--muted); font-size:14px}
+nav .links a:hover{color:var(--gold2)}
+.lang{display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; flex:none}
+.lang button{
+  background:transparent; border:0; color:var(--muted); cursor:pointer;
+  font-family:inherit; font-size:13px; padding:4px 10px;
+}
+.lang button.on{background:var(--red); color:#fff}
+
+/* ===== 头版 ===== */
+.hero{padding:64px 0 30px; text-align:center; position:relative}
+.hero .eyebrow{color:var(--red2); letter-spacing:.35em; font-size:14px; margin-bottom:14px}
+.hero h1{font-size:min(64px,10vw); color:var(--gold2); letter-spacing:.12em; text-shadow:0 4px 24px rgba(176,58,42,.45)}
+.hero .tagline{color:var(--ink); font-size:18px; margin:14px 0 6px}
+.hero .tagline em{color:var(--gold); font-style:normal}
+.hero .sub{color:var(--muted); font-size:14px}
+.badges{display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:22px 0}
+.badges span{
+  border:1px solid var(--line); border-radius:999px; padding:4px 14px;
+  color:var(--gold); font-size:13px; background:rgba(36,28,18,.6);
+}
+.cta{display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin:8px 0 26px}
+.btn{
+  display:inline-block; border-radius:8px; padding:10px 22px; font-size:15px;
+  border:1px solid var(--gold); color:var(--gold2);
+}
+.btn.primary{background:var(--red); border-color:var(--red); color:#fff}
+.btn:hover{filter:brightness(1.2); color:#fff}
+.hero figure, .shot{
+  border:1px solid var(--line); border-radius:12px; overflow:hidden;
+  box-shadow:0 12px 40px rgba(0,0,0,.55); background:#000;
+}
+figcaption{
+  background:var(--panel); color:var(--muted); font-size:13px;
+  padding:8px 12px; text-align:center; border-top:1px solid var(--line);
+}
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin:34px 0 0}
+.stat{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 6px}
+.stat b{display:block; font-size:26px; color:var(--gold2); font-family:"Kaiti SC","STKaiti","KaiTi",serif}
+.stat i{font-style:normal; color:var(--muted); font-size:13px}
+
+/* ===== 章节 ===== */
+section{padding:46px 0 8px}
+.sec-head{display:flex; align-items:baseline; gap:14px; border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:22px}
+.sec-no{background:var(--red); color:#fff; font-family:"Kaiti SC","STKaiti","KaiTi",serif; padding:2px 10px; border-radius:4px; font-size:17px}
+.sec-head h2{font-size:30px; color:var(--gold2); letter-spacing:.08em}
+.sec-head small{color:var(--muted); font-size:14px}
+.lead{font-size:16.5px}
+.lead p+p{margin-top:.8em}
+.hl{color:var(--gold2)}
+.mut{color:var(--muted)}
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:18px}
+.card{background:linear-gradient(160deg,#1e1710,#15100a); border:1px solid var(--line); border-radius:12px; padding:18px 20px}
+.card h3{color:var(--gold2); font-size:20px; margin-bottom:8px}
+.card h3 .tag{font-size:12px; color:var(--red2); border:1px solid var(--red); border-radius:4px; padding:1px 6px; margin-left:8px; vertical-align:2px}
+.card p{font-size:14.5px; color:var(--ink)}
+.card ul{margin:6px 0 0 1.2em; font-size:14.5px}
+.card li{margin:3px 0}
+.steps{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-top:18px}
+.step{background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.step .txt{padding:14px 18px}
+.step h3{color:var(--gold2); font-size:18px; margin-bottom:6px}
+.step h3 b{color:var(--red2); margin-right:6px}
+.step p{font-size:14px; color:var(--ink)}
+.two-col{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start}
+@media(max-width:760px){.two-col{grid-template-columns:1fr}}
+
+/* ===== 表格 ===== */
+table{width:100%; border-collapse:collapse; font-size:13.5px; margin:12px 0}
+th,td{border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top}
+th{background:var(--panel2); color:var(--gold2); white-space:nowrap}
+tr:nth-child(even) td{background:rgba(36,28,18,.35)}
+td small{color:var(--muted)}
+
+/* ===== 图鉴 ===== */
+.novel{margin:26px 0 10px; color:var(--red2); font-size:19px; font-family:"Kaiti SC","STKaiti","KaiTi",serif; border-left:3px solid var(--red); padding-left:10px}
+.gallery{display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:10px; margin-top:12px}
+.piece{background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden; text-align:center; transition:transform .15s}
+.piece:hover{transform:translateY(-4px); border-color:var(--gold)}
+.piece img{width:100%; aspect-ratio:1; object-fit:cover}
+.piece .nm{font-size:14px; padding:4px 2px 0}
+.piece .cost{font-size:12px; color:var(--gold); padding-bottom:5px}
+
+/* ===== 技巧 / 页脚 ===== */
+.tips{columns:2; column-gap:24px; margin-top:14px}
+@media(max-width:760px){.tips{columns:1}}
+.tips li{break-inside:avoid; margin:0 0 10px 1.2em; font-size:14.5px}
+.tips li b{color:var(--gold2)}
+footer{border-top:1px solid var(--line); margin-top:56px; padding:28px 0 46px; color:var(--muted); font-size:13.5px}
+footer p{margin:6px 0}
+#top-btn{
+  position:fixed; right:22px; bottom:22px; width:44px; height:44px; border-radius:50%;
+  background:rgba(27,21,14,.9); border:1px solid var(--gold); color:var(--gold2);
+  cursor:pointer; font-size:18px; display:none; z-index:90;
+}
+</style>
+</head>
+<body>
+<!--SBODY-->
+<nav>
+  <div class="wrap">
+    <span class="brand">金群自走棋</span>
+    <div class="links">
+      <a href="#" data-nav="intro">缘起</a>
+      <a href="#" data-nav="howto">上手</a>
+      <a href="#" data-nav="rules">规则</a>
+      <a href="#" data-nav="combos">羁绊</a>
+      <a href="#" data-nav="equip">装备内功</a>
+      <a href="#" data-nav="difficulty">难度</a>
+      <a href="#" data-nav="expedition">远征</a>
+      <a href="#" data-nav="gallery">图鉴</a>
+      <a href="#" data-nav="tips">锦囊</a>
+    </div>
+    <div class="lang">
+      <button class="lang-btn" data-tw="false">简体</button>
+      <button class="lang-btn" data-tw="true">繁體</button>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">金庸群侠传复刻版 · 自走棋</div>
+    <h1>金群自走棋</h1>
+    <div class="tagline">珍珑棋局，落子江湖 —— <em>近百位金庸群侠，皆为你掌中棋子</em></div>
+    <div class="sub">招募 · 布阵 · 羁绊 · 升星 —— 坐看群侠自动交锋</div>
+    <div class="badges">
+      <span>金庸全作品角色</span><span>全自动即时战斗</span><span>深度羁绊搭配</span>
+      <span>失败零惩罚</span><span>开源免费</span><span>PC · 安卓 · 网页</span>
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="https://tiexuedanxin.net/kys/kyschess.html" target="_blank" rel="noopener">网页版即点即玩</a>
+      <a class="btn" href="https://github.com/scarsty/kys-cpp" target="_blank" rel="noopener">GitHub 开源仓库</a>
+      <a class="btn" href="#" data-nav="footer">QQ群 910723737</a>
+    </div>
+    <figure>
+      %%SHOT:title%%
+      <figcaption>标题画面 —— 金群自走棋 · 珍珑棋局</figcaption>
+    </figure>
+    <div class="stats">%%GEN:STATS%%</div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section data-a="intro">
+  <div class="sec-head"><span class="sec-no">壹</span><h2>缘起 · 这是什么游戏</h2><small>关于本局棋</small></div>
+  <div class="two-col">
+    <div class="lead">
+      <p>《金群自走棋》是开源项目「金庸群侠传复刻版」（kys-cpp）中的自走棋玩法。擂鼓山上，苏星河奉师命守护珍珑棋局——棋盘之上，<span class="hl">江湖群侠化为棋子，各展所长，自行厮杀</span>；而你，才是执子之人。</p>
+      <p>招募棋子、排兵布阵、凑齐羁绊、授予神兵内功，随后坐看群侠自动交锋。从江南七怪到扫地老僧，从华山五绝到天龙三兄弟，金庸笔下的英雄尽在一盘棋中。</p>
+      <p>纯单机、无内购、<span class="hl">失败零惩罚</span>，输了随时卷土重来。本页随 PC 版一同分发；若想立即体验，网页版打开即玩（推荐 Edge / Firefox / Chrome / Opera 浏览器），安卓与 Windows 亦有对应版本。</p>
+    </div>
+    <figure class="shot">
+      %%SHOT:intro%%
+      <figcaption>开场 · 苏星河擂鼓山相迎，引出珍珑棋局</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section data-a="howto">
+  <div class="sec-head"><span class="sec-no">贰</span><h2>三分钟上手</h2><small>每回合：招募 → 布阵 → 观战 → 提升</small></div>
+  <p class="lead">每一回合，你先在商店补强阵容，随后棋子们自动出战。<span class="hl">你只管运筹，厮杀交给群侠。</span></p>
+  <div class="steps">
+    <div class="step">
+      %%SHOT:shop%%
+      <div class="txt"><h3><b>1</b>招募棋子</h3>
+      <p>商店每回合随机摆出 %%Y:nb:商店数量%% 枚棋子（简单难度 %%Y:eb:商店数量%% 枚），1~5 费标价，越高费越强也越难遇见。不满意可花 %%Y:nb:经济.刷新费用%% 金刷新；看中了却买不起，可<b>锁定商店</b>留到下一回合。</p></div>
+    </div>
+    <div class="step">
+      %%SHOT:piece%%
+      <div class="txt"><h3><b>2</b>查看详情</h3>
+      <p>点开棋子可查看生命 / 攻击 / 防御 / 轻功四围、所学武学、拳掌御剑耍刀特殊各项熟练度，以及所属羁绊与羁绊效果，货比三家再出手。</p></div>
+    </div>
+    <div class="step">
+      %%SHOT:lineup%%
+      <div class="txt"><h3><b>3</b>选择出战</h3>
+      <p>出战人数上限随等级提升（最低 %%Y:nb:最低出战人数%% 人），暂未上阵的棋子存入背包（上限 %%Y:nb:背包上限%% 枚），留作合成升星或调整阵容之用。</p></div>
+    </div>
+    <div class="step">
+      %%SHOT:prebattle%%
+      <div class="txt"><h3><b>4</b>排兵布阵</h3>
+      <p>开战前可见双方阵容总览。点击两枚己方棋子即可互换位置，右键确认布阵。肉盾顶前、输出居后，站位往往决定胜负。</p></div>
+    </div>
+    <div class="step">
+      %%SHOT:battle%%
+      <div class="txt"><h3><b>5</b>自动战斗</h3>
+      <p>战斗全自动进行，可切倍速、换视角。棋子内力攒满即放<b>绝招</b>：自选最强武功、伤害翻倍，还追加追踪弹射。</p></div>
+    </div>
+    <div class="step">
+      %%SHOT:victory%%
+      <div class="txt"><h3><b>6</b>结算复盘</h3>
+      <p>胜利得金币与经验。战后详列输出 / 承伤 / 击杀 / 技能占比，更有<b>逐帧战斗日志</b>可供复盘，找出阵容短板。</p></div>
+    </div>
+  </div>
+</section>
+
+<section data-a="rules">
+  <div class="sec-head"><span class="sec-no">叁</span><h2>核心规则详解</h2><small>比游戏内「游戏说明」更展开一些；完整数值仍以游戏内为准</small></div>
+  <div class="cards">
+    <div class="card">
+      <h3>棋子与升星</h3>
+      <ul>
+        <li>棋子分一至五费，售价即费用（1费1金 …… 5费5金），越高费越难刷出。</li>
+        <li>三枚相同一星合成二星，三枚二星再合三星；每颗额外星大幅提升属性，另有固定加成，升星后脱胎换骨。</li>
+        <li>出售按 <span class="hl">费用 × 3<sup>星级-1</sup></span> 全额返还，换阵不亏。</li>
+        <li>存活棋子每胜一场还会成长：生命 +%%Y:nb:棋子成长.每胜生命%%、攻击 +%%Y:nb:棋子成长.每胜攻击%%、防御 +%%Y:nb:棋子成长.每胜防御%%。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>经济与等级</h3>
+      <ul>
+        <li>初始 %%Y:nb:经济.初始金币%% 金；刷新商店 %%Y:nb:经济.刷新费用%% 金；购买经验 %%Y:nb:经济.购买经验费用%% 金换 %%Y:nb:经济.购买经验数量%% 点。</li>
+        <li>存款按 %%Y:nb:经济.利息百分比%%% 生息，每回合上限 %%Y:nb:经济.利息上限%% 金——攒钱也是战斗力。</li>
+        <li>普通胜利 +%%Y:nb:经济.战斗经验%% 经验，强敌（Boss）胜利 +%%Y:nb:经济.Boss战斗经验%% 经验与额外金币。</li>
+        <li>最高 %%Y:nb:最高等级%% 级；等级 = 出战人数上限，也决定商店品质——高费棋子要先升级才刷得到。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>武功与战斗</h3>
+      <ul>
+        <li>武功分<b>拳掌 / 剑法 / 刀法 / 奇门</b>四类，棋子对应熟练度越高，该类武功冷却越短。</li>
+        <li>攻击范围分<b>点（单体）/ 线（直线穿透）/ 十字 / 面（全范围）</b>，自动映射轻击、远程、重击等操作。</li>
+        <li>轻击带连击：第 3 次命中强化为 2 倍伤害；重击扇形弹射；远程直线穿透。</li>
+        <li>内力满触发<b>绝招</b>：选最强武功、伤害 ×2、追加 ±30° 追踪弹射，随后内力清零。</li>
+        <li>僵直使棋子完全无法行动；部分羁绊提供僵直抗性甚至免控。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>失败零惩罚 · 逆天改命</h3>
+      <ul>
+        <li>战斗失败<b>不扣金币、不扣生命、不掉棋子</b>，直接回到整备阶段。</li>
+        <li>可以换阵容、练级、买装备后再战，直到打过去为止。</li>
+        <li>也可以花 %%Y:nb:经济.逆天改命费用%% 金<b>逆天改命</b>，重抽下一场的敌方随机种子与阵容。</li>
+        <li>通关条件：赢下全部主线关卡即「恭喜通关」，之后仍可继续远征挑战。</li>
+      </ul>
+      <p class="mut" style="margin-top:8px">第 %%Y:nb:无羁绊关卡%% 关敌人无羁绊，开局可放心稳扎稳打。</p>
+    </div>
+  </div>
+  <div class="two-col" style="margin-top:16px">
+    <figure class="shot">
+      %%SHOT:help%%
+      <figcaption>游戏内置「珍珑棋局 · 游戏说明」——受界面篇幅所限只有骨架，本页为其展开详解</figcaption>
+    </figure>
+    <figure class="shot">
+      %%SHOT:log%%
+      <figcaption>逐帧战斗日志：每一次施放、命中、抵消都有据可查</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section data-a="combos">
+  <div class="sec-head"><span class="sec-no">肆</span><h2>羁绊系统</h2><small>同门同路，其利断金</small></div>
+  <div class="lead">
+    <p>同羁绊的棋子同时上阵，凑齐人数即激活羁绊效果；多档阈值逐级升级，全员受益。其中门道有三：</p>
+    <ul style="margin:8px 0 0 1.2em">
+      <li><b>星级羁绊</b>：成员每多一颗星即多计一人——如江南七怪，一枚三星棋子按三人计。</li>
+      <li><b>反向羁绊</b>：「独行」只取上阵成员中费用最高者，独得全部效果，一人即是绝世独立。</li>
+      <li><b>装备计作</b>：部分装备让佩戴者「计作」某羁绊成员，缺一角也能成阵。</li>
+    </ul>
+  </div>
+  <div class="cards">
+    <div class="card"><h3>五绝</h3><p>东邪西毒南帝北丐中神通齐上阵：攻击、防御、速度全面提升，四绝更得僵直护盾。华山论剑，名不虚传。</p></div>
+    <div class="card"><h3>天龙三兄弟</h3><p>乔峰、段誉、虚竹三人聚首：全队生命大涨、命中回蓝。兄弟同心，其利断金。</p></div>
+    <div class="card"><h3>神雕侠侣</h3><p>杨过、小龙女双剑合璧：友方低血时触发玉女素心，攻击暴增反败为胜。</p></div>
+    <div class="card"><h3>丐帮</h3><p>天下第一大帮最会过日子：上阵即每场额外产出金币，越打越富。</p></div>
+    <div class="card"><h3>智将</h3><p>运筹帷幄：每回合免费刷新商店，高阶更可自选战场，全队属性提升。赵敏、黄蓉皆在其列。</p></div>
+    <div class="card"><h3>红颜</h3><p>全女性阵容：治疗光环持续回血，受治疗加速，还能延长敌方攻击冷却。</p></div>
+    <div class="card"><h3>独行<span class="tag">反向羁绊</span></h3><p>只遣一名绝世高手上阵，独得攻击、速度、防御加成；若战至最后存活，再添攻击与格挡。</p></div>
+    <div class="card"><h3>江湖龙套</h3><p>杂鱼的逆袭：成员阵亡时殉爆伤敌，人越多炸得越狠。龙套也有春天。</p></div>
+  </div>
+  <figure class="shot" style="margin-top:16px">
+    %%SHOT:combos%%
+    <figcaption>游戏内「羁绊一览」：左侧为全部羁绊与当前激活进度，右侧为成员与阈值详情</figcaption>
+  </figure>
+  <p class="mut" style="margin-top:10px">以上仅为热门羁绊举例。全部 %%C:combos%% 种羁绊的成员、档位与具体效果，以游戏内「棋局总览 → 羁绊一览」为准。</p>
+</section>
+
+<section data-a="equip">
+  <div class="sec-head"><span class="sec-no">伍</span><h2>装备与内功</h2><small>神兵利器，绝世心法</small></div>
+  <div class="cards">
+    <div class="card">
+      <h3>装备怎么来</h3>
+      <ul>
+        <li>主线第 3 / 6 / 9 / 12 / 15 / 18 / 21 关后各触发一次装备奖励：四件候选挑一件，可花 4 金刷新候选，层级随进度提高。</li>
+        <li>远征挑战的通关奖励中也包含装备。</li>
+        <li>第 %%Y:nb:神兵商店.通关后%% 关（困难 %%Y:hb:神兵商店.通关后%% 关）后开放<b>神兵商店</b>，只售四阶传说装备，每件 %%Y:nb:神兵商店.价格%% 金（困难 %%Y:hb:神兵商店.价格%% 金）。</li>
+      </ul>
+      <p class="mut" style="margin-top:8px">全部 %%C:equip%% 件装备的效果与专属加成，以游戏内「装备管理」为准。</p>
+    </div>
+    <div class="card">
+      <h3>装备怎么用</h3>
+      <ul>
+        <li>每枚棋子可佩戴武器、防具各一件，装新换旧自动替换。</li>
+        <li>许多装备对特定角色有<b>专属加成</b>：如灭绝师太持倚天剑暴击拉满，黄蓉、洪七公、乔峰持打狗棒攻击远程化。</li>
+        <li>部分装备<b>计作羁绊</b>：七星剑计作全真教、真武剑计作真武七截阵、佛心甲计作少林寺……凑阵神器。</li>
+        <li>棋子升星合成时装备自动继承；出售棋子时装备自动卸下，不浪费。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>内功心法</h3>
+    <p>每击败一位强敌（每 %%Y:nb:进度.Boss间隔%% 关一位），即可从随机 %%Y:ng:选择数量%% 本内功中挑选一本，花 %%Y:ng:刷新费用%% 金可重抽候选；强敌越靠后，可选层级越高。内功一经习得，<span class="hl">全队生效</span>，是后期阵容强度的关键。</p>
+    <p class="mut" style="margin-top:8px">共 %%C:neigong%% 种内功、分四个层级，具体效果以游戏内「棋局总览 → 查看内功」为准。</p>
+  </div>
+</section>
+
+<section data-a="difficulty">
+  <div class="sec-head"><span class="sec-no">陆</span><h2>三种棋局难度</h2><small>总有一款适合你</small></div>
+  <div class="cards">
+    <div class="card">
+      <h3>简单<span class="tag">新手推荐</span></h3>
+      <ul>
+        <li>入门模式，棋池固定 %%C:pool_easy%% 人，适合刚上手的新手。</li>
+        <li>商店每回合 %%Y:eb:商店数量%% 格；初始 %%Y:eb:经济.初始金币%% 金。</li>
+        <li>共 %%Y:eb:进度.总关卡数%% 关；神兵商店每件 %%Y:eb:神兵商店.价格%% 金。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>标准<span class="tag">完整体验</span></h3>
+      <ul>
+        <li>完整 %%C:pool%% 人棋池，需要进行棋子禁用来控制棋池。</li>
+        <li>商店每回合 %%Y:nb:商店数量%% 格；初始 %%Y:nb:经济.初始金币%% 金。</li>
+        <li>共 %%Y:nb:进度.总关卡数%% 关；神兵商店每件 %%Y:nb:神兵商店.价格%% 金。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>困难<span class="tag">高手挑战</span></h3>
+      <ul>
+        <li>挑战模式：共 %%Y:hb:进度.总关卡数%% 关，总战数更长，金币收益略少。</li>
+        <li>初始仅 %%Y:hb:经济.初始金币%% 金；敌人更早携带装备，后期双装备。</li>
+        <li>神兵商店第 %%Y:hb:神兵商店.通关后%% 关后开放，每件 %%Y:hb:神兵商店.价格%% 金。</li>
+        <li>限定解锁<b>离线对战</b>。</li>
+      </ul>
+    </div>
+  </div>
+  <div class="two-col" style="margin-top:16px">
+    <figure class="shot">
+      %%SHOT:difficulty%%
+      <figcaption>开局选择难度，上下切换可查看说明</figcaption>
+    </figure>
+    <div class="card">
+      <h3>禁棋系统（标准 / 困难）</h3>
+      <ul>
+        <li>把<b>已见过</b>的棋子永久移出本局棋池，净化刷新池，想要的更容易来。</li>
+        <li>开局 %%Y:nb:基础禁棋数%% 个禁位，每升 1 级再增 %%Y:nb:每级增加禁棋数%% 个；后续关卡还会追加禁棋位（先限低费，后限高费）。</li>
+        <li>困难难度限定<b>离线对战</b>：导出自己的存档阵容、导入朋友的存档，即可异步 PVP 一较高下（存档带校验）。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-a="expedition">
+  <div class="sec-head"><span class="sec-no">柒</span><h2>远征挑战</h2><small>不占主线回合的额外试炼</small></div>
+  <p class="lead">共 %%C:challenge%% 关额外挑战，随时可打、<span class="hl">失败无惩罚</span>；每关奖励只能领一次，通关奖励<b>三选一</b>（金币 / 棋子 / 升星 / 内功 / 装备）。从单挑三星乔峰的「聚贤庄内」，到全员三星神装的「九阳宗师」，难度层层加码。每关的敌方阵容与奖励，以游戏内「远征挑战」界面为准。</p>
+  <div class="two-col" style="margin-top:16px">
+    <figure class="shot">
+      %%SHOT:challenge%%
+      <figcaption>远征挑战界面：敌方阵容与通关奖励一目了然</figcaption>
+    </figure>
+    <div class="card">
+      <h3>挑战小贴士</h3>
+      <ul>
+        <li>挑战前记得先选好出战阵容。</li>
+        <li>前期优先打「聚贤庄内」「慕容世家」，奖励的升星与棋子能快速成型。</li>
+        <li>后期关卡全员三星还带神装，是检验阵容的试金石。</li>
+        <li>奖励关卡各有侧重，缺什么补什么。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section data-a="gallery">
+  <div class="sec-head"><span class="sec-no">捌</span><h2>群侠图鉴</h2><small>%%C:pool%% 名角色，尽出自金庸笔下</small></div>
+  <p class="lead">标准棋池共 %%C:pool%% 名角色，分一至五费；五费宗师仅 6 名——王重阳、扫地老僧、无崖子、东方不败、黄裳、张三丰。完整名单与费用以游戏内「棋局总览 → 棋子一览」为准。</p>
+
+  <div class="novel">射雕英雄传</div>
+  <div class="gallery">
+    <div class="piece">%%HEAD:55%%<div class="nm">郭靖</div><div class="cost">3费</div></div>
+    <div class="piece">%%HEAD:56%%<div class="nm">黄蓉</div><div class="cost">2费</div></div>
+    <div class="piece">%%HEAD:57%%<div class="nm">黄药师</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:69%%<div class="nm">洪七公</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:60%%<div class="nm">欧阳锋</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:64%%<div class="nm">周伯通</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:129%%<div class="nm">王重阳</div><div class="cost">5费</div></div>
+  </div>
+  <div class="novel">神雕侠侣</div>
+  <div class="gallery">
+    <div class="piece">%%HEAD:58%%<div class="nm">杨过</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:59%%<div class="nm">小龙女</div><div class="cost">3费</div></div>
+    <div class="piece">%%HEAD:161%%<div class="nm">李莫愁</div><div class="cost">1费</div></div>
+    <div class="piece">%%HEAD:62%%<div class="nm">金轮法王</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:603%%<div class="nm">郭襄</div><div class="cost">4费</div></div>
+  </div>
+  <div class="novel">倚天屠龙记</div>
+  <div class="gallery">
+    <div class="piece">%%HEAD:9%%<div class="nm">张无忌</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:605%%<div class="nm">赵敏</div><div class="cost">1费</div></div>
+    <div class="piece">%%HEAD:593%%<div class="nm">周芷若</div><div class="cost">3费</div></div>
+    <div class="piece">%%HEAD:13%%<div class="nm">谢逊</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:5%%<div class="nm">张三丰</div><div class="cost">5费</div></div>
+  </div>
+  <div class="novel">天龙八部</div>
+  <div class="gallery">
+    <div class="piece">%%HEAD:50%%<div class="nm">乔峰</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:53%%<div class="nm">段誉</div><div class="cost">3费</div></div>
+    <div class="piece">%%HEAD:49%%<div class="nm">虚竹</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:51%%<div class="nm">慕容复</div><div class="cost">3费</div></div>
+    <div class="piece">%%HEAD:76%%<div class="nm">王语嫣</div><div class="cost">3费</div></div>
+    <div class="piece">%%HEAD:114%%<div class="nm">扫地老僧</div><div class="cost">5费</div></div>
+  </div>
+  <div class="novel">笑傲江湖 · 及其他</div>
+  <div class="gallery">
+    <div class="piece">%%HEAD:35%%<div class="nm">令狐冲</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:27%%<div class="nm">东方不败</div><div class="cost">5费</div></div>
+    <div class="piece">%%HEAD:612%%<div class="nm">韦小宝</div><div class="cost">2费</div></div>
+    <div class="piece">%%HEAD:1%%<div class="nm">胡斐</div><div class="cost">3费</div></div>
+    <div class="piece">%%HEAD:38%%<div class="nm">石破天</div><div class="cost">4费</div></div>
+    <div class="piece">%%HEAD:54%%<div class="nm">袁承志</div><div class="cost">2费</div></div>
+    <div class="piece">%%HEAD:37%%<div class="nm">狄云</div><div class="cost">2费</div></div>
+  </div>
+</section>
+
+<section data-a="tips">
+  <div class="sec-head"><span class="sec-no">玖</span><h2>江湖锦囊</h2><small>老玩家的经验之谈</small></div>
+  <ul class="tips">
+    <li><b>攒钱吃息</b>：存款每回合生息，上限 %%Y:nb:经济.利息上限%% 金。前期稳住本金，中后期钱滚钱。</li>
+    <li><b>锁定商店</b>：遇到想要却买不起的棋子，锁定留到下回合，别硬刷新。</li>
+    <li><b>看中的趁早买</b>：回合结束没买的棋子会进入「拒绝名单」，影响后续刷新概率。</li>
+    <li><b>卖棋不亏</b>：出售全额返还，前期打工棋子放心换。</li>
+    <li><b>连败不慌</b>：失败零惩罚，先把等级和装备补起来再战，或花 %%Y:nb:经济.逆天改命费用%% 金逆天改命换个对手。</li>
+    <li><b>羁绊优先</b>：低费棋子凑出关键羁绊，往往强过散兵游勇的高费棋子。</li>
+    <li><b>智将理财</b>：智将羁绊每回合免费刷新，省下大量刷新费。</li>
+    <li><b>丐帮开源</b>：丐帮羁绊每场额外产金，越早凑齐越赚。</li>
+    <li><b>升级再追梦</b>：五费宗师只在高等级商店出现，想追张三丰、扫地老僧先升级。</li>
+    <li><b>装备给对人</b>：专属装备配专属角色（倚天剑给灭绝、打狗棒给黄蓉），战力翻倍。</li>
+  </ul>
+</section>
+
+</main>
+
+<footer data-a="footer" id="footer">
+  <div class="wrap">
+    <p><b class="kai" style="color:var(--gold2);font-size:17px">金群自走棋</b> —— 金庸群侠传复刻版（kys-cpp）自走棋模式</p>
+    <p>网页版即点即玩：<a href="https://tiexuedanxin.net/kys/kyschess.html" target="_blank" rel="noopener">https://tiexuedanxin.net/kys/kyschess.html</a>（推荐 Edge / Firefox / Chrome / Opera）</p>
+    <p>开源仓库：<a href="https://github.com/scarsty/kys-cpp" target="_blank" rel="noopener">github.com/scarsty/kys-cpp</a> ｜ 玩家交流 QQ群：910723737</p>
+    <p>本页为入门指引，仅梳理玩法梗概；棋子、羁绊、装备、内功等完整名单与数值，请以游戏内各项「一览」界面为准。页面截图与角色头像取自游戏资源。</p>
+    <p>开源免费项目，仅供学习交流。《金庸群侠传》及金庸先生作品角色之权利归原权利人所有。</p>
+  </div>
+</footer>
+
+<button id="top-btn" title="回到顶部">↑</button>
+<!--EBODY-->
+<script>
+(function(){
+  var S=document.getElementById('body-s'), T=document.getElementById('body-t');
+  function visible(){ return S.hidden ? T : S; }
+  function setLang(tw){
+    S.hidden=tw; T.hidden=!tw;
+    document.documentElement.lang = tw ? 'zh-Hant' : 'zh-Hans';
+    try{ localStorage.setItem('jqz-lang', tw?'tw':'s'); }catch(e){}
+    var btns=document.querySelectorAll('.lang-btn');
+    for(var i=0;i<btns.length;i++){ btns[i].classList.toggle('on', (btns[i].dataset.tw==='true')===tw); }
+  }
+  var init=false;
+  try{ init = localStorage.getItem('jqz-lang')==='tw'; }catch(e){}
+  setLang(init);
+  document.addEventListener('click', function(ev){
+    var b=ev.target.closest ? ev.target.closest('.lang-btn') : null;
+    if(b){ setLang(b.dataset.tw==='true'); return; }
+    var a=ev.target.closest ? ev.target.closest('[data-nav]') : null;
+    if(a){
+      ev.preventDefault();
+      var el=visible().querySelector('[data-a="'+a.dataset.nav+'"]');
+      if(el){ el.scrollIntoView({behavior:'smooth'}); }
+    }
+  });
+  var topBtn=document.getElementById('top-btn');
+  window.addEventListener('scroll', function(){ topBtn.style.display = window.scrollY>600 ? 'block':'none'; });
+  topBtn.onclick=function(){ window.scrollTo({top:0,behavior:'smooth'}); };
+})();
+</script>
+</body>
+</html>
