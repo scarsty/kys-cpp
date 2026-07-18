@@ -71,7 +71,7 @@ struct BalanceConfig
     int banBaseCount = 0;
     int banCountPerLevel = 0;
 
-    // Ban unlock: after winning fight N (1-indexed), grant X ban slots for tiers up to Y
+    // Forced ban reward: after winning fight N (1-indexed), offer X immediate bans for tiers up to Y
     struct BanUnlock { int afterFight; int slots; int maxTier; };
     std::vector<BanUnlock> banUnlocks;
 

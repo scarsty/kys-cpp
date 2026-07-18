@@ -2,6 +2,7 @@
 
 #include "BattleSceneHades.h"
 #include "BattleStatsView.h"
+#include "BattleSummaryEquipment.h"
 #include "BattlefieldData.h"
 #include "Button.h"
 #include "Audio.h"
@@ -268,6 +269,8 @@ struct BattlePreviewUnit
 {
     std::string name;
     std::string skillNames;
+    std::string weaponName;
+    std::string armorName;
     int headId{};
     int star{};
     int hp{};
@@ -331,6 +334,8 @@ BattlePreviewPresentation makeBattlePreviewPresentation(
         BattlePreviewUnit unit{
             analyzedUnit.name,
             analyzedUnit.skillNames,
+            analyzedUnit.weaponName,
+            analyzedUnit.armorName,
             analyzedUnit.headId,
             analyzedUnit.star,
             stats.maxHp,
@@ -849,7 +854,8 @@ int runIndexedMenu(
     const std::vector<std::shared_ptr<DrawableOnCall>>& panels = {},
     bool showSearch = false,
     bool showNavigation = true,
-    bool exitable = true)
+    bool exitable = true,
+    std::function<bool()> exitConfirmation = {})
 {
     if (data.labels.empty())
     {
@@ -869,6 +875,7 @@ int runIndexedMenu(
         data.labels,
         std::max(1, perPage),
         std::move(options));
+    menu->setExitConfirmation(std::move(exitConfirmation));
     menu->setInputPosition(anchor.x, anchor.y);
     menu->setShowNavigationButtons(showNavigation && data.labels.size() > static_cast<std::size_t>(perPage));
     menu->setDoubleTapMode(GameUtil::isMobileDevice());
@@ -1452,20 +1459,6 @@ std::shared_ptr<DrawableOnCall> makeRosterPanel(
         {0, 0, 0, 160});
 }
 
-void drawBattlePreviewEquipmentIcon(int itemId, int x, int y)
-{
-    if (itemId < 0)
-    {
-        return;
-    }
-    TextureManager::getInstance()->renderTexture(
-        "item",
-        itemId,
-        x,
-        y,
-        TextureManager::RenderInfo{{255, 255, 255, 255}, 255, 0.16, 0.16});
-}
-
 void drawBattlePreviewComboLines(
     const std::vector<std::string>& lines,
     int x,
@@ -1677,7 +1670,7 @@ void runBattleInformationPanel(
         constexpr int kDefenceX = 270;
         constexpr int kSpeedX = 320;
         constexpr int kEquipmentX = 365;
-        constexpr int kSkillX = 405;
+        constexpr int kSkillX = 475;
         const Color headerColor{180, 180, 180, 255};
         const Color white{255, 255, 255, 255};
 
@@ -1710,8 +1703,8 @@ void runBattleInformationPanel(
             font->draw("攻", kHeaderFontSize, x + kAttackX, headerY, headerColor);
             font->draw("防", kHeaderFontSize, x + kDefenceX, headerY, headerColor);
             font->draw("速", kHeaderFontSize, x + kSpeedX, headerY, headerColor);
-            font->draw("裝", kHeaderFontSize, x + kEquipmentX, headerY, headerColor);
-            font->draw("武學", kHeaderFontSize, x + kSkillX, headerY, headerColor);
+            font->draw("裝備", kHeaderFontSize - 2, x + kEquipmentX, headerY, headerColor);
+            font->draw("武學", kHeaderFontSize - 2, x + kSkillX, headerY, headerColor);
 
             int y = rowsY;
             for (const auto& unit : team)
@@ -1730,9 +1723,29 @@ void runBattleInformationPanel(
                 font->draw(std::to_string(unit.attack), kRowFontSize, x + kAttackX, y, white);
                 font->draw(std::to_string(unit.defence), kRowFontSize, x + kDefenceX, y, white);
                 font->draw(std::to_string(unit.speed), kRowFontSize, x + kSpeedX, y, white);
-                drawBattlePreviewEquipmentIcon(unit.weaponId, x + kEquipmentX, y);
-                drawBattlePreviewEquipmentIcon(unit.armorId, x + kEquipmentX + 18, y);
-                font->draw(unit.skillNames, kRowFontSize - 4, x + kSkillX, y + 2, {180, 180, 180, 255});
+                drawBattleSummaryEquipment(
+                    unit.weaponId,
+                    unit.weaponName,
+                    unit.armorId,
+                    unit.armorName,
+                    x + kEquipmentX,
+                    y - 2);
+                const auto skillSeparator = unit.skillNames.find(' ');
+                font->draw(
+                    unit.skillNames.substr(0, skillSeparator),
+                    kRowFontSize - 6,
+                    x + kSkillX,
+                    y,
+                    {180, 180, 180, 255});
+                if (skillSeparator != std::string::npos)
+                {
+                    font->draw(
+                        unit.skillNames.substr(skillSeparator + 1),
+                        kRowFontSize - 6,
+                        x + kSkillX,
+                        y + 20,
+                        {180, 180, 180, 255});
+                }
                 y += kRowHeight;
             }
         };
@@ -2993,6 +3006,21 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
             ChessManagementRules::maximumBanCount(session_.state(), session_.content()),
             std::max(0, ChessManagementRules::maximumBanCount(session_.state(), session_.content())
                 - static_cast<int>(session_.state().bannedRoleIds.size())));
+    std::function<bool()> exitConfirmation;
+    if (forced)
+    {
+        const int remaining = session_.state().pendingRewards.front().parameter;
+        exitConfirmation = [remaining, anchor]() {
+            auto prompt = std::make_shared<MenuText>(std::vector<std::string>{
+                std::format("確認放棄剩餘{}次（不會保留）", remaining),
+                "繼續選擇",
+            });
+            prompt->setFontSize(32);
+            prompt->arrange(0, 0, 0, 42);
+            prompt->setIsDark(1);
+            return prompt->runAtPosition(anchor.x, anchor.y) == 0;
+        };
+    }
     const int choice = runIndexedMenu(
         title,
         data,
@@ -3000,7 +3028,10 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
         12,
         anchor,
         {makeRoleDetailPanel(session_, roleIds, {}, {}, panels.status)},
-        false);
+        false,
+        true,
+        true,
+        std::move(exitConfirmation));
     if (choice < 0)
     {
         return false;

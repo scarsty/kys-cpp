@@ -300,7 +300,83 @@ TEST_CASE("forced bans use configured pool candidates and reject direct override
     ChessRunRandom random(2);
     ChessManagementRules::apply(state, content, random, unseenConfigured, events);
     CHECK(state.bannedRoleIds == std::set<int>{20});
+    CHECK(state.selectedForcedBanCount == 1);
+    CHECK(ChessManagementRules::maximumBanCount(state, content) == 1);
     CHECK(state.phase == ChessSessionPhase::Management);
+}
+
+TEST_CASE("skipped forced bans are forfeited instead of banked", "[chess][reward][ban][config]")
+{
+    ChessGameContentData data;
+    for (const auto [roleId, cost] : std::vector<std::pair<int, int>>{{10, 1}, {20, 2}, {30, 3}})
+    {
+        ChessRoleDefinition role;
+        role.ID = roleId;
+        role.Name = std::format("角色{}", roleId);
+        role.Cost = cost;
+        data.roles.emplace(roleId, role);
+        data.poolRoleIds.push_back(roleId);
+    }
+    ChessGameContent content(std::move(data));
+    ChessRunRandom random(3);
+
+    SECTION("skipping the full reward leaves no capacity")
+    {
+        ChessSessionState state;
+        state.fight = 8;
+        state.seenRoleIds = {30};
+        std::vector<ChessSemanticEvent> events;
+        ChessRewardRules::enqueueForcedBan(state, content, 2, 2, events);
+        CHECK(ChessManagementRules::maximumBanCount(state, content) == 2);
+
+        ChessAction skip;
+        skip.type = ChessActionType::SkipForcedBans;
+        ChessManagementRules::apply(state, content, random, skip, events);
+
+        CHECK(state.phase == ChessSessionPhase::Management);
+        CHECK(state.selectedForcedBanCount == 0);
+        CHECK(ChessManagementRules::maximumBanCount(state, content) == 0);
+        REQUIRE(events.back().type == ChessSemanticEventType::ForcedBansSkipped);
+        CHECK(events.back().value == 2);
+
+        ChessAction delayedBan;
+        delayedBan.type = ChessActionType::AddBan;
+        delayedBan.roleId = 30;
+        CHECK(ChessManagementRules::validate(state, content, delayedBan)
+            == ChessRuleErrorCode::BanLimitReached);
+    }
+
+    SECTION("skipping a partial reward keeps only selected bans")
+    {
+        ChessSessionState state;
+        state.fight = 8;
+        state.seenRoleIds = {30};
+        std::vector<ChessSemanticEvent> events;
+        ChessRewardRules::enqueueForcedBan(state, content, 2, 2, events);
+
+        ChessAction select;
+        select.type = ChessActionType::AddBan;
+        select.roleId = 10;
+        ChessManagementRules::apply(state, content, random, select, events);
+        CHECK(state.selectedForcedBanCount == 1);
+        CHECK(ChessManagementRules::maximumBanCount(state, content) == 2);
+
+        ChessAction skip;
+        skip.type = ChessActionType::SkipForcedBans;
+        ChessManagementRules::apply(state, content, random, skip, events);
+
+        CHECK(state.bannedRoleIds == std::set<int>{10});
+        CHECK(state.selectedForcedBanCount == 1);
+        CHECK(ChessManagementRules::maximumBanCount(state, content) == 1);
+        REQUIRE(events.back().type == ChessSemanticEventType::ForcedBansSkipped);
+        CHECK(events.back().value == 1);
+
+        ChessAction delayedBan;
+        delayedBan.type = ChessActionType::AddBan;
+        delayedBan.roleId = 30;
+        CHECK(ChessManagementRules::validate(state, content, delayedBan)
+            == ChessRuleErrorCode::BanLimitReached);
+    }
 }
 
 TEST_CASE("challenge rewards filter unavailable choices and complete only after a real grant",

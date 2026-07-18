@@ -236,7 +236,7 @@ ChessBanAnalysis queryChessBans(
     }
     result.eligibleBansByCost = groupedRoles(eligible);
     result.effectTiming = "禁棋只影響之後生成或刷新的商店；目前商店既有棋子仍可購買";
-    result.forcedPhaseNote = "強制禁棋只強制先解決獨佔決策階段；可選擇禁棋或略過，略過不消耗禁棋容量";
+    result.forcedPhaseNote = "強制禁棋必須在目前獎勵階段使用；可選擇禁棋或放棄，放棄的次數不會保留";
     return result;
 }
 

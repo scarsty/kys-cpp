@@ -38,6 +38,10 @@ private:
         int kills{};
         int dps{};
         int cancelDmg{};
+        int weaponId = -1;
+        int armorId = -1;
+        std::string weaponName;
+        std::string armorName;
         std::string skill1;
         std::string skill2;
         int skill1Dmg{};

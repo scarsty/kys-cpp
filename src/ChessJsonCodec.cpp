@@ -717,7 +717,7 @@ ObservationDto observationDto(
             pending.current_ban_count = static_cast<int>(observation.bans.size());
             pending.maximum_total_bans = observation.maximumBanCount;
             pending.selection_optional = true;
-            pending.decision_requirement = "此階段強制先完成禁棋決策：可禁用至多剩餘次數，也可直接略過；略過不會消耗仍可於之後使用的禁棋容量";
+            pending.decision_requirement = "此階段強制先完成禁棋決策：可禁用至多剩餘次數，也可直接放棄；放棄的次數不會保留";
         }
         if (observation.pendingReward->kind == ChessRewardKind::Equipment)
         {
@@ -851,7 +851,7 @@ std::string actionDescription(ChessActionType type)
     case ChessActionType::SetDeployment: return "以棋子實例清單完整取代目前出戰陣容；空陣列代表全部下陣";
     case ChessActionType::BuyExp: return "購買經驗值";
     case ChessActionType::AddBan: return "禁用指定角色；只影響之後生成或刷新的商店，目前商店既有棋子仍可購買";
-    case ChessActionType::SkipForcedBans: return "結束目前的獨佔禁棋決策階段而不再立即選擇；不消耗之後仍可使用的禁棋容量";
+    case ChessActionType::SkipForcedBans: return "放棄目前獨佔禁棋決策階段的剩餘次數；放棄後不會保留";
     case ChessActionType::Equip: return "將裝備實例交給指定棋子實例；已分配裝備會從原持有者移動";
     case ChessActionType::BuyLegendaryEquipment: return "購買指定神兵";
     case ChessActionType::SetPositionSwapEnabled: return "設定戰前是否允許交換站位";

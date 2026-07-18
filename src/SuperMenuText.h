@@ -75,6 +75,10 @@ public:
     std::string getInputText() const { return inputBox_ ? inputBox_->getText() : std::string(); }
 
     void setDoubleTapMode(bool v) { doubleTapMode_ = v; }
+    void setExitConfirmation(std::function<bool()> confirmation)
+    {
+        exitConfirmation_ = std::move(confirmation);
+    }
 
     void onEntrance() override;
     void onExit() override;
@@ -110,6 +114,7 @@ private:
     std::vector<int> searchResultIndices_;
     std::vector<std::shared_ptr<DrawableOnCall>> drawableDocs_;
     std::function<bool(const std::string&, const std::string&)> matchFunction_;
+    std::function<bool()> exitConfirmation_;
     bool showNavButtons_ = true;
     bool inputPosSet_ = false;
     int inputX_ = 0, inputY_ = 0;

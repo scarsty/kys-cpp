@@ -284,13 +284,16 @@ bool ChessManagementRules::gainExperience(
 int ChessManagementRules::maximumBanCount(const ChessSessionState& state, const ChessGameContent& content)
 {
     const auto& balance = content.balance();
-    int count = std::max(0, balance.banBaseCount + state.level * balance.banCountPerLevel);
-    for (const auto& unlock : balance.banUnlocks)
+    int count = std::max(
+        0,
+        balance.banBaseCount
+            + state.level * balance.banCountPerLevel
+            + state.selectedForcedBanCount);
+    if (state.phase == ChessSessionPhase::RewardChoice
+        && !state.pendingRewards.empty()
+        && state.pendingRewards.front().kind == ChessRewardKind::ForcedBan)
     {
-        if (state.fight >= unlock.afterFight)
-        {
-            count += unlock.slots;
-        }
+        count += state.pendingRewards.front().parameter;
     }
     return count;
 }
@@ -624,6 +627,7 @@ void ChessManagementRules::apply(
         events.push_back({ChessSemanticEventType::RoleBanned, action.roleId, {}, {}, {}});
         if (forcedBan)
         {
+            ++state.selectedForcedBanCount;
             auto& pending = state.pendingRewards.front();
             --pending.parameter;
             const bool candidateRemaining = std::ranges::any_of(
@@ -638,9 +642,12 @@ void ChessManagementRules::apply(
         }
         return;
     case ChessActionType::SkipForcedBans:
+    {
+        const int forfeitedCount = state.pendingRewards.front().parameter;
         ChessRewardRules::completePendingReward(state, events);
-        events.push_back({ChessSemanticEventType::ForcedBansSkipped});
+        events.push_back({ChessSemanticEventType::ForcedBansSkipped, {}, {}, forfeitedCount});
         return;
+    }
     case ChessActionType::Equip:
     {
         auto& equipment = state.equipmentInventory.at(action.equipmentInstanceId);

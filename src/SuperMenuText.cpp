@@ -415,7 +415,7 @@ void SuperMenuText::onPressedOK()
 
 void SuperMenuText::onPressedCancel()
 {
-    if (extraOpts_.exitable_)
+    if (extraOpts_.exitable_ && (!exitConfirmation_ || exitConfirmation_()))
     {
         exitWithResult(-1);
     }

@@ -1,6 +1,8 @@
 #include "BattleStatsView.h"
 
 #include "BattleLogPresenter.h"
+#include "BattleSummaryEquipment.h"
+#include "ChessCatalogQueries.h"
 #include "ChessGameContent.h"
 #include "Engine.h"
 #include "Font.h"
@@ -50,6 +52,10 @@ void BattleStatsView::setupPostBattle(
         entry.displayName = unit.identity.name;
         entry.team = unit.identity.team;
         entry.cancelDmg = unit.cancelDmg;
+        entry.weaponId = unit.weaponId;
+        entry.armorId = unit.armorId;
+        entry.weaponName = KysChess::chessItemDisplayName(content, unit.weaponId);
+        entry.armorName = KysChess::chessItemDisplayName(content, unit.armorId);
         if (const auto found = report.stats().find(unit.identity.battleId); found != report.stats().end())
         {
             const auto& stats = found->second;
@@ -127,11 +133,12 @@ void BattleStatsView::drawTeamTable(
     constexpr int kRowHeight = 44;
     constexpr int kNameX = 46;
     constexpr int kDamageX = 130;
-    constexpr int kDpsX = 200;
-    constexpr int kTakenX = 250;
-    constexpr int kKillsX = 310;
-    constexpr int kCancelX = 340;
-    constexpr int kSkillX = 400;
+    constexpr int kDpsX = 195;
+    constexpr int kTakenX = 240;
+    constexpr int kKillsX = 300;
+    constexpr int kCancelX = 330;
+    constexpr int kEquipmentX = 380;
+    constexpr int kSkillX = 490;
 
     font->draw(title, 24, x, y, {255, 215, 0, 255});
     y += 30;
@@ -141,6 +148,7 @@ void BattleStatsView::drawTeamTable(
     font->draw("承傷", kFontSize, x + kTakenX, y, gray);
     font->draw("殺", kFontSize, x + kKillsX, y, gray);
     font->draw("抵消", kFontSize, x + kCancelX, y, gray);
+    font->draw("裝備", kFontSize - 2, x + kEquipmentX, y, gray);
     font->draw("技能", kFontSize - 2, x + kSkillX, y, gray);
     y += 26;
 
@@ -168,11 +176,18 @@ void BattleStatsView::drawTeamTable(
         {
             font->draw(std::to_string(entry.cancelDmg), kFontSize, x + kCancelX, y, {200, 200, 255, 255});
         }
+        drawBattleSummaryEquipment(
+            entry.weaponId,
+            entry.weaponName,
+            entry.armorId,
+            entry.armorName,
+            x + kEquipmentX,
+            y - 2);
         if (!entry.skill1.empty())
         {
             font->draw(
                 std::format("{}({})", entry.skill1, entry.skill1Dmg),
-                kFontSize - 4,
+                kFontSize - 6,
                 x + kSkillX,
                 y,
                 gray);
@@ -181,7 +196,7 @@ void BattleStatsView::drawTeamTable(
         {
             font->draw(
                 std::format("{}({})", entry.skill2, entry.skill2Dmg),
-                kFontSize - 4,
+                kFontSize - 6,
                 x + kSkillX,
                 y + 20,
                 gray);

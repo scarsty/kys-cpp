@@ -272,6 +272,7 @@ struct ChessSessionState
     std::set<int> rejectedRoleIds;
     std::set<int> seenRoleIds;
     std::set<int> bannedRoleIds;
+    int selectedForcedBanCount{};
     std::set<std::string> completedChallengeNames;
     std::set<int> obtainedNeigongIds;
     std::optional<PreparedChessBattle> preparedBattle;

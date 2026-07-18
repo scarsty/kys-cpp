@@ -102,6 +102,10 @@ TEST_CASE("all stored state and RNG words participate in direct hashing", "[ches
     ChessRunRandom random(13);
     const auto initial = chessStateHash(state, random);
 
+    state.selectedForcedBanCount = 1;
+    CHECK(chessStateHash(state, random) != initial);
+    state.selectedForcedBanCount = 0;
+
     state.options.battleFrameLimit += 1;
     CHECK(chessStateHash(state, random) != initial);
     state.options.battleFrameLimit -= 1;

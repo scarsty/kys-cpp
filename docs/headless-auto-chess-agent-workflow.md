@@ -38,7 +38,7 @@ compact 現況固定保留階段、金幣、等級／經驗、主線進度、商
 
 管理決策可按需使用：`inspect_shop_slot` 分析單格的價格、持有份數、預期合成、羈絆前後計數及當前費用機率；`inspect_shop` 一次分析全部欄位；`get_shop_odds` 列出指定或目前等級的費用機率與實際可用角色池；`inspect_chess_instance` 列出實際屬性、裝備、升星進度與羈絆貢獻；`inspect_bans` 列出禁棋、剩餘容量、依費用分組的可選角色及生效時機。`inspect_role` 繼續作為角色靜態定義的權威查詢。
 
-compact 強制禁棋觀察只保留 `pending_reward` 的識別碼、種類與進度摘要；`option_count` 是目前仍可選的角色池數量，`maximum_selections` 與 `remaining_selections` 才是本次最多可選及尚可選的禁棋數。`selection_optional: true` 與 `decision_requirement` 明示「強制」指必須先解決此獨佔決策階段，可以選擇禁棋，也可以略過；略過不消耗之後仍可使用的禁棋容量。完整候選只由 `legal_actions` 的 `add_ban` 欄位提供，避免同一份大型角色清單重複兩次。其他獎勵仍在 compact 觀察保留選項與效果，因為裝備及內功比較本身就是目前決策所需資訊。若裝備候選超過 12 項，compact 觀察改以 `option_groups` 彙整各階武器／防具並保留 `option_count`，實際完整候選仍由合法操作提供。遠征獎勵的規則本來就是從全部合格裝備中選擇，因此通訊層只分組、不擅自過濾或改變遊戲機制。
+compact 強制禁棋觀察只保留 `pending_reward` 的識別碼、種類與進度摘要；`option_count` 是目前仍可選的角色池數量，`maximum_selections` 與 `remaining_selections` 才是本次最多可選及尚可選的禁棋數。`selection_optional: true` 與 `decision_requirement` 明示「強制」指必須先解決此獨佔決策階段，可以選擇禁棋，也可以放棄；放棄的剩餘次數不會保留。完整候選只由 `legal_actions` 的 `add_ban` 欄位提供，避免同一份大型角色清單重複兩次。其他獎勵仍在 compact 觀察保留選項與效果，因為裝備及內功比較本身就是目前決策所需資訊。若裝備候選超過 12 項，compact 觀察改以 `option_groups` 彙整各階武器／防具並保留 `option_count`，實際完整候選仍由合法操作提供。遠征獎勵的規則本來就是從全部合格裝備中選擇，因此通訊層只分組、不擅自過濾或改變遊戲機制。
 
 summary 或 compact `act` 都不回傳 `evidence_hash` 或 `last_battle_digest`。只保留 `state_hash` 作為不透明的狀態版本記號，用來確認拒絕操作沒有改變棋局或偵測快取過期；`detail: "full"` 另回傳該決策的 128 位元累積 `evidence_hash`。狀態與戰鬥摘要仍使用完整 SHA-256，只有每步重播證據截短為 32 個十六進位字元。
 
@@ -50,7 +50,7 @@ summary 或 compact `act` 都不回傳 `evidence_hash` 或 `last_battle_digest`�
 
 `chess_merged` 事件會列出角色名稱、被消耗實例、新實例、結果星級、繼承勝場、出戰狀態、轉移裝備及是否繼續觸發連鎖合成。`enemy_plan_rerolled` 會列出花費、前後敵方規劃鍵與實際影響，不再只回傳一個費用數字。
 
-強制禁棋獎勵屬於獨佔決策階段：此時只有 `add_ban` 與 `skip_forced_bans` 合法。商店購買、合成、部署、裝備等管理操作即使內容本身有效，也會以階段錯誤拒絕，並且不改變狀態。觀察另列 `current_ban_count`、`maximum_ban_count` 與 `remaining_ban_capacity`。新禁棋只會排除之後生成或刷新的商店候選，不會刪除目前商店已經出現的棋子，因此該棋子在本次刷新前仍可購買。
+強制禁棋獎勵屬於獨佔決策階段：此時只有 `add_ban` 與 `skip_forced_bans` 合法，`skip_forced_bans` 會永久放棄本次尚未使用的次數。商店購買、合成、部署、裝備等管理操作即使內容本身有效，也會以階段錯誤拒絕，並且不改變狀態。觀察另列 `current_ban_count`、`maximum_ban_count` 與 `remaining_ban_capacity`。新禁棋只會排除之後生成或刷新的商店候選，不會刪除目前商店已經出現的棋子，因此該棋子在本次刷新前仍可購買。
 
 戰報的每個單位另列治療、回內、吸取內力、格擋、閃避、中毒／流血、受擊硬直、眩暈、擊退、封內、冷卻操控、無敵及死亡庇護觸發。`magic_points_drained` 是從目標扣除的內力，`magic_points_restored` 是攻擊者受上限、封內及回復加成影響後實際得到的內力，因此兩者不一定相等。`hitstun_*` 只計一般受擊硬直，`stun_*` 才代表明確眩暈，不再混作同一種控制。`projectile_potential_damage_cancelled` 表示碰撞中被中和的潛在彈道傷害，`projectile_cancellations` 表示碰撞次數；此數值不是實際承傷或輸出，因此可能高於最終傷害。compact 戰報會省略值為零的上述選填指標；full 戰報則保留完整欄位。
 
