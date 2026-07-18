@@ -170,10 +170,9 @@ void VirtualStick::dealEvent(EngineEvent& e)
                 int x2, y2, w2, h2;
                 b->getPosition(x2, y2);
                 b->getSize(w2, h2);
-                bool in_control = x >= x2 - w2 / 2 && x < x2 + w2 * 3 / 2
-                    && y >= y2 - h2 / 2 && y < y2 + h2 * 3 / 2;
                 bool in_button = x >= x2 && x < x2 + w2
                     && y >= y2 && y < y2 + h2;
+                bool in_control = in_button;
                 is_press2 = is_press2 || in_control;
                 finger_in_control = finger_in_control || in_control;
                 if (b != button_left_axis_ && b != button_right_axis_)

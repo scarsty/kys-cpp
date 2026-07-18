@@ -1,5 +1,6 @@
 ﻿#include "Engine.h"
 
+#include "GameUtil.h"
 #include "SDL3_image/SDL_image.h"
 #include "UIRenderer.h"
 #include "strfunc.h"
@@ -1181,7 +1182,7 @@ int16_t Engine::gameControllerGetAxis(int axis)
 
 void Engine::gameControllerRumble(int l, int h, uint32_t time) const
 {
-    if (cur_game_controller_)
+    if (GameUtil::getInstance()->getInt("game", "controller_rumble", 1) != 0 && cur_game_controller_)
     {
         auto s = SDL_RumbleGamepad(cur_game_controller_, l * 65535 / 100, h * 65535 / 100, time);
     }
