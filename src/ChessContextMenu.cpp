@@ -13,6 +13,7 @@ std::vector<ChessContextMenuItem> buildChessContextMenu(bool banEnabled)
         {"出售棋子", ChessContextMenuAction::SellChess},
         {"選擇出戰", ChessContextMenuAction::SelectForBattle},
         {"進入戰鬥", ChessContextMenuAction::EnterBattle},
+        {"離線對戰", ChessContextMenuAction::OpenOfflineBattle},
         {"購買經驗", ChessContextMenuAction::BuyExp},
     };
     if (banEnabled)

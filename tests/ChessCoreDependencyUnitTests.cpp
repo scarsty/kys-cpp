@@ -192,6 +192,7 @@ TEST_CASE("graphical adapters do not call gameplay mutation owners", "[chess][de
     const auto root = std::filesystem::current_path() / "src";
     const std::set<std::string> allowedQueries{
         "ChessManagementRules::experienceForNextLevel",
+        "ChessManagementRules::formationIsValid",
         "ChessManagementRules::maximumBanCount",
         "ChessManagementRules::pieceValue",
     };

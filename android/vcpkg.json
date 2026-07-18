@@ -3,6 +3,7 @@
   "version-string": "0.1.0",
   "dependencies": [
     "glaze",
+    "picosha2",
     {
       "name": "imgui",
       "features": ["sdl3-binding", "sdl3-renderer-binding"]

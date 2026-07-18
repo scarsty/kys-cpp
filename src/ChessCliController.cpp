@@ -158,7 +158,7 @@ std::string ChessCliController::executeInteractive(
     if (verb.empty() || verb == "observe") return renderCurrent(mode);
     if (verb == "help")
     {
-        return "指令：observe、legal、buy N、refresh、lock on|off、sell ID、exp、deploy ID,...、ban ROLE、skip_bans、equip EQUIP CHESS、legendary ITEM、position_swap on|off、reroll_enemy、prepare、map ID、swap UNIT UNIT、start、reward ID、reroll_reward、challenge ID、finish、save SLOT、load SLOT、replay、quit\n";
+        return "指令：observe、legal、buy N、refresh、lock on|off、sell ID、exp、deploy ID,...、formation SLOT,...、ban ROLE、skip_bans、equip EQUIP CHESS、legendary ITEM、position_swap on|off、reroll_enemy、prepare、map ID、swap UNIT UNIT、start、reward ID、reroll_reward、challenge ID、finish、save SLOT、load SLOT、replay、quit\n";
     }
     if (verb == "legal") return submitRequest("legal_actions", "{}");
     if (verb == "replay") return submitRequest("export_replay", "{}");
@@ -210,6 +210,7 @@ std::string ChessCliController::executeInteractive(
     else if (verb == "sell") { action.type = ChessActionType::SellChess; stream >> action.chessInstanceId; }
     else if (verb == "exp") action.type = ChessActionType::BuyExp;
     else if (verb == "deploy") { action.type = ChessActionType::SetDeployment; std::string ids; std::getline(stream, ids); action.chessInstanceIds = parseIdList(ids); }
+    else if (verb == "formation") { action.type = ChessActionType::SetFormation; std::string ids; std::getline(stream, ids); action.chessInstanceIds = parseIdList(ids); }
     else if (verb == "ban") { action.type = ChessActionType::AddBan; stream >> action.roleId; }
     else if (verb == "skip_bans") action.type = ChessActionType::SkipForcedBans;
     else if (verb == "equip") { action.type = ChessActionType::Equip; stream >> action.equipmentInstanceId >> action.targetChessInstanceId; }

@@ -35,7 +35,7 @@ static std::optional<ChessSessionCheckpoint> parseGuiSaveCheckpoint(const GameDa
         store.chessSessionCheckpoint,
         error);
     if (!checkpoint
-        || checkpoint->gameVersion != GameUtil::VERSION()
+        || checkpoint->gameVersion() != GameUtil::VERSION()
         || !isChessGuiSavePhaseContinuable(checkpoint->state.phase))
     {
         return std::nullopt;

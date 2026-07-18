@@ -2,7 +2,9 @@
 
 #include "ChessRunRandom.h"
 
+#include <array>
 #include <cstdint>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,6 +19,12 @@ enum class PreparedChessBattleKind : std::uint8_t
     Standalone,
 };
 
+enum class PreparedChessBattleLayout : std::uint8_t
+{
+    Standard,
+    PvpArena,
+};
+
 struct PreparedChessBattleUnit
 {
     int unitId = -1;
@@ -29,6 +37,7 @@ struct PreparedChessBattleUnit
     int fightsWon{};
     int x{};
     int y{};
+    int formationSlot = -1;
 
     auto operator<=>(const PreparedChessBattleUnit&) const = default;
 };
@@ -36,6 +45,7 @@ struct PreparedChessBattleUnit
 struct PreparedChessBattle
 {
     PreparedChessBattleKind kind = PreparedChessBattleKind::Campaign;
+    PreparedChessBattleLayout layout = PreparedChessBattleLayout::Standard;
     std::string stableBattleId;
     std::vector<PreparedChessBattleUnit> units;
     std::vector<int> mapCandidates;
@@ -43,6 +53,7 @@ struct PreparedChessBattle
     std::vector<std::pair<int, int>> formationSwaps;
     std::uint32_t battleSeed{};
     ChessRunRandomCheckpoint preparationCheckpoint;
+    std::array<std::set<int>, 2> obtainedNeigongIdsByTeam;
 
     auto operator<=>(const PreparedChessBattle&) const = default;
 };

@@ -25,7 +25,6 @@ enum class ChessCheckpointError
 
 struct ChessSessionCheckpointData
 {
-    std::string game_version;
     ChessReplayData replay;
     ChessSessionState state;
     ChessRunRandomState random;
@@ -36,13 +35,14 @@ struct ChessSessionCheckpointData
 
 struct ChessSessionCheckpoint
 {
-    std::string gameVersion;
     ChessReplay replay;
     ChessSessionState state;
     ChessRunRandomState random;
     ChessSha256 snapshotHash{};
     std::uint64_t saveRevision{};
     std::string label;
+
+    const std::string& gameVersion() const { return replay.header.gameVersion; }
 
     static ChessSessionCheckpoint capture(
         const ChessGameSession& session,

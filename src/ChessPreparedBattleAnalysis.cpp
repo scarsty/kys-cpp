@@ -114,7 +114,6 @@ ChessPreparedBattleAnalysis projectPreparedChessBattle(
 ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content,
-    const std::set<int>& obtainedNeigongIds,
     int maximumFrames)
 {
     auto result = projectPreparedChessBattle(prepared, content);
@@ -138,7 +137,6 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     auto input = BattleSetupFactory::build(
         prepared,
         content,
-        obtainedNeigongIds,
         maximumFrames);
     result.allySynergies = activeTeamSynergies(content, input.setup.allyRoster, input.setup);
     result.enemySynergies = activeTeamSynergies(content, input.setup.enemyRoster, input.setup);

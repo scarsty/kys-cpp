@@ -172,6 +172,7 @@ if(BUILD_TESTING)
     "${KYS_ROOT}/tests/ChessBattleGuiHeadlessParityUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessProgressionRulesUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessPreparedBattleAnalysisUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessPvpUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessScriptedRunUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessObservationTextUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessSessionCheckpointUnitTests.cpp"

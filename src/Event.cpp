@@ -80,7 +80,7 @@ KysChess::ChessStandaloneBattleRequest classicHadesRequest(
     {
         assert(role);
         request.roleOverrides[role->ID] = static_cast<const RoleSave&>(*role);
-        request.allies.push_back({role->ID});
+        request.teams[0].pieces.push_back({role->ID});
     }
     for (int index = 0; index < BATTLE_ENEMY_COUNT; ++index)
     {
@@ -90,7 +90,7 @@ KysChess::ChessStandaloneBattleRequest classicHadesRequest(
             continue;
         }
         request.roleOverrides[role->ID] = static_cast<const RoleSave&>(*role);
-        request.enemies.push_back({role->ID});
+        request.teams[1].pieces.push_back({role->ID});
     }
     return request;
 }

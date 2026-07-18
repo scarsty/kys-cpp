@@ -90,7 +90,6 @@ PreparedBattleDto preparedBattleDto(
     const ChessGameContent& content,
     const PreparedChessBattle& battle,
     PreparedBattleDetail detail,
-    const std::set<int>& obtainedNeigongIds,
     int maximumFrames);
 std::optional<PreparedBattleDto> inspectPreparedBattleDto(
     const ChessGameSession& session,

@@ -7,8 +7,14 @@ ChessSha256 chessStateHash(
     const ChessSessionState& state,
     const ChessRunRandom& random)
 {
-    const auto randomState = random.state();
-    return chessBeveSha256("KYS_CHESS_STATE", state, randomState);
+    return chessStateHash(state, random.state());
+}
+
+ChessSha256 chessStateHash(
+    const ChessSessionState& state,
+    const ChessRunRandomState& random)
+{
+    return chessBeveSha256("KYS_CHESS_STATE", state, random);
 }
 
 ChessSha256 chessEventHash(const std::vector<ChessSemanticEvent>& events)

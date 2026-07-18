@@ -69,6 +69,7 @@ ChessSessionState deployedState()
     piece.roleId = 10;
     piece.deployed = true;
     state.roster.emplace(piece.instanceId, piece);
+    state.formationSlots[0] = piece.instanceId;
     state.nextChessInstanceId = 2;
     return state;
 }
@@ -225,6 +226,22 @@ TEST_CASE("battle planning captures the complete pre-draw checkpoint", "[chess][
     CHECK(random.streamState(ChessRngStream::BattleSeed).rawDrawCount > 0);
 }
 
+TEST_CASE("campaign battle planning preserves persistent empty formation slots", "[chess][planner][formation]")
+{
+    const auto content = battleContent();
+    auto state = deployedState();
+    state.formationSlots[0] = -1;
+    state.formationSlots[9] = 1;
+    ChessRunRandom random(123);
+
+    const auto prepared = ChessBattlePlanner::prepareCampaign(state, *content, random);
+
+    REQUIRE(prepared.units.size() == 2);
+    CHECK(prepared.units[0].formationSlot == 9);
+    CHECK(prepared.units[0].x == 29);
+    CHECK(prepared.units[0].y == 20);
+}
+
 TEST_CASE("configured map choice effect controls whether preparation requires a decision", "[chess][planner][map][config]")
 {
     const auto content = Test::configuredMapChoiceContent();
@@ -233,6 +250,7 @@ TEST_CASE("configured map choice effect controls whether preparation requires a 
     {
         ChessSessionState state;
         state.roster.emplace(1, ChessSessionPiece{1, 10, 1, true});
+        state.formationSlots[0] = 1;
         ChessRunRandom random(100);
 
         const auto prepared = ChessBattlePlanner::prepareCampaign(state, *content, random);
@@ -246,6 +264,7 @@ TEST_CASE("configured map choice effect controls whether preparation requires a 
     {
         ChessSessionState state;
         state.roster.emplace(1, ChessSessionPiece{1, 10, 2, true});
+        state.formationSlots[0] = 1;
         ChessRunRandom random(100);
 
         const auto prepared = ChessBattlePlanner::prepareCampaign(state, *content, random);
@@ -262,6 +281,8 @@ TEST_CASE("configured map choice effect controls whether preparation requires a 
         ChessSessionPiece proxy{2, 30, 1, true};
         proxy.weaponInstanceId = 1;
         state.roster.emplace(proxy.instanceId, proxy);
+        state.formationSlots[0] = 1;
+        state.formationSlots[1] = 2;
         state.equipmentInventory.emplace(1, ChessEquipmentInstance{1, 500, proxy.instanceId});
 
         CHECK(chessRosterHasActiveComboEffect(
@@ -408,8 +429,8 @@ TEST_CASE("setup factory applies formation before runtime initialization", "[che
     prepared.formationSwaps.emplace_back(1, 1);
     prepared.formationSwaps.clear();
 
-    const auto first = BattleSetupFactory::build(prepared, *content, {}, 1);
-    const auto second = BattleSetupFactory::build(prepared, *content, {}, 1);
+    const auto first = BattleSetupFactory::build(prepared, *content, 1);
+    const auto second = BattleSetupFactory::build(prepared, *content, 1);
 
     REQUIRE(first.units.size() == second.units.size());
     CHECK(first.units[0].unitId == second.units[0].unitId);
@@ -474,7 +495,7 @@ TEST_CASE("selected curated map owns terrain formation clone cells and moving ru
         {.unitId = 2, .roleId = 160, .team = 1, .star = 1},
     };
 
-    auto input = BattleSetupFactory::build(prepared, *content, {}, 600);
+    auto input = BattleSetupFactory::build(prepared, *content, 600);
     REQUIRE(input.units.size() == 2);
     CHECK(input.units[0].gridX == 32);
     CHECK(input.units[0].gridY == 20);

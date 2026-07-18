@@ -163,6 +163,7 @@
     <ClCompile Include="DrawableOnCall.cpp" />
     <ClCompile Include="DrawNode.cpp" />
     <ClCompile Include="Event.cpp" />
+    <ClCompile Include="ExternalJsonFileTransfer.cpp" />
     <ClCompile Include="ImGuiLayer.cpp" />
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="NewSave.cpp" />
@@ -228,6 +229,8 @@
     <ClInclude Include="ChessReplayJson.h" />
     <ClInclude Include="ChessReplayTypes.h" />
     <ClInclude Include="ChessReplayVerifier.h" />
+    <ClInclude Include="ChessPvp.h" />
+    <ClInclude Include="ExternalJsonFileTransfer.h" />
     <ClInclude Include="GameVersion.h" />
     <ClInclude Include="ChessRuntimeConstants.h" />
     <ClInclude Include="ChessRunRandom.h" />

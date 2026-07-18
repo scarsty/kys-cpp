@@ -31,10 +31,13 @@ inline void enableFastTestBattle(
     data.magics.try_emplace(magic.ID, std::move(magic));
 }
 
-inline std::shared_ptr<const ChessGameContent> managementContent(int initialMoney = 100)
+inline std::shared_ptr<const ChessGameContent> managementContent(
+    int initialMoney = 100,
+    Difficulty difficulty = Difficulty::Normal,
+    std::string gameVersion = "dev")
 {
     ChessGameContentData data;
-    data.difficulty = Difficulty::Normal;
+    data.difficulty = difficulty;
     data.balance.initialMoney = initialMoney;
     data.balance.shopSlotCount = 5;
     data.balance.refreshCost = 2;
@@ -58,7 +61,9 @@ inline std::shared_ptr<const ChessGameContent> managementContent(int initialMone
     enableFastTestBattle(data, role);
     data.roles.emplace(role.ID, role);
     data.poolRoleIds.push_back(role.ID);
-    return std::make_shared<const ChessGameContent>(std::move(data));
+    return std::make_shared<const ChessGameContent>(
+        std::move(data),
+        std::move(gameVersion));
 }
 
 inline std::shared_ptr<const ChessGameContent> actualContent(Difficulty difficulty = Difficulty::Normal)

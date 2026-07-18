@@ -333,7 +333,6 @@ PreparedBattleDto preparedBattleDto(
     const ChessGameContent& content,
     const PreparedChessBattle& battle,
     PreparedBattleDetail detail,
-    const std::set<int>& obtainedNeigongIds,
     int maximumFrames)
 {
     const bool observationCompact = detail == PreparedBattleDetail::ObservationCompact;
@@ -343,7 +342,6 @@ PreparedBattleDto preparedBattleDto(
         ? analyzePreparedChessBattle(
             battle,
             content,
-            obtainedNeigongIds,
             maximumFrames)
         : projectPreparedChessBattle(battle, content);
     PreparedBattleDto prepared;
@@ -435,7 +433,6 @@ std::optional<PreparedBattleDto> inspectPreparedBattleDto(
         session.content(),
         *observation.preparedBattle,
         detail,
-        session.state().obtainedNeigongIds,
         session.state().options.battleFrameLimit);
 }
 
@@ -644,6 +641,7 @@ ObservationDto observationDto(
     {
         dto.roster.push_back(ProtocolDetail::pieceDto(content, observation, piece, full));
     }
+    dto.formation_slots = observation.formationSlots;
     for (const auto& equipment : observation.equipmentInventory)
     {
         dto.equipment_inventory.push_back({
@@ -693,7 +691,6 @@ ObservationDto observationDto(
             content,
             *observation.preparedBattle,
             full ? PreparedBattleDetail::Full : PreparedBattleDetail::ObservationCompact,
-            std::set<int>(observation.obtainedNeigongIds.begin(), observation.obtainedNeigongIds.end()),
             observation.options.battleFrameLimit);
     }
     if (observation.pendingReward)
@@ -838,6 +835,7 @@ std::string ruleErrorId(ChessRuleErrorCode error)
     case ChessRuleErrorCode::CampaignAlreadyComplete: return "campaign_already_complete";
     case ChessRuleErrorCode::CampaignNotComplete: return "campaign_not_complete";
     case ChessRuleErrorCode::NoPreparedBattle: return "no_prepared_battle";
+    case ChessRuleErrorCode::InvalidFormation: return "invalid_formation";
     }
     std::unreachable();
 }
@@ -866,6 +864,7 @@ std::string actionDescription(ChessActionType type)
     case ChessActionType::ChooseReward: return "選擇目前獎勵選項";
     case ChessActionType::StartChallenge: return "依遠征名稱開始挑戰，不使用額外英文 ID";
     case ChessActionType::FinishRun: return "結束已通關的本局";
+    case ChessActionType::SetFormation: return "設定完整十格出戰陣形並保留空位";
     }
     std::unreachable();
 }
@@ -963,6 +962,9 @@ std::string legalActionExampleJson(
             descriptor.candidateIds.begin() + std::min<std::size_t>(
                 descriptor.candidateIds.size(),
                 static_cast<std::size_t>(descriptor.maximumSelection)));
+        break;
+    case ChessActionType::SetFormation:
+        action.chessInstanceIds = session.state().formationSlots;
         break;
     case ChessActionType::AddBan:
         action.roleId = descriptor.candidateIds.front();
@@ -1238,6 +1240,7 @@ LegalActionDto legalActionDto(
         case ChessActionType::BuyShopSlot: return "slot";
         case ChessActionType::SellChess: return "chess_instance_id";
         case ChessActionType::SetDeployment: return "chess_instance_ids";
+        case ChessActionType::SetFormation: return "chess_instance_ids";
         case ChessActionType::AddBan: return "role_id";
         case ChessActionType::Equip: return "equipment_instance_id";
         case ChessActionType::BuyLegendaryEquipment: return "item_id";
@@ -1252,7 +1255,8 @@ LegalActionDto legalActionDto(
     {
         dto.candidates_by_field.push_back({
             primaryField,
-            descriptor.type == ChessActionType::SetDeployment,
+            descriptor.type == ChessActionType::SetDeployment
+                || descriptor.type == ChessActionType::SetFormation,
             primaryCandidates,
         });
     }
@@ -1524,6 +1528,7 @@ std::string semanticEventTypeId(ChessSemanticEventType type)
     case ChessSemanticEventType::FreeShopRefreshGranted: return "free_shop_refresh_granted";
     case ChessSemanticEventType::FreeShopRefreshConsumed: return "free_shop_refresh_consumed";
     case ChessSemanticEventType::ExperienceAwarded: return "experience_awarded";
+    case ChessSemanticEventType::FormationChanged: return "formation_changed";
     }
     std::unreachable();
 }
@@ -1662,6 +1667,7 @@ SummaryActionResultDto summaryActionResultDto(
             dto.changes.roster_changed = true;
             break;
         case ChessSemanticEventType::DeploymentChanged:
+        case ChessSemanticEventType::FormationChanged:
             dto.changes.deployment_changed = true;
             break;
         case ChessSemanticEventType::EquipmentAcquired:
@@ -1941,7 +1947,6 @@ BattleResultDto battleResultDto(
             content,
             prepared,
             PreparedBattleDetail::Full,
-            {},
             kChessBattleFrameLimit);
         dto.effect_activations.emplace();
     }

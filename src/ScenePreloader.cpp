@@ -151,10 +151,9 @@ void preloadSubSceneAssets(int submapId)
     }
 }
 
-void preloadBattleAssets(int battleId)
+void preloadBattlefieldAssets(int battlefieldId)
 {
-    auto* info = BattleMap::getInstance()->getBattleInfo(battleId);
-    if (!info)
+    if (battlefieldId < 0)
     {
         return;
     }
@@ -167,8 +166,8 @@ void preloadBattleAssets(int battleId)
 
     MapSquareInt earth(BATTLEMAP_COORD_COUNT);
     MapSquareInt building(BATTLEMAP_COORD_COUNT);
-    BattleMap::getInstance()->copyLayerData(info->BattleFieldID, 0, &earth);
-    BattleMap::getInstance()->copyLayerData(info->BattleFieldID, 1, &building);
+    BattleMap::getInstance()->copyLayerData(battlefieldId, 0, &earth);
+    BattleMap::getInstance()->copyLayerData(battlefieldId, 1, &building);
 
     std::unordered_set<int> smapIds;
     smapIds.reserve(BATTLEMAP_COORD_COUNT * 2);
@@ -182,7 +181,7 @@ void preloadBattleAssets(int battleId)
 
     if (textureManager->getTextureGroup("battle-earth")->getTextureCount() > 0)
     {
-        preloadTexture("battle-earth", info->BattleFieldID);
+        preloadTexture("battle-earth", battlefieldId);
     }
 }
 

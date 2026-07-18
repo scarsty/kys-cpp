@@ -3,6 +3,7 @@
 #include "BattleSceneHades.h"
 #include "BattleStatsView.h"
 #include "BattlefieldData.h"
+#include "Button.h"
 #include "Audio.h"
 #include "ChessBattleMapCatalog.h"
 #include "ChessCatalogQueries.h"
@@ -15,13 +16,18 @@
 #include "ChessMenuFormatting.h"
 #include "ChessPresentationHelpers.h"
 #include "ChessPreparedBattleAnalysis.h"
+#include "ChessPvp.h"
 #include "ChessScreenLayout.h"
+#include "ChessSessionCheckpoint.h"
+#include "ChessStandaloneBattle.h"
 #include "ChessSystemSettingsMenu.h"
 #include "ChessUiCommon.h"
 #include "DrawableOnCall.h"
 #include "Engine.h"
 #include "Event.h"
+#include "ExternalJsonFileTransfer.h"
 #include "GameUtil.h"
+#include "InputBox.h"
 #include "Menu.h"
 #include "ScenePreloader.h"
 #include "SuperMenuText.h"
@@ -31,12 +37,20 @@
 #include "TextureManager.h"
 #include "UISave.h"
 
+#include <SDL3/SDL.h>
+
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <charconv>
+#include <chrono>
+#include <cctype>
 #include <cmath>
+#include <cstdint>
+#include <ctime>
 #include <format>
 #include <functional>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -300,7 +314,6 @@ BattlePreviewPresentation makeBattlePreviewPresentation(
     const auto analysis = analyzePreparedChessBattle(
         prepared,
         session.content(),
-        session.state().obtainedNeigongIds,
         session.state().options.battleFrameLimit);
     assert(analysis.combatInitialized);
 
@@ -384,9 +397,14 @@ void preloadPreparedBattlePresentation(
         preloadEffect(std::to_underlying(effect));
     }
 
-    ScenePreloader::preloadBattleAssets(preview.mapId);
     const auto map = session.content().battleMaps().find(preview.mapId);
     assert(map != session.content().battleMaps().end());
+    assert(session.state().preparedBattle);
+    const int battlefieldId = session.state().preparedBattle->layout
+            == PreparedChessBattleLayout::PvpArena
+        ? ChessPvpMapLayout::BattlefieldId
+        : map->second.battlefieldId;
+    ScenePreloader::preloadBattlefieldAssets(battlefieldId);
     Audio::getInstance()->preloadBattleAudio(
         map->second.musicId,
         preview.attackSoundIds,
@@ -1752,6 +1770,808 @@ void runBattleInformationPanel(
     box->runAtPosition(0, 0);
 }
 
+class ChessPvpUiButton : public Button
+{
+public:
+    ChessPvpUiButton(std::string text, int width, int height, int fontSize = 22)
+    {
+        resize_with_text_ = false;
+        setText(std::move(text));
+        setFontSize(fontSize);
+        setSize(width, height);
+    }
+
+    void setSelected(bool selected) { selected_ = selected; }
+    void setFillColor(Color color) { fill_ = color; }
+
+    void draw() override
+    {
+        Color fill = fill_;
+        Color outline{150, 160, 165, 230};
+        if (selected_)
+        {
+            fill = {45, 65, 35, 235};
+            outline = {255, 220, 70, 255};
+        }
+        else if (state_ == NodePass)
+        {
+            fill = {35, 45, 55, 235};
+            outline = {220, 220, 190, 255};
+        }
+        else if (state_ == NodePress)
+        {
+            fill = {65, 60, 35, 240};
+            outline = {255, 235, 150, 255};
+        }
+        Engine::getInstance()->fillRoundedRect(fill, x_, y_, w_, h_, 7);
+        Engine::getInstance()->drawRoundedRect(outline, x_, y_, w_, h_, 7);
+        const int textWidth = font_size_ * Font::getTextDrawSize(text_) / 2;
+        Font::getInstance()->draw(
+            text_,
+            font_size_,
+            x_ + std::max(6, (w_ - textWidth) / 2),
+            y_ + (h_ - font_size_) / 2,
+            {245, 240, 225, 255});
+    }
+
+private:
+    Color fill_{15, 20, 24, 220};
+    bool selected_ = false;
+};
+
+const ChessPvpPiece* pvpPiece(const ChessPvpComposition& composition, int instanceId)
+{
+    const auto found = std::ranges::find(
+        composition.pieces,
+        instanceId,
+        &ChessPvpPiece::chessInstanceId);
+    return found == composition.pieces.end() ? nullptr : &*found;
+}
+
+std::string pvpSlotLabel(
+    const ChessPvpComposition& composition,
+    const ChessGameContent& content,
+    int slot)
+{
+    assert(slot >= 0 && slot < static_cast<int>(composition.formationSlots.size()));
+    const int instanceId = composition.formationSlots[slot];
+    if (instanceId < 0)
+    {
+        return std::format("{:02} 空位", slot + 1);
+    }
+    const auto* piece = pvpPiece(composition, instanceId);
+    assert(piece);
+    const auto* role = content.role(piece->roleId);
+    assert(role);
+    return std::format("{:02} {}★{}", slot + 1, role->Name, piece->star);
+}
+
+constexpr int kPvpFormationPanelWidth = 535;
+constexpr int kPvpFormationPanelHeight = 252;
+constexpr int kPvpFormationSlotWidth = 145;
+constexpr int kPvpFormationSlotHeight = 54;
+
+std::array<Point, kChessFormationSlotCount> makeFormationUiOffsets(
+    const std::array<Point, kChessFormationSlotCount>& positions)
+{
+    int minimumX = positions.front().x;
+    int maximumX = positions.front().x;
+    int minimumY = positions.front().y;
+    int maximumY = positions.front().y;
+    for (const auto& position : positions)
+    {
+        minimumX = std::min(minimumX, position.x);
+        maximumX = std::max(maximumX, position.x);
+        minimumY = std::min(minimumY, position.y);
+        maximumY = std::max(maximumY, position.y);
+    }
+
+    assert(minimumX < maximumX && minimumY < maximumY);
+    std::array<Point, kChessFormationSlotCount> result{};
+    for (int slot = 0; slot < kChessFormationSlotCount; ++slot)
+    {
+        result[slot] = {
+            (positions[slot].x - minimumX)
+                * (kPvpFormationPanelWidth - kPvpFormationSlotWidth)
+                / (maximumX - minimumX),
+            (positions[slot].y - minimumY)
+                * (kPvpFormationPanelHeight - kPvpFormationSlotHeight)
+                / (maximumY - minimumY),
+        };
+    }
+    return result;
+}
+
+const std::array<Point, kChessFormationSlotCount>& formationUiOffsets(
+    bool opponentSide)
+{
+    static const auto local = makeFormationUiOffsets(
+        ChessPvpMapLayout::localFormation());
+    static const auto opponent = makeFormationUiOffsets(
+        ChessPvpMapLayout::opponentFormation());
+    return opponentSide ? opponent : local;
+}
+
+void drawPvpFormationFrame(
+    int originX,
+    int originY,
+    bool opponentSide)
+{
+    auto* engine = Engine::getInstance();
+    engine->fillRoundedRect(
+        {10, 14, 18, 210},
+        originX - 8,
+        originY - 8,
+        kPvpFormationPanelWidth + 16,
+        kPvpFormationPanelHeight + 16,
+        8);
+    engine->drawRoundedRect(
+        {80, 90, 95, 220},
+        originX - 8,
+        originY - 8,
+        kPvpFormationPanelWidth + 16,
+        kPvpFormationPanelHeight + 16,
+        8);
+
+    auto* font = Font::getInstance();
+    const Color guideColor{175, 185, 185, 255};
+    font->draw(opponentSide ? "← 前線" : "後方", 18, originX + 38, originY - 31, guideColor);
+    font->draw("中陣", 18, originX + 236, originY - 31, guideColor);
+    font->draw(opponentSide ? "後方" : "前線 →", 18, originX + 420, originY - 31, guideColor);
+}
+
+void drawPvpFormation(
+    const ChessPvpComposition& composition,
+    const ChessGameContent& content,
+    int originX,
+    int originY,
+    bool opponentSide,
+    Color occupiedColor)
+{
+    drawPvpFormationFrame(originX, originY, opponentSide);
+    const auto& offsets = formationUiOffsets(opponentSide);
+    for (int slot = 0; slot < kChessFormationSlotCount; ++slot)
+    {
+        const auto offset = offsets[slot];
+        const bool occupied = composition.formationSlots[slot] >= 0;
+        Color fill = occupied ? occupiedColor : Color{18, 18, 18, 210};
+        fill.a = 210;
+        Engine::getInstance()->fillRoundedRect(
+            fill,
+            originX + offset.x,
+            originY + offset.y,
+            kPvpFormationSlotWidth,
+            kPvpFormationSlotHeight,
+            7);
+        Engine::getInstance()->drawRoundedRect(
+            occupied ? Color{220, 220, 200, 230} : Color{100, 100, 100, 210},
+            originX + offset.x,
+            originY + offset.y,
+            kPvpFormationSlotWidth,
+            kPvpFormationSlotHeight,
+            7);
+        Font::getInstance()->draw(
+            pvpSlotLabel(composition, content, slot),
+            18,
+            originX + offset.x + 7,
+            originY + offset.y + 17,
+            {245, 240, 225, 255});
+    }
+}
+
+std::optional<std::uint32_t> editPvpBattleSeed(std::uint32_t current);
+bool copyPvpBattleSeed(std::uint32_t seed, std::string& error);
+std::optional<std::uint32_t> pastePvpBattleSeed(std::string& error);
+std::uint32_t nextPvpBattleSeed();
+std::string pvpExportFilename();
+
+enum class OfflinePvpAction
+{
+    Export,
+    Import,
+    Start,
+    Back,
+};
+
+std::optional<ChessPvpComposition> importAndVerifyPvpOpponent(
+    std::shared_ptr<const ChessGameContent> content);
+
+void drawOfflineBattlePresentation(
+    const ChessPvpComposition& local,
+    const std::optional<ChessPvpComposition>& opponent,
+    const ChessGameContent& content,
+    std::uint32_t battleSeed)
+{
+    auto* engine = Engine::getInstance();
+    engine->fillColor({0, 0, 0, 245}, 0, 0, engine->getUIWidth(), engine->getUIHeight());
+    auto* font = Font::getInstance();
+    font->draw("離線對戰", 36, 555, 24, {255, 220, 90, 255});
+    font->draw("我的陣形", 24, 240, 68, {120, 220, 255, 255});
+    font->draw("對手陣形", 24, 875, 68, {255, 140, 140, 255});
+    drawPvpFormationFrame(45, 125, false);
+    if (opponent)
+    {
+        drawPvpFormation(*opponent, content, 700, 125, true, {90, 30, 30, 210});
+        font->draw("已驗證", 22, 925, 405, {100, 255, 120, 255});
+    }
+    else
+    {
+        drawPvpFormationFrame(700, 125, true);
+        font->draw("尚未匯入對手存檔", 24, 835, 225, {210, 210, 200, 255});
+    }
+    font->draw("VS", 28, 618, 230, {255, 220, 90, 255});
+    font->draw(
+        std::format("我方出戰 {} 名", local.pieces.size()),
+        20,
+        235,
+        445,
+        local.pieces.empty() ? Color{255, 100, 100, 255} : Color{220, 220, 210, 255});
+    const auto seedText = std::format("戰鬥種子：{}", battleSeed);
+    const int seedTextWidth = 22 * Font::getTextDrawSize(seedText) / 2;
+    font->draw(
+        seedText,
+        22,
+        (engine->getUIWidth() - seedTextWidth) / 2,
+        480,
+        {255, 220, 120, 255});
+}
+
+class ChessOfflineBattleScreenNode : public Menu
+{
+public:
+    ChessOfflineBattleScreenNode(
+        ChessPvpComposition local,
+        std::optional<ChessPvpComposition> opponent,
+        ChessGameSession& session,
+        std::function<ChessActionResult(const ChessAction&)> submitFormation,
+        std::uint32_t battleSeed,
+        std::vector<OfflinePvpAction> actionIds,
+        std::vector<std::string> actionLabels)
+        : local_(std::move(local)),
+          opponent_(std::move(opponent)),
+          session_(session),
+          content_(session.content()),
+          submitFormation_(std::move(submitFormation)),
+          battleSeed_(battleSeed),
+          actions_(std::move(actionIds))
+    {
+        assert(actions_.size() == actionLabels.size());
+        full_window_ = 1;
+        for (int slot = 0; slot < kChessFormationSlotCount; ++slot)
+        {
+            const auto offset = formationUiOffsets(false)[slot];
+            addChild(
+                std::make_shared<ChessPvpUiButton>(
+                    "",
+                    kPvpFormationSlotWidth,
+                    kPvpFormationSlotHeight,
+                    18),
+                45 + offset.x,
+                125 + offset.y);
+        }
+        constexpr int seedActionWidth = 140;
+        constexpr int seedActionGap = 14;
+        const std::array<std::string_view, kSeedActionCount> seedActions{
+            "編輯種子",
+            "複製種子",
+            "貼上種子",
+            "重擲種子",
+        };
+        const int seedActionTotalWidth = kSeedActionCount * seedActionWidth
+            + (kSeedActionCount - 1) * seedActionGap;
+        int seedActionX = (1280 - seedActionTotalWidth) / 2;
+        for (const auto& action : seedActions)
+        {
+            addChild(
+                std::make_shared<ChessPvpUiButton>(
+                    std::string(action),
+                    seedActionWidth,
+                    48,
+                    20),
+                seedActionX,
+                520);
+            seedActionX += seedActionWidth + seedActionGap;
+        }
+
+        const int count = static_cast<int>(actionLabels.size());
+        const int width = std::min(220, (1180 - (count - 1) * 14) / std::max(1, count));
+        const int totalWidth = count * width + (count - 1) * 14;
+        int x = (1280 - totalWidth) / 2;
+        for (const auto& label : actionLabels)
+        {
+            addChild(std::make_shared<ChessPvpUiButton>(label, width, 58, 22), x, 635);
+            x += width + 14;
+        }
+        refreshFormationButtons();
+        forceActiveChild(0);
+    }
+
+    std::uint32_t battleSeed() const { return battleSeed_; }
+    std::optional<OfflinePvpAction> selectedAction() const
+    {
+        if (result_ < 0)
+        {
+            return std::nullopt;
+        }
+        assert(result_ < static_cast<int>(actions_.size()));
+        return actions_[result_];
+    }
+    std::optional<ChessPvpComposition> takeOpponent()
+    {
+        return std::move(opponent_);
+    }
+
+    void draw() override
+    {
+        drawOfflineBattlePresentation(local_, opponent_, content_, battleSeed_);
+        Font::getInstance()->draw(
+            selectedSlot_
+                ? std::format("已選第 {} 格，再選一格交換", *selectedSlot_ + 1)
+                : "點選兩格交換陣位",
+            20,
+            195,
+            405,
+            selectedSlot_
+                ? Color{255, 225, 130, 255}
+                : Color{190, 205, 210, 255});
+        if (!status_.empty())
+        {
+            const int statusWidth = 18 * Font::getTextDrawSize(status_) / 2;
+            Font::getInstance()->draw(
+                status_,
+                18,
+                (Engine::getInstance()->getUIWidth() - statusWidth) / 2,
+                582,
+                {130, 225, 160, 255});
+        }
+    }
+
+    void onPressedOK() override
+    {
+        checkActiveToResult();
+        const int selected = result_;
+        result_ = -1;
+        if (selected < 0)
+        {
+            return;
+        }
+        if (selected < kChessFormationSlotCount)
+        {
+            selectFormationSlot(selected);
+            forceActiveChild(selected);
+            return;
+        }
+
+        const int control = selected - kChessFormationSlotCount;
+        if (control >= kSeedActionCount)
+        {
+            const int actionIndex = control - kSeedActionCount;
+            assert(actionIndex < static_cast<int>(actions_.size()));
+            const auto action = actions_[actionIndex];
+            if (action == OfflinePvpAction::Export)
+            {
+                const auto revision = static_cast<std::uint64_t>(
+                    std::chrono::system_clock::now().time_since_epoch().count());
+                const auto checkpoint = ChessSessionCheckpoint::capture(
+                    session_,
+                    revision,
+                    "離線對戰匯出");
+                const auto transfer = ExternalJsonFileTransfer::exportJson(
+                    "匯出我的離線對戰存檔",
+                    pvpExportFilename(),
+                    checkpoint.serializeJson());
+                if (transfer.status == ExternalJsonTransferStatus::Error)
+                {
+                    showChessMessage(std::format("匯出失敗：{}", transfer.error));
+                }
+                else if (transfer.status == ExternalJsonTransferStatus::Completed)
+                {
+                    status_ = "已匯出離線對戰存檔";
+                }
+                forceActiveChild(selected);
+                return;
+            }
+            if (action == OfflinePvpAction::Import)
+            {
+                if (auto imported = importAndVerifyPvpOpponent(session_.sharedContent()))
+                {
+                    opponent_ = std::move(*imported);
+                    exitWithResult(actionIndex);
+                }
+                else
+                {
+                    forceActiveChild(selected);
+                }
+                return;
+            }
+            exitWithResult(actionIndex);
+            return;
+        }
+
+        switch (control)
+        {
+        case 0:
+            if (const auto edited = editPvpBattleSeed(battleSeed_))
+            {
+                battleSeed_ = *edited;
+                status_ = "已更新戰鬥種子";
+            }
+            break;
+        case 1:
+        {
+            std::string error;
+            if (copyPvpBattleSeed(battleSeed_, error))
+            {
+                status_ = "已複製戰鬥種子";
+            }
+            else
+            {
+                showChessMessage(std::format("無法複製戰鬥種子：{}", error));
+            }
+            break;
+        }
+        case 2:
+        {
+            std::string error;
+            if (const auto pasted = pastePvpBattleSeed(error))
+            {
+                battleSeed_ = *pasted;
+                status_ = "已從剪貼簿貼上戰鬥種子";
+            }
+            else
+            {
+                showChessMessage(error);
+            }
+            break;
+        }
+        case 3:
+        {
+            auto rerolled = nextPvpBattleSeed();
+            while (rerolled == battleSeed_)
+            {
+                rerolled = nextPvpBattleSeed();
+            }
+            battleSeed_ = rerolled;
+            status_ = "已重擲戰鬥種子";
+            break;
+        }
+        default:
+            std::unreachable();
+        }
+        forceActiveChild(selected);
+    }
+
+    void onPressedCancel() override
+    {
+        if (selectedSlot_)
+        {
+            selectedSlot_.reset();
+            refreshFormationButtons();
+            return;
+        }
+        exitWithResult(-1);
+    }
+
+private:
+    static constexpr int kSeedActionCount = 4;
+
+    void selectFormationSlot(int slot)
+    {
+        if (!selectedSlot_)
+        {
+            selectedSlot_ = slot;
+            refreshFormationButtons();
+            return;
+        }
+        if (*selectedSlot_ == slot)
+        {
+            selectedSlot_.reset();
+            refreshFormationButtons();
+            return;
+        }
+
+        auto formation = local_.formationSlots;
+        std::swap(formation[*selectedSlot_], formation[slot]);
+        ChessAction action;
+        action.type = ChessActionType::SetFormation;
+        action.chessInstanceIds = std::move(formation);
+        const auto result = submitFormation_(action);
+        if (result.accepted)
+        {
+            local_ = extractChessPvpComposition(session_);
+            status_ = "陣形已更新";
+        }
+        else
+        {
+            showChessMessage(result.description);
+        }
+        selectedSlot_.reset();
+        refreshFormationButtons();
+    }
+
+    void refreshFormationButtons()
+    {
+        for (int slot = 0; slot < kChessFormationSlotCount; ++slot)
+        {
+            auto button = std::dynamic_pointer_cast<ChessPvpUiButton>(childs_[slot]);
+            assert(button);
+            button->setText(pvpSlotLabel(local_, content_, slot));
+            button->setFillColor(local_.formationSlots[slot] >= 0
+                ? Color{25, 65, 90, 220}
+                : Color{18, 18, 18, 210});
+            button->setSelected(selectedSlot_ && *selectedSlot_ == slot);
+        }
+    }
+
+    ChessPvpComposition local_;
+    std::optional<ChessPvpComposition> opponent_;
+    ChessGameSession& session_;
+    const ChessGameContent& content_;
+    std::function<ChessActionResult(const ChessAction&)> submitFormation_;
+    std::uint32_t battleSeed_{};
+    std::string status_;
+    std::vector<OfflinePvpAction> actions_;
+    std::optional<int> selectedSlot_;
+};
+
+class ChessPvpVerificationNode : public Menu
+{
+public:
+    ChessPvpVerificationNode(
+        std::shared_ptr<const ChessGameContent> content,
+        std::string payload)
+        : verifier_(std::move(content), payload)
+    {
+        dark_ = 1;
+        addChild(
+            std::make_shared<ChessPvpUiButton>("取消驗證", 220, 50, 24),
+            530,
+            635);
+    }
+
+    void draw() override
+    {
+        auto* engine = Engine::getInstance();
+        engine->fillRoundedRect({12, 16, 22, 245}, 320, 12, 640, 54, 10);
+        engine->drawRoundedRect({150, 160, 165, 240}, 320, 12, 640, 54, 10);
+        engine->fillRoundedRect({12, 16, 22, 245}, 250, 500, 780, 195, 12);
+        engine->drawRoundedRect({150, 160, 165, 240}, 250, 500, 780, 195, 12);
+        auto* font = Font::getInstance();
+        font->draw(
+            "離線對戰  >  驗證對手存檔",
+            24,
+            390,
+            27,
+            {175, 195, 205, 255});
+        font->draw("正在驗證對手存檔...", 28, 495, 520, {255, 220, 90, 255});
+        const auto total = verifier_.totalActionCount();
+        const auto completed = verifier_.completedActionCount();
+        const auto current = total == 0 ? 0 : std::min(total, completed + 1);
+        font->draw(
+            std::format("操作 {} / {}", current, total),
+            22,
+            565,
+            558,
+            {225, 225, 215, 255});
+        constexpr int progressWidth = 500;
+        const int completedWidth = total == 0
+            ? 0
+            : static_cast<int>(progressWidth * completed / total);
+        engine->fillRoundedRect({35, 40, 45, 255}, 390, 595, progressWidth, 20, 5);
+        if (completedWidth > 0)
+        {
+            engine->fillRoundedRect(
+                {80, 175, 220, 255},
+                390,
+                595,
+                completedWidth,
+                20,
+                5);
+        }
+        engine->drawRoundedRect({150, 165, 170, 255}, 390, 595, progressWidth, 20, 5);
+    }
+
+    void backRun() override
+    {
+        if (verifier_.finished())
+        {
+            exitWithResult(0);
+            return;
+        }
+        verifier_.step(8, 120);
+        if (verifier_.finished())
+        {
+            exitWithResult(0);
+        }
+    }
+
+    void onPressedOK() override
+    {
+        cancelled_ = true;
+        exitWithResult(-1);
+    }
+
+    void onPressedCancel() override
+    {
+        cancelled_ = true;
+        exitWithResult(-1);
+    }
+
+    bool cancelled() const { return cancelled_; }
+    ChessPvpSaveVerificationResult takeVerificationResult()
+    {
+        assert(!cancelled_ && verifier_.finished());
+        return verifier_.takeResult();
+    }
+
+private:
+    ChessPvpSaveVerifier verifier_;
+    bool cancelled_ = false;
+};
+
+std::optional<ChessPvpComposition> importAndVerifyPvpOpponent(
+    std::shared_ptr<const ChessGameContent> content)
+{
+    auto transfer = ExternalJsonFileTransfer::importJson("匯入對手存檔");
+    if (transfer.status == ExternalJsonTransferStatus::Cancelled)
+    {
+        return std::nullopt;
+    }
+    if (transfer.status == ExternalJsonTransferStatus::Error)
+    {
+        showChessMessage(std::format("匯入失敗：{}", transfer.error));
+        return std::nullopt;
+    }
+
+    auto verification = std::make_shared<ChessPvpVerificationNode>(
+        std::move(content),
+        std::move(transfer.text));
+    verification->run();
+    if (verification->cancelled())
+    {
+        return std::nullopt;
+    }
+
+    auto verified = verification->takeVerificationResult();
+    if (!verified.valid)
+    {
+        showChessMessage(verified.message);
+        return std::nullopt;
+    }
+    return std::move(verified.composition);
+}
+
+std::string pvpExportFilename()
+{
+    const auto now = std::chrono::system_clock::now();
+    const std::time_t value = std::chrono::system_clock::to_time_t(now);
+    std::tm local{};
+#ifdef _WIN32
+    localtime_s(&local, &value);
+#else
+    localtime_r(&value, &local);
+#endif
+    return std::format(
+        "kys-opponent-{:04}-{:02}-{:02}-{:02}-{:02}.json",
+        local.tm_year + 1900,
+        local.tm_mon + 1,
+        local.tm_mday,
+        local.tm_hour,
+        local.tm_min);
+}
+
+std::optional<std::uint32_t> parsePvpBattleSeed(std::string_view text)
+{
+    while (!text.empty()
+        && std::isspace(static_cast<unsigned char>(text.front())))
+    {
+        text.remove_prefix(1);
+    }
+    while (!text.empty()
+        && std::isspace(static_cast<unsigned char>(text.back())))
+    {
+        text.remove_suffix(1);
+    }
+    if (text.empty())
+    {
+        return std::nullopt;
+    }
+
+    std::uint64_t value{};
+    const auto [end, error] = std::from_chars(
+        text.data(),
+        text.data() + text.size(),
+        value);
+    if (error != std::errc{}
+        || end != text.data() + text.size()
+        || value > std::numeric_limits<std::uint32_t>::max())
+    {
+        return std::nullopt;
+    }
+    return static_cast<std::uint32_t>(value);
+}
+
+std::string invalidPvpBattleSeedMessage()
+{
+    return std::format(
+        "戰鬥種子必須是 0 至 {} 的整數",
+        std::numeric_limits<std::uint32_t>::max());
+}
+
+std::optional<std::uint32_t> editPvpBattleSeed(std::uint32_t current)
+{
+    auto input = std::make_shared<InputBox>(
+        std::format("目前種子 {}，請輸入新的戰鬥種子：", current),
+        26);
+    input->setInputPosition(300, 280);
+    input->run();
+    if (input->getResult() < 0)
+    {
+        return std::nullopt;
+    }
+    const auto parsed = parsePvpBattleSeed(input->getText());
+    if (!parsed)
+    {
+        showChessMessage(invalidPvpBattleSeedMessage());
+    }
+    return parsed;
+}
+
+bool copyPvpBattleSeed(std::uint32_t seed, std::string& error)
+{
+    const auto text = std::to_string(seed);
+    if (!SDL_SetClipboardText(text.c_str()))
+    {
+        error = SDL_GetError();
+        return false;
+    }
+    return true;
+}
+
+std::optional<std::uint32_t> pastePvpBattleSeed(std::string& error)
+{
+    char* clipboard = SDL_GetClipboardText();
+    if (!clipboard)
+    {
+        error = SDL_GetError();
+        return std::nullopt;
+    }
+    const std::string text(clipboard);
+    SDL_free(clipboard);
+    const auto parsed = parsePvpBattleSeed(text);
+    if (!parsed)
+    {
+        error = invalidPvpBattleSeedMessage();
+    }
+    return parsed;
+}
+
+std::uint32_t nextPvpBattleSeed()
+{
+    static std::uint32_t previous = static_cast<std::uint32_t>(
+        std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    return ++previous;
+}
+
+void assignStandaloneTeam(
+    ChessStandaloneBattleTeam& target,
+    const ChessPvpComposition& source)
+{
+    target.formationSlots = source.formationSlots;
+    target.obtainedNeigongIds = source.obtainedNeigongIds;
+    for (const auto& piece : source.pieces)
+    {
+        target.pieces.push_back({
+            piece.roleId,
+            piece.star,
+            piece.weaponItemId,
+            piece.armorItemId,
+            piece.chessInstanceId,
+            piece.fightsWon,
+        });
+    }
+}
+
 ChessGuiFlowResult currentChessGuiFlowResult()
 {
     return chessGuiFlowResult(RunNode::runOwnerExitRequested());
@@ -2541,6 +3361,115 @@ void ChessGuiSessionAdapter::showOverviewMenu()
 void ChessGuiSessionAdapter::showSystemMenu()
 {
     runSystemMenu();
+}
+
+void ChessGuiSessionAdapter::showOfflineBattle()
+{
+    if (session_.state().phase != ChessSessionPhase::Management)
+    {
+        showChessMessage("離線對戰只能在整備階段使用");
+        return;
+    }
+    if (session_.content().difficulty() != Difficulty::Hard)
+    {
+        showChessMessage("離線對戰只能使用困難模式進度");
+        return;
+    }
+
+    std::optional<ChessPvpComposition> opponent;
+    std::uint32_t battleSeed = nextPvpBattleSeed();
+    for (;;)
+    {
+        assert(ChessManagementRules::formationIsValid(
+            session_.state(),
+            session_.state().formationSlots));
+        auto local = extractChessPvpComposition(session_);
+        const bool canStart = !local.pieces.empty()
+            && opponent
+            && ChessManagementRules::formationIsValid(
+                session_.state(),
+                local.formationSlots);
+
+        std::vector<OfflinePvpAction> actionIds;
+        std::vector<std::string> labels;
+        const auto addAction = [&](OfflinePvpAction action, std::string label) {
+            actionIds.push_back(action);
+            labels.push_back(std::move(label));
+        };
+        addAction(OfflinePvpAction::Export, "匯出我的存檔");
+        addAction(OfflinePvpAction::Import, opponent ? "匯入/替換對手" : "匯入對手存檔");
+        if (canStart)
+        {
+            addAction(OfflinePvpAction::Start, "對戰");
+        }
+        addAction(OfflinePvpAction::Back, "返回");
+
+        auto screen = std::make_shared<ChessOfflineBattleScreenNode>(
+            local,
+            opponent,
+            session_,
+            [this](const ChessAction& action) {
+                return submitGuiAction(action);
+            },
+            battleSeed,
+            std::move(actionIds),
+            std::move(labels));
+        screen->run();
+        battleSeed = screen->battleSeed();
+        const auto selected = screen->selectedAction();
+        if (!selected || *selected == OfflinePvpAction::Back)
+        {
+            return;
+        }
+
+        switch (*selected)
+        {
+        case OfflinePvpAction::Import:
+            opponent = screen->takeOpponent();
+            break;
+        case OfflinePvpAction::Start:
+        {
+            assert(opponent && canStart);
+            local = extractChessPvpComposition(session_);
+            ChessStandaloneBattleRequest request;
+            request.stableBattleId = "offline_pvp";
+            request.rootSeed = battleSeed;
+            request.battleSeed = battleSeed;
+            request.mapId = ChessPvpMapLayout::BattleId;
+            request.layout = PreparedChessBattleLayout::PvpArena;
+            request.options = session_.state().options;
+            assignStandaloneTeam(request.teams[0], local);
+            assignStandaloneTeam(request.teams[1], *opponent);
+
+            std::string error;
+            auto build = ChessStandaloneBattle::prepare(
+                session_.sharedContent(),
+                request,
+                error);
+            if (!build)
+            {
+                showChessMessage(error);
+                break;
+            }
+            const auto campaignState = session_.state();
+            const auto campaignRandom = session_.random().state();
+            const auto campaignReplaySize = session_.journal().decisions().size();
+            auto battleSession = std::move(*build).createSession();
+            if (ChessGuiSessionAdapter(*battleSession).runPreparedBattle()
+                == ChessGuiFlowResult::Aborted)
+            {
+                return;
+            }
+            assert(session_.state() == campaignState);
+            assert(session_.random().state() == campaignRandom);
+            assert(session_.journal().decisions().size() == campaignReplaySize);
+            break;
+        }
+        case OfflinePvpAction::Export:
+        case OfflinePvpAction::Back:
+            std::unreachable();
+        }
+    }
 }
 
 bool ChessGuiSessionAdapter::runSystemMenu()
@@ -3663,6 +4592,9 @@ void ChessGuiSessionAdapter::showContextMenu()
             {
                 showChessMessage("出戰棋子不足，請先選擇出戰陣容");
             }
+            break;
+        case ChessContextMenuAction::OpenOfflineBattle:
+            showOfflineBattle();
             break;
         case ChessContextMenuAction::BuyExp:
         {

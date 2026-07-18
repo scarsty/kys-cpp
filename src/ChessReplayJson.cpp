@@ -84,7 +84,10 @@ ChessActionData actionData(const ChessAction& action)
     case ChessActionType::BuyShopSlot: dto.slot = action.shopSlot; break;
     case ChessActionType::SetShopLocked: dto.locked = action.value; break;
     case ChessActionType::SellChess: dto.chess_instance_id = action.chessInstanceId; break;
-    case ChessActionType::SetDeployment: dto.chess_instance_ids = action.chessInstanceIds; break;
+    case ChessActionType::SetDeployment:
+    case ChessActionType::SetFormation:
+        dto.chess_instance_ids = action.chessInstanceIds;
+        break;
     case ChessActionType::AddBan: dto.role_id = action.roleId; break;
     case ChessActionType::Equip:
         dto.equipment_instance_id = action.equipmentInstanceId;
@@ -146,6 +149,7 @@ std::optional<ChessAction> actionFromData(const ChessActionData& dto, std::strin
         action.chessInstanceId = *dto.chess_instance_id;
         break;
     case ChessActionType::SetDeployment:
+    case ChessActionType::SetFormation:
         if (!require(dto.chess_instance_ids.has_value(), "chess_instance_ids", "整數陣列")) return std::nullopt;
         action.chessInstanceIds = *dto.chess_instance_ids;
         break;
@@ -261,6 +265,7 @@ std::string chessActionTypeId(ChessActionType type)
     case ChessActionType::ChooseReward: return "choose_reward";
     case ChessActionType::StartChallenge: return "start_challenge";
     case ChessActionType::FinishRun: return "finish_run";
+    case ChessActionType::SetFormation: return "set_formation";
     }
     std::unreachable();
 }
@@ -268,7 +273,7 @@ std::string chessActionTypeId(ChessActionType type)
 std::optional<ChessActionType> chessActionTypeFromId(std::string_view id)
 {
     for (int value = static_cast<int>(ChessActionType::BuyShopSlot);
-         value <= static_cast<int>(ChessActionType::FinishRun);
+         value <= static_cast<int>(ChessActionType::SetFormation);
          ++value)
     {
         const auto type = static_cast<ChessActionType>(value);
@@ -310,6 +315,7 @@ std::string chessActionPayloadSchema(ChessActionType type)
     case ChessActionType::SetShopLocked: return R"({"type":"set_shop_locked","locked":"布林值"})";
     case ChessActionType::SellChess: return R"({"type":"sell_chess","chess_instance_id":"整數"})";
     case ChessActionType::SetDeployment: return R"({"type":"set_deployment","chess_instance_ids":"整數陣列"})";
+    case ChessActionType::SetFormation: return R"({"type":"set_formation","chess_instance_ids":"十個棋子實例 ID 或 -1"})";
     case ChessActionType::AddBan: return R"({"type":"add_ban","role_id":"整數"})";
     case ChessActionType::Equip: return R"({"type":"equip","equipment_instance_id":"整數","target_chess_instance_id":"整數"})";
     case ChessActionType::BuyLegendaryEquipment: return R"({"type":"buy_legendary_equipment","item_id":"整數"})";
@@ -333,6 +339,7 @@ std::string chessActionExampleJson(ChessActionType type)
     case ChessActionType::SetShopLocked: action.value = true; break;
     case ChessActionType::SellChess: action.chessInstanceId = 1; break;
     case ChessActionType::SetDeployment: action.chessInstanceIds = {1, 2}; break;
+    case ChessActionType::SetFormation: action.chessInstanceIds = {1, 2, -1, -1, -1, -1, -1, -1, -1, -1}; break;
     case ChessActionType::AddBan: action.roleId = 610; break;
     case ChessActionType::Equip:
         action.equipmentInstanceId = 1;

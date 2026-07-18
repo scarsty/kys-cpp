@@ -99,8 +99,8 @@ void runConfiguredChessBattle()
     KysChess::ChessStandaloneBattleRequest request;
     request.profile = KysChess::ChessStandaloneBattleProfile::AutoChess;
     request.stableBattleId = "console:test";
-    if (!loadStandaloneTeam(firstNode(config, {"我方"}), "我方", request.allies)
-        || !loadStandaloneTeam(firstNode(config, {"敵方", "敌方"}), "敵方", request.enemies))
+    if (!loadStandaloneTeam(firstNode(config, {"我方"}), "我方", request.teams[0].pieces)
+        || !loadStandaloneTeam(firstNode(config, {"敵方", "敌方"}), "敵方", request.teams[1].pieces))
     {
         return;
     }
@@ -126,7 +126,7 @@ void runConfiguredChessBattle()
     {
         for (const auto& magicId : neigong)
         {
-            request.obtainedNeigongIds.insert(magicId.as<int>());
+            request.teams[0].obtainedNeigongIds.insert(magicId.as<int>());
         }
     }
 

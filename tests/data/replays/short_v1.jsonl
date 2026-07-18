@@ -1,4 +1,4 @@
 {"record":"header","magic":"KYS_CHESS_REPLAY","game_version":"dev","difficulty":"normal","root_seed":"0x0000000000001234","options":{"position_swap_enabled":true,"battle_frame_limit":36000}}
-{"record":"decision","action":{"type":"set_shop_locked","locked":true},"evidence_hash":"df1ddbd757a544e44c7037f99a4bffa6"}
-{"record":"decision","action":{"type":"buy_shop_slot","slot":0},"evidence_hash":"7873f21c715c5738dfe8e69095575a83"}
-{"record":"footer","status":"in_progress","terminal_evidence_hash":"7873f21c715c5738dfe8e69095575a83","final_state_hash":"1594a6dbebe0670347ac75e6a92900c33590636980e4e3fffcec96fc52f47991","result":"in_progress","fight_reached":0}
+{"record":"decision","action":{"type":"set_shop_locked","locked":true},"evidence_hash":"f4aa6a372a659c2910ab3a5766882aa8"}
+{"record":"decision","action":{"type":"buy_shop_slot","slot":0},"evidence_hash":"a1896685c507ccddcb1974754124f887"}
+{"record":"footer","status":"in_progress","terminal_evidence_hash":"a1896685c507ccddcb1974754124f887","final_state_hash":"5310621d1a42c90ac58c551cefe046c3ea2a9a1d4756a1a4ae3d0472c2272f1a","result":"in_progress","fight_reached":0}

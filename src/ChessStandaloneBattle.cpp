@@ -2,6 +2,7 @@
 
 #include "BattleSetupFactory.h"
 #include "ChessBattleMapCatalog.h"
+#include "ChessPvp.h"
 
 #include <algorithm>
 #include <climits>
@@ -90,8 +91,8 @@ std::shared_ptr<const ChessGameContent> contentForRequest(
 bool mapCanFit(
     const ChessGameContent& content,
     int mapId,
-    int allyCount,
-    int enemyCount)
+    int allyRequiredSlots,
+    int enemyRequiredSlots)
 {
     const auto found = content.battleMaps().find(mapId);
     if (found == content.battleMaps().end())
@@ -106,7 +107,7 @@ bool mapCanFit(
         allyCapacity = static_cast<int>(catalog->teammatePositions.size());
         enemyCapacity = std::min(enemyCapacity, catalog->enemyCapacity);
     }
-    return allyCount <= allyCapacity && enemyCount <= enemyCapacity;
+    return allyRequiredSlots <= allyCapacity && enemyRequiredSlots <= enemyCapacity;
 }
 
 bool validatePiece(
@@ -139,22 +140,82 @@ bool validatePiece(
 
 void appendTeam(
     PreparedChessBattle& prepared,
-    const std::vector<ChessStandaloneBattlePiece>& pieces,
+    const ChessStandaloneBattleTeam& source,
     int team)
 {
-    for (const auto& piece : pieces)
+    for (int index = 0; index < static_cast<int>(source.pieces.size()); ++index)
     {
-        prepared.units.push_back({
-            static_cast<int>(prepared.units.size()) + 1,
-            piece.chessInstanceId,
-            piece.roleId,
-            team,
-            piece.star,
-            piece.weaponItemId,
-            piece.armorItemId,
-            piece.fightsWon,
-        });
+        const auto& piece = source.pieces[index];
+        PreparedChessBattleUnit unit;
+        unit.unitId = static_cast<int>(prepared.units.size()) + 1;
+        unit.chessInstanceId = piece.chessInstanceId;
+        unit.roleId = piece.roleId;
+        unit.team = team;
+        unit.star = piece.star;
+        unit.weaponItemId = piece.weaponItemId;
+        unit.armorItemId = piece.armorItemId;
+        unit.fightsWon = piece.fightsWon;
+        if (source.formationSlots.empty())
+        {
+            unit.formationSlot = index;
+        }
+        else
+        {
+            const auto slot = std::ranges::find(source.formationSlots, piece.chessInstanceId);
+            assert(slot != source.formationSlots.end());
+            unit.formationSlot = static_cast<int>(slot - source.formationSlots.begin());
+        }
+        prepared.units.push_back(std::move(unit));
     }
+}
+
+bool validateTeamFormation(
+    const ChessStandaloneBattleTeam& team,
+    std::string_view name,
+    std::string& error)
+{
+    if (team.formationSlots.empty())
+    {
+        if (team.pieces.size() > kChessFormationSlotCount)
+        {
+            error = std::format("{}陣容超過十名棋子", name);
+            return false;
+        }
+        return true;
+    }
+    if (team.formationSlots.size() != kChessFormationSlotCount)
+    {
+        error = std::format("{}陣形必須包含十格", name);
+        return false;
+    }
+    std::set<int> pieceIds;
+    for (const auto& piece : team.pieces)
+    {
+        if (piece.chessInstanceId < 0 || !pieceIds.insert(piece.chessInstanceId).second)
+        {
+            error = std::format("{}陣形需要唯一的棋子實例 ID", name);
+            return false;
+        }
+    }
+    std::set<int> placed;
+    for (const int id : team.formationSlots)
+    {
+        if (id == -1)
+        {
+            continue;
+        }
+        if (id < 0 || !pieceIds.contains(id) || !placed.insert(id).second)
+        {
+            error = std::format("{}陣形包含無效或重複的棋子實例 ID", name);
+            return false;
+        }
+    }
+    if (placed != pieceIds)
+    {
+        error = std::format("{}陣形沒有完整放置所有棋子", name);
+        return false;
+    }
+    return true;
 }
 
 }
@@ -165,7 +226,6 @@ std::unique_ptr<ChessGameSession> ChessStandaloneBattleBuild::createSession() &&
         std::move(content),
         rootSeed,
         std::move(preparedBattle),
-        std::move(obtainedNeigongIds),
         options);
 }
 
@@ -180,7 +240,7 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
         error = "沒有可用的自走棋規則內容";
         return std::nullopt;
     }
-    if (request.allies.empty() || request.enemies.empty())
+    if (request.teams[0].pieces.empty() || request.teams[1].pieces.empty())
     {
         error = "獨立戰鬥的雙方陣容都不可為空";
         return std::nullopt;
@@ -190,36 +250,67 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
     {
         content = std::move(replacement);
     }
-    for (int index = 0; index < static_cast<int>(request.allies.size()); ++index)
+    for (int team = 0; team < 2; ++team)
     {
-        if (!validatePiece(request.allies[index], *content, "我方", index, error))
+        const std::string_view teamName = team == 0 ? "我方" : "敵方";
+        if (!validateTeamFormation(request.teams[team], teamName, error))
         {
             return std::nullopt;
         }
-    }
-    for (int index = 0; index < static_cast<int>(request.enemies.size()); ++index)
-    {
-        if (!validatePiece(request.enemies[index], *content, "敵方", index, error))
+        for (int index = 0; index < static_cast<int>(request.teams[team].pieces.size()); ++index)
         {
-            return std::nullopt;
+            if (!validatePiece(request.teams[team].pieces[index], *content, teamName, index, error))
+            {
+                return std::nullopt;
+            }
         }
     }
 
     ChessRunRandom random(request.rootSeed);
     PreparedChessBattle prepared;
     prepared.kind = PreparedChessBattleKind::Standalone;
+    prepared.layout = request.layout;
     prepared.stableBattleId = request.stableBattleId.empty()
         ? "standalone"
         : request.stableBattleId;
     prepared.preparationCheckpoint = random.checkpointPreparation();
-    appendTeam(prepared, request.allies, 0);
-    appendTeam(prepared, request.enemies, 1);
-
-    const int allyCount = static_cast<int>(request.allies.size());
-    const int enemyCount = static_cast<int>(request.enemies.size());
-    if (request.mapId)
+    appendTeam(prepared, request.teams[0], 0);
+    appendTeam(prepared, request.teams[1], 1);
+    if (request.profile != ChessStandaloneBattleProfile::ClassicHades)
     {
-        if (!mapCanFit(*content, *request.mapId, allyCount, enemyCount))
+        for (int team = 0; team < 2; ++team)
+        {
+            prepared.obtainedNeigongIdsByTeam[team] = request.teams[team].obtainedNeigongIds;
+        }
+    }
+
+    const int allyRequiredSlots = BattleSetupFactory::requiredFormationSlots(prepared, 0);
+    const int enemyRequiredSlots = BattleSetupFactory::requiredFormationSlots(prepared, 1);
+    if (request.layout == PreparedChessBattleLayout::PvpArena)
+    {
+        if ((request.mapId && *request.mapId != ChessPvpMapLayout::BattleId)
+            || request.teams[0].formationSlots.empty()
+            || request.teams[1].formationSlots.empty())
+        {
+            error = "PvP 競技場需要戰場 133 與雙方完整十格陣形";
+            return std::nullopt;
+        }
+        std::string layoutError;
+        if (!ChessPvpMapLayout::validate(*content, layoutError))
+        {
+            error = std::move(layoutError);
+            return std::nullopt;
+        }
+        prepared.mapCandidates = {ChessPvpMapLayout::BattleId};
+        prepared.chosenMapId = ChessPvpMapLayout::BattleId;
+    }
+    else if (request.mapId)
+    {
+        if (!mapCanFit(
+                *content,
+                *request.mapId,
+                allyRequiredSlots,
+                enemyRequiredSlots))
         {
             error = std::format("戰場 ID {} 不存在或無法容納雙方陣容", *request.mapId);
             return std::nullopt;
@@ -231,10 +322,14 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
     {
         for (const int mapId : ChessBattleMapCatalog::fittingMapIds(
                  *content,
-                 allyCount,
-                 enemyCount))
+                 allyRequiredSlots,
+                 enemyRequiredSlots))
         {
-            if (mapCanFit(*content, mapId, allyCount, enemyCount))
+            if (mapCanFit(
+                    *content,
+                    mapId,
+                    allyRequiredSlots,
+                    enemyRequiredSlots))
             {
                 prepared.mapCandidates.push_back(mapId);
             }
@@ -258,9 +353,6 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
     ChessStandaloneBattleBuild result;
     result.content = std::move(content);
     result.preparedBattle = std::move(prepared);
-    result.obtainedNeigongIds = request.profile == ChessStandaloneBattleProfile::ClassicHades
-        ? std::set<int>{}
-        : request.obtainedNeigongIds;
     result.options = request.options;
     result.rootSeed = request.rootSeed;
     return result;

@@ -41,7 +41,7 @@ TEST_CASE("prepared battle projection shares resolved runtime formation without 
 
     const auto resolved = BattleSetupFactory::resolvePreparedFormation(prepared, *content);
     const auto projection = projectPreparedChessBattle(prepared, *content);
-    const auto input = BattleSetupFactory::build(prepared, *content, {}, 36000);
+    const auto input = BattleSetupFactory::build(prepared, *content, 36000);
 
     CHECK_FALSE(projection.combatInitialized);
     CHECK(projection.allySynergies.empty());
@@ -71,7 +71,7 @@ TEST_CASE("prepared battle analysis uses final formation and initialized runtime
 {
     const auto content = configuredMapChoiceContent();
     const auto prepared = analysisBattle();
-    const auto analysis = analyzePreparedChessBattle(prepared, *content, {}, 36000);
+    const auto analysis = analyzePreparedChessBattle(prepared, *content, 36000);
 
     REQUIRE(analysis.combatInitialized);
     CHECK(analysis.identity.stableBattleId == "campaign:1");
@@ -81,7 +81,7 @@ TEST_CASE("prepared battle analysis uses final formation and initialized runtime
     CHECK(analysis.allySynergies.front().name == "配置選圖羈絆");
     CHECK(analysis.allySynergies.front().progressCount == "1+1/2 ✓");
 
-    auto input = BattleSetupFactory::build(prepared, *content, {}, 36000);
+    auto input = BattleSetupFactory::build(prepared, *content, 36000);
     const auto directCoordinates = input.units;
     auto creation = Battle::BattleRuntimeSession::createInitialized(std::move(input));
     for (const auto& unit : analysis.units)
@@ -109,7 +109,7 @@ TEST_CASE("prepared battle analysis before map choice exposes identity without i
     auto prepared = analysisBattle();
     prepared.chosenMapId = -1;
     prepared.formationSwaps.clear();
-    const auto analysis = analyzePreparedChessBattle(prepared, *content, {}, 36000);
+    const auto analysis = analyzePreparedChessBattle(prepared, *content, 36000);
 
     CHECK_FALSE(analysis.combatInitialized);
     CHECK(analysis.identity.chosenMapName.empty());
@@ -147,7 +147,6 @@ TEST_CASE("prepared battle analysis is a pure session query", "[chess][prepared-
     const auto analysis = analyzePreparedChessBattle(
         *session.state().preparedBattle,
         session.content(),
-        session.state().obtainedNeigongIds,
         session.state().options.battleFrameLimit);
 
     REQUIRE(analysis.combatInitialized);

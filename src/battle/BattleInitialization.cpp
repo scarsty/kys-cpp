@@ -241,12 +241,8 @@ void applyObtainedNeigongEffects(
     const BattleRuntimeSetupSeed& setup,
     int team)
 {
-    if (team != 0)
-    {
-        return;
-    }
-
-    for (int magicId : setup.obtainedNeigongMagicIds)
+    assert(team >= 0 && team < static_cast<int>(setup.obtainedNeigongMagicIdsByTeam.size()));
+    for (int magicId : setup.obtainedNeigongMagicIdsByTeam[team])
     {
         const auto* definition = tryFindBy(setup.neigongDefinitions, magicId, &BattleSetupNeigongDefinition::magicId);
         if (!definition)

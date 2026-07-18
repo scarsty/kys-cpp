@@ -24,7 +24,6 @@ public:
         std::shared_ptr<const ChessGameContent> content,
         std::uint64_t rootSeed,
         PreparedChessBattle preparedBattle,
-        std::set<int> obtainedNeigongIds = {},
         ChessSessionOptions options = {});
     ~ChessGameSession();
 

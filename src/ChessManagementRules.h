@@ -24,6 +24,11 @@ public:
         const ChessGameContent& content,
         const ChessAction& action);
 
+    static bool formationIsValid(
+        const ChessSessionState& state,
+        const std::vector<int>& formationSlots);
+    static void maintainFormation(ChessSessionState& state);
+
     static void apply(
         ChessSessionState& state,
         const ChessGameContent& content,

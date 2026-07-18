@@ -99,7 +99,7 @@ std::vector<ChessSaveSlotSummary> ChessSaveStore::list(const ChessGameSession& s
             static_cast<int>(checkpoint.state.roster.size()),
             checkpoint.replay.decisions.size(),
             checkpoint.snapshotHash,
-            checkpoint.gameVersion == session.content().gameVersion()
+            checkpoint.gameVersion() == session.content().gameVersion()
                 && checkpoint.state.difficulty == session.content().difficulty()
                 && checkpoint.state.phase != ChessSessionPhase::BattleResolution,
         });
@@ -146,7 +146,7 @@ ChessCheckpointError ChessSaveStore::importCheckpoint(
     ChessSessionCheckpoint checkpoint,
     std::string_view gameVersion)
 {
-    if (checkpoint.gameVersion != gameVersion)
+    if (checkpoint.gameVersion() != gameVersion)
     {
         return ChessCheckpointError::IncompatibleGameVersion;
     }

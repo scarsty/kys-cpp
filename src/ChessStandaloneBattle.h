@@ -4,6 +4,7 @@
 #include "Types.h"
 
 #include <cstdint>
+#include <array>
 #include <map>
 #include <memory>
 #include <optional>
@@ -30,25 +31,30 @@ struct ChessStandaloneBattlePiece
     int fightsWon{};
 };
 
+struct ChessStandaloneBattleTeam
+{
+    std::vector<ChessStandaloneBattlePiece> pieces;
+    std::vector<int> formationSlots;
+    std::set<int> obtainedNeigongIds;
+};
+
 struct ChessStandaloneBattleRequest
 {
     std::string stableBattleId = "standalone";
     std::uint64_t rootSeed = 1;
     std::optional<int> mapId;
     std::optional<std::uint32_t> battleSeed;
-    std::vector<ChessStandaloneBattlePiece> allies;
-    std::vector<ChessStandaloneBattlePiece> enemies;
-    std::set<int> obtainedNeigongIds;
+    std::array<ChessStandaloneBattleTeam, 2> teams;
     std::map<int, RoleSave> roleOverrides;
     ChessSessionOptions options;
     ChessStandaloneBattleProfile profile = ChessStandaloneBattleProfile::AutoChess;
+    PreparedChessBattleLayout layout = PreparedChessBattleLayout::Standard;
 };
 
 struct ChessStandaloneBattleBuild
 {
     std::shared_ptr<const ChessGameContent> content;
     PreparedChessBattle preparedBattle;
-    std::set<int> obtainedNeigongIds;
     ChessSessionOptions options;
     std::uint64_t rootSeed{};
 

@@ -103,7 +103,6 @@ std::unique_ptr<ChessGameSession> ChessGameSession::createStandaloneBattle(
     std::shared_ptr<const ChessGameContent> content,
     std::uint64_t rootSeed,
     PreparedChessBattle preparedBattle,
-    std::set<int> obtainedNeigongIds,
     ChessSessionOptions options)
 {
     assert(preparedBattle.kind == PreparedChessBattleKind::Standalone);
@@ -114,7 +113,7 @@ std::unique_ptr<ChessGameSession> ChessGameSession::createStandaloneBattle(
         options);
     session->state_.phase = ChessSessionPhase::BattlePreparation;
     session->state_.preparedBattle = std::move(preparedBattle);
-    session->state_.obtainedNeigongIds = std::move(obtainedNeigongIds);
+    session->state_.obtainedNeigongIds = session->state_.preparedBattle->obtainedNeigongIdsByTeam[0];
     session->replayExportEnabled_ = false;
     return session;
 }
@@ -188,6 +187,7 @@ ChessGameplayObservation ChessGameSession::observe() const
     {
         observation.roster.push_back(piece);
     }
+    observation.formationSlots = state_.formationSlots;
     for (const auto& [id, equipment] : state_.equipmentInventory)
     {
         observation.equipmentInventory.push_back(equipment);
@@ -340,6 +340,7 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
         result.push_back(std::move(sell));
     }
     result.push_back(std::move(deployment));
+    result.push_back({ChessActionType::SetFormation, {}, {}, kChessFormationSlotCount, kChessFormationSlotCount});
     if (state_.bannedRoleIds.size()
         < static_cast<std::size_t>(ChessManagementRules::maximumBanCount(state_, *content_)))
     {
@@ -486,6 +487,7 @@ std::string ChessGameSession::errorDescription(ChessRuleErrorCode error)
     case ChessRuleErrorCode::CampaignAlreadyComplete: return "主線戰役已通關";
     case ChessRuleErrorCode::CampaignNotComplete: return "尚未通關，不能結束本局";
     case ChessRuleErrorCode::NoPreparedBattle: return "尚未準備戰鬥";
+    case ChessRuleErrorCode::InvalidFormation: return "陣形必須完整且只包含目前出戰棋子";
     }
     std::unreachable();
 }
@@ -715,7 +717,6 @@ ChessActionResult ChessGameSession::beginAction(const ChessAction& action)
     auto input = BattleSetupFactory::build(
         *state_.preparedBattle,
         *content_,
-        state_.obtainedNeigongIds,
         kChessBattleFrameLimit);
     auto creation = Battle::BattleRuntimeSession::createInitialized(std::move(input));
     pendingTransition_ = std::make_unique<PendingTransition>(

@@ -17,6 +17,8 @@
 namespace KysChess
 {
 
+inline constexpr int kChessFormationSlotCount = 10;
+
 enum class ChessSessionPhase : std::uint16_t
 {
     Management,
@@ -48,6 +50,7 @@ enum class ChessActionType : std::uint16_t
     ChooseReward,
     StartChallenge,
     FinishRun,
+    SetFormation,
 };
 
 enum class ChessRuleErrorCode : std::uint16_t
@@ -82,6 +85,7 @@ enum class ChessRuleErrorCode : std::uint16_t
     CampaignAlreadyComplete,
     CampaignNotComplete,
     NoPreparedBattle,
+    InvalidFormation,
 };
 
 enum class ChessSemanticEventType : std::uint16_t
@@ -118,6 +122,7 @@ enum class ChessSemanticEventType : std::uint16_t
     FreeShopRefreshGranted,
     FreeShopRefreshConsumed,
     ExperienceAwarded,
+    FormationChanged,
 };
 
 enum class ChessRewardKind : std::uint16_t
@@ -261,6 +266,7 @@ struct ChessSessionState
     ChessSessionPhase phase = ChessSessionPhase::Management;
     ChessSessionOptions options;
     std::map<int, ChessSessionPiece> roster;
+    std::vector<int> formationSlots = std::vector<int>(kChessFormationSlotCount, -1);
     std::map<int, ChessEquipmentInstance> equipmentInventory;
     std::vector<ChessSessionShopSlot> shop;
     std::set<int> rejectedRoleIds;
@@ -321,6 +327,7 @@ struct ChessGameplayObservation
     int freeShopRefreshGrantedFight = -1;
     std::vector<ChessSessionShopSlot> shop;
     std::vector<ChessSessionPiece> roster;
+    std::vector<int> formationSlots;
     std::vector<ChessEquipmentInstance> equipmentInventory;
     std::vector<int> bans;
     std::vector<int> seenRoles;

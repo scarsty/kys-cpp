@@ -7,7 +7,7 @@ namespace ScenePreloader
 {
 
 void preloadSubSceneAssets(int submapId);
-void preloadBattleAssets(int battleId);
+void preloadBattlefieldAssets(int battlefieldId);
 void showPromptAndPreload(const std::string& message, const std::function<void()>& preload);
 
 }

@@ -156,6 +156,12 @@ std::string ChessObservationText::format(
             piece.weaponInstanceId,
             piece.armorInstanceId);
     }
+    text += "陣形：";
+    for (const int id : observation.formationSlots)
+    {
+        text += std::format(" {}", id);
+    }
+    text += "\n";
     if (!observation.equipmentInventory.empty())
     {
         text += "裝備：\n";

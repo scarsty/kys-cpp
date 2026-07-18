@@ -13,7 +13,7 @@ std::string ChessAsciiBoard::render(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content)
 {
-    const auto input = BattleSetupFactory::build(prepared, content, {}, 36000);
+    const auto input = BattleSetupFactory::build(prepared, content, 36000);
     std::map<std::pair<int, int>, std::string> tokens;
     std::map<int, std::string> tokenByUnit;
     int ally = 0;

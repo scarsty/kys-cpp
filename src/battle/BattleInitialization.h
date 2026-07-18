@@ -5,6 +5,7 @@
 #include "ChessComboResolver.h"
 #include "BattleRuntimeUnitSpawn.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -111,7 +112,7 @@ struct BattleRuntimeSetupSeed
     std::vector<BattleSetupEquipmentSynergyDefinition> equipmentSynergies;
     std::vector<BattleSetupNeigongDefinition> neigongDefinitions;
     std::vector<ChessMagicEffectDefinition> magicEffectDefinitions;
-    std::vector<int> obtainedNeigongMagicIds;
+    std::array<std::vector<int>, 2> obtainedNeigongMagicIdsByTeam;
     std::vector<BattleInitializationCloneSource> cloneSources;
     std::vector<BattleInitializationCloneSpawnCell> cloneCells;
 };

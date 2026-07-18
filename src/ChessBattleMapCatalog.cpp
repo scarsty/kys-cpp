@@ -1,4 +1,5 @@
 #include "ChessBattleMapCatalog.h"
+#include "ChessPvp.h"
 
 #include <algorithm>
 #include <tuple>
@@ -137,30 +138,44 @@ std::vector<int> ChessBattleMapCatalog::fittingMapIds(
         return result;
     }
 
+    int bestMapId = -1;
+    int bestCapacity = -1;
     for (const auto& [id, map] : content.battleMaps())
     {
-        if (static_cast<int>(map.teammateX.size()) >= allyCount
-            && static_cast<int>(map.enemyX.size()) >= enemyCount)
+        if (id == ChessPvpMapLayout::BattleId)
+        {
+            continue;
+        }
+        const int allyCapacity = static_cast<int>(std::min(
+            map.teammateX.size(),
+            map.teammateY.size()));
+        const int enemyCapacity = static_cast<int>(std::min(
+            map.enemyX.size(),
+            map.enemyY.size()));
+        if (allyCapacity >= allyCount && enemyCapacity >= enemyCount)
         {
             result.push_back(id);
         }
+        const int capacity = allyCapacity + enemyCapacity;
+        if (capacity > bestCapacity)
+        {
+            bestCapacity = capacity;
+            bestMapId = id;
+        }
     }
-    if (result.empty() && !content.battleMaps().empty())
+    if (result.empty() && bestMapId >= 0)
     {
-        const auto best = std::ranges::max_element(
-            content.battleMaps(),
-            {},
-            [](const auto& entry) {
-                return static_cast<int>(entry.second.teammateX.size())
-                    + static_cast<int>(entry.second.enemyX.size());
-            });
-        result.push_back(best->first);
+        result.push_back(bestMapId);
     }
     return result;
 }
 
 std::string_view ChessBattleMapCatalog::displayName(int battleId)
 {
+    if (battleId == ChessPvpMapLayout::BattleId)
+    {
+        return ChessPvpMapLayout::DisplayName;
+    }
     const auto* map = find(battleId);
     return map ? map->name : std::string_view{};
 }

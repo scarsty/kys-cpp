@@ -319,6 +319,7 @@ TEST_CASE("JSON protocol compact observation stays lean for a developed roster",
         checkpoint.state.roster.emplace(
             instanceId,
             ChessSessionPiece{instanceId, roleId, 3, true});
+        checkpoint.state.formationSlots[instanceId - 1] = instanceId;
         ++instanceId;
     }
     checkpoint.state.nextChessInstanceId = instanceId;
@@ -476,6 +477,7 @@ TEST_CASE("JSON protocol distinguishes omitted equipment metadata and assigned c
     auto checkpoint = ChessSessionCheckpoint::capture(*session, 1);
     checkpoint.state.roster.clear();
     checkpoint.state.roster.emplace(1, ChessSessionPiece{1, 10, 1, true, 1});
+    checkpoint.state.formationSlots[0] = 1;
     checkpoint.state.equipmentInventory.clear();
     checkpoint.state.equipmentInventory.emplace(1, ChessEquipmentInstance{1, 100, 1});
     checkpoint.state.equipmentInventory.emplace(2, ChessEquipmentInstance{2, 200, -1});
@@ -1107,7 +1109,7 @@ TEST_CASE("JSON protocol exports and imports a portable save without activation"
     ChessCheckpointError checkpointError;
     auto incompatible = ChessSessionCheckpoint::fromData(payload.checkpoint, checkpointError);
     REQUIRE(incompatible);
-    incompatible->gameVersion = "另一個遊戲版本";
+    incompatible->replay.header.gameVersion = "另一個遊戲版本";
     const auto incompatibleRequest = glz::write_json(ImportSaveRequest{
         {"10"},
         "import_save",

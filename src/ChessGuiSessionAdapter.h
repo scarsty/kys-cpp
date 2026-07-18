@@ -29,6 +29,7 @@ private:
     void chooseEquipment(const ChessLegalActionDescriptor& descriptor);
     void chooseLegendary(const ChessLegalActionDescriptor& descriptor);
     void showOverviewMenu();
+    void showOfflineBattle();
     bool runSystemMenu();
     void showPositionSwap();
     void showEnemyReroll();

@@ -12,6 +12,7 @@
 #include "battle/BattleStatusSystem.h"
 #include "ChessGameSession.h"
 #include "ChessGuiBattleFlow.h"
+#include "ChessPvp.h"
 #include "ChessUiCommon.h"
 #include "Engine.h"
 #include "Event.h"
@@ -488,8 +489,16 @@ void BattleSceneHades::setID(int id)
     const auto& content = session_transition_source_->content();
     const auto map = content.battleMaps().find(id);
     assert(map != content.battleMaps().end());
-    assert(info_->BattleFieldID == map->second.battlefieldId);
-    const auto battlefield = content.battlefields().find(map->second.battlefieldId);
+    const bool pvpArena = session_transition_source_->state().preparedBattle->layout
+        == KysChess::PreparedChessBattleLayout::PvpArena;
+    const int battlefieldId = pvpArena
+        ? KysChess::ChessPvpMapLayout::BattlefieldId
+        : map->second.battlefieldId;
+    if (!pvpArena)
+    {
+        assert(info_->BattleFieldID == battlefieldId);
+    }
+    const auto battlefield = content.battlefields().find(battlefieldId);
     assert(battlefield != content.battlefields().end());
     battle_map_.loadBattlefield(battlefield->second);
 }
@@ -573,7 +582,6 @@ void BattleSceneHades::initializeFormationPreviewRuntime()
     auto input = KysChess::BattleSetupFactory::build(
         *session_transition_source_->state().preparedBattle,
         session_transition_source_->content(),
-        session_transition_source_->state().obtainedNeigongIds,
         session_transition_source_->state().options.battleFrameLimit);
     auto creation = KysChess::Battle::BattleRuntimeSession::createInitialized(std::move(input));
     formation_preview_runtime_.emplace(std::move(creation.session));

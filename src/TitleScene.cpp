@@ -15,6 +15,7 @@
 #include "SubScene.h"
 #include "UISave.h"
 #include "DrawableOnCall.h"
+#include "ExternalJsonFileTransfer.h"
 #include "ChessUiCommon.h"
 #include "SuperMenuText.h"
 #include "Video.h"
@@ -38,8 +39,6 @@ extern "C" void notify_fonts_loaded();
 
 namespace
 {
-
-constexpr int kExternalSaveDialogPollMs = 16;
 
 int fitTextSizeToWidth(const std::string& text, int maxWidth, int maxSize)
 {
@@ -324,71 +323,6 @@ std::string getSlotSummary(int slot)
     return std::format("{}  {}", getSlotTitle(slot), timestamp);
 }
 
-#ifdef __EMSCRIPTEN__
-void openWebExternalSaveDialog(const std::string& title, const std::string& initialText, bool importMode)
-{
-    EM_ASM({
-        if (Module.kysOpenExternalSaveDialog) {
-            Module.kysOpenExternalSaveDialog(UTF8ToString($0), UTF8ToString($1), !!$2);
-        }
-    }, title.c_str(), initialText.c_str(), importMode ? 1 : 0);
-}
-
-int pollWebExternalSaveDialog()
-{
-    return EM_ASM_INT({
-        return Module.kysPollExternalSaveDialog ? Module.kysPollExternalSaveDialog() : 2;
-    });
-}
-
-std::string takeWebExternalSaveDialogText()
-{
-    const int length = EM_ASM_INT({
-        return Module.kysGetExternalSaveDialogTextLength ? Module.kysGetExternalSaveDialogTextLength() : 0;
-    });
-
-    std::vector<char> buffer(static_cast<size_t>(length) + 1, '\0');
-    EM_ASM({
-        if (Module.kysWriteExternalSaveDialogTextToBuffer) {
-            Module.kysWriteExternalSaveDialogTextToBuffer($0, $1);
-        }
-    }, buffer.data(), static_cast<int>(buffer.size()));
-
-    return std::string(buffer.data());
-}
-
-void closeWebExternalSaveDialog()
-{
-    EM_ASM({
-        if (Module.kysCloseExternalSaveDialog) {
-            Module.kysCloseExternalSaveDialog();
-        }
-    });
-}
-
-bool runWebExternalSaveDialog(const std::string& title, bool importMode, std::string& text)
-{
-    openWebExternalSaveDialog(title, text, importMode);
-    while (true)
-    {
-        const int state = pollWebExternalSaveDialog();
-        if (state == 0)
-        {
-            emscripten_sleep(kExternalSaveDialogPollMs);
-            continue;
-        }
-        if (state == 1)
-        {
-            text = takeWebExternalSaveDialogText();
-            closeWebExternalSaveDialog();
-            return true;
-        }
-        closeWebExternalSaveDialog();
-        return false;
-    }
-}
-#endif
-
 }    // namespace
 
 TitleScene::TitleScene()
@@ -664,45 +598,37 @@ void TitleScene::exportExternalSaveSlot(int slot)
         return;
     }
 
-#ifdef __EMSCRIPTEN__
-    auto title = std::format("{} 匯出 JSON", getSlotTitle(slot));
-    runWebExternalSaveDialog(title, false, payload);
-#else
-    if (!SDL_SetClipboardText(payload.c_str()))
+    const auto result = ExternalJsonFileTransfer::exportJson(
+        std::format("{} 匯出 JSON", getSlotTitle(slot)),
+        std::format("kys-save-{}.json", slot),
+        payload);
+    if (result.status == ExternalJsonTransferStatus::Error)
     {
-        showMessageBox("外部存檔", std::format("{} 匯出失敗。\n{}", getSlotTitle(slot), SDL_GetError()), SDL_MESSAGEBOX_ERROR);
-        return;
+        showMessageBox(
+            "外部存檔",
+            std::format("{} 匯出失敗。\n{}", getSlotTitle(slot), result.error),
+            SDL_MESSAGEBOX_ERROR);
     }
-    showMessageBox("外部存檔", std::format("{} JSON 已複製到剪貼簿。", getSlotTitle(slot)));
-#endif
 }
 
 void TitleScene::importExternalSaveSlot(int slot)
 {
-    std::string payload;
-    Save::getInstance()->exportSlotJson(slot, payload);
-
-#ifdef __EMSCRIPTEN__
-    auto title = std::format("{} 匯入 JSON", getSlotTitle(slot));
-    if (!runWebExternalSaveDialog(title, true, payload))
+    auto transfer = ExternalJsonFileTransfer::importJson(
+        std::format("{} 匯入 JSON", getSlotTitle(slot)));
+    if (transfer.status == ExternalJsonTransferStatus::Cancelled)
     {
         return;
     }
-#else
-    char* clipboardText = SDL_GetClipboardText();
-    if (clipboardText)
+    if (transfer.status == ExternalJsonTransferStatus::Error)
     {
-        payload = clipboardText;
-        SDL_free(clipboardText);
-    }
-    if (payload.empty())
-    {
-        showMessageBox("外部存檔", "請先把存檔 JSON 複製到剪貼簿，再執行匯入。", SDL_MESSAGEBOX_WARNING);
+        showMessageBox(
+            "外部存檔",
+            std::format("{} 匯入失敗。\n{}", getSlotTitle(slot), transfer.error),
+            SDL_MESSAGEBOX_ERROR);
         return;
     }
-#endif
 
-    if (!Save::getInstance()->importSlotJson(slot, payload))
+    if (!Save::getInstance()->importSlotJson(slot, transfer.text))
     {
         showMessageBox("外部存檔", std::format("{} 匯入失敗，請確認貼上的內容是完整 JSON。", getSlotTitle(slot)), SDL_MESSAGEBOX_ERROR);
         return;

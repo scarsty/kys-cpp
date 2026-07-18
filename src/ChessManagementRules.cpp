@@ -25,6 +25,19 @@ int benchCount(const ChessSessionState& state)
     return static_cast<int>(state.roster.size()) - deployedCount(state);
 }
 
+std::set<int> deployedIds(const ChessSessionState& state)
+{
+    std::set<int> result;
+    for (const auto& [id, piece] : state.roster)
+    {
+        if (piece.deployed)
+        {
+            result.insert(id);
+        }
+    }
+    return result;
+}
+
 const EquipmentDef* equipmentDefinition(const ChessGameContent& content, int itemId)
 {
     const auto found = std::ranges::find(content.equipment(), itemId, &EquipmentDef::itemId);
@@ -238,7 +251,9 @@ int ChessManagementRules::maximumDeployment(const ChessSessionState& state, cons
 
 int ChessManagementRules::maximumDeploymentAtLevel(const ChessGameContent& content, int level)
 {
-    return std::max(level + 1, content.balance().minBattleSize);
+    return std::min(
+        kChessFormationSlotCount,
+        std::max(level + 1, content.balance().minBattleSize));
 }
 
 int ChessManagementRules::experienceForNextLevel(const ChessSessionState& state, const ChessGameContent& content)
@@ -296,6 +311,70 @@ int ChessManagementRules::pieceValue(const ChessGameContent& content, int roleId
     const auto& balance = content.balance();
     return balance.tierPrices[role->Cost - 1]
         * static_cast<int>(std::pow(balance.starCostMult, star - 1));
+}
+
+bool ChessManagementRules::formationIsValid(
+    const ChessSessionState& state,
+    const std::vector<int>& formationSlots)
+{
+    if (formationSlots.size() != kChessFormationSlotCount)
+    {
+        return false;
+    }
+    std::set<int> placed;
+    for (const int id : formationSlots)
+    {
+        if (id < 0)
+        {
+            if (id != -1)
+            {
+                return false;
+            }
+            continue;
+        }
+        const auto found = state.roster.find(id);
+        if (found == state.roster.end()
+            || !found->second.deployed
+            || !placed.insert(id).second)
+        {
+            return false;
+        }
+    }
+    return placed == deployedIds(state);
+}
+
+void ChessManagementRules::maintainFormation(ChessSessionState& state)
+{
+    assert(deployedCount(state) <= kChessFormationSlotCount);
+    if (state.formationSlots.size() != kChessFormationSlotCount)
+    {
+        state.formationSlots.assign(kChessFormationSlotCount, -1);
+    }
+
+    std::set<int> placed;
+    for (int& id : state.formationSlots)
+    {
+        const auto found = state.roster.find(id);
+        if (id < 0
+            || found == state.roster.end()
+            || !found->second.deployed
+            || !placed.insert(id).second)
+        {
+            id = -1;
+        }
+    }
+    for (const auto& [id, piece] : state.roster)
+    {
+        if (!piece.deployed || placed.contains(id))
+        {
+            continue;
+        }
+        const auto empty = std::ranges::find(state.formationSlots, -1);
+        assert(empty != state.formationSlots.end());
+        *empty = id;
+        placed.insert(id);
+    }
+    assert(formationIsValid(state, state.formationSlots));
 }
 
 ChessRuleErrorCode ChessManagementRules::validate(
@@ -382,6 +461,10 @@ ChessRuleErrorCode ChessManagementRules::validate(
         }
         return ChessRuleErrorCode::None;
     }
+    case ChessActionType::SetFormation:
+        return formationIsValid(state, action.chessInstanceIds)
+            ? ChessRuleErrorCode::None
+            : ChessRuleErrorCode::InvalidFormation;
     case ChessActionType::AddBan:
         if (!content.role(action.roleId))
         {
@@ -506,6 +589,7 @@ void ChessManagementRules::apply(
             state.equipmentInventory.at(piece.armorInstanceId).assignedChessInstanceId = -1;
         }
         state.money += price;
+        maintainFormation(state);
         events.push_back({ChessSemanticEventType::ChessSold, action.chessInstanceId, piece.roleId, price, {}});
         return;
     }
@@ -527,9 +611,14 @@ void ChessManagementRules::apply(
         {
             piece.deployed = selected.contains(id);
         }
+        maintainFormation(state);
         events.push_back({ChessSemanticEventType::DeploymentChanged, {}, {}, static_cast<int>(selected.size()), {}});
         return;
     }
+    case ChessActionType::SetFormation:
+        state.formationSlots = action.chessInstanceIds;
+        events.push_back({ChessSemanticEventType::FormationChanged});
+        return;
     case ChessActionType::AddBan:
         state.bannedRoleIds.insert(action.roleId);
         events.push_back({ChessSemanticEventType::RoleBanned, action.roleId, {}, {}, {}});
@@ -637,6 +726,7 @@ int ChessManagementRules::grantPiece(
     state.roster.emplace(piece.instanceId, piece);
     events.push_back({ChessSemanticEventType::ChessPurchased, piece.instanceId, roleId, eventValue});
     mergeAvailablePieces(state, content, roleId, events);
+    maintainFormation(state);
     return piece.instanceId;
 }
 
@@ -687,6 +777,7 @@ void ChessManagementRules::upgradePiece(
     event.merge = std::move(detail);
     events.push_back(std::move(event));
     mergeAvailablePieces(state, content, piece.roleId, events);
+    maintainFormation(state);
 }
 
 }

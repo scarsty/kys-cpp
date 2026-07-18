@@ -4,7 +4,6 @@
 #include "PreparedChessBattle.h"
 #include "battle/BattleRuntimeSession.h"
 
-#include <set>
 #include <vector>
 
 namespace KysChess
@@ -13,6 +12,10 @@ namespace KysChess
 class BattleSetupFactory
 {
 public:
+    static int requiredFormationSlots(
+        const PreparedChessBattle& prepared,
+        int team);
+
     static void populateBaseFormation(
         PreparedChessBattle& prepared,
         const ChessGameContent& content);
@@ -24,7 +27,6 @@ public:
     static Battle::BattleRuntimeSessionCreationInput build(
         const PreparedChessBattle& prepared,
         const ChessGameContent& content,
-        const std::set<int>& obtainedNeigongIds,
         int maximumFrames);
 };
 

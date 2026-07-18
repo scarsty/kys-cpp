@@ -5,6 +5,7 @@
   "dependencies": [
     "sdl3",
     "glaze",
+    "picosha2",
     {
       "name": "imgui",
       "features": [

@@ -7,6 +7,7 @@ namespace KysChess
 {
 
 ChessSha256 chessStateHash(const ChessSessionState& state, const ChessRunRandom& random);
+ChessSha256 chessStateHash(const ChessSessionState& state, const ChessRunRandomState& random);
 ChessSha256 chessEventHash(const std::vector<ChessSemanticEvent>& events);
 ChessSha256 chessRngDigest(const ChessRunRandom& random);
 

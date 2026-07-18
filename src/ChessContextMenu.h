@@ -13,6 +13,7 @@ enum class ChessContextMenuAction
     SellChess,
     SelectForBattle,
     EnterBattle,
+    OpenOfflineBattle,
     BuyExp,
     OpenEquipmentMenu,
     OpenOverviewMenu,

@@ -36,6 +36,9 @@ TEST_CASE("self-contained checkpoint JSON directly restores its snapshot and ful
     CHECK_FALSE(payload.contains("replay_jsonl"));
     CHECK_FALSE(payload.contains("pre_state_hash"));
     CHECK_FALSE(payload.contains("chain_hash"));
+    const auto gameVersionPosition = payload.find("\"game_version\"");
+    REQUIRE(gameVersionPosition != std::string::npos);
+    CHECK(payload.find("\"game_version\"", gameVersionPosition + 1) == std::string::npos);
     ChessCheckpointError error;
     const auto parsed = ChessSessionCheckpoint::parseJson(payload, error);
 
@@ -43,7 +46,7 @@ TEST_CASE("self-contained checkpoint JSON directly restores its snapshot and ful
     CHECK(error == ChessCheckpointError::None);
     CHECK(parsed->state == session.state());
     CHECK(parsed->random == session.random().state());
-    CHECK(parsed->gameVersion == content->gameVersion());
+    CHECK(parsed->gameVersion() == content->gameVersion());
     CHECK(session.random().streamState(ChessRngStream::Shop).rawDrawCount == beforeCounter);
 
     ChessGameSession restored(content, 999);
@@ -69,7 +72,7 @@ TEST_CASE("direct restore only rejects incompatible or unrepresentable snapshots
     const auto originalState = session.state();
 
     auto incompatible = ChessSessionCheckpoint::capture(session, 1);
-    incompatible.gameVersion = "另一個遊戲版本";
+    incompatible.replay.header.gameVersion = "另一個遊戲版本";
     CHECK(incompatible.restore(session) == ChessCheckpointError::IncompatibleGameVersion);
     CHECK(session.state() == originalState);
 
@@ -230,7 +233,7 @@ TEST_CASE("portable save import does not activate the checkpoint", "[chess][chec
     REQUIRE(replay);
     CHECK(ChessReplayVerifier::verify(content, *replay).valid);
     REQUIRE(target.inspect("continued"));
-    CHECK(target.inspect("continued")->gameVersion == content->gameVersion());
+    CHECK(target.inspect("continued")->gameVersion() == content->gameVersion());
 }
 
 TEST_CASE("timeline replacement counts a divergent equal-length branch", "[chess][checkpoint][save][replay]")

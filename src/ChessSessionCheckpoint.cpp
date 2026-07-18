@@ -1,6 +1,7 @@
 #include "ChessSessionCheckpoint.h"
 
 #include "ChessGameSession.h"
+#include "ChessManagementRules.h"
 #include <glaze/json.hpp>
 
 #include <cassert>
@@ -17,7 +18,6 @@ ChessSessionCheckpoint ChessSessionCheckpoint::capture(
     auto replay = session.exportReplay();
     assert(replay);
     ChessSessionCheckpoint result;
-    result.gameVersion = session.content().gameVersion();
     result.replay = std::move(*replay);
     result.state = session.state();
     result.random = session.random().state();
@@ -33,12 +33,13 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
     {
         return ChessCheckpointError::UnstableBoundary;
     }
-    if (gameVersion != session.content_->gameVersion())
+    if (gameVersion() != session.content_->gameVersion())
     {
         return ChessCheckpointError::IncompatibleGameVersion;
     }
     if (state.phase == ChessSessionPhase::BattleResolution
-        || state.difficulty != session.content_->difficulty())
+        || state.difficulty != session.content_->difficulty()
+        || !ChessManagementRules::formationIsValid(state, state.formationSlots))
     {
         return ChessCheckpointError::UnrepresentableSnapshot;
     }
@@ -55,7 +56,6 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
 ChessSessionCheckpointData ChessSessionCheckpoint::toData() const
 {
     ChessSessionCheckpointData data;
-    data.game_version = gameVersion;
     data.replay = chessReplayData(replay);
     data.state = state;
     data.random = random;
@@ -87,13 +87,19 @@ std::optional<ChessSessionCheckpoint> ChessSessionCheckpoint::fromData(
         return std::nullopt;
     }
     ChessSessionCheckpoint result;
-    result.gameVersion = data.game_version;
     result.replay = std::move(*replay);
     result.state = data.state;
     result.random = data.random;
     result.snapshotHash = hash;
     result.saveRevision = data.save_revision;
     result.label = data.label;
+    if (!ChessManagementRules::formationIsValid(
+            result.state,
+            result.state.formationSlots))
+    {
+        error = ChessCheckpointError::UnrepresentableSnapshot;
+        return std::nullopt;
+    }
     error = ChessCheckpointError::None;
     return result;
 }

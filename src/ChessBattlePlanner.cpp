@@ -3,6 +3,7 @@
 #include "BattleSetupFactory.h"
 #include "ChessBattleMapCatalog.h"
 #include "ChessCombo.h"
+#include "ChessManagementRules.h"
 
 #include <algorithm>
 #include <array>
@@ -486,27 +487,31 @@ void appendAllies(
     PreparedChessBattle& battle,
     const ChessSessionState& state)
 {
+    assert(ChessManagementRules::formationIsValid(state, state.formationSlots));
     int unitId = 1;
-    for (const auto& [instanceId, piece] : state.roster)
+    for (int slot = 0; slot < static_cast<int>(state.formationSlots.size()); ++slot)
     {
-        if (!piece.deployed)
+        const int instanceId = state.formationSlots[slot];
+        if (instanceId < 0)
         {
             continue;
         }
+        const auto& piece = state.roster.at(instanceId);
         const auto equipmentItem = [&](int instanceId) {
             const auto found = state.equipmentInventory.find(instanceId);
             return found == state.equipmentInventory.end() ? -1 : found->second.itemId;
         };
-        battle.units.push_back({
-            unitId++,
-            instanceId,
-            piece.roleId,
-            0,
-            piece.star,
-            equipmentItem(piece.weaponInstanceId),
-            equipmentItem(piece.armorInstanceId),
-            piece.fightsWon,
-        });
+        PreparedChessBattleUnit unit;
+        unit.unitId = unitId++;
+        unit.chessInstanceId = instanceId;
+        unit.roleId = piece.roleId;
+        unit.team = 0;
+        unit.star = piece.star;
+        unit.weaponItemId = equipmentItem(piece.weaponInstanceId);
+        unit.armorItemId = equipmentItem(piece.armorInstanceId);
+        unit.fightsWon = piece.fightsWon;
+        unit.formationSlot = slot;
+        battle.units.push_back(std::move(unit));
     }
 }
 
@@ -605,9 +610,12 @@ void finishPreparation(
     const ChessGameContent& content,
     ChessRunRandom& random)
 {
-    const int allyCount = static_cast<int>(std::ranges::count_if(battle.units, [](const auto& unit) { return unit.team == 0; }));
-    const int enemyCount = static_cast<int>(battle.units.size()) - allyCount;
-    battle.mapCandidates = ChessBattleMapCatalog::fittingMapIds(content, allyCount, enemyCount);
+    const int allyRequiredSlots = BattleSetupFactory::requiredFormationSlots(battle, 0);
+    const int enemyRequiredSlots = BattleSetupFactory::requiredFormationSlots(battle, 1);
+    battle.mapCandidates = ChessBattleMapCatalog::fittingMapIds(
+        content,
+        allyRequiredSlots,
+        enemyRequiredSlots);
     const bool canChooseMap = chessRosterHasActiveComboEffect(
         state,
         content,
@@ -636,6 +644,7 @@ PreparedChessBattle ChessBattlePlanner::prepareCampaign(
 {
     PreparedChessBattle battle;
     battle.kind = PreparedChessBattleKind::Campaign;
+    battle.obtainedNeigongIdsByTeam[0] = state.obtainedNeigongIds;
     battle.stableBattleId = std::format("campaign:{}", state.fight + 1);
     battle.preparationCheckpoint = random.checkpointPreparation();
     appendAllies(battle, state);
@@ -661,6 +670,7 @@ PreparedChessBattle ChessBattlePlanner::prepareChallenge(
 {
     PreparedChessBattle battle;
     battle.kind = PreparedChessBattleKind::Challenge;
+    battle.obtainedNeigongIdsByTeam[0] = state.obtainedNeigongIds;
     battle.stableBattleId = challenge.name;
     battle.preparationCheckpoint = random.checkpointPreparation();
     appendAllies(battle, state);

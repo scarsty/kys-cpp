@@ -484,6 +484,7 @@ struct ObservationDto
     std::optional<int> free_shop_refresh_granted_fight;
     std::vector<ShopSlotDto> shop;
     std::vector<PieceDto> roster;
+    std::vector<int> formation_slots;
     std::optional<std::string> role_metadata_scope;
     std::optional<std::vector<RoleDto>> relevant_roles;
     std::optional<std::string> equipment_metadata_scope;

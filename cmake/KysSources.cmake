@@ -65,6 +65,7 @@ function(kys_collect_chess_core_sources out_var kys_root)
         "${kys_root_abs}/src/ChessObservationText.cpp"
         "${kys_root_abs}/src/ChessProgressionRules.cpp"
         "${kys_root_abs}/src/ChessPreparedBattleAnalysis.cpp"
+        "${kys_root_abs}/src/ChessPvp.cpp"
         "${kys_root_abs}/src/ChessReplayArchive.cpp"
         "${kys_root_abs}/src/ChessReplayHash.cpp"
         "${kys_root_abs}/src/ChessReplayJournal.cpp"

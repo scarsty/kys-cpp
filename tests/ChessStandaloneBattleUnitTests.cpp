@@ -59,6 +59,8 @@ std::shared_ptr<const ChessGameContent> standaloneContent()
     data.items.emplace(502, ChessItemDefinition{502, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, "測試防具"});
     data.equipment.push_back({501, 1, 0});
     data.equipment.push_back({502, 2, 1});
+    data.neigong.push_back({701, -1, 1, "我方內功", {{EffectType::FlatATK, 11}}});
+    data.neigong.push_back({702, -1, 1, "敵方內功", {{EffectType::FlatATK, 23}}});
 
     ComboDef combo;
     combo.id = 1;
@@ -97,8 +99,8 @@ ChessStandaloneBattleRequest basicRequest()
     request.rootSeed = 77;
     request.mapId = 7;
     request.battleSeed = 99;
-    request.allies.push_back({10});
-    request.enemies.push_back({20});
+    request.teams[0].pieces.push_back({10});
+    request.teams[1].pieces.push_back({20});
     return request;
 }
 
@@ -142,7 +144,6 @@ TEST_CASE("ChessStandaloneBattle_ClassicProfileUsesCurrentRoleStatsWithoutAutoCh
     const auto input = BattleSetupFactory::build(
         built->preparedBattle,
         *built->content,
-        built->obtainedNeigongIds,
         kChessBattleFrameLimit);
     REQUIRE(input.units.size() == 2);
     CHECK(input.units[0].vitals.maxHp == 1337);
@@ -184,4 +185,67 @@ TEST_CASE("ChessStandaloneBattle_SessionIsEphemeralAndHasNoCampaignProgression",
     CHECK(state.fight == 3);
     REQUIRE(events.size() == 1);
     CHECK(events.front().type == ChessSemanticEventType::BattleEnded);
+}
+
+TEST_CASE("standalone battle keeps both teams' pieces and inner powers independent", "[chess][standalone][pvp]")
+{
+    auto request = basicRequest();
+    request.teams[0].pieces.front() = {10, 2, 501, 502, 101, 4};
+    request.teams[1].pieces.front() = {20, 3, -1, -1, 202, 8};
+    auto baselineRequest = request;
+    request.teams[0].obtainedNeigongIds.insert(701);
+    request.teams[1].obtainedNeigongIds.insert(702);
+
+    std::string error;
+    auto baselineBuild = ChessStandaloneBattle::prepare(
+        standaloneContent(),
+        baselineRequest,
+        error);
+    REQUIRE(baselineBuild);
+    auto baselineInput = BattleSetupFactory::build(
+        baselineBuild->preparedBattle,
+        *baselineBuild->content,
+        kChessBattleFrameLimit);
+    auto baselineCreation = Battle::BattleRuntimeSession::createInitialized(
+        std::move(baselineInput));
+
+    auto built = ChessStandaloneBattle::prepare(standaloneContent(), request, error);
+    REQUIRE(built);
+    auto input = BattleSetupFactory::build(
+        built->preparedBattle,
+        *built->content,
+        kChessBattleFrameLimit);
+    REQUIRE(input.units.size() == 2);
+    CHECK(input.units[0].star == 2);
+    CHECK(input.units[0].weaponId == 501);
+    CHECK(input.units[0].armorId == 502);
+    CHECK(input.units[0].fightsWon == 4);
+    CHECK(input.units[1].star == 3);
+    CHECK(input.units[1].fightsWon == 8);
+    CHECK(input.setup.obtainedNeigongMagicIdsByTeam[0] == std::vector<int>{701});
+    CHECK(input.setup.obtainedNeigongMagicIdsByTeam[1] == std::vector<int>{702});
+
+    auto creation = Battle::BattleRuntimeSession::createInitialized(std::move(input));
+    const auto baselineAlly = std::ranges::find(
+        baselineCreation.initialization.roleDeltas,
+        1,
+        &Battle::BattleInitializationRoleDelta::unitId);
+    const auto baselineEnemy = std::ranges::find(
+        baselineCreation.initialization.roleDeltas,
+        2,
+        &Battle::BattleInitializationRoleDelta::unitId);
+    const auto ally = std::ranges::find(
+        creation.initialization.roleDeltas,
+        1,
+        &Battle::BattleInitializationRoleDelta::unitId);
+    const auto enemy = std::ranges::find(
+        creation.initialization.roleDeltas,
+        2,
+        &Battle::BattleInitializationRoleDelta::unitId);
+    REQUIRE(baselineAlly != baselineCreation.initialization.roleDeltas.end());
+    REQUIRE(baselineEnemy != baselineCreation.initialization.roleDeltas.end());
+    REQUIRE(ally != creation.initialization.roleDeltas.end());
+    REQUIRE(enemy != creation.initialization.roleDeltas.end());
+    CHECK(ally->stats.attack == baselineAlly->stats.attack + 11);
+    CHECK(enemy->stats.attack == baselineEnemy->stats.attack + 23);
 }

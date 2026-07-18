@@ -75,7 +75,6 @@ ChessPreparedBattleAnalysis projectPreparedChessBattle(
 ChessPreparedBattleAnalysis analyzePreparedChessBattle(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content,
-    const std::set<int>& obtainedNeigongIds,
     int maximumFrames);
 
 }  // namespace KysChess

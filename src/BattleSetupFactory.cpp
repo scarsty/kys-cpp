@@ -1,5 +1,6 @@
 #include "BattleSetupFactory.h"
 #include "ChessBattleMapCatalog.h"
+#include "ChessPvp.h"
 #include "battle/BattleFacing.h"
 
 #include <algorithm>
@@ -75,7 +76,8 @@ int faceTowardsNearestOpponent(
 
 void assignFormation(
     std::vector<PreparedChessBattleUnit>& units,
-    const ChessBattleMapDefinition* map)
+    const ChessBattleMapDefinition* map,
+    PreparedChessBattleLayout layout)
 {
     const auto* catalogMap = map ? ChessBattleMapCatalog::find(map->id) : nullptr;
     int allyIndex = 0;
@@ -83,27 +85,37 @@ void assignFormation(
     for (auto& unit : units)
     {
         auto& index = unit.team == 0 ? allyIndex : enemyIndex;
-        if (map)
+        const int positionIndex = unit.formationSlot >= 0 ? unit.formationSlot : index;
+        if (layout == PreparedChessBattleLayout::PvpArena)
+        {
+            assert(positionIndex >= 0 && positionIndex < kChessFormationSlotCount);
+            const auto& positions = unit.team == 0
+                ? ChessPvpMapLayout::localFormation()
+                : ChessPvpMapLayout::opponentFormation();
+            unit.x = positions[positionIndex].x;
+            unit.y = positions[positionIndex].y;
+        }
+        else if (map)
         {
             if (unit.team == 0 && catalogMap)
             {
-                assert(index < static_cast<int>(catalogMap->teammatePositions.size()));
-                unit.x = catalogMap->teammatePositions[index].x;
-                unit.y = catalogMap->teammatePositions[index].y;
+                assert(positionIndex < static_cast<int>(catalogMap->teammatePositions.size()));
+                unit.x = catalogMap->teammatePositions[positionIndex].x;
+                unit.y = catalogMap->teammatePositions[positionIndex].y;
             }
             else
             {
                 const auto& xs = unit.team == 0 ? map->teammateX : map->enemyX;
                 const auto& ys = unit.team == 0 ? map->teammateY : map->enemyY;
-                assert(index < static_cast<int>(xs.size()));
-                unit.x = xs[index];
-                unit.y = ys[index];
+                assert(positionIndex < static_cast<int>(xs.size()));
+                unit.x = xs[positionIndex];
+                unit.y = ys[positionIndex];
             }
         }
         else
         {
-            unit.x = unit.team == 0 ? 20 + index : 40 - index;
-            unit.y = 30 + index;
+            unit.x = unit.team == 0 ? 20 + positionIndex : 40 - positionIndex;
+            unit.y = 30 + positionIndex;
         }
         ++index;
     }
@@ -163,11 +175,36 @@ void appendDefinitions(
 
 }
 
+int BattleSetupFactory::requiredFormationSlots(
+    const PreparedChessBattle& prepared,
+    int team)
+{
+    assert(team == 0 || team == 1);
+    int sequentialIndex{};
+    int requiredSlots{};
+    for (const auto& unit : prepared.units)
+    {
+        if (unit.team != team)
+        {
+            continue;
+        }
+        const int positionIndex = unit.formationSlot >= 0
+            ? unit.formationSlot
+            : sequentialIndex;
+        requiredSlots = std::max(requiredSlots, positionIndex + 1);
+        ++sequentialIndex;
+    }
+    return requiredSlots;
+}
+
 void BattleSetupFactory::populateBaseFormation(
     PreparedChessBattle& prepared,
     const ChessGameContent& content)
 {
-    assignFormation(prepared.units, battleMapDefinition(prepared, content));
+    assignFormation(
+        prepared.units,
+        battleMapDefinition(prepared, content),
+        prepared.layout);
 }
 
 std::vector<PreparedChessBattleUnit> BattleSetupFactory::resolvePreparedFormation(
@@ -175,7 +212,10 @@ std::vector<PreparedChessBattleUnit> BattleSetupFactory::resolvePreparedFormatio
     const ChessGameContent& content)
 {
     auto formation = prepared.units;
-    assignFormation(formation, battleMapDefinition(prepared, content));
+    assignFormation(
+        formation,
+        battleMapDefinition(prepared, content),
+        prepared.layout);
     for (const auto& [firstId, secondId] : prepared.formationSwaps)
     {
         auto first = std::ranges::find(formation, firstId, &PreparedChessBattleUnit::unitId);
@@ -190,12 +230,19 @@ std::vector<PreparedChessBattleUnit> BattleSetupFactory::resolvePreparedFormatio
 Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
     const PreparedChessBattle& prepared,
     const ChessGameContent& content,
-    const std::set<int>& obtainedNeigongIds,
     int maximumFrames)
 {
     const auto* map = battleMapDefinition(prepared, content);
     const ChessBattlefieldDefinition* battlefield = nullptr;
-    if (map)
+    if (prepared.layout == PreparedChessBattleLayout::PvpArena)
+    {
+        if (const auto found = content.battlefields().find(ChessPvpMapLayout::BattlefieldId);
+            found != content.battlefields().end())
+        {
+            battlefield = &found->second;
+        }
+    }
+    else if (map)
     {
         if (const auto found = content.battlefields().find(map->battlefieldId);
             found != content.battlefields().end())
@@ -233,7 +280,12 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
         balance.fightWinGrowthSpeed,
     };
     appendDefinitions(input.setup, content);
-    input.setup.obtainedNeigongMagicIds.assign(obtainedNeigongIds.begin(), obtainedNeigongIds.end());
+    for (int team = 0; team < 2; ++team)
+    {
+        input.setup.obtainedNeigongMagicIdsByTeam[team].assign(
+            prepared.obtainedNeigongIdsByTeam[team].begin(),
+            prepared.obtainedNeigongIdsByTeam[team].end());
+    }
 
     for (const auto& preparedUnit : formation)
     {
@@ -338,28 +390,33 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
         });
     }
 
-    if (map)
+    const auto appendCloneCells = [&](const auto& positions, int team) {
+        for (const auto& position : positions)
+        {
+            const bool occupied = std::ranges::any_of(input.units, [&](const auto& unit) {
+                return unit.alive
+                    && unit.gridX == position.x
+                    && unit.gridY == position.y;
+            });
+            input.setup.cloneCells.push_back({
+                position.x,
+                position.y,
+                true,
+                occupied,
+                team,
+            });
+        }
+    };
+    if (prepared.layout == PreparedChessBattleLayout::PvpArena)
+    {
+        appendCloneCells(ChessPvpMapLayout::localAdditionalSpawns(), 0);
+        appendCloneCells(ChessPvpMapLayout::opponentAdditionalSpawns(), 1);
+    }
+    else if (map)
     {
         const auto* catalogMap = ChessBattleMapCatalog::find(map->id);
         if (catalogMap)
         {
-            const auto appendCloneCells = [&](const std::vector<Point>& positions, int team) {
-                for (const auto& position : positions)
-                {
-                    const bool occupied = std::ranges::any_of(input.units, [&](const auto& unit) {
-                        return unit.alive
-                            && unit.gridX == position.x
-                            && unit.gridY == position.y;
-                    });
-                    input.setup.cloneCells.push_back({
-                        position.x,
-                        position.y,
-                        true,
-                        occupied,
-                        team,
-                    });
-                }
-            };
             appendCloneCells(catalogMap->allyClonePositions, 0);
 
             const int enemyCount = static_cast<int>(std::ranges::count_if(input.units, [](const auto& unit) {
