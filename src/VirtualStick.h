@@ -30,6 +30,10 @@ private:
     double axis_radius_ = 0;
     double previous_pinch_distance_ = 0;
     FPoint previous_pinch_center_{};
+    bool a_touch_pressed_ = false;
+    bool b_touch_pressed_ = false;
+    bool view_touch_pressed_ = false;
+    bool menu_touch_pressed_ = false;
 
     std::unordered_map<std::shared_ptr<Button>, Interval> button_interval_;
 

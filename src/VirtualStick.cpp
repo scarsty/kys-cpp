@@ -1,6 +1,8 @@
 ﻿#include "VirtualStick.h"
 #include "Button.h"
 #include "GameUtil.h"
+#include "Menu.h"
+#include "ShowExp.h"
 #include "TextureManager.h"
 
 #include "BattleSceneHades.h"
@@ -93,11 +95,13 @@ void VirtualStick::dealEvent(EngineEvent& e)
     auto battle_act = RunNode::getPointerFromRoot<BattleSceneAct>();
     auto battle = RunNode::getPointerFromRoot<BattleScene>();
     auto main_paper = RunNode::getPointerFromRoot<MainScenePaper>();
+    auto show_exp = RunNode::getPointerFromRoot<ShowExp>();
     bool is_action = battle_act != nullptr;
     bool is_paper = is_action && battle_act->usePaperPresentation();
     bool is_turn_based_paper = battle && !is_action
         && GameUtil::getInstance()->getInt("game", "battle_presentation", 0) != 0;
     bool is_any_paper = is_paper || is_turn_based_paper || main_paper != nullptr;
+    bool is_menu_active = RunNode::getPointerFromRoot<MenuText>() != nullptr;
     setStyle(is_action ? 1 : 0);
     int num = 0;
     auto engine = Engine::getInstance();
@@ -126,18 +130,21 @@ void VirtualStick::dealEvent(EngineEvent& e)
     }
     auto touch = SDL_GetTouchDevices(&num);
     bool pinch_active = false;
+    bool is_press = false;
+    bool is_press2 = false;    //将按键范围扩大一点，避免按到键中间被当成鼠标操作
+    std::vector<std::pair<int, int>> pinch_points;
     for (int i_device = 0; i_device < num; i_device++)
     {
         if (!touch)
         {
+            break;
+        }
+        int fingers = 0;
+        auto finger_pp = SDL_GetTouchFingers(touch[i_device], &fingers);
+        if (!finger_pp)
+        {
             continue;
         }
-        int fingers;
-        SDL_Finger** finger_pp;
-        finger_pp = SDL_GetTouchFingers(*touch, &fingers);
-        bool is_press = false;
-        bool is_press2 = false;    //将按键范围扩大一点，避免按到键中间被当成鼠标操作
-        std::vector<std::pair<int, int>> pinch_points;
         for (int i = 0; i < fingers; i++)
         {
             auto s = finger_pp[i];
@@ -163,42 +170,19 @@ void VirtualStick::dealEvent(EngineEvent& e)
                 int x2, y2, w2, h2;
                 b->getPosition(x2, y2);
                 b->getSize(w2, h2);
-                x2 -= w2 / 2;
-                y2 -= h2 / 2;
-                w2 *= 2;
-                h2 *= 2;
-                bool in_control = x >= x2 && x < x2 + w2 && y >= y2 && y < y2 + h2;
+                bool in_control = x >= x2 - w2 / 2 && x < x2 + w2 * 3 / 2
+                    && y >= y2 - h2 / 2 && y < y2 + h2 * 3 / 2;
+                bool in_button = x >= x2 && x < x2 + w2
+                    && y >= y2 && y < y2 + h2;
                 is_press2 = is_press2 || in_control;
                 finger_in_control = finger_in_control || in_control;
                 if (b != button_left_axis_ && b != button_right_axis_)
                 {
-                    b->state_ = NodeNormal;
-                    engine->setGameControllerButton(b->button_id_, 0);
-                    if (b->inSideInStartWindow(x, y))
+                    if (in_button)
                     {
-                        auto& intval = button_interval_[b];
-                        const bool is_direction_button = b == button_up_
-                            || b == button_down_
-                            || b == button_left_
-                            || b == button_right_;
-                        if (is_direction_button || engine->getTicks() - intval.prev_press > intval.interval)
-                        {
-                            b->state_ = NodePress;
-                            engine->setGameControllerButton(b->button_id_, 1);
-                            if (!is_direction_button)
-                            {
-                                intval.prev_press = engine->getTicks();
-                            }
-                            is_press = true;
-                            if (!is_direction_button)
-                            {
-                                intval.interval = 20;
-                                if (is_action || is_paper || is_turn_based_paper)
-                                {
-                                    intval.interval = 0;
-                                }
-                            }
-                        }
+                        b->state_ = NodePress;
+                        engine->setGameControllerButton(b->button_id_, 1);
+                        is_press = true;
                     }
                 }
                 else if (b == button_left_axis_ || b == button_right_axis_)
@@ -246,74 +230,80 @@ void VirtualStick::dealEvent(EngineEvent& e)
                 pinch_points.emplace_back(x, y);
             }
         }
-        if (is_any_paper && pinch_points.size() >= 2)
+        SDL_free(finger_pp);
+    }
+    SDL_free(touch);
+    if (is_any_paper && pinch_points.size() >= 2)
+    {
+        auto [x0, y0] = pinch_points[0];
+        auto [x1, y1] = pinch_points[1];
+        double distance = std::hypot(double(x1 - x0), double(y1 - y0));
+        FPoint center = { (x0 + x1) * 0.5f, (y0 + y1) * 0.5f };
+        if (previous_pinch_distance_ > 0 && distance > 0)
         {
-            auto [x0, y0] = pinch_points[0];
-            auto [x1, y1] = pinch_points[1];
-            double distance = std::hypot(double(x1 - x0), double(y1 - y0));
-            FPoint center = { (x0 + x1) * 0.5f, (y0 + y1) * 0.5f };
-            if (previous_pinch_distance_ > 0 && distance > 0)
-            {
-                engine->setTouchPinchScale(std::clamp(float(distance / previous_pinch_distance_), 0.94f, 1.06f));
-                engine->setTouchCameraPan(center.x - previous_pinch_center_.x, center.y - previous_pinch_center_.y);
-            }
-            previous_pinch_distance_ = distance;
-            previous_pinch_center_ = center;
-            pinch_active = true;
+            engine->setTouchPinchScale(std::clamp(float(distance / previous_pinch_distance_), 0.94f, 1.06f));
+            engine->setTouchCameraPan(center.x - previous_pinch_center_.x, center.y - previous_pinch_center_.y);
         }
-        if (!is_action && !is_paper)
+        previous_pinch_distance_ = distance;
+        previous_pinch_center_ = center;
+        pinch_active = true;
+    }
+    bool a_pressed = button_a_->state_ == NodePress;
+    bool b_pressed = button_b_->state_ == NodePress;
+    bool menu_pressed = button_menu_->state_ == NodePress;
+    bool view_pressed = button_view_->state_ == NodePress;
+    bool a_just_released = !a_pressed && a_touch_pressed_;
+    bool b_just_released = !b_pressed && b_touch_pressed_;
+    bool menu_just_released = !menu_pressed && menu_touch_pressed_;
+    bool view_just_released = !view_pressed && view_touch_pressed_;
+    a_touch_pressed_ = a_pressed;
+    b_touch_pressed_ = b_pressed;
+    menu_touch_pressed_ = menu_pressed;
+    view_touch_pressed_ = view_pressed;
+
+    auto sendGamepadButtonUp = [&](int button)
+    {
+        e.type = EVENT_GAMEPAD_BUTTON_UP;
+        e.gbutton.button = button;
+    };
+    if (show_exp && a_just_released)
+    {
+        sendGamepadButtonUp(GAMEPAD_BUTTON_SOUTH);
+    }
+    else if (is_menu_active && (a_just_released || b_just_released))
+    {
+        sendGamepadButtonUp(a_just_released ? GAMEPAD_BUTTON_SOUTH : GAMEPAD_BUTTON_EAST);
+    }
+    else if (menu_just_released)
+    {
+        sendGamepadButtonUp(GAMEPAD_BUTTON_START);
+    }
+    else if (view_just_released)
+    {
+        sendGamepadButtonUp(GAMEPAD_BUTTON_BACK);
+    }
+    else if (!is_action && !is_paper)
+    {
+        if (a_just_released)
         {
-            if (is_press && button_a_->state_ == NodePress)
-            {
-                //LOG("{}", "press a");
-                e.type = EVENT_KEY_UP;
-                e.key.key = K_RETURN;
-                button_interval_[button_a_].interval = 100;
-            }
-            if (is_press && button_b_->state_ == NodePress)
-            {
-                e.type = EVENT_KEY_UP;
-                e.key.key = K_ESCAPE;
-                button_interval_[button_b_].interval = 100;
-            }
+            sendGamepadButtonUp(GAMEPAD_BUTTON_SOUTH);
+            button_interval_[button_a_].interval = 100;
         }
-        if (is_press && button_menu_->state_ == NodePress)
+        else if (b_just_released)
         {
-            e.type = EVENT_KEY_UP;
-            e.key.key = K_ESCAPE;
-            if (!is_action && !is_paper)
-            {
-                button_interval_[button_menu_].interval = 100;
-            }
+            sendGamepadButtonUp(GAMEPAD_BUTTON_EAST);
+            button_interval_[button_b_].interval = 100;
         }
-        if (is_press && button_view_->state_ == NodePress)
-        {
-            e.type = EVENT_KEY_UP;
-            e.key.key = K_TAB;
-            if (!is_action && !is_paper)
-            {
-                button_interval_[button_view_].interval = 100;
-            }
-        }
-        if (is_press2)
-        {
-            prev_press_ = engine->getTicks();
-        }
-        //一定时间内忽略鼠标事件
-        if ((e.type == EVENT_MOUSE_BUTTON_UP || e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_MOTION)
-            && engine->getTicks() - prev_press_ < 500)
-        {
-            e.type = EVENT_FIRST;
-        }
-        if (is_press)
-        {
-            if (!pinch_active)
-            {
-                previous_pinch_distance_ = 0;
-            }
-            return;
-        }
-        touch++;
+    }
+    if (is_press2)
+    {
+        prev_press_ = engine->getTicks();
+    }
+    //一定时间内忽略鼠标事件
+    if ((e.type == EVENT_MOUSE_BUTTON_UP || e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_MOTION)
+        && engine->getTicks() - prev_press_ < 500)
+    {
+        e.type = EVENT_FIRST;
     }
     if (!pinch_active)
     {

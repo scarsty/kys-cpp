@@ -33,3 +33,4 @@ kys-cpp-androidstudio/app/jni/include/
 build.log
 vcpkg_installed
 tools/__pycache__
+*.apk

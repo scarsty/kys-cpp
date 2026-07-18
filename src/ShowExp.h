@@ -20,4 +20,5 @@ public:
 private:
     std::string text_;
     bool ok_enabled_ = false;
+    uint64_t entered_ticks_ = 0;
 };

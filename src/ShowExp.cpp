@@ -7,6 +7,7 @@ ShowExp::ShowExp()
 {
     x_ = 100;
     y_ = 100;
+    entered_ticks_ = Engine::getInstance()->getTicks();
 }
 
 ShowExp::~ShowExp()
@@ -29,6 +30,11 @@ void ShowExp::dealEvent(EngineEvent& e)
             || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
             || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_SOUTH))
         {
+            if (Engine::getInstance()->getTicks() - entered_ticks_ >= 150)
+            {
+                ok_enabled_ = true;
+                return;
+            }
             ok_enabled_ = true;
             e.type = EVENT_FIRST;
         }
