@@ -23,16 +23,14 @@ const BalanceConfig::ChallengeDef& requireChallenge(
     return *found;
 }
 
-void updateSurvivorWins(ChessSessionState& state, const BattleSummary& summary)
+void updateDeployedWins(ChessSessionState& state)
 {
-    std::set<int> rewardedInstanceIds;
-    for (const auto& survivor : summary.survivors)
+    for (auto& entry : state.roster)
     {
-        if (survivor.team == 0
-            && survivor.chessInstanceId >= 0
-            && rewardedInstanceIds.insert(survivor.chessInstanceId).second)
+        auto& piece = entry.second;
+        if (piece.deployed)
         {
-            ++state.roster.at(survivor.chessInstanceId).fightsWon;
+            ++piece.fightsWon;
         }
     }
 }
@@ -126,7 +124,7 @@ void ChessProgressionRules::applyBattleResult(
         }
         else
         {
-            updateSurvivorWins(state, battle.summary);
+            updateDeployedWins(state);
             ChessRewardRules::enqueueChallengeReward(
                 state,
                 content,
@@ -141,7 +139,7 @@ void ChessProgressionRules::applyBattleResult(
         return;
     }
 
-    updateSurvivorWins(state, battle.summary);
+    updateDeployedWins(state);
     const auto& balance = content.balance();
     std::set<int> survivingChessInstanceIds;
     for (const auto& survivor : battle.summary.survivors)

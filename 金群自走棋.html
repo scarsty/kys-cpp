@@ -6,104 +6,130 @@
 <title>金群自走棋 · 珍瓏棋局 — 玩法指南與宣傳頁</title>
 <style>
 :root{
-  --bg:#0f0b08; --panel:#1b150e; --panel2:#241c12; --ink:#eadfc8; --muted:#a6957c;
-  --gold:#c9a35f; --gold2:#e6c988; --red:#b03a2a; --red2:#d4573f; --line:#3d2f1d;
+  --bg:#050506; --panel:#0d0d0f; --panel2:#141416; --ink:#e8e8e6; --ink-strong:#f4f4f1;
+  --muted:#909095; --red:#d42d25; --red2:#f04438; --red-dark:#701816; --line:#29292d;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
-  background:var(--bg); color:var(--ink);
-  font-family:"Noto Serif SC","Source Han Serif SC","STSong","SimSun",serif;
-  font-size:16px; line-height:1.85;
+  background:
+    radial-gradient(circle at 50% -20%,rgba(217,47,39,.11),transparent 42%),
+    var(--bg);
+  color:var(--ink);
+  font-family:"Noto Sans TC","Noto Sans SC","Source Han Sans TC","Source Han Sans SC","Microsoft JhengHei","Microsoft YaHei",sans-serif;
+  font-size:16px; line-height:1.85; overflow-x:hidden;
 }
-h1,h2,h3,.kai{font-family:"Kaiti SC","STKaiti","KaiTi","DFKai-SB",serif}
-a{color:var(--gold2); text-decoration:none}
-a:hover{color:#fff}
+h1,.kai,.sec-no,.novel{font-family:"Kaiti SC","STKaiti","KaiTi","DFKai-SB",serif}
+a{color:var(--red2); text-decoration:none}
+a:hover{color:var(--ink-strong)}
 img{display:block; max-width:100%}
 .wrap{max-width:1080px; margin:0 auto; padding:0 20px}
 
 /* ===== 頂欄 ===== */
 nav{
   position:sticky; top:0; z-index:100;
-  background:rgba(15,11,8,.93); backdrop-filter:blur(6px);
-  border-bottom:1px solid var(--line);
+  background:rgba(5,5,6,.94); backdrop-filter:blur(8px);
+  border-bottom:1px solid #27272a;
+  box-shadow:0 1px 0 rgba(217,47,39,.18);
 }
 nav .wrap{display:flex; align-items:center; gap:18px; height:52px; overflow-x:auto; scrollbar-width:none}
 nav .wrap::-webkit-scrollbar{display:none}
-nav .brand{font-family:"Kaiti SC","STKaiti","KaiTi",serif; font-size:18px; color:var(--gold2); white-space:nowrap; letter-spacing:.08em}
+nav .brand{font-size:15px; font-weight:700; color:var(--red2); white-space:nowrap; letter-spacing:.14em}
 nav .links{display:flex; gap:14px; flex:1; white-space:nowrap}
 nav .links a{color:var(--muted); font-size:14px}
-nav .links a:hover{color:var(--gold2)}
-.lang{display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; flex:none}
+nav .links a:hover{color:var(--ink-strong)}
+.lang{display:flex; border:1px solid var(--line); border-radius:3px; overflow:hidden; flex:none}
 .lang button{
   background:transparent; border:0; color:var(--muted); cursor:pointer;
   font-family:inherit; font-size:13px; padding:4px 10px;
 }
-.lang button.on{background:var(--red); color:#fff}
+.lang button.on{background:var(--red); color:var(--ink-strong)}
 
 /* ===== 頭版 ===== */
-.hero{padding:54px 0 30px; text-align:center; position:relative}
+.hero{padding:54px 0 30px; text-align:center; position:relative; overflow:hidden}
+.hero::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(30deg,transparent 49.4%,rgba(185,35,30,.16) 49.7%,rgba(185,35,30,.16) 50.3%,transparent 50.6%),
+    linear-gradient(-30deg,transparent 49.4%,rgba(185,35,30,.16) 49.7%,rgba(185,35,30,.16) 50.3%,transparent 50.6%);
+  background-size:112px 64px;
+  opacity:.62;
+  -webkit-mask-image:linear-gradient(to bottom,#000,transparent 80%);
+  mask-image:linear-gradient(to bottom,#000,transparent 80%);
+}
+.hero .wrap{position:relative; z-index:1}
 .hero-lockup{display:flex; align-items:center; justify-content:center; gap:26px; margin-bottom:18px}
-.game-icon{width:124px; height:124px; flex:none; border:1px solid rgba(201,163,95,.5); border-radius:26px; overflow:hidden; box-shadow:0 12px 34px rgba(176,58,42,.3)}
+.game-icon{width:124px; height:124px; flex:none; border:1px solid rgba(240,68,56,.62); border-radius:18px; overflow:hidden; box-shadow:0 14px 38px rgba(185,35,30,.28)}
 .game-icon img{width:100%; height:100%; object-fit:cover}
 .hero-title{text-align:left}
 .hero .eyebrow{color:var(--red2); letter-spacing:.24em; font-size:14px; margin-bottom:6px}
-.hero h1{font-size:min(64px,10vw); color:var(--gold2); letter-spacing:.12em; text-shadow:0 4px 24px rgba(176,58,42,.45)}
+.hero h1{font-size:min(64px,10vw); color:var(--red2); letter-spacing:.12em; text-shadow:0 5px 28px rgba(217,47,39,.38)}
 .hero .tagline{color:var(--ink); font-size:18px; margin:14px 0 6px}
-.hero .tagline em{color:var(--gold); font-style:normal}
+.hero .tagline em{color:var(--ink-strong); font-style:normal}
 .hero .sub{color:var(--muted); font-size:14px}
 @media(max-width:600px){
+  nav .brand{order:0}
+  nav .lang{order:1}
+  nav .links{order:2; flex:none}
   .hero-lockup{flex-direction:column; gap:12px}
-  .game-icon{width:104px; height:104px; border-radius:22px}
+  .game-icon{width:104px; height:104px; border-radius:14px}
   .hero-title{text-align:center}
   .hero .eyebrow{letter-spacing:.14em}
 }
 .badges{display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:22px 0}
 .badges span{
-  border:1px solid var(--line); border-radius:999px; padding:4px 14px;
-  color:var(--gold); font-size:13px; background:rgba(36,28,18,.6);
+  border-left:2px solid var(--red-dark); padding:3px 13px;
+  color:var(--muted); font-size:13px; background:rgba(13,13,15,.72); letter-spacing:.04em;
 }
 .cta{display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin:10px 0 0}
 .btn{
-  display:inline-block; border-radius:8px; padding:10px 22px; font-size:15px;
-  border:1px solid var(--gold); color:var(--gold2);
+  display:inline-block; border-radius:4px; padding:10px 22px; font-size:15px;
+  border:1px solid var(--red-dark); color:var(--ink-strong); background:rgba(5,5,6,.74);
 }
-.btn.primary{background:var(--red); border-color:var(--red); color:#fff}
-.btn:hover{filter:brightness(1.2); color:#fff}
+.btn.primary{background:var(--red); border-color:var(--red); color:var(--ink-strong)}
+.btn:hover{border-color:var(--red2); background:#171719; color:var(--ink-strong)}
+.btn.primary:hover{background:#b9231e; border-color:#b9231e}
 .shot{
-  border:1px solid var(--line); border-radius:12px; overflow:hidden;
-  box-shadow:0 12px 40px rgba(0,0,0,.55); background:#000;
+  border:1px solid #303034; border-radius:6px; overflow:hidden;
+  box-shadow:0 14px 42px rgba(0,0,0,.62),0 0 0 1px rgba(112,24,22,.18); background:#000;
 }
 figcaption{
-  background:var(--panel); color:var(--muted); font-size:13px;
+  background:#09090a; color:var(--muted); font-size:13px;
   padding:8px 12px; text-align:center; border-top:1px solid var(--line);
 }
 .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin:30px 0 0}
-.stat{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 6px}
-.stat b{display:block; font-size:26px; color:var(--gold2); font-family:"Kaiti SC","STKaiti","KaiTi",serif}
+.stat{background:rgba(13,13,15,.88); border:1px solid var(--line); border-top:2px solid var(--red-dark); border-radius:4px; padding:13px 6px}
+.stat b{display:block; font-size:26px; color:var(--red2); font-weight:800}
 .stat i{font-style:normal; color:var(--muted); font-size:13px}
 
 /* ===== 章節 ===== */
 section{padding:46px 0 8px}
-.sec-head{display:flex; align-items:baseline; gap:14px; border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:22px}
-.sec-no{background:var(--red); color:#fff; font-family:"Kaiti SC","STKaiti","KaiTi",serif; padding:2px 10px; border-radius:4px; font-size:17px}
-.sec-head h2{font-size:30px; color:var(--gold2); letter-spacing:.08em}
+.sec-head{display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:22px; position:relative}
+.sec-head::after{content:""; position:absolute; left:0; bottom:-1px; width:90px; height:1px; background:var(--red)}
+.sec-no{background:var(--red); color:var(--ink-strong); padding:2px 10px; border-radius:2px; font-size:17px}
+.sec-head h2{font-size:29px; color:var(--ink-strong); letter-spacing:.06em}
 .sec-head small{color:var(--muted); font-size:14px}
+@media(max-width:600px){
+  .sec-head{display:grid; grid-template-columns:auto minmax(0,1fr); gap:0 12px; align-items:center}
+  .sec-no{grid-row:1 / span 2}
+  .sec-head h2{grid-column:2; font-size:26px; line-height:1.35}
+  .sec-head small{grid-column:2}
+}
 .lead{font-size:16.5px}
 .lead p+p{margin-top:.8em}
-.hl{color:var(--gold2)}
+.hl{color:var(--red2)}
 .mut{color:var(--muted)}
 .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:18px}
-.card{background:linear-gradient(160deg,#1e1710,#15100a); border:1px solid var(--line); border-radius:12px; padding:18px 20px}
-.card h3{color:var(--gold2); font-size:20px; margin-bottom:8px}
-.card h3 .tag{font-size:12px; color:var(--red2); border:1px solid var(--red); border-radius:4px; padding:1px 6px; margin-left:8px; vertical-align:2px}
+.card{background:var(--panel); border:1px solid var(--line); border-left:2px solid rgba(217,47,39,.46); border-radius:6px; padding:18px 20px}
+.card h3{color:var(--ink-strong); font-size:19px; margin-bottom:8px}
+.card h3 .tag{font-size:12px; color:var(--red2); border:1px solid var(--red-dark); border-radius:2px; padding:1px 6px; margin-left:8px; vertical-align:2px}
 .card p{font-size:14.5px; color:var(--ink)}
 .card ul{margin:6px 0 0 1.2em; font-size:14.5px}
 .card li{margin:3px 0}
 .steps{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-top:18px}
-.step{background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.step{background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow:hidden}
 .step .txt{padding:14px 18px}
-.step h3{color:var(--gold2); font-size:18px; margin-bottom:6px}
+.step h3{color:var(--ink-strong); font-size:18px; margin-bottom:6px}
 .step h3 b{color:var(--red2); margin-right:6px}
 .step p{font-size:14px; color:var(--ink)}
 .two-col{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start}
@@ -112,43 +138,51 @@ section{padding:46px 0 8px}
 /* ===== 表格 ===== */
 table{width:100%; border-collapse:collapse; font-size:13.5px; margin:12px 0}
 th,td{border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top}
-th{background:var(--panel2); color:var(--gold2); white-space:nowrap}
-tr:nth-child(even) td{background:rgba(36,28,18,.35)}
+th{background:var(--panel2); color:var(--ink-strong); border-bottom-color:var(--red-dark); white-space:nowrap}
+tr:nth-child(even) td{background:rgba(20,20,22,.62)}
 td small{color:var(--muted)}
 .table-scroll{overflow-x:auto; scrollbar-color:var(--line) transparent}
 .table-scroll table{min-width:680px}
 
 /* ===== 圖鑑 ===== */
-.novel{margin:26px 0 10px; color:var(--red2); font-size:19px; font-family:"Kaiti SC","STKaiti","KaiTi",serif; border-left:3px solid var(--red); padding-left:10px}
+.novel{margin:26px 0 10px; color:var(--red2); font-size:19px; border-left:3px solid var(--red); padding-left:10px}
 .gallery{display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:10px; margin-top:12px}
-.piece{position:relative; background:var(--panel); border:1px solid var(--line); border-radius:10px; text-align:center; transition:transform .15s}
-.piece:hover{transform:translateY(-4px); border-color:var(--gold)}
-.piece img{width:100%; aspect-ratio:1; object-fit:cover; border-radius:9px 9px 0 0}
+.piece{position:relative; background:var(--panel); border:1px solid var(--line); border-radius:6px; text-align:center; transition:transform .15s,border-color .15s}
+.piece:hover{transform:translateY(-4px); border-color:var(--red)}
+.piece img{width:100%; aspect-ratio:1; object-fit:cover; border-radius:5px 5px 0 0}
 .piece .nm{font-size:14px; padding:4px 2px 0}
-.piece .cost{font-size:12px; color:var(--gold); padding-bottom:5px}
+.piece .cost{font-size:12px; color:var(--red2); padding-bottom:5px}
 .piece .tip{
   position:absolute; bottom:calc(100% + 8px); left:50%; z-index:60;
   min-width:190px; max-width:240px; padding:9px 11px;
-  background:#2a2115; border:1px solid var(--gold); border-radius:8px;
+  background:#0a0a0c; border:1px solid var(--red-dark); border-radius:4px;
   box-shadow:0 10px 28px rgba(0,0,0,.65);
   font-size:12.5px; line-height:1.7; text-align:left; color:var(--ink);
   opacity:0; pointer-events:none; transform:translateX(-50%) translateY(5px);
   transition:opacity .15s, transform .15s;
 }
 .piece .tip span{display:block}
-.piece .tip .lb{color:var(--gold2)}
+.piece .tip .lb{color:var(--red2)}
 .piece:hover .tip,.piece:active .tip{opacity:1; transform:translateX(-50%) translateY(0)}
+@media(max-width:760px){
+  .gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .piece .tip{width:min(240px,calc(100vw - 40px)); min-width:0; max-width:none}
+  .piece:nth-child(odd) .tip{left:0; right:auto; transform:translateX(0) translateY(5px)}
+  .piece:nth-child(even) .tip{left:auto; right:0; transform:translateX(0) translateY(5px)}
+  .piece:nth-child(odd):hover .tip,.piece:nth-child(odd):active .tip,
+  .piece:nth-child(even):hover .tip,.piece:nth-child(even):active .tip{transform:translateX(0) translateY(0)}
+}
 
 /* ===== 技巧 / 頁腳 ===== */
 .tips{columns:2; column-gap:24px; margin-top:14px}
 @media(max-width:760px){.tips{columns:1}}
 .tips li{break-inside:avoid; margin:0 0 10px 1.2em; font-size:14.5px}
-.tips li b{color:var(--gold2)}
+.tips li b{color:var(--red2)}
 footer{border-top:1px solid var(--line); margin-top:56px; padding:28px 0 46px; color:var(--muted); font-size:13.5px}
 footer p{margin:6px 0}
 #top-btn{
-  position:fixed; right:22px; bottom:22px; width:44px; height:44px; border-radius:50%;
-  background:rgba(27,21,14,.9); border:1px solid var(--gold); color:var(--gold2);
+  position:fixed; right:22px; bottom:22px; width:44px; height:44px; border-radius:4px;
+  background:rgba(9,9,10,.94); border:1px solid var(--red-dark); color:var(--red2);
   cursor:pointer; font-size:18px; display:none; z-index:90;
 }
 </style>
@@ -189,8 +223,7 @@ footer p{margin:6px 0}
     <div class="tagline">珍珑棋局，落子江湖 —— <em>近百位金庸群侠，皆为你掌中棋子</em></div>
     <div class="sub">招募 · 布阵 · 羁绊 · 升星 —— 坐看群侠自动交锋</div>
     <div class="badges">
-      <span>金庸全作品角色</span><span>全自动即时战斗</span><span>深度羁绊搭配</span>
-      <span>失败零惩罚</span><span>开源免费</span><span>PC · 安卓 · 网页</span>
+      <span>近百位金庸群侠</span><span>全自动即时战斗</span><span>单机 · 免费 · 零惩罚</span>
     </div>
     <div class="cta">
       <a class="btn primary" href="https://tiexuedanxin.net/kys/kyschess.html" target="_blank" rel="noopener">网页版即点即玩</a>
@@ -264,7 +297,7 @@ footer p{margin:6px 0}
         <li>棋子分一至五费，售价即费用（1费1金 …… 5费5金），越高费越难刷出。</li>
         <li>三枚相同一星合成二星，三枚二星再合三星；每颗额外星大幅提升属性，另有固定加成，升星后脱胎换骨。</li>
         <li>出售按 <span class="hl">费用 × 3<sup>星级-1</sup></span> 全额返还，换阵不亏。</li>
-        <li><b>胜场成长：</b>打赢主线、或首次通关远征时，只有活下来的棋子个人胜场 +1。以普通难度当前配置为例，每个胜场值生命 +12、攻击 +1、防御 +1、各项兵器熟练度 +0.5、轻功 +0.5；带小数的按总胜场累计后向下取整。合成时只继承三枚棋子里最高的胜场，不会相加；部分羁绊还会按现有胜场再追加成长。</li>
+        <li><b>胜场成长：</b>打赢主线、或首次通关远征时，所有出战棋子的个人胜场 +1。以普通难度当前配置为例，每个胜场值生命 +12、攻击 +1、防御 +1、各项兵器熟练度 +0.5、轻功 +0.5；带小数的按总胜场累计后向下取整。合成时只继承三枚棋子里最高的胜场，不会相加；部分羁绊还会按现有胜场再追加成长。</li>
       </ul>
     </div>
     <div class="card">
@@ -569,7 +602,7 @@ footer p{margin:6px 0}
 
 <footer data-a="footer" id="footer">
   <div class="wrap">
-    <p><b class="kai" style="color:var(--gold2);font-size:17px">金群自走棋</b> —— 金庸群侠传复刻版（kys-cpp）自走棋模式</p>
+    <p><b class="kai" style="color:var(--red2);font-size:17px">金群自走棋</b> —— 金庸群侠传复刻版（kys-cpp）自走棋模式</p>
     <p>网页版即点即玩：<a href="https://tiexuedanxin.net/kys/kyschess.html" target="_blank" rel="noopener">https://tiexuedanxin.net/kys/kyschess.html</a>（推荐 Edge / Firefox / Chrome / Opera）</p>
     <p>开源仓库：<a href="https://github.com/scarsty/kys-cpp" target="_blank" rel="noopener">github.com/scarsty/kys-cpp</a> ｜ 玩家交流 QQ群：910723737</p>
     <p>本页为入门指引，仅梳理玩法梗概；棋子、羁绊、装备、内功等完整名单与数值，请以游戏内各项「一览」界面为准。页面截图与角色头像取自游戏资源。</p>
@@ -614,8 +647,7 @@ footer p{margin:6px 0}
     <div class="tagline">珍瓏棋局，落子江湖 —— <em>近百位金庸群俠，皆為你掌中棋子</em></div>
     <div class="sub">招募 · 佈陣 · 羈絆 · 升星 —— 坐看群俠自動交鋒</div>
     <div class="badges">
-      <span>金庸全作品角色</span><span>全自動即時戰鬥</span><span>深度羈絆搭配</span>
-      <span>失敗零懲罰</span><span>開源免費</span><span>PC · 安卓 · 網頁</span>
+      <span>近百位金庸群俠</span><span>全自動即時戰鬥</span><span>單機 · 免費 · 零懲罰</span>
     </div>
     <div class="cta">
       <a class="btn primary" href="https://tiexuedanxin.net/kys/kyschess.html" target="_blank" rel="noopener">網頁版即點即玩</a>
@@ -689,7 +721,7 @@ footer p{margin:6px 0}
         <li>棋子分一至五費，售價即費用（1費1金 …… 5費5金），越高費越難刷出。</li>
         <li>三枚相同一星合成二星，三枚二星再合三星；每顆額外星大幅提升屬性，另有固定加成，升星後脫胎換骨。</li>
         <li>出售按 <span class="hl">費用 × 3<sup>星級-1</sup></span> 全額返還，換陣不虧。</li>
-        <li><b>勝場成長：</b>打贏主線、或首次通關遠征時，只有活下來的棋子個人勝場 +1。以普通難度當前配置為例，每個勝場值生命 +12、攻擊 +1、防禦 +1、各項兵器熟練度 +0.5、輕功 +0.5；帶小數的按總勝場累計後向下取整。合成時只繼承三枚棋子裡最高的勝場，不會相加；部分羈絆還會按現有勝場再追加成長。</li>
+        <li><b>勝場成長：</b>打贏主線、或首次通關遠征時，所有出戰棋子的個人勝場 +1。以普通難度當前配置為例，每個勝場值生命 +12、攻擊 +1、防禦 +1、各項兵器熟練度 +0.5、輕功 +0.5；帶小數的按總勝場累計後向下取整。合成時只繼承三枚棋子裡最高的勝場，不會相加；部分羈絆還會按現有勝場再追加成長。</li>
       </ul>
     </div>
     <div class="card">
@@ -994,7 +1026,7 @@ footer p{margin:6px 0}
 
 <footer data-a="footer" id="footer">
   <div class="wrap">
-    <p><b class="kai" style="color:var(--gold2);font-size:17px">金群自走棋</b> —— 金庸群俠傳復刻版（kys-cpp）自走棋模式</p>
+    <p><b class="kai" style="color:var(--red2);font-size:17px">金群自走棋</b> —— 金庸群俠傳復刻版（kys-cpp）自走棋模式</p>
     <p>網頁版即點即玩：<a href="https://tiexuedanxin.net/kys/kyschess.html" target="_blank" rel="noopener">https://tiexuedanxin.net/kys/kyschess.html</a>（推薦 Edge / Firefox / Chrome / Opera）</p>
     <p>開源倉庫：<a href="https://github.com/scarsty/kys-cpp" target="_blank" rel="noopener">github.com/scarsty/kys-cpp</a> ｜ 玩家交流 QQ群：910723737</p>
     <p>本頁為入門指引，僅梳理玩法梗概；棋子、羈絆、裝備、內功等完整名單與數值，請以遊戲內各項「一覽」界面為準。頁面截圖與角色頭像取自遊戲資源。</p>

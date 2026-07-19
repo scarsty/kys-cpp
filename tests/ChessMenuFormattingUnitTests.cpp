@@ -273,7 +273,7 @@ TEST_CASE("game guide derives economy equipment and reward details from content"
     CHECK(basic.lines[2].text == "· 勝利得6經驗，強敵勝利得11經驗");
     const auto& pieces = guideSection(sections, "棋子與升星");
     CHECK(pieces.lines[1].text == "· 1費2金、2費4金、3費7金、4費11金、5費16金；星級價格按4倍計");
-    CHECK(pieces.lines[3].text == "· 主線勝利或首次通關遠征時，只有存活棋子勝場+1；合成取三枚中的最高勝場，不會相加");
+    CHECK(pieces.lines[3].text == "· 主線勝利或首次通關遠征時，所有出戰棋子勝場+1；合成取三枚中的最高勝場，不會相加");
     CHECK(pieces.lines[4].text == "· 每個勝場提供生命+12、攻擊+1、防禦+1、各項兵器熟練度+0.5、輕功+0.25；小數按總勝場累計後取整");
     CHECK(pieces.lines[4].tone == ChessGameGuideLineTone::Information);
     const auto& economy = guideSection(sections, "經濟與等級");

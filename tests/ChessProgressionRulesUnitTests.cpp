@@ -12,7 +12,8 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
-TEST_CASE("campaign victory derives progression from runtime survivors", "[chess][progression]")
+TEST_CASE("campaign victory increments every deployed piece and leaves benched pieces unchanged",
+          "[chess][progression]")
 {
     auto contentData = ChessGameContentData{};
     contentData.balance.totalFights = 1;
@@ -25,6 +26,8 @@ TEST_CASE("campaign victory derives progression from runtime survivors", "[chess
     ChessSessionState state;
     state.money = 20;
     state.roster.emplace(1, ChessSessionPiece{1, 10, 1, true});
+    state.roster.emplace(2, ChessSessionPiece{2, 20, 1, true});
+    state.roster.emplace(3, ChessSessionPiece{3, 30, 1, false});
     PreparedChessBattle prepared;
     prepared.kind = PreparedChessBattleKind::Campaign;
     prepared.stableBattleId = "campaign:1";
@@ -48,8 +51,55 @@ TEST_CASE("campaign victory derives progression from runtime survivors", "[chess
     CHECK(state.campaignComplete);
     CHECK(state.money == 25);
     CHECK(state.roster.at(1).fightsWon == 1);
+    CHECK(state.roster.at(2).fightsWon == 1);
+    CHECK(state.roster.at(3).fightsWon == 0);
     CHECK(state.lastBattleDigest == battle.digest);
     CHECK(state.phase == ChessSessionPhase::Management);
+}
+
+TEST_CASE("first challenge clear increments every deployed piece exactly once",
+          "[chess][progression][challenge]")
+{
+    ChessGameContentData data;
+    BalanceConfig::ChallengeDef challenge;
+    challenge.name = "首次通關";
+    challenge.rewards = {{BalanceConfig::ChallengeRewardType::Gold, 5}};
+    data.balance.challenges.push_back(challenge);
+    ChessGameContent content(std::move(data));
+
+    ChessSessionState state;
+    state.roster.emplace(1, ChessSessionPiece{1, 10, 1, true, -1, -1, 4});
+    state.roster.emplace(2, ChessSessionPiece{2, 20, 1, true, -1, -1, 7});
+    state.roster.emplace(3, ChessSessionPiece{3, 30, 1, false, -1, -1, 9});
+    PreparedChessBattle prepared;
+    prepared.kind = PreparedChessBattleKind::Challenge;
+    prepared.stableBattleId = challenge.name;
+    state.preparedBattle = prepared;
+    ChessRunRandom random(2);
+    HeadlessBattleResult battle;
+    battle.summary.outcome = Battle::BattleOutcome::PlayerVictory;
+    battle.summary.survivors.push_back({1, 1, 10, 0, 20, 0});
+    std::vector<ChessSemanticEvent> events;
+
+    ChessProgressionRules::applyBattleResult(state, content, random, battle, events);
+
+    CHECK(state.roster.at(1).fightsWon == 5);
+    CHECK(state.roster.at(2).fightsWon == 8);
+    CHECK(state.roster.at(3).fightsWon == 9);
+    REQUIRE(state.pendingRewards.size() == 1);
+
+    ChessAction choose;
+    choose.type = ChessActionType::ChooseReward;
+    choose.rewardId = "獲取5金幣";
+    ChessRewardRules::apply(state, content, random, choose, events);
+    REQUIRE(state.completedChallengeNames.contains(challenge.name));
+
+    state.preparedBattle = prepared;
+    ChessProgressionRules::applyBattleResult(state, content, random, battle, events);
+
+    CHECK(state.roster.at(1).fightsWon == 5);
+    CHECK(state.roster.at(2).fightsWon == 8);
+    CHECK(state.roster.at(3).fightsWon == 9);
 }
 
 TEST_CASE("configured victory economy grants combo gold and one persisted free refresh",

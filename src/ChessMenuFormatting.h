@@ -438,7 +438,7 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(const Ches
                 {std::format("· 商店每回合{}格可選，棋子分一至五費，越高費越難遇見", balance.shopSlotCount)},
                 {std::format("· {}；星級價格按{}倍計", formatTierPrices(), balance.starCostMult)},
                 {"· 三枚相同合成二星，三枚二星再成三星，升星後屬性大增"},
-                {"· 主線勝利或首次通關遠征時，只有存活棋子勝場+1；合成取三枚中的最高勝場，不會相加"},
+                {"· 主線勝利或首次通關遠征時，所有出戰棋子勝場+1；合成取三枚中的最高勝場，不會相加"},
                 {chessFightWinGrowthGuideLine(balance), ChessGameGuideLineTone::Information},
             },
         },
