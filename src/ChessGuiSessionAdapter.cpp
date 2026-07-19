@@ -534,7 +534,7 @@ void drawWrappedLines(
     int extraSpacing = 3,
     int indent = 0)
 {
-    const int displayWidth = std::max(4, pixelWidth * 2 / std::max(1, fontSize));
+    const int displayWidth = displayTextUnitsForPixelWidth(fontSize, pixelWidth, indent);
     for (const auto& line : wrapDisplayText(text, displayWidth))
     {
         cursor.line(line, fontSize, color, extraSpacing, indent);
@@ -3845,8 +3845,8 @@ void ChessGuiSessionAdapter::showGameGuide()
         };
 
         const auto measureWrappedLines = [columnWidth](const std::string& text) {
-            const int availableUnits = std::max(4, (columnWidth - 24) * 2 / bodyFontSize);
-            return std::max(1, static_cast<int>(wrapDisplayText(text, availableUnits).size()));
+            const int displayWidth = displayTextUnitsForPixelWidth(bodyFontSize, columnWidth - 24);
+            return std::max(1, static_cast<int>(wrapDisplayText(text, displayWidth).size()));
         };
 
         const auto measureSectionHeight = [&](const ChessGameGuideSection& section) {

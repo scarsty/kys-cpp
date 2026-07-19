@@ -2,6 +2,7 @@
 
 #include "Font.h"
 
+#include <cassert>
 #include <string>
 #include <vector>
 
@@ -47,5 +48,12 @@ int getRandomChessMusic();
 int getRandomBattleMusic();
 bool isChessSceneMusic(int musicId);
 std::vector<std::string> wrapDisplayText(const std::string& text, int maxWidth);
+
+inline int displayTextUnitsForPixelWidth(int fontSize, int pixelWidth, int indent = 0)
+{
+    assert(fontSize > 0);
+    assert(pixelWidth - indent >= fontSize);
+    return (pixelWidth - indent) * 2 / fontSize;
+}
 
 }    // namespace KysChess

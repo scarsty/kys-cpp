@@ -1,5 +1,6 @@
 #include "ChessMenuFormatting.h"
 #include "ChessGameSession.h"
+#include "ChessUiCommon.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -188,6 +189,26 @@ TEST_CASE("combo catalog aligns mixed-width names and progress counts", "[chess]
     const int width = testDisplayWidth(labels.front());
     CHECK(testDisplayWidth(labels[1]) == width);
     CHECK(testDisplayWidth(labels[2]) == width);
+}
+
+TEST_CASE("panel text wrapping reserves indentation inside the right boundary", "[chess][ui][wrapping]")
+{
+    constexpr int fontSize = 22;
+    constexpr int pixelWidth = 260;
+    constexpr int indent = 22;
+    const std::vector<std::string> descriptions{
+        "15%擊退130距離並鎖定5幀",
+        "絕招觸發：全隊回105HP",
+    };
+
+    const int unindentedUnits = displayTextUnitsForPixelWidth(fontSize, pixelWidth);
+    const int indentedUnits = displayTextUnitsForPixelWidth(fontSize, pixelWidth, indent);
+    CHECK(unindentedUnits == 23);
+    CHECK(indentedUnits == 21);
+    CHECK(testDisplayWidth(descriptions[0]) <= unindentedUnits);
+    CHECK(testDisplayWidth(descriptions[0]) > indentedUnits);
+    CHECK(testDisplayWidth(descriptions[1]) <= indentedUnits);
+    CHECK(indent + fontSize * indentedUnits / 2 <= pixelWidth);
 }
 
 TEST_CASE("equipment inventory keeps owned rows first then tier and item order", "[chess][menu-formatting]")
