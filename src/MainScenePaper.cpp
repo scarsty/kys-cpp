@@ -1,5 +1,6 @@
 #include "MainScenePaper.h"
 #include "Console.h"
+#include "DayNightSystem.h"
 #include "Engine.h"
 #include "GameUtil.h"
 #include "Random.h"
@@ -63,7 +64,7 @@ bool MainScenePaper::isMountainTexture(int pic) const
     return std::ranges::find(mountain_pics, pic) != mountain_pics.end();
 }
 
-void MainScenePaper::renderTexture3D(Texture* texture, const std::vector<Pointf>& world, const std::vector<FPoint>& src)
+void MainScenePaper::renderTexture3D(Texture* texture, const std::vector<Pointf>& world, const std::vector<FPoint>& src, Color color)
 {
     auto projected = camera_.getProj(world);
     std::vector<FPoint> dst;
@@ -72,6 +73,7 @@ void MainScenePaper::renderTexture3D(Texture* texture, const std::vector<Pointf>
     {
         dst.push_back({ float(p.x), float(p.y) });
     }
+    Engine::setColor(texture, color);
     Engine::getInstance()->renderTexture(texture, nullptr, dst, src);
 }
 
@@ -95,7 +97,7 @@ void MainScenePaper::renderGroundPatch3D(Texture* texture, float world_x0, float
             float v0 = src_h * iy / mesh_y;
             float v1 = src_h * (iy + 1) / mesh_y;
             std::vector<FPoint> src = { { u0, v0 }, { u1, v0 }, { u1, v1 }, { u0, v1 } };
-            renderTexture3D(texture, world, src);
+            renderTexture3D(texture, world, src, ambient_color_);
         }
     }
 }
@@ -111,6 +113,7 @@ void MainScenePaper::onEntrance()
 void MainScenePaper::draw()
 {
     auto engine = Engine::getInstance();
+    ambient_color_ = DayNightSystem::getInstance()->getLighting().ambient_color;
     auto right_axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
     auto right_axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
     if (std::abs(right_axis_x) >= 6000)
@@ -190,7 +193,7 @@ void MainScenePaper::draw()
                     continue;
                 }
                 std::vector<FPoint> src = { { 0, 0 }, { float(tex->w), 0 }, { float(tex->w), float(tex->h) }, { 0, float(tex->h) } };
-                renderTexture3D(texture, world, src);
+                renderTexture3D(texture, world, src, ambient_color_);
             }
         }
     }
@@ -368,8 +371,7 @@ void MainScenePaper::draw()
         {
             if (inCameraFront(sprite.world))
             {
-                Engine::setColor(sprite.texture, { 255, 255, 255, 255 });
-                renderTexture3D(sprite.texture, sprite.world, sprite.src);
+                renderTexture3D(sprite.texture, sprite.world, sprite.src, ambient_color_);
             }
             continue;
         }
@@ -399,8 +401,7 @@ void MainScenePaper::draw()
             continue;
         }
         std::vector<FPoint> src = { { 0, 0 }, { float(tex->w), 0 }, { float(tex->w), float(tex->h) }, { 0, float(tex->h) } };
-        Engine::setColor(texture, { 255, 255, 255, 255 });
-        renderTexture3D(texture, paper, src);
+        renderTexture3D(texture, paper, src, ambient_color_);
     }
 
     auto cursor_pos = pos45To90(cursor_x_, cursor_y_);
@@ -419,8 +420,7 @@ void MainScenePaper::draw()
             if (inCameraFront(cursor_quad))
             {
                 std::vector<FPoint> src = { { 0, 0 }, { float(cursor->w), 0 }, { float(cursor->w), float(cursor->h) }, { 0, float(cursor->h) } };
-                Engine::setColor(texture, { 255, 255, 255, 128 });
-                renderTexture3D(texture, cursor_quad, src);
+                renderTexture3D(texture, cursor_quad, src, { 255, 255, 255, 128 });
                 Engine::setColor(texture, { 255, 255, 255, 255 });
             }
         }

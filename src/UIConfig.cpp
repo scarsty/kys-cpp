@@ -39,6 +39,7 @@ UIConfig::UIConfig()
     addOption("直接勝利", "game", "battle_debug_win", { "關閉", "開啟" });
     addOption("文字顯示", "game", "simplified_chinese", { "繁體", "簡體" });
     addOption("手柄震動", "game", "controller_rumble", { "關閉", "開啟" });
+    addOption("動態晝夜", "game", "dynamic_day_night", { "關閉", "開啟" });
     addOption("全屏", "game", "fullscreen", { "關閉", "開啟" });
 
     const int button_y = int(items_.size()) * ROW_GAP + BUTTON_TOP_GAP;

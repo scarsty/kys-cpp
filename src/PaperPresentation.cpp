@@ -1,4 +1,5 @@
 #include "PaperPresentation.h"
+#include "DayNightSystem.h"
 #include "Engine.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -153,6 +154,7 @@ void PaperPresentation::renderScene(Engine* engine, PaperFrame& frame)
 void PaperPresentation::initialize()
 {
     sky_.reset();
+    sky_.clearLightingOverride();
     sky_.generateClouds();
 }
 
@@ -465,6 +467,7 @@ void PaperPresentation::renderGroundMesh(Engine* engine, const PaperGroundTarget
     float radial_start = radial_size * GroundRadialFadeStartRatio;
     float radial_end = radial_size * GroundRadialFadeEndRatio;
 
+    Color ambient = DayNightSystem::getInstance()->getLighting().ambient_color;
     std::vector<Pointf> world;
     std::vector<FPoint> source;
     std::vector<Color> colors;
@@ -483,7 +486,8 @@ void PaperPresentation::renderGroundMesh(Engine* engine, const PaperGroundTarget
             alpha = std::min(alpha, 255.0f * (1.0f - PaperSky::smoothStep(radial_start, radial_end, center_distance)));
             world.push_back({ x, y, 0 });
             source.push_back({ source_x, source_y });
-            colors.push_back({ 255, 255, 255, uint8_t(std::clamp(alpha, 0.0f, 255.0f)) });
+            ambient.a = uint8_t(std::clamp(alpha, 0.0f, 255.0f));
+            colors.push_back(ambient);
         }
     }
 
@@ -676,6 +680,14 @@ void PaperPresentation::appendMapSprites(Engine* engine, Camera& camera, MapSqua
 
 void PaperPresentation::renderSprites(Engine* engine, Camera& camera, std::vector<PaperRenderSprite>& sprites) const
 {
+    Color ambient = DayNightSystem::getInstance()->getLighting().ambient_color;
+    auto apply_ambient = [ambient](Color color)
+    {
+        color.r = uint8_t(int(color.r) * ambient.r / 255);
+        color.g = uint8_t(int(color.g) * ambient.g / 255);
+        color.b = uint8_t(int(color.b) * ambient.b / 255);
+        return color;
+    };
     Pointf view_direction = camera.center - camera.pos;
     view_direction.z = 0;
     if (view_direction.norm() == 0) { view_direction = { 0, 1, 0 }; }
@@ -741,7 +753,7 @@ void PaperPresentation::renderSprites(Engine* engine, Camera& camera, std::vecto
     {
         if (sprite.texture && sprite.world.size() == 4)
         {
-            render_quad(sprite.texture, sprite.world, sprite.source, sprite.color, sprite.use_perspective_mesh ? 4 : 1, sprite.use_perspective_mesh ? 4 : 1);
+            render_quad(sprite.texture, sprite.world, sprite.source, apply_ambient(sprite.color), sprite.use_perspective_mesh ? 4 : 1, sprite.use_perspective_mesh ? 4 : 1);
             continue;
         }
         if (!sprite.tex) { continue; }
@@ -766,6 +778,7 @@ void PaperPresentation::renderSprites(Engine* engine, Camera& camera, std::vecto
         std::vector<Pointf> world = { point(left, top), point(right, top), point(right, bottom), point(left, bottom) };
         std::vector<FPoint> source = { { 0, 0 }, { float(sprite.tex->w), 0 }, { float(sprite.tex->w), float(sprite.tex->h) }, { 0, float(sprite.tex->h) } };
         Color color = sprite.color;
+        color = apply_ambient(color);
         color.a = sprite.alpha;
         int columns = sprite.face_camera ? 1 : std::clamp((sprite.tex->w + 31) / 32, 1, 32);
         int rows = sprite.face_camera ? 1 : std::clamp((sprite.tex->h + 31) / 32, 1, 32);

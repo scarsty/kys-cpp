@@ -1,4 +1,5 @@
 #pragma once
+#include "DayNightSystem.h"
 #include "Engine.h"
 #include "Random.h"
 #include "Types.h"
@@ -14,18 +15,12 @@ public:
     static float smoothStep(float edge0, float edge1, float value);
     void reset();
     void generateClouds();
+    void setLightingOverride(const DayNightLighting& lighting);
+    void clearLightingOverride();
     void render(Engine* engine, int viewport_width, int viewport_height,
         const Pointf& camera_pos, const Pointf& camera_center);
 
 private:
-    enum class SkyMode
-    {
-        Day,
-        Dusk,
-        Night,
-        Dawn,
-    };
-
     struct Cloud
     {
         int texture_id = 0;
@@ -46,7 +41,8 @@ private:
 
     float yaw_ = 0;
     bool yaw_initialized_ = false;
-    SkyMode sky_mode_ = SkyMode::Day;
+    bool has_lighting_override_ = false;
+    DayNightLighting lighting_override_;
     std::vector<Cloud> clouds_;
 
     float normalizeAngle(float angle) const;
@@ -65,5 +61,5 @@ private:
     void renderProgramSky(Engine* engine, int viewport_width, int viewport_height, int horizon_y,
         float pitch, float yaw, float horizontal_fov);
     void renderStars(Engine* engine, int viewport_width, int viewport_height, int horizon_y,
-        float yaw, float horizontal_fov);
+        float yaw, float horizontal_fov, float alpha);
 };

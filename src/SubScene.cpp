@@ -2,6 +2,8 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "Console.h"
+#include "DayNightDisplay.h"
+#include "DayNightSystem.h"
 #include "Event.h"
 #include "Fade.h"
 #include "Font.h"
@@ -22,6 +24,7 @@ SubScene::SubScene()
     //cloud_group_ = std::make_shared<CloudGroup>();
     //cloud_group_->init(2, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     //addChild(cloud_group_);
+    addChild<DayNightDisplay>();
 }
 
 SubScene::SubScene(int id) :
@@ -51,6 +54,8 @@ void SubScene::setID(int id)
 
 void SubScene::draw()
 {
+    auto day_night = DayNightSystem::getInstance();
+    Color ambient_color = day_night->getLighting().ambient_color;
     //int k = 0;
     struct DrawInfo
     {
@@ -84,7 +89,7 @@ void SubScene::draw()
             rect1.y = -rect0.y;
             rect0.y = 0;
         }
-        std::vector<Color> cv(4, { 255, 255, 255, 255 });
+        std::vector<Color> cv(4, ambient_color);
         Engine::getInstance()->renderTextureLight(earth_texture, &rect0, &rect1, cv, { 0.25, 0, 0, 0 });
     }
     else
@@ -108,7 +113,7 @@ void SubScene::draw()
                     {
                         if (earth_texture == nullptr)
                         {
-                            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, { ambient_color });
                         }
                         else
                         {
@@ -116,7 +121,7 @@ void SubScene::draw()
                             //用大图画时的闪烁地面
                             if (tex->count > 1)
                             {
-                                TextureManager::getInstance()->renderTexture(tex, p.x, p.y);
+                                TextureManager::getInstance()->renderTexture(tex, p.x, p.y, { ambient_color });
                             }
                         }
                     }
@@ -125,7 +130,7 @@ void SubScene::draw()
         }
         //#endif
     }
-    std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+    std::vector<Color> color_v(4, ambient_color);
     std::vector<float> brighness_v = { 0.5, 0, 0, 0 };
     //color_v[0] = { 128, 128, 128, 255 };
     //color_v[1] = { 192, 192, 192, 255 };
@@ -149,7 +154,7 @@ void SubScene::draw()
                 int num = submap_info_->Earth(ix, iy) / 2;
                 if (num > 0 && (!earth_texture || (earth_texture && h0 > 2 && rate == 1)))    //判断有点复杂，暂时先这样，高清模式下有高度的地面才画小图
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, { ambient_color });
                 }
                 //鼠标位置
                 if (ix == cursor_x_ && iy == cursor_y_)

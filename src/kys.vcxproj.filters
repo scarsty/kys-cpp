@@ -164,7 +164,7 @@
       <Filter>engine</Filter>
     </ClCompile>
     <ClCompile Include="VirtualStick.cpp">
-      <Filter>VirtualStick</Filter>
+      <Filter>virtualstick</Filter>
     </ClCompile>
     <ClCompile Include="Point.cpp">
       <Filter>point</Filter>
@@ -191,9 +191,6 @@
     <ClCompile Include="Camera.cpp">
       <Filter>camera</Filter>
     </ClCompile>
-    <ClCompile Include="PaperSky.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
     <ClCompile Include="PaperPresentation.cpp">
       <Filter>battle</Filter>
     </ClCompile>
@@ -217,6 +214,15 @@
     </ClCompile>
     <ClCompile Include=".\..\mlcc\ZipFile2.cpp">
       <Filter>mlcc</Filter>
+    </ClCompile>
+    <ClCompile Include="DayNightDisplay.cpp">
+      <Filter>sky</Filter>
+    </ClCompile>
+    <ClCompile Include="DayNightSystem.cpp">
+      <Filter>sky</Filter>
+    </ClCompile>
+    <ClCompile Include="PaperSky.cpp">
+      <Filter>sky</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -401,7 +407,7 @@
       <Filter>engine</Filter>
     </ClInclude>
     <ClInclude Include="VirtualStick.h">
-      <Filter>VirtualStick</Filter>
+      <Filter>virtualstick</Filter>
     </ClInclude>
     <ClInclude Include="Point.h">
       <Filter>point</Filter>
@@ -423,9 +429,6 @@
     </ClInclude>
     <ClInclude Include="Camera.h">
       <Filter>camera</Filter>
-    </ClInclude>
-    <ClInclude Include="PaperSky.h">
-      <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="PaperPresentation.h">
       <Filter>battle</Filter>
@@ -453,6 +456,15 @@
     </ClInclude>
     <ClInclude Include="TextureManager.h">
       <Filter>texture</Filter>
+    </ClInclude>
+    <ClInclude Include="DayNightSystem.h">
+      <Filter>sky</Filter>
+    </ClInclude>
+    <ClInclude Include="DayNightDisplay.h">
+      <Filter>sky</Filter>
+    </ClInclude>
+    <ClInclude Include="PaperSky.h">
+      <Filter>sky</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -505,9 +517,6 @@
     <Filter Include="mlcc">
       <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="VirtualStick">
-      <UniqueIdentifier>{c64953ab-6bc5-432f-98db-3bc7d331e2a6}</UniqueIdentifier>
-    </Filter>
     <Filter Include="point">
       <UniqueIdentifier>{b22155ca-ee9e-42e3-8eef-d2d74109b5c4}</UniqueIdentifier>
     </Filter>
@@ -534,6 +543,12 @@
     </Filter>
     <Filter Include="cifa">
       <UniqueIdentifier>{fe8b0f3f-0e6f-4ae3-8a14-e713da054e16}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="virtualstick">
+      <UniqueIdentifier>{c64953ab-6bc5-432f-98db-3bc7d331e2a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sky">
+      <UniqueIdentifier>{c20000b9-ec38-4959-89ce-86a6288472e8}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

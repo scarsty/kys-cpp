@@ -1,5 +1,6 @@
 ﻿#include "Application.h"
 #include "Audio.h"
+#include "DayNightSystem.h"
 #include "Engine.h"
 #include "Event.h"
 #include "Font.h"
@@ -66,6 +67,7 @@ int Application::run()
 
     config();
 
+    RunNode::addIntoDrawTop(DayNightSystem::getInstance());
     auto s = std::make_shared<TitleScene>();    //开始界面
     s->run();
 

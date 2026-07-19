@@ -1,6 +1,9 @@
 ﻿#include "MainScene.h"
 #include "Console.h"
+#include "DayNightDisplay.h"
+#include "DayNightSystem.h"
 #include "Fade.h"
+#include "Font.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "MainScenePaper.h"
@@ -44,6 +47,7 @@ MainScene::MainScene()
     cloud_group_ = std::make_shared<CloudGroup>();
     cloud_group_->init(100, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     addChild(cloud_group_);
+    addChild<DayNightDisplay>();
     //getEntrance();
     addChild(Weather::getInstance());
 }
@@ -100,6 +104,8 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
 
 void MainScene::draw()
 {
+    auto day_night = DayNightSystem::getInstance();
+    Color ambient_color = day_night->getLighting().ambient_color;
     Engine::getInstance()->setRenderTarget("scene");
 
     struct DrawInfo
@@ -146,7 +152,7 @@ void MainScene::draw()
         std::vector<float> brightness_v(4, 0);
         brightness_v[0] = 0.5;
         brightness_v[2] = 0;
-        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+        std::vector<Color> color_v(4, ambient_color);
         auto temp_texture = Engine::getInstance()->getTexture("temp");
         Rect r = { 0, 0, view_w, view_h };
         Engine::getInstance()->renderTextureLight(temp_texture, nullptr, &r, color_v, brightness_v);
@@ -171,11 +177,11 @@ void MainScene::draw()
                     //调试模式下不画出地面，图的数量太多占用CPU很大--取消
                     if (earth_layer_.data(ix, iy).getTexture())
                     {
-                        TextureManager::getInstance()->renderTexture(earth_layer_.data(ix, iy).getTexture(), p.x, p.y);
+                        TextureManager::getInstance()->renderTexture(earth_layer_.data(ix, iy).getTexture(), p.x, p.y, { ambient_color });
                     }
                     if (surface_layer_.data(ix, iy).getTexture())
                     {
-                        TextureManager::getInstance()->renderTexture(surface_layer_.data(ix, iy).getTexture(), p.x, p.y);
+                        TextureManager::getInstance()->renderTexture(surface_layer_.data(ix, iy).getTexture(), p.x, p.y, { ambient_color });
                     }
                 }
                 if (building_layer_.data(ix, iy).getTexture())
@@ -229,7 +235,7 @@ void MainScene::draw()
         brightness_v[0] = 1;
         brightness_v[2] = 0;
         TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y,
-            { { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, { }, brightness_v });
+            { ambient_color, 255, 1, 1, 0, 0, std::vector<Color>(4, ambient_color), brightness_v });
     }
     auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
     TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { { 255, 255, 255, 255 }, 128 });

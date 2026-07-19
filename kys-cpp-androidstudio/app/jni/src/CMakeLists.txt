@@ -166,6 +166,8 @@ add_library(main SHARED
         "${KYS_SRC_DIR}/ChemistryEngine.cpp"
         "${KYS_SRC_DIR}/Cloud.cpp"
         "${KYS_SRC_DIR}/Console.cpp"
+        "${KYS_SRC_DIR}/DayNightDisplay.cpp"
+        "${KYS_SRC_DIR}/DayNightSystem.cpp"
         "${KYS_SRC_DIR}/DrawableOnCall.cpp"
         "${KYS_SRC_DIR}/DrawNode.cpp"
         "${KYS_SRC_DIR}/Engine.cpp"

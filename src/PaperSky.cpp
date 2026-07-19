@@ -232,9 +232,9 @@ void PaperSky::renderCloudLayer(Engine* engine, int viewport_width, int viewport
 }
 
 void PaperSky::renderStars(Engine* engine, int viewport_width, int viewport_height, int horizon_y,
-    float yaw, float horizontal_fov)
+    float yaw, float horizontal_fov, float alpha)
 {
-    if (!engine || viewport_width <= 0 || viewport_height <= 0 || horizontal_fov <= 0)
+    if (!engine || viewport_width <= 0 || viewport_height <= 0 || horizontal_fov <= 0 || alpha <= 0.0f)
     {
         return;
     }
@@ -257,75 +257,33 @@ void PaperSky::renderStars(Engine* engine, int viewport_width, int viewport_heig
         int x = int(viewport_width * 0.5f + delta / horizontal_fov * viewport_width);
         int y = int(12 + height_factor * std::max(1, star_bottom - 24));
         int size = (i % 7 == 0) ? 2 : 1;
-        uint8_t alpha = uint8_t(110 + (i * 37) % 110);
-        engine->fillColor({ 235, 240, 255, alpha }, x, y, size, size, BLENDMODE_BLEND);
+        uint8_t star_alpha = uint8_t((110 + (i * 37) % 110) * alpha);
+        engine->fillColor({ 235, 240, 255, star_alpha }, x, y, size, size, BLENDMODE_BLEND);
     }
 }
 
 void PaperSky::renderProgramSky(Engine* engine, int viewport_width, int viewport_height, int horizon_y,
     float pitch, float yaw, float horizontal_fov)
 {
-    struct Palette
-    {
-        Color zenith;
-        Color mid;
-        Color horizon;
-        Color sun_inner;
-        Color sun_outer;
-        float sun_angle;
-        float sun_elevation;
-        bool stars = false;
-    };
-
-    Palette palette;
-    switch (sky_mode_)
-    {
-    case SkyMode::Dusk:
-        palette = { { 90, 54, 92, 255 }, { 148, 79, 91, 255 }, { 214, 132, 96, 255 },
-            { 255, 204, 128, 210 }, { 220, 104, 82, 20 }, 0.75f, 0.10f, false };
-        break;
-    case SkyMode::Night:
-        palette = { { 6, 13, 34, 255 }, { 16, 26, 52, 255 }, { 31, 41, 68, 255 },
-            { 224, 232, 255, 205 }, { 105, 124, 180, 24 }, -0.90f, 0.35f, true };
-        break;
-    case SkyMode::Dawn:
-        palette = { { 82, 100, 143, 255 }, { 151, 128, 152, 255 }, { 219, 166, 139, 255 },
-            { 255, 226, 168, 215 }, { 235, 148, 116, 22 }, -0.55f, 0.12f, false };
-        break;
-    case SkyMode::Day:
-    default:
-        palette = { { 54, 107, 169, 255 }, { 104, 157, 204, 255 }, { 176, 208, 228, 255 },
-            { 255, 246, 180, 205 }, { 255, 255, 220, 16 }, 0.25f, 0.42f, false };
-        break;
-    }
+    auto lighting = has_lighting_override_ ? lighting_override_ : DayNightSystem::getInstance()->getLighting();
 
     int sky_destination_height = std::max(viewport_height, getDestinationHeight(horizon_y, viewport_height));
     int mid_y = std::clamp(int(sky_destination_height * 0.58f), 1, viewport_height);
     fillStretchedVerticalGradient(engine, viewport_width, 0, mid_y, mid_y,
-        palette.zenith, palette.mid, 3);
+        lighting.sky_zenith, lighting.sky_mid, 3);
     fillStretchedVerticalGradient(engine, viewport_width, mid_y, viewport_height, sky_destination_height,
-        palette.mid, palette.horizon, 3);
+        lighting.sky_mid, lighting.sky_horizon, 3);
 
-    if (palette.stars)
-    {
-        renderStars(engine, viewport_width, viewport_height, horizon_y, yaw, horizontal_fov);
-    }
+    renderStars(engine, viewport_width, viewport_height, horizon_y, yaw, horizontal_fov, lighting.star_alpha);
 
-    float sun_delta = normalizeAngle(palette.sun_angle - yaw);
+    float sun_delta = normalizeAngle(lighting.sun_azimuth - yaw);
     if (sun_delta >= -horizontal_fov * 0.65f && sun_delta <= horizontal_fov * 0.65f)
     {
         int sun_x = int(viewport_width * 0.5f + sun_delta / horizontal_fov * viewport_width);
-        int sun_y = int(horizon_y - std::tan(palette.sun_elevation - pitch) * viewport_height * 0.42f);
-        int sun_radius = std::max(18, viewport_height / (palette.stars ? 18 : 12));
-        if (palette.stars)
-        {
-            fillDisk(engine, sun_x, sun_y, sun_radius, palette.sun_inner, palette.sun_inner);
-        }
-        else
-        {
-            fillDisk(engine, sun_x, sun_y, sun_radius * 3, palette.sun_outer, { palette.sun_outer.r, palette.sun_outer.g, palette.sun_outer.b, 0 });
-            fillDisk(engine, sun_x, sun_y, sun_radius, palette.sun_inner, { palette.sun_inner.r, palette.sun_inner.g, palette.sun_inner.b, 0 });
-        }
+        int sun_y = int(horizon_y - std::tan(lighting.sun_elevation - pitch) * viewport_height * 0.42f);
+        int sun_radius = std::max(18, viewport_height / 12);
+        fillDisk(engine, sun_x, sun_y, sun_radius * 3, lighting.sun_outer, { lighting.sun_outer.r, lighting.sun_outer.g, lighting.sun_outer.b, 0 });
+        fillDisk(engine, sun_x, sun_y, sun_radius, lighting.sun_inner, { lighting.sun_inner.r, lighting.sun_inner.g, lighting.sun_inner.b, 0 });
     }
 }
 
@@ -333,8 +291,17 @@ void PaperSky::reset()
 {
     yaw_ = 0;
     yaw_initialized_ = false;
-    RandomDouble random;
-    sky_mode_ = SkyMode(random.rand_int(4));
+}
+
+void PaperSky::setLightingOverride(const DayNightLighting& lighting)
+{
+    lighting_override_ = lighting;
+    has_lighting_override_ = true;
+}
+
+void PaperSky::clearLightingOverride()
+{
+    has_lighting_override_ = false;
 }
 
 void PaperSky::generateClouds()
