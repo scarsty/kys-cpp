@@ -33,6 +33,7 @@ enum class BattleAttackCastSubrequestKind
     DashFollowUpSkill,
     MeleeSplash,
     ExtraProjectile,
+    DualWieldFollowUp,
 };
 
 struct BattleAttackPayload
@@ -68,6 +69,7 @@ struct BattleAttackPayload
     int projectileCancelWeaken = 0;
     BattleSkillEffectRef skillEffectRef;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
+    int roleAttackEchoActType = -1;
     float strengthMultiplier = 1.0f;
     bool suppressNearbyTrackingProjectileProc = false;
     bool mainProjectile = true;
@@ -98,6 +100,8 @@ struct BattleAttackSpawnRequest
 {
     BattleAttackPayload initial;
     int initialFrame = 0;
+    int spawnDelayFrames = 0;
+    int attackerShieldGain = 0;
     Pointf acceleration;
     bool spiralMotion = false;
     Pointf spiralCenter;
@@ -117,6 +121,7 @@ struct BattleAttackBouncePrime
 
 void applyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackBouncePrime prime);
 bool tryApplyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackBouncePrime prime);
+bool attackSpawnDelayElapsed(BattleAttackSpawnRequest& request);
 
 enum class BattleAttackEventType
 {
@@ -162,6 +167,8 @@ struct BattleAttackEvent
     int sharedHitGroupId = 0;
     int projectileCancelDamage = 0;
     int otherProjectileCancelDamage = 0;
+    BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
+    int roleAttackEchoActType = -1;
     BattleSkillEffectRef skillEffectRef;
     Pointf position;
     Pointf velocity;

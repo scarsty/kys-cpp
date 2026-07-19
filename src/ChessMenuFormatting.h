@@ -333,6 +333,17 @@ struct ChessGameGuideSection
     std::vector<ChessGameGuideLine> lines;
 };
 
+inline std::string chessFightWinGrowthGuideLine(const BalanceConfig& balance)
+{
+    return std::format(
+        "· 每個勝場提供生命+{}、攻擊+{}、防禦+{}、各項兵器熟練度+{}、輕功+{}；小數按總勝場累計後取整",
+        balance.fightWinGrowthHP,
+        balance.fightWinGrowthAtk,
+        balance.fightWinGrowthDef,
+        balance.fightWinGrowthWeapon,
+        balance.fightWinGrowthSpeed);
+}
+
 inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(const ChessGameContent& content)
 {
     const auto& balance = content.balance();
@@ -427,6 +438,8 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(const Ches
                 {std::format("· 商店每回合{}格可選，棋子分一至五費，越高費越難遇見", balance.shopSlotCount)},
                 {std::format("· {}；星級價格按{}倍計", formatTierPrices(), balance.starCostMult)},
                 {"· 三枚相同合成二星，三枚二星再成三星，升星後屬性大增"},
+                {"· 主線勝利或首次通關遠征時，只有存活棋子勝場+1；合成取三枚中的最高勝場，不會相加"},
+                {chessFightWinGrowthGuideLine(balance), ChessGameGuideLineTone::Information},
             },
         },
         {

@@ -5,6 +5,7 @@
 #include "TextureManager.h"
 
 #include <algorithm>
+#include <cassert>
 #include <deque>
 #include <format>
 #include <optional>
@@ -63,6 +64,37 @@ struct BattleTextEffect
     float PaperScreenOffsetX{};
 };
 
+inline constexpr int BattleRoleEchoInitialAlpha = 176;
+inline constexpr float BattleRoleEchoOffset = 18.0f;
+inline constexpr int BattleRoleEchoLingeringFrames = 2;
+
+inline Color battleRoleEchoTint()
+{
+    return { 160, 225, 255, 255 };
+}
+
+struct BattleRoleEchoEffect
+{
+    int SourceUnitId = -1;
+    int TargetUnitId = -1;
+    int ActType = -1;
+    int Frame{};
+    int TotalFrame = 1;
+    int Alpha = BattleRoleEchoInitialAlpha;
+    float Offset = BattleRoleEchoOffset;
+};
+
+inline int battleRoleEchoRenderAlpha(const BattleRoleEchoEffect& effect)
+{
+    assert(effect.TotalFrame > 0);
+    if (effect.TotalFrame == 1)
+    {
+        return effect.Alpha;
+    }
+    const int frame = std::clamp(effect.Frame, 0, effect.TotalFrame - 1);
+    return effect.Alpha * (effect.TotalFrame - 1 - frame) / (effect.TotalFrame - 1);
+}
+
 inline void advanceBattleVisualOnlyEffects(std::deque<BattleAttackEffect>& effects)
 {
     for (auto& effect : effects)
@@ -85,5 +117,23 @@ inline void advanceBattlePresentationEffects(std::deque<BattleAttackEffect>& eff
     std::erase_if(effects, [](const BattleAttackEffect& effect)
         {
             return effect.VisualOnly && effect.Frame >= effect.TotalFrame;
+        });
+}
+
+inline void advanceBattleRoleEchoEffects(
+    std::deque<BattleRoleEchoEffect>& effects,
+    bool battleFrameAdvanced)
+{
+    if (!battleFrameAdvanced)
+    {
+        return;
+    }
+    for (auto& effect : effects)
+    {
+        ++effect.Frame;
+    }
+    std::erase_if(effects, [](const BattleRoleEchoEffect& effect)
+        {
+            return effect.Frame >= effect.TotalFrame;
         });
 }

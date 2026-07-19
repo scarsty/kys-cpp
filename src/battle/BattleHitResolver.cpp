@@ -251,6 +251,10 @@ std::string appendDetail(std::string detail, const std::string& text)
 
 std::string projectileSourceLabel(const BattleAttackEvent& event)
 {
+    if (event.castSubrequestKind == BattleAttackCastSubrequestKind::DualWieldFollowUp)
+    {
+        return "左右互搏";
+    }
     if (event.operationType == BattleOperationType::Dash)
     {
         return "滑步";

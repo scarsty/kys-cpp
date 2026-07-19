@@ -37,6 +37,13 @@ Color chessRewardTierColor(int tier)
     return colors[std::clamp(tier - 1, 0, static_cast<int>(colors.size()) - 1)];
 }
 
+Color chessEquipmentTypeColor(int equipType)
+{
+    return equipType == 0
+        ? Color{255, 145, 90, 255}
+        : Color{100, 185, 255, 255};
+}
+
 const char* chessDifficultyDisplayName(Difficulty difficulty)
 {
     return ChessBalance::difficultyDisplayNameTraditional(difficulty);

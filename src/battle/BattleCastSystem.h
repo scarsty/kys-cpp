@@ -211,6 +211,7 @@ struct BattleActionCommitInput
     BattleBlinkGeometryInput blinkGeometry;
     int strengthenedMeleeOperationCountThreshold = 0;
     BattleAttackBouncePrime projectileBouncePrime;
+    int normalAttackActType = -1;
 };
 
 struct BattleActionCommitResult

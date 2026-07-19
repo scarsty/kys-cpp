@@ -827,6 +827,17 @@ std::vector<BattleVisualEvent> toVisualEvents(
     }
     std::vector<BattleVisualEvent> presentations;
     presentations.push_back(std::move(presentation));
+    if (event.type == BattleAttackEventType::AttackSpawned
+        && event.castSubrequestKind == BattleAttackCastSubrequestKind::DualWieldFollowUp)
+    {
+        assert(event.roleAttackEchoActType >= 0);
+        BattleVisualEvent echo;
+        echo.type = BattleVisualEventType::RoleAttackEcho;
+        echo.sourceUnitId = event.sourceUnitId;
+        echo.targetUnitId = event.unitId;
+        echo.animationActType = event.roleAttackEchoActType;
+        presentations.push_back(std::move(echo));
+    }
     if (event.type == BattleAttackEventType::Bounce)
     {
         presentations.push_back(toProjectileSpawnPresentationEvent(world, event.otherAttackId));
@@ -2524,6 +2535,7 @@ BattlePendingCastAction makePendingCastAction(const BattleCastInput& castInput,
     pending.ultimate = cast.decision.ultimate;
     pending.operationType = cast.decision.operationType;
     pending.castFrame = castFrame;
+    pending.normalAttackActType = castInput.normalSkill.magicType;
     pending.dashVelocity = castInput.unit.dashVelocity;
     pending.skill = selectedCastSkill(castInput, cast);
     return pending;
@@ -2631,6 +2643,7 @@ BattleActionCommitInput makeCommittedCastActionInput(
     actionInput.blinkWeakTargetDefWeight = state.action.blinkWeakTargetDefWeight;
     actionInput.strengthenedMeleeOperationCountThreshold =
         state.action.strengthenedMeleeOperationCountThreshold;
+    actionInput.normalAttackActType = castInput.normalSkill.magicType;
     populateActionCommitLiveInput(state, unit, castInput, selectedSkill, actionInput);
 
     auto prime = collectFrameProjectileBouncePrime(
@@ -2690,7 +2703,9 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
         selectedSkill,
         pending.ultimate,
         pending.operationType);
-    return makeCommittedCastActionInput(state, unit, *castInput, selectedSkill, cast);
+    auto actionInput = makeCommittedCastActionInput(state, unit, *castInput, selectedSkill, cast);
+    actionInput.normalAttackActType = pending.normalAttackActType;
+    return actionInput;
 }
 
 std::string toStatusText(const BattleDamageEvent& event)
@@ -5294,6 +5309,34 @@ void advanceActionFrameUnits(
     }
 }
 
+void applyAttackSpawnAttackerShieldGain(
+    BattleRuntimeState& state,
+    const BattleAttackSpawnRequest& request,
+    std::vector<BattleLogEvent>& logEvents)
+{
+    if (request.attackerShieldGain <= 0)
+    {
+        return;
+    }
+    assert(request.initial.attackerUnitId >= 0);
+    assert(!request.initial.skillName.empty());
+
+    auto& attacker = state.units.requireCore(request.initial.attackerUnitId);
+    if (!attacker.alive)
+    {
+        return;
+    }
+    attacker.shield += request.attackerShieldGain;
+    appendStatusEventLog(
+        logEvents,
+        attacker.id,
+        attacker.id,
+        std::format("{}·護盾+{}", request.initial.skillName, request.attackerShieldGain),
+        BattleStatusSemanticId::None,
+        BattleResourceSemanticId::Shield,
+        request.attackerShieldGain);
+}
+
 void advanceAttacksAndResolveHits(
     BattleRuntimeState& state,
     BattleFrameContext& frame)
@@ -5305,8 +5348,14 @@ void advanceAttacksAndResolveHits(
 
     state.attacks.frame = state.movement.frame;
     auto attackSpawns = frame.drainCurrentFrameAttacks();
-    for (const auto& request : attackSpawns)
+    for (auto& request : attackSpawns)
     {
+        if (!attackSpawnDelayElapsed(request))
+        {
+            state.nextFrame.queueAttack(std::move(request));
+            continue;
+        }
+        applyAttackSpawnAttackerShieldGain(state, request, logEvents);
         attackEvents.push_back(state.attacks.spawn(request));
     }
     auto tickEvents = state.attacks.tick(state.units);

@@ -1,4 +1,5 @@
 #include "BattleSceneFrameApplier.h"
+#include "BattleSceneRenderMath.h"
 
 #include <algorithm>
 #include <cassert>
@@ -76,4 +77,26 @@ void BattleSceneFrameApplier::cancelProjectile(
             BattleSceneFrameApplierDetail::finishProjectile(*other, 5);
         }
     }
+}
+
+void BattleSceneFrameApplier::spawnRoleAttackEcho(
+    const KysChess::Battle::BattleVisualEvent& event) const
+{
+    assert(event.sourceUnitId >= 0);
+    assert(event.targetUnitId >= 0);
+    assert(event.animationActType >= 0);
+
+    const auto& presentation = bindings_.units.requirePresentation(event.sourceUnitId);
+    const int actType = BattleSceneRenderMath::resolveRenderFightStyle(
+        presentation.fightFrames,
+        event.animationActType);
+    assert(actType >= 0);
+    assert(presentation.fightFrames[actType] > 0);
+
+    BattleRoleEchoEffect effect;
+    effect.SourceUnitId = event.sourceUnitId;
+    effect.TargetUnitId = event.targetUnitId;
+    effect.ActType = actType;
+    effect.TotalFrame = presentation.fightFrames[actType] + BattleRoleEchoLingeringFrames;
+    bindings_.roleEchoEffects.push_back(effect);
 }

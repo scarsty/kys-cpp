@@ -127,6 +127,7 @@ protected:
     std::unordered_map<int, int> hurt_flash_timers_;
     BattleSceneUnitStore scene_units_;
     std::deque<BattleAttackEffect> attack_effects_;
+    std::deque<BattleRoleEchoEffect> role_echo_effects_;
     std::deque<BattleTextEffect> text_effects_;
     BattleSceneMapState battle_map_;
     Pointf pos_;

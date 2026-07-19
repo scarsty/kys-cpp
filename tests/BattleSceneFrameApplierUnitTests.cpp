@@ -17,6 +17,7 @@ struct ApplierFixture
 {
     BattleSceneTest::StoreFixture fixture;
     std::deque<BattleAttackEffect> attackEffects;
+    std::deque<BattleRoleEchoEffect> roleEchoEffects;
     std::deque<BattleTextEffect> textEffects;
     std::unordered_map<int, int> hurtFlashTimers;
     RandomDouble random;
@@ -87,6 +88,7 @@ struct ApplierFixture
         return {
             fixture.store,
             attackEffects,
+            roleEchoEffects,
             textEffects,
             hurtFlashTimers,
             random,
@@ -202,6 +204,32 @@ TEST_CASE("BattleSceneFrameApplier_AppliesProjectileVisualEventsToSceneAttackEff
     CHECK(effect.Velocity.x == 2.0f);
     CHECK(effect.TotalFrame == 40);
     CHECK(effect.Frame == 25);
+}
+
+TEST_CASE("BattleSceneFrameApplier_StoresRoleAttackEchoWithoutChangingRuntimeAnimation", "[battle][scene_frame_applier]")
+{
+    ApplierFixture fixture;
+    fixture.fixture.store.setFightFrames(0, { 4, 5, 0, 7, 8 });
+    const auto before = fixture.fixture.store.requireRuntimeUnit(0).animation;
+    BattlePresentationFrame frame;
+    BattleVisualEvent echo;
+    echo.type = BattleVisualEventType::RoleAttackEcho;
+    echo.sourceUnitId = 0;
+    echo.targetUnitId = 1;
+    echo.animationActType = 2;
+    frame.visualEvents.push_back(echo);
+
+    fixture.applier.apply(frame, fixture.effects);
+
+    REQUIRE(fixture.roleEchoEffects.size() == 1);
+    CHECK(fixture.roleEchoEffects[0].SourceUnitId == 0);
+    CHECK(fixture.roleEchoEffects[0].TargetUnitId == 1);
+    CHECK(fixture.roleEchoEffects[0].ActType == 3);
+    CHECK(fixture.roleEchoEffects[0].TotalFrame == 9);
+    const auto after = fixture.fixture.store.requireRuntimeUnit(0).animation;
+    CHECK(after.actType == before.actType);
+    CHECK(after.actFrame == before.actFrame);
+    CHECK(after.cooldown == before.cooldown);
 }
 
 TEST_CASE("BattleSceneFrameApplier_AppliesVisualImpactShakeSoundAndRumble", "[battle][scene_frame_applier]")

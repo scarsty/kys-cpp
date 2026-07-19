@@ -100,6 +100,20 @@ TEST_CASE("BattleAttackSystem_DefaultAttackPayloadHasNoCastSubrequestKind", "[ba
     CHECK(instance.state.castSubrequestKind == BattleAttackCastSubrequestKind::None);
 }
 
+TEST_CASE("BattleAttackSystem_DelayedSpawnElapsesWithoutEnteringAttackWorldEarly", "[battle][attack][unit]")
+{
+    BattleAttackSpawnRequest request;
+    request.spawnDelayFrames = 3;
+
+    CHECK_FALSE(attackSpawnDelayElapsed(request));
+    CHECK(request.spawnDelayFrames == 2);
+    CHECK_FALSE(attackSpawnDelayElapsed(request));
+    CHECK(request.spawnDelayFrames == 1);
+    CHECK_FALSE(attackSpawnDelayElapsed(request));
+    CHECK(request.spawnDelayFrames == 0);
+    CHECK(attackSpawnDelayElapsed(request));
+}
+
 TEST_CASE("BattleAttackSystem_AppliesAuthorizedBouncePrimeToSpawnRequest", "[battle][attack][unit]")
 {
     BattleAttackSpawnRequest request = spawnRequest();

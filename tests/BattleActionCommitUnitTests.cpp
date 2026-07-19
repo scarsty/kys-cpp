@@ -171,3 +171,81 @@ TEST_CASE("BattleActionCommit_CommittedMeleeCastAdvancesOperationCount", "[battl
 
     CHECK(result.operationCount == 1);
 }
+
+TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndShield", "[battle][action_commit][unit]")
+{
+    auto input = basicActionInput();
+    input.hasCast = true;
+    input.normalAttackActType = 7;
+    input.cast = committedCast(false, BattleOperationType::Melee);
+    BattleAttackSpawnRequest main;
+    main.initial.attackerUnitId = 0;
+    main.initial.preferredTargetUnitId = 1;
+    main.initial.requirePreferredTarget = true;
+    main.initial.operationType = BattleOperationType::Melee;
+    main.initial.totalFrame = 20;
+    main.initial.mainProjectile = true;
+    main.initial.position = { 20.0f, 20.0f, 0.0f };
+    main.initial.strengthMultiplier = 1.0f;
+    input.cast.attackSpawnRequests.push_back(main);
+    KysChess::RoleComboState combo;
+    combo.applyConfiguredEffect({
+        KysChess::EffectType::DualWieldFollowUp,
+        45,
+        120,
+        "",
+        KysChess::Trigger::Always,
+        0,
+        6,
+    });
+
+    auto units = actionUnits();
+    auto result = BattleActionCommitSystem().commit(input, combo, units);
+
+    REQUIRE(result.attackSpawnRequests.size() == 2);
+    const auto& followUp = result.attackSpawnRequests[1];
+    CHECK(followUp.initial.castSubrequestKind == BattleAttackCastSubrequestKind::DualWieldFollowUp);
+    CHECK(followUp.initial.preferredTargetUnitId == 2);
+    CHECK(followUp.initial.requirePreferredTarget);
+    CHECK(followUp.initial.track);
+    CHECK_FALSE(followUp.initial.mainProjectile);
+    CHECK(followUp.initial.roleAttackEchoActType == 7);
+    CHECK(followUp.initial.strengthMultiplier == 0.45f);
+    CHECK(followUp.spawnDelayFrames == 6);
+    CHECK(followUp.attackerShieldGain == 120);
+}
+
+TEST_CASE("BattleActionCommit_DualWieldFallsBackToPrimaryTarget", "[battle][action_commit][unit]")
+{
+    auto input = basicActionInput();
+    input.hasCast = true;
+    input.normalAttackActType = 7;
+    input.cast = committedCast(false, BattleOperationType::Melee);
+    BattleAttackSpawnRequest main;
+    main.initial.attackerUnitId = 0;
+    main.initial.preferredTargetUnitId = 1;
+    main.initial.operationType = BattleOperationType::Melee;
+    main.initial.totalFrame = 20;
+    main.initial.mainProjectile = true;
+    main.initial.position = { 20.0f, 20.0f, 0.0f };
+    input.cast.attackSpawnRequests.push_back(main);
+    KysChess::RoleComboState combo;
+    combo.applyConfiguredEffect({
+        KysChess::EffectType::DualWieldFollowUp,
+        45,
+        120,
+        "",
+        KysChess::Trigger::Always,
+        0,
+        6,
+    });
+    auto units = KysChess::Battle::Test::runtimeRecords({
+        unit(0, 0, 100, 0, { 10.0f, 20.0f, 0.0f }),
+        unit(1, 1, 90, 0, { 100.0f, 20.0f, 0.0f }),
+    });
+
+    auto result = BattleActionCommitSystem().commit(input, combo, units);
+
+    REQUIRE(result.attackSpawnRequests.size() == 2);
+    CHECK(result.attackSpawnRequests[1].initial.preferredTargetUnitId == 1);
+}

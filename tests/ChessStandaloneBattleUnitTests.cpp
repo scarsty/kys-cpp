@@ -187,6 +187,23 @@ TEST_CASE("ChessStandaloneBattle_SessionIsEphemeralAndHasNoCampaignProgression",
     CHECK(events.front().type == ChessSemanticEventType::BattleEnded);
 }
 
+TEST_CASE("standalone battle allows enemy counts supported by battle map", "[chess][standalone]")
+{
+    auto request = basicRequest();
+    request.mapId.reset();
+    request.teams[1].pieces.assign(12, ChessStandaloneBattlePiece{20});
+
+    std::string error;
+    auto built = ChessStandaloneBattle::prepare(standaloneContent(), request, error);
+
+    REQUIRE(built);
+    CHECK(error.empty());
+    CHECK(built->preparedBattle.chosenMapId == 7);
+    CHECK(BattleSetupFactory::requiredFormationSlots(built->preparedBattle, 1) == 12);
+    REQUIRE(built->preparedBattle.units.size() == 13);
+    CHECK(built->preparedBattle.units.back().x == 29);
+}
+
 TEST_CASE("standalone battle keeps both teams' pieces and inner powers independent", "[chess][standalone][pvp]")
 {
     auto request = basicRequest();

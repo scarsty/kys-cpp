@@ -149,7 +149,7 @@ def main() -> None:
         + "</div>"
         + body[m.end(1) :]
     )
-    OUT.write_text(final, encoding="utf-8")
+    OUT.write_text(final, encoding="utf-8", newline="\n")
     print(f"OK {OUT.name}: {OUT.stat().st_size // 1024} KB")
 
 

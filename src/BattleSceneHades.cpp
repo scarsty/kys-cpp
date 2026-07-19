@@ -126,6 +126,48 @@ RuntimeFrozenStatus runtimeFrozenStatusForUnit(
     };
 }
 
+struct RoleEchoRenderState
+{
+    const KysChess::Battle::BattleRuntimeUnit* source = nullptr;
+    Pointf position;
+    Pointf facing;
+};
+
+std::optional<RoleEchoRenderState> roleEchoRenderState(
+    const BattleSceneUnitStore& units,
+    const BattleRoleEchoEffect& effect)
+{
+    assert(effect.SourceUnitId >= 0);
+    assert(effect.TargetUnitId >= 0);
+
+    const auto& source = units.requireRuntimeUnit(effect.SourceUnitId);
+    if (!source.alive)
+    {
+        return std::nullopt;
+    }
+    const auto& target = units.requireRuntimeUnit(effect.TargetUnitId);
+    auto facing = target.motion.position - source.motion.position;
+    if (facing.norm() <= 0.01)
+    {
+        facing = source.motion.facing;
+    }
+    facing.z = 0.0f;
+    facing.normTo(1.0f);
+
+    Pointf offset{ -facing.y, facing.x, 0.0f };
+    if ((effect.SourceUnitId & 1) != 0)
+    {
+        offset.x = -offset.x;
+        offset.y = -offset.y;
+    }
+    offset.normTo(effect.Offset);
+    return RoleEchoRenderState{
+        &source,
+        source.motion.position + offset,
+        facing,
+    };
+}
+
 Pointf normalizeOr(Pointf value, Pointf fallback)
 {
     if (value.norm() == 0)
@@ -445,6 +487,7 @@ BattleSceneHades::BattleSceneHades(KysChess::ChessGameSession& session) :
     frame_applier_({
         scene_units_,
         attack_effects_,
+        role_echo_effects_,
         text_effects_,
         hurt_flash_timers_,
         rand_,
@@ -1034,6 +1077,32 @@ void BattleSceneHades::drawClassicView()
         draw_infos.emplace_back(std::move(info));
     }
 
+    for (const auto& echo : role_echo_effects_)
+    {
+        const auto render = roleEchoRenderState(scene_units_, echo);
+        if (!render)
+        {
+            continue;
+        }
+        const auto& presentation = scene_units_.requirePresentation(echo.SourceUnitId);
+        DrawInfo info;
+        info.p = render->position;
+        info.tex = TextureManager::getInstance()->getTexture(
+            std::format("fight/fight{:03}", render->source->headId),
+            BattleSceneRenderMath::calRenderUnitPic(
+                presentation.fightFrames,
+                render->facing,
+                echo.ActType,
+                echo.Frame));
+        if (!info.tex)
+        {
+            continue;
+        }
+        info.color = battleRoleEchoTint();
+        info.alpha = static_cast<uint8_t>(std::clamp(battleRoleEchoRenderAlpha(echo), 0, 255));
+        draw_infos.emplace_back(std::move(info));
+    }
+
     //effects
     for (auto& ae : attack_effects_)
     {
@@ -1524,7 +1593,7 @@ void BattleSceneHades::drawPaperView()
     };
 
     std::vector<PaperSprite> sprites;
-    sprites.reserve(scene_units_.runtimeUnits().size() + attack_effects_.size() + 512);
+    sprites.reserve(scene_units_.runtimeUnits().size() + role_echo_effects_.size() + attack_effects_.size() + 512);
     std::vector<std::pair<FPoint, std::string>> roleTextureDebugLabels;
     roleTextureDebugLabels.reserve(scene_units_.runtimeUnits().size());
     std::unordered_map<int, float> roleInfoAnchorZByUnitId;
@@ -1722,6 +1791,45 @@ void BattleSceneHades::drawPaperView()
             sprite.rot = faceTowards >= 2 ? 90 : 270;
             sprite.turn = 0;
         }
+        sprites.push_back(std::move(sprite));
+    }
+
+    for (const auto& echo : role_echo_effects_)
+    {
+        const auto render = roleEchoRenderState(scene_units_, echo);
+        if (!render)
+        {
+            continue;
+        }
+        const auto& presentation = scene_units_.requirePresentation(echo.SourceUnitId);
+        const int faceTowards = realTowardsToPaperFaceTowards(
+            render->facing,
+            viewDir,
+            paperRight,
+            realTowardsToFaceTowards(render->facing));
+        auto tex = TextureManager::getInstance()->getTexture(
+            std::format("fight/fight{:03}", render->source->headId),
+            BattleSceneRenderMath::calRenderUnitPic(
+                presentation.fightFrames,
+                BattleSceneRenderMath::realTowardsFromFaceTowards(faceTowards),
+                echo.ActType,
+                echo.Frame));
+        if (!tex)
+        {
+            continue;
+        }
+        tex->load();
+        if (!tex->getTexture())
+        {
+            continue;
+        }
+
+        PaperSprite sprite;
+        sprite.tex = tex;
+        sprite.anchor = render->position;
+        sprite.sortAnchor = render->position;
+        sprite.alpha = static_cast<uint8_t>(std::clamp(battleRoleEchoRenderAlpha(echo), 0, 255));
+        sprite.color = battleRoleEchoTint();
         sprites.push_back(std::move(sprite));
     }
 
@@ -2780,6 +2888,7 @@ void BattleSceneHades::backRun1()
     }
 
     advanceBattlePresentationEffects(attack_effects_, true);
+    advanceBattleRoleEchoEffects(role_echo_effects_, true);
     KysChess::Battle::BattlePresentationFrame frame;
     auto advance = session_transition_source_->advanceAutomatic(1);
     assert(advance.frames.size() <= 1);

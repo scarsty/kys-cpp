@@ -119,6 +119,7 @@ enum class BattleVisualEventType
     RoleEffect,
     DamageNumber,
     CameraFocus,
+    RoleAttackEcho,
     ProjectileSpawned,
     ProjectileMoved,
     ProjectileHit,
@@ -203,6 +204,7 @@ struct BattleVisualEvent
     int visualEffectId = -1;
     Pointf velocity;
     int operationKind = -1;
+    int animationActType = -1;
     int impactEffectSoundId = -1;
     int impactUnitShake = 0;
     int impactSceneShake = 0;

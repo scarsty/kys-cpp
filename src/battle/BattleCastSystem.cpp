@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <ranges>
 #include <vector>
 
 namespace KysChess::Battle
@@ -760,6 +761,123 @@ void appendBlinkAttackCommand(
     combo.consumeTypeToggle(EffectType::BlinkAttack);
 }
 
+int dualWieldFollowUpTargetId(
+    const BattleActionCommitInput& input,
+    const BattleRuntimeUnits& units)
+{
+    assert(input.hasCast);
+    assert(input.cast.decision.targetUnitId >= 0);
+
+    const auto& source = units.requireCore(input.sourceUnitId);
+    const auto& primary = units.requireCore(input.cast.decision.targetUnitId);
+    const double primaryDistance = pointDistance(source.motion.position, primary.motion.position);
+    const double maximumAlternateDistance = std::max(128.0, primaryDistance * 1.5);
+
+    const BattleRuntimeUnit* selected = nullptr;
+    double selectedDistance = 0.0;
+    for (const auto& record : units.live())
+    {
+        const auto& candidate = record.core;
+        if (candidate.team == source.team || candidate.id == primary.id)
+        {
+            continue;
+        }
+        const double distance = pointDistance(source.motion.position, candidate.motion.position);
+        if (distance > maximumAlternateDistance)
+        {
+            continue;
+        }
+        if (!selected || distance < selectedDistance || (distance == selectedDistance && candidate.id < selected->id))
+        {
+            selected = &candidate;
+            selectedDistance = distance;
+        }
+    }
+    return selected ? selected->id : primary.id;
+}
+
+void retargetDualWieldFollowUp(
+    BattleAttackSpawnRequest& request,
+    const BattleRuntimeUnit& source,
+    const BattleRuntimeUnit& target)
+{
+    auto direction = target.motion.position - source.motion.position;
+    assert(direction.norm() > 0.01);
+
+    const double spawnOffset = pointDistance(source.motion.position, request.initial.position);
+    request.initial.position = source.motion.position + normalizedTo(direction, spawnOffset, 0.01);
+    request.initial.preferredTargetUnitId = target.id;
+    request.initial.requirePreferredTarget = true;
+    request.initial.track = true;
+    request.initial.through = false;
+
+    double speed = request.initial.velocity.norm();
+    if (speed <= 0.01)
+    {
+        const double remainingDistance = std::max(
+            1.0,
+            pointDistance(request.initial.position, target.motion.position));
+        speed = remainingDistance / std::max(1, request.initial.totalFrame / 2);
+    }
+    request.initial.velocity = normalizedTo(direction, speed, 0.01);
+}
+
+void appendDualWieldFollowUp(
+    const BattleActionCommitInput& input,
+    RoleComboState& combo,
+    const BattleRuntimeUnits& units,
+    BattleActionCommitResult& result)
+{
+    if (!input.hasCast)
+    {
+        return;
+    }
+
+    const auto* effect = combo.firstAlways(EffectType::DualWieldFollowUp);
+    if (!effect)
+    {
+        return;
+    }
+    assert(effect->value > 0);
+    assert(effect->value2 > 0);
+    assert(effect->duration > 0);
+    assert(input.normalAttackActType >= 0);
+    assert(!result.attackSpawnRequests.empty());
+
+    const auto prototype = std::ranges::find_if(
+        result.attackSpawnRequests,
+        [](const BattleAttackSpawnRequest& request)
+        {
+            return request.initial.mainProjectile;
+        });
+    assert(prototype != result.attackSpawnRequests.end());
+
+    auto followUp = *prototype;
+    followUp.initial.castSubrequestKind = BattleAttackCastSubrequestKind::DualWieldFollowUp;
+    followUp.initial.roleAttackEchoActType = input.normalAttackActType;
+    followUp.initial.skillName = "左右互搏";
+    followUp.initial.ultimate = false;
+    followUp.initial.mainProjectile = false;
+    followUp.initial.ignoreProjectileCancel = true;
+    followUp.initial.suppressNearbyTrackingProjectileProc = true;
+    followUp.initial.sharedHitGroupId = 0;
+    followUp.initial.spawnedFromAttackId = -1;
+    followUp.initial.bounceRemaining = 0;
+    followUp.initial.bounceRange = 0;
+    followUp.initial.bounceChancePct = 0;
+    followUp.initial.bounceRollPct = 0;
+    followUp.initial.skillEffectRef = {};
+    followUp.initial.strengthMultiplier *= effect->value / 100.0f;
+    followUp.initialFrame = 0;
+    followUp.spawnDelayFrames = effect->duration;
+    followUp.attackerShieldGain = effect->value2;
+
+    const auto& source = units.requireCore(input.sourceUnitId);
+    const int targetId = dualWieldFollowUpTargetId(input, units);
+    retargetDualWieldFollowUp(followUp, source, units.requireCore(targetId));
+    result.attackSpawnRequests.push_back(std::move(followUp));
+}
+
 }  // namespace
 
 void appendCastActionStartOutput(BattleCastResult& result,
@@ -1013,6 +1131,7 @@ BattleActionCommitResult BattleActionCommitSystem::commit(
         }
     }
 
+    appendDualWieldFollowUp(input, combo, units, result);
     appendBlinkAttackCommand(input, combo, units, result);
     return result;
 }

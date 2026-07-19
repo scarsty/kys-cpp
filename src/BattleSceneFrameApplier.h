@@ -27,6 +27,7 @@ public:
     {
         BattleSceneUnitStore& units;
         std::deque<BattleAttackEffect>& attackEffects;
+        std::deque<BattleRoleEchoEffect>& roleEchoEffects;
         std::deque<BattleTextEffect>& textEffects;
         std::unordered_map<int, int>& hurtFlashTimers;
         RandomDouble& random;
@@ -65,6 +66,7 @@ private:
     void spawnFloatingText(const KysChess::Battle::BattleVisualEvent& event, Effects& effects) const;
     template <class Effects>
     void spawnRoleEffect(const KysChess::Battle::BattleVisualEvent& event, Effects& effects) const;
+    void spawnRoleAttackEcho(const KysChess::Battle::BattleVisualEvent& event) const;
     template <class Effects>
     void spawnDamageNumber(const KysChess::Battle::BattleVisualEvent& event, Effects& effects) const;
     template <class Effects>
@@ -298,6 +300,9 @@ void BattleSceneFrameApplier::applyVisualEvent(
         spawnDamageNumber(event, effects);
         break;
     case BattleVisualEventType::CameraFocus:
+        break;
+    case BattleVisualEventType::RoleAttackEcho:
+        spawnRoleAttackEcho(event);
         break;
     case BattleVisualEventType::ProjectileSpawned:
         spawnProjectile(event, effects);

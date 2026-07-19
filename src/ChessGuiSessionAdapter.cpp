@@ -604,13 +604,17 @@ void drawEquipmentDetail(
     constexpr int fontSize = 28;
     PanelTextCursor header{Font::getInstance(), frame.x + 150, frame.y + 10};
     header.line(item ? item->name : "???", fontSize + 4, {255, 255, 100, 255}, 6);
-    header.line(
-        std::format(
-            "層級: {}　類型: {}",
-            rewardTierLabel(equipment.tier),
-            chessEquipmentTypeName(equipment.equipType)),
-        fontSize,
-        chessRewardTierColor(equipment.tier));
+    int metadataX = header.x;
+    const auto drawMetadata = [&](const std::string& text, Color color) {
+        header.font->draw(text, fontSize, metadataX, header.y, color);
+        metadataX += fontSize * Font::getTextDrawSize(text) / 2;
+    };
+    constexpr Color metadataLabelColor{220, 220, 190, 255};
+    drawMetadata("層級: ", metadataLabelColor);
+    drawMetadata(rewardTierLabel(equipment.tier), chessRewardTierColor(equipment.tier));
+    drawMetadata("　類型: ", metadataLabelColor);
+    drawMetadata(chessEquipmentTypeName(equipment.equipType), chessEquipmentTypeColor(equipment.equipType));
+    header.skip(fontSize + 4);
 
     PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
     const int bodyWidth = frame.w - 20;
@@ -1095,13 +1099,17 @@ void drawRoleDetail(
         }
         if (piece)
         {
-            ownedCursor.line(std::format("勝場 {}", fightsWon), layout.smallFontSize, colorAbility, 4);
+            ownedCursor.line(
+                std::format("勝場 {}（成長）", fightsWon),
+                layout.smallFontSize,
+                colorAbility,
+                4);
         }
     }
     if (starCounts.empty() && piece)
     {
         font->draw(
-            std::format("勝場 {}", fightsWon),
+            std::format("勝場 {}（成長）", fightsWon),
             layout.smallFontSize,
             layout.owned.x + kOwnedTextInset,
             layout.sectionContentY + layout.smallFontSize + 8,

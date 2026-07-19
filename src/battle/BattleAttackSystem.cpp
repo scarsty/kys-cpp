@@ -156,6 +156,8 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& sta
     event.mainProjectile = state.mainProjectile;
     event.sharedHitGroupId = state.sharedHitGroupId;
     event.projectileCancelDamage = state.projectileCancelWeaken;
+    event.castSubrequestKind = state.castSubrequestKind;
+    event.roleAttackEchoActType = state.roleAttackEchoActType;
     event.skillEffectRef = state.skillEffectRef;
     event.position = state.position;
     event.velocity = state.velocity;
@@ -303,10 +305,22 @@ bool tryApplyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAtta
     return true;
 }
 
+bool attackSpawnDelayElapsed(BattleAttackSpawnRequest& request)
+{
+    assert(request.spawnDelayFrames >= 0);
+    if (request.spawnDelayFrames == 0)
+    {
+        return true;
+    }
+    --request.spawnDelayFrames;
+    return false;
+}
+
 BattleAttackEvent BattleAttackState::spawn(const BattleAttackSpawnRequest& request)
 {
     assert(request.initial.attackerUnitId >= 0);
     assert(request.initialFrame >= 0);
+    assert(request.spawnDelayFrames == 0);
     assert(request.initial.totalFrame > 0);
     assert(request.initial.bounceRemaining >= 0);
     assert(request.initial.bounceRange >= 0);

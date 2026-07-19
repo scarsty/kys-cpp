@@ -269,6 +269,60 @@ TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[b
     CHECK(second.frame == 8);
 }
 
+TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndEmitsRoleEcho", "[battle][frame_runner][runtime][ownership]")
+{
+    auto runtime = ownedRuntimeState();
+    BattleAttackSpawnRequest request;
+    request.initial.attackerUnitId = 0;
+    request.initial.preferredTargetUnitId = 1;
+    request.initial.requirePreferredTarget = true;
+    request.initial.skillId = 101;
+    request.initial.skillName = "左右互搏";
+    request.initial.skillMagicType = 2;
+    request.initial.totalFrame = 30;
+    request.initial.visualEffectId = 44;
+    request.initial.operationType = BattleOperationType::RangedProjectile;
+    request.initial.position = { 100, 120, 0 };
+    request.initial.velocity = { 6, 0, 0 };
+    request.initial.castSubrequestKind = BattleAttackCastSubrequestKind::DualWieldFollowUp;
+    request.initial.roleAttackEchoActType = 7;
+    request.spawnDelayFrames = 2;
+    request.attackerShieldGain = 120;
+    runtime.units.requireCore(0).shield = 30;
+    runtime.nextFrame.queueAttack(request);
+
+    auto first = runBattleFrame(runtime);
+    REQUIRE(runtime.nextFrame.queuedAttacksForTest().size() == 1);
+    CHECK(runtime.nextFrame.queuedAttacksForTest()[0].spawnDelayFrames == 1);
+    CHECK(runtime.attacks.attacks.empty());
+    CHECK(runtime.units.requireCore(0).shield == 30);
+    CHECK(first.visualEvents.empty());
+
+    auto second = runBattleFrame(runtime);
+    REQUIRE(runtime.nextFrame.queuedAttacksForTest().size() == 1);
+    CHECK(runtime.nextFrame.queuedAttacksForTest()[0].spawnDelayFrames == 0);
+    CHECK(runtime.attacks.attacks.empty());
+    CHECK(runtime.units.requireCore(0).shield == 30);
+    CHECK(second.visualEvents.empty());
+
+    auto third = runBattleFrame(runtime);
+    CHECK(runtime.nextFrame.queuedAttacksForTest().empty());
+    REQUIRE(runtime.attacks.attacks.size() == 1);
+    CHECK(runtime.units.requireCore(0).shield == 150);
+    CHECK(std::ranges::any_of(third.logEvents, [](const BattleLogEvent& event)
+        {
+            return event.resourceId == BattleResourceSemanticId::Shield
+                && BattleLogTest::textOf(event) == "左右互搏·護盾+120";
+        }));
+    CHECK(std::ranges::any_of(third.visualEvents, [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleAttackEcho
+                && event.sourceUnitId == 0
+                && event.targetUnitId == 1
+                && event.animationActType == 7;
+        }));
+}
+
 TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][runtime_session][ownership]")
 {
     auto runtime = ownedRuntimeState();

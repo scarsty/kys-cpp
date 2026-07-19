@@ -110,6 +110,7 @@ enum class EffectType
     DamageImmunityAfterFrames,
     AutoUltimateAfterFrames,
     UltimateExtraProjectiles,
+    DualWieldFollowUp,
     BlockFirstHits,
     GoldCoefficient,
     HurtInvincFrames,

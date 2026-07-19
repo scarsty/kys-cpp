@@ -2748,6 +2748,59 @@ TEST_CASE("BattleFrameRunner_CastStartJittersPendingReleaseFrame", "[battle][cor
     CHECK(state.units.require(0).pendingCast() == nullptr);
 }
 
+TEST_CASE("BattleFrameRunner_DualWieldCastQueuesShieldRefreshWithDelayedFollowUp", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({
+        unit(0, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(1, 1, { 220, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 220, 150, 0 }, CombatStyle::Ranged),
+    }));
+    state.attacks = attackWorld();
+    seedRuntimeUnitsFromWorld(state);
+
+    auto cast = frameCastInput(0, 1);
+    cast.normalSkill.attackAreaType = 1;
+    cast.normalSkill.rangedStyle = true;
+    cast.normalSkill.reach = 400.0;
+    configureRuntimeActionPlan(state, cast);
+    state.units.require(0).combo.applyConfiguredEffect({
+        EffectType::DualWieldFollowUp,
+        45,
+        120,
+        "",
+        Trigger::Always,
+        0,
+        6,
+    });
+    state.units.requireCore(0).shield = 30;
+    state.units.requireCore(0).animation.cooldown = 0;
+
+    runBattleFrame(state);
+    const auto* pending = state.units.require(0).pendingCast();
+    REQUIRE(pending);
+    auto& caster = state.units.requireCore(0);
+    caster.animation.actFrame = pending->castFrame;
+
+    auto release = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).shield == 30);
+    const auto followUp = std::ranges::find_if(
+        state.nextFrame.queuedAttacksForTest(),
+        [](const BattleAttackSpawnRequest& request)
+        {
+            return request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::DualWieldFollowUp;
+        });
+    REQUIRE(followUp != state.nextFrame.queuedAttacksForTest().end());
+    CHECK(followUp->spawnDelayFrames == 5);
+    CHECK(followUp->attackerShieldGain == 120);
+    CHECK(followUp->initial.preferredTargetUnitId == 2);
+    CHECK_FALSE(std::ranges::any_of(release.logEvents, [](const BattleLogEvent& event)
+        {
+            return event.resourceId == BattleResourceSemanticId::Shield;
+        }));
+}
+
 TEST_CASE("BattleFrameRunner_RefreshesRuntimeCastTargetAtCommitFrame", "[battle][core][runtime]")
 {
     BattleRuntimeState state;

@@ -172,11 +172,12 @@ void appendTeam(
 bool validateTeamFormation(
     const ChessStandaloneBattleTeam& team,
     std::string_view name,
+    bool limitSequentialFormation,
     std::string& error)
 {
     if (team.formationSlots.empty())
     {
-        if (team.pieces.size() > kChessFormationSlotCount)
+        if (limitSequentialFormation && team.pieces.size() > kChessFormationSlotCount)
         {
             error = std::format("{}陣容超過十名棋子", name);
             return false;
@@ -253,7 +254,7 @@ std::optional<ChessStandaloneBattleBuild> ChessStandaloneBattle::prepare(
     for (int team = 0; team < 2; ++team)
     {
         const std::string_view teamName = team == 0 ? "我方" : "敵方";
-        if (!validateTeamFormation(request.teams[team], teamName, error))
+        if (!validateTeamFormation(request.teams[team], teamName, team == 0, error))
         {
             return std::nullopt;
         }
