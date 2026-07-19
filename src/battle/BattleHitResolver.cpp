@@ -287,11 +287,20 @@ bool passesPercentChance(BattleRuntimeRandom& random, int chancePct)
     return random.chance(chancePct);
 }
 
-BattleDamageModifierState makeDamageModifierState(const BattleEffectSources& sources)
+BattleDamageModifierState makeDamageModifierState(
+    const BattleEffectSources& sources,
+    const BattleUnitVitals& vitals,
+    int attack)
 {
     BattleDamageModifierState modifier;
     BattleEffectReader reader;
     modifier.flatDamageIncrease = reader.sumAlways(sources, EffectType::FlatDmgIncrease);
+    const int missingHpDamagePct = reader.maxAlways(
+        sources,
+        EffectType::MissingHpFlatDmgIncreasePct);
+    modifier.flatDamageIncrease += scaleByMissingHp(
+        attack * missingHpDamagePct / 100,
+        vitals);
     modifier.skillDamagePct = reader.sumAlways(sources, EffectType::SkillDmgPct);
     modifier.poisonDamageAmpPct = reader.sumAlways(sources, EffectType::PoisonDmgAmp);
     modifier.flatDamageReduction = reader.sumAlways(sources, EffectType::FlatDmgReduction);
@@ -711,7 +720,10 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         result.shapedHpDamage,
         usingSkill,
         true,
-        makeDamageModifierState(attackerSources),
+        makeDamageModifierState(
+            attackerSources,
+            input.attacker.vitals,
+            input.attacker.stats.attack),
         {},
         makeDamageUnit(input.defender, nullptr, &input.defenderStatusEffects),
     }).damage;
@@ -885,7 +897,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         false,
         false,
         {},
-        makeBattleDamageModifierState(&defenderCombo),
+        makeBattleDamageModifierState(&defenderCombo, &input.defender.vitals),
         makeDamageUnit(input.defender, &defenderCombo, &input.defenderStatusEffects),
     }).damage;
 

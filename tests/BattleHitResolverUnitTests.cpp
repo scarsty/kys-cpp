@@ -145,6 +145,87 @@ TEST_CASE("BattleHitResolver_MagicUsesResolvedBaseDamage", "[battle][hit_resolve
     CHECK(result.finalHpDamage == 70);
 }
 
+TEST_CASE("BattleHitResolver_RebelFlatDamageScalesWithMissingHpAndCurrentAttack", "[battle][hit_resolver][unit]")
+{
+    auto input = comboHitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.attacker.stats.attack = 100;
+    input.attacker.vitals.hp = 50;
+    input.attacker.vitals.maxHp = 100;
+    input.attackerCombo.applyConfiguredEffect(
+        { KysChess::EffectType::MissingHpFlatDmgIncreasePct, 80 });
+
+    auto first = resolveHit(input);
+    const auto* firstDamage = firstHpDamageCommand(first);
+    REQUIRE(firstDamage);
+    CHECK(firstDamage->damage == 90);
+    CHECK(first.finalHpDamage == 90);
+
+    auto swordStyle = comboHitInput();
+    swordStyle.skill.id = 101;
+    swordStyle.skill.hurtType = 0;
+    swordStyle.skill.resolvedBaseDamage = 50;
+    swordStyle.attackerCombo.applyConfiguredEffect(
+        { KysChess::EffectType::FlatDmgIncrease, 40 });
+    auto swordResult = resolveHit(swordStyle);
+    CHECK(swordResult.finalHpDamage == first.finalHpDamage);
+
+    auto repeated = resolveHit(input);
+    REQUIRE(firstHpDamageCommand(repeated));
+    CHECK(firstHpDamageCommand(repeated)->damage == 90);
+
+    input.attackEvent.mainProjectile = false;
+    auto secondaryProjectile = resolveHit(input);
+    REQUIRE(firstHpDamageCommand(secondaryProjectile));
+    CHECK(firstHpDamageCommand(secondaryProjectile)->damage == 90);
+}
+
+TEST_CASE("BattleHitResolver_RebelFlatDamageUsesNormalReductionsAndHitCap", "[battle][hit_resolver][unit]")
+{
+    auto input = comboHitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.attacker.stats.attack = 100;
+    input.attacker.vitals.hp = 50;
+    input.attacker.vitals.maxHp = 100;
+    input.attackerCombo.applyConfiguredEffect(
+        { KysChess::EffectType::MissingHpFlatDmgIncreasePct, 80 });
+    input.defenderCombo.applyConfiguredEffect(
+        { KysChess::EffectType::FlatDmgReduction, 20 });
+    input.defenderCombo.applyConfiguredEffect(
+        { KysChess::EffectType::DmgReductionPct, 50 });
+
+    auto result = resolveHit(input);
+    CHECK(result.finalHpDamage == 35);
+
+    input.defender.vitals.hp = 100;
+    input.defender.vitals.maxHp = 100;
+    input.defenderCombo.applyConfiguredEffect(
+        { KysChess::EffectType::MaxHitPctCurrentHP, 25 });
+    result = resolveHit(input);
+    CHECK(result.finalHpDamage == 25);
+}
+
+TEST_CASE("BattleHitResolver_RebelMissingHpReductionsApplyToNormalDamage", "[battle][hit_resolver][unit]")
+{
+    auto input = comboHitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 100;
+    input.defender.vitals.hp = 50;
+    input.defender.vitals.maxHp = 100;
+    input.defenderCombo.applyConfiguredEffect(
+        { KysChess::EffectType::MissingHpFlatDmgReduction, 20 });
+    input.defenderCombo.applyConfiguredEffect(
+        { KysChess::EffectType::MissingHpDmgReductionPct, 20 });
+
+    auto result = resolveHit(input);
+    CHECK(result.finalHpDamage == 81);
+}
+
 TEST_CASE("BattleHitResolver_ProjectCancelAndStrengthShapeFinalDamage", "[battle][hit_resolver][unit]")
 {
     auto input = comboHitInput();

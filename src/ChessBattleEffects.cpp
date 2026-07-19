@@ -42,6 +42,9 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"僵直抗性", EffectType::FreezeReductionPct}, {"僵直护盾", EffectType::ControlImmunityFrames}, {"僵直吸收", EffectType::ControlImmunityFrames},
     {"击杀回血", EffectType::KillHealPct}, {"击杀无敌", EffectType::KillInvincFrames},
     {"技能后无敌", EffectType::PostSkillInvincFrames}, {"伤害减免", EffectType::DmgReductionPct},
+    {"反意固定加傷", EffectType::MissingHpFlatDmgIncreasePct},
+    {"反意固定減傷", EffectType::MissingHpFlatDmgReduction},
+    {"反意傷害減免", EffectType::MissingHpDmgReductionPct},
     {"嗜血", EffectType::Bloodlust}, {"击杀增攻", EffectType::Bloodlust},
     {"适应", EffectType::Adaptation}, {"同敌减伤", EffectType::Adaptation},
     {"连击蓄力", EffectType::RampingDmg}, {"连击增伤", EffectType::RampingDmg},
@@ -312,6 +315,9 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::KillInvincFrames: desc = std::format("擊殺無敵{}幀", eff.value); break;
     case EffectType::PostSkillInvincFrames: desc = std::format("技能後無敵{}幀", eff.value); break;
     case EffectType::DmgReductionPct: desc = compact ? std::format("減傷{}%", eff.value) : std::format("傷害減免{}%", eff.value); break;
+    case EffectType::MissingHpFlatDmgIncreasePct: desc = compact ? std::format("反意加傷至{}%攻", eff.value) : std::format("依已損生命獲得至多{}%目前攻擊的固定加傷", eff.value); break;
+    case EffectType::MissingHpFlatDmgReduction: desc = compact ? std::format("反意定減至{}", eff.value) : std::format("依已損生命獲得至多{}固定減傷", eff.value); break;
+    case EffectType::MissingHpDmgReductionPct: desc = compact ? std::format("反意減傷至{}%", eff.value) : std::format("依已損生命獲得至多{}%傷害減免", eff.value); break;
     case EffectType::Bloodlust: desc = std::format("擊殺增攻+{}", eff.value); break;
     case EffectType::PctSPD: desc = std::format("速度+{}%", eff.value); break;
     case EffectType::Adaptation: desc = std::format("同敵減傷{}%({}層)", eff.value, eff.value2); break;

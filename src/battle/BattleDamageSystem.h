@@ -375,7 +375,10 @@ public:
     BattleDamageRequest makeScriptedHitRequest(const BattleScriptedHitRequestInput& input) const;
 };
 
-BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* state);
+int scaleByMissingHp(int maximumValue, const BattleUnitVitals& vitals);
+BattleDamageModifierState makeBattleDamageModifierState(
+    const RoleComboState* state,
+    const BattleUnitVitals* vitals = nullptr);
 BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const BattleDamageRuntimeUnit* runtime);
 void writeBattleDamageRuntimeUnit(BattleDamageRuntimeUnit& runtime, const BattleDamageUnitState& unit);
 BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit);

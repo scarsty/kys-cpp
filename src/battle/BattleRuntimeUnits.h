@@ -212,7 +212,7 @@ struct BattleRuntimeUnitRecord
 
     BattleDamageModifierState damageModifiers() const
     {
-        return makeBattleDamageModifierState(&combo);
+        return makeBattleDamageModifierState(&combo, &core.vitals);
     }
 
     void grantRuntimeComboEffect(const ComboEffectSnapshot& effect, int comboId)

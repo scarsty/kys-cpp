@@ -829,7 +829,17 @@ BattleStatusApplyResult BattleDamageSystem::applyDamageReduceDebuff(BattleStatus
     return result;
 }
 
-BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* state)
+int scaleByMissingHp(int maximumValue, const BattleUnitVitals& vitals)
+{
+    assert(maximumValue >= 0);
+    assert(vitals.maxHp > 0);
+    const int missingHp = std::clamp(vitals.maxHp - vitals.hp, 0, vitals.maxHp);
+    return maximumValue * missingHp / vitals.maxHp;
+}
+
+BattleDamageModifierState makeBattleDamageModifierState(
+    const RoleComboState* state,
+    const BattleUnitVitals* vitals)
 {
     BattleDamageModifierState modifier;
     if (!state)
@@ -842,6 +852,15 @@ BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* st
     modifier.poisonDamageAmpPct = state->sumAlways(EffectType::PoisonDmgAmp);
     modifier.flatDamageReduction = state->sumAlways(EffectType::FlatDmgReduction);
     modifier.damageReductionPct = state->sumAlways(EffectType::DmgReductionPct);
+    if (vitals)
+    {
+        modifier.flatDamageReduction += scaleByMissingHp(
+            state->maxAlways(EffectType::MissingHpFlatDmgReduction),
+            *vitals);
+        modifier.damageReductionPct += scaleByMissingHp(
+            state->maxAlways(EffectType::MissingHpDmgReductionPct),
+            *vitals);
+    }
     modifier.maxHitPctMaxHp = state->maxAlways(EffectType::MaxHitPctCurrentHP);
     return modifier;
 }

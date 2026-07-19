@@ -1,4 +1,5 @@
 #include "battle/BattleDamageSystem.h"
+#include "ChessBattleEffects.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -92,6 +93,25 @@ TEST_CASE("BattleDamageSystem_MagicBaseDamageUsesAttackDefenseCurve", "[battle][
     input.defenderDefense = 10000;
     input.randomVariance = -100;
     CHECK(BattleDamageSystem().resolveMagicBaseDamage(input) == 1);
+}
+
+TEST_CASE("BattleDamageSystem_MissingHpScalesFlatAndPercentageReduction", "[battle][damage][unit]")
+{
+    KysChess::RoleComboState state;
+    state.applyConfiguredEffect({ KysChess::EffectType::MissingHpFlatDmgReduction, 20 });
+    state.applyConfiguredEffect({ KysChess::EffectType::MissingHpDmgReductionPct, 40 });
+    BattleUnitVitals vitals{ 25, 100, 0, 100 };
+
+    CHECK(scaleByMissingHp(20, vitals) == 15);
+    const auto modifier = makeBattleDamageModifierState(&state, &vitals);
+    CHECK(modifier.flatDamageReduction == 15);
+    CHECK(modifier.damageReductionPct == 30);
+
+    BattleDamageModifierInput input;
+    input.damage = 100;
+    input.defender = modifier;
+    input.defenderUnit = unit();
+    CHECK(static_cast<int>(BattleDamageSystem().applyModifiers(input).damage) == 59);
 }
 
 TEST_CASE("BattleDamageSystem_HitShapeOwnsProjectileFalloffFacingAndOperationDamage", "[battle][damage][unit]")

@@ -93,6 +93,36 @@ TEST_CASE("ChessBattleEffects_ParseAndDescribeEnemyMpDamageAll", "[chess][effect
     CHECK(comboEffectCompactDesc(eff) == "全敵內-10");
 }
 
+TEST_CASE("ChessBattleEffects_ParseAndDescribeMissingHpRebelEffects", "[chess][effects]")
+{
+    auto flatDamageNode = YAML::Load(R"(
+类型: 反意固定加傷
+数值: 80
+)");
+    auto flatReductionNode = YAML::Load(R"(
+类型: 反意固定減傷
+数值: 15
+)");
+    auto pctReductionNode = YAML::Load(R"(
+类型: 反意傷害減免
+数值: 18
+)");
+
+    ComboEffect flatDamage;
+    ComboEffect flatReduction;
+    ComboEffect pctReduction;
+    REQUIRE(ChessBattleEffects::parseEffect(flatDamageNode, flatDamage, "反叛者"));
+    REQUIRE(ChessBattleEffects::parseEffect(flatReductionNode, flatReduction, "反叛者"));
+    REQUIRE(ChessBattleEffects::parseEffect(pctReductionNode, pctReduction, "反叛者"));
+
+    CHECK(flatDamage.type == EffectType::MissingHpFlatDmgIncreasePct);
+    CHECK(flatReduction.type == EffectType::MissingHpFlatDmgReduction);
+    CHECK(pctReduction.type == EffectType::MissingHpDmgReductionPct);
+    CHECK(comboEffectDesc(flatDamage) == "依已損生命獲得至多80%目前攻擊的固定加傷");
+    CHECK(comboEffectCompactDesc(flatReduction) == "反意定減至15");
+    CHECK(comboEffectCompactDesc(pctReduction) == "反意減傷至18%");
+}
+
 TEST_CASE("ChessBattleEffects_RuntimeGrantsShareStoreButKeepOrigin", "[battle][effects]")
 {
     RoleComboState state;

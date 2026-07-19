@@ -72,6 +72,9 @@ enum class EffectType
     KillInvincFrames,
     PostSkillInvincFrames,
     DmgReductionPct,
+    MissingHpFlatDmgIncreasePct,
+    MissingHpFlatDmgReduction,
+    MissingHpDmgReductionPct,
     // Comeback & Scaling
     Bloodlust,
     Adaptation,
@@ -311,7 +314,6 @@ public:
     bool consumeTypePending(EffectType type);
     bool typeToggle(EffectType type) const;
     bool consumeTypeToggle(EffectType type);
-
     bool advanceEffectCounter(RoleComboEffectId id, int threshold);
     void setEffectFrameTimer(RoleComboEffectId id, int frames);
     bool advanceEffectFrameTimer(RoleComboEffectId id, int intervalFrames);
