@@ -24,7 +24,7 @@ struct NeigongDef
 
 struct NeigongConfig
 {
-    int rerollCost = 4;
+    int additionalOptionCost = 4;
     int choiceCount = 3;
     std::map<int, std::vector<int>> tiersByBoss;
 };

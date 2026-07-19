@@ -262,7 +262,7 @@ TEST_CASE("game guide derives economy equipment and reward details from content"
     data.balance.legendaryShop = {13, 37};
     data.balance.challenges.resize(3);
     data.neigongConfig.choiceCount = 5;
-    data.neigongConfig.rerollCost = 6;
+    data.neigongConfig.additionalOptionCost = 6;
     const ChessGameContent content(std::move(data));
 
     const auto sections = buildChessGameGuideSections(content);
@@ -283,7 +283,7 @@ TEST_CASE("game guide derives economy equipment and reward details from content"
     const auto& equipment = guideSection(sections, "裝備與內功");
     CHECK(equipment.lines[1].text == "· 固定裝備獎勵共2次，最早第4回，最高4階");
     CHECK(equipment.lines[2].text == "· 神兵商店第13回後開放，每件37金");
-    CHECK(equipment.lines[3].text == "· 強敵戰後可選5本內功；刷新後選擇新候選加收6金");
+    CHECK(equipment.lines[3].text == "· 強敵戰後提供5本免費與額外候選；選擇額外候選加收6金");
     CHECK(guideSection(sections, "遠征挑戰").lines[0].text == "· 遠征挑戰共3關，不佔主線回合，勝後獎勵各領一次");
 }
 

@@ -1,36 +1,43 @@
 #!/usr/bin/env python3
-"""构建《金群自走棋》宣传单 + 玩法指南单页（简体 / 繁體切换）。
+"""建構《金群自走棋》宣傳單 + 玩法指南單頁（簡體 / 繁體切換）。
 
-从 tools/promo/page_template.html 生成仓库根目录的 金群自走棋.html：
-- %%SHOT:key%%      → tools/promo/shots/key.jpg 的 base64 内嵌（构建时可重新压缩）
-- %%HEAD:id%%       → work/game-dev/resource/head/id.webp 角色头像（压缩至 120px webp）
-- %%Y:eb|nb|hb:路径%% → config/chess_balance_{easy,normal,hard}.yaml 中的标量
-- %%Y:ng:路径%%      → config/chess_neigong.yaml 中的标量
-- %%C:pool|pool_easy|combos|equip|neigong|challenge%% → 各配置的条目计数
-- %%GEN:STATS%%     → 头版数据速览条（由上述计数生成）
+從 tools/promo/page_template.html 生成倉庫根目錄的 金群自走棋.html：
+- %%SHOT:key%%      → tools/promo/shots/key.jpg 的 base64 內嵌（建構時可重新壓縮）
+- %%ICON%%          → assets/app_icon.png 的遊戲圖示
+- %%HEAD:id%%       → work/game-dev/resource/head/id.webp 角色頭像（壓縮至 120px webp）
+- %%TIP:id%%        → game.db 角色四圍/武功 + chess_combos.yaml 羈絆的 hover 懸浮卡片
+- %%Y:eb|nb|hb:路徑%% → config/chess_balance_{easy,normal,hard}.yaml 中的純量
+- %%Y:ng:路徑%%      → config/chess_neigong.yaml 中的純量
+- %%C:pool|pool_easy|combos|equip|neigong|challenge%% → 各設定的條目計數
+- %%GEN:STATS%%     → 頭版資料速覽條（由上述計數生成）
 
-简体正文由 OpenCC s2t 自动转换生成繁體版本，两个版本同页内嵌、前端切换。
-用法:  .venv/Scripts/python.exe tools/promo/build_page.py
+繁體正文為來源，簡體版本由 OpenCC t2s 自動轉換；兩個版本同頁內嵌、前端切換。
+用法：.venv/Scripts/python.exe tools/promo/build_page.py
 """
 import base64
 import io
 import json
 import re
+import sqlite3
 import sys
 from pathlib import Path
 
 import yaml
 from opencc import OpenCC
 from PIL import Image
+from traditional_text import PROMO_TRADITIONAL_REPLACEMENTS, to_traditional
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "tools/promo/page_template.html"
 SHOTS_DIR = ROOT / "tools/promo/shots"
 HEADS_DIR = ROOT / "work/game-dev/resource/head"
+APP_ICON = ROOT / "assets/app_icon.png"
+GAME_DB = ROOT / "work/game-dev/save/game.db"
 CONFIG = ROOT / "config"
 OUT = ROOT / "金群自走棋.html"
 
 SHOT_WIDTH, SHOT_QUALITY = 960, 72
+ICON_SIZE, ICON_QUALITY = 180, 88
 HEAD_SIZE, HEAD_QUALITY = 120, 82
 
 BALANCE_FILES = {
@@ -38,10 +45,6 @@ BALANCE_FILES = {
     "nb": "chess_balance_normal.yaml",
     "hb": "chess_balance_hard.yaml",
 }
-
-# OpenCC s2t 后的统一修正（与游戏界面用字保持一致，修正姓氏误转）
-POSTFIX = [("羣", "群"), ("範遙", "范遙"), ("二孃", "二娘"), ("峯", "峰")]
-
 
 def data_uri(mime: str, raw: bytes) -> str:
     return "data:" + mime + ";base64," + base64.b64encode(raw).decode()
@@ -57,13 +60,64 @@ def render_shot(key: str) -> str:
     return f'<img src="{data_uri("image/jpeg", buf.getvalue())}" alt="{key}" loading="lazy">'
 
 
-def render_head(role_id: str) -> str:
+def render_icon(convert_ui_text) -> str:
+    im = Image.open(APP_ICON).convert("RGBA")
+    im.thumbnail((ICON_SIZE, ICON_SIZE), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, "WEBP", quality=ICON_QUALITY)
+    return f'<img src="{data_uri("image/webp", buf.getvalue())}" alt="{convert_ui_text("遊戲圖示")}">'
+
+
+def render_head(role_id: str, convert_ui_text) -> str:
     path = HEADS_DIR / f"{role_id}.webp"
     im = Image.open(path).convert("RGBA")
     im.thumbnail((HEAD_SIZE, HEAD_SIZE), Image.LANCZOS)
     buf = io.BytesIO()
     im.save(buf, "WEBP", quality=HEAD_QUALITY)
-    return f'<img src="{data_uri("image/webp", buf.getvalue())}" alt="角色头像{role_id}" loading="lazy">'
+    return (
+        f'<img src="{data_uri("image/webp", buf.getvalue())}" '
+        f'alt="{convert_ui_text("角色頭像")}{role_id}" loading="lazy">'
+    )
+
+
+def load_role_table():
+    """讀取 UTF-8 game.db：武功 id → 名稱，角色 id → 四圍與武功 id 列表。"""
+    con = sqlite3.connect(GAME_DB)
+    cur = con.cursor()
+    magics = dict(cur.execute("SELECT 编号,名称 FROM magic"))
+    roles = {}
+    rows = cur.execute(
+        "SELECT 编号,生命最大值,攻击力,防御力,轻功,"
+        "一星武功1,一星武功2,二星武功1,二星武功2,三星武功1,三星武功2 FROM role"
+    )
+    for row in rows:
+        roles[row[0]] = {
+            "hp": row[1], "atk": row[2], "def": row[3], "spd": row[4],
+            "skills": [row[5], row[6], row[7], row[8], row[9], row[10]],
+        }
+    con.close()
+    return roles, magics
+
+
+def render_tip(role_id: str, roles, magics, id2combo, convert_ui_text, convert_db_text, convert_yaml_text) -> str:
+    r = roles[int(role_id)]
+    skills = []
+    for m in r["skills"]:
+        name = convert_db_text(magics.get(m, ""))
+        if name and name not in skills:
+            skills.append(name)
+    parts = [
+        f'<span><span class="lb">{convert_ui_text("四圍")}</span>　'
+        f'{convert_ui_text("生命")} {r["hp"]} · {convert_ui_text("攻擊")} {r["atk"]} · '
+        f'{convert_ui_text("防禦")} {r["def"]} · {convert_ui_text("輕功")} {r["spd"]}</span>'
+    ]
+    if skills:
+        parts.append(f'<span><span class="lb">{convert_ui_text("武功")}</span>　{"、".join(skills)}</span>')
+    own = id2combo.get(int(role_id))
+    if own:
+        combo_names = [convert_yaml_text(name) for name in own]
+        parts.append(f'<span><span class="lb">{convert_ui_text("羈絆")}</span>　{"、".join(combo_names)}</span>')
+    return '<div class="tip">' + "".join(parts) + "</div>"
 
 
 def load_yaml(name: str):
@@ -77,6 +131,11 @@ def dig(data, dotted: str):
     if isinstance(cur, list):
         return "、".join(str(x) for x in cur)
     return str(cur)
+
+
+def convert_preserving_placeholders(text: str, converter) -> str:
+    parts = re.split(r"(%%[^%]+%%)", text)
+    return "".join(part if part.startswith("%%") else converter(part) for part in parts)
 
 
 def main() -> None:
@@ -97,57 +156,64 @@ def main() -> None:
         "challenge": len(challenge["遠征挑戰"]),
     }
 
-    stats = "".join(
-        f'<div class="stat"><b>{num}</b><i>{label}</i></div>'
-        for num, label in [
-            (counts["pool"], "名群侠棋子"),
-            (counts["combos"], "种羁绊"),
-            (counts["neigong"], "种内功"),
-            (counts["equip"], "件装备"),
-            (counts["challenge"], "关远征挑战"),
-            (f'{balances["nb"]["进度"]["总关卡数"]}~{balances["hb"]["进度"]["总关卡数"]}', "关主线棋局"),
-        ]
-    )
+    stats_data = [
+            (counts["pool"], "名群俠棋子"),
+            (counts["combos"], "種羈絆"),
+            (counts["neigong"], "種內功"),
+            (counts["equip"], "件裝備"),
+            (counts["challenge"], "關遠征挑戰"),
+            (f'{balances["nb"]["进度"]["总关卡数"]}~{balances["hb"]["进度"]["总关卡数"]}', "關主線棋局"),
+    ]
 
     html = TEMPLATE.read_text(encoding="utf-8")
+    roles, magics = load_role_table()
+    simplified = OpenCC("t2s")
+    traditional = OpenCC("s2t")
+    id2combo = {}
+    for c in combos["羁绊"]:
+        for member in c["成员"]:
+            id2combo.setdefault(member, []).append(c["名称"])
 
-    def sub_shot(m):
-        return render_shot(m.group(1))
+    m = re.search(r"<!--SBODY-->(.*)<!--EBODY-->", html, re.S)
+    assert m, "模板缺少 SBODY/EBODY 標記"
 
-    def sub_head(m):
-        return render_head(m.group(1))
+    def render_language(source, convert_ui_text, convert_db_text, convert_yaml_text):
+        def sub_y(match):
+            scope, dotted = match.group(1), match.group(2)
+            data = neigong if scope == "ng" else balances[scope]
+            return convert_yaml_text(dig(data, dotted))
 
-    def sub_y(m):
-        scope, dotted = m.group(1), m.group(2)
-        data = neigong if scope == "ng" else balances[scope]
-        return dig(data, dotted)
+        stats = "".join(
+            f'<div class="stat"><b>{num}</b><i>{convert_ui_text(label)}</i></div>'
+            for num, label in stats_data
+        )
+        body = convert_preserving_placeholders(source, convert_ui_text)
+        body = body.replace("%%ICON%%", render_icon(convert_ui_text))
+        body = re.sub(r"%%SHOT:([\w-]+)%%", lambda match: render_shot(match.group(1)), body)
+        body = re.sub(r"%%HEAD:(\d+)%%", lambda match: render_head(match.group(1), convert_ui_text), body)
+        body = re.sub(r"%%TIP:(\d+)%%", lambda match: render_tip(
+            match.group(1), roles, magics, id2combo, convert_ui_text, convert_db_text, convert_yaml_text
+        ), body)
+        body = re.sub(r"%%Y:(eb|nb|hb|ng):([\w.]+)%%", sub_y, body)
+        body = re.sub(r"%%C:(\w+)%%", lambda match: str(counts[match.group(1)]), body)
+        return body.replace("%%GEN:STATS%%", stats)
 
-    def sub_c(m):
-        return str(counts[m.group(1)])
-
-    body = re.sub(r"%%SHOT:([\w-]+)%%", sub_shot, html)
-    body = re.sub(r"%%HEAD:(\d+)%%", sub_head, body)
-    body = re.sub(r"%%Y:(eb|nb|hb|ng):([\w.]+)%%", sub_y, body)
-    body = re.sub(r"%%C:(\w+)%%", sub_c, body)
-    body = body.replace("%%GEN:STATS%%", stats)
-
-    m = re.search(r"<!--SBODY-->(.*)<!--EBODY-->", body, re.S)
-    assert m, "模板缺少 SBODY/EBODY 标记"
-    body_s = m.group(1)
-
-    cc = OpenCC("s2t")
-    body_t = cc.convert(body_s)
-    for old, new in POSTFIX:
-        body_t = body_t.replace(old, new)
+    body_t = render_language(
+        m.group(1),
+        lambda text: text,
+        lambda text: text,
+        lambda text: to_traditional(text, traditional, PROMO_TRADITIONAL_REPLACEMENTS),
+    )
+    body_s = render_language(m.group(1), simplified.convert, simplified.convert, simplified.convert)
 
     final = (
-        body[: m.start(1)]
+        html[: m.start(1)]
         + '<div id="body-s">'
         + body_s
         + '</div>\n<div id="body-t" hidden>'
         + body_t
         + "</div>"
-        + body[m.end(1) :]
+        + html[m.end(1) :]
     )
     OUT.write_text(final, encoding="utf-8", newline="\n")
     print(f"OK {OUT.name}: {OUT.stat().st_size // 1024} KB")

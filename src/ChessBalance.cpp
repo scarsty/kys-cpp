@@ -313,7 +313,7 @@ bool loadBalanceConfig(
             reward.fight = entry["关卡"].as<int>();
             reward.maxTier = entry["最高层级"].as<int>();
             reward.choices = entry["选项数量"].as<int>();
-            reward.refreshCost = entry["刷新费用"].as<int>();
+            reward.additionalOptionCost = entry["追加選項費用"].as<int>();
             c.playerEquipmentRewards.push_back(reward);
         }
     }

@@ -31,7 +31,7 @@ bool loadChessNeigong(
         emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "內功配置", std::format("無法讀取檔案 {}: {}", path, ex.what()));
         return false;
     }
-    if (ng["刷新费用"]) config.rerollCost = ng["刷新费用"].as<int>();
+    if (ng["追加選項費用"]) config.additionalOptionCost = ng["追加選項費用"].as<int>();
     if (ng["选择数量"]) config.choiceCount = ng["选择数量"].as<int>();
     if (ng["Boss可选层级"])
     {

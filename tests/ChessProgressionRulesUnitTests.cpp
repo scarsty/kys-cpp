@@ -146,7 +146,7 @@ TEST_CASE("experience gain uses one shared legacy level step", "[chess][progress
     CHECK(state.experience == 4);
 }
 
-TEST_CASE("reward choice and reroll are explicit deterministic boundaries", "[chess][reward][determinism]")
+TEST_CASE("reward choices include deterministic free and paid options", "[chess][reward][determinism]")
 {
     auto data = ChessGameContentData{};
     data.balance.playerEquipmentRewards.push_back({1, 4, 2, 1});
@@ -161,34 +161,30 @@ TEST_CASE("reward choice and reroll are explicit deterministic boundaries", "[ch
     ChessRewardRules::enqueueCampaignRewards(state, content, random, 1, events);
     REQUIRE(state.phase == ChessSessionPhase::RewardChoice);
     REQUIRE(state.pendingRewards.size() == 1);
-    const auto firstOptions = state.pendingRewards.front().options;
-
-    ChessAction reroll;
-    reroll.type = ChessActionType::RerollReward;
-    REQUIRE(ChessRewardRules::validate(state, content, reroll) == ChessRuleErrorCode::None);
-    ChessRewardRules::apply(state, content, random, reroll, events);
-    CHECK(state.money == 10);
-    CHECK(state.pendingRewards.front().rerolled);
-    for (const auto& option : firstOptions)
+    const auto& options = state.pendingRewards.front().options;
+    REQUIRE(std::ranges::count_if(options, [](const auto& option) {
+        return option.goldCost == 0;
+    }) == 2);
+    REQUIRE(std::ranges::any_of(options, [](const auto& option) {
+        return option.goldCost == 1;
+    }));
+    for (const auto& option : options)
     {
-        CHECK(std::ranges::contains(state.pendingRewards.front().options, option.id, &ChessRewardOption::id));
-    }
-    for (const auto& option : state.pendingRewards.front().options)
-    {
-        const bool original = std::ranges::contains(firstOptions, option.id, &ChessRewardOption::id);
-        CHECK(option.goldCost == (original ? 0 : 1));
+        CHECK((option.goldCost == 0 || option.goldCost == 1));
     }
 
     ChessAction choose;
     choose.type = ChessActionType::ChooseReward;
-    choose.rewardId = firstOptions.front().id;
+    choose.rewardId = std::ranges::find_if(options, [](const auto& option) {
+        return option.goldCost == 0;
+    })->id;
     ChessRewardRules::apply(state, content, random, choose, events);
     CHECK(state.money == 10);
     CHECK(state.phase == ChessSessionPhase::Management);
     REQUIRE(state.equipmentInventory.size() == 1);
 }
 
-TEST_CASE("rerolled reward choices are unique and charge only when selected", "[chess][reward][economy]")
+TEST_CASE("additional reward choices charge only when selected", "[chess][reward][economy]")
 {
     ChessGameContentData data;
     data.equipment = {
@@ -202,21 +198,14 @@ TEST_CASE("rerolled reward choices are unique and charge only when selected", "[
     ChessPendingReward pending;
     pending.id = "測試裝備獎勵";
     pending.kind = ChessRewardKind::Equipment;
-    pending.options = {{"equipment:101", ChessRewardKind::Equipment, 101}};
-    pending.rerollCost = 4;
-    pending.parameter = 1;
-    pending.choiceCount = 2;
+    pending.options = {
+        {"equipment:101", ChessRewardKind::Equipment, 101},
+        {"equipment:102", ChessRewardKind::Equipment, 102, {}, 4},
+    };
     state.pendingRewards.push_back(std::move(pending));
     ChessRunRandom random(9);
     std::vector<ChessSemanticEvent> events;
 
-    ChessAction reroll;
-    reroll.type = ChessActionType::RerollReward;
-    REQUIRE(ChessRewardRules::validate(state, content, reroll) == ChessRuleErrorCode::None);
-    ChessRewardRules::apply(state, content, random, reroll, events);
-
-    CHECK(state.money == 4);
-    REQUIRE(state.pendingRewards.front().options.size() == 2);
     const auto paid = std::ranges::find(
         state.pendingRewards.front().options,
         102,

@@ -261,7 +261,6 @@ std::string chessActionTypeId(ChessActionType type)
     case ChessActionType::ChooseMap: return "choose_map";
     case ChessActionType::SwapPositions: return "swap_positions";
     case ChessActionType::StartBattle: return "start_battle";
-    case ChessActionType::RerollReward: return "reroll_reward";
     case ChessActionType::ChooseReward: return "choose_reward";
     case ChessActionType::StartChallenge: return "start_challenge";
     case ChessActionType::FinishRun: return "finish_run";

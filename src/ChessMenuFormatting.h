@@ -477,9 +477,9 @@ inline std::vector<ChessGameGuideSection> buildChessGameGuideSections(const Ches
                 {formatEquipmentRewardLine()},
                 {formatLegendaryShopLine()},
                 {std::format(
-                    "· 強敵戰後可選{}本內功；刷新後選擇新候選加收{}金",
+                    "· 強敵戰後提供{}本免費與額外候選；選擇額外候選加收{}金",
                     neigong.choiceCount,
-                    neigong.rerollCost)},
+                    neigong.additionalOptionCost)},
             },
         },
         {

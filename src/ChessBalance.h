@@ -112,7 +112,7 @@ struct BalanceConfig
     std::vector<EnemyEquipmentLevel> enemyEquipmentLevels;
 
     // Player equipment rewards
-    struct PlayerEquipmentReward { int fight; int maxTier; int choices; int refreshCost; };
+    struct PlayerEquipmentReward { int fight; int maxTier; int choices; int additionalOptionCost; };
     std::vector<PlayerEquipmentReward> playerEquipmentRewards;
 
     // Expedition challenges

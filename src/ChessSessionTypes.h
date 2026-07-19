@@ -46,7 +46,6 @@ enum class ChessActionType : std::uint16_t
     ChooseMap,
     SwapPositions,
     StartBattle,
-    RerollReward,
     ChooseReward,
     StartChallenge,
     FinishRun,
@@ -79,7 +78,6 @@ enum class ChessRuleErrorCode : std::uint16_t
     EquipmentTypeMismatch,
     LegendaryShopLocked,
     InvalidReward,
-    RewardRerollUnavailable,
     UnknownChallenge,
     ChallengeAlreadyPending,
     CampaignAlreadyComplete,
@@ -112,7 +110,6 @@ enum class ChessSemanticEventType : std::uint16_t
     GoldAwarded,
     FightAdvanced,
     RewardOffered,
-    RewardRerolled,
     RewardChosen,
     InternalSkillAcquired,
     ChallengeCompleted,
@@ -240,11 +237,10 @@ struct ChessPendingReward
     std::string id;
     ChessRewardKind kind{};
     std::vector<ChessRewardOption> options;
-    int rerollCost{};
+    int additionalOptionCost{};
     int parameter{};
     int choiceCount{};
     std::vector<int> eligibleTiers;
-    bool rerolled = false;
     std::string challengeName;
 
     auto operator<=>(const ChessPendingReward&) const = default;

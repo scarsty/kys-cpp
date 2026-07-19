@@ -119,11 +119,11 @@ std::vector<ChessRewardOption> neigongOptions(
     return result;
 }
 
-void appendRerolledOptions(
+void appendAdditionalOptions(
     ChessPendingReward& pending,
-    std::vector<ChessRewardOption> rerolledOptions)
+    std::vector<ChessRewardOption> additionalOptions)
 {
-    for (auto& option : rerolledOptions)
+    for (auto& option : additionalOptions)
     {
         const bool duplicate = std::ranges::any_of(
             pending.options,
@@ -135,7 +135,7 @@ void appendRerolledOptions(
         {
             continue;
         }
-        option.goldCost = pending.rerollCost;
+        option.goldCost = pending.additionalOptionCost;
         pending.options.push_back(std::move(option));
     }
 }
@@ -145,16 +145,17 @@ ChessPendingReward makeEquipmentReward(
     ChessRunRandom& random,
     int maximumTier,
     int count,
-    int rerollCost,
+    int additionalOptionCost,
     std::string id)
 {
     ChessPendingReward pending;
     pending.id = std::move(id);
     pending.kind = ChessRewardKind::Equipment;
-    pending.rerollCost = rerollCost;
-    pending.parameter = maximumTier;
-    pending.choiceCount = count;
+    pending.additionalOptionCost = additionalOptionCost;
     pending.options = equipmentOptions(content, random, maximumTier, count);
+    appendAdditionalOptions(
+        pending,
+        equipmentOptions(content, random, maximumTier, count));
     return pending;
 }
 
@@ -164,21 +165,28 @@ ChessPendingReward makeNeigongReward(
     ChessRunRandom& random,
     std::vector<int> eligibleTiers,
     int count,
-    int rerollCost,
+    int additionalOptionCost,
     std::string id)
 {
     ChessPendingReward pending;
     pending.id = std::move(id);
     pending.kind = ChessRewardKind::InternalSkill;
-    pending.rerollCost = rerollCost;
+    pending.additionalOptionCost = additionalOptionCost;
     pending.eligibleTiers = std::move(eligibleTiers);
-    pending.choiceCount = count;
     pending.options = neigongOptions(
         state,
         content,
         random,
         pending.eligibleTiers,
         count);
+    appendAdditionalOptions(
+        pending,
+        neigongOptions(
+            state,
+            content,
+            random,
+            pending.eligibleTiers,
+            count));
     return pending;
 }
 
@@ -384,7 +392,7 @@ void ChessRewardRules::enqueueCampaignRewards(
             random,
             std::move(eligibleTiers),
             content.neigongConfig().choiceCount,
-            content.neigongConfig().rerollCost,
+            content.neigongConfig().additionalOptionCost,
             std::format("boss_neigong:{}", completedFight));
         if (!pending.options.empty())
         {
@@ -400,7 +408,7 @@ void ChessRewardRules::enqueueCampaignRewards(
                 random,
                 reward.maxTier,
                 reward.choices,
-                reward.refreshCost,
+                reward.additionalOptionCost,
                 std::format("fight_equipment:{}", completedFight));
             if (!pending.options.empty())
             {
@@ -491,16 +499,6 @@ ChessRuleErrorCode ChessRewardRules::validate(
     {
         return ChessRuleErrorCode::UnsupportedAction;
     }
-    if (action.type == ChessActionType::RerollReward)
-    {
-        if (pending.rerolled || pending.rerollCost <= 0)
-        {
-            return ChessRuleErrorCode::RewardRerollUnavailable;
-        }
-        return state.money < pending.rerollCost
-            ? ChessRuleErrorCode::InsufficientGold
-            : ChessRuleErrorCode::None;
-    }
     if (action.type != ChessActionType::ChooseReward)
     {
         return ChessRuleErrorCode::UnsupportedAction;
@@ -524,17 +522,6 @@ void ChessRewardRules::apply(
 {
     assert(validate(state, content, action) == ChessRuleErrorCode::None);
     auto& pending = state.pendingRewards.front();
-    if (action.type == ChessActionType::RerollReward)
-    {
-        pending.rerolled = true;
-        auto rerolledOptions = pending.kind == ChessRewardKind::Equipment
-            ? equipmentOptions(content, random, pending.parameter, pending.choiceCount)
-            : neigongOptions(state, content, random, pending.eligibleTiers, pending.choiceCount);
-        appendRerolledOptions(pending, std::move(rerolledOptions));
-        events.push_back({ChessSemanticEventType::RewardRerolled, {}, {}, pending.rerollCost, pending.id});
-        return;
-    }
-
     const auto selected = *std::ranges::find(pending.options, action.rewardId, &ChessRewardOption::id);
     state.money -= selected.goldCost;
     const auto pendingKind = pending.kind;

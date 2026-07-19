@@ -412,10 +412,9 @@ struct PendingRewardDto
     int option_count{};
     std::optional<std::string> option_count_description;
     std::optional<std::vector<RewardOptionDto>> options;
-    int reroll_cost{};
+    int additional_option_cost{};
     std::vector<int> eligible_tiers;
     std::vector<OptionGroup> option_groups;
-    bool rerolled{};
     std::optional<int> maximum_selections;
     std::optional<int> remaining_selections;
     std::optional<int> current_ban_count;

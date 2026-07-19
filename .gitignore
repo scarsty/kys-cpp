@@ -46,3 +46,5 @@ tmp/
 
 AGENTS.md
 CLAUDE.md
+
+.playwright-mcp/

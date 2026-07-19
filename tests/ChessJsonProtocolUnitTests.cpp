@@ -881,7 +881,7 @@ TEST_CASE("JSON protocol publishes economic previews and keeps verification hash
     CHECK(full.result->str.contains("\"evidence_hash\""));
 }
 
-TEST_CASE("JSON protocol previews reward reroll and legendary equipment costs",
+TEST_CASE("JSON protocol previews paid reward options and legendary equipment costs",
           "[chess][protocol][actions][economy][actual-config]")
 {
     const auto content = actualContent();
@@ -920,9 +920,7 @@ TEST_CASE("JSON protocol previews reward reroll and legendary equipment costs",
     ChessPendingReward pending;
     pending.id = "經濟預覽獎勵";
     pending.kind = ChessRewardKind::Equipment;
-    pending.rerollCost = 7;
-    pending.parameter = 4;
-    pending.choiceCount = 2;
+    pending.additionalOptionCost = 7;
     for (const auto& equipment : content->equipment() | std::views::take(2))
     {
         pending.options.push_back({
@@ -935,19 +933,18 @@ TEST_CASE("JSON protocol previews reward reroll and legendary equipment costs",
     pending.options.back().goldCost = 7;
     rewardCheckpoint.state.pendingRewards.push_back(std::move(pending));
     REQUIRE(rewardCheckpoint.restore(*session) == ChessCheckpointError::None);
+    const auto rewardObserved = parseResponse(protocol.handleLine(
+        R"({"id":3,"method":"observe","params":{}})"));
+    REQUIRE(rewardObserved.ok);
+    REQUIRE(rewardObserved.result);
+    CHECK(rewardObserved.result->str.contains("\"additional_option_cost\":7"));
     const auto rewardLegal = parseResponse(protocol.handleLine(
-        R"({"id":3,"method":"legal_actions","params":{}})"));
+        R"({"id":4,"method":"legal_actions","params":{}})"));
     REQUIRE(rewardLegal.ok);
     REQUIRE(rewardLegal.result);
     CHECK(rewardLegal.result->str.contains("\"gold_cost\":7"));
     CHECK(rewardLegal.result->str.contains("\"projected_gold_after\":93"));
-    const auto rerollStart = rewardLegal.result->str.find("\"type\":\"reroll_reward\"");
-    REQUIRE(rerollStart != std::string::npos);
-    const auto reroll = rewardLegal.result->str.substr(rerollStart);
-    CHECK(reroll.contains("\"gold_cost\":0"));
-    CHECK(reroll.contains("\"projected_gold_after\":100"));
-    CHECK(reroll.contains("\"affected_option_count\":2"));
-    CHECK(reroll.contains("只有選擇新選項時才支付 7 金幣"));
+    CHECK_FALSE(rewardLegal.result->str.contains("\"type\":\"reroll_reward\""));
 }
 
 TEST_CASE("JSON protocol act matches direct session execution", "[chess][protocol][determinism]")

@@ -289,14 +289,7 @@ std::vector<ChessLegalActionDescriptor> ChessGameSession::legalActions() const
                 choose.candidateStableIds.push_back(option.id);
             }
         }
-        std::vector<ChessLegalActionDescriptor> result{std::move(choose)};
-        ChessAction reroll;
-        reroll.type = ChessActionType::RerollReward;
-        if (validateAction(reroll) == ChessRuleErrorCode::None)
-        {
-            result.push_back({ChessActionType::RerollReward});
-        }
-        return result;
+        return {std::move(choose)};
     }
     if (state_.phase != ChessSessionPhase::Management)
     {
@@ -481,7 +474,6 @@ std::string ChessGameSession::errorDescription(ChessRuleErrorCode error)
     case ChessRuleErrorCode::EquipmentTypeMismatch: return "裝備類型不符";
     case ChessRuleErrorCode::LegendaryShopLocked: return "神兵商店尚未開放";
     case ChessRuleErrorCode::InvalidReward: return "獎勵選項不存在";
-    case ChessRuleErrorCode::RewardRerollUnavailable: return "此獎勵不可再次刷新";
     case ChessRuleErrorCode::UnknownChallenge: return "遠征挑戰不存在";
     case ChessRuleErrorCode::ChallengeAlreadyPending: return "已有遠征挑戰待處理";
     case ChessRuleErrorCode::CampaignAlreadyComplete: return "主線戰役已通關";

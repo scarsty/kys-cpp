@@ -425,23 +425,27 @@ TEST_CASE("MeleeSwarm_DoesNotReserveSameApproachSlot", "[battle][movement]")
     }
 }
 
-TEST_CASE("MeleeTargeting_SpreadsAcrossNearbyEnemies", "[battle][movement]")
+TEST_CASE("MeleeApproach_ProactivelyDetoursAroundStoppedAllyWithoutRetargeting", "[battle][movement]")
 {
     auto world = makeWorld({
-        { 97, 0, { 100, 80, 0 } },
-        { 29, 0, { 100, 120, 0 } },
-        { 116, 1, { 320, 100, 0 } },
-        { 118, 1, { 350, 140, 0 } },
+        { 97, 0, { 100, 100, 0 } },
+        { 29, 0, { 180, 100, 0 } },
+        { 116, 1, { 400, 100, 0 } },
     });
+    world.units[0].dashCooldownRemaining = 999;
+    world.units[1].speed = 0.0;
     world.units[2].speed = 0.0;
-    world.units[3].speed = 0.0;
 
     auto movement = BattleMovementPlanner(world).tick();
 
-    CHECK(movement.decisions.at(1).targetId != movement.decisions.at(2).targetId);
+    CHECK(movement.decisions.at(1).targetId == 3);
+    CHECK(movement.decisions.at(2).targetId == 3);
+    CHECK(movement.decisions.at(1).action == MovementAction::Move);
+    CHECK(movement.decisions.at(1).destination.x > world.units[0].position.x);
+    CHECK(movement.decisions.at(1).destination.y != Catch::Approx(world.units[0].position.y));
 }
 
-TEST_CASE("MeleeSwarm_ApproachPreservesSideLanesBeforeContact", "[battle][movement]")
+TEST_CASE("MeleeSwarm_ApproachSeparatesBeforeContact", "[battle][movement]")
 {
     auto world = makeWorld({
         { 97, 0, { 100, 80, 0 } },
@@ -459,8 +463,6 @@ TEST_CASE("MeleeSwarm_ApproachPreservesSideLanesBeforeContact", "[battle][moveme
 
     const auto& top = run.world.units[0];
     const auto& bottom = run.world.units[1];
-    CHECK(top.position.y < 80.0f);
-    CHECK(bottom.position.y > 100.0f);
     CHECK(pointDistance(top.position, bottom.position) >= world.config.bodyRadius);
     CHECK(run.stats.at(1).totalAllyBlockedFrames == 0);
     CHECK(run.stats.at(2).totalAllyBlockedFrames == 0);

@@ -4116,14 +4116,6 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 data.colors.push_back({255, 255, 100, 255});
             }
         }
-        const bool showReroll = !pending.rerolled
-            && pending.rerollCost > 0
-            && session_.state().money >= pending.rerollCost;
-        if (showReroll)
-        {
-            labelRows.push_back({{}, "刷新更多選項", {}, {}});
-            data.colors.push_back({128, 128, 128, 255});
-        }
         data.labels = buildAlignedChessRewardMenuLabels(
             pending.kind,
             labelRows,
@@ -4229,18 +4221,6 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             }
             continue;
         }
-        if (showReroll && choice == static_cast<int>(availableOptions.size()))
-        {
-            ChessAction reroll;
-            reroll.type = ChessActionType::RerollReward;
-            const auto result = submitGuiAction(reroll);
-            if (!result.accepted)
-            {
-                showChessMessage(result.description);
-            }
-            continue;
-        }
-
         const auto selected = availableOptions[choice];
         ChessAction action;
         action.type = ChessActionType::ChooseReward;

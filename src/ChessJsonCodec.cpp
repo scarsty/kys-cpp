@@ -706,9 +706,8 @@ ObservationDto observationDto(
         pending.option_count = static_cast<int>(std::ranges::count_if(
             observation.pendingReward->options,
             optionAvailable));
-        pending.reroll_cost = observation.pendingReward->rerollCost;
+        pending.additional_option_cost = observation.pendingReward->additionalOptionCost;
         pending.eligible_tiers = observation.pendingReward->eligibleTiers;
-        pending.rerolled = observation.pendingReward->rerolled;
         if (observation.pendingReward->kind == ChessRewardKind::ForcedBan)
         {
             pending.option_count_description = "目前仍可選的禁棋候選角色數量，不是剩餘選擇次數";
@@ -829,7 +828,6 @@ std::string ruleErrorId(ChessRuleErrorCode error)
     case ChessRuleErrorCode::EquipmentTypeMismatch: return "equipment_type_mismatch";
     case ChessRuleErrorCode::LegendaryShopLocked: return "legendary_shop_locked";
     case ChessRuleErrorCode::InvalidReward: return "invalid_reward";
-    case ChessRuleErrorCode::RewardRerollUnavailable: return "reward_reroll_unavailable";
     case ChessRuleErrorCode::UnknownChallenge: return "unknown_challenge";
     case ChessRuleErrorCode::ChallengeAlreadyPending: return "challenge_already_pending";
     case ChessRuleErrorCode::CampaignAlreadyComplete: return "campaign_already_complete";
@@ -860,7 +858,6 @@ std::string actionDescription(ChessActionType type)
     case ChessActionType::ChooseMap: return "選擇戰場";
     case ChessActionType::SwapPositions: return "交換兩個我方戰鬥單位的位置";
     case ChessActionType::StartBattle: return "依目前預覽與站位開始並結算戰鬥";
-    case ChessActionType::RerollReward: return "保留目前獎勵，刷新並追加需付費的新候選選項";
     case ChessActionType::ChooseReward: return "選擇目前獎勵選項";
     case ChessActionType::StartChallenge: return "依遠征名稱開始挑戰，不使用額外英文 ID";
     case ChessActionType::FinishRun: return "結束已通關的本局";
@@ -1062,16 +1059,6 @@ LegalActionDto legalActionDto(
             preview.gold_cost = content.balance().enemyRerollCost;
             preview.projected_gold_after = state.money - preview.gold_cost;
             preview.result = "重新生成下一戰的敵方陣容、裝備、地圖與戰鬥種子";
-            return preview;
-        case ChessActionType::RerollReward:
-            assert(!state.pendingRewards.empty());
-            preview.gold_cost = 0;
-            preview.projected_gold_after = state.money;
-            preview.affected_option_count = state.pendingRewards.front().choiceCount;
-            preview.result = std::format(
-                "保留目前選項，追加最多 {} 個不重複的新選項；只有選擇新選項時才支付 {} 金幣",
-                state.pendingRewards.front().choiceCount,
-                state.pendingRewards.front().rerollCost);
             return preview;
         case ChessActionType::BuyLegendaryEquipment:
             preview.gold_cost = content.balance().legendaryShop.price;
@@ -1518,7 +1505,6 @@ std::string semanticEventTypeId(ChessSemanticEventType type)
     case ChessSemanticEventType::GoldAwarded: return "gold_awarded";
     case ChessSemanticEventType::FightAdvanced: return "fight_advanced";
     case ChessSemanticEventType::RewardOffered: return "reward_offered";
-    case ChessSemanticEventType::RewardRerolled: return "reward_rerolled";
     case ChessSemanticEventType::RewardChosen: return "reward_chosen";
     case ChessSemanticEventType::InternalSkillAcquired: return "internal_skill_acquired";
     case ChessSemanticEventType::ChallengeCompleted: return "challenge_completed";
@@ -1679,7 +1665,6 @@ SummaryActionResultDto summaryActionResultDto(
             dto.changes.bans_changed = true;
             break;
         case ChessSemanticEventType::RewardOffered:
-        case ChessSemanticEventType::RewardRerolled:
         case ChessSemanticEventType::RewardChosen:
         case ChessSemanticEventType::ForcedBansSkipped:
             dto.changes.reward_changed = true;

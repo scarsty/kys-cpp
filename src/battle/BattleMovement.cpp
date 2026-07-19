@@ -95,115 +95,9 @@ const BattleUnitState* nearestEnemy(const BattleMovementPlanInput& world, const 
     return best;
 }
 
-const BattleUnitState* assignedEnemy(const BattleMovementPlanInput& world, const BattleUnitState& unit)
-{
-    const auto* assigned = tryFindById(world.units, unit.targetId);
-    if (assigned && assigned->alive && assigned->team != unit.team)
-    {
-        return assigned;
-    }
-    return nearestEnemy(world, unit);
-}
-
 double comfortableMeleeSpacing(const BattleMovementConfig& config)
 {
     return config.bodyRadius + config.engagementDeadband;
-}
-
-void assignMovementTargets(BattleMovementPlanInput& world)
-{
-    struct MeleeTargetingEntry
-    {
-        int unitId{};
-        double nearestDistance{};
-    };
-
-    std::map<int, int> meleeClaimsByTarget;
-    std::vector<MeleeTargetingEntry> unassignedMelee;
-    unassignedMelee.reserve(world.units.size());
-
-    for (auto& unit : world.units)
-    {
-        if (!unit.alive)
-        {
-            continue;
-        }
-
-        const auto* nearest = nearestEnemy(world, unit);
-        if (!nearest)
-        {
-            unit.targetId = -1;
-            continue;
-        }
-        if (unit.style == CombatStyle::Ranged)
-        {
-            unit.targetId = nearest->id;
-            continue;
-        }
-
-        if (unit.speed <= 0.0)
-        {
-            unit.targetId = nearest->id;
-            if (distance2d(unit.position, nearest->position) <= world.config.meleeAttackReach)
-            {
-                ++meleeClaimsByTarget[nearest->id];
-            }
-            continue;
-        }
-
-        const auto* current = tryFindById(world.units, unit.targetId);
-        if (current && (!current->alive || current->team == unit.team))
-        {
-            current = nullptr;
-        }
-        if (current)
-        {
-            ++meleeClaimsByTarget[current->id];
-            continue;
-        }
-
-        unassignedMelee.push_back({ unit.id, distance2d(unit.position, nearest->position) });
-    }
-
-    std::ranges::sort(unassignedMelee, [](const MeleeTargetingEntry& lhs, const MeleeTargetingEntry& rhs)
-        {
-            if (lhs.nearestDistance != rhs.nearestDistance)
-            {
-                return lhs.nearestDistance < rhs.nearestDistance;
-            }
-            return lhs.unitId < rhs.unitId;
-        });
-
-    const double claimSpacing = comfortableMeleeSpacing(world.config);
-    for (const auto& entry : unassignedMelee)
-    {
-        auto& unit = requireById(world.units, entry.unitId);
-        const BattleUnitState* best = nullptr;
-        double bestScore = std::numeric_limits<double>::max();
-        double bestDistance = std::numeric_limits<double>::max();
-        for (const auto& candidate : world.units)
-        {
-            if (!candidate.alive || candidate.team == unit.team)
-            {
-                continue;
-            }
-
-            const double distance = distance2d(unit.position, candidate.position);
-            const double score = distance + meleeClaimsByTarget[candidate.id] * claimSpacing;
-            if (!best
-                || score < bestScore
-                || (score == bestScore && distance < bestDistance)
-                || (score == bestScore && distance == bestDistance && candidate.id < best->id))
-            {
-                best = &candidate;
-                bestScore = score;
-                bestDistance = distance;
-            }
-        }
-        assert(best);
-        unit.targetId = best->id;
-        ++meleeClaimsByTarget[best->id];
-    }
 }
 
 std::vector<int> movementOrder(const BattleMovementPlanInput& world)
@@ -221,7 +115,7 @@ std::vector<int> movementOrder(const BattleMovementPlanInput& world)
     {
         if (unit.alive)
         {
-            const auto* target = assignedEnemy(world, unit);
+            const auto* target = nearestEnemy(world, unit);
             const double distance = target
                 ? distance2d(unit.position, target->position)
                 : std::numeric_limits<double>::max();
@@ -743,7 +637,7 @@ int defaultMeleeApproachSlot(const BattleMovementPlanInput& world,
             continue;
         }
 
-        const auto* otherTarget = assignedEnemy(world, other);
+        const auto* otherTarget = nearestEnemy(world, other);
         if (!otherTarget || otherTarget->id != target.id)
         {
             continue;
@@ -933,7 +827,7 @@ bool sharesFrontlineTarget(const BattleMovementPlanInput& world,
         return false;
     }
 
-    const auto* otherTarget = assignedEnemy(world, other);
+    const auto* otherTarget = nearestEnemy(world, other);
     if (!otherTarget || otherTarget->id != target.id)
     {
         return false;
@@ -1093,7 +987,10 @@ std::vector<Pointf> blockerDetourDirections(const BattleUnitState& unit,
     if (desiredDirection.norm() > 0.01f)
     {
         desiredDirection = unitVector(desiredDirection);
-        if (dot2d(side, desiredDirection) < dot2d(-side, desiredDirection))
+        const double sideProgress = dot2d(side, desiredDirection);
+        const double oppositeProgress = dot2d(-side, desiredDirection);
+        if (sideProgress < oppositeProgress
+            || (sideProgress == oppositeProgress && deterministicSide(unit.id, blocker.id) < 0))
         {
             side = -side;
         }
@@ -1360,26 +1257,37 @@ void requestCooperativeMovement(std::map<int, BattleMovementYieldRequest>& yield
     requestMovementDetour(detourRequests, world, terrain, requester, probe.blockerId, desired);
 }
 
-const BattleUnitState* approachCorridorBlocker(const BattleMovementPlanInput& world,
-                                               const BattleUnitState& requester,
-                                               Pointf desired)
+struct ApproachCorridorBlocker
+{
+    const BattleUnitState* unit{};
+    double projection{};
+};
+
+double approachCorridorLookahead(const BattleMovementPlanInput& world, const BattleUnitState& requester)
+{
+    return std::max(world.config.bodyRadius * 2.0, world.config.bodyRadius + requester.speed * 6.0);
+}
+
+std::optional<ApproachCorridorBlocker> approachCorridorBlocker(const BattleMovementPlanInput& world,
+                                                               const BattleUnitState& requester,
+                                                               Pointf desired)
 {
     if (requester.style != CombatStyle::Melee)
     {
-        return nullptr;
+        return std::nullopt;
     }
 
     auto approach = desired - requester.position;
     approach.z = 0;
     if (approach.norm() <= 0.01f)
     {
-        return nullptr;
+        return std::nullopt;
     }
     approach = unitVector(approach);
 
     const BattleUnitState* blocker = nullptr;
     double bestProjection = std::numeric_limits<double>::max();
-    const double maximumProjection = std::max(world.config.bodyRadius * 2.0, world.config.bodyRadius + requester.speed * 6.0);
+    const double maximumProjection = approachCorridorLookahead(world, requester);
     const double maximumLateral = world.config.bodyRadius * 0.65;
     for (const auto& other : world.units)
     {
@@ -1392,7 +1300,13 @@ const BattleUnitState* approachCorridorBlocker(const BattleMovementPlanInput& wo
             continue;
         }
 
-        auto toOther = other.position - requester.position;
+        auto otherPosition = other.position;
+        const auto reservation = world.movementReservations.find(other.id);
+        if (reservation != world.movementReservations.end())
+        {
+            otherPosition = reservation->second.position;
+        }
+        auto toOther = otherPosition - requester.position;
         toOther.z = 0;
         const double projection = dot2d(toOther, approach);
         if (projection <= 0.0 || projection > maximumProjection)
@@ -1413,7 +1327,37 @@ const BattleUnitState* approachCorridorBlocker(const BattleMovementPlanInput& wo
             blocker = &other;
         }
     }
-    return blocker;
+    if (!blocker)
+    {
+        return std::nullopt;
+    }
+    return ApproachCorridorBlocker{ blocker, bestProjection };
+}
+
+std::vector<Pointf> proactiveApproachDetourDirections(const BattleMovementPlanInput& world,
+                                                       const BattleUnitState& requester,
+                                                       Pointf desired)
+{
+    if (battleMovementTaXueUnstable(requester))
+    {
+        return {};
+    }
+
+    const auto blocker = approachCorridorBlocker(world, requester, desired);
+    if (!blocker)
+    {
+        return {};
+    }
+
+    auto approach = unitVector(desired - requester.position);
+    const double lookahead = approachCorridorLookahead(world, requester);
+    const double urgency = std::clamp((lookahead - blocker->projection) / lookahead, 0.0, 1.0);
+    const double sideWeight = 0.35 + urgency * 0.65;
+    const auto around = blockerDetourDirections(requester, *blocker->unit, desired);
+    return {
+        unitVector(approach + around[0] * sideWeight),
+        unitVector(approach + around[2] * sideWeight),
+    };
 }
 
 void requestApproachCorridorYield(std::map<int, BattleMovementYieldRequest>& yieldRequests,
@@ -1421,13 +1365,13 @@ void requestApproachCorridorYield(std::map<int, BattleMovementYieldRequest>& yie
                                   const BattleUnitState& requester,
                                   Pointf desired)
 {
-    const auto* blocker = approachCorridorBlocker(world, requester, desired);
+    const auto blocker = approachCorridorBlocker(world, requester, desired);
     if (!blocker)
     {
         return;
     }
 
-    requestMovementYield(yieldRequests, world, requester, blocker->id, desired);
+    requestMovementYield(yieldRequests, world, requester, blocker->unit->id, desired);
 }
 
 void recordMovementDecision(BattleTickResult& result, const BattleUnitState& unit, MovementDecision decision)
@@ -2043,7 +1987,6 @@ BattleTickResult BattleMovementPlanner::tick()
     pruneMovementReservations(world_);
     pruneMovementYieldRequests(world_);
     pruneMovementDetourRequests(world_);
-    assignMovementTargets(world_);
     const BattleMovementTerrainLookup terrain(world_);
     std::map<int, Pointf> reservations;
     std::map<int, BattleMovementYieldRequest> pendingYieldRequests;
@@ -2126,7 +2069,7 @@ BattleTickResult BattleMovementPlanner::tick()
             unit->dashCooldownRemaining--;
         }
 
-        const auto* target = assignedEnemy(world_, *unit);
+        const auto* target = nearestEnemy(world_, *unit);
         if (!target)
         {
             clearMovementReservation(world_, unit->id);
@@ -2317,6 +2260,8 @@ BattleTickResult BattleMovementPlanner::tick()
         MoveProbe lastProbe;
         requestApproachCorridorYield(pendingYieldRequests, world_, *unit, desired);
         auto directions = candidateDirections(world_, *unit, *target, desired);
+        const auto proactiveDetours = proactiveApproachDetourDirections(world_, *unit, desired);
+        directions.insert(directions.begin(), proactiveDetours.begin(), proactiveDetours.end());
         const auto detourRequest = world_.detourRequests.find(unit->id);
         if (detourRequest != world_.detourRequests.end()
             && detourRequest->second.direction.norm() > 0.01f)

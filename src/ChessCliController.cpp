@@ -158,7 +158,7 @@ std::string ChessCliController::executeInteractive(
     if (verb.empty() || verb == "observe") return renderCurrent(mode);
     if (verb == "help")
     {
-        return "指令：observe、legal、buy N、refresh、lock on|off、sell ID、exp、deploy ID,...、formation SLOT,...、ban ROLE、skip_bans、equip EQUIP CHESS、legendary ITEM、position_swap on|off、reroll_enemy、prepare、map ID、swap UNIT UNIT、start、reward ID、reroll_reward、challenge ID、finish、save SLOT、load SLOT、replay、quit\n";
+        return "指令：observe、legal、buy N、refresh、lock on|off、sell ID、exp、deploy ID,...、formation SLOT,...、ban ROLE、skip_bans、equip EQUIP CHESS、legendary ITEM、position_swap on|off、reroll_enemy、prepare、map ID、swap UNIT UNIT、start、reward ID、challenge ID、finish、save SLOT、load SLOT、replay、quit\n";
     }
     if (verb == "legal") return submitRequest("legal_actions", "{}");
     if (verb == "replay") return submitRequest("export_replay", "{}");
@@ -221,7 +221,6 @@ std::string ChessCliController::executeInteractive(
     else if (verb == "map") { action.type = ChessActionType::ChooseMap; stream >> action.mapId; }
     else if (verb == "swap") { action.type = ChessActionType::SwapPositions; stream >> action.chessInstanceId >> action.targetChessInstanceId; }
     else if (verb == "start") action.type = ChessActionType::StartBattle;
-    else if (verb == "reroll_reward") action.type = ChessActionType::RerollReward;
     else if (verb == "reward") { action.type = ChessActionType::ChooseReward; stream >> action.rewardId; }
     else if (verb == "challenge") { action.type = ChessActionType::StartChallenge; stream >> action.challengeName; }
     else if (verb == "finish") action.type = ChessActionType::FinishRun;
