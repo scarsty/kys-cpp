@@ -205,7 +205,6 @@
     <ClInclude Include="Engine.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="..\mlcc\filefunc.h" />
-    <ClInclude Include="..\mlcc\fmt1.h" />
     <ClInclude Include="..\mlcc\INIReader.h" />
     <ClInclude Include="..\mlcc\PotConv.h" />
     <ClInclude Include="..\mlcc\strfunc.h" />

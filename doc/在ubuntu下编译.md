@@ -50,13 +50,12 @@ www.un4seen.com 选 linux 版本下载、解压。
 * [点击下载 bass24](http://www.un4seen.com/download.php?bass24-linux)
 * [点击下载 bassmidi24](http://www.un4seen.com/files/bassmidi24-linux.zip)
 
-配置 bass so 和 .h 环境变量和 fmt1.h 路径
+配置 bass so 和 .h 环境变量
 ```shell
 export BASS_HOME=${自己的bass解压路径}
 export BASS_MIDI_HOME=${自己的bassmidi解压路径}
 export CPATH=${BASS_HOME}:${BASS_MIDI_HOME}:${CPATH}
 export LD_LIBRARY_PATH=${BASS_HOME}:${BASS_MIDI_HOME}:${LD_LIBRARY_PATH}
-export CPLUS_INCLUDE_PATH=${自己的kys-cpp路径}/nb:${CPLUS_INCLUDE_PATH}
 ```
 注意 64bit 机器要链接的是 x64 目录下面的 so，这个压缩包下面先放的是 32bit 用的 so。`cp -rf x64/libbass.so libbass.so`覆盖掉即可。
 ```shell
@@ -85,13 +84,12 @@ CMake suite maintained and supported by Kitware (kitware.com/cmake).
 ```
 需要修改 src/CMakeLists.txt，增加一行`cmake_policy(SET CMP0015 OLD)`
 
-* 大概率因为 fmt 版本问题，需要打开 `src/Audio.cpp`, 注释掉这 2 行：
-若并没出现问题请跳过。
+* 旧版本曾使用 `fmt1::print`。当前代码使用 C++23 标准库的 `std::print` 和 `std::format`，编译器需提供 `<print>` 支持。
 ```c++
-10 fmt1::print("Init Bass fault!\n");
+std::print("Init Bass fault!\n");
 ```
 ```c++
-16 fmt1::print("Mix_OpenAudio: {}\n", Mix_GetError());
+std::print("Mix_OpenAudio: {}\n", Mix_GetError());
 ```
 
 * 然后 cmake 编译 

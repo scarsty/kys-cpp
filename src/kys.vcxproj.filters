@@ -382,9 +382,6 @@
     <ClInclude Include="DrawNode.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="..\mlcc\fmt1.h">
-      <Filter>mlcc</Filter>
-    </ClInclude>
     <ClInclude Include="RunNodeFromJson.h">
       <Filter>runnode</Filter>
     </ClInclude>
