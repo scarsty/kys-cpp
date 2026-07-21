@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <limits>
 #include <map>
 #include <string>
 #include <vector>
@@ -443,6 +444,73 @@ TEST_CASE("MeleeApproach_ProactivelyDetoursAroundStoppedAllyWithoutRetargeting",
     CHECK(movement.decisions.at(1).action == MovementAction::Move);
     CHECK(movement.decisions.at(1).destination.x > world.units[0].position.x);
     CHECK(movement.decisions.at(1).destination.y != Catch::Approx(world.units[0].position.y));
+}
+
+TEST_CASE("MeleeApproach_EscapesLocalUnitPocketWithoutRetargeting", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 97, 0, { 154, 150, 0 } },
+        { 29, 0, { 180, 100, 0 } },
+        { 72, 0, { 124, 100, 0 } },
+        { 118, 0, { 180, 156, 0 } },
+        { 116, 1, { 100, 220, 0 } },
+    });
+    for (auto& unit : world.units)
+    {
+        unit.dashCooldownRemaining = 999;
+    }
+    for (int i = 2; i <= 4; ++i)
+    {
+        world.units[i].speed = 0.0;
+    }
+    const double startingTargetDistance = pointDistance(world.units[1].position, world.units[4].position);
+
+    auto movement = BattleMovementPlanner(world).tick();
+    const auto& decision = movement.decisions.at(2);
+    const auto localClearance = [&](Pointf position)
+    {
+        double clearance = std::numeric_limits<double>::max();
+        for (const int unitId : { 1, 3, 4 })
+        {
+            clearance = std::min(clearance, pointDistance(position, movement.decisions.at(unitId).destination));
+        }
+        return clearance;
+    };
+    const double startingClearance = localClearance(world.units[1].position);
+
+    CHECK(decision.targetId == 5);
+    CHECK(decision.action == MovementAction::Move);
+    CHECK(localClearance(decision.destination) > startingClearance + 0.1);
+    CHECK(pointDistance(decision.destination, world.units[4].position) > startingTargetDistance);
+
+    auto run = runMovementPlanForFrames(world, 12);
+    CHECK(run.world.units[1].targetId == 5);
+    CHECK(pointDistance(run.world.units[1].position, world.units[1].position) > world.config.engagementDeadband);
+}
+
+TEST_CASE("MeleeApproach_PocketEscapeDoesNotWiggleBetweenTwoAllies", "[battle][movement]")
+{
+    auto world = makeWorld({
+        { 29, 0, { 180, 100, 0 } },
+        { 97, 0, { 154, 150, 0 } },
+        { 72, 0, { 206, 150, 0 } },
+        { 116, 1, { 180, 240, 0 } },
+    });
+    for (auto& unit : world.units)
+    {
+        unit.dashCooldownRemaining = 999;
+    }
+    for (int i = 1; i <= 3; ++i)
+    {
+        world.units[i].speed = 0.0;
+    }
+
+    auto run = runMovementPlanForFrames(world, 80);
+
+    CHECK(run.world.units[0].targetId == 4);
+    CHECK(run.stats.at(1).directionReversalCount <= 1);
+    CHECK(run.stats.at(1).attackReadyFrames > 0);
+    CHECK(pointDistance(run.world.units[0].position, world.units[0].position) > world.config.engagementDeadband);
 }
 
 TEST_CASE("MeleeSwarm_ApproachSeparatesBeforeContact", "[battle][movement]")

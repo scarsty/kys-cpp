@@ -20,6 +20,15 @@ namespace
 constexpr double kPi = 3.14159265358979323846;
 constexpr double AirborneTerrainClearanceTileFactor = 3.0;
 constexpr int CooperativeYieldRequestFrames = 4;
+constexpr int LocalPocketDetourFrames = 12;
+constexpr int LocalPocketLeftDetourMarker = -2;
+constexpr int LocalPocketRightDetourMarker = -3;
+
+bool isLocalPocketDetour(const BattleMovementDetourRequest& request)
+{
+    return request.blockerUnitId == LocalPocketLeftDetourMarker
+        || request.blockerUnitId == LocalPocketRightDetourMarker;
+}
 
 Pointf rotated(Pointf value, double angle)
 {
@@ -926,6 +935,21 @@ MoveProbe probeMoveInWorld(const BattleMovementPlanInput& world,
                            bool ignoreReservations,
                            bool allowSoftReservations);
 
+MovementDecision moveDecision(const BattleUnitState& unit,
+                                const BattleUnitState& target,
+                                Pointf direction,
+                                Pointf destination)
+{
+    MovementDecision decision;
+    decision.unitId = unit.id;
+    decision.action = MovementAction::Move;
+    decision.targetId = target.id;
+    decision.velocity = direction * unit.speed;
+    decision.destination = destination;
+    decision.slot = unit.assignedSlot;
+    return decision;
+}
+
 std::optional<MovementDecision> tryFrontlineSoftSpread(const BattleMovementPlanInput& world,
                                                        const BattleMovementTerrainLookup& terrain,
                                                        const BattleUnitState& unit,
@@ -958,14 +982,7 @@ std::optional<MovementDecision> tryFrontlineSoftSpread(const BattleMovementPlanI
         return std::nullopt;
     }
 
-    MovementDecision decision;
-    decision.unitId = unit.id;
-    decision.action = MovementAction::Move;
-    decision.targetId = target.id;
-    decision.velocity = *direction * unit.speed;
-    decision.destination = next;
-    decision.slot = unit.assignedSlot;
-    return decision;
+    return moveDecision(unit, target, *direction, next);
 }
 
 std::vector<Pointf> blockerDetourDirections(const BattleUnitState& unit,
@@ -1073,8 +1090,14 @@ void pruneMovementDetourRequests(BattleMovementPlanInput& world)
     for (auto it = world.detourRequests.begin(); it != world.detourRequests.end();)
     {
         const auto* unit = tryFindById(world.units, it->first);
-        const auto* blocker = tryFindById(world.units, it->second.blockerUnitId);
-        if (!unit || !unit->alive || !blocker || !blocker->alive || it->second.expiresFrame <= world.frame)
+        const bool localPocketDetour = isLocalPocketDetour(it->second);
+        const auto* blocker = !localPocketDetour && it->second.blockerUnitId >= 0
+            ? tryFindById(world.units, it->second.blockerUnitId)
+            : nullptr;
+        if (!unit
+            || !unit->alive
+            || (!localPocketDetour && (!blocker || !blocker->alive))
+            || it->second.expiresFrame <= world.frame)
         {
             it = world.detourRequests.erase(it);
             continue;
@@ -1170,6 +1193,11 @@ void requestMovementDetour(std::map<int, BattleMovementDetourRequest>& requests,
     {
         return;
     }
+    const auto active = world.detourRequests.find(requester.id);
+    if (active != world.detourRequests.end() && isLocalPocketDetour(active->second))
+    {
+        return;
+    }
 
     const auto* blocker = tryFindById(world.units, blockerId);
     if (!blocker
@@ -1225,7 +1253,6 @@ void requestMovementDetour(std::map<int, BattleMovementDetourRequest>& requests,
     {
         return;
     }
-    const auto active = world.detourRequests.find(requester.id);
     if (active != world.detourRequests.end()
         && active->second.direction.norm() > 0.01f)
     {
@@ -1444,12 +1471,202 @@ MoveProbe probeMoveInWorld(const BattleMovementPlanInput& world,
     return { true, MoveBlockReason::None, -1 };
 }
 
+template <typename Visitor>
+void visitMovementOccupants(const BattleMovementPlanInput& world,
+                            const BattleUnitState& unit,
+                            const BattleUnitState& target,
+                            const std::map<int, Pointf>& reservations,
+                            Visitor&& visitor)
+{
+    const auto visit = [&](int occupiedBy, Pointf occupiedPosition)
+    {
+        if (occupiedBy != unit.id && occupiedBy != target.id)
+        {
+            visitor(occupiedPosition);
+        }
+    };
+
+    for (const auto& other : world.units)
+    {
+        if (other.alive)
+        {
+            visit(other.id, other.position);
+        }
+    }
+    for (const auto& [reservedBy, reservedPosition] : reservations)
+    {
+        visit(reservedBy, reservedPosition);
+    }
+    for (const auto& [reservedBy, reservation] : world.movementReservations)
+    {
+        visit(reservedBy, reservation.position);
+    }
+}
+
+double localBodyClearance(const BattleMovementPlanInput& world,
+                          const BattleUnitState& unit,
+                          const BattleUnitState& target,
+                          Pointf position,
+                          const std::map<int, Pointf>& reservations)
+{
+    double clearance = std::numeric_limits<double>::max();
+    visitMovementOccupants(world, unit, target, reservations, [&](Pointf occupiedPosition)
+        {
+            clearance = std::min(clearance, distance2d(position, occupiedPosition));
+        });
+    return clearance;
+}
+
+bool localPocketBlocksApproach(const BattleMovementPlanInput& world,
+                               const BattleUnitState& unit,
+                               const BattleUnitState& target,
+                               const std::map<int, Pointf>& reservations)
+{
+    auto targetDirection = target.position - unit.position;
+    targetDirection.z = 0;
+    if (targetDirection.norm() <= 0.01f)
+    {
+        return false;
+    }
+    targetDirection = unitVector(targetDirection);
+
+    bool blocked = false;
+    const double lookahead = std::max(world.config.bodyRadius * 3.0, unit.speed * LocalPocketDetourFrames);
+    visitMovementOccupants(world, unit, target, reservations, [&](Pointf occupiedPosition)
+        {
+            auto toOccupant = occupiedPosition - unit.position;
+            toOccupant.z = 0;
+            const double projection = dot2d(toOccupant, targetDirection);
+            if (projection <= 0.0 || projection > lookahead)
+            {
+                return;
+            }
+            const auto lateral = toOccupant - targetDirection * projection;
+            if (lateral.norm() < world.config.bodyRadius)
+            {
+                blocked = true;
+            }
+        });
+    return blocked;
+}
+
+Pointf localPocketDetourDirection(const BattleMovementPlanInput& world,
+                                  const BattleUnitState& unit,
+                                  const BattleUnitState& target,
+                                  const BattleMovementDetourRequest& request,
+                                  const std::map<int, Pointf>& reservations)
+{
+    auto targetDirection = unitVector(target.position - unit.position);
+    const auto sideDirection = rotated(
+        targetDirection,
+        request.blockerUnitId == LocalPocketLeftDetourMarker ? kPi / 2.0 : -kPi / 2.0);
+
+    Pointf repulsion;
+    const double influenceRadius = comfortableMeleeSpacing(world.config) * 1.5;
+    visitMovementOccupants(world, unit, target, reservations, [&](Pointf occupiedPosition)
+        {
+            auto away = unit.position - occupiedPosition;
+            away.z = 0;
+            const double distance = away.norm();
+            if (distance <= 0.01 || distance >= influenceRadius)
+            {
+                return;
+            }
+            repulsion += unitVector(away) * static_cast<float>((influenceRadius - distance) / influenceRadius);
+        });
+    if (repulsion.norm() > 0.01f)
+    {
+        repulsion = unitVector(repulsion);
+    }
+
+    return unitVector(
+        targetDirection * 0.35f
+        + sideDirection * 0.65f
+        + repulsion);
+}
+
+std::optional<MovementDecision> tryLocalPocketEscape(const BattleMovementPlanInput& world,
+                                                     const BattleMovementTerrainLookup& terrain,
+                                                     const BattleUnitState& unit,
+                                                     const BattleUnitState& target,
+                                                     const std::map<int, Pointf>& reservations)
+{
+    if (unit.style != CombatStyle::Melee
+        || unit.speed <= 0.0
+        || battleMovementTaXueUnstable(unit)
+        || terrain.blockedCellNear(unit.position, world.config.bodyRadius * 3.0))
+    {
+        return std::nullopt;
+    }
+
+    auto targetDirection = target.position - unit.position;
+    targetDirection.z = 0;
+    if (targetDirection.norm() <= 0.01f)
+    {
+        return std::nullopt;
+    }
+    targetDirection = unitVector(targetDirection);
+
+    const double currentClearance = localBodyClearance(world, unit, target, unit.position, reservations);
+    if (currentClearance > comfortableMeleeSpacing(world.config))
+    {
+        return std::nullopt;
+    }
+    const int side = deterministicSide(unit.id, unit.assignedSlot);
+    const double candidateAngles[] = {
+        kPi / 2.0 * side,
+        -kPi / 2.0 * side,
+        kPi * 3.0 / 4.0 * side,
+        -kPi * 3.0 / 4.0 * side,
+        kPi,
+    };
+
+    std::optional<MovementDecision> best;
+    double bestLateral = -1.0;
+    double bestClearance = currentClearance;
+    double bestTargetDistance = std::numeric_limits<double>::max();
+    for (const double angle : candidateAngles)
+    {
+        const auto direction = rotated(targetDirection, angle);
+        const auto next = unit.position + direction * unit.speed;
+        if (!terrain.segmentClear(unit.position, next))
+        {
+            continue;
+        }
+        const auto probe = probeMoveInWorld(world, terrain, unit, next, false, reservations, false, false);
+        if (!probe.canMove)
+        {
+            continue;
+        }
+
+        const double clearance = localBodyClearance(world, unit, target, next, reservations);
+        const double lateral = std::abs(targetDirection.x * direction.y - targetDirection.y * direction.x);
+        const double targetDistance = distance2d(next, target.position);
+        if (clearance <= currentClearance + 0.1)
+        {
+            continue;
+        }
+        if (!best
+            || lateral > bestLateral + 0.01
+            || (std::abs(lateral - bestLateral) <= 0.01
+                && (clearance > bestClearance + 0.01
+                    || (std::abs(clearance - bestClearance) <= 0.01 && targetDistance < bestTargetDistance))))
+        {
+            best = moveDecision(unit, target, direction, next);
+            bestLateral = lateral;
+            bestClearance = clearance;
+            bestTargetDistance = targetDistance;
+        }
+    }
+    return best;
+}
+
 std::optional<MovementDecision> tryCooperativeYield(const BattleMovementPlanInput& world,
-                                                    const BattleMovementTerrainLookup& terrain,
-                                                    const BattleUnitState& unit,
-                                                    const BattleUnitState& target,
-                                                    bool canCastFromHere,
-                                                    const std::map<int, Pointf>& reservations)
+                                                     const BattleMovementTerrainLookup& terrain,
+                                                     const BattleUnitState& unit,
+                                                     const BattleUnitState& target,
+                                                     bool canCastFromHere,
+                                                     const std::map<int, Pointf>& reservations)
 {
     const auto request = world.yieldRequests.find(unit.id);
     if (request == world.yieldRequests.end()
@@ -1468,14 +1685,7 @@ std::optional<MovementDecision> tryCooperativeYield(const BattleMovementPlanInpu
             continue;
         }
 
-        MovementDecision decision;
-        decision.unitId = unit.id;
-        decision.action = MovementAction::Move;
-        decision.targetId = target.id;
-        decision.velocity = direction * unit.speed;
-        decision.destination = next;
-        decision.slot = unit.assignedSlot;
-        return decision;
+        return moveDecision(unit, target, direction, next);
     }
 
     return std::nullopt;
@@ -1715,6 +1925,22 @@ void recordEvent(std::vector<BattleEvent>& events,
     event.to = decision.destination;
     event.value = decision.dashDistance;
     events.push_back(event);
+}
+
+void applyPlannedMove(BattleMovementPlanInput& world,
+                      BattleTickResult& result,
+                      BattleUnitState& unit,
+                      std::map<int, Pointf>& reservations,
+                      MovementDecision planned,
+                      MovementDecision& decision)
+{
+    assert(planned.action == MovementAction::Move);
+    decision = std::move(planned);
+    unit.position = decision.destination;
+    unit.velocity = decision.velocity;
+    reserveSameFrameDestination(unit, decision.destination, reservations);
+    reserveMovementDestination(world, unit, decision.destination);
+    recordEvent(result.events, BattleEventType::Movement, unit, decision);
 }
 
 }  // namespace
@@ -2169,12 +2395,7 @@ BattleTickResult BattleMovementPlanner::tick()
                 reservations);
             if (cooperativeYield)
             {
-                decision = *cooperativeYield;
-                unit->position = decision.destination;
-                unit->velocity = decision.velocity;
-                reserveSameFrameDestination(*unit, decision.destination, reservations);
-                reserveMovementDestination(world_, *unit, decision.destination);
-                recordEvent(result.events, BattleEventType::Movement, *unit, decision);
+                applyPlannedMove(world_, result, *unit, reservations, *cooperativeYield, decision);
                 recordMovementDecision(result, *unit, decision);
                 continue;
             }
@@ -2189,12 +2410,7 @@ BattleTickResult BattleMovementPlanner::tick()
                 reservations);
             if (frontlineSpread)
             {
-                decision = *frontlineSpread;
-                unit->position = decision.destination;
-                unit->velocity = decision.velocity;
-                reserveSameFrameDestination(*unit, decision.destination, reservations);
-                reserveMovementDestination(world_, *unit, decision.destination);
-                recordEvent(result.events, BattleEventType::Movement, *unit, decision);
+                applyPlannedMove(world_, result, *unit, reservations, *frontlineSpread, decision);
                 recordMovementDecision(result, *unit, decision);
                 continue;
             }
@@ -2262,8 +2478,28 @@ BattleTickResult BattleMovementPlanner::tick()
         auto directions = candidateDirections(world_, *unit, *target, desired);
         const auto proactiveDetours = proactiveApproachDetourDirections(world_, *unit, desired);
         directions.insert(directions.begin(), proactiveDetours.begin(), proactiveDetours.end());
-        const auto detourRequest = world_.detourRequests.find(unit->id);
+        std::optional<Pointf> activePocketDirection;
+        auto detourRequest = world_.detourRequests.find(unit->id);
         if (detourRequest != world_.detourRequests.end()
+            && isLocalPocketDetour(detourRequest->second))
+        {
+            if (localPocketBlocksApproach(world_, *unit, *target, reservations))
+            {
+                detourRequest->second.expiresFrame = world_.frame + LocalPocketDetourFrames;
+                activePocketDirection = blendUnitDirections(
+                    localPocketDetourDirection(world_, *unit, *target, detourRequest->second, reservations),
+                    unit->velocity,
+                    0.25);
+            }
+            else
+            {
+                world_.detourRequests.erase(detourRequest);
+                detourRequest = world_.detourRequests.end();
+            }
+        }
+        if (detourRequest != world_.detourRequests.end()
+            && !isLocalPocketDetour(detourRequest->second)
+            && detourRequest->second.blockerUnitId >= 0
             && detourRequest->second.direction.norm() > 0.01f)
         {
             const auto detourDirection = blendUnitDirections(
@@ -2290,6 +2526,10 @@ BattleTickResult BattleMovementPlanner::tick()
                 directions.insert(directions.begin(), *pathDirection);
             }
         }
+        if (activePocketDirection)
+        {
+            directions.insert(directions.begin(), *activePocketDirection);
+        }
         for (auto direction : directions)
         {
             auto next = unit->position + direction * unit->speed;
@@ -2308,14 +2548,13 @@ BattleTickResult BattleMovementPlanner::tick()
                 requestCooperativeMovement(pendingYieldRequests, pendingDetourRequests, world_, terrain, *unit, probe, desired);
                 continue;
             }
-            unit->position = next;
-            unit->velocity = direction * unit->speed;
-            reserveSameFrameDestination(*unit, next, reservations);
-            reserveMovementDestination(world_, *unit, next);
-            decision.action = MovementAction::Move;
-            decision.velocity = unit->velocity;
-            decision.destination = unit->position;
-            recordEvent(result.events, BattleEventType::Movement, *unit, decision);
+            applyPlannedMove(
+                world_,
+                result,
+                *unit,
+                reservations,
+                moveDecision(*unit, *target, direction, next),
+                decision);
             moved = true;
             break;
         }
@@ -2331,16 +2570,33 @@ BattleTickResult BattleMovementPlanner::tick()
                     requestCooperativeMovement(pendingYieldRequests, pendingDetourRequests, world_, terrain, *unit, probe, desired);
                     continue;
                 }
-                unit->position = next;
-                unit->velocity = direction * unit->speed;
-                reserveSameFrameDestination(*unit, next, reservations);
-                reserveMovementDestination(world_, *unit, next);
-                decision.action = MovementAction::Move;
-                decision.velocity = unit->velocity;
-                decision.destination = unit->position;
-                recordEvent(result.events, BattleEventType::Movement, *unit, decision);
+                applyPlannedMove(
+                    world_,
+                    result,
+                    *unit,
+                    reservations,
+                    moveDecision(*unit, *target, direction, next),
+                    decision);
                 moved = true;
                 break;
+            }
+        }
+
+        if (!moved)
+        {
+            auto pocketEscape = tryLocalPocketEscape(world_, terrain, *unit, *target, reservations);
+            if (pocketEscape)
+            {
+                applyPlannedMove(world_, result, *unit, reservations, *pocketEscape, decision);
+                const auto targetDirection = unitVector(target->position - unit->position);
+                const double selectedSide = targetDirection.x * decision.velocity.y - targetDirection.y * decision.velocity.x;
+                pendingDetourRequests[unit->id] = BattleMovementDetourRequest{
+                    unit->id,
+                    selectedSide >= 0.0 ? LocalPocketLeftDetourMarker : LocalPocketRightDetourMarker,
+                    unitVector(decision.velocity),
+                    world_.frame + LocalPocketDetourFrames,
+                };
+                moved = true;
             }
         }
 
@@ -2361,14 +2617,13 @@ BattleTickResult BattleMovementPlanner::tick()
                         requestCooperativeMovement(pendingYieldRequests, pendingDetourRequests, world_, terrain, *unit, probe, desired);
                         continue;
                     }
-                    unit->position = next;
-                    unit->velocity = direction * unit->speed;
-                    reserveSameFrameDestination(*unit, next, reservations);
-                    reserveMovementDestination(world_, *unit, next);
-                    decision.action = MovementAction::Move;
-                    decision.velocity = unit->velocity;
-                    decision.destination = unit->position;
-                    recordEvent(result.events, BattleEventType::Movement, *unit, decision);
+                    applyPlannedMove(
+                        world_,
+                        result,
+                        *unit,
+                        reservations,
+                        moveDecision(*unit, *target, direction, next),
+                        decision);
                     moved = true;
                     break;
                 }
