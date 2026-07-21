@@ -2,6 +2,8 @@
 
 #include "ChessBalance.h"
 
+#include <string>
+
 class SQLite3Wrapper;
 class Save;
 
@@ -34,7 +36,7 @@ public:
     static bool overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty);
     static bool canSaveGameData();
     static GameDataStore exportGameData();
-    static bool isGameDataReadable(const GameDataStore& store);
+    static bool isGameDataReadable(const GameDataStore& store, std::string& error);
     static bool importGameData(const GameDataStore& store, ::Save& save);
 };
 

@@ -4320,6 +4320,10 @@ void appendFrameShieldBreakCommands(
     }
     if (shieldExplosionPct > 0)
     {
+        frame.visualEvents.push_back(roleEffectEvent(
+            transaction.defender.id,
+            KysChess::EFT_SHIELD_BLAST,
+            CoreRoleStatusEffectFrames));
         const int defenderShieldPct = defenderCombo.sumAlways(EffectType::ShieldPctMaxHP);
         int explosionDamage = std::max(
             1,
@@ -5309,32 +5313,35 @@ void advanceActionFrameUnits(
     }
 }
 
-void applyAttackSpawnAttackerShieldGain(
+void applyAttackSpawnAttackerBlockFirstHitGain(
     BattleRuntimeState& state,
     const BattleAttackSpawnRequest& request,
     std::vector<BattleLogEvent>& logEvents)
 {
-    if (request.attackerShieldGain <= 0)
+    if (request.attackerBlockFirstHitGainChancePct <= 0)
     {
         return;
     }
     assert(request.initial.attackerUnitId >= 0);
     assert(!request.initial.skillName.empty());
+    assert(request.attackerBlockFirstHitGainChancePct <= 100);
 
-    auto& attacker = state.units.requireCore(request.initial.attackerUnitId);
-    if (!attacker.alive)
+    auto& attacker = state.units.require(request.initial.attackerUnitId);
+    if (!attacker.core.alive)
     {
         return;
     }
-    attacker.shield += request.attackerShieldGain;
+    if (!state.random.chance(request.attackerBlockFirstHitGainChancePct))
+    {
+        return;
+    }
+
+    attacker.damage.blockFirstHitsRemaining += 1;
     appendStatusEventLog(
         logEvents,
-        attacker.id,
-        attacker.id,
-        std::format("{}·護盾+{}", request.initial.skillName, request.attackerShieldGain),
-        BattleStatusSemanticId::None,
-        BattleResourceSemanticId::Shield,
-        request.attackerShieldGain);
+        attacker.core.id,
+        attacker.core.id,
+        std::format("{}·攻擊抵擋+1", request.initial.skillName));
 }
 
 void advanceAttacksAndResolveHits(
@@ -5355,7 +5362,7 @@ void advanceAttacksAndResolveHits(
             state.nextFrame.queueAttack(std::move(request));
             continue;
         }
-        applyAttackSpawnAttackerShieldGain(state, request, logEvents);
+        applyAttackSpawnAttackerBlockFirstHitGain(state, request, logEvents);
         attackEvents.push_back(state.attacks.spawn(request));
     }
     auto tickEvents = state.attacks.tick(state.units);

@@ -1,6 +1,7 @@
 ﻿#include "Font.h"
 #include "GameUtil.h"
 #include "TextureManager.h"
+#include "UIRenderer.h"
 #include <iostream>
 
 Font::Font()
@@ -75,7 +76,7 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         return renderText(text, size, x, y, color, alpha);
     }
 
-    draw_calls_.push_back({ text, size, x, y, color, alpha });
+    UIRenderer::getInstance()->drawText(text, size, x, y, color, alpha);
 
     int lines = 1;
     for (char c : text)
@@ -187,37 +188,11 @@ int Font::renderText(const std::string& text, int size, int x, int y, Color colo
     return line;
 }
 
-//将延迟队列中的文字绘制调用执行到窗口帧缓冲（已无缩放），保证字体清晰
-//应在 renderMainTextureToWindow() 之后、renderPresent() 之前调用
+// 將依照繪製順序收集的 UI 指令執行到視窗畫面，維持遮蓋順序與清晰度。
+// 應在 renderMainTextureToWindow() 之後、renderPresent() 之前呼叫。
 void Font::executeDrawCalls()
 {
-    if (draw_calls_.empty())
-    {
-        return;
-    }
-
-    int ui_w = 0, ui_h = 0;
-    Engine::getInstance()->getUISize(ui_w, ui_h);
-    int present_x = 0, present_y = 0, present_w = 0, present_h = 0;
-    Engine::getInstance()->getPresentRect(present_x, present_y, present_w, present_h);
-    if (present_w <= 0 || present_h <= 0 || ui_w <= 0 || ui_h <= 0)
-    {
-        draw_calls_.clear();
-        return;
-    }
-
-    float sx = float(present_w) / ui_w;
-    float sy = float(present_h) / ui_h;
-
-    for (const auto& call : draw_calls_)
-    {
-        int wx = present_x + int(call.x * sx);
-        int wy = present_y + int(call.y * sy);
-        int wsize = (std::max)(1, int(call.size * sx));
-        renderText(call.text, wsize, wx, wy, call.color, call.alpha);
-    }
-
-    draw_calls_.clear();
+    UIRenderer::getInstance()->execute();
 }
 
 void Font::drawWithBox(const std::string& text, int size, int x, int y, Color color, uint8_t alpha, uint8_t alpha_box)
@@ -256,7 +231,6 @@ void Font::clearBuffer()
         }
     }
     buffer_.clear();
-    draw_calls_.clear();
 }
 
 int Font::getBufferSize()

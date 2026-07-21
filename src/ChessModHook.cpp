@@ -28,16 +28,59 @@ static constexpr int SHIP_X1 = 109;
 static constexpr int SHIP_Y1 = 99;
 static bool needIntro_ = false;
 
-static std::optional<ChessSessionCheckpoint> parseGuiSaveCheckpoint(const GameDataStore& store)
+static std::string checkpointErrorDescription(ChessCheckpointError error)
 {
-    ChessCheckpointError error;
+    switch (error)
+    {
+    case ChessCheckpointError::None: return {};
+    case ChessCheckpointError::Malformed: return "檢查點格式不完整";
+    case ChessCheckpointError::IncompatibleGameVersion: return "遊戲版本不相容";
+    case ChessCheckpointError::UnrepresentableSnapshot: return "快照狀態無法還原";
+    case ChessCheckpointError::UnstableBoundary: return "不在穩定決策邊界";
+    }
+    std::unreachable();
+}
+
+static std::string phaseDescription(ChessSessionPhase phase)
+{
+    switch (phase)
+    {
+    case ChessSessionPhase::Management: return "整備";
+    case ChessSessionPhase::BattlePreparation: return "戰鬥準備";
+    case ChessSessionPhase::BattleResolution: return "戰鬥結算";
+    case ChessSessionPhase::RewardChoice: return "獎勵選擇";
+    case ChessSessionPhase::Complete: return "已完成";
+    }
+    std::unreachable();
+}
+
+static std::optional<ChessSessionCheckpoint> parseGuiSaveCheckpoint(
+    const GameDataStore& store,
+    std::string& error)
+{
+    error.clear();
+    ChessCheckpointError checkpointError;
     auto checkpoint = ChessSessionCheckpoint::fromData(
         store.chessSessionCheckpoint,
-        error);
-    if (!checkpoint
-        || checkpoint->gameVersion() != GameUtil::VERSION()
-        || !isChessGuiSavePhaseContinuable(checkpoint->state.phase))
+        checkpointError);
+    if (!checkpoint)
     {
+        error = checkpointErrorDescription(checkpointError);
+        return std::nullopt;
+    }
+    if (checkpoint->gameVersion() != GameUtil::VERSION())
+    {
+        error = std::format(
+            "遊戲版本不相容：存檔 {}，目前 {}",
+            checkpoint->gameVersion(),
+            GameUtil::VERSION());
+        return std::nullopt;
+    }
+    if (!isChessGuiSavePhaseContinuable(checkpoint->state.phase))
+    {
+        error = std::format(
+            "{}階段不能作為圖形介面續玩存檔",
+            phaseDescription(checkpoint->state.phase));
         return std::nullopt;
     }
     return checkpoint;
@@ -173,16 +216,18 @@ GameDataStore ChessModHook::exportGameData()
     return store;
 }
 
-bool ChessModHook::isGameDataReadable(const GameDataStore& store)
+bool ChessModHook::isGameDataReadable(const GameDataStore& store, std::string& error)
 {
-    return parseGuiSaveCheckpoint(store).has_value();
+    return parseGuiSaveCheckpoint(store, error).has_value();
 }
 
 bool ChessModHook::importGameData(const GameDataStore& store, ::Save& save)
 {
-    const auto checkpoint = parseGuiSaveCheckpoint(store);
+    std::string validationError;
+    const auto checkpoint = parseGuiSaveCheckpoint(store, validationError);
     if (!checkpoint)
     {
+        LOG("[存檔讀取] 驗證自走棋檢查點失敗：{}\n", validationError);
         return false;
     }
 
@@ -194,10 +239,14 @@ bool ChessModHook::importGameData(const GameDataStore& store, ::Save& save)
         error = host.prepareRestore(*checkpoint, replacement);
         if (error != ChessCheckpointError::None)
         {
+            LOG(
+                "[存檔讀取] 準備還原工作階段失敗：{}\n",
+                checkpointErrorDescription(error));
             return false;
         }
         if (!save.prepareChessMode())
         {
+            LOG("[存檔讀取] 載入共用遊戲資料失敗\n");
             return false;
         }
         host.commitRestore(std::move(replacement));

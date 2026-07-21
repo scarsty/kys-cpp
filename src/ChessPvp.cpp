@@ -309,10 +309,7 @@ void ChessPvpSaveVerifier::finishAudit()
     {
         fail(
             ChessPvpSaveError::ReplayVerificationFailed,
-            std::format(
-                "重播驗證在第 {} 個操作失敗：{}",
-                audited.verification.sequence,
-                audited.verification.message),
+            std::move(audited.verification.message),
             audited.verification.sequence);
         return;
     }
@@ -339,7 +336,9 @@ void ChessPvpSaveVerifier::finishAudit()
         || freshHash != checkpoint_->snapshotHash
         || freshHash != checkpoint_->replay.footer.finalStateHash)
     {
-        fail(ChessPvpSaveError::SnapshotHashMismatch, "存檔快照雜湊與重播最終狀態不相符");
+        fail(
+            ChessPvpSaveError::SnapshotHashMismatch,
+            "存檔的完整性記錄與重播最終局面不一致");
         return;
     }
     if (!ChessManagementRules::formationIsValid(

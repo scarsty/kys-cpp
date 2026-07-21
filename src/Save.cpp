@@ -9,6 +9,8 @@
 
 #include <glaze/json.hpp>
 
+#include <string_view>
+
 namespace SavePersistence
 {
 
@@ -62,36 +64,63 @@ void applySceneState(const SceneStateData& scene, Save& save)
     save.FaceTowards = scene.faceTowards;
 }
 
-bool readSlotJson(const std::string& path, SlotData& data)
+bool parseSlotJson(std::string_view payload, SlotData& data, std::string& error)
+{
+    error.clear();
+    if (const auto result = glz::read<kReadOptions>(data, payload); result)
+    {
+        error = glz::format_error(result, payload);
+        return false;
+    }
+    return true;
+}
+
+bool serializeSlotJson(const SlotData& data, std::string& payload, std::string& error)
+{
+    payload.clear();
+    error.clear();
+    if (const auto result = glz::write<kWriteOptions>(data, payload); result)
+    {
+        error = glz::format_error(result);
+        payload.clear();
+        return false;
+    }
+    return true;
+}
+
+bool readSlotJson(const std::string& path, SlotData& data, std::string& error)
 {
     if (!filefunc::fileExist(path))
     {
+        error = "找不到存檔檔案";
         return false;
     }
 
     auto payload = filefunc::readFileToString(path);
     if (payload.empty())
     {
+        error = "存檔檔案是空的或無法讀取";
         return false;
     }
 
-    if (const auto result = glz::read<kReadOptions>(data, payload); result)
-    {
-        return false;
-    }
-    return true;
+    return parseSlotJson(payload, data, error);
 }
 
-bool writeSlotJson(const std::string& path, const SlotData& data)
+bool writeSlotJson(const std::string& path, const SlotData& data, std::string& error)
 {
     std::string payload;
-    if (const auto result = glz::write<kWriteOptions>(data, payload); result)
+    if (!serializeSlotJson(data, payload, error))
     {
         return false;
     }
 
     filefunc::makePath(filefunc::getParentPath(path));
-    return filefunc::writeStringToFile(payload, path) > 0;
+    if (filefunc::writeStringToFile(payload, path) <= 0)
+    {
+        error = "無法寫入存檔檔案";
+        return false;
+    }
+    return true;
 }
 
 std::string slotJsonLoadFilename(int slot)
@@ -245,22 +274,31 @@ void Save::updateAllPtrVector()
 
 bool Save::load(int num)
 {
-    if (!checkSaveFileExist(num))
+    auto jsonPath = SavePersistence::slotJsonLoadFilename(num);
+    if (jsonPath.empty())
     {
+        LOG("[存檔讀取] 槽位 {} 失敗（步驟 1/2：尋找存檔）：找不到存檔檔案\n", num);
         return false;
     }
 
-    auto jsonPath = SavePersistence::slotJsonLoadFilename(num);
     SavePersistence::SlotData slotData;
-    if (!SavePersistence::readSlotJson(jsonPath, slotData))
+    std::string error;
+    if (!SavePersistence::readSlotJson(jsonPath, slotData, error))
     {
-        LOG("WARNING: failed to parse slot JSON '{}', using DB defaults\n", jsonPath);
+        LOG(
+            "[存檔讀取] 槽位 {} 失敗（步驟 1/2：讀取並解析 JSON）：{}；檔案 '{}'\n",
+            num,
+            error,
+            jsonPath);
         return false;
     }
 
     if (!KysChess::ChessModHook::importGameData(slotData.gameData, *this))
     {
-        LOG("WARNING: 無法讀取自走棋存檔 '{}'\n", jsonPath);
+        LOG(
+            "[存檔讀取] 槽位 {} 失敗（步驟 2/2：驗證並還原自走棋資料）；檔案 '{}'\n",
+            num,
+            jsonPath);
         return false;
     }
     SavePersistence::applySceneState(slotData.scene, *this);
@@ -272,12 +310,19 @@ bool Save::save(int num)
 {
     if (!KysChess::ChessModHook::canSaveGameData())
     {
+        LOG("[存檔寫入] 槽位 {} 失敗（步驟 1/2：檢查可存檔狀態）\n", num);
         return false;
     }
     auto slotPath = SavePersistence::slotJsonFilename(num);
     auto slotData = SavePersistence::captureSlotData(*this);
-    if (!SavePersistence::writeSlotJson(slotPath, slotData))
+    std::string error;
+    if (!SavePersistence::writeSlotJson(slotPath, slotData, error))
     {
+        LOG(
+            "[存檔寫入] 槽位 {} 失敗（步驟 2/2：序列化並寫入 JSON）：{}；檔案 '{}'\n",
+            num,
+            error,
+            slotPath);
         return false;
     }
 
@@ -291,14 +336,36 @@ bool Save::exportSlotJson(int num, std::string& payload)
 
     SavePersistence::SlotData slotData;
     auto slotPath = SavePersistence::slotJsonLoadFilename(num);
-    if (slotPath.empty() || !SavePersistence::readSlotJson(slotPath, slotData))
+    if (slotPath.empty())
     {
+        LOG("[外部存檔匯出] 槽位 {} 失敗（步驟 1/3：尋找存檔）：找不到存檔檔案\n", num);
         return false;
     }
 
-    if (const auto result = glz::write<SavePersistence::kWriteOptions>(slotData, payload); result)
+    std::string error;
+    if (!SavePersistence::readSlotJson(slotPath, slotData, error))
     {
-        payload.clear();
+        LOG(
+            "[外部存檔匯出] 槽位 {} 失敗（步驟 1/3：讀取並解析 JSON）：{}；檔案 '{}'\n",
+            num,
+            error,
+            slotPath);
+        return false;
+    }
+    if (!KysChess::ChessModHook::isGameDataReadable(slotData.gameData, error))
+    {
+        LOG(
+            "[外部存檔匯出] 槽位 {} 驗證失敗（步驟 2/3：檢查自走棋檢查點）：{}\n",
+            num,
+            error);
+        return false;
+    }
+    if (!SavePersistence::serializeSlotJson(slotData, payload, error))
+    {
+        LOG(
+            "[外部存檔匯出] 槽位 {} 失敗（步驟 3/3：序列化匯出 JSON）：{}\n",
+            num,
+            error);
         return false;
     }
 
@@ -308,18 +375,32 @@ bool Save::exportSlotJson(int num, std::string& payload)
 bool Save::importSlotJson(int num, const std::string& payload)
 {
     SavePersistence::SlotData slotData;
-    if (const auto result = glz::read<SavePersistence::kReadOptions>(slotData, payload); result)
+    std::string error;
+    if (!SavePersistence::parseSlotJson(payload, slotData, error))
     {
+        LOG(
+            "[外部存檔匯入] 槽位 {} 失敗（步驟 1/3：解析 JSON）：{}\n",
+            num,
+            error);
         return false;
     }
-    if (!KysChess::ChessModHook::isGameDataReadable(slotData.gameData))
+    if (!KysChess::ChessModHook::isGameDataReadable(slotData.gameData, error))
     {
+        LOG(
+            "[外部存檔匯入] 槽位 {} 驗證失敗（步驟 2/3：檢查自走棋檢查點）：{}\n",
+            num,
+            error);
         return false;
     }
 
     auto slotPath = SavePersistence::slotJsonFilename(num);
-    if (!SavePersistence::writeSlotJson(slotPath, slotData))
+    if (!SavePersistence::writeSlotJson(slotPath, slotData, error))
     {
+        LOG(
+            "[外部存檔匯入] 槽位 {} 失敗（步驟 3/3：寫入存檔）：{}；檔案 '{}'\n",
+            num,
+            error,
+            slotPath);
         return false;
     }
 

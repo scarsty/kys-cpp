@@ -269,9 +269,10 @@ TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[b
     CHECK(second.frame == 8);
 }
 
-TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndEmitsRoleEcho", "[battle][frame_runner][runtime][ownership]")
+TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndAddsAttackBlock", "[battle][frame_runner][runtime][ownership]")
 {
     auto runtime = ownedRuntimeState();
+    runtime.random = BattleRuntimeRandom(5489u);
     BattleAttackSpawnRequest request;
     request.initial.attackerUnitId = 0;
     request.initial.preferredTargetUnitId = 1;
@@ -287,8 +288,9 @@ TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndEmitsRoleEcho", "[
     request.initial.castSubrequestKind = BattleAttackCastSubrequestKind::DualWieldFollowUp;
     request.initial.roleAttackEchoActType = 7;
     request.spawnDelayFrames = 2;
-    request.attackerShieldGain = 120;
+    request.attackerBlockFirstHitGainChancePct = 50;
     runtime.units.requireCore(0).shield = 30;
+    runtime.units.require(0).damage.blockFirstHitsRemaining = 2;
     runtime.nextFrame.queueAttack(request);
 
     auto first = runBattleFrame(runtime);
@@ -296,6 +298,7 @@ TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndEmitsRoleEcho", "[
     CHECK(runtime.nextFrame.queuedAttacksForTest()[0].spawnDelayFrames == 1);
     CHECK(runtime.attacks.attacks.empty());
     CHECK(runtime.units.requireCore(0).shield == 30);
+    CHECK(runtime.units.require(0).damage.blockFirstHitsRemaining == 2);
     CHECK(first.visualEvents.empty());
 
     auto second = runBattleFrame(runtime);
@@ -303,16 +306,18 @@ TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndEmitsRoleEcho", "[
     CHECK(runtime.nextFrame.queuedAttacksForTest()[0].spawnDelayFrames == 0);
     CHECK(runtime.attacks.attacks.empty());
     CHECK(runtime.units.requireCore(0).shield == 30);
+    CHECK(runtime.units.require(0).damage.blockFirstHitsRemaining == 2);
     CHECK(second.visualEvents.empty());
 
     auto third = runBattleFrame(runtime);
     CHECK(runtime.nextFrame.queuedAttacksForTest().empty());
     REQUIRE(runtime.attacks.attacks.size() == 1);
-    CHECK(runtime.units.requireCore(0).shield == 150);
+    CHECK(runtime.units.requireCore(0).shield == 30);
+    CHECK(runtime.units.require(0).damage.blockFirstHitsRemaining == 3);
+    CHECK(runtime.random.rawDrawCount() == 1);
     CHECK(std::ranges::any_of(third.logEvents, [](const BattleLogEvent& event)
         {
-            return event.resourceId == BattleResourceSemanticId::Shield
-                && BattleLogTest::textOf(event) == "左右互搏·護盾+120";
+            return BattleLogTest::textOf(event) == "左右互搏·攻擊抵擋+1";
         }));
     CHECK(std::ranges::any_of(third.visualEvents, [](const BattleVisualEvent& event)
         {

@@ -64,9 +64,9 @@ struct BattleTextEffect
     float PaperScreenOffsetX{};
 };
 
-inline constexpr int BattleRoleEchoInitialAlpha = 176;
-inline constexpr float BattleRoleEchoOffset = 18.0f;
-inline constexpr int BattleRoleEchoLingeringFrames = 2;
+inline constexpr int BattleRoleEchoInitialAlpha = 255;
+inline constexpr float BattleRoleEchoOffset = 36.0f;
+inline constexpr int BattleRoleEchoLingeringFrames = 4;
 
 inline Color battleRoleEchoTint()
 {

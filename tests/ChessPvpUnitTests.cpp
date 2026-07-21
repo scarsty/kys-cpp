@@ -137,6 +137,8 @@ TEST_CASE("offline PvP verifier audits actions evidence and replay footer", "[ch
         CHECK_FALSE(result.valid);
         CHECK(result.error == ChessPvpSaveError::ReplayVerificationFailed);
         CHECK(result.sequence == 1);
+        CHECK(result.message.contains("購買商店第 1000 格"));
+        CHECK_FALSE(result.message.contains("重播驗證在第"));
     }
     SECTION("modified evidence")
     {
@@ -147,6 +149,8 @@ TEST_CASE("offline PvP verifier audits actions evidence and replay footer", "[ch
             checkpoint.serializeJson());
         CHECK_FALSE(result.valid);
         CHECK(result.error == ChessPvpSaveError::ReplayVerificationFailed);
+        CHECK(result.message.contains("購買商店第 1 格"));
+        CHECK_FALSE(result.message.contains("雜湊"));
     }
     SECTION("modified footer")
     {

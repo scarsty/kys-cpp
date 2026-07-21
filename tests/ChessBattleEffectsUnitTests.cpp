@@ -128,7 +128,7 @@ TEST_CASE("ChessBattleEffects_ParseAndDescribeDualWieldFollowUp", "[chess][effec
     auto node = YAML::Load(R"(
 类型: 左右互搏
 数值: 45
-附加参数: 120
+附加参数: 50
 持续帧数: 6
 )");
     ComboEffect effect;
@@ -136,10 +136,10 @@ TEST_CASE("ChessBattleEffects_ParseAndDescribeDualWieldFollowUp", "[chess][effec
     REQUIRE(ChessBattleEffects::parseEffect(node, effect, "左右互搏"));
     CHECK(effect.type == EffectType::DualWieldFollowUp);
     CHECK(effect.value == 45);
-    CHECK(effect.value2 == 120);
+    CHECK(effect.value2 == 50);
     CHECK(effect.duration == 6);
-    CHECK(comboEffectDesc(effect) == "出手6幀後追加45%傷害並獲得120護盾");
-    CHECK(comboEffectCompactDesc(effect) == "互搏追擊45%·盾+120");
+    CHECK(comboEffectDesc(effect) == "出手6幀後追加45%傷害，並有50%機率增加1次攻擊抵擋");
+    CHECK(comboEffectCompactDesc(effect) == "互搏追擊45%·50%抵擋+1");
 }
 
 TEST_CASE("ChessBattleEffects_RuntimeGrantsShareStoreButKeepOrigin", "[battle][effects]")

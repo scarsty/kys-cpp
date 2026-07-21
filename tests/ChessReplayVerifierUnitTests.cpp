@@ -78,6 +78,9 @@ TEST_CASE("fresh session verifier identifies altered actions and evidence", "[ch
         CHECK_FALSE(result.valid);
         CHECK(result.mismatch == ChessReplayMismatch::Evidence);
         CHECK(result.sequence == 2);
+        CHECK(result.message.contains("第 2 個操作"));
+        CHECK(result.message.contains("購買商店第 2 格"));
+        CHECK_FALSE(result.message.contains("雜湊"));
     }
 
     SECTION("action absent from legal descriptor set")
@@ -88,6 +91,7 @@ TEST_CASE("fresh session verifier identifies altered actions and evidence", "[ch
         CHECK_FALSE(result.valid);
         CHECK(result.mismatch == ChessReplayMismatch::IllegalAction);
         CHECK(result.sequence == 1);
+        CHECK(result.message.contains("結束本局"));
     }
 
     SECTION("altered evidence")
@@ -98,6 +102,8 @@ TEST_CASE("fresh session verifier identifies altered actions and evidence", "[ch
         CHECK_FALSE(result.valid);
         CHECK(result.mismatch == ChessReplayMismatch::Evidence);
         CHECK(result.sequence == 2);
+        CHECK(result.message.contains("購買商店第 1 格"));
+        CHECK_FALSE(result.message.contains("雜湊"));
     }
 }
 

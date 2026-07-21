@@ -301,11 +301,15 @@ std::vector<std::string> activeBattleComboLines(
     {
         assert(synergy.activeThresholdIndex >= 0);
         assert(synergy.activeThresholdIndex < static_cast<int>(synergy.thresholds.size()));
+        const int targetThresholdIndex = synergy.nextThresholdIndex >= 0
+            ? synergy.nextThresholdIndex
+            : static_cast<int>(synergy.thresholds.size()) - 1;
+        assert(targetThresholdIndex < static_cast<int>(synergy.thresholds.size()));
         result.push_back(std::format(
-            "{} ({}) {}",
+            "{} ({}/{})",
             synergy.name,
-            synergy.progressCount,
-            synergy.thresholds[synergy.activeThresholdIndex].name));
+            synergy.effectiveCount,
+            synergy.thresholds[targetThresholdIndex].requiredCount));
     }
     return result;
 }
@@ -1467,6 +1471,33 @@ std::shared_ptr<DrawableOnCall> makeRosterPanel(
         {0, 0, 0, 160});
 }
 
+constexpr int kBattlePreviewComboFontSize = 16;
+constexpr int kBattlePreviewComboLineHeight = 20;
+constexpr int kBattlePreviewComboColumnGap = 16;
+constexpr int kBattlePreviewComboMinColumnWidth = 150;
+
+int battlePreviewComboColumnCount(std::size_t lineCount, int width)
+{
+    return std::min(
+        static_cast<int>(lineCount),
+        std::max(
+            1,
+            (width + kBattlePreviewComboColumnGap)
+                / (kBattlePreviewComboMinColumnWidth + kBattlePreviewComboColumnGap)));
+}
+
+int battlePreviewComboRequiredRows(
+    const std::vector<std::string>& lines,
+    int width)
+{
+    if (lines.empty())
+    {
+        return 0;
+    }
+    const int columns = battlePreviewComboColumnCount(lines.size(), width);
+    return (static_cast<int>(lines.size()) + columns - 1) / columns;
+}
+
 void drawBattlePreviewComboLines(
     const std::vector<std::string>& lines,
     int x,
@@ -1475,30 +1506,24 @@ void drawBattlePreviewComboLines(
     int bottom)
 {
     auto* font = Font::getInstance();
-    constexpr int kFontSize = 16;
-    constexpr int kLineHeight = 20;
-    constexpr int kColumnGap = 16;
-    constexpr int kMinColumnWidth = 150;
     if (lines.empty())
     {
-        font->draw("無", kFontSize, x, y, {150, 150, 150, 255});
+        font->draw("無", kBattlePreviewComboFontSize, x, y, {150, 150, 150, 255});
         return;
     }
 
-    const int availableHeight = std::max(kLineHeight, bottom - y);
-    const int maxColumns = std::min(
-        static_cast<int>(lines.size()),
-        std::max(1, (width + kColumnGap) / (kMinColumnWidth + kColumnGap)));
+    const int availableHeight = std::max(kBattlePreviewComboLineHeight, bottom - y);
+    const int maxColumns = battlePreviewComboColumnCount(lines.size(), width);
     const auto wrapForColumns = [&](int columns) {
         const int columnWidth = std::max(
-            kMinColumnWidth,
-            (width - (columns - 1) * kColumnGap) / columns);
+            kBattlePreviewComboMinColumnWidth,
+            (width - (columns - 1) * kBattlePreviewComboColumnGap) / columns);
         std::vector<std::vector<std::string>> wrapped;
         for (const auto& line : lines)
         {
             auto entry = wrapDisplayText(
                 line,
-                std::max(6, (columnWidth - 8) * 2 / kFontSize));
+                std::max(6, (columnWidth - 8) * 2 / kBattlePreviewComboFontSize));
             if (entry.empty())
             {
                 entry.push_back(line);
@@ -1512,7 +1537,8 @@ void drawBattlePreviewComboLines(
         int height{};
         for (const auto& entry : wrapped)
         {
-            const int entryHeight = std::max(1, static_cast<int>(entry.size())) * kLineHeight;
+            const int entryHeight = std::max(1, static_cast<int>(entry.size()))
+                * kBattlePreviewComboLineHeight;
             if (height > 0 && height + entryHeight > availableHeight)
             {
                 ++usedColumns;
@@ -1536,13 +1562,14 @@ void drawBattlePreviewComboLines(
         }
     }
     const int columnWidth = std::max(
-        kMinColumnWidth,
-        (width - (chosenColumns - 1) * kColumnGap) / chosenColumns);
+        kBattlePreviewComboMinColumnWidth,
+        (width - (chosenColumns - 1) * kBattlePreviewComboColumnGap) / chosenColumns);
     int column{};
     int drawY = y;
     for (const auto& entry : wrapped)
     {
-        const int entryHeight = std::max(1, static_cast<int>(entry.size())) * kLineHeight;
+        const int entryHeight = std::max(1, static_cast<int>(entry.size()))
+            * kBattlePreviewComboLineHeight;
         if (drawY > y && drawY - y + entryHeight > availableHeight)
         {
             ++column;
@@ -1556,11 +1583,11 @@ void drawBattlePreviewComboLines(
         {
             font->draw(
                 line,
-                kFontSize,
-                x + column * (columnWidth + kColumnGap),
+                kBattlePreviewComboFontSize,
+                x + column * (columnWidth + kBattlePreviewComboColumnGap),
                 drawY,
                 {0, 255, 100, 255});
-            drawY += kLineHeight;
+            drawY += kBattlePreviewComboLineHeight;
         }
     }
 }
@@ -1670,7 +1697,8 @@ void runBattleInformationPanel(
         const int halfWidth = width / 2;
         constexpr int kHeaderFontSize = 20;
         constexpr int kRowFontSize = 20;
-        constexpr int kRowHeight = 44;
+        constexpr int kMaximumRowHeight = 44;
+        constexpr int kMinimumRowHeight = 32;
         constexpr int kNameX = 46;
         constexpr int kStarX = 130;
         constexpr int kHpX = 160;
@@ -1698,6 +1726,18 @@ void runBattleInformationPanel(
         const int headerY = tableTop + 29;
         const int rowsY = headerY + 25;
         const int maximumRows = static_cast<int>(std::max(preview.allies.size(), preview.enemies.size()));
+        assert(maximumRows > 0);
+        const int footerY = height - 35;
+        const int maximumComboRows = std::max(
+            battlePreviewComboRequiredRows(preview.allyComboLines, columnWidth),
+            battlePreviewComboRequiredRows(preview.enemyComboLines, columnWidth));
+        const int comboBaseY = tableTop + 30 + 26 + 10;
+        const int latestComboY = footerY - 7 - 24
+            - maximumComboRows * kBattlePreviewComboLineHeight;
+        const int rowHeight = std::clamp(
+            (latestComboY - comboBaseY) / maximumRows,
+            kMinimumRowHeight,
+            kMaximumRowHeight);
 
         const auto drawTeam = [&](
             const std::vector<BattlePreviewUnit>& team,
@@ -1754,15 +1794,14 @@ void runBattleInformationPanel(
                         y + 20,
                         {180, 180, 180, 255});
                 }
-                y += kRowHeight;
+                y += rowHeight;
             }
         };
 
         drawTeam(preview.allies, leftX, "我方", {100, 255, 100, 255});
         drawTeam(preview.enemies, rightX, "敵方", {255, 100, 100, 255});
 
-        const int comboY = tableTop + 30 + 26 + maximumRows * kRowHeight + 10;
-        const int footerY = height - 35;
+        const int comboY = comboBaseY + maximumRows * rowHeight;
         if (!preview.allyComboLines.empty())
         {
             font->draw("我方羈絆", 20, leftX, comboY, {255, 215, 0, 255});
@@ -1996,6 +2035,11 @@ enum class OfflinePvpAction
 
 std::optional<ChessPvpComposition> importAndVerifyPvpOpponent(
     std::shared_ptr<const ChessGameContent> content);
+std::optional<ChessPvpSaveVerificationResult> runPvpSaveVerification(
+    std::shared_ptr<const ChessGameContent> content,
+    std::string_view payload,
+    std::string targetLabel,
+    std::string_view operation);
 
 void drawOfflineBattlePresentation(
     const ChessPvpComposition& local,
@@ -2177,13 +2221,48 @@ public:
                     session_,
                     revision,
                     "離線對戰匯出");
+                const auto payload = checkpoint.serializeJson();
+                if (payload.empty())
+                {
+                    LOG(
+                        "[離線對戰存檔匯出] 失敗（步驟：序列化檢查點）：未產生 JSON 內容\n");
+                    showChessMessage(
+                        "匯出失敗：無法序列化目前的存檔",
+                        28);
+                    forceActiveChild(selected);
+                    return;
+                }
+                const auto verification = runPvpSaveVerification(
+                    session_.sharedContent(),
+                    payload,
+                    "我的存檔",
+                    "匯出前");
+                if (!verification)
+                {
+                    forceActiveChild(selected);
+                    return;
+                }
+                if (!verification->valid)
+                {
+                    showChessMessage(std::format(
+                        "匯出前驗證失敗：{}",
+                        verification->message),
+                        28);
+                    forceActiveChild(selected);
+                    return;
+                }
                 const auto transfer = ExternalJsonFileTransfer::exportJson(
                     "匯出我的離線對戰存檔",
                     pvpExportFilename(),
-                    checkpoint.serializeJson());
+                    payload);
                 if (transfer.status == ExternalJsonTransferStatus::Error)
                 {
-                    showChessMessage(std::format("匯出失敗：{}", transfer.error));
+                    LOG(
+                        "[離線對戰存檔匯出] 失敗（步驟：寫出外部檔案）：{}\n",
+                        transfer.error);
+                    showChessMessage(
+                        std::format("匯出失敗：{}", transfer.error),
+                        28);
                 }
                 else if (transfer.status == ExternalJsonTransferStatus::Completed)
                 {
@@ -2340,8 +2419,10 @@ class ChessPvpVerificationNode : public Menu
 public:
     ChessPvpVerificationNode(
         std::shared_ptr<const ChessGameContent> content,
-        std::string payload)
-        : verifier_(std::move(content), payload)
+        std::string_view payload,
+        std::string targetLabel)
+        : verifier_(std::move(content), payload),
+          targetLabel_(std::move(targetLabel))
     {
         dark_ = 1;
         addChild(
@@ -2359,12 +2440,17 @@ public:
         engine->drawRoundedRect({150, 160, 165, 240}, 250, 500, 780, 195, 12);
         auto* font = Font::getInstance();
         font->draw(
-            "離線對戰  >  驗證對手存檔",
+            std::format("離線對戰  >  驗證{}", targetLabel_),
             24,
             390,
             27,
             {175, 195, 205, 255});
-        font->draw("正在驗證對手存檔...", 28, 495, 520, {255, 220, 90, 255});
+        font->draw(
+            std::format("正在驗證{}...", targetLabel_),
+            28,
+            495,
+            520,
+            {255, 220, 90, 255});
         const auto total = verifier_.totalActionCount();
         const auto completed = verifier_.completedActionCount();
         const auto current = total == 0 ? 0 : std::min(total, completed + 1);
@@ -2427,8 +2513,56 @@ public:
 
 private:
     ChessPvpSaveVerifier verifier_;
+    std::string targetLabel_;
     bool cancelled_ = false;
 };
+
+std::string_view pvpSaveValidationStep(ChessPvpSaveError error)
+{
+    switch (error)
+    {
+    case ChessPvpSaveError::None: return "完成驗證";
+    case ChessPvpSaveError::Malformed: return "解析檢查點";
+    case ChessPvpSaveError::VersionMismatch: return "檢查遊戲版本";
+    case ChessPvpSaveError::HardModeRequired: return "檢查困難模式";
+    case ChessPvpSaveError::ReplayVerificationFailed: return "驗證重播";
+    case ChessPvpSaveError::UnrepresentableSnapshot: return "檢查穩定決策邊界";
+    case ChessPvpSaveError::SnapshotStateMismatch: return "比對快照狀態";
+    case ChessPvpSaveError::SnapshotRandomMismatch: return "比對隨機狀態";
+    case ChessPvpSaveError::SnapshotHashMismatch: return "比對存檔完整性";
+    case ChessPvpSaveError::InvalidFormation: return "檢查陣形";
+    case ChessPvpSaveError::NoDeployedPieces: return "檢查出戰棋子";
+    }
+    std::unreachable();
+}
+
+std::optional<ChessPvpSaveVerificationResult> runPvpSaveVerification(
+    std::shared_ptr<const ChessGameContent> content,
+    std::string_view payload,
+    std::string targetLabel,
+    std::string_view operation)
+{
+    auto verification = std::make_shared<ChessPvpVerificationNode>(
+        std::move(content),
+        payload,
+        std::move(targetLabel));
+    verification->run();
+    if (verification->cancelled())
+    {
+        return std::nullopt;
+    }
+
+    auto result = verification->takeVerificationResult();
+    if (!result.valid)
+    {
+        LOG(
+            "[離線對戰存檔驗證] {}失敗（步驟：{}）：{}\n",
+            operation,
+            pvpSaveValidationStep(result.error),
+            result.message);
+    }
+    return result;
+}
 
 std::optional<ChessPvpComposition> importAndVerifyPvpOpponent(
     std::shared_ptr<const ChessGameContent> content)
@@ -2440,26 +2574,29 @@ std::optional<ChessPvpComposition> importAndVerifyPvpOpponent(
     }
     if (transfer.status == ExternalJsonTransferStatus::Error)
     {
-        showChessMessage(std::format("匯入失敗：{}", transfer.error));
+        showChessMessage(
+            std::format("匯入失敗：{}", transfer.error),
+            28);
         return std::nullopt;
     }
 
-    auto verification = std::make_shared<ChessPvpVerificationNode>(
+    auto verified = runPvpSaveVerification(
         std::move(content),
-        std::move(transfer.text));
-    verification->run();
-    if (verification->cancelled())
+        transfer.text,
+        "對手存檔",
+        "匯入");
+    if (!verified)
     {
         return std::nullopt;
     }
-
-    auto verified = verification->takeVerificationResult();
-    if (!verified.valid)
+    if (!verified->valid)
     {
-        showChessMessage(verified.message);
+        showChessMessage(
+            std::format("匯入驗證失敗：{}", verified->message),
+            28);
         return std::nullopt;
     }
-    return std::move(verified.composition);
+    return std::move(verified->composition);
 }
 
 std::string pvpExportFilename()

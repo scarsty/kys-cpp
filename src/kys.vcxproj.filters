@@ -169,6 +169,9 @@
     <ClCompile Include="Font.cpp">
       <Filter>font</Filter>
     </ClCompile>
+    <ClCompile Include="UIRenderer.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
     <ClCompile Include="Types.cpp">
       <Filter>types</Filter>
     </ClCompile>
@@ -451,6 +454,9 @@
     </ClInclude>
     <ClInclude Include="Font.h">
       <Filter>font</Filter>
+    </ClInclude>
+    <ClInclude Include="UIRenderer.h">
+      <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="Types.h">
       <Filter>types</Filter>

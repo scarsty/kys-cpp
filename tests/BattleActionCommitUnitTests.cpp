@@ -172,7 +172,7 @@ TEST_CASE("BattleActionCommit_CommittedMeleeCastAdvancesOperationCount", "[battl
     CHECK(result.operationCount == 1);
 }
 
-TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndShield", "[battle][action_commit][unit]")
+TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndBlockChance", "[battle][action_commit][unit]")
 {
     auto input = basicActionInput();
     input.hasCast = true;
@@ -192,7 +192,7 @@ TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndShie
     combo.applyConfiguredEffect({
         KysChess::EffectType::DualWieldFollowUp,
         45,
-        120,
+        50,
         "",
         KysChess::Trigger::Always,
         0,
@@ -212,7 +212,7 @@ TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndShie
     CHECK(followUp.initial.roleAttackEchoActType == 7);
     CHECK(followUp.initial.strengthMultiplier == 0.45f);
     CHECK(followUp.spawnDelayFrames == 6);
-    CHECK(followUp.attackerShieldGain == 120);
+    CHECK(followUp.attackerBlockFirstHitGainChancePct == 50);
 }
 
 TEST_CASE("BattleActionCommit_DualWieldFallsBackToPrimaryTarget", "[battle][action_commit][unit]")
@@ -233,7 +233,7 @@ TEST_CASE("BattleActionCommit_DualWieldFallsBackToPrimaryTarget", "[battle][acti
     combo.applyConfiguredEffect({
         KysChess::EffectType::DualWieldFollowUp,
         45,
-        120,
+        50,
         "",
         KysChess::Trigger::Always,
         0,

@@ -1,6 +1,7 @@
 ﻿#include "TextureManager.h"
 #include "GameUtil.h"
 #include "RunNode.h"
+#include "UIRenderer.h"
 #include "filefunc.h"
 #include "strfunc.h"
 
@@ -433,6 +434,13 @@ TextureManager::~TextureManager()
 void TextureManager::renderTexture(TextureWarpper* tex, int x, int y, const RenderInfo& info, int w, int h)
 {
     if (tex == nullptr) { return; }
+    auto* engine = Engine::getInstance();
+    if (!UIRenderer::getInstance()->isExecuting()
+        && engine->getRenderTarget() == engine->getMainTexture())
+    {
+        UIRenderer::getInstance()->drawTexture(tex, x, y, info, w, h);
+        return;
+    }
     tex->load();
     if (tex->tex[0] == nullptr) { return; }
 
@@ -447,7 +455,6 @@ void TextureManager::renderTexture(TextureWarpper* tex, int x, int y, const Rend
         rh = int(tex->h * info.zoom_y);
     }
 
-    auto engine = Engine::getInstance();
     int i = 0;
     if (tex->count > 1)
     {

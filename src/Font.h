@@ -4,10 +4,13 @@
 #include <map>
 #include <string>
 #include <unordered_map>
-#include <vector>
+
+class UIRenderer;
 
 class Font
 {
+    friend class UIRenderer;
+
 private:
     Font();
 
@@ -21,17 +24,6 @@ private:
     std::map<uint32_t, std::map<int, Texture*>> buffer_;    //缓存画过的字体
 
     std::unordered_map<std::string, std::string> t2s_buffer_;    //缓存繁体转简体的结果
-
-    struct DrawCall
-    {
-        std::string text;
-        int size = 0;
-        int x = 0;
-        int y = 0;
-        Color color = { 255, 255, 255, 255 };
-        uint8_t alpha = 255;
-    };
-    std::vector<DrawCall> draw_calls_;
 
     SimpleCC cct2s_;
     SimpleCC ccs2t_;

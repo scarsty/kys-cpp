@@ -2723,7 +2723,7 @@ TEST_CASE("BattleFrameRunner_CastStartJittersPendingReleaseFrame", "[battle][cor
     CHECK(state.units.require(0).pendingCast() == nullptr);
 }
 
-TEST_CASE("BattleFrameRunner_DualWieldCastQueuesShieldRefreshWithDelayedFollowUp", "[battle][core][runtime]")
+TEST_CASE("BattleFrameRunner_DualWieldCastQueuesBlockChanceWithDelayedFollowUp", "[battle][core][runtime]")
 {
     BattleRuntimeState state;
     configureRuntimeMovement(state, worldWith({
@@ -2742,7 +2742,7 @@ TEST_CASE("BattleFrameRunner_DualWieldCastQueuesShieldRefreshWithDelayedFollowUp
     state.units.require(0).combo.applyConfiguredEffect({
         EffectType::DualWieldFollowUp,
         45,
-        120,
+        50,
         "",
         Trigger::Always,
         0,
@@ -2768,7 +2768,7 @@ TEST_CASE("BattleFrameRunner_DualWieldCastQueuesShieldRefreshWithDelayedFollowUp
         });
     REQUIRE(followUp != state.nextFrame.queuedAttacksForTest().end());
     CHECK(followUp->spawnDelayFrames == 5);
-    CHECK(followUp->attackerShieldGain == 120);
+    CHECK(followUp->attackerBlockFirstHitGainChancePct == 50);
     CHECK(followUp->initial.preferredTargetUnitId == 2);
     CHECK_FALSE(std::ranges::any_of(release.logEvents, [](const BattleLogEvent& event)
         {
@@ -4381,6 +4381,27 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[ba
     REQUIRE(status.effects.tempAttackBuffs.size() == 1);
     CHECK(status.effects.tempAttackBuffs[0].attackBonus == 14);
     CHECK(status.effects.tempAttackBuffs[0].remainingFrames == 45);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_EmitsShieldExplosionRoleEffect", "[battle][core][breakthrough]")
+{
+    auto frame = hitDamageFrameState(70, 100);
+    auto& state = frame.state;
+    KysChess::RoleComboState defenderCombo;
+    defenderCombo.applyConfiguredEffect({ KysChess::EffectType::ShieldPctMaxHP, 20 });
+    defenderCombo.applyConfiguredEffect(
+        triggeredEffect(KysChess::EffectType::ShieldExplosion, KysChess::Trigger::OnShieldBreak, 30, 100));
+    state.units.require(1).combo = defenderCombo;
+    state.units.requireCore(1).shield = 10;
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(std::ranges::any_of(result.visualEvents, [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.targetUnitId == 1
+                && event.effectId == KysChess::EFT_SHIELD_BLAST;
+        }));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore", "[battle][core][breakthrough]")

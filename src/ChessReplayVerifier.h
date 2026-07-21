@@ -56,6 +56,7 @@ private:
     std::unique_ptr<ChessGameSession> session_;
     ChessReplayVerificationResult verification_;
     std::size_t nextDecision_{};
+    std::string currentActionDescription_{};
     bool finished_ = false;
 };
 

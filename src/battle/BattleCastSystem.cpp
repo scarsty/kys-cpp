@@ -840,6 +840,7 @@ void appendDualWieldFollowUp(
     }
     assert(effect->value > 0);
     assert(effect->value2 > 0);
+    assert(effect->value2 <= 100);
     assert(effect->duration > 0);
     assert(input.normalAttackActType >= 0);
     assert(!result.attackSpawnRequests.empty());
@@ -870,7 +871,7 @@ void appendDualWieldFollowUp(
     followUp.initial.strengthMultiplier *= effect->value / 100.0f;
     followUp.initialFrame = 0;
     followUp.spawnDelayFrames = effect->duration;
-    followUp.attackerShieldGain = effect->value2;
+    followUp.attackerBlockFirstHitGainChancePct = effect->value2;
 
     const auto& source = units.requireCore(input.sourceUnitId);
     const int targetId = dualWieldFollowUpTargetId(input, units);

@@ -184,6 +184,7 @@
     <ClCompile Include="SystemSettings.cpp" />
     <ClCompile Include="Talk.cpp" />
     <ClCompile Include="Font.cpp" />
+    <ClCompile Include="UIRenderer.cpp" />
     <ClCompile Include="Head.cpp" />
     <ClCompile Include="TeamMenu.cpp" />
     <ClCompile Include="TextBox.cpp" />
@@ -332,6 +333,7 @@
     <ClInclude Include="Talk.h" />
     <ClInclude Include="EventMacro.h" />
     <ClInclude Include="Font.h" />
+    <ClInclude Include="UIRenderer.h" />
     <ClInclude Include="Head.h" />
     <ClInclude Include="TeamMenu.h" />
     <ClInclude Include="GameDataStore.h" />

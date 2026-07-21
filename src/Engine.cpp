@@ -2,6 +2,7 @@
 #include "GameUtil.h"
 #include "ImGuiLayer.h"
 #include "SystemSettings.h"
+#include "UIRenderer.h"
 #include "strfunc.h"
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -952,6 +953,11 @@ void Engine::destroyTexture(Texture* t)
 
 void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend) const
 {
+    if (!UIRenderer::getInstance()->isExecuting() && getRenderTarget() == tex_)
+    {
+        UIRenderer::getInstance()->fillColor(color, x, y, w, h, blend);
+        return;
+    }
     if (w < 0 || h < 0)
     {
         getWindowSize(w, h);
@@ -975,6 +981,11 @@ void Engine::drawLine(Color color, FPoint start, FPoint end, BlendMode blend) co
 
 void Engine::fillRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend) const
 {
+    if (!UIRenderer::getInstance()->isExecuting() && getRenderTarget() == tex_)
+    {
+        UIRenderer::getInstance()->fillRoundedRect(color, x, y, w, h, radius, blend);
+        return;
+    }
     if (w <= 0 || h <= 0) { return; }
     if (radius < 0) { radius = 0; }
     if (radius > w / 2) { radius = w / 2; }
@@ -1026,6 +1037,11 @@ void Engine::fillRoundedRect(Color color, int x, int y, int w, int h, int radius
 
 void Engine::drawRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend) const
 {
+    if (!UIRenderer::getInstance()->isExecuting() && getRenderTarget() == tex_)
+    {
+        UIRenderer::getInstance()->drawRoundedRect(color, x, y, w, h, radius, blend);
+        return;
+    }
     if (w <= 0 || h <= 0) { return; }
     if (radius < 0) { radius = 0; }
     if (radius > w / 2) { radius = w / 2; }
@@ -1093,6 +1109,12 @@ void Engine::drawRoundedRect(Color color, int x, int y, int w, int h, int radius
 
 void Engine::drawAnimatedRoundedRect(Color color, int x, int y, int w, int h, int radius, double phase, int dotCount, double dotLength, BlendMode blend) const
 {
+    if (!UIRenderer::getInstance()->isExecuting() && getRenderTarget() == tex_)
+    {
+        UIRenderer::getInstance()->drawAnimatedRoundedRect(
+            color, x, y, w, h, radius, phase, dotCount, dotLength, blend);
+        return;
+    }
     if (w <= 0 || h <= 0) { return; }
     if (radius < 0) { radius = 0; }
     if (radius > w / 2) { radius = w / 2; }
@@ -1757,6 +1779,11 @@ int Engine::showMessage(const std::string& content) const
 void Engine::renderSquareTexture(Rect* rect, Color color, uint8_t alpha)
 {
     color.a = alpha;
+    if (!UIRenderer::getInstance()->isExecuting() && getRenderTarget() == tex_)
+    {
+        UIRenderer::getInstance()->drawTexture(square_, *rect, color);
+        return;
+    }
     setColor(square_, color);
     renderTexture(square_, nullptr, rect);
 }

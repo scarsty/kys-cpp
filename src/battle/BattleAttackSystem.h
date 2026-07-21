@@ -101,7 +101,7 @@ struct BattleAttackSpawnRequest
     BattleAttackPayload initial;
     int initialFrame = 0;
     int spawnDelayFrames = 0;
-    int attackerShieldGain = 0;
+    int attackerBlockFirstHitGainChancePct = 0;
     Pointf acceleration;
     bool spiralMotion = false;
     Pointf spiralCenter;
