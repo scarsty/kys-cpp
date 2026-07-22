@@ -20,6 +20,7 @@ find_package(SDL3_image CONFIG REQUIRED)
 find_package(SDL3_mixer CONFIG REQUIRED)
 find_package(SDL3_ttf CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(unordered_dense CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 find_package(unofficial-sqlite3 CONFIG QUIET)
 if(NOT unofficial-sqlite3_FOUND)
@@ -50,6 +51,7 @@ target_link_libraries(main
     SDL3_image::SDL3_image
     SDL3_ttf::SDL3_ttf
     imgui::imgui
+    unordered_dense::unordered_dense
     yaml-cpp::yaml-cpp
 )
 

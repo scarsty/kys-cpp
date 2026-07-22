@@ -6,7 +6,8 @@
 #   vcpkg install --overlay-triplets=<project>/wasm/triplets \
 #                 --overlay-ports=<project>/wasm/ports \
 #     imgui[sdl3-binding,sdl3-renderer-binding]:wasm32-emscripten \
-#     sqlite3:wasm32-emscripten yaml-cpp:wasm32-emscripten \
+#     sqlite3:wasm32-emscripten unordered-dense:wasm32-emscripten \
+#     yaml-cpp:wasm32-emscripten \
 #     libzip[bzip2]:wasm32-emscripten marisa-trie:wasm32-emscripten \
 #     sdl3-image[png,webp]:wasm32-emscripten sdl3-ttf[svg]:wasm32-emscripten \
 #     sdl3-mixer[fluidsynth]:wasm32-emscripten

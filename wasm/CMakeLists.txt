@@ -11,9 +11,11 @@ if(WASM_DEPS_DIR)
     list(PREPEND CMAKE_PREFIX_PATH "${WASM_DEPS_DIR}")
     set(imgui_DIR "${WASM_DEPS_DIR}/share/imgui")
     set(SDL3_DIR "${WASM_DEPS_DIR}/share/sdl3")
+    set(unordered_dense_DIR "${WASM_DEPS_DIR}/share/unordered_dense")
 endif()
 
 find_package(imgui CONFIG REQUIRED)
+find_package(unordered_dense CONFIG REQUIRED)
 
 kys_collect_all_game_sources(SRC_LIST "${KYS_ROOT}")
 
@@ -40,6 +42,7 @@ add_executable(kyschess ${SRC_LIST})
 # Link libraries: all from vcpkg wasm32-emscripten
 target_link_libraries(kyschess
     imgui::imgui
+    unordered_dense::unordered_dense
     SDL3_mixer
     fluidsynth
     SDL3_image
