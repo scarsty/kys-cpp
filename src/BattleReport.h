@@ -81,6 +81,11 @@ private:
 class BattleReportBuilder
 {
 public:
+    explicit BattleReportBuilder(bool retainEvents = true)
+        : retainEvents_(retainEvents)
+    {
+    }
+
     void recordDamage(
         const KysChess::Battle::BattleRuntimeUnit* attacker,
         const KysChess::Battle::BattleRuntimeUnit* defender,
@@ -125,4 +130,5 @@ public:
 
 private:
     BattleReport report_;
+    bool retainEvents_{};
 };

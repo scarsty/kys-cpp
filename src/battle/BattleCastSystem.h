@@ -7,6 +7,7 @@
 #include "BattlePresentation.h"
 
 #include <array>
+#include <memory_resource>
 #include <string>
 #include <vector>
 
@@ -112,6 +113,12 @@ struct BattleCastProjectileTarget
 
 struct BattleCastInput
 {
+    explicit BattleCastInput(
+        std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource())
+        : projectileSpreadTargets(memoryResource)
+    {
+    }
+
     BattleCastConfig config;
     BattleCastGeometry geometry;
     BattleCastUnitState unit;
@@ -120,7 +127,7 @@ struct BattleCastInput
     int targetUnitId = -1;
     Pointf targetPosition;
     double targetDistance{};
-    std::vector<BattleCastProjectileTarget> projectileSpreadTargets;
+    std::pmr::vector<BattleCastProjectileTarget> projectileSpreadTargets;
 };
 
 enum class BattleCastBlockReason

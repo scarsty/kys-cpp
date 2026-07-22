@@ -501,7 +501,7 @@ BattleBleedEffectSummary resolveBattleBleedEffectSummary(const BattleEffectSourc
 }
 
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
-    const std::vector<BattleGameplayCommand>& commands,
+    std::span<const BattleGameplayCommand> commands,
     BattleProjectileFollowUpContext& context,
     const BattleRuntimeUnits& units)
 {

@@ -4,6 +4,7 @@
 #include "BattleComboTriggerSystem.h"
 #include "BattleOperation.h"
 
+#include <memory_resource>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -101,7 +102,7 @@ struct BattleAttackSpawnRequest
     BattleAttackPayload initial;
     int initialFrame = 0;
     int spawnDelayFrames = 0;
-    int attackerBlockFirstHitGainChancePct = 0;
+    int attackerDualWieldBlockGainChancePct = 0;
     Pointf acceleration;
     bool spiralMotion = false;
     Pointf spiralCenter;
@@ -191,7 +192,12 @@ struct BattleAttackState
     std::unordered_map<int, std::vector<int>> sharedHitGroupTargets;
 
     BattleAttackEvent spawn(const BattleAttackSpawnRequest& request);
-    std::vector<BattleAttackEvent> tick(const BattleRuntimeUnits& units);
+    std::pmr::vector<BattleAttackEvent> tick(
+        const BattleRuntimeUnits& units,
+        std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource());
+    void tick(
+        const BattleRuntimeUnits& units,
+        std::pmr::vector<BattleAttackEvent>& events);
     void applyProjectileCancelDamage(const BattleAttackEvent& event);
 
 private:
@@ -229,7 +235,7 @@ private:
         int attackId) const;
     void collectProjectileCancelEvents(
         const BattleRuntimeUnits& units,
-        std::vector<BattleAttackEvent>& events) const;
+        std::pmr::vector<BattleAttackEvent>& events) const;
 };
 
 double projectileOperationDamageMultiplier(BattleOperationType operationType);

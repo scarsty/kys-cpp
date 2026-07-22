@@ -61,6 +61,10 @@ void BattleReportBuilder::recordDamage(
     {
         report_.stats_[defender->id].damageTaken += damage;
     }
+    if (!retainEvents_)
+    {
+        return;
+    }
 
     BattleReportEvent event;
     event.type = BattleReportEventType::Damage;
@@ -97,6 +101,10 @@ void BattleReportBuilder::recordHeal(
     if (source)
     {
         report_.stats_[source->id].lastActiveFrame = frame;
+    }
+    if (!retainEvents_)
+    {
+        return;
     }
 
     BattleReportEvent event;
@@ -146,6 +154,10 @@ void BattleReportBuilder::recordStatus(
     {
         report_.stats_[source->id].lastActiveFrame = frame;
     }
+    if (!retainEvents_)
+    {
+        return;
+    }
 
     BattleReportEvent event;
     event.type = BattleReportEventType::Status;
@@ -192,6 +204,10 @@ void BattleReportBuilder::recordKill(
     {
         report_.stats_[killer->id].kills++;
     }
+    if (!retainEvents_)
+    {
+        return;
+    }
 
     BattleReportEvent event;
     event.type = BattleReportEventType::Kill;
@@ -217,6 +233,10 @@ void BattleReportBuilder::recordDeath(const KysChess::Battle::BattleRuntimeUnit*
     {
         return;
     }
+    if (!retainEvents_)
+    {
+        return;
+    }
 
     BattleReportEvent event;
     event.type = BattleReportEventType::Death;
@@ -237,6 +257,10 @@ void BattleReportBuilder::recordBattleEnd(int frame, int battleResult)
 {
     report_.battleEndFrame_ = frame;
     report_.battleResult_ = battleResult;
+    if (!retainEvents_)
+    {
+        return;
+    }
 
     BattleReportEvent event;
     event.type = BattleReportEventType::BattleEnd;

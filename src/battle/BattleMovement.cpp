@@ -7,7 +7,6 @@
 #include <cmath>
 #include <limits>
 #include <optional>
-#include <queue>
 #include <ranges>
 #include <utility>
 #include <vector>
@@ -23,6 +22,11 @@ constexpr int CooperativeYieldRequestFrames = 4;
 constexpr int LocalPocketDetourFrames = 12;
 constexpr int LocalPocketLeftDetourMarker = -2;
 constexpr int LocalPocketRightDetourMarker = -3;
+constexpr std::size_t CandidateDirectionCapacity = 12;
+
+using FrameMovementReservationMap = std::pmr::map<int, Pointf>;
+using FrameMovementYieldRequestMap = std::pmr::map<int, BattleMovementYieldRequest>;
+using FrameMovementDetourRequestMap = std::pmr::map<int, BattleMovementDetourRequest>;
 
 bool isLocalPocketDetour(const BattleMovementDetourRequest& request)
 {
@@ -41,11 +45,22 @@ double distance2d(Pointf a, Pointf b)
     return EuclidDis(a.x - b.x, a.y - b.y);
 }
 
+double distance2dSquared(Pointf a, Pointf b)
+{
+    const double dx = a.x - b.x;
+    const double dy = a.y - b.y;
+    return dx * dx + dy * dy;
+}
+
 Pointf unitVector(Pointf value)
 {
-    if (value.norm() > 0.01f)
+    const float length = value.norm();
+    if (length > 0.01f)
     {
-        value.normTo(1.0f);
+        const float scale = 1.0f / length;
+        value.x *= scale;
+        value.y *= scale;
+        value.z *= scale;
     }
     return value;
 }
@@ -84,24 +99,37 @@ double combatSlotAngle(int slot)
     return kPi / 4.0 * std::abs(slot) * (slot > 0 ? 1.0 : -1.0);
 }
 
-const BattleUnitState* nearestEnemy(const BattleMovementPlanInput& world, const BattleUnitState& unit)
+struct NearestEnemyResult
+{
+    const BattleUnitState* unit{};
+    double distance = std::numeric_limits<double>::max();
+};
+
+NearestEnemyResult nearestEnemy(const BattleMovementPlanInput& world, const BattleUnitState& unit)
 {
     const BattleUnitState* best = nullptr;
     double bestDistance = std::numeric_limits<double>::max();
+    double bestDistanceSquared = std::numeric_limits<double>::max();
     for (const auto& other : world.units)
     {
         if (!other.alive || other.team == unit.team)
         {
             continue;
         }
-        double d = distance2d(unit.position, other.position);
+        const double candidateDistanceSquared = distance2dSquared(unit.position, other.position);
+        if (best && candidateDistanceSquared > bestDistanceSquared)
+        {
+            continue;
+        }
+        const double d = distance2d(unit.position, other.position);
         if (d < bestDistance)
         {
             bestDistance = d;
+            bestDistanceSquared = candidateDistanceSquared;
             best = &other;
         }
     }
-    return best;
+    return { best, bestDistance };
 }
 
 double comfortableMeleeSpacing(const BattleMovementConfig& config)
@@ -109,7 +137,7 @@ double comfortableMeleeSpacing(const BattleMovementConfig& config)
     return config.bodyRadius + config.engagementDeadband;
 }
 
-std::vector<int> movementOrder(const BattleMovementPlanInput& world)
+std::pmr::vector<int> movementOrder(const BattleMovementPlanInput& world)
 {
     struct MovementOrderEntry
     {
@@ -118,20 +146,18 @@ std::vector<int> movementOrder(const BattleMovementPlanInput& world)
         double distance = std::numeric_limits<double>::max();
     };
 
-    std::vector<MovementOrderEntry> entries;
+    std::pmr::vector<MovementOrderEntry> entries(world.frameMemoryResource);
     entries.reserve(world.units.size());
     for (const auto& unit : world.units)
     {
         if (unit.alive)
         {
-            const auto* target = nearestEnemy(world, unit);
-            const double distance = target
-                ? distance2d(unit.position, target->position)
-                : std::numeric_limits<double>::max();
+            const auto nearest = nearestEnemy(world, unit);
+            const auto* target = nearest.unit;
             entries.push_back({
                 unit.id,
-                target && unit.canAttack && distance <= unit.reach,
-                distance,
+                target && unit.canAttack && nearest.distance <= unit.reach,
+                nearest.distance,
             });
         }
     }
@@ -149,7 +175,7 @@ std::vector<int> movementOrder(const BattleMovementPlanInput& world)
             return lhs.id < rhs.id;
         });
 
-    std::vector<int> ids;
+    std::pmr::vector<int> ids(world.frameMemoryResource);
     ids.reserve(entries.size());
     for (const auto& entry : entries)
     {
@@ -158,12 +184,13 @@ std::vector<int> movementOrder(const BattleMovementPlanInput& world)
     return ids;
 }
 
-std::vector<Pointf> candidateDirections(const BattleMovementPlanInput& world,
-                                        const BattleUnitState& unit,
-                                        const BattleUnitState& target,
-                                        Pointf desired)
+std::pmr::vector<Pointf> candidateDirections(const BattleMovementPlanInput& world,
+                                             const BattleUnitState& unit,
+                                             const BattleUnitState& target,
+    Pointf desired)
 {
-    std::vector<Pointf> result;
+    std::pmr::vector<Pointf> result(world.frameMemoryResource);
+    result.reserve(CandidateDirectionCapacity);
     auto direct = desired - unit.position;
     if (direct.norm() <= 0.01f)
     {
@@ -182,9 +209,9 @@ std::vector<Pointf> candidateDirections(const BattleMovementPlanInput& world,
     return result;
 }
 
-int terrainGridCoordCount(const BattleMovementPlanInput& world)
+int terrainGridCoordCount(const std::vector<BattleTerrainCell>& terrainCells)
 {
-    const auto cellCount = static_cast<int>(world.terrainCells.size());
+    const auto cellCount = static_cast<int>(terrainCells.size());
     const int coordCount = static_cast<int>(std::round(std::sqrt(static_cast<double>(cellCount))));
     return coordCount > 0 && coordCount * coordCount == cellCount ? coordCount : 0;
 }
@@ -197,50 +224,98 @@ std::size_t terrainGridIndex(int coordCount, int x, int y)
     return static_cast<std::size_t>(x * coordCount + y);
 }
 
-enum class TerrainLookupMode
+const std::vector<BattleTerrainCell>& movementTerrainCells(const BattleMovementPlanInput& world)
 {
-    Empty,
-    Isometric,
-    Cartesian,
-    Scan,
-};
+    return world.terrainCellSource ? *world.terrainCellSource : world.terrainCells;
+}
+
+bool closeTerrainPosition(Pointf lhs, Pointf rhs)
+{
+    return distance2d(lhs, rhs) <= 0.01;
+}
+
+Pointf isometricTerrainPosition(int coordCount, double tileWidth, int x, int y)
+{
+    return {
+        static_cast<float>((-y + x + coordCount) * tileWidth),
+        static_cast<float>((y + x) * tileWidth),
+        0.0f,
+    };
+}
+
+Pointf cartesianTerrainPosition(Pointf origin, double tileWidth, int x, int y)
+{
+    return {
+        static_cast<float>(origin.x + x * tileWidth),
+        static_cast<float>(origin.y + y * tileWidth),
+        0.0f,
+    };
+}
+
+bool matchesIsometricTerrainGrid(
+    const std::vector<BattleTerrainCell>& terrainCells,
+    int coordCount,
+    double tileWidth)
+{
+    for (int x = 0; x < coordCount; ++x)
+    {
+        for (int y = 0; y < coordCount; ++y)
+        {
+            const auto& cell = terrainCells[terrainGridIndex(coordCount, x, y)];
+            if (!closeTerrainPosition(cell.position, isometricTerrainPosition(coordCount, tileWidth, x, y)))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool matchesCartesianTerrainGrid(
+    const std::vector<BattleTerrainCell>& terrainCells,
+    int coordCount,
+    double tileWidth,
+    Pointf origin)
+{
+    for (int x = 0; x < coordCount; ++x)
+    {
+        for (int y = 0; y < coordCount; ++y)
+        {
+            const auto& cell = terrainCells[terrainGridIndex(coordCount, x, y)];
+            if (!closeTerrainPosition(cell.position, cartesianTerrainPosition(origin, tileWidth, x, y)))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+BattleMovementTerrainLayout resolveTerrainLayout(const BattleMovementPlanInput& world)
+{
+    if (world.terrainLayout)
+    {
+        return *world.terrainLayout;
+    }
+    return makeBattleMovementTerrainLayout(movementTerrainCells(world), world.config.tileWidth);
+}
 
 struct BattleMovementTerrainLookup
 {
     explicit BattleMovementTerrainLookup(const BattleMovementPlanInput& world)
         : world(world),
-          coordCount(terrainGridCoordCount(world)),
+          terrainCells(movementTerrainCells(world)),
           tileWidth(world.config.tileWidth)
     {
-        if (world.terrainCells.empty())
-        {
-            mode = TerrainLookupMode::Empty;
-            return;
-        }
-        if (coordCount <= 0 || tileWidth <= 0.0)
-        {
-            mode = TerrainLookupMode::Scan;
-            return;
-        }
-
-        cartesianOrigin = world.terrainCells.front().position;
-        if (matchesIsometricGrid())
-        {
-            mode = TerrainLookupMode::Isometric;
-        }
-        else if (matchesCartesianGrid())
-        {
-            mode = TerrainLookupMode::Cartesian;
-        }
-        else
-        {
-            mode = TerrainLookupMode::Scan;
-        }
+        const auto layout = resolveTerrainLayout(world);
+        coordCount = layout.coordCount;
+        type = layout.type;
+        cartesianOrigin = layout.cartesianOrigin;
     }
 
     bool empty() const
     {
-        return mode == TerrainLookupMode::Empty;
+        return type == BattleMovementTerrainLayoutType::Empty;
     }
 
     bool allows(Pointf position) const
@@ -252,7 +327,7 @@ struct BattleMovementTerrainLookup
 
         if (const auto coords = cellCoordsFor(position))
         {
-            const auto& cell = world.terrainCells[terrainGridIndex(coordCount, coords->x, coords->y)];
+            const auto& cell = terrainCells[terrainGridIndex(coordCount, coords->x, coords->y)];
             const double maximumDistance = std::max(1.0, tileWidth * 1.5);
             if (distance2d(position, cell.position) <= maximumDistance)
             {
@@ -308,7 +383,7 @@ struct BattleMovementTerrainLookup
             {
                 for (int y = minY; y <= maxY; ++y)
                 {
-                    const auto& cell = world.terrainCells[terrainGridIndex(coordCount, x, y)];
+                    const auto& cell = terrainCells[terrainGridIndex(coordCount, x, y)];
                     if (!cell.walkable && distance2d(position, cell.position) < radius)
                     {
                         return true;
@@ -318,7 +393,7 @@ struct BattleMovementTerrainLookup
             return false;
         }
 
-        for (const auto& cell : world.terrainCells)
+        for (const auto& cell : terrainCells)
         {
             if (!cell.walkable && distance2d(position, cell.position) < radius)
             {
@@ -329,80 +404,26 @@ struct BattleMovementTerrainLookup
     }
 
     const BattleMovementPlanInput& world;
+    const std::vector<BattleTerrainCell>& terrainCells;
     int coordCount{};
     double tileWidth{};
-    TerrainLookupMode mode = TerrainLookupMode::Scan;
+    BattleMovementTerrainLayoutType type = BattleMovementTerrainLayoutType::Scan;
     Pointf cartesianOrigin;
 
 private:
-    bool closeTo(Pointf lhs, Pointf rhs) const
-    {
-        return distance2d(lhs, rhs) <= 0.01;
-    }
-
-    Pointf isometricPosition(int x, int y) const
-    {
-        return {
-            static_cast<float>((-y + x + coordCount) * tileWidth),
-            static_cast<float>((y + x) * tileWidth),
-            0.0f,
-        };
-    }
-
-    Pointf cartesianPosition(int x, int y) const
-    {
-        return {
-            static_cast<float>(cartesianOrigin.x + x * tileWidth),
-            static_cast<float>(cartesianOrigin.y + y * tileWidth),
-            0.0f,
-        };
-    }
-
-    bool matchesIsometricGrid() const
-    {
-        for (int x = 0; x < coordCount; ++x)
-        {
-            for (int y = 0; y < coordCount; ++y)
-            {
-                const auto& cell = world.terrainCells[terrainGridIndex(coordCount, x, y)];
-                if (!closeTo(cell.position, isometricPosition(x, y)))
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    bool matchesCartesianGrid() const
-    {
-        for (int x = 0; x < coordCount; ++x)
-        {
-            for (int y = 0; y < coordCount; ++y)
-            {
-                const auto& cell = world.terrainCells[terrainGridIndex(coordCount, x, y)];
-                if (!closeTo(cell.position, cartesianPosition(x, y)))
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
     std::optional<Point> cellCoordsFor(Pointf position) const
     {
         Point coords;
-        switch (mode)
+        switch (type)
         {
-        case TerrainLookupMode::Isometric:
+        case BattleMovementTerrainLayoutType::Isometric:
         {
             const double shiftedX = position.x - coordCount * tileWidth;
             coords.x = static_cast<int>(std::round((shiftedX / tileWidth + position.y / tileWidth) / 2.0));
             coords.y = static_cast<int>(std::round((-shiftedX / tileWidth + position.y / tileWidth) / 2.0));
             break;
         }
-        case TerrainLookupMode::Cartesian:
+        case BattleMovementTerrainLayoutType::Cartesian:
             coords.x = static_cast<int>(std::round((position.x - cartesianOrigin.x) / tileWidth));
             coords.y = static_cast<int>(std::round((position.y - cartesianOrigin.y) / tileWidth));
             break;
@@ -421,7 +442,7 @@ private:
     {
         const BattleTerrainCell* nearest = nullptr;
         double nearestDistance = std::numeric_limits<double>::max();
-        for (const auto& cell : world.terrainCells)
+        for (const auto& cell : terrainCells)
         {
             const double distance = distance2d(position, cell.position);
             if (distance < nearestDistance)
@@ -442,30 +463,72 @@ private:
 
 std::optional<int> nearestWalkableTerrainCell(const BattleMovementPlanInput& world, Pointf position)
 {
+    const auto& terrainCells = movementTerrainCells(world);
     std::optional<int> best;
     double bestDistance = std::numeric_limits<double>::max();
-    for (int i = 0; i < static_cast<int>(world.terrainCells.size()); ++i)
+    double bestSquaredDistance = std::numeric_limits<double>::max();
+    for (int i = 0; i < static_cast<int>(terrainCells.size()); ++i)
     {
-        const auto& cell = world.terrainCells[static_cast<std::size_t>(i)];
+        const auto& cell = terrainCells[static_cast<std::size_t>(i)];
         if (!cell.walkable)
         {
             continue;
         }
+
+        const double dx = position.x - cell.position.x;
+        const double dy = position.y - cell.position.y;
+        const double squaredDistance = dx * dx + dy * dy;
+        if (best && squaredDistance >= bestSquaredDistance)
+        {
+            continue;
+        }
+
         const double distance = distance2d(position, cell.position);
         if (!best || distance < bestDistance)
         {
             best = i;
             bestDistance = distance;
+            bestSquaredDistance = squaredDistance;
         }
     }
     return best;
 }
 
-std::optional<Pointf> nextTerrainPathWaypoint(const BattleMovementPlanInput& world,
+std::uint64_t terrainPathCacheKey(int start, int goal)
+{
+    return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(start)) << 32)
+        | static_cast<std::uint32_t>(goal);
+}
+
+std::optional<Pointf> cachedTerrainPathWaypoint(
+    const BattleMovementPlanInput& world,
+    const std::vector<BattleTerrainCell>& terrainCells,
+    Pointf from,
+    int start,
+    int goal,
+    int next)
+{
+    if (next < 0)
+    {
+        return std::nullopt;
+    }
+
+    auto pathSegment = terrainCells[static_cast<std::size_t>(next)].position
+        - terrainCells[static_cast<std::size_t>(start)].position;
+    pathSegment.z = 0;
+    if (pathSegment.norm() > 0.01f)
+    {
+        return from + unitVector(pathSegment) * static_cast<float>(std::max(1.0, world.config.tileWidth));
+    }
+    return terrainCells[static_cast<std::size_t>(goal)].position;
+}
+
+std::optional<Pointf> nextTerrainPathWaypoint(BattleMovementPlanInput& world,
                                               const BattleMovementTerrainLookup& terrain,
                                               Pointf from,
                                               Pointf to)
 {
+    const auto& terrainCells = movementTerrainCells(world);
     const int coordCount = terrain.coordCount;
     if (coordCount <= 0)
     {
@@ -479,16 +542,31 @@ std::optional<Pointf> nextTerrainPathWaypoint(const BattleMovementPlanInput& wor
         return std::nullopt;
     }
 
+    assert(world.pathState);
+    auto& pathState = *world.pathState;
+    const auto cacheKey = terrainPathCacheKey(*start, *goal);
+    if (const auto cached = pathState.nextCellByEndpoints.find(cacheKey);
+        cached != pathState.nextCellByEndpoints.end())
+    {
+        return cachedTerrainPathWaypoint(world, terrainCells, from, *start, *goal, cached->second);
+    }
+
     const int cellCount = coordCount * coordCount;
-    std::vector<double> cost(static_cast<std::size_t>(cellCount), std::numeric_limits<double>::max());
-    std::vector<int> previous(static_cast<std::size_t>(cellCount), -1);
+    pathState.costs.assign(static_cast<std::size_t>(cellCount), std::numeric_limits<double>::max());
+    pathState.previous.assign(static_cast<std::size_t>(cellCount), -1);
+    pathState.frontier.clear();
+
+    auto& cost = pathState.costs;
+    auto& previous = pathState.previous;
+    auto& frontier = pathState.frontier;
     using QueueItem = std::pair<double, int>;
-    std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<>> frontier;
+    const std::greater<QueueItem> compare;
 
     cost[static_cast<std::size_t>(*start)] = 0.0;
-    frontier.push({ 0.0, *start });
+    frontier.push_back({ 0.0, *start });
+    std::push_heap(frontier.begin(), frontier.end(), compare);
 
-    const auto goalPosition = world.terrainCells[static_cast<std::size_t>(*goal)].position;
+    const auto goalPosition = terrainCells[static_cast<std::size_t>(*goal)].position;
     constexpr int neighborOffsets[4][2] = {
         { 1, 0 },
         { -1, 0 },
@@ -498,8 +576,9 @@ std::optional<Pointf> nextTerrainPathWaypoint(const BattleMovementPlanInput& wor
 
     while (!frontier.empty())
     {
-        const auto [_, current] = frontier.top();
-        frontier.pop();
+        std::pop_heap(frontier.begin(), frontier.end(), compare);
+        const auto [_, current] = frontier.back();
+        frontier.pop_back();
         if (current == *goal)
         {
             break;
@@ -516,7 +595,7 @@ std::optional<Pointf> nextTerrainPathWaypoint(const BattleMovementPlanInput& wor
                 continue;
             }
             const int next = static_cast<int>(terrainGridIndex(coordCount, nx, ny));
-            const auto& nextCell = world.terrainCells[static_cast<std::size_t>(next)];
+            const auto& nextCell = terrainCells[static_cast<std::size_t>(next)];
             if (!nextCell.walkable)
             {
                 continue;
@@ -524,7 +603,7 @@ std::optional<Pointf> nextTerrainPathWaypoint(const BattleMovementPlanInput& wor
 
             const double nextCost = cost[static_cast<std::size_t>(current)]
                 + distance2d(
-                    world.terrainCells[static_cast<std::size_t>(current)].position,
+                    terrainCells[static_cast<std::size_t>(current)].position,
                     nextCell.position);
             if (nextCost >= cost[static_cast<std::size_t>(next)])
             {
@@ -533,42 +612,28 @@ std::optional<Pointf> nextTerrainPathWaypoint(const BattleMovementPlanInput& wor
 
             cost[static_cast<std::size_t>(next)] = nextCost;
             previous[static_cast<std::size_t>(next)] = current;
-            frontier.push({ nextCost + distance2d(nextCell.position, goalPosition), next });
+            frontier.push_back({ nextCost + distance2d(nextCell.position, goalPosition), next });
+            std::push_heap(frontier.begin(), frontier.end(), compare);
         }
     }
 
     if (previous[static_cast<std::size_t>(*goal)] < 0)
     {
+        pathState.nextCellByEndpoints.emplace(cacheKey, -1);
         return std::nullopt;
     }
 
-    std::vector<int> path;
-    for (int cell = *goal; cell >= 0; cell = previous[static_cast<std::size_t>(cell)])
+    int next = *goal;
+    while (previous[static_cast<std::size_t>(next)] != *start)
     {
-        path.push_back(cell);
-        if (cell == *start)
-        {
-            break;
-        }
+        next = previous[static_cast<std::size_t>(next)];
+        assert(next >= 0);
     }
-    std::ranges::reverse(path);
-
-    if (path.size() >= 2)
-    {
-        const auto startCellPosition = world.terrainCells[static_cast<std::size_t>(path[0])].position;
-        const auto nextCellPosition = world.terrainCells[static_cast<std::size_t>(path[1])].position;
-        auto pathSegment = nextCellPosition - startCellPosition;
-        pathSegment.z = 0;
-        if (pathSegment.norm() > 0.01f)
-        {
-            return from + unitVector(pathSegment) * static_cast<float>(std::max(1.0, world.config.tileWidth));
-        }
-    }
-
-    return world.terrainCells[static_cast<std::size_t>(path.back())].position;
+    pathState.nextCellByEndpoints.emplace(cacheKey, next);
+    return cachedTerrainPathWaypoint(world, terrainCells, from, *start, *goal, next);
 }
 
-std::optional<Pointf> terrainPathDirection(const BattleMovementPlanInput& world,
+std::optional<Pointf> terrainPathDirection(BattleMovementPlanInput& world,
                                            const BattleMovementTerrainLookup& terrain,
                                            const BattleUnitState& unit,
                                            Pointf desired)
@@ -634,7 +699,8 @@ int defaultMeleeApproachSlot(const BattleMovementPlanInput& world,
                              const BattleUnitState& target)
 {
     Pointf approachCentroid;
-    std::vector<const BattleUnitState*> contenders;
+    std::pmr::vector<const BattleUnitState*> contenders(world.frameMemoryResource);
+    contenders.reserve(world.units.size());
     for (const auto& other : world.units)
     {
         if (!other.alive
@@ -646,7 +712,7 @@ int defaultMeleeApproachSlot(const BattleMovementPlanInput& world,
             continue;
         }
 
-        const auto* otherTarget = nearestEnemy(world, other);
+        const auto* otherTarget = nearestEnemy(world, other).unit;
         if (!otherTarget || otherTarget->id != target.id)
         {
             continue;
@@ -676,7 +742,7 @@ int defaultMeleeApproachSlot(const BattleMovementPlanInput& world,
     approach = unitVector(approach);
     const Pointf lateral{ -approach.y, approach.x, 0.0f };
 
-    std::vector<MeleeApproachSlotEntry> entries;
+    std::pmr::vector<MeleeApproachSlotEntry> entries(world.frameMemoryResource);
     entries.reserve(static_cast<std::size_t>(approachCount));
     for (const auto* other : contenders)
     {
@@ -727,7 +793,7 @@ int meleeApproachSlot(const BattleMovementPlanInput& world,
 bool reservationConflicts(const BattleMovementPlanInput& world,
                           const BattleUnitState& unit,
                           Pointf nextPosition,
-                          const std::map<int, Pointf>& reservations)
+                          const FrameMovementReservationMap& reservations)
 {
     for (const auto& [reservedBy, pos] : reservations)
     {
@@ -836,7 +902,7 @@ bool sharesFrontlineTarget(const BattleMovementPlanInput& world,
         return false;
     }
 
-    const auto* otherTarget = nearestEnemy(world, other);
+    const auto* otherTarget = nearestEnemy(world, other).unit;
     if (!otherTarget || otherTarget->id != target.id)
     {
         return false;
@@ -931,7 +997,7 @@ MoveProbe probeMoveInWorld(const BattleMovementPlanInput& world,
                            const BattleUnitState& unit,
                            Pointf nextPosition,
                            bool ignoreUnits,
-                           const std::map<int, Pointf>& reservations,
+                           const FrameMovementReservationMap& reservations,
                            bool ignoreReservations,
                            bool allowSoftReservations);
 
@@ -954,7 +1020,7 @@ std::optional<MovementDecision> tryFrontlineSoftSpread(const BattleMovementPlanI
                                                        const BattleMovementTerrainLookup& terrain,
                                                        const BattleUnitState& unit,
                                                        const BattleUnitState& target,
-                                                       const std::map<int, Pointf>& reservations)
+                                                       const FrameMovementReservationMap& reservations)
 {
     const auto direction = frontlineSoftSpreadDirection(world, unit, target);
     if (!direction)
@@ -1131,7 +1197,7 @@ void reserveMovementDestination(BattleMovementPlanInput& world,
 
 void reserveSameFrameDestination(const BattleUnitState& unit,
                                  Pointf destination,
-                                 std::map<int, Pointf>& reservations)
+                                 FrameMovementReservationMap& reservations)
 {
     if (battleMovementTaXueUnstable(unit))
     {
@@ -1141,24 +1207,22 @@ void reserveSameFrameDestination(const BattleUnitState& unit,
     reservations[unit.id] = destination;
 }
 
-void requestMovementYield(std::map<int, BattleMovementYieldRequest>& requests,
+void requestMovementYield(FrameMovementYieldRequestMap& requests,
                           const BattleMovementPlanInput& world,
                           const BattleUnitState& requester,
-                          int blockerId,
+                          const BattleUnitState& blocker,
                           Pointf desired)
 {
-    const auto* blocker = tryFindById(world.units, blockerId);
-    if (!blocker
-        || !blocker->alive
-        || blocker->team != requester.team
+    if (!blocker.alive
+        || blocker.team != requester.team
         || requester.style != CombatStyle::Melee
-        || blocker->style != CombatStyle::Melee
-        || battleMovementTaXueUnstable(*blocker))
+        || blocker.style != CombatStyle::Melee
+        || battleMovementTaXueUnstable(blocker))
     {
         return;
     }
 
-    auto requesterToBlocker = blocker->position - requester.position;
+    auto requesterToBlocker = blocker.position - requester.position;
     requesterToBlocker.z = 0;
     auto requesterToDesired = desired - requester.position;
     requesterToDesired.z = 0;
@@ -1173,8 +1237,8 @@ void requestMovementYield(std::map<int, BattleMovementYieldRequest>& requests,
         return;
     }
 
-    requests[blocker->id] = BattleMovementYieldRequest{
-        blocker->id,
+    requests[blocker.id] = BattleMovementYieldRequest{
+        blocker.id,
         requester.id,
         requester.position,
         desired,
@@ -1182,7 +1246,21 @@ void requestMovementYield(std::map<int, BattleMovementYieldRequest>& requests,
     };
 }
 
-void requestMovementDetour(std::map<int, BattleMovementDetourRequest>& requests,
+void requestMovementYield(FrameMovementYieldRequestMap& requests,
+                          const BattleMovementPlanInput& world,
+                          const BattleUnitState& requester,
+                          int blockerId,
+                          Pointf desired)
+{
+    const auto* blocker = tryFindById(world.units, blockerId);
+    if (!blocker)
+    {
+        return;
+    }
+    requestMovementYield(requests, world, requester, *blocker, desired);
+}
+
+void requestMovementDetour(FrameMovementDetourRequestMap& requests,
                            const BattleMovementPlanInput& world,
                            const BattleMovementTerrainLookup& terrain,
                            const BattleUnitState& requester,
@@ -1267,8 +1345,8 @@ void requestMovementDetour(std::map<int, BattleMovementDetourRequest>& requests,
     };
 }
 
-void requestCooperativeMovement(std::map<int, BattleMovementYieldRequest>& yieldRequests,
-                                std::map<int, BattleMovementDetourRequest>& detourRequests,
+void requestCooperativeMovement(FrameMovementYieldRequestMap& yieldRequests,
+                                FrameMovementDetourRequestMap& detourRequests,
                                 const BattleMovementPlanInput& world,
                                 const BattleMovementTerrainLookup& terrain,
                                 const BattleUnitState& requester,
@@ -1363,15 +1441,10 @@ std::optional<ApproachCorridorBlocker> approachCorridorBlocker(const BattleMovem
 
 std::vector<Pointf> proactiveApproachDetourDirections(const BattleMovementPlanInput& world,
                                                        const BattleUnitState& requester,
-                                                       Pointf desired)
+                                                       Pointf desired,
+                                                       const std::optional<ApproachCorridorBlocker>& blocker)
 {
-    if (battleMovementTaXueUnstable(requester))
-    {
-        return {};
-    }
-
-    const auto blocker = approachCorridorBlocker(world, requester, desired);
-    if (!blocker)
+    if (battleMovementTaXueUnstable(requester) || !blocker)
     {
         return {};
     }
@@ -1387,18 +1460,18 @@ std::vector<Pointf> proactiveApproachDetourDirections(const BattleMovementPlanIn
     };
 }
 
-void requestApproachCorridorYield(std::map<int, BattleMovementYieldRequest>& yieldRequests,
+void requestApproachCorridorYield(FrameMovementYieldRequestMap& yieldRequests,
                                   const BattleMovementPlanInput& world,
                                   const BattleUnitState& requester,
-                                  Pointf desired)
+                                  Pointf desired,
+                                  const std::optional<ApproachCorridorBlocker>& blocker)
 {
-    const auto blocker = approachCorridorBlocker(world, requester, desired);
     if (!blocker)
     {
         return;
     }
 
-    requestMovementYield(yieldRequests, world, requester, blocker->unit->id, desired);
+    requestMovementYield(yieldRequests, world, requester, *blocker->unit, desired);
 }
 
 void recordMovementDecision(BattleTickResult& result, const BattleUnitState& unit, MovementDecision decision)
@@ -1427,7 +1500,7 @@ MoveProbe probeMoveInWorld(const BattleMovementPlanInput& world,
                            const BattleUnitState& unit,
                            Pointf nextPosition,
                            bool ignoreUnits,
-                           const std::map<int, Pointf>& reservations,
+                           const FrameMovementReservationMap& reservations,
                            bool ignoreReservations = false,
                            bool allowSoftReservations = true)
 {
@@ -1475,7 +1548,7 @@ template <typename Visitor>
 void visitMovementOccupants(const BattleMovementPlanInput& world,
                             const BattleUnitState& unit,
                             const BattleUnitState& target,
-                            const std::map<int, Pointf>& reservations,
+                            const FrameMovementReservationMap& reservations,
                             Visitor&& visitor)
 {
     const auto visit = [&](int occupiedBy, Pointf occupiedPosition)
@@ -1507,7 +1580,7 @@ double localBodyClearance(const BattleMovementPlanInput& world,
                           const BattleUnitState& unit,
                           const BattleUnitState& target,
                           Pointf position,
-                          const std::map<int, Pointf>& reservations)
+                          const FrameMovementReservationMap& reservations)
 {
     double clearance = std::numeric_limits<double>::max();
     visitMovementOccupants(world, unit, target, reservations, [&](Pointf occupiedPosition)
@@ -1520,7 +1593,7 @@ double localBodyClearance(const BattleMovementPlanInput& world,
 bool localPocketBlocksApproach(const BattleMovementPlanInput& world,
                                const BattleUnitState& unit,
                                const BattleUnitState& target,
-                               const std::map<int, Pointf>& reservations)
+                               const FrameMovementReservationMap& reservations)
 {
     auto targetDirection = target.position - unit.position;
     targetDirection.z = 0;
@@ -1554,7 +1627,7 @@ Pointf localPocketDetourDirection(const BattleMovementPlanInput& world,
                                   const BattleUnitState& unit,
                                   const BattleUnitState& target,
                                   const BattleMovementDetourRequest& request,
-                                  const std::map<int, Pointf>& reservations)
+                                  const FrameMovementReservationMap& reservations)
 {
     auto targetDirection = unitVector(target.position - unit.position);
     const auto sideDirection = rotated(
@@ -1589,7 +1662,7 @@ std::optional<MovementDecision> tryLocalPocketEscape(const BattleMovementPlanInp
                                                      const BattleMovementTerrainLookup& terrain,
                                                      const BattleUnitState& unit,
                                                      const BattleUnitState& target,
-                                                     const std::map<int, Pointf>& reservations)
+                                                     const FrameMovementReservationMap& reservations)
 {
     if (unit.style != CombatStyle::Melee
         || unit.speed <= 0.0
@@ -1666,7 +1739,7 @@ std::optional<MovementDecision> tryCooperativeYield(const BattleMovementPlanInpu
                                                      const BattleUnitState& unit,
                                                      const BattleUnitState& target,
                                                      bool canCastFromHere,
-                                                     const std::map<int, Pointf>& reservations)
+                                                     const FrameMovementReservationMap& reservations)
 {
     const auto request = world.yieldRequests.find(unit.id);
     if (request == world.yieldRequests.end()
@@ -1707,7 +1780,7 @@ std::optional<MovementDecision> chooseDash(const BattleMovementPlanInput& world,
                                            const BattleUnitState& unit,
                                            const BattleUnitState& target,
                                            Pointf direction,
-                                           const std::map<int, Pointf>& reservations,
+                                           const FrameMovementReservationMap& reservations,
                                            bool ignoreReservations,
                                            bool allowSoftReservations);
 
@@ -1718,7 +1791,7 @@ std::optional<MovementDecision> chooseDashByDistance(const BattleMovementPlanInp
                                                      Pointf direction,
                                                      double minDistance,
                                                      double maxDistance,
-                                                     const std::map<int, Pointf>& reservations,
+                                                     const FrameMovementReservationMap& reservations,
                                                      bool ignoreReservations,
                                                      bool allowSoftReservations)
 {
@@ -1793,7 +1866,7 @@ std::optional<MovementDecision> chooseDash(const BattleMovementPlanInput& world,
                                            const BattleUnitState& unit,
                                            const BattleUnitState& target,
                                            Pointf direction,
-                                           const std::map<int, Pointf>& reservations,
+                                           const FrameMovementReservationMap& reservations,
                                            bool ignoreReservations,
                                            bool allowSoftReservations)
 {
@@ -1823,7 +1896,7 @@ std::optional<MovementDecision> chooseRetreatDash(const BattleMovementPlanInput&
                                                   const BattleUnitState& unit,
                                                   const BattleUnitState& target,
                                                   Pointf direction,
-                                                  const std::map<int, Pointf>& reservations,
+                                                  const FrameMovementReservationMap& reservations,
                                                   bool ignoreReservations,
                                                   bool allowSoftReservations)
 {
@@ -1845,7 +1918,7 @@ std::optional<MovementDecision> chooseDashWithSoftFallback(const BattleMovementP
                                                            const BattleUnitState& unit,
                                                            const BattleUnitState& target,
                                                            Pointf direction,
-                                                           const std::map<int, Pointf>& reservations,
+                                                           const FrameMovementReservationMap& reservations,
                                                            bool ignoreReservations)
 {
     if (ignoreReservations)
@@ -1864,7 +1937,7 @@ std::optional<MovementDecision> chooseRetreatDashWithSoftFallback(const BattleMo
                                                                   const BattleUnitState& unit,
                                                                   const BattleUnitState& target,
                                                                   Pointf direction,
-                                                                  const std::map<int, Pointf>& reservations,
+                                                                  const FrameMovementReservationMap& reservations,
                                                                   bool ignoreReservations)
 {
     if (ignoreReservations)
@@ -1910,7 +1983,7 @@ Pointf rangedPeelDashDirection(const BattleMovementPlanInput& world,
     return unitVector(away + side);
 }
 
-void recordEvent(std::vector<BattleEvent>& events,
+void recordEvent(std::pmr::vector<BattleEvent>& events,
                  BattleEventType type,
                  const BattleUnitState& unit,
                  const MovementDecision& decision)
@@ -1930,7 +2003,7 @@ void recordEvent(std::vector<BattleEvent>& events,
 void applyPlannedMove(BattleMovementPlanInput& world,
                       BattleTickResult& result,
                       BattleUnitState& unit,
-                      std::map<int, Pointf>& reservations,
+                      FrameMovementReservationMap& reservations,
                       MovementDecision planned,
                       MovementDecision& decision)
 {
@@ -1944,6 +2017,43 @@ void applyPlannedMove(BattleMovementPlanInput& world,
 }
 
 }  // namespace
+
+BattleMovementTerrainLayout makeBattleMovementTerrainLayout(
+    const std::vector<BattleTerrainCell>& terrainCells,
+    double tileWidth)
+{
+    BattleMovementTerrainLayout layout;
+    layout.coordCount = terrainGridCoordCount(terrainCells);
+    if (terrainCells.empty())
+    {
+        layout.type = BattleMovementTerrainLayoutType::Empty;
+        return layout;
+    }
+    if (layout.coordCount <= 0 || tileWidth <= 0.0)
+    {
+        layout.type = BattleMovementTerrainLayoutType::Scan;
+        return layout;
+    }
+
+    layout.cartesianOrigin = terrainCells.front().position;
+    if (matchesIsometricTerrainGrid(terrainCells, layout.coordCount, tileWidth))
+    {
+        layout.type = BattleMovementTerrainLayoutType::Isometric;
+    }
+    else if (matchesCartesianTerrainGrid(
+                 terrainCells,
+                 layout.coordCount,
+                 tileWidth,
+                 layout.cartesianOrigin))
+    {
+        layout.type = BattleMovementTerrainLayoutType::Cartesian;
+    }
+    else
+    {
+        layout.type = BattleMovementTerrainLayoutType::Scan;
+    }
+    return layout;
+}
 
 std::size_t movementPhysicsCellIndex(const BattleMovementPhysicsCollisionWorld& world, int x, int y)
 {
@@ -1962,8 +2072,9 @@ bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& worl
         return false;
     }
     const auto index = movementPhysicsCellIndex(world, cell.x, cell.y);
-    assert(index < world.walkableByCell.size());
-    return world.walkableByCell[index] != 0;
+    const auto& walkableCells = world.walkableCells();
+    assert(index < walkableCells.size());
+    return walkableCells[index] != 0;
 }
 
 bool movementPhysicsSegmentWalkable(
@@ -2039,6 +2150,10 @@ bool canMoveInPhysicsSnapshot(
 BattleMovementPlanner::BattleMovementPlanner(BattleMovementPlanInput world)
     : world_(std::move(world))
 {
+    if (!world_.pathState)
+    {
+        world_.pathState = &localPathState_;
+    }
 }
 
 BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMovementPhysicsInput& input) const
@@ -2070,10 +2185,11 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
     }
     const int separationDistance = input.actionDashActive || movementDashActive || postDashRetreatActive || knockbackActive ? 1 : -1;
     const auto velocity = state.velocity;
+    const double velocityNorm = velocity.norm();
     const double stepDistance = knockbackActive
         ? std::max(1.0, input.collisionWorld->tileWidth / 4.0)
-        : std::max(static_cast<double>(velocity.norm()), 1.0);
-    const int stepCount = std::max(1, static_cast<int>(std::ceil(velocity.norm() / stepDistance)));
+        : std::max(velocityNorm, 1.0);
+    const int stepCount = std::max(1, static_cast<int>(std::ceil(velocityNorm / stepDistance)));
     Pointf appliedVelocity;
     bool blocked = false;
     for (int step = 1; step <= stepCount; ++step)
@@ -2189,7 +2305,9 @@ MoveProbe BattleMovementPlanner::probeMove(const BattleUnitState& unit,
                                            const std::map<int, Pointf>& reservations) const
 {
     const BattleMovementTerrainLookup terrain(world_);
-    return probeMoveInWorld(world_, terrain, unit, nextPosition, ignoreUnits, reservations);
+    FrameMovementReservationMap frameReservations(world_.frameMemoryResource);
+    frameReservations.insert(reservations.begin(), reservations.end());
+    return probeMoveInWorld(world_, terrain, unit, nextPosition, ignoreUnits, frameReservations);
 }
 
 BattleTickResult BattleMovementPlanner::tick()
@@ -2208,15 +2326,15 @@ BattleTickResult BattleMovementPlanner::tick()
     assert(world_.config.maxRangedReach > 0.0);
     assert(world_.config.movementDashDistanceMultiplier > 0.0);
 
-    BattleTickResult result;
+    BattleTickResult result(world_.frameMemoryResource);
     result.frame = world_.frame;
     pruneMovementReservations(world_);
     pruneMovementYieldRequests(world_);
     pruneMovementDetourRequests(world_);
     const BattleMovementTerrainLookup terrain(world_);
-    std::map<int, Pointf> reservations;
-    std::map<int, BattleMovementYieldRequest> pendingYieldRequests;
-    std::map<int, BattleMovementDetourRequest> pendingDetourRequests;
+    FrameMovementReservationMap reservations(world_.frameMemoryResource);
+    FrameMovementYieldRequestMap pendingYieldRequests(world_.frameMemoryResource);
+    FrameMovementDetourRequestMap pendingDetourRequests(world_.frameMemoryResource);
 
     for (int unitId : movementOrder(world_))
     {
@@ -2295,7 +2413,8 @@ BattleTickResult BattleMovementPlanner::tick()
             unit->dashCooldownRemaining--;
         }
 
-        const auto* target = nearestEnemy(world_, *unit);
+        const auto nearest = nearestEnemy(world_, *unit);
+        const auto* target = nearest.unit;
         if (!target)
         {
             clearMovementReservation(world_, unit->id);
@@ -2308,7 +2427,7 @@ BattleTickResult BattleMovementPlanner::tick()
             unit->targetId = target->id;
         }
         decision.targetId = target->id;
-        double targetDistance = distance2d(unit->position, target->position);
+        double targetDistance = nearest.distance;
         const bool bodyConflict = bodyConflicts(world_, *unit);
         const bool meleeChaosActive = unit->style == CombatStyle::Melee
             && unit->postDashChaosFramesRemaining > 0;
@@ -2474,9 +2593,10 @@ BattleTickResult BattleMovementPlanner::tick()
 
         bool moved = false;
         MoveProbe lastProbe;
-        requestApproachCorridorYield(pendingYieldRequests, world_, *unit, desired);
+        const auto corridorBlocker = approachCorridorBlocker(world_, *unit, desired);
+        requestApproachCorridorYield(pendingYieldRequests, world_, *unit, desired, corridorBlocker);
         auto directions = candidateDirections(world_, *unit, *target, desired);
-        const auto proactiveDetours = proactiveApproachDetourDirections(world_, *unit, desired);
+        const auto proactiveDetours = proactiveApproachDetourDirections(world_, *unit, desired, corridorBlocker);
         directions.insert(directions.begin(), proactiveDetours.begin(), proactiveDetours.end());
         std::optional<Pointf> activePocketDirection;
         auto detourRequest = world_.detourRequests.find(unit->id);
@@ -2699,9 +2819,9 @@ BattleTickResult BattleMovementPlanner::tick()
 
     world_.frame++;
     result.frame = world_.frame;
-    result.movementReservations = world_.movementReservations;
-    result.yieldRequests = world_.yieldRequests;
-    result.detourRequests = world_.detourRequests;
+    result.movementReservations = std::move(world_.movementReservations);
+    result.yieldRequests = std::move(world_.yieldRequests);
+    result.detourRequests = std::move(world_.detourRequests);
     return result;
 }
 

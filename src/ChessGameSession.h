@@ -13,13 +13,20 @@ namespace KysChess
 
 struct ChessSessionCheckpoint;
 
+enum class ChessSessionExecutionMode
+{
+    Full,
+    ReplayVerification,
+};
+
 class ChessGameSession
 {
 public:
     ChessGameSession(
         std::shared_ptr<const ChessGameContent> content,
         std::uint64_t rootSeed,
-        ChessSessionOptions options = {});
+        ChessSessionOptions options = {},
+        ChessSessionExecutionMode executionMode = ChessSessionExecutionMode::Full);
     static std::unique_ptr<ChessGameSession> createStandaloneBattle(
         std::shared_ptr<const ChessGameContent> content,
         std::uint64_t rootSeed,
@@ -77,6 +84,7 @@ private:
     std::shared_ptr<Battle::BattleRuntimeSession> lastBattleRuntime_;
     std::optional<PreparedChessBattle> lastBattlePrepared_;
     std::unique_ptr<PendingTransition> pendingTransition_;
+    ChessSessionExecutionMode executionMode_{};
     bool replayExportEnabled_ = true;
 };
 

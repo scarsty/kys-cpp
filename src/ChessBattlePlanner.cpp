@@ -174,14 +174,17 @@ ChessSessionState lineupState(const EnemyLineupCandidate& candidate)
 int scoreEnemyLineup(const EnemyLineupCandidate& candidate, const ChessGameContent& content)
 {
     const auto state = lineupState(candidate);
+    const auto progresses = evaluateChessComboProgresses(state, content);
+    assert(progresses.size() == content.combos().size());
     int score = 0;
-    for (const auto& combo : content.combos())
+    for (std::size_t index = 0; index < content.combos().size(); ++index)
     {
+        const auto& combo = content.combos()[index];
         if (combo.isAntiCombo || combo.thresholds.empty())
         {
             continue;
         }
-        const auto progress = evaluateChessComboProgress(state, content, combo);
+        const auto& progress = progresses[index];
         if (progress.physicalCount >= 2)
         {
             score += progress.physicalCount * EnemySynergyTuning::OwnedMemberScore;

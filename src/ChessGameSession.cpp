@@ -49,13 +49,15 @@ struct ChessGameSession::PendingTransition
         ChessAction acceptedAction,
         ChessSha256 sourceStateHash,
         std::vector<ChessSemanticEvent> semanticEvents,
-        Battle::BattleRuntimeSessionCreationResult creation)
+        Battle::BattleRuntimeSessionCreationResult creation,
+        bool retainBattleReportEvents)
         : phase(sourcePhase),
           action(std::move(acceptedAction)),
           preStateHash(sourceStateHash),
           events(std::move(semanticEvents)),
           initialization(std::move(creation.initialization)),
-          runtime(std::make_shared<Battle::BattleRuntimeSession>(std::move(creation.session)))
+          runtime(std::make_shared<Battle::BattleRuntimeSession>(std::move(creation.session))),
+          collector(retainBattleReportEvents)
     {
         collector.consumeInitialization(initialization, *runtime);
     }
@@ -68,6 +70,7 @@ struct ChessGameSession::PendingTransition
     std::shared_ptr<Battle::BattleRuntimeSession> runtime;
     BattleReportCollector collector;
     std::vector<Battle::BattleDigestEvent> digestEvents;
+    Battle::BattlePresentationFrame recycledFrame;
 };
 
 ChessReplayHeader ChessGameSession::makeReplayHeader(
@@ -87,10 +90,12 @@ ChessReplayHeader ChessGameSession::makeReplayHeader(
 ChessGameSession::ChessGameSession(
     std::shared_ptr<const ChessGameContent> content,
     std::uint64_t rootSeed,
-    ChessSessionOptions options)
+    ChessSessionOptions options,
+    ChessSessionExecutionMode executionMode)
     : content_(std::move(content)),
       random_(rootSeed),
-      journal_(makeReplayHeader(*content_, rootSeed, options))
+      journal_(makeReplayHeader(*content_, rootSeed, options)),
+      executionMode_(executionMode)
 {
     state_.difficulty = content_->difficulty();
     state_.money = content_->balance().initialMoney;
@@ -200,9 +205,13 @@ ChessGameplayObservation ChessGameSession::observe() const
     observation.completedChallengeNames.assign(
         state_.completedChallengeNames.begin(),
         state_.completedChallengeNames.end());
-    for (const auto& combo : content_->combos())
+    const auto comboProgresses = evaluateChessComboProgresses(state_, *content_);
+    assert(comboProgresses.size() == content_->combos().size());
+    observation.combos.reserve(comboProgresses.size());
+    for (std::size_t index = 0; index < comboProgresses.size(); ++index)
     {
-        const auto progress = evaluateChessComboProgress(state_, *content_, combo);
+        const auto& combo = content_->combos()[index];
+        const auto& progress = comboProgresses[index];
         observation.combos.push_back({
             combo.id,
             progress.physicalCount,
@@ -716,7 +725,8 @@ ChessActionResult ChessGameSession::beginAction(const ChessAction& action)
         action,
         preStateHash,
         std::move(events),
-        std::move(creation));
+        std::move(creation),
+        executionMode_ == ChessSessionExecutionMode::Full);
     result.accepted = true;
     result.transitionPending = true;
     result.evidenceHash = journal_.evidenceHash();
@@ -735,14 +745,23 @@ ChessAutomaticAdvanceResult ChessGameSession::advanceAutomatic(int frameBudget)
     while (result.framesAdvanced < frameBudget
         && !pendingTransition_->runtime->runtime().result.ended)
     {
-        auto frame = pendingTransition_->runtime->runFrame();
+        auto frame = executionMode_ == ChessSessionExecutionMode::Full
+            ? pendingTransition_->runtime->runFrame()
+            : pendingTransition_->runtime->runFrame(std::move(pendingTransition_->recycledFrame));
         pendingTransition_->collector.consumeFrame(frame, *pendingTransition_->runtime);
         auto digest = Battle::battleDigestEvents(frame);
         pendingTransition_->digestEvents.insert(
             pendingTransition_->digestEvents.end(),
             digest.begin(),
             digest.end());
-        result.frames.push_back(std::move(frame));
+        if (executionMode_ == ChessSessionExecutionMode::Full)
+        {
+            result.frames.push_back(std::move(frame));
+        }
+        else
+        {
+            pendingTransition_->recycledFrame = std::move(frame);
+        }
         ++result.framesAdvanced;
     }
     if (!pendingTransition_->runtime->runtime().result.ended)

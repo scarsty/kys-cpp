@@ -408,8 +408,9 @@ void appendExtraProjectiles(std::vector<BattleAttackSpawnRequest>& requests,
     assert(selectedSkill.extraProjectileCount >= 0);
     assert(!requests.empty());
     const auto prototype = requests.front();
-    const double speed = prototype.initial.velocity.norm() > input.config.minimumFacingNorm
-        ? prototype.initial.velocity.norm()
+    const double prototypeSpeed = prototype.initial.velocity.norm();
+    const double speed = prototypeSpeed > input.config.minimumFacingNorm
+        ? prototypeSpeed
         : projectileSpeedForSkill(input.geometry, selectedSkill);
     const double maxTravel = speed * std::max(1, prototype.initial.totalFrame - prototype.initialFrame)
         + input.geometry.projectileSpawnOffset;
@@ -871,7 +872,7 @@ void appendDualWieldFollowUp(
     followUp.initial.strengthMultiplier *= effect->value / 100.0f;
     followUp.initialFrame = 0;
     followUp.spawnDelayFrames = effect->duration;
-    followUp.attackerBlockFirstHitGainChancePct = effect->value2;
+    followUp.attackerDualWieldBlockGainChancePct = effect->value2;
 
     const auto& source = units.requireCore(input.sourceUnitId);
     const int targetId = dualWieldFollowUpTargetId(input, units);

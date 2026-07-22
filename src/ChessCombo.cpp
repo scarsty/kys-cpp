@@ -245,6 +245,22 @@ ChessComboProgress evaluateChessComboProgress(
     return chessComboProgress(combo, resolved.front());
 }
 
+std::vector<ChessComboProgress> evaluateChessComboProgresses(
+    const ChessSessionState& state,
+    const ChessGameContent& content)
+{
+    const auto resolved = resolveRosterCombos(state, content);
+    assert(resolved.size() == content.combos().size());
+
+    std::vector<ChessComboProgress> result;
+    result.reserve(resolved.size());
+    for (std::size_t index = 0; index < resolved.size(); ++index)
+    {
+        result.push_back(chessComboProgress(content.combos()[index], resolved[index]));
+    }
+    return result;
+}
+
 bool chessRosterHasActiveComboEffect(
     const ChessSessionState& state,
     const ChessGameContent& content,

@@ -72,6 +72,7 @@ BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState&
     BattleDamageRuntimeUnit runtime;
     runtime.hurtInvincFrames = unit.hurtInvincFrames;
     runtime.blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
+    runtime.dualWieldBlocksRemaining = unit.dualWieldBlocksRemaining;
     runtime.deathPrevention = unit.deathPrevention;
     runtime.deathPreventionUsed = unit.deathPreventionUsed;
     runtime.deathPreventionFrames = unit.deathPreventionFrames;
@@ -139,7 +140,10 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         result.shieldAbsorbed = defense.shieldAbsorbed;
         result.blockedByInvincible = defense.blockedByInvincible;
         result.blockedByFirstHit = defense.blockedByFirstHit;
-        acceptedHit = !defense.blockedByInvincible && !defense.blockedByFirstHit;
+        result.blockedByDualWield = defense.blockedByDualWield;
+        acceptedHit = !defense.blockedByInvincible
+            && !defense.blockedByFirstHit
+            && !defense.blockedByDualWield;
         resolvedDamage = defense.damage;
 
         if (defense.shieldAbsorbed > 0)
@@ -162,6 +166,14 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         {
             recordBattleDamageEvent(result.events,
                                     BattleDamageEventType::BlockedByFirstHit,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    0);
+        }
+        if (defense.blockedByDualWield)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::BlockedByDualWield,
                                     input.request.attackerUnitId,
                                     input.request.defenderUnitId,
                                     0);
@@ -551,6 +563,17 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
     {
         result.damage = 0;
         result.blockedByInvincible = true;
+        return result;
+    }
+
+    if (!input.executed
+        && !input.reflected
+        && result.damage > 0
+        && result.defender.dualWieldBlocksRemaining > 0)
+    {
+        result.damage = 0;
+        result.defender.dualWieldBlocksRemaining--;
+        result.blockedByDualWield = true;
         return result;
     }
 

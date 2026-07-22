@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <initializer_list>
 #include <iterator>
+#include <span>
 
 using namespace KysChess::Battle;
 
@@ -44,7 +45,7 @@ BattleAttackInstance attack(int id, int attackerId, double x, double y)
     return state;
 }
 
-bool hasEvent(const std::vector<BattleAttackEvent>& events, BattleAttackEventType type, int attackId, int unitId = -1)
+bool hasEvent(std::span<const BattleAttackEvent> events, BattleAttackEventType type, int attackId, int unitId = -1)
 {
     for (const auto& event : events)
     {

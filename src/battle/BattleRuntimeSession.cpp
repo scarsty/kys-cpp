@@ -1,5 +1,6 @@
 #include "BattleRuntimeSession.h"
 
+#include "BattleMovement.h"
 #include "BattleRuntimeUnitSpawn.h"
 
 #include "../Find.h"
@@ -186,6 +187,9 @@ void deriveRuntimeState(
     runtime.movement.frame = input.battleFrame;
     runtime.movement.config = input.rules.movementConfig;
     runtime.movement.terrainCells = std::move(input.terrainCells);
+    runtime.movement.terrainLayout = makeBattleMovementTerrainLayout(
+        runtime.movement.terrainCells,
+        runtime.movement.config.tileWidth);
 
     configureAttackWorld(runtime.attacks, input.rules);
     runtime.teamEffects.healAuraRadius = input.rules.teamEffectHealAuraRadius;
@@ -222,7 +226,6 @@ void deriveRuntimeState(
     runtime.maximumFrames = input.rules.maximumFrames;
 
     runtime.damage.sortPendingDamageByDefenderMagnitude = true;
-    runtime.profiling = input.profiling;
 }
 
 struct BattleRuntimeSetupResult
@@ -266,9 +269,14 @@ BattleRuntimeSessionCreationResult BattleRuntimeSession::createInitialized(Battl
 
 BattlePresentationFrame BattleRuntimeSession::runFrame()
 {
+    return runFrame({});
+}
+
+BattlePresentationFrame BattleRuntimeSession::runFrame(BattlePresentationFrame recycledPresentation)
+{
     frameStarted_ = true;
     // BattleFrameRunner is the single writer for runtime state; BattlePresentationFrame is the presentation report.
-    auto frame = runner_.runFrame(runtime_);
+    auto frame = runner_.runFrame(runtime_, std::move(recycledPresentation));
     if (!runtime_.result.ended && runtime_.movement.frame >= runtime_.maximumFrames)
     {
         runtime_.result.ended = true;

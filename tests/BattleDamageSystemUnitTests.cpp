@@ -194,7 +194,7 @@ TEST_CASE("BattleDamageSystem_Modifiers_RespectIgnoreDefenseAndMaxHitCap", "[bat
     CHECK(result.maxHitPct == 25);
 }
 
-TEST_CASE("BattleDamageSystem_Defense_InvincibleFirstHitAndShieldAreSeparateLayers", "[battle][damage][unit]")
+TEST_CASE("BattleDamageSystem_Defense_InvincibleAttackBlocksAndShieldAreSeparateLayers", "[battle][damage][unit]")
 {
     BattleDamageSystem system;
 
@@ -212,6 +212,16 @@ TEST_CASE("BattleDamageSystem_Defense_InvincibleFirstHitAndShieldAreSeparateLaye
     CHECK(firstHit.blockedByFirstHit);
 
     defender = unit();
+    defender.blockFirstHitsRemaining = 2;
+    defender.dualWieldBlocksRemaining = 1;
+    auto dualWield = system.resolveDefense({ 80, false, false, false, defender });
+    CHECK(dualWield.damage == 0.0);
+    CHECK(dualWield.defender.dualWieldBlocksRemaining == 0);
+    CHECK(dualWield.defender.blockFirstHitsRemaining == 2);
+    CHECK(dualWield.blockedByDualWield);
+    CHECK_FALSE(dualWield.blockedByFirstHit);
+
+    defender = unit();
     defender.shield = 50;
     auto shield = system.resolveDefense({ 80, false, false, false, defender });
     CHECK(shield.damage == 30.0);
@@ -220,10 +230,11 @@ TEST_CASE("BattleDamageSystem_Defense_InvincibleFirstHitAndShieldAreSeparateLaye
     CHECK(shield.shieldBroken);
 }
 
-TEST_CASE("BattleDamageSystem_ExecutedHitsBypassInvincibleAndFirstHitBlock", "[battle][damage][unit]")
+TEST_CASE("BattleDamageSystem_ExecutedHitsBypassInvincibleAndAttackBlocks", "[battle][damage][unit]")
 {
     auto defender = unit();
     defender.blockFirstHitsRemaining = 1;
+    defender.dualWieldBlocksRemaining = 1;
     defender.invincible = 10;
 
     auto result = BattleDamageSystem().resolveDefense({ 80, true, false, true, defender });
@@ -231,7 +242,9 @@ TEST_CASE("BattleDamageSystem_ExecutedHitsBypassInvincibleAndFirstHitBlock", "[b
     CHECK(result.damage == 80.0);
     CHECK_FALSE(result.blockedByInvincible);
     CHECK_FALSE(result.blockedByFirstHit);
+    CHECK_FALSE(result.blockedByDualWield);
     CHECK(result.defender.blockFirstHitsRemaining == 1);
+    CHECK(result.defender.dualWieldBlocksRemaining == 1);
 }
 
 TEST_CASE("BattleDamageSystem_DamageTaken_GrantsHurtInvincOrDeathPrevention", "[battle][damage][unit]")

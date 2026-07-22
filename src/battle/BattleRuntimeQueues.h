@@ -24,12 +24,34 @@ public:
 
     std::vector<BattleAttackSpawnRequest> drainAttacks()
     {
-        return std::exchange(attackSpawns_, {});
+        auto drained = std::move(attackSpawns_);
+        attackSpawns_ = std::move(recycledAttackSpawns_);
+        return drained;
     }
 
     std::vector<BattlePendingDamageIntent> drainDamage()
     {
-        return std::exchange(pendingDamage_, {});
+        auto drained = std::move(pendingDamage_);
+        pendingDamage_ = std::move(recycledPendingDamage_);
+        return drained;
+    }
+
+    void recycleAttacks(std::vector<BattleAttackSpawnRequest>&& consumed)
+    {
+        consumed.clear();
+        if (consumed.capacity() > recycledAttackSpawns_.capacity())
+        {
+            recycledAttackSpawns_.swap(consumed);
+        }
+    }
+
+    void recycleDamage(std::vector<BattlePendingDamageIntent>&& consumed)
+    {
+        consumed.clear();
+        if (consumed.capacity() > recycledPendingDamage_.capacity())
+        {
+            recycledPendingDamage_.swap(consumed);
+        }
     }
 
     const std::vector<BattleAttackSpawnRequest>& queuedAttacksForTest() const
@@ -55,6 +77,8 @@ public:
 private:
     std::vector<BattleAttackSpawnRequest> attackSpawns_;
     std::vector<BattlePendingDamageIntent> pendingDamage_;
+    std::vector<BattleAttackSpawnRequest> recycledAttackSpawns_;
+    std::vector<BattlePendingDamageIntent> recycledPendingDamage_;
 };
 
 }  // namespace KysChess::Battle

@@ -16,6 +16,7 @@ namespace KysChess::Battle
 {
 
 inline constexpr int OptionalDamageAttackerUnitId = -1;
+inline constexpr int DualWieldBlockMaxStacks = 1;
 
 struct BattleRuntimeUnit;
 
@@ -30,6 +31,7 @@ struct BattleDamageUnitState
 
     int shield = 0;
     int blockFirstHitsRemaining = 0;
+    int dualWieldBlocksRemaining = 0;
 
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
@@ -47,6 +49,7 @@ struct BattleDamageRuntimeUnit
 {
     int hurtInvincFrames = 0;
     int blockFirstHitsRemaining = 0;
+    int dualWieldBlocksRemaining = 0;
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
     int deathPreventionFrames = 0;
@@ -145,6 +148,7 @@ struct BattleDamageDefenseResult
     int shieldAbsorbed = 0;
     bool blockedByInvincible = false;
     bool blockedByFirstHit = false;
+    bool blockedByDualWield = false;
     bool shieldBroken = false;
 };
 
@@ -246,6 +250,7 @@ enum class BattleDamageEventType
     ShieldAbsorbed,
     BlockedByInvincible,
     BlockedByFirstHit,
+    BlockedByDualWield,
     DeathPrevented,
     UnitDied,
     KillRewardApplied,
@@ -353,6 +358,7 @@ struct BattleDamageTransactionResult
     bool deathPrevented = false;
     bool blockedByInvincible = false;
     bool blockedByFirstHit = false;
+    bool blockedByDualWield = false;
     int invincibilityGranted = 0;
 };
 

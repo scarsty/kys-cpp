@@ -151,6 +151,7 @@ std::string battleEffectType(const BattleReportEvent& event)
     case Battle::BattleStatusSemanticId::EnemyTopDebuff: return "enemy_top_debuff_changed";
     case Battle::BattleStatusSemanticId::MagicPointsDrained: return "magic_points_drained";
     case Battle::BattleStatusSemanticId::PoisonPayload: return "poison_payload";
+    case Battle::BattleStatusSemanticId::BlockedByDualWield: return "blocked_by_dual_wield";
     case Battle::BattleStatusSemanticId::None: break;
     }
     if (event.resourceId == Battle::BattleResourceSemanticId::Cooldown) return "cooldown_changed";
@@ -254,7 +255,8 @@ void addCombatEffect(UnitCombatAggregate& aggregate, const BattleReportEvent& ev
     {
         ++aggregate.deathPreventionTriggers;
     }
-    if (event.statusId == Battle::BattleStatusSemanticId::BlockedByFirstHit
+    if ((event.statusId == Battle::BattleStatusSemanticId::BlockedByFirstHit
+            || event.statusId == Battle::BattleStatusSemanticId::BlockedByDualWield)
         || containsText(label, "格擋"))
     {
         ++aggregate.blocks;

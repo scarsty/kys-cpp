@@ -175,7 +175,8 @@ ChessReplayAudit::ChessReplayAudit(
     session_ = std::make_unique<ChessGameSession>(
         std::move(content),
         replay_.header.rootSeed,
-        replay_.header.options);
+        replay_.header.options,
+        ChessSessionExecutionMode::ReplayVerification);
 }
 
 void ChessReplayAudit::fail(

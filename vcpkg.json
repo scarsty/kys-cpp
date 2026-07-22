@@ -35,6 +35,7 @@
     },
     "sdl3-ttf",
     "sqlite3",
+    "unordered-dense",
     "yaml-cpp"
   ]
 }

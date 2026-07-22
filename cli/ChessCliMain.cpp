@@ -1,5 +1,6 @@
 #include "ChessCliController.h"
 #include "ChessContentLoader.h"
+#include "ChessPvp.h"
 #include "ChessReplayArchive.h"
 #include "ChessReplayJson.h"
 #include "ChessReplayVerifier.h"
@@ -7,10 +8,11 @@
 #include <Windows.h>
 
 #include <array>
-#include <filesystem>
 #include <charconv>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <optional>
 
@@ -111,7 +113,8 @@ Arguments parseArguments(int argc, char** argv)
     if (index < argc && argv[index][0] != '-')
     {
         result.command = argv[index++];
-        if (result.command == "verify" && index < argc)
+        if ((result.command == "verify" || result.command == "verify-pvp")
+            && index < argc)
         {
             result.replayPath = argv[index++];
         }
@@ -215,6 +218,34 @@ int main(int argc, char** argv)
             return 1;
         }
         std::cout << "重播驗證成功\n";
+        return 0;
+    }
+
+    if (arguments.command == "verify-pvp")
+    {
+        const auto payload = readText(arguments.replayPath);
+        if (!payload)
+        {
+            std::cerr << "無法讀取離線對戰存檔\n";
+            return 2;
+        }
+        const auto content = provider(Difficulty::Hard);
+        if (!content)
+        {
+            return 2;
+        }
+        ChessPvpSaveVerifier verifier(content, *payload);
+        while (!verifier.finished())
+        {
+            verifier.step(1, std::numeric_limits<int>::max());
+        }
+        const auto verification = verifier.takeResult();
+        if (!verification.valid)
+        {
+            std::cerr << "序號 " << verification.sequence << "：" << verification.message << '\n';
+            return 1;
+        }
+        std::cout << "離線對戰存檔驗證成功\n";
         return 0;
     }
 

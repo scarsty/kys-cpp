@@ -352,7 +352,18 @@ BattleAttackEvent BattleAttackState::spawn(const BattleAttackSpawnRequest& reque
     return event;
 }
 
-std::vector<BattleAttackEvent> BattleAttackState::tick(const BattleRuntimeUnits& units)
+std::pmr::vector<BattleAttackEvent> BattleAttackState::tick(
+    const BattleRuntimeUnits& units,
+    std::pmr::memory_resource* memoryResource)
+{
+    std::pmr::vector<BattleAttackEvent> events(memoryResource);
+    tick(units, events);
+    return events;
+}
+
+void BattleAttackState::tick(
+    const BattleRuntimeUnits& units,
+    std::pmr::vector<BattleAttackEvent>& events)
 {
     assert(hitRadius > 0.0);
     assert(minimumVectorNorm > 0.0);
@@ -361,8 +372,8 @@ std::vector<BattleAttackEvent> BattleAttackState::tick(const BattleRuntimeUnits&
     assert(defaultProjectileSpeed > 0.0);
     assert(minimumBounceTotalFrame > 0);
 
-    std::vector<BattleAttackEvent> events;
-    std::vector<PendingBounce> pendingBounces;
+    auto* memoryResource = events.get_allocator().resource();
+    std::pmr::vector<PendingBounce> pendingBounces(memoryResource);
 
     const size_t initialAttackCount = attacks.size();
     for (size_t i = 0; i < initialAttackCount; ++i)
@@ -401,7 +412,7 @@ std::vector<BattleAttackEvent> BattleAttackState::tick(const BattleRuntimeUnits&
             blocked.unitId = target->id;
             applyAttackPayload(blocked, attack.state);
             blocked.frame = attack.frame;
-            events.push_back(blocked);
+            events.push_back(std::move(blocked));
         }
         else if (target && canHit(units, attack, *target))
         {
@@ -412,7 +423,7 @@ std::vector<BattleAttackEvent> BattleAttackState::tick(const BattleRuntimeUnits&
             hit.unitId = target->id;
             applyAttackPayload(hit, attack.state);
             hit.frame = attack.frame;
-            events.push_back(hit);
+            events.push_back(std::move(hit));
 
             if (attack.spawnedFromAttackId >= 0 && attack.state.bounceRemaining == 0)
             {
@@ -456,19 +467,19 @@ std::vector<BattleAttackEvent> BattleAttackState::tick(const BattleRuntimeUnits&
         }
     }
 
-    for (const auto& pending : pendingBounces)
+    for (auto& pending : pendingBounces)
     {
-        attacks.push_back(pending.attack);
+        const int attackId = pending.attack.id;
+        attacks.push_back(std::move(pending.attack));
         events.push_back({
             BattleAttackEventType::Bounce,
             pending.sourceAttackId,
-            pending.attack.id,
+            attackId,
             pending.targetUnitId,
         });
     }
 
     collectProjectileCancelEvents(units, events);
-    return events;
 }
 
 void BattleAttackState::applyProjectileCancelDamage(const BattleAttackEvent& event)
@@ -537,10 +548,18 @@ const BattleRuntimeUnit* BattleAttackState::selectTarget(
 
     const BattleRuntimeUnit* best = nullptr;
     double bestDistance = 0.0;
+    double bestDistanceSquared = 0.0;
     for (const auto& unitRecord : units.live())
     {
         const auto& unit = unitRecord.core;
         if (unit.team == attacker.team)
+        {
+            continue;
+        }
+        const double candidateDistanceSquared = pointDistanceSquared(
+            unit.motion.position,
+            attack.state.position);
+        if (best && candidateDistanceSquared > bestDistanceSquared)
         {
             continue;
         }
@@ -549,6 +568,7 @@ const BattleRuntimeUnit* BattleAttackState::selectTarget(
         {
             best = &unit;
             bestDistance = candidateDistance;
+            bestDistanceSquared = candidateDistanceSquared;
         }
     }
     return best;
@@ -790,9 +810,10 @@ BattleAttackInstance BattleAttackState::makeBounceAttack(
 
 void BattleAttackState::collectProjectileCancelEvents(
     const BattleRuntimeUnits& units,
-    std::vector<BattleAttackEvent>& events) const
+    std::pmr::vector<BattleAttackEvent>& events) const
 {
-    std::vector<ProjectileCancelSearchCandidate> searchCandidates;
+    auto* memoryResource = events.get_allocator().resource();
+    std::pmr::vector<ProjectileCancelSearchCandidate> searchCandidates(memoryResource);
     searchCandidates.reserve(attacks.size());
     for (const auto& attack : attacks)
     {
@@ -810,7 +831,7 @@ void BattleAttackState::collectProjectileCancelEvents(
 
     std::sort(searchCandidates.begin(), searchCandidates.end(), projectileCancelSearchCandidateLess);
 
-    std::vector<ProjectileCancelCandidate> candidates;
+    std::pmr::vector<ProjectileCancelCandidate> candidates(memoryResource);
     for (size_t i = 0; i + 1 < searchCandidates.size(); ++i)
     {
         const auto& lhs = searchCandidates[i];
@@ -841,9 +862,9 @@ void BattleAttackState::collectProjectileCancelEvents(
     }
 
     std::sort(candidates.begin(), candidates.end(), betterProjectileCancelCandidate);
-    std::unordered_set<int> usedAttackIds;
+    std::pmr::unordered_set<int> usedAttackIds(memoryResource);
     usedAttackIds.reserve(candidates.size() * 2);
-    for (const auto& candidate : candidates)
+    for (auto& candidate : candidates)
     {
         if (usedAttackIds.contains(candidate.event.attackId)
             || usedAttackIds.contains(candidate.event.otherAttackId))
@@ -852,7 +873,7 @@ void BattleAttackState::collectProjectileCancelEvents(
         }
         usedAttackIds.insert(candidate.event.attackId);
         usedAttackIds.insert(candidate.event.otherAttackId);
-        events.push_back(candidate.event);
+        events.push_back(std::move(candidate.event));
     }
 }
 

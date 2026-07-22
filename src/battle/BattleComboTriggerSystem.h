@@ -4,6 +4,7 @@
 
 #include <array>
 #include <initializer_list>
+#include <memory_resource>
 #include <optional>
 #include <vector>
 
@@ -333,12 +334,15 @@ public:
 class BattleComboTriggerSystem
 {
 public:
-    std::vector<BattleComboTriggerAction> updateFrameTriggers(RoleComboState& state,
-                                                             const BattleComboFrameUnit& unit) const;
-
-    std::vector<BattleComboFrameRuntimeEvent> advanceFrameRuntime(
+    std::pmr::vector<BattleComboTriggerAction> updateFrameTriggers(
         RoleComboState& state,
-        const BattleComboFrameRuntimeInput& input) const;
+        const BattleComboFrameUnit& unit,
+        std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource()) const;
+
+    std::pmr::vector<BattleComboFrameRuntimeEvent> advanceFrameRuntime(
+        RoleComboState& state,
+        const BattleComboFrameRuntimeInput& input,
+        std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource()) const;
 
     BattleTriggeredTeamHeal collectTeamHeal(RoleComboState& state,
                                             Trigger trigger,

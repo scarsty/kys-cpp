@@ -287,6 +287,73 @@ TEST_CASE("BattleMovementPhysicsSystem_SlidesAndTicksDashRuntime", "[battle][mov
     CHECK(state.movementDashCooldown == 2);
 }
 
+TEST_CASE("BattleMovementTerrainLayout_ClassifiesSupportedTerrainShapes", "[battle][movement][terrain]")
+{
+    CHECK(makeBattleMovementTerrainLayout({}, SceneTileWidth).type
+        == BattleMovementTerrainLayoutType::Empty);
+    CHECK(makeBattleMovementTerrainLayout(isometricTerrainGrid(4), SceneTileWidth).type
+        == BattleMovementTerrainLayoutType::Isometric);
+
+    auto cartesian = terrainGridWithVerticalWallGap(4, 1, 2);
+    CHECK(makeBattleMovementTerrainLayout(cartesian, SceneTileWidth).type
+        == BattleMovementTerrainLayoutType::Cartesian);
+
+    cartesian[5].position.x += 5.0f;
+    CHECK(makeBattleMovementTerrainLayout(cartesian, SceneTileWidth).type
+        == BattleMovementTerrainLayoutType::Scan);
+}
+
+TEST_CASE("BattleMovementPlanner_BorrowedTerrainMatchesOwnedTerrain", "[battle][movement][terrain]")
+{
+    const auto compareProbe = [](const std::vector<BattleTerrainCell>& terrain, Pointf position)
+    {
+        auto owned = makeWorld({ { 97, 0, position } }, terrain);
+        auto borrowed = owned;
+        borrowed.terrainCells.clear();
+        borrowed.terrainCellSource = &owned.terrainCells;
+
+        const auto ownedProbe = BattleMovementPlanner(owned).probeMove(owned.units.front(), position, true);
+        const auto borrowedProbe = BattleMovementPlanner(borrowed).probeMove(borrowed.units.front(), position, true);
+        CHECK(borrowedProbe.canMove == ownedProbe.canMove);
+        CHECK(borrowedProbe.reason == ownedProbe.reason);
+        CHECK(borrowedProbe.blockerId == ownedProbe.blockerId);
+    };
+
+    compareProbe({}, { 100.0f, 100.0f, 0.0f });
+
+    auto isometric = isometricTerrainGrid(4);
+    isometric[6].walkable = false;
+    compareProbe(isometric, isometric[6].position);
+
+    auto cartesian = terrainGridWithVerticalWallGap(4, 1, 2);
+    compareProbe(cartesian, cartesian[4].position);
+
+    auto scan = cartesian;
+    scan[5].position.x += 5.0f;
+    compareProbe(scan, scan[5].position);
+
+    auto owned = makeWorld({
+        { 97, 0, { 72, 72, 0 } },
+        { 116, 1, { 360, 72, 0 } },
+    }, terrainGridWithVerticalWallGap(12, 5, 9));
+    owned.units.front().dashCooldownRemaining = 999;
+    auto borrowed = owned;
+    borrowed.terrainCells.clear();
+    borrowed.terrainCellSource = &owned.terrainCells;
+
+    const auto ownedTick = BattleMovementPlanner(owned).tick();
+    const auto borrowedTick = BattleMovementPlanner(borrowed).tick();
+    const auto& ownedDecision = ownedTick.decisions.at(1);
+    const auto& borrowedDecision = borrowedTick.decisions.at(1);
+    CHECK(borrowedDecision.action == ownedDecision.action);
+    CHECK(borrowedDecision.destination.x == ownedDecision.destination.x);
+    CHECK(borrowedDecision.destination.y == ownedDecision.destination.y);
+    CHECK(borrowedDecision.velocity.x == ownedDecision.velocity.x);
+    CHECK(borrowedDecision.velocity.y == ownedDecision.velocity.y);
+    CHECK(borrowedDecision.blockReason == ownedDecision.blockReason);
+    CHECK(borrowedDecision.blockerId == ownedDecision.blockerId);
+}
+
 TEST_CASE("SaoDi_MeleeJitter_DoesNotIdleHundredsOfFrames", "[battle][movement]")
 {
     auto world = makeWorld({

@@ -138,8 +138,8 @@ TEST_CASE("ChessBattleEffects_ParseAndDescribeDualWieldFollowUp", "[chess][effec
     CHECK(effect.value == 45);
     CHECK(effect.value2 == 50);
     CHECK(effect.duration == 6);
-    CHECK(comboEffectDesc(effect) == "出手6幀後追加45%傷害，並有50%機率增加1次攻擊抵擋");
-    CHECK(comboEffectCompactDesc(effect) == "互搏追擊45%·50%抵擋+1");
+    CHECK(comboEffectDesc(effect) == "出手6幀後追加45%傷害，並有50%機率獲得1次互搏抵擋（最多1次）");
+    CHECK(comboEffectCompactDesc(effect) == "互搏追擊45%·50%互搏抵擋");
 }
 
 TEST_CASE("ChessBattleEffects_RuntimeGrantsShareStoreButKeepOrigin", "[battle][effects]")

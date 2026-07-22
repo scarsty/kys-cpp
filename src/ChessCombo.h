@@ -56,6 +56,10 @@ ChessComboProgress evaluateChessComboProgress(
     const ChessGameContent& content,
     const ComboDef& combo);
 
+std::vector<ChessComboProgress> evaluateChessComboProgresses(
+    const ChessSessionState& state,
+    const ChessGameContent& content);
+
 ChessComboProgress chessComboProgress(
     const ComboDef& combo,
     const ResolvedChessCombo& resolved);

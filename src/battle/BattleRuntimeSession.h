@@ -64,7 +64,6 @@ struct BattleRuntimeSessionCreationInput
     BattleRuntimeRulesConfig rules;
     unsigned int randomSeed = 1;
     int battleFrame = 0;
-    BattleFrameProfilingConfig profiling;
 };
 
 struct BattleRuntimeSessionCreationResult;
@@ -79,6 +78,7 @@ public:
     // The only post-initialization gameplay advance path. Callers send setup/input
     // before the frame and consume the returned result for presentation/reporting.
     BattlePresentationFrame runFrame();
+    BattlePresentationFrame runFrame(BattlePresentationFrame recycledPresentation);
     void swapSetupUnitPositions(int firstUnitId, int secondUnitId);
 
     const BattleRuntimeState& runtime() const;

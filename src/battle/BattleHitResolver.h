@@ -9,6 +9,7 @@
 #include "BattleProjectileTargetingSystem.h"
 #include "BattleUnitValues.h"
 
+#include <span>
 #include <string>
 #include <variant>
 #include <vector>
@@ -216,7 +217,7 @@ struct BattleBleedEffectSummary
 BattleBleedEffectSummary resolveBattleBleedEffectSummary(const BattleEffectSources& sources);
 
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
-    const std::vector<BattleGameplayCommand>& commands,
+    std::span<const BattleGameplayCommand> commands,
     BattleProjectileFollowUpContext& context,
     const BattleRuntimeUnits& units);
 

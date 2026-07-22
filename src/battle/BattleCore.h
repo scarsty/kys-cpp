@@ -29,7 +29,16 @@ namespace KysChess::Battle
 class BattleFrameRunner
 {
 public:
+    BattleFrameRunner();
+
     BattlePresentationFrame runFrame(BattleRuntimeState& runtime) const;
+    BattlePresentationFrame runFrame(
+        BattleRuntimeState& runtime,
+        BattlePresentationFrame recycledPresentation) const;
+
+private:
+    static constexpr std::size_t FrameMemoryBytes = 256 * 1024;
+    mutable std::vector<std::byte> frameMemoryStorage_;
 };
 
 }  // namespace KysChess::Battle

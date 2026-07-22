@@ -2,7 +2,12 @@
 
 #include "../Point.h"
 
+#include <cstdint>
 #include <map>
+#include <memory_resource>
+#include <optional>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace KysChess::Battle
@@ -191,22 +196,63 @@ struct BattleMovementAgentState
     BattleMovementPhysicsState physics;
 };
 
+struct BattleMovementPathState
+{
+    std::vector<double> costs;
+    std::vector<int> previous;
+    std::vector<std::pair<double, int>> frontier;
+    std::unordered_map<std::uint64_t, int> nextCellByEndpoints;
+};
+
 struct BattleTickResult
 {
+    explicit BattleTickResult(
+        std::pmr::memory_resource* frameMemoryResource = std::pmr::get_default_resource())
+        : events(frameMemoryResource)
+        , decisions(frameMemoryResource)
+    {
+    }
+
     int frame = 0;
-    std::vector<BattleEvent> events;
-    std::map<int, MovementDecision> decisions;
+    std::pmr::vector<BattleEvent> events;
+    std::pmr::map<int, MovementDecision> decisions;
     std::map<int, BattleMovementReservation> movementReservations;
     std::map<int, BattleMovementYieldRequest> yieldRequests;
     std::map<int, BattleMovementDetourRequest> detourRequests;
 };
 
+enum class BattleMovementTerrainLayoutType
+{
+    Empty,
+    Isometric,
+    Cartesian,
+    Scan,
+};
+
+struct BattleMovementTerrainLayout
+{
+    int coordCount{};
+    BattleMovementTerrainLayoutType type = BattleMovementTerrainLayoutType::Scan;
+    Pointf cartesianOrigin;
+};
+
 struct BattleMovementPlanInput
 {
+    explicit BattleMovementPlanInput(
+        std::pmr::memory_resource* frameMemoryResource = std::pmr::get_default_resource())
+        : units(frameMemoryResource)
+        , frameMemoryResource(frameMemoryResource)
+    {
+    }
+
     int frame = 0;
     BattleMovementConfig config;
-    std::vector<BattleUnitState> units;
+    std::pmr::vector<BattleUnitState> units;
     std::vector<BattleTerrainCell> terrainCells;
+    const std::vector<BattleTerrainCell>* terrainCellSource = nullptr;
+    std::optional<BattleMovementTerrainLayout> terrainLayout;
+    std::pmr::memory_resource* frameMemoryResource = std::pmr::get_default_resource();
+    BattleMovementPathState* pathState = nullptr;
     std::map<int, BattleMovementReservation> movementReservations;
     std::map<int, BattleMovementYieldRequest> yieldRequests;
     std::map<int, BattleMovementDetourRequest> detourRequests;
@@ -218,6 +264,8 @@ struct BattleMovementState
     unsigned int seed = 1;
     BattleMovementConfig config;
     std::vector<BattleTerrainCell> terrainCells;
+    std::optional<BattleMovementTerrainLayout> terrainLayout;
+    BattleMovementPathState pathState;
     std::map<int, BattleMovementReservation> movementReservations;
     std::map<int, BattleMovementYieldRequest> yieldRequests;
     std::map<int, BattleMovementDetourRequest> detourRequests;

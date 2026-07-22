@@ -59,9 +59,10 @@ HeadlessBattleResult HeadlessBattleRunner::run(Battle::BattleRuntimeSessionCreat
 
     HeadlessBattleResult result;
     result.initialization = creation.initialization;
+    Battle::BattlePresentationFrame frame;
     while (!creation.session.runtime().result.ended)
     {
-        auto frame = creation.session.runFrame();
+        frame = creation.session.runFrame(std::move(frame));
         collector.consumeFrame(frame, creation.session);
         auto projected = Battle::battleDigestEvents(frame);
         result.digestEvents.insert(result.digestEvents.end(), projected.begin(), projected.end());

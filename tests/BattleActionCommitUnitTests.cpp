@@ -212,7 +212,7 @@ TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndBloc
     CHECK(followUp.initial.roleAttackEchoActType == 7);
     CHECK(followUp.initial.strengthMultiplier == 0.45f);
     CHECK(followUp.spawnDelayFrames == 6);
-    CHECK(followUp.attackerBlockFirstHitGainChancePct == 50);
+    CHECK(followUp.attackerDualWieldBlockGainChancePct == 50);
 }
 
 TEST_CASE("BattleActionCommit_DualWieldFallsBackToPrimaryTarget", "[battle][action_commit][unit]")

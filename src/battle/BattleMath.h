@@ -15,6 +15,13 @@ inline double pointDistance(const Pointf& lhs, const Pointf& rhs)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+inline double pointDistanceSquared(const Pointf& lhs, const Pointf& rhs)
+{
+    const double dx = static_cast<double>(lhs.x) - rhs.x;
+    const double dy = static_cast<double>(lhs.y) - rhs.y;
+    return dx * dx + dy * dy;
+}
+
 inline Pointf normalizedTo(Pointf point, double length, double minimumNorm)
 {
     assert(minimumNorm > 0.0);

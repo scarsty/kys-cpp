@@ -452,30 +452,23 @@ void BattleComboTriggerSystem::recordActivation(RoleComboState& state, RoleCombo
     state.recordTriggeredEffectActivation(effectId);
 }
 
-std::vector<BattleComboTriggerAction> BattleComboTriggerSystem::updateFrameTriggers(
+std::pmr::vector<BattleComboTriggerAction> BattleComboTriggerSystem::updateFrameTriggers(
     RoleComboState& state,
-    const BattleComboFrameUnit& unit) const
+    const BattleComboFrameUnit& unit,
+    std::pmr::memory_resource* memoryResource) const
 {
     assert(unit.maxHp > 0);
 
-    std::vector<BattleComboTriggerAction> actions;
-    std::vector<RoleComboEffectId> ids;
-    for (Trigger trigger : triggersForHook(BattleComboTriggerHook::FrameTick))
-    {
-        for (RoleComboEffectId id : state.effectIdsInAppendOrder())
-        {
-            const auto& effect = state.effect(id);
-            if (effect.trigger == trigger)
-            {
-                ids.push_back(id);
-            }
-        }
-    }
-    std::ranges::sort(ids, {}, &RoleComboEffectId::value);
+    std::pmr::vector<BattleComboTriggerAction> actions(memoryResource);
+    const auto frameTriggers = triggersForHook(BattleComboTriggerHook::FrameTick);
 
-    for (RoleComboEffectId id : ids)
+    for (RoleComboEffectId id : state.effectIdsInAppendOrder())
     {
         const auto& effect = state.effect(id);
+        if (std::ranges::find(frameTriggers, effect.trigger) == frameTriggers.end())
+        {
+            continue;
+        }
         if (!canActivate(state, id))
         {
             continue;
@@ -525,14 +518,15 @@ std::vector<BattleComboTriggerAction> BattleComboTriggerSystem::updateFrameTrigg
     return actions;
 }
 
-std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrameRuntime(
+std::pmr::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrameRuntime(
     RoleComboState& state,
-    const BattleComboFrameRuntimeInput& input) const
+    const BattleComboFrameRuntimeInput& input,
+    std::pmr::memory_resource* memoryResource) const
 {
     assert(input.frame >= 0);
     assert(input.maxHp > 0);
 
-    std::vector<BattleComboFrameRuntimeEvent> events;
+    std::pmr::vector<BattleComboFrameRuntimeEvent> events(memoryResource);
     state.setLastAliveForComboRuntime(input.lastAlive);
 
     if (input.alive)
@@ -599,7 +593,8 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
     {
         for (const auto& action : updateFrameTriggers(
                  state,
-                 { input.hp, input.maxHp, input.lastAlive }))
+                 { input.hp, input.maxHp, input.lastAlive },
+                 memoryResource))
         {
             if (action.type == BattleComboTriggerActionType::HealPercentSelf)
             {
@@ -629,12 +624,7 @@ std::vector<BattleComboFrameRuntimeEvent> BattleComboTriggerSystem::advanceFrame
         }
     }
 
-    std::vector<RoleComboEffectId> rampingIds;
-    for (RoleComboEffectId id : state.effectIds(Trigger::Always, EffectType::RampingDmg))
-    {
-        rampingIds.push_back(id);
-    }
-    state.advanceEffectIdleTimers(rampingIds);
+    state.advanceEffectIdleTimers(state.effectIds(Trigger::Always, EffectType::RampingDmg));
     state.advanceTriggerTimersOneFrame();
 
     return events;

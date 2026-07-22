@@ -3,10 +3,13 @@
 #include "ChessDiagnostics.h"
 
 #include <compare>
+#include <cstdint>
 #include <map>
 #include <span>
 #include <string>
 #include <vector>
+
+#include <ankerl/unordered_dense.h>
 
 namespace YAML { class Node; }
 
@@ -189,14 +192,6 @@ struct ComboTriggerTimerKey
     auto operator<=>(const ComboTriggerTimerKey&) const = default;
 };
 
-struct RoleComboEffectLookupKey
-{
-    Trigger trigger = Trigger::Always;
-    EffectType type = EffectType::FlatHP;
-
-    auto operator<=>(const RoleComboEffectLookupKey&) const = default;
-};
-
 struct RoleComboAlwaysSummary
 {
     int sumValue = 0;
@@ -244,11 +239,13 @@ struct RoleComboStackChange
 
 struct RoleComboEffectStore
 {
+    using AlwaysSummaryIndex = ankerl::unordered_dense::map<std::uint64_t, RoleComboAlwaysSummary>;
+
     std::vector<RoleComboEffectInstance> instances;
     std::vector<RoleComboEffectId> idsInAppendOrder;
-    std::map<RoleComboEffectLookupKey, std::vector<RoleComboEffectId>> idsByTriggerAndType;
+    ankerl::unordered_dense::map<std::uint64_t, std::vector<RoleComboEffectId>> idsByTriggerAndType;
     std::map<int, std::vector<RoleComboEffectId>> idsBySourceComboId;
-    std::map<EffectType, RoleComboAlwaysSummary> alwaysByType;
+    AlwaysSummaryIndex alwaysByType;
     RoleComboStatBonuses statBonuses;
     std::map<RoleComboEffectId, RoleComboAdaptationDescriptor> adaptations;
     std::map<RoleComboEffectId, RoleComboDodgeAdaptationDescriptor> dodgeAdaptations;
@@ -276,8 +273,8 @@ struct RoleComboRuntimeState
     int enemyTopDebuffApplied = 0;
     std::map<ComboTriggerTimerKey, int> triggerTimers;
     bool lastAliveFlag = false;
-    std::map<RoleComboEffectId, RoleComboEffectRuntimeState> byEffect;
-    std::map<EffectType, RoleComboEffectTypeRuntimeState> byType;
+    std::vector<RoleComboEffectRuntimeState> byEffect;
+    ankerl::unordered_dense::map<std::uint64_t, RoleComboEffectTypeRuntimeState> byType;
 };
 
 class BattleEffectState

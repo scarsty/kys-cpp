@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 #include <map>
 #include <optional>
 #include <ranges>
@@ -311,30 +312,46 @@ struct BattleRuntimeUnitRecord
 
 class BattleRuntimeUnits
 {
+    static constexpr std::size_t MissingRecordIndex = std::numeric_limits<std::size_t>::max();
+
     std::vector<BattleRuntimeUnitRecord> records_;
+    std::vector<std::size_t> recordIndexById_;
 
     auto recordById(this auto& self, int unitId)
     {
-        auto it = std::ranges::find_if(
-            self.records_,
-            [unitId](const BattleRuntimeUnitRecord& record)
-            {
-                return record.id() == unitId;
-            });
-        return it == self.records_.end() ? nullptr : &*it;
+        using RecordPointer = decltype(self.records_.data());
+        if (unitId < 0 || static_cast<std::size_t>(unitId) >= self.recordIndexById_.size())
+        {
+            return RecordPointer{};
+        }
+        const auto index = self.recordIndexById_[unitId];
+        if (index == MissingRecordIndex)
+        {
+            return RecordPointer{};
+        }
+        assert(index < self.records_.size());
+        assert(self.records_[index].id() == unitId);
+        return &self.records_[index];
     }
 
 public:
     void reserve(std::size_t count)
     {
         records_.reserve(count);
+        recordIndexById_.reserve(count);
     }
 
     void append(BattleRuntimeUnitRecord record)
     {
         assert(record.id() >= 0);
         assert(recordById(record.id()) == nullptr);
+        const auto unitId = static_cast<std::size_t>(record.id());
+        if (recordIndexById_.size() <= unitId)
+        {
+            recordIndexById_.resize(unitId + 1, MissingRecordIndex);
+        }
         records_.push_back(std::move(record));
+        recordIndexById_[unitId] = records_.size() - 1;
     }
 
     decltype(auto) require(this auto& self, int unitId)
@@ -378,10 +395,17 @@ public:
         unit.motion.position = position;
         unit.motion.velocity = velocity;
         unit.motion.acceleration = acceleration;
-        if (updateFacingFromVelocity && velocity.norm() > 0.01f)
+        if (updateFacingFromVelocity)
         {
-            unit.motion.facing = velocity;
-            unit.motion.facing.normTo(1.0f);
+            const float velocityLength = velocity.norm();
+            if (velocityLength > 0.01f)
+            {
+                unit.motion.facing = velocity;
+                const float scale = 1.0f / velocityLength;
+                unit.motion.facing.x *= scale;
+                unit.motion.facing.y *= scale;
+                unit.motion.facing.z *= scale;
+            }
         }
         unit.grid = gridTransform.toGrid(position);
     }
@@ -453,12 +477,6 @@ struct BattleFrameRescueCounterAttackConfig
     int totalFramePadding = 15;
 };
 
-struct BattleFrameProfilingConfig
-{
-    bool enabled = false;
-    double slowFrameThresholdMs = 4.0;
-};
-
 // Persistent battle facts live here. One-frame queues and presentation accumulation
 // belong in BattleFrameContext inside BattleCore.cpp. Do not add cached copies of
 // combo/status/action facts here unless all mutations to the source fact update the
@@ -522,7 +540,6 @@ struct BattleRuntimeState
 
     BattleProjectileFollowUpContext projectileFollowUps;
     BattleNextFrameQueues nextFrame;
-    BattleFrameProfilingConfig profiling;
 };
 
 }  // namespace KysChess::Battle

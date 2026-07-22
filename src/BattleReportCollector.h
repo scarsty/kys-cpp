@@ -6,6 +6,11 @@
 class BattleReportCollector
 {
 public:
+    explicit BattleReportCollector(bool retainEvents = true)
+        : builder_(retainEvents)
+    {
+    }
+
     void consumeInitialization(
         const KysChess::Battle::BattleInitializationResult& initialization,
         const KysChess::Battle::BattleRuntimeSession& session);

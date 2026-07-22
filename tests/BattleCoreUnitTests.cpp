@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <map>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -273,7 +274,11 @@ BattleMovementPlanInput worldWith(std::vector<BattleUnitState> units)
 {
     BattleMovementPlanInput world;
     world.config = testConfig();
-    world.units = std::move(units);
+    world.units.reserve(units.size());
+    for (auto& unit : units)
+    {
+        world.units.push_back(std::move(unit));
+    }
     return world;
 }
 
@@ -294,7 +299,7 @@ BattleRuntimeUnit runtimeUnitSnapshot(int id, int team, int hp, Pointf position 
 
 void seedRuntimeUnitsFromMovementUnits(
     BattleRuntimeState& state,
-    const std::vector<BattleUnitState>& units,
+    std::span<const BattleUnitState> units,
     int hp = 100)
 {
     if (state.gridTransform.tileWidth <= 0.0)
@@ -336,6 +341,9 @@ void configureRuntimeMovement(BattleRuntimeState& state, BattleMovementPlanInput
     state.movement.frame = input.frame;
     state.movement.config = input.config;
     state.movement.terrainCells = std::move(input.terrainCells);
+    state.movement.terrainLayout = makeBattleMovementTerrainLayout(
+        state.movement.terrainCells,
+        state.movement.config.tileWidth);
     state.movement.movementReservations = std::move(input.movementReservations);
     seedRuntimeUnitsFromMovementUnits(state, input.units);
 }
@@ -2768,7 +2776,7 @@ TEST_CASE("BattleFrameRunner_DualWieldCastQueuesBlockChanceWithDelayedFollowUp",
         });
     REQUIRE(followUp != state.nextFrame.queuedAttacksForTest().end());
     CHECK(followUp->spawnDelayFrames == 5);
-    CHECK(followUp->attackerBlockFirstHitGainChancePct == 50);
+    CHECK(followUp->attackerDualWieldBlockGainChancePct == 50);
     CHECK(followUp->initial.preferredTargetUnitId == 2);
     CHECK_FALSE(std::ranges::any_of(release.logEvents, [](const BattleLogEvent& event)
         {
@@ -3668,6 +3676,7 @@ TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeRecords", "[battle][
 
     BattleDamageRuntimeUnit damage;
     damage.blockFirstHitsRemaining = 2;
+    damage.dualWieldBlocksRemaining = 1;
     state.units.require(0).damage = {};
     state.units.require(1).damage = damage;
 
@@ -3675,6 +3684,7 @@ TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeRecords", "[battle][
 
     CHECK(state.units.requireCore(1).shield == 33);
     CHECK(state.units.require(1).damage.blockFirstHitsRemaining == 2);
+    CHECK(state.units.require(1).damage.dualWieldBlocksRemaining == 1);
 }
 
 TEST_CASE("BattleFrameRunner_FirstHitBlockGameplayEventHasStatusText", "[battle][core][runtime]")
@@ -3739,6 +3749,31 @@ TEST_CASE("BattleFrameRunner_FirstHitBlockCoversWholeDamageFrame", "[battle][cor
 
     CHECK(state.units.requireCore(1).vitals.hp == 100);
     CHECK(state.units.require(1).damage.blockFirstHitsRemaining == 0);
+}
+
+TEST_CASE("BattleFrameRunner_DualWieldBlockConsumesBeforeFirstHitBlock", "[battle][core][runtime]")
+{
+    auto frame = hitDamageFrameState(70, 100);
+    auto& defender = frame.state.units.require(1).damage;
+    defender.blockFirstHitsRemaining = 2;
+    defender.dualWieldBlocksRemaining = 1;
+
+    const auto result = runBattleFrame(frame.state);
+
+    CHECK(frame.state.units.requireCore(1).vitals.hp == 100);
+    CHECK(frame.state.units.require(1).damage.dualWieldBlocksRemaining == 0);
+    CHECK(frame.state.units.require(1).damage.blockFirstHitsRemaining == 2);
+    const auto event = std::ranges::find_if(result.gameplayEvents, [](const BattleGameplayEvent& gameplay)
+        {
+            return gameplay.statusId == BattleStatusSemanticId::BlockedByDualWield;
+        });
+    REQUIRE(event != result.gameplayEvents.end());
+    CHECK(event->targetUnitId == 1);
+    CHECK(event->text == "互搏抵擋了本次傷害");
+    CHECK(std::ranges::any_of(result.logEvents, [](const BattleLogEvent& log)
+        {
+            return BattleLogTest::textOf(log) == "互搏抵擋了本次傷害";
+        }));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[battle][core][movement]")

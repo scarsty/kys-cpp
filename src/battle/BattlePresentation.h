@@ -94,6 +94,7 @@ enum class BattleStatusSemanticId : std::int16_t
     EnemyTopDebuff = 12,
     MagicPointsDrained = 13,
     PoisonPayload = 14,
+    BlockedByDualWield = 15,
 };
 
 enum class BattleResourceSemanticId : std::int16_t

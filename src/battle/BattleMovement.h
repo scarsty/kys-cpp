@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory_resource>
 #include <vector>
 
 namespace KysChess::Battle
@@ -34,11 +35,23 @@ struct BattleMovementPhysicsCollisionUnitSnapshot
 
 struct BattleMovementPhysicsCollisionWorld
 {
+    explicit BattleMovementPhysicsCollisionWorld(
+        std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource())
+        : units(memoryResource)
+    {
+    }
+
+    const std::vector<std::uint8_t>& walkableCells() const
+    {
+        return walkableCellSource ? *walkableCellSource : walkableByCell;
+    }
+
     double tileWidth = 0.0;
     int coordCount = 0;
     double defaultSeparationDistance = 0.0;
-    std::vector<BattleMovementPhysicsCollisionUnitSnapshot> units;
+    std::pmr::vector<BattleMovementPhysicsCollisionUnitSnapshot> units;
     std::vector<std::uint8_t> walkableByCell;
+    const std::vector<std::uint8_t>* walkableCellSource = nullptr;
 };
 
 std::size_t movementPhysicsCellIndex(const BattleMovementPhysicsCollisionWorld& world, int x, int y);
@@ -80,6 +93,10 @@ bool canMoveInPhysicsSnapshot(
 
 bool battleMovementTaXueUnstable(const BattleUnitState& unit);
 
+BattleMovementTerrainLayout makeBattleMovementTerrainLayout(
+    const std::vector<BattleTerrainCell>& terrainCells,
+    double tileWidth);
+
 class BattleMovementPlanner
 {
 public:
@@ -92,6 +109,7 @@ public:
                         const std::map<int, Pointf>& reservations = {}) const;
 
 private:
+    BattleMovementPathState localPathState_;
     BattleMovementPlanInput world_;
 };
 
