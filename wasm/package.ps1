@@ -46,7 +46,6 @@ if (Test-Path $distDir)
 New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $distDir 'kys') | Out-Null
 
-Copy-Item -Force (Join-Path $buildDir 'index.html') $distDir
 Copy-Item -Force -Path (Get-WasmBuildArtifactPaths -BuildDir $buildDir) -Destination $distDir
 Copy-Item -Force (Join-Path $paths.WasmDir 'favicon.png') $distDir
 Copy-Item -Force (Join-Path $paths.WasmDir 'apple-touch-icon.png') $distDir
@@ -55,6 +54,17 @@ Copy-Item -Force (Join-Path $paths.WasmDir 'icon-512.png') $distDir
 Copy-Item -Force (Join-Path $paths.WasmDir 'site.webmanifest') $distDir
 $distGameDir = Join-Path $distDir 'kys\game'
 Copy-ReleaseGameAssets -SourceGameDir $gameDir -DestinationGameDir $distGameDir -Version $Version
+Invoke-ProjectPython -ProjectDir $paths.ProjectDir -ArgumentList @(
+    (Join-Path $paths.ProjectDir 'tools\promo\build_page.py'),
+    '--game-dir',
+    $gameDir,
+    '--config-dir',
+    (Join-Path $paths.ProjectDir 'config'),
+    '--output',
+    (Join-Path $distDir 'index.html'),
+    '--play-url',
+    'kyschess.html'
+)
 Write-WasmAssetManifest `
     -ProjectDir $paths.ProjectDir `
     -WasmDir $paths.WasmDir `
@@ -83,5 +93,4 @@ if ($null -eq $totalBytes)
 Write-Host "  $($distFiles.Count) files, $(Format-FileSize -Bytes $totalBytes) total"
 Write-Host ''
 Write-Host 'Deploy with:'
-Write-Host "  Cloudflare: wrangler pages deploy $distDir --project-name=kyschess"
-Write-Host "  EdgeOne:    upload $ZipPath"
+Write-Host "  .\deploy.ps1 -ServerIp <server-ip> -PackagePath '$ZipPath'"

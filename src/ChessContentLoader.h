@@ -18,6 +18,12 @@ struct ChessContentLoadOptions
     ChessDiagnosticSink diagnostics;
 };
 
+struct ChessContentRoots
+{
+    std::filesystem::path dataRoot;
+    std::filesystem::path configRoot;
+};
+
 class ChessContentLoader
 {
 public:
@@ -28,5 +34,12 @@ bool loadChessPoolRoleIds(
     const std::filesystem::path& path,
     std::vector<int>& roleIds,
     const ChessDiagnosticSink& diagnostics = {});
+
+ChessContentRoots chessContentRootsForDataRoot(const std::filesystem::path& dataRoot);
+ChessContentRoots discoverChessContentRoots(const std::filesystem::path& executablePath);
+
+#ifdef _WIN32
+std::filesystem::path currentExecutablePath();
+#endif
 
 }

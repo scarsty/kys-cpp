@@ -165,6 +165,33 @@ TEST_CASE("game version loader uses development version when release configurati
     CHECK(loadGameVersion(files.path()) == "dev");
 }
 
+TEST_CASE("content roots discover repository and packaged layouts from the executable", "[chess][content][path]")
+{
+    TemporaryConfigDirectory files;
+    files.write("repository/work/game-dev/save/game.db", "");
+    files.write("repository/work/game-dev/cc/STPhrases.txt", "");
+    files.write("repository/config/chess_challenge.yaml", "");
+    const auto repositoryExecutable = files.write("repository/x64/Release/kys_chess_cli.exe", "");
+
+    const auto repositoryRoots = discoverChessContentRoots(repositoryExecutable);
+    CHECK(repositoryRoots.dataRoot == std::filesystem::weakly_canonical(
+        files.path() / "repository/work/game-dev"));
+    CHECK(repositoryRoots.configRoot == std::filesystem::weakly_canonical(
+        files.path() / "repository/config"));
+
+    files.write("package/game/save/game.db", "");
+    files.write("package/game/cc/STPhrases.txt", "");
+    files.write("package/game/config/chess_challenge.yaml", "");
+    files.write("config/chess_challenge.yaml", "");
+    const auto packagedExecutable = files.write("package/bin/kys_chess_cli.exe", "");
+
+    const auto packagedRoots = discoverChessContentRoots(packagedExecutable);
+    CHECK(packagedRoots.dataRoot == std::filesystem::weakly_canonical(
+        files.path() / "package/game"));
+    CHECK(packagedRoots.configRoot == std::filesystem::weakly_canonical(
+        files.path() / "package/game/config"));
+}
+
 TEST_CASE("battle map catalog exposes usable formation capacities", "[chess][content][map]")
 {
     REQUIRE_FALSE(ChessBattleMapCatalog::entries().empty());

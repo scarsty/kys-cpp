@@ -1,4 +1,5 @@
 ﻿#include "Application.h"
+#include "ChessContentLoader.h"
 #include "Engine.h"
 #include "GameUtil.h"
 
@@ -7,6 +8,23 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
+
+#include <filesystem>
+
+namespace
+{
+
+std::string gamePathText(const std::filesystem::path& path)
+{
+    auto result = path.generic_string();
+    if (!result.ends_with('/'))
+    {
+        result += '/';
+    }
+    return result;
+}
+
+}
 
 int main(int argc, char* argv[])
 {
@@ -19,13 +37,15 @@ int main(int argc, char* argv[])
 #endif
     if (argc >= 2)
     {
-        std::string path = argv[1];
-        if (path.back() != '/' && path.back() != '\\')
-        {
-            path += '/';
-        }
-        GameUtil::PATH() = path;
+        GameUtil::PATH() = gamePathText(argv[1]);
     }
+#ifdef _WIN32
+    else
+    {
+        GameUtil::PATH() = gamePathText(
+            KysChess::discoverChessContentRoots(KysChess::currentExecutablePath()).dataRoot);
+    }
+#endif
     LOG("Game path is {}\n", GameUtil::PATH());
     Application app;
     return app.run();

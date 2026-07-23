@@ -12,10 +12,16 @@
 #include "filefunc.h"
 #include "yaml-cpp/yaml.h"
 
-#include <cstring>
 #include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstring>
 #include <format>
 #include <map>
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 namespace KysChess
 {
@@ -25,6 +31,12 @@ namespace
 std::string pathText(const std::filesystem::path& path)
 {
     return path.generic_string();
+}
+
+bool isChessDataRoot(const std::filesystem::path& path)
+{
+    return std::filesystem::is_regular_file(path / "save" / "game.db")
+        && std::filesystem::is_regular_file(path / "cc" / "STPhrases.txt");
 }
 
 bool loadDatabaseRecords(
@@ -229,6 +241,73 @@ bool loadPoolRoleIds(
 }
 
 }
+
+ChessContentRoots chessContentRootsForDataRoot(const std::filesystem::path& dataRoot)
+{
+    const auto canonicalDataRoot = std::filesystem::weakly_canonical(dataRoot);
+    if (canonicalDataRoot.filename() == "game-dev")
+    {
+        const auto parent = canonicalDataRoot.parent_path();
+        const auto repositoryRoot = parent.filename() == "work"
+            ? parent.parent_path()
+            : parent;
+        const auto repositoryConfig = repositoryRoot / "config";
+        if (std::filesystem::is_regular_file(repositoryConfig / "chess_challenge.yaml"))
+        {
+            return {
+                canonicalDataRoot,
+                std::filesystem::weakly_canonical(repositoryConfig),
+            };
+        }
+    }
+    return {
+        canonicalDataRoot,
+        std::filesystem::weakly_canonical(canonicalDataRoot / "config"),
+    };
+}
+
+ChessContentRoots discoverChessContentRoots(const std::filesystem::path& executablePath)
+{
+    const auto executableDirectory = std::filesystem::weakly_canonical(executablePath).parent_path();
+    for (auto ancestor = executableDirectory;
+         !ancestor.empty();
+         ancestor = ancestor.parent_path())
+    {
+        const std::array candidates{
+            ancestor,
+            ancestor / "game",
+            ancestor / "game-dev",
+            ancestor / "work" / "game-dev",
+        };
+        for (const auto& candidate : candidates)
+        {
+            if (isChessDataRoot(candidate))
+            {
+                return chessContentRootsForDataRoot(candidate);
+            }
+        }
+        if (ancestor == ancestor.root_path())
+        {
+            break;
+        }
+    }
+
+    return chessContentRootsForDataRoot(executableDirectory.parent_path() / "game");
+}
+
+#ifdef _WIN32
+std::filesystem::path currentExecutablePath()
+{
+    std::wstring buffer(32768, L'\0');
+    const auto length = GetModuleFileNameW(
+        nullptr,
+        buffer.data(),
+        static_cast<DWORD>(buffer.size()));
+    assert(length > 0 && length < buffer.size());
+    buffer.resize(length);
+    return std::filesystem::path(buffer);
+}
+#endif
 
 bool loadChessPoolRoleIds(
     const std::filesystem::path& path,

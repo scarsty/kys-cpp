@@ -16,7 +16,7 @@ Write-Host "Target: $PkgDir"
 Write-Host "========================================"
 
 # Step 1: Build MSVC Release
-Write-Host "[1/6] Building MSVC Release..."
+Write-Host "[1/5] Building MSVC Release..."
 $iconGenerator = Join-Path $PSScriptRoot 'tools\GenerateAppIcons.ps1'
 & powershell -ExecutionPolicy Bypass -File $iconGenerator -Target Windows
 if ($LASTEXITCODE -ne 0) {
@@ -42,29 +42,37 @@ if (-not $dumpbin) {
     exit 1
 }
 
-& $msbuild kys.sln /p:Configuration=Release /p:Platform=x64 /m
+& $msbuild kys.sln /p:Configuration=Release /p:Platform=x64 /m "/t:kys;kys_chess_cli"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Build failed!"
     exit 1
 }
 
 # Step 2: Create package structure
-Write-Host "[2/6] Creating package structure..."
+Write-Host "[2/5] Creating package structure..."
 if (Test-Path $PkgDir) {
     Remove-Item -Recurse -Force $PkgDir
 }
 New-Item -ItemType Directory -Path "$PkgDir\bin" -Force | Out-Null
 
-# Step 3: Copy exe and DLLs
-Write-Host "[3/6] Copying executable and dependencies..."
-Copy-Item "x64\Release\kys.exe" "$PkgDir\bin\" -Force
+# Step 3: Copy executables and DLLs
+Write-Host "[3/5] Copying executables and dependencies..."
+$packageExecutableNames = @('kys.exe', 'kys_chess_cli.exe')
+$packageExecutablePaths = @()
+foreach ($executableName in $packageExecutableNames) {
+    $sourcePath = Join-Path $PSScriptRoot "x64\Release\$executableName"
+    Ensure-PathExists -Path $sourcePath -Message "Release executable not found: $sourcePath"
+    $destinationPath = Join-Path $PkgDir "bin\$executableName"
+    Copy-Item $sourcePath $destinationPath -Force
+    $packageExecutablePaths += $destinationPath
+}
 
 # Copy direct dependencies from the workspace vcpkg manifest tree
 $vcpkgBin = Join-Path $PSScriptRoot 'vcpkg_installed\x64-windows\bin'
 if (Test-Path $vcpkgBin) {
     $processedDlls = @{}
     $scannedFiles = @{}
-    $toScan = @("$PkgDir\bin\kys.exe")
+    $toScan = @($packageExecutablePaths)
     $maxIterations = 5000
     $iteration = 0
 
@@ -111,11 +119,25 @@ foreach ($dll in $localDlls) {
 }
 
 # Step 4: Copy resources
-Write-Host "[4/6] Copying resources..."
+Write-Host "[4/5] Copying resources..."
 Copy-ReleaseGameAssets -SourceGameDir $GameDir -DestinationGameDir "$PkgDir\game" -Version $Version
 
-# Step 5: Copy changelog and create play.bat
-Write-Host "[6/6] Finalizing package..."
+# Step 5: Copy changelog and create launcher
+Write-Host "[5/5] Finalizing package..."
+$promoPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+$promoBuilder = Join-Path $PSScriptRoot 'tools\promo\build_page.py'
+Ensure-PathExists -Path $promoPython -Message "Promo page Python environment not found: $promoPython"
+Ensure-PathExists -Path $promoBuilder -Message "Promo page builder not found: $promoBuilder"
+Invoke-NativeCommand -FilePath $promoPython -ArgumentList @(
+    $promoBuilder,
+    '--game-dir',
+    $GameDir,
+    '--config-dir',
+    (Join-Path $PSScriptRoot 'config'),
+    '--output',
+    (Join-Path $PkgDir '金群自走棋.html')
+)
+
 $changelog = Get-ChildItem "docs\*.md" | Where-Object { $_.Name -match '\u66f4\u65b0\u65e5\u5fd7' } | Select-Object -First 1
 if ($changelog) {
     Copy-Item $changelog.FullName "$PkgDir\" -Force
@@ -123,8 +145,7 @@ if ($changelog) {
 
 @"
 @echo off
-cd /d "%~dp0"
-start bin\kys.exe game
+start "" "%~dp0bin\kys.exe"
 "@ | Out-File -FilePath "$PkgDir\play.bat" -Encoding ASCII
 
 Write-Host "========================================"
@@ -132,7 +153,7 @@ Write-Host "Package created in: $PkgDir"
 Write-Host "========================================"
 
 if (-not [string]::IsNullOrWhiteSpace($ZipPath)) {
-    Write-Host "[7/7] Creating Windows zip..."
+    Write-Host "Creating Windows zip..."
     New-ZipFromDirectory -SourceDir $PkgDir -ZipPath $ZipPath
     $zipInfo = Get-Item $ZipPath
     Write-Host "Windows zip created: $ZipPath ($(Format-FileSize -Bytes $zipInfo.Length))"

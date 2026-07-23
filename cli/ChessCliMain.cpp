@@ -6,8 +6,6 @@
 #include "ChessReplayVerifier.h"
 #include "ChessTournament.h"
 
-#include <Windows.h>
-
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -28,14 +26,6 @@
 namespace
 {
 
-std::filesystem::path executablePath()
-{
-    std::wstring buffer(32768, L'\0');
-    const auto length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
-    buffer.resize(length);
-    return std::filesystem::path(buffer);
-}
-
 struct Arguments
 {
     std::string command = "play";
@@ -53,54 +43,6 @@ struct Arguments
     KysChess::ChessCliOutputMode mode = KysChess::ChessCliOutputMode::Human;
     bool jsonl = false;
 };
-
-struct DefaultContentRoots
-{
-    std::filesystem::path dataRoot;
-    std::filesystem::path configRoot;
-};
-
-bool isDataRoot(const std::filesystem::path& path)
-{
-    return std::filesystem::is_regular_file(path / "save" / "game.db")
-        && std::filesystem::is_regular_file(path / "cc" / "STPhrases.txt");
-}
-
-DefaultContentRoots defaultContentRoots(const std::filesystem::path& executable)
-{
-    auto directory = std::filesystem::weakly_canonical(executable).parent_path();
-    for (auto ancestor = directory; !ancestor.empty(); ancestor = ancestor.parent_path())
-    {
-        const std::array candidates{
-            ancestor,
-            ancestor / "game-dev",
-            ancestor / "work" / "game-dev",
-        };
-        for (const auto& dataRoot : candidates)
-        {
-            if (!isDataRoot(dataRoot))
-            {
-                continue;
-            }
-            const auto repositoryConfig = ancestor / "config";
-            const auto packagedConfig = dataRoot / "config";
-            return {
-                std::filesystem::weakly_canonical(dataRoot),
-                std::filesystem::is_regular_file(repositoryConfig / "chess_challenge.yaml")
-                    ? std::filesystem::weakly_canonical(repositoryConfig)
-                    : std::filesystem::weakly_canonical(packagedConfig),
-            };
-        }
-        if (ancestor == ancestor.root_path())
-        {
-            break;
-        }
-    }
-    return {
-        directory / "game-dev",
-        directory / "game-dev" / "config",
-    };
-}
 
 std::optional<std::uint64_t> parseSeed(std::string_view text)
 {
@@ -134,7 +76,7 @@ std::optional<int> parseNonnegativeInt(std::string_view text)
 Arguments parseArguments(int argc, char** argv)
 {
     Arguments result;
-    const auto defaults = defaultContentRoots(executablePath());
+    const auto defaults = KysChess::discoverChessContentRoots(KysChess::currentExecutablePath());
     result.dataRoot = defaults.dataRoot;
     result.configRoot = defaults.configRoot;
 

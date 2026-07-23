@@ -6,7 +6,6 @@
 #include "ChessSessionCheckpoint.h"
 
 #include <chrono>
-#include <filesystem>
 #include <optional>
 #include <stdexcept>
 
@@ -40,16 +39,10 @@ std::size_t difficultyIndex(Difficulty difficulty)
 
 std::shared_ptr<const ChessGameContent> loadApplicationContent(Difficulty difficulty)
 {
-    const auto dataRoot = std::filesystem::weakly_canonical(GameUtil::PATH());
-    auto configRoot = dataRoot / "config";
-    const auto repositoryConfig = dataRoot.parent_path().parent_path() / "config";
-    if (std::filesystem::exists(repositoryConfig / "chess_challenge.yaml"))
-    {
-        configRoot = repositoryConfig;
-    }
+    const auto roots = chessContentRootsForDataRoot(GameUtil::PATH());
     ChessContentLoadOptions options;
-    options.dataRoot = dataRoot;
-    options.configRoot = configRoot;
+    options.dataRoot = roots.dataRoot;
+    options.configRoot = roots.configRoot;
     options.difficulty = difficulty;
     options.diagnostics = [](const ChessDiagnostic& diagnostic) {
         LOG("[{}] {}\n", diagnostic.source, diagnostic.message);
