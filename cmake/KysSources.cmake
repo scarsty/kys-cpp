@@ -76,6 +76,7 @@ function(kys_collect_chess_core_sources out_var kys_root)
         "${kys_root_abs}/src/ChessSaveStore.cpp"
         "${kys_root_abs}/src/ChessSessionCheckpoint.cpp"
         "${kys_root_abs}/src/ChessStandaloneBattle.cpp"
+        "${kys_root_abs}/src/ChessTournament.cpp"
         "${kys_root_abs}/src/GrpIdxFile.cpp"
         "${kys_root_abs}/src/InMemZipReader.cpp"
         "${kys_root_abs}/mlcc/filefunc.cpp"

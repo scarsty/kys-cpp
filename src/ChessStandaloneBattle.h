@@ -15,6 +15,8 @@
 namespace KysChess
 {
 
+struct ChessPvpComposition;
+
 enum class ChessStandaloneBattleProfile
 {
     AutoChess,
@@ -37,6 +39,9 @@ struct ChessStandaloneBattleTeam
     std::vector<int> formationSlots;
     std::set<int> obtainedNeigongIds;
 };
+
+ChessStandaloneBattleTeam chessStandaloneBattleTeam(
+    const ChessPvpComposition& composition);
 
 struct ChessStandaloneBattleRequest
 {

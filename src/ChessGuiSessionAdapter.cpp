@@ -2711,25 +2711,6 @@ std::uint32_t nextPvpBattleSeed()
     return ++previous;
 }
 
-void assignStandaloneTeam(
-    ChessStandaloneBattleTeam& target,
-    const ChessPvpComposition& source)
-{
-    target.formationSlots = source.formationSlots;
-    target.obtainedNeigongIds = source.obtainedNeigongIds;
-    for (const auto& piece : source.pieces)
-    {
-        target.pieces.push_back({
-            piece.roleId,
-            piece.star,
-            piece.weaponItemId,
-            piece.armorItemId,
-            piece.chessInstanceId,
-            piece.fightsWon,
-        });
-    }
-}
-
 ChessGuiFlowResult currentChessGuiFlowResult()
 {
     return chessGuiFlowResult(RunNode::runOwnerExitRequested());
@@ -3614,8 +3595,8 @@ void ChessGuiSessionAdapter::showOfflineBattle()
             request.mapId = ChessPvpMapLayout::BattleId;
             request.layout = PreparedChessBattleLayout::PvpArena;
             request.options = session_.state().options;
-            assignStandaloneTeam(request.teams[0], local);
-            assignStandaloneTeam(request.teams[1], *opponent);
+            request.teams[0] = chessStandaloneBattleTeam(local);
+            request.teams[1] = chessStandaloneBattleTeam(*opponent);
 
             std::string error;
             auto build = ChessStandaloneBattle::prepare(

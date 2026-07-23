@@ -221,6 +221,26 @@ bool validateTeamFormation(
 
 }
 
+ChessStandaloneBattleTeam chessStandaloneBattleTeam(
+    const ChessPvpComposition& composition)
+{
+    ChessStandaloneBattleTeam result;
+    result.formationSlots = composition.formationSlots;
+    result.obtainedNeigongIds = composition.obtainedNeigongIds;
+    for (const auto& piece : composition.pieces)
+    {
+        result.pieces.push_back({
+            piece.roleId,
+            piece.star,
+            piece.weaponItemId,
+            piece.armorItemId,
+            piece.chessInstanceId,
+            piece.fightsWon,
+        });
+    }
+    return result;
+}
+
 std::unique_ptr<ChessGameSession> ChessStandaloneBattleBuild::createSession() &&
 {
     return ChessGameSession::createStandaloneBattle(
