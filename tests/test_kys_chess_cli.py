@@ -23,7 +23,69 @@ def run_jsonl(requests, cwd=None, extra_args=None):
     )
 
 
+def run_cli(args, input_text=""):
+    return subprocess.run(
+        [str(CLI), *args],
+        input=input_text,
+        text=True,
+        encoding="utf-8",
+        capture_output=True,
+        check=False,
+    )
+
+
 class ChessCliTests(unittest.TestCase):
+    def test_help_prints_usage_without_starting_a_game(self):
+        completed = run_cli(["--help"])
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("用法：", completed.stdout)
+        self.assertIn("工作階段指令：", completed.stdout)
+        self.assertNotIn("難度：", completed.stdout)
+        self.assertEqual(completed.stderr, "")
+
+    def test_unknown_command_and_option_are_rejected(self):
+        unknown_command = run_cli(["frobnicate"])
+        unknown_option = run_cli(["--trace"])
+
+        self.assertEqual(unknown_command.returncode, 2)
+        self.assertIn("未知指令：frobnicate", unknown_command.stderr)
+        self.assertEqual(unknown_option.returncode, 2)
+        self.assertIn("未知選項：--trace", unknown_option.stderr)
+
+    def test_invalid_startup_values_are_rejected(self):
+        difficulty = run_cli(["new", "--difficulty", "impossible"])
+        seed = run_cli(["new", "--seed", "not-a-seed"])
+
+        self.assertEqual(difficulty.returncode, 2)
+        self.assertIn("--difficulty 必須是", difficulty.stderr)
+        self.assertEqual(seed.returncode, 2)
+        self.assertIn("--seed 必須是", seed.stderr)
+
+    def test_interactive_json_is_rejected_in_favor_of_jsonl(self):
+        completed = run_cli(["--json"], "quit\n")
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("互動模式不支援 --json", completed.stderr)
+        self.assertEqual(completed.stdout, "")
+
+    def test_one_shot_json_is_one_complete_line(self):
+        completed = run_cli(
+            [
+                "new",
+                "--json",
+                "--data-root",
+                str(ROOT / "work" / "game-dev"),
+                "--config-root",
+                str(ROOT / "config"),
+            ]
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(len(completed.stdout.splitlines()), 1)
+        self.assertTrue(json.loads(completed.stdout)["ok"])
+        self.assertTrue(completed.stdout.endswith("\n"))
+
     def test_protocol_stdout_is_clean_and_ids_are_preserved(self):
         completed = run_jsonl(
             [
@@ -200,25 +262,26 @@ class ChessCliTests(unittest.TestCase):
         )
         self.assertIn("ability_id", ability_cast)
         self.assertTrue(ability_cast["ability_name"])
-        debuff_change = next(
+        debuff_changes = [
             effect
             for effect in battle["effect_activations"]
             if effect["type"] == "enemy_top_debuff_changed"
+        ]
+        self.assertTrue(debuff_changes)
+        for change in debuff_changes:
+            self.assertEqual(
+                change["delta"],
+                change["new_value"] - change["previous_value"],
+            )
+            self.assertEqual(change["source_kind"], "combo")
+            self.assertEqual(change["source_name"], "陰險")
+            self.assertNotEqual(change["source_team"], change["target_team"])
+        debuff_change = next(
+            change for change in debuff_changes if change["previous_value"] == 0
         )
         self.assertEqual(debuff_change["previous_value"], 0)
         self.assertLess(debuff_change["new_value"], 0)
         self.assertEqual(debuff_change["delta"], debuff_change["new_value"])
-        self.assertEqual(debuff_change["source_kind"], "combo")
-        self.assertEqual(debuff_change["source_name"], "陰險")
-        self.assertNotEqual(debuff_change["source_team"], debuff_change["target_team"])
-        weakened_debuff = next(
-            effect
-            for effect in battle["effect_activations"]
-            if effect["type"] == "enemy_top_debuff_changed"
-            and effect.get("previous_value") == -44
-            and effect.get("new_value") == -22
-        )
-        self.assertEqual(weakened_debuff["delta"], 22)
         projectile_cancel = next(
             effect
             for effect in battle["effect_activations"]

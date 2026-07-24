@@ -12,7 +12,6 @@ enum class ChessCliOutputMode
     Human,
     Compact,
     Json,
-    Trace,
 };
 
 class ChessCliController
@@ -32,6 +31,7 @@ public:
         Difficulty difficulty,
         std::uint64_t seed,
         ChessCliOutputMode mode = ChessCliOutputMode::Human);
+    static std::string helpText();
 
     ChessJsonProtocol& protocol() { return protocol_; }
 

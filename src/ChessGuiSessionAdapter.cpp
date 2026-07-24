@@ -12,6 +12,7 @@
 #include "ChessContextMenu.h"
 #include "ChessEftIds.h"
 #include "ChessGuiBattleFlow.h"
+#include "ChessGuiSavePolicy.h"
 #include "ChessManagementRules.h"
 #include "ChessMagicEffectDisplay.h"
 #include "ChessMenuFormatting.h"
@@ -2716,14 +2717,22 @@ ChessGuiFlowResult currentChessGuiFlowResult()
     return chessGuiFlowResult(RunNode::runOwnerExitRequested());
 }
 
+void autoSavePersistableGuiState(const ChessGameSession& session)
+{
+    if (canPersistChessGuiState(session))
+    {
+        UISave::autoSave();
+    }
+}
+
 }
 
 ChessActionResult ChessGuiSessionAdapter::submitGuiAction(const ChessAction& action)
 {
     auto result = session_.submitAndDrain(action);
-    if (result.accepted && !session_.transitionPending())
+    if (result.accepted)
     {
-        UISave::autoSave();
+        autoSavePersistableGuiState(session_);
     }
     return result;
 }
@@ -4599,7 +4608,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
                 return ChessGuiFlowResult::Aborted;
             }
         }
-        UISave::autoSave();
+        autoSavePersistableGuiState(session_);
     }
     return drainRewards();
 }

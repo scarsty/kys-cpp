@@ -1,3 +1,4 @@
+#include "ChessCliCommands.h"
 #include "ChessCliController.h"
 #include "ChessContentLoader.h"
 #include "ChessPvp.h"
@@ -21,6 +22,7 @@
 #include <map>
 #include <optional>
 #include <ranges>
+#include <set>
 #include <sstream>
 #include <vector>
 
@@ -46,23 +48,40 @@ struct Arguments
     int seedSequenceIndex{};
     int leg{};
     KysChess::ChessCliOutputMode mode = KysChess::ChessCliOutputMode::Human;
-    bool jsonl = false;
+    bool jsonl{};
+    bool commandExplicit{};
+    bool difficultySpecified{};
+    bool seedSpecified{};
+    bool battleSeedCountSpecified{};
+    bool seedSequenceIndexSpecified{};
+    bool legSpecified{};
+    bool outputPathSpecified{};
+    bool jsonOutputPathSpecified{};
+    bool compactSpecified{};
+    bool jsonSpecified{};
 };
 
-std::optional<std::uint64_t> parseSeed(std::string_view text)
+struct ArgumentParseResult
 {
-    std::uint64_t value{};
-    int base = 10;
-    if (text.starts_with("0x"))
-    {
-        text.remove_prefix(2);
-        base = 16;
-    }
-    const auto result = std::from_chars(text.data(), text.data() + text.size(), value, base);
-    return result.ec == std::errc{} && result.ptr == text.data() + text.size()
-        ? std::optional(value)
-        : std::nullopt;
-}
+    Arguments arguments;
+    bool help{};
+    std::string error;
+};
+
+struct CommandDefinition
+{
+    std::string_view name;
+    std::size_t positionalCount{};
+};
+
+inline constexpr std::array<CommandDefinition, 6> kCommandDefinitions{{
+    {"play", 0},
+    {"new", 0},
+    {"verify", 1},
+    {"verify-pvp", 1},
+    {"tournament", 1},
+    {"tournament-battle", 2},
+}};
 
 std::optional<int> parseNonnegativeInt(std::string_view text)
 {
@@ -78,74 +97,321 @@ std::optional<int> parseNonnegativeInt(std::string_view text)
         : std::nullopt;
 }
 
-Arguments parseArguments(int argc, char** argv)
+const CommandDefinition* commandDefinition(std::string_view name)
 {
-    Arguments result;
-    const auto defaults = KysChess::discoverChessContentRoots(KysChess::currentExecutablePath());
-    result.dataRoot = defaults.dataRoot;
-    result.configRoot = defaults.configRoot;
+    const auto found = std::ranges::find(kCommandDefinitions, name, &CommandDefinition::name);
+    return found == kCommandDefinitions.end() ? nullptr : &*found;
+}
 
+void printUsage(std::ostream& output)
+{
+    output << "用法：\n"
+              "  kys_chess_cli [play] [--difficulty easy|normal|hard] [--seed N] [--compact]\n"
+              "  kys_chess_cli new [--difficulty easy|normal|hard] [--seed N] [--compact|--json]\n"
+              "  kys_chess_cli --jsonl [--data-root 路徑] [--config-root 路徑]\n"
+              "  kys_chess_cli verify <重播檔>\n"
+              "  kys_chess_cli verify-pvp <離線對戰存檔>\n"
+              "  kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--output 報告.md] [--json-output 結果.json] [--json]\n"
+              "  kys_chess_cli tournament-battle <存檔甲> <存檔乙> --seed N --seed-index N --leg 0|1 [--json]\n"
+              "\n共用選項：\n"
+              "  --data-root <路徑>       遊戲資料根目錄\n"
+              "  --config-root <路徑>     棋局配置根目錄\n"
+              "  -h, --help               顯示本說明\n"
+              "\n";
+    output << KysChess::ChessCliController::helpText();
+}
+
+ArgumentParseResult parseArguments(int argc, char** argv)
+{
+    ArgumentParseResult result;
+    const auto defaults = KysChess::discoverChessContentRoots(KysChess::currentExecutablePath());
+    result.arguments.dataRoot = defaults.dataRoot;
+    result.arguments.configRoot = defaults.configRoot;
+
+    std::vector<std::filesystem::path> positionals;
+    std::set<std::string> seenOptions;
     int index = 1;
-    if (index < argc && argv[index][0] != '-')
+    const auto optionValue = [&](std::string_view option) -> std::optional<std::string_view>
     {
-        result.command = argv[index++];
-        if ((result.command == "verify" || result.command == "verify-pvp")
-            && index < argc)
+        if (index >= argc)
         {
-            result.replayPath = argv[index++];
+            result.error = std::format("選項 {} 缺少值", option);
+            return std::nullopt;
         }
-        else if (result.command == "tournament"
-            && index < argc
-            && argv[index][0] != '-')
-        {
-            result.tournamentPaths.push_back(argv[index++]);
-        }
-        else if (result.command == "tournament-battle"
-            && index + 1 < argc
-            && argv[index][0] != '-'
-            && argv[index + 1][0] != '-')
-        {
-            result.tournamentPaths.push_back(argv[index++]);
-            result.tournamentPaths.push_back(argv[index++]);
-        }
-    }
+        return argv[index++];
+    };
     while (index < argc)
     {
-        const std::string_view option = argv[index++];
-        if (option == "--jsonl") result.jsonl = true;
-        else if (option == "--compact") result.mode = KysChess::ChessCliOutputMode::Compact;
-        else if (option == "--json") result.mode = KysChess::ChessCliOutputMode::Json;
-        else if (option == "--trace") result.mode = KysChess::ChessCliOutputMode::Trace;
-        else if (option == "--data-root" && index < argc) result.dataRoot = argv[index++];
-        else if (option == "--config-root" && index < argc) result.configRoot = argv[index++];
-        else if (option == "--output" && index < argc) result.outputPath = argv[index++];
-        else if (option == "--json-output" && index < argc) result.jsonOutputPath = argv[index++];
-        else if (option == "--difficulty" && index < argc)
+        const std::string_view value = argv[index++];
+        if (!value.starts_with('-'))
         {
-            const std::string_view value = argv[index++];
-            result.difficulty = value == "easy"
-                ? KysChess::Difficulty::Easy
-                : value == "hard" ? KysChess::Difficulty::Hard : KysChess::Difficulty::Normal;
-        }
-        else if (option == "--seed" && index < argc)
-        {
-            if (const auto seed = parseSeed(argv[index++]))
+            if (!result.arguments.commandExplicit)
             {
-                result.seed = *seed;
+                if (!commandDefinition(value))
+                {
+                    result.error = std::format("未知指令：{}", value);
+                    return result;
+                }
+                result.arguments.command = value;
+                result.arguments.commandExplicit = true;
             }
+            else
+            {
+                positionals.emplace_back(value);
+            }
+            continue;
         }
-        else if (option == "--battle-seeds" && index < argc)
+        const std::string canonicalOption = value == "-h" ? "--help" : std::string(value);
+        if (!seenOptions.insert(canonicalOption).second)
         {
-            result.battleSeedCount = parseNonnegativeInt(argv[index++]).value_or(0);
+            result.error = std::format("選項重複：{}", canonicalOption);
+            return result;
         }
-        else if (option == "--seed-index" && index < argc)
+        if (value == "--help" || value == "-h")
         {
-            result.seedSequenceIndex = parseNonnegativeInt(argv[index++]).value_or(-1);
+            result.help = true;
+            continue;
         }
-        else if (option == "--leg" && index < argc)
+        if (value == "--jsonl")
         {
-            result.leg = parseNonnegativeInt(argv[index++]).value_or(-1);
+            result.arguments.jsonl = true;
         }
+        else if (value == "--compact")
+        {
+            if (result.arguments.jsonSpecified)
+            {
+                result.error = "--compact 與 --json 不可同時使用";
+                return result;
+            }
+            result.arguments.compactSpecified = true;
+            result.arguments.mode = KysChess::ChessCliOutputMode::Compact;
+        }
+        else if (value == "--json")
+        {
+            if (result.arguments.compactSpecified)
+            {
+                result.error = "--compact 與 --json 不可同時使用";
+                return result;
+            }
+            result.arguments.jsonSpecified = true;
+            result.arguments.mode = KysChess::ChessCliOutputMode::Json;
+        }
+        else if (value == "--data-root")
+        {
+            const auto path = optionValue(value);
+            if (!path)
+            {
+                return result;
+            }
+            result.arguments.dataRoot = *path;
+        }
+        else if (value == "--config-root")
+        {
+            const auto path = optionValue(value);
+            if (!path)
+            {
+                return result;
+            }
+            result.arguments.configRoot = *path;
+        }
+        else if (value == "--output")
+        {
+            const auto path = optionValue(value);
+            if (!path)
+            {
+                return result;
+            }
+            result.arguments.outputPath = *path;
+            result.arguments.outputPathSpecified = true;
+        }
+        else if (value == "--json-output")
+        {
+            const auto path = optionValue(value);
+            if (!path)
+            {
+                return result;
+            }
+            result.arguments.jsonOutputPath = *path;
+            result.arguments.jsonOutputPathSpecified = true;
+        }
+        else if (value == "--difficulty")
+        {
+            const auto difficultyText = optionValue(value);
+            if (!difficultyText)
+            {
+                return result;
+            }
+            const auto difficulty = KysChess::parseChessCliDifficulty(*difficultyText);
+            if (!difficulty)
+            {
+                result.error = "--difficulty 必須是 easy、normal 或 hard";
+                return result;
+            }
+            result.arguments.difficulty = *difficulty;
+            result.arguments.difficultySpecified = true;
+        }
+        else if (value == "--seed")
+        {
+            const auto seedText = optionValue(value);
+            if (!seedText)
+            {
+                return result;
+            }
+            const auto seed = KysChess::parseChessCliSeed(*seedText);
+            if (!seed)
+            {
+                result.error = "--seed 必須是十進位整數或 0x 十六進位整數";
+                return result;
+            }
+            result.arguments.seed = *seed;
+            result.arguments.seedSpecified = true;
+        }
+        else if (value == "--battle-seeds")
+        {
+            const auto countText = optionValue(value);
+            if (!countText)
+            {
+                return result;
+            }
+            const auto count = parseNonnegativeInt(*countText);
+            if (!count || *count == 0)
+            {
+                result.error = "--battle-seeds 必須是大於零的整數";
+                return result;
+            }
+            result.arguments.battleSeedCount = *count;
+            result.arguments.battleSeedCountSpecified = true;
+        }
+        else if (value == "--seed-index")
+        {
+            const auto seedIndexText = optionValue(value);
+            if (!seedIndexText)
+            {
+                return result;
+            }
+            const auto seedIndex = parseNonnegativeInt(*seedIndexText);
+            if (!seedIndex)
+            {
+                result.error = "--seed-index 必須是非負整數";
+                return result;
+            }
+            result.arguments.seedSequenceIndex = *seedIndex;
+            result.arguments.seedSequenceIndexSpecified = true;
+        }
+        else if (value == "--leg")
+        {
+            const auto legText = optionValue(value);
+            if (!legText)
+            {
+                return result;
+            }
+            const auto leg = parseNonnegativeInt(*legText);
+            if (!leg || (*leg != 0 && *leg != 1))
+            {
+                result.error = "--leg 必須是 0 或 1";
+                return result;
+            }
+            result.arguments.leg = *leg;
+            result.arguments.legSpecified = true;
+        }
+        else
+        {
+            result.error = std::format("未知選項：{}", value);
+            return result;
+        }
+    }
+
+    if (result.help)
+    {
+        return result;
+    }
+
+    const auto& command = result.arguments.command;
+    const auto* definition = commandDefinition(command);
+    assert(definition);
+    if (positionals.size() != definition->positionalCount)
+    {
+        result.error = std::format(
+            "指令 {} 需要 {} 個位置參數，實際收到 {} 個",
+            command,
+            definition->positionalCount,
+            positionals.size());
+        return result;
+    }
+    if (command == "verify" || command == "verify-pvp")
+    {
+        result.arguments.replayPath = positionals.front();
+    }
+    else if (command == "tournament" || command == "tournament-battle")
+    {
+        result.arguments.tournamentPaths = std::move(positionals);
+    }
+
+    if (result.arguments.jsonl)
+    {
+        if (result.arguments.commandExplicit
+            || result.arguments.compactSpecified
+            || result.arguments.jsonSpecified
+            || result.arguments.difficultySpecified
+            || result.arguments.seedSpecified
+            || result.arguments.battleSeedCountSpecified
+            || result.arguments.seedSequenceIndexSpecified
+            || result.arguments.legSpecified
+            || result.arguments.outputPathSpecified
+            || result.arguments.jsonOutputPathSpecified)
+        {
+            result.error = "--jsonl 只可搭配 --data-root 與 --config-root";
+        }
+        return result;
+    }
+
+    if (result.arguments.difficultySpecified && command != "play" && command != "new")
+    {
+        result.error = std::format("指令 {} 不支援 --difficulty", command);
+    }
+    else if (result.arguments.seedSpecified
+        && command != "play"
+        && command != "new"
+        && command != "tournament"
+        && command != "tournament-battle")
+    {
+        result.error = std::format("指令 {} 不支援 --seed", command);
+    }
+    else if (result.arguments.compactSpecified && command != "play" && command != "new")
+    {
+        result.error = std::format("指令 {} 不支援 --compact", command);
+    }
+    else if (result.arguments.jsonSpecified
+        && command != "new"
+        && command != "tournament"
+        && command != "tournament-battle")
+    {
+        result.error = command == "play"
+            ? "互動模式不支援 --json；機器通訊請使用 --jsonl，單次建立請使用 new --json"
+            : std::format("指令 {} 不支援 --json", command);
+    }
+    else if ((result.arguments.battleSeedCountSpecified
+                 || result.arguments.outputPathSpecified
+                 || result.arguments.jsonOutputPathSpecified)
+        && command != "tournament")
+    {
+        result.error = std::format("指令 {} 不支援賽事輸出選項", command);
+    }
+    else if ((result.arguments.seedSequenceIndexSpecified || result.arguments.legSpecified)
+        && command != "tournament-battle")
+    {
+        result.error = std::format("指令 {} 不支援單場賽事選項", command);
+    }
+    else if (command == "tournament" && !result.arguments.seedSpecified)
+    {
+        result.error = "tournament 必須指定 --seed";
+    }
+    else if (command == "tournament-battle"
+        && (!result.arguments.seedSpecified
+            || !result.arguments.seedSequenceIndexSpecified
+            || !result.arguments.legSpecified))
+    {
+        result.error = "tournament-battle 必須指定 --seed、--seed-index 與 --leg";
     }
     return result;
 }
@@ -469,7 +735,19 @@ int main(int argc, char** argv)
     SetConsoleOutputCP(CP_UTF8);
 #endif
     using namespace KysChess;
-    const auto arguments = parseArguments(argc, argv);
+    const auto parsed = parseArguments(argc, argv);
+    if (parsed.help)
+    {
+        printUsage(std::cout);
+        return 0;
+    }
+    if (!parsed.error.empty())
+    {
+        std::cerr << "錯誤：" << parsed.error << "\n\n";
+        printUsage(std::cerr);
+        return 2;
+    }
+    const auto& arguments = parsed.arguments;
     std::map<Difficulty, std::shared_ptr<const ChessGameContent>> cache;
     const auto provider = [&](Difficulty difficulty) -> std::shared_ptr<const ChessGameContent> {
         if (const auto found = cache.find(difficulty); found != cache.end())
@@ -763,7 +1041,15 @@ int main(int argc, char** argv)
     {
         return controller.runJsonl(std::cin, std::cout);
     }
-    std::cout << controller.newSession(arguments.difficulty, arguments.seed, arguments.mode);
+    auto initialOutput = controller.newSession(
+        arguments.difficulty,
+        arguments.seed,
+        arguments.mode);
+    std::cout << initialOutput;
+    if (!initialOutput.empty() && !initialOutput.ends_with('\n'))
+    {
+        std::cout << '\n';
+    }
     if (arguments.command == "new")
     {
         return 0;

@@ -1,6 +1,7 @@
 #include "ChessObservationText.h"
 
-#include "ChessReplayJson.h"
+#include "ChessActionText.h"
+#include "ChessCliCommands.h"
 
 #include <algorithm>
 #include <cassert>
@@ -61,6 +62,49 @@ std::string activeComboEffectSourceText(
 
 }
 
+std::string ChessObservationText::formatLegalActions(
+    const std::vector<ChessLegalActionDescriptor>& legalActions)
+{
+    std::string text = "可用操作：\n";
+    for (const auto& action : legalActions)
+    {
+        const auto* command = chessCliActionCommand(action.type);
+        assert(command);
+        text += std::format(
+            "  {} — {}",
+            chessCliActionSyntax(*command),
+            chessActionDescription(action.type));
+        if (!action.candidateIds.empty())
+        {
+            text += "（可選：";
+            for (int index = 0; index < static_cast<int>(action.candidateIds.size()); ++index)
+            {
+                if (index > 0)
+                {
+                    text += "、";
+                }
+                text += std::to_string(action.candidateIds[index]);
+            }
+            text += "）";
+        }
+        if (!action.candidateStableIds.empty())
+        {
+            text += "（可選：";
+            for (int index = 0; index < static_cast<int>(action.candidateStableIds.size()); ++index)
+            {
+                if (index > 0)
+                {
+                    text += "、";
+                }
+                text += action.candidateStableIds[index];
+            }
+            text += "）";
+        }
+        text += '\n';
+    }
+    return text;
+}
+
 std::string ChessObservationText::format(
     const ChessGameplayObservation& observation,
     const ChessGameContent& content,
@@ -77,7 +121,7 @@ std::string ChessObservationText::format(
         observation.money);
     if (observation.campaignComplete)
     {
-        text += "主線已通關；仍可整備或挑戰遠征，完成後可用 finish_run 結束本局。\n";
+        text += "主線已通關；仍可整備或挑戰遠征，完成後可用 finish 結束本局。\n";
     }
     if (observation.freeShopRefreshAvailable)
     {
@@ -189,28 +233,7 @@ std::string ChessObservationText::format(
             }
         }
     }
-    text += "可用操作：\n";
-    for (const auto& action : legalActions)
-    {
-        text += std::format("  {}", chessActionTypeId(action.type));
-        if (!action.candidateIds.empty())
-        {
-            text += " ids=";
-            for (const int id : action.candidateIds)
-            {
-                text += std::format("{} ", id);
-            }
-        }
-        if (!action.candidateStableIds.empty())
-        {
-            text += " 選項=";
-            for (const auto& id : action.candidateStableIds)
-            {
-                text += id + " ";
-            }
-        }
-        text += "\n";
-    }
+    text += formatLegalActions(legalActions);
     return text;
 }
 

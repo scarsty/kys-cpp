@@ -21,7 +21,8 @@ TEST_CASE("management text is structured Traditional Chinese", "[chess][text]")
     CHECK(text.contains("商店："));
     CHECK(text.contains("測試棋子"));
     CHECK(text.contains("可用操作："));
-    CHECK(text.contains("buy_shop_slot"));
+    CHECK(text.contains("buy <商店欄位>"));
+    CHECK_FALSE(text.contains("buy_shop_slot"));
 }
 
 TEST_CASE("configured free refresh presentation is combo-generic", "[chess][text][config]")
