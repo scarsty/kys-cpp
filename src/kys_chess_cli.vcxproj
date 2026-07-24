@@ -13,6 +13,7 @@
   <PropertyGroup Condition="'$(Configuration)'=='Release'"><CliRuntimeBinDir>$(SolutionDir)vcpkg_installed\x64-windows\bin\</CliRuntimeBinDir><CliYamlDll>yaml-cpp.dll</CliYamlDll><CliBzipDll>bz2.dll</CliBzipDll><CliZlibDll>zlib1.dll</CliZlibDll></PropertyGroup>
   <ItemGroup><CliRuntimeDll Include="$(CliRuntimeBinDir)sqlite3.dll;$(CliRuntimeBinDir)$(CliYamlDll);$(CliRuntimeBinDir)zip.dll;$(CliRuntimeBinDir)$(CliBzipDll);$(CliRuntimeBinDir)$(CliZlibDll)" /></ItemGroup>
   <ItemGroup><ClCompile Include="..\cli\ChessCliMain.cpp" /></ItemGroup>
+  <ItemGroup><Manifest Include="kys_utf8.manifest" /></ItemGroup>
   <ItemGroup><ProjectReference Include="kys_chess_core.vcxproj"><Project>{7A398F58-3406-4937-B9F8-64A7123144E3}</Project></ProjectReference><ProjectReference Include="kys_battle_core.vcxproj"><Project>{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}</Project></ProjectReference></ItemGroup>
   <Target Name="CopyCliRuntimeDependencies" AfterTargets="Build"><Copy SourceFiles="@(CliRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" /></Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -93,6 +93,7 @@ nav .links a:hover{color:var(--ink-strong)}
   border:1px solid #303034; border-radius:6px; overflow:hidden;
   box-shadow:0 14px 42px rgba(0,0,0,.62),0 0 0 1px rgba(112,24,22,.18); background:#000;
 }
+.shot img{width:100%; height:auto}
 figcaption{
   background:#09090a; color:var(--muted); font-size:13px;
   padding:8px 12px; text-align:center; border-top:1px solid var(--line);
@@ -119,6 +120,7 @@ section{padding:46px 0 8px}
 .lead p+p{margin-top:.8em}
 .hl{color:var(--red2)}
 .mut{color:var(--muted)}
+.file-name{white-space:nowrap}
 .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:18px}
 .card{background:var(--panel); border:1px solid var(--line); border-left:2px solid rgba(217,47,39,.46); border-radius:6px; padding:18px 20px}
 .card h3{color:var(--ink-strong); font-size:19px; margin-bottom:8px}
@@ -143,6 +145,9 @@ tr:nth-child(even) td{background:rgba(20,20,22,.62)}
 td small{color:var(--muted)}
 .table-scroll{overflow-x:auto; scrollbar-color:var(--line) transparent}
 .table-scroll table{min-width:680px}
+.table-scroll .attack-shape-table{min-width:920px}
+.attack-shape-table th:nth-child(1),.attack-shape-table td:nth-child(1){width:180px; min-width:180px; white-space:nowrap}
+.attack-shape-table th:nth-child(2),.attack-shape-table td:nth-child(2){width:130px; min-width:130px; white-space:nowrap}
 
 /* ===== 圖鑑 ===== */
 .novel{margin:26px 0 10px; color:var(--red2); font-size:19px; border-left:3px solid var(--red); padding-left:10px}
@@ -203,6 +208,7 @@ footer p{margin:6px 0}
       <a href="#" data-nav="gallery">圖鑑</a>
       <a href="#" data-nav="tips">錦囊</a>
       <a href="#" data-nav="battle">戰鬥參考</a>
+      <a href="#" data-nav="faq">PC 問題</a>
     </div>
     <div class="lang">
       <button class="lang-btn" data-tw="false">簡體</button>
@@ -310,12 +316,12 @@ footer p{margin:6px 0}
       </ul>
     </div>
     <div class="card">
-      <h3>商店刷新與拒絕名單</h3>
+      <h3>商店刷新、拒絕名單與禁棋</h3>
       <ul>
         <li>刷新時先按你當前等級抽費階，再從該費階還能出現的角色裡挑人；這個費階要是沒人可挑，權重就勻給其他費階。</li>
-        <li>這輪商店沒買走的一至四費角色，<b>拒絕名單</b>只會讓它們在下一次刷新暫時迴避一次，過後照常能刷到——這跟永久踢出棋池的禁棋完全是兩回事；五費角色不受此限。</li>
-        <li>鎖定商店後，打贏主線也不會自動換貨；解鎖本身同樣不換——想要新貨，要麼手動刷新，要麼再贏一場主線。</li>
-        <li>禁棋只管以後刷出來的商店；已經擺在貨架上的棋子照買不誤。</li>
+        <li>這輪商店未買走的一至四費角色，會進入一次性的<b>拒絕名單</b>，只在下一次刷新時迴避；五費角色不受影響。</li>
+        <li>標準與困難難度另有<b>禁棋</b>：指定角色會永久移出本局後續刷新池。禁棋只影響之後的商店，已在貨架上的棋子仍可購買；完整規則見下方<a href="#" data-nav="difficulty">「三種棋局難度 → 禁棋系統」</a>。</li>
+        <li>鎖定商店後，即使打贏主線也不會自動換貨；解除鎖定也不會立刻換貨。商店會在手動刷新，或下一次未鎖定的主線勝利後更新。</li>
       </ul>
     </div>
     <div class="card">
@@ -374,7 +380,7 @@ footer p{margin:6px 0}
     <div class="card">
       <h3>裝備怎麼來</h3>
       <ul>
-        <li>推主線會多次觸發裝備獎勵，給幾個候選、最高到幾層都由難度配置決定。點「刷新更多選項」不會丟掉原候選，只會追加新的；最後要是挑了新候選，才收這筆刷新費。</li>
+        <li>推主線會多次觸發裝備獎勵，候選數量和最高層級由難度配置決定。獎勵列表會直接列出可購買的追加候選，並在條目旁標明費用；選中後按標價扣除金幣。</li>
         <li>遠征挑戰的通關獎勵中也包含裝備。</li>
         <li>第 %%Y:nb:神兵商店.通关后%% 關（困難 %%Y:hb:神兵商店.通关后%% 關）後開放<b>神兵商店</b>，只售四階傳說裝備，每件 %%Y:nb:神兵商店.价格%% 金（困難 %%Y:hb:神兵商店.价格%% 金）。</li>
       </ul>
@@ -390,11 +396,19 @@ footer p{margin:6px 0}
       </ul>
     </div>
   </div>
+  <figure class="shot" style="margin-top:16px">
+    %%SHOT:yitian-sword%%
+    <figcaption>倚天劍示例：層級、類型、特殊效果、計作羈絆與角色專屬加成都集中顯示</figcaption>
+  </figure>
   <div class="card" style="margin-top:14px">
     <h3>內功心法</h3>
-    <p>每擊敗一位強敵（每 %%Y:nb:进度.Boss间隔%% 關一位），就能從隨機 %%Y:ng:选择数量%% 本還沒學過的內功裡挑一本；強敵越靠後，能挑的層級越高。刷新不會丟原候選，只會追加——最後若挑了新增的那本，才加收 %%Y:ng:追加選項費用%% 金。內功一經習得，<span class="hl">全隊生效</span>，後期陣容強不強，很大程度就看它了。</p>
+    <p>每擊敗一位強敵（每 %%Y:nb:进度.Boss间隔%% 關一位），就能從隨機 %%Y:ng:选择数量%% 本還沒學過的內功裡挑一本；隨著主線進度推進，候選內功的最高層級也會提高。獎勵列表會直接列出可購買的追加候選，每本標價 %%Y:ng:追加選項費用%% 金，選中後直接扣款。內功一經習得，<span class="hl">全隊生效</span>，後期陣容強不強，很大程度就看它了。</p>
     <p class="mut" style="margin-top:8px">共 %%C:neigong%% 種內功、分四個層級，具體效果以遊戲內「棋局總覽 → 查看內功」為準。</p>
   </div>
+  <figure class="shot" style="margin-top:16px">
+    %%SHOT:neigong-reward%%
+    <figcaption>內功獎勵：免費候選與 +$%%Y:ng:追加選項費用%% 追加候選同頁列出，費用直接標在選項旁</figcaption>
+  </figure>
 </section>
 
 <section data-a="difficulty">
@@ -538,11 +552,11 @@ footer p{margin:6px 0}
   <div class="cards">
     <div class="card">
       <h3>熟練度、輕功與冷卻</h3>
-      <p>每門武功都有類別，出手時吃對應的熟練度——拳掌武功看拳掌，御劍武功看御劍，依此類推。一招用完隔多久才能再來？先取這次攻擊形態的基礎冷卻，多數形態下熟練度越高、冷卻越短，但每種形態都有下限，快不到哪去；輕功接著再按上限往下壓；額外的冷卻縮減或冷卻延長，最後才登場修正。<b>這些屬性只管「兩招之間隔多久」，並不會讓出招、收招的動作本身變快——前搖後搖該多久還是多久。</b></p>
+      <p>每門武功都對應一種熟練度：拳掌武功看拳掌，御劍武功看御劍，其他類別同理。兩次出招之間的冷卻先由攻擊形態決定，再由對應熟練度和輕功縮短，最後計算額外的冷卻縮減或延長；冷卻不會低於該攻擊形態的下限。<b>這些屬性只影響下一次何時能出招，不會縮短出招前搖或收招後搖。</b></p>
     </div>
     <div class="card">
       <h3>內力與絕招循環</h3>
-      <p>內力從哪來？平常出招、自然恢復、打中敵人、捱打損血都會漲，回內加成還能讓漲得更多。內力一滿，棋子就自動把整管內力打成絕招。<b>中了封內，持續期間一切回內手段都會失靈</b>，下一發絕招只能往後拖。至於絕招到底強化成什麼樣，得看它的實際攻擊形態與具體效果——並沒有「傷害翻倍」之類的通用規則。</p>
+      <p>出招、自然恢復、命中敵人和承受傷害都能獲得內力，回內加成會提高這些收益。內力充滿後，棋子會自動消耗全部內力施放絕招。<b>封內期間無法獲得內力</b>，因此下一次絕招會延後。不同攻擊形態的絕招變化，見下方「點 / 線 / 十字 / 面」說明。</p>
     </div>
   </div>
 
@@ -550,7 +564,7 @@ footer p{margin:6px 0}
     <h3>前搖與後搖如何決定</h3>
     <ul>
       <li><b>前搖</b>看的是這次實際採用的攻擊形態，跟武功叫什麼名字無關。近戰、追蹤彈、直線彈、突進各有各的基礎施放幀；出手瞬間還會上下浮動一絲絲，免得全場棋子齊刷刷同幀出手，跟排練過似的。</li>
-      <li>前搖走完才算真正出手：近戰這時才生成命中判定，遠程這時才放出投射物，突進這時才衝出去。目標要是在這當口已經沒了，這一下可能直接收招，也可能按該形態的規則另找目標。</li>
+      <li>前搖結束後才會真正出手：近戰這時才生成命中判定，遠程這時才放出投射物，突進這時才衝出去。如果原目標已經倒下或無法攻擊，招式會直接結束，或根據攻擊形態改選其他目標。</li>
       <li><b>後搖</b>是出手後那點收勢時間。普通攻擊的收勢大家都一樣長，突進則按自己的衝勢收尾；收完勢就能重新走位——但別誤會，這不代表冷卻已經轉好。</li>
       <li><b>總冷卻從動作一開始就同步倒數</b>，前搖後搖都算在裡面；冷卻歸零、當前動作也做完，棋子才能接下一招。所以一招的完整節奏，並非「前搖 + 後搖 + 冷卻」三段簡單相加。</li>
     </ul>
@@ -558,14 +572,14 @@ footer p{margin:6px 0}
 
   <div class="card" style="margin-top:14px">
     <h3>「點 / 線 / 十字 / 面」在自走棋裡的實際解釋</h3>
-    <p class="mut">這些名字來自原版回合制武功資料；自走棋是即時戰鬥，會把它們轉換成另一套打法——可別拿原版的格子範圍往上套。</p>
+    <p class="mut">這些名稱來自原版回合制武功資料；自走棋會把它們轉換為下表的即時攻擊方式。棋盤面板有時簡稱為「輕 / 重 / 遠」，完整名稱是「輕擊 / 重擊 / 遠程」。</p>
     <div class="table-scroll">
-      <table>
-        <thead><tr><th>資料範圍</th><th>自走棋實際行為</th><th>絕招時的主要變化</th></tr></thead>
+      <table class="attack-shape-table">
+        <thead><tr><th>資料範圍</th><th>棋盤稱呼</th><th>自走棋實際行為</th><th>絕招時的主要變化</th></tr></thead>
         <tbody>
-          <tr><td><b>點（0）</b></td><td>近身肉搏；連續普通近戰打到第三下，會變成一記追擊式的強化打擊。</td><td>這一擊必定強化，還會補上一記慢半拍的近身濺射。</td></tr>
-          <tr><td><b>線 / 十字（1 / 2）</b></td><td>目前都會變成直線穿透的投射物，順帶幾枚較弱的扇形側彈；「十字」並不會真的向上下左右各射一條線。</td><td>側彈更多，但仍是一片朝目標方向展開的穿透彈幕。</td></tr>
-          <tr><td><b>面（3）</b></td><td>變成追蹤投射物，盯著選定目標或附近的備選目標追，並非全屏轟炸。</td><td>基礎追蹤彈從一發變兩發；想要更多追加彈，得看武功、羈絆或裝備的本事。</td></tr>
+          <tr><td><b>點（0）</b></td><td>輕（輕擊）</td><td>近身肉搏；連續普通近戰打到第三下，會變成一記追擊式的強化打擊。</td><td>這一擊必定強化，還會補上一記慢半拍的近身濺射。</td></tr>
+          <tr><td><b>線 / 十字（1 / 2）</b></td><td>遠（遠程）</td><td>目前都會變成直線穿透的投射物，順帶幾枚較弱的扇形側彈；「十字」並不會真的向上下左右各射一條線。</td><td>側彈更多，但仍是一片朝目標方向展開的穿透彈幕。</td></tr>
+          <tr><td><b>面（3）</b></td><td>重（重擊）</td><td>變成追蹤投射物，盯著選定目標或附近的備選目標追，並非全屏轟炸。</td><td>基礎追蹤彈從一發變兩發；想要更多追加彈，得看武功、羈絆或裝備的本事。</td></tr>
         </tbody>
       </table>
     </div>
@@ -596,6 +610,20 @@ footer p{margin:6px 0}
     %%SHOT:log%%
     <figcaption>帶幀號的戰鬥日誌：施放、命中、狀態、投射物抵消與資源變化都有據可查</figcaption>
   </figure>
+</section>
+
+<section data-a="faq">
+  <div class="sec-head"><span class="sec-no">拾壹</span><h2>PC 版常見問題</h2><small>Windows 啟動與運行環境</small></div>
+  <div class="cards">
+    <div class="card">
+      <h3>Windows 版怎麼啟動？</h3>
+      <p>Windows 打包版會附上 <b class="file-name">play金群自走棋.lnk</b>。解壓後直接雙擊這個捷徑即可啟動遊戲。</p>
+    </div>
+    <div class="card">
+      <h3>雙擊後沒有反應，或遊戲無法開啟？</h3>
+      <p>請先安裝 Microsoft Visual C++ x64 運行環境：<a href="https://aka.ms/vc14/vc_redist.x64.exe" target="_blank" rel="noopener">下載 vc_redist.x64.exe</a>。</p>
+    </div>
+  </div>
 </section>
 
 </main>

@@ -5,6 +5,7 @@
 #include "ChessReplayJson.h"
 #include "ChessReplayVerifier.h"
 #include "ChessTournament.h"
+#include "Utf8Path.h"
 
 #include <algorithm>
 #include <array>
@@ -22,6 +23,10 @@
 #include <ranges>
 #include <sstream>
 #include <vector>
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 namespace
 {
@@ -162,15 +167,6 @@ bool writeText(const std::filesystem::path& path, std::string_view text)
     return output.good();
 }
 
-std::string pathText(const std::filesystem::path& path)
-{
-    const auto text = path.generic_u8string();
-    return {
-        reinterpret_cast<const char*>(text.data()),
-        text.size(),
-    };
-}
-
 std::vector<std::filesystem::path> tournamentSavePaths(
     const std::filesystem::path& directory)
 {
@@ -208,7 +204,7 @@ std::optional<KysChess::ChessTournamentSubmission> loadTournamentSubmission(
     const auto payload = readText(path);
     if (!payload)
     {
-        error = std::format("無法讀取參賽存檔 {}", pathText(path));
+        error = std::format("無法讀取參賽存檔 {}", KysChess::pathToUtf8(path));
         return std::nullopt;
     }
     const auto verification = KysChess::ChessPvpSaveVerifier::verify(
@@ -218,15 +214,15 @@ std::optional<KysChess::ChessTournamentSubmission> loadTournamentSubmission(
     {
         error = std::format(
             "參賽存檔 {} 驗證失敗（序號 {}）：{}",
-            pathText(path),
+            KysChess::pathToUtf8(path),
             verification.sequence,
             verification.message);
         return std::nullopt;
     }
 
     KysChess::ChessTournamentSubmission result;
-    result.name = pathText(path.stem());
-    result.source = pathText(path.filename());
+    result.name = KysChess::pathToUtf8(path.stem());
+    result.source = KysChess::pathToUtf8(path.filename());
     result.payloadHash = KysChess::chessSha256(*payload);
     result.composition = verification.composition;
     return result;
@@ -468,6 +464,10 @@ void printTournamentMarkdownResult(
 
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+    SetConsoleCP(CP_UTF8);
+    SetConsoleOutputCP(CP_UTF8);
+#endif
     using namespace KysChess;
     const auto arguments = parseArguments(argc, argv);
     std::map<Difficulty, std::shared_ptr<const ChessGameContent>> cache;
@@ -730,13 +730,13 @@ int main(int argc, char** argv)
         if (!arguments.outputPath.empty()
             && !writeText(arguments.outputPath, report))
         {
-            std::cerr << "無法寫出 Markdown 賽事報告 " << pathText(arguments.outputPath) << '\n';
+            std::cerr << "無法寫出 Markdown 賽事報告 " << pathToUtf8(arguments.outputPath) << '\n';
             return 2;
         }
         if (!arguments.jsonOutputPath.empty()
             && !writeText(arguments.jsonOutputPath, json))
         {
-            std::cerr << "無法寫出 JSON 賽事結果 " << pathText(arguments.jsonOutputPath) << '\n';
+            std::cerr << "無法寫出 JSON 賽事結果 " << pathToUtf8(arguments.jsonOutputPath) << '\n';
             return 2;
         }
         if (arguments.mode == ChessCliOutputMode::Json)
@@ -748,11 +748,11 @@ int main(int argc, char** argv)
             std::cout << report;
             if (!arguments.outputPath.empty())
             {
-                std::cout << "Markdown 報告已寫入：" << pathText(arguments.outputPath) << '\n';
+                std::cout << "Markdown 報告已寫入：" << pathToUtf8(arguments.outputPath) << '\n';
             }
             if (!arguments.jsonOutputPath.empty())
             {
-                std::cout << "JSON 結果已寫入：" << pathText(arguments.jsonOutputPath) << '\n';
+                std::cout << "JSON 結果已寫入：" << pathToUtf8(arguments.jsonOutputPath) << '\n';
             }
         }
         return 0;

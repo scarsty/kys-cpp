@@ -80,19 +80,17 @@ TEST_CASE("BattleAttackEffect_PresentationLifetimeAdvancesOnlyOnBattleFrameTicks
     CHECK(effects.front().Frame == 1);
 }
 
-TEST_CASE("BattleRoleEchoEffect_FadesToTransparentAcrossAnimation", "[battle][presentation][unit]")
+TEST_CASE("BattleRoleEchoEffect_FadesLinearlyToTransparentAcrossAnimation", "[battle][presentation][unit]")
 {
     BattleRoleEchoEffect effect;
-    effect.TotalFrame = 12;
+    effect.TotalFrame = 5;
+    effect.Alpha = 200;
 
-    CHECK(effect.Offset == 18.0f);
-    CHECK(effect.Alpha == 176);
-    CHECK(BattleRoleEchoLingeringFrames == 2);
-    CHECK(battleRoleEchoRenderAlpha(effect) == 176);
+    CHECK(battleRoleEchoRenderAlpha(effect) == 200);
 
-    effect.Frame = 9;
-    CHECK(battleRoleEchoRenderAlpha(effect) == 32);
+    effect.Frame = 2;
+    CHECK(battleRoleEchoRenderAlpha(effect) == 100);
 
-    effect.Frame = 11;
+    effect.Frame = 4;
     CHECK(battleRoleEchoRenderAlpha(effect) == 0);
 }

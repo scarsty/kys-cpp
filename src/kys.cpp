@@ -11,6 +11,10 @@
 
 #include <filesystem>
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 namespace
 {
 
@@ -33,7 +37,8 @@ int main(int argc, char* argv[])
     LOG("Filesystem ready (set up in JS preRun)\n");
 #endif
 #ifdef _WIN32
-    system("chcp 65001");
+    SetConsoleCP(CP_UTF8);
+    SetConsoleOutputCP(CP_UTF8);
 #endif
     if (argc >= 2)
     {
@@ -42,8 +47,9 @@ int main(int argc, char* argv[])
 #ifdef _WIN32
     else
     {
-        GameUtil::PATH() = gamePathText(
-            KysChess::discoverChessContentRoots(KysChess::currentExecutablePath()).dataRoot);
+        const auto roots = KysChess::discoverChessContentRoots(KysChess::currentExecutablePath());
+        std::filesystem::current_path(roots.dataRoot.parent_path());
+        GameUtil::PATH() = gamePathText(roots.dataRoot.filename());
     }
 #endif
     LOG("Game path is {}\n", GameUtil::PATH());

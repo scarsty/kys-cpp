@@ -225,7 +225,9 @@ TEST_CASE("BattleSceneFrameApplier_StoresRoleAttackEchoWithoutChangingRuntimeAni
     CHECK(fixture.roleEchoEffects[0].SourceUnitId == 0);
     CHECK(fixture.roleEchoEffects[0].TargetUnitId == 1);
     CHECK(fixture.roleEchoEffects[0].ActType == 3);
-    CHECK(fixture.roleEchoEffects[0].TotalFrame == 9);
+    CHECK(fixture.roleEchoEffects[0].TotalFrame
+        == fixture.fixture.store.requirePresentation(0).fightFrames[3]
+        + BattleRoleEchoLingeringFrames);
     const auto after = fixture.fixture.store.requireRuntimeUnit(0).animation;
     CHECK(after.actType == before.actType);
     CHECK(after.actFrame == before.actFrame);

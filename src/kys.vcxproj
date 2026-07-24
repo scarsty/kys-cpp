@@ -366,6 +366,9 @@
     <ResourceCompile Include="kys.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Manifest Include="kys_utf8.manifest" />
+  </ItemGroup>
+  <ItemGroup>
     <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>

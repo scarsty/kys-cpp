@@ -28,6 +28,8 @@ struct ResolvedChessComboContribution
     int starBonusPoints{};
     bool naturalMember{};
     std::vector<int> equipmentItemIds;
+
+    auto operator<=>(const ResolvedChessComboContribution&) const = default;
 };
 
 struct ChessComboResolverEquipmentRule

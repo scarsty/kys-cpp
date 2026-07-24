@@ -504,7 +504,7 @@ void Role::equip(Item* i)
 //医疗的效果
 int Role::medicine(Role* r2)
 {
-    if (this == nullptr || r2 == nullptr)
+    if (r2 == nullptr)
     {
         return 0;
     }

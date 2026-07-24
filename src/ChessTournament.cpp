@@ -84,6 +84,18 @@ struct TournamentJsonResult
     std::vector<int> champion_entrant_indices;
 };
 
+struct TournamentJsonWriteOptions : glz::opts
+{
+    std::uint8_t indentation_width = 2;
+};
+
+constexpr auto kTournamentJsonWriteOptions = []
+{
+    TournamentJsonWriteOptions options;
+    options.prettify = true;
+    return options;
+}();
+
 std::string tournamentBattleOutcomeText(ChessTournamentBattleOutcome outcome)
 {
     switch (outcome)
@@ -398,11 +410,8 @@ std::string chessTournamentHalfPointsText(int halfPoints)
 std::string serializeChessTournamentResultJson(
     const ChessTournamentResult& result)
 {
-    const auto json = glz::write<glz::opts{
-        .format = glz::JSON,
-        .prettify = true,
-        .indentation_width = 2,
-    }>(tournamentJsonResult(result));
+    const auto json = glz::write<kTournamentJsonWriteOptions>(
+        tournamentJsonResult(result));
     return json ? json.value() : std::string{};
 }
 

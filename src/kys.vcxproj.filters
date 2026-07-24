@@ -630,4 +630,9 @@
       <Filter>_Resources</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="kys_utf8.manifest">
+      <Filter>_Resources</Filter>
+    </Manifest>
+  </ItemGroup>
 </Project>

@@ -122,7 +122,7 @@ foreach ($dll in $localDlls) {
 Write-Host "[4/5] Copying resources..."
 Copy-ReleaseGameAssets -SourceGameDir $GameDir -DestinationGameDir "$PkgDir\game" -Version $Version
 
-# Step 5: Copy changelog and create launcher
+# Step 5: Copy changelog and create shortcut
 Write-Host "[5/5] Finalizing package..."
 $promoPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 $promoBuilder = Join-Path $PSScriptRoot 'tools\promo\build_page.py'
@@ -135,7 +135,7 @@ Invoke-NativeCommand -FilePath $promoPython -ArgumentList @(
     '--config-dir',
     (Join-Path $PSScriptRoot 'config'),
     '--output',
-    (Join-Path $PkgDir '金群自走棋.html')
+    (Join-Path $PkgDir '金群自走棋说明.html')
 )
 
 $changelog = Get-ChildItem "docs\*.md" | Where-Object { $_.Name -match '\u66f4\u65b0\u65e5\u5fd7' } | Select-Object -First 1
@@ -143,10 +143,10 @@ if ($changelog) {
     Copy-Item $changelog.FullName "$PkgDir\" -Force
 }
 
-@"
-@echo off
-start "" "%~dp0bin\kys.exe"
-"@ | Out-File -FilePath "$PkgDir\play.bat" -Encoding ASCII
+New-WindowsShortcut `
+    -ShortcutPath (Join-Path $PkgDir 'play金群自走棋.lnk') `
+    -TargetPath (Join-Path $PkgDir 'bin\kys.exe') `
+    -Description '啟動金群自走棋'
 
 Write-Host "========================================"
 Write-Host "Package created in: $PkgDir"

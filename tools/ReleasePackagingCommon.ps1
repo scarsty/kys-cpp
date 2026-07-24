@@ -140,6 +140,42 @@ function Set-Utf8NoBomFileContent
     [System.IO.File]::WriteAllText($Path, $Content, [System.Text.UTF8Encoding]::new($false))
 }
 
+function New-WindowsShortcut
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ShortcutPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$TargetPath,
+
+        [string]$Description = ''
+    )
+
+    Ensure-PathExists -Path $TargetPath -Message "Shortcut target not found: $TargetPath"
+
+    $shortcutDirectory = Split-Path -Parent $ShortcutPath
+    New-Item -ItemType Directory -Force -Path $shortcutDirectory | Out-Null
+
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $null
+    try
+    {
+        $shortcut = $shell.CreateShortcut([System.IO.Path]::GetFullPath($ShortcutPath))
+        $shortcut.TargetPath = [System.IO.Path]::GetFullPath($TargetPath)
+        $shortcut.Description = $Description
+        $shortcut.Save()
+    }
+    finally
+    {
+        if ($null -ne $shortcut)
+        {
+            [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($shortcut)
+        }
+        [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell)
+    }
+}
+
 function Copy-ReleaseGameAssets
 {
     param(

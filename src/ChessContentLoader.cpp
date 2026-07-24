@@ -9,6 +9,7 @@
 #include "GrpIdxFile.h"
 #include "SQLite3Wrapper.h"
 #include "SimpleCC.h"
+#include "Utf8Path.h"
 #include "filefunc.h"
 #include "yaml-cpp/yaml.h"
 
@@ -28,11 +29,6 @@ namespace KysChess
 namespace
 {
 
-std::string pathText(const std::filesystem::path& path)
-{
-    return path.generic_string();
-}
-
 bool isChessDataRoot(const std::filesystem::path& path)
 {
     return std::filesystem::is_regular_file(path / "save" / "game.db")
@@ -45,13 +41,13 @@ bool loadDatabaseRecords(
     const ChessDiagnosticSink& diagnostics)
 {
     SQLite3Wrapper database;
-    if (!database.open(pathText(databasePath)))
+    if (!database.open(pathToUtf8(databasePath)))
     {
         emitChessDiagnostic(
             diagnostics,
             ChessDiagnosticSeverity::Error,
             "遊戲資料",
-            std::format("無法開啟資料庫 {}", pathText(databasePath)));
+            std::format("無法開啟資料庫 {}", pathToUtf8(databasePath)));
         return false;
     }
     const auto text = [](SQLite3Stmt& statement, int column) {
@@ -159,7 +155,7 @@ bool loadDatabaseRecords(
 void loadBattleMaps(const std::filesystem::path& root, ChessGameContentData& data)
 {
     std::vector<BattleInfo> records;
-    filefunc::readFileToVector(pathText(root / "resource" / "war.sta"), records);
+    filefunc::readFileToVector(pathToUtf8(root / "resource" / "war.sta"), records);
     for (const auto& record : records)
     {
         ChessBattleMapDefinition definition;
@@ -184,8 +180,8 @@ void loadBattleMaps(const std::filesystem::path& root, ChessGameContentData& dat
     std::vector<int> offsets;
     std::vector<int> lengths;
     const auto bytes = GrpIdxFile::getIdxContent(
-        pathText(root / "resource" / "warfld.idx"),
-        pathText(root / "resource" / "warfld.grp"),
+        pathToUtf8(root / "resource" / "warfld.idx"),
+        pathToUtf8(root / "resource" / "warfld.grp"),
         &offsets,
         &lengths);
     for (std::size_t index = 0; index < lengths.size(); ++index)
@@ -210,7 +206,7 @@ bool loadPoolRoleIds(
     roleIds.clear();
     try
     {
-        const auto root = YAML::LoadFile(pathText(path));
+        const auto root = YAML::LoadFile(pathToUtf8(path));
         const auto roles = root["角色"];
         if (!roles || !roles.IsSequence())
         {
@@ -234,7 +230,7 @@ bool loadPoolRoleIds(
     }
     catch (const YAML::Exception& ex)
     {
-        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "棋池配置", std::format("無法讀取檔案 {}: {}", pathText(path), ex.what()));
+        emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "棋池配置", std::format("無法讀取檔案 {}: {}", pathToUtf8(path), ex.what()));
         return false;
     }
     return true;
@@ -322,8 +318,8 @@ std::optional<ChessGameContent> ChessContentLoader::load(const ChessContentLoadO
     const auto root = std::filesystem::weakly_canonical(options.dataRoot);
     SimpleCC converter;
     if (converter.init({
-            pathText(root / "cc" / "STPhrases.txt"),
-            pathText(root / "cc" / "STCharacters.txt")}) != 0)
+            pathToUtf8(root / "cc" / "STPhrases.txt"),
+            pathToUtf8(root / "cc" / "STCharacters.txt")}) != 0)
     {
         emitChessDiagnostic(options.diagnostics, ChessDiagnosticSeverity::Error, "文字轉換", "無法載入簡繁轉換資料");
         return std::nullopt;
@@ -351,8 +347,8 @@ std::optional<ChessGameContent> ChessContentLoader::load(const ChessContentLoadO
     const auto balancePath = configRoot /
         std::format("chess_balance_{}.yaml", ChessBalance::difficultyConfigSuffix(options.difficulty));
     if (!loadBalanceConfig(
-            pathText(balancePath),
-            pathText(configRoot / "chess_challenge.yaml"),
+            pathToUtf8(balancePath),
+            pathToUtf8(configRoot / "chess_challenge.yaml"),
             toTraditional,
             options.diagnostics,
             data.balance))
@@ -360,13 +356,13 @@ std::optional<ChessGameContent> ChessContentLoader::load(const ChessContentLoadO
         return std::nullopt;
     }
 
-    data.combos = loadChessCombos(pathText(configRoot / "chess_combos.yaml"), toTraditional, options.diagnostics);
+    data.combos = loadChessCombos(pathToUtf8(configRoot / "chess_combos.yaml"), toTraditional, options.diagnostics);
     if (data.combos.empty())
     {
         return std::nullopt;
     }
     if (!loadChessEquipment(
-            pathText(configRoot / "chess_equipment.yaml"),
+            pathToUtf8(configRoot / "chess_equipment.yaml"),
             toTraditional,
             options.diagnostics,
             data.equipment,
@@ -415,7 +411,7 @@ std::optional<ChessGameContent> ChessContentLoader::load(const ChessContentLoadO
         magicById.emplace(magic.ID, &magic);
     }
     if (!loadChessNeigong(
-            pathText(configRoot / "chess_neigong.yaml"),
+            pathToUtf8(configRoot / "chess_neigong.yaml"),
             itemPointers,
             [&magicById](int id) {
                 const auto found = magicById.find(id);
@@ -428,7 +424,7 @@ std::optional<ChessGameContent> ChessContentLoader::load(const ChessContentLoadO
         return std::nullopt;
     }
     if (!ChessBattleEffects::loadMagicEffectsFile(
-            pathText(configRoot / "chess_magic_effects.yaml"),
+            pathToUtf8(configRoot / "chess_magic_effects.yaml"),
             data.magicEffects,
             options.diagnostics))
     {
