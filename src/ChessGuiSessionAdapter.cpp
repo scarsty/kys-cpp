@@ -4536,7 +4536,9 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
         {
             return ChessGuiFlowResult::Aborted;
         }
-        const auto& actionResult = *battle->completedActionResult();
+        const auto actionResult = *battle->completedActionResult();
+        stats.reset();
+        battle.reset();
         if (prepared.kind == PreparedChessBattleKind::Standalone)
         {
             continue;

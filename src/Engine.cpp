@@ -950,6 +950,10 @@ void Engine::setColor(Texture* tex, Color c)
 
 void Engine::destroyTexture(Texture* t)
 {
+    if (!t)
+    {
+        return;
+    }
     color_cache_.erase(t);
     SDL_DestroyTexture(t);
 }

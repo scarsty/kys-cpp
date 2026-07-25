@@ -7,6 +7,28 @@ constexpr RunNode::PointerResult menuContainerPointerResult(const PointerEvent&)
     return RunNode::PointerResult::Ignored;
 }
 
+template <class HitTest>
+int menuPointerPressedChild(const PointerEvent& event, int childCount, HitTest hitTest)
+{
+    if (event.button != SDL_BUTTON_LEFT || event.phase != PointerPhase::ButtonDown)
+    {
+        return -1;
+    }
+    for (int i = childCount - 1; i >= 0; --i)
+    {
+        if (hitTest(i))
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+constexpr RunNode::State menuChildStateAfterPointerReset(int child, int activeChild)
+{
+    return child == activeChild ? RunNode::NodePass : RunNode::NodeNormal;
+}
+
 class Menu : public TextBox
 {
 public:
@@ -21,6 +43,7 @@ public:
     virtual void onPressedCancel() override;
     virtual void onEntrance() override;
     virtual void onExit() override;
+    void onPointerInputReset() override;
 
     void setStartItem(int s) { start_ = s; }
 

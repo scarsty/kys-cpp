@@ -48,7 +48,7 @@ struct TextureWarpper
     int w = 0, h = 0, dx = 0, dy = 0;
     bool loaded = false;
     int count = 1;
-    int prev_show;
+    int prev_show = -1;
     void setTex(Texture* t);
     Texture* getTexture(int i = 0) { return tex[i]; }
 

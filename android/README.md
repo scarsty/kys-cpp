@@ -18,9 +18,13 @@ $env:ANDROID_NDK = $env:ANDROID_NDK_HOME
 
 vcpkg install --triplet=arm64-android `
     --overlay-triplets=android/triplets `
+    --overlay-ports=android/ports `
     --x-manifest-root=android `
     --x-install-root=android/vcpkg_installed
 ```
+
+The SDL3 overlay keeps the current vcpkg port and applies a local fix for the
+GLES2 program-cache tail pointer when the oldest shader program is evicted.
 
 The custom triplet at `android/triplets/arm64-android.cmake` sets `VCPKG_CMAKE_SYSTEM_VERSION 21` (minSdk 21).
 
@@ -127,6 +131,7 @@ android/
 ├── debug.keystore             # signing key (not committed)
 ├── copy_assets.ps1            # asset copy + save cleanup
 ├── vcpkg.json                 # arm64-android dependencies
+├── ports/sdl3/                # SDL3 overlay and GLES2 cache fix
 ├── triplets/
 │   └── arm64-android.cmake    # custom triplet (minSdk 21)
 ├── vcpkg_installed/           # vcpkg output (not committed)

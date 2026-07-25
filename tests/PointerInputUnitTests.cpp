@@ -567,6 +567,34 @@ TEST_CASE("Menu containers leave blank-space pointer presses unhandled", "[point
     CHECK_FALSE(routed.has_value());
 }
 
+TEST_CASE("Menu pointer presses replace the previously active child", "[pointer_routing][menu]")
+{
+    PointerEvent event;
+    event.source = PointerSource::Touch;
+    event.pointerId = 3;
+    event.button = SDL_BUTTON_LEFT;
+    event.phase = PointerPhase::ButtonDown;
+    event.uiPosition = {50.0f, 10.0f};
+
+    int activeChild = 1;
+    const int pressedChild = menuPointerPressedChild(event, 2, [](int index)
+    {
+        return index == 0;
+    });
+    REQUIRE(pressedChild == 0);
+    activeChild = pressedChild;
+    CHECK(activeChild == 0);
+    CHECK(superMenuTapAction(true, activeChild, 1) == SuperMenuTapAction::Lock);
+    CHECK(superMenuTapAction(true, activeChild, activeChild) == SuperMenuTapAction::Commit);
+}
+
+TEST_CASE("Menu pointer reset clears activation while preserving selection", "[pointer_routing][menu]")
+{
+    CHECK(menuChildStateAfterPointerReset(0, 1) == RunNode::NodeNormal);
+    CHECK(menuChildStateAfterPointerReset(1, 1) == RunNode::NodePass);
+    CHECK(menuChildStateAfterPointerReset(2, 1) == RunNode::NodeNormal);
+}
+
 TEST_CASE("Battle cursor updates the target for short press sequences", "[pointer_migration]")
 {
     BattleCursorPointerState state;

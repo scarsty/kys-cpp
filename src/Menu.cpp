@@ -162,7 +162,38 @@ void Menu::dealEvent(EngineEvent& e)
 
 RunNode::PointerResult Menu::onPointerEvent(const PointerEvent& event)
 {
+    if (event.phase == PointerPhase::Cancel)
+    {
+        onPointerInputReset();
+        return menuContainerPointerResult(event);
+    }
+
+    const int childCount = static_cast<int>(childs_.size());
+    const int pressedChild = menuPointerPressedChild(
+        event,
+        childCount,
+        [&](int index)
+        {
+            return childs_[index]->inSideUi(event.uiPosition.x, event.uiPosition.y);
+        });
+    if (pressedChild >= 0)
+    {
+        active_child_ = pressedChild;
+        for (int i = 0; i < childCount; ++i)
+        {
+            childs_[i]->setState(i == pressedChild ? NodePress : NodeNormal);
+        }
+    }
     return menuContainerPointerResult(event);
+}
+
+void Menu::onPointerInputReset()
+{
+    const int childCount = static_cast<int>(childs_.size());
+    for (int i = 0; i < childCount; ++i)
+    {
+        childs_[i]->setState(menuChildStateAfterPointerReset(i, active_child_));
+    }
 }
 
 void Menu::arrange(int x, int y, int inc_x, int inc_y)

@@ -1,0 +1,14 @@
+diff --git a/src/render/opengles2/SDL_render_gles2.c b/src/render/opengles2/SDL_render_gles2.c
+index b573255..20a9c92 100644
+--- a/src/render/opengles2/SDL_render_gles2.c
++++ b/src/render/opengles2/SDL_render_gles2.c
+@@ -513,6 +513,9 @@ static GLES2_ProgramCacheEntry *GLES2_CacheProgram(GLES2_RenderData *data, GLui
+     if (data->program_cache.count > GLES2_MAX_CACHED_PROGRAMS) {
+         GLES2_ProgramCacheEntry *oldest = data->program_cache.tail;
+         data->program_cache.tail = oldest->prev;
++        if (data->program_cache.tail) {
++            data->program_cache.tail->next = NULL;
++        }
+         data->glDeleteProgram(oldest->id);
+         SDL_free(oldest->shader_params);
+         SDL_free(oldest);

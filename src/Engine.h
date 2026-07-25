@@ -419,10 +419,16 @@ public:
 
     static void getTextureSize(Texture* t, int& w, int& h)
     {
-        float wf, hf;
-        SDL_GetTextureSize(t, &wf, &hf);
-        w = wf;
-        h = hf;
+        float wf{};
+        float hf{};
+        if (!t || !SDL_GetTextureSize(t, &wf, &hf))
+        {
+            w = 0;
+            h = 0;
+            return;
+        }
+        w = static_cast<int>(wf);
+        h = static_cast<int>(hf);
     }
 
     void setRenderTarget(Texture* t) const { SDL_SetRenderTarget(renderer_, t); }

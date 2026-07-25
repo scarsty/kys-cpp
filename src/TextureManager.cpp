@@ -249,10 +249,21 @@ void TextureWarpper::load()
                 }
             }
         }
-        Engine::getInstance()->getTextureSize(tex[0], w, h);
-        for (auto t : tex)
+        if (!tex[0])
         {
-            Engine::getInstance()->setTextureAlphaMod(t, SDL_BLENDMODE_BLEND);
+            w = 0;
+            h = 0;
+            LOG("Failed to load texture {}/{}: {}\n", group_info_->path, num_, SDL_GetError());
+            return;
+        }
+
+        Engine::getInstance()->getTextureSize(tex[0], w, h);
+        for (auto* t : tex)
+        {
+            if (t)
+            {
+                Engine::getInstance()->setTextureBlendMode(t);
+            }
         }
     }
 }
