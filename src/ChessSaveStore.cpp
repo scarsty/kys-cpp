@@ -102,6 +102,8 @@ std::vector<ChessSaveSlotSummary> ChessSaveStore::list(const ChessGameSession& s
             chessCheckpointVersionCompatible(
                 checkpoint,
                 session.content().gameVersion())
+                && checkpoint.replay.header.contentFingerprint
+                    == session.content().contentFingerprint()
                 && checkpoint.state.difficulty == session.content().difficulty()
                 && checkpoint.state.phase != ChessSessionPhase::BattleResolution,
         });

@@ -53,11 +53,11 @@ int collectFramePostSkillInvincFrames(
     int unitId,
     bool ultimate);
 bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId);
-double resolveFrameArmorPenetratedDefense(
+BattleFixed resolveFrameArmorPenetratedDefense(
     const BattleEffectSources& sources,
     int attackerUnitId,
     int targetUnitId,
-    double defense,
+    BattleFixed defense,
     bool ultimate,
     bool mainProjectile,
     BattleRuntimeRandom& random);
@@ -92,19 +92,14 @@ Point BattleGridTransform::toGrid(Pointf position) const
 {
     assert(tileWidth > 0.0);
     assert(coordCount > 0);
-
-    const double x = position.x - coordCount * tileWidth;
-    Point grid;
-    grid.x = static_cast<int>(std::round((x / tileWidth + position.y / tileWidth) / 2.0));
-    grid.y = static_cast<int>(std::round((-x / tileWidth + position.y / tileWidth) / 2.0));
-    return grid;
+    return battleIsometricGridPosition(position, coordCount, tileWidth);
 }
 
 int findNearestEnemyUnitId(const BattleRuntimeUnits& units, int sourceUnitId)
 {
     const auto& source = units.requireCore(sourceUnitId);
     int targetUnitId = -1;
-    double bestDistance = 0.0;
+    std::uint64_t bestDistanceSquared{};
     for (const auto& candidateRecord : units.live())
     {
         const auto& candidate = candidateRecord.core;
@@ -113,11 +108,15 @@ int findNearestEnemyUnitId(const BattleRuntimeUnits& units, int sourceUnitId)
             continue;
         }
 
-        const double distance = (candidate.motion.position - source.motion.position).norm();
-        if (targetUnitId < 0 || distance < bestDistance)
+        const std::uint64_t distanceSquared = battleDistanceSquared3d(
+            candidate.motion.position,
+            source.motion.position);
+        if (targetUnitId < 0
+            || distanceSquared < bestDistanceSquared
+            || (distanceSquared == bestDistanceSquared && candidate.id < targetUnitId))
         {
             targetUnitId = candidate.id;
-            bestDistance = distance;
+            bestDistanceSquared = distanceSquared;
         }
     }
     return targetUnitId;
@@ -127,7 +126,7 @@ int findFarthestEnemyUnitId(const BattleRuntimeUnits& units, int sourceUnitId)
 {
     const auto& source = units.requireCore(sourceUnitId);
     int targetUnitId = -1;
-    double bestDistance = 0.0;
+    std::uint64_t bestDistanceSquared{};
     for (const auto& candidateRecord : units.live())
     {
         const auto& candidate = candidateRecord.core;
@@ -136,11 +135,15 @@ int findFarthestEnemyUnitId(const BattleRuntimeUnits& units, int sourceUnitId)
             continue;
         }
 
-        const double distance = (candidate.motion.position - source.motion.position).norm();
-        if (targetUnitId < 0 || distance > bestDistance)
+        const std::uint64_t distanceSquared = battleDistanceSquared3d(
+            candidate.motion.position,
+            source.motion.position);
+        if (targetUnitId < 0
+            || distanceSquared > bestDistanceSquared
+            || (distanceSquared == bestDistanceSquared && candidate.id < targetUnitId))
         {
             targetUnitId = candidate.id;
-            bestDistance = distance;
+            bestDistanceSquared = distanceSquared;
         }
     }
     return targetUnitId;
@@ -475,7 +478,7 @@ int resolveHitMagicBaseDamage(
     const BattleRuntimeUnit& attacker,
     const BattleRuntimeUnit& defender)
 {
-    double defence = defender.stats.defence;
+    BattleFixed defence = defender.stats.defence;
     auto attackerSources = makeBattleEffectSources(state, attacker.id, event.skillEffectRef);
     defence = resolveFrameArmorPenetratedDefense(
         attackerSources,
@@ -2938,7 +2941,7 @@ BattleAttackSpawnRequest makeRescueCounterAttackSpawn(
     request.initial.velocity.normTo(static_cast<float>(config.projectileSpeed));
     request.initial.totalFrame = std::max(
         config.minimumTotalFrames,
-        static_cast<int>(std::ceil(distance2d(targetUnit.motion.position, request.initial.position) / config.projectileSpeed))
+        battleTravelFrames2d(request.initial.position, targetUnit.motion.position, config.projectileSpeed)
             + config.totalFramePadding);
     return request;
 }
@@ -5659,11 +5662,11 @@ bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUni
     return BattleComboTriggerSystem().hasExecuteCombo(state, attackerUnitId);
 }
 
-double resolveFrameArmorPenetratedDefense(
+BattleFixed resolveFrameArmorPenetratedDefense(
     const BattleEffectSources& sources,
     int attackerUnitId,
     int targetUnitId,
-    double defense,
+    BattleFixed defense,
     bool ultimate,
     bool mainProjectile,
     BattleRuntimeRandom& random)

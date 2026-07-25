@@ -97,12 +97,12 @@ struct NearestEnemyResult
 {
     const BattleUnitState* unit{};
     double distance = std::numeric_limits<double>::max();
+    double distanceSquared = std::numeric_limits<double>::max();
 };
 
 NearestEnemyResult nearestEnemy(const BattleMovementPlanInput& world, const BattleUnitState& unit)
 {
     const BattleUnitState* best = nullptr;
-    double bestDistance = std::numeric_limits<double>::max();
     double bestDistanceSquared = std::numeric_limits<double>::max();
     for (const auto& other : world.units)
     {
@@ -111,19 +111,19 @@ NearestEnemyResult nearestEnemy(const BattleMovementPlanInput& world, const Batt
             continue;
         }
         const double candidateDistanceSquared = distance2dSquared(unit.position, other.position);
-        if (best && candidateDistanceSquared > bestDistanceSquared)
+        if (!best
+            || candidateDistanceSquared < bestDistanceSquared
+            || (candidateDistanceSquared == bestDistanceSquared && other.id < best->id))
         {
-            continue;
-        }
-        const double d = distance2d(unit.position, other.position);
-        if (d < bestDistance)
-        {
-            bestDistance = d;
             bestDistanceSquared = candidateDistanceSquared;
             best = &other;
         }
     }
-    return { best, bestDistance };
+    return {
+        best,
+        best ? std::sqrt(bestDistanceSquared) : std::numeric_limits<double>::max(),
+        bestDistanceSquared,
+    };
 }
 
 double comfortableMeleeSpacing(const BattleMovementConfig& config)
@@ -137,7 +137,7 @@ std::pmr::vector<int> movementOrder(const BattleMovementPlanInput& world)
     {
         int id = -1;
         bool attackReady = false;
-        double distance = std::numeric_limits<double>::max();
+        double distanceSquared = std::numeric_limits<double>::max();
     };
 
     std::pmr::vector<MovementOrderEntry> entries(world.frameMemoryResource);
@@ -150,8 +150,8 @@ std::pmr::vector<int> movementOrder(const BattleMovementPlanInput& world)
             const auto* target = nearest.unit;
             entries.push_back({
                 unit.id,
-                target && unit.canAttack && nearest.distance <= unit.reach,
-                nearest.distance,
+                target && unit.canAttack && nearest.distanceSquared <= unit.reach * unit.reach,
+                nearest.distanceSquared,
             });
         }
     }
@@ -162,9 +162,9 @@ std::pmr::vector<int> movementOrder(const BattleMovementPlanInput& world)
             {
                 return lhs.attackReady;
             }
-            if (lhs.distance != rhs.distance)
+            if (lhs.distanceSquared != rhs.distanceSquared)
             {
-                return lhs.distance < rhs.distance;
+                return lhs.distanceSquared < rhs.distanceSquared;
             }
             return lhs.id < rhs.id;
         });
@@ -206,7 +206,11 @@ std::pmr::vector<Pointf> candidateDirections(const BattleMovementPlanInput& worl
 int terrainGridCoordCount(const std::vector<BattleTerrainCell>& terrainCells)
 {
     const auto cellCount = static_cast<int>(terrainCells.size());
-    const int coordCount = static_cast<int>(std::round(std::sqrt(static_cast<double>(cellCount))));
+    int coordCount{};
+    while (coordCount + 1 <= cellCount / std::max(1, coordCount + 1))
+    {
+        ++coordCount;
+    }
     return coordCount > 0 && coordCount * coordCount == cellCount ? coordCount : 0;
 }
 
@@ -225,7 +229,7 @@ const std::vector<BattleTerrainCell>& movementTerrainCells(const BattleMovementP
 
 bool closeTerrainPosition(Pointf lhs, Pointf rhs)
 {
-    return distance2d(lhs, rhs) <= 0.01;
+    return distance2dSquared(lhs, rhs) <= 0.01 * 0.01;
 }
 
 Pointf isometricTerrainPosition(int coordCount, double tileWidth, int x, int y)
@@ -323,7 +327,7 @@ struct BattleMovementTerrainLookup
         {
             const auto& cell = terrainCells[terrainGridIndex(coordCount, coords->x, coords->y)];
             const double maximumDistance = std::max(1.0, tileWidth * 1.5);
-            if (distance2d(position, cell.position) <= maximumDistance)
+            if (distance2dSquared(position, cell.position) <= maximumDistance * maximumDistance)
             {
                 return cell.walkable;
             }
@@ -340,13 +344,14 @@ struct BattleMovementTerrainLookup
         }
 
         auto delta = to - from;
-        double length = delta.norm();
-        if (length <= 0.01)
+        if (delta.norm() <= 0.01)
         {
             return allows(to);
         }
 
-        int steps = std::max(1, static_cast<int>(std::ceil(length / std::max(1.0, world.config.engagementDeadband))));
+        const int steps = std::max(
+            1,
+            battleTravelFrames3d(from, to, std::max(1.0, world.config.engagementDeadband)));
         for (int i = 1; i <= steps; ++i)
         {
             double t = static_cast<double>(i) / steps;
@@ -368,7 +373,13 @@ struct BattleMovementTerrainLookup
 
         if (const auto coords = cellCoordsFor(position))
         {
-            const int cellRadius = std::max(1, static_cast<int>(std::ceil(radius / std::max(1.0, tileWidth))) + 2);
+            const int cellRadius = std::max(
+                1,
+                battleTravelFrames2d(
+                    {},
+                    {static_cast<float>(radius), 0.0f, 0.0f},
+                    std::max(1.0, tileWidth))
+                    + 2);
             const int minX = std::max(0, coords->x - cellRadius);
             const int maxX = std::min(coordCount - 1, coords->x + cellRadius);
             const int minY = std::max(0, coords->y - cellRadius);
@@ -378,7 +389,7 @@ struct BattleMovementTerrainLookup
                 for (int y = minY; y <= maxY; ++y)
                 {
                     const auto& cell = terrainCells[terrainGridIndex(coordCount, x, y)];
-                    if (!cell.walkable && distance2d(position, cell.position) < radius)
+                    if (!cell.walkable && distance2dSquared(position, cell.position) < radius * radius)
                     {
                         return true;
                     }
@@ -389,7 +400,7 @@ struct BattleMovementTerrainLookup
 
         for (const auto& cell : terrainCells)
         {
-            if (!cell.walkable && distance2d(position, cell.position) < radius)
+            if (!cell.walkable && distance2dSquared(position, cell.position) < radius * radius)
             {
                 return true;
             }
@@ -411,15 +422,10 @@ private:
         switch (type)
         {
         case BattleMovementTerrainLayoutType::Isometric:
-        {
-            const double shiftedX = position.x - coordCount * tileWidth;
-            coords.x = static_cast<int>(std::round((shiftedX / tileWidth + position.y / tileWidth) / 2.0));
-            coords.y = static_cast<int>(std::round((-shiftedX / tileWidth + position.y / tileWidth) / 2.0));
+            coords = battleIsometricGridPosition(position, coordCount, tileWidth);
             break;
-        }
         case BattleMovementTerrainLayoutType::Cartesian:
-            coords.x = static_cast<int>(std::round((position.x - cartesianOrigin.x) / tileWidth));
-            coords.y = static_cast<int>(std::round((position.y - cartesianOrigin.y) / tileWidth));
+            coords = battleCartesianGridPosition(position, cartesianOrigin, tileWidth);
             break;
         default:
             return std::nullopt;
@@ -435,19 +441,19 @@ private:
     bool scanAllows(Pointf position) const
     {
         const BattleTerrainCell* nearest = nullptr;
-        double nearestDistance = std::numeric_limits<double>::max();
+        double nearestDistanceSquared = std::numeric_limits<double>::max();
         for (const auto& cell : terrainCells)
         {
-            const double distance = distance2d(position, cell.position);
-            if (distance < nearestDistance)
+            const double distanceSquared = distance2dSquared(position, cell.position);
+            if (distanceSquared < nearestDistanceSquared)
             {
-                nearestDistance = distance;
+                nearestDistanceSquared = distanceSquared;
                 nearest = &cell;
             }
         }
         assert(nearest);
         const double maximumDistance = std::max(1.0, world.config.tileWidth * 1.5);
-        if (nearestDistance > maximumDistance)
+        if (nearestDistanceSquared > maximumDistance * maximumDistance)
         {
             return false;
         }
@@ -459,7 +465,6 @@ std::optional<int> nearestWalkableTerrainCell(const BattleMovementPlanInput& wor
 {
     const auto& terrainCells = movementTerrainCells(world);
     std::optional<int> best;
-    double bestDistance = std::numeric_limits<double>::max();
     double bestSquaredDistance = std::numeric_limits<double>::max();
     for (int i = 0; i < static_cast<int>(terrainCells.size()); ++i)
     {
@@ -472,16 +477,10 @@ std::optional<int> nearestWalkableTerrainCell(const BattleMovementPlanInput& wor
         const double dx = position.x - cell.position.x;
         const double dy = position.y - cell.position.y;
         const double squaredDistance = dx * dx + dy * dy;
-        if (best && squaredDistance >= bestSquaredDistance)
-        {
-            continue;
-        }
-
-        const double distance = distance2d(position, cell.position);
-        if (!best || distance < bestDistance)
+        if (!best || squaredDistance < bestSquaredDistance
+            || (squaredDistance == bestSquaredDistance && i < *best))
         {
             best = i;
-            bestDistance = distance;
             bestSquaredDistance = squaredDistance;
         }
     }
@@ -546,21 +545,22 @@ std::optional<Pointf> nextTerrainPathWaypoint(BattleMovementPlanInput& world,
     }
 
     const int cellCount = coordCount * coordCount;
-    pathState.costs.assign(static_cast<std::size_t>(cellCount), std::numeric_limits<double>::max());
+    pathState.costs.assign(static_cast<std::size_t>(cellCount), std::numeric_limits<int>::max());
     pathState.previous.assign(static_cast<std::size_t>(cellCount), -1);
     pathState.frontier.clear();
 
     auto& cost = pathState.costs;
     auto& previous = pathState.previous;
     auto& frontier = pathState.frontier;
-    using QueueItem = std::pair<double, int>;
+    using QueueItem = std::pair<int, int>;
     const std::greater<QueueItem> compare;
 
-    cost[static_cast<std::size_t>(*start)] = 0.0;
-    frontier.push_back({ 0.0, *start });
+    cost[static_cast<std::size_t>(*start)] = 0;
+    frontier.push_back({ 0, *start });
     std::push_heap(frontier.begin(), frontier.end(), compare);
 
-    const auto goalPosition = terrainCells[static_cast<std::size_t>(*goal)].position;
+    const int goalX = *goal / coordCount;
+    const int goalY = *goal % coordCount;
     constexpr int neighborOffsets[4][2] = {
         { 1, 0 },
         { -1, 0 },
@@ -595,10 +595,7 @@ std::optional<Pointf> nextTerrainPathWaypoint(BattleMovementPlanInput& world,
                 continue;
             }
 
-            const double nextCost = cost[static_cast<std::size_t>(current)]
-                + distance2d(
-                    terrainCells[static_cast<std::size_t>(current)].position,
-                    nextCell.position);
+            const int nextCost = cost[static_cast<std::size_t>(current)] + 1;
             if (nextCost >= cost[static_cast<std::size_t>(next)])
             {
                 continue;
@@ -606,7 +603,8 @@ std::optional<Pointf> nextTerrainPathWaypoint(BattleMovementPlanInput& world,
 
             cost[static_cast<std::size_t>(next)] = nextCost;
             previous[static_cast<std::size_t>(next)] = current;
-            frontier.push_back({ nextCost + distance2d(nextCell.position, goalPosition), next });
+            const int heuristic = std::abs(nx - goalX) + std::abs(ny - goalY);
+            frontier.push_back({ nextCost + heuristic, next });
             std::push_heap(frontier.begin(), frontier.end(), compare);
         }
     }
@@ -743,7 +741,7 @@ int defaultMeleeApproachSlot(const BattleMovementPlanInput& world,
         entries.push_back({
             other->id,
             dot2d(other->position - target.position, lateral),
-            distance2d(other->position, target.position),
+            distance2dSquared(other->position, target.position),
         });
     }
 
@@ -1762,11 +1760,7 @@ Point movementPhysicsCell(const BattleMovementPhysicsCollisionWorld& world, Poin
 {
     assert(world.tileWidth > 0.0);
     assert(world.coordCount > 0);
-    double x = position.x - world.coordCount * world.tileWidth;
-    Point cell;
-    cell.x = static_cast<int>(std::round((x / world.tileWidth + position.y / world.tileWidth) / 2.0));
-    cell.y = static_cast<int>(std::round((-x / world.tileWidth + position.y / world.tileWidth) / 2.0));
-    return cell;
+    return battleIsometricGridPosition(position, world.coordCount, world.tileWidth);
 }
 
 std::optional<MovementDecision> chooseDash(const BattleMovementPlanInput& world,
@@ -2076,10 +2070,12 @@ bool movementPhysicsSegmentWalkable(
     Pointf currentPosition,
     Pointf nextPosition)
 {
-    auto delta = nextPosition - currentPosition;
-    delta.z = 0;
-    const double distance = delta.norm();
-    const int steps = std::max(1, static_cast<int>(std::ceil(distance / std::max(1.0, world.tileWidth / 4.0))));
+    const int steps = std::max(
+        1,
+        battleTravelFrames2d(
+            currentPosition,
+            nextPosition,
+            std::max(1.0, world.tileWidth / 4.0)));
     for (int step = 1; step <= steps; ++step)
     {
         const auto probe = currentPosition + (nextPosition - currentPosition) * (static_cast<double>(step) / steps);
@@ -2183,7 +2179,9 @@ BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMove
     const double stepDistance = knockbackActive
         ? std::max(1.0, input.collisionWorld->tileWidth / 4.0)
         : std::max(velocityNorm, 1.0);
-    const int stepCount = std::max(1, static_cast<int>(std::ceil(velocityNorm / stepDistance)));
+    const int stepCount = knockbackActive
+        ? std::max(1, battleTravelFrames3d({}, velocity, stepDistance))
+        : 1;
     Pointf appliedVelocity;
     bool blocked = false;
     for (int step = 1; step <= stepCount; ++step)

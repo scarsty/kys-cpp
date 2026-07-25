@@ -175,7 +175,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.initial.scriptedBleedStacks = 4;
     request.initial.projectileCancelDamage = 90;
     request.initial.projectileCancelWeaken = 13;
-    request.initial.strengthMultiplier = 2.0f;
+    request.initial.strengthPct = 200;
     request.initial.suppressNearbyTrackingProjectileProc = true;
     request.initial.mainProjectile = false;
     request.initialFrame = 4;
@@ -216,7 +216,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.state.scriptedBleedStacks == 4);
     CHECK(attack.state.projectileCancelDamage == 90);
     CHECK(attack.state.projectileCancelWeaken == 13);
-    CHECK(attack.state.strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(attack.state.strengthPct == 200);
     CHECK(attack.state.suppressNearbyTrackingProjectileProc);
     CHECK_FALSE(attack.state.mainProjectile);
     CHECK(attack.frame == 4);
@@ -240,14 +240,14 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCastSubrequestMetadata", "[battle][atta
     BattleAttackSpawnRequest request = spawnRequest();
     request.initialFrame = 6;
     request.initial.castSubrequestKind = BattleAttackCastSubrequestKind::DashHit;
-    request.initial.strengthMultiplier = 2.0f;
+    request.initial.strengthPct = 200;
 
     world.spawn(request);
 
     REQUIRE(world.attacks.size() == 1);
     CHECK(world.attacks[0].frame == 6);
     CHECK(world.attacks[0].state.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
-    CHECK(world.attacks[0].state.strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(world.attacks[0].state.strengthPct == 200);
 }
 
 TEST_CASE("BattleAttackSystem_SpawnStoresUltimateFlagFromRequest", "[battle][attack][unit]")
@@ -295,7 +295,7 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     projectile.state.scriptedBleedStacks = 4;
     projectile.state.executeCanHitInvincible = true;
     projectile.state.projectileCancelWeaken = 6;
-    projectile.state.strengthMultiplier = 1.75f;
+    projectile.state.strengthPct = 175;
     projectile.state.suppressNearbyTrackingProjectileProc = true;
     projectile.state.mainProjectile = false;
     projectile.state.track = true;
@@ -323,7 +323,7 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     CHECK(hit->scriptedBleedStacks == 4);
     CHECK(hit->executeCanHitInvincible);
     CHECK(hit->projectileCancelDamage == 6);
-    CHECK(hit->strengthMultiplier == 1.75f);
+    CHECK(hit->strengthPct == 175);
     CHECK(hit->suppressNearbyTrackingProjectileProc);
     CHECK_FALSE(hit->mainProjectile);
     CHECK(hit->track);

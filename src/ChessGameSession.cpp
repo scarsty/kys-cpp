@@ -84,6 +84,7 @@ ChessReplayHeader ChessGameSession::makeReplayHeader(
     header.rootSeed = rootSeed;
     header.options = options;
     header.options.battleFrameLimit = kChessBattleFrameLimit;
+    header.contentFingerprint = content.contentFingerprint();
     return header;
 }
 

@@ -1970,6 +1970,7 @@ std::string checkpointErrorId(ChessCheckpointError error)
     case ChessCheckpointError::None: return "none";
     case ChessCheckpointError::Malformed: return "save_not_found_or_malformed";
     case ChessCheckpointError::IncompatibleGameVersion: return "save_game_version_mismatch";
+    case ChessCheckpointError::IncompatibleContent: return "save_content_mismatch";
     case ChessCheckpointError::UnrepresentableSnapshot: return "save_snapshot_unrepresentable";
     case ChessCheckpointError::UnstableBoundary: return "unstable_boundary";
     }

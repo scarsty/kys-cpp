@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BattleFixed.h"
 #include "ChessBattleEffects.h"
 
 #include <array>
@@ -162,7 +163,7 @@ struct BattleDodgeResolution
 
 struct BattleAttackerHitDamageInput
 {
-    double damage = 0.0;
+    BattleFixed damage;
     int hp = 0;
     int maxHp = 0;
     bool lastAlive = false;
@@ -183,13 +184,13 @@ struct BattleAttackerHitDamageEvent
 
 struct BattleAttackerHitDamageResult
 {
-    double damage = 0.0;
+    BattleFixed damage;
     std::vector<BattleAttackerHitDamageEvent> events;
 };
 
 struct BattleDefenderHitDamageInput
 {
-    double damage = 0.0;
+    BattleFixed damage;
     int hp = 0;
     int maxHp = 0;
     bool lastAlive = false;
@@ -211,7 +212,7 @@ struct BattleDefenderHitDamageEvent
 
 struct BattleDefenderHitDamageResult
 {
-    double damage = 0.0;
+    BattleFixed damage;
     std::vector<BattleDefenderHitDamageEvent> events;
 };
 
@@ -221,7 +222,7 @@ struct BattleExecuteComboInput
     int targetUnitId = -1;
     int projectedHpBeforeDamage = 0;
     int maxHp = 0;
-    double pendingDamage = 0.0;
+    int pendingDamage = 0;
     bool appliesHpDamage = true;
 };
 
@@ -251,14 +252,14 @@ struct BattleArmorPenetrationInput
 {
     int attackerUnitId = -1;
     int targetUnitId = -1;
-    double defense = 0.0;
+    BattleFixed defense;
     bool ultimate = false;
     bool mainProjectile = true;
 };
 
 struct BattleArmorPenetrationResult
 {
-    double defense = 0.0;
+    BattleFixed defense;
 };
 
 struct BattleBleedProc

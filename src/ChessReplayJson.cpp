@@ -21,6 +21,7 @@ struct HeaderDto
     std::string record;
     std::string magic;
     std::string game_version;
+    std::string content_fingerprint;
     std::string difficulty;
     std::string root_seed;
     ChessReplayOptionsData options;
@@ -364,6 +365,7 @@ ChessReplayData chessReplayData(const ChessReplay& replay)
     data.header = {
         "KYS_CHESS_REPLAY",
         replay.header.gameVersion,
+        chessSha256Hex(replay.header.contentFingerprint),
         replay.header.difficulty,
         rootSeedText(replay.header.rootSeed),
         {replay.header.options.positionSwapEnabled, replay.header.options.battleFrameLimit},
@@ -396,6 +398,11 @@ std::optional<ChessReplay> parseChessReplayData(
         || !seed)
     {
         error = {0, "重播標頭無效"};
+        return std::nullopt;
+    }
+    if (!parseHash(data.header.content_fingerprint, replay.header.contentFingerprint))
+    {
+        error = {0, "重播內容指紋無效"};
         return std::nullopt;
     }
     replay.header.gameVersion = data.header.game_version;
@@ -441,6 +448,7 @@ std::string serializeChessReplayJsonl(const ChessReplay& replay)
         "header",
         data.header.magic,
         data.header.game_version,
+        data.header.content_fingerprint,
         data.header.difficulty,
         data.header.root_seed,
         data.header.options,
@@ -504,6 +512,7 @@ std::optional<ChessReplay> parseChessReplayJsonl(
             data.header = {
                 dto->magic,
                 dto->game_version,
+                dto->content_fingerprint,
                 dto->difficulty,
                 dto->root_seed,
                 dto->options,

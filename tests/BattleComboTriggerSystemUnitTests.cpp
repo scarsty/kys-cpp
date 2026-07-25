@@ -841,10 +841,10 @@ TEST_CASE("BattleComboTriggerSystem_AttackerHitDamage_AppliesCritNthAndRampingSt
     auto random = randomForChanceSequence({ { 50, true } });
     auto result = BattleComboTriggerSystem().shapeAttackerHitDamage(
         state,
-        { 100.0, 80, 100, false },
+        { 100, 80, 100, false },
         random);
 
-    CHECK(result.damage == Catch::Approx(900.0));
+    CHECK(result.damage.toDouble() == Catch::Approx(900.0));
     REQUIRE(result.events.size() == 2);
     CHECK(result.events[0].type == BattleAttackerHitDamageEventType::Crit);
     CHECK(result.events[0].value == 200);
@@ -863,10 +863,10 @@ TEST_CASE("BattleComboTriggerSystem_AttackerHitDamage_IgnoresAlwaysPctAtkRuntime
     auto random = fixedBattleRandom();
     auto result = BattleComboTriggerSystem().shapeAttackerHitDamage(
         state,
-        { 100.0, 80, 100, false },
+        { 100, 80, 100, false },
         random);
 
-    CHECK(result.damage == Catch::Approx(100.0));
+    CHECK(result.damage.toDouble() == Catch::Approx(100.0));
 }
 
 TEST_CASE("BattleComboTriggerSystem_DefenderHitDamage_AppliesReductionAndAdaptationState", "[battle][combo][unit]")
@@ -880,9 +880,9 @@ TEST_CASE("BattleComboTriggerSystem_DefenderHitDamage_AppliesReductionAndAdaptat
 
     auto result = BattleComboTriggerSystem().shapeDefenderHitDamage(
         state,
-        { 100.0, 40, 100, false, 7 });
+        { 100, 40, 100, false, 7 });
 
-    CHECK(result.damage == Catch::Approx(64.0));
+    CHECK(result.damage.toDouble() == Catch::Approx(64.0));
     REQUIRE(result.events.size() == 2);
     CHECK(result.events[0].type == BattleDefenderHitDamageEventType::DamageAdaptationStack);
     CHECK(result.events[0].value == 10);
@@ -901,9 +901,9 @@ TEST_CASE("BattleComboTriggerSystem_DefenderHitDamage_IgnoresAlwaysDmgReductionR
 
     auto result = BattleComboTriggerSystem().shapeDefenderHitDamage(
         state,
-        { 100.0, 40, 100, false, 7 });
+        { 100, 40, 100, false, 7 });
 
-    CHECK(result.damage == Catch::Approx(100.0));
+    CHECK(result.damage.toDouble() == Catch::Approx(100.0));
 }
 
 TEST_CASE("BattleComboTriggerSystem_ExecuteCombo_RecordsOnlyTriggeredExecute", "[battle][combo][unit]")
@@ -917,7 +917,7 @@ TEST_CASE("BattleComboTriggerSystem_ExecuteCombo_RecordsOnlyTriggeredExecute", "
     auto random = randomForChanceSequence({ { 50, true } });
     auto result = BattleComboTriggerSystem().resolveExecuteCombo(
         state,
-        { 4, 8, 50, 200, 15.0, true },
+        { 4, 8, 50, 200, 15, true },
         random);
 
     CHECK(result.executed);
@@ -1025,8 +1025,8 @@ TEST_CASE("BattleComboTriggerSystem_ArmorPenetration_AppliesAlwaysAndTriggeredPe
     auto random = fixedBattleRandom();
     auto result = BattleComboTriggerSystem().resolveArmorPenetratedDefense(
         state,
-        { 4, 8, 100.0 },
+        { 4, 8, 100 },
         random);
 
-    CHECK(result.defense == Catch::Approx(45.0));
+    CHECK(result.defense == BattleFixed::fromInteger(45));
 }

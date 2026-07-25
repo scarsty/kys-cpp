@@ -207,10 +207,10 @@ struct RoleComboStatBonuses
     int flatATK = 0;
     int flatDEF = 0;
     int flatSPD = 0;
-    double pctHP = 0;
-    double pctATK = 0;
-    double pctDEF = 0;
-    double pctSPD = 0;
+    int pctHP = 0;
+    int pctATK = 0;
+    int pctDEF = 0;
+    int pctSPD = 0;
     int fightWinGrowthHP = 0;
     int fightWinGrowthATK = 0;
     int fightWinGrowthDEF = 0;

@@ -1,6 +1,6 @@
 #include "BattlefieldData.h"
 
-#include <cmath>
+#include "battle/BattleMath.h"
 
 namespace KysChess
 {
@@ -60,12 +60,7 @@ Pointf BattlefieldData::worldPosition(int x, int y) const
 
 Point BattlefieldData::gridPosition(Pointf position) const
 {
-    const double x = position.x / TileWidth - CoordinateCount;
-    const double y = position.y / TileWidth;
-    return {
-        static_cast<int>(std::round((x + y) / 2.0)),
-        static_cast<int>(std::round((-x + y) / 2.0)),
-    };
+    return Battle::battleIsometricGridPosition(position, CoordinateCount, TileWidth);
 }
 
 }

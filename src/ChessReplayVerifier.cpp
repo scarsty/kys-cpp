@@ -157,10 +157,18 @@ ChessReplayAudit::ChessReplayAudit(
     ChessReplay replay)
     : replay_(std::move(replay))
 {
-    if (replay_.header.gameVersion != content->gameVersion()
+    const bool versionCompatible = replay_.header.gameVersion == content->gameVersion()
+        || replay_.header.gameVersion == "dev"
+        || content->gameVersion() == "dev";
+    if (!versionCompatible
         || replay_.header.options.battleFrameLimit != kChessBattleFrameLimit)
     {
         fail(ChessReplayMismatch::Header, 0, "重播版本不相容");
+        return;
+    }
+    if (replay_.header.contentFingerprint != content->contentFingerprint())
+    {
+        fail(ChessReplayMismatch::Header, 0, "重播規則內容與目前載入內容不相符");
         return;
     }
     const auto expectedDifficulty = content->difficulty() == Difficulty::Easy

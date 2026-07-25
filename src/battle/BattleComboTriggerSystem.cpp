@@ -909,7 +909,7 @@ BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
              { input.hp, input.maxHp, input.lastAlive },
              { EffectType::PctATK }))
     {
-        result.damage *= (1.0 + event.effect.value / 100.0);
+        result.damage = result.damage.scaled(100 + event.effect.value, 100);
     }
 
     bool critted = state.hasAlways(EffectType::DodgeThenCrit)
@@ -922,7 +922,7 @@ BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
     if (critted)
     {
         const int critMultiplier = std::max(150, state.maxAlways(EffectType::CritMultiplier));
-        result.damage *= critMultiplier / 100.0;
+        result.damage = result.damage.scaled(critMultiplier, 100);
         result.events.push_back({
             BattleAttackerHitDamageEventType::Crit,
             critMultiplier,
@@ -934,13 +934,15 @@ BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
         const auto& effect = state.effect(id);
         if (effect.value > 0 && state.advanceEffectCounter(id, effect.value))
         {
-            result.damage *= 2.0;
+            result.damage = result.damage.scaled(2, 1);
         }
     }
 
     for (const auto& ramping : applyRampingStacks(state))
     {
-        result.damage *= (1.0 + ramping.stacks * ramping.pctPerStack / 100.0);
+        result.damage = result.damage.scaled(
+            100 + ramping.stacks * ramping.pctPerStack,
+            100);
         if (ramping.increased)
         {
             result.events.push_back({
@@ -969,12 +971,15 @@ BattleDefenderHitDamageResult BattleComboTriggerSystem::shapeDefenderHitDamage(
              { input.hp, input.maxHp, input.lastAlive },
              { EffectType::DmgReductionPct }))
     {
-        result.damage *= (1.0 - event.effect.value / 100.0);
+        assert(event.effect.value <= 100);
+        result.damage = result.damage.scaled(100 - event.effect.value, 100);
     }
 
     for (const auto& adaptation : applyDamageAdaptationStacks(state, input.attackerUnitId))
     {
-        result.damage *= (1.0 - adaptation.stacks * adaptation.pctPerStack / 100.0);
+        const int reductionPct = adaptation.stacks * adaptation.pctPerStack;
+        assert(reductionPct <= 100);
+        result.damage = result.damage.scaled(100 - reductionPct, 100);
         if (adaptation.increased)
         {
             result.events.push_back({
@@ -1159,7 +1164,7 @@ BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDef
 {
     assert(input.attackerUnitId >= 0);
     assert(input.targetUnitId >= 0);
-    assert(input.defense >= 0.0);
+    assert(input.defense >= BattleFixed{});
 
     BattleArmorPenetrationResult result;
     result.defense = input.defense;
@@ -1167,7 +1172,9 @@ BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDef
     const int armorPenChancePct = reader.sumAlways(sources, EffectType::ArmorPenChance);
     if (passesChance(random, armorPenChancePct))
     {
-        result.defense *= (1.0 - reader.maxAlways(sources, EffectType::ArmorPenPct) / 100.0);
+        const int penetrationPct = reader.maxAlways(sources, EffectType::ArmorPenPct);
+        assert(penetrationPct <= 100);
+        result.defense = result.defense.scaled(100 - penetrationPct, 100);
     }
 
     for (const auto& event : reader.matchingTriggerEvents(
@@ -1183,7 +1190,8 @@ BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDef
     {
         if (passesChance(random, event.effect.triggerValue))
         {
-            result.defense *= (1.0 - event.effect.value / 100.0);
+            assert(event.effect.value <= 100);
+            result.defense = result.defense.scaled(100 - event.effect.value, 100);
         }
     }
     return result;

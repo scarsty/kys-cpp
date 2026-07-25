@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <unordered_set>
 #include <vector>
 
@@ -46,82 +45,6 @@ bool isProjectileOperation(BattleOperationType operationType)
         || operationType == BattleOperationType::TrackingProjectile;
 }
 
-double pointSegmentDistance(Pointf point, Pointf segmentStart, Pointf segmentEnd)
-{
-    const double dx = static_cast<double>(segmentEnd.x) - segmentStart.x;
-    const double dy = static_cast<double>(segmentEnd.y) - segmentStart.y;
-    const double lengthSquared = dx * dx + dy * dy;
-    if (lengthSquared <= 0.0)
-    {
-        return pointDistance(point, segmentEnd);
-    }
-
-    const double px = static_cast<double>(point.x) - segmentStart.x;
-    const double py = static_cast<double>(point.y) - segmentStart.y;
-    const double t = std::clamp((px * dx + py * dy) / lengthSquared, 0.0, 1.0);
-    Pointf closest{
-        static_cast<float>(segmentStart.x + dx * t),
-        static_cast<float>(segmentStart.y + dy * t),
-        0.0f,
-    };
-    return pointDistance(point, closest);
-}
-
-double cross2d(Pointf origin, Pointf lhs, Pointf rhs)
-{
-    return (static_cast<double>(lhs.x) - origin.x) * (static_cast<double>(rhs.y) - origin.y)
-        - (static_cast<double>(lhs.y) - origin.y) * (static_cast<double>(rhs.x) - origin.x);
-}
-
-bool rangesOverlap(double lhsStart, double lhsEnd, double rhsStart, double rhsEnd)
-{
-    if (lhsStart > lhsEnd)
-    {
-        std::swap(lhsStart, lhsEnd);
-    }
-    if (rhsStart > rhsEnd)
-    {
-        std::swap(rhsStart, rhsEnd);
-    }
-    return std::max(lhsStart, rhsStart) <= std::min(lhsEnd, rhsEnd);
-}
-
-bool segmentsIntersect(Pointf lhsStart, Pointf lhsEnd, Pointf rhsStart, Pointf rhsEnd)
-{
-    constexpr double Epsilon = 0.000001;
-    const double lhsCrossStart = cross2d(lhsStart, lhsEnd, rhsStart);
-    const double lhsCrossEnd = cross2d(lhsStart, lhsEnd, rhsEnd);
-    const double rhsCrossStart = cross2d(rhsStart, rhsEnd, lhsStart);
-    const double rhsCrossEnd = cross2d(rhsStart, rhsEnd, lhsEnd);
-
-    if (std::abs(lhsCrossStart) <= Epsilon
-        && std::abs(lhsCrossEnd) <= Epsilon
-        && std::abs(rhsCrossStart) <= Epsilon
-        && std::abs(rhsCrossEnd) <= Epsilon)
-    {
-        return rangesOverlap(lhsStart.x, lhsEnd.x, rhsStart.x, rhsEnd.x)
-            && rangesOverlap(lhsStart.y, lhsEnd.y, rhsStart.y, rhsEnd.y);
-    }
-
-    return lhsCrossStart * lhsCrossEnd <= Epsilon
-        && rhsCrossStart * rhsCrossEnd <= Epsilon;
-}
-
-double segmentSegmentDistance(Pointf lhsStart, Pointf lhsEnd, Pointf rhsStart, Pointf rhsEnd)
-{
-    if (segmentsIntersect(lhsStart, lhsEnd, rhsStart, rhsEnd))
-    {
-        return 0.0;
-    }
-
-    return std::min({
-        pointSegmentDistance(lhsStart, rhsStart, rhsEnd),
-        pointSegmentDistance(lhsEnd, rhsStart, rhsEnd),
-        pointSegmentDistance(rhsStart, lhsStart, lhsEnd),
-        pointSegmentDistance(rhsEnd, lhsStart, lhsEnd),
-    });
-}
-
 bool segmentBoundsCanOverlap(
     const ProjectileCancelSearchCandidate& lhs,
     const ProjectileCancelSearchCandidate& rhs)
@@ -151,7 +74,7 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& sta
     event.track = state.track;
     event.through = state.through;
     event.ultimate = state.ultimate;
-    event.strengthMultiplier = state.strengthMultiplier;
+    event.strengthPct = state.strengthPct;
     event.suppressNearbyTrackingProjectileProc = state.suppressNearbyTrackingProjectileProc;
     event.mainProjectile = state.mainProjectile;
     event.sharedHitGroupId = state.sharedHitGroupId;
@@ -253,11 +176,6 @@ bool canResolveContactFromDefeatedSource(const BattleAttackPayload& attack)
 
 }  // namespace
 
-double projectileOperationDamageMultiplier(BattleOperationType operationType)
-{
-    return battleOperationDamageMultiplier(operationType);
-}
-
 int scaleProjectileCancelDamage(int damage, BattleOperationType operationType)
 {
     if (damage <= 0)
@@ -265,7 +183,7 @@ int scaleProjectileCancelDamage(int damage, BattleOperationType operationType)
         return 0;
     }
 
-    return std::max(1, static_cast<int>(std::ceil(damage * projectileOperationDamageMultiplier(operationType))));
+    return std::max(1, (damage * battleOperationDamagePct(operationType) + 99) / 100);
 }
 
 void applyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackBouncePrime prime)
@@ -547,8 +465,7 @@ const BattleRuntimeUnit* BattleAttackState::selectTarget(
     }
 
     const BattleRuntimeUnit* best = nullptr;
-    double bestDistance = 0.0;
-    double bestDistanceSquared = 0.0;
+    std::uint64_t bestDistanceSquared{};
     for (const auto& unitRecord : units.live())
     {
         const auto& unit = unitRecord.core;
@@ -556,18 +473,14 @@ const BattleRuntimeUnit* BattleAttackState::selectTarget(
         {
             continue;
         }
-        const double candidateDistanceSquared = pointDistanceSquared(
+        const std::uint64_t candidateDistanceSquared = battleDistanceSquared2d(
             unit.motion.position,
             attack.state.position);
-        if (best && candidateDistanceSquared > bestDistanceSquared)
-        {
-            continue;
-        }
-        const double candidateDistance = pointDistance(unit.motion.position, attack.state.position);
-        if (!best || candidateDistance < bestDistance)
+        if (!best
+            || candidateDistanceSquared < bestDistanceSquared
+            || (candidateDistanceSquared == bestDistanceSquared && unit.id < best->id))
         {
             best = &unit;
-            bestDistance = candidateDistance;
             bestDistanceSquared = candidateDistanceSquared;
         }
     }
@@ -689,10 +602,11 @@ bool BattleAttackState::canContactTarget(
         return false;
     }
 
-    return pointSegmentDistance(
+    return battlePointSegmentWithinRadius(
         target.motion.position,
         attack.previousPosition,
-        attack.state.position) <= hitRadius;
+        attack.state.position,
+        hitRadius);
 }
 
 bool BattleAttackState::contactBlockedByInvincible(
@@ -730,7 +644,10 @@ const BattleRuntimeUnit* BattleAttackState::selectBounceTarget(
     const auto& attacker = units.requireCore(attack.state.attackerUnitId);
 
     const BattleRuntimeUnit* best = nullptr;
-    double bestDistance = static_cast<double>(attack.state.bounceRange);
+    const std::uint64_t maximumDistanceSquared = battleDistanceSquared2d(
+        {},
+        {static_cast<float>(attack.state.bounceRange), 0.0f, 0.0f});
+    std::uint64_t bestDistanceSquared = maximumDistanceSquared;
     for (const auto& unitRecord : units.live())
     {
         const auto& unit = unitRecord.core;
@@ -742,15 +659,19 @@ const BattleRuntimeUnit* BattleAttackState::selectBounceTarget(
             continue;
         }
 
-        const double candidateDistance = pointDistance(hitTarget.motion.position, unit.motion.position);
-        if (candidateDistance > bestDistance)
+        const std::uint64_t candidateDistanceSquared = battleDistanceSquared2d(
+            hitTarget.motion.position,
+            unit.motion.position);
+        if (candidateDistanceSquared > maximumDistanceSquared)
         {
             continue;
         }
-        if (!best || candidateDistance < bestDistance)
+        if (!best
+            || candidateDistanceSquared < bestDistanceSquared
+            || (candidateDistanceSquared == bestDistanceSquared && unit.id < best->id))
         {
             best = &unit;
-            bestDistance = candidateDistance;
+            bestDistanceSquared = candidateDistanceSquared;
         }
     }
     return best;
@@ -805,7 +726,7 @@ BattleAttackInstance BattleAttackState::makeBounceAttack(
     }
     bounce.state.totalFrame = std::max(
         minimumBounceTotalFrame,
-        static_cast<int>(std::ceil(pointDistance(nextTarget.motion.position, bounce.state.position) / speed)) + 20);
+        battleTravelFrames2d(bounce.state.position, nextTarget.motion.position, speed) + 20);
     return bounce;
 }
 
@@ -851,11 +772,13 @@ void BattleAttackState::collectProjectileCancelEvents(
             {
                 continue;
             }
-            if (segmentSegmentDistance(
+            if (battleSegmentsWithinRadius(
                     lhs.attack->previousPosition,
                     lhs.attack->state.position,
                     rhs.attack->previousPosition,
-                    rhs.attack->state.position) < hitRadius)
+                    rhs.attack->state.position,
+                    hitRadius,
+                    false))
             {
                 candidates.push_back(makeProjectileCancelCandidate(*lhs.attack, *rhs.attack));
             }

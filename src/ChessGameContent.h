@@ -5,6 +5,7 @@
 #include "ChessCombo.h"
 #include "ChessEquipment.h"
 #include "ChessNeigong.h"
+#include "ChessReplayHash.h"
 #include "Types.h"
 
 #include <map>
@@ -107,6 +108,7 @@ public:
     const std::map<int, ChessBattleMapDefinition>& battleMaps() const { return data_->battleMaps; }
     const std::map<int, ChessBattlefieldDefinition>& battlefields() const { return data_->battlefields; }
     const std::string& gameVersion() const { return gameVersion_; }
+    const ChessSha256& contentFingerprint() const { return contentFingerprint_; }
     std::shared_ptr<const ChessGameContent> withGameVersion(std::string gameVersion) const;
 
     const ChessRoleDefinition* role(int roleId) const;
@@ -115,6 +117,7 @@ public:
 
 private:
     std::shared_ptr<const ChessGameContentData> data_;
+    ChessSha256 contentFingerprint_{};
     std::string gameVersion_;
 };
 

@@ -71,7 +71,7 @@ struct BattleAttackPayload
     BattleSkillEffectRef skillEffectRef;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     int roleAttackEchoActType = -1;
-    float strengthMultiplier = 1.0f;
+    int strengthPct = 100;
     bool suppressNearbyTrackingProjectileProc = false;
     bool mainProjectile = true;
     Pointf position;
@@ -162,7 +162,7 @@ struct BattleAttackEvent
     bool track = false;
     bool through = false;
     bool ultimate = false;
-    float strengthMultiplier = 1.0f;
+    int strengthPct = 100;
     bool suppressNearbyTrackingProjectileProc = false;
     bool mainProjectile = true;
     int sharedHitGroupId = 0;
@@ -238,7 +238,6 @@ private:
         std::pmr::vector<BattleAttackEvent>& events) const;
 };
 
-double projectileOperationDamageMultiplier(BattleOperationType operationType);
 int scaleProjectileCancelDamage(int damage, BattleOperationType operationType);
 
 }  // namespace KysChess::Battle

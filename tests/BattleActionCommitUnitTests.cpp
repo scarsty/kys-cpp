@@ -186,7 +186,7 @@ TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndBloc
     main.initial.totalFrame = 20;
     main.initial.mainProjectile = true;
     main.initial.position = { 20.0f, 20.0f, 0.0f };
-    main.initial.strengthMultiplier = 1.0f;
+    main.initial.strengthPct = 100;
     input.cast.attackSpawnRequests.push_back(main);
     KysChess::RoleComboState combo;
     combo.applyConfiguredEffect({
@@ -210,7 +210,7 @@ TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndBloc
     CHECK(followUp.initial.track);
     CHECK_FALSE(followUp.initial.mainProjectile);
     CHECK(followUp.initial.roleAttackEchoActType == 7);
-    CHECK(followUp.initial.strengthMultiplier == 0.45f);
+    CHECK(followUp.initial.strengthPct == 45);
     CHECK(followUp.spawnDelayFrames == 6);
     CHECK(followUp.attackerDualWieldBlockGainChancePct == 50);
 }

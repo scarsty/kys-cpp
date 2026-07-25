@@ -46,6 +46,7 @@ struct ChessReplayHeaderData
 {
     std::string magic;
     std::string game_version;
+    std::string content_fingerprint;
     std::string difficulty;
     std::string root_seed;
     ChessReplayOptionsData options;

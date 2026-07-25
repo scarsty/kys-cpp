@@ -72,7 +72,11 @@ std::vector<BattleCastProjectileTarget> orderedAlternateProjectileTargets(
         {
             continue;
         }
-        if (pointDistance(target.position, launchPosition) > maxTravel)
+        if (!battlePointSegmentWithinRadius(
+                target.position,
+                launchPosition,
+                launchPosition,
+                maxTravel))
         {
             continue;
         }
@@ -95,11 +99,11 @@ std::vector<BattleCastProjectileTarget> orderedAlternateProjectileTargets(
         {
             return leftDelta < rightDelta;
         }
-        const double leftDistance = pointDistance(left.position, launchPosition);
-        const double rightDistance = pointDistance(right.position, launchPosition);
-        if (leftDistance != rightDistance)
+        const std::uint64_t leftDistanceSquared = battleDistanceSquared2d(left.position, launchPosition);
+        const std::uint64_t rightDistanceSquared = battleDistanceSquared2d(right.position, launchPosition);
+        if (leftDistanceSquared != rightDistanceSquared)
         {
-            return leftDistance < rightDistance;
+            return leftDistanceSquared < rightDistanceSquared;
         }
         return left.unitId < right.unitId;
     });
@@ -164,8 +168,9 @@ void assignProjectileTargetOrSpread(
 
 void assertCastSharedConfig(const BattleCastConfig& config)
 {
-    assert(config.maxCooldownSpeed > 0.0);
-    assert(config.speedCooldownReductionRatio >= 0.0);
+    assert(config.maxCooldownSpeed > 0);
+    assert(config.maximumSpeedCooldownReductionPct >= 0
+        && config.maximumSpeedCooldownReductionPct <= 100);
     assert(config.minimumCooldownAfterCastPadding >= 0);
     assert(config.normalCastMpDelta >= 0);
     assert(config.minimumFacingNorm > 0.0);
@@ -220,12 +225,14 @@ int cooldownForOperation(const BattleCastInput& input, const BattleCastSkillStat
         cooldown -= selectedSkill.actProperty / actPropertyDivisor;
     }
     cooldown = std::max(config.minimumCooldownFrames[operationIndex], cooldown);
-    const int speed = std::min(static_cast<int>(config.maxCooldownSpeed), input.unit.speed);
-    cooldown = static_cast<int>(cooldown * (1.0 - config.speedCooldownReductionRatio * speed / config.maxCooldownSpeed));
+    const int speed = std::min(config.maxCooldownSpeed, input.unit.speed);
+    cooldown = cooldown
+        * (config.maxCooldownSpeed * 100 - config.maximumSpeedCooldownReductionPct * speed)
+        / (config.maxCooldownSpeed * 100);
     cooldown = std::max(castFrameForOperation(config, operationType) + config.minimumCooldownAfterCastPadding, cooldown);
     if (input.unit.cooldownReductionPct > 0)
     {
-        cooldown = static_cast<int>(cooldown * (1.0 - input.unit.cooldownReductionPct / 100.0));
+        cooldown = cooldown * (100 - input.unit.cooldownReductionPct) / 100;
         cooldown = std::max(castFrameForOperation(config, operationType) + config.minimumCooldownAfterCastPadding, cooldown);
     }
     return cooldown;
@@ -462,7 +469,7 @@ void appendRangedSideProjectiles(
     }
 
     const int sideCount = result.decision.ultimate ? 3 : 2;
-    const float strengthMultiplier = result.decision.ultimate ? 0.35f : 0.2f;
+    const int strengthPct = result.decision.ultimate ? 35 : 20;
     assert(sideCount > 0);
 
     const auto facing = castFacing(input);
@@ -488,7 +495,7 @@ void appendRangedSideProjectiles(
             input.config.minimumFacingNorm);
         side.initial.through = true;
         side.initial.mainProjectile = false;
-        side.initial.strengthMultiplier = strengthMultiplier;
+        side.initial.strengthPct = strengthPct;
         clearPreferredTarget(side);
         requests.push_back(side);
     }
@@ -545,7 +552,7 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
             facing,
             strengthenedMeleeSpeed(input.config, selectedSkill),
             input.config.minimumFacingNorm);
-        main.initial.strengthMultiplier = input.config.strengthenedMeleeMultiplier;
+        main.initial.strengthPct = input.config.strengthenedMeleeStrengthPct;
     }
     else
     {
@@ -570,7 +577,7 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
             facing,
             input.geometry.meleeSplashProjectileSpeed,
             input.config.minimumFacingNorm);
-        splash.initial.strengthMultiplier = input.config.meleeSplashStrengthMultiplier;
+        splash.initial.strengthPct = input.config.meleeSplashStrengthPct;
         requests.push_back(splash);
     }
 
@@ -668,7 +675,11 @@ void appendBlinkTeleportDelta(
         {
             continue;
         }
-        if (pointDistance(cell.position, target.motion.position) > reach)
+        if (!battlePointSegmentWithinRadius(
+                cell.position,
+                target.motion.position,
+                target.motion.position,
+                reach))
         {
             continue;
         }
@@ -753,11 +764,13 @@ int dualWieldFollowUpTargetId(
 
     const auto& source = units.requireCore(input.sourceUnitId);
     const auto& primary = units.requireCore(input.cast.decision.targetUnitId);
-    const double primaryDistance = pointDistance(source.motion.position, primary.motion.position);
-    const double maximumAlternateDistance = std::max(128.0, primaryDistance * 1.5);
+    const double primaryDistanceSquared = static_cast<double>(battleDistanceSquared2d(
+        source.motion.position,
+        primary.motion.position));
+    const double maximumAlternateDistanceSquared = std::max(128.0 * 128.0, primaryDistanceSquared * 2.25);
 
     const BattleRuntimeUnit* selected = nullptr;
-    double selectedDistance = 0.0;
+    double selectedDistanceSquared = 0.0;
     for (const auto& record : units.live())
     {
         const auto& candidate = record.core;
@@ -765,15 +778,19 @@ int dualWieldFollowUpTargetId(
         {
             continue;
         }
-        const double distance = pointDistance(source.motion.position, candidate.motion.position);
-        if (distance > maximumAlternateDistance)
+        const double distanceSquared = static_cast<double>(battleDistanceSquared2d(
+            source.motion.position,
+            candidate.motion.position));
+        if (distanceSquared > maximumAlternateDistanceSquared)
         {
             continue;
         }
-        if (!selected || distance < selectedDistance || (distance == selectedDistance && candidate.id < selected->id))
+        if (!selected
+            || distanceSquared < selectedDistanceSquared
+            || (distanceSquared == selectedDistanceSquared && candidate.id < selected->id))
         {
             selected = &candidate;
-            selectedDistance = distance;
+            selectedDistanceSquared = distanceSquared;
         }
     }
     return selected ? selected->id : primary.id;
@@ -851,7 +868,7 @@ void appendDualWieldFollowUp(
     followUp.initial.bounceChancePct = 0;
     followUp.initial.bounceRollPct = 0;
     followUp.initial.skillEffectRef = {};
-    followUp.initial.strengthMultiplier *= effect->value / 100.0f;
+    followUp.initial.strengthPct = followUp.initial.strengthPct * effect->value / 100;
     followUp.initialFrame = 0;
     followUp.spawnDelayFrames = effect->duration;
     followUp.attackerDualWieldBlockGainChancePct = effect->value2;

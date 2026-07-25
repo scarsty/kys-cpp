@@ -78,6 +78,11 @@ TEST_CASE("direct restore accepts dev versions and rejects incompatible release 
     CHECK(incompatible.restore(session) == ChessCheckpointError::IncompatibleGameVersion);
     CHECK(session.state() == originalState);
 
+    auto incompatibleContent = ChessSessionCheckpoint::capture(session, 2);
+    incompatibleContent.replay.header.contentFingerprint[0] ^= 1;
+    CHECK(incompatibleContent.restore(session) == ChessCheckpointError::IncompatibleContent);
+    CHECK(session.state() == originalState);
+
     auto devSave = ChessSessionCheckpoint::capture(session, 2);
     devSave.replay.header.gameVersion = "dev";
     CHECK(devSave.restore(session) == ChessCheckpointError::None);

@@ -22,14 +22,14 @@ inline bool isBattleOperation(BattleOperationType operation)
         || operation == BattleOperationType::Dash;
 }
 
-inline double battleOperationDamageMultiplier(BattleOperationType operation)
+inline int battleOperationDamagePct(BattleOperationType operation)
 {
     switch (operation)
     {
     case BattleOperationType::TrackingProjectile:
-        return 1.5;
+        return 150;
     default:
-        return 1.0;
+        return 100;
     }
 }
 

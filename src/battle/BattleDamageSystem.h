@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BattleFixed.h"
 #include "BattleOperation.h"
 #include "BattleStatusSystem.h"
 #include "BattleUnitValues.h"
@@ -75,7 +76,7 @@ struct BattleDamageModifierState
 
 struct BattleDamageModifierInput
 {
-    double damage = 0.0;
+    BattleFixed damage;
     bool usingSkill = false;
     bool ignoreDefense = false;
     BattleDamageModifierState attacker;
@@ -85,7 +86,7 @@ struct BattleDamageModifierInput
 
 struct BattleDamageModifierResult
 {
-    double damage = 0.0;
+    BattleFixed damage;
     bool maxHitCapped = false;
     int maxHitPct = 0;
 };
@@ -94,15 +95,15 @@ struct BattleMagicBaseDamageInput
 {
     int attackerAttack = 0;
     int magicPower = 0;
-    double defenderDefense = 0.0;
+    BattleFixed defenderDefense;
     int randomVariance = 0;
 };
 
 struct BattleHitShapeInput
 {
-    double baseDamage = 0.0;
+    BattleFixed baseDamage;
     int projectileCancelDamage = 0;
-    double strengthMultiplier = 1.0;
+    int strengthPct = 100;
     int frame = 0;
     int totalFrame = 1;
     Pointf impactPosition;
@@ -116,7 +117,7 @@ struct BattleHitShapeInput
 
 struct BattleHitShapeResult
 {
-    double damage = 0.0;
+    BattleFixed damage;
     int frozenFrames = 0;
     double knockbackStrength = 0.0;
     double knockbackVelocityCap = 0.0;
@@ -133,7 +134,7 @@ struct BattleScriptedHitRequestInput
 
 struct BattleDamageDefenseInput
 {
-    double damage = 0.0;
+    int damage = 0;
     bool executed = false;
     bool reflected = false;
     bool defenderWasInvincible = false;
@@ -143,7 +144,7 @@ struct BattleDamageDefenseInput
 
 struct BattleDamageDefenseResult
 {
-    double damage = 0.0;
+    int damage = 0;
     BattleDamageUnitState defender;
     int shieldAbsorbed = 0;
     bool blockedByInvincible = false;
@@ -196,7 +197,7 @@ struct BattleExecuteInput
 {
     int projectedHpBeforeDamage = 0;
     int maxHp = 0;
-    double pendingDamage = 0.0;
+    int pendingDamage = 0;
     bool appliesHpDamage = true;
     int thresholdPct = 0;
 };
@@ -287,7 +288,7 @@ struct BattleDamageRequest
 {
     int attackerUnitId = OptionalDamageAttackerUnitId;
     int defenderUnitId = -1;
-    double baseDamage = 0.0;
+    int baseDamage = 0;
     int mpDamage = 0;
     bool acceptedHit = false;
     bool preResolvedDamage = false;

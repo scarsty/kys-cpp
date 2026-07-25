@@ -441,6 +441,18 @@ TEST_CASE("BattleRuntimeUnits_TargetSelectionReturnsNoUnitWithoutLiveEnemy", "[b
     CHECK(findFarthestEnemyUnitId(store, 0) == -1);
 }
 
+TEST_CASE("BattleRuntimeUnits_TargetSelectionBreaksEqualDistancesByUnitId", "[battle][core][determinism]")
+{
+    auto store = runtimeRecords({
+        runtimeUnitSnapshot(0, 0, 100, {100, 100, 0}),
+        runtimeUnitSnapshot(2, 1, 100, {130, 100, 0}),
+        runtimeUnitSnapshot(1, 1, 100, {70, 100, 0}),
+    });
+
+    CHECK(findNearestEnemyUnitId(store, 0) == 1);
+    CHECK(findFarthestEnemyUnitId(store, 0) == 1);
+}
+
 BattleAttackState attackWorld()
 {
     BattleAttackState world;
@@ -574,17 +586,17 @@ BattleCastConfig frameCastConfig()
     config.cooldownActPropertyDivisors = { 2, 1, 2, 0 };
     config.recoveryFrames = { 4, 4, 4, 5 };
     config.maxCooldownSpeed = 150;
-    config.speedCooldownReductionRatio = 0.5;
+    config.maximumSpeedCooldownReductionPct = 50;
     config.minimumCooldownAfterCastPadding = 2;
     config.normalCastMpDelta = 5;
     config.minimumFacingNorm = TestMinimumVectorNorm;
     config.meleeHitTotalFrame = 10;
     config.strengthenedMeleeTotalFrame = 30;
     config.strengthenedMeleeSelectDistanceDivisor = 2.0;
-    config.strengthenedMeleeMultiplier = 2.0f;
+    config.strengthenedMeleeStrengthPct = 200;
     config.meleeSplashTotalFrame = 60;
     config.meleeSplashInitialFrame = 5;
-    config.meleeSplashStrengthMultiplier = 0.5f;
+    config.meleeSplashStrengthPct = 50;
     config.trackingProjectileTotalFrame = 120;
     config.dashHitTotalFrame = 30;
     config.strengthenedMeleeOperationCountThreshold = 2;
@@ -4456,7 +4468,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
     CHECK_FALSE(state.nextFrame.queuedAttacksForTest()[0].initial.requirePreferredTarget);
     CHECK(state.nextFrame.queuedAttacksForTest()[0].initial.skillId == 401);
     CHECK(state.nextFrame.queuedAttacksForTest()[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
-    CHECK(state.nextFrame.queuedAttacksForTest()[1].initial.strengthMultiplier == 0.35f);
+    CHECK(state.nextFrame.queuedAttacksForTest()[1].initial.strengthPct == 35);
     REQUIRE(result.attackSoundIds.size() == 1);
     CHECK(result.attackSoundIds[0] == 55);
 }
@@ -4477,7 +4489,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsRuntimeAutoUltimateReadyInsideC
     CHECK(state.nextFrame.queuedAttacksForTest()[0].initial.attackerUnitId == 1);
     CHECK(state.nextFrame.queuedAttacksForTest()[0].initial.skillId == 401);
     CHECK(state.nextFrame.queuedAttacksForTest()[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
-    CHECK(state.nextFrame.queuedAttacksForTest()[1].initial.strengthMultiplier == 0.35f);
+    CHECK(state.nextFrame.queuedAttacksForTest()[1].initial.strengthPct == 35);
     CHECK(std::any_of(
         result.logEvents.begin(),
         result.logEvents.end(),

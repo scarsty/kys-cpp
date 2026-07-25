@@ -52,6 +52,7 @@ TEST_CASE("replay JSONL round trip preserves the authoritative records", "[chess
     REQUIRE(parsed);
     CHECK(parsed->header.rootSeed == 12345);
     CHECK(parsed->header.gameVersion == expected.header.gameVersion);
+    CHECK(parsed->header.contentFingerprint == expected.header.contentFingerprint);
     REQUIRE(parsed->decisions.size() == expected.decisions.size());
     CHECK(parsed->decisions[1].action.type == ChessActionType::BuyShopSlot);
     CHECK(parsed->decisions[1].action.shopSlot == 0);
@@ -171,8 +172,26 @@ TEST_CASE("fresh session verifier rejects version and runtime option mismatches"
     {
         auto replay = shortReplay();
         replay.header.gameVersion = "other-version";
+        const auto result = ChessReplayVerifier::verify(
+            managementContent(100, Difficulty::Normal, "release-version"),
+            replay);
+        CHECK(result.mismatch == ChessReplayMismatch::Header);
+    }
+
+    SECTION("development build accepts another version")
+    {
+        auto replay = shortReplay();
+        replay.header.gameVersion = "release-version";
+        CHECK(ChessReplayVerifier::verify(managementContent(), replay).valid);
+    }
+
+    SECTION("content fingerprint")
+    {
+        auto replay = shortReplay();
+        replay.header.contentFingerprint[0] ^= 1;
         const auto result = ChessReplayVerifier::verify(managementContent(), replay);
         CHECK(result.mismatch == ChessReplayMismatch::Header);
+        CHECK(result.message.contains("規則內容"));
     }
 
 
@@ -209,6 +228,13 @@ TEST_CASE("replay JSONL parser rejects malformed and truncated streams", "[chess
     const auto valid = serializeChessReplayJsonl(shortReplay());
     CHECK_FALSE(parseChessReplayJsonl(
         replaceOnce(valid, "\"game_version\":\"dev\"", "\"game_version\":\"\""),
+        error));
+    const auto fingerprint = chessSha256Hex(shortReplay().header.contentFingerprint);
+    CHECK_FALSE(parseChessReplayJsonl(
+        replaceOnce(
+            valid,
+            "\"content_fingerprint\":\"" + fingerprint + "\"",
+            "\"content_fingerprint\":\"\""),
         error));
     const auto nonstandardRuntimeOption = parseChessReplayJsonl(
         replaceOnce(valid, "\"battle_frame_limit\":99999", "\"battle_frame_limit\":1"),

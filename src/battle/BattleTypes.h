@@ -198,9 +198,9 @@ struct BattleMovementAgentState
 
 struct BattleMovementPathState
 {
-    std::vector<double> costs;
+    std::vector<int> costs;
     std::vector<int> previous;
-    std::vector<std::pair<double, int>> frontier;
+    std::vector<std::pair<int, int>> frontier;
     std::unordered_map<std::uint64_t, int> nextCellByEndpoints;
 };
 

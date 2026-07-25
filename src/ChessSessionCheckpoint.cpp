@@ -17,6 +17,7 @@ std::string_view chessCheckpointErrorDescription(ChessCheckpointError error)
     case ChessCheckpointError::None: return {};
     case ChessCheckpointError::Malformed: return "檢查點格式不完整";
     case ChessCheckpointError::IncompatibleGameVersion: return "遊戲版本不相容";
+    case ChessCheckpointError::IncompatibleContent: return "規則內容不相容";
     case ChessCheckpointError::UnrepresentableSnapshot: return "快照狀態無法還原";
     case ChessCheckpointError::UnstableBoundary: return "不在穩定決策邊界";
     }
@@ -52,6 +53,10 @@ ChessCheckpointError ChessSessionCheckpoint::restore(ChessGameSession& session) 
             session.content_->gameVersion()))
     {
         return ChessCheckpointError::IncompatibleGameVersion;
+    }
+    if (replay.header.contentFingerprint != session.content_->contentFingerprint())
+    {
+        return ChessCheckpointError::IncompatibleContent;
     }
     if (state.phase == ChessSessionPhase::BattleResolution
         || state.difficulty != session.content_->difficulty()

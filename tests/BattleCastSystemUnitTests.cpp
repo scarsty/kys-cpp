@@ -21,15 +21,15 @@ constexpr int TestDashMomentumFrames = 5;
 constexpr int TestNormalCastMpDelta = 5;
 constexpr int TestCooldownAfterCastPadding = 2;
 constexpr int TestCooldownMaxSpeed = 150;
-constexpr double TestSpeedCooldownReductionRatio = 0.5;
+constexpr int TestMaximumSpeedCooldownReductionPct = 50;
 constexpr int TestMeleeHitTotalFrame = 10;
 constexpr int TestStrengthenedMeleeTotalFrame = 30;
 constexpr double TestStrengthenedMeleeSelectDistanceDivisor = 2.0;
-constexpr float TestStrengthenedMeleeMultiplier = 2.0f;
+constexpr int TestStrengthenedMeleeStrengthPct = 200;
 constexpr int TestStrengthenedMeleeOperationCountThreshold = 2;
 constexpr int TestMeleeSplashTotalFrame = 60;
 constexpr int TestMeleeSplashInitialFrame = 5;
-constexpr float TestMeleeSplashStrengthMultiplier = 0.5f;
+constexpr int TestMeleeSplashStrengthPct = 50;
 constexpr int TestTrackingProjectileTotalFrame = 120;
 constexpr int TestDashHitTotalFrame = 30;
 constexpr double TestMeleeSplashProjectileSpeed = 3.0;
@@ -50,17 +50,17 @@ BattleCastConfig testCastConfig()
         TestDashMomentumFrames,
     };
     config.maxCooldownSpeed = TestCooldownMaxSpeed;
-    config.speedCooldownReductionRatio = TestSpeedCooldownReductionRatio;
+    config.maximumSpeedCooldownReductionPct = TestMaximumSpeedCooldownReductionPct;
     config.minimumCooldownAfterCastPadding = TestCooldownAfterCastPadding;
     config.normalCastMpDelta = TestNormalCastMpDelta;
     config.minimumFacingNorm = TestMinimumFacingNorm;
     config.meleeHitTotalFrame = TestMeleeHitTotalFrame;
     config.strengthenedMeleeTotalFrame = TestStrengthenedMeleeTotalFrame;
     config.strengthenedMeleeSelectDistanceDivisor = TestStrengthenedMeleeSelectDistanceDivisor;
-    config.strengthenedMeleeMultiplier = TestStrengthenedMeleeMultiplier;
+    config.strengthenedMeleeStrengthPct = TestStrengthenedMeleeStrengthPct;
     config.meleeSplashTotalFrame = TestMeleeSplashTotalFrame;
     config.meleeSplashInitialFrame = TestMeleeSplashInitialFrame;
-    config.meleeSplashStrengthMultiplier = TestMeleeSplashStrengthMultiplier;
+    config.meleeSplashStrengthPct = TestMeleeSplashStrengthPct;
     config.trackingProjectileTotalFrame = TestTrackingProjectileTotalFrame;
     config.dashHitTotalFrame = TestDashHitTotalFrame;
     config.strengthenedMeleeOperationCountThreshold = TestStrengthenedMeleeOperationCountThreshold;
@@ -222,7 +222,7 @@ void checkSpawnRequestEquals(const BattleAttackSpawnRequest& lhs, const BattleAt
     CHECK(lhs.initial.ultimate == rhs.initial.ultimate);
     CHECK(lhs.initialFrame == rhs.initialFrame);
     CHECK(lhs.initial.castSubrequestKind == rhs.initial.castSubrequestKind);
-    CHECK(lhs.initial.strengthMultiplier == Catch::Approx(rhs.initial.strengthMultiplier));
+    CHECK(lhs.initial.strengthPct == rhs.initial.strengthPct);
 }
 
 void checkGameplayEventEquals(const BattleGameplayEvent& lhs, const BattleGameplayEvent& rhs)
@@ -560,7 +560,7 @@ TEST_CASE("BattleCastSystem_CommittedCastOnlyRequiresSelectedOperationConfig", "
     input.config.cooldownActPropertyDivisors[2] = fullConfig.cooldownActPropertyDivisors[2];
     input.config.recoveryFrames[2] = fullConfig.recoveryFrames[2];
     input.config.maxCooldownSpeed = fullConfig.maxCooldownSpeed;
-    input.config.speedCooldownReductionRatio = fullConfig.speedCooldownReductionRatio;
+    input.config.maximumSpeedCooldownReductionPct = fullConfig.maximumSpeedCooldownReductionPct;
     input.config.minimumCooldownAfterCastPadding = fullConfig.minimumCooldownAfterCastPadding;
     input.config.normalCastMpDelta = fullConfig.normalCastMpDelta;
     input.config.minimumFacingNorm = fullConfig.minimumFacingNorm;
@@ -636,7 +636,7 @@ TEST_CASE("BattleCastSystem_MeleeSpawnUsesConfiguredOriginAndFrameCount", "[batt
     CHECK_FALSE(request.initial.through);
     CHECK(request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
     CHECK(request.initialFrame == 0);
-    CHECK(request.initial.strengthMultiplier == Catch::Approx(1.0f));
+    CHECK(request.initial.strengthPct == 100);
 }
 
 TEST_CASE("BattleCastSystem_StrengthenedMeleeSpawnUsesTrackingProjectileShape", "[battle][cast]")
@@ -658,7 +658,7 @@ TEST_CASE("BattleCastSystem_StrengthenedMeleeSpawnUsesTrackingProjectileShape", 
     CHECK(request.initial.track);
     CHECK(request.initial.velocity.x == Catch::Approx(3.0f));
     CHECK(request.initial.velocity.y == Catch::Approx(0.0f));
-    CHECK(request.initial.strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(request.initial.strengthPct == 200);
     CHECK(request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
 }
 
@@ -678,12 +678,12 @@ TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectile
 
     REQUIRE(result.decision.operationType == BattleOperationType::Melee);
     REQUIRE(result.attackSpawnRequests.size() == 4);
-    CHECK(result.attackSpawnRequests[0].initial.strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(result.attackSpawnRequests[0].initial.strengthPct == 200);
     CHECK(result.attackSpawnRequests[0].initial.track);
     CHECK(result.attackSpawnRequests[0].initial.totalFrame == 30);
 
     CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::MeleeSplash);
-    CHECK(result.attackSpawnRequests[1].initial.strengthMultiplier == Catch::Approx(0.5f));
+    CHECK(result.attackSpawnRequests[1].initial.strengthPct == 50);
     CHECK(result.attackSpawnRequests[1].initial.track);
     CHECK_FALSE(result.attackSpawnRequests[1].initial.mainProjectile);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == 60);
@@ -827,7 +827,7 @@ TEST_CASE("BattleCastSystem_RangedAreaCastEmitsSideProjectiles", "[battle][cast]
     CHECK_FALSE(main.initial.track);
     CHECK(main.initial.preferredTargetUnitId == -1);
     CHECK_FALSE(main.initial.requirePreferredTarget);
-    CHECK(main.initial.strengthMultiplier == Catch::Approx(1.0f));
+    CHECK(main.initial.strengthPct == 100);
 
     for (std::size_t i = 1; i < result.attackSpawnRequests.size(); ++i)
     {
@@ -839,7 +839,7 @@ TEST_CASE("BattleCastSystem_RangedAreaCastEmitsSideProjectiles", "[battle][cast]
         CHECK_FALSE(side.initial.track);
         CHECK(side.initial.preferredTargetUnitId == -1);
         CHECK_FALSE(side.initial.requirePreferredTarget);
-        CHECK(side.initial.strengthMultiplier == Catch::Approx(0.2f));
+        CHECK(side.initial.strengthPct == 20);
         CHECK(side.initial.velocity.x > 0.0f);
         CHECK(side.initial.velocity.y != Catch::Approx(0.0f));
     }

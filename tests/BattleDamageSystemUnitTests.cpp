@@ -73,7 +73,7 @@ TEST_CASE("BattleDamageSystem_Modifiers_ApplyPerUnitAttackerAndDefenderRules", "
 
     auto result = BattleDamageSystem().applyModifiers(input);
 
-    CHECK(static_cast<int>(result.damage) == 141);
+    CHECK(result.damage.toInt() == 141);
     CHECK_FALSE(result.maxHitCapped);
 }
 
@@ -111,7 +111,7 @@ TEST_CASE("BattleDamageSystem_MissingHpScalesFlatAndPercentageReduction", "[batt
     input.damage = 100;
     input.defender = modifier;
     input.defenderUnit = unit();
-    CHECK(static_cast<int>(BattleDamageSystem().applyModifiers(input).damage) == 59);
+    CHECK(BattleDamageSystem().applyModifiers(input).damage.toInt() == 59);
 }
 
 TEST_CASE("BattleDamageSystem_HitShapeOwnsProjectileFalloffFacingAndOperationDamage", "[battle][damage][unit]")
@@ -119,7 +119,7 @@ TEST_CASE("BattleDamageSystem_HitShapeOwnsProjectileFalloffFacingAndOperationDam
     BattleHitShapeInput input;
     input.baseDamage = 100.0;
     input.projectileCancelDamage = 10;
-    input.strengthMultiplier = 2.0;
+    input.strengthPct = 200;
     input.frame = 5;
     input.totalFrame = 10;
     input.impactPosition = { -1.0f, 0.0f, 0.0f };
@@ -132,7 +132,7 @@ TEST_CASE("BattleDamageSystem_HitShapeOwnsProjectileFalloffFacingAndOperationDam
 
     auto result = BattleDamageSystem().shapeHitDamage(input);
 
-    CHECK(result.damage == Catch::Approx(395.8875));
+    CHECK(result.damage.toDouble() == Catch::Approx(395.8875));
     CHECK(result.knockbackStrength == Catch::Approx(2.0));
     CHECK(result.knockbackVelocityCap == Catch::Approx(3.0));
     CHECK(result.frozenFrames == 0);
@@ -142,7 +142,7 @@ TEST_CASE("BattleDamageSystem_DashHitShapeEmitsFreezeAndReducedDashDamage", "[ba
 {
     BattleHitShapeInput input;
     input.baseDamage = 90.0;
-    input.strengthMultiplier = 1.0;
+    input.strengthPct = 100;
     input.frame = 0;
     input.totalFrame = 20;
     input.impactPosition = { 1.0f, 0.0f, 0.0f };
@@ -152,7 +152,7 @@ TEST_CASE("BattleDamageSystem_DashHitShapeEmitsFreezeAndReducedDashDamage", "[ba
 
     auto result = BattleDamageSystem().shapeHitDamage(input);
 
-    CHECK(result.damage == Catch::Approx(60.0));
+    CHECK(result.damage.toDouble() == Catch::Approx(60.0));
     CHECK(result.frozenFrames == 5);
     CHECK(result.knockbackStrength == Catch::Approx(2.0));
     CHECK(result.knockbackVelocityCap == Catch::Approx(3.0));
@@ -189,7 +189,7 @@ TEST_CASE("BattleDamageSystem_Modifiers_RespectIgnoreDefenseAndMaxHitCap", "[bat
 
     auto result = BattleDamageSystem().applyModifiers(input);
 
-    CHECK(result.damage == 50.0);
+    CHECK(result.damage == BattleFixed::fromInteger(50));
     CHECK(result.maxHitCapped);
     CHECK(result.maxHitPct == 25);
 }
@@ -239,7 +239,7 @@ TEST_CASE("BattleDamageSystem_ExecutedHitsBypassInvincibleAndAttackBlocks", "[ba
 
     auto result = BattleDamageSystem().resolveDefense({ 80, true, false, true, defender });
 
-    CHECK(result.damage == 80.0);
+    CHECK(result.damage == 80);
     CHECK_FALSE(result.blockedByInvincible);
     CHECK_FALSE(result.blockedByFirstHit);
     CHECK_FALSE(result.blockedByDualWield);

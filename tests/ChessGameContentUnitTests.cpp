@@ -146,6 +146,18 @@ TEST_CASE("immutable content carries the exact game version", "[chess][content][
     CHECK(content.gameVersion() == "1.2.3");
 }
 
+TEST_CASE("content fingerprint follows semantic rules but not the release label", "[chess][content][fingerprint]")
+{
+    auto changedData = syntheticContentData(Difficulty::Normal);
+    changedData.balance.initialMoney++;
+    const ChessGameContent first(syntheticContentData(Difficulty::Normal), "1.2.3");
+    const ChessGameContent relabeled(syntheticContentData(Difficulty::Normal), "2.0.0");
+    const ChessGameContent changed(std::move(changedData), "1.2.3");
+
+    CHECK(first.contentFingerprint() == relabeled.contentFingerprint());
+    CHECK(first.contentFingerprint() != changed.contentFingerprint());
+}
+
 TEST_CASE("game version loader reads release configuration", "[chess][content][version]")
 {
     TemporaryConfigDirectory files;

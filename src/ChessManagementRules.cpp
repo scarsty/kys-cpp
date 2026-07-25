@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cmath>
 #include <utility>
 
 namespace KysChess
@@ -312,8 +311,12 @@ int ChessManagementRules::pieceValue(const ChessGameContent& content, int roleId
     const auto* role = content.role(roleId);
     assert(role);
     const auto& balance = content.balance();
-    return balance.tierPrices[role->Cost - 1]
-        * static_cast<int>(std::pow(balance.starCostMult, star - 1));
+    int starMultiplier = 1;
+    for (int level = 1; level < star; ++level)
+    {
+        starMultiplier *= balance.starCostMult;
+    }
+    return balance.tierPrices[role->Cost - 1] * starMultiplier;
 }
 
 bool ChessManagementRules::formationIsValid(

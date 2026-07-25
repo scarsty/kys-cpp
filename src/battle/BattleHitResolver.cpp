@@ -2,6 +2,7 @@
 
 #include "BattleLogSegments.h"
 #include "BattleComboTriggerSystem.h"
+#include "BattleMath.h"
 #include "BattleRuntimeRandom.h"
 #include "BattleRuntimeUnits.h"
 
@@ -124,11 +125,6 @@ BattleVisualEvent floatingTextEvent(int targetUnitId,
     return event;
 }
 
-double followUpDistance(Pointf lhs, Pointf rhs)
-{
-    return EuclidDis(lhs.x - rhs.x, lhs.y - rhs.y);
-}
-
 Pointf normalizedFollowUpVelocity(Pointf from, Pointf to, double speed)
 {
     assert(speed > 0.0);
@@ -165,8 +161,9 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     request.initial.scriptedBleedStacks = command.prototype.scriptedBleedStacks;
     request.initial.skillEffectRef = command.prototype.skillEffectRef;
     request.initial.sharedHitGroupId = command.prototype.sharedHitGroupId;
-    request.initial.strengthMultiplier = command.prototype.strengthMultiplier
-        * static_cast<float>(std::max(1, command.damagePct) / 100.0);
+    request.initial.strengthPct = command.prototype.strengthPct
+        * std::max(1, command.damagePct)
+        / 100;
     request.initial.suppressNearbyTrackingProjectileProc = true;
     request.initial.mainProjectile = false;
     request.initial.position = command.prototype.position;
@@ -176,8 +173,10 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
         projectileSpeed);
     request.initial.totalFrame = std::max(
         context.minimumProjectileFrames,
-        static_cast<int>(std::ceil(followUpDistance(targetPosition, request.initial.position)
-                                   / std::max(1.0, projectileSpeed)))
+        battleTravelFrames2d(
+            request.initial.position,
+            targetPosition,
+            std::max(1.0, projectileSpeed))
             + context.nearbyProjectileFramePadding);
     return request;
 }
@@ -220,8 +219,10 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
         context.projectileSpeed);
     request.initial.totalFrame = std::max(
         15,
-        static_cast<int>(std::ceil(followUpDistance(targetPosition, request.initial.position)
-                                   / std::max(1.0, context.projectileSpeed)))
+        battleTravelFrames2d(
+            request.initial.position,
+            targetPosition,
+            std::max(1.0, context.projectileSpeed))
             + context.areaProjectileFramePadding);
     return request;
 }
@@ -665,15 +666,14 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     }
 
     const bool usingSkill = input.skill.id >= 0;
-    const double baseDamage = static_cast<double>(input.skill.resolvedBaseDamage);
     const int impactFrozenFrames = input.attackEvent.mainProjectile
         ? (input.attackEvent.ultimate ? 10 : 5)
         : 0;
 
     BattleHitShapeInput shapeInput;
-    shapeInput.baseDamage = baseDamage;
+    shapeInput.baseDamage = input.skill.resolvedBaseDamage;
     shapeInput.projectileCancelDamage = input.attackEvent.projectileCancelDamage;
-    shapeInput.strengthMultiplier = input.attackEvent.strengthMultiplier;
+    shapeInput.strengthPct = input.attackEvent.strengthPct;
     shapeInput.frame = input.attackEvent.frame;
     shapeInput.totalFrame = input.attackEvent.totalFrame;
     shapeInput.impactPosition = input.attackEvent.position;
@@ -685,7 +685,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     shapeInput.defenderActProperty = input.skill.defenderActProperty;
 
     const auto shaped = BattleDamageSystem().shapeHitDamage(shapeInput);
-    result.shapedHpDamage = shaped.damage;
+    BattleFixed shapedDamage = shaped.damage;
 
     if (shaped.frozenFrames > 0)
     {
@@ -706,22 +706,31 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     const int mpRatioDmgBoostPct = effectReader.sumAlways(attackerSources, EffectType::MPRatioDmgBoost);
     if (usingSkill && input.attacker.vitals.maxMp > 0 && mpRatioDmgBoostPct > 0)
     {
-        const double mpRatio = static_cast<double>(input.attacker.vitals.mp) / input.attacker.vitals.maxMp;
-        const double boostPct = mpRatio * mpRatioDmgBoostPct;
-        if (boostPct > 0.0)
+        const int boostNumerator = input.attacker.vitals.mp * mpRatioDmgBoostPct;
+        if (boostNumerator > 0)
         {
-            result.shapedHpDamage *= 1.0 + boostPct / 100.0;
+            shapedDamage = shapedDamage.scaled(
+                input.attacker.vitals.maxMp * 100
+                    + input.attacker.vitals.mp * mpRatioDmgBoostPct,
+                input.attacker.vitals.maxMp * 100);
+            const int boostTenths = (boostNumerator * 10 + input.attacker.vitals.maxMp / 2)
+                / input.attacker.vitals.maxMp;
+            const int currentMpPct = (input.attacker.vitals.mp * 100
+                + input.attacker.vitals.maxMp / 2)
+                / input.attacker.vitals.maxMp;
             result.logEvents.push_back(statusEvent(
                 input.attacker.id,
                 input.defender.id,
-                std::format("內力加傷 +{:.1f}%（目前內力 {}%）",
-                            boostPct,
-                            static_cast<int>(std::round(mpRatio * 100.0)))));
+                std::format(
+                    "內力加傷 +{}.{:01}%（目前內力 {}%）",
+                    boostTenths / 10,
+                    boostTenths % 10,
+                    currentMpPct)));
         }
     }
 
-    result.shapedHpDamage = BattleDamageSystem().applyModifiers({
-        result.shapedHpDamage,
+    shapedDamage = BattleDamageSystem().applyModifiers({
+        shapedDamage,
         usingSkill,
         true,
         makeDamageModifierState(
@@ -734,9 +743,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     auto attackerDamage = BattleComboTriggerSystem().shapeAttackerHitDamage(
         attackerCombo,
-        { result.shapedHpDamage, input.attacker.vitals.hp, input.attacker.vitals.maxHp, attackerCombo.lastAliveForComboRuntime() },
+        { shapedDamage, input.attacker.vitals.hp, input.attacker.vitals.maxHp, attackerCombo.lastAliveForComboRuntime() },
         random);
-    result.shapedHpDamage = attackerDamage.damage;
+    shapedDamage = attackerDamage.damage;
     for (const auto& damageEvent : attackerDamage.events)
     {
         switch (damageEvent.type)
@@ -896,8 +905,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         || input.attackEvent.operationType == BattleOperationType::TrackingProjectile;
     const bool usingHpDamage = input.skill.hurtType == 0;
 
-    result.shapedHpDamage = BattleDamageSystem().applyModifiers({
-        result.shapedHpDamage,
+    shapedDamage = BattleDamageSystem().applyModifiers({
+        shapedDamage,
         false,
         false,
         {},
@@ -907,8 +916,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     auto defenderDamage = BattleComboTriggerSystem().shapeDefenderHitDamage(
         defenderCombo,
-        { result.shapedHpDamage, input.defender.vitals.hp, input.defender.vitals.maxHp, defenderCombo.lastAliveForComboRuntime(), input.attacker.id });
-    result.shapedHpDamage = defenderDamage.damage;
+        { shapedDamage, input.defender.vitals.hp, input.defender.vitals.maxHp, defenderCombo.lastAliveForComboRuntime(), input.attacker.id });
+    shapedDamage = defenderDamage.damage;
     for (const auto& damageEvent : defenderDamage.events)
     {
         switch (damageEvent.type)
@@ -936,14 +945,15 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     lateDefenderModifier.poisonTimer = input.defenderStatusEffects.poisonTimer;
     lateDefenderModifier.maxHitPctMaxHp = defenderCombo.maxAlways(EffectType::MaxHitPctCurrentHP);
     auto lateDamage = BattleDamageSystem().applyModifiers({
-        result.shapedHpDamage,
+        shapedDamage,
         false,
         true,
         lateAttackerModifier,
         lateDefenderModifier,
         makeDamageUnit(input.defender, &defenderCombo, &input.defenderStatusEffects),
     });
-    result.shapedHpDamage = lateDamage.damage;
+    shapedDamage = lateDamage.damage;
+    result.shapedHpDamage = shapedDamage.toDouble();
     if (lateDamage.maxHitCapped)
     {
         result.logEvents.push_back(statusEvent(
@@ -1025,7 +1035,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     const int skillReflectPct = defenderCombo.maxAlways(EffectType::SkillReflectPct);
     if (!result.reflected && usingSkill && skillReflectPct > 0)
     {
-        int reflectedDamage = static_cast<int>(result.shapedHpDamage * skillReflectPct / 100.0);
+        int reflectedDamage = shapedDamage.scaled(skillReflectPct, 100).toInt();
         if (reflectedDamage > 0)
         {
             result.commands.push_back(BattleHpDamageCommand{
@@ -1048,7 +1058,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     {
         BattleBleedProc bleedProc;
         const auto bleed = resolveBattleBleedEffectSummary(attackerSources);
-        bleedProc.applies = result.shapedHpDamage > 0
+        bleedProc.applies = shapedDamage > BattleFixed{}
             && passesPercentChance(random, bleed.chancePct);
         if (bleedProc.applies)
         {
@@ -1065,7 +1075,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
         BattleDamageReduceDebuffProc damageReduceDebuff;
         const auto* alwaysDamageReduceDebuff = effectReader.firstAlways(attackerSources, EffectType::DmgReduceDebuff);
-        if (result.shapedHpDamage > 0 && alwaysDamageReduceDebuff && alwaysDamageReduceDebuff->value2 > 0)
+        if (shapedDamage > BattleFixed{} && alwaysDamageReduceDebuff && alwaysDamageReduceDebuff->value2 > 0)
         {
             damageReduceDebuff.applies = true;
             damageReduceDebuff.pct = alwaysDamageReduceDebuff->value;
@@ -1147,9 +1157,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
     }
 
-    if (usingHpDamage && result.shapedHpDamage > 0)
+    if (usingHpDamage && shapedDamage > BattleFixed{})
     {
-        int damage = static_cast<int>(result.shapedHpDamage) + input.randomDamageVariance;
+        int damage = shapedDamage.toInt() + input.randomDamageVariance;
         damage = std::max(0, damage);
         if (damage > 0)
         {
@@ -1178,15 +1188,15 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             result.finalHpDamage = damage;
         }
     }
-    else if (!usingHpDamage && result.shapedHpDamage > 0)
+    else if (!usingHpDamage && shapedDamage > BattleFixed{})
     {
-        int damage = static_cast<int>(result.shapedHpDamage) + input.randomDamageVariance;
+        int damage = shapedDamage.toInt() + input.randomDamageVariance;
         damage = std::max(0, damage);
         if (damage > 0)
         {
             BattleDamageRequest request;
             request.mpDamage = damage;
-            request.mpOnHit = static_cast<int>(damage * 0.8);
+            request.mpOnHit = damage * 80 / 100;
             request.hitstunFrames = !result.reflected ? impactFrozenFrames : 0;
             const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
             const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;

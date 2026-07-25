@@ -1,6 +1,7 @@
 #include "BattleDamageSystem.h"
 
 #include "../ChessBattleEffects.h"
+#include "BattleMath.h"
 #include "BattleResourceRules.h"
 
 #include <algorithm>
@@ -11,8 +12,6 @@ namespace KysChess::Battle
 
 namespace
 {
-
-constexpr double DiagonalFacingCosine = 0x1.6a09e667f3bcdp-1;
 
 BattleUnitDelta makeBattleUnitDelta(const BattleDamageUnitState& before, const BattleDamageUnitState& after)
 {
@@ -85,7 +84,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
 {
     assert(input.request.attackerUnitId == input.attacker.id);
     assert(input.request.defenderUnitId == input.defender.id);
-    assert(input.request.baseDamage >= 0.0 && input.request.mpDamage >= 0);
+    assert(input.request.baseDamage >= 0 && input.request.mpDamage >= 0);
 
     BattleDamageTransactionResult result;
     result.attacker = input.attacker;
@@ -94,9 +93,9 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
     result.defenderCooldown = input.defenderCooldown;
     bool acceptedHit = input.request.acceptedHit;
 
-    if (input.request.baseDamage > 0.0)
+    if (input.request.baseDamage > 0)
     {
-        double resolvedDamage = input.request.baseDamage;
+        BattleFixed resolvedDamage = input.request.baseDamage;
         if (!input.request.preResolvedDamage)
         {
             auto modified = applyModifiers({
@@ -110,11 +109,12 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
 
             resolvedDamage = modified.damage;
         }
+        int resolvedDamageValue = resolvedDamage.toInt();
         result.executed = input.request.canExecute
             && shouldExecute({
                 result.defender.vitals.hp,
                 result.defender.vitals.maxHp,
-                resolvedDamage,
+                resolvedDamageValue,
                 true,
                 input.request.executeThresholdPct,
             });
@@ -128,7 +128,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         }
 
         auto defense = resolveDefense({
-            resolvedDamage,
+            resolvedDamageValue,
             result.executed,
             input.request.reflected,
             result.defender.invincible > 0,
@@ -143,7 +143,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         acceptedHit = !defense.blockedByInvincible
             && !defense.blockedByFirstHit
             && !defense.blockedByDualWield;
-        resolvedDamage = defense.damage;
+        resolvedDamageValue = defense.damage;
 
         if (defense.shieldAbsorbed > 0)
         {
@@ -179,7 +179,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         }
 
         int hpBeforeDamage = result.defender.vitals.hp;
-        int hpDamage = static_cast<int>(resolvedDamage);
+        int hpDamage = resolvedDamageValue;
         if (result.executed)
         {
             hpDamage = std::max(hpDamage, result.defender.vitals.hp);
@@ -425,45 +425,47 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
 
 BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamageModifierInput& input) const
 {
-    double damage = input.damage;
+    BattleFixed damage = input.damage;
 
     if (input.usingSkill && input.attacker.skillDamagePct > 0)
     {
-        damage *= (1.0 + input.attacker.skillDamagePct / 100.0);
+        damage = damage.scaled(100 + input.attacker.skillDamagePct, 100);
     }
 
     for (const auto& debuff : input.attacker.outgoingDamageReduceDebuffs)
     {
         if (debuff.remainingFrames > 0 && debuff.pct > 0)
         {
-            damage *= (1.0 - debuff.pct / 100.0);
+            assert(debuff.pct <= 100);
+            damage = damage.scaled(100 - debuff.pct, 100);
         }
     }
 
-    damage += input.attacker.flatDamageIncrease;
+    damage += BattleFixed::fromInteger(input.attacker.flatDamageIncrease);
 
     if (!input.ignoreDefense)
     {
-        damage -= input.defender.flatDamageReduction;
+        damage -= BattleFixed::fromInteger(input.defender.flatDamageReduction);
         if (input.defender.damageReductionPct > 0)
         {
-            damage *= (1.0 - input.defender.damageReductionPct / 100.0);
+            assert(input.defender.damageReductionPct <= 100);
+            damage = damage.scaled(100 - input.defender.damageReductionPct, 100);
         }
     }
 
     if (input.defender.poisonTimer > 0 && input.attacker.poisonDamageAmpPct > 0)
     {
-        damage *= (1.0 + input.attacker.poisonDamageAmpPct / 100.0);
+        damage = damage.scaled(100 + input.attacker.poisonDamageAmpPct, 100);
     }
 
     BattleDamageModifierResult result;
     result.damage = damage;
-    if (input.defender.maxHitPctMaxHp > 0 && result.damage > 0)
+    if (input.defender.maxHitPctMaxHp > 0 && result.damage > BattleFixed{})
     {
         int maxHit = std::max(1, input.defenderUnit.vitals.maxHp * input.defender.maxHitPctMaxHp / 100);
-        if (result.damage > maxHit)
+        if (result.damage > BattleFixed::fromInteger(maxHit))
         {
-            result.damage = static_cast<double>(maxHit);
+            result.damage = BattleFixed::fromInteger(maxHit);
             result.maxHitCapped = true;
             result.maxHitPct = input.defender.maxHitPctMaxHp;
         }
@@ -473,58 +475,60 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
 
 int BattleDamageSystem::resolveMagicBaseDamage(const BattleMagicBaseDamageInput& input) const
 {
-    double attack = input.attackerAttack + input.magicPower / 3.0;
-    if (attack + input.defenderDefense <= 0.0)
+    const BattleFixed attack = BattleFixed::fromInteger(input.attackerAttack)
+        + BattleFixed::fromRatio(input.magicPower, 3);
+    const BattleFixed combined = attack + input.defenderDefense;
+    if (combined <= BattleFixed{})
     {
         return 1;
     }
 
-    int damage = static_cast<int>(attack * attack / (attack + input.defenderDefense) / 4.0);
+    int damage = attack.multipliedBy(attack).dividedBy(combined).scaled(1, 4).toInt();
     damage += input.randomVariance;
     return std::max(1, damage);
 }
 
 BattleHitShapeResult BattleDamageSystem::shapeHitDamage(const BattleHitShapeInput& input) const
 {
-    assert(input.baseDamage >= 0.0);
+    assert(input.baseDamage >= BattleFixed{});
     assert(input.totalFrame > 0);
     assert(input.frame >= 0);
-    assert(input.strengthMultiplier >= 0.0);
+    assert(input.strengthPct >= 0);
 
-    double damage = input.baseDamage;
-    damage -= input.projectileCancelDamage;
-    damage *= input.strengthMultiplier;
-    damage *= 1.0 - 0.3 * input.frame / input.totalFrame;
+    BattleFixed damage = input.baseDamage;
+    damage -= BattleFixed::fromInteger(input.projectileCancelDamage);
+    damage = damage.scaled(input.strengthPct, 100);
+    const int falloffNumerator = input.totalFrame * 10 - input.frame * 3;
+    assert(falloffNumerator >= 0);
+    damage = damage.scaled(falloffNumerator, input.totalFrame * 10);
 
-    auto attackVector = input.impactPosition - input.defenderPosition;
-    const double attackNorm = attackVector.norm();
-    auto defenderFacing = input.defenderFacing;
-    const double facingNorm = defenderFacing.norm();
-    assert(attackNorm > 0.0);
-    assert(facingNorm > 0.0);
-    const double dot = attackVector.x * defenderFacing.x + attackVector.y * defenderFacing.y;
-    const double facingCos = std::clamp(dot / attackNorm / facingNorm, -1.0, 1.0);
-    if (facingCos <= DiagonalFacingCosine && facingCos > -DiagonalFacingCosine)
+    const auto facingArc = classifyBattleFacing(
+        input.impactPosition - input.defenderPosition,
+        input.defenderFacing);
+    if (facingArc == BattleFacingArc::Side)
     {
-        damage *= 1.2;
+        damage = damage.scaled(120, 100);
     }
-    else if (facingCos <= -DiagonalFacingCosine)
+    else if (facingArc == BattleFacingArc::Back)
     {
-        damage *= 1.5;
+        damage = damage.scaled(150, 100);
     }
 
-    damage *= battleOperationDamageMultiplier(input.operationType);
+    damage = damage.scaled(battleOperationDamagePct(input.operationType), 100);
     BattleHitShapeResult result;
     if (input.operationType == BattleOperationType::Dash)
     {
-        damage /= 1.5;
+        damage = damage.scaled(2, 3);
         result.frozenFrames = 5;
     }
 
     if (input.usingSkill)
     {
-        int actDiff = input.attackerActProperty - input.defenderActProperty;
-        damage *= 1.0 + std::clamp((actDiff / 400.0), -0.15, 0.15);
+        const int actDiff = std::clamp(
+            input.attackerActProperty - input.defenderActProperty,
+            -60,
+            60);
+        damage = damage.scaled(400 + actDiff, 400);
     }
 
     result.damage = damage;
@@ -592,7 +596,7 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
     if (!input.reflected && result.defender.shield > 0 && result.damage > 0)
     {
         int shieldBefore = result.defender.shield;
-        int absorbed = std::min(result.defender.shield, static_cast<int>(result.damage));
+        int absorbed = std::min(result.defender.shield, result.damage);
         result.defender.shield -= absorbed;
         result.damage -= absorbed;
         result.shieldAbsorbed = absorbed;
@@ -719,7 +723,7 @@ bool BattleDamageSystem::shouldExecute(const BattleExecuteInput& input) const
     int projectedHp = input.projectedHpBeforeDamage;
     if (input.appliesHpDamage)
     {
-        projectedHp -= static_cast<int>(input.pendingDamage);
+        projectedHp -= input.pendingDamage;
     }
     return projectedHp * 100 < input.maxHp * input.thresholdPct;
 }

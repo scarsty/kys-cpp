@@ -19,6 +19,7 @@ enum class ChessCheckpointError
     None,
     Malformed,
     IncompatibleGameVersion,
+    IncompatibleContent,
     UnrepresentableSnapshot,
     UnstableBoundary,
 };

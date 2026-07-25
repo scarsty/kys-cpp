@@ -73,3 +73,39 @@ TEST_CASE("deterministic battle angle helpers handle wrapping and rotation", "[b
     CHECK(direction.y == -1.0f);
     CHECK(direction.z == 0.0f);
 }
+
+TEST_CASE("fixed battle geometry keeps contact boundaries exact", "[battle][math][determinism]")
+{
+    CHECK(battlePointSegmentWithinRadius(
+        {5.0f, 2.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f},
+        {10.0f, 0.0f, 0.0f},
+        2.0));
+    CHECK_FALSE(battlePointSegmentWithinRadius(
+        {5.0f, 2.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f},
+        {10.0f, 0.0f, 0.0f},
+        2.0,
+        false));
+    CHECK(battleSegmentsWithinRadius(
+        {0.0f, 0.0f, 0.0f},
+        {10.0f, 10.0f, 0.0f},
+        {0.0f, 10.0f, 0.0f},
+        {10.0f, 0.0f, 0.0f},
+        0.0));
+}
+
+TEST_CASE("fixed battle facing assigns exact diagonal boundaries consistently", "[battle][math][determinism]")
+{
+    const Pointf facing{1.0f, 0.0f, 0.0f};
+    CHECK(classifyBattleFacing({1.0f, 0.0f, 0.0f}, facing) == BattleFacingArc::Front);
+    CHECK(classifyBattleFacing({1.0f, 1.0f, 0.0f}, facing) == BattleFacingArc::Side);
+    CHECK(classifyBattleFacing({-1.0f, 1.0f, 0.0f}, facing) == BattleFacingArc::Back);
+}
+
+TEST_CASE("fixed projectile travel frames use exact ceiling", "[battle][math][determinism]")
+{
+    CHECK(battleTravelFrames2d({0.0f, 0.0f, 0.0f}, {10.0f, 0.0f, 0.0f}, 3.0) == 4);
+    CHECK(battleTravelFrames2d({0.0f, 0.0f, 0.0f}, {10.0f, 0.0f, 0.0f}, 2.0) == 5);
+    CHECK(battleTravelFrames2d({4.0f, 7.0f, 0.0f}, {4.0f, 7.0f, 0.0f}, 2.0) == 0);
+}

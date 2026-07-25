@@ -293,7 +293,6 @@ struct ProtectionContext
     Point allyCenter{};
     Point enemyCenter{};
     Point backrow{};
-    double backrowLength{};
 };
 
 ProtectionContext makeProtectionContext(
@@ -339,8 +338,6 @@ ProtectionContext makeProtectionContext(
         context.enemyCenter.y = enemySum.y / enemyCount;
     }
     context.backrow = { context.allyCenter.x - context.enemyCenter.x, context.allyCenter.y - context.enemyCenter.y };
-    context.backrowLength = std::sqrt(static_cast<double>(
-        context.backrow.x * context.backrow.x + context.backrow.y * context.backrow.y));
     return context;
 }
 
@@ -352,7 +349,7 @@ struct ProtectionChoice
     int enemyThreat = std::numeric_limits<int>::max();
     int enemyMinDistance = std::numeric_limits<int>::min();
     int allySupport = std::numeric_limits<int>::min();
-    double backrowScore = std::numeric_limits<double>::lowest();
+    long long backrowProjection = std::numeric_limits<long long>::lowest();
     int pullerDistance = std::numeric_limits<int>::max();
 };
 
@@ -378,9 +375,9 @@ bool betterProtectionChoice(const ProtectionChoice& lhs, const ProtectionChoice&
     {
         return lhs.allySupport > rhs.allySupport;
     }
-    if (std::abs(lhs.backrowScore - rhs.backrowScore) > 0.000001)
+    if (lhs.backrowProjection != rhs.backrowProjection)
     {
-        return lhs.backrowScore > rhs.backrowScore;
+        return lhs.backrowProjection > rhs.backrowProjection;
     }
     if (lhs.pullerDistance != rhs.pullerDistance)
     {
@@ -430,11 +427,11 @@ ProtectionChoice protectionChoiceForCell(
     {
         choice.enemyMinDistance = 1000000;
     }
-    if (context.backrowLength > 0.0001)
+    if (context.backrow.x != 0 || context.backrow.y != 0)
     {
         const Point candidateFromAlly{ cell.x - context.allyCenter.x, cell.y - context.allyCenter.y };
-        choice.backrowScore = (candidateFromAlly.x * context.backrow.x + candidateFromAlly.y * context.backrow.y)
-            / context.backrowLength;
+        choice.backrowProjection = static_cast<long long>(candidateFromAlly.x) * context.backrow.x
+            + static_cast<long long>(candidateFromAlly.y) * context.backrow.y;
     }
     return choice;
 }

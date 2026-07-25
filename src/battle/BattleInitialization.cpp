@@ -36,14 +36,14 @@ struct OpponentTopDebuffSummary
     int perOwnerValue{};
 };
 
-int applyPercentBonus(int value, double pct)
+int applyPercentBonus(int value, int pct)
 {
     if (pct == 0)
     {
         return value;
     }
 
-    return static_cast<int>(value * (1.0 + pct / 100.0));
+    return value * (100 + pct) / 100;
 }
 
 std::string shieldLogText(const char* prefix, int shield)

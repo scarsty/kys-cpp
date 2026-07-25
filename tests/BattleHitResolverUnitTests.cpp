@@ -41,7 +41,7 @@ BattleHitResolutionInput hitInput()
     input.attackEvent.totalFrame = 10;
     input.attackEvent.position = { 1.0f, 0.0f, 0.0f };
     input.attackEvent.operationType = BattleOperationType::Melee;
-    input.attackEvent.strengthMultiplier = 1.0f;
+    input.attackEvent.strengthPct = 100;
     input.attacker.id = 1;
     input.attacker.vitals = { 80, 100, 50, 100 };
     input.attacker.motion.position = { -1.0f, 0.0f, 0.0f };
@@ -230,7 +230,7 @@ TEST_CASE("BattleHitResolver_ProjectCancelAndStrengthShapeFinalDamage", "[battle
 {
     auto input = comboHitInput();
     input.attackEvent.projectileCancelDamage = 10;
-    input.attackEvent.strengthMultiplier = 2.0f;
+    input.attackEvent.strengthPct = 200;
     input.attackEvent.frame = 5;
     input.attackEvent.operationType = BattleOperationType::TrackingProjectile;
     input.skill.id = 101;
@@ -970,7 +970,7 @@ TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnComman
     CHECK(second->request.initial.preferredTargetUnitId == 1);
     CHECK(first->request.initial.suppressNearbyTrackingProjectileProc);
     CHECK_FALSE(first->request.initial.mainProjectile);
-    CHECK(first->request.initial.strengthMultiplier == Catch::Approx(0.4f));
+    CHECK(first->request.initial.strengthPct == 40);
 }
 
 TEST_CASE("BattleProjectileFollowUpResolver_NearbyTrackingUsesCommandProjectileSpeed", "[battle][hit_resolver][unit]")

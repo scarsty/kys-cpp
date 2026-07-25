@@ -11,6 +11,7 @@ struct ChessReplayHeader
     std::string difficulty;
     std::uint64_t rootSeed{};
     ChessSessionOptions options;
+    ChessSha256 contentFingerprint{};
 
     auto operator<=>(const ChessReplayHeader&) const = default;
 };
