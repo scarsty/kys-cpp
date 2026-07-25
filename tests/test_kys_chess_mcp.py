@@ -1,4 +1,3 @@
-import ast
 import json
 import os
 from pathlib import Path
@@ -12,10 +11,28 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = ROOT / "tools" / "kys_chess_mcp"
 sys.path.insert(0, str(PACKAGE_ROOT))
 
-from kys_chess_mcp.server import AUTO_SAVE_SLOT, CliSession, create_server
+from kys_chess_mcp.server import AUTO_SAVE_SLOT, CliSession, dispatch_mcp_tool, mcp_tools
 
 
 CLI = Path(os.environ.get("KYS_CHESS_CLI", ROOT / "x64" / "Debug" / "kys_chess_cli.exe"))
+
+
+def write_deployment_manifest(
+    path: Path,
+    version: str,
+    executable: Path,
+    activation: str | None = None,
+) -> None:
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps({
+            "version": version,
+            "activation": activation or version,
+            "executable": str(executable),
+        }),
+        encoding="utf-8",
+    )
+    temporary.replace(path)
 
 
 class DirectJsonl:
@@ -105,77 +122,53 @@ class McpAdapterTests(unittest.TestCase):
 
     def test_mcp_tool_surface_matches_the_protocol_contract(self):
         source = (PACKAGE_ROOT / "kys_chess_mcp" / "server.py").read_text(encoding="utf-8")
-        for tool in (
-            "new_game",
-            "observe_game",
-            "get_diagnostics",
-            "list_legal_actions",
-            "take_action",
-            "inspect_shop_slot",
-            "inspect_shop",
-            "get_shop_odds",
-            "inspect_chess_instance",
-            "inspect_bans",
-            "inspect_role",
-            "inspect_combo",
-            "inspect_equipment",
-            "inspect_challenge",
-            "inspect_prepared_battle",
-            "inspect_last_battle",
-            "list_saves",
-            "inspect_save",
-            "save_game",
-            "load_game",
-            "export_save",
-            "import_save",
-            "export_replay",
-        ):
-            self.assertIn(f"def {tool}(", source)
-        self.assertNotIn("def verify_replay(", source)
+        self.assertNotIn("def new_game(", source)
+        self.assertNotIn("def observe_game(", source)
+        self.assertIn("def dispatch_mcp_tool(", source)
 
-        tree = ast.parse(source)
-        docstrings = {
-            node.name: ast.get_docstring(node) or ""
-            for node in ast.walk(tree)
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        }
-        expected_rollback_descriptions = {
-            "observe_game": ("替換時間線", "捨棄目前後綴"),
-            "list_saves": ("不需先建立棋局", "判定相容性"),
-            "load_game": ("重播前綴", "discarded_active_actions", "存檔目錄仍保留"),
-            "import_save": ("不會靜默載入", "替換目前時間線"),
-        }
-        for tool, fragments in expected_rollback_descriptions.items():
-            self.assertIn(tool, docstrings)
-            for fragment in fragments:
-                self.assertIn(fragment, docstrings[tool])
-
-        class StubSession:
-            def request(self, method, params=None):
-                return {"method": method, "params": params or {}}
-
-        tools = create_server(StubSession())._tool_manager._tools
-        new_schema = tools["new_game"].parameters["properties"]
-        self.assertEqual(new_schema["difficulty"]["enum"], ["easy", "normal", "hard"])
-        self.assertEqual(new_schema["detail"]["enum"], ["compact", "full"])
-        self.assertEqual(new_schema["seed"]["pattern"], r"^0x[0-9a-fA-F]{16}$")
-        self.assertIn("0x 前綴", new_schema["seed"]["description"])
-        self.assertEqual(
-            tools["take_action"].parameters["properties"]["detail"]["enum"],
-            ["summary", "compact", "full"],
-        )
-        self.assertEqual(
-            tools["take_action"].parameters["properties"]["detail"]["default"],
-            "summary",
-        )
-        self.assertEqual(
-            tools["inspect_prepared_battle"].parameters["properties"]["detail"]["enum"],
-            ["summary", "compact", "full"],
-        )
-        self.assertEqual(
-            tools["inspect_prepared_battle"].parameters["properties"]["detail"]["default"],
-            "summary",
-        )
+        with tempfile.TemporaryDirectory() as save_dir, CliSession(
+            CLI,
+            save_dir=save_dir,
+            autosave=False,
+        ) as adapter:
+            definitions = {tool["name"]: tool for tool in adapter.tool_catalog()}
+            self.assertIn("new_game", definitions)
+            self.assertIn("export_save_file", definitions)
+            self.assertIn("import_save_file", definitions)
+            self.assertNotIn("export_save", definitions)
+            self.assertNotIn("import_save", definitions)
+            new_schema = definitions["new_game"]["inputSchema"]["properties"]
+            self.assertEqual(new_schema["difficulty"]["enum"], ["easy", "normal", "hard"])
+            self.assertEqual(new_schema["detail"]["enum"], ["compact", "full"])
+            self.assertEqual(new_schema["seed"]["pattern"], r"^0x[0-9a-fA-F]{16}$")
+            self.assertIn("0x 前綴", new_schema["seed"]["description"])
+            self.assertEqual(
+                definitions["take_action"]["inputSchema"]["properties"]["detail"]["default"],
+                "summary",
+            )
+            self.assertEqual(len(mcp_tools(adapter)), len(definitions))
+            created = dispatch_mcp_tool(
+                adapter,
+                "new_game",
+                {"difficulty": "normal", "seed": "0x0000000000000042"},
+            )
+            self.assertTrue(created["ok"])
+            self.assertTrue(adapter.request("save_game", {"slot": "source"})["ok"])
+            exported_path = Path(save_dir) / "portable.json"
+            exported = dispatch_mcp_tool(
+                adapter,
+                "export_save_file",
+                {"slot": "source", "path": str(exported_path)},
+            )
+            self.assertTrue(exported["ok"])
+            checkpoint = json.loads(exported_path.read_text(encoding="utf-8"))
+            self.assertGreater(checkpoint["random"]["streams"][0]["words"][0], 2**53)
+            imported = dispatch_mcp_tool(
+                adapter,
+                "import_save_file",
+                {"slot": "copy", "path": str(exported_path)},
+            )
+            self.assertTrue(imported["ok"])
 
     def test_adapter_owns_and_closes_one_cli_process(self):
         with tempfile.TemporaryDirectory() as save_dir:
@@ -187,6 +180,43 @@ class McpAdapterTests(unittest.TestCase):
             self.assertTrue(response["ok"])
             adapter.close()
             self.assertIsNotNone(adapter._process.poll())
+
+    def test_generic_stdio_adapter_interoperates_with_the_official_client(self):
+        import anyio
+        from mcp import ClientSession, StdioServerParameters
+        from mcp.client.stdio import stdio_client
+
+        async def verify(manifest: Path, save_dir: Path):
+            environment = os.environ.copy()
+            environment["KYS_CHESS_MCP_CURRENT"] = str(manifest)
+            environment["KYS_CHESS_MCP_SAVE_DIR"] = str(save_dir)
+            environment["PYTHONPATH"] = os.pathsep.join(
+                filter(None, [str(PACKAGE_ROOT), environment.get("PYTHONPATH")])
+            )
+            parameters = StdioServerParameters(
+                command=sys.executable,
+                args=["-m", "kys_chess_mcp.server"],
+                env=environment,
+            )
+            async with stdio_client(parameters) as (read_stream, write_stream):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    tools = await session.list_tools()
+                    created = await session.call_tool(
+                        "new_game",
+                        {"difficulty": "normal", "seed": "0x0000000000000042"},
+                    )
+                    names = {tool.name for tool in tools.tools}
+                    self.assertIn("export_save_file", names)
+                    self.assertNotIn("export_save", names)
+                    self.assertFalse(created.isError)
+                    self.assertTrue(created.structuredContent["ok"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "current.json"
+            write_deployment_manifest(manifest, "test", CLI)
+            anyio.run(verify, manifest, root / "saves")
 
     def test_adapter_surfaces_diagnostics_and_recovers_after_cli_exit(self):
         with tempfile.TemporaryDirectory() as save_dir, CliSession(CLI, save_dir=save_dir) as adapter:
@@ -206,6 +236,83 @@ class McpAdapterTests(unittest.TestCase):
             self.assertTrue(failure["session_lost"])
             self.assertIn("native assertion: 測試崩潰", failure["error_message"])
             self.assertEqual(adapter.request("observe")["error_code"], "no_session")
+
+    def test_runtime_deployment_reload_restores_the_active_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "current.json"
+            save_dir = root / "saves"
+            write_deployment_manifest(manifest, "version-1", CLI)
+            with CliSession(deployment_manifest=manifest, save_dir=save_dir) as adapter:
+                self.assertTrue(adapter.request(
+                    "new",
+                    {"difficulty": "normal", "seed": "0x0000000000000049"},
+                )["ok"])
+                self.assertTrue(adapter.request(
+                    "act",
+                    {"action": {"type": "refresh_shop"}},
+                )["result"]["accepted"])
+                expected = adapter.request("observe", {"detail": "compact"})["result"]["game_state"]
+                previous_pid = adapter._process.pid
+
+                write_deployment_manifest(manifest, "version-2", CLI)
+                restored = adapter.request("observe", {"detail": "compact"})
+
+                self.assertTrue(restored["ok"])
+                self.assertEqual(restored["runtime_reload"]["status"], "succeeded")
+                self.assertTrue(restored["runtime_reload"]["session_restored"])
+                self.assertEqual(restored["runtime_reload"]["previous"]["version"], "version-1")
+                self.assertEqual(restored["runtime_reload"]["current"]["version"], "version-2")
+                self.assertNotEqual(adapter._process.pid, previous_pid)
+                self.assertEqual(restored["result"]["game_state"]["state_hash"], expected["state_hash"])
+                self.assertEqual(restored["result"]["game_state"]["money"], expected["money"])
+
+    def test_runtime_deployment_activation_retries_the_same_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "current.json"
+            write_deployment_manifest(manifest, "same-package", CLI, "activation-1")
+            with CliSession(deployment_manifest=manifest, save_dir=root / "saves") as adapter:
+                previous_pid = adapter._process.pid
+
+                write_deployment_manifest(manifest, "same-package", CLI, "activation-2")
+                reloaded = adapter.request("list_saves")
+
+                self.assertTrue(reloaded["ok"])
+                self.assertEqual(reloaded["runtime_reload"]["status"], "succeeded")
+                self.assertFalse(reloaded["runtime_reload"]["session_restored"])
+                self.assertEqual(reloaded["runtime_reload"]["current"]["activation"], "activation-2")
+                self.assertNotEqual(adapter._process.pid, previous_pid)
+
+    def test_runtime_deployment_failure_rolls_back_the_active_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "current.json"
+            save_dir = root / "saves"
+            write_deployment_manifest(manifest, "working", CLI)
+            with CliSession(deployment_manifest=manifest, save_dir=save_dir) as adapter:
+                self.assertTrue(adapter.request(
+                    "new",
+                    {"difficulty": "normal", "seed": "0x000000000000004a"},
+                )["ok"])
+                self.assertTrue(adapter.request(
+                    "act",
+                    {"action": {"type": "refresh_shop"}},
+                )["result"]["accepted"])
+                expected = adapter.request("observe", {"detail": "compact"})["result"]["game_state"]
+
+                write_deployment_manifest(manifest, "broken", Path(sys.executable))
+                failure = adapter.request("observe", {"detail": "compact"})
+
+                self.assertFalse(failure["ok"])
+                self.assertEqual(failure["error_code"], "runtime_reload_failed")
+                self.assertFalse(failure["session_lost"])
+                self.assertEqual(failure["runtime_reload"]["status"], "rolled_back")
+                self.assertEqual(failure["runtime_reload"]["requested"]["version"], "broken")
+                continued = adapter.request("observe", {"detail": "compact"})
+                self.assertTrue(continued["ok"])
+                self.assertEqual(continued["result"]["game_state"]["state_hash"], expected["state_hash"])
+                self.assertEqual(adapter.diagnostic_status()["runtime"]["version"], "working")
 
     def test_named_saves_survive_adapter_restart(self):
         with tempfile.TemporaryDirectory() as save_dir:

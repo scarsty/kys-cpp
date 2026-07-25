@@ -2027,8 +2027,8 @@ SessionObservationDto sessionObservationDto(
         "inspect_save",
         "save_game",
         "load_game",
-        "export_save",
-        "import_save",
+        "export_save_file",
+        "import_save_file",
         "export_replay",
     };
     result.load_consequence = "載入會替換目前遊戲狀態、亂數與完整重播紀錄，捨棄存檔點之後的目前行動，但保留存檔目錄。";

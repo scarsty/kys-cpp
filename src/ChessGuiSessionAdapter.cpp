@@ -2487,7 +2487,7 @@ public:
             exitWithResult(0);
             return;
         }
-        verifier_.step(8, 120);
+        verifier_.step(160, 2400);
         if (verifier_.finished())
         {
             exitWithResult(0);

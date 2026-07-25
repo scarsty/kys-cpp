@@ -56,6 +56,27 @@ TEST_CASE("JSONL controller writes exactly one protocol response per line", "[ch
     CHECK(text.contains("\"id\":\"b\""));
 }
 
+TEST_CASE("standalone MCP controller initializes lists native tools and dispatches calls", "[chess][cli][mcp]")
+{
+    const auto content = managementContent();
+    auto controller = managementController(content);
+    std::istringstream input(
+        R"({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1"}}})" "\n"
+        R"({"jsonrpc":"2.0","method":"notifications/initialized","params":{}})" "\n"
+        R"({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}})" "\n"
+        R"({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"new_game","arguments":{"difficulty":"normal","seed":"0x0000000000000001"}}})" "\n");
+    std::ostringstream output;
+
+    CHECK(controller.runMcp(input, output) == 0);
+    const auto text = output.str();
+    CHECK(std::ranges::count(text, '\n') == 3);
+    CHECK(text.contains("\"protocolVersion\":\"2025-11-25\""));
+    CHECK(text.contains("\"name\":\"export_save_file\""));
+    CHECK_FALSE(text.contains("\"name\":\"export_save\""));
+    CHECK(text.contains("\"structuredContent\":{\"id\":3,\"ok\":true"));
+    REQUIRE(controller.protocol().session());
+}
+
 TEST_CASE("interactive controller rejects JSON output mode", "[chess][cli]")
 {
     const auto content = managementContent();

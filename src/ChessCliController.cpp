@@ -527,6 +527,21 @@ int ChessCliController::runJsonl(std::istream& input, std::ostream& output)
     return 0;
 }
 
+int ChessCliController::runMcp(std::istream& input, std::ostream& output)
+{
+    std::string line;
+    while (std::getline(input, line))
+    {
+        const auto response = protocol_.handleMcpLine(line);
+        if (!response.empty())
+        {
+            output << response << '\n';
+            output.flush();
+        }
+    }
+    return 0;
+}
+
 int ChessCliController::runInteractive(
     std::istream& input,
     std::ostream& output,

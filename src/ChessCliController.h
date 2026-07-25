@@ -20,6 +20,7 @@ public:
     explicit ChessCliController(ChessJsonProtocol::ContentProvider contentProvider);
 
     int runJsonl(std::istream& input, std::ostream& output);
+    int runMcp(std::istream& input, std::ostream& output);
     int runInteractive(
         std::istream& input,
         std::ostream& output,

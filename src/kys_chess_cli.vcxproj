@@ -12,9 +12,26 @@
   <PropertyGroup Condition="'$(Configuration)'=='Debug'"><CliRuntimeBinDir>$(SolutionDir)vcpkg_installed\x64-windows\debug\bin\</CliRuntimeBinDir><CliYamlDll>yaml-cppd.dll</CliYamlDll><CliBzipDll>bz2d.dll</CliBzipDll><CliZlibDll>zlibd1.dll</CliZlibDll></PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Release'"><CliRuntimeBinDir>$(SolutionDir)vcpkg_installed\x64-windows\bin\</CliRuntimeBinDir><CliYamlDll>yaml-cpp.dll</CliYamlDll><CliBzipDll>bz2.dll</CliBzipDll><CliZlibDll>zlib1.dll</CliZlibDll></PropertyGroup>
   <ItemGroup><CliRuntimeDll Include="$(CliRuntimeBinDir)sqlite3.dll;$(CliRuntimeBinDir)$(CliYamlDll);$(CliRuntimeBinDir)zip.dll;$(CliRuntimeBinDir)$(CliBzipDll);$(CliRuntimeBinDir)$(CliZlibDll)" /></ItemGroup>
+  <ItemGroup>
+    <CliMcpContent Include="$(SolutionDir)work\game-dev\cc\STPhrases.txt"><TargetPath>game\cc\STPhrases.txt</TargetPath></CliMcpContent>
+    <CliMcpContent Include="$(SolutionDir)work\game-dev\cc\STCharacters.txt"><TargetPath>game\cc\STCharacters.txt</TargetPath></CliMcpContent>
+    <CliMcpContent Include="$(SolutionDir)work\game-dev\save\game.db"><TargetPath>game\save\game.db</TargetPath></CliMcpContent>
+    <CliMcpContent Include="$(SolutionDir)work\game-dev\resource\war.sta"><TargetPath>game\resource\war.sta</TargetPath></CliMcpContent>
+    <CliMcpContent Include="$(SolutionDir)work\game-dev\resource\warfld.idx"><TargetPath>game\resource\warfld.idx</TargetPath></CliMcpContent>
+    <CliMcpContent Include="$(SolutionDir)work\game-dev\resource\warfld.grp"><TargetPath>game\resource\warfld.grp</TargetPath></CliMcpContent>
+    <CliMcpContent Include="$(SolutionDir)config\chess_*.yaml"><TargetPath>game\config\%(Filename)%(Extension)</TargetPath></CliMcpContent>
+  </ItemGroup>
   <ItemGroup><ClCompile Include="..\cli\ChessCliMain.cpp" /></ItemGroup>
   <ItemGroup><Manifest Include="kys_utf8.manifest" /></ItemGroup>
   <ItemGroup><ProjectReference Include="kys_chess_core.vcxproj"><Project>{7A398F58-3406-4937-B9F8-64A7123144E3}</Project></ProjectReference><ProjectReference Include="kys_battle_core.vcxproj"><Project>{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}</Project></ProjectReference></ItemGroup>
   <Target Name="CopyCliRuntimeDependencies" AfterTargets="Build"><Copy SourceFiles="@(CliRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" /></Target>
+  <Target Name="StageCliMcpRuntime" AfterTargets="CopyCliRuntimeDependencies">
+    <PropertyGroup><CliMcpPublishDir>$(OutDir)kys_chess_cli.publish\</CliMcpPublishDir></PropertyGroup>
+    <RemoveDir Directories="$(CliMcpPublishDir)" />
+    <MakeDir Directories="$(CliMcpPublishDir)bin;$(CliMcpPublishDir)game\cc;$(CliMcpPublishDir)game\save;$(CliMcpPublishDir)game\resource;$(CliMcpPublishDir)game\config" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(CliMcpPublishDir)bin" />
+    <Copy SourceFiles="@(CliRuntimeDll)" DestinationFolder="$(CliMcpPublishDir)bin" />
+    <Copy SourceFiles="@(CliMcpContent)" DestinationFiles="@(CliMcpContent->'$(CliMcpPublishDir)%(TargetPath)')" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

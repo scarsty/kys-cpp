@@ -1,30 +1,19 @@
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import dataclass
 import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import threading
-from typing import Annotated, Any, Literal
-
-from pydantic import Field
+from typing import Any
 
 
-Difficulty = Literal["easy", "normal", "hard"]
-Detail = Literal["compact", "full"]
-ActionDetail = Literal["summary", "compact", "full"]
-PreparedBattleDetail = Literal["summary", "compact", "full"]
 AUTO_SAVE_SLOT = "autosave"
 AUTO_SAVE_LABEL = "自動存檔"
-Seed = Annotated[
-    str,
-    Field(
-        pattern=r"^0x[0-9a-fA-F]{16}$",
-        description="0x 前綴加上固定 16 位十六進位數字，例如 0x000000000000BEEF",
-    ),
-]
+CURRENT_DEPLOYMENT_ENV = "KYS_CHESS_MCP_CURRENT"
 
 
 class CliTransportError(RuntimeError):
@@ -33,12 +22,45 @@ class CliTransportError(RuntimeError):
         self.exit_code = exit_code
 
 
-def default_cli_path() -> Path:
-    configured = os.environ.get("KYS_CHESS_CLI")
-    if configured:
-        return Path(configured)
-    root = Path(__file__).resolve().parents[3]
-    return root / "x64" / "Debug" / "kys_chess_cli.exe"
+class RuntimeReloadError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class RuntimeDeployment:
+    version: str
+    activation: str
+    executable: Path
+
+
+class RuntimeDeploymentResolver:
+    def __init__(self, manifest_path: Path | str):
+        self._manifest_path = Path(manifest_path).resolve()
+
+    def resolve(self) -> RuntimeDeployment:
+        manifest = json.loads(self._manifest_path.read_text(encoding="utf-8"))
+        executable = Path(manifest["executable"])
+        if not executable.is_absolute():
+            executable = self._manifest_path.parent / executable
+        return RuntimeDeployment(
+            version=str(manifest["version"]),
+            activation=str(manifest["activation"]),
+            executable=executable.resolve(),
+        )
+
+
+class FixedRuntimeDeploymentResolver:
+    def __init__(self, executable: Path | str):
+        path = Path(executable).resolve()
+        self._deployment = RuntimeDeployment(str(path), str(path), path)
+
+    def resolve(self) -> RuntimeDeployment:
+        return self._deployment
+
+
+def default_install_root() -> Path:
+    local_app_data = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    return local_app_data / "kys_chess_mcp"
 
 
 class CliSession:
@@ -50,11 +72,18 @@ class CliSession:
         extra_args: list[str] | None = None,
         save_dir: Path | str | None = None,
         autosave: bool = True,
+        deployment_manifest: Path | str | None = None,
     ):
-        self._command = [str(executable or default_cli_path()), "--jsonl", *(extra_args or [])]
+        assert executable is None or deployment_manifest is None
+        configured_manifest = os.environ.get(CURRENT_DEPLOYMENT_ENV)
+        if executable is not None:
+            self._runtime_resolver = FixedRuntimeDeploymentResolver(executable)
+        else:
+            self._runtime_resolver = RuntimeDeploymentResolver(
+                deployment_manifest or configured_manifest or default_install_root() / "current.json")
+        self._extra_args = list(extra_args or [])
         configured_save_dir = os.environ.get("KYS_CHESS_MCP_SAVE_DIR")
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-        self._save_dir = Path(save_dir or configured_save_dir or local_app_data / "kys_chess_mcp" / "saves")
+        self._save_dir = Path(save_dir or configured_save_dir or default_install_root() / "saves")
         self._save_dir.mkdir(parents=True, exist_ok=True)
         self._process: subprocess.Popen[str]
         self._stderr_thread: threading.Thread
@@ -64,11 +93,15 @@ class CliSession:
         self._diagnostics: deque[str] = deque(maxlen=200)
         self._has_active_session = False
         self._autosave_enabled = autosave
+        self._blocked_deployment: RuntimeDeployment | None = None
+        self._last_runtime_reload: dict[str, Any] | None = None
         self._start_process()
 
-    def _start_process(self) -> None:
-        self._process = subprocess.Popen(
-            self._command,
+    def _start_process(self, deployment: RuntimeDeployment | None = None) -> None:
+        selected = deployment or self._runtime_resolver.resolve()
+        command = [str(selected.executable), "--jsonl", *self._extra_args]
+        process = subprocess.Popen(
+            command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -76,12 +109,39 @@ class CliSession:
             encoding="utf-8",
             bufsize=1,
         )
+        self._deployment = selected
+        self._command = command
+        self._process = process
         self._stderr_thread = threading.Thread(
             target=self._drain_stderr,
             args=(self._process,),
             daemon=True,
         )
         self._stderr_thread.start()
+        try:
+            catalog = self._internal_request("mcp_tools", {})
+            if not catalog.get("ok"):
+                raise RuntimeReloadError(catalog.get("error_message", "原生程序未提供 MCP 工具目錄"))
+            self._tool_catalog = list(catalog["result"]["tools"])
+        except (CliTransportError, KeyError, TypeError, RuntimeReloadError):
+            self._stop_process()
+            raise
+
+    def _stop_process(self) -> None:
+        if self._process.poll() is None:
+            if self._process.stdin is not None:
+                self._process.stdin.close()
+            try:
+                self._process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self._process.terminate()
+                try:
+                    self._process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    self._process.kill()
+                    self._process.wait(timeout=1)
+        self._stderr_thread.join(timeout=0.5)
+        self._close_process_streams()
 
     def _drain_stderr(self, process: subprocess.Popen[str]) -> None:
         assert process.stderr is not None
@@ -119,6 +179,9 @@ class CliSession:
         request_id = f"mcp-internal-{self._next_internal_id}"
         self._next_internal_id += 1
         return self._exchange(request_id, method, params)
+
+    def tool_catalog(self) -> list[dict[str, Any]]:
+        return list(self._tool_catalog)
 
     def _slot_path(self, slot: str) -> Path:
         digest = hashlib.sha256(slot.encode("utf-8")).hexdigest()
@@ -205,25 +268,169 @@ class CliSession:
         except (OSError, KeyError, TypeError) as error:
             self._diagnostics.append(f"[MCP 自動存檔] 無法寫入持久存檔：{error}")
 
+    @staticmethod
+    def _reload_new_game_params(checkpoint: dict[str, Any]) -> dict[str, Any]:
+        header = checkpoint["replay"]["header"]
+        return {
+            "difficulty": header["difficulty"],
+            "seed": header["root_seed"],
+            "position_swap_enabled": header["options"]["position_swap_enabled"],
+            "detail": "compact",
+        }
+
+    def _capture_reload_checkpoint(self) -> dict[str, Any]:
+        saved = self._internal_request(
+            "save_game",
+            {"slot": AUTO_SAVE_SLOT, "label": AUTO_SAVE_LABEL},
+        )
+        if not saved.get("ok"):
+            raise RuntimeReloadError(saved.get("error_message", "無法建立熱更新檢查點"))
+        exported = self._internal_request("export_save", {"slot": AUTO_SAVE_SLOT})
+        if not exported.get("ok"):
+            raise RuntimeReloadError(exported.get("error_message", "無法匯出熱更新檢查點"))
+        checkpoint = exported["result"]["checkpoint"]
+        self._persist_save(AUTO_SAVE_SLOT, checkpoint)
+        return checkpoint
+
+    def _restore_reload_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        created = self._internal_request("new", self._reload_new_game_params(checkpoint))
+        if not created.get("ok"):
+            raise RuntimeReloadError(created.get("error_message", "無法建立還原棋局"))
+        self._restore_persisted_saves()
+        imported = self._internal_request(
+            "import_save",
+            {"slot": AUTO_SAVE_SLOT, "checkpoint": checkpoint},
+        )
+        if not imported.get("ok"):
+            raise RuntimeReloadError(imported.get("error_message", "無法匯入熱更新檢查點"))
+        loaded = self._internal_request("load_game", {"slot": AUTO_SAVE_SLOT})
+        if not loaded.get("ok"):
+            raise RuntimeReloadError(loaded.get("error_message", "無法載入熱更新檢查點"))
+        self._has_active_session = True
+        self._update_autosave()
+
+    @staticmethod
+    def _deployment_summary(deployment: RuntimeDeployment) -> dict[str, str]:
+        return {
+            "version": deployment.version,
+            "activation": deployment.activation,
+            "executable": str(deployment.executable),
+        }
+
+    def _runtime_reload_failure(
+        self,
+        request_id: int,
+        previous: RuntimeDeployment,
+        requested: RuntimeDeployment,
+        error: Exception,
+        rollback_error: Exception | None = None,
+        rollback_performed: bool = True,
+    ) -> dict[str, Any]:
+        session_lost = rollback_error is not None
+        status = "failed" if session_lost else "rolled_back"
+        message = "新執行期與先前執行期都無法還原目前棋局。"
+        if not session_lost and not rollback_performed:
+            status = "unchanged"
+            message = "無法保存目前棋局；仍使用先前執行期。"
+        elif not session_lost:
+            message = "新執行期無法還原目前棋局；已回復先前執行期。"
+        details = {
+            "status": status,
+            "previous": self._deployment_summary(previous),
+            "requested": self._deployment_summary(requested),
+            "error": str(error),
+            "session_lost": session_lost,
+        }
+        if rollback_error is not None:
+            details["rollback_error"] = str(rollback_error)
+        self._last_runtime_reload = details
+        self._diagnostics.append(
+            f"[MCP 熱更新] {requested.version} 切換失敗：{error}"
+        )
+        return {
+            "id": request_id,
+            "ok": False,
+            "error_code": "runtime_reload_failed",
+            "error_message": message,
+            "runtime_reload": details,
+            "session_lost": session_lost,
+        }
+
+    def _reload_runtime_if_changed(self, request_id: int) -> dict[str, Any] | None:
+        try:
+            requested = self._runtime_resolver.resolve()
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            self._diagnostics.append(f"[MCP 熱更新] 無法讀取目前部署：{error}")
+            return None
+        if requested == self._deployment:
+            return None
+        if requested == self._blocked_deployment:
+            return None
+        self._blocked_deployment = None
+
+        previous = self._deployment
+        previous_tool_catalog = self._tool_catalog
+        checkpoint: dict[str, Any] | None = None
+        if self._has_active_session:
+            try:
+                checkpoint = self._capture_reload_checkpoint()
+            except (CliTransportError, OSError, KeyError, TypeError, RuntimeReloadError) as error:
+                return self._runtime_reload_failure(
+                    request_id,
+                    previous,
+                    requested,
+                    error,
+                    rollback_performed=False,
+                )
+
+        self._stop_process()
+        self._has_active_session = False
+        try:
+            self._start_process(requested)
+            if checkpoint is not None:
+                self._restore_reload_checkpoint(checkpoint)
+        except (CliTransportError, OSError, KeyError, TypeError, RuntimeReloadError) as error:
+            try:
+                self._stop_process()
+                self._start_process(previous)
+                if checkpoint is not None:
+                    self._restore_reload_checkpoint(checkpoint)
+            except (CliTransportError, OSError, KeyError, TypeError, RuntimeReloadError) as rollback_error:
+                self._has_active_session = False
+                return self._runtime_reload_failure(
+                    request_id,
+                    previous,
+                    requested,
+                    error,
+                    rollback_error,
+                )
+            self._blocked_deployment = requested
+            return self._runtime_reload_failure(request_id, previous, requested, error)
+
+        details = {
+            "status": "succeeded",
+            "previous": self._deployment_summary(previous),
+            "current": self._deployment_summary(requested),
+            "session_restored": checkpoint is not None,
+            "tools_changed": previous_tool_catalog != self._tool_catalog,
+        }
+        self._last_runtime_reload = details
+        self._diagnostics.append(
+            f"[MCP 熱更新] 已由 {previous.version} 切換至 {requested.version}"
+        )
+        return details
+
     def _recover_transport(self, request_id: int, error: CliTransportError) -> dict[str, Any]:
         session_lost = self._has_active_session
         self._has_active_session = False
-        if self._process.poll() is None:
-            self._process.terminate()
-            try:
-                self._process.wait(timeout=1)
-            except subprocess.TimeoutExpired:
-                self._process.kill()
-                self._process.wait(timeout=1)
-        self._stderr_thread.join(timeout=0.5)
+        self._stop_process()
         diagnostics = list(self._diagnostics)
-        self._close_process_streams()
         restarted = False
         restart_error = ""
         try:
             self._start_process()
             restarted = True
-        except OSError as start_error:
+        except (CliTransportError, OSError, KeyError, TypeError, RuntimeReloadError) as start_error:
             restart_error = str(start_error)
         diagnostic_text = "\n".join(diagnostics[-40:])
         message = str(error)
@@ -248,12 +455,27 @@ class CliSession:
         with self._lock:
             request_id = self._next_id
             self._next_id += 1
+            runtime_reload = self._reload_runtime_if_changed(request_id)
+            if runtime_reload and runtime_reload.get("error_code"):
+                return runtime_reload
+            if method == "get_diagnostics":
+                response = {
+                    "id": request_id,
+                    "ok": True,
+                    "result": self.diagnostic_status(),
+                }
+                if runtime_reload:
+                    response["runtime_reload"] = runtime_reload
+                return response
             if method == "list_saves" and not self._has_active_session:
-                return {
+                response = {
                     "id": request_id,
                     "ok": True,
                     "result": self._persistent_save_summaries(),
                 }
+                if runtime_reload:
+                    response["runtime_reload"] = runtime_reload
+                return response
             try:
                 response = self._exchange(request_id, method, params)
                 if response.get("ok") and method == "new":
@@ -275,17 +497,31 @@ class CliSession:
                 elif response.get("ok") and method == "import_save":
                     slot = str((params or {})["slot"])
                     self._persist_save(slot, dict((params or {})["checkpoint"]))
+                elif response.get("ok") and method == "import_save_file":
+                    slot = str((params or {})["slot"])
+                    exported = self._internal_request("export_save", {"slot": slot})
+                    if exported.get("ok"):
+                        self._persist_save(slot, exported["result"]["checkpoint"])
             except CliTransportError as error:
                 return self._recover_transport(request_id, error)
+            if runtime_reload:
+                response["runtime_reload"] = runtime_reload
             return response
 
     def diagnostics(self) -> list[str]:
         return list(self._diagnostics)
 
     def diagnostic_status(self) -> dict[str, Any]:
+        try:
+            available = self._deployment_summary(self._runtime_resolver.resolve())
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            available = {"error": str(error)}
         return {
             "cli_running": self._process.poll() is None,
             "active_in_memory_session": self._has_active_session,
+            "runtime": self._deployment_summary(self._deployment),
+            "available_runtime": available,
+            "last_runtime_reload": self._last_runtime_reload,
             "persistent_save_directory": str(self._save_dir),
             "autosave_enabled": self._autosave_enabled,
             "autosave_slot": AUTO_SAVE_SLOT,
@@ -302,16 +538,7 @@ class CliSession:
 
     def close(self) -> None:
         with self._lock:
-            if self._process.poll() is None:
-                if self._process.stdin is not None:
-                    self._process.stdin.close()
-                try:
-                    self._process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    self._process.terminate()
-                    self._process.wait(timeout=5)
-            self._stderr_thread.join(timeout=0.5)
-            self._close_process_streams()
+            self._stop_process()
 
     def __enter__(self) -> "CliSession":
         return self
@@ -320,153 +547,78 @@ class CliSession:
         self.close()
 
 
+def mcp_tools(session: CliSession):
+    from mcp.types import Tool
+
+    return [
+        Tool(
+            name=definition["name"],
+            description=definition["description"],
+            inputSchema=definition["inputSchema"],
+        )
+        for definition in session.tool_catalog()
+    ]
+
+
+def dispatch_mcp_tool(
+    session: CliSession,
+    name: str,
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    definition = next(
+        (tool for tool in session.tool_catalog() if tool["name"] == name),
+        None,
+    )
+    if definition is None:
+        raise ValueError(f"未知 MCP 工具：{name}")
+    return session.request(definition["native_method"], arguments)
+
+
 def create_server(session: CliSession | None = None):
-    from mcp.server.fastmcp import FastMCP
+    from mcp.server import Server
 
     cli = session or CliSession()
-    server = FastMCP("KYS 自走棋")
+    server = Server(
+        "KYS 自走棋",
+        version="0.1.0",
+        instructions="以工具操作可驗證的 KYS 自走棋工作階段。",
+    )
 
-    @server.tool()
-    def new_game(
-        difficulty: Difficulty = "normal",
-        seed: Seed = "0x0000000000000001",
-        position_swap_enabled: bool = True,
-        detail: Detail = "full",
-    ) -> dict[str, Any]:
-        """建立可驗證的新棋局；seed 必須是 0x 前綴加上固定 16 位十六進位數字；若要接續上次進度，建立同難度棋局後先載入 autosave。"""
-        return cli.request(
-            "new",
-            {
-                "difficulty": difficulty,
-                "seed": seed,
-                "position_swap_enabled": position_swap_enabled,
-                "detail": detail,
-            },
-        )
+    @server.list_tools()
+    async def list_tools():
+        return mcp_tools(cli)
 
-    @server.tool()
-    def observe_game(detail: Detail = "compact") -> dict[str, Any]:
-        """取得棋局；compact 只含變動狀態，full 含完整定義；載入存檔會替換時間線並捨棄目前後綴。"""
-        return cli.request("observe", {"detail": detail})
-
-    @server.tool()
-    def get_diagnostics() -> dict[str, Any]:
-        """取得 CLI 執行狀態、持久存檔目錄及最近的原生 stderr 診斷。"""
-        status = getattr(cli, "diagnostic_status", None)
-        return status() if status else {"diagnostics": []}
-
-    @server.tool()
-    def list_legal_actions() -> dict[str, Any]:
-        """列出目前合法操作、每種操作的 action_schema、可直接提交的 example，以及帶名稱與說明的候選值。"""
-        return cli.request("legal_actions")
-
-    @server.tool()
-    def take_action(action: dict[str, Any], detail: ActionDetail = "summary") -> dict[str, Any]:
-        """提交 action；summary 只回變更，compact 回精簡現況，full 才含完整除錯與驗證資料。"""
-        return cli.request("act", {"action": action, "detail": detail})
-
-    @server.tool()
-    def inspect_shop_slot(slot: int) -> dict[str, Any]:
-        """分析單一商店欄位的價格、持有份數、合成結果、羈絆變化與當前抽取機率。"""
-        return cli.request("inspect_shop_slot", {"slot": slot})
-
-    @server.tool()
-    def inspect_shop() -> dict[str, Any]:
-        """一次分析目前全部商店欄位及當前等級的費用機率。"""
-        return cli.request("inspect_shop")
-
-    @server.tool()
-    def get_shop_odds(level: int | None = None) -> dict[str, Any]:
-        """取得指定或目前等級的商店費用機率與實際可用角色池。"""
-        params = {} if level is None else {"level": level}
-        return cli.request("get_shop_odds", params)
-
-    @server.tool()
-    def inspect_chess_instance(chess_instance_id: int) -> dict[str, Any]:
-        """檢視棋子實例的實際屬性、裝備、升星進度、出戰狀態與羈絆貢獻。"""
-        return cli.request("inspect_chess_instance", {"chess_instance_id": chess_instance_id})
-
-    @server.tool()
-    def inspect_bans() -> dict[str, Any]:
-        """檢視目前禁棋、剩餘容量、依費用分組的可選角色及生效時機。"""
-        return cli.request("inspect_bans")
-
-    @server.tool()
-    def inspect_role(role_id: int) -> dict[str, Any]:
-        """檢視一名角色的完整屬性、各星級武學威力、範圍與羈絆。"""
-        return cli.request("inspect_role", {"role_id": role_id})
-
-    @server.tool()
-    def inspect_combo(combo_name: str) -> dict[str, Any]:
-        """依繁體中文名稱檢視羈絆成員、目前進度、門檻及效果。"""
-        return cli.request("inspect_combo", {"combo_name": combo_name})
-
-    @server.tool()
-    def inspect_equipment(item_id: int) -> dict[str, Any]:
-        """檢視裝備的基礎屬性、特殊效果、計入羈絆及角色專屬加成。"""
-        return cli.request("inspect_equipment", {"item_id": item_id})
-
-    @server.tool()
-    def inspect_challenge(challenge_name: str) -> dict[str, Any]:
-        """依繁體中文名稱檢視遠征的權威敵人星級、裝備與獎勵。"""
-        return cli.request("inspect_challenge", {"challenge_name": challenge_name})
-
-    @server.tool()
-    def inspect_prepared_battle(
-        detail: PreparedBattleDetail = "summary",
-    ) -> dict[str, Any]:
-        """檢視已準備戰鬥；summary 只含地圖、棋盤與座標，compact 增加裝備與啟用羈絆，full 才含完整除錯資料。"""
-        return cli.request("inspect_prepared_battle", {"detail": detail})
-
-    @server.tool()
-    def inspect_last_battle() -> dict[str, Any]:
-        """完整檢視上一場戰鬥的開局棋盤、結構化效果軌跡與逐單位統計。"""
-        return cli.request("inspect_last_battle")
-
-    @server.tool()
-    def list_saves() -> dict[str, Any]:
-        """不需先建立棋局即可列出持久存檔與 autosave；建立棋局後才會判定相容性並可載入。"""
-        return cli.request("list_saves")
-
-    @server.tool()
-    def inspect_save(slot: str) -> dict[str, Any]:
-        """唯讀檢視自包含存檔，不改變棋局、亂數或重播。"""
-        return cli.request("inspect_save", {"slot": slot})
-
-    @server.tool()
-    def save_game(slot: str, label: str = "") -> dict[str, Any]:
-        """在穩定決策邊界覆寫欄位；不消耗亂數，也不加入遊戲重播。"""
-        return cli.request("save_game", {"slot": slot, "label": label})
-
-    @server.tool()
-    def load_game(slot: str) -> dict[str, Any]:
-        """替換目前狀態、亂數與重播前綴並更新 autosave；回應會明示 discarded_active_actions，存檔目錄仍保留。"""
-        return cli.request("load_game", {"slot": slot})
-
-    @server.tool()
-    def export_save(slot: str) -> dict[str, Any]:
-        """匯出可攜、自包含且含完整重播前綴的存檔，不啟用它。"""
-        return cli.request("export_save", {"slot": slot})
-
-    @server.tool()
-    def import_save(slot: str, checkpoint: dict[str, Any]) -> dict[str, Any]:
-        """驗證並存入可攜存檔；不會靜默載入或替換目前時間線。"""
-        return cli.request("import_save", {"slot": slot, "checkpoint": checkpoint})
-
-    @server.tool()
-    def export_replay() -> dict[str, Any]:
-        """匯出目前選定時間線的權威 JSONL 重播。"""
-        return cli.request("export_replay")
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict[str, Any]):
+        response = dispatch_mcp_tool(cli, name, arguments)
+        if response.get("runtime_reload", {}).get("tools_changed"):
+            await server.request_context.session.send_tool_list_changed()
+        return response
 
     return server
 
 
 def main() -> None:
-    session = CliSession()
-    try:
-        create_server(session).run()
-    finally:
-        session.close()
+    import anyio
+    from mcp.server.lowlevel.server import NotificationOptions
+    from mcp.server.stdio import stdio_server
+
+    async def run() -> None:
+        session = CliSession()
+        try:
+            server = create_server(session)
+            async with stdio_server() as (read_stream, write_stream):
+                await server.run(
+                    read_stream,
+                    write_stream,
+                    server.create_initialization_options(
+                        NotificationOptions(tools_changed=True)
+                    ),
+                )
+        finally:
+            session.close()
+
+    anyio.run(run)
 
 
 if __name__ == "__main__":

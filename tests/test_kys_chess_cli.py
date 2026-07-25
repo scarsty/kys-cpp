@@ -23,6 +23,19 @@ def run_jsonl(requests, cwd=None, extra_args=None):
     )
 
 
+def run_mcp(requests, cwd=None, extra_args=None):
+    payload = "".join(json.dumps(request, ensure_ascii=False) + "\n" for request in requests)
+    return subprocess.run(
+        [str(CLI), "--mcp", *(extra_args or [])],
+        input=payload,
+        text=True,
+        encoding="utf-8",
+        capture_output=True,
+        cwd=cwd,
+        check=False,
+    )
+
+
 def run_cli(args, input_text=""):
     return subprocess.run(
         [str(CLI), *args],
@@ -106,6 +119,71 @@ class ChessCliTests(unittest.TestCase):
         self.assertTrue(all(response["ok"] for response in responses))
         self.assertNotIn("載入成功", completed.stdout)
         self.assertIn("載入成功", completed.stderr)
+
+    def test_standalone_stdio_mcp_initializes_lists_tools_and_dispatches(self):
+        completed = run_mcp(
+            [
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2025-11-25",
+                        "capabilities": {},
+                        "clientInfo": {"name": "test", "version": "1"},
+                    },
+                },
+                {
+                    "jsonrpc": "2.0",
+                    "method": "notifications/initialized",
+                    "params": {},
+                },
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "new_game",
+                        "arguments": {
+                            "difficulty": "normal",
+                            "seed": "0x0000000000000042",
+                        },
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        responses = [json.loads(line) for line in completed.stdout.splitlines()]
+        self.assertEqual(len(responses), 3)
+        self.assertEqual(responses[0]["result"]["protocolVersion"], "2025-11-25")
+        names = {tool["name"] for tool in responses[1]["result"]["tools"]}
+        self.assertIn("export_save_file", names)
+        self.assertNotIn("export_save", names)
+        self.assertTrue(responses[2]["result"]["structuredContent"]["ok"])
+
+    def test_standalone_stdio_mcp_interoperates_with_the_official_client(self):
+        import anyio
+        from mcp import ClientSession, StdioServerParameters
+        from mcp.client.stdio import stdio_client
+
+        async def verify():
+            parameters = StdioServerParameters(command=str(CLI), args=["--mcp"])
+            async with stdio_client(parameters) as (read_stream, write_stream):
+                async with ClientSession(read_stream, write_stream) as session:
+                    initialized = await session.initialize()
+                    tools = await session.list_tools()
+                    created = await session.call_tool(
+                        "new_game",
+                        {"difficulty": "normal", "seed": "0x0000000000000042"},
+                    )
+                    self.assertEqual(initialized.protocolVersion, "2025-11-25")
+                    self.assertIn("export_save_file", {tool.name for tool in tools.tools})
+                    self.assertFalse(created.isError)
+                    self.assertTrue(created.structuredContent["ok"])
+
+        anyio.run(verify)
 
     def test_default_data_root_is_executable_relative(self):
         with tempfile.TemporaryDirectory() as directory:

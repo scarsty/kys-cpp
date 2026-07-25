@@ -49,6 +49,7 @@ struct Arguments
     int leg{};
     KysChess::ChessCliOutputMode mode = KysChess::ChessCliOutputMode::Human;
     bool jsonl{};
+    bool mcp{};
     bool commandExplicit{};
     bool difficultySpecified{};
     bool seedSpecified{};
@@ -109,6 +110,7 @@ void printUsage(std::ostream& output)
               "  kys_chess_cli [play] [--difficulty easy|normal|hard] [--seed N] [--compact]\n"
               "  kys_chess_cli new [--difficulty easy|normal|hard] [--seed N] [--compact|--json]\n"
               "  kys_chess_cli --jsonl [--data-root 路徑] [--config-root 路徑]\n"
+              "  kys_chess_cli --mcp [--data-root 路徑] [--config-root 路徑]\n"
               "  kys_chess_cli verify <重播檔>\n"
               "  kys_chess_cli verify-pvp <離線對戰存檔>\n"
               "  kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--output 報告.md] [--json-output 結果.json] [--json]\n"
@@ -175,6 +177,10 @@ ArgumentParseResult parseArguments(int argc, char** argv)
         if (value == "--jsonl")
         {
             result.arguments.jsonl = true;
+        }
+        else if (value == "--mcp")
+        {
+            result.arguments.mcp = true;
         }
         else if (value == "--compact")
         {
@@ -347,9 +353,13 @@ ArgumentParseResult parseArguments(int argc, char** argv)
         result.arguments.tournamentPaths = std::move(positionals);
     }
 
-    if (result.arguments.jsonl)
+    if (result.arguments.jsonl || result.arguments.mcp)
     {
-        if (result.arguments.commandExplicit
+        if (result.arguments.jsonl && result.arguments.mcp)
+        {
+            result.error = "--jsonl 與 --mcp 不可同時使用";
+        }
+        else if (result.arguments.commandExplicit
             || result.arguments.compactSpecified
             || result.arguments.jsonSpecified
             || result.arguments.difficultySpecified
@@ -360,7 +370,9 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             || result.arguments.outputPathSpecified
             || result.arguments.jsonOutputPathSpecified)
         {
-            result.error = "--jsonl 只可搭配 --data-root 與 --config-root";
+            result.error = result.arguments.mcp
+                ? "--mcp 只可搭配 --data-root 與 --config-root"
+                : "--jsonl 只可搭配 --data-root 與 --config-root";
         }
         return result;
     }
@@ -1037,6 +1049,10 @@ int main(int argc, char** argv)
     }
 
     ChessCliController controller(provider);
+    if (arguments.mcp)
+    {
+        return controller.runMcp(std::cin, std::cout);
+    }
     if (arguments.jsonl)
     {
         return controller.runJsonl(std::cin, std::cout);

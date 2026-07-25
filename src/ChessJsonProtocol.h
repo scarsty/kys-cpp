@@ -23,6 +23,7 @@ public:
     explicit ChessJsonProtocol(std::shared_ptr<const ChessGameContent> fixedContent);
 
     std::string handleLine(std::string_view requestJson);
+    std::string handleMcpLine(std::string_view requestJson);
     const ChessGameSession* session() const { return session_.get(); }
 
 private:

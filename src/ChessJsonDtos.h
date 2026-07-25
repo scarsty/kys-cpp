@@ -28,6 +28,97 @@ struct ResponseDto
     std::optional<std::string> error_message;
 };
 
+struct McpCatalogToolDto
+{
+    std::string name;
+    std::string native_method;
+    std::string description;
+    glz::raw_json inputSchema;
+};
+
+struct McpCatalogDto
+{
+    std::vector<McpCatalogToolDto> tools;
+};
+
+struct McpPublicToolDto
+{
+    std::string name;
+    std::string description;
+    glz::raw_json inputSchema;
+};
+
+struct McpToolsResultDto
+{
+    std::vector<McpPublicToolDto> tools;
+};
+
+struct McpRequestDto
+{
+    std::string jsonrpc;
+    std::optional<glz::raw_json> id;
+    std::string method;
+    glz::raw_json params = "{}";
+};
+
+struct McpCallToolParams
+{
+    std::string name;
+    glz::raw_json arguments = "{}";
+};
+
+struct McpInitializeParams
+{
+    std::string protocolVersion;
+};
+
+struct McpServerInfoDto
+{
+    std::string name;
+    std::string version;
+};
+
+struct McpInitializeResultDto
+{
+    std::string protocolVersion;
+    glz::raw_json capabilities;
+    McpServerInfoDto serverInfo;
+    std::string instructions;
+};
+
+struct McpTextContentDto
+{
+    std::string type = "text";
+    std::string text;
+};
+
+struct McpCallToolResultDto
+{
+    std::vector<McpTextContentDto> content;
+    glz::raw_json structuredContent;
+    bool isError = false;
+};
+
+struct McpJsonRpcErrorDto
+{
+    int code{};
+    std::string message;
+};
+
+struct McpResponseDto
+{
+    std::string jsonrpc = "2.0";
+    glz::raw_json id = "null";
+    std::optional<glz::raw_json> result;
+    std::optional<McpJsonRpcErrorDto> error;
+};
+
+struct NativeDiagnosticsDto
+{
+    std::string runtime = "native";
+    bool active_session{};
+};
+
 struct NewParams
 {
     std::string difficulty = "normal";
@@ -60,6 +151,7 @@ struct VerifyParams
 struct SlotParams { std::string slot; };
 struct SaveParams { std::string slot; std::string label; };
 struct ImportSaveParams { std::string slot; ChessSessionCheckpointData checkpoint; };
+struct SaveFileParams { std::string slot; std::string path; };
 
 struct RoleStatsDto
 {
@@ -676,6 +768,13 @@ struct ReplayVerificationDto
 };
 
 struct SaveResultDto { std::string slot; std::uint64_t revision{}; };
+struct SaveFileResultDto
+{
+    std::string slot;
+    std::string path;
+    std::string snapshot_hash;
+    std::uint64_t revision{};
+};
 struct InspectSaveDto { SaveSlotDto summary; ChessSessionCheckpointData checkpoint; };
 struct ExportSaveDto { ChessSessionCheckpointData checkpoint; };
 struct TimelineReplacementDto

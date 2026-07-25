@@ -8,6 +8,7 @@
 #include <glaze/json.hpp>
 
 #include <algorithm>
+#include <filesystem>
 #include <format>
 #include <ranges>
 #include <vector>
@@ -151,8 +152,8 @@ TEST_CASE("JSON protocol preserves request identifiers and session state", "[che
              "inspect_bans",
              "inspect_save",
              "load_game",
-             "export_save",
-             "import_save",
+             "export_save_file",
+             "import_save_file",
          })
     {
         CAPTURE(operation);
@@ -1118,4 +1119,32 @@ TEST_CASE("JSON protocol exports and imports a portable save without activation"
     CHECK(parseResponse(protocol.handleLine(
         R"({"id":11,"method":"inspect_save","params":{"slot":"incompatible"}})")).ok);
     CHECK(contentLoads == 1);
+}
+
+TEST_CASE("JSON protocol exports and imports portable save files natively", "[chess][protocol][save][file]")
+{
+    const auto path = std::filesystem::temp_directory_path() / "kys-chess-protocol-save-test.json";
+    std::error_code ignored;
+    std::filesystem::remove(path, ignored);
+    ChessJsonProtocol protocol(managementContent());
+    REQUIRE(parseResponse(protocol.handleLine(
+        R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000013"}})")).ok);
+    REQUIRE(parseResponse(protocol.handleLine(
+        R"({"id":2,"method":"save_game","params":{"slot":"source","label":"原始"}})")).ok);
+    const auto pathJson = glz::write_json(path.generic_string());
+    REQUIRE(pathJson);
+
+    const auto exported = parseResponse(protocol.handleLine(std::format(
+        R"({{"id":3,"method":"export_save_file","params":{{"slot":"source","path":{}}}}})",
+        pathJson.value())));
+    REQUIRE(exported.ok);
+    CHECK(std::filesystem::is_regular_file(path));
+
+    const auto imported = parseResponse(protocol.handleLine(std::format(
+        R"({{"id":4,"method":"import_save_file","params":{{"slot":"copy","path":{}}}}})",
+        pathJson.value())));
+    REQUIRE(imported.ok);
+    CHECK(parseResponse(protocol.handleLine(
+        R"({"id":5,"method":"inspect_save","params":{"slot":"copy"}})")).ok);
+    std::filesystem::remove(path, ignored);
 }

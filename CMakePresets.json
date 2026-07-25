@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 6,
   "configurePresets": [
     {
       "name": "windows-msvc-x64-debug",
@@ -26,7 +26,7 @@
     },
     {
       "name": "windows-msvc-x64-release",
-      "displayName": "Windows MSVC x64 Release",
+      "displayName": "Windows MSVC 2026 x64 Release",
       "inherits": "windows-msvc-x64-debug",
       "binaryDir": "${sourceDir}/build/windows-msvc-x64-release",
       "cacheVariables": {
@@ -58,6 +58,44 @@
       "jobs": 0
     },
     {
+      "name": "windows-msvc-x64-debug-kys",
+      "displayName": "Windows MSVC 2026 x64 Debug (kys)",
+      "inherits": "windows-msvc-x64-debug",
+      "targets": [
+        "kys"
+      ]
+    },
+    {
+      "name": "windows-msvc-x64-release-kys",
+      "displayName": "Windows MSVC 2026 x64 Release (kys)",
+      "inherits": "windows-msvc-x64-release",
+      "targets": [
+        "kys"
+      ]
+    },
+    {
+      "name": "windows-msvc-x64-debug-tests",
+      "displayName": "Windows MSVC 2026 x64 Debug (tests)",
+      "inherits": "windows-msvc-x64-debug",
+      "targets": [
+        "kys_tests"
+      ]
+    },
+    {
+      "name": "windows-msvc-x64-debug-tests-rebuild",
+      "displayName": "Windows MSVC 2026 x64 Debug (rebuild tests)",
+      "inherits": "windows-msvc-x64-debug-tests",
+      "cleanFirst": true
+    },
+    {
+      "name": "windows-msvc-x64-release-clean",
+      "displayName": "Windows MSVC 2026 x64 Release (clean)",
+      "inherits": "windows-msvc-x64-release",
+      "targets": [
+        "clean"
+      ]
+    },
+    {
       "name": "windows-msvc-x64-headless-debug",
       "configurePreset": "windows-msvc-x64-headless-debug",
       "configuration": "Debug",
@@ -75,6 +113,78 @@
       "output": {
         "outputOnFailure": true
       }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "windows-msvc-x64-debug-kys-workflow",
+      "displayName": "Configure and build Windows MSVC 2026 x64 Debug (kys)",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-msvc-x64-debug"
+        },
+        {
+          "type": "build",
+          "name": "windows-msvc-x64-debug-kys"
+        }
+      ]
+    },
+    {
+      "name": "windows-msvc-x64-release-kys-workflow",
+      "displayName": "Configure and build Windows MSVC 2026 x64 Release (kys)",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-msvc-x64-release"
+        },
+        {
+          "type": "build",
+          "name": "windows-msvc-x64-release-kys"
+        }
+      ]
+    },
+    {
+      "name": "windows-msvc-x64-debug-tests-workflow",
+      "displayName": "Configure and build Windows MSVC 2026 x64 Debug (tests)",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-msvc-x64-debug"
+        },
+        {
+          "type": "build",
+          "name": "windows-msvc-x64-debug-tests"
+        }
+      ]
+    },
+    {
+      "name": "windows-msvc-x64-debug-tests-rebuild-workflow",
+      "displayName": "Configure and rebuild Windows MSVC 2026 x64 Debug (tests)",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-msvc-x64-debug"
+        },
+        {
+          "type": "build",
+          "name": "windows-msvc-x64-debug-tests-rebuild"
+        }
+      ]
+    },
+    {
+      "name": "windows-msvc-x64-release-clean-workflow",
+      "displayName": "Configure and clean Windows MSVC 2026 x64 Release",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-msvc-x64-release"
+        },
+        {
+          "type": "build",
+          "name": "windows-msvc-x64-release-clean"
+        }
+      ]
     }
   ]
 }
