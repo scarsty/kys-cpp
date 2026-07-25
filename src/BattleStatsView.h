@@ -3,6 +3,7 @@
 #include "BattlePostBattleSummary.h"
 #include "BattleReport.h"
 #include "RunNode.h"
+#include "battle/BattleOutcome.h"
 
 #include <string>
 #include <vector>
@@ -62,6 +63,7 @@ private:
     std::vector<RoleEntry> allies_;
     std::vector<RoleEntry> enemies_;
     Texture* background_{};
+    KysChess::Battle::BattleOutcome outcome_ = KysChess::Battle::BattleOutcome::InProgress;
     int battleResult_ = -1;
     int totalFrames_{};
     int battleLogOpenFrame_ = -1;

@@ -2,6 +2,11 @@
 #include "TextBox.h"
 #include <map>
 
+constexpr RunNode::PointerResult menuContainerPointerResult(const PointerEvent&)
+{
+    return RunNode::PointerResult::Ignored;
+}
+
 class Menu : public TextBox
 {
 public:
@@ -10,6 +15,7 @@ public:
 
 public:
     virtual void dealEvent(EngineEvent& e) override;
+    PointerResult onPointerEvent(const PointerEvent& event) override;
     void arrange(int x, int y, int inc_x, int inc_y);
     virtual void onPressedOK() override;
     virtual void onPressedCancel() override;

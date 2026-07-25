@@ -336,7 +336,6 @@
     <ClInclude Include="UIRenderer.h" />
     <ClInclude Include="Head.h" />
     <ClInclude Include="TeamMenu.h" />
-    <ClInclude Include="GameDataStore.h" />
     <ClInclude Include="TextBox.h" />
     <ClInclude Include="TextBoxRoll.h" />
     <ClInclude Include="UI.h" />

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BattleLimits.h"
 #include "BattleOutcome.h"
 
 #include "BattleAttackSystem.h"
@@ -521,7 +522,7 @@ struct BattleRuntimeState
         BattleOutcome outcome = BattleOutcome::InProgress;
     } result;
 
-    int maximumFrames = 36000;
+    int maximumFrames = kBattleFrameLimit;
 
     struct TeamEffectState
     {

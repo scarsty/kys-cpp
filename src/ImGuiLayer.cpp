@@ -225,7 +225,7 @@ bool ImGuiLayer::processPrimaryTouchBackendEvent(const SDL_Event& event)
     return wantsCaptureEvent(event);
 }
 
-bool ImGuiLayer::processApplicationCancel()
+bool ImGuiLayer::processApplicationContextMenu()
 {
     if (battle_log_.model.open)
     {

@@ -50,15 +50,15 @@ TEST_CASE("tournament battle seeds are deterministic and support stable offsets"
     CHECK(ChessTournamentRunner::deriveBattleSeeds(0x12345679, 6) != all);
 }
 
-TEST_CASE("tournament scoring treats timeouts and simultaneous wipes as draws",
+TEST_CASE("tournament scoring applies the player-one timeout and simultaneous-wipe rules",
     "[chess][tournament][scoring]")
 {
     BattleSummary summary;
     summary.outcome = Battle::BattleOutcome::Timeout;
-    CHECK(chessTournamentBattleOutcome(summary) == ChessTournamentBattleOutcome::Draw);
+    CHECK(chessTournamentBattleOutcome(summary) == ChessTournamentBattleOutcome::TeamOneVictory);
 
     summary.outcome = Battle::BattleOutcome::PlayerVictory;
-    CHECK(chessTournamentBattleOutcome(summary) == ChessTournamentBattleOutcome::Draw);
+    CHECK(chessTournamentBattleOutcome(summary) == ChessTournamentBattleOutcome::TeamZeroVictory);
 
     summary.survivors.push_back({ 1, 1, 1, 0, 10, 0, false });
     CHECK(chessTournamentBattleOutcome(summary)

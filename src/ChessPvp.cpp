@@ -3,9 +3,6 @@
 #include "BattlefieldData.h"
 #include "ChessManagementRules.h"
 #include "ChessReplayJournal.h"
-#include "GameDataStore.h"
-
-#include <glaze/json.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -15,46 +12,17 @@
 
 namespace KysChess
 {
-namespace PvpDetail
-{
-
-struct ExternalSlotData
-{
-    GameDataStore gameData;
-};
-
-}
-
 namespace
 {
-
-using PvpDetail::ExternalSlotData;
 
 std::optional<ChessSessionCheckpoint> decodeCheckpoint(
     std::string_view payload,
     ChessCheckpointError& error)
 {
-    ChessCheckpointError directError;
-    if (auto direct = ChessSessionCheckpoint::parseJson(payload, directError))
-    {
-        return direct;
-    }
-    if (directError == ChessCheckpointError::UnrepresentableSnapshot)
-    {
-        error = directError;
-        return std::nullopt;
-    }
-
-    ExternalSlotData slot;
-    constexpr auto options = glz::opts{.error_on_unknown_keys = false};
-    if (glz::read<options>(slot, payload))
-    {
-        error = ChessCheckpointError::Malformed;
-        return std::nullopt;
-    }
-    return ChessSessionCheckpoint::fromData(
-        slot.gameData.chessSessionCheckpoint,
-        error);
+    auto parsed = parseChessSavePayload(payload, error);
+    return parsed
+        ? std::optional(std::move(parsed->checkpoint))
+        : std::nullopt;
 }
 
 Point rotatePvpPoint(Point point)
@@ -236,7 +204,8 @@ ChessPvpSaveVerifier::ChessPvpSaveVerifier(
         return;
     }
     result_.gameVersion = checkpoint_->gameVersion();
-    if (checkpoint_->gameVersion() != content_->gameVersion())
+    const bool versionMismatch = checkpoint_->gameVersion() != content_->gameVersion();
+    if (!chessCheckpointVersionCompatible(*checkpoint_, content_->gameVersion()))
     {
         fail(
             ChessPvpSaveError::VersionMismatch,
@@ -258,7 +227,12 @@ ChessPvpSaveVerifier::ChessPvpSaveVerifier(
         fail(ChessPvpSaveError::UnrepresentableSnapshot, "存檔不在可驗證的穩定決策邊界");
         return;
     }
-    audit_ = std::make_unique<ChessReplayAudit>(content_, checkpoint_->replay);
+    const auto auditContent = versionMismatch
+        ? content_->withGameVersion(checkpoint_->gameVersion())
+        : content_;
+    audit_ = std::make_unique<ChessReplayAudit>(
+        auditContent,
+        checkpoint_->replay);
     if (audit_->finished())
     {
         finishAudit();

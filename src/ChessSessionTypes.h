@@ -2,6 +2,7 @@
 
 #include "ChessBalance.h"
 #include "ChessReplayHash.h"
+#include "ChessRuntimeConstants.h"
 #include "PreparedChessBattle.h"
 #include "battle/BattleOutcome.h"
 #include "battle/ChessComboResolver.h"
@@ -135,7 +136,7 @@ enum class ChessRewardKind : std::uint16_t
 struct ChessSessionOptions
 {
     bool positionSwapEnabled = true;
-    int battleFrameLimit = 36000;
+    int battleFrameLimit = kChessBattleFrameLimit;
 
     auto operator<=>(const ChessSessionOptions&) const = default;
 };

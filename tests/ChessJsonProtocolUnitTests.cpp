@@ -1113,8 +1113,9 @@ TEST_CASE("JSON protocol exports and imports a portable save without activation"
         {"incompatible", incompatible->toData()},
     });
     REQUIRE(incompatibleRequest);
-    const auto incompatibleResponse = parseResponse(protocol.handleLine(incompatibleRequest.value()));
-    CHECK_FALSE(incompatibleResponse.ok);
-    CHECK(incompatibleResponse.error_code == "save_game_version_mismatch");
+    const auto crossVersionResponse = parseResponse(protocol.handleLine(incompatibleRequest.value()));
+    CHECK(crossVersionResponse.ok);
+    CHECK(parseResponse(protocol.handleLine(
+        R"({"id":11,"method":"inspect_save","params":{"slot":"incompatible"}})")).ok);
     CHECK(contentLoads == 1);
 }

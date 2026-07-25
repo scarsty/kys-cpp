@@ -1,4 +1,5 @@
 #include "BattleLogPresenter.h"
+#include "ChessBattleAnalysis.h"
 
 #include <format>
 #include <string>
@@ -75,8 +76,14 @@ BattleLogEntryCategory toEntryCategory(BattleLogCategory category)
     return BattleLogEntryCategory::Status;
 }
 
-std::string battleResultText(int battleResult)
+std::string battleResultText(
+    int battleResult,
+    KysChess::Battle::BattleOutcome outcome)
 {
+    if (outcome == KysChess::Battle::BattleOutcome::Timeout)
+    {
+        return KysChess::chessBattleOutcomeDescription(outcome);
+    }
     return battleResult == 0 ? "戰鬥勝利" : (battleResult == 1 ? "戰鬥失敗" : "戰鬥結束");
 }
 
@@ -111,7 +118,9 @@ void setEntryParticipants(BattleLogEntryView& entry, const BattleReportEvent& ev
     entry.targetTeam = event.targetTeam;
 }
 
-BattleLogEntryView buildBattleLogEntry(const BattleReportEvent& event)
+BattleLogEntryView buildBattleLogEntry(
+    const BattleReportEvent& event,
+    KysChess::Battle::BattleOutcome outcome)
 {
     BattleLogEntryView entry;
     setEntryParticipants(entry, event);
@@ -231,7 +240,7 @@ BattleLogEntryView buildBattleLogEntry(const BattleReportEvent& event)
         entry.category = BattleLogEntryCategory::BattleEnd;
         entry.tone = BattleLogEntryTone::System;
         addFrame();
-        appendTextSegment(entry, battleResultText(event.value), BattleLogTextTone::SystemAccent);
+        appendTextSegment(entry, battleResultText(event.value, outcome), BattleLogTextTone::SystemAccent);
         break;
     }
 
@@ -276,7 +285,7 @@ BattleLogViewModel BattleLogPresenter::present(
 {
     BattleLogViewModel model;
     model.title = "本場戰鬥日誌";
-    model.resultText = battleResultText(summary.battleResult);
+    model.resultText = battleResultText(summary.battleResult, summary.outcome);
     model.totalFrames = report.battleEndFrame();
 
     const auto allyLabels = buildDistinctRoleLabels(summary.allies);
@@ -347,7 +356,7 @@ BattleLogViewModel BattleLogPresenter::present(
         {
             event.targetName = resolveRoleLabel(event.targetTeam, event.targetId, event.targetName);
         }
-        model.entries.push_back(buildBattleLogEntry(event));
+        model.entries.push_back(buildBattleLogEntry(event, summary.outcome));
     }
 
     if (model.entries.empty())

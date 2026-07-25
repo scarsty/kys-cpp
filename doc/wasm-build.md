@@ -321,6 +321,7 @@ After a successful build, `wasm/build/` will contain:
 
 | File | Description |
 |------|-------------|
+| `index.html` | Self-contained promotional landing page with a link to the game |
 | `kyschess.html` | HTML shell page |
 | `kyschess.js` | Emscripten runtime |
 | `kyschess.wasm` | Compiled binary |
@@ -365,12 +366,14 @@ Add a location block to your server config (e.g. `/etc/nginx/sites-enabled/defau
 location /kys/ {
     alias /var/www/html/kys/;
     gzip_static on;
-    expires 7d;
-    add_header Cache-Control "public, immutable";
+    expires -1;
+    add_header Cache-Control "no-cache";
     add_header Cross-Origin-Opener-Policy "same-origin";
     add_header Cross-Origin-Embedder-Policy "require-corp";
 }
 ```
+
+The deployment uses stable filenames such as `index.html`, `kyschess.js`, and `kyschess.wasm`, so these responses must be revalidated. Do not mark the whole location as `immutable`, or browsers can continue showing a previous release after deployment.
 
 `gzip_static on` tells nginx to serve pre-compressed `.gz` files when available, avoiding on-the-fly compression overhead.
 
@@ -382,26 +385,21 @@ In `/etc/nginx/nginx.conf`, uncomment or add `gzip_types` to include `applicatio
 gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript application/wasm;
 ```
 
-### Upload build files
+### Package and deploy
 
-Copy the build output files and game assets to the server:
+Build the promotional page, assemble the complete site, and create `wasm/dist.zip`:
 
-```bash
-# From local machine — upload build files to server
-scp wasm/build/kyschess.html wasm/build/kyschess.js \
-    wasm/build/kyschess.wasm wasm/build/kyschess.worker.js \
-    user@server:/tmp/
-
-# On the server — copy into nginx root (adjust container ID as needed)
-docker exec $(docker ps -q) mkdir -p /var/www/html/kys
-docker cp /tmp/kyschess.html $(docker ps -q):/var/www/html/kys/
-docker cp /tmp/kyschess.js $(docker ps -q):/var/www/html/kys/
-docker cp /tmp/kyschess.wasm $(docker ps -q):/var/www/html/kys/
-docker cp /tmp/kyschess.worker.js $(docker ps -q):/var/www/html/kys/
-
-# Upload game assets — these are served on demand by the fetch backend
-docker cp work/game-dev $(docker ps -q):/var/www/html/kys/game
+```powershell
+.\wasm\package.ps1
 ```
+
+Validate, prepare, and upload the archive to the server:
+
+```powershell
+.\wasm\deploy.ps1 -ServerIp <server-ip> -PackagePath '.\wasm\dist.zip'
+```
+
+The deploy script verifies that the archive contains the promo `index.html`, WASM runtime files, and game assets, then performs one `scp` upload. It does not open an SSH session or modify the container. After upload it prints the original compact extraction and container-copy commands for you to run manually.
 
 ### Pre-compress for faster downloads
 

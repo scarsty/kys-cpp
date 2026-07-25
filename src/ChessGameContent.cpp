@@ -12,6 +12,14 @@ ChessGameContent::ChessGameContent(ChessGameContentData data, std::string gameVe
 {
 }
 
+std::shared_ptr<const ChessGameContent> ChessGameContent::withGameVersion(
+    std::string gameVersion) const
+{
+    auto result = std::make_shared<ChessGameContent>(*this);
+    result->gameVersion_ = std::move(gameVersion);
+    return result;
+}
+
 const ChessRoleDefinition* ChessGameContent::role(int roleId) const
 {
     const auto found = data_->roles.find(roleId);

@@ -1,5 +1,6 @@
 #include "ChessBattleText.h"
 
+#include "ChessBattleAnalysis.h"
 #include "ChessCatalogQueries.h"
 
 #include <format>
@@ -99,7 +100,7 @@ std::string ChessBattleText::formatSummary(const BattleSummary& summary)
     std::string text = std::format(
         "戰鬥結束於第 {} 幀，結果={}\n存活單位：\n",
         summary.endFrame,
-        static_cast<int>(summary.outcome));
+        chessBattleOutcomeDescription(summary.outcome));
     for (const auto& survivor : summary.survivors)
     {
         text += std::format(

@@ -34,6 +34,7 @@ void BattleStatsView::setupPostBattle(
     full_window_ = 1;
     summary_ = summary;
     report_ = &report;
+    outcome_ = summary.outcome;
     battleResult_ = summary.battleResult;
     totalFrames_ = report.battleEndFrame();
     clearBackground();
@@ -226,8 +227,18 @@ void BattleStatsView::draw()
         return width / 2 - fontSize * Font::getTextDrawSize(text) / 4;
     };
 
-    font->draw(std::format("戰鬥幀數 {}", totalFrames_), 18, 20, 10, {180, 180, 180, 255});
-    const std::string title = battleResult_ == 0 ? "戰鬥勝利" : "戰鬥失敗";
+    const bool timedOut = outcome_ == KysChess::Battle::BattleOutcome::Timeout;
+    font->draw(
+        timedOut
+            ? std::format("時間上限 {} 幀已耗盡", totalFrames_)
+            : std::format("戰鬥幀數 {}", totalFrames_),
+        18,
+        20,
+        10,
+        {180, 180, 180, 255});
+    const std::string title = timedOut
+        ? "戰鬥超時 · 玩家 1 判負"
+        : (battleResult_ == 0 ? "戰鬥勝利" : "戰鬥失敗");
     font->draw(
         title,
         28,

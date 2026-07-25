@@ -286,7 +286,7 @@ public:
 
     virtual void onPressedCancel() {}    // 按下 Esc 的事件，子類視情況覆寫或留空
 
-    virtual void onPressedContextMenu() { onPressedCancel(); }    // 按下滑鼠右鍵的事件，預設沿用取消操作
+    virtual void onPressedContextMenu() { onPressedCancel(); }    // 滑鼠右鍵或行動版選單按鈕，預設沿用取消操作
 
     void setStayFrame(int s) { stay_frame_ = s; }
 
@@ -295,6 +295,8 @@ public:
     bool isPressOK(EngineEvent& e);
 
     bool isPressCancel(EngineEvent& e);
+
+    bool isPressContextMenu(EngineEvent& e);
 
 private:
     struct RoutedPointerEvent
@@ -319,6 +321,7 @@ private:
     void clearPointerHoverSelfChilds();
     void dispatchPointerEvent(const PointerEvent& event);
     void handleLegacyGlobalEvent(const EngineEvent& event);
+    static void resetPointerInputForSystemTransition();
     bool containsPointerTarget(const std::shared_ptr<RunNode>& target) const;
     static void cancelPointerCapture();
     static void cancelPointerActivationCapture();

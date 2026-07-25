@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ChessRuntimeConstants.h"
 #include "ChessReplayTypes.h"
 
 #include <optional>
@@ -19,7 +20,7 @@ struct ChessReplayJsonError
 struct ChessReplayOptionsData
 {
     bool position_swap_enabled = true;
-    int battle_frame_limit = 36000;
+    int battle_frame_limit = kChessBattleFrameLimit;
 };
 
 struct ChessActionData

@@ -47,6 +47,23 @@ TEST_CASE("BattleLogPresenter_BuildsRowsAndFormattedEntries", "[battle][log_pres
     CHECK(model.entries[0].plainText() == "[  12F] 段譽 施放 六脈神劍 命中 岳不群，造成 20 點傷害（連擊增傷 +20%）");
 }
 
+TEST_CASE("BattleLogPresenter_ExplainsTimeoutDefeat", "[battle][log_presenter][timeout]")
+{
+    BattleReportBuilder builder;
+    builder.recordBattleEnd(99999, 1);
+
+    BattlePostBattleSummary summary;
+    summary.outcome = KysChess::Battle::BattleOutcome::Timeout;
+    summary.battleResult = 1;
+
+    const auto model = BattleLogPresenter().present(summary, builder.report());
+
+    CHECK(model.resultText == "戰鬥超時：達到 99999 幀上限，玩家 1 因時間耗盡判負");
+    REQUIRE(model.entries.size() == 1);
+    CHECK(model.entries.front().plainText()
+        == "[99999F] 戰鬥超時：達到 99999 幀上限，玩家 1 因時間耗盡判負");
+}
+
 TEST_CASE("BattleLogPresenter_DisambiguatesDuplicateNames", "[battle][log_presenter]")
 {
     auto first = BattleLogTest::reportUnit(201, 2, 1, 12, "弟子");

@@ -180,6 +180,33 @@ function Invoke-ProjectPython
     throw 'Python was not found. Install Python or create .venv before running this script.'
 }
 
+function Build-WasmPromoPage
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$GameDir,
+
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath
+    )
+
+    Write-Host '=== Building promo page ==='
+    Invoke-ProjectPython -ProjectDir $ProjectDir -ArgumentList @(
+        (Join-Path $ProjectDir 'tools\promo\build_page.py'),
+        '--game-dir',
+        $GameDir,
+        '--config-dir',
+        (Join-Path $ProjectDir 'config'),
+        '--output',
+        $OutputPath,
+        '--play-url',
+        (Get-WasmMainHtmlFileName)
+    )
+}
+
 function Ensure-PathExists
 {
     param(
@@ -303,6 +330,24 @@ function Get-WasmBuildArtifactNames
     )
 }
 
+function Get-WasmSiteAssetNames
+{
+    @(
+        'favicon.png'
+        'apple-touch-icon.png'
+        'icon-192.png'
+        'icon-512.png'
+        'site.webmanifest'
+    )
+}
+
+function Get-WasmDeploymentArtifactNames
+{
+    'index.html'
+    Get-WasmBuildArtifactNames
+    Get-WasmSiteAssetNames
+}
+
 function Get-WasmBuildArtifactPaths
 {
     param(
@@ -313,6 +358,109 @@ function Get-WasmBuildArtifactPaths
     foreach ($artifactName in Get-WasmBuildArtifactNames)
     {
         Join-Path $BuildDir $artifactName
+    }
+}
+
+function Get-WasmDeploymentArtifactPaths
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DistDir
+    )
+
+    foreach ($artifactName in Get-WasmDeploymentArtifactNames)
+    {
+        Join-Path $DistDir $artifactName
+    }
+}
+
+function Assert-WasmPromoPageContent
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Content,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Source
+    )
+
+    $mainHtmlFileName = Get-WasmMainHtmlFileName
+    if ($Content.IndexOf($mainHtmlFileName, [System.StringComparison]::Ordinal) -lt 0 -or
+        $Content.IndexOf('http-equiv="refresh"', [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
+    {
+        throw "WASM promo page is invalid: $Source"
+    }
+}
+
+function Assert-WasmDeploymentDirectory
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DistDir
+    )
+
+    Ensure-PathExists -Path (Join-Path $DistDir 'kys\game') -Message "Game assets not found in $DistDir. Run package.ps1 first."
+
+    foreach ($artifactPath in Get-WasmDeploymentArtifactPaths -DistDir $DistDir)
+    {
+        Ensure-PathExists -Path $artifactPath -Message "WASM deployment artifact missing: $artifactPath"
+    }
+
+    $indexPath = Join-Path $DistDir 'index.html'
+    Assert-WasmPromoPageContent -Content (Get-Content -Raw $indexPath) -Source $indexPath
+}
+
+function Assert-WasmDeploymentArchive
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackagePath
+    )
+
+    Ensure-PathExists -Path $PackagePath -Message "WASM package not found: $PackagePath"
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($PackagePath)
+    try
+    {
+        foreach ($artifactName in Get-WasmDeploymentArtifactNames)
+        {
+            $entry = $archive.GetEntry($artifactName)
+            if ($null -eq $entry -or $entry.Length -eq 0)
+            {
+                throw "WASM package is missing deployment artifact: $artifactName"
+            }
+        }
+
+        $indexEntry = $archive.GetEntry('index.html')
+        $reader = [System.IO.StreamReader]::new($indexEntry.Open())
+        try
+        {
+            Assert-WasmPromoPageContent -Content $reader.ReadToEnd() -Source "$PackagePath/index.html"
+        }
+        finally
+        {
+            $reader.Dispose()
+        }
+
+        $hasGameAsset = $false
+        foreach ($entry in $archive.Entries)
+        {
+            if ($entry.FullName.StartsWith('kys/game/', [System.StringComparison]::Ordinal) -and $entry.Length -gt 0)
+            {
+                $hasGameAsset = $true
+                break
+            }
+        }
+
+        if (-not $hasGameAsset)
+        {
+            throw 'WASM package does not contain game assets under kys/game/.'
+        }
+    }
+    finally
+    {
+        $archive.Dispose()
     }
 }
 

@@ -404,7 +404,7 @@ public:
     bool processImGuiEvent(const EngineEvent& e) const;
     bool processImGuiPrimaryTouch(const TouchSample& sample) const;
     void cancelImGuiPrimaryTouch() const;
-    bool processImGuiApplicationCancel() const;
+    bool processImGuiApplicationContextMenu() const;
     void renderImGuiOverlay() const;
     void showBattleLogOverlay(const BattleLogViewModel& model, bool respectUserSetting = true) const;
     void hideBattleLogOverlay() const;

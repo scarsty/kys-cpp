@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BattleUnitIdentity.h"
+#include "battle/BattleOutcome.h"
 
 #include <string>
 #include <vector>
@@ -28,5 +29,6 @@ struct BattlePostBattleSummary
 {
     std::vector<BattlePostBattleUnitSummary> allies;
     std::vector<BattlePostBattleUnitSummary> enemies;
+    KysChess::Battle::BattleOutcome outcome = KysChess::Battle::BattleOutcome::InProgress;
     int battleResult = -1;
 };

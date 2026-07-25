@@ -15,7 +15,7 @@
 using namespace KysChess;
 using namespace KysChess::Test;
 
-TEST_CASE("session timeout policy is frozen at 36000 frames", "[chess][session][determinism]")
+TEST_CASE("session timeout policy is frozen at 99999 frames", "[chess][session][determinism]")
 {
     ChessSessionOptions requested;
     requested.battleFrameLimit = 1;

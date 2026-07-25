@@ -160,6 +160,11 @@ void Menu::dealEvent(EngineEvent& e)
     }
 }
 
+RunNode::PointerResult Menu::onPointerEvent(const PointerEvent& event)
+{
+    return menuContainerPointerResult(event);
+}
+
 void Menu::arrange(int x, int y, int inc_x, int inc_y)
 {
     for (auto c : childs_)

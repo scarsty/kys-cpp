@@ -47,24 +47,13 @@ New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $distDir 'kys') | Out-Null
 
 Copy-Item -Force -Path (Get-WasmBuildArtifactPaths -BuildDir $buildDir) -Destination $distDir
-Copy-Item -Force (Join-Path $paths.WasmDir 'favicon.png') $distDir
-Copy-Item -Force (Join-Path $paths.WasmDir 'apple-touch-icon.png') $distDir
-Copy-Item -Force (Join-Path $paths.WasmDir 'icon-192.png') $distDir
-Copy-Item -Force (Join-Path $paths.WasmDir 'icon-512.png') $distDir
-Copy-Item -Force (Join-Path $paths.WasmDir 'site.webmanifest') $distDir
+foreach ($assetName in Get-WasmSiteAssetNames)
+{
+    Copy-Item -Force (Join-Path $paths.WasmDir $assetName) $distDir
+}
 $distGameDir = Join-Path $distDir 'kys\game'
 Copy-ReleaseGameAssets -SourceGameDir $gameDir -DestinationGameDir $distGameDir -Version $Version
-Invoke-ProjectPython -ProjectDir $paths.ProjectDir -ArgumentList @(
-    (Join-Path $paths.ProjectDir 'tools\promo\build_page.py'),
-    '--game-dir',
-    $gameDir,
-    '--config-dir',
-    (Join-Path $paths.ProjectDir 'config'),
-    '--output',
-    (Join-Path $distDir 'index.html'),
-    '--play-url',
-    'kyschess.html'
-)
+Build-WasmPromoPage -ProjectDir $paths.ProjectDir -GameDir $gameDir -OutputPath (Join-Path $distDir 'index.html')
 Write-WasmAssetManifest `
     -ProjectDir $paths.ProjectDir `
     -WasmDir $paths.WasmDir `
@@ -78,10 +67,13 @@ Write-WasmAssetManifest `
 
 # Copy-Item -Force (Join-Path $paths.WasmDir 'edgeone.json') $distDir
 
+Assert-WasmDeploymentDirectory -DistDir $distDir
 New-ZipFromDirectory -SourceDir $distDir -ZipPath $ZipPath
+Assert-WasmDeploymentArchive -PackagePath $ZipPath
 
 $zipInfo = Get-Item $ZipPath
 Write-Host "  Created $ZipPath ($(Format-FileSize -Bytes $zipInfo.Length))"
+Write-Host "  Promo page: index.html ($(Format-FileSize -Bytes (Get-Item (Join-Path $distDir 'index.html')).Length))"
 
 $distFiles = Get-ChildItem -File -Recurse $distDir
 $totalBytes = ($distFiles | Measure-Object -Property Length -Sum).Sum

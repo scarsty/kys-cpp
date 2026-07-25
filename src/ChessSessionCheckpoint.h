@@ -23,6 +23,8 @@ enum class ChessCheckpointError
     UnstableBoundary,
 };
 
+std::string_view chessCheckpointErrorDescription(ChessCheckpointError error);
+
 struct ChessSessionCheckpointData
 {
     ChessReplayData replay;
@@ -59,5 +61,38 @@ struct ChessSessionCheckpoint
         std::string_view json,
         ChessCheckpointError& error);
 };
+
+inline bool chessCheckpointVersionCompatible(
+    const ChessSessionCheckpoint& checkpoint,
+    std::string_view currentVersion)
+{
+    return checkpoint.gameVersion() == currentVersion
+        || checkpoint.gameVersion() == "dev"
+        || currentVersion == "dev";
+}
+
+struct ChessSaveSceneState
+{
+    int inSubMap{};
+    int subMapX{};
+    int subMapY{};
+    int faceTowards{};
+};
+
+struct ChessSaveSlotData
+{
+    ChessSaveSceneState scene;
+    ChessSessionCheckpointData checkpoint;
+};
+
+struct ParsedChessSavePayload
+{
+    ChessSessionCheckpoint checkpoint;
+    std::optional<ChessSaveSceneState> scene;
+};
+
+std::optional<ParsedChessSavePayload> parseChessSavePayload(
+    std::string_view payload,
+    ChessCheckpointError& error);
 
 }

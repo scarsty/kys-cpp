@@ -39,7 +39,7 @@ git submodule update --remote --rebase
 ```
 之后使用Visual Studio（尽量用新版）打开kys.sln，编译即可。工程为x64版本，如需要x86版请自行修改。
 
-目前 GameDataStore 的棋局扩展存档使用 glaze 反射为 JSON 后写入 SQLite，旧版棋局扩展表结构不再兼容。
+目前棋局存檔以 `scene + checkpoint` JSON 保存；離線對戰則直接使用同一份 checkpoint 資料。
 
 上面的方法不含播放视频功能。如需要此功能，例如播放开场动画，则需先编译smallpot的动态库，比较复杂，请与作者联系。
 
@@ -81,4 +81,3 @@ Special thanks to ReSharper C++ for its support to the open source community.
 Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, ZhenZhengDeQiangQiang, SanDaShan, YangYubiao SB250 and SB750.
 
 纪念金庸先生对武侠文化的贡献。
-

@@ -1,8 +1,10 @@
 #pragma once
 
+#include "battle/BattleLimits.h"
+
 namespace KysChess
 {
 
-inline constexpr int kChessBattleFrameLimit = 36000;
+inline constexpr int kChessBattleFrameLimit = Battle::kBattleFrameLimit;
 
 }

@@ -73,7 +73,7 @@ public:
     bool processEvent(const SDL_Event& event);
     bool processPrimaryTouch(const TouchSample& sample);
     void cancelPrimaryTouch();
-    bool processApplicationCancel();
+    bool processApplicationContextMenu();
     void render(SDL_Window* window, SDL_Renderer* renderer, int main_texture_w, int main_texture_h, const char* renderer_name);
     void showBattleLog(const BattleLogViewModel& model);
     void hideBattleLog();

@@ -242,8 +242,8 @@ public:
     static PointerInput& instance();
 
     bool initializeActions();
-    bool enqueueApplicationCancelAction() const;
-    bool isApplicationCancelEvent(const SDL_Event& event) const;
+    bool enqueueApplicationContextMenuAction() const;
+    bool isApplicationContextMenuEvent(const SDL_Event& event) const;
     void commitPresentGeometry(PresentGeometrySnapshot geometry) { geometry_ = geometry; }
     void pumpSdlEvents();
     void enqueueForTest(const SDL_Event& event) { pending_.emplace_back(event); }
@@ -279,5 +279,5 @@ private:
     SDL_FPoint logicalPointerUiPosition_{};
     bool imguiOwnsTouchSequence_{};
     bool primaryGameSequenceActive_{};
-    std::uint32_t applicationCancelEventType_{};
+    std::uint32_t applicationContextMenuEventType_{};
 };

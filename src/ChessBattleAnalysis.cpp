@@ -1,4 +1,5 @@
 #include "ChessBattleAnalysis.h"
+#include "ChessRuntimeConstants.h"
 
 #include <algorithm>
 #include <cassert>
@@ -284,7 +285,10 @@ std::string chessBattleOutcomeDescription(Battle::BattleOutcome outcome)
     case Battle::BattleOutcome::InProgress: return "尚未完成";
     case Battle::BattleOutcome::PlayerVictory: return "我方勝利";
     case Battle::BattleOutcome::PlayerDefeat: return "我方戰敗";
-    case Battle::BattleOutcome::Timeout: return "超過戰鬥時間上限";
+    case Battle::BattleOutcome::Timeout:
+        return std::format(
+            "戰鬥超時：達到 {} 幀上限，玩家 1 因時間耗盡判負",
+            kChessBattleFrameLimit);
     }
     std::unreachable();
 }

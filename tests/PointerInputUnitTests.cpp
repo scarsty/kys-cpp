@@ -340,7 +340,7 @@ TEST_CASE("Queued pointer keeps old geometry until its following resize is consu
     CHECK(input.presentGeometry().windowHeight == 1080);
 }
 
-TEST_CASE("PointerInput rejects late contact events after a hard reset until a fresh down", "[pointer_input]")
+TEST_CASE("PointerInput hard reset abandons a lost primary contact and accepts a new one", "[pointer_input]")
 {
     PointerInput input;
     input.commitPresentGeometry({1, 1280, 720, {0, 0, 1280, 720}, 1280, 720});
@@ -350,14 +350,31 @@ TEST_CASE("PointerInput rejects late contact events after a hard reset until a f
     down.tfinger.fingerID = SDL_FingerID{7};
     down.tfinger.x = 0.5f;
     down.tfinger.y = 0.5f;
-    REQUIRE(input.processFingerEvent(down).has_value());
+    const auto first = input.processFingerEvent(down);
+    REQUIRE(first.has_value());
+    CHECK(first->primary);
 
     input.resetTouchState();
     SDL_Event motion = down;
     motion.type = SDL_EVENT_FINGER_MOTION;
     CHECK_FALSE(input.processFingerEvent(motion).has_value());
 
-    CHECK(input.processFingerEvent(down).has_value());
+    SDL_Event nextDown = down;
+    nextDown.tfinger.fingerID = SDL_FingerID{8};
+    const auto next = input.processFingerEvent(nextDown);
+    REQUIRE(next.has_value());
+    CHECK(next->primary);
+
+    SDL_Event lateUp = down;
+    lateUp.type = SDL_EVENT_FINGER_UP;
+    CHECK_FALSE(input.processFingerEvent(lateUp).has_value());
+
+    SDL_Event nextUp = nextDown;
+    nextUp.type = SDL_EVENT_FINGER_UP;
+    const auto terminal = input.processFingerEvent(nextUp);
+    REQUIRE(terminal.has_value());
+    CHECK(terminal->primary);
+    CHECK(terminal->physicalSequenceEnded);
 }
 
 TEST_CASE("Pointer dispatch stops when the control layout changes without rejecting contacts", "[pointer_input]")
@@ -531,6 +548,23 @@ TEST_CASE("Normal owners do not accept blank-space activation", "[pointer_routin
     CHECK(Menu::kPointerActivationScope == PointerActivationScope::HitTargetOnly);
     CHECK(DismissibleTextBox::kPointerActivationScope == PointerActivationScope::Anywhere);
     CHECK(ShowExp::kPointerActivationScope == PointerActivationScope::Anywhere);
+}
+
+TEST_CASE("Menu containers leave blank-space pointer presses unhandled", "[pointer_routing][menu]")
+{
+    PointerEvent event;
+    event.source = PointerSource::Touch;
+    event.pointerId = 3;
+    event.button = SDL_BUTTON_LEFT;
+    event.phase = PointerPhase::ButtonDown;
+    event.uiPosition = {110.0f, 125.0f};
+
+    const auto routed = PointerRouteProbe::route(1, [&](std::size_t)
+    {
+        return menuContainerPointerResult(event);
+    });
+
+    CHECK_FALSE(routed.has_value());
 }
 
 TEST_CASE("Battle cursor updates the target for short press sequences", "[pointer_migration]")

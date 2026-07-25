@@ -1,6 +1,6 @@
 ﻿#include "Save.h"
 #include "ChessModHook.h"
-#include "GameDataStore.h"
+#include "ChessSessionCheckpoint.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "NewSave.h"
@@ -17,19 +17,8 @@ namespace SavePersistence
 constexpr auto kWriteOptions = glz::opts{.prettify = true};
 constexpr auto kReadOptions = glz::opts{.error_on_unknown_keys = false};
 
-struct SceneStateData
-{
-    int inSubMap = 0;
-    int subMapX = 0;
-    int subMapY = 0;
-    int faceTowards = 0;
-};
-
-struct SlotData
-{
-    SceneStateData scene;
-    KysChess::GameDataStore gameData;
-};
+using SceneStateData = KysChess::ChessSaveSceneState;
+using SlotData = KysChess::ChessSaveSlotData;
 
 std::string sharedGameDbFilename()
 {
@@ -52,8 +41,23 @@ SlotData captureSlotData(const Save& save)
     data.scene.subMapX = save.SubMapX;
     data.scene.subMapY = save.SubMapY;
     data.scene.faceTowards = save.FaceTowards;
-    data.gameData = KysChess::ChessModHook::exportGameData();
+    data.checkpoint = KysChess::ChessModHook::exportCheckpoint().toData();
     return data;
+}
+
+std::optional<KysChess::ChessSessionCheckpoint> parseSlotCheckpoint(
+    const SlotData& data,
+    std::string& error)
+{
+    KysChess::ChessCheckpointError checkpointError;
+    auto checkpoint = KysChess::ChessSessionCheckpoint::fromData(
+        data.checkpoint,
+        checkpointError);
+    if (!checkpoint)
+    {
+        error = KysChess::chessCheckpointErrorDescription(checkpointError);
+    }
+    return checkpoint;
 }
 
 void applySceneState(const SceneStateData& scene, Save& save)
@@ -145,24 +149,6 @@ std::string preferredTimestampFilename(int slot)
 }
 
 }    // namespace SavePersistence
-
-template <>
-struct glz::meta<SavePersistence::SceneStateData>
-{
-    static constexpr auto value = glz::object(
-        "inSubMap", &SavePersistence::SceneStateData::inSubMap,
-        "subMapX", &SavePersistence::SceneStateData::subMapX,
-        "subMapY", &SavePersistence::SceneStateData::subMapY,
-        "faceTowards", &SavePersistence::SceneStateData::faceTowards);
-};
-
-template <>
-struct glz::meta<SavePersistence::SlotData>
-{
-    static constexpr auto value = glz::object(
-        "scene", &SavePersistence::SlotData::scene,
-        "gameData", &SavePersistence::SlotData::gameData);
-};
 
 Save::Save()
 {
@@ -293,7 +279,17 @@ bool Save::load(int num)
         return false;
     }
 
-    if (!KysChess::ChessModHook::importGameData(slotData.gameData, *this))
+    auto checkpoint = SavePersistence::parseSlotCheckpoint(slotData, error);
+    if (!checkpoint)
+    {
+        LOG(
+            "[存檔讀取] 槽位 {} 失敗（步驟 2/2：解析自走棋檢查點）：{}；檔案 '{}'\n",
+            num,
+            error,
+            jsonPath);
+        return false;
+    }
+    if (!KysChess::ChessModHook::importCheckpoint(*checkpoint, *this))
     {
         LOG(
             "[存檔讀取] 槽位 {} 失敗（步驟 2/2：驗證並還原自走棋資料）；檔案 '{}'\n",
@@ -308,7 +304,7 @@ bool Save::load(int num)
 
 bool Save::save(int num)
 {
-    if (!KysChess::ChessModHook::canSaveGameData())
+    if (!KysChess::ChessModHook::canSaveCheckpoint())
     {
         LOG("[存檔寫入] 槽位 {} 失敗（步驟 1/2：檢查可存檔狀態）\n", num);
         return false;
@@ -352,7 +348,9 @@ bool Save::exportSlotJson(int num, std::string& payload)
             slotPath);
         return false;
     }
-    if (!KysChess::ChessModHook::isGameDataReadable(slotData.gameData, error))
+    auto checkpoint = SavePersistence::parseSlotCheckpoint(slotData, error);
+    if (!checkpoint
+        || !KysChess::ChessModHook::isCheckpointReadable(*checkpoint, error))
     {
         LOG(
             "[外部存檔匯出] 槽位 {} 驗證失敗（步驟 2/3：檢查自走棋檢查點）：{}\n",
@@ -374,17 +372,23 @@ bool Save::exportSlotJson(int num, std::string& payload)
 
 bool Save::importSlotJson(int num, const std::string& payload)
 {
-    SavePersistence::SlotData slotData;
-    std::string error;
-    if (!SavePersistence::parseSlotJson(payload, slotData, error))
+    KysChess::ChessCheckpointError checkpointError;
+    auto parsed = KysChess::parseChessSavePayload(payload, checkpointError);
+    if (!parsed)
     {
         LOG(
-            "[外部存檔匯入] 槽位 {} 失敗（步驟 1/3：解析 JSON）：{}\n",
+            "[外部存檔匯入] 槽位 {} 失敗（步驟 1/3：解析存檔 JSON）：{}\n",
             num,
-            error);
+            KysChess::chessCheckpointErrorDescription(checkpointError));
         return false;
     }
-    if (!KysChess::ChessModHook::isGameDataReadable(slotData.gameData, error))
+
+    SavePersistence::SlotData slotData;
+    slotData.scene = parsed->scene.value_or(
+        KysChess::ChessModHook::initialSaveSceneState());
+    slotData.checkpoint = parsed->checkpoint.toData();
+    std::string error;
+    if (!KysChess::ChessModHook::isCheckpointReadable(parsed->checkpoint, error))
     {
         LOG(
             "[外部存檔匯入] 槽位 {} 驗證失敗（步驟 2/3：檢查自走棋檢查點）：{}\n",

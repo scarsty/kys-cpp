@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BattleLimits.h"
 #include "BattleCastSystem.h"
 #include "BattleCore.h"
 #include "BattleHitResolver.h"
@@ -23,7 +24,7 @@ struct BattleRuntimeRulesConfig
     double rescueExecuteUnattendedRadius = 0.0;
     double minimumVectorNorm = 0.0;
     int movementPhysicsDashMomentumFrames = 0;
-    int maximumFrames = 36000;
+    int maximumFrames = kBattleFrameLimit;
 };
 
 BattleRuntimeRulesConfig makeHadesBattleRuntimeRules(double tileWidth, int coordCount);

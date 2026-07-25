@@ -576,7 +576,7 @@ int TitleScene::promptExternalSaveAction(int slot)
 {
     auto menu = std::make_shared<MenuText>();
     menu->setFontSize(32);
-    menu->setStrings({"匯出 JSON", "匯入 JSON", "取消"});
+    menu->setStrings({"匯出完整存檔 JSON", "匯入存檔／對戰 JSON", "取消"});
     menu->setPosition(470, 290);
     menu->arrange(0, 0, 0, 52);
 
@@ -630,7 +630,12 @@ void TitleScene::importExternalSaveSlot(int slot)
 
     if (!Save::getInstance()->importSlotJson(slot, transfer.text))
     {
-        showMessageBox("外部存檔", std::format("{} 匯入失敗，請確認貼上的內容是完整 JSON。", getSlotTitle(slot)), SDL_MESSAGEBOX_ERROR);
+        showMessageBox(
+            "外部存檔",
+            std::format(
+                "{} 匯入失敗，請確認內容是完整存檔或離線對戰 JSON。",
+                getSlotTitle(slot)),
+            SDL_MESSAGEBOX_ERROR);
         return;
     }
     menu_load_->refreshEntries();

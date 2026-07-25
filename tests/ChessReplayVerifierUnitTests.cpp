@@ -211,7 +211,7 @@ TEST_CASE("replay JSONL parser rejects malformed and truncated streams", "[chess
         replaceOnce(valid, "\"game_version\":\"dev\"", "\"game_version\":\"\""),
         error));
     const auto nonstandardRuntimeOption = parseChessReplayJsonl(
-        replaceOnce(valid, "\"battle_frame_limit\":36000", "\"battle_frame_limit\":1"),
+        replaceOnce(valid, "\"battle_frame_limit\":99999", "\"battle_frame_limit\":1"),
         error);
     REQUIRE(nonstandardRuntimeOption);
     CHECK(nonstandardRuntimeOption->header.options.battleFrameLimit == 1);

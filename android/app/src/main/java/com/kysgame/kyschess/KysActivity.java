@@ -34,9 +34,7 @@ public class KysActivity extends SDLActivity {
     private static final String PREFS_NAME = "kys_prefs";
     private static final String PREF_ASSET_MARKER = "asset_marker";
 
-    public static native void nativeRequestCancel();
-
-    private TextView cancelButton;
+    public static native void nativeRequestContextMenu();
 
     private int dp(int value) {
         return Math.round(TypedValue.applyDimension(
@@ -56,7 +54,7 @@ public class KysActivity extends SDLActivity {
         extractAssetsIfNeeded();
         super.onCreate(savedInstanceState);
         enterImmersiveFullscreen();
-        addCancelOverlay();
+        addContextMenuOverlay();
     }
 
     @Override
@@ -256,28 +254,18 @@ public class KysActivity extends SDLActivity {
         }
     }
 
-    public void onNativeInputReady() {
-        runOnUiThread(() -> {
-            if (cancelButton != null) {
-                cancelButton.setEnabled(true);
-            }
-        });
-    }
-
-    private void addCancelOverlay() {
+    private void addContextMenuOverlay() {
         runOnUiThread(() -> {
             ViewGroup contentView = findViewById(android.R.id.content);
             if (contentView == null) return;
 
             TextView btn = new TextView(this);
             btn.setText("✕");
-            btn.setContentDescription("Cancel");
+            btn.setContentDescription("返回或系統選單");
             btn.setTextSize(32);
             btn.setTextColor(0xCCFFFFFF);
             btn.setBackgroundColor(0x44000000);
             btn.setPadding(32, 16, 32, 16);
-            btn.setEnabled(false);
-            cancelButton = btn;
 
             FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -287,16 +275,10 @@ public class KysActivity extends SDLActivity {
             params.setMargins(0, 0, dp(16), dp(16));
 
             btn.setOnTouchListener((v, event) -> {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        return true;
-                    case MotionEvent.ACTION_UP:
-                        if (btn.isEnabled()) {
-                            nativeRequestCancel();
-                        }
-                        return true;
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    nativeRequestContextMenu();
                 }
-                return false;
+                return true;
             });
 
             FrameLayout overlay = new FrameLayout(this);

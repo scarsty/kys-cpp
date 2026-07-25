@@ -237,7 +237,7 @@ PointerInput& PointerInput::instance()
 
 bool PointerInput::initializeActions()
 {
-    if (applicationCancelEventType_ != 0)
+    if (applicationContextMenuEventType_ != 0)
     {
         return true;
     }
@@ -246,24 +246,25 @@ bool PointerInput::initializeActions()
     {
         return false;
     }
-    applicationCancelEventType_ = firstType;
+    applicationContextMenuEventType_ = firstType;
     return true;
 }
 
-bool PointerInput::enqueueApplicationCancelAction() const
+bool PointerInput::enqueueApplicationContextMenuAction() const
 {
-    if (applicationCancelEventType_ == 0)
+    if (applicationContextMenuEventType_ == 0)
     {
         return false;
     }
     SDL_Event event = {};
-    event.type = applicationCancelEventType_;
+    event.type = applicationContextMenuEventType_;
     return SDL_PushEvent(&event);
 }
 
-bool PointerInput::isApplicationCancelEvent(const SDL_Event& event) const
+bool PointerInput::isApplicationContextMenuEvent(const SDL_Event& event) const
 {
-    return applicationCancelEventType_ != 0 && event.type == applicationCancelEventType_;
+    return applicationContextMenuEventType_ != 0
+        && event.type == applicationContextMenuEventType_;
 }
 
 void PointerInput::pumpSdlEvents()

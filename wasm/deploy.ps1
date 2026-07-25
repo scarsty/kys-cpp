@@ -16,8 +16,9 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'WasmCommon.ps1')
 
 $paths = Get-WasmPaths -WasmDir $PSScriptRoot
-$stagingDir = Join-Path $env:TEMP 'kys-deploy'
-$tarPath = Join-Path $env:TEMP 'kys-deploy.tar.gz'
+$tempRoot = Join-Path $env:TEMP "kys-deploy-$([guid]::NewGuid().ToString('N'))"
+$stagingDir = Join-Path $tempRoot 'kys-deploy'
+$tarPath = Join-Path $tempRoot 'kys-deploy.tar.gz'
 $remote = "$RemoteUser@$ServerIp"
 
 if (-not [string]::IsNullOrWhiteSpace($DistDir) -and -not [string]::IsNullOrWhiteSpace($PackagePath))
@@ -30,66 +31,55 @@ if ([string]::IsNullOrWhiteSpace($DistDir) -and [string]::IsNullOrWhiteSpace($Pa
     $DistDir = Join-Path $paths.WasmDir 'dist'
 }
 
-Write-Host '=== Checking build files ==='
-if (-not [string]::IsNullOrWhiteSpace($PackagePath))
+try
 {
-    Ensure-PathExists -Path $PackagePath -Message "WASM package not found: $PackagePath"
+    New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
-    if (Test-Path $stagingDir)
+    if (-not [string]::IsNullOrWhiteSpace($PackagePath))
     {
-        Remove-Item -Recurse -Force $stagingDir
+        Assert-WasmDeploymentArchive -PackagePath $PackagePath
+        Write-Host "=== Expanding package $PackagePath ==="
+        Expand-Archive -Path $PackagePath -DestinationPath $stagingDir -Force
+    }
+    else
+    {
+        Assert-WasmDeploymentDirectory -DistDir $DistDir
+        New-Item -ItemType Directory -Force -Path $stagingDir | Out-Null
+        Copy-Item -Recurse -Force (Join-Path $DistDir '*') $stagingDir
     }
 
-    Write-Host "=== Expanding package $PackagePath ==="
-    Expand-Archive -Path $PackagePath -DestinationPath $stagingDir -Force
+    Assert-WasmDeploymentDirectory -DistDir $stagingDir
 
-    foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $stagingDir)
-    {
-        $info = Get-Item $file
-        Write-Host "  $($info.Name) $(Format-FileSize -Bytes $info.Length)"
-    }
-}
-else
-{
-    Ensure-PathExists -Path (Join-Path $DistDir 'kys\game') -Message "Game assets not found in $DistDir. Run package.ps1 first."
-
-    foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $DistDir)
+    Write-Host '=== Deployment files ==='
+    foreach ($file in Get-WasmDeploymentArtifactPaths -DistDir $stagingDir)
     {
         $info = Get-Item $file
-        Write-Host "  $($info.Name) $(Format-FileSize -Bytes $info.Length)"
+        $description = if ($info.Name -eq 'index.html') { ' (promo page)' } else { '' }
+        Write-Host "  $($info.Name)$description $(Format-FileSize -Bytes $info.Length)"
     }
-}
 
-Write-Host ''
-Write-Host '=== Packaging ==='
-if ([string]::IsNullOrWhiteSpace($PackagePath))
+    Write-Host ''
+    Write-Host '=== Packaging deployment archive ==='
+    Invoke-NativeCommand -FilePath 'tar.exe' -ArgumentList @('-czf', $tarPath, '-C', $tempRoot, 'kys-deploy')
+
+    $tarInfo = Get-Item $tarPath
+    Write-Host "  Created $tarPath ($(Format-FileSize -Bytes $tarInfo.Length))"
+
+    Write-Host ''
+    Write-Host "=== Uploading to $remote ==="
+    Invoke-NativeCommand -FilePath 'scp' -ArgumentList @($tarPath, "${remote}:/tmp/kys-deploy.tar.gz")
+
+    Write-Host ''
+    Write-Host 'Done. On the remote host run:'
+    Write-Host '  cd /tmp && tar xzf kys-deploy.tar.gz'
+    Write-Host '  CONTAINER=$(docker ps -q)'
+    Write-Host '  docker exec $CONTAINER mkdir -p /var/www/html/kys'
+    Write-Host '  docker cp /tmp/kys-deploy/. $CONTAINER:/var/www/html/kys/'
+}
+finally
 {
-    if (Test-Path $stagingDir)
+    if (Test-Path $tempRoot)
     {
-        Remove-Item -Recurse -Force $stagingDir
+        Remove-Item -Recurse -Force $tempRoot
     }
-
-    New-Item -ItemType Directory -Force -Path $stagingDir | Out-Null
-    Copy-Item -Recurse -Force (Join-Path $DistDir '*') $stagingDir
 }
-
-if (Test-Path $tarPath)
-{
-    Remove-Item -Force $tarPath
-}
-
-Invoke-NativeCommand -FilePath 'tar.exe' -ArgumentList @('-czf', $tarPath, '-C', $env:TEMP, 'kys-deploy')
-
-$tarInfo = Get-Item $tarPath
-Write-Host "  Created $tarPath ($(Format-FileSize -Bytes $tarInfo.Length))"
-
-Write-Host ''
-Write-Host "=== Uploading to $remote ==="
-Invoke-NativeCommand -FilePath 'scp' -ArgumentList @($tarPath, "${remote}:/tmp/")
-
-Write-Host ''
-Write-Host 'Done. On the remote host run:'
-Write-Host '  cd /tmp && tar xzf kys-deploy.tar.gz'
-Write-Host '  CONTAINER=$(docker ps -q)'
-Write-Host '  docker exec $CONTAINER mkdir -p /var/www/html/kys'
-Write-Host '  docker cp /tmp/kys-deploy/. $CONTAINER:/var/www/html/kys/'

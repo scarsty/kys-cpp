@@ -5,7 +5,6 @@
 #include "ChessReplayJournal.h"
 #include "ChessReplayVerifier.h"
 #include "ChessStandaloneBattle.h"
-#include "GameDataStore.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <glaze/json.hpp>
@@ -18,20 +17,8 @@
 
 using namespace KysChess;
 
-namespace ChessPvpTestDetail
-{
-
-struct ExternalSlotForTest
-{
-    GameDataStore gameData;
-};
-
-}
-
 namespace
 {
-
-using ChessPvpTestDetail::ExternalSlotForTest;
 
 struct CheckpointFixture
 {
@@ -58,8 +45,9 @@ CheckpointFixture checkpointFixture(
 
 std::string fullSlotPayload(const ChessSessionCheckpoint& checkpoint)
 {
-    ExternalSlotForTest slot;
-    slot.gameData.chessSessionCheckpoint = checkpoint.toData();
+    ChessSaveSlotData slot;
+    slot.scene = {53, 21, 54, 1};
+    slot.checkpoint = checkpoint.toData();
     return glz::write_json(slot).value();
 }
 
@@ -100,17 +88,56 @@ TEST_CASE("offline PvP verifier accepts direct checkpoints and full slot envelop
     CHECK(full.composition == direct.composition);
 }
 
+TEST_CASE("external save payload parser distinguishes checkpoints from full slots", "[chess][checkpoint][save]")
+{
+    const auto fixture = checkpointFixture();
+    ChessCheckpointError error;
+
+    const auto direct = parseChessSavePayload(
+        fixture.checkpoint.serializeJson(),
+        error);
+    REQUIRE(direct);
+    CHECK(error == ChessCheckpointError::None);
+    CHECK_FALSE(direct->scene);
+    CHECK(direct->checkpoint.state == fixture.checkpoint.state);
+
+    const auto full = parseChessSavePayload(
+        fullSlotPayload(fixture.checkpoint),
+        error);
+    REQUIRE(full);
+    CHECK(error == ChessCheckpointError::None);
+    REQUIRE(full->scene);
+    CHECK(full->scene->inSubMap == 53);
+    CHECK(full->scene->subMapX == 21);
+    CHECK(full->scene->subMapY == 54);
+    CHECK(full->scene->faceTowards == 1);
+    CHECK(full->checkpoint.state == fixture.checkpoint.state);
+}
+
 TEST_CASE("offline PvP verifier rejects incompatible versions and non-hard saves", "[chess][pvp][save]")
 {
     const auto current = checkpointFixture();
 
-    auto oldVersion = current.checkpoint;
-    oldVersion.replay.header.gameVersion = "1.3.0";
+    const auto oldVersion = checkpointFixture(Difficulty::Hard, "1.3.0");
     const auto versionResult = ChessPvpSaveVerifier::verify(
         current.content,
-        oldVersion.serializeJson());
+        oldVersion.checkpoint.serializeJson());
     CHECK_FALSE(versionResult.valid);
     CHECK(versionResult.error == ChessPvpSaveError::VersionMismatch);
+
+    const auto devSave = checkpointFixture(Difficulty::Hard, "dev");
+    const auto devSaveResult = ChessPvpSaveVerifier::verify(
+        current.content,
+        devSave.checkpoint.serializeJson());
+    INFO(devSaveResult.message);
+    CHECK(devSaveResult.valid);
+
+    const auto devBuild = checkpointFixture(Difficulty::Hard, "dev");
+    const auto devBuildResult = ChessPvpSaveVerifier::verify(
+        devBuild.content,
+        oldVersion.checkpoint.serializeJson());
+    INFO(devBuildResult.message);
+    CHECK(devBuildResult.valid);
 
     for (const Difficulty difficulty : {Difficulty::Easy, Difficulty::Normal})
     {
@@ -426,7 +453,7 @@ TEST_CASE("PvP standalone build uses explicit formation and isolated campaign st
     auto input = BattleSetupFactory::build(
         build->preparedBattle,
         *build->content,
-        36000);
+        kChessBattleFrameLimit);
     REQUIRE(input.units.size() == 2);
     CHECK(input.units[0].gridX == ChessPvpMapLayout::localFormation()[9].x);
     CHECK(input.units[0].gridY == ChessPvpMapLayout::localFormation()[9].y);

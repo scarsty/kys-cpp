@@ -1,7 +1,6 @@
 #include "ChessSaveStore.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessReplayVerifier.h"
-#include "GameDataStore.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <glaze/json.hpp>
@@ -57,17 +56,20 @@ TEST_CASE("self-contained checkpoint JSON directly restores its snapshot and ful
     CHECK(restored.journal().decisions().front().evidenceHash
         == session.journal().decisions().front().evidenceHash);
 
-    const GameDataStore gameData{checkpoint.toData()};
-    const auto gameDataJson = glz::write_json(gameData);
-    REQUIRE(gameDataJson);
-    CHECK(gameDataJson->contains("\"chessSessionCheckpoint\":{"));
-    CHECK_FALSE(gameDataJson->contains("chessSessionCheckpointJson"));
-    CHECK_FALSE(gameDataJson->contains("\\\"game_version\\\""));
+    ChessSaveSlotData slot;
+    slot.scene = {53, 21, 54, 1};
+    slot.checkpoint = checkpoint.toData();
+    const auto slotJson = glz::write_json(slot);
+    REQUIRE(slotJson);
+    CHECK(slotJson->contains("\"scene\":{"));
+    CHECK(slotJson->contains("\"checkpoint\":{"));
+    CHECK_FALSE(slotJson->contains("gameData"));
+    CHECK_FALSE(slotJson->contains("chessSessionCheckpoint"));
 }
 
-TEST_CASE("direct restore only rejects incompatible or unrepresentable snapshots", "[chess][checkpoint][save]")
+TEST_CASE("direct restore accepts dev versions and rejects incompatible release snapshots", "[chess][checkpoint][save]")
 {
-    const auto content = managementContent();
+    const auto content = managementContent(100, Difficulty::Normal, "1.4.0");
     ChessGameSession session(content, 77);
     const auto originalState = session.state();
 
@@ -76,12 +78,22 @@ TEST_CASE("direct restore only rejects incompatible or unrepresentable snapshots
     CHECK(incompatible.restore(session) == ChessCheckpointError::IncompatibleGameVersion);
     CHECK(session.state() == originalState);
 
-    auto transition = ChessSessionCheckpoint::capture(session, 2);
+    auto devSave = ChessSessionCheckpoint::capture(session, 2);
+    devSave.replay.header.gameVersion = "dev";
+    CHECK(devSave.restore(session) == ChessCheckpointError::None);
+
+    const auto devContent = managementContent();
+    ChessGameSession devSession(devContent, 78);
+    auto releaseSave = ChessSessionCheckpoint::capture(session, 3);
+    releaseSave.replay.header.gameVersion = "1.3.0";
+    CHECK(releaseSave.restore(devSession) == ChessCheckpointError::None);
+
+    auto transition = ChessSessionCheckpoint::capture(session, 4);
     transition.state.phase = ChessSessionPhase::BattleResolution;
     CHECK(transition.restore(session) == ChessCheckpointError::UnrepresentableSnapshot);
     CHECK(session.state() == originalState);
 
-    auto wrongDifficulty = ChessSessionCheckpoint::capture(session, 3);
+    auto wrongDifficulty = ChessSessionCheckpoint::capture(session, 5);
     wrongDifficulty.state.difficulty = Difficulty::Easy;
     CHECK(wrongDifficulty.restore(session) == ChessCheckpointError::UnrepresentableSnapshot);
     CHECK(session.state() == originalState);
@@ -212,9 +224,18 @@ TEST_CASE("portable save import does not activate the checkpoint", "[chess][chec
     ChessGameSession resumed(content, 202);
     REQUIRE(resumed.submitAndDrain(lockAction(true)).accepted);
 
-    CHECK(target.importSave("wrong-version", *payload, "另一個遊戲版本")
+    ChessCheckpointError checkpointError;
+    auto releaseCheckpoint = ChessSessionCheckpoint::parseJson(*payload, checkpointError);
+    REQUIRE(releaseCheckpoint);
+    releaseCheckpoint->replay.header.gameVersion = "1.4.0";
+    const auto releasePayload = releaseCheckpoint->serializeJson();
+    CHECK(target.importSave("wrong-version", releasePayload, "1.5.0")
         == ChessCheckpointError::IncompatibleGameVersion);
     CHECK_FALSE(target.inspect("wrong-version"));
+
+    REQUIRE(target.importSave("dev-version", *payload, "另一個遊戲版本")
+        == ChessCheckpointError::None);
+    CHECK(target.inspect("dev-version"));
     REQUIRE(target.importSave("copy", *payload, content->gameVersion()) == ChessCheckpointError::None);
     CHECK(target.inspect("copy"));
     CHECK(resumed.journal().decisions().size() == 1);

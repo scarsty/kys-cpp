@@ -12,8 +12,14 @@
 #include <emscripten.h>
 #endif
 
-#ifdef __ANDROID__
-void notifyAndroidInputReady();
+#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
+namespace
+{
+void requestApplicationContextMenu()
+{
+    PointerInput::instance().enqueueApplicationContextMenuAction();
+}
+}
 #endif
 
 std::unordered_map<Texture*, Color> Engine::color_cache_;
@@ -183,9 +189,6 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         imgui_ = std::make_unique<ImGuiLayer>();
     }
     imgui_->init(window_, renderer_);
-#ifdef __ANDROID__
-    notifyAndroidInputReady();
-#endif
     return 0;
 }
 
@@ -1387,9 +1390,9 @@ void Engine::cancelImGuiPrimaryTouch() const
     }
 }
 
-bool Engine::processImGuiApplicationCancel() const
+bool Engine::processImGuiApplicationContextMenu() const
 {
-    return imgui_ && imgui_->processApplicationCancel();
+    return imgui_ && imgui_->processApplicationContextMenu();
 }
 
 void Engine::renderImGuiOverlay() const
@@ -1818,9 +1821,9 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
 #include <emscripten.h>
 extern "C" {
 EMSCRIPTEN_KEEPALIVE
-void request_cancel()
+void request_context_menu()
 {
-    PointerInput::instance().enqueueApplicationCancelAction();
+    requestApplicationContextMenu();
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -1852,27 +1855,9 @@ void resize_to_viewport(int w, int h, int css_w, int css_h)
 #include <jni.h>
 extern "C" {
 JNIEXPORT void JNICALL
-Java_com_kysgame_kyschess_KysActivity_nativeRequestCancel(JNIEnv* env, jclass cls)
+Java_com_kysgame_kyschess_KysActivity_nativeRequestContextMenu(JNIEnv*, jclass)
 {
-    PointerInput::instance().enqueueApplicationCancelAction();
+    requestApplicationContextMenu();
 }
-}
-
-void notifyAndroidInputReady()
-{
-    auto* env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
-    auto activity = static_cast<jobject>(SDL_GetAndroidActivity());
-    if (!env || !activity)
-    {
-        return;
-    }
-    auto activityClass = env->GetObjectClass(activity);
-    auto method = env->GetMethodID(activityClass, "onNativeInputReady", "()V");
-    if (method)
-    {
-        env->CallVoidMethod(activity, method);
-    }
-    env->DeleteLocalRef(activityClass);
-    env->DeleteLocalRef(activity);
 }
 #endif

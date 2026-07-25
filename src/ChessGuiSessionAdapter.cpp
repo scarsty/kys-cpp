@@ -6,6 +6,7 @@
 #include "BattlefieldData.h"
 #include "Button.h"
 #include "Audio.h"
+#include "ChessBattleAnalysis.h"
 #include "ChessBattleMapCatalog.h"
 #include "ChessCatalogQueries.h"
 #include "ChessCombo.h"
@@ -2253,7 +2254,7 @@ public:
                     return;
                 }
                 const auto transfer = ExternalJsonFileTransfer::exportJson(
-                    "匯出我的離線對戰存檔",
+                    "匯出離線對戰檢查點",
                     pvpExportFilename(),
                     payload);
                 if (transfer.status == ExternalJsonTransferStatus::Error)
@@ -2267,7 +2268,7 @@ public:
                 }
                 else if (transfer.status == ExternalJsonTransferStatus::Completed)
                 {
-                    status_ = "已匯出離線對戰存檔";
+                    status_ = "已匯出離線對戰檢查點";
                 }
                 forceActiveChild(selected);
                 return;
@@ -3562,7 +3563,7 @@ void ChessGuiSessionAdapter::showOfflineBattle()
             actionIds.push_back(action);
             labels.push_back(std::move(label));
         };
-        addAction(OfflinePvpAction::Export, "匯出我的存檔");
+        addAction(OfflinePvpAction::Export, "匯出對戰檢查點");
         addAction(OfflinePvpAction::Import, opponent ? "匯入/替換對手" : "匯入對手存檔");
         if (canStart)
         {
@@ -4542,9 +4543,18 @@ ChessGuiFlowResult ChessGuiSessionAdapter::drainPreparedBattle()
         }
         if (session_.state().lastBattleOutcome != Battle::BattleOutcome::PlayerVictory)
         {
-            showChessMessage(prepared.kind == PreparedChessBattleKind::Challenge
-                ? "挑戰失敗！請調整陣容後再試"
-                : "戰鬥失敗！請調整陣容後再試");
+            if (session_.state().lastBattleOutcome == Battle::BattleOutcome::Timeout)
+            {
+                showChessMessage(std::format(
+                    "{}。請調整陣容後再試",
+                    chessBattleOutcomeDescription(session_.state().lastBattleOutcome)));
+            }
+            else
+            {
+                showChessMessage(prepared.kind == PreparedChessBattleKind::Challenge
+                    ? "挑戰失敗！請調整陣容後再試"
+                    : "戰鬥失敗！請調整陣容後再試");
+            }
             if (currentChessGuiFlowResult() == ChessGuiFlowResult::Aborted)
             {
                 return ChessGuiFlowResult::Aborted;

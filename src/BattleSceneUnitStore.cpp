@@ -114,6 +114,7 @@ BattlePostBattleSummary BattleSceneUnitStore::makePostBattleSummary(
 {
     assert(runtime_session_);
     BattlePostBattleSummary summary;
+    summary.outcome = runtime_session_->runtime().result.outcome;
     summary.battleResult = battleResult;
 
     auto append = [this, &report](const KysChess::Battle::BattleRuntimeUnit& source, std::vector<BattlePostBattleUnitSummary>& target)

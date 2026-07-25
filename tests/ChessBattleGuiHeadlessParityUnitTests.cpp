@@ -237,7 +237,7 @@ TEST_CASE("prebattle presentation facts come from the shared initialized battle 
     prepared.battleSeed = 123;
     prepared.units.push_back({1, 1, 10, 0, 2, 501, 502});
     prepared.units.push_back({2, -1, 20, 1});
-    const auto input = BattleSetupFactory::build(prepared, content, 36000);
+    const auto input = BattleSetupFactory::build(prepared, content, kChessBattleFrameLimit);
     REQUIRE(input.units.size() == 2);
     CHECK(input.units[0].headId == 77);
     CHECK(input.units[0].weaponId == 501);
@@ -299,7 +299,7 @@ TEST_CASE("equal-power magic tie uses the same highest-ID ultimate in runtime an
     PreparedChessBattle prepared;
     prepared.chosenMapId = -1;
     prepared.units.push_back({1, 1, 10, 0, 1});
-    const auto input = BattleSetupFactory::build(prepared, content, 36000);
+    const auto input = BattleSetupFactory::build(prepared, content, kChessBattleFrameLimit);
     REQUIRE(input.units.size() == 1);
     CHECK(input.units.front().normalSkill.id == 101);
     CHECK(input.units.front().ultimateSkill.id == 102);

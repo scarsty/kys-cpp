@@ -38,14 +38,7 @@ Invoke-WasmConfigureBuild -WasmDir $paths.WasmDir -BuildDir $paths.BuildDir -Dep
 Copy-Item -Force (Join-Path $paths.WasmDir 'serve.py') (Join-Path $paths.BuildDir 'serve.py')
 
 $indexPath = Join-Path $paths.BuildDir 'index.html'
-$mainHtmlFileName = Get-WasmMainHtmlFileName
-Set-Content -Path $indexPath -NoNewline -Value @"
-<!DOCTYPE html>
-<html>
-<head><meta http-equiv="refresh" content="0;url=$mainHtmlFileName"></head>
-<body><a href="$mainHtmlFileName">kyschess</a></body>
-</html>
-"@
+Build-WasmPromoPage -ProjectDir $paths.ProjectDir -GameDir $gameTarget -OutputPath $indexPath
 
 $headersPath = Join-Path $paths.BuildDir '_headers'
 Set-Content -Path $headersPath -NoNewline -Value @'

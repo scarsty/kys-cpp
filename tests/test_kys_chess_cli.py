@@ -341,7 +341,11 @@ class ChessCliTests(unittest.TestCase):
         self.assertTrue(battle["summary"])
         self.assertIn(
             battle["outcome_description"],
-            ("我方勝利", "我方戰敗", "超過戰鬥時間上限"),
+            (
+                "我方勝利",
+                "我方戰敗",
+                "戰鬥超時：達到 99999 幀上限，玩家 1 因時間耗盡判負",
+            ),
         )
         self.assertIn(
             battle["outcome"],

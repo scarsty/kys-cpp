@@ -258,9 +258,13 @@ bool RunNode::isPressOK(EngineEvent& e)
 bool RunNode::isPressCancel(EngineEvent& e)
 {
     bool ret = (e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
-        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_EAST)
-        || PointerInput::instance().isApplicationCancelEvent(e);
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_EAST);
     return ret;
+}
+
+bool RunNode::isPressContextMenu(EngineEvent& e)
+{
+    return PointerInput::instance().isApplicationContextMenuEvent(e);
 }
 
 void RunNode::setExit(bool e)
@@ -632,30 +636,19 @@ void RunNode::handleLegacyGlobalEvent(const EngineEvent& event)
     {
         invalidatePointerOwnership();
     }
-    if (event.type == EVENT_WINDOW_HIDDEN || event.type == EVENT_WINDOW_FOCUS_LOST)
+    if (event.type == EVENT_WINDOW_HIDDEN
+        || event.type == EVENT_WINDOW_FOCUS_LOST
+        || event.type == EVENT_WINDOW_FOCUS_GAINED
+        || event.type == EVENT_WILL_ENTER_BACKGROUND
+        || event.type == EVENT_DID_ENTER_BACKGROUND
+        || event.type == EVENT_WILL_ENTER_FOREGROUND
+        || event.type == EVENT_DID_ENTER_FOREGROUND)
     {
-        Engine::getInstance()->cancelImGuiPrimaryTouch();
-#ifdef __EMSCRIPTEN__
-        PointerInput::instance().resetTouchState();
-#else
-        PointerInput::instance().rejectActiveTouchContacts();
-#endif
-        cancelPointerCapture();
-        if (!run_owner_stack_.empty()) run_owner_stack_.back()->onPointerInputReset();
-        ++ownership_epoch_;
+        resetPointerInputForSystemTransition();
     }
     if (event.type == EVENT_DID_ENTER_BACKGROUND)
     {
         Audio::getInstance()->pauseMusic();
-        Engine::getInstance()->cancelImGuiPrimaryTouch();
-#ifdef __EMSCRIPTEN__
-        PointerInput::instance().resetTouchState();
-#else
-        PointerInput::instance().rejectActiveTouchContacts();
-#endif
-        cancelPointerCapture();
-        if (!run_owner_stack_.empty()) run_owner_stack_.back()->onPointerInputReset();
-        ++ownership_epoch_;
     }
     if (event.type == EVENT_DID_ENTER_FOREGROUND)
     {
@@ -670,6 +663,18 @@ void RunNode::handleLegacyGlobalEvent(const EngineEvent& event)
     {
         UISystem::askExit(1);
     }
+}
+
+void RunNode::resetPointerInputForSystemTransition()
+{
+    Engine::getInstance()->cancelImGuiPrimaryTouch();
+    cancelPointerCapture();
+    PointerInput::instance().resetTouchState();
+    if (!run_owner_stack_.empty())
+    {
+        run_owner_stack_.back()->onPointerInputReset();
+    }
+    ++ownership_epoch_;
 }
 
 //画出自身和子节点
@@ -729,6 +734,10 @@ void RunNode::checkStateSelfChilds(EngineEvent& e, bool check_event)
                     onPressedCancel();
                     //setAllChildState(Normal);
                 }
+                if (isPressContextMenu(e))
+                {
+                    onPressedContextMenu();
+                }
             }
         }
         dealEvent2(e);
@@ -779,9 +788,9 @@ void RunNode::dealEventSelfChilds(bool check_event)
             const auto queuedEvent = input.popPending();
             const auto& event = queuedEvent.event();
             handleLegacyGlobalEvent(event);
-            if (input.isApplicationCancelEvent(event))
+            if (input.isApplicationContextMenuEvent(event))
             {
-                Engine::getInstance()->processImGuiApplicationCancel();
+                Engine::getInstance()->processImGuiApplicationContextMenu();
             }
             else
             {
@@ -886,10 +895,10 @@ void RunNode::dealEventSelfChilds(bool check_event)
         updateQueuedEvent.emplace(input.popPending());
         const auto& event = updateQueuedEvent->event();
         handleLegacyGlobalEvent(event);
-        const bool consumedByImGui = input.isApplicationCancelEvent(event)
-            ? Engine::getInstance()->processImGuiApplicationCancel()
+        const bool consumedByImGui = input.isApplicationContextMenuEvent(event)
+            ? Engine::getInstance()->processImGuiApplicationContextMenu()
             : Engine::getInstance()->processImGuiEvent(event);
-        if (consumedByImGui && input.isApplicationCancelEvent(event))
+        if (consumedByImGui && input.isApplicationContextMenuEvent(event))
         {
             Engine::getInstance()->cancelImGuiPrimaryTouch();
             input.rejectActiveTouchContacts();

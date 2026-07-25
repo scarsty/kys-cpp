@@ -107,6 +107,7 @@ public:
     const std::map<int, ChessBattleMapDefinition>& battleMaps() const { return data_->battleMaps; }
     const std::map<int, ChessBattlefieldDefinition>& battlefields() const { return data_->battlefields; }
     const std::string& gameVersion() const { return gameVersion_; }
+    std::shared_ptr<const ChessGameContent> withGameVersion(std::string gameVersion) const;
 
     const ChessRoleDefinition* role(int roleId) const;
     const ChessMagicDefinition* magic(int magicId) const;

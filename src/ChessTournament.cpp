@@ -388,16 +388,12 @@ using namespace TournamentDetail;
 ChessTournamentBattleOutcome chessTournamentBattleOutcome(
     const BattleSummary& summary)
 {
-    if (summary.outcome == Battle::BattleOutcome::Timeout
-        || summary.survivors.empty())
-    {
-        return ChessTournamentBattleOutcome::Draw;
-    }
     if (summary.outcome == Battle::BattleOutcome::PlayerVictory)
     {
         return ChessTournamentBattleOutcome::TeamZeroVictory;
     }
-    assert(summary.outcome == Battle::BattleOutcome::PlayerDefeat);
+    assert(summary.outcome == Battle::BattleOutcome::PlayerDefeat
+        || summary.outcome == Battle::BattleOutcome::Timeout);
     return ChessTournamentBattleOutcome::TeamOneVictory;
 }
 

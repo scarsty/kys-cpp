@@ -11,7 +11,8 @@ namespace KysChess
 {
 
 class ChessGameSession;
-struct GameDataStore;
+struct ChessSaveSceneState;
+struct ChessSessionCheckpoint;
 
 class ChessMod
 {
@@ -33,11 +34,14 @@ class ChessModHook
 {
 public:
     static void initializeSaveState(::Save& save);
+    static ChessSaveSceneState initialSaveSceneState();
     static bool overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty);
-    static bool canSaveGameData();
-    static GameDataStore exportGameData();
-    static bool isGameDataReadable(const GameDataStore& store, std::string& error);
-    static bool importGameData(const GameDataStore& store, ::Save& save);
+    static bool canSaveCheckpoint();
+    static ChessSessionCheckpoint exportCheckpoint();
+    static bool isCheckpointReadable(
+        const ChessSessionCheckpoint& checkpoint,
+        std::string& error);
+    static bool importCheckpoint(const ChessSessionCheckpoint& checkpoint, ::Save& save);
 };
 
 }    // namespace KysChess
