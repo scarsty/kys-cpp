@@ -33,7 +33,6 @@ namespace KysChess::Battle
 namespace
 {
 constexpr int CoreRoleStatusEffectFrames = 48;
-constexpr double CorePi = 3.14159265358979323846;
 constexpr int ActionCastFrameJitterRadius = 1;
 constexpr int ActionCastFrameJitterChoices = ActionCastFrameJitterRadius * 2 + 1;
 
@@ -5756,7 +5755,7 @@ void applySpiralBleedCastEffect(
         request.spiralCenter = sourcePosition;
         request.spiralRadius = 0.0f;
         request.spiralRadiusGrowth = static_cast<float>(speed * 0.9);
-        request.spiralAngle = static_cast<float>(2.0 * CorePi * i / count);
+        request.spiralAngle = static_cast<float>(2.0 * BattlePi * i / count);
         request.spiralAngularVelocity = 0.42f;
         attackSpawns.push_back(std::move(request));
     }

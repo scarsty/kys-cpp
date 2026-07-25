@@ -1,6 +1,7 @@
 #include "BattleMovement.h"
 
 #include "../Find.h"
+#include "BattleMath.h"
 
 #include <algorithm>
 #include <cassert>
@@ -16,7 +17,6 @@ namespace KysChess::Battle
 namespace
 {
 
-constexpr double kPi = 3.14159265358979323846;
 constexpr double AirborneTerrainClearanceTileFactor = 3.0;
 constexpr int CooperativeYieldRequestFrames = 4;
 constexpr int LocalPocketDetourFrames = 12;
@@ -32,12 +32,6 @@ bool isLocalPocketDetour(const BattleMovementDetourRequest& request)
 {
     return request.blockerUnitId == LocalPocketLeftDetourMarker
         || request.blockerUnitId == LocalPocketRightDetourMarker;
-}
-
-Pointf rotated(Pointf value, double angle)
-{
-    value.rotate(angle);
-    return value;
 }
 
 double distance2d(Pointf a, Pointf b)
@@ -96,7 +90,7 @@ double combatSlotAngle(int slot)
     {
         return 0.0;
     }
-    return kPi / 4.0 * std::abs(slot) * (slot > 0 ? 1.0 : -1.0);
+    return BattlePi / 4.0 * std::abs(slot) * (slot > 0 ? 1.0 : -1.0);
 }
 
 struct NearestEnemyResult
@@ -200,12 +194,12 @@ std::pmr::vector<Pointf> candidateDirections(const BattleMovementPlanInput& worl
     result.push_back(direct);
 
     int side = deterministicSide(unit.id, unit.assignedSlot);
-    double smallTurn = kPi / 6.0;
-    double largeTurn = kPi / 3.0;
-    result.push_back(rotated(direct, smallTurn * side));
-    result.push_back(rotated(direct, -smallTurn * side));
-    result.push_back(rotated(direct, largeTurn * side));
-    result.push_back(rotated(direct, -largeTurn * side));
+    double smallTurn = BattlePi / 6.0;
+    double largeTurn = BattlePi / 3.0;
+    result.push_back(rotateBattlePoint(direct, smallTurn * side));
+    result.push_back(rotateBattlePoint(direct, -smallTurn * side));
+    result.push_back(rotateBattlePoint(direct, largeTurn * side));
+    result.push_back(rotateBattlePoint(direct, -largeTurn * side));
     return result;
 }
 
@@ -659,15 +653,15 @@ Pointf combatSlotPosition(const BattleMovementPlanInput& world,
     auto away = unit.position - target.position;
     if (away.norm() <= 0.01f)
     {
-        double angle = (unit.id * 37 + slot * 53) * kPi / 180.0;
-        away = Pointf{ static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)), 0.0f };
+        double angle = (unit.id * 37 + slot * 53) * BattlePi / 180.0;
+        away = battleDirection(angle);
     }
     away = unitVector(away);
 
     double radius = unit.style == CombatStyle::Ranged
         ? std::clamp(unit.reach - world.config.engagementDeadband, world.config.meleeAttackReach, world.config.maxRangedReach)
         : std::max(world.config.engagementArriveDistance, world.config.meleeAttackReach - world.config.engagementDeadband);
-    return target.position + rotated(away, combatSlotAngle(slot)) * radius;
+    return target.position + rotateBattlePoint(away, combatSlotAngle(slot)) * radius;
 }
 
 struct MeleeApproachSlotEntry
@@ -875,8 +869,8 @@ std::optional<Pointf> bodySeparationDirection(const BattleMovementPlanInput& wor
         auto away = unit.position - other.position;
         if (away.norm() <= 0.01f)
         {
-            const double angle = (unit.id * 37 + other.id * 53) * kPi / 180.0;
-            away = Pointf{ static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)), 0.0f };
+            const double angle = (unit.id * 37 + other.id * 53) * BattlePi / 180.0;
+            away = battleDirection(angle);
         }
         away = unitVector(away);
         direction += away * static_cast<float>(world.config.bodyRadius - distance);
@@ -948,8 +942,8 @@ std::optional<Pointf> frontlineSoftSpreadDirection(const BattleMovementPlanInput
     awayFromTarget.z = 0;
     if (awayFromTarget.norm() <= 0.01f)
     {
-        const double angle = (unit.id * 37 + target.id * 53) * kPi / 180.0;
-        awayFromTarget = Pointf{ static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)), 0.0f };
+        const double angle = (unit.id * 37 + target.id * 53) * BattlePi / 180.0;
+        awayFromTarget = battleDirection(angle);
     }
     awayFromTarget = unitVector(awayFromTarget);
 
@@ -972,8 +966,8 @@ std::optional<Pointf> frontlineSoftSpreadDirection(const BattleMovementPlanInput
         awayFromOther.z = 0;
         if (awayFromOther.norm() <= 0.01f)
         {
-            const double angle = (unit.id * 37 + other.id * 53) * kPi / 180.0;
-            awayFromOther = Pointf{ static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)), 0.0f };
+            const double angle = (unit.id * 37 + other.id * 53) * BattlePi / 180.0;
+            awayFromOther = battleDirection(angle);
         }
         awayFromOther = unitVector(awayFromOther);
 
@@ -1059,8 +1053,8 @@ std::vector<Pointf> blockerDetourDirections(const BattleUnitState& unit,
     toBlocker.z = 0;
     if (toBlocker.norm() <= 0.01f)
     {
-        const double angle = (unit.id * 37 + blocker.id * 53) * kPi / 180.0;
-        toBlocker = Pointf{ static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)), 0.0f };
+        const double angle = (unit.id * 37 + blocker.id * 53) * BattlePi / 180.0;
+        toBlocker = battleDirection(angle);
     }
     toBlocker = unitVector(toBlocker);
 
@@ -1630,9 +1624,9 @@ Pointf localPocketDetourDirection(const BattleMovementPlanInput& world,
                                   const FrameMovementReservationMap& reservations)
 {
     auto targetDirection = unitVector(target.position - unit.position);
-    const auto sideDirection = rotated(
+    const auto sideDirection = rotateBattlePoint(
         targetDirection,
-        request.blockerUnitId == LocalPocketLeftDetourMarker ? kPi / 2.0 : -kPi / 2.0);
+        request.blockerUnitId == LocalPocketLeftDetourMarker ? BattlePi / 2.0 : -BattlePi / 2.0);
 
     Pointf repulsion;
     const double influenceRadius = comfortableMeleeSpacing(world.config) * 1.5;
@@ -1687,11 +1681,11 @@ std::optional<MovementDecision> tryLocalPocketEscape(const BattleMovementPlanInp
     }
     const int side = deterministicSide(unit.id, unit.assignedSlot);
     const double candidateAngles[] = {
-        kPi / 2.0 * side,
-        -kPi / 2.0 * side,
-        kPi * 3.0 / 4.0 * side,
-        -kPi * 3.0 / 4.0 * side,
-        kPi,
+        BattlePi / 2.0 * side,
+        -BattlePi / 2.0 * side,
+        BattlePi * 3.0 / 4.0 * side,
+        -BattlePi * 3.0 / 4.0 * side,
+        BattlePi,
     };
 
     std::optional<MovementDecision> best;
@@ -1700,7 +1694,7 @@ std::optional<MovementDecision> tryLocalPocketEscape(const BattleMovementPlanInp
     double bestTargetDistance = std::numeric_limits<double>::max();
     for (const double angle : candidateAngles)
     {
-        const auto direction = rotated(targetDirection, angle);
+        const auto direction = rotateBattlePoint(targetDirection, angle);
         const auto next = unit.position + direction * unit.speed;
         if (!terrain.segmentClear(unit.position, next))
         {

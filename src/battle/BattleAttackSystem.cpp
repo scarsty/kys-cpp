@@ -630,14 +630,15 @@ void BattleAttackState::moveAttack(BattleAttackInstance& attack) const
     {
         attack.spiralRadius += attack.spiralRadiusGrowth;
         attack.spiralAngle += attack.spiralAngularVelocity;
+        const auto [sine, cosine] = deterministicSinCos(attack.spiralAngle);
         attack.state.position = attack.spiralCenter + Pointf{
-            static_cast<float>(std::cos(attack.spiralAngle) * attack.spiralRadius),
-            static_cast<float>(std::sin(attack.spiralAngle) * attack.spiralRadius),
+            static_cast<float>(cosine * attack.spiralRadius),
+            static_cast<float>(sine * attack.spiralRadius),
             0.0f,
         };
         attack.state.velocity = {
-            static_cast<float>(std::cos(attack.spiralAngle) * attack.spiralRadiusGrowth),
-            static_cast<float>(std::sin(attack.spiralAngle) * attack.spiralRadiusGrowth),
+            static_cast<float>(cosine * attack.spiralRadiusGrowth),
+            static_cast<float>(sine * attack.spiralRadiusGrowth),
             0.0f,
         };
         attack.previousPosition = positionBeforeMove;

@@ -113,6 +113,7 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
   <ItemGroup>
     <ClCompile Include="TestMain.cpp" />
     <ClCompile Include="BattleAttackSystemUnitTests.cpp" />
+    <ClCompile Include="BattleMathUnitTests.cpp" />
     <ClCompile Include="BattleActionCommitUnitTests.cpp" />
     <ClCompile Include="ButtonUnitTests.cpp" />
     <ClCompile Include="BattleInitializationUnitTests.cpp" />
@@ -143,7 +144,6 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="ChessJsonProtocolUnitTests.cpp" />
     <ClCompile Include="ChessMenuFormattingUnitTests.cpp" />
     <ClCompile Include="ChessCliControllerUnitTests.cpp" />
-    <ClCompile Include="ChessCoreDependencyUnitTests.cpp" />
     <ClCompile Include="ChessReplayVerifierUnitTests.cpp" />
     <ClCompile Include="ChessReplayArchiveUnitTests.cpp" />
     <ClCompile Include="ChessReplayGoldenUnitTests.cpp" />

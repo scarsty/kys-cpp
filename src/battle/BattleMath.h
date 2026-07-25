@@ -8,6 +8,20 @@
 namespace KysChess::Battle
 {
 
+inline constexpr double BattlePi = 0x1.921fb54442d18p+1;
+
+struct BattleSinCos
+{
+    double sine{};
+    double cosine{};
+};
+
+BattleSinCos deterministicSinCos(double radians);
+double deterministicAtan2(double y, double x);
+double deterministicAngleDelta(double lhs, double rhs);
+Pointf rotateBattlePoint(Pointf point, double radians);
+Pointf battleDirection(double radians);
+
 inline double pointDistance(const Pointf& lhs, const Pointf& rhs)
 {
     const double dx = static_cast<double>(lhs.x) - rhs.x;

@@ -30,6 +30,7 @@ endif()
 # Project root (kys-cpp/)
 set(KYS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../..")
 include("${KYS_ROOT}/cmake/KysSources.cmake")
+include("${KYS_ROOT}/cmake/KysDeterministicFloatingPoint.cmake")
 
 kys_collect_all_game_sources(KYS_SRC "${KYS_ROOT}")
 
@@ -44,6 +45,7 @@ target_include_directories(main PRIVATE
 
 target_compile_definitions(main PRIVATE NDEBUG)
 target_compile_options(main PRIVATE -O2 -fexceptions -frtti)
+kys_enable_deterministic_floating_point(main)
 
 target_link_libraries(main
     SDL3::SDL3

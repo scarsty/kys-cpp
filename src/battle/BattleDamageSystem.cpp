@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 
 namespace KysChess::Battle
 {
@@ -13,7 +12,7 @@ namespace KysChess::Battle
 namespace
 {
 
-constexpr double BattlePi = 3.14159265358979323846;
+constexpr double DiagonalFacingCosine = 0x1.6a09e667f3bcdp-1;
 
 BattleUnitDelta makeBattleUnitDelta(const BattleDamageUnitState& before, const BattleDamageUnitState& after)
 {
@@ -505,12 +504,11 @@ BattleHitShapeResult BattleDamageSystem::shapeHitDamage(const BattleHitShapeInpu
     assert(facingNorm > 0.0);
     const double dot = attackVector.x * defenderFacing.x + attackVector.y * defenderFacing.y;
     const double facingCos = std::clamp(dot / attackNorm / facingNorm, -1.0, 1.0);
-    const double angle = std::acos(facingCos);
-    if (angle >= BattlePi * 0.25 && angle < BattlePi * 0.75)
+    if (facingCos <= DiagonalFacingCosine && facingCos > -DiagonalFacingCosine)
     {
         damage *= 1.2;
     }
-    else if (angle >= BattlePi * 0.75)
+    else if (facingCos <= -DiagonalFacingCosine)
     {
         damage *= 1.5;
     }

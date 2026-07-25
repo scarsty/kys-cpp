@@ -21,7 +21,7 @@
   <PropertyGroup><OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir><IntDir>$(Platform)\$(Configuration)\battle_core\</IntDir><VcpkgEnableManifest>true</VcpkgEnableManifest><VcpkgAutoLink>true</VcpkgAutoLink></PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <LanguageStandard>stdcpplatest</LanguageStandard><MultiProcessorCompilation>true</MultiProcessorCompilation><FloatingPointModel>Strict</FloatingPointModel><ExceptionHandling>Sync</ExceptionHandling><PreprocessorDefinitions>KYS_HEADLESS_CORE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalIncludeDirectories>.;..\mlcc;..\local\include;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><AdditionalOptions>/Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpplatest</LanguageStandard><MultiProcessorCompilation>true</MultiProcessorCompilation><FloatingPointModel>Precise</FloatingPointModel><ExceptionHandling>Sync</ExceptionHandling><PreprocessorDefinitions>KYS_HEADLESS_CORE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalIncludeDirectories>.;..\mlcc;..\local\include;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><AdditionalOptions>/Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup><ClCompile Include="battle\*.cpp" /></ItemGroup>

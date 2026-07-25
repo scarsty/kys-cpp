@@ -3,6 +3,7 @@ project(kys-wasm)
 
 set(KYS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 include("${KYS_ROOT}/cmake/KysSources.cmake")
+include("${KYS_ROOT}/cmake/KysDeterministicFloatingPoint.cmake")
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -38,6 +39,7 @@ add_compile_options(
 )
 
 add_executable(kyschess ${SRC_LIST})
+kys_enable_deterministic_floating_point(kyschess)
 
 # Link libraries: all from vcpkg wasm32-emscripten
 target_link_libraries(kyschess

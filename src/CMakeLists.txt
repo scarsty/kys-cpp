@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 
 set(KYS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 include("${KYS_ROOT}/cmake/KysSources.cmake")
+include("${KYS_ROOT}/cmake/KysDeterministicFloatingPoint.cmake")
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -51,6 +52,7 @@ add_library(kys_battle_core STATIC ${KYS_BATTLE_SOURCES})
 target_include_directories(kys_battle_core PUBLIC ${KYS_COMMON_INCLUDES})
 target_compile_definitions(kys_battle_core PRIVATE KYS_HEADLESS_CORE NOMINMAX)
 target_link_libraries(kys_battle_core PUBLIC unordered_dense::unordered_dense)
+kys_enable_deterministic_floating_point(kys_battle_core)
 
 kys_collect_chess_core_sources(KYS_CHESS_CORE_SOURCES "${KYS_ROOT}")
 add_library(kys_chess_core STATIC ${KYS_CHESS_CORE_SOURCES})
@@ -62,6 +64,7 @@ target_link_libraries(kys_chess_core PUBLIC
     yaml-cpp::yaml-cpp
     libzip::zip
 )
+kys_enable_deterministic_floating_point(kys_chess_core)
 
 if(KYS_BUILD_GRAPHICAL_COMPONENTS)
     kys_collect_support_sources(KYS_GAME_SUPPORT_SOURCES "${KYS_ROOT}")
@@ -129,12 +132,12 @@ if(KYS_BUILD_CHESS_CLI)
     target_include_directories(kys_chess_cli PRIVATE ${KYS_COMMON_INCLUDES})
     target_compile_definitions(kys_chess_cli PRIVATE KYS_HEADLESS_CORE NOMINMAX)
     target_link_libraries(kys_chess_cli PRIVATE kys_chess_core kys_battle_core)
+    kys_enable_deterministic_floating_point(kys_chess_cli)
 endif()
 
 if(MSVC)
     target_compile_options(kys_battle_core PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
-    target_compile_options(kys_chess_core PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8 /fp:strict)
-    target_compile_options(kys_battle_core PRIVATE /fp:strict)
+    target_compile_options(kys_chess_core PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
     if(TARGET kys_game_lib)
         target_compile_options(kys_game_lib PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
     endif()
@@ -142,7 +145,7 @@ if(MSVC)
         target_compile_options(kys PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
     endif()
     if(TARGET kys_chess_cli)
-        target_compile_options(kys_chess_cli PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8 /fp:strict)
+        target_compile_options(kys_chess_cli PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
     endif()
 endif()
 
@@ -159,6 +162,7 @@ if(BUILD_TESTING)
     "${KYS_ROOT}/tests/TestMain.cpp"
     "${KYS_ROOT}/tests/BattleActionCommitUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleAttackSystemUnitTests.cpp"
+    "${KYS_ROOT}/tests/BattleMathUnitTests.cpp"
     "${KYS_ROOT}/tests/ButtonUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleCastSystemUnitTests.cpp"
     "${KYS_ROOT}/tests/BattleRuntimeRandomUnitTests.cpp"
@@ -187,7 +191,6 @@ if(BUILD_TESTING)
     "${KYS_ROOT}/tests/ChessJsonProtocolUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessMenuFormattingUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessCliControllerUnitTests.cpp"
-    "${KYS_ROOT}/tests/ChessCoreDependencyUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessReplayVerifierUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessReplayArchiveUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessReplayGoldenUnitTests.cpp"

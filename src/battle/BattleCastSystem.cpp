@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <ranges>
 #include <vector>
 
@@ -37,7 +36,7 @@ int advanceOperationCountAfterCommittedCast(int operationCount,
 
 namespace
 {
-constexpr double RangedSideProjectileAngle = 3.14159265358979323846 / 12.0;
+constexpr double RangedSideProjectileAngle = BattlePi / 12.0;
 
 BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
 {
@@ -59,30 +58,13 @@ Pointf castFacing(const BattleCastInput& input)
     return normalizedTo(facing, 1.0, input.config.minimumFacingNorm);
 }
 
-Pointf rotated(Pointf point, double angle)
-{
-    const double baseAngle = std::atan2(point.y, point.x) + angle;
-    const double norm = std::sqrt(static_cast<double>(point.x) * point.x
-        + static_cast<double>(point.y) * point.y);
-    return {
-        static_cast<float>(std::cos(baseAngle) * norm),
-        static_cast<float>(std::sin(baseAngle) * norm),
-        point.z,
-    };
-}
-
-double angleDelta(double lhs, double rhs)
-{
-    return std::abs(std::atan2(std::sin(lhs - rhs), std::cos(lhs - rhs)));
-}
-
 std::vector<BattleCastProjectileTarget> orderedAlternateProjectileTargets(
     const BattleCastInput& input,
     Pointf launchPosition,
     Pointf baseDirection,
     double maxTravel)
 {
-    const double baseAngle = std::atan2(baseDirection.y, baseDirection.x);
+    const double baseAngle = deterministicAtan2(baseDirection.y, baseDirection.x);
     std::vector<BattleCastProjectileTarget> targets;
     for (const auto& target : input.projectileSpreadTargets)
     {
@@ -102,13 +84,13 @@ std::vector<BattleCastProjectileTarget> orderedAlternateProjectileTargets(
         const auto leftDir = left.position - launchPosition;
         const auto rightDir = right.position - launchPosition;
         const double leftAngle = leftDir.norm() > input.config.minimumFacingNorm
-            ? std::atan2(leftDir.y, leftDir.x)
+            ? deterministicAtan2(leftDir.y, leftDir.x)
             : baseAngle;
         const double rightAngle = rightDir.norm() > input.config.minimumFacingNorm
-            ? std::atan2(rightDir.y, rightDir.x)
+            ? deterministicAtan2(rightDir.y, rightDir.x)
             : baseAngle;
-        const double leftDelta = angleDelta(leftAngle, baseAngle);
-        const double rightDelta = angleDelta(rightAngle, baseAngle);
+        const double leftDelta = deterministicAngleDelta(leftAngle, baseAngle);
+        const double rightDelta = deterministicAngleDelta(rightAngle, baseAngle);
         if (leftDelta != rightDelta)
         {
             return leftDelta < rightDelta;
@@ -174,7 +156,7 @@ void assignProjectileTargetOrSpread(
         const auto facing = castFacing(input);
         const double offset = (projectileIndex - (projectileCount - 1) / 2.0) * RangedSideProjectileAngle;
         request.initial.velocity = normalizedTo(
-            rotated(facing, offset),
+            rotateBattlePoint(facing, offset),
             speed,
             input.config.minimumFacingNorm);
     }
@@ -501,7 +483,7 @@ void appendRangedSideProjectiles(
             BattleOperationType::RangedProjectile,
             BattleAttackCastSubrequestKind::ExtraProjectile);
         side.initial.velocity = normalizedTo(
-            rotated(facing, angle),
+            rotateBattlePoint(facing, angle),
             speed,
             input.config.minimumFacingNorm);
         side.initial.through = true;
