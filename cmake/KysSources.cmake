@@ -73,6 +73,7 @@ function(kys_collect_chess_core_sources out_var kys_root)
         "${kys_root_abs}/src/ChessReplayVerifier.cpp"
         "${kys_root_abs}/src/ChessRewardRules.cpp"
         "${kys_root_abs}/src/ChessRunRandom.cpp"
+        "${kys_root_abs}/src/ChessSaveFile.cpp"
         "${kys_root_abs}/src/ChessSaveStore.cpp"
         "${kys_root_abs}/src/ChessSessionCheckpoint.cpp"
         "${kys_root_abs}/src/ChessStandaloneBattle.cpp"

@@ -36,9 +36,9 @@ def write_deployment_manifest(
 
 
 class DirectJsonl:
-    def __init__(self):
+    def __init__(self, autosave_file: Path):
         self.process = subprocess.Popen(
-            [str(CLI), "--jsonl"],
+            [str(CLI), "--jsonl", "--autosave-file", str(autosave_file)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -63,13 +63,11 @@ class DirectJsonl:
 
 class McpAdapterTests(unittest.TestCase):
     def test_adapter_responses_equal_direct_jsonl(self):
-        direct = DirectJsonl()
-        try:
-            with tempfile.TemporaryDirectory() as save_dir, CliSession(
-                CLI,
-                save_dir=save_dir,
-                autosave=False,
-            ) as adapter:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            direct = DirectJsonl(root / "direct-autosave.json")
+            adapter = CliSession(CLI, save_dir=root / "adapter")
+            try:
                 def request_pair(method, params=None):
                     adapter_response = adapter.request(method, params)
                     direct_response = direct.request(method, params)
@@ -117,22 +115,26 @@ class McpAdapterTests(unittest.TestCase):
                 )
                 request_pair("load_game", {"slot": "1"})
                 request_pair("export_replay")
-        finally:
-            direct.close()
+            finally:
+                adapter.close()
+                direct.close()
 
     def test_mcp_tool_surface_matches_the_protocol_contract(self):
         source = (PACKAGE_ROOT / "kys_chess_mcp" / "server.py").read_text(encoding="utf-8")
         self.assertNotIn("def new_game(", source)
         self.assertNotIn("def observe_game(", source)
         self.assertIn("def dispatch_mcp_tool(", source)
+        self.assertNotIn("_persist_save", source)
+        self.assertNotIn("_restore_persisted_saves", source)
+        self.assertNotIn("_update_autosave", source)
 
         with tempfile.TemporaryDirectory() as save_dir, CliSession(
             CLI,
             save_dir=save_dir,
-            autosave=False,
         ) as adapter:
             definitions = {tool["name"]: tool for tool in adapter.tool_catalog()}
             self.assertIn("new_game", definitions)
+            self.assertIn("resume_saved_game", definitions)
             self.assertIn("export_save_file", definitions)
             self.assertIn("import_save_file", definitions)
             self.assertNotIn("export_save", definitions)
@@ -243,7 +245,10 @@ class McpAdapterTests(unittest.TestCase):
             manifest = root / "current.json"
             save_dir = root / "saves"
             write_deployment_manifest(manifest, "version-1", CLI)
-            with CliSession(deployment_manifest=manifest, save_dir=save_dir) as adapter:
+            with CliSession(
+                deployment_manifest=manifest,
+                save_dir=save_dir,
+            ) as adapter:
                 self.assertTrue(adapter.request(
                     "new",
                     {"difficulty": "normal", "seed": "0x0000000000000049"},
@@ -314,39 +319,24 @@ class McpAdapterTests(unittest.TestCase):
                 self.assertEqual(continued["result"]["game_state"]["state_hash"], expected["state_hash"])
                 self.assertEqual(adapter.diagnostic_status()["runtime"]["version"], "working")
 
-    def test_named_saves_survive_adapter_restart(self):
+    def test_named_saves_are_process_local(self):
         with tempfile.TemporaryDirectory() as save_dir:
             with CliSession(CLI, save_dir=save_dir) as first:
                 self.assertTrue(first.request(
                     "new",
                     {"difficulty": "normal", "seed": "0x0000000000000045"},
                 )["ok"])
-                self.assertTrue(first.request("save_game", {"slot": "長期", "label": "持久"})["ok"])
-
-            persisted_files = list(Path(save_dir).glob("*.json"))
-            self.assertEqual(len(persisted_files), 1)
-            stored = json.loads(persisted_files[0].read_text(encoding="utf-8"))
-            self.assertIn("checkpoint", stored)
-            self.assertNotIn("payload", stored)
-            self.assertIsInstance(stored["checkpoint"]["replay"]["decisions"], list)
+                self.assertTrue(first.request("save_game", {"slot": "暫存", "label": "程序內"})["ok"])
+                listed = first.request("list_saves")
+                self.assertIn("暫存", [slot["slot"] for slot in listed["result"]])
 
             with CliSession(CLI, save_dir=save_dir) as second:
                 discovered = second.request("list_saves")
                 self.assertTrue(discovered["ok"])
-                self.assertEqual([slot["slot"] for slot in discovered["result"]], ["長期"])
-                self.assertIsNone(discovered["result"][0]["compatible"])
-                self.assertEqual(discovered["result"][0]["difficulty"], "normal")
-                self.assertTrue(discovered["result"][0]["persisted"])
-                self.assertTrue(second.request(
-                    "new",
-                    {"difficulty": "normal", "seed": "0x0000000000000046"},
-                )["ok"])
-                listed = second.request("list_saves")
-                self.assertTrue(listed["ok"])
-                self.assertEqual([slot["slot"] for slot in listed["result"]], ["長期"])
-                loaded = second.request("load_game", {"slot": "長期"})
-                self.assertTrue(loaded["ok"])
-                self.assertEqual(loaded["result"]["loaded_slot"], "長期")
+                self.assertEqual(
+                    [slot["slot"] for slot in discovered["result"]],
+                    [AUTO_SAVE_SLOT],
+                )
 
     def test_accepted_actions_update_a_durable_autosave(self):
         with tempfile.TemporaryDirectory() as save_dir:
@@ -387,12 +377,10 @@ class McpAdapterTests(unittest.TestCase):
                     slot for slot in discovered["result"] if slot["slot"] == AUTO_SAVE_SLOT
                 )
                 self.assertEqual(persisted["label"], "自動存檔")
-                self.assertTrue(persisted["persisted"])
-                self.assertTrue(second.request(
-                    "new",
-                    {"difficulty": "normal", "seed": "0x0000000000000048"},
-                )["ok"])
-                loaded = second.request("load_game", {"slot": AUTO_SAVE_SLOT})
+                loaded = second.request(
+                    "resume_game",
+                    {"detail": "compact"},
+                )
                 self.assertTrue(loaded["ok"])
                 restored = second.request("observe", {"detail": "compact"})["result"]["game_state"]
                 self.assertEqual(restored["state_hash"], expected["state_hash"])

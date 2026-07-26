@@ -83,14 +83,14 @@ const ChessSessionCheckpoint* ChessSaveStore::inspect(const std::string& slotId)
     return found == slots_.end() ? nullptr : &found->second;
 }
 
-std::vector<ChessSaveSlotSummary> ChessSaveStore::list(const ChessGameSession& session) const
+std::vector<ChessSaveSlotSummary> ChessSaveStore::list() const
 {
     std::vector<ChessSaveSlotSummary> result;
+    result.reserve(slots_.size());
     for (const auto& [slotId, checkpoint] : slots_)
     {
         result.push_back({
             slotId,
-            true,
             checkpoint.saveRevision,
             checkpoint.label,
             checkpoint.state.fight,
@@ -99,13 +99,6 @@ std::vector<ChessSaveSlotSummary> ChessSaveStore::list(const ChessGameSession& s
             static_cast<int>(checkpoint.state.roster.size()),
             checkpoint.replay.decisions.size(),
             checkpoint.snapshotHash,
-            chessCheckpointVersionCompatible(
-                checkpoint,
-                session.content().gameVersion())
-                && checkpoint.replay.header.contentFingerprint
-                    == session.content().contentFingerprint()
-                && checkpoint.state.difficulty == session.content().difficulty()
-                && checkpoint.state.phase != ChessSessionPhase::BattleResolution,
         });
     }
     return result;
@@ -128,7 +121,12 @@ ChessCheckpointError ChessSaveStore::importSave(
     {
         return error;
     }
-    return importCheckpoint(std::move(slotId), std::move(*checkpoint), gameVersion);
+    if (!chessCheckpointVersionCompatible(*checkpoint, gameVersion))
+    {
+        return ChessCheckpointError::IncompatibleGameVersion;
+    }
+    importCheckpoint(std::move(slotId), std::move(*checkpoint));
+    return ChessCheckpointError::None;
 }
 
 ChessCheckpointError ChessSaveStore::importSave(
@@ -142,21 +140,27 @@ ChessCheckpointError ChessSaveStore::importSave(
     {
         return error;
     }
-    return importCheckpoint(std::move(slotId), std::move(*checkpoint), gameVersion);
-}
-
-ChessCheckpointError ChessSaveStore::importCheckpoint(
-    std::string slotId,
-    ChessSessionCheckpoint checkpoint,
-    std::string_view gameVersion)
-{
-    if (!chessCheckpointVersionCompatible(checkpoint, gameVersion))
+    if (!chessCheckpointVersionCompatible(*checkpoint, gameVersion))
     {
         return ChessCheckpointError::IncompatibleGameVersion;
     }
+    importCheckpoint(std::move(slotId), std::move(*checkpoint));
+    return ChessCheckpointError::None;
+}
+
+void ChessSaveStore::restoreSave(
+    std::string slotId,
+    ChessSessionCheckpoint checkpoint)
+{
+    importCheckpoint(std::move(slotId), std::move(checkpoint));
+}
+
+void ChessSaveStore::importCheckpoint(
+    std::string slotId,
+    ChessSessionCheckpoint checkpoint)
+{
     nextRevision_ = std::max(nextRevision_, checkpoint.saveRevision + 1);
     slots_.insert_or_assign(std::move(slotId), std::move(checkpoint));
-    return ChessCheckpointError::None;
 }
 
 }

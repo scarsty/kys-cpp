@@ -139,6 +139,8 @@ std::optional<BattleResultDto> inspectLastBattleDto(
     const ChessGameSession& session,
     ObservationDetail detail);
 SaveSlotDto saveSlotDto(const ChessSaveSlotSummary& slot);
+std::vector<SaveSlotDto> saveSlotDtos(
+    const std::vector<ChessSaveSlotSummary>& slots);
 SessionObservationDto sessionObservationDto(
     const ChessGameSession& session,
     const ChessSaveStore& saves,

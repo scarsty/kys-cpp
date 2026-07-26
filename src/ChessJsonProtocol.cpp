@@ -3,12 +3,12 @@
 #include "ChessJsonCodec.h"
 #include "ChessReplayJson.h"
 #include "ChessReplayVerifier.h"
+#include "ChessSaveFile.h"
 #include "Utf8Path.h"
 
 #include <array>
 #include <cctype>
 #include <filesystem>
-#include <fstream>
 #include <ranges>
 #include <utility>
 
@@ -29,6 +29,8 @@ struct McpToolDefinition
 
 constexpr std::string_view kEmptySchema =
     R"({"type":"object","properties":{},"additionalProperties":false})";
+constexpr std::string_view kAutoSaveSlot = "autosave";
+constexpr std::string_view kAutoSaveLabel = "自動存檔";
 constexpr std::string_view kNewGameSchema = R"({
     "type":"object",
     "properties":{
@@ -88,6 +90,13 @@ constexpr std::string_view kSaveSchema = R"({
     "required":["slot"],
     "additionalProperties":false
 })";
+constexpr std::string_view kResumeSchema = R"({
+    "type":"object",
+    "properties":{
+        "detail":{"type":"string","enum":["compact","full"],"default":"compact"}
+    },
+    "additionalProperties":false
+})";
 constexpr std::string_view kSaveFileSchema = R"({
     "type":"object",
     "properties":{"slot":{"type":"string"},"path":{"type":"string"}},
@@ -96,7 +105,8 @@ constexpr std::string_view kSaveFileSchema = R"({
 })";
 
 constexpr std::array kMcpTools{
-    McpToolDefinition{"new_game", "new", "建立可驗證的新棋局；若要接續上次進度，建立同難度棋局後再載入存檔。", kNewGameSchema},
+    McpToolDefinition{"new_game", "new", "建立可驗證的新棋局並更新自動存檔。", kNewGameSchema},
+    McpToolDefinition{"resume_saved_game", "resume_game", "不先建立新棋局，直接由自動存檔建立並接續工作階段。", kResumeSchema},
     McpToolDefinition{"observe_game", "observe", "取得棋局；compact 只含決策所需狀態，full 含完整定義。", kObserveSchema},
     McpToolDefinition{"get_diagnostics", "get_diagnostics", "取得原生執行狀態與診斷資訊。", kEmptySchema},
     McpToolDefinition{"list_legal_actions", "legal_actions", "列出目前合法操作、操作結構、範例及候選值。", kEmptySchema},
@@ -112,7 +122,7 @@ constexpr std::array kMcpTools{
     McpToolDefinition{"inspect_challenge", "inspect_challenge", "依繁體中文名稱檢視遠征的權威敵人星級、裝備與獎勵。", kChallengeSchema},
     McpToolDefinition{"inspect_prepared_battle", "inspect_prepared_battle", "檢視已準備戰鬥；summary 只含關鍵部署，compact 增加裝備與羈絆，full 含完整資料。", kPreparedBattleSchema},
     McpToolDefinition{"inspect_last_battle", "inspect_last_battle", "完整檢視上一場戰鬥的開局棋盤、結構化效果軌跡與逐單位統計。", kEmptySchema},
-    McpToolDefinition{"list_saves", "list_saves", "列出目前可用存檔及相容性摘要。", kEmptySchema},
+    McpToolDefinition{"list_saves", "list_saves", "列出目前程序內可用存檔摘要。", kEmptySchema},
     McpToolDefinition{"inspect_save", "inspect_save_summary", "唯讀檢視存檔摘要，不傳輸完整檢查點，也不改變棋局、亂數或重播。", kSlotSchema},
     McpToolDefinition{"save_game", "save_game", "在穩定決策邊界覆寫欄位；不消耗亂數，也不加入遊戲重播。", kSaveSchema},
     McpToolDefinition{"load_game", "load_game", "以指定存檔替換目前狀態、亂數與重播前綴。", kSlotSchema},
@@ -222,43 +232,24 @@ std::string negotiatedMcpVersion(std::string_view requested)
         : std::string(supported.back());
 }
 
-std::optional<std::string> readFile(const std::filesystem::path& path)
-{
-    std::ifstream input(path, std::ios::binary);
-    if (!input)
-    {
-        return std::nullopt;
-    }
-    return std::string(std::istreambuf_iterator<char>(input), {});
 }
 
-bool writeFile(const std::filesystem::path& path, std::string_view text)
+ChessJsonProtocol::ChessJsonProtocol(
+    ContentProvider contentProvider,
+    ChessJsonProtocolOptions options)
+    : contentProvider_(std::move(contentProvider)),
+      autosaveFile_(std::move(options.autosaveFile))
 {
-    std::error_code error;
-    const auto parent = path.parent_path();
-    if (!parent.empty())
-    {
-        std::filesystem::create_directories(parent, error);
-        if (error)
-        {
-            return false;
-        }
-    }
-    std::ofstream output(path, std::ios::binary | std::ios::trunc);
-    output.write(text.data(), static_cast<std::streamsize>(text.size()));
-    return output.good();
+    loadAutosave();
 }
 
-}
-
-ChessJsonProtocol::ChessJsonProtocol(ContentProvider contentProvider)
-    : contentProvider_(std::move(contentProvider))
+ChessJsonProtocol::ChessJsonProtocol(
+    std::shared_ptr<const ChessGameContent> fixedContent,
+    ChessJsonProtocolOptions options)
+    : fixedContent_(std::move(fixedContent)),
+      autosaveFile_(std::move(options.autosaveFile))
 {
-}
-
-ChessJsonProtocol::ChessJsonProtocol(std::shared_ptr<const ChessGameContent> fixedContent)
-    : fixedContent_(std::move(fixedContent))
-{
+    loadAutosave();
 }
 
 std::shared_ptr<const ChessGameContent> ChessJsonProtocol::loadContent(Difficulty difficulty)
@@ -268,6 +259,70 @@ std::shared_ptr<const ChessGameContent> ChessJsonProtocol::loadContent(Difficult
         return fixedContent_->difficulty() == difficulty ? fixedContent_ : nullptr;
     }
     return contentProvider_ ? contentProvider_(difficulty) : nullptr;
+}
+
+void ChessJsonProtocol::loadAutosave()
+{
+    if (autosaveFile_.empty())
+    {
+        return;
+    }
+    std::error_code filesystemError;
+    const bool exists = std::filesystem::exists(autosaveFile_, filesystemError);
+    if (filesystemError)
+    {
+        lastAutosaveError_ = "無法檢查自動存檔：" + pathToUtf8(autosaveFile_);
+        return;
+    }
+    if (!exists)
+    {
+        return;
+    }
+    auto checkpoint = readChessCheckpointFile(autosaveFile_);
+    if (!checkpoint)
+    {
+        lastAutosaveError_ = "無法讀取自動存檔：" + checkpoint.error();
+        return;
+    }
+    saves_.restoreSave(
+        std::string(kAutoSaveSlot),
+        std::move(*checkpoint));
+}
+
+std::expected<void, std::string> ChessJsonProtocol::persistAutosave()
+{
+    if (autosaveFile_.empty())
+    {
+        return {};
+    }
+    auto written = writeChessCheckpointFile(
+        autosaveFile_,
+        *saves_.inspect(std::string(kAutoSaveSlot)));
+    if (!written)
+    {
+        lastAutosaveError_ = written.error();
+        return written;
+    }
+    lastAutosaveError_.clear();
+    return {};
+}
+
+void ChessJsonProtocol::updateAutosave()
+{
+    if (autosaveFile_.empty())
+    {
+        return;
+    }
+    const auto error = saves_.save(
+        std::string(kAutoSaveSlot),
+        *session_,
+        std::string(kAutoSaveLabel));
+    if (error != ChessCheckpointError::None)
+    {
+        lastAutosaveError_ = chessCheckpointErrorDescription(error);
+        return;
+    }
+    (void)persistAutosave();
 }
 
 std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
@@ -287,6 +342,10 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         return response(request->id, true, writeJson(NativeDiagnosticsDto{
             "native",
             session_ != nullptr,
+            pathToUtf8(autosaveFile_),
+            lastAutosaveError_.empty()
+                ? std::nullopt
+                : std::optional(lastAutosaveError_),
         }));
     }
 
@@ -311,7 +370,119 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             options.positionSwapEnabled = *params->position_swap_enabled;
         }
         session_ = std::make_unique<ChessGameSession>(std::move(content), *seed, options);
+        updateAutosave();
         return response(request->id, true, writeJson(sessionObservationDto(*session_, saves_, *detail)));
+    }
+
+    if (request->method == "resume_game")
+    {
+        const auto params = readJson<ResumeParams>(request->params.str);
+        const auto* checkpoint = saves_.inspect(std::string(kAutoSaveSlot));
+        const auto detail = params ? parseObservationDetail(params->detail) : std::nullopt;
+        if (!params || !detail)
+        {
+            return response(request->id, false, {}, "invalid_params", "detail 無效");
+        }
+        if (!checkpoint)
+        {
+            return response(request->id, false, {}, "save_not_found", "存檔不存在");
+        }
+        const auto difficulty = parseDifficulty(checkpoint->replay.header.difficulty);
+        if (!difficulty)
+        {
+            return response(request->id, false, {}, "save_snapshot_unrepresentable", "存檔難度無效");
+        }
+        auto content = loadContent(*difficulty);
+        if (!content)
+        {
+            return response(request->id, false, {}, "content_load_failed", "無法載入遊戲內容");
+        }
+        auto resumed = std::make_unique<ChessGameSession>(
+            std::move(content),
+            checkpoint->replay.header.rootSeed,
+            checkpoint->replay.header.options);
+        ChessTimelineReplacement replacement;
+        const auto error = saves_.load(
+            std::string(kAutoSaveSlot),
+            *resumed,
+            replacement);
+        if (error != ChessCheckpointError::None)
+        {
+            return response(request->id, false, {}, checkpointErrorId(error), "無法接續存檔");
+        }
+        session_ = std::move(resumed);
+        updateAutosave();
+        return response(
+            request->id,
+            true,
+            writeJson(sessionObservationDto(*session_, saves_, *detail)));
+    }
+
+    if (request->method == "list_saves")
+    {
+        return response(
+            request->id,
+            true,
+            writeJson(saveSlotDtos(saves_.list())));
+    }
+    if (request->method == "inspect_save" || request->method == "inspect_save_summary")
+    {
+        const auto params = readJson<SlotParams>(request->params.str);
+        const auto* checkpoint = params ? saves_.inspect(params->slot) : nullptr;
+        if (!checkpoint)
+        {
+            return response(request->id, false, {}, "save_not_found", "存檔不存在");
+        }
+        const auto summaries = saves_.list();
+        const auto summary = std::ranges::find(summaries, params->slot, &ChessSaveSlotSummary::slotId);
+        if (request->method == "inspect_save_summary")
+        {
+            return response(request->id, true, writeJson(saveSlotDto(*summary)));
+        }
+        return response(request->id, true, writeJson(InspectSaveDto{
+            saveSlotDto(*summary),
+            checkpoint->toData(),
+        }));
+    }
+    if (request->method == "export_save")
+    {
+        const auto params = readJson<SlotParams>(request->params.str);
+        const auto* checkpoint = params ? saves_.inspect(params->slot) : nullptr;
+        if (!checkpoint)
+        {
+            return response(request->id, false, {}, "save_not_found", "存檔不存在");
+        }
+        return response(request->id, true, writeJson(ExportSaveDto{checkpoint->toData()}));
+    }
+    if (request->method == "export_save_file")
+    {
+        const auto params = readJson<SaveFileParams>(request->params.str);
+        const auto* checkpoint = params ? saves_.inspect(params->slot) : nullptr;
+        if (!params || params->path.empty())
+        {
+            return response(request->id, false, {}, "invalid_params", "缺少存檔欄位或輸出路徑");
+        }
+        if (!checkpoint)
+        {
+            return response(request->id, false, {}, "save_not_found", "存檔不存在");
+        }
+        const auto path = std::filesystem::u8path(params->path);
+        const auto written = writeChessCheckpointFile(path, *checkpoint);
+        if (!written)
+        {
+            return response(
+                request->id,
+                false,
+                {},
+                "save_file_write_failed",
+                "無法寫出存檔檔案：" + written.error());
+        }
+        return response(request->id, true, writeJson(SaveFileResultDto{
+            params->slot,
+            pathToUtf8(std::filesystem::absolute(path)),
+            chessSha256Hex(checkpoint->snapshotHash),
+            checkpoint->saveRevision,
+        }));
     }
 
     if (request->method == "verify_replay")
@@ -525,6 +696,10 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         }
         const auto before = session_->state();
         const auto result = session_->submitAndDrain(*action);
+        if (result.accepted)
+        {
+            updateAutosave();
+        }
         if (*requestedDetail == ActionResponseDetail::Summary)
         {
             return response(request->id, true, writeJson(summaryActionResultDto(
@@ -549,15 +724,6 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
                 action->type,
                 *requestedDetail)));
     }
-    if (request->method == "list_saves")
-    {
-        std::vector<SaveSlotDto> slots;
-        for (const auto& slot : saves_.list(*session_))
-        {
-            slots.push_back(saveSlotDto(slot));
-        }
-        return response(request->id, true, writeJson(slots));
-    }
     if (request->method == "save_game")
     {
         const auto params = readJson<SaveParams>(request->params.str);
@@ -565,32 +731,29 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         {
             return response(request->id, false, {}, "invalid_params", "缺少存檔欄位");
         }
-        const auto error = saves_.save(params->slot, *session_, params->label);
+        const auto error = saves_.save(
+            params->slot,
+            *session_,
+            params->label);
         if (error != ChessCheckpointError::None)
         {
             return response(request->id, false, {}, checkpointErrorId(error), "無法建立存檔");
         }
+        if (params->slot == kAutoSaveSlot)
+        {
+            const auto persisted = persistAutosave();
+            if (!persisted)
+            {
+                return response(
+                    request->id,
+                    false,
+                    {},
+                    "save_file_write_failed",
+                    "無法寫出自動存檔：" + persisted.error());
+            }
+        }
         const auto* checkpoint = saves_.inspect(params->slot);
         return response(request->id, true, writeJson(SaveResultDto{params->slot, checkpoint->saveRevision}));
-    }
-    if (request->method == "inspect_save" || request->method == "inspect_save_summary")
-    {
-        const auto params = readJson<SlotParams>(request->params.str);
-        const auto* checkpoint = params ? saves_.inspect(params->slot) : nullptr;
-        if (!checkpoint)
-        {
-            return response(request->id, false, {}, "save_not_found", "存檔不存在");
-        }
-        const auto summaries = saves_.list(*session_);
-        const auto summary = std::ranges::find(summaries, params->slot, &ChessSaveSlotSummary::slotId);
-        if (request->method == "inspect_save_summary")
-        {
-            return response(request->id, true, writeJson(saveSlotDto(*summary)));
-        }
-        return response(request->id, true, writeJson(InspectSaveDto{
-            saveSlotDto(*summary),
-            checkpoint->toData(),
-        }));
     }
     if (request->method == "load_game")
     {
@@ -605,6 +768,7 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         {
             return response(request->id, false, {}, checkpointErrorId(error), "無法載入存檔");
         }
+        updateAutosave();
         return response(request->id, true, writeJson(TimelineReplacementDto{
             replacement.loadedSlot,
             replacement.previousSequence,
@@ -612,16 +776,6 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             replacement.discardedActiveActions,
             chessSha256Hex(replacement.currentStateHash),
         }));
-    }
-    if (request->method == "export_save")
-    {
-        const auto params = readJson<SlotParams>(request->params.str);
-        const auto* checkpoint = params ? saves_.inspect(params->slot) : nullptr;
-        if (!checkpoint)
-        {
-            return response(request->id, false, {}, "save_not_found", "存檔不存在");
-        }
-        return response(request->id, true, writeJson(ExportSaveDto{checkpoint->toData()}));
     }
     if (request->method == "import_save")
     {
@@ -641,30 +795,6 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
         const auto* checkpoint = saves_.inspect(params->slot);
         return response(request->id, true, writeJson(SaveResultDto{params->slot, checkpoint->saveRevision}));
     }
-    if (request->method == "export_save_file")
-    {
-        const auto params = readJson<SaveFileParams>(request->params.str);
-        const auto* checkpoint = params ? saves_.inspect(params->slot) : nullptr;
-        if (!params || params->path.empty())
-        {
-            return response(request->id, false, {}, "invalid_params", "缺少存檔欄位或輸出路徑");
-        }
-        if (!checkpoint)
-        {
-            return response(request->id, false, {}, "save_not_found", "存檔不存在");
-        }
-        const auto path = std::filesystem::u8path(params->path);
-        if (!writeFile(path, checkpoint->serializeJson()))
-        {
-            return response(request->id, false, {}, "save_file_write_failed", "無法寫出存檔檔案");
-        }
-        return response(request->id, true, writeJson(SaveFileResultDto{
-            params->slot,
-            pathToUtf8(std::filesystem::absolute(path)),
-            chessSha256Hex(checkpoint->snapshotHash),
-            checkpoint->saveRevision,
-        }));
-    }
     if (request->method == "import_save_file")
     {
         const auto params = readJson<SaveFileParams>(request->params.str);
@@ -673,31 +803,30 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
             return response(request->id, false, {}, "invalid_params", "缺少存檔欄位或輸入路徑");
         }
         const auto path = std::filesystem::u8path(params->path);
-        const auto payload = readFile(path);
-        if (!payload)
+        const auto importedCheckpoint = readChessCheckpointFile(path);
+        if (!importedCheckpoint)
         {
-            return response(request->id, false, {}, "save_file_read_failed", "無法讀取存檔檔案");
-        }
-        ChessCheckpointError parseError;
-        const auto parsed = parseChessSavePayload(*payload, parseError);
-        if (!parsed)
-        {
-            return response(request->id, false, {}, checkpointErrorId(parseError), "無法匯入存檔檔案");
+            return response(
+                request->id,
+                false,
+                {},
+                "save_file_read_failed",
+                "無法匯入存檔檔案：" + importedCheckpoint.error());
         }
         const auto error = saves_.importSave(
             params->slot,
-            parsed->checkpoint.toData(),
+            importedCheckpoint->toData(),
             session_->content().gameVersion());
         if (error != ChessCheckpointError::None)
         {
             return response(request->id, false, {}, checkpointErrorId(error), "無法匯入存檔檔案");
         }
-        const auto* checkpoint = saves_.inspect(params->slot);
+        const auto* storedCheckpoint = saves_.inspect(params->slot);
         return response(request->id, true, writeJson(SaveFileResultDto{
             params->slot,
             pathToUtf8(std::filesystem::absolute(path)),
-            chessSha256Hex(checkpoint->snapshotHash),
-            checkpoint->saveRevision,
+            chessSha256Hex(storedCheckpoint->snapshotHash),
+            storedCheckpoint->saveRevision,
         }));
     }
     if (request->method == "export_replay")

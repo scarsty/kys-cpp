@@ -42,6 +42,7 @@ struct Arguments
     std::filesystem::path jsonOutputPath;
     std::filesystem::path dataRoot;
     std::filesystem::path configRoot;
+    std::filesystem::path autosaveFile;
     KysChess::Difficulty difficulty = KysChess::Difficulty::Normal;
     std::uint64_t seed = 1;
     int battleSeedCount = KysChess::kDefaultChessTournamentBattleSeedCount;
@@ -58,6 +59,7 @@ struct Arguments
     bool legSpecified{};
     bool outputPathSpecified{};
     bool jsonOutputPathSpecified{};
+    bool autosaveFileSpecified{};
     bool compactSpecified{};
     bool jsonSpecified{};
 };
@@ -109,8 +111,8 @@ void printUsage(std::ostream& output)
     output << "用法：\n"
               "  kys_chess_cli [play] [--difficulty easy|normal|hard] [--seed N] [--compact]\n"
               "  kys_chess_cli new [--difficulty easy|normal|hard] [--seed N] [--compact|--json]\n"
-              "  kys_chess_cli --jsonl [--data-root 路徑] [--config-root 路徑]\n"
-              "  kys_chess_cli --mcp [--data-root 路徑] [--config-root 路徑]\n"
+              "  kys_chess_cli --jsonl [--data-root 路徑] [--config-root 路徑] [--autosave-file 路徑]\n"
+              "  kys_chess_cli --mcp [--data-root 路徑] [--config-root 路徑] [--autosave-file 路徑]\n"
               "  kys_chess_cli verify <重播檔>\n"
               "  kys_chess_cli verify-pvp <離線對戰存檔>\n"
               "  kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--output 報告.md] [--json-output 結果.json] [--json]\n"
@@ -118,6 +120,7 @@ void printUsage(std::ostream& output)
               "\n共用選項：\n"
               "  --data-root <路徑>       遊戲資料根目錄\n"
               "  --config-root <路徑>     棋局配置根目錄\n"
+              "  --autosave-file <路徑>  JSONL/MCP 自動存檔，指定時預設啟用自動存檔\n"
               "  -h, --help               顯示本說明\n"
               "\n";
     output << KysChess::ChessCliController::helpText();
@@ -219,6 +222,16 @@ ArgumentParseResult parseArguments(int argc, char** argv)
                 return result;
             }
             result.arguments.configRoot = *path;
+        }
+        else if (value == "--autosave-file")
+        {
+            const auto path = optionValue(value);
+            if (!path)
+            {
+                return result;
+            }
+            result.arguments.autosaveFile = *path;
+            result.arguments.autosaveFileSpecified = true;
         }
         else if (value == "--output")
         {
@@ -371,9 +384,15 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             || result.arguments.jsonOutputPathSpecified)
         {
             result.error = result.arguments.mcp
-                ? "--mcp 只可搭配 --data-root 與 --config-root"
-                : "--jsonl 只可搭配 --data-root 與 --config-root";
+                ? "--mcp 只可搭配 --data-root、--config-root 與 --autosave-file"
+                : "--jsonl 只可搭配 --data-root、--config-root 與 --autosave-file";
         }
+        return result;
+    }
+
+    if (result.arguments.autosaveFileSpecified)
+    {
+        result.error = "--autosave-file 只支援 JSONL 或 MCP 模式";
         return result;
     }
 
@@ -1048,7 +1067,12 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    ChessCliController controller(provider);
+    ChessJsonProtocolOptions protocolOptions;
+    if (arguments.autosaveFileSpecified)
+    {
+        protocolOptions.autosaveFile = arguments.autosaveFile;
+    }
+    ChessCliController controller(provider, std::move(protocolOptions));
     if (arguments.mcp)
     {
         return controller.runMcp(std::cin, std::cout);

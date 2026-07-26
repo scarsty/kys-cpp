@@ -117,6 +117,8 @@ struct NativeDiagnosticsDto
 {
     std::string runtime = "native";
     bool active_session{};
+    std::string autosave_file;
+    std::optional<std::string> autosave_error;
 };
 
 struct NewParams
@@ -125,6 +127,11 @@ struct NewParams
     std::string seed = "0x0000000000000001";
     std::string detail = "full";
     std::optional<bool> position_swap_enabled;
+};
+
+struct ResumeParams
+{
+    std::string detail = "compact";
 };
 
 struct ActParams
@@ -641,7 +648,6 @@ struct LegalActionDto
 struct SaveSlotDto
 {
     std::string slot;
-    bool occupied{};
     std::uint64_t revision{};
     std::string label;
     int fight{};
@@ -650,7 +656,6 @@ struct SaveSlotDto
     int roster_count{};
     std::uint64_t replay_sequence{};
     std::string state_hash;
-    bool compatible{};
 };
 
 struct SessionObservationDto

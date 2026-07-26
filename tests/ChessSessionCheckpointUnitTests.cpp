@@ -1,15 +1,42 @@
 #include "ChessSaveStore.h"
+#include "ChessSaveFile.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessReplayVerifier.h"
 
 #include <catch2/catch_test_macros.hpp>
-#include <glaze/json.hpp>
+
+#include <chrono>
+#include <filesystem>
 
 using namespace KysChess;
 using namespace KysChess::Test;
 
 namespace
 {
+
+class TemporarySaveDirectory
+{
+public:
+    TemporarySaveDirectory()
+        : path_(std::filesystem::temp_directory_path()
+            / ("kys-chess-save-store-"
+                + std::to_string(std::chrono::steady_clock::now()
+                    .time_since_epoch().count())))
+    {
+        std::filesystem::create_directories(path_);
+    }
+
+    ~TemporarySaveDirectory()
+    {
+        std::error_code ignored;
+        std::filesystem::remove_all(path_, ignored);
+    }
+
+    const std::filesystem::path& path() const { return path_; }
+
+private:
+    std::filesystem::path path_;
+};
 
 ChessAction lockAction(bool value)
 {
@@ -59,10 +86,10 @@ TEST_CASE("self-contained checkpoint JSON directly restores its snapshot and ful
     ChessSaveSlotData slot;
     slot.scene = {53, 21, 54, 1};
     slot.checkpoint = checkpoint.toData();
-    const auto slotJson = glz::write_json(slot);
+    const auto slotJson = serializeChessSaveSlotJson(slot);
     REQUIRE(slotJson);
-    CHECK(slotJson->contains("\"scene\":{"));
-    CHECK(slotJson->contains("\"checkpoint\":{"));
+    CHECK(slotJson->contains("\"scene\""));
+    CHECK(slotJson->contains("\"checkpoint\""));
     CHECK_FALSE(slotJson->contains("gameData"));
     CHECK_FALSE(slotJson->contains("chessSessionCheckpoint"));
 }
@@ -210,11 +237,45 @@ TEST_CASE("loading replaces the active suffix while preserving save slots", "[ch
     CHECK(replacement.discardedActiveActions == 1);
     CHECK(session.state().shopLocked);
     REQUIRE(session.journal().decisions().size() == 1);
-    REQUIRE(store.list(session).size() == 1);
+    REQUIRE(store.list().size() == 1);
     REQUIRE(session.submitAndDrain(lockAction(false)).accepted);
     const auto replay = session.exportReplay();
     REQUIRE(replay);
     CHECK(ChessReplayVerifier::verify(content, *replay).valid);
+}
+
+TEST_CASE("shared native autosave file survives process reconstruction", "[chess][checkpoint][save][durable]")
+{
+    const auto content = managementContent();
+    TemporarySaveDirectory directory;
+    const auto autosaveFile = directory.path() / "autosave.json";
+    {
+        ChessGameSession session(content, 404);
+        REQUIRE(session.submitAndDrain(lockAction(true)).accepted);
+        ChessSaveStore store;
+        REQUIRE(store.save("autosave", session, "自動存檔") == ChessCheckpointError::None);
+        REQUIRE(writeChessCheckpointFile(autosaveFile, *store.inspect("autosave")));
+    }
+
+    auto checkpoint = readChessCheckpointFile(autosaveFile);
+    REQUIRE(checkpoint);
+    ChessSaveStore restoredStore;
+    restoredStore.restoreSave("autosave", std::move(*checkpoint));
+    const auto summaries = restoredStore.list();
+    REQUIRE(summaries.size() == 1);
+    CHECK(summaries.front().slotId == "autosave");
+    CHECK(summaries.front().label == "自動存檔");
+
+    ChessGameSession restored(content, 999);
+    ChessTimelineReplacement replacement;
+    REQUIRE(restoredStore.load("autosave", restored, replacement) == ChessCheckpointError::None);
+    CHECK(restored.state().shopLocked);
+    REQUIRE(restoredStore.save("autosave", restored, "覆寫") == ChessCheckpointError::None);
+    CHECK(restoredStore.inspect("autosave")->saveRevision > summaries.front().revision);
+    REQUIRE(writeChessCheckpointFile(
+        autosaveFile,
+        *restoredStore.inspect("autosave")));
+    CHECK(std::ranges::distance(std::filesystem::directory_iterator(directory.path())) == 1);
 }
 
 TEST_CASE("portable save import does not activate the checkpoint", "[chess][checkpoint][save]")

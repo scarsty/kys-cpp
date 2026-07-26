@@ -276,6 +276,63 @@ class ChessCliTests(unittest.TestCase):
         self.assertEqual(responses[-1]["result"]["discarded_active_actions"], 1)
         self.assertEqual(responses[-1]["result"]["restored_sequence"], 1)
 
+    def test_native_durable_autosave_can_resume_in_a_new_process(self):
+        with tempfile.TemporaryDirectory() as save_dir:
+            autosave_file = Path(save_dir) / "autosave.json"
+            first = run_jsonl(
+                [
+                    {
+                        "id": 1,
+                        "method": "new",
+                        "params": {
+                            "difficulty": "normal",
+                            "seed": "0x0000000000000047",
+                            "detail": "compact",
+                        },
+                    },
+                    {
+                        "id": 2,
+                        "method": "act",
+                        "params": {
+                            "action": {"type": "refresh_shop"},
+                            "detail": "summary",
+                        },
+                    },
+                    {"id": 3, "method": "observe", "params": {"detail": "compact"}},
+                ],
+                extra_args=["--autosave-file", str(autosave_file)],
+            )
+            first_responses = [json.loads(line) for line in first.stdout.splitlines()]
+            expected = first_responses[-1]["result"]["game_state"]
+            self.assertTrue(first_responses[1]["result"]["accepted"])
+            self.assertTrue(autosave_file.is_file())
+
+            second = run_jsonl(
+                [
+                    {"id": 4, "method": "list_saves", "params": {}},
+                    {
+                        "id": 5,
+                        "method": "resume_game",
+                        "params": {"detail": "compact"},
+                    },
+                ],
+                extra_args=["--autosave-file", str(autosave_file)],
+            )
+            second_responses = [json.loads(line) for line in second.stdout.splitlines()]
+            autosave = next(
+                slot for slot in second_responses[0]["result"] if slot["slot"] == "autosave"
+            )
+            for redundant_field in (
+                "compatibility",
+                "difficulty",
+                "game_version",
+                "occupied",
+            ):
+                self.assertNotIn(redundant_field, autosave)
+            restored = second_responses[1]["result"]["game_state"]
+            self.assertEqual(restored["state_hash"], expected["state_hash"])
+            self.assertEqual(restored["money"], expected["money"])
+
     def test_headless_battle_keeps_jsonl_stdout_protocol_clean(self):
         completed = run_jsonl(
             [

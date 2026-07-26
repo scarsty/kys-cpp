@@ -10,7 +10,6 @@ namespace KysChess
 struct ChessSaveSlotSummary
 {
     std::string slotId;
-    bool occupied = false;
     std::uint64_t revision{};
     std::string label;
     int fight{};
@@ -19,7 +18,6 @@ struct ChessSaveSlotSummary
     int rosterCount{};
     std::uint64_t replaySequence{};
     ChessSha256 stateHash{};
-    bool compatible = false;
 };
 
 struct ChessTimelineReplacement
@@ -43,7 +41,7 @@ public:
         ChessGameSession& session,
         ChessTimelineReplacement& replacement) const;
     const ChessSessionCheckpoint* inspect(const std::string& slotId) const;
-    std::vector<ChessSaveSlotSummary> list(const ChessGameSession& session) const;
+    std::vector<ChessSaveSlotSummary> list() const;
     std::optional<std::string> exportSave(const std::string& slotId) const;
     ChessCheckpointError importSave(
         std::string slotId,
@@ -53,12 +51,14 @@ public:
         std::string slotId,
         const ChessSessionCheckpointData& data,
         std::string_view gameVersion);
+    void restoreSave(
+        std::string slotId,
+        ChessSessionCheckpoint checkpoint);
 
 private:
-    ChessCheckpointError importCheckpoint(
+    void importCheckpoint(
         std::string slotId,
-        ChessSessionCheckpoint checkpoint,
-        std::string_view gameVersion);
+        ChessSessionCheckpoint checkpoint);
     std::map<std::string, ChessSessionCheckpoint> slots_;
     std::uint64_t nextRevision_ = 1;
 };

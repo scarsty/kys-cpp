@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,7 +11,6 @@ from typing import Any
 
 
 AUTO_SAVE_SLOT = "autosave"
-AUTO_SAVE_LABEL = "自動存檔"
 CURRENT_DEPLOYMENT_ENV = "KYS_CHESS_MCP_CURRENT"
 
 
@@ -71,7 +69,6 @@ class CliSession:
         executable: Path | str | None = None,
         extra_args: list[str] | None = None,
         save_dir: Path | str | None = None,
-        autosave: bool = True,
         deployment_manifest: Path | str | None = None,
     ):
         assert executable is None or deployment_manifest is None
@@ -83,8 +80,9 @@ class CliSession:
                 deployment_manifest or configured_manifest or default_install_root() / "current.json")
         self._extra_args = list(extra_args or [])
         configured_save_dir = os.environ.get("KYS_CHESS_MCP_SAVE_DIR")
-        self._save_dir = Path(save_dir or configured_save_dir or default_install_root() / "saves")
-        self._save_dir.mkdir(parents=True, exist_ok=True)
+        save_directory = Path(save_dir or configured_save_dir or default_install_root() / "saves")
+        save_directory.mkdir(parents=True, exist_ok=True)
+        self._autosave_file = save_directory / "autosave.json"
         self._process: subprocess.Popen[str]
         self._stderr_thread: threading.Thread
         self._next_id = 1
@@ -92,14 +90,19 @@ class CliSession:
         self._lock = threading.Lock()
         self._diagnostics: deque[str] = deque(maxlen=200)
         self._has_active_session = False
-        self._autosave_enabled = autosave
         self._blocked_deployment: RuntimeDeployment | None = None
         self._last_runtime_reload: dict[str, Any] | None = None
         self._start_process()
 
     def _start_process(self, deployment: RuntimeDeployment | None = None) -> None:
         selected = deployment or self._runtime_resolver.resolve()
-        command = [str(selected.executable), "--jsonl", *self._extra_args]
+        command = [
+            str(selected.executable),
+            "--jsonl",
+            "--autosave-file",
+            str(self._autosave_file),
+        ]
+        command.extend(self._extra_args)
         process = subprocess.Popen(
             command,
             stdin=subprocess.PIPE,
@@ -183,131 +186,22 @@ class CliSession:
     def tool_catalog(self) -> list[dict[str, Any]]:
         return list(self._tool_catalog)
 
-    def _slot_path(self, slot: str) -> Path:
-        digest = hashlib.sha256(slot.encode("utf-8")).hexdigest()
-        return self._save_dir / f"{digest}.json"
-
-    def _persist_save(self, slot: str, checkpoint: dict[str, Any]) -> None:
-        target = self._slot_path(slot)
-        temporary = target.with_suffix(".tmp")
-        temporary.write_text(
-            json.dumps({"slot": slot, "checkpoint": checkpoint}, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        temporary.replace(target)
-
-    def _persistent_save_summaries(self) -> list[dict[str, Any]]:
-        summaries: list[dict[str, Any]] = []
-        for path in sorted(self._save_dir.glob("*.json")):
-            try:
-                stored = json.loads(path.read_text(encoding="utf-8"))
-                checkpoint = stored["checkpoint"]
-                state = checkpoint["state"]
-                replay = checkpoint.get("replay", {})
-                header = replay.get("header", {})
-                decisions = replay.get("decisions", [])
-                summaries.append({
-                    "slot": str(stored["slot"]),
-                    "occupied": True,
-                    "revision": int(checkpoint.get("save_revision", 0)),
-                    "label": str(checkpoint.get("label", "")),
-                    "fight": int(state.get("fight", 0)),
-                    "level": int(state.get("level", 0)),
-                    "money": int(state.get("money", 0)),
-                    "roster_count": len(state.get("roster", {})),
-                    "replay_sequence": len(decisions),
-                    "state_hash": str(checkpoint.get("snapshot_hash", "")),
-                    "compatible": None,
-                    "compatibility_scope": "建立棋局後依遊戲版本與難度判定",
-                    "difficulty": header.get("difficulty"),
-                    "game_version": checkpoint.get("game_version"),
-                    "persisted": True,
-                })
-            except (OSError, KeyError, TypeError, ValueError) as error:
-                self._diagnostics.append(f"[MCP 存檔] 無法列出 {path.name}：{error}")
-        return summaries
-
-    def _restore_persisted_saves(self) -> None:
-        for path in sorted(self._save_dir.glob("*.json")):
-            try:
-                stored = json.loads(path.read_text(encoding="utf-8"))
-                slot = stored["slot"]
-                checkpoint = stored["checkpoint"]
-            except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
-                self._diagnostics.append(f"[MCP 存檔] 無法讀取 {path.name}：{error}")
-                continue
-            response = self._internal_request(
-                "import_save",
-                {"slot": slot, "checkpoint": checkpoint},
-            )
-            if not response.get("ok"):
-                self._diagnostics.append(
-                    f"[MCP 存檔] 無法還原欄位「{slot}」：{response.get('error_message', '未知錯誤')}"
-                )
-
-    def _update_autosave(self) -> None:
-        if not self._autosave_enabled:
-            return
+    def _capture_reload_checkpoint(self) -> None:
         saved = self._internal_request(
             "save_game",
-            {"slot": AUTO_SAVE_SLOT, "label": AUTO_SAVE_LABEL},
-        )
-        if not saved.get("ok"):
-            self._diagnostics.append(
-                f"[MCP 自動存檔] 無法建立存檔：{saved.get('error_message', '未知錯誤')}"
-            )
-            return
-        exported = self._internal_request("export_save", {"slot": AUTO_SAVE_SLOT})
-        if not exported.get("ok"):
-            self._diagnostics.append(
-                f"[MCP 自動存檔] 無法匯出存檔：{exported.get('error_message', '未知錯誤')}"
-            )
-            return
-        try:
-            self._persist_save(AUTO_SAVE_SLOT, exported["result"]["checkpoint"])
-        except (OSError, KeyError, TypeError) as error:
-            self._diagnostics.append(f"[MCP 自動存檔] 無法寫入持久存檔：{error}")
-
-    @staticmethod
-    def _reload_new_game_params(checkpoint: dict[str, Any]) -> dict[str, Any]:
-        header = checkpoint["replay"]["header"]
-        return {
-            "difficulty": header["difficulty"],
-            "seed": header["root_seed"],
-            "position_swap_enabled": header["options"]["position_swap_enabled"],
-            "detail": "compact",
-        }
-
-    def _capture_reload_checkpoint(self) -> dict[str, Any]:
-        saved = self._internal_request(
-            "save_game",
-            {"slot": AUTO_SAVE_SLOT, "label": AUTO_SAVE_LABEL},
+            {"slot": AUTO_SAVE_SLOT, "label": "自動存檔"},
         )
         if not saved.get("ok"):
             raise RuntimeReloadError(saved.get("error_message", "無法建立熱更新檢查點"))
-        exported = self._internal_request("export_save", {"slot": AUTO_SAVE_SLOT})
-        if not exported.get("ok"):
-            raise RuntimeReloadError(exported.get("error_message", "無法匯出熱更新檢查點"))
-        checkpoint = exported["result"]["checkpoint"]
-        self._persist_save(AUTO_SAVE_SLOT, checkpoint)
-        return checkpoint
 
-    def _restore_reload_checkpoint(self, checkpoint: dict[str, Any]) -> None:
-        created = self._internal_request("new", self._reload_new_game_params(checkpoint))
-        if not created.get("ok"):
-            raise RuntimeReloadError(created.get("error_message", "無法建立還原棋局"))
-        self._restore_persisted_saves()
-        imported = self._internal_request(
-            "import_save",
-            {"slot": AUTO_SAVE_SLOT, "checkpoint": checkpoint},
+    def _restore_reload_checkpoint(self) -> None:
+        resumed = self._internal_request(
+            "resume_game",
+            {"detail": "compact"},
         )
-        if not imported.get("ok"):
-            raise RuntimeReloadError(imported.get("error_message", "無法匯入熱更新檢查點"))
-        loaded = self._internal_request("load_game", {"slot": AUTO_SAVE_SLOT})
-        if not loaded.get("ok"):
-            raise RuntimeReloadError(loaded.get("error_message", "無法載入熱更新檢查點"))
+        if not resumed.get("ok"):
+            raise RuntimeReloadError(resumed.get("error_message", "無法接續熱更新檢查點"))
         self._has_active_session = True
-        self._update_autosave()
 
     @staticmethod
     def _deployment_summary(deployment: RuntimeDeployment) -> dict[str, str]:
@@ -370,11 +264,12 @@ class CliSession:
 
         previous = self._deployment
         previous_tool_catalog = self._tool_catalog
-        checkpoint: dict[str, Any] | None = None
+        session_checkpointed = False
         if self._has_active_session:
             try:
-                checkpoint = self._capture_reload_checkpoint()
-            except (CliTransportError, OSError, KeyError, TypeError, RuntimeReloadError) as error:
+                self._capture_reload_checkpoint()
+                session_checkpointed = True
+            except (CliTransportError, RuntimeReloadError) as error:
                 return self._runtime_reload_failure(
                     request_id,
                     previous,
@@ -387,14 +282,14 @@ class CliSession:
         self._has_active_session = False
         try:
             self._start_process(requested)
-            if checkpoint is not None:
-                self._restore_reload_checkpoint(checkpoint)
+            if session_checkpointed:
+                self._restore_reload_checkpoint()
         except (CliTransportError, OSError, KeyError, TypeError, RuntimeReloadError) as error:
             try:
                 self._stop_process()
                 self._start_process(previous)
-                if checkpoint is not None:
-                    self._restore_reload_checkpoint(checkpoint)
+                if session_checkpointed:
+                    self._restore_reload_checkpoint()
             except (CliTransportError, OSError, KeyError, TypeError, RuntimeReloadError) as rollback_error:
                 self._has_active_session = False
                 return self._runtime_reload_failure(
@@ -411,7 +306,7 @@ class CliSession:
             "status": "succeeded",
             "previous": self._deployment_summary(previous),
             "current": self._deployment_summary(requested),
-            "session_restored": checkpoint is not None,
+            "session_restored": session_checkpointed,
             "tools_changed": previous_tool_catalog != self._tool_catalog,
         }
         self._last_runtime_reload = details
@@ -439,7 +334,7 @@ class CliSession:
         if restart_error:
             message += f"\n重新啟動失敗：{restart_error}"
         elif restarted:
-            message += "\nCLI 已重新啟動；原本的記憶體內棋局已遺失，請先建立新棋局，再載入持久存檔。"
+            message += "\nCLI 已重新啟動；非預期程序終止不會猜測要接續哪一個工作階段。"
         return {
             "id": request_id,
             "ok": False,
@@ -448,6 +343,7 @@ class CliSession:
             "exit_code": error.exit_code,
             "diagnostics": diagnostics,
             "restarted": restarted,
+            "session_restored": False,
             "session_lost": session_lost,
         }
 
@@ -467,41 +363,10 @@ class CliSession:
                 if runtime_reload:
                     response["runtime_reload"] = runtime_reload
                 return response
-            if method == "list_saves" and not self._has_active_session:
-                response = {
-                    "id": request_id,
-                    "ok": True,
-                    "result": self._persistent_save_summaries(),
-                }
-                if runtime_reload:
-                    response["runtime_reload"] = runtime_reload
-                return response
             try:
                 response = self._exchange(request_id, method, params)
-                if response.get("ok") and method == "new":
+                if response.get("ok") and method in ("new", "resume_game"):
                     self._has_active_session = True
-                    self._restore_persisted_saves()
-                elif (
-                    response.get("ok")
-                    and method == "act"
-                    and response.get("result", {}).get("accepted") is True
-                ):
-                    self._update_autosave()
-                elif response.get("ok") and method == "load_game":
-                    self._update_autosave()
-                elif response.get("ok") and method == "save_game":
-                    slot = str((params or {})["slot"])
-                    exported = self._internal_request("export_save", {"slot": slot})
-                    if exported.get("ok"):
-                        self._persist_save(slot, exported["result"]["checkpoint"])
-                elif response.get("ok") and method == "import_save":
-                    slot = str((params or {})["slot"])
-                    self._persist_save(slot, dict((params or {})["checkpoint"]))
-                elif response.get("ok") and method == "import_save_file":
-                    slot = str((params or {})["slot"])
-                    exported = self._internal_request("export_save", {"slot": slot})
-                    if exported.get("ok"):
-                        self._persist_save(slot, exported["result"]["checkpoint"])
             except CliTransportError as error:
                 return self._recover_transport(request_id, error)
             if runtime_reload:
@@ -516,15 +381,19 @@ class CliSession:
             available = self._deployment_summary(self._runtime_resolver.resolve())
         except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
             available = {"error": str(error)}
+        native: dict[str, Any]
+        try:
+            native_response = self._internal_request("get_diagnostics", {})
+            native = native_response.get("result", native_response)
+        except CliTransportError as error:
+            native = {"error": str(error)}
         return {
             "cli_running": self._process.poll() is None,
             "active_in_memory_session": self._has_active_session,
             "runtime": self._deployment_summary(self._deployment),
             "available_runtime": available,
             "last_runtime_reload": self._last_runtime_reload,
-            "persistent_save_directory": str(self._save_dir),
-            "autosave_enabled": self._autosave_enabled,
-            "autosave_slot": AUTO_SAVE_SLOT,
+            "native": native,
             "diagnostics": self.diagnostics(),
         }
 

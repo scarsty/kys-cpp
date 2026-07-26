@@ -17,7 +17,9 @@ enum class ChessCliOutputMode
 class ChessCliController
 {
 public:
-    explicit ChessCliController(ChessJsonProtocol::ContentProvider contentProvider);
+    explicit ChessCliController(
+        ChessJsonProtocol::ContentProvider contentProvider,
+        ChessJsonProtocolOptions options = {});
 
     int runJsonl(std::istream& input, std::ostream& output);
     int runMcp(std::istream& input, std::ostream& output);

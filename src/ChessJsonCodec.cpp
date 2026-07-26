@@ -1981,7 +1981,6 @@ SaveSlotDto saveSlotDto(const ChessSaveSlotSummary& slot)
 {
     return {
         slot.slotId,
-        slot.occupied,
         slot.revision,
         slot.label,
         slot.fight,
@@ -1990,8 +1989,19 @@ SaveSlotDto saveSlotDto(const ChessSaveSlotSummary& slot)
         slot.rosterCount,
         slot.replaySequence,
         chessSha256Hex(slot.stateHash),
-        slot.compatible,
     };
+}
+
+std::vector<SaveSlotDto> saveSlotDtos(
+    const std::vector<ChessSaveSlotSummary>& slots)
+{
+    std::vector<SaveSlotDto> result;
+    result.reserve(slots.size());
+    for (const auto& slot : slots)
+    {
+        result.push_back(saveSlotDto(slot));
+    }
+    return result;
 }
 
 SessionObservationDto sessionObservationDto(
@@ -2007,10 +2017,7 @@ SessionObservationDto sessionObservationDto(
         detail,
         {},
         legalActions);
-    for (const auto& slot : saves.list(session))
-    {
-        result.save_slots.push_back(saveSlotDto(slot));
-    }
+    result.save_slots = saveSlotDtos(saves.list());
     result.operations = {
         "inspect_role",
         "inspect_shop_slot",

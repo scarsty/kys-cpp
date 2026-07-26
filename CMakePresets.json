@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 3,
   "configurePresets": [
     {
       "name": "windows-msvc-x64-debug",
@@ -113,78 +113,6 @@
       "output": {
         "outputOnFailure": true
       }
-    }
-  ],
-  "workflowPresets": [
-    {
-      "name": "windows-msvc-x64-debug-kys-workflow",
-      "displayName": "Configure and build Windows MSVC 2026 x64 Debug (kys)",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "windows-msvc-x64-debug"
-        },
-        {
-          "type": "build",
-          "name": "windows-msvc-x64-debug-kys"
-        }
-      ]
-    },
-    {
-      "name": "windows-msvc-x64-release-kys-workflow",
-      "displayName": "Configure and build Windows MSVC 2026 x64 Release (kys)",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "windows-msvc-x64-release"
-        },
-        {
-          "type": "build",
-          "name": "windows-msvc-x64-release-kys"
-        }
-      ]
-    },
-    {
-      "name": "windows-msvc-x64-debug-tests-workflow",
-      "displayName": "Configure and build Windows MSVC 2026 x64 Debug (tests)",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "windows-msvc-x64-debug"
-        },
-        {
-          "type": "build",
-          "name": "windows-msvc-x64-debug-tests"
-        }
-      ]
-    },
-    {
-      "name": "windows-msvc-x64-debug-tests-rebuild-workflow",
-      "displayName": "Configure and rebuild Windows MSVC 2026 x64 Debug (tests)",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "windows-msvc-x64-debug"
-        },
-        {
-          "type": "build",
-          "name": "windows-msvc-x64-debug-tests-rebuild"
-        }
-      ]
-    },
-    {
-      "name": "windows-msvc-x64-release-clean-workflow",
-      "displayName": "Configure and clean Windows MSVC 2026 x64 Release",
-      "steps": [
-        {
-          "type": "configure",
-          "name": "windows-msvc-x64-release"
-        },
-        {
-          "type": "build",
-          "name": "windows-msvc-x64-release-clean"
-        }
-      ]
     }
   ]
 }

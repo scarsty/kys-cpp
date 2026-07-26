@@ -149,8 +149,10 @@ std::optional<std::string> exportableReplayJsonl(
 
 }
 
-ChessCliController::ChessCliController(ChessJsonProtocol::ContentProvider contentProvider)
-    : protocol_(std::move(contentProvider))
+ChessCliController::ChessCliController(
+    ChessJsonProtocol::ContentProvider contentProvider,
+    ChessJsonProtocolOptions options)
+    : protocol_(std::move(contentProvider), std::move(options))
 {
 }
 

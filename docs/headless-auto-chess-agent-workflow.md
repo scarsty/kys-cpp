@@ -71,7 +71,7 @@ full 戰報的 `initial_combat_stats` 是全部開戰效果套用後的實際屬
 1. 還原該存檔的遊戲狀態與完整亂數狀態；
 2. 還原存檔內嵌的重播前綴；
 3. 捨棄目前時間線中該前綴之後的行動；
-4. 保留外部存檔目錄；
+4. 保留其他程序內存檔欄位；
 5. 在即時回應的 `discarded_active_actions` 明示捨棄數量。
 
 之後的新行動會接在還原的前綴後方。最終 `export_replay` 只包含玩家選定的合法時間線；離線驗證不需要被捨棄的嘗試。
@@ -104,7 +104,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\Install-KysChessCodexMcp.ps1 -D
 
 部署腳本會建置 Release CLI、使用 `x64\Release\kys_chess_cli.publish` 的最小無介面資源包、冒煙測試新的不可變版本目錄，再以 `%LOCALAPPDATA%\kys_chess_mcp\current.json` 原子切換目前版本。Codex 不會執行 `x64\Debug` 或 `x64\Release` 內的檔案，因此原生 MCP 子程序不會鎖住下一次建置輸出。
 
-已執行的 Python MCP bridge 會在下一次工具要求前偵測新版本。若目前有棋局，bridge 先建立並匯出自動存檔檢查點，停止舊 CLI，啟動新 CLI，再依檢查點的難度、根種子及選項建立棋局、匯入並載入相同狀態，最後才執行原本的工具要求。成功回應會附加 `runtime_reload.status: "succeeded"`。若新版本無法載入檢查點，bridge 會重新啟動舊版本並還原同一棋局，回傳 `runtime_reload_failed`，不會丟失可恢復的進度。
+已執行的 Python MCP bridge 會在下一次工具要求前偵測新版本。若目前有棋局，bridge 要求舊 C++ CLI 把目前狀態寫入原生 `autosave` 檔案，停止舊 CLI，啟動新 CLI，再由原生 `resume_game` 接續該檔案，最後才執行原本的工具要求。檢查點內容不經過 Python。成功回應會附加 `runtime_reload.status: "succeeded"`。若新版本無法載入檢查點，bridge 會重新啟動舊版本並還原同一棋局，回傳 `runtime_reload_failed`，不會丟失可恢復的進度。
 
 Python bridge 或 MCP 工具結構本身有修改時，完整安裝後需要開啟新的 Codex 工作；原生執行期與內容更新不需重啟 Codex 或建立新工作。`get_diagnostics` 會列出目前執行期、已啟用版本及最近一次熱更新結果。
 
@@ -112,10 +112,10 @@ MCP 工具對應即時決策所需的 JSONL 方法。`difficulty` 與 `detail` �
 
 MCP 不再公開 `verify_replay`；完整重播驗證耗時且不參與即時決策。需要發行、除錯或回歸驗證時，仍可在 CLI 離線使用 `verify`，不會把大型重播往返塞進代理工作階段。
 
-MCP 會持續緩衝 CLI 的標準錯誤。CLI 異常結束、沒有回應或回傳損壞的 JSONL 時，原工具回應會包含 `error_code: "cli_process_exited"`、`exit_code`、`diagnostics`、`restarted` 與 `session_lost`；服務會自動重啟子程序，但不會假裝原本的記憶體棋局仍存在。`get_diagnostics` 可隨時查看子程序狀態、持久存檔目錄及最近的原生診斷。
+MCP 會持續緩衝 CLI 的標準錯誤。CLI 異常結束、沒有回應或回傳損壞的 JSONL 時，原工具回應會包含 `error_code: "cli_process_exited"`、`exit_code`、`diagnostics`、`restarted` 與 `session_lost`；服務會自動重啟子程序，但不會假裝原本的記憶體棋局仍存在。`get_diagnostics` 可隨時查看子程序狀態、自動存檔檔案及最近的原生診斷。
 
-MCP 的具名存檔會在每次 `save_game` 後自動匯出並以原子替換寫到 `%LOCALAPPDATA%\kys_chess_mcp\saves`，也可用 `KYS_CHESS_MCP_SAVE_DIR` 指定位置。`list_saves` 直接讀取此持久目錄，不需要先建立棋局；此時會回傳存檔難度、版本及摘要，但 `compatible` 為 `null`，建立棋局後才依目前遊戲版本與難度判定相容性。新 CLI 子程序建立棋局後會自動匯入這些存檔，因此 MCP 或 CLI 子程序重啟後仍可 `load_game`。直接使用 JSONL CLI 時，程序內具名欄位仍只屬於該程序；需要可攜檔案時使用 `export_save_file` 與 `import_save_file`。
+GUI 與 CLI 共用原生 `ChessSaveFile` 讀寫實作及同一份檢查點格式。MCP launcher 以 `--autosave-file` 把 `%LOCALAPPDATA%\kys_chess_mcp\saves\autosave.json` 交給 C++ CLI，也可用 `KYS_CHESS_MCP_SAVE_DIR` 指定其父目錄。原生程序啟動時載入這一個 `autosave`；建立棋局、每次接受的行動及成功載入後都會更新它。直接使用 JSONL CLI 時可傳入 `--autosave-file` 取得相同行為。其他命名存檔只存在目前程序；需要可攜或長期存檔時使用 `export_save_file` 與 `import_save_file`。
 
-Python MCP 程序不再逐一宣告遊戲工具。原生程序提供唯一的工具名稱、說明、輸入結構及 JSONL 方法對應；Python 只把目錄轉成 MCP `tools/list`、泛型轉送 `tools/call`，並保留執行期監督、熱更新與回復。`kys_chess_cli --mcp` 可不經 Python，直接作為 stdio MCP 伺服器使用。
+Python MCP 程序不再逐一宣告遊戲工具。原生程序提供唯一的工具名稱、說明、輸入結構及 JSONL 方法對應；Python 只把原生工具目錄轉成 MCP `tools/list`、泛型轉送 `tools/call`，並保留執行期監督、熱更新與回復。`kys_chess_cli --mcp` 可不經 Python，直接作為 stdio MCP 伺服器使用。
 
 `kys_chess_cli.vcxproj` 的建置後步驟會把目前組態的 vcpkg DLL 複製到 CLI 執行檔旁，Debug 使用 `debug\bin`，Release 使用 `bin`，涵蓋 sqlite、yaml-cpp、zip、bz2 與 zlib 等執行期相依項目。
