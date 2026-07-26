@@ -5,6 +5,7 @@
 #include "ChessReplayArchive.h"
 #include "ChessReplayJson.h"
 #include "ChessReplayVerifier.h"
+#include "ChessSaveFile.h"
 #include "ChessTournament.h"
 #include "Utf8Path.h"
 
@@ -48,6 +49,7 @@ struct Arguments
     int battleSeedCount = KysChess::kDefaultChessTournamentBattleSeedCount;
     int seedSequenceIndex{};
     int leg{};
+    std::size_t replaySequence{};
     KysChess::ChessCliOutputMode mode = KysChess::ChessCliOutputMode::Human;
     bool jsonl{};
     bool mcp{};
@@ -57,6 +59,7 @@ struct Arguments
     bool battleSeedCountSpecified{};
     bool seedSequenceIndexSpecified{};
     bool legSpecified{};
+    bool replaySequenceSpecified{};
     bool outputPathSpecified{};
     bool jsonOutputPathSpecified{};
     bool autosaveFileSpecified{};
@@ -77,10 +80,11 @@ struct CommandDefinition
     std::size_t positionalCount{};
 };
 
-inline constexpr std::array<CommandDefinition, 6> kCommandDefinitions{{
+inline constexpr std::array<CommandDefinition, 7> kCommandDefinitions{{
     {"play", 0},
     {"new", 0},
     {"verify", 1},
+    {"replay-prefix", 1},
     {"verify-pvp", 1},
     {"tournament", 1},
     {"tournament-battle", 2},
@@ -114,6 +118,7 @@ void printUsage(std::ostream& output)
               "  kys_chess_cli --jsonl [--data-root 路徑] [--config-root 路徑] [--autosave-file 路徑]\n"
               "  kys_chess_cli --mcp [--data-root 路徑] [--config-root 路徑] [--autosave-file 路徑]\n"
               "  kys_chess_cli verify <重播檔>\n"
+              "  kys_chess_cli replay-prefix <存檔> --sequence N --output <新存檔>\n"
               "  kys_chess_cli verify-pvp <離線對戰存檔>\n"
               "  kys_chess_cli tournament <存檔目錄> --seed N [--battle-seeds N] [--output 報告.md] [--json-output 結果.json] [--json]\n"
               "  kys_chess_cli tournament-battle <存檔甲> <存檔乙> --seed N --seed-index N --leg 0|1 [--json]\n"
@@ -317,6 +322,22 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             result.arguments.seedSequenceIndex = *seedIndex;
             result.arguments.seedSequenceIndexSpecified = true;
         }
+        else if (value == "--sequence")
+        {
+            const auto sequenceText = optionValue(value);
+            if (!sequenceText)
+            {
+                return result;
+            }
+            const auto sequence = parseNonnegativeInt(*sequenceText);
+            if (!sequence)
+            {
+                result.error = "--sequence 必須是非負整數";
+                return result;
+            }
+            result.arguments.replaySequence = static_cast<std::size_t>(*sequence);
+            result.arguments.replaySequenceSpecified = true;
+        }
         else if (value == "--leg")
         {
             const auto legText = optionValue(value);
@@ -357,7 +378,9 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             positionals.size());
         return result;
     }
-    if (command == "verify" || command == "verify-pvp")
+    if (command == "verify"
+        || command == "replay-prefix"
+        || command == "verify-pvp")
     {
         result.arguments.replayPath = positionals.front();
     }
@@ -380,6 +403,7 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             || result.arguments.battleSeedCountSpecified
             || result.arguments.seedSequenceIndexSpecified
             || result.arguments.legSpecified
+            || result.arguments.replaySequenceSpecified
             || result.arguments.outputPathSpecified
             || result.arguments.jsonOutputPathSpecified)
         {
@@ -422,11 +446,16 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             : std::format("指令 {} 不支援 --json", command);
     }
     else if ((result.arguments.battleSeedCountSpecified
-                 || result.arguments.outputPathSpecified
                  || result.arguments.jsonOutputPathSpecified)
         && command != "tournament")
     {
         result.error = std::format("指令 {} 不支援賽事輸出選項", command);
+    }
+    else if (result.arguments.outputPathSpecified
+        && command != "tournament"
+        && command != "replay-prefix")
+    {
+        result.error = std::format("指令 {} 不支援 --output", command);
     }
     else if ((result.arguments.seedSequenceIndexSpecified || result.arguments.legSpecified)
         && command != "tournament-battle")
@@ -443,6 +472,17 @@ ArgumentParseResult parseArguments(int argc, char** argv)
             || !result.arguments.legSpecified))
     {
         result.error = "tournament-battle 必須指定 --seed、--seed-index 與 --leg";
+    }
+    else if (result.arguments.replaySequenceSpecified
+        && command != "replay-prefix")
+    {
+        result.error = std::format("指令 {} 不支援 --sequence", command);
+    }
+    else if (command == "replay-prefix"
+        && (!result.arguments.replaySequenceSpecified
+            || !result.arguments.outputPathSpecified))
+    {
+        result.error = "replay-prefix 必須指定 --sequence 與 --output";
     }
     return result;
 }
@@ -462,6 +502,15 @@ bool writeText(const std::filesystem::path& path, std::string_view text)
     std::ofstream output(path, std::ios::binary | std::ios::trunc);
     output.write(text.data(), static_cast<std::streamsize>(text.size()));
     return output.good();
+}
+
+KysChess::Difficulty replayDifficulty(const KysChess::ChessReplay& replay)
+{
+    return replay.header.difficulty == "easy"
+        ? KysChess::Difficulty::Easy
+        : replay.header.difficulty == "hard"
+            ? KysChess::Difficulty::Hard
+            : KysChess::Difficulty::Normal;
 }
 
 std::vector<std::filesystem::path> tournamentSavePaths(
@@ -802,6 +851,55 @@ int main(int argc, char** argv)
         return content;
     };
 
+    if (arguments.command == "replay-prefix")
+    {
+        const auto source = readChessCheckpointFile(arguments.replayPath);
+        if (!source)
+        {
+            std::cerr << "無法讀取存檔：" << source.error() << '\n';
+            return 2;
+        }
+        const auto content = provider(replayDifficulty(source->replay));
+        if (!content)
+        {
+            return 2;
+        }
+        auto reconstruction = ChessReplayVerifier::reconstructPrefix(
+            content,
+            source->replay,
+            arguments.replaySequence);
+        if (!reconstruction.verification.valid)
+        {
+            std::cerr << "序號 " << reconstruction.verification.sequence
+                      << "：" << reconstruction.verification.message << '\n';
+            return 1;
+        }
+        assert(reconstruction.reconstructedSession);
+        const auto label = source->label.empty()
+            ? std::format("重播前綴序號 {}", arguments.replaySequence)
+            : std::format(
+                  "{}（重播前綴序號 {}）",
+                  source->label,
+                  arguments.replaySequence);
+        const auto checkpoint = ChessSessionCheckpoint::capture(
+            *reconstruction.reconstructedSession,
+            source->saveRevision + 1,
+            label);
+        const auto written = writeChessCheckpointFile(
+            arguments.outputPath,
+            checkpoint);
+        if (!written)
+        {
+            std::cerr << "無法寫入存檔：" << written.error() << '\n';
+            return 2;
+        }
+        std::cout << std::format(
+            "已驗證並匯出重播前綴序號 {}：{}\n",
+            arguments.replaySequence,
+            pathToUtf8(std::filesystem::absolute(arguments.outputPath).lexically_normal()));
+        return 0;
+    }
+
     if (arguments.command == "verify")
     {
         ChessReplayArchiveError archiveError;
@@ -820,10 +918,7 @@ int main(int argc, char** argv)
             std::cerr << parseError.message << '\n';
             return 2;
         }
-        const auto difficulty = replay->header.difficulty == "easy"
-            ? Difficulty::Easy
-            : replay->header.difficulty == "hard" ? Difficulty::Hard : Difficulty::Normal;
-        const auto content = provider(difficulty);
+        const auto content = provider(replayDifficulty(*replay));
         if (!content)
         {
             return 2;

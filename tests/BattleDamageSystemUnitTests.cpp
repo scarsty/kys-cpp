@@ -158,6 +158,19 @@ TEST_CASE("BattleDamageSystem_DashHitShapeEmitsFreezeAndReducedDashDamage", "[ba
     CHECK(result.knockbackVelocityCap == Catch::Approx(3.0));
 }
 
+TEST_CASE("BattleDamageSystem_PointBlankHitHasNoDirectionalDamageBonus", "[battle][damage][unit]")
+{
+    BattleHitShapeInput input;
+    input.baseDamage = 100;
+    input.impactPosition = { 5.0f, 7.0f, 0.0f };
+    input.defenderPosition = input.impactPosition;
+    input.defenderFacing = { 1.0f, 0.0f, 0.0f };
+
+    const auto result = BattleDamageSystem().shapeHitDamage(input);
+
+    CHECK(result.damage.toDouble() == Catch::Approx(100.0));
+}
+
 TEST_CASE("BattleDamageSystem_ScriptedHitRequestCarriesAcceptedStatusPayloads", "[battle][damage][unit]")
 {
     BattleScriptedHitRequestInput input;

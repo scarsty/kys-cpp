@@ -45,6 +45,8 @@ public:
     ChessReplayAuditResult takeResult();
 
 private:
+    friend class ChessReplayVerifier;
+    ChessReplayAuditResult takePrefixResult();
     void fail(
         ChessReplayMismatch category,
         std::uint64_t sequence,
@@ -66,6 +68,10 @@ public:
     static ChessReplayAuditResult audit(
         std::shared_ptr<const ChessGameContent> content,
         const ChessReplay& replay);
+    static ChessReplayAuditResult reconstructPrefix(
+        std::shared_ptr<const ChessGameContent> content,
+        const ChessReplay& replay,
+        std::size_t decisionCount);
     static ChessReplayVerificationResult verify(
         std::shared_ptr<const ChessGameContent> content,
         const ChessReplay& replay);

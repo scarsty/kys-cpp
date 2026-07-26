@@ -330,6 +330,23 @@ ChessReplayAuditResult ChessReplayAudit::takeResult()
     return result;
 }
 
+ChessReplayAuditResult ChessReplayAudit::takePrefixResult()
+{
+    assert(!finished_);
+    assert(session_);
+    assert(session_->isStableDecisionBoundary());
+    ChessReplayAuditResult result;
+    result.verification = {
+        true,
+        ChessReplayMismatch::None,
+        nextDecision_,
+        {},
+    };
+    result.reconstructedSession = std::move(session_);
+    finished_ = true;
+    return result;
+}
+
 ChessReplayAuditResult ChessReplayVerifier::audit(
     std::shared_ptr<const ChessGameContent> content,
     const ChessReplay& replay)
@@ -340,6 +357,37 @@ ChessReplayAuditResult ChessReplayVerifier::audit(
         audit.step(std::numeric_limits<std::size_t>::max(), std::numeric_limits<int>::max());
     }
     return audit.takeResult();
+}
+
+ChessReplayAuditResult ChessReplayVerifier::reconstructPrefix(
+    std::shared_ptr<const ChessGameContent> content,
+    const ChessReplay& replay,
+    std::size_t decisionCount)
+{
+    if (decisionCount > replay.decisions.size())
+    {
+        ChessReplayAuditResult result;
+        result.verification = mismatch(
+            ChessReplayMismatch::IllegalAction,
+            decisionCount,
+            std::format(
+                "要求的重播前綴序號 {} 超過重播總操作數 {}",
+                decisionCount,
+                replay.decisions.size()));
+        return result;
+    }
+
+    ChessReplayAudit audit(std::move(content), replay);
+    while (!audit.finished()
+        && audit.completedDecisionCount() < decisionCount)
+    {
+        audit.step(
+            decisionCount - audit.completedDecisionCount(),
+            std::numeric_limits<int>::max());
+    }
+    return audit.finished()
+        ? audit.takeResult()
+        : audit.takePrefixResult();
 }
 
 ChessReplayVerificationResult ChessReplayVerifier::verify(

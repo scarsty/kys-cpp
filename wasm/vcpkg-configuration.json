@@ -1,5 +1,6 @@
 {
   "overlay-ports": [
+    "../android/ports",
     "ports"
   ]
 }

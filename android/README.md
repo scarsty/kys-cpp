@@ -25,6 +25,8 @@ vcpkg install --triplet=arm64-android `
 
 The SDL3 overlay keeps the current vcpkg port and applies a local fix for the
 GLES2 program-cache tail pointer when the oldest shader program is evicted.
+The WASM dependency build reuses this overlay because its `opengles2` renderer
+has the same SDL 3.4.2 defect.
 
 The custom triplet at `android/triplets/arm64-android.cmake` sets `VCPKG_CMAKE_SYSTEM_VERSION 21` (minSdk 21).
 

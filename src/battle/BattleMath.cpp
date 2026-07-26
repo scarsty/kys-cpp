@@ -485,8 +485,11 @@ BattleFacingArc classifyBattleFacing(Pointf attackVector, Pointf defenderFacing)
         attack.x * attack.x + attack.y * attack.y + attack.z * attack.z);
     const std::uint64_t facingNormSquared = static_cast<std::uint64_t>(
         facing.x * facing.x + facing.y * facing.y + facing.z * facing.z);
-    assert(attackNormSquared > 0);
     assert(facingNormSquared > 0);
+    if (attackNormSquared == 0)
+    {
+        return BattleFacingArc::Front;
+    }
 
     const std::uint64_t absoluteDot = unsignedMagnitude(dot);
     assert(absoluteDot <= std::numeric_limits<std::uint64_t>::max() / 2);

@@ -82,7 +82,8 @@ function Install-WasmDependencies
     Ensure-PathExists -Path $manifestFile -Message "WASM vcpkg manifest not found at $manifestFile"
 
     $overlayTriplets = Join-Path $Paths.WasmDir 'triplets'
-    $overlayPorts = Join-Path $Paths.WasmDir 'ports'
+    $sdlOverlayPorts = Join-Path $Paths.ProjectDir 'android\ports'
+    $wasmOverlayPorts = Join-Path $Paths.WasmDir 'ports'
 
     Write-Host '=== Installing WASM dependencies ==='
     New-Item -ItemType Directory -Force -Path $Paths.VcpkgInstallRoot | Out-Null
@@ -96,9 +97,14 @@ function Install-WasmDependencies
         "--overlay-triplets=$overlayTriplets"
     )
 
-    if (Test-Path $overlayPorts)
+    if (Test-Path $sdlOverlayPorts)
     {
-        $arguments += "--overlay-ports=$overlayPorts"
+        $arguments += "--overlay-ports=$sdlOverlayPorts"
+    }
+
+    if (Test-Path $wasmOverlayPorts)
+    {
+        $arguments += "--overlay-ports=$wasmOverlayPorts"
     }
 
     Invoke-NativeCommand -FilePath $vcpkgExe -ArgumentList $arguments

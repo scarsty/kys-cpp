@@ -449,31 +449,38 @@
                     focusCanvas();
                 });
 
-                closeBtn.addEventListener('click', function() {
+                var closeDialog = function() {
                     state.result = 2;
                     root.style.display = 'none';
                     focusCanvas();
-                });
+                };
+
+                closeBtn.addEventListener('click', closeDialog);
 
                 root.addEventListener('click', function(event) {
                     if (event.target === root) {
-                        state.result = 2;
-                        root.style.display = 'none';
-                        focusCanvas();
+                        closeDialog();
                     }
                 });
 
-                document.addEventListener('keydown', function(event) {
-                    if (root.style.display !== 'flex') {
+                var handleDialogKeyboardEvent = function(event) {
+                    event.stopPropagation();
+                    if (event.type !== 'keydown') {
+                        return;
+                    }
+                    if (event.target === textarea && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+                        event.preventDefault();
+                        textarea.select();
                         return;
                     }
                     if (event.key === 'Escape') {
                         event.preventDefault();
-                        state.result = 2;
-                        root.style.display = 'none';
-                        focusCanvas();
+                        closeDialog();
                     }
-                });
+                };
+                root.addEventListener('keydown', handleDialogKeyboardEvent);
+                root.addEventListener('keypress', handleDialogKeyboardEvent);
+                root.addEventListener('keyup', handleDialogKeyboardEvent);
 
                 Module.kysExternalSave = state;
             }

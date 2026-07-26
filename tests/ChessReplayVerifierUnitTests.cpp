@@ -69,6 +69,55 @@ TEST_CASE("fresh session verifier accepts an unmodified replay", "[chess][replay
     CHECK(result.sequence == 3);
 }
 
+TEST_CASE("replay verifier reconstructs an authoritative decision prefix", "[chess][replay][prefix]")
+{
+    const auto replay = shortReplay();
+    const auto result = ChessReplayVerifier::reconstructPrefix(
+        managementContent(),
+        replay,
+        1);
+
+    REQUIRE(result.verification.valid);
+    CHECK(result.verification.sequence == 1);
+    REQUIRE(result.reconstructedSession);
+    CHECK(result.reconstructedSession->state().shopLocked);
+    CHECK(result.reconstructedSession->state().roster.empty());
+    const auto prefixReplay = result.reconstructedSession->exportReplay();
+    REQUIRE(prefixReplay);
+    REQUIRE(prefixReplay->decisions.size() == 1);
+    CHECK(prefixReplay->decisions.front() == replay.decisions.front());
+}
+
+TEST_CASE("replay prefix reconstruction verifies only the requested prefix", "[chess][replay][prefix]")
+{
+    auto replay = shortReplay();
+    replay.decisions[1].evidenceHash[0] ^= 1;
+
+    const auto accepted = ChessReplayVerifier::reconstructPrefix(
+        managementContent(),
+        replay,
+        1);
+    REQUIRE(accepted.verification.valid);
+    REQUIRE(accepted.reconstructedSession);
+
+    const auto rejected = ChessReplayVerifier::reconstructPrefix(
+        managementContent(),
+        replay,
+        2);
+    CHECK_FALSE(rejected.verification.valid);
+    CHECK(rejected.verification.mismatch == ChessReplayMismatch::Evidence);
+    CHECK(rejected.verification.sequence == 2);
+    CHECK_FALSE(rejected.reconstructedSession);
+
+    const auto pastEnd = ChessReplayVerifier::reconstructPrefix(
+        managementContent(),
+        replay,
+        replay.decisions.size() + 1);
+    CHECK_FALSE(pastEnd.verification.valid);
+    CHECK(pastEnd.verification.mismatch == ChessReplayMismatch::IllegalAction);
+    CHECK_FALSE(pastEnd.reconstructedSession);
+}
+
 TEST_CASE("fresh session verifier identifies altered actions and evidence", "[chess][replay][verify]")
 {
     SECTION("altered action")

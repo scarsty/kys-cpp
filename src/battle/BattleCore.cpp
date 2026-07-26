@@ -1041,11 +1041,6 @@ BattleHitResolutionInput makeHitResolutionInput(
     input.attackEvent = event;
     input.attacker = makeHitUnitSnapshot(attacker.core);
     input.defender = makeHitUnitSnapshot(defender.core);
-    if ((input.attackEvent.position - input.defender.motion.position).norm() == 0.0)
-    {
-        assert(input.defender.motion.facing.norm() > 0.0);
-        input.attackEvent.position = input.defender.motion.position + input.defender.motion.facing;
-    }
     input.sharedBleedMaxStacks = sharedBleedMaxStacks(state, event);
     input.randomDamageVariance = state.random.symmetricInt(10);
 

@@ -86,6 +86,12 @@ full 戰報的 `initial_combat_stats` 是全部開戰效果套用後的實際屬
 .\x64\Debug\kys_chess_cli.exe verify run.kysreplay
 ```
 
+需要從已匯出的存檔重建崩潰前決策邊界時，可驗證指定序號以前的重播前綴，並直接匯出新的可攜檢查點。輸出包含指定序號的操作，但不會執行後綴：
+
+```powershell
+.\x64\Debug\kys_chess_cli.exe replay-prefix save.json --sequence 340 --output prefix-340.json
+```
+
 驗證器會從規則內容、根種子、選項及接受的決策建立全新棋局，逐筆比對前置狀態、事件、亂數、後置狀態及鏈式雜湊。
 
 ## MCP

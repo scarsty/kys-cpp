@@ -101,6 +101,8 @@ TEST_CASE("fixed battle facing assigns exact diagonal boundaries consistently", 
     CHECK(classifyBattleFacing({1.0f, 0.0f, 0.0f}, facing) == BattleFacingArc::Front);
     CHECK(classifyBattleFacing({1.0f, 1.0f, 0.0f}, facing) == BattleFacingArc::Side);
     CHECK(classifyBattleFacing({-1.0f, 1.0f, 0.0f}, facing) == BattleFacingArc::Back);
+    CHECK(classifyBattleFacing({}, facing) == BattleFacingArc::Front);
+    CHECK(classifyBattleFacing({0.0001f, 0.0f, 0.0f}, facing) == BattleFacingArc::Front);
 }
 
 TEST_CASE("fixed projectile travel frames use exact ceiling", "[battle][math][determinism]")
