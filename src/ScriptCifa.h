@@ -21,6 +21,8 @@ public:
 
     int runScript(const std::string& filename);
 
+    int runNestedScript(const std::string& filename);
+
     int runScriptString(const std::string& content);
 
     int registerEventFunctions();

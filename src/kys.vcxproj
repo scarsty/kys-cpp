@@ -106,7 +106,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl3.lib;sdl3_ttf.lib;sdl3_mixer.lib;iconv.lib;smallpot.lib;lua.lib;sqlite3.lib;yaml-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl3.lib;sdl3_ttf.lib;sdl3_mixer.lib;iconv.lib;smallpot.lib;sqlite3.lib;yaml-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
@@ -156,7 +156,6 @@
     <ClCompile Include="GrpIdxFile.cpp" />
     <ClCompile Include="RandomRole.cpp" />
     <ClCompile Include="RunNodeFromJson.cpp" />
-    <ClCompile Include="ScriptLua.cpp" />
     <ClCompile Include="ScriptCifa.cpp" />
     <ClCompile Include="ShowExp.cpp" />
     <ClCompile Include="ShowRoleDifference.cpp" />
@@ -238,7 +237,6 @@
     <ClInclude Include="GrpIdxFile.h" />
     <ClInclude Include="RandomRole.h" />
     <ClInclude Include="RunNodeFromJson.h" />
-    <ClInclude Include="ScriptLua.h" />
     <ClInclude Include="ScriptCifa.h" />
     <ClInclude Include="ShowExp.h" />
     <ClInclude Include="ShowRoleDifference.h" />

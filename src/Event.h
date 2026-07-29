@@ -48,7 +48,8 @@ private:
 public:
     bool loadEventData();    //加载事件数据
     //这里再设计
-    bool callEvent(int event_id, RunNode* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);    //调用指令的内容写这里
+    bool callEvent(int event_id, RunNode* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1, bool nested = false);    //调用指令的内容写这里
+    bool callNestedEvent(int event_id);
 
 private:
     SubScene* subscene_;

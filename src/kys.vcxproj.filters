@@ -203,9 +203,6 @@
     <ClCompile Include="ScriptCifa.cpp">
       <Filter>script</Filter>
     </ClCompile>
-    <ClCompile Include="ScriptLua.cpp">
-      <Filter>script</Filter>
-    </ClCompile>
     <ClCompile Include="UIRenderer.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -440,9 +437,6 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="ScriptCifa.h">
-      <Filter>script</Filter>
-    </ClInclude>
-    <ClInclude Include="ScriptLua.h">
       <Filter>script</Filter>
     </ClInclude>
     <ClInclude Include="..\cifa\Cifa.h">

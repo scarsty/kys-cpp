@@ -193,7 +193,6 @@ add_library(main SHARED
         "${KYS_SRC_DIR}/RunNodeFromJson.cpp"
         "${KYS_SRC_DIR}/Save.cpp"
         "${KYS_SRC_DIR}/Scene.cpp"
-        "${KYS_SRC_DIR}/ScriptLua.cpp"
         "${KYS_SRC_DIR}/ScriptCifa.cpp"
         "${KYS_SRC_DIR}/ShowExp.cpp"
         "${KYS_SRC_DIR}/ShowRoleDifference.cpp"
@@ -257,4 +256,4 @@ foreach(_inc IN LISTS _thirdparty_include_candidates)
 endforeach()
 
 target_link_directories(main PRIVATE "${VCPKG_DYNAMIC_LIB_DIR}" "${KYS_ANDROID_LIB_DIR}")
-target_link_libraries(main PRIVATE SDL3::SDL3 sqlite3 lua yaml-cpp iconv ${_sdl_optional_libs} m log)
+target_link_libraries(main PRIVATE SDL3::SDL3 sqlite3 yaml-cpp iconv ${_sdl_optional_libs} m log)

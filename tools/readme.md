@@ -49,7 +49,7 @@ trans50 --kdef --in path --talkfile talkfile --out path_out
 ```
 其中path为kdef.idx、kdef.grp所在的文件夹，talkfile为talkutf8.txt的路径，应预先生成。
 
-执行之后会在输出目录中的event文件夹得到所有剧情事件的lua脚本。这些脚本可以被kys-pascal和kys-cpp直接支持。需注意kys-cpp的50指令部分支持不完整。
+执行之后会在输出目录中的event文件夹得到所有剧情事件的 Lua 脚本。这些脚本可以供 kys-pascal 使用，也可以继续通过下面的 `lua2cifa` 转换为 kys-cpp 使用的 Cifa 脚本。
 
 也可以自己修改ini文件，得到适合自己版本的脚本。
 

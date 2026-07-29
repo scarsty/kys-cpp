@@ -11,7 +11,6 @@
 #include "PotConv.h"
 #include "Save.h"
 #include "ScriptCifa.h"
-#include "ScriptLua.h"
 #include "SubScene.h"
 #include "Talk.h"
 #include "TextureManager.h"
@@ -119,7 +118,7 @@ bool Event::loadEventData()
 }
 
 //返回值为是否成功执行事件
-bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_id, int event_index, int x, int y)
+bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_id, int event_index, int x, int y, bool nested)
 {
     bool ret = true;
     if (use_script_ == 0
@@ -139,12 +138,14 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     x_ = x;
     y_ = y;
 
-    //将节点加载到绘图栈的最上
-    RunNode::addIntoDrawTop(event_node_);
-
     talk_box_->setExit(false);
     talk_box_->setVisible(true);
-    RunNode::addIntoDrawTop(talk_box_);
+    if (!nested)
+    {
+        //嵌套事件复用外层事件已挂载的绘图节点
+        RunNode::addIntoDrawTop(event_node_);
+        RunNode::addIntoDrawTop(talk_box_);
+    }
     int p = 0;
     exit_ = false;
     int i = 0;
@@ -162,21 +163,20 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     {
         auto cifa_script = std::format("{}script/event-cifa/{}.cifa", GameUtil::PATH(), event_id);
         auto cifa_c_script = std::format("{}script/event-cifa/{}.c", GameUtil::PATH(), event_id);
-        auto script = std::format("{}script/event/ka{}.lua", GameUtil::PATH(), event_id);
         if (filefunc::fileExist(cifa_script))
         {
             LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, cifa_script);
-            ret = ScriptCifa::getInstance()->runScript(cifa_script) == 0;
+            ret = (nested ? ScriptCifa::getInstance()->runNestedScript(cifa_script) : ScriptCifa::getInstance()->runScript(cifa_script)) == 0;
         }
         else if (filefunc::fileExist(cifa_c_script))
         {
             LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, cifa_c_script);
-            ret = ScriptCifa::getInstance()->runScript(cifa_c_script) == 0;
+            ret = (nested ? ScriptCifa::getInstance()->runNestedScript(cifa_c_script) : ScriptCifa::getInstance()->runScript(cifa_c_script)) == 0;
         }
         else
         {
-            LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, script);
-            ret = ScriptLua::getInstance()->runScript(script) == 0;
+            LOG("Event {} ({} of current scene): Cifa script not found\n", event_id, event_index_);
+            ret = false;
         }
     }
     else
@@ -300,15 +300,18 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
             }
         }
     }
-    RunNode::removeFromDraw(talk_box_);
-    clearTalkBox();
-
-    RunNode::removeFromDraw(event_node_);
-    event_node_->clear();
-
-    if (subscene_)
+    if (!nested)
     {
-        subscene_->forceManPic(-1);
+        RunNode::removeFromDraw(talk_box_);
+        clearTalkBox();
+
+        RunNode::removeFromDraw(event_node_);
+        event_node_->clear();
+
+        if (subscene_)
+        {
+            subscene_->forceManPic(-1);
+        }
     }
     exit_ = false;
     return ret;
@@ -316,6 +319,40 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     //{ return 0; }
     //else
     //{ return 1; }
+}
+
+bool Event::callNestedEvent(int event_id)
+{
+    struct EventContextGuard
+    {
+        Event* event;
+        SubScene* subscene;
+        int submap_id;
+        int item_id;
+        int event_index;
+        int x;
+        int y;
+        bool exit;
+
+        explicit EventContextGuard(Event* owner) :
+            event(owner), subscene(owner->subscene_), submap_id(owner->submap_id_), item_id(owner->item_id_),
+            event_index(owner->event_index_), x(owner->x_), y(owner->y_), exit(owner->exit_)
+        {
+        }
+
+        ~EventContextGuard()
+        {
+            event->subscene_ = subscene;
+            event->submap_id_ = submap_id;
+            event->item_id_ = item_id;
+            event->event_index_ = event_index;
+            event->x_ = x;
+            event->y_ = y;
+            event->exit_ = exit;
+        }
+    } context_guard(this);
+
+    return callEvent(event_id, subscene_, submap_id_, item_id_, event_index_, x_, y_, true);
 }
 
 SubMapInfo* Event::getSubMapRecordFromID(int submap_id)

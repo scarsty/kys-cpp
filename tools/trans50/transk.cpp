@@ -5,6 +5,7 @@
 // transk() 输入整条指令流，输出可人读 Lua 脚本字符串。
 
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -134,6 +135,17 @@ std::string transk(std::vector<int> e)
         auto& ins = ins_[ins_id];
 
         std::string str = ins.name;
+        int is_bool = ins.is_bool;
+        int jump1_index = ins.jump1;
+        int jump2_index = ins.jump2;
+
+        if (ins.id == 50 && e[i + 1] > 128)
+        {
+            str = "if CheckHave5Item($0, $1, $2, $3, $4) == bool then goto label$x end;";
+            is_bool = 1;
+            jump1_index = 6;
+            jump2_index = 7;
+        }
 
         if (ins.id == 3)
         {
@@ -145,25 +157,25 @@ std::string transk(std::vector<int> e)
             }
         }
 
-        if (ins.is_bool)
+        if (is_bool)
         {
             int jump, jump1 = 0;
-            if (e[i + ins.jump1] == 0)
+            if (e[i + jump1_index] == 0)
             {
                 strfunc::replaceAllSubStringRef(str, "bool", "false");
-                jump = e[i + ins.jump2];
+                jump = e[i + jump2_index];
             }
-            else if (e[i + ins.jump2] == 0)
+            else if (e[i + jump2_index] == 0)
             {
                 strfunc::replaceAllSubStringRef(str, " == bool", "");
-                jump = e[i + ins.jump1];
+                jump = e[i + jump1_index];
             }
             else
             {
                 strfunc::replaceAllSubStringRef(str, " == bool", "");
                 strfunc::replaceAllSubStringRef(str, "end", "else goto label$y end");
-                jump = e[i + ins.jump1];
-                jump1 = e[i + ins.jump2];
+                jump = e[i + jump1_index];
+                jump1 = e[i + jump2_index];
             }
 
             double index = i + ins.length + jump - 0.5;

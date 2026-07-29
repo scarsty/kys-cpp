@@ -113,7 +113,6 @@ void TitleScene::dealEvent(EngineEvent& e)
     {
         Engine::getInstance()->gameControllerRumble(50, 50, 500);
         Save::getInstance()->load(0);
-        //Script::getInstance()->runScript(GameUtil::PATH()+"script/0.lua");
         std::string name = "";
         auto input = std::make_shared<InputBox>("請輸入姓名：", 30);
         input->setInputPosition(350, 300);
@@ -145,7 +144,6 @@ void TitleScene::dealEvent(EngineEvent& e)
         if (menu_load_->run() >= 0)
         {
             //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //测试用
-            //Script::getInstance()->runScript(GameUtil::PATH()+"script/0.lua");
             MainScene::getInstance()->run();
         }
     }
