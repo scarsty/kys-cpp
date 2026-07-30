@@ -81,15 +81,6 @@ int ScriptCifa::runScript(const std::string& filename)
     return runScriptString(content);
 }
 
-int ScriptCifa::runNestedScript(const std::string& filename)
-{
-    std::string content = filefunc::readFileToString(filename);
-    std::transform(content.begin(), content.end(), content.begin(), ::tolower);
-    cifa_.set_output_error(true);
-    auto result = cifa_.run_nested_script(content);
-    return cifa_.has_error() || result.getSpecialType() == "Error" ? 1 : 0;
-}
-
 int ScriptCifa::runScriptString(const std::string& content)
 {
     cifa_.set_output_error(true);
@@ -121,7 +112,7 @@ int ScriptCifa::registerEventFunctions()
             {
                 return cifa::Object(false);
             }
-            return cifa::Object(Event::getInstance()->callNestedEvent(int(args[0])));
+            return cifa::Object(Event::getInstance()->callEvent(int(args[0])));
         });
 
     REGISTER_CIFA(oldTalk);
