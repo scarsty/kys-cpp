@@ -12,6 +12,6 @@ void DayNightDisplay::draw()
     }
     int ui_width, ui_height;
     Engine::getInstance()->getUISize(ui_width, ui_height);
-    Font::getInstance()->drawWithBox(day_night->getTimeLabel(), 20, ui_width - 145, 12,
-        { 255, 255, 255, 255 }, 255, 160);
+    Font::getInstance()->draw(day_night->getTimeLabel(), 20, 16, ui_height - 32,
+        { 255, 255, 255, 255 }, 255);
 }

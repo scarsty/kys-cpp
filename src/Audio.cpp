@@ -16,7 +16,7 @@ Audio::Audio()
         LOG("MIX_CreateMixerDevice error: {}\n", SDL_GetError());
     }
     track_music_ = MIX_CreateTrack(mixer_);
-    track_wav_.resize(20);
+    track_wav_.resize(32);
     for (auto& t : track_wav_)
     {
         t = MIX_CreateTrack(mixer_);
@@ -220,6 +220,15 @@ void Audio::playWav(WAV w, int volume, int track_num)
     if (tnum < 0)
     {
         tnum = current_track_num_;
+        for (int i = 0; i < track_wav_.size(); i++)
+        {
+            int candidate = (current_track_num_ + i) % track_wav_.size();
+            if (MIX_GetTrackNumLoops(track_wav_[candidate]) == 0)
+            {
+                tnum = candidate;
+                break;
+            }
+        }
     }
     MIX_SetTrackGain(track_wav_[tnum], volume_wav_ / 100.0);
     MIX_SetTrackAudio(track_wav_[tnum], w);

@@ -1,4 +1,5 @@
 ﻿#include "UI.h"
+#include "DayNightDisplay.h"
 #include "GameUtil.h"
 #include "Head.h"
 #include "Save.h"
@@ -17,6 +18,7 @@ UI::UI()
     addChild(button_status_, 10, 10);
     addChild(button_item_, 90, 10);
     addChild(button_system_, 170, 10);
+    addChild<DayNightDisplay>();
     heads_ = std::make_shared<Menu>();
     addChild(heads_);
     for (int i = 0; i < TEAMMATE_COUNT; i++)

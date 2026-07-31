@@ -2,7 +2,6 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "Console.h"
-#include "DayNightDisplay.h"
 #include "DayNightSystem.h"
 #include "Event.h"
 #include "Fade.h"
@@ -24,7 +23,6 @@ SubScene::SubScene()
     //cloud_group_ = std::make_shared<CloudGroup>();
     //cloud_group_->init(2, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     //addChild(cloud_group_);
-    addChild<DayNightDisplay>();
 }
 
 SubScene::SubScene(int id) :

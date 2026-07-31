@@ -1,6 +1,5 @@
 ﻿#include "MainScene.h"
 #include "Console.h"
-#include "DayNightDisplay.h"
 #include "DayNightSystem.h"
 #include "Fade.h"
 #include "Font.h"
@@ -47,7 +46,6 @@ MainScene::MainScene()
     cloud_group_ = std::make_shared<CloudGroup>();
     cloud_group_->init(100, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     addChild(cloud_group_);
-    addChild<DayNightDisplay>();
     //getEntrance();
     addChild(Weather::getInstance());
 }
