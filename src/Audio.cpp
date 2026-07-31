@@ -223,7 +223,7 @@ void Audio::playWav(WAV w, int volume, int track_num)
         for (int i = 0; i < track_wav_.size(); i++)
         {
             int candidate = (current_track_num_ + i) % track_wav_.size();
-            if (MIX_GetTrackNumLoops(track_wav_[candidate]) == 0)
+            if (!MIX_TrackPlaying(track_wav_[candidate]))
             {
                 tnum = candidate;
                 break;
