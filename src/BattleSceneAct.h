@@ -179,6 +179,8 @@ protected:
         uint8_t white = 0;
         int breathless = 0;
         int draw_turn = 1;
+        bool is_wall = false;
+        bool is_effect = false;
     };
 
     void drawClassicPresentation();

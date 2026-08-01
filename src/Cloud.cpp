@@ -28,7 +28,7 @@ void Cloud::draw()
     info.alpha = alpha_;
     info.c.a = alpha_;
     info.color_v.resize(4, info.c);
-    info.brightness_v = { 1, 0, 0, 0 };
+    info.brightness_v = { 1.0f, 0, 0, 0 };
     TextureManager::getInstance()->renderTexture("cloud", num_, x_, y_, info);
 }
 

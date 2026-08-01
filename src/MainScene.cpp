@@ -148,7 +148,7 @@ void MainScene::draw()
         }
         Engine::getInstance()->setRenderTarget("scene");
         std::vector<float> brightness_v(4, 0);
-        brightness_v[0] = 0.5;
+        brightness_v[0] = 0.5f;
         brightness_v[2] = 0;
         std::vector<Color> color_v(4, ambient_color);
         auto temp_texture = Engine::getInstance()->getTexture("temp");
@@ -230,7 +230,7 @@ void MainScene::draw()
     {
         auto& d = building_vec[i];
         std::vector<float> brightness_v(4, 0);
-        brightness_v[0] = 1;
+        brightness_v[0] = 1.0f;
         brightness_v[2] = 0;
         TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y,
             { ambient_color, 255, 1, 1, 0, 0, std::vector<Color>(4, ambient_color), brightness_v });

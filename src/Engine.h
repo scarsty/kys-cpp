@@ -271,6 +271,7 @@ private:
     Rect rect_;
     bool full_screen_ = false;
     bool keep_ratio_ = true;
+    bool texture_top_left_highlight_enabled_ = true;
 
     int ui_w_ = 1024, ui_h_ = 640;
     int base_ui_w_ = 1024, base_ui_h_ = 640;
@@ -416,9 +417,11 @@ public:
     void renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle = 0, int inPresent = 0);
     void renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v, const std::vector<FPoint>& v2);
     void renderTextureMesh(Texture* t, const std::vector<FPoint>& v, const std::vector<FPoint>& v2,
-        const std::vector<Color>& colors, const std::vector<int>& indices);
+        const std::vector<Color>& colors, const std::vector<int>& indices, float top_left_brightness = 0.0f);
     void renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors,
         const std::vector<float>& brightness_v = {}, double angle = 0);
+
+    void setTextureTopLeftHighlightEnabled(bool enabled) { texture_top_left_highlight_enabled_ = enabled; }
 
     void destroy() const;
     bool isFullScreen();

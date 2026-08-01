@@ -3,6 +3,7 @@
 #include "Engine.h"
 #include "Font.h"
 #include "GameUtil.h"
+#include "Scene.h"
 #include "TextureManager.h"
 #include "filefunc.h"
 #include <limits>
@@ -524,7 +525,7 @@ void PaperPresentation::renderGroundMesh(Engine* engine, const PaperGroundTarget
             }
         }
     }
-    engine->renderTextureMesh(targets.texture, destination, source, colors, indices);
+    engine->renderTextureMesh(targets.texture, destination, source, colors, indices, 0.25f);
 }
 
 void PaperPresentation::renderGroundOverlays(Engine* engine, Camera& camera,
@@ -561,16 +562,6 @@ void PaperPresentation::renderGroundOverlays(Engine* engine, Camera& camera,
     }
 }
 
-bool PaperPresentation::isWallTile(int tile_number)
-{
-    return (tile_number >= 701 && tile_number <= 1139)
-        || (tile_number >= 1410 && tile_number <= 1436)
-        || (tile_number >= 1505 && tile_number <= 1621)
-        || (tile_number >= 1816 && tile_number <= 1849)
-        || (tile_number >= 2116 && tile_number <= 2144)
-        || (tile_number >= 2184 && tile_number <= 2285);
-}
-
 void PaperPresentation::appendMapSprites(Engine* engine, Camera& camera, MapSquareInt& building_layer,
     int coordinate_count, const std::function<Pointf(int, int)>& to_world,
     std::vector<PaperRenderSprite>& sprites) const
@@ -593,7 +584,7 @@ void PaperPresentation::appendMapSprites(Engine* engine, Camera& camera, MapSqua
     auto is_wall_at = [&](int x, int y)
     {
         return x >= 0 && x < coordinate_count && y >= 0 && y < coordinate_count
-            && isWallTile(building_layer.data(x, y) / 2);
+            && Scene::isWallTile(building_layer.data(x, y) / 2);
     };
     std::vector<WallEdge> wall_edges;
     int sprite_order = int(sprites.size());
@@ -607,7 +598,7 @@ void PaperPresentation::appendMapSprites(Engine* engine, Camera& camera, MapSqua
         for (int y = 0; y < coordinate_count; y++)
         {
             int tile_number = building_layer.data(x, y) / 2;
-            if (isWallTile(tile_number))
+            if (Scene::isWallTile(tile_number))
             {
                 Pointf p00 = to_world(x, y);
                 Pointf p10 = to_world(x + 1, y);
@@ -702,7 +693,7 @@ void PaperPresentation::renderSprites(Engine* engine, Camera& camera, std::vecto
         return true;
     };
     auto render_quad = [&](Texture* texture, const std::vector<Pointf>& world,
-        const std::vector<FPoint>& source, Color color, int columns, int rows)
+        const std::vector<FPoint>& source, Color color, int columns, int rows, float top_left_brightness)
     {
         if (!texture || world.size() != 4 || source.size() != 4 || !in_front(world)) { return; }
         columns = std::clamp(columns, 1, 32);
@@ -739,7 +730,7 @@ void PaperPresentation::renderSprites(Engine* engine, Camera& camera, std::vecto
                 indices.insert(indices.end(), { top_left, top_right, bottom_right, bottom_right, bottom_left, top_left });
             }
         }
-        engine->renderTextureMesh(texture, destination, mesh_source, std::vector<Color>(destination.size(), color), indices);
+        engine->renderTextureMesh(texture, destination, mesh_source, std::vector<Color>(destination.size(), color), indices, top_left_brightness);
     };
     std::sort(sprites.begin(), sprites.end(), [](const PaperRenderSprite& left, const PaperRenderSprite& right)
         {
@@ -753,7 +744,8 @@ void PaperPresentation::renderSprites(Engine* engine, Camera& camera, std::vecto
     {
         if (sprite.texture && sprite.world.size() == 4)
         {
-            render_quad(sprite.texture, sprite.world, sprite.source, apply_ambient(sprite.color), sprite.use_perspective_mesh ? 4 : 1, sprite.use_perspective_mesh ? 4 : 1);
+            float top_left_brightness = sprite.use_perspective_mesh ? 0.0f : 0.5f;
+            render_quad(sprite.texture, sprite.world, sprite.source, apply_ambient(sprite.color), sprite.use_perspective_mesh ? 4 : 1, sprite.use_perspective_mesh ? 4 : 1, top_left_brightness);
             continue;
         }
         if (!sprite.tex) { continue; }
@@ -782,7 +774,7 @@ void PaperPresentation::renderSprites(Engine* engine, Camera& camera, std::vecto
         color.a = sprite.alpha;
         int columns = sprite.face_camera ? 1 : std::clamp((sprite.tex->w + 31) / 32, 1, 32);
         int rows = sprite.face_camera ? 1 : std::clamp((sprite.tex->h + 31) / 32, 1, 32);
-        render_quad(texture, world, source, color, columns, rows);
+        render_quad(texture, world, source, color, columns, rows, 0.5f);
     }
 }
 

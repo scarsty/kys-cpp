@@ -88,7 +88,7 @@ void SubScene::draw()
             rect0.y = 0;
         }
         std::vector<Color> cv(4, ambient_color);
-        Engine::getInstance()->renderTextureLight(earth_texture, &rect0, &rect1, cv, { 0.25, 0, 0, 0 });
+        Engine::getInstance()->renderTextureLight(earth_texture, &rect0, &rect1, cv, { 0.25f, 0, 0, 0 });
     }
     else
     {
@@ -129,7 +129,7 @@ void SubScene::draw()
         //#endif
     }
     std::vector<Color> color_v(4, ambient_color);
-    std::vector<float> brighness_v = { 0.5, 0, 0, 0 };
+    std::vector<float> brighness_v = { 0.5f, 0, 0, 0 };
     //color_v[0] = { 128, 128, 128, 255 };
     //color_v[1] = { 192, 192, 192, 255 };
     //color_v[3] = { 192, 192, 192, 255 };
@@ -163,7 +163,8 @@ void SubScene::draw()
                 num = submap_info_->Building(ix, iy) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h, { { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v, brighness_v });
+                    std::vector<float> building_brightness = Scene::isWallTile(num) ? std::vector<float>{} : brighness_v;
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h, { { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v, building_brightness });
                 }
                 if (ix == man_x_ && iy == man_y_)
                 {

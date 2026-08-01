@@ -31,6 +31,8 @@ public:
         TILE_H = TILE_H_0 * scale;
     }
 
+    static bool isWallTile(int tile_number);
+
     int render_center_x_ = 0;
     int render_center_y_ = 0;
 

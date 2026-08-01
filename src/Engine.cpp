@@ -29,6 +29,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         return 0;
     }
     inited_ = true;
+    texture_top_left_highlight_enabled_ = GameUtil::getInstance()->getInt("game", "texture_top_left_highlight", 1) != 0;
 
 #ifdef __ANDROID__
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
@@ -593,7 +594,7 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
 }
 
 void Engine::renderTextureMesh(Texture* t, const std::vector<FPoint>& v, const std::vector<FPoint>& v2,
-    const std::vector<Color>& colors, const std::vector<int>& indices)
+    const std::vector<Color>& colors, const std::vector<int>& indices, float top_left_brightness)
 {
     if (v.empty() || v.size() != v2.size() || indices.empty())
     {
@@ -629,6 +630,38 @@ void Engine::renderTextureMesh(Texture* t, const std::vector<FPoint>& v, const s
 
     SDL_RenderGeometry(renderer_, t, vertices.data(), int(vertices.size()), indices.data(), int(indices.size()));
     render_times_++;
+
+    if (texture_top_left_highlight_enabled_ && top_left_brightness > 0.0f)
+    {
+        float min_x = v[0].x;
+        float max_x = v[0].x;
+        float min_y = v[0].y;
+        float max_y = v[0].y;
+        for (const auto& point : v)
+        {
+            min_x = (std::min)(min_x, point.x);
+            max_x = (std::max)(max_x, point.x);
+            min_y = (std::min)(min_y, point.y);
+            max_y = (std::max)(max_y, point.y);
+        }
+
+        float width = (std::max)(1.0f, max_x - min_x);
+        float height = (std::max)(1.0f, max_y - min_y);
+        for (auto& vertex : vertices)
+        {
+            float left_weight = (max_x - vertex.position.x) / width;
+            float top_weight = (max_y - vertex.position.y) / height;
+            float brightness = top_left_brightness * std::clamp(left_weight, 0.0f, 1.0f) * std::clamp(top_weight, 0.0f, 1.0f);
+            vertex.color = { brightness, brightness, brightness, 1.0f };
+        }
+
+        SDL_BlendMode previous_blend = SDL_BLENDMODE_BLEND;
+        SDL_GetTextureBlendMode(t, &previous_blend);
+        SDL_SetTextureBlendMode(t, SDL_BLENDMODE_ADD);
+        SDL_RenderGeometry(renderer_, t, vertices.data(), int(vertices.size()), indices.data(), int(indices.size()));
+        SDL_SetTextureBlendMode(t, previous_blend);
+        render_times_++;
+    }
 }
 
 void Engine::renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors,
@@ -731,6 +764,10 @@ void Engine::renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std:
             {
                 b[i] = (std::max)(0.0f, brightness_v[i]);
             }
+        }
+        if (!texture_top_left_highlight_enabled_)
+        {
+            b[0] = 0.0f;
         }
 
         float max_b = (std::max)((std::max)(b[0], b[1]), (std::max)(b[2], b[3]));

@@ -11,6 +11,16 @@ Scene::~Scene()
 {
 }
 
+bool Scene::isWallTile(int tile_number)
+{
+    return (tile_number >= 701 && tile_number <= 1139)
+        || (tile_number >= 1410 && tile_number <= 1436)
+        || (tile_number >= 1505 && tile_number <= 1621)
+        || (tile_number >= 1816 && tile_number <= 1849)
+        || (tile_number >= 2116 && tile_number <= 2144)
+        || (tile_number >= 2184 && tile_number <= 2285);
+}
+
 void Scene::calViewRegion()
 {
     Engine::getInstance()->getAssistTextureSize("scene", render_center_x_, render_center_y_);

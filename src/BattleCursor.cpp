@@ -50,17 +50,22 @@ void BattleCursor::dealEvent(EngineEvent& e)
         }
         if (e.type == EVENT_MOUSE_MOTION)
         {
-            //线型的特殊处理一下
-            if (magic_ && magic_->AttackAreaType == 1)
+            int mouse_x = 0;
+            int mouse_y = 0;
+            if (engine->windowToUISpace(e.motion.x, e.motion.y, mouse_x, mouse_y, false))
             {
-                int tw = battle_scene_->getTowardsByMouse(e.motion.x, e.motion.y);
-                Scene::getTowardsPosition(role_->X(), role_->Y(), tw, &x, &y);
-            }
-            else
-            {
-                auto p = battle_scene_->getMousePosition(e.motion.x, e.motion.y, role_->X(), role_->Y());
-                x = p.x;
-                y = p.y;
+                //线型的特殊处理一下
+                if (magic_ && magic_->AttackAreaType == 1)
+                {
+                    int tw = battle_scene_->getTowardsByMouse(mouse_x, mouse_y);
+                    Scene::getTowardsPosition(role_->X(), role_->Y(), tw, &x, &y);
+                }
+                else
+                {
+                    auto p = battle_scene_->getMousePosition(mouse_x, mouse_y, role_->X(), role_->Y());
+                    x = p.x;
+                    y = p.y;
+                }
             }
         }
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP))

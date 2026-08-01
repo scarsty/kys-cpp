@@ -498,7 +498,7 @@ void BattleScene::draw()
             rect0.h = COORD_COUNT * TILE_H * 2 - rect0.y;
             rect1.h = rect0.h;
         }
-        Engine::getInstance()->renderTexture(earth_texture, &rect0, &rect1);
+        Engine::getInstance()->renderTextureLight(earth_texture, &rect0, &rect1, { c, c, c, c }, { 0.25f, 0, 0, 0 });
     }
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
@@ -560,7 +560,9 @@ void BattleScene::draw()
                 int num = building_layer_.data(ix, iy) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                    std::vector<float> brightness = Scene::isWallTile(num) ? std::vector<float>{} : std::vector<float>{ 0.5f, 0, 0, 0 };
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y,
+                        { { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, {}, brightness });
                 }
                 auto r = role_layer_.data(ix, iy);
                 if (r)
@@ -587,7 +589,9 @@ void BattleScene::draw()
                         p.x += offset->second.x;
                         p.y += offset->second.y;
                     }
-                    TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, { color, alpha });
+                    std::vector<float> brightness = alpha == 255 ? std::vector<float>{ 0.5f, 0, 0, 0 } : std::vector<float>{};
+                    TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y,
+                        { color, alpha, 1, 1, 0, 0, {}, brightness });
                     renderExtraRoleInfo(r, p.x, p.y);
                 }
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
@@ -599,7 +603,8 @@ void BattleScene::draw()
                     {
                         num += rand_.rand_int(3) - rand_.rand_int(3);
                     }
-                    TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { { 255, 255, 255, 255 }, 224 });
+                    TextureManager::getInstance()->renderTexture(path, num, p.x, p.y,
+                        { { 255, 255, 255, 255 }, 224, 1, 1, 0, 0, {}, { 0.5f, 0, 0, 0 } });
                 }
             }
         }

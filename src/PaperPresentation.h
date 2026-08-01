@@ -115,7 +115,6 @@ public:
         const Pointf& camera_pos, const Pointf& camera_center);
 
 private:
-    static bool isWallTile(int tile_number);
     PaperGroundTargets createGroundTargets(Engine* engine, int coordinate_count,
         int tile_width, int tile_height, int requested_extension);
     void bakeGround(Engine* engine);

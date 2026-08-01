@@ -4,6 +4,7 @@
 #include "Engine.h"
 #include "Font.h"
 #include "GameUtil.h"
+#include "RunNode.h"
 #include "TextureManager.h"
 
 #include <algorithm>
@@ -39,7 +40,9 @@ UIConfig::UIConfig()
     addOption("直接勝利", "game", "battle_debug_win", { "關閉", "開啟" });
     addOption("文字顯示", "game", "simplified_chinese", { "繁體", "簡體" });
     addOption("手柄震動", "game", "controller_rumble", { "關閉", "開啟" });
+    addOption("虛擬手柄", "game", "use_virtual_stick", { "關閉", "開啟" });
     addOption("動態晝夜", "game", "dynamic_day_night", { "關閉", "開啟" });
+    addOption("貼圖左上高光", "game", "texture_top_left_highlight", { "關閉", "開啟" });
     addOption("全屏", "game", "fullscreen", { "關閉", "開啟" });
 
     const int button_y = int(items_.size()) * ROW_GAP + BUTTON_TOP_GAP;
@@ -109,7 +112,8 @@ void UIConfig::loadConfig()
 {
     for (auto& item : items_)
     {
-        int value = GameUtil::getInstance()->getInt(item.section, item.key, 0);
+        int default_value = item.section == "game" && item.key == "texture_top_left_highlight" ? 1 : 0;
+        int value = GameUtil::getInstance()->getInt(item.section, item.key, default_value);
         if (item.section == "music" && (item.key == "volume" || item.key == "volumewav"))
         {
             value /= 10;
@@ -165,6 +169,14 @@ void UIConfig::saveConfig()
     if (auto item = findOption("game", "fullscreen"))
     {
         Engine::getInstance()->setFullScreen(item->value != 0);
+    }
+    if (auto item = findOption("game", "texture_top_left_highlight"))
+    {
+        Engine::getInstance()->setTextureTopLeftHighlightEnabled(item->value != 0);
+    }
+    if (auto item = findOption("game", "use_virtual_stick"))
+    {
+        RunNode::setUseVirtualStick(item->value);
     }
 }
 
