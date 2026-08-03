@@ -85,7 +85,7 @@ int ScriptCifa::runScriptString(const std::string& content)
 {
     cifa_.set_output_error(true);
     cifa_.run_script(content);
-    if (cifa_.has_error())
+    if (cifa_.has_error() || cifa_.has_runtime_error())
     {
         return 1;
     }

@@ -71,6 +71,10 @@ def convert_zip(zippath: Path, *, lossless: bool, quality: int) -> dict:
         print(f"  WARN: {zippath} is not a valid zip", file=sys.stderr)
         return stats
 
+    with zipfile.ZipFile(zippath, "r") as zin:
+        if not any(info.filename.lower().endswith(".png") for info in zin.infolist()):
+            return stats
+
     tmpfd, tmppath = tempfile.mkstemp(suffix=".zip", dir=zippath.parent)
     os.close(tmpfd)
 
