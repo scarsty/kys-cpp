@@ -150,7 +150,7 @@ endif()
 
 set(CMAKE_CXX_FLAGS "-O2 -std=c++23 -pthread -DNDEBUG")
 
-add_library(main SHARED
+add_library(kys_cpp SHARED
         "${KYS_SRC_DIR}/Application.cpp"
         "${KYS_SRC_DIR}/Audio.cpp"
         "${KYS_SRC_DIR}/BattleCursor.cpp"
@@ -227,7 +227,7 @@ add_library(main SHARED
         "${KYS_MLCC_DIR}/SQLite3Wrapper.cpp"
 )
 
-target_include_directories(main PRIVATE
+target_include_directories(kys_cpp PRIVATE
     "${KYS_SRC_DIR}"
     "${KYS_MLCC_DIR}"    "${KYS_CIFA_DIR}"    "${KYS_OTHERS_DIR}"
     "${KYS_JNI_INCLUDE_DIR}"
@@ -251,9 +251,9 @@ set(_thirdparty_include_candidates
 
 foreach(_inc IN LISTS _thirdparty_include_candidates)
     if(EXISTS "${_inc}")
-        target_include_directories(main PRIVATE "${_inc}")
+        target_include_directories(kys_cpp PRIVATE "${_inc}")
     endif()
 endforeach()
 
-target_link_directories(main PRIVATE "${VCPKG_DYNAMIC_LIB_DIR}" "${KYS_ANDROID_LIB_DIR}")
-target_link_libraries(main PRIVATE SDL3::SDL3 sqlite3 yaml-cpp iconv ${_sdl_optional_libs} m log)
+target_link_directories(kys_cpp PRIVATE "${VCPKG_DYNAMIC_LIB_DIR}" "${KYS_ANDROID_LIB_DIR}")
+target_link_libraries(kys_cpp PRIVATE SDL3::SDL3 sqlite3 yaml-cpp iconv ${_sdl_optional_libs} m log)

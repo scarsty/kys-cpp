@@ -245,7 +245,7 @@ void Save::resetRData(const std::vector<RoleSave>& newData)
     {
         roles_mem_.emplace_back();
         auto& r = roles_mem_.back();
-        memcpy(&r, &newData[i], sizeof(RoleSave));
+        static_cast<RoleSave&>(r) = newData[i];
         r.RealID = r.ID;
         r.ID = i;
     }

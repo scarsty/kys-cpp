@@ -34,3 +34,4 @@ build.log
 vcpkg_installed
 tools/__pycache__
 *.apk
+kys-cpp-androidstudio/libkys_cpp.so

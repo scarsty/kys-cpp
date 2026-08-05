@@ -237,10 +237,6 @@ int Role::learnMagic(int magic_id)
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器
 bool Role::canUseItem(Item* i)
 {
-    if (this == nullptr)
-    {
-        return false;
-    }
     if (i == nullptr)
     {
         return false;
@@ -332,10 +328,6 @@ bool Role::canUseItem(Item* i)
 //使用物品时属性变化
 void Role::useItem(Item* i)
 {
-    if (this == nullptr)
-    {
-        return;
-    }
     if (i == nullptr)
     {
         return;
@@ -389,11 +381,6 @@ void Role::useItem(Item* i)
 //升级的属性变化
 void Role::levelUp()
 {
-    if (this == nullptr)
-    {
-        return;
-    }
-
     Exp -= level_up_list()[Level - 1];
     Level++;
     RandomDouble rand;
@@ -498,10 +485,6 @@ int Role::getFinishedExpForItem(Item* i)
 
 void Role::equip(Item* i)
 {
-    if (this == nullptr)
-    {
-        return;
-    }
     if (i == nullptr)
     {
         return;
@@ -564,7 +547,7 @@ void Role::equip(Item* i)
 //医疗的效果
 int Role::medicine(Role* r2)
 {
-    if (this == nullptr || r2 == nullptr)
+    if (r2 == nullptr)
     {
         return 0;
     }
@@ -578,7 +561,7 @@ int Role::medicine(Role* r2)
 //注意这个返回值通常应为负
 int Role::detoxification(Role* r2)
 {
-    if (this == nullptr || r2 == nullptr)
+    if (r2 == nullptr)
     {
         return 0;
     }
@@ -591,7 +574,7 @@ int Role::detoxification(Role* r2)
 //用毒
 int Role::usePoison(Role* r2)
 {
-    if (this == nullptr || r2 == nullptr)
+    if (r2 == nullptr)
     {
         return 0;
     }
@@ -710,7 +693,7 @@ int Item::CompassItemID = 182;
 void Role::resetBattleInfo()
 {
     Role r0;
-    *(RoleSave*)&r0 = *(RoleSave*)this;
+    static_cast<RoleSave&>(r0) = static_cast<const RoleSave&>(*this);
     *this = r0;
 }
 

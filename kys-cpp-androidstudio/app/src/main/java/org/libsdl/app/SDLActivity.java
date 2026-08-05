@@ -277,7 +277,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         if (libraries.length > 0) {
             library = "lib" + libraries[libraries.length - 1] + ".so";
         } else {
-            library = "libmain.so";
+            library = "libkys_cpp.so";
         }
         return getContext().getApplicationInfo().nativeLibraryDir + "/" + library;
     }
@@ -296,7 +296,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      * The default implementation returns the defaults. It never returns null.
      * An array returned by a new implementation must at least contain "SDL3".
      * Also keep in mind that the order the libraries are loaded may matter.
-     * @return names of shared libraries to be loaded (e.g. "SDL3", "main").
+    * @return names of shared libraries to be loaded (e.g. "SDL3", "kys_cpp").
      */
     protected String[] getLibraries() {
         return new String[] {
@@ -305,7 +305,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             // "SDL3_mixer",
             // "SDL3_net",
             // "SDL3_ttf",
-            "main"
+            "kys_cpp"
         };
     }
 
