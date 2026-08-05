@@ -272,7 +272,7 @@ Item* Save::getItemByBagIndex(int i)
     {
         return nullptr;
     }
-    int r = Items[i].item_id;
+    int r = Items[i].ItemID;
     if (r < 0 || r >= items_mem_.size())
     {
         return nullptr;
@@ -282,7 +282,7 @@ Item* Save::getItemByBagIndex(int i)
 
 int Save::getItemCountByBagIndex(int i)
 {
-    return Items[i].count;
+    return Items[i].Count;
 }
 
 int Save::getItemCountInBag(Item* item)
@@ -295,8 +295,8 @@ std::vector<std::tuple<Item*, int>> Save::getAvailableEquipItems()
     std::vector<std::tuple<Item*, int>> ret = {};
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
-        auto id = Items[i].item_id;
-        auto count = Items[i].count;
+        auto id = Items[i].ItemID;
+        auto count = Items[i].Count;
         if (id < 0)
         {
             break;
@@ -319,14 +319,14 @@ int Save::getItemCountInBag(int item_id)
 {
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
-        auto id = Items[i].item_id;
+        auto id = Items[i].ItemID;
         if (id < 0)
         {
             break;
         }
         if (id == item_id)
         {
-            return Items[i].count;
+            return Items[i].Count;
         }
     }
     return 0;

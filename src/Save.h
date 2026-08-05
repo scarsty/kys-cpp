@@ -6,7 +6,7 @@
 
 struct ItemList
 {
-    int item_id = -1, count = 0;
+    int ItemID = -1, Count = 0;
 };
 
 class Save

@@ -314,7 +314,7 @@ bool Role::canUseItem(Item* i)
             && test(Knife, i->NeedKnife)
             && test(Unusual, i->NeedUnusual)
             && test(HiddenWeapon, i->NeedHiddenWeapon)
-            && test(MP, i->NeedMP)
+            && test(MaxMP, i->NeedMP)
             && test(IQ, i->NeedIQ);
     }
     else if (i->ItemType == 3)

@@ -807,7 +807,7 @@ void Event::addItemWithoutHint(int item_id, int count)
     auto save = Save::getInstance();
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
-        if (save->Items[i].item_id == item_id)
+        if (save->Items[i].ItemID == item_id)
         {
             pos = i;
             break;
@@ -815,13 +815,13 @@ void Event::addItemWithoutHint(int item_id, int count)
     }
     if (pos >= 0)
     {
-        save->Items[pos].count += count;
+        save->Items[pos].Count += count;
     }
     else
     {
         for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
         {
-            if (save->Items[i].item_id < 0)
+            if (save->Items[i].ItemID < 0)
             {
                 pos = i;
                 break;
@@ -829,8 +829,8 @@ void Event::addItemWithoutHint(int item_id, int count)
         }
         if (pos >= 0)
         {
-            save->Items[pos].item_id = item_id;
-            save->Items[pos].count = count;
+            save->Items[pos].ItemID = item_id;
+            save->Items[pos].Count = count;
         }
     }
     //当物品数量为负，需要整理背包
@@ -1229,18 +1229,18 @@ void Event::arrangeBag()
     auto save = Save::getInstance();
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
-        if (save->Items[i].item_id >= 0 && save->Items[i].count > 0)
+        if (save->Items[i].ItemID >= 0 && save->Items[i].Count > 0)
         {
-            item_count[save->Items[i].item_id] += save->Items[i].count;
+            item_count[save->Items[i].ItemID] += save->Items[i].Count;
         }
-        save->Items[i].item_id = -1;
-        save->Items[i].count = 0;
+        save->Items[i].ItemID = -1;
+        save->Items[i].Count = 0;
     }
     int k = 0;
     for (auto i : item_count)
     {
-        save->Items[k].item_id = i.first;
-        save->Items[k].count = i.second;
+        save->Items[k].ItemID = i.first;
+        save->Items[k].Count = i.second;
         k++;
     }
 }

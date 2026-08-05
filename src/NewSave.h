@@ -38,8 +38,8 @@ struct glz::meta<ItemList>
 {
     using T = ItemList;
     static constexpr auto value = object(
-        "物品编号", &T::item_id,
-        "物品数量", &T::count
+        "物品编号", &T::ItemID,
+        "物品数量", &T::Count
     );
 };
 

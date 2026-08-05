@@ -3418,7 +3418,7 @@ void BattleScene::calExpGot()
                     }
                 }
                 int index = rand_.rand_int(make_item.size());
-                Event::getInstance()->addItemWithNotice(make_item[index].item_id, make_item[index].count,
+                Event::getInstance()->addItemWithNotice(make_item[index].ItemID, make_item[index].Count,
                     std::format("{}修煉{}製藥成功", r->Name, item->Name));
                 Event::getInstance()->addItemWithoutHint(item->NeedMaterial, -1);
                 r->ExpForMakeItem = 0;
