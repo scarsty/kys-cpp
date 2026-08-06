@@ -4,6 +4,9 @@
 #include "SDL3_image/SDL_image.h"
 #include "UIRenderer.h"
 #include "strfunc.h"
+#ifdef __ANDROID__
+#include "ZipFile2.h"
+#endif
 #include <cmath>
 #include <vector>
 #ifdef _MSC_VER
@@ -21,6 +24,83 @@ Engine::~Engine()
 {
     destroy();
 }
+
+#ifdef __ANDROID__
+void Engine::extractAssetsIfNeeded()
+{
+    const std::string external = SDL_GetAndroidExternalStoragePath();
+    const std::string dest = "/sdcard/kys-cpp/game/";
+    const std::string marker = dest + ".game_extracted";
+    auto create_parent_dirs = [](const std::string& path) {
+        size_t pos = path.find('/', 1);
+        while (pos != std::string::npos)
+        {
+            SDL_CreateDirectory(path.substr(0, pos).c_str());
+            pos = path.find('/', pos + 1);
+        }
+        SDL_CreateDirectory(path.c_str());
+    };
+
+    if (filefunc::fileExist(marker))
+    {
+        return;
+    }
+
+    SDL_Log("kys-cpp: extracting game assets to %s ...", dest.c_str());
+    SDL_IOStream* io = SDL_IOFromFile("game.zip", "rb");
+    if (!io)
+    {
+        SDL_Log("kys-cpp: cannot open game.zip from assets: %s", SDL_GetError());
+        return;
+    }
+    Sint64 size = SDL_GetIOSize(io);
+    std::string buf(size, '\0');
+    SDL_ReadIO(io, buf.data(), (size_t)size);
+    SDL_CloseIO(io);
+
+    const std::string tmp_zip = external + "/.game_tmp.zip";
+    filefunc::writeFile(buf.c_str(), (int)buf.size(), tmp_zip);
+
+    {
+        ZipFile2 zip;
+        zip.openRead(tmp_zip);
+        if (!zip.opened())
+        {
+            SDL_Log("kys-cpp: cannot open temp zip at %s", tmp_zip.c_str());
+            return;
+        }
+
+        for (const auto& f : zip.getFileNames())
+        {
+            std::string normalized = f;
+            for (char& c : normalized)
+            {
+                if (c == '\\')
+                {
+                    c = '/';
+                }
+            }
+            if (normalized.empty() || normalized.back() == '/')
+            {
+                continue;
+            }
+            const std::string out_path = dest + normalized;
+            const size_t slash = out_path.rfind('/');
+            if (slash != std::string::npos)
+            {
+                create_parent_dirs(out_path.substr(0, slash));
+            }
+
+            const auto data = zip.readFile(f);
+            filefunc::writeFile(data.c_str(), (int)data.size(), out_path);
+        }
+    }
+
+    remove(tmp_zip.c_str());
+    filefunc::writeFile("ok", 2, marker);
+    SDL_Log("kys-cpp: assets extracted successfully.");
+}
+#endif
 
 int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximized, const std::string& str, int fullscreen)
 {
@@ -1386,91 +1466,3 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
     resetRenderTarget();
     return 0;
 }
-
-#ifdef __ANDROID__
-#include "ZipFile2.h"
-#include "filefunc.h"
-
-void Engine::extractAssetsIfNeeded()
-{
-    const std::string external = SDL_GetAndroidExternalStoragePath();
-    const std::string dest = "/sdcard/kys-cpp/game/";
-    const std::string marker = dest + ".game_extracted";
-    auto create_parent_dirs = [](const std::string& path) {
-        size_t pos = path.find('/', 1);
-        while (pos != std::string::npos)
-        {
-            SDL_CreateDirectory(path.substr(0, pos).c_str());
-            pos = path.find('/', pos + 1);
-        }
-        SDL_CreateDirectory(path.c_str());
-    };
-
-    if (filefunc::fileExist(marker))
-    {
-        return;
-    }
-
-    SDL_Log("kys-cpp: extracting game assets to %s ...", dest.c_str());
-
-    // 从 Android assets 读取打包好的 game.zip
-    SDL_IOStream* io = SDL_IOFromFile("game.zip", "rb");
-    if (!io)
-    {
-        SDL_Log("kys-cpp: cannot open game.zip from assets: %s", SDL_GetError());
-        return;
-    }
-    Sint64 size = SDL_GetIOSize(io);
-    std::string buf(size, '\0');
-    SDL_ReadIO(io, buf.data(), (size_t)size);
-    SDL_CloseIO(io);
-
-    // 写入临时文件（libzip 需要文件路径）
-    const std::string tmp_zip = external + "/.game_tmp.zip";
-    filefunc::writeFile(buf.c_str(), (int)buf.size(), tmp_zip);
-
-    {
-        ZipFile2 zip;
-        zip.openRead(tmp_zip);
-        if (!zip.opened())
-        {
-            SDL_Log("kys-cpp: cannot open temp zip at %s", tmp_zip.c_str());
-            return;
-        }
-
-        for (const auto& f : zip.getFileNames())
-        {
-            std::string normalized = f;
-            for (char& c : normalized)
-            {
-                if (c == '\\')
-                {
-                    c = '/';
-                }
-            }
-            if (normalized.empty() || normalized.back() == '/')
-            {
-                continue;
-            }
-            const std::string out_path = dest + normalized;
-
-            // 创建父目录
-            const size_t slash = out_path.rfind('/');
-            if (slash != std::string::npos)
-            {
-                create_parent_dirs(out_path.substr(0, slash));
-            }
-
-            const auto data = zip.readFile(f);
-            filefunc::writeFile(data.c_str(), (int)data.size(), out_path);
-        }
-    }    // ZipFile2 析构自动关闭 zip
-
-    remove(tmp_zip.c_str());
-
-    // 写入标记文件
-    filefunc::writeFile("ok", 2, marker);
-
-    SDL_Log("kys-cpp: assets extracted successfully.");
-}
-#endif

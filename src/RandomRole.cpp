@@ -5,8 +5,17 @@
 RandomRole::RandomRole()
 {
     setShowButton(false);
-    button_ok_ = addChild<Button>(350, 55);
+    setShowRandomProperties(true);
+    action_menu_ = std::make_shared<Menu>();
+    action_menu_->setPosition(185, 675);
+    action_menu_->setSize(270, 30);
+    button_random_ = action_menu_->addChild<Button>(0, 0);
+    button_random_->setText("隨機");
+    button_ok_ = action_menu_->addChild<Button>(90, 0);
     button_ok_->setText("確定");
+    button_cancel_ = action_menu_->addChild<Button>(180, 0);
+    button_cancel_->setText("取消");
+    addChild(action_menu_);
     head_ = addChild<Head>(-290, 100);
 }
 
@@ -14,14 +23,19 @@ RandomRole::~RandomRole()
 {
 }
 
-void RandomRole::onPressedOK()
+void RandomRole::onEntrance()
 {
-    if (button_ok_->getState() == NodePress)
+    randomizeRole();
+    action_menu_->onEntrance();
+}
+
+void RandomRole::randomizeRole()
+{
+    if (role_ == nullptr)
     {
-        result_ = 0;
-        setExit(true);
         return;
     }
+
     RandomDouble r;
     role_->MaxHP = 25 + r.rand_int(26);
     role_->HP = role_->MaxHP;
@@ -45,7 +59,31 @@ void RandomRole::onPressedOK()
     {
         e = role_->MagicID[0];
     }
-    LOG("IQ is {}\n", role_->IQ);
+}
+
+void RandomRole::onPressedOK()
+{
+    int action = action_menu_->getResult();
+    if (action < 0)
+    {
+        return;
+    }
+
+    action_menu_->setExit(false);
+    action_menu_->setResult(-1);
+    if (action == 0)
+    {
+        randomizeRole();
+        action_menu_->onEntrance();
+    }
+    else if (action == 1)
+    {
+        exitWithResult(0);
+    }
+    else if (action == 2)
+    {
+        exitWithResult(-1);
+    }
 }
 
 void RandomRole::draw()

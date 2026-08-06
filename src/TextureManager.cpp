@@ -54,7 +54,7 @@ void TextureWarpper::load()
         Engine::getInstance()->getTextureSize(tex[0], w, h);
         for (auto t : tex)
         {
-            Engine::getInstance()->setTextureAlphaMod(t, SDL_BLENDMODE_BLEND);
+            Engine::getInstance()->setTextureAlphaMod(t, BLENDMODE_BLEND);
         }
     }
 }

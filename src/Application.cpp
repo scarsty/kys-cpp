@@ -5,7 +5,6 @@
 #include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
-#include "INIReader.h"
 #include "TextureManager.h"
 #include "TitleScene.h"
 #include "Types.h"
@@ -23,9 +22,9 @@ Application::~Application()
 int Application::run()
 {
 #ifdef __ANDROID__
-    // 首次运行时将 assets/game.zip 解压到默认游戏目录，引擎初始化前完成
+    // 首次运行时将 assets/game.zip 解压到默认游戏目录，引擎初始化前完成。
     Engine::extractAssetsIfNeeded();
-    GameUtil::PATH() = GameUtil::autoGamePath();
+    GameUtil::selectAndroidGamePath();
 #endif
     static constexpr int UI_WIDTH = 1280;
     static constexpr int UI_HEIGHT = 720;

@@ -6,11 +6,6 @@
 #include <print>
 #include "filefunc.h"
 
-#ifdef __ANDROID__
-#include <android/log.h>
-#include <SDL3/SDL_system.h>
-#endif
-
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等
 //通常来说应该全部是静态函数
 class GameUtil : public INIReaderNormal
@@ -47,13 +42,11 @@ public:
         s = "../game/";
 #else
         s = "/sdcard/kys-cpp/game/";
-        if (!filefunc::fileExist(s + "config/kysmod.ini"))
-        {
-            s = std::string(SDL_GetAndroidExternalStoragePath()) + "/game/";
-        }
 #endif
         return s;
     }
+
+    static void selectAndroidGamePath();
 
     static int sign(int v)
     {
@@ -119,7 +112,4 @@ void LOG(std::format_string<Args...> fmt, Args... args)
 {
     auto str = std::format(fmt, std::forward<Args>(args)...);
     fputs(str.c_str(), stdout);
-#ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO, "KYS", "%s", str.c_str());
-#endif
 }

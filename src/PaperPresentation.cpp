@@ -223,7 +223,7 @@ void PaperPresentation::bakeGround(Engine* engine)
     if (earth_base_texture)
     {
         Engine::setTextureBlendMode(earth_base_texture);
-        SDL_SetTextureScaleMode(earth_base_texture, SDL_SCALEMODE_NEAREST);
+        Engine::setTextureScaleNearest(earth_base_texture);
         engine->setRenderTarget(earth_base_texture);
         engine->fillColor({ 0, 0, 0, 0 }, 0, 0, actual_base_earth_w, actual_base_earth_h, BLENDMODE_NONE);
 
@@ -404,7 +404,7 @@ void PaperPresentation::bakeGround(Engine* engine)
     if (earth_texture && earth_base_texture)
     {
         Engine::setTextureBlendMode(earth_texture);
-        SDL_SetTextureScaleMode(earth_texture, SDL_SCALEMODE_LINEAR);
+        Engine::setTextureScaleLinear(earth_texture);
         engine->setRenderTarget(earth_texture);
         engine->fillColor({ 0, 0, 0, 0 }, 0, 0, actual_paper_earth_w, actual_paper_earth_h, BLENDMODE_NONE);
         Engine::setColor(earth_base_texture, { 255, 255, 255, 255 });

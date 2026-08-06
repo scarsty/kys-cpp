@@ -40,6 +40,8 @@ using PixelFormat = SDL_PixelFormat;
 using FPoint = SDL_FPoint;
 using EventFilter = SDL_EventFilter;
 
+constexpr SDL_MouseID TOUCH_MOUSE_ID = SDL_TOUCH_MOUSEID;
+
 enum Align
 {
     ALIGN_LEFT,
@@ -260,6 +262,10 @@ public:
         return &e;
     }
 
+#ifdef __ANDROID__
+    static void extractAssetsIfNeeded();
+#endif
+
     //图形相关
 private:
     bool inited_ = false;
@@ -393,6 +399,9 @@ public:
     void renderClear() const { SDL_RenderClear(renderer_); }
 
     static void setTextureAlphaMod(Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
+
+    static void setTextureScaleNearest(Texture* t) { SDL_SetTextureScaleMode(t, SDL_SCALEMODE_NEAREST); }
+    static void setTextureScaleLinear(Texture* t) { SDL_SetTextureScaleMode(t, SDL_SCALEMODE_LINEAR); }
 
     static void getTextureSize(Texture* t, int& w, int& h)
     {
@@ -643,11 +652,6 @@ public:
         SDL_SetTextInputArea(window_, &r, 0);
     }
 
-#ifdef __ANDROID__
-    // 首次运行时将 assets/game.zip 解压到 Android 默认游戏目录
-    // 用标记文件 .game_extracted 防止重复解压
-    static void extractAssetsIfNeeded();
-#endif
 };
 
 struct Prop

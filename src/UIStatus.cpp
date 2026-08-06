@@ -69,6 +69,9 @@ void UIStatus::draw()
         button_medicine_->setVisible(false);
         button_detoxification_->setVisible(false);
         button_leave_->setVisible(false);
+        button_equip0_->setVisible(false);
+        button_equip1_->setVisible(false);
+        button_learning_book_->setVisible(false);
         setExtentionVisible(false);
     }
     if (role_)
@@ -78,6 +81,9 @@ void UIStatus::draw()
             button_medicine_->setVisible(role_->Medicine > 0);
             button_detoxification_->setVisible(role_->Detoxification > 0);
             button_leave_->setVisible(role_->ID != 0);
+            button_equip0_->setVisible(true);
+            button_equip1_->setVisible(true);
+            button_learning_book_->setVisible(true);
             if (role_->ID == 0)
             {
                 setExtentionVisible(true);
@@ -198,6 +204,11 @@ void UIStatus::draw()
     font->draw(std::format("{:5}", role_->Defence), font_size, x + 244, y, select_color1(role_->Defence, Role::getMaxValue()->Defence));
     font->draw("輕功", font_size, x + 400, y, color_ability1);
     font->draw(std::format("{:5}", role_->Speed), font_size, x + 444, y, select_color1(role_->Speed, Role::getMaxValue()->Speed));
+    if (show_random_properties_)
+    {
+        font->draw("資質", font_size, x + 600, y, color_ability1);
+        font->draw(std::format("{:5}", role_->IQ), font_size, x + 644, y, color_white);
+    }
 
     font->draw("醫療", font_size, x, y + 25, color_ability1);
     font->draw(std::format("{:5}", role_->Medicine), font_size, x + 44, y + 25, select_color1(role_->Medicine, Role::getMaxValue()->Medicine));
@@ -205,6 +216,11 @@ void UIStatus::draw()
     font->draw(std::format("{:5}", role_->Detoxification), font_size, x + 244, y + 25, select_color1(role_->Detoxification, Role::getMaxValue()->Detoxification));
     font->draw("用毒", font_size, x + 400, y + 25, color_ability1);
     font->draw(std::format("{:5}", role_->UsePoison), font_size, x + 444, y + 25, select_color1(role_->UsePoison, Role::getMaxValue()->UsePoison));
+    if (show_random_properties_)
+    {
+        font->draw("體質", font_size, x + 600, y + 25, color_ability1);
+        font->draw(std::format("{:5}", role_->IncLife), font_size, x + 644, y + 25, color_white);
+    }
 
     x = x_ + 20;
     y = y_ + 270;

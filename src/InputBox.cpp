@@ -1,6 +1,8 @@
 ﻿#include "InputBox.h"
+#include "Button.h"
 #include "Engine.h"
 #include "Font.h"
+#include "Menu.h"
 
 InputBox::InputBox()
 {
@@ -55,11 +57,8 @@ void InputBox::dealEvent(EngineEvent& e)
     case EVENT_KEY_UP:
         if (e.key.key == K_RETURN)
         {
-            //if (!text_.empty())
-            //{
             result_ = 0;
             exit_ = true;
-            //}
         }
         break;
     }
@@ -78,11 +77,52 @@ void InputBox::setInputPosition(int x, int y)
     y_ = y;
     text_x_ = x;
     text_y_ = y + font_size_ * 1.5;
+    if (action_menu_)
+    {
+        action_menu_->setPosition(x + font_size_ * 4.5, text_y_ + font_size_ * 2);
+    }
+}
+
+void InputBox::setActionButtons(bool enabled)
+{
+    if (!enabled || action_menu_)
+    {
+        return;
+    }
+
+    action_menu_ = std::make_shared<Menu>();
+    action_menu_->setSize(font_size_ * 6, font_size_);
+    action_menu_->addChild<Button>(0, 0)->setText("確定");
+    action_menu_->addChild<Button>(font_size_ * 3, 0)->setText("取消");
+    addChild(action_menu_);
+    setInputPosition(x_, y_);
+}
+
+void InputBox::onPressedOK()
+{
+    if (!action_menu_ || exit_)
+    {
+        return;
+    }
+
+    int action = action_menu_->getResult();
+    if (action == 0)
+    {
+        exitWithResult(0);
+    }
+    else if (action == 1)
+    {
+        exitWithResult(-1);
+    }
 }
 
 void InputBox::onEntrance()
 {
     Engine::getInstance()->startTextInput();
+    if (action_menu_)
+    {
+        action_menu_->onEntrance();
+    }
 }
 
 void InputBox::onExit()

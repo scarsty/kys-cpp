@@ -139,7 +139,7 @@ void UIConfig::loadConfig()
     }
     if (auto item = findOption("game", "battle_debug_win"))
     {
-        item->value = battle_mode == -1 || GameUtil::getInstance()->getInt("game", "battle_debug_win", 0) != 0 ? 1 : 0;
+        item->value = GameUtil::getInstance()->getInt("game", "battle_debug_win", 0) != 0 ? 1 : 0;
     }
 }
 

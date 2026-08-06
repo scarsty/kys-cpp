@@ -300,7 +300,7 @@ void UIItem::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     const bool is_touch_tap = e.type == EVENT_MOUSE_BUTTON_UP
-        && e.button.which == SDL_TOUCH_MOUSEID
+        && e.button.which == TOUCH_MOUSE_ID
         && e.button.button == BUTTON_LEFT;
     checkCurrentItem();
     const int previous_focus = focus_;

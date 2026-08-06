@@ -17,6 +17,7 @@ protected:
     std::shared_ptr<Button> equip_item_;
 
     bool show_button_ = true;
+    bool show_random_properties_ = false;
     Role* role_ = nullptr;
 
 public:
@@ -25,6 +26,7 @@ public:
     virtual void onPressedOK() override;
 
     void setShowButton(bool b) { show_button_ = b; }
+    void setShowRandomProperties(bool b) { show_random_properties_ = b; }
 
     void setRole(Role* r) { role_ = r; }
 

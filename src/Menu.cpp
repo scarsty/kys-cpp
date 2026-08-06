@@ -22,19 +22,15 @@ void Menu::dealEvent(EngineEvent& e)
             switch (e.key.key)
             {
             case K_LEFT:
-            case K_A:
                 direct = DirectLeft;
                 break;
             case K_UP:
-            case K_W:
                 direct = DirectUp;
                 break;
             case K_RIGHT:
-            case K_D:
                 direct = DirectRight;
                 break;
             case K_DOWN:
-            case K_S:
                 direct = DirectDown;
                 break;
             default:
