@@ -84,14 +84,27 @@ std::vector<LegalActionCardinalityView> legalActionCardinalities(
     ChessJsonProtocol& protocol,
     int requestId)
 {
-    const auto response = parseResponse(protocol.handleLine(std::format(
+    const auto typeResponse = parseResponse(protocol.handleLine(std::format(
         R"({{"id":{},"method":"legal_actions","params":{{}}}})",
         requestId)));
-    REQUIRE(response.ok);
-    REQUIRE(response.result);
+    REQUIRE(typeResponse.ok);
+    REQUIRE(typeResponse.result);
+    std::vector<std::string> legalTypes;
+    REQUIRE_FALSE(glz::read_json(legalTypes, typeResponse.result->str));
     std::vector<LegalActionCardinalityView> actions;
     constexpr auto options = glz::opts{.error_on_unknown_keys = false};
-    REQUIRE_FALSE(glz::read<options>(actions, response.result->str));
+    for (int index = 0; index < static_cast<int>(legalTypes.size()); ++index)
+    {
+        const auto response = parseResponse(protocol.handleLine(std::format(
+            R"({{"id":{},"method":"legal_actions","params":{{"action_type":"{}"}}}})",
+            requestId + index + 1,
+            legalTypes[index])));
+        REQUIRE(response.ok);
+        REQUIRE(response.result);
+        LegalActionCardinalityView action;
+        REQUIRE_FALSE(glz::read<options>(action, response.result->str));
+        actions.push_back(std::move(action));
+    }
     return actions;
 }
 
@@ -119,7 +132,8 @@ TEST_CASE("JSON protocol preserves request identifiers and session state", "[che
     REQUIRE(protocol.session());
     const auto stateHash = protocol.session()->observe().stateHash;
 
-    const auto observed = parseResponse(protocol.handleLine(R"({"id":42,"method":"observe","params":{}})"));
+    const auto observed = parseResponse(protocol.handleLine(
+        R"({"id":42,"method":"observe","params":{"detail":"full"}})"));
     CHECK(observed.ok);
     CHECK(observed.id.str == "42");
     REQUIRE(observed.result);
@@ -165,7 +179,42 @@ TEST_CASE("JSON protocol preserves request identifiers and session state", "[che
     CHECK(sessionObservation.load_consequence.contains("完整重播紀錄"));
     CHECK(sessionObservation.load_consequence.contains("捨棄"));
     CHECK(sessionObservation.load_consequence.contains("保留存檔目錄"));
+    const auto compactObserved = parseResponse(protocol.handleLine(
+        R"({"id":43,"method":"observe","params":{}})"));
+    REQUIRE(compactObserved.ok);
+    REQUIRE(compactObserved.result);
+    CHECK(compactObserved.result->str.starts_with("{\"game_state\":"));
+    CHECK_FALSE(compactObserved.result->str.contains("\"save_slots\""));
+    CHECK_FALSE(compactObserved.result->str.contains("\"operations\""));
+    CHECK_FALSE(compactObserved.result->str.contains("\"load_consequence\""));
     CHECK(protocol.session()->observe().stateHash == stateHash);
+}
+
+TEST_CASE("JSON protocol role compact projection removes repeated static metadata",
+          "[chess][protocol][inspect][role]")
+{
+    const auto content = actualContent();
+    REQUIRE(content);
+    ChessJsonProtocol protocol(content);
+    REQUIRE(parseResponse(protocol.handleLine(
+        R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000042"}})")).ok);
+
+    const auto compact = parseResponse(protocol.handleLine(
+        R"({"id":2,"method":"inspect_role","params":{"role_id":10}})"));
+    REQUIRE(compact.ok);
+    REQUIRE(compact.result);
+    CHECK(compact.result->str.contains("\"power\":"));
+    CHECK_FALSE(compact.result->str.contains("\"power_by_star\""));
+    CHECK_FALSE(compact.result->str.contains("\"geometry\""));
+    CHECK_FALSE(compact.result->str.contains("\"effect_note\""));
+
+    const auto full = parseResponse(protocol.handleLine(
+        R"({"id":3,"method":"inspect_role","params":{"role_id":10,"detail":"full"}})"));
+    REQUIRE(full.ok);
+    REQUIRE(full.result);
+    CHECK(full.result->str.contains("\"power_by_star\""));
+    CHECK(full.result->str.contains("\"geometry\""));
+    CHECK(full.result->str.contains("\"effect_note\""));
 }
 
 TEST_CASE("JSON protocol inspects authoritative challenge stars and equipment",
@@ -498,7 +547,7 @@ TEST_CASE("JSON protocol distinguishes omitted equipment metadata and assigned c
     CHECK_FALSE(compact.result->str.contains("\"special_effects\""));
 
     const auto legal = parseResponse(protocol.handleLine(
-        R"({"id":3,"method":"legal_actions","params":{}})"));
+        R"({"id":3,"method":"legal_actions","params":{"action_type":"equip"}})"));
     REQUIRE(legal.ok);
     REQUIRE(legal.result);
     const auto equipStart = legal.result->str.find("\"type\":\"equip\"");
@@ -520,7 +569,7 @@ TEST_CASE("JSON protocol distinguishes omitted equipment metadata and assigned c
     assignedOnly.state.nextChessInstanceId = 3;
     REQUIRE(assignedOnly.restore(*session) == ChessCheckpointError::None);
     const auto reassignmentLegal = parseResponse(protocol.handleLine(
-        R"({"id":4,"method":"legal_actions","params":{}})"));
+        R"({"id":4,"method":"legal_actions","params":{"action_type":"equip"}})"));
     REQUIRE(reassignmentLegal.ok);
     REQUIRE(reassignmentLegal.result);
     const auto reassignmentStart = reassignmentLegal.result->str.find("\"type\":\"equip\"");
@@ -535,7 +584,8 @@ TEST_CASE("JSON protocol distinguishes omitted equipment metadata and assigned c
         R"({"id":5,"method":"inspect_equipment","params":{"item_id":100}})"));
     REQUIRE(equipmentInfo.ok);
     REQUIRE(equipmentInfo.result);
-    CHECK(equipmentInfo.result->str.contains("\"combo_counting_note\""));
+    CHECK(equipmentInfo.result->str.contains("\"counts_as_combos\":[\"裝備羈絆\"]"));
+    CHECK_FALSE(equipmentInfo.result->str.contains("\"combo_counting_note\""));
 
     const auto comboInfo = parseResponse(protocol.handleLine(
         R"({"id":6,"method":"inspect_combo","params":{"combo_name":"裝備羈絆"}})"));
@@ -545,7 +595,13 @@ TEST_CASE("JSON protocol distinguishes omitted equipment metadata and assigned c
     CHECK(comboInfo.result->str.contains("\"effective_count\":1"));
     CHECK(comboInfo.result->str.contains("\"natural_member\":true"));
     CHECK(comboInfo.result->str.contains("\"equipment_sources\":[{\"id\":100,\"name\":\"已裝備之劍\"}]"));
-    CHECK(comboInfo.result->str.contains("不重複加點"));
+    CHECK_FALSE(comboInfo.result->str.contains("不重複加點"));
+
+    const auto fullComboInfo = parseResponse(protocol.handleLine(
+        R"({"id":7,"method":"inspect_combo","params":{"combo_name":"裝備羈絆","detail":"full"}})"));
+    REQUIRE(fullComboInfo.ok);
+    REQUIRE(fullComboInfo.result);
+    CHECK(fullComboInfo.result->str.contains("不重複加點"));
 }
 
 TEST_CASE("JSON protocol groups large equipment choices without filtering mechanics",
@@ -616,7 +672,7 @@ TEST_CASE("JSON protocol groups large equipment choices without filtering mechan
     CHECK_FALSE(pendingJson.contains("\"options\""));
 
     const auto legal = parseResponse(protocol.handleLine(
-        R"({"id":3,"method":"legal_actions","params":{}})"));
+        R"({"id":3,"method":"legal_actions","params":{"action_type":"choose_reward"}})"));
     REQUIRE(legal.ok);
     REQUIRE(legal.result);
     CHECK(substringCount(legal.result->str, "\"value\":\"equipment:") == 13);
@@ -630,8 +686,15 @@ TEST_CASE("JSON protocol publishes action schemas and explains malformed payload
     REQUIRE(parseResponse(protocol.handleLine(
         R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000007"}})")).ok);
 
+    const auto legalTypes = parseResponse(protocol.handleLine(
+        R"({"id":20,"method":"legal_actions","params":{}})"));
+    REQUIRE(legalTypes.ok);
+    REQUIRE(legalTypes.result);
+    CHECK(legalTypes.result->str.contains("\"set_deployment\""));
+    CHECK_FALSE(legalTypes.result->str.contains("\"action_schema\""));
+
     const auto legal = parseResponse(protocol.handleLine(
-        R"({"id":2,"method":"legal_actions","params":{}})"));
+        R"({"id":2,"method":"legal_actions","params":{"action_type":"set_deployment"}})"));
     REQUIRE(legal.ok);
     REQUIRE(legal.result);
     CHECK(legal.result->str.contains("\"action_schema\""));
@@ -781,6 +844,41 @@ TEST_CASE("JSON protocol battle preparation and start summaries stay bounded",
     CHECK_FALSE(started.result->str.contains("\"unit_stats\""));
     CHECK_FALSE(started.result->str.contains("\"effect_activations\""));
     CHECK_FALSE(started.result->str.contains("\"initial_board\""));
+
+    const auto report = parseResponse(protocol.handleLine(
+        R"({"id":9,"method":"inspect_last_battle","params":{}})"));
+    REQUIRE(report.ok);
+    REQUIRE(report.result);
+    CHECK(report.result->str.contains("\"detail\":\"summary\""));
+    CHECK(report.result->str.contains("\"unit_stats\""));
+    CHECK_FALSE(report.result->str.contains("\"initial_board\""));
+    CHECK_FALSE(report.result->str.contains("\"effect_activations\""));
+
+    const auto compactReport = parseResponse(protocol.handleLine(
+        R"({"id":10,"method":"inspect_last_battle","params":{"detail":"compact"}})"));
+    REQUIRE(compactReport.ok);
+    REQUIRE(compactReport.result);
+    CHECK(compactReport.result->str.contains("\"initial_board\""));
+    CHECK_FALSE(compactReport.result->str.contains("\"effect_activations\""));
+
+    const auto events = parseResponse(protocol.handleLine(
+        R"({"id":11,"method":"inspect_last_battle_events","params":{"limit":1}})"));
+    REQUIRE(events.ok);
+    REQUIRE(events.result);
+    CHECK(events.result->str.contains("\"returned_count\":1"));
+    CHECK(events.result->str.contains("\"next_cursor\":1"));
+    CHECK_FALSE(events.result->str.contains("\"description\""));
+
+    const auto filteredEvents = parseResponse(protocol.handleLine(
+        R"({"id":12,"method":"inspect_last_battle_events","params":{"effect_types":["不存在的效果"]}})"));
+    REQUIRE(filteredEvents.ok);
+    REQUIRE(filteredEvents.result);
+    CHECK(filteredEvents.result->str.contains("\"total_matching_count\":0"));
+
+    const auto invalidRange = parseResponse(protocol.handleLine(
+        R"({"id":13,"method":"inspect_last_battle_events","params":{"frame_range":{"start":10,"end":5}}})"));
+    CHECK_FALSE(invalidRange.ok);
+    CHECK(invalidRange.error_code == "invalid_params");
 }
 
 TEST_CASE("JSON protocol focused shop instance odds and ban inspections provide decision context",
@@ -809,6 +907,8 @@ TEST_CASE("JSON protocol focused shop instance odds and ban inspections provide 
     REQUIRE(shop.result);
     CHECK(shop.result->str.contains("\"slots\""));
     CHECK(shop.result->str.contains("\"odds\""));
+    CHECK(shop.result->str.contains("\"available_role_count\""));
+    CHECK_FALSE(shop.result->str.contains("\"available_roles\""));
 
     const auto odds = parseResponse(protocol.handleLine(
         R"({"id":6,"method":"get_shop_odds","params":{}})"));
@@ -817,6 +917,7 @@ TEST_CASE("JSON protocol focused shop instance odds and ban inspections provide 
     CHECK(odds.result->str.contains("\"tier\":1"));
     CHECK(odds.result->str.contains("\"probability\":1"));
     CHECK(odds.result->str.contains("\"available_role_count\":1"));
+    CHECK(odds.result->str.contains("\"available_roles\""));
 
     const auto instance = parseResponse(protocol.handleLine(
         R"({"id":7,"method":"inspect_chess_instance","params":{"chess_instance_id":1}})"));
@@ -842,16 +943,15 @@ TEST_CASE("JSON protocol publishes economic previews and keeps verification hash
     REQUIRE(parseResponse(protocol.handleLine(
         R"({"id":1,"method":"new","params":{"difficulty":"normal","seed":"0x0000000000000013"}})")).ok);
 
-    const auto legal = parseResponse(protocol.handleLine(
-        R"({"id":2,"method":"legal_actions","params":{}})"));
-    REQUIRE(legal.ok);
-    REQUIRE(legal.result);
+    int legalRequestId = 2;
     const auto actionJson = [&](std::string_view type) {
-        const auto marker = std::format("\"type\":\"{}\"", type);
-        const auto start = legal.result->str.find(marker);
-        REQUIRE(start != std::string::npos);
-        const auto next = legal.result->str.find("},{\"type\":", start + marker.size());
-        return legal.result->str.substr(start, next - start);
+        const auto legal = parseResponse(protocol.handleLine(std::format(
+            R"({{"id":{},"method":"legal_actions","params":{{"action_type":"{}"}}}})",
+            legalRequestId++,
+            type)));
+        REQUIRE(legal.ok);
+        REQUIRE(legal.result);
+        return legal.result->str;
     };
     const auto refresh = actionJson("refresh_shop");
     CHECK(refresh.contains("\"gold_cost\":2"));
@@ -899,7 +999,7 @@ TEST_CASE("JSON protocol previews paid reward options and legendary equipment co
     checkpoint.state.fight = content->balance().legendaryShop.unlockFight;
     REQUIRE(checkpoint.restore(*session) == ChessCheckpointError::None);
     const auto legendaryLegal = parseResponse(protocol.handleLine(
-        R"({"id":2,"method":"legal_actions","params":{}})"));
+        R"({"id":2,"method":"legal_actions","params":{"action_type":"buy_legendary_equipment"}})"));
     REQUIRE(legendaryLegal.ok);
     REQUIRE(legendaryLegal.result);
     const auto legendaryStart = legendaryLegal.result->str.find("\"type\":\"buy_legendary_equipment\"");
@@ -940,7 +1040,7 @@ TEST_CASE("JSON protocol previews paid reward options and legendary equipment co
     REQUIRE(rewardObserved.result);
     CHECK(rewardObserved.result->str.contains("\"additional_option_cost\":7"));
     const auto rewardLegal = parseResponse(protocol.handleLine(
-        R"({"id":4,"method":"legal_actions","params":{}})"));
+        R"({"id":4,"method":"legal_actions","params":{"action_type":"choose_reward"}})"));
     REQUIRE(rewardLegal.ok);
     REQUIRE(rewardLegal.result);
     CHECK(rewardLegal.result->str.contains("\"gold_cost\":7"));

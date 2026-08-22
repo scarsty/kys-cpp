@@ -21,6 +21,11 @@ namespace KysChess::ProtocolDetail
 enum class ObservationDetail { Compact, Full };
 enum class ActionResponseDetail { Summary, Compact, Full };
 enum class PreparedBattleDetail { ObservationCompact, Summary, Compact, Full };
+enum class CatalogDetail { Compact, Full };
+enum class EquipmentProjection { Identity, Detailed };
+enum class ComboInspectionDetail { Summary, Full };
+enum class BattleReportDetail { Summary, Compact, Full };
+enum class BattleEventDetail { Compact, Full };
 
 template<typename T>
 std::optional<T> readJson(std::string_view json)
@@ -44,6 +49,10 @@ std::string writeJson(const T& value)
 std::optional<ObservationDetail> parseObservationDetail(std::string_view value);
 std::optional<ActionResponseDetail> parseActionResponseDetail(std::string_view value);
 std::optional<PreparedBattleDetail> parsePreparedBattleDetail(std::string_view value);
+std::optional<CatalogDetail> parseCatalogDetail(std::string_view value);
+std::optional<ComboInspectionDetail> parseComboInspectionDetail(std::string_view value);
+std::optional<BattleReportDetail> parseBattleReportDetail(std::string_view value);
+std::optional<BattleEventDetail> parseBattleEventDetail(std::string_view value);
 std::optional<Difficulty> parseDifficulty(std::string_view value);
 std::optional<std::uint64_t> parseSeed(std::string_view value);
 std::string response(
@@ -57,14 +66,18 @@ std::string phaseText(ChessSessionPhase phase);
 std::string ruleErrorId(ChessRuleErrorCode error);
 std::string checkpointErrorId(ChessCheckpointError error);
 
-RoleDto roleDto(const ChessGameContent& content, int roleId);
+RoleDto roleDto(
+    const ChessGameContent& content,
+    int roleId,
+    CatalogDetail detail = CatalogDetail::Full);
 std::optional<RoleDto> inspectRoleDto(
     const ChessGameSession& session,
-    int roleId);
+    int roleId,
+    CatalogDetail detail);
 EquipmentInfoDto equipmentInfoDto(
     const ChessGameContent& content,
     int itemId,
-    bool full = true);
+    EquipmentProjection projection = EquipmentProjection::Detailed);
 ComboDto comboDto(const ChessComboMetadata& metadata, bool full = true);
 ComboDto comboDto(
     const ChessGameContent& content,
@@ -76,7 +89,8 @@ ComboDto comboDto(
     const std::vector<ResolvedChessComboContribution>* contributions = nullptr);
 std::optional<ComboDto> inspectComboDto(
     const ChessGameSession& session,
-    std::string_view comboName);
+    std::string_view comboName,
+    ComboInspectionDetail detail);
 ChallengeDto challengeDto(
     const ChessGameContent& content,
     const BalanceConfig::ChallengeDef& challenge);
@@ -134,10 +148,14 @@ BattleResultDto battleResultDto(
     const ChessGameContent& content,
     const PreparedChessBattle& prepared,
     const HeadlessBattleResult& battle,
-    ObservationDetail detail);
+    BattleReportDetail detail);
 std::optional<BattleResultDto> inspectLastBattleDto(
     const ChessGameSession& session,
-    ObservationDetail detail);
+    BattleReportDetail detail);
+std::optional<BattleEventPageDto> inspectLastBattleEventsDto(
+    const ChessGameSession& session,
+    const BattleEventsParams& params,
+    BattleEventDetail detail);
 SaveSlotDto saveSlotDto(const ChessSaveSlotSummary& slot);
 std::vector<SaveSlotDto> saveSlotDtos(
     const std::vector<ChessSaveSlotSummary>& slots);

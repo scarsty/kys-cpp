@@ -1890,6 +1890,7 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     input.unit.movementDashActive = movementDashActive;
     input.unit.frozen = unit.frozen();
     input.unit.dashAttackEnabled = unit.hasAlways(EffectType::DashAttack);
+    input.unit.blinkAttackEnabled = unit.hasAlways(EffectType::BlinkAttack);
 
     input.unit.dashVelocity = unit.core.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)
@@ -2481,6 +2482,7 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
         makeSelectedCastEffectSources(state, unit.id, pending.ultimate),
         EffectType::CDR);
     input.unit.dashAttackEnabled = combo.hasAlways(EffectType::DashAttack);
+    input.unit.blinkAttackEnabled = combo.hasAlways(EffectType::BlinkAttack);
     input.unit.dashVelocity = unit.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)
     {

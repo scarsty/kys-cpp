@@ -180,6 +180,11 @@ ChessReplayAudit::ChessReplayAudit(
         return;
     }
 
+    if (content->gameVersion() != replay_.header.gameVersion)
+    {
+        content = content->withGameVersion(replay_.header.gameVersion);
+    }
+
     session_ = std::make_unique<ChessGameSession>(
         std::move(content),
         replay_.header.rootSeed,

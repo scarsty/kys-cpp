@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <string_view>
+#include <utility>
 
 using namespace KysChess;
 using namespace KysChess::Test;
@@ -12,9 +13,11 @@ using namespace KysChess::Test;
 namespace
 {
 
-ChessReplay shortReplay()
+ChessReplay shortReplay(std::string gameVersion = "dev")
 {
-    ChessGameSession session(managementContent(), 12345);
+    ChessGameSession session(
+        managementContent(100, Difficulty::Normal, std::move(gameVersion)),
+        12345);
     ChessAction lock;
     lock.type = ChessActionType::SetShopLocked;
     lock.value = true;
@@ -116,6 +119,35 @@ TEST_CASE("replay prefix reconstruction verifies only the requested prefix", "[c
     CHECK_FALSE(pastEnd.verification.valid);
     CHECK(pastEnd.verification.mismatch == ChessReplayMismatch::IllegalAction);
     CHECK_FALSE(pastEnd.reconstructedSession);
+}
+
+TEST_CASE("replay prefix reconstruction preserves compatible cross-version evidence", "[chess][replay][prefix]")
+{
+    const auto verifyPrefix = [](std::string replayVersion, std::string contentVersion) {
+        const auto replay = shortReplay(std::move(replayVersion));
+        const auto result = ChessReplayVerifier::reconstructPrefix(
+            managementContent(100, Difficulty::Normal, std::move(contentVersion)),
+            replay,
+            1);
+
+        REQUIRE(result.verification.valid);
+        REQUIRE(result.reconstructedSession);
+        const auto reconstructedReplay = result.reconstructedSession->exportReplay();
+        REQUIRE(reconstructedReplay);
+        CHECK(reconstructedReplay->header == replay.header);
+        REQUIRE(reconstructedReplay->decisions.size() == 1);
+        CHECK(reconstructedReplay->decisions.front() == replay.decisions.front());
+    };
+
+    SECTION("release replay under a development build")
+    {
+        verifyPrefix("0.2.16", "dev");
+    }
+
+    SECTION("development replay under a release build")
+    {
+        verifyPrefix("dev", "0.2.16");
+    }
 }
 
 TEST_CASE("fresh session verifier identifies altered actions and evidence", "[chess][replay][verify]")
@@ -229,9 +261,16 @@ TEST_CASE("fresh session verifier rejects version and runtime option mismatches"
 
     SECTION("development build accepts another version")
     {
-        auto replay = shortReplay();
-        replay.header.gameVersion = "release-version";
+        const auto replay = shortReplay("release-version");
         CHECK(ChessReplayVerifier::verify(managementContent(), replay).valid);
+    }
+
+    SECTION("release build accepts a development replay")
+    {
+        const auto replay = shortReplay();
+        CHECK(ChessReplayVerifier::verify(
+            managementContent(100, Difficulty::Normal, "release-version"),
+            replay).valid);
     }
 
     SECTION("content fingerprint")

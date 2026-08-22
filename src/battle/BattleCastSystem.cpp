@@ -653,6 +653,39 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
     }
 }
 
+void retargetBlinkAttackSpawnRequests(
+    const BattleActionCommitInput& input,
+    const BattleRuntimeUnit& source,
+    const BattleRuntimeUnit& target,
+    Pointf destination,
+    BattleActionCommitResult& result)
+{
+    if (!input.hasCast)
+    {
+        return;
+    }
+
+    assert(input.cast.decision.targetUnitId >= 0);
+    assert(input.committedFacing.norm() > 0.01);
+    auto blinkFacing = target.motion.position - destination;
+    assert(blinkFacing.norm() > 0.01);
+    blinkFacing = normalizedTo(blinkFacing, 1.0, 0.01);
+    const double rotation = deterministicAtan2(blinkFacing.y, blinkFacing.x)
+        - deterministicAtan2(input.committedFacing.y, input.committedFacing.x);
+
+    for (auto& request : result.attackSpawnRequests)
+    {
+        assert(request.initial.attackerUnitId == source.id);
+        const auto sourceOffset = request.initial.position - source.motion.position;
+        request.initial.position = destination + rotateBattlePoint(sourceOffset, rotation);
+        request.initial.velocity = rotateBattlePoint(request.initial.velocity, rotation);
+        if (request.initial.preferredTargetUnitId == input.cast.decision.targetUnitId)
+        {
+            request.initial.preferredTargetUnitId = target.id;
+        }
+    }
+}
+
 void appendBlinkTeleportDelta(
     const BattleActionCommitInput& input,
     int targetUnitId,
@@ -698,6 +731,13 @@ void appendBlinkTeleportDelta(
     {
         facing = normalizedTo(facing, 1.0, 0.01);
     }
+
+    retargetBlinkAttackSpawnRequests(
+        input,
+        units.requireCore(input.sourceUnitId),
+        target,
+        cell.position,
+        result);
 
     result.blinkTeleports.push_back({
         input.sourceUnitId,
@@ -920,6 +960,7 @@ BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
     intentInput.ultimateReady = ultimate;
     intentInput.movementDashActive = input.unit.movementDashActive;
     intentInput.dashAttackEnabled = input.unit.dashAttackEnabled;
+    intentInput.blinkAttackEnabled = input.unit.blinkAttackEnabled;
     intentInput.targetDistance = input.targetDistance;
     intentInput.meleeAttackReach = input.unit.meleeAttackReach;
     intentInput.dashAttackReach = input.unit.dashAttackReach;

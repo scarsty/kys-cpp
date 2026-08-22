@@ -48,6 +48,35 @@ std::optional<PreparedBattleDetail> parsePreparedBattleDetail(std::string_view v
     return std::nullopt;
 }
 
+std::optional<CatalogDetail> parseCatalogDetail(std::string_view value)
+{
+    if (value == "compact") return CatalogDetail::Compact;
+    if (value == "full") return CatalogDetail::Full;
+    return std::nullopt;
+}
+
+std::optional<ComboInspectionDetail> parseComboInspectionDetail(std::string_view value)
+{
+    if (value == "summary") return ComboInspectionDetail::Summary;
+    if (value == "full") return ComboInspectionDetail::Full;
+    return std::nullopt;
+}
+
+std::optional<BattleReportDetail> parseBattleReportDetail(std::string_view value)
+{
+    if (value == "summary") return BattleReportDetail::Summary;
+    if (value == "compact") return BattleReportDetail::Compact;
+    if (value == "full") return BattleReportDetail::Full;
+    return std::nullopt;
+}
+
+std::optional<BattleEventDetail> parseBattleEventDetail(std::string_view value)
+{
+    if (value == "compact") return BattleEventDetail::Compact;
+    if (value == "full") return BattleEventDetail::Full;
+    return std::nullopt;
+}
+
 std::optional<Difficulty> parseDifficulty(std::string_view value)
 {
     if (value == "easy") return Difficulty::Easy;
@@ -149,25 +178,56 @@ PieceDto pieceDto(
     return dto;
 }
 
-AbilityDto abilityDto(const ChessAbilityMetadata& metadata)
+AbilityDto abilityDto(
+    const ChessAbilityMetadata& metadata,
+    CatalogDetail detail = CatalogDetail::Full)
 {
     AbilityDto dto;
     dto.magic_id = metadata.magicId;
     dto.name = metadata.name;
-    for (const auto& power : metadata.powerByStar)
+    const bool compact = detail == CatalogDetail::Compact;
+    const bool constantPower = !metadata.powerByStar.empty()
+        && std::ranges::all_of(metadata.powerByStar, [&](const auto& power) {
+            return power.power == metadata.powerByStar.front().power;
+        });
+    if (compact && constantPower)
     {
-        dto.power_by_star.push_back({power.star, power.power});
+        dto.power = metadata.powerByStar.front().power;
+    }
+    else
+    {
+        dto.power_by_star.emplace();
+        for (const auto& power : metadata.powerByStar)
+        {
+            dto.power_by_star->push_back({power.star, power.power});
+        }
     }
     dto.mp_cost = metadata.mpCost;
+    dto.shape = metadata.shape;
     dto.select_distance = metadata.selectDistance;
-    dto.area_distance = metadata.areaDistance;
-    dto.geometry = metadata.geometry;
-    dto.effects = metadata.effects;
-    dto.effect_note = metadata.effectNote;
+    if (metadata.areaDistance > 0)
+    {
+        dto.area_radius = metadata.areaDistance;
+    }
+    if (!compact)
+    {
+        dto.geometry = metadata.geometry;
+    }
+    if (!metadata.effects.empty())
+    {
+        dto.effects = metadata.effects;
+    }
+    if (!compact && !metadata.effectNote.empty())
+    {
+        dto.effect_note = metadata.effectNote;
+    }
     return dto;
 }
 
-RoleDto roleDto(const ChessGameContent& content, int roleId)
+RoleDto roleDto(
+    const ChessGameContent& content,
+    int roleId,
+    CatalogDetail detail)
 {
     const auto metadata = chessRoleMetadata(content, roleId);
     RoleDto dto;
@@ -177,7 +237,7 @@ RoleDto roleDto(const ChessGameContent& content, int roleId)
     dto.base_stats = roleStatsDto(metadata.baseStats);
     for (const auto& ability : metadata.abilities)
     {
-        dto.abilities.push_back(abilityDto(ability));
+        dto.abilities.push_back(abilityDto(ability, detail));
     }
     dto.combos = metadata.combos;
     return dto;
@@ -185,19 +245,20 @@ RoleDto roleDto(const ChessGameContent& content, int roleId)
 
 std::optional<RoleDto> inspectRoleDto(
     const ChessGameSession& session,
-    int roleId)
+    int roleId,
+    CatalogDetail detail)
 {
     if (!session.content().role(roleId))
     {
         return std::nullopt;
     }
-    return roleDto(session.content(), roleId);
+    return roleDto(session.content(), roleId, detail);
 }
 
 EquipmentInfoDto equipmentInfoDto(
     const ChessGameContent& content,
     int itemId,
-    bool full)
+    EquipmentProjection projection)
 {
     const auto metadata = chessEquipmentMetadata(content, itemId);
     EquipmentInfoDto dto;
@@ -205,29 +266,70 @@ EquipmentInfoDto equipmentInfoDto(
     dto.name = metadata.name;
     dto.tier = metadata.tier;
     dto.type = chessEquipmentTypeName(metadata.equipType);
-    if (!full)
+    if (projection == EquipmentProjection::Identity)
     {
         return dto;
     }
-    dto.base_stat_effects.emplace();
-    dto.special_effects.emplace();
-    dto.counts_as_combos.emplace();
-    dto.character_bonuses.emplace();
-    *dto.base_stat_effects = metadata.baseStatEffects;
-    *dto.special_effects = metadata.specialEffects;
-    *dto.counts_as_combos = metadata.countsAsCombos;
-    if (!metadata.comboCountingNote.empty())
+    if (!metadata.baseStatEffects.empty())
     {
-        dto.combo_counting_note = metadata.comboCountingNote;
+        dto.base_stat_effects = metadata.baseStatEffects;
     }
-    for (const auto& metadataBonus : metadata.characterBonuses)
+    if (!metadata.specialEffects.empty())
     {
-        EquipmentInfoDto::CharacterBonus bonus;
-        bonus.roles = metadataBonus.roles;
-        bonus.effects = metadataBonus.effects;
-        bonus.counts_as_combos = metadataBonus.countsAsCombos;
-        dto.character_bonuses->push_back(std::move(bonus));
+        dto.special_effects = metadata.specialEffects;
     }
+    if (!metadata.countsAsCombos.empty())
+    {
+        dto.counts_as_combos = metadata.countsAsCombos;
+    }
+    if (!metadata.characterBonuses.empty())
+    {
+        dto.character_bonuses.emplace();
+        for (const auto& metadataBonus : metadata.characterBonuses)
+        {
+            EquipmentInfoDto::CharacterBonus bonus;
+            bonus.roles = metadataBonus.roles;
+            if (!metadataBonus.effects.empty())
+            {
+                bonus.effects = metadataBonus.effects;
+            }
+            if (!metadataBonus.countsAsCombos.empty())
+            {
+                bonus.counts_as_combos = metadataBonus.countsAsCombos;
+            }
+            dto.character_bonuses->push_back(std::move(bonus));
+        }
+    }
+    return dto;
+}
+
+ComboThresholdDto comboThresholdDto(const ChessComboThresholdMetadata& threshold)
+{
+    return {
+        threshold.requiredCount,
+        threshold.name,
+        threshold.effects,
+        threshold.active,
+    };
+}
+
+ComboContributionDto comboContributionDto(
+    const ChessComboContributionMetadata& contribution)
+{
+    ComboContributionDto dto;
+    dto.role_id = contribution.roleId;
+    dto.role_name = contribution.roleName;
+    dto.unit_ids = contribution.unitIds;
+    dto.counted_star = contribution.countedStar;
+    dto.physical_points = contribution.physicalPoints;
+    dto.star_bonus_points = contribution.starBonusPoints;
+    dto.effective_points = contribution.effectivePoints;
+    dto.natural_member = contribution.naturalMember;
+    for (const auto& equipment : contribution.equipmentSources)
+    {
+        dto.equipment_sources.push_back({equipment.id, equipment.name});
+    }
+    dto.explanation = contribution.explanation;
     return dto;
 }
 
@@ -248,21 +350,7 @@ ComboDto comboDto(const ChessComboMetadata& metadata, bool full)
     {
         for (const auto& contribution : metadata.contributions)
         {
-            ComboContributionDto contributionDto;
-            contributionDto.role_id = contribution.roleId;
-            contributionDto.role_name = contribution.roleName;
-            contributionDto.unit_ids = contribution.unitIds;
-            contributionDto.counted_star = contribution.countedStar;
-            contributionDto.physical_points = contribution.physicalPoints;
-            contributionDto.star_bonus_points = contribution.starBonusPoints;
-            contributionDto.effective_points = contribution.effectivePoints;
-            contributionDto.natural_member = contribution.naturalMember;
-            for (const auto& equipment : contribution.equipmentSources)
-            {
-                contributionDto.equipment_sources.push_back({equipment.id, equipment.name});
-            }
-            contributionDto.explanation = contribution.explanation;
-            dto.contributions->push_back(std::move(contributionDto));
+            dto.contributions->push_back(comboContributionDto(contribution));
         }
         *dto.members = metadata.members;
     }
@@ -272,12 +360,50 @@ ComboDto comboDto(const ChessComboMetadata& metadata, bool full)
     }
     for (const auto& threshold : metadata.thresholds)
     {
-        ComboThresholdDto thresholdDto;
-        thresholdDto.required_count = threshold.requiredCount;
-        thresholdDto.name = threshold.name;
-        thresholdDto.active = threshold.active;
-        thresholdDto.effects = threshold.effects;
-        dto.thresholds->push_back(std::move(thresholdDto));
+        dto.thresholds->push_back(comboThresholdDto(threshold));
+    }
+    return dto;
+}
+
+ComboDto comboSummaryDto(const ChessComboMetadata& metadata)
+{
+    ComboDto dto;
+    dto.name = metadata.name;
+    dto.physical_count = metadata.physicalCount;
+    dto.effective_count = metadata.effectiveCount;
+    dto.active_thresholds.emplace();
+    for (const auto& threshold : metadata.thresholds)
+    {
+        if (threshold.active)
+        {
+            dto.active_thresholds->push_back(comboThresholdDto(threshold));
+        }
+        else if (!dto.next_threshold)
+        {
+            dto.next_threshold = ComboDto::NextThreshold{
+                threshold.requiredCount,
+                threshold.name,
+                threshold.effects,
+                std::max(0, threshold.requiredCount - metadata.effectiveCount),
+            };
+        }
+    }
+    if (!metadata.contributions.empty())
+    {
+        dto.contribution_sources.emplace();
+        for (const auto& contribution : metadata.contributions)
+        {
+            ComboDto::ContributionSource source;
+            source.role_id = contribution.roleId;
+            source.role_name = contribution.roleName;
+            source.effective_points = contribution.effectivePoints;
+            source.natural_member = contribution.naturalMember;
+            for (const auto& equipment : contribution.equipmentSources)
+            {
+                source.equipment_sources.push_back({equipment.id, equipment.name});
+            }
+            dto.contribution_sources->push_back(std::move(source));
+        }
     }
     return dto;
 }
@@ -304,7 +430,8 @@ ComboDto comboDto(
 
 std::optional<ComboDto> inspectComboDto(
     const ChessGameSession& session,
-    std::string_view comboName)
+    std::string_view comboName,
+    ComboInspectionDetail detail)
 {
     const auto definition = std::ranges::find(
         session.content().combos(),
@@ -320,14 +447,17 @@ std::optional<ComboDto> inspectComboDto(
         definition->id,
         &ChessObservedCombo::comboId);
     assert(progress != observation.combos.end());
-    return comboDto(
+    const auto metadata = chessComboMetadata(
         session.content(),
         *definition,
         progress->physicalCount,
         progress->effectiveCount,
         progress->activeThresholdIndex,
-        true,
-        &progress->contributions);
+        -1,
+        progress->contributions);
+    return detail == ComboInspectionDetail::Full
+        ? comboDto(metadata, true)
+        : comboSummaryDto(metadata);
 }
 
 PreparedBattleDto preparedBattleDto(
@@ -466,36 +596,60 @@ RewardOptionDto rewardOptionDto(
         dto.equipment = equipmentInfoDto(content, option.value);
         dto.label = dto.equipment->name;
         dto.description = std::format("{}階{}", dto.equipment->tier, dto.equipment->type);
-        for (const auto& effect : *dto.equipment->base_stat_effects)
+        if (dto.equipment->base_stat_effects)
         {
-            dto.description += "；基礎：" + effect;
-        }
-        for (const auto& effect : *dto.equipment->special_effects)
-        {
-            dto.description += "；特殊：" + effect;
-        }
-        for (const auto& comboName : *dto.equipment->counts_as_combos)
-        {
-            dto.description += "；計作" + comboName;
-        }
-        for (const auto& bonus : *dto.equipment->character_bonuses)
-        {
-            dto.description += "；角色加成(";
-            for (std::size_t index = 0; index < bonus.roles.size(); ++index)
+            for (const auto& effect : *dto.equipment->base_stat_effects)
             {
-                if (index > 0) dto.description += "、";
-                dto.description += bonus.roles[index];
+                dto.description += "；基礎：" + effect;
             }
-            dto.description += ")";
-            bool firstBonusEffect = true;
-            auto appendBonusEffect = [&](std::string effect)
+        }
+        if (dto.equipment->special_effects)
+        {
+            for (const auto& effect : *dto.equipment->special_effects)
             {
-                dto.description += firstBonusEffect ? "：" : "；";
-                dto.description += std::move(effect);
-                firstBonusEffect = false;
-            };
-            for (const auto& effect : bonus.effects) appendBonusEffect(effect);
-            for (const auto& comboName : bonus.counts_as_combos) appendBonusEffect("計作" + comboName);
+                dto.description += "；特殊：" + effect;
+            }
+        }
+        if (dto.equipment->counts_as_combos)
+        {
+            for (const auto& comboName : *dto.equipment->counts_as_combos)
+            {
+                dto.description += "；計作" + comboName;
+            }
+        }
+        if (dto.equipment->character_bonuses)
+        {
+            for (const auto& bonus : *dto.equipment->character_bonuses)
+            {
+                dto.description += "；角色加成(";
+                for (std::size_t index = 0; index < bonus.roles.size(); ++index)
+                {
+                    if (index > 0) dto.description += "、";
+                    dto.description += bonus.roles[index];
+                }
+                dto.description += ")";
+                bool firstBonusEffect = true;
+                auto appendBonusEffect = [&](std::string effect)
+                {
+                    dto.description += firstBonusEffect ? "：" : "；";
+                    dto.description += std::move(effect);
+                    firstBonusEffect = false;
+                };
+                if (bonus.effects)
+                {
+                    for (const auto& effect : *bonus.effects)
+                    {
+                        appendBonusEffect(effect);
+                    }
+                }
+                if (bonus.counts_as_combos)
+                {
+                    for (const auto& comboName : *bonus.counts_as_combos)
+                    {
+                        appendBonusEffect("計作" + comboName);
+                    }
+                }
+            }
         }
     }
     else if (option.kind == ChessRewardKind::InternalSkill)
@@ -647,7 +801,10 @@ ObservationDto observationDto(
     {
         dto.equipment_inventory.push_back({
             equipment.instanceId,
-            equipmentInfoDto(content, equipment.itemId, full),
+            equipmentInfoDto(
+                content,
+                equipment.itemId,
+                full ? EquipmentProjection::Detailed : EquipmentProjection::Identity),
             equipment.assignedChessInstanceId,
         });
     }
@@ -890,7 +1047,7 @@ std::optional<EquipmentInfoDto> inspectEquipmentDto(
     {
         return std::nullopt;
     }
-    return equipmentInfoDto(session.content(), itemId);
+    return equipmentInfoDto(session.content(), itemId, EquipmentProjection::Detailed);
 }
 
 std::optional<ChallengeDto> inspectChallengeDto(
@@ -1100,7 +1257,10 @@ LegalActionDto legalActionDto(
         else if (descriptor.type == ChessActionType::Equip)
         {
             const auto& equipment = state.equipmentInventory.at(id);
-            const auto info = equipmentInfoDto(content, equipment.itemId);
+            const auto info = equipmentInfoDto(
+                content,
+                equipment.itemId,
+                EquipmentProjection::Identity);
             candidate.label = info.name;
             candidate.assigned_chess_instance_id = equipment.assignedChessInstanceId;
             if (equipment.assignedChessInstanceId < 0)
@@ -1129,7 +1289,10 @@ LegalActionDto legalActionDto(
         }
         else if (descriptor.type == ChessActionType::BuyLegendaryEquipment)
         {
-            const auto info = equipmentInfoDto(content, id);
+            const auto info = equipmentInfoDto(
+                content,
+                id,
+                EquipmentProjection::Identity);
             const int cost = content.balance().legendaryShop.price;
             candidate.label = info.name;
             candidate.description = std::format("{}階{}；價格 {} 金幣", info.tier, info.type, cost);
@@ -1270,6 +1433,21 @@ ShopOddsDto shopOddsDto(
     return dto;
 }
 
+ShopOddsSummaryDto shopOddsSummaryDto(const ChessShopOddsAnalysis& analysis)
+{
+    ShopOddsSummaryDto dto;
+    dto.level = analysis.level;
+    for (const auto& tier : analysis.tiers)
+    {
+        dto.tiers.push_back({
+            tier.tier,
+            tier.probability,
+            static_cast<int>(tier.availableRoleIds.size()),
+        });
+    }
+    return dto;
+}
+
 std::optional<ShopOddsDto> inspectShopOddsDto(
     const ChessGameSession& session,
     std::optional<int> requestedLevel)
@@ -1366,7 +1544,7 @@ ShopInspectionDto shopInspectionDto(const ChessGameSession& session)
     {
         dto.slots.push_back(shopSlotInspectionDto(session.content(), slot));
     }
-    dto.odds = shopOddsDto(session.content(), analysis.odds);
+    dto.odds = shopOddsSummaryDto(analysis.odds);
     return dto;
 }
 
@@ -1730,7 +1908,7 @@ ActionResultDto actionResultDto(
             session.content(),
             *session.lastBattlePrepared(),
             *session.lastBattleResult(),
-            observationDetail);
+            BattleReportDetail::Full);
     }
     return dto;
 }
@@ -1748,11 +1926,15 @@ std::string battleOutcomeId(Battle::BattleOutcome outcome)
 }
 
 BattleEffectActivationDto battleEffectActivationDto(
-    const ChessBattleEffectActivation& activation)
+    const ChessBattleEffectActivation& activation,
+    bool includeDescription)
 {
     BattleEffectActivationDto dto;
     dto.type = activation.type;
-    dto.description = activation.description;
+    if (includeDescription)
+    {
+        dto.description = activation.description;
+    }
     dto.frame = activation.frame;
     dto.source_unit_id = activation.sourceUnitId;
     dto.source_name = activation.sourceName;
@@ -1814,7 +1996,7 @@ BattleImportantEffectDto battleImportantEffectDto(
 
 BattleUnitStatsDto battleUnitStatsDto(
     const ChessBattleUnitAnalysis& analysis,
-    bool full)
+    BattleReportDetail detail)
 {
     BattleUnitStatsDto dto;
     dto.unit_id = analysis.unitId;
@@ -1825,6 +2007,11 @@ BattleUnitStatsDto battleUnitStatsDto(
     dto.damage_dealt = analysis.damageDealt;
     dto.damage_taken = analysis.damageTaken;
     dto.kills = analysis.kills;
+    if (detail == BattleReportDetail::Summary)
+    {
+        return dto;
+    }
+    const bool full = detail == BattleReportDetail::Full;
     const auto assignMetric = [full](std::optional<int>& field, int value)
     {
         if (full || value != 0)
@@ -1866,25 +2053,42 @@ BattleUnitStatsDto battleUnitStatsDto(
         dto.initial_stat_delta_from_special_effects =
             roleStatsDto(analysis.initialStatDeltaFromSpecialEffects);
     }
-    dto.damage_breakdown = {
-        analysis.damageBreakdown.skill,
-        analysis.damageBreakdown.basicAttack,
-        analysis.damageBreakdown.status,
-        analysis.damageBreakdown.combo,
-        analysis.damageBreakdown.equipment,
-        analysis.damageBreakdown.other,
-    };
-    for (const auto& damage : analysis.skillDamage)
+    BattleUnitStatsDto::DamageBreakdown breakdown;
+    assignMetric(breakdown.skill, analysis.damageBreakdown.skill);
+    assignMetric(breakdown.basic_attack, analysis.damageBreakdown.basicAttack);
+    assignMetric(breakdown.status, analysis.damageBreakdown.status);
+    assignMetric(breakdown.combo, analysis.damageBreakdown.combo);
+    assignMetric(breakdown.equipment, analysis.damageBreakdown.equipment);
+    assignMetric(breakdown.other, analysis.damageBreakdown.other);
+    if (full
+        || breakdown.skill
+        || breakdown.basic_attack
+        || breakdown.status
+        || breakdown.combo
+        || breakdown.equipment
+        || breakdown.other)
     {
-        dto.skill_damage.push_back({damage.skillId, damage.name, damage.damage});
+        dto.damage_breakdown = std::move(breakdown);
     }
-    for (const auto& damage : analysis.nonSkillDamageSources)
+    if (full || !analysis.skillDamage.empty())
     {
-        dto.non_skill_damage_sources.push_back({
-            damage.skillId,
-            damage.name,
-            damage.damage,
-        });
+        dto.skill_damage.emplace();
+        for (const auto& damage : analysis.skillDamage)
+        {
+            dto.skill_damage->push_back({damage.skillId, damage.name, damage.damage});
+        }
+    }
+    if (full || !analysis.nonSkillDamageSources.empty())
+    {
+        dto.non_skill_damage_sources.emplace();
+        for (const auto& damage : analysis.nonSkillDamageSources)
+        {
+            dto.non_skill_damage_sources->push_back({
+                damage.skillId,
+                damage.name,
+                damage.damage,
+            });
+        }
     }
     return dto;
 }
@@ -1893,12 +2097,13 @@ BattleResultDto battleResultDto(
     const ChessGameContent& content,
     const PreparedChessBattle& prepared,
     const HeadlessBattleResult& battle,
-    ObservationDetail detail)
+    BattleReportDetail detail)
 {
     BattleResultDto dto;
-    const bool full = detail == ObservationDetail::Full;
+    const bool compact = detail == BattleReportDetail::Compact;
+    const bool full = detail == BattleReportDetail::Full;
     const auto analysis = analyzeChessBattleResult(content, prepared, battle);
-    dto.detail = full ? "full" : "compact";
+    dto.detail = full ? "full" : compact ? "compact" : "summary";
     if (full)
     {
         dto.initial_board = preparedBattleDto(
@@ -1907,6 +2112,14 @@ BattleResultDto battleResultDto(
             PreparedBattleDetail::Full,
             kChessBattleFrameLimit);
         dto.effect_activations.emplace();
+    }
+    else if (compact)
+    {
+        dto.initial_board = preparedBattleDto(
+            content,
+            prepared,
+            PreparedBattleDetail::Summary,
+            kChessBattleFrameLimit);
     }
     dto.outcome = battleOutcomeId(analysis.outcome);
     dto.outcome_description = analysis.outcomeDescription;
@@ -1926,17 +2139,21 @@ BattleResultDto battleResultDto(
     }
     for (const auto& unit : analysis.unitStats)
     {
-        dto.unit_stats.push_back(battleUnitStatsDto(unit, full));
+        dto.unit_stats.push_back(battleUnitStatsDto(unit, detail));
     }
-    for (const auto& effect : analysis.importantEffects)
+    if (compact || full)
     {
-        dto.important_effects.push_back(battleImportantEffectDto(effect));
+        dto.important_effects.emplace();
+        for (const auto& effect : analysis.importantEffects)
+        {
+            dto.important_effects->push_back(battleImportantEffectDto(effect));
+        }
     }
     if (full)
     {
         for (const auto& activation : analysis.effectActivations)
         {
-            dto.effect_activations->push_back(battleEffectActivationDto(activation));
+            dto.effect_activations->push_back(battleEffectActivationDto(activation, true));
         }
     }
     for (const auto& event : analysis.keyEvents)
@@ -1950,7 +2167,7 @@ BattleResultDto battleResultDto(
 
 std::optional<BattleResultDto> inspectLastBattleDto(
     const ChessGameSession& session,
-    ObservationDetail detail)
+    BattleReportDetail detail)
 {
     if (!session.lastBattlePrepared() || !session.lastBattleResult())
     {
@@ -1961,6 +2178,81 @@ std::optional<BattleResultDto> inspectLastBattleDto(
         *session.lastBattlePrepared(),
         *session.lastBattleResult(),
         detail);
+}
+
+std::optional<BattleEventPageDto> inspectLastBattleEventsDto(
+    const ChessGameSession& session,
+    const BattleEventsParams& params,
+    BattleEventDetail detail)
+{
+    if (!session.lastBattlePrepared() || !session.lastBattleResult())
+    {
+        return std::nullopt;
+    }
+    const auto analysis = analyzeChessBattleResult(
+        session.content(),
+        *session.lastBattlePrepared(),
+        *session.lastBattleResult());
+    const auto matches = [&](const ChessBattleEffectActivation& activation) {
+        if (!params.unit_ids.empty())
+        {
+            const bool sourceMatches = activation.sourceUnitId
+                && std::ranges::contains(params.unit_ids, *activation.sourceUnitId);
+            const bool targetMatches = activation.targetUnitId
+                && std::ranges::contains(params.unit_ids, *activation.targetUnitId);
+            if (!sourceMatches && !targetMatches)
+            {
+                return false;
+            }
+        }
+        if (!params.effect_types.empty()
+            && !std::ranges::contains(params.effect_types, activation.type))
+        {
+            return false;
+        }
+        if (params.frame_range)
+        {
+            if (params.frame_range->start
+                && activation.frame < *params.frame_range->start)
+            {
+                return false;
+            }
+            if (params.frame_range->end
+                && activation.frame > *params.frame_range->end)
+            {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    BattleEventPageDto dto;
+    dto.detail = detail == BattleEventDetail::Full ? "full" : "compact";
+    dto.cursor = params.cursor;
+    int matchedIndex{};
+    for (const auto& activation : analysis.effectActivations)
+    {
+        if (!matches(activation))
+        {
+            continue;
+        }
+        if (matchedIndex >= params.cursor
+            && static_cast<int>(dto.events.size()) < params.limit)
+        {
+            dto.events.push_back(battleEffectActivationDto(
+                activation,
+                detail == BattleEventDetail::Full));
+        }
+        ++matchedIndex;
+    }
+    dto.returned_count = static_cast<int>(dto.events.size());
+    dto.total_matching_count = matchedIndex;
+    if (params.cursor + dto.returned_count < dto.total_matching_count)
+    {
+        dto.next_cursor = params.cursor + dto.returned_count;
+    }
+    dto.digest = chessSha256Hex(analysis.digest);
+    return dto;
 }
 
 std::string checkpointErrorId(ChessCheckpointError error)
@@ -2017,28 +2309,32 @@ SessionObservationDto sessionObservationDto(
         detail,
         {},
         legalActions);
-    result.save_slots = saveSlotDtos(saves.list());
-    result.operations = {
-        "inspect_role",
-        "inspect_shop_slot",
-        "inspect_shop",
-        "get_shop_odds",
-        "inspect_chess_instance",
-        "inspect_bans",
-        "inspect_combo",
-        "inspect_equipment",
-        "inspect_challenge",
-        "inspect_prepared_battle",
-        "inspect_last_battle",
-        "list_saves",
-        "inspect_save",
-        "save_game",
-        "load_game",
-        "export_save_file",
-        "import_save_file",
-        "export_replay",
-    };
-    result.load_consequence = "載入會替換目前遊戲狀態、亂數與完整重播紀錄，捨棄存檔點之後的目前行動，但保留存檔目錄。";
+    if (detail == ObservationDetail::Full)
+    {
+        result.save_slots = saveSlotDtos(saves.list());
+        result.operations = std::vector<std::string>{
+            "inspect_role",
+            "inspect_shop_slot",
+            "inspect_shop",
+            "get_shop_odds",
+            "inspect_chess_instance",
+            "inspect_bans",
+            "inspect_combo",
+            "inspect_equipment",
+            "inspect_challenge",
+            "inspect_prepared_battle",
+            "inspect_last_battle",
+            "inspect_last_battle_events",
+            "list_saves",
+            "inspect_save",
+            "save_game",
+            "load_game",
+            "export_save_file",
+            "import_save_file",
+            "export_replay",
+        };
+        result.load_consequence = "載入會替換目前遊戲狀態、亂數與完整重播紀錄，捨棄存檔點之後的目前行動，但保留存檔目錄。";
+    }
     return result;
 }
 

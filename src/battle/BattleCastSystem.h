@@ -35,6 +35,7 @@ struct BattleCastUnitState
     bool hasEquippedSkill = false;
     bool movementDashActive = false;
     bool dashAttackEnabled = false;
+    bool blinkAttackEnabled = false;
     Pointf dashVelocity;
     int dashHitCount = 1;
     bool emitDashFollowUpSkillAttack = false;

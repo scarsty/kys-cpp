@@ -3,6 +3,7 @@
 #include "BattleLogTestHelpers.h"
 #include "BattleRuntimeRecordTestHelpers.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace KysChess::Battle;
@@ -133,6 +134,14 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
     input.blinkCellRandomRoll = 1;
     input.blinkGeometry.currentGridX = 1;
     input.blinkGeometry.currentGridY = 1;
+    input.hasCast = true;
+    input.cast = committedCast(false, BattleOperationType::Melee);
+    BattleAttackSpawnRequest attack;
+    attack.initial.attackerUnitId = 0;
+    attack.initial.preferredTargetUnitId = 1;
+    attack.initial.position = { 20, 20, 0 };
+    attack.initial.operationType = BattleOperationType::Melee;
+    input.cast.attackSpawnRequests.push_back(attack);
     input.blinkGeometry.cells = {
         { 1, 1, { 96, 20, 0 }, true, false },
         { 2, 1, { 108, 20, 0 }, false, false },
@@ -157,6 +166,10 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
     CHECK(teleport.position.y == 20.0f);
     CHECK(teleport.facing.x == -1.0f);
     CHECK(teleport.facing.y == 0.0f);
+    REQUIRE(result.attackSpawnRequests.size() == 1);
+    CHECK(result.attackSpawnRequests[0].initial.preferredTargetUnitId == 2);
+    CHECK(result.attackSpawnRequests[0].initial.position.x == Catch::Approx(122.0f));
+    CHECK(result.attackSpawnRequests[0].initial.position.y == Catch::Approx(20.0f));
 }
 
 TEST_CASE("BattleActionCommit_CommittedMeleeCastAdvancesOperationCount", "[battle][action_commit][unit]")

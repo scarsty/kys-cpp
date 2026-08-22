@@ -445,6 +445,7 @@ def dispatch_mcp_tool(
 
 def create_server(session: CliSession | None = None):
     from mcp.server import Server
+    from mcp.types import CallToolResult, TextContent
 
     cli = session or CliSession()
     server = Server(
@@ -462,7 +463,18 @@ def create_server(session: CliSession | None = None):
         response = dispatch_mcp_tool(cli, name, arguments)
         if response.get("runtime_reload", {}).get("tools_changed"):
             await server.request_context.session.send_tool_list_changed()
-        return response
+        return CallToolResult(
+            content=[TextContent(
+                type="text",
+                text=json.dumps(
+                    response,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ),
+            )],
+            structuredContent=response,
+            isError=not response.get("ok", False),
+        )
 
     return server
 

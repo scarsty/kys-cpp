@@ -66,7 +66,7 @@ TEST_CASE("JSON codec keeps summary compact and full action projections distinct
     CHECK(full.contains("\"relevant_roles\""));
 }
 
-TEST_CASE("JSON codec battle projection omits full-only data in compact detail",
+TEST_CASE("JSON codec battle projections keep summary and compact reports bounded",
           "[chess][json-codec][projection][battle]")
 {
     ChessGameSession session(configuredMapChoiceContent(), 74);
@@ -88,24 +88,102 @@ TEST_CASE("JSON codec battle projection omits full-only data in compact detail",
     start.type = ChessActionType::StartBattle;
     REQUIRE(session.submitAndDrain(start).accepted);
 
+    const auto summaryDto =
+        inspectLastBattleDto(session, BattleReportDetail::Summary);
     const auto compactDto =
-        inspectLastBattleDto(session, ObservationDetail::Compact);
+        inspectLastBattleDto(session, BattleReportDetail::Compact);
     const auto fullDto =
-        inspectLastBattleDto(session, ObservationDetail::Full);
+        inspectLastBattleDto(session, BattleReportDetail::Full);
+    REQUIRE(summaryDto);
     REQUIRE(compactDto);
     REQUIRE(fullDto);
+    const auto summary = writeJson(*summaryDto);
     const auto compact = writeJson(*compactDto);
     const auto full = writeJson(*fullDto);
 
+    CHECK(summary.contains("\"detail\":\"summary\""));
+    CHECK(summary.contains("\"unit_stats\""));
+    CHECK(summary.contains("\"key_events\""));
+    CHECK_FALSE(summary.contains("\"initial_board\""));
+    CHECK_FALSE(summary.contains("\"important_effects\""));
+    CHECK_FALSE(summary.contains("\"effect_activations\""));
     CHECK(compact.contains("\"detail\":\"compact\""));
     CHECK(compact.contains("\"unit_stats\""));
     CHECK(compact.contains("\"summary\""));
-    CHECK_FALSE(compact.contains("\"initial_board\""));
+    CHECK(compact.contains("\"initial_board\""));
+    CHECK(compact.contains("\"important_effects\""));
     CHECK_FALSE(compact.contains("\"effect_activations\""));
     CHECK(full.contains("\"detail\":\"full\""));
     CHECK(full.contains("\"initial_board\""));
     CHECK(full.contains("\"effect_activations\""));
     CHECK(full.contains("\"initial_combat_stats\""));
+
+    BattleEventsParams pageParams;
+    pageParams.limit = 1;
+    const auto compactPage = inspectLastBattleEventsDto(
+        session,
+        pageParams,
+        BattleEventDetail::Compact);
+    REQUIRE(compactPage);
+    REQUIRE(compactPage->total_matching_count > 0);
+    REQUIRE(compactPage->events.size() == 1);
+    CHECK_FALSE(compactPage->events.front().description);
+    CHECK(compactPage->next_cursor == 1);
+
+    const auto fullPage = inspectLastBattleEventsDto(
+        session,
+        pageParams,
+        BattleEventDetail::Full);
+    REQUIRE(fullPage);
+    REQUIRE(fullPage->events.size() == 1);
+    CHECK(fullPage->events.front().description);
+
+    REQUIRE(fullDto->effect_activations);
+    const auto filterableEvent = std::ranges::find_if(
+        *fullDto->effect_activations,
+        [](const BattleEffectActivationDto& event) {
+            return event.source_unit_id || event.target_unit_id;
+        });
+    REQUIRE(filterableEvent != fullDto->effect_activations->end());
+    const int unitId = filterableEvent->source_unit_id
+        ? *filterableEvent->source_unit_id
+        : *filterableEvent->target_unit_id;
+    BattleEventsParams unitParams;
+    unitParams.unit_ids = {unitId};
+    const auto unitFiltered = inspectLastBattleEventsDto(
+        session,
+        unitParams,
+        BattleEventDetail::Compact);
+    REQUIRE(unitFiltered);
+    REQUIRE(unitFiltered->total_matching_count > 0);
+    for (const auto& event : unitFiltered->events)
+    {
+        CHECK((event.source_unit_id == unitId || event.target_unit_id == unitId));
+    }
+
+    const int frame = fullDto->effect_activations->front().frame;
+    BattleEventsParams frameParams;
+    frameParams.frame_range = BattleEventsParams::FrameRange{frame, frame};
+    const auto frameFiltered = inspectLastBattleEventsDto(
+        session,
+        frameParams,
+        BattleEventDetail::Compact);
+    REQUIRE(frameFiltered);
+    REQUIRE(frameFiltered->total_matching_count > 0);
+    for (const auto& event : frameFiltered->events)
+    {
+        CHECK(event.frame == frame);
+    }
+
+    BattleEventsParams filteredParams;
+    filteredParams.effect_types = {"不存在的效果"};
+    const auto filtered = inspectLastBattleEventsDto(
+        session,
+        filteredParams,
+        BattleEventDetail::Compact);
+    REQUIRE(filtered);
+    CHECK(filtered->total_matching_count == 0);
+    CHECK(filtered->events.empty());
 }
 
 TEST_CASE("JSON codec preserves the stable semantic event wire projection",

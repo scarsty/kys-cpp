@@ -210,9 +210,18 @@ class McpAdapterTests(unittest.TestCase):
                     )
                     names = {tool.name for tool in tools.tools}
                     self.assertIn("export_save_file", names)
+                    self.assertIn("inspect_last_battle_events", names)
                     self.assertNotIn("export_save", names)
                     self.assertFalse(created.isError)
                     self.assertTrue(created.structuredContent["ok"])
+                    expected_text = json.dumps(
+                        created.structuredContent,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    )
+                    self.assertEqual(created.content[0].text, expected_text)
+                    self.assertNotIn("\\u", created.content[0].text)
+                    self.assertNotIn("\n", created.content[0].text)
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

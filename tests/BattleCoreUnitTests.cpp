@@ -1235,6 +1235,23 @@ TEST_CASE("BattleCombatIntent_RangedSkillIgnoresDashAttackWhenInReach", "[battle
     CHECK(intent.operationType == BattleOperationType::RangedProjectile);
 }
 
+TEST_CASE("BattleCombatIntent_BlinkAttackStartsMeleeOutsideNormalReach", "[battle][intent]")
+{
+    CombatIntentInput input;
+    input.canStartAttack = true;
+    input.hasEquippedSkill = true;
+    input.blinkAttackEnabled = true;
+    input.targetDistance = 1200.0;
+    input.meleeAttackReach = 137.5;
+    input.dashAttackReach = 375.0;
+    input.plannedSkill = skill(0, 137.5);
+
+    auto intent = BattleCombatIntentPlanner().select(input);
+
+    CHECK(intent.startAttack);
+    CHECK(intent.operationType == BattleOperationType::Melee);
+}
+
 TEST_CASE("BattleCore_MovementConfig_DerivesSharedGeometry", "[battle][core]")
 {
     auto config = testConfig();
@@ -1866,6 +1883,45 @@ TEST_CASE("BattleFrameRunner_BlinkAttackTeleportsRuntimeUnit", "[battle][core][r
     CHECK(teleported.motion.position.x == state.units.require(0).movement.physics.position.x);
     CHECK(teleported.grid.x != 0);
     CHECK(teleported.motion.velocity.norm() == 0.0f);
+}
+
+TEST_CASE("BattleFrameRunner_BlinkAttackStartsMeleeFromOutsideBattlefieldAtLongRange", "[battle][core][runtime]")
+{
+    BattleRuntimeState state;
+    configureRuntimeMovement(state, worldWith({}));
+    state.attacks = attackWorld();
+    seedRuntimeUnits(state, {
+        runtimeUnitSnapshot(0, 0, 100, { 0, 0, 0 }),
+        runtimeUnitSnapshot(1, 1, 100, { 2376, 72, 0 }),
+    });
+    state.gridTransform = { SceneTileWidth, BattleCoordCount };
+    state.units.setPosition(0, { 0, 0, 0 }, state.gridTransform);
+    state.units.setPosition(1, { 2376, 72, 0 }, state.gridTransform);
+    state.movement.config = testConfig();
+    state.random = BattleRuntimeRandom(7u);
+
+    KysChess::RoleComboState combo;
+    combo.applyConfiguredEffect({ KysChess::EffectType::BlinkAttack, 1 });
+    state.units.require(0).combo = combo;
+
+    auto cast = frameCastInput(0, 1);
+    cast.unit.position = { 0, 0, 0 };
+    cast.targetPosition = { 2376, 72, 0 };
+    cast.targetDistance = 2377.0;
+    cast.normalSkill.reach = 137.5;
+    configureRuntimeActionPlan(state, cast);
+    state.units.requireCore(0).animation.cooldown = 0;
+
+    runBattleFrame(state);
+
+    REQUIRE(state.units.require(0).pendingCast() != nullptr);
+    preparePendingCastCommitFrame(state, 0, BattleOperationType::Melee, 6);
+    auto result = runBattleFrame(state);
+
+    CHECK(result.blinkSoundCount == 1);
+    CHECK(state.units.requireCore(0).grid.x >= 0);
+    CHECK(state.units.requireCore(0).grid.y >= 0);
+    CHECK_FALSE(state.attacks.attacks.empty());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsStatusBeforeCastPlanning", "[battle][core]")

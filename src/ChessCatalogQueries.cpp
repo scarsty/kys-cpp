@@ -69,6 +69,18 @@ std::string magicGeometry(const ChessMagicDefinition& magic)
     }
 }
 
+std::string magicShape(const ChessMagicDefinition& magic)
+{
+    switch (magic.AttackAreaType)
+    {
+    case 0: return "single";
+    case 1: return "line";
+    case 2: return "cross";
+    case 3: return "area";
+    default: return "special";
+    }
+}
+
 }  // namespace
 
 std::string chessBattleMapDisplayName(const ChessGameContent& content, int mapId)
@@ -264,6 +276,7 @@ ChessAbilityMetadata chessAbilityMetadata(
         magic.Name,
         std::move(powerByStar),
         magic.NeedMP,
+        magicShape(magic),
         magic.SelectDistance,
         magic.AttackDistance,
         magicGeometry(magic),

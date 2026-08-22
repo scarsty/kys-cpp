@@ -358,7 +358,7 @@ class ChessCliTests(unittest.TestCase):
                     "method": "act",
                     "params": {"detail": "compact", "action": {"type": "start_battle"}},
                 },
-                {"id": 8, "method": "inspect_last_battle", "params": {}},
+                {"id": 8, "method": "inspect_last_battle", "params": {"detail": "full"}},
             ]
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
@@ -502,7 +502,11 @@ class ChessCliTests(unittest.TestCase):
                         "seed": "0x0000000000005eed",
                     },
                 },
-                {"id": 2, "method": "legal_actions", "params": {}},
+                {
+                    "id": 2,
+                    "method": "legal_actions",
+                    "params": {"action_type": "set_deployment"},
+                },
                 {
                     "id": 3,
                     "method": "act",
@@ -518,7 +522,11 @@ class ChessCliTests(unittest.TestCase):
                 },
                 {"id": 5, "method": "observe", "params": {"detail": "compact"}},
                 {"id": 6, "method": "inspect_equipment", "params": {"item_id": 61}},
-                {"id": 7, "method": "inspect_combo", "params": {"combo_name": "刀客"}},
+                {
+                    "id": 7,
+                    "method": "inspect_combo",
+                    "params": {"combo_name": "刀客", "detail": "full"},
+                },
             ]
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
@@ -542,9 +550,7 @@ class ChessCliTests(unittest.TestCase):
         self.assertTrue(role["abilities"][0]["effect_note"])
         self.assertIn("power_by_star", role["abilities"][0])
         self.assertEqual(game["combos"], [])
-        deployment = next(
-            action for action in legal["result"] if action["type"] == "set_deployment"
-        )
+        deployment = legal["result"]
         self.assertEqual(
             deployment["action_schema"]["chess_instance_ids"],
             "整數陣列",
@@ -648,7 +654,7 @@ class ChessCliTests(unittest.TestCase):
                 },
                 {"id": 5, "method": "act", "params": {"action": {"type": "prepare_battle"}}},
                 {"id": 6, "method": "act", "params": {"action": {"type": "start_battle"}}},
-                {"id": 7, "method": "inspect_last_battle", "params": {}},
+                {"id": 7, "method": "inspect_last_battle", "params": {"detail": "full"}},
             ]
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)

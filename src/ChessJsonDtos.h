@@ -140,15 +140,31 @@ struct ActParams
     std::string detail = "summary";
 };
 
-struct ObserveParams { std::string detail = "full"; };
+struct ObserveParams { std::string detail = "compact"; };
 struct InspectPreparedBattleParams { std::string detail = "summary"; };
-struct RoleParams { int role_id = -1; };
-struct ComboParams { std::string combo_name; };
+struct InspectLastBattleParams { std::string detail = "summary"; };
+struct RoleParams { int role_id = -1; std::string detail = "compact"; };
+struct ComboParams { std::string combo_name; std::string detail = "summary"; };
 struct EquipmentParams { int item_id = -1; };
 struct ChallengeParams { std::string challenge_name; };
 struct ShopSlotParams { int slot = -1; };
 struct ChessInstanceParams { int chess_instance_id = -1; };
 struct ShopOddsParams { std::optional<int> level; };
+struct LegalActionsParams { std::optional<std::string> action_type; };
+struct BattleEventsParams
+{
+    struct FrameRange
+    {
+        std::optional<int> start;
+        std::optional<int> end;
+    };
+    int cursor{};
+    int limit = 50;
+    std::vector<int> unit_ids;
+    std::vector<std::string> effect_types;
+    std::optional<FrameRange> frame_range;
+    std::string detail = "compact";
+};
 
 struct VerifyParams
 {
@@ -178,13 +194,15 @@ struct AbilityDto
     struct StarPower { int star{}; int power{}; };
     int magic_id{};
     std::string name;
-    std::vector<StarPower> power_by_star;
+    std::optional<int> power;
+    std::optional<std::vector<StarPower>> power_by_star;
     int mp_cost{};
+    std::string shape;
     int select_distance{};
-    int area_distance{};
-    std::string geometry;
-    std::vector<std::string> effects;
-    std::string effect_note;
+    std::optional<int> area_radius;
+    std::optional<std::string> geometry;
+    std::optional<std::vector<std::string>> effects;
+    std::optional<std::string> effect_note;
 };
 struct RoleDto
 {
@@ -212,8 +230,8 @@ struct EquipmentInfoDto
     struct CharacterBonus
     {
         std::vector<std::string> roles;
-        std::vector<std::string> effects;
-        std::vector<std::string> counts_as_combos;
+        std::optional<std::vector<std::string>> effects;
+        std::optional<std::vector<std::string>> counts_as_combos;
     };
     int item_id = -1;
     std::string name;
@@ -223,7 +241,6 @@ struct EquipmentInfoDto
     std::optional<std::vector<std::string>> special_effects;
     std::optional<std::vector<std::string>> counts_as_combos;
     std::optional<std::vector<CharacterBonus>> character_bonuses;
-    std::optional<std::string> combo_counting_note;
 };
 struct EquipmentDto
 {
@@ -285,12 +302,12 @@ struct BattleUnitStatsDto
 {
     struct DamageBreakdown
     {
-        int skill{};
-        int basic_attack{};
-        int status{};
-        int combo{};
-        int equipment{};
-        int other{};
+        std::optional<int> skill;
+        std::optional<int> basic_attack;
+        std::optional<int> status;
+        std::optional<int> combo;
+        std::optional<int> equipment;
+        std::optional<int> other;
     };
     int unit_id = -1;
     int role_id = -1;
@@ -328,14 +345,14 @@ struct BattleUnitStatsDto
     std::optional<RoleStatsDto> initial_stat_delta_from_special_effects;
     std::optional<int> enemy_attack_debuff;
     std::optional<int> enemy_defence_debuff;
-    DamageBreakdown damage_breakdown;
-    std::vector<SkillDamageDto> skill_damage;
-    std::vector<SkillDamageDto> non_skill_damage_sources;
+    std::optional<DamageBreakdown> damage_breakdown;
+    std::optional<std::vector<SkillDamageDto>> skill_damage;
+    std::optional<std::vector<SkillDamageDto>> non_skill_damage_sources;
 };
 struct BattleEffectActivationDto
 {
     std::string type;
-    std::string description;
+    std::optional<std::string> description;
     int frame{};
     std::optional<int> source_unit_id;
     std::optional<std::string> source_name;
@@ -391,10 +408,20 @@ struct BattleResultDto
     int end_frame{};
     std::vector<BattleSurvivorDto> survivors;
     std::vector<BattleUnitStatsDto> unit_stats;
-    std::vector<BattleImportantEffectDto> important_effects;
+    std::optional<std::vector<BattleImportantEffectDto>> important_effects;
     std::optional<std::vector<BattleEffectActivationDto>> effect_activations;
     std::vector<BattleKeyEventDto> key_events;
     std::string summary;
+    std::string digest;
+};
+struct BattleEventPageDto
+{
+    std::string detail;
+    int cursor{};
+    int returned_count{};
+    int total_matching_count{};
+    std::optional<int> next_cursor;
+    std::vector<BattleEffectActivationDto> events;
     std::string digest;
 };
 struct RewardOptionDto
@@ -443,6 +470,17 @@ struct ShopOddsDto
     std::vector<ShopTierOddsDto> tiers;
     std::string pool_note;
 };
+struct ShopTierOddsSummaryDto
+{
+    int tier{};
+    double probability{};
+    int available_role_count{};
+};
+struct ShopOddsSummaryDto
+{
+    int level{};
+    std::vector<ShopTierOddsSummaryDto> tiers;
+};
 struct ShopPurchaseSynergyDto
 {
     std::string name;
@@ -473,7 +511,7 @@ struct ShopInspectionDto
     int money{};
     int level{};
     std::vector<ShopSlotInspectionDto> slots;
-    ShopOddsDto odds;
+    ShopOddsSummaryDto odds;
 };
 struct ChessInstanceInspectionDto
 {
@@ -543,9 +581,27 @@ struct ComboContributionDto
 };
 struct ComboDto
 {
+    struct NextThreshold
+    {
+        int required_count{};
+        std::string name;
+        std::vector<std::string> effects;
+        int missing_count{};
+    };
+    struct ContributionSource
+    {
+        int role_id{};
+        std::string role_name;
+        int effective_points{};
+        bool natural_member{};
+        std::vector<NamedIdDto> equipment_sources;
+    };
     std::string name;
     int physical_count{};
     int effective_count{};
+    std::optional<std::vector<ComboThresholdDto>> active_thresholds;
+    std::optional<NextThreshold> next_threshold;
+    std::optional<std::vector<ContributionSource>> contribution_sources;
     std::optional<std::vector<std::string>> members;
     std::optional<std::vector<ComboThresholdDto>> thresholds;
     std::optional<std::vector<ComboContributionDto>> contributions;
@@ -661,9 +717,9 @@ struct SaveSlotDto
 struct SessionObservationDto
 {
     ObservationDto game_state;
-    std::vector<SaveSlotDto> save_slots;
-    std::vector<std::string> operations;
-    std::string load_consequence;
+    std::optional<std::vector<SaveSlotDto>> save_slots;
+    std::optional<std::vector<std::string>> operations;
+    std::optional<std::string> load_consequence;
 };
 
 struct SemanticEventDto

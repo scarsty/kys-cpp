@@ -53,6 +53,7 @@ struct ChessAbilityMetadata
     std::string name;
     std::vector<ChessAbilityStarPower> powerByStar;
     int mpCost{};
+    std::string shape;
     int selectDistance{};
     int areaDistance{};
     std::string geometry;

@@ -46,6 +46,11 @@ constexpr std::string_view kObserveSchema = R"({
     "properties":{"detail":{"type":"string","enum":["compact","full"],"default":"compact"}},
     "additionalProperties":false
 })";
+constexpr std::string_view kLegalActionsSchema = R"({
+    "type":"object",
+    "properties":{"action_type":{"type":["string","null"],"default":null}},
+    "additionalProperties":false
+})";
 constexpr std::string_view kActionSchema = R"({
     "type":"object",
     "properties":{
@@ -65,10 +70,22 @@ constexpr std::string_view kChessInstanceSchema = R"({
     "type":"object","properties":{"chess_instance_id":{"type":"integer"}},"required":["chess_instance_id"],"additionalProperties":false
 })";
 constexpr std::string_view kRoleSchema = R"({
-    "type":"object","properties":{"role_id":{"type":"integer"}},"required":["role_id"],"additionalProperties":false
+    "type":"object",
+    "properties":{
+        "role_id":{"type":"integer"},
+        "detail":{"type":"string","enum":["compact","full"],"default":"compact"}
+    },
+    "required":["role_id"],
+    "additionalProperties":false
 })";
 constexpr std::string_view kComboSchema = R"({
-    "type":"object","properties":{"combo_name":{"type":"string"}},"required":["combo_name"],"additionalProperties":false
+    "type":"object",
+    "properties":{
+        "combo_name":{"type":"string"},
+        "detail":{"type":"string","enum":["summary","full"],"default":"summary"}
+    },
+    "required":["combo_name"],
+    "additionalProperties":false
 })";
 constexpr std::string_view kEquipmentSchema = R"({
     "type":"object","properties":{"item_id":{"type":"integer"}},"required":["item_id"],"additionalProperties":false
@@ -79,6 +96,31 @@ constexpr std::string_view kChallengeSchema = R"({
 constexpr std::string_view kPreparedBattleSchema = R"({
     "type":"object",
     "properties":{"detail":{"type":"string","enum":["summary","compact","full"],"default":"summary"}},
+    "additionalProperties":false
+})";
+constexpr std::string_view kLastBattleSchema = R"({
+    "type":"object",
+    "properties":{"detail":{"type":"string","enum":["summary","compact","full"],"default":"summary"}},
+    "additionalProperties":false
+})";
+constexpr std::string_view kBattleEventsSchema = R"({
+    "type":"object",
+    "properties":{
+        "cursor":{"type":"integer","minimum":0,"default":0},
+        "limit":{"type":"integer","minimum":1,"maximum":200,"default":50},
+        "unit_ids":{"type":"array","items":{"type":"integer"},"default":[]},
+        "effect_types":{"type":"array","items":{"type":"string"},"default":[]},
+        "frame_range":{
+            "type":["object","null"],
+            "properties":{
+                "start":{"type":["integer","null"],"minimum":0,"default":null},
+                "end":{"type":["integer","null"],"minimum":0,"default":null}
+            },
+            "additionalProperties":false,
+            "default":null
+        },
+        "detail":{"type":"string","enum":["compact","full"],"default":"compact"}
+    },
     "additionalProperties":false
 })";
 constexpr std::string_view kSlotSchema = R"({
@@ -109,19 +151,20 @@ constexpr std::array kMcpTools{
     McpToolDefinition{"resume_saved_game", "resume_game", "不先建立新棋局，直接由自動存檔建立並接續工作階段。", kResumeSchema},
     McpToolDefinition{"observe_game", "observe", "取得棋局；compact 只含決策所需狀態，full 含完整定義。", kObserveSchema},
     McpToolDefinition{"get_diagnostics", "get_diagnostics", "取得原生執行狀態與診斷資訊。", kEmptySchema},
-    McpToolDefinition{"list_legal_actions", "legal_actions", "列出目前合法操作、操作結構、範例及候選值。", kEmptySchema},
+    McpToolDefinition{"list_legal_actions", "legal_actions", "預設只列合法操作類型；指定 action_type 才回傳該操作的結構、範例及候選值。", kLegalActionsSchema},
     McpToolDefinition{"take_action", "act", "提交一個遊戲操作；summary 只回變更，compact 回精簡現況，full 含完整資料。", kActionSchema},
     McpToolDefinition{"inspect_shop_slot", "inspect_shop_slot", "分析單一商店欄位的價格、持有份數、合成結果、羈絆變化與抽取機率。", kShopSlotSchema},
     McpToolDefinition{"inspect_shop", "inspect_shop", "一次分析目前全部商店欄位及當前等級的費用機率。", kEmptySchema},
     McpToolDefinition{"get_shop_odds", "get_shop_odds", "取得指定或目前等級的商店費用機率與實際可用角色池。", kShopOddsSchema},
     McpToolDefinition{"inspect_chess_instance", "inspect_chess_instance", "檢視棋子實例的實際屬性、裝備、升星進度、出戰狀態與羈絆貢獻。", kChessInstanceSchema},
     McpToolDefinition{"inspect_bans", "inspect_bans", "檢視目前禁棋、剩餘容量、依費用分組的可選角色及生效時機。", kEmptySchema},
-    McpToolDefinition{"inspect_role", "inspect_role", "檢視一名角色的完整屬性、各星級武學威力、範圍與羈絆。", kRoleSchema},
-    McpToolDefinition{"inspect_combo", "inspect_combo", "依繁體中文名稱檢視羈絆成員、目前進度、門檻及效果。", kComboSchema},
-    McpToolDefinition{"inspect_equipment", "inspect_equipment", "檢視裝備的基礎屬性、特殊效果、計入羈絆及角色專屬加成。", kEquipmentSchema},
+    McpToolDefinition{"inspect_role", "inspect_role", "檢視角色；compact 合併相同星級威力並省略空效果，full 回傳完整說明。", kRoleSchema},
+    McpToolDefinition{"inspect_combo", "inspect_combo", "依繁體中文名稱檢視羈絆；summary 回傳目前進度、已啟用與下一門檻，full 回傳完整成員及解釋。", kComboSchema},
+    McpToolDefinition{"inspect_equipment", "inspect_equipment", "檢視裝備；省略空欄位，只在存在時回傳羈絆與角色專屬效果。", kEquipmentSchema},
     McpToolDefinition{"inspect_challenge", "inspect_challenge", "依繁體中文名稱檢視遠征的權威敵人星級、裝備與獎勵。", kChallengeSchema},
     McpToolDefinition{"inspect_prepared_battle", "inspect_prepared_battle", "檢視已準備戰鬥；summary 只含關鍵部署，compact 增加裝備與羈絆，full 含完整資料。", kPreparedBattleSchema},
-    McpToolDefinition{"inspect_last_battle", "inspect_last_battle", "完整檢視上一場戰鬥的開局棋盤、結構化效果軌跡與逐單位統計。", kEmptySchema},
+    McpToolDefinition{"inspect_last_battle", "inspect_last_battle", "檢視上一場戰鬥；summary 回傳勝負及核心統計，compact 增加開局站位與非零指標，full 才嵌入完整事件。", kLastBattleSchema},
+    McpToolDefinition{"inspect_last_battle_events", "inspect_last_battle_events", "分頁檢視上一場戰鬥事件，可依單位、效果類型及幀範圍過濾。", kBattleEventsSchema},
     McpToolDefinition{"list_saves", "list_saves", "列出目前程序內可用存檔摘要。", kEmptySchema},
     McpToolDefinition{"inspect_save", "inspect_save_summary", "唯讀檢視存檔摘要，不傳輸完整檢查點，也不改變棋局、亂數或重播。", kSlotSchema},
     McpToolDefinition{"save_game", "save_game", "在穩定決策邊界覆寫欄位；不消耗亂數，也不加入遊戲重播。", kSaveSchema},
@@ -537,12 +580,35 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
     }
     if (request->method == "legal_actions")
     {
-        std::vector<LegalActionDto> legal;
-        for (const auto& descriptor : session_->legalActions())
+        const auto params = readJson<LegalActionsParams>(request->params.str);
+        if (!params)
         {
-            legal.push_back(legalActionDto(*session_, descriptor));
+            return response(request->id, false, {}, "invalid_params", "合法操作查詢參數無效");
         }
-        return response(request->id, true, writeJson(legal));
+        const auto legalActions = session_->legalActions();
+        if (!params->action_type)
+        {
+            std::vector<std::string> legalTypes;
+            for (const auto& descriptor : legalActions)
+            {
+                legalTypes.push_back(chessActionTypeId(descriptor.type));
+            }
+            return response(request->id, true, writeJson(legalTypes));
+        }
+        const auto actionType = chessActionTypeFromId(*params->action_type);
+        if (!actionType)
+        {
+            return response(request->id, false, {}, "invalid_action_type", "未知的操作類型");
+        }
+        const auto descriptor = std::ranges::find(
+            legalActions,
+            *actionType,
+            &ChessLegalActionDescriptor::type);
+        if (descriptor == legalActions.end())
+        {
+            return response(request->id, false, {}, "action_not_legal", "目前不能執行指定操作");
+        }
+        return response(request->id, true, writeJson(legalActionDto(*session_, *descriptor)));
     }
     if (request->method == "inspect_shop_slot")
     {
@@ -591,9 +657,14 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
     if (request->method == "inspect_role")
     {
         const auto params = readJson<RoleParams>(request->params.str);
-        const auto inspection = params
-            ? inspectRoleDto(*session_, params->role_id)
+        const auto detail = params ? parseCatalogDetail(params->detail) : std::nullopt;
+        const auto inspection = detail
+            ? inspectRoleDto(*session_, params->role_id, *detail)
             : std::nullopt;
+        if (!params || !detail)
+        {
+            return response(request->id, false, {}, "invalid_params", "detail 必須是 compact 或 full");
+        }
         if (!inspection)
         {
             return response(request->id, false, {}, "invalid_role", "角色不存在");
@@ -603,9 +674,16 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
     if (request->method == "inspect_combo")
     {
         const auto params = readJson<ComboParams>(request->params.str);
-        const auto inspection = params
-            ? inspectComboDto(*session_, params->combo_name)
+        const auto detail = params
+            ? parseComboInspectionDetail(params->detail)
             : std::nullopt;
+        const auto inspection = detail
+            ? inspectComboDto(*session_, params->combo_name, *detail)
+            : std::nullopt;
+        if (!params || !detail)
+        {
+            return response(request->id, false, {}, "invalid_params", "detail 必須是 summary 或 full");
+        }
         if (!inspection)
         {
             return response(request->id, false, {}, "invalid_combo", "羈絆不存在");
@@ -658,8 +736,47 @@ std::string ChessJsonProtocol::handleLine(std::string_view requestJson)
     }
     if (request->method == "inspect_last_battle")
     {
-        const auto inspection =
-            inspectLastBattleDto(*session_, ObservationDetail::Full);
+        const auto params = readJson<InspectLastBattleParams>(request->params.str);
+        const auto detail = params
+            ? parseBattleReportDetail(params->detail)
+            : std::nullopt;
+        if (!params || !detail)
+        {
+            return response(
+                request->id,
+                false,
+                {},
+                "invalid_params",
+                "detail 必須是 summary、compact 或 full");
+        }
+        const auto inspection = inspectLastBattleDto(*session_, *detail);
+        if (!inspection)
+        {
+            return response(request->id, false, {}, "no_last_battle", "目前沒有已完成的戰鬥");
+        }
+        return response(request->id, true, writeJson(*inspection));
+    }
+    if (request->method == "inspect_last_battle_events")
+    {
+        const auto params = readJson<BattleEventsParams>(request->params.str);
+        const auto detail = params
+            ? parseBattleEventDetail(params->detail)
+            : std::nullopt;
+        const bool invalidRange = params
+            && params->frame_range
+            && params->frame_range->start
+            && params->frame_range->end
+            && *params->frame_range->start > *params->frame_range->end;
+        if (!params
+            || !detail
+            || params->cursor < 0
+            || params->limit < 1
+            || params->limit > 200
+            || invalidRange)
+        {
+            return response(request->id, false, {}, "invalid_params", "戰鬥事件分頁或過濾參數無效");
+        }
+        const auto inspection = inspectLastBattleEventsDto(*session_, *params, *detail);
         if (!inspection)
         {
             return response(request->id, false, {}, "no_last_battle", "目前沒有已完成的戰鬥");

@@ -25,6 +25,7 @@ struct CombatIntentInput
     bool ultimateReady = false;
     bool movementDashActive = false;
     bool dashAttackEnabled = false;
+    bool blinkAttackEnabled = false;
     double targetDistance = 0.0;
     double meleeAttackReach = 0.0;
     double dashAttackReach = 0.0;

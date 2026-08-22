@@ -204,7 +204,6 @@ ChessPvpSaveVerifier::ChessPvpSaveVerifier(
         return;
     }
     result_.gameVersion = checkpoint_->gameVersion();
-    const bool versionMismatch = checkpoint_->gameVersion() != content_->gameVersion();
     if (!chessCheckpointVersionCompatible(*checkpoint_, content_->gameVersion()))
     {
         fail(
@@ -227,11 +226,8 @@ ChessPvpSaveVerifier::ChessPvpSaveVerifier(
         fail(ChessPvpSaveError::UnrepresentableSnapshot, "存檔不在可驗證的穩定決策邊界");
         return;
     }
-    const auto auditContent = versionMismatch
-        ? content_->withGameVersion(checkpoint_->gameVersion())
-        : content_;
     audit_ = std::make_unique<ChessReplayAudit>(
-        auditContent,
+        content_,
         checkpoint_->replay);
     if (audit_->finished())
     {
