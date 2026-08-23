@@ -13,6 +13,18 @@ using namespace KysChess;
 namespace
 {
 
+EffectRule attributeRule(BattleAttribute attribute, int amount)
+{
+    EffectRule rule;
+    rule.event = EffectEvent::BattleInitialized;
+    ModifyAttributeAction action;
+    action.attribute = attribute;
+    action.amount.flat = amount;
+    action.operation = AttributeOperation::FlatAdd;
+    rule.actions.push_back({ EffectActionValue{ action } });
+    return rule;
+}
+
 std::shared_ptr<const ChessGameContent> standaloneContent()
 {
     ChessGameContentData data;
@@ -59,14 +71,30 @@ std::shared_ptr<const ChessGameContent> standaloneContent()
     data.items.emplace(502, ChessItemDefinition{502, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, "測試防具"});
     data.equipment.push_back({501, 1, 0});
     data.equipment.push_back({502, 2, 1});
-    data.neigong.push_back({701, -1, 1, "我方內功", {{EffectType::FlatATK, 11}}});
-    data.neigong.push_back({702, -1, 1, "敵方內功", {{EffectType::FlatATK, 23}}});
+    data.neigong.push_back({
+        701,
+        -1,
+        1,
+        "我方內功",
+        { attributeRule(BattleAttribute::Attack, 11) },
+    });
+    data.neigong.push_back({
+        702,
+        -1,
+        1,
+        "敵方內功",
+        { attributeRule(BattleAttribute::Attack, 23) },
+    });
 
     ComboDef combo;
     combo.id = 1;
     combo.name = "不應套用的羈絆";
     combo.memberRoleIds = {10};
-    combo.thresholds.push_back({1, "啟用", {{EffectType::FlatATK, 999}}});
+    combo.thresholds.push_back({
+        1,
+        "啟用",
+        { attributeRule(BattleAttribute::Attack, 999) },
+    });
     data.combos.push_back(std::move(combo));
 
     ChessBattleMapDefinition map;

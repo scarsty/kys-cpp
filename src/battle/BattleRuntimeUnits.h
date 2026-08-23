@@ -3,10 +3,12 @@
 #include "BattleLimits.h"
 #include "BattleOutcome.h"
 
+#include "BattleAreaEffectSystem.h"
 #include "BattleAttackSystem.h"
 #include "BattleDamageQueue.h"
 #include "BattleDamageSystem.h"
-#include "BattleDeathEffectSystem.h"
+#include "BattleEffectCommandSystem.h"
+#include "BattleEffectSystem.h"
 #include "BattleHitResolver.h"
 #include "BattleMovement.h"
 #include "BattleRescueRepositionSystem.h"
@@ -20,10 +22,14 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <limits>
 #include <map>
 #include <optional>
 #include <ranges>
+#include <set>
+#include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -37,6 +43,7 @@ struct BattleRuntimeUnitFrameTickConfig
     int frame{};
     int mpRegenIntervalFrames = 3;
     int physicalPowerRegenIntervalFrames = 3;
+    int mpRecoveryBonusPct{};
 };
 
 struct BattleRuntimeUnitFrameTickResult
@@ -49,57 +56,40 @@ struct BattleRuntimeUnitActionState
     std::optional<BattleActionPlanSeed> planSeed;
     std::optional<BattlePendingCastAction> pendingCast;
     bool ultimateCaster = false;
-    BattleSkillEffectRef cooldownFinishSkillEffectRef;
+    bool cooldownFinishUltimate = false;
 };
 
 struct BattleRescueUnitRuntime
 {
     int forcePullProtectRemaining = 0;
     int forcePullExecuteRemaining = 0;
+
+    bool operator==(const BattleRescueUnitRuntime&) const = default;
 };
 
-struct BattleUnitSkillEffectState
+struct BattleComboRuntimeFacts
 {
-    int magicId = -1;
-    BattleEffectState effects;
-};
+    std::set<int> memberComboIds;
+    std::set<int> appliedComboIds;
 
-struct BattleUnitMagicEffectRuntime
-{
-    BattleUnitSkillEffectState normal;
-    BattleUnitSkillEffectState ultimate;
-
-    void clearPendingEffects()
+    bool isMember(int comboId) const
     {
-        normal.effects.clearTypePending();
-        ultimate.effects.clearTypePending();
+        return memberComboIds.contains(comboId);
     }
 
-    decltype(auto) slot(this auto& self, BattleSkillSlot slot)
+    bool hasApplied(int comboId) const
     {
-        switch (slot)
-        {
-        case BattleSkillSlot::Normal:
-            return (self.normal);
-        case BattleSkillSlot::Ultimate:
-            return (self.ultimate);
-        case BattleSkillSlot::None:
-            break;
-        }
-        assert(false);
-        return (self.normal);
+        return appliedComboIds.contains(comboId);
     }
 };
 
 struct BattleRuntimeUnitRecord
 {
     BattleRuntimeUnit core;
-    RoleComboState combo;
-    BattleUnitMagicEffectRuntime skillEffects;
+    BattleComboRuntimeFacts comboFacts;
     BattleStatusRuntimeUnit status;
     BattleDamageRuntimeUnit damage;
     BattleMovementAgentState movement;
-    BattleDeathEffectExtras deathEffects;
     BattleRescueUnitRuntime rescue;
     BattleRuntimeUnitActionState action;
 
@@ -126,7 +116,9 @@ struct BattleRuntimeUnitRecord
 
     void setPendingCast(BattlePendingCastAction pending)
     {
-        pending.unitId = id();
+        assert(pending.effectCast.provenance.valid());
+        assert(pending.effectCast.provenance.sourceUnitId == id());
+        assert(pending.skillPlan.id == -1);
         action.pendingCast = std::move(pending);
     }
 
@@ -153,24 +145,17 @@ struct BattleRuntimeUnitRecord
 
     void setSkillCooldownUltimate(bool ultimate)
     {
-        action.cooldownFinishSkillEffectRef = ultimate
-            ? BattleSkillEffectRef{ id(), BattleSkillSlot::Ultimate }
-            : BattleSkillEffectRef{};
+        action.cooldownFinishUltimate = ultimate;
     }
 
     void clearSkillCooldownSource()
     {
-        action.cooldownFinishSkillEffectRef = {};
+        action.cooldownFinishUltimate = false;
     }
 
     bool isSkillCooldownUltimate() const
     {
-        return action.cooldownFinishSkillEffectRef.slot == BattleSkillSlot::Ultimate;
-    }
-
-    BattleSkillEffectRef skillCooldownSource() const
-    {
-        return action.cooldownFinishSkillEffectRef;
+        return action.cooldownFinishUltimate;
     }
 
     void clearActionOwners()
@@ -180,51 +165,19 @@ struct BattleRuntimeUnitRecord
         clearSkillCooldownSource();
     }
 
-    void clearPendingEffects()
-    {
-        combo.clearTypePending();
-        skillEffects.clearPendingEffects();
-    }
-
     void clearAllPending()
     {
         clearActionOwners();
-        clearPendingEffects();
-    }
-
-    int sumAlways(EffectType type) const
-    {
-        return combo.sumAlways(type);
-    }
-
-    int maxAlways(EffectType type) const
-    {
-        return combo.maxAlways(type);
-    }
-
-    bool hasAlways(EffectType type) const
-    {
-        return combo.hasAlways(type);
-    }
-
-    const RoleComboEffectInstance* firstAlways(EffectType type) const
-    {
-        return combo.firstAlways(type);
-    }
-
-    BattleDamageModifierState damageModifiers() const
-    {
-        return makeBattleDamageModifierState(&combo, &core.vitals);
-    }
-
-    void grantRuntimeComboEffect(const ComboEffectSnapshot& effect, int comboId)
-    {
-        combo.grantRuntimeEffect(effect, comboId);
     }
 
     bool hasComboApplied(int comboId) const
     {
-        return combo.hasComboApplied(comboId);
+        return comboFacts.hasApplied(comboId);
+    }
+
+    bool isComboMember(int comboId) const
+    {
+        return comboFacts.isMember(comboId);
     }
 
     const BattleStatusEffectState& statusEffects() const { return status.effects; }
@@ -234,21 +187,12 @@ struct BattleRuntimeUnitRecord
 
     void clearFrozen()
     {
-        status.effects.frozenTimer = 0;
-        status.effects.frozenMaxTimer = 0;
+        status.effects.clearStunAndHitstun();
     }
 
     void setMpBlockFrames(int frames)
     {
         status.effects.mpBlockTimer = frames;
-    }
-
-    void addTempAttackBuff(int attackBonus, int durationFrames)
-    {
-        status.effects.tempAttackBuffs.push_back({
-            attackBonus,
-            durationFrames,
-        });
     }
 
     void commitFrozenPhysicsFrames(int frozenFrames)
@@ -266,22 +210,18 @@ struct BattleRuntimeUnitRecord
         writeBattleStatusRuntimeUnit(status, unit);
     }
 
-    BattleDamageUnitState damageState() const
+    BattleDamageUnitState damageState(int mpRecoveryBonusPct) const
     {
+        assert(mpRecoveryBonusPct >= 0);
         auto unit = makeBattleDamageUnitState(core, &damage);
         unit.mpBlocked = status.effects.mpBlockTimer > 0;
-        unit.mpRecoveryBonusPct = sumAlways(EffectType::MPRecoveryBonus);
+        unit.mpRecoveryBonusPct = mpRecoveryBonusPct;
         return unit;
     }
 
     void writeDamageResult(const BattleDamageUnitState& unit)
     {
         writeBattleDamageRuntimeUnit(damage, unit);
-    }
-
-    void transferDeathAppliedEffect(const ComboEffectSnapshot& effect)
-    {
-        deathEffects.appliedEffects.push_back(effect);
     }
 
     int forcePullProtectRemaining() const
@@ -478,6 +418,57 @@ struct BattleFrameRescueCounterAttackConfig
     int totalFramePadding = 15;
 };
 
+struct BattleEffectCastRuntimeContext
+{
+    int originalTargetUnitId = -1;
+    std::vector<EffectUnitResourceBeforeCast> resourcesBeforeCast;
+    BattleCastSkillState skill;
+    BattleOperationType operationType = BattleOperationType::None;
+};
+
+struct BattleEffectPerCastDamageKey
+{
+    BattleCastId castId;
+    EffectSourceKind sourceKind{};
+    int sourceId{};
+    std::uint64_t sourceInstanceId{};
+    EffectRuleId ruleId;
+    int targetUnitId = -1;
+
+    auto operator<=>(const BattleEffectPerCastDamageKey&) const = default;
+};
+
+struct BattleQueuedEffectCommandBatch
+{
+    std::vector<EffectCommand> commands;
+    BattleEffectCommandContext context;
+};
+
+struct BattleEffectDamageContinuationRuntime
+{
+    int remainingDamageTransactions{};
+    BattleQueuedEffectCommandBatch commandBatch;
+};
+
+struct BattleEnemyTopDebuffReportState
+{
+    int value{};
+    int sourceTeam = -1;
+};
+
+struct BattleEffectIntegrationRuntimeState
+{
+    std::uint64_t nextEventOrdinal = 1;
+    std::uint64_t nextDamageTransactionId = 1;
+    std::uint64_t nextDamageContinuationId = 1;
+    int nextSharedHitGroupId = 1;
+    std::map<BattleCastId, BattleEffectCastRuntimeContext> casts;
+    std::set<BattleEffectPerCastDamageKey> appliedPerCastDamage;
+    std::vector<BattleQueuedEffectCommandBatch> queuedCommandBatches;
+    std::map<std::uint64_t, BattleEffectDamageContinuationRuntime> damageContinuations;
+    std::map<int, BattleEnemyTopDebuffReportState> reportedEnemyTopDebuffs;
+};
+
 // Persistent battle facts live here. One-frame queues and presentation accumulation
 // belong in BattleFrameContext inside BattleCore.cpp. Do not add cached copies of
 // combo/status/action facts here unless all mutations to the source fact update the
@@ -488,7 +479,15 @@ struct BattleRuntimeState
     BattleRuntimeUnits units;
     BattleMovementState movement;
     BattleAttackState attacks;
+    BattleCastLifecycle castLifecycle;
+    BattleHealRuntimeState heals;
     BattleRuntimeRandom random;
+    BattleAreaEffectState areas;
+    BattleEffectRuleStore effectRules;
+    BattleEffectCommandRuntimeState effectCommands;
+    BattleEffectIntegrationRuntimeState effectIntegration;
+    std::map<std::pair<EffectSourceKind, int>, std::string> effectSourceNames;
+    std::set<int> antiComboIds;
 
     struct DamageState
     {
@@ -500,11 +499,6 @@ struct BattleRuntimeState
     {
         BattleStatusSystemConfig config;
     } status;
-
-    struct DeathEffectState
-    {
-        BattleDeathEffectStore store;
-    } deathEffects;
 
     struct RescueState
     {
@@ -523,11 +517,6 @@ struct BattleRuntimeState
     } result;
 
     int maximumFrames = kBattleFrameLimit;
-
-    struct TeamEffectState
-    {
-        double healAuraRadius = 0.0;
-    } teamEffects;
 
     struct MovementPhysicsState
     {

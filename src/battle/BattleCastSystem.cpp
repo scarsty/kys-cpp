@@ -15,6 +15,51 @@
 namespace KysChess::Battle
 {
 
+BattleCastStart beginTrackedRootCastAttacks(
+    BattleCastLifecycle& lifecycle,
+    const BattleCastDecision& decision,
+    std::span<BattleAttackSpawnRequest> attackSpawnRequests)
+{
+    assert(decision.canCast);
+    assert(decision.unitId >= 0);
+    assert(decision.skillId >= 0);
+
+    const auto start = lifecycle.beginRootCast({
+        decision.unitId,
+        decision.skillId,
+        decision.ultimate,
+        decision.ultimate ? CastOriginKind::Ultimate : CastOriginKind::Normal,
+        CastPropagationPolicy::SourceRules,
+    });
+
+    for (std::size_t i = 0; i < attackSpawnRequests.size(); ++i)
+    {
+        auto& request = attackSpawnRequests[i];
+        assert(request.initial.attackSourceUnitId == decision.unitId);
+        assert(request.initial.skillId == decision.skillId);
+        assert(!request.provenance.valid());
+        assert(!request.castWork.valid());
+
+        BattleAttackReservationRequest reservationRequest;
+        reservationRequest.parentAttackId = request.provenance.parentAttackId;
+        reservationRequest.origin = request.provenance.origin;
+        reservationRequest.rootAttack = i == 0;
+        reservationRequest.mainProjectile = request.provenance.mainProjectile;
+        reservationRequest.sharedHitGroupId = request.provenance.sharedHitGroupId;
+        reservationRequest.propagation = i == 0
+            ? request.provenance.propagation
+            : (request.provenance.propagation == CastPropagationPolicy::SourceRules
+                ? CastPropagationPolicy::SourceHitRulesOnly
+                : request.provenance.propagation);
+        const auto reservation = lifecycle.reserveAttack(
+            start.provenance.castId,
+            reservationRequest);
+        request.provenance = reservation.provenance;
+        request.castWork = reservation.work;
+    }
+    return start;
+}
+
 int advanceOperationCountAfterCommittedCast(int operationCount,
                                             bool ultimate,
                                             BattleOperationType operationType,
@@ -306,7 +351,7 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
     auto facing = castFacing(input);
 
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = input.unit.id;
+    request.initial.attackSourceUnitId = input.unit.id;
     request.initial.skillId = selectedSkill.id;
     request.initial.skillName = selectedSkill.name;
     request.initial.skillHurtType = selectedSkill.hurtType;
@@ -318,11 +363,6 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
     request.initial.visualEffectId = selectedSkill.visualEffectId;
     request.initial.preferredTargetUnitId = input.targetUnitId;
     request.initial.position = input.unit.position + scaled(facing, spawnOffsetForOperation(input.geometry, operationType));
-    request.initial.ultimate = result.decision.ultimate;
-    request.initial.skillEffectRef = {
-        input.unit.id,
-        result.decision.ultimate ? BattleSkillSlot::Ultimate : BattleSkillSlot::Normal,
-    };
     request.initial.castSubrequestKind = kind;
     return request;
 }
@@ -412,7 +452,7 @@ void appendExtraProjectiles(std::vector<BattleAttackSpawnRequest>& requests,
     {
         auto extra = prototype;
         extra.initial.castSubrequestKind = BattleAttackCastSubrequestKind::ExtraProjectile;
-        extra.initial.mainProjectile = false;
+        extra.provenance.mainProjectile = false;
         assignProjectileTargetOrSpread(
             extra,
             input,
@@ -450,7 +490,7 @@ void appendTrackingProjectileSpread(
     for (int i = 0; i < projectileCount; ++i)
     {
         auto request = prototype;
-        request.initial.mainProjectile = i == 0;
+        request.provenance.mainProjectile = i == 0;
         request.initialFrame = result.decision.ultimate ? (i * 5) : 0;
         assignProjectileTargetOrSpread(request, input, alternates, i, projectileCount, speed);
         requests.push_back(request);
@@ -494,7 +534,7 @@ void appendRangedSideProjectiles(
             speed,
             input.config.minimumFacingNorm);
         side.initial.through = true;
-        side.initial.mainProjectile = false;
+        side.provenance.mainProjectile = false;
         side.initial.strengthPct = strengthPct;
         clearPreferredTarget(side);
         requests.push_back(side);
@@ -570,7 +610,7 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
             BattleAttackCastSubrequestKind::MeleeSplash);
         splash.initial.totalFrame = input.config.meleeSplashTotalFrame;
         splash.initial.track = true;
-        splash.initial.mainProjectile = false;
+        splash.provenance.mainProjectile = false;
         splash.initialFrame = input.config.meleeSplashInitialFrame;
         assert(input.geometry.meleeSplashProjectileSpeed > 0.0);
         splash.initial.velocity = normalizedTo(
@@ -675,7 +715,7 @@ void retargetBlinkAttackSpawnRequests(
 
     for (auto& request : result.attackSpawnRequests)
     {
-        assert(request.initial.attackerUnitId == source.id);
+        assert(request.initial.attackSourceUnitId == source.id);
         const auto sourceOffset = request.initial.position - source.motion.position;
         request.initial.position = destination + rotateBattlePoint(sourceOffset, rotation);
         request.initial.velocity = rotateBattlePoint(request.initial.velocity, rotation);
@@ -758,18 +798,17 @@ void appendBlinkTeleportDelta(
 
 void appendBlinkAttackCommand(
     const BattleActionCommitInput& input,
-    RoleComboState& combo,
     const BattleRuntimeUnits& units,
     BattleActionCommitResult& result)
 {
-    if (!combo.hasAlways(EffectType::BlinkAttack))
+    if (input.mobility != CastMobilityPolicy::BlinkAttack)
     {
         return;
     }
 
     const auto& source = units.requireCore(input.sourceUnitId);
     BattleProjectileTargetingSystem targeting;
-    const bool useWeakest = combo.typeToggle(EffectType::BlinkAttack);
+    const bool useWeakest = input.blinkUseWeakestTarget;
     int targetId = useWeakest
             ? targeting.selectWeakestVulnerableEnemy(
             units,
@@ -792,7 +831,7 @@ void appendBlinkAttackCommand(
     }
 
     appendBlinkTeleportDelta(input, targetId, useWeakest, input.blinkReach, units, result);
-    combo.consumeTypeToggle(EffectType::BlinkAttack);
+    result.advanceBlinkTargetMode = true;
 }
 
 int dualWieldFollowUpTargetId(
@@ -864,7 +903,6 @@ void retargetDualWieldFollowUp(
 
 void appendDualWieldFollowUp(
     const BattleActionCommitInput& input,
-    RoleComboState& combo,
     const BattleRuntimeUnits& units,
     BattleActionCommitResult& result)
 {
@@ -873,15 +911,15 @@ void appendDualWieldFollowUp(
         return;
     }
 
-    const auto* effect = combo.firstAlways(EffectType::DualWieldFollowUp);
-    if (!effect)
+    if (!input.delayedAlternateAttack)
     {
         return;
     }
-    assert(effect->value > 0);
-    assert(effect->value2 > 0);
-    assert(effect->value2 <= 100);
-    assert(effect->duration > 0);
+    const auto& behavior = *input.delayedAlternateAttack;
+    assert(behavior.damagePct > 0);
+    assert(behavior.attackerBlockGainChancePct > 0);
+    assert(behavior.attackerBlockGainChancePct <= 100);
+    assert(behavior.delayFrames > 0);
     assert(input.normalAttackActType >= 0);
     assert(!result.attackSpawnRequests.empty());
 
@@ -889,7 +927,7 @@ void appendDualWieldFollowUp(
         result.attackSpawnRequests,
         [](const BattleAttackSpawnRequest& request)
         {
-            return request.initial.mainProjectile;
+            return request.provenance.mainProjectile;
         });
     assert(prototype != result.attackSpawnRequests.end());
 
@@ -897,21 +935,22 @@ void appendDualWieldFollowUp(
     followUp.initial.castSubrequestKind = BattleAttackCastSubrequestKind::DualWieldFollowUp;
     followUp.initial.roleAttackEchoActType = input.normalAttackActType;
     followUp.initial.skillName = "左右互搏";
-    followUp.initial.ultimate = false;
-    followUp.initial.mainProjectile = false;
+    followUp.provenance.rootAttack = false;
+    followUp.provenance.mainProjectile = false;
+    followUp.provenance.propagation = CastPropagationPolicy::SuppressUltimateRules;
+    followUp.provenance.origin = BattleAttackOriginKind::FollowUp;
+    followUp.provenance.parentAttackId.reset();
+    followUp.provenance.sharedHitGroupId = 0;
     followUp.initial.ignoreProjectileCancel = true;
     followUp.initial.suppressNearbyTrackingProjectileProc = true;
-    followUp.initial.sharedHitGroupId = 0;
-    followUp.initial.spawnedFromAttackId = -1;
     followUp.initial.bounceRemaining = 0;
     followUp.initial.bounceRange = 0;
     followUp.initial.bounceChancePct = 0;
     followUp.initial.bounceRollPct = 0;
-    followUp.initial.skillEffectRef = {};
-    followUp.initial.strengthPct = followUp.initial.strengthPct * effect->value / 100;
+    followUp.initial.strengthPct = followUp.initial.strengthPct * behavior.damagePct / 100;
     followUp.initialFrame = 0;
-    followUp.spawnDelayFrames = effect->duration;
-    followUp.attackerDualWieldBlockGainChancePct = effect->value2;
+    followUp.spawnDelayFrames = behavior.delayFrames;
+    followUp.attackerDualWieldBlockGainChancePct = behavior.attackerBlockGainChancePct;
 
     const auto& source = units.requireCore(input.sourceUnitId);
     const int targetId = dualWieldFollowUpTargetId(input, units);
@@ -1130,12 +1169,23 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     }
 
     result.attackSpawnRequests = makeAttackSpawnRequests(result, input, selectedSkill);
+    for (std::size_t index = 0; index < result.attackSpawnRequests.size(); ++index)
+    {
+        auto& provenance = result.attackSpawnRequests[index].provenance;
+        provenance.rootAttack = index == 0;
+        provenance.origin = index == 0
+            ? BattleAttackOriginKind::Initial
+            : BattleAttackOriginKind::CastDerived;
+        provenance.propagation = index == 0
+            ? CastPropagationPolicy::SourceRules
+            : CastPropagationPolicy::SourceHitRulesOnly;
+    }
+    result.attackPattern.projectileCount = static_cast<int>(result.attackSpawnRequests.size());
 
 }
 
 BattleActionCommitResult BattleActionCommitSystem::commit(
     const BattleActionCommitInput& input,
-    RoleComboState& combo,
     const BattleRuntimeUnits& units) const
 {
     assert(input.sourceUnitId >= 0);
@@ -1155,10 +1205,6 @@ BattleActionCommitResult BattleActionCommitSystem::commit(
             result.attackSpawnRequests.end(),
             input.cast.attackSpawnRequests.begin(),
             input.cast.attackSpawnRequests.end());
-        if (input.cast.decision.ultimate)
-        {
-            combo.setTypePending(EffectType::OnSkillTeamHeal, true);
-        }
         result.operationCount = advanceOperationCountAfterCommittedCast(
             source.operationCount,
             input.cast.decision.ultimate,
@@ -1173,8 +1219,8 @@ BattleActionCommitResult BattleActionCommitSystem::commit(
         }
     }
 
-    appendDualWieldFollowUp(input, combo, units, result);
-    appendBlinkAttackCommand(input, combo, units, result);
+    appendDualWieldFollowUp(input, units, result);
+    appendBlinkAttackCommand(input, units, result);
     return result;
 }
 

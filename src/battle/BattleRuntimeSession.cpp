@@ -1,6 +1,7 @@
 #include "BattleRuntimeSession.h"
 
 #include "BattleMovement.h"
+#include "BattleRuntimeEffects.h"
 #include "BattleRuntimeUnitSpawn.h"
 
 #include "../Find.h"
@@ -8,7 +9,6 @@
 #include <algorithm>
 #include <cassert>
 #include <map>
-#include <ranges>
 #include <utility>
 
 namespace KysChess::Battle
@@ -16,15 +16,6 @@ namespace KysChess::Battle
 namespace
 {
 constexpr int ProjectileGraceFrames = 5;
-
-int getComboLookupId(const BattleRuntimeUnit& unit)
-{
-    if (unit.cloneSourceUnitId >= 0)
-    {
-        return -1;
-    }
-    return unit.realRoleId;
-}
 
 void configureAttackWorld(
     BattleAttackState& world,
@@ -73,52 +64,6 @@ BattleRuntimeUnit makeRuntimeUnit(const BattleSetupUnitInput& setup)
     return unit;
 }
 
-BattleDeathEffectStore makeDeathEffectStore(
-    BattleRuntimeUnits& records,
-    const BattleRuntimeSetupSeed& setup)
-{
-    BattleDeathEffectStore store;
-    for (const auto& combo : setup.comboDefinitions)
-    {
-        if (!combo.isAntiCombo)
-        {
-            store.regularSynergyComboIds.insert(combo.id);
-        }
-    }
-
-    for (auto& record : records.all())
-    {
-        const auto& unit = record.core;
-        auto& extras = record.deathEffects;
-        extras.shieldPctMaxHp = (record.combo).sumAlways(EffectType::ShieldPctMaxHP);
-        extras.appliedEffects.clear();
-        for (KysChess::RoleComboEffectId effectId : record.combo.effectIdsInAppendOrder())
-        {
-            const auto& effect = record.combo.effect(effectId);
-            if (effect.origin != RoleComboEffectOrigin::Configured)
-            {
-                continue;
-            }
-            extras.appliedEffects.push_back(effect);
-        }
-
-        const int comboLookupId = getComboLookupId(unit);
-        if (comboLookupId >= 0)
-        {
-            for (const auto& combo : setup.comboDefinitions)
-            {
-                if (std::ranges::find(combo.memberRoleIds, comboLookupId) != combo.memberRoleIds.end())
-                {
-                    extras.comboIds.push_back(combo.id);
-                }
-            }
-        }
-
-    }
-
-    return store;
-}
-
 std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(
     BattleRuntimeSessionCreationInput& input);
 
@@ -155,7 +100,7 @@ std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(
 
         auto spawn = makeRuntimeUnitSpawn(
             makeRuntimeUnit(setup),
-            std::move(setup.baseCombo),
+            {},
             std::move(actionPlan));
         spawn.status.effects.frozenTimer = setup.frozen;
         spawn.status.effects.frozenMaxTimer = setup.frozenMax;
@@ -192,8 +137,17 @@ void deriveRuntimeState(
         runtime.movement.config.tileWidth);
 
     configureAttackWorld(runtime.attacks, input.rules);
-    runtime.teamEffects.healAuraRadius = input.rules.teamEffectHealAuraRadius;
-    runtime.deathEffects.store = makeDeathEffectStore(runtime.units, input.setup);
+    for (const auto& combo : input.setup.comboDefinitions)
+    {
+        runtime.effectSourceNames.emplace(
+            std::pair{ EffectSourceKind::Combo, combo.id },
+            combo.name);
+        if (combo.isAntiCombo)
+        {
+            runtime.antiComboIds.insert(combo.id);
+        }
+    }
+    appendRuntimeMagicEffectRules(runtime, input.setup.magicEffectDefinitions);
 
     runtime.rescue.cells = std::move(input.rescueCells);
     runtime.rescue.executeUnattendedRadius = input.rules.rescueExecuteUnattendedRadius;
@@ -242,6 +196,8 @@ BattleRuntimeSetupResult setupBattleRuntime(BattleRuntimeSessionCreationInput in
         BattleInitializationContext{ input.rules.gridTransform, input.battleFrame })
         .initialize();
     auto runtime = buildRuntimeFromSpawns(input, std::move(initialized.spawns));
+    runtime.effectRules = std::move(initialized.effectRules);
+    runtime.effectCommands = std::move(initialized.effectCommands);
     deriveRuntimeState(runtime, std::move(input));
 
     return {
@@ -298,6 +254,7 @@ BattlePresentationFrame BattleRuntimeSession::runFrame(BattlePresentationFrame r
             -1,
             runtime_.result.winningTeam,
         });
+        cancelBattleRuntimeForBattleEnd(runtime_, runtime_.maximumFrames);
     }
     return frame;
 }

@@ -28,9 +28,7 @@
 
 namespace KysChess
 {
-class RoleComboState;
 class ChessGameSession;
-enum class Trigger;
 }
 
 class PositionSwapNode;

@@ -9,6 +9,18 @@ using namespace KysChess;
 namespace
 {
 
+EffectRule attributeRule(BattleAttribute attribute, int amount)
+{
+    EffectRule rule;
+    rule.event = EffectEvent::BattleInitialized;
+    ModifyAttributeAction action;
+    action.attribute = attribute;
+    action.amount.flat = amount;
+    action.operation = AttributeOperation::FlatAdd;
+    rule.actions.push_back({EffectActionValue{action}});
+    return rule;
+}
+
 int testDisplayWidth(const std::string& text)
 {
     int width = 0;
@@ -464,24 +476,27 @@ TEST_CASE("equipment detail derives role-specific synergies from loaded content"
     EquipmentSynergyDef sharedSynergy;
     sharedSynergy.roleIds = {1, 2};
     sharedSynergy.equipmentId = 77;
-    sharedSynergy.effects = {
-        {EffectType::FlatATK, 25},
-        {EffectType::FlatDEF, 15},
+    sharedSynergy.rules = {
+        attributeRule(BattleAttribute::Attack, 25),
+        attributeRule(BattleAttribute::Defence, 15),
     };
-    sharedSynergy.actAsComboNames = {"射鵰", "俠侶"};
+    sharedSynergy.managementRules = {
+        CountsAsComboRule{"射鵰"},
+        CountsAsComboRule{"俠侶"},
+    };
     data.equipmentSynergies.push_back(std::move(sharedSynergy));
 
     EquipmentSynergyDef otherEquipment;
     otherEquipment.roleIds = {1};
     otherEquipment.equipmentId = 88;
-    otherEquipment.effects = {{EffectType::FlatHP, 100}};
+    otherEquipment.rules = {attributeRule(BattleAttribute::MaxHp, 100)};
     data.equipmentSynergies.push_back(std::move(otherEquipment));
 
     const ChessGameContent content(std::move(data));
     const auto lines = buildChessEquipmentSynergyDetailLines(content, 77);
 
     REQUIRE(lines.size() == 1);
-    CHECK(lines[0] == "黃蓉/郭靖: 計作射鵰/俠侶，攻+25，防+15");
+    CHECK(lines[0] == "黃蓉/郭靖: 計作射鵰/俠侶，開戰·自身·攻+25，開戰·自身·防+15");
 }
 
 TEST_CASE("challenge rewards retain configured limits and specific equipment names", "[chess][menu-formatting][challenge]")

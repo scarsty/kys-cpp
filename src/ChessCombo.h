@@ -2,6 +2,7 @@
 
 #include "ChessBattleEffects.h"
 #include "ChessDiagnostics.h"
+#include "ChessNonBattleRules.h"
 #include "battle/ChessComboResolver.h"
 
 #include <set>
@@ -19,7 +20,8 @@ struct ComboThreshold
 {
     int count;
     std::string name;
-    std::vector<ComboEffect> effects;
+    std::vector<EffectRule> rules;
+    std::vector<ChessNonBattleRule> managementRules;
 };
 
 struct ComboDef
@@ -66,10 +68,10 @@ ChessComboProgress chessComboProgress(
 
 std::string formatChessComboProgressCount(const ChessComboProgress& progress);
 
-bool chessRosterHasActiveComboEffect(
+bool chessRosterHasActiveManagementRule(
     const ChessSessionState& state,
     const ChessGameContent& content,
-    EffectType effectType);
+    ChessNonBattleRuleKind kind);
 
 struct ChessComboGoldBonus
 {

@@ -97,7 +97,7 @@ TEST_CASE("actual configuration gameplay smoke preserves roster and replay", "[c
 {
     const auto content = Test::actualContent();
     REQUIRE(content);
-    ChessGameSession session(content, 0x5eed);
+    ChessGameSession session(content, 0x51a7);
 
     for (const int slot : {0, 2})
     {
@@ -116,8 +116,8 @@ TEST_CASE("actual configuration gameplay smoke preserves roster and replay", "[c
     REQUIRE(session.submitAndDrain(action(ChessActionType::StartBattle)).accepted);
 
     REQUIRE(session.state().roster.size() == 2);
-    CHECK(session.state().roster.at(1).roleId == 4);
-    CHECK(session.state().roster.at(2).roleId == 160);
+    CHECK(session.state().roster.at(1).roleId == 72);
+    CHECK(session.state().roster.at(2).roleId == 56);
     CHECK(session.state().equipmentInventory.empty());
     CHECK(session.state().lastBattleOutcome == Battle::BattleOutcome::PlayerVictory);
     CHECK(session.state().fight == 1);

@@ -153,10 +153,10 @@ void ChessProgressionRules::applyBattleResult(
         state,
         content,
         survivingChessInstanceIds);
-    const bool grantsFreeRefresh = chessRosterHasActiveComboEffect(
+    const bool grantsFreeRefresh = chessRosterHasActiveManagementRule(
         state,
         content,
-        EffectType::FreeRefresh);
+        ChessNonBattleRuleKind::FreeShopRefresh);
     const int completedFight = state.fight + 1;
     const bool boss = balance.bossInterval > 0 && completedFight % balance.bossInterval == 0;
     const int reward = baseVictoryGold(state, content);

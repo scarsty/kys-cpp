@@ -510,7 +510,7 @@ TEST_CASE("JSON protocol distinguishes omitted equipment metadata and assigned c
     data.items.emplace(100, ChessItemDefinition{100, -1, 0, 1, 0, 10, 0, 0, 0, 0, 0, 0, 0, "已裝備之劍"});
     data.items.emplace(200, ChessItemDefinition{200, -1, 0, 1, 0, 20, 0, 0, 0, 0, 0, 0, 0, "未分配之劍"});
     EquipmentDef assignedEquipment{100, 1, 0};
-    assignedEquipment.actAsComboNames = {"裝備羈絆"};
+    assignedEquipment.managementRules = {CountsAsComboRule{"裝備羈絆"}};
     data.equipment = {assignedEquipment, {200, 2, 0}};
     ComboDef combo;
     combo.id = 0;

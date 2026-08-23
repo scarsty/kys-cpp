@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BattleEffectAttackCastSystem.h"
 #include "BattleCastSystem.h"
 
 #include <string>
@@ -50,14 +51,17 @@ struct BattleActionPlanSeed
 
 struct BattlePendingCastAction
 {
-    int unitId = -1;
     int targetUnitId = -1;
-    bool ultimate = false;
     BattleOperationType operationType = BattleOperationType::None;
     int castFrame{};
     int normalAttackActType = -1;
     Pointf dashVelocity;
-    BattleCastSkillState skill;
+    // 武功身分只由 effectCast.provenance.magicId 保存；此快照僅保留規劃機制。
+    BattleCastSkillState skillPlan;
+    BattleCastStart effectCast{};
+    BattleEffectCastPreparation effectPreparation;
+    std::vector<EffectCommand> plannedAttackEffectCommands;
+    std::vector<EffectUnitResourceBeforeCast> effectResourcesBeforeCast;
 };
 
 class BattleRuntimeActions

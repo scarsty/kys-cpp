@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cassert>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace KysChess::Battle
@@ -57,7 +58,8 @@ bool segmentBoundsCanOverlap(
 
 void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& state)
 {
-    event.sourceUnitId = state.attackerUnitId;
+    event.preferredTargetUnitId = state.preferredTargetUnitId;
+    event.sourceUnitId = state.attackSourceUnitId;
     event.skillId = state.skillId;
     event.skillName = state.skillName;
     event.skillHurtType = state.skillHurtType;
@@ -73,18 +75,22 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& sta
     event.executeCanHitInvincible = state.executeCanHitInvincible;
     event.track = state.track;
     event.through = state.through;
-    event.ultimate = state.ultimate;
     event.strengthPct = state.strengthPct;
     event.suppressNearbyTrackingProjectileProc = state.suppressNearbyTrackingProjectileProc;
-    event.mainProjectile = state.mainProjectile;
-    event.sharedHitGroupId = state.sharedHitGroupId;
     event.projectileCancelDamage = state.projectileCancelWeaken;
     event.castSubrequestKind = state.castSubrequestKind;
     event.roleAttackEchoActType = state.roleAttackEchoActType;
-    event.skillEffectRef = state.skillEffectRef;
+    event.damageKind = state.damageKind;
     event.position = state.position;
     event.velocity = state.velocity;
     event.totalFrame = state.totalFrame;
+}
+
+void applyAttackInstance(BattleAttackEvent& event, const BattleAttackInstance& attack)
+{
+    assert(attack.provenance.valid());
+    event.provenance = attack.provenance;
+    applyAttackPayload(event, attack.state);
 }
 
 BattleAttackEvent makeProjectileCancelEvent(const BattleAttackInstance& lhs, const BattleAttackInstance& rhs)
@@ -93,14 +99,33 @@ BattleAttackEvent makeProjectileCancelEvent(const BattleAttackInstance& lhs, con
     event.type = BattleAttackEventType::ProjectileCancel;
     event.attackId = lhs.id;
     event.otherAttackId = rhs.id;
-    event.sourceUnitId = lhs.state.attackerUnitId;
-    event.otherSourceUnitId = rhs.state.attackerUnitId;
+    event.preferredTargetUnitId = lhs.state.preferredTargetUnitId;
+    event.sourceUnitId = lhs.state.attackSourceUnitId;
+    event.otherSourceUnitId = rhs.state.attackSourceUnitId;
     event.projectileCancelDamage = scaleProjectileCancelDamage(
         lhs.state.projectileCancelDamage,
         lhs.state.operationType);
     event.otherProjectileCancelDamage = scaleProjectileCancelDamage(
         rhs.state.projectileCancelDamage,
         rhs.state.operationType);
+    assert(lhs.provenance.valid());
+    assert(rhs.provenance.valid());
+    event.provenance = lhs.provenance;
+    event.otherProvenance = rhs.provenance;
+    return event;
+}
+
+BattleAttackEvent makeAttackEvent(
+    BattleAttackEventType type,
+    const BattleAttackInstance& attack,
+    int unitId = -1)
+{
+    BattleAttackEvent event;
+    event.type = type;
+    event.attackId = attack.id;
+    event.unitId = unitId;
+    applyAttackInstance(event, attack);
+    event.frame = attack.frame;
     return event;
 }
 
@@ -188,7 +213,7 @@ int scaleProjectileCancelDamage(int damage, BattleOperationType operationType)
 
 void applyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackBouncePrime prime)
 {
-    assert(request.initial.attackerUnitId >= 0);
+    assert(request.initial.attackSourceUnitId >= 0);
     assert(request.initial.bounceRemaining == 0);
     assert(prime.count > 0);
     assert(prime.chancePct >= 0 && prime.chancePct <= 100);
@@ -203,7 +228,7 @@ void applyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackB
 
 bool tryApplyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackBouncePrime prime)
 {
-    assert(request.initial.attackerUnitId >= 0);
+    assert(request.initial.attackSourceUnitId >= 0);
     assert(request.initial.bounceRemaining == 0);
     assert(prime.count > 0);
     assert(prime.chancePct >= 0 && prime.chancePct <= 100);
@@ -225,6 +250,9 @@ bool tryApplyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAtta
 
 bool attackSpawnDelayElapsed(BattleAttackSpawnRequest& request)
 {
+    assert(request.provenance.valid());
+    assert(request.castWork.valid());
+    assert(request.castWork.castId == request.provenance.cast.castId);
     assert(request.spawnDelayFrames >= 0);
     if (request.spawnDelayFrames == 0)
     {
@@ -234,9 +262,11 @@ bool attackSpawnDelayElapsed(BattleAttackSpawnRequest& request)
     return false;
 }
 
-BattleAttackEvent BattleAttackState::spawn(const BattleAttackSpawnRequest& request)
+BattleAttackEvent BattleAttackState::spawn(
+    BattleAttackSpawnRequest&& request,
+    BattleCastLifecycle& castLifecycle)
 {
-    assert(request.initial.attackerUnitId >= 0);
+    assert(request.initial.attackSourceUnitId >= 0);
     assert(request.initialFrame >= 0);
     assert(request.spawnDelayFrames == 0);
     assert(request.initial.totalFrame > 0);
@@ -244,11 +274,25 @@ BattleAttackEvent BattleAttackState::spawn(const BattleAttackSpawnRequest& reque
     assert(request.initial.bounceRange >= 0);
     assert(request.initial.bounceChancePct >= 0 && request.initial.bounceChancePct <= 100);
     assert(request.initial.bounceRollPct >= 0 && request.initial.bounceRollPct < 100);
+    assert(request.initial.projectilePressurePct >= 0);
+    assert(request.provenance.valid());
+    assert(request.castWork.valid());
+    assert(request.castWork.castId == request.provenance.cast.castId);
 
     BattleAttackInstance attack;
     attack.id = allocateAttackId();
-    attack.state = request.initial;
-    attack.previousPosition = request.initial.position;
+    attack.state = std::move(request.initial);
+    attack.castWork = std::exchange(request.castWork, {});
+    attack.provenance = completeAttackProvenance(
+        request.provenance,
+        battleAttackIdFromRuntimeId(attack.id));
+    request.provenance = {};
+    attack.contactsSuppressed = castContactsSuppressed(
+        attack.provenance.cast.castId);
+    castLifecycle.transferToLiveAttack(
+        attack.castWork,
+        attack.provenance.attackId);
+    attack.previousPosition = attack.state.position;
     attack.frame = request.initialFrame;
     attack.acceleration = request.acceleration;
     attack.spiralMotion = request.spiralMotion;
@@ -257,30 +301,33 @@ BattleAttackEvent BattleAttackState::spawn(const BattleAttackSpawnRequest& reque
     attack.spiralRadiusGrowth = request.spiralRadiusGrowth;
     attack.spiralAngle = request.spiralAngle;
     attack.spiralAngularVelocity = request.spiralAngularVelocity;
-    attacks.push_back(attack);
+    attacks.push_back(std::move(attack));
+    const auto& spawned = attacks.back();
 
     BattleAttackEvent event;
     event.type = BattleAttackEventType::AttackSpawned;
-    event.attackId = attack.id;
-    event.unitId = attack.state.preferredTargetUnitId;
-    applyAttackPayload(event, attack.state);
-    event.position = attack.state.position;
-    event.velocity = attack.state.velocity;
-    event.totalFrame = attack.state.totalFrame;
+    event.attackId = spawned.id;
+    event.unitId = spawned.state.preferredTargetUnitId;
+    applyAttackInstance(event, spawned);
+    event.position = spawned.state.position;
+    event.velocity = spawned.state.velocity;
+    event.totalFrame = spawned.state.totalFrame;
     return event;
 }
 
 std::pmr::vector<BattleAttackEvent> BattleAttackState::tick(
     const BattleRuntimeUnits& units,
+    BattleCastLifecycle& castLifecycle,
     std::pmr::memory_resource* memoryResource)
 {
     std::pmr::vector<BattleAttackEvent> events(memoryResource);
-    tick(units, events);
+    tick(units, castLifecycle, events);
     return events;
 }
 
 void BattleAttackState::tick(
     const BattleRuntimeUnits& units,
+    BattleCastLifecycle& castLifecycle,
     std::pmr::vector<BattleAttackEvent>& events)
 {
     assert(hitRadius > 0.0);
@@ -303,17 +350,24 @@ void BattleAttackState::tick(
         assert(attack.state.bounceRange >= 0);
         assert(attack.state.bounceChancePct >= 0 && attack.state.bounceChancePct <= 100);
         assert(attack.state.bounceRollPct >= 0 && attack.state.bounceRollPct < 100);
+        assert(attack.provenance.valid());
+        assert(attack.castWork.valid());
+        assert(attack.provenance.attackId == battleAttackIdFromRuntimeId(attack.id));
 
         ++attack.frame;
         moveAttack(attack);
-        events.push_back({ BattleAttackEventType::Moved, attack.id });
+        events.push_back(makeAttackEvent(BattleAttackEventType::Moved, attack));
 
         const auto* target = selectTarget(units, attack);
         if (!target && attack.state.requirePreferredTarget)
         {
             attack.noHurt = true;
             attack.frame = std::max(attack.state.totalFrame - 5, attack.frame);
-            events.push_back({ BattleAttackEventType::TargetLost, attack.id });
+            if (!attack.scheduledFinishReason)
+            {
+                attack.scheduledFinishReason = AttackFinishReason::TargetLost;
+                events.push_back(makeAttackEvent(BattleAttackEventType::TargetLost, attack));
+            }
         }
 
         if (target && attack.state.track && attack.hitUnitIds.empty())
@@ -328,7 +382,7 @@ void BattleAttackState::tick(
             blocked.type = BattleAttackEventType::BlockedByInvincible;
             blocked.attackId = attack.id;
             blocked.unitId = target->id;
-            applyAttackPayload(blocked, attack.state);
+            applyAttackInstance(blocked, attack);
             blocked.frame = attack.frame;
             events.push_back(std::move(blocked));
         }
@@ -339,13 +393,18 @@ void BattleAttackState::tick(
             hit.type = BattleAttackEventType::Hit;
             hit.attackId = attack.id;
             hit.unitId = target->id;
-            applyAttackPayload(hit, attack.state);
+            applyAttackInstance(hit, attack);
             hit.frame = attack.frame;
             events.push_back(std::move(hit));
 
-            if (attack.spawnedFromAttackId >= 0 && attack.state.bounceRemaining == 0)
+            const bool bounceAttack = attack.provenance.origin == BattleAttackOriginKind::Bounce;
+            if (bounceAttack && attack.state.bounceRemaining == 0)
             {
-                events.push_back({ BattleAttackEventType::ChainEnded, attack.id, -1, target->id });
+                attack.scheduledFinishReason = AttackFinishReason::ChainEnded;
+                events.push_back(makeAttackEvent(
+                    BattleAttackEventType::ChainEnded,
+                    attack,
+                    target->id));
             }
             else if (attack.state.bounceRemaining > 0)
             {
@@ -361,14 +420,24 @@ void BattleAttackState::tick(
                 {
                     const int bounceAttackId = allocateAttackId();
                     pendingBounces.push_back({
-                        makeBounceAttack(bounceSource, *target, *nextTarget, bounceAttackId),
+                        makeBounceAttack(
+                            bounceSource,
+                            *target,
+                            *nextTarget,
+                            bounceAttackId,
+                            castLifecycle),
                         attack.id,
                         nextTarget->id,
                     });
+                    attack.scheduledFinishReason = AttackFinishReason::SpentOnHit;
                 }
                 else
                 {
-                    events.push_back({ BattleAttackEventType::ChainNoTargetInRange, attack.id, -1, target->id });
+                    attack.scheduledFinishReason = AttackFinishReason::NoBounceTarget;
+                    events.push_back(makeAttackEvent(
+                        BattleAttackEventType::ChainNoTargetInRange,
+                        attack,
+                        target->id));
                 }
             }
 
@@ -376,12 +445,20 @@ void BattleAttackState::tick(
             {
                 attack.noHurt = true;
                 attack.frame = std::max(attack.state.totalFrame - 15, attack.frame);
+                if (!attack.scheduledFinishReason)
+                {
+                    attack.scheduledFinishReason = AttackFinishReason::SpentOnHit;
+                }
             }
         }
 
         if (attack.frame >= attack.state.totalFrame)
         {
-            events.push_back({ BattleAttackEventType::Expired, attack.id });
+            if (!attack.scheduledFinishReason)
+            {
+                attack.scheduledFinishReason = AttackFinishReason::Expired;
+            }
+            events.push_back(makeAttackEvent(BattleAttackEventType::Expired, attack));
         }
     }
 
@@ -389,12 +466,15 @@ void BattleAttackState::tick(
     {
         const int attackId = pending.attack.id;
         attacks.push_back(std::move(pending.attack));
-        events.push_back({
+        auto& spawned = attacks.back();
+        auto event = makeAttackEvent(
             BattleAttackEventType::Bounce,
-            pending.sourceAttackId,
-            attackId,
-            pending.targetUnitId,
-        });
+            requireById(attacks, pending.sourceAttackId),
+            pending.targetUnitId);
+        event.otherAttackId = attackId;
+        assert(spawned.provenance.valid());
+        event.otherProvenance = spawned.provenance;
+        events.push_back(std::move(event));
     }
 
     collectProjectileCancelEvents(units, events);
@@ -416,12 +496,141 @@ void BattleAttackState::applyProjectileCancelDamage(const BattleAttackEvent& eve
     {
         lhs.noHurt = true;
         lhs.frame = std::max(lhs.state.totalFrame - 5, lhs.frame);
+        lhs.scheduledFinishReason = AttackFinishReason::ProjectileCancelled;
     }
     if (rhs.state.projectileCancelWeaken > event.otherProjectileCancelDamage)
     {
         rhs.noHurt = true;
         rhs.frame = std::max(rhs.state.totalFrame - 5, rhs.frame);
+        rhs.scheduledFinishReason = AttackFinishReason::ProjectileCancelled;
     }
+}
+
+bool BattleAttackState::contactsSuppressed(int attackId) const
+{
+    assert(attackId >= 0);
+    return requireById(attacks, attackId).contactsSuppressed;
+}
+
+void BattleAttackState::suppressContacts(int attackId)
+{
+    assert(attackId >= 0);
+    requireById(attacks, attackId).contactsSuppressed = true;
+
+    // Bounce attacks can already have been created by tick() before Core
+    // accepts or suppresses the contact that produced them. Propagate across
+    // the live chain here; makeBounceAttack() carries the state to any later
+    // descendants.
+    bool changed;
+    do
+    {
+        changed = false;
+        for (auto& attack : attacks)
+        {
+            if (attack.contactsSuppressed || !attack.provenance.parentAttackId)
+            {
+                continue;
+            }
+            const auto parent = std::ranges::find_if(
+                attacks,
+                [&attack](const BattleAttackInstance& candidate)
+                {
+                    return candidate.provenance.attackId
+                        == *attack.provenance.parentAttackId;
+                });
+            if (parent != attacks.end() && parent->contactsSuppressed)
+            {
+                attack.contactsSuppressed = true;
+                changed = true;
+            }
+        }
+    } while (changed);
+}
+
+bool BattleAttackState::castContactsSuppressed(BattleCastId castId) const
+{
+    assert(castId.valid());
+    return suppressedContactCastIds.contains(castId);
+}
+
+void BattleAttackState::suppressContactsForCast(BattleCastId castId)
+{
+    assert(castId.valid());
+    suppressedContactCastIds.insert(castId);
+    for (auto& attack : attacks)
+    {
+        if (attack.provenance.cast.castId == castId)
+        {
+            attack.contactsSuppressed = true;
+        }
+    }
+}
+
+void BattleAttackState::releaseCastContactSuppression(BattleCastId castId)
+{
+    assert(castId.valid());
+    suppressedContactCastIds.erase(castId);
+}
+
+void BattleAttackState::clearCastContactSuppressions()
+{
+    suppressedContactCastIds.clear();
+}
+
+void BattleAttackState::completeFinished(BattleCastLifecycle& castLifecycle)
+{
+    for (auto& attack : attacks)
+    {
+        if (attack.frame < attack.state.totalFrame)
+        {
+            continue;
+        }
+        assert(attack.scheduledFinishReason);
+        finishAttack(attack, *attack.scheduledFinishReason, castLifecycle);
+    }
+}
+
+void BattleAttackState::eraseFinished()
+{
+    attacks.erase(
+        std::remove_if(
+            attacks.begin(),
+            attacks.end(),
+            [](const BattleAttackInstance& attack)
+            {
+                if (attack.frame < attack.state.totalFrame)
+                {
+                    assert(attack.provenance.valid());
+                    assert(attack.castWork.valid());
+                    return false;
+                }
+                assert(attack.provenance.valid());
+                assert(attack.finishReason);
+                assert(!attack.castWork.valid());
+                return true;
+            }),
+        attacks.end());
+}
+
+void BattleAttackState::pruneFinished(BattleCastLifecycle& castLifecycle)
+{
+    completeFinished(castLifecycle);
+    eraseFinished();
+}
+
+void BattleAttackState::cancelAllForBattleEnd(BattleCastLifecycle& castLifecycle)
+{
+    for (auto& attack : attacks)
+    {
+        if (attack.finishReason)
+        {
+            assert(!attack.castWork.valid());
+            continue;
+        }
+        finishAttack(attack, AttackFinishReason::BattleEnded, castLifecycle);
+    }
+    attacks.clear();
+    sharedHitGroupTargets.clear();
 }
 
 int BattleAttackState::allocateAttackId()
@@ -444,7 +653,7 @@ const BattleRuntimeUnit* BattleAttackState::selectTarget(
     const BattleRuntimeUnits& units,
     const BattleAttackInstance& attack) const
 {
-    const auto& attacker = units.requireCore(attack.state.attackerUnitId);
+    const auto& attacker = units.requireCore(attack.state.attackSourceUnitId);
     if (!attacker.alive && !canResolveContactFromDefeatedSource(attack.state))
     {
         return nullptr;
@@ -521,9 +730,10 @@ void BattleAttackState::markHit(BattleAttackInstance& attack, int unitId)
     assert(unitId >= 0);
     assert(!hasHitUnit(attack, unitId));
     attack.hitUnitIds.push_back(unitId);
-    if (attack.state.sharedHitGroupId > 0)
+    const auto sharedHitGroupId = attack.provenance.sharedHitGroupId;
+    if (sharedHitGroupId > 0)
     {
-        auto& sharedHits = sharedHitGroupTargets[attack.state.sharedHitGroupId];
+        auto& sharedHits = sharedHitGroupTargets[sharedHitGroupId];
         assert(std::find(sharedHits.begin(), sharedHits.end(), unitId) == sharedHits.end());
         sharedHits.push_back(unitId);
     }
@@ -591,12 +801,12 @@ bool BattleAttackState::canContactTarget(
     if (attack.noHurt
         || !target.alive
         || hasHitUnit(attack, target.id)
-        || hasSharedHit(attack.state.sharedHitGroupId, target.id))
+        || hasSharedHit(attack.provenance.sharedHitGroupId, target.id))
     {
         return false;
     }
 
-    const auto& attacker = units.requireCore(attack.state.attackerUnitId);
+    const auto& attacker = units.requireCore(attack.state.attackSourceUnitId);
     if ((!attacker.alive && !canResolveContactFromDefeatedSource(attack.state)) || attacker.team == target.team)
     {
         return false;
@@ -641,7 +851,7 @@ const BattleRuntimeUnit* BattleAttackState::selectBounceTarget(
     assert(attack.state.bounceRemaining > 0);
     assert(attack.state.bounceRange > 0);
 
-    const auto& attacker = units.requireCore(attack.state.attackerUnitId);
+    const auto& attacker = units.requireCore(attack.state.attackSourceUnitId);
 
     const BattleRuntimeUnit* best = nullptr;
     const std::uint64_t maximumDistanceSquared = battleDistanceSquared2d(
@@ -654,7 +864,7 @@ const BattleRuntimeUnit* BattleAttackState::selectBounceTarget(
         if (unit.team == attacker.team
             || unit.id == hitTarget.id
             || hasHitUnit(attack, unit.id)
-            || hasSharedHit(attack.state.sharedHitGroupId, unit.id))
+            || hasSharedHit(attack.provenance.sharedHitGroupId, unit.id))
         {
             continue;
         }
@@ -681,18 +891,44 @@ BattleAttackInstance BattleAttackState::makeBounceAttack(
     const BattleAttackInstance& source,
     const BattleRuntimeUnit& hitTarget,
     const BattleRuntimeUnit& nextTarget,
-    int attackId) const
+    int attackId,
+    BattleCastLifecycle& castLifecycle) const
 {
     assert(attackId >= 0);
 
     auto bounce = source;
     bounce.id = attackId;
-    bounce.spawnedFromAttackId = source.id;
+    bounce.provenance = {};
+    bounce.castWork = {};
+    bounce.scheduledFinishReason.reset();
+    bounce.finishReason.reset();
+    assert(source.provenance.valid());
+    assert(source.castWork.valid());
+    BattleAttackReservationRequest request;
+    request.parentAttackId = source.provenance.attackId;
+    request.origin = BattleAttackOriginKind::Bounce;
+    request.mainProjectile = source.provenance.mainProjectile;
+    request.sharedHitGroupId = source.provenance.sharedHitGroupId;
+    request.propagation = source.provenance.propagation
+            == CastPropagationPolicy::SourceRules
+        ? CastPropagationPolicy::SourceHitRulesOnly
+        : source.provenance.propagation;
+    const auto reservation = castLifecycle.reserveAttack(
+        source.provenance.cast.castId,
+        request);
+    bounce.provenance = completeAttackProvenance(
+        reservation.provenance,
+        battleAttackIdFromRuntimeId(attackId));
+    bounce.castWork = reservation.work;
+    castLifecycle.transferToLiveAttack(
+        reservation.work,
+        bounce.provenance.attackId);
     bounce.state.preferredTargetUnitId = nextTarget.id;
     bounce.state.requirePreferredTarget = true;
     bounce.state.track = true;
     bounce.state.through = false;
     bounce.noHurt = false;
+    bounce.contactsSuppressed = source.contactsSuppressed;
     bounce.state.ignoreProjectileCancel = true;
     bounce.frame = 0;
     bounce.state.bounceRemaining = std::max(0, source.state.bounceRemaining - 1);
@@ -730,6 +966,25 @@ BattleAttackInstance BattleAttackState::makeBounceAttack(
     return bounce;
 }
 
+void BattleAttackState::finishAttack(
+    BattleAttackInstance& attack,
+    AttackFinishReason reason,
+    BattleCastLifecycle& castLifecycle)
+{
+    assert(attack.id >= 0);
+    assert(attack.provenance.valid());
+    assert(attack.provenance.attackId == battleAttackIdFromRuntimeId(attack.id));
+    assert(attack.castWork.valid());
+    assert(attack.castWork.castId == attack.provenance.cast.castId);
+    assert(!attack.finishReason);
+
+    attack.finishReason = reason;
+    castLifecycle.completeWork(
+        attack.castWork,
+        CastWorkResult::attackFinished(reason));
+    attack.castWork = {};
+}
+
 void BattleAttackState::collectProjectileCancelEvents(
     const BattleRuntimeUnits& units,
     std::pmr::vector<BattleAttackEvent>& events) const
@@ -739,11 +994,14 @@ void BattleAttackState::collectProjectileCancelEvents(
     searchCandidates.reserve(attacks.size());
     for (const auto& attack : attacks)
     {
-        if (attack.noHurt || attack.state.ignoreProjectileCancel || attack.frame < projectileGraceFrames || attack.state.ultimate)
+        if (attack.noHurt
+            || attack.state.ignoreProjectileCancel
+            || attack.frame < projectileGraceFrames
+            || attack.provenance.cast.ultimate)
         {
             continue;
         }
-        const auto& attacker = units.requireCore(attack.state.attackerUnitId);
+        const auto& attacker = units.requireCore(attack.state.attackSourceUnitId);
         searchCandidates.push_back(makeProjectileCancelSearchCandidate(attack, attacker.team, hitRadius));
     }
     if (searchCandidates.size() < 2)

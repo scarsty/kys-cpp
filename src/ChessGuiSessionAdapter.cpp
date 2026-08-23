@@ -624,19 +624,25 @@ void drawEquipmentDetail(
 
     PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
     const int bodyWidth = frame.w - 20;
-    if (!equipment.effects.empty())
+    if (!equipment.rules.empty())
     {
         body.line("特殊效果:", fontSize, {255, 200, 100, 255});
-        for (const auto& effect : equipment.effects)
+        for (const auto& rule : equipment.rules)
         {
-            drawWrappedLines(body, comboEffectDesc(effect), fontSize - 2, {220, 220, 100, 255}, bodyWidth, 2);
+            drawWrappedLines(
+                body,
+                effectDescription(rule, EffectDescriptionStyle::Full),
+                fontSize - 2,
+                {220, 220, 100, 255},
+                bodyWidth,
+                2);
         }
     }
 
     const auto synergyLines = buildChessEquipmentSynergyDetailLines(session.content(), equipment.itemId);
     if (!synergyLines.empty())
     {
-        if (!equipment.effects.empty())
+        if (!equipment.rules.empty())
         {
             body.skip(12);
         }
@@ -649,7 +655,7 @@ void drawEquipmentDetail(
 
     if (!equippedBy.empty())
     {
-        if (!equipment.effects.empty() || !synergyLines.empty())
+        if (!equipment.rules.empty() || !synergyLines.empty())
         {
             body.skip(16);
         }
@@ -709,11 +715,11 @@ void drawNeigongDetail(
 
     PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
     body.line("效果:", fontSize, {200, 200, 200, 255});
-    for (const auto& effect : neigong.effects)
+    for (const auto& rule : neigong.rules)
     {
         drawWrappedLines(
             body,
-            comboEffectDesc(effect),
+            effectDescription(rule, EffectDescriptionStyle::Full),
             fontSize,
             {220, 220, 220, 255},
             frame.w - 20,
@@ -1311,9 +1317,11 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                     }
                     if (shownThreshold)
                     {
-                        for (const auto& effect : shownThreshold->effects)
+                        for (const auto& rule : shownThreshold->rules)
                         {
-                            const auto wrapped = wrapDisplayText(comboEffectCompactDesc(effect), effectUnits);
+                            const auto wrapped = wrapDisplayText(
+                                effectDescription(rule, EffectDescriptionStyle::Compact),
+                                effectUnits);
                             for (int lineIndex = 0; lineIndex < static_cast<int>(wrapped.size()); ++lineIndex)
                             {
                                 block.effectLines.push_back(
@@ -3855,11 +3863,11 @@ void ChessGuiSessionAdapter::viewCombos()
                 kFontSize,
                 active ? Color{0, 255, 0, 255} : Color{255, 200, 100, 255},
                 1);
-            for (const auto& effect : threshold.effects)
+            for (const auto& rule : threshold.rules)
             {
                 drawWrappedLines(
                     thresholdCursor,
-                    comboEffectDesc(effect),
+                    effectDescription(rule, EffectDescriptionStyle::Full),
                     effectFontSize,
                     active ? Color{180, 220, 255, 255} : Color{200, 200, 200, 255},
                     effectPixelWidth,

@@ -1,10 +1,12 @@
 #pragma once
 
 #include "../Point.h"
-#include "BattleComboTriggerSystem.h"
+#include "BattleCastLifecycle.h"
 #include "BattleOperation.h"
 
 #include <memory_resource>
+#include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -39,7 +41,7 @@ enum class BattleAttackCastSubrequestKind
 
 struct BattleAttackPayload
 {
-    int attackerUnitId = -1;
+    int attackSourceUnitId = -1;
     int skillId = -1;
     std::string skillName;
     int skillHurtType = 0;
@@ -52,11 +54,8 @@ struct BattleAttackPayload
     int totalFrame = 1;
     bool track = false;
     bool through = false;
-    bool ultimate = false;
     bool executeCanHitInvincible = false;
     bool ignoreProjectileCancel = false;
-    int sharedHitGroupId = 0;
-    int spawnedFromAttackId = -1;
     int bounceRemaining = 0;
     int bounceRange = 0;
     int bounceChancePct = 0;
@@ -68,12 +67,12 @@ struct BattleAttackPayload
     int scriptedBleedStacks = 0;
     int projectileCancelDamage = 0;
     int projectileCancelWeaken = 0;
-    BattleSkillEffectRef skillEffectRef;
+    int projectilePressurePct = 100;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     int roleAttackEchoActType = -1;
     int strengthPct = 100;
     bool suppressNearbyTrackingProjectileProc = false;
-    bool mainProjectile = true;
+    BattleDamageKind damageKind = BattleDamageKind::Physical;
     Pointf position;
     Pointf velocity;
 };
@@ -81,10 +80,12 @@ struct BattleAttackPayload
 struct BattleAttackInstance
 {
     int id = -1;
+    BattleAttackProvenance provenance;
     BattleAttackPayload state;
+    CastWorkToken castWork;
     int frame = 0;
     bool noHurt = false;
-    int spawnedFromAttackId = -1;
+    bool contactsSuppressed{};
     std::vector<int> hitUnitIds;
     std::vector<int> invincibleBlockedUnitIds;
     Pointf previousPosition;
@@ -95,10 +96,14 @@ struct BattleAttackInstance
     float spiralRadiusGrowth = 0.0f;
     float spiralAngle = 0.0f;
     float spiralAngularVelocity = 0.0f;
+    std::optional<AttackFinishReason> scheduledFinishReason;
+    std::optional<AttackFinishReason> finishReason;
 };
 
 struct BattleAttackSpawnRequest
 {
+    BattlePendingAttackProvenance provenance;
+    CastWorkToken castWork;
     BattleAttackPayload initial;
     int initialFrame = 0;
     int spawnDelayFrames = 0;
@@ -144,6 +149,7 @@ struct BattleAttackEvent
     int attackId = -1;
     int otherAttackId = -1;
     int unitId = -1;
+    int preferredTargetUnitId = OptionalPreferredTargetUnitId;
     int sourceUnitId = -1;
     int otherSourceUnitId = -1;
     int skillId = -1;
@@ -161,16 +167,15 @@ struct BattleAttackEvent
     bool executeCanHitInvincible = false;
     bool track = false;
     bool through = false;
-    bool ultimate = false;
     int strengthPct = 100;
     bool suppressNearbyTrackingProjectileProc = false;
-    bool mainProjectile = true;
-    int sharedHitGroupId = 0;
     int projectileCancelDamage = 0;
     int otherProjectileCancelDamage = 0;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     int roleAttackEchoActType = -1;
-    BattleSkillEffectRef skillEffectRef;
+    BattleAttackProvenance provenance;
+    std::optional<BattleAttackProvenance> otherProvenance;
+    BattleDamageKind damageKind = BattleDamageKind::Physical;
     Pointf position;
     Pointf velocity;
     int frame = 0;
@@ -190,15 +195,30 @@ struct BattleAttackState
     bool spendNonThroughOnHit = true;
     std::vector<BattleAttackInstance> attacks;
     std::unordered_map<int, std::vector<int>> sharedHitGroupTargets;
+    std::set<BattleCastId> suppressedContactCastIds;
 
-    BattleAttackEvent spawn(const BattleAttackSpawnRequest& request);
+    BattleAttackEvent spawn(
+        BattleAttackSpawnRequest&& request,
+        BattleCastLifecycle& castLifecycle);
     std::pmr::vector<BattleAttackEvent> tick(
         const BattleRuntimeUnits& units,
+        BattleCastLifecycle& castLifecycle,
         std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource());
     void tick(
         const BattleRuntimeUnits& units,
+        BattleCastLifecycle& castLifecycle,
         std::pmr::vector<BattleAttackEvent>& events);
     void applyProjectileCancelDamage(const BattleAttackEvent& event);
+    bool contactsSuppressed(int attackId) const;
+    void suppressContacts(int attackId);
+    bool castContactsSuppressed(BattleCastId castId) const;
+    void suppressContactsForCast(BattleCastId castId);
+    void releaseCastContactSuppression(BattleCastId castId);
+    void clearCastContactSuppressions();
+    void completeFinished(BattleCastLifecycle& castLifecycle);
+    void eraseFinished();
+    void pruneFinished(BattleCastLifecycle& castLifecycle);
+    void cancelAllForBattleEnd(BattleCastLifecycle& castLifecycle);
 
 private:
     int allocateAttackId();
@@ -232,7 +252,12 @@ private:
         const BattleAttackInstance& source,
         const BattleRuntimeUnit& hitTarget,
         const BattleRuntimeUnit& nextTarget,
-        int attackId) const;
+        int attackId,
+        BattleCastLifecycle& castLifecycle) const;
+    void finishAttack(
+        BattleAttackInstance& attack,
+        AttackFinishReason reason,
+        BattleCastLifecycle& castLifecycle);
     void collectProjectileCancelEvents(
         const BattleRuntimeUnits& units,
         std::pmr::vector<BattleAttackEvent>& events) const;

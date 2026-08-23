@@ -3076,25 +3076,21 @@ void BattleSceneHades::renderExtraRoleInfo(
             Engine::getInstance()->renderSquareTexture(&shieldRect, { 250, 200, 0, 255 }, 255);
         }
 
-        const auto attackBlocks = [&]()
+        const int dualWieldBlocks = [&]()
         {
             const auto* runtime = activeRuntimeSession();
             if (!runtime)
             {
-                return std::pair{ 0, 0 };
+                return 0;
             }
-            const auto& damage = runtime->runtime().units.require(unit.id).damage;
-            return std::pair{ damage.blockFirstHitsRemaining, damage.dualWieldBlocksRemaining };
+            return runtime->runtime().units.require(unit.id).damage.dualWieldBlocksRemaining;
         }();
-        const auto [firstHitBlocks, dualWieldBlocks] = attackBlocks;
-        bool hasDamageProtection = unit.invincible > 0 || firstHitBlocks > 0 || dualWieldBlocks > 0;
+        bool hasDamageProtection = unit.invincible > 0 || dualWieldBlocks > 0;
         if (hasDamageProtection)
         {
             Color protectionColor = dualWieldBlocks > 0
                 ? Color{ 135, 215, 255, 255 }
-                : firstHitBlocks > 0
-                    ? Color{ 255, 220, 110, 255 }
-                    : Color{ 255, 170, 95, 255 };
+                : Color{ 255, 170, 95, 255 };
             renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, protectionColor, 220);
         }
     }

@@ -341,7 +341,7 @@ class ChessCliTests(unittest.TestCase):
                     "method": "new",
                     "params": {
                         "difficulty": "normal",
-                        "seed": "0x0000000000000014",
+                        "seed": "0x00000000000000b3",
                     },
                 },
                 {"id": 2, "method": "act", "params": {"action": {"type": "buy_shop_slot", "slot": 0}}},
@@ -547,7 +547,8 @@ class ChessCliTests(unittest.TestCase):
         self.assertIn("abilities", role)
         self.assertIn("combos", role)
         self.assertIn("geometry", role["abilities"][0])
-        self.assertTrue(role["abilities"][0]["effect_note"])
+        self.assertTrue(role["abilities"][0]["effects"])
+        self.assertNotIn("effect_note", role["abilities"][0])
         self.assertIn("power_by_star", role["abilities"][0])
         self.assertEqual(game["combos"], [])
         deployment = legal["result"]
@@ -589,7 +590,7 @@ class ChessCliTests(unittest.TestCase):
                     "method": "new",
                     "params": {
                         "difficulty": "normal",
-                        "seed": "0x0000000000005eed",
+                        "seed": "0x00000000000051a7",
                     },
                 },
                 {"id": 2, "method": "act", "params": {"action": {"type": "buy_shop_slot", "slot": 0}}},
@@ -739,10 +740,15 @@ class ChessCliTests(unittest.TestCase):
         reward = response["result"]["next_observation"]["pending_reward"]
         sword = next(option for option in reward["options"] if option["label"] == "越女劍")
         self.assertIn(
-            "角色加成(韓小瑩)：25%擊退120距離並鎖定7幀；18%閃避",
+            "角色加成(韓小瑩)：絕招主彈道命中、傷害結算前，有25%機率，"
+            "對命中目標擊退120像素並鎖定7幀",
             sword["description"],
         )
-        self.assertNotIn("7幀：18%閃避", sword["description"])
+        self.assertIn(
+            "戰鬥開始時，對自身閃避率+18",
+            sword["description"],
+        )
+        self.assertNotIn("鎖定7幀：", sword["description"])
 
 
 if __name__ == "__main__":

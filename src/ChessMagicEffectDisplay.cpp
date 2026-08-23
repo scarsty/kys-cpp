@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <utility>
 
 namespace KysChess
 {
@@ -20,41 +19,6 @@ const ChessMagicEffectDefinition* findDefinition(
             return definition.magicId == magicId;
         });
     return it == definitions.end() ? nullptr : &*it;
-}
-
-bool hasOffensiveCharmPair(
-    const ChessMagicEffectDefinition& definition,
-    const ComboEffect& effect)
-{
-    return std::ranges::any_of(
-        definition.effects,
-        [&](const ComboEffect& candidate)
-        {
-            return candidate.type == EffectType::OffensiveCharm
-                && candidate.trigger == effect.trigger
-                && candidate.triggerValue == effect.triggerValue
-                && candidate.value == effect.value
-                && candidate.value2 == effect.value2;
-        });
-}
-
-std::string displayTextForMagicEffect(
-    const ChessMagicEffectDefinition& definition,
-    const ComboEffect& effect)
-{
-    if (effect.type == EffectType::CharmCDRDebuff && hasOffensiveCharmPair(definition, effect))
-    {
-        return {};
-    }
-
-    if (effect.type == EffectType::OffensiveCharm && effect.value2 > 0)
-    {
-        ComboEffect display = effect;
-        display.type = EffectType::CharmCDRDebuff;
-        return comboEffectCompactDesc(display);
-    }
-
-    return comboEffectCompactDesc(effect);
 }
 
 }  // namespace
@@ -89,18 +53,14 @@ std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(
             continue;
         }
 
-        for (const auto& effect : definition->effects)
+        for (const auto& rule : definition->rules)
         {
-            auto text = displayTextForMagicEffect(*definition, effect);
-            if (!text.empty())
-            {
-                rows.push_back({
-                    ChessMagicEffectDisplayLineKind::Effect,
-                    magic,
-                    std::move(text),
-                    true,
-                });
-            }
+            rows.push_back({
+                ChessMagicEffectDisplayLineKind::Effect,
+                magic,
+                effectDescription(rule, EffectDescriptionStyle::Compact),
+                true,
+            });
         }
     }
 

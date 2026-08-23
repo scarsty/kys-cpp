@@ -144,7 +144,11 @@ void appendDefinitions(
         definition.starSynergyBonus = combo.starSynergyBonus;
         for (const auto& threshold : combo.thresholds)
         {
-            definition.thresholds.push_back({threshold.count, threshold.effects});
+            definition.thresholds.push_back({
+                threshold.count,
+                threshold.rules,
+                sumFightWinGrowth(threshold.managementRules),
+            });
         }
         setup.comboDefinitions.push_back(std::move(definition));
     }
@@ -153,8 +157,8 @@ void appendDefinitions(
         setup.equipmentDefinitions.push_back({
             equipment.itemId,
             equipment.equipType,
-            equipment.effects,
-            equipment.actAsComboNames,
+            countsAsComboNames(equipment.managementRules),
+            equipment.rules,
         });
     }
     for (const auto& synergy : content.equipmentSynergies())
@@ -162,13 +166,16 @@ void appendDefinitions(
         setup.equipmentSynergies.push_back({
             synergy.roleIds,
             synergy.equipmentId,
-            synergy.effects,
-            synergy.actAsComboNames,
+            countsAsComboNames(synergy.managementRules),
+            synergy.rules,
         });
     }
     for (const auto& neigong : content.neigong())
     {
-        setup.neigongDefinitions.push_back({neigong.magicId, neigong.effects});
+        setup.neigongDefinitions.push_back({
+            neigong.magicId,
+            neigong.rules,
+        });
     }
     setup.magicEffectDefinitions = content.magicEffects();
 }

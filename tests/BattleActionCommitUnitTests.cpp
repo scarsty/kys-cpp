@@ -56,26 +56,11 @@ BattleRuntimeUnits actionUnits()
 
 }  // namespace
 
-TEST_CASE("BattleActionCommit_UltimateCastSetsPendingSkillTeamHeal", "[battle][action_commit][unit]")
-{
-    auto input = basicActionInput();
-    input.hasCast = true;
-    input.cast = committedCast(true, BattleOperationType::RangedProjectile);
-    KysChess::RoleComboState combo;
-
-    auto units = actionUnits();
-    auto result = BattleActionCommitSystem().commit(input, combo, units);
-
-    CHECK(combo.typePending(KysChess::EffectType::OnSkillTeamHeal));
-}
-
 TEST_CASE("BattleActionCommit_DoesNotReplayCastVisualEvents", "[battle][action_commit][unit]")
 {
     auto input = basicActionInput();
     input.hasCast = true;
     input.cast = committedCast(true, BattleOperationType::RangedProjectile);
-    KysChess::RoleComboState combo;
-
     BattleVisualEvent textEvent;
     textEvent.type = BattleVisualEventType::FloatingText;
     textEvent.targetUnitId = 1;
@@ -83,24 +68,23 @@ TEST_CASE("BattleActionCommit_DoesNotReplayCastVisualEvents", "[battle][action_c
     input.cast.visualEvents.push_back(std::move(textEvent));
 
     auto units = actionUnits();
-    auto result = BattleActionCommitSystem().commit(input, combo, units);
+    auto result = BattleActionCommitSystem().commit(input, units);
 
     CHECK(result.visualEvents.empty());
 }
 
-TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[battle][action_commit][unit]")
+TEST_CASE("BattleActionCommit_BlinkAttackUsesExternallySelectedWeakestAndRandomIntent", "[battle][action_commit][unit]")
 {
     auto input = basicActionInput();
+    input.mobility = KysChess::CastMobilityPolicy::BlinkAttack;
+    input.blinkUseWeakestTarget = true;
     input.blinkReach = 144.0;
     input.blinkGeometry.cells = {
         { 1, 0, { 100, 20, 0 }, true, false },
     };
-    KysChess::RoleComboState combo;
-    combo.applyConfiguredEffect({ KysChess::EffectType::BlinkAttack, 1 });
-    combo.consumeTypeToggle(KysChess::EffectType::BlinkAttack);
     auto units = actionUnits();
 
-    auto weakest = BattleActionCommitSystem().commit(input, combo, units);
+    auto weakest = BattleActionCommitSystem().commit(input, units);
 
     REQUIRE(weakest.blinkTeleports.size() == 1);
     CHECK(weakest.blinkTeleports[0].unitId == 0);
@@ -111,10 +95,11 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     CHECK(weakest.logEvents[0].sourceUnitId == 0);
     CHECK(weakest.logEvents[0].targetUnitId == 2);
     CHECK(BattleLogTest::textOf(weakest.logEvents[0]) == "閃擊追殺");
-    CHECK_FALSE(combo.typeToggle(KysChess::EffectType::BlinkAttack));
+    CHECK(input.blinkUseWeakestTarget);
 
     input.blinkRandomRoll = 1;
-    auto random = BattleActionCommitSystem().commit(input, combo, units);
+    input.blinkUseWeakestTarget = false;
+    auto random = BattleActionCommitSystem().commit(input, units);
 
     REQUIRE(random.blinkTeleports.size() == 1);
     CHECK(random.blinkTeleports[0].targetUnitId == 2);
@@ -124,12 +109,14 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     CHECK(random.logEvents[0].sourceUnitId == 0);
     CHECK(random.logEvents[0].targetUnitId == 2);
     CHECK(BattleLogTest::textOf(random.logEvents[0]) == "閃擊突襲");
-    CHECK(combo.typeToggle(KysChess::EffectType::BlinkAttack));
+    CHECK_FALSE(input.blinkUseWeakestTarget);
 }
 
 TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[battle][action_commit][unit]")
 {
     auto input = basicActionInput();
+    input.mobility = KysChess::CastMobilityPolicy::BlinkAttack;
+    input.blinkUseWeakestTarget = true;
     input.blinkReach = 64.0;
     input.blinkCellRandomRoll = 1;
     input.blinkGeometry.currentGridX = 1;
@@ -137,7 +124,7 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
     input.hasCast = true;
     input.cast = committedCast(false, BattleOperationType::Melee);
     BattleAttackSpawnRequest attack;
-    attack.initial.attackerUnitId = 0;
+    attack.initial.attackSourceUnitId = 0;
     attack.initial.preferredTargetUnitId = 1;
     attack.initial.position = { 20, 20, 0 };
     attack.initial.operationType = BattleOperationType::Melee;
@@ -149,12 +136,9 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
         { 4, 1, { 132, 20, 0 }, true, false },
         { 5, 1, { 140, 20, 0 }, true, true },
     };
-    KysChess::RoleComboState combo;
-    combo.applyConfiguredEffect({ KysChess::EffectType::BlinkAttack, 1 });
-    combo.consumeTypeToggle(KysChess::EffectType::BlinkAttack);
     auto units = actionUnits();
 
-    auto result = BattleActionCommitSystem().commit(input, combo, units);
+    auto result = BattleActionCommitSystem().commit(input, units);
 
     REQUIRE(result.blinkTeleports.size() == 1);
     const auto& teleport = result.blinkTeleports[0];
@@ -177,10 +161,8 @@ TEST_CASE("BattleActionCommit_CommittedMeleeCastAdvancesOperationCount", "[battl
     auto input = basicActionInput();
     input.hasCast = true;
     input.cast = committedCast(false, BattleOperationType::Melee);
-    KysChess::RoleComboState combo;
-
     auto units = actionUnits();
-    auto result = BattleActionCommitSystem().commit(input, combo, units);
+    auto result = BattleActionCommitSystem().commit(input, units);
 
     CHECK(result.operationCount == 1);
 }
@@ -192,28 +174,18 @@ TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndBloc
     input.normalAttackActType = 7;
     input.cast = committedCast(false, BattleOperationType::Melee);
     BattleAttackSpawnRequest main;
-    main.initial.attackerUnitId = 0;
+    main.initial.attackSourceUnitId = 0;
     main.initial.preferredTargetUnitId = 1;
     main.initial.requirePreferredTarget = true;
     main.initial.operationType = BattleOperationType::Melee;
     main.initial.totalFrame = 20;
-    main.initial.mainProjectile = true;
+    main.provenance.mainProjectile = true;
     main.initial.position = { 20.0f, 20.0f, 0.0f };
     main.initial.strengthPct = 100;
     input.cast.attackSpawnRequests.push_back(main);
-    KysChess::RoleComboState combo;
-    combo.applyConfiguredEffect({
-        KysChess::EffectType::DualWieldFollowUp,
-        45,
-        50,
-        "",
-        KysChess::Trigger::Always,
-        0,
-        6,
-    });
-
+    input.delayedAlternateAttack = KysChess::DelayedAlternateAttackBehavior{ 6, 45, 50 };
     auto units = actionUnits();
-    auto result = BattleActionCommitSystem().commit(input, combo, units);
+    auto result = BattleActionCommitSystem().commit(input, units);
 
     REQUIRE(result.attackSpawnRequests.size() == 2);
     const auto& followUp = result.attackSpawnRequests[1];
@@ -221,7 +193,7 @@ TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndBloc
     CHECK(followUp.initial.preferredTargetUnitId == 2);
     CHECK(followUp.initial.requirePreferredTarget);
     CHECK(followUp.initial.track);
-    CHECK_FALSE(followUp.initial.mainProjectile);
+    CHECK_FALSE(followUp.provenance.mainProjectile);
     CHECK(followUp.initial.roleAttackEchoActType == 7);
     CHECK(followUp.initial.strengthPct == 45);
     CHECK(followUp.spawnDelayFrames == 6);
@@ -235,29 +207,20 @@ TEST_CASE("BattleActionCommit_DualWieldFallsBackToPrimaryTarget", "[battle][acti
     input.normalAttackActType = 7;
     input.cast = committedCast(false, BattleOperationType::Melee);
     BattleAttackSpawnRequest main;
-    main.initial.attackerUnitId = 0;
+    main.initial.attackSourceUnitId = 0;
     main.initial.preferredTargetUnitId = 1;
     main.initial.operationType = BattleOperationType::Melee;
     main.initial.totalFrame = 20;
-    main.initial.mainProjectile = true;
+    main.provenance.mainProjectile = true;
     main.initial.position = { 20.0f, 20.0f, 0.0f };
     input.cast.attackSpawnRequests.push_back(main);
-    KysChess::RoleComboState combo;
-    combo.applyConfiguredEffect({
-        KysChess::EffectType::DualWieldFollowUp,
-        45,
-        50,
-        "",
-        KysChess::Trigger::Always,
-        0,
-        6,
-    });
+    input.delayedAlternateAttack = KysChess::DelayedAlternateAttackBehavior{ 6, 45, 50 };
     auto units = KysChess::Battle::Test::runtimeRecords({
         unit(0, 0, 100, 0, { 10.0f, 20.0f, 0.0f }),
         unit(1, 1, 90, 0, { 100.0f, 20.0f, 0.0f }),
     });
 
-    auto result = BattleActionCommitSystem().commit(input, combo, units);
+    auto result = BattleActionCommitSystem().commit(input, units);
 
     REQUIRE(result.attackSpawnRequests.size() == 2);
     CHECK(result.attackSpawnRequests[1].initial.preferredTargetUnitId == 1);

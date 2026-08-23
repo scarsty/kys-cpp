@@ -27,7 +27,6 @@ struct BattleSetupUnitInput
     BattleUnitStats stats;
     BattleUnitMotion motion;
     BattleUnitAnimationState animation;
-    RoleComboState baseCombo;
     int star = 1;
     int cost = 0;
     int weaponId = -1;

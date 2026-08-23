@@ -12,6 +12,21 @@
 using BattleSceneTest::StoreFixture;
 using BattleSceneTest::makeSetupUnit;
 
+namespace
+{
+
+KysChess::EffectRule cloneGenerationRule()
+{
+    KysChess::EffectRule rule;
+    rule.event = KysChess::EffectEvent::BattleInitialized;
+    rule.actions.push_back({ KysChess::StateMachineAction{
+        KysChess::GenerateClonesAction{ 1 },
+    } });
+    return rule;
+}
+
+}
+
 TEST_CASE("BattleSceneUnitStore_InitializesDenseRowsAndRequiresByUnitId", "[battle][scene_unit_store]")
 {
     std::vector<KysChess::Battle::BattleSetupUnitInput> units;
@@ -111,7 +126,8 @@ TEST_CASE("BattleSceneUnitStore_InitializesSummonedClonePlacementAndSummary", "[
 
     auto input = BattleSceneTest::makeSessionInput(std::move(units));
     input.actionPlanSeeds.push_back({ 0, false, {}, {} });
-    input.units[0].baseCombo.applyConfiguredEffect({ KysChess::EffectType::CloneSummon, 1 });
+    input.setup.neigongDefinitions.push_back({ 9001, { cloneGenerationRule() } });
+    input.setup.obtainedNeigongMagicIdsByTeam[0].push_back(9001);
     input.setup.cloneSources.push_back({ 0, 1000, 190, 1, -1, 0 });
     input.setup.cloneCells.push_back({ 3, 4, true, false });
 

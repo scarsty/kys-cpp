@@ -7,6 +7,18 @@ using namespace KysChess;
 namespace
 {
 
+EffectRule attributeRule(BattleAttribute attribute, int amount)
+{
+    EffectRule rule;
+    rule.event = EffectEvent::BattleInitialized;
+    ModifyAttributeAction action;
+    action.attribute = attribute;
+    action.amount.flat = amount;
+    action.operation = AttributeOperation::FlatAdd;
+    rule.actions.push_back({EffectActionValue{action}});
+    return rule;
+}
+
 ChessGameContent catalogContent()
 {
     ChessGameContentData data;
@@ -56,14 +68,29 @@ ChessGameContent catalogContent()
     item.addAttack = 8;
     item.addSword = 6;
     data.items.emplace(item.id, item);
-    data.equipment.push_back({item.id, 2, 0, {{EffectType::FlatDEF, 7}}, {"共用羈絆"}});
-    data.equipmentSynergies.push_back({{role.ID}, item.id, {{EffectType::FlatSPD, 5}}, {"角色羈絆"}});
+    data.equipment.push_back({
+        item.id,
+        2,
+        0,
+        {attributeRule(BattleAttribute::Defence, 7)},
+        {CountsAsComboRule{"共用羈絆"}},
+    });
+    data.equipmentSynergies.push_back({
+        {role.ID},
+        item.id,
+        {attributeRule(BattleAttribute::Speed, 5)},
+        {CountsAsComboRule{"角色羈絆"}},
+    });
 
     ComboDef combo;
     combo.id = 3;
     combo.name = "共用羈絆";
     combo.memberRoleIds = {role.ID};
-    combo.thresholds.push_back({1, "啟動", {{EffectType::FlatATK, 10}}});
+    combo.thresholds.push_back({
+        1,
+        "啟動",
+        {attributeRule(BattleAttribute::Attack, 10)},
+    });
     data.combos.push_back(std::move(combo));
 
     ChessBattleMapDefinition map;
@@ -113,7 +140,7 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
 
     const auto equipment = chessEquipmentMetadata(content, 500);
     CHECK(equipment.baseStatEffects == std::vector<std::string>{"生命+25", "攻擊+8", "御劍+6"});
-    CHECK(equipment.specialEffects == std::vector<std::string>{"防禦+7"});
+    CHECK(equipment.specialEffects == std::vector<std::string>{"戰鬥開始時，對自身防禦+7。"});
     CHECK(equipment.countsAsCombos == std::vector<std::string>{"共用羈絆"});
     REQUIRE(equipment.characterBonuses.size() == 1);
     CHECK(equipment.characterBonuses.front().roles == std::vector<std::string>{"共用查詢棋子"});

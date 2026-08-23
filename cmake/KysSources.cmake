@@ -62,6 +62,7 @@ function(kys_collect_chess_core_sources out_var kys_root)
         "${kys_root_abs}/src/ChessJsonProtocol.cpp"
         "${kys_root_abs}/src/ChessManagementRules.cpp"
         "${kys_root_abs}/src/ChessNeigong.cpp"
+        "${kys_root_abs}/src/ChessNonBattleRules.cpp"
         "${kys_root_abs}/src/ChessObservationText.cpp"
         "${kys_root_abs}/src/ChessProgressionRules.cpp"
         "${kys_root_abs}/src/ChessPreparedBattleAnalysis.cpp"

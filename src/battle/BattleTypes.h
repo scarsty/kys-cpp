@@ -185,6 +185,9 @@ struct BattleMovementPhysicsState
     Pointf knockbackVelocity;
     int knockbackFrames = 0;
     int knockbackControlFrames = 0;
+    Pointf knockbackOrigin{};
+    bool knockbackIgnoresUnitCollision = false;
+    bool knockbackCancelsWhenBlocked = false;
 };
 
 struct BattleMovementAgentState

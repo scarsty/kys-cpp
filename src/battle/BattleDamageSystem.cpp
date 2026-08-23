@@ -1,17 +1,85 @@
 #include "BattleDamageSystem.h"
 
 #include "../ChessBattleEffects.h"
+#include "BattleHealSystem.h"
 #include "BattleMath.h"
 #include "BattleResourceRules.h"
 
 #include <algorithm>
 #include <cassert>
+#include <utility>
 
 namespace KysChess::Battle
 {
 
 namespace
 {
+
+BattleDamageKind effectiveDamageKind(const BattleDamageRequest& request)
+{
+    if (request.damageKind != BattleDamageKind::Physical)
+    {
+        return request.damageKind;
+    }
+    if (request.reflected)
+    {
+        return BattleDamageKind::Reflected;
+    }
+    if (request.usingSkill)
+    {
+        return BattleDamageKind::Skill;
+    }
+    return BattleDamageKind::Physical;
+}
+
+void applyDamageReduction(
+    BattleFixed& damage,
+    int reductionPct,
+    int& remainingDamageBasisPoints)
+{
+    if (reductionPct <= 0)
+    {
+        return;
+    }
+    assert(remainingDamageBasisPoints >= (100 - FinalDamageReductionCapPct) * 100);
+    const int requestedRemaining = remainingDamageBasisPoints
+        * (100 - std::min(reductionPct, 100)) / 100;
+    const int cappedRemaining = std::max(
+        (100 - FinalDamageReductionCapPct) * 100,
+        requestedRemaining);
+    damage = damage.scaled(cappedRemaining, remainingDamageBasisPoints);
+    remainingDamageBasisPoints = cappedRemaining;
+}
+
+void applySignedOutgoingDamageDelta(
+    BattleFixed& damage,
+    int pctDelta,
+    int& remainingDamageBasisPoints)
+{
+    if (pctDelta < 0)
+    {
+        applyDamageReduction(damage, -pctDelta, remainingDamageBasisPoints);
+    }
+    else if (pctDelta > 0)
+    {
+        damage = damage.scaled(100 + pctDelta, 100);
+    }
+}
+
+void applyTypedDefenderStatusModifiers(
+    BattleFixed& damage,
+    const BattleStatusQuerySnapshot& statuses,
+    int& remainingDamageBasisPoints)
+{
+    applyDamageReduction(
+        damage,
+        statuses.damageReductionPct,
+        remainingDamageBasisPoints);
+    if (statuses.damageTakenPct > 0)
+    {
+        damage = damage.scaled(100 + statuses.damageTakenPct, 100);
+    }
+}
 
 BattleUnitDelta makeBattleUnitDelta(const BattleDamageUnitState& before, const BattleDamageUnitState& after)
 {
@@ -63,20 +131,45 @@ void writeBattleResourceUnit(BattleDamageUnitState& unit, const BattleResourceUn
     unit.vitals.mp = resource.vitals.mp;
 }
 
+BattleHealUnitSnapshot healSnapshot(const BattleDamageUnitState& unit)
+{
+    return { unit.id, unit.alive, unit.vitals.hp, unit.vitals.maxHp };
+}
+
+BattleHealUnitSnapshot healSnapshot(const BattleResourceUnitState& unit)
+{
+    return { unit.id, unit.alive, unit.vitals.hp, unit.vitals.maxHp };
+}
+
+BattleHealRequest damageHealRequest(
+    int unitId,
+    BattleHealKind kind,
+    BattleHealAmount amount)
+{
+    BattleHealRequest request;
+    request.sourceUnitId = unitId;
+    request.targetUnitId = unitId;
+    request.source = {
+        .kind = EffectSourceKind::Combo,
+        .sourceId = -1,
+        .ownerUnitId = unitId,
+        .sourceTeam = -1,
+    };
+    request.kind = kind;
+    request.amount = amount;
+    return request;
+}
+
 }  // namespace
 
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit)
 {
     BattleDamageRuntimeUnit runtime;
     runtime.hurtInvincFrames = unit.hurtInvincFrames;
-    runtime.blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
     runtime.dualWieldBlocksRemaining = unit.dualWieldBlocksRemaining;
     runtime.deathPrevention = unit.deathPrevention;
     runtime.deathPreventionUsed = unit.deathPreventionUsed;
     runtime.deathPreventionFrames = unit.deathPreventionFrames;
-    runtime.killHealPct = unit.killHealPct;
-    runtime.killInvincFrames = unit.killInvincFrames;
-    runtime.bloodlustAttackPerKill = unit.bloodlustAttackPerKill;
     return runtime;
 }
 
@@ -85,31 +178,79 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
     assert(input.request.attackerUnitId == input.attacker.id);
     assert(input.request.defenderUnitId == input.defender.id);
     assert(input.request.baseDamage >= 0 && input.request.mpDamage >= 0);
+    assert(input.request.preResolvedDamage
+        || input.request.preResolvedModifierPolicy == BattlePreResolvedModifierPolicy::None);
+    assert(input.request.preResolvedDamageReductionBasisPoints >= 0);
+    assert(input.request.preResolvedDamageReductionBasisPoints
+        <= FinalDamageReductionCapPct * 100);
+    assert(input.request.preResolvedDamage
+        || input.request.preResolvedDamageReductionBasisPoints == 0);
 
     BattleDamageTransactionResult result;
     result.attacker = input.attacker;
     result.defender = input.defender;
     result.defenderStatus = input.defenderStatus;
     result.defenderCooldown = input.defenderCooldown;
+    result.damageKind = effectiveDamageKind(input.request);
     bool acceptedHit = input.request.acceptedHit;
 
     if (input.request.baseDamage > 0)
     {
         BattleFixed resolvedDamage = input.request.baseDamage;
+        int combinedReductionBasisPoints =
+            input.request.preResolvedDamageReductionBasisPoints;
         if (!input.request.preResolvedDamage)
         {
-            auto modified = applyModifiers({
-                input.request.baseDamage,
-                input.request.usingSkill,
-                input.request.ignoreDefense,
-                input.attackerModifiers,
-                input.defenderModifiers,
-                result.defender,
-            });
+            BattleDamageModifierInput modifierInput;
+            modifierInput.damage = input.request.baseDamage;
+            modifierInput.damageKind = result.damageKind;
+            modifierInput.usingSkill = input.request.usingSkill;
+            modifierInput.ignoreDefense = input.request.ignoreDefense;
+            modifierInput.attacker = input.attackerModifiers;
+            modifierInput.defender = input.defenderModifiers;
+            modifierInput.defenderUnit = result.defender;
+
+            BattleStatusSystem statusSystem({});
+            if (input.attackerStatus.id == input.attacker.id)
+            {
+                const auto attackerStatuses = statusSystem.snapshot(input.attackerStatus);
+                modifierInput.attacker.skillDamagePct += attackerStatuses.skillDamagePct;
+            }
+            if (result.defenderStatus.id == input.defender.id)
+            {
+                const auto defenderStatuses = statusSystem.snapshot(result.defenderStatus);
+                modifierInput.defender.damageReductionPct += defenderStatuses.damageReductionPct;
+                modifierInput.defender.damageTakenIncreasePct += defenderStatuses.damageTakenPct;
+                modifierInput.defender.poisonTimer = std::max(
+                    modifierInput.defender.poisonTimer,
+                    result.defenderStatus.effects.poisonTimer);
+            }
+
+            auto modified = applyModifiers(modifierInput);
 
             resolvedDamage = modified.damage;
+            combinedReductionBasisPoints = modified.combinedDamageReductionBasisPoints;
         }
+        else if (input.request.preResolvedModifierPolicy
+                 == BattlePreResolvedModifierPolicy::DefenderTypedStatuses)
+        {
+            assert(result.defenderStatus.id == input.defender.id);
+            const auto statuses = BattleStatusSystem({}).snapshot(result.defenderStatus);
+            int remainingDamageBasisPoints = 10'000 - combinedReductionBasisPoints;
+            applyTypedDefenderStatusModifiers(
+                resolvedDamage,
+                statuses,
+                remainingDamageBasisPoints);
+            combinedReductionBasisPoints = 10'000 - remainingDamageBasisPoints;
+        }
+        int remainingDamageBasisPoints = 10'000 - combinedReductionBasisPoints;
+        applySignedOutgoingDamageDelta(
+            resolvedDamage,
+            input.liveOutgoingDamagePctDelta,
+            remainingDamageBasisPoints);
+        result.combinedDamageReductionBasisPoints = 10'000 - remainingDamageBasisPoints;
         int resolvedDamageValue = resolvedDamage.toInt();
+        result.resolvedDamageBeforeDefense = resolvedDamageValue;
         result.executed = input.request.canExecute
             && shouldExecute({
                 result.defender.vitals.hp,
@@ -120,6 +261,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             });
         if (result.executed)
         {
+            result.damageKind = BattleDamageKind::Execute;
             recordBattleDamageEvent(result.events,
                                     BattleDamageEventType::ExecuteTriggered,
                                     input.request.attackerUnitId,
@@ -127,22 +269,66 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                                     input.request.executeThresholdPct);
         }
 
-        auto defense = resolveDefense({
-            resolvedDamageValue,
-            result.executed,
-            input.request.reflected,
-            result.defender.invincible > 0,
-            result.defender,
-            input.blockFirstHitWithoutConsuming,
-        });
+        bool blockByStatusLayer = false;
+        int singleHitCap = 0;
+        BattleStatusSystem statusSystem({});
+        if (result.defenderStatus.id == input.defender.id)
+        {
+            const auto statuses = statusSystem.snapshot(result.defenderStatus);
+            blockByStatusLayer = statuses.has(BattleStatusKind::DamageBlockLayer);
+            for (const auto& status : statuses.statuses)
+            {
+                if (status.kind == BattleStatusKind::SingleHitCapLayer)
+                {
+                    assert(status.potency > 0);
+                    singleHitCap = status.potency;
+                    break;
+                }
+            }
+        }
+
+        BattleDamageDefenseInput defenseInput;
+        defenseInput.damage = resolvedDamageValue;
+        defenseInput.executed = result.executed;
+        defenseInput.reflected = input.request.reflected
+            || result.damageKind == BattleDamageKind::Reflected;
+        defenseInput.defenderWasInvincible = result.defender.invincible > 0;
+        defenseInput.defender = result.defender;
+        defenseInput.blockByStatusLayer = blockByStatusLayer;
+        defenseInput.singleHitCap = singleHitCap;
+        defenseInput.remainingDamageBasisPoints =
+            10'000 - result.combinedDamageReductionBasisPoints;
+        defenseInput.absorptionLayers = input.absorptionLayers;
+        auto defense = resolveDefense(defenseInput);
         result.defender = defense.defender;
         result.shieldAbsorbed = defense.shieldAbsorbed;
+        result.absorptionReceipts = std::move(defense.absorptionReceipts);
+        result.combinedDamageReductionBasisPoints =
+            10'000 - defense.remainingDamageBasisPoints;
         result.blockedByInvincible = defense.blockedByInvincible;
-        result.blockedByFirstHit = defense.blockedByFirstHit;
         result.blockedByDualWield = defense.blockedByDualWield;
+        result.blockedByDamageLayer = defense.blockedByDamageLayer;
+        result.singleHitCapConsumed = defense.singleHitCapConsumed;
+        result.singleHitCapped = defense.singleHitCapped;
+        if (defense.blockedByDamageLayer)
+        {
+            auto consumed = statusSystem.consume(
+                result.defenderStatus,
+                { .kind = BattleStatusKind::DamageBlockLayer });
+            assert(consumed.consumed);
+            result.defenderStatus = std::move(consumed.target);
+        }
+        if (defense.singleHitCapConsumed)
+        {
+            auto consumed = statusSystem.consume(
+                result.defenderStatus,
+                { .kind = BattleStatusKind::SingleHitCapLayer });
+            assert(consumed.consumed);
+            result.defenderStatus = std::move(consumed.target);
+        }
         acceptedHit = !defense.blockedByInvincible
-            && !defense.blockedByFirstHit
-            && !defense.blockedByDualWield;
+            && !defense.blockedByDualWield
+            && !defense.blockedByDamageLayer;
         resolvedDamageValue = defense.damage;
 
         if (defense.shieldAbsorbed > 0)
@@ -161,14 +347,6 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                                     input.request.defenderUnitId,
                                     0);
         }
-        if (defense.blockedByFirstHit)
-        {
-            recordBattleDamageEvent(result.events,
-                                    BattleDamageEventType::BlockedByFirstHit,
-                                    input.request.attackerUnitId,
-                                    input.request.defenderUnitId,
-                                    0);
-        }
         if (defense.blockedByDualWield)
         {
             recordBattleDamageEvent(result.events,
@@ -176,6 +354,22 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                                     input.request.attackerUnitId,
                                     input.request.defenderUnitId,
                                     0);
+        }
+        if (defense.blockedByDamageLayer)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::BlockedByDamageLayer,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    0);
+        }
+        if (defense.singleHitCapped)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::SingleHitCapped,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    defense.singleHitCap);
         }
 
         int hpBeforeDamage = result.defender.vitals.hp;
@@ -216,17 +410,6 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                                     input.request.attackerUnitId,
                                     input.request.defenderUnitId,
                                     0);
-
-            auto reward = applyKillReward({ result.attacker });
-            result.attacker = reward.killer;
-            if (reward.healed > 0 || reward.invincibilityGranted > 0 || reward.attackGranted > 0)
-            {
-                recordBattleDamageEvent(result.events,
-                                        BattleDamageEventType::KillRewardApplied,
-                                        input.request.attackerUnitId,
-                                        input.request.attackerUnitId,
-                                        reward.healed);
-            }
         }
     }
 
@@ -251,13 +434,26 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         const bool canApplyStatusEffects = input.defender.invincible <= 0;
         if (input.request.mpOnHit > 0 || input.request.hpOnHit > 0 || input.request.mpDrain > 0)
         {
+            const auto attackerBeforeResources = healSnapshot(result.attacker);
             auto resources = applyOnHitResources({
                 makeBattleResourceUnit(result.attacker),
                 makeBattleResourceUnit(result.defender),
                 input.request.mpOnHit,
                 input.request.hpOnHit,
                 input.request.mpDrain,
+                input.attackerHealModifiers,
             });
+            if (resources.heal)
+            {
+                auto attackerAfterHeal = attackerBeforeResources;
+                attackerAfterHeal.hp = resources.heal->hpAfter;
+                result.resolvedHeals.push_back({
+                    .result = *resources.heal,
+                    .sourceBefore = attackerBeforeResources,
+                    .targetBefore = attackerBeforeResources,
+                    .targetAfter = attackerAfterHeal,
+                });
+            }
             int attackerHpBefore = result.attacker.vitals.hp;
             int attackerMpBefore = result.attacker.vitals.mp;
             int defenderMpBefore = result.defender.vitals.mp;
@@ -304,26 +500,6 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             }
         }
 
-        if (canApplyStatusEffects && input.request.poisonPct > 0)
-        {
-            assert(input.defenderStatus.id == input.request.defenderUnitId);
-            auto poison = applyPoisonIfStronger({
-                result.defenderStatus,
-                input.request.attackerUnitId,
-                input.request.poisonPct,
-                input.request.poisonDurationFrames,
-            });
-            result.defenderStatus = poison.target;
-            if (poison.applied)
-            {
-                recordBattleStatusEvent(result.events,
-                                        BattleDamageStatusType::Poison,
-                                        input.request.attackerUnitId,
-                                        input.request.defenderUnitId,
-                                        poison.value);
-            }
-        }
-
         if (canApplyStatusEffects && input.request.bleedStacks > 0)
         {
             assert(input.defenderStatus.id == input.request.defenderUnitId);
@@ -343,23 +519,6 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
             }
         }
 
-        if (canApplyStatusEffects && input.request.damageReduceDebuffDurationFrames > 0)
-        {
-            assert(input.defenderStatus.id == input.request.defenderUnitId);
-            auto debuff = applyDamageReduceDebuff(result.defenderStatus,
-                                                  input.request.damageReduceDebuffDurationFrames,
-                                                  input.request.damageReduceDebuffPct);
-            result.defenderStatus = debuff.target;
-            if (debuff.applied)
-            {
-                recordBattleStatusEvent(result.events,
-                                        BattleDamageStatusType::DamageReduceDebuff,
-                                        input.request.attackerUnitId,
-                                        input.request.defenderUnitId,
-                                        debuff.value);
-            }
-        }
-
         auto applyControlFrames = [&](BattleDamageStatusType statusType, int requestedFrames)
         {
             if (!canApplyStatusEffects || requestedFrames <= 0)
@@ -367,57 +526,33 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                 return;
             }
             assert(input.defenderStatus.id == input.request.defenderUnitId);
-            int frames = requestedFrames;
-            if (!(result.defenderStatus.maxHp > 0
-                    && result.defenderStatus.hp * 100 < result.defenderStatus.maxHp * input.request.frozenLowHpImmunityPct))
+            BattleStatusApplyRequest request;
+            request.kind = BattleStatusKind::Stun;
+            request.sourceUnitId = input.request.attackerUnitId;
+            request.durationFrames = requestedFrames;
+            request.stack = EffectStackPolicy::Independent;
+            request.targetHasShield = result.defender.shield > 0;
+            request.controlLowHpImmunityPct = input.request.frozenLowHpImmunityPct;
+            auto applied = BattleStatusSystem({}).apply(result.defenderStatus, request);
+            result.defenderStatus = std::move(applied.target);
+            if (applied.applied)
             {
-                int freezeReduction = result.defenderStatus.effects.freezeReductionPct;
-                if (result.defender.shield > 0)
-                {
-                    freezeReduction += result.defenderStatus.effects.shieldFreezeResPct;
-                }
-                freezeReduction = std::clamp(freezeReduction, 0, 100);
-                frames = frames * (100 - freezeReduction) / 100;
-
-                if (result.defenderStatus.effects.controlImmunityFrames > 0)
-                {
-                    int absorbed = std::min(frames, result.defenderStatus.effects.controlImmunityFrames);
-                    result.defenderStatus.effects.controlImmunityFrames -= absorbed;
-                    frames -= absorbed;
-                }
-
-                if (frames > 0)
-                {
-                    result.defenderStatus.effects.frozenTimer += frames;
-                    result.defenderStatus.effects.frozenMaxTimer = result.defenderStatus.effects.frozenTimer;
-                    recordBattleStatusEvent(result.events,
-                                            statusType,
-                                            input.request.attackerUnitId,
-                                            input.request.defenderUnitId,
-                                            frames);
-                }
+                recordBattleStatusEvent(result.events,
+                                        statusType,
+                                        input.request.attackerUnitId,
+                                        input.request.defenderUnitId,
+                                        applied.value);
             }
         };
         applyControlFrames(BattleDamageStatusType::Hitstun, input.request.hitstunFrames);
         applyControlFrames(BattleDamageStatusType::Stun, input.request.stunFrames);
 
-        if (canApplyStatusEffects && input.request.mpBlockFrames > 0)
-        {
-            assert(input.defenderStatus.id == input.request.defenderUnitId);
-            int before = result.defenderStatus.effects.mpBlockTimer;
-            result.defenderStatus.effects.mpBlockTimer = std::max(result.defenderStatus.effects.mpBlockTimer,
-                                                                  input.request.mpBlockFrames);
-            if (result.defenderStatus.effects.mpBlockTimer > before)
-            {
-                recordBattleStatusEvent(result.events,
-                                        BattleDamageStatusType::MpBlocked,
-                                        input.request.attackerUnitId,
-                                        input.request.defenderUnitId,
-                                        result.defenderStatus.effects.mpBlockTimer - before);
-            }
-        }
     }
 
+    for (auto& event : result.events)
+    {
+        event.damageKind = result.damageKind;
+    }
     result.attackerDelta = makeBattleUnitDelta(input.attacker, result.attacker);
     result.defenderDelta = makeBattleUnitDelta(input.defender, result.defender);
     return result;
@@ -426,40 +561,41 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
 BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamageModifierInput& input) const
 {
     BattleFixed damage = input.damage;
+    int remainingDamageBasisPoints = 10'000;
 
-    if (input.usingSkill && input.attacker.skillDamagePct > 0)
+    if ((input.usingSkill || input.damageKind == BattleDamageKind::Skill)
+        && input.attacker.skillDamagePct > 0)
     {
         damage = damage.scaled(100 + input.attacker.skillDamagePct, 100);
     }
 
-    for (const auto& debuff : input.attacker.outgoingDamageReduceDebuffs)
-    {
-        if (debuff.remainingFrames > 0 && debuff.pct > 0)
-        {
-            assert(debuff.pct <= 100);
-            damage = damage.scaled(100 - debuff.pct, 100);
-        }
-    }
-
     damage += BattleFixed::fromInteger(input.attacker.flatDamageIncrease);
 
-    if (!input.ignoreDefense)
+    const bool ignoresDefense = input.ignoreDefense || input.damageKind == BattleDamageKind::Pure;
+    if (!ignoresDefense)
     {
         damage -= BattleFixed::fromInteger(input.defender.flatDamageReduction);
-        if (input.defender.damageReductionPct > 0)
-        {
-            assert(input.defender.damageReductionPct <= 100);
-            damage = damage.scaled(100 - input.defender.damageReductionPct, 100);
-        }
+    }
+    if (input.defender.damageReductionPct > 0)
+    {
+        applyDamageReduction(
+            damage,
+            input.defender.damageReductionPct,
+            remainingDamageBasisPoints);
     }
 
     if (input.defender.poisonTimer > 0 && input.attacker.poisonDamageAmpPct > 0)
     {
         damage = damage.scaled(100 + input.attacker.poisonDamageAmpPct, 100);
     }
+    if (input.defender.damageTakenIncreasePct > 0)
+    {
+        damage = damage.scaled(100 + input.defender.damageTakenIncreasePct, 100);
+    }
 
     BattleDamageModifierResult result;
     result.damage = damage;
+    result.combinedDamageReductionBasisPoints = 10'000 - remainingDamageBasisPoints;
     if (input.defender.maxHitPctMaxHp > 0 && result.damage > BattleFixed{})
     {
         int maxHit = std::max(1, input.defenderUnit.vitals.maxHp * input.defender.maxHitPctMaxHp / 100);
@@ -560,6 +696,9 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
     BattleDamageDefenseResult result;
     result.damage = input.damage;
     result.defender = input.defender;
+    result.remainingDamageBasisPoints = input.remainingDamageBasisPoints;
+    assert(result.remainingDamageBasisPoints >= (100 - FinalDamageReductionCapPct) * 100);
+    assert(result.remainingDamageBasisPoints <= 10'000);
 
     if (!input.executed && input.defenderWasInvincible)
     {
@@ -579,18 +718,47 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
         return result;
     }
 
-    if (!input.executed
-        && !input.reflected
-        && result.damage > 0
-        && (input.blockFirstHitWithoutConsuming || result.defender.blockFirstHitsRemaining > 0))
+    if (!input.executed && result.damage > 0 && input.blockByStatusLayer)
     {
         result.damage = 0;
-        if (!input.blockFirstHitWithoutConsuming)
-        {
-            result.defender.blockFirstHitsRemaining--;
-        }
-        result.blockedByFirstHit = true;
+        result.blockedByDamageLayer = true;
         return result;
+    }
+
+    if (!input.executed && result.damage > 0 && input.singleHitCap > 0)
+    {
+        result.singleHitCapConsumed = true;
+        result.singleHitCap = input.singleHitCap;
+        if (result.damage > input.singleHitCap)
+        {
+            result.damage = input.singleHitCap;
+            result.singleHitCapped = true;
+        }
+    }
+
+    std::uint64_t previousAbsorptionSequence{};
+    for (const auto& layer : input.absorptionLayers)
+    {
+        assert(layer.sequence > previousAbsorptionSequence);
+        assert(layer.absorbedPct >= 0 && layer.absorbedPct <= 100);
+        previousAbsorptionSequence = layer.sequence;
+
+        int absorbed{};
+        if (!input.executed && result.damage > 0)
+        {
+            const int requestedRemaining = result.remainingDamageBasisPoints
+                * (100 - layer.absorbedPct) / 100;
+            const int cappedRemaining = std::max(
+                (100 - FinalDamageReductionCapPct) * 100,
+                requestedRemaining);
+            absorbed = static_cast<int>(
+                static_cast<std::int64_t>(result.damage)
+                * (result.remainingDamageBasisPoints - cappedRemaining)
+                / result.remainingDamageBasisPoints);
+            result.damage -= absorbed;
+            result.remainingDamageBasisPoints = cappedRemaining;
+        }
+        result.absorptionReceipts.push_back({ layer.sequence, absorbed });
     }
 
     if (!input.reflected && result.defender.shield > 0 && result.damage > 0)
@@ -643,38 +811,6 @@ BattleDamageTakenResult BattleDamageSystem::applyDamageTaken(
             result.defender.alive = false;
             result.died = true;
         }
-    }
-
-    return result;
-}
-
-BattleKillRewardResult BattleDamageSystem::applyKillReward(const BattleKillRewardInput& input) const
-{
-    BattleKillRewardResult result;
-    result.killer = input.killer;
-    if (!result.killer.alive)
-    {
-        return result;
-    }
-
-    if (result.killer.killHealPct > 0)
-    {
-        int before = result.killer.vitals.hp;
-        result.killer.vitals.hp = std::min(result.killer.vitals.maxHp,
-            result.killer.vitals.hp + result.killer.vitals.maxHp * result.killer.killHealPct / 100);
-        result.healed = result.killer.vitals.hp - before;
-    }
-
-    if (result.killer.killInvincFrames > 0)
-    {
-        result.killer.invincible = result.killer.killInvincFrames;
-        result.invincibilityGranted = result.killer.killInvincFrames;
-    }
-
-    if (result.killer.bloodlustAttackPerKill > 0)
-    {
-        result.killer.attack += result.killer.bloodlustAttackPerKill;
-        result.attackGranted = result.killer.bloodlustAttackPerKill;
     }
 
     return result;
@@ -751,9 +887,15 @@ BattleOnHitResourceResult BattleDamageSystem::applyOnHitResources(const BattleOn
 
     if (input.hpOnHit > 0)
     {
-        int before = result.attacker.vitals.hp;
-        result.attacker.vitals.hp = std::min(result.attacker.vitals.maxHp, result.attacker.vitals.hp + input.hpOnHit);
-        result.hpHealed = result.attacker.vitals.hp - before;
+        const auto request = damageHealRequest(
+            result.attacker.id,
+            BattleHealKind::OnHit,
+            fixedHealAmount(input.hpOnHit));
+        const auto snapshot = healSnapshot(result.attacker);
+        const auto heal = resolveHeal(request, snapshot, snapshot, input.healModifiers);
+        result.heal = heal;
+        result.attacker.vitals.hp = heal.hpAfter;
+        result.hpHealed = heal.appliedAmount;
     }
 
     if (input.mpDrain > 0 && result.target.alive)
@@ -776,35 +918,6 @@ BattleOnHitResourceResult BattleDamageSystem::applyOnHitResources(const BattleOn
     return result;
 }
 
-BattleStatusApplyResult BattleDamageSystem::applyPoisonIfStronger(const BattlePoisonApplyInput& input) const
-{
-    assert(input.target.id >= 0);
-    assert(input.target.maxHp >= 0);
-    assert(input.poisonPct > 0);
-    assert(input.durationFrames > 0);
-
-    BattleStatusApplyResult result;
-    result.target = input.target;
-    if (!result.target.alive)
-    {
-        return result;
-    }
-
-    int newDamage = result.target.hp * input.poisonPct / 100;
-    int oldDamage = result.target.hp * result.target.effects.poisonTickPct / 100;
-    if (newDamage <= oldDamage)
-    {
-        return result;
-    }
-
-    result.target.effects.poisonTimer = input.durationFrames;
-    result.target.effects.poisonTickPct = input.poisonPct;
-    result.target.effects.poisonSourceId = input.sourceUnitId;
-    result.applied = true;
-    result.value = input.poisonPct;
-    return result;
-}
-
 BattleStatusApplyResult BattleDamageSystem::applyBleed(BattleStatusUnitState target,
                                                        int sourceUnitId,
                                                        int stacks,
@@ -814,80 +927,18 @@ BattleStatusApplyResult BattleDamageSystem::applyBleed(BattleStatusUnitState tar
     assert(stacks > 0);
     assert(maxStacks > 0);
 
-    BattleStatusApplyResult result;
-    result.target = target;
-    if (!result.target.alive)
-    {
-        return result;
-    }
-
-    int before = result.target.effects.bleedStacks;
-    result.target.effects.bleedStacks = std::min(result.target.effects.bleedStacks + stacks, maxStacks);
-    if (result.target.effects.bleedTimer <= 0)
-    {
-        result.target.effects.bleedTimer = 10;
-    }
-    result.target.effects.bleedSourceId = sourceUnitId;
-    result.applied = result.target.effects.bleedStacks > before;
-    result.value = result.target.effects.bleedStacks;
-    return result;
+    BattleStatusApplyRequest request;
+    request.kind = BattleStatusKind::Bleed;
+    request.sourceUnitId = sourceUnitId;
+    request.stacks = stacks;
+    request.stack = EffectStackPolicy::AddStack;
+    request.stackLimit = maxStacks;
+    return BattleStatusSystem({}).apply(std::move(target), request);
 }
 
-BattleStatusApplyResult BattleDamageSystem::applyDamageReduceDebuff(BattleStatusUnitState target,
-                                                                    int durationFrames,
-                                                                    int pct) const
+int combineBattleBlockChancePct(int baseChancePct, int liveAreaChancePct)
 {
-    assert(target.id >= 0);
-    assert(durationFrames > 0);
-    assert(pct > 0);
-
-    BattleStatusApplyResult result;
-    result.target = target;
-    if (!result.target.alive)
-    {
-        return result;
-    }
-
-    result.target.effects.damageReduceDebuffs.push_back({ durationFrames, pct });
-    result.applied = true;
-    result.value = pct;
-    return result;
-}
-
-int scaleByMissingHp(int maximumValue, const BattleUnitVitals& vitals)
-{
-    assert(maximumValue >= 0);
-    assert(vitals.maxHp > 0);
-    const int missingHp = std::clamp(vitals.maxHp - vitals.hp, 0, vitals.maxHp);
-    return maximumValue * missingHp / vitals.maxHp;
-}
-
-BattleDamageModifierState makeBattleDamageModifierState(
-    const RoleComboState* state,
-    const BattleUnitVitals* vitals)
-{
-    BattleDamageModifierState modifier;
-    if (!state)
-    {
-        return modifier;
-    }
-
-    modifier.flatDamageIncrease = state->sumAlways(EffectType::FlatDmgIncrease);
-    modifier.skillDamagePct = state->sumAlways(EffectType::SkillDmgPct);
-    modifier.poisonDamageAmpPct = state->sumAlways(EffectType::PoisonDmgAmp);
-    modifier.flatDamageReduction = state->sumAlways(EffectType::FlatDmgReduction);
-    modifier.damageReductionPct = state->sumAlways(EffectType::DmgReductionPct);
-    if (vitals)
-    {
-        modifier.flatDamageReduction += scaleByMissingHp(
-            state->maxAlways(EffectType::MissingHpFlatDmgReduction),
-            *vitals);
-        modifier.damageReductionPct += scaleByMissingHp(
-            state->maxAlways(EffectType::MissingHpDmgReductionPct),
-            *vitals);
-    }
-    modifier.maxHitPctMaxHp = state->maxAlways(EffectType::MaxHitPctCurrentHP);
-    return modifier;
+    return std::clamp(baseChancePct + liveAreaChancePct, 0, 100);
 }
 
 }  // namespace KysChess::Battle

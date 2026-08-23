@@ -658,11 +658,12 @@ RewardOptionDto rewardOptionDto(
         assert(found != content.neigong().end());
         dto.label = found->name;
         dto.description = std::format("{}階；", found->tier);
-        for (std::size_t index = 0; index < found->effects.size(); ++index)
+        bool firstEffect = true;
+        for (const auto& rule : found->rules)
         {
-            if (index > 0) dto.description += "；";
-            auto effect = comboEffectDesc(found->effects[index]);
-            dto.description += effect;
+            if (!firstEffect) dto.description += "；";
+            dto.description += effectDescription(rule, EffectDescriptionStyle::Full);
+            firstEffect = false;
         }
     }
     else if (option.kind == ChessRewardKind::Piece || option.kind == ChessRewardKind::ForcedBan)

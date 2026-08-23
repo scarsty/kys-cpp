@@ -62,6 +62,7 @@ bool loadChessNeigong(
         }
 
     // Build pool
+    std::uint64_t nextRuleId = 1;
     for (auto& [magicId, tier] : magicTier)
     {
         auto itItem = magicToItem.find(magicId);
@@ -83,12 +84,22 @@ bool loadChessNeigong(
         auto effNode = ng["效果"][std::to_string(magicId)];
         if (effNode && effNode.IsSequence())
         {
+            std::size_t effectOrdinal{};
             for (const auto& eNode : effNode)
             {
-                ComboEffect eff;
-                auto effectContext = std::format("內功「{}」效果#{}", def.name, def.effects.size() + 1);
-                if (ChessBattleEffects::parseEffect(eNode, eff, effectContext, diagnostics))
-                    def.effects.push_back(eff);
+                ++effectOrdinal;
+                auto effectContext = std::format("內功「{}」效果#{}", def.name, effectOrdinal);
+                EffectRule rule;
+                if (!ChessBattleEffects::parseEffectRule(
+                        eNode,
+                        rule,
+                        EffectRuleId{ nextRuleId++ },
+                        effectContext,
+                        diagnostics))
+                {
+                    return false;
+                }
+                def.rules.push_back(std::move(rule));
             }
         }
         pool.push_back(std::move(def));

@@ -146,7 +146,7 @@ std::shared_ptr<const ChessGameContent> enemySynergyContent(
     combo.id = 0;
     combo.name = "敵方組合";
     combo.memberRoleIds = {101, 102, 201, 202};
-    combo.thresholds.push_back({3, "成形", {{EffectType::FlatATK, 10}}});
+    combo.thresholds.push_back({3, "成形"});
     data.combos.push_back(std::move(combo));
     addPlannerMap(data);
     return std::make_shared<const ChessGameContent>(std::move(data));
@@ -285,10 +285,10 @@ TEST_CASE("configured map choice effect controls whether preparation requires a 
         state.formationSlots[1] = 2;
         state.equipmentInventory.emplace(1, ChessEquipmentInstance{1, 500, proxy.instanceId});
 
-        CHECK(chessRosterHasActiveComboEffect(
+        CHECK(chessRosterHasActiveManagementRule(
             state,
             *content,
-            EffectType::BattleMapChoice));
+            ChessNonBattleRuleKind::BattleMapChoice));
 
         ChessRunRandom random(100);
         const auto prepared = ChessBattlePlanner::prepareCampaign(state, *content, random);

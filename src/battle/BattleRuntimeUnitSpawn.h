@@ -10,10 +10,10 @@ namespace KysChess::Battle
 struct BattleRuntimeUnitSpawn
 {
     BattleRuntimeUnit unit;
-    RoleComboState combo;
-    BattleUnitMagicEffectRuntime skillEffects;
+    BattleComboRuntimeFacts comboFacts;
     BattleStatusRuntimeUnit status;
     BattleDamageRuntimeUnit damage;
+    BattleRescueUnitRuntime rescue;
     BattleMovementAgentState movement;
     std::optional<BattleActionPlanSeed> actionPlanSeed;
 
@@ -26,11 +26,9 @@ struct BattleRuntimeUnitSpawn
 };
 
 BattleStatusRuntimeUnit makeInitialStatusRuntimeUnit(
-    const BattleRuntimeUnit& unit,
-    const RoleComboState& combo);
+    const BattleRuntimeUnit& unit);
 
-BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(
-    const RoleComboState& combo);
+BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit();
 
 BattleMovementAgentState makeInitialMovementAgent(
     const BattleRuntimeUnit& unit);
@@ -39,7 +37,7 @@ void refreshRuntimeUnitSpawnDerivedState(BattleRuntimeUnitSpawn& spawn);
 
 BattleRuntimeUnitSpawn makeRuntimeUnitSpawn(
     BattleRuntimeUnit unit,
-    RoleComboState combo,
+    BattleComboRuntimeFacts comboFacts = {},
     std::optional<BattleActionPlanSeed> actionPlan = std::nullopt);
 
 void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn);

@@ -1,5 +1,6 @@
 #include "BattleRescueRepositionSystem.h"
 
+#include "BattleHealSystem.h"
 #include "BattleLogSegments.h"
 #include "../Find.h"
 
@@ -503,8 +504,23 @@ void commitProtectionResult(
 {
     result.teleport = BattleRescueTeleportDelta{ pulled.id, puller.id, { destination.x, destination.y }, destination.position };
     result.counterDelta = { puller.id, -1, 0 };
-    const int requestedHeal = std::max(1, pulled.maxHp * ProtectionHealPctMaxHp / 100);
-    result.heal = { pulled.id, std::max(0, std::min(pulled.maxHp, pulled.hp + requestedHeal) - pulled.hp) };
+    BattleHealRequest request;
+    request.sourceUnitId = puller.id;
+    request.targetUnitId = pulled.id;
+    request.source = {
+        .kind = EffectSourceKind::Combo,
+        .sourceId = -1,
+        .ownerUnitId = puller.id,
+        .sourceTeam = puller.team,
+    };
+    request.kind = BattleHealKind::Rescue;
+    request.amount = targetMaxHpHealAmount(0, ProtectionHealPctMaxHp, 1);
+    const auto heal = resolveHeal(
+        request,
+        { puller.id, puller.alive, puller.hp, puller.maxHp },
+        { pulled.id, pulled.alive, pulled.hp, pulled.maxHp },
+        pulled.healModifiers);
+    result.heal = { pulled.id, heal.appliedAmount, request };
     result.invincibility = { pulled.id, ProtectionInvincibilityFrames };
     if (result.heal.amount > 0)
     {

@@ -3,6 +3,7 @@
 #include "BattleAttackSystem.h"
 #include "BattleDamageQueue.h"
 
+#include <cassert>
 #include <utility>
 #include <vector>
 
@@ -14,6 +15,9 @@ class BattleNextFrameQueues
 public:
     void queueAttack(BattleAttackSpawnRequest request)
     {
+        assert(request.provenance.valid());
+        assert(request.castWork.valid());
+        assert(request.castWork.castId == request.provenance.cast.castId);
         attackSpawns_.push_back(std::move(request));
     }
 
@@ -54,12 +58,35 @@ public:
         }
     }
 
-    const std::vector<BattleAttackSpawnRequest>& queuedAttacksForTest() const
+    void cancelForBattleEnd(BattleCastLifecycle& lifecycle)
+    {
+        for (const auto& request : attackSpawns_)
+        {
+            assert(request.provenance.valid());
+            assert(request.castWork.valid());
+            lifecycle.completeWork(
+                request.castWork,
+                CastWorkResult::attackFinished(AttackFinishReason::BattleEnded));
+        }
+        for (const auto& intent : pendingDamage_)
+        {
+            if (intent.delayedCastWork.valid())
+            {
+                lifecycle.completeWork(intent.delayedCastWork);
+            }
+        }
+        attackSpawns_.clear();
+        pendingDamage_.clear();
+        recycledAttackSpawns_.clear();
+        recycledPendingDamage_.clear();
+    }
+
+    const std::vector<BattleAttackSpawnRequest>& queuedAttacks() const
     {
         return attackSpawns_;
     }
 
-    const std::vector<BattlePendingDamageIntent>& queuedDamageForTest() const
+    const std::vector<BattlePendingDamageIntent>& queuedDamage() const
     {
         return pendingDamage_;
     }

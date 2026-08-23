@@ -19,7 +19,7 @@ struct NeigongDef
     int itemId;
     int tier;
     std::string name;
-    std::vector<ComboEffect> effects;
+    std::vector<EffectRule> rules;
 };
 
 struct NeigongConfig

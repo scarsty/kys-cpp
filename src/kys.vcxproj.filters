@@ -449,9 +449,6 @@
     <ClInclude Include="battle\BattleRuntimeUnitSpawn.h">
       <Filter>battle</Filter>
     </ClInclude>
-    <ClInclude Include="battle\BattleEffectRuntimeRegistry.h">
-      <Filter>battle</Filter>
-    </ClInclude>
     <ClInclude Include="Font.h">
       <Filter>font</Filter>
     </ClInclude>

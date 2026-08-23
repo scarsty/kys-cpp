@@ -53,9 +53,13 @@ std::vector<int> BattleProjectileTargetingSystem::selectNearbyTargets(
         }
     }
 
-    std::stable_sort(targets.begin(), targets.end(), [&](const auto* lhs, const auto* rhs)
+    std::sort(targets.begin(), targets.end(), [&](const auto* lhs, const auto* rhs)
         {
-            return distanceSquared(center, *lhs) < distanceSquared(center, *rhs);
+            const double lhsDistance = distanceSquared(center, *lhs);
+            const double rhsDistance = distanceSquared(center, *rhs);
+            return lhsDistance != rhsDistance
+                ? lhsDistance < rhsDistance
+                : lhs->id < rhs->id;
         });
 
     std::vector<int> ids;

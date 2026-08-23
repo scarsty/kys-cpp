@@ -8,6 +8,7 @@
 
 #include <array>
 #include <memory_resource>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -170,6 +171,7 @@ struct BattleCastResult
     BattleCastDecision decision;
     int cooldownDelta = 0;
     int mpDelta = 0;
+    AttackPattern attackPattern;
     BattleCastAnimationTiming animation;
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleGameplayEvent> gameplayEvents;
@@ -178,6 +180,11 @@ struct BattleCastResult
     int postDashRetreatFrames = 0;
     std::vector<BattleVisualEvent> visualEvents;
 };
+
+BattleCastStart beginTrackedRootCastAttacks(
+    BattleCastLifecycle& lifecycle,
+    const BattleCastDecision& decision,
+    std::span<BattleAttackSpawnRequest> attackSpawnRequests);
 
 struct BattleBlinkCell
 {
@@ -214,11 +221,14 @@ struct BattleActionCommitInput
     BattleCastResult cast;
     int blinkRandomRoll = 0;
     int blinkCellRandomRoll = 0;
+    CastMobilityPolicy mobility = CastMobilityPolicy::Preserve;
+    bool blinkUseWeakestTarget{};
     double blinkReach = 0.0;
     double blinkWeakTargetDefWeight = 0.0;
     BattleBlinkGeometryInput blinkGeometry;
     int strengthenedMeleeOperationCountThreshold = 0;
     BattleAttackBouncePrime projectileBouncePrime;
+    std::optional<DelayedAlternateAttackBehavior> delayedAlternateAttack;
     int normalAttackActType = -1;
 };
 
@@ -227,6 +237,7 @@ struct BattleActionCommitResult
     int operationCount{};
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleBlinkTeleportDelta> blinkTeleports;
+    bool advanceBlinkTargetMode{};
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
 };
@@ -253,7 +264,6 @@ class BattleActionCommitSystem
 {
 public:
     BattleActionCommitResult commit(const BattleActionCommitInput& input,
-                                    RoleComboState& combo,
                                     const BattleRuntimeUnits& units) const;
 };
 

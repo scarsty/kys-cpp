@@ -2,10 +2,14 @@
 
 #include "../ChessEftIds.h"
 #include "../Find.h"
+#include "BattleAreaEffectSystem.h"
 #include "BattleCombatIntent.h"
+#include "BattleEffectAttackCastSystem.h"
+#include "BattleEffectEventBridge.h"
 #include "BattleLogSegments.h"
 #include "BattleMath.h"
 #include "BattleResourceRules.h"
+#include "BattleRuntimeEffects.h"
 
 #include <algorithm>
 #include <array>
@@ -21,6 +25,7 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <string_view>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -36,35 +41,314 @@ constexpr int CoreRoleStatusEffectFrames = 48;
 constexpr int ActionCastFrameJitterRadius = 1;
 constexpr int ActionCastFrameJitterChoices = ActionCastFrameJitterRadius * 2 + 1;
 
-BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
-    const BattleEffectSources& sources,
-    int attackerUnitId,
+struct RuntimeCastPolicies
+{
+    std::optional<ModifyCastAction> forceRanged;
+    bool dashAttack{};
+    bool blinkAttack{};
+};
+
+RuntimeCastPolicies runtimeCastPolicies(
+    std::span<const EffectExactRuntimeRuleMatch> matches)
+{
+    RuntimeCastPolicies result;
+    for (const auto& match : matches)
+    {
+        assert(match.bound);
+        const auto* bound = match.bound;
+        for (const auto& effectAction : bound->rule.actions)
+        {
+            const auto* action = std::get_if<ModifyCastAction>(&effectAction.value);
+            if (!action)
+            {
+                continue;
+            }
+            if (!result.forceRanged
+                && action->rangeMode == CastRangeMode::Ranged)
+            {
+                result.forceRanged = *action;
+            }
+            result.dashAttack = result.dashAttack
+                || action->mobility == CastMobilityPolicy::DashAttack;
+            result.blinkAttack = result.blinkAttack
+                || action->mobility == CastMobilityPolicy::BlinkAttack;
+        }
+    }
+    return result;
+}
+
+bool runtimeDashAttackEnabled(BattleRuntimeState& state, int ownerUnitId);
+
+BattleAttackBouncePrime collectRuntimeProjectileBouncePrime(
+    std::span<const EffectExactRuntimeRuleMatch> matches,
     int rollPct,
-    int defaultRange);
-int collectFrameExtraProjectileCount(
-    const BattleEffectSources& sources,
-    BattleRuntimeRandom& random,
-    int unitId,
-    int baseCount,
-    bool ultimate);
-int collectFramePostSkillInvincFrames(
-    const BattleEffectSources& sources,
-    BattleRuntimeRandom& random,
-    int unitId,
-    bool ultimate);
-bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId);
-BattleFixed resolveFrameArmorPenetratedDefense(
-    const BattleEffectSources& sources,
-    int attackerUnitId,
-    int targetUnitId,
-    BattleFixed defense,
-    bool ultimate,
-    bool mainProjectile,
-    BattleRuntimeRandom& random);
-BattleEffectSources makeBattleEffectSources(
+    int defaultRange)
+{
+    BattleAttackBouncePrime result;
+    result.rollPct = rollPct;
+    result.range = defaultRange;
+    for (const auto& match : matches)
+    {
+        assert(match.bound);
+        const auto* bound = match.bound;
+        for (const auto& effectAction : bound->rule.actions)
+        {
+            const auto* action = std::get_if<ModifyAttackAction>(&effectAction.value);
+            if (!action)
+            {
+                continue;
+            }
+            const auto* bounce = std::get_if<ProjectileBounceAttackBehavior>(
+                &action->runtimeBehavior);
+            if (!bounce)
+            {
+                continue;
+            }
+            result.count += bounce->additionalHits;
+            result.chancePct = std::min(100, result.chancePct + bounce->chancePct);
+            result.range = std::max(result.range, bounce->rangePixels);
+        }
+    }
+    return result;
+}
+
+int collectRuntimeUltimateExtraProjectileCount(
     BattleRuntimeState& state,
+    std::span<const EffectExactRuntimeRuleMatch> matches,
+    int baseCount)
+{
+    int result = baseCount;
+    for (const auto& match : matches)
+    {
+        assert(match.bound);
+        const auto* bound = match.bound;
+        for (const auto& effectAction : bound->rule.actions)
+        {
+            const auto* action = std::get_if<ModifyCastAction>(&effectAction.value);
+            if (!action || action->additionalProjectiles <= 0)
+            {
+                continue;
+            }
+            if (state.effectRules.tryActivateRuntimeRule(
+                    bound->binding,
+                    bound->rule.id,
+                    state.movement.frame,
+                    state.random))
+            {
+                result += action->additionalProjectiles;
+            }
+        }
+    }
+    return result;
+}
+
+std::optional<DelayedAlternateAttackBehavior> runtimeDelayedAlternateAttack(
+    std::span<const EffectExactRuntimeRuleMatch> matches)
+{
+    for (const auto& match : matches)
+    {
+        assert(match.bound);
+        const auto* bound = match.bound;
+        for (const auto& effectAction : bound->rule.actions)
+        {
+            const auto* action = std::get_if<ModifyAttackAction>(&effectAction.value);
+            if (!action)
+            {
+                continue;
+            }
+            if (const auto* alternate = std::get_if<DelayedAlternateAttackBehavior>(
+                    &action->runtimeBehavior))
+            {
+                return *alternate;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+struct RuntimeMainHitPolicies
+{
+    std::vector<BattleKnockbackProcDescriptor> knockbackProcs;
+    std::vector<BattleNearbyTrackingProcDescriptor> nearbyTrackingProcs;
+};
+
+RuntimeMainHitPolicies runtimeMainHitPolicies(
+    std::span<const EffectExactRuntimeRuleMatch> matches)
+{
+    RuntimeMainHitPolicies result;
+    for (const auto& match : matches)
+    {
+        assert(match.bound);
+        const auto& bound = *match.bound;
+        for (const auto& effectAction : bound.rule.actions)
+        {
+            if (const auto* movement = std::get_if<ForceMoveAction>(&effectAction.value);
+                movement && movement->distancePixels > 0)
+            {
+                result.knockbackProcs.push_back({
+                    .chancePct = bound.rule.chancePct,
+                    .action = *movement,
+                });
+                continue;
+            }
+            const auto* attack = std::get_if<ModifyAttackAction>(&effectAction.value);
+            if (!attack)
+            {
+                continue;
+            }
+            if (const auto* nearby = std::get_if<NearbyTrackingAttackBehavior>(
+                    &attack->runtimeBehavior))
+            {
+                result.nearbyTrackingProcs.push_back({
+                    .rule = { bound.binding, bound.rule.id },
+                    .chancePct = bound.rule.chancePct,
+                    .behavior = *nearby,
+                });
+            }
+        }
+    }
+    return result;
+}
+
+int areaAttributeDelta(
+    const BattleRuntimeState& state,
     int unitId,
-    BattleSkillEffectRef skillRef);
+    BattleAttribute attribute)
+{
+    const auto areaModifiers = BattleAreaEffectSystem::collectAreaUnitModifiers(
+        state.areas,
+        state.gridTransform,
+        state.units,
+        unitId,
+        state.movement.frame,
+        BattleAreaQueryPhase::UnitAttribute);
+    int delta{};
+    for (const auto& applied : areaModifiers.modifiers)
+    {
+        if (applied.modifier.attribute != attribute)
+        {
+            continue;
+        }
+        assert(applied.modifier.amount.base == EffectNumberBase::Constant);
+        assert(!applied.modifier.amount.multiplierBase);
+        assert(applied.modifier.amount.percent == 0);
+        delta += applied.modifier.amount.flat;
+    }
+    return delta;
+}
+
+int areaAdjustedSpeed(const BattleRuntimeState& state, int unitId, int baseSpeed)
+{
+    return std::max(
+        0,
+        baseSpeed * (100 + areaAttributeDelta(state, unitId, BattleAttribute::Speed)) / 100);
+}
+
+int effectAdjustedAttribute(
+    const BattleRuntimeState& state,
+    int unitId,
+    BattleAttribute attribute,
+    int baseValue,
+    int eventSourceUnitId = -1)
+{
+    return BattleEffectCommandSystem::queryAttribute(
+        state,
+        {
+            .unitId = unitId,
+            .attribute = attribute,
+            .baseValue = baseValue,
+            .frame = state.movement.frame,
+            .eventSourceUnitId = eventSourceUnitId,
+        });
+}
+
+int effectAndAreaAdjustedRateAttribute(
+    const BattleRuntimeState& state,
+    int unitId,
+    BattleAttribute attribute,
+    int baseValue)
+{
+    return effectAdjustedAttribute(state, unitId, attribute, baseValue)
+        + areaAttributeDelta(state, unitId, attribute);
+}
+
+int effectAndAreaAdjustedSpeed(
+    const BattleRuntimeState& state,
+    int unitId,
+    int baseSpeed)
+{
+    const auto status = BattleStatusSystem({}).snapshot(
+        state.units.require(unitId).statusDamageState());
+    const int statusAdjusted = std::max(
+        0,
+        effectAdjustedAttribute(state, unitId, BattleAttribute::Speed, baseSpeed)
+            * (100 + status.speedPctDelta) / 100);
+    return areaAdjustedSpeed(
+        state,
+        unitId,
+        statusAdjusted);
+}
+
+bool areaDamageChannelMatches(BattleDamageKind kind, DamageChannel channel)
+{
+    if (channel == DamageChannel::All)
+    {
+        return true;
+    }
+    switch (kind)
+    {
+    case BattleDamageKind::Physical:
+    case BattleDamageKind::Skill:
+        return channel == DamageChannel::Skill;
+    case BattleDamageKind::Poison:
+    case BattleDamageKind::Bleed:
+        return channel == DamageChannel::Dot;
+    case BattleDamageKind::Reflected:
+        return channel == DamageChannel::Reflected;
+    case BattleDamageKind::Pure:
+    case BattleDamageKind::Effect:
+    case BattleDamageKind::Execute:
+        return channel == DamageChannel::Effect;
+    }
+    assert(false);
+    return false;
+}
+
+int areaOutgoingDamagePctDelta(
+    const BattleRuntimeState& state,
+    int sourceUnitId,
+    BattleDamageKind damageKind)
+{
+    if (sourceUnitId == OptionalDamageAttackerUnitId)
+    {
+        return 0;
+    }
+    const auto modifiers = BattleAreaEffectSystem::collectAreaUnitModifiers(
+        state.areas,
+        state.gridTransform,
+        state.units,
+        sourceUnitId,
+        state.movement.frame,
+        BattleAreaQueryPhase::OutgoingDamage);
+    int delta{};
+    for (const auto& applied : modifiers.modifiers)
+    {
+        if (areaDamageChannelMatches(damageKind, applied.modifier.damageChannel))
+        {
+            delta += applied.modifier.percent;
+        }
+    }
+    return delta;
+}
+
+BattleHealModifierState statusHealModifiers(const BattleRuntimeUnitRecord& record)
+{
+    const auto status = BattleStatusSystem({}).snapshot(record.statusDamageState());
+    return {
+        .blocked = status.healingBlocked,
+        .receivedHealPcts = status.receivedHealMultipliersPct,
+    };
+}
 
 BattleVisualEvent roleEffectEvent(int targetUnitId, int effectId, int durationFrames)
 {
@@ -168,36 +452,13 @@ BattleUnitState makeBattleMovementPlanUnit(const BattleRuntimeUnit& runtimeUnit,
 
 namespace
 {
+template<class... Visitors>
+struct Overloaded : Visitors...
+{
+    using Visitors::operator()...;
+};
+
 bool isLastAliveInTeam(const BattleRuntimeUnits& units, const BattleRuntimeUnit& unit);
-void appendTeamEffectVisualEvents(
-    std::vector<BattleVisualEvent>& visualEvents,
-    const std::vector<BattleTeamEffectEvent>& events);
-void appendTeamEffectLogEvents(
-    std::vector<BattleLogEvent>& logEvents,
-    const std::vector<BattleTeamEffectEvent>& events,
-    const std::string& reason);
-struct BattleTeamEffectCommandApplication
-{
-    std::vector<BattleTeamEffectEvent> events;
-    std::vector<BattleLogEvent> logEvents;
-};
-
-BattleTeamEffectCommandApplication applyBattleTeamHealCommand(
-    BattleRuntimeState& state,
-    const BattleTeamHealCommand& command);
-
-std::vector<BattleEffectTriggerEvent> collectFrameCastScopedComboEvents(
-    const BattleEffectSources& sources,
-    BattleRuntimeRandom& random,
-    int unitId,
-    bool ultimate);
-
-struct BattleFrameCastScopedComboEffects
-{
-    int unitId{};
-    double projectileSpeed{};
-    std::vector<BattleEffectTriggerEvent> events;
-};
 
 struct BattleFrameMpRestore
 {
@@ -206,62 +467,55 @@ struct BattleFrameMpRestore
     std::string reason;
 };
 
+struct BattleFrameEffectCommandBatch
+{
+    std::vector<EffectCommand> commands;
+    BattleEffectCommandContext context;
+};
+
 class BattleFrameContext;
 
 template <typename T>
 using BattleFrameVector = std::pmr::vector<T>;
 
-void applyFrameCastScopedComboEffects(
+void appendRuntimeSpiralBleedCastEffects(
     BattleRuntimeState& state,
-    const BattleFrameCastScopedComboEffects& effects,
-    std::vector<BattleAttackSpawnRequest>& attackSpawns,
-    std::vector<BattlePendingDamageIntent>& pendingDamage,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents);
-
-void applyFrameCastScopedComboEffects(
-    BattleRuntimeState& state,
-    BattleFrameContext& frame);
+    int sourceUnitId,
+    const BattleCastSkillState& skill,
+    double projectileSpeed,
+    std::span<const BattleEffectDispatchResult> committedEffects,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns);
 
 void applyKnockbackImpulse(
     BattleRuntimeState& state,
     const BattleKnockbackCommand& knockback);
 
-struct BattleRuntimeUnitFrameCommit
-{
-    explicit BattleRuntimeUnitFrameCommit(std::pmr::memory_resource* memoryResource)
-        : comboEvents(memoryResource)
-    {
-    }
-
-    int unitId = -1;
-    BattleFrameVector<BattleComboFrameRuntimeEvent> comboEvents;
-};
-
-struct BattleSkillFinishedTeamHeal
-{
-    int sourceUnitId{};
-    int flatHeal{};
-    int pctHeal{};
-};
+std::vector<EffectUnitResourceBeforeCast> snapshotEffectResourcesBeforeCast(
+    const BattleRuntimeState& state);
+BattleEffectDispatchResult dispatchCastPlannedEffects(
+    BattleRuntimeState& state,
+    const BattleCastInput& input,
+    bool ultimate,
+    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast,
+    const BattleCastProvenance& provenance);
+void applyEffectAttackDirectives(
+    std::span<BattleAttackSpawnRequest> requests,
+    const BattleEffectAttackApplyResult& result);
 
 struct BattleRuntimeUnitsAdvanceResult
 {
-    explicit BattleRuntimeUnitsAdvanceResult(std::pmr::memory_resource* memoryResource)
-        : runtimeCommits(memoryResource)
-        , skillFinishedTeamHeals(memoryResource)
-    {
-    }
-
-    BattleFrameVector<BattleRuntimeUnitFrameCommit> runtimeCommits;
-    BattleFrameVector<BattleSkillFinishedTeamHeal> skillFinishedTeamHeals;
+    std::vector<BattleFrameEffectCommandBatch> cooldownFinishedEffects;
 };
 
 void appendAttackSpawnRequests(
     std::vector<BattleAttackSpawnRequest>& attackSpawns,
-    const std::vector<BattleAttackSpawnRequest>& requests)
+    std::vector<BattleAttackSpawnRequest>& requests)
 {
-    attackSpawns.insert(attackSpawns.end(), requests.begin(), requests.end());
+    attackSpawns.insert(
+        attackSpawns.end(),
+        std::make_move_iterator(requests.begin()),
+        std::make_move_iterator(requests.end()));
+    requests.clear();
 }
 
 bool isMpBlocked(BattleRuntimeState& state, int unitId)
@@ -271,7 +525,11 @@ bool isMpBlocked(BattleRuntimeState& state, int unitId)
 
 int mpRecoveryBonusPct(BattleRuntimeState& state, int unitId)
 {
-    return state.units.require(unitId).sumAlways(EffectType::MPRecoveryBonus);
+    return effectAdjustedAttribute(
+        state,
+        unitId,
+        BattleAttribute::MpRecoveryBonus,
+        0);
 }
 
 int adjustedRuntimeMpRestore(BattleRuntimeState& state, int unitId, int amount)
@@ -302,120 +560,6 @@ std::string formatStatusValue(const std::string& label, int value, const char* u
         return label;
     }
     return std::format("{}（{}{}）", label, value, unit);
-}
-
-long long enemyTopDebuffSortScore(const BattleRuntimeUnit& unit)
-{
-    if (unit.cost <= 0)
-    {
-        return 0;
-    }
-
-    long long score = 1;
-    for (int index = 0; index < std::max(0, unit.star); ++index)
-    {
-        score *= unit.cost;
-    }
-    return score;
-}
-
-struct OpponentTopDebuffRuntimeSummary
-{
-    int liveOwners{};
-    int topTargets{};
-    int perOwnerValue{};
-};
-
-void appendEnemyTopDebuffUpdates(BattleRuntimeState& state,
-                                 std::vector<BattleLogEvent>& logEvents)
-{
-    std::array<OpponentTopDebuffRuntimeSummary, 2> summaries;
-    for (const auto& ownerRecord : state.units.live())
-    {
-        const auto& owner = ownerRecord.core;
-        assert(owner.team == 0 || owner.team == 1);
-
-        const auto& combo = ownerRecord.combo;
-        const auto* topDebuff = combo.firstAlways(EffectType::EnemyTopDebuff);
-        if (!topDebuff || topDebuff->value <= 0)
-        {
-            continue;
-        }
-
-        auto& summary = summaries[owner.team];
-        summary.liveOwners++;
-        summary.topTargets = std::max(summary.topTargets, topDebuff->value);
-        summary.perOwnerValue = std::max(summary.perOwnerValue, topDebuff->value2);
-    }
-
-    for (int ownerTeam = 0; ownerTeam < static_cast<int>(summaries.size()); ++ownerTeam)
-    {
-        const auto& summary = summaries[ownerTeam];
-        const int targetTeam = 1 - ownerTeam;
-        std::vector<BattleRuntimeUnit*> targetOrder;
-        for (auto& unitRecord : state.units.live())
-        {
-            auto& unit = unitRecord.core;
-            if (unit.team == targetTeam)
-            {
-                targetOrder.push_back(&unit);
-            }
-        }
-
-        std::stable_sort(
-            targetOrder.begin(),
-            targetOrder.end(),
-            [](const BattleRuntimeUnit* left, const BattleRuntimeUnit* right)
-            {
-                const long long leftScore = enemyTopDebuffSortScore(*left);
-                const long long rightScore = enemyTopDebuffSortScore(*right);
-                if (leftScore != rightScore)
-                {
-                    return leftScore > rightScore;
-                }
-                return left->vitals.maxHp > right->vitals.maxHp;
-            });
-
-        int assignedTargets = 0;
-        for (auto* target : targetOrder)
-        {
-            auto& combo = state.units.require(target->id).combo;
-
-            int desired = 0;
-            if (assignedTargets < summary.topTargets && summary.liveOwners > 0 && summary.perOwnerValue > 0)
-            {
-                desired = summary.perOwnerValue * summary.liveOwners;
-                ++assignedTargets;
-            }
-
-            const int delta = combo.setEnemyTopDebuffApplied(desired);
-            if (delta == 0)
-            {
-                continue;
-            }
-
-            target->stats.attack = std::max(0, target->stats.attack - delta);
-            target->stats.defence = std::max(0, target->stats.defence - delta);
-            BattleLogEvent log;
-            log.type = BattleLogEventType::Status;
-            log.sourceUnitId = -1;
-            log.targetUnitId = target->id;
-            log.amount = -delta;
-            log.previousAmount = -(desired - delta);
-            log.newAmount = -desired;
-            log.statusId = BattleStatusSemanticId::EnemyTopDebuff;
-            log.semanticSourceTeam = ownerTeam;
-            log.semanticSourceKind = "combo";
-            log.semanticSourceName = "陰險";
-            log.segments = battleLogText(std::format(
-                "陰險：前{}名攻防{}{}（{}名存活）",
-                summary.topTargets,
-                delta > 0 ? "-" : "+",
-                std::abs(delta),
-                summary.liveOwners), BattleLogTextTone::SkillName);
-            logEvents.push_back(std::move(log));
-        }
-    }
 }
 
 BattleHitUnitSnapshot makeHitUnitSnapshot(const BattleRuntimeUnit& unit)
@@ -461,36 +605,34 @@ BattleHitSkillSnapshot makeHitSkillSnapshot(
     return skill;
 }
 
-int sharedBleedMaxStacks(BattleRuntimeState& state, const BattleAttackEvent& event)
+int sharedBleedMaxStacks(const BattleAttackEvent& event)
 {
-    if (event.scriptedBleedStacks <= 0)
-    {
-        return 1;
-    }
-    auto summary = resolveBattleBleedEffectSummary(
-        makeBattleEffectSources(state, event.sourceUnitId, event.skillEffectRef));
-    return summary.hasBleedChance ? summary.maxStacks : 1;
+    return std::max(1, event.scriptedBleedStacks);
 }
 
 int resolveHitMagicBaseDamage(
     BattleRuntimeState& state,
     const BattleAttackEvent& event,
     const BattleRuntimeUnit& attacker,
-    const BattleRuntimeUnit& defender)
+    const BattleRuntimeUnit& defender,
+    int ignoreDefensePct = 0)
 {
-    BattleFixed defence = defender.stats.defence;
-    auto attackerSources = makeBattleEffectSources(state, attacker.id, event.skillEffectRef);
-    defence = resolveFrameArmorPenetratedDefense(
-        attackerSources,
-        attacker.id,
+    assert(ignoreDefensePct >= 0);
+    BattleFixed defence = effectAdjustedAttribute(
+        state,
         defender.id,
-        defence,
-        event.ultimate,
-        event.mainProjectile,
-        state.random);
+        BattleAttribute::Defence,
+        defender.stats.defence);
+    defence = defence.scaled(
+        100 - std::min(ignoreDefensePct, 100),
+        100);
 
     return BattleDamageSystem().resolveMagicBaseDamage({
-        attacker.stats.attack,
+        effectAdjustedAttribute(
+            state,
+            attacker.id,
+            BattleAttribute::Attack,
+            attacker.stats.attack),
         event.skillMagicPower,
         defence,
         state.random.symmetricInt(10),
@@ -503,21 +645,30 @@ int resolveProjectileCancelDamage(
     const BattleAttackInstance& otherAttack,
     int currentDamage)
 {
-    if (attack.state.skillId < 0)
+    const auto& attacker = state.units.requireCore(attack.state.attackSourceUnitId);
+    int damage = currentDamage;
+    if (attack.state.skillId >= 0)
     {
-        return currentDamage;
+        const auto& defender = state.units.requireCore(otherAttack.state.attackSourceUnitId);
+        BattleAttackEvent event;
+        event.sourceUnitId = attack.state.attackSourceUnitId;
+        event.skillId = attack.state.skillId;
+        event.skillMagicPower = attack.state.skillMagicPower;
+        damage = scaleProjectileCancelDamage(
+            resolveHitMagicBaseDamage(state, event, attacker, defender),
+            attack.state.operationType);
     }
 
-    const auto& attacker = state.units.requireCore(attack.state.attackerUnitId);
-    const auto& defender = state.units.requireCore(otherAttack.state.attackerUnitId);
-
-    BattleAttackEvent event;
-    event.sourceUnitId = attack.state.attackerUnitId;
-    event.skillId = attack.state.skillId;
-    event.skillMagicPower = attack.state.skillMagicPower;
-    return scaleProjectileCancelDamage(
-        resolveHitMagicBaseDamage(state, event, attacker, defender),
-        attack.state.operationType);
+    damage = std::max(
+        0,
+        effectAdjustedAttribute(
+            state,
+            attacker.id,
+            BattleAttribute::ProjectilePressureDamage,
+            damage));
+    return BattleFixed::fromInteger(damage)
+        .scaled(attack.state.projectilePressurePct, 100)
+        .toInt();
 }
 
 BattleLogEvent dodgeStatusEvent(int defenderUnitId, int attackerUnitId)
@@ -536,7 +687,7 @@ void applyAttackContext(BattleVisualEvent& presentation, const BattleAttackState
     presentation.effectId = attackId;
     if (const auto* attack = tryFindById(world.attacks, attackId))
     {
-        presentation.sourceUnitId = attack->state.attackerUnitId;
+        presentation.sourceUnitId = attack->state.attackSourceUnitId;
         presentation.targetUnitId = attack->state.preferredTargetUnitId;
         presentation.durationFrames = attack->state.totalFrame;
         presentation.visualEffectId = attack->state.visualEffectId;
@@ -552,7 +703,7 @@ void applyAttackContext(BattleGameplayEvent& gameplay, const BattleAttackState& 
     gameplay.effectId = attackId;
     if (const auto* attack = tryFindById(world.attacks, attackId))
     {
-        gameplay.sourceUnitId = attack->state.attackerUnitId;
+        gameplay.sourceUnitId = attack->state.attackSourceUnitId;
         gameplay.position = attack->state.position;
         gameplay.skillId = attack->state.skillId;
     }
@@ -603,8 +754,8 @@ void appendVisualEvents(
         }
         else
         {
-            presentation.impactSceneShake = event.ultimate ? 10 : 0;
-            presentation.impactUnitShake = event.ultimate ? 10 : 5;
+            presentation.impactSceneShake = event.provenance.cast.ultimate ? 10 : 0;
+            presentation.impactUnitShake = event.provenance.cast.ultimate ? 10 : 5;
             presentation.impactRumble = event.operationType != BattleOperationType::None;
         }
         break;
@@ -701,7 +852,7 @@ BattleGameplayEvent toGameplayEvent(
         gameplay.targetUnitId = event.unitId;
         if (const auto* sourceAttack = tryFindById(world.attacks, event.attackId))
         {
-            gameplay.sourceUnitId = sourceAttack->state.attackerUnitId;
+            gameplay.sourceUnitId = sourceAttack->state.attackSourceUnitId;
         }
         if (const auto* spawnedAttack = tryFindById(world.attacks, event.otherAttackId))
         {
@@ -847,8 +998,8 @@ void appendProjectileCancellationLogEvents(
             const BattleAttackInstance* attack = tryFindById(world.attacks, event.attackId);
             addProjectileStopLog(
                 stopLogs,
-                attack ? attack->state.attackerUnitId : -1,
-                attack && attack->spawnedFromAttackId >= 0
+                attack ? attack->state.attackSourceUnitId : -1,
+                attack && attack->provenance.parentAttackId.has_value()
                     ? ProjectileStopLogReason::ChainTargetLost
                     : ProjectileStopLogReason::TargetLost);
             break;
@@ -889,7 +1040,7 @@ void appendProjectileCancellationLogEvents(
             const auto* attack = tryFindById(world.attacks, event.attackId);
             addProjectileStopLog(
                 stopLogs,
-                attack ? attack->state.attackerUnitId : -1,
+                attack ? attack->state.attackSourceUnitId : -1,
                 event.type == BattleAttackEventType::ChainEnded
                     ? ProjectileStopLogReason::ChainEnded
                     : ProjectileStopLogReason::ChainNoTargetInRange);
@@ -937,64 +1088,49 @@ void appendProjectileCancellationLogEvents(
     }
 }
 
-BattleRuntimeUnitsAdvanceResult advanceRuntimeUnits(
-    BattleRuntimeState& state,
-    std::pmr::memory_resource* frameMemoryResource)
+BattleRuntimeUnitsAdvanceResult advanceRuntimeUnits(BattleRuntimeState& state)
 {
-    BattleComboTriggerSystem comboSystem;
-    BattleRuntimeUnitsAdvanceResult result(frameMemoryResource);
-    result.runtimeCommits.reserve(state.units.size());
-    result.skillFinishedTeamHeals.reserve(state.units.size());
+    BattleRuntimeUnitsAdvanceResult result;
+    result.cooldownFinishedEffects.reserve(state.units.size());
     for (auto& unitRecord : state.units.live())
     {
         auto& unit = unitRecord.core;
         assert(unit.id >= 0);
-        const bool lastAlive = isLastAliveInTeam(state.units, unit);
-
-        BattleRuntimeUnitFrameCommit committed(frameMemoryResource);
-        committed.unitId = unit.id;
         auto tick = unitRecord.advanceFrameTick({
-            state.movement.frame,
-            3,
-            3,
+            .frame = state.movement.frame,
+            .mpRegenIntervalFrames = 3,
+            .physicalPowerRegenIntervalFrames = 3,
+            .mpRecoveryBonusPct = mpRecoveryBonusPct(state, unit.id),
         });
-
-        auto& combo = unitRecord.combo;
-        auto frameEvents = comboSystem.advanceFrameRuntime(
-            combo,
-            {
-                state.movement.frame,
-                unit.vitals.hp,
-                unit.vitals.maxHp,
-                unit.alive,
-                lastAlive,
-            },
-            frameMemoryResource);
-        committed.comboEvents = std::move(frameEvents);
         if (tick.skillFinished)
         {
-            const auto cooldownSkillRef = unitRecord.skillCooldownSource();
-            auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
-                makeBattleEffectSources(state, unit.id, cooldownSkillRef),
-                {
-                    BattleComboTriggerHook::AfterSkillCast,
-                    unit.id,
-                    -1,
-                    cooldownSkillRef.slot == BattleSkillSlot::Ultimate,
-                    true,
-                },
-                state.random);
-            unitRecord.clearSkillCooldownSource();
-            if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
+            if (unitRecord.isSkillCooldownUltimate())
             {
-                result.skillFinishedTeamHeals.push_back({
-                    unit.id,
-                    teamHeal.flatHeal,
-                    teamHeal.pctHeal,
+                const auto* actionPlan = unitRecord.actionPlan();
+                assert(actionPlan && actionPlan->ultimateSkill.id >= 0);
+                BattleEffectEventHeaderInput header{
+                    .frame = state.movement.frame + 1,
+                    .eventOrdinal = state.effectIntegration.nextEventOrdinal++,
+                    .ownerUnitId = unit.id,
+                };
+                auto dispatched = BattleEffectEventBridge().dispatch(
+                    state,
+                    std::move(header),
+                    EffectEvent::UltimateCooldownFinished,
+                    UltimateCooldownFinishedEventData{
+                        .magicId = actionPlan->ultimateSkill.id,
+                    });
+                result.cooldownFinishedEffects.push_back({
+                    .commands = std::move(dispatched.commands),
+                    .context = {
+                        .frame = state.movement.frame + 1,
+                        .effectPosition = unit.motion.position,
+                        .areaTargetTeamDomain = unit.team,
+                    },
                 });
             }
+            unitRecord.clearSkillCooldownSource();
         }
-        result.runtimeCommits.push_back(std::move(committed));
     }
     return result;
 }
@@ -1032,7 +1168,9 @@ void applyProjectileCancelDamageResults(
 
 BattleHitResolutionInput makeHitResolutionInput(
     BattleRuntimeState& state,
-    const BattleAttackEvent& event)
+    const BattleAttackEvent& event,
+    int ignoreDefensePct,
+    const RuntimeMainHitPolicies& runtimePolicies)
 {
     const auto& attacker = state.units.require(event.sourceUnitId);
     const auto& defender = state.units.require(event.unitId);
@@ -1041,8 +1179,74 @@ BattleHitResolutionInput makeHitResolutionInput(
     input.attackEvent = event;
     input.attacker = makeHitUnitSnapshot(attacker.core);
     input.defender = makeHitUnitSnapshot(defender.core);
-    input.sharedBleedMaxStacks = sharedBleedMaxStacks(state, event);
+    input.attacker.stats.attack = effectAdjustedAttribute(
+        state,
+        attacker.id(),
+        BattleAttribute::Attack,
+        input.attacker.stats.attack);
+    input.attacker.stats.speed = effectAndAreaAdjustedSpeed(
+        state,
+        attacker.id(),
+        input.attacker.stats.speed);
+    input.defender.stats.defence = effectAdjustedAttribute(
+        state,
+        defender.id(),
+        BattleAttribute::Defence,
+        input.defender.stats.defence);
+    input.defender.stats.speed = effectAndAreaAdjustedSpeed(
+        state,
+        defender.id(),
+        input.defender.stats.speed);
+    input.attackerCriticalChancePct = effectAndAreaAdjustedRateAttribute(
+        state,
+        attacker.id(),
+        BattleAttribute::CriticalChance,
+        0);
+    input.attackerCriticalMultiplierPct = effectAndAreaAdjustedRateAttribute(
+        state,
+        attacker.id(),
+        BattleAttribute::CriticalDamage,
+        150);
+    input.defenderProjectileReflectChancePct = effectAdjustedAttribute(
+        state,
+        defender.id(),
+        BattleAttribute::ProjectileReflectChance,
+        0,
+        attacker.id());
+    input.defenderSkillReflectPercent = effectAdjustedAttribute(
+        state,
+        defender.id(),
+        BattleAttribute::SkillReflectPercent,
+        0,
+        attacker.id());
+    input.attackerCooldownExtensionChancePct = effectAdjustedAttribute(
+        state,
+        attacker.id(),
+        BattleAttribute::OutgoingCooldownExtensionChance,
+        0,
+        defender.id());
+    input.attackerCooldownExtensionPct = effectAdjustedAttribute(
+        state,
+        attacker.id(),
+        BattleAttribute::OutgoingCooldownExtensionPercent,
+        0,
+        defender.id());
+    input.defenderCooldownExtensionChancePct = effectAdjustedAttribute(
+        state,
+        defender.id(),
+        BattleAttribute::IncomingCooldownExtensionChance,
+        0,
+        attacker.id());
+    input.defenderCooldownExtensionPct = effectAdjustedAttribute(
+        state,
+        defender.id(),
+        BattleAttribute::IncomingCooldownExtensionPercent,
+        0,
+        attacker.id());
+    input.sharedBleedMaxStacks = sharedBleedMaxStacks(event);
     input.randomDamageVariance = state.random.symmetricInt(10);
+    input.knockbackProcs = runtimePolicies.knockbackProcs;
+    input.nearbyTrackingProcs = runtimePolicies.nearbyTrackingProcs;
 
     if (event.skillId >= 0)
     {
@@ -1050,64 +1254,376 @@ BattleHitResolutionInput makeHitResolutionInput(
             event,
             attacker.core,
             defender.core,
-            resolveHitMagicBaseDamage(state, event, attacker.core, defender.core));
+            resolveHitMagicBaseDamage(
+                state,
+                event,
+                attacker.core,
+                defender.core,
+                ignoreDefensePct));
     }
-    input.attackerStatusEffects = attacker.statusEffects();
-    input.defenderStatusEffects = defender.statusEffects();
     return input;
 }
 
-BattleEffectSources makeBattleEffectSources(
-    BattleRuntimeState& state,
-    int unitId,
-    BattleSkillEffectRef skillRef = {})
+std::vector<EffectUnitResourceBeforeCast> snapshotEffectResourcesBeforeCast(
+    const BattleRuntimeState& state)
 {
-    auto& record = state.units.require(unitId);
-    BattleEffectSources sources;
-    sources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &record.combo };
-    if (skillRef.slot != BattleSkillSlot::None)
+    std::vector<EffectUnitResourceBeforeCast> result;
+    result.reserve(state.units.size());
+    for (const auto& record : state.units.all())
     {
-        assert(skillRef.unitId == unitId);
-        sources.skill = {
-            { BattleEffectSourceKind::Skill, skillRef.slot },
-            &record.skillEffects.slot(skillRef.slot).effects,
-        };
+        result.push_back({
+            .unitId = record.id(),
+            .mp = record.core.vitals.mp,
+            .maxMp = record.core.vitals.maxMp,
+        });
     }
-    return sources;
+    std::ranges::sort(result, {}, &EffectUnitResourceBeforeCast::unitId);
+    return result;
 }
 
-BattleSkillEffectRef skillEffectRefForCast(int unitId, bool ultimate)
+BattleEffectEventHeaderInput nextEffectEventHeader(
+    BattleRuntimeState& state,
+    int ownerUnitId,
+    EffectFormulaInputs formulaInputs = {})
 {
+    assert(ownerUnitId >= 0);
+    state.units.requireCore(ownerUnitId);
     return {
-        unitId,
-        ultimate ? BattleSkillSlot::Ultimate : BattleSkillSlot::Normal,
+        .frame = state.movement.frame,
+        .eventOrdinal = state.effectIntegration.nextEventOrdinal++,
+        .ownerUnitId = ownerUnitId,
+        .formulaInputs = std::move(formulaInputs),
     };
 }
 
-BattleEffectSources makeSelectedCastEffectSources(
-    BattleRuntimeState& state,
-    int unitId,
+BattleCastProvenance plannedEffectCastProvenance(
+    int sourceUnitId,
+    int magicId,
     bool ultimate)
 {
-    return makeBattleEffectSources(state, unitId, skillEffectRefForCast(unitId, ultimate));
+    return {
+        .sourceUnitId = sourceUnitId,
+        .magicId = magicId,
+        .ultimate = ultimate,
+        .origin = ultimate ? CastOriginKind::Ultimate : CastOriginKind::Normal,
+        .propagation = CastPropagationPolicy::SourceRules,
+    };
 }
 
-void markSelectedCastFinishPending(
+CastPlanEventData makeCastPlanEventData(
+    int sourceUnitId,
+    int magicId,
+    bool ultimate,
+    int preferredTargetUnitId,
+    int mpBefore,
+    int maxMp,
+    int normalCastMpDelta,
+    bool forceRanged,
+    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast,
+    const BattleCastProvenance* provenance = nullptr)
+{
+    CastPlanEventData payload;
+    payload.provenance = provenance
+        ? *provenance
+        : plannedEffectCastProvenance(sourceUnitId, magicId, ultimate);
+    payload.preferredTargetUnitId = preferredTargetUnitId;
+    payload.mpBefore = mpBefore;
+    payload.baseMpCost = ultimate
+        ? maxMp
+        : std::max(0, -normalCastMpDelta);
+    payload.baseRangeMode = forceRanged
+        ? CastRangeMode::Ranged
+        : CastRangeMode::Preserve;
+    payload.resourcesBeforeCast.assign(
+        resourcesBeforeCast.begin(),
+        resourcesBeforeCast.end());
+    return payload;
+}
+
+CastPlanEventData makeCastPlanEventData(
+    const BattleCastInput& input,
+    bool ultimate,
+    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast,
+    const BattleCastProvenance* provenance = nullptr)
+{
+    const auto& skill = ultimate ? input.ultimateSkill : input.normalSkill;
+    const auto ownerResource = std::ranges::find(
+        resourcesBeforeCast,
+        input.unit.id,
+        &EffectUnitResourceBeforeCast::unitId);
+    const int mpBefore = ownerResource != resourcesBeforeCast.end()
+        ? ownerResource->mp
+        : input.unit.mp;
+    return makeCastPlanEventData(
+        input.unit.id,
+        skill.id,
+        ultimate,
+        input.targetUnitId,
+        mpBefore,
+        input.unit.maxMp,
+        input.config.normalCastMpDelta,
+        skill.forceRanged,
+        resourcesBeforeCast,
+        provenance);
+}
+
+template<class Payload>
+std::vector<EffectExactRuntimeRuleMatch> queryExactRuntimeRules(
     BattleRuntimeState& state,
-    int unitId,
+    int ownerUnitId,
+    EffectEvent event,
+    Payload payload)
+{
+    const auto owned = BattleEffectEventBridge().makeEvent(
+        state,
+        {
+            .frame = state.movement.frame,
+            .eventOrdinal = state.effectIntegration.nextEventOrdinal,
+            .ownerUnitId = ownerUnitId,
+        },
+        event,
+        std::move(payload));
+    return BattleEffectSystem().queryExactRuntimeRules(
+        state.effectRules,
+        owned.context(),
+        state.random);
+}
+
+RuntimeCastPolicies runtimeCastPoliciesForSkill(
+    BattleRuntimeState& state,
+    const BattleRuntimeUnit& unit,
+    int magicId,
+    bool ultimate,
+    int preferredTargetUnitId = -1,
+    const BattleCastProvenance* provenance = nullptr)
+{
+    if (magicId < 0)
+    {
+        return {};
+    }
+    const auto resources = snapshotEffectResourcesBeforeCast(state);
+    auto payload = makeCastPlanEventData(
+        unit.id,
+        magicId,
+        ultimate,
+        preferredTargetUnitId,
+        unit.vitals.mp,
+        unit.vitals.maxMp,
+        state.action.castConfig.normalCastMpDelta,
+        false,
+        resources,
+        provenance);
+    return runtimeCastPolicies(queryExactRuntimeRules(
+        state,
+        unit.id,
+        EffectEvent::CastPlanned,
+        std::move(payload)));
+}
+
+bool runtimeDashAttackEnabled(BattleRuntimeState& state, int ownerUnitId)
+{
+    const auto& record = state.units.require(ownerUnitId);
+    const auto* plan = record.actionPlan();
+    if (!plan)
+    {
+        return false;
+    }
+    const bool ultimate = record.core.vitals.maxMp > 0
+        && record.core.vitals.mp >= record.core.vitals.maxMp
+        && plan->ultimateSkill.id >= 0;
+    const auto& skill = ultimate ? plan->ultimateSkill : plan->normalSkill;
+    return runtimeCastPoliciesForSkill(
+        state,
+        record.core,
+        skill.id,
+        ultimate).dashAttack;
+}
+
+BattleEffectDispatchResult dispatchCastPlannedEffects(
+    BattleRuntimeState& state,
+    const BattleCastInput& input,
+    bool ultimate,
+    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast,
+    const BattleCastProvenance& provenance)
+{
+    const auto& skill = ultimate ? input.ultimateSkill : input.normalSkill;
+    if (skill.id < 0)
+    {
+        return {};
+    }
+
+    assert(provenance.valid());
+    assert(provenance.sourceUnitId == input.unit.id);
+    assert(provenance.magicId == skill.id);
+    assert(provenance.ultimate == ultimate);
+    auto payload = makeCastPlanEventData(
+        input,
+        ultimate,
+        resourcesBeforeCast,
+        &provenance);
+    return BattleEffectEventBridge().dispatch(
+        state,
+        nextEffectEventHeader(state, input.unit.id),
+        EffectEvent::CastPlanned,
+        std::move(payload));
+}
+
+void applyEffectAttackDirectives(
+    std::span<BattleAttackSpawnRequest> requests,
+    const BattleEffectAttackApplyResult& result)
+{
+    for (const auto& damage : result.damage)
+    {
+        assert(damage.requestIndex < requests.size());
+        if (damage.damageKind)
+        {
+            requests[damage.requestIndex].initial.damageKind = *damage.damageKind;
+        }
+    }
+    for (const auto& lifecycle : result.lifecycle)
+    {
+        assert(lifecycle.requestIndex < requests.size());
+        auto& request = requests[lifecycle.requestIndex];
+        request.provenance.propagation = lifecycle.propagation;
+        request.provenance.origin = lifecycle.origin;
+        request.provenance.parentAttackId = lifecycle.parentAttackId;
+        request.provenance.rootAttack = lifecycle.rootAttack;
+    }
+}
+
+BattleCastStart beginEffectRootCast(
+    BattleCastLifecycle& lifecycle,
+    int sourceUnitId,
+    int magicId,
     bool ultimate)
 {
-    if (!ultimate)
-    {
-        return;
-    }
+    return lifecycle.beginRootCast({
+        .sourceUnitId = sourceUnitId,
+        .magicId = magicId,
+        .ultimate = ultimate,
+        .origin = ultimate ? CastOriginKind::Ultimate : CastOriginKind::Normal,
+        .propagation = CastPropagationPolicy::SourceRules,
+    });
+}
 
-    auto sources = makeSelectedCastEffectSources(state, unitId, true);
-    if (sources.skill.state)
+void cancelEffectRootCast(
+    BattleRuntimeState& state,
+    const BattleCastStart& start)
+{
+    assert(start.provenance.valid());
+    BattleEffectEventBridge().releaseCastScopedRules(
+        state,
+        start.provenance.castId);
+    state.castLifecycle.cancelPlannedCast(start, state.movement.frame);
+}
+
+void reserveEffectRootCastAttacks(
+    BattleCastLifecycle& lifecycle,
+    const BattleCastStart& start,
+    std::span<BattleAttackSpawnRequest> requests)
+{
+    assert(start.provenance.valid());
+    for (std::size_t index = 0; index < requests.size(); ++index)
     {
-        sources.skill.state->setTypePending(EffectType::OnSkillTeamHeal, true);
+        auto& request = requests[index];
+        assert(!request.provenance.valid());
+        assert(!request.castWork.valid());
+
+        BattleAttackReservationRequest reservationRequest;
+        reservationRequest.parentAttackId = request.provenance.parentAttackId;
+        reservationRequest.origin = request.provenance.origin;
+        reservationRequest.rootAttack = request.provenance.rootAttack;
+        reservationRequest.mainProjectile = request.provenance.mainProjectile;
+        reservationRequest.sharedHitGroupId = request.provenance.sharedHitGroupId;
+        reservationRequest.propagation = request.provenance.propagation;
+        const auto reservation = lifecycle.reserveAttack(
+            start.provenance.castId,
+            reservationRequest);
+        request.provenance = reservation.provenance;
+        request.castWork = reservation.work;
     }
 }
+
+std::vector<BattleEffectDispatchResult> dispatchCastCommittedEffects(
+    BattleRuntimeState& state,
+    const BattlePendingCastAction& pending,
+    const BattleCastResult& cast)
+{
+    const auto& provenance = pending.effectCast.provenance;
+    assert(provenance.valid());
+    assert(provenance.sourceUnitId == cast.decision.unitId);
+    assert(provenance.ultimate == cast.decision.ultimate);
+    CastCommitEventData payload;
+    payload.provenance = provenance;
+    payload.targetUnitId = cast.decision.targetUnitId;
+    const auto resource = std::ranges::find(
+        pending.effectResourcesBeforeCast,
+        provenance.sourceUnitId,
+        &EffectUnitResourceBeforeCast::unitId);
+    payload.mpBefore = resource != pending.effectResourcesBeforeCast.end()
+        ? resource->mp
+        : state.units.requireCore(provenance.sourceUnitId).vitals.mp;
+    payload.mpPaid = std::max(0, -cast.mpDelta);
+    payload.rangeMode = pending.effectPreparation.rangeMode.value_or(CastRangeMode::Preserve);
+    payload.attackPattern = cast.attackPattern;
+    payload.resourcesBeforeCast = pending.effectResourcesBeforeCast;
+    std::vector<BattleEffectDispatchResult> result;
+    result.push_back(BattleEffectEventBridge().dispatch(
+        state,
+        nextEffectEventHeader(state, provenance.sourceUnitId),
+        EffectEvent::AttackCommitted,
+        payload));
+    if (cast.decision.ultimate)
+    {
+        result.push_back(BattleEffectEventBridge().dispatch(
+            state,
+            nextEffectEventHeader(state, provenance.sourceUnitId),
+            EffectEvent::UltimateCommitted,
+            std::move(payload)));
+    }
+    return result;
+}
+
+struct BattleCopiedAttackDefinitionRequest
+{
+    int definitionOwnerUnitId = -1;
+    CastPropagationPolicy propagation = CastPropagationPolicy::SuppressUltimateRules;
+};
+
+std::vector<BattleCopiedAttackDefinitionRequest> collectCopiedAttackDefinitionRequests(
+    std::span<const BattleEffectDispatchResult> committedEffects)
+{
+    std::vector<BattleCopiedAttackDefinitionRequest> result;
+    for (const auto& dispatched : committedEffects)
+    {
+        for (const auto& command : dispatched.commands)
+        {
+            const auto* stateMachine = std::get_if<StateMachineEffectCommand>(&command.value);
+            if (!stateMachine)
+            {
+                continue;
+            }
+            const auto* copy = std::get_if<CopyAttackDefinitionAction>(&stateMachine->action);
+            if (!copy)
+            {
+                continue;
+            }
+            for (int unitId : stateMachine->selectedSourceUnitIds)
+            {
+                result.push_back({ unitId, copy->propagation });
+            }
+        }
+    }
+    return result;
+}
+
+void queueCopiedAttackDefinitionChildCasts(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattleCastProvenance& parent,
+    int parentTargetUnitId,
+    std::span<const BattleCopiedAttackDefinitionRequest> requests,
+    std::pmr::memory_resource* frameMemoryResource);
 
 bool tryResolveDodgeHit(
     BattleRuntimeState& state,
@@ -1116,62 +1632,64 @@ bool tryResolveDodgeHit(
     std::vector<BattleVisualEvent>& visualEvents)
 {
     const double roll = state.random.nextPercent();
-    auto& defenderCombo = state.units.require(event.unitId).combo;
-    auto dodge = BattleComboTriggerSystem().resolveDodge(defenderCombo, event.sourceUnitId, roll);
-    if (!dodge.dodged)
+    const int dodgeChancePct = std::clamp(
+        effectAdjustedAttribute(
+            state,
+            event.unitId,
+            BattleAttribute::DodgeChance,
+            0,
+            event.sourceUnitId)
+            + areaAttributeDelta(state, event.unitId, BattleAttribute::DodgeChance),
+        0,
+        100);
+    if (dodgeChancePct <= 0 || roll >= dodgeChancePct)
     {
         return false;
     }
 
-    defenderCombo.setTypePending(EffectType::DodgeThenCrit, true);
+    auto& defender = state.units.require(event.unitId);
+    const int criticalAfterDodge = effectAdjustedAttribute(
+        state,
+        event.unitId,
+        BattleAttribute::CriticalAfterDodge,
+        0,
+        event.sourceUnitId);
+    if (criticalAfterDodge > 0)
+    {
+        BattleStatusApplyRequest request;
+        request.kind = BattleStatusKind::NextAttackCritical;
+        request.sourceUnitId = event.unitId;
+        request.stack = EffectStackPolicy::Refresh;
+        request.bypassStatusShield = true;
+        auto statusConfig = state.status.config;
+        statusConfig.frame = state.movement.frame;
+        auto applied = BattleStatusSystem(statusConfig).apply(
+            defender.statusDamageState(),
+            request);
+        assert(applied.applied);
+        defender.writeStatusDamageResult(applied.target);
+    }
 
     logEvents.push_back(dodgeStatusEvent(event.unitId, event.sourceUnitId));
     visualEvents.push_back(roleEffectEvent(event.unitId, KysChess::EFT_EVADE, CoreRoleStatusEffectFrames));
     return true;
 }
 
-void resolveHitEvents(
-    BattleRuntimeState& state,
-    std::span<const BattleAttackEvent> events,
-    std::pmr::vector<BattleGameplayCommand>& commands,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+bool consumeNextAttackCritical(BattleRuntimeState& state, int attackerUnitId)
 {
-    for (const auto& event : events)
+    auto& attacker = state.units.require(attackerUnitId);
+    const auto snapshot = BattleStatusSystem({}).snapshot(attacker.statusDamageState());
+    if (!snapshot.has(BattleStatusKind::NextAttackCritical))
     {
-        if (event.type != BattleAttackEventType::Hit)
-        {
-            continue;
-        }
-
-        if (event.scriptedDamage <= 0 && tryResolveDodgeHit(state, event, logEvents, visualEvents))
-        {
-            continue;
-        }
-
-        auto input = makeHitResolutionInput(state, event);
-        auto attackerSources = makeBattleEffectSources(state, event.sourceUnitId, event.skillEffectRef);
-        auto defenderSources = makeBattleEffectSources(state, event.unitId);
-        auto result = BattleHitResolver().resolve(input, attackerSources, defenderSources, state.random);
-        auto followUps = expandBattleProjectileFollowUpCommands(
-            result.commands,
-            state.projectileFollowUps,
-            state.units);
-        result.commands = std::move(followUps.commands);
-        result.visualEvents.insert(
-            result.visualEvents.end(),
-            followUps.visualEvents.begin(),
-            followUps.visualEvents.end());
-        commands.insert(commands.end(), result.commands.begin(), result.commands.end());
-        logEvents.insert(
-            logEvents.end(),
-            result.logEvents.begin(),
-            result.logEvents.end());
-        visualEvents.insert(
-            visualEvents.end(),
-            result.visualEvents.begin(),
-            result.visualEvents.end());
+        return false;
     }
+
+    auto consumed = BattleStatusSystem({}).consume(
+        attacker.statusDamageState(),
+        { .kind = BattleStatusKind::NextAttackCritical });
+    assert(consumed.consumed);
+    attacker.writeStatusDamageResult(consumed.target);
+    return true;
 }
 
 int rescueSnapshotUnitId(const BattleFrameRescueUnitSnapshot& snapshot)
@@ -1190,14 +1708,16 @@ struct RuntimeCastSkillProfile
 };
 
 RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
-    const BattleRuntimeState& state,
+    BattleRuntimeState& state,
     const BattleRuntimeUnit& unit,
-    const BattleActionSkillSeed& seed);
+    const BattleActionSkillSeed& seed,
+    bool ultimate,
+    const RuntimeCastPolicies* precomputedPolicies = nullptr);
 
 void refreshMovementSkillProfile(
     BattleUnitState& movementUnit,
     const BattleRuntimeUnit& runtimeUnit,
-    const BattleRuntimeState& state)
+    BattleRuntimeState& state)
 {
     const auto* seed = state.units.require(runtimeUnit.id).actionPlan();
     if (!seed)
@@ -1213,14 +1733,21 @@ void refreshMovementSkillProfile(
     const bool useUltimate = runtimeUnit.vitals.maxMp > 0
         && runtimeUnit.vitals.mp >= runtimeUnit.vitals.maxMp
         && seed->ultimateSkill.id >= 0;
+    const auto& selectedSeed = useUltimate ? seed->ultimateSkill : seed->normalSkill;
+    const auto policies = runtimeCastPoliciesForSkill(
+        state,
+        runtimeUnit,
+        selectedSeed.id,
+        useUltimate);
     const auto skill = makeRuntimeCastSkillProfile(
         state,
         runtimeUnit,
-        useUltimate ? seed->ultimateSkill : seed->normalSkill);
+        selectedSeed,
+        useUltimate,
+        &policies);
     movementUnit.reach = skill.reach > 0.0 ? skill.reach : state.action.actionRules.meleeAttackReach;
     movementUnit.style = skill.rangedStyle ? CombatStyle::Ranged : CombatStyle::Melee;
-    const auto& combo = state.units.require(runtimeUnit.id).combo;
-    movementUnit.taXue = combo.hasAlways(EffectType::DashAttack);
+    movementUnit.taXue = policies.dashAttack;
 }
 
 void refreshRuntimeMovementProfiles(BattleRuntimeState& state)
@@ -1310,20 +1837,28 @@ public:
     std::vector<BattleAttackSpawnRequest>& currentFrameAttacks() { return attackSpawns_; }
     std::vector<BattlePendingDamageIntent>& currentFrameDamage() { return pendingDamage_; }
 
-    bool firstHitBlockActiveForFrame(int unitId) const
-    {
-        return firstHitBlockActiveDefenders_.contains(unitId);
-    }
-
-    void activateFirstHitBlockForFrame(int unitId)
-    {
-        assert(unitId >= 0);
-        firstHitBlockActiveDefenders_.insert(unitId);
-    }
-
     void queueCommand(BattleGameplayCommand command)
     {
         frameCommands_.push_back(std::move(command));
+    }
+
+    void queueEffectCommands(
+        std::vector<EffectCommand> commands,
+        BattleEffectCommandContext context)
+    {
+        if (commands.empty())
+        {
+            return;
+        }
+        effectCommandBatches_.push_back({
+            std::move(commands),
+            std::move(context),
+        });
+    }
+
+    std::vector<BattleFrameEffectCommandBatch> drainEffectCommandBatches()
+    {
+        return std::exchange(effectCommandBatches_, {});
     }
 
     BattleFrameVector<BattleGameplayCommand> drainCommands()
@@ -1344,6 +1879,17 @@ public:
     BattleFrameVector<BattleAreaProjectileFollowUp> drainAreaProjectileFollowUps()
     {
         return drainFrameVector(areaProjectileFollowUps_);
+    }
+
+    void queueCastCommitBarrier(CastWorkToken barrier)
+    {
+        assert(barrier.valid());
+        castCommitBarriers_.push_back(barrier);
+    }
+
+    std::vector<CastWorkToken> drainCastCommitBarriers()
+    {
+        return std::exchange(castCommitBarriers_, {});
     }
 
     BattleFrameVector<BattleFrameMpRestore> drainLateMpRestores()
@@ -1370,7 +1916,6 @@ private:
         , lateMpRestores_(&frameMemoryResource_)
         , attackSpawns_(state.nextFrame.drainAttacks())
         , pendingDamage_(state.nextFrame.drainDamage())
-        , firstHitBlockActiveDefenders_(&frameMemoryResource_)
         , frameStartMotion_(makeUnitMotionSnapshot(state.units, &frameMemoryResource_))
         , gameplayEvents(std::move(recycledPresentation.gameplayEvents))
         , logEvents(std::move(recycledPresentation.logEvents))
@@ -1378,7 +1923,6 @@ private:
         , attackSoundIds(std::move(recycledPresentation.attackSoundIds))
         , rumbles(std::move(recycledPresentation.rumbles))
         , attackEvents(&frameMemoryResource_)
-        , castScopedComboEffects(&frameMemoryResource_)
     {
         gameplayEvents.clear();
         logEvents.clear();
@@ -1401,7 +1945,8 @@ private:
     BattleFrameVector<BattleFrameMpRestore> lateMpRestores_;
     std::vector<BattleAttackSpawnRequest> attackSpawns_;
     std::vector<BattlePendingDamageIntent> pendingDamage_;
-    std::pmr::set<int> firstHitBlockActiveDefenders_;
+    std::vector<CastWorkToken> castCommitBarriers_;
+    std::vector<BattleFrameEffectCommandBatch> effectCommandBatches_;
     UnitMotionSnapshotList frameStartMotion_;
 
 public:
@@ -1413,7 +1958,6 @@ public:
     std::vector<BattleFrameRumbleEvent> rumbles;
     int blinkSoundCount{};
     BattleFrameVector<BattleAttackEvent> attackEvents;
-    BattleFrameVector<BattleFrameCastScopedComboEffects> castScopedComboEffects;
 };
 
 BattlePresentationFrame consumeBattleFrameContext(BattleFrameContext&& frame)
@@ -1486,6 +2030,9 @@ BattleMovementPlanInput makeFrameMovementPlanInput(
         const auto& runtimeUnit = record.core;
 
         BattleUnitState movementUnit = makeBattleMovementPlanUnit(runtimeUnit, BattleRuntimeMoveSpeedDivisor);
+        movementUnit.speed = static_cast<double>(
+            effectAndAreaAdjustedSpeed(state, runtimeUnit.id, runtimeUnit.stats.speed))
+            / BattleRuntimeMoveSpeedDivisor;
         const auto postPhysicsIt = std::find_if(
             physicsResults.begin(),
             physicsResults.end(),
@@ -1503,8 +2050,7 @@ BattleMovementPlanInput makeFrameMovementPlanInput(
         {
             movementUnit.speed = runtimeUnit.stats.speed;
         }
-        const auto& combo = record.combo;
-        movementUnit.taXue = combo.hasAlways(EffectType::DashAttack);
+        movementUnit.taXue = runtimeDashAttackEnabled(state, runtimeUnit.id);
         const auto& agent = record.movement;
         const auto& physics = postPhysicsIt != physicsResults.end()
             ? postPhysicsIt->state
@@ -1636,9 +2182,11 @@ double runtimeEffectiveBattleReach(
 }
 
 RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
-    const BattleRuntimeState& state,
+    BattleRuntimeState& state,
     const BattleRuntimeUnit& unit,
-    const BattleActionSkillSeed& seed)
+    const BattleActionSkillSeed& seed,
+    bool ultimate,
+    const RuntimeCastPolicies* precomputedPolicies)
 {
     RuntimeCastSkillProfile profile;
     if (seed.id < 0)
@@ -1647,19 +2195,23 @@ RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
     }
 
     constexpr int DefaultForcedRangedMinSelectDistance = 6;
-    const auto& combo = state.units.require(unit.id).combo;
-    const auto* forceRangedEffect = combo.firstAlways(EffectType::ForceRangedAttack);
-    profile.forceRanged = forceRangedEffect != nullptr;
-    const int forcedRangedMinSelectDistance = forceRangedEffect && forceRangedEffect->value2 > 0
-        ? std::max(1, forceRangedEffect->value2)
+    const auto queriedPolicies = precomputedPolicies
+        ? RuntimeCastPolicies{}
+        : runtimeCastPoliciesForSkill(state, unit, seed.id, ultimate);
+    const auto& policies = precomputedPolicies ? *precomputedPolicies : queriedPolicies;
+    profile.forceRanged = policies.forceRanged.has_value();
+    const int forcedRangedMinSelectDistance = policies.forceRanged
+            && policies.forceRanged->minimumSelectDistance > 0
+        ? std::max(1, policies.forceRanged->minimumSelectDistance)
         : DefaultForcedRangedMinSelectDistance;
     const bool forcedRangedMagic = runtimeForcedRangedMagic(seed, profile.forceRanged);
     profile.effectiveSelectDistance = runtimeEffectiveProjectileSelectDistance(
         seed,
         forcedRangedMagic,
         forcedRangedMinSelectDistance);
-    profile.projectileSpeedMultiplierPct = forceRangedEffect && forceRangedEffect->value > 0
-        ? forceRangedEffect->value
+    profile.projectileSpeedMultiplierPct = policies.forceRanged
+            && policies.forceRanged->projectileSpeedPct > 0
+        ? policies.forceRanged->projectileSpeedPct
         : 100;
     profile.reach = std::min(
         runtimeEffectiveBattleReach(
@@ -1681,10 +2233,11 @@ RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
 }
 
 BattleCastSkillState makeRuntimeCastSkillState(
-    const BattleRuntimeState& state,
+    BattleRuntimeState& state,
     const BattleRuntimeUnit& unit,
     const BattleActionSkillSeed& seed,
-    bool ultimate)
+    bool ultimate,
+    const RuntimeCastPolicies* precomputedPolicies = nullptr)
 {
     BattleCastSkillState skill;
     if (seed.id < 0)
@@ -1692,7 +2245,12 @@ BattleCastSkillState makeRuntimeCastSkillState(
         return skill;
     }
 
-    const auto profile = makeRuntimeCastSkillProfile(state, unit, seed);
+    const auto profile = makeRuntimeCastSkillProfile(
+        state,
+        unit,
+        seed,
+        ultimate,
+        precomputedPolicies);
     skill.id = seed.id;
     skill.name = seed.name;
     skill.soundId = seed.soundId;
@@ -1711,6 +2269,47 @@ BattleCastSkillState makeRuntimeCastSkillState(
     skill.rangedStyle = profile.rangedStyle;
     skill.blinkReach = profile.blinkReach;
     return skill;
+}
+
+void refreshPlannedCastExactRuntimePolicies(
+    BattleRuntimeState& state,
+    const BattleRuntimeUnit& unit,
+    const BattleActionSkillSeed& seed,
+    bool ultimate,
+    const BattleCastProvenance& provenance,
+    BattleCastInput& input)
+{
+    assert(provenance.valid());
+    assert(provenance.sourceUnitId == unit.id);
+    assert(provenance.magicId == seed.id);
+    assert(provenance.ultimate == ultimate);
+
+    const auto policies = runtimeCastPoliciesForSkill(
+        state,
+        unit,
+        seed.id,
+        ultimate,
+        input.targetUnitId,
+        &provenance);
+    auto refreshedSkill = makeRuntimeCastSkillState(
+        state,
+        unit,
+        seed,
+        ultimate,
+        &policies);
+    auto& selectedSkill = ultimate ? input.ultimateSkill : input.normalSkill;
+    refreshedSkill.extraProjectileCount = selectedSkill.extraProjectileCount;
+    selectedSkill = std::move(refreshedSkill);
+
+    input.unit.dashAttackEnabled = policies.dashAttack;
+    input.unit.blinkAttackEnabled = policies.blinkAttack;
+    input.unit.emitDashFollowUpSkillAttack = policies.dashAttack && seed.id >= 0;
+    input.unit.dashFollowUpOperationType = seed.id >= 0
+        ? (runtimeForcedRangedMagic(seed, selectedSkill.forceRanged)
+            ? BattleOperationType::RangedProjectile
+            : BattleCombatIntentPlanner().operationTypeForAttackArea(
+                selectedSkill.attackAreaType))
+        : BattleOperationType::None;
 }
 
 std::pair<int, int> rescueCellKey(int x, int y)
@@ -1734,10 +2333,11 @@ std::vector<BattleFrameRescueUnitSnapshot> makeRescueUnitSnapshots(BattleRuntime
         snapshot.unit.cell = unit.core.grid;
         snapshot.position = unit.core.motion.position;
         snapshot.unit.isSummonedClone = unit.core.cloneSourceUnitId >= 0;
-        snapshot.unit.forcePullProtect = unit.hasAlways(EffectType::ForcePullProtect);
-        snapshot.unit.forcePullExecute = unit.hasAlways(EffectType::ForcePullExecute);
+        snapshot.unit.forcePullProtect = unit.forcePullProtectRemaining() > 0;
+        snapshot.unit.forcePullExecute = unit.forcePullExecuteRemaining() > 0;
         snapshot.unit.forcePullProtectRemaining = unit.forcePullProtectRemaining();
         snapshot.unit.forcePullExecuteRemaining = unit.forcePullExecuteRemaining();
+        snapshot.unit.healModifiers = statusHealModifiers(unit);
         snapshots.push_back(std::move(snapshot));
     }
     return snapshots;
@@ -1802,7 +2402,7 @@ BattleCastInput refreshedCastInput(BattleRuntimeState& state,
     input.unit.canStartAttack = source.core.canAttack;
     input.unit.mp = source.core.vitals.mp;
     input.unit.maxMp = source.core.vitals.maxMp;
-    input.unit.speed = source.core.stats.speed;
+    input.unit.speed = effectAndAreaAdjustedSpeed(state, source.id(), source.core.stats.speed);
     input.unit.operationCount = source.core.operationCount;
     input.unit.frozen = source.frozen();
     if (input.targetUnitId < 0)
@@ -1851,16 +2451,24 @@ BattleCastInput refreshedCastInput(BattleRuntimeState& state,
     return input;
 }
 
-void refreshRuntimeCastSkillBonuses(BattleRuntimeState& state, BattleCastInput& input)
+void refreshRuntimeCastSkillBonuses(
+    BattleRuntimeState& state,
+    BattleCastInput& input,
+    const BattleCastProvenance* provenance = nullptr)
 {
     if (input.ultimateSkill.id >= 0 && input.unit.mp == input.unit.maxMp)
     {
-        input.ultimateSkill.extraProjectileCount = collectFrameExtraProjectileCount(
-            makeSelectedCastEffectSources(state, input.unit.id, true),
-            state.random,
+        const auto resources = snapshotEffectResourcesBeforeCast(state);
+        const auto matches = queryExactRuntimeRules(
+            state,
             input.unit.id,
-            0,
-            true);
+            EffectEvent::CastPlanned,
+            makeCastPlanEventData(input, true, resources, provenance));
+        input.ultimateSkill.extraProjectileCount =
+            collectRuntimeUltimateExtraProjectileCount(
+                state,
+                matches,
+                0);
     }
 }
 
@@ -1882,15 +2490,26 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     input.unit.canStartAttack = canStartAttack;
     input.unit.mp = unit.core.vitals.mp;
     input.unit.maxMp = unit.core.vitals.maxMp;
-    input.unit.speed = unit.core.stats.speed;
+    input.unit.speed = effectAndAreaAdjustedSpeed(state, unit.id(), unit.core.stats.speed);
     input.unit.operationCount = unit.core.operationCount;
     input.unit.meleeAttackReach = state.action.actionRules.meleeAttackReach;
     input.unit.dashAttackReach = state.action.actionRules.dashAttackMeleeReach;
     input.unit.hasEquippedSkill = seed.hasEquippedSkill;
     input.unit.movementDashActive = movementDashActive;
     input.unit.frozen = unit.frozen();
-    input.unit.dashAttackEnabled = unit.hasAlways(EffectType::DashAttack);
-    input.unit.blinkAttackEnabled = unit.hasAlways(EffectType::BlinkAttack);
+    const bool ultimateReady = unit.core.vitals.maxMp > 0
+        && unit.core.vitals.mp >= unit.core.vitals.maxMp;
+    const bool useUltimate = ultimateReady && seed.ultimateSkill.id >= 0;
+    const auto& selectedSeed = useUltimate
+        ? seed.ultimateSkill
+        : seed.normalSkill;
+    const auto castPolicies = runtimeCastPoliciesForSkill(
+        state,
+        unit.core,
+        selectedSeed.id,
+        useUltimate);
+    input.unit.dashAttackEnabled = castPolicies.dashAttack;
+    input.unit.blinkAttackEnabled = castPolicies.blinkAttack;
 
     input.unit.dashVelocity = unit.core.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)
@@ -1900,24 +2519,23 @@ BattleCastInput makeRuntimeCastInputFromSeed(
                 state.action.actionRules.meleeAttackHitRadius / state.action.actionRules.dashMomentumFrames));
     }
 
-    const bool ultimateReady = unit.core.vitals.maxMp > 0 && unit.core.vitals.mp >= unit.core.vitals.maxMp;
-    const bool useUltimate = ultimateReady && seed.ultimateSkill.id >= 0;
-    input.unit.cooldownReductionPct = BattleEffectReader().sumAlways(
-        makeSelectedCastEffectSources(state, unit.id(), useUltimate),
-        EffectType::CDR);
+    input.unit.cooldownReductionPct = effectAdjustedAttribute(
+        state,
+        unit.id(),
+        BattleAttribute::CooldownReduction,
+        0);
     input.normalSkill = makeRuntimeCastSkillState(
         state,
         unit.core,
         seed.normalSkill,
-        false);
+        false,
+        useUltimate ? nullptr : &castPolicies);
     input.ultimateSkill = makeRuntimeCastSkillState(
         state,
         unit.core,
         seed.ultimateSkill,
-        true);
-    const auto& selectedSeed = useUltimate
-        ? seed.ultimateSkill
-        : seed.normalSkill;
+        true,
+        useUltimate ? &castPolicies : nullptr);
     const auto& selectedSkill = useUltimate
         ? input.ultimateSkill
         : input.normalSkill;
@@ -2145,14 +2763,33 @@ const BattleCastSkillState& selectedCastSkill(const BattleCastInput& input, cons
     return cast.decision.ultimate ? input.ultimateSkill : input.normalSkill;
 }
 
+BattleCastSkillState makePendingCastSkillPlan(BattleCastSkillState skill)
+{
+    skill.id = -1;
+    return skill;
+}
+
+BattleCastSkillState materializePendingCastSkill(const BattlePendingCastAction& pending)
+{
+    assert(pending.effectCast.provenance.valid());
+    assert(pending.skillPlan.id == -1);
+    auto skill = pending.skillPlan;
+    skill.id = pending.effectCast.provenance.magicId;
+    return skill;
+}
+
 BattlePendingCastAction makePendingCastAction(const BattleCastInput& castInput,
                                               const BattleCastResult& cast,
+                                              const BattleCastStart& trackedCast,
                                               int castFrame);
 BattleActionCommitInput makeCommittedCastActionInput(BattleRuntimeState& state,
                                                      const BattleRuntimeUnit& unit,
                                                      const BattleCastInput& castInput,
                                                      const BattleCastSkillState& selectedSkill,
-                                                     const BattleCastResult& cast);
+                                                     const BattleCastResult& cast,
+                                                     const BattleCastProvenance& provenance,
+                                                     const BattleEffectCastPreparation& effectPreparation,
+                                                     std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast);
 std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(BattleRuntimeState& state,
                                                                         const BattleTickResult& movement,
                                                                         const BattlePendingCastAction& pending,
@@ -2170,29 +2807,22 @@ void populateActionCommitLiveInput(BattleRuntimeState& state,
     actionInput.sourceUnitId = unit.id;
     actionInput.committedFacing = runtimeCastFacing(state, unit, castInput);
 
-    auto& combo = state.units.require(unit.id).combo;
-    if (combo.hasAlways(EffectType::BlinkAttack))
+    if (castInput.unit.blinkAttackEnabled)
     {
         const double blinkReach = selectedSkill.blinkReach > 0.0 ? selectedSkill.blinkReach : selectedSkill.reach;
         actionInput.blinkGeometry = makeRuntimeBlinkGeometry(state, unit, blinkReach);
     }
 }
 
-void applyCastPostSkillInvincibility(
-    BattleRuntimeState& state,
-    int sourceUnitId,
-    int frames,
-    std::vector<BattleLogEvent>& logEvents);
-
 bool tryCommitAutoUltimate(
     BattleRuntimeState& state,
+    BattleFrameContext& frame,
     int unitId,
     bool consumeMp,
     bool announceAutoUltimate,
     std::pmr::memory_resource* frameMemoryResource,
     std::vector<int>& attackSoundIds,
     std::vector<BattleAttackSpawnRequest>& attackSpawns,
-    std::vector<BattlePendingDamageIntent>& pendingDamage,
     std::vector<BattleGameplayEvent>& gameplayEvents,
     std::vector<BattleLogEvent>& logEvents,
     std::vector<BattleVisualEvent>& visualEvents)
@@ -2226,12 +2856,39 @@ bool tryCommitAutoUltimate(
         return true;
     }
     castInput.unit.canStartAttack = true;
-    refreshRuntimeCastSkillBonuses(state, castInput);
+    const auto trackedCast = beginEffectRootCast(
+        state.castLifecycle,
+        unitId,
+        seed->ultimateSkill.id,
+        true);
 
-    const auto operationType =
-        BattleCombatIntentPlanner().operationTypeForAttackArea(castInput.ultimateSkill.attackAreaType);
+    auto effectResourcesBeforeCast = snapshotEffectResourcesBeforeCast(state);
+    auto plannedEffects = dispatchCastPlannedEffects(
+        state,
+        castInput,
+        true,
+        effectResourcesBeforeCast,
+        trackedCast.provenance);
+    refreshPlannedCastExactRuntimePolicies(
+        state,
+        unit,
+        seed->ultimateSkill,
+        true,
+        trackedCast.provenance,
+        castInput);
+    refreshRuntimeCastSkillBonuses(
+        state,
+        castInput,
+        &trackedCast.provenance);
+    auto effectPreparation = BattleEffectAttackCastSystem().prepareCast(
+        castInput,
+        true,
+        plannedEffects.commands);
+    const auto operationType = BattleCombatIntentPlanner().operationTypeForAttackArea(
+        castInput.ultimateSkill.attackAreaType);
     if (operationType == BattleOperationType::None)
     {
+        cancelEffectRootCast(state, trackedCast);
         return true;
     }
 
@@ -2242,6 +2899,27 @@ bool tryCommitAutoUltimate(
         true,
         operationType == BattleOperationType::Dash);
     auto cast = BattleCastPlanner().commitSelectedCast(castInput, true, operationType);
+    if (!cast.decision.canCast)
+    {
+        cancelEffectRootCast(state, trackedCast);
+        return true;
+    }
+    BattleEffectAttackApplyState effectAttackState{
+        .nextSharedHitGroupId = state.effectIntegration.nextSharedHitGroupId,
+    };
+    auto preparedAttackEffects = BattleEffectAttackCastSystem().applyPreparedCast(
+        castInput,
+        cast,
+        effectPreparation,
+        effectAttackState);
+    applyEffectAttackDirectives(cast.attackSpawnRequests, preparedAttackEffects);
+    auto plannedAttackEffects = BattleEffectAttackCastSystem().applyAttackCommands(
+        castInput,
+        cast,
+        plannedEffects.commands,
+        effectAttackState);
+    applyEffectAttackDirectives(cast.attackSpawnRequests, plannedAttackEffects);
+    state.effectIntegration.nextSharedHitGroupId = effectAttackState.nextSharedHitGroupId;
     gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
     logEvents.insert(logEvents.end(), cast.logEvents.begin(), cast.logEvents.end());
     visualEvents.insert(visualEvents.end(), cast.visualEvents.begin(), cast.visualEvents.end());
@@ -2264,16 +2942,90 @@ bool tryCommitAutoUltimate(
         unit,
         castInput,
         selectedCastSkill(castInput, true),
-        cast);
-    auto& combo = state.units.require(unitId).combo;
-    auto actionResult = BattleActionCommitSystem().commit(actionInput, combo, state.units);
-    markSelectedCastFinishPending(state, unitId, true);
-    auto castSources = makeSelectedCastEffectSources(state, unitId, true);
-    applyCastPostSkillInvincibility(
+        cast,
+        trackedCast.provenance,
+        effectPreparation,
+        effectResourcesBeforeCast);
+    if (!actionInput.hasCast)
+    {
+        cancelEffectRootCast(state, trackedCast);
+        return true;
+    }
+    auto actionResult = BattleActionCommitSystem().commit(actionInput, state.units);
+    if (actionResult.advanceBlinkTargetMode)
+    {
+        state.effectRules.advanceBlinkAttackTargetMode(unitId);
+    }
+    BattlePendingCastAction effectPending;
+    effectPending.targetUnitId = actionInput.cast.decision.targetUnitId;
+    effectPending.operationType = operationType;
+    effectPending.skillPlan = makePendingCastSkillPlan(castInput.ultimateSkill);
+    effectPending.effectCast = trackedCast;
+    effectPending.effectPreparation = effectPreparation;
+    effectPending.plannedAttackEffectCommands = plannedEffects.commands;
+    effectPending.effectResourcesBeforeCast = effectResourcesBeforeCast;
+    auto committedCast = actionInput.cast;
+    if (!consumeMp)
+    {
+        committedCast.mpDelta = 0;
+    }
+    auto committedEffects = dispatchCastCommittedEffects(
+        state,
+        effectPending,
+        committedCast);
+    const auto copiedAttackRequests = collectCopiedAttackDefinitionRequests(
+        committedEffects);
+    for (const auto& committedEffect : committedEffects)
+    {
+        auto committedAttackEffects = BattleEffectAttackCastSystem().applyAttackCommands(
+            castInput,
+            actionResult.attackSpawnRequests,
+            committedEffect.commands,
+            effectAttackState);
+        applyEffectAttackDirectives(
+            actionResult.attackSpawnRequests,
+            committedAttackEffects);
+    }
+    state.effectIntegration.nextSharedHitGroupId =
+        effectAttackState.nextSharedHitGroupId;
+    appendRuntimeSpiralBleedCastEffects(
         state,
         unitId,
-        collectFramePostSkillInvincFrames(castSources, state.random, unitId, true),
-        logEvents);
+        castInput.ultimateSkill,
+        committedCastProjectileSpeed(
+            actionResult,
+            state.projectileFollowUps.projectileSpeed),
+        committedEffects,
+        actionResult.attackSpawnRequests);
+    reserveEffectRootCastAttacks(
+        state.castLifecycle,
+        trackedCast,
+        actionResult.attackSpawnRequests);
+    state.effectIntegration.casts[trackedCast.provenance.castId] = {
+        .originalTargetUnitId = actionInput.cast.decision.targetUnitId,
+        .resourcesBeforeCast = effectResourcesBeforeCast,
+        .skill = castInput.ultimateSkill,
+        .operationType = operationType,
+    };
+    const BattleEffectCommandContext committedEffectContext{
+        .frame = state.movement.frame,
+        .cast = trackedCast.provenance,
+        .areaTargetTeamDomain = unit.team,
+    };
+    for (auto& committedEffect : committedEffects)
+    {
+        frame.queueEffectCommands(
+            std::move(committedEffect.commands),
+            committedEffectContext);
+    }
+    queueCopiedAttackDefinitionChildCasts(
+        state,
+        frame,
+        trackedCast.provenance,
+        actionInput.cast.decision.targetUnitId,
+        copiedAttackRequests,
+        frameMemoryResource);
+    frame.queueCastCommitBarrier(trackedCast.commitBarrier);
     appendAttackSpawnRequests(attackSpawns, actionResult.attackSpawnRequests);
     logEvents.insert(
         logEvents.end(),
@@ -2283,23 +3035,11 @@ bool tryCommitAutoUltimate(
         visualEvents.end(),
         actionResult.visualEvents.begin(),
         actionResult.visualEvents.end());
-    BattleFrameCastScopedComboEffects castScopedEffects{
-        unitId,
-        committedCastProjectileSpeed(actionResult, state.projectileFollowUps.projectileSpeed),
-        collectFrameCastScopedComboEvents(castSources, state.random, unitId, true),
-    };
     unit.operationCount = actionResult.operationCount;
     if (consumeMp)
     {
-        unit.vitals.mp -= unit.vitals.maxMp;
+        applyRuntimeUnitMpDelta(state, unit, actionInput.cast.mpDelta);
     }
-    applyFrameCastScopedComboEffects(
-        state,
-        castScopedEffects,
-        attackSpawns,
-        pendingDamage,
-        logEvents,
-        visualEvents);
     return true;
 }
 
@@ -2415,37 +3155,54 @@ BattleBlinkGeometryInput makeRuntimeBlinkGeometry(const BattleRuntimeState& stat
 
 BattlePendingCastAction makePendingCastAction(const BattleCastInput& castInput,
                                               const BattleCastResult& cast,
+                                              const BattleCastStart& trackedCast,
                                               int castFrame)
 {
     assert(castFrame > 0);
+    assert(trackedCast.provenance.valid());
+    assert(trackedCast.provenance.sourceUnitId == cast.decision.unitId);
+    assert(trackedCast.provenance.magicId == selectedCastSkill(castInput, cast).id);
+    assert(trackedCast.provenance.ultimate == cast.decision.ultimate);
     BattlePendingCastAction pending;
-    pending.unitId = cast.decision.unitId;
     pending.targetUnitId = cast.decision.targetUnitId;
-    pending.ultimate = cast.decision.ultimate;
     pending.operationType = cast.decision.operationType;
     pending.castFrame = castFrame;
     pending.normalAttackActType = castInput.normalSkill.magicType;
     pending.dashVelocity = castInput.unit.dashVelocity;
-    pending.skill = selectedCastSkill(castInput, cast);
+    pending.skillPlan = makePendingCastSkillPlan(selectedCastSkill(castInput, cast));
+    pending.effectCast = trackedCast;
     return pending;
 }
 
-int pendingCastCommitTargetUnitId(const BattleRuntimeUnits& units, const BattlePendingCastAction& pending)
+int castCommitTargetUnitId(
+    const BattleRuntimeUnits& units,
+    int sourceUnitId,
+    int targetUnitId)
 {
-    const auto& source = units.requireCore(pending.unitId);
+    assert(sourceUnitId >= 0);
+    const auto& source = units.requireCore(sourceUnitId);
     if (!source.alive)
     {
         return -1;
     }
 
-    assert(pending.targetUnitId >= 0);
-    const auto& target = units.requireCore(pending.targetUnitId);
+    assert(targetUnitId >= 0);
+    const auto& target = units.requireCore(targetUnitId);
     if (target.alive && target.team != source.team)
     {
         return target.id;
     }
 
-    return findNearestEnemyUnitId(units, pending.unitId);
+    return findNearestEnemyUnitId(units, sourceUnitId);
+}
+
+int pendingCastCommitTargetUnitId(const BattleRuntimeUnits& units, const BattlePendingCastAction& pending)
+{
+    assert(pending.effectCast.provenance.valid());
+    return castCommitTargetUnitId(
+        units,
+        pending.effectCast.provenance.sourceUnitId,
+        pending.targetUnitId);
 }
 
 std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
@@ -2453,7 +3210,10 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
     const BattlePendingCastAction& pending,
     std::pmr::memory_resource* frameMemoryResource)
 {
-    const auto& unit = state.units.requireCore(pending.unitId);
+    const auto& provenance = pending.effectCast.provenance;
+    assert(provenance.valid());
+    const auto& unit = state.units.requireCore(provenance.sourceUnitId);
+    const auto skill = materializePendingCastSkill(pending);
     const int targetUnitId = pendingCastCommitTargetUnitId(state.units, pending);
     if (targetUnitId < 0)
     {
@@ -2471,18 +3231,26 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
     input.unit.canStartAttack = true;
     input.unit.mp = unit.vitals.mp;
     input.unit.maxMp = unit.vitals.maxMp;
-    input.unit.speed = unit.stats.speed;
+    input.unit.speed = effectAndAreaAdjustedSpeed(state, unit.id, unit.stats.speed);
     input.unit.operationCount = unit.operationCount;
     input.unit.meleeAttackReach = state.action.actionRules.meleeAttackReach;
     input.unit.dashAttackReach = state.action.actionRules.dashAttackMeleeReach;
     input.unit.hasEquippedSkill = true;
     input.unit.movementDashActive = actionMovementDashActive(state, unit.id);
-    auto& combo = state.units.require(unit.id).combo;
-    input.unit.cooldownReductionPct = BattleEffectReader().sumAlways(
-        makeSelectedCastEffectSources(state, unit.id, pending.ultimate),
-        EffectType::CDR);
-    input.unit.dashAttackEnabled = combo.hasAlways(EffectType::DashAttack);
-    input.unit.blinkAttackEnabled = combo.hasAlways(EffectType::BlinkAttack);
+    input.unit.cooldownReductionPct = effectAdjustedAttribute(
+        state,
+        unit.id,
+        BattleAttribute::CooldownReduction,
+        0);
+    const auto castPolicies = runtimeCastPoliciesForSkill(
+        state,
+        unit,
+        provenance.magicId,
+        provenance.ultimate,
+        targetUnitId,
+        &provenance);
+    input.unit.dashAttackEnabled = castPolicies.dashAttack;
+    input.unit.blinkAttackEnabled = castPolicies.blinkAttack;
     input.unit.dashVelocity = unit.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)
     {
@@ -2492,12 +3260,12 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
                 state.action.actionRules.meleeAttackHitRadius
                 / state.action.actionRules.dashMomentumFrames));
     }
-    input.unit.emitDashFollowUpSkillAttack = input.unit.dashAttackEnabled && pending.skill.id >= 0;
-    input.unit.dashFollowUpOperationType = pending.skill.id >= 0
-        ? BattleCombatIntentPlanner().operationTypeForAttackArea(pending.skill.attackAreaType)
+    input.unit.emitDashFollowUpSkillAttack = input.unit.dashAttackEnabled && provenance.magicId >= 0;
+    input.unit.dashFollowUpOperationType = provenance.magicId >= 0
+        ? BattleCombatIntentPlanner().operationTypeForAttackArea(skill.attackAreaType)
         : BattleOperationType::None;
-    input.normalSkill = pending.skill;
-    input.ultimateSkill = pending.skill;
+    input.normalSkill = skill;
+    input.ultimateSkill = skill;
 
     input.targetUnitId = target.id;
     refreshCastTarget(input, target.id, target.motion.position);
@@ -2523,31 +3291,57 @@ BattleActionCommitInput makeCommittedCastActionInput(
     const BattleRuntimeUnit& unit,
     const BattleCastInput& castInput,
     const BattleCastSkillState& selectedSkill,
-    const BattleCastResult& cast)
+    const BattleCastResult& cast,
+    const BattleCastProvenance& provenance,
+    const BattleEffectCastPreparation& effectPreparation,
+    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast)
 {
+    CastCommitEventData payload;
+    assert(provenance.valid());
+    assert(provenance.sourceUnitId == unit.id);
+    assert(provenance.magicId == selectedSkill.id);
+    assert(provenance.ultimate == cast.decision.ultimate);
+    payload.provenance = provenance;
+    payload.targetUnitId = cast.decision.targetUnitId;
+    const auto ownerResource = std::ranges::find(
+        resourcesBeforeCast,
+        unit.id,
+        &EffectUnitResourceBeforeCast::unitId);
+    payload.mpBefore = ownerResource != resourcesBeforeCast.end()
+        ? ownerResource->mp
+        : castInput.unit.mp;
+    payload.mpPaid = std::max(0, -cast.mpDelta);
+    payload.rangeMode = effectPreparation.rangeMode.value_or(CastRangeMode::Preserve);
+    payload.attackPattern = cast.attackPattern;
+    payload.resourcesBeforeCast.assign(resourcesBeforeCast.begin(), resourcesBeforeCast.end());
+    const auto exactMatches = queryExactRuntimeRules(
+        state,
+        unit.id,
+        EffectEvent::AttackCommitted,
+        std::move(payload));
+
     BattleActionCommitInput actionInput;
     actionInput.hasCast = cast.decision.canCast;
     actionInput.cast = cast;
     actionInput.blinkRandomRoll = state.random.nextInt(std::numeric_limits<int>::max());
     actionInput.blinkCellRandomRoll = state.random.nextInt(std::numeric_limits<int>::max());
+    actionInput.mobility = castInput.unit.blinkAttackEnabled
+        ? CastMobilityPolicy::BlinkAttack
+        : CastMobilityPolicy::Preserve;
+    actionInput.blinkUseWeakestTarget =
+        state.effectRules.blinkAttackUsesWeakestTarget(unit.id);
     actionInput.blinkReach = selectedSkill.blinkReach > 0.0 ? selectedSkill.blinkReach : selectedSkill.reach;
     actionInput.blinkWeakTargetDefWeight = state.action.blinkWeakTargetDefWeight;
     actionInput.strengthenedMeleeOperationCountThreshold =
         state.action.strengthenedMeleeOperationCountThreshold;
     actionInput.normalAttackActType = castInput.normalSkill.magicType;
+    actionInput.delayedAlternateAttack = runtimeDelayedAlternateAttack(exactMatches);
     populateActionCommitLiveInput(state, unit, castInput, selectedSkill, actionInput);
 
-    auto prime = collectFrameProjectileBouncePrime(
-        makeSelectedCastEffectSources(state, unit.id, cast.decision.ultimate),
-        unit.id,
+    actionInput.projectileBouncePrime = collectRuntimeProjectileBouncePrime(
+        exactMatches,
         state.random.nextInt(100),
         state.action.projectileBounceRange);
-    actionInput.projectileBouncePrime = {
-        prime.count,
-        prime.chancePct,
-        prime.rollPct,
-        prime.range,
-    };
     return actionInput;
 }
 
@@ -2559,22 +3353,35 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
 {
     (void)movement;
 
-    const auto& unit = state.units.requireCore(pending.unitId);
-    auto castInput = tryMakeRuntimeCastInputForPendingCast(state, pending, frameMemoryResource);
+    assert(pending.effectCast.provenance.valid());
+    const auto& provenance = pending.effectCast.provenance;
+    const auto& unit = state.units.requireCore(provenance.sourceUnitId);
+    auto castInput = tryMakeRuntimeCastInputForPendingCast(
+        state,
+        pending,
+        frameMemoryResource);
     if (!castInput)
     {
         return std::nullopt;
     }
 
-    auto selectedSkill = pending.skill;
-    if (pending.ultimate)
+    auto selectedSkill = materializePendingCastSkill(pending);
+    if (provenance.ultimate)
     {
-        selectedSkill.extraProjectileCount = collectFrameExtraProjectileCount(
-            makeSelectedCastEffectSources(state, unit.id, true),
-            state.random,
+        const auto matches = queryExactRuntimeRules(
+            state,
             unit.id,
-            0,
-            true);
+            EffectEvent::CastPlanned,
+            makeCastPlanEventData(
+                *castInput,
+                true,
+                pending.effectResourcesBeforeCast,
+                &provenance));
+        selectedSkill.extraProjectileCount =
+            collectRuntimeUltimateExtraProjectileCount(
+                state,
+                matches,
+                0);
     }
     castInput->normalSkill = selectedSkill;
     castInput->ultimateSkill = selectedSkill;
@@ -2593,9 +3400,33 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
     auto cast = BattleCastPlanner().commitSelectedCast(
         *castInput,
         selectedSkill,
-        pending.ultimate,
+        provenance.ultimate,
         pending.operationType);
-    auto actionInput = makeCommittedCastActionInput(state, unit, *castInput, selectedSkill, cast);
+    BattleEffectAttackApplyState effectAttackState{
+        .nextSharedHitGroupId = state.effectIntegration.nextSharedHitGroupId,
+    };
+    auto preparedEffects = BattleEffectAttackCastSystem().applyPreparedCast(
+        *castInput,
+        cast,
+        pending.effectPreparation,
+        effectAttackState);
+    applyEffectAttackDirectives(cast.attackSpawnRequests, preparedEffects);
+    auto plannedAttackEffects = BattleEffectAttackCastSystem().applyAttackCommands(
+        *castInput,
+        cast,
+        pending.plannedAttackEffectCommands,
+        effectAttackState);
+    applyEffectAttackDirectives(cast.attackSpawnRequests, plannedAttackEffects);
+    state.effectIntegration.nextSharedHitGroupId = effectAttackState.nextSharedHitGroupId;
+    auto actionInput = makeCommittedCastActionInput(
+        state,
+        unit,
+        *castInput,
+        selectedSkill,
+        cast,
+        provenance,
+        pending.effectPreparation,
+        pending.effectResourcesBeforeCast);
     actionInput.normalAttackActType = pending.normalAttackActType;
     return actionInput;
 }
@@ -2604,8 +3435,6 @@ std::string toStatusText(const BattleDamageEvent& event)
 {
     switch (event.type)
     {
-    case BattleDamageEventType::BlockedByFirstHit:
-        return "格擋了首輪傷害";
     case BattleDamageEventType::BlockedByDualWield:
         return "互搏抵擋了本次傷害";
     default:
@@ -2628,8 +3457,6 @@ std::string toStatusText(const BattleDamageEvent& event)
         return withValue("中毒");
     case BattleDamageStatusType::Bleed:
         return withValue("流血");
-    case BattleDamageStatusType::DamageReduceDebuff:
-        return withValue("破防");
     case BattleDamageStatusType::MpBlocked:
         return withValue("封內");
     case BattleDamageStatusType::None:
@@ -2680,17 +3507,8 @@ BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
         gameplay.resourceId = BattleResourceSemanticId::Cooldown;
         gameplay.type = BattleGameplayEventType::ResourceChanged;
         break;
-    case BattleDamageEventType::KillRewardApplied:
-        gameplay.resourceId = BattleResourceSemanticId::Attack;
-        gameplay.type = BattleGameplayEventType::ResourceChanged;
-        break;
     case BattleDamageEventType::BlockedByInvincible:
         gameplay.statusId = BattleStatusSemanticId::BlockedByInvincible;
-        gameplay.type = BattleGameplayEventType::StatusApplied;
-        gameplay.text = toStatusText(event);
-        break;
-    case BattleDamageEventType::BlockedByFirstHit:
-        gameplay.statusId = BattleStatusSemanticId::BlockedByFirstHit;
         gameplay.type = BattleGameplayEventType::StatusApplied;
         gameplay.text = toStatusText(event);
         break;
@@ -2727,14 +3545,10 @@ BattleDamageUnitState makeBattleDamageUnitStateFromRuntime(
     if (runtime)
     {
         damage.hurtInvincFrames = runtime->hurtInvincFrames;
-        damage.blockFirstHitsRemaining = runtime->blockFirstHitsRemaining;
         damage.dualWieldBlocksRemaining = runtime->dualWieldBlocksRemaining;
         damage.deathPrevention = runtime->deathPrevention;
         damage.deathPreventionUsed = runtime->deathPreventionUsed;
         damage.deathPreventionFrames = runtime->deathPreventionFrames;
-        damage.killHealPct = runtime->killHealPct;
-        damage.killInvincFrames = runtime->killInvincFrames;
-        damage.bloodlustAttackPerKill = runtime->bloodlustAttackPerKill;
     }
     return damage;
 }
@@ -2742,14 +3556,10 @@ BattleDamageUnitState makeBattleDamageUnitStateFromRuntime(
 void writeBattleDamageRuntimeUnitImpl(BattleDamageRuntimeUnit& runtime, const BattleDamageUnitState& unit)
 {
     runtime.hurtInvincFrames = unit.hurtInvincFrames;
-    runtime.blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
     runtime.dualWieldBlocksRemaining = unit.dualWieldBlocksRemaining;
     runtime.deathPrevention = unit.deathPrevention;
     runtime.deathPreventionUsed = unit.deathPreventionUsed;
     runtime.deathPreventionFrames = unit.deathPreventionFrames;
-    runtime.killHealPct = unit.killHealPct;
-    runtime.killInvincFrames = unit.killInvincFrames;
-    runtime.bloodlustAttackPerKill = unit.bloodlustAttackPerKill;
 }
 
 BattleCooldownState makeBattleFrameCooldownStateImpl(const BattleRuntimeUnit& unit)
@@ -2899,7 +3709,7 @@ bool rescueUnitUnattendedByTeam(
 }
 
 BattleAttackSpawnRequest makeRescueCounterAttackSpawn(
-    const BattleRuntimeState& state,
+    BattleRuntimeState& state,
     const BattleRescueBasicCounterAttackCommand& command)
 {
     const auto& config = state.rescue.counterAttack;
@@ -2919,7 +3729,7 @@ BattleAttackSpawnRequest makeRescueCounterAttackSpawn(
     direction.normTo(1);
 
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = command.attackerUnitId;
+    request.initial.attackSourceUnitId = command.attackerUnitId;
     request.initial.skillId = config.skillId;
     request.initial.preferredTargetUnitId = command.targetUnitId;
     request.initial.requirePreferredTarget = true;
@@ -2940,6 +3750,25 @@ BattleAttackSpawnRequest makeRescueCounterAttackSpawn(
         config.minimumTotalFrames,
         battleTravelFrames2d(request.initial.position, targetUnit.motion.position, config.projectileSpeed)
             + config.totalFramePadding);
+
+    const auto cast = state.castLifecycle.beginRootCast({
+        .sourceUnitId = command.attackerUnitId,
+        .magicId = config.skillId,
+        .ultimate = false,
+        .origin = CastOriginKind::RescueCounter,
+        .propagation = CastPropagationPolicy::NoEffectRules,
+    });
+    const auto attack = state.castLifecycle.reserveAttack(
+        cast.provenance.castId,
+        {
+            .origin = BattleAttackOriginKind::Scripted,
+            .rootAttack = true,
+            .mainProjectile = false,
+            .propagation = CastPropagationPolicy::NoEffectRules,
+        });
+    request.provenance = attack.provenance;
+    request.castWork = attack.work;
+    state.castLifecycle.completeWork(cast.commitBarrier);
     return request;
 }
 
@@ -2960,14 +3789,19 @@ void commitRescueResultToRuntime(
         state.units.require(result.counterDelta.unitId).applyRescueCounterDelta(result.counterDelta);
     }
 
-    if (result.heal.amount > 0)
+    int appliedHeal{};
+    if (result.heal.request)
     {
         assert(result.heal.targetUnitId == pulled.id);
-        pulled.vitals.hp = std::min(pulled.vitals.maxHp, pulled.vitals.hp + result.heal.amount);
-        visualEvents.push_back(roleEffectEvent(
-            pulled.id,
-            KysChess::EFT_HEAL,
-            CoreRoleStatusEffectFrames));
+        auto heal = BattleHealSystem().commit(state, *result.heal.request);
+        appliedHeal = heal.appliedAmount;
+        if (appliedHeal > 0)
+        {
+            visualEvents.push_back(roleEffectEvent(
+                pulled.id,
+                KysChess::EFT_HEAL,
+                CoreRoleStatusEffectFrames));
+        }
     }
     if (result.invincibility.frames > 0)
     {
@@ -2984,10 +3818,18 @@ void commitRescueResultToRuntime(
         visualEvents.end(),
         result.visualEvents.begin(),
         result.visualEvents.end());
-    logEvents.insert(
-        logEvents.end(),
-        result.logEvents.begin(),
-        result.logEvents.end());
+    for (auto log : result.logEvents)
+    {
+        if (log.type == BattleLogEventType::Heal)
+        {
+            if (appliedHeal <= 0)
+            {
+                continue;
+            }
+            log.amount = appliedHeal;
+        }
+        logEvents.push_back(std::move(log));
+    }
 }
 
 bool tryApplyRescue(
@@ -3037,14 +3879,12 @@ bool rescuePullerAvailable(
 
         if (mode == BattleRescuePullMode::Execute)
         {
-            if (record.hasAlways(EffectType::ForcePullExecute)
-                && record.forcePullExecuteRemaining() > 0)
+            if (record.forcePullExecuteRemaining() > 0)
             {
                 return true;
             }
         }
-        else if (record.hasAlways(EffectType::ForcePullProtect)
-            && record.forcePullProtectRemaining() > 0)
+        else if (record.forcePullProtectRemaining() > 0)
         {
             return true;
         }
@@ -3125,9 +3965,11 @@ void appendFramePendingDamage(
     std::vector<BattlePendingDamageIntent>& pendingDamage,
     BattleDamageRequest request,
     std::optional<BattleDamagePresentationInput> presentation = std::nullopt,
-    bool canTriggerExecute = false,
+    int executeThresholdPct = 0,
     bool canTriggerDefenderBlock = false,
-    BattleSkillEffectRef skillEffectRef = {})
+    BattleAttackProvenance provenance = {},
+    std::optional<EffectDamageOrigin> effectOrigin = std::nullopt,
+    CastWorkToken delayedCastWork = {})
 {
     assert(request.defenderUnitId >= 0);
 
@@ -3143,9 +3985,22 @@ void appendFramePendingDamage(
     {
         intent.presentation = std::move(*presentation);
     }
-    intent.canTriggerExecute = canTriggerExecute;
+    intent.executeThresholdPct = executeThresholdPct;
     intent.canTriggerDefenderBlock = canTriggerDefenderBlock;
-    intent.skillEffectRef = skillEffectRef;
+    intent.provenance = std::move(provenance);
+    intent.delayedCastWork = delayedCastWork;
+    if (intent.delayedCastWork.valid())
+    {
+        assert(!intent.provenance.valid());
+    }
+    if (effectOrigin)
+    {
+        intent.effectOrigin = std::move(*effectOrigin);
+    }
+    else if (intent.provenance.valid())
+    {
+        intent.effectOrigin = EffectAttackDamageOrigin{ intent.provenance };
+    }
     pendingDamage.push_back(std::move(intent));
 }
 
@@ -3210,7 +4065,8 @@ BattleDamagePresentationInput makeFrameDamagePresentation(
     BattleDamagePresentationInput presentation;
     presentation.critical = command.critical;
     presentation.criticalMultiplier = command.criticalMultiplier;
-    presentation.ultimate = command.ultimate;
+    presentation.ultimate = command.provenance.valid()
+        && command.provenance.cast.ultimate;
     presentation.skillName = command.skillName;
     presentation.skillId = command.skillId;
     presentation.segments = command.segments;
@@ -3227,7 +4083,10 @@ bool tryAppendFrameDamageTransaction(
     request.attackerUnitId = command.sourceUnitId;
     request.defenderUnitId = command.targetUnitId;
     request.baseDamage = command.damage;
+    request.damageKind = command.damageKind;
     request.preResolvedDamage = true;
+    request.preResolvedDamageReductionBasisPoints =
+        command.combinedDamageReductionBasisPoints;
     request.hitstunFrames = command.frozenFrames;
     request.triggersDefenseEffects = command.triggersDefenseEffects;
 
@@ -3236,9 +4095,9 @@ bool tryAppendFrameDamageTransaction(
         pendingDamage,
         std::move(request),
         makeFrameDamagePresentation(state, command),
-        command.canTriggerExecute,
+        command.executeThresholdPct,
         command.canTriggerDefenderBlock,
-        command.skillEffectRef);
+        command.provenance);
     return true;
 }
 
@@ -3257,7 +4116,8 @@ bool tryAppendFrameDamageTransaction(
         std::move(request),
         std::nullopt,
         false,
-        command.canTriggerDefenderBlock);
+        command.canTriggerDefenderBlock,
+        command.provenance);
     return true;
 }
 
@@ -3271,7 +4131,14 @@ bool tryAppendFrameDamageTransaction(
     request.defenderUnitId = command.targetUnitId;
     request.acceptedHit = true;
 
-    appendFramePendingDamage(state, pendingDamage, std::move(request));
+    appendFramePendingDamage(
+        state,
+        pendingDamage,
+        std::move(request),
+        std::nullopt,
+        false,
+        false,
+        command.provenance);
     return true;
 }
 
@@ -3313,33 +4180,94 @@ void appendHealEventLog(
     logEvents.push_back(std::move(event));
 }
 
-bool applyFrameTeamEffectCommand(
-    BattleRuntimeState& state,
-    const BattleTeamHealCommand& command,
+void appendPoisonEffectLogEvents(
     std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+    const EffectCommandMetadata& metadata,
+    const ApplyStatusEffectCommand& command,
+    const BattleStatusApplyEffectResult& result)
 {
-    if (state.units.empty())
+    if (command.action.status != BattleStatusKind::Poison)
     {
-        return false;
+        return;
     }
 
-    const int sourceUnitId = command.sourceUnitId;
-    assert(sourceUnitId >= 0);
+    BattleLogEvent payload;
+    payload.type = BattleLogEventType::Status;
+    payload.sourceUnitId = metadata.binding.ownerUnitId;
+    payload.targetUnitId = metadata.targetUnitId;
+    payload.amount = command.potency;
+    payload.secondaryAmount = command.action.stacks;
+    payload.statusId = BattleStatusSemanticId::PoisonPayload;
+    payload.segments = battleLogText(
+        std::format("中毒負載{}%（預定{}次）", command.potency, command.action.stacks),
+        BattleLogTextTone::Negative);
+    logEvents.push_back(std::move(payload));
 
-    const auto& source = state.units.requireCore(sourceUnitId);
-    if (!source.alive)
+    if (!result.status.applied)
     {
-        return true;
+        return;
     }
 
-    auto application = applyBattleTeamHealCommand(state, command);
-    logEvents.insert(
-        logEvents.end(),
-        application.logEvents.begin(),
-        application.logEvents.end());
-    appendTeamEffectVisualEvents(visualEvents, application.events);
-    return true;
+    BattleLogEvent applied;
+    applied.type = BattleLogEventType::Status;
+    applied.sourceUnitId = metadata.binding.ownerUnitId;
+    applied.targetUnitId = metadata.targetUnitId;
+    applied.amount = command.potency;
+    applied.statusId = BattleStatusSemanticId::Poison;
+    applied.segments = battleLogText(
+        std::format("中毒{}%", command.potency),
+        BattleLogTextTone::Negative);
+    logEvents.push_back(std::move(applied));
+}
+
+void appendMpResourceEffectLogEvents(
+    std::vector<BattleLogEvent>& logEvents,
+    const EffectCommandMetadata& metadata,
+    const ChangeResourceEffectCommand& command,
+    const BattleResourceEffectResult& result)
+{
+    if (command.action.resource != BattleResource::Mp
+        || (command.action.kind != ResourceChangeKind::Drain
+            && command.action.kind != ResourceChangeKind::Transfer))
+    {
+        return;
+    }
+
+    int removed{};
+    for (const auto& delta : result.deltas)
+    {
+        if (delta.unitId == metadata.targetUnitId && delta.after < delta.before)
+        {
+            removed += delta.before - delta.after;
+        }
+    }
+    if (removed > 0)
+    {
+        appendStatusEventLog(
+            logEvents,
+            metadata.binding.ownerUnitId,
+            metadata.targetUnitId,
+            command.action.kind == ResourceChangeKind::Drain ? "吸取內力" : "轉移內力",
+            BattleStatusSemanticId::MagicPointsDrained,
+            BattleResourceSemanticId::MagicPoints,
+            removed);
+    }
+
+    for (const auto& delta : result.deltas)
+    {
+        const int restored = delta.after - delta.before;
+        if (restored <= 0)
+        {
+            continue;
+        }
+        appendHealEventLog(
+            logEvents,
+            metadata.binding.ownerUnitId,
+            delta.unitId,
+            restored,
+            command.action.kind == ResourceChangeKind::Drain ? "吸取內力" : "轉移內力",
+            BattleResourceSemanticId::MagicPoints);
+    }
 }
 
 bool applyFrameMpRestore(
@@ -3359,35 +4287,6 @@ bool applyFrameMpRestore(
 
     unit.vitals.mp += restored;
     appendStatusEventLog(logEvents, unitId, unitId, reason);
-    return true;
-}
-
-bool applyFrameTempAttackBuffCommand(
-    BattleRuntimeState& state,
-    const BattleTempAttackBuffCommand& command,
-    std::vector<BattleLogEvent>& logEvents)
-{
-    auto& unit = state.units.requireCore(command.unitId);
-
-    unit.stats.attack += command.attackBonus;
-    unit.stats.defence += command.defenceBonus;
-    if (!command.permanent)
-    {
-        if (command.attackBonus != 0 && command.durationFrames > 0)
-        {
-            state.units.require(command.unitId).addTempAttackBuff(command.attackBonus, command.durationFrames);
-        }
-    }
-    if (!command.reason.empty())
-    {
-        appendStatusEventLog(
-            logEvents,
-            command.unitId,
-            command.unitId,
-            command.permanent
-                ? std::format("{}（攻防+{}）", command.reason, command.attackBonus)
-                : command.reason);
-    }
     return true;
 }
 
@@ -3433,9 +4332,55 @@ BattleCommandSinks afterDamageLifecycleSinks(BattleRuntimeState& state, BattleFr
     };
 }
 
+CastPropagationPolicy derivedAttackPropagation(
+    const BattleAttackProvenance& sourceAttack)
+{
+    assert(sourceAttack.valid());
+    return sourceAttack.propagation == CastPropagationPolicy::SourceRules
+        ? CastPropagationPolicy::SourceHitRulesOnly
+        : sourceAttack.propagation;
+}
+
+void reserveTrackedProjectileFollowUps(
+    BattleRuntimeState& state,
+    BattleProjectileFollowUpExpansion& expansion)
+{
+    for (auto& command : expansion.commands)
+    {
+        auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&command);
+        if (!projectile)
+        {
+            continue;
+        }
+        auto& request = projectile->request;
+        if (request.provenance.valid())
+        {
+            assert(request.castWork.valid());
+            continue;
+        }
+        assert(!request.castWork.valid());
+        assert(projectile->sourceAttack);
+        const auto& sourceAttack = *projectile->sourceAttack;
+        assert(sourceAttack.valid());
+        const auto reservation = state.castLifecycle.reserveAttack(
+            sourceAttack.cast.castId,
+            {
+                .parentAttackId = sourceAttack.attackId,
+                .origin = BattleAttackOriginKind::FollowUp,
+                .rootAttack = false,
+                .mainProjectile = false,
+                .sharedHitGroupId = sourceAttack.sharedHitGroupId,
+                .propagation = derivedAttackPropagation(sourceAttack),
+            });
+        request.provenance = reservation.provenance;
+        request.castWork = reservation.work;
+    }
+}
+
 bool reduceFrameGameplayCommand(
     BattleRuntimeState& state,
-    const BattleGameplayCommand& command,
+    BattleFrameContext& frame,
+    BattleGameplayCommand& command,
     std::vector<int>& attackSoundIds,
     std::vector<BattleFrameRumbleEvent>& rumbles,
     BattleFrameVector<BattleGameplayCommand>& pending,
@@ -3453,13 +4398,11 @@ bool reduceFrameGameplayCommand(
     {
         return tryAppendFrameDamageTransaction(state, sinks.pendingDamage, *sideEffect);
     }
-    if (const auto* teamHeal = std::get_if<BattleTeamHealCommand>(&command))
+    if (auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&command))
     {
-        return applyFrameTeamEffectCommand(state, *teamHeal, sinks.logEvents, sinks.visualEvents);
-    }
-    if (const auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&command))
-    {
-        sinks.attackSpawns.push_back(projectile->request);
+        assert(projectile->request.provenance.valid());
+        assert(projectile->request.castWork.valid());
+        sinks.attackSpawns.push_back(std::move(projectile->request));
         return true;
     }
     if (std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command))
@@ -3468,6 +4411,7 @@ bool reduceFrameGameplayCommand(
             std::span(&command, 1),
             state.projectileFollowUps,
             state.units);
+        reserveTrackedProjectileFollowUps(state, followUps);
         pending.insert(
             pending.end(),
             std::make_move_iterator(followUps.commands.begin()),
@@ -3482,13 +4426,13 @@ bool reduceFrameGameplayCommand(
     {
         return tryCommitAutoUltimate(
             state,
+            frame,
             autoUltimate->unitId,
             autoUltimate->consumeMp,
             autoUltimate->announce,
             pending.get_allocator().resource(),
             attackSoundIds,
             sinks.attackSpawns,
-            sinks.pendingDamage,
             sinks.gameplayEvents,
             sinks.logEvents,
             sinks.visualEvents);
@@ -3497,10 +4441,6 @@ bool reduceFrameGameplayCommand(
     {
         applyKnockbackImpulse(state, *knockback);
         return true;
-    }
-    if (const auto* tempAttack = std::get_if<BattleTempAttackBuffCommand>(&command))
-    {
-        return applyFrameTempAttackBuffCommand(state, *tempAttack, sinks.logEvents);
     }
     if (const auto* rumble = std::get_if<BattleRumbleCommand>(&command))
     {
@@ -3517,6 +4457,7 @@ bool reduceFrameGameplayCommand(
 
 void reduceFrameGameplayCommandsImpl(
     BattleRuntimeState& state,
+    BattleFrameContext& frame,
     BattleFrameVector<BattleGameplayCommand>& commands,
     std::vector<int>& attackSoundIds,
     std::vector<BattleFrameRumbleEvent>& rumbles,
@@ -3528,6 +4469,7 @@ void reduceFrameGameplayCommandsImpl(
     {
         if (!reduceFrameGameplayCommand(
             state,
+            frame,
             pending[i],
             attackSoundIds,
             rumbles,
@@ -3546,6 +4488,7 @@ void reduceCommandsBeforeMovement(
 {
     reduceFrameGameplayCommandsImpl(
         state,
+        frame,
         frame.mutableCommandsForReducer(),
         frame.attackSoundIds,
         frame.rumbles,
@@ -3556,6 +4499,7 @@ void reduceCommandsBeforeAttacks(BattleRuntimeState& state, BattleFrameContext& 
 {
     reduceFrameGameplayCommandsImpl(
         state,
+        frame,
         frame.mutableCommandsForReducer(),
         frame.attackSoundIds,
         frame.rumbles,
@@ -3566,6 +4510,7 @@ void reduceCommandsAfterAttackHits(BattleRuntimeState& state, BattleFrameContext
 {
     reduceFrameGameplayCommandsImpl(
         state,
+        frame,
         frame.mutableCommandsForReducer(),
         frame.attackSoundIds,
         frame.rumbles,
@@ -3576,10 +4521,972 @@ void reduceCommandsAfterDamageLifecycle(BattleRuntimeState& state, BattleFrameCo
 {
     reduceFrameGameplayCommandsImpl(
         state,
+        frame,
         frame.mutableCommandsForReducer(),
         frame.attackSoundIds,
         frame.rumbles,
         afterDamageLifecycleSinks(state, frame));
+}
+
+void completeCastCommitBarriers(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame)
+{
+    for (CastWorkToken barrier : frame.drainCastCommitBarriers())
+    {
+        state.castLifecycle.completeWork(barrier);
+    }
+}
+
+DamageChannel effectDamageChannel(BattleDamageKind kind)
+{
+    switch (kind)
+    {
+    case BattleDamageKind::Physical:
+    case BattleDamageKind::Skill:
+        return DamageChannel::Skill;
+    case BattleDamageKind::Poison:
+    case BattleDamageKind::Bleed:
+        return DamageChannel::Dot;
+    case BattleDamageKind::Reflected:
+        return DamageChannel::Reflected;
+    case BattleDamageKind::Pure:
+    case BattleDamageKind::Effect:
+    case BattleDamageKind::Execute:
+        return DamageChannel::Effect;
+    }
+    assert(false);
+    return DamageChannel::All;
+}
+
+std::vector<int> effectDamageTargetIds(
+    const BattleRuntimeState& state,
+    const BattleEffectDamageRequestOutput& output)
+{
+    const auto& center = state.units.requireCore(output.request.defenderUnitId);
+    if (output.action.area.kind == DamageAreaKind::SingleTarget)
+    {
+        return { center.id };
+    }
+
+    std::vector<int> result;
+    for (const auto& record : state.units.live())
+    {
+        const auto& candidate = record.core;
+        if (candidate.team == output.source.sourceTeam)
+        {
+            continue;
+        }
+
+        bool inside = false;
+        switch (output.action.area.kind)
+        {
+        case DamageAreaKind::SingleTarget:
+            inside = candidate.id == center.id;
+            break;
+        case DamageAreaKind::Circle:
+        {
+            const double radius = output.action.area.radiusTiles * state.gridTransform.tileWidth;
+            inside = battlePointSegmentWithinRadius(
+                candidate.motion.position,
+                center.motion.position,
+                center.motion.position,
+                radius);
+            break;
+        }
+        case DamageAreaKind::Square:
+        {
+            const int halfSide = output.action.area.squareSideTiles / 2;
+            inside = std::abs(candidate.grid.x - center.grid.x) <= halfSide
+                && std::abs(candidate.grid.y - center.grid.y) <= halfSide;
+            break;
+        }
+        }
+        if (inside)
+        {
+            result.push_back(candidate.id);
+        }
+    }
+    std::ranges::sort(result);
+    return result;
+}
+
+struct AreaProjectilePresentation
+{
+    int effectId{};
+    std::string_view reason;
+};
+
+AreaProjectilePresentation areaProjectilePresentation(AreaProjectileVisual visual)
+{
+    switch (visual)
+    {
+    case AreaProjectileVisual::DeathBlast:
+        return { KysChess::EFT_DEATH_BLAST, "殉爆" };
+    case AreaProjectileVisual::ShieldBlast:
+        return { KysChess::EFT_SHIELD_BLAST, "護盾爆炸" };
+    }
+    assert(false);
+    return {};
+}
+
+std::string areaProjectileLogText(
+    const BattleEffectDamageRequestOutput& output,
+    std::string_view reason,
+    int stunFrames)
+{
+    const auto& amount = output.action.amount;
+    if (amount.base == EffectNumberBase::SourceMaxHp
+        && !amount.multiplierBase
+        && amount.flat == 0
+        && amount.percent > 0)
+    {
+        return stunFrames > 0
+            ? std::format("{}{}%（{}幀）", reason, amount.percent, stunFrames)
+            : std::format("{}{}%", reason, amount.percent);
+    }
+    return stunFrames > 0
+        ? std::format("{}（{}傷害，{}幀）", reason, output.request.baseDamage, stunFrames)
+        : std::format("{}（{}傷害）", reason, output.request.baseDamage);
+}
+
+CastWorkToken reserveEffectDamageDescendantWork(
+    BattleRuntimeState& state,
+    const BattleEffectCommandContext& context,
+    const BattleAttackProvenance& provenance)
+{
+    if (provenance.valid()
+        || !context.cast
+        || !context.retainCastUntilDamageDescendants)
+    {
+        return {};
+    }
+    assert(context.cast->valid());
+    assert(state.castLifecycle.containsCast(context.cast->castId));
+    return state.castLifecycle.reserveDelayedEffectCommand(context.cast->castId);
+}
+
+void appendAreaProjectileDamageOutput(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattleEffectDamageRequestOutput& output,
+    const BattleEffectCommandContext& context)
+{
+    assert(output.action.areaProjectiles);
+    assert(output.transactionCount > 0);
+    if (output.request.baseDamage <= 0)
+    {
+        return;
+    }
+
+    const auto& delivery = *output.action.areaProjectiles;
+    const auto presentation = areaProjectilePresentation(delivery.visual);
+    for (int transaction = 0; transaction < output.transactionCount; ++transaction)
+    {
+        BattleAreaProjectileFollowUp followUp;
+        if (output.provenance)
+        {
+            assert(output.provenance->valid());
+            followUp.cast = output.provenance->cast;
+            followUp.sourceAttack = *output.provenance;
+            followUp.expansionWork = state.castLifecycle.reserveDelayedEffectCommand(
+                followUp.cast.castId);
+        }
+        else if (context.cast && context.retainCastUntilDamageDescendants)
+        {
+            assert(context.cast->valid());
+            followUp.cast = *context.cast;
+            followUp.expansionWork = state.castLifecycle.reserveDelayedEffectCommand(
+                followUp.cast.castId);
+        }
+        else
+        {
+            const auto root = state.castLifecycle.beginRootCast({
+                .sourceUnitId = output.request.attackerUnitId,
+                .magicId = -1,
+                .ultimate = false,
+                .origin = CastOriginKind::Echo,
+                .propagation = CastPropagationPolicy::NoEffectRules,
+            });
+            followUp.cast = root.provenance;
+            followUp.expansionWork = root.commitBarrier;
+            followUp.ownsRootCast = true;
+        }
+        followUp.sourceUnitId = output.request.attackerUnitId;
+        followUp.areaSize = delivery.rangeTiles;
+        followUp.trackedTargetUnitId = delivery.trackEventSource
+            ? output.eventSourceUnitId
+            : -1;
+        followUp.maxTargets = delivery.maximumTargets;
+        followUp.effectId = presentation.effectId;
+        followUp.damage = output.request.baseDamage;
+        followUp.damagePct = output.action.amount.base == EffectNumberBase::SourceMaxHp
+            ? output.action.amount.percent
+            : 0;
+        followUp.damageKind = output.action.kind;
+        followUp.stunFrames = delivery.stunFrames;
+        followUp.reason = presentation.reason;
+        followUp.logText = areaProjectileLogText(
+            output,
+            presentation.reason,
+            delivery.stunFrames);
+        frame.mutableAreaProjectileFollowUps().push_back(std::move(followUp));
+    }
+}
+
+void appendEffectDamageOutput(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    const BattleEffectDamageRequestOutput& output,
+    const BattleEffectCommandContext& context)
+{
+    if (output.action.areaProjectiles)
+    {
+        appendAreaProjectileDamageOutput(state, frame, output, context);
+        return;
+    }
+    for (int targetUnitId : effectDamageTargetIds(state, output))
+    {
+        if (context.cast && output.action.perCast.perTargetLimit > 0)
+        {
+            const BattleEffectPerCastDamageKey key{
+                .castId = context.cast->castId,
+                .sourceKind = output.source.kind,
+                .sourceId = output.source.sourceId,
+                .sourceInstanceId = output.source.runtimeInstanceId,
+                .ruleId = output.ruleId,
+                .targetUnitId = targetUnitId,
+            };
+            if (!state.effectIntegration.appliedPerCastDamage.insert(key).second)
+            {
+                continue;
+            }
+        }
+
+        assert(output.transactionCount > 0);
+        for (int transaction = 0; transaction < output.transactionCount; ++transaction)
+        {
+            auto request = output.request;
+            request.defenderUnitId = targetUnitId;
+            auto provenance = output.provenance.value_or(BattleAttackProvenance{});
+            appendFramePendingDamage(
+                state,
+                pendingDamage,
+                std::move(request),
+                std::nullopt,
+                false,
+                false,
+                provenance,
+                EffectRuleDamageOrigin{ output.ruleId, output.source },
+                reserveEffectDamageDescendantWork(state, context, provenance));
+        }
+    }
+}
+
+void appendStateMachineOutput(
+    BattleRuntimeState& state,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    const BattleEffectReductionEntry& entry,
+    const StateMachineEffectCommand& command,
+    const BattleEffectCommandContext& context)
+{
+    std::visit(Overloaded{
+        [&](const ChangeStateValueAction&)
+        {
+            // The dispatcher owns rule state so later rules in the same event
+            // observe the committed value deterministically.
+        },
+        [&](const TransferStateValueAction&)
+        {
+            // The dispatcher atomically moves both state slots while emitting
+            // the command, so later rules observe the transferred value.
+        },
+        [&](const RecordMaximumDamageAction&)
+        {
+            // The dispatcher owns the recorded maximum so selection and command
+            // generation observe one deterministic value.
+        },
+        [&](const ConsumeRecordedMaximumAction& action)
+        {
+            if (command.outputValue <= 0)
+            {
+                return;
+            }
+            assert(command.outputValue <= std::numeric_limits<int>::max());
+            const int amount = static_cast<int>(command.outputValue);
+            if (action.destination == StateValueDestination::ShieldAmount)
+            {
+                assert(false);
+                return;
+            }
+
+            BattleDamageRequest request;
+            request.attackerUnitId = entry.metadata.binding.ownerUnitId;
+            request.defenderUnitId = entry.metadata.targetUnitId;
+            request.baseDamage = amount;
+            request.damageKind = BattleDamageKind::Pure;
+            const auto provenance = context.attack.value_or(
+                BattleAttackProvenance{});
+            appendFramePendingDamage(
+                state,
+                pendingDamage,
+                std::move(request),
+                std::nullopt,
+                false,
+                false,
+                provenance,
+                EffectRuleDamageOrigin{
+                    entry.metadata.ruleId,
+                    entry.metadata.binding,
+                },
+                reserveEffectDamageDescendantWork(state, context, provenance));
+        },
+        [&](const StartDamageAbsorptionAction&)
+        {
+            // Persistent absorption lifetime is consumed at the damage boundary;
+            // the state slot was reset by the dispatcher.
+        },
+        [&](const SettleDamageAbsorptionAction& action)
+        {
+            if (command.outputValue <= 0)
+            {
+                return;
+            }
+            assert(command.outputValue <= std::numeric_limits<int>::max());
+            for (int targetUnitId : command.selectedSourceUnitIds)
+            {
+                BattleDamageRequest request;
+                request.attackerUnitId = entry.metadata.binding.ownerUnitId;
+                request.defenderUnitId = targetUnitId;
+                request.baseDamage = static_cast<int>(command.outputValue);
+                request.damageKind = action.damageKind;
+                appendFramePendingDamage(
+                    state,
+                    pendingDamage,
+                    std::move(request),
+                    std::nullopt,
+                    false,
+                    false,
+                    {},
+                    EffectRuleDamageOrigin{
+                        entry.metadata.ruleId,
+                        entry.metadata.binding,
+                    },
+                    reserveEffectDamageDescendantWork(state, context, {}));
+            }
+        },
+        [&](const BorrowEffectRulesAction&)
+        {
+            // Borrowed source bindings are applied while constructing the child
+            // attack; no current-frame resource mutation belongs here.
+        },
+        [&](const CopyAttackDefinitionAction&)
+        {
+            // The cast coordinator already scheduled the tracked copied child cast
+            // before this command reaches the mutation reducer.
+        },
+        [&](const SettleRemainingStatusDamageAction& action)
+        {
+            assert(action.status == BattleStatusKind::Poison);
+            auto& target = state.units.require(entry.metadata.targetUnitId);
+            const auto& poison = target.status.effects;
+            int settlementDamage{};
+            if (poison.poisonTimer > 0 && poison.poisonTickPct > 0)
+            {
+                assert(state.status.config.poisonDamageIntervalFrames > 0);
+                settlementDamage = projectRemainingPoisonDamage({
+                    .firstFutureFrame = state.movement.frame,
+                    .remainingFrames = poison.poisonTimer,
+                    .remainingStacks = poison.poisonStacks,
+                    .intervalFrames = state.status.config.poisonDamageIntervalFrames,
+                    .currentHp = target.core.vitals.hp,
+                    .damagePct = poison.poisonTickPct,
+                });
+            }
+            if (settlementDamage <= 0)
+            {
+                return;
+            }
+            BattleDamageRequest request;
+            request.attackerUnitId = entry.metadata.binding.ownerUnitId;
+            request.defenderUnitId = entry.metadata.targetUnitId;
+            request.baseDamage = settlementDamage;
+            request.damageKind = BattleDamageKind::Poison;
+            request.preResolvedDamage = true;
+            request.preResolvedModifierPolicy =
+                BattlePreResolvedModifierPolicy::DefenderTypedStatuses;
+            appendFramePendingDamage(
+                state,
+                pendingDamage,
+                std::move(request),
+                std::nullopt,
+                false,
+                false,
+                {},
+                EffectStatusDamageOrigin{
+                    action.status,
+                    entry.metadata.binding.ownerUnitId,
+                },
+                reserveEffectDamageDescendantWork(state, context, {}));
+        },
+        [&](const GenerateClonesAction&)
+        {
+            // Consumed by BattleStartInitializer before the runtime is built.
+        },
+        [&](const PreventDeathAction&)
+        {
+            // Consumed by BattleStartInitializer before the runtime is built.
+        },
+        [&](const ConfigureRescueRepositionAction&)
+        {
+            // Consumed by BattleStartInitializer before the runtime is built.
+        },
+    }, command.action);
+}
+
+int damageAbsorptionSettlementAmount(const BattleDamageAbsorptionInstance& absorption)
+{
+    assert(absorption.accumulatedDamage >= 0);
+    assert(absorption.returnedPct >= 0);
+    if (absorption.accumulatedDamage == 0 || absorption.returnedPct == 0)
+    {
+        return 0;
+    }
+
+    constexpr auto maximumDamage = static_cast<std::int64_t>(std::numeric_limits<int>::max());
+    const auto maximumUnclampedValue = maximumDamage * 100 / absorption.returnedPct;
+    if (absorption.accumulatedDamage > maximumUnclampedValue)
+    {
+        return std::numeric_limits<int>::max();
+    }
+    return static_cast<int>(
+        absorption.accumulatedDamage * absorption.returnedPct / 100);
+}
+
+void appendDamageAbsorptionSettlements(
+    BattleRuntimeState& state,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    std::span<const BattleDamageAbsorptionInstance> absorptions,
+    int settlementFrame)
+{
+    assert(settlementFrame >= 0);
+    std::uint64_t previousSequence{};
+    for (const auto& absorption : absorptions)
+    {
+        assert(absorption.sequence > previousSequence);
+        previousSequence = absorption.sequence;
+        state.effectRules.setStateValue(absorption.binding, absorption.slot, 0);
+
+        const int damage = damageAbsorptionSettlementAmount(absorption);
+        if (damage <= 0)
+        {
+            continue;
+        }
+
+        const auto event = BattleEffectEventBridge().makeEvent(
+            state,
+            {
+                .frame = settlementFrame,
+                .eventOrdinal = state.effectIntegration.nextEventOrdinal++,
+                .ownerUnitId = absorption.binding.ownerUnitId,
+            },
+            EffectEvent::FrameAdvanced,
+            FrameTickEventData{});
+        auto context = event.context();
+        context.header.binding = absorption.binding;
+        const auto targets = BattleEffectSystem::selectTargets(
+            absorption.settlementTarget,
+            context,
+            state.random);
+        for (int targetUnitId : targets)
+        {
+            BattleDamageRequest request;
+            request.attackerUnitId = absorption.binding.ownerUnitId;
+            request.defenderUnitId = targetUnitId;
+            request.baseDamage = damage;
+            request.damageKind = absorption.settlementDamageKind;
+            appendFramePendingDamage(
+                state,
+                pendingDamage,
+                std::move(request),
+                std::nullopt,
+                false,
+                false,
+                {},
+                EffectRuleDamageOrigin{
+                    absorption.ruleId,
+                    absorption.binding,
+                });
+        }
+    }
+}
+
+bool sameEffectRuleCommandSequence(
+    const EffectCommandMetadata& lhs,
+    const EffectCommandMetadata& rhs)
+{
+    return lhs.binding.kind == rhs.binding.kind
+        && lhs.binding.sourceId == rhs.binding.sourceId
+        && lhs.binding.ownerUnitId == rhs.binding.ownerUnitId
+        && lhs.binding.sourceTeam == rhs.binding.sourceTeam
+        && lhs.binding.runtimeInstanceId == rhs.binding.runtimeInstanceId
+        && lhs.ruleId == rhs.ruleId
+        && lhs.event == rhs.event
+        && lhs.ruleOrder == rhs.ruleOrder
+        && lhs.eventSourceUnitId == rhs.eventSourceUnitId;
+}
+
+void reduceEffectCommand(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    const EffectCommand& command,
+    const BattleEffectCommandContext& context)
+{
+    auto reduction = BattleEffectCommandSystem().reduce(
+        state,
+        command,
+        context);
+    assert(reduction.entries.size() == 1);
+    const auto& entry = reduction.entries.front();
+    if (const auto* damage = std::get_if<BattleEffectDamageRequestOutput>(&entry.value))
+    {
+        appendEffectDamageOutput(state, frame, pendingDamage, *damage, context);
+    }
+    else if (const auto* move = std::get_if<
+                 BattleRoutedEffectCommand<ForceMoveEffectCommand>>(&entry.value))
+    {
+        const auto& source = state.units.requireCore(entry.metadata.binding.ownerUnitId);
+        const auto& target = state.units.requireCore(entry.metadata.targetUnitId);
+        auto direction = target.motion.position - source.motion.position;
+        if (move->command.action.direction == ForceMoveDirection::TowardSource)
+        {
+            direction *= -1.0f;
+        }
+        if (direction.norm() <= 0.01)
+        {
+            direction = { 1, 0, 0 };
+        }
+        frame.queueCommand(BattleKnockbackCommand{
+            .targetUnitId = target.id,
+            .direction = direction,
+            .distance = move->command.action.distancePixels > 0
+                ? static_cast<double>(move->command.action.distancePixels)
+                : move->command.action.distanceTiles * state.gridTransform.tileWidth,
+            .lockFrames = move->command.action.lockFrames,
+            .semanticDirection = move->command.action.direction,
+            .collision = move->command.action.collision,
+            .blocked = move->command.action.blocked,
+        });
+    }
+    else if (const auto* cast = std::get_if<
+                 BattleRoutedEffectCommand<ModifyCastEffectCommand>>(&entry.value))
+    {
+        const auto& request = cast->command.action.autoUltimate;
+        if (request)
+        {
+            frame.queueCommand(BattleAutoUltimateCommand{
+                entry.metadata.targetUnitId,
+                request->consumeMp,
+                request->announce,
+            });
+        }
+    }
+    else if (const auto* stateMachine = std::get_if<
+                 BattleRoutedEffectCommand<StateMachineEffectCommand>>(&entry.value))
+    {
+        appendStateMachineOutput(
+            state,
+            pendingDamage,
+            entry,
+            stateMachine->command,
+            context);
+    }
+    else if (const auto* heal = std::get_if<BattleResourceEffectResult>(&entry.value))
+    {
+        const auto* resource = std::get_if<ChangeResourceEffectCommand>(&command.value);
+        assert(resource);
+        appendMpResourceEffectLogEvents(
+            frame.logEvents,
+            entry.metadata,
+            *resource,
+            *heal);
+        if (heal->heal && heal->heal->appliedAmount > 0)
+        {
+            appendHealEventLog(
+                frame.logEvents,
+                heal->heal->request.sourceUnitId,
+                heal->heal->request.targetUnitId,
+                heal->heal->appliedAmount,
+                "效果治療");
+            frame.visualEvents.push_back(roleEffectEvent(
+                heal->heal->request.targetUnitId,
+                KysChess::EFT_HEAL,
+                CoreRoleStatusEffectFrames));
+        }
+    }
+    else if (const auto* status = std::get_if<BattleStatusApplyEffectResult>(&entry.value))
+    {
+        const auto* apply = std::get_if<ApplyStatusEffectCommand>(&command.value);
+        assert(apply);
+        appendPoisonEffectLogEvents(
+            frame.logEvents,
+            entry.metadata,
+            *apply,
+            *status);
+    }
+    else if (const auto* deferredHp = std::get_if<BattleDeferredHpResourceOutput>(&entry.value))
+    {
+        BattleDamageRequest request;
+        request.attackerUnitId = entry.metadata.binding.ownerUnitId;
+        request.defenderUnitId = entry.metadata.targetUnitId;
+        request.baseDamage = deferredHp->command.amount;
+        request.damageKind = BattleDamageKind::Effect;
+        appendFramePendingDamage(
+            state,
+            pendingDamage,
+            std::move(request),
+            std::nullopt,
+            false,
+            false,
+            {},
+            EffectRuleDamageOrigin{
+                entry.metadata.ruleId,
+                entry.metadata.binding,
+            },
+            reserveEffectDamageDescendantWork(state, context, {}));
+    }
+}
+
+void registerEffectDamageContinuation(
+    BattleRuntimeState& state,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    std::size_t firstDamageIndex,
+    std::vector<EffectCommand> commands,
+    BattleEffectCommandContext context)
+{
+    assert(firstDamageIndex < pendingDamage.size());
+    assert(!commands.empty());
+    const auto transactionCount = pendingDamage.size() - firstDamageIndex;
+    assert(transactionCount <= static_cast<std::size_t>(std::numeric_limits<int>::max()));
+
+    const std::uint64_t continuationId =
+        state.effectIntegration.nextDamageContinuationId++;
+    const auto [continuation, inserted] =
+        state.effectIntegration.damageContinuations.emplace(
+            continuationId,
+            BattleEffectDamageContinuationRuntime{
+                .remainingDamageTransactions = static_cast<int>(transactionCount),
+                .commandBatch = {
+                    .commands = std::move(commands),
+                    .context = std::move(context),
+                },
+            });
+    assert(inserted);
+    (void)continuation;
+    for (std::size_t index = firstDamageIndex; index < pendingDamage.size(); ++index)
+    {
+        assert(pendingDamage[index].effectCommandContinuationId == 0);
+        pendingDamage[index].effectCommandContinuationId = continuationId;
+    }
+}
+
+void reduceEffectCommandBatches(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    std::vector<BattlePendingDamageIntent>& pendingDamage)
+{
+    while (true)
+    {
+        auto queued = std::exchange(
+            state.effectIntegration.queuedCommandBatches,
+            {});
+        for (auto& batch : queued)
+        {
+            frame.queueEffectCommands(
+                std::move(batch.commands),
+                std::move(batch.context));
+        }
+
+        auto batches = frame.drainEffectCommandBatches();
+        if (batches.empty())
+        {
+            return;
+        }
+        for (auto& batch : batches)
+        {
+            std::size_t ruleBegin{};
+            while (ruleBegin < batch.commands.size())
+            {
+                std::size_t ruleEnd = ruleBegin + 1;
+                while (ruleEnd < batch.commands.size()
+                       && sameEffectRuleCommandSequence(
+                           batch.commands[ruleBegin].metadata,
+                           batch.commands[ruleEnd].metadata))
+                {
+                    ++ruleEnd;
+                }
+
+                std::size_t actionBegin = ruleBegin;
+                while (actionBegin < ruleEnd)
+                {
+                    const std::uint32_t actionOrder =
+                        batch.commands[actionBegin].metadata.actionOrder;
+                    std::size_t actionEnd = actionBegin + 1;
+                    while (actionEnd < ruleEnd
+                           && batch.commands[actionEnd].metadata.actionOrder == actionOrder)
+                    {
+                        ++actionEnd;
+                    }
+
+                    const std::size_t firstDamageIndex = pendingDamage.size();
+                    for (std::size_t index = actionBegin; index < actionEnd; ++index)
+                    {
+                        reduceEffectCommand(
+                            state,
+                            frame,
+                            pendingDamage,
+                            batch.commands[index],
+                            batch.context);
+                    }
+                    if (pendingDamage.size() > firstDamageIndex
+                        && actionEnd < ruleEnd)
+                    {
+                        std::vector<EffectCommand> continuationCommands;
+                        continuationCommands.reserve(ruleEnd - actionEnd);
+                        for (std::size_t index = actionEnd; index < ruleEnd; ++index)
+                        {
+                            continuationCommands.push_back(
+                                std::move(batch.commands[index]));
+                        }
+                        registerEffectDamageContinuation(
+                            state,
+                            pendingDamage,
+                            firstDamageIndex,
+                            std::move(continuationCommands),
+                            batch.context);
+                        break;
+                    }
+                    actionBegin = actionEnd;
+                }
+                ruleBegin = ruleEnd;
+            }
+        }
+    }
+}
+
+void completeEffectDamageContinuation(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    std::vector<BattlePendingDamageIntent>& pendingDamage,
+    std::uint64_t continuationId)
+{
+    if (continuationId == 0)
+    {
+        return;
+    }
+
+    const auto continuation =
+        state.effectIntegration.damageContinuations.find(continuationId);
+    assert(continuation != state.effectIntegration.damageContinuations.end());
+    assert(continuation->second.remainingDamageTransactions > 0);
+    if (--continuation->second.remainingDamageTransactions > 0)
+    {
+        return;
+    }
+
+    auto commandBatch = std::move(continuation->second.commandBatch);
+    state.effectIntegration.damageContinuations.erase(continuation);
+    frame.queueEffectCommands(
+        std::move(commandBatch.commands),
+        std::move(commandBatch.context));
+    reduceEffectCommandBatches(state, frame, pendingDamage);
+}
+
+struct EnemyTopDebuffTotals
+{
+    int attack{};
+    int defence{};
+    int sourceTeam = -1;
+};
+
+bool isEnemyTopDebuffSource(
+    const BattleRuntimeState& state,
+    const EffectSourceBinding& binding)
+{
+    if (binding.kind != EffectSourceKind::Combo)
+    {
+        return false;
+    }
+    const auto source = state.effectSourceNames.find({ binding.kind, binding.sourceId });
+    return source != state.effectSourceNames.end() && source->second == "陰險";
+}
+
+void appendEnemyTopDebuffReportEvents(
+    BattleRuntimeState& state,
+    int frame,
+    std::vector<BattleLogEvent>& logEvents)
+{
+    std::map<int, EnemyTopDebuffTotals> current;
+    for (const auto& modifier : state.effectCommands.attributeModifiers)
+    {
+        if (!isEnemyTopDebuffSource(state, modifier.binding)
+            || (modifier.expiresFrameExclusive && frame >= *modifier.expiresFrameExclusive)
+            || !state.units.requireCore(modifier.targetUnitId).alive)
+        {
+            continue;
+        }
+        assert(modifier.operation == AttributeOperation::FlatAdd);
+        assert(modifier.amount <= 0);
+        auto& total = current[modifier.targetUnitId];
+        if (total.sourceTeam < 0)
+        {
+            total.sourceTeam = modifier.binding.sourceTeam;
+        }
+        else
+        {
+            assert(total.sourceTeam == modifier.binding.sourceTeam);
+        }
+        const int contribution = modifier.amount * (modifier.perStack ? modifier.stackCount : 1);
+        if (modifier.attribute == BattleAttribute::Attack)
+        {
+            total.attack += contribution;
+        }
+        else if (modifier.attribute == BattleAttribute::Defence)
+        {
+            total.defence += contribution;
+        }
+    }
+
+    std::set<int> targetUnitIds;
+    for (const auto& [targetUnitId, _] : current)
+    {
+        targetUnitIds.insert(targetUnitId);
+    }
+    for (const auto& [targetUnitId, _] : state.effectIntegration.reportedEnemyTopDebuffs)
+    {
+        targetUnitIds.insert(targetUnitId);
+    }
+
+    std::map<int, BattleEnemyTopDebuffReportState> nextReported;
+    for (int targetUnitId : targetUnitIds)
+    {
+        const auto active = current.find(targetUnitId);
+        const auto previous = state.effectIntegration.reportedEnemyTopDebuffs.find(targetUnitId);
+        const int previousValue = previous == state.effectIntegration.reportedEnemyTopDebuffs.end()
+            ? 0
+            : previous->second.value;
+        int newValue{};
+        int sourceTeam = previous == state.effectIntegration.reportedEnemyTopDebuffs.end()
+            ? -1
+            : previous->second.sourceTeam;
+        if (active != current.end())
+        {
+            assert(active->second.attack == active->second.defence);
+            newValue = active->second.attack;
+            sourceTeam = active->second.sourceTeam;
+            nextReported.emplace(targetUnitId, BattleEnemyTopDebuffReportState{
+                .value = newValue,
+                .sourceTeam = sourceTeam,
+            });
+        }
+        if (newValue == previousValue)
+        {
+            continue;
+        }
+        if (!state.units.requireCore(targetUnitId).alive && newValue == 0)
+        {
+            continue;
+        }
+
+        BattleLogEvent event;
+        event.type = BattleLogEventType::Status;
+        event.frame = frame;
+        event.targetUnitId = targetUnitId;
+        event.amount = newValue - previousValue;
+        event.previousAmount = previousValue;
+        event.newAmount = newValue;
+        event.statusId = BattleStatusSemanticId::EnemyTopDebuff;
+        event.semanticSourceTeam = sourceTeam;
+        event.semanticSourceKind = "combo";
+        event.semanticSourceName = "陰險";
+        event.segments = battleLogText(
+            std::format("陰險：攻防{:+}", event.amount),
+            BattleLogTextTone::Negative);
+        logEvents.push_back(std::move(event));
+    }
+    state.effectIntegration.reportedEnemyTopDebuffs = std::move(nextReported);
+}
+
+std::vector<BattleFrameEffectCommandBatch> dispatchFrameAdvancedEffects(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    int upcomingFrame)
+{
+    assert(upcomingFrame == state.movement.frame + 1);
+    std::vector<BattleFrameEffectCommandBatch> deferredAutoUltimateBatches;
+    const BattleEffectRuntimeSnapshot snapshot(state);
+    const auto readView = snapshot.readView();
+    for (const auto& owner : snapshot.units())
+    {
+        if (!owner.alive)
+        {
+            continue;
+        }
+
+        EffectEventContext event;
+        event.event = EffectEvent::FrameAdvanced;
+        event.header.frame = upcomingFrame;
+        event.header.eventOrdinal = state.effectIntegration.nextEventOrdinal++;
+        event.header.binding = {
+            .kind = EffectSourceKind::Combo,
+            .sourceId = -1,
+            .ownerUnitId = owner.id,
+            .sourceTeam = owner.team,
+        };
+        event.header.owner = owner;
+        event.header.battle = readView;
+        event.payload = FrameTickEventData{
+            .deltaFrames = 1,
+            .periodOrdinal = static_cast<std::uint64_t>(upcomingFrame),
+        };
+        auto dispatched = BattleEffectSystem().dispatch(
+            state.effectRules,
+            event,
+            state.random);
+        std::vector<EffectCommand> earlyCommands;
+        std::vector<EffectCommand> deferredCommands;
+        earlyCommands.reserve(dispatched.commands.size());
+        deferredCommands.reserve(dispatched.commands.size());
+        for (auto& command : dispatched.commands)
+        {
+            const auto* modifyCast = std::get_if<ModifyCastEffectCommand>(
+                &command.value);
+            auto& destination = modifyCast && modifyCast->action.autoUltimate
+                ? deferredCommands
+                : earlyCommands;
+            destination.push_back(std::move(command));
+        }
+        BattleEffectCommandContext commandContext{
+            .frame = upcomingFrame,
+            .effectPosition = owner.position,
+            .areaTargetTeamDomain = owner.team,
+        };
+        frame.queueEffectCommands(
+            std::move(earlyCommands),
+            commandContext);
+        if (!deferredCommands.empty())
+        {
+            deferredAutoUltimateBatches.push_back({
+                std::move(deferredCommands),
+                std::move(commandContext),
+            });
+        }
+    }
+    reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    appendEnemyTopDebuffReportEvents(state, upcomingFrame, frame.logEvents);
+    return deferredAutoUltimateBatches;
 }
 
 std::vector<BattleLogTextSegment> formatAppliedStatusLog(const BattleDamageEvent& event)
@@ -3604,8 +5511,6 @@ std::vector<BattleLogTextSegment> formatAppliedStatusLog(const BattleDamageEvent
         return withValue("中毒");
     case BattleDamageStatusType::Bleed:
         return withValue("流血");
-    case BattleDamageStatusType::DamageReduceDebuff:
-        return withValue("破防");
     case BattleDamageStatusType::MpBlocked:
         return logStatusFrames<BattleLogTextTone::Negative>("封內", event.value);
     case BattleDamageStatusType::None:
@@ -3722,70 +5627,6 @@ void appendProjectileFollowUpsToFrame(
         std::make_move_iterator(followUps.logEvents.end()));
 }
 
-void appendFrameDeathAoeProjectiles(
-    BattleRuntimeState& state,
-    BattleFrameContext& frame,
-    const BattleDamageTransactionResult& transaction,
-    int deadUnitId)
-{
-    const auto& dead = state.units.require(deadUnitId);
-    const auto* deathAoe = dead.firstAlways(EffectType::DeathAOE);
-    if (!deathAoe || deathAoe->value <= 0)
-    {
-        return;
-    }
-
-    const int damage = std::max(1, transaction.defender.vitals.maxHp * deathAoe->value / 100);
-    frame.mutableAreaProjectileFollowUps().push_back({
-        deadUnitId,
-        7,
-        transaction.attacker.id,
-        deathAoe->value2,
-        KysChess::EFT_DEATH_BLAST,
-        damage,
-        deathAoe->value,
-        deathAoe->duration,
-        "殉爆",
-        std::format("殉爆{}%（{}幀）", deathAoe->value, deathAoe->duration),
-    });
-}
-
-void appendFrameDeathEffectOutputs(BattleFrameContext& frame, const std::vector<BattleDeathEffectEvent>& events)
-{
-    for (const auto& event : events)
-    {
-        switch (event.type)
-        {
-        case BattleDeathEffectEventType::AllyStatBoost:
-            appendStatusEventLog(
-                frame.logEvents,
-                event.targetUnitId,
-                event.targetUnitId,
-                std::format("同袍之死（攻防+{}）", event.value));
-            break;
-        case BattleDeathEffectEventType::DeathMedicalHeal:
-            appendHealEventLog(
-                frame.logEvents,
-                event.sourceUnitId,
-                event.targetUnitId,
-                event.value,
-                "死亡醫療");
-            frame.visualEvents.push_back(roleEffectEvent(
-                event.targetUnitId,
-                KysChess::EFT_HEAL,
-                CoreRoleStatusEffectFrames));
-            break;
-        case BattleDeathEffectEventType::ShieldOnAllyDeath:
-            appendStatusEventLog(
-                frame.logEvents,
-                event.sourceUnitId,
-                event.targetUnitId,
-                formatStatusValue("護盾重獲", event.value, "護盾"));
-            break;
-        }
-    }
-}
-
 void updateFrameBattleResultAfterDamage(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     if (state.result.ended)
@@ -3832,11 +5673,100 @@ void applyLiveStatusToDamageModifier(
     BattleDamageModifierState& modifier)
 {
     modifier.poisonTimer = effects.poisonTimer;
-    modifier.outgoingDamageReduceDebuffs.clear();
-    for (const auto& debuff : effects.damageReduceDebuffs)
+}
+
+BattleDamageModifierState runtimeDamageModifierState(
+    const BattleRuntimeState& state,
+    int unitId,
+    int eventSourceUnitId,
+    DamageModifierPerspective perspective,
+    const BattleDamageRequest& request)
+{
+    BattleDamageModifierState result;
+    if (perspective == DamageModifierPerspective::Outgoing && request.usingSkill)
     {
-        modifier.outgoingDamageReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
+        result.skillDamagePct = effectAdjustedAttribute(
+            state,
+            unitId,
+            BattleAttribute::SkillDamage,
+            0,
+            eventSourceUnitId);
     }
+    if (perspective == DamageModifierPerspective::Incoming)
+    {
+        result.damageReductionPct = effectAdjustedAttribute(
+            state,
+            unitId,
+            BattleAttribute::DamageReduction,
+            0,
+            eventSourceUnitId);
+    }
+
+    const std::array stages{
+        DamageModifierStage::BeforeDefense,
+        DamageModifierStage::AfterDefense,
+        DamageModifierStage::Final,
+    };
+    for (DamageModifierStage stage : stages)
+    {
+        for (const auto& modifier : BattleEffectCommandSystem::queryDamageModifiers(
+                 state,
+                 {
+                     .unitId = unitId,
+                     .eventSourceUnitId = eventSourceUnitId,
+                     .perspective = perspective,
+                     .channel = effectDamageChannel(request.damageKind),
+                     .stage = stage,
+                     .frame = state.movement.frame,
+                 }))
+        {
+            const int amount = modifier.amount * modifier.stackCount;
+            switch (modifier.operation)
+            {
+            case DamageModifierOperation::FlatAdd:
+                if (perspective == DamageModifierPerspective::Outgoing)
+                {
+                    result.flatDamageIncrease += amount;
+                }
+                else
+                {
+                    result.flatDamageReduction -= amount;
+                }
+                break;
+            case DamageModifierOperation::PercentAdd:
+            case DamageModifierOperation::Multiply:
+            {
+                const int percentDelta = modifier.operation
+                        == DamageModifierOperation::Multiply
+                    ? amount - 100
+                    : amount;
+                if (perspective == DamageModifierPerspective::Outgoing)
+                {
+                    result.skillDamagePct += percentDelta;
+                }
+                else if (percentDelta < 0)
+                {
+                    result.damageReductionPct -= percentDelta;
+                }
+                else
+                {
+                    result.damageTakenIncreasePct += percentDelta;
+                }
+                break;
+            }
+            case DamageModifierOperation::CapSingleHitAtMaxHpPercent:
+                assert(perspective == DamageModifierPerspective::Incoming);
+                result.maxHitPctMaxHp = result.maxHitPctMaxHp == 0
+                    ? amount
+                    : std::min(result.maxHitPctMaxHp, amount);
+                break;
+            case DamageModifierOperation::IgnoreDefensePercent:
+            case DamageModifierOperation::ExecuteBelowMaxHpPercent:
+                break;
+            }
+        }
+    }
+    return result;
 }
 
 BattleFrameVector<std::size_t> orderedFramePendingDamageIndexes(
@@ -3863,19 +5793,29 @@ BattleFrameVector<std::size_t> orderedFramePendingDamageIndexes(
 
 BattleDamageTransactionInput makeFrameDamageTransactionInput(
     BattleRuntimeState& state,
-    const BattleDamageRequest& request,
-    bool blockFirstHitWithoutConsuming = false)
+    const BattleDamageRequest& request)
 {
     assert(request.defenderUnitId >= 0);
 
     BattleDamageTransactionInput transaction;
     transaction.request = request;
-    transaction.blockFirstHitWithoutConsuming = blockFirstHitWithoutConsuming;
 
     const auto& defender = state.units.require(request.defenderUnitId);
-    transaction.defender = defender.damageState();
-    transaction.defenderModifiers = defender.damageModifiers();
+    transaction.defender = defender.damageState(
+        mpRecoveryBonusPct(state, defender.id()));
+    transaction.defenderModifiers = runtimeDamageModifierState(
+        state,
+        defender.id(),
+        request.attackerUnitId,
+        DamageModifierPerspective::Incoming,
+        request);
     transaction.defenderStatus = defender.statusDamageState();
+    transaction.defenderStatus.effects.freezeReductionPct = effectAdjustedAttribute(
+        state,
+        defender.id(),
+        BattleAttribute::StaggerResistance,
+        0,
+        request.attackerUnitId);
     applyLiveStatusToDamageModifier(defender.statusEffects(), transaction.defenderModifiers);
     transaction.defenderCooldown = makeBattleFrameCooldownState(defender.core);
 
@@ -3883,14 +5823,49 @@ BattleDamageTransactionInput makeFrameDamageTransactionInput(
     {
         assert(request.attackerUnitId >= 0);
         const auto& attacker = state.units.require(request.attackerUnitId);
-        transaction.attacker = attacker.damageState();
-        transaction.attackerModifiers = attacker.damageModifiers();
+        transaction.attacker = attacker.damageState(
+            mpRecoveryBonusPct(state, attacker.id()));
+        transaction.attackerModifiers = runtimeDamageModifierState(
+            state,
+            attacker.id(),
+            request.defenderUnitId,
+            DamageModifierPerspective::Outgoing,
+            request);
+        transaction.attackerStatus = attacker.statusDamageState();
+        transaction.attackerStatus.effects.freezeReductionPct = effectAdjustedAttribute(
+            state,
+            attacker.id(),
+            BattleAttribute::StaggerResistance,
+            0,
+            request.defenderUnitId);
         applyLiveStatusToDamageModifier(attacker.statusEffects(), transaction.attackerModifiers);
+        transaction.attackerHealModifiers = statusHealModifiers(attacker);
     }
     else
     {
         transaction.attacker.id = OptionalDamageAttackerUnitId;
     }
+
+    auto damageKind = request.damageKind;
+    if (damageKind == BattleDamageKind::Physical)
+    {
+        if (request.reflected)
+        {
+            damageKind = BattleDamageKind::Reflected;
+        }
+        else if (request.usingSkill)
+        {
+            damageKind = BattleDamageKind::Skill;
+        }
+    }
+    transaction.liveOutgoingDamagePctDelta = areaOutgoingDamagePctDelta(
+        state,
+        request.attackerUnitId,
+        damageKind);
+    transaction.absorptionLayers = BattleEffectCommandSystem::queryDamageAbsorptions(
+        state,
+        request.defenderUnitId,
+        state.movement.frame);
 
     return transaction;
 }
@@ -4027,10 +6002,6 @@ void appendFrameDamagePreDeathLogEvents(
         frame.logEvents.push_back(std::move(log));
     };
 
-    if (transaction.blockedByFirstHit)
-    {
-        appendAttackBlock("格擋了首輪傷害", BattleStatusSemanticId::BlockedByFirstHit);
-    }
     if (transaction.blockedByDualWield)
     {
         appendAttackBlock("互搏抵擋了本次傷害", BattleStatusSemanticId::BlockedByDualWield);
@@ -4081,6 +6052,7 @@ std::vector<int> appendFrameDamageLifecycle(
             continue;
         }
 
+        BattleAreaEffectSystem::removeForSourceDeath(state.areas, event.targetUnitId);
         deadUnitIds.push_back(event.targetUnitId);
         frame.gameplayEvents.push_back({
             BattleGameplayEventType::UnitDied,
@@ -4097,163 +6069,8 @@ std::vector<int> appendFrameDamageLifecycle(
             event.value,
         });
 
-        appendFrameDeathAoeProjectiles(state, frame, transaction, event.targetUnitId);
-        auto deathEvents = state.deathEffects.store.applyAllyDeathEffects(
-            state.units,
-            event.targetUnitId);
-        appendFrameDeathEffectOutputs(frame, deathEvents);
     }
     return deadUnitIds;
-}
-
-void appendFrameDamageKillRewardLogEvents(
-    BattleFrameContext& frame,
-    const BattleDamageTransactionResult& transaction)
-{
-    if (!transaction.killed)
-    {
-        return;
-    }
-
-    if (transaction.attackerDelta.hpDelta > 0)
-    {
-        BattleLogEvent log;
-        log.type = BattleLogEventType::Heal;
-        log.sourceUnitId = transaction.attacker.id;
-        log.targetUnitId = transaction.attacker.id;
-        log.amount = transaction.attackerDelta.hpDelta;
-        log.segments = transaction.attacker.killHealPct > 0
-            ? logSegments<BattleLogTextTone::Positive>(
-                "擊殺回復 ",
-                std::pair{ BattleLogTextTone::HealValue, std::format("{}%", transaction.attacker.killHealPct) })
-            : battleLogText("擊殺回復", BattleLogTextTone::Positive);
-        frame.logEvents.push_back(std::move(log));
-    }
-    if (transaction.attackerDelta.invincibleDelta > 0)
-    {
-        BattleLogEvent log;
-        log.type = BattleLogEventType::Status;
-        log.sourceUnitId = transaction.attacker.id;
-        log.targetUnitId = transaction.attacker.id;
-        log.amount = transaction.attackerDelta.invincibleDelta;
-        log.segments = logStatusFrames<BattleLogTextTone::Positive>(
-            "擊殺無敵",
-            transaction.attackerDelta.invincibleDelta);
-        frame.logEvents.push_back(std::move(log));
-    }
-    if (transaction.attackerDelta.attackDelta > 0)
-    {
-        BattleLogEvent log;
-        log.type = BattleLogEventType::Status;
-        log.sourceUnitId = transaction.attacker.id;
-        log.targetUnitId = transaction.attacker.id;
-        log.amount = transaction.attackerDelta.attackDelta;
-        log.segments = logSegments<BattleLogTextTone::Positive>(
-            "嗜血（+",
-            std::pair{ BattleLogTextTone::DamageValue, transaction.attackerDelta.attackDelta },
-            "攻）");
-        frame.logEvents.push_back(std::move(log));
-    }
-}
-
-void appendFrameShieldBreakCommands(
-    BattleRuntimeState& state,
-    BattleFrameContext& frame,
-    const BattleDamageTransactionResult& transaction)
-{
-    if (!(transaction.shieldAbsorbed > 0
-            && transaction.defenderDelta.shieldDelta < 0
-            && transaction.defender.shield == 0))
-    {
-        return;
-    }
-
-    auto& defenderCombo = state.units.require(transaction.defender.id).combo;
-    int shieldExplosionPct = 0;
-    auto shieldBreakEvents = BattleComboTriggerSystem().collectTriggerEvents(
-        defenderCombo,
-        { BattleComboTriggerHook::ShieldBreak, transaction.defender.id, transaction.defender.id },
-        {
-            EffectType::ShieldExplosion,
-            EffectType::AutoUltimate,
-            EffectType::TempFlatATK,
-            EffectType::MPRestore,
-        },
-        state.random,
-        BattleComboActivationRecording::CallerRecords);
-    for (const auto& event : shieldBreakEvents)
-    {
-        bool activated = true;
-        switch (event.effect.type)
-        {
-        case EffectType::ShieldExplosion:
-            shieldExplosionPct = std::max(shieldExplosionPct, event.effect.value);
-            break;
-        case EffectType::AutoUltimate:
-            frame.queueCommand(BattleAutoUltimateCommand{ transaction.defender.id, false });
-            break;
-        case EffectType::TempFlatATK:
-            frame.queueCommand(BattleTempAttackBuffCommand{
-                transaction.defender.id,
-                event.effect.value,
-                event.effect.duration,
-                std::format("護盾爆炸（臨時攻+{}，{}幀）", event.effect.value, event.effect.duration),
-            });
-            break;
-        case EffectType::MPRestore:
-        {
-            const auto& unit = state.units.requireCore(transaction.defender.id);
-            int restored = std::min(
-                event.effect.value,
-                std::max(0, unit.vitals.maxMp - unit.vitals.mp));
-            if (restored > 0)
-            {
-                frame.mutableLateMpRestores().push_back({
-                    transaction.defender.id,
-                    restored,
-                    std::format("護盾爆炸·回內力+{}", restored),
-                });
-            }
-            else
-            {
-                activated = false;
-            }
-            break;
-        }
-        default:
-            assert(false);
-        }
-
-        if (activated)
-        {
-            BattleComboTriggerSystem().recordActivation(
-                defenderCombo,
-                event.effectId);
-        }
-    }
-    if (shieldExplosionPct > 0)
-    {
-        frame.visualEvents.push_back(roleEffectEvent(
-            transaction.defender.id,
-            KysChess::EFT_SHIELD_BLAST,
-            CoreRoleStatusEffectFrames));
-        const int defenderShieldPct = defenderCombo.sumAlways(EffectType::ShieldPctMaxHP);
-        int explosionDamage = std::max(
-            1,
-            defenderShieldPct * transaction.defender.vitals.maxHp / 100 * shieldExplosionPct / 100);
-        frame.mutableAreaProjectileFollowUps().push_back({
-            transaction.defender.id,
-            5,
-            -1,
-            0,
-            KysChess::EFT_SHIELD_BLAST,
-            explosionDamage,
-            0,
-            0,
-            "護盾爆炸",
-            std::format("護盾爆炸（{}傷害）", explosionDamage),
-        });
-    }
 }
 
 void appendFrameDamageGameplayEvents(
@@ -4279,21 +6096,75 @@ void appendFrameDamageGameplayEvents(
 void expandFrameDamageFollowUpCommands(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     auto pendingCommands = frame.drainCommands();
-    appendProjectileFollowUpsToFrame(
-        frame,
-        expandBattleProjectileFollowUpCommands(
-            pendingCommands,
-            state.projectileFollowUps,
-            state.units));
+    auto projectileExpansion = expandBattleProjectileFollowUpCommands(
+        pendingCommands,
+        state.projectileFollowUps,
+        state.units);
+    reserveTrackedProjectileFollowUps(state, projectileExpansion);
+    appendProjectileFollowUpsToFrame(frame, std::move(projectileExpansion));
     auto areaFollowUps = frame.drainAreaProjectileFollowUps();
     for (const auto& followUp : areaFollowUps)
     {
-        appendProjectileFollowUpsToFrame(
-            frame,
-            expandBattleAreaProjectileFollowUp(
-                followUp,
-                state.projectileFollowUps,
-                state.units));
+        auto expansion = expandBattleAreaProjectileFollowUp(
+            followUp,
+            state.projectileFollowUps,
+            state.units);
+        if (expansion.commands.empty())
+        {
+            if (followUp.ownsRootCast)
+            {
+                state.castLifecycle.cancelPlannedCast(
+                    { followUp.cast, followUp.expansionWork },
+                    state.movement.frame);
+            }
+            else
+            {
+                state.castLifecycle.completeWork(followUp.expansionWork);
+            }
+            appendProjectileFollowUpsToFrame(frame, std::move(expansion));
+            continue;
+        }
+
+        bool rootAttackReserved = false;
+        for (auto& command : expansion.commands)
+        {
+            auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&command);
+            assert(projectile);
+            auto& request = projectile->request;
+            assert(!request.provenance.valid());
+            assert(!request.castWork.valid());
+
+            BattleAttackReservationRequest reservationRequest;
+            if (followUp.sourceAttack)
+            {
+                reservationRequest.parentAttackId = followUp.sourceAttack->attackId;
+                reservationRequest.sharedHitGroupId =
+                    followUp.sourceAttack->sharedHitGroupId;
+                reservationRequest.propagation = derivedAttackPropagation(
+                    *followUp.sourceAttack);
+            }
+            else
+            {
+                reservationRequest.propagation =
+                    followUp.cast.propagation == CastPropagationPolicy::SourceRules
+                    ? CastPropagationPolicy::SourceHitRulesOnly
+                    : followUp.cast.propagation;
+            }
+            reservationRequest.origin = BattleAttackOriginKind::FollowUp;
+            reservationRequest.rootAttack = followUp.ownsRootCast
+                && !rootAttackReserved;
+            reservationRequest.mainProjectile = false;
+            const auto reservation = state.castLifecycle.reserveAttack(
+                followUp.cast.castId,
+                reservationRequest);
+            request.provenance = reservation.provenance;
+            request.castWork = reservation.work;
+            rootAttackReserved = rootAttackReserved
+                || reservationRequest.rootAttack;
+        }
+        assert(!followUp.ownsRootCast || rootAttackReserved);
+        state.castLifecycle.completeWork(followUp.expansionWork);
+        appendProjectileFollowUpsToFrame(frame, std::move(expansion));
     }
 }
 
@@ -4311,21 +6182,6 @@ void applyLateFrameMpRestores(BattleRuntimeState& state, BattleFrameContext& fra
     }
 }
 
-bool comboEffectIsApplied(const KysChess::RoleComboState& state, int comboId)
-{
-    return state.hasComboApplied(comboId);
-}
-
-bool unitBelongsToCombo(const BattleDeathEffectExtras& extras, int comboId)
-{
-    return std::ranges::find(extras.comboIds, comboId) != extras.comboIds.end();
-}
-
-bool isAntiComboId(const BattleDeathEffectStore& store, int comboId)
-{
-    return comboId >= 0 && store.regularSynergyComboIds.count(comboId) == 0;
-}
-
 BattleRuntimeUnit* findAntiComboTransferTarget(
     BattleRuntimeState& state,
     int deadUnitId,
@@ -4340,13 +6196,11 @@ BattleRuntimeUnit* findAntiComboTransferTarget(
         {
             continue;
         }
-        const auto& extras = state.units.require(candidate.id).deathEffects;
-        if (!unitBelongsToCombo(extras, comboId))
+        if (!candidateRecord.comboFacts.memberComboIds.contains(comboId))
         {
             continue;
         }
-        const auto& combo = state.units.require(candidate.id).combo;
-        if (comboEffectIsApplied(combo, comboId))
+        if (candidateRecord.comboFacts.appliedComboIds.contains(comboId))
         {
             continue;
         }
@@ -4360,16 +6214,20 @@ BattleRuntimeUnit* findAntiComboTransferTarget(
 
 void applyRuntimeAntiComboTransfer(
     BattleRuntimeState& state,
+    BattleFrameContext& frame,
     int deadUnitId,
     std::vector<BattleLogEvent>& logEvents)
 {
-    const auto& deadExtras = state.units.require(deadUnitId).deathEffects;
-    const auto& deadCombo = state.units.require(deadUnitId).combo;
-    const auto& dead = state.units.require(deadUnitId);
-    for (int comboId : deadExtras.comboIds)
+    const auto& deadRecord = state.units.require(deadUnitId);
+    // 分身保留已生效羈絆供 selector 與自身 runtime rule 使用，但不是
+    // roster 成員，死亡時不可把同一份反羈絆效果再次轉移。
+    if (deadRecord.core.cloneSourceUnitId >= 0)
     {
-        if (!isAntiComboId(state.deathEffects.store, comboId)
-            || !dead.hasComboApplied(comboId))
+        return;
+    }
+    for (int comboId : deadRecord.comboFacts.appliedComboIds)
+    {
+        if (!state.antiComboIds.contains(comboId))
         {
             continue;
         }
@@ -4381,25 +6239,85 @@ void applyRuntimeAntiComboTransfer(
         }
 
         auto& targetRecord = state.units.require(target->id);
-        for (RoleComboEffectId effectId : deadCombo.idsFromCombo(comboId))
+        auto antiComboTransfer =
+            BattleEffectCommandSystem::transferAntiComboInitialization(
+                state.effectCommands,
+                deadUnitId,
+                target->id,
+                target->team,
+                comboId);
+        for (const auto& attributeDelta : antiComboTransfer.coreAttributeDeltas)
         {
-            const auto& effect = deadCombo.effect(effectId);
-            targetRecord.grantRuntimeComboEffect(effect, comboId);
-            state.units.require(target->id).transferDeathAppliedEffect(effect);
+            int* value = nullptr;
+            switch (attributeDelta.attribute)
+            {
+            case BattleAttribute::MaxHp:
+                value = &targetRecord.core.vitals.maxHp;
+                break;
+            case BattleAttribute::Attack:
+                value = &targetRecord.core.stats.attack;
+                break;
+            case BattleAttribute::Defence:
+                value = &targetRecord.core.stats.defence;
+                break;
+            case BattleAttribute::Speed:
+                value = &targetRecord.core.stats.speed;
+                break;
+            case BattleAttribute::CriticalChance:
+            case BattleAttribute::CriticalDamage:
+            case BattleAttribute::DodgeChance:
+            case BattleAttribute::BlockChance:
+            case BattleAttribute::DamageReduction:
+            case BattleAttribute::SkillDamage:
+            case BattleAttribute::ProjectilePressureDamage:
+            case BattleAttribute::CooldownReduction:
+            case BattleAttribute::MpRecoveryBonus:
+            case BattleAttribute::StaggerResistance:
+            case BattleAttribute::ProjectileReflectChance:
+            case BattleAttribute::SkillReflectPercent:
+            case BattleAttribute::CounterUltimateBlockChance:
+            case BattleAttribute::CriticalAfterDodge:
+            case BattleAttribute::DashChance:
+            case BattleAttribute::OutgoingCooldownExtensionChance:
+            case BattleAttribute::OutgoingCooldownExtensionPercent:
+            case BattleAttribute::IncomingCooldownExtensionChance:
+            case BattleAttribute::IncomingCooldownExtensionPercent:
+                break;
+            }
+            assert(value);
+            *value += attributeDelta.delta;
+            if (attributeDelta.attribute == BattleAttribute::MaxHp)
+            {
+                targetRecord.core.vitals.hp = std::min(
+                    targetRecord.core.vitals.hp,
+                    targetRecord.core.vitals.maxHp);
+            }
         }
+        frame.queueEffectCommands(
+            std::move(antiComboTransfer.commands),
+            {
+                .frame = state.movement.frame,
+                .areaTargetTeamDomain = target->team,
+            });
+        state.effectRules.appendAntiComboTransferredRules(
+            deadUnitId,
+            target->id,
+            target->team,
+            comboId);
+        targetRecord.comboFacts.appliedComboIds.insert(comboId);
         logEvents.push_back(makeAntiComboTransferLog(deadUnitId, target->id));
     }
 }
 
 void applyRuntimeDeathComboConsequences(
     BattleRuntimeState& state,
+    BattleFrameContext& frame,
     const std::vector<int>& deadUnitIds,
     std::vector<BattleLogEvent>& logEvents)
 {
     for (int deadUnitId : deadUnitIds)
     {
-        state.units.require(deadUnitId).clearAllPending();
-        applyRuntimeAntiComboTransfer(state, deadUnitId, logEvents);
+        applyRuntimeAntiComboTransfer(state, frame, deadUnitId, logEvents);
     }
 }
 
@@ -4424,242 +6342,31 @@ std::vector<BattleStatusEvent> advanceStatus(
         request.attackerUnitId = event.sourceUnitId;
         request.defenderUnitId = event.unitId;
         request.baseDamage = event.value;
+        request.damageKind = event.type == BattleStatusEventType::PoisonDamage
+            ? BattleDamageKind::Poison
+            : BattleDamageKind::Bleed;
         request.preResolvedDamage = true;
+        request.preResolvedModifierPolicy =
+            BattlePreResolvedModifierPolicy::DefenderTypedStatuses;
         BattleDamagePresentationInput presentation;
         presentation.segments = battleLogText(event.reason, BattleLogTextTone::SkillName);
         applyStatusTickDamagePresentation(state, event.type, event.unitId, presentation);
-        appendFramePendingDamage(state, pendingDamage, std::move(request), std::move(presentation));
+        appendFramePendingDamage(
+            state,
+            pendingDamage,
+            std::move(request),
+            std::move(presentation),
+            false,
+            false,
+            {},
+            EffectStatusDamageOrigin{
+                event.type == BattleStatusEventType::PoisonDamage
+                    ? BattleStatusKind::Poison
+                    : BattleStatusKind::Bleed,
+                event.sourceUnitId,
+            });
     }
     return std::move(statusTick.events);
-}
-
-void appendTeamEffectLogEvents(
-    std::vector<BattleLogEvent>& logEvents,
-    const std::vector<BattleTeamEffectEvent>& events,
-    const std::string& reason)
-{
-    for (const auto& event : events)
-    {
-        BattleLogEvent log;
-        log.sourceUnitId = event.sourceUnitId;
-        log.targetUnitId = event.targetUnitId;
-        log.amount = event.value;
-        log.segments = battleLogText(reason, BattleLogTextTone::SkillName);
-        switch (event.type)
-        {
-        case BattleTeamEffectEventType::Heal:
-            log.type = BattleLogEventType::Heal;
-            log.segments = battleLogText(reason, BattleLogTextTone::SkillName);
-            break;
-        case BattleTeamEffectEventType::MpRestore:
-            log.type = BattleLogEventType::Status;
-            log.segments = battleLogText(std::format("{}+{}MP", reason, event.value), BattleLogTextTone::SkillName);
-            break;
-        case BattleTeamEffectEventType::MpDamage:
-            log.type = BattleLogEventType::Status;
-            log.segments = battleLogText(std::format("{}-{}MP", reason, event.value), BattleLogTextTone::SkillName);
-            break;
-        case BattleTeamEffectEventType::ShieldGain:
-            log.type = BattleLogEventType::Status;
-            log.segments = battleLogText(formatStatusValue(reason, event.value, "護盾"), BattleLogTextTone::SkillName);
-            break;
-        case BattleTeamEffectEventType::CooldownReduced:
-            log.type = BattleLogEventType::Status;
-            log.segments = battleLogText(formatStatusValue(reason, event.value, "冷卻"), BattleLogTextTone::SkillName);
-            break;
-        }
-        logEvents.push_back(std::move(log));
-    }
-}
-
-void appendTeamEffectVisualEvents(
-    std::vector<BattleVisualEvent>& visualEvents,
-    const std::vector<BattleTeamEffectEvent>& events)
-{
-    for (const auto& event : events)
-    {
-        switch (event.type)
-        {
-        case BattleTeamEffectEventType::Heal:
-            visualEvents.push_back(roleEffectEvent(
-                event.targetUnitId,
-                KysChess::EFT_HEAL,
-                CoreRoleStatusEffectFrames));
-            break;
-        case BattleTeamEffectEventType::MpRestore:
-        case BattleTeamEffectEventType::MpDamage:
-        case BattleTeamEffectEventType::ShieldGain:
-        case BattleTeamEffectEventType::CooldownReduced:
-            break;
-        }
-    }
-}
-
-void applyRuntimeTeamEvents(
-    BattleRuntimeState& state,
-    int sourceUnitId,
-    const BattleComboFrameRuntimeEvent& event,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
-{
-    if (state.units.empty())
-    {
-        return;
-    }
-
-    const auto& source = state.units.requireCore(sourceUnitId);
-    if (!source.alive)
-    {
-        return;
-    }
-
-    BattleTeamEffectSystem system;
-    std::vector<BattleTeamEffectEvent> events;
-    std::string reason;
-    switch (event.type)
-    {
-    case BattleComboFrameRuntimeEventType::SelfHpRegen:
-        events = system.applySelfHeal(state.units, sourceUnitId, event.value);
-        reason = "生命回復";
-        break;
-    case BattleComboFrameRuntimeEventType::HealAura:
-        assert(state.teamEffects.healAuraRadius > 0.0);
-        events = system.applyHealAura(
-            state.units,
-            sourceUnitId,
-            event.value,
-            event.value2,
-            state.teamEffects.healAuraRadius,
-            event.durationFrames);
-        reason = "治療光環";
-        break;
-    case BattleComboFrameRuntimeEventType::HealPercentSelf:
-        events = system.applySelfHeal(state.units, sourceUnitId, event.value);
-        reason = "爆發治療";
-        break;
-    default:
-        assert(false);
-        break;
-    }
-
-    appendTeamEffectLogEvents(logEvents, events, reason);
-    appendTeamEffectVisualEvents(visualEvents, events);
-}
-
-
-void applyBroadcastTriggerTimer(BattleRuntimeState& state, int sourceUnitId, const BattleComboFrameRuntimeEvent& event)
-{
-    assert(event.durationFrames > 0);
-    assert(event.type == BattleComboFrameRuntimeEventType::BroadcastTriggerTimer);
-    assert(event.timerKey.trigger == event.trigger);
-
-    const auto& source = state.units.requireCore(sourceUnitId);
-    if (!source.alive)
-    {
-        return;
-    }
-
-    for (auto& record : state.units.live())
-    {
-        const auto& unit = record.core;
-        if (unit.id == sourceUnitId || unit.team != source.team)
-        {
-            continue;
-        }
-        if (!record.combo.ownsTriggerTimer(event.timerKey))
-        {
-            continue;
-        }
-        record.combo.extendTriggerTimer(event.timerKey, event.durationFrames);
-    }
-}
-
-void applyCastPostSkillInvincibility(
-    BattleRuntimeState& state,
-    int sourceUnitId,
-    int frames,
-    std::vector<BattleLogEvent>& logEvents)
-{
-    if (frames <= 0)
-    {
-        return;
-    }
-
-    auto& unit = state.units.requireCore(sourceUnitId);
-    const int before = unit.invincible;
-    unit.invincible = std::max(unit.invincible, frames);
-    const int added = unit.invincible - before;
-    if (added <= 0)
-    {
-        return;
-    }
-
-    BattleLogEvent log;
-    log.type = BattleLogEventType::Status;
-    log.sourceUnitId = sourceUnitId;
-    log.targetUnitId = sourceUnitId;
-    log.amount = added;
-    log.segments = logStatusFrames("技能後無敵", added);
-    logEvents.push_back(std::move(log));
-}
-
-BattleFrameVector<BattleGameplayCommand> applyRuntimeComboEvents(
-    BattleRuntimeState& state,
-    BattleFrameContext& frame,
-    std::span<const BattleRuntimeUnitFrameCommit> runtimeCommits)
-{
-    BattleFrameVector<BattleGameplayCommand> deferredCommands(frame.frameMemoryResource());
-    for (const auto& result : runtimeCommits)
-    {
-        bool autoUltimateReady = false;
-        for (const auto& event : result.comboEvents)
-        {
-            switch (event.type)
-            {
-            case BattleComboFrameRuntimeEventType::SelfHpRegen:
-            case BattleComboFrameRuntimeEventType::HealAura:
-            case BattleComboFrameRuntimeEventType::HealPercentSelf:
-                applyRuntimeTeamEvents(
-                    state,
-                    result.unitId,
-                    event,
-                    frame.logEvents,
-                    frame.visualEvents);
-                break;
-            case BattleComboFrameRuntimeEventType::BroadcastTriggerTimer:
-                applyBroadcastTriggerTimer(state, result.unitId, event);
-                break;
-            case BattleComboFrameRuntimeEventType::AutoUltimateReady:
-                autoUltimateReady = true;
-                break;
-            }
-        }
-        if (autoUltimateReady)
-        {
-            deferredCommands.push_back(BattleAutoUltimateCommand{ result.unitId, false, true });
-        }
-    }
-    return deferredCommands;
-}
-
-void applySkillFinishedTeamHeals(
-    BattleRuntimeState& state,
-    BattleFrameContext& frame,
-    std::span<const BattleSkillFinishedTeamHeal> heals)
-{
-    BattleTeamEffectSystem system;
-    for (const auto& heal : heals)
-    {
-        const auto& source = state.units.requireCore(heal.sourceUnitId);
-        assert(source.alive);
-        auto events = system.applyTeamHeal(
-            state.units,
-            heal.sourceUnitId,
-            heal.flatHeal,
-            heal.pctHeal);
-        appendTeamEffectLogEvents(frame.logEvents, events, "技能群療");
-        appendTeamEffectVisualEvents(frame.visualEvents, events);
-    }
 }
 
 BattleMovementPhysicsCollisionWorld makeMovementPhysicsCollisionWorld(
@@ -4694,7 +6401,18 @@ void applyKnockbackImpulse(
     const BattleKnockbackCommand& knockback)
 {
     auto& record = state.units.require(knockback.targetUnitId);
-    if (record.combo.hasAlways(EffectType::DashAttack))
+    if (knockback.semanticDirection == ForceMoveDirection::AwayFromSource
+        && runtimeDashAttackEnabled(state, knockback.targetUnitId))
+    {
+        return;
+    }
+    if (BattleAreaEffectSystem::blocksForcedMovement(
+            state.areas,
+            state.gridTransform,
+            state.units,
+            knockback.targetUnitId,
+            state.movement.frame,
+            knockback.semanticDirection))
     {
         return;
     }
@@ -4732,6 +6450,10 @@ void applyKnockbackImpulse(
     remainingDistance.normTo(static_cast<float>(knockback.distance));
 
     auto& physics = state.units.require(knockback.targetUnitId).movement.physics;
+    if (physics.knockbackFrames <= 0)
+    {
+        physics.knockbackOrigin = unit.motion.position;
+    }
     if (physics.knockbackFrames > 0 || physics.knockbackControlFrames > 0)
     {
         remainingDistance += distanceForVelocity(unit.motion.velocity, physics.knockbackFrames);
@@ -4747,6 +6469,10 @@ void applyKnockbackImpulse(
     physics.knockbackVelocity = velocity;
     physics.knockbackFrames = combinedLockFrames;
     physics.knockbackControlFrames = physics.knockbackFrames + 1;
+    physics.knockbackIgnoresUnitCollision =
+        knockback.collision == ForceMoveCollision::StopBeforeBlocked;
+    physics.knockbackCancelsWhenBlocked =
+        knockback.blocked == ForceMoveBlockedResult::Stop;
     physics.postDashRetreatFrames = 0;
     physics.postDashChaosFrames = 0;
     physics.movementDashSpreadFrames = 0;
@@ -4827,7 +6553,7 @@ BattleFrameVector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(
         physicsInput.actionDashActive = actionDashActive;
         physicsInput.unitAlive = unit.alive;
         BattleUnitState movementSnapshot;
-        movementSnapshot.taXue = record.combo.hasAlways(EffectType::DashAttack);
+        movementSnapshot.taXue = runtimeDashAttackEnabled(state, unit.id);
         movementSnapshot.velocity = result.state.velocity;
         movementSnapshot.dashFramesRemaining = result.state.movementDashFrames;
         movementSnapshot.dashCooldownRemaining = result.state.movementDashCooldown;
@@ -4836,10 +6562,22 @@ BattleFrameVector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(
         movementSnapshot.postDashChaosFramesRemaining = result.state.postDashChaosFrames;
         movementSnapshot.knockbackFramesRemaining = result.state.knockbackFrames;
         movementSnapshot.knockbackControlFramesRemaining = result.state.knockbackControlFrames;
-        physicsInput.ignoreUnitCollision = !unit.alive || battleMovementTaXueUnstable(movementSnapshot);
+        physicsInput.ignoreUnitCollision = !unit.alive
+            || battleMovementTaXueUnstable(movementSnapshot)
+            || (result.state.knockbackFrames > 0
+                && result.state.knockbackIgnoresUnitCollision);
 
+        const bool cancelForcedMoveWhenBlocked = result.state.knockbackFrames > 0
+            && result.state.knockbackCancelsWhenBlocked;
+        const auto expectedKnockbackPosition =
+            result.state.position + result.state.velocity;
         result.state = BattleMovementPhysicsSystem().advance(physicsInput);
         result.physicsAdvanced = true;
+        if (cancelForcedMoveWhenBlocked
+            && (result.state.position - expectedKnockbackPosition).norm() > 0.01)
+        {
+            result.state.position = result.state.knockbackOrigin;
+        }
 
         if (auto* collisionUnit = tryFindById(collision.units, result.unitId))
         {
@@ -4990,6 +6728,10 @@ void resetActionFrameState(BattleActionFrameState& state)
 void cancelRuntimeAction(BattleRuntimeState& state, int unitId)
 {
     auto& unit = state.units.require(unitId);
+    if (const auto* pending = unit.pendingCast())
+    {
+        cancelEffectRootCast(state, pending->effectCast);
+    }
     auto actionState = makeActionRuntimeState(unit.core);
     resetActionFrameState(actionState);
     commitActionFrameStateToRuntime(unit.core, actionState);
@@ -5054,7 +6796,8 @@ void advanceActionFrameUnits(
         const auto* runtimePlanSeed = unitRecord.actionPlan();
         if (runtimePlanSeed
             && !unit.haveAction
-            && !actionMovementDashActive(state, unit.id))
+            && !actionMovementDashActive(state, unit.id)
+            && findNearestEnemyUnitId(state.units, unit.id) >= 0)
         {
             runtimeCastPlan = makeRuntimeCastInputFromSeed(
                 state,
@@ -5072,11 +6815,44 @@ void advanceActionFrameUnits(
         const bool wasActionActive = actionState.haveAction;
         bool cancelledAction = false;
 
-        if (!actionState.haveAction && runtimeCastPlan)
+        if (!actionState.haveAction
+            && runtimeCastPlan
+            && unit.canAttack
+            && unit.animation.cooldown == 0
+            && !unitRecord.frozen())
         {
             auto castInput = refreshedCastInput(state, unitRecord, movement, std::move(*runtimeCastPlan));
             castInput.unit.canStartAttack = castInput.unit.canStartAttack
                 && unit.animation.cooldown == 0;
+            auto effectResourcesBeforeCast = snapshotEffectResourcesBeforeCast(state);
+            const bool plannedUltimate = castInput.ultimateSkill.id >= 0
+                && castInput.unit.mp == castInput.unit.maxMp;
+            assert(runtimePlanSeed);
+            const auto& plannedSkillSeed = plannedUltimate
+                ? runtimePlanSeed->ultimateSkill
+                : runtimePlanSeed->normalSkill;
+            const auto trackedCast = beginEffectRootCast(
+                state.castLifecycle,
+                unit.id,
+                plannedSkillSeed.id,
+                plannedUltimate);
+            auto plannedEffects = dispatchCastPlannedEffects(
+                state,
+                castInput,
+                plannedUltimate,
+                effectResourcesBeforeCast,
+                trackedCast.provenance);
+            refreshPlannedCastExactRuntimePolicies(
+                state,
+                unit,
+                plannedSkillSeed,
+                plannedUltimate,
+                trackedCast.provenance,
+                castInput);
+            auto effectPreparation = BattleEffectAttackCastSystem().prepareCast(
+                castInput,
+                plannedUltimate,
+                plannedEffects.commands);
             auto cast = BattleCastPlanner().plan(castInput);
             gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
             logEvents.insert(logEvents.end(), cast.logEvents.begin(), cast.logEvents.end());
@@ -5093,13 +6869,25 @@ void advanceActionFrameUnits(
                 actionState.cooldown = cast.animation.cooldownFrames;
                 actionState.cooldownMax = cast.animation.cooldownFrames;
                 const int castFrame = jitteredActionCastFrame(state, cast.decision.operationType);
-                unitRecord.setPendingCast(makePendingCastAction(castInput, cast, castFrame));
+                auto pending = makePendingCastAction(
+                    castInput,
+                    cast,
+                    trackedCast,
+                    castFrame);
+                pending.effectPreparation = std::move(effectPreparation);
+                pending.plannedAttackEffectCommands = std::move(plannedEffects.commands);
+                pending.effectResourcesBeforeCast = std::move(effectResourcesBeforeCast);
+                unitRecord.setPendingCast(std::move(pending));
                 unitRecord.setSkillCooldownUltimate(cast.decision.ultimate);
                 if (cast.decision.ultimate)
                 {
                     unitRecord.markUltimateCaster();
                 }
                 unitRecord.movement.physics.movementDashSpreadFrames = 0;
+            }
+            else
+            {
+                cancelEffectRootCast(state, trackedCast);
             }
         }
         else if (actionState.haveAction && pendingCast)
@@ -5109,52 +6897,113 @@ void advanceActionFrameUnits(
             if (actionState.actFrame == castFrame)
             {
                 actionCommitted = true;
+                const auto committedPending = *pendingCast;
                 auto maybeActionInput = tryMakeRuntimeActionCommitInput(
                     state,
                     movement,
-                    *pendingCast,
+                    committedPending,
                     frame.frameMemoryResource());
-                auto& combo = unitRecord.combo;
                 unitRecord.clearPendingCast();
-                if (maybeActionInput)
+                if (maybeActionInput && maybeActionInput->hasCast)
                 {
                     actionInput = std::move(*maybeActionInput);
                     unit.motion.facing = actionInput.committedFacing;
-                    actionResult = BattleActionCommitSystem().commit(actionInput, combo, state.units);
-                    if (actionInput.hasCast)
+                    actionResult = BattleActionCommitSystem().commit(actionInput, state.units);
+                    if (actionResult.advanceBlinkTargetMode)
                     {
-                        markSelectedCastFinishPending(
-                            state,
-                            unit.id,
-                            actionInput.cast.decision.ultimate);
+                        state.effectRules.advanceBlinkAttackTargetMode(unit.id);
                     }
                 }
                 else
                 {
+                    cancelEffectRootCast(state, committedPending.effectCast);
                     actionResult.operationCount = unit.operationCount;
                     resetActionFrameState(actionState);
                     cancelledAction = true;
                 }
                 if (actionInput.hasCast)
                 {
-                    auto castSources = makeSelectedCastEffectSources(
-                        state,
-                        unit.id,
-                        actionInput.cast.decision.ultimate);
                     schedulePostDashRetreat(state, unit.id, actionInput.cast);
-                    applyCastPostSkillInvincibility(
-                        state,
-                        unit.id,
-                        collectFramePostSkillInvincFrames(
-                            castSources,
-                            state.random,
-                            unit.id,
-                            actionInput.cast.decision.ultimate),
-                        logEvents);
                 }
                 if (actionInput.hasCast && actionInput.cast.decision.soundId >= 0)
                 {
                     frame.attackSoundIds.push_back(actionInput.cast.decision.soundId);
+                }
+                if (actionInput.hasCast)
+                {
+                    const auto& trackedCast = committedPending.effectCast;
+                    const auto committedSkill = materializePendingCastSkill(
+                        committedPending);
+                    auto committedEffects = dispatchCastCommittedEffects(
+                        state,
+                        committedPending,
+                        actionInput.cast);
+                    const auto copiedAttackRequests = collectCopiedAttackDefinitionRequests(
+                        committedEffects);
+
+                    auto effectCastInput = tryMakeRuntimeCastInputForPendingCast(
+                        state,
+                        committedPending,
+                        frame.frameMemoryResource());
+                    assert(effectCastInput);
+                    BattleEffectAttackCastSystem().prepareCast(
+                        *effectCastInput,
+                        committedPending.plannedAttackEffectCommands);
+                    BattleEffectAttackApplyState effectAttackState{
+                        .nextSharedHitGroupId = state.effectIntegration.nextSharedHitGroupId,
+                    };
+                    for (const auto& committedEffect : committedEffects)
+                    {
+                        auto committedAttackEffects = BattleEffectAttackCastSystem().applyAttackCommands(
+                            *effectCastInput,
+                            actionResult.attackSpawnRequests,
+                            committedEffect.commands,
+                            effectAttackState);
+                        applyEffectAttackDirectives(
+                            actionResult.attackSpawnRequests,
+                            committedAttackEffects);
+                    }
+                    state.effectIntegration.nextSharedHitGroupId =
+                        effectAttackState.nextSharedHitGroupId;
+                    appendRuntimeSpiralBleedCastEffects(
+                        state,
+                        unit.id,
+                        committedSkill,
+                        committedCastProjectileSpeed(
+                            actionResult,
+                            state.projectileFollowUps.projectileSpeed),
+                        committedEffects,
+                        actionResult.attackSpawnRequests);
+
+                    reserveEffectRootCastAttacks(
+                        state.castLifecycle,
+                        trackedCast,
+                        actionResult.attackSpawnRequests);
+                    state.effectIntegration.casts[trackedCast.provenance.castId] = {
+                        .originalTargetUnitId = actionInput.cast.decision.targetUnitId,
+                        .resourcesBeforeCast = committedPending.effectResourcesBeforeCast,
+                        .skill = committedSkill,
+                        .operationType = actionInput.cast.decision.operationType,
+                    };
+                    const BattleEffectCommandContext committedEffectContext{
+                        .frame = state.movement.frame,
+                        .cast = trackedCast.provenance,
+                        .areaTargetTeamDomain = unit.team,
+                    };
+                    for (auto& committedEffect : committedEffects)
+                    {
+                        frame.queueEffectCommands(
+                            std::move(committedEffect.commands),
+                            committedEffectContext);
+                    }
+                    queueCopiedAttackDefinitionChildCasts(
+                        state,
+                        frame,
+                        trackedCast.provenance,
+                        actionInput.cast.decision.targetUnitId,
+                        copiedAttackRequests,
+                        frame.frameMemoryResource());
+                    frame.queueCastCommitBarrier(trackedCast.commitBarrier);
                 }
                 appendAttackSpawnRequests(frame.currentFrameAttacks(), actionResult.attackSpawnRequests);
                 for (const auto& teleport : actionResult.blinkTeleports)
@@ -5169,26 +7018,6 @@ void advanceActionFrameUnits(
                     visualEvents.end(),
                     actionResult.visualEvents.begin(),
                     actionResult.visualEvents.end());
-                if (actionInput.hasCast)
-                {
-                    auto castSources = makeSelectedCastEffectSources(
-                        state,
-                        unit.id,
-                        actionInput.cast.decision.ultimate);
-                    auto events = collectFrameCastScopedComboEvents(
-                        castSources,
-                        state.random,
-                        unit.id,
-                        actionInput.cast.decision.ultimate);
-                    if (!events.empty())
-                    {
-                        frame.castScopedComboEffects.push_back({
-                            unit.id,
-                            committedCastProjectileSpeed(actionResult, state.projectileFollowUps.projectileSpeed),
-                            std::move(events),
-                        });
-                    }
-                }
                 frame.blinkSoundCount += static_cast<int>(actionResult.blinkTeleports.size());
             }
         }
@@ -5231,11 +7060,11 @@ void applyAttackSpawnAttackerDualWieldBlockGain(
     {
         return;
     }
-    assert(request.initial.attackerUnitId >= 0);
+    assert(request.initial.attackSourceUnitId >= 0);
     assert(!request.initial.skillName.empty());
     assert(request.attackerDualWieldBlockGainChancePct <= 100);
 
-    auto& attacker = state.units.require(request.initial.attackerUnitId);
+    auto& attacker = state.units.require(request.initial.attackSourceUnitId);
     if (!attacker.core.alive)
     {
         return;
@@ -5259,41 +7088,639 @@ void applyAttackSpawnAttackerDualWieldBlockGain(
         std::format("{}·互搏抵擋+1", request.initial.skillName));
 }
 
+void applyAreaAttackSpawnModifiers(
+    BattleRuntimeState& state,
+    BattleAttackSpawnRequest& request)
+{
+    if (request.initial.operationType != BattleOperationType::RangedProjectile)
+    {
+        return;
+    }
+
+    const auto modifiers = BattleAreaEffectSystem::collectAreaAttackSpawnModifiers(
+        state.areas,
+        state.gridTransform,
+        state.units,
+        request.initial.attackSourceUnitId,
+        state.movement.frame);
+    if (modifiers.tracking)
+    {
+        request.initial.track = *modifiers.tracking;
+    }
+    if (modifiers.speedPct)
+    {
+        const int scalePct = 100 + *modifiers.speedPct;
+        assert(scalePct > 0);
+        request.initial.velocity *= static_cast<float>(scalePct) / 100.0f;
+        request.initial.totalFrame = std::max(
+            1,
+            (request.initial.totalFrame * 100 + scalePct - 1) / scalePct);
+    }
+    if (modifiers.projectilePressurePct)
+    {
+        const int scalePct = 100 + *modifiers.projectilePressurePct;
+        assert(scalePct >= 0);
+        request.initial.projectilePressurePct =
+            request.initial.projectilePressurePct * scalePct / 100;
+    }
+}
+
+bool consumeTypedAttackSuppression(
+    BattleRuntimeState& state,
+    const BattleAttackEvent& event)
+{
+    assert(event.provenance.valid());
+    if (state.attacks.contactsSuppressed(event.attackId))
+    {
+        return true;
+    }
+
+    auto& attacker = state.units.require(event.sourceUnitId);
+    const auto attackerStatus = BattleStatusSystem({}).snapshot(
+        attacker.statusDamageState());
+    bool sourceSuppressed{};
+    int neutralizeShield{};
+    for (const auto kind : {
+             BattleStatusKind::Blinded,
+             BattleStatusKind::NeutralizeForce,
+         })
+    {
+        if (!attackerStatus.has(kind))
+        {
+            continue;
+        }
+        auto consumed = BattleStatusSystem({}).consume(
+            attacker.statusDamageState(),
+            { .kind = kind });
+        assert(consumed.consumed);
+        attacker.writeStatusDamageResult(consumed.target);
+        sourceSuppressed = true;
+        if (kind == BattleStatusKind::NeutralizeForce)
+        {
+            neutralizeShield = consumed.consumedStatus.potency;
+        }
+    }
+    if (sourceSuppressed)
+    {
+        state.attacks.suppressContactsForCast(event.provenance.cast.castId);
+        if (neutralizeShield > 0)
+        {
+            int shieldTargetUnitId = OptionalPreferredTargetUnitId;
+            const auto cast = state.effectIntegration.casts.find(
+                event.provenance.cast.castId);
+            if (cast != state.effectIntegration.casts.end())
+            {
+                shieldTargetUnitId = cast->second.originalTargetUnitId;
+            }
+            if (shieldTargetUnitId < 0)
+            {
+                shieldTargetUnitId = event.preferredTargetUnitId;
+            }
+            if (shieldTargetUnitId < 0)
+            {
+                shieldTargetUnitId = event.unitId;
+            }
+            ChangeResourceAction grantShield;
+            grantShield.resource = BattleResource::Shield;
+            grantShield.kind = ResourceChangeKind::Grant;
+            grantShield.amount.flat = neutralizeShield;
+            const EffectCommand grantShieldCommand{
+                EffectCommandMetadata{
+                    .targetUnitId = shieldTargetUnitId,
+                },
+                ChangeResourceEffectCommand{
+                    .action = std::move(grantShield),
+                    .amount = neutralizeShield,
+                },
+            };
+            BattleEffectCommandSystem().reduce(
+                state,
+                grantShieldCommand,
+                { .frame = state.movement.frame });
+        }
+        return true;
+    }
+
+    auto& defender = state.units.require(event.unitId);
+    const auto defenderStatus = BattleStatusSystem({}).snapshot(
+        defender.statusDamageState());
+    const auto nextAttackMiss = std::ranges::find_if(
+        defenderStatus.statuses,
+        [](const auto& instance)
+        {
+            return instance.kind == BattleStatusKind::NextAttackMiss;
+        });
+    if (nextAttackMiss == defenderStatus.statuses.end())
+    {
+        return false;
+    }
+    auto consumed = BattleStatusSystem({}).consume(
+        defender.statusDamageState(),
+        { .kind = BattleStatusKind::NextAttackMiss });
+    assert(consumed.consumed);
+    defender.writeStatusDamageResult(consumed.target);
+    return true;
+}
+
+int currentHitIgnoreDefensePct(
+    const BattleRuntimeState& state,
+    const BattleAttackEvent& event,
+    std::span<const EffectCommand> commands)
+{
+    int result{};
+    for (const auto& command : commands)
+    {
+        const auto* damage = std::get_if<ModifyDamageEffectCommand>(&command.value);
+        if (!damage
+            || damage->action.durationFrames != 0
+            || damage->action.stack != EffectStackPolicy::Independent
+            || damage->action.perspective != DamageModifierPerspective::Outgoing
+            || damage->action.stage != DamageModifierStage::BeforeDefense
+            || (damage->action.channel != DamageChannel::All
+                && damage->action.channel != effectDamageChannel(event.damageKind))
+            || damage->action.operation != DamageModifierOperation::IgnoreDefensePercent)
+        {
+            continue;
+        }
+        result += damage->amount;
+    }
+    for (const auto& modifier : BattleEffectCommandSystem::queryDamageModifiers(
+             state,
+             {
+                 .unitId = event.sourceUnitId,
+                 .eventSourceUnitId = event.unitId,
+                 .perspective = DamageModifierPerspective::Outgoing,
+                 .channel = effectDamageChannel(event.damageKind),
+                 .stage = DamageModifierStage::BeforeDefense,
+                 .frame = state.movement.frame,
+             }))
+    {
+        if (modifier.operation == DamageModifierOperation::IgnoreDefensePercent)
+        {
+            result += modifier.amount * modifier.stackCount;
+        }
+    }
+    return std::clamp(result, 0, 100);
+}
+
+void appendHitDamageModifier(
+    BattleHitDamageModifierPhases& phases,
+    DamageModifierPerspective perspective,
+    DamageModifierStage stage,
+    BattleHitDamageModifier modifier)
+{
+    if (perspective == DamageModifierPerspective::Outgoing)
+    {
+        switch (stage)
+        {
+        case DamageModifierStage::BeforeDefense:
+            phases.outgoingBeforeCritical.push_back(modifier);
+            return;
+        case DamageModifierStage::AfterDefense:
+            phases.outgoingAfterCritical.push_back(modifier);
+            return;
+        case DamageModifierStage::Final:
+            phases.outgoingFinal.push_back(modifier);
+            return;
+        }
+    }
+
+    switch (stage)
+    {
+    case DamageModifierStage::BeforeDefense:
+        phases.incomingBase.push_back(modifier);
+        return;
+    case DamageModifierStage::AfterDefense:
+        phases.incomingAfterBase.push_back(modifier);
+        return;
+    case DamageModifierStage::Final:
+        phases.incomingFinal.push_back(modifier);
+        return;
+    }
+    assert(false);
+}
+
+void collectHitDamageModifiers(
+    const BattleRuntimeState& state,
+    const BattleAttackEvent& event,
+    std::span<const EffectCommand> commands,
+    BattleHitResolutionInput& input)
+{
+    const DamageChannel channel = effectDamageChannel(event.damageKind);
+    for (const auto& command : commands)
+    {
+        const auto* modifier = std::get_if<ModifyDamageEffectCommand>(&command.value);
+        if (!modifier
+            || modifier->action.durationFrames != 0
+            || modifier->action.stack != EffectStackPolicy::Independent
+            || (modifier->action.channel != DamageChannel::All
+                && modifier->action.channel != channel))
+        {
+            continue;
+        }
+        appendHitDamageModifier(
+            input.damageModifiers,
+            modifier->action.perspective,
+            modifier->action.stage,
+            { modifier->action.operation, modifier->amount });
+    }
+
+    const std::array perspectives{
+        DamageModifierPerspective::Outgoing,
+        DamageModifierPerspective::Incoming,
+    };
+    const std::array stages{
+        DamageModifierStage::BeforeDefense,
+        DamageModifierStage::AfterDefense,
+        DamageModifierStage::Final,
+    };
+    for (DamageModifierPerspective perspective : perspectives)
+    {
+        for (DamageModifierStage stage : stages)
+        {
+            const int unitId = perspective == DamageModifierPerspective::Outgoing
+                ? event.sourceUnitId
+                : event.unitId;
+            const int eventSourceUnitId = perspective == DamageModifierPerspective::Outgoing
+                ? event.unitId
+                : event.sourceUnitId;
+            for (const auto& modifier : BattleEffectCommandSystem::queryDamageModifiers(
+                     state,
+                     {
+                         .unitId = unitId,
+                         .eventSourceUnitId = eventSourceUnitId,
+                         .perspective = perspective,
+                         .channel = channel,
+                         .stage = stage,
+                         .frame = state.movement.frame,
+                     }))
+            {
+                appendHitDamageModifier(
+                    input.damageModifiers,
+                    perspective,
+                    stage,
+                    { modifier.operation, modifier.amount, modifier.stackCount });
+            }
+        }
+    }
+
+    const auto attackerStatus = BattleStatusSystem({}).snapshot(
+        state.units.require(event.sourceUnitId).statusDamageState());
+    if (event.skillId >= 0 && attackerStatus.skillDamagePct != 0)
+    {
+        input.damageModifiers.outgoingBeforeCritical.push_back({
+            DamageModifierOperation::PercentAdd,
+            attackerStatus.skillDamagePct,
+        });
+    }
+
+    const auto defenderStatus = BattleStatusSystem({}).snapshot(
+        state.units.require(event.unitId).statusDamageState());
+    if (defenderStatus.damageReductionPct != 0)
+    {
+        input.damageModifiers.incomingBase.push_back({
+            DamageModifierOperation::PercentAdd,
+            -defenderStatus.damageReductionPct,
+        });
+    }
+    if (defenderStatus.damageTakenPct != 0)
+    {
+        input.damageModifiers.incomingFinal.push_back({
+            DamageModifierOperation::PercentAdd,
+            defenderStatus.damageTakenPct,
+        });
+    }
+}
+
+BattleEffectOwnedEvent makeHitEffectEvent(
+    BattleRuntimeState& state,
+    const BattleAttackEvent& event,
+    EffectEvent effectEvent)
+{
+    assert(effectEvent == EffectEvent::MainProjectileBeforeDamage
+        || effectEvent == EffectEvent::HitBeforeDamage);
+    assert(event.provenance.valid());
+    const auto& attacker = state.units.require(event.sourceUnitId);
+    const auto& defender = state.units.require(event.unitId);
+    HitEventData payload;
+    payload.provenance = event.provenance;
+    payload.attackerBefore = makeEffectUnitSnapshot(state, attacker);
+    payload.defenderBefore = makeEffectUnitSnapshot(state, defender);
+    payload.originalTargetUnitId = event.unitId;
+    const auto cast = state.effectIntegration.casts.find(
+        event.provenance.cast.castId);
+    if (cast != state.effectIntegration.casts.end())
+    {
+        payload.originalTargetUnitId = cast->second.originalTargetUnitId;
+    }
+    payload.contactPosition = event.position;
+    payload.acceptedHit = true;
+    payload.preDefenseDamage = std::max(0, event.scriptedDamage);
+    payload.damageKind = event.damageKind;
+
+    const auto attackerStatus = BattleStatusSystem({}).snapshot(
+        attacker.statusDamageState());
+    EffectFormulaInputs formulaInputs;
+    formulaInputs.accumulatedStateValue = attackerStatus.pureDamagePerHit;
+    return BattleEffectEventBridge().makeEvent(
+        state,
+        nextEffectEventHeader(
+            state,
+            event.sourceUnitId,
+            std::move(formulaInputs)),
+        effectEvent,
+        std::move(payload));
+}
+
+BattleEffectDispatchResult dispatchAttackSpawnedEffects(
+    BattleRuntimeState& state,
+    const BattleAttackEvent& event)
+{
+    assert(event.provenance.valid());
+    const auto& attacker = state.units.require(event.sourceUnitId);
+    AttackEventData payload;
+    payload.provenance = event.provenance;
+    payload.attacker = makeEffectUnitSnapshot(state, attacker);
+    payload.originalTargetUnitId = event.unitId;
+    const auto cast = state.effectIntegration.casts.find(
+        event.provenance.cast.castId);
+    if (cast != state.effectIntegration.casts.end())
+    {
+        payload.originalTargetUnitId = cast->second.originalTargetUnitId;
+    }
+    payload.spawnPosition = event.position;
+    payload.velocity = event.velocity;
+    payload.skillId = event.skillId;
+    payload.baseDamage = std::max(0, event.scriptedDamage);
+    payload.damageKind = event.damageKind;
+    return BattleEffectEventBridge().dispatch(
+        state,
+        nextEffectEventHeader(state, event.sourceUnitId),
+        EffectEvent::AttackSpawned,
+        std::move(payload));
+}
+
+std::optional<BattleCastInput> makeEffectAttackCastInput(
+    BattleRuntimeState& state,
+    const BattleAttackEvent& event,
+    std::pmr::memory_resource* frameMemoryResource)
+{
+    assert(event.provenance.valid());
+    const auto cast = state.effectIntegration.casts.find(event.provenance.cast.castId);
+    if (cast == state.effectIntegration.casts.end())
+    {
+        return std::nullopt;
+    }
+
+    BattlePendingCastAction pending;
+    pending.targetUnitId = cast->second.originalTargetUnitId;
+    pending.operationType = event.operationType;
+    pending.skillPlan = makePendingCastSkillPlan(cast->second.skill);
+    pending.effectCast.provenance = event.provenance.cast;
+    return tryMakeRuntimeCastInputForPendingCast(
+        state,
+        pending,
+        frameMemoryResource);
+}
+
+void applyAttackSpawnedEffects(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattleAttackEvent& event)
+{
+    if (event.type != BattleAttackEventType::AttackSpawned)
+    {
+        return;
+    }
+    auto dispatched = dispatchAttackSpawnedEffects(state, event);
+    if (dispatched.commands.empty())
+    {
+        return;
+    }
+
+    auto effectCastInput = makeEffectAttackCastInput(
+        state,
+        event,
+        frame.frameMemoryResource());
+    if (effectCastInput)
+    {
+        const auto liveAttack = std::ranges::find(
+            state.attacks.attacks,
+            event.attackId,
+            &BattleAttackInstance::id);
+        assert(liveAttack != state.attacks.attacks.end());
+        BattleAttackSpawnRequest prototype;
+        prototype.initial = liveAttack->state;
+        prototype.provenance = {
+            .cast = event.provenance.cast,
+            .propagation = event.provenance.propagation,
+            .origin = event.provenance.origin,
+            .parentAttackId = event.provenance.parentAttackId,
+            .attackOrdinal = event.provenance.attackOrdinal,
+            .rootAttack = event.provenance.rootAttack,
+            .mainProjectile = event.provenance.mainProjectile,
+            .sharedHitGroupId = event.provenance.sharedHitGroupId,
+        };
+        std::vector<BattleAttackSpawnRequest> requests{ std::move(prototype) };
+        BattleEffectAttackApplyState effectAttackState{
+            .nextSharedHitGroupId = state.effectIntegration.nextSharedHitGroupId,
+            .sourceAttackProvenance = event.provenance,
+        };
+        auto applied = BattleEffectAttackCastSystem().applyAttackCommands(
+            *effectCastInput,
+            requests,
+            dispatched.commands,
+            effectAttackState);
+        applyEffectAttackDirectives(requests, applied);
+        state.effectIntegration.nextSharedHitGroupId =
+            effectAttackState.nextSharedHitGroupId;
+
+        for (auto& request : requests)
+        {
+            if (request.provenance.valid())
+            {
+                // This is the already-live prototype retained by addToBaseAttack.
+                assert(!request.castWork.valid());
+                continue;
+            }
+            BattleAttackReservationRequest reservationRequest;
+            reservationRequest.parentAttackId = request.provenance.parentAttackId
+                .value_or(event.provenance.attackId);
+            reservationRequest.origin = request.provenance.origin;
+            reservationRequest.rootAttack = false;
+            reservationRequest.mainProjectile = request.provenance.mainProjectile;
+            reservationRequest.sharedHitGroupId = request.provenance.sharedHitGroupId;
+            reservationRequest.propagation = request.provenance.propagation;
+            const auto reservation = state.castLifecycle.reserveAttack(
+                event.provenance.cast.castId,
+                reservationRequest);
+            request.provenance = reservation.provenance;
+            request.castWork = reservation.work;
+            frame.currentFrameAttacks().push_back(std::move(request));
+        }
+    }
+
+    BattleEffectCommandContext context{
+        .frame = state.movement.frame,
+        .effectPosition = event.position,
+        .areaTargetTeamDomain = state.units.requireCore(event.sourceUnitId).team,
+    };
+    context.cast = event.provenance.cast;
+    context.attack = event.provenance;
+    frame.queueEffectCommands(std::move(dispatched.commands), std::move(context));
+    reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+}
+
+void resolveTypedHitEvent(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattleAttackEvent& event)
+{
+    if (event.type != BattleAttackEventType::Hit)
+    {
+        return;
+    }
+    assert(event.provenance.valid());
+    if (consumeTypedAttackSuppression(state, event))
+    {
+        return;
+    }
+    if (event.scriptedDamage <= 0
+        && tryResolveDodgeHit(state, event, frame.logEvents, frame.visualEvents))
+    {
+        return;
+    }
+    const bool forceCritical = event.scriptedDamage <= 0
+        && consumeNextAttackCritical(state, event.sourceUnitId);
+    state.castLifecycle.recordHit(event.provenance, event.unitId);
+
+    std::vector<EffectCommand> hitEffectCommands;
+    const auto reduceDispatched = [&](BattleEffectDispatchResult dispatched)
+    {
+        hitEffectCommands.insert(
+            hitEffectCommands.end(),
+            dispatched.commands.begin(),
+            dispatched.commands.end());
+        BattleEffectCommandContext context{
+            .frame = state.movement.frame,
+            .effectPosition = event.position,
+            .areaTargetTeamDomain = state.units.requireCore(event.unitId).team,
+        };
+        context.cast = event.provenance.cast;
+        context.attack = event.provenance;
+        frame.queueEffectCommands(std::move(dispatched.commands), std::move(context));
+        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    };
+
+    RuntimeMainHitPolicies mainHitPolicies;
+    if (event.provenance.mainProjectile)
+    {
+        const auto owned = makeHitEffectEvent(
+            state,
+            event,
+            EffectEvent::MainProjectileBeforeDamage);
+        const auto exactMatches = BattleEffectSystem().queryExactRuntimeRules(
+            state.effectRules,
+            owned.context(),
+            state.random);
+        mainHitPolicies = runtimeMainHitPolicies(exactMatches);
+        reduceDispatched(BattleEffectEventBridge().dispatch(state, owned));
+    }
+    const auto hitEvent = makeHitEffectEvent(
+        state,
+        event,
+        EffectEvent::HitBeforeDamage);
+    reduceDispatched(BattleEffectEventBridge().dispatch(state, hitEvent));
+
+    const int ignoreDefensePct = currentHitIgnoreDefensePct(
+        state,
+        event,
+        hitEffectCommands);
+    auto input = makeHitResolutionInput(
+        state,
+        event,
+        ignoreDefensePct,
+        mainHitPolicies);
+    input.forceCritical = forceCritical;
+    collectHitDamageModifiers(state, event, hitEffectCommands, input);
+    auto result = BattleHitResolver().resolve(input, state.random);
+    for (const auto& activated : result.activatedRuntimeRules)
+    {
+        state.effectRules.recordRuntimeRuleActivation(
+            activated.binding,
+            activated.ruleId,
+            state.movement.frame);
+    }
+    auto followUps = expandBattleProjectileFollowUpCommands(
+        result.commands,
+        state.projectileFollowUps,
+        state.units);
+    reserveTrackedProjectileFollowUps(state, followUps);
+    result.commands = std::move(followUps.commands);
+    result.visualEvents.insert(
+        result.visualEvents.end(),
+        followUps.visualEvents.begin(),
+        followUps.visualEvents.end());
+    frame.mutableCommandsForReducer().insert(
+        frame.mutableCommandsForReducer().end(),
+        result.commands.begin(),
+        result.commands.end());
+    frame.logEvents.insert(
+        frame.logEvents.end(),
+        result.logEvents.begin(),
+        result.logEvents.end());
+    frame.visualEvents.insert(
+        frame.visualEvents.end(),
+        result.visualEvents.begin(),
+        result.visualEvents.end());
+}
+
 void advanceAttacksAndResolveHits(
     BattleRuntimeState& state,
     BattleFrameContext& frame)
 {
     auto& attackEvents = frame.attackEvents;
-    auto& frameCommands = frame.mutableCommandsForReducer();
     auto& logEvents = frame.logEvents;
-    auto& visualEvents = frame.visualEvents;
 
     state.attacks.frame = state.movement.frame;
-    auto attackSpawns = frame.drainCurrentFrameAttacks();
-    attackEvents.reserve(
-        attackEvents.size()
-        + attackSpawns.size()
-        + state.attacks.attacks.size() * 2);
-    for (auto& request : attackSpawns)
+    // AttackSpawned rules can add zero-delay descendants. Drain until stable so
+    // every attack created this frame joins the same tick; explicit delays still queue.
+    while (true)
     {
-        if (!attackSpawnDelayElapsed(request))
+        auto attackSpawns = frame.drainCurrentFrameAttacks();
+        if (attackSpawns.empty())
         {
-            state.nextFrame.queueAttack(std::move(request));
-            continue;
+            break;
         }
-        applyAttackSpawnAttackerDualWieldBlockGain(state, request, logEvents);
-        attackEvents.push_back(state.attacks.spawn(request));
+        attackEvents.reserve(
+            attackEvents.size()
+            + attackSpawns.size()
+            + state.attacks.attacks.size() * 2);
+        for (auto& request : attackSpawns)
+        {
+            if (!attackSpawnDelayElapsed(request))
+            {
+                state.nextFrame.queueAttack(std::move(request));
+                continue;
+            }
+            applyAreaAttackSpawnModifiers(state, request);
+            applyAttackSpawnAttackerDualWieldBlockGain(state, request, logEvents);
+            assert(request.provenance.valid());
+            assert(request.castWork.valid());
+            attackEvents.push_back(state.attacks.spawn(
+                std::move(request),
+                state.castLifecycle));
+            applyAttackSpawnedEffects(state, frame, attackEvents.back());
+        }
+        state.nextFrame.recycleAttacks(std::move(attackSpawns));
     }
-    state.nextFrame.recycleAttacks(std::move(attackSpawns));
-    state.attacks.tick(state.units, attackEvents);
+    state.attacks.tick(state.units, state.castLifecycle, attackEvents);
     applyProjectileCancelDamageResults(state, attackEvents);
     appendProjectileCancellationLogEvents(state.attacks, attackEvents, logEvents, false);
-    resolveHitEvents(
-        state,
-        attackEvents,
-        frameCommands,
-        logEvents,
-        visualEvents);
+    for (const auto& event : attackEvents)
+    {
+        resolveTypedHitEvent(state, frame, event);
+    }
     reduceCommandsAfterAttackHits(state, frame);
 }
 
@@ -5327,35 +7754,29 @@ bool applyFrameExecuteReaction(
 {
     assert(request.attackerUnitId >= 0);
     assert(request.defenderUnitId >= 0);
+    assert(intent.executeThresholdPct > 0);
 
-    auto attackerSources = makeBattleEffectSources(state, request.attackerUnitId, intent.skillEffectRef);
     const auto& defender = state.units.requireCore(request.defenderUnitId);
-    const BattleExecuteComboInput executeInput{
-            request.attackerUnitId,
-            request.defenderUnitId,
+    if (!BattleDamageSystem().shouldExecute({
             defender.vitals.hp,
             defender.vitals.maxHp,
             request.baseDamage,
             true,
-    };
-    const auto execute = BattleComboTriggerSystem().resolveExecuteCombo(
-        attackerSources,
-        executeInput,
-        state.random);
-    if (!execute.executed)
+            intent.executeThresholdPct,
+        }))
     {
         return false;
     }
 
     request.canExecute = true;
-    request.executeThresholdPct = execute.thresholdPct;
+    request.executeThresholdPct = intent.executeThresholdPct;
     presentation.executed = true;
     appendDamagePresentationDetail(presentation, "處決");
     appendStatusEventLog(
         frame.logEvents,
         request.attackerUnitId,
         request.defenderUnitId,
-        formatExecuteStatus(execute.thresholdPct));
+        formatExecuteStatus(intent.executeThresholdPct));
     return true;
 }
 
@@ -5367,11 +7788,22 @@ bool applyFrameDefenderBlockCommands(
     assert(request.attackerUnitId >= 0);
     assert(request.defenderUnitId >= 0);
 
-    const auto& defenderCombo = state.units.require(request.defenderUnitId).combo;
-    const int counterUltimateBlockChancePct = defenderCombo.maxAlways(EffectType::CounterUltimateBlock);
+    const int counterUltimateBlockChancePct = effectAdjustedAttribute(
+        state,
+        request.defenderUnitId,
+        BattleAttribute::CounterUltimateBlockChance,
+        0,
+        request.attackerUnitId);
     const bool counterUltimateBlock = counterUltimateBlockChancePct > 0
         && (counterUltimateBlockChancePct >= 100 || state.random.chance(counterUltimateBlockChancePct));
-    const int blockChancePct = defenderCombo.sumAlways(EffectType::BlockChance);
+    const int blockChancePct = combineBattleBlockChancePct(
+        effectAdjustedAttribute(
+            state,
+            request.defenderUnitId,
+            BattleAttribute::BlockChance,
+            0,
+            request.attackerUnitId),
+        areaAttributeDelta(state, request.defenderUnitId, BattleAttribute::BlockChance));
     const bool block = blockChancePct > 0
         && (blockChancePct >= 100 || state.random.chance(blockChancePct));
     if (!counterUltimateBlock && !block)
@@ -5414,7 +7846,7 @@ bool applyFramePendingHitReactions(
     BattleDamageRequest& request,
     BattleDamagePresentationInput& presentation)
 {
-    const bool executed = intent.canTriggerExecute
+    const bool executed = intent.executeThresholdPct > 0
         && applyFrameExecuteReaction(state, frame, intent, request, presentation);
     if (!executed
         && intent.canTriggerDefenderBlock
@@ -5423,6 +7855,183 @@ bool applyFramePendingHitReactions(
         return false;
     }
     return true;
+}
+
+void queueDamageResolvedEffectCommands(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattlePendingDamageIntent& intent,
+    const BattleDamageTransactionResult& transaction,
+    const EffectUnitSnapshot& attackerBefore,
+    const EffectUnitSnapshot& defenderBefore)
+{
+    const std::uint64_t transactionId =
+        state.effectIntegration.nextDamageTransactionId++;
+    const BattleDamageResolvedEffectInput input{
+        .transactionId = transactionId,
+        .attackerBefore = attackerBefore.id >= 0
+            ? std::optional<EffectUnitSnapshot>{ attackerBefore }
+            : std::nullopt,
+        .defenderBefore = defenderBefore,
+        .rawDamage = intent.request.baseDamage,
+        .resolvedDamage = transaction.resolvedDamageBeforeDefense,
+    };
+
+    BattleEffectCommandContext context{
+        .frame = state.movement.frame,
+    };
+    if (const auto* attack = std::get_if<EffectAttackDamageOrigin>(
+            &intent.effectOrigin))
+    {
+        context.cast = attack->provenance.cast;
+        context.attack = attack->provenance;
+        context.healKind = BattleHealKind::Lifesteal;
+    }
+
+    const std::array owners{
+        transaction.attacker.id,
+        transaction.defender.id,
+    };
+    for (int ownerUnitId : owners)
+    {
+        if (ownerUnitId < 0
+            || (ownerUnitId == transaction.defender.id
+                && transaction.defender.id == transaction.attacker.id))
+        {
+            continue;
+        }
+        auto dispatched = BattleEffectEventBridge().dispatchDamageResolvedEvent(
+            state,
+            nextEffectEventHeader(state, ownerUnitId),
+            transaction,
+            intent.effectOrigin,
+            input);
+        context.areaTargetTeamDomain = state.units.requireCore(ownerUnitId).team;
+        frame.queueEffectCommands(
+            std::move(dispatched.commands),
+            context);
+        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    }
+}
+
+void recordResolvedDamageHeals(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattlePendingDamageIntent& intent,
+    const BattleDamageTransactionResult& transaction)
+{
+    BattleHealSystem healSystem;
+    for (const auto& heal : transaction.resolvedHeals)
+    {
+        auto resolved = heal;
+        if (const auto* attack = std::get_if<EffectAttackDamageOrigin>(
+                &intent.effectOrigin))
+        {
+            assert(attack->provenance.valid());
+            resolved.result.request.castId = attack->provenance.cast.castId.value();
+        }
+        healSystem.recordResolved(state, std::move(resolved));
+        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    }
+}
+
+void queueShieldAndDeathEffectCommands(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattlePendingDamageIntent& intent,
+    const BattleDamageTransactionResult& transaction,
+    const EffectUnitSnapshot& attackerBefore,
+    const EffectUnitSnapshot& defenderBefore)
+{
+    const EffectDamageOrigin cause = intent.effectOrigin;
+    const auto defenderAfter = makeEffectUnitSnapshot(
+        state,
+        state.units.require(transaction.defender.id));
+    BattleEffectCommandContext context{
+        .frame = state.movement.frame,
+        .areaTargetTeamDomain = transaction.defender.id >= 0
+            ? state.units.requireCore(transaction.defender.id).team
+            : -1,
+    };
+    if (intent.provenance.valid())
+    {
+        context.cast = intent.provenance.cast;
+        context.attack = intent.provenance;
+    }
+
+    if (defenderBefore.shield > 0
+        && defenderAfter.shield == 0
+        && transaction.shieldAbsorbed > 0)
+    {
+        ShieldBreakEventData payload{
+            .targetBefore = defenderBefore,
+            .targetAfter = defenderAfter,
+            .brokenAmount = transaction.shieldAbsorbed,
+            .cause = cause,
+        };
+        auto dispatched = BattleEffectEventBridge().dispatch(
+            state,
+            nextEffectEventHeader(state, transaction.defender.id),
+            EffectEvent::ShieldBroken,
+            std::move(payload));
+        frame.queueEffectCommands(std::move(dispatched.commands), context);
+        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    }
+
+    if (!transaction.killed)
+    {
+        return;
+    }
+
+    DeathEventData death;
+    death.deadBefore = defenderBefore;
+    death.deadAfter = defenderAfter;
+    if (attackerBefore.id >= 0)
+    {
+        death.killer = attackerBefore;
+    }
+    death.cause = cause;
+    death.deathOrdinal = state.effectIntegration.nextEventOrdinal;
+    auto dispatched = BattleEffectEventBridge().dispatch(
+        state,
+        nextEffectEventHeader(state, transaction.defender.id),
+        EffectEvent::UnitDied,
+        death);
+    frame.queueEffectCommands(std::move(dispatched.commands), context);
+    reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+
+    auto deathDamageAbsorptions =
+        BattleEffectCommandSystem::removeDamageAbsorptionsForSourceDeath(
+            state,
+            transaction.defender.id);
+    appendDamageAbsorptionSettlements(
+        state,
+        frame.currentFrameDamage(),
+        deathDamageAbsorptions,
+        state.movement.frame);
+
+    for (const auto& ally : state.units.all())
+    {
+        if (!ally.core.alive
+            || ally.core.id == transaction.defender.id
+            || ally.core.team != defenderBefore.team)
+        {
+            continue;
+        }
+        auto allyDeath = death;
+        allyDeath.allyOfOwner = true;
+        auto allyDispatched = BattleEffectEventBridge().dispatch(
+            state,
+            nextEffectEventHeader(state, ally.id()),
+            EffectEvent::AllyDied,
+            std::move(allyDeath));
+        auto allyContext = context;
+        allyContext.areaTargetTeamDomain = ally.core.team;
+        frame.queueEffectCommands(
+            std::move(allyDispatched.commands),
+            std::move(allyContext));
+        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    }
 }
 
 void applyDamageAndLifecycle(
@@ -5442,15 +8051,43 @@ void applyDamageAndLifecycle(
     bool unitDied = false;
 
     std::vector<int> deadUnitIds;
-    auto pendingDamageIndexes = orderedFramePendingDamageIndexes(
-        pendingDamage,
-        state.damage.sortPendingDamageByDefenderMagnitude,
-        frame.frameMemoryResource());
-    for (const auto pendingIndex : pendingDamageIndexes)
+    std::vector<bool> processedDamage(pendingDamage.size(), false);
+    for (;;)
     {
-        const auto& intent = pendingDamage[pendingIndex];
+        if (processedDamage.size() < pendingDamage.size())
+        {
+            processedDamage.resize(pendingDamage.size(), false);
+        }
+        auto pendingDamageIndexes = orderedFramePendingDamageIndexes(
+            pendingDamage,
+            state.damage.sortPendingDamageByDefenderMagnitude,
+            frame.frameMemoryResource());
+        const auto next = std::ranges::find_if(pendingDamageIndexes, [&](std::size_t index)
+        {
+            return !processedDamage[index];
+        });
+        if (next == pendingDamageIndexes.end())
+        {
+            break;
+        }
+        const std::size_t pendingIndex = *next;
+        processedDamage[pendingIndex] = true;
+        const auto intent = pendingDamage[pendingIndex];
+        const auto completeIntentDescendantWork = [&]
+        {
+            completeEffectDamageContinuation(
+                state,
+                frame,
+                pendingDamage,
+                intent.effectCommandContinuationId);
+            if (intent.delayedCastWork.valid())
+            {
+                state.castLifecycle.completeWork(intent.delayedCastWork);
+            }
+        };
         if (!state.units.requireCore(intent.request.defenderUnitId).alive)
         {
+            completeIntentDescendantWork();
             continue;
         }
 
@@ -5458,27 +8095,57 @@ void applyDamageAndLifecycle(
         auto presentation = intent.presentation;
         if (!applyFramePendingHitReactions(state, frame, intent, request, presentation))
         {
+            completeIntentDescendantWork();
             continue;
         }
 
-        auto transaction = BattleDamageSystem().resolveTransaction(
-            makeFrameDamageTransactionInput(
-                state,
-                request,
-                frame.firstHitBlockActiveForFrame(request.defenderUnitId)));
-        if (transaction.blockedByFirstHit)
+        const auto defenderBefore = makeEffectUnitSnapshot(
+            state,
+            state.units.require(request.defenderUnitId));
+        EffectUnitSnapshot attackerBefore;
+        if (request.attackerUnitId != OptionalDamageAttackerUnitId)
         {
-            frame.activateFirstHitBlockForFrame(transaction.defender.id);
+            attackerBefore = makeEffectUnitSnapshot(
+                state,
+                state.units.require(request.attackerUnitId));
+        }
+        auto transaction = BattleDamageSystem().resolveTransaction(
+            makeFrameDamageTransactionInput(state, request));
+        BattleEffectCommandSystem::accumulateDamageAbsorptions(
+            state,
+            transaction.absorptionReceipts);
+        if (intent.provenance.valid())
+        {
+            state.castLifecycle.recordActualHpDamage(
+                intent.provenance,
+                transaction.defender.id,
+                transaction.finalHpDamage);
         }
         applyFrameDamageTakenMpGain(transaction);
         applyDamageResultToFrameState(state, transaction, frameStartMotion);
-        appendFrameShieldBreakCommands(state, frame, transaction);
+        recordResolvedDamageHeals(state, frame, intent, transaction);
+        if (intent.request.baseDamage > 0 || intent.request.mpDamage > 0)
+        {
+            queueDamageResolvedEffectCommands(
+                state,
+                frame,
+                intent,
+                transaction,
+                attackerBefore,
+                defenderBefore);
+        }
+        queueShieldAndDeathEffectCommands(
+            state,
+            frame,
+            intent,
+            transaction,
+            attackerBefore,
+            defenderBefore);
         appendFrameDamageOutputEvents(frame, presentation, transaction);
         appendFrameDamagePreDeathLogEvents(frame, transaction);
         appendFrameDamageResourceLogEvents(frame, transaction);
         appendFrameDamageGameplayEvents(frame, transaction, presentation.skillId);
         auto transactionDeadUnitIds = appendFrameDamageLifecycle(state, frame, transaction);
-        appendFrameDamageKillRewardLogEvents(frame, transaction);
         applyRescueRepositionForDamage(state, transaction, logEvents, visualEvents);
 
         if (!transactionDeadUnitIds.empty())
@@ -5489,17 +8156,391 @@ void applyDamageAndLifecycle(
                 transactionDeadUnitIds.begin(),
                 transactionDeadUnitIds.end());
         }
+        completeIntentDescendantWork();
     }
 
     if (unitDied)
     {
-        applyRuntimeDeathComboConsequences(state, deadUnitIds, logEvents);
+        applyRuntimeDeathComboConsequences(state, frame, deadUnitIds, logEvents);
         cancelDeadRuntimeActions(state);
-        appendEnemyTopDebuffUpdates(state, logEvents);
     }
 
     updateFrameBattleResultAfterDamage(state, frame);
     expandFrameDamageFollowUpCommands(state, frame);
+}
+
+void queueFreeChildCast(
+    BattleRuntimeState& state,
+    const BattleCastLifecycleEvent& lifecycleEvent,
+    const BattleEffectCastRuntimeContext& parentContext,
+    const BattleEffectFreeAdditionalCast& freeCast,
+    std::span<const EffectCommand> commands,
+    std::pmr::memory_resource* frameMemoryResource)
+{
+    const auto child = state.castLifecycle.beginChildCast(
+        lifecycleEvent.provenance.castId,
+        {
+            .sourceUnitId = lifecycleEvent.provenance.sourceUnitId,
+            .magicId = parentContext.skill.id,
+            .ultimate = lifecycleEvent.provenance.ultimate,
+            .origin = CastOriginKind::FreeRepeat,
+            .propagation = freeCast.propagation,
+        });
+    BattlePendingCastAction pending;
+    pending.targetUnitId = freeCast.targetUnitId >= 0
+        ? freeCast.targetUnitId
+        : parentContext.originalTargetUnitId;
+    pending.operationType = parentContext.operationType;
+    pending.skillPlan = makePendingCastSkillPlan(parentContext.skill);
+    pending.effectCast = child;
+    auto input = tryMakeRuntimeCastInputForPendingCast(
+        state,
+        pending,
+        frameMemoryResource);
+    if (!input)
+    {
+        state.castLifecycle.cancelPlannedCast(child, state.movement.frame);
+        return;
+    }
+
+    std::vector<EffectCommand> childCommands;
+    for (const auto& command : commands)
+    {
+        const auto& candidate = command.metadata;
+        const auto& source = freeCast.metadata;
+        if (candidate.binding.kind == source.binding.kind
+            && candidate.binding.sourceId == source.binding.sourceId
+            && candidate.binding.ownerUnitId == source.binding.ownerUnitId
+            && candidate.binding.sourceTeam == source.binding.sourceTeam
+            && candidate.binding.runtimeInstanceId == source.binding.runtimeInstanceId
+            && candidate.ruleId == source.ruleId
+            && candidate.event == source.event
+            && candidate.ruleOrder == source.ruleOrder
+            && candidate.targetOrder == source.targetOrder
+            && candidate.targetUnitId == source.targetUnitId)
+        {
+            childCommands.push_back(command);
+        }
+    }
+    const auto preparation = BattleEffectAttackCastSystem().prepareCast(
+        *input,
+        child.provenance.ultimate,
+        childCommands);
+    const auto& childSkill = selectedCastSkill(*input, child.provenance.ultimate);
+    const bool forcedRanged = childSkill.forceRanged
+        && (childSkill.attackAreaType == 0 || childSkill.attackAreaType == 3);
+    pending.operationType = forcedRanged
+        ? BattleOperationType::RangedProjectile
+        : parentContext.operationType;
+    auto cast = BattleCastPlanner().commitSelectedCast(
+        *input,
+        childSkill,
+        child.provenance.ultimate,
+        pending.operationType);
+    BattleEffectAttackApplyState effectAttackState{
+        .nextSharedHitGroupId = state.effectIntegration.nextSharedHitGroupId,
+    };
+    const auto preparedAttackEffects = BattleEffectAttackCastSystem().applyPreparedCast(
+        *input,
+        cast,
+        preparation,
+        effectAttackState);
+    applyEffectAttackDirectives(cast.attackSpawnRequests, preparedAttackEffects);
+    const auto childAttackEffects = BattleEffectAttackCastSystem().applyAttackCommands(
+        *input,
+        cast,
+        childCommands,
+        effectAttackState);
+    applyEffectAttackDirectives(cast.attackSpawnRequests, childAttackEffects);
+    state.effectIntegration.nextSharedHitGroupId = effectAttackState.nextSharedHitGroupId;
+    for (auto& request : cast.attackSpawnRequests)
+    {
+        request.provenance.propagation = freeCast.propagation;
+        request.provenance.origin = BattleAttackOriginKind::CastDerived;
+    }
+    reserveEffectRootCastAttacks(
+        state.castLifecycle,
+        child,
+        cast.attackSpawnRequests);
+    state.effectIntegration.casts[child.provenance.castId] = {
+        .originalTargetUnitId = cast.decision.targetUnitId,
+        .resourcesBeforeCast = snapshotEffectResourcesBeforeCast(state),
+        .skill = childSkill,
+        .operationType = pending.operationType,
+    };
+    for (auto& request : cast.attackSpawnRequests)
+    {
+        state.nextFrame.queueAttack(std::move(request));
+    }
+    state.castLifecycle.completeWork(child.commitBarrier);
+}
+
+BattleOperationType copiedAttackOperationType(const BattleCastSkillState& skill)
+{
+    if (skill.forceRanged
+        && (skill.attackAreaType == 0 || skill.attackAreaType == 3))
+    {
+        return BattleOperationType::RangedProjectile;
+    }
+    return BattleCombatIntentPlanner().operationTypeForAttackArea(
+        skill.attackAreaType);
+}
+
+void queueCopiedAttackDefinitionChildCast(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattleCastProvenance& parent,
+    int parentTargetUnitId,
+    const BattleCopiedAttackDefinitionRequest& request,
+    std::pmr::memory_resource* frameMemoryResource)
+{
+    assert(parent.valid());
+    assert(parent.sourceUnitId >= 0);
+    assert(request.definitionOwnerUnitId >= 0);
+    assert(request.definitionOwnerUnitId != parent.sourceUnitId);
+    assert(request.propagation == CastPropagationPolicy::SuppressUltimateRules);
+
+    const auto& definitionOwner = state.units.require(
+        request.definitionOwnerUnitId);
+    const auto* definitionPlan = definitionOwner.actionPlan();
+    if (!definitionOwner.alive()
+        || !definitionPlan
+        || definitionPlan->ultimateSkill.id < 0)
+    {
+        return;
+    }
+
+    const auto& copier = state.units.require(parent.sourceUnitId);
+    const auto copiedSkill = makeRuntimeCastSkillState(
+        state,
+        copier.core,
+        definitionPlan->ultimateSkill,
+        true);
+    const auto operationType = copiedAttackOperationType(copiedSkill);
+    if (operationType == BattleOperationType::None)
+    {
+        return;
+    }
+
+    if (castCommitTargetUnitId(
+            state.units,
+            parent.sourceUnitId,
+            parentTargetUnitId) < 0)
+    {
+        return;
+    }
+    const auto child = state.castLifecycle.beginChildCast(
+        parent.castId,
+        {
+            .sourceUnitId = parent.sourceUnitId,
+            .magicId = copiedSkill.id,
+            .ultimate = true,
+            .origin = CastOriginKind::CopiedAttack,
+            .propagation = request.propagation,
+        });
+    BattlePendingCastAction pending;
+    pending.targetUnitId = parentTargetUnitId;
+    pending.operationType = operationType;
+    pending.skillPlan = makePendingCastSkillPlan(copiedSkill);
+    pending.effectResourcesBeforeCast = snapshotEffectResourcesBeforeCast(state);
+    pending.effectCast = child;
+    auto input = tryMakeRuntimeCastInputForPendingCast(
+        state,
+        pending,
+        frameMemoryResource);
+    assert(input);
+    refreshRuntimeDashAttackDetails(
+        state,
+        copier.core,
+        *input,
+        true,
+        operationType == BattleOperationType::Dash);
+
+    auto cast = BattleCastPlanner().commitSelectedCast(
+        *input,
+        copiedSkill,
+        true,
+        operationType);
+    cast.mpDelta = 0;
+    auto committedEffects = dispatchCastCommittedEffects(
+        state,
+        pending,
+        cast);
+    BattleEffectAttackApplyState effectAttackState{
+        .nextSharedHitGroupId = state.effectIntegration.nextSharedHitGroupId,
+    };
+    for (const auto& committedEffect : committedEffects)
+    {
+        const auto applied = BattleEffectAttackCastSystem().applyAttackCommands(
+            *input,
+            cast.attackSpawnRequests,
+            committedEffect.commands,
+            effectAttackState);
+        applyEffectAttackDirectives(cast.attackSpawnRequests, applied);
+    }
+    state.effectIntegration.nextSharedHitGroupId =
+        effectAttackState.nextSharedHitGroupId;
+
+    for (auto& attack : cast.attackSpawnRequests)
+    {
+        attack.provenance.propagation = request.propagation;
+        attack.provenance.origin = BattleAttackOriginKind::CastDerived;
+    }
+    reserveEffectRootCastAttacks(
+        state.castLifecycle,
+        child,
+        cast.attackSpawnRequests);
+    state.effectIntegration.casts[child.provenance.castId] = {
+        .originalTargetUnitId = cast.decision.targetUnitId,
+        .resourcesBeforeCast = pending.effectResourcesBeforeCast,
+        .skill = copiedSkill,
+        .operationType = operationType,
+    };
+    const BattleEffectCommandContext context{
+        .frame = state.movement.frame,
+        .cast = child.provenance,
+        .areaTargetTeamDomain = copier.core.team,
+    };
+    for (auto& committedEffect : committedEffects)
+    {
+        frame.queueEffectCommands(
+            std::move(committedEffect.commands),
+            context);
+    }
+    frame.queueCastCommitBarrier(child.commitBarrier);
+    for (auto& attack : cast.attackSpawnRequests)
+    {
+        state.nextFrame.queueAttack(std::move(attack));
+    }
+
+    frame.gameplayEvents.insert(
+        frame.gameplayEvents.end(),
+        cast.gameplayEvents.begin(),
+        cast.gameplayEvents.end());
+    frame.logEvents.insert(
+        frame.logEvents.end(),
+        cast.logEvents.begin(),
+        cast.logEvents.end());
+    frame.visualEvents.insert(
+        frame.visualEvents.end(),
+        cast.visualEvents.begin(),
+        cast.visualEvents.end());
+    if (copiedSkill.soundId >= 0)
+    {
+        frame.attackSoundIds.push_back(copiedSkill.soundId);
+    }
+}
+
+void queueCopiedAttackDefinitionChildCasts(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame,
+    const BattleCastProvenance& parent,
+    int parentTargetUnitId,
+    std::span<const BattleCopiedAttackDefinitionRequest> requests,
+    std::pmr::memory_resource* frameMemoryResource)
+{
+    for (const auto& request : requests)
+    {
+        queueCopiedAttackDefinitionChildCast(
+            state,
+            frame,
+            parent,
+            parentTargetUnitId,
+            request,
+            frameMemoryResource);
+    }
+}
+
+void dispatchReadyCastLifecycleEffects(
+    BattleRuntimeState& state,
+    BattleFrameContext& frame)
+{
+    for (;;)
+    {
+        auto events = state.castLifecycle.drainReadyEvents(state.movement.frame);
+        if (events.empty())
+        {
+            break;
+        }
+        for (const auto& event : events)
+        {
+            if (event.type == BattleCastLifecycleEventType::CastSettled)
+            {
+                state.attacks.releaseCastContactSuppression(
+                    event.provenance.castId);
+            }
+            const auto contextIt = state.effectIntegration.casts.find(
+                event.provenance.castId);
+            if (contextIt == state.effectIntegration.casts.end())
+            {
+                assert(event.provenance.propagation
+                    == CastPropagationPolicy::NoEffectRules);
+                continue;
+            }
+            const auto castContext = contextIt->second;
+            auto dispatched = BattleEffectEventBridge().dispatchCastLifecycleEvent(
+                state,
+                nextEffectEventHeader(state, event.provenance.sourceUnitId),
+                event,
+                {
+                    .originalTargetUnitId = castContext.originalTargetUnitId,
+                    .resourcesBeforeCast = castContext.resourcesBeforeCast,
+                });
+
+            if (event.type == BattleCastLifecycleEventType::CastContinuation)
+            {
+                BattleCastInput preparationInput(frame.frameMemoryResource());
+                preparationInput.config = state.action.castConfig;
+                preparationInput.geometry = state.action.castGeometry;
+                preparationInput.unit.id = event.provenance.sourceUnitId;
+                preparationInput.unit.mp = state.units.requireCore(
+                    event.provenance.sourceUnitId).vitals.mp;
+                preparationInput.unit.maxMp = state.units.requireCore(
+                    event.provenance.sourceUnitId).vitals.maxMp;
+                preparationInput.normalSkill = castContext.skill;
+                preparationInput.ultimateSkill = castContext.skill;
+                const auto preparation = BattleEffectAttackCastSystem().prepareCast(
+                    preparationInput,
+                    dispatched.commands);
+                for (const auto& freeCast : preparation.freeAdditionalCasts)
+                {
+                    queueFreeChildCast(
+                        state,
+                        event,
+                        castContext,
+                        freeCast,
+                        dispatched.commands,
+                        frame.frameMemoryResource());
+                }
+            }
+
+            frame.queueEffectCommands(
+                std::move(dispatched.commands),
+                {
+                    .frame = state.movement.frame,
+                    .cast = event.provenance,
+                    .retainCastUntilDamageDescendants = event.type
+                        != BattleCastLifecycleEventType::CastSettled,
+                    .areaTargetTeamDomain = state.units.requireCore(
+                        event.provenance.sourceUnitId).team,
+                });
+            reduceEffectCommandBatches(
+                state,
+                frame,
+                state.nextFrame.mutableDamageForReducer());
+
+            if (event.type == BattleCastLifecycleEventType::CastSettled)
+            {
+                state.effectIntegration.casts.erase(event.provenance.castId);
+                std::erase_if(
+                    state.effectIntegration.appliedPerCastDamage,
+                    [&](const BattleEffectPerCastDamageKey& key)
+                    {
+                        return key.castId == event.provenance.castId;
+                    });
+            }
+        }
+    }
 }
 
 void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
@@ -5561,19 +8602,57 @@ void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
     result = std::move(presentationFrame);
 }
 
-void pruneFinishedRuntimeAttacks(BattleRuntimeState& state)
+void completeFinishedRuntimeAttackWork(BattleRuntimeState& state)
 {
-    state.attacks.attacks.erase(
-        std::remove_if(
-            state.attacks.attacks.begin(),
-            state.attacks.attacks.end(),
-            [](const BattleAttackInstance& attack)
-            {
-                return attack.frame >= attack.state.totalFrame;
-            }),
-        state.attacks.attacks.end());
+    state.attacks.completeFinished(state.castLifecycle);
+}
+
+void eraseFinishedRuntimeAttacks(BattleRuntimeState& state)
+{
+    state.attacks.eraseFinished();
+}
+
+void discardBattleEndFrameContinuationWork(BattleFrameContext& frame)
+{
+    (void)frame.drainCommands();
+    (void)frame.drainCurrentFrameAttacks();
+    (void)frame.drainCurrentFrameDamage();
+    (void)frame.drainAreaProjectileFollowUps();
+    (void)frame.drainCastCommitBarriers();
+    (void)frame.drainEffectCommandBatches();
 }
 }  // namespace
+
+void cancelBattleRuntimeForBattleEnd(BattleRuntimeState& state, int frame)
+{
+    assert(state.result.ended);
+    assert(frame >= 0);
+    if (state.castLifecycle.snapshot().terminalState
+        == BattleCastLifecycleTerminalState::BattleEnded)
+    {
+        return;
+    }
+
+    state.attacks.completeFinished(state.castLifecycle);
+    state.attacks.cancelAllForBattleEnd(state.castLifecycle);
+    state.attacks.clearCastContactSuppressions();
+    state.nextFrame.cancelForBattleEnd(state.castLifecycle);
+
+    for (const auto& [castId, context] : state.effectIntegration.casts)
+    {
+        (void)context;
+        BattleEffectEventBridge().releaseCastScopedRules(state, castId);
+    }
+    state.effectIntegration.casts.clear();
+    state.effectIntegration.appliedPerCastDamage.clear();
+    state.effectIntegration.queuedCommandBatches.clear();
+    state.effectIntegration.damageContinuations.clear();
+    for (auto& unit : state.units.all())
+    {
+        unit.clearAllPending();
+    }
+    state.castLifecycle.cancelOutstandingForBattleEnd(frame);
+}
 
 BattleDamageUnitState makeBattleDamageUnitState(
     const BattleRuntimeUnit& unit,
@@ -5595,145 +8674,18 @@ BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit)
 namespace
 {
 
-BattleTeamEffectCommandApplication applyBattleTeamHealCommand(
-    BattleRuntimeState& state,
-    const BattleTeamHealCommand& command)
-{
-    BattleTeamEffectCommandApplication result;
-    BattleTeamEffectSystem system;
-    assert(command.sourceUnitId >= 0);
-    result.events = system.applyTeamHeal(
-        state.units,
-        command.sourceUnitId,
-        command.flatHeal,
-        command.pctHeal);
-    appendTeamEffectLogEvents(result.logEvents, result.events, command.reason);
-    return result;
-}
-
-BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
-    const BattleEffectSources& sources,
-    int attackerUnitId,
-    int rollPct,
-    int defaultRange)
-{
-    return BattleComboTriggerSystem().collectProjectileBouncePrime(
-        sources,
-        { attackerUnitId, rollPct, defaultRange });
-}
-
-int collectFrameExtraProjectileCount(
-    const BattleEffectSources& sources,
-    BattleRuntimeRandom& random,
-    int unitId,
-    int baseCount,
-    bool ultimate)
-{
-    return BattleComboTriggerSystem().collectExtraProjectileCount(
-        sources,
-        { BattleComboTriggerHook::AfterSkillCast, unitId, -1, ultimate, true },
-        baseCount,
-        random);
-}
-
-int collectFramePostSkillInvincFrames(
-    const BattleEffectSources& sources,
-    BattleRuntimeRandom& random,
-    int unitId,
-    bool ultimate)
-{
-    int frames = BattleEffectReader().maxAlways(sources, EffectType::PostSkillInvincFrames);
-    for (const auto& event : BattleEffectReader().collectTriggerEvents(
-             sources,
-             { BattleComboTriggerHook::AfterSkillCast, unitId, -1, ultimate, true },
-             { EffectType::PostSkillInvincFrames },
-             random))
-    {
-        frames = std::max(frames, event.effect.value);
-    }
-    return frames;
-}
-
-bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId)
-{
-    return BattleComboTriggerSystem().hasExecuteCombo(state, attackerUnitId);
-}
-
-BattleFixed resolveFrameArmorPenetratedDefense(
-    const BattleEffectSources& sources,
-    int attackerUnitId,
-    int targetUnitId,
-    BattleFixed defense,
-    bool ultimate,
-    bool mainProjectile,
-    BattleRuntimeRandom& random)
-{
-    return BattleComboTriggerSystem().resolveArmorPenetratedDefense(
-        sources,
-        { attackerUnitId, targetUnitId, defense, ultimate, mainProjectile },
-        random).defense;
-}
-
-void applyCurrentHpBlastCastEffect(
-    BattleRuntimeState& state,
-    int sourceUnitId,
-    int damagePct,
-    const std::string& reason,
-    std::vector<BattlePendingDamageIntent>& pendingDamage,
-    std::vector<BattleLogEvent>&,
-    std::vector<BattleVisualEvent>&)
-{
-    const auto& source = state.units.requireCore(sourceUnitId);
-    for (const auto& record : state.units.live())
-    {
-        const auto& unit = record.core;
-        if (unit.team == source.team)
-        {
-            continue;
-        }
-        tryAppendFrameDamageTransaction(
-            state,
-            pendingDamage,
-            BattleHpDamageCommand{
-                sourceUnitId,
-                unit.id,
-                std::max(1, unit.vitals.hp * damagePct / 100),
-                false,
-                false,
-                false,
-                false,
-                0,
-                "",
-                battleLogText(reason, BattleLogTextTone::SkillName),
-                false,
-            });
-    }
-}
-
-BattleSkillEffectRef skillEffectRefForTriggerEvent(const BattleEffectTriggerEvent& event)
-{
-    if (event.effectRef.store.kind != BattleEffectSourceKind::Skill)
-    {
-        return {};
-    }
-    assert(event.effectRef.store.slot != BattleSkillSlot::None);
-    return { event.sourceUnitId, event.effectRef.store.slot };
-}
-
 void applySpiralBleedCastEffect(
     BattleRuntimeState& state,
     int sourceUnitId,
-    BattleSkillEffectRef skillEffectRef,
+    const BattleCastSkillState& skill,
     int bleedStacks,
     int projectileCount,
     double projectileSpeed,
-    std::vector<BattleAttackSpawnRequest>& attackSpawns,
-    std::vector<BattleLogEvent>&,
-    std::vector<BattleVisualEvent>&)
+    std::vector<BattleAttackSpawnRequest>& attackSpawns)
 {
     const auto& source = state.units.requireCore(sourceUnitId);
     const auto sourcePosition = source.motion.position;
-    const int sharedHitGroupId = state.projectileFollowUps.nextSharedHitGroupId++;
+    const int sharedHitGroupId = state.effectIntegration.nextSharedHitGroupId++;
     const int count = std::max(1, projectileCount);
     const double speed = projectileSpeed > 0.0
         ? projectileSpeed
@@ -5741,14 +8693,23 @@ void applySpiralBleedCastEffect(
     for (int i = 0; i < count; ++i)
     {
         BattleAttackSpawnRequest request;
-        request.initial.attackerUnitId = sourceUnitId;
+        request.initial.attackSourceUnitId = sourceUnitId;
+        request.initial.skillId = skill.id;
+        request.initial.skillName = skill.name;
+        request.initial.skillHurtType = skill.hurtType;
+        request.initial.skillMagicType = skill.magicType;
+        request.initial.skillAttackerActProperty = skill.actProperty;
+        request.initial.skillMagicPower = skill.magicPower;
         request.initial.operationType = BattleOperationType::RangedProjectile;
         request.initial.visualEffectId = 48;
+        request.provenance.rootAttack = false;
+        request.provenance.mainProjectile = false;
+        request.provenance.sharedHitGroupId = sharedHitGroupId;
+        request.provenance.origin = BattleAttackOriginKind::CastDerived;
+        request.provenance.propagation = CastPropagationPolicy::SourceHitRulesOnly;
         request.initial.position = sourcePosition;
         request.initial.totalFrame = 35;
         request.initial.scriptedBleedStacks = bleedStacks;
-        request.initial.skillEffectRef = skillEffectRef;
-        request.initial.sharedHitGroupId = sharedHitGroupId;
         request.initial.ignoreProjectileCancel = true;
         request.initial.through = true;
         request.spiralMotion = true;
@@ -5761,169 +8722,40 @@ void applySpiralBleedCastEffect(
     }
 }
 
-std::vector<BattleEffectTriggerEvent> collectFrameCastScopedComboEvents(
-    const BattleEffectSources& sources,
-    BattleRuntimeRandom& random,
-    int unitId,
-    bool ultimate)
-{
-    assert(unitId >= 0);
-
-    return BattleEffectReader().collectTriggerEvents(
-        sources,
-        { BattleComboTriggerHook::AfterSkillCast, unitId, -1, ultimate, true },
-        {
-            KysChess::EffectType::CurrentHPPctBlast,
-            KysChess::EffectType::TeamMPRestore,
-            KysChess::EffectType::EnemyMpDamageAll,
-            KysChess::EffectType::FlatShield,
-            KysChess::EffectType::SpiralBleedProjectile,
-            KysChess::EffectType::MPRestore,
-            KysChess::EffectType::ControlImmunityFrames,
-            KysChess::EffectType::LowestAllyHeal,
-        },
-        random);
-}
-
-void applyFrameCastScopedComboEffects(
+void appendRuntimeSpiralBleedCastEffects(
     BattleRuntimeState& state,
-    const BattleFrameCastScopedComboEffects& effects,
-    std::vector<BattleAttackSpawnRequest>& attackSpawns,
-    std::vector<BattlePendingDamageIntent>& pendingDamage,
-    std::vector<BattleLogEvent>& logEvents,
-    std::vector<BattleVisualEvent>& visualEvents)
+    int sourceUnitId,
+    const BattleCastSkillState& skill,
+    double projectileSpeed,
+    std::span<const BattleEffectDispatchResult> committedEffects,
+    std::vector<BattleAttackSpawnRequest>& attackSpawns)
 {
-    assert(effects.unitId >= 0);
-    assert(effects.projectileSpeed >= 0.0);
-
-    BattleTeamEffectSystem teamEffects;
-    for (const auto& event : effects.events)
+    for (const auto& dispatched : committedEffects)
     {
-        assert(event.effect.value > 0);
-        switch (event.effect.type)
+        for (const auto& command : dispatched.commands)
         {
-        case KysChess::EffectType::CurrentHPPctBlast:
-            applyCurrentHpBlastCastEffect(
-                state,
-                effects.unitId,
-                event.effect.value,
-                "當前生命傷害",
-                pendingDamage,
-                logEvents,
-                visualEvents);
-            break;
-        case KysChess::EffectType::TeamMPRestore:
-        {
-            auto teamEvents = teamEffects.applyTeamMp(
-                state.units,
-                effects.unitId,
-                event.effect.value);
-            appendTeamEffectLogEvents(logEvents, teamEvents, "琴棋書畫");
-            appendTeamEffectVisualEvents(visualEvents, teamEvents);
-            break;
-        }
-        case KysChess::EffectType::EnemyMpDamageAll:
-        {
-            auto teamEvents = teamEffects.applyEnemyMpDamageAll(
-                state.units,
-                effects.unitId,
-                event.effect.value);
-            appendTeamEffectLogEvents(logEvents, teamEvents, "全場殺內");
-            appendTeamEffectVisualEvents(visualEvents, teamEvents);
-            break;
-        }
-        case KysChess::EffectType::FlatShield:
-        {
-            auto teamEvents = teamEffects.applyTeamShield(
-                state.units,
-                effects.unitId,
-                event.effect.value,
-                true);
-            appendTeamEffectLogEvents(logEvents, teamEvents, "全隊護盾重整");
-            appendTeamEffectVisualEvents(visualEvents, teamEvents);
-            break;
-        }
-        case KysChess::EffectType::SpiralBleedProjectile:
+            const auto* modifyAttack = std::get_if<ModifyAttackEffectCommand>(
+                &command.value);
+            if (!modifyAttack)
+            {
+                continue;
+            }
+            const auto* spiral = std::get_if<ExpandingSpiralAttackBehavior>(
+                &modifyAttack->action.runtimeBehavior);
+            if (!spiral)
+            {
+                continue;
+            }
+            assert(command.metadata.binding.ownerUnitId == sourceUnitId);
             applySpiralBleedCastEffect(
                 state,
-                effects.unitId,
-                skillEffectRefForTriggerEvent(event),
-                event.effect.value,
-                event.effect.value2 > 0 ? event.effect.value2 : 6,
-                effects.projectileSpeed,
-                attackSpawns,
-                logEvents,
-                visualEvents);
-            break;
-        case KysChess::EffectType::MPRestore:
-        {
-            auto& unit = state.units.requireCore(effects.unitId);
-            const int before = unit.vitals.mp;
-            applyRuntimeUnitMpDelta(state, unit, event.effect.value);
-            if (unit.vitals.mp > before)
-            {
-                std::vector<BattleTeamEffectEvent> teamEvents = {
-                    { BattleTeamEffectEventType::MpRestore,
-                      effects.unitId,
-                      effects.unitId,
-                      unit.vitals.mp - before,
-                      before,
-                      unit.vitals.mp },
-                };
-                appendTeamEffectLogEvents(logEvents, teamEvents, "武功回內");
-                appendTeamEffectVisualEvents(visualEvents, teamEvents);
-            }
-            break;
+                sourceUnitId,
+                skill,
+                spiral->bleedStacks,
+                spiral->projectileCount,
+                projectileSpeed,
+                attackSpawns);
         }
-        case KysChess::EffectType::ControlImmunityFrames:
-        {
-            auto& record = state.units.require(effects.unitId);
-            const int before = record.status.effects.controlImmunityFrames;
-            record.status.effects.controlImmunityFrames = std::max(before, event.effect.value);
-            if (record.status.effects.controlImmunityFrames > before)
-            {
-                appendStatusEventLog(
-                    logEvents,
-                    effects.unitId,
-                    effects.unitId,
-                    std::format("僵直吸收{}幀", event.effect.value));
-                visualEvents.push_back(roleEffectEvent(
-                    effects.unitId,
-                    KysChess::EFT_BLOCK,
-                    CoreRoleStatusEffectFrames));
-            }
-            break;
-        }
-        case KysChess::EffectType::LowestAllyHeal:
-        {
-            auto teamEvents = teamEffects.applyLowestAllyHeal(
-                state.units,
-                effects.unitId,
-                event.effect.value,
-                event.effect.value2);
-            appendTeamEffectLogEvents(logEvents, teamEvents, "最低友方治療");
-            appendTeamEffectVisualEvents(visualEvents, teamEvents);
-            break;
-        }
-        default:
-            assert(false);
-        }
-    }
-}
-
-void applyFrameCastScopedComboEffects(
-    BattleRuntimeState& state,
-    BattleFrameContext& frame)
-{
-    for (const auto& effects : frame.castScopedComboEffects)
-    {
-        applyFrameCastScopedComboEffects(
-            state,
-            effects,
-            frame.currentFrameAttacks(),
-            frame.currentFrameDamage(),
-            frame.logEvents,
-            frame.visualEvents);
     }
 }
 
@@ -5945,28 +8777,51 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
 {
     assert(!state.units.empty());
 
+    BattleAreaEffectSystem::removeExpired(state.areas, state.movement.frame + 1);
     auto frame = BattleFrameContext::begin(
         state,
         std::move(recycledPresentation),
         frameMemoryStorage_.data(),
         frameMemoryStorage_.size());
 
+    const int upcomingFrame = state.movement.frame + 1;
+    auto expiredDamageAbsorptions =
+        BattleEffectCommandSystem::removeExpiredDamageAbsorptions(
+            state,
+            upcomingFrame);
+    appendDamageAbsorptionSettlements(
+        state,
+        frame.currentFrameDamage(),
+        expiredDamageAbsorptions,
+        upcomingFrame);
+
     // Tick status timers and queue status damage, e.g. poison or bleed damage transactions.
     advanceStatus(state, frame.currentFrameDamage());
-    // Tick unit cooldown/action/MP timers and collect frame combo events, e.g. skill-finished triggers.
-    auto runtimeAdvance = advanceRuntimeUnits(state, frame.frameMemoryResource());
-    // Apply combo timer events to runtime state, deferring auto-ultimate commands until late frame.
-    auto deferredCommands = applyRuntimeComboEvents(state, frame, runtimeAdvance.runtimeCommits);
-    // Apply skill-finished team heals whose source finished cooldown this frame.
-    applySkillFinishedTeamHeals(state, frame, runtimeAdvance.skillFinishedTeamHeals);
+    // Tick unit cooldown/action/MP timers and collect typed skill-finished effects.
+    auto runtimeAdvance = advanceRuntimeUnits(state);
+    for (auto& batch : runtimeAdvance.cooldownFinishedEffects)
+    {
+        frame.queueEffectCommands(
+            std::move(batch.commands),
+            std::move(batch.context));
+    }
+    reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    // Evaluate all typed per-frame rules from one frame-start snapshot before
+    // movement or action selection can change their conditions.
+    auto deferredFrameEffectBatches = dispatchFrameAdvancedEffects(
+        state,
+        frame,
+        upcomingFrame);
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
     reduceCommandsBeforeMovement(state, frame);
     // Advance and commit motion, e.g. physics and tactical movement.
     auto movement = advanceMotionFrame(state, frame.frameMemoryResource());
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
     advanceActionFrameUnits(state, frame, movement);
-    // Apply cast-release effects after all units selected/committed their frame actions.
-    applyFrameCastScopedComboEffects(state, frame);
+    // Typed cast-commit effects are delayed until every unit has selected its
+    // action for this frame, then reduced before any resulting attack spawns.
+    reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    completeCastCommitBarriers(state, frame);
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
     reduceCommandsBeforeAttacks(state, frame);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
@@ -5974,20 +8829,56 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
     applyDamageAndLifecycle(state, frame);
     state.nextFrame.recycleDamage(frame.drainCurrentFrameDamage());
+    if (state.result.ended)
+    {
+        appendProjectileCancellationLogEvents(
+            state.attacks,
+            frame.attackEvents,
+            frame.logEvents,
+            true);
+        applyLateFrameMpRestores(state, frame);
+        discardBattleEndFrameContinuationWork(frame);
+        emitPresentationFrame(state, frame);
+        cancelBattleRuntimeForBattleEnd(state, state.result.endedFrame);
+        return consumeBattleFrameContext(std::move(frame));
+    }
     // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
     appendProjectileCancellationLogEvents(state.attacks, frame.attackEvents, frame.logEvents, true);
     applyLateFrameMpRestores(state, frame);
-    for (auto& command : deferredCommands)
+    for (auto& batch : deferredFrameEffectBatches)
     {
-        frame.queueCommand(std::move(command));
+        frame.queueEffectCommands(
+            std::move(batch.commands),
+            std::move(batch.context));
     }
+    // 週期自動絕招固定在延後效果批次階段執行。
+    reduceEffectCommandBatches(
+        state,
+        frame,
+        state.nextFrame.mutableDamageForReducer());
     // Reduce late commands from damage/combo lifecycle, e.g. auto-ultimate or death-triggered projectiles.
     reduceCommandsAfterDamageLifecycle(state, frame);
+    // Direct auto-ultimate commits share the typed commit pipeline. Reduce their
+    // committed effects and any resulting gameplay commands before releasing the
+    // commit barrier, including when the auto cast was created late in this frame.
+    reduceEffectCommandBatches(
+        state,
+        frame,
+        state.nextFrame.mutableDamageForReducer());
+    reduceCommandsAfterDamageLifecycle(state, frame);
+    completeCastCommitBarriers(state, frame);
+    // A cast may settle only after its final attack's damage/death descendants have
+    // had a chance to reserve work. Keep finished attacks alive for presentation.
+    completeFinishedRuntimeAttackWork(state);
+    if (state.movement.frame < state.maximumFrames)
+    {
+        dispatchReadyCastLifecycleEffects(state, frame);
+    }
     assert(frame.drainCommands().empty());
     // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.
     emitPresentationFrame(state, frame);
     // Runtime maintenance: remove projectiles/melee attacks whose animation lifetime has finished.
-    pruneFinishedRuntimeAttacks(state);
+    eraseFinishedRuntimeAttacks(state);
     return consumeBattleFrameContext(std::move(frame));
 }
 

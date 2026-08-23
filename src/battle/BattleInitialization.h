@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ChessBattleEffects.h"
+#include "../ChessNonBattleRules.h"
 #include "../BattleStarStats.h"
 #include "ChessComboResolver.h"
 #include "BattleRuntimeUnitSpawn.h"
@@ -52,7 +53,8 @@ struct BattleInitializationCloneSource
 struct BattleSetupComboThreshold
 {
     int count = 0;
-    std::vector<ComboEffect> effects;
+    std::vector<EffectRule> rules;
+    FightWinGrowthRule fightWinGrowth;
 };
 
 struct BattleSetupComboDefinition
@@ -69,22 +71,22 @@ struct BattleSetupEquipmentDefinition
 {
     int itemId = -1;
     int equipType = 0;
-    std::vector<ComboEffect> effects;
-    std::vector<std::string> actAsComboNames;
+    std::vector<std::string> countsAsComboNames;
+    std::vector<EffectRule> rules;
 };
 
 struct BattleSetupEquipmentSynergyDefinition
 {
     std::vector<int> roleIds;
     int equipmentId = -1;
-    std::vector<ComboEffect> effects;
-    std::vector<std::string> actAsComboNames;
+    std::vector<std::string> countsAsComboNames;
+    std::vector<EffectRule> rules;
 };
 
 struct BattleSetupNeigongDefinition
 {
     int magicId = -1;
-    std::vector<ComboEffect> effects;
+    std::vector<EffectRule> rules;
 };
 
 struct BattleSetupRosterUnit
@@ -134,18 +136,9 @@ struct BattleInitializationRoleDelta
     int hiddenWeapon{};
 };
 
-struct BattleInitializationEnemyTopDebuffDelta
-{
-    int unitId{};
-    int attackDelta{};
-    int defenceDelta{};
-    int appliedValue{};
-};
-
 struct BattleInitializationResult
 {
     std::vector<BattleInitializationRoleDelta> roleDeltas;
-    std::vector<BattleInitializationEnemyTopDebuffDelta> enemyTopDebuffs;
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
 };
@@ -154,6 +147,8 @@ struct BattleInitializationOutput
 {
     std::vector<BattleRuntimeUnitSpawn> spawns;
     BattleInitializationResult result;
+    BattleEffectRuleStore effectRules;
+    BattleEffectCommandRuntimeState effectCommands;
 };
 
 struct BattleInitializationContext

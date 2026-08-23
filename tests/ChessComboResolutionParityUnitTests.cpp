@@ -36,12 +36,24 @@ ChessRoleDefinition testRole(int roleId, int cost)
     return role;
 }
 
+EffectRule attributeRule(BattleAttribute attribute, int amount)
+{
+    EffectRule rule;
+    rule.event = EffectEvent::BattleInitialized;
+    ModifyAttributeAction action;
+    action.attribute = attribute;
+    action.amount.flat = amount;
+    action.operation = AttributeOperation::FlatAdd;
+    rule.actions.push_back({ EffectActionValue{ action } });
+    return rule;
+}
+
 ComboDef testCombo(
     int id,
     std::string name,
     std::vector<int> memberRoleIds,
     int threshold,
-    ComboEffect effect,
+    EffectRule rule,
     bool antiCombo = false,
     bool starSynergyBonus = false)
 {
@@ -49,7 +61,7 @@ ComboDef testCombo(
     combo.id = id;
     combo.name = std::move(name);
     combo.memberRoleIds = std::move(memberRoleIds);
-    combo.thresholds.push_back({threshold, "測試門檻", {effect}});
+    combo.thresholds.push_back({ threshold, "測試門檻", { std::move(rule) } });
     combo.isAntiCombo = antiCombo;
     combo.starSynergyBonus = starSynergyBonus;
     return combo;
@@ -116,7 +128,11 @@ BattleSetupComboDefinition battleCombo(const ComboDef& combo)
     result.starSynergyBonus = combo.starSynergyBonus;
     for (const auto& threshold : combo.thresholds)
     {
-        result.thresholds.push_back({threshold.count, threshold.effects});
+        result.thresholds.push_back({
+            threshold.count,
+            threshold.rules,
+            sumFightWinGrowth(threshold.managementRules),
+        });
     }
     return result;
 }
@@ -134,8 +150,8 @@ std::vector<BattleRuntimeUnitSpawn> initializedBattleSpawns(
         setup.equipmentDefinitions.push_back({
             definition.itemId,
             definition.equipType,
-            definition.effects,
-            definition.actAsComboNames,
+            countsAsComboNames(definition.managementRules),
+            definition.rules,
         });
     }
     for (const auto& synergy : equipmentSynergies)
@@ -143,8 +159,8 @@ std::vector<BattleRuntimeUnitSpawn> initializedBattleSpawns(
         setup.equipmentSynergies.push_back({
             synergy.roleIds,
             synergy.equipmentId,
-            synergy.effects,
-            synergy.actAsComboNames,
+            countsAsComboNames(synergy.managementRules),
+            synergy.rules,
         });
     }
 
@@ -213,7 +229,7 @@ TEST_CASE("combo resolution preserves last-instance star ordering for duplicate 
         "同門",
         {10},
         2,
-        {EffectType::FlatATK, 9},
+        attributeRule(BattleAttribute::Attack, 9),
         false,
         true);
     const auto content = testContent(pieces, combo);
@@ -226,8 +242,8 @@ TEST_CASE("combo resolution preserves last-instance star ordering for duplicate 
     CHECK(progress.activeThresholdIndex == -1);
 
     const auto spawns = initializedBattleSpawns(pieces, combo);
-    CHECK(requireSpawn(spawns, 1).combo.sumAlways(EffectType::FlatATK) == 0);
-    CHECK(requireSpawn(spawns, 2).combo.sumAlways(EffectType::FlatATK) == 0);
+    CHECK(requireSpawn(spawns, 1).unit.stats.attack == 15);
+    CHECK(requireSpawn(spawns, 2).unit.stats.attack == 0);
 }
 
 TEST_CASE("equipment combo substitution resolves the same role-restricted members in both paths",
@@ -238,9 +254,16 @@ TEST_CASE("equipment combo substitution resolves the same role-restricted member
         {2, 20, 1, 1, 500},
         {3, 30, 1, 1, 500},
     };
-    const auto combo = testCombo(8, "劍客", {10}, 2, {EffectType::FlatDEF, 11});
+    const auto combo = testCombo(
+        8,
+        "劍客",
+        { 10 },
+        2,
+        attributeRule(BattleAttribute::Defence, 11));
     const std::vector<EquipmentDef> equipment{{500, 1, 0}};
-    const std::vector<EquipmentSynergyDef> synergies{{{20}, 500, {}, {"劍客"}}};
+    const std::vector<EquipmentSynergyDef> synergies{
+        {{20}, 500, {}, {CountsAsComboRule{"劍客"}}},
+    };
     const auto content = testContent(pieces, combo, equipment, synergies);
     const auto state = sessionState(pieces);
 
@@ -261,18 +284,23 @@ TEST_CASE("equipment combo substitution resolves the same role-restricted member
     CHECK(equippedContribution->starBonusPoints == 0);
 
     const auto spawns = initializedBattleSpawns(pieces, combo, equipment, synergies);
-    CHECK(requireSpawn(spawns, 1).combo.sumAlways(EffectType::FlatDEF) == 11);
-    CHECK(requireSpawn(spawns, 2).combo.sumAlways(EffectType::FlatDEF) == 11);
-    CHECK(requireSpawn(spawns, 3).combo.sumAlways(EffectType::FlatDEF) == 0);
+    CHECK(requireSpawn(spawns, 1).unit.stats.defence == 11);
+    CHECK(requireSpawn(spawns, 2).unit.stats.defence == 11);
+    CHECK(requireSpawn(spawns, 3).unit.stats.defence == 0);
 }
 
 TEST_CASE("equipment combo substitution does not double-count an existing member",
           "[chess][combo][equipment][provenance]")
 {
     const std::vector<TestPiece> pieces{{1, 10, 1, 1, 500}};
-    const auto combo = testCombo(11, "真武七截陣", {10}, 2, {EffectType::FlatDEF, 11});
+    const auto combo = testCombo(
+        11,
+        "真武七截陣",
+        { 10 },
+        2,
+        attributeRule(BattleAttribute::Defence, 11));
     EquipmentDef equipment{500, 3, 0};
-    equipment.actAsComboNames = {"真武七截陣"};
+    equipment.managementRules = {CountsAsComboRule{"真武七截陣"}};
     const auto content = testContent(pieces, combo, {equipment});
     const auto state = sessionState(pieces);
 
@@ -298,7 +326,7 @@ TEST_CASE("anti-combo resolution selects the same highest-cost deterministic mem
         "獨行",
         {10, 20, 30},
         1,
-        {EffectType::FlatHP, 17},
+        attributeRule(BattleAttribute::MaxHp, 17),
         true);
     const auto content = testContent(pieces, combo);
     const auto state = sessionState(pieces);
@@ -310,9 +338,9 @@ TEST_CASE("anti-combo resolution selects the same highest-cost deterministic mem
     CHECK(progress.activeThresholdIndex == 0);
 
     const auto spawns = initializedBattleSpawns(pieces, combo);
-    CHECK(requireSpawn(spawns, 1).combo.sumAlways(EffectType::FlatHP) == 0);
-    CHECK(requireSpawn(spawns, 2).combo.sumAlways(EffectType::FlatHP) == 17);
-    CHECK(requireSpawn(spawns, 3).combo.sumAlways(EffectType::FlatHP) == 0);
+    CHECK(requireSpawn(spawns, 1).unit.vitals.maxHp == 100);
+    CHECK(requireSpawn(spawns, 2).unit.vitals.maxHp == 117);
+    CHECK(requireSpawn(spawns, 3).unit.vitals.maxHp == 100);
 }
 
 TEST_CASE("configured combo gold uses the highest active coefficient and surviving star",
@@ -325,13 +353,12 @@ TEST_CASE("configured combo gold uses the highest active coefficient and survivi
         {4, 40, 1, 1},
         {5, 50, 3, 1},
     };
-    auto combo = testCombo(
-        10,
-        "獎勵羈絆",
-        {10, 20, 30, 40},
-        2,
-        {EffectType::GoldCoefficient, 1});
-    combo.thresholds.push_back({4, "高階獎勵", {{EffectType::GoldCoefficient, 2}}});
+    ComboDef combo;
+    combo.id = 10;
+    combo.name = "獎勵羈絆";
+    combo.memberRoleIds = {10, 20, 30, 40};
+    combo.thresholds.push_back({2, "測試門檻", {}, {VictoryGoldRule{1}}});
+    combo.thresholds.push_back({4, "高階獎勵", {}, {VictoryGoldRule{2}}});
     const auto content = testContent(pieces, combo);
     const auto state = sessionState(pieces);
 
@@ -359,11 +386,13 @@ TEST_CASE("actual 丐幫 configuration drives its victory gold effect",
         }
     }
     REQUIRE(activeThreshold);
-    const auto goldEffect = std::ranges::find(
-        activeThreshold->effects,
-        EffectType::GoldCoefficient,
-        &ComboEffect::type);
-    REQUIRE(goldEffect != activeThreshold->effects.end());
+    const auto goldEffect = std::ranges::find_if(
+        activeThreshold->managementRules,
+        [](const ChessNonBattleRule& rule) {
+            return std::holds_alternative<VictoryGoldRule>(rule);
+        });
+    REQUIRE(goldEffect != activeThreshold->managementRules.end());
+    const auto& gold = std::get<VictoryGoldRule>(*goldEffect);
 
     std::vector<TestPiece> pieces;
     int instanceId = 1;
@@ -381,9 +410,9 @@ TEST_CASE("actual 丐幫 configuration drives its victory gold effect",
     pieces.push_back({outsiderInstanceId, outsider->first, 3, outsider->second.Cost});
     const auto state = sessionState(pieces);
 
-    const ChessComboGoldBonus expectedBonus{3 * goldEffect->value, comboIt->id};
+    const ChessComboGoldBonus expectedBonus{3 * gold.perHighestSurvivorStar, comboIt->id};
     CHECK(resolveChessComboGoldBonus(state, *content, {1, outsiderInstanceId}) == expectedBonus);
     CHECK(calculateChessComboGoldBonus(state, *content, {1, outsiderInstanceId})
-          == 3 * goldEffect->value);
+          == 3 * gold.perHighestSurvivorStar);
     CHECK(calculateChessComboGoldBonus(state, *content, {outsiderInstanceId}) == 0);
 }

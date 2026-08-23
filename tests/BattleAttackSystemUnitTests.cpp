@@ -6,9 +6,11 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <cassert>
 #include <initializer_list>
 #include <iterator>
 #include <span>
+#include <utility>
 
 using namespace KysChess::Battle;
 
@@ -39,11 +41,97 @@ BattleAttackInstance attack(int id, int attackerId, double x, double y)
 {
     BattleAttackInstance state;
     state.id = id;
-    state.state.attackerUnitId = attackerId;
+    state.state.attackSourceUnitId = attackerId;
     state.state.totalFrame = 30;
     state.state.position = { static_cast<float>(x), static_cast<float>(y), 0.0f };
     return state;
 }
+
+struct TestAttackWorld : BattleAttackState
+{
+    using BattleAttackState::spawn;
+    using BattleAttackState::tick;
+
+    BattleCastLifecycle lifecycle;
+
+    BattleAttackEvent spawn(BattleAttackSpawnRequest request)
+    {
+        assert(!request.provenance.valid());
+        assert(!request.castWork.valid());
+        const auto cast = lifecycle.beginRootCast({
+            request.initial.attackSourceUnitId,
+            request.initial.skillId,
+            request.provenance.cast.ultimate,
+            request.provenance.cast.ultimate
+                ? CastOriginKind::Ultimate
+                : CastOriginKind::Normal,
+        });
+        const auto reservation = lifecycle.reserveAttack(cast.provenance.castId, {
+            .rootAttack = true,
+            .mainProjectile = request.provenance.mainProjectile,
+            .sharedHitGroupId = request.provenance.sharedHitGroupId,
+            .propagation = request.provenance.propagation,
+        });
+        request.provenance = reservation.provenance;
+        request.castWork = reservation.work;
+        auto event = BattleAttackState::spawn(std::move(request), lifecycle);
+        lifecycle.completeWork(cast.commitBarrier);
+        return event;
+    }
+
+    std::pmr::vector<BattleAttackEvent> tick(
+        const BattleRuntimeUnits& units,
+        std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource())
+    {
+        return BattleAttackState::tick(units, lifecycle, memoryResource);
+    }
+
+    void addAttack(
+        BattleAttackInstance instance,
+        BattlePendingAttackProvenance pending = {})
+    {
+        assert(instance.id >= 0);
+        assert(!instance.provenance.valid());
+        assert(!instance.castWork.valid());
+        const bool bounce = pending.origin == BattleAttackOriginKind::Bounce;
+        const auto cast = lifecycle.beginRootCast({
+            instance.state.attackSourceUnitId,
+            instance.state.skillId,
+            pending.cast.ultimate,
+            pending.cast.ultimate ? CastOriginKind::Ultimate : CastOriginKind::Normal,
+        });
+        BattleAttackReservationRequest reservationRequest;
+        if (bounce)
+        {
+            reservationRequest.origin = pending.origin;
+        }
+        reservationRequest.rootAttack = !bounce;
+        reservationRequest.mainProjectile = pending.mainProjectile;
+        reservationRequest.sharedHitGroupId = pending.sharedHitGroupId;
+        reservationRequest.propagation = pending.propagation;
+        const auto reservation = lifecycle.reserveAttack(
+            cast.provenance.castId,
+            reservationRequest);
+        instance.provenance = completeAttackProvenance(
+            reservation.provenance,
+            battleAttackIdFromRuntimeId(instance.id));
+        instance.castWork = reservation.work;
+        lifecycle.transferToLiveAttack(
+            reservation.work,
+            instance.provenance.attackId);
+        lifecycle.completeWork(cast.commitBarrier);
+        attacks.push_back(std::move(instance));
+    }
+
+    void setAttacks(std::initializer_list<BattleAttackInstance> instances)
+    {
+        assert(attacks.empty());
+        for (auto instance : instances)
+        {
+            addAttack(std::move(instance));
+        }
+    }
+};
 
 bool hasEvent(std::span<const BattleAttackEvent> events, BattleAttackEventType type, int attackId, int unitId = -1)
 {
@@ -60,7 +148,7 @@ bool hasEvent(std::span<const BattleAttackEvent> events, BattleAttackEventType t
 BattleAttackSpawnRequest spawnRequest()
 {
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = 1;
+    request.initial.attackSourceUnitId = 1;
     request.initial.skillId = 101;
     request.initial.operationType = BattleOperationType::RangedProjectile;
     request.initial.visualEffectId = 33;
@@ -71,9 +159,9 @@ BattleAttackSpawnRequest spawnRequest()
     return request;
 }
 
-BattleAttackState attackWorld()
+TestAttackWorld attackWorld()
 {
-    BattleAttackState world;
+    TestAttackWorld world;
     world.hitRadius = SceneHitRadius;
     world.minimumVectorNorm = TestMinimumVectorNorm;
     world.bounceSpawnDistance = SceneBounceSpawnDistance;
@@ -103,7 +191,14 @@ TEST_CASE("BattleAttackSystem_DefaultAttackPayloadHasNoCastSubrequestKind", "[ba
 
 TEST_CASE("BattleAttackSystem_DelayedSpawnElapsesWithoutEnteringAttackWorldEarly", "[battle][attack][unit]")
 {
+    BattleCastLifecycle lifecycle;
+    const auto cast = lifecycle.beginRootCast({ 1, 101, false });
+    const auto reservation = lifecycle.reserveAttack(cast.provenance.castId, {
+        .rootAttack = true,
+    });
     BattleAttackSpawnRequest request;
+    request.provenance = reservation.provenance;
+    request.castWork = reservation.work;
     request.spawnDelayFrames = 3;
 
     CHECK_FALSE(attackSpawnDelayElapsed(request));
@@ -162,7 +257,6 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     BattleAttackSpawnRequest request = spawnRequest();
     request.initial.through = true;
     request.initial.track = true;
-    request.initial.sharedHitGroupId = 7;
     request.initial.requirePreferredTarget = true;
     request.initial.bounceRemaining = 2;
     request.initial.bounceRange = 120;
@@ -175,9 +269,9 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.initial.scriptedBleedStacks = 4;
     request.initial.projectileCancelDamage = 90;
     request.initial.projectileCancelWeaken = 13;
+    request.initial.projectilePressurePct = 65;
     request.initial.strengthPct = 200;
     request.initial.suppressNearbyTrackingProjectileProc = true;
-    request.initial.mainProjectile = false;
     request.initialFrame = 4;
     request.acceleration = { 1, 2, 3 };
     request.spiralMotion = true;
@@ -186,12 +280,14 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.spiralRadiusGrowth = 0.5f;
     request.spiralAngle = 1.25f;
     request.spiralAngularVelocity = 0.75f;
+    request.provenance.mainProjectile = false;
+    request.provenance.sharedHitGroupId = 7;
 
     world.spawn(request);
 
     REQUIRE(world.attacks.size() == 1);
     const auto& attack = world.attacks[0];
-    CHECK(attack.state.attackerUnitId == 1);
+    CHECK(attack.state.attackSourceUnitId == 1);
     CHECK(attack.state.skillId == 101);
     CHECK(attack.state.operationType == BattleOperationType::RangedProjectile);
     CHECK(attack.state.visualEffectId == 33);
@@ -203,7 +299,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.state.totalFrame == 30);
     CHECK(attack.state.through);
     CHECK(attack.state.track);
-    CHECK(attack.state.sharedHitGroupId == 7);
+    CHECK(attack.provenance.sharedHitGroupId == 7);
     CHECK(attack.state.requirePreferredTarget);
     CHECK(attack.state.bounceRemaining == 2);
     CHECK(attack.state.bounceRange == 120);
@@ -216,9 +312,10 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.state.scriptedBleedStacks == 4);
     CHECK(attack.state.projectileCancelDamage == 90);
     CHECK(attack.state.projectileCancelWeaken == 13);
+    CHECK(attack.state.projectilePressurePct == 65);
     CHECK(attack.state.strengthPct == 200);
     CHECK(attack.state.suppressNearbyTrackingProjectileProc);
-    CHECK_FALSE(attack.state.mainProjectile);
+    CHECK_FALSE(attack.provenance.mainProjectile);
     CHECK(attack.frame == 4);
     CHECK(attack.acceleration.x == 1.0f);
     CHECK(attack.acceleration.y == 2.0f);
@@ -250,16 +347,16 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCastSubrequestMetadata", "[battle][atta
     CHECK(world.attacks[0].state.strengthPct == 200);
 }
 
-TEST_CASE("BattleAttackSystem_SpawnStoresUltimateFlagFromRequest", "[battle][attack][unit]")
+TEST_CASE("BattleAttackSystem_SpawnStoresUltimateOnlyInProvenance", "[battle][attack][unit]")
 {
     auto world = attackWorld();
     BattleAttackSpawnRequest request = spawnRequest();
-    request.initial.ultimate = true;
+    request.provenance.cast.ultimate = true;
 
     world.spawn(request);
 
     REQUIRE(world.attacks.size() == 1);
-    CHECK(world.attacks[0].state.ultimate);
+    CHECK(world.attacks[0].provenance.cast.ultimate);
 }
 
 TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[battle][attack][unit]")
@@ -272,6 +369,7 @@ TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[ba
     CHECK(event.attackId == 0);
     CHECK(event.sourceUnitId == 1);
     CHECK(event.unitId == 2);
+    CHECK(event.preferredTargetUnitId == 2);
     CHECK(event.skillId == 101);
     CHECK(event.operationType == BattleOperationType::RangedProjectile);
     CHECK(event.visualEffectId == 33);
@@ -280,6 +378,33 @@ TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[ba
     CHECK(event.velocity.x == 3.0f);
     CHECK(event.velocity.y == 4.0f);
     CHECK(event.totalFrame == 30);
+}
+
+TEST_CASE("BattleAttackSystem_SpawnAllowsDerivedProjectileAttackerToDifferFromCastOwner",
+          "[battle][attack][unit][attack_source]")
+{
+    auto world = attackWorld();
+    BattleCastLifecycle lifecycle;
+    const auto cast = lifecycle.beginRootCast({
+        .sourceUnitId = 1,
+        .magicId = 62,
+        .ultimate = false,
+        .origin = CastOriginKind::Normal,
+    });
+    const auto reservation = lifecycle.reserveAttack(cast.provenance.castId, {
+        .origin = BattleAttackOriginKind::CastDerived,
+        .rootAttack = false,
+    });
+    auto request = spawnRequest();
+    request.initial.attackSourceUnitId = 7;
+    request.provenance = reservation.provenance;
+    request.castWork = reservation.work;
+
+    const auto event = world.spawn(std::move(request), lifecycle);
+
+    CHECK(event.sourceUnitId == 7);
+    CHECK(event.provenance.cast.sourceUnitId == 1);
+    CHECK(event.preferredTargetUnitId == 2);
 }
 
 TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][attack][unit]")
@@ -297,15 +422,16 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     projectile.state.projectileCancelWeaken = 6;
     projectile.state.strengthPct = 175;
     projectile.state.suppressNearbyTrackingProjectileProc = true;
-    projectile.state.mainProjectile = false;
     projectile.state.track = true;
-    projectile.state.sharedHitGroupId = 17;
     projectile.state.through = true;
-    projectile.state.ultimate = true;
     projectile.state.position = { 12, 5, 0 };
     projectile.state.velocity = { 9, 0, 0 };
     projectile.frame = 7;
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile), {
+        .cast = { .ultimate = true },
+        .mainProjectile = false,
+        .sharedHitGroupId = 17,
+    });
 
     auto events = world.tick(units);
 
@@ -325,15 +451,35 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     CHECK(hit->projectileCancelDamage == 6);
     CHECK(hit->strengthPct == 175);
     CHECK(hit->suppressNearbyTrackingProjectileProc);
-    CHECK_FALSE(hit->mainProjectile);
+    CHECK_FALSE(hit->provenance.mainProjectile);
     CHECK(hit->track);
-    CHECK(hit->sharedHitGroupId == 17);
+    CHECK(hit->provenance.sharedHitGroupId == 17);
     CHECK(hit->through);
-    CHECK(hit->ultimate);
+    CHECK(hit->provenance.cast.ultimate);
     CHECK(hit->frame == 8);
     CHECK(hit->totalFrame == 30);
     CHECK(hit->position.x == Catch::Approx(21.0f));
     CHECK(hit->velocity.x == Catch::Approx(9.0f).margin(0.01));
+}
+
+TEST_CASE("BattleAttackSystem_HitEventKeepsPreferredTargetSeparateFromContact", "[battle][attack][unit][preferred_target]")
+{
+    auto world = attackWorld();
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 40, 0), unit(9, 1, 200, 0) });
+    units.requireCore(9).alive = false;
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.preferredTargetUnitId = 9;
+    world.addAttack(std::move(projectile));
+
+    const auto events = world.tick(units);
+    const auto hit = std::ranges::find_if(events, [](const BattleAttackEvent& event)
+    {
+        return event.type == BattleAttackEventType::Hit;
+    });
+
+    REQUIRE(hit != events.end());
+    CHECK(hit->unitId == 2);
+    CHECK(hit->preferredTargetUnitId == 9);
 }
 
 TEST_CASE("BattleAttackSystem_InvincibleContactEmitsNonDamagingBlockOnce", "[battle][attack][unit]")
@@ -345,7 +491,7 @@ TEST_CASE("BattleAttackSystem_InvincibleContactEmitsNonDamagingBlockOnce", "[bat
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.velocity = { 10, 0, 0 };
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -372,7 +518,7 @@ TEST_CASE("BattleAttackSystem_MeleeHitOnlyEmitsAfterHitVolumeReachesTarget", "[b
     });
     auto melee = attack(10, 1, 0, 0);
     melee.state.operationType = BattleOperationType::Melee;
-    world.attacks.push_back(melee);
+    world.addAttack(std::move(melee));
 
     auto beforeReach = world.tick(units);
 
@@ -394,7 +540,7 @@ TEST_CASE("BattleAttackSystem_RangedHitOnlyEmitsAfterProjectileReachesTarget", "
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.velocity = { static_cast<float>(SceneProjectileSpeed), 0.0f, 0.0f };
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto beforeReach = world.tick(units);
 
@@ -416,7 +562,7 @@ TEST_CASE("BattleAttackSystem_FastProjectileHitsTargetCrossedBetweenFrames", "[b
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.velocity = { 100, 0, 0 };
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -435,7 +581,7 @@ TEST_CASE("BattleAttackSystem_OngoingProjectileCanHitAfterSourceDies", "[battle]
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.velocity = { 100, 0, 0 };
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -454,7 +600,7 @@ TEST_CASE("BattleAttackSystem_FastPreferredProjectileCanHitCloseTargetBehindSpaw
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.preferredTargetUnitId = 2;
     projectile.state.velocity = { 60, 0, 0 };
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -468,7 +614,7 @@ TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][uni
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.velocity = { 3, 4, 0 };
     projectile.state.totalFrame = 1;
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -484,7 +630,7 @@ TEST_CASE("BattleAttackSystem_HitsNearestEnemyOnceAndMarksNonThroughSpent", "[ba
 {
     auto world = attackWorld();
     auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 40, 0), unit(3, 1, 45, 0) });
-    world.attacks.push_back(attack(10, 1, 0, 0));
+    world.addAttack(attack(10, 1, 0, 0));
 
     auto events = world.tick(units);
 
@@ -503,7 +649,7 @@ TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameT
     auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 30, 0), unit(3, 1, 120, 0) });
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.through = true;
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto firstEvents = world.tick(units);
     CHECK(hasEvent(firstEvents, BattleAttackEventType::Hit, 10, 2));
@@ -520,12 +666,11 @@ TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectil
     auto world = attackWorld();
     auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 30, 0) });
     auto first = attack(10, 1, 0, 0);
-    first.state.sharedHitGroupId = 7;
     first.state.through = true;
     auto second = attack(11, 1, 0, 0);
-    second.state.sharedHitGroupId = 7;
     second.state.through = true;
-    world.attacks = { first, second };
+    world.addAttack(std::move(first), { .sharedHitGroupId = 7 });
+    world.addAttack(std::move(second), { .sharedHitGroupId = 7 });
 
     auto events = world.tick(units);
 
@@ -544,7 +689,7 @@ TEST_CASE("BattleAttackSystem_RequiredPreferredTargetExpiresWhenTargetInvalid", 
     projectile.state.preferredTargetUnitId = 2;
     projectile.state.requirePreferredTarget = true;
     projectile.state.totalFrame = 20;
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -561,7 +706,7 @@ TEST_CASE("BattleAttackSystem_TrackingPreservesSpeedWhileTurningTowardTarget", "
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.track = true;
     projectile.state.velocity = { 10, 0, 0 };
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     world.tick(units);
 
@@ -580,7 +725,7 @@ TEST_CASE("BattleAttackSystem_TrackingProjectileStopsSteeringAfterFirstThroughHi
     projectile.state.preferredTargetUnitId = 2;
     projectile.state.velocity = { 10, 0, 0 };
     projectile.hitUnitIds.push_back(2);
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     world.tick(units);
 
@@ -597,7 +742,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle]
     lhs.frame = 5;
     auto rhs = attack(11, 2, 20, 0);
     rhs.frame = 5;
-    world.attacks = { lhs, rhs };
+    world.setAttacks({ lhs, rhs });
 
     auto events = world.tick(units);
 
@@ -619,7 +764,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDama
     rhs.frame = 5;
     rhs.state.operationType = BattleOperationType::RangedProjectile;
     rhs.state.projectileCancelDamage = 10;
-    world.attacks = { lhs, rhs };
+    world.setAttacks({ lhs, rhs });
 
     auto events = world.tick(units);
 
@@ -645,7 +790,7 @@ TEST_CASE("BattleAttackSystem_OngoingProjectilesCanCancelAfterSourceDies", "[bat
     second.state.operationType = BattleOperationType::RangedProjectile;
     second.frame = world.projectileGraceFrames;
     second.state.projectileCancelDamage = 10;
-    world.attacks = { first, second };
+    world.setAttacks({ first, second });
 
     auto events = world.tick(units);
 
@@ -662,12 +807,12 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelUsesEachProjectileOncePerFrame", "
         auto lhs = attack(10 + i, 1, 0, 0);
         lhs.frame = 5;
         lhs.state.projectileCancelDamage = 100 - i;
-        world.attacks.push_back(lhs);
+        world.addAttack(std::move(lhs));
 
         auto rhs = attack(20 + i, 2, 0, 0);
         rhs.frame = 5;
         rhs.state.projectileCancelDamage = 90 - i;
-        world.attacks.push_back(rhs);
+        world.addAttack(std::move(rhs));
     }
 
     auto events = world.tick(units);
@@ -706,7 +851,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelMatchesHighestStrengthPairsFirst",
     auto weakRight = attack(21, 2, 0, 0);
     weakRight.frame = 5;
     weakRight.state.projectileCancelDamage = 20;
-    world.attacks = { weakLeft, strongLeft, strongRight, weakRight };
+    world.setAttacks({ weakLeft, strongLeft, strongRight, weakRight });
 
     auto events = world.tick(units);
 
@@ -738,7 +883,7 @@ TEST_CASE("BattleAttackSystem_FastProjectilesCancelWhenCrossingBetweenFrames", "
     auto rhs = attack(11, 2, 120, 0);
     rhs.frame = 5;
     rhs.state.velocity = { -100, 0, 0 };
-    world.attacks = { lhs, rhs };
+    world.setAttacks({ lhs, rhs });
 
     auto events = world.tick(units);
 
@@ -757,7 +902,7 @@ TEST_CASE("BattleAttackSystem_ApplyProjectileCancelDamageCommitsWeakenRules", "[
     auto rhs = attack(11, 2, 20, 0);
     rhs.frame = 9;
     rhs.state.totalFrame = 35;
-    world.attacks = { lhs, rhs };
+    world.setAttacks({ lhs, rhs });
 
     BattleAttackEvent event;
     event.type = BattleAttackEventType::ProjectileCancel;
@@ -784,10 +929,12 @@ TEST_CASE("BattleAttackSystem_UltimateProjectileDoesNotCancel", "[battle][attack
     auto units = runtimeUnits({ unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) });
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
-    lhs.state.ultimate = true;
     auto rhs = attack(11, 2, 20, 0);
     rhs.frame = 5;
-    world.attacks = { lhs, rhs };
+    world.addAttack(std::move(lhs), {
+        .cast = { .ultimate = true },
+    });
+    world.addAttack(std::move(rhs));
 
     auto events = world.tick(units);
 
@@ -804,7 +951,7 @@ TEST_CASE("BattleAttackSystem_IgnoredProjectileDoesNotCancel", "[battle][attack]
     lhs.state.ignoreProjectileCancel = true;
     auto rhs = attack(11, 2, 20, 0);
     rhs.frame = 5;
-    world.attacks = { lhs, rhs };
+    world.setAttacks({ lhs, rhs });
 
     auto events = world.tick(units);
 
@@ -829,7 +976,7 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
     projectile.state.bounceChancePct = 100;
     projectile.state.bounceRollPct = 0;
     projectile.hitUnitIds = { 4 };
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -840,7 +987,7 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
 
     const auto& bounce = world.attacks[1];
     CHECK(bounce.id == 20);
-    CHECK(bounce.state.attackerUnitId == 1);
+    CHECK(bounce.state.attackSourceUnitId == 1);
     CHECK(bounce.state.preferredTargetUnitId == 3);
     CHECK(bounce.state.requirePreferredTarget);
     CHECK(bounce.state.track);
@@ -865,7 +1012,7 @@ TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[
     projectile.state.bounceRange = 120;
     projectile.state.bounceChancePct = 30;
     projectile.state.bounceRollPct = 30;
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -880,12 +1027,13 @@ TEST_CASE("BattleAttackSystem_BounceLastHitReportsChainEnded", "[battle][attack]
     auto world = attackWorld();
     auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 20, 0) });
     auto projectile = attack(10, 1, 0, 0);
-    projectile.spawnedFromAttackId = 9;
     projectile.state.bounceRemaining = 0;
     projectile.state.bounceRange = 120;
     projectile.state.bounceChancePct = 100;
     projectile.state.bounceRollPct = 0;
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile), {
+        .origin = BattleAttackOriginKind::Bounce,
+    });
 
     auto events = world.tick(units);
 
@@ -902,7 +1050,7 @@ TEST_CASE("BattleAttackSystem_BounceReportsNoTargetInRangeBeforeChainEnds", "[ba
     projectile.state.bounceRange = 120;
     projectile.state.bounceChancePct = 100;
     projectile.state.bounceRollPct = 0;
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -921,7 +1069,7 @@ TEST_CASE("BattleAttackSystem_BounceDoesNotSelectPreviouslyHitTarget", "[battle]
     projectile.state.bounceChancePct = 100;
     projectile.state.bounceRollPct = 0;
     projectile.hitUnitIds = { 3 };
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -943,7 +1091,7 @@ TEST_CASE("BattleAttackSystem_BounceCannotTriggerWithoutHitEvent", "[battle][att
     projectile.state.bounceRange = static_cast<int>(SceneTileWidth * 4);
     projectile.state.bounceChancePct = 100;
     projectile.state.bounceRollPct = 0;
-    world.attacks.push_back(projectile);
+    world.addAttack(std::move(projectile));
 
     auto events = world.tick(units);
 
@@ -952,4 +1100,188 @@ TEST_CASE("BattleAttackSystem_BounceCannotTriggerWithoutHitEvent", "[battle][att
     REQUIRE(world.attacks.size() == 1);
     CHECK(world.attacks[0].state.bounceRemaining == 1);
     CHECK_FALSE(world.attacks[0].noHurt);
+}
+
+TEST_CASE("BattleAttackSystem_TrackedSpawnCopiesOneCompletedProvenanceValueToInstanceAndEvents", "[battle][attack][lineage]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto cast = lifecycle.beginRootCast({
+        1,
+        101,
+        true,
+        CastOriginKind::Ultimate,
+        CastPropagationPolicy::SourceRules,
+    });
+    const auto reservation = lifecycle.reserveAttack(cast.provenance.castId, {
+        .rootAttack = true,
+        .mainProjectile = true,
+        .sharedHitGroupId = 7,
+    });
+    auto request = spawnRequest();
+    request.provenance = reservation.provenance;
+    request.castWork = reservation.work;
+
+    auto world = attackWorld();
+    world.nextAttackId = 40;
+    const auto spawned = world.spawn(std::move(request), lifecycle);
+
+    CHECK_FALSE(request.provenance.valid());
+    CHECK_FALSE(request.castWork.valid());
+    REQUIRE(world.attacks.size() == 1);
+    const auto& instance = world.attacks[0];
+    CHECK(instance.provenance.valid());
+    CHECK(instance.provenance.attackId == battleAttackIdFromRuntimeId(40));
+    CHECK(instance.provenance.cast.castId == cast.provenance.castId);
+    CHECK(instance.provenance.attackOrdinal == 0);
+    CHECK(instance.provenance.rootAttack);
+    CHECK(instance.provenance.mainProjectile);
+    CHECK(instance.provenance.sharedHitGroupId == 7);
+    CHECK(instance.castWork.id == reservation.work.id);
+    CHECK(spawned.provenance.attackId == instance.provenance.attackId);
+    CHECK(spawned.provenance.cast.castId == instance.provenance.cast.castId);
+    CHECK(lifecycle.workKind(reservation.work) == CastWorkKind::LiveAttack);
+}
+
+TEST_CASE("BattleAttackSystem_BounceReservesDerivedLineageBeforePublishingAttack", "[battle][attack][lineage]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto cast = lifecycle.beginRootCast({ 1, 101, false });
+    const auto root = lifecycle.reserveAttack(cast.provenance.castId, {
+        .rootAttack = true,
+    });
+    auto request = spawnRequest();
+    request.initial.preferredTargetUnitId = 2;
+    request.initial.bounceRemaining = 1;
+    request.initial.bounceRange = 120;
+    request.initial.bounceChancePct = 100;
+    request.initial.bounceRollPct = 0;
+    request.provenance = root.provenance;
+    request.castWork = root.work;
+
+    auto world = attackWorld();
+    const auto spawned = world.spawn(std::move(request), lifecycle);
+    world.suppressContacts(spawned.attackId);
+    lifecycle.completeWork(cast.commitBarrier);
+    auto units = runtimeUnits({
+        unit(1, 0, 0, 0),
+        unit(2, 1, 20, 0),
+        unit(3, 1, 80, 0),
+    });
+
+    const auto events = world.tick(units, lifecycle);
+
+    REQUIRE(world.attacks.size() == 2);
+    const auto& source = world.attacks[0];
+    const auto& bounce = world.attacks[1];
+    REQUIRE(source.provenance.valid());
+    REQUIRE(bounce.provenance.valid());
+    CHECK(source.contactsSuppressed);
+    CHECK(bounce.contactsSuppressed);
+    REQUIRE(bounce.provenance.parentAttackId);
+    CHECK(*bounce.provenance.parentAttackId == source.provenance.attackId);
+    CHECK(bounce.provenance.cast.castId == source.provenance.cast.castId);
+    CHECK(bounce.provenance.cast.rootCastId == source.provenance.cast.rootCastId);
+    CHECK(bounce.provenance.attackOrdinal == 1);
+    CHECK_FALSE(bounce.provenance.rootAttack);
+    CHECK(bounce.provenance.mainProjectile == source.provenance.mainProjectile);
+    CHECK(bounce.provenance.propagation == CastPropagationPolicy::SourceHitRulesOnly);
+    CHECK(lifecycle.workKind(bounce.castWork) == CastWorkKind::LiveAttack);
+    CHECK(lifecycle.outstandingWork(cast.provenance.castId) == 2);
+
+    const auto bounceEvent = std::find_if(events.begin(), events.end(), [](const auto& event) {
+        return event.type == BattleAttackEventType::Bounce;
+    });
+    REQUIRE(bounceEvent != events.end());
+    REQUIRE(bounceEvent->otherProvenance);
+    CHECK(bounceEvent->provenance.attackId == source.provenance.attackId);
+    CHECK(bounceEvent->otherProvenance->attackId == bounce.provenance.attackId);
+}
+
+TEST_CASE("BattleAttackSystem_FinishedAttackCompletesItsLiveWorkAtTheFinishBoundary",
+          "[battle][attack][lineage]")
+{
+    auto world = attackWorld();
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.totalFrame = 1;
+    world.addAttack(std::move(projectile));
+    const auto castId = world.attacks.front().provenance.cast.castId;
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 500, 0) });
+
+    const auto events = world.tick(units);
+
+    CHECK(hasEvent(events, BattleAttackEventType::Expired, 10));
+    REQUIRE(world.attacks.front().scheduledFinishReason);
+    CHECK(*world.attacks.front().scheduledFinishReason == AttackFinishReason::Expired);
+    CHECK_FALSE(world.attacks.front().finishReason);
+    CHECK(world.lifecycle.outstandingWork(castId) == 1);
+
+    world.completeFinished(world.lifecycle);
+
+    REQUIRE(world.attacks.front().finishReason);
+    CHECK(*world.attacks.front().finishReason == AttackFinishReason::Expired);
+    CHECK(world.lifecycle.outstandingWork(castId) == 0);
+    const auto& aggregate = world.lifecycle.runtime(castId).aggregate;
+    REQUIRE(aggregate.attacksByOrdinal.at(0).finishReason);
+    CHECK(*aggregate.attacksByOrdinal.at(0).finishReason == AttackFinishReason::Expired);
+
+    world.eraseFinished();
+    CHECK(world.attacks.empty());
+}
+
+TEST_CASE("BattleAttackSystem_BattleEndCancelsEveryLiveAttackAndClearsAttackState",
+          "[battle][attack][lineage]")
+{
+    auto world = attackWorld();
+    auto first = attack(10, 1, 0, 0);
+    auto second = attack(11, 2, 20, 0);
+    world.addAttack(std::move(first), { .sharedHitGroupId = 7 });
+    world.addAttack(std::move(second));
+    const std::vector castIds{
+        world.attacks[0].provenance.cast.castId,
+        world.attacks[1].provenance.cast.castId,
+    };
+    world.sharedHitGroupTargets[7] = { 3 };
+
+    world.cancelAllForBattleEnd(world.lifecycle);
+
+    CHECK(world.attacks.empty());
+    CHECK(world.sharedHitGroupTargets.empty());
+    CHECK(world.lifecycle.trackedWorkCount() == 0);
+    for (const auto castId : castIds)
+    {
+        CHECK(world.lifecycle.outstandingWork(castId) == 0);
+        const auto& aggregate = world.lifecycle.runtime(castId).aggregate;
+        REQUIRE(aggregate.attacksByOrdinal.at(0).finishReason);
+        CHECK(*aggregate.attacksByOrdinal.at(0).finishReason
+            == AttackFinishReason::BattleEnded);
+    }
+}
+
+TEST_CASE("BattleAttackSystem_BattleEndClearsAlreadyFinishedPresentationAttackWithoutCompletingTwice",
+          "[battle][attack][lineage]")
+{
+    auto world = attackWorld();
+    auto finished = attack(10, 1, 0, 0);
+    finished.state.totalFrame = 1;
+    world.addAttack(std::move(finished));
+    const auto finishedCastId = world.attacks.front().provenance.cast.castId;
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 500, 0) });
+    world.tick(units);
+    world.completeFinished(world.lifecycle);
+    REQUIRE(world.attacks.front().finishReason);
+    CHECK_FALSE(world.attacks.front().castWork.valid());
+
+    auto live = attack(11, 1, 0, 0);
+    world.addAttack(std::move(live));
+    const auto liveCastId = world.attacks.back().provenance.cast.castId;
+
+    world.cancelAllForBattleEnd(world.lifecycle);
+
+    CHECK(world.attacks.empty());
+    CHECK(*world.lifecycle.runtime(finishedCastId)
+               .aggregate.attacksByOrdinal.at(0).finishReason
+        == AttackFinishReason::Expired);
+    CHECK(*world.lifecycle.runtime(liveCastId)
+               .aggregate.attacksByOrdinal.at(0).finishReason
+        == AttackFinishReason::BattleEnded);
 }

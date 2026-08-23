@@ -619,10 +619,10 @@ void finishPreparation(
         content,
         allyRequiredSlots,
         enemyRequiredSlots);
-    const bool canChooseMap = chessRosterHasActiveComboEffect(
+    const bool canChooseMap = chessRosterHasActiveManagementRule(
         state,
         content,
-        EffectType::BattleMapChoice);
+        ChessNonBattleRuleKind::BattleMapChoice);
     if (!battle.mapCandidates.empty()
         && (!canChooseMap || battle.mapCandidates.size() == 1))
     {

@@ -116,7 +116,6 @@ BattleRuntimeRulesConfig makeHadesBattleRuntimeRules(double tileWidth, int coord
     movementGeometry.meleeAttackHitRadius = meleeAttackHitRadius;
     rules.movementConfig = BattleGeometry(movementGeometry).movementConfig();
 
-    rules.teamEffectHealAuraRadius = tileWidth * 6.0;
     rules.rescueExecuteUnattendedRadius = tileWidth * 3.0;
     rules.minimumVectorNorm = MINIMUM_VECTOR_NORM;
     rules.rescueCounterAttack.skillId = RESCUE_COUNTER_ATTACK_SKILL_ID;

@@ -2,7 +2,6 @@
 
 #include "BattleStatusSystem.h"
 
-#include <algorithm>
 #include <cassert>
 #include <utility>
 
@@ -40,64 +39,17 @@ BattleDamagePresentationStyle makeDamagePresentationStyle(int team)
     return style;
 }
 
-int initialShieldFor(const BattleRuntimeUnit& unit, const RoleComboState& combo)
-{
-    int shield = 0;
-    for (RoleComboEffectId effectId : combo.effectIds(Trigger::Always, EffectType::FlatShield))
-    {
-        const auto& effect = combo.effect(effectId);
-        if (effect.origin != RoleComboEffectOrigin::Configured)
-        {
-            continue;
-        }
-        if (effect.sourceComboId < 0)
-        {
-            shield += effect.value;
-        }
-    }
-    const int shieldPct = combo.sumAlways(EffectType::ShieldPctMaxHP);
-    if (shieldPct > 0)
-    {
-        shield += unit.vitals.maxHp * shieldPct / 100;
-    }
-    return shield;
-}
-
-int sumAlwaysEffectCharges(const RoleComboState& combo, EffectType type)
-{
-    int total = 0;
-    for (RoleComboEffectId effectId : combo.effectIds(Trigger::Always, type))
-    {
-        const auto& effect = combo.effect(effectId);
-        if (effect.origin != RoleComboEffectOrigin::Configured)
-        {
-            continue;
-        }
-        total += std::max(1, effect.value);
-    }
-    return total;
-}
-
 }  // namespace
 
 BattleStatusRuntimeUnit makeInitialStatusRuntimeUnit(
-    const BattleRuntimeUnit& unit,
-    const RoleComboState& combo)
+    const BattleRuntimeUnit& unit)
 {
-    return makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(unit, combo));
+    return makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(unit));
 }
 
-BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit(const RoleComboState& combo)
+BattleDamageRuntimeUnit makeInitialDamageRuntimeUnit()
 {
-    BattleDamageRuntimeUnit damage;
-    damage.hurtInvincFrames = combo.maxAlways(EffectType::HurtInvincFrames);
-    damage.blockFirstHitsRemaining = combo.sumAlways(EffectType::BlockFirstHits);
-    damage.deathPrevention = combo.maxAlways(EffectType::DeathPrevention) > 0;
-    damage.deathPreventionFrames = combo.maxAlways(EffectType::DeathPrevention);
-    damage.killHealPct = combo.sumAlways(EffectType::KillHealPct);
-    damage.killInvincFrames = combo.maxAlways(EffectType::KillInvincFrames);
-    damage.bloodlustAttackPerKill = combo.sumAlways(EffectType::Bloodlust);
-    return damage;
+    return {};
 }
 
 BattleMovementAgentState makeInitialMovementAgent(
@@ -115,9 +67,9 @@ void refreshRuntimeUnitSpawnDerivedState(BattleRuntimeUnitSpawn& spawn)
 {
     assert(spawn.unit.id >= 0);
 
-    spawn.unit.shield = initialShieldFor(spawn.unit, spawn.combo);
-    spawn.status = makeInitialStatusRuntimeUnit(spawn.unit, spawn.combo);
-    spawn.damage = makeInitialDamageRuntimeUnit(spawn.combo);
+    spawn.status = makeInitialStatusRuntimeUnit(spawn.unit);
+    spawn.damage = makeInitialDamageRuntimeUnit();
+    spawn.rescue = {};
     spawn.movement = makeInitialMovementAgent(spawn.unit);
     if (spawn.actionPlanSeed)
     {
@@ -127,12 +79,12 @@ void refreshRuntimeUnitSpawnDerivedState(BattleRuntimeUnitSpawn& spawn)
 
 BattleRuntimeUnitSpawn makeRuntimeUnitSpawn(
     BattleRuntimeUnit unit,
-    RoleComboState combo,
+    BattleComboRuntimeFacts comboFacts,
     std::optional<BattleActionPlanSeed> actionPlan)
 {
     BattleRuntimeUnitSpawn spawn;
     spawn.unit = std::move(unit);
-    spawn.combo = std::move(combo);
+    spawn.comboFacts = std::move(comboFacts);
     spawn.actionPlanSeed = std::move(actionPlan);
     refreshRuntimeUnitSpawnDerivedState(spawn);
     return spawn;
@@ -142,16 +94,11 @@ BattleRuntimeUnitRecord BattleRuntimeUnitSpawn::makeRecord() &&
 {
     BattleRuntimeUnitRecord record;
     record.core = std::move(unit);
-    record.combo = std::move(combo);
-    record.skillEffects = std::move(skillEffects);
+    record.comboFacts = std::move(comboFacts);
     record.status = std::move(status);
     record.damage = std::move(damage);
+    record.rescue = std::move(rescue);
     record.movement = std::move(movement);
-    record.deathEffects = {};
-    record.rescue = {
-        sumAlwaysEffectCharges(record.combo, EffectType::ForcePullProtect),
-        sumAlwaysEffectCharges(record.combo, EffectType::ForcePullExecute),
-    };
     if (actionPlanSeed)
     {
         record.setActionPlan(std::move(*actionPlanSeed));

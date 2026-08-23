@@ -58,16 +58,18 @@ std::vector<ChessComboResolverEquipmentRule> resolverEquipmentRules(
     std::vector<ChessComboResolverEquipmentRule> result;
     for (const auto& equipment : content.equipment())
     {
-        if (!equipment.actAsComboNames.empty())
+        auto comboNames = countsAsComboNames(equipment.managementRules);
+        if (!comboNames.empty())
         {
-            result.push_back({equipment.itemId, {}, equipment.actAsComboNames});
+            result.push_back({equipment.itemId, {}, std::move(comboNames)});
         }
     }
     for (const auto& synergy : content.equipmentSynergies())
     {
-        if (!synergy.actAsComboNames.empty())
+        auto comboNames = countsAsComboNames(synergy.managementRules);
+        if (!comboNames.empty())
         {
-            result.push_back({synergy.equipmentId, synergy.roleIds, synergy.actAsComboNames});
+            result.push_back({synergy.equipmentId, synergy.roleIds, std::move(comboNames)});
         }
     }
     return result;
@@ -172,6 +174,7 @@ std::vector<ComboDef> loadChessCombos(
     std::vector<ComboDef> combos;
     int idx = 0;
 
+    std::uint64_t nextRuleId = 1;
     for (const auto& node : root["羁绊"])
     {
         ComboDef def;
@@ -209,18 +212,85 @@ std::vector<ComboDef> loadChessCombos(
             thresh.count = tNode["人数"].as<int>();
             thresh.name = toTraditional(tNode["名称"].as<std::string>());
 
-            if (!tNode["效果"])
+            if (!tNode["效果"] && !tNode["管理規則"])
             {
-                emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」閾值「{}」缺少「效果」", def.name, thresh.name));
+                emitChessDiagnostic(
+                    diagnostics,
+                    ChessDiagnosticSeverity::Error,
+                    "羈絆配置",
+                    std::format("「{}」閾值「{}」缺少「效果」或「管理規則」", def.name, thresh.name));
                 return {};
             }
-            for (const auto& eNode : tNode["效果"])
+            if (const auto effectNodes = tNode["效果"];
+                effectNodes && !effectNodes.IsSequence())
             {
-                ComboEffect eff;
-                auto effectContext = std::format("羈絆「{}」閾值「{}」效果#{}", def.name, thresh.name, thresh.effects.size() + 1);
-                if (!ChessBattleEffects::parseEffect(eNode, eff, effectContext, diagnostics))
-                    return {};
-                thresh.effects.push_back(eff);
+                emitChessDiagnostic(
+                    diagnostics,
+                    ChessDiagnosticSeverity::Error,
+                    "羈絆配置",
+                    std::format("「{}」閾值「{}」的「效果」必須是列表", def.name, thresh.name));
+                return {};
+            }
+            if (const auto managementRuleNodes = tNode["管理規則"];
+                managementRuleNodes && !managementRuleNodes.IsSequence())
+            {
+                emitChessDiagnostic(
+                    diagnostics,
+                    ChessDiagnosticSeverity::Error,
+                    "羈絆配置",
+                    std::format("「{}」閾值「{}」的「管理規則」必須是列表", def.name, thresh.name));
+                return {};
+            }
+
+            if (const auto effectNodes = tNode["效果"])
+            {
+                std::size_t effectOrdinal{};
+                for (const auto& eNode : effectNodes)
+                {
+                    ++effectOrdinal;
+                    auto effectContext = std::format("羈絆「{}」閾值「{}」效果#{}", def.name, thresh.name, effectOrdinal);
+                    EffectRule rule;
+                    if (!ChessBattleEffects::parseEffectRule(
+                            eNode,
+                            rule,
+                            EffectRuleId{ nextRuleId++ },
+                            effectContext,
+                            diagnostics))
+                        return {};
+                    thresh.rules.push_back(std::move(rule));
+                }
+            }
+            if (const auto managementRuleNodes = tNode["管理規則"])
+            {
+                std::size_t managementRuleOrdinal{};
+                for (const auto& ruleNode : managementRuleNodes)
+                {
+                    ++managementRuleOrdinal;
+                    const auto ruleContext = std::format(
+                        "羈絆「{}」閾值「{}」管理規則#{}",
+                        def.name,
+                        thresh.name,
+                        managementRuleOrdinal);
+                    auto rule = parseChessNonBattleRule(
+                        ruleNode,
+                        toTraditional,
+                        ruleContext,
+                        diagnostics);
+                    if (!rule)
+                    {
+                        return {};
+                    }
+                    if (std::holds_alternative<CountsAsComboRule>(*rule))
+                    {
+                        emitChessDiagnostic(
+                            diagnostics,
+                            ChessDiagnosticSeverity::Error,
+                            "羈絆配置",
+                            std::format("{}不可使用「計作羈絆」", ruleContext));
+                        return {};
+                    }
+                    thresh.managementRules.push_back(std::move(*rule));
+                }
             }
             def.thresholds.push_back(thresh);
         }
@@ -261,10 +331,10 @@ std::vector<ChessComboProgress> evaluateChessComboProgresses(
     return result;
 }
 
-bool chessRosterHasActiveComboEffect(
+bool chessRosterHasActiveManagementRule(
     const ChessSessionState& state,
     const ChessGameContent& content,
-    EffectType effectType)
+    ChessNonBattleRuleKind kind)
 {
     const auto resolved = resolveRosterCombos(state, content);
     assert(resolved.size() == content.combos().size());
@@ -278,8 +348,8 @@ bool chessRosterHasActiveComboEffect(
             continue;
         }
         const auto& threshold = combo.thresholds[active.activeThresholdIndex];
-        if (std::ranges::any_of(threshold.effects, [&](const ComboEffect& effect) {
-                return effect.type == effectType;
+        if (std::ranges::any_of(threshold.managementRules, [&](const ChessNonBattleRule& rule) {
+                return chessNonBattleRuleKind(rule) == kind;
             }))
         {
             return true;
@@ -315,9 +385,10 @@ ChessComboGoldBonus resolveChessComboGoldBonus(
             continue;
         }
         const auto& threshold = combo.thresholds[active.activeThresholdIndex];
-        for (const auto& effect : threshold.effects)
+        for (const auto& rule : threshold.managementRules)
         {
-            if (effect.type != EffectType::GoldCoefficient)
+            const auto* gold = std::get_if<VictoryGoldRule>(&rule);
+            if (!gold)
             {
                 continue;
             }
@@ -328,7 +399,7 @@ ChessComboGoldBonus resolveChessComboGoldBonus(
                  });
             if (comboMemberSurvived)
             {
-                return {maximumSurvivorStar * effect.value, combo.id};
+                return {maximumSurvivorStar * gold->perHighestSurvivorStar, combo.id};
             }
         }
     }

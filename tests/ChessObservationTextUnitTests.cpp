@@ -31,7 +31,7 @@ TEST_CASE("configured free refresh presentation is combo-generic", "[chess][text
     ComboDef combo;
     combo.id = 4;
     combo.name = "配置智略";
-    combo.thresholds.push_back({2, "配置門檻", {{EffectType::FreeRefresh, 1}}});
+    combo.thresholds.push_back({2, "配置門檻", {}, {FreeShopRefreshRule{}}});
     data.combos.push_back(std::move(combo));
     const ChessGameContent content(std::move(data));
     ChessGameplayObservation observation;

@@ -142,10 +142,8 @@ std::string battleEffectType(const BattleReportEvent& event)
     case Battle::BattleStatusSemanticId::Stun: return "stun_applied";
     case Battle::BattleStatusSemanticId::Poison: return "poison_applied";
     case Battle::BattleStatusSemanticId::Bleed: return "bleed_applied";
-    case Battle::BattleStatusSemanticId::DamageReduceDebuff: return "damage_reduction_applied";
     case Battle::BattleStatusSemanticId::MpBlocked: return "magic_block_applied";
     case Battle::BattleStatusSemanticId::BlockedByInvincible: return "blocked_by_invulnerability";
-    case Battle::BattleStatusSemanticId::BlockedByFirstHit: return "blocked_by_first_hit";
     case Battle::BattleStatusSemanticId::DeathPrevented: return "death_prevented";
     case Battle::BattleStatusSemanticId::ExecuteTriggered: return "execute_triggered";
     case Battle::BattleStatusSemanticId::Knockback: return "knockback_applied";
@@ -256,8 +254,7 @@ void addCombatEffect(UnitCombatAggregate& aggregate, const BattleReportEvent& ev
     {
         ++aggregate.deathPreventionTriggers;
     }
-    if ((event.statusId == Battle::BattleStatusSemanticId::BlockedByFirstHit
-            || event.statusId == Battle::BattleStatusSemanticId::BlockedByDualWield)
+    if (event.statusId == Battle::BattleStatusSemanticId::BlockedByDualWield
         || containsText(label, "格擋"))
     {
         ++aggregate.blocks;
@@ -320,6 +317,8 @@ ChessBattleResultAnalysis analyzeChessBattleResult(
     }
 
     std::map<int, UnitCombatAggregate> combatByUnit;
+    std::optional<int> openingEnemyTopDebuffFrame;
+    std::map<int, int> openingEnemyTopDebuffByUnit;
     for (const auto& event : battle.report.events())
     {
         if (event.type == BattleReportEventType::Damage && event.sourceId >= 0)
@@ -341,6 +340,19 @@ ChessBattleResultAnalysis analyzeChessBattleResult(
         else if (event.type == BattleReportEventType::Status)
         {
             result.effectActivations.push_back(battleEffectActivation(event));
+            if (event.statusId == Battle::BattleStatusSemanticId::EnemyTopDebuff)
+            {
+                if (!openingEnemyTopDebuffFrame)
+                {
+                    openingEnemyTopDebuffFrame = event.frame;
+                }
+                if (event.frame == *openingEnemyTopDebuffFrame
+                    && event.previousValue == 0
+                    && event.newValue < 0)
+                {
+                    openingEnemyTopDebuffByUnit[event.targetId] = event.newValue;
+                }
+            }
             const int unitId = event.sourceId >= 0 ? event.sourceId : event.targetId;
             if (unitId >= 0)
             {
@@ -370,18 +382,21 @@ ChessBattleResultAnalysis analyzeChessBattleResult(
             &Battle::BattleInitializationRoleDelta::unitId);
         assert(initialized != battle.initialization.roleDeltas.end());
         stats.initialCombatStats = chessInitializedCombatStats(*initialized);
+        if (const auto debuff = openingEnemyTopDebuffByUnit.find(unit.unitId);
+            debuff != openingEnemyTopDebuffByUnit.end())
+        {
+            stats.enemyAttackDebuff = debuff->second;
+            stats.enemyDefenceDebuff = debuff->second;
+            stats.initialCombatStats.attack = std::max(
+                0,
+                stats.initialCombatStats.attack + debuff->second);
+            stats.initialCombatStats.defence = std::max(
+                0,
+                stats.initialCombatStats.defence + debuff->second);
+        }
         stats.initialStatDeltaFromSpecialEffects = chessStatDelta(
             stats.initialCombatStats,
             baseline);
-        if (const auto debuff = std::ranges::find(
-                battle.initialization.enemyTopDebuffs,
-                unit.unitId,
-                &Battle::BattleInitializationEnemyTopDebuffDelta::unitId);
-            debuff != battle.initialization.enemyTopDebuffs.end())
-        {
-            stats.enemyAttackDebuff = debuff->attackDelta;
-            stats.enemyDefenceDebuff = debuff->defenceDelta;
-        }
         if (const auto found = battle.report.stats().find(unit.unitId);
             found != battle.report.stats().end())
         {

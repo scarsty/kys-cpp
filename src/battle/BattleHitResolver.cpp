@@ -1,7 +1,6 @@
 #include "BattleHitResolver.h"
 
 #include "BattleLogSegments.h"
-#include "BattleComboTriggerSystem.h"
 #include "BattleMath.h"
 #include "BattleRuntimeRandom.h"
 #include "BattleRuntimeUnits.h"
@@ -10,6 +9,7 @@
 #include <cassert>
 #include <cmath>
 #include <format>
+#include <limits>
 #include <utility>
 
 namespace KysChess::Battle
@@ -22,59 +22,6 @@ double pointMagnitude(const Pointf& point)
         static_cast<double>(point.x) * point.x
         + static_cast<double>(point.y) * point.y
         + static_cast<double>(point.z) * point.z);
-}
-
-std::string formatStatusPercent(const char* label, int pct)
-{
-    if (pct <= 0)
-    {
-        return label;
-    }
-    return std::format("{}（{}%）", label, pct);
-}
-
-std::string formatStatusPercentFrames(const char* label, int pct, int frames)
-{
-    if (pct > 0 && frames > 0)
-    {
-        return std::format("{}（{}%·{}幀）", label, pct, frames);
-    }
-    if (pct > 0)
-    {
-        return formatStatusPercent(label, pct);
-    }
-    return frames > 0 ? std::format("{}（{}幀）", label, frames) : std::string(label);
-}
-
-std::string formatStackingEffectStatus(const char* label, int pctPerStack, int stacks)
-{
-    if (pctPerStack <= 0 || stacks <= 0)
-    {
-        return label;
-    }
-    return std::format("{} +{}%（{}層）", label, pctPerStack * stacks, stacks);
-}
-
-BattleDamageUnitState makeDamageUnit(
-    const BattleHitUnitSnapshot& unit,
-    const RoleComboState* combo,
-    const BattleStatusEffectState* effects)
-{
-    BattleDamageUnitState damageUnit;
-    damageUnit.id = unit.id;
-    damageUnit.alive = unit.alive;
-    damageUnit.vitals = unit.vitals;
-    damageUnit.attack = unit.stats.attack;
-    damageUnit.invincible = unit.invincible;
-    if (combo)
-    {
-        damageUnit.mpRecoveryBonusPct = combo->sumAlways(EffectType::MPRecoveryBonus);
-    }
-    if (effects)
-    {
-        damageUnit.mpBlocked = effects->mpBlockTimer > 0;
-    }
-    return damageUnit;
 }
 
 BattleLogEvent statusEvent(int sourceUnitId, int targetUnitId, std::string text)
@@ -142,30 +89,34 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     const BattleRuntimeUnit& target,
     const BattleProjectileFollowUpContext& context)
 {
+    assert(command.prototype.provenance.valid());
     const auto targetPosition = target.motion.position;
     const double projectileSpeed = command.projectileSpeed > 0.0
         ? command.projectileSpeed
         : context.projectileSpeed;
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = command.prototype.sourceUnitId;
+    request.initial.attackSourceUnitId = command.prototype.sourceUnitId;
     request.initial.skillId = command.prototype.skillId;
+    request.initial.skillName = command.prototype.skillName;
+    request.initial.skillHurtType = command.prototype.skillHurtType;
+    request.initial.skillMagicType = command.prototype.skillMagicType;
+    request.initial.skillAttackerActProperty = command.prototype.skillAttackerActProperty;
+    request.initial.skillMagicPower = command.prototype.skillMagicPower;
+    request.initial.damageKind = command.prototype.damageKind;
     request.initial.preferredTargetUnitId = target.id;
     request.initial.requirePreferredTarget = true;
     request.initial.track = true;
     request.initial.operationType = BattleOperationType::RangedProjectile;
     request.initial.visualEffectId = command.prototype.visualEffectId;
-    request.initial.ultimate = command.prototype.ultimate;
     request.initial.ignoreProjectileCancel = command.prototype.skillId < 0;
     request.initial.scriptedDamage = command.prototype.scriptedDamage;
     request.initial.scriptedStunFrames = command.prototype.scriptedStunFrames;
     request.initial.scriptedBleedStacks = command.prototype.scriptedBleedStacks;
-    request.initial.skillEffectRef = command.prototype.skillEffectRef;
-    request.initial.sharedHitGroupId = command.prototype.sharedHitGroupId;
     request.initial.strengthPct = command.prototype.strengthPct
         * std::max(1, command.damagePct)
         / 100;
     request.initial.suppressNearbyTrackingProjectileProc = true;
-    request.initial.mainProjectile = false;
+    request.provenance.mainProjectile = false;
     request.initial.position = command.prototype.position;
     request.initial.velocity = normalizedFollowUpVelocity(
         request.initial.position,
@@ -182,15 +133,14 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
 }
 
 BattleAttackSpawnRequest makeAreaFollowUpSpawn(
-    int sourceUnitId,
+    const BattleAreaProjectileFollowUp& followUp,
     int targetUnitId,
-    int damage,
-    int stunFrames,
-    int visualEffectId,
     const BattleProjectileFollowUpContext& context,
     const BattleRuntimeUnits& units)
 {
-    const auto& source = units.requireCore(sourceUnitId);
+    assert(followUp.cast.valid());
+    assert(followUp.expansionWork.valid());
+    const auto& source = units.requireCore(followUp.sourceUnitId);
     const auto& target = units.requireCore(targetUnitId);
     auto sourcePosition = source.motion.position;
     auto targetPosition = target.motion.position;
@@ -204,14 +154,15 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
     spawnOffset.normTo(static_cast<float>(context.areaSpawnDistance));
 
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = sourceUnitId;
+    request.initial.attackSourceUnitId = followUp.sourceUnitId;
     request.initial.preferredTargetUnitId = targetUnitId;
-    request.initial.scriptedDamage = damage;
-    request.initial.scriptedStunFrames = stunFrames;
+    request.initial.scriptedDamage = followUp.damage;
+    request.initial.damageKind = followUp.damageKind;
+    request.initial.scriptedStunFrames = followUp.stunFrames;
     request.initial.track = true;
     request.initial.operationType = BattleOperationType::RangedProjectile;
     request.initial.ignoreProjectileCancel = true;
-    request.initial.visualEffectId = visualEffectId;
+    request.initial.visualEffectId = followUp.effectId;
     request.initial.position = sourcePosition + spawnOffset;
     request.initial.velocity = normalizedFollowUpVelocity(
         request.initial.position,
@@ -227,14 +178,21 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
     return request;
 }
 
-BattleAcceptedHitSideEffectCommand acceptedHitCommand(int sourceUnitId,
+BattleAcceptedHitSideEffectCommand acceptedHitCommand(
+                                                      BattleAttackProvenance provenance,
+                                                      int sourceUnitId,
                                                       int targetUnitId,
                                                       BattleDamageRequest request)
 {
     request.attackerUnitId = sourceUnitId;
     request.defenderUnitId = targetUnitId;
     request.acceptedHit = true;
-    return { sourceUnitId, targetUnitId, request };
+    return {
+        .sourceUnitId = sourceUnitId,
+        .targetUnitId = targetUnitId,
+        .damage = std::move(request),
+        .provenance = std::move(provenance),
+    };
 }
 
 std::string appendDetail(std::string detail, const std::string& text)
@@ -260,19 +218,23 @@ std::string projectileSourceLabel(const BattleAttackEvent& event)
     {
         return "滑步";
     }
-    if (event.ultimate && event.track && !event.mainProjectile)
+    if (event.provenance.cast.ultimate
+        && event.track
+        && !event.provenance.mainProjectile)
     {
         return "絕招追蹤彈";
     }
-    if (event.ultimate && !event.mainProjectile)
+    if (event.provenance.cast.ultimate && !event.provenance.mainProjectile)
     {
         return "絕招追加彈";
     }
-    if ((event.track || event.operationType == BattleOperationType::TrackingProjectile) && !event.mainProjectile)
+    if ((event.track || event.operationType == BattleOperationType::TrackingProjectile)
+        && !event.provenance.mainProjectile)
     {
         return "追蹤彈";
     }
-    if (event.sharedHitGroupId > 0 && !event.mainProjectile)
+    if (event.provenance.sharedHitGroupId > 0
+        && !event.provenance.mainProjectile)
     {
         return "連鎖彈";
     }
@@ -292,165 +254,243 @@ bool passesPercentChance(BattleRuntimeRandom& random, int chancePct)
     return random.chance(chancePct);
 }
 
-BattleDamageModifierState makeDamageModifierState(
-    const BattleEffectSources& sources,
-    const BattleUnitVitals& vitals,
-    int attack)
+std::int64_t effectiveModifierAmount(const BattleHitDamageModifier& modifier)
 {
-    BattleDamageModifierState modifier;
-    BattleEffectReader reader;
-    modifier.flatDamageIncrease = reader.sumAlways(sources, EffectType::FlatDmgIncrease);
-    const int missingHpDamagePct = reader.maxAlways(
-        sources,
-        EffectType::MissingHpFlatDmgIncreasePct);
-    modifier.flatDamageIncrease += scaleByMissingHp(
-        attack * missingHpDamagePct / 100,
-        vitals);
-    modifier.skillDamagePct = reader.sumAlways(sources, EffectType::SkillDmgPct);
-    modifier.poisonDamageAmpPct = reader.sumAlways(sources, EffectType::PoisonDmgAmp);
-    modifier.flatDamageReduction = reader.sumAlways(sources, EffectType::FlatDmgReduction);
-    modifier.damageReductionPct = reader.sumAlways(sources, EffectType::DmgReductionPct);
-    modifier.maxHitPctMaxHp = reader.maxAlways(sources, EffectType::MaxHitPctCurrentHP);
-    return modifier;
+    return static_cast<std::int64_t>(modifier.amount) * modifier.stackCount;
 }
 
-BattleComboTriggerInput damageDealtTriggerInput(const BattleHitResolutionInput& input)
+void applyDamageReductionPct(
+    BattleFixed& damage,
+    int reductionPct,
+    int& remainingDamageBasisPoints)
 {
-    return {
-        BattleComboTriggerHook::DamageDealt,
-        input.attacker.id,
-        input.defender.id,
-        input.attackEvent.ultimate,
-        input.attackEvent.mainProjectile,
-    };
+    if (reductionPct <= 0 || damage <= BattleFixed{})
+    {
+        return;
+    }
+    const int requestedRemaining = remainingDamageBasisPoints
+        * std::max(0, 100 - reductionPct) / 100;
+    const int cappedRemaining = std::max(
+        (100 - FinalDamageReductionCapPct) * 100,
+        requestedRemaining);
+    damage = damage.scaled(cappedRemaining, remainingDamageBasisPoints);
+    remainingDamageBasisPoints = cappedRemaining;
 }
 
-int resolveOffensiveCooldownExtendPct(
-    const BattleEffectSources& attackerSources,
-    const BattleComboTriggerInput& input,
-    BattleRuntimeRandom& random)
+BattleFixed applyOutgoingBeforeCriticalModifiers(
+    BattleFixed damage,
+    std::span<const BattleHitDamageModifier> modifiers,
+    int& remainingDamageBasisPoints)
 {
-    const BattleEffectState* selectedState = nullptr;
-    int selectedChancePct = 0;
-    for (const auto& source : orderedBattleEffectSources(attackerSources))
+    for (const auto& modifier : modifiers)
     {
-        if (!source.state)
+        if (modifier.operation == DamageModifierOperation::Multiply)
         {
-            continue;
-        }
-        const int chancePct = source.state->maxAlways(EffectType::OffensiveCharm);
-        if (chancePct > selectedChancePct)
-        {
-            selectedChancePct = chancePct;
-            selectedState = source.state;
-        }
-    }
-    if (selectedState && selectedChancePct > 0 && passesPercentChance(random, selectedChancePct))
-    {
-        const auto* charm = selectedState->firstAlways(EffectType::CharmCDRDebuff);
-        if (charm && charm->value2 > 0)
-        {
-            return charm->value2;
-        }
-    }
-
-    for (const auto& event : BattleEffectReader().matchingTriggerEvents(
-             attackerSources,
-             input,
-             { EffectType::OffensiveCharm }))
-    {
-        auto source = battleEffectSourceForStore(attackerSources, event.effectRef.store);
-        assert(source.state != nullptr);
-        if (!source.state->canActivateTriggeredEffect(event.effectRef.localId))
-        {
-            continue;
-        }
-        if (!passesPercentChance(random, event.effect.triggerValue)
-            || !passesPercentChance(random, event.effect.value))
-        {
-            continue;
-        }
-
-        int cooldownExtendPct = 0;
-        for (RoleComboEffectId id : source.state->effectIds(event.effect.trigger, EffectType::CharmCDRDebuff))
-        {
-            const auto& debuff = source.state->effect(id);
-            if (debuff.value == event.effect.value
-                && debuff.triggerValue == event.effect.triggerValue
-                && debuff.value2 > 0)
+            for (int stack = 0; stack < modifier.stackCount; ++stack)
             {
-                cooldownExtendPct = debuff.value2;
-                break;
-            }
-        }
-        if (cooldownExtendPct <= 0)
-        {
-            continue;
-        }
-
-        BattleEffectCommands().recordActivation(attackerSources, event.effectRef);
-        return cooldownExtendPct;
-    }
-
-    return 0;
-}
-
-bool hasExecuteEffect(
-    const BattleEffectSources& attackerSources,
-    const BattleComboTriggerInput& input)
-{
-    for (const auto& source : orderedBattleEffectSources(attackerSources))
-    {
-        if (!source.state)
-        {
-            continue;
-        }
-        for (RoleComboEffectId id : source.state->effectIds(Trigger::OnHit, EffectType::Execute))
-        {
-            if (!input.mainProjectile)
-            {
-                continue;
-            }
-            const auto& effect = source.state->effect(id);
-            if (effect.triggerValue > 0 && effect.value > 0)
-            {
-                return true;
+                damage = damage.scaled(modifier.amount, 100);
             }
         }
     }
-    return false;
+
+    std::int64_t percent{};
+    std::int64_t flat{};
+    for (const auto& modifier : modifiers)
+    {
+        if (modifier.operation == DamageModifierOperation::PercentAdd)
+        {
+            percent += effectiveModifierAmount(modifier);
+        }
+        else if (modifier.operation == DamageModifierOperation::FlatAdd)
+        {
+            flat += effectiveModifierAmount(modifier);
+        }
+    }
+    if (percent < 0)
+    {
+        applyDamageReductionPct(
+            damage,
+            static_cast<int>(std::min<std::int64_t>(-percent, 100)),
+            remainingDamageBasisPoints);
+    }
+    else if (percent > 0)
+    {
+        damage = damage.scaled(static_cast<int>(100 + percent), 100);
+    }
+    damage += BattleFixed::fromInteger(static_cast<int>(std::clamp<std::int64_t>(
+        flat,
+        std::numeric_limits<int>::min(),
+        std::numeric_limits<int>::max())));
+    return damage;
 }
 
-struct BattlePoisonEffectSummary
+BattleFixed applyOutgoingAfterCriticalModifiers(
+    BattleFixed damage,
+    std::span<const BattleHitDamageModifier> modifiers)
 {
-    int pct{};
-    int durationFrames{};
+    for (const auto& modifier : modifiers)
+    {
+        if (modifier.operation != DamageModifierOperation::Multiply)
+        {
+            continue;
+        }
+        for (int stack = 0; stack < modifier.stackCount; ++stack)
+        {
+            damage = damage.scaled(modifier.amount, 100);
+        }
+    }
+    for (const auto& modifier : modifiers)
+    {
+        if (modifier.operation == DamageModifierOperation::PercentAdd)
+        {
+            damage = damage.scaled(
+                static_cast<int>(100 + effectiveModifierAmount(modifier)),
+                100);
+        }
+        else if (modifier.operation == DamageModifierOperation::FlatAdd)
+        {
+            damage += BattleFixed::fromInteger(static_cast<int>(effectiveModifierAmount(modifier)));
+        }
+    }
+    return damage;
+}
+
+BattleFixed applyIncomingBaseModifiers(
+    BattleFixed damage,
+    std::span<const BattleHitDamageModifier> modifiers,
+    int& remainingDamageBasisPoints)
+{
+    std::int64_t flat{};
+    std::int64_t percent{};
+    for (const auto& modifier : modifiers)
+    {
+        if (modifier.operation == DamageModifierOperation::FlatAdd)
+        {
+            flat += effectiveModifierAmount(modifier);
+        }
+        else if (modifier.operation == DamageModifierOperation::PercentAdd)
+        {
+            percent += effectiveModifierAmount(modifier);
+        }
+    }
+    damage += BattleFixed::fromInteger(static_cast<int>(std::clamp<std::int64_t>(
+        flat,
+        std::numeric_limits<int>::min(),
+        std::numeric_limits<int>::max())));
+    if (percent < 0)
+    {
+        applyDamageReductionPct(
+            damage,
+            static_cast<int>(std::min<std::int64_t>(-percent, 100)),
+            remainingDamageBasisPoints);
+    }
+    else if (percent > 0)
+    {
+        damage = damage.scaled(static_cast<int>(100 + percent), 100);
+    }
+    return damage;
+}
+
+BattleFixed applyIncomingAfterBaseModifiers(
+    BattleFixed damage,
+    std::span<const BattleHitDamageModifier> modifiers,
+    int& remainingDamageBasisPoints)
+{
+    for (const auto& modifier : modifiers)
+    {
+        const auto amount = effectiveModifierAmount(modifier);
+        switch (modifier.operation)
+        {
+        case DamageModifierOperation::FlatAdd:
+            damage += BattleFixed::fromInteger(static_cast<int>(amount));
+            break;
+        case DamageModifierOperation::PercentAdd:
+            if (amount < 0)
+            {
+                applyDamageReductionPct(
+                    damage,
+                    static_cast<int>(std::min<std::int64_t>(-amount, 100)),
+                    remainingDamageBasisPoints);
+            }
+            else if (amount > 0)
+            {
+                damage = damage.scaled(static_cast<int>(100 + amount), 100);
+            }
+            break;
+        case DamageModifierOperation::Multiply:
+            for (int stack = 0; stack < modifier.stackCount; ++stack)
+            {
+                damage = damage.scaled(modifier.amount, 100);
+            }
+            break;
+        case DamageModifierOperation::IgnoreDefensePercent:
+        case DamageModifierOperation::CapSingleHitAtMaxHpPercent:
+        case DamageModifierOperation::ExecuteBelowMaxHpPercent:
+            break;
+        }
+    }
+    return damage;
+}
+
+struct BattleHitFinalDamageResult
+{
+    BattleFixed damage;
+    bool maxHitCapped{};
+    int maxHitPct{};
 };
 
-BattlePoisonEffectSummary resolvePoisonEffectSummary(
-    const BattleEffectSources& sources,
-    const BattleComboTriggerInput& input,
-    BattleRuntimeRandom& random)
+BattleHitFinalDamageResult applyFinalDamageModifiers(
+    BattleFixed damage,
+    std::span<const BattleHitDamageModifier> modifiers,
+    int maxHp,
+    int& remainingDamageBasisPoints,
+    bool applySingleHitCap)
 {
-    BattlePoisonEffectSummary result;
-    BattleEffectReader reader;
-    result.pct = reader.sumAlways(sources, EffectType::PoisonDOT);
-    result.durationFrames = reader.maxAlwaysValue2(sources, EffectType::PoisonDOT) * 30;
+    damage = applyIncomingAfterBaseModifiers(
+        damage,
+        modifiers,
+        remainingDamageBasisPoints);
 
-    for (const auto& event : reader.collectTriggerEvents(
-             sources,
-             input,
-             { EffectType::PoisonDOT },
-             random,
-             BattleComboActivationRecording::CallerRecords))
+    BattleHitFinalDamageResult result{ .damage = damage };
+    if (!applySingleHitCap || damage <= BattleFixed{})
     {
-        if (event.effect.value <= 0)
+        return result;
+    }
+
+    int capPct{};
+    for (const auto& modifier : modifiers)
+    {
+        if (modifier.operation != DamageModifierOperation::CapSingleHitAtMaxHpPercent
+            || modifier.amount <= 0)
         {
             continue;
         }
-        result.pct += event.effect.value;
-        result.durationFrames = std::max(result.durationFrames, event.effect.value2 * 30);
-        BattleEffectCommands().recordActivation(sources, event.effectRef);
+        capPct = capPct == 0 ? modifier.amount : std::min(capPct, modifier.amount);
+    }
+    if (capPct <= 0)
+    {
+        return result;
+    }
+
+    const int maximumDamage = std::max(1, maxHp * capPct / 100);
+    if (result.damage > BattleFixed::fromInteger(maximumDamage))
+    {
+        result.damage = BattleFixed::fromInteger(maximumDamage);
+        result.maxHitCapped = true;
+        result.maxHitPct = capPct;
+    }
+    return result;
+}
+
+int executeThresholdPct(std::span<const BattleHitDamageModifier> modifiers)
+{
+    int result{};
+    for (const auto& modifier : modifiers)
+    {
+        if (modifier.operation == DamageModifierOperation::ExecuteBelowMaxHpPercent)
+        {
+            result = std::max(result, modifier.amount);
+        }
     }
     return result;
 }
@@ -471,35 +511,6 @@ Pointf knockbackDirection(const BattleHitUnitSnapshot& attacker, const BattleHit
 }
 
 }  // namespace
-
-BattleBleedEffectSummary resolveBattleBleedEffectSummary(const BattleEffectSources& sources)
-{
-    BattleBleedEffectSummary result;
-    int maxStacks = 0;
-    for (const auto& source : orderedBattleEffectSources(sources))
-    {
-        if (!source.state)
-        {
-            continue;
-        }
-        for (RoleComboEffectId id : source.state->effectIds(Trigger::Always, EffectType::BleedChance))
-        {
-            const auto& effect = source.state->effect(id);
-            if (effect.value <= 0)
-            {
-                continue;
-            }
-            result.hasBleedChance = true;
-            result.chancePct += effect.value;
-            maxStacks = std::max(maxStacks, effect.value2 > 0 ? effect.value2 : 5);
-        }
-    }
-    if (result.hasBleedChance)
-    {
-        result.maxStacks = std::max(1, maxStacks);
-    }
-    return result;
-}
 
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     std::span<const BattleGameplayCommand> commands,
@@ -523,11 +534,12 @@ BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
             for (int targetId : targetIds)
             {
                 expansion.commands.push_back(BattleProjectileSpawnCommand{
-                    makeNearbyFollowUpSpawn(
+                    .request = makeNearbyFollowUpSpawn(
                         *nearby,
                         units.requireCore(targetId),
                         context),
-                    "範圍追蹤彈",
+                    .sourceAttack = nearby->prototype.provenance,
+                    .reason = "範圍追蹤彈",
                 });
             }
             continue;
@@ -545,6 +557,13 @@ BattleProjectileFollowUpExpansion expandBattleAreaProjectileFollowUp(
     assert(context.projectileSpeed > 0.0);
     assert(context.minimumProjectileFrames > 0);
     assert(followUp.areaSize > 0);
+    assert(followUp.cast.valid());
+    assert(followUp.expansionWork.valid());
+    if (followUp.sourceAttack)
+    {
+        assert(followUp.sourceAttack->valid());
+        assert(followUp.sourceAttack->cast.castId == followUp.cast.castId);
+    }
 
     BattleProjectileFollowUpExpansion expansion;
     BattleProjectileTargetingSystem targeting;
@@ -557,15 +576,13 @@ BattleProjectileFollowUpExpansion expandBattleAreaProjectileFollowUp(
     for (int targetId : targetIds)
     {
         expansion.commands.push_back(BattleProjectileSpawnCommand{
-            makeAreaFollowUpSpawn(
-                followUp.sourceUnitId,
+            .request = makeAreaFollowUpSpawn(
+                followUp,
                 targetId,
-                followUp.damage,
-                followUp.stunFrames,
-                followUp.effectId,
                 context,
                 units),
-            followUp.reason,
+            .sourceAttack = followUp.sourceAttack,
+            .reason = followUp.reason,
         });
     }
     if (!followUp.logText.empty())
@@ -580,21 +597,6 @@ BattleProjectileFollowUpExpansion expandBattleAreaProjectileFollowUp(
 
 BattleHitResolutionResult BattleHitResolver::resolve(
     const BattleHitResolutionInput& input,
-    RoleComboState& attackerCombo,
-    RoleComboState& defenderCombo,
-    BattleRuntimeRandom& random) const
-{
-    BattleEffectSources attackerSources;
-    attackerSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &attackerCombo };
-    BattleEffectSources defenderSources;
-    defenderSources.combo = { { BattleEffectSourceKind::Combo, BattleSkillSlot::None }, &defenderCombo };
-    return resolve(input, attackerSources, defenderSources, random);
-}
-
-BattleHitResolutionResult BattleHitResolver::resolve(
-    const BattleHitResolutionInput& input,
-    BattleEffectSources attackerSources,
-    BattleEffectSources defenderSources,
     BattleRuntimeRandom& random) const
 {
     assert(input.defender.id >= 0);
@@ -611,13 +613,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     {
         return result;
     }
-
-    assert(attackerSources.combo.state != nullptr);
-    assert(defenderSources.combo.state != nullptr);
-    auto& attackerCombo = *static_cast<RoleComboState*>(attackerSources.combo.state);
-    auto& defenderCombo = *static_cast<RoleComboState*>(defenderSources.combo.state);
-    BattleEffectReader effectReader;
-    BattleEffectCommands effectCommands;
+    assert(input.attackEvent.provenance.valid());
 
     const bool scriptedImpact = scriptedInput;
     if (scriptedImpact)
@@ -630,7 +626,11 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             request.bleedMaxStacks = input.attackEvent.scriptedBleedStacks > 0
                 ? input.sharedBleedMaxStacks
                 : 0;
-            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
+            result.commands.push_back(acceptedHitCommand(
+                input.attackEvent.provenance,
+                input.attacker.id,
+                input.defender.id,
+                request));
             if (input.attackEvent.scriptedStunFrames > 0)
             {
                 result.logEvents.push_back(statusEvent(
@@ -648,26 +648,25 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
         if (input.attackEvent.scriptedDamage > 0)
         {
-            result.commands.push_back(BattleHpDamageCommand{
-                input.attacker.id,
-                input.defender.id,
-                input.attackEvent.scriptedDamage,
-                false,
-                false,
-                false,
-                false,
-                0,
-                "",
-                battleLogText("特效傷害", BattleLogTextTone::SkillName),
-            });
+            BattleHpDamageCommand command{
+                .sourceUnitId = input.attacker.id,
+                .targetUnitId = input.defender.id,
+                .damage = input.attackEvent.scriptedDamage,
+                .segments = battleLogText(
+                    "特效傷害",
+                    BattleLogTextTone::SkillName),
+            };
+            command.provenance = input.attackEvent.provenance;
+            command.damageKind = input.attackEvent.damageKind;
+            result.commands.push_back(std::move(command));
             result.finalHpDamage = input.attackEvent.scriptedDamage;
         }
         return result;
     }
 
     const bool usingSkill = input.skill.id >= 0;
-    const int impactFrozenFrames = input.attackEvent.mainProjectile
-        ? (input.attackEvent.ultimate ? 10 : 5)
+    const int impactFrozenFrames = input.attackEvent.provenance.mainProjectile
+        ? (input.attackEvent.provenance.cast.ultimate ? 10 : 5)
         : 0;
 
     BattleHitShapeInput shapeInput;
@@ -691,213 +690,91 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     {
         BattleDamageRequest request;
         request.hitstunFrames = shaped.frozenFrames;
-        result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
+        result.commands.push_back(acceptedHitCommand(
+            input.attackEvent.provenance,
+            input.attacker.id,
+            input.defender.id,
+            request));
     }
 
     auto hitVelocity = knockbackDirection(input.attacker, input.defender);
     hitVelocity.normTo(1.0f);
     result.commands.push_back(BattleKnockbackCommand{
-        input.defender.id,
-        hitVelocity,
-        1.0,
-        1,
+        .targetUnitId = input.defender.id,
+        .direction = hitVelocity,
+        .distance = 1.0,
+        .lockFrames = 1,
     });
 
-    const int mpRatioDmgBoostPct = effectReader.sumAlways(attackerSources, EffectType::MPRatioDmgBoost);
-    if (usingSkill && input.attacker.vitals.maxMp > 0 && mpRatioDmgBoostPct > 0)
-    {
-        const int boostNumerator = input.attacker.vitals.mp * mpRatioDmgBoostPct;
-        if (boostNumerator > 0)
-        {
-            shapedDamage = shapedDamage.scaled(
-                input.attacker.vitals.maxMp * 100
-                    + input.attacker.vitals.mp * mpRatioDmgBoostPct,
-                input.attacker.vitals.maxMp * 100);
-            const int boostTenths = (boostNumerator * 10 + input.attacker.vitals.maxMp / 2)
-                / input.attacker.vitals.maxMp;
-            const int currentMpPct = (input.attacker.vitals.mp * 100
-                + input.attacker.vitals.maxMp / 2)
-                / input.attacker.vitals.maxMp;
-            result.logEvents.push_back(statusEvent(
-                input.attacker.id,
-                input.defender.id,
-                std::format(
-                    "內力加傷 +{}.{:01}%（目前內力 {}%）",
-                    boostTenths / 10,
-                    boostTenths % 10,
-                    currentMpPct)));
-        }
-    }
-
-    shapedDamage = BattleDamageSystem().applyModifiers({
+    int remainingDamageBasisPoints = 10'000;
+    shapedDamage = applyOutgoingBeforeCriticalModifiers(
         shapedDamage,
-        usingSkill,
-        true,
-        makeDamageModifierState(
-            attackerSources,
-            input.attacker.vitals,
-            input.attacker.stats.attack),
-        {},
-        makeDamageUnit(input.defender, nullptr, &input.defenderStatusEffects),
-    }).damage;
+        input.damageModifiers.outgoingBeforeCritical,
+        remainingDamageBasisPoints);
 
-    auto attackerDamage = BattleComboTriggerSystem().shapeAttackerHitDamage(
-        attackerCombo,
-        { shapedDamage, input.attacker.vitals.hp, input.attacker.vitals.maxHp, attackerCombo.lastAliveForComboRuntime() },
-        random);
-    shapedDamage = attackerDamage.damage;
-    for (const auto& damageEvent : attackerDamage.events)
+    result.critical = input.forceCritical
+        || passesPercentChance(random, input.attackerCriticalChancePct);
+    if (result.critical)
     {
-        switch (damageEvent.type)
+        result.criticalMultiplier = std::max(100, input.attackerCriticalMultiplierPct);
+        shapedDamage = shapedDamage.scaled(result.criticalMultiplier, 100);
+    }
+
+    shapedDamage = applyOutgoingAfterCriticalModifiers(
+        shapedDamage,
+        input.damageModifiers.outgoingAfterCritical);
+
+    if (input.attackEvent.provenance.mainProjectile)
+    {
+        for (const auto& proc : input.knockbackProcs)
         {
-        case BattleAttackerHitDamageEventType::Crit:
-            result.critical = true;
-            result.criticalMultiplier = damageEvent.value;
-            break;
-        case BattleAttackerHitDamageEventType::RampingStack:
-            result.logEvents.push_back(statusEvent(
-                input.attacker.id,
-                input.defender.id,
-                formatStackingEffectStatus("連擊增傷", damageEvent.value, damageEvent.value2)));
-            break;
-        default:
-            assert(false);
-        }
-    }
-
-    const int mpOnHit = effectReader.sumAlways(attackerSources, EffectType::MPOnHit);
-    const int hpOnHit = effectReader.sumAlways(attackerSources, EffectType::HPOnHit);
-    const int mpDrain = effectReader.sumAlways(attackerSources, EffectType::MPDrain);
-    if (mpOnHit > 0 || hpOnHit > 0 || mpDrain > 0)
-    {
-        BattleDamageRequest request;
-        request.mpOnHit = mpOnHit;
-        request.hpOnHit = hpOnHit;
-        request.mpDrain = mpDrain;
-        result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-
-    }
-
-    const auto poison = resolvePoisonEffectSummary(
-        attackerSources,
-        damageDealtTriggerInput(input),
-        random);
-    if (poison.pct > 0)
-    {
-        BattleDamageRequest request;
-        request.poisonPct = poison.pct;
-        request.poisonDurationFrames = poison.durationFrames;
-        result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-        auto poisonLog = statusEvent(
-            input.attacker.id,
-            input.defender.id,
-            formatStatusPercentFrames("中毒", poison.pct, poison.durationFrames));
-        poisonLog.statusId = BattleStatusSemanticId::PoisonPayload;
-        poisonLog.amount = poison.pct;
-        poisonLog.secondaryAmount = poison.durationFrames / 30;
-        result.logEvents.push_back(std::move(poisonLog));
-    }
-
-    const bool offensiveControlEffectsAllowed = input.attackEvent.mainProjectile;
-    int alwaysStunFrames = 0;
-    if (offensiveControlEffectsAllowed)
-    {
-        for (RoleComboEffectId effectId : attackerCombo.effectIds(Trigger::Always, EffectType::Stun))
-        {
-            const auto& effect = attackerCombo.effect(effectId);
-            const int chancePct = effect.triggerValue > 0 ? effect.triggerValue : 100;
-            if (chancePct > 0 && random.chance(chancePct))
-            {
-                alwaysStunFrames = std::max(alwaysStunFrames, effect.value);
-            }
-        }
-    }
-    if (alwaysStunFrames > 0)
-    {
-        BattleDamageRequest request;
-        request.stunFrames = alwaysStunFrames;
-        result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-        result.logEvents.push_back(statusEvent(
-            input.attacker.id,
-            input.defender.id,
-            logStatusFrames("眩暈", alwaysStunFrames)));
-    }
-
-    if (offensiveControlEffectsAllowed)
-    {
-        auto hitStunEvents = effectReader.collectTriggerEvents(
-            attackerSources,
-            damageDealtTriggerInput(input),
-            { EffectType::Stun },
-            random,
-            BattleComboActivationRecording::CallerRecords);
-        for (const auto& event : hitStunEvents)
-        {
-            BattleDamageRequest request;
-            request.stunFrames = event.effect.value;
-            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-            result.logEvents.push_back(statusEvent(
-                input.attacker.id,
-                input.defender.id,
-                logStatusFrames("眩暈", event.effect.value)));
-            effectCommands.recordActivation(attackerSources, event.effectRef);
-        }
-    }
-
-    if (input.attackEvent.mainProjectile)
-    {
-        for (RoleComboEffectId effectId : attackerCombo.effectIds(Trigger::Always, EffectType::KnockbackChance))
-        {
-            const auto& effect = attackerCombo.effect(effectId);
-            if (effect.value <= 0 || !random.chance(effect.value))
+            if (!random.chance(proc.chancePct))
             {
                 continue;
             }
-            const int frames = std::max(1, effect.duration > 0 ? effect.duration : 3);
-            const int distance = effect.value2 > 0 ? effect.value2 : 5;
+            assert(proc.action.direction == ForceMoveDirection::AwayFromSource);
+            assert(proc.action.distancePixels > 0);
+            assert(proc.action.lockFrames > 0);
             auto procDirection = knockbackDirection(input.attacker, input.defender);
             procDirection.normTo(1.0f);
             result.commands.push_back(BattleKnockbackCommand{
-                input.defender.id,
-                procDirection,
-                static_cast<double>(distance),
-                frames,
+                .targetUnitId = input.defender.id,
+                .direction = procDirection,
+                .distance = static_cast<double>(proc.action.distancePixels),
+                .lockFrames = proc.action.lockFrames,
+                .semanticDirection = proc.action.direction,
+                .collision = proc.action.collision,
+                .blocked = proc.action.blocked,
             });
             auto knockbackLog = statusEvent(
                 input.attacker.id,
                 input.defender.id,
-                std::format("擊退（{}距離·{}幀）", distance, frames));
+                std::format(
+                    "擊退（{}距離·{}幀）",
+                    proc.action.distancePixels,
+                    proc.action.lockFrames));
             knockbackLog.statusId = BattleStatusSemanticId::Knockback;
-            knockbackLog.amount = distance;
-            knockbackLog.secondaryAmount = frames;
+            knockbackLog.amount = proc.action.distancePixels;
+            knockbackLog.secondaryAmount = proc.action.lockFrames;
             result.logEvents.push_back(std::move(knockbackLog));
         }
     }
 
-    const int offensiveCooldownExtendPct = resolveOffensiveCooldownExtendPct(
-        attackerSources,
-        damageDealtTriggerInput(input),
-        random);
+    const int offensiveCooldownExtendPct = passesPercentChance(
+        random,
+        input.attackerCooldownExtensionChancePct)
+        ? input.attackerCooldownExtensionPct
+        : 0;
     if (offensiveCooldownExtendPct > 0)
     {
         BattleDamageRequest request;
         request.cooldownExtendPct = offensiveCooldownExtendPct;
-        result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-
-    }
-
-    auto teamHeal = BattleComboTriggerSystem().collectTriggeredTeamHeal(
-        attackerCombo,
-        { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
-        random);
-    if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
-    {
-        result.commands.push_back(BattleTeamHealCommand{
+        result.commands.push_back(acceptedHitCommand(
+            input.attackEvent.provenance,
             input.attacker.id,
-            teamHeal.flatHeal,
-            teamHeal.pctHeal,
-            "命中群療",
-        });
+            input.defender.id,
+            request));
+
     }
 
     const bool reflectableProjectile =
@@ -905,102 +782,60 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         || input.attackEvent.operationType == BattleOperationType::TrackingProjectile;
     const bool usingHpDamage = input.skill.hurtType == 0;
 
-    shapedDamage = BattleDamageSystem().applyModifiers({
+    shapedDamage = applyIncomingBaseModifiers(
         shapedDamage,
-        false,
-        false,
-        {},
-        makeBattleDamageModifierState(&defenderCombo, &input.defender.vitals),
-        makeDamageUnit(input.defender, &defenderCombo, &input.defenderStatusEffects),
-    }).damage;
-
-    auto defenderDamage = BattleComboTriggerSystem().shapeDefenderHitDamage(
-        defenderCombo,
-        { shapedDamage, input.defender.vitals.hp, input.defender.vitals.maxHp, defenderCombo.lastAliveForComboRuntime(), input.attacker.id });
-    shapedDamage = defenderDamage.damage;
-    for (const auto& damageEvent : defenderDamage.events)
+        input.damageModifiers.incomingBase,
+        remainingDamageBasisPoints);
+    shapedDamage = applyIncomingAfterBaseModifiers(
+        shapedDamage,
+        input.damageModifiers.incomingAfterBase,
+        remainingDamageBasisPoints);
+    if (shapedDamage > BattleFixed{})
     {
-        switch (damageEvent.type)
-        {
-        case BattleDefenderHitDamageEventType::DamageAdaptationStack:
-            result.logEvents.push_back(statusEvent(
-                input.defender.id,
-                input.attacker.id,
-                formatStackingEffectStatus("同敵減傷", damageEvent.value, damageEvent.value2)));
-            break;
-        case BattleDefenderHitDamageEventType::DodgeAdaptationStack:
-            result.logEvents.push_back(statusEvent(
-                input.defender.id,
-                input.attacker.id,
-                formatStackingEffectStatus("同敵閃避", damageEvent.value, damageEvent.value2)));
-            break;
-        default:
-            assert(false);
-        }
+        shapedDamage += BattleFixed::fromInteger(input.randomDamageVariance);
+        shapedDamage = std::max(BattleFixed{}, shapedDamage);
     }
-
-    BattleDamageModifierState lateAttackerModifier;
-    lateAttackerModifier.poisonDamageAmpPct = effectReader.sumAlways(attackerSources, EffectType::PoisonDmgAmp);
-    BattleDamageModifierState lateDefenderModifier;
-    lateDefenderModifier.poisonTimer = input.defenderStatusEffects.poisonTimer;
-    lateDefenderModifier.maxHitPctMaxHp = defenderCombo.maxAlways(EffectType::MaxHitPctCurrentHP);
-    auto lateDamage = BattleDamageSystem().applyModifiers({
+    shapedDamage = applyFinalDamageModifiers(
         shapedDamage,
-        false,
-        true,
-        lateAttackerModifier,
-        lateDefenderModifier,
-        makeDamageUnit(input.defender, &defenderCombo, &input.defenderStatusEffects),
-    });
-    shapedDamage = lateDamage.damage;
+        input.damageModifiers.outgoingFinal,
+        input.defender.vitals.maxHp,
+        remainingDamageBasisPoints,
+        false).damage;
+    auto finalDamage = applyFinalDamageModifiers(
+        shapedDamage,
+        input.damageModifiers.incomingFinal,
+        input.defender.vitals.maxHp,
+        remainingDamageBasisPoints,
+        true);
+    shapedDamage = finalDamage.damage;
     result.shapedHpDamage = shapedDamage.toDouble();
-    if (lateDamage.maxHitCapped)
+    if (finalDamage.maxHitCapped)
     {
         result.logEvents.push_back(statusEvent(
             input.defender.id,
             input.attacker.id,
-            std::format("單次承傷封頂{}%最大生命", lateDamage.maxHitPct)));
+            std::format("單次承傷封頂{}%最大生命", finalDamage.maxHitPct)));
     }
 
-    const auto* defensiveCharm = defenderCombo.firstAlways(EffectType::CharmCDRDebuff);
-    const int defensiveCooldownExtendPct = defensiveCharm
-        && defensiveCharm->value > 0
-        && defensiveCharm->value2 > 0
-        && random.chance(defensiveCharm->value)
-        ? defensiveCharm->value2
+    const int defensiveCooldownExtendPct = passesPercentChance(
+        random,
+        input.defenderCooldownExtensionChancePct)
+        ? input.defenderCooldownExtensionPct
         : 0;
     if (defensiveCooldownExtendPct > 0)
     {
         BattleDamageRequest request;
         request.cooldownExtendPct = defensiveCooldownExtendPct;
-        result.commands.push_back(acceptedHitCommand(input.defender.id, input.attacker.id, request));
-
-    }
-
-    auto beingHitStunEvents = BattleComboTriggerSystem().collectTriggerEvents(
-        defenderCombo,
-        { BattleComboTriggerHook::DamageTaken, input.defender.id, input.attacker.id },
-        { EffectType::Stun },
-        random,
-        BattleComboActivationRecording::CallerRecords);
-    for (const auto& event : beingHitStunEvents)
-    {
-        BattleDamageRequest request;
-        request.stunFrames = event.effect.value;
-        result.commands.push_back(acceptedHitCommand(input.defender.id, input.attacker.id, request));
-        result.logEvents.push_back(statusEvent(
+        result.commands.push_back(acceptedHitCommand(
+            input.attackEvent.provenance,
             input.defender.id,
             input.attacker.id,
-            logStatusFrames("反制並眩暈對手", event.effect.value)));
-        BattleComboTriggerSystem().recordActivation(
-            defenderCombo,
-            event.effectId);
+            request));
+
     }
 
-    result.reflected = BattleComboTriggerSystem().resolveProjectileReflect(
-        defenderCombo,
-        reflectableProjectile,
-        random);
+    result.reflected = reflectableProjectile
+        && passesPercentChance(random, input.defenderProjectileReflectChancePct);
     if (result.reflected)
     {
         result.visualEvents.push_back(floatingTextEvent(
@@ -1011,9 +846,9 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         result.logEvents.push_back(sourceStatusEvent(input.defender.id, input.attacker.id, "彈反了遠程攻擊"));
     }
 
-    const bool canTriggerExecute = !result.reflected
-        && usingHpDamage
-        && hasExecuteEffect(attackerSources, damageDealtTriggerInput(input));
+    const int typedExecuteThresholdPct = !result.reflected && usingHpDamage
+        ? executeThresholdPct(input.damageModifiers.outgoingFinal)
+        : 0;
     const bool canTriggerDefenderBlock = !result.reflected;
 
     std::string damageDetail;
@@ -1032,157 +867,83 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         damageDetail = appendDetail(std::move(damageDetail), label);
     }
 
-    const int skillReflectPct = defenderCombo.maxAlways(EffectType::SkillReflectPct);
+    const int skillReflectPct = input.defenderSkillReflectPercent;
     if (!result.reflected && usingSkill && skillReflectPct > 0)
     {
         int reflectedDamage = shapedDamage.scaled(skillReflectPct, 100).toInt();
         if (reflectedDamage > 0)
         {
             result.commands.push_back(BattleHpDamageCommand{
-                input.defender.id,
-                input.attacker.id,
-                reflectedDamage,
-                false,
-                false,
-                false,
-                false,
-                0,
-                "",
-                battleLogText("技能反彈", BattleLogTextTone::SkillName),
-                false,
+                .sourceUnitId = input.defender.id,
+                .targetUnitId = input.attacker.id,
+                .damage = reflectedDamage,
+                .segments = battleLogText(
+                    "技能反彈",
+                    BattleLogTextTone::SkillName),
+                .triggersDefenseEffects = false,
             });
         }
     }
 
     if (!result.reflected)
     {
-        BattleBleedProc bleedProc;
-        const auto bleed = resolveBattleBleedEffectSummary(attackerSources);
-        bleedProc.applies = shapedDamage > BattleFixed{}
-            && passesPercentChance(random, bleed.chancePct);
-        if (bleedProc.applies)
-        {
-            bleedProc.stacks = 1;
-            bleedProc.maxStacks = bleed.maxStacks;
-        }
-        if (bleedProc.applies)
-        {
-            BattleDamageRequest request;
-            request.bleedStacks = bleedProc.stacks;
-            request.bleedMaxStacks = bleedProc.maxStacks;
-            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-        }
-
-        BattleDamageReduceDebuffProc damageReduceDebuff;
-        const auto* alwaysDamageReduceDebuff = effectReader.firstAlways(attackerSources, EffectType::DmgReduceDebuff);
-        if (shapedDamage > BattleFixed{} && alwaysDamageReduceDebuff && alwaysDamageReduceDebuff->value2 > 0)
-        {
-            damageReduceDebuff.applies = true;
-            damageReduceDebuff.pct = alwaysDamageReduceDebuff->value;
-            damageReduceDebuff.durationFrames = alwaysDamageReduceDebuff->value2;
-        }
-        auto damageReduceEvents = effectReader.collectTriggerEvents(
-            attackerSources,
-            damageDealtTriggerInput(input),
-            { EffectType::DmgReduceDebuff },
-            random);
-        if (!damageReduceDebuff.applies && !damageReduceEvents.empty())
-        {
-            const auto& effect = damageReduceEvents.front().effect;
-            if (effect.value2 > 0)
-            {
-                damageReduceDebuff.applies = true;
-                damageReduceDebuff.pct = effect.value;
-                damageReduceDebuff.durationFrames = effect.value2;
-            }
-        }
-        if (damageReduceDebuff.applies)
-        {
-            BattleDamageRequest request;
-            request.damageReduceDebuffDurationFrames = damageReduceDebuff.durationFrames;
-            request.damageReduceDebuffPct = damageReduceDebuff.pct;
-            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-            result.logEvents.push_back(statusEvent(
-                input.attacker.id,
-                input.defender.id,
-                formatStatusPercentFrames("傷害降低", damageReduceDebuff.pct, damageReduceDebuff.durationFrames)));
-        }
-
-        auto mpBlockEvents = effectReader.collectTriggerEvents(
-            attackerSources,
-            damageDealtTriggerInput(input),
-            { KysChess::EffectType::MPBlock },
-            random);
-        for (const auto& mpBlock : mpBlockEvents)
-        {
-            BattleDamageRequest request;
-            request.mpBlockFrames = mpBlock.effect.value;
-            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
-            result.logEvents.push_back(statusEvent(
-                input.attacker.id,
-                input.defender.id,
-                logStatusFrames("封內", mpBlock.effect.value)));
-        }
-
-        std::vector<BattleEffectTriggerEvent> followUpEvents;
         if (!input.attackEvent.suppressNearbyTrackingProjectileProc)
         {
-            followUpEvents = effectReader.collectTriggerEvents(
-                attackerSources,
-                damageDealtTriggerInput(input),
-                { KysChess::EffectType::NearbyTrackingProjectiles },
-                random);
-        }
-
-        const double attackerProjectileSpeed = pointMagnitude(input.attackEvent.velocity) > 0.01
-            ? pointMagnitude(input.attackEvent.velocity)
-            : 0.0;
-        for (const auto& followUp : followUpEvents)
-        {
-            assert(followUp.effect.value > 0);
-            switch (followUp.effect.type)
+            const double attackerProjectileSpeed = pointMagnitude(input.attackEvent.velocity) > 0.01
+                ? pointMagnitude(input.attackEvent.velocity)
+                : 0.0;
+            for (const auto& proc : input.nearbyTrackingProcs)
             {
-            case KysChess::EffectType::NearbyTrackingProjectiles:
+                if (!random.chance(proc.chancePct))
+                {
+                    continue;
+                }
+                assert(proc.behavior.rangePixels > 0);
+                assert(proc.behavior.damagePct > 0);
                 result.commands.push_back(BattleNearbyTrackingProjectilesCommand{
                     input.attackEvent,
                     input.defender.id,
-                    followUp.effect.value,
-                    followUp.effect.value2 > 0 ? followUp.effect.value2 : 40,
+                    proc.behavior.rangePixels,
+                    proc.behavior.damagePct,
                     attackerProjectileSpeed,
                 });
-                break;
-            default:
-                assert(false);
+                result.activatedRuntimeRules.push_back(proc.rule);
             }
         }
     }
 
     if (usingHpDamage && shapedDamage > BattleFixed{})
     {
-        int damage = shapedDamage.toInt() + input.randomDamageVariance;
-        damage = std::max(0, damage);
+        const int damage = shapedDamage.toInt();
         if (damage > 0)
         {
             const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
             const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;
             BattleHpDamageCommand command{
-                sourceUnitId,
-                targetUnitId,
-                damage,
-                result.critical,
-                input.attackEvent.ultimate,
-                canTriggerExecute,
-                canTriggerDefenderBlock,
-                !result.reflected ? impactFrozenFrames : 0,
-                input.skill.name,
-                battleLogText(damageDetail, BattleLogTextTone::SkillName),
-                !result.reflected,
+                .sourceUnitId = sourceUnitId,
+                .targetUnitId = targetUnitId,
+                .damage = damage,
+                .critical = result.critical,
+                .executeThresholdPct = typedExecuteThresholdPct,
+                .canTriggerDefenderBlock = canTriggerDefenderBlock,
+                .frozenFrames = !result.reflected ? impactFrozenFrames : 0,
+                .skillName = input.skill.name,
+                .segments = battleLogText(
+                    damageDetail,
+                    BattleLogTextTone::SkillName),
+                .triggersDefenseEffects = !result.reflected,
             };
             command.criticalMultiplier = result.criticalMultiplier;
             command.skillId = input.skill.id;
+            command.damageKind = result.reflected
+                ? BattleDamageKind::Reflected
+                : input.attackEvent.damageKind;
+            command.combinedDamageReductionBasisPoints = result.reflected
+                ? 0
+                : 10'000 - remainingDamageBasisPoints;
             if (!result.reflected)
             {
-                command.skillEffectRef = input.attackEvent.skillEffectRef;
+                command.provenance = input.attackEvent.provenance;
             }
             result.commands.push_back(std::move(command));
             result.finalHpDamage = damage;
@@ -1190,13 +951,15 @@ BattleHitResolutionResult BattleHitResolver::resolve(
     }
     else if (!usingHpDamage && shapedDamage > BattleFixed{})
     {
-        int damage = shapedDamage.toInt() + input.randomDamageVariance;
-        damage = std::max(0, damage);
+        const int damage = shapedDamage.toInt();
         if (damage > 0)
         {
             BattleDamageRequest request;
             request.mpDamage = damage;
-            request.mpOnHit = damage * 80 / 100;
+            request.mpOnHit = input.attackEvent.provenance.origin
+                    == BattleAttackOriginKind::Echo
+                ? 0
+                : damage * 80 / 100;
             request.hitstunFrames = !result.reflected ? impactFrozenFrames : 0;
             const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
             const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;
@@ -1205,6 +968,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 targetUnitId,
                 request,
                 canTriggerDefenderBlock,
+                input.attackEvent.provenance,
             });
             result.finalMpDamage = damage;
         }

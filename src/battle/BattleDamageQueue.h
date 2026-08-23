@@ -1,9 +1,11 @@
 #pragma once
 
-#include "BattleComboTriggerSystem.h"
+#include "BattleCastLifecycle.h"
 #include "BattleDamageSystem.h"
+#include "BattleEffectSystem.h"
 #include "BattlePresentation.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -42,9 +44,13 @@ struct BattlePendingDamageIntent
 {
     BattleDamageRequest request;
     BattleDamagePresentationInput presentation;
-    bool canTriggerExecute = false;
+    int executeThresholdPct{};
     bool canTriggerDefenderBlock = false;
-    BattleSkillEffectRef skillEffectRef;
+    BattleAttackProvenance provenance;
+    CastWorkToken delayedCastWork;
+    EffectDamageOrigin effectOrigin = EffectEnvironmentDamageOrigin{};
+    // 非零時，這筆傷害完成後會釋放同一效果動作序列的後續命令。
+    std::uint64_t effectCommandContinuationId{};
 };
 
 }  // namespace KysChess::Battle

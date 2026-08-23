@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BattleHealSystem.h"
 #include "BattlePresentation.h"
 #include "../Point.h"
 
@@ -29,6 +30,7 @@ struct BattleRescueUnitSnapshot
     bool forcePullExecute = false;
     int forcePullExecuteRemaining = 0;
     Point cell;
+    BattleHealModifierState healModifiers;
 };
 
 struct BattleRescueCellSnapshot
@@ -60,6 +62,7 @@ struct BattleRescueHealDelta
 {
     int targetUnitId = -1;
     int amount{};
+    std::optional<BattleHealRequest> request;
 };
 
 struct BattleRescueInvincibilityDelta

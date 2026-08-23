@@ -1,23 +1,21 @@
 #pragma once
 
 #include "BattleFixed.h"
+#include "BattleHealSystem.h"
 #include "BattleOperation.h"
 #include "BattleStatusSystem.h"
 #include "BattleUnitValues.h"
 #include "../Point.h"
 
+#include <cstdint>
 #include <vector>
-
-namespace KysChess
-{
-class RoleComboState;
-}
 
 namespace KysChess::Battle
 {
 
 inline constexpr int OptionalDamageAttackerUnitId = -1;
 inline constexpr int DualWieldBlockMaxStacks = 1;
+inline constexpr int FinalDamageReductionCapPct = 80;
 
 struct BattleRuntimeUnit;
 
@@ -31,16 +29,11 @@ struct BattleDamageUnitState
     int hurtInvincFrames = 0;
 
     int shield = 0;
-    int blockFirstHitsRemaining = 0;
     int dualWieldBlocksRemaining = 0;
 
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
     int deathPreventionFrames = 0;
-
-    int killHealPct = 0;
-    int killInvincFrames = 0;
-    int bloodlustAttackPerKill = 0;
 
     bool mpBlocked = false;
     int mpRecoveryBonusPct = 0;
@@ -49,14 +42,12 @@ struct BattleDamageUnitState
 struct BattleDamageRuntimeUnit
 {
     int hurtInvincFrames = 0;
-    int blockFirstHitsRemaining = 0;
     int dualWieldBlocksRemaining = 0;
     bool deathPrevention = false;
     bool deathPreventionUsed = false;
     int deathPreventionFrames = 0;
-    int killHealPct = 0;
-    int killInvincFrames = 0;
-    int bloodlustAttackPerKill = 0;
+
+    bool operator==(const BattleDamageRuntimeUnit&) const = default;
 };
 
 BattleDamageRuntimeUnit makeBattleDamageRuntimeUnit(const BattleDamageUnitState& unit);
@@ -66,10 +57,10 @@ struct BattleDamageModifierState
     int flatDamageIncrease = 0;
     int skillDamagePct = 0;
     int poisonDamageAmpPct = 0;
-    std::vector<DamageReduceDebuff> outgoingDamageReduceDebuffs;
 
     int flatDamageReduction = 0;
     int damageReductionPct = 0;
+    int damageTakenIncreasePct = 0;
     int poisonTimer = 0;
     int maxHitPctMaxHp = 0;
 };
@@ -82,6 +73,7 @@ struct BattleDamageModifierInput
     BattleDamageModifierState attacker;
     BattleDamageModifierState defender;
     BattleDamageUnitState defenderUnit;
+    BattleDamageKind damageKind = BattleDamageKind::Physical;
 };
 
 struct BattleDamageModifierResult
@@ -89,6 +81,7 @@ struct BattleDamageModifierResult
     BattleFixed damage;
     bool maxHitCapped = false;
     int maxHitPct = 0;
+    int combinedDamageReductionBasisPoints = 0;
 };
 
 struct BattleMagicBaseDamageInput
@@ -132,6 +125,18 @@ struct BattleScriptedHitRequestInput
     int bleedMaxStacks = 0;
 };
 
+struct BattleDamageAbsorptionLayer
+{
+    std::uint64_t sequence{};
+    int absorbedPct{};
+};
+
+struct BattleDamageAbsorptionReceipt
+{
+    std::uint64_t sequence{};
+    int absorbedDamage{};
+};
+
 struct BattleDamageDefenseInput
 {
     int damage = 0;
@@ -139,7 +144,10 @@ struct BattleDamageDefenseInput
     bool reflected = false;
     bool defenderWasInvincible = false;
     BattleDamageUnitState defender;
-    bool blockFirstHitWithoutConsuming = false;
+    bool blockByStatusLayer = false;
+    int singleHitCap = 0;
+    int remainingDamageBasisPoints = 10'000;
+    std::vector<BattleDamageAbsorptionLayer> absorptionLayers;
 };
 
 struct BattleDamageDefenseResult
@@ -148,9 +156,14 @@ struct BattleDamageDefenseResult
     BattleDamageUnitState defender;
     int shieldAbsorbed = 0;
     bool blockedByInvincible = false;
-    bool blockedByFirstHit = false;
     bool blockedByDualWield = false;
+    bool blockedByDamageLayer = false;
+    bool singleHitCapConsumed = false;
+    bool singleHitCapped = false;
+    int singleHitCap = 0;
     bool shieldBroken = false;
+    int remainingDamageBasisPoints = 10'000;
+    std::vector<BattleDamageAbsorptionReceipt> absorptionReceipts;
 };
 
 struct BattleDamageTakenResult
@@ -160,19 +173,6 @@ struct BattleDamageTakenResult
     bool deathPrevented = false;
     bool died = false;
     int invincibilityGranted = 0;
-};
-
-struct BattleKillRewardInput
-{
-    BattleDamageUnitState killer;
-};
-
-struct BattleKillRewardResult
-{
-    BattleDamageUnitState killer;
-    int healed = 0;
-    int invincibilityGranted = 0;
-    int attackGranted = 0;
 };
 
 struct BattleCooldownState
@@ -218,30 +218,17 @@ struct BattleOnHitResourceInput
     int mpOnHit = 0;
     int hpOnHit = 0;
     int mpDrain = 0;
+    BattleHealModifierState healModifiers;
 };
 
 struct BattleOnHitResourceResult
 {
     BattleResourceUnitState attacker;
     BattleResourceUnitState target;
+    std::optional<BattleHealResult> heal;
     int mpRestored = 0;
     int hpHealed = 0;
     int mpDrained = 0;
-};
-
-struct BattlePoisonApplyInput
-{
-    BattleStatusUnitState target;
-    int sourceUnitId = -1;
-    int poisonPct = 0;
-    int durationFrames = 0;
-};
-
-struct BattleStatusApplyResult
-{
-    BattleStatusUnitState target;
-    bool applied = false;
-    int value = 0;
 };
 
 enum class BattleDamageEventType
@@ -250,11 +237,11 @@ enum class BattleDamageEventType
     MpDamageApplied,
     ShieldAbsorbed,
     BlockedByInvincible,
-    BlockedByFirstHit,
     BlockedByDualWield,
+    BlockedByDamageLayer,
+    SingleHitCapped,
     DeathPrevented,
     UnitDied,
-    KillRewardApplied,
     ExecuteTriggered,
     HpRestored,
     MpRestored,
@@ -265,13 +252,18 @@ enum class BattleDamageEventType
 
 enum class BattleDamageStatusType
 {
+    None = 0,
+    Hitstun = 1,
+    Stun = 2,
+    Poison = 3,
+    Bleed = 4,
+    MpBlocked = 6,
+};
+
+enum class BattlePreResolvedModifierPolicy
+{
     None,
-    Hitstun,
-    Stun,
-    Poison,
-    Bleed,
-    DamageReduceDebuff,
-    MpBlocked,
+    DefenderTypedStatuses,
 };
 
 struct BattleDamageEvent
@@ -282,6 +274,7 @@ struct BattleDamageEvent
     int targetUnitId{};
     int value{};
     int maxValue{};
+    BattleDamageKind damageKind = BattleDamageKind::Physical;
 };
 
 struct BattleDamageRequest
@@ -290,8 +283,11 @@ struct BattleDamageRequest
     int defenderUnitId = -1;
     int baseDamage = 0;
     int mpDamage = 0;
+    BattleDamageKind damageKind = BattleDamageKind::Physical;
     bool acceptedHit = false;
     bool preResolvedDamage = false;
+    int preResolvedDamageReductionBasisPoints = 0;
+    BattlePreResolvedModifierPolicy preResolvedModifierPolicy{};
     bool usingSkill = false;
     bool ignoreDefense = false;
     bool reflected = false;
@@ -306,13 +302,8 @@ struct BattleDamageRequest
     int hitstunFrames = 0;
     int stunFrames = 0;
     int frozenLowHpImmunityPct = 25;
-    int poisonPct = 0;
-    int poisonDurationFrames = 0;
     int bleedStacks = 0;
     int bleedMaxStacks = 0;
-    int damageReduceDebuffDurationFrames = 0;
-    int damageReduceDebuffPct = 0;
-    int mpBlockFrames = 0;
     bool triggersDefenseEffects = true;
 };
 
@@ -335,9 +326,14 @@ struct BattleDamageTransactionInput
     BattleDamageUnitState defender;
     BattleDamageModifierState attackerModifiers;
     BattleDamageModifierState defenderModifiers;
+    BattleStatusUnitState attackerStatus;
     BattleStatusUnitState defenderStatus;
     BattleCooldownState defenderCooldown;
-    bool blockFirstHitWithoutConsuming = false;
+    // Signed final outgoing delta.  This is deliberately outside the base
+    // modifier pass so live area queries also affect pre-resolved damage.
+    int liveOutgoingDamagePctDelta = 0;
+    BattleHealModifierState attackerHealModifiers;
+    std::vector<BattleDamageAbsorptionLayer> absorptionLayers;
 };
 
 struct BattleDamageTransactionResult
@@ -349,17 +345,24 @@ struct BattleDamageTransactionResult
     BattleStatusUnitState defenderStatus;
     BattleCooldownState defenderCooldown;
     std::vector<BattleDamageEvent> events;
+    std::vector<BattleResolvedHealTransaction> resolvedHeals;
+    int resolvedDamageBeforeDefense = 0;
     int finalHpDamage = 0;
     int finalMpDamage = 0;
     int cooldownDelta = 0;
     int shieldAbsorbed = 0;
+    std::vector<BattleDamageAbsorptionReceipt> absorptionReceipts;
     bool executed = false;
     bool killed = false;
     bool hurtInvincGranted = false;
     bool deathPrevented = false;
     bool blockedByInvincible = false;
-    bool blockedByFirstHit = false;
     bool blockedByDualWield = false;
+    bool blockedByDamageLayer = false;
+    bool singleHitCapConsumed = false;
+    bool singleHitCapped = false;
+    int combinedDamageReductionBasisPoints = 0;
+    BattleDamageKind damageKind = BattleDamageKind::Physical;
     int invincibilityGranted = 0;
 };
 
@@ -370,22 +373,16 @@ public:
     BattleDamageModifierResult applyModifiers(const BattleDamageModifierInput& input) const;
     BattleDamageDefenseResult resolveDefense(const BattleDamageDefenseInput& input) const;
     BattleDamageTakenResult applyDamageTaken(BattleDamageUnitState defender, int damage, bool triggersDefenseEffects = true) const;
-    BattleKillRewardResult applyKillReward(const BattleKillRewardInput& input) const;
     BattleCooldownIncreaseResult extendActiveCooldown(BattleCooldownState unit, int pct) const;
     bool shouldExecute(const BattleExecuteInput& input) const;
     BattleOnHitResourceResult applyOnHitResources(const BattleOnHitResourceInput& input) const;
-    BattleStatusApplyResult applyPoisonIfStronger(const BattlePoisonApplyInput& input) const;
     BattleStatusApplyResult applyBleed(BattleStatusUnitState target, int sourceUnitId, int stacks, int maxStacks) const;
-    BattleStatusApplyResult applyDamageReduceDebuff(BattleStatusUnitState target, int durationFrames, int pct) const;
     int resolveMagicBaseDamage(const BattleMagicBaseDamageInput& input) const;
     BattleHitShapeResult shapeHitDamage(const BattleHitShapeInput& input) const;
     BattleDamageRequest makeScriptedHitRequest(const BattleScriptedHitRequestInput& input) const;
 };
 
-int scaleByMissingHp(int maximumValue, const BattleUnitVitals& vitals);
-BattleDamageModifierState makeBattleDamageModifierState(
-    const RoleComboState* state,
-    const BattleUnitVitals* vitals = nullptr);
+int combineBattleBlockChancePct(int baseChancePct, int liveAreaChancePct);
 BattleDamageUnitState makeBattleDamageUnitState(const BattleRuntimeUnit& unit, const BattleDamageRuntimeUnit* runtime);
 void writeBattleDamageRuntimeUnit(BattleDamageRuntimeUnit& runtime, const BattleDamageUnitState& unit);
 BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit);

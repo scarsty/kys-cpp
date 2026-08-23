@@ -9,6 +9,7 @@
 #include "BattleProjectileTargetingSystem.h"
 #include "BattleUnitValues.h"
 
+#include <optional>
 #include <span>
 #include <string>
 #include <variant>
@@ -54,16 +55,17 @@ struct BattleHpDamageCommand
     int targetUnitId{};
     int damage{};
     bool critical{};
-    bool ultimate{};
-    bool canTriggerExecute{};
+    int executeThresholdPct{};
     bool canTriggerDefenderBlock{};
     int frozenFrames{};
     std::string skillName;
     std::vector<BattleLogTextSegment> segments;
     bool triggersDefenseEffects = true;
     int criticalMultiplier{};
-    BattleSkillEffectRef skillEffectRef;
     int skillId = -1;
+    BattleAttackProvenance provenance;
+    BattleDamageKind damageKind = BattleDamageKind::Physical;
+    int combinedDamageReductionBasisPoints{};
 };
 
 struct BattleMpDamageCommand
@@ -72,6 +74,7 @@ struct BattleMpDamageCommand
     int targetUnitId{};
     BattleDamageRequest damage;
     bool canTriggerDefenderBlock{};
+    BattleAttackProvenance provenance;
 };
 
 struct BattleAcceptedHitSideEffectCommand
@@ -79,19 +82,13 @@ struct BattleAcceptedHitSideEffectCommand
     int sourceUnitId{};
     int targetUnitId{};
     BattleDamageRequest damage;
-};
-
-struct BattleTeamHealCommand
-{
-    int sourceUnitId{};
-    int flatHeal{};
-    int pctHeal{};
-    std::string reason;
+    BattleAttackProvenance provenance;
 };
 
 struct BattleProjectileSpawnCommand
 {
     BattleAttackSpawnRequest request;
+    std::optional<BattleAttackProvenance> sourceAttack;
     std::string reason;
 };
 
@@ -117,16 +114,9 @@ struct BattleKnockbackCommand
     Pointf direction;
     double distance = 0.0;
     int lockFrames = 1;
-};
-
-struct BattleTempAttackBuffCommand
-{
-    int unitId{};
-    int attackBonus{};
-    int durationFrames{};
-    std::string reason;
-    int defenceBonus = 0;
-    bool permanent = false;
+    ForceMoveDirection semanticDirection = ForceMoveDirection::AwayFromSource;
+    ForceMoveCollision collision = ForceMoveCollision::StopBeforeOccupied;
+    ForceMoveBlockedResult blocked = ForceMoveBlockedResult::Shorten;
 };
 
 struct BattleRumbleCommand
@@ -138,6 +128,10 @@ struct BattleRumbleCommand
 
 struct BattleAreaProjectileFollowUp
 {
+    BattleCastProvenance cast;
+    std::optional<BattleAttackProvenance> sourceAttack;
+    CastWorkToken expansionWork;
+    bool ownsRootCast = false;
     int sourceUnitId{};
     int areaSize{};
     int trackedTargetUnitId = -1;
@@ -145,6 +139,7 @@ struct BattleAreaProjectileFollowUp
     int effectId{};
     int damage{};
     int damagePct{};
+    BattleDamageKind damageKind = BattleDamageKind::Physical;
     int stunFrames{};
     std::string reason;
     std::string logText;
@@ -154,13 +149,47 @@ using BattleGameplayCommand = std::variant<
     BattleHpDamageCommand,
     BattleMpDamageCommand,
     BattleAcceptedHitSideEffectCommand,
-    BattleTeamHealCommand,
     BattleProjectileSpawnCommand,
     BattleNearbyTrackingProjectilesCommand,
     BattleAutoUltimateCommand,
     BattleKnockbackCommand,
-    BattleTempAttackBuffCommand,
     BattleRumbleCommand>;
+
+struct BattleRuntimeEffectRuleHandle
+{
+    EffectSourceBinding binding;
+    EffectRuleId ruleId;
+};
+
+struct BattleKnockbackProcDescriptor
+{
+    int chancePct{};
+    ForceMoveAction action;
+};
+
+struct BattleNearbyTrackingProcDescriptor
+{
+    BattleRuntimeEffectRuleHandle rule;
+    int chancePct{};
+    NearbyTrackingAttackBehavior behavior;
+};
+
+struct BattleHitDamageModifier
+{
+    DamageModifierOperation operation{};
+    int amount{};
+    int stackCount = 1;
+};
+
+struct BattleHitDamageModifierPhases
+{
+    std::vector<BattleHitDamageModifier> outgoingBeforeCritical;
+    std::vector<BattleHitDamageModifier> outgoingAfterCritical;
+    std::vector<BattleHitDamageModifier> incomingBase;
+    std::vector<BattleHitDamageModifier> incomingAfterBase;
+    std::vector<BattleHitDamageModifier> outgoingFinal;
+    std::vector<BattleHitDamageModifier> incomingFinal;
+};
 
 struct BattleHitResolutionInput
 {
@@ -168,10 +197,20 @@ struct BattleHitResolutionInput
     BattleHitUnitSnapshot attacker;
     BattleHitUnitSnapshot defender;
     BattleHitSkillSnapshot skill;
-    BattleStatusEffectState attackerStatusEffects;
-    BattleStatusEffectState defenderStatusEffects;
+    int attackerCriticalChancePct = 0;
+    int attackerCriticalMultiplierPct = 150;
+    bool forceCritical = false;
+    int defenderProjectileReflectChancePct = 0;
+    int defenderSkillReflectPercent = 0;
+    int attackerCooldownExtensionChancePct = 0;
+    int attackerCooldownExtensionPct = 0;
+    int defenderCooldownExtensionChancePct = 0;
+    int defenderCooldownExtensionPct = 0;
+    BattleHitDamageModifierPhases damageModifiers;
     int sharedBleedMaxStacks = 1;
     int randomDamageVariance = 0;
+    std::vector<BattleKnockbackProcDescriptor> knockbackProcs;
+    std::vector<BattleNearbyTrackingProcDescriptor> nearbyTrackingProcs;
 };
 
 struct BattleHitResolutionResult
@@ -188,6 +227,7 @@ struct BattleHitResolutionResult
     double shapedHpDamage = 0.0;
     int finalHpDamage = 0;
     int finalMpDamage = 0;
+    std::vector<BattleRuntimeEffectRuleHandle> activatedRuntimeRules;
 };
 
 struct BattleProjectileFollowUpContext
@@ -207,15 +247,6 @@ struct BattleProjectileFollowUpExpansion
     std::vector<BattleVisualEvent> visualEvents;
 };
 
-struct BattleBleedEffectSummary
-{
-    int chancePct{};
-    int maxStacks = 1;
-    bool hasBleedChance{};
-};
-
-BattleBleedEffectSummary resolveBattleBleedEffectSummary(const BattleEffectSources& sources);
-
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     std::span<const BattleGameplayCommand> commands,
     BattleProjectileFollowUpContext& context,
@@ -231,14 +262,6 @@ class BattleHitResolver
 public:
     BattleHitResolutionResult resolve(
         const BattleHitResolutionInput& input,
-        RoleComboState& attackerCombo,
-        RoleComboState& defenderCombo,
-        BattleRuntimeRandom& random) const;
-
-    BattleHitResolutionResult resolve(
-        const BattleHitResolutionInput& input,
-        BattleEffectSources attackerSources,
-        BattleEffectSources defenderSources,
         BattleRuntimeRandom& random) const;
 };
 

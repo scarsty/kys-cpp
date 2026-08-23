@@ -41,9 +41,9 @@ std::vector<std::string> magicEffects(const ChessGameContent& content, int magic
         &ChessMagicEffectDefinition::magicId);
     if (definition != content.magicEffects().end())
     {
-        for (const auto& effect : definition->effects)
+        for (const auto& rule : definition->rules)
         {
-            result.push_back(comboEffectDesc(effect));
+            result.push_back(effectDescription(rule, EffectDescriptionStyle::Full));
         }
     }
     return result;
@@ -372,14 +372,11 @@ ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, i
     appendItemStat(result.baseStatEffects, "耍刀", item->addKnife);
     appendItemStat(result.baseStatEffects, "特殊", item->addUnusual);
     appendItemStat(result.baseStatEffects, "暗器", item->addHiddenWeapon);
-    for (const auto& effect : definition.effects)
+    for (const auto& rule : definition.rules)
     {
-        if (effect.type != EffectType::ActAsCombo)
-        {
-            result.specialEffects.push_back(comboEffectDesc(effect));
-        }
+        result.specialEffects.push_back(effectDescription(rule, EffectDescriptionStyle::Full));
     }
-    result.countsAsCombos = definition.actAsComboNames;
+    result.countsAsCombos = countsAsComboNames(definition.managementRules);
     if (!result.countsAsCombos.empty())
     {
         result.comboCountingNote = "讓裝備者視為該羈絆的一名成員；同一角色在同一羈絆只計一次，裝在原成員身上不會額外加點";
@@ -397,10 +394,10 @@ ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, i
             assert(role);
             bonus.roles.push_back(role->Name);
         }
-        bonus.countsAsCombos = synergy.actAsComboNames;
-        for (const auto& effect : synergy.effects)
+        bonus.countsAsCombos = countsAsComboNames(synergy.managementRules);
+        for (const auto& rule : synergy.rules)
         {
-            bonus.effects.push_back(comboEffectDesc(effect));
+            bonus.effects.push_back(effectDescription(rule, EffectDescriptionStyle::Full));
         }
         result.characterBonuses.push_back(std::move(bonus));
     }
@@ -429,25 +426,29 @@ std::vector<std::string> chessEquipmentSynergyDetailLines(
             line += role ? role->Name : std::to_string(synergy.roleIds[index]);
         }
         line += ": ";
-        if (!synergy.actAsComboNames.empty())
+        const auto synergyComboNames = countsAsComboNames(synergy.managementRules);
+        if (!synergyComboNames.empty())
         {
             line += "計作";
-            for (std::size_t index = 0; index < synergy.actAsComboNames.size(); ++index)
+            for (std::size_t index = 0; index < synergyComboNames.size(); ++index)
             {
                 if (index > 0)
                 {
                     line += "/";
                 }
-                line += synergy.actAsComboNames[index];
+                line += synergyComboNames[index];
             }
         }
-        for (std::size_t index = 0; index < synergy.effects.size(); ++index)
+        for (std::size_t index = 0; index < synergy.rules.size(); ++index)
         {
-            if (!synergy.actAsComboNames.empty() || index > 0)
+            if (!synergyComboNames.empty()
+                || index > 0)
             {
                 line += "，";
             }
-            line += comboEffectCompactDesc(synergy.effects[index]);
+            line += effectDescription(
+                synergy.rules[index],
+                EffectDescriptionStyle::Compact);
         }
         lines.push_back(std::move(line));
     }
@@ -502,9 +503,13 @@ ChessComboMetadata chessComboMetadata(
         metadata.requiredCount = threshold.count;
         metadata.name = threshold.name;
         metadata.active = index <= activeThresholdIndex;
-        for (const auto& effect : threshold.effects)
+        for (const auto& rule : threshold.rules)
         {
-            metadata.effects.push_back(comboEffectDesc(effect));
+            metadata.effects.push_back(effectDescription(rule, EffectDescriptionStyle::Full));
+        }
+        for (const auto& rule : threshold.managementRules)
+        {
+            metadata.effects.push_back(chessNonBattleRuleDescription(rule));
         }
         result.thresholds.push_back(std::move(metadata));
     }

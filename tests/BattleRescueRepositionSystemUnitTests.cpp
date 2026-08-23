@@ -72,6 +72,67 @@ TEST_CASE("BattleRescueReposition_ProtectionPullSelectsLegalDestination", "[batt
     CHECK(result.invincibility.frames == 10);
 }
 
+TEST_CASE("BattleRescueReposition_ProtectionHealUsesCommonMinimumAndFullHpRules", "[battle][rescue_reposition][heal][unit]")
+{
+    BattleRescueRepositionInput input;
+    input.mode = BattleRescuePullMode::Protect;
+    input.pulledUnitId = 10;
+    input.pullerTeam = 1;
+    input.units = {
+        unit(10, 1, { 5, 5 }),
+        unit(11, 1, { 2, 2 }),
+    };
+    input.units[1].forcePullProtect = true;
+    input.units[1].forcePullProtectRemaining = 1;
+    input.cells = {
+        cell(2, 2, true),
+        cell(2, 3),
+        cell(5, 5),
+    };
+
+    SECTION("minimum heal survives percentage truncation")
+    {
+        input.units[0].hp = 0;
+        input.units[0].maxHp = 1;
+
+        const auto result = BattleRescueRepositionSystem().resolve(input);
+
+        REQUIRE(result.teleport.has_value());
+        CHECK(result.heal.amount == 1);
+        REQUIRE_FALSE(result.logEvents.empty());
+        CHECK(result.logEvents.front().type == BattleLogEventType::Heal);
+    }
+
+    SECTION("full target has no applied heal event")
+    {
+        input.units[0].hp = input.units[0].maxHp;
+
+        const auto result = BattleRescueRepositionSystem().resolve(input);
+
+        REQUIRE(result.teleport.has_value());
+        CHECK(result.heal.amount == 0);
+        for (const auto& event : result.logEvents)
+        {
+            CHECK(event.type != BattleLogEventType::Heal);
+        }
+    }
+
+    SECTION("寒毒阻止救援治療但不阻止位移與無敵")
+    {
+        input.units[0].healModifiers.blocked = true;
+
+        const auto result = BattleRescueRepositionSystem().resolve(input);
+
+        REQUIRE(result.teleport.has_value());
+        CHECK(result.heal.amount == 0);
+        CHECK(result.invincibility.frames == 10);
+        for (const auto& event : result.logEvents)
+        {
+            CHECK(event.type != BattleLogEventType::Heal);
+        }
+    }
+}
+
 TEST_CASE("BattleRescueReposition_ProtectionPullSkipsDisconnectedWalkableCells", "[battle][rescue_reposition][unit]")
 {
     BattleRescueRepositionInput input;

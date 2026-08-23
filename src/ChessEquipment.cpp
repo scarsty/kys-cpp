@@ -11,11 +11,57 @@ namespace KysChess
 namespace
 {
 
-void appendSynergyDef(
+bool appendEquipmentManagementRules(
+    const YAML::Node& parent,
+    const ChessTextConverter& toTraditional,
+    std::string_view context,
+    const ChessDiagnosticSink& diagnostics,
+    std::vector<ChessNonBattleRule>& rules)
+{
+    const auto configured = parent["管理規則"];
+    if (!configured)
+    {
+        return true;
+    }
+    if (!configured.IsSequence())
+    {
+        emitChessDiagnostic(
+            diagnostics,
+            ChessDiagnosticSeverity::Error,
+            "裝備配置",
+            std::format("{}的「管理規則」必須是列表", context));
+        return false;
+    }
+    std::size_t ordinal{};
+    for (const auto& ruleNode : configured)
+    {
+        ++ordinal;
+        const auto ruleContext = std::format("{}管理規則#{}", context, ordinal);
+        auto rule = parseChessNonBattleRule(ruleNode, toTraditional, ruleContext, diagnostics);
+        if (!rule)
+        {
+            return false;
+        }
+        if (!std::holds_alternative<CountsAsComboRule>(*rule))
+        {
+            emitChessDiagnostic(
+                diagnostics,
+                ChessDiagnosticSeverity::Error,
+                "裝備配置",
+                std::format("{}只允許「計作羈絆」", ruleContext));
+            return false;
+        }
+        rules.push_back(std::move(*rule));
+    }
+    return true;
+}
+
+bool appendSynergyDef(
     const YAML::Node& entry,
     int equipmentId,
     const ChessTextConverter& toTraditional,
     const ChessDiagnosticSink& diagnostics,
+    std::uint64_t& nextRuleId,
     std::vector<EquipmentSynergyDef>& synergies)
 {
     EquipmentSynergyDef def;
@@ -24,7 +70,7 @@ void appendSynergyDef(
     auto roleIdsNode = entry["角色ID"];
     if (!roleIdsNode)
     {
-        return;
+        return true;
     }
     if (roleIdsNode.IsSequence())
     {
@@ -39,31 +85,51 @@ void appendSynergyDef(
     }
     if (def.roleIds.empty())
     {
-        return;
+        return true;
     }
 
-    if (entry["效果"] && entry["效果"].IsSequence())
+    if (entry["效果"] && !entry["效果"].IsSequence())
+    {
+        emitChessDiagnostic(
+            diagnostics,
+            ChessDiagnosticSeverity::Error,
+            "裝備配置",
+            std::format("裝備羈絆裝備{}的「效果」必須是列表", def.equipmentId));
+        return false;
+    }
+    if (entry["效果"])
     {
         int effectOrdinal = 0;
         for (const auto& eNode : entry["效果"])
         {
             ++effectOrdinal;
-            ComboEffect eff;
             auto effectContext = std::format("裝備羈絆裝備{}效果#{}", def.equipmentId, effectOrdinal);
-            if (!ChessBattleEffects::parseEffect(eNode, eff, effectContext, diagnostics))
+            EffectRule rule;
+            if (!ChessBattleEffects::parseEffectRule(
+                    eNode,
+                    rule,
+                    EffectRuleId{ nextRuleId++ },
+                    effectContext,
+                    diagnostics))
             {
-                continue;
+                return false;
             }
-            if (eff.type == EffectType::ActAsCombo)
-            {
-                def.actAsComboNames.push_back(toTraditional(eff.text));
-                continue;
-            }
-            def.effects.push_back(eff);
+            def.rules.push_back(std::move(rule));
         }
     }
 
+    if (!appendEquipmentManagementRules(
+            entry,
+            toTraditional,
+            std::format("裝備羈絆裝備{}", def.equipmentId),
+            diagnostics,
+            def.managementRules))
+    {
+        return false;
+    }
+
     synergies.push_back(def);
+    return true;
 }
 
 }    // namespace
@@ -90,6 +156,7 @@ bool loadChessEquipment(
 
     if (config["装备列表"])
     {
+        std::uint64_t nextRuleId = 1;
         for (const auto& entry : config["装备列表"])
         {
             EquipmentDef def;
@@ -97,28 +164,69 @@ bool loadChessEquipment(
             def.tier = entry["层级"].as<int>();
             def.equipType = entry["装备类型"].as<int>();
 
-            if (entry["效果"] && entry["效果"].IsSequence())
+            if (entry["效果"] && !entry["效果"].IsSequence())
             {
+                emitChessDiagnostic(
+                    diagnostics,
+                    ChessDiagnosticSeverity::Error,
+                    "裝備配置",
+                    std::format("裝備{}的「效果」必須是列表", def.itemId));
+                return false;
+            }
+            if (entry["效果"])
+            {
+                std::size_t effectOrdinal{};
                 for (const auto& eNode : entry["效果"])
                 {
-                    ComboEffect eff;
-                    auto effectContext = std::format("裝備{}效果#{}", def.itemId, def.effects.size() + 1);
-                    if (ChessBattleEffects::parseEffect(eNode, eff, effectContext, diagnostics))
+                    ++effectOrdinal;
+                    auto effectContext = std::format("裝備{}效果#{}", def.itemId, effectOrdinal);
+                    EffectRule rule;
+                    if (!ChessBattleEffects::parseEffectRule(
+                            eNode,
+                            rule,
+                            EffectRuleId{ nextRuleId++ },
+                            effectContext,
+                            diagnostics))
                     {
-                        if (eff.type == EffectType::ActAsCombo)
-                        {
-                            def.actAsComboNames.push_back(toTraditional(eff.text));
-                        }
-                        def.effects.push_back(eff);
+                        return false;
                     }
+                    def.rules.push_back(std::move(rule));
                 }
             }
 
-            if (entry["装备羁绊"] && entry["装备羁绊"].IsSequence())
+            if (!appendEquipmentManagementRules(
+                    entry,
+                    toTraditional,
+                    std::format("裝備{}", def.itemId),
+                    diagnostics,
+                    def.managementRules))
+            {
+                return false;
+            }
+
+            if (entry["装备羁绊"] && !entry["装备羁绊"].IsSequence())
+            {
+                emitChessDiagnostic(
+                    diagnostics,
+                    ChessDiagnosticSeverity::Error,
+                    "裝備配置",
+                    std::format("裝備{}的「裝備羈絆」必須是列表", def.itemId));
+                return false;
+            }
+            if (entry["装备羁绊"])
             {
                 for (const auto& synergyNode : entry["装备羁绊"])
                 {
-                    appendSynergyDef(synergyNode, def.itemId, toTraditional, diagnostics, synergies);
+                    if (!appendSynergyDef(
+                        synergyNode,
+                        def.itemId,
+                        toTraditional,
+                        diagnostics,
+                        nextRuleId,
+                        synergies))
+                    {
+                        return false;
+                    }
                 }
             }
 

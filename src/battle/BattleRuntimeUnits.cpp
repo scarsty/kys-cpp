@@ -14,6 +14,7 @@ BattleRuntimeUnitFrameTickResult BattleRuntimeUnitRecord::advanceFrameTick(
     assert(config.frame >= 0);
     assert(config.mpRegenIntervalFrames > 0);
     assert(config.physicalPowerRegenIntervalFrames > 0);
+    assert(config.mpRecoveryBonusPct >= 0);
     assert(core.animation.cooldown >= 0);
     assert(core.physicalPower >= 0);
 
@@ -45,7 +46,10 @@ BattleRuntimeUnitFrameTickResult BattleRuntimeUnitRecord::advanceFrameTick(
 
     if (config.frame % config.mpRegenIntervalFrames == 0)
     {
-        core.vitals.mp += adjustedMpRestore(mpBlocked(), sumAlways(EffectType::MPRecoveryBonus), 1);
+        core.vitals.mp += adjustedMpRestore(
+            mpBlocked(),
+            config.mpRecoveryBonusPct,
+            1);
         core.vitals.mp = std::clamp(core.vitals.mp, 0, core.vitals.maxMp);
     }
 

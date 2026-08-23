@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace KysChess::Battle::Test
@@ -116,7 +117,7 @@ inline void seedScenarioRuntimeUnits(BattleRuntimeState& state, std::vector<Batt
 
     for (auto& unit : units)
     {
-        appendRuntimeUnit(state, makeRuntimeUnitSpawn(std::move(unit), RoleComboState{}));
+        appendRuntimeUnit(state, makeRuntimeUnitSpawn(std::move(unit)));
     }
 }
 
@@ -139,13 +140,43 @@ inline BattleAttackInstance scenarioCancelProjectile(int id, int attackerUnitId,
 {
     BattleAttackInstance attack;
     attack.id = id;
-    attack.state.attackerUnitId = attackerUnitId;
+    attack.state.attackSourceUnitId = attackerUnitId;
     attack.frame = 5;
     attack.state.totalFrame = 30;
     attack.state.position = { 500, 500, 0 };
     attack.state.operationType = BattleOperationType::RangedProjectile;
     attack.state.projectileCancelDamage = cancelDamage;
     return attack;
+}
+
+inline void appendScenarioTrackedRootAttack(
+    BattleRuntimeState& state,
+    BattleAttackInstance attack)
+{
+    assert(attack.id >= 0);
+    assert(!attack.provenance.valid());
+    assert(!attack.castWork.valid());
+    const auto cast = state.castLifecycle.beginRootCast({
+        .sourceUnitId = attack.state.attackSourceUnitId,
+        .magicId = attack.state.skillId,
+    });
+    const auto reservation = state.castLifecycle.reserveAttack(
+        cast.provenance.castId,
+        { .rootAttack = true });
+    attack.provenance = completeAttackProvenance(
+        reservation.provenance,
+        battleAttackIdFromRuntimeId(attack.id));
+    attack.castWork = reservation.work;
+    state.castLifecycle.transferToLiveAttack(
+        attack.castWork,
+        attack.provenance.attackId);
+    state.effectIntegration.casts.emplace(
+        cast.provenance.castId,
+        BattleEffectCastRuntimeContext{
+            .originalTargetUnitId = attack.state.preferredTargetUnitId,
+        });
+    state.castLifecycle.completeWork(cast.commitBarrier);
+    state.attacks.attacks.push_back(std::move(attack));
 }
 
 inline BattleRescueCellSnapshot scenarioRescueCell(int x, int y, bool walkable = true, bool occupied = false)
@@ -172,7 +203,7 @@ inline BattleScenarioFrameDigest digestScenarioFrame(
     digest.battleEnded = runtime.result.ended;
     digest.winningTeam = runtime.result.winningTeam;
     digest.activeAttackCount = runtime.attacks.attacks.size();
-    digest.pendingAttackSpawnCount = runtime.nextFrame.queuedAttacksForTest().size();
+    digest.pendingAttackSpawnCount = runtime.nextFrame.queuedAttacks().size();
     digest.pendingCastCount = runtime.units.pendingCastCount();
 
     for (const auto& unit : runtime.units.cores())

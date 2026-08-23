@@ -276,13 +276,10 @@
     <ClInclude Include="BattleNetwork.h" />
     <ClInclude Include="battle\BattleAttackSystem.h" />
     <ClInclude Include="battle\BattleCastSystem.h" />
-    <ClInclude Include="battle\BattleComboTriggerSystem.h" />
     <ClInclude Include="battle\BattleCore.h" />
     <ClInclude Include="battle\BattleCombatIntent.h" />
     <ClInclude Include="battle\BattleDamageQueue.h" />
     <ClInclude Include="battle\BattleDamageSystem.h" />
-    <ClInclude Include="battle\BattleDeathEffectSystem.h" />
-    <ClInclude Include="battle\BattleEffectRuntimeRegistry.h" />
     <ClInclude Include="Find.h" />
     <ClInclude Include="battle\BattleInitialization.h" />
     <ClInclude Include="battle\BattleGeometry.h" />
@@ -298,7 +295,6 @@
     <ClInclude Include="battle\BattleRuntimeSession.h" />
     <ClInclude Include="battle\BattleRuntimeUnitSpawn.h" />
     <ClInclude Include="battle\BattleStatusSystem.h" />
-    <ClInclude Include="battle\BattleTeamEffectSystem.h" />
     <ClInclude Include="battle\BattleTypes.h" />
     <ClInclude Include="BattleScene.h" />
     <ClInclude Include="BattleMenu.h" />

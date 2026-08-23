@@ -8,6 +8,7 @@
 
 #include <map>
 #include <memory>
+#include <type_traits>
 
 using namespace KysChess::Battle;
 
@@ -201,7 +202,7 @@ void checkDecisionEquals(const BattleCastDecision& lhs, const BattleCastDecision
 
 void checkSpawnRequestEquals(const BattleAttackSpawnRequest& lhs, const BattleAttackSpawnRequest& rhs)
 {
-    CHECK(lhs.initial.attackerUnitId == rhs.initial.attackerUnitId);
+    CHECK(lhs.initial.attackSourceUnitId == rhs.initial.attackSourceUnitId);
     CHECK(lhs.initial.skillId == rhs.initial.skillId);
     CHECK(lhs.initial.operationType == rhs.initial.operationType);
     CHECK(lhs.initial.visualEffectId == rhs.initial.visualEffectId);
@@ -214,12 +215,12 @@ void checkSpawnRequestEquals(const BattleAttackSpawnRequest& lhs, const BattleAt
     CHECK(lhs.initial.requirePreferredTarget == rhs.initial.requirePreferredTarget);
     CHECK(lhs.initial.executeCanHitInvincible == rhs.initial.executeCanHitInvincible);
     CHECK(lhs.initial.ignoreProjectileCancel == rhs.initial.ignoreProjectileCancel);
-    CHECK(lhs.initial.sharedHitGroupId == rhs.initial.sharedHitGroupId);
+    CHECK(lhs.provenance.sharedHitGroupId == rhs.provenance.sharedHitGroupId);
     CHECK(lhs.initial.bounceRemaining == rhs.initial.bounceRemaining);
     CHECK(lhs.initial.bounceRange == rhs.initial.bounceRange);
     CHECK(lhs.initial.bounceChancePct == rhs.initial.bounceChancePct);
     CHECK(lhs.initial.bounceRollPct == rhs.initial.bounceRollPct);
-    CHECK(lhs.initial.ultimate == rhs.initial.ultimate);
+    CHECK(lhs.provenance.cast.ultimate == rhs.provenance.cast.ultimate);
     CHECK(lhs.initialFrame == rhs.initialFrame);
     CHECK(lhs.initial.castSubrequestKind == rhs.initial.castSubrequestKind);
     CHECK(lhs.initial.strengthPct == rhs.initial.strengthPct);
@@ -368,13 +369,26 @@ TEST_CASE("BattleCastSystem_RuntimeCastPlanningUsesConfiguredCdrEffect", "[battl
     input.targetDistance = 100.0;
 
     BattleRuntimeState state;
-    KysChess::RoleComboState combo;
-    combo.applyConfiguredEffect({ KysChess::EffectType::CDR, 20 });
-    appendRuntimeUnit(state, makeRuntimeUnitSpawn(runtimeUnit(0, 0, input.unit), combo));
+    state.gridTransform.tileWidth = 50;
+    appendRuntimeUnit(state, makeRuntimeUnitSpawn(runtimeUnit(0, 0, input.unit)));
+    state.effectCommands.attributeModifiers.push_back({
+        .sequence = 1,
+        .binding = {
+            .kind = KysChess::EffectSourceKind::Combo,
+            .sourceId = 1,
+            .ownerUnitId = 0,
+            .sourceTeam = 0,
+        },
+        .ruleId = KysChess::EffectRuleId{ 1 },
+        .targetUnitId = 0,
+        .attribute = KysChess::BattleAttribute::CooldownReduction,
+        .operation = KysChess::AttributeOperation::PercentAdd,
+        .amount = 20,
+    });
 
     auto target = runtimeUnit(1, 1, input.unit);
     target.motion.position = input.targetPosition;
-    appendRuntimeUnit(state, makeRuntimeUnitSpawn(target, KysChess::RoleComboState{}));
+    appendRuntimeUnit(state, makeRuntimeUnitSpawn(target));
     configureRuntimeActionPlan(state, input);
 
     auto result = BattleFrameRunner().runFrame(state);
@@ -599,7 +613,7 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][c
     REQUIRE(result.decision.canCast);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
-    CHECK(request.initial.attackerUnitId == 1);
+    CHECK(request.initial.attackSourceUnitId == 1);
     CHECK(request.initial.skillId == 107);
     CHECK(request.initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(request.initial.visualEffectId == 88);
@@ -611,7 +625,7 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][c
     CHECK(request.initial.velocity.y == Catch::Approx(0.0f));
     CHECK(request.initial.totalFrame == 24);
     CHECK_FALSE(request.initial.through);
-    CHECK_FALSE(request.initial.ultimate);
+    CHECK_FALSE(result.decision.ultimate);
 }
 
 TEST_CASE("BattleCastSystem_MeleeSpawnUsesConfiguredOriginAndFrameCount", "[battle][cast]")
@@ -685,7 +699,7 @@ TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectile
     CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::MeleeSplash);
     CHECK(result.attackSpawnRequests[1].initial.strengthPct == 50);
     CHECK(result.attackSpawnRequests[1].initial.track);
-    CHECK_FALSE(result.attackSpawnRequests[1].initial.mainProjectile);
+    CHECK_FALSE(result.attackSpawnRequests[1].provenance.mainProjectile);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == 60);
     CHECK(result.attackSpawnRequests[1].initialFrame == 5);
     CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(TestMeleeSplashProjectileSpeed));
@@ -741,12 +755,12 @@ TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle
     CHECK(result.attackSpawnRequests[1].initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == 24);
     CHECK_FALSE(result.attackSpawnRequests[1].initial.through);
-    CHECK_FALSE(result.attackSpawnRequests[1].initial.mainProjectile);
+    CHECK_FALSE(result.attackSpawnRequests[1].provenance.mainProjectile);
     CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(12.0f));
 
     CHECK(result.attackSpawnRequests[2].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
     CHECK(result.attackSpawnRequests[2].initial.operationType == BattleOperationType::RangedProjectile);
-    CHECK_FALSE(result.attackSpawnRequests[2].initial.mainProjectile);
+    CHECK_FALSE(result.attackSpawnRequests[2].provenance.mainProjectile);
 }
 
 TEST_CASE("BattleCastSystem_ExtraProjectilesPreferAlternateSpreadTargets", "[battle][cast]")
@@ -822,7 +836,7 @@ TEST_CASE("BattleCastSystem_RangedAreaCastEmitsSideProjectiles", "[battle][cast]
 
     const auto& main = result.attackSpawnRequests[0];
     CHECK(main.initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
-    CHECK(main.initial.mainProjectile);
+    CHECK(main.provenance.mainProjectile);
     CHECK(main.initial.through);
     CHECK_FALSE(main.initial.track);
     CHECK(main.initial.preferredTargetUnitId == -1);
@@ -835,7 +849,7 @@ TEST_CASE("BattleCastSystem_RangedAreaCastEmitsSideProjectiles", "[battle][cast]
         CHECK(side.initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
         CHECK(side.initial.operationType == BattleOperationType::RangedProjectile);
         CHECK(side.initial.through);
-        CHECK_FALSE(side.initial.mainProjectile);
+        CHECK_FALSE(side.provenance.mainProjectile);
         CHECK_FALSE(side.initial.track);
         CHECK(side.initial.preferredTargetUnitId == -1);
         CHECK_FALSE(side.initial.requirePreferredTarget);
@@ -880,8 +894,8 @@ TEST_CASE("BattleCastSystem_TrackingUltimateEmitsTwoProjectileSpread", "[battle]
     REQUIRE(result.decision.ultimate);
     REQUIRE(result.decision.operationType == BattleOperationType::TrackingProjectile);
     REQUIRE(result.attackSpawnRequests.size() == 2);
-    CHECK(result.attackSpawnRequests[0].initial.mainProjectile);
-    CHECK_FALSE(result.attackSpawnRequests[1].initial.mainProjectile);
+    CHECK(result.attackSpawnRequests[0].provenance.mainProjectile);
+    CHECK_FALSE(result.attackSpawnRequests[1].provenance.mainProjectile);
     CHECK(result.attackSpawnRequests[0].initialFrame == 0);
     CHECK(result.attackSpawnRequests[1].initialFrame == 5);
     CHECK(result.attackSpawnRequests[0].initial.track);
@@ -1076,4 +1090,304 @@ TEST_CASE("BattleCastSystem_AdvanceOperationCountAfterCommittedMeleeCast", "[bat
               false,
               BattleOperationType::TrackingProjectile,
               TestStrengthenedMeleeOperationCountThreshold) == 2);
+}
+
+TEST_CASE("BattleCastLifecycle_UsesDistinctStrongIdsAndMonotonicAttackOrdinals", "[battle][cast][lifecycle]")
+{
+    STATIC_REQUIRE_FALSE(std::is_same_v<BattleCastId, BattleAttackId>);
+    STATIC_REQUIRE_FALSE(std::is_same_v<BattleCastId, BattleCastWorkId>);
+
+    BattleCastLifecycle lifecycle;
+    const auto cast = lifecycle.beginRootCast({
+        4,
+        108,
+        true,
+        CastOriginKind::Ultimate,
+        CastPropagationPolicy::SourceRules,
+    });
+    const auto root = lifecycle.reserveAttack(cast.provenance.castId, {
+        .rootAttack = true,
+        .mainProjectile = true,
+    });
+    const auto side = lifecycle.reserveAttack(cast.provenance.castId, {
+        .mainProjectile = false,
+        .sharedHitGroupId = 9,
+        .propagation = CastPropagationPolicy::SourceHitRulesOnly,
+    });
+
+    CHECK(cast.provenance.rootCastId == cast.provenance.castId);
+    CHECK_FALSE(cast.provenance.parentCastId);
+    CHECK(root.provenance.attackOrdinal == 0);
+    CHECK(root.provenance.rootAttack);
+    CHECK(root.provenance.propagation == CastPropagationPolicy::SourceRules);
+    CHECK(side.provenance.attackOrdinal == 1);
+    CHECK_FALSE(side.provenance.rootAttack);
+    CHECK_FALSE(side.provenance.mainProjectile);
+    CHECK(side.provenance.sharedHitGroupId == 9);
+    CHECK(side.provenance.propagation == CastPropagationPolicy::SourceHitRulesOnly);
+    CHECK(lifecycle.runtime(cast.provenance.castId).provenance.propagation
+        == CastPropagationPolicy::SourceRules);
+}
+
+TEST_CASE("BattleCastLifecycle_QueueToLiveTransferCannotPrematurelySettle", "[battle][cast][lifecycle]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto cast = lifecycle.beginRootCast({ 2, 105, false });
+    const auto attack = lifecycle.reserveAttack(cast.provenance.castId, {
+        .rootAttack = true,
+    });
+
+    lifecycle.completeWork(cast.commitBarrier);
+    CHECK(lifecycle.outstandingWork(cast.provenance.castId) == 1);
+    CHECK(lifecycle.drainReadyEvents(10).empty());
+
+    const BattleAttackId attackId{ 81 };
+    lifecycle.transferToLiveAttack(attack.work, attackId);
+    CHECK(lifecycle.workKind(attack.work) == CastWorkKind::LiveAttack);
+    CHECK(lifecycle.outstandingWork(cast.provenance.castId) == 1);
+    CHECK(lifecycle.drainReadyEvents(11).empty());
+
+    const auto provenance = completeAttackProvenance(attack.provenance, attackId);
+    lifecycle.recordHit(provenance, 9);
+    lifecycle.recordHit(provenance, 3);
+    lifecycle.recordActualHpDamage(provenance, 9, 27);
+    lifecycle.recordActualHpDamage(provenance, 3, 41);
+    lifecycle.completeWork(
+        attack.work,
+        CastWorkResult::attackFinished(AttackFinishReason::Expired));
+
+    const auto continuation = lifecycle.drainReadyEvents(12);
+    REQUIRE(continuation.size() == 1);
+    CHECK(continuation[0].type == BattleCastLifecycleEventType::CastContinuation);
+    CHECK(continuation[0].dispatchFrame == 12);
+    CHECK(continuation[0].aggregate.distinctHitUnitIds == std::set<int>{ 3, 9 });
+    CHECK(continuation[0].aggregate.highestActualHpDamage == 41);
+    CHECK(continuation[0].aggregate.totalActualHpDamage == 68);
+    REQUIRE(continuation[0].aggregate.attacksByOrdinal.size() == 1);
+    CHECK(continuation[0].aggregate.attacksByOrdinal.at(0).finishReason
+        == AttackFinishReason::Expired);
+
+    const auto settled = lifecycle.drainReadyEvents(13);
+    REQUIRE(settled.size() == 1);
+    CHECK(settled[0].type == BattleCastLifecycleEventType::CastSettled);
+    CHECK(settled[0].dispatchFrame == 13);
+    CHECK_FALSE(lifecycle.containsCast(cast.provenance.castId));
+    CHECK(lifecycle.activeCastCount() == 0);
+    CHECK(lifecycle.trackedWorkCount() == 0);
+    const auto lifecycleSnapshot = lifecycle.snapshot();
+    REQUIRE(lifecycleSnapshot.retiredCasts.size() == 1);
+    CHECK(lifecycleSnapshot.retiredCasts[0].continuationFrame == 12);
+    CHECK(lifecycleSnapshot.retiredCasts[0].settledFrame == 13);
+    CHECK(lifecycleSnapshot.retiredCasts[0].terminalReason
+        == BattleCastTerminalReason::Settled);
+    CHECK(lifecycle.drainReadyEvents(14).empty());
+}
+
+TEST_CASE("BattleCastLifecycle_CancelledPlanNeverDispatchesCastLifecycleEvents", "[battle][cast][lifecycle]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto planned = lifecycle.beginRootCast({ 2, 105, false });
+
+    REQUIRE(planned.provenance.valid());
+    CHECK(lifecycle.outstandingWork(planned.provenance.castId) == 1);
+
+    lifecycle.cancelPlannedCast(planned, 17);
+
+    CHECK(lifecycle.runtime(planned.provenance.castId).cancelledBeforeCommit);
+    CHECK(lifecycle.runtime(planned.provenance.castId).cancelledFrame == 17);
+    CHECK(lifecycle.runtime(planned.provenance.castId).terminalReason
+        == BattleCastTerminalReason::PlannedCastCancelled);
+    CHECK(lifecycle.outstandingWork(planned.provenance.castId) == 0);
+    CHECK(lifecycle.drainReadyEvents(18).empty());
+    CHECK_FALSE(lifecycle.containsCast(planned.provenance.castId));
+    CHECK(lifecycle.activeCastCount() == 0);
+    CHECK(lifecycle.trackedWorkCount() == 0);
+    const auto snapshot = lifecycle.snapshot();
+    REQUIRE(snapshot.retiredCasts.size() == 1);
+    CHECK(snapshot.retiredCasts[0].cancelledFrame == 17);
+    CHECK(lifecycle.drainReadyEvents(19).empty());
+}
+
+TEST_CASE("BattleCastLifecycle_DelayedContinuationWorkDefersSettlementUntilNextFrame", "[battle][cast][lifecycle]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto cast = lifecycle.beginRootCast({ 1, 200, false });
+    lifecycle.completeWork(cast.commitBarrier);
+
+    const auto continuation = lifecycle.drainReadyEvents(40);
+    REQUIRE(continuation.size() == 1);
+    CHECK(continuation.front().type == BattleCastLifecycleEventType::CastContinuation);
+
+    const auto delayed = lifecycle.reserveDelayedEffectCommand(cast.provenance.castId);
+    CHECK(lifecycle.workKind(delayed) == CastWorkKind::DelayedEffectCommand);
+    CHECK(lifecycle.outstandingWork(cast.provenance.castId) == 1);
+    CHECK(lifecycle.drainReadyEvents(41).empty());
+
+    lifecycle.completeWork(delayed);
+    const auto settled = lifecycle.drainReadyEvents(41);
+    REQUIRE(settled.size() == 1);
+    CHECK(settled.front().type == BattleCastLifecycleEventType::CastSettled);
+}
+
+TEST_CASE("BattleCastLifecycle_ParentSettlesOnlyAfterChildSettledEvent", "[battle][cast][lifecycle]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto parent = lifecycle.beginRootCast({ 1, 200, true });
+    lifecycle.completeWork(parent.commitBarrier);
+
+    const auto parentContinuation = lifecycle.drainReadyEvents(20);
+    REQUIRE(parentContinuation.size() == 1);
+    REQUIRE(parentContinuation[0].provenance.castId == parent.provenance.castId);
+
+    const auto child = lifecycle.beginChildCast(parent.provenance.castId, {
+        1,
+        201,
+        false,
+        CastOriginKind::FreeRepeat,
+        CastPropagationPolicy::SuppressUltimateRules,
+    });
+    CHECK(child.provenance.rootCastId == parent.provenance.rootCastId);
+    REQUIRE(child.provenance.parentCastId);
+    CHECK(*child.provenance.parentCastId == parent.provenance.castId);
+    CHECK(lifecycle.outstandingWork(parent.provenance.castId) == 1);
+    lifecycle.completeWork(child.commitBarrier);
+
+    const auto childContinuation = lifecycle.drainReadyEvents(21);
+    REQUIRE(childContinuation.size() == 1);
+    CHECK(childContinuation[0].type == BattleCastLifecycleEventType::CastContinuation);
+    CHECK(childContinuation[0].provenance.castId == child.provenance.castId);
+    CHECK(lifecycle.containsCast(parent.provenance.castId));
+
+    const auto childSettled = lifecycle.drainReadyEvents(22);
+    REQUIRE(childSettled.size() == 1);
+    CHECK(childSettled[0].type == BattleCastLifecycleEventType::CastSettled);
+    CHECK(childSettled[0].provenance.castId == child.provenance.castId);
+    CHECK_FALSE(lifecycle.containsCast(child.provenance.castId));
+    CHECK(lifecycle.outstandingWork(parent.provenance.castId) == 0);
+    CHECK(lifecycle.containsCast(parent.provenance.castId));
+
+    const auto parentSettled = lifecycle.drainReadyEvents(23);
+    REQUIRE(parentSettled.size() == 1);
+    CHECK(parentSettled[0].type == BattleCastLifecycleEventType::CastSettled);
+    CHECK(parentSettled[0].provenance.castId == parent.provenance.castId);
+    CHECK_FALSE(lifecycle.containsCast(parent.provenance.castId));
+    CHECK(lifecycle.activeCastCount() == 0);
+    CHECK(lifecycle.trackedWorkCount() == 0);
+}
+
+TEST_CASE("BattleCastLifecycle_CancelledChildPlanReleasesParentWork", "[battle][cast][lifecycle]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto parent = lifecycle.beginRootCast({ 1, 200, true });
+    lifecycle.completeWork(parent.commitBarrier);
+    REQUIRE(lifecycle.drainReadyEvents(30).size() == 1);
+
+    const auto child = lifecycle.beginChildCast(parent.provenance.castId, {
+        1,
+        201,
+        false,
+        CastOriginKind::FreeRepeat,
+        CastPropagationPolicy::SuppressUltimateRules,
+    });
+    CHECK(lifecycle.outstandingWork(parent.provenance.castId) == 1);
+
+    lifecycle.cancelPlannedCast(child, 31);
+
+    CHECK(lifecycle.outstandingWork(parent.provenance.castId) == 0);
+    const auto parentSettled = lifecycle.drainReadyEvents(32);
+    REQUIRE(parentSettled.size() == 1);
+    CHECK(parentSettled[0].type == BattleCastLifecycleEventType::CastSettled);
+    CHECK(parentSettled[0].provenance.castId == parent.provenance.castId);
+    CHECK(lifecycle.activeCastCount() == 0);
+    CHECK(lifecycle.trackedWorkCount() == 0);
+
+    const auto snapshot = lifecycle.snapshot();
+    REQUIRE(snapshot.retiredCasts.size() == 2);
+    const auto cancelled = std::ranges::find_if(
+        snapshot.retiredCasts,
+        [&](const BattleCastRuntime& runtime)
+        {
+            return runtime.provenance.castId == child.provenance.castId;
+        });
+    REQUIRE(cancelled != snapshot.retiredCasts.end());
+    CHECK(cancelled->cancelledFrame == 31);
+    CHECK(cancelled->terminalReason == BattleCastTerminalReason::PlannedCastCancelled);
+}
+
+TEST_CASE("BattleCastLifecycle_BattleEndArchivesAndSuppressesOutstandingWork", "[battle][cast][lifecycle]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto cast = lifecycle.beginRootCast({ 2, 105, true });
+    const auto queued = lifecycle.reserveAttack(cast.provenance.castId, {
+        .rootAttack = true,
+    });
+    const auto live = lifecycle.reserveAttack(cast.provenance.castId);
+    lifecycle.transferToLiveAttack(live.work, BattleAttackId{ 81 });
+    lifecycle.reserveDelayedEffectCommand(cast.provenance.castId);
+    lifecycle.completeWork(cast.commitBarrier);
+    lifecycle.completeWork(
+        queued.work,
+        CastWorkResult::attackFinished(AttackFinishReason::BattleEnded));
+
+    const auto beforeEnd = lifecycle.snapshot();
+    CHECK(std::ranges::count(
+        beforeEnd.work,
+        CastWorkKind::DelayedEffectCommand,
+        &BattleCastWorkSnapshot::kind) == 1);
+
+    lifecycle.cancelOutstandingForBattleEnd(40);
+
+    CHECK(lifecycle.activeCastCount() == 0);
+    CHECK(lifecycle.trackedWorkCount() == 0);
+    CHECK(lifecycle.drainReadyEvents(40).empty());
+    const auto snapshot = lifecycle.snapshot();
+    CHECK(snapshot.terminalState == BattleCastLifecycleTerminalState::BattleEnded);
+    CHECK(snapshot.battleEndedFrame == 40);
+    CHECK(snapshot.activeCasts.empty());
+    CHECK(snapshot.work.empty());
+    REQUIRE(snapshot.retiredCasts.size() == 1);
+    const auto& retired = snapshot.retiredCasts[0];
+    CHECK(retired.cancelledFrame == 40);
+    CHECK(retired.terminalReason == BattleCastTerminalReason::BattleEnded);
+    CHECK(retired.aggregate.attacksByOrdinal.at(queued.provenance.attackOrdinal).finishReason
+        == AttackFinishReason::BattleEnded);
+    CHECK(retired.aggregate.attacksByOrdinal.at(live.provenance.attackOrdinal).finishReason
+        == AttackFinishReason::BattleEnded);
+}
+
+TEST_CASE("BattleCastSystem_TrackedRootCastBindsEveryInitialRequestBeforeSpawn", "[battle][cast][lifecycle]")
+{
+    auto input = basicInput();
+    input.normalSkill = skill(120, 1, 400.0);
+    input.normalSkill.selectDistance = 4;
+    input.targetDistance = 300.0;
+    auto result = BattleCastPlanner().commitSelectedCast(
+        input,
+        false,
+        BattleOperationType::RangedProjectile);
+    REQUIRE(result.attackSpawnRequests.size() == 3);
+
+    BattleCastLifecycle lifecycle;
+    const auto cast = beginTrackedRootCastAttacks(
+        lifecycle,
+        result.decision,
+        result.attackSpawnRequests);
+
+    for (std::size_t i = 0; i < result.attackSpawnRequests.size(); ++i)
+    {
+        const auto& request = result.attackSpawnRequests[i];
+        CHECK(request.provenance.cast.castId == cast.provenance.castId);
+        CHECK(request.provenance.cast.rootCastId == cast.provenance.rootCastId);
+        CHECK(request.provenance.attackOrdinal == static_cast<int>(i));
+        CHECK(request.provenance.rootAttack == (i == 0));
+        CHECK(request.provenance.mainProjectile == (i == 0));
+        CHECK(request.castWork.valid());
+    }
+    CHECK(result.attackSpawnRequests[0].provenance.propagation
+        == CastPropagationPolicy::SourceRules);
+    CHECK(result.attackSpawnRequests[1].provenance.propagation
+        == CastPropagationPolicy::SourceHitRulesOnly);
+    CHECK(result.attackSpawnRequests[2].provenance.propagation
+        == CastPropagationPolicy::SourceHitRulesOnly);
+    CHECK(lifecycle.outstandingWork(cast.provenance.castId) == 4);
 }

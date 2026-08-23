@@ -31,10 +31,10 @@ std::string roleName(const ChessGameContent& content, int roleId)
     return role ? role->Name : "未知角色";
 }
 
-std::string activeComboEffectSourceText(
+std::string activeComboManagementRuleSourceText(
     const ChessGameplayObservation& observation,
     const ChessGameContent& content,
-    EffectType effectType)
+    ChessNonBattleRuleKind kind)
 {
     std::string result;
     for (const auto& observed : observation.combos)
@@ -46,8 +46,10 @@ std::string activeComboEffectSourceText(
         const auto combo = std::ranges::find(content.combos(), observed.comboId, &ComboDef::id);
         assert(combo != content.combos().end());
         assert(observed.activeThresholdIndex < static_cast<int>(combo->thresholds.size()));
-        const auto& effects = combo->thresholds[observed.activeThresholdIndex].effects;
-        if (!std::ranges::contains(effects, effectType, &ComboEffect::type))
+        const auto& rules = combo->thresholds[observed.activeThresholdIndex].managementRules;
+        if (!std::ranges::any_of(rules, [&](const ChessNonBattleRule& rule) {
+                return chessNonBattleRuleKind(rule) == kind;
+            }))
         {
             continue;
         }
@@ -127,7 +129,10 @@ std::string ChessObservationText::format(
     {
         text += std::format(
             "{}：下一次刷新商店免費。\n",
-            activeComboEffectSourceText(observation, content, EffectType::FreeRefresh));
+            activeComboManagementRuleSourceText(
+                observation,
+                content,
+                ChessNonBattleRuleKind::FreeShopRefresh));
     }
     if (!observation.combos.empty())
     {

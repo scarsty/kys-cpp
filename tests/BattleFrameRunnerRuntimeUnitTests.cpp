@@ -10,8 +10,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
-#include <string>
-#include <variant>
+#include <cassert>
+#include <utility>
 #include <vector>
 
 using namespace KysChess::Battle;
@@ -23,14 +23,26 @@ namespace
 constexpr double SceneTileWidth = 36.0;
 constexpr double MaxEffectiveBattleReach = 480.0;
 constexpr double TestMinimumVectorNorm = 0.0001;
-constexpr int HealEffectId = 0;
-
 BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
 {
     return BattleFrameRunner().runFrame(state);
 }
 
 void seedDamageExtrasFromUnits(BattleRuntimeState& state);
+
+void appendOwnerEffectRule(
+    BattleRuntimeState& state,
+    int ownerUnitId,
+    int sourceId,
+    KysChess::EffectRule rule)
+{
+    state.effectRules.append({
+        .kind = KysChess::EffectSourceKind::Combo,
+        .sourceId = sourceId,
+        .ownerUnitId = ownerUnitId,
+        .sourceTeam = state.units.requireCore(ownerUnitId).team,
+    }, rule);
+}
 
 BattleMovementConfig runtimeMovementConfig()
 {
@@ -88,15 +100,7 @@ void seedCanonicalUnitsFromMovementUnits(BattleRuntimeState& state, const std::v
     {
         appendRuntimeUnit(
             state,
-            makeRuntimeUnitSpawn(runtimeUnitFromWorld(worldUnit), KysChess::RoleComboState{}));
-    }
-}
-
-void seedEmptyComboStatesFromUnits(BattleRuntimeState& state)
-{
-    for (const auto& unit : state.units.cores())
-    {
-        state.units.require(unit.id).combo = KysChess::RoleComboState{};
+            makeRuntimeUnitSpawn(runtimeUnitFromWorld(worldUnit)));
     }
 }
 
@@ -136,14 +140,44 @@ BattleRuntimeState ownedRuntimeState()
     return runtime;
 }
 
-void configureFinishingSkillRuntime(BattleRuntimeUnit& unit)
+BattleRuntimeState forceMoveRuntimeState(double blockerOffset)
 {
-    unit.animation.cooldown = 1;
-    unit.animation.actFrame = 0;
-    unit.animation.actType = 2;
-    unit.operationType = BattleOperationType::RangedProjectile;
-    unit.haveAction = true;
-    unit.physicalPower = 4;
+    auto runtime = ownedRuntimeState();
+    constexpr float TargetX = 18.0f * static_cast<float>(SceneTileWidth);
+    constexpr float PositionY = 3.0f * static_cast<float>(SceneTileWidth);
+    seedCanonicalUnitsFromMovementUnits(runtime, {
+        runtimeUnit(0, 0, { TargetX - static_cast<float>(SceneTileWidth), PositionY, 0 }),
+        runtimeUnit(1, 1, { TargetX, PositionY, 0 }),
+        runtimeUnit(2, 1, { TargetX + static_cast<float>(blockerOffset), PositionY, 0 }),
+    });
+    for (auto& record : runtime.units.all())
+    {
+        record.core.stats.speed = 0;
+    }
+    return runtime;
+}
+
+void queueForceMoveEffect(
+    BattleRuntimeState& state,
+    KysChess::ForceMoveAction action)
+{
+    EffectCommandMetadata metadata;
+    metadata.binding = {
+        .kind = KysChess::EffectSourceKind::Combo,
+        .sourceId = 9003,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    metadata.ruleId = KysChess::EffectRuleId{ 1 };
+    metadata.event = KysChess::EffectEvent::HitBeforeDamage;
+    metadata.targetUnitId = 1;
+    state.effectIntegration.queuedCommandBatches.push_back({
+        .commands = { EffectCommand{
+            .metadata = metadata,
+            .value = ForceMoveEffectCommand{ std::move(action) },
+        } },
+        .context = { .frame = state.movement.frame + 1 },
+    });
 }
 
 BattleAttackInstance cancelProjectile(int id, int attackerUnitId)
@@ -151,11 +185,75 @@ BattleAttackInstance cancelProjectile(int id, int attackerUnitId)
     BattleAttackInstance attack;
     attack.id = id;
     attack.frame = 5;
-    attack.state.attackerUnitId = attackerUnitId;
+    attack.state.attackSourceUnitId = attackerUnitId;
     attack.state.totalFrame = 30;
     attack.state.operationType = BattleOperationType::RangedProjectile;
     attack.state.position = { 500, 500, 0 };
     return attack;
+}
+
+void registerEffectCastContext(
+    BattleRuntimeState& state,
+    const BattleCastStart& cast,
+    int originalTargetUnitId)
+{
+    state.effectIntegration.casts.emplace(
+        cast.provenance.castId,
+        BattleEffectCastRuntimeContext{
+            .originalTargetUnitId = originalTargetUnitId,
+        });
+}
+
+void queueTrackedRootAttack(
+    BattleRuntimeState& state,
+    BattleAttackSpawnRequest request)
+{
+    assert(!request.provenance.valid());
+    assert(!request.castWork.valid());
+    const auto cast = state.castLifecycle.beginRootCast({
+        .sourceUnitId = request.initial.attackSourceUnitId,
+        .magicId = request.initial.skillId,
+    });
+    const auto reservation = state.castLifecycle.reserveAttack(
+        cast.provenance.castId,
+        { .rootAttack = true });
+    request.provenance = reservation.provenance;
+    request.castWork = reservation.work;
+    registerEffectCastContext(
+        state,
+        cast,
+        request.initial.preferredTargetUnitId);
+    state.castLifecycle.completeWork(cast.commitBarrier);
+    state.nextFrame.queueAttack(std::move(request));
+}
+
+void appendTrackedRootAttack(
+    BattleRuntimeState& state,
+    BattleAttackInstance attack)
+{
+    assert(attack.id >= 0);
+    assert(!attack.provenance.valid());
+    assert(!attack.castWork.valid());
+    const auto cast = state.castLifecycle.beginRootCast({
+        .sourceUnitId = attack.state.attackSourceUnitId,
+        .magicId = attack.state.skillId,
+    });
+    const auto reservation = state.castLifecycle.reserveAttack(
+        cast.provenance.castId,
+        { .rootAttack = true });
+    attack.provenance = completeAttackProvenance(
+        reservation.provenance,
+        battleAttackIdFromRuntimeId(attack.id));
+    attack.castWork = reservation.work;
+    state.castLifecycle.transferToLiveAttack(
+        attack.castWork,
+        attack.provenance.attackId);
+    registerEffectCastContext(
+        state,
+        cast,
+        attack.state.preferredTargetUnitId);
+    state.castLifecycle.completeWork(cast.commitBarrier);
+    state.attacks.attacks.push_back(std::move(attack));
 }
 
 BattleRuntimeUnit teamRuntimeUnit(int id, int team, int hp)
@@ -171,20 +269,12 @@ BattleRuntimeUnit teamRuntimeUnit(int id, int team, int hp)
     return unit;
 }
 
-BattleRuntimeUnit teamRuntimeUnitAt(int id, int team, int hp, Pointf position, int cooldown = 0)
-{
-    auto unit = teamRuntimeUnit(id, team, hp);
-    unit.motion.position = position;
-    unit.animation.cooldown = cooldown;
-    return unit;
-}
-
 void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntimeUnit>& units)
 {
-    std::map<int, KysChess::RoleComboState> savedCombos;
+    std::map<int, BattleComboRuntimeFacts> savedComboFacts;
     for (const auto& record : state.units.all())
     {
-        savedCombos.emplace(record.id(), record.combo);
+        savedComboFacts.emplace(record.id(), record.comboFacts);
     }
     std::map<int, BattleStatusRuntimeUnit> previousStatuses;
     for (const auto& record : state.units.all())
@@ -199,18 +289,17 @@ void seedRuntimeUnits(BattleRuntimeState& state, const std::vector<BattleRuntime
 
     state.units = {};
     state.movement.movementReservations.clear();
-        state.damage.presentationStylesByDefender.clear();
-            state.units = {};
+    state.damage.presentationStylesByDefender.clear();
     for (auto unit : units)
     {
-        KysChess::RoleComboState combo;
-        if (const auto comboIt = savedCombos.find(unit.id);
-            comboIt != savedCombos.end())
+        BattleComboRuntimeFacts comboFacts;
+        if (const auto comboIt = savedComboFacts.find(unit.id);
+            comboIt != savedComboFacts.end())
         {
-            combo = comboIt->second;
+            comboFacts = comboIt->second;
         }
 
-        auto spawn = makeRuntimeUnitSpawn(std::move(unit), std::move(combo));
+        auto spawn = makeRuntimeUnitSpawn(std::move(unit), std::move(comboFacts));
         if (const auto statusIt = previousStatuses.find(spawn.unit.id);
             statusIt != previousStatuses.end())
         {
@@ -234,7 +323,6 @@ void seedDamageExtrasFromUnits(BattleRuntimeState& state)
 {
     for (const auto& unit : state.units.cores())
     {
-        state.units.require(unit.id).combo = KysChess::RoleComboState{};
         state.units.require(unit.id).damage = makeBattleDamageRuntimeUnit(
             makeBattleDamageUnitState(unit, static_cast<const BattleDamageRuntimeUnit*>(nullptr)));
     }
@@ -248,7 +336,7 @@ TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[b
     runtime.attacks.nextAttackId = 70;
 
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = 0;
+    request.initial.attackSourceUnitId = 0;
     request.initial.preferredTargetUnitId = 0;
     request.initial.skillId = 101;
     request.initial.totalFrame = 30;
@@ -256,12 +344,12 @@ TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[b
     request.initial.operationType = BattleOperationType::RangedProjectile;
     request.initial.position = { 100, 120, 0 };
     request.initial.velocity = { 6, 0, 0 };
-    runtime.nextFrame.queueAttack(request);
+    queueTrackedRootAttack(runtime, request);
 
     auto first = runBattleFrame(runtime);
     auto second = runBattleFrame(runtime);
 
-    CHECK(runtime.nextFrame.queuedAttacksForTest().empty());
+    CHECK(runtime.nextFrame.queuedAttacks().empty());
     REQUIRE(runtime.attacks.attacks.size() == 1);
     CHECK(runtime.attacks.attacks[0].id == 70);
     CHECK(runtime.attacks.nextAttackId == 71);
@@ -274,7 +362,7 @@ TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndAddsAttackBlock", 
     auto runtime = ownedRuntimeState();
     runtime.random = BattleRuntimeRandom(5489u);
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = 0;
+    request.initial.attackSourceUnitId = 0;
     request.initial.preferredTargetUnitId = 1;
     request.initial.requirePreferredTarget = true;
     request.initial.skillId = 101;
@@ -290,32 +378,28 @@ TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndAddsAttackBlock", 
     request.spawnDelayFrames = 2;
     request.attackerDualWieldBlockGainChancePct = 50;
     runtime.units.requireCore(0).shield = 30;
-    runtime.units.require(0).damage.blockFirstHitsRemaining = 2;
-    runtime.nextFrame.queueAttack(request);
+    queueTrackedRootAttack(runtime, request);
 
     auto first = runBattleFrame(runtime);
-    REQUIRE(runtime.nextFrame.queuedAttacksForTest().size() == 1);
-    CHECK(runtime.nextFrame.queuedAttacksForTest()[0].spawnDelayFrames == 1);
+    REQUIRE(runtime.nextFrame.queuedAttacks().size() == 1);
+    CHECK(runtime.nextFrame.queuedAttacks()[0].spawnDelayFrames == 1);
     CHECK(runtime.attacks.attacks.empty());
     CHECK(runtime.units.requireCore(0).shield == 30);
-    CHECK(runtime.units.require(0).damage.blockFirstHitsRemaining == 2);
     CHECK(runtime.units.require(0).damage.dualWieldBlocksRemaining == 0);
     CHECK(first.visualEvents.empty());
 
     auto second = runBattleFrame(runtime);
-    REQUIRE(runtime.nextFrame.queuedAttacksForTest().size() == 1);
-    CHECK(runtime.nextFrame.queuedAttacksForTest()[0].spawnDelayFrames == 0);
+    REQUIRE(runtime.nextFrame.queuedAttacks().size() == 1);
+    CHECK(runtime.nextFrame.queuedAttacks()[0].spawnDelayFrames == 0);
     CHECK(runtime.attacks.attacks.empty());
     CHECK(runtime.units.requireCore(0).shield == 30);
-    CHECK(runtime.units.require(0).damage.blockFirstHitsRemaining == 2);
     CHECK(runtime.units.require(0).damage.dualWieldBlocksRemaining == 0);
     CHECK(second.visualEvents.empty());
 
     auto third = runBattleFrame(runtime);
-    CHECK(runtime.nextFrame.queuedAttacksForTest().empty());
+    CHECK(runtime.nextFrame.queuedAttacks().empty());
     REQUIRE(runtime.attacks.attacks.size() == 1);
     CHECK(runtime.units.requireCore(0).shield == 30);
-    CHECK(runtime.units.require(0).damage.blockFirstHitsRemaining == 2);
     CHECK(runtime.units.require(0).damage.dualWieldBlocksRemaining == 1);
     CHECK(runtime.random.rawDrawCount() == 1);
     CHECK(std::ranges::any_of(third.logEvents, [](const BattleLogEvent& event)
@@ -332,9 +416,8 @@ TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndAddsAttackBlock", 
 
     auto cappedRequest = request;
     cappedRequest.spawnDelayFrames = 0;
-    runtime.nextFrame.queueAttack(cappedRequest);
+    queueTrackedRootAttack(runtime, std::move(cappedRequest));
     const auto capped = runBattleFrame(runtime);
-    CHECK(runtime.units.require(0).damage.blockFirstHitsRemaining == 2);
     CHECK(runtime.units.require(0).damage.dualWieldBlocksRemaining == 1);
     CHECK(runtime.random.rawDrawCount() == 1);
     CHECK(std::ranges::none_of(capped.logEvents, [](const BattleLogEvent& event)
@@ -349,7 +432,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     runtime.attacks.nextAttackId = 70;
 
     BattleAttackSpawnRequest request;
-    request.initial.attackerUnitId = 0;
+    request.initial.attackSourceUnitId = 0;
     request.initial.preferredTargetUnitId = 0;
     request.initial.skillId = 101;
     request.initial.totalFrame = 30;
@@ -357,19 +440,96 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     request.initial.operationType = BattleOperationType::RangedProjectile;
     request.initial.position = { 100, 120, 0 };
     request.initial.velocity = { 6, 0, 0 };
-    runtime.nextFrame.queueAttack(request);
+    queueTrackedRootAttack(runtime, request);
 
     BattleRuntimeSession session(std::move(runtime));
 
     const auto first = session.runFrame();
     const auto second = session.runFrame();
 
-    CHECK(session.runtime().nextFrame.queuedAttacksForTest().empty());
+    CHECK(session.runtime().nextFrame.queuedAttacks().empty());
     REQUIRE(session.runtime().attacks.attacks.size() == 1);
     CHECK(session.runtime().attacks.attacks[0].id == 70);
     CHECK(session.runtime().attacks.nextAttackId == 71);
     CHECK(first.frame == 7);
     CHECK(second.frame == 8);
+}
+
+TEST_CASE("BattleFrameRunner_ForceMoveCollisionChoosesWhetherUnitsBlock",
+    "[battle][frame_runner][runtime][force_move]")
+{
+    const auto movedX = [](KysChess::ForceMoveCollision collision)
+    {
+        auto state = forceMoveRuntimeState(18.0);
+        KysChess::ForceMoveAction action{
+            .direction = KysChess::ForceMoveDirection::AwayFromSource,
+            .distancePixels = 18,
+            .lockFrames = 1,
+            .collision = collision,
+            .blocked = KysChess::ForceMoveBlockedResult::Shorten,
+        };
+        queueForceMoveEffect(state, std::move(action));
+
+        runBattleFrame(state);
+
+        return state.units.requireCore(1).motion.position.x;
+    };
+
+    constexpr float TargetX = 18.0f * static_cast<float>(SceneTileWidth);
+    CHECK(movedX(KysChess::ForceMoveCollision::StopBeforeOccupied)
+        == Catch::Approx(TargetX + 9.0f));
+    CHECK(movedX(KysChess::ForceMoveCollision::StopBeforeBlocked)
+        == Catch::Approx(TargetX + 18.0f));
+}
+
+TEST_CASE("BattleFrameRunner_ForceMoveBlockedResultChoosesPartialOrCancelledMove",
+    "[battle][frame_runner][runtime][force_move]")
+{
+    const auto movedX = [](KysChess::ForceMoveBlockedResult blocked,
+                           double blockerOffset)
+    {
+        auto state = forceMoveRuntimeState(blockerOffset);
+        KysChess::ForceMoveAction action{
+            .direction = KysChess::ForceMoveDirection::AwayFromSource,
+            .distancePixels = 18,
+            .lockFrames = 1,
+            .collision = KysChess::ForceMoveCollision::StopBeforeOccupied,
+            .blocked = blocked,
+        };
+        queueForceMoveEffect(state, std::move(action));
+
+        runBattleFrame(state);
+
+        return state.units.requireCore(1).motion.position.x;
+    };
+
+    constexpr float TargetX = 18.0f * static_cast<float>(SceneTileWidth);
+    CHECK(movedX(KysChess::ForceMoveBlockedResult::Shorten, 18.0)
+        == Catch::Approx(TargetX + 9.0f));
+    CHECK(movedX(KysChess::ForceMoveBlockedResult::Stop, 18.0)
+        == Catch::Approx(TargetX));
+    CHECK(movedX(KysChess::ForceMoveBlockedResult::Stop, 4.0 * SceneTileWidth)
+        == Catch::Approx(TargetX + 18.0f));
+}
+
+TEST_CASE("BattleFrameRunner_ForceMoveLockFramesControlsMovementDuration",
+    "[battle][frame_runner][runtime][force_move]")
+{
+    auto state = forceMoveRuntimeState(4.0 * SceneTileWidth);
+    KysChess::ForceMoveAction action{
+        .direction = KysChess::ForceMoveDirection::AwayFromSource,
+        .distanceTiles = 1,
+        .lockFrames = 3,
+        .collision = KysChess::ForceMoveCollision::StopBeforeBlocked,
+        .blocked = KysChess::ForceMoveBlockedResult::Shorten,
+    };
+    queueForceMoveEffect(state, std::move(action));
+
+    runBattleFrame(state);
+
+    const auto& physics = state.units.require(1).movement.physics;
+    CHECK(physics.knockbackFrames == 2);
+    CHECK(physics.knockbackControlFrames == 3);
 }
 
 TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runtime_session][ownership]")
@@ -387,7 +547,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
 
     BattleAttackInstance attack;
     attack.id = 10;
-    attack.state.attackerUnitId = 0;
+    attack.state.attackSourceUnitId = 0;
     attack.state.preferredTargetUnitId = 1;
     attack.state.skillId = 101;
     attack.state.skillMagicPower = 120;
@@ -396,7 +556,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     attack.state.operationType = BattleOperationType::Melee;
     attack.state.position = runtime.units.requireCore(1).motion.position;
     attack.state.velocity = { 1, 0, 0 };
-    runtime.attacks.attacks.push_back(attack);
+    appendTrackedRootAttack(runtime, std::move(attack));
 
     BattleRuntimeSession session(std::move(runtime));
 
@@ -445,11 +605,23 @@ TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity",
     runtime.units.requireCore(0).motion.position = { attackerX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
     runtime.units.requireCore(1).motion.position = { defenderX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
     seedDamageExtrasFromUnits(runtime);
-    runtime.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::KnockbackChance, 100, 7, "", KysChess::Trigger::Always, 0, 4 });
+    KysChess::ForceMoveAction procKnockback{
+        .direction = KysChess::ForceMoveDirection::AwayFromSource,
+        .distancePixels = 7,
+        .lockFrames = 4,
+        .collision = KysChess::ForceMoveCollision::StopBeforeBlocked,
+        .blocked = KysChess::ForceMoveBlockedResult::Shorten,
+    };
+    KysChess::EffectRule procKnockbackRule;
+    procKnockbackRule.id = KysChess::EffectRuleId{ 1 };
+    procKnockbackRule.event = KysChess::EffectEvent::MainProjectileBeforeDamage;
+    procKnockbackRule.selector.kind = KysChess::EffectSelectorKind::HitTarget;
+    procKnockbackRule.actions = { { KysChess::EffectActionValue{ procKnockback } } };
+    appendOwnerEffectRule(runtime, 0, 9001, std::move(procKnockbackRule));
 
     BattleAttackInstance attack;
     attack.id = 10;
-    attack.state.attackerUnitId = 0;
+    attack.state.attackSourceUnitId = 0;
     attack.state.preferredTargetUnitId = 1;
     attack.state.skillId = 101;
     attack.state.skillMagicPower = 120;
@@ -458,7 +630,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity",
     attack.state.operationType = BattleOperationType::Melee;
     attack.state.position = runtime.units.requireCore(1).motion.position;
     attack.state.velocity = { 1, 0, 0 };
-    runtime.attacks.attacks.push_back(attack);
+    appendTrackedRootAttack(runtime, std::move(attack));
 
     BattleRuntimeSession session(std::move(runtime));
 
@@ -506,11 +678,22 @@ TEST_CASE("BattleRuntimeSession_RunFrame_TaXueIgnoresKnockback", "[battle][runti
     runtime.units.requireCore(0).motion.position = { attackerX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
     runtime.units.requireCore(1).motion.position = { defenderX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
     seedDamageExtrasFromUnits(runtime);
-    runtime.units.require(1).combo.applyConfiguredEffect({ KysChess::EffectType::DashAttack, 1 });
+    KysChess::ModifyCastAction dashAttack;
+    dashAttack.mobility = KysChess::CastMobilityPolicy::DashAttack;
+    KysChess::EffectRule dashAttackRule;
+    dashAttackRule.id = KysChess::EffectRuleId{ 1 };
+    dashAttackRule.event = KysChess::EffectEvent::CastPlanned;
+    dashAttackRule.selector.kind = KysChess::EffectSelectorKind::Self;
+    dashAttackRule.actions = { { KysChess::EffectActionValue{ dashAttack } } };
+    appendOwnerEffectRule(runtime, 1, 9002, std::move(dashAttackRule));
+    BattleActionPlanSeed defenderPlan;
+    defenderPlan.normalSkill.id = 101;
+    runtime.units.require(1).setActionPlan(std::move(defenderPlan));
+    runtime.units.require(1).status.effects.frozenTimer = 100;
 
     BattleAttackInstance attack;
     attack.id = 10;
-    attack.state.attackerUnitId = 0;
+    attack.state.attackSourceUnitId = 0;
     attack.state.preferredTargetUnitId = 1;
     attack.state.skillId = 101;
     attack.state.skillMagicPower = 120;
@@ -519,7 +702,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_TaXueIgnoresKnockback", "[battle][runti
     attack.state.operationType = BattleOperationType::Melee;
     attack.state.position = runtime.units.requireCore(1).motion.position;
     attack.state.velocity = { 1, 0, 0 };
-    runtime.attacks.attacks.push_back(attack);
+    appendTrackedRootAttack(runtime, std::move(attack));
 
     BattleRuntimeSession session(std::move(runtime));
 
@@ -568,18 +751,20 @@ TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][
     unit.vitals.maxHp = 100;
     unit.motion.position = { 32.0f, 48.0f, 0.0f };
 
-    KysChess::RoleComboState combo;
-    combo.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
+    BattleComboRuntimeFacts comboFacts;
+    comboFacts.memberComboIds.insert(12);
+    comboFacts.appliedComboIds.insert(34);
 
     BattleActionPlanSeed plan;
     plan.unitId = 99;
 
-    appendRuntimeUnit(runtime, makeRuntimeUnitSpawn(std::move(unit), combo, plan));
+    appendRuntimeUnit(runtime, makeRuntimeUnitSpawn(std::move(unit), comboFacts, plan));
 
     REQUIRE(runtime.units.size() == 1);
     const auto& record = runtime.units.require(4);
     CHECK(record.core.id == 4);
-    CHECK(record.combo.typePending(KysChess::EffectType::OnSkillTeamHeal));
+    CHECK(record.comboFacts.isMember(12));
+    CHECK(record.comboFacts.hasApplied(34));
     CHECK(record.movement.physics.position.x == 32.0f);
     REQUIRE(record.actionPlan() != nullptr);
     CHECK(record.actionPlan()->unitId == 4);
@@ -725,10 +910,8 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 80),
     });
-    state.units.require(0).combo = KysChess::RoleComboState{};
     state.units.requireCore(0).shield = 12;
     BattleDamageRuntimeUnit damage;
-    damage.blockFirstHitsRemaining = 2;
     damage.dualWieldBlocksRemaining = 1;
     state.units.require(0).damage = damage;
     state.units.requireCore(0).invincible = 4;
@@ -745,7 +928,6 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     CHECK(statusUnit.effects.frozenTimer == 2);
     CHECK(statusUnit.effects.frozenMaxTimer == 9);
     CHECK(runtimeUnit.shield == 12);
-    CHECK(state.units.require(0).damage.blockFirstHitsRemaining == 2);
     CHECK(state.units.require(0).damage.dualWieldBlocksRemaining == 1);
 }
 
@@ -783,159 +965,30 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
         teamRuntimeUnit(1, 1, 100),
     });
     state.units.require(0).status.effects.mpBlockTimer = 2;
-    state.units.require(0).combo.applyConfiguredEffect({ KysChess::EffectType::MPRecoveryBonus, 100 });
+    KysChess::ModifyAttributeAction recoveryBonus;
+    recoveryBonus.attribute = KysChess::BattleAttribute::MpRecoveryBonus;
+    recoveryBonus.operation = KysChess::AttributeOperation::PercentAdd;
+    recoveryBonus.stack = KysChess::EffectStackPolicy::Independent;
+    BattleEffectCommandSystem::applyPersistentAttributeModifier(
+        state.effectCommands,
+        {
+            .binding = {
+                .kind = KysChess::EffectSourceKind::Combo,
+                .sourceId = 91,
+                .ownerUnitId = 0,
+                .sourceTeam = 0,
+            },
+            .ruleId = KysChess::EffectRuleId{ 1 },
+            .event = KysChess::EffectEvent::BattleInitialized,
+            .targetUnitId = 0,
+        },
+        { recoveryBonus, 100 },
+        0);
 
     runBattleFrame(state);
 
     CHECK(state.units.requireCore(0).vitals.mp == 20);
     CHECK(state.units.requireCore(1).vitals.mp == 21);
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrameState", "[battle][frame_runner][runtime][unit]")
-{
-    auto state = runtimeFrameState();
-
-    KysChess::RoleComboState combo;
-    combo.applyConfiguredEffect({ KysChess::EffectType::PostSkillInvincFrames, 12 });
-    combo.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
-    combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHeal, 7 });
-    combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHealPct, 3 });
-    state.units.require(0).combo = combo;
-    seedRuntimeUnits(state, {
-        teamRuntimeUnit(0, 0, 80),
-    });
-    configureFinishingSkillRuntime(state.units.requireCore(0));
-
-    runBattleFrame(state);
-
-    CHECK(state.units.requireCore(0).animation.cooldown == 0);
-    CHECK(state.units.requireCore(0).vitals.hp == 90);
-    CHECK_FALSE(state.units.require(0).combo.typePending(KysChess::EffectType::OnSkillTeamHeal));
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesSkillFinishedTeamHealToRuntimeUnits", "[battle][frame_runner][runtime][unit]")
-{
-    auto state = runtimeFrameState();
-    seedRuntimeUnits(state, {
-        teamRuntimeUnit(0, 0, 50),
-        teamRuntimeUnit(1, 0, 90),
-        teamRuntimeUnit(2, 1, 10),
-    });
-
-    KysChess::RoleComboState combo;
-    combo.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
-    combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHeal, 5 });
-    combo.applyConfiguredEffect({ KysChess::EffectType::OnSkillTeamHealPct, 10 });
-    state.units.require(0).combo = combo;
-    configureFinishingSkillRuntime(state.units.requireCore(0));
-
-    auto result = runBattleFrame(state);
-
-    CHECK(state.units.requireCore(0).vitals.hp == 65);
-    CHECK(state.units.requireCore(1).vitals.hp == 100);
-    CHECK(state.units.requireCore(2).vitals.hp == 10);
-    CHECK(std::count_if(
-        result.visualEvents.begin(),
-        result.visualEvents.end(),
-        [](const BattleVisualEvent& event)
-        {
-            return event.type == BattleVisualEventType::RoleEffect
-                && event.effectId == HealEffectId;
-        }) == 2);
-
-    const auto healLog = std::find_if(
-        result.logEvents.begin(),
-        result.logEvents.end(),
-        [](const BattleLogEvent& event)
-        {
-            return event.type == BattleLogEventType::Heal
-                && event.sourceUnitId == 0
-                && event.targetUnitId == 0;
-        });
-    REQUIRE(healLog != result.logEvents.end());
-    CHECK(healLog->amount == 15);
-    CHECK(BattleLogTest::textOf(*healLog) == "技能群療");
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_UsesUltimateSourceWhenCommittedCastFinishes", "[battle][frame_runner][runtime][magic]")
-{
-    auto state = runtimeFrameState();
-    seedRuntimeUnits(state, {
-        teamRuntimeUnit(0, 0, 50),
-        teamRuntimeUnit(1, 0, 80),
-        teamRuntimeUnit(2, 1, 100),
-    });
-
-    KysChess::RoleComboState combo;
-    combo.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
-    combo.applyConfiguredEffect({
-        KysChess::EffectType::OnSkillTeamHeal,
-        15,
-        0,
-        "",
-        KysChess::Trigger::OnUltimate,
-        100,
-    });
-    state.units.require(0).combo = combo;
-
-    configureFinishingSkillRuntime(state.units.requireCore(0));
-    state.units.require(0).markUltimateCaster();
-    state.units.require(0).clearUltimateCaster();
-
-    auto result = runBattleFrame(state);
-
-    CHECK(state.units.requireCore(0).vitals.hp == 65);
-    CHECK(state.units.requireCore(1).vitals.hp == 95);
-    CHECK_FALSE(state.units.require(0).combo.typePending(KysChess::EffectType::OnSkillTeamHeal));
-    CHECK(std::count_if(
-        result.visualEvents.begin(),
-        result.visualEvents.end(),
-        [](const BattleVisualEvent& event)
-        {
-            return event.type == BattleVisualEventType::RoleEffect
-                && event.effectId == HealEffectId;
-        }) == 2);
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_TriggersSelectedUltimateMagicTeamHealOnCooldownFinish", "[battle][frame_runner][runtime][magic]")
-{
-    auto state = runtimeFrameState();
-    seedRuntimeUnits(state, {
-        teamRuntimeUnit(0, 0, 50),
-        teamRuntimeUnit(1, 0, 80),
-        teamRuntimeUnit(2, 1, 100),
-    });
-
-    auto& skillEffects = state.units.require(0).skillEffects.ultimate.effects;
-    skillEffects.setTypePending(KysChess::EffectType::OnSkillTeamHeal, true);
-    const auto effectId = skillEffects.applyConfiguredEffect({
-        KysChess::EffectType::OnSkillTeamHeal,
-        12,
-        0,
-        "",
-        KysChess::Trigger::OnUltimate,
-        100,
-    });
-
-    configureFinishingSkillRuntime(state.units.requireCore(0));
-    state.units.require(0).markUltimateCaster();
-    state.units.require(0).clearUltimateCaster();
-
-    auto result = runBattleFrame(state);
-
-    CHECK(state.units.requireCore(0).vitals.hp == 62);
-    CHECK(state.units.requireCore(1).vitals.hp == 92);
-    CHECK_FALSE(state.units.require(0).skillEffects.ultimate.effects.typePending(KysChess::EffectType::OnSkillTeamHeal));
-    CHECK(state.units.require(0).skillEffects.ultimate.effects.triggeredEffectActivationCount(effectId) == 1);
-    CHECK(state.units.require(0).combo.triggeredEffectActivationCount(KysChess::RoleComboEffectId{ 0 }) == 0);
-    CHECK(std::count_if(
-        result.visualEvents.begin(),
-        result.visualEvents.end(),
-        [](const BattleVisualEvent& event)
-        {
-            return event.type == BattleVisualEventType::RoleEffect
-                && event.effectId == HealEffectId;
-        }) == 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
@@ -950,6 +1003,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     poisoned.hp = 80;
     poisoned.maxHp = 100;
     poisoned.effects.poisonTimer = 3;
+    poisoned.effects.poisonStacks = 2;
     poisoned.effects.poisonTickPct = 10;
     poisoned.effects.poisonSourceId = 0;
     seedRuntimeUnits(state, {
@@ -964,6 +1018,491 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 8 });
     CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
     CHECK(state.units.requireCore(1).vitals.hp == 72);
+    CHECK(state.units.require(1).status.effects.poisonStacks == 1);
+    CHECK(state.units.require(1).status.effects.poisonTimer == 2);
+}
+
+TEST_CASE("BattleFrameRunner_XuanmingSettlesScheduledRemainingPoisonDamage", "[battle][frame_runner][runtime][effect][poison]")
+{
+    auto state = runtimeFrameState();
+    state.movement.frame = 40;
+    state.status.config.poisonDamageIntervalFrames = 30;
+    auto target = teamRuntimeUnit(1, 1, 101);
+    target.vitals.maxHp = 200;
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 100),
+        target,
+    });
+    auto& poison = state.units.require(1).status.effects;
+    poison.poisonTimer = 32;
+    poison.poisonStacks = 1;
+    poison.poisonTickPct = 10;
+    poison.poisonSourceId = 7;
+    seedDamageExtrasFromUnits(state);
+
+    EffectCommandMetadata metadata;
+    metadata.binding = {
+        .kind = KysChess::EffectSourceKind::Magic,
+        .sourceId = 21,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    metadata.ruleId = KysChess::EffectRuleId{ 21 };
+    metadata.event = KysChess::EffectEvent::UltimateCommitted;
+    metadata.commandOrdinal = 1;
+    metadata.targetUnitId = 1;
+
+    const KysChess::SettleRemainingStatusDamageAction settlementAction{
+        .status = KysChess::BattleStatusKind::Poison,
+    };
+    const EffectCommand settlementCommand{
+        metadata,
+        StateMachineEffectCommand{
+            .action = KysChess::StateMachineAction{ settlementAction },
+        },
+    };
+
+    metadata.actionOrder = 1;
+    metadata.commandOrdinal = 2;
+    KysChess::RemoveStatusAction removeAction;
+    removeAction.statuses.push_back(KysChess::BattleStatusKind::Poison);
+    const EffectCommand removeCommand{
+        metadata,
+        RemoveStatusEffectCommand{ std::move(removeAction) },
+    };
+
+    metadata.actionOrder = 2;
+    metadata.commandOrdinal = 3;
+    KysChess::ApplyStatusAction applyAction;
+    applyAction.status = KysChess::BattleStatusKind::Poison;
+    applyAction.stacks = 5;
+    applyAction.durationFrames = 150;
+    applyAction.stack = KysChess::EffectStackPolicy::Replace;
+    applyAction.stackLimit = 5;
+    const EffectCommand applyCommand{
+        metadata,
+        ApplyStatusEffectCommand{ applyAction, 10, 0 },
+    };
+    state.effectIntegration.queuedCommandBatches.push_back({
+        .commands = { settlementCommand, removeCommand, applyCommand },
+        .context = { .frame = 41 },
+    });
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(state.movement.frame == 41);
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 10 });
+    CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
+    CHECK(state.units.requireCore(1).vitals.hp == 91);
+    CHECK(state.units.require(1).status.effects.poisonTimer == 150);
+    CHECK(state.units.require(1).status.effects.poisonStacks == 5);
+    CHECK(state.units.require(1).status.effects.poisonTickPct == 10);
+    CHECK(state.units.require(1).status.effects.poisonSourceId == 0);
+
+    const auto payload = std::ranges::find(
+        result.logEvents,
+        BattleStatusSemanticId::PoisonPayload,
+        &BattleLogEvent::statusId);
+    REQUIRE(payload != result.logEvents.end());
+    CHECK(payload->sourceUnitId == 0);
+    CHECK(payload->targetUnitId == 1);
+    CHECK(payload->amount == 10);
+    CHECK(payload->secondaryAmount == 5);
+
+    const auto applied = std::ranges::find(
+        result.logEvents,
+        BattleStatusSemanticId::Poison,
+        &BattleLogEvent::statusId);
+    REQUIRE(applied != result.logEvents.end());
+    CHECK(applied->sourceUnitId == 0);
+    CHECK(applied->targetUnitId == 1);
+    CHECK(applied->amount == 10);
+}
+
+TEST_CASE("BattleFrameRunner_StatusDamageSettlementHonorsClearAfterSettle", "[battle][frame_runner][runtime][effect][poison]")
+{
+    auto state = runtimeFrameState();
+    state.movement.frame = 40;
+    state.status.config.poisonDamageIntervalFrames = 30;
+    auto target = teamRuntimeUnit(1, 1, 101);
+    target.vitals.maxHp = 200;
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 100),
+        target,
+    });
+    auto& poison = state.units.require(1).status.effects;
+    poison.poisonTimer = 32;
+    poison.poisonStacks = 1;
+    poison.poisonTickPct = 10;
+    poison.poisonSourceId = 7;
+    seedDamageExtrasFromUnits(state);
+
+    EffectCommandMetadata metadata;
+    metadata.binding = {
+        .kind = KysChess::EffectSourceKind::Magic,
+        .sourceId = 21,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    metadata.ruleId = KysChess::EffectRuleId{ 21 };
+    metadata.event = KysChess::EffectEvent::UltimateCommitted;
+    metadata.commandOrdinal = 1;
+    metadata.targetUnitId = 1;
+
+    const KysChess::SettleRemainingStatusDamageAction action{
+        .status = KysChess::BattleStatusKind::Poison,
+    };
+    state.effectIntegration.queuedCommandBatches.push_back({
+        .commands = {
+            EffectCommand{
+                metadata,
+                StateMachineEffectCommand{
+                    .action = KysChess::StateMachineAction{ action },
+                },
+            },
+        },
+        .context = { .frame = 41 },
+    });
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 10 });
+    CHECK(state.units.requireCore(1).vitals.hp == 91);
+    CHECK(state.units.require(1).status.effects.poisonTimer > 0);
+    CHECK(state.units.require(1).status.effects.poisonStacks == 1);
+    CHECK(state.units.require(1).status.effects.poisonTickPct == 10);
+    CHECK(state.units.require(1).status.effects.poisonSourceId == 7);
+}
+
+TEST_CASE("BattleFrameRunner_StatusDamageSettlementPreservesPoisonWhenNoDamageRemains", "[battle][frame_runner][runtime][effect][poison]")
+{
+    auto state = runtimeFrameState();
+    state.movement.frame = 40;
+    state.status.config.poisonDamageIntervalFrames = 30;
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 100),
+        teamRuntimeUnit(1, 1, 100),
+    });
+    auto& poison = state.units.require(1).status.effects;
+    poison.poisonTimer = 19;
+    poison.poisonStacks = 1;
+    poison.poisonTickPct = 10;
+    poison.poisonSourceId = 7;
+    seedDamageExtrasFromUnits(state);
+
+    EffectCommandMetadata metadata;
+    metadata.binding = {
+        .kind = KysChess::EffectSourceKind::Magic,
+        .sourceId = 21,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    metadata.ruleId = KysChess::EffectRuleId{ 21 };
+    metadata.event = KysChess::EffectEvent::UltimateCommitted;
+    metadata.commandOrdinal = 1;
+    metadata.targetUnitId = 1;
+
+    const KysChess::SettleRemainingStatusDamageAction action{
+        .status = KysChess::BattleStatusKind::Poison,
+    };
+    state.effectIntegration.queuedCommandBatches.push_back({
+        .commands = {
+            EffectCommand{
+                metadata,
+                StateMachineEffectCommand{
+                    .action = KysChess::StateMachineAction{ action },
+                },
+            },
+        },
+        .context = { .frame = 41 },
+    });
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(damageLogAmountsFor(result, 1).empty());
+    CHECK(state.units.requireCore(1).vitals.hp == 100);
+    CHECK(state.units.require(1).status.effects.poisonTimer > 0);
+    CHECK(state.units.require(1).status.effects.poisonStacks == 1);
+    CHECK(state.units.require(1).status.effects.poisonTickPct == 10);
+    CHECK(state.units.require(1).status.effects.poisonSourceId == 7);
+}
+
+TEST_CASE("BattleFrameRunner_PoisonPayloadIsReportedWhenStrongerPoisonPreventsApplication", "[battle][frame_runner][runtime][effect][poison][report]")
+{
+    auto state = runtimeFrameState();
+    state.movement.frame = 40;
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 100),
+        teamRuntimeUnit(1, 1, 100),
+    });
+    auto& poison = state.units.require(1).status.effects;
+    poison.poisonTimer = 90;
+    poison.poisonStacks = 3;
+    poison.poisonTickPct = 12;
+    poison.poisonSourceId = 7;
+
+    EffectCommandMetadata metadata;
+    metadata.binding = {
+        .kind = KysChess::EffectSourceKind::Combo,
+        .sourceId = 81,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    metadata.ruleId = KysChess::EffectRuleId{ 31 };
+    metadata.event = KysChess::EffectEvent::HitBeforeDamage;
+    metadata.targetUnitId = 1;
+
+    KysChess::ApplyStatusAction action;
+    action.status = KysChess::BattleStatusKind::Poison;
+    action.stacks = 3;
+    action.durationFrames = 90;
+    action.stack = KysChess::EffectStackPolicy::KeepStrongest;
+    const EffectCommand command{
+        metadata,
+        ApplyStatusEffectCommand{ action, 7, 0 },
+    };
+    state.effectIntegration.queuedCommandBatches.push_back({
+        .commands = { command },
+        .context = { .frame = 41 },
+    });
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(state.units.require(1).status.effects.poisonStacks == 3);
+    CHECK(state.units.require(1).status.effects.poisonTickPct == 12);
+    CHECK(state.units.require(1).status.effects.poisonSourceId == 7);
+    const auto payloads = std::ranges::count(
+        result.logEvents,
+        BattleStatusSemanticId::PoisonPayload,
+        &BattleLogEvent::statusId);
+    const auto applications = std::ranges::count(
+        result.logEvents,
+        BattleStatusSemanticId::Poison,
+        &BattleLogEvent::statusId);
+    CHECK(payloads == 1);
+    CHECK(applications == 0);
+    const auto payload = std::ranges::find(
+        result.logEvents,
+        BattleStatusSemanticId::PoisonPayload,
+        &BattleLogEvent::statusId);
+    REQUIRE(payload != result.logEvents.end());
+    CHECK(payload->amount == 7);
+    CHECK(payload->secondaryAmount == 3);
+}
+
+TEST_CASE("BattleFrameRunner_MpDrainReportsActualRemovedAndRestoredDeltas", "[battle][frame_runner][runtime][effect][resource][report]")
+{
+    auto state = runtimeFrameState();
+    state.movement.frame = 7;
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 100),
+        teamRuntimeUnit(1, 1, 100),
+    });
+    state.units.requireCore(0).vitals.mp = 95;
+    state.units.requireCore(1).vitals.mp = 12;
+
+    EffectCommandMetadata metadata;
+    metadata.binding = {
+        .kind = KysChess::EffectSourceKind::Combo,
+        .sourceId = 81,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    metadata.ruleId = KysChess::EffectRuleId{ 32 };
+    metadata.event = KysChess::EffectEvent::DamageResolved;
+    metadata.targetUnitId = 1;
+
+    KysChess::ChangeResourceAction action;
+    action.resource = KysChess::BattleResource::Mp;
+    action.kind = KysChess::ResourceChangeKind::Drain;
+    const EffectCommand command{
+        metadata,
+        ChangeResourceEffectCommand{ action, 20 },
+    };
+    state.effectIntegration.queuedCommandBatches.push_back({
+        .commands = { command },
+        .context = { .frame = 8 },
+    });
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(0).vitals.mp == 100);
+    CHECK(state.units.requireCore(1).vitals.mp == 0);
+    const auto drained = std::ranges::find(
+        result.logEvents,
+        BattleStatusSemanticId::MagicPointsDrained,
+        &BattleLogEvent::statusId);
+    REQUIRE(drained != result.logEvents.end());
+    CHECK(drained->type == BattleLogEventType::Status);
+    CHECK(drained->sourceUnitId == 0);
+    CHECK(drained->targetUnitId == 1);
+    CHECK(drained->amount == 12);
+    CHECK(drained->resourceId == BattleResourceSemanticId::MagicPoints);
+
+    const auto restored = std::ranges::find_if(
+        result.logEvents,
+        [](const BattleLogEvent& event)
+        {
+            return event.type == BattleLogEventType::Heal
+                && event.resourceId == BattleResourceSemanticId::MagicPoints;
+        });
+    REQUIRE(restored != result.logEvents.end());
+    CHECK(restored->sourceUnitId == 0);
+    CHECK(restored->targetUnitId == 0);
+    CHECK(restored->amount == 5);
+}
+
+TEST_CASE("BattleFrameRunner_EnemyTopDebuffReportCoalescesPairedActionsAndTracksLivingOwners", "[battle][frame_runner][runtime][effect][enemy-top-debuff][report]")
+{
+    auto state = runtimeFrameState();
+    auto target = teamRuntimeUnit(1, 1, 100);
+    target.stats.attack = 100;
+    target.stats.defence = 80;
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 100),
+        target,
+        teamRuntimeUnit(2, 0, 100),
+        teamRuntimeUnit(3, 1, 100),
+        teamRuntimeUnit(4, 0, 100),
+    });
+
+    constexpr int ComboId = 82;
+    state.effectSourceNames.emplace(
+        std::pair{ KysChess::EffectSourceKind::Combo, ComboId },
+        "陰險");
+
+    KysChess::EffectRule rule;
+    rule.id = KysChess::EffectRuleId{ 33 };
+    rule.event = KysChess::EffectEvent::FrameAdvanced;
+    rule.selector.kind = KysChess::EffectSelectorKind::StrongestEnemies;
+    rule.selector.count = 1;
+
+    KysChess::ModifyAttributeAction attack;
+    attack.attribute = KysChess::BattleAttribute::Attack;
+    attack.operation = KysChess::AttributeOperation::FlatAdd;
+    attack.amount.flat = -22;
+    attack.durationFrames = 1;
+    attack.stack = KysChess::EffectStackPolicy::AddStack;
+    attack.stackLimit = 10;
+    attack.perStack = true;
+    rule.actions.push_back({ attack });
+
+    auto defence = attack;
+    defence.attribute = KysChess::BattleAttribute::Defence;
+    rule.actions.push_back({ defence });
+
+    appendOwnerEffectRule(state, 0, ComboId, rule);
+    appendOwnerEffectRule(state, 2, ComboId, std::move(rule));
+
+    const auto enemyTopEvents = [](const BattlePresentationFrame& frame)
+    {
+        std::vector<const BattleLogEvent*> result;
+        for (const auto& event : frame.logEvents)
+        {
+            if (event.statusId == BattleStatusSemanticId::EnemyTopDebuff)
+            {
+                result.push_back(&event);
+            }
+        }
+        return result;
+    };
+
+    const auto opening = runBattleFrame(state);
+    const auto openingEvents = enemyTopEvents(opening);
+    REQUIRE(openingEvents.size() == 1);
+    CHECK(openingEvents[0]->targetUnitId == 1);
+    CHECK(openingEvents[0]->amount == -44);
+    CHECK(openingEvents[0]->previousAmount == 0);
+    CHECK(openingEvents[0]->newAmount == -44);
+    CHECK(openingEvents[0]->semanticSourceTeam == 0);
+    CHECK(openingEvents[0]->semanticSourceKind == "combo");
+    CHECK(openingEvents[0]->semanticSourceName == "陰險");
+    CHECK(BattleEffectCommandSystem::queryAttribute(state, {
+        .unitId = 1,
+        .attribute = KysChess::BattleAttribute::Attack,
+        .baseValue = 100,
+        .frame = state.movement.frame,
+    }) == 56);
+    CHECK(BattleEffectCommandSystem::queryAttribute(state, {
+        .unitId = 1,
+        .attribute = KysChess::BattleAttribute::Defence,
+        .baseValue = 80,
+        .frame = state.movement.frame,
+    }) == 36);
+
+    const auto refresh = runBattleFrame(state);
+    CHECK(enemyTopEvents(refresh).empty());
+
+    auto& secondOwner = state.units.requireCore(2);
+    secondOwner.alive = false;
+    secondOwner.vitals.hp = 0;
+    const auto oneOwner = runBattleFrame(state);
+    const auto oneOwnerEvents = enemyTopEvents(oneOwner);
+    REQUIRE(oneOwnerEvents.size() == 1);
+    CHECK(oneOwnerEvents[0]->targetUnitId == 1);
+    CHECK(oneOwnerEvents[0]->amount == 22);
+    CHECK(oneOwnerEvents[0]->previousAmount == -44);
+    CHECK(oneOwnerEvents[0]->newAmount == -22);
+
+    auto& firstOwner = state.units.requireCore(0);
+    firstOwner.alive = false;
+    firstOwner.vitals.hp = 0;
+    const auto noOwners = runBattleFrame(state);
+    const auto noOwnerEvents = enemyTopEvents(noOwners);
+    REQUIRE(noOwnerEvents.size() == 1);
+    CHECK(noOwnerEvents[0]->targetUnitId == 1);
+    CHECK(noOwnerEvents[0]->amount == 22);
+    CHECK(noOwnerEvents[0]->previousAmount == -22);
+    CHECK(noOwnerEvents[0]->newAmount == 0);
+}
+
+TEST_CASE("BattleFrameRunner_ContinuesCompoundEffectsAfterQueuedDamageSettles", "[battle][frame_runner][runtime][effect][damage][continuation]")
+{
+    auto state = runtimeFrameState();
+    seedRuntimeUnits(state, {
+        teamRuntimeUnit(0, 0, 100),
+        teamRuntimeUnit(1, 1, 100),
+    });
+    seedDamageExtrasFromUnits(state);
+
+    EffectCommandMetadata metadata;
+    metadata.binding = {
+        .kind = KysChess::EffectSourceKind::Magic,
+        .sourceId = 21,
+        .ownerUnitId = 0,
+        .sourceTeam = 0,
+    };
+    metadata.ruleId = KysChess::EffectRuleId{ 21 };
+    metadata.event = KysChess::EffectEvent::UltimateCommitted;
+    metadata.commandOrdinal = 1;
+    metadata.targetUnitId = 1;
+
+    KysChess::DealDamageAction damageAction;
+    damageAction.kind = KysChess::BattleDamageKind::Effect;
+    const EffectCommand damageCommand{
+        metadata,
+        DealDamageEffectCommand{ damageAction, 20, 1 },
+    };
+
+    metadata.actionOrder = 1;
+    metadata.commandOrdinal = 2;
+    KysChess::ChangeResourceAction healAction;
+    healAction.resource = KysChess::BattleResource::Hp;
+    healAction.kind = KysChess::ResourceChangeKind::Restore;
+    const EffectCommand healCommand{
+        metadata,
+        ChangeResourceEffectCommand{ healAction, 10 },
+    };
+    state.effectIntegration.queuedCommandBatches.push_back({
+        .commands = { damageCommand, healCommand },
+        .context = { .frame = 1 },
+    });
+
+    const auto result = runBattleFrame(state);
+
+    CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 20 });
+    CHECK(state.units.requireCore(1).vitals.hp == 90);
+    CHECK(state.heals.committedTransactions.size() == 1);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction", "[battle][frame_runner][runtime][unit]")
@@ -1011,6 +1550,71 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     CHECK(bleedNumber != result.visualEvents.end());
 }
 
+TEST_CASE("BattleFrameRunner_StatusDotsApplyOnlyLiveTypedDefenderModifiers", "[battle][frame_runner][runtime][status][damage]")
+{
+    const auto damageAfterTick = [](bool poison,
+                                    std::vector<BattleTypedStatusInstance> typedStatuses)
+    {
+        auto state = runtimeFrameState();
+        state.status.config.poisonDamageIntervalFrames = 30;
+        state.status.config.bleedDamageIntervalFrames = 10;
+        if (poison)
+        {
+            state.movement.frame = 30;
+        }
+
+        BattleStatusUnitState status;
+        status.id = 1;
+        status.alive = true;
+        status.hp = 80;
+        status.maxHp = 100;
+        status.effects.typedStatuses = std::move(typedStatuses);
+        if (poison)
+        {
+            status.effects.poisonTimer = 3;
+            status.effects.poisonStacks = 1;
+            status.effects.poisonTickPct = 10;
+            status.effects.poisonSourceId = 0;
+        }
+        else
+        {
+            status.effects.bleedStacks = 8;
+            status.effects.bleedTimer = 1;
+            status.effects.bleedSourceId = 0;
+        }
+        seedRuntimeUnits(state, {
+            teamRuntimeUnit(0, 0, 100),
+            teamRuntimeUnit(1, 1, 80),
+        });
+        state.units.require(1).status = runtimeStatusUnit(status);
+        seedDamageExtrasFromUnits(state);
+
+        runBattleFrame(state);
+        return 80 - state.units.requireCore(1).vitals.hp;
+    };
+
+    const BattleTypedStatusInstance witheredBone{
+        .kind = KysChess::BattleStatusKind::WitheredBone,
+        .sourceUnitId = 0,
+        .remainingFrames = 120,
+        .potency = 25,
+        .secondaryPotency = 75,
+    };
+    const BattleTypedStatusInstance battleSpirit{
+        .kind = KysChess::BattleStatusKind::BattleSpirit,
+        .sourceUnitId = 1,
+        .remainingFrames = 120,
+        .secondaryPotency = 50,
+    };
+
+    CHECK(damageAfterTick(true, {}) == 8);
+    CHECK(damageAfterTick(false, {}) == 8);
+    CHECK(damageAfterTick(true, { witheredBone }) == 10);
+    CHECK(damageAfterTick(false, { witheredBone }) == 10);
+    CHECK(damageAfterTick(true, { battleSpirit }) == 4);
+    CHECK(damageAfterTick(false, { battleSpirit }) == 4);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DecrementsInvincibility", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
@@ -1031,133 +1635,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DecrementsInvincibility", "[battle][fr
     CHECK(state.units.requireCore(0).invincible == 2);
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesFrameRuntimeTeamEffects", "[battle][frame_runner][runtime][unit]")
-{
-    auto state = runtimeFrameState();
-    state.movement.frame = 6;
-    state.teamEffects.healAuraRadius = SceneTileWidth * 6.0;
-    seedRuntimeUnits(state, {
-        teamRuntimeUnitAt(0, 0, 50, { 0, 0, 0 }),
-        teamRuntimeUnitAt(1, 0, 80, { 100, 0, 0 }, 50),
-        teamRuntimeUnitAt(2, 0, 60, { 300, 0, 0 }, 50),
-        teamRuntimeUnitAt(3, 1, 20, { 50, 0, 0 }),
-    });
-
-    KysChess::RoleComboState combo;
-    combo.applyConfiguredEffect({ KysChess::EffectType::HPRegenPct, 20, 6 });
-    combo.applyConfiguredEffect({ KysChess::EffectType::HealAuraFlat, 5, 6 });
-    combo.applyConfiguredEffect({ KysChess::EffectType::HealAuraPct, 10, 6 });
-    combo.applyConfiguredEffect({ KysChess::EffectType::HealedATKSPDBoost, 20 });
-    state.units.require(0).combo = combo;
-
-    configureFinishingSkillRuntime(state.units.requireCore(0));
-    state.units.requireCore(0).animation.cooldown = 0;
-
-    auto result = runBattleFrame(state);
-
-    CHECK(state.units.requireCore(0).vitals.hp == 70);
-    CHECK(state.units.requireCore(1).vitals.hp == 95);
-    CHECK(state.units.requireCore(1).animation.cooldown == 39);
-    CHECK(state.units.requireCore(2).vitals.hp == 60);
-    CHECK(state.units.requireCore(2).animation.cooldown == 49);
-    CHECK(state.units.requireCore(3).vitals.hp == 20);
-
-    CHECK(std::count_if(
-        result.visualEvents.begin(),
-        result.visualEvents.end(),
-        [](const BattleVisualEvent& event)
-        {
-            return event.type == BattleVisualEventType::RoleEffect
-                && event.effectId == HealEffectId;
-        }) == 2);
-
-    const auto selfRegenLog = std::find_if(
-        result.logEvents.begin(),
-        result.logEvents.end(),
-        [](const BattleLogEvent& event)
-        {
-            return event.type == BattleLogEventType::Heal
-                && event.targetUnitId == 0
-                && BattleLogTest::textOf(event) == "生命回復";
-        });
-    CHECK(selfRegenLog != result.logEvents.end());
-
-    const auto auraLog = std::find_if(
-        result.logEvents.begin(),
-        result.logEvents.end(),
-        [](const BattleLogEvent& event)
-        {
-            return event.type == BattleLogEventType::Heal
-                && event.targetUnitId == 1
-                && BattleLogTest::textOf(event) == "治療光環";
-        });
-    CHECK(auraLog != result.logEvents.end());
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesBurstHealFrameTrigger", "[battle][frame_runner][runtime][unit]")
-{
-    auto state = runtimeFrameState();
-    seedRuntimeUnits(state, {
-        teamRuntimeUnit(0, 0, 40),
-    });
-
-    KysChess::ComboEffectSnapshot healBurst;
-    healBurst.type = KysChess::EffectType::HealBurst;
-    healBurst.trigger = KysChess::Trigger::WhileLowHP;
-    healBurst.triggerValue = 50;
-    healBurst.value = 25;
-    healBurst.maxCount = 1;
-
-    KysChess::RoleComboState combo;
-    combo.applyConfiguredEffect(healBurst);
-    state.units.require(0).combo = combo;
-
-    configureFinishingSkillRuntime(state.units.requireCore(0));
-    state.units.requireCore(0).animation.cooldown = 0;
-
-    auto result = runBattleFrame(state);
-
-    CHECK(state.units.requireCore(0).vitals.hp == 65);
-    CHECK(state.units.require(0).combo.triggeredEffectActivationCount(KysChess::RoleComboEffectId{ 0 }) == 1);
-
-    const auto healLog = std::find_if(
-        result.logEvents.begin(),
-        result.logEvents.end(),
-        [](const BattleLogEvent& event)
-        {
-            return event.type == BattleLogEventType::Heal
-                && event.sourceUnitId == 0
-                && event.targetUnitId == 0
-                && event.amount == 25
-                && BattleLogTest::textOf(event) == "爆發治療";
-        });
-    CHECK(healLog != result.logEvents.end());
-}
-
-TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyPostSkillInvincibilityOnSkillFinish", "[battle][frame_runner][runtime][unit]")
-{
-    auto state = runtimeFrameState();
-    seedRuntimeUnits(state, {
-        teamRuntimeUnit(0, 0, 80),
-    });
-    state.units.requireCore(0).invincible = 3;
-
-    KysChess::RoleComboState combo;
-    combo.applyConfiguredEffect({ KysChess::EffectType::PostSkillInvincFrames, 12 });
-    state.units.require(0).combo = combo;
-
-    configureFinishingSkillRuntime(state.units.requireCore(0));
-
-    auto result = runBattleFrame(state);
-
-    CHECK(state.units.requireCore(0).invincible == 2);
-}
-
 TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
-    state.attacks.attacks.push_back(cancelProjectile(10, 0));
-    state.attacks.attacks.push_back(cancelProjectile(20, 1));
+    appendTrackedRootAttack(state, cancelProjectile(10, 0));
+    appendTrackedRootAttack(state, cancelProjectile(20, 1));
     state.attacks.attacks[0].state.projectileCancelDamage = 25;
     state.attacks.attacks[1].state.projectileCancelDamage = 12;
     auto result = runBattleFrame(state);

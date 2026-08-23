@@ -10,7 +10,10 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <format>
+#include <iterator>
+#include <limits>
 #include <map>
 #include <set>
 #include <string>
@@ -23,50 +26,32 @@ namespace KysChess::Battle
 namespace
 {
 
+template<class... Visitors>
+struct Overloaded : Visitors...
+{
+    using Visitors::operator()...;
+};
+
+template<class... Visitors>
+Overloaded(Visitors...) -> Overloaded<Visitors...>;
+
 struct TeamResolvedSetup
 {
-    std::map<int, RoleComboState> baseStatesByRealRoleId;
-    std::vector<std::pair<ComboEffect, int>> teamwideEffects;
-};
-
-struct OpponentTopDebuffSummary
-{
-    int liveOwners{};
-    int topTargets{};
-    int perOwnerValue{};
-};
-
-int applyPercentBonus(int value, int pct)
-{
-    if (pct == 0)
+    struct ActiveComboRules
     {
-        return value;
-    }
+        int comboId = -1;
+        bool isAntiCombo = false;
+        std::set<int> memberRoleIds;
+        std::vector<EffectRule> rules;
+    };
 
-    return value * (100 + pct) / 100;
-}
+    std::map<int, FightWinGrowthRule> fightWinGrowthByRealRoleId;
+    std::vector<ActiveComboRules> activeComboRules;
+};
 
 std::string shieldLogText(const char* prefix, int shield)
 {
     return std::format("{}{}護盾", prefix, shield);
-}
-
-bool isTeamwideComboEffect(EffectType type)
-{
-    switch (type)
-    {
-    case EffectType::TeamFlatHP:
-    case EffectType::TeamFlatATK:
-    case EffectType::TeamFlatDEF:
-    case EffectType::TeamFlatSPD:
-    case EffectType::TeamPctHP:
-    case EffectType::TeamPctATK:
-    case EffectType::TeamPctDEF:
-    case EffectType::TeamPctSPD:
-        return true;
-    default:
-        return false;
-    }
 }
 
 bool equipmentSynergyActive(
@@ -108,16 +93,16 @@ std::vector<ChessComboResolverEquipmentRule> comboResolverEquipmentRules(
     std::vector<ChessComboResolverEquipmentRule> result;
     for (const auto& equipment : setup.equipmentDefinitions)
     {
-        if (!equipment.actAsComboNames.empty())
+        if (!equipment.countsAsComboNames.empty())
         {
-            result.push_back({equipment.itemId, {}, equipment.actAsComboNames});
+            result.push_back({equipment.itemId, {}, equipment.countsAsComboNames});
         }
     }
     for (const auto& synergy : setup.equipmentSynergies)
     {
-        if (!synergy.actAsComboNames.empty())
+        if (!synergy.countsAsComboNames.empty())
         {
-            result.push_back({synergy.equipmentId, synergy.roleIds, synergy.actAsComboNames});
+            result.push_back({synergy.equipmentId, synergy.roleIds, synergy.countsAsComboNames});
         }
     }
     return result;
@@ -172,32 +157,24 @@ TeamResolvedSetup resolveTeamSetup(
 
         for (int roleId : active.memberRoleIds)
         {
-            auto& state = resolved.baseStatesByRealRoleId[roleId];
-            for (const auto& effect : threshold.effects)
-            {
-                if (isTeamwideComboEffect(effect.type))
-                {
-                    continue;
-                }
-                state.applyConfiguredEffect(effect, active.id);
-            }
+            auto& growth = resolved.fightWinGrowthByRealRoleId[roleId];
+            growth.maxHp += threshold.fightWinGrowth.maxHp;
+            growth.attack += threshold.fightWinGrowth.attack;
+            growth.defence += threshold.fightWinGrowth.defence;
         }
-
-        for (const auto& effect : threshold.effects)
-        {
-            if (!isTeamwideComboEffect(effect.type))
-            {
-                continue;
-            }
-            resolved.teamwideEffects.push_back({ effect, active.id });
-        }
+        resolved.activeComboRules.push_back({
+            .comboId = active.id,
+            .isAntiCombo = active.isAntiCombo,
+            .memberRoleIds = active.memberRoleIds,
+            .rules = threshold.rules,
+        });
     }
 
     return resolved;
 }
 
 void applyEquipmentEffects(
-    RoleComboState& combo,
+    BattleEffectRuleStore& rules,
     const BattleRuntimeSetupSeed& setup,
     const BattleInitializationUnitSeed& seed,
     const std::vector<BattleSetupRosterUnit>& roster)
@@ -215,10 +192,14 @@ void applyEquipmentEffects(
         {
             return;
         }
-        for (const auto& effect : definition->effects)
-        {
-            combo.applyConfiguredEffect(effect);
-        }
+        rules.append(
+            {
+                .kind = EffectSourceKind::Equipment,
+                .sourceId = definition->itemId,
+                .ownerUnitId = seed.unitId,
+                .sourceTeam = seed.team,
+            },
+            definition->rules);
     };
 
     applyDefinition(rosterUnit->weaponId);
@@ -229,17 +210,22 @@ void applyEquipmentEffects(
         {
             continue;
         }
-        for (const auto& effect : synergy.effects)
-        {
-            combo.applyConfiguredEffect(effect);
-        }
+        rules.append(
+            {
+                .kind = EffectSourceKind::EquipmentSynergy,
+                .sourceId = synergy.equipmentId,
+                .ownerUnitId = seed.unitId,
+                .sourceTeam = seed.team,
+            },
+            synergy.rules);
     }
 }
 
 void applyObtainedNeigongEffects(
-    RoleComboState& combo,
+    BattleEffectRuleStore& rules,
     const BattleRuntimeSetupSeed& setup,
-    int team)
+    int team,
+    int unitId)
 {
     assert(team >= 0 && team < static_cast<int>(setup.obtainedNeigongMagicIdsByTeam.size()));
     for (int magicId : setup.obtainedNeigongMagicIdsByTeam[team])
@@ -249,59 +235,15 @@ void applyObtainedNeigongEffects(
         {
             continue;
         }
-        for (const auto& effect : definition->effects)
-        {
-            combo.applyConfiguredEffect(effect);
-        }
+        rules.append(
+            {
+                .kind = EffectSourceKind::Neigong,
+                .sourceId = definition->magicId,
+                .ownerUnitId = unitId,
+                .sourceTeam = team,
+            },
+            definition->rules);
     }
-}
-
-BattleUnitSkillEffectState makeSkillEffectState(
-    int magicId,
-    const BattleRuntimeSetupSeed& setup)
-{
-    BattleUnitSkillEffectState state;
-    if (magicId < 0)
-    {
-        return state;
-    }
-
-    state.magicId = magicId;
-    const auto* definition = tryFindBy(
-        setup.magicEffectDefinitions,
-        magicId,
-        &ChessMagicEffectDefinition::magicId);
-    if (!definition)
-    {
-        return state;
-    }
-
-    for (const auto& effect : definition->effects)
-    {
-        state.effects.applyConfiguredEffect(effect);
-    }
-    return state;
-}
-
-BattleUnitMagicEffectRuntime makeSkillEffectsFromActionPlan(
-    const BattleActionPlanSeed* actionPlan,
-    const BattleRuntimeSetupSeed& setup)
-{
-    BattleUnitMagicEffectRuntime runtime;
-    if (!actionPlan)
-    {
-        return runtime;
-    }
-
-    runtime.ultimate = makeSkillEffectState(actionPlan->ultimateSkill.id, setup);
-    return runtime;
-}
-
-void rebuildSpawnSkillEffects(
-    BattleRuntimeUnitSpawn& spawn,
-    const BattleRuntimeSetupSeed& setup)
-{
-    spawn.skillEffects = makeSkillEffectsFromActionPlan(spawn.actionPlan(), setup);
 }
 
 Pointf positionForCloneCell(const BattleGridTransform& gridTransform, int x, int y)
@@ -336,6 +278,38 @@ BattleRuntimeUnit makeCloneRuntimeUnit(
     return clone;
 }
 
+BattleRuntimeUnitSpawn makeInitializedCloneSpawn(
+    const BattleRuntimeUnitSpawn& initializedSource,
+    int cloneUnitId,
+    const BattleGridTransform& gridTransform,
+    const BattleInitializationCloneSpawnCell& cell)
+{
+    // 來源是 BattleInitialized 完成後、任何戰鬥 frame 開始前擷取的
+    // 不可變快照。先完整複製，新增的 unit runtime 欄位即可自然繼承。
+    auto clone = initializedSource;
+    clone.unit = makeCloneRuntimeUnit(
+        initializedSource.unit,
+        cloneUnitId,
+        gridTransform,
+        cell);
+    clone.comboFacts.memberComboIds.clear();
+    rewriteBattleStatusSourceUnitId(
+        clone.status,
+        initializedSource.unit.id,
+        cloneUnitId);
+    clone.movement = makeInitialMovementAgent(clone.unit);
+    if (clone.actionPlanSeed)
+    {
+        clone.actionPlanSeed->unitId = cloneUnitId;
+    }
+    return clone;
+}
+
+struct BattleInitializedBaseline
+{
+    std::map<int, BattleRuntimeUnitSpawn> spawnsByUnitId;
+};
+
 BattleInitializationRoleDelta makeRoleDelta(
     int unitId,
     int star,
@@ -360,131 +334,6 @@ BattleInitializationRoleDelta makeRoleDelta(
     return delta;
 }
 
-std::vector<BattleInitializationEnemyTopDebuffDelta> applyEnemyTopDebuff(
-    std::vector<BattleRuntimeUnitSpawn>& spawns,
-    int frame,
-    std::vector<BattleLogEvent>& logEvents)
-{
-    std::array<OpponentTopDebuffSummary, 2> summaries;
-    for (const auto& spawn : spawns)
-    {
-        const auto& owner = spawn.unit;
-        if (!owner.alive)
-        {
-            continue;
-        }
-        assert(owner.team == 0 || owner.team == 1);
-
-        const auto* topDebuff = (spawn.combo).firstAlways(EffectType::EnemyTopDebuff);
-        if (!topDebuff || topDebuff->value <= 0)
-        {
-            continue;
-        }
-
-        auto& summary = summaries[owner.team];
-        summary.liveOwners++;
-        summary.topTargets = std::max(summary.topTargets, topDebuff->value);
-        summary.perOwnerValue = std::max(summary.perOwnerValue, topDebuff->value2);
-    }
-
-    auto sortScore = [](const BattleRuntimeUnit& unit)
-    {
-        if (unit.cost <= 0)
-        {
-            return 0LL;
-        }
-
-        long long score = 1;
-        for (int index = 0; index < unit.star; ++index)
-        {
-            score *= unit.cost;
-        }
-        return score;
-    };
-
-    std::vector<BattleInitializationEnemyTopDebuffDelta> deltas;
-    for (int ownerTeam = 0; ownerTeam < static_cast<int>(summaries.size()); ++ownerTeam)
-    {
-        const auto& summary = summaries[ownerTeam];
-        const int targetTeam = 1 - ownerTeam;
-        std::vector<BattleRuntimeUnitSpawn*> targetOrder;
-        for (auto& spawn : spawns)
-        {
-            const auto& unit = spawn.unit;
-            if (unit.team == targetTeam && unit.alive)
-            {
-                targetOrder.push_back(&spawn);
-            }
-        }
-
-        std::stable_sort(
-            targetOrder.begin(),
-            targetOrder.end(),
-            [&sortScore](const BattleRuntimeUnitSpawn* left, const BattleRuntimeUnitSpawn* right)
-            {
-                const long long leftScore = sortScore(left->unit);
-                const long long rightScore = sortScore(right->unit);
-                if (leftScore != rightScore)
-                {
-                    return leftScore > rightScore;
-                }
-                return left->unit.vitals.maxHp > right->unit.vitals.maxHp;
-            });
-
-        int assignedTargets = 0;
-        for (auto* targetSpawn : targetOrder)
-        {
-            auto& target = targetSpawn->unit;
-            auto& combo = targetSpawn->combo;
-
-            int desired = 0;
-            if (assignedTargets < summary.topTargets && summary.liveOwners > 0 && summary.perOwnerValue > 0)
-            {
-                desired = summary.perOwnerValue * summary.liveOwners;
-                ++assignedTargets;
-            }
-
-            const int delta = combo.setEnemyTopDebuffApplied(desired);
-            if (delta == 0)
-            {
-                continue;
-            }
-
-            target.stats.attack = std::max(0, target.stats.attack - delta);
-            target.stats.defence = std::max(0, target.stats.defence - delta);
-            deltas.push_back({
-                target.id,
-                -delta,
-                -delta,
-                desired,
-            });
-            BattleLogEvent log;
-            log.type = BattleLogEventType::Status;
-            log.frame = frame;
-            log.targetUnitId = target.id;
-            log.amount = -delta;
-            log.previousAmount = -(desired - delta);
-            log.newAmount = -desired;
-            log.statusId = BattleStatusSemanticId::EnemyTopDebuff;
-            log.semanticSourceTeam = ownerTeam;
-            log.semanticSourceKind = "combo";
-            log.semanticSourceName = "陰險";
-            log.segments = logSegments<BattleLogTextTone::SkillName>(
-                "陰險：前",
-                std::pair{ BattleLogTextTone::ResourceValue, summary.topTargets },
-                "名攻防",
-                std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, delta > 0 ? "-" : "+" },
-                std::pair{ delta > 0 ? BattleLogTextTone::Negative : BattleLogTextTone::Positive, std::abs(delta) },
-                "（",
-                std::pair{ BattleLogTextTone::ResourceValue, summary.liveOwners },
-                "名存活）");
-            logEvents.push_back(std::move(log));
-        }
-    }
-
-    return deltas;
-}
-
 class BattleStartInitializationRun
 {
 public:
@@ -495,11 +344,11 @@ public:
     BattleInitializationOutput run() &&;
 
 private:
-    void initializeSkillEffectStates();
     void initializeSeededUnits();
-    void applyTeamFlatShields();
+    void bindActiveComboRules();
+    void dispatchBattleInitializedRules();
+    void captureInitializedBaseline();
     void summonClones();
-    void applyEnemyTopDebuffs();
     void appendSeededRoleDeltas();
 
     decltype(auto) spawn(this auto& self, int unitId)
@@ -513,7 +362,6 @@ private:
 
     void appendSpawn(BattleRuntimeUnitSpawn spawn);
 
-    int teamFlatShield(int team) const;
     std::map<int, int> cloneCountByTeam() const;
 
     const TeamResolvedSetup& resolvedForTeam(int team) const;
@@ -525,6 +373,14 @@ private:
     TeamResolvedSetup allyResolved_;
     TeamResolvedSetup enemyResolved_;
     BattleInitializationResult result_;
+    BattleEffectRuleStore effectRules_;
+    BattleEffectCommandRuntimeState effectCommands_;
+    std::set<int> activeAntiComboIds_;
+    std::map<int, int> cloneCountByTeam_;
+    std::set<int> cloneSourceOwnerUnitIds_;
+    std::map<int, int> deathPreventionFramesByUnitId_;
+    std::map<int, BattleRescueUnitRuntime> rescueByUnitId_;
+    std::optional<BattleInitializedBaseline> initializedBaseline_;
     std::unordered_map<int, std::size_t> spawnIndexByUnitId_;
     std::vector<int> seededUnitIds_;
     std::map<int, StarBoostedStats> starStatsByUnitId_;
@@ -553,16 +409,18 @@ BattleStartInitializationRun::BattleStartInitializationRun(
 
 BattleInitializationOutput BattleStartInitializationRun::run() &&
 {
-    initializeSkillEffectStates();
     initializeSeededUnits();
-    applyTeamFlatShields();
+    bindActiveComboRules();
+    dispatchBattleInitializedRules();
+    captureInitializedBaseline();
     summonClones();
-    applyEnemyTopDebuffs();
     appendSeededRoleDeltas();
 
     return {
         std::move(spawns_),
         std::move(result_),
+        std::move(effectRules_),
+        std::move(effectCommands_),
     };
 }
 
@@ -573,14 +431,6 @@ void BattleStartInitializationRun::appendSpawn(BattleRuntimeUnitSpawn spawn)
     assert(!spawnIndexByUnitId_.contains(unitId));
     spawnIndexByUnitId_.emplace(unitId, spawns_.size());
     spawns_.push_back(std::move(spawn));
-}
-
-void BattleStartInitializationRun::initializeSkillEffectStates()
-{
-    for (auto& spawn : spawns_)
-    {
-        rebuildSpawnSkillEffects(spawn, setup_);
-    }
 }
 
 const TeamResolvedSetup& BattleStartInitializationRun::resolvedForTeam(int team) const
@@ -599,7 +449,16 @@ void BattleStartInitializationRun::initializeSeededUnits()
     {
         auto& spawn = this->spawn(seed.unitId);
         auto& unit = spawn.unit;
-        auto& combo = spawn.combo;
+        auto& comboFacts = spawn.comboFacts;
+
+        for (const auto& combo : setup_.comboDefinitions)
+        {
+            if (std::ranges::find(combo.memberRoleIds, seed.realRoleId)
+                != combo.memberRoleIds.end())
+            {
+                comboFacts.memberComboIds.insert(combo.id);
+            }
+        }
 
         const auto& resolved = resolvedForTeam(seed.team);
         const auto& roster = rosterForTeam(seed.team);
@@ -607,34 +466,23 @@ void BattleStartInitializationRun::initializeSeededUnits()
         int extraFightWinGrowthHP{};
         int extraFightWinGrowthATK{};
         int extraFightWinGrowthDEF{};
-        if (const auto baseStateIt = resolved.baseStatesByRealRoleId.find(seed.realRoleId);
-            baseStateIt != resolved.baseStatesByRealRoleId.end())
+        if (const auto growth = resolved.fightWinGrowthByRealRoleId.find(seed.realRoleId);
+            growth != resolved.fightWinGrowthByRealRoleId.end())
         {
-            const auto& baseState = baseStateIt->second;
-            for (RoleComboEffectId effectId : baseState.effectIdsInAppendOrder())
-            {
-                const auto& effect = baseState.effect(effectId);
-                if (effect.origin != RoleComboEffectOrigin::Configured)
-                {
-                    continue;
-                }
-                combo.applyConfiguredEffect(effect, effect.sourceComboId);
-            }
-            const auto& baseBonuses = baseState.statBonuses();
-            extraFightWinGrowthHP = baseBonuses.fightWinGrowthHP;
-            extraFightWinGrowthATK = baseBonuses.fightWinGrowthATK;
-            extraFightWinGrowthDEF = baseBonuses.fightWinGrowthDEF;
-        }
-        for (const auto& [effect, sourceComboId] : resolved.teamwideEffects)
-        {
-            combo.applyConfiguredEffect(effect, sourceComboId);
+            extraFightWinGrowthHP = growth->second.maxHp;
+            extraFightWinGrowthATK = growth->second.attack;
+            extraFightWinGrowthDEF = growth->second.defence;
         }
         applyEquipmentEffects(
-            combo,
+            effectRules_,
             setup_,
             seed,
             roster);
-        applyObtainedNeigongEffects(combo, setup_, seed.team);
+        applyObtainedNeigongEffects(
+            effectRules_,
+            setup_,
+            seed.team,
+            seed.unitId);
 
         const int normalizedStar = normalizeBattleStar(rosterUnit ? rosterUnit->star : seed.star);
         const int fightsWon = rosterUnit ? rosterUnit->fightsWon : 0;
@@ -658,140 +506,559 @@ void BattleStartInitializationRun::initializeSeededUnits()
             extraFightWinGrowthDEF);
         starStatsByUnitId_[seed.unitId] = starBoostedStats;
 
-        const auto& comboStatBonuses = combo.statBonuses();
-        unit.vitals.maxHp = starBoostedStats.hp + comboStatBonuses.flatHP;
-        unit.stats.attack = starBoostedStats.atk + comboStatBonuses.flatATK;
-        unit.stats.defence = starBoostedStats.def + comboStatBonuses.flatDEF;
-        unit.stats.speed = starBoostedStats.spd + comboStatBonuses.flatSPD;
+        unit.vitals.maxHp = starBoostedStats.hp;
+        unit.stats.attack = starBoostedStats.atk;
+        unit.stats.defence = starBoostedStats.def;
+        unit.stats.speed = starBoostedStats.spd;
         unit.realRoleId = seed.realRoleId;
         unit.team = seed.team;
         unit.star = seed.star;
         unit.cost = seed.cost;
 
-        unit.vitals.maxHp = applyPercentBonus(unit.vitals.maxHp, comboStatBonuses.pctHP);
-        unit.stats.attack = applyPercentBonus(unit.stats.attack, comboStatBonuses.pctATK);
-        unit.stats.defence = applyPercentBonus(unit.stats.defence, comboStatBonuses.pctDEF);
-        unit.stats.speed = applyPercentBonus(unit.stats.speed, comboStatBonuses.pctSPD);
         unit.vitals.hp = unit.vitals.maxHp;
-
-        const int shieldPctMaxHP = combo.sumAlways(EffectType::ShieldPctMaxHP);
-        if (shieldPctMaxHP > 0)
-        {
-            const int shield = unit.vitals.maxHp * shieldPctMaxHP / 100;
-            result_.logEvents.push_back(
-                {
-                    BattleLogEventType::Status,
-                    context_.frame,
-                    seed.unitId,
-                    -1,
-                    shield,
-                    BattleLogCategory::Status,
-                    BattleLogPerspective::Targeted,
-                    battleLogText(shieldLogText("獲取", shield), BattleLogTextTone::ShieldValue),
-                });
-        }
-
-        combo.seedAutoUltimateFrameTimers();
-        refreshRuntimeUnitSpawnDerivedState(spawn);
         seededUnitIds_.push_back(seed.unitId);
     }
 }
 
-int BattleStartInitializationRun::teamFlatShield(int team) const
+void BattleStartInitializationRun::bindActiveComboRules()
 {
-    int totalShield = 0;
-    std::set<int> seenComboIds;
-    for (const auto& seed : setup_.units)
+    const auto bindTeam = [&](int team, const TeamResolvedSetup& resolved)
     {
-        if (seed.team != team)
+        for (const auto& active : resolved.activeComboRules)
         {
-            continue;
-        }
-
-        const auto& combo = spawn(seed.unitId).combo;
-        for (RoleComboEffectId effectId : combo.effectIds(Trigger::Always, EffectType::FlatShield))
-        {
-            const auto& effect = combo.effect(effectId);
-            if (effect.origin != RoleComboEffectOrigin::Configured)
+            if (active.isAntiCombo)
             {
-                continue;
+                activeAntiComboIds_.insert(active.comboId);
             }
-            if (effect.value <= 0)
+            std::vector<int> ownerUnitIds;
+            for (const auto& seed : setup_.units)
             {
-                continue;
-            }
-
-            if (effect.sourceComboId >= 0)
-            {
-                if (!seenComboIds.insert(effect.sourceComboId).second)
+                if (seed.team == team
+                    && active.memberRoleIds.contains(seed.realRoleId))
                 {
-                    continue;
+                    ownerUnitIds.push_back(seed.unitId);
                 }
             }
+            assert(!ownerUnitIds.empty());
+            std::ranges::sort(ownerUnitIds);
+            for (int ownerUnitId : ownerUnitIds)
+            {
+                spawn(ownerUnitId).comboFacts.appliedComboIds.insert(
+                    active.comboId);
+            }
 
-            totalShield += effect.value;
+            for (const auto& rule : active.rules)
+            {
+                const bool bindOnceForTeam = rule.event == EffectEvent::BattleInitialized
+                    && rule.selector.kind == EffectSelectorKind::Allies;
+                const auto owners = bindOnceForTeam
+                    ? std::span<const int>{ ownerUnitIds.data(), 1 }
+                    : std::span<const int>{ ownerUnitIds };
+                for (int ownerUnitId : owners)
+                {
+                    effectRules_.append(
+                        {
+                            .kind = EffectSourceKind::Combo,
+                            .sourceId = active.comboId,
+                            .ownerUnitId = ownerUnitId,
+                            .sourceTeam = team,
+                        },
+                        rule);
+                }
+            }
         }
-    }
-    return totalShield;
+    };
+
+    bindTeam(0, allyResolved_);
+    bindTeam(1, enemyResolved_);
 }
 
-void BattleStartInitializationRun::applyTeamFlatShields()
+void BattleStartInitializationRun::dispatchBattleInitializedRules()
 {
-    std::map<int, int> teamFlatShieldByTeam;
-    for (const auto& seed : setup_.units)
+    const auto makeSnapshots = [&]
     {
-        if (teamFlatShieldByTeam.contains(seed.team))
+        std::vector<EffectUnitSnapshot> result;
+        result.reserve(seededUnitIds_.size());
+        for (int unitId : seededUnitIds_)
         {
-            continue;
+            const auto& seededSpawn = spawn(unitId);
+            const auto& unit = seededSpawn.unit;
+            EffectUnitSnapshot snapshot;
+            snapshot.id = unit.id;
+            snapshot.team = unit.team;
+            snapshot.star = unit.star;
+            snapshot.cost = unit.cost;
+            snapshot.alive = unit.alive;
+            snapshot.hp = unit.vitals.hp;
+            snapshot.maxHp = unit.vitals.maxHp;
+            snapshot.mp = unit.vitals.mp;
+            snapshot.maxMp = unit.vitals.maxMp;
+            snapshot.shield = unit.shield;
+            snapshot.activeCooldown = unit.animation.cooldown;
+            snapshot.invincible = unit.invincible > 0;
+            snapshot.statusShield = seededSpawn.status.effects.statusShield;
+            snapshot.staggerShield = seededSpawn.status.effects.staggerShield;
+            snapshot.attack = unit.stats.attack;
+            snapshot.defence = unit.stats.defence;
+            snapshot.speed = unit.stats.speed;
+            snapshot.position = unit.motion.position;
+            snapshot.comboIds = seededSpawn.comboFacts.memberComboIds;
+            snapshot.comboIds.insert(
+                seededSpawn.comboFacts.appliedComboIds.begin(),
+                seededSpawn.comboFacts.appliedComboIds.end());
+            result.push_back(std::move(snapshot));
         }
+        std::ranges::sort(result, {}, &EffectUnitSnapshot::id);
+        return result;
+    };
+    auto snapshots = makeSnapshots();
 
-        teamFlatShieldByTeam.emplace(seed.team, teamFlatShield(seed.team));
+    std::vector<EffectCommand> commands;
+    BattleRuntimeRandom random(0);
+    const BattleEffectReadView readView(
+        snapshots,
+        static_cast<float>(context_.gridTransform.tileWidth));
+    std::uint64_t eventOrdinal = 1;
+    for (const auto& owner : snapshots)
+    {
+        EffectEventContext event;
+        event.event = EffectEvent::BattleInitialized;
+        event.header.frame = context_.frame;
+        event.header.eventOrdinal = eventOrdinal++;
+        event.header.owner = owner;
+        event.header.battle = readView;
+        event.payload = InitializationEventData{};
+        auto dispatched = BattleEffectSystem().dispatch(
+            effectRules_,
+            event,
+            random);
+        commands.insert(
+            commands.end(),
+            std::make_move_iterator(dispatched.commands.begin()),
+            std::make_move_iterator(dispatched.commands.end()));
     }
 
-    for (const auto& seed : setup_.units)
+    struct AttributeTotals
     {
-        const auto teamShieldIt = teamFlatShieldByTeam.find(seed.team);
-        assert(teamShieldIt != teamFlatShieldByTeam.end());
-        const int teamShield = teamShieldIt->second;
-        if (teamShield <= 0)
+        int flat{};
+        int percent{};
+    };
+    std::map<std::pair<int, BattleAttribute>, AttributeTotals> totals;
+    const auto isAntiComboInitialization = [&](const EffectCommand& command)
+    {
+        return command.metadata.binding.kind == EffectSourceKind::Combo
+            && activeAntiComboIds_.contains(command.metadata.binding.sourceId);
+    };
+    std::vector<std::optional<BattleAntiComboInitializationValue>>
+        antiComboInitializationValues(
+        commands.size());
+    for (std::size_t commandIndex = 0; commandIndex < commands.size(); ++commandIndex)
+    {
+        const auto& command = commands[commandIndex];
+        const auto* attribute = std::get_if<ModifyAttributeEffectCommand>(&command.value);
+        if (attribute)
+        {
+            if (isAntiComboInitialization(command))
+            {
+                antiComboInitializationValues[commandIndex] = *attribute;
+            }
+            const bool baseAttribute = attribute->action.attribute == BattleAttribute::MaxHp
+                || attribute->action.attribute == BattleAttribute::Attack
+                || attribute->action.attribute == BattleAttribute::Defence
+                || attribute->action.attribute == BattleAttribute::Speed;
+            if (baseAttribute)
+            {
+                auto& total = totals[{ command.metadata.targetUnitId, attribute->action.attribute }];
+                switch (attribute->action.operation)
+                {
+                case AttributeOperation::FlatAdd:
+                    total.flat += attribute->amount;
+                    break;
+                case AttributeOperation::PercentAdd:
+                    total.percent += attribute->amount;
+                    break;
+                case AttributeOperation::Override:
+                case AttributeOperation::Multiply:
+                case AttributeOperation::AtLeast:
+                    assert(false);
+                    break;
+                }
+            }
+            else
+            {
+                BattleEffectCommandSystem::applyPersistentAttributeModifier(
+                    effectCommands_,
+                    command.metadata,
+                    *attribute,
+                    context_.frame);
+            }
+            continue;
+        }
+
+        if (const auto* damage = std::get_if<ModifyDamageEffectCommand>(&command.value))
+        {
+            if (isAntiComboInitialization(command))
+            {
+                antiComboInitializationValues[commandIndex] = *damage;
+            }
+            BattleEffectCommandSystem::applyPersistentDamageModifier(
+                effectCommands_,
+                command.metadata,
+                *damage,
+                context_.frame);
+            continue;
+        }
+
+        if (std::holds_alternative<ApplyStatusEffectCommand>(command.value))
         {
             continue;
         }
 
-        auto& spawn = this->spawn(seed.unitId);
-        refreshRuntimeUnitSpawnDerivedState(spawn);
-        spawn.unit.shield += teamShield;
-        result_.logEvents.push_back(
+        const auto* stateMachine = std::get_if<StateMachineEffectCommand>(&command.value);
+        if (!stateMachine)
+        {
+            assert(std::holds_alternative<ChangeResourceEffectCommand>(command.value));
+            continue;
+        }
+        std::visit(Overloaded{
+            [&](const GenerateClonesAction& action)
             {
+                auto& teamCount = cloneCountByTeam_[command.metadata.binding.sourceTeam];
+                teamCount = std::max(teamCount, action.count);
+                cloneSourceOwnerUnitIds_.insert(command.metadata.binding.ownerUnitId);
+            },
+            [&](const PreventDeathAction& action)
+            {
+                auto& frames = deathPreventionFramesByUnitId_[command.metadata.targetUnitId];
+                frames = std::max(frames, action.invincibilityFrames);
+            },
+            [&](const ConfigureRescueRepositionAction& action)
+            {
+                auto& rescue = rescueByUnitId_[command.metadata.targetUnitId];
+                auto& remaining = action.mode == RescueRepositionMode::Protect
+                    ? rescue.forcePullProtectRemaining
+                    : rescue.forcePullExecuteRemaining;
+                remaining += action.activations;
+            },
+            [](const auto&) { assert(false); },
+        }, stateMachine->action);
+    }
+
+    const auto attributeValue = [&](int unitId, BattleAttribute attribute) -> int&
+    {
+        auto& unit = spawn(unitId).unit;
+        switch (attribute)
+        {
+        case BattleAttribute::MaxHp: return unit.vitals.maxHp;
+        case BattleAttribute::Attack: return unit.stats.attack;
+        case BattleAttribute::Defence: return unit.stats.defence;
+        case BattleAttribute::Speed: return unit.stats.speed;
+        case BattleAttribute::CriticalChance:
+        case BattleAttribute::CriticalDamage:
+        case BattleAttribute::DodgeChance:
+        case BattleAttribute::BlockChance:
+        case BattleAttribute::DamageReduction:
+        case BattleAttribute::SkillDamage:
+        case BattleAttribute::ProjectilePressureDamage:
+        case BattleAttribute::CooldownReduction:
+        case BattleAttribute::MpRecoveryBonus:
+        case BattleAttribute::StaggerResistance:
+        case BattleAttribute::ProjectileReflectChance:
+        case BattleAttribute::SkillReflectPercent:
+        case BattleAttribute::CounterUltimateBlockChance:
+        case BattleAttribute::CriticalAfterDodge:
+        case BattleAttribute::DashChance:
+        case BattleAttribute::OutgoingCooldownExtensionChance:
+        case BattleAttribute::OutgoingCooldownExtensionPercent:
+        case BattleAttribute::IncomingCooldownExtensionChance:
+        case BattleAttribute::IncomingCooldownExtensionPercent:
+            break;
+        }
+        assert(false);
+        return unit.stats.attack;
+    };
+
+    // 初始化固定值先合計，再以同一份基準合計百分比並只取整一次。
+    // 基準與合計會保留到 runtime，供反向羈絆轉移時沿用同一算法。
+    constexpr std::array initializedCoreAttributes{
+        BattleAttribute::MaxHp,
+        BattleAttribute::Attack,
+        BattleAttribute::Defence,
+        BattleAttribute::Speed,
+    };
+    for (int unitId : seededUnitIds_)
+    {
+        const auto& comboFacts = spawn(unitId).comboFacts;
+        const bool antiComboTransferEligible = std::ranges::any_of(
+            activeAntiComboIds_,
+            [&](int comboId)
+            {
+                return comboFacts.memberComboIds.contains(comboId)
+                    || comboFacts.appliedComboIds.contains(comboId);
+            });
+        for (BattleAttribute attribute : initializedCoreAttributes)
+        {
+            const auto totalIt = totals.find({ unitId, attribute });
+            const AttributeTotals total = totalIt != totals.end()
+                ? totalIt->second
+                : AttributeTotals{};
+            const BattleAntiComboAttributeBasis basis{
+                .baseValue = attributeValue(unitId, attribute),
+                .flatTotal = total.flat,
+                .percentTotal = total.percent,
+            };
+            attributeValue(unitId, attribute) =
+                BattleEffectCommandSystem::antiComboAttributeValue(basis);
+            if (antiComboTransferEligible)
+            {
+                const BattleAntiComboAttributeKey key{ unitId, attribute };
+                const auto [_, inserted] =
+                    effectCommands_.antiComboAttributeBases.emplace(key, basis);
+                assert(inserted);
+            }
+        }
+    }
+
+    for (int unitId : seededUnitIds_)
+    {
+        auto& seededSpawn = spawn(unitId);
+        seededSpawn.unit.vitals.hp = seededSpawn.unit.vitals.maxHp;
+        refreshRuntimeUnitSpawnDerivedState(seededSpawn);
+        if (const auto prevention = deathPreventionFramesByUnitId_.find(unitId);
+            prevention != deathPreventionFramesByUnitId_.end())
+        {
+            seededSpawn.damage.deathPrevention = true;
+            seededSpawn.damage.deathPreventionFrames = prevention->second;
+        }
+        if (const auto rescue = rescueByUnitId_.find(unitId); rescue != rescueByUnitId_.end())
+        {
+            seededSpawn.rescue = rescue->second;
+        }
+    }
+
+    // 百分比初始資源必須讀取完成固定／百分比兩階段後的最大生命；
+    // refreshRuntimeUnitSpawnDerivedState 會覆寫護盾與狀態資源，因此也必須先完成。
+    snapshots = makeSnapshots();
+    const BattleEffectReadView resourceReadView(
+        snapshots,
+        static_cast<float>(context_.gridTransform.tileWidth));
+    for (std::size_t commandIndex = 0; commandIndex < commands.size(); ++commandIndex)
+    {
+        const auto& command = commands[commandIndex];
+        const auto* resource = std::get_if<ChangeResourceEffectCommand>(&command.value);
+        if (!resource)
+        {
+            const auto* status = std::get_if<ApplyStatusEffectCommand>(&command.value);
+            if (!status)
+            {
+                continue;
+            }
+
+            const auto* owner = resourceReadView.findUnit(command.metadata.binding.ownerUnitId);
+            const auto* target = resourceReadView.findUnit(command.metadata.targetUnitId);
+            assert(owner && target);
+            EffectEventContext event;
+            event.event = EffectEvent::BattleInitialized;
+            event.header.frame = context_.frame;
+            event.header.binding = command.metadata.binding;
+            event.header.owner = *owner;
+            event.header.battle = resourceReadView;
+            event.payload = InitializationEventData{};
+
+            auto initializedStatus = *status;
+            initializedStatus.potency = BattleEffectSystem::evaluateNumber(
+                status->action.potency,
+                event,
+                *target);
+            initializedStatus.secondaryPotency = BattleEffectSystem::evaluateNumber(
+                status->action.secondaryPotency,
+                event,
+                *target);
+            initializedStatus.evaluatedDurationFrames = status->action.duration
+                ? std::optional<int>{ BattleEffectSystem::evaluateNumber(
+                    *status->action.duration,
+                    event,
+                    *target) }
+                : std::nullopt;
+
+            auto& targetSpawn = spawn(command.metadata.targetUnitId);
+            auto targetStatus = makeBattleStatusUnitState(
+                targetSpawn.status,
+                targetSpawn.unit);
+            targetStatus.effects.freezeReductionPct =
+                BattleEffectCommandSystem::queryAttribute(
+                    effectCommands_,
+                    {
+                        .unitId = command.metadata.targetUnitId,
+                        .attribute = BattleAttribute::StaggerResistance,
+                        .baseValue = 0,
+                        .frame = context_.frame,
+                    });
+            auto applied = BattleEffectCommandSystem::applyStatusCommand(
+                std::move(targetStatus),
+                command.metadata,
+                initializedStatus,
+                { .frame = context_.frame },
+                {},
+                targetSpawn.unit.shield > 0);
+            writeBattleStatusRuntimeUnit(targetSpawn.status, applied.target);
+            if (isAntiComboInitialization(command))
+            {
+                antiComboInitializationValues[commandIndex] =
+                    std::move(initializedStatus);
+            }
+            continue;
+        }
+        assert(resource->action.kind != ResourceChangeKind::Drain
+            && resource->action.kind != ResourceChangeKind::Transfer);
+
+        const auto* owner = resourceReadView.findUnit(command.metadata.binding.ownerUnitId);
+        const auto* target = resourceReadView.findUnit(command.metadata.targetUnitId);
+        assert(owner && target);
+        EffectEventContext event;
+        event.event = EffectEvent::BattleInitialized;
+        event.header.frame = context_.frame;
+        event.header.binding = command.metadata.binding;
+        event.header.owner = *owner;
+        event.header.battle = resourceReadView;
+        event.payload = InitializationEventData{};
+        const int amount = BattleEffectSystem::evaluateNumber(
+            resource->action.amount,
+            event,
+            *target);
+        assert(amount >= 0);
+        auto initializedResource = *resource;
+        initializedResource.amount = amount;
+        if (isAntiComboInitialization(command))
+        {
+            antiComboInitializationValues[commandIndex] =
+                std::move(initializedResource);
+        }
+
+        auto& targetSpawn = spawn(command.metadata.targetUnitId);
+        const auto changedValue = [&](int before)
+        {
+            switch (resource->action.kind)
+            {
+            case ResourceChangeKind::Restore:
+            case ResourceChangeKind::Grant:
+                return static_cast<std::int64_t>(before) + amount;
+            case ResourceChangeKind::Remove:
+                return static_cast<std::int64_t>(before) - amount;
+            case ResourceChangeKind::RefreshToAtLeast:
+                return static_cast<std::int64_t>(std::max(before, amount));
+            case ResourceChangeKind::Drain:
+            case ResourceChangeKind::Transfer:
+                break;
+            }
+            assert(false);
+            return std::int64_t{};
+        };
+        const auto clampNonnegativeInt = [](std::int64_t value)
+        {
+            return static_cast<int>(std::clamp(
+                value,
+                std::int64_t{},
+                static_cast<std::int64_t>(std::numeric_limits<int>::max())));
+        };
+
+        int before{};
+        int after{};
+        switch (resource->action.resource)
+        {
+        case BattleResource::Hp:
+            assert(false && "戰鬥初始化不可變更生命");
+            break;
+        case BattleResource::Mp:
+            before = targetSpawn.unit.vitals.mp;
+            targetSpawn.unit.vitals.mp = std::clamp(
+                clampNonnegativeInt(changedValue(before)),
+                0,
+                targetSpawn.unit.vitals.maxMp);
+            after = targetSpawn.unit.vitals.mp;
+            break;
+        case BattleResource::Shield:
+            before = targetSpawn.unit.shield;
+            targetSpawn.unit.shield = clampNonnegativeInt(changedValue(before));
+            after = targetSpawn.unit.shield;
+            break;
+        case BattleResource::StatusShield:
+            before = targetSpawn.status.effects.statusShield;
+            targetSpawn.status.effects.statusShield = clampNonnegativeInt(changedValue(before));
+            after = targetSpawn.status.effects.statusShield;
+            break;
+        case BattleResource::StaggerShield:
+            before = targetSpawn.status.effects.staggerShield;
+            targetSpawn.status.effects.staggerShield = clampNonnegativeInt(changedValue(before));
+            after = targetSpawn.status.effects.staggerShield;
+            break;
+        case BattleResource::ActiveCooldown:
+            assert(false && "戰鬥初始化不可變更目前冷卻");
+            break;
+        case BattleResource::ControlImmunityFrames:
+            before = targetSpawn.status.effects.controlImmunityFrames;
+            targetSpawn.status.effects.controlImmunityFrames = clampNonnegativeInt(changedValue(before));
+            after = targetSpawn.status.effects.controlImmunityFrames;
+            break;
+        case BattleResource::InvincibilityFrames:
+            before = targetSpawn.unit.invincible;
+            targetSpawn.unit.invincible = clampNonnegativeInt(changedValue(before));
+            after = targetSpawn.unit.invincible;
+            break;
+        }
+        if (resource->action.resource == BattleResource::Shield && after > before)
+        {
+            result_.logEvents.push_back({
                 BattleLogEventType::Status,
                 context_.frame,
-                seed.unitId,
-                -1,
-                teamShield,
+                command.metadata.binding.ownerUnitId,
+                command.metadata.targetUnitId,
+                after - before,
                 BattleLogCategory::Status,
                 BattleLogPerspective::Targeted,
-                battleLogText(shieldLogText("全隊獲取", teamShield), BattleLogTextTone::ShieldValue),
+                battleLogText(
+                    shieldLogText("獲取", after - before),
+                    BattleLogTextTone::ShieldValue),
             });
+        }
     }
+
+    for (std::size_t commandIndex = 0; commandIndex < commands.size(); ++commandIndex)
+    {
+        auto& value = antiComboInitializationValues[commandIndex];
+        if (!value)
+        {
+            continue;
+        }
+        BattleEffectCommandSystem::recordAntiComboInitialization(
+            effectCommands_,
+            commands[commandIndex].metadata,
+            std::move(*value));
+    }
+}
+
+void BattleStartInitializationRun::captureInitializedBaseline()
+{
+    assert(!initializedBaseline_);
+    BattleInitializedBaseline baseline;
+    for (int unitId : seededUnitIds_)
+    {
+        const auto [_, inserted] = baseline.spawnsByUnitId.emplace(
+            unitId,
+            spawn(unitId));
+        assert(inserted);
+    }
+    initializedBaseline_ = std::move(baseline);
 }
 
 std::map<int, int> BattleStartInitializationRun::cloneCountByTeam() const
 {
-    std::map<int, int> countByTeam;
-    for (const auto& spawn : spawns_)
-    {
-        const int count = (spawn.combo).maxAlways(EffectType::CloneSummon);
-        if (count <= 0)
-        {
-            continue;
-        }
-        countByTeam[spawn.unit.team] = std::max(countByTeam[spawn.unit.team], count);
-    }
-    return countByTeam;
+    return cloneCountByTeam_;
 }
 
 void BattleStartInitializationRun::summonClones()
 {
+    assert(initializedBaseline_);
     const auto countByTeam = cloneCountByTeam();
     if (countByTeam.empty() || setup_.cloneSources.empty())
     {
@@ -833,7 +1100,7 @@ void BattleStartInitializationRun::summonClones()
             {
                 continue;
             }
-            if (sourceSpawn.combo.maxAlways(EffectType::CloneSummon) <= 0)
+            if (!cloneSourceOwnerUnitIds_.contains(source.sourceUnitId))
             {
                 continue;
             }
@@ -870,26 +1137,24 @@ void BattleStartInitializationRun::summonClones()
             }
 
             const auto& source = cloneCandidates[spawned % cloneCandidates.size()];
-            const auto& sourceSpawn = spawn(source.sourceUnitId);
-            const auto& sourceUnit = sourceSpawn.unit;
-
-            auto cloneCombo = KysChess::ChessBattleEffects::makeSummonedCloneState(sourceSpawn.combo);
-            auto cloneUnit = makeCloneRuntimeUnit(
-                sourceUnit,
+            const auto baselineIt = initializedBaseline_->spawnsByUnitId.find(
+                source.sourceUnitId);
+            assert(baselineIt != initializedBaseline_->spawnsByUnitId.end());
+            const auto& initializedSource = baselineIt->second;
+            auto cloneSpawn = makeInitializedCloneSpawn(
+                initializedSource,
                 nextRuntimeUnitId,
                 context_.gridTransform,
                 cell);
-
-            std::optional<BattleActionPlanSeed> cloneActionPlan;
-            if (const auto* sourcePlan = sourceSpawn.actionPlan())
-            {
-                cloneActionPlan = *sourcePlan;
-            }
-            auto cloneSpawn = makeRuntimeUnitSpawn(
-                std::move(cloneUnit),
-                std::move(cloneCombo),
-                std::move(cloneActionPlan));
-            rebuildSpawnSkillEffects(cloneSpawn, setup_);
+            effectRules_.appendClonedOwnerRules(
+                source.sourceUnitId,
+                nextRuntimeUnitId,
+                team);
+            BattleEffectCommandSystem::inheritCloneEffectModifiers(
+                effectCommands_,
+                source.sourceUnitId,
+                nextRuntimeUnitId,
+                team);
 
             result_.roleDeltas.push_back(makeRoleDelta(
                 nextRuntimeUnitId,
@@ -917,11 +1182,6 @@ void BattleStartInitializationRun::summonClones()
             ++spawned;
         }
     }
-}
-
-void BattleStartInitializationRun::applyEnemyTopDebuffs()
-{
-    result_.enemyTopDebuffs = applyEnemyTopDebuff(spawns_, context_.frame, result_.logEvents);
 }
 
 void BattleStartInitializationRun::appendSeededRoleDeltas()

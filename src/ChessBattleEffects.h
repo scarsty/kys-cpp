@@ -4,367 +4,1024 @@
 
 #include <compare>
 #include <cstdint>
-#include <map>
-#include <span>
+#include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <variant>
 #include <vector>
-
-#include <ankerl/unordered_dense.h>
 
 namespace YAML { class Node; }
 
 namespace KysChess
 {
 
-enum class Trigger
+enum class EffectSourceKind
 {
-    Always,
-    WhileLowHP,
-    AllyLowHPBurst,
-    LastAlive,
-    OnCast,  // Proc when an attack is released
-    OnUltimate,
-    OnHit,  // Proc on attack hit
-    OnBeingHit,  // Proc when being hit (defender)
-    OnShieldBreak,  // Proc when shield breaks
+    Combo,
+    Equipment,
+    EquipmentSynergy,
+    Neigong,
+    Magic,
 };
 
-enum class EffectType
+struct EffectSourceBinding
 {
-    // Stat buffs (pre-battle)
-    FlatHP, FlatATK, FlatDEF, FlatSPD,
-    PctHP, PctATK, PctDEF, PctSPD, NegPctDEF,
-    TeamFlatHP, TeamFlatATK, TeamFlatDEF, TeamFlatSPD,
-    TeamPctHP, TeamPctATK, TeamPctDEF, TeamPctSPD,
-    ActAsCombo,
-    FightWinHP, FightWinATKDEF,
+    EffectSourceKind kind{};
+    int sourceId{};
+    int ownerUnitId{};
+    int sourceTeam{};
+    // Permanent configured bindings use zero. Runtime-only aliases receive a
+    // unique instance so identical borrowed magics keep independent state.
+    std::uint64_t runtimeInstanceId{};
+};
 
-    // Trigger effects (runtime)
-    FlatDmgReduction,
-    FlatDmgIncrease,
-    BlockChance,
+// Battle effects are described by orthogonal event, target, condition and
+// action values. All battle-effect sources use this schema.
+enum class EffectEvent
+{
+    BattleInitialized,
+    FrameAdvanced,
+    UltimateCooldownFinished,
+    CastPlanned,
+    AttackCommitted,
+    UltimateCommitted,
+    AttackSpawned,
+    MainProjectileBeforeDamage,
+    HitBeforeDamage,
+    DamageResolved,
+    HealAttempted,
+    HealApplied,
+    CastContinuation,
+    CastSettled,
+    ShieldBroken,
+    UnitDied,
+    AllyDied,
+};
+
+enum class EffectSelectorKind
+{
+    Self,
+    SourceUnit,
+    TransactionTarget,
+    HitTarget,
+    OriginalAttackTarget,
+    ComboMembers,
+    AllLivingUnits,
+    Allies,
+    Enemies,
+    LowestHpAllies,
+    LowestMpAllies,
+    HighestMpEnemy,
+    StrongestEnemies,
+    NearestEnemies,
+    FarthestEnemy,
+    UnitsInRadius,
+    UnitsInSquare,
+    AlliesUsingWeapon,
+};
+
+enum class EffectTeamFilter
+{
+    Any,
+    Ally,
+    Enemy,
+};
+
+enum class EffectTieBreak
+{
+    UnitId,
+    BattleRandom,
+};
+
+enum class EffectRequiredTarget
+{
+    Self,
+    SourceUnit,
+    TransactionTarget,
+    HitTarget,
+    OriginalAttackTarget,
+};
+
+struct EffectSelector
+{
+    EffectSelectorKind kind = EffectSelectorKind::Self;
+    int count = 0;
+    int radiusTiles = 0;
+    int squareSideTiles = 0;
+    EffectTeamFilter team = EffectTeamFilter::Any;
+    EffectTieBreak tieBreak = EffectTieBreak::UnitId;
+    bool excludeOwner = false;
+    int requiredMagicId = -1;
+    int requiredWeaponType = -1;
+    std::optional<EffectRequiredTarget> requiredTarget;
+};
+
+enum class EffectStateSlot
+{
+    MaximumSkillHpDamage,
+    CastMaximumHpDamage,
+    AbsorbedDamage,
+    PermanentCastProgress,
+};
+
+enum class EffectNumberBase
+{
+    Constant,
+    SourceStar,
+    SourceAttack,
+    SourceMaxHp,
+    SourceMissingHpRatio,
+    SourceCurrentMpRatio,
+    TargetMaxHp,
+    TargetCurrentHp,
+    TargetCurrentShield,
+    TargetCurrentCooldown,
+    FinalHpDamage,
+    AccumulatedStateValue,
+    SourceStatusPotency,
+    SourceStatusStacks,
+    StoredStateValue,
+};
+
+enum class EffectRounding
+{
+    TowardZero,
+    Floor,
+    Ceil,
+    Nearest,
+};
+
+struct EffectNumber
+{
+    EffectNumberBase base = EffectNumberBase::Constant;
+    std::optional<EffectNumberBase> multiplierBase;
+    std::string status;
+    std::optional<EffectStateSlot> stateSlot;
+    int flat = 0;
+    int percent = 0;
+    EffectRounding rounding = EffectRounding::TowardZero;
+    std::optional<int> minimum;
+    std::optional<int> maximum;
+};
+
+struct IsUltimateCondition {};
+struct MagicIdEqualsCondition { int magicId = -1; };
+struct IsMainProjectileCondition {};
+struct IsRootAttackCondition {};
+struct SourceHpRatioAtMostCondition { int percent = 100; };
+struct SourceHpRatioBelowCondition { int percent = 100; };
+struct SourceIsLastAliveCondition {};
+struct TargetHpRatioAtMostCondition { int percent = 100; };
+struct TargetNotInvincibleCondition {};
+struct SourceHasStateCondition { std::string state; };
+struct TargetHasStateCondition { std::string state; };
+struct TargetHasStateFromEffectOwnerCondition { std::string state; };
+struct SourceStackAtLeastCondition { std::string stack; int count = 1; };
+struct OtherLivingAllyUsesMagicCondition { int magicId = -1; };
+struct CastDistinctTargetCountAtLeastCondition { int count = 1; };
+struct AttackOrdinalEqualsCondition { int ordinal = 0; };
+struct HealKindInCondition { std::vector<std::string> kinds; };
+struct DamageOriginIsAttackCondition {};
+struct DamageKilledTargetCondition {};
+struct AcceptedHitCondition
+{
+    bool requirePositiveDamage = false;
+    bool excludeReflected = false;
+};
+struct EventTargetBelongsToBoundSourceCondition {};
+enum class DamagePerspective
+{
+    Dealt,
+    Received,
+};
+struct DamagePerspectiveCondition { DamagePerspective perspective{}; };
+struct DamageKindInCondition { std::vector<std::string> kinds; };
+struct TargetMpWasFullBeforeCastCondition {};
+struct RandomSelectionAvailableCondition {};
+
+using EffectCondition = std::variant<
+    IsUltimateCondition,
+    MagicIdEqualsCondition,
+    IsMainProjectileCondition,
+    IsRootAttackCondition,
+    SourceHpRatioAtMostCondition,
+    SourceHpRatioBelowCondition,
+    SourceIsLastAliveCondition,
+    TargetHpRatioAtMostCondition,
+    TargetNotInvincibleCondition,
+    SourceHasStateCondition,
+    TargetHasStateCondition,
+    TargetHasStateFromEffectOwnerCondition,
+    SourceStackAtLeastCondition,
+    OtherLivingAllyUsesMagicCondition,
+    CastDistinctTargetCountAtLeastCondition,
+    AttackOrdinalEqualsCondition,
+    HealKindInCondition,
+    DamageOriginIsAttackCondition,
+    DamageKilledTargetCondition,
+    AcceptedHitCondition,
+    EventTargetBelongsToBoundSourceCondition,
+    DamagePerspectiveCondition,
+    DamageKindInCondition,
+    TargetMpWasFullBeforeCastCondition,
+    RandomSelectionAvailableCondition>;
+
+enum class BattleAttribute
+{
+    MaxHp,
+    Attack,
+    Defence,
+    Speed,
+    CriticalChance,
+    CriticalDamage,
     DodgeChance,
-    DodgeThenCrit,
-    CritChance,
-    CritMultiplier,
-    EveryNthDouble,
-    ArmorPenChance,  // DEPRECATED: use ArmorPen with OnHit trigger
-    ArmorPenPct,     // DEPRECATED: use ArmorPen with OnHit trigger
-    ArmorPen,        // Unified: trigger=OnHit, value=chance, value2=pen%
-    Stun,            // Unified: trigger=OnHit, triggerValue=chance, value=duration
-    KnockbackChance,
-    PoisonDOT,
-    PoisonDmgAmp,
-    MPOnHit,
-    HPOnHit,
-    MPDrain,
-    MPRecoveryBonus,
-    SkillDmgPct,
-    SkillReflectPct,
-    CDR,
-    FlatShield,
-    ShieldPctMaxHP,
-    ShieldFreezeRes,
-    HealAuraPct,
-    HealAuraFlat,
-    HealedATKSPDBoost,
-    HPRegenPct,
-    FreezeReductionPct,
+    BlockChance,
+    DamageReduction,
+    SkillDamage,
+    ProjectilePressureDamage,
+    CooldownReduction,
+    MpRecoveryBonus,
+    StaggerResistance,
+    ProjectileReflectChance,
+    SkillReflectPercent,
+    CounterUltimateBlockChance,
+    CriticalAfterDodge,
+    DashChance,
+    OutgoingCooldownExtensionChance,
+    OutgoingCooldownExtensionPercent,
+    IncomingCooldownExtensionChance,
+    IncomingCooldownExtensionPercent,
+};
+
+enum class AttributeOperation
+{
+    FlatAdd,
+    PercentAdd,
+    Override,
+    Multiply,
+    AtLeast,
+};
+
+enum class EffectStackScope
+{
+    Shared,
+    EventSource,
+};
+
+enum class EffectStackPolicy
+{
+    Independent,
+    Refresh,
+    Replace,
+    KeepStrongest,
+    AddStack,
+};
+
+struct ModifyAttributeAction
+{
+    BattleAttribute attribute{};
+    EffectNumber amount;
+    AttributeOperation operation{};
+    int durationFrames = 0;
+    EffectStackPolicy stack = EffectStackPolicy::Independent;
+    std::optional<int> stackLimit;
+    bool perStack = false;
+    EffectStackScope stackScope = EffectStackScope::Shared;
+};
+
+enum class DamageModifierStage
+{
+    BeforeDefense,
+    AfterDefense,
+    Final,
+};
+
+enum class DamageChannel
+{
+    Skill,
+    Dot,
+    Effect,
+    Reflected,
+    All,
+};
+
+enum class DamageModifierOperation
+{
+    FlatAdd,
+    PercentAdd,
+    Multiply,
+    IgnoreDefensePercent,
+    CapSingleHitAtMaxHpPercent,
+    ExecuteBelowMaxHpPercent,
+};
+
+enum class DamageModifierPerspective
+{
+    Outgoing,
+    Incoming,
+};
+
+struct ModifyDamageAction
+{
+    DamageModifierPerspective perspective = DamageModifierPerspective::Outgoing;
+    DamageModifierStage stage{};
+    DamageChannel channel{};
+    EffectNumber amount;
+    DamageModifierOperation operation{};
+    int durationFrames = 0;
+    EffectStackPolicy stack = EffectStackPolicy::Independent;
+    std::optional<int> stackLimit;
+    EffectStackScope stackScope = EffectStackScope::Shared;
+};
+
+enum class BattleResource
+{
+    Hp,
+    Mp,
+    Shield,
+    StatusShield,
+    StaggerShield,
+    ActiveCooldown,
     ControlImmunityFrames,
-    KillHealPct,
-    KillInvincFrames,
-    PostSkillInvincFrames,
-    DmgReductionPct,
-    MissingHpFlatDmgIncreasePct,
-    MissingHpFlatDmgReduction,
-    MissingHpDmgReductionPct,
-    // Comeback & Scaling
-    Bloodlust,
-    Adaptation,
-    DodgeAdaptation,
-    RampingDmg,
-    // Triggered heal
-    HealBurst,
-    // === New effects for expanded chess pool ===
-    BleedChance,
-    PostSkillDash,
-    EnemyTopDebuff,
-    BlinkAttack,
-    AllyDeathStatBoost,
-    CloneSummon,
-    ProjectileReflect,
-    ProjectileBounce,
-    OnSkillTeamHeal,
-    OnSkillTeamHealPct,
-    DeathPrevention,
+    InvincibilityFrames,
+};
+
+enum class ResourceChangeKind
+{
+    Restore,
+    Drain,
+    Grant,
+    Remove,
+    Transfer,
+    RefreshToAtLeast,
+};
+
+enum class EffectHealKind
+{
+    Direct,
+    Team,
+    Aura,
+    OnHit,
+    KillReward,
     DeathMedical,
-    ForcePullProtect,
-    ForcePullExecute,
+    Rescue,
+    Regeneration,
+    Lifesteal,
+};
+
+enum class EffectHealSourcePolicy
+{
+    RequireAlive,
+    AllowDead,
+};
+
+struct ChangeResourceAction
+{
+    BattleResource resource{};
+    EffectNumber amount;
+    ResourceChangeKind kind{};
+    std::optional<EffectSelector> transferDestination;
+    EffectHealKind healKind = EffectHealKind::Direct;
+    EffectHealSourcePolicy healSourcePolicy = EffectHealSourcePolicy::RequireAlive;
+};
+
+enum class HealModifierOperation
+{
+    Block,
+    MultiplyReceived,
+};
+
+struct ModifyHealTransactionAction
+{
+    HealModifierOperation operation{};
+    std::vector<std::string> kinds;
+    int percent = 100;
+};
+
+enum class BattleStatusKind
+{
+    Poison,
+    Bleed,
+    Stun,
+    MpBlocked,
+    ColdPoison,
+    WitheredBone,
+    SevenStarMark,
+    NeutralizeForce,
+    Blinded,
+    NextAttackMiss,
+    DamageBlockLayer,
+    SingleHitCapLayer,
+    BattleSpirit,
+    TrueQi,
+    PoisonExplosion,
+    Shadowless,
+    NextAttackCritical,
+};
+
+inline constexpr std::string_view battleStatusLabel(BattleStatusKind status)
+{
+    switch (status)
+    {
+    case BattleStatusKind::Poison: return "中毒";
+    case BattleStatusKind::Bleed: return "流血";
+    case BattleStatusKind::Stun: return "眩暈";
+    case BattleStatusKind::MpBlocked: return "封內";
+    case BattleStatusKind::ColdPoison: return "寒毒";
+    case BattleStatusKind::WitheredBone: return "枯骨";
+    case BattleStatusKind::SevenStarMark: return "七星";
+    case BattleStatusKind::NeutralizeForce: return "化勁";
+    case BattleStatusKind::Blinded: return "刺目";
+    case BattleStatusKind::NextAttackMiss: return "下一次攻擊落空";
+    case BattleStatusKind::DamageBlockLayer: return "傷害抵擋";
+    case BattleStatusKind::SingleHitCapLayer: return "單次承傷上限";
+    case BattleStatusKind::BattleSpirit: return "戰意";
+    case BattleStatusKind::TrueQi: return "真氣";
+    case BattleStatusKind::PoisonExplosion: return "毒爆";
+    case BattleStatusKind::Shadowless: return "無影";
+    case BattleStatusKind::NextAttackCritical: return "下一次攻擊必定暴擊";
+    }
+    return {};
+}
+
+struct ApplyStatusAction
+{
+    BattleStatusKind status{};
+    int durationFrames = 0;
+    std::optional<EffectNumber> duration;
+    std::optional<EffectNumber> applicationCount;
+    int stacks = 1;
+    EffectNumber potency;
+    EffectNumber secondaryPotency;
+    EffectStackPolicy stack = EffectStackPolicy::Independent;
+    std::optional<int> stackLimit;
+    bool aggregatePotencyWithinEvent = false;
+};
+
+enum class StatusSourceMatch
+{
+    Any,
+    EffectOwner,
+};
+
+struct ConsumeStatusAction
+{
+    BattleStatusKind status{};
+    int stacks = 1;
+    StatusSourceMatch source = StatusSourceMatch::Any;
+    std::optional<ApplyStatusAction> whenDepleted;
+};
+
+enum class StatusRemovalOrder
+{
+    LongestRemaining,
+    Oldest,
+    Newest,
+};
+
+struct RemoveStatusAction
+{
+    std::vector<BattleStatusKind> statuses;
+    bool negativeOnly = false;
+    bool controlOnly = false;
+    bool clearCurrentActionStagger = false;
+    int count = 0;
+    StatusRemovalOrder order = StatusRemovalOrder::LongestRemaining;
+};
+
+enum class BattleDamageKind
+{
+    Physical,
+    Skill,
+    Pure,
+    Poison,
+    Bleed,
+    Effect,
+    Reflected,
     Execute,
-    MPBlock,
-    CharmCDRDebuff,
-    OffensiveCharm,
-    DeathAOE,
-    ShieldExplosion,
-    TempFlatATK,
-    AutoUltimate,
-    MPRestore,
-    ShieldOnAllyDeath,
-    DamageImmunityAfterFrames,
-    AutoUltimateAfterFrames,
-    UltimateExtraProjectiles,
-    DualWieldFollowUp,
-    BlockFirstHits,
-    GoldCoefficient,
-    HurtInvincFrames,
+};
+
+enum class DamageAreaKind
+{
+    SingleTarget,
+    Circle,
+    Square,
+};
+
+struct DamageArea
+{
+    DamageAreaKind kind = DamageAreaKind::SingleTarget;
+    int radiusTiles = 0;
+    int squareSideTiles = 0;
+};
+
+struct PerCastHitPolicy
+{
+    int perTargetLimit = 0;
+};
+
+enum class AreaProjectileVisual
+{
+    DeathBlast,
+    ShieldBlast,
+};
+
+struct AreaProjectileDamageDelivery
+{
+    int rangeTiles{};
+    int maximumTargets{};
+    int stunFrames{};
+    bool trackEventSource{};
+    AreaProjectileVisual visual{};
+};
+
+struct DealDamageAction
+{
+    EffectNumber amount;
+    std::optional<EffectNumber> transactionCount;
+    BattleDamageKind kind{};
+    DamageArea area;
+    PerCastHitPolicy perCast;
+    std::optional<AreaProjectileDamageDelivery> areaProjectiles;
+};
+
+enum class AttackPatternKind
+{
+    Preserve,
+    Fan,
+    Flanks,
+    SamePointSequence,
+    MultiTarget,
+    EchoNearestOthers,
+};
+
+struct AttackPattern
+{
+    AttackPatternKind kind = AttackPatternKind::Preserve;
+    int projectileCount = 1;
+    int spreadDegrees = 0;
+    int intervalFrames = 0;
+};
+
+enum class AttackTargetPolicy
+{
+    Preserve,
+    SelectedTargets,
+    SamePoint,
+    SameTarget,
+};
+
+struct ProjectileBounceAttackBehavior
+{
+    int additionalHits{};
+    int chancePct{};
+    int rangePixels{};
+};
+
+struct NearbyTrackingAttackBehavior
+{
+    int rangePixels{};
+    int damagePct{};
+};
+
+struct DelayedAlternateAttackBehavior
+{
+    int delayFrames{};
+    int damagePct{};
+    int attackerBlockGainChancePct{};
+};
+
+struct ExpandingSpiralAttackBehavior
+{
+    int projectileCount{};
+    int bleedStacks{};
+};
+
+using AttackRuntimeBehavior = std::variant<
+    std::monostate,
+    ProjectileBounceAttackBehavior,
+    NearbyTrackingAttackBehavior,
+    DelayedAlternateAttackBehavior,
+    ExpandingSpiralAttackBehavior>;
+
+enum class CastPropagationPolicy
+{
+    SourceRules,
+    SourceHitRulesOnly,
+    SuppressUltimateRules,
+    BorrowedUltimateRules,
+    NoEffectRules,
+};
+
+struct ModifyAttackAction
+{
+    AttackPattern pattern;
+    int strengthPct = 100;
+    std::optional<bool> through;
+    std::optional<bool> tracking;
+    bool mainProjectile = true;
+    int sameTargetHitLimit = 0;
+    AttackTargetPolicy targets = AttackTargetPolicy::Preserve;
+    CastPropagationPolicy propagation = CastPropagationPolicy::SourceRules;
+    bool addToBaseAttack = false;
+    std::optional<EffectSelector> source;
+    std::optional<EffectNumber> damageOverride;
+    std::optional<BattleDamageKind> damageKind;
+    AttackRuntimeBehavior runtimeBehavior;
+};
+
+enum class ForceMoveDirection
+{
+    AwayFromSource,
+    TowardSource,
+    TowardPoint,
+};
+
+enum class ForceMoveCollision
+{
+    StopBeforeOccupied,
+    StopBeforeBlocked,
+};
+
+enum class ForceMoveBlockedResult
+{
+    Stop,
+    Shorten,
+};
+
+struct ForceMoveAction
+{
+    ForceMoveDirection direction{};
+    int distanceTiles = 0;
+    int distancePixels = 0;
+    int lockFrames = 1;
+    ForceMoveCollision collision{};
+    ForceMoveBlockedResult blocked{};
+};
+
+enum class AreaShape
+{
+    Circle,
+    GridSquare,
+};
+
+enum class AreaAnchor
+{
+    HitPosition,
+    FollowSourceUnit,
+};
+
+enum class AreaSourceDeathPolicy
+{
+    PersistUntilExpiry,
+    RemoveImmediately,
+};
+
+enum class AreaMergePolicy
+{
+    Independent,
+    RefreshSameSource,
+    ReplaceSameSource,
+};
+
+enum class AreaModifierKind
+{
+    Attribute,
+    OutgoingDamage,
+    AttackSpawn,
+    ForcedMoveImmunity,
+};
+
+enum class AreaOverlapPolicy
+{
+    Add,
+    KeepStrongest,
+    Any,
+};
+
+struct AreaModifier
+{
+    AreaModifierKind kind{};
+    EffectTeamFilter relation{};
+    BattleAttribute attribute{};
+    EffectNumber amount;
+    int percent = 0;
+    DamageChannel damageChannel = DamageChannel::All;
+    std::optional<bool> tracking;
+    std::optional<int> speedPct;
+    std::optional<int> projectilePressurePct;
+    std::optional<ForceMoveDirection> blockedDirection;
+    AreaOverlapPolicy overlap = AreaOverlapPolicy::KeepStrongest;
+    std::optional<AreaOverlapPolicy> trackingOverlap;
+    std::optional<AreaOverlapPolicy> speedOverlap;
+    std::optional<AreaOverlapPolicy> projectilePressureOverlap;
+};
+
+struct CreateAreaAction
+{
+    AreaShape shape{};
+    int radiusTiles = 0;
+    int squareSideTiles = 0;
+    AreaAnchor anchor{};
+    int durationFrames{};
+    AreaSourceDeathPolicy sourceDeath{};
+    AreaMergePolicy merge{};
+    std::vector<AreaModifier> modifiers;
+};
+
+enum class CastRangeMode
+{
+    Preserve,
+    Ranged,
+};
+
+enum class CastMobilityPolicy
+{
+    Preserve,
     DashAttack,
-    DashChanceBoost,
-    MPRatioDmgBoost,
-    DmgReduceDebuff,
-    CurrentHPPctBlast,
-    TeamMPRestore,
-    EnemyMpDamageAll,
-    SpiralBleedProjectile,
-    NearbyTrackingProjectiles,
-    ForceRangedAttack,
-    CounterUltimateBlock,
-    MaxHitPctCurrentHP,
-    FreeRefresh,
-    BattleMapChoice,
-    LowestAllyHeal,
+    BlinkAttack,
 };
 
-struct ComboEffect
+struct AutoUltimateCastRequest
 {
-    EffectType type;
-    int value;
-    int value2 = 0;
-    std::string text;
-    Trigger trigger = Trigger::Always;
-    int triggerValue = 0;
-    int duration = 0;
-    int maxCount = 0;
+    bool consumeMp = false;
+    bool announce = false;
 };
 
-std::string comboEffectDesc(const ComboEffect& eff);
-std::string comboEffectCompactDesc(const ComboEffect& eff);
-
-struct RoleComboEffectId
+struct ModifyCastAction
 {
-    int value = -1;
-
-    bool isValid() const { return value >= 0; }
-    auto operator<=>(const RoleComboEffectId&) const = default;
+    std::optional<EffectNumber> mpCost;
+    std::optional<CastRangeMode> rangeMode;
+    int projectileSpeedPct = 0;
+    int minimumSelectDistance = 0;
+    int additionalProjectiles = 0;
+    CastMobilityPolicy mobility = CastMobilityPolicy::Preserve;
+    std::optional<AutoUltimateCastRequest> autoUltimate;
+    std::optional<AttackPattern> replacementPattern;
+    bool freeAdditionalCast = false;
+    CastPropagationPolicy propagation = CastPropagationPolicy::SourceRules;
 };
 
-inline bool operator==(RoleComboEffectId id, int value)
+struct ChangeStateValueAction
 {
-    return id.value == value;
-}
-
-inline bool operator==(int value, RoleComboEffectId id)
-{
-    return id.value == value;
-}
-
-enum class RoleComboEffectOrigin
-{
-    Configured,
-    RuntimeGrant,
+    EffectStateSlot slot{};
+    int delta{};
+    std::optional<std::int64_t> minimum;
+    std::optional<std::int64_t> maximum;
 };
 
-struct ComboEffectSnapshot : ComboEffect
+struct TransferStateValueAction
 {
-    int sourceComboId = -1;  // -1 means the effect did not originate from a synergy
+    EffectStateSlot sourceSlot{};
+    EffectStateSlot destinationSlot{};
 };
 
-struct RoleComboEffectInstance : ComboEffectSnapshot
+struct RecordMaximumDamageAction
 {
-    RoleComboEffectId id;
-    RoleComboEffectOrigin origin = RoleComboEffectOrigin::Configured;
+    EffectStateSlot slot{};
+    DamageChannel channel = DamageChannel::Skill;
 };
 
-struct ComboTriggerTimerKey
+enum class StateValueDestination
 {
-    Trigger trigger = Trigger::Always;
-    int sourceComboId = -1;
-
-    auto operator<=>(const ComboTriggerTimerKey&) const = default;
+    DamageAmount,
+    ShieldAmount,
 };
 
-struct RoleComboAlwaysSummary
+struct ConsumeRecordedMaximumAction
 {
-    int sumValue = 0;
-    int maxValue = 0;
-    int maxValue2 = 0;
-    RoleComboEffectId firstId;
-    RoleComboEffectId maxByValueId;
+    EffectStateSlot slot{};
+    StateValueDestination destination{};
+    int percent = 100;
+    bool clearAfterConsume = true;
 };
 
-struct RoleComboStatBonuses
+struct StartDamageAbsorptionAction
 {
-    int flatHP = 0;
-    int flatATK = 0;
-    int flatDEF = 0;
-    int flatSPD = 0;
-    int pctHP = 0;
-    int pctATK = 0;
-    int pctDEF = 0;
-    int pctSPD = 0;
-    int fightWinGrowthHP = 0;
-    int fightWinGrowthATK = 0;
-    int fightWinGrowthDEF = 0;
+    EffectStateSlot slot{};
+    int absorbedPct{};
+    int durationFrames{};
+    bool settleOnSourceDeath = false;
+    EffectSelector settlementTarget;
+    BattleDamageKind settlementDamageKind = BattleDamageKind::Pure;
+    int returnedPct = 100;
 };
 
-struct RoleComboAdaptationDescriptor
+struct SettleDamageAbsorptionAction
 {
-    int pctPerStack = 0;
-    int maxStacks = 0;
+    EffectStateSlot slot{};
+    EffectSelector target;
+    BattleDamageKind damageKind = BattleDamageKind::Pure;
+    int returnedPct = 100;
+    bool clearAfterSettle = true;
 };
 
-using RoleComboDodgeAdaptationDescriptor = RoleComboAdaptationDescriptor;
-
-struct RoleComboRampingDescriptor
+// 可借用規則的安全 action 類別。複製與借用本身刻意不在
+// 這個封閉集合內，因此 filter 無法放行遞迴狀態機。
+enum class BorrowedRuleActionCategory
 {
-    int pctPerStack = 0;
-    int maxStacks = 0;
+    AttributeModifier,
+    DamageModifier,
+    ResourceChange,
+    HealTransactionModifier,
+    Status,
+    Damage,
+    Attack,
+    ForcedMovement,
+    Area,
+    Cast,
+    StateValue,
+    DamageMemory,
+    DamageAbsorption,
+    StatusDamageSettlement,
 };
 
-struct RoleComboStackChange
+struct BorrowedRuleFilter
 {
-    int pctPerStack = 0;
-    int stacks = 0;
-    bool increased = false;
+    std::vector<BorrowedRuleActionCategory> allowedActionCategories;
 };
 
-struct RoleComboEffectStore
+enum class CopiedMagicCondition
 {
-    using AlwaysSummaryIndex = ankerl::unordered_dense::map<std::uint64_t, RoleComboAlwaysSummary>;
-
-    std::vector<RoleComboEffectInstance> instances;
-    std::vector<RoleComboEffectId> idsInAppendOrder;
-    ankerl::unordered_dense::map<std::uint64_t, std::vector<RoleComboEffectId>> idsByTriggerAndType;
-    std::map<int, std::vector<RoleComboEffectId>> idsBySourceComboId;
-    AlwaysSummaryIndex alwaysByType;
-    RoleComboStatBonuses statBonuses;
-    std::map<RoleComboEffectId, RoleComboAdaptationDescriptor> adaptations;
-    std::map<RoleComboEffectId, RoleComboDodgeAdaptationDescriptor> dodgeAdaptations;
-    std::map<RoleComboEffectId, RoleComboRampingDescriptor> rampings;
+    HasUltimateAttackDefinition,
+    ExcludesRecursiveEffects,
 };
 
-struct RoleComboEffectRuntimeState
+struct CopiedMagicFilter
 {
-    int activationCount = 0;
-    int frameTimer = 0;
-    int counter = 0;
-    int stacks = 0;
-    int idleTimer = 0;
-    std::map<int, int> stacksByUnit;
+    std::vector<CopiedMagicCondition> conditions;
 };
 
-struct RoleComboEffectTypeRuntimeState
+struct BorrowEffectRulesAction
 {
-    bool pending = false;
-    bool toggle = false;
+    EffectSelector sourceUnits;
+    EffectNumber sourceCount;
+    BorrowedRuleFilter filter;
+    CastPropagationPolicy propagation = CastPropagationPolicy::BorrowedUltimateRules;
 };
 
-struct RoleComboRuntimeState
+struct CopyAttackDefinitionAction
 {
-    int enemyTopDebuffApplied = 0;
-    std::map<ComboTriggerTimerKey, int> triggerTimers;
-    bool lastAliveFlag = false;
-    std::vector<RoleComboEffectRuntimeState> byEffect;
-    ankerl::unordered_dense::map<std::uint64_t, RoleComboEffectTypeRuntimeState> byType;
+    EffectSelector sourceUnits;
+    CopiedMagicFilter filter;
+    int copyCount = 1;
+    CastPropagationPolicy propagation = CastPropagationPolicy::SuppressUltimateRules;
 };
 
-class BattleEffectState
+struct SettleRemainingStatusDamageAction
 {
-public:
-    RoleComboEffectId applyConfiguredEffect(const ComboEffect& effect, int sourceComboId = -1);
-    RoleComboEffectId grantRuntimeEffect(const ComboEffect& effect, int sourceComboId = -1);
-
-    const RoleComboEffectInstance& effect(RoleComboEffectId id) const;
-    std::span<const RoleComboEffectId> effectIdsInAppendOrder() const;
-    std::span<const RoleComboEffectId> effectIds(Trigger trigger, EffectType type) const;
-    std::span<const RoleComboEffectId> idsFromCombo(int sourceComboId) const;
-    const RoleComboStatBonuses& statBonuses() const;
-    bool isRuntimeGranted(RoleComboEffectId id) const;
-
-    bool canActivateTriggeredEffect(RoleComboEffectId id) const;
-    void recordTriggeredEffectActivation(RoleComboEffectId id);
-    int triggeredEffectActivationCount(RoleComboEffectId id) const;
-    bool hasTriggeredEffectActivations() const;
-    bool hasActiveTriggerTimer(ComboTriggerTimerKey key) const;
-    bool ownsTriggerTimer(ComboTriggerTimerKey key) const;
-    void extendTriggerTimer(ComboTriggerTimerKey key, int durationFrames);
-    void advanceTriggerTimersOneFrame();
-
-    void setLastAliveForComboRuntime(bool lastAlive);
-    bool lastAliveForComboRuntime() const;
-    void seedAutoUltimateFrameTimers();
-    bool advanceAutoUltimateFrameTimer(RoleComboEffectId id, int intervalFrames);
-    int effectFrameTimerFrames(RoleComboEffectId id) const;
-    int triggerTimerFrames(ComboTriggerTimerKey key) const;
-
-    void setTypePending(EffectType type, bool value);
-    void clearTypePending();
-    bool typePending(EffectType type) const;
-    bool consumeTypePending(EffectType type);
-    bool typeToggle(EffectType type) const;
-    bool consumeTypeToggle(EffectType type);
-    bool advanceEffectCounter(RoleComboEffectId id, int threshold);
-    void setEffectFrameTimer(RoleComboEffectId id, int frames);
-    bool advanceEffectFrameTimer(RoleComboEffectId id, int intervalFrames);
-    RoleComboStackChange recordEffectStack(RoleComboEffectId id, int maxStacks, int pctPerStack);
-    RoleComboStackChange recordEffectStackAgainst(RoleComboEffectId id, int unitId, int maxStacks, int pctPerStack);
-    void setEffectIdleTimer(RoleComboEffectId id, int frames);
-    void advanceEffectIdleTimers(std::span<const RoleComboEffectId> ids);
-    int effectStacks(RoleComboEffectId id) const;
-    int effectIdleTimer(RoleComboEffectId id) const;
-    int effectStacksAgainst(RoleComboEffectId id, int unitId) const;
-    int setEnemyTopDebuffApplied(int desired);
-
-    int dodgeAdaptationBonusAgainst(int attackerUnitId) const;
-
-    int sumAlways(EffectType type) const;
-    int maxAlways(EffectType type) const;
-    int maxAlwaysValue2(EffectType type) const;
-    bool hasAlways(EffectType type) const;
-    const RoleComboEffectInstance* firstAlways(EffectType type) const;
-    const RoleComboEffectInstance* maxAlwaysByValue(EffectType type) const;
-    bool hasComboApplied(int comboId) const;
-
-private:
-    RoleComboEffectStore effects_;
-    RoleComboRuntimeState runtime_;
-
-    RoleComboEffectId appendEffect(const ComboEffect& effect, RoleComboEffectOrigin origin, int sourceComboId);
+    BattleStatusKind status{};
 };
 
-class RoleComboState : public BattleEffectState
+struct GenerateClonesAction
 {
+    int count{};
 };
+
+struct PreventDeathAction
+{
+    int invincibilityFrames{};
+};
+
+enum class RescueRepositionMode
+{
+    Protect,
+    Execute,
+};
+
+struct ConfigureRescueRepositionAction
+{
+    RescueRepositionMode mode{};
+    int activations{};
+};
+
+using StateMachineAction = std::variant<
+    ChangeStateValueAction,
+    TransferStateValueAction,
+    RecordMaximumDamageAction,
+    ConsumeRecordedMaximumAction,
+    StartDamageAbsorptionAction,
+    SettleDamageAbsorptionAction,
+    BorrowEffectRulesAction,
+    CopyAttackDefinitionAction,
+    SettleRemainingStatusDamageAction,
+    GenerateClonesAction,
+    PreventDeathAction,
+    ConfigureRescueRepositionAction>;
+
+struct EffectAction;
+
+struct ConditionalEffectAction
+{
+    std::vector<EffectCondition> conditions;
+    std::vector<EffectAction> whenTrue;
+    std::vector<EffectAction> whenFalse;
+};
+
+using EffectActionValue = std::variant<
+    ModifyAttributeAction,
+    ModifyDamageAction,
+    ChangeResourceAction,
+    ModifyHealTransactionAction,
+    ApplyStatusAction,
+    ConsumeStatusAction,
+    RemoveStatusAction,
+    DealDamageAction,
+    ModifyAttackAction,
+    ForceMoveAction,
+    CreateAreaAction,
+    ModifyCastAction,
+    StateMachineAction,
+    std::shared_ptr<ConditionalEffectAction>>;
+
+struct EffectAction
+{
+    EffectActionValue value;
+};
+
+struct EffectRuleId
+{
+    std::uint64_t value{};
+    auto operator<=>(const EffectRuleId&) const = default;
+};
+
+enum class EffectActivationScope
+{
+    PerCastPerTarget,
+};
+
+enum class EffectObservationScope
+{
+    Owner,
+    OwnerTeamEventSource,
+    EventTarget,
+};
+
+enum class EffectCastMatch
+{
+    BoundMagic,
+    OwnerAnyCast,
+};
+
+struct EffectActivationLimit
+{
+    EffectActivationScope scope{};
+    int maxEvaluations{};
+};
+
+struct EffectRule
+{
+    EffectRuleId id;
+    EffectEvent event{};
+    EffectObservationScope observation = EffectObservationScope::Owner;
+    EffectCastMatch castMatch = EffectCastMatch::BoundMagic;
+    EffectSelector selector;
+    std::vector<EffectCondition> conditions;
+    int chancePct = 100;
+    int maxActivations = 0;
+    // Rules bound once per eligible owner can share a source-scoped cooldown.
+    // This preserves group triggers such as one combo member starting a buff
+    // window for every member without collapsing per-owner activation counts.
+    int sharedCooldownFrames = 0;
+    // 週期規則共用再生與光環效果採用的戰鬥幀序號；當 periodOrdinal
+    // 可被週期間隔整除時觸發。
+    int intervalFrames = 0;
+    // Every-N activation counts otherwise eligible observed events per bound
+    // rule. Zero means every event; N activates on N, 2N, and so on.
+    int everyNthEvent = 0;
+    std::optional<EffectActivationLimit> activationLimit;
+    std::vector<EffectAction> actions;
+};
+
+enum class EffectDescriptionStyle
+{
+    Full,
+    Compact,
+};
+
+std::string effectDescription(const EffectRule& rule, EffectDescriptionStyle style);
+bool validateEffectRule(const EffectRule& rule, std::string& error);
 
 struct ChessMagicEffectDefinition
 {
     int magicId = -1;
     std::string name;
-    std::vector<ComboEffect> effects;
+    std::vector<EffectRule> rules;
     std::string purpose;
+    bool enabled = true;
 };
 
 class ChessBattleEffects
 {
 public:
-    static const std::map<std::string, EffectType>& getEffectTypeMap();
-    static bool parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context, const ChessDiagnosticSink& diagnostics = {});
+    static bool parseEffectRule(const YAML::Node& node,
+                                EffectRule& out,
+                                EffectRuleId id,
+                                const std::string& context,
+                                const ChessDiagnosticSink& diagnostics = {});
     static bool parseMagicEffects(const YAML::Node& root, std::vector<ChessMagicEffectDefinition>& out, const std::string& context, const ChessDiagnosticSink& diagnostics = {});
     static bool loadMagicEffectsFile(const std::string& path, std::vector<ChessMagicEffectDefinition>& out, const ChessDiagnosticSink& diagnostics = {});
-    static RoleComboState makeSummonedCloneState(const RoleComboState& sourceState);
-    static void mergeEffects(std::map<int, RoleComboState>& states,
-                             const std::vector<ComboEffect>& effects,
-                             const std::vector<int>& roleIds,
-                             int sourceComboId = -1);
 };
 
 }  // namespace KysChess

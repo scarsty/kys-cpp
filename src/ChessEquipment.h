@@ -1,6 +1,7 @@
 #pragma once
 #include "ChessBattleEffects.h"
 #include "ChessDiagnostics.h"
+#include "ChessNonBattleRules.h"
 #include "Types.h"
 #include <string>
 #include <vector>
@@ -13,9 +14,8 @@ struct EquipmentDef
     int itemId;
     int tier;
     int equipType;
-    std::vector<ComboEffect> effects;
-    std::vector<std::string> actAsComboNames;
-
+    std::vector<EffectRule> rules;
+    std::vector<ChessNonBattleRule> managementRules;
 };
 
 inline const char* chessEquipmentTypeName(int equipType)
@@ -40,8 +40,8 @@ struct EquipmentSynergyDef
 {
     std::vector<int> roleIds;
     int equipmentId = -1;
-    std::vector<ComboEffect> effects;
-    std::vector<std::string> actAsComboNames;
+    std::vector<EffectRule> rules;
+    std::vector<ChessNonBattleRule> managementRules;
 };
 
 bool loadChessEquipment(

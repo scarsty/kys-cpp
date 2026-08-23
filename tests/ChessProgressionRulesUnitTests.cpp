@@ -128,10 +128,8 @@ TEST_CASE("configured victory economy grants combo gold and one persisted free r
     combo.thresholds.push_back({
         1,
         "配置門檻",
-        {
-            {EffectType::GoldCoefficient, 2},
-            {EffectType::FreeRefresh, 1},
-        },
+        {},
+        {VictoryGoldRule{2}, FreeShopRefreshRule{}},
     });
     data.combos.push_back(std::move(combo));
     ChessGameContent content(std::move(data));
