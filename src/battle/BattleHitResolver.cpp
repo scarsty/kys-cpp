@@ -157,6 +157,8 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
     request.initial.attackSourceUnitId = followUp.sourceUnitId;
     request.initial.preferredTargetUnitId = targetUnitId;
     request.initial.scriptedDamage = followUp.damage;
+    request.initial.scriptedDamageAppliesModifiers = followUp.appliesDamageModifiers;
+    request.initial.scriptedDamageTriggersDefenseEffects = followUp.triggersDefenseEffects;
     request.initial.damageKind = followUp.damageKind;
     request.initial.scriptedStunFrames = followUp.stunFrames;
     request.initial.track = true;
@@ -169,7 +171,7 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
         targetPosition,
         context.projectileSpeed);
     request.initial.totalFrame = std::max(
-        15,
+        context.minimumProjectileFrames,
         battleTravelFrames2d(
             request.initial.position,
             targetPosition,
@@ -655,6 +657,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                 .segments = battleLogText(
                     "特效傷害",
                     BattleLogTextTone::SkillName),
+                .preResolvedDamage = !input.attackEvent.scriptedDamageAppliesModifiers,
+                .triggersDefenseEffects = input.attackEvent.scriptedDamageTriggersDefenseEffects,
             };
             command.provenance = input.attackEvent.provenance;
             command.damageKind = input.attackEvent.damageKind;

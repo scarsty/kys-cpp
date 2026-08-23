@@ -1292,7 +1292,34 @@ TEST_CASE("BattleEffectCommandSystem emits an explicit damage queue request", "[
     CHECK(output.request.damageKind == BattleDamageKind::Pure);
     CHECK_FALSE(output.request.acceptedHit);
     CHECK_FALSE(output.request.ignoreDefense);
+    CHECK_FALSE(output.request.preResolvedDamage);
+    CHECK(output.request.triggersDefenseEffects);
     CHECK(state.units.requireCore(3).vitals.hp == 1000);
+}
+
+TEST_CASE("BattleEffectCommandSystem preserves pre-resolved damage without hurt invincibility",
+          "[battle][effect][command][migration]")
+{
+    auto state = makeState();
+    DealDamageAction action;
+    action.kind = BattleDamageKind::Effect;
+    action.appliesDamageModifiers = false;
+    action.triggersHurtInvincibility = false;
+    const EffectCommand command{
+        metadata(15, 3),
+        DealDamageEffectCommand{ action, 30 },
+    };
+
+    const auto reduced = BattleEffectCommandSystem().reduce(
+        state,
+        command,
+        { .frame = 20 });
+
+    REQUIRE(reduced.entries.size() == 1);
+    const auto& output = std::get<BattleEffectDamageRequestOutput>(
+        reduced.entries.front().value);
+    CHECK(output.request.preResolvedDamage);
+    CHECK_FALSE(output.request.triggersDefenseEffects);
 }
 
 TEST_CASE("BattleEffectCommandSystem carries typed execute damage through the damage transaction", "[battle][effect][command][execute]")

@@ -541,6 +541,8 @@ struct DealDamageAction
     EffectNumber amount;
     std::optional<EffectNumber> transactionCount;
     BattleDamageKind kind{};
+    bool appliesDamageModifiers = true;
+    bool triggersHurtInvincibility = true;
     DamageArea area;
     PerCastHitPolicy perCast;
     std::optional<AreaProjectileDamageDelivery> areaProjectiles;
@@ -991,6 +993,9 @@ struct EffectRule
     // rule. Zero means every event; N activates on N, 2N, and so on.
     int everyNthEvent = 0;
     std::optional<EffectActivationLimit> activationLimit;
+    // Ordered repetition replays the complete action list. Unlike an action's
+    // transaction/application count, later actions settle between repetitions.
+    std::optional<EffectNumber> repetitionCount;
     std::vector<EffectAction> actions;
 };
 

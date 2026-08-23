@@ -311,13 +311,17 @@ struct DealDamageAction
     EffectNumber amount{};
     std::optional<EffectNumber> transactionCount;
     BattleDamageKind kind{};
+    bool appliesDamageModifiers = true;
+    bool triggersHurtInvincibility = true;
     DamageArea area{};
     PerCastHitPolicy perCast{};
     std::optional<AreaProjectileDamageDelivery> areaProjectiles;
 };
 ```
 
-`Square` 使用棋格方形並要求正奇數邊長；`Circle` 使用世界座標距離。純粹傷害只忽略防禦，仍進入護盾、格擋層、減傷及單次承傷上限。`perCast` 明確表示同一 cast 對同一單位的上限，不能以 `sharedHitGroupId` 猜測。
+`Square` 使用棋格方形並要求正奇數邊長；`Circle` 使用世界座標距離。純粹傷害只忽略防禦，仍進入護盾、格擋層、減傷及單次承傷上限。`appliesDamageModifiers = false` 表示數值已預先結算，跳過一般攻防傷害修正；`triggersHurtInvincibility = false` 表示生命傷害不觸發受傷無敵。兩者不會跳過護盾、無敵、格擋層、單次承傷上限或死亡庇護，且即使使用 `areaProjectiles` 延後送達也必須保留。`perCast` 明確表示同一 cast 對同一單位的上限，不能以 `sharedHitGroupId` 猜測。
+
+規則可用 `repetitionCount` 依序重播完整 action list。這與單一 action 的 `transactionCount`／`applicationCount` 不同：前一輪的每個 action 都完成後才開始下一輪，適合「逐層造成傷害並套用狀態」等有順序要求的複合效果。重複次數必須是保證為正的來源或事件範圍公式，不可依個別目標而異。
 
 ### 6. 修改／生成攻擊
 
@@ -455,6 +459,8 @@ struct ConsumeRecordedMaximum
     int percent = 100;
     bool clearAfterConsume = true;
 };
+
+`clearAfterConsume = false` 代表同一 cast 內只讀取記錄，供每一枚符合條件的主彈道使用；`CastSettled` 仍會統一清除該 cast 的狀態值。
 
 struct StartDamageAbsorption
 {

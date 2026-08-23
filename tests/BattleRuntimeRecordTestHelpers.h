@@ -45,6 +45,8 @@ inline void appendDeathBlastRule(
     damage.amount.percent = damagePct;
     damage.amount.minimum = 1;
     damage.kind = BattleDamageKind::Physical;
+    damage.appliesDamageModifiers = false;
+    damage.triggersHurtInvincibility = false;
     damage.areaProjectiles = AreaProjectileDamageDelivery{
         .rangeTiles = 7,
         .maximumTargets = maximumTargets,

@@ -1294,6 +1294,8 @@ BattleEffectDamageRequestOutput makeDamageRequest(
     request.defenderUnitId = metadata.targetUnitId;
     request.baseDamage = command.amount;
     request.damageKind = command.action.kind;
+    request.preResolvedDamage = !command.action.appliesDamageModifiers;
+    request.triggersDefenseEffects = command.action.triggersHurtInvincibility;
     // 「處決」動作本身代表直接斬殺；生命門檻等規則條件已在命令產生前篩選。
     request.canExecute = command.action.kind == BattleDamageKind::Execute;
     request.executeThresholdPct = request.canExecute ? 100 : 0;

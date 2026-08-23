@@ -4105,7 +4105,7 @@ bool tryAppendFrameDamageTransaction(
     request.defenderUnitId = command.targetUnitId;
     request.baseDamage = command.damage;
     request.damageKind = command.damageKind;
-    request.preResolvedDamage = true;
+    request.preResolvedDamage = command.preResolvedDamage;
     request.preResolvedDamageReductionBasisPoints =
         command.combinedDamageReductionBasisPoints;
     request.hitstunFrames = command.frozenFrames;
@@ -4745,6 +4745,8 @@ void appendAreaProjectileDamageOutput(
             ? output.action.amount.percent
             : 0;
         followUp.damageKind = output.action.kind;
+        followUp.appliesDamageModifiers = output.action.appliesDamageModifiers;
+        followUp.triggersDefenseEffects = output.action.triggersHurtInvincibility;
         followUp.stunFrames = delivery.stunFrames;
         followUp.reason = presentation.reason;
         followUp.logText = areaProjectileLogText(

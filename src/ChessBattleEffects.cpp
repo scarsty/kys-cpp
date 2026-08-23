@@ -1497,7 +1497,8 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     {
         if (!validateKnownKeys(node, {
                 "類型", "數值", "交易次數", "傷害種類", "範圍", "半徑格數",
-                "方形邊長", "同目標命中上限", "區域投射物" }, error)) return false;
+                "方形邊長", "同目標命中上限", "套用傷害修正", "觸發受傷無敵",
+                "區域投射物" }, error)) return false;
         DealDamageAction action;
         std::string kind;
         if (!requiredString(node, "傷害種類", kind, error)
@@ -1526,7 +1527,9 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         }
         if (!optionalInt(node, "半徑格數", action.area.radiusTiles, error)
             || !optionalInt(node, "方形邊長", action.area.squareSideTiles, error)
-            || !optionalInt(node, "同目標命中上限", action.perCast.perTargetLimit, error)) return false;
+            || !optionalInt(node, "同目標命中上限", action.perCast.perTargetLimit, error)
+            || !optionalBool(node, "套用傷害修正", action.appliesDamageModifiers, error)
+            || !optionalBool(node, "觸發受傷無敵", action.triggersHurtInvincibility, error)) return false;
         if (const auto projectileNode = node["區域投射物"])
         {
             if (!validateKnownKeys(projectileNode, {
@@ -1819,11 +1822,15 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         }
         else if (mechanism == "消耗記錄為傷害" || mechanism == "消耗記錄為護盾")
         {
-            if (!validateKnownKeys(node, { "類型", "機制", "狀態槽", "百分比" }, error)) return false;
+            if (!validateKnownKeys(
+                    node,
+                    { "類型", "機制", "狀態槽", "百分比", "消耗後清除" },
+                    error)) return false;
             ConsumeRecordedMaximumAction action;
             action.destination = mechanism.ends_with("護盾") ? StateValueDestination::ShieldAmount : StateValueDestination::DamageAmount;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)
-                || !optionalInt(node, "百分比", action.percent, error)) return false;
+                || !optionalInt(node, "百分比", action.percent, error)
+                || !optionalBool(node, "消耗後清除", action.clearAfterConsume, error)) return false;
             out.value = StateMachineAction{ action };
         }
         else if (mechanism == "開始傷害吸收")
@@ -2089,6 +2096,24 @@ struct DescriptionEveryNthEventQualifier
     auto operator<=>(const DescriptionEveryNthEventQualifier&) const = default;
 };
 
+struct DescriptionRepetitionCountQualifier
+{
+    EffectNumber count;
+
+    bool operator==(const DescriptionRepetitionCountQualifier& other) const
+    {
+        return count.base == other.count.base
+            && count.multiplierBase == other.count.multiplierBase
+            && count.status == other.count.status
+            && count.stateSlot == other.count.stateSlot
+            && count.flat == other.count.flat
+            && count.percent == other.count.percent
+            && count.rounding == other.count.rounding
+            && count.minimum == other.count.minimum
+            && count.maximum == other.count.maximum;
+    }
+};
+
 struct DescriptionActivationLimitQualifier
 {
     EffectActivationScope scope{};
@@ -2107,6 +2132,7 @@ using DescriptionQualifier = std::variant<
     DescriptionSharedCooldownQualifier,
     DescriptionIntervalQualifier,
     DescriptionEveryNthEventQualifier,
+    DescriptionRepetitionCountQualifier,
     DescriptionActivationLimitQualifier>;
 
 struct DescriptionClause
@@ -2938,6 +2964,10 @@ std::string renderDescriptionActionArgument(
                 auto result = std::format("{}造成{}{}", area, boundedNumberLabel(typed.amount), kind);
                 if (typed.transactionCount)
                     result += std::format("·獨立{}次", boundedNumberLabel(*typed.transactionCount));
+                if (!typed.appliesDamageModifiers)
+                    result += "·不套用傷害修正";
+                if (!typed.triggersHurtInvincibility)
+                    result += "·不觸發受傷無敵";
                 if (typed.perCast.perTargetLimit > 0)
                     result += std::format("·每次施放對同一目標最多命中{}次", typed.perCast.perTargetLimit);
                 if (typed.areaProjectiles)
@@ -3195,10 +3225,13 @@ std::string renderDescriptionActionArgument(
                         else if constexpr (std::is_same_v<M, ConsumeRecordedMaximumAction>)
                         {
                             const auto amount = machine.percent == 100 ? "等量" : std::format("{}%", machine.percent);
-                            auto result = machine.destination == StateValueDestination::DamageAmount
-                                ? std::format("消耗記錄值並附加{}純粹傷害", amount)
-                                : std::format("消耗記錄值並獲得{}護盾", amount);
-                            if (!machine.clearAfterConsume) result += "·保留記錄值";
+                            auto result = machine.clearAfterConsume
+                                ? (machine.destination == StateValueDestination::DamageAmount
+                                    ? std::format("消耗記錄值並附加{}純粹傷害", amount)
+                                    : std::format("消耗記錄值並獲得{}護盾", amount))
+                                : (machine.destination == StateValueDestination::DamageAmount
+                                    ? std::format("讀取記錄值並附加{}純粹傷害", amount)
+                                    : std::format("讀取記錄值並獲得{}護盾", amount));
                             return result;
                         }
                         else if constexpr (std::is_same_v<M, StartDamageAbsorptionAction>)
@@ -3580,6 +3613,8 @@ EffectDescriptionNode buildEffectDescriptionAst(const EffectRule& rule)
         guard.qualifiers.emplace_back(DescriptionIntervalQualifier{ rule.intervalFrames });
     if (rule.everyNthEvent > 0)
         guard.qualifiers.emplace_back(DescriptionEveryNthEventQualifier{ rule.everyNthEvent });
+    if (rule.repetitionCount)
+        guard.qualifiers.emplace_back(DescriptionRepetitionCountQualifier{ *rule.repetitionCount });
     DescriptionForEach targets;
     targets.targets.selector = rule.selector;
     targets.body = actionListDescriptionNode(rule.actions);
@@ -3632,6 +3667,10 @@ std::string renderRuleQualifier(
                 return compact ? std::format("·每{}幀", typed.frames) : std::format("；每{}幀一次", typed.frames);
             else if constexpr (std::is_same_v<T, DescriptionEveryNthEventQualifier>)
                 return compact ? std::format("·每{}次", typed.count) : std::format("；每{}次符合事件啟用一次", typed.count);
+            else if constexpr (std::is_same_v<T, DescriptionRepetitionCountQualifier>)
+                return compact
+                    ? std::format("·依序×{}", boundedNumberLabel(typed.count))
+                    : std::format("；依序重複{}次", boundedNumberLabel(typed.count));
             else if constexpr (std::is_same_v<T, DescriptionActivationLimitQualifier>)
             {
                 assert(typed.scope == EffectActivationScope::PerCastPerTarget);
@@ -5087,9 +5126,10 @@ bool validateBattleInitializedRule(const EffectRule& rule, std::string& error)
         || rule.sharedCooldownFrames != 0
         || rule.intervalFrames != 0
         || rule.everyNthEvent != 0
+        || rule.repetitionCount
         || rule.activationLimit)
     {
-        error = "戰鬥初始化必須省略機率、次數、冷卻、間隔與觸發限制欄位";
+        error = "戰鬥初始化必須省略機率、次數、冷卻、間隔、重複與觸發限制欄位";
         return false;
     }
     if (!validateBattleInitializedSelector(rule.selector, error)) return false;
@@ -5166,6 +5206,30 @@ bool validateEffectRule(const EffectRule& rule, std::string& error)
     {
         error = "每N次事件為1沒有意義，請省略此欄位";
         return false;
+    }
+    if (rule.repetitionCount)
+    {
+        if (!validateEffectNumberAtEvent(*rule.repetitionCount, rule.event, error))
+            return false;
+        if (!effectNumberMustBePositive(*rule.repetitionCount))
+        {
+            error = "規則重複次數必須保證為正數";
+            return false;
+        }
+        const auto targetScoped = [](EffectNumberBase base)
+        {
+            return base == EffectNumberBase::TargetMaxHp
+                || base == EffectNumberBase::TargetCurrentHp
+                || base == EffectNumberBase::TargetCurrentShield
+                || base == EffectNumberBase::TargetCurrentCooldown;
+        };
+        if (targetScoped(rule.repetitionCount->base)
+            || (rule.repetitionCount->multiplierBase
+                && targetScoped(*rule.repetitionCount->multiplierBase)))
+        {
+            error = "規則重複次數必須使用來源或事件範圍的數值，不可依個別目標而異";
+            return false;
+        }
     }
     if (rule.activationLimit)
     {
@@ -5248,6 +5312,7 @@ bool validateEffectRule(const EffectRule& rule, std::string& error)
     if (hasExactRuntimeAction
         && ((rule.chancePct != 100 && !exactRuntimeChanceIsConsumed)
             || rule.everyNthEvent > 0
+            || rule.repetitionCount
             || rule.activationLimit
             || rule.maxActivations > 0
             || rule.sharedCooldownFrames > 0))
@@ -5278,7 +5343,7 @@ bool ChessBattleEffects::parseEffectRule(
     try
     {
         std::string error;
-        if (!validateKnownKeys(node, { "事件", "觀察範圍", "施放匹配", "目標", "條件", "機率", "次數", "同來源冷卻幀數", "間隔幀數", "每N次事件", "觸發限制", "動作" }, error))
+        if (!validateKnownKeys(node, { "事件", "觀察範圍", "施放匹配", "目標", "條件", "機率", "次數", "同來源冷卻幀數", "間隔幀數", "每N次事件", "觸發限制", "重複次數", "動作" }, error))
             return fail(error);
 
         std::string eventLabel;
@@ -5348,6 +5413,12 @@ bool ChessBattleEffects::parseEffectRule(
             EffectActivationLimit parsed;
             if (!parseActivationLimitNode(activationLimit, parsed, error)) return fail(error);
             out.activationLimit = parsed;
+        }
+        if (node["重複次數"])
+        {
+            EffectNumber count;
+            if (!parseEffectNumberNode(node["重複次數"], count, error)) return fail(error);
+            out.repetitionCount = std::move(count);
         }
         if (!parseActionList(node["動作"], out.actions, error)) return fail(error);
         if (!validateEffectRule(out, error)) return fail(error);

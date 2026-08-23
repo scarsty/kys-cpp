@@ -223,22 +223,21 @@ TEST_CASE("BattleEffectSystem emits one poison application and damage transactio
     damage.amount.base = EffectNumberBase::SourceStatusPotency;
     damage.amount.status = "毒爆";
     damage.amount.percent = 100;
-    damage.transactionCount = layerCount;
     damage.kind = BattleDamageKind::Pure;
     ApplyStatusAction poison;
     poison.status = BattleStatusKind::Poison;
     poison.durationFrames = 120;
-    poison.applicationCount = layerCount;
     poison.stacks = 4;
     poison.potency.flat = 10;
     poison.stack = EffectStackPolicy::Replace;
     poison.stackLimit = 4;
-    const auto rule = makeRule(
+    auto rule = makeRule(
         1,
         EffectEvent::UnitDied,
         EffectSelector{ .kind = EffectSelectorKind::Enemies, .count = 1 },
         { effectAction(damage), effectAction(poison) },
         { SourceHasStateCondition{ "毒爆" } });
+    rule.repetitionCount = layerCount;
 
     BattleEffectRuleStore store;
     store.append(magicBinding(95), rule);
@@ -255,16 +254,23 @@ TEST_CASE("BattleEffectSystem emits one poison application and damage transactio
         });
 
     const auto dispatched = BattleEffectSystem{}.dispatch(store, context, random);
-    REQUIRE(dispatched.commands.size() == 4);
-    const auto& damageCommand = std::get<DealDamageEffectCommand>(
-        dispatched.commands[0].value);
-    CHECK(damageCommand.amount == 240);
-    CHECK(damageCommand.transactionCount == 3);
-    for (std::size_t index = 1; index < dispatched.commands.size(); ++index)
+    REQUIRE(dispatched.commands.size() == 6);
+    for (std::size_t index = 0; index < dispatched.commands.size(); ++index)
     {
-        CHECK(std::holds_alternative<ApplyStatusEffectCommand>(
-            dispatched.commands[index].value));
         CHECK(dispatched.commands[index].metadata.commandOrdinal == index);
+        CHECK(dispatched.commands[index].metadata.actionOrder == index);
+        if (index % 2 == 0)
+        {
+            const auto& damageCommand = std::get<DealDamageEffectCommand>(
+                dispatched.commands[index].value);
+            CHECK(damageCommand.amount == 240);
+            CHECK(damageCommand.transactionCount == 1);
+        }
+        else
+        {
+            CHECK(std::holds_alternative<ApplyStatusEffectCommand>(
+                dispatched.commands[index].value));
+        }
     }
 
     auto noLayers = owner;
@@ -1362,6 +1368,7 @@ TEST_CASE("BattleEffectSystem transfers persistent damage memory into one cast",
     ConsumeRecordedMaximumAction consume;
     consume.slot = EffectStateSlot::CastMaximumHpDamage;
     consume.destination = StateValueDestination::DamageAmount;
+    consume.clearAfterConsume = false;
     const auto consumeRule = makeRule(
         3,
         EffectEvent::MainProjectileBeforeDamage,
@@ -1435,12 +1442,25 @@ TEST_CASE("BattleEffectSystem transfers persistent damage memory into one cast",
     const auto& command = std::get<StateMachineEffectCommand>(consumed.commands[0].value);
     CHECK(command.stateValueBefore == 420);
     CHECK(command.outputValue == 420);
-    CHECK(command.stateValueAfter == 0);
+    CHECK(command.stateValueAfter == 420);
+    CHECK(store.stateValue(
+        binding,
+        EffectStateSlot::CastMaximumHpDamage,
+        castProvenance(88).castId.value()) == 420);
+    CHECK(store.stateValue(binding, EffectStateSlot::MaximumSkillHpDamage) == 700);
+
+    const auto secondHit = system.dispatch(store, hitContext, random);
+    REQUIRE(secondHit.commands.size() == 1);
+    const auto& secondCommand = std::get<StateMachineEffectCommand>(
+        secondHit.commands[0].value);
+    CHECK(secondCommand.outputValue == 420);
+    CHECK(secondCommand.stateValueAfter == 420);
+
+    store.removeCastScopedRules(castProvenance(88).castId);
     CHECK(store.stateValue(
         binding,
         EffectStateSlot::CastMaximumHpDamage,
         castProvenance(88).castId.value()) == 0);
-    CHECK(store.stateValue(binding, EffectStateSlot::MaximumSkillHpDamage) == 700);
 }
 
 TEST_CASE("BattleEffectSystem routes recorded shield output through the typed resource command", "[battle][effect][state-machine][resource][ordering]")

@@ -384,6 +384,51 @@ TEST_CASE("BattleProjectileFollowUpResolver expands nearby tracking targets", "[
     CHECK(first->request.initial.strengthPct == 40);
 }
 
+TEST_CASE("BattleProjectileFollowUpResolver applies the configured minimum to area projectiles",
+          "[battle][hit_resolver][projectile]")
+{
+    auto units = KysChess::Battle::Test::runtimeRecords({
+        runtimeUnit(0, 0, { 0.0f, 0.0f, 0.0f }),
+        runtimeUnit(1, 1, { 40.0f, 0.0f, 0.0f }),
+    });
+    units.requireCore(0).grid = { 0, 0 };
+    units.requireCore(1).grid = { 1, 0 };
+
+    BattleAreaProjectileFollowUp followUp;
+    followUp.cast = {
+        .rootCastId = BattleCastId{ 1 },
+        .castId = BattleCastId{ 1 },
+        .sourceUnitId = 0,
+        .magicId = 101,
+    };
+    followUp.expansionWork = {
+        .id = BattleCastWorkId{ 1 },
+        .castId = BattleCastId{ 1 },
+    };
+    followUp.sourceUnitId = 0;
+    followUp.areaSize = 1;
+    followUp.trackedTargetUnitId = 1;
+    followUp.maxTargets = 1;
+    followUp.damage = 20;
+
+    BattleProjectileFollowUpContext context;
+    context.projectileSpeed = 10.0;
+    context.minimumProjectileFrames = 37;
+    context.areaProjectileFramePadding = 0;
+    context.areaSpawnDistance = 0.0;
+
+    const auto expanded = expandBattleAreaProjectileFollowUp(
+        followUp,
+        context,
+        units);
+
+    REQUIRE(expanded.commands.size() == 1);
+    const auto* projectile = std::get_if<BattleProjectileSpawnCommand>(
+        &expanded.commands.front());
+    REQUIRE(projectile);
+    CHECK(projectile->request.initial.totalFrame == 37);
+}
+
 TEST_CASE("BattleHitResolver emits MP damage for non-HP skills", "[battle][hit_resolver][unit]")
 {
     auto input = hitInput();
@@ -431,6 +476,8 @@ TEST_CASE("BattleHitResolver keeps scripted status and damage payloads", "[battl
 {
     auto input = hitInput();
     input.attackEvent.scriptedDamage = 24;
+    input.attackEvent.scriptedDamageAppliesModifiers = true;
+    input.attackEvent.scriptedDamageTriggersDefenseEffects = true;
     input.attackEvent.scriptedStunFrames = 7;
     input.attackEvent.scriptedBleedStacks = 2;
     input.sharedBleedMaxStacks = 5;
@@ -445,5 +492,7 @@ TEST_CASE("BattleHitResolver keeps scripted status and damage payloads", "[battl
     const auto* damage = firstHpDamageCommand(result);
     REQUIRE(damage);
     CHECK(damage->damage == 24);
+    CHECK_FALSE(damage->preResolvedDamage);
+    CHECK(damage->triggersDefenseEffects);
     CHECK(result.finalHpDamage == 24);
 }

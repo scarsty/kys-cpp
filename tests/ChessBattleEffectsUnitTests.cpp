@@ -312,7 +312,7 @@ TEST_CASE("ChessBattleEffects_DescriptionAstPreservesCompoundNesting",
     CHECK(effectDescription(taijiRecord, EffectDescriptionStyle::Full).find(
         "首次記錄值為0") != std::string::npos);
     CHECK(effectDescription(taijiConsume, EffectDescriptionStyle::Compact).find(
-        "→清空") != std::string::npos);
+        "讀取記錄值") != std::string::npos);
     const auto& transferMachine = std::get<StateMachineAction>(
         taijiTransfer.actions[0].value);
     const auto& transfer = std::get<TransferStateValueAction>(transferMachine);
@@ -320,8 +320,9 @@ TEST_CASE("ChessBattleEffects_DescriptionAstPreservesCompoundNesting",
     CHECK(transfer.destinationSlot == EffectStateSlot::CastMaximumHpDamage);
     const auto& consumeMachine = std::get<StateMachineAction>(
         taijiConsume.actions[0].value);
-    CHECK(std::get<ConsumeRecordedMaximumAction>(consumeMachine).slot
-          == EffectStateSlot::CastMaximumHpDamage);
+    const auto& consume = std::get<ConsumeRecordedMaximumAction>(consumeMachine);
+    CHECK(consume.slot == EffectStateSlot::CastMaximumHpDamage);
+    CHECK_FALSE(consume.clearAfterConsume);
 }
 
 TEST_CASE("ChessBattleEffects_DescriptionIgnoresRuntimeRuleIdentity",
@@ -996,23 +997,21 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
     const auto* poisonExplosionDamage = std::get_if<DealDamageAction>(
         &poisonExplosion.actions[0].value);
     REQUIRE(poisonExplosionDamage != nullptr);
+    REQUIRE(poisonExplosion.repetitionCount);
+    CHECK(poisonExplosion.repetitionCount->base == EffectNumberBase::SourceStatusStacks);
+    CHECK(poisonExplosion.repetitionCount->status == "毒爆");
+    CHECK(poisonExplosion.repetitionCount->minimum == 1);
     CHECK(poisonExplosion.selector.kind == EffectSelectorKind::UnitsInRadius);
     CHECK(poisonExplosionDamage->area.kind == DamageAreaKind::SingleTarget);
     CHECK(poisonExplosionDamage->amount.base == EffectNumberBase::SourceStatusPotency);
     CHECK(poisonExplosionDamage->amount.status == "毒爆");
-    REQUIRE(poisonExplosionDamage->transactionCount);
-    CHECK(poisonExplosionDamage->transactionCount->base == EffectNumberBase::SourceStatusStacks);
-    CHECK(poisonExplosionDamage->transactionCount->status == "毒爆");
+    CHECK_FALSE(poisonExplosionDamage->transactionCount);
     const auto* poisonExplosionStatus = std::get_if<ApplyStatusAction>(
         &poisonExplosion.actions[1].value);
     REQUIRE(poisonExplosionStatus != nullptr);
-    REQUIRE(poisonExplosionStatus->applicationCount);
-    CHECK(poisonExplosionStatus->applicationCount->base
-          == EffectNumberBase::SourceStatusStacks);
-    CHECK(poisonExplosionStatus->applicationCount->status == "毒爆");
-    CHECK(poisonExplosionStatus->applicationCount->minimum == 1);
+    CHECK_FALSE(poisonExplosionStatus->applicationCount);
     CHECK(effectDescription(poisonExplosion, EffectDescriptionStyle::Full).find(
-        "獨立毒爆層數的100%·至少1次") != std::string::npos);
+        "依序重複毒爆層數的100%·至少1次") != std::string::npos);
 
     const auto& sevenStar = ruleWithEvent(
         definitionWithId(definitions, 39),
@@ -2120,6 +2119,80 @@ TEST_CASE("ChessBattleEffects_EnabledInitializationInventoryRemainsFullyValidate
 
     CHECK(initializedRuleCount == 205);
     CHECK(initializedActionCount == 209);
+}
+
+TEST_CASE("ChessBattleEffects_CurrentHpBlastPreservesLegacyDamagePolicy",
+          "[battle][effects][combo][migration]")
+{
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content != nullptr);
+    const auto combo = std::ranges::find(
+        content->combos(),
+        std::string{ "琴棋書畫" },
+        &ComboDef::name);
+    REQUIRE(combo != content->combos().end());
+
+    for (const int count : { 2, 4 })
+    {
+        const auto threshold = std::ranges::find(
+            combo->thresholds,
+            count,
+            &ComboThreshold::count);
+        REQUIRE(threshold != combo->thresholds.end());
+        const auto rule = std::ranges::find_if(threshold->rules, [](const EffectRule& candidate)
+        {
+            return candidate.event == EffectEvent::AttackCommitted
+                && candidate.actions.size() == 1
+                && std::holds_alternative<DealDamageAction>(
+                    candidate.actions.front().value);
+        });
+        REQUIRE(rule != threshold->rules.end());
+        const auto& damage = std::get<DealDamageAction>(rule->actions.front().value);
+        CHECK(damage.amount.base == EffectNumberBase::TargetCurrentHp);
+        CHECK_FALSE(damage.appliesDamageModifiers);
+        CHECK_FALSE(damage.triggersHurtInvincibility);
+        for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
+        {
+            const auto description = effectDescription(*rule, style);
+            CHECK(description.find("不套用傷害修正") != std::string::npos);
+            CHECK(description.find("不觸發受傷無敵") != std::string::npos);
+        }
+    }
+}
+
+TEST_CASE("ChessBattleEffects_DeathBlastPreservesLegacyDamagePolicy",
+          "[battle][effects][combo][migration]")
+{
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content != nullptr);
+    const auto combo = std::ranges::find(
+        content->combos(),
+        std::string{ "江湖龍套" },
+        &ComboDef::name);
+    REQUIRE(combo != content->combos().end());
+
+    for (const int count : { 2, 4, 6 })
+    {
+        const auto threshold = std::ranges::find(
+            combo->thresholds,
+            count,
+            &ComboThreshold::count);
+        REQUIRE(threshold != combo->thresholds.end());
+        const auto rule = std::ranges::find_if(threshold->rules, [](const EffectRule& candidate)
+        {
+            return candidate.event == EffectEvent::UnitDied
+                && candidate.actions.size() == 1
+                && std::holds_alternative<DealDamageAction>(
+                    candidate.actions.front().value);
+        });
+        REQUIRE(rule != threshold->rules.end());
+        const auto* damage = std::get_if<DealDamageAction>(
+            &rule->actions.front().value);
+        REQUIRE(damage != nullptr);
+        REQUIRE(damage->areaProjectiles);
+        CHECK_FALSE(damage->appliesDamageModifiers);
+        CHECK_FALSE(damage->triggersHurtInvincibility);
+    }
 }
 
 TEST_CASE("ChessBattleEffects_UltimateDefinitionsCoverStandardHardAndEasyPools", "[battle][effects][magic][schema][content]")

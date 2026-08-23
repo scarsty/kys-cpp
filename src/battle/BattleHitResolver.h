@@ -60,6 +60,7 @@ struct BattleHpDamageCommand
     int frozenFrames{};
     std::string skillName;
     std::vector<BattleLogTextSegment> segments;
+    bool preResolvedDamage = true;
     bool triggersDefenseEffects = true;
     int criticalMultiplier{};
     int skillId = -1;
@@ -140,6 +141,8 @@ struct BattleAreaProjectileFollowUp
     int damage{};
     int damagePct{};
     BattleDamageKind damageKind = BattleDamageKind::Physical;
+    bool appliesDamageModifiers{};
+    bool triggersDefenseEffects{};
     int stunFrames{};
     std::string reason;
     std::string logText;

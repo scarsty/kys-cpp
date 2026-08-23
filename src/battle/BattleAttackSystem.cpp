@@ -70,6 +70,8 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& sta
     event.operationType = state.operationType;
     event.visualEffectId = state.visualEffectId;
     event.scriptedDamage = state.scriptedDamage;
+    event.scriptedDamageAppliesModifiers = state.scriptedDamageAppliesModifiers;
+    event.scriptedDamageTriggersDefenseEffects = state.scriptedDamageTriggersDefenseEffects;
     event.scriptedStunFrames = state.scriptedStunFrames;
     event.scriptedBleedStacks = state.scriptedBleedStacks;
     event.executeCanHitInvincible = state.executeCanHitInvincible;

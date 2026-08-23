@@ -1944,6 +1944,16 @@ void BattleEffectRuleStore::removeCastScopedRules(BattleCastId castId)
             removedInstances.insert(bound.binding.runtimeInstanceId);
         }
     }
+    std::erase_if(activationEvaluations_, [&](const auto& entry)
+    {
+        return entry.first.castId == castId
+            || removedInstances.contains(entry.first.rule.sourceInstanceId);
+    });
+    std::erase_if(stateValues_, [&](const auto& entry)
+    {
+        return entry.first.scopeId == castId.value()
+            || removedInstances.contains(entry.first.sourceInstanceId);
+    });
     if (removedInstances.empty())
     {
         return;
@@ -1954,15 +1964,6 @@ void BattleEffectRuleStore::removeCastScopedRules(BattleCastId castId)
         return bound.castScope == castId;
     });
     std::erase_if(runtimeByRule_, [&](const auto& entry)
-    {
-        return removedInstances.contains(entry.first.sourceInstanceId);
-    });
-    std::erase_if(activationEvaluations_, [&](const auto& entry)
-    {
-        return entry.first.castId == castId
-            || removedInstances.contains(entry.first.rule.sourceInstanceId);
-    });
-    std::erase_if(stateValues_, [&](const auto& entry)
     {
         return removedInstances.contains(entry.first.sourceInstanceId);
     });
@@ -2788,18 +2789,31 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
             .commands = result.commands,
             .nextCommandOrdinal = nextCommandOrdinal,
         };
-        for (std::uint32_t actionOrder = 0;
-             actionOrder < static_cast<std::uint32_t>(bound.rule.actions.size());
-             ++actionOrder)
+        const int repetitionCount = bound.rule.repetitionCount
+            ? emitter.evaluate(*bound.rule.repetitionCount, *ruleContext->header.owner)
+            : 1;
+        assert(repetitionCount > 0);
+        const auto emittedActionCount = static_cast<std::uint64_t>(repetitionCount)
+            * bound.rule.actions.size();
+        assert(emittedActionCount <= std::numeric_limits<std::uint32_t>::max());
+        for (int repetition = 0; repetition < repetitionCount; ++repetition)
         {
-            for (std::uint32_t targetOrder = 0;
-                 targetOrder < static_cast<std::uint32_t>(activationTargets.size());
-                 ++targetOrder)
+            for (std::uint32_t actionIndex = 0;
+                 actionIndex < static_cast<std::uint32_t>(bound.rule.actions.size());
+                 ++actionIndex)
             {
-                emitter.emit(bound.rule.actions[actionOrder],
-                             *activationTargets[targetOrder],
-                             actionOrder,
-                             targetOrder);
+                const auto actionOrder = static_cast<std::uint32_t>(repetition)
+                    * static_cast<std::uint32_t>(bound.rule.actions.size())
+                    + actionIndex;
+                for (std::uint32_t targetOrder = 0;
+                     targetOrder < static_cast<std::uint32_t>(activationTargets.size());
+                     ++targetOrder)
+                {
+                    emitter.emit(bound.rule.actions[actionIndex],
+                                 *activationTargets[targetOrder],
+                                 actionOrder,
+                                 targetOrder);
+                }
             }
         }
     }

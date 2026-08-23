@@ -265,6 +265,8 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.initial.executeCanHitInvincible = true;
     request.initial.ignoreProjectileCancel = true;
     request.initial.scriptedDamage = 33;
+    request.initial.scriptedDamageAppliesModifiers = true;
+    request.initial.scriptedDamageTriggersDefenseEffects = true;
     request.initial.scriptedStunFrames = 12;
     request.initial.scriptedBleedStacks = 4;
     request.initial.projectileCancelDamage = 90;
@@ -308,6 +310,8 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.state.executeCanHitInvincible);
     CHECK(attack.state.ignoreProjectileCancel);
     CHECK(attack.state.scriptedDamage == 33);
+    CHECK(attack.state.scriptedDamageAppliesModifiers);
+    CHECK(attack.state.scriptedDamageTriggersDefenseEffects);
     CHECK(attack.state.scriptedStunFrames == 12);
     CHECK(attack.state.scriptedBleedStacks == 4);
     CHECK(attack.state.projectileCancelDamage == 90);
@@ -416,6 +420,8 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     projectile.state.skillId = 101;
     projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.scriptedDamage = 33;
+    projectile.state.scriptedDamageAppliesModifiers = true;
+    projectile.state.scriptedDamageTriggersDefenseEffects = true;
     projectile.state.scriptedStunFrames = 12;
     projectile.state.scriptedBleedStacks = 4;
     projectile.state.executeCanHitInvincible = true;
@@ -445,6 +451,8 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     CHECK(hit->skillId == 101);
     CHECK(hit->operationType == BattleOperationType::RangedProjectile);
     CHECK(hit->scriptedDamage == 33);
+    CHECK(hit->scriptedDamageAppliesModifiers);
+    CHECK(hit->scriptedDamageTriggersDefenseEffects);
     CHECK(hit->scriptedStunFrames == 12);
     CHECK(hit->scriptedBleedStacks == 4);
     CHECK(hit->executeCanHitInvincible);

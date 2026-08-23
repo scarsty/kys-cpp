@@ -63,6 +63,8 @@ struct BattleAttackPayload
     int visualEffectId = -1;
     BattleOperationType operationType = BattleOperationType::None;
     int scriptedDamage = 0;
+    bool scriptedDamageAppliesModifiers = false;
+    bool scriptedDamageTriggersDefenseEffects = false;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
     int projectileCancelDamage = 0;
@@ -162,6 +164,8 @@ struct BattleAttackEvent
     BattleOperationType operationType = BattleOperationType::None;
     int visualEffectId = -1;
     int scriptedDamage = 0;
+    bool scriptedDamageAppliesModifiers = false;
+    bool scriptedDamageTriggersDefenseEffects = false;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
     bool executeCanHitInvincible = false;

@@ -4608,6 +4608,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathAoeProjectileDamagesOnNextFrame",
     CHECK(first.initial.attackSourceUnitId == 1);
     CHECK(first.initial.preferredTargetUnitId == 0);
     CHECK(first.initial.scriptedDamage == 50);
+    CHECK_FALSE(first.initial.scriptedDamageAppliesModifiers);
+    CHECK_FALSE(first.initial.scriptedDamageTriggersDefenseEffects);
     CHECK(first.initial.scriptedStunFrames == 6);
     CHECK(second.initial.preferredTargetUnitId == 3);
     REQUIRE(first.provenance.valid());
@@ -5651,6 +5653,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_TransferredAntiComboDeathAoeUsesTypedR
     CHECK(state.nextFrame.queuedAttacks()[0].initial.attackSourceUnitId == 1);
     CHECK(state.nextFrame.queuedAttacks()[0].initial.preferredTargetUnitId == 0);
     CHECK(state.nextFrame.queuedAttacks()[0].initial.scriptedDamage == 50);
+    CHECK_FALSE(state.nextFrame.queuedAttacks()[0].initial.scriptedDamageAppliesModifiers);
+    CHECK_FALSE(state.nextFrame.queuedAttacks()[0].initial.scriptedDamageTriggersDefenseEffects);
     CHECK(state.nextFrame.queuedAttacks()[0].initial.scriptedStunFrames == 6);
 
     queuePendingDamage(state, lethalDamageInput(0, 2));

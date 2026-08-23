@@ -185,6 +185,8 @@ struct HeadlessBattleAttackPayloadDigest
     int visualEffectId = -1;
     Battle::BattleOperationType operationType = Battle::BattleOperationType::None;
     int scriptedDamage{};
+    bool scriptedDamageAppliesModifiers{};
+    bool scriptedDamageTriggersDefenseEffects{};
     int scriptedStunFrames{};
     int scriptedBleedStacks{};
     int projectileCancelDamage{};
@@ -540,6 +542,8 @@ HeadlessBattleAttackPayloadDigest attackPayloadDigest(
         payload.visualEffectId,
         payload.operationType,
         payload.scriptedDamage,
+        payload.scriptedDamageAppliesModifiers,
+        payload.scriptedDamageTriggersDefenseEffects,
         payload.scriptedStunFrames,
         payload.scriptedBleedStacks,
         payload.projectileCancelDamage,
