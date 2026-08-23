@@ -219,8 +219,8 @@ TEST_CASE("BattleEffectEventBridge preserves continuation and settlement payload
     const auto continuationContext = continuation.context();
     CHECK(continuation.event() == EffectEvent::CastContinuation);
     CHECK(continuationContext.header.eventOrdinal == 1001);
-    CHECK(continuationContext.header.owner.id == 1);
-    CHECK(continuationContext.header.owner.hp == 100);
+    CHECK(continuationContext.header.owner->id == 1);
+    CHECK(continuationContext.header.owner->hp == 100);
     CHECK(continuationContext.header.battle.findUnit(1)->hp == 100);
     CHECK(continuationContext.header.battle.units()[0].id == 1);
     CHECK(continuationContext.header.battle.units()[1].id == 2);
@@ -596,8 +596,7 @@ TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast 
         EffectEvent::HitBeforeDamage,
         HitEventData{
             .provenance = attackProvenance(cast),
-            .attackerBefore = owner,
-            .defenderBefore = defender,
+            .targetUnitId = defender.id,
             .originalTargetUnitId = 2,
             .damageKind = BattleDamageKind::Skill,
         });
@@ -612,8 +611,7 @@ TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast 
         EffectEvent::HitBeforeDamage,
         HitEventData{
             .provenance = attackProvenance(unrelatedCast),
-            .attackerBefore = owner,
-            .defenderBefore = defender,
+            .targetUnitId = defender.id,
             .originalTargetUnitId = 2,
             .damageKind = BattleDamageKind::Skill,
         });
@@ -654,8 +652,7 @@ TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast 
         EffectEvent::HitBeforeDamage,
         HitEventData{
             .provenance = attackProvenance(cast),
-            .attackerBefore = owner,
-            .defenderBefore = defender,
+            .targetUnitId = defender.id,
             .originalTargetUnitId = 2,
             .damageKind = BattleDamageKind::Skill,
         });

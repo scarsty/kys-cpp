@@ -11,40 +11,16 @@
 namespace KysChess
 {
 
-// Specialized status timers and typed status metadata are projected separately
-// so both runtime representations participate in deterministic replay hashing.
-struct HeadlessBattleDigestStatus
+struct HeadlessBattleStatusDigest
 {
-    int poisonTimer{};
-    int poisonTickPct{};
-    int poisonSourceId = -1;
-
-    int bleedStacks{};
-    int bleedTimer{};
-    int bleedSourceId = -1;
-
-    int frozenTimer{};
-    int frozenMaxTimer{};
+    int unitId = -1;
     int freezeReductionPct{};
     int shieldFreezeResPct{};
     int controlImmunityFrames{};
-    int mpBlockTimer{};
-
-};
-
-struct HeadlessBattleTypedStatusDigest
-{
-    int unitId = -1;
-    int frozenSourceId = -1;
-    std::uint64_t frozenAppliedSequence{};
-    int mpBlockSourceId = -1;
-    std::uint64_t mpBlockAppliedSequence{};
     int statusShield{};
     int staggerShield{};
-    std::uint64_t poisonAppliedSequence{};
-    std::uint64_t bleedAppliedSequence{};
     std::uint64_t nextStatusSequence = 1;
-    std::vector<Battle::BattleTypedStatusInstance> typedStatuses;
+    std::vector<Battle::BattleTypedStatusInstance> statuses;
 };
 
 struct HeadlessBattleDigestUnit
@@ -59,7 +35,6 @@ struct HeadlessBattleDigestUnit
     Battle::BattleUnitStats stats;
     int star{};
     int chessInstanceId{};
-    HeadlessBattleDigestStatus status;
 };
 
 struct HeadlessBattleAreaDigest
@@ -349,41 +324,19 @@ struct HeadlessBattleQueueStateDigest
 namespace
 {
 
-HeadlessBattleDigestStatus specializedStatusDigest(
-    const Battle::BattleStatusEffectState& status)
-{
-    HeadlessBattleDigestStatus result;
-    result.poisonTimer = status.poisonTimer;
-    result.poisonTickPct = status.poisonTickPct;
-    result.poisonSourceId = status.poisonSourceId;
-    result.bleedStacks = status.bleedStacks;
-    result.bleedTimer = status.bleedTimer;
-    result.bleedSourceId = status.bleedSourceId;
-    result.frozenTimer = status.frozenTimer;
-    result.frozenMaxTimer = status.frozenMaxTimer;
-    result.freezeReductionPct = status.freezeReductionPct;
-    result.shieldFreezeResPct = status.shieldFreezeResPct;
-    result.controlImmunityFrames = status.controlImmunityFrames;
-    result.mpBlockTimer = status.mpBlockTimer;
-    return result;
-}
-
-HeadlessBattleTypedStatusDigest typedDigestStatus(
+HeadlessBattleStatusDigest statusDigest(
     int unitId,
     const Battle::BattleStatusEffectState& status)
 {
-    HeadlessBattleTypedStatusDigest result;
+    HeadlessBattleStatusDigest result;
     result.unitId = unitId;
-    result.frozenSourceId = status.frozenSourceId;
-    result.frozenAppliedSequence = status.frozenAppliedSequence;
-    result.mpBlockSourceId = status.mpBlockSourceId;
-    result.mpBlockAppliedSequence = status.mpBlockAppliedSequence;
+    result.freezeReductionPct = status.freezeReductionPct;
+    result.shieldFreezeResPct = status.shieldFreezeResPct;
+    result.controlImmunityFrames = status.controlImmunityFrames;
     result.statusShield = status.statusShield;
     result.staggerShield = status.staggerShield;
-    result.poisonAppliedSequence = status.poisonAppliedSequence;
-    result.bleedAppliedSequence = status.bleedAppliedSequence;
     result.nextStatusSequence = status.nextStatusSequence;
-    result.typedStatuses = status.typedStatuses;
+    result.statuses = status.statuses;
     return result;
 }
 
@@ -782,9 +735,9 @@ HeadlessBattleQueueStateDigest queueStateDigest(
 ChessSha256 HeadlessBattleRunner::digest(const HeadlessBattleResult& result)
 {
     std::vector<HeadlessBattleDigestUnit> units;
-    std::vector<HeadlessBattleTypedStatusDigest> typedStatuses;
+    std::vector<HeadlessBattleStatusDigest> statuses;
     units.reserve(result.finalRuntime.units.size());
-    typedStatuses.reserve(result.finalRuntime.units.size());
+    statuses.reserve(result.finalRuntime.units.size());
     for (const auto& record : result.finalRuntime.units.all())
     {
         const auto& unit = record.core;
@@ -799,12 +752,11 @@ ChessSha256 HeadlessBattleRunner::digest(const HeadlessBattleResult& result)
             unit.stats,
             unit.star,
             unit.chessInstanceId,
-            specializedStatusDigest(record.status.effects),
         });
-        typedStatuses.push_back(typedDigestStatus(unit.id, record.status.effects));
+        statuses.push_back(statusDigest(unit.id, record.status.effects));
     }
     std::ranges::sort(units, {}, &HeadlessBattleDigestUnit::id);
-    std::ranges::sort(typedStatuses, {}, &HeadlessBattleTypedStatusDigest::unitId);
+    std::ranges::sort(statuses, {}, &HeadlessBattleStatusDigest::unitId);
     const auto areas = areaDigestState(result.finalRuntime.areas);
     const auto lifecycle = castLifecycleDigest(result.finalRuntime.castLifecycle);
     const HeadlessBattleRandomDigest random{
@@ -819,7 +771,7 @@ ChessSha256 HeadlessBattleRunner::digest(const HeadlessBattleResult& result)
         result.summary.outcome,
         result.summary.endFrame,
         units,
-        typedStatuses,
+        statuses,
         areas,
         lifecycle,
         random,

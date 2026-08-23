@@ -16,14 +16,13 @@ class BattleRuntimeUnits;
 
 inline constexpr int DurationlessNegativeStatusShieldCost = 50;
 
-// New battle statuses keep their semantic payload intact.  Poison, bleed,
-// stun and MP block continue to use their specialised fields below; the
-// common status API adapts those fields into the same query snapshot.
 struct BattleTypedStatusInstance
 {
     BattleStatusKind kind{};
     int sourceUnitId = -1;
     int remainingFrames = 0;
+    int maximumFrames = 0;
+    int tickFramesRemaining = 0;
     int stacks = 1;
     int potency = 0;
     int secondaryPotency = 0;
@@ -34,43 +33,28 @@ struct BattleTypedStatusInstance
 
 struct BattleStatusEffectState
 {
-    int poisonTimer = 0;
-    int poisonStacks = 0;
-    int poisonTickPct = 0;
-    int poisonSourceId = -1;
-
-    int bleedStacks = 0;
-    int bleedTimer = 0;
-    int bleedSourceId = -1;
-
-    int frozenTimer = 0;
-    int frozenMaxTimer = 0;
-    int frozenSourceId = -1;
-    std::uint64_t frozenAppliedSequence{};
     int freezeReductionPct = 0;
     int shieldFreezeResPct = 0;
     int controlImmunityFrames = 0;
-    int mpBlockTimer = 0;
-    int mpBlockSourceId = -1;
-    std::uint64_t mpBlockAppliedSequence{};
 
     int statusShield = 0;
     int staggerShield = 0;
 
-    std::uint64_t poisonAppliedSequence{};
-    std::uint64_t bleedAppliedSequence{};
     std::uint64_t nextStatusSequence = 1;
-    std::vector<BattleTypedStatusInstance> typedStatuses;
+    std::vector<BattleTypedStatusInstance> statuses;
 
     bool operator==(const BattleStatusEffectState&) const = default;
 
-    void clearStunAndHitstun()
-    {
-        frozenTimer = 0;
-        frozenMaxTimer = 0;
-        frozenSourceId = -1;
-        frozenAppliedSequence = 0;
-    }
+    BattleTypedStatusInstance* find(BattleStatusKind kind);
+    const BattleTypedStatusInstance* find(BattleStatusKind kind) const;
+    bool has(BattleStatusKind kind) const;
+    int remainingFrames(BattleStatusKind kind) const;
+    int maximumFrames(BattleStatusKind kind) const;
+    void setFrames(BattleStatusKind kind,
+                   int frames,
+                   int maximumFrames = 0,
+                   int sourceUnitId = -1);
+    void clear(BattleStatusKind kind);
 };
 
 struct BattleStatusUnitState
@@ -273,6 +257,7 @@ public:
     BattleNegativeEffectProtectionResult protectNegativeEffect(
         BattleStatusUnitState target,
         int durationFrames) const;
+    BattleStatusQuerySnapshot snapshot(const BattleStatusEffectState& effects) const;
     BattleStatusQuerySnapshot snapshot(const BattleStatusUnitState& target) const;
 
 private:

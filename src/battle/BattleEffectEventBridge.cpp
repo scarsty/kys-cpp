@@ -50,32 +50,6 @@ EffectEvent effectEvent(BattleCastLifecycleEventType type)
     return EffectEvent::CastSettled;
 }
 
-void appendStatuses(EffectUnitSnapshot& snapshot, const BattleStatusUnitState& status)
-{
-    snapshot.states.clear();
-    snapshot.stacks.clear();
-    snapshot.statusDetails.clear();
-
-    const auto query = BattleStatusSystem({}).snapshot(status);
-    snapshot.statusShield = query.statusShield;
-    snapshot.staggerShield = query.staggerShield;
-    for (const auto& instance : query.statuses)
-    {
-        assert(instance.stacks > 0);
-        const auto label = battleStatusLabel(instance.kind);
-        assert(!label.empty());
-        snapshot.states.emplace(label);
-        snapshot.stacks[std::string(label)] += instance.stacks;
-        snapshot.statusDetails.push_back({
-            .state = std::string(label),
-            .sourceUnitId = instance.sourceUnitId,
-            .stacks = instance.stacks,
-            .potency = instance.potency,
-            .secondaryPotency = instance.secondaryPotency,
-        });
-    }
-}
-
 EffectUnitSnapshot defenderAfterSnapshot(
     const EffectUnitSnapshot& before,
     const BattleDamageTransactionResult& transaction)
@@ -94,7 +68,7 @@ EffectUnitSnapshot defenderAfterSnapshot(
     result.maxMp = after.vitals.maxMp;
     result.shield = after.shield;
     result.attack = after.attack;
-    appendStatuses(result, transaction.defenderStatus);
+    refreshEffectStatusSnapshot(result, transaction.defenderStatus.effects);
     return result;
 }
 
@@ -207,7 +181,6 @@ BattleEffectOwnedEvent::BattleEffectOwnedEvent(
     {
         throw std::invalid_argument("效果事件指定了不存在的 owner 單位");
     }
-    owner_ = *owner;
 
     if (!BattleEffectSystem::eventPayloadMatches(context()))
     {
@@ -227,14 +200,17 @@ const EffectEventPayload& BattleEffectOwnedEvent::payload() const
 
 EffectEventContext BattleEffectOwnedEvent::context() const &
 {
+    const auto battle = battle_.readView();
+    const auto* owner = battle.findUnit(header_.ownerUnitId);
+    assert(owner);
     return {
         .event = event_,
         .header = {
             .frame = header_.frame,
             .eventOrdinal = header_.eventOrdinal,
-            .binding = pendingRuleBinding(owner_),
-            .owner = owner_,
-            .battle = battle_.readView(),
+            .binding = pendingRuleBinding(*owner),
+            .owner = owner,
+            .battle = battle,
             .formulaInputs = header_.formulaInputs,
         },
         .payload = payload_,
@@ -279,8 +255,8 @@ BattleEffectDispatchResult BattleEffectEventBridge::dispatch(
         assert(borrow->propagation == CastPropagationPolicy::BorrowedUltimateRules);
         auto added = runtime.effectRules.bindBorrowedUltimateRules(
             cast->castId,
-            context.header.owner.id,
-            context.header.owner.team,
+            context.header.owner->id,
+            context.header.owner->team,
             stateMachine->selectedSourceUnitIds,
             borrow->filter,
             borrow->propagation);

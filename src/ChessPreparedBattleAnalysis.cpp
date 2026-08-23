@@ -152,8 +152,15 @@ ChessPreparedBattleAnalysis analyzePreparedChessBattle(
         unit->x = setupUnit.gridX;
         unit->y = setupUnit.gridY;
         unit->skillNames = setupUnit.skillNames;
-        appendSkillAssets(result.presentationAssets, seenMagicIds, setupUnit.normalSkill);
-        appendSkillAssets(result.presentationAssets, seenMagicIds, setupUnit.ultimateSkill);
+        assert(setupUnit.actionPlan);
+        appendSkillAssets(
+            result.presentationAssets,
+            seenMagicIds,
+            setupUnit.actionPlan->normalSkill);
+        appendSkillAssets(
+            result.presentationAssets,
+            seenMagicIds,
+            setupUnit.actionPlan->ultimateSkill);
     }
 
     auto creation = Battle::BattleRuntimeSession::createInitialized(std::move(input));

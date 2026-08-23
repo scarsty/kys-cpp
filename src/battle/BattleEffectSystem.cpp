@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <stdexcept>
 #include <string_view>
 #include <type_traits>
@@ -281,7 +282,12 @@ std::optional<BattleHealKind> healKind(const EffectEventContext& context)
 const EffectUnitSnapshot* transactionTargetSnapshot(const EffectEventContext& context)
 {
     return std::visit(Overloaded{
-        [](const HitEventData& data) { return &data.defenderBefore; },
+        [&context](const HitEventData& data)
+        {
+            const auto* target = context.header.battle.findUnit(data.targetUnitId);
+            assert(target);
+            return target;
+        },
         [](const DamageResultEventData& data) { return &data.defenderBefore; },
         [](const HealRequestEventData& data) { return &data.targetBefore; },
         [](const HealResultEventData& data) { return &data.request.targetBefore; },
@@ -294,8 +300,20 @@ const EffectUnitSnapshot* transactionTargetSnapshot(const EffectEventContext& co
 const EffectUnitSnapshot* sourceSnapshot(const EffectEventContext& context)
 {
     return std::visit(Overloaded{
-        [](const AttackEventData& data) { return &data.attacker; },
-        [](const HitEventData& data) { return &data.attackerBefore; },
+        [&context](const AttackEventData& data)
+        {
+            const auto* source = context.header.battle.findUnit(
+                data.provenance.cast.sourceUnitId);
+            assert(source);
+            return source;
+        },
+        [&context](const HitEventData& data)
+        {
+            const auto* source = context.header.battle.findUnit(
+                data.provenance.cast.sourceUnitId);
+            assert(source);
+            return source;
+        },
         [](const DamageResultEventData& data) -> const EffectUnitSnapshot*
         {
             return data.attackerBefore ? &*data.attackerBefore : nullptr;
@@ -306,7 +324,7 @@ const EffectUnitSnapshot* sourceSnapshot(const EffectEventContext& context)
         {
             return data.killer ? &*data.killer : nullptr;
         },
-        [&context](const auto&) -> const EffectUnitSnapshot* { return &context.header.owner; },
+        [&context](const auto&) -> const EffectUnitSnapshot* { return context.header.owner; },
     }, context.payload);
 }
 
@@ -321,9 +339,9 @@ const EffectUnitSnapshot* snapshotForTarget(const EffectEventContext& context, i
     {
         return source;
     }
-    if (context.header.owner.id == unitId)
+    if (context.header.owner->id == unitId)
     {
-        return &context.header.owner;
+        return context.header.owner;
     }
     return context.header.battle.findUnit(unitId);
 }
@@ -359,7 +377,7 @@ const EffectUnitSnapshot* requiredTargetSnapshot(EffectRequiredTarget requiredTa
     switch (requiredTarget)
     {
     case EffectRequiredTarget::Self:
-        return &context.header.owner;
+        return context.header.owner;
     case EffectRequiredTarget::SourceUnit:
         return sourceSnapshot(context);
     case EffectRequiredTarget::TransactionTarget:
@@ -387,7 +405,7 @@ Pointf selectorCenter(const EffectEventContext& context)
             {
                 return target->position;
             }
-            return context.header.owner.position;
+            return context.header.owner->position;
         },
         [&context](const CastCommitEventData& data)
         {
@@ -395,9 +413,9 @@ Pointf selectorCenter(const EffectEventContext& context)
             {
                 return target->position;
             }
-            return context.header.owner.position;
+            return context.header.owner->position;
         },
-        [&context](const auto&) { return context.header.owner.position; },
+        [&context](const auto&) { return context.header.owner->position; },
     }, context.payload);
 }
 
@@ -412,9 +430,10 @@ std::optional<int> finalHpDamage(const EffectEventContext& context)
 
 std::optional<int> targetMpBeforeCast(const EffectEventContext& context, int unitId)
 {
-    auto findResource = [unitId](const std::vector<EffectUnitResourceBeforeCast>& resources)
+    auto findResource = [unitId](const EffectResourcesBeforeCastSnapshot& snapshot)
         -> std::optional<int>
     {
+        const auto resources = snapshot.values();
         const auto it = std::find_if(resources.begin(), resources.end(), [unitId](const auto& resource)
         {
             return resource.unitId == unitId;
@@ -446,9 +465,10 @@ std::optional<int> targetMpBeforeCast(const EffectEventContext& context, int uni
 
 std::optional<int> targetMaxMpBeforeCast(const EffectEventContext& context, int unitId)
 {
-    auto findResource = [unitId](const std::vector<EffectUnitResourceBeforeCast>& resources)
+    auto findResource = [unitId](const EffectResourcesBeforeCastSnapshot& snapshot)
         -> std::optional<int>
     {
+        const auto resources = snapshot.values();
         const auto it = std::find_if(resources.begin(), resources.end(), [unitId](const auto& resource)
         {
             return resource.unitId == unitId;
@@ -500,8 +520,8 @@ bool matchesTeamFilter(const EffectUnitSnapshot& unit,
     switch (filter)
     {
     case EffectTeamFilter::Any: return true;
-    case EffectTeamFilter::Ally: return unit.team == context.header.owner.team;
-    case EffectTeamFilter::Enemy: return unit.team != context.header.owner.team;
+    case EffectTeamFilter::Ally: return unit.team == context.header.owner->team;
+    case EffectTeamFilter::Enemy: return unit.team != context.header.owner->team;
     }
     assert(false);
     return false;
@@ -511,7 +531,7 @@ bool matchesSelectorRequirements(const EffectUnitSnapshot& unit,
                                  const EffectSelector& selector,
                                  const EffectEventContext& context)
 {
-    if (selector.excludeOwner && unit.id == context.header.owner.id)
+    if (selector.excludeOwner && unit.id == context.header.owner->id)
     {
         return false;
     }
@@ -538,15 +558,15 @@ bool matchesSelectorMembership(const EffectUnitSnapshot& unit,
     case EffectSelectorKind::Allies:
     case EffectSelectorKind::LowestHpAllies:
     case EffectSelectorKind::LowestMpAllies:
-        return unit.team == context.header.owner.team;
+        return unit.team == context.header.owner->team;
     case EffectSelectorKind::Enemies:
     case EffectSelectorKind::HighestMpEnemy:
     case EffectSelectorKind::StrongestEnemies:
     case EffectSelectorKind::NearestEnemies:
     case EffectSelectorKind::FarthestEnemy:
-        return unit.team != context.header.owner.team;
+        return unit.team != context.header.owner->team;
     case EffectSelectorKind::AlliesUsingWeapon:
-        return unit.team == context.header.owner.team
+        return unit.team == context.header.owner->team
             && unit.weaponType == selector.requiredWeaponType;
     case EffectSelectorKind::Self:
     case EffectSelectorKind::SourceUnit:
@@ -690,24 +710,24 @@ bool conditionSatisfied(const EffectCondition& condition,
         },
         [&](const SourceHpRatioAtMostCondition& value)
         {
-            return context.header.owner.maxHp > 0 &&
-                   static_cast<std::int64_t>(context.header.owner.hp) * 100 <=
-                       static_cast<std::int64_t>(context.header.owner.maxHp) * value.percent;
+            return context.header.owner->maxHp > 0 &&
+                   static_cast<std::int64_t>(context.header.owner->hp) * 100 <=
+                       static_cast<std::int64_t>(context.header.owner->maxHp) * value.percent;
         },
         [&](const SourceHpRatioBelowCondition& value)
         {
-            return context.header.owner.maxHp > 0 &&
-                   static_cast<std::int64_t>(context.header.owner.hp) * 100 <
-                       static_cast<std::int64_t>(context.header.owner.maxHp) * value.percent;
+            return context.header.owner->maxHp > 0 &&
+                   static_cast<std::int64_t>(context.header.owner->hp) * 100 <
+                       static_cast<std::int64_t>(context.header.owner->maxHp) * value.percent;
         },
         [&](const SourceIsLastAliveCondition&)
         {
-            return context.header.owner.alive
+            return context.header.owner->alive
                 && std::ranges::count_if(
                     context.header.battle.units(),
                     [&](const EffectUnitSnapshot& unit)
                     {
-                        return unit.alive && unit.team == context.header.owner.team;
+                        return unit.alive && unit.team == context.header.owner->team;
                     }) == 1;
         },
         [&](const TargetHpRatioAtMostCondition& value)
@@ -722,7 +742,7 @@ bool conditionSatisfied(const EffectCondition& condition,
         },
         [&](const SourceHasStateCondition& value)
         {
-            return context.header.owner.hasState(value.state);
+            return context.header.owner->hasState(value.state);
         },
         [&](const TargetHasStateCondition& value)
         {
@@ -736,14 +756,14 @@ bool conditionSatisfied(const EffectCondition& condition,
         },
         [&](const SourceStackAtLeastCondition& value)
         {
-            return context.header.owner.stackCount(value.stack) >= value.count;
+            return context.header.owner->stackCount(value.stack) >= value.count;
         },
         [&](const OtherLivingAllyUsesMagicCondition& value)
         {
             return std::ranges::any_of(context.header.battle.units(), [&](const EffectUnitSnapshot& unit)
             {
-                return unit.alive && unit.id != context.header.owner.id &&
-                       unit.team == context.header.owner.team && unit.usesMagic(value.magicId);
+                return unit.alive && unit.id != context.header.owner->id &&
+                       unit.team == context.header.owner->team && unit.usesMagic(value.magicId);
             });
         },
         [&](const CastDistinctTargetCountAtLeastCondition& value)
@@ -804,8 +824,8 @@ bool conditionSatisfied(const EffectCondition& condition,
                 return false;
             }
             return value.perspective == DamagePerspective::Dealt
-                ? damage->attackerBefore && damage->attackerBefore->id == context.header.owner.id
-                : damage->defenderBefore.id == context.header.owner.id;
+                ? damage->attackerBefore && damage->attackerBefore->id == context.header.owner->id
+                : damage->defenderBefore.id == context.header.owner->id;
         },
         [&](const DamageKindInCondition& value)
         {
@@ -857,7 +877,7 @@ bool isOwnerObservation(const BoundEffectRule& bound,
                         const EffectEventContext& context)
 {
     if (const auto* hit = std::get_if<HitEventData>(&context.payload);
-        hit && hit->defenderBefore.id == bound.binding.ownerUnitId)
+        hit && hit->targetUnitId == bound.binding.ownerUnitId)
     {
         return true;
     }
@@ -887,7 +907,7 @@ bool ruleObservesEvent(const BoundEffectRule& bound,
     {
     case EffectObservationScope::Owner:
         return bound.binding.ownerUnitId < 0
-            || bound.binding.ownerUnitId == context.header.owner.id;
+            || bound.binding.ownerUnitId == context.header.owner->id;
     case EffectObservationScope::OwnerTeamEventSource:
     {
         const auto* source = sourceSnapshot(context);
@@ -915,7 +935,7 @@ void rewriteObservedOwner(const BoundEffectRule& bound,
     {
         throw std::logic_error("觀察規則的效果擁有者不存在");
     }
-    context.header.owner = *owner;
+    context.header.owner = owner;
 }
 
 bool castScopeMatches(const BoundEffectRule& bound,
@@ -1664,7 +1684,7 @@ struct CommandEmitter
 
 bool EffectUnitSnapshot::hasState(const std::string& state) const
 {
-    return states.contains(state) || stackCount(state) > 0;
+    return stackCount(state) > 0;
 }
 
 bool EffectUnitSnapshot::hasStateFromSource(const std::string& state,
@@ -1680,8 +1700,14 @@ bool EffectUnitSnapshot::hasStateFromSource(const std::string& state,
 
 int EffectUnitSnapshot::stackCount(const std::string& stack) const
 {
-    const auto it = stacks.find(stack);
-    return it != stacks.end() ? it->second : 0;
+    return std::accumulate(
+        statusDetails.begin(),
+        statusDetails.end(),
+        0,
+        [&](int total, const EffectStatusSnapshot& status)
+        {
+            return status.state == stack ? total + status.stacks : total;
+        });
 }
 
 int EffectUnitSnapshot::statusPotency(const std::string& state) const
@@ -2154,21 +2180,21 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
         switch (base)
         {
         case EffectNumberBase::Constant: return 0;
-        case EffectNumberBase::SourceStar: return context.header.owner.star;
-        case EffectNumberBase::SourceAttack: return context.header.owner.attack;
-        case EffectNumberBase::SourceMaxHp: return context.header.owner.maxHp;
+        case EffectNumberBase::SourceStar: return context.header.owner->star;
+        case EffectNumberBase::SourceAttack: return context.header.owner->attack;
+        case EffectNumberBase::SourceMaxHp: return context.header.owner->maxHp;
         case EffectNumberBase::SourceMissingHpRatio:
-            assert(context.header.owner.maxHp > 0);
+            assert(context.header.owner->maxHp > 0);
             return std::clamp(
-                context.header.owner.maxHp - context.header.owner.hp,
+                context.header.owner->maxHp - context.header.owner->hp,
                 0,
-                context.header.owner.maxHp);
+                context.header.owner->maxHp);
         case EffectNumberBase::SourceCurrentMpRatio:
-            assert(context.header.owner.maxMp > 0);
+            assert(context.header.owner->maxMp > 0);
             return std::clamp(
-                context.header.owner.mp,
+                context.header.owner->mp,
                 0,
-                context.header.owner.maxMp);
+                context.header.owner->maxMp);
         case EffectNumberBase::TargetMaxHp: return target.maxHp;
         case EffectNumberBase::TargetCurrentHp: return target.hp;
         case EffectNumberBase::TargetCurrentShield: return target.shield;
@@ -2186,9 +2212,9 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
             }
             throw std::logic_error("累積狀態公式缺少 typed input");
         case EffectNumberBase::SourceStatusPotency:
-            return context.header.owner.statusPotency(number.status);
+            return context.header.owner->statusPotency(number.status);
         case EffectNumberBase::SourceStatusStacks:
-            return context.header.owner.stackCount(number.status);
+            return context.header.owner->stackCount(number.status);
         case EffectNumberBase::StoredStateValue:
             if (context.header.formulaInputs.storedStateValue)
             {
@@ -2203,13 +2229,13 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
     {
         if (base == EffectNumberBase::SourceMissingHpRatio)
         {
-            assert(context.header.owner.maxHp > 0);
-            return context.header.owner.maxHp;
+            assert(context.header.owner->maxHp > 0);
+            return context.header.owner->maxHp;
         }
         if (base == EffectNumberBase::SourceCurrentMpRatio)
         {
-            assert(context.header.owner.maxMp > 0);
-            return context.header.owner.maxMp;
+            assert(context.header.owner->maxMp > 0);
+            return context.header.owner->maxMp;
         }
         return 1;
     };
@@ -2250,7 +2276,7 @@ std::vector<int> BattleEffectSystem::selectTargets(const EffectSelector& selecto
     SelectorOrdering ordering = SelectorOrdering::UnitId;
     const Pointf center = selector.kind == EffectSelectorKind::NearestEnemies ||
                                   selector.kind == EffectSelectorKind::FarthestEnemy
-        ? context.header.owner.position
+        ? context.header.owner->position
         : selectorCenter(context);
     const EffectUnitSnapshot* requiredTarget = selector.requiredTarget
         ? requiredTargetSnapshot(*selector.requiredTarget, context)
@@ -2278,7 +2304,7 @@ std::vector<int> BattleEffectSystem::selectTargets(const EffectSelector& selecto
     switch (selector.kind)
     {
     case EffectSelectorKind::Self:
-        addDirect(&context.header.owner);
+        addDirect(context.header.owner);
         break;
     case EffectSelectorKind::SourceUnit:
         addDirect(sourceSnapshot(context));
@@ -2606,11 +2632,18 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
             continue;
         }
 
-        auto ruleContext = context;
-        rewriteObservedOwner(bound, ruleContext);
-        rewriteScopedRuleContext(bound, ruleContext);
-        if (!ruleAllowedByPropagation(bound, ruleContext)
-            || !ruleMatchesMagicCast(bound, ruleContext))
+        const EffectEventContext* ruleContext = &context;
+        std::optional<EffectEventContext> rewrittenContext;
+        if (bound.rule.observation != EffectObservationScope::Owner
+            || bound.castScope)
+        {
+            rewrittenContext = context;
+            rewriteObservedOwner(bound, *rewrittenContext);
+            rewriteScopedRuleContext(bound, *rewrittenContext);
+            ruleContext = &*rewrittenContext;
+        }
+        if (!ruleAllowedByPropagation(bound, *ruleContext)
+            || !ruleMatchesMagicCast(bound, *ruleContext))
         {
             continue;
         }
@@ -2648,7 +2681,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
             runtime.intervalFramesRemaining = bound.rule.intervalFrames;
         }
 
-        const auto selectedIds = selectTargets(bound.rule.selector, ruleContext, random);
+        const auto selectedIds = selectTargets(bound.rule.selector, *ruleContext, random);
         if (selectedIds.empty())
         {
             continue;
@@ -2658,12 +2691,12 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
         eligibleTargets.reserve(selectedIds.size());
         for (const auto unitId : selectedIds)
         {
-            const auto* target = snapshotForTarget(ruleContext, unitId);
+            const auto* target = snapshotForTarget(*ruleContext, unitId);
             if (!target)
             {
                 throw std::logic_error("selector 傳回了 read view 中不存在的單位");
             }
-            if (conditionsSatisfied(bound.rule.conditions, ruleContext, *target, true))
+            if (conditionsSatisfied(bound.rule.conditions, *ruleContext, *target, true))
             {
                 eligibleTargets.push_back(target);
             }
@@ -2684,7 +2717,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
         std::vector<const EffectUnitSnapshot*> activationTargets;
         if (bound.rule.activationLimit)
         {
-            const auto* cast = castProvenance(ruleContext);
+            const auto* cast = castProvenance(*ruleContext);
             if (!cast)
             {
                 throw std::logic_error("施放範圍觸發限制需要 cast provenance");
@@ -2750,7 +2783,7 @@ BattleEffectDispatchResult BattleEffectSystem::dispatchRuleIndices(
         CommandEmitter emitter{
             .store = store,
             .bound = bound,
-            .context = ruleContext,
+            .context = *ruleContext,
             .random = random,
             .commands = result.commands,
             .nextCommandOrdinal = nextCommandOrdinal,

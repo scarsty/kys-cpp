@@ -121,8 +121,8 @@ RuntimeFrozenStatus runtimeFrozenStatusForUnit(
     }
     const auto& record = session->runtime().units.require(unitId);
     return {
-        record.status.effects.frozenTimer,
-        record.status.effects.frozenMaxTimer,
+        record.status.effects.remainingFrames(KysChess::BattleStatusKind::Stun),
+        record.status.effects.maximumFrames(KysChess::BattleStatusKind::Stun),
     };
 }
 

@@ -31,9 +31,8 @@ void appendMagicId(std::set<int>& magicIds, int magicId)
     }
 }
 
-int selectedWeaponType(const BattleRuntimeUnitRecord& record)
+int selectedWeaponType(const BattleActionPlanSeed* actionPlan)
 {
-    const auto* actionPlan = record.actionPlan();
     if (!actionPlan || actionPlan->normalSkill.magicType <= 0)
     {
         return -1;
@@ -44,14 +43,14 @@ int selectedWeaponType(const BattleRuntimeUnitRecord& record)
     return actionPlan->normalSkill.magicType - 1;
 }
 
-void appendComboIds(const BattleRuntimeUnitRecord& record, std::set<int>& comboIds)
+void appendComboIds(const BattleComboRuntimeFacts& comboFacts, std::set<int>& comboIds)
 {
     comboIds.insert(
-        record.comboFacts.memberComboIds.begin(),
-        record.comboFacts.memberComboIds.end());
+        comboFacts.memberComboIds.begin(),
+        comboFacts.memberComboIds.end());
     comboIds.insert(
-        record.comboFacts.appliedComboIds.begin(),
-        record.comboFacts.appliedComboIds.end());
+        comboFacts.appliedComboIds.begin(),
+        comboFacts.appliedComboIds.end());
 }
 
 void appendBoundMagicIds(
@@ -70,18 +69,18 @@ void appendBoundMagicIds(
     }
 }
 
-void appendStatuses(const BattleRuntimeUnitRecord& record, EffectUnitSnapshot& result)
+void populateEffectStatusSnapshot(
+    EffectUnitSnapshot& result,
+    const BattleStatusEffectState& effects)
 {
-    const auto status = BattleStatusSystem({}).snapshot(record.statusDamageState());
-    result.statusShield = status.statusShield;
-    result.staggerShield = status.staggerShield;
-    for (const auto& instance : status.statuses)
+    result.statusDetails.clear();
+    result.statusShield = effects.statusShield;
+    result.staggerShield = effects.staggerShield;
+    for (const auto& instance : effects.statuses)
     {
         assert(instance.stacks > 0);
         const auto label = battleStatusLabel(instance.kind);
         assert(!label.empty());
-        result.states.emplace(label);
-        result.stacks[std::string(label)] += instance.stacks;
         result.statusDetails.push_back({
             .state = std::string(label),
             .sourceUnitId = instance.sourceUnitId,
@@ -139,7 +138,7 @@ int effectiveSpeed(
     const BattleRuntimeState& runtime,
     const BattleRuntimeUnitRecord& record)
 {
-    const auto status = BattleStatusSystem({}).snapshot(record.statusDamageState());
+    const auto status = BattleStatusSystem({}).snapshot(record.status.effects);
     const int statusAdjusted = std::max(
         0,
         effectAdjustedAttribute(
@@ -159,6 +158,49 @@ int effectiveSpeed(
 }
 
 }  // namespace
+
+EffectUnitSnapshot makeEffectUnitSnapshot(
+    const BattleRuntimeUnit& unit,
+    const BattleComboRuntimeFacts& comboFacts,
+    const BattleStatusEffectState& statusEffects,
+    const BattleActionPlanSeed* actionPlan)
+{
+    EffectUnitSnapshot result;
+    result.id = unit.id;
+    result.team = unit.team;
+    result.star = unit.star;
+    result.cost = unit.cost;
+    result.alive = unit.alive;
+    result.hp = unit.vitals.hp;
+    result.maxHp = unit.vitals.maxHp;
+    result.mp = unit.vitals.mp;
+    result.maxMp = unit.vitals.maxMp;
+    result.shield = unit.shield;
+    result.activeCooldown = unit.animation.cooldown;
+    result.invincible = unit.invincible > 0;
+    result.attack = unit.stats.attack;
+    result.defence = unit.stats.defence;
+    result.speed = unit.stats.speed;
+    result.position = unit.motion.position;
+    result.weaponType = selectedWeaponType(actionPlan);
+
+    if (actionPlan)
+    {
+        appendMagicId(result.magicIds, actionPlan->normalSkill.id);
+        appendMagicId(result.magicIds, actionPlan->ultimateSkill.id);
+        result.ultimateMagicId = actionPlan->ultimateSkill.id;
+    }
+    appendComboIds(comboFacts, result.comboIds);
+    refreshEffectStatusSnapshot(result, statusEffects);
+    return result;
+}
+
+void refreshEffectStatusSnapshot(
+    EffectUnitSnapshot& snapshot,
+    const BattleStatusEffectState& effects)
+{
+    populateEffectStatusSnapshot(snapshot, effects);
+}
 
 void appendRuntimeMagicEffectRules(
     BattleRuntimeState& runtime,
@@ -195,23 +237,16 @@ EffectUnitSnapshot makeEffectUnitSnapshot(
     const BattleRuntimeUnitRecord& record)
 {
     const auto& unit = record.core;
-    EffectUnitSnapshot result;
-    result.id = unit.id;
-    result.team = unit.team;
-    result.star = unit.star;
-    result.cost = unit.cost;
-    result.alive = unit.alive;
-    result.hp = unit.vitals.hp;
+    auto result = makeEffectUnitSnapshot(
+        unit,
+        record.comboFacts,
+        record.status.effects,
+        record.actionPlan());
     result.maxHp = effectAdjustedAttribute(
         runtime,
         unit.id,
         BattleAttribute::MaxHp,
         unit.vitals.maxHp);
-    result.mp = unit.vitals.mp;
-    result.maxMp = unit.vitals.maxMp;
-    result.shield = unit.shield;
-    result.activeCooldown = unit.animation.cooldown;
-    result.invincible = unit.invincible > 0;
     result.attack = effectAdjustedAttribute(
         runtime,
         unit.id,
@@ -223,18 +258,7 @@ EffectUnitSnapshot makeEffectUnitSnapshot(
         BattleAttribute::Defence,
         unit.stats.defence);
     result.speed = effectiveSpeed(runtime, record);
-    result.position = unit.motion.position;
-    result.weaponType = selectedWeaponType(record);
-
-    if (const auto* actionPlan = record.actionPlan())
-    {
-        appendMagicId(result.magicIds, actionPlan->normalSkill.id);
-        appendMagicId(result.magicIds, actionPlan->ultimateSkill.id);
-        result.ultimateMagicId = actionPlan->ultimateSkill.id;
-    }
     appendBoundMagicIds(runtime, record.id(), result.magicIds);
-    appendComboIds(record, result.comboIds);
-    appendStatuses(record, result);
     return result;
 }
 

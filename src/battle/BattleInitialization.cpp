@@ -2,6 +2,7 @@
 
 #include "ChessComboResolver.h"
 #include "BattleLogSegments.h"
+#include "BattleRuntimeEffects.h"
 #include "../BattleStarStats.h"
 #include "../ChessBattleEffects.h"
 #include "../Find.h"
@@ -298,10 +299,6 @@ BattleRuntimeUnitSpawn makeInitializedCloneSpawn(
         initializedSource.unit.id,
         cloneUnitId);
     clone.movement = makeInitialMovementAgent(clone.unit);
-    if (clone.actionPlanSeed)
-    {
-        clone.actionPlanSeed->unitId = cloneUnitId;
-    }
     return clone;
 }
 
@@ -583,30 +580,11 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         {
             const auto& seededSpawn = spawn(unitId);
             const auto& unit = seededSpawn.unit;
-            EffectUnitSnapshot snapshot;
-            snapshot.id = unit.id;
-            snapshot.team = unit.team;
-            snapshot.star = unit.star;
-            snapshot.cost = unit.cost;
-            snapshot.alive = unit.alive;
-            snapshot.hp = unit.vitals.hp;
-            snapshot.maxHp = unit.vitals.maxHp;
-            snapshot.mp = unit.vitals.mp;
-            snapshot.maxMp = unit.vitals.maxMp;
-            snapshot.shield = unit.shield;
-            snapshot.activeCooldown = unit.animation.cooldown;
-            snapshot.invincible = unit.invincible > 0;
-            snapshot.statusShield = seededSpawn.status.effects.statusShield;
-            snapshot.staggerShield = seededSpawn.status.effects.staggerShield;
-            snapshot.attack = unit.stats.attack;
-            snapshot.defence = unit.stats.defence;
-            snapshot.speed = unit.stats.speed;
-            snapshot.position = unit.motion.position;
-            snapshot.comboIds = seededSpawn.comboFacts.memberComboIds;
-            snapshot.comboIds.insert(
-                seededSpawn.comboFacts.appliedComboIds.begin(),
-                seededSpawn.comboFacts.appliedComboIds.end());
-            result.push_back(std::move(snapshot));
+            result.push_back(makeEffectUnitSnapshot(
+                unit,
+                seededSpawn.comboFacts,
+                seededSpawn.status.effects,
+                seededSpawn.actionPlan()));
         }
         std::ranges::sort(result, {}, &EffectUnitSnapshot::id);
         return result;
@@ -625,7 +603,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         event.event = EffectEvent::BattleInitialized;
         event.header.frame = context_.frame;
         event.header.eventOrdinal = eventOrdinal++;
-        event.header.owner = owner;
+        event.header.owner = &owner;
         event.header.battle = readView;
         event.payload = InitializationEventData{};
         auto dispatched = BattleEffectSystem().dispatch(
@@ -861,7 +839,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
             event.event = EffectEvent::BattleInitialized;
             event.header.frame = context_.frame;
             event.header.binding = command.metadata.binding;
-            event.header.owner = *owner;
+            event.header.owner = owner;
             event.header.battle = resourceReadView;
             event.payload = InitializationEventData{};
 
@@ -919,7 +897,7 @@ void BattleStartInitializationRun::dispatchBattleInitializedRules()
         event.event = EffectEvent::BattleInitialized;
         event.header.frame = context_.frame;
         event.header.binding = command.metadata.binding;
-        event.header.owner = *owner;
+        event.header.owner = owner;
         event.header.battle = resourceReadView;
         event.payload = InitializationEventData{};
         const int amount = BattleEffectSystem::evaluateNumber(

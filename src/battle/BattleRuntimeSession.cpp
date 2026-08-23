@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <map>
 #include <utility>
 
 namespace KysChess::Battle
@@ -21,8 +20,8 @@ void configureAttackWorld(
     BattleAttackState& world,
     const BattleRuntimeRulesConfig& rules)
 {
-    world.hitRadius = rules.action.meleeAttackHitRadius;
-    world.minimumVectorNorm = rules.minimumVectorNorm;
+    world.hitRadius = rules.meleeAttackHitRadius;
+    world.minimumVectorNorm = rules.castConfig.minimumFacingNorm;
     world.projectileGraceFrames = ProjectileGraceFrames;
     world.bounceSpawnDistance = rules.projectileFollowUps.areaSpawnDistance;
     world.defaultProjectileSpeed = rules.projectileFollowUps.projectileSpeed;
@@ -71,39 +70,24 @@ BattleRuntimeState buildRuntimeFromSpawns(
     const BattleRuntimeSessionCreationInput& input,
     std::vector<BattleRuntimeUnitSpawn> spawns);
 
-std::map<int, BattleActionPlanSeed> makeActionPlanSeedMap(
-    const std::vector<BattleActionPlanSeed>& seeds)
-{
-    std::map<int, BattleActionPlanSeed> result;
-    for (const auto& seed : seeds)
-    {
-        result.emplace(seed.unitId, seed);
-    }
-    return result;
-}
-
 std::vector<BattleRuntimeUnitSpawn> buildCanonicalSpawns(
     BattleRuntimeSessionCreationInput& input)
 {
-    const auto actionPlans = makeActionPlanSeedMap(input.actionPlanSeeds);
-
     std::vector<BattleRuntimeUnitSpawn> spawns;
     spawns.reserve(input.units.size());
     for (auto& setup : input.units)
     {
-        std::optional<BattleActionPlanSeed> actionPlan;
-        if (const auto actionIt = actionPlans.find(setup.unitId);
-            actionIt != actionPlans.end())
-        {
-            actionPlan = actionIt->second;
-        }
-
         auto spawn = makeRuntimeUnitSpawn(
             makeRuntimeUnit(setup),
             {},
-            std::move(actionPlan));
-        spawn.status.effects.frozenTimer = setup.frozen;
-        spawn.status.effects.frozenMaxTimer = setup.frozenMax;
+            std::move(setup.actionPlan));
+        if (setup.frozen > 0)
+        {
+            spawn.status.effects.setFrames(
+                BattleStatusKind::Stun,
+                setup.frozen,
+                setup.frozenMax);
+        }
         spawns.push_back(std::move(spawn));
     }
     return spawns;
@@ -159,19 +143,7 @@ void deriveRuntimeState(
     runtime.movementPhysics.terrain.defaultSeparationDistance =
         input.rules.movementCollisionWorld.defaultSeparationDistance;
     runtime.movementPhysics.terrain.walkableByCell = input.rules.movementCollisionWorld.walkableByCell;
-    runtime.movementPhysics.actionCastFrames.assign(
-        input.rules.castConfig.castFrames.begin(),
-        input.rules.castConfig.castFrames.end());
-    runtime.movementPhysics.dashMomentumFrames = input.rules.movementPhysicsDashMomentumFrames;
 
-    runtime.action.castFrames.assign(
-        input.rules.castConfig.castFrames.begin(),
-        input.rules.castConfig.castFrames.end());
-    runtime.action.actionRecoveryFrames = input.rules.action.actionRecoveryFrames;
-    runtime.action.dashRecoveryFrames = input.rules.action.dashRecoveryFrames;
-    runtime.action.blinkWeakTargetDefWeight = input.rules.action.blinkWeakTargetDefWeight;
-    runtime.action.strengthenedMeleeOperationCountThreshold = input.rules.action.strengthenedMeleeOperationCountThreshold;
-    runtime.action.projectileBounceRange = input.rules.action.projectileBounceRange;
     runtime.action.castConfig = input.rules.castConfig;
     runtime.action.castGeometry = input.rules.castGeometry;
     runtime.action.actionRules = input.rules.action;

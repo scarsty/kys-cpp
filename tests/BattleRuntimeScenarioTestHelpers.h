@@ -51,7 +51,7 @@ inline BattleRuntimeRulesConfig scenarioRules()
 {
     auto rules = makeHadesBattleRuntimeRules(ScenarioTileWidth, ScenarioCoordCount);
     rules.movementCollisionWorld.walkableByCell.assign(ScenarioCoordCount * ScenarioCoordCount, 1);
-    rules.minimumVectorNorm = ScenarioMinimumVectorNorm;
+    rules.castConfig.minimumFacingNorm = ScenarioMinimumVectorNorm;
     return rules;
 }
 

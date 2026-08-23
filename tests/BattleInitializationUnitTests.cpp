@@ -168,16 +168,12 @@ void addInitializedRuntimeTestUnit(
     unit.star = 1;
     unit.cost = 1;
     unit.physicalPower = 100;
-    unit.hasEquippedSkill = true;
-    unit.normalSkill = std::move(normalSkill);
-    unit.ultimateSkill = std::move(ultimateSkill);
+    unit.actionPlan = BattleActionPlanSeed{
+        .hasEquippedSkill = true,
+        .normalSkill = std::move(normalSkill),
+        .ultimateSkill = std::move(ultimateSkill),
+    };
     input.units.push_back(unit);
-    input.actionPlanSeeds.push_back({
-        unitId,
-        true,
-        unit.normalSkill,
-        unit.ultimateSkill,
-    });
     addRuntimeSetupSeed(input, unit);
 }
 
@@ -308,10 +304,13 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
 {
     auto spawns = runtimeSpawns({ runtimeUnit(0, 0, 100, 20, 30, 40) });
     auto& preInitializationSource = requireSpawn(spawns, 0);
-    preInitializationSource.status.effects.poisonTimer = 60;
-    preInitializationSource.status.effects.poisonStacks = 2;
-    preInitializationSource.status.effects.poisonTickPct = 7;
-    preInitializationSource.status.effects.poisonSourceId = 99;
+    preInitializationSource.status.effects.statuses.push_back({
+        .kind = BattleStatusKind::Poison,
+        .sourceUnitId = 99,
+        .remainingFrames = 60,
+        .stacks = 2,
+        .potency = 7,
+    });
     preInitializationSource.damage.hurtInvincFrames = 12;
     preInitializationSource.damage.deathPreventionUsed = true;
     preInitializationSource.rescue.forcePullExecuteRemaining = 8;
@@ -402,7 +401,7 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
     CHECK(source.rescue.forcePullExecuteRemaining == 0);
     CHECK(source.damage.hurtInvincFrames == 0);
     CHECK_FALSE(source.damage.deathPreventionUsed);
-    CHECK(source.status.effects.poisonStacks == 0);
+    CHECK_FALSE(source.status.effects.has(BattleStatusKind::Poison));
     CHECK(source.unit.shield == 45);
     CHECK(source.status.effects.statusShield == 80);
 
@@ -427,8 +426,8 @@ TEST_CASE("BattleStartInitializer clones the complete post-initialization runtim
     CHECK(cloneDamage.amount == -12);
     CHECK_FALSE(cloneDamage.expiresFrameExclusive);
 
-    REQUIRE(source.status.effects.typedStatuses.size() == 1);
-    const auto& sourceStatus = source.status.effects.typedStatuses[0];
+    REQUIRE(source.status.effects.statuses.size() == 1);
+    const auto& sourceStatus = source.status.effects.statuses[0];
     CHECK(sourceStatus.kind == BattleStatusKind::DamageBlockLayer);
     CHECK(sourceStatus.sourceUnitId == 0);
     CHECK(sourceStatus.remainingFrames == 0);
@@ -664,12 +663,15 @@ TEST_CASE("BattleEffectRuntimeSnapshot_CopiesStableUnitFactsStatusesAndResources
     record.comboFacts.memberComboIds = { 33, 44 };
     record.status.effects.statusShield = 70;
     record.status.effects.staggerShield = 80;
-    record.status.effects.poisonTimer = 30;
-    record.status.effects.poisonStacks = 1;
-    record.status.effects.poisonTickPct = 4;
-    record.status.effects.poisonSourceId = 2;
-    record.status.effects.poisonAppliedSequence = 1;
-    record.status.effects.typedStatuses.push_back({
+    record.status.effects.statuses.push_back({
+        .kind = BattleStatusKind::Poison,
+        .sourceUnitId = 2,
+        .remainingFrames = 30,
+        .stacks = 1,
+        .potency = 4,
+        .appliedSequence = 1,
+    });
+    record.status.effects.statuses.push_back({
         .kind = BattleStatusKind::SevenStarMark,
         .sourceUnitId = 2,
         .remainingFrames = 90,

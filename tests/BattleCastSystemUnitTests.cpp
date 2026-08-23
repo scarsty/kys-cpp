@@ -152,20 +152,10 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, const BattleCastInput
     movementGeometry.dashCooldownFrames = 18;
     movementGeometry.maxRangedReach = 400.0;
     state.movement.config = BattleGeometry(movementGeometry).movementConfig();
+    state.movement.config.meleeAttackReach = input.unit.meleeAttackReach;
 
     state.action.castConfig = input.config;
     state.action.castGeometry = input.geometry;
-    state.action.castFrames.assign(input.config.castFrames.begin(), input.config.castFrames.end());
-    state.action.actionRules.tileWidth = SceneTileWidth;
-    state.action.actionRules.maxEffectiveBattleReach = 400.0;
-    state.action.actionRules.meleeAttackReach = input.unit.meleeAttackReach;
-    state.action.actionRules.dashAttackMeleeReach = input.unit.dashAttackReach;
-    state.action.actionRules.meleeAttackHitRadius = SceneTileWidth * 2.0;
-    state.action.actionRules.dashMomentumFrames = TestDashMomentumFrames;
-    state.action.actionRules.actionRecoveryFrames = TestActionRecoveryFrames;
-    state.action.actionRules.dashRecoveryFrames = TestDashMomentumFrames;
-    state.action.actionRecoveryFrames = TestActionRecoveryFrames;
-    state.action.dashRecoveryFrames = TestDashMomentumFrames;
     state.attacks.hitRadius = SceneTileWidth * 2.0;
     state.attacks.minimumVectorNorm = TestMinimumFacingNorm;
     state.attacks.nextAttackId = 1;
@@ -173,7 +163,6 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, const BattleCastInput
     state.attacks.defaultProjectileSpeed = SceneTileWidth / 3.0;
 
     BattleActionPlanSeed seed;
-    seed.unitId = input.unit.id;
     seed.hasEquippedSkill = input.unit.hasEquippedSkill;
     seed.normalSkill = actionSkillSeedFromCastSkill(input.normalSkill);
     seed.ultimateSkill = actionSkillSeedFromCastSkill(input.ultimateSkill);

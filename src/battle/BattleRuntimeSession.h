@@ -4,6 +4,7 @@
 #include "BattleRuntimeRules.h"
 
 #include <array>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -47,10 +48,8 @@ struct BattleSetupUnitInput
     int frozenMax = 0;
     std::array<int, 5> fightFrames{};
     std::array<int, 5> actPropertiesByMagicType{};
-    bool hasEquippedSkill = false;
     std::string skillNames;
-    BattleActionSkillSeed normalSkill;
-    BattleActionSkillSeed ultimateSkill;
+    std::optional<BattleActionPlanSeed> actionPlan;
 };
 
 struct BattleRuntimeSessionCreationInput
@@ -59,7 +58,6 @@ struct BattleRuntimeSessionCreationInput
     BattleRuntimeSetupSeed setup;
     std::vector<BattleTerrainCell> terrainCells;
     std::vector<BattleRescueCellSnapshot> rescueCells;
-    std::vector<BattleActionPlanSeed> actionPlanSeeds;
     BattleRuntimeRulesConfig rules;
     unsigned int randomSeed = 1;
     int battleFrame = 0;

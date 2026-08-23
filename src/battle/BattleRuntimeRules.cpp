@@ -94,14 +94,8 @@ BattleRuntimeRulesConfig makeHadesBattleRuntimeRules(double tileWidth, int coord
     assert(tileWidth > 0.0);
     assert(coordCount > 0);
 
-    const double engagementCellDeadband = tileWidth / 2.0;
-    const double engagementCellArriveDistance = tileWidth - engagementCellDeadband / 2.0;
     const double meleeAttackEffectOffset = tileWidth * 2.0;
     const double meleeAttackHitRadius = tileWidth * 2.0;
-    const double meleeAttackSafetyMargin = meleeAttackHitRadius - engagementCellArriveDistance;
-    const double meleeAttackReach = meleeAttackEffectOffset + meleeAttackHitRadius - meleeAttackSafetyMargin;
-    const double meleeLocalTargetRadius = meleeAttackReach + meleeAttackEffectOffset;
-    const double dashAttackMeleeReach = meleeAttackReach + meleeLocalTargetRadius;
     const double heavyAttackReach = tileWidth * 4.0;
 
     BattleRuntimeRulesConfig rules;
@@ -117,7 +111,7 @@ BattleRuntimeRulesConfig makeHadesBattleRuntimeRules(double tileWidth, int coord
     rules.movementConfig = BattleGeometry(movementGeometry).movementConfig();
 
     rules.rescueExecuteUnattendedRadius = tileWidth * 3.0;
-    rules.minimumVectorNorm = MINIMUM_VECTOR_NORM;
+    rules.meleeAttackHitRadius = meleeAttackHitRadius;
     rules.rescueCounterAttack.skillId = RESCUE_COUNTER_ATTACK_SKILL_ID;
     rules.rescueCounterAttack.visualEffectId = 11;
     rules.rescueCounterAttack.projectileSpeed = tileWidth / 3.0;
@@ -128,22 +122,10 @@ BattleRuntimeRulesConfig makeHadesBattleRuntimeRules(double tileWidth, int coord
     rules.castConfig = makeHadesBattleCastConfig();
     rules.castGeometry = makeHadesBattleCastGeometry(tileWidth, meleeAttackEffectOffset, meleeAttackHitRadius);
     rules.movementPhysicsConfig.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
-    rules.movementPhysicsDashMomentumFrames = DASH_MOMENTUM_FRAMES;
 
-    rules.action.maxEffectiveBattleReach = MAX_EFFECTIVE_BATTLE_REACH;
-    rules.action.tileWidth = tileWidth;
-    rules.action.meleeAttackHitRadius = meleeAttackHitRadius;
-    rules.action.meleeAttackReach = meleeAttackReach;
     rules.action.heavyAttackReach = heavyAttackReach;
-    rules.action.dashAttackMeleeReach = dashAttackMeleeReach;
     rules.action.blinkWeakTargetDefWeight = BLINK_WEAK_TARGET_DEF_WEIGHT;
-    rules.action.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
-    rules.action.movementDashCooldownFrames = MOVEMENT_DASH_COOLDOWN_FRAMES;
-    rules.action.actionRecoveryFrames = ACTION_RECOVERY_FRAMES;
-    rules.action.dashRecoveryFrames = DASH_MOMENTUM_FRAMES;
-    rules.action.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
     rules.action.projectileBounceRange = PROJECTILE_BOUNCE_RANGE;
-    rules.action.coordCount = coordCount;
 
     rules.projectileFollowUps.projectileSpeed = tileWidth / 3.0;
     rules.projectileFollowUps.minimumProjectileFrames = 20;

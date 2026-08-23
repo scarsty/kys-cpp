@@ -183,9 +183,9 @@ TEST_CASE("BattleRuntimeRules_HadesRulesDeriveCurrentSceneValuesFromGrid")
     REQUIRE(rules.rescueCounterAttack.skillId == 1);
     REQUIRE(rules.rescueCounterAttack.projectileSpeed == SceneProjectileSpeed);
     REQUIRE(rules.rescueCounterAttack.meleeAttackEffectOffset == SceneTileWidth * 2.0);
-    REQUIRE(rules.action.actionRecoveryFrames == 4);
-    REQUIRE(rules.action.dashRecoveryFrames == 5);
-    REQUIRE(rules.movementPhysicsDashMomentumFrames == 5);
+    REQUIRE(rules.castConfig.recoveryFrames[0] == 4);
+    REQUIRE(rules.castConfig.recoveryFrames[3] == 5);
+    REQUIRE(rules.movementConfig.dashFrames == 5);
     REQUIRE(rules.action.heavyAttackReach == SceneTileWidth * 4.0);
     REQUIRE(rules.action.projectileBounceRange == 90);
 }
@@ -239,11 +239,10 @@ TEST_CASE("BattleFind_TryDenseByIdReturnsNullForMissingDenseIndex", "[battle][fi
 
 BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
 {
-    if (state.action.castFrames.empty())
+    if (state.action.castConfig.castFrames.front() == 0)
     {
-        state.action.castFrames = { 6, 6, 6, 6 };
-        state.action.actionRecoveryFrames = 4;
-        state.action.dashRecoveryFrames = 5;
+        state.action.castConfig.castFrames = { 6, 6, 6, 6 };
+        state.action.castConfig.recoveryFrames = { 4, 4, 4, 5 };
     }
     if (state.action.castConfig.minimumFacingNorm <= 0.0)
     {
@@ -668,7 +667,7 @@ void addAttackSuppressionStatus(
     int potency = 0)
 {
     auto& effects = state.units.require(unitId).status.effects;
-    effects.typedStatuses.push_back({
+    effects.statuses.push_back({
         .kind = kind,
         .sourceUnitId = unitId,
         .remainingFrames = 120,
@@ -992,7 +991,6 @@ BattleActionSkillSeed actionSkillSeedFromCastSkill(const BattleCastSkillState& s
 BattleActionPlanSeed actionPlanSeedFromCastInput(const BattleCastInput& input)
 {
     BattleActionPlanSeed seed;
-    seed.unitId = input.unit.id;
     seed.hasEquippedSkill = input.unit.hasEquippedSkill;
     seed.normalSkill = actionSkillSeedFromCastSkill(input.normalSkill);
     seed.ultimateSkill = actionSkillSeedFromCastSkill(input.ultimateSkill);
@@ -1003,25 +1001,18 @@ void configureRuntimeActionPlan(BattleRuntimeState& state, BattleCastInput input
 {
     (void)state.units.require(input.unit.id);
     state.action.castConfig = input.config;
+    state.action.castConfig.castFrames = { 6, 6, 6, 6 };
     state.action.castGeometry = input.geometry;
-    state.action.actionRules.tileWidth = SceneTileWidth;
-    state.action.actionRules.maxEffectiveBattleReach = MaxEffectiveBattleReach;
-    state.action.actionRules.meleeAttackHitRadius = SceneAttackHitRadius;
-    state.action.actionRules.meleeAttackReach = input.unit.meleeAttackReach;
-    state.action.actionRules.heavyAttackReach = SceneTileWidth * 4.0;
-    state.action.actionRules.dashAttackMeleeReach = input.unit.dashAttackReach > 0.0
+    state.movement.config = testConfig();
+    state.movement.config.meleeAttackReach = input.unit.meleeAttackReach;
+    const double dashAttackReach = input.unit.dashAttackReach > 0.0
         ? input.unit.dashAttackReach
         : 375.0;
-    state.action.actionRules.dashMomentumFrames = 5;
-    state.action.actionRules.actionRecoveryFrames = 4;
-    state.action.actionRules.dashRecoveryFrames = 5;
-    state.action.actionRules.strengthenedMeleeOperationCountThreshold = 2;
+    state.movement.config.meleeLocalTargetRadius =
+        dashAttackReach - state.movement.config.meleeAttackReach;
+    state.attacks.hitRadius = SceneAttackHitRadius;
+    state.action.actionRules.heavyAttackReach = SceneTileWidth * 4.0;
     state.action.actionRules.projectileBounceRange = 90;
-    state.action.actionRules.coordCount = 64;
-    state.action.actionRecoveryFrames = 4;
-    state.action.dashRecoveryFrames = 5;
-    state.action.strengthenedMeleeOperationCountThreshold = 2;
-    state.action.projectileBounceRange = 90;
     state.units.require(input.unit.id).setActionPlan(actionPlanSeedFromCastInput(input));
 }
 
@@ -1076,8 +1067,7 @@ void preparePendingCastCommitFrame(BattleRuntimeState& state,
 void configureAutoUltimateActionRuntime(BattleRuntimeState& state, int unitId, int targetUnitId)
 {
     configureRuntimeActionPlan(state, frameCastInput(unitId, targetUnitId));
-    state.action.strengthenedMeleeOperationCountThreshold = 2;
-    state.action.projectileBounceRange = 90;
+    state.action.actionRules.projectileBounceRange = 90;
 }
 
 BattleCastResult committedFrameCast()
@@ -1176,22 +1166,12 @@ void queuePendingDamage(
 {
     if (transaction.attacker.id >= 0)
     {
-        auto& status = state.units.require(transaction.attacker.id).status;
-        status.effects.poisonTimer = transaction.attackerModifiers.poisonTimer;
-    }
-
-    if (transaction.attacker.id >= 0)
-    {
         state.units.writeDamageUnit(transaction.attacker);
         writeBattleDamageRuntimeUnit(
             state.units.require(transaction.attacker.id).damage,
             transaction.attacker);
     }
 
-    {
-        auto& status = state.units.require(transaction.defender.id).status;
-        status.effects.poisonTimer = transaction.defenderModifiers.poisonTimer;
-    }
     state.units.writeDamageUnit(transaction.defender);
     writeBattleDamageRuntimeUnit(
         state.units.require(transaction.defender.id).damage,
@@ -1305,23 +1285,22 @@ TEST_CASE("BattleStatusSystem_CopiesStatusEffectsAsACluster", "[battle][status]"
 {
     BattleStatusUnitState source;
     source.id = 7;
-    source.effects.poisonTimer = 9;
-    source.effects.poisonStacks = 2;
-    source.effects.poisonTickPct = 5;
-    source.effects.poisonSourceId = 3;
-    source.effects.bleedStacks = 2;
-    source.effects.frozenTimer = 4;
-    source.effects.mpBlockTimer = 6;
+    source.effects.statuses = {
+        {
+            .kind = BattleStatusKind::Poison,
+            .sourceUnitId = 3,
+            .remainingFrames = 9,
+            .stacks = 2,
+            .potency = 5,
+        },
+        { .kind = BattleStatusKind::Bleed, .stacks = 2 },
+        { .kind = BattleStatusKind::Stun, .remainingFrames = 4 },
+        { .kind = BattleStatusKind::MpBlocked, .remainingFrames = 6 },
+    };
 
     auto runtime = makeBattleStatusRuntimeUnit(source);
 
-    CHECK(runtime.effects.poisonTimer == 9);
-    CHECK(runtime.effects.poisonStacks == 2);
-    CHECK(runtime.effects.poisonTickPct == 5);
-    CHECK(runtime.effects.poisonSourceId == 3);
-    CHECK(runtime.effects.bleedStacks == 2);
-    CHECK(runtime.effects.frozenTimer == 4);
-    CHECK(runtime.effects.mpBlockTimer == 6);
+    CHECK(runtime.effects == source.effects);
 }
 
 TEST_CASE("BattleFrameRunner_RoutesMovementPhysicsThroughRuntimeUnits", "[battle][core][runtime]")
@@ -1854,7 +1833,6 @@ TEST_CASE("BattleRuntimeUnitRecord_OwnsPerUnitRuntimeFacts", "[battle][core][own
     record.movement.active = true;
 
     BattleActionPlanSeed plan;
-    plan.unitId = 99;
     record.setActionPlan(plan);
 
     BattlePendingCastAction pending;
@@ -1872,7 +1850,6 @@ TEST_CASE("BattleRuntimeUnitRecord_OwnsPerUnitRuntimeFacts", "[battle][core][own
     CHECK(record.id() == 7);
     CHECK(record.alive());
     REQUIRE(record.actionPlan() != nullptr);
-    CHECK(record.actionPlan()->unitId == 7);
     REQUIRE(record.pendingCast() != nullptr);
     CHECK(record.pendingCast()->effectCast.provenance.sourceUnitId == 7);
     CHECK(record.pendingCast()->targetUnitId == 3);
@@ -1894,12 +1871,10 @@ TEST_CASE("BattleRuntimeUnitRecord_ActionOwnershipReplacesRuntimeActionMaps", "[
     unit.alive = true;
 
     BattleActionPlanSeed seed;
-    seed.unitId = 0;
     appendRuntimeUnit(state, makeRuntimeUnitSpawn(std::move(unit), {}, seed));
 
     auto& record = state.units.require(0);
     REQUIRE(record.actionPlan() != nullptr);
-    CHECK(record.actionPlan()->unitId == 0);
 
     BattlePendingCastAction pending;
     pending.targetUnitId = 1;
@@ -1951,18 +1926,17 @@ TEST_CASE("BattleRuntimeUnitRecord_StatusDomainMethodsMutateOwnedStatus", "[batt
     record.core.id = 2;
     record.core.vitals.hp = 50;
     record.core.vitals.maxHp = 100;
-    record.status.effects.frozenTimer = 5;
-    record.status.effects.frozenMaxTimer = 8;
+    record.status.effects.setFrames(BattleStatusKind::Stun, 5, 8);
 
     record.clearFrozen();
     record.setMpBlockFrames(3);
 
-    CHECK(record.status.effects.frozenTimer == 0);
-    CHECK(record.status.effects.frozenMaxTimer == 0);
-    CHECK(record.status.effects.mpBlockTimer == 3);
+    CHECK_FALSE(record.frozen());
+    CHECK(record.status.effects.maximumFrames(BattleStatusKind::Stun) == 0);
+    CHECK(record.status.effects.remainingFrames(BattleStatusKind::MpBlocked) == 3);
 }
 
-TEST_CASE("BattleRuntimeUnitRecord_ClearAllPendingDropsActionPendingState", "[battle][core][ownership]")
+TEST_CASE("BattleRuntimeUnitRecord_ClearActionOwnersDropsPendingState", "[battle][core][ownership]")
 {
     BattleRuntimeUnitRecord record;
     record.core.id = 1;
@@ -1979,7 +1953,7 @@ TEST_CASE("BattleRuntimeUnitRecord_ClearAllPendingDropsActionPendingState", "[ba
     record.setPendingCast(pending);
     record.markUltimateCaster();
 
-    record.clearAllPending();
+    record.clearActionOwners();
 
     CHECK(record.pendingCast() == nullptr);
     CHECK_FALSE(record.isUltimateCaster());
@@ -1995,7 +1969,7 @@ TEST_CASE("BattleRuntimeUnitRecord_DamageStateComposesOwnedFacts", "[battle][cor
     record.core.vitals.maxHp = 100;
     record.core.vitals.mp = 5;
     record.core.vitals.maxMp = 20;
-    record.status.effects.mpBlockTimer = 4;
+    record.status.effects.setFrames(BattleStatusKind::MpBlocked, 4);
 
     const auto damage = record.damageState(30);
 
@@ -2270,7 +2244,7 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeUsesDefaultProjectileProfileWithou
     caster.haveAction = true;
     caster.operationType = BattleOperationType::RangedProjectile;
     caster.animation.actType = 1;
-    caster.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    caster.animation.actFrame = state.action.castConfig.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
     caster.animation.cooldown = 20;
 
     auto result = runBattleFrame(state);
@@ -2302,7 +2276,7 @@ TEST_CASE("BattleFrameRunner_BorrowedExactCastRuleUsesPlanningCastThroughDelayed
     cast.ultimateSkill.attackAreaType = 0;
     cast.ultimateSkill.selectDistance = 1;
     cast.ultimateSkill.rangedStyle = false;
-    cast.ultimateSkill.reach = state.action.actionRules.meleeAttackReach;
+    cast.ultimateSkill.reach = state.movement.config.meleeAttackReach;
     configureRuntimeActionPlan(state, cast);
     auto& caster = state.units.requireCore(0);
     caster.animation.cooldown = 0;
@@ -2402,7 +2376,7 @@ TEST_CASE("BattleFrameRunner_ForcedRangedMeleeKeepsRangedMovementProfile", "[bat
     auto result = runBattleFrame(state);
 
     CHECK(state.units.requireCore(0).style == CombatStyle::Ranged);
-    CHECK(state.units.requireCore(0).reach > state.action.actionRules.meleeAttackReach);
+    CHECK(state.units.requireCore(0).reach > state.movement.config.meleeAttackReach);
     CHECK(state.units.requireCore(0).motion.position.x == Catch::Approx(10.0));
     CHECK(state.units.requireCore(0).motion.position.y == Catch::Approx(20.0));
     auto pending = state.units.require(0).pendingCast();
@@ -2592,7 +2566,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastInputUsesCommittedFrameState", "[b
     BattleStatusUnitState frozenStatus;
     frozenStatus.id = 0;
     frozenStatus.alive = true;
-    frozenStatus.effects.frozenTimer = 3;
+    frozenStatus.effects.setFrames(BattleStatusKind::Stun, 3);
     state.units.require(0).status = makeBattleStatusRuntimeUnit(frozenStatus);
     configureRuntimeActionPlan(state, frameCastInput(0, 1));
     state.units.requireCore(0).animation.cooldown = 0;
@@ -2634,7 +2608,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CastOriginUsesPostMovementPosition", "
     releaseUnit.haveAction = true;
     releaseUnit.operationType = BattleOperationType::RangedProjectile;
     releaseUnit.animation.actType = 1;
-    releaseUnit.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    releaseUnit.animation.actFrame = state.action.castConfig.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
     releaseUnit.animation.cooldown = 20;
 
     auto release = runBattleFrame(state);
@@ -2832,7 +2806,7 @@ TEST_CASE("BattleFrameRunner_RuntimeCastPopulatesProjectileSpreadTargetsFromAliv
     caster.haveAction = true;
     caster.operationType = BattleOperationType::TrackingProjectile;
     caster.animation.actType = 1;
-    caster.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::TrackingProjectile)];
+    caster.animation.actFrame = state.action.castConfig.castFrames[battleOperationIndex(BattleOperationType::TrackingProjectile)];
     caster.animation.cooldown = 20;
 
     auto result = runBattleFrame(state);
@@ -2912,7 +2886,7 @@ TEST_CASE("BattleFrameRunner_RollsDashHitCountFromRuntimeStateWhenDashCastStarts
     runtimeUnit.haveAction = true;
     runtimeUnit.operationType = BattleOperationType::Dash;
     runtimeUnit.animation.actType = 1;
-    runtimeUnit.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::Dash)];
+    runtimeUnit.animation.actFrame = state.action.castConfig.castFrames[battleOperationIndex(BattleOperationType::Dash)];
     runtimeUnit.animation.cooldown = 20;
 
     auto result = runBattleFrame(state);
@@ -2960,7 +2934,7 @@ TEST_CASE("BattleFrameRunner_CommittedDashKeepsHitVectorWhenTargetMovesInsideMel
     runtimeUnit.haveAction = true;
     runtimeUnit.operationType = BattleOperationType::Dash;
     runtimeUnit.animation.actType = 1;
-    runtimeUnit.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::Dash)];
+    runtimeUnit.animation.actFrame = state.action.castConfig.castFrames[battleOperationIndex(BattleOperationType::Dash)];
     runtimeUnit.animation.cooldown = 20;
 
     auto result = runBattleFrame(state);
@@ -3010,7 +2984,7 @@ TEST_CASE("BattleFrameRunner_RangedDashAttackCastsProjectileWithoutDashHits", "[
     caster.haveAction = true;
     caster.operationType = BattleOperationType::RangedProjectile;
     caster.animation.actType = 1;
-    caster.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    caster.animation.actFrame = state.action.castConfig.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
     caster.animation.cooldown = 20;
 
     auto result = runBattleFrame(state);
@@ -3130,7 +3104,7 @@ TEST_CASE("BattleFrameRunner_CastStartJittersPendingReleaseFrame", "[battle][cor
     }));
     state.attacks = attackWorld();
     seedRuntimeUnitsFromWorld(state);
-    state.action.castFrames = { 6, 6, 6, 6 };
+    state.action.castConfig.castFrames = { 6, 6, 6, 6 };
     state.random = BattleRuntimeRandom(2u);
 
     auto cast = frameCastInput(0, 1);
@@ -3138,11 +3112,11 @@ TEST_CASE("BattleFrameRunner_CastStartJittersPendingReleaseFrame", "[battle][cor
     cast.normalSkill.rangedStyle = true;
     cast.normalSkill.reach = 400.0;
     configureRuntimeActionPlan(state, cast);
-    state.action.castFrames = { 6, 6, 6, 6 };
+    state.action.castConfig.castFrames = { 6, 6, 6, 6 };
     state.units.requireCore(0).animation.cooldown = 0;
 
     BattleRuntimeRandom expectedRandom(2u);
-    const int baseCastFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    const int baseCastFrame = state.action.castConfig.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
     const int expectedReleaseFrame = baseCastFrame + expectedRandom.nextInt(3) - 1;
     REQUIRE(expectedReleaseFrame != baseCastFrame);
 
@@ -3259,7 +3233,7 @@ TEST_CASE("BattleFrameRunner_RefreshesRuntimeCastTargetAtCommitFrame", "[battle]
     caster.haveAction = true;
     caster.operationType = BattleOperationType::RangedProjectile;
     caster.animation.actType = 1;
-    caster.animation.actFrame = state.action.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
+    caster.animation.actFrame = state.action.castConfig.castFrames[battleOperationIndex(BattleOperationType::RangedProjectile)];
     caster.animation.cooldown = 20;
     state.units.requireCore(1).motion.position = { 220, 220, 0 };
 
@@ -4059,13 +4033,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathClearsFrozenStatusAuthority", "[b
     state.units.require(1).status =
         makeBattleStatusRuntimeUnit(makeBattleStatusUnitState(state.units.requireCore(1)));
     queuePendingDamage(state, lethalDamageInput(0, 1));
-    state.units.require(1).status.effects.frozenTimer = 5;
-    state.units.require(1).status.effects.frozenMaxTimer = 8;
+    state.units.require(1).status.effects.setFrames(BattleStatusKind::Stun, 5, 8);
 
     runBattleFrame(state);
 
-    CHECK(state.units.require(1).status.effects.frozenTimer == 0);
-    CHECK(state.units.require(1).status.effects.frozenMaxTimer == 0);
+    CHECK_FALSE(state.units.require(1).frozen());
 }
 
 TEST_CASE("BattleFrameRunner_PublishesRenderComboFromRuntimeRecords", "[battle][core][runtime]")
@@ -4135,7 +4107,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     state.units.requireCore(0).motion.acceleration = { 0, 0, -4 };
     state.units.require(0).status = statusRuntimeSnapshot(0, 100);
     state.units.require(1).status = statusRuntimeSnapshot(1, 100);
-    state.units.require(1).status.effects.frozenTimer = 2;
+    state.units.require(1).status.effects.setFrames(BattleStatusKind::Stun, 2);
     state.movementPhysics.config.gravity = -4.0f;
     state.movementPhysics.config.friction = 0.1f;
     state.movementPhysics.config.postDashSpreadFrames = 6;
@@ -4159,7 +4131,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[batt
     CHECK(state.units.require(0).movement.physics.movementDashSpreadFrames == 6);
 
     const auto& stoppedUnit = state.units.requireCore(1);
-    CHECK(state.units.require(1).status.effects.frozenTimer == 1);
+    CHECK(state.units.require(1).frozenFrames() == 1);
     CHECK(stoppedUnit.motion.position.x == 200.0f);
     CHECK(stoppedUnit.motion.velocity.x == 0.0f);
 }
@@ -5536,7 +5508,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageTakenMpGainHonorsMpBlock", "[bat
     auto& defender = state.units.requireCore(1);
     defender.vitals.mp = 5;
     defender.vitals.maxMp = 100;
-    state.units.require(1).status.effects.mpBlockTimer = 2;
+    state.units.require(1).status.effects.setFrames(BattleStatusKind::MpBlocked, 2);
 
     auto result = runBattleFrame(state);
 
@@ -5552,8 +5524,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesMainProjectileImpactFreezeInCor
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1).size() == 1);
-    CHECK(state.units.require(1).status.effects.frozenTimer == 5);
-    CHECK(state.units.require(1).status.effects.frozenMaxTimer == 5);
+    CHECK(state.units.require(1).frozenFrames() == 5);
+    CHECK(state.units.require(1).status.effects.maximumFrames(BattleStatusKind::Stun) == 5);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyImpactFreezeForNonMainProjectile", "[battle][core][breakthrough]")
@@ -5565,7 +5537,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotApplyImpactFreezeForNonMainProj
     auto result = runBattleFrame(state);
 
     CHECK(damageLogAmountsFor(result, 1).size() == 1);
-    CHECK(state.units.require(1).status.effects.frozenTimer == 0);
+    CHECK_FALSE(state.units.require(1).frozen());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndInsideSameFrame", "[battle][core][breakthrough]")

@@ -21,8 +21,7 @@ struct BattleRuntimeRulesConfig
     BattleProjectileFollowUpContext projectileFollowUps;
     BattleActionRulesConfig action;
     double rescueExecuteUnattendedRadius = 0.0;
-    double minimumVectorNorm = 0.0;
-    int movementPhysicsDashMomentumFrames = 0;
+    double meleeAttackHitRadius = 0.0;
     int maximumFrames = kBattleFrameLimit;
 };
 

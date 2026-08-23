@@ -86,7 +86,7 @@ EffectEventContext makeContext(EffectEvent event,
             .frame = 10,
             .eventOrdinal = 20,
             .binding = binding,
-            .owner = owner,
+            .owner = &owner,
             .battle = BattleEffectReadView(units),
         },
         .payload = std::move(payload),
@@ -131,6 +131,19 @@ EffectSelector hitTargetSelector()
 }
 
 }  // namespace
+
+TEST_CASE("EffectResourcesBeforeCastSnapshot copies share immutable storage",
+          "[battle][effect][resources]")
+{
+    const EffectResourcesBeforeCastSnapshot original{
+        { 1, 80, 100 },
+        { 2, 40, 100 },
+    };
+    const auto copy = original;
+
+    REQUIRE(original.size() == 2);
+    CHECK(copy.values().data() == original.values().data());
+}
 
 TEST_CASE("BattleEffectSystem interval rules count eligible frame events and reset", "[battle][effect][interval]")
 {
@@ -192,7 +205,6 @@ TEST_CASE("BattleEffectSystem emits one poison application and damage transactio
 {
     auto owner = makeUnit(1, 0, 0, 1000);
     owner.alive = false;
-    owner.stacks["毒爆"] = 3;
     owner.statusDetails.push_back({
         .state = "毒爆",
         .sourceUnitId = owner.id,
@@ -256,7 +268,6 @@ TEST_CASE("BattleEffectSystem emits one poison application and damage transactio
     }
 
     auto noLayers = owner;
-    noLayers.stacks.clear();
     noLayers.statusDetails.clear();
     const std::vector noLayerUnits{ noLayers, enemy };
     auto noLayerContext = makeContext(
@@ -424,8 +435,7 @@ TEST_CASE("BattleEffectSystem reserves one target slot for a required hit target
         units,
         HitEventData{
             .provenance = attackProvenance(79),
-            .attackerBefore = owner,
-            .defenderBefore = hitTarget,
+            .targetUnitId = hitTarget.id,
             .originalTargetUnitId = hitTarget.id,
             .contactPosition = hitTarget.position,
         });
@@ -577,7 +587,7 @@ TEST_CASE("BattleEffectSystem copy filter excludes recursive magic before random
 TEST_CASE("BattleEffectSystem gates rules by conditions chance propagation and maximum count", "[battle][effect]")
 {
     auto owner = makeUnit(1, 0, 400, 1000);
-    owner.states.insert("真氣");
+    owner.statusDetails.push_back({ .state = "真氣" });
     auto target = makeUnit(2, 1, 200, 1000);
     const std::vector units{ owner, target };
     auto context = makeContext(
@@ -587,8 +597,7 @@ TEST_CASE("BattleEffectSystem gates rules by conditions chance propagation and m
         units,
         HitEventData{
             .provenance = attackProvenance(77, CastPropagationPolicy::SourceRules, 2),
-            .attackerBefore = owner,
-            .defenderBefore = target,
+            .targetUnitId = target.id,
             .originalTargetUnitId = 2,
             .damageKind = BattleDamageKind::Skill,
         });
@@ -893,7 +902,7 @@ TEST_CASE("BattleEffectSystem lets an active magic state observe the owner's lat
           "[battle][effect][cast_match][sunflower]")
 {
     auto owner = makeUnit(1, 0, 1000, 1000);
-    owner.states.insert("無影");
+    owner.statusDetails.push_back({ .state = "無影" });
     const auto enemy = makeUnit(2, 1, 1000, 1000);
     const std::vector units{ owner, enemy };
 
@@ -923,7 +932,6 @@ TEST_CASE("BattleEffectSystem lets an active magic state observe the owner's lat
         units,
         AttackEventData{
             .provenance = provenance,
-            .attacker = owner,
             .originalTargetUnitId = enemy.id,
         });
     BattleEffectSystem system;
@@ -1033,8 +1041,7 @@ TEST_CASE("BattleEffectSystem limits chance evaluation once per cast and target 
             units,
             HitEventData{
                 .provenance = provenance,
-                .attackerBefore = owner,
-                .defenderBefore = target,
+                .targetUnitId = target.id,
                 .originalTargetUnitId = target.id,
                 .damageKind = BattleDamageKind::Skill,
             });
@@ -1236,8 +1243,7 @@ TEST_CASE("BattleEffectSystem does not suppress defender and death-owner rules w
         units,
         HitEventData{
             .provenance = rootProvenance,
-            .attackerBefore = attacker,
-            .defenderBefore = defender,
+            .targetUnitId = defender.id,
             .originalTargetUnitId = defender.id,
             .damageKind = BattleDamageKind::Skill,
         }), random);
@@ -1252,8 +1258,7 @@ TEST_CASE("BattleEffectSystem does not suppress defender and death-owner rules w
         units,
         HitEventData{
             .provenance = provenance,
-            .attackerBefore = attacker,
-            .defenderBefore = defender,
+            .targetUnitId = defender.id,
             .originalTargetUnitId = defender.id,
             .damageKind = BattleDamageKind::Skill,
         }), random);
@@ -1421,8 +1426,7 @@ TEST_CASE("BattleEffectSystem transfers persistent damage memory into one cast",
         units,
         HitEventData{
             .provenance = attackProvenance(88),
-            .attackerBefore = owner,
-            .defenderBefore = target,
+            .targetUnitId = target.id,
             .originalTargetUnitId = 2,
             .damageKind = BattleDamageKind::Skill,
         });
@@ -1494,8 +1498,6 @@ TEST_CASE("BattleEffectSystem shares marked-hit observation and permanent cast p
     const auto caster = makeUnit(1, 0, 1000, 1000);
     const auto ally = makeUnit(2, 0, 1000, 1000);
     auto enemy = makeUnit(3, 1, 1000, 1000);
-    enemy.states.insert("七星");
-    enemy.stacks["七星"] = 1;
     enemy.statusDetails.push_back({
         .state = "七星",
         .sourceUnitId = caster.id,
@@ -1540,8 +1542,7 @@ TEST_CASE("BattleEffectSystem shares marked-hit observation and permanent cast p
         units,
         HitEventData{
             .provenance = unrelatedAttack,
-            .attackerBefore = ally,
-            .defenderBefore = enemy,
+            .targetUnitId = enemy.id,
             .originalTargetUnitId = enemy.id,
             .damageKind = BattleDamageKind::Skill,
         }), random);
@@ -1602,8 +1603,7 @@ TEST_CASE("BattleEffectSystem shares marked-hit observation and permanent cast p
         units,
         HitEventData{
             .provenance = attackProvenance(84),
-            .attackerBefore = caster,
-            .defenderBefore = enemy,
+            .targetUnitId = enemy.id,
             .originalTargetUnitId = enemy.id,
             .damageKind = BattleDamageKind::Skill,
         }), random);
@@ -1681,8 +1681,7 @@ TEST_CASE("BattleEffectSystem emits the four vertical slice command shapes", "[b
             EffectEvent::MainProjectileBeforeDamage, magicBinding(79), owner, units,
             HitEventData{
                 .provenance = attackProvenance(79),
-                .attackerBefore = owner,
-                .defenderBefore = enemy,
+                .targetUnitId = enemy.id,
                 .originalTargetUnitId = 3,
             });
         const auto result = system.dispatch(store, context, random);

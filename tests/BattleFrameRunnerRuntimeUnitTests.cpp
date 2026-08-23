@@ -4,6 +4,7 @@
 #include "battle/BattleHitResolver.h"
 #include "battle/BattleRuntimeSession.h"
 #include "battle/BattleRuntimeUnitSpawn.h"
+#include "battle/BattleStatusSystem.h"
 #include "Find.h"
 
 #include <catch2/catch_approx.hpp>
@@ -15,6 +16,7 @@
 #include <vector>
 
 using namespace KysChess::Battle;
+using namespace KysChess;
 using namespace BattlePresentationTest;
 
 namespace
@@ -29,6 +31,29 @@ BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
 }
 
 void seedDamageExtrasFromUnits(BattleRuntimeState& state);
+
+BattleTypedStatusInstance& appendStatus(
+    BattleStatusEffectState& effects,
+    BattleStatusKind kind,
+    int remainingFrames,
+    int stacks = 1,
+    int potency = 0,
+    int sourceUnitId = -1,
+    int tickFramesRemaining = 0,
+    int maximumFrames = 0)
+{
+    effects.statuses.push_back({
+        .kind = kind,
+        .sourceUnitId = sourceUnitId,
+        .remainingFrames = remainingFrames,
+        .maximumFrames = std::max(remainingFrames, maximumFrames),
+        .tickFramesRemaining = tickFramesRemaining,
+        .stacks = stacks,
+        .potency = potency,
+        .appliedSequence = effects.nextStatusSequence++,
+    });
+    return effects.statuses.back();
+}
 
 void appendOwnerEffectRule(
     BattleRuntimeState& state,
@@ -570,7 +595,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     CHECK(hitFrameUnit.motion.facing.y == Catch::Approx(0.0f));
     CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 1);
     CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 2);
-    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 5);
+    CHECK(session.runtime().units.require(1).frozenFrames() == 5);
 
     session.runFrame();
 
@@ -582,7 +607,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     CHECK(pushedUnit.motion.facing.y == Catch::Approx(0.0f));
     CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 0);
     CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 1);
-    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 4);
+    CHECK(session.runtime().units.require(1).frozenFrames() == 4);
 
     session.runFrame();
 
@@ -590,7 +615,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     CHECK(lockedUnit.motion.facing.x == Catch::Approx(-1.0f));
     CHECK(lockedUnit.motion.facing.y == Catch::Approx(0.0f));
     CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 0);
-    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 3);
+    CHECK(session.runtime().units.require(1).frozenFrames() == 3);
 }
 
 TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity", "[battle][runtime_session][ownership]")
@@ -643,7 +668,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity",
     CHECK(hitFrameUnit.motion.facing.x == Catch::Approx(-1.0f));
     CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 4);
     CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 5);
-    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 5);
+    CHECK(session.runtime().units.require(1).frozenFrames() == 5);
 
     session.runFrame();
 
@@ -653,7 +678,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity",
     CHECK(pushedUnit.motion.facing.x == Catch::Approx(-1.0f));
     CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 3);
     CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 4);
-    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 4);
+    CHECK(session.runtime().units.require(1).frozenFrames() == 4);
 
     session.runFrame();
     session.runFrame();
@@ -663,7 +688,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity",
     CHECK(settledUnit.motion.position.x == Catch::Approx(hitFrameX + 8.0f));
     CHECK(session.runtime().units.require(1).movement.physics.knockbackFrames == 0);
     CHECK(session.runtime().units.require(1).movement.physics.knockbackControlFrames == 1);
-    CHECK(session.runtime().units.require(1).status.effects.frozenTimer == 1);
+    CHECK(session.runtime().units.require(1).frozenFrames() == 1);
 }
 
 TEST_CASE("BattleRuntimeSession_RunFrame_TaXueIgnoresKnockback", "[battle][runtime_session][ownership]")
@@ -689,7 +714,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_TaXueIgnoresKnockback", "[battle][runti
     BattleActionPlanSeed defenderPlan;
     defenderPlan.normalSkill.id = 101;
     runtime.units.require(1).setActionPlan(std::move(defenderPlan));
-    runtime.units.require(1).status.effects.frozenTimer = 100;
+    runtime.units.require(1).status.effects.setFrames(BattleStatusKind::Stun, 100);
 
     BattleAttackInstance attack;
     attack.id = 10;
@@ -756,7 +781,7 @@ TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][
     comboFacts.appliedComboIds.insert(34);
 
     BattleActionPlanSeed plan;
-    plan.unitId = 99;
+    plan.normalSkill.id = 99;
 
     appendRuntimeUnit(runtime, makeRuntimeUnitSpawn(std::move(unit), comboFacts, plan));
 
@@ -767,7 +792,7 @@ TEST_CASE("BattleRuntimeUnitSpawn_AppendsUnitRecordWithPerUnitFacts", "[battle][
     CHECK(record.comboFacts.hasApplied(34));
     CHECK(record.movement.physics.position.x == 32.0f);
     REQUIRE(record.actionPlan() != nullptr);
-    CHECK(record.actionPlan()->unitId == 4);
+    CHECK(record.actionPlan()->normalSkill.id == 99);
 }
 
 TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeRecords", "[battle][runtime_session][ownership]")
@@ -787,6 +812,7 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeRecords", "[b
     unit.motion.position = { 128, 256, 0 };
     input.units.push_back(unit);
 
+    const auto expectedCastFrames = input.rules.castConfig.castFrames;
     auto session = BattleRuntimeSession::createInitialized(std::move(input)).session;
 
     CHECK(session.runtime().movement.frame == 42);
@@ -794,7 +820,7 @@ TEST_CASE("BattleRuntimeSession_CreateInitializedBuildsOwnedRuntimeRecords", "[b
     CHECK(session.runtime().units.requireCore(0).id == 0);
     REQUIRE(session.runtime().units.size() == 1);
     CHECK(session.runtime().units.require(0).id() == 0);
-    CHECK(session.runtime().action.castFrames == session.runtime().movementPhysics.actionCastFrames);
+    CHECK(session.runtime().action.castConfig.castFrames == expectedCastFrames);
     CHECK(session.runtime().damage.sortPendingDamageByDefenderMagnitude);
 }
 
@@ -916,8 +942,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     state.units.require(0).damage = damage;
     state.units.requireCore(0).invincible = 4;
     BattleStatusRuntimeUnit status;
-    status.effects.frozenTimer = 3;
-    status.effects.frozenMaxTimer = 9;
+    status.effects.setFrames(BattleStatusKind::Stun, 3, 9);
     state.units.require(0).status = status;
 
     runBattleFrame(state);
@@ -925,8 +950,8 @@ TEST_CASE("BattleFrameRunner_RunFrame_PublishesStateApplications", "[battle][fra
     const auto& runtimeUnit = state.units.requireCore(0);
     const auto& statusUnit = state.units.require(0).status;
     CHECK(runtimeUnit.invincible == 3);
-    CHECK(statusUnit.effects.frozenTimer == 2);
-    CHECK(statusUnit.effects.frozenMaxTimer == 9);
+    CHECK(statusUnit.effects.remainingFrames(BattleStatusKind::Stun) == 2);
+    CHECK(statusUnit.effects.maximumFrames(BattleStatusKind::Stun) == 9);
     CHECK(runtimeUnit.shield == 12);
     CHECK(state.units.require(0).damage.dualWieldBlocksRemaining == 1);
 }
@@ -964,7 +989,7 @@ TEST_CASE("BattleFrameRunner_RunFrame_AppliesRuntimeMpRegenBlockAndRecovery", "[
         teamRuntimeUnit(0, 0, 80),
         teamRuntimeUnit(1, 1, 100),
     });
-    state.units.require(0).status.effects.mpBlockTimer = 2;
+    state.units.require(0).status.effects.setFrames(BattleStatusKind::MpBlocked, 2);
     KysChess::ModifyAttributeAction recoveryBonus;
     recoveryBonus.attribute = KysChess::BattleAttribute::MpRecoveryBonus;
     recoveryBonus.operation = KysChess::AttributeOperation::PercentAdd;
@@ -1002,10 +1027,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     poisoned.alive = true;
     poisoned.hp = 80;
     poisoned.maxHp = 100;
-    poisoned.effects.poisonTimer = 3;
-    poisoned.effects.poisonStacks = 2;
-    poisoned.effects.poisonTickPct = 10;
-    poisoned.effects.poisonSourceId = 0;
+    appendStatus(poisoned.effects, BattleStatusKind::Poison, 3, 2, 10, 0);
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
@@ -1018,8 +1040,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsPoisonTickToDamageTransaction"
     CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 8 });
     CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
     CHECK(state.units.requireCore(1).vitals.hp == 72);
-    CHECK(state.units.require(1).status.effects.poisonStacks == 1);
-    CHECK(state.units.require(1).status.effects.poisonTimer == 2);
+    REQUIRE(state.units.require(1).status.effects.find(BattleStatusKind::Poison));
+    CHECK(state.units.require(1).status.effects.find(BattleStatusKind::Poison)->stacks == 1);
+    CHECK(state.units.require(1).status.effects.find(BattleStatusKind::Poison)->remainingFrames == 2);
 }
 
 TEST_CASE("BattleFrameRunner_XuanmingSettlesScheduledRemainingPoisonDamage", "[battle][frame_runner][runtime][effect][poison]")
@@ -1034,10 +1057,7 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesScheduledRemainingPoisonDamage", "[b
         target,
     });
     auto& poison = state.units.require(1).status.effects;
-    poison.poisonTimer = 32;
-    poison.poisonStacks = 1;
-    poison.poisonTickPct = 10;
-    poison.poisonSourceId = 7;
+    appendStatus(poison, BattleStatusKind::Poison, 32, 1, 10, 7);
     seedDamageExtrasFromUnits(state);
 
     EffectCommandMetadata metadata;
@@ -1094,10 +1114,12 @@ TEST_CASE("BattleFrameRunner_XuanmingSettlesScheduledRemainingPoisonDamage", "[b
     CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 10 });
     CHECK(damageLogSourceIdsFor(result, 1) == std::vector<int>{ 0 });
     CHECK(state.units.requireCore(1).vitals.hp == 91);
-    CHECK(state.units.require(1).status.effects.poisonTimer == 150);
-    CHECK(state.units.require(1).status.effects.poisonStacks == 5);
-    CHECK(state.units.require(1).status.effects.poisonTickPct == 10);
-    CHECK(state.units.require(1).status.effects.poisonSourceId == 0);
+    const auto* poisonAfterPayload = state.units.require(1).status.effects.find(BattleStatusKind::Poison);
+    REQUIRE(poisonAfterPayload);
+    CHECK(poisonAfterPayload->remainingFrames == 150);
+    CHECK(poisonAfterPayload->stacks == 5);
+    CHECK(poisonAfterPayload->potency == 10);
+    CHECK(poisonAfterPayload->sourceUnitId == 0);
 
     const auto payload = std::ranges::find(
         result.logEvents,
@@ -1131,10 +1153,7 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementHonorsClearAfterSettle", "[ba
         target,
     });
     auto& poison = state.units.require(1).status.effects;
-    poison.poisonTimer = 32;
-    poison.poisonStacks = 1;
-    poison.poisonTickPct = 10;
-    poison.poisonSourceId = 7;
+    appendStatus(poison, BattleStatusKind::Poison, 32, 1, 10, 7);
     seedDamageExtrasFromUnits(state);
 
     EffectCommandMetadata metadata;
@@ -1168,10 +1187,12 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementHonorsClearAfterSettle", "[ba
 
     CHECK(damageLogAmountsFor(result, 1) == std::vector<int>{ 10 });
     CHECK(state.units.requireCore(1).vitals.hp == 91);
-    CHECK(state.units.require(1).status.effects.poisonTimer > 0);
-    CHECK(state.units.require(1).status.effects.poisonStacks == 1);
-    CHECK(state.units.require(1).status.effects.poisonTickPct == 10);
-    CHECK(state.units.require(1).status.effects.poisonSourceId == 7);
+    const auto* poisonAfterBlockedSettlement = state.units.require(1).status.effects.find(BattleStatusKind::Poison);
+    REQUIRE(poisonAfterBlockedSettlement);
+    CHECK(poisonAfterBlockedSettlement->remainingFrames > 0);
+    CHECK(poisonAfterBlockedSettlement->stacks == 1);
+    CHECK(poisonAfterBlockedSettlement->potency == 10);
+    CHECK(poisonAfterBlockedSettlement->sourceUnitId == 7);
 }
 
 TEST_CASE("BattleFrameRunner_StatusDamageSettlementPreservesPoisonWhenNoDamageRemains", "[battle][frame_runner][runtime][effect][poison]")
@@ -1184,10 +1205,7 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementPreservesPoisonWhenNoDamageRe
         teamRuntimeUnit(1, 1, 100),
     });
     auto& poison = state.units.require(1).status.effects;
-    poison.poisonTimer = 19;
-    poison.poisonStacks = 1;
-    poison.poisonTickPct = 10;
-    poison.poisonSourceId = 7;
+    appendStatus(poison, BattleStatusKind::Poison, 19, 1, 10, 7);
     seedDamageExtrasFromUnits(state);
 
     EffectCommandMetadata metadata;
@@ -1221,10 +1239,12 @@ TEST_CASE("BattleFrameRunner_StatusDamageSettlementPreservesPoisonWhenNoDamageRe
 
     CHECK(damageLogAmountsFor(result, 1).empty());
     CHECK(state.units.requireCore(1).vitals.hp == 100);
-    CHECK(state.units.require(1).status.effects.poisonTimer > 0);
-    CHECK(state.units.require(1).status.effects.poisonStacks == 1);
-    CHECK(state.units.require(1).status.effects.poisonTickPct == 10);
-    CHECK(state.units.require(1).status.effects.poisonSourceId == 7);
+    const auto* poisonAfterZeroSettlement = state.units.require(1).status.effects.find(BattleStatusKind::Poison);
+    REQUIRE(poisonAfterZeroSettlement);
+    CHECK(poisonAfterZeroSettlement->remainingFrames > 0);
+    CHECK(poisonAfterZeroSettlement->stacks == 1);
+    CHECK(poisonAfterZeroSettlement->potency == 10);
+    CHECK(poisonAfterZeroSettlement->sourceUnitId == 7);
 }
 
 TEST_CASE("BattleFrameRunner_PoisonPayloadIsReportedWhenStrongerPoisonPreventsApplication", "[battle][frame_runner][runtime][effect][poison][report]")
@@ -1236,10 +1256,7 @@ TEST_CASE("BattleFrameRunner_PoisonPayloadIsReportedWhenStrongerPoisonPreventsAp
         teamRuntimeUnit(1, 1, 100),
     });
     auto& poison = state.units.require(1).status.effects;
-    poison.poisonTimer = 90;
-    poison.poisonStacks = 3;
-    poison.poisonTickPct = 12;
-    poison.poisonSourceId = 7;
+    appendStatus(poison, BattleStatusKind::Poison, 90, 3, 12, 7);
 
     EffectCommandMetadata metadata;
     metadata.binding = {
@@ -1268,9 +1285,11 @@ TEST_CASE("BattleFrameRunner_PoisonPayloadIsReportedWhenStrongerPoisonPreventsAp
 
     const auto result = runBattleFrame(state);
 
-    CHECK(state.units.require(1).status.effects.poisonStacks == 3);
-    CHECK(state.units.require(1).status.effects.poisonTickPct == 12);
-    CHECK(state.units.require(1).status.effects.poisonSourceId == 7);
+    const auto* poisonAfterWeakerPayload = state.units.require(1).status.effects.find(BattleStatusKind::Poison);
+    REQUIRE(poisonAfterWeakerPayload);
+    CHECK(poisonAfterWeakerPayload->stacks == 3);
+    CHECK(poisonAfterWeakerPayload->potency == 12);
+    CHECK(poisonAfterWeakerPayload->sourceUnitId == 7);
     const auto payloads = std::ranges::count(
         result.logEvents,
         BattleStatusSemanticId::PoisonPayload,
@@ -1515,9 +1534,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
     bleeding.alive = true;
     bleeding.hp = 80;
     bleeding.maxHp = 100;
-    bleeding.effects.bleedStacks = 6;
-    bleeding.effects.bleedTimer = 1;
-    bleeding.effects.bleedSourceId = 0;
+    appendStatus(bleeding.effects, BattleStatusKind::Bleed, 0, 6, 0, 0, 1);
     seedRuntimeUnits(state, {
         teamRuntimeUnit(0, 0, 100),
         teamRuntimeUnit(1, 1, 80),
@@ -1553,7 +1570,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ConvertsBleedTickToDamageTransaction",
 TEST_CASE("BattleFrameRunner_StatusDotsApplyOnlyLiveTypedDefenderModifiers", "[battle][frame_runner][runtime][status][damage]")
 {
     const auto damageAfterTick = [](bool poison,
-                                    std::vector<BattleTypedStatusInstance> typedStatuses)
+                                    std::vector<BattleTypedStatusInstance> statuses)
     {
         auto state = runtimeFrameState();
         state.status.config.poisonDamageIntervalFrames = 30;
@@ -1568,19 +1585,14 @@ TEST_CASE("BattleFrameRunner_StatusDotsApplyOnlyLiveTypedDefenderModifiers", "[b
         status.alive = true;
         status.hp = 80;
         status.maxHp = 100;
-        status.effects.typedStatuses = std::move(typedStatuses);
+        status.effects.statuses = std::move(statuses);
         if (poison)
         {
-            status.effects.poisonTimer = 3;
-            status.effects.poisonStacks = 1;
-            status.effects.poisonTickPct = 10;
-            status.effects.poisonSourceId = 0;
+            appendStatus(status.effects, BattleStatusKind::Poison, 3, 1, 10, 0);
         }
         else
         {
-            status.effects.bleedStacks = 8;
-            status.effects.bleedTimer = 1;
-            status.effects.bleedSourceId = 0;
+            appendStatus(status.effects, BattleStatusKind::Bleed, 0, 8, 0, 0, 1);
         }
         seedRuntimeUnits(state, {
             teamRuntimeUnit(0, 0, 100),

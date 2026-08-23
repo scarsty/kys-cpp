@@ -490,13 +490,13 @@ void applyKnockbackImpulse(
     BattleRuntimeState& state,
     const BattleKnockbackCommand& knockback);
 
-std::vector<EffectUnitResourceBeforeCast> snapshotEffectResourcesBeforeCast(
+EffectResourcesBeforeCastSnapshot snapshotEffectResourcesBeforeCast(
     const BattleRuntimeState& state);
 BattleEffectDispatchResult dispatchCastPlannedEffects(
     BattleRuntimeState& state,
     const BattleCastInput& input,
     bool ultimate,
-    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast,
+    const EffectResourcesBeforeCastSnapshot& resourcesBeforeCast,
     const BattleCastProvenance& provenance);
 void applyEffectAttackDirectives(
     std::span<BattleAttackSpawnRequest> requests,
@@ -1264,7 +1264,7 @@ BattleHitResolutionInput makeHitResolutionInput(
     return input;
 }
 
-std::vector<EffectUnitResourceBeforeCast> snapshotEffectResourcesBeforeCast(
+EffectResourcesBeforeCastSnapshot snapshotEffectResourcesBeforeCast(
     const BattleRuntimeState& state)
 {
     std::vector<EffectUnitResourceBeforeCast> result;
@@ -1278,7 +1278,7 @@ std::vector<EffectUnitResourceBeforeCast> snapshotEffectResourcesBeforeCast(
         });
     }
     std::ranges::sort(result, {}, &EffectUnitResourceBeforeCast::unitId);
-    return result;
+    return EffectResourcesBeforeCastSnapshot(std::move(result));
 }
 
 BattleEffectEventHeaderInput nextEffectEventHeader(
@@ -1319,7 +1319,7 @@ CastPlanEventData makeCastPlanEventData(
     int maxMp,
     int normalCastMpDelta,
     bool forceRanged,
-    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast,
+    const EffectResourcesBeforeCastSnapshot& resourcesBeforeCast,
     const BattleCastProvenance* provenance = nullptr)
 {
     CastPlanEventData payload;
@@ -1334,24 +1334,23 @@ CastPlanEventData makeCastPlanEventData(
     payload.baseRangeMode = forceRanged
         ? CastRangeMode::Ranged
         : CastRangeMode::Preserve;
-    payload.resourcesBeforeCast.assign(
-        resourcesBeforeCast.begin(),
-        resourcesBeforeCast.end());
+    payload.resourcesBeforeCast = resourcesBeforeCast;
     return payload;
 }
 
 CastPlanEventData makeCastPlanEventData(
     const BattleCastInput& input,
     bool ultimate,
-    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast,
+    const EffectResourcesBeforeCastSnapshot& resourcesBeforeCast,
     const BattleCastProvenance* provenance = nullptr)
 {
+    const auto resources = resourcesBeforeCast.values();
     const auto& skill = ultimate ? input.ultimateSkill : input.normalSkill;
     const auto ownerResource = std::ranges::find(
-        resourcesBeforeCast,
+        resources,
         input.unit.id,
         &EffectUnitResourceBeforeCast::unitId);
-    const int mpBefore = ownerResource != resourcesBeforeCast.end()
+    const int mpBefore = ownerResource != resources.end()
         ? ownerResource->mp
         : input.unit.mp;
     return makeCastPlanEventData(
@@ -1443,7 +1442,7 @@ BattleEffectDispatchResult dispatchCastPlannedEffects(
     BattleRuntimeState& state,
     const BattleCastInput& input,
     bool ultimate,
-    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast,
+    const EffectResourcesBeforeCastSnapshot& resourcesBeforeCast,
     const BattleCastProvenance& provenance)
 {
     const auto& skill = ultimate ? input.ultimateSkill : input.normalSkill;
@@ -1556,11 +1555,12 @@ std::vector<BattleEffectDispatchResult> dispatchCastCommittedEffects(
     CastCommitEventData payload;
     payload.provenance = provenance;
     payload.targetUnitId = cast.decision.targetUnitId;
+    const auto resourcesBeforeCast = pending.effectResourcesBeforeCast.values();
     const auto resource = std::ranges::find(
-        pending.effectResourcesBeforeCast,
+        resourcesBeforeCast,
         provenance.sourceUnitId,
         &EffectUnitResourceBeforeCast::unitId);
-    payload.mpBefore = resource != pending.effectResourcesBeforeCast.end()
+    payload.mpBefore = resource != resourcesBeforeCast.end()
         ? resource->mp
         : state.units.requireCore(provenance.sourceUnitId).vitals.mp;
     payload.mpPaid = std::max(0, -cast.mpDelta);
@@ -1745,7 +1745,9 @@ void refreshMovementSkillProfile(
         selectedSeed,
         useUltimate,
         &policies);
-    movementUnit.reach = skill.reach > 0.0 ? skill.reach : state.action.actionRules.meleeAttackReach;
+    movementUnit.reach = skill.reach > 0.0
+        ? skill.reach
+        : state.movement.config.meleeAttackReach;
     movementUnit.style = skill.rangedStyle ? CombatStyle::Ranged : CombatStyle::Melee;
     movementUnit.taXue = policies.dashAttack;
 }
@@ -2123,18 +2125,20 @@ double runtimeBattleBlinkReach(
     const BattleActionSkillSeed& skill,
     bool forceRanged,
     int forcedRangedMinSelectDistance,
+    const BattleMovementConfig& movementConfig,
     const BattleActionRulesConfig& actionRules,
     const BattleCastGeometry& geometry)
 {
     if (skill.id < 0)
     {
-        return actionRules.tileWidth * 3.0;
+        return movementConfig.tileWidth * 3.0;
     }
     if (runtimeForcedRangedMagic(skill, forceRanged))
     {
         return std::max(
-            actionRules.tileWidth * 3.0,
-            static_cast<double>(std::max(1, forcedRangedMinSelectDistance)) * actionRules.tileWidth);
+            movementConfig.tileWidth * 3.0,
+            static_cast<double>(std::max(1, forcedRangedMinSelectDistance))
+                * movementConfig.tileWidth);
     }
     if (skill.attackAreaType == 3)
     {
@@ -2145,9 +2149,11 @@ double runtimeBattleBlinkReach(
         const double reach = geometry.projectileSpawnOffset
             + geometry.projectileBaseTravel
             + (skill.selectDistance - 1) * geometry.projectileTravelPerSelectDistance;
-        return std::min(actionRules.maxEffectiveBattleReach, reach - 10.0);
+        return std::min(movementConfig.maxRangedReach, reach - 10.0);
     }
-    return std::max(actionRules.tileWidth * 3.0, static_cast<double>(skill.selectDistance) * actionRules.tileWidth);
+    return std::max(
+        movementConfig.tileWidth * 3.0,
+        static_cast<double>(skill.selectDistance) * movementConfig.tileWidth);
 }
 
 double runtimeEffectiveBattleReach(
@@ -2155,12 +2161,14 @@ double runtimeEffectiveBattleReach(
     bool forceRanged,
     int forcedRangedMinSelectDistance,
     int projectileSpeedMultiplierPct,
+    const BattleMovementConfig& movementConfig,
+    double meleeAttackHitRadius,
     const BattleActionRulesConfig& actionRules,
     const BattleCastGeometry& geometry)
 {
     if (skill.id < 0)
     {
-        return actionRules.tileWidth * 2.0;
+        return movementConfig.tileWidth * 2.0;
     }
     if (runtimeProjectileStyleMagic(skill, forceRanged))
     {
@@ -2171,14 +2179,17 @@ double runtimeEffectiveBattleReach(
         const double projectileReach = geometry.projectileSpawnOffset
             + (geometry.projectileBaseTravel + (selectDistance - 1) * geometry.projectileTravelPerSelectDistance)
                 * projectileSpeedMultiplierPct / 100.0;
-        const double rangedAttackSafetyMargin = actionRules.meleeAttackHitRadius - actionRules.tileWidth / 2.0;
-        return std::max(actionRules.tileWidth * 2.0, projectileReach - rangedAttackSafetyMargin);
+        const double rangedAttackSafetyMargin = meleeAttackHitRadius
+            - movementConfig.tileWidth / 2.0;
+        return std::max(
+            movementConfig.tileWidth * 2.0,
+            projectileReach - rangedAttackSafetyMargin);
     }
     if (skill.attackAreaType == 3)
     {
         return actionRules.heavyAttackReach;
     }
-    return actionRules.meleeAttackReach;
+    return movementConfig.meleeAttackReach;
 }
 
 RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
@@ -2219,14 +2230,17 @@ RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
             profile.forceRanged,
             forcedRangedMinSelectDistance,
             profile.projectileSpeedMultiplierPct,
+            state.movement.config,
+            state.attacks.hitRadius,
             state.action.actionRules,
             state.action.castGeometry),
-        state.action.actionRules.maxEffectiveBattleReach);
+        state.movement.config.maxRangedReach);
     profile.rangedStyle = runtimeBattleRangedStyle(seed, profile.forceRanged);
     profile.blinkReach = runtimeBattleBlinkReach(
         seed,
         profile.forceRanged,
         forcedRangedMinSelectDistance,
+        state.movement.config,
         state.action.actionRules,
         state.action.castGeometry);
     return profile;
@@ -2492,8 +2506,9 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     input.unit.maxMp = unit.core.vitals.maxMp;
     input.unit.speed = effectAndAreaAdjustedSpeed(state, unit.id(), unit.core.stats.speed);
     input.unit.operationCount = unit.core.operationCount;
-    input.unit.meleeAttackReach = state.action.actionRules.meleeAttackReach;
-    input.unit.dashAttackReach = state.action.actionRules.dashAttackMeleeReach;
+    input.unit.meleeAttackReach = state.movement.config.meleeAttackReach;
+    input.unit.dashAttackReach = state.movement.config.meleeAttackReach
+        + state.movement.config.meleeLocalTargetRadius;
     input.unit.hasEquippedSkill = seed.hasEquippedSkill;
     input.unit.movementDashActive = movementDashActive;
     input.unit.frozen = unit.frozen();
@@ -2516,7 +2531,7 @@ BattleCastInput makeRuntimeCastInputFromSeed(
     {
         input.unit.dashVelocity.normTo(
             static_cast<float>(
-                state.action.actionRules.meleeAttackHitRadius / state.action.actionRules.dashMomentumFrames));
+                state.attacks.hitRadius / state.movement.config.dashFrames));
     }
 
     input.unit.cooldownReductionPct = effectAdjustedAttribute(
@@ -2591,18 +2606,22 @@ Pointf runtimeDashAttackVelocity(
     assert(direction.norm() > state.action.castConfig.minimumFacingNorm);
     direction = normalizedTo(direction, 1.0, state.action.castConfig.minimumFacingNorm);
 
-    double dashDistance = state.action.actionRules.meleeAttackHitRadius
-        / state.action.actionRules.dashMomentumFrames;
+    double dashDistance = state.attacks.hitRadius
+        / state.movement.config.dashFrames;
 
     if (selectedSkill.rangedStyle)
     {
-        const double attackRange = std::min(selectedSkill.reach, state.action.actionRules.maxEffectiveBattleReach);
+        const double attackRange = std::min(
+            selectedSkill.reach,
+            state.movement.config.maxRangedReach);
         const double forwardGap = std::max(0.0, input.targetDistance - attackRange);
-        dashDistance = state.action.actionRules.meleeAttackHitRadius
-            / state.action.actionRules.dashMomentumFrames;
+        dashDistance = state.attacks.hitRadius
+            / state.movement.config.dashFrames;
         if (forwardGap > state.movement.config.engagementDeadband)
         {
-            dashDistance = std::min(dashDistance, forwardGap / state.action.actionRules.dashMomentumFrames);
+            dashDistance = std::min(
+                dashDistance,
+                forwardGap / state.movement.config.dashFrames);
         }
         else
         {
@@ -2625,13 +2644,13 @@ Pointf runtimeDashAttackVelocity(
     else if (selectedSkill.attackAreaType == 0)
     {
         const double usefulAdvance = input.targetDistance
-            - state.action.actionRules.meleeAttackReach
+            - state.movement.config.meleeAttackReach
             + state.movement.config.engagementDeadband;
         dashDistance = std::clamp(
             usefulAdvance,
             0.0,
             state.movement.config.maxDashDistance)
-            / state.action.actionRules.dashMomentumFrames;
+            / state.movement.config.dashFrames;
     }
 
     dashDistance *= 0.8;
@@ -2789,7 +2808,7 @@ BattleActionCommitInput makeCommittedCastActionInput(BattleRuntimeState& state,
                                                      const BattleCastResult& cast,
                                                      const BattleCastProvenance& provenance,
                                                      const BattleEffectCastPreparation& effectPreparation,
-                                                     std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast);
+                                                     const EffectResourcesBeforeCastSnapshot& resourcesBeforeCast);
 std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(BattleRuntimeState& state,
                                                                         const BattleTickResult& movement,
                                                                         const BattlePendingCastAction& pending,
@@ -2961,9 +2980,9 @@ bool tryCommitAutoUltimate(
     effectPending.operationType = operationType;
     effectPending.skillPlan = makePendingCastSkillPlan(castInput.ultimateSkill);
     effectPending.effectCast = trackedCast;
-    effectPending.effectPreparation = effectPreparation;
-    effectPending.plannedAttackEffectCommands = plannedEffects.commands;
-    effectPending.effectResourcesBeforeCast = effectResourcesBeforeCast;
+    effectPending.effectPreparation = std::move(effectPreparation);
+    effectPending.plannedAttackEffectCommands = std::move(plannedEffects.commands);
+    effectPending.effectResourcesBeforeCast = std::move(effectResourcesBeforeCast);
     auto committedCast = actionInput.cast;
     if (!consumeMp)
     {
@@ -3003,7 +3022,7 @@ bool tryCommitAutoUltimate(
         actionResult.attackSpawnRequests);
     state.effectIntegration.casts[trackedCast.provenance.castId] = {
         .originalTargetUnitId = actionInput.cast.decision.targetUnitId,
-        .resourcesBeforeCast = effectResourcesBeforeCast,
+        .resourcesBeforeCast = effectPending.effectResourcesBeforeCast,
         .skill = castInput.ultimateSkill,
         .operationType = operationType,
     };
@@ -3167,7 +3186,6 @@ BattlePendingCastAction makePendingCastAction(const BattleCastInput& castInput,
     pending.targetUnitId = cast.decision.targetUnitId;
     pending.operationType = cast.decision.operationType;
     pending.castFrame = castFrame;
-    pending.normalAttackActType = castInput.normalSkill.magicType;
     pending.dashVelocity = castInput.unit.dashVelocity;
     pending.skillPlan = makePendingCastSkillPlan(selectedCastSkill(castInput, cast));
     pending.effectCast = trackedCast;
@@ -3233,8 +3251,9 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
     input.unit.maxMp = unit.vitals.maxMp;
     input.unit.speed = effectAndAreaAdjustedSpeed(state, unit.id, unit.stats.speed);
     input.unit.operationCount = unit.operationCount;
-    input.unit.meleeAttackReach = state.action.actionRules.meleeAttackReach;
-    input.unit.dashAttackReach = state.action.actionRules.dashAttackMeleeReach;
+    input.unit.meleeAttackReach = state.movement.config.meleeAttackReach;
+    input.unit.dashAttackReach = state.movement.config.meleeAttackReach
+        + state.movement.config.meleeLocalTargetRadius;
     input.unit.hasEquippedSkill = true;
     input.unit.movementDashActive = actionMovementDashActive(state, unit.id);
     input.unit.cooldownReductionPct = effectAdjustedAttribute(
@@ -3254,11 +3273,11 @@ std::optional<BattleCastInput> tryMakeRuntimeCastInputForPendingCast(
     input.unit.dashVelocity = unit.motion.facing;
     if (input.unit.dashVelocity.norm() > 0.01)
     {
-        assert(state.action.actionRules.dashMomentumFrames > 0);
+        assert(state.movement.config.dashFrames > 0);
         input.unit.dashVelocity.normTo(
             static_cast<float>(
-                state.action.actionRules.meleeAttackHitRadius
-                / state.action.actionRules.dashMomentumFrames));
+                state.attacks.hitRadius
+                / state.movement.config.dashFrames));
     }
     input.unit.emitDashFollowUpSkillAttack = input.unit.dashAttackEnabled && provenance.magicId >= 0;
     input.unit.dashFollowUpOperationType = provenance.magicId >= 0
@@ -3294,7 +3313,7 @@ BattleActionCommitInput makeCommittedCastActionInput(
     const BattleCastResult& cast,
     const BattleCastProvenance& provenance,
     const BattleEffectCastPreparation& effectPreparation,
-    std::span<const EffectUnitResourceBeforeCast> resourcesBeforeCast)
+    const EffectResourcesBeforeCastSnapshot& resourcesBeforeCast)
 {
     CastCommitEventData payload;
     assert(provenance.valid());
@@ -3303,17 +3322,18 @@ BattleActionCommitInput makeCommittedCastActionInput(
     assert(provenance.ultimate == cast.decision.ultimate);
     payload.provenance = provenance;
     payload.targetUnitId = cast.decision.targetUnitId;
+    const auto resources = resourcesBeforeCast.values();
     const auto ownerResource = std::ranges::find(
-        resourcesBeforeCast,
+        resources,
         unit.id,
         &EffectUnitResourceBeforeCast::unitId);
-    payload.mpBefore = ownerResource != resourcesBeforeCast.end()
+    payload.mpBefore = ownerResource != resources.end()
         ? ownerResource->mp
         : castInput.unit.mp;
     payload.mpPaid = std::max(0, -cast.mpDelta);
     payload.rangeMode = effectPreparation.rangeMode.value_or(CastRangeMode::Preserve);
     payload.attackPattern = cast.attackPattern;
-    payload.resourcesBeforeCast.assign(resourcesBeforeCast.begin(), resourcesBeforeCast.end());
+    payload.resourcesBeforeCast = resourcesBeforeCast;
     const auto exactMatches = queryExactRuntimeRules(
         state,
         unit.id,
@@ -3331,9 +3351,9 @@ BattleActionCommitInput makeCommittedCastActionInput(
     actionInput.blinkUseWeakestTarget =
         state.effectRules.blinkAttackUsesWeakestTarget(unit.id);
     actionInput.blinkReach = selectedSkill.blinkReach > 0.0 ? selectedSkill.blinkReach : selectedSkill.reach;
-    actionInput.blinkWeakTargetDefWeight = state.action.blinkWeakTargetDefWeight;
+    actionInput.blinkWeakTargetDefWeight = state.action.actionRules.blinkWeakTargetDefWeight;
     actionInput.strengthenedMeleeOperationCountThreshold =
-        state.action.strengthenedMeleeOperationCountThreshold;
+        state.action.castConfig.strengthenedMeleeOperationCountThreshold;
     actionInput.normalAttackActType = castInput.normalSkill.magicType;
     actionInput.delayedAlternateAttack = runtimeDelayedAlternateAttack(exactMatches);
     populateActionCommitLiveInput(state, unit, castInput, selectedSkill, actionInput);
@@ -3341,7 +3361,7 @@ BattleActionCommitInput makeCommittedCastActionInput(
     actionInput.projectileBouncePrime = collectRuntimeProjectileBouncePrime(
         exactMatches,
         state.random.nextInt(100),
-        state.action.projectileBounceRange);
+        state.action.actionRules.projectileBounceRange);
     return actionInput;
 }
 
@@ -3364,6 +3384,7 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
     {
         return std::nullopt;
     }
+    const int normalAttackActType = castInput->normalSkill.magicType;
 
     auto selectedSkill = materializePendingCastSkill(pending);
     if (provenance.ultimate)
@@ -3427,7 +3448,7 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
         provenance,
         pending.effectPreparation,
         pending.effectResourcesBeforeCast);
-    actionInput.normalAttackActType = pending.normalAttackActType;
+    actionInput.normalAttackActType = normalAttackActType;
     return actionInput;
 }
 
@@ -4890,18 +4911,20 @@ void appendStateMachineOutput(
         {
             assert(action.status == BattleStatusKind::Poison);
             auto& target = state.units.require(entry.metadata.targetUnitId);
-            const auto& poison = target.status.effects;
+            const auto* poison = target.status.effects.find(BattleStatusKind::Poison);
             int settlementDamage{};
-            if (poison.poisonTimer > 0 && poison.poisonTickPct > 0)
+            if (poison)
             {
+                assert(poison->remainingFrames > 0);
+                assert(poison->potency > 0);
                 assert(state.status.config.poisonDamageIntervalFrames > 0);
                 settlementDamage = projectRemainingPoisonDamage({
                     .firstFutureFrame = state.movement.frame,
-                    .remainingFrames = poison.poisonTimer,
-                    .remainingStacks = poison.poisonStacks,
+                    .remainingFrames = poison->remainingFrames,
+                    .remainingStacks = poison->stacks,
                     .intervalFrames = state.status.config.poisonDamageIntervalFrames,
                     .currentHp = target.core.vitals.hp,
-                    .damagePct = poison.poisonTickPct,
+                    .damagePct = poison->potency,
                 });
             }
             if (settlementDamage <= 0)
@@ -5445,7 +5468,7 @@ std::vector<BattleFrameEffectCommandBatch> dispatchFrameAdvancedEffects(
             .ownerUnitId = owner.id,
             .sourceTeam = owner.team,
         };
-        event.header.owner = owner;
+        event.header.owner = &owner;
         event.header.battle = readView;
         event.payload = FrameTickEventData{
             .deltaFrames = 1,
@@ -5529,7 +5552,8 @@ std::vector<BattleLogTextSegment> formatAppliedStatusLog(
         return formatAppliedStatusLog(event);
     }
 
-    const int currentStacks = std::max(event.value, transaction.defenderStatus.effects.bleedStacks);
+    const auto* bleed = transaction.defenderStatus.effects.find(BattleStatusKind::Bleed);
+    const int currentStacks = std::max(event.value, bleed ? bleed->stacks : 0);
     const int maxStacks = std::max(currentStacks, event.maxValue);
     return logStatusRange<BattleLogTextTone::Negative>("流血", currentStacks, maxStacks, "層");
 }
@@ -5672,7 +5696,7 @@ void applyLiveStatusToDamageModifier(
     const BattleStatusEffectState& effects,
     BattleDamageModifierState& modifier)
 {
-    modifier.poisonTimer = effects.poisonTimer;
+    modifier.poisoned = effects.has(BattleStatusKind::Poison);
 }
 
 BattleDamageModifierState runtimeDamageModifierState(
@@ -6533,9 +6557,9 @@ BattleFrameVector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(
         if (!frozenThisFrame && unit.operationType == BattleOperationType::Dash && unit.haveAction)
         {
             const auto operation = static_cast<int>(unit.operationType);
-            assert(operation >= 0 && operation < static_cast<int>(state.movementPhysics.actionCastFrames.size()));
-            const int dashStartFrame = state.movementPhysics.actionCastFrames[operation];
-            const int dashEndFrame = dashStartFrame + state.movementPhysics.dashMomentumFrames;
+            assert(operation >= 0 && operation < static_cast<int>(state.action.castConfig.castFrames.size()));
+            const int dashStartFrame = state.action.castConfig.castFrames[operation];
+            const int dashEndFrame = dashStartFrame + state.movement.config.dashFrames;
             actionDashActive = unit.animation.actFrame >= dashStartFrame
                 && unit.animation.actFrame <= dashEndFrame;
             if (unit.animation.actFrame > dashEndFrame)
@@ -6735,7 +6759,7 @@ void cancelRuntimeAction(BattleRuntimeState& state, int unitId)
     auto actionState = makeActionRuntimeState(unit.core);
     resetActionFrameState(actionState);
     commitActionFrameStateToRuntime(unit.core, actionState);
-    unit.clearAllPending();
+    unit.clearActionOwners();
 }
 
 void cancelDeadRuntimeActions(BattleRuntimeState& state)
@@ -6753,8 +6777,8 @@ int actionCastFrame(const BattleRuntimeState& state, BattleOperationType operati
         return 0;
     }
     const int operationIndex = battleOperationIndex(operationType);
-    assert(static_cast<std::size_t>(operationIndex) < state.action.castFrames.size());
-    return state.action.castFrames[operationIndex];
+    assert(static_cast<std::size_t>(operationIndex) < state.action.castConfig.castFrames.size());
+    return state.action.castConfig.castFrames[operationIndex];
 }
 
 int jitteredActionCastFrame(BattleRuntimeState& state, BattleOperationType operationType)
@@ -6768,9 +6792,10 @@ int jitteredActionCastFrame(BattleRuntimeState& state, BattleOperationType opera
 
 int actionRecoveryFrames(const BattleRuntimeState& state, BattleOperationType operationType)
 {
-    return operationType == BattleOperationType::Dash
-        ? state.action.dashRecoveryFrames
-        : state.action.actionRecoveryFrames;
+    const int operationIndex = battleOperationIndex(operationType);
+    assert(static_cast<std::size_t>(operationIndex)
+           < state.action.castConfig.recoveryFrames.size());
+    return state.action.castConfig.recoveryFrames[operationIndex];
 }
 
 void advanceActionFrameUnits(
@@ -6897,13 +6922,12 @@ void advanceActionFrameUnits(
             if (actionState.actFrame == castFrame)
             {
                 actionCommitted = true;
-                const auto committedPending = *pendingCast;
+                auto committedPending = unitRecord.takePendingCast();
                 auto maybeActionInput = tryMakeRuntimeActionCommitInput(
                     state,
                     movement,
                     committedPending,
                     frame.frameMemoryResource());
-                unitRecord.clearPendingCast();
                 if (maybeActionInput && maybeActionInput->hasCast)
                 {
                     actionInput = std::move(*maybeActionInput);
@@ -7401,11 +7425,9 @@ BattleEffectOwnedEvent makeHitEffectEvent(
         || effectEvent == EffectEvent::HitBeforeDamage);
     assert(event.provenance.valid());
     const auto& attacker = state.units.require(event.sourceUnitId);
-    const auto& defender = state.units.require(event.unitId);
     HitEventData payload;
     payload.provenance = event.provenance;
-    payload.attackerBefore = makeEffectUnitSnapshot(state, attacker);
-    payload.defenderBefore = makeEffectUnitSnapshot(state, defender);
+    payload.targetUnitId = event.unitId;
     payload.originalTargetUnitId = event.unitId;
     const auto cast = state.effectIntegration.casts.find(
         event.provenance.cast.castId);
@@ -7437,10 +7459,8 @@ BattleEffectDispatchResult dispatchAttackSpawnedEffects(
     const BattleAttackEvent& event)
 {
     assert(event.provenance.valid());
-    const auto& attacker = state.units.require(event.sourceUnitId);
     AttackEventData payload;
     payload.provenance = event.provenance;
-    payload.attacker = makeEffectUnitSnapshot(state, attacker);
     payload.originalTargetUnitId = event.unitId;
     const auto cast = state.effectIntegration.casts.find(
         event.provenance.cast.castId);
@@ -8477,7 +8497,7 @@ void dispatchReadyCastLifecycleEffects(
                     == CastPropagationPolicy::NoEffectRules);
                 continue;
             }
-            const auto castContext = contextIt->second;
+            const auto& castContext = contextIt->second;
             auto dispatched = BattleEffectEventBridge().dispatchCastLifecycleEvent(
                 state,
                 nextEffectEventHeader(state, event.provenance.sourceUnitId),
@@ -8649,7 +8669,7 @@ void cancelBattleRuntimeForBattleEnd(BattleRuntimeState& state, int frame)
     state.effectIntegration.damageContinuations.clear();
     for (auto& unit : state.units.all())
     {
-        unit.clearAllPending();
+        unit.clearActionOwners();
     }
     state.castLifecycle.cancelOutstandingForBattleEnd(frame);
 }

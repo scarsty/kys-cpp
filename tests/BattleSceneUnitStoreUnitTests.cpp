@@ -125,7 +125,7 @@ TEST_CASE("BattleSceneUnitStore_InitializesSummonedClonePlacementAndSummary", "[
     units.push_back(source);
 
     auto input = BattleSceneTest::makeSessionInput(std::move(units));
-    input.actionPlanSeeds.push_back({ 0, false, {}, {} });
+    input.units.front().actionPlan = KysChess::Battle::BattleActionPlanSeed{};
     input.setup.neigongDefinitions.push_back({ 9001, { cloneGenerationRule() } });
     input.setup.obtainedNeigongMagicIdsByTeam[0].push_back(9001);
     input.setup.cloneSources.push_back({ 0, 1000, 190, 1, -1, 0 });

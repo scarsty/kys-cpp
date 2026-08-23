@@ -11,20 +11,9 @@ namespace KysChess::Battle
 
 struct BattleActionRulesConfig
 {
-    double tileWidth = 0.0;
-    double maxEffectiveBattleReach = 0.0;
-    double meleeAttackHitRadius = 0.0;
-    double meleeAttackReach = 0.0;
     double heavyAttackReach = 0.0;
-    double dashAttackMeleeReach = 0.0;
     double blinkWeakTargetDefWeight = 0.0;
-    int dashMomentumFrames = 0;
-    int movementDashCooldownFrames = 0;
-    int actionRecoveryFrames = 0;
-    int dashRecoveryFrames = 0;
-    int strengthenedMeleeOperationCountThreshold = 0;
     int projectileBounceRange = 0;
-    int coordCount = 0;
 };
 
 struct BattleActionSkillSeed
@@ -43,7 +32,6 @@ struct BattleActionSkillSeed
 
 struct BattleActionPlanSeed
 {
-    int unitId{};
     bool hasEquippedSkill = false;
     BattleActionSkillSeed normalSkill;
     BattleActionSkillSeed ultimateSkill;
@@ -54,14 +42,13 @@ struct BattlePendingCastAction
     int targetUnitId = -1;
     BattleOperationType operationType = BattleOperationType::None;
     int castFrame{};
-    int normalAttackActType = -1;
     Pointf dashVelocity;
     // 武功身分只由 effectCast.provenance.magicId 保存；此快照僅保留規劃機制。
     BattleCastSkillState skillPlan;
     BattleCastStart effectCast{};
     BattleEffectCastPreparation effectPreparation;
     std::vector<EffectCommand> plannedAttackEffectCommands;
-    std::vector<EffectUnitResourceBeforeCast> effectResourcesBeforeCast;
+    EffectResourcesBeforeCastSnapshot effectResourcesBeforeCast;
 };
 
 class BattleRuntimeActions
@@ -70,12 +57,6 @@ public:
     BattleCastConfig castConfig;
     BattleCastGeometry castGeometry;
     BattleActionRulesConfig actionRules;
-    std::vector<int> castFrames;
-    int actionRecoveryFrames = 0;
-    int dashRecoveryFrames = 0;
-    double blinkWeakTargetDefWeight = 0.0;
-    int strengthenedMeleeOperationCountThreshold = 0;
-    int projectileBounceRange = 0;
 };
 
 }  // namespace KysChess::Battle

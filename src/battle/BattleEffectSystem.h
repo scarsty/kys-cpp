@@ -9,11 +9,13 @@
 #include <compare>
 #include <cstdint>
 #include <functional>
-#include <map>
+#include <initializer_list>
+#include <memory>
 #include <optional>
 #include <set>
 #include <span>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -55,8 +57,6 @@ struct EffectUnitSnapshot
     int ultimateMagicId = -1;
     std::set<int> magicIds;
     std::set<int> comboIds;
-    std::set<std::string> states;
-    std::map<std::string, int> stacks;
     std::vector<EffectStatusSnapshot> statusDetails;
 
     bool hasState(const std::string& state) const;
@@ -89,6 +89,38 @@ struct EffectUnitResourceBeforeCast
     int maxMp{};
 };
 
+class EffectResourcesBeforeCastSnapshot
+{
+public:
+    EffectResourcesBeforeCastSnapshot() = default;
+
+    explicit EffectResourcesBeforeCastSnapshot(
+        std::vector<EffectUnitResourceBeforeCast> resources)
+        : resources_(std::make_shared<const std::vector<EffectUnitResourceBeforeCast>>(
+            std::move(resources)))
+    {
+    }
+
+    EffectResourcesBeforeCastSnapshot(
+        std::initializer_list<EffectUnitResourceBeforeCast> resources)
+        : EffectResourcesBeforeCastSnapshot(
+            std::vector<EffectUnitResourceBeforeCast>(resources))
+    {
+    }
+
+    std::span<const EffectUnitResourceBeforeCast> values() const
+    {
+        return resources_ ? std::span<const EffectUnitResourceBeforeCast>(*resources_)
+                          : std::span<const EffectUnitResourceBeforeCast>{};
+    }
+
+    std::size_t size() const { return values().size(); }
+    bool empty() const { return values().empty(); }
+
+private:
+    std::shared_ptr<const std::vector<EffectUnitResourceBeforeCast>> resources_;
+};
+
 struct EffectFormulaInputs
 {
     std::optional<int> accumulatedStateValue;
@@ -119,7 +151,7 @@ struct CastPlanEventData
     int baseMpCost{};
     CastRangeMode baseRangeMode = CastRangeMode::Preserve;
     AttackPattern baseAttackPattern;
-    std::vector<EffectUnitResourceBeforeCast> resourcesBeforeCast;
+    EffectResourcesBeforeCastSnapshot resourcesBeforeCast;
 };
 
 struct CastCommitEventData
@@ -130,13 +162,12 @@ struct CastCommitEventData
     int mpPaid{};
     CastRangeMode rangeMode = CastRangeMode::Preserve;
     AttackPattern attackPattern;
-    std::vector<EffectUnitResourceBeforeCast> resourcesBeforeCast;
+    EffectResourcesBeforeCastSnapshot resourcesBeforeCast;
 };
 
 struct AttackEventData
 {
     BattleAttackProvenance provenance;
-    EffectUnitSnapshot attacker;
     int originalTargetUnitId = -1;
     Pointf spawnPosition;
     Pointf velocity;
@@ -148,8 +179,7 @@ struct AttackEventData
 struct HitEventData
 {
     BattleAttackProvenance provenance;
-    EffectUnitSnapshot attackerBefore;
-    EffectUnitSnapshot defenderBefore;
+    int targetUnitId = -1;
     int originalTargetUnitId = -1;
     Pointf contactPosition;
     bool acceptedHit = true;
@@ -223,7 +253,7 @@ struct CastAggregateEventData
     BattleCastProvenance provenance;
     int originalTargetUnitId = -1;
     CastAggregate aggregate;
-    std::vector<EffectUnitResourceBeforeCast> resourcesBeforeCast;
+    EffectResourcesBeforeCastSnapshot resourcesBeforeCast;
 };
 
 struct ShieldBreakEventData
@@ -264,7 +294,7 @@ struct EffectEventHeader
     int frame{};
     std::uint64_t eventOrdinal{};
     EffectSourceBinding binding;
-    EffectUnitSnapshot owner;
+    const EffectUnitSnapshot* owner = nullptr;
     BattleEffectReadView battle;
     EffectFormulaInputs formulaInputs;
 };

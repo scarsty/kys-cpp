@@ -28,7 +28,7 @@ struct BattleEffectEventHeaderInput
 struct BattleCastLifecycleEffectInput
 {
     int originalTargetUnitId = -1;
-    std::vector<EffectUnitResourceBeforeCast> resourcesBeforeCast;
+    EffectResourcesBeforeCastSnapshot resourcesBeforeCast;
 };
 
 // BattleDamageTransactionResult contains the committed result, but it cannot
@@ -65,7 +65,6 @@ private:
     BattleEffectRuntimeSnapshot battle_;
     BattleEffectEventHeaderInput header_;
     EffectEvent event_{};
-    EffectUnitSnapshot owner_;
     EffectEventPayload payload_;
 };
 

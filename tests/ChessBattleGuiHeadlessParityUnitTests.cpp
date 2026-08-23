@@ -242,8 +242,9 @@ TEST_CASE("prebattle presentation facts come from the shared initialized battle 
     CHECK(input.units[0].headId == 77);
     CHECK(input.units[0].weaponId == 501);
     CHECK(input.units[0].armorId == 502);
-    CHECK(input.units[0].normalSkill.id == 101);
-    CHECK(input.units[0].ultimateSkill.id == 102);
+    REQUIRE(input.units[0].actionPlan);
+    CHECK(input.units[0].actionPlan->normalSkill.id == 101);
+    CHECK(input.units[0].actionPlan->ultimateSkill.id == 102);
     CHECK(input.units[0].skillNames == "平招 絕招");
 
     const auto resolved = Battle::resolveBattleSetupCombos(input.setup.allyRoster, input.setup);
@@ -301,8 +302,9 @@ TEST_CASE("equal-power magic tie uses the same highest-ID ultimate in runtime an
     prepared.units.push_back({1, 1, 10, 0, 1});
     const auto input = BattleSetupFactory::build(prepared, content, kChessBattleFrameLimit);
     REQUIRE(input.units.size() == 1);
-    CHECK(input.units.front().normalSkill.id == 101);
-    CHECK(input.units.front().ultimateSkill.id == 102);
+    REQUIRE(input.units.front().actionPlan);
+    CHECK(input.units.front().actionPlan->normalSkill.id == 101);
+    CHECK(input.units.front().actionPlan->ultimateSkill.id == 102);
 
     std::vector<const MagicSave*> magics;
     for (const auto& selection : selected)
@@ -316,7 +318,7 @@ TEST_CASE("equal-power magic tie uses the same highest-ID ultimate in runtime an
     REQUIRE(rows.size() == 2);
     CHECK_FALSE(rows.front().ultimate);
     CHECK(rows.back().ultimate);
-    CHECK(rows.back().magic->ID == input.units.front().ultimateSkill.id);
+    CHECK(rows.back().magic->ID == input.units.front().actionPlan->ultimateSkill.id);
 }
 
 TEST_CASE("incremental GUI drain and headless runner consume identical shared input", "[chess][battle][gui][parity][determinism]")

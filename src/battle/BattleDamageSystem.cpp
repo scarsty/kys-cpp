@@ -221,9 +221,8 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
                 const auto defenderStatuses = statusSystem.snapshot(result.defenderStatus);
                 modifierInput.defender.damageReductionPct += defenderStatuses.damageReductionPct;
                 modifierInput.defender.damageTakenIncreasePct += defenderStatuses.damageTakenPct;
-                modifierInput.defender.poisonTimer = std::max(
-                    modifierInput.defender.poisonTimer,
-                    result.defenderStatus.effects.poisonTimer);
+                modifierInput.defender.poisoned = modifierInput.defender.poisoned
+                    || result.defenderStatus.effects.has(BattleStatusKind::Poison);
             }
 
             auto modified = applyModifiers(modifierInput);
@@ -584,7 +583,7 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
             remainingDamageBasisPoints);
     }
 
-    if (input.defender.poisonTimer > 0 && input.attacker.poisonDamageAmpPct > 0)
+    if (input.defender.poisoned && input.attacker.poisonDamageAmpPct > 0)
     {
         damage = damage.scaled(100 + input.attacker.poisonDamageAmpPct, 100);
     }

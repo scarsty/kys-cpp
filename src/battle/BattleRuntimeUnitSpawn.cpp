@@ -71,10 +71,6 @@ void refreshRuntimeUnitSpawnDerivedState(BattleRuntimeUnitSpawn& spawn)
     spawn.damage = makeInitialDamageRuntimeUnit();
     spawn.rescue = {};
     spawn.movement = makeInitialMovementAgent(spawn.unit);
-    if (spawn.actionPlanSeed)
-    {
-        spawn.actionPlanSeed->unitId = spawn.unit.id;
-    }
 }
 
 BattleRuntimeUnitSpawn makeRuntimeUnitSpawn(
@@ -110,10 +106,6 @@ void appendRuntimeUnit(BattleRuntimeState& runtime, BattleRuntimeUnitSpawn spawn
 {
     const int unitId = spawn.unit.id;
     assert(unitId >= 0);
-    if (spawn.actionPlanSeed)
-    {
-        assert(spawn.actionPlanSeed->unitId == unitId);
-    }
 
     auto record = std::move(spawn).makeRecord();
 

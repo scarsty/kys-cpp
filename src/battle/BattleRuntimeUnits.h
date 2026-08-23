@@ -105,7 +105,6 @@ struct BattleRuntimeUnitRecord
 
     void setActionPlan(BattleActionPlanSeed seed)
     {
-        seed.unitId = id();
         action.planSeed = std::move(seed);
     }
 
@@ -125,6 +124,14 @@ struct BattleRuntimeUnitRecord
     void clearPendingCast()
     {
         action.pendingCast.reset();
+    }
+
+    BattlePendingCastAction takePendingCast()
+    {
+        assert(action.pendingCast);
+        auto pending = std::move(*action.pendingCast);
+        action.pendingCast.reset();
+        return pending;
     }
 
     void markUltimateCaster()
@@ -165,39 +172,32 @@ struct BattleRuntimeUnitRecord
         clearSkillCooldownSource();
     }
 
-    void clearAllPending()
-    {
-        clearActionOwners();
-    }
-
-    bool hasComboApplied(int comboId) const
-    {
-        return comboFacts.hasApplied(comboId);
-    }
-
-    bool isComboMember(int comboId) const
-    {
-        return comboFacts.isMember(comboId);
-    }
-
     const BattleStatusEffectState& statusEffects() const { return status.effects; }
-    bool frozen() const { return status.effects.frozenTimer > 0; }
-    int frozenFrames() const { return status.effects.frozenTimer; }
-    bool mpBlocked() const { return status.effects.mpBlockTimer > 0; }
+    bool frozen() const { return status.effects.has(BattleStatusKind::Stun); }
+    int frozenFrames() const { return status.effects.remainingFrames(BattleStatusKind::Stun); }
+    bool mpBlocked() const { return status.effects.has(BattleStatusKind::MpBlocked); }
 
     void clearFrozen()
     {
-        status.effects.clearStunAndHitstun();
+        status.effects.clear(BattleStatusKind::Stun);
     }
 
     void setMpBlockFrames(int frames)
     {
-        status.effects.mpBlockTimer = frames;
+        status.effects.setFrames(BattleStatusKind::MpBlocked, frames);
     }
 
     void commitFrozenPhysicsFrames(int frozenFrames)
     {
-        status.effects.frozenTimer = frozenFrames;
+        assert(frozenFrames >= 0);
+        if (frozenFrames == 0)
+        {
+            clearFrozen();
+            return;
+        }
+        auto* stun = status.effects.find(BattleStatusKind::Stun);
+        assert(stun);
+        stun->remainingFrames = frozenFrames;
     }
 
     BattleStatusUnitState statusDamageState() const
@@ -214,7 +214,7 @@ struct BattleRuntimeUnitRecord
     {
         assert(mpRecoveryBonusPct >= 0);
         auto unit = makeBattleDamageUnitState(core, &damage);
-        unit.mpBlocked = status.effects.mpBlockTimer > 0;
+        unit.mpBlocked = mpBlocked();
         unit.mpRecoveryBonusPct = mpRecoveryBonusPct;
         return unit;
     }
@@ -421,7 +421,7 @@ struct BattleFrameRescueCounterAttackConfig
 struct BattleEffectCastRuntimeContext
 {
     int originalTargetUnitId = -1;
-    std::vector<EffectUnitResourceBeforeCast> resourcesBeforeCast;
+    EffectResourcesBeforeCastSnapshot resourcesBeforeCast;
     BattleCastSkillState skill;
     BattleOperationType operationType = BattleOperationType::None;
 };
@@ -522,8 +522,6 @@ struct BattleRuntimeState
     {
         BattleMovementPhysicsConfig config;
         BattleMovementPhysicsTerrain terrain;
-        std::vector<int> actionCastFrames;
-        int dashMomentumFrames = 0;
     } movementPhysics;
 
     BattleRuntimeActions action;

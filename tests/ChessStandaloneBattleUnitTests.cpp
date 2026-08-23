@@ -176,8 +176,9 @@ TEST_CASE("ChessStandaloneBattle_ClassicProfileUsesCurrentRoleStatsWithoutAutoCh
     REQUIRE(input.units.size() == 2);
     CHECK(input.units[0].vitals.maxHp == 1337);
     CHECK(input.units[0].stats.attack == 246);
-    CHECK(input.units[0].normalSkill.id == 102);
-    CHECK(input.units[0].ultimateSkill.id == 103);
+    REQUIRE(input.units[0].actionPlan);
+    CHECK(input.units[0].actionPlan->normalSkill.id == 102);
+    CHECK(input.units[0].actionPlan->ultimateSkill.id == 103);
     CHECK(input.setup.comboDefinitions.empty());
 }
 

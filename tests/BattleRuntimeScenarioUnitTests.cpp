@@ -59,16 +59,11 @@ BattleRuntimeSessionCreationInput actionProjectileSessionInput()
     input.battleFrame = 0;
 
     auto attacker = scenarioSetupUnit(0, 0, 100, { 100, 100, 0 });
-    attacker.hasEquippedSkill = true;
-    attacker.normalSkill = scenarioRangedSkill();
-    attacker.ultimateSkill.id = -1;
+    attacker.actionPlan = BattleActionPlanSeed{
+        .hasEquippedSkill = true,
+        .normalSkill = scenarioRangedSkill(),
+    };
     input.units.push_back(attacker);
-    input.actionPlanSeeds.push_back({
-        attacker.unitId,
-        true,
-        attacker.normalSkill,
-        attacker.ultimateSkill,
-    });
 
     input.units.push_back(scenarioSetupUnit(1, 1, 100, { 180, 100, 0 }));
     return input;
@@ -117,15 +112,11 @@ void equipVerticalSliceUltimate(
     int magicId,
     int magicType = 1)
 {
-    unit.hasEquippedSkill = true;
-    unit.normalSkill = verticalSliceSkill(501, magicType);
-    unit.ultimateSkill = verticalSliceSkill(magicId, magicType);
-    input.actionPlanSeeds.push_back({
-        .unitId = unit.unitId,
+    unit.actionPlan = BattleActionPlanSeed{
         .hasEquippedSkill = true,
-        .normalSkill = unit.normalSkill,
-        .ultimateSkill = unit.ultimateSkill,
-    });
+        .normalSkill = verticalSliceSkill(501, magicType),
+        .ultimateSkill = verticalSliceSkill(magicId, magicType),
+    };
 }
 
 BattleSetupUnitInput verticalSliceUnit(
@@ -217,19 +208,15 @@ BattleRuntimeSessionCreationInput divineFlickInput(
 
     auto caster = verticalSliceUnit(
         0, 0, 1000, 1000, mp, { 100, 100, 0 });
-    caster.hasEquippedSkill = true;
-    caster.normalSkill = verticalSliceSkill(normalMagicId);
-    caster.normalSkill.attackAreaType = 0;
-    caster.normalSkill.selectDistance = 1;
-    caster.ultimateSkill = verticalSliceSkill(DivineFlickMagicId);
-    caster.ultimateSkill.attackAreaType = 0;
-    caster.ultimateSkill.selectDistance = 1;
-    input.actionPlanSeeds.push_back({
-        .unitId = caster.unitId,
+    caster.actionPlan = BattleActionPlanSeed{
         .hasEquippedSkill = true,
-        .normalSkill = caster.normalSkill,
-        .ultimateSkill = caster.ultimateSkill,
-    });
+        .normalSkill = verticalSliceSkill(normalMagicId),
+        .ultimateSkill = verticalSliceSkill(DivineFlickMagicId),
+    };
+    caster.actionPlan->normalSkill.attackAreaType = 0;
+    caster.actionPlan->normalSkill.selectDistance = 1;
+    caster.actionPlan->ultimateSkill.attackAreaType = 0;
+    caster.actionPlan->ultimateSkill.selectDistance = 1;
     input.units.push_back(caster);
 
     auto target = verticalSliceUnit(
@@ -272,15 +259,11 @@ void equipCopyRuntimeSkills(
     BattleSetupUnitInput& unit,
     BattleActionSkillSeed ultimateSkill)
 {
-    unit.hasEquippedSkill = true;
-    unit.normalSkill = verticalSliceSkill(9200);
-    unit.ultimateSkill = std::move(ultimateSkill);
-    input.actionPlanSeeds.push_back({
-        .unitId = unit.unitId,
+    unit.actionPlan = BattleActionPlanSeed{
         .hasEquippedSkill = true,
-        .normalSkill = unit.normalSkill,
-        .ultimateSkill = unit.ultimateSkill,
-    });
+        .normalSkill = verticalSliceSkill(9200),
+        .ultimateSkill = std::move(ultimateSkill),
+    };
 }
 
 ChessMagicEffectDefinition copyRuntimeDefinition()
@@ -557,7 +540,7 @@ TEST_CASE("BattleRuntimeScenario_RealDivineFlickPlansBaseMeleeAsRangedOnlyForIts
         CHECK(initialCaster.style == CombatStyle::Melee);
         CHECK(state.units.requireCore(1).motion.position.x
               - initialCaster.motion.position.x
-              > state.action.actionRules.meleeAttackReach);
+              > state.movement.config.meleeAttackReach);
 
         BattleFrameRunner runner;
         const auto started = runner.runFrame(state);
@@ -624,7 +607,7 @@ TEST_CASE("BattleRuntimeScenario_RealDivineFlickPlansBaseMeleeAsRangedOnlyForIts
         const auto& caster = state.units.requireCore(0);
         CHECK(caster.vitals.mp == caster.vitals.maxMp);
         CHECK(caster.style == CombatStyle::Melee);
-        CHECK(caster.reach == state.action.actionRules.meleeAttackReach);
+        CHECK(caster.reach == state.movement.config.meleeAttackReach);
         CHECK(state.units.require(0).pendingCast() == nullptr);
     }
 
@@ -640,7 +623,7 @@ TEST_CASE("BattleRuntimeScenario_RealDivineFlickPlansBaseMeleeAsRangedOnlyForIts
         const auto& caster = state.units.requireCore(0);
         CHECK(caster.vitals.mp < caster.vitals.maxMp);
         CHECK(caster.style == CombatStyle::Melee);
-        CHECK(caster.reach == state.action.actionRules.meleeAttackReach);
+        CHECK(caster.reach == state.movement.config.meleeAttackReach);
         CHECK(state.units.require(0).pendingCast() == nullptr);
     }
 }
@@ -1040,8 +1023,7 @@ TEST_CASE("BattleRuntimeScenario_CopyAttackCastsSelectedUltimateOnceWithoutMpOrR
     CHECK(state.castLifecycle.outstandingWork(parentCastId) > 0);
 
     auto& copierStatus = state.units.require(0).status.effects;
-    copierStatus.frozenTimer = 1000;
-    copierStatus.frozenMaxTimer = 1000;
+    copierStatus.setFrames(BattleStatusKind::Stun, 1000, 1000);
     const auto settled = runUntil(state, 180, [&](const auto& runtime, const auto&)
     {
         return !runtime.castLifecycle.containsCast(childCastId)
@@ -1179,8 +1161,7 @@ TEST_CASE("BattleRuntimeScenario_CopyAttackSkipsEmptyAndNoUltimateSources", "[ba
         const auto rootCastId = root->provenance.cast.castId;
 
         auto& status = state.units.require(0).status.effects;
-        status.frozenTimer = 1000;
-        status.frozenMaxTimer = 1000;
+        status.setFrames(BattleStatusKind::Stun, 1000, 1000);
         const auto settled = runUntil(state, 180, [&](const auto& runtime, const auto&)
         {
             return !runtime.castLifecycle.containsCast(rootCastId);

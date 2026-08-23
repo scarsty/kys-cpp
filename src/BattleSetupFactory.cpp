@@ -333,6 +333,7 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
             role->Unusual,
         };
         const auto magics = chessRoleMagicsForStar(content, *role, preparedUnit.star);
+        unit.actionPlan.emplace();
         for (const auto& magic : magics)
         {
             if (!unit.skillNames.empty())
@@ -343,17 +344,17 @@ Battle::BattleRuntimeSessionCreationInput BattleSetupFactory::build(
         }
         if (!magics.empty())
         {
-            unit.hasEquippedSkill = true;
-            unit.normalSkill = skillSeed(*role, magics.front().first, magics.front().second);
-            unit.ultimateSkill = skillSeed(*role, magics.back().first, magics.back().second);
+            unit.actionPlan->hasEquippedSkill = true;
+            unit.actionPlan->normalSkill = skillSeed(
+                *role,
+                magics.front().first,
+                magics.front().second);
+            unit.actionPlan->ultimateSkill = skillSeed(
+                *role,
+                magics.back().first,
+                magics.back().second);
         }
-        input.units.push_back(unit);
-        input.actionPlanSeeds.push_back({
-            unit.unitId,
-            unit.hasEquippedSkill,
-            unit.normalSkill,
-            unit.ultimateSkill,
-        });
+        input.units.push_back(std::move(unit));
     }
 
     for (const auto& unit : input.units)

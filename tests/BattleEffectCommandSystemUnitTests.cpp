@@ -42,19 +42,16 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
     {
         auto state = makeState();
         auto& target = state.units.require(2);
-        target.status.effects.frozenTimer = 17;
-        target.status.effects.frozenMaxTimer = 23;
-        target.status.effects.frozenSourceId = 3;
-        target.status.effects.frozenAppliedSequence = 7;
         target.status.effects.statusShield = 31;
         target.status.effects.staggerShield = 37;
         target.status.effects.controlImmunityFrames = 41;
-        target.status.effects.typedStatuses = {
+        target.status.effects.statuses = {
             {
                 .kind = BattleStatusKind::Stun,
                 .sourceUnitId = 3,
                 .remainingFrames = 19,
-                .appliedSequence = 8,
+                .maximumFrames = 23,
+                .appliedSequence = 7,
             },
             {
                 .kind = BattleStatusKind::ColdPoison,
@@ -114,12 +111,9 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         const auto& removal = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
         CHECK(removal.status.currentActionStaggerCleared);
-        CHECK(target.status.effects.frozenTimer == 0);
-        CHECK(target.status.effects.frozenMaxTimer == 0);
-        CHECK(target.status.effects.frozenSourceId == -1);
-        CHECK(target.status.effects.frozenAppliedSequence == 0);
-        REQUIRE(target.status.effects.typedStatuses.size() == 1);
-        CHECK(target.status.effects.typedStatuses[0].kind == BattleStatusKind::ColdPoison);
+        CHECK_FALSE(target.status.effects.has(BattleStatusKind::Stun));
+        REQUIRE(target.status.effects.statuses.size() == 1);
+        CHECK(target.status.effects.statuses[0].kind == BattleStatusKind::ColdPoison);
         CHECK(target.status.effects.statusShield == 31);
         CHECK(target.status.effects.staggerShield == 37);
         CHECK(target.status.effects.controlImmunityFrames == 41);
@@ -159,18 +153,25 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
     {
         auto state = makeState();
         auto& target = state.units.require(2);
-        target.status.effects.poisonTimer = 30;
-        target.status.effects.poisonStacks = 1;
-        target.status.effects.poisonTickPct = 10;
-        target.status.effects.poisonSourceId = 3;
-        target.status.effects.frozenTimer = 12;
-        target.status.effects.frozenMaxTimer = 18;
-        target.status.effects.frozenSourceId = 3;
-        target.status.effects.frozenAppliedSequence = 4;
         target.status.effects.statusShield = 50;
         target.status.effects.staggerShield = 60;
         target.status.effects.controlImmunityFrames = 70;
-        target.status.effects.typedStatuses = {
+        target.status.effects.statuses = {
+            {
+                .kind = BattleStatusKind::Poison,
+                .sourceUnitId = 3,
+                .remainingFrames = 30,
+                .stacks = 1,
+                .potency = 10,
+                .appliedSequence = 3,
+            },
+            {
+                .kind = BattleStatusKind::Stun,
+                .sourceUnitId = 3,
+                .remainingFrames = 12,
+                .maximumFrames = 18,
+                .appliedSequence = 4,
+            },
             {
                 .kind = BattleStatusKind::WitheredBone,
                 .remainingFrames = 90,
@@ -203,11 +204,11 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         const auto& removal = std::get<BattleStatusRemoveEffectResult>(
             reduced.entries[0].value);
         CHECK(removal.status.currentActionStaggerCleared);
-        CHECK(target.status.effects.poisonTimer == 0);
-        CHECK(target.status.effects.frozenTimer == 0);
-        REQUIRE(target.status.effects.typedStatuses.size() == 2);
-        CHECK(target.status.effects.typedStatuses[0].kind == BattleStatusKind::Shadowless);
-        CHECK(target.status.effects.typedStatuses[1].kind == BattleStatusKind::NextAttackMiss);
+        CHECK_FALSE(target.status.effects.has(BattleStatusKind::Poison));
+        CHECK_FALSE(target.status.effects.has(BattleStatusKind::Stun));
+        REQUIRE(target.status.effects.statuses.size() == 2);
+        CHECK(target.status.effects.statuses[0].kind == BattleStatusKind::Shadowless);
+        CHECK(target.status.effects.statuses[1].kind == BattleStatusKind::NextAttackMiss);
         CHECK(target.status.effects.statusShield == 50);
         CHECK(target.status.effects.staggerShield == 60);
         CHECK(target.status.effects.controlImmunityFrames == 70);
@@ -217,11 +218,19 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
     {
         auto state = makeState();
         auto& target = state.units.require(2);
-        target.status.effects.frozenTimer = 12;
-        target.status.effects.frozenMaxTimer = 12;
-        target.status.effects.poisonTimer = 30;
-        target.status.effects.poisonStacks = 1;
-        target.status.effects.poisonTickPct = 10;
+        target.status.effects.statuses = {
+            {
+                .kind = BattleStatusKind::Stun,
+                .remainingFrames = 12,
+                .maximumFrames = 12,
+            },
+            {
+                .kind = BattleStatusKind::Poison,
+                .remainingFrames = 30,
+                .stacks = 1,
+                .potency = 10,
+            },
+        };
         RemoveStatusAction action;
         action.clearCurrentActionStagger = true;
         const EffectCommand command{
@@ -231,8 +240,8 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
 
         BattleEffectCommandSystem().reduce(state, command, { .frame = 20 });
 
-        CHECK(target.status.effects.frozenTimer == 0);
-        CHECK(target.status.effects.poisonTimer == 30);
+        CHECK_FALSE(target.status.effects.has(BattleStatusKind::Stun));
+        CHECK(target.status.effects.remainingFrames(BattleStatusKind::Poison) == 30);
     }
 
     SECTION("狀態盾與僵直盾依序吸收控制並保留各自結果語意")
@@ -266,7 +275,7 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
         CHECK_FALSE(applied.applied);
         CHECK(target.status.effects.statusShield == 0);
         CHECK(target.status.effects.staggerShield == 5);
-        CHECK(target.status.effects.frozenTimer == 0);
+        CHECK_FALSE(target.status.effects.has(BattleStatusKind::Stun));
     }
 
     SECTION("友軍殘影是正面狀態且不消耗狀態盾")
@@ -324,9 +333,10 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
             replaced.entries[0].value).status;
         REQUIRE(replaceResult.applied);
         CHECK(replaceResult.outcome == BattleStatusApplyOutcome::Applied);
-        CHECK(target.status.effects.poisonStacks == 4);
-        CHECK(target.status.effects.poisonTimer == 120);
-        CHECK(target.status.effects.poisonTickPct == 10);
+        REQUIRE(target.status.effects.find(BattleStatusKind::Poison));
+        CHECK(target.status.effects.find(BattleStatusKind::Poison)->stacks == 4);
+        CHECK(target.status.effects.find(BattleStatusKind::Poison)->remainingFrames == 120);
+        CHECK(target.status.effects.find(BattleStatusKind::Poison)->potency == 10);
 
         ApplyStatusAction add = replace;
         add.durationFrames = 150;
@@ -347,9 +357,10 @@ TEST_CASE("BattleEffectCommandSystem status removal synchronizes typed control a
             stacked.entries[0].value).status;
         REQUIRE(stackResult.applied);
         CHECK(stackResult.outcome == BattleStatusApplyOutcome::StackChanged);
-        CHECK(target.status.effects.poisonStacks == 5);
-        CHECK(target.status.effects.poisonTimer == 150);
-        CHECK(target.status.effects.poisonTickPct == 12);
+        REQUIRE(target.status.effects.find(BattleStatusKind::Poison));
+        CHECK(target.status.effects.find(BattleStatusKind::Poison)->stacks == 5);
+        CHECK(target.status.effects.find(BattleStatusKind::Poison)->remainingFrames == 150);
+        CHECK(target.status.effects.find(BattleStatusKind::Poison)->potency == 12);
         const auto snapshot = BattleStatusSystem({}).snapshot(
             target.statusDamageState());
         CHECK(snapshot.stacks(BattleStatusKind::Poison) == 5);
@@ -390,8 +401,9 @@ TEST_CASE("BattleEffectCommandSystem observes every repeated poison application 
     CHECK(third.outcome == BattleStatusApplyOutcome::Applied);
     CHECK(third.appliedDurationFrames == 60);
     CHECK(target.status.effects.statusShield == 0);
-    CHECK(target.status.effects.poisonStacks == 4);
-    CHECK(target.status.effects.poisonTimer == 60);
+    REQUIRE(target.status.effects.find(BattleStatusKind::Poison));
+    CHECK(target.status.effects.find(BattleStatusKind::Poison)->stacks == 4);
+    CHECK(target.status.effects.find(BattleStatusKind::Poison)->remainingFrames == 60);
 }
 
 BattleRuntimeState makeState()
@@ -1004,23 +1016,23 @@ TEST_CASE("BattleEffectCommandSystem clones live attribute modifiers without ant
 TEST_CASE("BattleStatusRuntimeUnit rewrites only cloned self-source references", "[battle][effect][command][initialization][clone][status]")
 {
     BattleStatusRuntimeUnit status;
-    status.effects.poisonSourceId = 1;
-    status.effects.bleedSourceId = 3;
-    status.effects.frozenSourceId = 1;
-    status.effects.mpBlockSourceId = 3;
-    status.effects.typedStatuses = {
+    status.effects.statuses = {
+        { .kind = BattleStatusKind::Poison, .sourceUnitId = 1 },
+        { .kind = BattleStatusKind::Bleed, .sourceUnitId = 3 },
+        { .kind = BattleStatusKind::Stun, .sourceUnitId = 1 },
+        { .kind = BattleStatusKind::MpBlocked, .sourceUnitId = 3 },
         { .kind = BattleStatusKind::BattleSpirit, .sourceUnitId = 1 },
         { .kind = BattleStatusKind::TrueQi, .sourceUnitId = 3 },
     };
 
     rewriteBattleStatusSourceUnitId(status, 1, 4);
 
-    CHECK(status.effects.poisonSourceId == 4);
-    CHECK(status.effects.bleedSourceId == 3);
-    CHECK(status.effects.frozenSourceId == 4);
-    CHECK(status.effects.mpBlockSourceId == 3);
-    CHECK(status.effects.typedStatuses[0].sourceUnitId == 4);
-    CHECK(status.effects.typedStatuses[1].sourceUnitId == 3);
+    CHECK(status.effects.statuses[0].sourceUnitId == 4);
+    CHECK(status.effects.statuses[1].sourceUnitId == 3);
+    CHECK(status.effects.statuses[2].sourceUnitId == 4);
+    CHECK(status.effects.statuses[3].sourceUnitId == 3);
+    CHECK(status.effects.statuses[4].sourceUnitId == 4);
+    CHECK(status.effects.statuses[5].sourceUnitId == 3);
 }
 
 TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and clones the complete damage baseline", "[battle][effect][command][initialization][anti_combo][clone][status][damage]")
@@ -1133,8 +1145,8 @@ TEST_CASE("BattleEffectCommandSystem transfers anti-combo status commands and cl
         transferred.commands,
         { .frame = 0 });
     CHECK(state.units.require(2).status.effects.statusShield == 120);
-    REQUIRE(state.units.require(2).status.effects.typedStatuses.size() == 1);
-    CHECK(state.units.require(2).status.effects.typedStatuses[0].sourceUnitId == 2);
+    REQUIRE(state.units.require(2).status.effects.statuses.size() == 1);
+    CHECK(state.units.require(2).status.effects.statuses[0].sourceUnitId == 2);
 
     BattleEffectCommandSystem::inheritCloneEffectModifiers(
         runtime,
@@ -1326,7 +1338,7 @@ TEST_CASE("BattleEffectCommandSystem consumes sourced status layers and preserve
     auto state = makeState();
     auto& target = state.units.require(3);
     target.status.effects.statusShield = 100;
-    target.status.effects.typedStatuses.push_back({
+    target.status.effects.statuses.push_back({
         .kind = BattleStatusKind::SevenStarMark,
         .sourceUnitId = 1,
         .remainingFrames = 150,
@@ -1375,7 +1387,7 @@ TEST_CASE("BattleEffectCommandSystem consumes sourced status layers and preserve
     REQUIRE(secondConsume.depletedStatus);
     CHECK(secondConsume.depletedStatus->outcome
           == BattleStatusApplyOutcome::BlockedByStatusShield);
-    CHECK(target.status.effects.frozenTimer == 0);
+    CHECK_FALSE(target.status.effects.has(BattleStatusKind::Stun));
     CHECK(target.status.effects.statusShield == 70);
 
     DealDamageAction damage;
@@ -1641,11 +1653,16 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
     {
         auto state = makeState();
         auto& target = state.units.require(3);
-        target.status.effects.poisonTimer = 30;
-        target.status.effects.poisonStacks = 1;
-        target.status.effects.poisonTickPct = 10;
-        target.status.effects.poisonSourceId = 1;
-        target.status.effects.poisonAppliedSequence = 1;
+        target.status.effects.statuses = {
+            {
+                .kind = BattleStatusKind::Poison,
+                .sourceUnitId = 1,
+                .remainingFrames = 30,
+                .stacks = 1,
+                .potency = 10,
+                .appliedSequence = 1,
+            },
+        };
         BattleEffectCommandSystem system;
         system.reduce(state, makeAttributeCommand(-30, 90), { .frame = 0 });
         system.reduce(state, makeAttributeCommand(20, 120), { .frame = 0 });
@@ -1674,7 +1691,7 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         CHECK(removed.status.removedCount == 3);
         CHECK(removed.removedAttributeModifiers.size() == 1);
         CHECK(removed.removedDamageModifiers.size() == 1);
-        CHECK(state.units.require(3).status.effects.poisonTimer == 0);
+        CHECK_FALSE(state.units.require(3).status.effects.has(BattleStatusKind::Poison));
         REQUIRE(state.effectCommands.attributeModifiers.size() == 1);
         CHECK(state.effectCommands.attributeModifiers[0].amount == 20);
         CHECK(state.effectCommands.damageModifiers.empty());
@@ -1684,11 +1701,16 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
     {
         auto state = makeState();
         auto& target = state.units.require(3);
-        target.status.effects.poisonTimer = 30;
-        target.status.effects.poisonStacks = 1;
-        target.status.effects.poisonTickPct = 10;
-        target.status.effects.poisonSourceId = 1;
-        target.status.effects.poisonAppliedSequence = 1;
+        target.status.effects.statuses = {
+            {
+                .kind = BattleStatusKind::Poison,
+                .sourceUnitId = 1,
+                .remainingFrames = 30,
+                .stacks = 1,
+                .potency = 10,
+                .appliedSequence = 1,
+            },
+        };
         BattleEffectCommandSystem system;
         system.reduce(
             state,
@@ -1717,7 +1739,7 @@ TEST_CASE("BattleEffectCommandSystem removes negative statuses and persistent mo
         CHECK(removed.status.removedCount == 1);
         CHECK(removed.removedDamageModifiers.size() == 1);
         CHECK(state.effectCommands.damageModifiers.empty());
-        CHECK(state.units.require(3).status.effects.poisonTimer == 30);
+        CHECK(state.units.require(3).status.effects.remainingFrames(BattleStatusKind::Poison) == 30);
     }
 }
 

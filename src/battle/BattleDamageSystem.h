@@ -61,7 +61,7 @@ struct BattleDamageModifierState
     int flatDamageReduction = 0;
     int damageReductionPct = 0;
     int damageTakenIncreasePct = 0;
-    int poisonTimer = 0;
+    bool poisoned = false;
     int maxHitPctMaxHp = 0;
 };
 

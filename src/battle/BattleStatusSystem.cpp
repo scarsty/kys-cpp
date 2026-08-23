@@ -44,6 +44,76 @@ bool isControlBattleStatus(BattleStatusKind kind)
     return kind == BattleStatusKind::Stun;
 }
 
+BattleTypedStatusInstance* BattleStatusEffectState::find(BattleStatusKind kind)
+{
+    const auto status = std::ranges::find(statuses, kind, &BattleTypedStatusInstance::kind);
+    return status != statuses.end() ? &*status : nullptr;
+}
+
+const BattleTypedStatusInstance* BattleStatusEffectState::find(BattleStatusKind kind) const
+{
+    const auto status = std::ranges::find(statuses, kind, &BattleTypedStatusInstance::kind);
+    return status != statuses.end() ? &*status : nullptr;
+}
+
+bool BattleStatusEffectState::has(BattleStatusKind kind) const
+{
+    return find(kind) != nullptr;
+}
+
+int BattleStatusEffectState::remainingFrames(BattleStatusKind kind) const
+{
+    const auto* status = find(kind);
+    return status ? status->remainingFrames : 0;
+}
+
+int BattleStatusEffectState::maximumFrames(BattleStatusKind kind) const
+{
+    const auto* status = find(kind);
+    return status ? status->maximumFrames : 0;
+}
+
+void BattleStatusEffectState::setFrames(
+    BattleStatusKind kind,
+    int frames,
+    int maximum,
+    int sourceUnitId)
+{
+    assert(frames >= 0);
+    assert(maximum >= 0);
+    if (frames == 0)
+    {
+        clear(kind);
+        return;
+    }
+
+    auto* status = find(kind);
+    if (!status)
+    {
+        assert(nextStatusSequence > 0);
+        assert(nextStatusSequence < std::numeric_limits<std::uint64_t>::max());
+        statuses.push_back({
+            .kind = kind,
+            .sourceUnitId = sourceUnitId,
+            .remainingFrames = frames,
+            .maximumFrames = std::max(frames, maximum),
+            .appliedSequence = nextStatusSequence++,
+        });
+        return;
+    }
+    status->sourceUnitId = sourceUnitId;
+    status->remainingFrames = frames;
+    status->maximumFrames = std::max({ status->maximumFrames, frames, maximum });
+}
+
+void BattleStatusEffectState::clear(BattleStatusKind kind)
+{
+    std::erase_if(statuses, [kind](const BattleTypedStatusInstance& status)
+    {
+        return status.kind == kind;
+    });
+}
+
 namespace
 {
 
@@ -134,6 +204,28 @@ std::uint64_t allocateStatusSequence(BattleStatusEffectState& effects)
     return effects.nextStatusSequence++;
 }
 
+BattleTypedStatusInstance& appendStatus(
+    BattleStatusEffectState& effects,
+    const BattleStatusApplyRequest& request,
+    int remainingFrames,
+    int tickFramesRemaining = 0)
+{
+    BattleTypedStatusInstance status;
+    status.kind = request.kind;
+    status.sourceUnitId = request.sourceUnitId;
+    status.remainingFrames = remainingFrames;
+    status.maximumFrames = remainingFrames;
+    status.tickFramesRemaining = tickFramesRemaining;
+    status.stacks = request.stackLimit
+        ? std::clamp(request.stacks, 0, *request.stackLimit)
+        : request.stacks;
+    status.potency = request.potency;
+    status.secondaryPotency = request.secondaryPotency;
+    status.appliedSequence = allocateStatusSequence(effects);
+    effects.statuses.push_back(status);
+    return effects.statuses.back();
+}
+
 bool sameStatus(const BattleTypedStatusInstance& status, BattleStatusKind kind)
 {
     return status.kind == kind;
@@ -178,27 +270,6 @@ bool matchesRemovalFilter(const BattleStatusRemoveRequest& request, BattleStatus
         return false;
     }
     return true;
-}
-
-void appendStatusView(
-    std::vector<BattleTypedStatusInstance>& statuses,
-    BattleStatusKind kind,
-    int sourceUnitId,
-    int remainingFrames,
-    int stacks,
-    int potency,
-    int secondaryPotency,
-    std::uint64_t sequence)
-{
-    BattleTypedStatusInstance status;
-    status.kind = kind;
-    status.sourceUnitId = sourceUnitId;
-    status.remainingFrames = remainingFrames;
-    status.stacks = stacks;
-    status.potency = potency;
-    status.secondaryPotency = secondaryPotency;
-    status.appliedSequence = sequence;
-    statuses.push_back(status);
 }
 
 bool absorbStatusShield(
@@ -285,46 +356,39 @@ struct RuntimeStatusTickTarget
     int& invincible() { return unit.invincible; }
 };
 
-void clearPoison(BattleStatusEffectState& effects)
-{
-    effects.poisonTimer = 0;
-    effects.poisonStacks = 0;
-    effects.poisonTickPct = 0;
-    effects.poisonSourceId = -1;
-    effects.poisonAppliedSequence = 0;
-}
-
 void tickPoison(
     const BattleStatusSystemConfig& config,
     RuntimeStatusTickTarget& target,
     BattleStatusTickResult& result)
 {
     auto& effects = target.status.effects;
-    if (effects.poisonStacks <= 0)
+    auto* poison = effects.find(BattleStatusKind::Poison);
+    if (!poison)
     {
-        assert(effects.poisonTimer <= 0);
         return;
     }
-    assert(effects.poisonTimer > 0);
+    assert(poison->remainingFrames > 0);
+    assert(poison->stacks > 0);
+    assert(poison->potency > 0);
 
-    --effects.poisonTimer;
+    --poison->remainingFrames;
     if (config.poisonDamageIntervalFrames > 0
         && poisonDamageDue(config.frame, config.poisonDamageIntervalFrames))
     {
-        int damage = std::max(1, target.hp() * effects.poisonTickPct / 100);
+        int damage = std::max(1, target.hp() * poison->potency / 100);
         result.events.push_back({
             BattleStatusEventType::PoisonDamage,
             target.id(),
-            effects.poisonSourceId,
+            poison->sourceUnitId,
             damage,
             "中毒",
         });
-        --effects.poisonStacks;
+        --poison->stacks;
     }
 
-    if (effects.poisonTimer <= 0 || effects.poisonStacks <= 0)
+    if (poison->remainingFrames <= 0 || poison->stacks <= 0)
     {
-        clearPoison(effects);
+        effects.clear(BattleStatusKind::Poison);
     }
 }
 
@@ -334,56 +398,52 @@ void tickBleed(
     BattleStatusTickResult& result)
 {
     auto& effects = target.status.effects;
-    if (effects.bleedStacks <= 0)
+    auto* bleed = effects.find(BattleStatusKind::Bleed);
+    if (!bleed)
     {
-        effects.bleedTimer = 0;
-        effects.bleedSourceId = -1;
         return;
     }
+    assert(bleed->stacks > 0);
 
-    if (effects.bleedTimer > 0)
+    if (bleed->tickFramesRemaining > 0)
     {
-        --effects.bleedTimer;
+        --bleed->tickFramesRemaining;
     }
 
-    if (effects.bleedTimer <= 0)
+    if (bleed->tickFramesRemaining <= 0)
     {
-        int damage = std::max(1, target.maxHp() * effects.bleedStacks / 100);
+        int damage = std::max(1, target.maxHp() * bleed->stacks / 100);
         result.events.push_back({
             BattleStatusEventType::BleedDamage,
             target.id(),
-            effects.bleedSourceId,
+            bleed->sourceUnitId,
             damage,
             "流血",
         });
-        effects.bleedTimer = config.bleedDamageIntervalFrames;
+        bleed->tickFramesRemaining = config.bleedDamageIntervalFrames;
     }
 }
 
 void tickSimpleTimers(RuntimeStatusTickTarget& target)
 {
-    auto& effects = target.status.effects;
     if (target.invincible() > 0)
     {
         --target.invincible();
     }
-    if (effects.mpBlockTimer > 0)
-    {
-        --effects.mpBlockTimer;
-        if (effects.mpBlockTimer <= 0)
-        {
-            effects.mpBlockSourceId = -1;
-            effects.mpBlockAppliedSequence = 0;
-        }
-    }
-
 }
 
-void tickTypedStatuses(RuntimeStatusTickTarget& target, BattleStatusTickResult& result)
+void tickStatuses(RuntimeStatusTickTarget& target, BattleStatusTickResult& result)
 {
-    auto& statuses = target.status.effects.typedStatuses;
+    auto& statuses = target.status.effects.statuses;
     for (auto it = statuses.begin(); it != statuses.end();)
     {
+        if (it->kind == BattleStatusKind::Poison
+            || it->kind == BattleStatusKind::Bleed
+            || it->kind == BattleStatusKind::Stun)
+        {
+            ++it;
+            continue;
+        }
         if (it->remainingFrames <= 0)
         {
             ++it;
@@ -397,14 +457,17 @@ void tickTypedStatuses(RuntimeStatusTickTarget& target, BattleStatusTickResult& 
             continue;
         }
 
-        result.events.push_back({
-            BattleStatusEventType::StatusExpired,
-            target.id(),
-            it->sourceUnitId,
-            it->stacks,
-            "狀態到期",
-            it->kind,
-        });
+        if (it->kind != BattleStatusKind::MpBlocked)
+        {
+            result.events.push_back({
+                BattleStatusEventType::StatusExpired,
+                target.id(),
+                it->sourceUnitId,
+                it->stacks,
+                "狀態到期",
+                it->kind,
+            });
+        }
         it = statuses.erase(it);
     }
 }
@@ -422,7 +485,7 @@ BattleStatusTickResult tickStatusTarget(
     tickPoison(config, target, result);
     tickBleed(config, target, result);
     tickSimpleTimers(target);
-    tickTypedStatuses(target, result);
+    tickStatuses(target, result);
     return result;
 }
 
@@ -502,8 +565,8 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     {
         assert(durationFrames > 0);
         assert(request.potency > 0);
-        assert((effects.poisonTimer > 0) == (effects.poisonStacks > 0));
-        const bool active = effects.poisonStacks > 0;
+        auto* poison = effects.find(BattleStatusKind::Poison);
+        const bool active = poison != nullptr;
         const int requestedStacks = request.stackLimit
             ? std::min(request.stacks, *request.stackLimit)
             : request.stacks;
@@ -511,41 +574,48 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         if (active
             && (request.stack == EffectStackPolicy::KeepStrongest
                 || request.stack == EffectStackPolicy::Independent)
-            && request.potency <= effects.poisonTickPct)
+            && request.potency <= poison->potency)
         {
             result.outcome = BattleStatusApplyOutcome::KeptStronger;
-            result.value = effects.poisonTickPct;
+            result.value = poison->potency;
             return result;
         }
 
         if (request.stack == EffectStackPolicy::AddStack)
         {
-            const int before = effects.poisonStacks;
-            effects.poisonStacks = std::clamp(
+            if (!active)
+            {
+                poison = &appendStatus(effects, request, durationFrames);
+            }
+            const int before = active ? poison->stacks : 0;
+            poison->stacks = std::clamp(
                 before + request.stacks,
                 0,
                 *request.stackLimit);
-            if (!active)
-            {
-                effects.poisonAppliedSequence = allocateStatusSequence(effects);
-            }
-            effects.poisonTimer = durationFrames;
-            effects.poisonTickPct = request.potency;
-            effects.poisonSourceId = request.sourceUnitId;
-            result.applied = effects.poisonStacks != before;
-            result.value = effects.poisonStacks;
+            poison->remainingFrames = durationFrames;
+            poison->maximumFrames = std::max(poison->maximumFrames, durationFrames);
+            poison->potency = request.potency;
+            poison->sourceUnitId = request.sourceUnitId;
+            result.applied = poison->stacks != before;
+            result.value = poison->stacks;
             result.outcome = BattleStatusApplyOutcome::StackChanged;
             return result;
         }
 
-        if (!active || request.stack == EffectStackPolicy::Replace)
+        if (!active)
         {
-            effects.poisonAppliedSequence = allocateStatusSequence(effects);
+            poison = &appendStatus(effects, request, durationFrames);
         }
-        effects.poisonStacks = requestedStacks;
-        effects.poisonTimer = durationFrames;
-        effects.poisonTickPct = request.potency;
-        effects.poisonSourceId = request.sourceUnitId;
+        else if (request.stack == EffectStackPolicy::Replace)
+        {
+            effects.clear(BattleStatusKind::Poison);
+            poison = &appendStatus(effects, request, durationFrames);
+        }
+        poison->stacks = requestedStacks;
+        poison->remainingFrames = durationFrames;
+        poison->maximumFrames = std::max(poison->maximumFrames, durationFrames);
+        poison->potency = request.potency;
+        poison->sourceUnitId = request.sourceUnitId;
         result.applied = true;
         result.value = request.potency;
         result.outcome = active
@@ -557,7 +627,8 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     }
     case BattleStatusKind::Bleed:
     {
-        const int before = effects.bleedStacks;
+        auto* bleed = effects.find(BattleStatusKind::Bleed);
+        const int before = bleed ? bleed->stacks : 0;
         int after = request.stacks;
         if (request.stack == EffectStackPolicy::AddStack)
         {
@@ -576,27 +647,35 @@ BattleStatusApplyResult BattleStatusSystem::apply(
             after = std::min(after, *request.stackLimit);
         }
 
-        effects.bleedStacks = std::max(0, after);
-        if (effects.bleedStacks <= 0)
+        after = std::max(0, after);
+        if (after <= 0)
         {
-            effects.bleedTimer = 0;
-            effects.bleedSourceId = -1;
-            effects.bleedAppliedSequence = 0;
+            effects.clear(BattleStatusKind::Bleed);
         }
         else
         {
-            if (before <= 0 || request.stack == EffectStackPolicy::Replace)
+            if (before <= 0)
             {
-                effects.bleedAppliedSequence = allocateStatusSequence(effects);
+                bleed = &appendStatus(
+                    effects,
+                    request,
+                    0,
+                    config_.bleedDamageIntervalFrames);
             }
-            if (effects.bleedTimer <= 0)
+            else if (request.stack == EffectStackPolicy::Replace)
             {
-                effects.bleedTimer = config_.bleedDamageIntervalFrames;
+                bleed->appliedSequence = allocateStatusSequence(effects);
             }
-            effects.bleedSourceId = request.sourceUnitId;
+            assert(bleed);
+            bleed->stacks = after;
+            if (bleed->tickFramesRemaining <= 0)
+            {
+                bleed->tickFramesRemaining = config_.bleedDamageIntervalFrames;
+            }
+            bleed->sourceUnitId = request.sourceUnitId;
         }
         result.applied = after != before;
-        result.value = effects.bleedStacks;
+        result.value = after;
         result.outcome = request.stack == EffectStackPolicy::AddStack
             ? BattleStatusApplyOutcome::StackChanged
             : (before > 0 ? BattleStatusApplyOutcome::Replaced : BattleStatusApplyOutcome::Applied);
@@ -604,30 +683,36 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     }
     case BattleStatusKind::Stun:
     {
-        const int before = effects.frozenTimer;
+        auto* stun = effects.find(BattleStatusKind::Stun);
+        const int before = stun ? stun->remainingFrames : 0;
+        int after = before;
         switch (request.stack)
         {
         case EffectStackPolicy::Independent:
-            effects.frozenTimer += durationFrames;
+            after += durationFrames;
             break;
         case EffectStackPolicy::Refresh:
         case EffectStackPolicy::KeepStrongest:
         case EffectStackPolicy::AddStack:
-            effects.frozenTimer = std::max(effects.frozenTimer, durationFrames);
+            after = std::max(after, durationFrames);
             break;
         case EffectStackPolicy::Replace:
-            effects.frozenTimer = durationFrames;
+            after = durationFrames;
             break;
         }
-        effects.frozenMaxTimer = std::max(effects.frozenMaxTimer, effects.frozenTimer);
-        effects.frozenSourceId = request.sourceUnitId;
-        if (before <= 0 || request.stack == EffectStackPolicy::Replace)
+        if (!stun || request.stack == EffectStackPolicy::Replace)
         {
-            effects.frozenAppliedSequence = allocateStatusSequence(effects);
+            const int previousMaximum = stun ? stun->maximumFrames : 0;
+            effects.clear(BattleStatusKind::Stun);
+            stun = &appendStatus(effects, request, after);
+            stun->maximumFrames = std::max(previousMaximum, after);
         }
+        stun->remainingFrames = after;
+        stun->maximumFrames = std::max(stun->maximumFrames, after);
+        stun->sourceUnitId = request.sourceUnitId;
 
-        result.applied = effects.frozenTimer > before;
-        result.value = effects.frozenTimer - before;
+        result.applied = after > before;
+        result.value = after - before;
         result.outcome = request.stack == EffectStackPolicy::AddStack
             ? BattleStatusApplyOutcome::StackChanged
             : (before > 0 ? BattleStatusApplyOutcome::Refreshed : BattleStatusApplyOutcome::Applied);
@@ -636,22 +721,27 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     case BattleStatusKind::MpBlocked:
     {
         assert(durationFrames > 0);
-        const int before = effects.mpBlockTimer;
+        auto* mpBlock = effects.find(BattleStatusKind::MpBlocked);
+        const int before = mpBlock ? mpBlock->remainingFrames : 0;
+        int after{};
         if (request.stack == EffectStackPolicy::Replace)
         {
-            effects.mpBlockTimer = durationFrames;
+            after = durationFrames;
         }
         else
         {
-            effects.mpBlockTimer = std::max(effects.mpBlockTimer, durationFrames);
+            after = std::max(before, durationFrames);
         }
-        if (before <= 0 || request.stack == EffectStackPolicy::Replace)
+        if (!mpBlock || request.stack == EffectStackPolicy::Replace)
         {
-            effects.mpBlockAppliedSequence = allocateStatusSequence(effects);
+            effects.clear(BattleStatusKind::MpBlocked);
+            mpBlock = &appendStatus(effects, request, after);
         }
-        effects.mpBlockSourceId = request.sourceUnitId;
-        result.applied = effects.mpBlockTimer > before;
-        result.value = effects.mpBlockTimer - before;
+        mpBlock->remainingFrames = after;
+        mpBlock->maximumFrames = std::max(mpBlock->maximumFrames, after);
+        mpBlock->sourceUnitId = request.sourceUnitId;
+        result.applied = after > before;
+        result.value = after - before;
         result.outcome = before > 0
             ? BattleStatusApplyOutcome::Refreshed
             : BattleStatusApplyOutcome::Applied;
@@ -673,24 +763,13 @@ BattleStatusApplyResult BattleStatusSystem::apply(
         break;
     }
 
-    auto first = std::find_if(effects.typedStatuses.begin(), effects.typedStatuses.end(), [&](const auto& status)
+    auto first = std::find_if(effects.statuses.begin(), effects.statuses.end(), [&](const auto& status)
     {
         return sameStatus(status, request.kind);
     });
     auto append = [&]() -> BattleTypedStatusInstance&
     {
-        BattleTypedStatusInstance status;
-        status.kind = request.kind;
-        status.sourceUnitId = request.sourceUnitId;
-        status.remainingFrames = durationFrames;
-        status.stacks = request.stackLimit
-            ? std::clamp(request.stacks, 0, *request.stackLimit)
-            : request.stacks;
-        status.potency = request.potency;
-        status.secondaryPotency = request.secondaryPotency;
-        status.appliedSequence = allocateStatusSequence(effects);
-        effects.typedStatuses.push_back(status);
-        return effects.typedStatuses.back();
+        return appendStatus(effects, request, durationFrames);
     };
 
     switch (request.stack)
@@ -705,8 +784,8 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     }
     case EffectStackPolicy::Replace:
     {
-        const bool replaced = first != effects.typedStatuses.end();
-        std::erase_if(effects.typedStatuses, [&](const auto& status)
+        const bool replaced = first != effects.statuses.end();
+        std::erase_if(effects.statuses, [&](const auto& status)
         {
             return sameStatus(status, request.kind);
         });
@@ -720,7 +799,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     }
     case EffectStackPolicy::Refresh:
     {
-        if (first == effects.typedStatuses.end())
+        if (first == effects.statuses.end())
         {
             auto& status = append();
             result.value = status.stacks;
@@ -741,7 +820,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     }
     case EffectStackPolicy::KeepStrongest:
     {
-        if (first == effects.typedStatuses.end())
+        if (first == effects.statuses.end())
         {
             auto& status = append();
             result.applied = true;
@@ -776,7 +855,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
     }
     case EffectStackPolicy::AddStack:
     {
-        if (first == effects.typedStatuses.end())
+        if (first == effects.statuses.end())
         {
             if (request.stacks > 0)
             {
@@ -803,7 +882,7 @@ BattleStatusApplyResult BattleStatusSystem::apply(
             result.value = first->stacks;
             if (first->stacks <= 0)
             {
-                effects.typedStatuses.erase(first);
+                effects.statuses.erase(first);
             }
         }
         result.outcome = BattleStatusApplyOutcome::StackChanged;
@@ -820,17 +899,8 @@ BattleStatusRemoveResult BattleStatusSystem::remove(
     assert(target.id >= 0);
     assert(request.count >= 0);
 
-    enum class CandidateStorage
-    {
-        Poison,
-        Bleed,
-        Stun,
-        MpBlocked,
-        Typed,
-    };
     struct Candidate
     {
-        CandidateStorage storage{};
         std::size_t index{};
         BattleStatusKind kind{};
         int remainingFrames{};
@@ -840,53 +910,14 @@ BattleStatusRemoveResult BattleStatusSystem::remove(
     BattleStatusRemoveResult result;
     result.target = std::move(target);
     auto& effects = result.target.effects;
+    const bool hadStun = effects.has(BattleStatusKind::Stun);
     std::vector<Candidate> candidates;
-    auto appendSpecialized = [&](CandidateStorage storage,
-                                 BattleStatusKind kind,
-                                 int remainingFrames,
-                                 std::uint64_t sequence)
+    for (std::size_t i = 0; i < effects.statuses.size(); ++i)
     {
-        if (matchesRemovalFilter(request, kind))
-        {
-            candidates.push_back({ storage, 0, kind, remainingFrames, sequence });
-        }
-    };
-
-    if (effects.poisonTimer > 0)
-    {
-        appendSpecialized(CandidateStorage::Poison,
-                          BattleStatusKind::Poison,
-                          effects.poisonTimer,
-                          effects.poisonAppliedSequence);
-    }
-    if (effects.bleedStacks > 0)
-    {
-        appendSpecialized(CandidateStorage::Bleed,
-                          BattleStatusKind::Bleed,
-                          0,
-                          effects.bleedAppliedSequence);
-    }
-    if (effects.frozenTimer > 0)
-    {
-        appendSpecialized(CandidateStorage::Stun,
-                          BattleStatusKind::Stun,
-                          effects.frozenTimer,
-                          effects.frozenAppliedSequence);
-    }
-    if (effects.mpBlockTimer > 0)
-    {
-        appendSpecialized(CandidateStorage::MpBlocked,
-                          BattleStatusKind::MpBlocked,
-                          effects.mpBlockTimer,
-                          effects.mpBlockAppliedSequence);
-    }
-    for (std::size_t i = 0; i < effects.typedStatuses.size(); ++i)
-    {
-        const auto& status = effects.typedStatuses[i];
+        const auto& status = effects.statuses[i];
         if (matchesRemovalFilter(request, status.kind))
         {
             candidates.push_back({
-                CandidateStorage::Typed,
                 i,
                 status.kind,
                 status.remainingFrames,
@@ -926,73 +957,37 @@ BattleStatusRemoveResult BattleStatusSystem::remove(
             }
             break;
         }
-        return std::tuple(lhs.storage, lhs.kind, lhs.index)
-            < std::tuple(rhs.storage, rhs.kind, rhs.index);
+        return std::tuple(lhs.kind, lhs.index)
+            < std::tuple(rhs.kind, rhs.index);
     });
 
     const std::size_t removeCount = request.count > 0
         ? std::min<std::size_t>(request.count, candidates.size())
         : candidates.size();
-    std::vector<bool> removeTyped(effects.typedStatuses.size());
-    bool removePoison = false;
-    bool removeBleed = false;
+    std::vector<bool> removeStatus(effects.statuses.size());
     bool removeStun = false;
-    bool removeMpBlock = false;
     for (std::size_t i = 0; i < removeCount; ++i)
     {
         const auto& candidate = candidates[i];
-        switch (candidate.storage)
-        {
-        case CandidateStorage::Poison:
-            removePoison = true;
-            break;
-        case CandidateStorage::Bleed:
-            removeBleed = true;
-            break;
-        case CandidateStorage::Stun:
-            removeStun = true;
-            break;
-        case CandidateStorage::MpBlocked:
-            removeMpBlock = true;
-            break;
-        case CandidateStorage::Typed:
-            removeTyped[candidate.index] = true;
-            break;
-        }
+        removeStatus[candidate.index] = true;
+        removeStun = removeStun || candidate.kind == BattleStatusKind::Stun;
         result.removedStatuses.push_back(candidate.kind);
         ++result.removedCount;
     }
 
-    if (removePoison)
-    {
-        clearPoison(effects);
-    }
-    if (removeBleed)
-    {
-        effects.bleedStacks = 0;
-        effects.bleedTimer = 0;
-        effects.bleedSourceId = -1;
-        effects.bleedAppliedSequence = 0;
-    }
-    if (removeStun || request.clearCurrentActionStagger)
-    {
-        result.currentActionStaggerCleared = effects.frozenTimer > 0;
-        effects.clearStunAndHitstun();
-    }
-    if (removeMpBlock)
-    {
-        effects.mpBlockTimer = 0;
-        effects.mpBlockSourceId = -1;
-        effects.mpBlockAppliedSequence = 0;
-    }
-
-    for (std::size_t i = effects.typedStatuses.size(); i > 0; --i)
+    for (std::size_t i = effects.statuses.size(); i > 0; --i)
     {
         const std::size_t index = i - 1;
-        if (index < removeTyped.size() && removeTyped[index])
+        if (removeStatus[index])
         {
-            effects.typedStatuses.erase(effects.typedStatuses.begin() + static_cast<std::ptrdiff_t>(index));
+            effects.statuses.erase(effects.statuses.begin() + static_cast<std::ptrdiff_t>(index));
         }
+    }
+    result.currentActionStaggerCleared = removeStun;
+    if (request.clearCurrentActionStagger)
+    {
+        result.currentActionStaggerCleared = result.currentActionStaggerCleared || hadStun;
+        effects.clear(BattleStatusKind::Stun);
     }
     return result;
 }
@@ -1007,125 +1002,53 @@ BattleStatusConsumeResult BattleStatusSystem::consume(
     BattleStatusConsumeResult result;
     result.target = std::move(target);
     auto& effects = result.target.effects;
-    const auto beforeSnapshot = snapshot(result.target);
-    const auto before = std::find_if(beforeSnapshot.statuses.begin(), beforeSnapshot.statuses.end(), [&](const auto& status)
+    const auto oldestMatching = [&]
     {
-        return status.kind == request.kind
-            && (!request.sourceUnitId || status.sourceUnitId == *request.sourceUnitId);
-    });
-    if (before == beforeSnapshot.statuses.end())
+        auto selected = effects.statuses.end();
+        for (auto it = effects.statuses.begin(); it != effects.statuses.end(); ++it)
+        {
+            if (it->kind != request.kind
+                || (request.sourceUnitId && it->sourceUnitId != *request.sourceUnitId))
+            {
+                continue;
+            }
+            if (selected == effects.statuses.end()
+                || it->appliedSequence < selected->appliedSequence)
+            {
+                selected = it;
+            }
+        }
+        return selected;
+    };
+    const auto before = oldestMatching();
+    if (before == effects.statuses.end())
     {
         return result;
     }
     result.consumedStatus = *before;
 
-    switch (request.kind)
+    int remainingToConsume = request.stacks;
+    int consumed = 0;
+    while (remainingToConsume > 0)
     {
-    case BattleStatusKind::Poison:
-        if (request.sourceUnitId && effects.poisonSourceId != *request.sourceUnitId)
+        const auto selected = oldestMatching();
+        if (selected == effects.statuses.end())
         {
-            return result;
+            break;
         }
-        result.consumedStatus.stacks = std::min(
-            request.stacks,
-            effects.poisonStacks);
-        effects.poisonStacks -= result.consumedStatus.stacks;
-        result.consumed = result.consumedStatus.stacks > 0;
-        if (effects.poisonStacks <= 0)
+        const int amount = std::min(remainingToConsume, selected->stacks);
+        selected->stacks -= amount;
+        remainingToConsume -= amount;
+        consumed += amount;
+        if (selected->stacks <= 0)
         {
-            clearPoison(effects);
+            effects.statuses.erase(selected);
         }
-        break;
-    case BattleStatusKind::Bleed:
-    {
-        if (request.sourceUnitId && effects.bleedSourceId != *request.sourceUnitId)
-        {
-            return result;
-        }
-        const int consumed = std::min(request.stacks, effects.bleedStacks);
-        effects.bleedStacks -= consumed;
-        result.consumedStatus.stacks = consumed;
-        result.consumed = consumed > 0;
-        if (effects.bleedStacks <= 0)
-        {
-            effects.bleedTimer = 0;
-            effects.bleedSourceId = -1;
-            effects.bleedAppliedSequence = 0;
-        }
-        break;
     }
-    case BattleStatusKind::Stun:
-        if (request.sourceUnitId && effects.frozenSourceId != *request.sourceUnitId)
-        {
-            return result;
-        }
-        effects.clearStunAndHitstun();
-        result.consumedStatus.stacks = 1;
-        result.consumed = true;
-        break;
-    case BattleStatusKind::MpBlocked:
-        if (request.sourceUnitId && effects.mpBlockSourceId != *request.sourceUnitId)
-        {
-            return result;
-        }
-        effects.mpBlockTimer = 0;
-        effects.mpBlockSourceId = -1;
-        effects.mpBlockAppliedSequence = 0;
-        result.consumedStatus.stacks = 1;
-        result.consumed = true;
-        break;
-    case BattleStatusKind::ColdPoison:
-    case BattleStatusKind::WitheredBone:
-    case BattleStatusKind::SevenStarMark:
-    case BattleStatusKind::NeutralizeForce:
-    case BattleStatusKind::Blinded:
-    case BattleStatusKind::NextAttackMiss:
-    case BattleStatusKind::DamageBlockLayer:
-    case BattleStatusKind::SingleHitCapLayer:
-    case BattleStatusKind::BattleSpirit:
-    case BattleStatusKind::TrueQi:
-    case BattleStatusKind::PoisonExplosion:
-    case BattleStatusKind::Shadowless:
-    case BattleStatusKind::NextAttackCritical:
-    {
-        int remainingToConsume = request.stacks;
-        int consumed = 0;
-        while (remainingToConsume > 0)
-        {
-            auto selected = effects.typedStatuses.end();
-            for (auto it = effects.typedStatuses.begin(); it != effects.typedStatuses.end(); ++it)
-            {
-                if (it->kind != request.kind
-                    || (request.sourceUnitId && it->sourceUnitId != *request.sourceUnitId))
-                {
-                    continue;
-                }
-                if (selected == effects.typedStatuses.end()
-                    || it->appliedSequence < selected->appliedSequence)
-                {
-                    selected = it;
-                }
-            }
-            if (selected == effects.typedStatuses.end())
-            {
-                break;
-            }
-            const int amount = std::min(remainingToConsume, selected->stacks);
-            selected->stacks -= amount;
-            remainingToConsume -= amount;
-            consumed += amount;
-            if (selected->stacks <= 0)
-            {
-                effects.typedStatuses.erase(selected);
-            }
-        }
-        result.consumedStatus.stacks = consumed;
-        result.consumed = consumed > 0;
-        break;
-    }
-    }
+    result.consumedStatus.stacks = consumed;
+    result.consumed = consumed > 0;
 
-    for (const auto& status : snapshot(result.target).statuses)
+    for (const auto& status : effects.statuses)
     {
         if (status.kind == request.kind
             && (!request.sourceUnitId || status.sourceUnitId == *request.sourceUnitId))
@@ -1190,62 +1113,13 @@ BattleNegativeEffectProtectionResult BattleStatusSystem::protectNegativeEffect(
     return result;
 }
 
-BattleStatusQuerySnapshot BattleStatusSystem::snapshot(const BattleStatusUnitState& target) const
+BattleStatusQuerySnapshot BattleStatusSystem::snapshot(
+    const BattleStatusEffectState& effects) const
 {
     BattleStatusQuerySnapshot result;
-    const auto& effects = target.effects;
     result.statusShield = effects.statusShield;
     result.staggerShield = effects.staggerShield;
-
-    if (effects.poisonStacks > 0)
-    {
-        assert(effects.poisonTimer > 0);
-        appendStatusView(result.statuses,
-                         BattleStatusKind::Poison,
-                         effects.poisonSourceId,
-                         effects.poisonTimer,
-                         effects.poisonStacks,
-                         effects.poisonTickPct,
-                         0,
-                         effects.poisonAppliedSequence);
-    }
-    if (effects.bleedStacks > 0)
-    {
-        appendStatusView(result.statuses,
-                         BattleStatusKind::Bleed,
-                         effects.bleedSourceId,
-                         0,
-                         effects.bleedStacks,
-                         0,
-                         0,
-                         effects.bleedAppliedSequence);
-    }
-    if (effects.frozenTimer > 0)
-    {
-        appendStatusView(result.statuses,
-                         BattleStatusKind::Stun,
-                         effects.frozenSourceId,
-                         effects.frozenTimer,
-                         1,
-                         0,
-                         0,
-                         effects.frozenAppliedSequence);
-    }
-    if (effects.mpBlockTimer > 0)
-    {
-        appendStatusView(result.statuses,
-                         BattleStatusKind::MpBlocked,
-                         effects.mpBlockSourceId,
-                         effects.mpBlockTimer,
-                         1,
-                         0,
-                         0,
-                         effects.mpBlockAppliedSequence);
-    }
-    for (const auto& status : effects.typedStatuses)
-    {
-        result.statuses.push_back(status);
-    }
+    result.statuses = effects.statuses;
     std::sort(result.statuses.begin(), result.statuses.end(), [](const auto& lhs, const auto& rhs)
     {
         return std::tuple(lhs.appliedSequence, lhs.kind, lhs.sourceUnitId)
@@ -1292,6 +1166,11 @@ BattleStatusQuerySnapshot BattleStatusSystem::snapshot(const BattleStatusUnitSta
         }
     }
     return result;
+}
+
+BattleStatusQuerySnapshot BattleStatusSystem::snapshot(const BattleStatusUnitState& target) const
+{
+    return snapshot(target.effects);
 }
 
 bool BattleStatusQuerySnapshot::has(BattleStatusKind kind) const
@@ -1393,11 +1272,7 @@ void rewriteBattleStatusSourceUnitId(
         }
     };
 
-    rewrite(status.effects.poisonSourceId);
-    rewrite(status.effects.bleedSourceId);
-    rewrite(status.effects.frozenSourceId);
-    rewrite(status.effects.mpBlockSourceId);
-    for (auto& typedStatus : status.effects.typedStatuses)
+    for (auto& typedStatus : status.effects.statuses)
     {
         rewrite(typedStatus.sourceUnitId);
     }
