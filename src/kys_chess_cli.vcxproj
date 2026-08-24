@@ -23,7 +23,7 @@
   </ItemGroup>
   <ItemGroup><ClCompile Include="..\cli\ChessCliMain.cpp" /></ItemGroup>
   <ItemGroup><Manifest Include="kys_utf8.manifest" /></ItemGroup>
-  <ItemGroup><ProjectReference Include="kys_chess_core.vcxproj"><Project>{7A398F58-3406-4937-B9F8-64A7123144E3}</Project></ProjectReference><ProjectReference Include="kys_battle_core.vcxproj"><Project>{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}</Project></ProjectReference></ItemGroup>
+  <ItemGroup><ProjectReference Include="kys_chess_core.vcxproj"><Project>{7A398F58-3406-4937-B9F8-64A7123144E3}</Project></ProjectReference><ProjectReference Include="kys_battle_core.vcxproj"><Project>{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}</Project></ProjectReference><ProjectReference Include="..\tools\kys_effect_schema_codegen\kys_effect_schema_codegen.vcxproj"><Project>{C8E84F1A-9349-45D9-9D18-1F3B2AF0E661}</Project><LinkLibraryDependencies>false</LinkLibraryDependencies></ProjectReference></ItemGroup>
   <Target Name="CopyCliRuntimeDependencies" AfterTargets="Build"><Copy SourceFiles="@(CliRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" /></Target>
   <Target Name="StageCliMcpRuntime" AfterTargets="CopyCliRuntimeDependencies">
     <PropertyGroup><CliMcpPublishDir>$(OutDir)kys_chess_cli.publish\</CliMcpPublishDir></PropertyGroup>

@@ -1,4 +1,5 @@
 #include "ChessBattleEffects.h"
+#include "ChessEffectAuthoringDescriptors.h"
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
@@ -19,17 +20,7 @@ namespace KysChess
 namespace
 {
 
-struct AuthorEnumLabel
-{
-    std::string_view name;
-    std::int64_t value;
-};
-
-struct AuthorEnumDescriptor
-{
-    std::string_view name;
-    std::span<const AuthorEnumLabel> labels;
-};
+using namespace EffectAuthoring;
 
 template <typename Enum>
 constexpr AuthorEnumLabel authorLabel(std::string_view name, Enum value)
@@ -95,71 +86,7 @@ bool validateUniqueKeys(const YAML::Node& node, std::string& error)
     return true;
 }
 
-enum class PayloadNodeShape
-{
-    Any,
-    Scalar,
-    String,
-    Integer,
-    Boolean,
-    Map,
-    Sequence,
-    Number,
-    Selector,
-    ActionNode,
-    ActionList,
-    ConditionList,
-    StringOrSequence,
-};
-
-enum class PayloadSchemaReference
-{
-    None,
-    EffectNumber,
-    Selector,
-    ActionNode,
-    ActionList,
-    ConditionList,
-    Timing,
-    Payload,
-    PayloadList,
-};
-
-struct PayloadDescriptor;
-
-struct PayloadFieldDescriptor
-{
-    std::string_view name;
-    bool required;
-    PayloadNodeShape shape;
-    std::string_view probeValue{};
-    std::string_view probeContext{};
-    PayloadSchemaReference schemaReference = PayloadSchemaReference::None;
-    const AuthorEnumDescriptor* enumLabels = nullptr;
-    const PayloadDescriptor* nestedPayload = nullptr;
-};
-
-enum class PayloadDynamicKeyClass
-{
-    None,
-    BattleAttribute,
-    NamedAction,
-};
-
 bool isDynamicPayloadKey(PayloadDynamicKeyClass keyClass, std::string_view key);
-
-struct PayloadDescriptor
-{
-    std::string_view name;
-    std::span<const PayloadFieldDescriptor> fields;
-    std::string_view minimalProbe;
-    PayloadDynamicKeyClass dynamicKeyClass = PayloadDynamicKeyClass::None;
-    PayloadNodeShape dynamicValueShape = PayloadNodeShape::Any;
-    std::string_view dynamicProbeKey{};
-    std::string_view dynamicProbeValue{};
-    std::size_t minimumProperties{};
-    std::string_view dynamicAlternativeField{};
-};
 
 enum class AttackRuntimeBehaviorKind
 {
@@ -1435,30 +1362,6 @@ bool parseSelectorNode(const YAML::Node& node, EffectSelector& out, std::string&
     return true;
 }
 
-enum class TimingIntervalPolicy
-{
-    Unrestricted,
-    Forbidden,
-    RequiredPositive,
-};
-
-enum class TimingIntent
-{
-    None,
-    DamageDealt,
-    DamageReceived,
-    Kill,
-};
-
-struct TimingDescriptor
-{
-    std::string_view name;
-    EffectEvent event;
-    EffectSelectorKind defaultTarget;
-    TimingIntervalPolicy intervalPolicy;
-    TimingIntent intent;
-};
-
 static constexpr std::array timingDescriptors{
     TimingDescriptor{ "開場", EffectEvent::BattleInitialized, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
     TimingDescriptor{ "每幀", EffectEvent::FrameAdvanced, EffectSelectorKind::Self, TimingIntervalPolicy::Forbidden, TimingIntent::None },
@@ -1481,14 +1384,6 @@ static constexpr std::array timingDescriptors{
     TimingDescriptor{ "造成傷害後", EffectEvent::DamageResolved, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::DamageDealt },
     TimingDescriptor{ "受傷後", EffectEvent::DamageResolved, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::DamageReceived },
     TimingDescriptor{ "擊殺後", EffectEvent::DamageResolved, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::Kill },
-};
-
-enum class ConditionAuthorForm
-{
-    Scalar,
-    SingleParameter,
-    Map,
-    ScalarOrMap,
 };
 
 static constexpr std::array<PayloadFieldDescriptor, 0> emptyPayloadFields{};
@@ -1561,15 +1456,6 @@ static constexpr PayloadDescriptor conditionDamageKindsPayload{
 };
 static constexpr PayloadDescriptor conditionAcceptedHitPayload{ "已接受命中", conditionAcceptedHitFields, "{}" };
 
-struct ConditionDescriptor
-{
-    std::string_view name;
-    std::size_t variantIndex;
-    ConditionAuthorForm form;
-    std::string_view singleParameterField;
-    const PayloadDescriptor* payload;
-};
-
 static constexpr std::array conditionDescriptors{
     ConditionDescriptor{ "僅限絕招", 0, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
     ConditionDescriptor{ "武功相符", 1, ConditionAuthorForm::SingleParameter, "武功", &conditionMagicPayload },
@@ -1596,24 +1482,6 @@ static constexpr std::array conditionDescriptors{
     ConditionDescriptor{ "傷害種類符合", 22, ConditionAuthorForm::SingleParameter, "傷害種類", &conditionDamageKindsPayload },
     ConditionDescriptor{ "受益者施放前滿內", 23, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
     ConditionDescriptor{ "有合法隨機目標", 24, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
-};
-
-enum class ActionPayloadKind
-{
-    AttributeModifier,
-    DamageModifier,
-    ResourceChange,
-    HealTransactionModifier,
-    ApplyStatus,
-    ConsumeStatus,
-    RemoveStatus,
-    Damage,
-    Attack,
-    ForceMove,
-    Area,
-    Cast,
-    StateMachine,
-    Conditional,
 };
 
 static constexpr std::array attackRuntimeBehaviorFields{
@@ -2294,14 +2162,6 @@ static constexpr PayloadDescriptor conditionalPayload{
   - 獲得護盾: 1)",
 };
 
-struct ActionDescriptor
-{
-    std::string_view name;
-    std::size_t variantIndex;
-    ActionPayloadKind payloadKind;
-    const PayloadDescriptor* payload;
-};
-
 static constexpr std::array actionDescriptors{
     ActionDescriptor{ "屬性修正", 0, ActionPayloadKind::AttributeModifier, &attributeModifierPayload },
     ActionDescriptor{ "傷害修正", 1, ActionPayloadKind::DamageModifier, &damageModifierPayload },
@@ -2317,15 +2177,6 @@ static constexpr std::array actionDescriptors{
     ActionDescriptor{ "修改施放", 11, ActionPayloadKind::Cast, &modifyCastPayload },
     ActionDescriptor{ "狀態機", 12, ActionPayloadKind::StateMachine, &stateMachinePayload },
     ActionDescriptor{ "條件分支", 13, ActionPayloadKind::Conditional, &conditionalPayload },
-};
-
-enum class MacroPayloadKind
-{
-    AttributeBonus,
-    Resource,
-    Number,
-    Heal,
-    ForceMove,
 };
 
 static constexpr std::array<PayloadFieldDescriptor, 0> attributePercentageFields{};
@@ -2405,13 +2256,6 @@ static constexpr PayloadDescriptor healMacroPayload{
 };
 static constexpr PayloadDescriptor forceMoveMacroPayload{
     "移動巨集", forceMoveMacroFields, "距離格數: 1",
-};
-
-struct MacroDescriptor
-{
-    std::string_view name;
-    MacroPayloadKind payloadKind;
-    const PayloadDescriptor* payload;
 };
 
 static constexpr std::array macroDescriptors{
@@ -2691,29 +2535,90 @@ static_assert(payloadFieldNamesAreUnique(rulePayload));
 static_assert(descriptorNamesAreDisjointFromFields(actionDescriptors, ruleFields));
 static_assert(descriptorNamesAreDisjointFromFields(macroDescriptors, ruleFields));
 
-const ConditionDescriptor* findConditionDescriptor(std::string_view name)
-{
-    const auto found = std::ranges::find(conditionDescriptors, name, &ConditionDescriptor::name);
-    return found == conditionDescriptors.end() ? nullptr : &*found;
 }
 
-const ActionDescriptor* findActionDescriptor(std::string_view name)
+namespace EffectAuthoring
 {
-    const auto found = std::ranges::find(actionDescriptors, name, &ActionDescriptor::name);
-    return found == actionDescriptors.end() ? nullptr : &*found;
+
+std::span<const TimingDescriptor> timingDescriptors()
+{
+    return KysChess::timingDescriptors;
 }
 
-const MacroDescriptor* findMacroDescriptor(std::string_view name)
+std::span<const ConditionDescriptor> conditionDescriptors()
 {
-    const auto found = std::ranges::find(macroDescriptors, name, &MacroDescriptor::name);
-    return found == macroDescriptors.end() ? nullptr : &*found;
+    return KysChess::conditionDescriptors;
+}
+
+std::span<const ActionDescriptor> actionDescriptors()
+{
+    return KysChess::actionDescriptors;
+}
+
+std::span<const MacroDescriptor> macroDescriptors()
+{
+    return KysChess::macroDescriptors;
+}
+
+const AuthorEnumDescriptor& battleAttributeDescriptor()
+{
+    return battleAttributeEnum;
+}
+
+const AuthorEnumDescriptor& selectorKindDescriptor()
+{
+    return selectorKindEnum;
+}
+
+const PayloadDescriptor& effectNumberDescriptor()
+{
+    return effectNumberPayload;
+}
+
+const PayloadDescriptor& selectorDescriptor()
+{
+    return selectorPayload;
+}
+
+const PayloadDescriptor& ruleDescriptor()
+{
+    return rulePayload;
 }
 
 const TimingDescriptor* findTimingDescriptor(std::string_view name)
 {
-    const auto found = std::ranges::find(timingDescriptors, name, &TimingDescriptor::name);
-    return found == timingDescriptors.end() ? nullptr : &*found;
+    const auto descriptors = timingDescriptors();
+    const auto found = std::ranges::find(descriptors, name, &TimingDescriptor::name);
+    return found == descriptors.end() ? nullptr : &*found;
 }
+
+const ConditionDescriptor* findConditionDescriptor(std::string_view name)
+{
+    const auto descriptors = conditionDescriptors();
+    const auto found = std::ranges::find(descriptors, name, &ConditionDescriptor::name);
+    return found == descriptors.end() ? nullptr : &*found;
+}
+
+const ActionDescriptor* findActionDescriptor(std::string_view name)
+{
+    const auto descriptors = actionDescriptors();
+    const auto found = std::ranges::find(descriptors, name, &ActionDescriptor::name);
+    return found == descriptors.end() ? nullptr : &*found;
+}
+
+const MacroDescriptor* findMacroDescriptor(std::string_view name)
+{
+    const auto descriptors = macroDescriptors();
+    const auto found = std::ranges::find(descriptors, name, &MacroDescriptor::name);
+    return found == descriptors.end() ? nullptr : &*found;
+}
+
+}
+
+namespace
+{
+
+using namespace EffectAuthoring;
 
 enum class ConditionNodeForm
 {
@@ -8108,7 +8013,7 @@ bool ChessBattleEffects::validateAuthoringDescriptorProbes(std::string& error)
             return false;
         };
 
-        for (const auto& descriptor : actionDescriptors)
+        for (const auto& descriptor : EffectAuthoring::actionDescriptors())
         {
             std::vector<EffectAction> actions;
             if (!parseNamedAction(
@@ -8126,7 +8031,7 @@ bool ChessBattleEffects::validateAuthoringDescriptorProbes(std::string& error)
                 return false;
             }
         }
-        for (const auto& descriptor : conditionDescriptors)
+        for (const auto& descriptor : EffectAuthoring::conditionDescriptors())
         {
             EffectCondition condition;
             const auto payload = YAML::Load(std::string(descriptor.payload->minimalProbe));
@@ -8141,7 +8046,7 @@ bool ChessBattleEffects::validateAuthoringDescriptorProbes(std::string& error)
                 return false;
             }
         }
-        for (const auto& descriptor : macroDescriptors)
+        for (const auto& descriptor : EffectAuthoring::macroDescriptors())
         {
             std::vector<EffectAction> actions;
             if (!parseNamedAction(

@@ -25,6 +25,7 @@ game
 hades
 kys-c++
 .vscode
+schemas/chess_effects/
 .claude
 vcpkg_installed/
 

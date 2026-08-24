@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{C8E84F1A-9349-45D9-9D18-1F3B2AF0E661}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectName>kys_effect_schema_codegen</ProjectName>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v145</PlatformToolset><CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v145</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\effect_schema_codegen\</IntDir>
+    <VcpkgEnableManifest>true</VcpkgEnableManifest>
+    <VcpkgAutoLink>true</VcpkgAutoLink>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <SchemaCodegenRuntimeBinDir>$(SolutionDir)vcpkg_installed\x64-windows\debug\bin\</SchemaCodegenRuntimeBinDir>
+    <SchemaCodegenYamlDll>yaml-cppd.dll</SchemaCodegenYamlDll>
+    <SchemaCodegenDebugCrtDir>$(VCInstallDir)Redist\MSVC\$(VCToolsVersion)\debug_nonredist\x64\Microsoft.VC145.DebugCRT\</SchemaCodegenDebugCrtDir>
+    <SchemaCodegenDebugUcrtDir>$(UniversalCRTSdkDir)bin\$(TargetUniversalCRTVersion)\x64\ucrt\</SchemaCodegenDebugUcrtDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <SchemaCodegenRuntimeBinDir>$(SolutionDir)vcpkg_installed\x64-windows\bin\</SchemaCodegenRuntimeBinDir>
+    <SchemaCodegenYamlDll>yaml-cpp.dll</SchemaCodegenYamlDll>
+  </PropertyGroup>
+  <ItemGroup>
+    <SchemaCodegenRuntimeDll Include="$(SchemaCodegenRuntimeBinDir)$(SchemaCodegenYamlDll)" />
+    <SchemaCodegenRuntimeDll Include="$(SchemaCodegenDebugCrtDir)*.dll" Condition="'$(Configuration)'=='Debug'" />
+    <SchemaCodegenRuntimeDll Include="$(SchemaCodegenDebugUcrtDir)ucrtbased.dll" Condition="'$(Configuration)'=='Debug'" />
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <PreprocessorDefinitions>KYS_HEADLESS_CORE;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;$(SolutionDir)src;$(SolutionDir)mlcc;$(SolutionDir)local\include;$(SolutionDir)vcpkg_installed\x64-windows\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link><SubSystem>Console</SubSystem></Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="ChessEffectSchemaRenderer.cpp" />
+    <ClCompile Include="ChessEffectSchemaWriter.cpp" />
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ChessEffectSchemaRenderer.h" />
+    <ClInclude Include="ChessEffectSchemaWriter.h" />
+    <ClInclude Include="$(SolutionDir)src\ChessEffectAuthoringDescriptors.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(SolutionDir)src\kys_chess_core.vcxproj"><Project>{7A398F58-3406-4937-B9F8-64A7123144E3}</Project></ProjectReference>
+    <ProjectReference Include="$(SolutionDir)src\kys_battle_core.vcxproj"><Project>{A5BBAA12-11B7-4FE9-B2B7-55DC2A08E401}</Project></ProjectReference>
+  </ItemGroup>
+  <Target Name="StageSchemaCodegenRuntime" BeforeTargets="GenerateChessEffectSchemas">
+    <Copy SourceFiles="@(SchemaCodegenRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="GenerateChessEffectSchemas" AfterTargets="Build">
+    <Exec Command="&quot;$(TargetPath)&quot; --output-dir &quot;$(SolutionDir)schemas\chess_effects&quot;" />
+  </Target>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

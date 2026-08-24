@@ -12,6 +12,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_chess_core", "src\kys_c
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_chess_cli", "src\kys_chess_cli.vcxproj", "{D907D3E2-CB15-4279-91A8-DB7089D12051}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys_effect_schema_codegen", "tools\kys_effect_schema_codegen\kys_effect_schema_codegen.vcxproj", "{C8E84F1A-9349-45D9-9D18-1F3B2AF0E661}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -38,6 +40,10 @@ Global
 		{D907D3E2-CB15-4279-91A8-DB7089D12051}.Debug|x64.Build.0 = Debug|x64
 		{D907D3E2-CB15-4279-91A8-DB7089D12051}.Release|x64.ActiveCfg = Release|x64
 		{D907D3E2-CB15-4279-91A8-DB7089D12051}.Release|x64.Build.0 = Release|x64
+		{C8E84F1A-9349-45D9-9D18-1F3B2AF0E661}.Debug|x64.ActiveCfg = Debug|x64
+		{C8E84F1A-9349-45D9-9D18-1F3B2AF0E661}.Debug|x64.Build.0 = Debug|x64
+		{C8E84F1A-9349-45D9-9D18-1F3B2AF0E661}.Release|x64.ActiveCfg = Release|x64
+		{C8E84F1A-9349-45D9-9D18-1F3B2AF0E661}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

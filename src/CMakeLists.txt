@@ -29,6 +29,7 @@ endif()
 
 if(BUILD_TESTING)
     find_package(Catch2 CONFIG REQUIRED)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
     include(Catch)
 endif()
 
@@ -65,6 +66,42 @@ target_link_libraries(kys_chess_core PUBLIC
     libzip::zip
 )
 kys_enable_deterministic_floating_point(kys_chess_core)
+
+set(KYS_EFFECT_SCHEMA_OUTPUTS)
+if(NOT CMAKE_CROSSCOMPILING AND NOT ANDROID AND NOT EMSCRIPTEN)
+    add_executable(kys_effect_schema_codegen
+        "${KYS_ROOT}/tools/kys_effect_schema_codegen/main.cpp"
+        "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaRenderer.cpp"
+        "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaWriter.cpp"
+    )
+    target_include_directories(kys_effect_schema_codegen PRIVATE
+        ${KYS_COMMON_INCLUDES}
+        "${KYS_ROOT}/tools/kys_effect_schema_codegen"
+    )
+    target_compile_definitions(kys_effect_schema_codegen PRIVATE KYS_HEADLESS_CORE NOMINMAX)
+    target_link_libraries(kys_effect_schema_codegen PRIVATE kys_chess_core)
+    kys_enable_deterministic_floating_point(kys_effect_schema_codegen)
+
+    set(KYS_EFFECT_SCHEMA_OUTPUTS
+        "${KYS_ROOT}/schemas/chess_effects/chess_combos.schema.json"
+        "${KYS_ROOT}/schemas/chess_effects/chess_equipment.schema.json"
+        "${KYS_ROOT}/schemas/chess_effects/chess_magic_effects.schema.json"
+        "${KYS_ROOT}/schemas/chess_effects/chess_neigong.schema.json"
+    )
+    add_custom_command(
+        OUTPUT ${KYS_EFFECT_SCHEMA_OUTPUTS}
+        COMMAND $<TARGET_FILE:kys_effect_schema_codegen>
+            --output-dir "${KYS_ROOT}/schemas/chess_effects"
+        DEPENDS kys_effect_schema_codegen
+        COMMENT "Generating chess effect JSON schemas"
+        VERBATIM
+    )
+    set_source_files_properties(${KYS_EFFECT_SCHEMA_OUTPUTS}
+        PROPERTIES GENERATED TRUE HEADER_FILE_ONLY TRUE)
+    add_custom_target(kys_effect_schema_outputs_internal
+        DEPENDS ${KYS_EFFECT_SCHEMA_OUTPUTS})
+    set_property(TARGET kys_effect_schema_outputs_internal PROPERTY FOLDER "Internal")
+endif()
 
 if(KYS_BUILD_GRAPHICAL_COMPONENTS)
     kys_collect_support_sources(KYS_GAME_SUPPORT_SOURCES "${KYS_ROOT}")
@@ -138,6 +175,9 @@ endif()
 if(MSVC)
     target_compile_options(kys_battle_core PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
     target_compile_options(kys_chess_core PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+    if(TARGET kys_effect_schema_codegen)
+        target_compile_options(kys_effect_schema_codegen PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
+    endif()
     if(TARGET kys_game_lib)
         target_compile_options(kys_game_lib PRIVATE /MP /Zc:preprocessor /source-charset:utf-8 /execution-charset:utf-8)
     endif()
@@ -172,6 +212,9 @@ if(BUILD_TESTING)
     "${KYS_ROOT}/tests/BattleRuntimeRandomUnitTests.cpp"
     "${KYS_ROOT}/tests/HeadlessBattleRunnerUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessBattleEffectsUnitTests.cpp"
+    "${KYS_ROOT}/tests/ChessEffectSchemaRendererUnitTests.cpp"
+    "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaRenderer.cpp"
+    "${KYS_ROOT}/tools/kys_effect_schema_codegen/ChessEffectSchemaWriter.cpp"
     "${KYS_ROOT}/tests/ChessBattleAnalysisUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessReplayHashUnitTests.cpp"
     "${KYS_ROOT}/tests/ChessCatalogQueriesUnitTests.cpp"
@@ -227,7 +270,10 @@ if(BUILD_TESTING)
     add_executable(kys_tests
         ${KYS_TEST_SOURCES}
     )
-    target_include_directories(kys_tests PRIVATE ${KYS_COMMON_INCLUDES})
+    target_include_directories(kys_tests PRIVATE
+        ${KYS_COMMON_INCLUDES}
+        "${KYS_ROOT}/tools/kys_effect_schema_codegen"
+    )
     target_compile_definitions(kys_tests PRIVATE ${KYS_COMMON_DEFINITIONS})
     target_link_libraries(kys_tests PRIVATE kys_game_lib Catch2::Catch2)
 
@@ -240,4 +286,20 @@ if(BUILD_TESTING)
         TEST_PREFIX "kys_tests::"
         WORKING_DIRECTORY "${KYS_ROOT}"
     )
+    add_test(
+        NAME chess_effect_schemas_consumer
+        COMMAND "${Python3_EXECUTABLE}"
+            "${KYS_ROOT}/tests/test_chess_effect_schemas.py" -v
+        WORKING_DIRECTORY "${KYS_ROOT}"
+    )
+endif()
+
+if(KYS_EFFECT_SCHEMA_OUTPUTS)
+    foreach(KYS_EFFECT_SCHEMA_FINAL_TARGET IN ITEMS kys kys_tests kys_chess_cli)
+        if(TARGET ${KYS_EFFECT_SCHEMA_FINAL_TARGET})
+            add_dependencies(
+                ${KYS_EFFECT_SCHEMA_FINAL_TARGET}
+                kys_effect_schema_outputs_internal)
+        endif()
+    endforeach()
 endif()

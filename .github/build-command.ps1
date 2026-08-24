@@ -4,8 +4,7 @@ Locates MSBuild using vswhere and invokes it on the solution with sensible defau
 Usage:
   powershell -ExecutionPolicy Bypass -File .\.github\build-command.ps1
   or from PowerShell: .\.github\build-command.ps1 -Configuration Release -Platform x64
-  defaults to building kys and kys_tests; pass -Target kys to build only one target
-  building kys_tests also runs the Python chess-effect schema generation tests
+  defaults to building kys, kys_tests, and kys_chess_cli; pass -Target kys to build only one target
 #>
 
 param(
@@ -92,16 +91,16 @@ if ($exitCode -eq 0 -and $Target -contains 'kys_tests') {
         $exitCode = 3
     } else {
         $repositoryRoot = Split-Path -Parent $PSScriptRoot
-        Write-Host "Running chess effect schema generation tests..."
+        Write-Host "Running chess effect schema consumer tests..."
         Push-Location $repositoryRoot
         try {
-            & $python.Source -m unittest tests.test_generate_chess_effect_schemas -v
+            & $python.Source .\tests\test_chess_effect_schemas.py -v
             $schemaTestExitCode = $LASTEXITCODE
         } finally {
             Pop-Location
         }
         if ($schemaTestExitCode -ne 0) {
-            Write-Error "Chess effect schema tests failed with code $schemaTestExitCode. Install test dependencies with: python -m pip install -r requirements-test.txt"
+            Write-Error "Chess effect schema consumer tests failed with code $schemaTestExitCode. Install test dependencies with: python -m pip install -r requirements-test.txt"
             $exitCode = $schemaTestExitCode
         }
     }

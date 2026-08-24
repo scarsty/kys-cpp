@@ -373,6 +373,10 @@
     <ProjectReference Include="kys_chess_core.vcxproj">
       <Project>{7A398F58-3406-4937-B9F8-64A7123144E3}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\tools\kys_effect_schema_codegen\kys_effect_schema_codegen.vcxproj">
+      <Project>{C8E84F1A-9349-45D9-9D18-1F3B2AF0E661}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

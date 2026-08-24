@@ -1,20 +1,23 @@
 # Chess Effect Schema C++ Generation and Build Integration Plan
 
+Status: implemented (2026-08-24). The compiled descriptor renderer, native build integration, generated-file Git policy, and consumer-side schema tests are complete.
+
 ## Purpose
 
-Replace `tools/generate_chess_effect_schemas.py` as the source of generated chess-effect schemas. The replacement reads the real compiled C++ authoring descriptors and produces the four checked-in JSON Schema files used by the YAML editor.
+Replace `tools/generate_chess_effect_schemas.py` as the source of generated chess-effect schemas. The replacement reads the real compiled C++ authoring descriptors and produces four local generated JSON Schema files used by the YAML editor.
 
-This plan implements the schema portion of [效果規則通用簡式與舊語法移除設計](效果規則通用簡式與舊語法移除設計.md). It does not change the authoring syntax, parser semantics, or runtime validation contract.
+This plan implements the schema portion of [效果規則通用簡式與舊語法移除設計](效果規則通用簡式與舊語法移除設計.md). It does not change the authoring syntax, parser semantics, or runtime validation contract. Both documents use the implemented policy: schemas are ignored build output, while `.vscode` remains ignored and untracked.
 
 The required end state is:
 
 - Compiled C++ descriptors are the only source of truth for effect authoring names, fields, shapes, requiredness, nested payloads, enum labels, and dynamic-key classes.
 - A small host-only C++ executable renders JSON Schema directly from those descriptor objects.
-- Every relevant native developer build generates schemas into its intermediate directory and compares them with the checked-in schemas.
-- Ordinary builds never modify the source tree.
-- A separate explicit target updates all four checked-in schemas.
+- Every relevant native developer build regenerates the schemas in a stable repository-local generated directory used by the editor.
+- The generated schema files are removed from version control and ignored after migration.
+- Schema generation is an automatic dependency of relevant native final builds; there is no separate author-facing generation or update workflow.
 - Android and WebAssembly builds do not try to execute a target-platform generator.
 - No code reads or parses C++ source text to discover schema metadata.
+- The existing `.vscode` ignore policy remains unchanged; do not add a `!.vscode` exception to `.gitignore`.
 
 ## Non-goals
 
@@ -111,7 +114,7 @@ The renderer reads the descriptor accessors and builds an in-memory JSON value f
 - rule and rule list;
 - all four formal config root schemas.
 
-Use the existing Glaze dependency to serialize JSON. Use stable ordered object storage or an explicitly ordered construction strategy so the output is deterministic across runs. Output must be UTF-8 without BOM, use `\n` line endings, use one fixed indentation style, and end with one newline. Deterministic bytes make drift checks simple and make schema diffs reviewable.
+Use the existing Glaze dependency to serialize JSON. Use stable ordered object storage or an explicitly ordered construction strategy so the output is deterministic across runs. Output must be UTF-8 without BOM, use `\n` line endings, use one fixed indentation style, and end with one newline. Deterministic output avoids unnecessary editor file-system churn and permits exact renderer-equivalence tests during the migration.
 
 The renderer should return a fixed collection of output filename and content pairs. File I/O and command-line handling belong to the executable layer, not to descriptor traversal.
 
@@ -125,56 +128,51 @@ Add a non-shipping native executable, suggested as:
 Its command-line contract should be deliberately small:
 
 - `--output-dir <path>` generates all four schema files into that directory.
-- Optional `--check-against <path>` compares the newly generated files with the four files in that directory and returns failure on missing or different files.
-
-`--check-against` does not inspect YAML. It is only an artifact-drift comparison.
 
 The executable should:
 
 1. render all four documents in memory;
 2. create the output directory;
 3. write each result atomically through a temporary file and rename;
-4. when checking, compare all four files and report every stale or missing path in one run;
-5. print the exact update target to run when drift is found;
-6. return a distinct nonzero status for generation failure versus schema drift if practical.
+4. avoid replacing a destination whose bytes are already identical, preserving its timestamp;
+5. report every generation or write failure with its destination path;
+6. return nonzero if any of the four files cannot be produced.
 
-Do not give the executable a default source-tree output path. Requiring `--output-dir` prevents an ordinary invocation from silently rewriting checked-in files.
+Do not give the executable an implicit output path. Build integration passes the stable editor-schema directory explicitly, while tests may pass an isolated temporary directory.
 
-## Checked-in artifacts
+## Generated artifacts and Git policy
 
-Continue to check in:
+Generate these four local artifacts:
 
 - `schemas/chess_effects/chess_combos.schema.json`
 - `schemas/chess_effects/chess_equipment.schema.json`
 - `schemas/chess_effects/chess_magic_effects.schema.json`
 - `schemas/chess_effects/chess_neigong.schema.json`
 
-Checked-in schemas let VS Code provide completion before any local build and let non-native development environments consume the schema without a host toolchain.
+These paths remain stable so the existing local `yaml.schemas` associations continue to work, but the files are build products rather than repository sources.
 
-There are two distinct workflows:
+At the final migration step:
 
-### Normal check workflow
+1. remove the four schema files from the Git index;
+2. add precise ignore entries for the four generated files, or for `schemas/chess_effects/` if that directory will contain generated artifacts only;
+3. do not commit regenerated schema output;
+4. do not add `.vscode` files to Git;
+5. retain the existing `.vscode` entry in `.gitignore` and do not add a `!.vscode` negation exception.
+
+The repository therefore does not promise editor schemas immediately after a fresh checkout. A relevant native build creates them locally. This trade-off is intentional: compiled C++ descriptors remain the source, and generated editor artifacts do not require review or synchronization in Git.
+
+### Normal generation workflow
 
 1. Build the native code generator incrementally.
-2. Generate all four files into a build intermediate directory.
-3. Byte-compare that output with `schemas/chess_effects`.
-4. Fail the relevant build if any file differs.
-5. Leave the source tree unchanged.
-
-Suggested intermediate locations are:
-
-- MSBuild: the codegen project's `$(IntDir)chess_effect_schemas\` directory;
-- CMake: `${CMAKE_CURRENT_BINARY_DIR}/generated/chess_effect_schemas/`.
-
-### Explicit update workflow
-
-`update_chess_effect_schemas` invokes the same compiled executable and explicitly uses `schemas/chess_effects` as its output directory. It replaces all four artifacts in one operation. This target is never a dependency of `Build`, `Rebuild`, tests, packaging, or the game.
+2. Generate all four files directly into `schemas/chess_effects/`.
+3. Leave identical files untouched to avoid editor reload churn.
+4. Fail the relevant build only if generation or writing fails.
 
 The intended author loop after changing a descriptor is:
 
-1. run `update_chess_effect_schemas`;
-2. inspect the schema diff;
-3. run a normal native build, which now passes the drift check;
+1. build `kys`, `kys_tests`, or `kys_chess_cli` normally;
+2. allow the generated editor schemas to refresh locally as part of that build;
+3. use the YAML editor for completion and structural feedback;
 4. start the game to validate actual config/runtime behavior when the descriptor change also affects content semantics.
 
 ## Visual Studio and MSBuild integration
@@ -188,33 +186,28 @@ Add `kys_effect_schema_codegen` to `kys.sln` as a native x64 console project. It
 - use the same C++ language version, UTF-8 compiler settings, runtime configuration, and vcpkg include paths as `kys_chess_core`;
 - never be copied into game or CLI publish output.
 
-Add a utility project or equivalent named `check_chess_effect_schemas`. Its normal `Build` target should:
+Add a `GenerateChessEffectSchemas` step to the codegen project's normal `Build` target. It should:
 
-- depend on `kys_effect_schema_codegen`;
-- invoke it with the utility project's intermediate schema directory;
-- pass `schemas/chess_effects` through `--check-against`;
-- declare the checked-in schemas and generator binary as inputs for understandable MSBuild diagnostics, while still running the cheap comparison for every relevant build.
+- run after the executable is available;
+- invoke it with `$(SolutionDir)schemas\chess_effects` as the explicit output directory;
+- run whenever the codegen project is reached through a relevant final build, even if compilation itself was already up to date;
+- fail the enclosing build if the generator cannot produce all four artifacts.
 
-The same project should expose an explicit `UpdateChessEffectSchemas` target that depends on building the code generator but writes directly to `schemas/chess_effects`. It must not depend on the normal check target, because update is specifically needed when the check is stale.
+Do not add a separate utility project, public generation target, or update target. The codegen project's automatic build step is the only build-system entry point for schema generation.
 
 ### Dependency placement
 
-Make these native final targets depend on `check_chess_effect_schemas`:
+Make these native final targets depend on the `kys_effect_schema_codegen` project for build ordering, without treating its executable as a link input:
 
 - `kys`;
 - `kys_tests`;
 - `kys_chess_cli`.
 
-Do not make `kys_chess_core` depend on the check. The generator links `kys_chess_core`; adding the reverse dependency would create a cycle. A direct library-only build therefore compiles descriptors but does not run schema drift verification. All normal native developer entry points do run it, including the Debug game build and test build.
+Do not make `kys_chess_core` depend on generation. The generator links `kys_chess_core`; adding the reverse dependency would create a cycle. A direct library-only build therefore compiles descriptors but does not refresh editor schemas. All normal native developer entry points do refresh them, including the Debug game build and test build.
 
-Ensure a solution build runs the check once through the project graph rather than once per downstream project. Directly building any one of the final projects must still reach the check.
+Ensure a solution build reaches the codegen project once through the project graph rather than invoking the executable independently from every downstream project. Directly building any one of the final projects must still reach generation. There is no separately documented schema command; authors build a normal final target.
 
-Suggested developer commands are:
-
-- normal verification: build `kys`, `kys_tests`, or `kys_chess_cli` as usual;
-- explicit update: invoke the utility project's `UpdateChessEffectSchemas` target for the desired configuration and platform.
-
-After this wiring exists, remove the Python schema-generation invocation from `.github/build-command.ps1`. Building its usual native targets already performs the C++ drift check. The script may continue to run Python schema-document tests if those tests are retained, but Python must no longer be required to derive or compare schemas from C++ source.
+After this wiring exists, remove the Python schema-generation invocation from `.github/build-command.ps1`. Building its usual native targets already runs the C++ generator; when `kys_tests` is included, the script then runs the retained consumer-side schema tests. Python must no longer be required to derive schemas from C++ source.
 
 ## CMake integration
 
@@ -226,25 +219,25 @@ Only define executable schema-generation targets for a native host build:
 For native builds:
 
 1. add `kys_effect_schema_codegen` and link it to `kys_chess_core`;
-2. add `check_chess_effect_schemas`, which always renders to `${CMAKE_CURRENT_BINARY_DIR}/generated/chess_effect_schemas/` and compares against the checked-in directory;
-3. add `update_chess_effect_schemas`, excluded from the default build, which writes directly to the checked-in directory;
-4. add the check as a dependency of each final target that exists: `kys`, `kys_tests`, and `kys_chess_cli`;
-5. do not add it as a dependency of `kys_chess_core`.
+2. add one `add_custom_command(OUTPUT ...)` that renders the four files directly to `${KYS_ROOT}/schemas/chess_effects/` and depends on `kys_effect_schema_codegen`;
+3. give those outputs one private internal custom-target owner, then make each final target that exists depend on that owner: `kys`, `kys_tests`, and `kys_chess_cli`;
+4. let CMake's single output owner run the command once when files are missing or the compiled generator has changed, including parallel full builds;
+5. do not add the generated outputs to `kys_chess_core`.
 
-The check target should run on every relevant build invocation. Compiling the generator and chess core remains incremental; only the inexpensive render-and-compare operation is repeated.
+Do not add a standalone author-facing `generate_chess_effect_schemas` or `update_chess_effect_schemas` target. The private output-owner target is only an internal build-graph serialization point. Compiling the generator and chess core remains incremental, and deleting a local schema causes the next relevant native build to recreate all required output.
 
 For Android and WebAssembly builds:
 
-- do not create `kys_effect_schema_codegen`, `check_chess_effect_schemas`, or `update_chess_effect_schemas` as target-platform executables;
+- do not create `kys_effect_schema_codegen` or schema-output custom commands for the target platform;
 - do not add schema dependencies to game libraries or packaging;
-- continue using the checked-in schemas for editor support;
-- rely on a native developer or CI build to catch drift.
+- use schemas left by a native build for local editor support, if present;
+- accept that a cross-platform-only checkout has no generated editor schemas until a native host generation step is run.
 
 Do not solve cross-compilation by attempting to run `$<TARGET_FILE:kys_effect_schema_codegen>` from an Android or WebAssembly build. A future CI pipeline may build the host tool in a separate native build tree, but that is not required for this migration.
 
 ## Python cleanup and retained schema tests
 
-Delete `tools/generate_chess_effect_schemas.py` after the C++ output matches the checked-in baseline and both native build systems are wired.
+Delete `tools/generate_chess_effect_schemas.py` after the C++ output matches the pre-migration schema baseline and both native build systems are wired.
 
 Refactor or rename `tests/test_generate_chess_effect_schemas.py` so it no longer:
 
@@ -258,7 +251,7 @@ It is reasonable to keep Python only as a consumer-side JSON Schema test because
 - validate the four formal YAML configs against their corresponding schemas;
 - retain a small representative set of positive and negative structural examples, including timing shape and promoted-action XOR behavior.
 
-These tests must not grow into a second runtime validator or reproduce every parser invariant. They validate that the emitted JSON Schema is internally valid and useful to an editor. The C++ drift target, not Python, proves that checked-in files match compiled descriptors.
+These tests must not grow into a second runtime validator or reproduce every parser invariant. They validate that the emitted JSON Schema is internally valid and useful to an editor. They run after C++ generation and never establish a second descriptor source of truth.
 
 ## Implementation batches
 
@@ -276,18 +269,18 @@ Do not modify the Python generator in this batch. It provides a temporary output
 1. Implement the common `$defs` renderer from compiled descriptors.
 2. Implement the four explicit root layouts.
 3. Add deterministic Glaze serialization and atomic output.
-4. Add intermediate generation and byte-comparison behavior.
-5. Generate into a temporary directory and compare all four files with the current checked-in schemas.
+4. Generate into a temporary directory and compare all four files with the current pre-migration tracked schemas.
+5. Add a renderer test that generates twice and proves the second write leaves identical files unchanged.
 
 Any difference in this batch must be classified as either an intentional schema correction or a renderer defect. Do not silently accept a new baseline merely because the generator implementation changed.
 
 ### Batch 3: Native build wiring
 
-1. Add the Visual Studio codegen and check projects and final-target dependencies.
-2. Add native CMake codegen, check, and update targets.
-3. Confirm ordinary Debug game and test builds leave `schemas/chess_effects` untouched.
-4. Confirm stale checked-in output fails with actionable filenames and the update command.
-5. Confirm the explicit update target refreshes all four files and a following normal build passes.
+1. Add the Visual Studio codegen project, its automatic generation step, and final-project dependencies.
+2. Add the native CMake codegen executable and generated-output dependencies without a standalone generation target.
+3. Confirm ordinary Debug game and test builds produce all four files under `schemas/chess_effects`.
+4. Delete one local generated file and confirm the next relevant build recreates it.
+5. Confirm a generation failure fails the enclosing native build with the destination path.
 
 ### Batch 4: Remove source parsing
 
@@ -295,14 +288,16 @@ Any difference in this batch must be classified as either an intentional schema 
 2. Remove its drift test and build-script invocation.
 3. Keep only consumer-side Python schema tests that still provide editor-artifact value.
 4. Remove obsolete Python imports or dependencies if no remaining test uses them.
-5. Update any developer documentation that still tells authors to run the Python generator.
+5. Remove the four generated schemas from the Git index and add precise schema-output ignore rules.
+6. Leave `.vscode` ignored and untracked; do not add a `!.vscode` negation rule.
+7. Update any developer documentation that still tells authors to run the Python generator or commit generated schemas.
 
 ### Batch 5: Cross-platform and editor confirmation
 
 1. Confirm Android and WebAssembly configuration do not define or execute the host generator.
-2. Confirm native CMake and Visual Studio builds both produce identical checked-in bytes.
-3. Confirm VS Code associations still bind each formal YAML file to the correct checked-in schema.
-4. Open representative effect rules in the YAML editor and confirm completion and structural diagnostics work without first starting the game.
+2. Confirm native CMake and Visual Studio builds both produce identical local bytes.
+3. Confirm the existing local VS Code associations bind each formal YAML file to its generated schema after a native build.
+4. Open representative effect rules in the YAML editor and confirm completion and structural diagnostics work without starting the game.
 5. Start the game once with the formal configs to preserve the existing runtime validation workflow.
 
 ## Focused verification matrix
@@ -312,12 +307,11 @@ Verification should be performed once per implementation batch, not after every 
 | Area | Required evidence |
 | --- | --- |
 | Descriptor extraction | Existing parser and descriptor tests pass with no normalized-rule changes |
-| Renderer equivalence | Four C++-generated files match the accepted checked-in baseline byte-for-byte |
-| Drift failure | Deliberately stale one intermediate comparison and confirm the native build names the stale schema |
-| Source-tree safety | A normal Build and Rebuild leave checked-in schema timestamps and `git diff` unchanged |
-| Explicit update | `update_chess_effect_schemas` refreshes all four artifacts and the next check passes |
-| Visual Studio | Direct Debug builds of `kys` and `kys_tests` reach the check target |
-| Native CMake | A final native target reaches `check_chess_effect_schemas` |
+| Renderer equivalence | Before removing the old files from Git, four C++-generated files match the accepted baseline byte-for-byte |
+| Regeneration | Removing one generated file causes the next relevant native build to recreate it |
+| Git policy | No schema output or `.vscode` file is tracked; a normal build adds no unignored change |
+| Visual Studio | Direct Debug builds of `kys` and `kys_tests` produce the four local schemas |
+| Native CMake | A final native target reaches the schema-output dependency and produces the same bytes |
 | Cross compilation | Android and WebAssembly configure without a runnable schema-codegen dependency |
 | Schema usefulness | All four schemas are valid Draft 2020-12 documents and accept their formal YAML files |
 | Runtime boundary | The game starts and loads the formal configs; no separate headless config executable was added |
@@ -328,10 +322,10 @@ This migration is complete only when:
 
 - no script or test parses `ChessBattleEffects.cpp` to obtain metadata;
 - parser dispatch and schema generation read the same compiled descriptor objects;
-- checked-in schemas match the C++ renderer exactly;
-- native final builds fail on schema drift without modifying the source tree;
-- one explicit update target works in both Visual Studio/MSBuild and native CMake workflows;
+- the four generated schema files are absent from the Git index and covered by precise ignore rules;
+- `.vscode` remains ignored and untracked, with no `!.vscode` negation rule;
+- relevant native final builds create or refresh the four local schemas automatically;
+- there is no standalone author-facing generation, check, or update target;
 - Android and WebAssembly builds never try to run a target-platform generator;
-- editor schema associations continue to work before the game is built;
+- existing local editor schema associations work after a relevant native build;
 - starting the game remains the only authoritative end-to-end config/runtime validation path.
-
