@@ -1025,6 +1025,7 @@ public:
                                 EffectRuleId id,
                                 const std::string& context,
                                 const ChessDiagnosticSink& diagnostics = {});
+    static bool validateAuthoringDescriptorProbes(std::string& error);
     static bool parseMagicEffects(const YAML::Node& root, std::vector<ChessMagicEffectDefinition>& out, const std::string& context, const ChessDiagnosticSink& diagnostics = {});
     static bool loadMagicEffectsFile(const std::string& path, std::vector<ChessMagicEffectDefinition>& out, const ChessDiagnosticSink& diagnostics = {});
 };

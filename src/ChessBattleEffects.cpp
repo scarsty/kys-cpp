@@ -2,8 +2,12 @@
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
+#include <cstdint>
 #include <format>
+#include <iterator>
+#include <limits>
 #include <set>
 #include <span>
 #include <string_view>
@@ -15,16 +19,32 @@ namespace KysChess
 namespace
 {
 
+struct AuthorEnumLabel
+{
+    std::string_view name;
+    std::int64_t value;
+};
+
+struct AuthorEnumDescriptor
+{
+    std::string_view name;
+    std::span<const AuthorEnumLabel> labels;
+};
+
+template <typename Enum>
+constexpr AuthorEnumLabel authorLabel(std::string_view name, Enum value)
+{
+    return AuthorEnumLabel{ name, static_cast<std::int64_t>(value) };
+}
+
 template <typename Enum>
 std::optional<Enum> parseLabel(
     std::string_view label,
-    std::initializer_list<std::pair<std::string_view, Enum>> labels)
+    const AuthorEnumDescriptor& descriptor)
 {
-    for (const auto& [candidate, value] : labels)
-    {
-        if (candidate == label) return value;
-    }
-    return std::nullopt;
+    const auto found = std::ranges::find(descriptor.labels, label, &AuthorEnumLabel::name);
+    if (found == descriptor.labels.end()) return std::nullopt;
+    return static_cast<Enum>(found->value);
 }
 
 bool validateKnownKeys(
@@ -37,9 +57,15 @@ bool validateKnownKeys(
         error = "節點必須是映射表";
         return false;
     }
+    std::set<std::string> keys;
     for (const auto& entry : node)
     {
         const auto key = entry.first.as<std::string>();
+        if (!keys.insert(key).second)
+        {
+            error = std::format("重複欄位「{}」", key);
+            return false;
+        }
         if (std::ranges::find(allowed, key) == allowed.end())
         {
             error = std::format("未知欄位「{}」", key);
@@ -49,7 +75,884 @@ bool validateKnownKeys(
     return true;
 }
 
-bool requiredString(const YAML::Node& node, std::string_view key, std::string& value, std::string& error)
+bool validateUniqueKeys(const YAML::Node& node, std::string& error)
+{
+    if (!node || !node.IsMap())
+    {
+        error = "節點必須是映射表";
+        return false;
+    }
+    std::set<std::string> keys;
+    for (const auto& entry : node)
+    {
+        const auto key = entry.first.as<std::string>();
+        if (!keys.insert(key).second)
+        {
+            error = std::format("重複欄位「{}」", key);
+            return false;
+        }
+    }
+    return true;
+}
+
+enum class PayloadNodeShape
+{
+    Any,
+    Scalar,
+    String,
+    Integer,
+    Boolean,
+    Map,
+    Sequence,
+    Number,
+    Selector,
+    ActionNode,
+    ActionList,
+    ConditionList,
+    StringOrSequence,
+};
+
+enum class PayloadSchemaReference
+{
+    None,
+    EffectNumber,
+    Selector,
+    ActionNode,
+    ActionList,
+    ConditionList,
+    Timing,
+    Payload,
+    PayloadList,
+};
+
+struct PayloadDescriptor;
+
+struct PayloadFieldDescriptor
+{
+    std::string_view name;
+    bool required;
+    PayloadNodeShape shape;
+    std::string_view probeValue{};
+    std::string_view probeContext{};
+    PayloadSchemaReference schemaReference = PayloadSchemaReference::None;
+    const AuthorEnumDescriptor* enumLabels = nullptr;
+    const PayloadDescriptor* nestedPayload = nullptr;
+};
+
+enum class PayloadDynamicKeyClass
+{
+    None,
+    BattleAttribute,
+    NamedAction,
+};
+
+bool isDynamicPayloadKey(PayloadDynamicKeyClass keyClass, std::string_view key);
+
+struct PayloadDescriptor
+{
+    std::string_view name;
+    std::span<const PayloadFieldDescriptor> fields;
+    std::string_view minimalProbe;
+    PayloadDynamicKeyClass dynamicKeyClass = PayloadDynamicKeyClass::None;
+    PayloadNodeShape dynamicValueShape = PayloadNodeShape::Any;
+    std::string_view dynamicProbeKey{};
+    std::string_view dynamicProbeValue{};
+    std::size_t minimumProperties{};
+    std::string_view dynamicAlternativeField{};
+};
+
+enum class AttackRuntimeBehaviorKind
+{
+    ProjectileBounce,
+    NearbyTracking,
+    DelayedAlternate,
+    ExpandingSpiral,
+};
+
+enum class StateMachineMechanism
+{
+    ChangeStateValue,
+    TransferStateValue,
+    RecordMaximumSkillDamage,
+    ConsumeRecordAsDamage,
+    ConsumeRecordAsShield,
+    StartDamageAbsorption,
+    SettleDamageAbsorption,
+    BorrowEffectRules,
+    CopyAttackDefinition,
+    SettleRemainingStatusDamage,
+    GenerateClones,
+    PreventDeath,
+    ConfigureProtectReposition,
+    ConfigureExecuteReposition,
+};
+
+static constexpr std::array activationScopeLabels{
+    authorLabel("每次施放每個目標", EffectActivationScope::PerCastPerTarget),
+};
+static constexpr AuthorEnumDescriptor activationScopeEnum{
+    "EffectActivationScope", activationScopeLabels,
+};
+
+static constexpr std::array battleDamageKindLabels{
+    authorLabel("物理", BattleDamageKind::Physical),
+    authorLabel("招式", BattleDamageKind::Skill),
+    authorLabel("純粹", BattleDamageKind::Pure),
+    authorLabel("中毒", BattleDamageKind::Poison),
+    authorLabel("流血", BattleDamageKind::Bleed),
+    authorLabel("特效", BattleDamageKind::Effect),
+    authorLabel("反彈", BattleDamageKind::Reflected),
+    authorLabel("處決", BattleDamageKind::Execute),
+};
+static constexpr AuthorEnumDescriptor battleDamageKindEnum{
+    "BattleDamageKind", battleDamageKindLabels,
+};
+
+static constexpr std::array effectRoundingLabels{
+    authorLabel("向零", EffectRounding::TowardZero),
+    authorLabel("向下", EffectRounding::Floor),
+    authorLabel("向上", EffectRounding::Ceil),
+    authorLabel("四捨五入", EffectRounding::Nearest),
+};
+static constexpr AuthorEnumDescriptor effectRoundingEnum{
+    "EffectRounding", effectRoundingLabels,
+};
+
+static constexpr std::array effectNumberBaseLabels{
+    authorLabel("固定值", EffectNumberBase::Constant),
+    authorLabel("來源星級", EffectNumberBase::SourceStar),
+    authorLabel("來源攻擊", EffectNumberBase::SourceAttack),
+    authorLabel("來源最大生命", EffectNumberBase::SourceMaxHp),
+    authorLabel("來源已損生命比例", EffectNumberBase::SourceMissingHpRatio),
+    authorLabel("來源目前內力比例", EffectNumberBase::SourceCurrentMpRatio),
+    authorLabel("目標最大生命", EffectNumberBase::TargetMaxHp),
+    authorLabel("目標目前生命", EffectNumberBase::TargetCurrentHp),
+    authorLabel("目標目前護盾", EffectNumberBase::TargetCurrentShield),
+    authorLabel("目標目前冷卻", EffectNumberBase::TargetCurrentCooldown),
+    authorLabel("實際生命傷害", EffectNumberBase::FinalHpDamage),
+    authorLabel("累計狀態值", EffectNumberBase::AccumulatedStateValue),
+    authorLabel("來源狀態強度", EffectNumberBase::SourceStatusPotency),
+    authorLabel("來源狀態層數", EffectNumberBase::SourceStatusStacks),
+    authorLabel("狀態槽值", EffectNumberBase::StoredStateValue),
+};
+static constexpr AuthorEnumDescriptor effectNumberBaseEnum{
+    "EffectNumberBase", effectNumberBaseLabels,
+};
+
+static constexpr std::array selectorKindLabels{
+    authorLabel("自身", EffectSelectorKind::Self),
+    authorLabel("來源單位", EffectSelectorKind::SourceUnit),
+    authorLabel("交易目標", EffectSelectorKind::TransactionTarget),
+    authorLabel("命中目標", EffectSelectorKind::HitTarget),
+    authorLabel("原攻擊目標", EffectSelectorKind::OriginalAttackTarget),
+    authorLabel("羈絆成員", EffectSelectorKind::ComboMembers),
+    authorLabel("所有存活單位", EffectSelectorKind::AllLivingUnits),
+    authorLabel("友軍", EffectSelectorKind::Allies),
+    authorLabel("全隊", EffectSelectorKind::Allies),
+    authorLabel("敵軍", EffectSelectorKind::Enemies),
+    authorLabel("所有敵人", EffectSelectorKind::Enemies),
+    authorLabel("最低生命友軍", EffectSelectorKind::LowestHpAllies),
+    authorLabel("最低內力友軍", EffectSelectorKind::LowestMpAllies),
+    authorLabel("最高內力敵人", EffectSelectorKind::HighestMpEnemy),
+    authorLabel("最強敵人", EffectSelectorKind::StrongestEnemies),
+    authorLabel("最近敵人", EffectSelectorKind::NearestEnemies),
+    authorLabel("最遠敵人", EffectSelectorKind::FarthestEnemy),
+    authorLabel("半徑內單位", EffectSelectorKind::UnitsInRadius),
+    authorLabel("方形內單位", EffectSelectorKind::UnitsInSquare),
+    authorLabel("指定武器友軍", EffectSelectorKind::AlliesUsingWeapon),
+};
+static constexpr AuthorEnumDescriptor selectorKindEnum{
+    "EffectSelectorKind", selectorKindLabels,
+};
+
+static constexpr std::array teamFilterLabels{
+    authorLabel("不限", EffectTeamFilter::Any),
+    authorLabel("友方", EffectTeamFilter::Ally),
+    authorLabel("敵方", EffectTeamFilter::Enemy),
+};
+static constexpr AuthorEnumDescriptor teamFilterEnum{
+    "EffectTeamFilter", teamFilterLabels,
+};
+static constexpr std::array areaRelationLabels{
+    authorLabel("友方", EffectTeamFilter::Ally),
+    authorLabel("敵方", EffectTeamFilter::Enemy),
+};
+static constexpr AuthorEnumDescriptor areaRelationEnum{
+    "AreaUnitRelation", areaRelationLabels,
+};
+
+static constexpr std::array tieBreakLabels{
+    authorLabel("單位ID", EffectTieBreak::UnitId),
+    authorLabel("戰鬥亂數", EffectTieBreak::BattleRandom),
+};
+static constexpr AuthorEnumDescriptor tieBreakEnum{
+    "EffectTieBreak", tieBreakLabels,
+};
+
+static constexpr std::array requiredTargetLabels{
+    authorLabel("自身", EffectRequiredTarget::Self),
+    authorLabel("來源單位", EffectRequiredTarget::SourceUnit),
+    authorLabel("交易目標", EffectRequiredTarget::TransactionTarget),
+    authorLabel("命中目標", EffectRequiredTarget::HitTarget),
+    authorLabel("原攻擊目標", EffectRequiredTarget::OriginalAttackTarget),
+};
+static constexpr AuthorEnumDescriptor requiredTargetEnum{
+    "EffectRequiredTarget", requiredTargetLabels,
+};
+
+static constexpr std::array damagePerspectiveLabels{
+    authorLabel("造成", DamagePerspective::Dealt),
+    authorLabel("承受", DamagePerspective::Received),
+};
+static constexpr AuthorEnumDescriptor damagePerspectiveEnum{
+    "DamagePerspective", damagePerspectiveLabels,
+};
+
+static constexpr std::array stackPolicyLabels{
+    authorLabel("獨立", EffectStackPolicy::Independent),
+    authorLabel("刷新", EffectStackPolicy::Refresh),
+    authorLabel("取代", EffectStackPolicy::Replace),
+    authorLabel("保留最強", EffectStackPolicy::KeepStrongest),
+    authorLabel("增加層數", EffectStackPolicy::AddStack),
+};
+static constexpr AuthorEnumDescriptor stackPolicyEnum{
+    "EffectStackPolicy", stackPolicyLabels,
+};
+
+static constexpr std::array statusKindLabels{
+    authorLabel("中毒", BattleStatusKind::Poison),
+    authorLabel("流血", BattleStatusKind::Bleed),
+    authorLabel("眩暈", BattleStatusKind::Stun),
+    authorLabel("封內", BattleStatusKind::MpBlocked),
+    authorLabel("寒毒", BattleStatusKind::ColdPoison),
+    authorLabel("枯骨", BattleStatusKind::WitheredBone),
+    authorLabel("七星", BattleStatusKind::SevenStarMark),
+    authorLabel("化勁", BattleStatusKind::NeutralizeForce),
+    authorLabel("刺目", BattleStatusKind::Blinded),
+    authorLabel("下一次攻擊落空", BattleStatusKind::NextAttackMiss),
+    authorLabel("傷害抵擋", BattleStatusKind::DamageBlockLayer),
+    authorLabel("單次承傷上限", BattleStatusKind::SingleHitCapLayer),
+    authorLabel("戰意", BattleStatusKind::BattleSpirit),
+    authorLabel("真氣", BattleStatusKind::TrueQi),
+    authorLabel("毒爆", BattleStatusKind::PoisonExplosion),
+    authorLabel("無影", BattleStatusKind::Shadowless),
+    authorLabel("下一次攻擊必定暴擊", BattleStatusKind::NextAttackCritical),
+};
+static constexpr AuthorEnumDescriptor statusKindEnum{
+    "BattleStatusKind", statusKindLabels,
+};
+
+static constexpr std::array damageChannelLabels{
+    authorLabel("招式", DamageChannel::Skill),
+    authorLabel("持續傷害", DamageChannel::Dot),
+    authorLabel("特效", DamageChannel::Effect),
+    authorLabel("反彈", DamageChannel::Reflected),
+    authorLabel("全部", DamageChannel::All),
+};
+static constexpr AuthorEnumDescriptor damageChannelEnum{
+    "DamageChannel", damageChannelLabels,
+};
+
+static constexpr std::array stateSlotLabels{
+    authorLabel("最大招式生命傷害", EffectStateSlot::MaximumSkillHpDamage),
+    authorLabel("本次施放最高生命傷害", EffectStateSlot::CastMaximumHpDamage),
+    authorLabel("累計吸收傷害", EffectStateSlot::AbsorbedDamage),
+    authorLabel("永久施放進展", EffectStateSlot::PermanentCastProgress),
+};
+static constexpr AuthorEnumDescriptor stateSlotEnum{
+    "EffectStateSlot", stateSlotLabels,
+};
+
+static constexpr std::array resourceLabels{
+    authorLabel("生命", BattleResource::Hp),
+    authorLabel("內力", BattleResource::Mp),
+    authorLabel("護盾", BattleResource::Shield),
+    authorLabel("狀態護盾", BattleResource::StatusShield),
+    authorLabel("僵直護盾", BattleResource::StaggerShield),
+    authorLabel("目前冷卻", BattleResource::ActiveCooldown),
+    authorLabel("僵直吸收幀數", BattleResource::ControlImmunityFrames),
+    authorLabel("無敵幀數", BattleResource::InvincibilityFrames),
+};
+static constexpr AuthorEnumDescriptor resourceEnum{
+    "BattleResource", resourceLabels,
+};
+
+static constexpr std::array resourceChangeKindLabels{
+    authorLabel("回復", ResourceChangeKind::Restore),
+    authorLabel("奪取", ResourceChangeKind::Drain),
+    authorLabel("獲得", ResourceChangeKind::Grant),
+    authorLabel("移除", ResourceChangeKind::Remove),
+    authorLabel("轉移", ResourceChangeKind::Transfer),
+    authorLabel("至少刷新至", ResourceChangeKind::RefreshToAtLeast),
+};
+static constexpr AuthorEnumDescriptor resourceChangeKindEnum{
+    "ResourceChangeKind", resourceChangeKindLabels,
+};
+
+static constexpr std::array healKindLabels{
+    authorLabel("直接", EffectHealKind::Direct),
+    authorLabel("隊伍", EffectHealKind::Team),
+    authorLabel("光環", EffectHealKind::Aura),
+    authorLabel("命中", EffectHealKind::OnHit),
+    authorLabel("擊殺獎勵", EffectHealKind::KillReward),
+    authorLabel("死亡醫療", EffectHealKind::DeathMedical),
+    authorLabel("救援", EffectHealKind::Rescue),
+    authorLabel("生命回復", EffectHealKind::Regeneration),
+    authorLabel("吸血", EffectHealKind::Lifesteal),
+};
+static constexpr AuthorEnumDescriptor healKindEnum{
+    "EffectHealKind", healKindLabels,
+};
+
+static constexpr std::array healSourcePolicyLabels{
+    authorLabel("來源必須存活", EffectHealSourcePolicy::RequireAlive),
+    authorLabel("允許死亡來源", EffectHealSourcePolicy::AllowDead),
+};
+static constexpr AuthorEnumDescriptor healSourcePolicyEnum{
+    "EffectHealSourcePolicy", healSourcePolicyLabels,
+};
+
+static constexpr std::array stackScopeLabels{
+    authorLabel("共用", EffectStackScope::Shared),
+    authorLabel("事件來源", EffectStackScope::EventSource),
+};
+static constexpr AuthorEnumDescriptor stackScopeEnum{
+    "EffectStackScope", stackScopeLabels,
+};
+
+static constexpr std::array borrowedRuleActionCategoryLabels{
+    authorLabel("屬性修正", BorrowedRuleActionCategory::AttributeModifier),
+    authorLabel("傷害修正", BorrowedRuleActionCategory::DamageModifier),
+    authorLabel("資源變更", BorrowedRuleActionCategory::ResourceChange),
+    authorLabel("治療交易修正", BorrowedRuleActionCategory::HealTransactionModifier),
+    authorLabel("狀態", BorrowedRuleActionCategory::Status),
+    authorLabel("傷害", BorrowedRuleActionCategory::Damage),
+    authorLabel("攻擊", BorrowedRuleActionCategory::Attack),
+    authorLabel("強制移動", BorrowedRuleActionCategory::ForcedMovement),
+    authorLabel("區域", BorrowedRuleActionCategory::Area),
+    authorLabel("修改施放", BorrowedRuleActionCategory::Cast),
+    authorLabel("狀態值", BorrowedRuleActionCategory::StateValue),
+    authorLabel("傷害記憶", BorrowedRuleActionCategory::DamageMemory),
+    authorLabel("傷害吸收", BorrowedRuleActionCategory::DamageAbsorption),
+    authorLabel("狀態傷害結算", BorrowedRuleActionCategory::StatusDamageSettlement),
+};
+static constexpr AuthorEnumDescriptor borrowedRuleActionCategoryEnum{
+    "BorrowedRuleActionCategory", borrowedRuleActionCategoryLabels,
+};
+
+static constexpr std::array copiedMagicConditionLabels{
+    authorLabel("有絕招攻擊定義", CopiedMagicCondition::HasUltimateAttackDefinition),
+    authorLabel("排除複製與借用遞迴", CopiedMagicCondition::ExcludesRecursiveEffects),
+};
+static constexpr AuthorEnumDescriptor copiedMagicConditionEnum{
+    "CopiedMagicCondition", copiedMagicConditionLabels,
+};
+
+static constexpr std::array battleAttributeLabels{
+    authorLabel("最大生命", BattleAttribute::MaxHp),
+    authorLabel("攻擊", BattleAttribute::Attack),
+    authorLabel("防禦", BattleAttribute::Defence),
+    authorLabel("速度", BattleAttribute::Speed),
+    authorLabel("暴擊率", BattleAttribute::CriticalChance),
+    authorLabel("暴擊傷害", BattleAttribute::CriticalDamage),
+    authorLabel("閃避率", BattleAttribute::DodgeChance),
+    authorLabel("格擋率", BattleAttribute::BlockChance),
+    authorLabel("傷害減免", BattleAttribute::DamageReduction),
+    authorLabel("技能傷害", BattleAttribute::SkillDamage),
+    authorLabel("彈道壓制傷害", BattleAttribute::ProjectilePressureDamage),
+    authorLabel("冷卻縮減", BattleAttribute::CooldownReduction),
+    authorLabel("內力回復加成", BattleAttribute::MpRecoveryBonus),
+    authorLabel("僵直抗性", BattleAttribute::StaggerResistance),
+    authorLabel("彈道反射率", BattleAttribute::ProjectileReflectChance),
+    authorLabel("技能反彈百分比", BattleAttribute::SkillReflectPercent),
+    authorLabel("格擋絕招反擊率", BattleAttribute::CounterUltimateBlockChance),
+    authorLabel("閃避後暴擊", BattleAttribute::CriticalAfterDodge),
+    authorLabel("滑步機率", BattleAttribute::DashChance),
+    authorLabel("攻擊冷卻延長率", BattleAttribute::OutgoingCooldownExtensionChance),
+    authorLabel("攻擊冷卻延長百分比", BattleAttribute::OutgoingCooldownExtensionPercent),
+    authorLabel("受擊冷卻延長反擊率", BattleAttribute::IncomingCooldownExtensionChance),
+    authorLabel("受擊冷卻延長百分比", BattleAttribute::IncomingCooldownExtensionPercent),
+};
+static constexpr AuthorEnumDescriptor battleAttributeEnum{
+    "BattleAttribute", battleAttributeLabels,
+};
+
+static constexpr std::array attackPatternKindLabels{
+    authorLabel("保留", AttackPatternKind::Preserve),
+    authorLabel("扇形", AttackPatternKind::Fan),
+    authorLabel("側翼", AttackPatternKind::Flanks),
+    authorLabel("同落點延遲", AttackPatternKind::SamePointSequence),
+    authorLabel("多目標", AttackPatternKind::MultiTarget),
+    authorLabel("最近其他敵人殘影", AttackPatternKind::EchoNearestOthers),
+};
+static constexpr AuthorEnumDescriptor attackPatternKindEnum{
+    "AttackPatternKind", attackPatternKindLabels,
+};
+
+static constexpr std::array propagationPolicyLabels{
+    authorLabel("來源全部規則", CastPropagationPolicy::SourceRules),
+    authorLabel("僅來源命中規則", CastPropagationPolicy::SourceHitRulesOnly),
+    authorLabel("不傳播大招規則", CastPropagationPolicy::SuppressUltimateRules),
+    authorLabel("借用大招規則", CastPropagationPolicy::BorrowedUltimateRules),
+    authorLabel("不傳播效果規則", CastPropagationPolicy::NoEffectRules),
+};
+static constexpr AuthorEnumDescriptor propagationPolicyEnum{
+    "CastPropagationPolicy", propagationPolicyLabels,
+};
+
+static constexpr std::array attackRuntimeBehaviorKindLabels{
+    authorLabel("彈道彈射", AttackRuntimeBehaviorKind::ProjectileBounce),
+    authorLabel("範圍追蹤", AttackRuntimeBehaviorKind::NearbyTracking),
+    authorLabel("延遲替代攻擊", AttackRuntimeBehaviorKind::DelayedAlternate),
+    authorLabel("擴張螺旋", AttackRuntimeBehaviorKind::ExpandingSpiral),
+};
+static constexpr AuthorEnumDescriptor attackRuntimeBehaviorKindEnum{
+    "AttackRuntimeBehaviorKind", attackRuntimeBehaviorKindLabels,
+};
+
+static constexpr std::array areaModifierKindLabels{
+    authorLabel("屬性修正", AreaModifierKind::Attribute),
+    authorLabel("造成傷害修正", AreaModifierKind::OutgoingDamage),
+    authorLabel("攻擊生成修正", AreaModifierKind::AttackSpawn),
+    authorLabel("強制移動免疫", AreaModifierKind::ForcedMoveImmunity),
+};
+static constexpr AuthorEnumDescriptor areaModifierKindEnum{
+    "AreaModifierKind", areaModifierKindLabels,
+};
+
+static constexpr std::array forceMoveDirectionLabels{
+    authorLabel("遠離來源", ForceMoveDirection::AwayFromSource),
+    authorLabel("接近來源", ForceMoveDirection::TowardSource),
+};
+static constexpr AuthorEnumDescriptor forceMoveDirectionEnum{
+    "ForceMoveDirection", forceMoveDirectionLabels,
+};
+static constexpr std::array areaBlockedDirectionLabels{
+    authorLabel("遠離來源", ForceMoveDirection::AwayFromSource),
+    authorLabel("接近來源", ForceMoveDirection::TowardSource),
+    authorLabel("接近指定點", ForceMoveDirection::TowardPoint),
+};
+static constexpr AuthorEnumDescriptor areaBlockedDirectionEnum{
+    "AreaBlockedDirection", areaBlockedDirectionLabels,
+};
+
+static constexpr std::array areaOverlapPolicyLabels{
+    authorLabel("相加", AreaOverlapPolicy::Add),
+    authorLabel("保留最強", AreaOverlapPolicy::KeepStrongest),
+    authorLabel("任一", AreaOverlapPolicy::Any),
+};
+static constexpr AuthorEnumDescriptor areaOverlapPolicyEnum{
+    "AreaOverlapPolicy", areaOverlapPolicyLabels,
+};
+
+static constexpr std::array attributeOperationLabels{
+    authorLabel("固定加算", AttributeOperation::FlatAdd),
+    authorLabel("百分比加算", AttributeOperation::PercentAdd),
+    authorLabel("覆寫", AttributeOperation::Override),
+    authorLabel("乘算", AttributeOperation::Multiply),
+    authorLabel("至少為", AttributeOperation::AtLeast),
+};
+static constexpr AuthorEnumDescriptor attributeOperationEnum{
+    "AttributeOperation", attributeOperationLabels,
+};
+
+static constexpr std::array damageModifierPerspectiveLabels{
+    authorLabel("造成", DamageModifierPerspective::Outgoing),
+    authorLabel("承受", DamageModifierPerspective::Incoming),
+};
+static constexpr AuthorEnumDescriptor damageModifierPerspectiveEnum{
+    "DamageModifierPerspective", damageModifierPerspectiveLabels,
+};
+
+static constexpr std::array damageModifierStageLabels{
+    authorLabel("防禦前", DamageModifierStage::BeforeDefense),
+    authorLabel("防禦後", DamageModifierStage::AfterDefense),
+    authorLabel("最終", DamageModifierStage::Final),
+};
+static constexpr AuthorEnumDescriptor damageModifierStageEnum{
+    "DamageModifierStage", damageModifierStageLabels,
+};
+
+static constexpr std::array damageModifierOperationLabels{
+    authorLabel("固定加算", DamageModifierOperation::FlatAdd),
+    authorLabel("百分比加算", DamageModifierOperation::PercentAdd),
+    authorLabel("乘算", DamageModifierOperation::Multiply),
+    authorLabel("忽略防禦百分比", DamageModifierOperation::IgnoreDefensePercent),
+    authorLabel("單次承傷上限", DamageModifierOperation::CapSingleHitAtMaxHpPercent),
+    authorLabel("低於最大生命百分比時處決", DamageModifierOperation::ExecuteBelowMaxHpPercent),
+};
+static constexpr AuthorEnumDescriptor damageModifierOperationEnum{
+    "DamageModifierOperation", damageModifierOperationLabels,
+};
+
+static constexpr std::array healModifierOperationLabels{
+    authorLabel("阻止", HealModifierOperation::Block),
+    authorLabel("受到治療乘算", HealModifierOperation::MultiplyReceived),
+};
+static constexpr AuthorEnumDescriptor healModifierOperationEnum{
+    "HealModifierOperation", healModifierOperationLabels,
+};
+
+static constexpr std::array statusSourceMatchLabels{
+    authorLabel("不限", StatusSourceMatch::Any),
+    authorLabel("效果擁有者", StatusSourceMatch::EffectOwner),
+};
+static constexpr AuthorEnumDescriptor statusSourceMatchEnum{
+    "StatusSourceMatch", statusSourceMatchLabels,
+};
+
+static constexpr std::array statusRemovalOrderLabels{
+    authorLabel("最長剩餘", StatusRemovalOrder::LongestRemaining),
+    authorLabel("最舊", StatusRemovalOrder::Oldest),
+    authorLabel("最新", StatusRemovalOrder::Newest),
+};
+static constexpr AuthorEnumDescriptor statusRemovalOrderEnum{
+    "StatusRemovalOrder", statusRemovalOrderLabels,
+};
+
+static constexpr std::array damageAreaKindLabels{
+    authorLabel("單體", DamageAreaKind::SingleTarget),
+    authorLabel("圓形", DamageAreaKind::Circle),
+    authorLabel("方形", DamageAreaKind::Square),
+};
+static constexpr AuthorEnumDescriptor damageAreaKindEnum{
+    "DamageAreaKind", damageAreaKindLabels,
+};
+
+static constexpr std::array areaProjectileVisualLabels{
+    authorLabel("死亡爆炸", AreaProjectileVisual::DeathBlast),
+    authorLabel("護盾爆炸", AreaProjectileVisual::ShieldBlast),
+};
+static constexpr AuthorEnumDescriptor areaProjectileVisualEnum{
+    "AreaProjectileVisual", areaProjectileVisualLabels,
+};
+
+static constexpr std::array attackTargetPolicyLabels{
+    authorLabel("保留", AttackTargetPolicy::Preserve),
+    authorLabel("選擇目標", AttackTargetPolicy::SelectedTargets),
+    authorLabel("同落點", AttackTargetPolicy::SamePoint),
+    authorLabel("同目標", AttackTargetPolicy::SameTarget),
+};
+static constexpr AuthorEnumDescriptor attackTargetPolicyEnum{
+    "AttackTargetPolicy", attackTargetPolicyLabels,
+};
+
+static constexpr std::array forceMoveCollisionLabels{
+    authorLabel("佔位前停止", ForceMoveCollision::StopBeforeOccupied),
+    authorLabel("阻擋前停止", ForceMoveCollision::StopBeforeBlocked),
+    authorLabel("遇阻停止", ForceMoveCollision::StopBeforeBlocked),
+};
+static constexpr AuthorEnumDescriptor forceMoveCollisionEnum{
+    "ForceMoveCollision", forceMoveCollisionLabels,
+};
+
+static constexpr std::array forceMoveBlockedResultLabels{
+    authorLabel("停止", ForceMoveBlockedResult::Stop),
+    authorLabel("縮短", ForceMoveBlockedResult::Shorten),
+};
+static constexpr AuthorEnumDescriptor forceMoveBlockedResultEnum{
+    "ForceMoveBlockedResult", forceMoveBlockedResultLabels,
+};
+
+static constexpr std::array areaShapeLabels{
+    authorLabel("圓形", AreaShape::Circle),
+    authorLabel("棋格方形", AreaShape::GridSquare),
+};
+static constexpr AuthorEnumDescriptor areaShapeEnum{
+    "AreaShape", areaShapeLabels,
+};
+
+static constexpr std::array areaAnchorLabels{
+    authorLabel("命中位置", AreaAnchor::HitPosition),
+    authorLabel("跟隨來源", AreaAnchor::FollowSourceUnit),
+};
+static constexpr AuthorEnumDescriptor areaAnchorEnum{
+    "AreaAnchor", areaAnchorLabels,
+};
+
+static constexpr std::array areaSourceDeathPolicyLabels{
+    authorLabel("保留至到期", AreaSourceDeathPolicy::PersistUntilExpiry),
+    authorLabel("立即移除", AreaSourceDeathPolicy::RemoveImmediately),
+};
+static constexpr AuthorEnumDescriptor areaSourceDeathPolicyEnum{
+    "AreaSourceDeathPolicy", areaSourceDeathPolicyLabels,
+};
+
+static constexpr std::array areaMergePolicyLabels{
+    authorLabel("獨立", AreaMergePolicy::Independent),
+    authorLabel("同來源刷新", AreaMergePolicy::RefreshSameSource),
+    authorLabel("同來源取代", AreaMergePolicy::ReplaceSameSource),
+};
+static constexpr AuthorEnumDescriptor areaMergePolicyEnum{
+    "AreaMergePolicy", areaMergePolicyLabels,
+};
+
+static constexpr std::array castRangeModeLabels{
+    authorLabel("保留", CastRangeMode::Preserve),
+    authorLabel("遠程", CastRangeMode::Ranged),
+};
+static constexpr AuthorEnumDescriptor castRangeModeEnum{
+    "CastRangeMode", castRangeModeLabels,
+};
+
+static constexpr std::array castMobilityPolicyLabels{
+    authorLabel("保留", CastMobilityPolicy::Preserve),
+    authorLabel("滑步攻擊", CastMobilityPolicy::DashAttack),
+    authorLabel("閃擊", CastMobilityPolicy::BlinkAttack),
+};
+static constexpr AuthorEnumDescriptor castMobilityPolicyEnum{
+    "CastMobilityPolicy", castMobilityPolicyLabels,
+};
+
+static constexpr std::array stateMachineMechanismLabels{
+    authorLabel("變更狀態值", StateMachineMechanism::ChangeStateValue),
+    authorLabel("轉移狀態值", StateMachineMechanism::TransferStateValue),
+    authorLabel("記錄最大招式生命傷害", StateMachineMechanism::RecordMaximumSkillDamage),
+    authorLabel("消耗記錄為傷害", StateMachineMechanism::ConsumeRecordAsDamage),
+    authorLabel("消耗記錄為護盾", StateMachineMechanism::ConsumeRecordAsShield),
+    authorLabel("開始傷害吸收", StateMachineMechanism::StartDamageAbsorption),
+    authorLabel("結算傷害吸收", StateMachineMechanism::SettleDamageAbsorption),
+    authorLabel("借用效果規則", StateMachineMechanism::BorrowEffectRules),
+    authorLabel("複製攻擊定義", StateMachineMechanism::CopyAttackDefinition),
+    authorLabel("結算剩餘狀態傷害", StateMachineMechanism::SettleRemainingStatusDamage),
+    authorLabel("生成分身", StateMachineMechanism::GenerateClones),
+    authorLabel("死亡庇護", StateMachineMechanism::PreventDeath),
+    authorLabel("保護挪移", StateMachineMechanism::ConfigureProtectReposition),
+    authorLabel("處決挪移", StateMachineMechanism::ConfigureExecuteReposition),
+};
+static constexpr AuthorEnumDescriptor stateMachineMechanismEnum{
+    "StateMachineMechanism", stateMachineMechanismLabels,
+};
+
+static constexpr std::array observationScopeLabels{
+    authorLabel("效果擁有者", EffectObservationScope::Owner),
+    authorLabel("效果擁有者同隊事件來源", EffectObservationScope::OwnerTeamEventSource),
+    authorLabel("事件目標", EffectObservationScope::EventTarget),
+};
+static constexpr AuthorEnumDescriptor observationScopeEnum{
+    "EffectObservationScope", observationScopeLabels,
+};
+
+static constexpr std::array castMatchLabels{
+    authorLabel("綁定武功", EffectCastMatch::BoundMagic),
+    authorLabel("效果擁有者任意施放", EffectCastMatch::OwnerAnyCast),
+};
+static constexpr AuthorEnumDescriptor castMatchEnum{
+    "EffectCastMatch", castMatchLabels,
+};
+
+static constexpr std::array authorEnumDescriptors{
+    &activationScopeEnum,
+    &battleDamageKindEnum,
+    &effectRoundingEnum,
+    &effectNumberBaseEnum,
+    &selectorKindEnum,
+    &teamFilterEnum,
+    &areaRelationEnum,
+    &tieBreakEnum,
+    &requiredTargetEnum,
+    &damagePerspectiveEnum,
+    &stackPolicyEnum,
+    &statusKindEnum,
+    &damageChannelEnum,
+    &stateSlotEnum,
+    &resourceEnum,
+    &resourceChangeKindEnum,
+    &healKindEnum,
+    &healSourcePolicyEnum,
+    &stackScopeEnum,
+    &borrowedRuleActionCategoryEnum,
+    &copiedMagicConditionEnum,
+    &battleAttributeEnum,
+    &attackPatternKindEnum,
+    &propagationPolicyEnum,
+    &attackRuntimeBehaviorKindEnum,
+    &areaModifierKindEnum,
+    &forceMoveDirectionEnum,
+    &areaBlockedDirectionEnum,
+    &areaOverlapPolicyEnum,
+    &attributeOperationEnum,
+    &damageModifierPerspectiveEnum,
+    &damageModifierStageEnum,
+    &damageModifierOperationEnum,
+    &healModifierOperationEnum,
+    &statusSourceMatchEnum,
+    &statusRemovalOrderEnum,
+    &damageAreaKindEnum,
+    &areaProjectileVisualEnum,
+    &attackTargetPolicyEnum,
+    &forceMoveCollisionEnum,
+    &forceMoveBlockedResultEnum,
+    &areaShapeEnum,
+    &areaAnchorEnum,
+    &areaSourceDeathPolicyEnum,
+    &areaMergePolicyEnum,
+    &castRangeModeEnum,
+    &castMobilityPolicyEnum,
+    &stateMachineMechanismEnum,
+    &observationScopeEnum,
+    &castMatchEnum,
+};
+
+bool validatePayloadNodeShape(
+    const YAML::Node& node,
+    const PayloadFieldDescriptor& field,
+    std::string& error)
+{
+    const auto reject = [&]
+    {
+        error = std::format("「{}」欄位外形不符合 payload descriptor", field.name);
+        return false;
+    };
+    switch (field.shape)
+    {
+    case PayloadNodeShape::Any:
+        return true;
+    case PayloadNodeShape::Scalar:
+    case PayloadNodeShape::String:
+        return node.IsScalar() || reject();
+    case PayloadNodeShape::Integer:
+        if (!node.IsScalar()) return reject();
+        try
+        {
+            static_cast<void>(node.as<int>());
+            return true;
+        }
+        catch (const YAML::Exception&)
+        {
+            return reject();
+        }
+    case PayloadNodeShape::Boolean:
+        if (!node.IsScalar()) return reject();
+        try
+        {
+            static_cast<void>(node.as<bool>());
+            return true;
+        }
+        catch (const YAML::Exception&)
+        {
+            return reject();
+        }
+    case PayloadNodeShape::Map:
+    case PayloadNodeShape::ActionNode:
+        return node.IsMap() || reject();
+    case PayloadNodeShape::Sequence:
+    case PayloadNodeShape::ActionList:
+    case PayloadNodeShape::ConditionList:
+        return node.IsSequence() || reject();
+    case PayloadNodeShape::Number:
+    case PayloadNodeShape::Selector:
+        return (node.IsScalar() || node.IsMap()) || reject();
+    case PayloadNodeShape::StringOrSequence:
+        return (node.IsScalar() || node.IsSequence()) || reject();
+    }
+    assert(false);
+    return false;
+}
+
+class PayloadView
+{
+public:
+    PayloadView(const YAML::Node& node, const PayloadDescriptor& descriptor)
+        : node_(node), descriptor_(descriptor)
+    {
+    }
+
+    bool validate(std::string& error) const
+    {
+        if (!node_ || !node_.IsMap())
+        {
+            error = std::format("payload「{}」必須是映射表", descriptor_.name);
+            return false;
+        }
+        std::set<std::string> supplied;
+        for (const auto& entry : node_)
+        {
+            const auto key = entry.first.as<std::string>();
+            if (!supplied.insert(key).second)
+            {
+                error = std::format("重複欄位「{}」", key);
+                return false;
+            }
+            const auto* field = findField(key);
+            if (!field)
+            {
+                if (isDynamicPayloadKey(descriptor_.dynamicKeyClass, key))
+                {
+                    const PayloadFieldDescriptor dynamicField{
+                        key, true, descriptor_.dynamicValueShape,
+                    };
+                    if (!validatePayloadNodeShape(entry.second, dynamicField, error)) return false;
+                    continue;
+                }
+                error = std::format("未知欄位「{}」", key);
+                return false;
+            }
+            if (!validatePayloadNodeShape(entry.second, *field, error)) return false;
+        }
+        for (const auto& field : descriptor_.fields)
+        {
+            if (field.required && !node_[std::string(field.name)])
+            {
+                error = std::format("缺少「{}」欄位", field.name);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    YAML::Node operator[](std::string_view key) const
+    {
+        const auto field = node_[std::string(key)];
+        if (field) consumed_.insert(std::string(key));
+        return field;
+    }
+
+    std::vector<std::pair<std::string, YAML::Node>> dynamicEntries() const
+    {
+        std::vector<std::pair<std::string, YAML::Node>> entries;
+        for (const auto& entry : node_)
+        {
+            const auto key = entry.first.as<std::string>();
+            if (findField(key)) continue;
+            assert(isDynamicPayloadKey(descriptor_.dynamicKeyClass, key));
+            consumed_.insert(key);
+            entries.emplace_back(key, entry.second);
+        }
+        return entries;
+    }
+
+    bool finish(std::string& error) const
+    {
+        for (const auto& entry : node_)
+        {
+            const auto key = entry.first.as<std::string>();
+            if (!consumed_.contains(key))
+            {
+                error = std::format(
+                    "payload「{}」的欄位「{}」通過外形驗證但未被 typed parser 消耗",
+                    descriptor_.name,
+                    key);
+                return false;
+            }
+        }
+        return true;
+    }
+
+private:
+    const PayloadFieldDescriptor* findField(std::string_view name) const
+    {
+        const auto found = std::ranges::find(descriptor_.fields, name, &PayloadFieldDescriptor::name);
+        return found == descriptor_.fields.end() ? nullptr : &*found;
+    }
+
+    YAML::Node node_;
+    const PayloadDescriptor& descriptor_;
+    mutable std::set<std::string> consumed_;
+};
+
+template <typename Node>
+bool requiredString(const Node& node, std::string_view key, std::string& value, std::string& error)
 {
     const auto field = node[std::string(key)];
     if (!field)
@@ -69,7 +972,8 @@ bool requiredString(const YAML::Node& node, std::string_view key, std::string& v
     }
 }
 
-bool optionalInt(const YAML::Node& node, std::string_view key, int& value, std::string& error)
+template <typename Node>
+bool optionalInt(const Node& node, std::string_view key, int& value, std::string& error)
 {
     const auto field = node[std::string(key)];
     if (!field) return true;
@@ -85,7 +989,8 @@ bool optionalInt(const YAML::Node& node, std::string_view key, int& value, std::
     }
 }
 
-bool requiredInt(const YAML::Node& node, std::string_view key, int& value, std::string& error)
+template <typename Node>
+bool requiredInt(const Node& node, std::string_view key, int& value, std::string& error)
 {
     if (!node[std::string(key)])
     {
@@ -95,18 +1000,29 @@ bool requiredInt(const YAML::Node& node, std::string_view key, int& value, std::
     return optionalInt(node, key, value, error);
 }
 
+static constexpr std::array activationLimitFields{
+    PayloadFieldDescriptor{
+        "範圍", true, PayloadNodeShape::String, "每次施放每個目標", {},
+        PayloadSchemaReference::None, &activationScopeEnum,
+    },
+    PayloadFieldDescriptor{ "次數", true, PayloadNodeShape::Integer, "1" },
+};
+static constexpr PayloadDescriptor activationLimitPayload{
+    "觸發限制", activationLimitFields, R"(範圍: 每次施放每個目標
+次數: 1)",
+};
+
 bool parseActivationLimitNode(
     const YAML::Node& node,
     EffectActivationLimit& out,
     std::string& error)
 {
-    if (!validateKnownKeys(node, { "範圍", "次數" }, error)) return false;
+    PayloadView payload(node, activationLimitPayload);
+    if (!payload.validate(error)) return false;
 
     std::string scopeLabel;
-    if (!requiredString(node, "範圍", scopeLabel, error)) return false;
-    const auto scope = parseLabel<EffectActivationScope>(scopeLabel, {
-        { "每次施放每個目標", EffectActivationScope::PerCastPerTarget },
-    });
+    if (!requiredString(payload, "範圍", scopeLabel, error)) return false;
+    const auto scope = parseLabel<EffectActivationScope>(scopeLabel, activationScopeEnum);
     if (!scope)
     {
         error = std::format("未知觸發限制範圍「{}」", scopeLabel);
@@ -115,10 +1031,12 @@ bool parseActivationLimitNode(
 
     out = {};
     out.scope = *scope;
-    return requiredInt(node, "次數", out.maxEvaluations, error);
+    return requiredInt(payload, "次數", out.maxEvaluations, error)
+        && payload.finish(error);
 }
 
-bool optionalBool(const YAML::Node& node, std::string_view key, bool& value, std::string& error)
+template <typename Node>
+bool optionalBool(const Node& node, std::string_view key, bool& value, std::string& error)
 {
     const auto field = node[std::string(key)];
     if (!field) return true;
@@ -134,7 +1052,8 @@ bool optionalBool(const YAML::Node& node, std::string_view key, bool& value, std
     }
 }
 
-bool optionalBool(const YAML::Node& node,
+template <typename Node>
+bool optionalBool(const Node& node,
                   std::string_view key,
                   std::optional<bool>& value,
                   std::string& error)
@@ -158,13 +1077,7 @@ bool parseDamageKindLabel(
     BattleDamageKind& out,
     std::string& error)
 {
-    const auto parsed = parseLabel<BattleDamageKind>(label, {
-        { "物理", BattleDamageKind::Physical }, { "招式", BattleDamageKind::Skill },
-        { "純粹", BattleDamageKind::Pure }, { "中毒", BattleDamageKind::Poison },
-        { "流血", BattleDamageKind::Bleed },
-        { "特效", BattleDamageKind::Effect }, { "反彈", BattleDamageKind::Reflected },
-        { "處決", BattleDamageKind::Execute },
-    });
+    const auto parsed = parseLabel<BattleDamageKind>(label, battleDamageKindEnum);
     if (!parsed)
     {
         error = std::format("未知傷害種類「{}」", label);
@@ -176,6 +1089,43 @@ bool parseDamageKindLabel(
 
 bool parseStatusKind(std::string_view label, BattleStatusKind& out, std::string& error);
 bool parseEffectStateSlot(const YAML::Node& node, EffectStateSlot& out, std::string& error);
+
+static constexpr std::array effectNumberFields{
+    PayloadFieldDescriptor{
+        "基準", false, PayloadNodeShape::String, "來源攻擊", {},
+        PayloadSchemaReference::None, &effectNumberBaseEnum,
+    },
+    PayloadFieldDescriptor{
+        "乘數基準", false, PayloadNodeShape::String, "來源星級", {},
+        PayloadSchemaReference::None, &effectNumberBaseEnum,
+    },
+    PayloadFieldDescriptor{
+        "狀態", false, PayloadNodeShape::String, "中毒", {},
+        PayloadSchemaReference::None, &statusKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "狀態槽", false, PayloadNodeShape::String, "最大招式生命傷害", {},
+        PayloadSchemaReference::None, &stateSlotEnum,
+    },
+    PayloadFieldDescriptor{ "固定", false, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{ "百分比", false, PayloadNodeShape::Integer, "100" },
+    PayloadFieldDescriptor{
+        "取整", false, PayloadNodeShape::String, "向下", {},
+        PayloadSchemaReference::None, &effectRoundingEnum,
+    },
+    PayloadFieldDescriptor{ "最小", false, PayloadNodeShape::Integer, "0" },
+    PayloadFieldDescriptor{ "最大", false, PayloadNodeShape::Integer, "100" },
+    PayloadFieldDescriptor{ "目標最大生命百分比", false, PayloadNodeShape::Integer, "10", "{}" },
+    PayloadFieldDescriptor{ "來源最大生命百分比", false, PayloadNodeShape::Integer, "10", "{}" },
+    PayloadFieldDescriptor{ "目標目前生命百分比", false, PayloadNodeShape::Integer, "10", "{}" },
+    PayloadFieldDescriptor{ "目標目前護盾百分比", false, PayloadNodeShape::Integer, "10", "{}" },
+    PayloadFieldDescriptor{ "實際生命傷害百分比", false, PayloadNodeShape::Integer, "10", "{}" },
+    PayloadFieldDescriptor{ "每星級", false, PayloadNodeShape::Integer, "10", "{}" },
+};
+static constexpr PayloadDescriptor effectNumberPayload{
+    "效果數值", effectNumberFields, "固定: 1", PayloadDynamicKeyClass::None,
+    PayloadNodeShape::Any, {}, {}, 1,
+};
 
 bool parseEffectNumberNode(const YAML::Node& node, EffectNumber& out, std::string& error)
 {
@@ -198,28 +1148,67 @@ bool parseEffectNumberNode(const YAML::Node& node, EffectNumber& out, std::strin
             return false;
         }
     }
-    if (!validateKnownKeys(node, { "基準", "乘數基準", "狀態", "狀態槽", "固定", "百分比", "取整", "最小", "最大" }, error)) return false;
+
+    PayloadView payload(node, effectNumberPayload);
+    if (!payload.validate(error)) return false;
+
+    struct NumberAlias
+    {
+        std::string_view field;
+        EffectNumberBase base;
+        int percentMultiplier;
+    };
+    static constexpr std::array aliases{
+        NumberAlias{ "目標最大生命百分比", EffectNumberBase::TargetMaxHp, 1 },
+        NumberAlias{ "來源最大生命百分比", EffectNumberBase::SourceMaxHp, 1 },
+        NumberAlias{ "目標目前生命百分比", EffectNumberBase::TargetCurrentHp, 1 },
+        NumberAlias{ "目標目前護盾百分比", EffectNumberBase::TargetCurrentShield, 1 },
+        NumberAlias{ "實際生命傷害百分比", EffectNumberBase::FinalHpDamage, 1 },
+        NumberAlias{ "每星級", EffectNumberBase::SourceStar, 100 },
+    };
+    const NumberAlias* matchedAlias = nullptr;
+    for (const auto& alias : aliases)
+    {
+        if (!payload[alias.field]) continue;
+        if (matchedAlias)
+        {
+            error = "簡式數值只能使用一個基準別名";
+            return false;
+        }
+        matchedAlias = &alias;
+    }
+    if (matchedAlias)
+    {
+        int value{};
+        if (!requiredInt(payload, matchedAlias->field, value, error)) return false;
+        if (matchedAlias->percentMultiplier != 1
+            && (value > std::numeric_limits<int>::max() / matchedAlias->percentMultiplier
+                || value < std::numeric_limits<int>::min() / matchedAlias->percentMultiplier))
+        {
+            error = std::format("「{}」超出有效範圍", matchedAlias->field);
+            return false;
+        }
+        out = {};
+        out.base = matchedAlias->base;
+        out.percent = value * matchedAlias->percentMultiplier;
+        if (const auto rounding = payload["取整"])
+        {
+            const auto label = rounding.as<std::string>();
+            const auto parsed = parseLabel<EffectRounding>(label, effectRoundingEnum);
+            if (!parsed)
+            {
+                error = std::format("未知取整方式「{}」", label);
+                return false;
+            }
+            out.rounding = *parsed;
+        }
+        return payload.finish(error);
+    }
     out = {};
     auto readBase = [&](const YAML::Node& base, EffectNumberBase& destination)
     {
         const auto label = base.as<std::string>();
-        const auto parsed = parseLabel<EffectNumberBase>(label, {
-            { "固定值", EffectNumberBase::Constant },
-            { "來源星級", EffectNumberBase::SourceStar },
-            { "來源攻擊", EffectNumberBase::SourceAttack },
-            { "來源最大生命", EffectNumberBase::SourceMaxHp },
-            { "來源已損生命比例", EffectNumberBase::SourceMissingHpRatio },
-            { "來源目前內力比例", EffectNumberBase::SourceCurrentMpRatio },
-            { "目標最大生命", EffectNumberBase::TargetMaxHp },
-            { "目標目前生命", EffectNumberBase::TargetCurrentHp },
-            { "目標目前護盾", EffectNumberBase::TargetCurrentShield },
-            { "目標目前冷卻", EffectNumberBase::TargetCurrentCooldown },
-            { "實際生命傷害", EffectNumberBase::FinalHpDamage },
-            { "累計狀態值", EffectNumberBase::AccumulatedStateValue },
-            { "來源狀態強度", EffectNumberBase::SourceStatusPotency },
-            { "來源狀態層數", EffectNumberBase::SourceStatusStacks },
-            { "狀態槽值", EffectNumberBase::StoredStateValue },
-        });
+        const auto parsed = parseLabel<EffectNumberBase>(label, effectNumberBaseEnum);
         if (!parsed)
         {
             error = std::format("未知數值基準「{}」", label);
@@ -228,40 +1217,35 @@ bool parseEffectNumberNode(const YAML::Node& node, EffectNumber& out, std::strin
         destination = *parsed;
         return true;
     };
-    if (const auto base = node["基準"])
+    if (const auto base = payload["基準"])
     {
         if (!readBase(base, out.base)) return false;
     }
-    if (const auto multiplier = node["乘數基準"])
+    if (const auto multiplier = payload["乘數基準"])
     {
         EffectNumberBase parsedMultiplier{};
         if (!readBase(multiplier, parsedMultiplier)) return false;
         out.multiplierBase = parsedMultiplier;
     }
-    if (const auto status = node["狀態"])
+    if (const auto status = payload["狀態"])
     {
         BattleStatusKind parsedStatus{};
         const auto label = status.as<std::string>();
         if (!parseStatusKind(label, parsedStatus, error)) return false;
         out.status = std::string(battleStatusLabel(parsedStatus));
     }
-    if (node["狀態槽"])
+    if (payload["狀態槽"])
     {
         EffectStateSlot slot{};
-        if (!parseEffectStateSlot(node["狀態槽"], slot, error)) return false;
+        if (!parseEffectStateSlot(payload["狀態槽"], slot, error)) return false;
         out.stateSlot = slot;
     }
-    if (!optionalInt(node, "固定", out.flat, error)
-        || !optionalInt(node, "百分比", out.percent, error)) return false;
-    if (const auto rounding = node["取整"])
+    if (!optionalInt(payload, "固定", out.flat, error)
+        || !optionalInt(payload, "百分比", out.percent, error)) return false;
+    if (const auto rounding = payload["取整"])
     {
         const auto label = rounding.as<std::string>();
-        const auto parsed = parseLabel<EffectRounding>(label, {
-            { "向零", EffectRounding::TowardZero },
-            { "向下", EffectRounding::Floor },
-            { "向上", EffectRounding::Ceil },
-            { "四捨五入", EffectRounding::Nearest },
-        });
+        const auto parsed = parseLabel<EffectRounding>(label, effectRoundingEnum);
         if (!parsed)
         {
             error = std::format("未知取整方式「{}」", label);
@@ -269,118 +1253,84 @@ bool parseEffectNumberNode(const YAML::Node& node, EffectNumber& out, std::strin
         }
         out.rounding = *parsed;
     }
-    if (node["最小"])
+    if (payload["最小"])
     {
         int value{};
-        if (!requiredInt(node, "最小", value, error)) return false;
+        if (!requiredInt(payload, "最小", value, error)) return false;
         out.minimum = value;
     }
-    if (node["最大"])
+    if (payload["最大"])
     {
         int value{};
-        if (!requiredInt(node, "最大", value, error)) return false;
+        if (!requiredInt(payload, "最大", value, error)) return false;
         out.maximum = value;
     }
-    return true;
+    return payload.finish(error);
 }
+
+static constexpr std::array selectorFields{
+    PayloadFieldDescriptor{
+        "類型", true, PayloadNodeShape::String, "半徑內單位", {},
+        PayloadSchemaReference::None, &selectorKindEnum,
+    },
+    PayloadFieldDescriptor{ "數量", false, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{ "半徑格數", false, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{
+        "方形邊長", false, PayloadNodeShape::Integer, "3", "類型: 方形內單位",
+    },
+    PayloadFieldDescriptor{
+        "隊伍", false, PayloadNodeShape::String, "敵方", {},
+        PayloadSchemaReference::None, &teamFilterEnum,
+    },
+    PayloadFieldDescriptor{
+        "平手", false, PayloadNodeShape::String, "戰鬥亂數", {},
+        PayloadSchemaReference::None, &tieBreakEnum,
+    },
+    PayloadFieldDescriptor{ "排除效果擁有者", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "武功", false, PayloadNodeShape::Integer, "26", "類型: 羈絆成員" },
+    PayloadFieldDescriptor{
+        "武器類型", false, PayloadNodeShape::Integer, "1", "類型: 指定武器友軍",
+    },
+    PayloadFieldDescriptor{
+        "必含目標", false, PayloadNodeShape::String, "自身", {},
+        PayloadSchemaReference::None, &requiredTargetEnum,
+    },
+};
+static constexpr PayloadDescriptor selectorPayload{
+    "目標選擇器", selectorFields, R"(類型: 半徑內單位
+半徑格數: 3)",
+};
 
 bool parseSelectorNode(const YAML::Node& node, EffectSelector& out, std::string& error)
 {
     out = {};
     std::string label;
-    if (node.IsScalar())
-    {
-        label = node.as<std::string>();
-    }
+    std::optional<PayloadView> payload;
+    if (node.IsScalar()) label = node.as<std::string>();
     else
     {
-        if (!validateKnownKeys(node, { "類型", "數量", "半徑格數", "方形邊長", "隊伍", "平手", "排除效果擁有者", "武功", "武器類型", "必含目標" }, error)
-            || !requiredString(node, "類型", label, error)) return false;
-        if (!optionalInt(node, "數量", out.count, error)
-            || !optionalInt(node, "半徑格數", out.radiusTiles, error)
-            || !optionalInt(node, "方形邊長", out.squareSideTiles, error)
-            || !optionalBool(node, "排除效果擁有者", out.excludeOwner, error)
-            || !optionalInt(node, "武功", out.requiredMagicId, error)
-            || !optionalInt(node, "武器類型", out.requiredWeaponType, error)) return false;
-        if (const auto team = node["隊伍"])
-        {
-            const auto teamLabel = team.as<std::string>();
-            const auto parsed = parseLabel<EffectTeamFilter>(teamLabel, {
-                { "不限", EffectTeamFilter::Any },
-                { "友方", EffectTeamFilter::Ally },
-                { "敵方", EffectTeamFilter::Enemy },
-            });
-            if (!parsed)
-            {
-                error = std::format("未知隊伍篩選「{}」", teamLabel);
-                return false;
-            }
-            out.team = *parsed;
-        }
-        if (const auto tie = node["平手"])
-        {
-            const auto tieLabel = tie.as<std::string>();
-            const auto parsed = parseLabel<EffectTieBreak>(tieLabel, {
-                { "單位ID", EffectTieBreak::UnitId },
-                { "戰鬥亂數", EffectTieBreak::BattleRandom },
-            });
-            if (!parsed)
-            {
-                error = std::format("未知平手規則「{}」", tieLabel);
-                return false;
-            }
-            out.tieBreak = *parsed;
-        }
-        if (const auto required = node["必含目標"])
-        {
-            const auto label = required.as<std::string>();
-            const auto parsed = parseLabel<EffectRequiredTarget>(label, {
-                { "自身", EffectRequiredTarget::Self },
-                { "來源單位", EffectRequiredTarget::SourceUnit },
-                { "交易目標", EffectRequiredTarget::TransactionTarget },
-                { "命中目標", EffectRequiredTarget::HitTarget },
-                { "原攻擊目標", EffectRequiredTarget::OriginalAttackTarget },
-            });
-            if (!parsed)
-            {
-                error = std::format("未知必含目標「{}」", label);
-                return false;
-            }
-            out.requiredTarget = *parsed;
-        }
+        payload.emplace(node, selectorPayload);
+        if (!payload->validate(error)
+            || !requiredString(*payload, "類型", label, error)) return false;
     }
 
-    const auto kind = parseLabel<EffectSelectorKind>(label, {
-        { "自身", EffectSelectorKind::Self },
-        { "來源單位", EffectSelectorKind::SourceUnit },
-        { "交易目標", EffectSelectorKind::TransactionTarget },
-        { "命中目標", EffectSelectorKind::HitTarget },
-        { "原攻擊目標", EffectSelectorKind::OriginalAttackTarget },
-        { "羈絆成員", EffectSelectorKind::ComboMembers },
-        { "所有存活單位", EffectSelectorKind::AllLivingUnits },
-        { "友軍", EffectSelectorKind::Allies },
-        { "全隊", EffectSelectorKind::Allies },
-        { "敵軍", EffectSelectorKind::Enemies },
-        { "所有敵人", EffectSelectorKind::Enemies },
-        { "最低生命友軍", EffectSelectorKind::LowestHpAllies },
-        { "最低內力友軍", EffectSelectorKind::LowestMpAllies },
-        { "最高內力敵人", EffectSelectorKind::HighestMpEnemy },
-        { "最強敵人", EffectSelectorKind::StrongestEnemies },
-        { "最近敵人", EffectSelectorKind::NearestEnemies },
-        { "最遠敵人", EffectSelectorKind::FarthestEnemy },
-        { "半徑內單位", EffectSelectorKind::UnitsInRadius },
-        { "方形內單位", EffectSelectorKind::UnitsInSquare },
-        { "指定武器友軍", EffectSelectorKind::AlliesUsingWeapon },
-    });
+    const auto kind = parseLabel<EffectSelectorKind>(label, selectorKindEnum);
     if (!kind)
     {
         error = std::format("未知目標選擇器「{}」", label);
         return false;
     }
     out.kind = *kind;
-    if (!node.IsScalar())
+    if (payload)
     {
-        bool knownFields = false;
+        bool acceptsCount{};
+        bool acceptsTie{};
+        bool acceptsMagic{};
+        bool acceptsRequiredTarget{};
+        bool acceptsRadius{};
+        bool acceptsSquare{};
+        bool acceptsTeam{};
+        bool acceptsWeapon{};
         switch (out.kind)
         {
         case EffectSelectorKind::Self:
@@ -388,35 +1338,89 @@ bool parseSelectorNode(const YAML::Node& node, EffectSelector& out, std::string&
         case EffectSelectorKind::TransactionTarget:
         case EffectSelectorKind::HitTarget:
         case EffectSelectorKind::OriginalAttackTarget:
-            knownFields = validateKnownKeys(node, { "類型", "排除效果擁有者" }, error);
             break;
         case EffectSelectorKind::ComboMembers:
         case EffectSelectorKind::AllLivingUnits:
         case EffectSelectorKind::Allies:
         case EffectSelectorKind::Enemies:
-            knownFields = validateKnownKeys(node, { "類型", "數量", "平手", "排除效果擁有者", "武功", "必含目標" }, error);
-            break;
+            acceptsMagic = true;
+            [[fallthrough]];
         case EffectSelectorKind::LowestHpAllies:
         case EffectSelectorKind::LowestMpAllies:
         case EffectSelectorKind::StrongestEnemies:
         case EffectSelectorKind::NearestEnemies:
-            knownFields = validateKnownKeys(node, { "類型", "數量", "平手", "排除效果擁有者", "必含目標" }, error);
+            acceptsCount = true;
+            acceptsTie = true;
+            acceptsRequiredTarget = true;
             break;
         case EffectSelectorKind::HighestMpEnemy:
         case EffectSelectorKind::FarthestEnemy:
-            knownFields = validateKnownKeys(node, { "類型", "平手", "排除效果擁有者" }, error);
+            acceptsTie = true;
             break;
         case EffectSelectorKind::UnitsInRadius:
-            knownFields = validateKnownKeys(node, { "類型", "數量", "半徑格數", "隊伍", "平手", "排除效果擁有者", "必含目標" }, error);
-            break;
+            acceptsRadius = true;
+            [[fallthrough]];
         case EffectSelectorKind::UnitsInSquare:
-            knownFields = validateKnownKeys(node, { "類型", "數量", "方形邊長", "隊伍", "平手", "排除效果擁有者", "必含目標" }, error);
+            acceptsSquare = out.kind == EffectSelectorKind::UnitsInSquare;
+            acceptsCount = true;
+            acceptsTie = true;
+            acceptsTeam = true;
+            acceptsRequiredTarget = true;
             break;
         case EffectSelectorKind::AlliesUsingWeapon:
-            knownFields = validateKnownKeys(node, { "類型", "排除效果擁有者", "武器類型", "必含目標" }, error);
+            acceptsWeapon = true;
+            acceptsRequiredTarget = true;
             break;
         }
-        if (!knownFields) return false;
+        if (!optionalBool(*payload, "排除效果擁有者", out.excludeOwner, error)
+            || (acceptsCount && !optionalInt(*payload, "數量", out.count, error))
+            || (acceptsRadius && !optionalInt(*payload, "半徑格數", out.radiusTiles, error))
+            || (acceptsSquare && !optionalInt(*payload, "方形邊長", out.squareSideTiles, error))
+            || (acceptsMagic && !optionalInt(*payload, "武功", out.requiredMagicId, error))
+            || (acceptsWeapon && !optionalInt(*payload, "武器類型", out.requiredWeaponType, error))) return false;
+        if (acceptsTeam)
+        {
+            if (const auto team = (*payload)["隊伍"])
+            {
+                const auto teamLabel = team.as<std::string>();
+                const auto parsed = parseLabel<EffectTeamFilter>(teamLabel, teamFilterEnum);
+                if (!parsed)
+                {
+                    error = std::format("未知隊伍篩選「{}」", teamLabel);
+                    return false;
+                }
+                out.team = *parsed;
+            }
+        }
+        if (acceptsTie)
+        {
+            if (const auto tie = (*payload)["平手"])
+            {
+                const auto tieLabel = tie.as<std::string>();
+                const auto parsed = parseLabel<EffectTieBreak>(tieLabel, tieBreakEnum);
+                if (!parsed)
+                {
+                    error = std::format("未知平手規則「{}」", tieLabel);
+                    return false;
+                }
+                out.tieBreak = *parsed;
+            }
+        }
+        if (acceptsRequiredTarget)
+        {
+            if (const auto required = (*payload)["必含目標"])
+            {
+                const auto requiredLabel = required.as<std::string>();
+                const auto parsed = parseLabel<EffectRequiredTarget>(requiredLabel, requiredTargetEnum);
+                if (!parsed)
+                {
+                    error = std::format("未知必含目標「{}」", requiredLabel);
+                    return false;
+                }
+                out.requiredTarget = *parsed;
+            }
+        }
+        if (!payload->finish(error)) return false;
     }
     if (out.count < 0)
     {
@@ -431,86 +1435,1452 @@ bool parseSelectorNode(const YAML::Node& node, EffectSelector& out, std::string&
     return true;
 }
 
-bool parseConditionNode(const YAML::Node& node, EffectCondition& out, std::string& error)
+enum class TimingIntervalPolicy
 {
-    if (!node || !node.IsMap())
+    Unrestricted,
+    Forbidden,
+    RequiredPositive,
+};
+
+enum class TimingIntent
+{
+    None,
+    DamageDealt,
+    DamageReceived,
+    Kill,
+};
+
+struct TimingDescriptor
+{
+    std::string_view name;
+    EffectEvent event;
+    EffectSelectorKind defaultTarget;
+    TimingIntervalPolicy intervalPolicy;
+    TimingIntent intent;
+};
+
+static constexpr std::array timingDescriptors{
+    TimingDescriptor{ "開場", EffectEvent::BattleInitialized, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "每幀", EffectEvent::FrameAdvanced, EffectSelectorKind::Self, TimingIntervalPolicy::Forbidden, TimingIntent::None },
+    TimingDescriptor{ "每隔", EffectEvent::FrameAdvanced, EffectSelectorKind::Self, TimingIntervalPolicy::RequiredPositive, TimingIntent::None },
+    TimingDescriptor{ "絕招冷卻完成", EffectEvent::UltimateCooldownFinished, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "施放規劃", EffectEvent::CastPlanned, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "攻擊提交", EffectEvent::AttackCommitted, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "絕招施放", EffectEvent::UltimateCommitted, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "攻擊生成", EffectEvent::AttackSpawned, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "主彈命中", EffectEvent::MainProjectileBeforeDamage, EffectSelectorKind::HitTarget, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "命中", EffectEvent::HitBeforeDamage, EffectSelectorKind::HitTarget, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "傷害後", EffectEvent::DamageResolved, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "治療嘗試", EffectEvent::HealAttempted, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "治療套用", EffectEvent::HealApplied, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "施放延續", EffectEvent::CastContinuation, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "施放結算完成", EffectEvent::CastSettled, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "護盾破裂", EffectEvent::ShieldBroken, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "單位死亡", EffectEvent::UnitDied, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "友軍死亡", EffectEvent::AllyDied, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
+    TimingDescriptor{ "造成傷害後", EffectEvent::DamageResolved, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::DamageDealt },
+    TimingDescriptor{ "受傷後", EffectEvent::DamageResolved, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::DamageReceived },
+    TimingDescriptor{ "擊殺後", EffectEvent::DamageResolved, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::Kill },
+};
+
+enum class ConditionAuthorForm
+{
+    Scalar,
+    SingleParameter,
+    Map,
+    ScalarOrMap,
+};
+
+static constexpr std::array<PayloadFieldDescriptor, 0> emptyPayloadFields{};
+static constexpr std::array conditionMagicFields{
+    PayloadFieldDescriptor{ "武功", true, PayloadNodeShape::Integer, "26" },
+};
+static constexpr std::array conditionPercentFields{
+    PayloadFieldDescriptor{ "百分比", true, PayloadNodeShape::Integer, "30" },
+};
+static constexpr std::array conditionStatusFields{
+    PayloadFieldDescriptor{
+        "狀態", true, PayloadNodeShape::String, "中毒", {},
+        PayloadSchemaReference::None, &statusKindEnum,
+    },
+};
+static constexpr std::array conditionStackFields{
+    PayloadFieldDescriptor{
+        "狀態", true, PayloadNodeShape::String, "戰意", {},
+        PayloadSchemaReference::None, &statusKindEnum,
+    },
+    PayloadFieldDescriptor{ "層數", true, PayloadNodeShape::Integer, "2" },
+};
+static constexpr std::array conditionCountFields{
+    PayloadFieldDescriptor{ "數量", true, PayloadNodeShape::Integer, "2" },
+};
+static constexpr std::array conditionOrdinalFields{
+    PayloadFieldDescriptor{ "序號", true, PayloadNodeShape::Integer, "1" },
+};
+static constexpr std::array conditionHealKindsFields{
+    PayloadFieldDescriptor{
+        "治療種類", true, PayloadNodeShape::Sequence, R"(- 命中
+- 吸血)", {}, PayloadSchemaReference::None, &healKindEnum,
+    },
+};
+static constexpr std::array conditionPerspectiveFields{
+    PayloadFieldDescriptor{
+        "方位", true, PayloadNodeShape::String, "承受", {},
+        PayloadSchemaReference::None, &damagePerspectiveEnum,
+    },
+};
+static constexpr std::array conditionDamageKindsFields{
+    PayloadFieldDescriptor{
+        "傷害種類", true, PayloadNodeShape::Sequence, R"(- 招式
+- 特效)", {}, PayloadSchemaReference::None, &damageChannelEnum,
+    },
+};
+static constexpr std::array conditionAcceptedHitFields{
+    PayloadFieldDescriptor{ "需要正傷害", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "排除反彈", false, PayloadNodeShape::Boolean, "true" },
+};
+
+static constexpr PayloadDescriptor conditionEmptyPayload{ "無參數條件", emptyPayloadFields, "{}" };
+static constexpr PayloadDescriptor conditionMagicPayload{ "武功相符", conditionMagicFields, "武功: 26" };
+static constexpr PayloadDescriptor conditionPercentPayload{ "百分比條件", conditionPercentFields, "百分比: 30" };
+static constexpr PayloadDescriptor conditionStatusPayload{ "狀態條件", conditionStatusFields, "狀態: 中毒" };
+static constexpr PayloadDescriptor conditionStackPayload{
+    "自身層數至少", conditionStackFields, R"(狀態: 戰意
+層數: 2)",
+};
+static constexpr PayloadDescriptor conditionCountPayload{ "數量條件", conditionCountFields, "數量: 2" };
+static constexpr PayloadDescriptor conditionOrdinalPayload{ "攻擊序號", conditionOrdinalFields, "序號: 1" };
+static constexpr PayloadDescriptor conditionHealKindsPayload{
+    "治療種類符合", conditionHealKindsFields, R"(治療種類:
+  - 命中)",
+};
+static constexpr PayloadDescriptor conditionPerspectivePayload{ "傷害方位", conditionPerspectiveFields, "方位: 承受" };
+static constexpr PayloadDescriptor conditionDamageKindsPayload{
+    "傷害種類符合", conditionDamageKindsFields, R"(傷害種類:
+  - 招式)",
+};
+static constexpr PayloadDescriptor conditionAcceptedHitPayload{ "已接受命中", conditionAcceptedHitFields, "{}" };
+
+struct ConditionDescriptor
+{
+    std::string_view name;
+    std::size_t variantIndex;
+    ConditionAuthorForm form;
+    std::string_view singleParameterField;
+    const PayloadDescriptor* payload;
+};
+
+static constexpr std::array conditionDescriptors{
+    ConditionDescriptor{ "僅限絕招", 0, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+    ConditionDescriptor{ "武功相符", 1, ConditionAuthorForm::SingleParameter, "武功", &conditionMagicPayload },
+    ConditionDescriptor{ "僅限主彈道", 2, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+    ConditionDescriptor{ "僅限根攻擊", 3, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+    ConditionDescriptor{ "自身生命不高於", 4, ConditionAuthorForm::SingleParameter, "百分比", &conditionPercentPayload },
+    ConditionDescriptor{ "自身生命低於", 5, ConditionAuthorForm::SingleParameter, "百分比", &conditionPercentPayload },
+    ConditionDescriptor{ "自身為最後存活", 6, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+    ConditionDescriptor{ "目標生命不高於", 7, ConditionAuthorForm::SingleParameter, "百分比", &conditionPercentPayload },
+    ConditionDescriptor{ "目標非無敵", 8, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+    ConditionDescriptor{ "自身有狀態", 9, ConditionAuthorForm::SingleParameter, "狀態", &conditionStatusPayload },
+    ConditionDescriptor{ "目標有狀態", 10, ConditionAuthorForm::SingleParameter, "狀態", &conditionStatusPayload },
+    ConditionDescriptor{ "目標有此來源狀態", 11, ConditionAuthorForm::SingleParameter, "狀態", &conditionStatusPayload },
+    ConditionDescriptor{ "自身層數至少", 12, ConditionAuthorForm::Map, {}, &conditionStackPayload },
+    ConditionDescriptor{ "其他存活友軍使用武功", 13, ConditionAuthorForm::SingleParameter, "武功", &conditionMagicPayload },
+    ConditionDescriptor{ "不同目標數至少", 14, ConditionAuthorForm::SingleParameter, "數量", &conditionCountPayload },
+    ConditionDescriptor{ "攻擊序號", 15, ConditionAuthorForm::SingleParameter, "序號", &conditionOrdinalPayload },
+    ConditionDescriptor{ "治療種類符合", 16, ConditionAuthorForm::SingleParameter, "治療種類", &conditionHealKindsPayload },
+    ConditionDescriptor{ "傷害來自招式", 17, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+    ConditionDescriptor{ "傷害造成死亡", 18, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+    ConditionDescriptor{ "已接受命中", 19, ConditionAuthorForm::ScalarOrMap, {}, &conditionAcceptedHitPayload },
+    ConditionDescriptor{ "事件目標屬於綁定來源", 20, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+    ConditionDescriptor{ "傷害方位", 21, ConditionAuthorForm::SingleParameter, "方位", &conditionPerspectivePayload },
+    ConditionDescriptor{ "傷害種類符合", 22, ConditionAuthorForm::SingleParameter, "傷害種類", &conditionDamageKindsPayload },
+    ConditionDescriptor{ "受益者施放前滿內", 23, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+    ConditionDescriptor{ "有合法隨機目標", 24, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
+};
+
+enum class ActionPayloadKind
+{
+    AttributeModifier,
+    DamageModifier,
+    ResourceChange,
+    HealTransactionModifier,
+    ApplyStatus,
+    ConsumeStatus,
+    RemoveStatus,
+    Damage,
+    Attack,
+    ForceMove,
+    Area,
+    Cast,
+    StateMachine,
+    Conditional,
+};
+
+static constexpr std::array attackRuntimeBehaviorFields{
+    PayloadFieldDescriptor{
+        "類型", true, PayloadNodeShape::String, "彈道彈射", {},
+        PayloadSchemaReference::None, &attackRuntimeBehaviorKindEnum,
+    },
+    PayloadFieldDescriptor{ "追加命中次數", false, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{ "機率", false, PayloadNodeShape::Integer, "50" },
+    PayloadFieldDescriptor{ "範圍像素", false, PayloadNodeShape::Integer, "120" },
+    PayloadFieldDescriptor{
+        "傷害倍率", false, PayloadNodeShape::Integer, "80", R"(類型: 範圍追蹤
+範圍像素: 120
+傷害倍率: 100)",
+    },
+    PayloadFieldDescriptor{
+        "延遲幀數", false, PayloadNodeShape::Integer, "10", R"(類型: 延遲替代攻擊
+延遲幀數: 5
+傷害倍率: 100
+攻擊者獲得格擋機率: 20)",
+    },
+    PayloadFieldDescriptor{
+        "攻擊者獲得格擋機率", false, PayloadNodeShape::Integer, "20", R"(類型: 延遲替代攻擊
+延遲幀數: 5
+傷害倍率: 100
+攻擊者獲得格擋機率: 20)",
+    },
+    PayloadFieldDescriptor{
+        "彈道數量", false, PayloadNodeShape::Integer, "4", R"(類型: 擴張螺旋
+彈道數量: 4
+流血層數: 1)",
+    },
+    PayloadFieldDescriptor{
+        "流血層數", false, PayloadNodeShape::Integer, "1", R"(類型: 擴張螺旋
+彈道數量: 4
+流血層數: 1)",
+    },
+};
+static constexpr PayloadDescriptor attackRuntimeBehaviorPayload{
+    "攻擊執行行為", attackRuntimeBehaviorFields, R"(類型: 彈道彈射
+追加命中次數: 1
+機率: 50
+範圍像素: 120)",
+};
+
+static constexpr std::array areaModifierFields{
+    PayloadFieldDescriptor{
+        "類型", true, PayloadNodeShape::String, "強制移動免疫", {},
+        PayloadSchemaReference::None, &areaModifierKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "關係", true, PayloadNodeShape::String, "友方", {},
+        PayloadSchemaReference::None, &areaRelationEnum,
+    },
+    PayloadFieldDescriptor{
+        "屬性", false, PayloadNodeShape::String, "攻擊", R"(類型: 屬性修正
+關係: 友方
+屬性: 防禦
+數值: 10
+重疊方式: 相加)", PayloadSchemaReference::None, &battleAttributeEnum,
+    },
+    PayloadFieldDescriptor{
+        "數值", false, PayloadNodeShape::Number, "10", R"(類型: 屬性修正
+關係: 友方
+屬性: 防禦
+數值: 10
+重疊方式: 相加)", PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "百分比", false, PayloadNodeShape::Integer, "10", R"(類型: 造成傷害修正
+關係: 友方
+百分比: 10
+傷害種類: 招式
+重疊方式: 相加)",
+    },
+    PayloadFieldDescriptor{
+        "傷害種類", false, PayloadNodeShape::String, "招式", R"(類型: 造成傷害修正
+關係: 友方
+百分比: 10
+傷害種類: 招式
+重疊方式: 相加)", PayloadSchemaReference::None, &damageChannelEnum,
+    },
+    PayloadFieldDescriptor{
+        "追蹤", false, PayloadNodeShape::Boolean, "true", R"(類型: 攻擊生成修正
+關係: 友方
+追蹤: true
+重疊方式: 任一)",
+    },
+    PayloadFieldDescriptor{
+        "彈速百分比", false, PayloadNodeShape::Integer, "10", R"(類型: 攻擊生成修正
+關係: 友方
+彈速百分比: 10
+重疊方式: 相加)",
+    },
+    PayloadFieldDescriptor{
+        "彈道壓制百分比", false, PayloadNodeShape::Integer, "10", R"(類型: 攻擊生成修正
+關係: 友方
+彈道壓制百分比: 10
+重疊方式: 相加)",
+    },
+    PayloadFieldDescriptor{
+        "阻擋方向", false, PayloadNodeShape::String, "遠離來源", {},
+        PayloadSchemaReference::None, &areaBlockedDirectionEnum,
+    },
+    PayloadFieldDescriptor{
+        "重疊方式", true, PayloadNodeShape::String, "任一", {},
+        PayloadSchemaReference::None, &areaOverlapPolicyEnum,
+    },
+};
+static constexpr PayloadDescriptor areaModifierPayload{
+    "區域修正", areaModifierFields, R"(類型: 強制移動免疫
+關係: 友方
+阻擋方向: 遠離來源
+重疊方式: 任一)",
+};
+
+static constexpr std::array areaProjectileFields{
+    PayloadFieldDescriptor{ "範圍格數", true, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{ "最多目標", true, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{ "眩暈幀數", true, PayloadNodeShape::Integer, "10" },
+    PayloadFieldDescriptor{ "追蹤事件來源", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{
+        "特效", true, PayloadNodeShape::String, "死亡爆炸", {},
+        PayloadSchemaReference::None, &areaProjectileVisualEnum,
+    },
+};
+static constexpr PayloadDescriptor areaProjectilePayload{
+    "區域投射物", areaProjectileFields, R"(範圍格數: 3
+最多目標: 2
+眩暈幀數: 10
+特效: 死亡爆炸)",
+};
+
+static constexpr std::array autoUltimateFields{
+    PayloadFieldDescriptor{ "消耗內力", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "顯示公告", false, PayloadNodeShape::Boolean, "true" },
+};
+static constexpr PayloadDescriptor autoUltimatePayload{
+    "自動絕招", autoUltimateFields, "{}",
+};
+
+static constexpr std::array attributeModifierFields{
+    PayloadFieldDescriptor{
+        "屬性", true, PayloadNodeShape::String, "攻擊", {},
+        PayloadSchemaReference::None, &battleAttributeEnum,
+    },
+    PayloadFieldDescriptor{
+        "方式", true, PayloadNodeShape::String, "固定加算", {},
+        PayloadSchemaReference::None, &attributeOperationEnum,
+    },
+    PayloadFieldDescriptor{
+        "數值", true, PayloadNodeShape::Number, "1", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{ "持續幀數", false, PayloadNodeShape::Integer, "30" },
+    PayloadFieldDescriptor{
+        "合併方式", false, PayloadNodeShape::String, "刷新", {},
+        PayloadSchemaReference::None, &stackPolicyEnum,
+    },
+    PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{ "每層", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{
+        "疊加範圍", false, PayloadNodeShape::String, "事件來源", {},
+        PayloadSchemaReference::None, &stackScopeEnum,
+    },
+};
+static constexpr std::array damageModifierFields{
+    PayloadFieldDescriptor{
+        "方位", false, PayloadNodeShape::String, "造成", {},
+        PayloadSchemaReference::None, &damageModifierPerspectiveEnum,
+    },
+    PayloadFieldDescriptor{
+        "階段", true, PayloadNodeShape::String, "防禦前", {},
+        PayloadSchemaReference::None, &damageModifierStageEnum,
+    },
+    PayloadFieldDescriptor{
+        "傷害種類", true, PayloadNodeShape::String, "招式", {},
+        PayloadSchemaReference::None, &damageChannelEnum,
+    },
+    PayloadFieldDescriptor{
+        "方式", true, PayloadNodeShape::String, "固定加算", {},
+        PayloadSchemaReference::None, &damageModifierOperationEnum,
+    },
+    PayloadFieldDescriptor{
+        "數值", true, PayloadNodeShape::Number, "1", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{ "持續幀數", false, PayloadNodeShape::Integer, "30" },
+    PayloadFieldDescriptor{
+        "合併方式", false, PayloadNodeShape::String, "刷新", {},
+        PayloadSchemaReference::None, &stackPolicyEnum,
+    },
+    PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{
+        "疊加範圍", false, PayloadNodeShape::String, "事件來源", {},
+        PayloadSchemaReference::None, &stackScopeEnum,
+    },
+};
+static constexpr std::array resourceChangeFields{
+    PayloadFieldDescriptor{
+        "資源", true, PayloadNodeShape::String, "內力", {},
+        PayloadSchemaReference::None, &resourceEnum,
+    },
+    PayloadFieldDescriptor{
+        "方式", true, PayloadNodeShape::String, "回復", {},
+        PayloadSchemaReference::None, &resourceChangeKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "數值", true, PayloadNodeShape::Number, "1", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "轉移目標", false, PayloadNodeShape::Selector, "自身", {},
+        PayloadSchemaReference::Selector,
+    },
+    PayloadFieldDescriptor{
+        "治療種類", false, PayloadNodeShape::String, "直接", {},
+        PayloadSchemaReference::None, &healKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "來源政策", false, PayloadNodeShape::String, "允許死亡來源", {},
+        PayloadSchemaReference::None, &healSourcePolicyEnum,
+    },
+};
+static constexpr std::array healTransactionModifierFields{
+    PayloadFieldDescriptor{
+        "方式", true, PayloadNodeShape::String, "阻止", {},
+        PayloadSchemaReference::None, &healModifierOperationEnum,
+    },
+    PayloadFieldDescriptor{
+        "百分比", false, PayloadNodeShape::Integer, "50", R"(方式: 受到治療乘算
+百分比: 50
+治療種類:
+  - 直接)",
+    },
+    PayloadFieldDescriptor{
+        "治療種類", true, PayloadNodeShape::Sequence, R"(- 直接
+- 命中)", {}, PayloadSchemaReference::None, &healKindEnum,
+    },
+};
+static constexpr std::array applyStatusFields{
+    PayloadFieldDescriptor{
+        "狀態", true, PayloadNodeShape::String, "中毒", {},
+        PayloadSchemaReference::None, &statusKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "持續幀數", false, PayloadNodeShape::Number, "30", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "套用次數", false, PayloadNodeShape::Number, "2", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{ "層數", false, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{
+        "強度", false, PayloadNodeShape::Number, "10", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "次要強度", false, PayloadNodeShape::Number, "5", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "合併方式", false, PayloadNodeShape::String, "增加層數", {},
+        PayloadSchemaReference::None, &stackPolicyEnum,
+    },
+    PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "5" },
+    PayloadFieldDescriptor{ "同事件合計強度", false, PayloadNodeShape::Boolean, "true" },
+};
+static constexpr std::array consumeStatusFields{
+    PayloadFieldDescriptor{
+        "狀態", true, PayloadNodeShape::String, "中毒", {},
+        PayloadSchemaReference::None, &statusKindEnum,
+    },
+    PayloadFieldDescriptor{ "層數", false, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{
+        "狀態來源", false, PayloadNodeShape::String, "效果擁有者", {},
+        PayloadSchemaReference::None, &statusSourceMatchEnum,
+    },
+    PayloadFieldDescriptor{
+        "最後一層", false, PayloadNodeShape::ActionNode, R"(套用狀態:
+  狀態: 眩暈)", {}, PayloadSchemaReference::ActionNode,
+    },
+};
+static constexpr std::array removeStatusFields{
+    PayloadFieldDescriptor{
+        "狀態", false, PayloadNodeShape::StringOrSequence, R"(- 中毒
+- 流血)", {}, PayloadSchemaReference::None, &statusKindEnum,
+    },
+    PayloadFieldDescriptor{ "僅負面", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "僅控制", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "解除目前動作僵直", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "數量", false, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{
+        "順序", false, PayloadNodeShape::String, "最長剩餘", {},
+        PayloadSchemaReference::None, &statusRemovalOrderEnum,
+    },
+};
+static constexpr std::array dealDamageFields{
+    PayloadFieldDescriptor{
+        "數值", true, PayloadNodeShape::Number, "10", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "交易次數", false, PayloadNodeShape::Number, "2", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "傷害種類", true, PayloadNodeShape::String, "純粹", {},
+        PayloadSchemaReference::None, &battleDamageKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "範圍", false, PayloadNodeShape::String, "圓形", {},
+        PayloadSchemaReference::None, &damageAreaKindEnum,
+    },
+    PayloadFieldDescriptor{ "半徑格數", false, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{ "方形邊長", false, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{ "同目標命中上限", false, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{ "套用傷害修正", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "觸發受傷無敵", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{
+        "區域投射物", false, PayloadNodeShape::Map, R"(範圍格數: 3
+最多目標: 2
+眩暈幀數: 10
+特效: 死亡爆炸)", {}, PayloadSchemaReference::Payload, nullptr,
+        &areaProjectilePayload,
+    },
+};
+static constexpr std::array modifyAttackFields{
+    PayloadFieldDescriptor{
+        "樣式", false, PayloadNodeShape::String, "扇形", {},
+        PayloadSchemaReference::None, &attackPatternKindEnum,
+    },
+    PayloadFieldDescriptor{ "數量", false, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{ "展開角度", false, PayloadNodeShape::Integer, "30" },
+    PayloadFieldDescriptor{ "間隔幀數", false, PayloadNodeShape::Integer, "5" },
+    PayloadFieldDescriptor{ "傷害倍率", false, PayloadNodeShape::Integer, "100" },
+    PayloadFieldDescriptor{ "貫穿", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "追蹤", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "視為主彈道", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{ "同目標命中上限", false, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{
+        "目標政策", false, PayloadNodeShape::String, "選擇目標", {},
+        PayloadSchemaReference::None, &attackTargetPolicyEnum,
+    },
+    PayloadFieldDescriptor{
+        "傳播政策", false, PayloadNodeShape::String, "來源全部規則", {},
+        PayloadSchemaReference::None, &propagationPolicyEnum,
+    },
+    PayloadFieldDescriptor{ "追加至基礎攻擊", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{
+        "攻擊來源", false, PayloadNodeShape::Selector, "自身", {},
+        PayloadSchemaReference::Selector,
+    },
+    PayloadFieldDescriptor{
+        "傷害數值", false, PayloadNodeShape::Number, "10", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "傷害種類", false, PayloadNodeShape::String, "招式", {},
+        PayloadSchemaReference::None, &battleDamageKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "執行行為", false, PayloadNodeShape::Map, R"(類型: 彈道彈射
+追加命中次數: 1
+機率: 50
+範圍像素: 120)", {}, PayloadSchemaReference::Payload, nullptr,
+        &attackRuntimeBehaviorPayload,
+    },
+};
+static constexpr std::array forceMoveFields{
+    PayloadFieldDescriptor{
+        "方向", true, PayloadNodeShape::String, "遠離來源", {},
+        PayloadSchemaReference::None, &forceMoveDirectionEnum,
+    },
+    PayloadFieldDescriptor{ "距離格數", false, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{ "距離像素", false, PayloadNodeShape::Integer, "40" },
+    PayloadFieldDescriptor{ "鎖定幀數", false, PayloadNodeShape::Integer, "10" },
+    PayloadFieldDescriptor{
+        "碰撞", true, PayloadNodeShape::String, "阻擋前停止", {},
+        PayloadSchemaReference::None, &forceMoveCollisionEnum,
+    },
+    PayloadFieldDescriptor{
+        "受阻結果", true, PayloadNodeShape::String, "縮短", {},
+        PayloadSchemaReference::None, &forceMoveBlockedResultEnum,
+    },
+};
+static constexpr std::array createAreaFields{
+    PayloadFieldDescriptor{
+        "形狀", true, PayloadNodeShape::String, "圓形", {},
+        PayloadSchemaReference::None, &areaShapeEnum,
+    },
+    PayloadFieldDescriptor{ "半徑格數", false, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{ "方形邊長", false, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{
+        "錨點", true, PayloadNodeShape::String, "命中位置", {},
+        PayloadSchemaReference::None, &areaAnchorEnum,
+    },
+    PayloadFieldDescriptor{ "持續幀數", true, PayloadNodeShape::Integer, "60" },
+    PayloadFieldDescriptor{
+        "來源死亡", true, PayloadNodeShape::String, "保留至到期", {},
+        PayloadSchemaReference::None, &areaSourceDeathPolicyEnum,
+    },
+    PayloadFieldDescriptor{
+        "合併方式", true, PayloadNodeShape::String, "獨立", {},
+        PayloadSchemaReference::None, &areaMergePolicyEnum,
+    },
+    PayloadFieldDescriptor{
+        "區域修正", true, PayloadNodeShape::Sequence, R"(- 類型: 強制移動免疫
+  關係: 友方
+  阻擋方向: 遠離來源
+  重疊方式: 任一)", {}, PayloadSchemaReference::PayloadList, nullptr,
+        &areaModifierPayload,
+    },
+};
+static constexpr std::array modifyCastFields{
+    PayloadFieldDescriptor{
+        "內力消耗", false, PayloadNodeShape::Number, "10", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "射程模式", false, PayloadNodeShape::String, "保留", {},
+        PayloadSchemaReference::None, &castRangeModeEnum,
+    },
+    PayloadFieldDescriptor{ "彈道速度百分比", false, PayloadNodeShape::Integer, "120" },
+    PayloadFieldDescriptor{ "最小選擇距離", false, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{ "追加彈道數", false, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{
+        "機動政策", false, PayloadNodeShape::String, "滑步攻擊", {},
+        PayloadSchemaReference::None, &castMobilityPolicyEnum,
+    },
+    PayloadFieldDescriptor{
+        "自動絕招", false, PayloadNodeShape::Map, R"(消耗內力: true
+顯示公告: true)", {}, PayloadSchemaReference::Payload, nullptr,
+        &autoUltimatePayload,
+    },
+    PayloadFieldDescriptor{ "免費追加施放", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{
+        "傳播政策", false, PayloadNodeShape::String, "來源全部規則", {},
+        PayloadSchemaReference::None, &propagationPolicyEnum,
+    },
+    PayloadFieldDescriptor{
+        "樣式", false, PayloadNodeShape::String, "扇形", {},
+        PayloadSchemaReference::None, &attackPatternKindEnum,
+    },
+    PayloadFieldDescriptor{ "數量", false, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{ "展開角度", false, PayloadNodeShape::Integer, "30" },
+    PayloadFieldDescriptor{ "間隔幀數", false, PayloadNodeShape::Integer, "5" },
+};
+static constexpr std::array stateMachineFields{
+    PayloadFieldDescriptor{
+        "機制", true, PayloadNodeShape::String, "生成分身", {},
+        PayloadSchemaReference::None, &stateMachineMechanismEnum,
+    },
+    PayloadFieldDescriptor{
+        "狀態槽", false, PayloadNodeShape::String, "永久施放進展", R"(機制: 變更狀態值
+狀態槽: 永久施放進展
+增量: 1)", PayloadSchemaReference::None, &stateSlotEnum,
+    },
+    PayloadFieldDescriptor{
+        "來源狀態槽", false, PayloadNodeShape::String, "最大招式生命傷害", R"(機制: 轉移狀態值
+來源狀態槽: 最大招式生命傷害
+目標狀態槽: 本次施放最高生命傷害)", PayloadSchemaReference::None, &stateSlotEnum,
+    },
+    PayloadFieldDescriptor{
+        "目標狀態槽", false, PayloadNodeShape::String, "本次施放最高生命傷害", R"(機制: 轉移狀態值
+來源狀態槽: 最大招式生命傷害
+目標狀態槽: 本次施放最高生命傷害)", PayloadSchemaReference::None, &stateSlotEnum,
+    },
+    PayloadFieldDescriptor{
+        "增量", false, PayloadNodeShape::Integer, "1", R"(機制: 變更狀態值
+狀態槽: 永久施放進展
+增量: 1)",
+    },
+    PayloadFieldDescriptor{
+        "最小", false, PayloadNodeShape::Integer, "0", R"(機制: 變更狀態值
+狀態槽: 永久施放進展
+增量: 1)",
+    },
+    PayloadFieldDescriptor{
+        "最大", false, PayloadNodeShape::Integer, "10", R"(機制: 變更狀態值
+狀態槽: 永久施放進展
+增量: 1)",
+    },
+    PayloadFieldDescriptor{
+        "百分比", false, PayloadNodeShape::Integer, "50", R"(機制: 消耗記錄為護盾
+狀態槽: 最大招式生命傷害
+百分比: 100)",
+    },
+    PayloadFieldDescriptor{
+        "消耗後清除", false, PayloadNodeShape::Boolean, "true", R"(機制: 消耗記錄為護盾
+狀態槽: 最大招式生命傷害)",
+    },
+    PayloadFieldDescriptor{
+        "持續幀數", false, PayloadNodeShape::Integer, "60", R"(機制: 開始傷害吸收
+狀態槽: 累計吸收傷害
+百分比: 50
+持續幀數: 60
+結算目標: 自身
+結算傷害種類: 純粹
+結算百分比: 100)",
+    },
+    PayloadFieldDescriptor{
+        "死亡結算", false, PayloadNodeShape::Boolean, "true", R"(機制: 開始傷害吸收
+狀態槽: 累計吸收傷害
+百分比: 50
+持續幀數: 60
+結算目標: 自身
+結算傷害種類: 純粹
+結算百分比: 100)",
+    },
+    PayloadFieldDescriptor{
+        "結算目標", false, PayloadNodeShape::Selector, "自身", R"(機制: 開始傷害吸收
+狀態槽: 累計吸收傷害
+百分比: 50
+持續幀數: 60
+結算目標: 自身
+結算傷害種類: 純粹
+結算百分比: 100)", PayloadSchemaReference::Selector,
+    },
+    PayloadFieldDescriptor{
+        "結算傷害種類", false, PayloadNodeShape::String, "純粹", R"(機制: 開始傷害吸收
+狀態槽: 累計吸收傷害
+百分比: 50
+持續幀數: 60
+結算目標: 自身
+結算傷害種類: 純粹
+結算百分比: 100)", PayloadSchemaReference::None, &battleDamageKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "結算百分比", false, PayloadNodeShape::Integer, "100", R"(機制: 開始傷害吸收
+狀態槽: 累計吸收傷害
+百分比: 50
+持續幀數: 60
+結算目標: 自身
+結算傷害種類: 純粹
+結算百分比: 100)",
+    },
+    PayloadFieldDescriptor{
+        "目標", false, PayloadNodeShape::Selector, "自身", R"(機制: 結算傷害吸收
+狀態槽: 累計吸收傷害)", PayloadSchemaReference::Selector,
+    },
+    PayloadFieldDescriptor{
+        "來源數量", false, PayloadNodeShape::Number, "1", R"(機制: 借用效果規則
+目標: 友軍
+來源數量: 1
+允許動作類別:
+  - 傷害修正
+傳播政策: 來源全部規則)", PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "允許動作類別", false, PayloadNodeShape::Sequence, R"(- 傷害修正
+- 狀態)", R"(機制: 借用效果規則
+目標: 友軍
+來源數量: 1
+允許動作類別:
+  - 傷害修正
+傳播政策: 來源全部規則)", PayloadSchemaReference::None,
+        &borrowedRuleActionCategoryEnum,
+    },
+    PayloadFieldDescriptor{
+        "傳播政策", false, PayloadNodeShape::String, "來源全部規則", R"(機制: 借用效果規則
+目標: 友軍
+來源數量: 1
+允許動作類別:
+  - 傷害修正
+傳播政策: 來源全部規則)", PayloadSchemaReference::None, &propagationPolicyEnum,
+    },
+    PayloadFieldDescriptor{
+        "可選武功條件", false, PayloadNodeShape::Sequence, R"(- 有絕招攻擊定義
+- 排除複製與借用遞迴)", R"(機制: 複製攻擊定義
+目標: 友軍
+可選武功條件:
+  - 有絕招攻擊定義
+來源數量: 1
+傳播政策: 來源全部規則)", PayloadSchemaReference::None, &copiedMagicConditionEnum,
+    },
+    PayloadFieldDescriptor{
+        "狀態", false, PayloadNodeShape::String, "中毒", R"(機制: 結算剩餘狀態傷害
+狀態: 中毒)", PayloadSchemaReference::None, &statusKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "數量", false, PayloadNodeShape::Integer, "2", R"(機制: 生成分身
+數量: 1)",
+    },
+    PayloadFieldDescriptor{
+        "無敵幀數", false, PayloadNodeShape::Integer, "30", R"(機制: 死亡庇護
+無敵幀數: 30)",
+    },
+    PayloadFieldDescriptor{
+        "次數", false, PayloadNodeShape::Integer, "1", R"(機制: 保護挪移
+次數: 1)",
+    },
+};
+static constexpr std::array conditionalFields{
+    PayloadFieldDescriptor{
+        "條件", true, PayloadNodeShape::ConditionList, R"(- 僅限絕招)", {},
+        PayloadSchemaReference::ConditionList,
+    },
+    PayloadFieldDescriptor{
+        "成立", true, PayloadNodeShape::ActionList, R"(- 獲得護盾: 1)", {},
+        PayloadSchemaReference::ActionList,
+    },
+    PayloadFieldDescriptor{
+        "否則", false, PayloadNodeShape::ActionList, R"(- 回復內力: 1)", {},
+        PayloadSchemaReference::ActionList,
+    },
+};
+
+static constexpr PayloadDescriptor attributeModifierPayload{
+    "屬性修正", attributeModifierFields, R"(屬性: 攻擊
+方式: 固定加算
+數值: 1)",
+};
+static constexpr PayloadDescriptor damageModifierPayload{
+    "傷害修正", damageModifierFields, R"(方位: 造成
+階段: 防禦前
+傷害種類: 招式
+方式: 固定加算
+數值: 1)",
+};
+static constexpr PayloadDescriptor resourceChangePayload{
+    "資源變更", resourceChangeFields, R"(資源: 內力
+方式: 回復
+數值: 1)",
+};
+static constexpr PayloadDescriptor healTransactionModifierPayload{
+    "治療交易修正", healTransactionModifierFields, R"(方式: 阻止
+治療種類:
+  - 直接)",
+};
+static constexpr PayloadDescriptor applyStatusPayload{
+    "套用狀態", applyStatusFields, "狀態: 中毒",
+};
+static constexpr PayloadDescriptor consumeStatusPayload{
+    "消耗狀態", consumeStatusFields, "狀態: 中毒",
+};
+static constexpr PayloadDescriptor removeStatusPayload{
+    "移除狀態", removeStatusFields, "狀態: 中毒",
+};
+static constexpr PayloadDescriptor dealDamagePayload{
+    "造成傷害", dealDamageFields, R"(數值: 1
+傷害種類: 純粹)",
+};
+static constexpr PayloadDescriptor modifyAttackPayload{
+    "修改攻擊", modifyAttackFields, "樣式: 保留",
+};
+static constexpr PayloadDescriptor forceMovePayload{
+    "強制移動", forceMoveFields, R"(方向: 遠離來源
+距離格數: 1
+碰撞: 阻擋前停止
+受阻結果: 縮短)",
+};
+static constexpr PayloadDescriptor createAreaPayload{
+    "建立區域", createAreaFields, R"(形狀: 圓形
+半徑格數: 1
+錨點: 命中位置
+持續幀數: 1
+來源死亡: 保留至到期
+合併方式: 獨立
+區域修正:
+  - 類型: 強制移動免疫
+    關係: 友方
+    阻擋方向: 遠離來源
+    重疊方式: 任一)",
+};
+static constexpr PayloadDescriptor modifyCastPayload{
+    "修改施放", modifyCastFields, "射程模式: 保留",
+};
+static constexpr PayloadDescriptor stateMachinePayload{
+    "狀態機", stateMachineFields, R"(機制: 生成分身
+數量: 1)",
+};
+static constexpr PayloadDescriptor conditionalPayload{
+    "條件分支", conditionalFields, R"(條件:
+  - 僅限絕招
+成立:
+  - 獲得護盾: 1)",
+};
+
+struct ActionDescriptor
+{
+    std::string_view name;
+    std::size_t variantIndex;
+    ActionPayloadKind payloadKind;
+    const PayloadDescriptor* payload;
+};
+
+static constexpr std::array actionDescriptors{
+    ActionDescriptor{ "屬性修正", 0, ActionPayloadKind::AttributeModifier, &attributeModifierPayload },
+    ActionDescriptor{ "傷害修正", 1, ActionPayloadKind::DamageModifier, &damageModifierPayload },
+    ActionDescriptor{ "資源變更", 2, ActionPayloadKind::ResourceChange, &resourceChangePayload },
+    ActionDescriptor{ "治療交易修正", 3, ActionPayloadKind::HealTransactionModifier, &healTransactionModifierPayload },
+    ActionDescriptor{ "套用狀態", 4, ActionPayloadKind::ApplyStatus, &applyStatusPayload },
+    ActionDescriptor{ "消耗狀態", 5, ActionPayloadKind::ConsumeStatus, &consumeStatusPayload },
+    ActionDescriptor{ "移除狀態", 6, ActionPayloadKind::RemoveStatus, &removeStatusPayload },
+    ActionDescriptor{ "造成傷害", 7, ActionPayloadKind::Damage, &dealDamagePayload },
+    ActionDescriptor{ "修改攻擊", 8, ActionPayloadKind::Attack, &modifyAttackPayload },
+    ActionDescriptor{ "強制移動", 9, ActionPayloadKind::ForceMove, &forceMovePayload },
+    ActionDescriptor{ "建立區域", 10, ActionPayloadKind::Area, &createAreaPayload },
+    ActionDescriptor{ "修改施放", 11, ActionPayloadKind::Cast, &modifyCastPayload },
+    ActionDescriptor{ "狀態機", 12, ActionPayloadKind::StateMachine, &stateMachinePayload },
+    ActionDescriptor{ "條件分支", 13, ActionPayloadKind::Conditional, &conditionalPayload },
+};
+
+enum class MacroPayloadKind
+{
+    AttributeBonus,
+    Resource,
+    Number,
+    Heal,
+    ForceMove,
+};
+
+static constexpr std::array<PayloadFieldDescriptor, 0> attributePercentageFields{};
+static constexpr PayloadDescriptor attributePercentagePayload{
+    "屬性加成.百分比", attributePercentageFields, "攻擊: 1",
+    PayloadDynamicKeyClass::BattleAttribute, PayloadNodeShape::Integer, "攻擊", "1", 1,
+};
+static constexpr std::array attributeBonusFields{
+    PayloadFieldDescriptor{
+        "百分比", false, PayloadNodeShape::Map, "攻擊: 10", "{}",
+        PayloadSchemaReference::Payload, nullptr, &attributePercentagePayload,
+    },
+    PayloadFieldDescriptor{ "持續幀數", false, PayloadNodeShape::Integer, "30" },
+    PayloadFieldDescriptor{
+        "合併方式", false, PayloadNodeShape::String, "刷新", {},
+        PayloadSchemaReference::None, &stackPolicyEnum,
+    },
+    PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{ "每層", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{
+        "疊加範圍", false, PayloadNodeShape::String, "事件來源", {},
+        PayloadSchemaReference::None, &stackScopeEnum,
+    },
+};
+static constexpr std::array resourceMacroFields{
+    PayloadFieldDescriptor{
+        "資源", true, PayloadNodeShape::String, "內力", {},
+        PayloadSchemaReference::None, &resourceEnum,
+    },
+    PayloadFieldDescriptor{
+        "數值", true, PayloadNodeShape::Number, "1", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "轉移目標", false, PayloadNodeShape::Selector, "自身", {},
+        PayloadSchemaReference::Selector,
+    },
+    PayloadFieldDescriptor{
+        "治療種類", false, PayloadNodeShape::String, "直接", {},
+        PayloadSchemaReference::None, &healKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "來源政策", false, PayloadNodeShape::String, "允許死亡來源", {},
+        PayloadSchemaReference::None, &healSourcePolicyEnum,
+    },
+};
+static constexpr std::array healMacroFields{
+    PayloadFieldDescriptor{
+        "數值", true, PayloadNodeShape::Number, "1", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "治療種類", false, PayloadNodeShape::String, "直接", {},
+        PayloadSchemaReference::None, &healKindEnum,
+    },
+    PayloadFieldDescriptor{
+        "來源政策", false, PayloadNodeShape::String, "允許死亡來源", {},
+        PayloadSchemaReference::None, &healSourcePolicyEnum,
+    },
+};
+static constexpr std::array forceMoveMacroFields{
+    PayloadFieldDescriptor{ "距離格數", false, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{ "距離像素", false, PayloadNodeShape::Integer, "40" },
+    PayloadFieldDescriptor{ "鎖定幀數", false, PayloadNodeShape::Integer, "10" },
+};
+static constexpr PayloadDescriptor attributeBonusPayload{
+    "屬性加成", attributeBonusFields, "攻擊: 1",
+    PayloadDynamicKeyClass::BattleAttribute, PayloadNodeShape::Integer, "攻擊", "1", 1,
+    "百分比",
+};
+static constexpr PayloadDescriptor resourceMacroPayload{
+    "資源巨集", resourceMacroFields, R"(資源: 內力
+數值: 1)",
+};
+static constexpr PayloadDescriptor healMacroPayload{
+    "回復生命", healMacroFields, "數值: 1",
+};
+static constexpr PayloadDescriptor forceMoveMacroPayload{
+    "移動巨集", forceMoveMacroFields, "距離格數: 1",
+};
+
+struct MacroDescriptor
+{
+    std::string_view name;
+    MacroPayloadKind payloadKind;
+    const PayloadDescriptor* payload;
+};
+
+static constexpr std::array macroDescriptors{
+    MacroDescriptor{ "屬性加成", MacroPayloadKind::AttributeBonus, &attributeBonusPayload },
+    MacroDescriptor{ "回復資源", MacroPayloadKind::Resource, &resourceMacroPayload },
+    MacroDescriptor{ "獲得資源", MacroPayloadKind::Resource, &resourceMacroPayload },
+    MacroDescriptor{ "奪取資源", MacroPayloadKind::Resource, &resourceMacroPayload },
+    MacroDescriptor{ "回復內力", MacroPayloadKind::Number, &effectNumberPayload },
+    MacroDescriptor{ "回復生命", MacroPayloadKind::Heal, &healMacroPayload },
+    MacroDescriptor{ "獲得護盾", MacroPayloadKind::Number, &effectNumberPayload },
+    MacroDescriptor{ "忽略防禦", MacroPayloadKind::Number, &effectNumberPayload },
+    MacroDescriptor{ "單次承傷上限", MacroPayloadKind::Number, &effectNumberPayload },
+    MacroDescriptor{ "擊退", MacroPayloadKind::ForceMove, &forceMoveMacroPayload },
+    MacroDescriptor{ "拉近", MacroPayloadKind::ForceMove, &forceMoveMacroPayload },
+};
+
+static constexpr std::array ruleFields{
+    PayloadFieldDescriptor{
+        "時機", true, PayloadNodeShape::String, "傷害後", {},
+        PayloadSchemaReference::Timing,
+    },
+    PayloadFieldDescriptor{
+        "觀察範圍", false, PayloadNodeShape::String, "效果擁有者", {},
+        PayloadSchemaReference::None, &observationScopeEnum,
+    },
+    PayloadFieldDescriptor{
+        "施放匹配", false, PayloadNodeShape::String, "綁定武功", {},
+        PayloadSchemaReference::None, &castMatchEnum,
+    },
+    PayloadFieldDescriptor{
+        "目標", false, PayloadNodeShape::Selector, "自身", {},
+        PayloadSchemaReference::Selector,
+    },
+    PayloadFieldDescriptor{
+        "條件", false, PayloadNodeShape::ConditionList, R"(- 已接受命中)", {},
+        PayloadSchemaReference::ConditionList,
+    },
+    PayloadFieldDescriptor{ "機率", false, PayloadNodeShape::Integer, "50" },
+    PayloadFieldDescriptor{ "次數", false, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{ "同來源冷卻幀數", false, PayloadNodeShape::Integer, "10" },
+    PayloadFieldDescriptor{
+        "間隔幀數", false, PayloadNodeShape::Integer, "30", R"(時機: 每隔
+間隔幀數: 30
+獲得護盾: 1)",
+    },
+    PayloadFieldDescriptor{ "每N次事件", false, PayloadNodeShape::Integer, "2" },
+    PayloadFieldDescriptor{
+        "觸發限制", false, PayloadNodeShape::Map, R"(範圍: 每次施放每個目標
+次數: 1)", R"(時機: 命中
+觸發限制:
+  範圍: 每次施放每個目標
+  次數: 1
+獲得護盾: 1)", PayloadSchemaReference::Payload, nullptr,
+        &activationLimitPayload,
+    },
+    PayloadFieldDescriptor{
+        "重複次數", false, PayloadNodeShape::Number, "2", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{
+        "動作", false, PayloadNodeShape::ActionList, R"(- 獲得護盾: 1)", R"(時機: 傷害後
+動作:
+  - 獲得護盾: 1)", PayloadSchemaReference::ActionList,
+    },
+};
+static constexpr PayloadDescriptor rulePayload{
+    "效果規則", ruleFields, R"(時機: 傷害後
+獲得護盾: 1)", PayloadDynamicKeyClass::NamedAction,
+    PayloadNodeShape::Any, "獲得護盾", "1", 2,
+};
+
+enum class PayloadProbeKind
+{
+    EffectNumber,
+    Selector,
+    Condition,
+    Action,
+    Macro,
+    ActivationLimit,
+    AttackRuntimeBehavior,
+    AreaModifier,
+    AreaProjectile,
+    AutoUltimate,
+    AttributePercentage,
+    Rule,
+};
+
+struct PayloadProbeDescriptor
+{
+    const PayloadDescriptor* payload;
+    PayloadProbeKind kind;
+    std::string_view authorName{};
+};
+
+static constexpr std::array payloadProbeDescriptors{
+    PayloadProbeDescriptor{ &activationLimitPayload, PayloadProbeKind::ActivationLimit },
+    PayloadProbeDescriptor{ &effectNumberPayload, PayloadProbeKind::EffectNumber },
+    PayloadProbeDescriptor{ &selectorPayload, PayloadProbeKind::Selector },
+    PayloadProbeDescriptor{ &conditionEmptyPayload, PayloadProbeKind::Condition, "僅限絕招" },
+    PayloadProbeDescriptor{ &conditionMagicPayload, PayloadProbeKind::Condition, "武功相符" },
+    PayloadProbeDescriptor{ &conditionPercentPayload, PayloadProbeKind::Condition, "自身生命低於" },
+    PayloadProbeDescriptor{ &conditionStatusPayload, PayloadProbeKind::Condition, "自身有狀態" },
+    PayloadProbeDescriptor{ &conditionStackPayload, PayloadProbeKind::Condition, "自身層數至少" },
+    PayloadProbeDescriptor{ &conditionCountPayload, PayloadProbeKind::Condition, "不同目標數至少" },
+    PayloadProbeDescriptor{ &conditionOrdinalPayload, PayloadProbeKind::Condition, "攻擊序號" },
+    PayloadProbeDescriptor{ &conditionHealKindsPayload, PayloadProbeKind::Condition, "治療種類符合" },
+    PayloadProbeDescriptor{ &conditionPerspectivePayload, PayloadProbeKind::Condition, "傷害方位" },
+    PayloadProbeDescriptor{ &conditionDamageKindsPayload, PayloadProbeKind::Condition, "傷害種類符合" },
+    PayloadProbeDescriptor{ &conditionAcceptedHitPayload, PayloadProbeKind::Condition, "已接受命中" },
+    PayloadProbeDescriptor{ &attributeModifierPayload, PayloadProbeKind::Action, "屬性修正" },
+    PayloadProbeDescriptor{ &damageModifierPayload, PayloadProbeKind::Action, "傷害修正" },
+    PayloadProbeDescriptor{ &resourceChangePayload, PayloadProbeKind::Action, "資源變更" },
+    PayloadProbeDescriptor{ &healTransactionModifierPayload, PayloadProbeKind::Action, "治療交易修正" },
+    PayloadProbeDescriptor{ &applyStatusPayload, PayloadProbeKind::Action, "套用狀態" },
+    PayloadProbeDescriptor{ &consumeStatusPayload, PayloadProbeKind::Action, "消耗狀態" },
+    PayloadProbeDescriptor{ &removeStatusPayload, PayloadProbeKind::Action, "移除狀態" },
+    PayloadProbeDescriptor{ &dealDamagePayload, PayloadProbeKind::Action, "造成傷害" },
+    PayloadProbeDescriptor{ &modifyAttackPayload, PayloadProbeKind::Action, "修改攻擊" },
+    PayloadProbeDescriptor{ &forceMovePayload, PayloadProbeKind::Action, "強制移動" },
+    PayloadProbeDescriptor{ &createAreaPayload, PayloadProbeKind::Action, "建立區域" },
+    PayloadProbeDescriptor{ &modifyCastPayload, PayloadProbeKind::Action, "修改施放" },
+    PayloadProbeDescriptor{ &stateMachinePayload, PayloadProbeKind::Action, "狀態機" },
+    PayloadProbeDescriptor{ &conditionalPayload, PayloadProbeKind::Action, "條件分支" },
+    PayloadProbeDescriptor{ &attackRuntimeBehaviorPayload, PayloadProbeKind::AttackRuntimeBehavior },
+    PayloadProbeDescriptor{ &areaModifierPayload, PayloadProbeKind::AreaModifier },
+    PayloadProbeDescriptor{ &areaProjectilePayload, PayloadProbeKind::AreaProjectile },
+    PayloadProbeDescriptor{ &autoUltimatePayload, PayloadProbeKind::AutoUltimate },
+    PayloadProbeDescriptor{ &attributePercentagePayload, PayloadProbeKind::AttributePercentage },
+    PayloadProbeDescriptor{ &attributeBonusPayload, PayloadProbeKind::Macro, "屬性加成" },
+    PayloadProbeDescriptor{ &resourceMacroPayload, PayloadProbeKind::Macro, "回復資源" },
+    PayloadProbeDescriptor{ &healMacroPayload, PayloadProbeKind::Macro, "回復生命" },
+    PayloadProbeDescriptor{ &forceMoveMacroPayload, PayloadProbeKind::Macro, "擊退" },
+    PayloadProbeDescriptor{ &rulePayload, PayloadProbeKind::Rule },
+};
+
+template <typename Descriptor, std::size_t Size>
+consteval bool descriptorNamesAreUnique(const std::array<Descriptor, Size>& descriptors)
+{
+    for (std::size_t i = 0; i < Size; ++i)
+        for (std::size_t j = i + 1; j < Size; ++j)
+            if (descriptors[i].name == descriptors[j].name) return false;
+    return true;
+}
+
+template <typename Descriptor, std::size_t Size>
+consteval bool descriptorIndicesCoverVariants(const std::array<Descriptor, Size>& descriptors)
+{
+    std::array<bool, Size> seen{};
+    for (const auto& descriptor : descriptors)
     {
-        error = "條件必須是映射表";
-        return false;
+        if (descriptor.variantIndex >= Size || seen[descriptor.variantIndex]) return false;
+        seen[descriptor.variantIndex] = true;
     }
-    std::string type;
-    if (!requiredString(node, "類型", type, error)) return false;
-    const auto known = [&](std::initializer_list<std::string_view> keys)
+    return std::ranges::all_of(seen, [](bool value) { return value; });
+}
+
+template <typename Left, std::size_t LeftSize, typename Right, std::size_t RightSize>
+consteval bool descriptorNamesAreDisjoint(
+    const std::array<Left, LeftSize>& left,
+    const std::array<Right, RightSize>& right)
+{
+    for (const auto& a : left)
+        for (const auto& b : right)
+            if (a.name == b.name) return false;
+    return true;
+}
+
+template <typename Descriptor, std::size_t Size, std::size_t FieldCount>
+consteval bool descriptorNamesAreDisjointFromFields(
+    const std::array<Descriptor, Size>& descriptors,
+    const std::array<PayloadFieldDescriptor, FieldCount>& fields)
+{
+    for (const auto& descriptor : descriptors)
+        for (const auto& field : fields)
+            if (descriptor.name == field.name) return false;
+    return true;
+}
+
+consteval bool payloadFieldNamesAreUnique(const PayloadDescriptor& descriptor)
+{
+    for (std::size_t i = 0; i < descriptor.fields.size(); ++i)
+        for (std::size_t j = i + 1; j < descriptor.fields.size(); ++j)
+            if (descriptor.fields[i].name == descriptor.fields[j].name) return false;
+    return true;
+}
+
+template <typename Descriptor, std::size_t Size>
+consteval bool descriptorPayloadFieldsAreUnique(
+    const std::array<Descriptor, Size>& descriptors)
+{
+    for (const auto& descriptor : descriptors)
+        if (descriptor.payload && !payloadFieldNamesAreUnique(*descriptor.payload)) return false;
+    return true;
+}
+
+consteval bool authorEnumMetadataIsValid()
+{
+    for (std::size_t index = 0; index < authorEnumDescriptors.size(); ++index)
     {
-        return validateKnownKeys(node, keys, error);
+        const auto& descriptor = *authorEnumDescriptors[index];
+        if (descriptor.name.empty() || descriptor.labels.empty()) return false;
+        for (std::size_t other = index + 1; other < authorEnumDescriptors.size(); ++other)
+            if (descriptor.name == authorEnumDescriptors[other]->name) return false;
+        for (std::size_t label = 0; label < descriptor.labels.size(); ++label)
+            for (std::size_t other = label + 1; other < descriptor.labels.size(); ++other)
+                if (descriptor.labels[label].name == descriptor.labels[other].name) return false;
+    }
+    return true;
+}
+
+consteval bool payloadMetadataIsComplete(const PayloadDescriptor& descriptor)
+{
+    if (descriptor.name.empty() || descriptor.minimalProbe.empty()
+        || !payloadFieldNamesAreUnique(descriptor)) return false;
+    if (descriptor.dynamicKeyClass != PayloadDynamicKeyClass::None
+        && (descriptor.dynamicProbeKey.empty() || descriptor.dynamicProbeValue.empty())) return false;
+    if (!descriptor.dynamicAlternativeField.empty()
+        && (descriptor.dynamicKeyClass == PayloadDynamicKeyClass::None
+            || std::ranges::none_of(descriptor.fields, [&](const auto& field)
+            {
+                return field.name == descriptor.dynamicAlternativeField;
+            }))) return false;
+    for (const auto& field : descriptor.fields)
+    {
+        if (field.probeValue.empty()) return false;
+        if (field.enumLabels && field.enumLabels->labels.empty()) return false;
+        const bool nested = field.schemaReference == PayloadSchemaReference::Payload
+            || field.schemaReference == PayloadSchemaReference::PayloadList;
+        if (nested != (field.nestedPayload != nullptr)) return false;
+        if ((field.shape == PayloadNodeShape::String
+                || field.shape == PayloadNodeShape::StringOrSequence)
+            && !field.enumLabels
+            && field.schemaReference != PayloadSchemaReference::Timing) return false;
+    }
+    return true;
+}
+
+consteval bool payloadProbeRegistryIsComplete()
+{
+    for (std::size_t index = 0; index < payloadProbeDescriptors.size(); ++index)
+    {
+        if (!payloadMetadataIsComplete(*payloadProbeDescriptors[index].payload)) return false;
+        for (std::size_t other = index + 1; other < payloadProbeDescriptors.size(); ++other)
+            if (payloadProbeDescriptors[index].payload == payloadProbeDescriptors[other].payload)
+                return false;
+    }
+    return true;
+}
+
+static_assert(actionDescriptors.size() == std::variant_size_v<EffectActionValue>);
+static_assert(conditionDescriptors.size() == std::variant_size_v<EffectCondition>);
+static_assert(descriptorIndicesCoverVariants(actionDescriptors));
+static_assert(descriptorIndicesCoverVariants(conditionDescriptors));
+static_assert(descriptorNamesAreUnique(timingDescriptors));
+static_assert(descriptorNamesAreUnique(actionDescriptors));
+static_assert(descriptorNamesAreUnique(conditionDescriptors));
+static_assert(descriptorNamesAreUnique(macroDescriptors));
+static_assert(authorEnumMetadataIsValid());
+static_assert(payloadProbeRegistryIsComplete());
+static_assert(std::ranges::all_of(actionDescriptors, [](const auto& descriptor)
+{
+    return descriptor.payload && !descriptor.payload->minimalProbe.empty();
+}));
+static_assert(std::ranges::all_of(conditionDescriptors, [](const auto& descriptor)
+{
+    return descriptor.payload && !descriptor.payload->minimalProbe.empty();
+}));
+static_assert(std::ranges::all_of(macroDescriptors, [](const auto& descriptor)
+{
+    return descriptor.payload && !descriptor.payload->minimalProbe.empty();
+}));
+static_assert(descriptorPayloadFieldsAreUnique(actionDescriptors));
+static_assert(descriptorPayloadFieldsAreUnique(conditionDescriptors));
+static_assert(descriptorPayloadFieldsAreUnique(macroDescriptors));
+static_assert(descriptorNamesAreDisjoint(actionDescriptors, macroDescriptors));
+static_assert(payloadFieldNamesAreUnique(rulePayload));
+static_assert(descriptorNamesAreDisjointFromFields(actionDescriptors, ruleFields));
+static_assert(descriptorNamesAreDisjointFromFields(macroDescriptors, ruleFields));
+
+const ConditionDescriptor* findConditionDescriptor(std::string_view name)
+{
+    const auto found = std::ranges::find(conditionDescriptors, name, &ConditionDescriptor::name);
+    return found == conditionDescriptors.end() ? nullptr : &*found;
+}
+
+const ActionDescriptor* findActionDescriptor(std::string_view name)
+{
+    const auto found = std::ranges::find(actionDescriptors, name, &ActionDescriptor::name);
+    return found == actionDescriptors.end() ? nullptr : &*found;
+}
+
+const MacroDescriptor* findMacroDescriptor(std::string_view name)
+{
+    const auto found = std::ranges::find(macroDescriptors, name, &MacroDescriptor::name);
+    return found == macroDescriptors.end() ? nullptr : &*found;
+}
+
+const TimingDescriptor* findTimingDescriptor(std::string_view name)
+{
+    const auto found = std::ranges::find(timingDescriptors, name, &TimingDescriptor::name);
+    return found == timingDescriptors.end() ? nullptr : &*found;
+}
+
+enum class ConditionNodeForm
+{
+    Scalar,
+    SingleParameter,
+    NamedPayload,
+};
+
+bool parseConditionPayload(
+    const ConditionDescriptor& descriptor,
+    const YAML::Node& payload,
+    ConditionNodeForm form,
+    EffectCondition& out,
+    std::string& error)
+{
+    const auto type = descriptor.name;
+    std::optional<PayloadView> payloadView;
+    if (form == ConditionNodeForm::NamedPayload)
+    {
+        payloadView.emplace(payload, *descriptor.payload);
+        if (!payloadView->validate(error)) return false;
+    }
+    else if (form == ConditionNodeForm::Scalar)
+    {
+        if (!descriptor.payload->fields.empty()
+            && descriptor.form != ConditionAuthorForm::ScalarOrMap)
+        {
+            error = std::format("條件「{}」需要參數，不能使用 scalar 簡式", type);
+            return false;
+        }
+    }
+    else
+    {
+        if (descriptor.payload->fields.size() != 1
+            || descriptor.payload->fields.front().name != descriptor.singleParameterField)
+        {
+            error = std::format("條件「{}」不支援單參數簡式", type);
+            return false;
+        }
+        if (!validatePayloadNodeShape(payload, descriptor.payload->fields.front(), error)) return false;
+    }
+    const auto valueNode = [&](std::string_view field)
+    {
+        return form == ConditionNodeForm::SingleParameter
+            ? payload
+            : (*payloadView)[field];
     };
+    const auto readInt = [&](std::string_view field, int& value)
+    {
+        const auto valueField = valueNode(field);
+        if (!valueField)
+        {
+            error = std::format("缺少「{}」欄位", field);
+            return false;
+        }
+        try
+        {
+            value = valueField.as<int>();
+            return true;
+        }
+        catch (const YAML::Exception& ex)
+        {
+            error = std::format("「{}」不是有效整數: {}", field, ex.what());
+            return false;
+        }
+    };
+    const auto readString = [&](std::string_view field, std::string& value)
+    {
+        const auto valueField = valueNode(field);
+        if (!valueField)
+        {
+            error = std::format("缺少「{}」欄位", field);
+            return false;
+        }
+        try
+        {
+            value = valueField.as<std::string>();
+            return true;
+        }
+        catch (const YAML::Exception& ex)
+        {
+            error = std::format("「{}」不是有效字串: {}", field, ex.what());
+            return false;
+        }
+    };
+    const auto readStrings = [&](std::string_view field, std::vector<std::string>& values)
+    {
+        const auto valueField = valueNode(field);
+        if (!valueField || !valueField.IsSequence() || valueField.size() == 0)
+        {
+            error = std::format("「{}」必須是非空列表", field);
+            return false;
+        }
+        try
+        {
+            values.reserve(valueField.size());
+            for (const auto& value : valueField) values.push_back(value.as<std::string>());
+            return true;
+        }
+        catch (const YAML::Exception& ex)
+        {
+            error = std::format("「{}」含有無效字串: {}", field, ex.what());
+            return false;
+        }
+    };
+
     if (type == "僅限絕招")
     {
-        if (!known({ "類型" })) return false;
         out = IsUltimateCondition{};
     }
     else if (type == "武功相符")
     {
         int magicId{};
-        if (!known({ "類型", "武功" }) || !requiredInt(node, "武功", magicId, error)) return false;
+        if (!readInt("武功", magicId)) return false;
         out = MagicIdEqualsCondition{ magicId };
     }
     else if (type == "僅限主彈道")
     {
-        if (!known({ "類型" })) return false;
         out = IsMainProjectileCondition{};
     }
     else if (type == "僅限根攻擊")
     {
-        if (!known({ "類型" })) return false;
         out = IsRootAttackCondition{};
     }
     else if (type == "自身生命不高於")
     {
         int percent{};
-        if (!known({ "類型", "百分比" }) || !requiredInt(node, "百分比", percent, error)) return false;
+        if (!readInt("百分比", percent)) return false;
         out = SourceHpRatioAtMostCondition{ percent };
     }
     else if (type == "自身生命低於")
     {
         int percent{};
-        if (!known({ "類型", "百分比" }) || !requiredInt(node, "百分比", percent, error)) return false;
+        if (!readInt("百分比", percent)) return false;
         out = SourceHpRatioBelowCondition{ percent };
     }
     else if (type == "自身為最後存活")
     {
-        if (!known({ "類型" })) return false;
         out = SourceIsLastAliveCondition{};
     }
     else if (type == "目標生命不高於")
     {
         int percent{};
-        if (!known({ "類型", "百分比" }) || !requiredInt(node, "百分比", percent, error)) return false;
+        if (!readInt("百分比", percent)) return false;
         out = TargetHpRatioAtMostCondition{ percent };
     }
     else if (type == "目標非無敵")
     {
-        if (!known({ "類型" })) return false;
         out = TargetNotInvincibleCondition{};
     }
     else if (type == "自身有狀態")
     {
         std::string state;
-        if (!known({ "類型", "狀態" }) || !requiredString(node, "狀態", state, error)) return false;
+        if (!readString("狀態", state)) return false;
         out = SourceHasStateCondition{ std::move(state) };
     }
     else if (type == "目標有狀態")
     {
         std::string state;
-        if (!known({ "類型", "狀態" }) || !requiredString(node, "狀態", state, error)) return false;
+        if (!readString("狀態", state)) return false;
         out = TargetHasStateCondition{ std::move(state) };
     }
     else if (type == "目標有此來源狀態")
     {
         std::string state;
         BattleStatusKind parsed{};
-        if (!known({ "類型", "狀態" })
-            || !requiredString(node, "狀態", state, error)
+        if (!readString("狀態", state)
             || !parseStatusKind(state, parsed, error)) return false;
         out = TargetHasStateFromEffectOwnerCondition{
             std::string(battleStatusLabel(parsed)),
@@ -520,76 +2890,66 @@ bool parseConditionNode(const YAML::Node& node, EffectCondition& out, std::strin
     {
         std::string stack;
         int count{};
-        if (!known({ "類型", "狀態", "層數" })
-            || !requiredString(node, "狀態", stack, error)
-            || !requiredInt(node, "層數", count, error)) return false;
+        if (!readString("狀態", stack)
+            || !readInt("層數", count)) return false;
         out = SourceStackAtLeastCondition{ std::move(stack), count };
     }
     else if (type == "其他存活友軍使用武功")
     {
         int magicId{};
-        if (!known({ "類型", "武功" }) || !requiredInt(node, "武功", magicId, error)) return false;
+        if (!readInt("武功", magicId)) return false;
         out = OtherLivingAllyUsesMagicCondition{ magicId };
     }
     else if (type == "不同目標數至少")
     {
         int count{};
-        if (!known({ "類型", "數量" }) || !requiredInt(node, "數量", count, error)) return false;
+        if (!readInt("數量", count)) return false;
         out = CastDistinctTargetCountAtLeastCondition{ count };
     }
     else if (type == "攻擊序號")
     {
         int ordinal{};
-        if (!known({ "類型", "序號" }) || !requiredInt(node, "序號", ordinal, error)) return false;
+        if (!readInt("序號", ordinal)) return false;
         out = AttackOrdinalEqualsCondition{ ordinal };
     }
     else if (type == "治療種類符合" || type == "傷害種類符合")
     {
         const auto fieldName = type == "治療種類符合" ? "治療種類" : "傷害種類";
-        if (!known({ "類型", fieldName })) return false;
-        const auto values = node[fieldName];
-        if (!values || !values.IsSequence() || values.size() == 0)
-        {
-            error = std::format("「{}」必須是非空列表", fieldName);
-            return false;
-        }
         std::vector<std::string> labels;
-        labels.reserve(values.size());
-        for (const auto& value : values) labels.push_back(value.as<std::string>());
+        if (!readStrings(fieldName, labels)) return false;
         if (type == "治療種類符合") out = HealKindInCondition{ std::move(labels) };
         else out = DamageKindInCondition{ std::move(labels) };
     }
     else if (type == "傷害來自招式")
     {
-        if (!known({ "類型" })) return false;
         out = DamageOriginIsAttackCondition{};
     }
     else if (type == "已接受命中")
     {
         AcceptedHitCondition condition;
-        if (!known({ "類型", "需要正傷害", "排除反彈" })
-            || !optionalBool(node, "需要正傷害", condition.requirePositiveDamage, error)
-            || !optionalBool(node, "排除反彈", condition.excludeReflected, error)) return false;
+        if (form == ConditionNodeForm::Scalar)
+        {
+            out = condition;
+            return true;
+        }
+        if (form != ConditionNodeForm::NamedPayload
+            || !optionalBool(*payloadView, "需要正傷害", condition.requirePositiveDamage, error)
+            || !optionalBool(*payloadView, "排除反彈", condition.excludeReflected, error)) return false;
         out = condition;
     }
     else if (type == "事件目標屬於綁定來源")
     {
-        if (!known({ "類型" })) return false;
         out = EventTargetBelongsToBoundSourceCondition{};
     }
     else if (type == "傷害造成死亡")
     {
-        if (!known({ "類型" })) return false;
         out = DamageKilledTargetCondition{};
     }
     else if (type == "傷害方位")
     {
         std::string perspective;
-        if (!known({ "類型", "方位" }) || !requiredString(node, "方位", perspective, error)) return false;
-        const auto parsed = parseLabel<DamagePerspective>(perspective, {
-            { "造成", DamagePerspective::Dealt },
-            { "承受", DamagePerspective::Received },
-        });
+        if (!readString("方位", perspective)) return false;
+        const auto parsed = parseLabel<DamagePerspective>(perspective, damagePerspectiveEnum);
         if (!parsed)
         {
             error = std::format("未知傷害方位「{}」", perspective);
@@ -599,33 +2959,92 @@ bool parseConditionNode(const YAML::Node& node, EffectCondition& out, std::strin
     }
     else if (type == "受益者施放前滿內")
     {
-        if (!known({ "類型" })) return false;
         out = TargetMpWasFullBeforeCastCondition{};
     }
     else if (type == "有合法隨機目標")
     {
-        if (!known({ "類型" })) return false;
         out = RandomSelectionAvailableCondition{};
     }
     else
     {
-        error = std::format("未知條件類型「{}」", type);
+        error = std::format("未知條件「{}」", type);
         return false;
     }
-    return true;
+    return !payloadView || payloadView->finish(error);
+}
+
+bool parseConditionNode(const YAML::Node& node, EffectCondition& out, std::string& error)
+{
+    if (!node)
+    {
+        error = "缺少條件";
+        return false;
+    }
+    if (node.IsScalar())
+    {
+        const auto type = node.as<std::string>();
+        const auto* descriptor = findConditionDescriptor(type);
+        if (!descriptor
+            || (descriptor->form != ConditionAuthorForm::Scalar
+                && descriptor->form != ConditionAuthorForm::ScalarOrMap))
+        {
+            error = std::format("條件「{}」不可使用 scalar 外形", type);
+            return false;
+        }
+        return parseConditionPayload(
+            *descriptor, node, ConditionNodeForm::Scalar, out, error);
+    }
+    if (!node.IsMap())
+    {
+        error = "條件必須是映射表或簡式名稱";
+        return false;
+    }
+    if (!validateUniqueKeys(node, error)) return false;
+    if (node.size() != 1)
+    {
+        error = "具名條件必須恰有一個條件欄位";
+        return false;
+    }
+    const auto entry = *node.begin();
+    const auto type = entry.first.as<std::string>();
+    const auto* descriptor = findConditionDescriptor(type);
+    if (!descriptor)
+    {
+        error = std::format("未知條件「{}」", type);
+        return false;
+    }
+    if (descriptor->form == ConditionAuthorForm::Scalar)
+    {
+        error = std::format("無參數條件「{}」請寫成 scalar 列表項目", type);
+        return false;
+    }
+    if (descriptor->form == ConditionAuthorForm::SingleParameter)
+    {
+        return parseConditionPayload(
+            *descriptor,
+            entry.second,
+            ConditionNodeForm::SingleParameter,
+            out,
+            error);
+    }
+    if (!entry.second.IsMap())
+    {
+        error = std::format("條件「{}」的 payload 必須是映射表", type);
+        return false;
+    }
+    return parseConditionPayload(
+        *descriptor,
+        entry.second,
+        ConditionNodeForm::NamedPayload,
+        out,
+        error);
 }
 
 bool parseStackPolicy(const YAML::Node& node, EffectStackPolicy& out, std::string& error)
 {
     if (!node) return true;
     const auto label = node.as<std::string>();
-    const auto parsed = parseLabel<EffectStackPolicy>(label, {
-        { "獨立", EffectStackPolicy::Independent },
-        { "刷新", EffectStackPolicy::Refresh },
-        { "取代", EffectStackPolicy::Replace },
-        { "保留最強", EffectStackPolicy::KeepStrongest },
-        { "增加層數", EffectStackPolicy::AddStack },
-    });
+    const auto parsed = parseLabel<EffectStackPolicy>(label, stackPolicyEnum);
     if (!parsed)
     {
         error = std::format("未知合併方式「{}」", label);
@@ -637,25 +3056,7 @@ bool parseStackPolicy(const YAML::Node& node, EffectStackPolicy& out, std::strin
 
 bool parseStatusKind(std::string_view label, BattleStatusKind& out, std::string& error)
 {
-    const auto parsed = parseLabel<BattleStatusKind>(label, {
-        { "中毒", BattleStatusKind::Poison },
-        { "流血", BattleStatusKind::Bleed },
-        { "眩暈", BattleStatusKind::Stun },
-        { "封內", BattleStatusKind::MpBlocked },
-        { "寒毒", BattleStatusKind::ColdPoison },
-        { "枯骨", BattleStatusKind::WitheredBone },
-        { "七星", BattleStatusKind::SevenStarMark },
-        { "化勁", BattleStatusKind::NeutralizeForce },
-        { "刺目", BattleStatusKind::Blinded },
-        { "下一次攻擊落空", BattleStatusKind::NextAttackMiss },
-        { "傷害抵擋", BattleStatusKind::DamageBlockLayer },
-        { "單次承傷上限", BattleStatusKind::SingleHitCapLayer },
-        { "戰意", BattleStatusKind::BattleSpirit },
-        { "真氣", BattleStatusKind::TrueQi },
-        { "毒爆", BattleStatusKind::PoisonExplosion },
-        { "無影", BattleStatusKind::Shadowless },
-        { "下一次攻擊必定暴擊", BattleStatusKind::NextAttackCritical },
-    });
+    const auto parsed = parseLabel<BattleStatusKind>(label, statusKindEnum);
     if (!parsed)
     {
         error = std::format("未知狀態「{}」", label);
@@ -667,13 +3068,7 @@ bool parseStatusKind(std::string_view label, BattleStatusKind& out, std::string&
 
 bool parseDamageChannel(std::string_view label, DamageChannel& out, std::string& error)
 {
-    const auto parsed = parseLabel<DamageChannel>(label, {
-        { "招式", DamageChannel::Skill },
-        { "持續傷害", DamageChannel::Dot },
-        { "特效", DamageChannel::Effect },
-        { "反彈", DamageChannel::Reflected },
-        { "全部", DamageChannel::All },
-    });
+    const auto parsed = parseLabel<DamageChannel>(label, damageChannelEnum);
     if (!parsed)
     {
         error = std::format("未知傷害種類「{}」", label);
@@ -691,12 +3086,7 @@ bool parseEffectStateSlot(const YAML::Node& node, EffectStateSlot& out, std::str
         return false;
     }
     const auto label = node.as<std::string>();
-    const auto parsed = parseLabel<EffectStateSlot>(label, {
-        { "最大招式生命傷害", EffectStateSlot::MaximumSkillHpDamage },
-        { "本次施放最高生命傷害", EffectStateSlot::CastMaximumHpDamage },
-        { "累計吸收傷害", EffectStateSlot::AbsorbedDamage },
-        { "永久施放進展", EffectStateSlot::PermanentCastProgress },
-    });
+    const auto parsed = parseLabel<EffectStateSlot>(label, stateSlotEnum);
     if (!parsed)
     {
         error = std::format("未知狀態槽「{}」", label);
@@ -706,7 +3096,111 @@ bool parseEffectStateSlot(const YAML::Node& node, EffectStateSlot& out, std::str
     return true;
 }
 
-bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& error);
+bool parseResourceLabel(
+    std::string_view label,
+    BattleResource& out,
+    std::string& error)
+{
+    const auto parsed = parseLabel<BattleResource>(label, resourceEnum);
+    if (!parsed)
+    {
+        error = std::format("未知資源「{}」", label);
+        return false;
+    }
+    out = *parsed;
+    return true;
+}
+
+bool parseResourceChangeKindLabel(
+    std::string_view label,
+    ResourceChangeKind& out,
+    std::string& error)
+{
+    const auto parsed = parseLabel<ResourceChangeKind>(label, resourceChangeKindEnum);
+    if (!parsed)
+    {
+        error = std::format("未知資源變更方式「{}」", label);
+        return false;
+    }
+    out = *parsed;
+    return true;
+}
+
+template <typename Node>
+bool parseResourceMetadata(
+    const Node& node,
+    ChangeResourceAction& action,
+    std::string& error)
+{
+    if (node["轉移目標"])
+    {
+        EffectSelector selector;
+        if (!parseSelectorNode(node["轉移目標"], selector, error)) return false;
+        action.transferDestination = std::move(selector);
+    }
+    if (const auto healKind = node["治療種類"])
+    {
+        const auto label = healKind.as<std::string>();
+        const auto parsed = parseLabel<EffectHealKind>(label, healKindEnum);
+        if (!parsed)
+        {
+            error = std::format("未知治療種類「{}」", label);
+            return false;
+        }
+        action.healKind = *parsed;
+    }
+    if (const auto sourcePolicy = node["來源政策"])
+    {
+        const auto label = sourcePolicy.as<std::string>();
+        const auto parsed = parseLabel<EffectHealSourcePolicy>(label, healSourcePolicyEnum);
+        if (!parsed)
+        {
+            error = std::format("未知治療來源政策「{}」", label);
+            return false;
+        }
+        action.healSourcePolicy = *parsed;
+    }
+    return true;
+}
+
+template <typename Node>
+bool parseAttributeModifierQualifiers(
+    const Node& node,
+    ModifyAttributeAction& out,
+    std::string& error)
+{
+    if (!optionalInt(node, "持續幀數", out.durationFrames, error)
+        || !parseStackPolicy(node["合併方式"], out.stack, error)
+        || !optionalBool(node, "每層", out.perStack, error)) return false;
+    if (node["層數上限"])
+    {
+        int limit{};
+        if (!requiredInt(node, "層數上限", limit, error)) return false;
+        out.stackLimit = limit;
+    }
+    if (const auto scope = node["疊加範圍"])
+    {
+        const auto label = scope.as<std::string>();
+        const auto parsed = parseLabel<EffectStackScope>(label, stackScopeEnum);
+        if (!parsed)
+        {
+            error = std::format("未知疊加範圍「{}」", label);
+            return false;
+        }
+        out.stackScope = *parsed;
+    }
+    return true;
+}
+
+bool parseActionPayload(
+    std::string_view type,
+    PayloadView& node,
+    EffectAction& out,
+    std::string& error);
+bool parseAuthorActionNode(
+    const YAML::Node& node,
+    std::vector<EffectAction>& out,
+    std::string& error);
 
 bool parseActionList(const YAML::Node& node, std::vector<EffectAction>& out, std::string& error)
 {
@@ -716,16 +3210,18 @@ bool parseActionList(const YAML::Node& node, std::vector<EffectAction>& out, std
         return false;
     }
     out.clear();
-    out.reserve(node.size());
     for (std::size_t i = 0; i < node.size(); ++i)
     {
-        EffectAction action;
-        if (!parseActionNode(node[i], action, error))
+        std::vector<EffectAction> actions;
+        if (!parseAuthorActionNode(node[i], actions, error))
         {
             error = std::format("動作#{}: {}", i + 1, error);
             return false;
         }
-        out.push_back(std::move(action));
+        out.insert(
+            out.end(),
+            std::make_move_iterator(actions.begin()),
+            std::make_move_iterator(actions.end()));
     }
     return true;
 }
@@ -745,22 +3241,8 @@ bool parseBorrowedRuleFilter(
     for (const auto& value : node)
     {
         const auto label = value.as<std::string>();
-        const auto parsed = parseLabel<BorrowedRuleActionCategory>(label, {
-            { "屬性修正", BorrowedRuleActionCategory::AttributeModifier },
-            { "傷害修正", BorrowedRuleActionCategory::DamageModifier },
-            { "資源變更", BorrowedRuleActionCategory::ResourceChange },
-            { "治療交易修正", BorrowedRuleActionCategory::HealTransactionModifier },
-            { "狀態", BorrowedRuleActionCategory::Status },
-            { "傷害", BorrowedRuleActionCategory::Damage },
-            { "攻擊", BorrowedRuleActionCategory::Attack },
-            { "強制移動", BorrowedRuleActionCategory::ForcedMovement },
-            { "區域", BorrowedRuleActionCategory::Area },
-            { "修改施放", BorrowedRuleActionCategory::Cast },
-            { "狀態值", BorrowedRuleActionCategory::StateValue },
-            { "傷害記憶", BorrowedRuleActionCategory::DamageMemory },
-            { "傷害吸收", BorrowedRuleActionCategory::DamageAbsorption },
-            { "狀態傷害結算", BorrowedRuleActionCategory::StatusDamageSettlement },
-        });
+        const auto parsed = parseLabel<BorrowedRuleActionCategory>(
+            label, borrowedRuleActionCategoryEnum);
         if (!parsed)
         {
             error = std::format("未知可借用動作類別「{}」", label);
@@ -791,10 +3273,7 @@ bool parseCopiedMagicFilter(
     for (const auto& value : node)
     {
         const auto label = value.as<std::string>();
-        const auto parsed = parseLabel<CopiedMagicCondition>(label, {
-            { "有絕招攻擊定義", CopiedMagicCondition::HasUltimateAttackDefinition },
-            { "排除複製與借用遞迴", CopiedMagicCondition::ExcludesRecursiveEffects },
-        });
+        const auto parsed = parseLabel<CopiedMagicCondition>(label, copiedMagicConditionEnum);
         if (!parsed)
         {
             error = std::format("未知可選武功條件「{}」", label);
@@ -810,33 +3289,34 @@ bool parseCopiedMagicFilter(
     return true;
 }
 
+consteval bool attributeNamesAreUniqueAndReservedFieldsAreDisjoint()
+{
+    for (std::size_t i = 0; i < battleAttributeLabels.size(); ++i)
+    {
+        for (std::size_t j = i + 1; j < battleAttributeLabels.size(); ++j)
+            if (battleAttributeLabels[i].name == battleAttributeLabels[j].name) return false;
+        for (const auto& field : attributeBonusFields)
+            if (battleAttributeLabels[i].name == field.name) return false;
+    }
+    return true;
+}
+
+static_assert(attributeNamesAreUniqueAndReservedFieldsAreDisjoint());
+
+bool isDynamicPayloadKey(PayloadDynamicKeyClass keyClass, std::string_view key)
+{
+    if (keyClass == PayloadDynamicKeyClass::None) return false;
+    if (keyClass == PayloadDynamicKeyClass::BattleAttribute)
+        return std::ranges::any_of(
+            battleAttributeLabels,
+            [=](const auto& entry) { return entry.name == key; });
+    assert(keyClass == PayloadDynamicKeyClass::NamedAction);
+    return findActionDescriptor(key) || findMacroDescriptor(key);
+}
+
 bool parseAttribute(std::string_view label, BattleAttribute& out, std::string& error)
 {
-    const auto parsed = parseLabel<BattleAttribute>(label, {
-        { "最大生命", BattleAttribute::MaxHp },
-        { "攻擊", BattleAttribute::Attack },
-        { "防禦", BattleAttribute::Defence },
-        { "速度", BattleAttribute::Speed },
-        { "暴擊率", BattleAttribute::CriticalChance },
-        { "暴擊傷害", BattleAttribute::CriticalDamage },
-        { "閃避率", BattleAttribute::DodgeChance },
-        { "格擋率", BattleAttribute::BlockChance },
-        { "傷害減免", BattleAttribute::DamageReduction },
-        { "技能傷害", BattleAttribute::SkillDamage },
-        { "彈道壓制傷害", BattleAttribute::ProjectilePressureDamage },
-        { "冷卻縮減", BattleAttribute::CooldownReduction },
-        { "內力回復加成", BattleAttribute::MpRecoveryBonus },
-        { "僵直抗性", BattleAttribute::StaggerResistance },
-        { "彈道反射率", BattleAttribute::ProjectileReflectChance },
-        { "技能反彈百分比", BattleAttribute::SkillReflectPercent },
-        { "格擋絕招反擊率", BattleAttribute::CounterUltimateBlockChance },
-        { "閃避後暴擊", BattleAttribute::CriticalAfterDodge },
-        { "滑步機率", BattleAttribute::DashChance },
-        { "攻擊冷卻延長率", BattleAttribute::OutgoingCooldownExtensionChance },
-        { "攻擊冷卻延長百分比", BattleAttribute::OutgoingCooldownExtensionPercent },
-        { "受擊冷卻延長反擊率", BattleAttribute::IncomingCooldownExtensionChance },
-        { "受擊冷卻延長百分比", BattleAttribute::IncomingCooldownExtensionPercent },
-    });
+    const auto parsed = parseLabel<BattleAttribute>(label, battleAttributeEnum);
     if (!parsed)
     {
         error = std::format("未知屬性「{}」", label);
@@ -846,19 +3326,13 @@ bool parseAttribute(std::string_view label, BattleAttribute& out, std::string& e
     return true;
 }
 
-bool parseAttackPatternFields(const YAML::Node& node, AttackPattern& pattern, std::string& error)
+template <typename Node>
+bool parseAttackPatternFields(const Node& node, AttackPattern& pattern, std::string& error)
 {
     if (const auto style = node["樣式"])
     {
         const auto label = style.as<std::string>();
-        const auto parsed = parseLabel<AttackPatternKind>(label, {
-            { "保留", AttackPatternKind::Preserve },
-            { "扇形", AttackPatternKind::Fan },
-            { "側翼", AttackPatternKind::Flanks },
-            { "同落點延遲", AttackPatternKind::SamePointSequence },
-            { "多目標", AttackPatternKind::MultiTarget },
-            { "最近其他敵人殘影", AttackPatternKind::EchoNearestOthers },
-        });
+        const auto parsed = parseLabel<AttackPatternKind>(label, attackPatternKindEnum);
         if (!parsed)
         {
             error = std::format("未知攻擊樣式「{}」", label);
@@ -876,60 +3350,54 @@ bool parseAttackRuntimeBehavior(
     AttackRuntimeBehavior& out,
     std::string& error)
 {
-    if (!node || !node.IsMap())
+    PayloadView payload(node, attackRuntimeBehaviorPayload);
+    if (!payload.validate(error)) return false;
+    std::string type;
+    if (!requiredString(payload, "類型", type, error)) return false;
+
+    const auto kind = parseLabel<AttackRuntimeBehaviorKind>(type, attackRuntimeBehaviorKindEnum);
+    if (!kind)
     {
-        error = "攻擊執行行為必須是映射表";
+        error = std::format("未知攻擊執行行為「{}」", type);
         return false;
     }
-    std::string type;
-    if (!requiredString(node, "類型", type, error)) return false;
-
-    if (type == "彈道彈射")
+    if (*kind == AttackRuntimeBehaviorKind::ProjectileBounce)
     {
-        if (!validateKnownKeys(node, {
-                "類型", "追加命中次數", "機率", "範圍像素" }, error)) return false;
         ProjectileBounceAttackBehavior behavior;
-        if (!requiredInt(node, "追加命中次數", behavior.additionalHits, error)
-            || !requiredInt(node, "機率", behavior.chancePct, error)
-            || !requiredInt(node, "範圍像素", behavior.rangePixels, error)) return false;
+        if (!requiredInt(payload, "追加命中次數", behavior.additionalHits, error)
+            || !requiredInt(payload, "機率", behavior.chancePct, error)
+            || !requiredInt(payload, "範圍像素", behavior.rangePixels, error)) return false;
         out = behavior;
-        return true;
+        return payload.finish(error);
     }
-    if (type == "範圍追蹤")
+    if (*kind == AttackRuntimeBehaviorKind::NearbyTracking)
     {
-        if (!validateKnownKeys(node, {
-                "類型", "範圍像素", "傷害倍率" }, error)) return false;
         NearbyTrackingAttackBehavior behavior;
-        if (!requiredInt(node, "範圍像素", behavior.rangePixels, error)
-            || !requiredInt(node, "傷害倍率", behavior.damagePct, error)) return false;
+        if (!requiredInt(payload, "範圍像素", behavior.rangePixels, error)
+            || !requiredInt(payload, "傷害倍率", behavior.damagePct, error)) return false;
         out = behavior;
-        return true;
+        return payload.finish(error);
     }
-    if (type == "延遲替代攻擊")
+    if (*kind == AttackRuntimeBehaviorKind::DelayedAlternate)
     {
-        if (!validateKnownKeys(node, {
-                "類型", "延遲幀數", "傷害倍率", "攻擊者獲得格擋機率" }, error)) return false;
         DelayedAlternateAttackBehavior behavior;
-        if (!requiredInt(node, "延遲幀數", behavior.delayFrames, error)
-            || !requiredInt(node, "傷害倍率", behavior.damagePct, error)
-            || !requiredInt(node, "攻擊者獲得格擋機率",
+        if (!requiredInt(payload, "延遲幀數", behavior.delayFrames, error)
+            || !requiredInt(payload, "傷害倍率", behavior.damagePct, error)
+            || !requiredInt(payload, "攻擊者獲得格擋機率",
                 behavior.attackerBlockGainChancePct,
                 error)) return false;
         out = behavior;
-        return true;
+        return payload.finish(error);
     }
-    if (type == "擴張螺旋")
+    if (*kind == AttackRuntimeBehaviorKind::ExpandingSpiral)
     {
-        if (!validateKnownKeys(node, {
-                "類型", "彈道數量", "流血層數" }, error)) return false;
         ExpandingSpiralAttackBehavior behavior;
-        if (!requiredInt(node, "彈道數量", behavior.projectileCount, error)
-            || !requiredInt(node, "流血層數", behavior.bleedStacks, error)) return false;
+        if (!requiredInt(payload, "彈道數量", behavior.projectileCount, error)
+            || !requiredInt(payload, "流血層數", behavior.bleedStacks, error)) return false;
         out = behavior;
-        return true;
+        return payload.finish(error);
     }
-
-    error = std::format("未知攻擊執行行為「{}」", type);
+    assert(false);
     return false;
 }
 
@@ -937,13 +3405,7 @@ bool parsePropagation(const YAML::Node& node, CastPropagationPolicy& out, std::s
 {
     if (!node) return true;
     const auto label = node.as<std::string>();
-    const auto parsed = parseLabel<CastPropagationPolicy>(label, {
-        { "來源全部規則", CastPropagationPolicy::SourceRules },
-        { "僅來源命中規則", CastPropagationPolicy::SourceHitRulesOnly },
-        { "不傳播大招規則", CastPropagationPolicy::SuppressUltimateRules },
-        { "借用大招規則", CastPropagationPolicy::BorrowedUltimateRules },
-        { "不傳播效果規則", CastPropagationPolicy::NoEffectRules },
-    });
+    const auto parsed = parseLabel<CastPropagationPolicy>(label, propagationPolicyEnum);
     if (!parsed)
     {
         error = std::format("未知傳播政策「{}」", label);
@@ -955,25 +3417,19 @@ bool parsePropagation(const YAML::Node& node, CastPropagationPolicy& out, std::s
 
 bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::string& error)
 {
-    if (!validateKnownKeys(node, {
-            "類型", "關係", "屬性", "數值", "百分比", "傷害種類", "追蹤",
-            "彈速百分比", "彈道壓制百分比", "阻擋方向", "重疊方式" }, error)) return false;
+    PayloadView payload(node, areaModifierPayload);
+    if (!payload.validate(error)) return false;
     out = {};
     std::string type;
-    if (!requiredString(node, "類型", type, error)) return false;
-    const auto kind = parseLabel<AreaModifierKind>(type, {
-        { "屬性修正", AreaModifierKind::Attribute },
-        { "造成傷害修正", AreaModifierKind::OutgoingDamage },
-        { "攻擊生成修正", AreaModifierKind::AttackSpawn },
-        { "強制移動免疫", AreaModifierKind::ForcedMoveImmunity },
-    });
+    if (!requiredString(payload, "類型", type, error)) return false;
+    const auto kind = parseLabel<AreaModifierKind>(type, areaModifierKindEnum);
     if (!kind)
     {
         error = std::format("未知區域修正類型「{}」", type);
         return false;
     }
     out.kind = *kind;
-    const auto relation = node["關係"];
+    const auto relation = payload["關係"];
     if (!relation)
     {
         error = "區域修正缺少「關係」欄位";
@@ -981,10 +3437,7 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
     }
     {
         const auto label = relation.as<std::string>();
-        const auto parsed = parseLabel<EffectTeamFilter>(label, {
-            { "友方", EffectTeamFilter::Ally },
-            { "敵方", EffectTeamFilter::Enemy },
-        });
+        const auto parsed = parseLabel<EffectTeamFilter>(label, areaRelationEnum);
         if (!parsed)
         {
             error = std::format("未知區域關係「{}」", label);
@@ -992,42 +3445,38 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
         }
         out.relation = *parsed;
     }
-    if (const auto attribute = node["屬性"])
+    if (const auto attribute = payload["屬性"])
     {
         if (!parseAttribute(attribute.as<std::string>(), out.attribute, error)) return false;
     }
-    if (node["數值"] && !parseEffectNumberNode(node["數值"], out.amount, error)) return false;
-    if (!optionalInt(node, "百分比", out.percent, error)) return false;
-    if (const auto damageKind = node["傷害種類"])
+    if (payload["數值"] && !parseEffectNumberNode(payload["數值"], out.amount, error)) return false;
+    if (!optionalInt(payload, "百分比", out.percent, error)) return false;
+    if (const auto damageKind = payload["傷害種類"])
     {
         if (!parseDamageChannel(damageKind.as<std::string>(), out.damageChannel, error)) return false;
     }
-    if (node["追蹤"])
+    if (payload["追蹤"])
     {
         bool tracking{};
-        if (!optionalBool(node, "追蹤", tracking, error)) return false;
+        if (!optionalBool(payload, "追蹤", tracking, error)) return false;
         out.tracking = tracking;
     }
-    if (node["彈速百分比"])
+    if (payload["彈速百分比"])
     {
         int value{};
-        if (!requiredInt(node, "彈速百分比", value, error)) return false;
+        if (!requiredInt(payload, "彈速百分比", value, error)) return false;
         out.speedPct = value;
     }
-    if (node["彈道壓制百分比"])
+    if (payload["彈道壓制百分比"])
     {
         int value{};
-        if (!requiredInt(node, "彈道壓制百分比", value, error)) return false;
+        if (!requiredInt(payload, "彈道壓制百分比", value, error)) return false;
         out.projectilePressurePct = value;
     }
-    if (const auto direction = node["阻擋方向"])
+    if (const auto direction = payload["阻擋方向"])
     {
         const auto label = direction.as<std::string>();
-        const auto parsed = parseLabel<ForceMoveDirection>(label, {
-            { "遠離來源", ForceMoveDirection::AwayFromSource },
-            { "接近來源", ForceMoveDirection::TowardSource },
-            { "接近指定點", ForceMoveDirection::TowardPoint },
-        });
+        const auto parsed = parseLabel<ForceMoveDirection>(label, areaBlockedDirectionEnum);
         if (!parsed)
         {
             error = std::format("未知強制移動方向「{}」", label);
@@ -1035,7 +3484,7 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
         }
         out.blockedDirection = *parsed;
     }
-    const auto overlap = node["重疊方式"];
+    const auto overlap = payload["重疊方式"];
     if (!overlap)
     {
         error = "區域修正缺少「重疊方式」欄位";
@@ -1043,11 +3492,7 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
     }
     {
         const auto label = overlap.as<std::string>();
-        const auto parsed = parseLabel<AreaOverlapPolicy>(label, {
-            { "相加", AreaOverlapPolicy::Add },
-            { "保留最強", AreaOverlapPolicy::KeepStrongest },
-            { "任一", AreaOverlapPolicy::Any },
-        });
+        const auto parsed = parseLabel<AreaOverlapPolicy>(label, areaOverlapPolicyEnum);
         if (!parsed)
         {
             error = std::format("未知區域重疊方式「{}」", label);
@@ -1064,13 +3509,13 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
     };
     if (out.kind == AreaModifierKind::Attribute)
     {
-        if (!node["屬性"] || !node["數值"])
+        if (!payload["屬性"] || !payload["數值"])
         {
             error = "屬性區域修正需要「屬性」與「數值」";
             return false;
         }
-        if (unexpected(node["百分比"] || node["傷害種類"] || node["追蹤"]
-                || node["彈速百分比"] || node["彈道壓制百分比"] || node["阻擋方向"], "非屬性修正")) return false;
+        if (unexpected(payload["百分比"] || payload["傷害種類"] || payload["追蹤"]
+                || payload["彈速百分比"] || payload["彈道壓制百分比"] || payload["阻擋方向"], "非屬性修正")) return false;
         if (out.overlap == AreaOverlapPolicy::Any)
         {
             error = "數值屬性區域修正不可使用「任一」重疊方式";
@@ -1079,13 +3524,13 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
     }
     else if (out.kind == AreaModifierKind::OutgoingDamage)
     {
-        if (!node["百分比"] || !node["傷害種類"])
+        if (!payload["百分比"] || !payload["傷害種類"])
         {
             error = "造成傷害區域修正需要「百分比」與「傷害種類」";
             return false;
         }
-        if (unexpected(node["屬性"] || node["數值"] || node["追蹤"]
-                || node["彈速百分比"] || node["彈道壓制百分比"] || node["阻擋方向"], "非傷害修正")) return false;
+        if (unexpected(payload["屬性"] || payload["數值"] || payload["追蹤"]
+                || payload["彈速百分比"] || payload["彈道壓制百分比"] || payload["阻擋方向"], "非傷害修正")) return false;
         if (out.overlap == AreaOverlapPolicy::Any)
         {
             error = "數值傷害區域修正不可使用「任一」重疊方式";
@@ -1094,19 +3539,19 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
     }
     else if (out.kind == AreaModifierKind::AttackSpawn)
     {
-        if (!node["追蹤"] && !node["彈速百分比"] && !node["彈道壓制百分比"])
+        if (!payload["追蹤"] && !payload["彈速百分比"] && !payload["彈道壓制百分比"])
         {
             error = "攻擊生成區域修正至少需要一個修正欄位";
             return false;
         }
-        if (unexpected(node["屬性"] || node["數值"] || node["百分比"]
-                || node["傷害種類"] || node["阻擋方向"], "非攻擊生成修正")) return false;
-        if (node["追蹤"] && out.overlap != AreaOverlapPolicy::Any)
+        if (unexpected(payload["屬性"] || payload["數值"] || payload["百分比"]
+                || payload["傷害種類"] || payload["阻擋方向"], "非攻擊生成修正")) return false;
+        if (payload["追蹤"] && out.overlap != AreaOverlapPolicy::Any)
         {
             error = "追蹤布林修正必須使用「任一」重疊方式";
             return false;
         }
-        if ((node["彈速百分比"] || node["彈道壓制百分比"])
+        if ((payload["彈速百分比"] || payload["彈道壓制百分比"])
             && out.overlap == AreaOverlapPolicy::Any)
         {
             error = "數值攻擊生成修正不可使用「任一」重疊方式";
@@ -1115,14 +3560,14 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
     }
     else
     {
-        if (!node["阻擋方向"])
+        if (!payload["阻擋方向"])
         {
             error = "強制移動免疫需要「阻擋方向」";
             return false;
         }
-        if (unexpected(node["屬性"] || node["數值"] || node["百分比"]
-                || node["傷害種類"] || node["追蹤"] || node["彈速百分比"]
-                || node["彈道壓制百分比"], "非強制移動免疫")) return false;
+        if (unexpected(payload["屬性"] || payload["數值"] || payload["百分比"]
+                || payload["傷害種類"] || payload["追蹤"] || payload["彈速百分比"]
+                || payload["彈道壓制百分比"], "非強制移動免疫")) return false;
         if (out.overlap != AreaOverlapPolicy::Any)
         {
             error = "強制移動免疫必須使用「任一」重疊方式";
@@ -1132,22 +3577,17 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
     if (out.tracking) out.trackingOverlap = out.overlap;
     if (out.speedPct) out.speedOverlap = out.overlap;
     if (out.projectilePressurePct) out.projectilePressureOverlap = out.overlap;
-    return true;
+    return payload.finish(error);
 }
 
-bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& error)
+bool parseActionPayload(
+    std::string_view type,
+    PayloadView& node,
+    EffectAction& out,
+    std::string& error)
 {
-    if (!node || !node.IsMap())
-    {
-        error = "動作必須是映射表";
-        return false;
-    }
-    std::string type;
-    if (!requiredString(node, "類型", type, error)) return false;
-
     if (type == "屬性修正")
     {
-        if (!validateKnownKeys(node, { "類型", "屬性", "方式", "數值", "持續幀數", "合併方式", "層數上限", "每層", "疊加範圍" }, error)) return false;
         ModifyAttributeAction action;
         std::string attribute;
         std::string operation;
@@ -1155,48 +3595,19 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
             || !requiredString(node, "方式", operation, error)
             || !parseAttribute(attribute, action.attribute, error)
             || !parseEffectNumberNode(node["數值"], action.amount, error)) return false;
-        const auto parsedOperation = parseLabel<AttributeOperation>(operation, {
-            { "固定加算", AttributeOperation::FlatAdd },
-            { "百分比加算", AttributeOperation::PercentAdd },
-            { "覆寫", AttributeOperation::Override },
-            { "乘算", AttributeOperation::Multiply },
-            { "至少為", AttributeOperation::AtLeast },
-        });
+        const auto parsedOperation = parseLabel<AttributeOperation>(operation, attributeOperationEnum);
         if (!parsedOperation)
         {
             error = std::format("未知屬性運算「{}」", operation);
             return false;
         }
         action.operation = *parsedOperation;
-        if (!optionalInt(node, "持續幀數", action.durationFrames, error)
-            || !parseStackPolicy(node["合併方式"], action.stack, error)
-            || !optionalBool(node, "每層", action.perStack, error)) return false;
-        if (node["層數上限"])
-        {
-            int limit{};
-            if (!requiredInt(node, "層數上限", limit, error)) return false;
-            action.stackLimit = limit;
-        }
-        if (const auto scope = node["疊加範圍"])
-        {
-            const auto label = scope.as<std::string>();
-            const auto parsed = parseLabel<EffectStackScope>(label, {
-                { "共用", EffectStackScope::Shared },
-                { "事件來源", EffectStackScope::EventSource },
-            });
-            if (!parsed)
-            {
-                error = std::format("未知疊加範圍「{}」", label);
-                return false;
-            }
-            action.stackScope = *parsed;
-        }
+        if (!parseAttributeModifierQualifiers(node, action, error)) return false;
         out.value = std::move(action);
         return true;
     }
     if (type == "傷害修正")
     {
-        if (!validateKnownKeys(node, { "類型", "方位", "階段", "傷害種類", "方式", "數值", "持續幀數", "合併方式", "層數上限", "疊加範圍" }, error)) return false;
         ModifyDamageAction action;
         std::string stage;
         std::string channel;
@@ -1204,10 +3615,8 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         if (const auto perspective = node["方位"])
         {
             const auto label = perspective.as<std::string>();
-            const auto parsed = parseLabel<DamageModifierPerspective>(label, {
-                { "造成", DamageModifierPerspective::Outgoing },
-                { "承受", DamageModifierPerspective::Incoming },
-            });
+            const auto parsed = parseLabel<DamageModifierPerspective>(
+                label, damageModifierPerspectiveEnum);
             if (!parsed)
             {
                 error = std::format("未知傷害修正方位「{}」", label);
@@ -1219,19 +3628,9 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
             || !requiredString(node, "傷害種類", channel, error)
             || !requiredString(node, "方式", operation, error)
             || !parseEffectNumberNode(node["數值"], action.amount, error)) return false;
-        const auto parsedStage = parseLabel<DamageModifierStage>(stage, {
-            { "防禦前", DamageModifierStage::BeforeDefense },
-            { "防禦後", DamageModifierStage::AfterDefense },
-            { "最終", DamageModifierStage::Final },
-        });
-        const auto parsedOperation = parseLabel<DamageModifierOperation>(operation, {
-            { "固定加算", DamageModifierOperation::FlatAdd },
-            { "百分比加算", DamageModifierOperation::PercentAdd },
-            { "乘算", DamageModifierOperation::Multiply },
-            { "忽略防禦百分比", DamageModifierOperation::IgnoreDefensePercent },
-            { "單次承傷上限", DamageModifierOperation::CapSingleHitAtMaxHpPercent },
-            { "低於最大生命百分比時處決", DamageModifierOperation::ExecuteBelowMaxHpPercent },
-        });
+        const auto parsedStage = parseLabel<DamageModifierStage>(stage, damageModifierStageEnum);
+        const auto parsedOperation = parseLabel<DamageModifierOperation>(
+            operation, damageModifierOperationEnum);
         if (!parsedStage || !parseDamageChannel(channel, action.channel, error) || !parsedOperation)
         {
             if (error.empty()) error = "未知傷害修正階段或方式";
@@ -1250,10 +3649,7 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         if (const auto scope = node["疊加範圍"])
         {
             const auto label = scope.as<std::string>();
-            const auto parsed = parseLabel<EffectStackScope>(label, {
-                { "共用", EffectStackScope::Shared },
-                { "事件來源", EffectStackScope::EventSource },
-            });
+            const auto parsed = parseLabel<EffectStackScope>(label, stackScopeEnum);
             if (!parsed)
             {
                 error = std::format("未知疊加範圍「{}」", label);
@@ -1266,92 +3662,31 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     }
     if (type == "資源變更")
     {
-        if (!validateKnownKeys(node, {
-                "類型", "資源", "方式", "數值", "轉移目標",
-                "治療種類", "來源政策" }, error)) return false;
         ChangeResourceAction action;
         std::string resource;
         std::string kind;
         if (!requiredString(node, "資源", resource, error)
             || !requiredString(node, "方式", kind, error)
-            || !parseEffectNumberNode(node["數值"], action.amount, error)) return false;
-        const auto parsedResource = parseLabel<BattleResource>(resource, {
-            { "生命", BattleResource::Hp }, { "內力", BattleResource::Mp },
-            { "護盾", BattleResource::Shield }, { "狀態護盾", BattleResource::StatusShield },
-            { "僵直護盾", BattleResource::StaggerShield },
-            { "目前冷卻", BattleResource::ActiveCooldown },
-            { "僵直吸收幀數", BattleResource::ControlImmunityFrames },
-            { "無敵幀數", BattleResource::InvincibilityFrames },
-        });
-        const auto parsedKind = parseLabel<ResourceChangeKind>(kind, {
-            { "回復", ResourceChangeKind::Restore }, { "奪取", ResourceChangeKind::Drain },
-            { "獲得", ResourceChangeKind::Grant }, { "移除", ResourceChangeKind::Remove },
-            { "轉移", ResourceChangeKind::Transfer },
-            { "至少刷新至", ResourceChangeKind::RefreshToAtLeast },
-        });
-        if (!parsedResource || !parsedKind)
-        {
-            error = "未知資源或資源變更方式";
-            return false;
-        }
-        action.resource = *parsedResource;
-        action.kind = *parsedKind;
-        if (node["轉移目標"])
-        {
-            EffectSelector selector;
-            if (!parseSelectorNode(node["轉移目標"], selector, error)) return false;
-            action.transferDestination = std::move(selector);
-        }
-        if (const auto healKind = node["治療種類"])
-        {
-            const auto label = healKind.as<std::string>();
-            const auto parsed = parseLabel<EffectHealKind>(label, {
-                { "直接", EffectHealKind::Direct },
-                { "隊伍", EffectHealKind::Team },
-                { "光環", EffectHealKind::Aura },
-                { "命中", EffectHealKind::OnHit },
-                { "擊殺獎勵", EffectHealKind::KillReward },
-                { "死亡醫療", EffectHealKind::DeathMedical },
-                { "救援", EffectHealKind::Rescue },
-                { "生命回復", EffectHealKind::Regeneration },
-                { "吸血", EffectHealKind::Lifesteal },
-            });
-            if (!parsed)
-            {
-                error = std::format("未知治療種類「{}」", label);
-                return false;
-            }
-            action.healKind = *parsed;
-        }
-        if (const auto sourcePolicy = node["來源政策"])
-        {
-            const auto label = sourcePolicy.as<std::string>();
-            if (label == "來源必須存活")
-                action.healSourcePolicy = EffectHealSourcePolicy::RequireAlive;
-            else if (label == "允許死亡來源")
-                action.healSourcePolicy = EffectHealSourcePolicy::AllowDead;
-            else
-            {
-                error = std::format("未知治療來源政策「{}」", label);
-                return false;
-            }
-        }
+            || !parseResourceLabel(resource, action.resource, error)
+            || !parseResourceChangeKindLabel(kind, action.kind, error)
+            || !parseEffectNumberNode(node["數值"], action.amount, error)
+            || !parseResourceMetadata(node, action, error)) return false;
         out.value = std::move(action);
         return true;
     }
     if (type == "治療交易修正")
     {
-        if (!validateKnownKeys(node, { "類型", "方式", "百分比", "治療種類" }, error)) return false;
         ModifyHealTransactionAction action;
         std::string operation;
         if (!requiredString(node, "方式", operation, error)) return false;
-        if (operation == "阻止") action.operation = HealModifierOperation::Block;
-        else if (operation == "受到治療乘算") action.operation = HealModifierOperation::MultiplyReceived;
-        else
+        const auto parsedOperation = parseLabel<HealModifierOperation>(
+            operation, healModifierOperationEnum);
+        if (!parsedOperation)
         {
             error = std::format("未知治療修正方式「{}」", operation);
             return false;
         }
+        action.operation = *parsedOperation;
         if (action.operation == HealModifierOperation::Block && node["百分比"])
         {
             error = "阻止治療不可填寫「百分比」";
@@ -1380,7 +3715,6 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     }
     if (type == "套用狀態")
     {
-        if (!validateKnownKeys(node, { "類型", "狀態", "持續幀數", "套用次數", "層數", "強度", "次要強度", "合併方式", "層數上限", "同事件合計強度" }, error)) return false;
         ApplyStatusAction action;
         std::string status;
         if (!requiredString(node, "狀態", status, error)
@@ -1420,7 +3754,6 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     }
     if (type == "消耗狀態")
     {
-        if (!validateKnownKeys(node, { "類型", "狀態", "層數", "狀態來源", "最後一層" }, error)) return false;
         ConsumeStatusAction action;
         std::string status;
         if (!requiredString(node, "狀態", status, error)
@@ -1429,18 +3762,24 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         if (const auto source = node["狀態來源"])
         {
             const auto label = source.as<std::string>();
-            if (label == "不限") action.source = StatusSourceMatch::Any;
-            else if (label == "效果擁有者") action.source = StatusSourceMatch::EffectOwner;
-            else
+            const auto parsed = parseLabel<StatusSourceMatch>(label, statusSourceMatchEnum);
+            if (!parsed)
             {
                 error = std::format("未知狀態來源「{}」", label);
                 return false;
             }
+            action.source = *parsed;
         }
         if (const auto depleted = node["最後一層"])
         {
-            EffectAction nested;
-            if (!parseActionNode(depleted, nested, error)) return false;
+            std::vector<EffectAction> nestedActions;
+            if (!parseAuthorActionNode(depleted, nestedActions, error)) return false;
+            if (nestedActions.size() != 1)
+            {
+                error = "消耗最後一層需要恰好一個套用狀態動作";
+                return false;
+            }
+            auto nested = std::move(nestedActions.front());
             const auto* statusAction = std::get_if<ApplyStatusAction>(&nested.value);
             if (!statusAction)
             {
@@ -1454,7 +3793,6 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     }
     if (type == "移除狀態")
     {
-        if (!validateKnownKeys(node, { "類型", "狀態", "僅負面", "僅控制", "解除目前動作僵直", "數量", "順序" }, error)) return false;
         RemoveStatusAction action;
         if (!optionalBool(node, "僅負面", action.negativeOnly, error)
             || !optionalBool(node, "僅控制", action.controlOnly, error)
@@ -1478,11 +3816,7 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         if (const auto order = node["順序"])
         {
             const auto label = order.as<std::string>();
-            const auto parsed = parseLabel<StatusRemovalOrder>(label, {
-                { "最長剩餘", StatusRemovalOrder::LongestRemaining },
-                { "最舊", StatusRemovalOrder::Oldest },
-                { "最新", StatusRemovalOrder::Newest },
-            });
+            const auto parsed = parseLabel<StatusRemovalOrder>(label, statusRemovalOrderEnum);
             if (!parsed)
             {
                 error = std::format("未知狀態移除順序「{}」", label);
@@ -1495,10 +3829,6 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     }
     if (type == "造成傷害")
     {
-        if (!validateKnownKeys(node, {
-                "類型", "數值", "交易次數", "傷害種類", "範圍", "半徑格數",
-                "方形邊長", "同目標命中上限", "套用傷害修正", "觸發受傷無敵",
-                "區域投射物" }, error)) return false;
         DealDamageAction action;
         std::string kind;
         if (!requiredString(node, "傷害種類", kind, error)
@@ -1513,11 +3843,7 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         if (const auto area = node["範圍"])
         {
             const auto label = area.as<std::string>();
-            const auto parsed = parseLabel<DamageAreaKind>(label, {
-                { "單體", DamageAreaKind::SingleTarget },
-                { "圓形", DamageAreaKind::Circle },
-                { "方形", DamageAreaKind::Square },
-            });
+            const auto parsed = parseLabel<DamageAreaKind>(label, damageAreaKindEnum);
             if (!parsed)
             {
                 error = std::format("未知傷害範圍「{}」", label);
@@ -1532,25 +3858,23 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
             || !optionalBool(node, "觸發受傷無敵", action.triggersHurtInvincibility, error)) return false;
         if (const auto projectileNode = node["區域投射物"])
         {
-            if (!validateKnownKeys(projectileNode, {
-                    "範圍格數", "最多目標", "眩暈幀數", "追蹤事件來源", "特效" }, error)) return false;
+            PayloadView projectile(projectileNode, areaProjectilePayload);
+            if (!projectile.validate(error)) return false;
             AreaProjectileDamageDelivery delivery;
             std::string visual;
-            if (!requiredInt(projectileNode, "範圍格數", delivery.rangeTiles, error)
-                || !requiredInt(projectileNode, "最多目標", delivery.maximumTargets, error)
-                || !requiredInt(projectileNode, "眩暈幀數", delivery.stunFrames, error)
-                || !optionalBool(projectileNode, "追蹤事件來源", delivery.trackEventSource, error)
-                || !requiredString(projectileNode, "特效", visual, error)) return false;
-            const auto parsedVisual = parseLabel<AreaProjectileVisual>(visual, {
-                { "死亡爆炸", AreaProjectileVisual::DeathBlast },
-                { "護盾爆炸", AreaProjectileVisual::ShieldBlast },
-            });
+            if (!requiredInt(projectile, "範圍格數", delivery.rangeTiles, error)
+                || !requiredInt(projectile, "最多目標", delivery.maximumTargets, error)
+                || !requiredInt(projectile, "眩暈幀數", delivery.stunFrames, error)
+                || !optionalBool(projectile, "追蹤事件來源", delivery.trackEventSource, error)
+                || !requiredString(projectile, "特效", visual, error)) return false;
+            const auto parsedVisual = parseLabel<AreaProjectileVisual>(visual, areaProjectileVisualEnum);
             if (!parsedVisual)
             {
                 error = std::format("未知區域投射物特效「{}」", visual);
                 return false;
             }
             delivery.visual = *parsedVisual;
+            if (!projectile.finish(error)) return false;
             action.areaProjectiles = delivery;
         }
         out.value = std::move(action);
@@ -1558,10 +3882,6 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     }
     if (type == "修改攻擊")
     {
-        if (!validateKnownKeys(node, {
-                "類型", "樣式", "數量", "展開角度", "間隔幀數", "傷害倍率", "貫穿",
-                "追蹤", "視為主彈道", "同目標命中上限", "目標政策", "傳播政策", "追加至基礎攻擊",
-                "攻擊來源", "傷害數值", "傷害種類", "執行行為" }, error)) return false;
         ModifyAttackAction action;
         if (!parseAttackPatternFields(node, action.pattern, error)
             || !optionalInt(node, "傷害倍率", action.strengthPct, error)
@@ -1593,10 +3913,7 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         if (const auto policy = node["目標政策"])
         {
             const auto label = policy.as<std::string>();
-            const auto parsed = parseLabel<AttackTargetPolicy>(label, {
-                { "保留", AttackTargetPolicy::Preserve }, { "選擇目標", AttackTargetPolicy::SelectedTargets },
-                { "同落點", AttackTargetPolicy::SamePoint }, { "同目標", AttackTargetPolicy::SameTarget },
-            });
+            const auto parsed = parseLabel<AttackTargetPolicy>(label, attackTargetPolicyEnum);
             if (!parsed)
             {
                 error = std::format("未知攻擊目標政策「{}」", label);
@@ -1611,8 +3928,6 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     }
     if (type == "強制移動")
     {
-        if (!validateKnownKeys(node, {
-                "類型", "方向", "距離格數", "距離像素", "鎖定幀數", "碰撞", "受阻結果" }, error)) return false;
         ForceMoveAction action;
         std::string direction;
         std::string collision;
@@ -1623,19 +3938,12 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
             || !optionalInt(node, "鎖定幀數", action.lockFrames, error)
             || !requiredString(node, "碰撞", collision, error)
             || !requiredString(node, "受阻結果", blocked, error)) return false;
-        const auto parsedDirection = parseLabel<ForceMoveDirection>(direction, {
-            { "遠離來源", ForceMoveDirection::AwayFromSource },
-            { "接近來源", ForceMoveDirection::TowardSource },
-        });
-        const auto parsedCollision = parseLabel<ForceMoveCollision>(collision, {
-            { "佔位前停止", ForceMoveCollision::StopBeforeOccupied },
-            { "阻擋前停止", ForceMoveCollision::StopBeforeBlocked },
-            { "遇阻停止", ForceMoveCollision::StopBeforeBlocked },
-        });
-        const auto parsedBlocked = parseLabel<ForceMoveBlockedResult>(blocked, {
-            { "停止", ForceMoveBlockedResult::Stop },
-            { "縮短", ForceMoveBlockedResult::Shorten },
-        });
+        const auto parsedDirection = parseLabel<ForceMoveDirection>(
+            direction, forceMoveDirectionEnum);
+        const auto parsedCollision = parseLabel<ForceMoveCollision>(
+            collision, forceMoveCollisionEnum);
+        const auto parsedBlocked = parseLabel<ForceMoveBlockedResult>(
+            blocked, forceMoveBlockedResultEnum);
         if (!parsedDirection)
         {
             error = std::format("未知強制移動方向「{}」", direction);
@@ -1659,7 +3967,6 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     }
     if (type == "建立區域")
     {
-        if (!validateKnownKeys(node, { "類型", "形狀", "半徑格數", "方形邊長", "錨點", "持續幀數", "來源死亡", "合併方式", "區域修正" }, error)) return false;
         CreateAreaAction action;
         std::string shape;
         std::string anchor;
@@ -1672,21 +3979,10 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
             || !requiredInt(node, "持續幀數", action.durationFrames, error)
             || !optionalInt(node, "半徑格數", action.radiusTiles, error)
             || !optionalInt(node, "方形邊長", action.squareSideTiles, error)) return false;
-        const auto parsedShape = parseLabel<AreaShape>(shape, {
-            { "圓形", AreaShape::Circle }, { "棋格方形", AreaShape::GridSquare },
-        });
-        const auto parsedAnchor = parseLabel<AreaAnchor>(anchor, {
-            { "命中位置", AreaAnchor::HitPosition }, { "跟隨來源", AreaAnchor::FollowSourceUnit },
-        });
-        const auto parsedDeath = parseLabel<AreaSourceDeathPolicy>(death, {
-            { "保留至到期", AreaSourceDeathPolicy::PersistUntilExpiry },
-            { "立即移除", AreaSourceDeathPolicy::RemoveImmediately },
-        });
-        const auto parsedMerge = parseLabel<AreaMergePolicy>(merge, {
-            { "獨立", AreaMergePolicy::Independent },
-            { "同來源刷新", AreaMergePolicy::RefreshSameSource },
-            { "同來源取代", AreaMergePolicy::ReplaceSameSource },
-        });
+        const auto parsedShape = parseLabel<AreaShape>(shape, areaShapeEnum);
+        const auto parsedAnchor = parseLabel<AreaAnchor>(anchor, areaAnchorEnum);
+        const auto parsedDeath = parseLabel<AreaSourceDeathPolicy>(death, areaSourceDeathPolicyEnum);
+        const auto parsedMerge = parseLabel<AreaMergePolicy>(merge, areaMergePolicyEnum);
         if (!parsedShape || !parsedAnchor || !parsedDeath || !parsedMerge)
         {
             error = "未知區域形狀、錨點、死亡或合併政策";
@@ -1713,10 +4009,6 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     }
     if (type == "修改施放")
     {
-        if (!validateKnownKeys(node, {
-                "類型", "內力消耗", "射程模式", "彈道速度百分比", "最小選擇距離",
-                "追加彈道數", "機動政策", "自動絕招", "免費追加施放", "傳播政策",
-                "樣式", "數量", "展開角度", "間隔幀數" }, error)) return false;
         ModifyCastAction action;
         if (node["內力消耗"])
         {
@@ -1727,22 +4019,18 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         if (const auto range = node["射程模式"])
         {
             const auto label = range.as<std::string>();
-            if (label == "保留") action.rangeMode = CastRangeMode::Preserve;
-            else if (label == "遠程") action.rangeMode = CastRangeMode::Ranged;
-            else
+            const auto parsed = parseLabel<CastRangeMode>(label, castRangeModeEnum);
+            if (!parsed)
             {
                 error = std::format("未知射程模式「{}」", label);
                 return false;
             }
+            action.rangeMode = *parsed;
         }
         if (const auto mobility = node["機動政策"])
         {
             const auto label = mobility.as<std::string>();
-            const auto parsed = parseLabel<CastMobilityPolicy>(label, {
-                { "保留", CastMobilityPolicy::Preserve },
-                { "滑步攻擊", CastMobilityPolicy::DashAttack },
-                { "閃擊", CastMobilityPolicy::BlinkAttack },
-            });
+            const auto parsed = parseLabel<CastMobilityPolicy>(label, castMobilityPolicyEnum);
             if (!parsed)
             {
                 error = std::format("未知施放機動政策「{}」", label);
@@ -1752,10 +4040,12 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
         }
         if (const auto autoUltimate = node["自動絕招"])
         {
-            if (!validateKnownKeys(autoUltimate, { "消耗內力", "顯示公告" }, error)) return false;
+            PayloadView autoUltimateView(autoUltimate, autoUltimatePayload);
+            if (!autoUltimateView.validate(error)) return false;
             AutoUltimateCastRequest request;
-            if (!optionalBool(autoUltimate, "消耗內力", request.consumeMp, error)
-                || !optionalBool(autoUltimate, "顯示公告", request.announce, error)) return false;
+            if (!optionalBool(autoUltimateView, "消耗內力", request.consumeMp, error)
+                || !optionalBool(autoUltimateView, "顯示公告", request.announce, error)
+                || !autoUltimateView.finish(error)) return false;
             action.autoUltimate = request;
         }
         if (!optionalInt(node, "彈道速度百分比", action.projectileSpeedPct, error)
@@ -1776,9 +4066,15 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
     {
         std::string mechanism;
         if (!requiredString(node, "機制", mechanism, error)) return false;
-        if (mechanism == "變更狀態值")
+        const auto parsedMechanism = parseLabel<StateMachineMechanism>(
+            mechanism, stateMachineMechanismEnum);
+        if (!parsedMechanism)
         {
-            if (!validateKnownKeys(node, { "類型", "機制", "狀態槽", "增量", "最小", "最大" }, error)) return false;
+            error = std::format("未知狀態機機制「{}」", mechanism);
+            return false;
+        }
+        if (*parsedMechanism == StateMachineMechanism::ChangeStateValue)
+        {
             ChangeStateValueAction action;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)
                 || !requiredInt(node, "增量", action.delta, error)) return false;
@@ -1796,12 +4092,8 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
             }
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "轉移狀態值")
+        else if (*parsedMechanism == StateMachineMechanism::TransferStateValue)
         {
-            if (!validateKnownKeys(
-                    node,
-                    { "類型", "機制", "來源狀態槽", "目標狀態槽" },
-                    error)) return false;
             TransferStateValueAction action;
             if (!parseEffectStateSlot(
                     node["來源狀態槽"],
@@ -1813,31 +4105,26 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
                     error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "記錄最大招式生命傷害")
+        else if (*parsedMechanism == StateMachineMechanism::RecordMaximumSkillDamage)
         {
-            if (!validateKnownKeys(node, { "類型", "機制", "狀態槽" }, error)) return false;
             RecordMaximumDamageAction action;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "消耗記錄為傷害" || mechanism == "消耗記錄為護盾")
+        else if (*parsedMechanism == StateMachineMechanism::ConsumeRecordAsDamage
+            || *parsedMechanism == StateMachineMechanism::ConsumeRecordAsShield)
         {
-            if (!validateKnownKeys(
-                    node,
-                    { "類型", "機制", "狀態槽", "百分比", "消耗後清除" },
-                    error)) return false;
             ConsumeRecordedMaximumAction action;
-            action.destination = mechanism.ends_with("護盾") ? StateValueDestination::ShieldAmount : StateValueDestination::DamageAmount;
+            action.destination = *parsedMechanism == StateMachineMechanism::ConsumeRecordAsShield
+                ? StateValueDestination::ShieldAmount
+                : StateValueDestination::DamageAmount;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)
                 || !optionalInt(node, "百分比", action.percent, error)
                 || !optionalBool(node, "消耗後清除", action.clearAfterConsume, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "開始傷害吸收")
+        else if (*parsedMechanism == StateMachineMechanism::StartDamageAbsorption)
         {
-            if (!validateKnownKeys(node, {
-                    "類型", "機制", "狀態槽", "百分比", "持續幀數", "死亡結算",
-                    "結算目標", "結算傷害種類", "結算百分比" }, error)) return false;
             StartDamageAbsorptionAction action;
             std::string settlementDamageKind;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)
@@ -1850,19 +4137,16 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
                 || !requiredInt(node, "結算百分比", action.returnedPct, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "結算傷害吸收")
+        else if (*parsedMechanism == StateMachineMechanism::SettleDamageAbsorption)
         {
-            if (!validateKnownKeys(node, { "類型", "機制", "狀態槽", "百分比", "目標" }, error)) return false;
             SettleDamageAbsorptionAction action;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)
                 || !optionalInt(node, "百分比", action.returnedPct, error)) return false;
             if (node["目標"] && !parseSelectorNode(node["目標"], action.target, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "借用效果規則")
+        else if (*parsedMechanism == StateMachineMechanism::BorrowEffectRules)
         {
-            if (!validateKnownKeys(node, {
-                    "類型", "機制", "目標", "來源數量", "允許動作類別", "傳播政策" }, error)) return false;
             BorrowEffectRulesAction action;
             if (!parseSelectorNode(node["目標"], action.sourceUnits, error)
                 || !parseEffectNumberNode(node["來源數量"], action.sourceCount, error)
@@ -1870,10 +4154,8 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
                 || !parsePropagation(node["傳播政策"], action.propagation, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "複製攻擊定義")
+        else if (*parsedMechanism == StateMachineMechanism::CopyAttackDefinition)
         {
-            if (!validateKnownKeys(node, {
-                    "類型", "機制", "目標", "來源數量", "可選武功條件", "傳播政策" }, error)) return false;
             CopyAttackDefinitionAction action;
             if (!parseSelectorNode(node["目標"], action.sourceUnits, error)
                 || !parseCopiedMagicFilter(node["可選武功條件"], action.filter, error)
@@ -1881,49 +4163,41 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
                 || !parsePropagation(node["傳播政策"], action.propagation, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "結算剩餘狀態傷害")
+        else if (*parsedMechanism == StateMachineMechanism::SettleRemainingStatusDamage)
         {
-            if (!validateKnownKeys(node, { "類型", "機制", "狀態" }, error)) return false;
             SettleRemainingStatusDamageAction action;
             std::string status;
             if (!requiredString(node, "狀態", status, error)
                 || !parseStatusKind(status, action.status, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "生成分身")
+        else if (*parsedMechanism == StateMachineMechanism::GenerateClones)
         {
-            if (!validateKnownKeys(node, { "類型", "機制", "數量" }, error)) return false;
             GenerateClonesAction action;
             if (!requiredInt(node, "數量", action.count, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "死亡庇護")
+        else if (*parsedMechanism == StateMachineMechanism::PreventDeath)
         {
-            if (!validateKnownKeys(node, { "類型", "機制", "無敵幀數" }, error)) return false;
             PreventDeathAction action;
             if (!requiredInt(node, "無敵幀數", action.invincibilityFrames, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (mechanism == "保護挪移" || mechanism == "處決挪移")
+        else if (*parsedMechanism == StateMachineMechanism::ConfigureProtectReposition
+            || *parsedMechanism == StateMachineMechanism::ConfigureExecuteReposition)
         {
-            if (!validateKnownKeys(node, { "類型", "機制", "次數" }, error)) return false;
             ConfigureRescueRepositionAction action;
-            action.mode = mechanism == "保護挪移"
+            action.mode = *parsedMechanism == StateMachineMechanism::ConfigureProtectReposition
                 ? RescueRepositionMode::Protect
                 : RescueRepositionMode::Execute;
             if (!requiredInt(node, "次數", action.activations, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else
-        {
-            error = std::format("未知狀態機機制「{}」", mechanism);
-            return false;
-        }
+        else assert(false);
         return true;
     }
     if (type == "條件分支")
     {
-        if (!validateKnownKeys(node, { "類型", "條件", "成立", "否則" }, error)) return false;
         const auto conditions = node["條件"];
         if (!conditions || !conditions.IsSequence() || conditions.size() == 0)
         {
@@ -1945,6 +4219,265 @@ bool parseActionNode(const YAML::Node& node, EffectAction& out, std::string& err
 
     error = std::format("未知動作類型「{}」", type);
     return false;
+}
+
+bool parseNamedResourceAction(
+    std::string_view name,
+    const YAML::Node& node,
+    EffectAction& out,
+    std::string& error)
+{
+    PayloadView payload(node, resourceMacroPayload);
+    if (!payload.validate(error)) return false;
+    ChangeResourceAction action;
+    std::string resource;
+    if (!requiredString(payload, "資源", resource, error)
+        || !parseResourceLabel(resource, action.resource, error)
+        || !parseEffectNumberNode(payload["數值"], action.amount, error)) return false;
+    if (name == "回復資源") action.kind = ResourceChangeKind::Restore;
+    else if (name == "獲得資源") action.kind = ResourceChangeKind::Grant;
+    else action.kind = ResourceChangeKind::Drain;
+    if (!parseResourceMetadata(payload, action, error)
+        || !payload.finish(error)) return false;
+    out.value = std::move(action);
+    return true;
+}
+
+bool parseNonEmptyEffectNumber(
+    const YAML::Node& node,
+    EffectNumber& out,
+    std::string& error)
+{
+    if (node && node.IsMap() && node.size() == 0)
+    {
+        error = "簡式數值不可是空映射表";
+        return false;
+    }
+    return parseEffectNumberNode(node, out, error);
+}
+
+bool parseAttributeBonusMacro(
+    const YAML::Node& node,
+    std::vector<EffectAction>& out,
+    std::string& error)
+{
+    PayloadView payload(node, attributeBonusPayload);
+    if (!payload.validate(error)) return false;
+
+    ModifyAttributeAction qualifierPrototype;
+    if (!parseAttributeModifierQualifiers(payload, qualifierPrototype, error)) return false;
+    std::set<BattleAttribute> allAttributes;
+    std::vector<ModifyAttributeAction> fixedActions;
+    std::vector<ModifyAttributeAction> percentageActions;
+    const auto appendAttribute = [&](
+        std::string_view label,
+        const YAML::Node& value,
+        AttributeOperation operation,
+        std::vector<ModifyAttributeAction>& actions)
+    {
+        BattleAttribute attribute{};
+        if (!parseAttribute(label, attribute, error)) return false;
+        if (!allAttributes.insert(attribute).second)
+        {
+            error = std::format("屬性加成重複指定屬性「{}」", label);
+            return false;
+        }
+        if (!value.IsScalar())
+        {
+            error = std::format("屬性加成「{}」必須是 scalar 數字", label);
+            return false;
+        }
+        ModifyAttributeAction action = qualifierPrototype;
+        action.attribute = attribute;
+        action.operation = operation;
+        if (!parseEffectNumberNode(value, action.amount, error)) return false;
+        actions.push_back(std::move(action));
+        return true;
+    };
+
+    for (const auto& [label, value] : payload.dynamicEntries())
+    {
+        if (!appendAttribute(label, value, AttributeOperation::FlatAdd, fixedActions))
+            return false;
+    }
+    if (const auto percentage = payload["百分比"])
+    {
+        if (!percentage.IsMap() || percentage.size() == 0)
+        {
+            error = "屬性加成「百分比」必須是非空映射表";
+            return false;
+        }
+        PayloadView percentagePayload(percentage, attributePercentagePayload);
+        if (!percentagePayload.validate(error)) return false;
+        for (const auto& [label, value] : percentagePayload.dynamicEntries())
+        {
+            if (!appendAttribute(
+                    label,
+                    value,
+                    AttributeOperation::PercentAdd,
+                    percentageActions)) return false;
+        }
+        if (!percentagePayload.finish(error)) return false;
+    }
+    if (fixedActions.empty() && percentageActions.empty())
+    {
+        error = "屬性加成至少需要一個屬性";
+        return false;
+    }
+
+    out.clear();
+    std::ranges::sort(fixedActions, {}, &ModifyAttributeAction::attribute);
+    std::ranges::sort(percentageActions, {}, &ModifyAttributeAction::attribute);
+    for (auto& action : fixedActions) out.push_back(EffectAction{ std::move(action) });
+    for (auto& action : percentageActions) out.push_back(EffectAction{ std::move(action) });
+    return payload.finish(error);
+}
+
+bool parseNamedAction(
+    std::string_view name,
+    const YAML::Node& payload,
+    std::vector<EffectAction>& out,
+    std::string& error)
+{
+    out.clear();
+    if (const auto* descriptor = findActionDescriptor(name))
+    {
+        if (payload.IsMap() && payload["類型"])
+        {
+            error = std::format("具名動作「{}」不可包含舊式「類型」欄位", name);
+            return false;
+        }
+        PayloadView payloadView(payload, *descriptor->payload);
+        if (!payloadView.validate(error)) return false;
+        EffectAction action;
+        if (!parseActionPayload(descriptor->name, payloadView, action, error)
+            || !payloadView.finish(error)) return false;
+        if (action.value.index() != descriptor->variantIndex)
+        {
+            error = std::format("動作「{}」dispatch 到錯誤的 typed variant", name);
+            return false;
+        }
+        out.push_back(std::move(action));
+        return true;
+    }
+    const auto* macro = findMacroDescriptor(name);
+    if (!macro)
+    {
+        error = std::format("未知動作「{}」", name);
+        return false;
+    }
+    if (payload.IsMap() && payload["類型"])
+    {
+        error = std::format("具名動作「{}」不可包含舊式「類型」欄位", name);
+        return false;
+    }
+    if (macro->payloadKind == MacroPayloadKind::AttributeBonus)
+        return parseAttributeBonusMacro(payload, out, error);
+    if (name == "回復資源" || name == "獲得資源" || name == "奪取資源")
+    {
+        EffectAction action;
+        if (!parseNamedResourceAction(name, payload, action, error)) return false;
+        out.push_back(std::move(action));
+        return true;
+    }
+    if (name == "回復內力" || name == "獲得護盾")
+    {
+        ChangeResourceAction action;
+        action.resource = name == "回復內力" ? BattleResource::Mp : BattleResource::Shield;
+        action.kind = name == "回復內力" ? ResourceChangeKind::Restore : ResourceChangeKind::Grant;
+        if (!parseNonEmptyEffectNumber(payload, action.amount, error)) return false;
+        out.push_back(EffectAction{ std::move(action) });
+        return true;
+    }
+    if (name == "回復生命")
+    {
+        ChangeResourceAction action;
+        action.resource = BattleResource::Hp;
+        action.kind = ResourceChangeKind::Restore;
+        if (payload.IsMap() && payload.size() == 0)
+        {
+            error = "回復生命不可使用空映射表";
+            return false;
+        }
+        const bool metadataPayload = payload.IsMap()
+            && (payload["數值"] || payload["治療種類"] || payload["來源政策"]);
+        if (metadataPayload)
+        {
+            PayloadView healPayload(payload, *macro->payload);
+            if (!healPayload.validate(error)
+                || !parseNonEmptyEffectNumber(healPayload["數值"], action.amount, error)
+                || !parseResourceMetadata(healPayload, action, error)
+                || !healPayload.finish(error)) return false;
+        }
+        else if (!parseNonEmptyEffectNumber(payload, action.amount, error)) return false;
+        out.push_back(EffectAction{ std::move(action) });
+        return true;
+    }
+    if (name == "忽略防禦" || name == "單次承傷上限")
+    {
+        ModifyDamageAction action;
+        if (!parseNonEmptyEffectNumber(payload, action.amount, error)) return false;
+        if (name == "忽略防禦")
+        {
+            action.perspective = DamageModifierPerspective::Outgoing;
+            action.stage = DamageModifierStage::BeforeDefense;
+            action.channel = DamageChannel::Skill;
+            action.operation = DamageModifierOperation::IgnoreDefensePercent;
+        }
+        else
+        {
+            action.perspective = DamageModifierPerspective::Incoming;
+            action.stage = DamageModifierStage::Final;
+            action.channel = DamageChannel::All;
+            action.operation = DamageModifierOperation::CapSingleHitAtMaxHpPercent;
+        }
+        out.push_back(EffectAction{ std::move(action) });
+        return true;
+    }
+    if (name == "擊退" || name == "拉近")
+    {
+        PayloadView movePayload(payload, *macro->payload);
+        if (!movePayload.validate(error)) return false;
+        ForceMoveAction action;
+        action.direction = name == "擊退"
+            ? ForceMoveDirection::AwayFromSource
+            : ForceMoveDirection::TowardSource;
+        action.collision = ForceMoveCollision::StopBeforeBlocked;
+        action.blocked = ForceMoveBlockedResult::Shorten;
+        if (!optionalInt(movePayload, "距離格數", action.distanceTiles, error)
+            || !optionalInt(movePayload, "距離像素", action.distancePixels, error)
+            || !optionalInt(movePayload, "鎖定幀數", action.lockFrames, error)
+            || !movePayload.finish(error)) return false;
+        out.push_back(EffectAction{ std::move(action) });
+        return true;
+    }
+
+    error = std::format("動作巨集「{}」尚未實作", name);
+    return false;
+}
+
+bool parseAuthorActionNode(
+    const YAML::Node& node,
+    std::vector<EffectAction>& out,
+    std::string& error)
+{
+    if (!node || !node.IsMap())
+    {
+        error = "動作必須是映射表";
+        return false;
+    }
+    if (!validateUniqueKeys(node, error)) return false;
+    if (node.size() != 1)
+    {
+        error = "動作必須恰有一個具名動作欄位";
+        return false;
+    }
+    const auto entry = *node.begin();
+    return parseNamedAction(
+        entry.first.as<std::string>(),
+        entry.second,
+        out,
+        error);
 }
 
 }  // namespace
@@ -5343,56 +7876,72 @@ bool ChessBattleEffects::parseEffectRule(
     try
     {
         std::string error;
-        if (!validateKnownKeys(node, { "事件", "觀察範圍", "施放匹配", "目標", "條件", "機率", "次數", "同來源冷卻幀數", "間隔幀數", "每N次事件", "觸發限制", "重複次數", "動作" }, error))
-            return fail(error);
-
-        std::string eventLabel;
-        if (!requiredString(node, "事件", eventLabel, error)) return fail(error);
-        const auto event = parseLabel<EffectEvent>(eventLabel, {
-            { "常駐", EffectEvent::BattleInitialized },
-            { "戰鬥初始化", EffectEvent::BattleInitialized },
-            { "每幀", EffectEvent::FrameAdvanced },
-            { "絕招冷卻完成", EffectEvent::UltimateCooldownFinished },
-            { "施放規劃", EffectEvent::CastPlanned },
-            { "攻擊提交", EffectEvent::AttackCommitted },
-            { "絕招提交", EffectEvent::UltimateCommitted },
-            { "攻擊生成", EffectEvent::AttackSpawned },
-            { "主彈道命中傷害前", EffectEvent::MainProjectileBeforeDamage },
-            { "命中傷害前", EffectEvent::HitBeforeDamage },
-            { "傷害結算後", EffectEvent::DamageResolved },
-            { "治療嘗試", EffectEvent::HealAttempted },
-            { "治療套用", EffectEvent::HealApplied },
-            { "施放延續", EffectEvent::CastContinuation },
-            { "施放結算完成", EffectEvent::CastSettled },
-            { "護盾破裂", EffectEvent::ShieldBroken },
-            { "單位死亡", EffectEvent::UnitDied },
-            { "友軍死亡", EffectEvent::AllyDied },
-        });
-        if (!event) return fail(std::format("未知事件「{}」", eventLabel));
+        PayloadView payload(node, rulePayload);
+        if (!payload.validate(error)) return fail(error);
+        std::string promotedAction;
+        for (const auto& [key, value] : payload.dynamicEntries())
+        {
+            static_cast<void>(value);
+            if (!promotedAction.empty())
+                return fail("規則只能提升一個具名動作");
+            promotedAction = key;
+        }
+        if (payload["動作"] && !promotedAction.empty())
+            return fail("規則不可同時使用提升動作與「動作」列表");
+        if (!payload["動作"] && promotedAction.empty())
+            return fail("規則需要一個提升動作或非空「動作」列表");
 
         out = {};
         out.id = id;
-        out.event = *event;
-        if (const auto observation = node["觀察範圍"])
+        std::size_t automaticConditionCount{};
+        std::string timing;
+        if (!requiredString(payload, "時機", timing, error)) return fail(error);
+        const auto* timingDescriptor = findTimingDescriptor(timing);
+        if (!timingDescriptor) return fail(std::format("未知時機「{}」", timing));
+        out.event = timingDescriptor->event;
+        out.selector.kind = timingDescriptor->defaultTarget;
+        if (timingDescriptor->intervalPolicy == TimingIntervalPolicy::Forbidden
+            && payload["間隔幀數"])
+        {
+            return fail("時機「每幀」禁止「間隔幀數」");
+        }
+        if (timingDescriptor->intervalPolicy == TimingIntervalPolicy::RequiredPositive)
+        {
+            if (!payload["間隔幀數"])
+                return fail("時機「每隔」需要「間隔幀數」");
+            if (!requiredInt(payload, "間隔幀數", out.intervalFrames, error)) return fail(error);
+            if (out.intervalFrames <= 0)
+                return fail("時機「每隔」的「間隔幀數」必須是正整數");
+        }
+        if (timingDescriptor->intent != TimingIntent::None)
+        {
+            out.conditions.push_back(DamagePerspectiveCondition{
+                timingDescriptor->intent == TimingIntent::DamageReceived
+                    ? DamagePerspective::Received
+                    : DamagePerspective::Dealt,
+            });
+            if (timingDescriptor->intent == TimingIntent::Kill)
+                out.conditions.push_back(DamageKilledTargetCondition{});
+            else
+                out.conditions.push_back(AcceptedHitCondition{});
+            automaticConditionCount = out.conditions.size();
+        }
+        if (const auto observation = payload["觀察範圍"])
         {
             const auto label = observation.as<std::string>();
-            if (label == "效果擁有者") out.observation = EffectObservationScope::Owner;
-            else if (label == "效果擁有者同隊事件來源")
-                out.observation = EffectObservationScope::OwnerTeamEventSource;
-            else if (label == "事件目標")
-                out.observation = EffectObservationScope::EventTarget;
-            else return fail(std::format("未知觀察範圍「{}」", label));
+            const auto parsed = parseLabel<EffectObservationScope>(label, observationScopeEnum);
+            if (!parsed) return fail(std::format("未知觀察範圍「{}」", label));
+            out.observation = *parsed;
         }
-        if (const auto castMatch = node["施放匹配"])
+        if (const auto castMatch = payload["施放匹配"])
         {
             const auto label = castMatch.as<std::string>();
-            if (label == "綁定武功") out.castMatch = EffectCastMatch::BoundMagic;
-            else if (label == "效果擁有者任意施放")
-                out.castMatch = EffectCastMatch::OwnerAnyCast;
-            else return fail(std::format("未知施放匹配「{}」", label));
+            const auto parsed = parseLabel<EffectCastMatch>(label, castMatchEnum);
+            if (!parsed) return fail(std::format("未知施放匹配「{}」", label));
+            out.castMatch = *parsed;
         }
-        if (node["目標"] && !parseSelectorNode(node["目標"], out.selector, error)) return fail(error);
-        if (const auto conditions = node["條件"])
+        if (payload["目標"] && !parseSelectorNode(payload["目標"], out.selector, error)) return fail(error);
+        if (const auto conditions = payload["條件"])
         {
             if (!conditions.IsSequence()) return fail("「條件」必須是列表");
             for (std::size_t index = 0; index < conditions.size(); ++index)
@@ -5400,33 +7949,253 @@ bool ChessBattleEffects::parseEffectRule(
                 EffectCondition condition;
                 if (!parseConditionNode(conditions[index], condition, error))
                     return fail(std::format("條件#{}: {}", index + 1, error));
+                if (std::ranges::any_of(
+                        out.conditions.begin(),
+                        out.conditions.begin() + static_cast<std::ptrdiff_t>(automaticConditionCount),
+                        [&](const EffectCondition& automatic)
+                        {
+                            return automatic.index() == condition.index();
+                        }))
+                {
+                    return fail(std::format("條件#{} 重複「時機」已自動加入的條件", index + 1));
+                }
                 out.conditions.push_back(std::move(condition));
             }
         }
-        if (!optionalInt(node, "機率", out.chancePct, error)
-            || !optionalInt(node, "次數", out.maxActivations, error)
-            || !optionalInt(node, "同來源冷卻幀數", out.sharedCooldownFrames, error)
-            || !optionalInt(node, "間隔幀數", out.intervalFrames, error)
-            || !optionalInt(node, "每N次事件", out.everyNthEvent, error)) return fail(error);
-        if (const auto activationLimit = node["觸發限制"])
+        if (!optionalInt(payload, "機率", out.chancePct, error)
+            || !optionalInt(payload, "次數", out.maxActivations, error)
+            || !optionalInt(payload, "同來源冷卻幀數", out.sharedCooldownFrames, error)
+            || (timingDescriptor->intervalPolicy != TimingIntervalPolicy::RequiredPositive
+                && !optionalInt(payload, "間隔幀數", out.intervalFrames, error))
+            || !optionalInt(payload, "每N次事件", out.everyNthEvent, error)) return fail(error);
+        if (const auto activationLimit = payload["觸發限制"])
         {
             EffectActivationLimit parsed;
             if (!parseActivationLimitNode(activationLimit, parsed, error)) return fail(error);
             out.activationLimit = parsed;
         }
-        if (node["重複次數"])
+        if (payload["重複次數"])
         {
             EffectNumber count;
-            if (!parseEffectNumberNode(node["重複次數"], count, error)) return fail(error);
+            if (!parseEffectNumberNode(payload["重複次數"], count, error)) return fail(error);
             out.repetitionCount = std::move(count);
         }
-        if (!parseActionList(node["動作"], out.actions, error)) return fail(error);
-        if (!validateEffectRule(out, error)) return fail(error);
+        if (!promotedAction.empty())
+        {
+            if (!parseNamedAction(promotedAction, payload[promotedAction], out.actions, error))
+                return fail(error);
+        }
+        else if (!parseActionList(payload["動作"], out.actions, error)) return fail(error);
+        if (std::ranges::any_of(out.actions, [](const EffectAction& action)
+            {
+                const auto* move = std::get_if<ForceMoveAction>(&action.value);
+                return move && move->distancePixels > 0;
+            })
+            && (out.actions.size() != 1
+                || out.everyNthEvent > 0
+                || out.activationLimit
+                || out.repetitionCount
+                || out.maxActivations > 0
+                || out.sharedCooldownFrames > 0))
+        {
+            return fail("像素擊退／拉近屬於精確階段，必須是唯一動作，且不可設定一般規則觸發記帳欄位");
+        }
+        if (!payload.finish(error)
+            || !validateEffectRule(out, error)) return fail(error);
         return true;
     }
     catch (const YAML::Exception& ex)
     {
         return fail(std::format("解析效果規則時發生 YAML 異常: {}", ex.what()));
+    }
+}
+
+bool ChessBattleEffects::validateAuthoringDescriptorProbes(std::string& error)
+{
+    error.clear();
+    try
+    {
+        const auto conditionAuthorNode = [](const ConditionDescriptor& descriptor, const YAML::Node& payload)
+        {
+            if (descriptor.form == ConditionAuthorForm::Scalar)
+                return YAML::Node(std::string(descriptor.name));
+            YAML::Node author(YAML::NodeType::Map);
+            if (descriptor.form == ConditionAuthorForm::SingleParameter)
+                author[std::string(descriptor.name)] = payload[std::string(descriptor.singleParameterField)];
+            else
+                author[std::string(descriptor.name)] = payload;
+            return author;
+        };
+        const auto runPayloadProbe = [&](const PayloadProbeDescriptor& probe, const YAML::Node& payload)
+        {
+            switch (probe.kind)
+            {
+            case PayloadProbeKind::EffectNumber:
+            {
+                EffectNumber value;
+                return parseEffectNumberNode(payload, value, error);
+            }
+            case PayloadProbeKind::Selector:
+            {
+                EffectSelector selector;
+                return parseSelectorNode(payload, selector, error);
+            }
+            case PayloadProbeKind::Condition:
+            {
+                const auto* descriptor = findConditionDescriptor(probe.authorName);
+                assert(descriptor);
+                EffectCondition condition;
+                return parseConditionNode(conditionAuthorNode(*descriptor, payload), condition, error);
+            }
+            case PayloadProbeKind::Action:
+            case PayloadProbeKind::Macro:
+            {
+                std::vector<EffectAction> actions;
+                return parseNamedAction(probe.authorName, payload, actions, error);
+            }
+            case PayloadProbeKind::ActivationLimit:
+            {
+                EffectActivationLimit limit;
+                return parseActivationLimitNode(payload, limit, error);
+            }
+            case PayloadProbeKind::AttackRuntimeBehavior:
+            {
+                AttackRuntimeBehavior behavior;
+                return parseAttackRuntimeBehavior(payload, behavior, error);
+            }
+            case PayloadProbeKind::AreaModifier:
+            {
+                AreaModifier modifier;
+                return parseAreaModifierNode(payload, modifier, error);
+            }
+            case PayloadProbeKind::AreaProjectile:
+            {
+                auto parent = YAML::Load(std::string(dealDamagePayload.minimalProbe));
+                parent["區域投射物"] = payload;
+                std::vector<EffectAction> actions;
+                return parseNamedAction("造成傷害", parent, actions, error);
+            }
+            case PayloadProbeKind::AutoUltimate:
+            {
+                auto parent = YAML::Load(std::string(modifyCastPayload.minimalProbe));
+                parent["自動絕招"] = payload;
+                std::vector<EffectAction> actions;
+                return parseNamedAction("修改施放", parent, actions, error);
+            }
+            case PayloadProbeKind::AttributePercentage:
+            {
+                YAML::Node parent(YAML::NodeType::Map);
+                parent["百分比"] = payload;
+                std::vector<EffectAction> actions;
+                return parseNamedAction("屬性加成", parent, actions, error);
+            }
+            case PayloadProbeKind::Rule:
+            {
+                ChessDiagnosticCollector diagnostics;
+                EffectRule rule;
+                if (parseEffectRule(
+                        payload,
+                        rule,
+                        EffectRuleId{ 1 },
+                        "descriptor probe",
+                        diagnostics.sink())) return true;
+                if (!diagnostics.diagnostics().empty())
+                    error = diagnostics.diagnostics().back().message;
+                return false;
+            }
+            }
+            assert(false);
+            return false;
+        };
+
+        for (const auto& descriptor : actionDescriptors)
+        {
+            std::vector<EffectAction> actions;
+            if (!parseNamedAction(
+                    descriptor.name,
+                    YAML::Load(std::string(descriptor.payload->minimalProbe)),
+                    actions,
+                    error))
+            {
+                error = std::format("動作 descriptor「{}」probe 失敗: {}", descriptor.name, error);
+                return false;
+            }
+            if (actions.size() != 1 || actions.front().value.index() != descriptor.variantIndex)
+            {
+                error = std::format("動作 descriptor「{}」dispatch 到錯誤 variant", descriptor.name);
+                return false;
+            }
+        }
+        for (const auto& descriptor : conditionDescriptors)
+        {
+            EffectCondition condition;
+            const auto payload = YAML::Load(std::string(descriptor.payload->minimalProbe));
+            if (!parseConditionNode(conditionAuthorNode(descriptor, payload), condition, error))
+            {
+                error = std::format("條件 descriptor「{}」probe 失敗: {}", descriptor.name, error);
+                return false;
+            }
+            if (condition.index() != descriptor.variantIndex)
+            {
+                error = std::format("條件 descriptor「{}」dispatch 到錯誤 variant", descriptor.name);
+                return false;
+            }
+        }
+        for (const auto& descriptor : macroDescriptors)
+        {
+            std::vector<EffectAction> actions;
+            if (!parseNamedAction(
+                    descriptor.name,
+                    YAML::Load(std::string(descriptor.payload->minimalProbe)),
+                    actions,
+                    error))
+            {
+                error = std::format("動作巨集 descriptor「{}」probe 失敗: {}", descriptor.name, error);
+                return false;
+            }
+            if (actions.empty())
+            {
+                error = std::format("動作巨集 descriptor「{}」probe 未產生動作", descriptor.name);
+                return false;
+            }
+        }
+        for (const auto& probe : payloadProbeDescriptors)
+        {
+            const auto run = [&](const YAML::Node& payload, std::string_view field)
+            {
+                error.clear();
+                if (runPayloadProbe(probe, payload)) return true;
+                error = std::format(
+                    "payload descriptor「{}」{}probe 失敗: {}",
+                    probe.payload->name,
+                    field.empty() ? "最小 " : std::format("欄位「{}」", field),
+                    error);
+                return false;
+            };
+            if (!run(YAML::Load(std::string(probe.payload->minimalProbe)), {})) return false;
+            for (const auto& field : probe.payload->fields)
+            {
+                const auto context = field.probeContext.empty()
+                    ? probe.payload->minimalProbe
+                    : field.probeContext;
+                auto payload = YAML::Load(std::string(context));
+                payload[std::string(field.name)] = YAML::Load(std::string(field.probeValue));
+                if (!run(payload, field.name)) return false;
+            }
+            if (probe.payload->dynamicKeyClass != PayloadDynamicKeyClass::None)
+            {
+                auto payload = YAML::Load(std::string(probe.payload->minimalProbe));
+                payload[std::string(probe.payload->dynamicProbeKey)] =
+                    YAML::Load(std::string(probe.payload->dynamicProbeValue));
+                if (!run(payload, probe.payload->dynamicProbeKey)) return false;
+            }
+        }
+        return true;
+    }
+    catch (const YAML::Exception& ex)
+    {
+        error = std::format("descriptor probe YAML 無效: {}", ex.what());
+        return false;
     }
 }
 

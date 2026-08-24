@@ -5,6 +5,7 @@ Usage:
   powershell -ExecutionPolicy Bypass -File .\.github\build-command.ps1
   or from PowerShell: .\.github\build-command.ps1 -Configuration Release -Platform x64
   defaults to building kys and kys_tests; pass -Target kys to build only one target
+  building kys_tests also runs the Python chess-effect schema generation tests
 #>
 
 param(
@@ -84,5 +85,27 @@ foreach ($targetName in $Target) {
     }
 }
 
-Write-Host "MSBuild exited with code $exitCode"
+if ($exitCode -eq 0 -and $Target -contains 'kys_tests') {
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $python) {
+        Write-Error "Python not found. Install Python and dependencies from requirements-test.txt."
+        $exitCode = 3
+    } else {
+        $repositoryRoot = Split-Path -Parent $PSScriptRoot
+        Write-Host "Running chess effect schema generation tests..."
+        Push-Location $repositoryRoot
+        try {
+            & $python.Source -m unittest tests.test_generate_chess_effect_schemas -v
+            $schemaTestExitCode = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+        if ($schemaTestExitCode -ne 0) {
+            Write-Error "Chess effect schema tests failed with code $schemaTestExitCode. Install test dependencies with: python -m pip install -r requirements-test.txt"
+            $exitCode = $schemaTestExitCode
+        }
+    }
+}
+
+Write-Host "Build verification exited with code $exitCode"
 exit $exitCode

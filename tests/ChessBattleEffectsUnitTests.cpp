@@ -13,6 +13,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 using namespace KysChess;
@@ -43,6 +44,449 @@ const EffectRule& ruleWithEvent(
     FAIL("找不到指定效果事件");
 }
 
+EffectRule parseRuleText(std::string_view yaml, std::uint64_t id = 1)
+{
+    EffectRule rule;
+    INFO(yaml);
+    REQUIRE(ChessBattleEffects::parseEffectRule(
+        YAML::Load(std::string(yaml)),
+        rule,
+        EffectRuleId{ id },
+        "簡式語法測試"));
+    return rule;
+}
+
+void checkEffectNumberEqual(const EffectNumber& lhs, const EffectNumber& rhs)
+{
+    CHECK(lhs.base == rhs.base);
+    CHECK(lhs.multiplierBase == rhs.multiplierBase);
+    CHECK(lhs.status == rhs.status);
+    CHECK(lhs.stateSlot == rhs.stateSlot);
+    CHECK(lhs.flat == rhs.flat);
+    CHECK(lhs.percent == rhs.percent);
+    CHECK(lhs.rounding == rhs.rounding);
+    CHECK(lhs.minimum == rhs.minimum);
+    CHECK(lhs.maximum == rhs.maximum);
+}
+
+void checkOptionalEffectNumberEqual(
+    const std::optional<EffectNumber>& lhs,
+    const std::optional<EffectNumber>& rhs)
+{
+    REQUIRE(lhs.has_value() == rhs.has_value());
+    if (lhs) checkEffectNumberEqual(*lhs, *rhs);
+}
+
+void checkSelectorEqual(const EffectSelector& lhs, const EffectSelector& rhs)
+{
+    CHECK(lhs.kind == rhs.kind);
+    CHECK(lhs.count == rhs.count);
+    CHECK(lhs.radiusTiles == rhs.radiusTiles);
+    CHECK(lhs.squareSideTiles == rhs.squareSideTiles);
+    CHECK(lhs.team == rhs.team);
+    CHECK(lhs.tieBreak == rhs.tieBreak);
+    CHECK(lhs.excludeOwner == rhs.excludeOwner);
+    CHECK(lhs.requiredMagicId == rhs.requiredMagicId);
+    CHECK(lhs.requiredWeaponType == rhs.requiredWeaponType);
+    CHECK(lhs.requiredTarget == rhs.requiredTarget);
+}
+
+void checkOptionalSelectorEqual(
+    const std::optional<EffectSelector>& lhs,
+    const std::optional<EffectSelector>& rhs)
+{
+    REQUIRE(lhs.has_value() == rhs.has_value());
+    if (lhs) checkSelectorEqual(*lhs, *rhs);
+}
+
+void checkConditionEqual(const EffectCondition& lhs, const EffectCondition& rhs)
+{
+    REQUIRE(lhs.index() == rhs.index());
+    std::visit([&](const auto& left)
+    {
+        using T = std::decay_t<decltype(left)>;
+        const auto& right = std::get<T>(rhs);
+        if constexpr (std::is_same_v<T, MagicIdEqualsCondition>)
+            CHECK(left.magicId == right.magicId);
+        else if constexpr (std::is_same_v<T, SourceHpRatioAtMostCondition>
+                           || std::is_same_v<T, SourceHpRatioBelowCondition>
+                           || std::is_same_v<T, TargetHpRatioAtMostCondition>)
+            CHECK(left.percent == right.percent);
+        else if constexpr (std::is_same_v<T, SourceHasStateCondition>
+                           || std::is_same_v<T, TargetHasStateCondition>
+                           || std::is_same_v<T, TargetHasStateFromEffectOwnerCondition>)
+            CHECK(left.state == right.state);
+        else if constexpr (std::is_same_v<T, SourceStackAtLeastCondition>)
+        {
+            CHECK(left.stack == right.stack);
+            CHECK(left.count == right.count);
+        }
+        else if constexpr (std::is_same_v<T, OtherLivingAllyUsesMagicCondition>)
+            CHECK(left.magicId == right.magicId);
+        else if constexpr (std::is_same_v<T, CastDistinctTargetCountAtLeastCondition>)
+            CHECK(left.count == right.count);
+        else if constexpr (std::is_same_v<T, AttackOrdinalEqualsCondition>)
+            CHECK(left.ordinal == right.ordinal);
+        else if constexpr (std::is_same_v<T, HealKindInCondition>
+                           || std::is_same_v<T, DamageKindInCondition>)
+            CHECK(left.kinds == right.kinds);
+        else if constexpr (std::is_same_v<T, AcceptedHitCondition>)
+        {
+            CHECK(left.requirePositiveDamage == right.requirePositiveDamage);
+            CHECK(left.excludeReflected == right.excludeReflected);
+        }
+        else if constexpr (std::is_same_v<T, DamagePerspectiveCondition>)
+            CHECK(left.perspective == right.perspective);
+    }, lhs);
+}
+
+void checkApplyStatusEqual(const ApplyStatusAction& lhs, const ApplyStatusAction& rhs)
+{
+    CHECK(lhs.status == rhs.status);
+    CHECK(lhs.durationFrames == rhs.durationFrames);
+    checkOptionalEffectNumberEqual(lhs.duration, rhs.duration);
+    checkOptionalEffectNumberEqual(lhs.applicationCount, rhs.applicationCount);
+    CHECK(lhs.stacks == rhs.stacks);
+    checkEffectNumberEqual(lhs.potency, rhs.potency);
+    checkEffectNumberEqual(lhs.secondaryPotency, rhs.secondaryPotency);
+    CHECK(lhs.stack == rhs.stack);
+    CHECK(lhs.stackLimit == rhs.stackLimit);
+    CHECK(lhs.aggregatePotencyWithinEvent == rhs.aggregatePotencyWithinEvent);
+}
+
+void checkAttackPatternEqual(const AttackPattern& lhs, const AttackPattern& rhs)
+{
+    CHECK(lhs.kind == rhs.kind);
+    CHECK(lhs.projectileCount == rhs.projectileCount);
+    CHECK(lhs.spreadDegrees == rhs.spreadDegrees);
+    CHECK(lhs.intervalFrames == rhs.intervalFrames);
+}
+
+void checkAttackRuntimeBehaviorEqual(
+    const AttackRuntimeBehavior& lhs,
+    const AttackRuntimeBehavior& rhs)
+{
+    REQUIRE(lhs.index() == rhs.index());
+    std::visit([&](const auto& left)
+    {
+        using T = std::decay_t<decltype(left)>;
+        const auto& right = std::get<T>(rhs);
+        if constexpr (std::is_same_v<T, ProjectileBounceAttackBehavior>)
+        {
+            CHECK(left.additionalHits == right.additionalHits);
+            CHECK(left.chancePct == right.chancePct);
+            CHECK(left.rangePixels == right.rangePixels);
+        }
+        else if constexpr (std::is_same_v<T, NearbyTrackingAttackBehavior>)
+        {
+            CHECK(left.rangePixels == right.rangePixels);
+            CHECK(left.damagePct == right.damagePct);
+        }
+        else if constexpr (std::is_same_v<T, DelayedAlternateAttackBehavior>)
+        {
+            CHECK(left.delayFrames == right.delayFrames);
+            CHECK(left.damagePct == right.damagePct);
+            CHECK(left.attackerBlockGainChancePct == right.attackerBlockGainChancePct);
+        }
+        else if constexpr (std::is_same_v<T, ExpandingSpiralAttackBehavior>)
+        {
+            CHECK(left.projectileCount == right.projectileCount);
+            CHECK(left.bleedStacks == right.bleedStacks);
+        }
+    }, lhs);
+}
+
+void checkAreaModifierEqual(const AreaModifier& lhs, const AreaModifier& rhs)
+{
+    CHECK(lhs.kind == rhs.kind);
+    CHECK(lhs.relation == rhs.relation);
+    CHECK(lhs.attribute == rhs.attribute);
+    checkEffectNumberEqual(lhs.amount, rhs.amount);
+    CHECK(lhs.percent == rhs.percent);
+    CHECK(lhs.damageChannel == rhs.damageChannel);
+    CHECK(lhs.tracking == rhs.tracking);
+    CHECK(lhs.speedPct == rhs.speedPct);
+    CHECK(lhs.projectilePressurePct == rhs.projectilePressurePct);
+    CHECK(lhs.blockedDirection == rhs.blockedDirection);
+    CHECK(lhs.overlap == rhs.overlap);
+    CHECK(lhs.trackingOverlap == rhs.trackingOverlap);
+    CHECK(lhs.speedOverlap == rhs.speedOverlap);
+    CHECK(lhs.projectilePressureOverlap == rhs.projectilePressureOverlap);
+}
+
+void checkStateMachineEqual(const StateMachineAction& lhs, const StateMachineAction& rhs)
+{
+    REQUIRE(lhs.index() == rhs.index());
+    std::visit([&](const auto& left)
+    {
+        using T = std::decay_t<decltype(left)>;
+        const auto& right = std::get<T>(rhs);
+        if constexpr (std::is_same_v<T, ChangeStateValueAction>)
+        {
+            CHECK(left.slot == right.slot);
+            CHECK(left.delta == right.delta);
+            CHECK(left.minimum == right.minimum);
+            CHECK(left.maximum == right.maximum);
+        }
+        else if constexpr (std::is_same_v<T, TransferStateValueAction>)
+        {
+            CHECK(left.sourceSlot == right.sourceSlot);
+            CHECK(left.destinationSlot == right.destinationSlot);
+        }
+        else if constexpr (std::is_same_v<T, RecordMaximumDamageAction>)
+        {
+            CHECK(left.slot == right.slot);
+            CHECK(left.channel == right.channel);
+        }
+        else if constexpr (std::is_same_v<T, ConsumeRecordedMaximumAction>)
+        {
+            CHECK(left.slot == right.slot);
+            CHECK(left.destination == right.destination);
+            CHECK(left.percent == right.percent);
+            CHECK(left.clearAfterConsume == right.clearAfterConsume);
+        }
+        else if constexpr (std::is_same_v<T, StartDamageAbsorptionAction>)
+        {
+            CHECK(left.slot == right.slot);
+            CHECK(left.absorbedPct == right.absorbedPct);
+            CHECK(left.durationFrames == right.durationFrames);
+            CHECK(left.settleOnSourceDeath == right.settleOnSourceDeath);
+            checkSelectorEqual(left.settlementTarget, right.settlementTarget);
+            CHECK(left.settlementDamageKind == right.settlementDamageKind);
+            CHECK(left.returnedPct == right.returnedPct);
+        }
+        else if constexpr (std::is_same_v<T, SettleDamageAbsorptionAction>)
+        {
+            CHECK(left.slot == right.slot);
+            checkSelectorEqual(left.target, right.target);
+            CHECK(left.damageKind == right.damageKind);
+            CHECK(left.returnedPct == right.returnedPct);
+            CHECK(left.clearAfterSettle == right.clearAfterSettle);
+        }
+        else if constexpr (std::is_same_v<T, BorrowEffectRulesAction>)
+        {
+            checkSelectorEqual(left.sourceUnits, right.sourceUnits);
+            checkEffectNumberEqual(left.sourceCount, right.sourceCount);
+            CHECK(left.filter.allowedActionCategories == right.filter.allowedActionCategories);
+            CHECK(left.propagation == right.propagation);
+        }
+        else if constexpr (std::is_same_v<T, CopyAttackDefinitionAction>)
+        {
+            checkSelectorEqual(left.sourceUnits, right.sourceUnits);
+            CHECK(left.filter.conditions == right.filter.conditions);
+            CHECK(left.copyCount == right.copyCount);
+            CHECK(left.propagation == right.propagation);
+        }
+        else if constexpr (std::is_same_v<T, SettleRemainingStatusDamageAction>)
+            CHECK(left.status == right.status);
+        else if constexpr (std::is_same_v<T, GenerateClonesAction>)
+            CHECK(left.count == right.count);
+        else if constexpr (std::is_same_v<T, PreventDeathAction>)
+            CHECK(left.invincibilityFrames == right.invincibilityFrames);
+        else if constexpr (std::is_same_v<T, ConfigureRescueRepositionAction>)
+        {
+            CHECK(left.mode == right.mode);
+            CHECK(left.activations == right.activations);
+        }
+    }, lhs);
+}
+
+void checkActionEqual(const EffectAction& lhs, const EffectAction& rhs);
+
+void checkActionsEqual(
+    const std::vector<EffectAction>& lhs,
+    const std::vector<EffectAction>& rhs)
+{
+    REQUIRE(lhs.size() == rhs.size());
+    for (std::size_t index = 0; index < lhs.size(); ++index)
+        checkActionEqual(lhs[index], rhs[index]);
+}
+
+void checkActionEqual(const EffectAction& lhs, const EffectAction& rhs)
+{
+    REQUIRE(lhs.value.index() == rhs.value.index());
+    std::visit([&](const auto& left)
+    {
+        using T = std::decay_t<decltype(left)>;
+        const auto& right = std::get<T>(rhs.value);
+        if constexpr (std::is_same_v<T, ModifyAttributeAction>)
+        {
+            CHECK(left.attribute == right.attribute);
+            checkEffectNumberEqual(left.amount, right.amount);
+            CHECK(left.operation == right.operation);
+            CHECK(left.durationFrames == right.durationFrames);
+            CHECK(left.stack == right.stack);
+            CHECK(left.stackLimit == right.stackLimit);
+            CHECK(left.perStack == right.perStack);
+            CHECK(left.stackScope == right.stackScope);
+        }
+        else if constexpr (std::is_same_v<T, ModifyDamageAction>)
+        {
+            CHECK(left.perspective == right.perspective);
+            CHECK(left.stage == right.stage);
+            CHECK(left.channel == right.channel);
+            checkEffectNumberEqual(left.amount, right.amount);
+            CHECK(left.operation == right.operation);
+            CHECK(left.durationFrames == right.durationFrames);
+            CHECK(left.stack == right.stack);
+            CHECK(left.stackLimit == right.stackLimit);
+            CHECK(left.stackScope == right.stackScope);
+        }
+        else if constexpr (std::is_same_v<T, ChangeResourceAction>)
+        {
+            CHECK(left.resource == right.resource);
+            checkEffectNumberEqual(left.amount, right.amount);
+            CHECK(left.kind == right.kind);
+            checkOptionalSelectorEqual(left.transferDestination, right.transferDestination);
+            CHECK(left.healKind == right.healKind);
+            CHECK(left.healSourcePolicy == right.healSourcePolicy);
+        }
+        else if constexpr (std::is_same_v<T, ModifyHealTransactionAction>)
+        {
+            CHECK(left.operation == right.operation);
+            CHECK(left.kinds == right.kinds);
+            CHECK(left.percent == right.percent);
+        }
+        else if constexpr (std::is_same_v<T, ApplyStatusAction>)
+            checkApplyStatusEqual(left, right);
+        else if constexpr (std::is_same_v<T, ConsumeStatusAction>)
+        {
+            CHECK(left.status == right.status);
+            CHECK(left.stacks == right.stacks);
+            CHECK(left.source == right.source);
+            REQUIRE(left.whenDepleted.has_value() == right.whenDepleted.has_value());
+            if (left.whenDepleted) checkApplyStatusEqual(*left.whenDepleted, *right.whenDepleted);
+        }
+        else if constexpr (std::is_same_v<T, RemoveStatusAction>)
+        {
+            CHECK(left.statuses == right.statuses);
+            CHECK(left.negativeOnly == right.negativeOnly);
+            CHECK(left.controlOnly == right.controlOnly);
+            CHECK(left.clearCurrentActionStagger == right.clearCurrentActionStagger);
+            CHECK(left.count == right.count);
+            CHECK(left.order == right.order);
+        }
+        else if constexpr (std::is_same_v<T, DealDamageAction>)
+        {
+            checkEffectNumberEqual(left.amount, right.amount);
+            checkOptionalEffectNumberEqual(left.transactionCount, right.transactionCount);
+            CHECK(left.kind == right.kind);
+            CHECK(left.appliesDamageModifiers == right.appliesDamageModifiers);
+            CHECK(left.triggersHurtInvincibility == right.triggersHurtInvincibility);
+            CHECK(left.area.kind == right.area.kind);
+            CHECK(left.area.radiusTiles == right.area.radiusTiles);
+            CHECK(left.area.squareSideTiles == right.area.squareSideTiles);
+            CHECK(left.perCast.perTargetLimit == right.perCast.perTargetLimit);
+            REQUIRE(left.areaProjectiles.has_value() == right.areaProjectiles.has_value());
+            if (left.areaProjectiles)
+            {
+                CHECK(left.areaProjectiles->rangeTiles == right.areaProjectiles->rangeTiles);
+                CHECK(left.areaProjectiles->maximumTargets == right.areaProjectiles->maximumTargets);
+                CHECK(left.areaProjectiles->stunFrames == right.areaProjectiles->stunFrames);
+                CHECK(left.areaProjectiles->trackEventSource == right.areaProjectiles->trackEventSource);
+                CHECK(left.areaProjectiles->visual == right.areaProjectiles->visual);
+            }
+        }
+        else if constexpr (std::is_same_v<T, ModifyAttackAction>)
+        {
+            checkAttackPatternEqual(left.pattern, right.pattern);
+            CHECK(left.strengthPct == right.strengthPct);
+            CHECK(left.through == right.through);
+            CHECK(left.tracking == right.tracking);
+            CHECK(left.mainProjectile == right.mainProjectile);
+            CHECK(left.sameTargetHitLimit == right.sameTargetHitLimit);
+            CHECK(left.targets == right.targets);
+            CHECK(left.propagation == right.propagation);
+            CHECK(left.addToBaseAttack == right.addToBaseAttack);
+            checkOptionalSelectorEqual(left.source, right.source);
+            checkOptionalEffectNumberEqual(left.damageOverride, right.damageOverride);
+            CHECK(left.damageKind == right.damageKind);
+            checkAttackRuntimeBehaviorEqual(left.runtimeBehavior, right.runtimeBehavior);
+        }
+        else if constexpr (std::is_same_v<T, ForceMoveAction>)
+        {
+            CHECK(left.direction == right.direction);
+            CHECK(left.distanceTiles == right.distanceTiles);
+            CHECK(left.distancePixels == right.distancePixels);
+            CHECK(left.lockFrames == right.lockFrames);
+            CHECK(left.collision == right.collision);
+            CHECK(left.blocked == right.blocked);
+        }
+        else if constexpr (std::is_same_v<T, CreateAreaAction>)
+        {
+            CHECK(left.shape == right.shape);
+            CHECK(left.radiusTiles == right.radiusTiles);
+            CHECK(left.squareSideTiles == right.squareSideTiles);
+            CHECK(left.anchor == right.anchor);
+            CHECK(left.durationFrames == right.durationFrames);
+            CHECK(left.sourceDeath == right.sourceDeath);
+            CHECK(left.merge == right.merge);
+            REQUIRE(left.modifiers.size() == right.modifiers.size());
+            for (std::size_t index = 0; index < left.modifiers.size(); ++index)
+                checkAreaModifierEqual(left.modifiers[index], right.modifiers[index]);
+        }
+        else if constexpr (std::is_same_v<T, ModifyCastAction>)
+        {
+            checkOptionalEffectNumberEqual(left.mpCost, right.mpCost);
+            CHECK(left.rangeMode == right.rangeMode);
+            CHECK(left.projectileSpeedPct == right.projectileSpeedPct);
+            CHECK(left.minimumSelectDistance == right.minimumSelectDistance);
+            CHECK(left.additionalProjectiles == right.additionalProjectiles);
+            CHECK(left.mobility == right.mobility);
+            REQUIRE(left.autoUltimate.has_value() == right.autoUltimate.has_value());
+            if (left.autoUltimate)
+            {
+                CHECK(left.autoUltimate->consumeMp == right.autoUltimate->consumeMp);
+                CHECK(left.autoUltimate->announce == right.autoUltimate->announce);
+            }
+            REQUIRE(left.replacementPattern.has_value() == right.replacementPattern.has_value());
+            if (left.replacementPattern)
+                checkAttackPatternEqual(*left.replacementPattern, *right.replacementPattern);
+            CHECK(left.freeAdditionalCast == right.freeAdditionalCast);
+            CHECK(left.propagation == right.propagation);
+        }
+        else if constexpr (std::is_same_v<T, StateMachineAction>)
+            checkStateMachineEqual(left, right);
+        else if constexpr (std::is_same_v<T, std::shared_ptr<ConditionalEffectAction>>)
+        {
+            REQUIRE(static_cast<bool>(left) == static_cast<bool>(right));
+            if (!left) return;
+            REQUIRE(left->conditions.size() == right->conditions.size());
+            for (std::size_t index = 0; index < left->conditions.size(); ++index)
+                checkConditionEqual(left->conditions[index], right->conditions[index]);
+            checkActionsEqual(left->whenTrue, right->whenTrue);
+            checkActionsEqual(left->whenFalse, right->whenFalse);
+        }
+    }, lhs.value);
+}
+
+void checkRulesEqual(const EffectRule& lhs, const EffectRule& rhs)
+{
+    CHECK(lhs.id == rhs.id);
+    CHECK(lhs.event == rhs.event);
+    CHECK(lhs.observation == rhs.observation);
+    CHECK(lhs.castMatch == rhs.castMatch);
+    checkSelectorEqual(lhs.selector, rhs.selector);
+    REQUIRE(lhs.conditions.size() == rhs.conditions.size());
+    for (std::size_t index = 0; index < lhs.conditions.size(); ++index)
+        checkConditionEqual(lhs.conditions[index], rhs.conditions[index]);
+    CHECK(lhs.chancePct == rhs.chancePct);
+    CHECK(lhs.maxActivations == rhs.maxActivations);
+    CHECK(lhs.sharedCooldownFrames == rhs.sharedCooldownFrames);
+    CHECK(lhs.intervalFrames == rhs.intervalFrames);
+    CHECK(lhs.everyNthEvent == rhs.everyNthEvent);
+    REQUIRE(lhs.activationLimit.has_value() == rhs.activationLimit.has_value());
+    if (lhs.activationLimit)
+    {
+        CHECK(lhs.activationLimit->scope == rhs.activationLimit->scope);
+        CHECK(lhs.activationLimit->maxEvaluations == rhs.activationLimit->maxEvaluations);
+    }
+    checkOptionalEffectNumberEqual(lhs.repetitionCount, rhs.repetitionCount);
+    checkActionsEqual(lhs.actions, rhs.actions);
+    for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
+        CHECK(effectDescription(lhs, style) == effectDescription(rhs, style));
+}
+
 std::set<int> poolUltimateMagicIds(const ChessGameContent& content)
 {
     std::set<int> result;
@@ -66,6 +510,15 @@ std::set<int> poolUltimateMagicIds(const ChessGameContent& content)
 
 }  // namespace
 
+TEST_CASE("ChessBattleEffects_DescriptorOwnedProbesReachEveryAuthorVariantAndField",
+          "[battle][effects][schema][descriptor][probe]")
+{
+    std::string error;
+    const bool valid = ChessBattleEffects::validateAuthoringDescriptorProbes(error);
+    INFO(error);
+    CHECK(valid);
+}
+
 TEST_CASE("BattleEffectRuleStore_BlinkAttackTargetModeIsOwnerScoped", "[battle][effects][rule_store]")
 {
     Battle::BattleEffectRuleStore store;
@@ -85,6 +538,545 @@ TEST_CASE("BattleEffectRuleStore_BlinkAttackTargetModeIsOwnerScoped", "[battle][
     CHECK(store.blinkAttackUsesWeakestTarget(8));
 }
 
+TEST_CASE("ChessBattleEffects_ShorthandTimingsNormalizeToCanonicalRules",
+          "[battle][effects][schema][shorthand]")
+{
+    struct TimingCase
+    {
+        std::string_view timing;
+        EffectEvent event;
+        EffectSelectorKind target;
+        std::size_t automaticConditions;
+    };
+    static constexpr TimingCase cases[]{
+        { "開場", EffectEvent::BattleInitialized, EffectSelectorKind::Self, 0 },
+        { "每幀", EffectEvent::FrameAdvanced, EffectSelectorKind::Self, 0 },
+        { "每隔", EffectEvent::FrameAdvanced, EffectSelectorKind::Self, 0 },
+        { "絕招冷卻完成", EffectEvent::UltimateCooldownFinished, EffectSelectorKind::Self, 0 },
+        { "施放規劃", EffectEvent::CastPlanned, EffectSelectorKind::Self, 0 },
+        { "攻擊提交", EffectEvent::AttackCommitted, EffectSelectorKind::Self, 0 },
+        { "絕招施放", EffectEvent::UltimateCommitted, EffectSelectorKind::Self, 0 },
+        { "攻擊生成", EffectEvent::AttackSpawned, EffectSelectorKind::Self, 0 },
+        { "主彈命中", EffectEvent::MainProjectileBeforeDamage, EffectSelectorKind::HitTarget, 0 },
+        { "命中", EffectEvent::HitBeforeDamage, EffectSelectorKind::HitTarget, 0 },
+        { "傷害後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 0 },
+        { "治療嘗試", EffectEvent::HealAttempted, EffectSelectorKind::Self, 0 },
+        { "治療套用", EffectEvent::HealApplied, EffectSelectorKind::Self, 0 },
+        { "施放延續", EffectEvent::CastContinuation, EffectSelectorKind::Self, 0 },
+        { "施放結算完成", EffectEvent::CastSettled, EffectSelectorKind::Self, 0 },
+        { "護盾破裂", EffectEvent::ShieldBroken, EffectSelectorKind::Self, 0 },
+        { "單位死亡", EffectEvent::UnitDied, EffectSelectorKind::Self, 0 },
+        { "友軍死亡", EffectEvent::AllyDied, EffectSelectorKind::Self, 0 },
+        { "造成傷害後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 2 },
+        { "受傷後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 2 },
+        { "擊殺後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 2 },
+    };
+    for (const auto& test : cases)
+    {
+        CAPTURE(test.timing);
+        const auto action = test.event == EffectEvent::HealAttempted
+            ? "治療交易修正:\n  方式: 阻止\n  治療種類:\n    - 直接治療\n"
+            : "獲得護盾: 1\n";
+        auto yaml = std::format(
+            "時機: {}\n{}{}",
+            test.timing,
+            test.timing == "每隔" ? "間隔幀數: 30\n" : "",
+            action);
+        const auto rule = parseRuleText(yaml);
+        CHECK(rule.event == test.event);
+        CHECK(rule.selector.kind == test.target);
+        CHECK(rule.conditions.size() == test.automaticConditions);
+        if (test.timing == "每隔") CHECK(rule.intervalFrames == 30);
+        CHECK(rule.actions.size() == 1);
+    }
+
+    const auto canonical = parseRuleText(R"(
+時機: 傷害後
+目標: 自身
+條件:
+  - 傷害方位: 造成
+  - 已接受命中
+  - 傷害來自招式
+機率: 75
+次數: 4
+同來源冷卻幀數: 12
+每N次事件: 3
+動作:
+  - 資源變更:
+      資源: 內力
+      方式: 回復
+      數值:
+        基準: 實際生命傷害
+        百分比: 50
+)");
+    const auto shorthand = parseRuleText(R"(
+時機: 造成傷害後
+目標: 自身
+條件:
+  - 傷害來自招式
+機率: 75
+次數: 4
+同來源冷卻幀數: 12
+每N次事件: 3
+回復內力:
+  實際生命傷害百分比: 50
+)");
+    checkRulesEqual(canonical, shorthand);
+}
+
+TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads",
+          "[battle][effects][schema][shorthand]")
+{
+    const auto attributeCanonical = parseRuleText(R"(
+時機: 絕招施放
+目標: 自身
+動作:
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 固定加算
+      數值: 50
+      持續幀數: 90
+      合併方式: 增加層數
+      層數上限: 3
+      每層: true
+      疊加範圍: 事件來源
+  - 屬性修正:
+      屬性: 防禦
+      方式: 固定加算
+      數值: 30
+      持續幀數: 90
+      合併方式: 增加層數
+      層數上限: 3
+      每層: true
+      疊加範圍: 事件來源
+  - 屬性修正:
+      屬性: 速度
+      方式: 百分比加算
+      數值: 15
+      持續幀數: 90
+      合併方式: 增加層數
+      層數上限: 3
+      每層: true
+      疊加範圍: 事件來源
+  - 屬性修正:
+      屬性: 暴擊率
+      方式: 百分比加算
+      數值: 10
+      持續幀數: 90
+      合併方式: 增加層數
+      層數上限: 3
+      每層: true
+      疊加範圍: 事件來源
+)");
+    const auto attributeShorthand = parseRuleText(R"(
+時機: 絕招施放
+目標: 自身
+屬性加成:
+  防禦: 30
+  攻擊: 50
+  百分比:
+    暴擊率: 10
+    速度: 15
+  持續幀數: 90
+  合併方式: 增加層數
+  層數上限: 3
+  每層: true
+  疊加範圍: 事件來源
+)");
+    checkRulesEqual(attributeCanonical, attributeShorthand);
+
+    const auto controlledCanonical = parseRuleText(R"(
+時機: 命中
+目標: 命中目標
+條件:
+  - 僅限主彈道
+觸發限制:
+  範圍: 每次施放每個目標
+  次數: 2
+重複次數: {固定: 2}
+動作:
+  - 套用狀態:
+      狀態: 寒毒
+      持續幀數: 90
+      層數: 2
+      強度: {基準: 來源最大生命, 百分比: 3}
+      次要強度: 4
+      合併方式: 增加層數
+      層數上限: 6
+)");
+    const auto controlledShorthand = parseRuleText(R"(
+時機: 命中
+目標: 命中目標
+條件: [僅限主彈道]
+觸發限制:
+  範圍: 每次施放每個目標
+  次數: 2
+重複次數: 2
+動作:
+  - 套用狀態:
+      狀態: 寒毒
+      持續幀數: 90
+      層數: 2
+      強度: {來源最大生命百分比: 3}
+      次要強度: 4
+      合併方式: 增加層數
+      層數上限: 6
+)");
+    checkRulesEqual(controlledCanonical, controlledShorthand);
+
+    struct RulePair { std::string_view canonical; std::string_view shorthand; };
+    static constexpr RulePair pairs[]{
+        { R"(
+時機: 傷害後
+目標: 自身
+動作:
+  - 資源變更:
+      資源: 生命
+      方式: 回復
+      數值: {基準: 目標最大生命, 百分比: 8}
+      治療種類: 擊殺獎勵
+)", R"(
+時機: 傷害後
+目標: 自身
+回復生命:
+  數值: {目標最大生命百分比: 8}
+  治療種類: 擊殺獎勵
+)" },
+        { R"(
+時機: 傷害後
+目標: 自身
+動作:
+  - 資源變更:
+      資源: 護盾
+      方式: 獲得
+      數值: {基準: 來源星級, 百分比: 10000}
+)", R"(
+時機: 傷害後
+目標: 自身
+獲得護盾: {每星級: 100}
+)" },
+        { R"(
+時機: 開場
+目標: 自身
+動作:
+  - 傷害修正:
+      方位: 造成
+      階段: 防禦前
+      傷害種類: 招式
+      方式: 忽略防禦百分比
+      數值: 30
+)", R"(
+時機: 開場
+目標: 自身
+忽略防禦: 30
+)" },
+        { R"(
+時機: 開場
+目標: 自身
+動作:
+  - 傷害修正:
+      方位: 承受
+      階段: 最終
+      傷害種類: 全部
+      方式: 單次承傷上限
+      數值: 20
+)", R"(
+時機: 開場
+目標: 自身
+單次承傷上限: 20
+)" },
+        { R"(
+時機: 主彈命中
+目標: 命中目標
+動作:
+  - 強制移動:
+      方向: 遠離來源
+      距離格數: 4
+      碰撞: 阻擋前停止
+      受阻結果: 縮短
+)", R"(
+時機: 主彈命中
+目標: 命中目標
+擊退: {距離格數: 4}
+)" },
+        { R"(
+時機: 主彈命中
+目標: 命中目標
+動作:
+  - 強制移動:
+      方向: 接近來源
+      距離格數: 2
+      碰撞: 阻擋前停止
+      受阻結果: 縮短
+)", R"(
+時機: 主彈命中
+目標: 命中目標
+拉近: {距離格數: 2}
+)" },
+    };
+    for (const auto& pair : pairs)
+        checkRulesEqual(parseRuleText(pair.canonical), parseRuleText(pair.shorthand));
+
+    const auto nested = parseRuleText(R"(
+時機: 傷害後
+目標: 自身
+動作:
+  - 條件分支:
+      條件: [已接受命中]
+      成立:
+        - 回復內力: 10
+        - 屬性加成:
+            攻擊: 5
+            防禦: 3
+)");
+    const auto& conditional = std::get<std::shared_ptr<ConditionalEffectAction>>(
+        nested.actions.front().value);
+    REQUIRE(conditional);
+    CHECK(conditional->whenTrue.size() == 3);
+}
+
+TEST_CASE("ChessBattleEffects_AllNamedConditionFormsReachTypedConditions",
+          "[battle][effects][schema][conditions]")
+{
+    struct ConditionCase
+    {
+        std::string_view timing;
+        std::string_view authorNode;
+        std::size_t variantIndex;
+    };
+    static constexpr ConditionCase cases[]{
+        { "攻擊提交", "  - 僅限絕招", 0 },
+        { "施放規劃", "  - 武功相符: 26", 1 },
+        { "命中", "  - 僅限主彈道", 2 },
+        { "命中", "  - 僅限根攻擊", 3 },
+        { "傷害後", "  - 自身生命不高於: 40", 4 },
+        { "傷害後", "  - 自身生命低於: 30", 5 },
+        { "傷害後", "  - 自身為最後存活", 6 },
+        { "傷害後", "  - 目標生命不高於: 20", 7 },
+        { "傷害後", "  - 目標非無敵", 8 },
+        { "傷害後", "  - 自身有狀態: 戰意", 9 },
+        { "傷害後", "  - 目標有狀態: 中毒", 10 },
+        { "傷害後", "  - 目標有此來源狀態: 寒毒", 11 },
+        { "傷害後", "  - 自身層數至少:\n      狀態: 戰意\n      層數: 2", 12 },
+        { "施放規劃", "  - 其他存活友軍使用武功: 18", 13 },
+        { "施放結算完成", "  - 不同目標數至少: 2", 14 },
+        { "命中", "  - 攻擊序號: 1", 15 },
+        { "治療套用", "  - 治療種類符合: [命中, 吸血]", 16 },
+        { "傷害後", "  - 傷害來自招式", 17 },
+        { "傷害後", "  - 傷害造成死亡", 18 },
+        { "傷害後", "  - 已接受命中", 19 },
+        { "單位死亡", "  - 事件目標屬於綁定來源", 20 },
+        { "傷害後", "  - 傷害方位: 承受", 21 },
+        { "傷害後", "  - 傷害種類符合: [招式, 特效]", 22 },
+        { "施放規劃", "  - 受益者施放前滿內", 23 },
+        { "施放規劃", "  - 有合法隨機目標", 24 },
+    };
+    for (const auto& test : cases)
+    {
+        CAPTURE(test.authorNode);
+        const auto rule = parseRuleText(std::format(R"(時機: {}
+目標: 自身
+條件:
+{}
+獲得護盾: 1
+)", test.timing, test.authorNode));
+        REQUIRE(rule.conditions.size() == 1);
+        CHECK(rule.conditions.front().index() == test.variantIndex);
+    }
+
+    const auto configuredAcceptedHit = parseRuleText(R"(
+時機: 傷害後
+條件:
+  - 已接受命中:
+      需要正傷害: true
+      排除反彈: true
+獲得護盾: 1
+)");
+    const auto& accepted = std::get<AcceptedHitCondition>(configuredAcceptedHit.conditions.front());
+    CHECK(accepted.requirePositiveDamage);
+    CHECK(accepted.excludeReflected);
+}
+
+TEST_CASE("ChessBattleEffects_ShorthandRejectsAmbiguousAndEmptyShapes",
+          "[battle][effects][schema][shorthand]")
+{
+    const auto rejects = [](std::string_view yaml)
+    {
+        EffectRule rule;
+        return !ChessBattleEffects::parseEffectRule(
+            YAML::Load(std::string(yaml)), rule, EffectRuleId{ 1 }, "不合法簡式");
+    };
+    const std::string_view invalidRules[]{
+        R"(事件: 傷害結算後
+獲得護盾: 1)",
+        R"(時機: 傷害後
+動作:
+  - 類型: 資源變更
+    資源: 護盾
+    方式: 獲得
+    數值: 1)",
+        R"(時機: 傷害後
+條件:
+  - 類型: 已接受命中
+獲得護盾: 1)",
+        R"(時機: 開場
+屬性加成:
+  固定:
+    攻擊: 10)",
+        R"(時機: 傷害後
+回復內力: 1
+動作: [{類型: 資源變更, 資源: 護盾, 方式: 獲得, 數值: 1}])",
+        R"(時機: 傷害後
+回復內力: 1
+獲得護盾: 2)",
+        R"(時機: 造成傷害後
+條件: [已接受命中]
+回復內力: 1)",
+        R"(時機: 傷害後
+動作: [{未知捷徑: 1}])",
+        R"(時機: 傷害後
+條件: [{僅限絕招: true}]
+回復內力: 1)",
+        R"(時機: 傷害後
+條件: [{自身層數至少: 2}]
+回復內力: 1)",
+        R"(時機: 傷害後
+回復內力: {})",
+        R"(時機: 傷害後
+回復生命: {})",
+        R"(時機: 傷害後
+回復生命: {數值: {}})",
+        R"(時機: 傷害後
+獲得護盾: {})",
+        R"(時機: 傷害後
+忽略防禦: {})",
+        R"(時機: 傷害後
+單次承傷上限: {})",
+        R"(時機: 傷害後
+回復生命: {數值: 10, 百分比: 20})",
+        R"(時機: 開場
+屬性加成:
+  攻擊:
+    每星級: 10)",
+        R"(時機: 開場
+屬性加成:
+  攻擊: 10
+  攻擊: 20)",
+        R"(時機: 開場
+屬性加成:
+  攻擊: 10
+  百分比:
+    攻擊: 20)",
+        R"(時機: 主彈命中
+每N次事件: 2
+擊退: {距離像素: 40})",
+    };
+    for (const auto yaml : invalidRules)
+    {
+        CAPTURE(yaml);
+        CHECK(rejects(yaml));
+    }
+}
+
+TEST_CASE("ChessBattleEffects_AllAuthorMapFamiliesRejectDuplicateRawKeys",
+          "[battle][effects][schema][duplicate_keys]")
+{
+    const auto rejects = [](std::string_view yaml)
+    {
+        EffectRule rule;
+        return !ChessBattleEffects::parseEffectRule(
+            YAML::Load(std::string(yaml)), rule, EffectRuleId{ 1 }, "重複欄位測試");
+    };
+    const std::string_view duplicateMaps[]{
+        R"(時機: 開場
+時機: 開場
+獲得護盾: 1)",
+        R"(時機: 開場
+目標:
+  類型: 友軍
+  數量: 1
+  數量: 2
+獲得護盾: 1)",
+        R"(時機: 開場
+獲得護盾:
+  基準: 來源最大生命
+  百分比: 10
+  百分比: 20)",
+        R"(時機: 開場
+資源變更:
+  資源: 護盾
+  方式: 獲得
+  數值: 1
+  數值: 2)",
+        R"(時機: 傷害後
+條件:
+  - 已接受命中:
+      需要正傷害: true
+      需要正傷害: false
+獲得護盾: 1)",
+        R"(時機: 單位死亡
+造成傷害:
+  數值: 10
+  傷害種類: 純粹
+  區域投射物:
+    範圍格數: 3
+    最多目標: 2
+    最多目標: 3
+    眩暈幀數: 1
+    特效: 死亡爆炸)",
+        R"(時機: 開場
+屬性加成:
+  攻擊: 10
+  攻擊: 20)",
+        R"(時機: 開場
+動作:
+  - 獲得護盾: 1
+    獲得護盾: 2)",
+    };
+    for (const auto yaml : duplicateMaps)
+    {
+        CAPTURE(yaml);
+        CHECK(rejects(yaml));
+    }
+}
+
+TEST_CASE("ChessBattleEffects_PayloadViewRejectsDescriptorFieldsNotConsumedByTypedBranches",
+          "[battle][effects][schema][descriptor][payload_view]")
+{
+    const std::string_view rules[]{
+        R"(時機: 開場
+目標:
+  類型: 自身
+  數量: 1
+獲得護盾: 1)",
+        R"(時機: 開場
+獲得護盾:
+  目標最大生命百分比: 10
+  固定: 1)",
+        R"(時機: 開場
+狀態機:
+  機制: 生成分身
+  數量: 1
+  無敵幀數: 10)",
+    };
+    for (const auto yaml : rules)
+    {
+        ChessDiagnosticCollector diagnostics;
+        EffectRule rule;
+        CAPTURE(yaml);
+        CHECK_FALSE(ChessBattleEffects::parseEffectRule(
+            YAML::Load(std::string(yaml)),
+            rule,
+            EffectRuleId{ 1 },
+            "PayloadView 消耗追蹤",
+            diagnostics.sink()));
+        CHECK(std::ranges::any_of(diagnostics.diagnostics(), [](const auto& diagnostic)
+        {
+            return diagnostic.message.find("未被 typed parser 消耗") != std::string::npos;
+        }));
+    }
+}
+
 TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", "[chess][effects][magic]")
 {
     const auto root = YAML::Load(R"(
@@ -92,20 +1084,20 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
   - 武功: 26
     名稱: 降龍十八掌
     效果:
-      - 事件: 主彈道命中傷害前
+      - 時機: 主彈命中
         目標: 命中目標
         動作:
-          - 類型: 套用狀態
-            狀態: 眩暈
-            持續幀數: 14
-            合併方式: 刷新
-      - 事件: 絕招提交
+          - 套用狀態:
+              狀態: 眩暈
+              持續幀數: 14
+              合併方式: 刷新
+      - 時機: 絕招施放
         目標: 自身
         動作:
-          - 類型: 資源變更
-            資源: 內力
-            方式: 回復
-            數值: 30
+          - 資源變更:
+              資源: 內力
+              方式: 回復
+              數值: 30
 )");
 
     std::vector<ChessMagicEffectDefinition> definitions;
@@ -148,13 +1140,13 @@ TEST_CASE("ChessBattleEffects_DisabledMagicEffectsRemainAvailableForValidationAn
   - 武功: 26
     名稱: 降龍十八掌
     效果:
-      - 事件: 主彈道命中傷害前
+      - 時機: 主彈命中
         目標: 命中目標
         動作:
-          - 類型: 套用狀態
-            狀態: 眩暈
-            持續幀數: 14
-            合併方式: 刷新
+          - 套用狀態:
+              狀態: 眩暈
+              持續幀數: 14
+              合併方式: 刷新
 )");
 
     std::vector<ChessMagicEffectDefinition> definitions;
@@ -192,36 +1184,36 @@ TEST_CASE("ChessBattleEffects_MagicYamlRejectsDuplicateIdsAndComboMemberSelector
   - 武功: 1
     名稱: 重複甲
     效果:
-      - 事件: 主彈道命中傷害前
+      - 時機: 主彈命中
         目標: 命中目標
         動作:
-          - 類型: 套用狀態
-            狀態: 眩暈
-            持續幀數: 8
-            合併方式: 刷新
+          - 套用狀態:
+              狀態: 眩暈
+              持續幀數: 8
+              合併方式: 刷新
   - 武功: 1
     名稱: 重複乙
     效果:
-      - 事件: 主彈道命中傷害前
+      - 時機: 主彈命中
         目標: 命中目標
         動作:
-          - 類型: 套用狀態
-            狀態: 眩暈
-            持續幀數: 8
-            合併方式: 刷新
+          - 套用狀態:
+              狀態: 眩暈
+              持續幀數: 8
+              合併方式: 刷新
 )");
     const auto comboMemberSelector = YAML::Load(R"(
 絕招:
   - 武功: 94
     名稱: 九陽神功
     效果:
-      - 事件: 絕招提交
+      - 時機: 絕招施放
         目標: 羈絆成員
         動作:
-          - 類型: 資源變更
-            資源: 生命
-            方式: 回復
-            數值: 60
+          - 資源變更:
+              資源: 生命
+              方式: 回復
+              數值: 60
 )");
 
     std::vector<ChessMagicEffectDefinition> definitions;
@@ -257,6 +1249,23 @@ TEST_CASE("ChessBattleEffects_RealEnabledUltimateSchemaValidatesAllDefinitions",
         }
     }
     CHECK(ruleCount == 80);
+}
+
+TEST_CASE("ChessBattleEffects_MigratedShorthandConfigsLoadAsCompleteContent",
+          "[battle][effects][schema][content][shorthand]")
+{
+    ChessDiagnosticCollector diagnostics;
+    ChessContentLoadOptions options;
+    options.dataRoot = std::filesystem::current_path() / "work" / "game-dev";
+    options.configRoot = std::filesystem::current_path() / "config";
+    options.difficulty = Difficulty::Normal;
+    options.diagnostics = diagnostics.sink();
+    const auto loaded = ChessContentLoader::load(options);
+    std::string report;
+    for (const auto& diagnostic : diagnostics.diagnostics())
+        report += std::format("{}: {}\n", diagnostic.source, diagnostic.message);
+    INFO(report);
+    REQUIRE(loaded.has_value());
 }
 
 TEST_CASE("ChessBattleEffects_DescriptionAstPreservesCompoundNesting",
@@ -353,14 +1362,14 @@ TEST_CASE("ChessBattleEffects_DescriptionOrdersTriggerCadenceBeforeTargetAndActi
 {
     EffectRule rule;
     REQUIRE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 每幀
+時機: 每隔
 間隔幀數: 30
 目標: 自身
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 回復
-    數值: 2
+  - 資源變更:
+      資源: 內力
+      方式: 回復
+      數值: 2
 )"), rule, EffectRuleId{ 7 }, "描述資訊順序"));
 
     const auto full = effectDescription(rule, EffectDescriptionStyle::Full);
@@ -415,12 +1424,12 @@ TEST_CASE("ChessBattleEffects_CoupleBladeCarriesTypedAllyAttackSource",
     EffectRule explicitFlags;
     REQUIRE(ChessBattleEffects::parseEffectRule(
         YAML::Load(R"(
-事件: 絕招提交
+時機: 絕招施放
 目標: 原攻擊目標
 動作:
-  - 類型: 修改攻擊
-    貫穿: false
-    追蹤: false
+  - 修改攻擊:
+      貫穿: false
+      追蹤: false
 )"),
         explicitFlags,
         EffectRuleId{ 1 },
@@ -468,39 +1477,39 @@ TEST_CASE("ChessBattleEffects_ActivationLimitSchemaRejectsInvalidScopeCountAndEv
     };
 
     CHECK_FALSE(parses(R"(
-事件: 主彈道命中傷害前
+時機: 主彈命中
 目標: 命中目標
 觸發限制:
   範圍: 未知範圍
   次數: 1
 動作:
-  - 類型: 造成傷害
-    數值: 1
-    傷害種類: 純粹
-    範圍: 單體
+  - 造成傷害:
+      數值: 1
+      傷害種類: 純粹
+      範圍: 單體
 )", 1));
     CHECK_FALSE(parses(R"(
-事件: 主彈道命中傷害前
+時機: 主彈命中
 目標: 命中目標
 觸發限制:
   範圍: 每次施放每個目標
   次數: 0
 動作:
-  - 類型: 造成傷害
-    數值: 1
-    傷害種類: 純粹
-    範圍: 單體
+  - 造成傷害:
+      數值: 1
+      傷害種類: 純粹
+      範圍: 單體
 )", 2));
     CHECK_FALSE(parses(R"(
-事件: 常駐
+時機: 開場
 觸發限制:
   範圍: 每次施放每個目標
   次數: 1
 動作:
-  - 類型: 屬性修正
-    屬性: 攻擊
-    方式: 固定加算
-    數值: 1
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 固定加算
+      數值: 1
 )", 3));
 }
 
@@ -561,17 +1570,17 @@ TEST_CASE("ChessBattleEffects_AttackDamageDescriptionTracksOverrideAndKindIndepe
 TEST_CASE("ChessBattleEffects_ParsesAndDescribesLivingUnitSelectorsWithOwnerExclusion", "[battle][effects][magic][schema][selector]")
 {
     const auto node = YAML::Load(R"(
-事件: 絕招提交
+時機: 絕招施放
 目標:
   類型: 所有存活單位
   數量: 1
   平手: 戰鬥亂數
   排除效果擁有者: true
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 回復
-    數值: 10
+  - 資源變更:
+      資源: 內力
+      方式: 回復
+      數值: 10
 )");
     EffectRule rule;
     REQUIRE(ChessBattleEffects::parseEffectRule(node, rule, EffectRuleId{ 1 }, "存活單位選擇器"));
@@ -739,26 +1748,26 @@ TEST_CASE("ChessBattleEffects_TransferStateMachinesRequireExplicitAllowLists",
           "[battle][effects][magic][schema][filter]")
 {
     const auto missingBorrowFilter = YAML::Load(R"(
-事件: 施放規劃
+時機: 施放規劃
 目標: 自身
 動作:
-  - 類型: 狀態機
-    機制: 借用效果規則
-    目標: 敵軍
-    來源數量: 1
-    傳播政策: 借用大招規則
+  - 狀態機:
+      機制: 借用效果規則
+      目標: 敵軍
+      來源數量: 1
+      傳播政策: 借用大招規則
 )");
     const auto missingCopyFilter = YAML::Load(R"(
-事件: 絕招提交
+時機: 絕招施放
 目標: 自身
 動作:
-  - 類型: 狀態機
-    機制: 複製攻擊定義
-    目標:
-      類型: 所有存活單位
-      排除效果擁有者: true
-    來源數量: 1
-    傳播政策: 不傳播大招規則
+  - 狀態機:
+      機制: 複製攻擊定義
+      目標:
+        類型: 所有存活單位
+        排除效果擁有者: true
+      來源數量: 1
+      傳播政策: 不傳播大招規則
 )");
     EffectRule rule;
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(
@@ -1095,49 +2104,49 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
 TEST_CASE("ChessBattleEffects_StrictSchemaRejectsUnknownFieldsAndIllegalEventActions", "[battle][effects][magic][schema]")
 {
     const auto unknownRuleField = YAML::Load(R"(
-事件: 絕招提交
+時機: 絕招施放
 未知欄位: 1
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 回復
-    數值: 10
+  - 資源變更:
+      資源: 內力
+      方式: 回復
+      數值: 10
 )");
     const auto unknownConditionField = YAML::Load(R"(
-事件: 絕招提交
+時機: 絕招施放
 條件:
-  - 類型: 僅限絕招
-    百分比: 50
+  - 僅限絕招:
+      百分比: 50
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 回復
-    數值: 10
+  - 資源變更:
+      資源: 內力
+      方式: 回復
+      數值: 10
 )");
     const auto illegalEventAction = YAML::Load(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 治療交易修正
-    方式: 阻止
-    治療種類: [直接治療]
+  - 治療交易修正:
+      方式: 阻止
+      治療種類: [直接治療]
 )");
     const auto incompleteForceMove = YAML::Load(R"(
-事件: 主彈道命中傷害前
+時機: 主彈命中
 目標: 命中目標
 動作:
-  - 類型: 強制移動
-    方向: 遠離來源
-    距離格數: 4
+  - 強制移動:
+      方向: 遠離來源
+      距離格數: 4
 )");
     const auto illegalDamageCapability = YAML::Load(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 資源變更
-    資源: 生命
-    方式: 回復
-    數值:
-      基準: 實際生命傷害
-      百分比: 50
+  - 資源變更:
+      資源: 生命
+      方式: 回復
+      數值:
+        基準: 實際生命傷害
+        百分比: 50
 )");
 
     EffectRule rule;
@@ -1156,17 +2165,17 @@ TEST_CASE("ChessBattleEffects_StatusApplicationCountRequiresAPositiveTypedFormul
         EffectRule rule;
         return ChessBattleEffects::parseEffectRule(
             YAML::Load(std::format(R"(
-事件: 單位死亡
+時機: 單位死亡
 目標: 所有敵人
 動作:
-  - 類型: 套用狀態
-    狀態: 中毒
-    套用次數: {}
-    層數: 4
-    持續幀數: 120
-    強度: 10
-    合併方式: 取代
-    層數上限: 4
+  - 套用狀態:
+      狀態: 中毒
+      套用次數: {}
+      層數: 4
+      持續幀數: 120
+      強度: 10
+      合併方式: 取代
+      層數上限: 4
 )", count)),
             rule,
             EffectRuleId{ 1 },
@@ -1174,15 +2183,15 @@ TEST_CASE("ChessBattleEffects_StatusApplicationCountRequiresAPositiveTypedFormul
     };
 
     CHECK(parses(R"(
-      基準: 來源狀態層數
-      狀態: 毒爆
-      百分比: 100
-      最小: 1)"));
+        基準: 來源狀態層數
+        狀態: 毒爆
+        百分比: 100
+        最小: 1)"));
     CHECK_FALSE(parses("0"));
     CHECK_FALSE(parses(R"(
-      基準: 來源狀態層數
-      狀態: 毒爆
-      百分比: 100)"));
+        基準: 來源狀態層數
+        狀態: 毒爆
+        百分比: 100)"));
 }
 
 TEST_CASE("ChessBattleEffects_ResourceChangesRequireNonnegativeAmountsAndOneTransferDestination", "[battle][effects][magic][schema]")
@@ -1198,93 +2207,93 @@ TEST_CASE("ChessBattleEffects_ResourceChangesRequireNonnegativeAmountsAndOneTran
     };
 
     CHECK(parses(R"(
-事件: 絕招提交
+時機: 絕招施放
 目標: 全隊
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 回復
-    數值: 0
+  - 資源變更:
+      資源: 內力
+      方式: 回復
+      數值: 0
 )"));
     CHECK_FALSE(parses(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 回復
-    數值: -1
+  - 資源變更:
+      資源: 內力
+      方式: 回復
+      數值: -1
 )"));
     CHECK_FALSE(parses(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 資源變更
-    資源: 生命
-    方式: 回復
-    數值:
-      基準: 目標最大生命
-      百分比: -1
+  - 資源變更:
+      資源: 生命
+      方式: 回復
+      數值:
+        基準: 目標最大生命
+        百分比: -1
 )"));
     CHECK(parses(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 資源變更
-    資源: 生命
-    方式: 回復
-    數值:
-      基準: 目標最大生命
-      固定: -10
-      百分比: 1
-      最小: 0
+  - 資源變更:
+      資源: 生命
+      方式: 回復
+      數值:
+        基準: 目標最大生命
+        固定: -10
+        百分比: 1
+        最小: 0
 )"));
 
     CHECK_FALSE(parses(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 轉移
-    數值: 10
-    轉移目標: 全隊
+  - 資源變更:
+      資源: 內力
+      方式: 轉移
+      數值: 10
+      轉移目標: 全隊
 )"));
     CHECK_FALSE(parses(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 轉移
-    數值: 10
-    轉移目標:
-      類型: 最低內力友軍
-      數量: 2
+  - 資源變更:
+      資源: 內力
+      方式: 轉移
+      數值: 10
+      轉移目標:
+        類型: 最低內力友軍
+        數量: 2
 )"));
     CHECK(parses(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 轉移
-    數值: 10
-    轉移目標:
-      類型: 最低內力友軍
-      數量: 1
+  - 資源變更:
+      資源: 內力
+      方式: 轉移
+      數值: 10
+      轉移目標:
+        類型: 最低內力友軍
+        數量: 1
 )"));
     CHECK(parses(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 轉移
-    數值: 10
-    轉移目標: 自身
+  - 資源變更:
+      資源: 內力
+      方式: 轉移
+      數值: 10
+      轉移目標: 自身
 )"));
     CHECK_FALSE(parses(R"(
-事件: 絕招提交
+時機: 絕招施放
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 轉移
-    數值: 10
-    轉移目標: 命中目標
+  - 資源變更:
+      資源: 內力
+      方式: 轉移
+      數值: 10
+      轉移目標: 命中目標
 )"));
 }
 
@@ -1319,26 +2328,24 @@ TEST_CASE("ChessBattleEffects_DamagePerspectiveIsTypedDescribedAndDamageOnly", "
 
     EffectRule rule;
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 絕招提交
+時機: 絕招施放
 條件:
-  - 類型: 傷害方位
-    方位: 造成
+  - 傷害方位: 造成
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 回復
-    數值: 1
+  - 資源變更:
+      資源: 內力
+      方式: 回復
+      數值: 1
 )"), rule, EffectRuleId{ 100 }, "錯誤傷害方位事件"));
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 傷害結算後
+時機: 傷害後
 條件:
-  - 類型: 傷害方位
-    方位: 不明
+  - 傷害方位: 不明
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 回復
-    數值: 1
+  - 資源變更:
+      資源: 內力
+      方式: 回復
+      數值: 1
 )"), rule, EffectRuleId{ 101 }, "錯誤傷害方位值"));
 }
 
@@ -1411,25 +2418,25 @@ TEST_CASE("ChessBattleEffects_AttackRuntimeBehaviorsAreTypedValidatedAndDescribe
 {
     EffectRule rule;
     REQUIRE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 攻擊提交
+時機: 攻擊提交
 動作:
-  - 類型: 修改攻擊
-    執行行為:
-      類型: 彈道彈射
-      追加命中次數: 3
-      機率: 40
-      範圍像素: 300
-  - 類型: 修改攻擊
-    執行行為:
-      類型: 範圍追蹤
-      範圍像素: 220
-      傷害倍率: 45
-  - 類型: 修改攻擊
-    執行行為:
-      類型: 延遲替代攻擊
-      延遲幀數: 7
-      傷害倍率: 60
-      攻擊者獲得格擋機率: 80
+  - 修改攻擊:
+      執行行為:
+        類型: 彈道彈射
+        追加命中次數: 3
+        機率: 40
+        範圍像素: 300
+  - 修改攻擊:
+      執行行為:
+        類型: 範圍追蹤
+        範圍像素: 220
+        傷害倍率: 45
+  - 修改攻擊:
+      執行行為:
+        類型: 延遲替代攻擊
+        延遲幀數: 7
+        傷害倍率: 60
+        攻擊者獲得格擋機率: 80
 )"), rule, EffectRuleId{ 200 }, "攻擊執行行為"));
 
     REQUIRE(rule.actions.size() == 3);
@@ -1452,13 +2459,13 @@ TEST_CASE("ChessBattleEffects_AttackRuntimeBehaviorsAreTypedValidatedAndDescribe
 
     EffectRule spiralRule;
     REQUIRE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 攻擊提交
+時機: 攻擊提交
 動作:
-  - 類型: 修改攻擊
-    執行行為:
-      類型: 擴張螺旋
-      彈道數量: 3
-      流血層數: 1
+  - 修改攻擊:
+      執行行為:
+        類型: 擴張螺旋
+        彈道數量: 3
+        流血層數: 1
 )"), spiralRule, EffectRuleId{ 202 }, "螺旋攻擊執行行為"));
     REQUIRE(spiralRule.actions.size() == 1);
     const auto& spiral = std::get<ExpandingSpiralAttackBehavior>(
@@ -1478,10 +2485,10 @@ TEST_CASE("ChessBattleEffects_AttackRuntimeBehaviorsAreTypedValidatedAndDescribe
 
     const auto parsesBehavior = [](std::string_view fields)
     {
-        std::string yaml = R"(事件: 攻擊提交
+        std::string yaml = R"(時機: 攻擊提交
 動作:
-  - 類型: 修改攻擊
-    執行行為:
+  - 修改攻擊:
+      執行行為:
 )";
         yaml += fields;
         EffectRule parsed;
@@ -1529,15 +2536,15 @@ TEST_CASE("ChessBattleEffects_ForceMoveSupportsOneDistanceUnitAndLockFrames",
 {
     EffectRule rule;
     REQUIRE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 命中傷害前
+時機: 命中
 目標: 命中目標
 動作:
-  - 類型: 強制移動
-    方向: 遠離來源
-    距離像素: 130
-    鎖定幀數: 5
-    碰撞: 阻擋前停止
-    受阻結果: 縮短
+  - 強制移動:
+      方向: 遠離來源
+      距離像素: 130
+      鎖定幀數: 5
+      碰撞: 阻擋前停止
+      受阻結果: 縮短
 )"), rule, EffectRuleId{ 210 }, "強制移動距離"));
 
     REQUIRE(rule.actions.size() == 1);
@@ -1548,14 +2555,14 @@ TEST_CASE("ChessBattleEffects_ForceMoveSupportsOneDistanceUnitAndLockFrames",
 
     EffectRule tileRule;
     REQUIRE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 命中傷害前
+時機: 命中
 目標: 命中目標
 動作:
-  - 類型: 強制移動
-    方向: 接近來源
-    距離格數: 4
-    碰撞: 佔位前停止
-    受阻結果: 停止
+  - 強制移動:
+      方向: 接近來源
+      距離格數: 4
+      碰撞: 佔位前停止
+      受阻結果: 停止
 )"), tileRule, EffectRuleId{ 212 }, "棋格強制移動距離"));
     REQUIRE(tileRule.actions.size() == 1);
     const auto& tiles = std::get<ForceMoveAction>(tileRule.actions[0].value);
@@ -1573,11 +2580,11 @@ TEST_CASE("ChessBattleEffects_ForceMoveSupportsOneDistanceUnitAndLockFrames",
 
     const auto parsesMove = [](std::string_view distanceFields)
     {
-        std::string yaml = R"(事件: 命中傷害前
+        std::string yaml = R"(時機: 命中
 目標: 命中目標
 動作:
-  - 類型: 強制移動
-    方向: 遠離來源
+  - 強制移動:
+      方向: 遠離來源
 )";
         yaml += distanceFields;
         yaml += R"(    碰撞: 阻擋前停止
@@ -1596,14 +2603,14 @@ TEST_CASE("ChessBattleEffects_ForceMoveSupportsOneDistanceUnitAndLockFrames",
 
     EffectRule unsupportedPointDirection;
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 命中傷害前
+時機: 命中
 目標: 命中目標
 動作:
-  - 類型: 強制移動
-    方向: 接近指定點
-    距離像素: 100
-    碰撞: 阻擋前停止
-    受阻結果: 縮短
+  - 強制移動:
+      方向: 接近指定點
+      距離像素: 100
+      碰撞: 阻擋前停止
+      受阻結果: 縮短
 )"), unsupportedPointDirection, EffectRuleId{ 213 }, "未實作的指定點強制移動"));
 }
 
@@ -1612,16 +2619,16 @@ TEST_CASE("ChessBattleEffects_ModifyCastParsesGenericFieldsAndRestrictsSpecialEv
 {
     EffectRule rule;
     REQUIRE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 施放規劃
+時機: 施放規劃
 動作:
-  - 類型: 修改施放
-    射程模式: 遠程
-    彈道速度百分比: 125
-    最小選擇距離: 6
-    追加彈道數: 2
-    機動政策: 滑步攻擊
-  - 類型: 修改施放
-    機動政策: 閃擊
+  - 修改施放:
+      射程模式: 遠程
+      彈道速度百分比: 125
+      最小選擇距離: 6
+      追加彈道數: 2
+      機動政策: 滑步攻擊
+  - 修改施放:
+      機動政策: 閃擊
 )"), rule, EffectRuleId{ 220 }, "修改施放通用欄位"));
 
     REQUIRE(rule.actions.size() == 2);
@@ -1637,12 +2644,12 @@ TEST_CASE("ChessBattleEffects_ModifyCastParsesGenericFieldsAndRestrictsSpecialEv
 
     EffectRule autoUltimateRule;
     REQUIRE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 施放規劃
+時機: 施放規劃
 動作:
-  - 類型: 修改施放
-    自動絕招:
-      消耗內力: true
-      顯示公告: false
+  - 修改施放:
+      自動絕招:
+        消耗內力: true
+        顯示公告: false
 )"), autoUltimateRule, EffectRuleId{ 222 }, "修改施放自動絕招"));
     REQUIRE(autoUltimateRule.actions.size() == 1);
     const auto& autoUltimate = std::get<ModifyCastAction>(
@@ -1665,13 +2672,12 @@ TEST_CASE("ChessBattleEffects_ModifyCastParsesGenericFieldsAndRestrictsSpecialEv
         CHECK(autoUltimateDescription.find("不顯示公告") != std::string::npos);
     }
 
-    const auto parsesCast = [](std::string_view fields, std::string_view event = "施放規劃")
+    const auto parsesCast = [](std::string_view fields, std::string_view timing = "施放規劃")
     {
-        std::string yaml = "事件: ";
-        yaml += event;
+        std::string yaml = "時機: ";
+        yaml += timing;
         yaml += R"(
-動作:
-  - 類型: 修改施放
+修改施放:
 )";
         yaml += fields;
         EffectRule parsed;
@@ -1679,30 +2685,30 @@ TEST_CASE("ChessBattleEffects_ModifyCastParsesGenericFieldsAndRestrictsSpecialEv
             YAML::Load(yaml), parsed, EffectRuleId{ 221 }, "錯誤修改施放");
     };
 
-    CHECK_FALSE(parsesCast("    彈道速度百分比: -1\n"));
-    CHECK_FALSE(parsesCast("    最小選擇距離: -1\n"));
-    CHECK_FALSE(parsesCast("    追加彈道數: -1\n"));
-    CHECK_FALSE(parsesCast("    機動政策: 未知機動\n"));
-    CHECK_FALSE(parsesCast("    自動絕招: true\n"));
-    CHECK_FALSE(parsesCast(R"(    自動絕招:
-      消耗內力: false
-      顯示公告: true
-      未知欄位: false
+    CHECK_FALSE(parsesCast("  彈道速度百分比: -1\n"));
+    CHECK_FALSE(parsesCast("  最小選擇距離: -1\n"));
+    CHECK_FALSE(parsesCast("  追加彈道數: -1\n"));
+    CHECK_FALSE(parsesCast("  機動政策: 未知機動\n"));
+    CHECK_FALSE(parsesCast("  自動絕招: true\n"));
+    CHECK_FALSE(parsesCast(R"(  自動絕招:
+    消耗內力: false
+    顯示公告: true
+    未知欄位: false
 )"));
-    CHECK_FALSE(parsesCast(R"(    追加彈道數: 1
-    自動絕招: {}
+    CHECK_FALSE(parsesCast(R"(  追加彈道數: 1
+  自動絕招: {}
 )"));
     CHECK_FALSE(parsesCast(
-        "    免費追加施放: true\n    追加彈道數: 1\n",
+        "  免費追加施放: true\n  追加彈道數: 1\n",
         "施放延續"));
-    CHECK(parsesCast("    免費追加施放: true\n", "施放延續"));
-    CHECK(parsesCast(R"(    自動絕招:
-      消耗內力: false
-      顯示公告: true
+    CHECK(parsesCast("  免費追加施放: true\n", "施放延續"));
+    CHECK(parsesCast(R"(  自動絕招:
+    消耗內力: false
+    顯示公告: true
 )", "護盾破裂"));
-    CHECK_FALSE(parsesCast(R"(    自動絕招:
-      消耗內力: false
-      顯示公告: true
+    CHECK_FALSE(parsesCast(R"(  自動絕招:
+    消耗內力: false
+    顯示公告: true
 )", "單位死亡"));
 }
 
@@ -1711,13 +2717,13 @@ TEST_CASE("ChessBattleEffects_PeriodicRuleIntervalIsTypedDescribedAndFrameOnly",
 {
     EffectRule rule;
     REQUIRE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 每幀
+時機: 每隔
 間隔幀數: 30
 動作:
-  - 類型: 修改施放
-    自動絕招:
-      消耗內力: false
-      顯示公告: true
+  - 修改施放:
+      自動絕招:
+        消耗內力: false
+        顯示公告: true
 )"), rule, EffectRuleId{ 230 }, "週期自動絕招"));
     CHECK(rule.intervalFrames == 30);
     const auto& request = std::get<ModifyCastAction>(rule.actions[0].value).autoUltimate;
@@ -1737,19 +2743,33 @@ TEST_CASE("ChessBattleEffects_PeriodicRuleIntervalIsTypedDescribedAndFrameOnly",
 
     EffectRule invalid;
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 每幀
+時機: 每隔
 間隔幀數: -1
 動作:
-  - 類型: 修改施放
-    自動絕招: {}
+  - 修改施放:
+      自動絕招: {}
 )"), invalid, EffectRuleId{ 231 }, "負週期間隔"));
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
-事件: 護盾破裂
+時機: 每隔
+間隔幀數: 0
+獲得護盾: 1
+)"), invalid, EffectRuleId{ 232 }, "零週期間隔"));
+    CHECK_FALSE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
+時機: 每隔
+獲得護盾: 1
+)"), invalid, EffectRuleId{ 233 }, "缺少週期間隔"));
+    CHECK_FALSE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
+時機: 每幀
+間隔幀數: 1
+獲得護盾: 1
+)"), invalid, EffectRuleId{ 234 }, "每幀不可帶間隔"));
+    CHECK_FALSE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
+時機: 護盾破裂
 間隔幀數: 30
 動作:
-  - 類型: 修改施放
-    自動絕招: {}
-)"), invalid, EffectRuleId{ 232 }, "錯誤週期事件"));
+  - 修改施放:
+      自動絕招: {}
+)"), invalid, EffectRuleId{ 235 }, "錯誤週期事件"));
 }
 
 TEST_CASE("ChessBattleEffects_BattleInitializedSchemaMatchesInitializationRuntimeExactly",
@@ -1757,49 +2777,49 @@ TEST_CASE("ChessBattleEffects_BattleInitializedSchemaMatchesInitializationRuntim
 {
     const std::vector<std::string_view> validRules{
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 屬性修正
-    屬性: 攻擊
-    方式: 百分比加算
-    數值: 20
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 百分比加算
+      數值: 20
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 傷害修正
-    方位: 承受
-    階段: 最終
-    傷害種類: 全部
-    方式: 單次承傷上限
-    數值: 10
+  - 傷害修正:
+      方位: 承受
+      階段: 最終
+      傷害種類: 全部
+      方式: 單次承傷上限
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 條件:
-  - 類型: 自身為最後存活
+  - 自身為最後存活
 動作:
-  - 類型: 狀態機
-    機制: 生成分身
-    數量: 1
+  - 狀態機:
+      機制: 生成分身
+      數量: 1
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 條件分支
-    條件:
-      - 類型: 目標非無敵
-    成立:
-      - 類型: 資源變更
-        資源: 護盾
-        方式: 獲得
-        數值:
-          基準: 目標最大生命
-          百分比: 25
+  - 條件分支:
+      條件:
+        - 目標非無敵
+      成立:
+        - 資源變更:
+            資源: 護盾
+            方式: 獲得
+            數值:
+              基準: 目標最大生命
+              百分比: 25
 )",
     };
     for (std::size_t index = 0; index < validRules.size(); ++index)
@@ -1815,140 +2835,139 @@ TEST_CASE("ChessBattleEffects_BattleInitializedSchemaMatchesInitializationRuntim
 
     const std::vector<std::string_view> invalidRules{
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 機率: 50
 動作:
-  - 類型: 屬性修正
-    屬性: 攻擊
-    方式: 固定加算
-    數值: 10
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 固定加算
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 每N次事件: 2
 動作:
-  - 類型: 屬性修正
-    屬性: 攻擊
-    方式: 固定加算
-    數值: 10
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 固定加算
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標:
   類型: 友軍
   平手: 戰鬥亂數
 動作:
-  - 類型: 屬性修正
-    屬性: 攻擊
-    方式: 固定加算
-    數值: 10
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 固定加算
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標:
   類型: 友軍
   武功: 21
 動作:
-  - 類型: 屬性修正
-    屬性: 攻擊
-    方式: 固定加算
-    數值: 10
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 固定加算
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 條件:
-  - 類型: 自身有狀態
-    狀態: 中毒
+  - 自身有狀態: 中毒
 動作:
-  - 類型: 屬性修正
-    屬性: 攻擊
-    方式: 固定加算
-    數值: 10
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 固定加算
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 屬性修正
-    屬性: 攻擊
-    方式: 取代
-    數值: 10
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 取代
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 屬性修正
-    屬性: 最大生命
-    方式: 固定加算
-    數值: 10
-    持續幀數: 30
+  - 屬性修正:
+      屬性: 最大生命
+      方式: 固定加算
+      數值: 10
+      持續幀數: 30
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 資源變更
-    資源: 生命
-    方式: 回復
-    數值: 10
+  - 資源變更:
+      資源: 生命
+      方式: 回復
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 資源變更
-    資源: 目前冷卻
-    方式: 獲得
-    數值: 10
+  - 資源變更:
+      資源: 目前冷卻
+      方式: 獲得
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 資源變更
-    資源: 內力
-    方式: 奪取
-    數值: 10
+  - 資源變更:
+      資源: 內力
+      方式: 奪取
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 全隊
 動作:
-  - 類型: 狀態機
-    機制: 生成分身
-    數量: 1
+  - 狀態機:
+      機制: 生成分身
+      數量: 1
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 狀態機
-    機制: 變更狀態值
-    狀態槽: 永久施放進展
-    增量: 1
+  - 狀態機:
+      機制: 變更狀態值
+      狀態槽: 永久施放進展
+      增量: 1
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 造成傷害
-    傷害種類: 純粹
-    數值: 10
+  - 造成傷害:
+      傷害種類: 純粹
+      數值: 10
 )",
         R"(
-事件: 戰鬥初始化
+時機: 開場
 目標: 自身
 動作:
-  - 類型: 屬性修正
-    屬性: 攻擊
-    方式: 固定加算
-    數值:
-      基準: 累計狀態值
-      百分比: 100
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 固定加算
+      數值:
+        基準: 累計狀態值
+        百分比: 100
 )",
     };
     for (std::size_t index = 0; index < invalidRules.size(); ++index)
@@ -1999,7 +3018,7 @@ TEST_CASE("ChessBattleEffects_DamageModifierSchemaRejectsRuntimeNoOps",
     for (std::size_t index = 0; index < invalidActions.size(); ++index)
     {
         const auto yaml = std::format(
-            "事件: 戰鬥初始化\n目標: 自身\n動作:\n  - 類型: 傷害修正\n{}",
+            "時機: 開場\n目標: 自身\n傷害修正:\n{}",
             invalidActions[index]);
         EffectRule rule;
         CAPTURE(index);
@@ -2016,44 +3035,44 @@ TEST_CASE("ChessBattleEffects_RemovedSchemaVocabularyIsRejected",
 {
     const std::vector<std::string_view> rules{
         R"(
-事件: 每幀
+時機: 每幀
 目標: 自身
 動作:
-  - 類型: 資源變更
-    資源: 護盾
-    方式: 獲得
-    數值: 10
-    溢出: 捨棄
+  - 資源變更:
+      資源: 護盾
+      方式: 獲得
+      數值: 10
+      溢出: 捨棄
 )",
         R"(
-事件: 命中傷害前
+時機: 命中
 目標: 命中目標
 動作:
-  - 類型: 傷害修正
-    方位: 承受
-    階段: 最終
-    傷害種類: 全部
-    方式: 抵擋下一次傷害
-    數值: 1
+  - 傷害修正:
+      方位: 承受
+      階段: 最終
+      傷害種類: 全部
+      方式: 抵擋下一次傷害
+      數值: 1
 )",
         R"(
-事件: 每幀
+時機: 每幀
 目標: 自身
 動作:
-  - 類型: 資源變更
-    資源: 護盾
-    方式: 獲得
-    數值:
-      基準: 記錄最大值
-      百分比: 100
+  - 資源變更:
+      資源: 護盾
+      方式: 獲得
+      數值:
+        基準: 記錄最大值
+        百分比: 100
 )",
         R"(
-事件: 絕招提交
+時機: 絕招施放
 目標: 所有敵人
 動作:
-  - 類型: 狀態機
-    機制: 結算剩餘狀態傷害
-    狀態: 流血
+  - 狀態機:
+      機制: 結算剩餘狀態傷害
+      狀態: 流血
 )",
     };
     for (std::size_t index = 0; index < rules.size(); ++index)
@@ -2076,13 +3095,13 @@ TEST_CASE("ChessBattleEffects_MagicSchemaRejectsBattleInitializationRules",
   - 武功: 999
     名稱: 錯誤初始化武功
     效果:
-      - 事件: 戰鬥初始化
+      - 時機: 開場
         目標: 自身
         動作:
-          - 類型: 屬性修正
-            屬性: 攻擊
-            方式: 固定加算
-            數值: 10
+          - 屬性修正:
+              屬性: 攻擊
+              方式: 固定加算
+              數值: 10
 )");
     std::vector<ChessMagicEffectDefinition> definitions;
     CHECK_FALSE(ChessBattleEffects::parseMagicEffects(
