@@ -45,31 +45,6 @@ bool containsMusicId(const std::array<int, N>& musicIds, int musicId)
     return false;
 }
 
-struct DisplayGlyph
-{
-    std::string text;
-    int width;
-    bool preferredBreakAfter;
-};
-
-DisplayGlyph readDisplayGlyph(const std::string& text, size_t index)
-{
-    size_t charSize = Font::utf8CharLength(static_cast<unsigned char>(text[index]));
-    std::string glyph = text.substr(index, charSize);
-    int charWidth = Font::getTextDrawSize(glyph);
-    bool preferredBreak = glyph == " " || glyph == ":" || glyph == "：" || glyph == "(" || glyph == ")" || glyph == "（" || glyph == "）" || glyph == "·" || glyph == "/";
-    return {glyph, charWidth, preferredBreak};
-}
-
-std::string trimLine(std::string line)
-{
-    while (!line.empty() && line.back() == ' ')
-    {
-        line.pop_back();
-    }
-    return line;
-}
-
 }    // namespace
 
 void showChessMessage(const std::string& text, int fontSize)
@@ -98,64 +73,6 @@ int getRandomBattleMusic()
 bool isChessSceneMusic(int musicId)
 {
     return containsMusicId(kChessMusicIds, musicId);
-}
-
-std::vector<std::string> wrapDisplayText(const std::string& text, int maxWidth)
-{
-    if (text.empty() || maxWidth <= 0)
-    {
-        return {};
-    }
-
-    std::vector<DisplayGlyph> glyphs;
-    for (size_t index = 0; index < text.size();)
-    {
-        auto glyph = readDisplayGlyph(text, index);
-        index += glyph.text.size();
-        glyphs.push_back(std::move(glyph));
-    }
-
-    std::vector<std::string> lines;
-    size_t start = 0;
-    while (start < glyphs.size())
-    {
-        int width = 0;
-        size_t end = start;
-        size_t preferredBreak = start;
-        while (end < glyphs.size() && width + glyphs[end].width <= maxWidth)
-        {
-            width += glyphs[end].width;
-            if (glyphs[end].preferredBreakAfter)
-            {
-                preferredBreak = end + 1;
-            }
-            ++end;
-        }
-
-        size_t lineEnd = end;
-        if (end < glyphs.size() && preferredBreak > start)
-        {
-            lineEnd = preferredBreak;
-        }
-        if (lineEnd == start)
-        {
-            lineEnd = std::min(start + 1, glyphs.size());
-        }
-
-        std::string line;
-        for (size_t i = start; i < lineEnd; ++i)
-        {
-            line += glyphs[i].text;
-        }
-        lines.push_back(trimLine(std::move(line)));
-
-        start = lineEnd;
-        while (start < glyphs.size() && glyphs[start].text == " ")
-        {
-            ++start;
-        }
-    }
-    return lines;
 }
 
 }    // namespace KysChess

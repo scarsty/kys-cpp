@@ -239,6 +239,7 @@
     <ClInclude Include="ChessStandaloneBattle.h" />
     <ClInclude Include="ChessScreenLayout.h" />
     <ClInclude Include="ChessUiCommon.h" />
+    <ClInclude Include="DisplayText.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="PointerInput.h" />
     <ClInclude Include="BattleSceneControls.h" />

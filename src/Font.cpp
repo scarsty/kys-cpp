@@ -1,5 +1,6 @@
 ﻿#include "Font.h"
 #include "GameUtil.h"
+#include "DisplayText.h"
 #include "TextureManager.h"
 #include "UIRenderer.h"
 #include <iostream>
@@ -24,41 +25,12 @@ Rect Font::getBoxSize(int textLen, int size, int x, int y)
 
 int Font::utf8CharLength(unsigned char c)
 {
-    if (c < 0x80)
-    {
-        return 1;
-    }
-    if ((c & 0xE0) == 0xC0)
-    {
-        return 2;
-    }
-    if ((c & 0xF0) == 0xE0)
-    {
-        return 3;
-    }
-    if ((c & 0xF8) == 0xF0)
-    {
-        return 4;
-    }
-    return 1;
+    return KysChess::utf8DisplayTextCharacterLength(c);
 }
 
 int Font::utf8DisplayWidth(unsigned char c)
 {
-    if (c < 0x80)
-    {
-        return 1;
-    }
-    int charLength = utf8CharLength(c);
-    if (charLength == 2)
-    {
-        return 1;
-    }
-    if (charLength >= 3)
-    {
-        return 2;
-    }
-    return 1;
+    return KysChess::utf8DisplayTextCharacterWidth(c);
 }
 
 //此处仅接受utf8，将绘制调用加入延迟队列
@@ -245,20 +217,5 @@ int Font::getBufferSize()
 
 int Font::getTextDrawSize(const std::string& text)
 {
-    int len = 0;
-    for (int i = 0; i < text.size();)
-    {
-        uint8_t v = text[i];
-        int charLength = utf8CharLength(v);
-        if (v >= 0x80 && charLength == 1)
-        {
-            i++;
-        }
-        else
-        {
-            len += utf8DisplayWidth(v);
-            i += charLength;
-        }
-    }
-    return len;
+    return KysChess::displayTextWidth(text);
 }

@@ -2176,6 +2176,11 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
                                        const EffectEventContext& context,
                                        const EffectUnitSnapshot& target)
 {
+    if (const auto constant = effectiveConstantEffectNumberValue(number))
+    {
+        return *constant;
+    }
+
     auto baseValue = [&](EffectNumberBase base) -> std::int64_t
     {
         switch (base)

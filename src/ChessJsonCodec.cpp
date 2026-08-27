@@ -657,13 +657,11 @@ RewardOptionDto rewardOptionDto(
         const auto found = std::ranges::find(content.neigong(), option.value, &NeigongDef::magicId);
         assert(found != content.neigong().end());
         dto.label = found->name;
-        dto.description = std::format("{}階；", found->tier);
-        bool firstEffect = true;
+        dto.description = std::format("{}階", found->tier);
         for (const auto& rule : found->rules)
         {
-            if (!firstEffect) dto.description += "；";
-            dto.description += effectDescription(rule, EffectDescriptionStyle::Full);
-            firstEffect = false;
+            dto.description += "；";
+            dto.description += effectDescription(rule, EffectDescriptionStyle::Full, {});
         }
     }
     else if (option.kind == ChessRewardKind::Piece || option.kind == ChessRewardKind::ForcedBan)

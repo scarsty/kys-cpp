@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DisplayText.h"
 #include "Font.h"
 
 #include <cassert>
@@ -47,8 +48,6 @@ void playChessUpgradeSound();
 int getRandomChessMusic();
 int getRandomBattleMusic();
 bool isChessSceneMusic(int musicId);
-std::vector<std::string> wrapDisplayText(const std::string& text, int maxWidth);
-
 inline int displayTextUnitsForPixelWidth(int fontSize, int pixelWidth, int indent = 0)
 {
     assert(fontSize > 0);

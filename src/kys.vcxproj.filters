@@ -535,6 +535,7 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="ChessUiCommon.h" />
+    <ClInclude Include="DisplayText.h" />
     <ClInclude Include="ChessScreenLayout.h" />
     <ClInclude Include="UIRoleStatusMenu.h" />
     <ClInclude Include="TempStore.h" />

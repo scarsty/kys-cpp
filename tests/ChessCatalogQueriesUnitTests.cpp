@@ -140,7 +140,7 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
 
     const auto equipment = chessEquipmentMetadata(content, 500);
     CHECK(equipment.baseStatEffects == std::vector<std::string>{"生命+25", "攻擊+8", "御劍+6"});
-    CHECK(equipment.specialEffects == std::vector<std::string>{"戰鬥開始時，對自身防禦+7。"});
+    CHECK(equipment.specialEffects == std::vector<std::string>{"防禦+7"});
     CHECK(equipment.countsAsCombos == std::vector<std::string>{"共用羈絆"});
     REQUIRE(equipment.characterBonuses.size() == 1);
     CHECK(equipment.characterBonuses.front().roles == std::vector<std::string>{"共用查詢棋子"});

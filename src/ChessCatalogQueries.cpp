@@ -43,7 +43,7 @@ std::vector<std::string> magicEffects(const ChessGameContent& content, int magic
     {
         for (const auto& rule : definition->rules)
         {
-            result.push_back(effectDescription(rule, EffectDescriptionStyle::Full));
+            result.push_back(effectDescription(rule, EffectDescriptionStyle::Full, {}));
         }
     }
     return result;
@@ -374,7 +374,7 @@ ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, i
     appendItemStat(result.baseStatEffects, "暗器", item->addHiddenWeapon);
     for (const auto& rule : definition.rules)
     {
-        result.specialEffects.push_back(effectDescription(rule, EffectDescriptionStyle::Full));
+        result.specialEffects.push_back(effectDescription(rule, EffectDescriptionStyle::Full, {}));
     }
     result.countsAsCombos = countsAsComboNames(definition.managementRules);
     if (!result.countsAsCombos.empty())
@@ -397,7 +397,7 @@ ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, i
         bonus.countsAsCombos = countsAsComboNames(synergy.managementRules);
         for (const auto& rule : synergy.rules)
         {
-            bonus.effects.push_back(effectDescription(rule, EffectDescriptionStyle::Full));
+            bonus.effects.push_back(effectDescription(rule, EffectDescriptionStyle::Full, {}));
         }
         result.characterBonuses.push_back(std::move(bonus));
     }
@@ -448,7 +448,8 @@ std::vector<std::string> chessEquipmentSynergyDetailLines(
             }
             line += effectDescription(
                 synergy.rules[index],
-                EffectDescriptionStyle::Compact);
+                EffectDescriptionStyle::Full,
+                {});
         }
         lines.push_back(std::move(line));
     }
@@ -505,7 +506,7 @@ ChessComboMetadata chessComboMetadata(
         metadata.active = index <= activeThresholdIndex;
         for (const auto& rule : threshold.rules)
         {
-            metadata.effects.push_back(effectDescription(rule, EffectDescriptionStyle::Full));
+            metadata.effects.push_back(effectDescription(rule, EffectDescriptionStyle::Full, {}));
         }
         for (const auto& rule : threshold.managementRules)
         {

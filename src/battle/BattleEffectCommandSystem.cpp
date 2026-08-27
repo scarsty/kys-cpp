@@ -216,25 +216,6 @@ std::int64_t damageStrength(DamageModifierOperation operation, int amount)
     return 0;
 }
 
-bool attributeModifierIsNegative(
-    AttributeOperation operation,
-    int amount)
-{
-    switch (operation)
-    {
-    case AttributeOperation::FlatAdd:
-    case AttributeOperation::PercentAdd:
-    case AttributeOperation::Override:
-        return amount < 0;
-    case AttributeOperation::Multiply:
-        return amount < 100;
-    case AttributeOperation::AtLeast:
-        return false;
-    }
-    assert(false);
-    return false;
-}
-
 bool damageModifierIsNegative(
     DamageModifierPerspective perspective,
     DamageModifierOperation operation,
@@ -661,41 +642,6 @@ int saturatedInt(std::int64_t value)
         value,
         static_cast<std::int64_t>(std::numeric_limits<int>::min()),
         static_cast<std::int64_t>(std::numeric_limits<int>::max())));
-}
-
-// 機率與倍率欄位以百分點加算；實數屬性才按查詢基值計算百分比。
-constexpr bool percentAddUsesPercentagePoints(BattleAttribute attribute)
-{
-    switch (attribute)
-    {
-    case BattleAttribute::CriticalChance:
-    case BattleAttribute::CriticalDamage:
-    case BattleAttribute::DodgeChance:
-    case BattleAttribute::BlockChance:
-    case BattleAttribute::DamageReduction:
-    case BattleAttribute::SkillDamage:
-    case BattleAttribute::CooldownReduction:
-    case BattleAttribute::MpRecoveryBonus:
-    case BattleAttribute::StaggerResistance:
-    case BattleAttribute::ProjectileReflectChance:
-    case BattleAttribute::SkillReflectPercent:
-    case BattleAttribute::CounterUltimateBlockChance:
-    case BattleAttribute::CriticalAfterDodge:
-    case BattleAttribute::DashChance:
-    case BattleAttribute::OutgoingCooldownExtensionChance:
-    case BattleAttribute::OutgoingCooldownExtensionPercent:
-    case BattleAttribute::IncomingCooldownExtensionChance:
-    case BattleAttribute::IncomingCooldownExtensionPercent:
-        return true;
-    case BattleAttribute::MaxHp:
-    case BattleAttribute::Attack:
-    case BattleAttribute::Defence:
-    case BattleAttribute::Speed:
-    case BattleAttribute::ProjectilePressureDamage:
-        return false;
-    }
-    assert(false);
-    return false;
 }
 
 BattleResourceDelta makeResourceDelta(
@@ -1502,7 +1448,7 @@ int BattleEffectCommandSystem::queryAttribute(
             value += amount;
             break;
         case AttributeOperation::PercentAdd:
-            value += percentAddUsesPercentagePoints(query.attribute)
+            value += battleAttributeUsesPercentagePoints(query.attribute)
                 ? amount
                 : baseValue * amount / 100;
             break;

@@ -28,4 +28,30 @@ std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(
     const std::vector<ChessMagicEffectDefinition>& definitions,
     int ultimateMagicId);
 
+struct PositionedChessMagicEffectDisplayLine
+{
+    ChessMagicEffectDisplayLine content;
+    int x{};
+    int y{};
+    int width{};
+    int height{};
+    int fontSize{};
+};
+
+struct ChessMagicEffectDisplayLayout
+{
+    std::vector<PositionedChessMagicEffectDisplayLine> lines;
+    int viewportWidth{};
+    int viewportHeight{};
+    int requiredHeight{};
+    int skillFontSize{};
+    int effectFontSize{};
+    int skillValueX{};
+};
+
+ChessMagicEffectDisplayLayout layoutChessMagicEffectDisplay(
+    const std::vector<ChessMagicEffectDisplayLine>& rows,
+    int viewportWidth,
+    int viewportHeight);
+
 }  // namespace KysChess

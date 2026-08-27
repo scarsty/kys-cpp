@@ -165,6 +165,8 @@ struct EffectNumber
     std::optional<int> maximum;
 };
 
+std::optional<int> effectiveConstantEffectNumberValue(const EffectNumber& number);
+
 struct IsUltimateCondition {};
 struct MagicIdEqualsCondition { int magicId = -1; };
 struct IsMainProjectileCondition {};
@@ -254,6 +256,8 @@ enum class BattleAttribute
     IncomingCooldownExtensionPercent,
 };
 
+bool battleAttributeUsesPercentagePoints(BattleAttribute attribute);
+
 enum class AttributeOperation
 {
     FlatAdd,
@@ -262,6 +266,8 @@ enum class AttributeOperation
     Multiply,
     AtLeast,
 };
+
+bool attributeModifierIsNegative(AttributeOperation operation, int amount);
 
 enum class EffectStackScope
 {
@@ -1001,11 +1007,20 @@ struct EffectRule
 
 enum class EffectDescriptionStyle
 {
+    Detailed,
     Full,
     Compact,
 };
 
-std::string effectDescription(const EffectRule& rule, EffectDescriptionStyle style);
+struct EffectDescriptionContext
+{
+    std::optional<EffectEvent> enclosingDefaultEvent{};
+};
+
+std::string effectDescription(
+    const EffectRule& rule,
+    EffectDescriptionStyle style,
+    const EffectDescriptionContext& context);
 bool validateEffectRule(const EffectRule& rule, std::string& error);
 
 struct ChessMagicEffectDefinition

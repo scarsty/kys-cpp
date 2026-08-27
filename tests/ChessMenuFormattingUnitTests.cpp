@@ -496,7 +496,7 @@ TEST_CASE("equipment detail derives role-specific synergies from loaded content"
     const auto lines = buildChessEquipmentSynergyDetailLines(content, 77);
 
     REQUIRE(lines.size() == 1);
-    CHECK(lines[0] == "黃蓉/郭靖: 計作射鵰/俠侶，開戰·自身·攻+25，開戰·自身·防+15");
+    CHECK(lines[0] == "黃蓉/郭靖: 計作射鵰/俠侶，攻擊+25，防禦+15");
 }
 
 TEST_CASE("challenge rewards retain configured limits and specific equipment names", "[chess][menu-formatting][challenge]")

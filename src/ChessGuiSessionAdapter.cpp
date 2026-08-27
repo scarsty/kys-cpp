@@ -76,10 +76,6 @@ constexpr int kStatsDetailOffsetY = 4;
 constexpr int kSkillTopGap = 14;
 constexpr int kOwnedTextInset = 8;
 constexpr int kMagicBottomReserve = 10;
-constexpr int kMagicValueMinOffset = 92;
-constexpr int kMagicValuePreferredOffset = 110;
-constexpr int kMagicValueMaxOffset = 130;
-constexpr int kMagicEffectInset = 10;
 constexpr int kComboRowGap = 2;
 constexpr int kEquipIconOffsetX = 46;
 constexpr int kEquipIconSize = 28;
@@ -142,9 +138,7 @@ struct SessionStatusLayout
     int sectionTitleY{};
     int sectionContentY{};
     int magicStartY{};
-    int magicAvailableRows = 1;
-    int magicCols = 1;
-    int magicColWidth{};
+    int magicAvailableHeight = 1;
     int comboRows = 2;
     int comboCols = 1;
     int comboColWidth{};
@@ -193,7 +187,9 @@ struct SessionStatusLayout
         const int magicX = statsX + kMagicStartOffsetX;
         layout.magic = {magicX, layout.topY, panel.x + panel.w - layout.pad - magicX, layout.bottomY - layout.topY};
         layout.magicStartY = layout.magic.y + kMagicHeaderHeight;
-        layout.magicAvailableRows = std::max(1, (layout.bottomY - kMagicBottomReserve - layout.magicStartY) / layout.lineHeight);
+        layout.magicAvailableHeight = std::max(
+            1,
+            layout.bottomY - kMagicBottomReserve - layout.magicStartY);
 
         const int innerW = panel.w - layout.pad * 2;
         const int comboW = std::max(kComboSectionMinWidth, innerW - kOwnedSectionWidth - kEquipSectionWidth - layout.gap * 2);
@@ -201,13 +197,6 @@ struct SessionStatusLayout
         layout.combo = {layout.owned.x + layout.owned.w + layout.gap, layout.sectionTitleY, comboW, bottomHeight};
         layout.equip = {layout.combo.x + layout.combo.w + layout.gap, layout.sectionTitleY, kEquipSectionWidth, bottomHeight};
         return layout;
-    }
-
-    void finalizeMagicColumns(int magicCount)
-    {
-        magicCols = magicCount > magicAvailableRows ? 2 : 1;
-        constexpr int kMagicMinColumnWidth = 170;
-        magicColWidth = magicCols == 1 ? magic.w : std::max(kMagicMinColumnWidth, (magic.w - gap) / 2);
     }
 
     void finalizeComboColumns(int comboCount)
@@ -631,7 +620,7 @@ void drawEquipmentDetail(
         {
             drawWrappedLines(
                 body,
-                effectDescription(rule, EffectDescriptionStyle::Full),
+                effectDescription(rule, EffectDescriptionStyle::Full, {}),
                 fontSize - 2,
                 {220, 220, 100, 255},
                 bodyWidth,
@@ -719,7 +708,7 @@ void drawNeigongDetail(
     {
         drawWrappedLines(
             body,
-            effectDescription(rule, EffectDescriptionStyle::Full),
+            effectDescription(rule, EffectDescriptionStyle::Full, {}),
             fontSize,
             {220, 220, 220, 255},
             frame.w - 20,
@@ -1050,22 +1039,27 @@ void drawRoleDetail(
     const int ultimateMagicId = selectedMagics.empty()
         ? -1
         : selectedMagics.back().first->ID;
-    const auto magicRows = buildChessMagicEffectDisplayRows(
+    const auto rawMagicRows = buildChessMagicEffectDisplayRows(
         magics,
         session.content().magicEffects(),
         ultimateMagicId);
-    layout.finalizeMagicColumns(static_cast<int>(magicRows.size()));
-    for (int index = 0; index < static_cast<int>(magicRows.size()); ++index)
+    const auto magicDisplay = layoutChessMagicEffectDisplay(
+        rawMagicRows,
+        layout.magic.w,
+        layout.magicAvailableHeight);
+    for (const auto& displayLine : magicDisplay.lines)
     {
-        const int column = index / layout.magicAvailableRows;
-        const int row = index % layout.magicAvailableRows;
-        if (column >= layout.magicCols) break;
-        const auto& magicRow = magicRows[index];
-        const int columnX = layout.magic.x + column * (layout.magicColWidth + layout.gap);
-        const int rowY = layout.magicStartY + row * layout.lineHeight;
+        const auto& magicRow = displayLine.content;
+        const int lineX = layout.magic.x + displayLine.x;
+        const int lineY = layout.magicStartY + displayLine.y;
         if (magicRow.kind == ChessMagicEffectDisplayLineKind::Effect)
         {
-            font->draw(magicRow.text, layout.smallFontSize, columnX + kMagicEffectInset, rowY, colorMagicEffect);
+            font->draw(
+                magicRow.text,
+                displayLine.fontSize,
+                lineX,
+                lineY,
+                colorMagicEffect);
             continue;
         }
         const int magicPower = [&] {
@@ -1080,15 +1074,17 @@ void drawRoleDetail(
             return result;
         }();
         const int operationType = BattleSceneHades::getOperationType(magicRow.magic->AttackAreaType);
-        const int valueX = columnX + std::min(
-            kMagicValueMaxOffset,
-            std::max(kMagicValueMinOffset, layout.magicColWidth - kMagicValuePreferredOffset));
-        font->draw(magicRow.text, layout.fontSize, columnX, rowY, magicRow.ultimate ? colorMagic : colorAbility);
+        font->draw(
+            magicRow.text,
+            displayLine.fontSize,
+            lineX,
+            lineY,
+            magicRow.ultimate ? colorMagic : colorAbility);
         font->draw(
             std::format("{:4} {}", magicPower, BattleSceneHades::getOperationTypeName(operationType)),
-            layout.fontSize,
-            valueX,
-            rowY,
+            displayLine.fontSize,
+            layout.magic.x + magicDisplay.skillValueX,
+            lineY,
             colorWhite);
     }
 
@@ -1320,7 +1316,7 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
                         for (const auto& rule : shownThreshold->rules)
                         {
                             const auto wrapped = wrapDisplayText(
-                                effectDescription(rule, EffectDescriptionStyle::Compact),
+                                effectDescription(rule, EffectDescriptionStyle::Compact, {}),
                                 effectUnits);
                             for (int lineIndex = 0; lineIndex < static_cast<int>(wrapped.size()); ++lineIndex)
                             {
@@ -3867,7 +3863,7 @@ void ChessGuiSessionAdapter::viewCombos()
             {
                 drawWrappedLines(
                     thresholdCursor,
-                    effectDescription(rule, EffectDescriptionStyle::Full),
+                    effectDescription(rule, EffectDescriptionStyle::Full, {}),
                     effectFontSize,
                     active ? Color{180, 220, 255, 255} : Color{200, 200, 200, 255},
                     effectPixelWidth,
@@ -4326,7 +4322,12 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 data.labels,
                 menuPresentation.fontSize,
                 8);
-            detailPanels.push_back(makeRoleDetailPanel(session_, roleIds, starRows, instanceIds, panels.status));
+            detailPanels.push_back(makeRoleDetailPanel(
+                session_,
+                roleIds,
+                starRows,
+                instanceIds,
+                panels.status));
             if (chessRewardShowsComboPanel(pending.kind))
             {
                 detailPanels.push_back(makeComboInfoPanel(session_, std::move(roleIds), panels.combo));

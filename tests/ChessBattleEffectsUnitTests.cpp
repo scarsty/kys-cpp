@@ -1,6 +1,7 @@
 #include "ChessBattleEffects.h"
 #include "ChessGameSessionTestHelpers.h"
 #include "ChessMagicEffectDisplay.h"
+#include "DisplayText.h"
 #include "Types.h"
 #include "battle/BattleEffectSystem.h"
 
@@ -8,6 +9,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <format>
 #include <set>
@@ -54,6 +56,18 @@ EffectRule parseRuleText(std::string_view yaml, std::uint64_t id = 1)
         EffectRuleId{ id },
         "簡式語法測試"));
     return rule;
+}
+
+std::size_t countOccurrences(std::string_view text, std::string_view fragment)
+{
+    std::size_t count = 0;
+    for (std::size_t position = 0;
+         (position = text.find(fragment, position)) != std::string_view::npos;
+         position += fragment.size())
+    {
+        ++count;
+    }
+    return count;
 }
 
 void checkEffectNumberEqual(const EffectNumber& lhs, const EffectNumber& rhs)
@@ -483,8 +497,12 @@ void checkRulesEqual(const EffectRule& lhs, const EffectRule& rhs)
     }
     checkOptionalEffectNumberEqual(lhs.repetitionCount, rhs.repetitionCount);
     checkActionsEqual(lhs.actions, rhs.actions);
-    for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
-        CHECK(effectDescription(lhs, style) == effectDescription(rhs, style));
+    for (const auto style : {
+             EffectDescriptionStyle::Detailed,
+             EffectDescriptionStyle::Full,
+             EffectDescriptionStyle::Compact,
+         })
+        CHECK(effectDescription(lhs, style, {}) == effectDescription(rhs, style, {}));
 }
 
 std::set<int> poolUltimateMagicIds(const ChessGameContent& content)
@@ -1124,12 +1142,61 @@ TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", 
     CHECK(rows[1].ultimate);
     CHECK(rows[2].kind == ChessMagicEffectDisplayLineKind::Effect);
     CHECK(rows[2].text == effectDescription(
-        definitions[0].rules[0], EffectDescriptionStyle::Compact));
+        definitions[0].rules[0],
+        EffectDescriptionStyle::Compact,
+        EffectDescriptionContext{ .enclosingDefaultEvent = EffectEvent::UltimateCommitted }));
     CHECK(rows[2].text.find("眩暈") != std::string::npos);
+    CHECK(rows[2].text.starts_with("主彈命中"));
     CHECK(rows[3].kind == ChessMagicEffectDisplayLineKind::Effect);
     CHECK(rows[3].text == effectDescription(
-        definitions[0].rules[1], EffectDescriptionStyle::Compact));
+        definitions[0].rules[1],
+        EffectDescriptionStyle::Compact,
+        EffectDescriptionContext{ .enclosingDefaultEvent = EffectEvent::UltimateCommitted }));
     CHECK(rows[3].text.find("回復30內力") != std::string::npos);
+    CHECK_FALSE(rows[3].text.starts_with("絕招"));
+}
+
+TEST_CASE("ChessMagicEffectDisplay_FitsWrappedEffectsInOneBoundedColumn",
+          "[chess][effects][magic][layout]")
+{
+    constexpr int viewportWidth = 244;
+    constexpr int viewportHeight = 133;
+    Magic normal;
+    normal.ID = 1;
+    normal.Name = "普通武學";
+    Magic ultimate;
+    ultimate.ID = 2;
+    ultimate.Name = "絕學";
+    std::vector<ChessMagicEffectDisplayLine> rows{
+        { ChessMagicEffectDisplayLineKind::Skill, &normal, normal.Name },
+        { ChessMagicEffectDisplayLineKind::Skill, &ultimate, ultimate.Name, true },
+        {
+            ChessMagicEffectDisplayLineKind::Effect,
+            &ultimate,
+            "全隊·防+66·100幀·額外長文字·再追加一段完整效果·且保留所有條件與結果",
+            true,
+        },
+    };
+
+    const auto layout = layoutChessMagicEffectDisplay(rows, viewportWidth, viewportHeight);
+    REQUIRE(layout.lines.size() > rows.size());
+    CHECK(layout.requiredHeight <= viewportHeight);
+    int previousBottom = 0;
+    std::string wrappedEffect;
+    for (const auto& line : layout.lines)
+    {
+        CHECK(line.x >= 0);
+        CHECK(line.x + line.width <= viewportWidth);
+        CHECK(line.y >= previousBottom);
+        CHECK(line.y + line.height <= viewportHeight);
+        previousBottom = line.y + line.height;
+        if (line.content.kind == ChessMagicEffectDisplayLineKind::Effect)
+        {
+            wrappedEffect += line.content.text;
+        }
+    }
+    CHECK(previousBottom == layout.requiredHeight);
+    CHECK(wrappedEffect == rows.back().text);
 }
 
 TEST_CASE("ChessBattleEffects_DisabledMagicEffectsRemainAvailableForValidationAndDisplay", "[battle][effects][magic]")
@@ -1174,7 +1241,9 @@ TEST_CASE("ChessBattleEffects_DisabledMagicEffectsRemainAvailableForValidationAn
     CHECK(rows[2].kind == ChessMagicEffectDisplayLineKind::Effect);
     REQUIRE(definitions[0].rules.size() == 1);
     CHECK(rows[2].text == effectDescription(
-        definitions[0].rules[0], EffectDescriptionStyle::Compact));
+        definitions[0].rules[0],
+        EffectDescriptionStyle::Compact,
+        EffectDescriptionContext{ .enclosingDefaultEvent = EffectEvent::UltimateCommitted }));
 }
 
 TEST_CASE("ChessBattleEffects_MagicYamlRejectsDuplicateIdsAndComboMemberSelectors", "[battle][effects][magic]")
@@ -1241,11 +1310,17 @@ TEST_CASE("ChessBattleEffects_RealEnabledUltimateSchemaValidatesAllDefinitions",
         ruleCount += definition.rules.size();
         for (const auto& rule : definition.rules)
         {
-            const auto full = effectDescription(rule, EffectDescriptionStyle::Full);
-            const auto compact = effectDescription(rule, EffectDescriptionStyle::Compact);
-            CHECK_FALSE(full.empty());
-            CHECK_FALSE(compact.empty());
-            CHECK(full.ends_with("。"));
+            for (const auto style : {
+                     EffectDescriptionStyle::Detailed,
+                     EffectDescriptionStyle::Full,
+                     EffectDescriptionStyle::Compact,
+                 })
+            {
+                const auto description = effectDescription(rule, style, {});
+                CHECK_FALSE(description.empty());
+                CHECK_FALSE(description.ends_with("。"));
+                CHECK(description == effectDescription(rule, style, {}));
+            }
         }
     }
     CHECK(ruleCount == 80);
@@ -1278,17 +1353,17 @@ TEST_CASE("ChessBattleEffects_DescriptionAstPreservesCompoundNesting",
     const auto& xuanming = ruleWithEvent(
         definitionWithId(definitions, 21),
         EffectEvent::UltimateCommitted);
-    const auto xuanmingFull = effectDescription(xuanming, EffectDescriptionStyle::Full);
-    const auto xuanmingCompact = effectDescription(xuanming, EffectDescriptionStyle::Compact);
-    CHECK(xuanmingFull.find("，接著") != std::string::npos);
+    const auto xuanmingFull = effectDescription(xuanming, EffectDescriptionStyle::Full, {});
+    const auto xuanmingCompact = effectDescription(xuanming, EffectDescriptionStyle::Compact, {});
+    CHECK(xuanmingFull.find("，再") != std::string::npos);
     CHECK(xuanmingCompact.find("→") != std::string::npos);
     CHECK(xuanmingCompact.find("／") == std::string::npos);
 
     const auto& sunflower = ruleWithEvent(
         definitionWithId(definitions, 105),
         EffectEvent::UltimateCommitted);
-    const auto sunflowerFull = effectDescription(sunflower, EffectDescriptionStyle::Full);
-    const auto sunflowerCompact = effectDescription(sunflower, EffectDescriptionStyle::Compact);
+    const auto sunflowerFull = effectDescription(sunflower, EffectDescriptionStyle::Full, {});
+    const auto sunflowerCompact = effectDescription(sunflower, EffectDescriptionStyle::Compact, {});
     CHECK(sunflowerFull.find("、") != std::string::npos);
     CHECK(sunflowerCompact.find("／") != std::string::npos);
     CHECK(sunflowerCompact.find("→") == std::string::npos);
@@ -1296,19 +1371,22 @@ TEST_CASE("ChessBattleEffects_DescriptionAstPreservesCompoundNesting",
     const auto& sanqing = ruleWithEvent(
         definitionWithId(definitions, 133),
         EffectEvent::UltimateCommitted);
-    const auto sanqingFull = effectDescription(sanqing, EffectDescriptionStyle::Full);
-    const auto sanqingCompact = effectDescription(sanqing, EffectDescriptionStyle::Compact);
-    CHECK(sanqingFull.find("個別受益者施放前若已滿內，改為") != std::string::npos);
+    const auto sanqingFull = effectDescription(sanqing, EffectDescriptionStyle::Full, {});
+    const auto sanqingCompact = effectDescription(sanqing, EffectDescriptionStyle::Compact, {});
+    CHECK(sanqingFull.find("若受益者施放前內力已滿則") != std::string::npos);
     CHECK(sanqingFull.find("回復20內力") != std::string::npos);
     CHECK(sanqingFull.find("獲得160護盾") != std::string::npos);
-    CHECK(sanqingCompact.find("滿內改") != std::string::npos);
+    CHECK(sanqingCompact.find("若受益者施放前內力已滿·") != std::string::npos);
+    CHECK(sanqingCompact.find("／否則") != std::string::npos);
+    CHECK(sanqingCompact.find("；") == std::string::npos);
 
     const auto& coupleBlade = ruleWithEvent(
         definitionWithId(definitions, 62),
         EffectEvent::UltimateCommitted);
     const auto coupleBladeFull = effectDescription(
         coupleBlade,
-        EffectDescriptionStyle::Full);
+        EffectDescriptionStyle::Full,
+        {});
     CHECK(coupleBladeFull.find("若另一名武功62使用者存活則") != std::string::npos);
     CHECK(coupleBladeFull.find("否則") != std::string::npos);
 
@@ -1318,9 +1396,9 @@ TEST_CASE("ChessBattleEffects_DescriptionAstPreservesCompoundNesting",
     const auto& taijiConsume = ruleWithEvent(
         taiji,
         EffectEvent::MainProjectileBeforeDamage);
-    CHECK(effectDescription(taijiRecord, EffectDescriptionStyle::Full).find(
+    CHECK(effectDescription(taijiRecord, EffectDescriptionStyle::Full, {}).find(
         "首次記錄值為0") != std::string::npos);
-    CHECK(effectDescription(taijiConsume, EffectDescriptionStyle::Compact).find(
+    CHECK(effectDescription(taijiConsume, EffectDescriptionStyle::Compact, {}).find(
         "讀取記錄值") != std::string::npos);
     const auto& transferMachine = std::get<StateMachineAction>(
         taijiTransfer.actions[0].value);
@@ -1348,12 +1426,13 @@ TEST_CASE("ChessBattleEffects_DescriptionIgnoresRuntimeRuleIdentity",
     changedIdentity.id = EffectRuleId{ original.id.value + 0x100000000ULL };
 
     for (const auto style : {
+             EffectDescriptionStyle::Detailed,
              EffectDescriptionStyle::Full,
              EffectDescriptionStyle::Compact,
          })
     {
-        CHECK(effectDescription(original, style)
-              == effectDescription(changedIdentity, style));
+        CHECK(effectDescription(original, style, {})
+              == effectDescription(changedIdentity, style, {}));
     }
 }
 
@@ -1372,15 +1451,492 @@ TEST_CASE("ChessBattleEffects_DescriptionOrdersTriggerCadenceBeforeTargetAndActi
       數值: 2
 )"), rule, EffectRuleId{ 7 }, "描述資訊順序"));
 
-    const auto full = effectDescription(rule, EffectDescriptionStyle::Full);
-    const auto cadence = full.find("每30幀一次");
-    const auto target = full.find("對自身");
+    const auto full = effectDescription(rule, EffectDescriptionStyle::Full, {});
+    const auto cadence = full.find("每30幀");
     const auto action = full.find("回復2內力");
     REQUIRE(cadence != std::string::npos);
-    REQUIRE(target != std::string::npos);
     REQUIRE(action != std::string::npos);
-    CHECK(cadence < target);
-    CHECK(target < action);
+    CHECK(cadence < action);
+    CHECK(full.find("自身") == std::string::npos);
+}
+
+TEST_CASE("ChessBattleEffects_CoalescesOnlyEligibleAdjacentAttributeDurations",
+          "[battle][effects][description][coalescing]")
+{
+    const auto eligible = parseRuleText(R"(
+時機: 絕招施放
+目標: 自身
+動作:
+  - 屬性修正:
+      屬性: 攻擊
+      方式: 百分比加算
+      數值: 20
+      持續幀數: 100
+      合併方式: 刷新
+  - 屬性修正:
+      屬性: 防禦
+      方式: 百分比加算
+      數值: 30
+      持續幀數: 100
+      合併方式: 刷新
+)");
+    const auto detailed = effectDescription(eligible, EffectDescriptionStyle::Detailed, {});
+    const auto full = effectDescription(eligible, EffectDescriptionStyle::Full, {});
+    const auto compact = effectDescription(eligible, EffectDescriptionStyle::Compact, {});
+    CHECK(countOccurrences(detailed, "100幀") == 2);
+    CHECK(countOccurrences(detailed, "刷新") == 2);
+    CHECK(full.find("攻擊+20%、防禦+30%，持續100幀") != std::string::npos);
+    CHECK(countOccurrences(full, "100幀") == 1);
+    CHECK(compact.find("攻+20%／防+30%·100幀") != std::string::npos);
+    CHECK(countOccurrences(compact, "100幀") == 1);
+
+    auto independent = eligible;
+    for (auto& action : independent.actions)
+        std::get<ModifyAttributeAction>(action.value).stack = EffectStackPolicy::Independent;
+    CHECK(effectDescription(independent, EffectDescriptionStyle::Compact, {}).find(
+        "攻+20%／防+30%·100幀") != std::string::npos);
+
+    const auto checkDoesNotCoalesce = [](const EffectRule& rule)
+    {
+        const auto fullText = effectDescription(rule, EffectDescriptionStyle::Full, {});
+        const auto compactText = effectDescription(rule, EffectDescriptionStyle::Compact, {});
+        CHECK(countOccurrences(fullText, "持續100幀") == 2);
+        CHECK(compactText.find("／") == std::string::npos);
+        CHECK(countOccurrences(compactText, "100幀") == 2);
+    };
+
+    auto differentDuration = eligible;
+    std::get<ModifyAttributeAction>(differentDuration.actions[1].value).durationFrames = 90;
+    const auto differentDurationText = effectDescription(
+        differentDuration,
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(differentDurationText.find("／") == std::string::npos);
+    CHECK(differentDurationText.find("100幀") != std::string::npos);
+    CHECK(differentDurationText.find("90幀") != std::string::npos);
+
+    auto differentOperation = eligible;
+    std::get<ModifyAttributeAction>(differentOperation.actions[1].value).operation = AttributeOperation::FlatAdd;
+    checkDoesNotCoalesce(differentOperation);
+
+    auto cappedStacks = eligible;
+    for (auto& action : cappedStacks.actions)
+    {
+        auto& modifier = std::get<ModifyAttributeAction>(action.value);
+        modifier.stack = EffectStackPolicy::AddStack;
+        modifier.stackLimit = 8;
+    }
+    const auto cappedCompact = effectDescription(
+        cappedStacks,
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(cappedCompact.find("／") == std::string::npos);
+    CHECK(countOccurrences(cappedCompact, "×8層") == 2);
+    CHECK(countOccurrences(cappedCompact, "100幀") == 2);
+
+    auto negative = eligible;
+    std::get<ModifyAttributeAction>(negative.actions[0].value).amount.flat = -20;
+    std::get<ModifyAttributeAction>(negative.actions[1].value).amount.flat = -30;
+    checkDoesNotCoalesce(negative);
+
+    auto boundedNegativeMultiplier = eligible;
+    for (auto& action : boundedNegativeMultiplier.actions)
+    {
+        auto& modifier = std::get<ModifyAttributeAction>(action.value);
+        modifier.operation = AttributeOperation::Multiply;
+        modifier.amount.flat = 200;
+        modifier.amount.maximum = 50;
+    }
+    checkDoesNotCoalesce(boundedNegativeMultiplier);
+
+    auto formula = eligible;
+    std::get<ModifyAttributeAction>(formula.actions[0].value).amount.base = EffectNumberBase::SourceStar;
+    std::get<ModifyAttributeAction>(formula.actions[1].value).amount.base = EffectNumberBase::SourceStar;
+    checkDoesNotCoalesce(formula);
+
+    auto eventScope = eligible;
+    for (auto& action : eventScope.actions)
+        std::get<ModifyAttributeAction>(action.value).stackScope = EffectStackScope::EventSource;
+    checkDoesNotCoalesce(eventScope);
+
+    for (const auto policy : {
+             EffectStackPolicy::Replace,
+             EffectStackPolicy::KeepStrongest,
+         })
+    {
+        auto ineligiblePolicy = eligible;
+        for (auto& action : ineligiblePolicy.actions)
+            std::get<ModifyAttributeAction>(action.value).stack = policy;
+        checkDoesNotCoalesce(ineligiblePolicy);
+    }
+
+    auto perStack = eligible;
+    for (auto& action : perStack.actions)
+        std::get<ModifyAttributeAction>(action.value).perStack = true;
+    checkDoesNotCoalesce(perStack);
+
+    auto permanent = eligible;
+    for (auto& action : permanent.actions)
+        std::get<ModifyAttributeAction>(action.value).durationFrames = 0;
+    const auto permanentCompact = effectDescription(
+        permanent,
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(permanentCompact.find("／") == std::string::npos);
+    CHECK(permanentCompact.find("100幀") == std::string::npos);
+
+    auto withInterveningAction = eligible;
+    withInterveningAction.actions.insert(
+        withInterveningAction.actions.begin() + 1,
+        EffectAction{ ChangeResourceAction{
+            .resource = BattleResource::Mp,
+            .amount = EffectNumber{ .flat = 1 },
+            .kind = ResourceChangeKind::Restore,
+        } });
+    checkDoesNotCoalesce(withInterveningAction);
+}
+
+TEST_CASE("ChessBattleEffects_DescriptionContextOmitsOnlyMatchingBoundUltimateEvent",
+          "[battle][effects][description][context]")
+{
+    auto rule = parseRuleText(R"(
+時機: 絕招施放
+目標: 全隊
+屬性修正:
+  屬性: 防禦
+  方式: 固定加算
+  數值: 66
+  持續幀數: 100
+  合併方式: 刷新
+)");
+    const EffectDescriptionContext ultimateContext{
+        .enclosingDefaultEvent = EffectEvent::UltimateCommitted,
+    };
+    const auto standalone = effectDescription(rule, EffectDescriptionStyle::Compact, {});
+    const auto enclosed = effectDescription(rule, EffectDescriptionStyle::Compact, ultimateContext);
+    CHECK(standalone == "絕招·全隊·防+66·100幀");
+    CHECK(enclosed == "全隊·防+66·100幀");
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Full, ultimateContext)
+        == "對全隊防禦+66，持續100幀");
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Detailed, ultimateContext)
+        .starts_with("施放絕招時"));
+
+    rule.castMatch = EffectCastMatch::OwnerAnyCast;
+    const auto anyCast = effectDescription(rule, EffectDescriptionStyle::Compact, ultimateContext);
+    CHECK(anyCast.starts_with("絕招"));
+    CHECK(anyCast.find("任意施放") != std::string::npos);
+
+    rule.castMatch = EffectCastMatch::BoundMagic;
+    for (const auto [event, label] : {
+             std::pair{ EffectEvent::MainProjectileBeforeDamage, std::string_view("主彈命中") },
+             std::pair{ EffectEvent::CastContinuation, std::string_view("施放延續") },
+             std::pair{ EffectEvent::CastSettled, std::string_view("施放結算") },
+             std::pair{ EffectEvent::UltimateCooldownFinished, std::string_view("絕招冷卻完成") },
+         })
+    {
+        rule.event = event;
+        CHECK(effectDescription(rule, EffectDescriptionStyle::Compact, ultimateContext)
+            .starts_with(label));
+    }
+}
+
+TEST_CASE("ChessBattleEffects_PlayerPhrasesUseTypedSignsAndAttributeUnits",
+          "[battle][effects][description][phrasing]")
+{
+    auto incoming = parseRuleText(R"(
+時機: 絕招施放
+目標: 自身
+傷害修正:
+  方位: 承受
+  階段: 防禦前
+  傷害種類: 全部
+  方式: 百分比加算
+  數值: -6
+)");
+    CHECK(effectDescription(incoming, EffectDescriptionStyle::Full, {}).find("減傷6%")
+        != std::string::npos);
+    const auto reviewedIncomingCompact = effectDescription(
+        incoming,
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(reviewedIncomingCompact.find("減傷6%") != std::string::npos);
+    CHECK(reviewedIncomingCompact.find("防前") == std::string::npos);
+    auto& incomingModifier = std::get<ModifyDamageAction>(incoming.actions.front().value);
+    incomingModifier.amount.flat = 6;
+    CHECK(effectDescription(incoming, EffectDescriptionStyle::Full, {}).find("受傷+6%")
+        != std::string::npos);
+    incomingModifier.amount.flat = 0;
+    CHECK(effectDescription(incoming, EffectDescriptionStyle::Full, {}).find("受傷+0%")
+        != std::string::npos);
+    incomingModifier.amount.base = EffectNumberBase::SourceStar;
+    incomingModifier.amount.percent = 100;
+    CHECK(effectDescription(incoming, EffectDescriptionStyle::Full, {}).find(
+        "承受的所有傷害（防禦結算前）百分比加算星級×1") != std::string::npos);
+    const auto formulaIncomingCompact = effectDescription(
+        incoming,
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(formulaIncomingCompact.find("·防前") != std::string::npos);
+    CHECK(formulaIncomingCompact.find("防禦結算前") == std::string::npos);
+
+    incomingModifier.perspective = DamageModifierPerspective::Outgoing;
+    incomingModifier.channel = DamageChannel::Skill;
+    incomingModifier.stage = DamageModifierStage::AfterDefense;
+    incomingModifier.amount = EffectNumber{ .flat = 6 };
+    CHECK(effectDescription(incoming, EffectDescriptionStyle::Full, {}).find("增傷6%")
+        != std::string::npos);
+    incomingModifier.amount.flat = -6;
+    CHECK(effectDescription(incoming, EffectDescriptionStyle::Full, {}).find("造成傷害-6%")
+        != std::string::npos);
+    incomingModifier.amount.flat = 0;
+    CHECK(effectDescription(incoming, EffectDescriptionStyle::Full, {}).find("造成傷害+0%")
+        != std::string::npos);
+    incomingModifier.amount.base = EffectNumberBase::SourceStar;
+    incomingModifier.amount.percent = 100;
+    CHECK(effectDescription(incoming, EffectDescriptionStyle::Full, {}).find(
+        "造成的招式傷害（防禦結算後）百分比加算星級×1") != std::string::npos);
+    CHECK(effectDescription(incoming, EffectDescriptionStyle::Compact, {}).find("·防後")
+        != std::string::npos);
+
+    const auto reductionAttribute = parseRuleText(R"(
+時機: 開場
+目標: 自身
+屬性修正:
+  屬性: 傷害減免
+  方式: 百分比加算
+  數值: 6
+)");
+    CHECK(effectDescription(reductionAttribute, EffectDescriptionStyle::Full, {}) == "減傷+6%");
+    auto changedReduction = reductionAttribute;
+    auto& reduction = std::get<ModifyAttributeAction>(changedReduction.actions.front().value);
+    reduction.amount.flat = -6;
+    CHECK(effectDescription(changedReduction, EffectDescriptionStyle::Full, {}) == "減傷-6%");
+    reduction.amount.flat = 0;
+    CHECK(effectDescription(changedReduction, EffectDescriptionStyle::Full, {}) == "減傷+0%");
+
+    const auto blockChance = parseRuleText(R"(
+時機: 開場
+目標: 自身
+屬性修正:
+  屬性: 格擋率
+  方式: 固定加算
+  數值: 6
+)");
+    CHECK(effectDescription(blockChance, EffectDescriptionStyle::Full, {}) == "格擋率+6%");
+    auto formulaBlockChance = blockChance;
+    auto& formulaBlock = std::get<ModifyAttributeAction>(formulaBlockChance.actions.front().value);
+    formulaBlock.amount.base = EffectNumberBase::SourceStar;
+    formulaBlock.amount.flat = 0;
+    formulaBlock.amount.percent = 100;
+    CHECK(effectDescription(formulaBlockChance, EffectDescriptionStyle::Full, {})
+        == "格擋率增加星級×1%");
+
+    const auto boundedConstant = parseRuleText(R"(
+時機: 開場
+目標: 自身
+屬性修正:
+  屬性: 攻擊
+  方式: 固定加算
+  數值:
+    固定: 20
+    最大: 5
+)");
+    CHECK(effectDescription(boundedConstant, EffectDescriptionStyle::Full, {}) == "攻擊+5");
+    CHECK(effectDescription(boundedConstant, EffectDescriptionStyle::Compact, {}) == "攻+5");
+    const auto boundedDetailed = effectDescription(
+        boundedConstant,
+        EffectDescriptionStyle::Detailed,
+        {});
+    CHECK(boundedDetailed.find("攻擊增加20·至多5") != std::string::npos);
+
+    auto boundedPercent = boundedConstant;
+    std::get<ModifyAttributeAction>(boundedPercent.actions.front().value).operation
+        = AttributeOperation::PercentAdd;
+    CHECK(effectDescription(boundedPercent, EffectDescriptionStyle::Full, {}) == "攻擊+5%");
+    CHECK(effectDescription(boundedPercent, EffectDescriptionStyle::Detailed, {}).find(
+        "攻擊增加20·至多5%") != std::string::npos);
+
+    auto projectilePressure = boundedConstant;
+    auto& projectileModifier = std::get<ModifyAttributeAction>(
+        projectilePressure.actions.front().value);
+    projectileModifier.attribute = BattleAttribute::ProjectilePressureDamage;
+    projectileModifier.amount = EffectNumber{ .flat = 10 };
+    CHECK_FALSE(battleAttributeUsesPercentagePoints(BattleAttribute::ProjectilePressureDamage));
+    CHECK(effectDescription(projectilePressure, EffectDescriptionStyle::Full, {})
+        == "彈道壓制傷害+10");
+    CHECK(effectDescription(projectilePressure, EffectDescriptionStyle::Compact, {})
+        == "彈壓傷+10");
+
+    projectileModifier.operation = AttributeOperation::Multiply;
+    projectileModifier.amount.flat = 200;
+    CHECK(effectDescription(projectilePressure, EffectDescriptionStyle::Full, {})
+        == "彈道壓制傷害乘以200%");
+}
+
+TEST_CASE("ChessBattleEffects_RepresentativeThreeTierDescriptionsStayPlayerFacing",
+          "[battle][effects][description][golden]")
+{
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content != nullptr);
+
+    const auto holyFire = std::ranges::find(
+        content->neigong(),
+        93,
+        &NeigongDef::magicId);
+    REQUIRE(holyFire != content->neigong().end());
+    REQUIRE(holyFire->rules.size() == 1);
+    CHECK(effectDescription(holyFire->rules.front(), EffectDescriptionStyle::Detailed, {})
+        == "戰鬥開始時，對自身攻擊+25");
+    CHECK(effectDescription(holyFire->rules.front(), EffectDescriptionStyle::Full, {})
+        == "攻擊+25");
+    CHECK(effectDescription(holyFire->rules.front(), EffectDescriptionStyle::Compact, {})
+        == "攻+25");
+
+    const auto ming = std::ranges::find(
+        content->combos(),
+        std::string{ "明教" },
+        &ComboDef::name);
+    REQUIRE(ming != content->combos().end());
+    const auto mingFollowers = std::ranges::find(
+        ming->thresholds,
+        2,
+        &ComboThreshold::count);
+    REQUIRE(mingFollowers != ming->thresholds.end());
+    REQUIRE_FALSE(mingFollowers->rules.empty());
+    const auto& sameComboDeath = mingFollowers->rules.front();
+    CHECK(effectDescription(sameComboDeath, EffectDescriptionStyle::Detailed, {})
+        == "友軍死亡時，事件目標屬於此效果來源，對自身攻擊+50、防禦+50");
+    CHECK(effectDescription(sameComboDeath, EffectDescriptionStyle::Full, {})
+        == "同羈絆友軍死亡時，攻擊+50、防禦+50");
+    CHECK(effectDescription(sameComboDeath, EffectDescriptionStyle::Compact, {})
+        == "同羈絆友軍死亡·攻+50·防+50");
+
+    const auto crocodileArmor = std::ranges::find(
+        content->equipment(),
+        61,
+        &EquipmentDef::itemId);
+    REQUIRE(crocodileArmor != content->equipment().end());
+    REQUIRE(crocodileArmor->rules.size() == 2);
+    CHECK(effectDescription(crocodileArmor->rules[1], EffectDescriptionStyle::Full, {})
+        == "格擋率+6%");
+    CHECK(effectDescription(crocodileArmor->rules[1], EffectDescriptionStyle::Compact, {})
+        == "格擋+6%");
+
+    const auto arhat = std::ranges::find(
+        content->neigong(),
+        96,
+        &NeigongDef::magicId);
+    REQUIRE(arhat != content->neigong().end());
+    REQUIRE(arhat->rules.size() == 1);
+    CHECK(effectDescription(arhat->rules.front(), EffectDescriptionStyle::Full, {})
+        == "每次命中使招式傷害+4%，最多8層；最後一次命中91幀後清除層數");
+    CHECK(effectDescription(arhat->rules.front(), EffectDescriptionStyle::Compact, {})
+        == "命中增傷4%×8層·91幀");
+    const auto arhatDetailed = effectDescription(
+        arhat->rules.front(),
+        EffectDescriptionStyle::Detailed,
+        {});
+    CHECK(arhatDetailed.find("防禦結算後") != std::string::npos);
+    CHECK(arhatDetailed.find("增加層數") != std::string::npos);
+    CHECK(arhatDetailed.find("最多8層") != std::string::npos);
+    CHECK(arhatDetailed.find("91幀") != std::string::npos);
+
+    const auto& sandWhip = ruleWithEvent(
+        definitionWithId(content->magicEffects(), 78),
+        EffectEvent::MainProjectileBeforeDamage);
+    const auto sandWhipFull = effectDescription(
+        sandWhip,
+        EffectDescriptionStyle::Full,
+        {});
+    CHECK(sandWhipFull.find(
+        "在命中位置建立半徑6格的區域，持續100幀；區域內敵人速度-25%，彈道無法追蹤，彈速及壓制傷害-35%")
+        != std::string::npos);
+    const auto sandWhipCompact = effectDescription(
+        sandWhip,
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(sandWhipCompact.find(
+        "區域6格·100幀·敵速-25%·彈速／壓制-35%·禁追蹤")
+        != std::string::npos);
+    CHECK(sandWhipCompact.find('/') == std::string::npos);
+
+    auto mixedRelationArea = sandWhip;
+    auto& mixedArea = std::get<CreateAreaAction>(mixedRelationArea.actions.front().value);
+    mixedArea.modifiers[1].relation = EffectTeamFilter::Ally;
+    const auto mixedAreaCompact = effectDescription(
+        mixedRelationArea,
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(mixedAreaCompact != sandWhipCompact);
+    CHECK(mixedAreaCompact.find("友禁追蹤") != std::string::npos);
+
+    mixedArea.modifiers.front().amount.base = EffectNumberBase::SourceStar;
+    mixedArea.modifiers.front().amount.flat = 0;
+    mixedArea.modifiers.front().amount.percent = 100;
+    CHECK(effectDescription(mixedRelationArea, EffectDescriptionStyle::Full, {}).find(
+        "速度增加星級×1%") != std::string::npos);
+}
+
+TEST_CASE("ChessBattleEffects_OnlyOrdinaryAcceptedHitsUseTheHitAfterProjection",
+          "[battle][effects][description][phrasing]")
+{
+    auto rule = parseRuleText(R"(
+時機: 傷害後
+目標: 自身
+條件:
+  - 傷害方位: 造成
+  - 已接受命中
+回復內力: 12
+)");
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Full, {})
+        == "每次命中後回復12內力");
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Compact, {})
+        == "命中後回復12內力");
+
+    auto& accepted = std::get<AcceptedHitCondition>(rule.conditions[1]);
+    accepted.requirePositiveDamage = true;
+    const auto nonOrdinary = effectDescription(rule, EffectDescriptionStyle::Full, {});
+    CHECK(nonOrdinary.starts_with("傷害結算後"));
+    CHECK(nonOrdinary.find("自身造成的傷害") != std::string::npos);
+    CHECK(nonOrdinary.find("正傷害") != std::string::npos);
+}
+
+TEST_CASE("ChessBattleEffects_AllLoadedContentMeetsThreeTierFragmentContract",
+          "[battle][effects][description][content]")
+{
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content != nullptr);
+
+    const auto checkRules = [](const std::vector<EffectRule>& rules)
+    {
+        for (const auto& rule : rules)
+        {
+            CAPTURE(rule.id.value);
+            for (const auto style : {
+                     EffectDescriptionStyle::Detailed,
+                     EffectDescriptionStyle::Full,
+                     EffectDescriptionStyle::Compact,
+                 })
+            {
+                const auto description = effectDescription(rule, style, {});
+                CHECK_FALSE(description.empty());
+                CHECK_FALSE(description.ends_with("。"));
+                CHECK(description == effectDescription(rule, style, {}));
+                if (style == EffectDescriptionStyle::Compact)
+                {
+                    CHECK(description.find('/') == std::string::npos);
+                    CHECK(description.find("；") == std::string::npos);
+                }
+            }
+        }
+    };
+
+    for (const auto& definition : content->magicEffects()) checkRules(definition.rules);
+    for (const auto& neigong : content->neigong()) checkRules(neigong.rules);
+    for (const auto& equipment : content->equipment()) checkRules(equipment.rules);
+    for (const auto& synergy : content->equipmentSynergies()) checkRules(synergy.rules);
+    for (const auto& combo : content->combos())
+        for (const auto& threshold : combo.thresholds) checkRules(threshold.rules);
 }
 
 TEST_CASE("ChessBattleEffects_CoupleBladeCarriesTypedAllyAttackSource",
@@ -1458,9 +2014,9 @@ TEST_CASE("ChessBattleEffects_HuFamilyBladeUsesTypedPerCastTargetActivationLimit
     const auto& damage = std::get<DealDamageAction>(rule.actions.front().value);
     CHECK(damage.perCast.perTargetLimit == 0);
 
-    CHECK(effectDescription(rule, EffectDescriptionStyle::Full).find(
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Full, {}).find(
         "每次施放對同一目標最多判定1次") != std::string::npos);
-    CHECK(effectDescription(rule, EffectDescriptionStyle::Compact).find(
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Compact, {}).find(
         "每施放每目標1次") != std::string::npos);
 }
 
@@ -1545,21 +2101,21 @@ TEST_CASE("ChessBattleEffects_AttackDamageDescriptionTracksOverrideAndKindIndepe
              EffectDescriptionStyle::Compact,
          })
     {
-        const auto inherited = effectDescription(rule, style);
+        const auto inherited = effectDescription(rule, style, {});
 
         auto& configured = std::get<ModifyAttackAction>(rule.actions.front().value);
         configured.damageOverride = EffectNumber{ .flat = 250 };
-        const auto overrideOnly = effectDescription(rule, style);
+        const auto overrideOnly = effectDescription(rule, style, {});
         CHECK(overrideOnly.find("250傷害（沿用原傷害種類）") != std::string::npos);
         CHECK(overrideOnly != inherited);
 
         configured.damageKind = BattleDamageKind::Pure;
-        const auto overrideAndKind = effectDescription(rule, style);
+        const auto overrideAndKind = effectDescription(rule, style, {});
         CHECK(overrideAndKind.find("250純粹傷害") != std::string::npos);
         CHECK(overrideAndKind != overrideOnly);
 
         configured.damageOverride.reset();
-        const auto kindOnly = effectDescription(rule, style);
+        const auto kindOnly = effectDescription(rule, style, {});
         CHECK(kindOnly.find("傷害種類改為純粹") != std::string::npos);
         CHECK(kindOnly != overrideAndKind);
 
@@ -1588,9 +2144,9 @@ TEST_CASE("ChessBattleEffects_ParsesAndDescribesLivingUnitSelectorsWithOwnerExcl
     CHECK(rule.selector.count == 1);
     CHECK(rule.selector.tieBreak == EffectTieBreak::BattleRandom);
     CHECK(rule.selector.excludeOwner);
-    CHECK(effectDescription(rule, EffectDescriptionStyle::Full).find("存活單位1人（不含自身）")
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Full, {}).find("存活單位1人（不含自身）")
           != std::string::npos);
-    CHECK(effectDescription(rule, EffectDescriptionStyle::Compact).find("存活單位1人（不含自身）")
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Compact, {}).find("存活單位1人（不含自身）")
           != std::string::npos);
 
     CopyAttackDefinitionAction copy;
@@ -1623,7 +2179,7 @@ TEST_CASE("ChessBattleEffects_RealSelectorsExcludeSanqingCasterAndLetXiaowuxiang
     CHECK(sanqing.selector.kind == EffectSelectorKind::LowestMpAllies);
     CHECK(sanqing.selector.count == 2);
     CHECK(sanqing.selector.excludeOwner);
-    CHECK(effectDescription(sanqing, EffectDescriptionStyle::Full).find("不含自身")
+    CHECK(effectDescription(sanqing, EffectDescriptionStyle::Full, {}).find("不含自身")
           != std::string::npos);
 
     const auto& xiaowuxiang = ruleWithEvent(
@@ -1641,7 +2197,7 @@ TEST_CASE("ChessBattleEffects_RealSelectorsExcludeSanqingCasterAndLetXiaowuxiang
         CopiedMagicCondition::HasUltimateAttackDefinition,
         CopiedMagicCondition::ExcludesRecursiveEffects,
     });
-    const auto description = effectDescription(xiaowuxiang, EffectDescriptionStyle::Full);
+    const auto description = effectDescription(xiaowuxiang, EffectDescriptionStyle::Full, {});
     CHECK(description.find("所有存活單位（不含自身）") != std::string::npos);
     CHECK(description.find("數量1") != std::string::npos);
     CHECK(description.find("有絕招攻擊定義") != std::string::npos);
@@ -1881,8 +2437,8 @@ TEST_CASE("ChessBattleEffects_DescriptionsUsePayloadNumbersAndTypedMultiplier", 
     heal.amount.percent = 9;
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
-        const auto originalText = effectDescription(qingnangRule, style);
-        const auto mutatedText = effectDescription(mutated, style);
+        const auto originalText = effectDescription(qingnangRule, style, {});
+        const auto mutatedText = effectDescription(mutated, style, {});
         CHECK(originalText != mutatedText);
         CHECK(originalText.find("7%") != std::string::npos);
         CHECK(mutatedText.find("9%") != std::string::npos);
@@ -1891,7 +2447,7 @@ TEST_CASE("ChessBattleEffects_DescriptionsUsePayloadNumbersAndTypedMultiplier", 
     const auto& scissorsRule = ruleWithEvent(definitionWithId(definitions, 75), EffectEvent::MainProjectileBeforeDamage);
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
-        const auto text = effectDescription(scissorsRule, style);
+        const auto text = effectDescription(scissorsRule, style, {});
         CHECK(text.find("目標目前護盾的20%×星級") != std::string::npos);
     }
 
@@ -1906,16 +2462,16 @@ TEST_CASE("ChessBattleEffects_DescriptionsUsePayloadNumbersAndTypedMultiplier", 
         EffectEvent::AttackSpawned);
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
-        const auto coupleBladeText = effectDescription(coupleBlade, style);
+        const auto coupleBladeText = effectDescription(coupleBlade, style, {});
         CHECK(coupleBladeText.find("使用武功62") != std::string::npos);
         CHECK(coupleBladeText.find("追加至基礎攻擊") != std::string::npos);
         CHECK(coupleBladeText.find("不觸發大招效果") != std::string::npos);
 
-        const auto silverWhipText = effectDescription(silverWhip, style);
+        const auto silverWhipText = effectDescription(silverWhip, style, {});
         CHECK(silverWhipText.find("3格內至多3名敵軍") != std::string::npos);
         CHECK(silverWhipText.find("必含命中目標") != std::string::npos);
 
-        const auto sunflowerText = effectDescription(sunflower, style);
+        const auto sunflowerText = effectDescription(sunflower, style, {});
         CHECK(sunflowerText.find("最近3名敵人") != std::string::npos);
         CHECK(sunflowerText.find("殘影非主彈×2") != std::string::npos);
         CHECK(sunflowerText.find("50%傷害") != std::string::npos);
@@ -1948,7 +2504,7 @@ TEST_CASE("ChessBattleEffects_QiankunCarriesTypedAbsorptionSettlement", "[battle
 
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
-        const auto description = effectDescription(rule, style);
+        const auto description = effectDescription(rule, style, {});
         CHECK(description.find("80幀") != std::string::npos);
         CHECK(description.find("40%") != std::string::npos);
         CHECK(description.find("100%") != std::string::npos);
@@ -1985,7 +2541,7 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
     {
         return std::holds_alternative<IsRootAttackCondition>(condition);
     }));
-    CHECK(effectDescription(sunflower, EffectDescriptionStyle::Full).find("任意施放")
+    CHECK(effectDescription(sunflower, EffectDescriptionStyle::Full, {}).find("任意施放")
           != std::string::npos);
     const auto* sunflowerEcho = std::get_if<ModifyAttackAction>(
         &sunflower.actions[0].value);
@@ -2019,8 +2575,8 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
         &poisonExplosion.actions[1].value);
     REQUIRE(poisonExplosionStatus != nullptr);
     CHECK_FALSE(poisonExplosionStatus->applicationCount);
-    CHECK(effectDescription(poisonExplosion, EffectDescriptionStyle::Full).find(
-        "依序重複毒爆層數的100%·至少1次") != std::string::npos);
+    CHECK(effectDescription(poisonExplosion, EffectDescriptionStyle::Full, {}).find(
+        "依序重複毒爆層數的100%（至少1）次") != std::string::npos);
 
     const auto& sevenStar = ruleWithEvent(
         definitionWithId(definitions, 39),
@@ -2075,8 +2631,9 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
         BorrowedRuleActionCategory::DamageMemory));
     const auto starShiftDescription = effectDescription(
         starShift,
-        EffectDescriptionStyle::Full);
-    CHECK(starShiftDescription.find("數量星級×50%（向上取整）·至少1·至多2")
+        EffectDescriptionStyle::Full,
+        {});
+    CHECK(starShiftDescription.find("數量星級×50%（至少1，至多2）")
           != std::string::npos);
     CHECK(starShiftDescription.find("允許類別[") != std::string::npos);
     CHECK(starShiftDescription.find("傷害記憶") != std::string::npos);
@@ -2316,7 +2873,7 @@ TEST_CASE("ChessBattleEffects_DamagePerspectiveIsTypedDescribedAndDamageOnly", "
     {
         const auto& rule = ruleWithEvent(definitionWithId(definitions, magicId), EffectEvent::DamageResolved);
         CHECK(perspectiveOf(rule) == DamagePerspective::Received);
-        CHECK(effectDescription(rule, EffectDescriptionStyle::Full).find("自身承受的傷害") != std::string::npos);
+        CHECK(effectDescription(rule, EffectDescriptionStyle::Full, {}).find("自身承受的傷害") != std::string::npos);
     }
     const auto& lifesteal = ruleWithEvent(definitionWithId(definitions, 63), EffectEvent::DamageResolved);
     CHECK(perspectiveOf(lifesteal) == DamagePerspective::Dealt);
@@ -2324,7 +2881,7 @@ TEST_CASE("ChessBattleEffects_DamagePerspectiveIsTypedDescribedAndDamageOnly", "
     {
         return std::holds_alternative<DamageOriginIsAttackCondition>(condition);
     }));
-    CHECK(effectDescription(lifesteal, EffectDescriptionStyle::Compact).find("自身造成的傷害") != std::string::npos);
+    CHECK(effectDescription(lifesteal, EffectDescriptionStyle::Compact, {}).find("自身造成的傷害") != std::string::npos);
 
     EffectRule rule;
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(YAML::Load(R"(
@@ -2369,7 +2926,7 @@ TEST_CASE("ChessBattleEffects_AnranUsesAttackTimesMissingHpRatio", "[battle][eff
 
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
-        const auto description = effectDescription(rule, style);
+        const auto description = effectDescription(rule, style, {});
         CHECK(description.find("目前攻擊×已損生命比例×45%") != std::string::npos);
     }
 }
@@ -2385,7 +2942,7 @@ TEST_CASE("ChessBattleEffects_JiuyangQiDamageMatchesEveryOwnerCast",
         definitionWithId(definitions, 106),
         EffectEvent::HitBeforeDamage);
     CHECK(rule.castMatch == EffectCastMatch::OwnerAnyCast);
-    CHECK(effectDescription(rule, EffectDescriptionStyle::Full).find("任意施放")
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Full, {}).find("任意施放")
           != std::string::npos);
 }
 
@@ -2406,7 +2963,7 @@ TEST_CASE("ChessBattleEffects_XiaoyaoDeclaresActionPreservingStaggerRelease", "[
 
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
-        const auto description = effectDescription(rule, style);
+        const auto description = effectDescription(rule, style, {});
         CHECK(description.find("清除全部控制狀態") != std::string::npos);
         CHECK(description.find("解除目前動作僵直") != std::string::npos);
         CHECK(description.find("保留位置與動作") != std::string::npos);
@@ -2473,15 +3030,25 @@ TEST_CASE("ChessBattleEffects_AttackRuntimeBehaviorsAreTypedValidatedAndDescribe
     CHECK(spiral.projectileCount == 3);
     CHECK(spiral.bleedStacks == 1);
 
-    for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
-    {
-        const auto description = effectDescription(rule, style);
-        const auto spiralDescription = effectDescription(spiralRule, style);
-        CHECK(description.find("彈射追加命中3次·40%·300像素") != std::string::npos);
-        CHECK(description.find("220像素內產生45%傷害追蹤彈") != std::string::npos);
-        CHECK(description.find("延遲7幀替代目標追擊·60%傷害·80%獲得格擋") != std::string::npos);
-        CHECK(spiralDescription.find("擴張螺旋彈×3·流血1層") != std::string::npos);
-    }
+    const auto fullDescription = effectDescription(rule, EffectDescriptionStyle::Full, {});
+    const auto fullSpiralDescription = effectDescription(
+        spiralRule,
+        EffectDescriptionStyle::Full,
+        {});
+    CHECK(fullDescription.find("彈射追加命中3次，40%，300像素") != std::string::npos);
+    CHECK(fullDescription.find("220像素內產生45%傷害追蹤彈") != std::string::npos);
+    CHECK(fullDescription.find("延遲7幀替代目標追擊，60%傷害，80%獲得格擋") != std::string::npos);
+    CHECK(fullSpiralDescription.find("擴張螺旋彈×3，流血1層") != std::string::npos);
+
+    const auto compactDescription = effectDescription(rule, EffectDescriptionStyle::Compact, {});
+    const auto compactSpiralDescription = effectDescription(
+        spiralRule,
+        EffectDescriptionStyle::Compact,
+        {});
+    CHECK(compactDescription.find("彈射追加命中3次·40%·300像素") != std::string::npos);
+    CHECK(compactDescription.find("220像素內產生45%傷害追蹤彈") != std::string::npos);
+    CHECK(compactDescription.find("延遲7幀替代目標追擊·60%傷害·80%獲得格擋") != std::string::npos);
+    CHECK(compactSpiralDescription.find("擴張螺旋彈×3·流血1層") != std::string::npos);
 
     const auto parsesBehavior = [](std::string_view fields)
     {
@@ -2572,8 +3139,8 @@ TEST_CASE("ChessBattleEffects_ForceMoveSupportsOneDistanceUnitAndLockFrames",
 
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
-        const auto description = effectDescription(rule, style);
-        const auto tileDescription = effectDescription(tileRule, style);
+        const auto description = effectDescription(rule, style, {});
+        const auto tileDescription = effectDescription(tileRule, style, {});
         CHECK(description.find("擊退130像素並鎖定5幀") != std::string::npos);
         CHECK(tileDescription.find("拉近4格並鎖定1幀") != std::string::npos);
     }
@@ -2660,8 +3227,8 @@ TEST_CASE("ChessBattleEffects_ModifyCastParsesGenericFieldsAndRestrictsSpecialEv
 
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
-        const auto description = effectDescription(rule, style);
-        const auto autoUltimateDescription = effectDescription(autoUltimateRule, style);
+        const auto description = effectDescription(rule, style, {});
+        const auto autoUltimateDescription = effectDescription(autoUltimateRule, style, {});
         CHECK(description.find("武功遠程化") != std::string::npos);
         CHECK(description.find("彈道速度125%") != std::string::npos);
         CHECK(description.find("最小選擇距離6") != std::string::npos);
@@ -2730,13 +3297,13 @@ TEST_CASE("ChessBattleEffects_PeriodicRuleIntervalIsTypedDescribedAndFrameOnly",
     REQUIRE(request);
     CHECK_FALSE(request->consumeMp);
     CHECK(request->announce);
-    CHECK(effectDescription(rule, EffectDescriptionStyle::Compact).find("·每30幀")
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Compact, {}).find("每30幀")
         != std::string::npos);
-    CHECK(effectDescription(rule, EffectDescriptionStyle::Full).find("；每30幀一次")
+    CHECK(effectDescription(rule, EffectDescriptionStyle::Full, {}).find("每30幀")
         != std::string::npos);
     for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
     {
-        const auto description = effectDescription(rule, style);
+        const auto description = effectDescription(rule, style, {});
         CHECK(description.find("不消耗內力") != std::string::npos);
         CHECK(description.find("顯示公告") != std::string::npos);
     }
@@ -3172,7 +3739,7 @@ TEST_CASE("ChessBattleEffects_CurrentHpBlastPreservesLegacyDamagePolicy",
         CHECK_FALSE(damage.triggersHurtInvincibility);
         for (const auto style : { EffectDescriptionStyle::Full, EffectDescriptionStyle::Compact })
         {
-            const auto description = effectDescription(*rule, style);
+            const auto description = effectDescription(*rule, style, {});
             CHECK(description.find("不套用傷害修正") != std::string::npos);
             CHECK(description.find("不觸發受傷無敵") != std::string::npos);
         }
@@ -3238,4 +3805,68 @@ TEST_CASE("ChessBattleEffects_UltimateDefinitionsCoverStandardHardAndEasyPools",
         configuredIds.insert(definition.magicId);
     }
     CHECK(configuredIds == normalUltimates);
+}
+
+TEST_CASE("ChessMagicEffectDisplay_NormalPoolFitsTheNarrowSingleColumnViewport",
+          "[chess][effects][magic][layout][content]")
+{
+    // 244×133 是一般商店面板扣除棋池最寬頭像後的內容區；
+    // 196×133 則涵蓋二星升三星欄位使同版型面板進一步變窄的情況。
+    constexpr std::array viewports{
+        std::pair{244, 133},
+        std::pair{196, 133},
+    };
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content);
+    for (const auto [viewportWidth, viewportHeight] : viewports)
+    {
+        int minimumEffectFontSize = 100;
+        for (const int roleId : content->poolRoleIds())
+        {
+            const auto* role = content->role(roleId);
+            REQUIRE(role);
+            for (int star = 1; star <= 3; ++star)
+            {
+                CAPTURE(viewportWidth, viewportHeight, roleId, role->Name, star);
+                const auto selected = chessRoleMagicsForStar(*content, *role, star);
+                REQUIRE(selected.size() <= 2);
+                std::vector<const MagicSave*> magics;
+                for (const auto& [magic, power] : selected)
+                {
+                    magics.push_back(magic);
+                }
+                const auto rows = buildChessMagicEffectDisplayRows(
+                    magics,
+                    content->magicEffects(),
+                    selected.empty() ? -1 : selected.back().first->ID);
+                const auto layout = layoutChessMagicEffectDisplay(
+                    rows,
+                    viewportWidth,
+                    viewportHeight);
+                minimumEffectFontSize = std::min(
+                    minimumEffectFontSize,
+                    layout.effectFontSize);
+                CHECK(layout.requiredHeight <= viewportHeight);
+                CHECK(layout.effectFontSize >= (viewportWidth == 244 ? 12 : 10));
+                int previousBottom = 0;
+                for (const auto& line : layout.lines)
+                {
+                    CHECK(line.x >= 0);
+                    CHECK(line.x + line.width <= viewportWidth);
+                    CHECK(line.y >= previousBottom);
+                    CHECK(line.y + line.height <= viewportHeight);
+                    previousBottom = line.y + line.height;
+                    if (line.content.kind == ChessMagicEffectDisplayLineKind::Skill)
+                    {
+                        CHECK(line.x + line.width <= layout.skillValueX);
+                        const int valueWidth = displayTextWidth("9999 遠程")
+                            * line.fontSize / 2;
+                        CHECK(layout.skillValueX + valueWidth <= viewportWidth);
+                    }
+                }
+                CHECK(previousBottom == layout.requiredHeight);
+            }
+        }
+        CHECK(minimumEffectFontSize == (viewportWidth == 244 ? 12 : 10));
+    }
 }

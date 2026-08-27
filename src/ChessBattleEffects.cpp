@@ -4387,12 +4387,82 @@ bool parseAuthorActionNode(
 
 }  // namespace
 
+std::optional<int> effectiveConstantEffectNumberValue(const EffectNumber& number)
+{
+    if (number.base != EffectNumberBase::Constant || number.multiplierBase)
+    {
+        return std::nullopt;
+    }
+
+    int value = number.flat;
+    if (number.minimum)
+    {
+        value = std::max(value, *number.minimum);
+    }
+    if (number.maximum)
+    {
+        value = std::min(value, *number.maximum);
+    }
+    return value;
+}
+
+bool battleAttributeUsesPercentagePoints(BattleAttribute attribute)
+{
+    switch (attribute)
+    {
+    case BattleAttribute::MaxHp:
+    case BattleAttribute::Attack:
+    case BattleAttribute::Defence:
+    case BattleAttribute::Speed:
+    case BattleAttribute::ProjectilePressureDamage:
+        return false;
+    case BattleAttribute::CriticalChance:
+    case BattleAttribute::CriticalDamage:
+    case BattleAttribute::DodgeChance:
+    case BattleAttribute::BlockChance:
+    case BattleAttribute::DamageReduction:
+    case BattleAttribute::SkillDamage:
+    case BattleAttribute::CooldownReduction:
+    case BattleAttribute::MpRecoveryBonus:
+    case BattleAttribute::StaggerResistance:
+    case BattleAttribute::ProjectileReflectChance:
+    case BattleAttribute::SkillReflectPercent:
+    case BattleAttribute::CounterUltimateBlockChance:
+    case BattleAttribute::CriticalAfterDodge:
+    case BattleAttribute::DashChance:
+    case BattleAttribute::OutgoingCooldownExtensionChance:
+    case BattleAttribute::OutgoingCooldownExtensionPercent:
+    case BattleAttribute::IncomingCooldownExtensionChance:
+    case BattleAttribute::IncomingCooldownExtensionPercent:
+        return true;
+    }
+    assert(false);
+    return false;
+}
+
+bool attributeModifierIsNegative(AttributeOperation operation, int amount)
+{
+    switch (operation)
+    {
+    case AttributeOperation::FlatAdd:
+    case AttributeOperation::PercentAdd:
+    case AttributeOperation::Override:
+        return amount < 0;
+    case AttributeOperation::Multiply:
+        return amount < 100;
+    case AttributeOperation::AtLeast:
+        return false;
+    }
+    assert(false);
+    return false;
+}
+
 namespace
 {
 
 // The description pipeline deliberately keeps the parsed effect payload typed
 // until the final rendering pass.  These nodes are private because the only
-// public description API is effectDescription(EffectRule, style).
+// public description API is effectDescription(EffectRule, style, context).
 struct EffectDescriptionNode;
 using EffectDescriptionChild = std::unique_ptr<EffectDescriptionNode>;
 
@@ -4670,26 +4740,32 @@ EffectDescriptionChild makeDescriptionNode(T node)
     return std::make_unique<EffectDescriptionNode>(std::move(node));
 }
 
-std::string ruleEventLabel(EffectEvent event, bool compact)
+std::string ruleEventLabel(EffectEvent event, EffectDescriptionStyle style)
 {
+    const bool detailed = style == EffectDescriptionStyle::Detailed;
+    const bool compact = style == EffectDescriptionStyle::Compact;
     switch (event)
     {
-    case EffectEvent::BattleInitialized: return compact ? "開戰" : "戰鬥開始時";
-    case EffectEvent::FrameAdvanced: return compact ? "每幀" : "每幀";
+    case EffectEvent::BattleInitialized: return detailed ? "戰鬥開始時" : "";
+    case EffectEvent::FrameAdvanced: return "每幀";
     case EffectEvent::UltimateCooldownFinished: return compact ? "絕招冷卻完成" : "絕招冷卻完成時";
-    case EffectEvent::CastPlanned: return compact ? "施放規劃" : "規劃施放時";
+    case EffectEvent::CastPlanned: return compact ? "準備施放" : detailed ? "規劃施放時" : "準備施放時";
     case EffectEvent::AttackCommitted: return compact ? "出手" : "出手時";
     case EffectEvent::UltimateCommitted: return compact ? "絕招" : "施放絕招時";
     case EffectEvent::AttackSpawned: return compact ? "彈道生成" : "攻擊生成時";
-    case EffectEvent::MainProjectileBeforeDamage: return compact ? "主彈命中" : "絕招主彈道命中、傷害結算前";
-    case EffectEvent::HitBeforeDamage: return compact ? "命中前" : "命中且傷害結算前";
+    case EffectEvent::MainProjectileBeforeDamage:
+        return compact ? "主彈命中" : detailed ? "主彈道命中、傷害結算前" : "主彈道命中時";
+    case EffectEvent::HitBeforeDamage:
+        return compact ? "命中" : detailed ? "命中且傷害結算前" : "每次命中時";
     case EffectEvent::DamageResolved: return compact ? "傷害後" : "傷害結算後";
     case EffectEvent::HealAttempted: return compact ? "治療前" : "嘗試治療時";
-    case EffectEvent::HealApplied: return compact ? "治療後" : "實際治療後";
-    case EffectEvent::CastContinuation: return compact ? "絕招延續" : "本次絕招第一輪攻擊完成後";
-    case EffectEvent::CastSettled: return compact ? "絕招結算" : "本次絕招全部攻擊結算完成後";
+    case EffectEvent::HealApplied: return compact ? "治療後" : detailed ? "實際治療後" : "治療生效後";
+    case EffectEvent::CastContinuation:
+        return compact ? "施放延續" : detailed ? "本次施放第一輪攻擊完成後" : "第一輪攻擊後";
+    case EffectEvent::CastSettled:
+        return compact ? "施放結算" : detailed ? "本次施放全部攻擊結算完成後" : "本次施放結算後";
     case EffectEvent::ShieldBroken: return compact ? "破盾" : "護盾破裂時";
-    case EffectEvent::UnitDied: return compact ? "死亡" : "自身死亡時";
+    case EffectEvent::UnitDied: return compact ? "死亡" : detailed ? "自身死亡時" : "死亡時";
     case EffectEvent::AllyDied: return compact ? "友軍死亡" : "友軍死亡時";
     }
     assert(false);
@@ -4908,6 +4984,34 @@ std::string boundedNumberLabel(const EffectNumber& number)
     return result;
 }
 
+std::string descriptionNumberLabel(
+    const EffectNumber& number,
+    EffectDescriptionStyle style)
+{
+    if (style == EffectDescriptionStyle::Detailed)
+        return boundedNumberLabel(number);
+
+    if (const auto constant = effectiveConstantEffectNumberValue(number))
+        return std::to_string(*constant);
+
+    auto result = numberLabel(number);
+    if (style == EffectDescriptionStyle::Compact)
+    {
+        if (number.minimum) result += std::format("·至少{}", *number.minimum);
+        if (number.maximum) result += std::format("·至多{}", *number.maximum);
+        return result;
+    }
+    if (number.minimum || number.maximum)
+    {
+        result += "（";
+        if (number.minimum) result += std::format("至少{}", *number.minimum);
+        if (number.minimum && number.maximum) result += "，";
+        if (number.maximum) result += std::format("至多{}", *number.maximum);
+        result += "）";
+    }
+    return result;
+}
+
 std::string_view borrowedRuleActionCategoryLabel(
     BorrowedRuleActionCategory category)
 {
@@ -5005,12 +5109,14 @@ std::string attributeLabel(BattleAttribute attribute, bool compact)
     return {};
 }
 
-std::string joinedDescriptionLabels(std::span<const std::string> labels)
+std::string joinedDescriptionLabels(
+    std::span<const std::string> labels,
+    bool compact)
 {
     std::string result;
     for (const auto& label : labels)
     {
-        if (!result.empty()) result += "、";
+        if (!result.empty()) result += compact ? "／" : "、";
         result += label;
     }
     return result;
@@ -5039,7 +5145,7 @@ std::string conditionLabel(const EffectCondition& condition, bool compact)
             else if constexpr (std::is_same_v<T, CastDistinctTargetCountAtLeastCondition>) return std::format("本次命中至少{}名不同敵人", typed.count);
             else if constexpr (std::is_same_v<T, AttackOrdinalEqualsCondition>) return std::format("第{}道攻擊", typed.ordinal + 1);
             else if constexpr (std::is_same_v<T, HealKindInCondition>)
-                return std::format("治療種類為{}", joinedDescriptionLabels(typed.kinds));
+                return std::format("治療種類為{}", joinedDescriptionLabels(typed.kinds, compact));
             else if constexpr (std::is_same_v<T, DamageOriginIsAttackCondition>) return "傷害來自招式";
             else if constexpr (std::is_same_v<T, DamageKilledTargetCondition>) return "該次傷害造成死亡";
             else if constexpr (std::is_same_v<T, AcceptedHitCondition>)
@@ -5054,7 +5160,7 @@ std::string conditionLabel(const EffectCondition& condition, bool compact)
             else if constexpr (std::is_same_v<T, DamagePerspectiveCondition>)
                 return typed.perspective == DamagePerspective::Dealt ? "自身造成的傷害" : "自身承受的傷害";
             else if constexpr (std::is_same_v<T, DamageKindInCondition>)
-                return std::format("傷害種類為{}", joinedDescriptionLabels(typed.kinds));
+                return std::format("傷害種類為{}", joinedDescriptionLabels(typed.kinds, compact));
             else if constexpr (std::is_same_v<T, TargetMpWasFullBeforeCastCondition>) return "受益者施放前內力已滿";
             else if constexpr (std::is_same_v<T, RandomSelectionAvailableCondition>) return "有合法隨機目標";
             else static_assert(false, "Unhandled effect condition");
@@ -5148,18 +5254,20 @@ void appendTimedStackQualifiers(
     const std::optional<int>& stackLimit,
     EffectStackScope stackScope,
     bool perStack,
-    bool compact,
+    EffectDescriptionStyle style,
+    bool ordinaryRefresh,
     std::span<const DescriptionQualifier> suppressed)
 {
+    const bool detailed = style == EffectDescriptionStyle::Detailed;
+    const bool compact = style == EffectDescriptionStyle::Compact;
     const DescriptionQualifier duration = DescriptionDurationFramesQualifier{ durationFrames };
-    if (durationFrames > 0 && !descriptionQualifierIsSuppressed(suppressed, duration))
-        result += std::format("·{}幀", durationFrames);
-
     const DescriptionQualifier stackPolicy = DescriptionStackPolicyQualifier{ stack };
     if (stack != EffectStackPolicy::Independent
+        && !(ordinaryRefresh && stack == EffectStackPolicy::Refresh && !detailed)
+        && !(!detailed && stack == EffectStackPolicy::AddStack && stackLimit)
         && !descriptionQualifierIsSuppressed(suppressed, stackPolicy))
     {
-        result += compact ? "·" : "；";
+        result += compact ? "·" : detailed ? "；" : "，";
         result += stackPolicyLabel(stack, compact);
     }
 
@@ -5167,53 +5275,100 @@ void appendTimedStackQualifiers(
     {
         const DescriptionQualifier limit = DescriptionStackLimitQualifier{ *stackLimit };
         if (!descriptionQualifierIsSuppressed(suppressed, limit))
-            result += std::format("·最多{}層", *stackLimit);
+            result += compact
+                ? std::format("×{}層", *stackLimit)
+                : std::format("，最多{}層", *stackLimit);
     }
     if (perStack)
     {
         const DescriptionQualifier qualifier = DescriptionPerStackQualifier{ true };
-        if (!descriptionQualifierIsSuppressed(suppressed, qualifier)) result += "·數值按每層計算";
+        if (!descriptionQualifierIsSuppressed(suppressed, qualifier))
+            result += compact ? "·按層計算" : "，數值按每層計算";
     }
     if (stackScope == EffectStackScope::EventSource)
     {
         const DescriptionQualifier qualifier = DescriptionStackScopeQualifier{ stackScope };
-        if (!descriptionQualifierIsSuppressed(suppressed, qualifier)) result += "·各事件來源分別疊加";
+        if (!descriptionQualifierIsSuppressed(suppressed, qualifier))
+            result += compact ? "·分來源疊加" : "，各事件來源分別疊加";
     }
+    if (durationFrames > 0 && !descriptionQualifierIsSuppressed(suppressed, duration))
+        result += compact
+            ? std::format("·{}幀", durationFrames)
+            : detailed
+            ? std::format("·{}幀", durationFrames)
+            : std::format("，持續{}幀", durationFrames);
+}
+
+bool usesStackingOutgoingSkillDamagePhrase(const ModifyDamageAction& action)
+{
+    const auto amount = effectiveConstantEffectNumberValue(action.amount);
+    return action.perspective == DamageModifierPerspective::Outgoing
+        && action.channel == DamageChannel::Skill
+        && action.stage == DamageModifierStage::AfterDefense
+        && action.operation == DamageModifierOperation::PercentAdd
+        && amount
+        && *amount > 0
+        && action.durationFrames > 0
+        && action.stack == EffectStackPolicy::AddStack
+        && action.stackLimit.has_value()
+        && action.stackScope == EffectStackScope::Shared;
 }
 
 std::string renderDescriptionActionArgument(
     const EffectActionValue& action,
-    bool compact,
+    EffectDescriptionStyle style,
     std::span<const DescriptionQualifier> suppressed = {});
 
 std::string renderDescriptionActionArgument(
     const EffectActionValue& action,
-    bool compact,
+    EffectDescriptionStyle style,
     std::span<const DescriptionQualifier> suppressed)
 {
+    const bool detailed = style == EffectDescriptionStyle::Detailed;
+    const bool compact = style == EffectDescriptionStyle::Compact;
+    const std::string_view qualifierSeparator = compact || detailed ? "·" : "，";
     return std::visit(
-        [compact, suppressed](const auto& typed) -> std::string
+        [style, detailed, compact, qualifierSeparator, suppressed](const auto& typed) -> std::string
         {
             using T = std::decay_t<decltype(typed)>;
             if constexpr (std::is_same_v<T, ModifyAttributeAction>)
             {
                 const auto attribute = attributeLabel(typed.attribute, compact);
-                const auto amount = boundedNumberLabel(typed.amount);
+                const auto amount = descriptionNumberLabel(typed.amount, style);
+                const auto attributeUnit = battleAttributeUsesPercentagePoints(typed.attribute)
+                    ? "%"
+                    : "";
+                const auto constantAmount = effectiveConstantEffectNumberValue(typed.amount);
+                const bool hasBounds = typed.amount.minimum || typed.amount.maximum;
+                const bool useConstantPhrase = constantAmount && (!detailed || !hasBounds);
                 std::string result;
                 switch (typed.operation)
                 {
                 case AttributeOperation::FlatAdd:
-                    result = typed.amount.base == EffectNumberBase::Constant
-                        ? std::format("{}{:+}", attribute, typed.amount.flat)
-                        : std::format("{}增加{}", attribute, amount);
+                    result = useConstantPhrase
+                        ? std::format(
+                            "{}{:+}{}",
+                            attribute,
+                            *constantAmount,
+                            attributeUnit)
+                        : std::format("{}增加{}{}", attribute, amount, attributeUnit);
                     break;
                 case AttributeOperation::PercentAdd:
-                    result = typed.amount.base == EffectNumberBase::Constant
-                        ? std::format("{}{:+}%", attribute, typed.amount.flat)
-                        : std::format("{}增加{}", attribute, amount);
+                    if (!detailed
+                        && typed.attribute == BattleAttribute::DamageReduction
+                        && constantAmount)
+                    {
+                        result = std::format("減傷{:+}%", *constantAmount);
+                    }
+                    else if (useConstantPhrase)
+                        result = std::format("{}{:+}%", attribute, *constantAmount);
+                    else if (constantAmount)
+                        result = std::format("{}增加{}%", attribute, amount);
+                    else
+                        result = std::format("{}增加{}", attribute, amount);
                     break;
                 case AttributeOperation::Override:
-                    result = std::format("{}改為{}", attribute, amount);
+                    result = std::format("{}改為{}{}", attribute, amount, attributeUnit);
                     break;
                 case AttributeOperation::Multiply:
                     result = typed.amount.base == EffectNumberBase::Constant
@@ -5221,7 +5376,7 @@ std::string renderDescriptionActionArgument(
                         : std::format("{}乘以{}", attribute, amount);
                     break;
                 case AttributeOperation::AtLeast:
-                    result = std::format("{}至少為{}", attribute, amount);
+                    result = std::format("{}至少為{}{}", attribute, amount, attributeUnit);
                     break;
                 }
                 appendTimedStackQualifiers(
@@ -5231,48 +5386,106 @@ std::string renderDescriptionActionArgument(
                     typed.stackLimit,
                     typed.stackScope,
                     typed.perStack,
-                    compact,
+                    style,
+                    true,
                     suppressed);
                 return result;
             }
             else if constexpr (std::is_same_v<T, ModifyDamageAction>)
             {
+                const auto constantAmount = effectiveConstantEffectNumberValue(typed.amount);
+                if (!detailed && usesStackingOutgoingSkillDamagePhrase(typed))
+                {
+                    if (compact)
+                    {
+                        return std::format(
+                            "增傷{}%×{}層·{}幀",
+                            *constantAmount,
+                            *typed.stackLimit,
+                            typed.durationFrames);
+                    }
+                    return std::format(
+                        "使招式傷害{:+}%，最多{}層；最後一次命中{}幀後清除層數",
+                        *constantAmount,
+                        *typed.stackLimit,
+                        typed.durationFrames);
+                }
+
                 const auto percentAmount = [&]
                 {
-                    auto amount = boundedNumberLabel(typed.amount);
+                    auto amount = descriptionNumberLabel(typed.amount, style);
                     if (typed.amount.base == EffectNumberBase::Constant) amount += "%";
                     return amount;
                 };
-                const auto perspective = typed.perspective == DamageModifierPerspective::Outgoing
-                    ? "造成的"
-                    : "承受的";
-                const auto context = std::format(
-                    "{}{}（{}）",
-                    perspective,
-                    damageChannelLabel(typed.channel),
-                    damageStageLabel(typed.stage));
                 std::string result;
-                if (typed.operation == DamageModifierOperation::IgnoreDefensePercent)
-                    result = std::format("{}忽略{}防禦", context, percentAmount());
-                else if (typed.operation == DamageModifierOperation::CapSingleHitAtMaxHpPercent)
-                    result = std::format("{}下一次單次承傷不超過{}最大生命", context, percentAmount());
-                else if (typed.operation == DamageModifierOperation::ExecuteBelowMaxHpPercent)
-                    result = std::format("{}普通傷害後生命低於{}最大生命時處決", context, percentAmount());
+                const bool reviewedIncoming = !detailed
+                    && typed.perspective == DamageModifierPerspective::Incoming
+                    && typed.channel == DamageChannel::All
+                    && typed.stage == DamageModifierStage::BeforeDefense
+                    && typed.operation == DamageModifierOperation::PercentAdd
+                    && constantAmount;
+                const bool reviewedOutgoing = !detailed
+                    && typed.perspective == DamageModifierPerspective::Outgoing
+                    && typed.channel == DamageChannel::Skill
+                    && typed.stage == DamageModifierStage::AfterDefense
+                    && typed.operation == DamageModifierOperation::PercentAdd
+                    && constantAmount;
+                if (reviewedIncoming)
+                {
+                    result = *constantAmount < 0
+                        ? std::format(
+                            "減傷{}%",
+                            -static_cast<std::int64_t>(*constantAmount))
+                        : std::format("受傷{:+}%", *constantAmount);
+                }
+                else if (reviewedOutgoing)
+                {
+                    result = *constantAmount > 0
+                        ? std::format("增傷{}%", *constantAmount)
+                        : std::format("造成傷害{:+}%", *constantAmount);
+                }
                 else
                 {
-                    auto amount = boundedNumberLabel(typed.amount);
-                    if ((typed.operation == DamageModifierOperation::PercentAdd
-                            || typed.operation == DamageModifierOperation::Multiply)
-                        && typed.amount.base == EffectNumberBase::Constant)
+                    const auto perspective = typed.perspective == DamageModifierPerspective::Outgoing
+                        ? compact ? "造成" : "造成的"
+                        : compact ? "承受" : "承受的";
+                    const auto damageContext = compact
+                        ? std::format("{}{}", perspective, damageChannelLabel(typed.channel))
+                        : std::format(
+                            "{}{}（{}）",
+                            perspective,
+                            damageChannelLabel(typed.channel),
+                            damageStageLabel(typed.stage));
+                    if (typed.operation == DamageModifierOperation::IgnoreDefensePercent)
+                        result = std::format("{}忽略{}防禦", damageContext, percentAmount());
+                    else if (typed.operation == DamageModifierOperation::CapSingleHitAtMaxHpPercent)
+                        result = std::format("{}下一次單次承傷不超過{}最大生命", damageContext, percentAmount());
+                    else if (typed.operation == DamageModifierOperation::ExecuteBelowMaxHpPercent)
+                        result = std::format("{}普通傷害後生命低於{}最大生命時處決", damageContext, percentAmount());
+                    else
                     {
-                        amount += "%";
+                        auto amount = descriptionNumberLabel(typed.amount, style);
+                        if ((typed.operation == DamageModifierOperation::PercentAdd
+                                || typed.operation == DamageModifierOperation::Multiply)
+                            && typed.amount.base == EffectNumberBase::Constant)
+                        {
+                            amount += "%";
+                        }
+                        const auto operation = typed.operation == DamageModifierOperation::FlatAdd
+                            ? "加算"
+                            : typed.operation == DamageModifierOperation::PercentAdd
+                            ? "百分比加算"
+                            : "乘以";
+                        result = std::format("{}{}{}", damageContext, operation, amount);
                     }
-                    const auto operation = typed.operation == DamageModifierOperation::FlatAdd
-                        ? "加算"
-                        : typed.operation == DamageModifierOperation::PercentAdd
-                        ? "百分比加算"
-                        : "乘以";
-                    result = std::format("{}{}{}", context, operation, amount);
+                    if (compact)
+                    {
+                        result += typed.stage == DamageModifierStage::BeforeDefense
+                            ? "·防前"
+                            : typed.stage == DamageModifierStage::AfterDefense
+                            ? "·防後"
+                            : "·最終";
+                    }
                 }
                 appendTimedStackQualifiers(
                     result,
@@ -5281,7 +5494,8 @@ std::string renderDescriptionActionArgument(
                     typed.stackLimit,
                     typed.stackScope,
                     false,
-                    compact,
+                    style,
+                    false,
                     suppressed);
                 return result;
             }
@@ -5309,16 +5523,16 @@ std::string renderDescriptionActionArgument(
                 auto result = std::format(
                     "{}{}{}",
                     verb,
-                    boundedNumberLabel(typed.amount),
+                    descriptionNumberLabel(typed.amount, style),
                     numberIncludesResource ? "" : resource);
                 if (typed.kind == ResourceChangeKind::Transfer && typed.transferDestination)
                     result += std::format("至{}", selectorLabel(*typed.transferDestination, compact));
                 if (typed.resource == BattleResource::Hp
                     && typed.kind == ResourceChangeKind::Restore)
                 {
-                    result += std::format("·{}", healKindLabel(typed.healKind));
+                    result += std::format("{}{}", qualifierSeparator, healKindLabel(typed.healKind));
                     if (typed.healSourcePolicy == EffectHealSourcePolicy::AllowDead)
-                        result += "·來源死亡仍可生效";
+                        result += std::format("{}來源死亡仍可生效", qualifierSeparator);
                 }
                 return result;
             }
@@ -5327,7 +5541,7 @@ std::string renderDescriptionActionArgument(
                 auto result = typed.operation == HealModifierOperation::Block
                     ? "無法受到治療"
                     : std::format("受到的治療改為{}%", typed.percent);
-                result += std::format("·限{}", joinedDescriptionLabels(typed.kinds));
+                result += std::format("{}限{}", qualifierSeparator, joinedDescriptionLabels(typed.kinds, compact));
                 return result;
             }
             else if constexpr (std::is_same_v<T, ApplyStatusAction>)
@@ -5335,12 +5549,12 @@ std::string renderDescriptionActionArgument(
                 auto result = std::format("施加{}", battleStatusLabel(typed.status));
                 if (typed.stacks != 1) result += std::format("{}層", typed.stacks);
                 if (typed.applicationCount)
-                    result += std::format("·獨立{}次", boundedNumberLabel(*typed.applicationCount));
+                    result += std::format("{}獨立{}次", qualifierSeparator, descriptionNumberLabel(*typed.applicationCount, style));
                 if (typed.potency.base != EffectNumberBase::Constant || typed.potency.flat != 0)
-                    result += std::format("·強度{}", boundedNumberLabel(typed.potency));
+                    result += std::format("{}強度{}", qualifierSeparator, descriptionNumberLabel(typed.potency, style));
                 if (typed.secondaryPotency.base != EffectNumberBase::Constant || typed.secondaryPotency.flat != 0)
-                    result += std::format("·次要強度{}", boundedNumberLabel(typed.secondaryPotency));
-                if (typed.duration) result += std::format("·{}幀", boundedNumberLabel(*typed.duration));
+                    result += std::format("{}次要強度{}", qualifierSeparator, descriptionNumberLabel(typed.secondaryPotency, style));
+                if (typed.duration) result += std::format("{}{}幀", qualifierSeparator, descriptionNumberLabel(*typed.duration, style));
                 appendTimedStackQualifiers(
                     result,
                     typed.duration ? 0 : typed.durationFrames,
@@ -5348,15 +5562,16 @@ std::string renderDescriptionActionArgument(
                     typed.stackLimit,
                     EffectStackScope::Shared,
                     false,
-                    compact,
+                    style,
+                    false,
                     suppressed);
-                if (typed.aggregatePotencyWithinEvent) result += "·同事件合計強度";
+                if (typed.aggregatePotencyWithinEvent) result += std::format("{}同事件合計強度", qualifierSeparator);
                 return result;
             }
             else if constexpr (std::is_same_v<T, ConsumeStatusAction>)
             {
                 auto result = std::format("消耗{}{}層", battleStatusLabel(typed.status), typed.stacks);
-                if (typed.source == StatusSourceMatch::EffectOwner) result += "·僅此來源";
+                if (typed.source == StatusSourceMatch::EffectOwner) result += std::format("{}僅此來源", qualifierSeparator);
                 assert(!typed.whenDepleted
                     && "depleted status branches must be rendered through DescriptionConditional");
                 return result;
@@ -5379,10 +5594,10 @@ std::string renderDescriptionActionArgument(
                 if (typed.count > 0)
                 {
                     result += typed.order == StatusRemovalOrder::LongestRemaining
-                        ? "·優先最長剩餘"
+                        ? std::format("{}優先最長剩餘", qualifierSeparator)
                         : typed.order == StatusRemovalOrder::Oldest
-                        ? "·優先最早套用"
-                        : "·優先最新套用";
+                        ? std::format("{}優先最早套用", qualifierSeparator)
+                        : std::format("{}優先最新套用", qualifierSeparator);
                 }
                 if (typed.clearCurrentActionStagger)
                 {
@@ -5399,28 +5614,31 @@ std::string renderDescriptionActionArgument(
                     : typed.area.kind == DamageAreaKind::Circle
                     ? std::format("{}格範圍", typed.area.radiusTiles)
                     : std::string{};
-                auto result = std::format("{}造成{}{}", area, boundedNumberLabel(typed.amount), kind);
+                auto result = std::format("{}造成{}{}", area, descriptionNumberLabel(typed.amount, style), kind);
                 if (typed.transactionCount)
-                    result += std::format("·獨立{}次", boundedNumberLabel(*typed.transactionCount));
+                    result += std::format("{}獨立{}次", qualifierSeparator, descriptionNumberLabel(*typed.transactionCount, style));
                 if (!typed.appliesDamageModifiers)
-                    result += "·不套用傷害修正";
+                    result += std::format("{}不套用傷害修正", qualifierSeparator);
                 if (!typed.triggersHurtInvincibility)
-                    result += "·不觸發受傷無敵";
+                    result += std::format("{}不觸發受傷無敵", qualifierSeparator);
                 if (typed.perCast.perTargetLimit > 0)
-                    result += std::format("·每次施放對同一目標最多命中{}次", typed.perCast.perTargetLimit);
+                    result += std::format("{}每次施放對同一目標最多命中{}次", qualifierSeparator, typed.perCast.perTargetLimit);
                 if (typed.areaProjectiles)
                 {
                     const auto& delivery = *typed.areaProjectiles;
                     result += std::format(
-                        "·{}區域追蹤彈·{}格·最多{}目標",
+                        "{}{}區域追蹤彈{}{}格{}最多{}目標",
+                        qualifierSeparator,
                         delivery.visual == AreaProjectileVisual::DeathBlast
                             ? "死亡爆炸"
                             : "護盾爆炸",
+                        qualifierSeparator,
                         delivery.rangeTiles,
+                        qualifierSeparator,
                         delivery.maximumTargets);
-                    if (delivery.trackEventSource) result += "·必含存活事件來源";
+                    if (delivery.trackEventSource) result += std::format("{}必含存活事件來源", qualifierSeparator);
                     if (delivery.stunFrames > 0)
-                        result += std::format("·眩暈{}幀", delivery.stunFrames);
+                        result += std::format("{}眩暈{}幀", qualifierSeparator, delivery.stunFrames);
                 }
                 return result;
             }
@@ -5437,24 +5655,30 @@ std::string renderDescriptionActionArgument(
                     typed.mainProjectile ? "主彈" : "非主彈",
                     typed.pattern.projectileCount,
                     typed.strengthPct);
+                if (!compact && !detailed)
+                    result = std::format("{}{}×{}，{}%傷害",
+                        pattern,
+                        typed.mainProjectile ? "主彈" : "非主彈",
+                        typed.pattern.projectileCount,
+                        typed.strengthPct);
                 if (typed.pattern.spreadDegrees > 0)
-                    result += std::format("·展開{}度", typed.pattern.spreadDegrees);
-                if (typed.through) result += *typed.through ? "·貫穿" : "·不貫穿";
-                if (typed.tracking) result += *typed.tracking ? "·追蹤" : "·不追蹤";
-                if (typed.sameTargetHitLimit > 0) result += std::format("·同目標{}次", typed.sameTargetHitLimit);
-                if (typed.pattern.intervalFrames > 0) result += std::format("·間隔{}幀", typed.pattern.intervalFrames);
-                if (typed.propagation == CastPropagationPolicy::SourceHitRulesOnly) result += "·僅觸發來源命中規則";
-                else if (typed.propagation == CastPropagationPolicy::SuppressUltimateRules) result += "·不觸發大招效果";
-                else if (typed.propagation == CastPropagationPolicy::BorrowedUltimateRules) result += "·觸發借用的大招規則";
-                else if (typed.propagation == CastPropagationPolicy::NoEffectRules) result += "·不觸發任何效果規則";
-                if (typed.addToBaseAttack) result += "·追加至基礎攻擊";
-                if (typed.targets == AttackTargetPolicy::SelectedTargets) result += "·選擇目標";
-                else if (typed.targets == AttackTargetPolicy::SamePoint) result += "·同落點";
-                else if (typed.targets == AttackTargetPolicy::SameTarget) result += "·同目標";
-                if (typed.source) result += std::format("·由{}出手", selectorLabel(*typed.source, true));
+                    result += std::format("{}展開{}度", qualifierSeparator, typed.pattern.spreadDegrees);
+                if (typed.through) result += std::format("{}{}", qualifierSeparator, *typed.through ? "貫穿" : "不貫穿");
+                if (typed.tracking) result += std::format("{}{}", qualifierSeparator, *typed.tracking ? "追蹤" : "不追蹤");
+                if (typed.sameTargetHitLimit > 0) result += std::format("{}同目標{}次", qualifierSeparator, typed.sameTargetHitLimit);
+                if (typed.pattern.intervalFrames > 0) result += std::format("{}間隔{}幀", qualifierSeparator, typed.pattern.intervalFrames);
+                if (typed.propagation == CastPropagationPolicy::SourceHitRulesOnly) result += std::format("{}僅觸發來源命中規則", qualifierSeparator);
+                else if (typed.propagation == CastPropagationPolicy::SuppressUltimateRules) result += std::format("{}不觸發大招效果", qualifierSeparator);
+                else if (typed.propagation == CastPropagationPolicy::BorrowedUltimateRules) result += std::format("{}觸發借用的大招規則", qualifierSeparator);
+                else if (typed.propagation == CastPropagationPolicy::NoEffectRules) result += std::format("{}不觸發任何效果規則", qualifierSeparator);
+                if (typed.addToBaseAttack) result += std::format("{}追加至基礎攻擊", qualifierSeparator);
+                if (typed.targets == AttackTargetPolicy::SelectedTargets) result += std::format("{}選擇目標", qualifierSeparator);
+                else if (typed.targets == AttackTargetPolicy::SamePoint) result += std::format("{}同落點", qualifierSeparator);
+                else if (typed.targets == AttackTargetPolicy::SameTarget) result += std::format("{}同目標", qualifierSeparator);
+                if (typed.source) result += std::format("{}由{}出手", qualifierSeparator, selectorLabel(*typed.source, true));
                 if (typed.damageOverride)
                 {
-                    result += std::format("·{}", boundedNumberLabel(*typed.damageOverride));
+                    result += std::format("{}{}", qualifierSeparator, descriptionNumberLabel(*typed.damageOverride, style));
                     if (typed.damageKind)
                         result += std::format("{}傷害", damageKindLabel(*typed.damageKind));
                     else
@@ -5462,7 +5686,7 @@ std::string renderDescriptionActionArgument(
                 }
                 else if (typed.damageKind)
                 {
-                    result += std::format("·傷害種類改為{}", damageKindLabel(*typed.damageKind));
+                    result += std::format("{}傷害種類改為{}", qualifierSeparator, damageKindLabel(*typed.damageKind));
                 }
                 std::visit(
                     [&](const auto& behavior)
@@ -5471,31 +5695,40 @@ std::string renderDescriptionActionArgument(
                         if constexpr (std::is_same_v<B, ProjectileBounceAttackBehavior>)
                         {
                             result += std::format(
-                                "·彈射追加命中{}次·{}%·{}像素",
+                                "{}彈射追加命中{}次{}{}%{}{}像素",
+                                qualifierSeparator,
                                 behavior.additionalHits,
+                                qualifierSeparator,
                                 behavior.chancePct,
+                                qualifierSeparator,
                                 behavior.rangePixels);
                         }
                         else if constexpr (std::is_same_v<B, NearbyTrackingAttackBehavior>)
                         {
                             result += std::format(
-                                "·{}像素內產生{}%傷害追蹤彈",
+                                "{}{}像素內產生{}%傷害追蹤彈",
+                                qualifierSeparator,
                                 behavior.rangePixels,
                                 behavior.damagePct);
                         }
                         else if constexpr (std::is_same_v<B, DelayedAlternateAttackBehavior>)
                         {
                             result += std::format(
-                                "·延遲{}幀替代目標追擊·{}%傷害·{}%獲得格擋",
+                                "{}延遲{}幀替代目標追擊{}{}%傷害{}{}%獲得格擋",
+                                qualifierSeparator,
                                 behavior.delayFrames,
+                                qualifierSeparator,
                                 behavior.damagePct,
+                                qualifierSeparator,
                                 behavior.attackerBlockGainChancePct);
                         }
                         else if constexpr (std::is_same_v<B, ExpandingSpiralAttackBehavior>)
                         {
                             result += std::format(
-                                "·擴張螺旋彈×{}·流血{}層",
+                                "{}擴張螺旋彈×{}{}流血{}層",
+                                qualifierSeparator,
                                 behavior.projectileCount,
+                                qualifierSeparator,
                                 behavior.bleedStacks);
                         }
                     },
@@ -5512,16 +5745,187 @@ std::string renderDescriptionActionArgument(
                 auto result = typed.distancePixels > 0
                     ? std::format("{}{}像素並鎖定{}幀", direction, typed.distancePixels, typed.lockFrames)
                     : std::format("{}{}格並鎖定{}幀", direction, typed.distanceTiles, typed.lockFrames);
-                result += typed.collision == ForceMoveCollision::StopBeforeOccupied
-                    ? "·在佔位前停止"
-                    : "·在阻擋地形前停止";
-                result += typed.blocked == ForceMoveBlockedResult::Shorten
-                    ? "·受阻時縮短位移"
-                    : "·受阻時取消位移";
+                result += std::format("{}{}", qualifierSeparator,
+                    typed.collision == ForceMoveCollision::StopBeforeOccupied
+                        ? "在佔位前停止"
+                        : "在阻擋地形前停止");
+                result += std::format("{}{}", qualifierSeparator,
+                    typed.blocked == ForceMoveBlockedResult::Shorten
+                        ? "受阻時縮短位移"
+                        : "受阻時取消位移");
                 return result;
             }
             else if constexpr (std::is_same_v<T, CreateAreaAction>)
             {
+                if (!detailed)
+                {
+                    const auto relationLabel = [compact](EffectTeamFilter relation)
+                    {
+                        if (compact)
+                            return relation == EffectTeamFilter::Ally ? std::string("友")
+                                : relation == EffectTeamFilter::Enemy ? std::string("敵")
+                                : std::string("全體");
+                        return relation == EffectTeamFilter::Ally ? std::string("友方")
+                            : relation == EffectTeamFilter::Enemy ? std::string("敵人")
+                            : std::string("所有單位");
+                    };
+                    std::string result;
+                    if (compact)
+                    {
+                        result = typed.shape == AreaShape::Circle
+                            ? std::format("區域{}格·{}幀", typed.radiusTiles, typed.durationFrames)
+                            : std::format("區域{}×{}·{}幀", typed.squareSideTiles, typed.squareSideTiles, typed.durationFrames);
+                    }
+                    else
+                    {
+                        const auto location = typed.anchor == AreaAnchor::HitPosition
+                            ? "在命中位置"
+                            : "以來源單位為中心";
+                        result = typed.shape == AreaShape::Circle
+                            ? std::format("{}建立半徑{}格的區域，持續{}幀", location, typed.radiusTiles, typed.durationFrames)
+                            : std::format("{}建立{}×{}格的區域，持續{}幀", location, typed.squareSideTiles, typed.squareSideTiles, typed.durationFrames);
+                    }
+
+                    if (typed.sourceDeath == AreaSourceDeathPolicy::RemoveImmediately)
+                        result += compact ? "·來源死即消" : "，來源死亡時立即移除";
+                    if (typed.merge == AreaMergePolicy::Independent)
+                        result += compact ? "·區域獨立" : "，各區域獨立";
+                    else if (typed.merge == AreaMergePolicy::ReplaceSameSource)
+                        result += compact ? "·同源取代" : "，同來源取代舊區域";
+
+                    struct PlayerAreaModifierLabel
+                    {
+                        EffectTeamFilter relation{};
+                        std::string text{};
+                    };
+                    struct PlayerAreaAttackPercentLabel
+                    {
+                        EffectTeamFilter relation{};
+                        std::string text{};
+                        int amount{};
+                    };
+                    std::vector<PlayerAreaModifierLabel> modifierLabels;
+                    std::vector<PlayerAreaAttackPercentLabel> attackPercentLabels;
+                    std::vector<PlayerAreaModifierLabel> trackingLabels;
+                    for (const auto& modifier : typed.modifiers)
+                    {
+                        if (modifier.kind == AreaModifierKind::Attribute)
+                        {
+                            const auto constantAmount = effectiveConstantEffectNumberValue(modifier.amount);
+                            const bool useConstantPhrase = constantAmount
+                                && (!detailed || (!modifier.amount.minimum && !modifier.amount.maximum));
+                            const auto amount = useConstantPhrase
+                                ? std::format("{:+}%", *constantAmount)
+                                : std::format("增加{}%", descriptionNumberLabel(modifier.amount, style));
+                            modifierLabels.push_back({
+                                modifier.relation,
+                                std::format(
+                                    "{}{}",
+                                    compact && modifier.attribute == BattleAttribute::Speed
+                                        ? "速"
+                                        : attributeLabel(modifier.attribute, compact),
+                                    amount),
+                            });
+                        }
+                        else if (modifier.kind == AreaModifierKind::OutgoingDamage)
+                        {
+                            modifierLabels.push_back({
+                                modifier.relation,
+                                std::format(
+                                    "造成的{}{:+}%",
+                                    damageChannelLabel(modifier.damageChannel),
+                                    modifier.percent),
+                            });
+                        }
+                        else if (modifier.kind == AreaModifierKind::AttackSpawn)
+                        {
+                            if (modifier.tracking)
+                            {
+                                trackingLabels.push_back({
+                                    modifier.relation,
+                                    *modifier.tracking
+                                        ? "彈道可追蹤"
+                                        : compact ? "禁追蹤" : "彈道無法追蹤",
+                                });
+                            }
+                            if (modifier.speedPct)
+                                attackPercentLabels.push_back({
+                                    modifier.relation,
+                                    "彈速",
+                                    *modifier.speedPct,
+                                });
+                            if (modifier.projectilePressurePct)
+                                attackPercentLabels.push_back({
+                                    modifier.relation,
+                                    compact ? "壓制" : "壓制傷害",
+                                    *modifier.projectilePressurePct,
+                                });
+                        }
+                        else
+                        {
+                            const auto direction = modifier.blockedDirection == ForceMoveDirection::AwayFromSource
+                                ? "擊退"
+                                : modifier.blockedDirection == ForceMoveDirection::TowardSource
+                                ? "拉近"
+                                : "指定點位移";
+                            modifierLabels.push_back({
+                                modifier.relation,
+                                std::format("免疫{}", direction),
+                            });
+                        }
+                    }
+                    if (!compact)
+                        modifierLabels.insert(
+                            modifierLabels.end(),
+                            trackingLabels.begin(),
+                            trackingLabels.end());
+                    while (!attackPercentLabels.empty())
+                    {
+                        const auto relation = attackPercentLabels.front().relation;
+                        const int amount = attackPercentLabels.front().amount;
+                        std::string labels;
+                        for (auto it = attackPercentLabels.begin(); it != attackPercentLabels.end();)
+                        {
+                            if (it->relation != relation || it->amount != amount)
+                            {
+                                ++it;
+                                continue;
+                            }
+                            if (!labels.empty()) labels += compact ? "／" : "及";
+                            labels += it->text;
+                            it = attackPercentLabels.erase(it);
+                        }
+                        modifierLabels.push_back({
+                            relation,
+                            std::format("{}{:+}%", labels, amount),
+                        });
+                    }
+                    if (compact)
+                        modifierLabels.insert(
+                            modifierLabels.end(),
+                            trackingLabels.begin(),
+                            trackingLabels.end());
+                    const bool commonRelation = std::ranges::all_of(
+                        typed.modifiers,
+                        [&](const AreaModifier& modifier)
+                        {
+                            return modifier.relation == typed.modifiers.front().relation;
+                        });
+                    bool firstModifier = true;
+                    for (const auto& label : modifierLabels)
+                    {
+                        result += compact ? "·" : firstModifier ? "；" : "，";
+                        if (!commonRelation || firstModifier)
+                        {
+                            if (!compact) result += "區域內";
+                            result += relationLabel(label.relation);
+                        }
+                        result += label.text;
+                        firstModifier = false;
+                    }
+                    return result;
+                }
+
                 auto result = typed.shape == AreaShape::Circle
                     ? std::format("建立半徑{}格、持續{}幀的區域", typed.radiusTiles, typed.durationFrames)
                     : std::format("建立{}×{}、持續{}幀的區域", typed.squareSideTiles, typed.squareSideTiles, typed.durationFrames);
@@ -5551,9 +5955,12 @@ std::string renderDescriptionActionArgument(
                     result += compact ? "·" : "；";
                     if (modifier.kind == AreaModifierKind::Attribute)
                     {
-                        const auto amount = modifier.amount.base == EffectNumberBase::Constant
-                            ? std::format("{:+}", modifier.amount.flat)
-                            : std::format("增加{}", boundedNumberLabel(modifier.amount));
+                        const auto constantAmount = effectiveConstantEffectNumberValue(modifier.amount);
+                        const bool useConstantPhrase = constantAmount
+                            && (!detailed || (!modifier.amount.minimum && !modifier.amount.maximum));
+                        const auto amount = useConstantPhrase
+                            ? std::format("{:+}", *constantAmount)
+                            : std::format("增加{}", descriptionNumberLabel(modifier.amount, style));
                         result += std::format("區域內{}{}{}",
                             relationLabel(modifier.relation),
                             attributeLabel(modifier.attribute, compact),
@@ -5600,7 +6007,7 @@ std::string renderDescriptionActionArgument(
                     if (!result.empty()) result += compact ? "·" : "，";
                     result += fragment;
                 };
-                if (typed.mpCost) append(std::format("實際消耗{}內力", boundedNumberLabel(*typed.mpCost)));
+                if (typed.mpCost) append(std::format("實際消耗{}內力", descriptionNumberLabel(*typed.mpCost, style)));
                 if (typed.rangeMode == CastRangeMode::Ranged) append("武功遠程化");
                 else if (typed.rangeMode == CastRangeMode::Preserve) append("保留原射程模式");
                 if (typed.projectileSpeedPct > 0)
@@ -5628,8 +6035,8 @@ std::string renderDescriptionActionArgument(
                         : pattern.kind == AttackPatternKind::EchoNearestOthers ? "殘影"
                         : "原樣式";
                     auto replacement = std::format("替換攻擊樣式為{}×{}", patternName, pattern.projectileCount);
-                    if (pattern.spreadDegrees > 0) replacement += std::format("·展開{}度", pattern.spreadDegrees);
-                    if (pattern.intervalFrames > 0) replacement += std::format("·間隔{}幀", pattern.intervalFrames);
+                    if (pattern.spreadDegrees > 0) replacement += std::format("{}展開{}度", qualifierSeparator, pattern.spreadDegrees);
+                    if (pattern.intervalFrames > 0) replacement += std::format("{}間隔{}幀", qualifierSeparator, pattern.intervalFrames);
                     append(std::move(replacement));
                 }
                 if (typed.freeAdditionalCast) append("免費追加相同施放");
@@ -5646,14 +6053,14 @@ std::string renderDescriptionActionArgument(
             else if constexpr (std::is_same_v<T, StateMachineAction>)
             {
                 return std::visit(
-                    [compact](const auto& machine) -> std::string
+                    [style, compact, qualifierSeparator](const auto& machine) -> std::string
                     {
                         using M = std::decay_t<decltype(machine)>;
                         if constexpr (std::is_same_v<M, ChangeStateValueAction>)
                         {
                             auto result = std::format("狀態值{:+}", machine.delta);
-                            if (machine.minimum) result += std::format("·下限{}", *machine.minimum);
-                            if (machine.maximum) result += std::format("·上限{}", *machine.maximum);
+                            if (machine.minimum) result += std::format("{}下限{}", qualifierSeparator, *machine.minimum);
+                            if (machine.maximum) result += std::format("{}上限{}", qualifierSeparator, *machine.maximum);
                             return result;
                         }
                         else if constexpr (std::is_same_v<M, TransferStateValueAction>)
@@ -5684,24 +6091,31 @@ std::string renderDescriptionActionArgument(
                                 machine.returnedPct,
                                 damageKindLabel(machine.damageKind),
                                 selectorLabel(machine.target, compact));
-                            if (!machine.clearAfterSettle) result += "·保留累計值";
+                            if (!machine.clearAfterSettle) result += std::format("{}保留累計值", qualifierSeparator);
                             return result;
                         }
                         else if constexpr (std::is_same_v<M, BorrowEffectRulesAction>)
                         {
                             return std::format(
-                                "借用{}的大招規則·數量{}·允許類別[{}]·不含複製與借用遞迴·傳播借用規則",
+                                "借用{}的大招規則{}數量{}{}允許類別[{}]{}不含複製與借用遞迴{}傳播借用規則",
                                 selectorLabel(machine.sourceUnits, compact),
-                                boundedNumberLabel(machine.sourceCount),
-                                borrowedRuleFilterLabel(machine.filter));
+                                qualifierSeparator,
+                                descriptionNumberLabel(machine.sourceCount, style),
+                                qualifierSeparator,
+                                borrowedRuleFilterLabel(machine.filter),
+                                qualifierSeparator,
+                                qualifierSeparator);
                         }
                         else if constexpr (std::is_same_v<M, CopyAttackDefinitionAction>)
                         {
                             return std::format(
-                                "複製{}的絕招武功攻擊·數量{}·條件[{}]·不傳播大招規則",
+                                "複製{}的絕招武功攻擊{}數量{}{}條件[{}]{}不傳播大招規則",
                                 selectorLabel(machine.sourceUnits, compact),
+                                qualifierSeparator,
                                 machine.copyCount,
-                                copiedMagicFilterLabel(machine.filter));
+                                qualifierSeparator,
+                                copiedMagicFilterLabel(machine.filter),
+                                qualifierSeparator);
                         }
                         else if constexpr (std::is_same_v<M, SettleRemainingStatusDamageAction>)
                         {
@@ -5786,14 +6200,48 @@ std::vector<DescriptionQualifier> actionDescriptionQualifiers(
 }
 
 std::vector<DescriptionQualifier> sharedActionDescriptionQualifiers(
-    const std::vector<EffectAction>& actions)
+    std::span<const EffectAction> actions)
 {
     assert(actions.size() > 1);
-    // Runtime stack domains include actionOrder.  Sibling actions therefore
-    // have distinct stack keys even when their duration and policy happen to
-    // have equal values.  Keep their qualifiers on each clause until the
-    // payload gains an explicit shared stack key.
-    return {};
+    const auto* first = std::get_if<ModifyAttributeAction>(&actions.front().value);
+    std::optional<int> firstAmount;
+    if (first) firstAmount = effectiveConstantEffectNumberValue(first->amount);
+    if (!first
+        || !firstAmount
+        || attributeModifierIsNegative(first->operation, *firstAmount)
+        || first->durationFrames <= 0
+        || (first->stack != EffectStackPolicy::Independent
+            && first->stack != EffectStackPolicy::Refresh)
+        || first->stackLimit
+        || first->perStack
+        || first->stackScope != EffectStackScope::Shared)
+    {
+        return {};
+    }
+
+    for (const auto& action : actions.subspan(1))
+    {
+        const auto* modifier = std::get_if<ModifyAttributeAction>(&action.value);
+        std::optional<int> amount;
+        if (modifier) amount = effectiveConstantEffectNumberValue(modifier->amount);
+        if (!modifier
+            || !amount
+            || attributeModifierIsNegative(modifier->operation, *amount)
+            || modifier->operation != first->operation
+            || modifier->durationFrames != first->durationFrames
+            || modifier->stack != first->stack
+            || modifier->stackLimit
+            || modifier->perStack
+            || modifier->stackScope != EffectStackScope::Shared)
+        {
+            return {};
+        }
+    }
+
+    // Sibling runtime stack domains remain distinct because actionOrder is part
+    // of their keys.  Only the display-unobservable common duration is promoted;
+    // caps, policies, scopes, counters, and winner semantics stay per action.
+    return { DescriptionDurationFramesQualifier{ first->durationFrames } };
 }
 
 bool statusActionsDependOnOrder(
@@ -5889,9 +6337,10 @@ DescriptionClause actionDescriptionClause(const EffectActionValue& action)
 }
 
 EffectDescriptionChild actionListDescriptionNode(
-    const std::vector<EffectAction>& actions);
+    const std::vector<EffectAction>& actions,
+    bool coalesce);
 
-EffectDescriptionChild actionDescriptionNode(const EffectAction& action)
+EffectDescriptionChild actionDescriptionNode(const EffectAction& action, bool coalesce)
 {
     if (const auto* conditional = std::get_if<std::shared_ptr<ConditionalEffectAction>>(
             &action.value))
@@ -5901,8 +6350,8 @@ EffectDescriptionChild actionDescriptionNode(const EffectAction& action)
         node.scope = DescriptionConditionalScope::PerTarget;
         for (const auto& condition : (*conditional)->conditions)
             node.conditions.push_back({ DescriptionConditionValue{ condition } });
-        node.whenTrue = actionListDescriptionNode((*conditional)->whenTrue);
-        node.whenFalse = actionListDescriptionNode((*conditional)->whenFalse);
+        node.whenTrue = actionListDescriptionNode((*conditional)->whenTrue, coalesce);
+        node.whenFalse = actionListDescriptionNode((*conditional)->whenFalse, coalesce);
         return makeDescriptionNode(std::move(node));
     }
 
@@ -5929,7 +6378,7 @@ EffectDescriptionChild actionDescriptionNode(const EffectAction& action)
         });
         depleted.whenTrue = actionDescriptionNode(EffectAction{
             EffectActionValue{ depletedAction },
-        });
+        }, coalesce);
         sequence.steps.push_back(makeDescriptionNode(std::move(depleted)));
         return makeDescriptionNode(std::move(sequence));
     }
@@ -6005,28 +6454,61 @@ EffectDescriptionChild actionDescriptionNode(const EffectAction& action)
 }
 
 EffectDescriptionChild actionListDescriptionNode(
-    const std::vector<EffectAction>& actions)
+    const std::vector<EffectAction>& actions,
+    bool coalesce)
 {
     if (actions.empty()) return {};
-    if (actions.size() == 1) return actionDescriptionNode(actions.front());
+    if (actions.size() == 1) return actionDescriptionNode(actions.front(), coalesce);
 
     if (actionsDependOnOrder(actions))
     {
         DescriptionSequence sequence;
         sequence.kind = DescriptionSequenceKind::Actions;
         for (const auto& action : actions)
-            sequence.steps.push_back(actionDescriptionNode(action));
+            sequence.steps.push_back(actionDescriptionNode(action, coalesce));
         return makeDescriptionNode(std::move(sequence));
     }
 
     DescriptionSimultaneous simultaneous;
-    simultaneous.qualifiers = sharedActionDescriptionQualifiers(actions);
-    for (const auto& action : actions)
-        simultaneous.actions.push_back(actionDescriptionNode(action));
+    if (!coalesce)
+    {
+        for (const auto& action : actions)
+            simultaneous.actions.push_back(actionDescriptionNode(action, false));
+        return makeDescriptionNode(std::move(simultaneous));
+    }
+
+    for (std::size_t begin = 0; begin < actions.size();)
+    {
+        std::size_t end = begin + 1;
+        std::vector<DescriptionQualifier> shared;
+        while (end < actions.size())
+        {
+            auto candidate = sharedActionDescriptionQualifiers(
+                std::span<const EffectAction>(actions).subspan(begin, end - begin + 1));
+            if (candidate.empty()) break;
+            shared = std::move(candidate);
+            ++end;
+        }
+        if (end - begin > 1)
+        {
+            DescriptionSimultaneous group;
+            group.qualifiers = std::move(shared);
+            for (std::size_t index = begin; index < end; ++index)
+                group.actions.push_back(actionDescriptionNode(actions[index], true));
+            simultaneous.actions.push_back(makeDescriptionNode(std::move(group)));
+        }
+        else
+        {
+            simultaneous.actions.push_back(actionDescriptionNode(actions[begin], true));
+        }
+        begin = end;
+    }
+    if (simultaneous.actions.size() == 1)
+        return std::move(simultaneous.actions.front());
     return makeDescriptionNode(std::move(simultaneous));
 }
 
-EffectDescriptionNode buildEffectDescriptionAst(const EffectRule& rule)
+EffectDescriptionNode buildEffectDescriptionAst(const EffectRule& rule, bool coalesce)
 {
     DescriptionSequence root;
     root.kind = DescriptionSequenceKind::Rule;
@@ -6055,7 +6537,7 @@ EffectDescriptionNode buildEffectDescriptionAst(const EffectRule& rule)
         guard.qualifiers.emplace_back(DescriptionRepetitionCountQualifier{ *rule.repetitionCount });
     DescriptionForEach targets;
     targets.targets.selector = rule.selector;
-    targets.body = actionListDescriptionNode(rule.actions);
+    targets.body = actionListDescriptionNode(rule.actions, coalesce);
     guard.whenTrue = makeDescriptionNode(std::move(targets));
     root.steps.push_back(makeDescriptionNode(std::move(guard)));
 
@@ -6081,6 +6563,12 @@ struct DescriptionRenderContext
     EffectDescriptionStyle style{};
     std::optional<EffectEvent> event;
     std::span<const DescriptionQualifier> suppressedActionQualifiers;
+    EffectDescriptionContext presentation{};
+    int intervalFrames{};
+    bool ordinaryOutgoingAcceptedHit{};
+    bool sameComboAllyDeath{};
+    bool stackingOutgoingSkillDamage{};
+    bool topLevelTriggerHidden{};
 };
 
 std::string renderDescriptionNode(
@@ -6089,32 +6577,52 @@ std::string renderDescriptionNode(
 
 std::string renderRuleQualifier(
     const DescriptionQualifier& qualifier,
-    bool compact)
+    EffectDescriptionStyle style,
+    bool leadingSeparator = true)
 {
+    const bool compact = style == EffectDescriptionStyle::Compact;
+    const std::string_view separator = leadingSeparator
+        ? compact ? "·" : "；"
+        : "";
     return std::visit(
-        [compact](const auto& typed) -> std::string
+        [style, compact, leadingSeparator, separator](const auto& typed) -> std::string
         {
             using T = std::decay_t<decltype(typed)>;
             if constexpr (std::is_same_v<T, DescriptionChanceQualifier>)
-                return compact ? std::format("·{}%", typed.percent) : std::format("，有{}%機率", typed.percent);
+            {
+                const std::string_view chanceSeparator = leadingSeparator
+                    ? compact ? "·" : "，"
+                    : "";
+                return compact
+                    ? std::format("{}{}%", chanceSeparator, typed.percent)
+                    : std::format("{}有{}%機率", chanceSeparator, typed.percent);
+            }
             else if constexpr (std::is_same_v<T, DescriptionMaxActivationsQualifier>)
-                return compact ? std::format("·最多{}次", typed.count) : std::format("；最多啟用{}次", typed.count);
+                return compact
+                    ? std::format("{}最多{}次", separator, typed.count)
+                    : std::format("{}最多啟用{}次", separator, typed.count);
             else if constexpr (std::is_same_v<T, DescriptionSharedCooldownQualifier>)
-                return compact ? std::format("·同來源冷卻{}幀", typed.frames) : std::format("；同來源共用{}幀冷卻", typed.frames);
+                return compact
+                    ? std::format("{}同來源冷卻{}幀", separator, typed.frames)
+                    : std::format("{}同來源共用{}幀冷卻", separator, typed.frames);
             else if constexpr (std::is_same_v<T, DescriptionIntervalQualifier>)
-                return compact ? std::format("·每{}幀", typed.frames) : std::format("；每{}幀一次", typed.frames);
+                return compact
+                    ? std::format("{}每{}幀", separator, typed.frames)
+                    : std::format("{}每{}幀一次", separator, typed.frames);
             else if constexpr (std::is_same_v<T, DescriptionEveryNthEventQualifier>)
-                return compact ? std::format("·每{}次", typed.count) : std::format("；每{}次符合事件啟用一次", typed.count);
+                return compact
+                    ? std::format("{}每{}次", separator, typed.count)
+                    : std::format("{}每{}次符合事件啟用一次", separator, typed.count);
             else if constexpr (std::is_same_v<T, DescriptionRepetitionCountQualifier>)
                 return compact
-                    ? std::format("·依序×{}", boundedNumberLabel(typed.count))
-                    : std::format("；依序重複{}次", boundedNumberLabel(typed.count));
+                    ? std::format("{}依序×{}", separator, descriptionNumberLabel(typed.count, style))
+                    : std::format("{}依序重複{}次", separator, descriptionNumberLabel(typed.count, style));
             else if constexpr (std::is_same_v<T, DescriptionActivationLimitQualifier>)
             {
                 assert(typed.scope == EffectActivationScope::PerCastPerTarget);
                 return compact
-                    ? std::format("·每施放每目標{}次", typed.count)
-                    : std::format("；每次施放對同一目標最多判定{}次", typed.count);
+                    ? std::format("{}每施放每目標{}次", separator, typed.count)
+                    : std::format("{}每次施放對同一目標最多判定{}次", separator, typed.count);
             }
             else return {};
         },
@@ -6123,13 +6631,22 @@ std::string renderRuleQualifier(
 
 std::string renderGuardQualifier(
     const DescriptionQualifier& qualifier,
-    bool compact)
+    EffectDescriptionStyle style,
+    bool leadingSeparator)
 {
+    const bool compact = style == EffectDescriptionStyle::Compact;
+    const std::string_view separator = leadingSeparator
+        ? compact ? "·" : "；"
+        : "";
     if (const auto* interval = std::get_if<DescriptionIntervalQualifier>(&qualifier))
-        return compact ? std::format("·每{}幀", interval->frames) : std::format("；每{}幀一次", interval->frames);
+        return compact
+            ? std::format("{}每{}幀", separator, interval->frames)
+            : std::format("{}每{}幀一次", separator, interval->frames);
     if (const auto* nth = std::get_if<DescriptionEveryNthEventQualifier>(&qualifier))
-        return compact ? std::format("·每{}次", nth->count) : std::format("；每{}次符合事件啟用一次", nth->count);
-    return renderRuleQualifier(qualifier, compact);
+        return compact
+            ? std::format("{}每{}次", separator, nth->count)
+            : std::format("{}每{}次符合事件啟用一次", separator, nth->count);
+    return renderRuleQualifier(qualifier, style, leadingSeparator);
 }
 
 std::string renderSharedActionQualifiers(
@@ -6166,25 +6683,39 @@ std::string renderDescriptionClause(
     const DescriptionClause& clause,
     DescriptionRenderContext context)
 {
+    const bool detailed = context.style == EffectDescriptionStyle::Detailed;
     const bool compact = context.style == EffectDescriptionStyle::Compact;
     if (clause.predicate == DescriptionPredicate::Trigger)
     {
         const auto& trigger = std::get<DescriptionTriggerArgument>(
             clause.arguments.front());
-        auto result = ruleEventLabel(trigger.event, compact);
+        const bool enclosedEvent = !detailed
+            && trigger.castMatch == EffectCastMatch::BoundMagic
+            && context.presentation.enclosingDefaultEvent == trigger.event;
+        auto result = enclosedEvent
+            ? std::string{}
+            : !detailed && trigger.event == EffectEvent::FrameAdvanced && context.intervalFrames > 0
+            ? std::format("每{}幀", context.intervalFrames)
+            : !detailed && trigger.event == EffectEvent::DamageResolved && context.ordinaryOutgoingAcceptedHit
+            ? compact ? std::string("命中後") : std::string("每次命中後")
+            : !detailed && trigger.event == EffectEvent::HitBeforeDamage && context.stackingOutgoingSkillDamage
+            ? compact ? std::string("命中") : std::string("每次命中")
+            : !detailed && trigger.event == EffectEvent::AllyDied && context.sameComboAllyDeath
+            ? compact ? std::string("同羈絆友軍死亡") : std::string("同羈絆友軍死亡時")
+            : ruleEventLabel(trigger.event, context.style);
         if (trigger.observation == EffectObservationScope::OwnerTeamEventSource)
-            result += compact ? "·同隊來源" : "（由效果擁有者同隊事件來源觸發）";
+            result += compact ? (result.empty() ? "同隊來源" : "·同隊來源") : "（由效果擁有者同隊事件來源觸發）";
         else if (trigger.observation == EffectObservationScope::EventTarget)
-            result += compact ? "·事件目標" : "（由效果擁有者成為事件目標時觸發）";
+            result += compact ? (result.empty() ? "事件目標" : "·事件目標") : "（由效果擁有者成為事件目標時觸發）";
         if (trigger.castMatch == EffectCastMatch::OwnerAnyCast)
-            result += compact ? "·任意施放" : "（效果擁有者任意施放）";
+            result += compact ? (result.empty() ? "任意施放" : "·任意施放") : "（效果擁有者任意施放）";
         return result;
     }
     if (clause.predicate == DescriptionPredicate::RuleLimits)
     {
         std::string result;
         for (const auto& qualifier : clause.qualifiers)
-            result += renderRuleQualifier(qualifier, compact);
+            result += renderRuleQualifier(qualifier, context.style);
         return result;
     }
     if (clause.predicate == DescriptionPredicate::ResetRecordedState)
@@ -6217,7 +6748,7 @@ std::string renderDescriptionClause(
     assert(clause.predicate == static_cast<DescriptionPredicate>(action.value.index()));
     return renderDescriptionActionArgument(
         action.value,
-        compact,
+        context.style,
         context.suppressedActionQualifiers);
 }
 
@@ -6225,28 +6756,65 @@ std::string renderDescriptionConditions(
     std::span<const DescriptionCondition> conditions,
     DescriptionConditionalScope scope,
     std::optional<EffectEvent> event,
-    bool compact)
+    const DescriptionRenderContext& context)
 {
+    const bool detailed = context.style == EffectDescriptionStyle::Detailed;
+    const bool compact = context.style == EffectDescriptionStyle::Compact;
     std::string result;
     for (const auto& condition : conditions)
     {
         const auto* parsed = std::get_if<EffectCondition>(&condition.value);
         if (parsed
+            && !detailed
             && scope == DescriptionConditionalScope::Rule
             && std::holds_alternative<MagicIdEqualsCondition>(*parsed))
         {
             continue;
         }
         if (parsed
+            && !detailed
             && scope == DescriptionConditionalScope::Rule
             && event == EffectEvent::UltimateCommitted
             && std::holds_alternative<IsUltimateCondition>(*parsed))
         {
             continue;
         }
-        if (!result.empty()) result += compact ? "＋" : "且";
+        if (parsed && !detailed && scope == DescriptionConditionalScope::Rule)
+        {
+            if (const auto* accepted = std::get_if<AcceptedHitCondition>(parsed);
+                accepted && !accepted->requirePositiveDamage && !accepted->excludeReflected)
+            {
+                continue;
+            }
+            if (context.ordinaryOutgoingAcceptedHit
+                && std::holds_alternative<DamagePerspectiveCondition>(*parsed))
+            {
+                continue;
+            }
+            if (context.sameComboAllyDeath
+                && std::holds_alternative<EventTargetBelongsToBoundSourceCondition>(*parsed))
+            {
+                continue;
+            }
+        }
+        if (!result.empty()) result += "且";
         if (parsed)
         {
+            if (!detailed)
+            {
+                if (const auto* accepted = std::get_if<AcceptedHitCondition>(parsed))
+                {
+                    if (accepted->requirePositiveDamage) result += "正傷害";
+                    if (accepted->requirePositiveDamage && accepted->excludeReflected) result += "且";
+                    if (accepted->excludeReflected) result += "非反彈";
+                    continue;
+                }
+                if (std::holds_alternative<EventTargetBelongsToBoundSourceCondition>(*parsed))
+                {
+                    result += "同羈絆";
+                    continue;
+                }
+            }
             result += conditionLabel(*parsed, compact);
         }
         else
@@ -6263,6 +6831,7 @@ std::string renderDescriptionNode(
     const EffectDescriptionNode& node,
     DescriptionRenderContext context)
 {
+    const bool detailed = context.style == EffectDescriptionStyle::Detailed;
     const bool compact = context.style == EffectDescriptionStyle::Compact;
     return std::visit(
         [&](const auto& typed) -> std::string
@@ -6292,7 +6861,7 @@ std::string renderDescriptionNode(
                         if (step) result += renderDescriptionNode(*step, context);
                     return result;
                 }
-                const std::string_view separator = compact ? "→" : "，接著";
+                const std::string_view separator = compact ? "→" : detailed ? "，接著" : "，再";
                 for (const auto& step : typed.steps)
                 {
                     if (!step) continue;
@@ -6306,7 +6875,9 @@ std::string renderDescriptionNode(
                 std::string result;
                 auto nested = context;
                 nested.suppressedActionQualifiers = typed.qualifiers;
-                const std::string_view separator = compact ? "／" : "、";
+                const std::string_view separator = compact
+                    ? typed.qualifiers.empty() ? "·" : "／"
+                    : "、";
                 for (const auto& action : typed.actions)
                 {
                     if (!action) continue;
@@ -6322,14 +6893,42 @@ std::string renderDescriptionNode(
                     typed.conditions,
                     typed.scope,
                     context.event,
-                    compact);
+                    context);
                 if (typed.scope == DescriptionConditionalScope::Rule)
                 {
                     std::string result;
-                    if (!conditions.empty()) result += compact ? std::format("·{}", conditions) : std::format("，{}", conditions);
+                    if (!conditions.empty())
+                    {
+                        if (!context.topLevelTriggerHidden)
+                            result += compact ? "·" : "，";
+                        result += conditions;
+                    }
                     for (const auto& qualifier : typed.qualifiers)
-                        result += renderGuardQualifier(qualifier, compact);
-                    if (typed.whenTrue) result += renderDescriptionNode(*typed.whenTrue, context);
+                    {
+                        const auto* interval = std::get_if<DescriptionIntervalQualifier>(&qualifier);
+                        if (!detailed
+                            && context.event == EffectEvent::FrameAdvanced
+                            && interval)
+                        {
+                            continue;
+                        }
+                        const bool leadingSeparator = !context.topLevelTriggerHidden
+                            || !result.empty();
+                        result += renderGuardQualifier(
+                            qualifier,
+                            context.style,
+                            leadingSeparator);
+                    }
+                    if (typed.whenTrue)
+                    {
+                        const auto body = renderDescriptionNode(*typed.whenTrue, context);
+                        const bool bodyHasSeparator = body.starts_with("，")
+                            || body.starts_with("·")
+                            || body.starts_with("；");
+                        if (!result.empty() && !bodyHasSeparator)
+                            result += compact ? "·" : "，";
+                        result += body;
+                    }
                     return result;
                 }
 
@@ -6339,25 +6938,10 @@ std::string renderDescriptionNode(
                 const auto whenFalse = typed.whenFalse
                     ? renderDescriptionNode(*typed.whenFalse, context)
                     : std::string{};
-                const bool fullMpOverride = std::ranges::any_of(
-                    typed.conditions,
-                    [](const DescriptionCondition& condition)
-                    {
-                        const auto* parsed = std::get_if<EffectCondition>(&condition.value);
-                        return parsed
-                            && std::holds_alternative<TargetMpWasFullBeforeCastCondition>(
-                                *parsed);
-                    });
-                if (fullMpOverride && !whenFalse.empty())
-                {
-                    return compact
-                        ? std::format("{}；滿內改{}", whenFalse, whenTrue)
-                        : std::format("{}；個別受益者施放前若已滿內，改為{}", whenFalse, whenTrue);
-                }
                 if (whenFalse.empty())
                     return compact ? std::format("若{}·{}", conditions, whenTrue) : std::format("若{}，{}", conditions, whenTrue);
                 return compact
-                    ? std::format("{}?{}:{}", conditions, whenTrue, whenFalse)
+                    ? std::format("若{}·{}／否則{}", conditions, whenTrue, whenFalse)
                     : std::format("若{}則{}，否則{}", conditions, whenTrue, whenFalse);
             }
             else if constexpr (std::is_same_v<T, DescriptionForEach>)
@@ -6366,9 +6950,43 @@ std::string renderDescriptionNode(
                 const auto body = typed.body
                     ? renderDescriptionNode(*typed.body, context)
                     : std::string{};
-                return compact
-                    ? std::format("·{}·{}", target, body)
-                    : std::format("，對{}{}", target, body);
+                if (!detailed && typed.targets.selector.kind == EffectSelectorKind::Self)
+                {
+                    if (context.topLevelTriggerHidden
+                        || context.ordinaryOutgoingAcceptedHit
+                        || context.stackingOutgoingSkillDamage)
+                    {
+                        return body;
+                    }
+                    return (compact ? "·" : "，") + body;
+                }
+                if (!detailed
+                    && typed.targets.selector.kind == EffectSelectorKind::HitTarget
+                    && typed.body)
+                {
+                    const auto* clause = std::get_if<DescriptionClause>(&typed.body->value);
+                    if (clause && clause->predicate == DescriptionPredicate::CreateArea)
+                    {
+                        const auto& argument = std::get<DescriptionActionArgument>(
+                            clause->arguments.front());
+                        const auto* area = std::get_if<CreateAreaAction>(&argument.value);
+                        if (area && area->anchor == AreaAnchor::HitPosition)
+                            return (context.topLevelTriggerHidden
+                                ? std::string{}
+                                : compact ? std::string("·") : std::string("，")) + body;
+                    }
+                }
+                if (compact)
+                    return std::format(
+                        "{}{}·{}",
+                        context.topLevelTriggerHidden ? "" : "·",
+                        target,
+                        body);
+                return std::format(
+                    "{}對{}{}",
+                    context.topLevelTriggerHidden ? "" : "，",
+                    target,
+                    body);
             }
             else if constexpr (std::is_same_v<T, DescriptionStateCycle>)
             {
@@ -6376,7 +6994,7 @@ std::string renderDescriptionNode(
                 const auto append = [&](const EffectDescriptionChild& phase)
                 {
                     if (!phase) return;
-                    if (!result.empty()) result += compact ? "→" : "，隨後";
+                    if (!result.empty()) result += compact ? "→" : detailed ? "，隨後" : "，再";
                     result += renderDescriptionNode(*phase, context);
                 };
                 append(typed.record);
@@ -6393,18 +7011,11 @@ std::string renderDescriptionNode(
         node.value);
 }
 
-std::string renderFullEffectDescription(const EffectDescriptionNode& ast)
+std::string renderEffectDescription(
+    const EffectDescriptionNode& ast,
+    DescriptionRenderContext context)
 {
-    return renderDescriptionNode(
-        ast,
-        DescriptionRenderContext{ .style = EffectDescriptionStyle::Full }) + "。";
-}
-
-std::string renderCompactEffectDescription(const EffectDescriptionNode& ast)
-{
-    return renderDescriptionNode(
-        ast,
-        DescriptionRenderContext{ .style = EffectDescriptionStyle::Compact });
+    return renderDescriptionNode(ast, context);
 }
 
 bool eventHasHitPayload(EffectEvent event)
@@ -7580,12 +8191,61 @@ bool validateBattleInitializedRule(const EffectRule& rule, std::string& error)
 
 }  // namespace
 
-std::string effectDescription(const EffectRule& rule, EffectDescriptionStyle style)
+std::string effectDescription(
+    const EffectRule& rule,
+    EffectDescriptionStyle style,
+    const EffectDescriptionContext& context)
 {
-    const auto ast = buildEffectDescriptionAst(rule);
-    return style == EffectDescriptionStyle::Full
-        ? renderFullEffectDescription(ast)
-        : renderCompactEffectDescription(ast);
+    const bool detailed = style == EffectDescriptionStyle::Detailed;
+    const auto ast = buildEffectDescriptionAst(rule, !detailed);
+    const bool ordinaryAcceptedHit = std::ranges::any_of(
+        rule.conditions,
+        [](const EffectCondition& condition)
+        {
+            const auto* accepted = std::get_if<AcceptedHitCondition>(&condition);
+            return accepted
+                && !accepted->requirePositiveDamage
+                && !accepted->excludeReflected;
+        });
+    const bool outgoingPerspective = std::ranges::any_of(
+        rule.conditions,
+        [](const EffectCondition& condition)
+        {
+            const auto* perspective = std::get_if<DamagePerspectiveCondition>(&condition);
+            return perspective && perspective->perspective == DamagePerspective::Dealt;
+        });
+    const bool sameComboAllyDeath = rule.event == EffectEvent::AllyDied
+        && std::ranges::any_of(
+            rule.conditions,
+            [](const EffectCondition& condition)
+            {
+                return std::holds_alternative<EventTargetBelongsToBoundSourceCondition>(condition);
+            });
+    const bool stackingOutgoingSkillDamage = rule.event == EffectEvent::HitBeforeDamage
+        && rule.actions.size() == 1
+        && std::holds_alternative<ModifyDamageAction>(rule.actions.front().value)
+        && usesStackingOutgoingSkillDamagePhrase(
+            std::get<ModifyDamageAction>(rule.actions.front().value));
+    const bool topLevelEventOmitted = !detailed
+        && (rule.event == EffectEvent::BattleInitialized
+            || (rule.castMatch == EffectCastMatch::BoundMagic
+                && context.enclosingDefaultEvent == rule.event));
+    const bool topLevelTriggerHidden = topLevelEventOmitted
+        && rule.observation == EffectObservationScope::Owner
+        && rule.castMatch == EffectCastMatch::BoundMagic;
+    return renderEffectDescription(
+        ast,
+        DescriptionRenderContext{
+            .style = style,
+            .presentation = context,
+            .intervalFrames = rule.intervalFrames,
+            .ordinaryOutgoingAcceptedHit = rule.event == EffectEvent::DamageResolved
+                && ordinaryAcceptedHit
+                && outgoingPerspective,
+            .sameComboAllyDeath = sameComboAllyDeath,
+            .stackingOutgoingSkillDamage = stackingOutgoingSkillDamage,
+            .topLevelTriggerHidden = topLevelTriggerHidden,
+        });
 }
 
 bool validateEffectRule(const EffectRule& rule, std::string& error)

@@ -126,8 +126,8 @@ std::vector<RuleContentView> effectRuleContentViews(
             rule.chancePct,
             rule.maxActivations,
             rule.sharedCooldownFrames,
-            effectDescription(rule, EffectDescriptionStyle::Full),
-            effectDescription(rule, EffectDescriptionStyle::Compact));
+            effectDescription(rule, EffectDescriptionStyle::Full, {}),
+            effectDescription(rule, EffectDescriptionStyle::Compact, {}));
     }
     return result;
 }
