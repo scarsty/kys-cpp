@@ -204,6 +204,11 @@ struct HeadlessBattleAttackPayloadDigest
     float velocityX{};
     float velocityY{};
     float velocityZ{};
+    Battle::BattleAttackDeliveryKind delivery{};
+    Battle::BattleProjectilePayloadKind payloadKind{};
+    Battle::BattleAttackReflectionLineageKind reflectionLineage{};
+    std::optional<int> potencyEffectiveAttack;
+    std::optional<int> potencyMagicPower;
 };
 
 struct HeadlessBattleLiveAttackDigest
@@ -233,6 +238,7 @@ struct HeadlessBattleLiveAttackDigest
     float spiralAngularVelocity{};
     std::optional<Battle::AttackFinishReason> scheduledFinishReason;
     std::optional<Battle::AttackFinishReason> finishReason;
+    std::optional<int> pendingContactTargetUnitId;
 };
 
 struct HeadlessBattleSharedHitGroupDigest
@@ -560,6 +566,15 @@ HeadlessBattleAttackPayloadDigest attackPayloadDigest(
         payload.velocity.x,
         payload.velocity.y,
         payload.velocity.z,
+        payload.delivery.kind(),
+        payload.payloadClass.kind(),
+        payload.reflectionLineage,
+        payload.potencySnapshot
+            ? std::optional{ payload.potencySnapshot->effectiveAttack }
+            : std::nullopt,
+        payload.potencySnapshot
+            ? std::optional{ payload.potencySnapshot->magicPower }
+            : std::nullopt,
     };
 }
 
@@ -605,6 +620,9 @@ HeadlessBattleAttackStateDigest attackStateDigest(
             attack.spiralAngularVelocity,
             attack.scheduledFinishReason,
             attack.finishReason,
+            attack.pendingContact
+                ? std::optional{ attack.pendingContact->targetUnitId }
+                : std::nullopt,
         });
     }
     std::ranges::sort(

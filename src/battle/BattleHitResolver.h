@@ -47,6 +47,30 @@ struct BattleHitSkillSnapshot
     int defenderActProperty = 0;
     int magicPower = 0;
     int resolvedBaseDamage = 0;
+    std::optional<BattleAttackPotencySnapshot> potency;
+};
+
+struct BattleProjectileReflectionRequest
+{
+    int incomingAttackId{};
+    int reflectorUnitId{};
+    int originalAttackerUnitId{};
+    Pointf contactPosition;
+    std::optional<BattleAttackPotencySnapshot> potency;
+
+    BattleProjectileReflectionRequest(
+        int incomingAttackId,
+        int reflectorUnitId,
+        int originalAttackerUnitId,
+        Pointf contactPosition,
+        std::optional<BattleAttackPotencySnapshot> potency)
+        : incomingAttackId(incomingAttackId)
+        , reflectorUnitId(reflectorUnitId)
+        , originalAttackerUnitId(originalAttackerUnitId)
+        , contactPosition(contactPosition)
+        , potency(potency)
+    {
+    }
 };
 
 struct BattleHpDamageCommand
@@ -224,7 +248,7 @@ struct BattleHitResolutionResult
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
     bool dodged = false;
-    bool reflected = false;
+    std::optional<BattleProjectileReflectionRequest> reflection;
     bool critical = false;
     int criticalMultiplier = 0;
     double shapedHpDamage = 0.0;
@@ -232,6 +256,9 @@ struct BattleHitResolutionResult
     int finalMpDamage = 0;
     std::vector<BattleRuntimeEffectRuleHandle> activatedRuntimeRules;
 };
+
+BattleProjectileReflectionRequest makeBattleProjectileReflectionRequest(
+    const BattleHitResolutionInput& input);
 
 struct BattleProjectileFollowUpContext
 {

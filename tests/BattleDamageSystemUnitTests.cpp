@@ -224,20 +224,20 @@ TEST_CASE("BattleDamageSystem_Defense_InvincibleAttackBlocksAndShieldAreSeparate
 
     auto defender = unit();
     defender.invincible = 10;
-    auto invincible = system.resolveDefense({ 80, false, false, true, defender });
+    auto invincible = system.resolveDefense({ 80, false, true, defender });
     CHECK(invincible.damage == 0.0);
     CHECK(invincible.blockedByInvincible);
 
     defender = unit();
     defender.dualWieldBlocksRemaining = 1;
-    auto dualWield = system.resolveDefense({ 80, false, false, false, defender });
+    auto dualWield = system.resolveDefense({ 80, false, false, defender });
     CHECK(dualWield.damage == 0.0);
     CHECK(dualWield.defender.dualWieldBlocksRemaining == 0);
     CHECK(dualWield.blockedByDualWield);
 
     defender = unit();
     defender.shield = 50;
-    auto shield = system.resolveDefense({ 80, false, false, false, defender });
+    auto shield = system.resolveDefense({ 80, false, false, defender });
     CHECK(shield.damage == 30.0);
     CHECK(shield.shieldAbsorbed == 50);
     CHECK(shield.defender.shield == 0);
@@ -250,7 +250,7 @@ TEST_CASE("BattleDamageSystem_ExecutedHitsBypassInvincibleAndAttackBlocks", "[ba
     defender.dualWieldBlocksRemaining = 1;
     defender.invincible = 10;
 
-    auto result = BattleDamageSystem().resolveDefense({ 80, true, false, true, defender });
+    auto result = BattleDamageSystem().resolveDefense({ 80, true, true, defender });
 
     CHECK(result.damage == 80);
     CHECK_FALSE(result.blockedByInvincible);

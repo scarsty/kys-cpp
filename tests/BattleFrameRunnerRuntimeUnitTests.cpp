@@ -25,6 +25,16 @@ namespace
 constexpr double SceneTileWidth = 36.0;
 constexpr double MaxEffectiveBattleReach = 480.0;
 constexpr double TestMinimumVectorNorm = 0.0001;
+
+BattleAttackPayload ordinaryProjectilePayload()
+{
+    return {
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary,
+    };
+}
+
 BattlePresentationFrame runBattleFrame(BattleRuntimeState& state)
 {
     return BattleFrameRunner().runFrame(state);
@@ -207,7 +217,7 @@ void queueForceMoveEffect(
 
 BattleAttackInstance cancelProjectile(int id, int attackerUnitId)
 {
-    BattleAttackInstance attack;
+    BattleAttackInstance attack{ ordinaryProjectilePayload() };
     attack.id = id;
     attack.frame = 5;
     attack.state.attackSourceUnitId = attackerUnitId;
@@ -360,7 +370,10 @@ TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[b
     auto runtime = ownedRuntimeState();
     runtime.attacks.nextAttackId = 70;
 
-    BattleAttackSpawnRequest request;
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     request.initial.attackSourceUnitId = 0;
     request.initial.preferredTargetUnitId = 0;
     request.initial.skillId = 101;
@@ -386,7 +399,10 @@ TEST_CASE("BattleRuntimeState_RunFrame_DelaysDualWieldSpawnAndAddsAttackBlock", 
 {
     auto runtime = ownedRuntimeState();
     runtime.random = BattleRuntimeRandom(5489u);
-    BattleAttackSpawnRequest request;
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     request.initial.attackSourceUnitId = 0;
     request.initial.preferredTargetUnitId = 1;
     request.initial.requirePreferredTarget = true;
@@ -456,7 +472,10 @@ TEST_CASE("BattleRuntimeSession_RunFrame_OwnsRuntimeAcrossFrames", "[battle][run
     auto runtime = ownedRuntimeState();
     runtime.attacks.nextAttackId = 70;
 
-    BattleAttackSpawnRequest request;
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     request.initial.attackSourceUnitId = 0;
     request.initial.preferredTargetUnitId = 0;
     request.initial.skillId = 101;
@@ -570,7 +589,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_DoesNotReplayKnockback", "[battle][runt
     runtime.units.requireCore(1).motion.position = { defenderX, 3.0f * static_cast<float>(SceneTileWidth), 0 };
     seedDamageExtrasFromUnits(runtime);
 
-    BattleAttackInstance attack;
+    BattleAttackInstance attack{ ordinaryProjectilePayload() };
     attack.id = 10;
     attack.state.attackSourceUnitId = 0;
     attack.state.preferredTargetUnitId = 1;
@@ -644,7 +663,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_StacksRegularAndProcKnockbackVelocity",
     procKnockbackRule.actions = { { KysChess::EffectActionValue{ procKnockback } } };
     appendOwnerEffectRule(runtime, 0, 9001, std::move(procKnockbackRule));
 
-    BattleAttackInstance attack;
+    BattleAttackInstance attack{ ordinaryProjectilePayload() };
     attack.id = 10;
     attack.state.attackSourceUnitId = 0;
     attack.state.preferredTargetUnitId = 1;
@@ -716,7 +735,7 @@ TEST_CASE("BattleRuntimeSession_RunFrame_TaXueIgnoresKnockback", "[battle][runti
     runtime.units.require(1).setActionPlan(std::move(defenderPlan));
     runtime.units.require(1).status.effects.setFrames(BattleStatusKind::Stun, 100);
 
-    BattleAttackInstance attack;
+    BattleAttackInstance attack{ ordinaryProjectilePayload() };
     attack.id = 10;
     attack.state.attackSourceUnitId = 0;
     attack.state.preferredTargetUnitId = 1;

@@ -3,11 +3,14 @@
 #include "BattleLogTestHelpers.h"
 #include "BattleRuntimeRecordTestHelpers.h"
 #include "battle/BattleRuntimeRandom.h"
+#include "battle/BattleProjectileReflectionPolicy.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
+#include <type_traits>
 
 using namespace KysChess::Battle;
 
@@ -18,12 +21,16 @@ BattleHitResolutionInput hitInput()
 {
     BattleHitResolutionInput input;
     input.attackEvent.type = BattleAttackEventType::Hit;
+    input.attackEvent.attackId = 0;
     input.attackEvent.sourceUnitId = 1;
     input.attackEvent.unitId = 2;
     input.attackEvent.frame = 0;
     input.attackEvent.totalFrame = 10;
     input.attackEvent.position = { 1.0f, 0.0f, 0.0f };
     input.attackEvent.operationType = BattleOperationType::Melee;
+    input.attackEvent.delivery = BattleAttackDelivery::contact();
+    input.attackEvent.payloadClass = BattleProjectilePayloadClass::combat();
+    input.attackEvent.reflectionLineage = BattleAttackReflectionLineageKind::Ordinary;
     input.attackEvent.strengthPct = 100;
     input.attackEvent.provenance = {
         .cast = {
@@ -47,6 +54,7 @@ BattleHitResolutionInput hitInput()
     input.defender.motion.facing = { 1.0f, 0.0f, 0.0f };
     input.skill.id = 101;
     input.skill.resolvedBaseDamage = 50;
+    input.skill.potency.emplace(100, 50);
     return input;
 }
 
@@ -250,20 +258,112 @@ TEST_CASE("BattleHitResolver consumes typed critical attributes", "[battle][hit_
     CHECK(BattleLogTest::joinSegments(damage->segments) == "暴擊 x1.85");
 }
 
+TEST_CASE("BattleHitResolver reports the full reflected-return lineage",
+          "[battle][hit_resolver][projectile_reflection][report]")
+{
+    auto input = hitInput();
+    input.attackEvent.reflectionLineage =
+        BattleAttackReflectionLineageKind::ReflectedReturn;
+    input.attackEvent.provenance.origin = BattleAttackOriginKind::Reflection;
+    input.attackEvent.provenance.rootAttack = false;
+    input.attackEvent.provenance.mainProjectile = false;
+
+    SECTION("初始回程")
+    {
+        const auto result = resolveHit(input);
+        const auto* damage = firstHpDamageCommand(result);
+        REQUIRE(damage);
+        CHECK(BattleLogTest::joinSegments(damage->segments) == "彈道反射");
+    }
+
+    SECTION("回程彈射後代保留兩種來源資訊")
+    {
+        input.attackEvent.provenance.origin = BattleAttackOriginKind::Bounce;
+        input.attackEvent.provenance.sharedHitGroupId = 9;
+
+        const auto result = resolveHit(input);
+        const auto* damage = firstHpDamageCommand(result);
+        REQUIRE(damage);
+        CHECK(BattleLogTest::joinSegments(damage->segments)
+            == "彈道反射、連鎖彈");
+    }
+}
+
+TEST_CASE("BattleHitResolver preserves ordinary projectile variant reporting",
+          "[battle][hit_resolver][projectile_reflection][report]")
+{
+    auto input = hitInput();
+    input.attackEvent.provenance.rootAttack = false;
+    input.attackEvent.provenance.mainProjectile = false;
+    input.attackEvent.provenance.origin = BattleAttackOriginKind::Bounce;
+
+    SECTION("普通彈射後代沿用既有追蹤彈標籤")
+    {
+        input.attackEvent.track = true;
+
+        const auto result = resolveHit(input);
+        const auto* damage = firstHpDamageCommand(result);
+        REQUIRE(damage);
+        CHECK(BattleLogTest::joinSegments(damage->segments) == "追蹤彈");
+    }
+
+    SECTION("普通共享命中群組沿用既有連鎖彈標籤")
+    {
+        input.attackEvent.provenance.sharedHitGroupId = 9;
+
+        const auto result = resolveHit(input);
+        const auto* damage = firstHpDamageCommand(result);
+        REQUIRE(damage);
+        CHECK(BattleLogTest::joinSegments(damage->segments) == "連鎖彈");
+    }
+}
+
+TEST_CASE("BattleHitResolver builds payload-dependent projectile reflection requests",
+          "[battle][hit_resolver][projectile_reflection][policy]")
+{
+    auto input = hitInput();
+
+    SECTION("戰鬥彈道攜帶命中時凍結的威力")
+    {
+        const auto request = makeBattleProjectileReflectionRequest(input);
+        REQUIRE(request.potency);
+        CHECK(*request.potency == BattleAttackPotencySnapshot{ 100, 50 });
+    }
+
+    SECTION("腳本彈道不要求戰鬥威力")
+    {
+        input.attackEvent.payloadClass =
+            BattleProjectilePayloadClass::scriptedControl();
+        input.attackEvent.scriptedStunFrames = 7;
+        input.skill.potency.reset();
+
+        const auto request = makeBattleProjectileReflectionRequest(input);
+        CHECK_FALSE(request.potency);
+    }
+}
+
 TEST_CASE("BattleHitResolver reflects ranged projectiles through typed attributes", "[battle][hit_resolver][typed-attribute]")
 {
     auto input = hitInput();
     input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.attackEvent.delivery = BattleAttackDelivery::projectile();
     input.defenderProjectileReflectChancePct = 100;
 
     const auto result = resolveHit(input);
 
-    CHECK(result.reflected);
+    REQUIRE(result.reflection);
+    CHECK(result.reflection->incomingAttackId == 0);
+    CHECK(result.reflection->reflectorUnitId == 2);
+    CHECK(result.reflection->originalAttackerUnitId == 1);
+    REQUIRE(result.reflection->potency);
+    CHECK(*result.reflection->potency == BattleAttackPotencySnapshot{ 100, 50 });
     const auto* damage = firstHpDamageCommand(result);
     REQUIRE(damage);
-    CHECK(damage->sourceUnitId == 2);
-    CHECK(damage->targetUnitId == 1);
-    CHECK(damage->damageKind == KysChess::BattleDamageKind::Reflected);
+    CHECK(damage->sourceUnitId == 1);
+    CHECK(damage->targetUnitId == 2);
+    CHECK(damage->damageKind == KysChess::BattleDamageKind::Physical);
+    CHECK(damage->provenance.attackId == input.attackEvent.provenance.attackId);
+    CHECK(damage->provenance.cast.castId == input.attackEvent.provenance.cast.castId);
 }
 
 TEST_CASE("BattleHitResolver emits typed skill-reflect damage without defence side effects", "[battle][hit_resolver][typed-attribute]")
@@ -284,6 +384,37 @@ TEST_CASE("BattleHitResolver emits typed skill-reflect damage without defence si
     const auto& damage = std::get<BattleHpDamageCommand>(*reflected);
     CHECK(damage.damage == 10);
     CHECK_FALSE(damage.triggersDefenseEffects);
+}
+
+TEST_CASE("BattleHitResolver commits projectile and skill reflection independently",
+          "[battle][hit_resolver][typed-attribute][projectile_reflection]")
+{
+    auto input = hitInput();
+    input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.attackEvent.delivery = BattleAttackDelivery::projectile();
+    input.defenderProjectileReflectChancePct = 100;
+    input.defenderSkillReflectPercent = 20;
+
+    const auto result = resolveHit(input);
+
+    REQUIRE(result.reflection);
+    const auto normalHit = std::ranges::find_if(
+        result.commands,
+        [](const BattleGameplayCommand& command)
+        {
+            const auto* damage = std::get_if<BattleHpDamageCommand>(&command);
+            return damage && damage->sourceUnitId == 1 && damage->targetUnitId == 2;
+        });
+    REQUIRE(normalHit != result.commands.end());
+    const auto skillReflection = std::ranges::find_if(
+        result.commands,
+        [](const BattleGameplayCommand& command)
+        {
+            const auto* damage = std::get_if<BattleHpDamageCommand>(&command);
+            return damage && damage->sourceUnitId == 2 && damage->targetUnitId == 1;
+        });
+    REQUIRE(skillReflection != result.commands.end());
+    CHECK(std::get<BattleHpDamageCommand>(*skillReflection).damage == 10);
 }
 
 TEST_CASE("BattleHitResolver emits typed nearby tracking follow-up and activation", "[battle][hit_resolver][typed-effect]")
@@ -480,6 +611,10 @@ TEST_CASE("BattleHitResolver keeps scripted status and damage payloads", "[battl
     input.attackEvent.scriptedDamageTriggersDefenseEffects = true;
     input.attackEvent.scriptedStunFrames = 7;
     input.attackEvent.scriptedBleedStacks = 2;
+    input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.attackEvent.delivery = BattleAttackDelivery::projectile();
+    input.attackEvent.payloadClass = BattleProjectilePayloadClass::scriptedControl();
+    input.defenderProjectileReflectChancePct = 100;
     input.sharedBleedMaxStacks = 5;
 
     const auto result = resolveHit(input);
@@ -495,4 +630,71 @@ TEST_CASE("BattleHitResolver keeps scripted status and damage payloads", "[battl
     CHECK_FALSE(damage->preResolvedDamage);
     CHECK(damage->triggersDefenseEffects);
     CHECK(result.finalHpDamage == 24);
+    CHECK_FALSE(result.reflection);
 }
+
+TEST_CASE("BattleProjectileReflectionPolicy preserves P01 through P15 eligibility", "[battle][projectile_reflection][policy]")
+{
+    struct PolicyCase
+    {
+        const char* id;
+        BattleAttackDelivery delivery;
+        BattleProjectilePayloadClass payloadClass;
+        BattleOperationType operationType;
+        BattleAttackCastSubrequestKind subrequestKind;
+        BattleAttackOriginKind origin;
+        BattleAttackReflectionLineageKind lineage;
+        bool allowed;
+    };
+
+    const std::array cases{
+        PolicyCase{ "P01", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::RangedProjectile, BattleAttackCastSubrequestKind::SkillHit, BattleAttackOriginKind::Initial, BattleAttackReflectionLineageKind::Ordinary, true },
+        PolicyCase{ "P02", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::TrackingProjectile, BattleAttackCastSubrequestKind::SkillHit, BattleAttackOriginKind::Initial, BattleAttackReflectionLineageKind::Ordinary, true },
+        PolicyCase{ "P03", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::RangedProjectile, BattleAttackCastSubrequestKind::SkillHit, BattleAttackOriginKind::CastDerived, BattleAttackReflectionLineageKind::Ordinary, true },
+        PolicyCase{ "P04", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::RangedProjectile, BattleAttackCastSubrequestKind::ExtraProjectile, BattleAttackOriginKind::CastDerived, BattleAttackReflectionLineageKind::Ordinary, true },
+        PolicyCase{ "P05", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::TrackingProjectile, BattleAttackCastSubrequestKind::ExtraProjectile, BattleAttackOriginKind::CastDerived, BattleAttackReflectionLineageKind::Ordinary, true },
+        PolicyCase{ "P06", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::RangedProjectile, BattleAttackCastSubrequestKind::ExtraProjectile, BattleAttackOriginKind::FollowUp, BattleAttackReflectionLineageKind::Ordinary, true },
+        PolicyCase{ "P07", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::RangedProjectile, BattleAttackCastSubrequestKind::SkillHit, BattleAttackOriginKind::Bounce, BattleAttackReflectionLineageKind::Ordinary, true },
+        PolicyCase{ "P08", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::RangedProjectile, BattleAttackCastSubrequestKind::ExtraProjectile, BattleAttackOriginKind::FollowUp, BattleAttackReflectionLineageKind::Ordinary, true },
+        PolicyCase{ "P09", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::TrackingProjectile, BattleAttackCastSubrequestKind::ExtraProjectile, BattleAttackOriginKind::Echo, BattleAttackReflectionLineageKind::Ordinary, true },
+        PolicyCase{ "P10", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::Melee, BattleAttackCastSubrequestKind::MeleeSplash, BattleAttackOriginKind::CastDerived, BattleAttackReflectionLineageKind::Ordinary, false },
+        PolicyCase{ "P11", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::combat(), BattleOperationType::Melee, BattleAttackCastSubrequestKind::ExtraProjectile, BattleAttackOriginKind::CastDerived, BattleAttackReflectionLineageKind::Ordinary, false },
+        PolicyCase{ "P12", BattleAttackDelivery::contact(), BattleProjectilePayloadClass::combat(), BattleOperationType::Melee, BattleAttackCastSubrequestKind::SkillHit, BattleAttackOriginKind::Initial, BattleAttackReflectionLineageKind::Ordinary, false },
+        PolicyCase{ "P13", BattleAttackDelivery::contact(), BattleProjectilePayloadClass::combat(), BattleOperationType::Dash, BattleAttackCastSubrequestKind::DashHit, BattleAttackOriginKind::Initial, BattleAttackReflectionLineageKind::Ordinary, false },
+        PolicyCase{ "P14", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::scriptedDamage(), BattleOperationType::RangedProjectile, BattleAttackCastSubrequestKind::ExtraProjectile, BattleAttackOriginKind::Scripted, BattleAttackReflectionLineageKind::Ordinary, false },
+        PolicyCase{ "P15", BattleAttackDelivery::projectile(), BattleProjectilePayloadClass::scriptedControl(), BattleOperationType::RangedProjectile, BattleAttackCastSubrequestKind::ExtraProjectile, BattleAttackOriginKind::Scripted, BattleAttackReflectionLineageKind::Ordinary, false },
+    };
+
+    const BattleProjectileReflectionPolicy policy;
+    for (const auto& test : cases)
+    {
+        CAPTURE(test.id);
+        CHECK(policy.allows({
+            test.delivery,
+            test.payloadClass,
+            test.operationType,
+            test.subrequestKind,
+            test.origin,
+            test.lineage,
+        }) == test.allowed);
+    }
+}
+
+TEST_CASE("BattleProjectileReflectionPolicy rejects the full reflected-return lineage", "[battle][projectile_reflection][policy]")
+{
+    const BattleProjectileReflectionPolicy policy;
+    CHECK_FALSE(policy.allows({
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleOperationType::RangedProjectile,
+        BattleAttackCastSubrequestKind::SkillHit,
+        BattleAttackOriginKind::Bounce,
+        BattleAttackReflectionLineageKind::ReflectedReturn,
+    }));
+}
+
+static_assert(!std::is_default_constructible_v<BattleAttackDelivery>);
+static_assert(!std::is_default_constructible_v<BattleProjectilePayloadClass>);
+static_assert(!std::is_default_constructible_v<BattleProjectileReflectionDescriptor>);
+static_assert(!std::is_default_constructible_v<BattleAttackPayload>);
+static_assert(!std::is_default_constructible_v<BattleAttackSpawnRequest>);

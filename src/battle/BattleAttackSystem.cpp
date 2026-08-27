@@ -15,13 +15,6 @@ namespace KysChess::Battle
 
 namespace
 {
-struct PendingBounce
-{
-    BattleAttackInstance attack;
-    int sourceAttackId = -1;
-    int targetUnitId = -1;
-};
-
 struct ProjectileCancelCandidate
 {
     BattleAttackEvent event;
@@ -58,6 +51,9 @@ bool segmentBoundsCanOverlap(
 
 void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& state)
 {
+    event.delivery = state.delivery;
+    event.payloadClass = state.payloadClass;
+    event.reflectionLineage = state.reflectionLineage;
     event.preferredTargetUnitId = state.preferredTargetUnitId;
     event.sourceUnitId = state.attackSourceUnitId;
     event.skillId = state.skillId;
@@ -83,6 +79,7 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackPayload& sta
     event.castSubrequestKind = state.castSubrequestKind;
     event.roleAttackEchoActType = state.roleAttackEchoActType;
     event.damageKind = state.damageKind;
+    event.potencySnapshot = state.potencySnapshot;
     event.position = state.position;
     event.velocity = state.velocity;
     event.totalFrame = state.totalFrame;
@@ -281,9 +278,8 @@ BattleAttackEvent BattleAttackState::spawn(
     assert(request.castWork.valid());
     assert(request.castWork.castId == request.provenance.cast.castId);
 
-    BattleAttackInstance attack;
+    BattleAttackInstance attack(std::move(request.initial));
     attack.id = allocateAttackId();
-    attack.state = std::move(request.initial);
     attack.castWork = std::exchange(request.castWork, {});
     attack.provenance = completeAttackProvenance(
         request.provenance,
@@ -339,9 +335,6 @@ void BattleAttackState::tick(
     assert(defaultProjectileSpeed > 0.0);
     assert(minimumBounceTotalFrame > 0);
 
-    auto* memoryResource = events.get_allocator().resource();
-    std::pmr::vector<PendingBounce> pendingBounces(memoryResource);
-
     const size_t initialAttackCount = attacks.size();
     for (size_t i = 0; i < initialAttackCount; ++i)
     {
@@ -355,6 +348,7 @@ void BattleAttackState::tick(
         assert(attack.provenance.valid());
         assert(attack.castWork.valid());
         assert(attack.provenance.attackId == battleAttackIdFromRuntimeId(attack.id));
+        assert(!attack.pendingContact);
 
         ++attack.frame;
         moveAttack(attack);
@@ -398,63 +392,10 @@ void BattleAttackState::tick(
             applyAttackInstance(hit, attack);
             hit.frame = attack.frame;
             events.push_back(std::move(hit));
-
-            const bool bounceAttack = attack.provenance.origin == BattleAttackOriginKind::Bounce;
-            if (bounceAttack && attack.state.bounceRemaining == 0)
-            {
-                attack.scheduledFinishReason = AttackFinishReason::ChainEnded;
-                events.push_back(makeAttackEvent(
-                    BattleAttackEventType::ChainEnded,
-                    attack,
-                    target->id));
-            }
-            else if (attack.state.bounceRemaining > 0)
-            {
-                auto bounceSource = attack;
-                const auto* nextTarget = attack.state.bounceChancePct > 0
-                    && attack.state.bounceRollPct < attack.state.bounceChancePct
-                    ? selectBounceTarget(units, attack, *target)
-                    : nullptr;
-                attack.state.bounceRemaining = 0;
-                attack.noHurt = true;
-                attack.frame = std::max(attack.state.totalFrame - 15, attack.frame);
-                if (nextTarget)
-                {
-                    const int bounceAttackId = allocateAttackId();
-                    pendingBounces.push_back({
-                        makeBounceAttack(
-                            bounceSource,
-                            *target,
-                            *nextTarget,
-                            bounceAttackId,
-                            castLifecycle),
-                        attack.id,
-                        nextTarget->id,
-                    });
-                    attack.scheduledFinishReason = AttackFinishReason::SpentOnHit;
-                }
-                else
-                {
-                    attack.scheduledFinishReason = AttackFinishReason::NoBounceTarget;
-                    events.push_back(makeAttackEvent(
-                        BattleAttackEventType::ChainNoTargetInRange,
-                        attack,
-                        target->id));
-                }
-            }
-
-            if (spendNonThroughOnHit && !attack.state.through)
-            {
-                attack.noHurt = true;
-                attack.frame = std::max(attack.state.totalFrame - 15, attack.frame);
-                if (!attack.scheduledFinishReason)
-                {
-                    attack.scheduledFinishReason = AttackFinishReason::SpentOnHit;
-                }
-            }
+            attack.pendingContact = BattlePendingAttackContact{ target->id };
         }
 
-        if (attack.frame >= attack.state.totalFrame)
+        if (attack.frame >= attack.state.totalFrame && !attack.pendingContact)
         {
             if (!attack.scheduledFinishReason)
             {
@@ -464,22 +405,126 @@ void BattleAttackState::tick(
         }
     }
 
-    for (auto& pending : pendingBounces)
+}
+
+BattleHitSettlementResult BattleAttackState::settleHit(
+    const BattleHitSettlement& settlement,
+    const BattleRuntimeUnits& units,
+    BattleCastLifecycle& castLifecycle)
+{
+    assert(settlement.attackId >= 0);
+    assert(settlement.targetUnitId >= 0);
+    auto& attack = requireById(attacks, settlement.attackId);
+    assert(attack.pendingContact);
+    assert(attack.pendingContact->targetUnitId == settlement.targetUnitId);
+    assert(!attack.finishReason);
+
+    BattleHitSettlementResult result;
+    std::optional<BattleAttackInstance> spawnedBounce;
+    const auto& hitTarget = units.requireCore(settlement.targetUnitId);
+    if (settlement.continuation == BattleHitContinuation::Reflected)
     {
-        const int attackId = pending.attack.id;
-        attacks.push_back(std::move(pending.attack));
-        auto& spawned = attacks.back();
-        auto event = makeAttackEvent(
-            BattleAttackEventType::Bounce,
-            requireById(attacks, pending.sourceAttackId),
-            pending.targetUnitId);
-        event.otherAttackId = attackId;
-        assert(spawned.provenance.valid());
-        event.otherProvenance = spawned.provenance;
-        events.push_back(std::move(event));
+        assert(settlement.accepted);
+        BattleProjectilePropertiesSnapshot snapshot(attack.state);
+        snapshot.acceleration = attack.acceleration;
+        snapshot.spiralMotion = attack.spiralMotion;
+        snapshot.spiralCenter = attack.spiralCenter;
+        snapshot.spiralRadius = attack.spiralRadius;
+        snapshot.spiralRadiusGrowth = attack.spiralRadiusGrowth;
+        snapshot.spiralAngle = attack.spiralAngle;
+        snapshot.spiralAngularVelocity = attack.spiralAngularVelocity;
+        result.reflectedProjectile = std::move(snapshot);
+
+        attack.noHurt = true;
+        attack.frame = std::max(attack.state.totalFrame - 15, attack.frame);
+        attack.scheduledFinishReason = AttackFinishReason::ReflectedAtHit;
+    }
+    else
+    {
+        const bool bounceAttack = attack.provenance.origin == BattleAttackOriginKind::Bounce;
+        if (bounceAttack && attack.state.bounceRemaining == 0)
+        {
+            if (!attack.scheduledFinishReason)
+            {
+                attack.scheduledFinishReason = AttackFinishReason::ChainEnded;
+            }
+            result.events.push_back(makeAttackEvent(
+                BattleAttackEventType::ChainEnded,
+                attack,
+                hitTarget.id));
+        }
+        else if (attack.state.bounceRemaining > 0)
+        {
+            auto bounceSource = attack;
+            const auto* nextTarget = attack.state.bounceChancePct > 0
+                && attack.state.bounceRollPct < attack.state.bounceChancePct
+                ? selectBounceTarget(units, attack, hitTarget)
+                : nullptr;
+            attack.state.bounceRemaining = 0;
+            attack.noHurt = true;
+            attack.frame = std::max(attack.state.totalFrame - 15, attack.frame);
+            if (nextTarget)
+            {
+                const int bounceAttackId = allocateAttackId();
+                auto bounce = makeBounceAttack(
+                    bounceSource,
+                    hitTarget,
+                    *nextTarget,
+                    bounceAttackId,
+                    castLifecycle);
+                auto event = makeAttackEvent(
+                    BattleAttackEventType::Bounce,
+                    attack,
+                    nextTarget->id);
+                event.otherAttackId = bounceAttackId;
+                event.otherProvenance = bounce.provenance;
+                result.events.push_back(std::move(event));
+                if (!attack.scheduledFinishReason)
+                {
+                    attack.scheduledFinishReason = AttackFinishReason::SpentOnHit;
+                }
+                spawnedBounce = std::move(bounce);
+            }
+            else
+            {
+                if (!attack.scheduledFinishReason)
+                {
+                    attack.scheduledFinishReason = AttackFinishReason::NoBounceTarget;
+                }
+                result.events.push_back(makeAttackEvent(
+                    BattleAttackEventType::ChainNoTargetInRange,
+                    attack,
+                    hitTarget.id));
+            }
+        }
+
+        if (spendNonThroughOnHit && !attack.state.through)
+        {
+            attack.noHurt = true;
+            attack.frame = std::max(attack.state.totalFrame - 15, attack.frame);
+            if (!attack.scheduledFinishReason)
+            {
+                attack.scheduledFinishReason = AttackFinishReason::SpentOnHit;
+            }
+        }
     }
 
-    collectProjectileCancelEvents(units, events);
+    attack.pendingContact.reset();
+    if (attack.frame >= attack.state.totalFrame)
+    {
+        if (!attack.scheduledFinishReason)
+        {
+            attack.scheduledFinishReason = AttackFinishReason::Expired;
+        }
+        result.events.push_back(makeAttackEvent(
+            BattleAttackEventType::Expired,
+            attack));
+    }
+    if (spawnedBounce)
+    {
+        attacks.push_back(std::move(*spawnedBounce));
+    }
+    return result;
 }
 
 void BattleAttackState::applyProjectileCancelDamage(const BattleAttackEvent& event)
@@ -519,10 +564,9 @@ void BattleAttackState::suppressContacts(int attackId)
     assert(attackId >= 0);
     requireById(attacks, attackId).contactsSuppressed = true;
 
-    // Bounce attacks can already have been created by tick() before Core
-    // accepts or suppresses the contact that produced them. Propagate across
-    // the live chain here; makeBounceAttack() carries the state to any later
-    // descendants.
+    // Existing continuation descendants must inherit suppression even when
+    // the originating attack is suppressed after an earlier settlement.
+    // makeBounceAttack() carries the state to any later descendants.
     bool changed;
     do
     {
@@ -904,6 +948,7 @@ BattleAttackInstance BattleAttackState::makeBounceAttack(
     bounce.castWork = {};
     bounce.scheduledFinishReason.reset();
     bounce.finishReason.reset();
+    bounce.pendingContact.reset();
     assert(source.provenance.valid());
     assert(source.castWork.valid());
     BattleAttackReservationRequest request;
@@ -987,10 +1032,17 @@ void BattleAttackState::finishAttack(
     attack.castWork = {};
 }
 
-void BattleAttackState::collectProjectileCancelEvents(
+void BattleAttackState::appendProjectileCancelEvents(
     const BattleRuntimeUnits& units,
     std::pmr::vector<BattleAttackEvent>& events) const
 {
+    assert(std::ranges::none_of(
+        attacks,
+        [](const BattleAttackInstance& attack)
+        {
+            return attack.pendingContact.has_value();
+        }));
+
     auto* memoryResource = events.get_allocator().resource();
     std::pmr::vector<ProjectileCancelSearchCandidate> searchCandidates(memoryResource);
     searchCandidates.reserve(attacks.size());

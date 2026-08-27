@@ -92,6 +92,21 @@ struct BattleMagicBaseDamageInput
     int randomVariance = 0;
 };
 
+struct BattleAttackPotencySnapshot
+{
+    int effectiveAttack;
+    int magicPower;
+
+    BattleAttackPotencySnapshot() = delete;
+    BattleAttackPotencySnapshot(int effectiveAttack, int magicPower)
+        : effectiveAttack(effectiveAttack)
+        , magicPower(magicPower)
+    {
+    }
+
+    bool operator==(const BattleAttackPotencySnapshot&) const = default;
+};
+
 struct BattleHitShapeInput
 {
     BattleFixed baseDamage;
@@ -141,7 +156,6 @@ struct BattleDamageDefenseInput
 {
     int damage = 0;
     bool executed = false;
-    bool reflected = false;
     bool defenderWasInvincible = false;
     BattleDamageUnitState defender;
     bool blockByStatusLayer = false;
@@ -290,7 +304,6 @@ struct BattleDamageRequest
     BattlePreResolvedModifierPolicy preResolvedModifierPolicy{};
     bool usingSkill = false;
     bool ignoreDefense = false;
-    bool reflected = false;
     bool canExecute = false;
     int executeThresholdPct = 0;
 
@@ -378,6 +391,13 @@ public:
     BattleOnHitResourceResult applyOnHitResources(const BattleOnHitResourceInput& input) const;
     BattleStatusApplyResult applyBleed(BattleStatusUnitState target, int sourceUnitId, int stacks, int maxStacks) const;
     int resolveMagicBaseDamage(const BattleMagicBaseDamageInput& input) const;
+    BattleAttackPotencySnapshot snapshotAttackPotency(
+        int effectiveAttack,
+        int magicPower) const;
+    int resolveAttackPotencyAgainstDefender(
+        const BattleAttackPotencySnapshot& potency,
+        BattleFixed defenderDefense,
+        int randomVariance) const;
     BattleHitShapeResult shapeHitDamage(const BattleHitShapeInput& input) const;
     BattleDamageRequest makeScriptedHitRequest(const BattleScriptedHitRequestInput& input) const;
 };

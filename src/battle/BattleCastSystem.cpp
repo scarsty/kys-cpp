@@ -342,6 +342,20 @@ double spawnOffsetForOperation(const BattleCastGeometry& geometry, BattleOperati
     return geometry.meleeAttackEffectOffset;
 }
 
+BattleAttackDelivery deliveryForCastAttack(
+    BattleOperationType operationType,
+    BattleAttackCastSubrequestKind kind)
+{
+    if (kind == BattleAttackCastSubrequestKind::MeleeSplash
+        || kind == BattleAttackCastSubrequestKind::ExtraProjectile
+        || operationType == BattleOperationType::RangedProjectile
+        || operationType == BattleOperationType::TrackingProjectile)
+    {
+        return BattleAttackDelivery::projectile();
+    }
+    return BattleAttackDelivery::contact();
+}
+
 BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
                                          const BattleCastInput& input,
                                          const BattleCastSkillState& selectedSkill,
@@ -350,7 +364,10 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
 {
     auto facing = castFacing(input);
 
-    BattleAttackSpawnRequest request;
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        deliveryForCastAttack(operationType, kind),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     request.initial.attackSourceUnitId = input.unit.id;
     request.initial.skillId = selectedSkill.id;
     request.initial.skillName = selectedSkill.name;
@@ -451,6 +468,7 @@ void appendExtraProjectiles(std::vector<BattleAttackSpawnRequest>& requests,
     for (int i = 0; i < selectedSkill.extraProjectileCount; ++i)
     {
         auto extra = prototype;
+        extra.initial.delivery = BattleAttackDelivery::projectile();
         extra.initial.castSubrequestKind = BattleAttackCastSubrequestKind::ExtraProjectile;
         extra.provenance.mainProjectile = false;
         assignProjectileTargetOrSpread(

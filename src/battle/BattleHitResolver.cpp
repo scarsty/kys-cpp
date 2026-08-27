@@ -2,6 +2,7 @@
 
 #include "BattleLogSegments.h"
 #include "BattleMath.h"
+#include "BattleProjectileReflectionPolicy.h"
 #include "BattleRuntimeRandom.h"
 #include "BattleRuntimeUnits.h"
 
@@ -94,7 +95,10 @@ BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
     const double projectileSpeed = command.projectileSpeed > 0.0
         ? command.projectileSpeed
         : context.projectileSpeed;
-    BattleAttackSpawnRequest request;
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     request.initial.attackSourceUnitId = command.prototype.sourceUnitId;
     request.initial.skillId = command.prototype.skillId;
     request.initial.skillName = command.prototype.skillName;
@@ -153,7 +157,13 @@ BattleAttackSpawnRequest makeAreaFollowUpSpawn(
     auto spawnOffset = direction;
     spawnOffset.normTo(static_cast<float>(context.areaSpawnDistance));
 
-    BattleAttackSpawnRequest request;
+    const auto payloadClass = followUp.stunFrames > 0
+        ? BattleProjectilePayloadClass::scriptedControl()
+        : BattleProjectilePayloadClass::scriptedDamage();
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        payloadClass,
+        BattleAttackReflectionLineageKind::Ordinary) };
     request.initial.attackSourceUnitId = followUp.sourceUnitId;
     request.initial.preferredTargetUnitId = targetUnitId;
     request.initial.scriptedDamage = followUp.damage;
@@ -210,7 +220,7 @@ std::string appendDetail(std::string detail, const std::string& text)
     return text;
 }
 
-std::string projectileSourceLabel(const BattleAttackEvent& event)
+std::string projectileVariantLabel(const BattleAttackEvent& event)
 {
     if (event.castSubrequestKind == BattleAttackCastSubrequestKind::DualWieldFollowUp)
     {
@@ -230,6 +240,12 @@ std::string projectileSourceLabel(const BattleAttackEvent& event)
     {
         return "絕招追加彈";
     }
+    if (event.reflectionLineage
+            == BattleAttackReflectionLineageKind::ReflectedReturn
+        && event.provenance.origin == BattleAttackOriginKind::Bounce)
+    {
+        return "連鎖彈";
+    }
     if ((event.track || event.operationType == BattleOperationType::TrackingProjectile)
         && !event.provenance.mainProjectile)
     {
@@ -241,6 +257,17 @@ std::string projectileSourceLabel(const BattleAttackEvent& event)
         return "連鎖彈";
     }
     return "";
+}
+
+std::string projectileSourceLabel(const BattleAttackEvent& event)
+{
+    const auto variant = projectileVariantLabel(event);
+    if (event.reflectionLineage
+        == BattleAttackReflectionLineageKind::ReflectedReturn)
+    {
+        return appendDetail("彈道反射", variant);
+    }
+    return variant;
 }
 
 bool passesPercentChance(BattleRuntimeRandom& random, int chancePct)
@@ -514,6 +541,27 @@ Pointf knockbackDirection(const BattleHitUnitSnapshot& attacker, const BattleHit
 
 }  // namespace
 
+BattleProjectileReflectionRequest makeBattleProjectileReflectionRequest(
+    const BattleHitResolutionInput& input)
+{
+    assert(input.attackEvent.payloadClass);
+    std::optional<BattleAttackPotencySnapshot> potency;
+    if (input.attackEvent.payloadClass->kind()
+        == BattleProjectilePayloadKind::Combat)
+    {
+        assert(input.skill.potency);
+        potency = input.skill.potency;
+    }
+
+    return {
+        input.attackEvent.attackId,
+        input.defender.id,
+        input.attacker.id,
+        input.attackEvent.position,
+        potency,
+    };
+}
+
 BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
     std::span<const BattleGameplayCommand> commands,
     BattleProjectileFollowUpContext& context,
@@ -616,6 +664,40 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         return result;
     }
     assert(input.attackEvent.provenance.valid());
+    assert(input.attackEvent.delivery);
+    assert(input.attackEvent.payloadClass);
+    assert(input.attackEvent.reflectionLineage);
+    assert(scriptedInput
+        == (input.attackEvent.payloadClass->kind()
+            != BattleProjectilePayloadKind::Combat));
+
+    const BattleProjectileReflectionDescriptor reflectionDescriptor(
+        *input.attackEvent.delivery,
+        *input.attackEvent.payloadClass,
+        input.attackEvent.operationType,
+        input.attackEvent.castSubrequestKind,
+        input.attackEvent.provenance.origin,
+        *input.attackEvent.reflectionLineage);
+    const bool reflectableProjectile = BattleProjectileReflectionPolicy().allows(
+        reflectionDescriptor);
+    const auto tryCommitProjectileReflection = [&]
+    {
+        if (!reflectableProjectile
+            || !passesPercentChance(random, input.defenderProjectileReflectChancePct))
+        {
+            return;
+        }
+        result.reflection = makeBattleProjectileReflectionRequest(input);
+        result.visualEvents.push_back(floatingTextEvent(
+            input.defender.id,
+            "彈反",
+            { 180, 150, 255, 255 },
+            24));
+        result.logEvents.push_back(sourceStatusEvent(
+            input.defender.id,
+            input.attacker.id,
+            "彈反了遠程攻擊"));
+    };
 
     const bool scriptedImpact = scriptedInput;
     if (scriptedImpact)
@@ -665,6 +747,7 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             result.commands.push_back(std::move(command));
             result.finalHpDamage = input.attackEvent.scriptedDamage;
         }
+        tryCommitProjectileReflection();
         return result;
     }
 
@@ -781,9 +864,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     }
 
-    const bool reflectableProjectile =
-        input.attackEvent.operationType == BattleOperationType::RangedProjectile
-        || input.attackEvent.operationType == BattleOperationType::TrackingProjectile;
     const bool usingHpDamage = input.skill.hurtType == 0;
 
     shapedDamage = applyIncomingBaseModifiers(
@@ -838,22 +918,12 @@ BattleHitResolutionResult BattleHitResolver::resolve(
 
     }
 
-    result.reflected = reflectableProjectile
-        && passesPercentChance(random, input.defenderProjectileReflectChancePct);
-    if (result.reflected)
-    {
-        result.visualEvents.push_back(floatingTextEvent(
-            input.defender.id,
-            "彈反",
-            { 180, 150, 255, 255 },
-            24));
-        result.logEvents.push_back(sourceStatusEvent(input.defender.id, input.attacker.id, "彈反了遠程攻擊"));
-    }
+    tryCommitProjectileReflection();
 
-    const int typedExecuteThresholdPct = !result.reflected && usingHpDamage
+    const int typedExecuteThresholdPct = usingHpDamage
         ? executeThresholdPct(input.damageModifiers.outgoingFinal)
         : 0;
-    const bool canTriggerDefenderBlock = !result.reflected;
+    const bool canTriggerDefenderBlock = true;
 
     std::string damageDetail;
     if (result.critical)
@@ -862,17 +932,13 @@ BattleHitResolutionResult BattleHitResolver::resolve(
             std::move(damageDetail),
             std::format("暴擊 {}", criticalMultiplierLabel(result.criticalMultiplier)));
     }
-    if (result.reflected)
-    {
-        damageDetail = appendDetail(std::move(damageDetail), "彈反");
-    }
     if (auto label = projectileSourceLabel(input.attackEvent); !label.empty())
     {
         damageDetail = appendDetail(std::move(damageDetail), label);
     }
 
     const int skillReflectPct = input.defenderSkillReflectPercent;
-    if (!result.reflected && usingSkill && skillReflectPct > 0)
+    if (usingSkill && skillReflectPct > 0)
     {
         int reflectedDamage = shapedDamage.scaled(skillReflectPct, 100).toInt();
         if (reflectedDamage > 0)
@@ -889,30 +955,27 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         }
     }
 
-    if (!result.reflected)
+    if (!input.attackEvent.suppressNearbyTrackingProjectileProc)
     {
-        if (!input.attackEvent.suppressNearbyTrackingProjectileProc)
+        const double attackerProjectileSpeed = pointMagnitude(input.attackEvent.velocity) > 0.01
+            ? pointMagnitude(input.attackEvent.velocity)
+            : 0.0;
+        for (const auto& proc : input.nearbyTrackingProcs)
         {
-            const double attackerProjectileSpeed = pointMagnitude(input.attackEvent.velocity) > 0.01
-                ? pointMagnitude(input.attackEvent.velocity)
-                : 0.0;
-            for (const auto& proc : input.nearbyTrackingProcs)
+            if (!random.chance(proc.chancePct))
             {
-                if (!random.chance(proc.chancePct))
-                {
-                    continue;
-                }
-                assert(proc.behavior.rangePixels > 0);
-                assert(proc.behavior.damagePct > 0);
-                result.commands.push_back(BattleNearbyTrackingProjectilesCommand{
-                    input.attackEvent,
-                    input.defender.id,
-                    proc.behavior.rangePixels,
-                    proc.behavior.damagePct,
-                    attackerProjectileSpeed,
-                });
-                result.activatedRuntimeRules.push_back(proc.rule);
+                continue;
             }
+            assert(proc.behavior.rangePixels > 0);
+            assert(proc.behavior.damagePct > 0);
+            result.commands.push_back(BattleNearbyTrackingProjectilesCommand{
+                input.attackEvent,
+                input.defender.id,
+                proc.behavior.rangePixels,
+                proc.behavior.damagePct,
+                attackerProjectileSpeed,
+            });
+            result.activatedRuntimeRules.push_back(proc.rule);
         }
     }
 
@@ -921,34 +984,26 @@ BattleHitResolutionResult BattleHitResolver::resolve(
         const int damage = shapedDamage.toInt();
         if (damage > 0)
         {
-            const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
-            const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;
             BattleHpDamageCommand command{
-                .sourceUnitId = sourceUnitId,
-                .targetUnitId = targetUnitId,
+                .sourceUnitId = input.attacker.id,
+                .targetUnitId = input.defender.id,
                 .damage = damage,
                 .critical = result.critical,
                 .executeThresholdPct = typedExecuteThresholdPct,
                 .canTriggerDefenderBlock = canTriggerDefenderBlock,
-                .frozenFrames = !result.reflected ? impactFrozenFrames : 0,
+                .frozenFrames = impactFrozenFrames,
                 .skillName = input.skill.name,
                 .segments = battleLogText(
                     damageDetail,
                     BattleLogTextTone::SkillName),
-                .triggersDefenseEffects = !result.reflected,
+                .triggersDefenseEffects = true,
             };
             command.criticalMultiplier = result.criticalMultiplier;
             command.skillId = input.skill.id;
-            command.damageKind = result.reflected
-                ? BattleDamageKind::Reflected
-                : input.attackEvent.damageKind;
-            command.combinedDamageReductionBasisPoints = result.reflected
-                ? 0
-                : 10'000 - remainingDamageBasisPoints;
-            if (!result.reflected)
-            {
-                command.provenance = input.attackEvent.provenance;
-            }
+            command.damageKind = input.attackEvent.damageKind;
+            command.combinedDamageReductionBasisPoints =
+                10'000 - remainingDamageBasisPoints;
+            command.provenance = input.attackEvent.provenance;
             result.commands.push_back(std::move(command));
             result.finalHpDamage = damage;
         }
@@ -964,12 +1019,10 @@ BattleHitResolutionResult BattleHitResolver::resolve(
                     == BattleAttackOriginKind::Echo
                 ? 0
                 : damage * 80 / 100;
-            request.hitstunFrames = !result.reflected ? impactFrozenFrames : 0;
-            const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
-            const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;
+            request.hitstunFrames = impactFrozenFrames;
             result.commands.push_back(BattleMpDamageCommand{
-                sourceUnitId,
-                targetUnitId,
+                input.attacker.id,
+                input.defender.id,
                 request,
                 canTriggerDefenderBlock,
                 input.attackEvent.provenance,

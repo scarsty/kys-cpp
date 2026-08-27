@@ -1264,6 +1264,90 @@ TEST_CASE("BattleCastLifecycle_ParentSettlesOnlyAfterChildSettledEvent", "[battl
     CHECK(lifecycle.trackedWorkCount() == 0);
 }
 
+TEST_CASE("BattleCastLifecycle_ReflectionChildOwnsCrossUnitAttackWithoutMergingAggregate",
+          "[battle][cast][lifecycle][projectile_reflection]")
+{
+    BattleCastLifecycle lifecycle;
+    const auto parent = lifecycle.beginRootCast({
+        .sourceUnitId = 1,
+        .magicId = 101,
+    });
+    const auto incoming = lifecycle.reserveAttack(parent.provenance.castId, {
+        .rootAttack = true,
+        .mainProjectile = true,
+    });
+    const BattleAttackId incomingAttackId{ 81 };
+    lifecycle.transferToLiveAttack(incoming.work, incomingAttackId);
+    const auto incomingProvenance = completeAttackProvenance(
+        incoming.provenance,
+        incomingAttackId);
+    lifecycle.completeWork(parent.commitBarrier);
+
+    const auto child = lifecycle.beginChildCast(parent.provenance.castId, {
+        .sourceUnitId = 2,
+        .magicId = -1,
+        .ultimate = false,
+        .origin = CastOriginKind::Reflection,
+        .propagation = CastPropagationPolicy::SourceHitRulesOnly,
+    });
+    const auto reflected = lifecycle.reserveAttack(child.provenance.castId, {
+        .parentAttackId = incomingAttackId,
+        .origin = BattleAttackOriginKind::Reflection,
+        .rootAttack = false,
+        .mainProjectile = false,
+        .propagation = CastPropagationPolicy::SourceHitRulesOnly,
+    });
+    const BattleAttackId reflectedAttackId{ 82 };
+    lifecycle.transferToLiveAttack(reflected.work, reflectedAttackId);
+    const auto reflectedProvenance = completeAttackProvenance(
+        reflected.provenance,
+        reflectedAttackId);
+    lifecycle.completeWork(child.commitBarrier);
+
+    CHECK(child.provenance.rootCastId == parent.provenance.rootCastId);
+    REQUIRE(child.provenance.parentCastId);
+    CHECK(*child.provenance.parentCastId == parent.provenance.castId);
+    CHECK(child.provenance.sourceUnitId == 2);
+    CHECK(child.provenance.magicId == -1);
+    CHECK(child.provenance.origin == CastOriginKind::Reflection);
+    CHECK(child.provenance.propagation == CastPropagationPolicy::SourceHitRulesOnly);
+    REQUIRE(reflectedProvenance.parentAttackId);
+    CHECK(*reflectedProvenance.parentAttackId == incomingAttackId);
+    CHECK(reflectedProvenance.origin == BattleAttackOriginKind::Reflection);
+    CHECK_FALSE(reflectedProvenance.mainProjectile);
+
+    lifecycle.recordHit(incomingProvenance, 2);
+    lifecycle.recordActualHpDamage(incomingProvenance, 2, 11);
+    lifecycle.recordHit(reflectedProvenance, 1);
+    lifecycle.recordActualHpDamage(reflectedProvenance, 1, 37);
+    lifecycle.completeWork(
+        incoming.work,
+        CastWorkResult::attackFinished(AttackFinishReason::ReflectedAtHit));
+    CHECK(lifecycle.outstandingWork(parent.provenance.castId) == 1);
+    CHECK(lifecycle.drainReadyEvents(20).empty());
+
+    lifecycle.completeWork(
+        reflected.work,
+        CastWorkResult::attackFinished(AttackFinishReason::SpentOnHit));
+    const auto childContinuation = lifecycle.drainReadyEvents(21);
+    REQUIRE(childContinuation.size() == 1);
+    CHECK(childContinuation.front().provenance.castId == child.provenance.castId);
+    CHECK(childContinuation.front().aggregate.totalActualHpDamage == 37);
+    CHECK(lifecycle.containsCast(parent.provenance.castId));
+
+    const auto childSettled = lifecycle.drainReadyEvents(22);
+    REQUIRE(childSettled.size() == 1);
+    CHECK(childSettled.front().provenance.castId == child.provenance.castId);
+    CHECK(childSettled.front().aggregate.totalActualHpDamage == 37);
+    CHECK(lifecycle.outstandingWork(parent.provenance.castId) == 0);
+
+    const auto parentContinuation = lifecycle.drainReadyEvents(23);
+    REQUIRE(parentContinuation.size() == 1);
+    CHECK(parentContinuation.front().provenance.castId == parent.provenance.castId);
+    CHECK(parentContinuation.front().aggregate.totalActualHpDamage == 11);
+    CHECK(parentContinuation.front().aggregate.distinctHitUnitIds == std::set<int>{ 2 });
+}
+
 TEST_CASE("BattleCastLifecycle_CancelledChildPlanReleasesParentWork", "[battle][cast][lifecycle]")
 {
     BattleCastLifecycle lifecycle;

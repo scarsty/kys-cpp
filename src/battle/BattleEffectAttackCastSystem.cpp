@@ -429,6 +429,8 @@ void applyAttackPayload(
         if (*typed.damageOverride > 0)
         {
             attack.request.initial.scriptedDamage = *typed.damageOverride;
+            attack.request.initial.payloadClass =
+                BattleProjectilePayloadClass::scriptedDamage();
         }
     }
     if (typed.damageOverride || action.damageKind)

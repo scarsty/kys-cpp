@@ -1,7 +1,9 @@
 #pragma once
 
 #include "../Point.h"
+#include "BattleAttackDelivery.h"
 #include "BattleCastLifecycle.h"
+#include "BattleDamageSystem.h"
 #include "BattleOperation.h"
 
 #include <memory_resource>
@@ -9,6 +11,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace KysChess::Battle
@@ -28,19 +31,11 @@ struct BattleAttackUnit
     Pointf position;
 };
 
-enum class BattleAttackCastSubrequestKind
-{
-    None,
-    SkillHit,
-    DashHit,
-    DashFollowUpSkill,
-    MeleeSplash,
-    ExtraProjectile,
-    DualWieldFollowUp,
-};
-
 struct BattleAttackPayload
 {
+    BattleAttackDelivery delivery;
+    BattleProjectilePayloadClass payloadClass;
+    BattleAttackReflectionLineageKind reflectionLineage;
     int attackSourceUnitId = -1;
     int skillId = -1;
     std::string skillName;
@@ -75,8 +70,25 @@ struct BattleAttackPayload
     int strengthPct = 100;
     bool suppressNearbyTrackingProjectileProc = false;
     BattleDamageKind damageKind = BattleDamageKind::Physical;
+    std::optional<BattleAttackPotencySnapshot> potencySnapshot;
     Pointf position;
     Pointf velocity;
+
+    BattleAttackPayload() = delete;
+    BattleAttackPayload(
+        BattleAttackDelivery delivery,
+        BattleProjectilePayloadClass payloadClass,
+        BattleAttackReflectionLineageKind reflectionLineage)
+        : delivery(delivery)
+        , payloadClass(payloadClass)
+        , reflectionLineage(reflectionLineage)
+    {
+    }
+};
+
+struct BattlePendingAttackContact
+{
+    int targetUnitId{};
 };
 
 struct BattleAttackInstance
@@ -100,6 +112,45 @@ struct BattleAttackInstance
     float spiralAngularVelocity = 0.0f;
     std::optional<AttackFinishReason> scheduledFinishReason;
     std::optional<AttackFinishReason> finishReason;
+    std::optional<BattlePendingAttackContact> pendingContact;
+
+    BattleAttackInstance() = delete;
+    explicit BattleAttackInstance(BattleAttackPayload state)
+        : state(std::move(state))
+    {
+    }
+};
+
+enum class BattleHitContinuation
+{
+    Normal,
+    Reflected,
+};
+
+struct BattleHitSettlement
+{
+    int attackId{};
+    int targetUnitId{};
+    bool accepted{};
+    BattleHitContinuation continuation{};
+};
+
+struct BattleProjectilePropertiesSnapshot
+{
+    BattleAttackPayload payload;
+    Pointf acceleration;
+    bool spiralMotion{};
+    Pointf spiralCenter;
+    float spiralRadius{};
+    float spiralRadiusGrowth{};
+    float spiralAngle{};
+    float spiralAngularVelocity{};
+
+    BattleProjectilePropertiesSnapshot() = delete;
+    explicit BattleProjectilePropertiesSnapshot(BattleAttackPayload payload)
+        : payload(std::move(payload))
+    {
+    }
 };
 
 struct BattleAttackSpawnRequest
@@ -117,6 +168,12 @@ struct BattleAttackSpawnRequest
     float spiralRadiusGrowth = 0.0f;
     float spiralAngle = 0.0f;
     float spiralAngularVelocity = 0.0f;
+
+    BattleAttackSpawnRequest() = delete;
+    explicit BattleAttackSpawnRequest(BattleAttackPayload initial)
+        : initial(std::move(initial))
+    {
+    }
 };
 
 struct BattleAttackBouncePrime
@@ -162,6 +219,10 @@ struct BattleAttackEvent
     int skillAttackerActProperty = 0;
     int skillMagicPower = 0;
     BattleOperationType operationType = BattleOperationType::None;
+    std::optional<BattleAttackDelivery> delivery;
+    std::optional<BattleProjectilePayloadClass> payloadClass;
+    std::optional<BattleAttackReflectionLineageKind> reflectionLineage;
+    std::optional<BattleAttackPotencySnapshot> potencySnapshot;
     int visualEffectId = -1;
     int scriptedDamage = 0;
     bool scriptedDamageAppliesModifiers = false;
@@ -184,6 +245,12 @@ struct BattleAttackEvent
     Pointf velocity;
     int frame = 0;
     int totalFrame = 0;
+};
+
+struct BattleHitSettlementResult
+{
+    std::optional<BattleProjectilePropertiesSnapshot> reflectedProjectile;
+    std::vector<BattleAttackEvent> events;
 };
 
 struct BattleAttackState
@@ -212,6 +279,13 @@ struct BattleAttackState
         const BattleRuntimeUnits& units,
         BattleCastLifecycle& castLifecycle,
         std::pmr::vector<BattleAttackEvent>& events);
+    BattleHitSettlementResult settleHit(
+        const BattleHitSettlement& settlement,
+        const BattleRuntimeUnits& units,
+        BattleCastLifecycle& castLifecycle);
+    void appendProjectileCancelEvents(
+        const BattleRuntimeUnits& units,
+        std::pmr::vector<BattleAttackEvent>& events) const;
     void applyProjectileCancelDamage(const BattleAttackEvent& event);
     bool contactsSuppressed(int attackId) const;
     void suppressContacts(int attackId);
@@ -262,9 +336,6 @@ private:
         BattleAttackInstance& attack,
         AttackFinishReason reason,
         BattleCastLifecycle& castLifecycle);
-    void collectProjectileCancelEvents(
-        const BattleRuntimeUnits& units,
-        std::pmr::vector<BattleAttackEvent>& events) const;
 };
 
 int scaleProjectileCancelDamage(int damage, BattleOperationType operationType);

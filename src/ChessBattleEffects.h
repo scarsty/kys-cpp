@@ -189,7 +189,6 @@ struct DamageKilledTargetCondition {};
 struct AcceptedHitCondition
 {
     bool requirePositiveDamage = false;
-    bool excludeReflected = false;
 };
 struct EventTargetBelongsToBoundSourceCondition {};
 enum class DamagePerspective
@@ -308,7 +307,6 @@ enum class DamageChannel
     Skill,
     Dot,
     Effect,
-    Reflected,
     All,
 };
 
@@ -504,7 +502,6 @@ enum class BattleDamageKind
     Poison,
     Bleed,
     Effect,
-    Reflected,
     Execute,
 };
 

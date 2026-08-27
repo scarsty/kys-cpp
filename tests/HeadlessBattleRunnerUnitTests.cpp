@@ -239,7 +239,10 @@ TEST_CASE("battle digest includes canonical queued attack lineage", "[battle][he
             .rootAttack = true,
             .propagation = CastPropagationPolicy::SourceHitRulesOnly,
         });
-    BattleAttackSpawnRequest sourceRequest;
+    BattleAttackSpawnRequest sourceRequest{ BattleAttackPayload(
+        BattleAttackDelivery::contact(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     sourceRequest.provenance = sourceAttack.provenance;
     sourceRequest.castWork = sourceAttack.work;
     sourceRules.finalRuntime.nextFrame.queueAttack(std::move(sourceRequest));
@@ -250,4 +253,28 @@ TEST_CASE("battle digest includes canonical queued attack lineage", "[battle][he
 
     CHECK(HeadlessBattleRunner::digest(sourceRules)
         != HeadlessBattleRunner::digest(suppressed));
+
+    auto projectileDelivery = sourceRules;
+    projectileDelivery.finalRuntime.nextFrame.mutableAttacksForReducer()[0]
+        .initial.delivery = BattleAttackDelivery::projectile();
+    CHECK(HeadlessBattleRunner::digest(sourceRules)
+        != HeadlessBattleRunner::digest(projectileDelivery));
+
+    auto scriptedPayload = sourceRules;
+    scriptedPayload.finalRuntime.nextFrame.mutableAttacksForReducer()[0]
+        .initial.payloadClass = BattleProjectilePayloadClass::scriptedDamage();
+    CHECK(HeadlessBattleRunner::digest(sourceRules)
+        != HeadlessBattleRunner::digest(scriptedPayload));
+
+    auto reflectedLineage = sourceRules;
+    reflectedLineage.finalRuntime.nextFrame.mutableAttacksForReducer()[0]
+        .initial.reflectionLineage = BattleAttackReflectionLineageKind::ReflectedReturn;
+    CHECK(HeadlessBattleRunner::digest(sourceRules)
+        != HeadlessBattleRunner::digest(reflectedLineage));
+
+    auto potencySnapshot = sourceRules;
+    potencySnapshot.finalRuntime.nextFrame.mutableAttacksForReducer()[0]
+        .initial.potencySnapshot = BattleAttackPotencySnapshot{ 50, 600 };
+    CHECK(HeadlessBattleRunner::digest(sourceRules)
+        != HeadlessBattleRunner::digest(potencySnapshot));
 }

@@ -659,7 +659,6 @@ bool matchesDamageKindLabel(BattleDamageKind kind, std::string_view label)
     case BattleDamageKind::Poison: return label == "中毒" || label == "持續" || label == "Poison";
     case BattleDamageKind::Bleed: return label == "流血" || label == "持續" || label == "Bleed";
     case BattleDamageKind::Effect: return label == "效果" || label == "Effect";
-    case BattleDamageKind::Reflected: return label == "反射" || label == "Reflected";
     case BattleDamageKind::Execute: return label == "處決" || label == "Execute";
     }
     return false;
@@ -803,8 +802,7 @@ bool conditionSatisfied(const EffectCondition& condition,
             {
                 return false;
             }
-            return !value.excludeReflected
-                || damage->damageKind != BattleDamageKind::Reflected;
+            return true;
         },
         [&](const EventTargetBelongsToBoundSourceCondition&)
         {
@@ -1030,6 +1028,11 @@ bool ruleAllowedByPropagation(const BoundEffectRule& bound,
     {
         return true;
     }
+    if (*policy == CastPropagationPolicy::SourceHitRulesOnly
+        && !isHitRuleEvent(context.event))
+    {
+        return false;
+    }
     if (isOwnerObservation(bound, context))
     {
         return true;
@@ -1043,7 +1046,7 @@ bool ruleAllowedByPropagation(const BoundEffectRule& bound,
     case CastPropagationPolicy::SourceRules:
         return true;
     case CastPropagationPolicy::SourceHitRulesOnly:
-        return isHitRuleEvent(context.event);
+        return true;
     case CastPropagationPolicy::SuppressUltimateRules:
         return bound.binding.kind != EffectSourceKind::Magic;
     case CastPropagationPolicy::BorrowedUltimateRules:
@@ -1066,6 +1069,12 @@ bool ruleMatchesMagicCast(const BoundEffectRule& bound,
     if (!cast)
     {
         return true;
+    }
+    if (cast->origin == CastOriginKind::Reflection)
+    {
+        // 反射 child cast 沒有武功身分；來襲武功只保留在 attack payload
+        // 作為呈現與威力 metadata，任何武功綁定規則都不可觀察此 synthetic cast。
+        return false;
     }
     if (bound.rule.observation != EffectObservationScope::Owner)
     {
@@ -1255,8 +1264,6 @@ DamageChannel currentDamageChannel(const EffectEventContext& context)
     case BattleDamageKind::Poison:
     case BattleDamageKind::Bleed:
         return DamageChannel::Dot;
-    case BattleDamageKind::Reflected:
-        return DamageChannel::Reflected;
     case BattleDamageKind::Pure:
     case BattleDamageKind::Effect:
     case BattleDamageKind::Execute:

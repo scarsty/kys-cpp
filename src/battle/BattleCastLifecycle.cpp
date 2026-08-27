@@ -251,7 +251,9 @@ BattleAttackReservation BattleCastLifecycle::reserveAttack(
         assert(!request.rootAttack);
         const auto parent = liveAttackWork_.find(*request.parentAttackId);
         assert(parent != liveAttackWork_.end());
-        assert(work_.at(parent->second).token.castId == castId);
+        const auto parentCastId = work_.at(parent->second).token.castId;
+        assert(parentCastId == castId
+            || record.runtime.provenance.parentCastId == parentCastId);
     }
     if (request.rootAttack)
     {

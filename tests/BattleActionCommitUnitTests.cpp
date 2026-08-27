@@ -123,7 +123,10 @@ TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[bat
     input.blinkGeometry.currentGridY = 1;
     input.hasCast = true;
     input.cast = committedCast(false, BattleOperationType::Melee);
-    BattleAttackSpawnRequest attack;
+    BattleAttackSpawnRequest attack{ BattleAttackPayload(
+        BattleAttackDelivery::contact(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     attack.initial.attackSourceUnitId = 0;
     attack.initial.preferredTargetUnitId = 1;
     attack.initial.position = { 20, 20, 0 };
@@ -173,7 +176,10 @@ TEST_CASE("BattleActionCommit_DualWieldAddsDelayedSecondaryTargetFollowUpAndBloc
     input.hasCast = true;
     input.normalAttackActType = 7;
     input.cast = committedCast(false, BattleOperationType::Melee);
-    BattleAttackSpawnRequest main;
+    BattleAttackSpawnRequest main{ BattleAttackPayload(
+        BattleAttackDelivery::contact(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     main.initial.attackSourceUnitId = 0;
     main.initial.preferredTargetUnitId = 1;
     main.initial.requirePreferredTarget = true;
@@ -206,7 +212,10 @@ TEST_CASE("BattleActionCommit_DualWieldFallsBackToPrimaryTarget", "[battle][acti
     input.hasCast = true;
     input.normalAttackActType = 7;
     input.cast = committedCast(false, BattleOperationType::Melee);
-    BattleAttackSpawnRequest main;
+    BattleAttackSpawnRequest main{ BattleAttackPayload(
+        BattleAttackDelivery::contact(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     main.initial.attackSourceUnitId = 0;
     main.initial.preferredTargetUnitId = 1;
     main.initial.operationType = BattleOperationType::Melee;

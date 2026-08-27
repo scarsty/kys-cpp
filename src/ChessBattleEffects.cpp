@@ -128,7 +128,6 @@ static constexpr std::array battleDamageKindLabels{
     authorLabel("中毒", BattleDamageKind::Poison),
     authorLabel("流血", BattleDamageKind::Bleed),
     authorLabel("特效", BattleDamageKind::Effect),
-    authorLabel("反彈", BattleDamageKind::Reflected),
     authorLabel("處決", BattleDamageKind::Execute),
 };
 static constexpr AuthorEnumDescriptor battleDamageKindEnum{
@@ -273,7 +272,6 @@ static constexpr std::array damageChannelLabels{
     authorLabel("招式", DamageChannel::Skill),
     authorLabel("持續傷害", DamageChannel::Dot),
     authorLabel("特效", DamageChannel::Effect),
-    authorLabel("反彈", DamageChannel::Reflected),
     authorLabel("全部", DamageChannel::All),
 };
 static constexpr AuthorEnumDescriptor damageChannelEnum{
@@ -1432,7 +1430,6 @@ static constexpr std::array conditionDamageKindsFields{
 };
 static constexpr std::array conditionAcceptedHitFields{
     PayloadFieldDescriptor{ "需要正傷害", false, PayloadNodeShape::Boolean, "true" },
-    PayloadFieldDescriptor{ "排除反彈", false, PayloadNodeShape::Boolean, "true" },
 };
 
 static constexpr PayloadDescriptor conditionEmptyPayload{ "無參數條件", emptyPayloadFields, "{}" };
@@ -2838,8 +2835,7 @@ bool parseConditionPayload(
             return true;
         }
         if (form != ConditionNodeForm::NamedPayload
-            || !optionalBool(*payloadView, "需要正傷害", condition.requirePositiveDamage, error)
-            || !optionalBool(*payloadView, "排除反彈", condition.excludeReflected, error)) return false;
+            || !optionalBool(*payloadView, "需要正傷害", condition.requirePositiveDamage, error)) return false;
         out = condition;
     }
     else if (type == "事件目標屬於綁定來源")
@@ -4884,7 +4880,6 @@ std::string_view damageKindLabel(BattleDamageKind kind)
     case BattleDamageKind::Poison: return "中毒";
     case BattleDamageKind::Bleed: return "流血";
     case BattleDamageKind::Effect: return "特效";
-    case BattleDamageKind::Reflected: return "反彈";
     case BattleDamageKind::Execute: return "處決";
     }
     assert(false);
@@ -5152,7 +5147,6 @@ std::string conditionLabel(const EffectCondition& condition, bool compact)
             {
                 std::string result = "已接受命中";
                 if (typed.requirePositiveDamage) result += "且傷害為正";
-                if (typed.excludeReflected) result += "且不是反彈";
                 return result;
             }
             else if constexpr (std::is_same_v<T, EventTargetBelongsToBoundSourceCondition>)
@@ -5196,7 +5190,6 @@ std::string_view damageChannelLabel(DamageChannel channel)
     case DamageChannel::Skill: return "招式傷害";
     case DamageChannel::Dot: return "持續傷害";
     case DamageChannel::Effect: return "特效傷害";
-    case DamageChannel::Reflected: return "反彈傷害";
     case DamageChannel::All: return "所有傷害";
     }
     assert(false);
@@ -5210,7 +5203,6 @@ std::string_view damageChannelSourceLabel(DamageChannel channel)
     case DamageChannel::Skill: return "招式";
     case DamageChannel::Dot: return "持續效果";
     case DamageChannel::Effect: return "特效";
-    case DamageChannel::Reflected: return "反彈";
     case DamageChannel::All: return "任意來源";
     }
     assert(false);
@@ -6782,7 +6774,7 @@ std::string renderDescriptionConditions(
         if (parsed && !detailed && scope == DescriptionConditionalScope::Rule)
         {
             if (const auto* accepted = std::get_if<AcceptedHitCondition>(parsed);
-                accepted && !accepted->requirePositiveDamage && !accepted->excludeReflected)
+                accepted && !accepted->requirePositiveDamage)
             {
                 continue;
             }
@@ -6805,8 +6797,6 @@ std::string renderDescriptionConditions(
                 if (const auto* accepted = std::get_if<AcceptedHitCondition>(parsed))
                 {
                     if (accepted->requirePositiveDamage) result += "正傷害";
-                    if (accepted->requirePositiveDamage && accepted->excludeReflected) result += "且";
-                    if (accepted->excludeReflected) result += "非反彈";
                     continue;
                 }
                 if (std::holds_alternative<EventTargetBelongsToBoundSourceCondition>(*parsed))
@@ -8204,8 +8194,7 @@ std::string effectDescription(
         {
             const auto* accepted = std::get_if<AcceptedHitCondition>(&condition);
             return accepted
-                && !accepted->requirePositiveDamage
-                && !accepted->excludeReflected;
+                && !accepted->requirePositiveDamage;
         });
     const bool outgoingPerspective = std::ranges::any_of(
         rule.conditions,
@@ -8264,10 +8253,11 @@ bool validateEffectRule(const EffectRule& rule, std::string& error)
         return false;
     }
     if (rule.observation == EffectObservationScope::OwnerTeamEventSource
+        && rule.event != EffectEvent::AttackSpawned
         && rule.event != EffectEvent::MainProjectileBeforeDamage
         && rule.event != EffectEvent::HitBeforeDamage)
     {
-        error = "同隊事件來源觀察目前只支援命中傷害前事件";
+        error = "同隊事件來源觀察目前只支援攻擊生成或命中傷害前事件";
         return false;
     }
     if (rule.chancePct < 0 || rule.chancePct > 100)

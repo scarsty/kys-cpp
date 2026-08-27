@@ -147,7 +147,6 @@ void checkConditionEqual(const EffectCondition& lhs, const EffectCondition& rhs)
         else if constexpr (std::is_same_v<T, AcceptedHitCondition>)
         {
             CHECK(left.requirePositiveDamage == right.requirePositiveDamage);
-            CHECK(left.excludeReflected == right.excludeReflected);
         }
         else if constexpr (std::is_same_v<T, DamagePerspectiveCondition>)
             CHECK(left.perspective == right.perspective);
@@ -907,12 +906,10 @@ TEST_CASE("ChessBattleEffects_AllNamedConditionFormsReachTypedConditions",
 條件:
   - 已接受命中:
       需要正傷害: true
-      排除反彈: true
 獲得護盾: 1
 )");
     const auto& accepted = std::get<AcceptedHitCondition>(configuredAcceptedHit.conditions.front());
     CHECK(accepted.requirePositiveDamage);
-    CHECK(accepted.excludeReflected);
 }
 
 TEST_CASE("ChessBattleEffects_ShorthandRejectsAmbiguousAndEmptyShapes",
@@ -2680,6 +2677,13 @@ TEST_CASE("ChessBattleEffects_StrictSchemaRejectsUnknownFieldsAndIllegalEventAct
       方式: 回復
       數值: 10
 )");
+    const auto removedReflectedConditionField = YAML::Load(R"(
+時機: 傷害後
+條件:
+  - 已接受命中:
+      排除反彈: true
+獲得護盾: 1
+)");
     const auto illegalEventAction = YAML::Load(R"(
 時機: 絕招施放
 動作:
@@ -2709,6 +2713,11 @@ TEST_CASE("ChessBattleEffects_StrictSchemaRejectsUnknownFieldsAndIllegalEventAct
     EffectRule rule;
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(unknownRuleField, rule, { 1 }, "未知規則欄位"));
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(unknownConditionField, rule, { 2 }, "未知條件欄位"));
+    CHECK_FALSE(ChessBattleEffects::parseEffectRule(
+        removedReflectedConditionField,
+        rule,
+        { 6 },
+        "已移除的反彈條件欄位"));
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(illegalEventAction, rule, { 3 }, "非法事件動作"));
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(incompleteForceMove, rule, { 4 }, "不完整強制移動"));
     CHECK_FALSE(ChessBattleEffects::parseEffectRule(illegalDamageCapability, rule, { 5 }, "非法事件數值"));

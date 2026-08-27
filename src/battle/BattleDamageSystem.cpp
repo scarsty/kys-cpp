@@ -21,10 +21,6 @@ BattleDamageKind effectiveDamageKind(const BattleDamageRequest& request)
     {
         return request.damageKind;
     }
-    if (request.reflected)
-    {
-        return BattleDamageKind::Reflected;
-    }
     if (request.usingSkill)
     {
         return BattleDamageKind::Skill;
@@ -289,8 +285,6 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         BattleDamageDefenseInput defenseInput;
         defenseInput.damage = resolvedDamageValue;
         defenseInput.executed = result.executed;
-        defenseInput.reflected = input.request.reflected
-            || result.damageKind == BattleDamageKind::Reflected;
         defenseInput.defenderWasInvincible = result.defender.invincible > 0;
         defenseInput.defender = result.defender;
         defenseInput.blockByStatusLayer = blockByStatusLayer;
@@ -623,6 +617,28 @@ int BattleDamageSystem::resolveMagicBaseDamage(const BattleMagicBaseDamageInput&
     return std::max(1, damage);
 }
 
+BattleAttackPotencySnapshot BattleDamageSystem::snapshotAttackPotency(
+    int effectiveAttack,
+    int magicPower) const
+{
+    assert(effectiveAttack >= 0);
+    assert(magicPower >= 0);
+    return { effectiveAttack, magicPower };
+}
+
+int BattleDamageSystem::resolveAttackPotencyAgainstDefender(
+    const BattleAttackPotencySnapshot& potency,
+    BattleFixed defenderDefense,
+    int randomVariance) const
+{
+    return resolveMagicBaseDamage({
+        potency.effectiveAttack,
+        potency.magicPower,
+        defenderDefense,
+        randomVariance,
+    });
+}
+
 BattleHitShapeResult BattleDamageSystem::shapeHitDamage(const BattleHitShapeInput& input) const
 {
     assert(input.baseDamage >= BattleFixed{});
@@ -707,7 +723,6 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
     }
 
     if (!input.executed
-        && !input.reflected
         && result.damage > 0
         && result.defender.dualWieldBlocksRemaining > 0)
     {
@@ -760,7 +775,7 @@ BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageD
         result.absorptionReceipts.push_back({ layer.sequence, absorbed });
     }
 
-    if (!input.reflected && result.defender.shield > 0 && result.damage > 0)
+    if (result.defender.shield > 0 && result.damage > 0)
     {
         int shieldBefore = result.defender.shield;
         int absorbed = std::min(result.defender.shield, result.damage);

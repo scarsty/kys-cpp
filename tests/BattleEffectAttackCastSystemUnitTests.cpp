@@ -33,7 +33,10 @@ BattleCastInput castInput()
 
 BattleAttackSpawnRequest baseAttack()
 {
-    BattleAttackSpawnRequest request;
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     request.provenance.rootAttack = true;
     request.provenance.mainProjectile = true;
     request.initial.attackSourceUnitId = 1;
@@ -337,6 +340,8 @@ TEST_CASE("BattleEffectAttackCastSystem applies preserve same-target damage over
     CHECK_FALSE(extra.provenance.mainProjectile);
     CHECK(extra.initial.strengthPct == 80);
     CHECK(extra.initial.scriptedDamage == 800);
+    CHECK(extra.initial.payloadClass.kind()
+        == BattleProjectilePayloadKind::ScriptedDamage);
     checkVelocity(extra.initial.velocity, -10.0, 0.0);
     REQUIRE(applied.damage.size() == 1);
     CHECK(applied.damage[0].damageKind == BattleDamageKind::Pure);

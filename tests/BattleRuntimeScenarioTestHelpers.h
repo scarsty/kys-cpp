@@ -138,7 +138,10 @@ inline BattlePendingDamageIntent scenarioPreResolvedDamage(int attackerUnitId, i
 
 inline BattleAttackInstance scenarioCancelProjectile(int id, int attackerUnitId, int cancelDamage)
 {
-    BattleAttackInstance attack;
+    BattleAttackInstance attack{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     attack.id = id;
     attack.state.attackSourceUnitId = attackerUnitId;
     attack.frame = 5;

@@ -39,7 +39,10 @@ BattleRuntimeUnits runtimeUnits(std::initializer_list<BattleRuntimeUnit> unitLis
 
 BattleAttackInstance attack(int id, int attackerId, double x, double y)
 {
-    BattleAttackInstance state;
+    BattleAttackInstance state{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     state.id = id;
     state.state.attackSourceUnitId = attackerId;
     state.state.totalFrame = 30;
@@ -83,7 +86,33 @@ struct TestAttackWorld : BattleAttackState
         const BattleRuntimeUnits& units,
         std::pmr::memory_resource* memoryResource = std::pmr::get_default_resource())
     {
-        return BattleAttackState::tick(units, lifecycle, memoryResource);
+        auto events = BattleAttackState::tick(units, lifecycle, memoryResource);
+        std::vector<BattleAttackEvent> hits;
+        std::ranges::copy_if(
+            events,
+            std::back_inserter(hits),
+            [](const BattleAttackEvent& event)
+            {
+                return event.type == BattleAttackEventType::Hit;
+            });
+        for (const auto& hit : hits)
+        {
+            auto settled = settleHit(
+                {
+                    .attackId = hit.attackId,
+                    .targetUnitId = hit.unitId,
+                    .accepted = true,
+                    .continuation = BattleHitContinuation::Normal,
+                },
+                units,
+                lifecycle);
+            events.insert(
+                events.end(),
+                std::make_move_iterator(settled.events.begin()),
+                std::make_move_iterator(settled.events.end()));
+        }
+        appendProjectileCancelEvents(units, events);
+        return events;
     }
 
     void addAttack(
@@ -147,7 +176,10 @@ bool hasEvent(std::span<const BattleAttackEvent> events, BattleAttackEventType t
 
 BattleAttackSpawnRequest spawnRequest()
 {
-    BattleAttackSpawnRequest request;
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     request.initial.attackSourceUnitId = 1;
     request.initial.skillId = 101;
     request.initial.operationType = BattleOperationType::RangedProjectile;
@@ -180,10 +212,16 @@ TEST_CASE("BattleAttackSystem_WorldGeometryStartsEmptyUntilSupplied", "[battle][
     CHECK(world.defaultProjectileSpeed == Catch::Approx(0.0));
 }
 
-TEST_CASE("BattleAttackSystem_DefaultAttackPayloadHasNoCastSubrequestKind", "[battle][attack][unit]")
+TEST_CASE("BattleAttackSystem_ExplicitAttackPayloadHasNoCastSubrequestKind", "[battle][attack][unit]")
 {
-    BattleAttackSpawnRequest request;
-    BattleAttackInstance instance;
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        BattleAttackDelivery::contact(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
+    BattleAttackInstance instance{ BattleAttackPayload(
+        BattleAttackDelivery::contact(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
 
     CHECK(request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::None);
     CHECK(instance.state.castSubrequestKind == BattleAttackCastSubrequestKind::None);
@@ -196,7 +234,10 @@ TEST_CASE("BattleAttackSystem_DelayedSpawnElapsesWithoutEnteringAttackWorldEarly
     const auto reservation = lifecycle.reserveAttack(cast.provenance.castId, {
         .rootAttack = true,
     });
-    BattleAttackSpawnRequest request;
+    BattleAttackSpawnRequest request{ BattleAttackPayload(
+        BattleAttackDelivery::projectile(),
+        BattleProjectilePayloadClass::combat(),
+        BattleAttackReflectionLineageKind::Ordinary) };
     request.provenance = reservation.provenance;
     request.castWork = reservation.work;
     request.spawnDelayFrames = 3;
@@ -226,6 +267,7 @@ TEST_CASE("BattleAttackSystem_AppliesBouncePrimeOnlyToEligibleRequests", "[battl
 {
     BattleAttackSpawnRequest request = spawnRequest();
     request.initial.scriptedDamage = 10;
+    request.initial.payloadClass = BattleProjectilePayloadClass::scriptedDamage();
 
     CHECK_FALSE(tryApplyProjectileBouncePrime(request, { 2, 80, 30, 120 }));
 
@@ -269,6 +311,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.initial.scriptedDamageTriggersDefenseEffects = true;
     request.initial.scriptedStunFrames = 12;
     request.initial.scriptedBleedStacks = 4;
+    request.initial.payloadClass = BattleProjectilePayloadClass::scriptedControl();
     request.initial.projectileCancelDamage = 90;
     request.initial.projectileCancelWeaken = 13;
     request.initial.projectilePressurePct = 65;
@@ -314,6 +357,8 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.state.scriptedDamageTriggersDefenseEffects);
     CHECK(attack.state.scriptedStunFrames == 12);
     CHECK(attack.state.scriptedBleedStacks == 4);
+    CHECK(attack.state.payloadClass.kind()
+        == BattleProjectilePayloadKind::ScriptedControl);
     CHECK(attack.state.projectileCancelDamage == 90);
     CHECK(attack.state.projectileCancelWeaken == 13);
     CHECK(attack.state.projectilePressurePct == 65);
@@ -424,6 +469,7 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     projectile.state.scriptedDamageTriggersDefenseEffects = true;
     projectile.state.scriptedStunFrames = 12;
     projectile.state.scriptedBleedStacks = 4;
+    projectile.state.payloadClass = BattleProjectilePayloadClass::scriptedControl();
     projectile.state.executeCanHitInvincible = true;
     projectile.state.projectileCancelWeaken = 6;
     projectile.state.strengthPct = 175;
@@ -1011,6 +1057,229 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
     CHECK(events.back().unitId == 3);
 }
 
+TEST_CASE("BattleAttackSystem_HitContinuationWaitsForExplicitSettlement",
+          "[battle][attack][unit][projectile_reflection]")
+{
+    auto world = attackWorld();
+    world.nextAttackId = 20;
+    auto units = runtimeUnits({
+        unit(1, 0, 0, 0),
+        unit(2, 1, 20, 0),
+        unit(3, 1, 80, 0),
+    });
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.velocity = { 10, 0, 0 };
+    projectile.state.bounceRemaining = 2;
+    projectile.state.bounceRange = 120;
+    projectile.state.bounceChancePct = 100;
+    projectile.state.bounceRollPct = 0;
+    world.addAttack(std::move(projectile));
+
+    auto events = world.BattleAttackState::tick(
+        units,
+        world.lifecycle,
+        std::pmr::get_default_resource());
+
+    CHECK(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
+    REQUIRE(world.attacks.size() == 1);
+    const auto& pending = world.attacks.front();
+    REQUIRE(pending.pendingContact);
+    CHECK(pending.pendingContact->targetUnitId == 2);
+    CHECK_FALSE(pending.noHurt);
+    CHECK(pending.state.bounceRemaining == 2);
+    CHECK_FALSE(hasEvent(events, BattleAttackEventType::Bounce, 10, 3));
+
+    const auto settlement = world.settleHit(
+        {
+            .attackId = 10,
+            .targetUnitId = 2,
+            .accepted = false,
+            .continuation = BattleHitContinuation::Normal,
+        },
+        units,
+        world.lifecycle);
+
+    CHECK(hasEvent(settlement.events, BattleAttackEventType::Bounce, 10, 3));
+    REQUIRE(world.attacks.size() == 2);
+    CHECK_FALSE(world.attacks[0].pendingContact);
+    CHECK(world.attacks[0].noHurt);
+    CHECK(world.attacks[0].state.bounceRemaining == 0);
+    const auto& bounce = world.attacks[1];
+    CHECK(bounce.state.bounceRemaining == 1);
+    CHECK(bounce.state.reflectionLineage == BattleAttackReflectionLineageKind::Ordinary);
+}
+
+TEST_CASE("BattleAttackSystem_ReflectedSettlementSnapshotsMaterializedProjectileProperties",
+          "[battle][attack][unit][projectile_reflection]")
+{
+    auto world = attackWorld();
+    auto units = runtimeUnits({ unit(1, 0, 0, 0), unit(2, 1, 20, 0) });
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.operationType = BattleOperationType::TrackingProjectile;
+    projectile.state.preferredTargetUnitId = 2;
+    projectile.state.requirePreferredTarget = true;
+    projectile.state.velocity = { 9, 0, 0 };
+    projectile.state.totalFrame = 90;
+    projectile.state.through = true;
+    projectile.state.track = true;
+    projectile.state.bounceRemaining = 3;
+    projectile.state.bounceRange = 140;
+    projectile.state.bounceChancePct = 75;
+    projectile.state.bounceRollPct = 12;
+    projectile.state.ignoreProjectileCancel = true;
+    projectile.state.projectileCancelDamage = 88;
+    projectile.state.projectileCancelWeaken = 17;
+    projectile.state.projectilePressurePct = 64;
+    projectile.state.strengthPct = 175;
+    projectile.acceleration = { 1, 2, 3 };
+    projectile.spiralMotion = true;
+    projectile.spiralCenter = { 10, 0, 0 };
+    projectile.spiralRadius = 1.0f;
+    projectile.spiralRadiusGrowth = 0.5f;
+    projectile.spiralAngle = 0.0f;
+    projectile.spiralAngularVelocity = 0.0f;
+    world.addAttack(std::move(projectile));
+
+    const auto events = world.BattleAttackState::tick(
+        units,
+        world.lifecycle,
+        std::pmr::get_default_resource());
+    REQUIRE(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
+    REQUIRE(world.attacks.front().pendingContact);
+
+    auto settlement = world.settleHit(
+        {
+            .attackId = 10,
+            .targetUnitId = 2,
+            .accepted = true,
+            .continuation = BattleHitContinuation::Reflected,
+        },
+        units,
+        world.lifecycle);
+
+    REQUIRE(settlement.reflectedProjectile);
+    CHECK(settlement.events.empty());
+    REQUIRE(world.attacks.size() == 1);
+    const auto& source = world.attacks.front();
+    CHECK_FALSE(source.pendingContact);
+    CHECK(source.noHurt);
+    REQUIRE(source.scheduledFinishReason);
+    CHECK(*source.scheduledFinishReason == AttackFinishReason::ReflectedAtHit);
+
+    const auto& snapshot = *settlement.reflectedProjectile;
+    CHECK(snapshot.payload.delivery.kind() == BattleAttackDeliveryKind::Projectile);
+    CHECK(snapshot.payload.payloadClass.kind() == BattleProjectilePayloadKind::Combat);
+    CHECK(snapshot.payload.reflectionLineage == BattleAttackReflectionLineageKind::Ordinary);
+    CHECK(snapshot.payload.operationType == BattleOperationType::TrackingProjectile);
+    CHECK(snapshot.payload.preferredTargetUnitId == 2);
+    CHECK(snapshot.payload.requirePreferredTarget);
+    CHECK(snapshot.payload.totalFrame == 90);
+    CHECK(snapshot.payload.through);
+    CHECK(snapshot.payload.track);
+    CHECK(snapshot.payload.bounceRemaining == 3);
+    CHECK(snapshot.payload.bounceRange == 140);
+    CHECK(snapshot.payload.bounceChancePct == 75);
+    CHECK(snapshot.payload.bounceRollPct == 12);
+    CHECK(snapshot.payload.ignoreProjectileCancel);
+    CHECK(snapshot.payload.projectileCancelDamage == 88);
+    CHECK(snapshot.payload.projectileCancelWeaken == 17);
+    CHECK(snapshot.payload.projectilePressurePct == 64);
+    CHECK(snapshot.payload.strengthPct == 175);
+    CHECK(snapshot.acceleration.x == Catch::Approx(1.0f));
+    CHECK(snapshot.acceleration.y == Catch::Approx(2.0f));
+    CHECK(snapshot.acceleration.z == Catch::Approx(3.0f));
+    CHECK(snapshot.spiralMotion);
+    CHECK(snapshot.spiralCenter.x == Catch::Approx(10.0f));
+    CHECK(snapshot.spiralRadius == Catch::Approx(1.5f));
+    CHECK(snapshot.spiralRadiusGrowth == Catch::Approx(0.5f));
+    CHECK(snapshot.spiralAngle == Catch::Approx(0.0f));
+    CHECK(snapshot.spiralAngularVelocity == Catch::Approx(0.0f));
+}
+
+TEST_CASE("BattleAttackSystem_ProjectileCancellationRunsAfterHitSettlement",
+          "[battle][attack][unit][projectile_reflection][projectile_cancel]")
+{
+    bool through{};
+    auto continuation = BattleHitContinuation::Normal;
+    bool expectCancellation{};
+    auto expectedFinishReason = AttackFinishReason::SpentOnHit;
+
+    SECTION("普通非貫穿命中先消耗彈道")
+    {
+    }
+
+    SECTION("普通貫穿命中仍可在同幀互消")
+    {
+        through = true;
+        expectCancellation = true;
+        expectedFinishReason = AttackFinishReason::ProjectileCancelled;
+    }
+
+    SECTION("反射結算停止原本可貫穿的來襲彈道")
+    {
+        through = true;
+        continuation = BattleHitContinuation::Reflected;
+        expectedFinishReason = AttackFinishReason::ReflectedAtHit;
+    }
+
+    auto world = attackWorld();
+    world.hitRadius = 2.0;
+    world.projectileGraceFrames = 0;
+    auto units = runtimeUnits({
+        unit(1, 0, -100, 0),
+        unit(2, 1, 1, 0),
+    });
+
+    auto contacting = attack(10, 1, 0, 0);
+    contacting.state.operationType = BattleOperationType::RangedProjectile;
+    contacting.state.velocity = { 1, 0, 0 };
+    contacting.state.through = through;
+    contacting.state.projectileCancelDamage = 5;
+    world.addAttack(std::move(contacting));
+
+    auto overlapping = attack(11, 2, 0, 0);
+    overlapping.state.operationType = BattleOperationType::RangedProjectile;
+    overlapping.state.projectileCancelDamage = 20;
+    world.addAttack(std::move(overlapping));
+
+    auto events = world.BattleAttackState::tick(
+        units,
+        world.lifecycle,
+        std::pmr::get_default_resource());
+    REQUIRE(hasEvent(events, BattleAttackEventType::Hit, 10, 2));
+    CHECK_FALSE(hasEvent(events, BattleAttackEventType::ProjectileCancel, 10));
+
+    const auto settlement = world.settleHit(
+        {
+            .attackId = 10,
+            .targetUnitId = 2,
+            .accepted = true,
+            .continuation = continuation,
+        },
+        units,
+        world.lifecycle);
+    CHECK(settlement.reflectedProjectile.has_value()
+        == (continuation == BattleHitContinuation::Reflected));
+
+    world.appendProjectileCancelEvents(units, events);
+    const auto cancellation = std::ranges::find_if(
+        events,
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::ProjectileCancel;
+        });
+    CHECK((cancellation != events.end()) == expectCancellation);
+    if (cancellation != events.end())
+    {
+        world.applyProjectileCancelDamage(*cancellation);
+    }
+
+    const auto& source = world.attacks.front();
+    CHECK(source.id == 10);
+    REQUIRE(source.scheduledFinishReason);
+    CHECK(*source.scheduledFinishReason == expectedFinishReason);
+}
+
 TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[battle][attack][unit]")
 {
     auto world = attackWorld();
@@ -1176,7 +1445,34 @@ TEST_CASE("BattleAttackSystem_BounceReservesDerivedLineageBeforePublishingAttack
         unit(3, 1, 80, 0),
     });
 
-    const auto events = world.tick(units, lifecycle);
+    auto events = world.BattleAttackState::tick(
+        units,
+        lifecycle,
+        std::pmr::get_default_resource());
+    std::vector<BattleAttackEvent> hits;
+    std::ranges::copy_if(
+        events,
+        std::back_inserter(hits),
+        [](const BattleAttackEvent& event)
+        {
+            return event.type == BattleAttackEventType::Hit;
+        });
+    for (const auto& hit : hits)
+    {
+        auto settled = world.settleHit(
+            {
+                .attackId = hit.attackId,
+                .targetUnitId = hit.unitId,
+                .accepted = true,
+                .continuation = BattleHitContinuation::Normal,
+            },
+            units,
+            lifecycle);
+        events.insert(
+            events.end(),
+            std::make_move_iterator(settled.events.begin()),
+            std::make_move_iterator(settled.events.end()));
+    }
 
     REQUIRE(world.attacks.size() == 2);
     const auto& source = world.attacks[0];

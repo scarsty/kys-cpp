@@ -49,6 +49,7 @@ enum class CastOriginKind
     BorrowedEffect,
     Echo,
     RescueCounter,
+    Reflection,
 };
 
 enum class BattleAttackOriginKind
@@ -59,6 +60,7 @@ enum class BattleAttackOriginKind
     FollowUp,
     Echo,
     Scripted,
+    Reflection,
 };
 
 struct BattleCastProvenance
@@ -131,6 +133,7 @@ enum class AttackFinishReason
     NoBounceTarget,
     ExplicitlyCancelled,
     BattleEnded,
+    ReflectedAtHit,
 };
 
 struct CastWorkToken
