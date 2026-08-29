@@ -2,6 +2,7 @@
 
 #include "BattleStarStats.h"
 #include "ChessBattleMapCatalog.h"
+#include "ChessEffectDescription.h"
 #include "ChessRewardRules.h"
 #include "battle/BattleInitialization.h"
 
@@ -32,21 +33,42 @@ void appendItemStat(std::vector<std::string>& effects, std::string_view name, in
     }
 }
 
-std::vector<std::string> magicEffects(const ChessGameContent& content, int magicId)
+RenderedEffectDescription magicEffects(const ChessGameContent& content, int magicId)
 {
-    std::vector<std::string> result;
     const auto definition = std::ranges::find(
         content.magicEffects(),
         magicId,
         &ChessMagicEffectDefinition::magicId);
-    if (definition != content.magicEffects().end())
-    {
-        for (const auto& rule : definition->rules)
-        {
-            result.push_back(effectDescription(rule, EffectDescriptionStyle::Full, {}));
-        }
-    }
-    return result;
+    if (definition == content.magicEffects().end()) return {};
+    const auto document = buildEffectDescriptionDocument(
+        {EffectDescriptionContainerKind::Magic, definition->rules});
+    return renderEffectDescription(
+        document,
+        EffectDescriptionStyle::Full,
+        {});
+}
+
+bool hasDescriptionRows(const RenderedEffectDescription& description)
+{
+    return !description.sections.empty();
+}
+
+void appendStandaloneDescriptionRow(
+    RenderedEffectDescription& description,
+    std::string text)
+{
+    const bool followsExistingContent = hasDescriptionRows(description);
+    if (description.sections.empty()) description.sections.emplace_back();
+    RenderedEffectDescriptionBlock block;
+    block.rows.push_back({
+        .kind = EffectDescriptionRowKind::Prose,
+        .text = std::move(text),
+        .indent = 0,
+        .breakBefore = followsExistingContent
+            ? EffectDescriptionSemanticBreak::Block
+            : EffectDescriptionSemanticBreak::None,
+    });
+    description.sections.back().blocks.push_back(std::move(block));
 }
 
 std::string magicGeometry(const ChessMagicDefinition& magic)
@@ -270,7 +292,7 @@ ChessAbilityMetadata chessAbilityMetadata(
     std::vector<ChessAbilityStarPower> powerByStar)
 {
     auto effects = magicEffects(content, magic.ID);
-    const bool hasConfiguredEffects = !effects.empty();
+    const bool hasConfiguredEffects = hasDescriptionRows(effects);
     return {
         magic.ID,
         magic.Name,
@@ -372,10 +394,12 @@ ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, i
     appendItemStat(result.baseStatEffects, "耍刀", item->addKnife);
     appendItemStat(result.baseStatEffects, "特殊", item->addUnusual);
     appendItemStat(result.baseStatEffects, "暗器", item->addHiddenWeapon);
-    for (const auto& rule : definition.rules)
-    {
-        result.specialEffects.push_back(effectDescription(rule, EffectDescriptionStyle::Full, {}));
-    }
+    const auto equipmentDocument = buildEffectDescriptionDocument(
+        {EffectDescriptionContainerKind::Equipment, definition.rules});
+    result.specialEffects = renderEffectDescription(
+        equipmentDocument,
+        EffectDescriptionStyle::Full,
+        {});
     result.countsAsCombos = countsAsComboNames(definition.managementRules);
     if (!result.countsAsCombos.empty())
     {
@@ -395,65 +419,15 @@ ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, i
             bonus.roles.push_back(role->Name);
         }
         bonus.countsAsCombos = countsAsComboNames(synergy.managementRules);
-        for (const auto& rule : synergy.rules)
-        {
-            bonus.effects.push_back(effectDescription(rule, EffectDescriptionStyle::Full, {}));
-        }
+        const auto synergyDocument = buildEffectDescriptionDocument(
+            {EffectDescriptionContainerKind::EquipmentSynergy, synergy.rules});
+        bonus.effects = renderEffectDescription(
+            synergyDocument,
+            EffectDescriptionStyle::Full,
+            {});
         result.characterBonuses.push_back(std::move(bonus));
     }
     return result;
-}
-
-std::vector<std::string> chessEquipmentSynergyDetailLines(
-    const ChessGameContent& content,
-    int itemId)
-{
-    std::vector<std::string> lines;
-    for (const auto& synergy : content.equipmentSynergies())
-    {
-        if (synergy.equipmentId != itemId)
-        {
-            continue;
-        }
-        std::string line;
-        for (std::size_t index = 0; index < synergy.roleIds.size(); ++index)
-        {
-            if (index > 0)
-            {
-                line += "/";
-            }
-            const auto* role = content.role(synergy.roleIds[index]);
-            line += role ? role->Name : std::to_string(synergy.roleIds[index]);
-        }
-        line += ": ";
-        const auto synergyComboNames = countsAsComboNames(synergy.managementRules);
-        if (!synergyComboNames.empty())
-        {
-            line += "計作";
-            for (std::size_t index = 0; index < synergyComboNames.size(); ++index)
-            {
-                if (index > 0)
-                {
-                    line += "/";
-                }
-                line += synergyComboNames[index];
-            }
-        }
-        for (std::size_t index = 0; index < synergy.rules.size(); ++index)
-        {
-            if (!synergyComboNames.empty()
-                || index > 0)
-            {
-                line += "，";
-            }
-            line += effectDescription(
-                synergy.rules[index],
-                EffectDescriptionStyle::Full,
-                {});
-        }
-        lines.push_back(std::move(line));
-    }
-    return lines;
 }
 
 ChessComboMetadata chessComboMetadata(
@@ -504,13 +478,17 @@ ChessComboMetadata chessComboMetadata(
         metadata.requiredCount = threshold.count;
         metadata.name = threshold.name;
         metadata.active = index <= activeThresholdIndex;
-        for (const auto& rule : threshold.rules)
-        {
-            metadata.effects.push_back(effectDescription(rule, EffectDescriptionStyle::Full, {}));
-        }
+        const auto thresholdDocument = buildEffectDescriptionDocument(
+            {EffectDescriptionContainerKind::ComboThreshold, threshold.rules});
+        metadata.effects = renderEffectDescription(
+            thresholdDocument,
+            EffectDescriptionStyle::Full,
+            {});
         for (const auto& rule : threshold.managementRules)
         {
-            metadata.effects.push_back(chessNonBattleRuleDescription(rule));
+            appendStandaloneDescriptionRow(
+                metadata.effects,
+                chessNonBattleRuleDescription(rule));
         }
         result.thresholds.push_back(std::move(metadata));
     }

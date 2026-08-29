@@ -1,5 +1,7 @@
 #include "BattleEffectSystem.h"
 
+#include "../ChessBattleEffectSemantics.h"
+#include "../ChessBattleEffectValidation.h"
 #include "BattleRuntimeRandom.h"
 #include "BattleUnitValues.h"
 
@@ -539,11 +541,13 @@ bool matchesSelectorRequirements(const EffectUnitSnapshot& unit,
     {
         return false;
     }
-    if (selector.requiredMagicId >= 0 && !unit.usesMagic(selector.requiredMagicId))
+    if (selector.requiredBoundMagic
+        && !unit.usesMagic(context.header.binding.sourceId))
     {
         return false;
     }
-    return selector.requiredWeaponType < 0 || unit.weaponType == selector.requiredWeaponType;
+    return selector.requiredMartialCategory == EffectMartialCategory::None
+        || unit.martialCategory == selector.requiredMartialCategory;
 }
 
 bool matchesSelectorMembership(const EffectUnitSnapshot& unit,
@@ -553,8 +557,7 @@ bool matchesSelectorMembership(const EffectUnitSnapshot& unit,
     switch (selector.kind)
     {
     case EffectSelectorKind::ComboMembers:
-        return unit.comboIds.contains(context.header.binding.sourceId)
-            || unit.comboIds.contains(selector.requiredMagicId);
+        return unit.comboIds.contains(context.header.binding.sourceId);
     case EffectSelectorKind::Allies:
     case EffectSelectorKind::LowestHpAllies:
     case EffectSelectorKind::LowestMpAllies:
@@ -565,9 +568,9 @@ bool matchesSelectorMembership(const EffectUnitSnapshot& unit,
     case EffectSelectorKind::NearestEnemies:
     case EffectSelectorKind::FarthestEnemy:
         return unit.team != context.header.owner->team;
-    case EffectSelectorKind::AlliesUsingWeapon:
+    case EffectSelectorKind::AlliesUsingMartialCategory:
         return unit.team == context.header.owner->team
-            && unit.weaponType == selector.requiredWeaponType;
+            && unit.martialCategory == selector.requiredMartialCategory;
     case EffectSelectorKind::Self:
     case EffectSelectorKind::SourceUnit:
     case EffectSelectorKind::TransactionTarget:
@@ -692,10 +695,10 @@ bool conditionSatisfied(const EffectCondition& condition,
             const auto* cast = castProvenance(context);
             return cast && cast->ultimate;
         },
-        [&](const MagicIdEqualsCondition& value)
+        [&](const CastUsesEffectSourceMagicCondition&)
         {
             const auto* cast = castProvenance(context);
-            return cast && cast->magicId == value.magicId;
+            return cast && cast->magicId == context.header.binding.sourceId;
         },
         [&](const IsMainProjectileCondition&)
         {
@@ -757,12 +760,13 @@ bool conditionSatisfied(const EffectCondition& condition,
         {
             return context.header.owner->stackCount(value.stack) >= value.count;
         },
-        [&](const OtherLivingAllyUsesMagicCondition& value)
+        [&](const OtherLivingAllyUsesBoundMagicCondition&)
         {
             return std::ranges::any_of(context.header.battle.units(), [&](const EffectUnitSnapshot& unit)
             {
                 return unit.alive && unit.id != context.header.owner->id &&
-                       unit.team == context.header.owner->team && unit.usesMagic(value.magicId);
+                       unit.team == context.header.owner->team
+                       && unit.usesMagic(context.header.binding.sourceId);
             });
         },
         [&](const CastDistinctTargetCountAtLeastCondition& value)
@@ -1689,12 +1693,12 @@ struct CommandEmitter
 
 }  // namespace
 
-bool EffectUnitSnapshot::hasState(const std::string& state) const
+bool EffectUnitSnapshot::hasState(BattleStatusKind state) const
 {
     return stackCount(state) > 0;
 }
 
-bool EffectUnitSnapshot::hasStateFromSource(const std::string& state,
+bool EffectUnitSnapshot::hasStateFromSource(BattleStatusKind state,
                                             int sourceUnitId) const
 {
     return std::ranges::any_of(statusDetails, [&](const auto& status)
@@ -1705,7 +1709,7 @@ bool EffectUnitSnapshot::hasStateFromSource(const std::string& state,
     });
 }
 
-int EffectUnitSnapshot::stackCount(const std::string& stack) const
+int EffectUnitSnapshot::stackCount(BattleStatusKind stack) const
 {
     return std::accumulate(
         statusDetails.begin(),
@@ -1717,7 +1721,7 @@ int EffectUnitSnapshot::stackCount(const std::string& stack) const
         });
 }
 
-int EffectUnitSnapshot::statusPotency(const std::string& state) const
+int EffectUnitSnapshot::statusPotency(BattleStatusKind state) const
 {
     const auto status = std::ranges::find(statusDetails, state, &EffectStatusSnapshot::state);
     return status != statusDetails.end() ? status->potency : 0;
@@ -2225,9 +2229,11 @@ int BattleEffectSystem::evaluateNumber(const EffectNumber& number,
             }
             throw std::logic_error("累積狀態公式缺少 typed input");
         case EffectNumberBase::SourceStatusPotency:
-            return context.header.owner->statusPotency(number.status);
+            assert(number.status);
+            return context.header.owner->statusPotency(*number.status);
         case EffectNumberBase::SourceStatusStacks:
-            return context.header.owner->stackCount(number.status);
+            assert(number.status);
+            return context.header.owner->stackCount(*number.status);
         case EffectNumberBase::StoredStateValue:
             if (context.header.formulaInputs.storedStateValue)
             {
@@ -2344,7 +2350,7 @@ std::vector<int> BattleEffectSystem::selectTargets(const EffectSelector& selecto
     case EffectSelectorKind::FarthestEnemy:
     case EffectSelectorKind::UnitsInRadius:
     case EffectSelectorKind::UnitsInSquare:
-    case EffectSelectorKind::AlliesUsingWeapon:
+    case EffectSelectorKind::AlliesUsingMartialCategory:
         for (const auto& unit : context.header.battle.units())
         {
             if (!unit.alive

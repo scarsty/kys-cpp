@@ -1,5 +1,5 @@
 #include "ChessEquipment.h"
-#include "ChessBattleEffects.h"
+#include "ChessBattleEffectParser.h"
 #include "yaml-cpp/yaml.h"
 #include <algorithm>
 #include <format>
@@ -105,7 +105,7 @@ bool appendSynergyDef(
             ++effectOrdinal;
             auto effectContext = std::format("裝備羈絆裝備{}效果#{}", def.equipmentId, effectOrdinal);
             EffectRule rule;
-            if (!ChessBattleEffects::parseEffectRule(
+            if (!parseEffectRule(
                     eNode,
                     rule,
                     EffectRuleId{ nextRuleId++ },
@@ -181,7 +181,7 @@ bool loadChessEquipment(
                     ++effectOrdinal;
                     auto effectContext = std::format("裝備{}效果#{}", def.itemId, effectOrdinal);
                     EffectRule rule;
-                    if (!ChessBattleEffects::parseEffectRule(
+                    if (!parseEffectRule(
                             eNode,
                             rule,
                             EffectRuleId{ nextRuleId++ },

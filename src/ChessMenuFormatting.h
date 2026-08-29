@@ -636,13 +636,6 @@ inline std::string chessStars(int star)
     return result;
 }
 
-inline std::vector<std::string> buildChessEquipmentSynergyDetailLines(
-    const ChessGameContent& content,
-    int equipmentId)
-{
-    return chessEquipmentSynergyDetailLines(content, equipmentId);
-}
-
 inline std::string chessVictoryComboBonusText(
     const ChessGameContent& content,
     const ChessSemanticEvent& goldEvent,

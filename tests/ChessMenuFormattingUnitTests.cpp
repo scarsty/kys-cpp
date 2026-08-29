@@ -9,18 +9,6 @@ using namespace KysChess;
 namespace
 {
 
-EffectRule attributeRule(BattleAttribute attribute, int amount)
-{
-    EffectRule rule;
-    rule.event = EffectEvent::BattleInitialized;
-    ModifyAttributeAction action;
-    action.attribute = attribute;
-    action.amount.flat = amount;
-    action.operation = AttributeOperation::FlatAdd;
-    rule.actions.push_back({EffectActionValue{action}});
-    return rule;
-}
-
 int testDisplayWidth(const std::string& text)
 {
     int width = 0;
@@ -54,6 +42,31 @@ const ChessGameGuideSection& guideSection(
     return *found;
 }
 
+}
+
+TEST_CASE("panel text fitting chooses the largest complete readable layout",
+          "[chess][menu-formatting][panel-text]")
+{
+    const std::vector<PanelTextSourceRow> rows{
+        { .text = "第一段文字需要換行", .spacingAfter = 2 },
+        { .text = "第二段", .fontSizeDelta = 2, .indentUnits = 2,
+          .spacingBefore = 3, .spacingAfter = 1 },
+    };
+    const auto fitted = fitPanelText(rows, 80, 68, 20, 12);
+    CHECK(fitted.baseFontSize == 16);
+    CHECK(fitted.height <= 68);
+    REQUIRE_FALSE(fitted.lines.empty());
+    CHECK(fitted.lines.front().sourceRow == 0);
+    CHECK(fitted.lines.back().sourceRow == 1);
+    for (const auto& line : fitted.lines)
+    {
+        CHECK(line.y + line.fontSize <= fitted.height);
+        CHECK(line.indentPixels
+            + displayTextWidth(line.text) * line.fontSize / 2 <= 80);
+    }
+
+    const auto tooLarge = layoutPanelText(rows, 80, fitted.baseFontSize + 1);
+    CHECK(tooLarge.height > 68);
 }
 
 TEST_CASE("chess menu labels align stars and prices by measured display width", "[chess][menu-formatting]")
@@ -101,7 +114,7 @@ TEST_CASE("equipment inventory alignment does not reserve unused global columns"
 
     REQUIRE(labels.size() == 2);
     CHECK(testDisplayWidth(labels[0]) == testDisplayWidth(labels[1]));
-    CHECK(testDisplayWidth(labels[0]) < ChessScreenLayout::getDefaultMenuItemUnits());
+    CHECK(testDisplayWidth(labels[0]) < ChessScreenLayout::kDefaultMenuItemUnits);
     CHECK(labels[0].contains(" [已裝]"));
 }
 
@@ -123,7 +136,7 @@ TEST_CASE("equipment reward alignment does not reserve unused global columns",
     const int width = testDisplayWidth(labels.front());
     CHECK(testDisplayWidth(labels[1]) == width);
     CHECK(testDisplayWidth(labels[2]) == width);
-    CHECK(width < ChessScreenLayout::getDefaultMenuItemUnits());
+    CHECK(width < ChessScreenLayout::kDefaultMenuItemUnits);
 }
 
 TEST_CASE("legacy browse menu typography and reward overrides stay explicit", "[chess][menu-formatting][legacy]")
@@ -459,44 +472,6 @@ TEST_CASE("ban management rows retain banned roles and legacy status", "[chess][
     const auto fullRows = buildChessBanManagementRows(observation, content);
     REQUIRE(fullRows.size() == observation.seenRoles.size());
     CHECK(std::ranges::all_of(fullRows, &ChessBanManagementRow::banned));
-}
-
-TEST_CASE("equipment detail derives role-specific synergies from loaded content", "[chess][menu-formatting][equipment]")
-{
-    ChessGameContentData data;
-    ChessRoleDefinition huangRong;
-    huangRong.ID = 1;
-    huangRong.Name = "黃蓉";
-    data.roles.emplace(huangRong.ID, huangRong);
-    ChessRoleDefinition guoJing;
-    guoJing.ID = 2;
-    guoJing.Name = "郭靖";
-    data.roles.emplace(guoJing.ID, guoJing);
-
-    EquipmentSynergyDef sharedSynergy;
-    sharedSynergy.roleIds = {1, 2};
-    sharedSynergy.equipmentId = 77;
-    sharedSynergy.rules = {
-        attributeRule(BattleAttribute::Attack, 25),
-        attributeRule(BattleAttribute::Defence, 15),
-    };
-    sharedSynergy.managementRules = {
-        CountsAsComboRule{"射鵰"},
-        CountsAsComboRule{"俠侶"},
-    };
-    data.equipmentSynergies.push_back(std::move(sharedSynergy));
-
-    EquipmentSynergyDef otherEquipment;
-    otherEquipment.roleIds = {1};
-    otherEquipment.equipmentId = 88;
-    otherEquipment.rules = {attributeRule(BattleAttribute::MaxHp, 100)};
-    data.equipmentSynergies.push_back(std::move(otherEquipment));
-
-    const ChessGameContent content(std::move(data));
-    const auto lines = buildChessEquipmentSynergyDetailLines(content, 77);
-
-    REQUIRE(lines.size() == 1);
-    CHECK(lines[0] == "黃蓉/郭靖: 計作射鵰/俠侶，攻擊+25，防禦+15");
 }
 
 TEST_CASE("challenge rewards retain configured limits and specific equipment names", "[chess][menu-formatting][challenge]")

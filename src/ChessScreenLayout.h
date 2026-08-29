@@ -42,17 +42,11 @@ namespace ChessScreenLayout
 inline constexpr int kMenuNameUnits = 16;
 inline constexpr int kMenuStarUnits = 8;
 inline constexpr int kMenuCostUnits = 6;
-inline int getDefaultMenuItemUnits() { return kMenuNameUnits + kMenuStarUnits + kMenuCostUnits; }
+inline constexpr int kDefaultMenuItemUnits = kMenuNameUnits + kMenuStarUnits + kMenuCostUnits;
 
 inline PanelFrame fullContentRegion()
 {
     return {55, 45, 1170, 630};
-}
-
-inline PanelFrame shopStatusPanel()
-{
-    auto region = fullContentRegion();
-    return {region.x + 705, region.y + 10, 460, 430};
 }
 
 inline PanelFrame browseDetailRegion()
@@ -61,28 +55,22 @@ inline PanelFrame browseDetailRegion()
     return {region.x + 445, region.y + 10, 725, 610};
 }
 
-inline int estimateMenuWidth(const std::vector<std::string>& labels, int fontSize, int extraPadding = 48)
+inline int menuItemUnits(const std::vector<std::string>& labels)
 {
     int maxUnits = 0;
     for (const auto& label : labels)
-    {
         maxUnits = std::max(maxUnits, Font::getTextDrawSize(label));
-    }
-    // Ensure we honor the minimum menu-item budget so formatters and anchors
-    // agree on menu widths even when labels are padded to a fixed budget.
-    maxUnits = std::max(maxUnits, getDefaultMenuItemUnits());
-    return maxUnits * fontSize / 2 + extraPadding;
+    return std::max(maxUnits, kDefaultMenuItemUnits);
+}
+
+inline int estimateMenuWidth(const std::vector<std::string>& labels, int fontSize, int extraPadding = 48)
+{
+    return menuItemUnits(labels) * fontSize / 2 + extraPadding;
 }
 
 inline int estimateMenuBoxWidth(const std::vector<std::string>& labels, int fontSize)
 {
-    int maxUnits = 0;
-    for (const auto& label : labels)
-    {
-        maxUnits = std::max(maxUnits, Font::getTextDrawSize(label));
-    }
-    maxUnits = std::max(maxUnits, getDefaultMenuItemUnits());
-    return Font::getBoxSize(maxUnits, fontSize, 0, 0).w;
+    return Font::getBoxSize(menuItemUnits(labels), fontSize, 0, 0).w;
 }
 
 inline int menuRowHeight(int fontSize)
@@ -126,99 +114,25 @@ inline PanelFrame browseDetailRegionForMenu(const PanelAnchor& menuAnchor, const
     return {left, fallback.y, right - left, fallback.h};
 }
 
-inline PanelAnchor shopMenuAnchor()
+inline PanelAnchor contentMenuAnchor()
 {
     auto region = fullContentRegion();
     return {region.x + 5, region.y + 10};
 }
 
-inline PanelAnchor shopStatusAnchor()
-{
-    auto frame = shopStatusPanel();
-    return {frame.x, frame.y};
-}
-
-inline PanelAnchor browseMenuAnchor()
-{
-    auto region = fullContentRegion();
-    return {region.x + 5, region.y + 10};
-}
-
-inline PanelAnchor buyExpMenuAnchor()
+inline PanelAnchor modalMenuAnchor()
 {
     return {170, 255};
 }
 
-inline PanelAnchor battleSeedRerollMenuAnchor()
-{
-    return buyExpMenuAnchor();
-}
-
-inline PanelAnchor positionSwapMenuAnchor()
-{
-    return {170, 255};
-}
-
-inline PanelFrame shopOwnedPanel()
-{
-    auto region = fullContentRegion();
-    return {region.x, region.y + 385, 540, 235};
-}
-
-inline PanelFrame comboInfoPanel()
-{
-    auto region = fullContentRegion();
-    auto owned = shopOwnedPanel();
-    int x = owned.x + owned.w + 20;
-    // Align combo/info panel vertically with the owned panel so their tops
-    // and heights match for a tidy visual alignment.
-    int y = owned.y;
-    int h = owned.h;
-    int w = region.x + region.w - x - 10;
-    return {x, y, w, h};
-}
-
-inline PanelFrame comboCatalogDetailPanel()
-{
-    return browseDetailRegion();
-}
-
-inline PanelFrame neigongDetailPanel()
-{
-    auto detail = browseDetailRegion();
-    return {detail.x + 120, detail.y + 70, 540, 430};
-}
-
-inline PanelFrame equipmentDetailPanel()
-{
-    auto detail = browseDetailRegion();
-    return {detail.x + 120, detail.y + 70, 540, 430};
-}
-
-inline PanelFrame challengeDetailPanel()
-{
-    auto region = fullContentRegion();
-    return {region.x + 515, region.y + 10, 650, 610};
-}
-
-inline PanelFrame buyExpPreviewPanel()
+inline PanelFrame largeModalPreviewPanel()
 {
     return {400, 180, 540, 300};
-}
-
-inline PanelFrame battleSeedRerollPreviewPanel()
-{
-    return buyExpPreviewPanel();
 }
 
 inline PanelFrame positionSwapPanel()
 {
     return {420, 180, 540, 270};
-}
-
-inline PanelFrame guidePanel()
-{
-    return fullContentRegion();
 }
 
 inline void drawPanel(

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ChessBalance.h"
-#include "ChessBattleEffects.h"
+#include "ChessBattleEffectTypes.h"
 #include "ChessCombo.h"
 #include "ChessEquipment.h"
 #include "ChessNeigong.h"

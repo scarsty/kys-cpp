@@ -461,7 +461,7 @@ TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast 
         auto committed = resourceRule(10, EffectEvent::UltimateCommitted, commitAmount);
         committed.conditions = {
             IsUltimateCondition{},
-            MagicIdEqualsCondition{ source.sourceId },
+            CastUsesEffectSourceMagicCondition{},
         };
 
         CopyAttackDefinitionAction copy;
@@ -509,7 +509,7 @@ TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast 
         auto hit = resourceRule(11, EffectEvent::HitBeforeDamage, hitAmount);
         hit.conditions = {
             IsUltimateCondition{},
-            MagicIdEqualsCondition{ source.sourceId },
+            CastUsesEffectSourceMagicCondition{},
         };
         runtime.effectRules.append(source, hit);
         runtime.effectRules.append(

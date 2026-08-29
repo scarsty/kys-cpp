@@ -1,6 +1,6 @@
 #include "ChessNeigong.h"
 
-#include "ChessBattleEffects.h"
+#include "ChessBattleEffectParser.h"
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
@@ -90,7 +90,7 @@ bool loadChessNeigong(
                 ++effectOrdinal;
                 auto effectContext = std::format("內功「{}」效果#{}", def.name, effectOrdinal);
                 EffectRule rule;
-                if (!ChessBattleEffects::parseEffectRule(
+                if (!parseEffectRule(
                         eNode,
                         rule,
                         EffectRuleId{ nextRuleId++ },

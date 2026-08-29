@@ -1,4 +1,4 @@
-#include "ChessBattleEffects.h"
+#include "ChessBattleEffectTypes.h"
 #include "battle/BattleCastSystem.h"
 #include "BattleLogTestHelpers.h"
 #include "BattleRuntimeRecordTestHelpers.h"

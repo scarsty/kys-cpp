@@ -189,6 +189,26 @@ struct RoleStatsDto
     int unusual{};
     int hidden_weapon{};
 };
+struct EffectDescriptionRowDto
+{
+    std::string kind;
+    std::string text;
+    int indent{};
+    std::string break_before;
+};
+struct EffectDescriptionBlockDto
+{
+    std::vector<EffectDescriptionRowDto> rows;
+};
+struct EffectDescriptionSectionDto
+{
+    std::optional<std::string> heading;
+    std::vector<EffectDescriptionBlockDto> blocks;
+};
+struct EffectDescriptionDto
+{
+    std::vector<EffectDescriptionSectionDto> sections;
+};
 struct AbilityDto
 {
     struct StarPower { int star{}; int power{}; };
@@ -201,7 +221,7 @@ struct AbilityDto
     int select_distance{};
     std::optional<int> area_radius;
     std::optional<std::string> geometry;
-    std::optional<std::vector<std::string>> effects;
+    std::optional<EffectDescriptionDto> effects;
     std::optional<std::string> effect_note;
 };
 struct RoleDto
@@ -230,7 +250,7 @@ struct EquipmentInfoDto
     struct CharacterBonus
     {
         std::vector<std::string> roles;
-        std::optional<std::vector<std::string>> effects;
+        std::optional<EffectDescriptionDto> effects;
         std::optional<std::vector<std::string>> counts_as_combos;
     };
     int item_id = -1;
@@ -238,7 +258,7 @@ struct EquipmentInfoDto
     int tier{};
     std::string type;
     std::optional<std::vector<std::string>> base_stat_effects;
-    std::optional<std::vector<std::string>> special_effects;
+    std::optional<EffectDescriptionDto> special_effects;
     std::optional<std::vector<std::string>> counts_as_combos;
     std::optional<std::vector<CharacterBonus>> character_bonuses;
 };
@@ -563,7 +583,7 @@ struct ComboThresholdDto
 {
     int required_count{};
     std::string name;
-    std::vector<std::string> effects;
+    EffectDescriptionDto effects;
     bool active{};
 };
 struct ComboContributionDto
@@ -585,7 +605,7 @@ struct ComboDto
     {
         int required_count{};
         std::string name;
-        std::vector<std::string> effects;
+        EffectDescriptionDto effects;
         int missing_count{};
     };
     struct ContributionSource

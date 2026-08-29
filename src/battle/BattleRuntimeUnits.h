@@ -18,7 +18,7 @@
 #include "BattleStatusSystem.h"
 #include "BattleTypes.h"
 #include "BattleUnitStore.h"
-#include "../ChessBattleEffects.h"
+#include "../ChessBattleEffectTypes.h"
 
 #include <algorithm>
 #include <cassert>

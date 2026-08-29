@@ -1,8 +1,8 @@
 # Effect Description Three-Tier Rendering and Mechanical Coalescing Design
 
-Status: current and implemented.
+Status: superseded by [效果描述語意文件設計](effect-description-semantic-document-design.md).
 
-This document supersedes the renderer and display contracts from [效果描述語法設計](效果描述語法設計.md). The existing semantic AST, typed payloads, prohibition on manually authored mechanical descriptions, and single description entry point remain in force. The implemented design changes only the presentation tiers, punctuation, visibility rules, and a limited duration-only display coalescing rule.
+This document is retained as the historical predecessor of [效果描述語意文件設計](effect-description-semantic-document-design.md). Its per-rule API, renderer, punctuation, and layout contracts are no longer current.
 
 ## Background
 

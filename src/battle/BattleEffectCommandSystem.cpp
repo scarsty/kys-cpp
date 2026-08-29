@@ -1,5 +1,6 @@
 #include "BattleEffectCommandSystem.h"
 
+#include "../ChessBattleEffectSemantics.h"
 #include "BattleResourceRules.h"
 #include "BattleRuntimeUnits.h"
 

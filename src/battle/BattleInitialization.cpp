@@ -4,7 +4,7 @@
 #include "BattleLogSegments.h"
 #include "BattleRuntimeEffects.h"
 #include "../BattleStarStats.h"
-#include "../ChessBattleEffects.h"
+#include "../ChessBattleEffectTypes.h"
 #include "../Find.h"
 
 #include <algorithm>

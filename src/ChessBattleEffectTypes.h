@@ -1,17 +1,14 @@
 #pragma once
 
-#include "ChessDiagnostics.h"
-
 #include <compare>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <variant>
 #include <vector>
-
-namespace YAML { class Node; }
 
 namespace KysChess
 {
@@ -78,7 +75,7 @@ enum class EffectSelectorKind
     FarthestEnemy,
     UnitsInRadius,
     UnitsInSquare,
-    AlliesUsingWeapon,
+    AlliesUsingMartialCategory,
 };
 
 enum class EffectTeamFilter
@@ -103,6 +100,15 @@ enum class EffectRequiredTarget
     OriginalAttackTarget,
 };
 
+enum class EffectMartialCategory
+{
+    None = -1,
+    Fist,
+    Sword,
+    Knife,
+    Unusual,
+};
+
 struct EffectSelector
 {
     EffectSelectorKind kind = EffectSelectorKind::Self;
@@ -112,9 +118,11 @@ struct EffectSelector
     EffectTeamFilter team = EffectTeamFilter::Any;
     EffectTieBreak tieBreak = EffectTieBreak::UnitId;
     bool excludeOwner = false;
-    int requiredMagicId = -1;
-    int requiredWeaponType = -1;
+    bool requiredBoundMagic = false;
+    EffectMartialCategory requiredMartialCategory = EffectMartialCategory::None;
     std::optional<EffectRequiredTarget> requiredTarget;
+
+    bool operator==(const EffectSelector&) const = default;
 };
 
 enum class EffectStateSlot
@@ -124,6 +132,52 @@ enum class EffectStateSlot
     AbsorbedDamage,
     PermanentCastProgress,
 };
+
+enum class BattleStatusKind
+{
+    Poison,
+    Bleed,
+    Stun,
+    MpBlocked,
+    ColdPoison,
+    WitheredBone,
+    SevenStarMark,
+    NeutralizeForce,
+    Blinded,
+    NextAttackMiss,
+    DamageBlockLayer,
+    SingleHitCapLayer,
+    BattleSpirit,
+    TrueQi,
+    PoisonExplosion,
+    Shadowless,
+    NextAttackCritical,
+};
+
+inline constexpr std::string_view battleStatusLabel(BattleStatusKind status)
+{
+    switch (status)
+    {
+    case BattleStatusKind::Poison: return "中毒";
+    case BattleStatusKind::Bleed: return "流血";
+    case BattleStatusKind::Stun: return "眩暈";
+    case BattleStatusKind::MpBlocked: return "封內";
+    case BattleStatusKind::ColdPoison: return "寒毒";
+    case BattleStatusKind::WitheredBone: return "枯骨";
+    case BattleStatusKind::SevenStarMark: return "七星";
+    case BattleStatusKind::NeutralizeForce: return "化勁";
+    case BattleStatusKind::Blinded: return "刺目";
+    case BattleStatusKind::NextAttackMiss: return "下一次攻擊落空";
+    case BattleStatusKind::DamageBlockLayer: return "傷害抵擋";
+    case BattleStatusKind::SingleHitCapLayer: return "單次承傷上限";
+    case BattleStatusKind::BattleSpirit: return "戰意";
+    case BattleStatusKind::TrueQi: return "真氣";
+    case BattleStatusKind::PoisonExplosion: return "毒爆";
+    case BattleStatusKind::Shadowless: return "無影";
+    case BattleStatusKind::NextAttackCritical: return "下一次攻擊必定暴擊";
+    }
+    return {};
+}
 
 enum class EffectNumberBase
 {
@@ -156,19 +210,19 @@ struct EffectNumber
 {
     EffectNumberBase base = EffectNumberBase::Constant;
     std::optional<EffectNumberBase> multiplierBase;
-    std::string status;
+    std::optional<BattleStatusKind> status;
     std::optional<EffectStateSlot> stateSlot;
     int flat = 0;
     int percent = 0;
     EffectRounding rounding = EffectRounding::TowardZero;
     std::optional<int> minimum;
     std::optional<int> maximum;
+
+    bool operator==(const EffectNumber&) const = default;
 };
 
-std::optional<int> effectiveConstantEffectNumberValue(const EffectNumber& number);
-
 struct IsUltimateCondition {};
-struct MagicIdEqualsCondition { int magicId = -1; };
+struct CastUsesEffectSourceMagicCondition {};
 struct IsMainProjectileCondition {};
 struct IsRootAttackCondition {};
 struct SourceHpRatioAtMostCondition { int percent = 100; };
@@ -176,11 +230,11 @@ struct SourceHpRatioBelowCondition { int percent = 100; };
 struct SourceIsLastAliveCondition {};
 struct TargetHpRatioAtMostCondition { int percent = 100; };
 struct TargetNotInvincibleCondition {};
-struct SourceHasStateCondition { std::string state; };
-struct TargetHasStateCondition { std::string state; };
-struct TargetHasStateFromEffectOwnerCondition { std::string state; };
-struct SourceStackAtLeastCondition { std::string stack; int count = 1; };
-struct OtherLivingAllyUsesMagicCondition { int magicId = -1; };
+struct SourceHasStateCondition { BattleStatusKind state{}; };
+struct TargetHasStateCondition { BattleStatusKind state{}; };
+struct TargetHasStateFromEffectOwnerCondition { BattleStatusKind state{}; };
+struct SourceStackAtLeastCondition { BattleStatusKind stack{}; int count = 1; };
+struct OtherLivingAllyUsesBoundMagicCondition {};
 struct CastDistinctTargetCountAtLeastCondition { int count = 1; };
 struct AttackOrdinalEqualsCondition { int ordinal = 0; };
 struct HealKindInCondition { std::vector<std::string> kinds; };
@@ -203,7 +257,7 @@ struct RandomSelectionAvailableCondition {};
 
 using EffectCondition = std::variant<
     IsUltimateCondition,
-    MagicIdEqualsCondition,
+    CastUsesEffectSourceMagicCondition,
     IsMainProjectileCondition,
     IsRootAttackCondition,
     SourceHpRatioAtMostCondition,
@@ -215,7 +269,7 @@ using EffectCondition = std::variant<
     TargetHasStateCondition,
     TargetHasStateFromEffectOwnerCondition,
     SourceStackAtLeastCondition,
-    OtherLivingAllyUsesMagicCondition,
+    OtherLivingAllyUsesBoundMagicCondition,
     CastDistinctTargetCountAtLeastCondition,
     AttackOrdinalEqualsCondition,
     HealKindInCondition,
@@ -255,7 +309,6 @@ enum class BattleAttribute
     IncomingCooldownExtensionPercent,
 };
 
-bool battleAttributeUsesPercentagePoints(BattleAttribute attribute);
 
 enum class AttributeOperation
 {
@@ -266,7 +319,6 @@ enum class AttributeOperation
     AtLeast,
 };
 
-bool attributeModifierIsNegative(AttributeOperation operation, int amount);
 
 enum class EffectStackScope
 {
@@ -403,52 +455,6 @@ struct ModifyHealTransactionAction
     int percent = 100;
 };
 
-enum class BattleStatusKind
-{
-    Poison,
-    Bleed,
-    Stun,
-    MpBlocked,
-    ColdPoison,
-    WitheredBone,
-    SevenStarMark,
-    NeutralizeForce,
-    Blinded,
-    NextAttackMiss,
-    DamageBlockLayer,
-    SingleHitCapLayer,
-    BattleSpirit,
-    TrueQi,
-    PoisonExplosion,
-    Shadowless,
-    NextAttackCritical,
-};
-
-inline constexpr std::string_view battleStatusLabel(BattleStatusKind status)
-{
-    switch (status)
-    {
-    case BattleStatusKind::Poison: return "中毒";
-    case BattleStatusKind::Bleed: return "流血";
-    case BattleStatusKind::Stun: return "眩暈";
-    case BattleStatusKind::MpBlocked: return "封內";
-    case BattleStatusKind::ColdPoison: return "寒毒";
-    case BattleStatusKind::WitheredBone: return "枯骨";
-    case BattleStatusKind::SevenStarMark: return "七星";
-    case BattleStatusKind::NeutralizeForce: return "化勁";
-    case BattleStatusKind::Blinded: return "刺目";
-    case BattleStatusKind::NextAttackMiss: return "下一次攻擊落空";
-    case BattleStatusKind::DamageBlockLayer: return "傷害抵擋";
-    case BattleStatusKind::SingleHitCapLayer: return "單次承傷上限";
-    case BattleStatusKind::BattleSpirit: return "戰意";
-    case BattleStatusKind::TrueQi: return "真氣";
-    case BattleStatusKind::PoisonExplosion: return "毒爆";
-    case BattleStatusKind::Shadowless: return "無影";
-    case BattleStatusKind::NextAttackCritical: return "下一次攻擊必定暴擊";
-    }
-    return {};
-}
-
 struct ApplyStatusAction
 {
     BattleStatusKind status{};
@@ -567,6 +573,8 @@ struct AttackPattern
     int projectileCount = 1;
     int spreadDegrees = 0;
     int intervalFrames = 0;
+
+    bool operator==(const AttackPattern&) const = default;
 };
 
 enum class AttackTargetPolicy
@@ -582,12 +590,16 @@ struct ProjectileBounceAttackBehavior
     int additionalHits{};
     int chancePct{};
     int rangePixels{};
+
+    bool operator==(const ProjectileBounceAttackBehavior&) const = default;
 };
 
 struct NearbyTrackingAttackBehavior
 {
     int rangePixels{};
     int damagePct{};
+
+    bool operator==(const NearbyTrackingAttackBehavior&) const = default;
 };
 
 struct DelayedAlternateAttackBehavior
@@ -595,12 +607,16 @@ struct DelayedAlternateAttackBehavior
     int delayFrames{};
     int damagePct{};
     int attackerBlockGainChancePct{};
+
+    bool operator==(const DelayedAlternateAttackBehavior&) const = default;
 };
 
 struct ExpandingSpiralAttackBehavior
 {
     int projectileCount{};
     int bleedStacks{};
+
+    bool operator==(const ExpandingSpiralAttackBehavior&) const = default;
 };
 
 using AttackRuntimeBehavior = std::variant<
@@ -634,6 +650,8 @@ struct ModifyAttackAction
     std::optional<EffectNumber> damageOverride;
     std::optional<BattleDamageKind> damageKind;
     AttackRuntimeBehavior runtimeBehavior;
+
+    bool operator==(const ModifyAttackAction&) const = default;
 };
 
 enum class ForceMoveDirection
@@ -1001,25 +1019,6 @@ struct EffectRule
     std::optional<EffectNumber> repetitionCount;
     std::vector<EffectAction> actions;
 };
-
-enum class EffectDescriptionStyle
-{
-    Detailed,
-    Full,
-    Compact,
-};
-
-struct EffectDescriptionContext
-{
-    std::optional<EffectEvent> enclosingDefaultEvent{};
-};
-
-std::string effectDescription(
-    const EffectRule& rule,
-    EffectDescriptionStyle style,
-    const EffectDescriptionContext& context);
-bool validateEffectRule(const EffectRule& rule, std::string& error);
-
 struct ChessMagicEffectDefinition
 {
     int magicId = -1;
@@ -1027,19 +1026,6 @@ struct ChessMagicEffectDefinition
     std::vector<EffectRule> rules;
     std::string purpose;
     bool enabled = true;
-};
-
-class ChessBattleEffects
-{
-public:
-    static bool parseEffectRule(const YAML::Node& node,
-                                EffectRule& out,
-                                EffectRuleId id,
-                                const std::string& context,
-                                const ChessDiagnosticSink& diagnostics = {});
-    static bool validateAuthoringDescriptorProbes(std::string& error);
-    static bool parseMagicEffects(const YAML::Node& root, std::vector<ChessMagicEffectDefinition>& out, const std::string& context, const ChessDiagnosticSink& diagnostics = {});
-    static bool loadMagicEffectsFile(const std::string& path, std::vector<ChessMagicEffectDefinition>& out, const ChessDiagnosticSink& diagnostics = {});
 };
 
 }  // namespace KysChess

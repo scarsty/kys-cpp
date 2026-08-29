@@ -4,6 +4,7 @@
 #include "ChessAsciiBoard.h"
 #include "ChessBattleAnalysis.h"
 #include "ChessCatalogQueries.h"
+#include "ChessEffectDescription.h"
 #include "ChessGameQueries.h"
 #include "ChessPreparedBattleAnalysis.h"
 #include "ChessReplayJson.h"
@@ -178,6 +179,63 @@ PieceDto pieceDto(
     return dto;
 }
 
+std::string effectDescriptionRowKindId(EffectDescriptionRowKind kind)
+{
+    switch (kind)
+    {
+    case EffectDescriptionRowKind::Field: return "field";
+    case EffectDescriptionRowKind::ListItem: return "list_item";
+    case EffectDescriptionRowKind::Heading: return "heading";
+    case EffectDescriptionRowKind::Prose: return "prose";
+    case EffectDescriptionRowKind::Summary: return "summary";
+    }
+    std::unreachable();
+}
+
+std::string effectDescriptionBreakId(EffectDescriptionSemanticBreak semanticBreak)
+{
+    switch (semanticBreak)
+    {
+    case EffectDescriptionSemanticBreak::None: return "none";
+    case EffectDescriptionSemanticBreak::Block: return "block";
+    case EffectDescriptionSemanticBreak::Branch: return "branch";
+    case EffectDescriptionSemanticBreak::Sequence: return "sequence";
+    case EffectDescriptionSemanticBreak::ActionGroup: return "action_group";
+    case EffectDescriptionSemanticBreak::Qualifier: return "qualifier";
+    }
+    std::unreachable();
+}
+
+EffectDescriptionDto effectDescriptionDto(
+    const RenderedEffectDescription& description)
+{
+    EffectDescriptionDto dto;
+    dto.sections.reserve(description.sections.size());
+    for (const auto& section : description.sections)
+    {
+        EffectDescriptionSectionDto sectionDto;
+        sectionDto.heading = section.heading;
+        sectionDto.blocks.reserve(section.blocks.size());
+        for (const auto& block : section.blocks)
+        {
+            EffectDescriptionBlockDto blockDto;
+            blockDto.rows.reserve(block.rows.size());
+            for (const auto& row : block.rows)
+            {
+                blockDto.rows.push_back({
+                    effectDescriptionRowKindId(row.kind),
+                    row.text,
+                    row.indent,
+                    effectDescriptionBreakId(row.breakBefore),
+                });
+            }
+            sectionDto.blocks.push_back(std::move(blockDto));
+        }
+        dto.sections.push_back(std::move(sectionDto));
+    }
+    return dto;
+}
+
 AbilityDto abilityDto(
     const ChessAbilityMetadata& metadata,
     CatalogDetail detail = CatalogDetail::Full)
@@ -213,9 +271,9 @@ AbilityDto abilityDto(
     {
         dto.geometry = metadata.geometry;
     }
-    if (!metadata.effects.empty())
+    if (!metadata.effects.sections.empty())
     {
-        dto.effects = metadata.effects;
+        dto.effects = effectDescriptionDto(metadata.effects);
     }
     if (!compact && !metadata.effectNote.empty())
     {
@@ -274,9 +332,9 @@ EquipmentInfoDto equipmentInfoDto(
     {
         dto.base_stat_effects = metadata.baseStatEffects;
     }
-    if (!metadata.specialEffects.empty())
+    if (!metadata.specialEffects.sections.empty())
     {
-        dto.special_effects = metadata.specialEffects;
+        dto.special_effects = effectDescriptionDto(metadata.specialEffects);
     }
     if (!metadata.countsAsCombos.empty())
     {
@@ -289,9 +347,9 @@ EquipmentInfoDto equipmentInfoDto(
         {
             EquipmentInfoDto::CharacterBonus bonus;
             bonus.roles = metadataBonus.roles;
-            if (!metadataBonus.effects.empty())
+            if (!metadataBonus.effects.sections.empty())
             {
-                bonus.effects = metadataBonus.effects;
+                bonus.effects = effectDescriptionDto(metadataBonus.effects);
             }
             if (!metadataBonus.countsAsCombos.empty())
             {
@@ -308,7 +366,7 @@ ComboThresholdDto comboThresholdDto(const ChessComboThresholdMetadata& threshold
     return {
         threshold.requiredCount,
         threshold.name,
-        threshold.effects,
+        effectDescriptionDto(threshold.effects),
         threshold.active,
     };
 }
@@ -383,7 +441,7 @@ ComboDto comboSummaryDto(const ChessComboMetadata& metadata)
             dto.next_threshold = ComboDto::NextThreshold{
                 threshold.requiredCount,
                 threshold.name,
-                threshold.effects,
+                effectDescriptionDto(threshold.effects),
                 std::max(0, threshold.requiredCount - metadata.effectiveCount),
             };
         }
@@ -593,62 +651,45 @@ RewardOptionDto rewardOptionDto(
     dto.gold_cost = option.goldCost;
     if (option.kind == ChessRewardKind::Equipment)
     {
+        const auto equipmentMetadata = chessEquipmentMetadata(content, option.value);
         dto.equipment = equipmentInfoDto(content, option.value);
         dto.label = dto.equipment->name;
         dto.description = std::format("{}階{}", dto.equipment->tier, dto.equipment->type);
-        if (dto.equipment->base_stat_effects)
+        const auto appendDescriptionLine = [&](std::string line)
         {
-            for (const auto& effect : *dto.equipment->base_stat_effects)
-            {
-                dto.description += "；基礎：" + effect;
-            }
+            dto.description += "\n";
+            dto.description += std::move(line);
+        };
+        for (const auto& effect : equipmentMetadata.baseStatEffects)
+        {
+            appendDescriptionLine("基礎：" + effect);
         }
-        if (dto.equipment->special_effects)
+        for (const auto& effect : effectDescriptionTextRows(
+            equipmentMetadata.specialEffects))
         {
-            for (const auto& effect : *dto.equipment->special_effects)
-            {
-                dto.description += "；特殊：" + effect;
-            }
+            appendDescriptionLine("特殊：" + effect);
         }
-        if (dto.equipment->counts_as_combos)
+        for (const auto& comboName : equipmentMetadata.countsAsCombos)
         {
-            for (const auto& comboName : *dto.equipment->counts_as_combos)
-            {
-                dto.description += "；計作" + comboName;
-            }
+            appendDescriptionLine("計作" + comboName);
         }
-        if (dto.equipment->character_bonuses)
+        for (const auto& bonus : equipmentMetadata.characterBonuses)
         {
-            for (const auto& bonus : *dto.equipment->character_bonuses)
+            std::string heading = "角色加成(";
+            for (std::size_t index = 0; index < bonus.roles.size(); ++index)
             {
-                dto.description += "；角色加成(";
-                for (std::size_t index = 0; index < bonus.roles.size(); ++index)
-                {
-                    if (index > 0) dto.description += "、";
-                    dto.description += bonus.roles[index];
-                }
-                dto.description += ")";
-                bool firstBonusEffect = true;
-                auto appendBonusEffect = [&](std::string effect)
-                {
-                    dto.description += firstBonusEffect ? "：" : "；";
-                    dto.description += std::move(effect);
-                    firstBonusEffect = false;
-                };
-                if (bonus.effects)
-                {
-                    for (const auto& effect : *bonus.effects)
-                    {
-                        appendBonusEffect(effect);
-                    }
-                }
-                if (bonus.counts_as_combos)
-                {
-                    for (const auto& comboName : *bonus.counts_as_combos)
-                    {
-                        appendBonusEffect("計作" + comboName);
-                    }
-                }
+                if (index > 0) heading += "、";
+                heading += bonus.roles[index];
+            }
+            heading += ")：";
+            appendDescriptionLine(std::move(heading));
+            for (const auto& effect : effectDescriptionTextRows(bonus.effects))
+            {
+                appendDescriptionLine("  " + effect);
+            }
+            for (const auto& comboName : bonus.countsAsCombos)
+            {
+                appendDescriptionLine("  計作" + comboName);
             }
         }
     }
@@ -658,10 +699,18 @@ RewardOptionDto rewardOptionDto(
         assert(found != content.neigong().end());
         dto.label = found->name;
         dto.description = std::format("{}階", found->tier);
-        for (const auto& rule : found->rules)
+        const auto rendered = renderEffectDescription(
+            buildEffectDescriptionDocument({
+                EffectDescriptionContainerKind::Neigong,
+                found->rules,
+            }),
+            EffectDescriptionStyle::Full,
+            {});
+        const auto effectText = joinEffectDescriptionRows(rendered);
+        if (!effectText.empty())
         {
-            dto.description += "；";
-            dto.description += effectDescription(rule, EffectDescriptionStyle::Full, {});
+            dto.description += "\n";
+            dto.description += effectText;
         }
     }
     else if (option.kind == ChessRewardKind::Piece || option.kind == ChessRewardKind::ForcedBan)

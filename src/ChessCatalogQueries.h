@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ChessEffectDescription.h"
 #include "ChessGameContent.h"
 #include "ChessSessionTypes.h"
 
@@ -57,7 +58,7 @@ struct ChessAbilityMetadata
     int selectDistance{};
     int areaDistance{};
     std::string geometry;
-    std::vector<std::string> effects;
+    RenderedEffectDescription effects;
     std::string effectNote;
 };
 
@@ -74,7 +75,7 @@ struct ChessRoleMetadata
 struct ChessEquipmentCharacterBonusMetadata
 {
     std::vector<std::string> roles;
-    std::vector<std::string> effects;
+    RenderedEffectDescription effects;
     std::vector<std::string> countsAsCombos;
 };
 
@@ -85,7 +86,7 @@ struct ChessEquipmentMetadata
     int tier{};
     int equipType{};
     std::vector<std::string> baseStatEffects;
-    std::vector<std::string> specialEffects;
+    RenderedEffectDescription specialEffects;
     std::vector<std::string> countsAsCombos;
     std::vector<ChessEquipmentCharacterBonusMetadata> characterBonuses;
     std::string comboCountingNote;
@@ -101,7 +102,7 @@ struct ChessComboThresholdMetadata
 {
     int requiredCount{};
     std::string name;
-    std::vector<std::string> effects;
+    RenderedEffectDescription effects;
     bool active{};
 };
 
@@ -186,9 +187,6 @@ std::vector<ChessAbilityMetadata> chessAbilitiesForRoleStar(
     int star);
 ChessRoleMetadata chessRoleMetadata(const ChessGameContent& content, int roleId);
 ChessEquipmentMetadata chessEquipmentMetadata(const ChessGameContent& content, int itemId);
-std::vector<std::string> chessEquipmentSynergyDetailLines(
-    const ChessGameContent& content,
-    int itemId);
 ChessComboMetadata chessComboMetadata(
     const ChessGameContent& content,
     const ComboDef& definition,

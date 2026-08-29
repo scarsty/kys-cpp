@@ -265,7 +265,14 @@
     <ClInclude Include="Event.h" />
     <ClInclude Include="ChessBalance.h" />
     <ClInclude Include="ChessNeigong.h" />
-    <ClInclude Include="ChessBattleEffects.h" />
+    <ClInclude Include="ChessBattleEffectParser.h" />
+    <ClInclude Include="ChessBattleEffectSemantics.h" />
+    <ClInclude Include="ChessBattleEffectTypes.h" />
+    <ClInclude Include="ChessBattleEffectValidation.h" />
+    <ClInclude Include="ChessEffectAuthoringDescriptors.h" />
+    <ClInclude Include="ChessEffectAuthoringMetadata.h" />
+    <ClInclude Include="ChessEffectDescription.h" />
+    <ClInclude Include="ChessEffectDescriptionInternal.h" />
     <ClInclude Include="ChessCombo.h" />
     <ClInclude Include="ChessModHook.h" />
     <ClInclude Include="PaperSky.h" />

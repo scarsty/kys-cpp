@@ -2,7 +2,7 @@
 #include "BattleReport.h"
 #include "BattleSceneTestRuntimeFixture.h"
 
-#include "ChessBattleEffects.h"
+#include "ChessBattleEffectTypes.h"
 
 #include <catch2/catch_test_macros.hpp>
 

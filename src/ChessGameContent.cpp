@@ -97,17 +97,335 @@ auto magicContentViews(const std::map<int, ChessMagicDefinition>& magics)
     return result;
 }
 
+template<typename Value>
+std::optional<ChessSha256> optionalContentHash(
+    std::string_view domain,
+    const std::optional<Value>& value)
+{
+    return value ? std::optional{ chessBeveSha256(domain, *value) } : std::nullopt;
+}
+
+ChessSha256 effectNumberContentHash(const EffectNumber& number)
+{
+    return chessBeveSha256(
+        "KYS_EFFECT_NUMBER",
+        static_cast<int>(number.base),
+        number.multiplierBase,
+        number.status,
+        number.stateSlot,
+        number.flat,
+        number.percent,
+        static_cast<int>(number.rounding),
+        number.minimum,
+        number.maximum);
+}
+
+ChessSha256 selectorContentHash(const EffectSelector& selector)
+{
+    return chessBeveSha256(
+        "KYS_EFFECT_SELECTOR",
+        static_cast<int>(selector.kind),
+        selector.count,
+        selector.radiusTiles,
+        selector.squareSideTiles,
+        static_cast<int>(selector.team),
+        static_cast<int>(selector.tieBreak),
+        selector.excludeOwner,
+        selector.requiredBoundMagic,
+        static_cast<int>(selector.requiredMartialCategory),
+        selector.requiredTarget);
+}
+
+ChessSha256 attackPatternContentHash(const AttackPattern& pattern)
+{
+    return chessBeveSha256(
+        "KYS_EFFECT_ATTACK_PATTERN",
+        static_cast<int>(pattern.kind),
+        pattern.projectileCount,
+        pattern.spreadDegrees,
+        pattern.intervalFrames);
+}
+
+ChessSha256 attackRuntimeBehaviorContentHash(const AttackRuntimeBehavior& behavior)
+{
+    return std::visit(
+        [&](const auto& typed)
+        {
+            using T = std::decay_t<decltype(typed)>;
+            if constexpr (std::is_same_v<T, std::monostate>)
+                return chessBeveSha256("KYS_EFFECT_ATTACK_RUNTIME", behavior.index());
+            else if constexpr (std::is_same_v<T, ProjectileBounceAttackBehavior>)
+                return chessBeveSha256("KYS_EFFECT_ATTACK_RUNTIME", behavior.index(),
+                    typed.additionalHits, typed.chancePct, typed.rangePixels);
+            else if constexpr (std::is_same_v<T, NearbyTrackingAttackBehavior>)
+                return chessBeveSha256("KYS_EFFECT_ATTACK_RUNTIME", behavior.index(),
+                    typed.rangePixels, typed.damagePct);
+            else if constexpr (std::is_same_v<T, DelayedAlternateAttackBehavior>)
+                return chessBeveSha256("KYS_EFFECT_ATTACK_RUNTIME", behavior.index(),
+                    typed.delayFrames, typed.damagePct, typed.attackerBlockGainChancePct);
+            else
+                return chessBeveSha256("KYS_EFFECT_ATTACK_RUNTIME", behavior.index(),
+                    typed.projectileCount, typed.bleedStacks);
+        },
+        behavior);
+}
+
+ChessSha256 conditionContentHash(const EffectCondition& condition)
+{
+    return std::visit(
+        [&](const auto& typed)
+        {
+            using T = std::decay_t<decltype(typed)>;
+            constexpr auto empty = std::is_empty_v<T>;
+            if constexpr (empty)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index());
+            else if constexpr (std::is_same_v<T, SourceHpRatioAtMostCondition>
+                || std::is_same_v<T, SourceHpRatioBelowCondition>
+                || std::is_same_v<T, TargetHpRatioAtMostCondition>)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index(), typed.percent);
+            else if constexpr (std::is_same_v<T, SourceHasStateCondition>
+                || std::is_same_v<T, TargetHasStateCondition>
+                || std::is_same_v<T, TargetHasStateFromEffectOwnerCondition>)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index(), static_cast<int>(typed.state));
+            else if constexpr (std::is_same_v<T, SourceStackAtLeastCondition>)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index(),
+                    static_cast<int>(typed.stack), typed.count);
+            else if constexpr (std::is_same_v<T, CastDistinctTargetCountAtLeastCondition>)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index(), typed.count);
+            else if constexpr (std::is_same_v<T, AttackOrdinalEqualsCondition>)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index(), typed.ordinal);
+            else if constexpr (std::is_same_v<T, HealKindInCondition>
+                || std::is_same_v<T, DamageKindInCondition>)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index(), typed.kinds);
+            else if constexpr (std::is_same_v<T, AcceptedHitCondition>)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index(), typed.requirePositiveDamage);
+            else if constexpr (std::is_same_v<T, DamagePerspectiveCondition>)
+                return chessBeveSha256("KYS_EFFECT_CONDITION", condition.index(), static_cast<int>(typed.perspective));
+            else
+                static_assert(false, "Unhandled condition content hash");
+        },
+        condition);
+}
+
+std::vector<ChessSha256> conditionContentHashes(
+    const std::vector<EffectCondition>& conditions)
+{
+    std::vector<ChessSha256> result;
+    result.reserve(conditions.size());
+    std::ranges::transform(conditions, std::back_inserter(result), conditionContentHash);
+    return result;
+}
+
+ChessSha256 applyStatusContentHash(const ApplyStatusAction& action)
+{
+    return chessBeveSha256(
+        "KYS_EFFECT_APPLY_STATUS",
+        static_cast<int>(action.status),
+        action.durationFrames,
+        action.duration ? std::optional{ effectNumberContentHash(*action.duration) } : std::nullopt,
+        action.applicationCount ? std::optional{ effectNumberContentHash(*action.applicationCount) } : std::nullopt,
+        action.stacks,
+        effectNumberContentHash(action.potency),
+        effectNumberContentHash(action.secondaryPotency),
+        static_cast<int>(action.stack),
+        action.stackLimit,
+        action.aggregatePotencyWithinEvent);
+}
+
+ChessSha256 areaModifierContentHash(const AreaModifier& modifier)
+{
+    return chessBeveSha256(
+        "KYS_EFFECT_AREA_MODIFIER",
+        static_cast<int>(modifier.kind),
+        static_cast<int>(modifier.relation),
+        static_cast<int>(modifier.attribute),
+        effectNumberContentHash(modifier.amount),
+        modifier.percent,
+        static_cast<int>(modifier.damageChannel),
+        modifier.tracking,
+        modifier.speedPct,
+        modifier.projectilePressurePct,
+        modifier.blockedDirection,
+        static_cast<int>(modifier.overlap),
+        modifier.trackingOverlap,
+        modifier.speedOverlap,
+        modifier.projectilePressureOverlap);
+}
+
+std::vector<ChessSha256> areaModifierContentHashes(
+    const std::vector<AreaModifier>& modifiers)
+{
+    std::vector<ChessSha256> result;
+    result.reserve(modifiers.size());
+    std::ranges::transform(modifiers, std::back_inserter(result), areaModifierContentHash);
+    return result;
+}
+
+ChessSha256 actionContentHash(const EffectAction& action);
+
+std::vector<ChessSha256> actionContentHashes(const std::vector<EffectAction>& actions)
+{
+    std::vector<ChessSha256> result;
+    result.reserve(actions.size());
+    std::ranges::transform(actions, std::back_inserter(result), actionContentHash);
+    return result;
+}
+
+ChessSha256 stateMachineContentHash(const StateMachineAction& machine)
+{
+    return std::visit(
+        [&](const auto& typed)
+        {
+            using T = std::decay_t<decltype(typed)>;
+            if constexpr (std::is_same_v<T, ChangeStateValueAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    static_cast<int>(typed.slot), typed.delta, typed.minimum, typed.maximum);
+            else if constexpr (std::is_same_v<T, TransferStateValueAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    static_cast<int>(typed.sourceSlot), static_cast<int>(typed.destinationSlot));
+            else if constexpr (std::is_same_v<T, RecordMaximumDamageAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    static_cast<int>(typed.slot), static_cast<int>(typed.channel));
+            else if constexpr (std::is_same_v<T, ConsumeRecordedMaximumAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    static_cast<int>(typed.slot), static_cast<int>(typed.destination),
+                    typed.percent, typed.clearAfterConsume);
+            else if constexpr (std::is_same_v<T, StartDamageAbsorptionAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    static_cast<int>(typed.slot), typed.absorbedPct, typed.durationFrames,
+                    typed.settleOnSourceDeath, selectorContentHash(typed.settlementTarget),
+                    static_cast<int>(typed.settlementDamageKind), typed.returnedPct);
+            else if constexpr (std::is_same_v<T, SettleDamageAbsorptionAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    static_cast<int>(typed.slot), selectorContentHash(typed.target),
+                    static_cast<int>(typed.damageKind), typed.returnedPct, typed.clearAfterSettle);
+            else if constexpr (std::is_same_v<T, BorrowEffectRulesAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    selectorContentHash(typed.sourceUnits), effectNumberContentHash(typed.sourceCount),
+                    typed.filter.allowedActionCategories, static_cast<int>(typed.propagation));
+            else if constexpr (std::is_same_v<T, CopyAttackDefinitionAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    selectorContentHash(typed.sourceUnits), typed.filter.conditions,
+                    typed.copyCount, static_cast<int>(typed.propagation));
+            else if constexpr (std::is_same_v<T, SettleRemainingStatusDamageAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), static_cast<int>(typed.status));
+            else if constexpr (std::is_same_v<T, GenerateClonesAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.count);
+            else if constexpr (std::is_same_v<T, PreventDeathAction>)
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(), typed.invincibilityFrames);
+            else
+                return chessBeveSha256("KYS_EFFECT_STATE_MACHINE", machine.index(),
+                    static_cast<int>(typed.mode), typed.activations);
+        },
+        machine);
+}
+
+ChessSha256 actionContentHash(const EffectAction& action)
+{
+    return std::visit(
+        [&](const auto& typed)
+        {
+            using T = std::decay_t<decltype(typed)>;
+            if constexpr (std::is_same_v<T, ModifyAttributeAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    static_cast<int>(typed.attribute), effectNumberContentHash(typed.amount),
+                    static_cast<int>(typed.operation), typed.durationFrames,
+                    static_cast<int>(typed.stack), typed.stackLimit, typed.perStack,
+                    static_cast<int>(typed.stackScope));
+            else if constexpr (std::is_same_v<T, ModifyDamageAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    static_cast<int>(typed.perspective), static_cast<int>(typed.stage),
+                    static_cast<int>(typed.channel), effectNumberContentHash(typed.amount),
+                    static_cast<int>(typed.operation), typed.durationFrames,
+                    static_cast<int>(typed.stack), typed.stackLimit,
+                    static_cast<int>(typed.stackScope));
+            else if constexpr (std::is_same_v<T, ChangeResourceAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    static_cast<int>(typed.resource), effectNumberContentHash(typed.amount),
+                    static_cast<int>(typed.kind),
+                    typed.transferDestination ? std::optional{ selectorContentHash(*typed.transferDestination) } : std::nullopt,
+                    static_cast<int>(typed.healKind), static_cast<int>(typed.healSourcePolicy));
+            else if constexpr (std::is_same_v<T, ModifyHealTransactionAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    static_cast<int>(typed.operation), typed.kinds, typed.percent);
+            else if constexpr (std::is_same_v<T, ApplyStatusAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(), applyStatusContentHash(typed));
+            else if constexpr (std::is_same_v<T, ConsumeStatusAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    static_cast<int>(typed.status), typed.stacks, static_cast<int>(typed.source),
+                    typed.whenDepleted ? std::optional{ applyStatusContentHash(*typed.whenDepleted) } : std::nullopt);
+            else if constexpr (std::is_same_v<T, RemoveStatusAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    typed.statuses, typed.negativeOnly, typed.controlOnly,
+                    typed.clearCurrentActionStagger, typed.count, static_cast<int>(typed.order));
+            else if constexpr (std::is_same_v<T, DealDamageAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    effectNumberContentHash(typed.amount),
+                    typed.transactionCount ? std::optional{ effectNumberContentHash(*typed.transactionCount) } : std::nullopt,
+                    static_cast<int>(typed.kind), typed.appliesDamageModifiers,
+                    typed.triggersHurtInvincibility, static_cast<int>(typed.area.kind),
+                    typed.area.radiusTiles, typed.area.squareSideTiles, typed.perCast.perTargetLimit,
+                    typed.areaProjectiles ? std::optional{ chessBeveSha256("KYS_EFFECT_AREA_PROJECTILES",
+                        typed.areaProjectiles->rangeTiles, typed.areaProjectiles->maximumTargets,
+                        typed.areaProjectiles->stunFrames, typed.areaProjectiles->trackEventSource,
+                        static_cast<int>(typed.areaProjectiles->visual)) } : std::nullopt);
+            else if constexpr (std::is_same_v<T, ModifyAttackAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    attackPatternContentHash(typed.pattern), typed.strengthPct,
+                    typed.through, typed.tracking, typed.mainProjectile,
+                    typed.sameTargetHitLimit, static_cast<int>(typed.targets),
+                    static_cast<int>(typed.propagation), typed.addToBaseAttack,
+                    typed.source ? std::optional{ selectorContentHash(*typed.source) } : std::nullopt,
+                    typed.damageOverride ? std::optional{ effectNumberContentHash(*typed.damageOverride) } : std::nullopt,
+                    typed.damageKind, attackRuntimeBehaviorContentHash(typed.runtimeBehavior));
+            else if constexpr (std::is_same_v<T, ForceMoveAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    static_cast<int>(typed.direction), typed.distanceTiles, typed.distancePixels,
+                    typed.lockFrames, static_cast<int>(typed.collision), static_cast<int>(typed.blocked));
+            else if constexpr (std::is_same_v<T, CreateAreaAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    static_cast<int>(typed.shape), typed.radiusTiles, typed.squareSideTiles,
+                    static_cast<int>(typed.anchor), typed.durationFrames,
+                    static_cast<int>(typed.sourceDeath), static_cast<int>(typed.merge),
+                    areaModifierContentHashes(typed.modifiers));
+            else if constexpr (std::is_same_v<T, ModifyCastAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    typed.mpCost ? std::optional{ effectNumberContentHash(*typed.mpCost) } : std::nullopt,
+                    typed.rangeMode, typed.projectileSpeedPct, typed.minimumSelectDistance,
+                    typed.additionalProjectiles, static_cast<int>(typed.mobility),
+                    typed.autoUltimate ? std::optional{ chessBeveSha256("KYS_EFFECT_AUTO_CAST",
+                        typed.autoUltimate->consumeMp, typed.autoUltimate->announce) } : std::nullopt,
+                    typed.replacementPattern ? std::optional{ attackPatternContentHash(*typed.replacementPattern) } : std::nullopt,
+                    typed.freeAdditionalCast, static_cast<int>(typed.propagation));
+            else if constexpr (std::is_same_v<T, StateMachineAction>)
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(), stateMachineContentHash(typed));
+            else
+            {
+                assert(typed);
+                return chessBeveSha256("KYS_EFFECT_ACTION", action.value.index(),
+                    conditionContentHashes(typed->conditions),
+                    actionContentHashes(typed->whenTrue),
+                    actionContentHashes(typed->whenFalse));
+            }
+        },
+        action.value);
+}
+
 using RuleContentView = std::tuple<
     std::uint64_t,
     int,
     int,
     int,
+    ChessSha256,
+    std::vector<ChessSha256>,
     int,
     int,
     int,
     int,
-    std::string,
-    std::string>;
+    int,
+    std::optional<std::pair<int, int>>,
+    std::optional<ChessSha256>,
+    std::vector<ChessSha256>>;
 using NonBattleRuleContentView = std::tuple<int, std::string, int, int, int>;
 
 std::vector<RuleContentView> effectRuleContentViews(
@@ -122,12 +440,22 @@ std::vector<RuleContentView> effectRuleContentViews(
             static_cast<int>(rule.event),
             static_cast<int>(rule.observation),
             static_cast<int>(rule.castMatch),
-            static_cast<int>(rule.selector.kind),
+            selectorContentHash(rule.selector),
+            conditionContentHashes(rule.conditions),
             rule.chancePct,
             rule.maxActivations,
             rule.sharedCooldownFrames,
-            effectDescription(rule, EffectDescriptionStyle::Full, {}),
-            effectDescription(rule, EffectDescriptionStyle::Compact, {}));
+            rule.intervalFrames,
+            rule.everyNthEvent,
+            rule.activationLimit
+                ? std::optional{ std::pair{
+                    static_cast<int>(rule.activationLimit->scope),
+                    rule.activationLimit->maxEvaluations } }
+                : std::nullopt,
+            rule.repetitionCount
+                ? std::optional{ effectNumberContentHash(*rule.repetitionCount) }
+                : std::nullopt,
+            actionContentHashes(rule.actions));
     }
     return result;
 }
@@ -310,9 +638,6 @@ auto magicEffectContentViews(const std::vector<ChessMagicEffectDefinition>& defi
 {
     using DefinitionView = std::tuple<
         int,
-        std::string,
-        std::string,
-        bool,
         std::vector<RuleContentView>>;
     std::vector<DefinitionView> result;
     result.reserve(definitions.size());
@@ -324,9 +649,6 @@ auto magicEffectContentViews(const std::vector<ChessMagicEffectDefinition>& defi
         }
         result.emplace_back(
             definition.magicId,
-            definition.name,
-            definition.purpose,
-            definition.enabled,
             effectRuleContentViews(definition.rules));
     }
     return result;

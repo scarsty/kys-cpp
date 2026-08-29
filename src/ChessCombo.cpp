@@ -1,5 +1,6 @@
 #include "ChessCombo.h"
 
+#include "ChessBattleEffectParser.h"
 #include "ChessGameContent.h"
 #include "ChessSessionTypes.h"
 #include "battle/ChessComboResolver.h"
@@ -250,7 +251,7 @@ std::vector<ComboDef> loadChessCombos(
                     ++effectOrdinal;
                     auto effectContext = std::format("羈絆「{}」閾值「{}」效果#{}", def.name, thresh.name, effectOrdinal);
                     EffectRule rule;
-                    if (!ChessBattleEffects::parseEffectRule(
+                    if (!parseEffectRule(
                             eNode,
                             rule,
                             EffectRuleId{ nextRuleId++ },

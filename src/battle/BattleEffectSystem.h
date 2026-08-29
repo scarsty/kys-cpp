@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../ChessBattleEffects.h"
+#include "../ChessBattleEffectTypes.h"
 #include "../Point.h"
 #include "BattleCastLifecycle.h"
 #include "BattleHealSystem.h"
@@ -26,7 +26,7 @@ class BattleRuntimeRandom;
 
 struct EffectStatusSnapshot
 {
-    std::string state;
+    BattleStatusKind state{};
     int sourceUnitId = -1;
     int stacks = 1;
     int potency{};
@@ -53,16 +53,16 @@ struct EffectUnitSnapshot
     int defence{};
     int speed{};
     Pointf position;
-    int weaponType = -1;
+    EffectMartialCategory martialCategory = EffectMartialCategory::None;
     int ultimateMagicId = -1;
     std::set<int> magicIds;
     std::set<int> comboIds;
     std::vector<EffectStatusSnapshot> statusDetails;
 
-    bool hasState(const std::string& state) const;
-    bool hasStateFromSource(const std::string& state, int sourceUnitId) const;
-    int stackCount(const std::string& stack) const;
-    int statusPotency(const std::string& state) const;
+    bool hasState(BattleStatusKind state) const;
+    bool hasStateFromSource(BattleStatusKind state, int sourceUnitId) const;
+    int stackCount(BattleStatusKind stack) const;
+    int statusPotency(BattleStatusKind state) const;
     bool usesMagic(int magicId) const;
 };
 

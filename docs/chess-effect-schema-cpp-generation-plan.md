@@ -2,6 +2,8 @@
 
 Status: implemented (2026-08-24). The compiled descriptor renderer, native build integration, generated-file Git policy, and consumer-side schema tests are complete.
 
+Current topology note: `ChessEffectAuthoringDescriptors.h` exposes the read-only descriptor model and accessors. The private registry data is instantiated exactly once by `ChessBattleEffectParser.cpp` through `ChessEffectAuthoringMetadata.h`, alongside the parser that consumes it. The temporary separate `ChessEffectAuthoringDescriptors.cpp` implementation was removed during the semantic-document cutover because it compiled the complete private metadata registry a second time and created anonymous-linkage seams.
+
 ## Purpose
 
 Replace `tools/generate_chess_effect_schemas.py` as the source of generated chess-effect schemas. The replacement reads the real compiled C++ authoring descriptors and produces four local generated JSON Schema files used by the YAML editor.
@@ -31,9 +33,9 @@ The schema generator is not a headless game or config checker.
 
 JSON Schema remains editor support for completion and structural diagnostics. The normal game loader remains authoritative for duplicate raw YAML keys, loader-specific restrictions, runtime capability checks, references between files, exact-runtime action composition, and other semantic rules that are intentionally outside the schema contract.
 
-## Current state to replace
+## Pre-implementation state that was replaced
 
-The repository currently has the correct metadata but the wrong extraction mechanism:
+The repository had the correct metadata but the wrong extraction mechanism:
 
 - `ChessBattleEffects.cpp` owns `AuthorEnumDescriptor`, `PayloadFieldDescriptor`, `PayloadDescriptor`, `TimingDescriptor`, and the action, condition, macro, enum, payload, and probe registries.
 - `tools/generate_chess_effect_schemas.py` reads `ChessBattleEffects.cpp` as text and reconstructs those objects with regular expressions and brace-aware initializer scanning.
@@ -77,11 +79,13 @@ The four top-level layouts should remain explicit because they describe the surr
 
 If the renderer needs a label, field whitelist, payload shape, or enum list that already belongs to the authoring grammar, the descriptor model is incomplete and must be extended. Do not add a renderer-side parallel table.
 
-## C++ module layout
+## Historical implementation plan and final C++ module layout
+
+The subsections below preserve the dependency plan used during implementation. The final clean cutover did not retain its temporary linkage shape: `ChessBattleEffects.cpp` and the proposed separate `ChessEffectAuthoringDescriptors.cpp` no longer exist. The descriptor model is declared by `ChessEffectAuthoringDescriptors.h`; private registry data is instantiated exactly once from `ChessEffectAuthoringMetadata.h` by `ChessBattleEffectParser.cpp`.
 
 ### Extract descriptor visibility
 
-Move the authoring descriptor types, registry data, and lookup access out of the anonymous namespace in `ChessBattleEffects.cpp` into an internal chess-core module. Suggested files:
+The original plan moved the authoring descriptor types, registry data, and lookup access out of the anonymous namespace in `ChessBattleEffects.cpp` into an internal chess-core module, initially suggesting:
 
 - `src/ChessEffectAuthoringDescriptors.h`
 - `src/ChessEffectAuthoringDescriptors.cpp`
@@ -92,9 +96,9 @@ The header should expose internal read-only views, preferably `std::span` or con
 - descriptor probe tests;
 - the schema renderer.
 
-The implementation file should own the constexpr arrays, pointer relationships, and existing compile-time assertions. Keeping the arrays in one implementation file avoids turning the entire registry into public inline header data while still allowing the parser and generator to consume the same compiled instances.
+The final topology keeps the constexpr arrays, pointer relationships, and compile-time assertions in the private metadata header included only by `ChessBattleEffectParser.cpp`. This preserves one compiled instance without exposing the registry as public inline data or compiling a redundant descriptor implementation.
 
-`ChessBattleEffects.cpp` then calls the shared accessors instead of directly referring to anonymous-namespace registries. This extraction is a linkage refactor only: descriptor contents and parser-normalized output must not change in this batch.
+During extraction the old parser called the shared accessors without changing descriptor contents or parser-normalized output. The subsequent semantic-document clean cutover deleted that old translation unit; no forwarding facade or duplicate registry remained.
 
 Do not expose these descriptors as a stable public game API. Place them in an internal namespace that makes their authoring/tooling purpose clear.
 
@@ -253,7 +257,9 @@ It is reasonable to keep Python only as a consumer-side JSON Schema test because
 
 These tests must not grow into a second runtime validator or reproduce every parser invariant. They validate that the emitted JSON Schema is internally valid and useful to an editor. They run after C++ generation and never establish a second descriptor source of truth.
 
-## Implementation batches
+## Historical implementation batches
+
+These batches were working-order checkpoints, not mergeable compatibility phases. Baseline comparisons existed only while developing the replacement. The completed tree retains neither the Python extractor nor old `ChessBattleEffects`, descriptor mirrors, forwarding accessors, or a dual generation path.
 
 ### Batch 1: Descriptor extraction
 

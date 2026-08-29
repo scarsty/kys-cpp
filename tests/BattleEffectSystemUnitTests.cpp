@@ -1,5 +1,6 @@
 #include "battle/BattleEffectSystem.h"
 #include "battle/BattleRuntimeRandom.h"
+#include "ChessBattleEffectValidation.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -206,7 +207,7 @@ TEST_CASE("BattleEffectSystem emits one poison application and damage transactio
     auto owner = makeUnit(1, 0, 0, 1000);
     owner.alive = false;
     owner.statusDetails.push_back({
-        .state = "毒爆",
+        .state = BattleStatusKind::PoisonExplosion,
         .sourceUnitId = owner.id,
         .stacks = 3,
         .potency = 240,
@@ -216,12 +217,12 @@ TEST_CASE("BattleEffectSystem emits one poison application and damage transactio
 
     EffectNumber layerCount;
     layerCount.base = EffectNumberBase::SourceStatusStacks;
-    layerCount.status = "毒爆";
+    layerCount.status = BattleStatusKind::PoisonExplosion;
     layerCount.percent = 100;
     layerCount.minimum = 1;
     DealDamageAction damage;
     damage.amount.base = EffectNumberBase::SourceStatusPotency;
-    damage.amount.status = "毒爆";
+    damage.amount.status = BattleStatusKind::PoisonExplosion;
     damage.amount.percent = 100;
     damage.kind = BattleDamageKind::Pure;
     ApplyStatusAction poison;
@@ -236,7 +237,7 @@ TEST_CASE("BattleEffectSystem emits one poison application and damage transactio
         EffectEvent::UnitDied,
         EffectSelector{ .kind = EffectSelectorKind::Enemies, .count = 1 },
         { effectAction(damage), effectAction(poison) },
-        { SourceHasStateCondition{ "毒爆" } });
+        { SourceHasStateCondition{ BattleStatusKind::PoisonExplosion } });
     rule.repetitionCount = layerCount;
 
     BattleEffectRuleStore store;
@@ -593,7 +594,7 @@ TEST_CASE("BattleEffectSystem copy filter excludes recursive magic before random
 TEST_CASE("BattleEffectSystem gates rules by conditions chance propagation and maximum count", "[battle][effect]")
 {
     auto owner = makeUnit(1, 0, 400, 1000);
-    owner.statusDetails.push_back({ .state = "真氣" });
+    owner.statusDetails.push_back({ .state = BattleStatusKind::TrueQi });
     auto target = makeUnit(2, 1, 200, 1000);
     const std::vector units{ owner, target };
     auto context = makeContext(
@@ -617,12 +618,12 @@ TEST_CASE("BattleEffectSystem gates rules by conditions chance propagation and m
         { effectAction(modifier) },
         {
             IsUltimateCondition{},
-            MagicIdEqualsCondition{ 77 },
+            CastUsesEffectSourceMagicCondition{},
             IsMainProjectileCondition{},
             IsRootAttackCondition{},
             SourceHpRatioAtMostCondition{ 50 },
             TargetHpRatioAtMostCondition{ 25 },
-            SourceHasStateCondition{ "真氣" },
+            SourceHasStateCondition{ BattleStatusKind::TrueQi },
             AttackOrdinalEqualsCondition{ 2 },
         });
     rule.chancePct = 17;
@@ -665,6 +666,48 @@ TEST_CASE("BattleEffectSystem gates rules by conditions chance propagation and m
     normalProvenance.cast.origin = CastOriginKind::Normal;
     BattleRuntimeRandom normalCastRandom(1);
     CHECK(system.dispatch(suppressedStore, normalCastContext, normalCastRandom).commands.empty());
+}
+
+TEST_CASE("BattleEffectSystem matches a cast against the effect source relationally",
+          "[battle][effect][condition]")
+{
+    const auto owner = makeUnit(1, 0, 1000, 1000);
+    const auto target = makeUnit(2, 1, 1000, 1000);
+    const std::vector units{owner, target};
+    const auto binding = magicBinding(77);
+    ChangeResourceAction restore;
+    restore.resource = BattleResource::Mp;
+    restore.kind = ResourceChangeKind::Restore;
+    restore.amount.flat = 10;
+    const auto rule = makeRule(
+        1,
+        EffectEvent::MainProjectileBeforeDamage,
+        selfSelector(),
+        {effectAction(restore)},
+        {CastUsesEffectSourceMagicCondition{}});
+
+    const auto dispatch = [&](int castMagicId)
+    {
+        BattleEffectRuleStore store;
+        store.append(binding, rule);
+        BattleRuntimeRandom random(1);
+        auto provenance = attackProvenance(castMagicId);
+        provenance.cast.sourceUnitId = owner.id;
+        return BattleEffectSystem{}.dispatch(store, makeContext(
+            EffectEvent::MainProjectileBeforeDamage,
+            binding,
+            owner,
+            units,
+            HitEventData{
+                .provenance = provenance,
+                .targetUnitId = target.id,
+                .originalTargetUnitId = target.id,
+                .damageKind = BattleDamageKind::Skill,
+            }), random);
+    };
+
+    CHECK(dispatch(77).commands.size() == 1);
+    CHECK(dispatch(78).commands.empty());
 }
 
 TEST_CASE("BattleEffectSystem exact runtime query uses canonical cast eligibility without activating",
@@ -908,7 +951,7 @@ TEST_CASE("BattleEffectSystem lets an active magic state observe the owner's lat
           "[battle][effect][cast_match][sunflower]")
 {
     auto owner = makeUnit(1, 0, 1000, 1000);
-    owner.statusDetails.push_back({ .state = "無影" });
+    owner.statusDetails.push_back({ .state = BattleStatusKind::Shadowless });
     const auto enemy = makeUnit(2, 1, 1000, 1000);
     const std::vector units{ owner, enemy };
 
@@ -923,7 +966,7 @@ TEST_CASE("BattleEffectSystem lets an active magic state observe the owner's lat
         EffectEvent::AttackSpawned,
         EffectSelector{ .kind = EffectSelectorKind::Enemies, .count = 1 },
         { effectAction(echo) },
-        { IsRootAttackCondition{}, SourceHasStateCondition{ "無影" } });
+        { IsRootAttackCondition{}, SourceHasStateCondition{ BattleStatusKind::Shadowless } });
     rule.castMatch = EffectCastMatch::OwnerAnyCast;
 
     BattleEffectRuleStore store;
@@ -1325,7 +1368,7 @@ TEST_CASE("BattleEffectSystem expands conditional actions in stable action and t
         EffectEvent::UltimateCommitted,
         selector,
         { effectAction(conditional) },
-        { IsUltimateCondition{}, MagicIdEqualsCondition{ 133 } });
+        { IsUltimateCondition{}, CastUsesEffectSourceMagicCondition{} });
 
     BattleEffectRuleStore store;
     store.append(magicBinding(133), rule);
@@ -1519,7 +1562,7 @@ TEST_CASE("BattleEffectSystem shares marked-hit observation and permanent cast p
     const auto ally = makeUnit(2, 0, 1000, 1000);
     auto enemy = makeUnit(3, 1, 1000, 1000);
     enemy.statusDetails.push_back({
-        .state = "七星",
+        .state = BattleStatusKind::SevenStarMark,
         .sourceUnitId = caster.id,
         .stacks = 1,
         .potency = 50,
@@ -1546,7 +1589,7 @@ TEST_CASE("BattleEffectSystem shares marked-hit observation and permanent cast p
         EffectEvent::HitBeforeDamage,
         hitTargetSelector(),
         { effectAction(ignoreDefense), effectAction(consume) },
-        { TargetHasStateFromEffectOwnerCondition{ "七星" } });
+        { TargetHasStateFromEffectOwnerCondition{ BattleStatusKind::SevenStarMark } });
     observer.observation = EffectObservationScope::OwnerTeamEventSource;
 
     BattleEffectRuleStore store;
@@ -1758,7 +1801,7 @@ TEST_CASE("BattleEffectSystem resolves a single living ally as an attack source"
         .kind = EffectSelectorKind::Allies,
         .count = 1,
         .excludeOwner = true,
-        .requiredMagicId = 62,
+        .requiredBoundMagic = true,
     };
     const auto rule = makeRule(
         1,
@@ -1804,7 +1847,7 @@ TEST_CASE("BattleEffectSystem couple-blade branch replaces its solo fallback",
         .kind = EffectSelectorKind::Allies,
         .count = 1,
         .excludeOwner = true,
-        .requiredMagicId = 62,
+        .requiredBoundMagic = true,
     };
     auto fallback = combined;
     fallback.strengthPct = 50;
@@ -1812,7 +1855,7 @@ TEST_CASE("BattleEffectSystem couple-blade branch replaces its solo fallback",
     fallback.source.reset();
 
     auto branch = std::make_shared<ConditionalEffectAction>();
-    branch->conditions = { OtherLivingAllyUsesMagicCondition{ 62 } };
+    branch->conditions = { OtherLivingAllyUsesBoundMagicCondition{} };
     branch->whenTrue = { effectAction(combined) };
     branch->whenFalse = { effectAction(fallback) };
     const auto rule = makeRule(

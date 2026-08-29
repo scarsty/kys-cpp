@@ -13,3 +13,11 @@ void DrawableOnCall::draw()
 {
     draw_(this);
 }
+
+void DrawableOnCall::dealEvent(EngineEvent& event)
+{
+    if (eventHandler_)
+    {
+        eventHandler_(this, event);
+    }
+}

@@ -1,10 +1,16 @@
 #pragma once
 
+#include "ChessEffectDescription.h"
 #include "DisplayText.h"
 #include "Font.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <optional>
+#include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace KysChess
@@ -27,6 +33,106 @@ struct PanelTextCursor
         y += spacing;
     }
 };
+
+struct PanelTextSourceRow
+{
+    std::string text;
+    int fontSizeDelta{};
+    int indentUnits{};
+    int spacingBefore{};
+    int spacingAfter{};
+};
+
+struct PanelTextPhysicalLine
+{
+    std::size_t sourceRow{};
+    std::string text;
+    int fontSize{};
+    int indentPixels{};
+    int y{};
+};
+
+struct PanelTextLayout
+{
+    int baseFontSize{};
+    int height{};
+    std::vector<PanelTextPhysicalLine> lines;
+};
+
+struct PanelTextColumnLayout
+{
+    std::size_t firstBlock{};
+    std::size_t lastBlock{};
+    PanelTextLayout layout;
+};
+
+struct PanelTextColumnsLayout
+{
+    int baseFontSize{};
+    int columnWidth{};
+    std::vector<PanelTextColumnLayout> columns;
+};
+
+inline std::vector<PanelTextSourceRow> panelTextRowsForEffectDescription(
+    const RenderedEffectDescription& rendered,
+    int fontSizeDelta = 0,
+    int extraSpacing = 3,
+    int baseIndentUnits = 0)
+{
+    std::vector<PanelTextSourceRow> result;
+    bool firstRow = true;
+    for (const auto& section : rendered.sections)
+    {
+        if (section.heading)
+        {
+            result.push_back({
+                .text = *section.heading,
+                .fontSizeDelta = fontSizeDelta,
+                .indentUnits = baseIndentUnits,
+                .spacingBefore = firstRow ? 0 : extraSpacing,
+                .spacingAfter = extraSpacing,
+            });
+            firstRow = false;
+        }
+        for (const auto& block : section.blocks)
+        {
+            for (const auto& row : block.rows)
+            {
+                result.push_back({
+                    .text = row.text,
+                    .fontSizeDelta = fontSizeDelta,
+                    .indentUnits = baseIndentUnits + row.indent * 2,
+                    .spacingBefore = !firstRow
+                            && row.breakBefore != EffectDescriptionSemanticBreak::None
+                        ? extraSpacing
+                        : 0,
+                    .spacingAfter = extraSpacing,
+                });
+                firstRow = false;
+            }
+        }
+    }
+    return result;
+}
+
+inline PanelTextLayout layoutPanelText(
+    std::span<const PanelTextSourceRow> rows,
+    int pixelWidth,
+    int baseFontSize);
+
+inline PanelTextLayout fitPanelText(
+    std::span<const PanelTextSourceRow> rows,
+    int pixelWidth,
+    int pixelHeight,
+    int preferredFontSize,
+    int minimumFontSize);
+
+inline std::optional<PanelTextColumnsLayout> fitPanelTextBlocks(
+    const std::vector<std::vector<PanelTextSourceRow>>& blocks,
+    int pixelWidth,
+    int pixelHeight,
+    int preferredFontSize,
+    int minimumFontSize);
 
 struct LabelValueColumn
 {
@@ -53,6 +159,143 @@ inline int displayTextUnitsForPixelWidth(int fontSize, int pixelWidth, int inden
     assert(fontSize > 0);
     assert(pixelWidth - indent >= fontSize);
     return (pixelWidth - indent) * 2 / fontSize;
+}
+
+inline PanelTextLayout layoutPanelText(
+    std::span<const PanelTextSourceRow> rows,
+    int pixelWidth,
+    int baseFontSize)
+{
+    assert(pixelWidth > 0);
+    assert(baseFontSize > 0);
+    PanelTextLayout result{
+        .baseFontSize = baseFontSize,
+    };
+    for (std::size_t rowIndex = 0; rowIndex < rows.size(); ++rowIndex)
+    {
+        const auto& row = rows[rowIndex];
+        assert(!row.text.empty());
+        const int fontSize = baseFontSize + row.fontSizeDelta;
+        assert(fontSize > 0);
+        const int indentPixels = row.indentUnits * fontSize / 2;
+        const int displayWidth = displayTextUnitsForPixelWidth(
+            fontSize,
+            pixelWidth,
+            indentPixels);
+        const auto wrapped = wrapDisplayText(row.text, displayWidth);
+        assert(!wrapped.empty());
+        result.height += row.spacingBefore;
+        for (std::size_t lineIndex = 0; lineIndex < wrapped.size(); ++lineIndex)
+        {
+            result.lines.push_back({
+                .sourceRow = rowIndex,
+                .text = wrapped[lineIndex],
+                .fontSize = fontSize,
+                .indentPixels = indentPixels,
+                .y = result.height,
+            });
+            result.height += fontSize;
+            if (rowIndex + 1 < rows.size() || lineIndex + 1 < wrapped.size())
+                result.height += row.spacingAfter;
+        }
+    }
+    return result;
+}
+
+inline PanelTextLayout fitPanelText(
+    std::span<const PanelTextSourceRow> rows,
+    int pixelWidth,
+    int pixelHeight,
+    int preferredFontSize,
+    int minimumFontSize)
+{
+    assert(pixelHeight > 0);
+    assert(preferredFontSize >= minimumFontSize);
+    assert(minimumFontSize > 0);
+    for (int fontSize = preferredFontSize; fontSize >= minimumFontSize; --fontSize)
+    {
+        auto layout = layoutPanelText(rows, pixelWidth, fontSize);
+        if (layout.height <= pixelHeight)
+        {
+            return layout;
+        }
+    }
+    assert(false && "panel text does not fit at the minimum readable font size");
+    return layoutPanelText(rows, pixelWidth, minimumFontSize);
+}
+
+inline std::optional<PanelTextColumnsLayout> fitPanelTextBlocks(
+    const std::vector<std::vector<PanelTextSourceRow>>& blocks,
+    int pixelWidth,
+    int pixelHeight,
+    int preferredFontSize,
+    int minimumFontSize)
+{
+    assert(!blocks.empty());
+    assert(pixelWidth > 0);
+    assert(pixelHeight > 0);
+    assert(preferredFontSize >= minimumFontSize);
+    assert(minimumFontSize > 0);
+    const auto combineBlocks = [&](std::size_t first, std::size_t last)
+    {
+        std::vector<PanelTextSourceRow> result;
+        for (std::size_t index = first; index < last; ++index)
+            result.insert(result.end(), blocks[index].begin(), blocks[index].end());
+        return result;
+    };
+
+    std::optional<PanelTextColumnsLayout> chosen;
+    int chosenTallestColumn{};
+    const int columnLimit = std::min(2, static_cast<int>(blocks.size()));
+    for (int columns = 1; columns <= columnLimit; ++columns)
+    {
+        const int columnWidth = pixelWidth / columns;
+        const std::size_t firstSplit = columns == 1 ? blocks.size() : 1;
+        const std::size_t lastSplit = columns == 1 ? blocks.size() : blocks.size() - 1;
+        for (std::size_t split = firstSplit; split <= lastSplit; ++split)
+        {
+            std::vector<std::pair<std::size_t, std::size_t>> ranges{
+                {0, split},
+            };
+            if (columns == 2) ranges.push_back({split, blocks.size()});
+            for (int fontSize = preferredFontSize; fontSize >= minimumFontSize; --fontSize)
+            {
+                std::vector<PanelTextColumnLayout> columnLayouts;
+                int tallest{};
+                bool fits = true;
+                for (const auto [first, last] : ranges)
+                {
+                    const auto rows = combineBlocks(first, last);
+                    auto layout = layoutPanelText(rows, columnWidth, fontSize);
+                    tallest = std::max(tallest, layout.height);
+                    fits = fits && layout.height <= pixelHeight;
+                    columnLayouts.push_back({
+                        .firstBlock = first,
+                        .lastBlock = last,
+                        .layout = std::move(layout),
+                    });
+                }
+                if (!fits) continue;
+                if (!chosen
+                    || fontSize > chosen->baseFontSize
+                    || (fontSize == chosen->baseFontSize
+                        && columns < static_cast<int>(chosen->columns.size()))
+                    || (fontSize == chosen->baseFontSize
+                        && columns == static_cast<int>(chosen->columns.size())
+                        && tallest < chosenTallestColumn))
+                {
+                    chosen = PanelTextColumnsLayout{
+                        .baseFontSize = fontSize,
+                        .columnWidth = columnWidth,
+                        .columns = std::move(columnLayouts),
+                    };
+                    chosenTallestColumn = tallest;
+                }
+                break;
+            }
+        }
+    }
+    return chosen;
 }
 
 }    // namespace KysChess

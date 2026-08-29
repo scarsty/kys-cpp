@@ -1,5 +1,5 @@
 #pragma once
-#include "ChessBattleEffects.h"
+#include "ChessBattleEffectTypes.h"
 #include "ChessDiagnostics.h"
 #include "ChessNonBattleRules.h"
 #include "Types.h"

@@ -547,7 +547,33 @@ class ChessCliTests(unittest.TestCase):
         self.assertIn("abilities", role)
         self.assertIn("combos", role)
         self.assertIn("geometry", role["abilities"][0])
-        self.assertTrue(role["abilities"][0]["effects"])
+        def assert_structured_description(description):
+            self.assertEqual(set(description), {"sections"})
+            self.assertTrue(description["sections"])
+            rows = []
+            for section in description["sections"]:
+                self.assertIn("blocks", section)
+                for block in section["blocks"]:
+                    self.assertIn("rows", block)
+                    rows.extend(block["rows"])
+            self.assertTrue(rows)
+            for row in rows:
+                self.assertEqual(
+                    set(row),
+                    {"kind", "text", "indent", "break_before"},
+                )
+                self.assertIn(
+                    row["kind"],
+                    {"field", "list_item", "heading", "prose", "summary"},
+                )
+                self.assertIsInstance(row["indent"], int)
+                self.assertIn(
+                    row["break_before"],
+                    {"none", "block", "branch", "sequence", "action_group", "qualifier"},
+                )
+                self.assertFalse(row["text"].endswith("。"))
+
+        assert_structured_description(role["abilities"][0]["effects"])
         self.assertNotIn("effect_note", role["abilities"][0])
         self.assertIn("power_by_star", role["abilities"][0])
         self.assertEqual(game["combos"], [])
@@ -578,9 +604,15 @@ class ChessCliTests(unittest.TestCase):
         equipment_info = equipment["result"]
         self.assertIn("base_stat_effects", equipment_info)
         self.assertIn("special_effects", equipment_info)
+        assert_structured_description(equipment_info["special_effects"])
         self.assertIn("character_bonuses", equipment_info)
+        for bonus in equipment_info["character_bonuses"]:
+            if "effects" in bonus:
+                assert_structured_description(bonus["effects"])
         self.assertEqual(combo["result"]["name"], "刀客")
         self.assertTrue(combo["result"]["thresholds"])
+        for threshold in combo["result"]["thresholds"]:
+            assert_structured_description(threshold["effects"])
 
     def test_defeat_uses_summary_then_targeted_full_observation_for_recovery(self):
         completed = run_jsonl(
@@ -739,15 +771,14 @@ class ChessCliTests(unittest.TestCase):
         response = json.loads(completed.stdout.splitlines()[-1])
         reward = response["result"]["next_observation"]["pending_reward"]
         sword = next(option for option in reward["options"] if option["label"] == "越女劍")
-        self.assertIn(
-            "角色加成(韓小瑩)：絕招主彈道命中、傷害結算前，有25%機率，"
-            "對命中目標擊退120像素並鎖定7幀",
-            sword["description"],
-        )
-        self.assertIn(
-            "戰鬥開始時，對自身閃避率+18",
-            sword["description"],
-        )
+        self.assertIn("角色加成(韓小瑩)", sword["description"])
+        self.assertIn("主彈道命中時", sword["description"])
+        self.assertIn("有25%機率", sword["description"])
+        self.assertIn("被主彈命中的敵人", sword["description"])
+        self.assertIn("擊退120像素", sword["description"])
+        self.assertIn("鎖定7幀", sword["description"])
+        self.assertIn("\n  閃避率+18%", sword["description"])
+        self.assertNotIn("。；", sword["description"])
         self.assertNotIn("鎖定7幀：", sword["description"])
 
 

@@ -12,6 +12,7 @@
 #include "ChessCombo.h"
 #include "ChessContextMenu.h"
 #include "ChessEftIds.h"
+#include "ChessEffectDescription.h"
 #include "ChessGuiBattleFlow.h"
 #include "ChessGuiSavePolicy.h"
 #include "ChessManagementRules.h"
@@ -76,6 +77,7 @@ constexpr int kStatsDetailOffsetY = 4;
 constexpr int kSkillTopGap = 14;
 constexpr int kOwnedTextInset = 8;
 constexpr int kMagicBottomReserve = 10;
+constexpr int kMagicEffectInset = 10;
 constexpr int kComboRowGap = 2;
 constexpr int kEquipIconOffsetX = 46;
 constexpr int kEquipIconSize = 28;
@@ -536,6 +538,98 @@ void drawWrappedLines(
     }
 }
 
+struct PanelVisualTextRow
+{
+    PanelTextSourceRow layout;
+    Color color;
+};
+
+void appendPanelTextRow(
+    std::vector<PanelVisualTextRow>& rows,
+    std::string text,
+    Color color,
+    int fontSizeDelta = 0,
+    int indentUnits = 0,
+    int spacingBefore = 0,
+    int spacingAfter = 0)
+{
+    rows.push_back({
+        .layout = {
+            .text = std::move(text),
+            .fontSizeDelta = fontSizeDelta,
+            .indentUnits = indentUnits,
+            .spacingBefore = spacingBefore,
+            .spacingAfter = spacingAfter,
+        },
+        .color = color,
+    });
+}
+
+void appendRenderedEffectDescriptionRows(
+    std::vector<PanelVisualTextRow>& rows,
+    const RenderedEffectDescription& rendered,
+    Color color,
+    int fontSizeDelta = 0,
+    int extraSpacing = 3,
+    int baseIndentUnits = 0)
+{
+    for (auto& layout : panelTextRowsForEffectDescription(
+             rendered,
+             fontSizeDelta,
+             extraSpacing,
+             baseIndentUnits))
+    {
+        rows.push_back({
+            .layout = std::move(layout),
+            .color = color,
+        });
+    }
+}
+
+std::vector<PanelTextSourceRow> panelTextLayoutRows(
+    std::span<const PanelVisualTextRow> rows)
+{
+    std::vector<PanelTextSourceRow> result;
+    result.reserve(rows.size());
+    for (const auto& row : rows)
+        result.push_back(row.layout);
+    return result;
+}
+
+void drawPanelText(
+    Font* font,
+    std::span<const PanelVisualTextRow> rows,
+    const PanelTextLayout& layout,
+    int x,
+    int y)
+{
+    for (const auto& line : layout.lines)
+    {
+        font->draw(
+            line.text,
+            line.fontSize,
+            x + line.indentPixels,
+            y + line.y,
+            rows[line.sourceRow].color);
+    }
+}
+
+PanelTextLayout fitVisualPanelText(
+    std::span<const PanelVisualTextRow> rows,
+    int pixelWidth,
+    int pixelHeight,
+    int preferredFontSize,
+    int minimumFontSize)
+{
+    const auto layoutRows = panelTextLayoutRows(rows);
+    return fitPanelText(
+        layoutRows,
+        pixelWidth,
+        pixelHeight,
+        preferredFontSize,
+        minimumFontSize);
+}
+
 std::shared_ptr<DrawableOnCall> makePanel(
     PanelFrame frame,
     PanelDrawer drawer,
@@ -611,48 +705,114 @@ void drawEquipmentDetail(
     drawMetadata(chessEquipmentTypeName(equipment.equipType), chessEquipmentTypeColor(equipment.equipType));
     header.skip(fontSize + 4);
 
-    PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
+    std::vector<PanelVisualTextRow> bodyRows;
     const int bodyWidth = frame.w - 20;
     if (!equipment.rules.empty())
     {
-        body.line("特殊效果:", fontSize, {255, 200, 100, 255});
-        for (const auto& rule : equipment.rules)
-        {
-            drawWrappedLines(
-                body,
-                effectDescription(rule, EffectDescriptionStyle::Full, {}),
-                fontSize - 2,
-                {220, 220, 100, 255},
-                bodyWidth,
-                2);
-        }
+        appendPanelTextRow(bodyRows, "特殊效果:", {255, 200, 100, 255}, 2, 0, 0, 2);
+        const auto document = buildEffectDescriptionDocument({
+            EffectDescriptionContainerKind::Equipment,
+            equipment.rules,
+        });
+        const auto rendered = renderEffectDescription(
+            document,
+            EffectDescriptionStyle::Full,
+            {});
+        appendRenderedEffectDescriptionRows(
+            bodyRows,
+            rendered,
+            {220, 220, 100, 255},
+            0,
+            2);
     }
 
-    const auto synergyLines = buildChessEquipmentSynergyDetailLines(session.content(), equipment.itemId);
-    if (!synergyLines.empty())
+    const bool hasSynergies = std::ranges::any_of(
+        session.content().equipmentSynergies(),
+        [&](const auto& synergy) { return synergy.equipmentId == equipment.itemId; });
+    if (hasSynergies)
     {
-        if (!equipment.rules.empty())
+        appendPanelTextRow(
+            bodyRows,
+            "裝備羈絆:",
+            {255, 200, 100, 255},
+            2,
+            0,
+            equipment.rules.empty() ? 0 : 12,
+            2);
+        for (const auto& synergy : session.content().equipmentSynergies())
         {
-            body.skip(12);
-        }
-        body.line("裝備羈絆:", fontSize, {255, 200, 100, 255});
-        for (const auto& line : synergyLines)
-        {
-            drawWrappedLines(body, line, fontSize - 2, {220, 220, 100, 255}, bodyWidth, 2);
+            if (synergy.equipmentId != equipment.itemId) continue;
+            std::string heading;
+            for (std::size_t index = 0; index < synergy.roleIds.size(); ++index)
+            {
+                if (index > 0) heading += "、";
+                const auto* role = session.content().role(synergy.roleIds[index]);
+                assert(role);
+                heading += role->Name;
+            }
+            heading += "：";
+            const auto comboNames = countsAsComboNames(synergy.managementRules);
+            if (!comboNames.empty())
+            {
+                heading += "計作";
+                for (std::size_t index = 0; index < comboNames.size(); ++index)
+                {
+                    if (index > 0) heading += "、";
+                    heading += comboNames[index];
+                }
+            }
+            appendPanelTextRow(
+                bodyRows,
+                std::move(heading),
+                {220, 220, 100, 255},
+                0,
+                0,
+                0,
+                2);
+            const auto document = buildEffectDescriptionDocument({
+                EffectDescriptionContainerKind::EquipmentSynergy,
+                synergy.rules,
+            });
+            const auto rendered = renderEffectDescription(
+                document,
+                EffectDescriptionStyle::Full,
+                {});
+            appendRenderedEffectDescriptionRows(
+                bodyRows,
+                rendered,
+                {220, 220, 100, 255},
+                0,
+                2,
+                2);
         }
     }
 
     if (!equippedBy.empty())
     {
-        if (!equipment.rules.empty() || !synergyLines.empty())
-        {
-            body.skip(16);
-        }
-        body.line("裝備棋子:", fontSize, {140, 220, 255, 255}, 6);
+        appendPanelTextRow(
+            bodyRows,
+            "裝備棋子:",
+            {140, 220, 255, 255},
+            2,
+            0,
+            !equipment.rules.empty() || hasSynergies ? 16 : 0,
+            4);
         for (const auto& name : equippedBy)
         {
-            body.line(name, fontSize - 2, {210, 235, 255, 255}, 2, 12);
+            appendPanelTextRow(bodyRows, name, {210, 235, 255, 255}, 0, 1, 0, 2);
         }
+    }
+    if (!bodyRows.empty())
+    {
+        constexpr int bodyTop = 100;
+        constexpr int bodyBottomInset = 10;
+        const auto layout = fitVisualPanelText(
+            bodyRows,
+            bodyWidth,
+            frame.h - bodyTop - bodyBottomInset,
+            fontSize - 2,
+            14);
+        drawPanelText(Font::getInstance(), bodyRows, layout, frame.x + 10, frame.y + bodyTop);
     }
 }
 
@@ -702,19 +862,32 @@ void drawNeigongDetail(
             8);
     }
 
-    PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
-    body.line("效果:", fontSize, {200, 200, 200, 255});
-    for (const auto& rule : neigong.rules)
-    {
-        drawWrappedLines(
-            body,
-            effectDescription(rule, EffectDescriptionStyle::Full, {}),
-            fontSize,
-            {220, 220, 220, 255},
-            frame.w - 20,
-            2,
-            24);
-    }
+    std::vector<PanelVisualTextRow> bodyRows;
+    appendPanelTextRow(bodyRows, "效果:", {200, 200, 200, 255}, 2, 0, 0, 2);
+    const auto document = buildEffectDescriptionDocument({
+        EffectDescriptionContainerKind::Neigong,
+        neigong.rules,
+    });
+    const auto rendered = renderEffectDescription(
+        document,
+        EffectDescriptionStyle::Full,
+        {});
+    appendRenderedEffectDescriptionRows(
+        bodyRows,
+        rendered,
+        {220, 220, 220, 255},
+        0,
+        2,
+        2);
+    constexpr int bodyTop = 100;
+    constexpr int bodyBottomInset = 10;
+    const auto layout = fitVisualPanelText(
+        bodyRows,
+        frame.w - 20,
+        frame.h - bodyTop - bodyBottomInset,
+        fontSize,
+        14);
+    drawPanelText(Font::getInstance(), bodyRows, layout, frame.x + 10, frame.y + bodyTop);
 }
 
 std::shared_ptr<DrawableOnCall> makeNeigongDetailPanel(
@@ -738,7 +911,7 @@ std::shared_ptr<DrawableOnCall> makeBattleMapPreviewPanel(
     const ChessGameSession& session,
     std::vector<int> mapIds)
 {
-    const auto frame = ChessScreenLayout::battleSeedRerollPreviewPanel();
+    const auto frame = ChessScreenLayout::largeModalPreviewPanel();
     return makePanel(frame, [&session, mapIds = std::move(mapIds)](int row, const PanelFrame& panelFrame) {
         if (row < 0 || row >= static_cast<int>(mapIds.size()))
         {
@@ -855,7 +1028,7 @@ int runIndexedMenu(
     const SessionMenuData& data,
     int fontSize = kChessBrowseMenuPresentation.fontSize,
     int perPage = kChessBrowseMenuPresentation.itemsPerPage,
-    PanelAnchor anchor = ChessScreenLayout::browseMenuAnchor(),
+    PanelAnchor anchor = ChessScreenLayout::contentMenuAnchor(),
     const std::vector<std::shared_ptr<DrawableOnCall>>& panels = {},
     bool showSearch = false,
     bool showNavigation = true,
@@ -943,12 +1116,13 @@ bool confirmReturnToTitle()
         == 0;
 }
 
-void drawRoleDetail(
+ChessMagicEffectDisplayLayout drawRoleDetail(
     const ChessGameSession& session,
     int roleId,
     int star,
     int instanceId,
-    const PanelFrame& frame)
+    const PanelFrame& frame,
+    int magicScrollOffset)
 {
     const auto* role = session.content().role(roleId);
     assert(role);
@@ -1047,7 +1221,9 @@ void drawRoleDetail(
         rawMagicRows,
         layout.magic.w,
         layout.magicAvailableHeight);
-    for (const auto& displayLine : magicDisplay.lines)
+    for (const auto& displayLine : visibleChessMagicEffectDisplayLines(
+        magicDisplay,
+        magicScrollOffset))
     {
         const auto& magicRow = displayLine.content;
         const int lineX = layout.magic.x + displayLine.x;
@@ -1086,6 +1262,23 @@ void drawRoleDetail(
             layout.magic.x + magicDisplay.skillValueX,
             lineY,
             colorWhite);
+    }
+    if (magicDisplay.scrollable)
+    {
+        const auto scrollOffset = clampChessMagicEffectDisplayScrollOffset(
+            magicDisplay,
+            magicScrollOffset);
+        const auto stop = std::ranges::find(magicDisplay.scrollStops, scrollOffset);
+        const int scrollStopIndex = stop == magicDisplay.scrollStops.end()
+            ? 1
+            : static_cast<int>(std::distance(magicDisplay.scrollStops.begin(), stop)) + 1;
+        font->draw(
+            std::format("捲動 PgUp/PgDn  {}/{}", scrollStopIndex, magicDisplay.scrollStops.size()),
+            magicDisplay.effectFontSize,
+            layout.magic.x + kMagicEffectInset,
+            layout.magicStartY + magicDisplay.viewportHeight
+                - magicDisplay.scrollIndicatorHeight,
+            colorInactive);
     }
 
     font->draw("擁有", layout.titleFontSize, layout.owned.x, layout.sectionTitleY, colorName);
@@ -1201,6 +1394,7 @@ void drawRoleDetail(
         drawEquipment("武器", piece->weaponInstanceId);
         drawEquipment("護甲", piece->armorInstanceId);
     }
+    return magicDisplay;
 }
 
 std::shared_ptr<DrawableOnCall> makeRoleDetailPanel(
@@ -1217,21 +1411,74 @@ std::shared_ptr<DrawableOnCall> makeRoleDetailPanel(
     {
         visibleRows.push_back(roleId >= 0);
     }
-    return makePanel(
-        frame,
-        [&session,
+    struct ScrollState
+    {
+        int row = -1;
+        int offset{};
+        std::optional<ChessMagicEffectDisplayLayout> layout;
+    };
+    auto scroll = std::make_shared<ScrollState>();
+    auto panel = std::make_shared<DrawableOnCall>(
+        [frame,
+            &session,
             roleIds = std::move(roleIds),
             starsByRow = std::move(starsByRow),
-            instanceIds = std::move(instanceIds)](int row, const PanelFrame& panelFrame) {
+            instanceIds = std::move(instanceIds),
+            visibleRows = std::move(visibleRows),
+            scroll](DrawableOnCall* self) {
+            const int row = self->getItemIndex();
+            if (!isPanelRowInRange(row, static_cast<int>(visibleRows.size()))
+                || !visibleRows[row])
+            {
+                scroll->layout.reset();
+                return;
+            }
+            if (scroll->row != row)
+            {
+                scroll->row = row;
+                scroll->offset = 0;
+            }
+            ChessScreenLayout::drawPanel(
+                frame,
+                {0, 0, 0, 128},
+                {180, 170, 140, 200},
+                8);
             const int star = row < static_cast<int>(starsByRow.size()) ? starsByRow[row] : 1;
             const int instanceId = row < static_cast<int>(instanceIds.size()) ? instanceIds[row] : -1;
-            drawRoleDetail(session, roleIds[row], star, instanceId, panelFrame);
-        },
-        [visibleRows = std::move(visibleRows)](int row) {
-            return isPanelRowInRange(row, static_cast<int>(visibleRows.size()))
-                && visibleRows[row];
-        },
-        {0, 0, 0, 128});
+            scroll->layout = drawRoleDetail(
+                session,
+                roleIds[row],
+                star,
+                instanceId,
+                frame,
+                scroll->offset);
+            scroll->offset = clampChessMagicEffectDisplayScrollOffset(
+                *scroll->layout,
+                scroll->offset);
+        });
+    panel->setEventHandler([scroll](DrawableOnCall*, EngineEvent& event) {
+        if (!scroll->layout || !scroll->layout->scrollable) return;
+        int direction{};
+        if (event.type == EVENT_KEY_UP)
+        {
+            if (event.key.key == K_PAGEUP) direction = -1;
+            if (event.key.key == K_PAGEDOWN) direction = 1;
+        }
+        else if (event.type == EVENT_GAMEPAD_BUTTON_UP)
+        {
+            if (event.gbutton.button == GAMEPAD_BUTTON_LEFT_SHOULDER) direction = -1;
+            if (event.gbutton.button == GAMEPAD_BUTTON_RIGHT_SHOULDER) direction = 1;
+        }
+        if (direction != 0)
+        {
+            scroll->offset = stepChessMagicEffectDisplayScrollOffset(
+                *scroll->layout,
+                scroll->offset,
+                direction);
+            event.type = EVENT_FIRST;
+        }
+    });
+    return panel;
 }
 
 std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
@@ -1262,138 +1509,92 @@ std::shared_ptr<DrawableOnCall> makeComboInfoPanel(
 
             ChessScreenLayout::drawPanel(frame, {0, 0, 0, 160});
             auto* font = Font::getInstance();
-            constexpr int kFontSize = 20;
-            font->draw("羈絆資訊", kFontSize + 4, frame.x + 10, frame.y + 5, {255, 255, 100, 255});
+            constexpr int preferredFontSize = 19;
+            constexpr int minimumFontSize = 12;
+            font->draw("羈絆資訊", preferredFontSize + 5,
+                frame.x + 10, frame.y + 5, {255, 255, 100, 255});
 
-            struct ComboBlock
+            std::vector<std::vector<PanelVisualTextRow>> blocks;
+            blocks.reserve(roleCombos.size());
+            for (const auto* combo : roleCombos)
             {
-                std::string header;
-                Color headerColor;
-                std::vector<std::string> effectLines;
-                Color effectColor;
-            };
+                const auto progress = evaluateChessComboProgress(
+                    session.state(), session.content(), *combo);
+                const ComboThreshold* shownThreshold = nullptr;
+                if (progress.activeThresholdIndex >= 0)
+                    shownThreshold = &combo->thresholds[progress.activeThresholdIndex];
+                else if (progress.nextThresholdIndex >= 0)
+                    shownThreshold = &combo->thresholds[progress.nextThresholdIndex];
+                else if (!combo->thresholds.empty())
+                    shownThreshold = &combo->thresholds.back();
 
-            const auto buildBlocks = [&](int columnWidth) {
-                std::vector<ComboBlock> blocks;
-                const int headerUnits = std::max(12, (columnWidth - 20) * 2 / kFontSize);
-                const int effectUnits = std::max(12, (columnWidth - 28) * 2 / (kFontSize - 1));
-                for (const auto* combo : roleCombos)
+                const auto headerColor = progress.active
+                    ? Color{0, 255, 100, 255}
+                    : Color{200, 200, 200, 255};
+                const auto effectColor = progress.active
+                    ? Color{180, 220, 255, 255}
+                    : Color{180, 180, 180, 255};
+                std::vector<PanelVisualTextRow> block;
+                appendPanelTextRow(
+                    block,
+                    std::format("{} ({})", combo->name, formatChessComboProgressCount(progress)),
+                    headerColor,
+                    1,
+                    0,
+                    0,
+                    2);
+                if (shownThreshold)
                 {
-                    const auto progress = evaluateChessComboProgress(session.state(), session.content(), *combo);
-                    const ComboThreshold* shownThreshold = nullptr;
-                    if (progress.activeThresholdIndex >= 0)
-                    {
-                        shownThreshold = &combo->thresholds[progress.activeThresholdIndex];
-                    }
-                    else if (progress.nextThresholdIndex >= 0)
-                    {
-                        shownThreshold = &combo->thresholds[progress.nextThresholdIndex];
-                    }
-                    else if (!combo->thresholds.empty())
-                    {
-                        shownThreshold = &combo->thresholds.back();
-                    }
-
-                    ComboBlock block;
-                    block.header = std::format(
-                        "{} ({})",
-                        combo->name,
-                        formatChessComboProgressCount(progress));
-                    block.headerColor = progress.active
-                        ? Color{0, 255, 100, 255}
-                        : Color{200, 200, 200, 255};
-                    block.effectColor = progress.active
-                        ? Color{180, 220, 255, 255}
-                        : Color{180, 180, 180, 255};
-
-                    const auto headerLines = wrapDisplayText(block.header, headerUnits);
-                    if (!headerLines.empty())
-                    {
-                        block.header = headerLines.front();
-                    }
-                    if (shownThreshold)
-                    {
-                        for (const auto& rule : shownThreshold->rules)
-                        {
-                            const auto wrapped = wrapDisplayText(
-                                effectDescription(rule, EffectDescriptionStyle::Compact, {}),
-                                effectUnits);
-                            for (int lineIndex = 0; lineIndex < static_cast<int>(wrapped.size()); ++lineIndex)
-                            {
-                                block.effectLines.push_back(
-                                    lineIndex == 0 ? "  " + wrapped[lineIndex] : "    " + wrapped[lineIndex]);
-                            }
-                        }
-                    }
-                    blocks.push_back(std::move(block));
+                    const auto document = buildEffectDescriptionDocument({
+                        EffectDescriptionContainerKind::ComboThreshold,
+                        shownThreshold->rules,
+                    });
+                    const auto rendered = renderEffectDescription(
+                        document,
+                        EffectDescriptionStyle::Compact,
+                        {});
+                    appendRenderedEffectDescriptionRows(
+                        block,
+                        rendered,
+                        effectColor,
+                        0,
+                        1,
+                        2);
                 }
-                return blocks;
-            };
-
-            const auto blockHeight = [](const ComboBlock& block) {
-                return (kFontSize + 4) + static_cast<int>(block.effectLines.size()) * kFontSize + 4;
-            };
-            const auto canFit = [&](const std::vector<ComboBlock>& blocks, int columns) {
-                const int availableHeight = frame.h - 47;
-                std::vector<int> heights(columns);
-                int currentColumn = 0;
-                for (const auto& block : blocks)
-                {
-                    const int needed = blockHeight(block);
-                    while (currentColumn < columns && heights[currentColumn] + needed > availableHeight)
-                    {
-                        ++currentColumn;
-                    }
-                    if (currentColumn >= columns)
-                    {
-                        return false;
-                    }
-                    heights[currentColumn] += needed;
-                }
-                return true;
-            };
-
-            int chosenColumns = 1;
-            std::vector<ComboBlock> blocks;
-            const int maximumColumns = std::min(3, static_cast<int>(roleCombos.size()));
-            for (int columns = 1; columns <= maximumColumns; ++columns)
-            {
-                const int columnWidth = std::max(140, (frame.w - 20) / columns);
-                auto candidate = buildBlocks(columnWidth);
-                if (canFit(candidate, columns) || columns == maximumColumns)
-                {
-                    chosenColumns = columns;
-                    blocks = std::move(candidate);
-                    break;
-                }
+                blocks.push_back(std::move(block));
             }
 
-            const int columnWidth = std::max(140, (frame.w - 20) / chosenColumns);
-            const int startY = frame.y + 32;
-            const int bottomY = frame.y + frame.h - 15;
-            int currentColumn = 0;
-            int currentY = startY;
-            for (const auto& block : blocks)
+            const auto combineBlocks = [&](std::size_t first, std::size_t last)
             {
-                const int needed = blockHeight(block);
-                if (currentY > startY && currentY + needed > bottomY)
-                {
-                    ++currentColumn;
-                    currentY = startY;
-                }
-                if (currentColumn >= chosenColumns)
-                {
-                    break;
-                }
-                const int x = frame.x + 10 + currentColumn * columnWidth;
-                font->draw(block.header, kFontSize, x, currentY, block.headerColor);
-                currentY += kFontSize + 4;
-                for (const auto& line : block.effectLines)
-                {
-                    font->draw(line, kFontSize - 1, x, currentY, block.effectColor);
-                    currentY += kFontSize;
-                }
-                currentY += 4;
+                std::vector<PanelVisualTextRow> result;
+                for (std::size_t index = first; index < last; ++index)
+                    result.insert(result.end(), blocks[index].begin(), blocks[index].end());
+                return result;
+            };
+            constexpr int contentTop = 30;
+            constexpr int contentBottomInset = 10;
+            const int availableHeight = frame.h - contentTop - contentBottomInset;
+            std::vector<std::vector<PanelTextSourceRow>> layoutBlocks;
+            layoutBlocks.reserve(blocks.size());
+            for (const auto& block : blocks)
+                layoutBlocks.push_back(panelTextLayoutRows(block));
+            const auto chosen = fitPanelTextBlocks(
+                layoutBlocks,
+                frame.w - 20,
+                availableHeight,
+                preferredFontSize,
+                minimumFontSize);
+            assert(chosen && "formal Compact combo descriptions must fit two readable columns");
+            for (std::size_t columnIndex = 0; columnIndex < chosen->columns.size(); ++columnIndex)
+            {
+                const auto& column = chosen->columns[columnIndex];
+                const auto rows = combineBlocks(column.firstBlock, column.lastBlock);
+                drawPanelText(
+                    font,
+                    rows,
+                    column.layout,
+                    frame.x + 10 + static_cast<int>(columnIndex) * chosen->columnWidth,
+                    frame.y + contentTop);
             }
         });
 }
@@ -2800,7 +3001,7 @@ void ChessGuiSessionAdapter::showShop()
         data.labels = alignedMenuLabels(labelRows);
 
         const auto panels = ChessScreenLayout::shopPanelsForMenu(
-            ChessScreenLayout::shopMenuAnchor(),
+            ChessScreenLayout::contentMenuAnchor(),
             data.labels,
             32,
             8);
@@ -2814,7 +3015,7 @@ void ChessGuiSessionAdapter::showShop()
             data,
             32,
             static_cast<int>(data.labels.size()),
-            ChessScreenLayout::shopMenuAnchor(),
+            ChessScreenLayout::contentMenuAnchor(),
             {
                 makeRoleDetailPanel(session_, roleIds, starRows, instanceRows, panels.status),
                 makeRosterPanel(session_, panels.owned),
@@ -2885,7 +3086,7 @@ void ChessGuiSessionAdapter::chooseChess(ChessActionType actionType)
             instanceIds.push_back(piece.instanceId);
         }
         data.labels = alignedMenuLabels(labelRows);
-        const auto anchor = ChessScreenLayout::browseMenuAnchor();
+        const auto anchor = ChessScreenLayout::contentMenuAnchor();
         const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
         const int selected = runIndexedMenu(
             actionType == ChessActionType::SellChess
@@ -2982,7 +3183,7 @@ void ChessGuiSessionAdapter::chooseDeployment()
         }
         data.labels = alignedMenuLabels(labelRows);
 
-        const auto anchor = ChessScreenLayout::browseMenuAnchor();
+        const auto anchor = ChessScreenLayout::contentMenuAnchor();
         const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
         const int selected = runIndexedMenu(
             std::format(
@@ -3066,7 +3267,7 @@ void ChessGuiSessionAdapter::showBanManagement()
         }
         data.labels = alignedMenuLabels(labelRows);
 
-        const auto anchor = ChessScreenLayout::browseMenuAnchor();
+        const auto anchor = ChessScreenLayout::contentMenuAnchor();
         const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
         const int bannedCount = static_cast<int>(observation.bans.size());
         const int choice = runIndexedMenu(
@@ -3132,7 +3333,7 @@ bool ChessGuiSessionAdapter::chooseBan(const ChessLegalActionDescriptor& descrip
         roleIds.push_back(roleId);
     }
     data.labels = alignedMenuLabels(labelRows);
-    const auto anchor = ChessScreenLayout::browseMenuAnchor();
+    const auto anchor = ChessScreenLayout::contentMenuAnchor();
     const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
     const std::string title = forced
         ? std::format(
@@ -3227,7 +3428,7 @@ void ChessGuiSessionAdapter::showEquipmentMenu()
             data,
             kChessCompactMenuPresentation.fontSize,
             static_cast<int>(data.labels.size()),
-            ChessScreenLayout::browseMenuAnchor(),
+            ChessScreenLayout::contentMenuAnchor(),
             {},
             false,
             false);
@@ -3318,7 +3519,7 @@ void ChessGuiSessionAdapter::showEquipmentInventory()
             data.colors.push_back(row.owned ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255});
         }
         data.labels = contentSizedAlignedMenuLabels(labelRows);
-        const auto anchor = ChessScreenLayout::browseMenuAnchor();
+        const auto anchor = ChessScreenLayout::contentMenuAnchor();
         const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
             anchor,
             data.labels,
@@ -3419,7 +3620,7 @@ void ChessGuiSessionAdapter::chooseEquipment(const ChessLegalActionDescriptor& d
         instanceIds.push_back(piece.instanceId);
     }
     pieceData.labels = alignedMenuLabels(pieceRows);
-    const auto anchor = ChessScreenLayout::browseMenuAnchor();
+    const auto anchor = ChessScreenLayout::contentMenuAnchor();
     const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, pieceData.labels, 32, 8);
     const int selected = runIndexedMenu(
         "選擇棋子",
@@ -3466,7 +3667,7 @@ void ChessGuiSessionAdapter::chooseLegendary(const ChessLegalActionDescriptor& d
             definitions.push_back(definition);
         }
         data.labels = alignedMenuLabels(labelRows);
-        const auto anchor = ChessScreenLayout::browseMenuAnchor();
+        const auto anchor = ChessScreenLayout::contentMenuAnchor();
         const auto frame = ChessScreenLayout::browseDetailRegionForMenu(anchor, data.labels, 32);
         std::vector<std::vector<std::string>> equippedByRows;
         equippedByRows.reserve(definitions.size());
@@ -3703,7 +3904,7 @@ void ChessGuiSessionAdapter::showPositionSwap()
     }, PanelVisibility{}, {0, 0, 0, 180}, {180, 170, 140, 200}, 6);
     SessionMenuData data;
     data.labels = {"  關閉  ", "  開啟  "};
-    const auto anchor = ChessScreenLayout::positionSwapMenuAnchor();
+    const auto anchor = ChessScreenLayout::modalMenuAnchor();
     const int selected = runIndexedMenu(
         "",
         data,
@@ -3725,7 +3926,7 @@ void ChessGuiSessionAdapter::showPositionSwap()
 void ChessGuiSessionAdapter::showEnemyReroll()
 {
     const int cost = session_.content().balance().enemyRerollCost;
-    const auto frame = ChessScreenLayout::battleSeedRerollPreviewPanel();
+    const auto frame = ChessScreenLayout::largeModalPreviewPanel();
     auto panel = makePanel(frame, [cost](int, const PanelFrame& panelFrame) {
         constexpr int fontSize = 22;
         PanelTextCursor cursor{Font::getInstance(), panelFrame.x + 10, panelFrame.y + 10};
@@ -3742,7 +3943,7 @@ void ChessGuiSessionAdapter::showEnemyReroll()
     menu->setFontSize(36);
     menu->arrange(0, 0, 0, 45);
     menu->addChild(panel);
-    const auto anchor = ChessScreenLayout::battleSeedRerollMenuAnchor();
+    const auto anchor = ChessScreenLayout::modalMenuAnchor();
     menu->runAtPosition(anchor.x, anchor.y);
     if (menu->getResult() == 0)
     {
@@ -3792,7 +3993,7 @@ void ChessGuiSessionAdapter::viewCombos()
         rows.push_back(&combo);
     }
     data.labels = buildAlignedComboCatalogLabels(labelRows, menuDisplayWidth);
-    const auto anchor = ChessScreenLayout::browseMenuAnchor();
+    const auto anchor = ChessScreenLayout::contentMenuAnchor();
     const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
         anchor,
         data.labels,
@@ -3803,13 +4004,15 @@ void ChessGuiSessionAdapter::viewCombos()
             return;
         }
         const auto& combo = *rows[row];
-        constexpr int kFontSize = 24;
+        constexpr int preferredFontSize = 24;
+        constexpr int minimumFontSize = 14;
         auto* font = Font::getInstance();
-        font->draw(combo.name, kFontSize + 4, panelFrame.x + 10, panelFrame.y + 10, {255, 255, 100, 255});
+        font->draw(combo.name, preferredFontSize + 4,
+            panelFrame.x + 10, panelFrame.y + 10, {255, 255, 100, 255});
 
         const auto progress = evaluateChessComboProgress(session_.state(), session_.content(), combo);
-        PanelTextCursor memberCursor{font, panelFrame.x + 10, panelFrame.y + 45};
-        memberCursor.line("成員:", kFontSize, {200, 200, 200, 255});
+        std::vector<PanelVisualTextRow> memberRows;
+        appendPanelTextRow(memberRows, "成員:", {200, 200, 200, 255}, 0, 0, 0, 2);
         int totalBonus = 0;
         for (const int roleId : combo.memberRoleIds)
         {
@@ -3827,51 +4030,95 @@ void ChessGuiSessionAdapter::viewCombos()
                 starSuffix = std::format(" ★{}", foundStar->second);
                 totalBonus += foundStar->second - 1;
             }
-            memberCursor.line(
+            appendPanelTextRow(
+                memberRows,
                 std::format("  {} ({}費){}{}", role->Name, role->Cost, deployed ? " ✓" : "", starSuffix),
-                kFontSize,
                 deployed ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255},
+                0,
+                0,
+                0,
                 1);
         }
 
-        PanelTextCursor thresholdCursor{font, panelFrame.x + 290, panelFrame.y + 45};
-        thresholdCursor.line(combo.isAntiCombo ? "條件:" : "閾值:", kFontSize, {200, 200, 200, 255}, 0);
+        std::vector<PanelVisualTextRow> thresholdRows;
+        appendPanelTextRow(
+            thresholdRows,
+            combo.isAntiCombo ? "條件:" : "閾值:",
+            {200, 200, 200, 255});
         if (combo.starSynergyBonus)
         {
-            thresholdCursor.skip(kFontSize + 2);
-            thresholdCursor.line(
+            appendPanelTextRow(
+                thresholdRows,
                 totalBonus > 0
                     ? std::format("★ 成員星級計人數，當前+{}人", totalBonus)
                     : "★ 成員星級計人數（2★=2人）",
-                kFontSize - 4,
                 {255, 200, 50, 255},
+                -4,
+                0,
+                4,
                 2);
-            thresholdCursor.line("  每額外★計入1羈絆人數", kFontSize - 6, {180, 160, 80, 255}, 0);
+            appendPanelTextRow(
+                thresholdRows,
+                "每額外★計入1羈絆人數",
+                {180, 160, 80, 255},
+                -6,
+                2);
         }
-        thresholdCursor.skip(kFontSize + 4);
-        const int effectFontSize = kFontSize - 2;
-        const int effectPixelWidth = panelFrame.x + panelFrame.w - thresholdCursor.x - 10;
         for (const auto& threshold : combo.thresholds)
         {
             const bool active = progress.effectiveCount >= threshold.count;
-            thresholdCursor.line(
+            appendPanelTextRow(
+                thresholdRows,
                 std::format("{}人: {}{}", threshold.count, threshold.name, active ? " ✓" : ""),
-                kFontSize,
                 active ? Color{0, 255, 0, 255} : Color{255, 200, 100, 255},
+                0,
+                0,
+                8,
                 1);
-            for (const auto& rule : threshold.rules)
-            {
-                drawWrappedLines(
-                    thresholdCursor,
-                    effectDescription(rule, EffectDescriptionStyle::Full, {}),
-                    effectFontSize,
-                    active ? Color{180, 220, 255, 255} : Color{200, 200, 200, 255},
-                    effectPixelWidth,
-                    0,
-                    effectFontSize);
-            }
-            thresholdCursor.skip(8);
+            const auto document = buildEffectDescriptionDocument({
+                EffectDescriptionContainerKind::ComboThreshold,
+                threshold.rules,
+            });
+            const auto rendered = renderEffectDescription(
+                document,
+                EffectDescriptionStyle::Full,
+                {});
+            appendRenderedEffectDescriptionRows(
+                thresholdRows,
+                rendered,
+                active ? Color{180, 220, 255, 255} : Color{200, 200, 200, 255},
+                -2,
+                0,
+                2);
         }
+
+        constexpr int contentTop = 45;
+        constexpr int contentBottomInset = 10;
+        constexpr int memberWidth = 270;
+        const int thresholdWidth = panelFrame.w - 300;
+        const int availableHeight = panelFrame.h - contentTop - contentBottomInset;
+        const auto memberSourceRows = panelTextLayoutRows(memberRows);
+        const auto thresholdSourceRows = panelTextLayoutRows(thresholdRows);
+        std::optional<std::pair<PanelTextLayout, PanelTextLayout>> fitted;
+        for (int fontSize = preferredFontSize; fontSize >= minimumFontSize; --fontSize)
+        {
+            auto memberLayout = layoutPanelText(memberSourceRows, memberWidth, fontSize);
+            auto thresholdLayout = layoutPanelText(thresholdSourceRows, thresholdWidth, fontSize);
+            if (memberLayout.height <= availableHeight
+                && thresholdLayout.height <= availableHeight)
+            {
+                fitted = std::pair{
+                    std::move(memberLayout),
+                    std::move(thresholdLayout),
+                };
+                break;
+            }
+        }
+        assert(fitted && "formal Full combo descriptions must fit the detail panel");
+        drawPanelText(font, memberRows, fitted->first,
+            panelFrame.x + 10, panelFrame.y + contentTop);
+        drawPanelText(font, thresholdRows, fitted->second,
+            panelFrame.x + 290, panelFrame.y + contentTop);
     });
     runIndexedMenu(
         "羈絆一覽",
@@ -3907,7 +4154,7 @@ void ChessGuiSessionAdapter::viewChessPool()
         roleIds.push_back(roleId);
     }
     data.labels = alignedMenuLabels(labelRows);
-    const auto anchor = ChessScreenLayout::browseMenuAnchor();
+    const auto anchor = ChessScreenLayout::contentMenuAnchor();
     const auto panels = ChessScreenLayout::shopPanelsForMenu(anchor, data.labels, 32, 8);
     runIndexedMenu(
         "棋子一覽",
@@ -3940,7 +4187,7 @@ void ChessGuiSessionAdapter::viewNeigong()
         rows.push_back(&neigong);
     }
     data.labels = alignedMenuLabels(labelRows);
-    const auto anchor = ChessScreenLayout::browseMenuAnchor();
+    const auto anchor = ChessScreenLayout::contentMenuAnchor();
     const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
         anchor,
         data.labels,
@@ -3958,7 +4205,7 @@ void ChessGuiSessionAdapter::viewNeigong()
 
 void ChessGuiSessionAdapter::showGameGuide()
 {
-    const auto frame = ChessScreenLayout::guidePanel();
+    const auto frame = ChessScreenLayout::fullContentRegion();
     const auto sections = buildChessGameGuideSections(session_.content());
     auto panel = makePanel(frame, [sections](int, const PanelFrame& panelFrame) {
         auto* font = Font::getInstance();
@@ -4089,7 +4336,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseChallenge(const ChessLegalActio
             rows.push_back(&*found);
         }
         data.labels = alignedMenuLabels(labelRows);
-        const auto anchor = ChessScreenLayout::browseMenuAnchor();
+        const auto anchor = ChessScreenLayout::contentMenuAnchor();
         const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
             anchor,
             data.labels,
@@ -4256,7 +4503,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
             pending,
             static_cast<int>(data.labels.size()));
 
-        const auto anchor = ChessScreenLayout::browseMenuAnchor();
+        const auto anchor = ChessScreenLayout::contentMenuAnchor();
         std::vector<std::shared_ptr<DrawableOnCall>> detailPanels;
         if (pending.kind == ChessRewardKind::Equipment)
         {
@@ -4429,7 +4676,7 @@ void ChessGuiSessionAdapter::chooseMap(const ChessLegalActionDescriptor& descrip
         data,
         32,
         12,
-        ChessScreenLayout::browseMenuAnchor(),
+                ChessScreenLayout::contentMenuAnchor(),
         {makeBattleMapPreviewPanel(session_, descriptor.candidateIds)},
         false,
         true,
@@ -4465,7 +4712,7 @@ void ChessGuiSessionAdapter::chooseSwap(const ChessLegalActionDescriptor& descri
         starRows.push_back(found->star);
     }
     data.labels = alignedMenuLabels(labelRows);
-    const auto anchor = ChessScreenLayout::browseMenuAnchor();
+    const auto anchor = ChessScreenLayout::contentMenuAnchor();
     const auto frame = ChessScreenLayout::browseDetailRegionForMenu(anchor, data.labels, 32);
     const auto panel = makeRoleDetailPanel(session_, roleIds, starRows, {}, frame);
     const int first = runIndexedMenu("第一個位置", data, 32, 12, anchor, {panel});
@@ -4770,7 +5017,7 @@ void ChessGuiSessionAdapter::showContextMenu()
                 showChessMessage("已達最高等級");
                 break;
             }
-            const auto frame = ChessScreenLayout::buyExpPreviewPanel();
+            const auto frame = ChessScreenLayout::largeModalPreviewPanel();
             auto panel = makePanel(frame, [this](int, const PanelFrame& panelFrame) {
                 constexpr int fontSize = 20;
                 const auto text = buildChessBuyExpPreviewText(session_.state(), session_.content());
@@ -4797,7 +5044,7 @@ void ChessGuiSessionAdapter::showContextMenu()
             menu->setFontSize(36);
             menu->arrange(0, 0, 0, 45);
             menu->addChild(panel);
-            const auto anchor = ChessScreenLayout::buyExpMenuAnchor();
+            const auto anchor = ChessScreenLayout::modalMenuAnchor();
             menu->runAtPosition(anchor.x, anchor.y);
             if (menu->getResult() == 0)
             {

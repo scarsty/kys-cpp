@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ChessBattleEffects.h"
+#include "ChessEffectDescription.h"
 #include "Types.h"
 
 #include <string>
@@ -21,6 +21,8 @@ struct ChessMagicEffectDisplayLine
     const MagicSave* magic = nullptr;
     std::string text;
     bool ultimate = false;
+    int semanticIndent{};
+    EffectDescriptionSemanticBreak breakBefore{};
 };
 
 std::vector<ChessMagicEffectDisplayLine> buildChessMagicEffectDisplayRows(
@@ -47,11 +49,28 @@ struct ChessMagicEffectDisplayLayout
     int skillFontSize{};
     int effectFontSize{};
     int skillValueX{};
+    int scrollIndicatorHeight{};
+    int maximumScrollOffset{};
+    std::vector<int> scrollStops;
+    bool scrollable = false;
 };
 
 ChessMagicEffectDisplayLayout layoutChessMagicEffectDisplay(
     const std::vector<ChessMagicEffectDisplayLine>& rows,
     int viewportWidth,
     int viewportHeight);
+
+int clampChessMagicEffectDisplayScrollOffset(
+    const ChessMagicEffectDisplayLayout& layout,
+    int scrollOffset);
+
+int stepChessMagicEffectDisplayScrollOffset(
+    const ChessMagicEffectDisplayLayout& layout,
+    int scrollOffset,
+    int direction);
+
+std::vector<PositionedChessMagicEffectDisplayLine> visibleChessMagicEffectDisplayLines(
+    const ChessMagicEffectDisplayLayout& layout,
+    int scrollOffset);
 
 }  // namespace KysChess

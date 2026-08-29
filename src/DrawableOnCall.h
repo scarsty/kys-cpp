@@ -17,10 +17,13 @@ public:
     void setEntrance(std::function<void()> en) { entrance_ = en; }
     virtual void updateScreenWithContext(const DrawableItemContext& context);
     int getItemIndex() const { return context_.itemIndex; }
+    void setEventHandler(std::function<void(DrawableOnCall*, EngineEvent&)> handler) { eventHandler_ = std::move(handler); }
+    void dealEvent(EngineEvent& event) override;
     virtual void draw();
 protected:
     DrawableItemContext context_;
 private:
     std::function<void(DrawableOnCall*)> draw_;
     std::function<void()> entrance_;
+    std::function<void(DrawableOnCall*, EngineEvent&)> eventHandler_;
 };

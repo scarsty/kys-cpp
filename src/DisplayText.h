@@ -42,7 +42,10 @@ inline int displayTextWidth(std::string_view text)
     return result;
 }
 
-inline std::vector<std::string> wrapDisplayText(const std::string& text, int maximumWidth)
+inline std::vector<std::string> wrapDisplayText(
+    const std::string& text,
+    int maximumWidth,
+    bool allowGlyphBreaks = true)
 {
     if (text.empty() || maximumWidth <= 0)
     {
@@ -64,7 +67,8 @@ inline std::vector<std::string> wrapDisplayText(const std::string& text, int max
         index += characterLength;
         const bool preferredBreak = glyph == " " || glyph == ":" || glyph == "："
             || glyph == "(" || glyph == ")" || glyph == "（" || glyph == "）"
-            || glyph == "·" || glyph == "/";
+            || glyph == "," || glyph == ";" || glyph == "/"
+            || glyph == "，" || glyph == "、" || glyph == "；" || glyph == "。";
         glyphs.push_back({
             .text = std::move(glyph),
             .width = utf8DisplayTextCharacterWidth(value),
@@ -94,8 +98,13 @@ inline std::vector<std::string> wrapDisplayText(const std::string& text, int max
         {
             lineEnd = preferredBreak;
         }
+        else if (end < glyphs.size() && !allowGlyphBreaks)
+        {
+            return {};
+        }
         if (lineEnd == start)
         {
+            if (!allowGlyphBreaks) return {};
             lineEnd = std::min(start + 1, glyphs.size());
         }
 

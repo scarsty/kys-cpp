@@ -716,13 +716,13 @@ TEST_CASE("BattleEffectRuntimeSnapshot_CopiesStableUnitFactsStatusesAndResources
     CHECK(direct.attack == 62);
     CHECK(direct.defence == 46);
     CHECK(direct.speed == 35);
-    CHECK(direct.weaponType == 1);
+    CHECK(direct.martialCategory == EffectMartialCategory::Sword);
     CHECK((direct.magicIds == std::set<int>{ 14, 47 }));
     CHECK((direct.comboIds == std::set<int>{ 33, 44 }));
-    CHECK(direct.hasState("中毒"));
-    CHECK(direct.stackCount("中毒") == 1);
-    CHECK(direct.hasState("七星"));
-    CHECK(direct.stackCount("七星") == 3);
+    CHECK(direct.hasState(BattleStatusKind::Poison));
+    CHECK(direct.stackCount(BattleStatusKind::Poison) == 1);
+    CHECK(direct.hasState(BattleStatusKind::SevenStarMark));
+    CHECK(direct.stackCount(BattleStatusKind::SevenStarMark) == 3);
 
     BattleEffectRuntimeSnapshot snapshot(runtime);
     REQUIRE(snapshot.units().size() == 2);

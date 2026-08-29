@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../ChessBattleEffects.h"
+#include "../ChessBattleEffectTypes.h"
 #include "../Point.h"
 #include "BattleAttackSystem.h"
 #include "BattleOperation.h"

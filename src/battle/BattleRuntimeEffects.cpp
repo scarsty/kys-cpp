@@ -31,16 +31,20 @@ void appendMagicId(std::set<int>& magicIds, int magicId)
     }
 }
 
-int selectedWeaponType(const BattleActionPlanSeed* actionPlan)
+EffectMartialCategory selectedMartialCategory(const BattleActionPlanSeed* actionPlan)
 {
     if (!actionPlan || actionPlan->normalSkill.magicType <= 0)
     {
-        return -1;
+        return EffectMartialCategory::None;
     }
-
-    // MagicType uses 1=拳、2=劍、3=刀、4=特殊；effect selectors use
-    // the corresponding zero-based martial category.
-    return actionPlan->normalSkill.magicType - 1;
+    switch (actionPlan->normalSkill.magicType)
+    {
+    case 1: return EffectMartialCategory::Fist;
+    case 2: return EffectMartialCategory::Sword;
+    case 3: return EffectMartialCategory::Knife;
+    case 4: return EffectMartialCategory::Unusual;
+    default: assert(false && "武功類別必須是1至4"); std::unreachable();
+    }
 }
 
 void appendComboIds(const BattleComboRuntimeFacts& comboFacts, std::set<int>& comboIds)
@@ -79,10 +83,8 @@ void populateEffectStatusSnapshot(
     for (const auto& instance : effects.statuses)
     {
         assert(instance.stacks > 0);
-        const auto label = battleStatusLabel(instance.kind);
-        assert(!label.empty());
         result.statusDetails.push_back({
-            .state = std::string(label),
+            .state = instance.kind,
             .sourceUnitId = instance.sourceUnitId,
             .stacks = instance.stacks,
             .potency = instance.potency,
@@ -182,7 +184,7 @@ EffectUnitSnapshot makeEffectUnitSnapshot(
     result.defence = unit.stats.defence;
     result.speed = unit.stats.speed;
     result.position = unit.motion.position;
-    result.weaponType = selectedWeaponType(actionPlan);
+    result.martialCategory = selectedMartialCategory(actionPlan);
 
     if (actionPlan)
     {

@@ -84,6 +84,21 @@ ChessGameContentData syntheticContentData(Difficulty difficulty)
     earlierEquipment.tier = 1;
     earlierEquipment.equipType = 1;
     data.equipment.push_back(earlierEquipment);
+
+    EffectRule effectRule;
+    effectRule.id = {1};
+    effectRule.event = EffectEvent::BattleInitialized;
+    ModifyAttributeAction modifier;
+    modifier.attribute = BattleAttribute::Attack;
+    modifier.amount.flat = 10;
+    modifier.operation = AttributeOperation::FlatAdd;
+    effectRule.actions.push_back({modifier});
+    ChessMagicEffectDefinition effect;
+    effect.magicId = magic.ID;
+    effect.name = "顯示名稱";
+    effect.purpose = "作者備註";
+    effect.rules.push_back(std::move(effectRule));
+    data.magicEffects.push_back(std::move(effect));
     return data;
 }
 
@@ -150,12 +165,23 @@ TEST_CASE("content fingerprint follows semantic rules but not the release label"
 {
     auto changedData = syntheticContentData(Difficulty::Normal);
     changedData.balance.initialMoney++;
+    auto renamedEffectData = syntheticContentData(Difficulty::Normal);
+    renamedEffectData.magicEffects.front().name = "另一個顯示名稱";
+    renamedEffectData.magicEffects.front().purpose = "另一段作者備註";
+    auto changedEffectData = syntheticContentData(Difficulty::Normal);
+    auto& changedModifier = std::get<ModifyAttributeAction>(
+        changedEffectData.magicEffects.front().rules.front().actions.front().value);
+    changedModifier.amount.flat++;
     const ChessGameContent first(syntheticContentData(Difficulty::Normal), "1.2.3");
     const ChessGameContent relabeled(syntheticContentData(Difficulty::Normal), "2.0.0");
     const ChessGameContent changed(std::move(changedData), "1.2.3");
+    const ChessGameContent renamedEffect(std::move(renamedEffectData), "1.2.3");
+    const ChessGameContent changedEffect(std::move(changedEffectData), "1.2.3");
 
     CHECK(first.contentFingerprint() == relabeled.contentFingerprint());
+    CHECK(first.contentFingerprint() == renamedEffect.contentFingerprint());
     CHECK(first.contentFingerprint() != changed.contentFingerprint());
+    CHECK(first.contentFingerprint() != changedEffect.contentFingerprint());
 }
 
 TEST_CASE("game version loader reads release configuration", "[chess][content][version]")

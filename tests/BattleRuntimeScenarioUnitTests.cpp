@@ -1,5 +1,5 @@
 #include "BattleRuntimeScenarioTestHelpers.h"
-#include "ChessBattleEffects.h"
+#include "ChessBattleEffectParser.h"
 #include "Find.h"
 #include "battle/BattleEffectCommandSystem.h"
 #include "battle/BattleHealSystem.h"
@@ -75,7 +75,7 @@ ChessMagicEffectDefinition realUltimateDefinition(int magicId, bool enabled)
     const auto path = std::filesystem::current_path()
         / "config"
         / "chess_magic_effects.yaml";
-    if (!ChessBattleEffects::loadMagicEffectsFile(path.string(), definitions))
+    if (!loadMagicEffectsFile(path.string(), definitions))
     {
         throw std::runtime_error("無法載入頂層 chess_magic_effects.yaml");
     }

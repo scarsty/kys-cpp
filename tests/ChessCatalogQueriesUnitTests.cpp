@@ -140,10 +140,21 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
 
     const auto equipment = chessEquipmentMetadata(content, 500);
     CHECK(equipment.baseStatEffects == std::vector<std::string>{"生命+25", "攻擊+8", "御劍+6"});
-    CHECK(equipment.specialEffects == std::vector<std::string>{"防禦+7"});
+    CHECK(effectDescriptionTextRows(equipment.specialEffects)
+        == std::vector<std::string>{"防禦+7"});
+    REQUIRE(equipment.specialEffects.sections.size() == 1);
+    REQUIRE(equipment.specialEffects.sections[0].blocks.size() == 1);
+    REQUIRE(equipment.specialEffects.sections[0].blocks[0].rows.size() == 1);
+    const auto& specialEffectRow = equipment.specialEffects.sections[0].blocks[0].rows[0];
+    CHECK(specialEffectRow.kind == EffectDescriptionRowKind::Prose);
+    CHECK(specialEffectRow.text == "防禦+7");
+    CHECK(specialEffectRow.indent == 0);
+    CHECK(specialEffectRow.breakBefore == EffectDescriptionSemanticBreak::Block);
     CHECK(equipment.countsAsCombos == std::vector<std::string>{"共用羈絆"});
     REQUIRE(equipment.characterBonuses.size() == 1);
     CHECK(equipment.characterBonuses.front().roles == std::vector<std::string>{"共用查詢棋子"});
+    CHECK(effectDescriptionTextRows(equipment.characterBonuses.front().effects)
+        == std::vector<std::string>{"速度+5"});
     CHECK(equipment.characterBonuses.front().countsAsCombos == std::vector<std::string>{"角色羈絆"});
 }
 

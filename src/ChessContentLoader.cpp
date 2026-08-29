@@ -1,7 +1,7 @@
 #include "ChessContentLoader.h"
 
 #include "BattleMap.h"
-#include "ChessBattleEffects.h"
+#include "ChessBattleEffectParser.h"
 #include "ChessCombo.h"
 #include "ChessEquipment.h"
 #include "ChessNeigong.h"
@@ -423,7 +423,7 @@ std::optional<ChessGameContent> ChessContentLoader::load(const ChessContentLoadO
     {
         return std::nullopt;
     }
-    if (!ChessBattleEffects::loadMagicEffectsFile(
+    if (!loadMagicEffectsFile(
             pathToUtf8(configRoot / "chess_magic_effects.yaml"),
             data.magicEffects,
             options.diagnostics))
