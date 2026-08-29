@@ -698,3 +698,21 @@ static_assert(!std::is_default_constructible_v<BattleProjectilePayloadClass>);
 static_assert(!std::is_default_constructible_v<BattleProjectileReflectionDescriptor>);
 static_assert(!std::is_default_constructible_v<BattleAttackPayload>);
 static_assert(!std::is_default_constructible_v<BattleAttackSpawnRequest>);
+
+TEST_CASE("BattleHitResolver_UsesGroupedUnitSnapshotFields", "[battle][hit]")
+{
+    BattleHitUnitSnapshot attacker;
+    attacker.id = 1;
+    attacker.team = 0;
+    attacker.alive = true;
+    attacker.vitals = { 80, 100, 10, 20 };
+    attacker.stats = { 30, 12, 9 };
+    attacker.motion.position = { 1, 2, 0 };
+    attacker.motion.facing = { 1, 0, 0 };
+    attacker.animation = { 0, 5, 2, 1 };
+
+    CHECK(attacker.vitals.hp == 80);
+    CHECK(attacker.stats.attack == 30);
+    CHECK(attacker.motion.position.x == 1);
+    CHECK(attacker.animation.actType == 1);
+}

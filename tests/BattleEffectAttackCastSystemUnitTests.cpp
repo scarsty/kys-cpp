@@ -105,7 +105,7 @@ void checkVelocity(const Pointf& velocity, double x, double y)
 
 }  // namespace
 
-TEST_CASE("BattleEffectAttackCastSystem expands 五虎扇形 into one shared-hit group",
+TEST_CASE("BattleEffectAttackCastSystem expands Wuhu Shanxing into one shared-hit group",
           "[battle][effect][attack_cast]")
 {
     auto input = castInput();
@@ -153,7 +153,7 @@ TEST_CASE("BattleEffectAttackCastSystem expands 五虎扇形 into one shared-hit
     checkVelocity(cast.attackSpawnRequests[4].initial.velocity, 8.660254, 5.0);
 }
 
-TEST_CASE("BattleEffectAttackCastSystem appends 三分與六脈側翼主彈",
+TEST_CASE("BattleEffectAttackCastSystem appends Sanfen yu Liumai ceyi zhu dan",
           "[battle][effect][attack_cast]")
 {
     auto input = castInput();
@@ -201,7 +201,7 @@ TEST_CASE("BattleEffectAttackCastSystem appends 三分與六脈側翼主彈",
     }
 }
 
-TEST_CASE("BattleEffectAttackCastSystem schedules 太嶽同落點三段延遲",
+TEST_CASE("BattleEffectAttackCastSystem schedules Taiyue tong luo dian san duan yanchi",
           "[battle][effect][attack_cast]")
 {
     auto input = castInput();
@@ -355,7 +355,7 @@ TEST_CASE("BattleEffectAttackCastSystem applies preserve same-target damage over
     }));
 }
 
-TEST_CASE("BattleEffectAttackCastSystem rebases 夫妻刀法 projectile to its selected ally source",
+TEST_CASE("BattleEffectAttackCastSystem rebases Fuqi Daofa projectile to its selected ally source",
           "[battle][effect][attack_cast][attack_source][couple_blade]")
 {
     const auto input = castInput();

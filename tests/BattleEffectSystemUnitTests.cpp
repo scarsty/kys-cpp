@@ -1940,3 +1940,22 @@ TEST_CASE("BattleEffectSystem couple-blade branch replaces its solo fallback",
 }
 
 static_assert(std::variant_size_v<EffectCommandValue> == 13);
+
+TEST_CASE("BattleEffectRuleStore_BlinkAttackTargetModeIsOwnerScoped", "[battle][effects][rule_store]")
+{
+    Battle::BattleEffectRuleStore store;
+
+    CHECK_FALSE(store.blinkAttackUsesWeakestTarget(7));
+    CHECK_FALSE(store.blinkAttackUsesWeakestTarget(8));
+
+    store.advanceBlinkAttackTargetMode(7);
+    CHECK(store.blinkAttackUsesWeakestTarget(7));
+    CHECK_FALSE(store.blinkAttackUsesWeakestTarget(8));
+
+    store.advanceBlinkAttackTargetMode(7);
+    CHECK_FALSE(store.blinkAttackUsesWeakestTarget(7));
+
+    store.advanceBlinkAttackTargetMode(8);
+    CHECK_FALSE(store.blinkAttackUsesWeakestTarget(7));
+    CHECK(store.blinkAttackUsesWeakestTarget(8));
+}

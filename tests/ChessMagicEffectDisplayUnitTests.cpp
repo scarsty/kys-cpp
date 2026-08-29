@@ -1,0 +1,260 @@
+#include "ChessMagicEffectDisplay.h"
+#include "ChessBattleEffectTestHelpers.h"
+#include "DisplayText.h"
+#include "Types.h"
+
+#include <catch2/catch_test_macros.hpp>
+#include <yaml-cpp/yaml.h>
+
+#include <algorithm>
+#include <array>
+#include <string>
+#include <utility>
+#include <vector>
+
+using namespace KysChess;
+
+TEST_CASE("ChessMagicEffectDisplay_InsertsCompactEffectRowsAfterUltimateSkill", "[chess][effects][magic]")
+{
+    const auto root = YAML::Load(R"(
+絕招:
+  - 武功: 26
+    名稱: 降龍十八掌
+    效果:
+      - 時機: 主彈命中
+        目標: 命中目標
+        動作:
+          - 套用狀態:
+              狀態: 眩暈
+              持續幀數: 14
+              合併方式: 刷新
+      - 時機: 絕招施放
+        目標: 自身
+        動作:
+          - 資源變更:
+              資源: 內力
+              方式: 回復
+              數值: 30
+)");
+
+    std::vector<ChessMagicEffectDefinition> definitions;
+    REQUIRE(parseMagicEffects(root, definitions, "絕招顯示"));
+    REQUIRE(definitions.size() == 1);
+    REQUIRE(definitions[0].rules.size() == 2);
+
+    Magic normal;
+    normal.ID = 5;
+    normal.Name = "寒冰綿掌";
+    Magic ultimate;
+    ultimate.ID = 26;
+    ultimate.Name = "降龍十八掌";
+
+    std::vector<const MagicSave*> magics{ &normal, &ultimate };
+    const auto rows = buildChessMagicEffectDisplayRows(magics, definitions, ultimate.ID);
+
+    REQUIRE(rows.size() >= 4);
+    CHECK(rows[0].kind == ChessMagicEffectDisplayLineKind::Skill);
+    CHECK(rows[0].text == "寒冰綿掌");
+    CHECK_FALSE(rows[0].ultimate);
+    CHECK(rows[1].kind == ChessMagicEffectDisplayLineKind::Skill);
+    CHECK(rows[1].text == "降龍十八掌");
+    CHECK(rows[1].ultimate);
+    CHECK(rows[2].kind == ChessMagicEffectDisplayLineKind::Effect);
+    CHECK(rows[2].text.starts_with("主彈命中"));
+    std::string effectText;
+    for (std::size_t index = 2; index < rows.size(); ++index)
+    {
+        CHECK(rows[index].kind == ChessMagicEffectDisplayLineKind::Effect);
+        effectText += rows[index].text;
+    }
+    CHECK(effectText.find("眩暈") != std::string::npos);
+    CHECK(effectText.find("14幀") != std::string::npos);
+    CHECK(effectText.find("回復30內力") != std::string::npos);
+}
+
+TEST_CASE("ChessMagicEffectDisplay_FitsWrappedEffectsInOneBoundedColumn",
+          "[chess][effects][magic][layout]")
+{
+    constexpr int viewportWidth = 244;
+    constexpr int viewportHeight = 133;
+    Magic normal;
+    normal.ID = 1;
+    normal.Name = "普通武學";
+    Magic ultimate;
+    ultimate.ID = 2;
+    ultimate.Name = "絕學";
+    std::vector<ChessMagicEffectDisplayLine> rows{
+        { ChessMagicEffectDisplayLineKind::Skill, &normal, normal.Name },
+        { ChessMagicEffectDisplayLineKind::Skill, &ultimate, ultimate.Name, true },
+        {
+            .kind = ChessMagicEffectDisplayLineKind::Effect,
+            .magic = &ultimate,
+            .text = "全隊，防+66，100幀，額外長文字，再追加一段完整效果，且保留所有條件與結果",
+            .ultimate = true,
+            .breakBefore = EffectDescriptionSemanticBreak::Block,
+        },
+    };
+
+    const auto layout = layoutChessMagicEffectDisplay(rows, viewportWidth, viewportHeight);
+    REQUIRE(layout.lines.size() > rows.size());
+    CHECK(layout.requiredHeight <= viewportHeight);
+    int previousBottom = 0;
+    std::string wrappedEffect;
+    int effectPhysicalLineIndex{};
+    for (const auto& line : layout.lines)
+    {
+        CHECK(line.x >= 0);
+        CHECK(line.x + line.width <= viewportWidth);
+        CHECK(line.y >= previousBottom);
+        CHECK(line.y + line.height <= viewportHeight);
+        previousBottom = line.y + line.height;
+        if (line.content.kind == ChessMagicEffectDisplayLineKind::Effect)
+        {
+            CHECK(line.content.breakBefore
+                == (effectPhysicalLineIndex == 0
+                    ? EffectDescriptionSemanticBreak::Block
+                    : EffectDescriptionSemanticBreak::None));
+            ++effectPhysicalLineIndex;
+            wrappedEffect += line.content.text;
+        }
+    }
+    CHECK(previousBottom == layout.requiredHeight);
+    CHECK(wrappedEffect == rows.back().text);
+}
+
+TEST_CASE("ChessMagicEffectDisplay_NormalPoolFitsTheNarrowSingleColumnViewport",
+          "[chess][effects][magic][layout][content]")
+{
+    // 244×133 是一般商店面板扣除棋池最寬頭像後的內容區；
+    // 196×133 則涵蓋二星升三星欄位使同版型面板進一步變窄的情況。
+    constexpr std::array viewports{
+        std::pair{244, 133},
+        std::pair{196, 133},
+    };
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content);
+    for (const auto [viewportWidth, viewportHeight] : viewports)
+    {
+        int minimumEffectFontSize = 100;
+        for (const int roleId : content->poolRoleIds())
+        {
+            const auto* role = content->role(roleId);
+            REQUIRE(role);
+            for (int star = 1; star <= 3; ++star)
+            {
+                CAPTURE(viewportWidth, viewportHeight, roleId, role->Name, star);
+                const auto selected = chessRoleMagicsForStar(*content, *role, star);
+                REQUIRE(selected.size() <= 2);
+                std::vector<const MagicSave*> magics;
+                for (const auto& [magic, power] : selected)
+                {
+                    magics.push_back(magic);
+                }
+                const auto rows = buildChessMagicEffectDisplayRows(
+                    magics,
+                    content->magicEffects(),
+                    selected.empty() ? -1 : selected.back().first->ID);
+                const auto layout = layoutChessMagicEffectDisplay(
+                    rows,
+                    viewportWidth,
+                    viewportHeight);
+                minimumEffectFontSize = std::min(
+                    minimumEffectFontSize,
+                    layout.effectFontSize);
+                CHECK(layout.effectFontSize >= (viewportWidth == 244 ? 12 : 10));
+                CHECK(layout.scrollable == (layout.requiredHeight > viewportHeight));
+                int previousBottom = 0;
+                for (const auto& line : layout.lines)
+                {
+                    CHECK(line.x >= 0);
+                    CHECK(line.x + line.width <= viewportWidth);
+                    CHECK(line.y >= previousBottom);
+                    previousBottom = line.y + line.height;
+                    if (line.content.kind == ChessMagicEffectDisplayLineKind::Skill)
+                    {
+                        CHECK(line.x + line.width <= layout.skillValueX);
+                        const int valueWidth = displayTextWidth("9999 遠程")
+                            * line.fontSize / 2;
+                        CHECK(layout.skillValueX + valueWidth <= viewportWidth);
+                    }
+                }
+                CHECK(previousBottom == layout.requiredHeight);
+                if (layout.scrollable)
+                {
+                    REQUIRE_FALSE(layout.scrollStops.empty());
+                    CHECK(layout.scrollStops.front() == 0);
+                    CHECK(layout.scrollStops.back() == layout.maximumScrollOffset);
+                    CHECK(clampChessMagicEffectDisplayScrollOffset(layout, -1) == 0);
+                    CHECK(clampChessMagicEffectDisplayScrollOffset(
+                        layout,
+                        layout.maximumScrollOffset + 1) == layout.maximumScrollOffset);
+                    std::vector<bool> reached(layout.lines.size());
+                    for (const int offset : layout.scrollStops)
+                    {
+                        const auto visible = visibleChessMagicEffectDisplayLines(
+                            layout,
+                            offset);
+                        for (const auto& line : visible)
+                        {
+                            CHECK(line.x >= 0);
+                            CHECK(line.x + line.width <= viewportWidth);
+                            CHECK(line.y >= 0);
+                            CHECK(line.y + line.height
+                                <= viewportHeight - layout.scrollIndicatorHeight);
+                            for (std::size_t index = 0;
+                                 index < layout.lines.size();
+                                 ++index)
+                            {
+                                const auto& source = layout.lines[index];
+                                if (source.y == line.y + offset
+                                    && source.content.text == line.content.text
+                                    && source.content.kind == line.content.kind)
+                                {
+                                    reached[index] = true;
+                                }
+                            }
+                        }
+                    }
+                    CHECK(std::ranges::all_of(reached, std::identity{}));
+                    int offset{};
+                    while (offset < layout.maximumScrollOffset)
+                    {
+                        const int next = stepChessMagicEffectDisplayScrollOffset(
+                            layout,
+                            offset,
+                            1);
+                        REQUIRE(next > offset);
+                        offset = next;
+                    }
+                    CHECK(offset == layout.maximumScrollOffset);
+                    while (offset > 0)
+                    {
+                        const int previous = stepChessMagicEffectDisplayScrollOffset(
+                            layout,
+                            offset,
+                            -1);
+                        REQUIRE(previous < offset);
+                        offset = previous;
+                    }
+                    CHECK(offset == 0);
+                }
+                else
+                {
+                    CHECK(layout.maximumScrollOffset == 0);
+                    const auto visible = visibleChessMagicEffectDisplayLines(layout, 0);
+                    REQUIRE(visible.size() == layout.lines.size());
+                    for (std::size_t index = 0; index < visible.size(); ++index)
+                    {
+                        CHECK(visible[index].content.text == layout.lines[index].content.text);
+                        CHECK(visible[index].y == layout.lines[index].y);
+                    }
+                    CHECK(std::ranges::all_of(visible, [viewportHeight](const auto& line)
+                    {
+                        return line.y >= 0 && line.y + line.height <= viewportHeight;
+                    }));
+                }
+            }
+        }
+        CHECK(minimumEffectFontSize >= (viewportWidth == 244 ? 12 : 10));
+    }
+}

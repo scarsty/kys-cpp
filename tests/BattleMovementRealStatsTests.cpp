@@ -16,9 +16,6 @@ using namespace KysChess::Battle::Test;
 namespace
 {
 
-constexpr double SceneTileWidth = 36.0;
-constexpr double MaxEffectiveBattleReach = 480.0;
-
 struct PinnedRoleMovement
 {
     int roleId = -1;

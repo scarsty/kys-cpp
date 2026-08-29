@@ -368,7 +368,7 @@ TEST_CASE("configured combo gold uses the highest active coefficient and survivi
     CHECK(calculateChessComboGoldBonus(state, *content, {5}) == 0);
 }
 
-TEST_CASE("actual 丐幫 configuration drives its victory gold effect",
+TEST_CASE("actual Gaibang configuration drives its victory gold effect",
           "[chess][combo][gold][actual-config]")
 {
     const auto content = actualContent();

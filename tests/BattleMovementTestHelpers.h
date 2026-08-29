@@ -1,5 +1,6 @@
 #pragma once
 
+#include "battle/BattleGeometry.h"
 #include "battle/BattleMath.h"
 #include "battle/BattleMovement.h"
 #include "Find.h"
@@ -10,6 +11,47 @@
 
 namespace KysChess::Battle::Test
 {
+
+constexpr double SceneTileWidth = 36.0;
+constexpr double MaxEffectiveBattleReach = 480.0;
+constexpr double TestMinimumVectorNorm = 0.0001;
+constexpr int BattleCoordCount = 64;
+
+inline BattleMovementConfig testConfig()
+{
+    BattleMovementGeometry geometry;
+    geometry.tileWidth = SceneTileWidth;
+    geometry.meleeAttackEffectOffset = SceneTileWidth * 2.0;
+    geometry.meleeAttackHitRadius = SceneTileWidth * 2.0;
+    geometry.dashFrames = 5;
+    geometry.dashCooldownFrames = 18;
+    geometry.maxRangedReach = MaxEffectiveBattleReach;
+    return BattleGeometry(geometry).movementConfig();
+}
+
+inline BattleUnitState unit(int id, int team, Pointf position, CombatStyle style = CombatStyle::Melee)
+{
+    BattleUnitState state;
+    state.id = id;
+    state.team = team;
+    state.position = position;
+    state.speed = 5.0;
+    state.reach = style == CombatStyle::Ranged ? 400.0 : 137.5;
+    state.style = style;
+    return state;
+}
+
+inline BattleMovementPlanInput worldWith(std::vector<BattleUnitState> units)
+{
+    BattleMovementPlanInput world;
+    world.config = testConfig();
+    world.units.reserve(units.size());
+    for (auto& unit : units)
+    {
+        world.units.push_back(std::move(unit));
+    }
+    return world;
+}
 
 struct MovementStats
 {

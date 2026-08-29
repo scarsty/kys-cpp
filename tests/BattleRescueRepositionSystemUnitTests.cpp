@@ -1,13 +1,17 @@
 #include "battle/BattleRescueRepositionSystem.h"
+#include "BattleCoreTestHelpers.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 using namespace KysChess::Battle;
+using namespace KysChess::Battle::Test;
+using namespace KysChess;
+using namespace BattlePresentationTest;
 
 namespace
 {
 
-BattleRescueUnitSnapshot unit(int id, int team, Point cell)
+BattleRescueUnitSnapshot rescueUnit(int id, int team, Point cell)
 {
     BattleRescueUnitSnapshot snapshot;
     snapshot.id = id;
@@ -19,7 +23,7 @@ BattleRescueUnitSnapshot unit(int id, int team, Point cell)
     return snapshot;
 }
 
-BattleRescueCellSnapshot cell(int x, int y, bool occupied = false)
+BattleRescueCellSnapshot rescueCellLocal(int x, int y, bool occupied = false)
 {
     return { x, y, true, occupied, occupied ? 99 : -1, { static_cast<float>(x * 10), static_cast<float>(y * 10), 0.0f } };
 }
@@ -31,7 +35,7 @@ void appendOpenCells(BattleRescueRepositionInput& input, int width, int height)
     {
         for (int y = 0; y < height; ++y)
         {
-            input.cells.push_back(cell(x, y));
+            input.cells.push_back(rescueCellLocal(x, y));
         }
     }
 }
@@ -45,17 +49,17 @@ TEST_CASE("BattleRescueReposition_ProtectionPullSelectsLegalDestination", "[batt
     input.pulledUnitId = 10;
     input.pullerTeam = 1;
     input.units = {
-        unit(10, 1, { 5, 5 }),
-        unit(11, 1, { 2, 2 }),
-        unit(20, 0, { 7, 7 }),
+        rescueUnit(10, 1, { 5, 5 }),
+        rescueUnit(11, 1, { 2, 2 }),
+        rescueUnit(20, 0, { 7, 7 }),
     };
     input.units[1].forcePullProtect = true;
     input.units[1].forcePullProtectRemaining = 1;
     input.cells = {
-        cell(2, 2, true),
-        cell(2, 3),
-        cell(3, 2, true),
-        cell(5, 5),
+        rescueCellLocal(2, 2, true),
+        rescueCellLocal(2, 3),
+        rescueCellLocal(3, 2, true),
+        rescueCellLocal(5, 5),
     };
 
     auto result = BattleRescueRepositionSystem().resolve(input);
@@ -79,15 +83,15 @@ TEST_CASE("BattleRescueReposition_ProtectionHealUsesCommonMinimumAndFullHpRules"
     input.pulledUnitId = 10;
     input.pullerTeam = 1;
     input.units = {
-        unit(10, 1, { 5, 5 }),
-        unit(11, 1, { 2, 2 }),
+        rescueUnit(10, 1, { 5, 5 }),
+        rescueUnit(11, 1, { 2, 2 }),
     };
     input.units[1].forcePullProtect = true;
     input.units[1].forcePullProtectRemaining = 1;
     input.cells = {
-        cell(2, 2, true),
-        cell(2, 3),
-        cell(5, 5),
+        rescueCellLocal(2, 2, true),
+        rescueCellLocal(2, 3),
+        rescueCellLocal(5, 5),
     };
 
     SECTION("minimum heal survives percentage truncation")
@@ -140,20 +144,20 @@ TEST_CASE("BattleRescueReposition_ProtectionPullSkipsDisconnectedWalkableCells",
     input.pulledUnitId = 10;
     input.pullerTeam = 1;
     input.units = {
-        unit(10, 1, { 5, 5 }),
-        unit(11, 1, { 2, 2 }),
-        unit(20, 0, { 2, 4 }),
+        rescueUnit(10, 1, { 5, 5 }),
+        rescueUnit(11, 1, { 2, 2 }),
+        rescueUnit(20, 0, { 2, 4 }),
     };
     input.units[1].forcePullProtect = true;
     input.units[1].forcePullProtectRemaining = 1;
     input.cells = {
-        cell(2, 1),
-        cell(2, 2, true),
-        cell(2, 3),
-        cell(3, 1),
-        cell(3, 2),
-        cell(3, 3),
-        cell(7, 7),
+        rescueCellLocal(2, 1),
+        rescueCellLocal(2, 2, true),
+        rescueCellLocal(2, 3),
+        rescueCellLocal(3, 1),
+        rescueCellLocal(3, 2),
+        rescueCellLocal(3, 3),
+        rescueCellLocal(7, 7),
     };
 
     auto result = BattleRescueRepositionSystem().resolve(input);
@@ -171,9 +175,9 @@ TEST_CASE("BattleRescueReposition_ProtectionPullAllowsLivePullerWhenAnotherMembe
     input.pulledUnitId = 10;
     input.pullerTeam = 1;
     input.units = {
-        unit(10, 1, { 5, 5 }),
-        unit(11, 1, { 2, 2 }),
-        unit(12, 1, { 3, 2 }),
+        rescueUnit(10, 1, { 5, 5 }),
+        rescueUnit(11, 1, { 2, 2 }),
+        rescueUnit(12, 1, { 3, 2 }),
     };
     input.units[1].forcePullProtect = true;
     input.units[1].forcePullProtectRemaining = 1;
@@ -181,10 +185,10 @@ TEST_CASE("BattleRescueReposition_ProtectionPullAllowsLivePullerWhenAnotherMembe
     input.units[2].forcePullProtect = true;
     input.units[2].forcePullProtectRemaining = 1;
     input.cells = {
-        cell(2, 2, true),
-        cell(2, 3),
-        cell(3, 2),
-        cell(5, 5),
+        rescueCellLocal(2, 2, true),
+        rescueCellLocal(2, 3),
+        rescueCellLocal(3, 2),
+        rescueCellLocal(5, 5),
     };
 
     auto result = BattleRescueRepositionSystem().resolve(input);
@@ -201,15 +205,15 @@ TEST_CASE("BattleRescueReposition_ExecutePullConsumesExecuteCounterAndRequestsCo
     input.pulledUnitId = 10;
     input.pullerTeam = 0;
     input.units = {
-        unit(10, 1, { 5, 5 }),
-        unit(20, 0, { 8, 8 }),
+        rescueUnit(10, 1, { 5, 5 }),
+        rescueUnit(20, 0, { 8, 8 }),
     };
     input.units[1].forcePullExecute = true;
     input.units[1].forcePullExecuteRemaining = 2;
     input.cells = {
-        cell(7, 8),
-        cell(8, 7),
-        cell(8, 8, true),
+        rescueCellLocal(7, 8),
+        rescueCellLocal(8, 7),
+        rescueCellLocal(8, 8, true),
     };
 
     auto result = BattleRescueRepositionSystem().resolve(input);
@@ -230,15 +234,15 @@ TEST_CASE("BattleRescueReposition_NoCommandWhenNoLegalCellExists", "[battle][res
     input.pulledUnitId = 10;
     input.pullerTeam = 1;
     input.units = {
-        unit(10, 1, { 5, 5 }),
-        unit(11, 1, { 2, 2 }),
+        rescueUnit(10, 1, { 5, 5 }),
+        rescueUnit(11, 1, { 2, 2 }),
     };
     input.units[1].forcePullProtect = true;
     input.units[1].forcePullProtectRemaining = 1;
     input.cells = {
-        cell(2, 2, true),
+        rescueCellLocal(2, 2, true),
         { 2, 3, false, false, -1, { 20.0f, 30.0f, 0.0f } },
-        cell(5, 5),
+        rescueCellLocal(5, 5),
     };
 
     auto result = BattleRescueRepositionSystem().resolve(input);
@@ -246,4 +250,82 @@ TEST_CASE("BattleRescueReposition_NoCommandWhenNoLegalCellExists", "[battle][res
     CHECK_FALSE(result.teleport.has_value());
     CHECK_FALSE(result.basicCounterAttack.has_value());
     CHECK(result.counterDelta.unitId == -1);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle", "[battle][core][breakthrough]")
+{
+    auto state = rescueDamageFrameState(50, 30);
+
+    auto result = runBattleFrame(state);
+
+    CHECK(damageLogAmountsFor(result, 1).size() == 1);
+    CHECK(state.units.requireCore(1).motion.position.x == Catch::Approx(2.0f * SceneTileWidth));
+    CHECK(state.units.requireCore(1).motion.position.y == Catch::Approx(3.0f * SceneTileWidth));
+    CHECK(std::any_of(
+        result.visualEvents.begin(),
+        result.visualEvents.end(),
+        [](const BattleVisualEvent& event)
+        {
+            return event.type == BattleVisualEventType::RoleEffect
+                && event.targetUnitId == 1
+                && event.effectId == KysChess::EFT_HEAL;
+        }));
+    CHECK(state.units.requireCore(1).vitals.hp == 30);
+    CHECK(state.units.requireCore(1).invincible == 10);
+    CHECK(state.units.require(2).forcePullProtectRemaining() == 0);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttackInsideDamageLifecycle", "[battle][core][breakthrough]")
+{
+    auto state = rescueDamageFrameState(20, 10);
+    state.units.require(2).rescue.forcePullProtectRemaining = 0;
+    state.units.require(0).rescue.forcePullExecuteRemaining = 2;
+    state.units.requireCore(0).grid = { 10, 10 };
+    state.units.requireCore(1).grid = { 5, 5 };
+    state.rescue.cells = {
+        rescueCell(9, 10),
+        rescueCell(10, 9),
+        rescueCell(10, 10),
+    };
+
+    auto result = runBattleFrame(state);
+
+    CHECK(state.units.requireCore(1).motion.position.x == Catch::Approx(9.0f * SceneTileWidth));
+    CHECK(state.units.requireCore(1).motion.position.y == Catch::Approx(10.0f * SceneTileWidth));
+    CHECK(state.units.require(0).forcePullExecuteRemaining() == 1);
+    REQUIRE(state.nextFrame.queuedAttacks().size() == 1);
+    const auto& counter = state.nextFrame.queuedAttacks().front();
+    CHECK(counter.initial.attackSourceUnitId == 0);
+    CHECK(counter.initial.preferredTargetUnitId == 1);
+    CHECK(counter.initial.skillId == 1);
+    CHECK(counter.initial.visualEffectId == 11);
+    REQUIRE(counter.provenance.valid());
+    CHECK(counter.provenance.cast.origin == CastOriginKind::RescueCounter);
+    CHECK(counter.provenance.cast.propagation == CastPropagationPolicy::NoEffectRules);
+    CHECK_FALSE(counter.provenance.cast.ultimate);
+    CHECK(counter.provenance.origin == BattleAttackOriginKind::Initial);
+    CHECK(counter.provenance.rootAttack);
+    CHECK_FALSE(counter.provenance.mainProjectile);
+    CHECK(counter.provenance.propagation == CastPropagationPolicy::NoEffectRules);
+    CHECK_FALSE(counter.provenance.parentAttackId);
+    CHECK(counter.provenance.attackOrdinal == 0);
+    CHECK(counter.castWork.valid());
+    CHECK(state.castLifecycle.outstandingWork(counter.provenance.cast.castId) == 1);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell", "[battle][core][breakthrough]")
+{
+    auto state = rescueDamageFrameState(50, 30);
+    state.rescue.cells = {
+        rescueCell(2, 3, false),
+        rescueCell(5, 5),
+    };
+
+    auto result = runBattleFrame(state);
+
+    CHECK(damageLogAmountsFor(result, 1).size() == 1);
+    CHECK(state.units.require(2).forcePullProtectRemaining() == 1);
+    CHECK(state.units.requireCore(1).motion.position.x == Catch::Approx(180.0f));
+    CHECK(state.units.requireCore(1).motion.position.y == Catch::Approx(180.0f));
+    CHECK(state.units.requireCore(1).vitals.hp == 20);
 }
