@@ -710,6 +710,47 @@ TEST_CASE("BattleEffectSystem matches a cast against the effect source relationa
     CHECK(dispatch(78).commands.empty());
 }
 
+TEST_CASE("BattleEffectSystem bound magic attack commit still requires its matching ultimate",
+          "[battle][effect][magic][commit]")
+{
+    const auto owner = makeUnit(1, 0, 1000, 1000, 50, 100);
+    const auto target = makeUnit(2, 1, 1000, 1000);
+    const std::vector units{ owner, target };
+
+    ChangeResourceAction restore;
+    restore.resource = BattleResource::Mp;
+    restore.kind = ResourceChangeKind::Restore;
+    restore.amount.flat = 10;
+    const auto rule = makeRule(
+        1,
+        EffectEvent::AttackCommitted,
+        selfSelector(),
+        { effectAction(restore) });
+    BattleEffectRuleStore store;
+    store.append(magicBinding(133), rule);
+
+    const auto dispatch = [&](int magicId, bool ultimate)
+    {
+        auto provenance = castProvenance(magicId);
+        provenance.ultimate = ultimate;
+        const auto context = makeContext(
+            EffectEvent::AttackCommitted,
+            magicBinding(133),
+            owner,
+            units,
+            CastCommitEventData{
+                .provenance = provenance,
+                .targetUnitId = target.id,
+            });
+        BattleRuntimeRandom random(1);
+        return BattleEffectSystem{}.dispatch(store, context, random);
+    };
+
+    CHECK(dispatch(133, true).commands.size() == 1);
+    CHECK(dispatch(132, true).commands.empty());
+    CHECK(dispatch(133, false).commands.empty());
+}
+
 TEST_CASE("BattleEffectSystem exact runtime query uses canonical cast eligibility without activating",
           "[battle][effect][exact_runtime]")
 {

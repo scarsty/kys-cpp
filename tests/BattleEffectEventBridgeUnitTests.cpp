@@ -458,11 +458,7 @@ TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast 
                                            int settledAmount,
                                            int receivedDamageAmount)
     {
-        auto committed = resourceRule(10, EffectEvent::UltimateCommitted, commitAmount);
-        committed.conditions = {
-            IsUltimateCondition{},
-            CastUsesEffectSourceMagicCondition{},
-        };
+        auto committed = resourceRule(10, EffectEvent::AttackCommitted, commitAmount);
 
         CopyAttackDefinitionAction copy;
         copy.sourceUnits.kind = EffectSelectorKind::AllLivingUnits;
@@ -554,7 +550,7 @@ TEST_CASE("BattleEffectEventBridge rebinds borrowed ultimate rules for one cast 
     const auto committed = bridge.dispatch(
         runtime,
         { .frame = 5, .eventOrdinal = 101, .ownerUnitId = 1 },
-        EffectEvent::UltimateCommitted,
+        EffectEvent::AttackCommitted,
         CastCommitEventData{ .provenance = cast, .targetUnitId = 2 });
     CHECK(resourceAmounts(committed) == std::vector{ 12, 13 });
     REQUIRE(committed.commands.size() == 2);

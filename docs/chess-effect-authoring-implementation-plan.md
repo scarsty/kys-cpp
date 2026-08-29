@@ -85,6 +85,13 @@ Canonicalize post-resolution authoring:
 - Preserve `觀察範圍` and `施放匹配` as independent behavior.
 - Do not introduce lifecycle-section nesting.
 
+Subsequent commit-timing clarification:
+
+- In `chess_magic_effects.yaml`, use `時機: 攻擊提交` for ordinary bound-magic commit rules. The magic container is installed from the unit's ultimate skill and bound-magic matching already requires the matching ultimate, so another event-level ultimate filter is redundant.
+- Keep `時機: 絕招施放` in combo, equipment, and neigong rules where the event itself must distinguish an ultimate from other committed attacks.
+- Keep 小無相功's `複製攻擊定義` rule at `時機: 絕招施放`. That typed action intentionally requires the true ultimate-commit event; do not widen its generic event constraint merely to make the magic file uniform.
+- 斗轉星移 is the borrowed-rule special case. Its cast-scoped borrowed rules follow their source rule timings, so the borrowed commit path must be verified against `攻擊提交` after the migration.
+
 ## Phase 5: measured idioms
 
 Measure repeated behavior from parsed YAML nodes or normalized typed rules, never by counting matching scalar text.

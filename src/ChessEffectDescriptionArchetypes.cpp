@@ -376,7 +376,7 @@ bool matchesCopyAttackArchetype(const EffectDescriptionBlock& block)
 bool matchesConditionalAttackArchetype(const EffectDescriptionBlock& block)
 {
     const auto& trigger = descriptionTrigger(block);
-    if (trigger.event != EffectEvent::UltimateCommitted
+    if (trigger.event != EffectEvent::AttackCommitted
         || trigger.observation != EffectObservationScope::Owner
         || trigger.castMatch != EffectCastMatch::BoundMagic
         || descriptionTarget(block).selector
@@ -709,7 +709,7 @@ bool matchesStackExplosionProducer(
     const auto& trigger = descriptionTrigger(block);
     const auto conditions = descriptionConditions(block);
     const auto actions = descriptionActions(block);
-    if (trigger.event != EffectEvent::UltimateCommitted
+    if (trigger.event != EffectEvent::AttackCommitted
         || trigger.observation != EffectObservationScope::Owner
         || trigger.castMatch != EffectCastMatch::BoundMagic
         || descriptionTarget(block).selector != selectorOfKind(EffectSelectorKind::Self)

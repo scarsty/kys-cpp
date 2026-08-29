@@ -1393,12 +1393,16 @@ TEST_CASE("ChessBattleEffects_RealEnabledUltimateSchemaValidatesAllDefinitions",
 
     std::set<int> ids;
     std::size_t ruleCount = 0;
+    std::size_t attackCommitRuleCount = 0;
+    std::size_t ultimateCommitRuleCount = 0;
     for (const auto& definition : definitions)
     {
         CHECK(ids.insert(definition.magicId).second);
         ruleCount += definition.rules.size();
         for (const auto& rule : definition.rules)
         {
+            attackCommitRuleCount += rule.event == EffectEvent::AttackCommitted;
+            ultimateCommitRuleCount += rule.event == EffectEvent::UltimateCommitted;
             for (const auto style : {
                      EffectDescriptionStyle::Detailed,
                      EffectDescriptionStyle::Full,
@@ -1412,6 +1416,11 @@ TEST_CASE("ChessBattleEffects_RealEnabledUltimateSchemaValidatesAllDefinitions",
         }
     }
     CHECK(ruleCount == 80);
+    CHECK(attackCommitRuleCount == 41);
+    CHECK(ultimateCommitRuleCount == 1);
+    CHECK(ruleWithEvent(
+        definitionWithId(definitions, 98),
+        EffectEvent::UltimateCommitted).actions.size() == 1);
 }
 
 TEST_CASE("ChessBattleEffects_MigratedShorthandConfigsLoadAsCompleteContent",
@@ -1440,7 +1449,7 @@ TEST_CASE("ChessBattleEffects_SemanticDocumentPreservesCompoundNesting",
 
     const auto& xuanming = ruleWithEvent(
         definitionWithId(definitions, 21),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     const std::array xuanmingRules{xuanming};
     const auto xuanmingDocument = buildEffectDescriptionDocument({
         EffectDescriptionContainerKind::Magic,
@@ -1461,7 +1470,7 @@ TEST_CASE("ChessBattleEffects_SemanticDocumentPreservesCompoundNesting",
 
     const auto& sunflower = ruleWithEvent(
         definitionWithId(definitions, 105),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     const std::array sunflowerRules{sunflower};
     const auto sunflowerDocument = buildEffectDescriptionDocument({
         EffectDescriptionContainerKind::Magic,
@@ -1474,7 +1483,7 @@ TEST_CASE("ChessBattleEffects_SemanticDocumentPreservesCompoundNesting",
 
     const auto& sanqing = ruleWithEvent(
         definitionWithId(definitions, 133),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     const std::array sanqingRules{sanqing};
     const auto sanqingDocument = buildEffectDescriptionDocument({
         EffectDescriptionContainerKind::Magic,
@@ -1498,7 +1507,7 @@ TEST_CASE("ChessBattleEffects_SemanticDocumentPreservesCompoundNesting",
 
     const auto& coupleBlade = ruleWithEvent(
         definitionWithId(definitions, 62),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     const auto coupleBladeFull = descriptionText(std::span<const EffectRule>{&(coupleBlade), 1},
         EffectDescriptionStyle::Full,
         {});
@@ -1508,7 +1517,7 @@ TEST_CASE("ChessBattleEffects_SemanticDocumentPreservesCompoundNesting",
 
     const auto& taiji = definitionWithId(definitions, 16);
     const auto& taijiRecord = ruleWithEvent(taiji, EffectEvent::DamageResolved);
-    const auto& taijiTransfer = ruleWithEvent(taiji, EffectEvent::UltimateCommitted);
+    const auto& taijiTransfer = ruleWithEvent(taiji, EffectEvent::AttackCommitted);
     const auto& taijiConsume = ruleWithEvent(
         taiji,
         EffectEvent::MainProjectileBeforeDamage);
@@ -2014,7 +2023,7 @@ TEST_CASE("ChessBattleEffects_DescriptionIgnoresRuntimeRuleIdentity",
 
     const auto& original = ruleWithEvent(
         definitionWithId(definitions, 127),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     auto changedIdentity = original;
     changedIdentity.id = EffectRuleId{ original.id.value + 0x100000000ULL };
 
@@ -2186,11 +2195,11 @@ TEST_CASE("EffectDescriptionDocument_PreservesAdjacentAttributeActionsAndQualifi
     checkDoesNotCoalesce(withInterveningAction);
 }
 
-TEST_CASE("ChessBattleEffects_MagicContainerOmitsOnlyMatchingBoundUltimateEvent",
+TEST_CASE("ChessBattleEffects_MagicContainerOmitsOnlyMatchingBoundCommitEvent",
           "[battle][effects][description][context]")
 {
     auto rule = parseRuleText(R"(
-時機: 絕招施放
+時機: 攻擊提交
 目標: 全隊
 屬性修正:
   屬性: 防禦
@@ -2199,11 +2208,11 @@ TEST_CASE("ChessBattleEffects_MagicContainerOmitsOnlyMatchingBoundUltimateEvent"
   持續幀數: 100
   合併方式: 刷新
 )");
-    const EffectDescriptionPresentationContext ultimateContext{
-        .enclosingDefaultEvent = EffectEvent::UltimateCommitted,
+    const EffectDescriptionPresentationContext commitContext{
+        .enclosingDefaultEvent = EffectEvent::AttackCommitted,
     };
     const auto standalone = descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Compact, {});
-    const auto enclosed = descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Compact, ultimateContext);
+    const auto enclosed = descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Compact, commitContext);
     CHECK_FALSE(standalone.starts_with("絕招"));
     CHECK(standalone.find("防+66") != std::string::npos);
     CHECK(standalone.find("100幀") != std::string::npos);
@@ -2213,15 +2222,15 @@ TEST_CASE("ChessBattleEffects_MagicContainerOmitsOnlyMatchingBoundUltimateEvent"
     CHECK(enclosed.find("100幀") != std::string::npos);
     const auto enclosedFull = descriptionText(std::span<const EffectRule>{&(rule), 1},
         EffectDescriptionStyle::Full,
-        ultimateContext);
+        commitContext);
     CHECK(enclosedFull.find("對全隊防禦+66") != std::string::npos);
     CHECK(enclosedFull.find("持續100幀") != std::string::npos);
-    CHECK(descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Detailed, ultimateContext)
+    CHECK(descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Detailed, commitContext)
         .starts_with("施放大招"));
 
     rule.castMatch = EffectCastMatch::OwnerAnyCast;
-    const auto anyCast = descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Compact, ultimateContext);
-    CHECK(anyCast.starts_with("絕招"));
+    const auto anyCast = descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Compact, commitContext);
+    CHECK(anyCast.starts_with("出手"));
     CHECK(anyCast.find("任意施放") != std::string::npos);
 
     rule.castMatch = EffectCastMatch::BoundMagic;
@@ -2233,7 +2242,7 @@ TEST_CASE("ChessBattleEffects_MagicContainerOmitsOnlyMatchingBoundUltimateEvent"
          })
     {
         rule.event = event;
-        CHECK(descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Compact, ultimateContext)
+        CHECK(descriptionText(std::span<const EffectRule>{&(rule), 1}, EffectDescriptionStyle::Compact, commitContext)
             .starts_with(label));
     }
 }
@@ -2525,7 +2534,7 @@ TEST_CASE("ChessBattleEffects_CoupleBladeCarriesTypedAllyAttackSource",
 
     const auto& rule = ruleWithEvent(
         definitionWithId(definitions, 62),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     REQUIRE(rule.actions.size() == 1);
     const auto conditional = std::get<std::shared_ptr<ConditionalEffectAction>>(
         rule.actions.front().value);
@@ -2751,7 +2760,7 @@ TEST_CASE("ChessBattleEffects_RealSelectorsExcludeSanqingCasterAndLetXiaowuxiang
 
     const auto& sanqing = ruleWithEvent(
         definitionWithId(definitions, 133),
-        EffectEvent::UltimateCommitted,
+        EffectEvent::AttackCommitted,
         1);
     CHECK(sanqing.selector.kind == EffectSelectorKind::LowestMpAllies);
     CHECK(sanqing.selector.count == 2);
@@ -2930,7 +2939,7 @@ TEST_CASE("ChessBattleEffects_TypedMagicLoaderLeavesSourceBindingToRuntime", "[b
 
     const auto& castRule = ruleWithEvent(
         definitionWithId(definitions, 127),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     const auto& deathObserver = ruleWithEvent(
         definitionWithId(definitions, 95),
         EffectEvent::UnitDied);
@@ -2947,7 +2956,7 @@ TEST_CASE("ChessBattleEffects_RealSchemaCoversFourVerticalSlices", "[battle][eff
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
     const auto& qingnang = definitionWithId(definitions, 127);
-    const auto& qingnangRule = ruleWithEvent(qingnang, EffectEvent::UltimateCommitted);
+    const auto& qingnangRule = ruleWithEvent(qingnang, EffectEvent::AttackCommitted);
     CHECK(qingnang.name == "青囊奇術");
     CHECK(qingnangRule.selector.kind == EffectSelectorKind::LowestHpAllies);
     CHECK(qingnangRule.selector.count == 1);
@@ -2965,7 +2974,7 @@ TEST_CASE("ChessBattleEffects_RealSchemaCoversFourVerticalSlices", "[battle][eff
     REQUIRE(castChange != nullptr);
     REQUIRE(castChange->mpCost.has_value());
     CHECK(castChange->mpCost->flat == 75);
-    const auto& shenzhaoCommit = ruleWithEvent(shenzhao, EffectEvent::UltimateCommitted);
+    const auto& shenzhaoCommit = ruleWithEvent(shenzhao, EffectEvent::AttackCommitted);
     const auto* shield = std::get_if<ChangeResourceAction>(&shenzhaoCommit.actions[0].value);
     REQUIRE(shield != nullptr);
     CHECK(shield->resource == BattleResource::Shield);
@@ -3006,7 +3015,7 @@ TEST_CASE("ChessBattleEffects_DescriptionsUsePayloadNumbersAndTypedMultiplier", 
     const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
-    const auto& qingnangRule = ruleWithEvent(definitionWithId(definitions, 127), EffectEvent::UltimateCommitted);
+    const auto& qingnangRule = ruleWithEvent(definitionWithId(definitions, 127), EffectEvent::AttackCommitted);
     auto mutated = qingnangRule;
     auto& heal = std::get<ChangeResourceAction>(mutated.actions[0].value);
     heal.amount.percent = 9;
@@ -3115,7 +3124,7 @@ TEST_CASE("ChessBattleEffects_DescriptionsUsePayloadNumbersAndTypedMultiplier", 
 
     const auto& coupleBlade = ruleWithEvent(
         definitionWithId(definitions, 62),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     const auto& silverWhip = ruleWithEvent(
         definitionWithId(definitions, 79),
         EffectEvent::MainProjectileBeforeDamage);
@@ -3151,7 +3160,7 @@ TEST_CASE("ChessBattleEffects_QiankunCarriesTypedAbsorptionSettlement", "[battle
 
     const auto& rule = ruleWithEvent(
         definitionWithId(definitions, 97),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     REQUIRE(rule.actions.size() == 1);
     const auto& machine = std::get<StateMachineAction>(rule.actions[0].value);
     const auto& absorption = std::get<StartDamageAbsorptionAction>(machine);
@@ -3183,7 +3192,7 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
     const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
 
-    const auto& cleanse = ruleWithEvent(definitionWithId(definitions, 134), EffectEvent::UltimateCommitted);
+    const auto& cleanse = ruleWithEvent(definitionWithId(definitions, 134), EffectEvent::AttackCommitted);
     const auto* removal = std::get_if<RemoveStatusAction>(&cleanse.actions[1].value);
     REQUIRE(removal != nullptr);
     CHECK(removal->order == StatusRemovalOrder::LongestRemaining);
@@ -3212,7 +3221,7 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
     CHECK(sunflowerEcho->strengthPct == 50);
     CHECK(sunflowerEcho->propagation == CastPropagationPolicy::NoEffectRules);
 
-    const auto& formation = ruleWithEvent(definitionWithId(definitions, 86), EffectEvent::UltimateCommitted);
+    const auto& formation = ruleWithEvent(definitionWithId(definitions, 86), EffectEvent::AttackCommitted);
     const auto* area = std::get_if<CreateAreaAction>(&formation.actions[0].value);
     REQUIRE(area != nullptr);
     REQUIRE(area->modifiers.size() == 3);
@@ -3260,7 +3269,7 @@ TEST_CASE("ChessBattleEffects_ParsesPreviouslyIgnoredTypedFields", "[battle][eff
     const auto& heavenDragon = definitionWithId(definitions, 84);
     const auto& heavenDragonCommit = ruleWithEvent(
         heavenDragon,
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     const auto& heavenDragonProgress = std::get<ChangeStateValueAction>(
         std::get<StateMachineAction>(heavenDragonCommit.actions[0].value));
     CHECK(heavenDragonProgress.slot == EffectStateSlot::PermanentCastProgress);
@@ -3724,7 +3733,7 @@ TEST_CASE("ChessBattleEffects_XiaoyaoDeclaresActionPreservingStaggerRelease", "[
 
     const auto& rule = ruleWithEvent(
         definitionWithId(definitions, 2),
-        EffectEvent::UltimateCommitted);
+        EffectEvent::AttackCommitted);
     REQUIRE(rule.actions.size() == 3);
     const auto& removal = std::get<RemoveStatusAction>(rule.actions[0].value);
     CHECK(removal.controlOnly);
@@ -4800,7 +4809,7 @@ TEST_CASE("EffectDescriptionDocument_RendersRepresentativeContainerLifecycles",
         "  否則：由施法者追加50%副彈（不觸發大招效果）",
     });
     CHECK(compactRows(98) == std::vector<std::string>{
-        "隨機複製另一名存活單位的絕招攻擊，不複製大招效果",
+        "施放大招：隨機複製另一名存活單位的絕招攻擊，不複製大招效果",
     });
     CHECK(compactRows(95) == std::vector<std::string>{
         "獲得毒爆1層（強度為星級×60，最多5層）",
@@ -5538,7 +5547,7 @@ TEST_CASE("EffectDescriptionDocument_FormalContentMeetsCoverageAndRowContracts",
     }
     CHECK(fallbackShapes.size() == 347);
     CHECK(chessSha256Hex(chessSha256(fallbackShapeCorpus))
-        == "5d99ebe46733598f4bd2cb1ff594dfb1db987d1b1be782e5f07e58f14a6e6d42");
+        == "d9eff921d80ffa8aec8f395dc2713c514a199c934374cfe1d11722d5343630b7");
 }
 
 TEST_CASE("EffectDescriptionDocument_PresentationContextOnlyOmitsMatchingBoundTrigger",

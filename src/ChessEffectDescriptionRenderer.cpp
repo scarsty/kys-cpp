@@ -27,7 +27,8 @@ std::string eventHeading(
     if (event == EffectEvent::CastPlanned
         && kind == EffectDescriptionContainerKind::Magic)
         return "準備施放大招";
-    if (event == EffectEvent::UltimateCommitted
+    if ((event == EffectEvent::AttackCommitted
+            || event == EffectEvent::UltimateCommitted)
         && kind == EffectDescriptionContainerKind::Magic)
         return "施放大招";
     if (event == EffectEvent::MainProjectileBeforeDamage) return "主彈命中";
@@ -42,7 +43,8 @@ std::string eventHeading(
 std::string selectorRoleLabel(
     const DescriptionSelectorFact& target,
     EffectEvent event,
-    bool compact)
+    bool compact,
+    EffectDescriptionContainerKind kind)
 {
     switch (target.role)
     {
@@ -65,7 +67,9 @@ std::string selectorRoleLabel(
     case DescriptionTargetRole::OriginalAttackTarget:
         return event == EffectEvent::MainProjectileBeforeDamage
             ? compact ? "主彈原目標" : "本次主彈原本選定的目標"
-            : event == EffectEvent::UltimateCommitted
+            : (event == EffectEvent::UltimateCommitted
+                || (event == EffectEvent::AttackCommitted
+                    && kind == EffectDescriptionContainerKind::Magic))
             ? compact ? "絕招目標" : "本次絕招原本選定的目標"
             : compact ? "攻擊目標" : "本次攻擊原本選定的目標";
     case DescriptionTargetRole::SelectedUnits:
@@ -464,7 +468,8 @@ void renderPlayerActionGroups(
 
 void renderDetailedBlock(
     RenderedEffectDescriptionBlock& rendered,
-    const EffectDescriptionBlock& block)
+    const EffectDescriptionBlock& block,
+    EffectDescriptionContainerKind kind)
 {
     const auto& trigger = descriptionTrigger(block);
     const auto& selector = descriptionTarget(block);
@@ -493,7 +498,7 @@ void renderDetailedBlock(
     appendRenderedRow(
         rendered,
         EffectDescriptionRowKind::Field,
-        "對象：" + selectorRoleLabel(selector, trigger.event, false));
+        "對象：" + selectorRoleLabel(selector, trigger.event, false, kind));
     for (const auto* condition : conditions)
         appendRenderedRow(
             rendered,
@@ -508,7 +513,8 @@ void renderDetailedBlock(
             "候選：" + selectorRoleLabel(
                 resolveDescriptionSelector(borrowed->sourceUnits),
                 trigger.event,
-                false));
+                false,
+                kind));
         appendRenderedRow(rendered, EffectDescriptionRowKind::Field,
             "選擇數量：" + descriptionNumberLabel(
                 borrowed->sourceCount, EffectDescriptionStyle::Detailed));
@@ -535,7 +541,8 @@ void renderDetailedBlock(
             "候選：" + selectorRoleLabel(
                 resolveDescriptionSelector(copied->sourceUnits),
                 trigger.event,
-                false));
+                false,
+                kind));
         appendRenderedRow(rendered, EffectDescriptionRowKind::Field,
             "條件：" + copiedMagicFilterLabel(copied->filter));
         appendRenderedRow(rendered, EffectDescriptionRowKind::Field,
@@ -736,7 +743,7 @@ bool renderStatusLifecycleBlock(
         {
             auto text = fullTriggerPrefix(block, kind, context)
                 + std::format("對{}施加{}{}層",
-                    selectorRoleLabel(selector, trigger.event, false),
+                    selectorRoleLabel(selector, trigger.event, false, kind),
                     label,
                     applied->stacks);
             if (applied->stackLimit) text += std::format("，最多{}層", *applied->stackLimit);
@@ -860,7 +867,8 @@ bool renderStackExplosionBlock(
                     selectorRoleLabel(
                         descriptionTarget(block),
                         descriptionTrigger(block).event,
-                        false),
+                        false,
+                        kind),
                     sourceStatus,
                     damageKindLabel(damage->kind)),
             1,
@@ -885,7 +893,8 @@ bool renderStackExplosionBlock(
                     selectorRoleLabel(
                         descriptionTarget(block),
                         descriptionTrigger(block).event,
-                        true),
+                        true,
+                        kind),
                     appliedStatus,
                     applied->stacks,
                     descriptionNumberLabel(applied->potency, style),
@@ -943,6 +952,7 @@ void renderGenericPlayerBlock(
     RenderedEffectDescriptionBlock& rendered,
     const EffectDescriptionBlock& block,
     EffectDescriptionStyle style,
+    EffectDescriptionContainerKind kind,
     const EffectDescriptionPresentationContext& context)
 {
     const auto& trigger = descriptionTrigger(block);
@@ -1028,7 +1038,8 @@ void renderGenericPlayerBlock(
         targetLead = "對" + selectorRoleLabel(
             selector,
             trigger.event,
-            style == EffectDescriptionStyle::Compact);
+            style == EffectDescriptionStyle::Compact,
+            kind);
     }
 
     const int rowLimit = style == EffectDescriptionStyle::Compact ? 72 : 118;
@@ -1197,7 +1208,7 @@ void renderPlayerBlock(
         break;
     }
     if (block.archetype == DescriptionArchetype::Generic)
-        renderGenericPlayerBlock(rendered, block, style, context);
+        renderGenericPlayerBlock(rendered, block, style, kind, context);
     else if (!renderedArchetype)
         throw std::logic_error("專用玩家描述器未處理其 typed archetype");
 }
@@ -1215,7 +1226,7 @@ RenderedEffectDescription renderEffectDescription(
     if (document.kind == EffectDescriptionContainerKind::Magic
         && !effectiveContext.enclosingDefaultEvent)
     {
-        effectiveContext.enclosingDefaultEvent = EffectEvent::UltimateCommitted;
+        effectiveContext.enclosingDefaultEvent = EffectEvent::AttackCommitted;
     }
     RenderedEffectDescription result;
     for (const auto& section : document.sections)
@@ -1233,7 +1244,7 @@ RenderedEffectDescription renderEffectDescription(
         {
             RenderedEffectDescriptionBlock renderedBlock;
             if (style == EffectDescriptionStyle::Detailed)
-                renderDetailedBlock(renderedBlock, block);
+                renderDetailedBlock(renderedBlock, block, document.kind);
             else
                 renderPlayerBlock(
                     renderedBlock,
