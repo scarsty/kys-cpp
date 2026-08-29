@@ -434,6 +434,9 @@
     <ClInclude Include="battle\BattleOperation.h">
       <Filter>battle</Filter>
     </ClInclude>
+    <ClInclude Include="battle\BattlePresentationVisuals.h">
+      <Filter>battle</Filter>
+    </ClInclude>
     <ClInclude Include="battle\BattleHitResolver.h">
       <Filter>battle</Filter>
     </ClInclude>

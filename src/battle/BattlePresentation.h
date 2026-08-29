@@ -197,6 +197,7 @@ struct BattleVisualEvent
     int textMotionType = 0;
     std::string text;
     std::string skillName;
+    std::string visualPath;
     std::vector<BattleLogTextSegment> segments;
     BattlePresentationColor color;
     Pointf position;
@@ -209,6 +210,25 @@ struct BattleVisualEvent
     int impactSceneShake = 0;
     bool impactRumble = false;
     bool through = false;
+};
+
+enum class BattleAreaVisualStyle : std::uint8_t
+{
+    Sand,
+    ProtectiveWard,
+};
+
+struct BattleAreaPresentation
+{
+    int areaId = -1;
+    int sourceUnitId = -1;
+    int sourceTeam = -1;
+    Pointf center;
+    int radiusTiles{};
+    double tileWidth{};
+    BattleAreaVisualStyle style{};
+    int createdFrame{};
+    int expiresFrameExclusive{};
 };
 
 struct BattleFrameRumbleEvent
@@ -224,6 +244,7 @@ struct BattlePresentationFrame
     std::vector<BattleGameplayEvent> gameplayEvents;
     std::vector<BattleLogEvent> logEvents;
     std::vector<BattleVisualEvent> visualEvents;
+    std::vector<BattleAreaPresentation> areas;
     std::vector<int> attackSoundIds;
     std::vector<BattleFrameRumbleEvent> rumbles;
     int blinkSoundCount{};

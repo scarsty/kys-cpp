@@ -1,5 +1,6 @@
 #include "BattleSceneFrameApplier.h"
 #include "BattleSceneTestRuntimeFixture.h"
+#include "battle/BattlePresentationVisuals.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -19,6 +20,7 @@ struct ApplierFixture
     std::deque<BattleAttackEffect> attackEffects;
     std::deque<BattleRoleEchoEffect> roleEchoEffects;
     std::deque<BattleTextEffect> textEffects;
+    std::vector<BattleAreaPresentation> areaEffects;
     std::unordered_map<int, int> hurtFlashTimers;
     RandomDouble random;
     BattleSceneCamera camera;
@@ -90,6 +92,7 @@ struct ApplierFixture
             attackEffects,
             roleEchoEffects,
             textEffects,
+            areaEffects,
             hurtFlashTimers,
             random,
             cameraPosition,
@@ -204,6 +207,49 @@ TEST_CASE("BattleSceneFrameApplier_AppliesProjectileVisualEventsToSceneAttackEff
     CHECK(effect.Velocity.x == 2.0f);
     CHECK(effect.TotalFrame == 40);
     CHECK(effect.Frame == 25);
+    CHECK(effect.Tint.r == 255);
+    CHECK(effect.Tint.g == 255);
+    CHECK(effect.Tint.b == 255);
+}
+
+TEST_CASE("BattleSceneFrameApplier_AppliesSemanticCuePathTintAndAreaSnapshot", "[battle][scene_frame_applier][effect_cue][area]")
+{
+    ApplierFixture fixture;
+    BattlePresentationFrame frame;
+    BattleVisualEvent cue;
+    cue.type = BattleVisualEventType::RoleEffect;
+    cue.targetUnitId = 1;
+    cue.visualPath = BattleCueNegativeVisualPath;
+    cue.color = { 136, 220, 96, 235 };
+    cue.durationFrames = 15;
+    frame.visualEvents.push_back(cue);
+    frame.areas.push_back({
+        .areaId = 7,
+        .sourceUnitId = 0,
+        .sourceTeam = 0,
+        .center = { 90.0f, 120.0f, 0.0f },
+        .radiusTiles = 6,
+        .tileWidth = 36.0,
+        .style = BattleAreaVisualStyle::Sand,
+        .createdFrame = 10,
+        .expiresFrameExclusive = 110,
+    });
+
+    fixture.applier.apply(frame, fixture.effects);
+
+    REQUIRE(fixture.attackEffects.size() == 1);
+    const auto& effect = fixture.attackEffects.front();
+    CHECK(effect.FollowUnitId == 1);
+    CHECK(effect.Path == BattleCueNegativeVisualPath);
+    CHECK(effect.Tint.r == 136);
+    CHECK(effect.Tint.g == 220);
+    CHECK(effect.Tint.b == 96);
+    CHECK(effect.Tint.a == 235);
+    REQUIRE(fixture.areaEffects.size() == 1);
+    CHECK(fixture.areaEffects.front().areaId == 7);
+
+    fixture.applier.apply(BattlePresentationFrame{}, fixture.effects);
+    CHECK(fixture.areaEffects.empty());
 }
 
 TEST_CASE("BattleSceneFrameApplier_StoresRoleAttackEchoWithoutChangingRuntimeAnimation", "[battle][scene_frame_applier]")

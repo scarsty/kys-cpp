@@ -2,6 +2,7 @@
 #include "BattleLogTestHelpers.h"
 #include "BattlePresentationTestHelpers.h"
 #include "battle/BattleHitResolver.h"
+#include "battle/BattlePresentationVisuals.h"
 #include "battle/BattleRuntimeSession.h"
 #include "battle/BattleRuntimeUnitSpawn.h"
 #include "battle/BattleStatusSystem.h"
@@ -11,7 +12,9 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -363,7 +366,288 @@ void seedDamageExtrasFromUnits(BattleRuntimeState& state)
     }
 }
 
+std::vector<const BattleVisualEvent*> semanticCueEvents(
+    const BattlePresentationFrame& frame)
+{
+    std::vector<const BattleVisualEvent*> events;
+    for (const auto& event : frame.visualEvents)
+    {
+        if (event.type == BattleVisualEventType::RoleEffect
+            && event.visualPath.starts_with(BattleCueVisualPathPrefix))
+        {
+            events.push_back(&event);
+        }
+    }
+    return events;
+}
+
+EffectCommandMetadata cueEffectMetadata(
+    const BattleRuntimeState& state,
+    EffectEvent event = EffectEvent::HitBeforeDamage,
+    int targetUnitId = 1)
+{
+    EffectCommandMetadata metadata;
+    metadata.binding = {
+        .kind = EffectSourceKind::Magic,
+        .sourceId = 500,
+        .ownerUnitId = 0,
+        .sourceTeam = state.units.requireCore(0).team,
+    };
+    metadata.ruleId = EffectRuleId{ 1 };
+    metadata.event = event;
+    metadata.targetUnitId = targetUnitId;
+    return metadata;
+}
+
+void queueEffectCommandBatch(
+    BattleRuntimeState& state,
+    std::vector<EffectCommand> commands)
+{
+    state.effectIntegration.queuedCommandBatches.push_back({
+        .commands = std::move(commands),
+        .context = { .frame = state.movement.frame + 1 },
+    });
+}
+
 }  // namespace
+
+TEST_CASE("BattleFrameRunner_EmitsSemanticStatusCueColorsWithoutFloatingText", "[battle][frame_runner][runtime][effect_cue]")
+{
+    struct Case
+    {
+        BattleStatusKind status{};
+        std::string_view path;
+        BattlePresentationColor color;
+    };
+    const std::array cases{
+        Case{ BattleStatusKind::Poison, BattleCueNegativeVisualPath, { 136, 220, 96, 170 } },
+        Case{ BattleStatusKind::Bleed, BattleCueBleedVisualPath, { 255, 94, 86, 220 } },
+        Case{ BattleStatusKind::Stun, BattleCueControlVisualPath, { 104, 160, 255, 190 } },
+        Case{ BattleStatusKind::WitheredBone, BattleCueNegativeVisualPath, { 190, 112, 255, 170 } },
+        Case{ BattleStatusKind::DamageBlockLayer, BattleCuePositiveVisualPath, { 112, 224, 255, 210 } },
+        Case{ BattleStatusKind::BattleSpirit, BattleCuePositiveVisualPath, { 255, 204, 96, 220 } },
+    };
+
+    for (const auto& test : cases)
+    {
+        auto state = runtimeFrameState();
+        auto metadata = cueEffectMetadata(state);
+        ApplyStatusAction action;
+        action.status = test.status;
+        action.durationFrames = 60;
+        action.stack = EffectStackPolicy::Replace;
+        queueEffectCommandBatch(state, {
+            EffectCommand{
+                metadata,
+                ApplyStatusEffectCommand{ action, 10, 0 },
+            },
+        });
+
+        const auto frame = runBattleFrame(state);
+        const auto cues = semanticCueEvents(frame);
+        REQUIRE(cues.size() == 1);
+        CHECK(cues.front()->targetUnitId == 1);
+        CHECK(cues.front()->visualPath == test.path);
+        CHECK(cues.front()->color.r == test.color.r);
+        CHECK(cues.front()->color.g == test.color.g);
+        CHECK(cues.front()->color.b == test.color.b);
+        CHECK(cues.front()->color.a == test.color.a);
+        CHECK(std::ranges::none_of(
+            frame.visualEvents,
+            [](const BattleVisualEvent& event)
+            {
+                return event.type == BattleVisualEventType::FloatingText;
+            }));
+    }
+}
+
+TEST_CASE("BattleFrameRunner_CoalescesProtectionCuesAndSuppressesRefreshAndInitialization", "[battle][frame_runner][runtime][effect_cue]")
+{
+    auto state = runtimeFrameState();
+    auto metadata = cueEffectMetadata(state);
+
+    ModifyAttributeAction blockChance;
+    blockChance.attribute = BattleAttribute::BlockChance;
+    blockChance.operation = AttributeOperation::FlatAdd;
+    blockChance.durationFrames = 60;
+    blockChance.stack = EffectStackPolicy::Refresh;
+
+    ChangeResourceAction shield;
+    shield.resource = BattleResource::Shield;
+    shield.kind = ResourceChangeKind::Grant;
+
+    auto shieldMetadata = metadata;
+    shieldMetadata.actionOrder = 1;
+    shieldMetadata.commandOrdinal = 2;
+    queueEffectCommandBatch(state, {
+        EffectCommand{ metadata, ModifyAttributeEffectCommand{ blockChance, 20 } },
+        EffectCommand{ shieldMetadata, ChangeResourceEffectCommand{ shield, 25 } },
+    });
+
+    const auto applied = runBattleFrame(state);
+    const auto appliedCues = semanticCueEvents(applied);
+    REQUIRE(appliedCues.size() == 1);
+    CHECK(appliedCues.front()->visualPath == BattleCuePositiveVisualPath);
+    CHECK(appliedCues.front()->color.r == 112);
+    CHECK(appliedCues.front()->color.g == 224);
+    CHECK(appliedCues.front()->color.b == 255);
+
+    queueEffectCommandBatch(state, {
+        EffectCommand{ metadata, ModifyAttributeEffectCommand{ blockChance, 20 } },
+    });
+    CHECK(semanticCueEvents(runBattleFrame(state)).empty());
+
+    auto openingState = runtimeFrameState();
+    auto openingMetadata = cueEffectMetadata(
+        openingState,
+        EffectEvent::BattleInitialized);
+    queueEffectCommandBatch(openingState, {
+        EffectCommand{
+            openingMetadata,
+            ModifyAttributeEffectCommand{ blockChance, 20 },
+        },
+    });
+    CHECK(semanticCueEvents(runBattleFrame(openingState)).empty());
+}
+
+TEST_CASE("BattleFrameRunner_OnlyCuesFirstStackAndSuccessfulCleanse", "[battle][frame_runner][runtime][effect_cue]")
+{
+    SECTION("只有第一層會顯示提示")
+    {
+        auto state = runtimeFrameState();
+        auto metadata = cueEffectMetadata(state);
+        ApplyStatusAction action;
+        action.status = BattleStatusKind::BattleSpirit;
+        action.durationFrames = 90;
+        action.stack = EffectStackPolicy::AddStack;
+        action.stackLimit = 5;
+        const EffectCommand command{
+            metadata,
+            ApplyStatusEffectCommand{ action, 10, 0 },
+        };
+
+        queueEffectCommandBatch(state, { command });
+        CHECK(semanticCueEvents(runBattleFrame(state)).size() == 1);
+        queueEffectCommandBatch(state, { command });
+        CHECK(semanticCueEvents(runBattleFrame(state)).empty());
+    }
+
+    SECTION("只有實際移除負面狀態才顯示淨化提示")
+    {
+        auto state = runtimeFrameState();
+        appendStatus(
+            state.units.require(1).status.effects,
+            BattleStatusKind::Poison,
+            90,
+            1,
+            10,
+            0);
+        auto metadata = cueEffectMetadata(state);
+        RemoveStatusAction action;
+        action.negativeOnly = true;
+        const EffectCommand command{
+            metadata,
+            RemoveStatusEffectCommand{ action },
+        };
+
+        queueEffectCommandBatch(state, { command });
+        const auto removedFrame = runBattleFrame(state);
+        const auto removed = semanticCueEvents(removedFrame);
+        REQUIRE(removed.size() == 1);
+        CHECK(removed.front()->visualPath == BattleCueCleanseVisualPath);
+        CHECK(removed.front()->color.r == 184);
+        CHECK(removed.front()->color.g == 255);
+        CHECK(removed.front()->color.b == 246);
+
+        queueEffectCommandBatch(state, { command });
+        CHECK(semanticCueEvents(runBattleFrame(state)).empty());
+    }
+}
+
+TEST_CASE("BattleFrameRunner_PresentsFixedAndFollowSourceAreaVisuals", "[battle][frame_runner][runtime][area_visual]")
+{
+    auto state = runtimeFrameState();
+    const int createdFrame = state.movement.frame;
+    state.areas.areas = {
+        {
+            .id = { 10 },
+            .source = {
+                .kind = EffectSourceKind::Magic,
+                .sourceId = YellowSandWhipMagicId,
+                .ownerUnitId = 0,
+                .sourceTeam = 0,
+            },
+            .sourceTeam = 0,
+            .geometry = { .shape = AreaShape::Circle, .radiusTiles = 6 },
+            .anchor = {
+                .kind = BattleAreaAnchorKind::FixedWorldPosition,
+                .fixedPosition = { 240.0f, 270.0f, 0.0f },
+            },
+            .createdFrame = createdFrame,
+            .expiresFrameExclusive = createdFrame + 100,
+        },
+        {
+            .id = { 11 },
+            .source = {
+                .kind = EffectSourceKind::Magic,
+                .sourceId = DemonSubduingStaffMagicId,
+                .ownerUnitId = 0,
+                .sourceTeam = 0,
+            },
+            .sourceTeam = 0,
+            .geometry = { .shape = AreaShape::Circle, .radiusTiles = 5 },
+            .anchor = {
+                .kind = BattleAreaAnchorKind::FollowSourceUnit,
+                .sourceUnitId = 0,
+            },
+            .createdFrame = createdFrame,
+            .expiresFrameExclusive = createdFrame + 100,
+        },
+    };
+
+    const auto first = runBattleFrame(state);
+    REQUIRE(first.areas.size() == 2);
+    const auto sand = std::ranges::find(
+        first.areas,
+        BattleAreaVisualStyle::Sand,
+        &BattleAreaPresentation::style);
+    const auto ward = std::ranges::find(
+        first.areas,
+        BattleAreaVisualStyle::ProtectiveWard,
+        &BattleAreaPresentation::style);
+    REQUIRE(sand != first.areas.end());
+    REQUIRE(ward != first.areas.end());
+    CHECK(sand->radiusTiles == 6);
+    CHECK(sand->center.x == 240.0f);
+    CHECK(sand->center.y == 270.0f);
+    CHECK(ward->radiusTiles == 5);
+    CHECK(ward->center.x == state.units.requireCore(0).motion.position.x);
+    CHECK(ward->center.y == state.units.requireCore(0).motion.position.y);
+    CHECK(ward->tileWidth == SceneTileWidth);
+
+    state.units.requireCore(0).motion.position = { 180.0f, 210.0f, 0.0f };
+    const auto moved = runBattleFrame(state);
+    const auto movedSand = std::ranges::find(
+        moved.areas,
+        BattleAreaVisualStyle::Sand,
+        &BattleAreaPresentation::style);
+    const auto movedWard = std::ranges::find(
+        moved.areas,
+        BattleAreaVisualStyle::ProtectiveWard,
+        &BattleAreaPresentation::style);
+    REQUIRE(movedSand != moved.areas.end());
+    REQUIRE(movedWard != moved.areas.end());
+    CHECK(movedSand->center.x == 240.0f);
+    CHECK(movedSand->center.y == 270.0f);
+    CHECK(movedWard->center.x == state.units.requireCore(0).motion.position.x);
+    CHECK(movedWard->center.y == state.units.requireCore(0).motion.position.y);
+
+    for (auto& area : state.areas.areas)
+    {
+        area.expiresFrameExclusive = state.movement.frame + 1;
+    }
+    CHECK(runBattleFrame(state).areas.empty());
+}
 
 TEST_CASE("BattleRuntimeState_RunFrame_OwnsPendingAttackSpawnsAcrossFrames", "[battle][frame_runner][runtime][ownership]")
 {

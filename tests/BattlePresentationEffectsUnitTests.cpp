@@ -1,8 +1,11 @@
 #include "BattlePresentationEffects.h"
+#include "battle/BattlePresentationVisuals.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <deque>
+
+using namespace KysChess::Battle;
 
 TEST_CASE("BattleAttackEffect_RenderTeamUsesVisualTeamOnly", "[battle][presentation][unit]")
 {
@@ -93,4 +96,20 @@ TEST_CASE("BattleRoleEchoEffect_FadesLinearlyToTransparentAcrossAnimation", "[ba
 
     effect.Frame = 4;
     CHECK(battleRoleEchoRenderAlpha(effect) == 0);
+}
+
+TEST_CASE("BattleAreaPresentation_FadesInAndOutAcrossExclusiveLifetime", "[battle][presentation][area]")
+{
+    BattleAreaPresentation area;
+    area.style = BattleAreaVisualStyle::Sand;
+    area.createdFrame = 10;
+    area.expiresFrameExclusive = 30;
+
+    CHECK(battleAreaVisualAlpha(area, 9) == 0);
+    CHECK(battleAreaVisualAlpha(area, 10) == 27);
+    CHECK(battleAreaVisualAlpha(area, 15) == 166);
+    CHECK(battleAreaVisualAlpha(area, 24) == 166);
+    CHECK(battleAreaVisualAlpha(area, 25) == 138);
+    CHECK(battleAreaVisualAlpha(area, 29) == 27);
+    CHECK(battleAreaVisualAlpha(area, 30) == 0);
 }

@@ -29,6 +29,7 @@ public:
         std::deque<BattleAttackEffect>& attackEffects;
         std::deque<BattleRoleEchoEffect>& roleEchoEffects;
         std::deque<BattleTextEffect>& textEffects;
+        std::vector<KysChess::Battle::BattleAreaPresentation>& areaEffects;
         std::unordered_map<int, int>& hurtFlashTimers;
         RandomDouble& random;
         Pointf& cameraPosition;
@@ -215,6 +216,7 @@ void BattleSceneFrameApplier::apply(
     const KysChess::Battle::BattlePresentationFrame& frame,
     Effects& effects) const
 {
+    bindings_.areaEffects = frame.areas;
     applyDamageAndLifecycleEffects(frame, effects);
     for (const auto& event : frame.visualEvents)
     {
@@ -388,7 +390,10 @@ void BattleSceneFrameApplier::spawnRoleEffect(
     effect.FollowUnitId = event.targetUnitId;
     effect.Pos = { 0.0f, 0.0f, ROLE_STATUS_EFT_Z_OFFSET };
     effect.VisualEffectId = event.effectId;
-    effect.Path = std::format("eft/eft{:03}", event.effectId);
+    effect.Path = event.visualPath.empty()
+        ? std::format("eft/eft{:03}", event.effectId)
+        : event.visualPath;
+    effect.Tint = BattleSceneFrameApplierDetail::toSceneColor(event.color);
     effect.TotalEffectFrame = effects.effectFrameCount(effect.Path);
     effect.TotalFrame = event.durationFrames > 0
         ? std::max(event.durationFrames, effect.TotalEffectFrame)
@@ -502,6 +507,7 @@ void BattleSceneFrameApplier::applyProjectilePayload(
     Effects& effects) const
 {
     effect.VisualOnly = 1;
+    effect.Tint = { 255, 255, 255, 255 };
     effect.VisualTeam = resolveVisualTeam(event.sourceUnitId);
     effect.Through = event.through ? 1 : 0;
     effect.Pos = event.position;

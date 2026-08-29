@@ -16,6 +16,7 @@ struct BattleAttackEffect
     Pointf Pos;
     Pointf Velocity;
     Pointf Acceleration;
+    Color Tint{ 255, 255, 255, 255 };
     int Frame = 0;
     int TotalFrame = 1;
     int TotalEffectFrame = 1;

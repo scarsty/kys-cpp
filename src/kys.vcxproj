@@ -296,6 +296,7 @@
     <ClInclude Include="battle\BattleMovement.h" />
     <ClInclude Include="battle\BattleOperation.h" />
     <ClInclude Include="battle\BattlePresentation.h" />
+    <ClInclude Include="battle\BattlePresentationVisuals.h" />
     <ClInclude Include="battle\BattleProjectileTargetingSystem.h" />
     <ClInclude Include="battle\BattleRescueRepositionSystem.h" />
     <ClInclude Include="battle\BattleRuntimeRandom.h" />

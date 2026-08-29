@@ -127,6 +127,7 @@ protected:
     std::deque<BattleAttackEffect> attack_effects_;
     std::deque<BattleRoleEchoEffect> role_echo_effects_;
     std::deque<BattleTextEffect> text_effects_;
+    std::vector<KysChess::Battle::BattleAreaPresentation> area_effects_;
     BattleSceneMapState battle_map_;
     Pointf pos_;
     float gravity_ = -4.0f;

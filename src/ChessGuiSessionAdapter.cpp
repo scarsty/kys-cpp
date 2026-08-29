@@ -1,6 +1,7 @@
 #include "ChessGuiSessionAdapter.h"
 
 #include "BattleSceneHades.h"
+#include "battle/BattlePresentationVisuals.h"
 #include "BattleStatsView.h"
 #include "BattleSummaryEquipment.h"
 #include "BattlefieldData.h"
@@ -356,12 +357,8 @@ void preloadPreparedBattlePresentation(
     const ChessGameSession& session,
     const BattlePreviewPresentation& preview)
 {
-    const auto preloadEffect = [&](int effectId) {
-        if (effectId < 0)
-        {
-            return;
-        }
-        const auto path = std::format("eft/eft{:03}", effectId);
+    const auto preloadTextureGroup = [](std::string_view pathView) {
+        const std::string path(pathView);
         const int frameCount = TextureManager::getInstance()->getTextureGroupCount(path);
         for (int frame = 0; frame < frameCount; ++frame)
         {
@@ -372,18 +369,17 @@ void preloadPreparedBattlePresentation(
         }
     };
 
-    const auto preloadTeam = [](const std::vector<BattlePreviewUnit>& team) {
+    const auto preloadEffect = [&](int effectId) {
+        if (effectId >= 0)
+        {
+            preloadTextureGroup(std::format("eft/eft{:03}", effectId));
+        }
+    };
+
+    const auto preloadTeam = [&](const std::vector<BattlePreviewUnit>& team) {
         for (const auto& unit : team)
         {
-            const auto fightGroup = std::format("fight/fight{:03}", unit.headId);
-            const int fightFrameCount = TextureManager::getInstance()->getTextureGroupCount(fightGroup);
-            for (int frame = 0; frame < fightFrameCount; ++frame)
-            {
-                if (auto* texture = TextureManager::getInstance()->getTexture(fightGroup, frame))
-                {
-                    texture->load();
-                }
-            }
+            preloadTextureGroup(std::format("fight/fight{:03}", unit.headId));
         }
     };
     preloadTeam(preview.allies);
@@ -402,6 +398,10 @@ void preloadPreparedBattlePresentation(
     for (const auto effect : EFT_ALL)
     {
         preloadEffect(std::to_underlying(effect));
+    }
+    for (const std::string_view path : KysChess::Battle::BattleEffectVisualPaths)
+    {
+        preloadTextureGroup(path);
     }
 
     const auto map = session.content().battleMaps().find(preview.mapId);

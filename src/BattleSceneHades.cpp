@@ -9,6 +9,7 @@
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattleInitialization.h"
 #include "battle/BattleOperation.h"
+#include "battle/BattlePresentationVisuals.h"
 #include "battle/BattleStatusSystem.h"
 #include "ChessGameSession.h"
 #include "ChessGuiBattleFlow.h"
@@ -489,6 +490,7 @@ BattleSceneHades::BattleSceneHades(KysChess::ChessGameSession& session) :
         attack_effects_,
         role_echo_effects_,
         text_effects_,
+        area_effects_,
         hurt_flash_timers_,
         rand_,
         pos_,
@@ -942,6 +944,38 @@ void BattleSceneHades::drawClassicView()
         }
     }
 
+    for (const auto& area : area_effects_)
+    {
+        const char* path = KysChess::Battle::battleAreaVisualPath(area.style);
+        const int frameCount = TextureManager::getInstance()->getTextureGroupCount(path);
+        if (frameCount <= 0)
+        {
+            continue;
+        }
+        const int frame = std::max(0, battle_frame_ - area.createdFrame) % frameCount;
+        auto* texture = TextureManager::getInstance()->getTexture(path, frame);
+        if (!texture)
+        {
+            continue;
+        }
+        const double diameter = 2.0 * area.radiusTiles * area.tileWidth;
+        const double centerY = area.center.y / 2.0;
+        const int left = renderWorldX(area.center.x - diameter / 2.0);
+        const int right = renderWorldX(area.center.x + diameter / 2.0);
+        const int top = renderWorldY(centerY - diameter / 4.0);
+        const int bottom = renderWorldY(centerY + diameter / 4.0);
+        TextureManager::getInstance()->renderTexture(
+            texture,
+            left,
+            top,
+            TextureManager::RenderInfo{
+                { 255, 255, 255, 255 },
+                KysChess::Battle::battleAreaVisualAlpha(area, battle_frame_),
+            },
+            std::max(1, right - left),
+            std::max(1, bottom - top));
+    }
+
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -1130,9 +1164,9 @@ void BattleSceneHades::drawClassicView()
             info.p = effect_pos;
             info.sort_p = effect_pos;
             info.sort_p.y += 10000;    // force projectiles to render on top
-            info.color = { 255, 255, 255, 255 };
+            info.color = ae.Tint;
             const bool followsUnit = ae.FollowUnitId >= 0;
-            info.alpha = followsUnit ? 255 : 192;
+            info.alpha = followsUnit ? ae.Tint.a : 192;
             info.shadow = followsUnit ? 0 : 1;
             if (!followsUnit && ae.renderTeam() == 0)
             {
@@ -1545,6 +1579,46 @@ void BattleSceneHades::drawPaperView()
         engine->renderTextureMesh(earthTexture, destination, source, colors, indices);
     }
 
+    for (const auto& area : area_effects_)
+    {
+        const char* path = KysChess::Battle::battleAreaVisualPath(area.style);
+        const int frameCount = TextureManager::getInstance()->getTextureGroupCount(path);
+        if (frameCount <= 0)
+        {
+            continue;
+        }
+        const int frame = std::max(0, battle_frame_ - area.createdFrame) % frameCount;
+        auto* texture = TextureManager::getInstance()->getTexture(path, frame);
+        if (!texture)
+        {
+            continue;
+        }
+        texture->load();
+        auto* rawTexture = texture->getTexture();
+        if (!rawTexture)
+        {
+            continue;
+        }
+        const float radius = static_cast<float>(area.radiusTiles * area.tileWidth);
+        constexpr float GroundOffset = 1.25f;
+        const std::vector<Pointf> world = {
+            { area.center.x - radius, area.center.y - radius, GroundOffset },
+            { area.center.x + radius, area.center.y - radius, GroundOffset },
+            { area.center.x + radius, area.center.y + radius, GroundOffset },
+            { area.center.x - radius, area.center.y + radius, GroundOffset },
+        };
+        const std::vector<FPoint> source = {
+            { 0, 0 },
+            { static_cast<float>(texture->w), 0 },
+            { static_cast<float>(texture->w), static_cast<float>(texture->h) },
+            { 0, static_cast<float>(texture->h) },
+        };
+        Engine::setColor(
+            rawTexture,
+            { 255, 255, 255, KysChess::Battle::battleAreaVisualAlpha(area, battle_frame_) });
+        renderProjectedPlaneMesh(paper_camera_, rawTexture, world, source, 6, 6);
+    }
+
     const bool cursorFloorActive = battle_cursor_->isRunning() && !acting_role_->isAuto();
     if (cursorFloorActive && canSelect(select_x_, select_y_))
     {
@@ -1852,9 +1926,10 @@ void BattleSceneHades::drawPaperView()
         sprite.anchor = effectPosition;
         sprite.sortAnchor = effectPosition + Pointf{ 0, 220, 0 };
         sprite.faceCamera = true;
+        sprite.color = effect.Tint;
         if (effect.FollowUnitId >= 0)
         {
-            sprite.alpha = 255;
+            sprite.alpha = effect.Tint.a;
         }
         else
         {

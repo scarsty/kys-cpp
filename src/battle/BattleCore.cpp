@@ -8,6 +8,7 @@
 #include "BattleEffectEventBridge.h"
 #include "BattleLogSegments.h"
 #include "BattleMath.h"
+#include "BattlePresentationVisuals.h"
 #include "BattleResourceRules.h"
 #include "BattleRuntimeEffects.h"
 
@@ -1836,6 +1837,79 @@ UnitMotionSnapshotList makeUnitMotionSnapshot(
     return snapshots;
 }
 
+enum class BattleSemanticCueFamily : std::uint8_t
+{
+    Positive,
+    Protection,
+    Poison,
+    Bleed,
+    Control,
+    Curse,
+    Cleanse,
+};
+
+struct BattleSemanticCueRequest
+{
+    int targetUnitId = -1;
+    BattleSemanticCueFamily family{};
+};
+
+int semanticCuePriority(BattleSemanticCueFamily family)
+{
+    switch (family)
+    {
+    case BattleSemanticCueFamily::Control: return 90;
+    case BattleSemanticCueFamily::Protection: return 80;
+    case BattleSemanticCueFamily::Poison:
+    case BattleSemanticCueFamily::Bleed: return 70;
+    case BattleSemanticCueFamily::Curse: return 60;
+    case BattleSemanticCueFamily::Positive: return 50;
+    case BattleSemanticCueFamily::Cleanse: return 40;
+    }
+    assert(false);
+    return 0;
+}
+
+BattleVisualEvent semanticCueEvent(const BattleSemanticCueRequest& cue)
+{
+    BattleVisualEvent event;
+    event.type = BattleVisualEventType::RoleEffect;
+    event.targetUnitId = cue.targetUnitId;
+    event.durationFrames = 15;
+    switch (cue.family)
+    {
+    case BattleSemanticCueFamily::Positive:
+        event.visualPath = BattleCuePositiveVisualPath;
+        event.color = { 255, 204, 96, 220 };
+        break;
+    case BattleSemanticCueFamily::Protection:
+        event.visualPath = BattleCuePositiveVisualPath;
+        event.color = { 112, 224, 255, 210 };
+        break;
+    case BattleSemanticCueFamily::Poison:
+        event.visualPath = BattleCueNegativeVisualPath;
+        event.color = { 136, 220, 96, 170 };
+        break;
+    case BattleSemanticCueFamily::Bleed:
+        event.visualPath = BattleCueBleedVisualPath;
+        event.color = { 255, 94, 86, 220 };
+        break;
+    case BattleSemanticCueFamily::Control:
+        event.visualPath = BattleCueControlVisualPath;
+        event.color = { 104, 160, 255, 190 };
+        break;
+    case BattleSemanticCueFamily::Curse:
+        event.visualPath = BattleCueNegativeVisualPath;
+        event.color = { 190, 112, 255, 170 };
+        break;
+    case BattleSemanticCueFamily::Cleanse:
+        event.visualPath = BattleCueCleanseVisualPath;
+        event.color = { 184, 255, 246, 205 };
+        break;
+    }
+    return event;
+}
+
 // Private runFrame() state. Persistent gameplay lives in BattleRuntimeState.
 // Anything consumed within one frame belongs here, not in BattleRuntimeState.
 // Keep this type private to BattleCore.cpp and do not pass it to subsystem classes.
@@ -1925,6 +1999,31 @@ public:
     BattleFrameVector<BattleAreaProjectileFollowUp>& mutableAreaProjectileFollowUps() { return areaProjectileFollowUps_; }
     BattleFrameVector<BattleFrameMpRestore>& mutableLateMpRestores() { return lateMpRestores_; }
 
+    void queueSemanticCue(int targetUnitId, BattleSemanticCueFamily family)
+    {
+        auto existing = std::find_if(
+            semanticCues_.begin(),
+            semanticCues_.end(),
+            [&](const BattleSemanticCueRequest& cue)
+            {
+                return cue.targetUnitId == targetUnitId;
+            });
+        if (existing == semanticCues_.end())
+        {
+            semanticCues_.push_back({ targetUnitId, family });
+            return;
+        }
+        if (semanticCuePriority(family) > semanticCuePriority(existing->family))
+        {
+            existing->family = family;
+        }
+    }
+
+    std::vector<BattleSemanticCueRequest> drainSemanticCues()
+    {
+        return std::exchange(semanticCues_, {});
+    }
+
 private:
     explicit BattleFrameContext(
         BattleRuntimeState& state,
@@ -1968,6 +2067,7 @@ private:
     std::vector<BattlePendingDamageIntent> pendingDamage_;
     std::vector<CastWorkToken> castCommitBarriers_;
     std::vector<BattleFrameEffectCommandBatch> effectCommandBatches_;
+    std::vector<BattleSemanticCueRequest> semanticCues_;
     UnitMotionSnapshotList frameStartMotion_;
 
 public:
@@ -5082,6 +5182,124 @@ bool sameEffectRuleCommandSequence(
         && lhs.eventSourceUnitId == rhs.eventSourceUnitId;
 }
 
+bool modifierApplicationShouldCue(
+    BattleModifierApplyOutcome outcome,
+    int stackCount)
+{
+    switch (outcome)
+    {
+    case BattleModifierApplyOutcome::Applied:
+    case BattleModifierApplyOutcome::Replaced:
+        return true;
+    case BattleModifierApplyOutcome::StackChanged:
+        return stackCount == 1;
+    case BattleModifierApplyOutcome::Refreshed:
+    case BattleModifierApplyOutcome::KeptStronger:
+    case BattleModifierApplyOutcome::BlockedByStatusShield:
+        return false;
+    }
+    assert(false);
+    return false;
+}
+
+bool isProtectionAttribute(BattleAttribute attribute)
+{
+    switch (attribute)
+    {
+    case BattleAttribute::Defence:
+    case BattleAttribute::DodgeChance:
+    case BattleAttribute::BlockChance:
+    case BattleAttribute::DamageReduction:
+    case BattleAttribute::StaggerResistance:
+    case BattleAttribute::ProjectileReflectChance:
+    case BattleAttribute::SkillReflectPercent:
+    case BattleAttribute::CounterUltimateBlockChance:
+        return true;
+    default:
+        return false;
+    }
+}
+
+BattleSemanticCueFamily statusCueFamily(BattleStatusKind status)
+{
+    switch (status)
+    {
+    case BattleStatusKind::Poison:
+    case BattleStatusKind::ColdPoison:
+        return BattleSemanticCueFamily::Poison;
+    case BattleStatusKind::Bleed:
+        return BattleSemanticCueFamily::Bleed;
+    case BattleStatusKind::Stun:
+    case BattleStatusKind::MpBlocked:
+    case BattleStatusKind::Blinded:
+        return BattleSemanticCueFamily::Control;
+    case BattleStatusKind::WitheredBone:
+    case BattleStatusKind::SevenStarMark:
+    case BattleStatusKind::NeutralizeForce:
+        return BattleSemanticCueFamily::Curse;
+    case BattleStatusKind::NextAttackMiss:
+    case BattleStatusKind::DamageBlockLayer:
+    case BattleStatusKind::SingleHitCapLayer:
+    case BattleStatusKind::Shadowless:
+        return BattleSemanticCueFamily::Protection;
+    case BattleStatusKind::BattleSpirit:
+    case BattleStatusKind::TrueQi:
+    case BattleStatusKind::PoisonExplosion:
+    case BattleStatusKind::NextAttackCritical:
+        return BattleSemanticCueFamily::Positive;
+    }
+    assert(false);
+    return BattleSemanticCueFamily::Curse;
+}
+
+void queueSemanticCue(
+    BattleFrameContext& frame,
+    const EffectCommandMetadata& metadata,
+    int targetUnitId,
+    BattleSemanticCueFamily family)
+{
+    if (metadata.event != EffectEvent::BattleInitialized)
+    {
+        frame.queueSemanticCue(targetUnitId, family);
+    }
+}
+
+void queueStatusApplyCue(
+    BattleFrameContext& frame,
+    const EffectCommandMetadata& metadata,
+    BattleStatusKind kind,
+    int requestedStacks,
+    const BattleStatusApplyResult& result)
+{
+    switch (result.outcome)
+    {
+    case BattleStatusApplyOutcome::BlockedByStatusShield:
+    case BattleStatusApplyOutcome::BlockedByStaggerShield:
+    case BattleStatusApplyOutcome::BlockedByControlImmunity:
+        queueSemanticCue(
+            frame,
+            metadata,
+            metadata.targetUnitId,
+            BattleSemanticCueFamily::Protection);
+        return;
+    case BattleStatusApplyOutcome::Applied:
+    case BattleStatusApplyOutcome::Replaced:
+        break;
+    case BattleStatusApplyOutcome::StackChanged:
+        // Cue only the primary application; later stack or frame growth stays silent.
+        if (!result.applied || result.value > requestedStacks)
+        {
+            return;
+        }
+        break;
+    case BattleStatusApplyOutcome::Refreshed:
+    case BattleStatusApplyOutcome::KeptStronger:
+    case BattleStatusApplyOutcome::TargetDead:
+        return;
+    }
+    queueSemanticCue(frame, metadata, metadata.targetUnitId, statusCueFamily(kind));
+}
+
 void reduceEffectCommand(
     BattleRuntimeState& state,
     BattleFrameContext& frame,
@@ -5095,7 +5313,63 @@ void reduceEffectCommand(
         context);
     assert(reduction.entries.size() == 1);
     const auto& entry = reduction.entries.front();
-    if (const auto* damage = std::get_if<BattleEffectDamageRequestOutput>(&entry.value))
+    if (const auto* attribute = std::get_if<BattleAttributeEffectResult>(&entry.value))
+    {
+        if (attribute->outcome == BattleModifierApplyOutcome::BlockedByStatusShield)
+        {
+            queueSemanticCue(
+                frame,
+                entry.metadata,
+                entry.metadata.targetUnitId,
+                BattleSemanticCueFamily::Protection);
+        }
+        else if (modifierApplicationShouldCue(
+                     attribute->outcome,
+                     attribute->modifier.stackCount))
+        {
+            const auto family = attribute->modifier.negative
+                ? BattleSemanticCueFamily::Curse
+                : (isProtectionAttribute(attribute->modifier.attribute)
+                    ? BattleSemanticCueFamily::Protection
+                    : BattleSemanticCueFamily::Positive);
+            queueSemanticCue(frame, entry.metadata, entry.metadata.targetUnitId, family);
+        }
+    }
+    else if (const auto* modifier = std::get_if<BattleDamageModifierEffectResult>(&entry.value))
+    {
+        if (modifier->outcome == BattleModifierApplyOutcome::BlockedByStatusShield)
+        {
+            queueSemanticCue(
+                frame,
+                entry.metadata,
+                entry.metadata.targetUnitId,
+                BattleSemanticCueFamily::Protection);
+        }
+        else if (modifierApplicationShouldCue(
+                     modifier->outcome,
+                     modifier->modifier.stackCount))
+        {
+            const auto family = modifier->modifier.negative
+                ? BattleSemanticCueFamily::Curse
+                : (modifier->modifier.perspective == DamageModifierPerspective::Incoming
+                    ? BattleSemanticCueFamily::Protection
+                    : BattleSemanticCueFamily::Positive);
+            queueSemanticCue(frame, entry.metadata, entry.metadata.targetUnitId, family);
+        }
+    }
+    else if (const auto* absorption = std::get_if<BattleDamageAbsorptionEffectResult>(&entry.value))
+    {
+        if (absorption->outcome == BattleModifierApplyOutcome::BlockedByStatusShield
+            || modifierApplicationShouldCue(absorption->outcome, 1))
+        {
+            queueSemanticCue(
+                frame,
+                entry.metadata,
+                entry.metadata.targetUnitId,
+                BattleSemanticCueFamily::Protection);
+        }
+    }
+    else if (const auto* damage = std::get_if<BattleEffectDamageRequestOutput>(&entry.value))
     {
         appendEffectDamageOutput(state, frame, pendingDamage, *damage, context);
     }
@@ -5170,6 +5444,24 @@ void reduceEffectCommand(
                 KysChess::EFT_HEAL,
                 CoreRoleStatusEffectFrames));
         }
+        if (resource->action.resource == BattleResource::Shield
+            || resource->action.resource == BattleResource::StatusShield
+            || resource->action.resource == BattleResource::StaggerShield
+            || resource->action.resource == BattleResource::ControlImmunityFrames
+            || resource->action.resource == BattleResource::InvincibilityFrames)
+        {
+            for (const auto& delta : heal->deltas)
+            {
+                if (delta.after > delta.before)
+                {
+                    queueSemanticCue(
+                        frame,
+                        entry.metadata,
+                        delta.unitId,
+                        BattleSemanticCueFamily::Protection);
+                }
+            }
+        }
     }
     else if (const auto* status = std::get_if<BattleStatusApplyEffectResult>(&entry.value))
     {
@@ -5180,6 +5472,40 @@ void reduceEffectCommand(
             entry.metadata,
             *apply,
             *status);
+        queueStatusApplyCue(
+            frame,
+            entry.metadata,
+            apply->action.status,
+            apply->action.stacks,
+            status->status);
+    }
+    else if (const auto* consume = std::get_if<BattleStatusConsumeEffectResult>(&entry.value))
+    {
+        const auto* commandConsume = std::get_if<ConsumeStatusEffectCommand>(&command.value);
+        assert(commandConsume);
+        if (consume->depletedStatus && commandConsume->whenDepleted)
+        {
+            queueStatusApplyCue(
+                frame,
+                entry.metadata,
+                commandConsume->whenDepleted->action.status,
+                commandConsume->whenDepleted->action.stacks,
+                *consume->depletedStatus);
+        }
+    }
+    else if (const auto* remove = std::get_if<BattleStatusRemoveEffectResult>(&entry.value))
+    {
+        if (remove->status.removedCount > 0
+            || remove->status.currentActionStaggerCleared
+            || !remove->removedAttributeModifiers.empty()
+            || !remove->removedDamageModifiers.empty())
+        {
+            queueSemanticCue(
+                frame,
+                entry.metadata,
+                entry.metadata.targetUnitId,
+                BattleSemanticCueFamily::Cleanse);
+        }
     }
     else if (const auto* deferredHp = std::get_if<BattleDeferredHpResourceOutput>(&entry.value))
     {
@@ -8752,12 +9078,26 @@ void dispatchReadyCastLifecycleEffects(
     }
 }
 
+std::optional<BattleAreaVisualStyle> areaVisualStyle(const BattleAreaEffect& area)
+{
+    if (area.source.kind != EffectSourceKind::Magic)
+    {
+        return std::nullopt;
+    }
+    return battleAreaVisualStyleForMagicId(area.source.sourceId);
+}
+
 void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
 {
     auto& result = frame.result;
     auto& gameplayEvents = frame.gameplayEvents;
     auto& logEvents = frame.logEvents;
     auto& visualEvents = frame.visualEvents;
+
+    for (const auto& cue : frame.drainSemanticCues())
+    {
+        visualEvents.push_back(semanticCueEvent(cue));
+    }
 
     BattlePresentationFrame presentationFrame;
     presentationFrame.frame = state.movement.frame;
@@ -8785,6 +9125,26 @@ void emitPresentationFrame(BattleRuntimeState& state, BattleFrameContext& frame)
     presentationFrame.gameplayEvents = std::move(gameplayEvents);
     presentationFrame.visualEvents = std::move(visualEvents);
     presentationFrame.logEvents = std::move(logEvents);
+    presentationFrame.areas.reserve(state.areas.areas.size());
+    for (const auto& area : state.areas.areas)
+    {
+        const auto style = areaVisualStyle(area);
+        if (!style || !BattleAreaEffectSystem::activeAt(area, state.movement.frame))
+        {
+            continue;
+        }
+        presentationFrame.areas.push_back({
+            .areaId = area.id.value,
+            .sourceUnitId = area.source.ownerUnitId,
+            .sourceTeam = area.sourceTeam,
+            .center = BattleAreaEffectSystem::center(area, state.units),
+            .radiusTiles = area.geometry.radiusTiles,
+            .tileWidth = state.gridTransform.tileWidth,
+            .style = *style,
+            .createdFrame = area.createdFrame,
+            .expiresFrameExclusive = area.expiresFrameExclusive,
+        });
+    }
     presentationFrame.gameplayEvents.reserve(
         presentationFrame.gameplayEvents.size() + frame.attackEvents.size());
     presentationFrame.visualEvents.reserve(
