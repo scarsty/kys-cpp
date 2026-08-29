@@ -1,4 +1,5 @@
 #include "ChessBattleEffectValidation.h"
+#include "ChessBattleEffectConstraints.h"
 #include "ChessBattleEffectSemantics.h"
 
 #include <algorithm>
@@ -11,100 +12,29 @@ namespace KysChess
 {
 namespace
 {
-bool eventHasHitPayload(EffectEvent event)
-{
-    return event == EffectEvent::MainProjectileBeforeDamage
-        || event == EffectEvent::HitBeforeDamage;
-}
-
-bool eventHasDamagePayload(EffectEvent event)
-{
-    return event == EffectEvent::DamageResolved;
-}
-
-bool eventHasDamageOriginPayload(EffectEvent event)
-{
-    return eventHasDamagePayload(event)
-        || event == EffectEvent::ShieldBroken
-        || event == EffectEvent::UnitDied
-        || event == EffectEvent::AllyDied;
-}
-
-bool eventHasHealPayload(EffectEvent event)
-{
-    return event == EffectEvent::HealAttempted
-        || event == EffectEvent::HealApplied;
-}
-
-bool eventHasCastAggregatePayload(EffectEvent event)
-{
-    return event == EffectEvent::CastContinuation
-        || event == EffectEvent::CastSettled;
-}
-
-bool eventHasCastProvenance(EffectEvent event)
-{
-    switch (event)
-    {
-    case EffectEvent::CastPlanned:
-    case EffectEvent::AttackCommitted:
-    case EffectEvent::UltimateCommitted:
-    case EffectEvent::AttackSpawned:
-    case EffectEvent::MainProjectileBeforeDamage:
-    case EffectEvent::HitBeforeDamage:
-    case EffectEvent::CastContinuation:
-    case EffectEvent::CastSettled:
-        return true;
-    default:
-        return false;
-    }
-}
-
 bool validateSelectorAtEvent(const EffectSelector& selector, EffectEvent event, std::string& error)
 {
-    if (selector.kind == EffectSelectorKind::HitTarget && !eventHasHitPayload(event) && !eventHasDamagePayload(event))
+    if (selector.kind == EffectSelectorKind::HitTarget
+        && !effectSelectorKindAllowedAtEvent(selector.kind, event))
     {
         error = "命中目標選擇器需要命中或傷害事件";
         return false;
     }
     if (selector.kind == EffectSelectorKind::TransactionTarget
-        && !eventHasDamagePayload(event)
-        && !eventHasHealPayload(event)
-        && event != EffectEvent::ShieldBroken
-        && event != EffectEvent::UnitDied
-        && event != EffectEvent::AllyDied)
+        && !effectSelectorKindAllowedAtEvent(selector.kind, event))
     {
         error = "交易目標選擇器需要交易事件";
         return false;
     }
     if (selector.kind == EffectSelectorKind::OriginalAttackTarget
-        && event != EffectEvent::CastPlanned
-        && event != EffectEvent::AttackCommitted
-        && event != EffectEvent::UltimateCommitted
-        && event != EffectEvent::AttackSpawned
-        && !eventHasHitPayload(event)
-        && !eventHasDamagePayload(event)
-        && !eventHasCastAggregatePayload(event))
+        && !effectSelectorKindAllowedAtEvent(selector.kind, event))
     {
         error = "原攻擊目標選擇器需要施放、攻擊、命中、傷害或施放聚合事件";
         return false;
     }
     if (selector.requiredTarget)
     {
-        EffectSelector required;
-        switch (*selector.requiredTarget)
-        {
-        case EffectRequiredTarget::Self: required.kind = EffectSelectorKind::Self; break;
-        case EffectRequiredTarget::SourceUnit: required.kind = EffectSelectorKind::SourceUnit; break;
-        case EffectRequiredTarget::TransactionTarget:
-            required.kind = EffectSelectorKind::TransactionTarget;
-            break;
-        case EffectRequiredTarget::HitTarget: required.kind = EffectSelectorKind::HitTarget; break;
-        case EffectRequiredTarget::OriginalAttackTarget:
-            required.kind = EffectSelectorKind::OriginalAttackTarget;
-            break;
-        }
-        if (!validateSelectorAtEvent(required, event, error))
+        if (!effectRequiredTargetAllowedAtEvent(*selector.requiredTarget, event))
         {
             error = "必含目標不支援此事件：" + error;
             return false;
@@ -207,14 +137,20 @@ bool validateConditionAtEvent(const EffectCondition& condition, EffectEvent even
                 error = std::move(message);
                 return false;
             };
-            if constexpr (std::is_same_v<T, SourceHpRatioAtMostCondition>
+            if constexpr (std::is_same_v<T, IsUltimateCondition>
+                || std::is_same_v<T, CastUsesEffectSourceMagicCondition>)
+            {
+                if (!effectConditionAllowedAtEvent(condition.index(), event))
+                    return reject("施放條件需要具有施放識別的事件");
+            }
+            else if constexpr (std::is_same_v<T, SourceHpRatioAtMostCondition>
                 || std::is_same_v<T, SourceHpRatioBelowCondition>
                 || std::is_same_v<T, TargetHpRatioAtMostCondition>)
             {
                 if (typed.percent < 0 || typed.percent > 100) return reject("生命比例條件必須介於 0 與 100");
                 if constexpr (std::is_same_v<T, TargetHpRatioAtMostCondition>)
                 {
-                    if (!eventHasHitPayload(event) && !eventHasDamagePayload(event) && !eventHasHealPayload(event))
+                    if (!effectConditionAllowedAtEvent(condition.index(), event))
                         return reject("目標生命條件需要命中、傷害或治療事件");
                 }
             }
@@ -222,52 +158,50 @@ bool validateConditionAtEvent(const EffectCondition& condition, EffectEvent even
                 || std::is_same_v<T, IsRootAttackCondition>
                 || std::is_same_v<T, AttackOrdinalEqualsCondition>)
             {
-                if (event != EffectEvent::AttackSpawned && !eventHasHitPayload(event) && !eventHasDamagePayload(event))
+                if (!effectConditionAllowedAtEvent(condition.index(), event))
                     return reject("攻擊來源條件需要攻擊、命中或傷害事件");
                 if constexpr (std::is_same_v<T, AttackOrdinalEqualsCondition>)
                     if (typed.ordinal < 0) return reject("攻擊序號不可為負數");
             }
             else if constexpr (std::is_same_v<T, CastDistinctTargetCountAtLeastCondition>)
             {
-                if (!eventHasCastAggregatePayload(event)) return reject("不同目標數條件需要施放聚合事件");
+                if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("不同目標數條件需要施放聚合事件");
                 if (typed.count <= 0) return reject("不同目標數門檻必須為正數");
             }
             else if constexpr (std::is_same_v<T, HealKindInCondition>)
             {
-                if (!eventHasHealPayload(event)) return reject("治療種類條件需要治療事件");
+                if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("治療種類條件需要治療事件");
                 if (typed.kinds.empty()) return reject("治療種類條件不可為空");
             }
             else if constexpr (std::is_same_v<T, DamageOriginIsAttackCondition>)
             {
-                if (!eventHasDamageOriginPayload(event)) return reject("傷害來源條件需要傷害、破盾或死亡事件");
+                if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("傷害來源條件需要傷害、破盾或死亡事件");
             }
             else if constexpr (std::is_same_v<T, DamageKilledTargetCondition>)
             {
-                if (!eventHasDamagePayload(event)) return reject("擊殺條件需要傷害結算事件");
+                if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("擊殺條件需要傷害結算事件");
             }
             else if constexpr (std::is_same_v<T, AcceptedHitCondition>)
             {
-                if (!eventHasDamagePayload(event)) return reject("接受命中條件需要傷害結算事件");
+                if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("接受命中條件需要傷害結算事件");
             }
             else if constexpr (std::is_same_v<T, EventTargetBelongsToBoundSourceCondition>)
             {
-                if (event != EffectEvent::AllyDied && event != EffectEvent::UnitDied)
+                if (!effectConditionAllowedAtEvent(condition.index(), event))
                     return reject("來源成員條件需要死亡事件");
             }
             else if constexpr (std::is_same_v<T, DamagePerspectiveCondition>)
             {
-                if (!eventHasDamagePayload(event)) return reject("傷害方位條件需要傷害結算事件");
+                if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("傷害方位條件需要傷害結算事件");
             }
             else if constexpr (std::is_same_v<T, DamageKindInCondition>)
             {
-                if (!eventHasHitPayload(event) && !eventHasDamagePayload(event)) return reject("傷害種類條件需要命中或傷害事件");
+                if (!effectConditionAllowedAtEvent(condition.index(), event)) return reject("傷害種類條件需要命中或傷害事件");
                 if (typed.kinds.empty()) return reject("傷害種類條件不可為空");
             }
             else if constexpr (std::is_same_v<T, TargetMpWasFullBeforeCastCondition>)
             {
-                if (event != EffectEvent::CastPlanned
-                    && event != EffectEvent::AttackCommitted
-                    && event != EffectEvent::UltimateCommitted)
+                if (!effectConditionAllowedAtEvent(condition.index(), event))
                 {
                     return reject("施放前滿內條件需要施放規劃或提交事件");
                 }
@@ -317,7 +251,8 @@ bool validateEffectNumberAtEvent(const EffectNumber& number, EffectEvent event, 
     }
     const auto needsFinalDamage = number.base == EffectNumberBase::FinalHpDamage
         || number.multiplierBase == EffectNumberBase::FinalHpDamage;
-    if (needsFinalDamage && !eventHasDamagePayload(event))
+    if (needsFinalDamage
+        && !effectNumberBaseAllowedAtEvent(EffectNumberBase::FinalHpDamage, event))
     {
         error = "實際生命傷害公式只能用於傷害結算事件";
         return false;
@@ -325,9 +260,7 @@ bool validateEffectNumberAtEvent(const EffectNumber& number, EffectEvent event, 
     const auto needsCurrentShield = number.base == EffectNumberBase::TargetCurrentShield
         || number.multiplierBase == EffectNumberBase::TargetCurrentShield;
     if (needsCurrentShield
-        && !eventHasHitPayload(event)
-        && !eventHasDamagePayload(event)
-        && event != EffectEvent::ShieldBroken)
+        && !effectNumberBaseAllowedAtEvent(EffectNumberBase::TargetCurrentShield, event))
     {
         error = "目標目前護盾公式需要命中、傷害或破盾事件";
         return false;
@@ -335,8 +268,7 @@ bool validateEffectNumberAtEvent(const EffectNumber& number, EffectEvent event, 
     const auto needsCurrentCooldown = number.base == EffectNumberBase::TargetCurrentCooldown
         || number.multiplierBase == EffectNumberBase::TargetCurrentCooldown;
     if (needsCurrentCooldown
-        && event != EffectEvent::FrameAdvanced
-        && event != EffectEvent::DamageResolved)
+        && !effectNumberBaseAllowedAtEvent(EffectNumberBase::TargetCurrentCooldown, event))
     {
         error = "目標目前冷卻公式需要每幀或傷害結算事件";
         return false;
@@ -645,7 +577,7 @@ bool validateActionPayload(const EffectAction& action, EffectEvent event, std::s
                                 return reject("狀態值轉移的來源與目標狀態槽不可相同");
                             if ((machine.sourceSlot == EffectStateSlot::CastMaximumHpDamage
                                     || machine.destinationSlot == EffectStateSlot::CastMaximumHpDamage)
-                                && !eventHasCastProvenance(event))
+                                && !effectEventHas(event, EffectEventCapability::CastProvenance))
                                 return reject("本次施放狀態槽需要具有施放識別的事件");
                         }
                         else if constexpr (std::is_same_v<M, ConsumeRecordedMaximumAction>)
@@ -669,8 +601,6 @@ bool validateActionPayload(const EffectAction& action, EffectEvent event, std::s
                         }
                         else if constexpr (std::is_same_v<M, BorrowEffectRulesAction>)
                         {
-                            if (event != EffectEvent::CastPlanned)
-                                return reject("借用效果規則只允許用於施放規劃事件");
                             if (machine.propagation != CastPropagationPolicy::BorrowedUltimateRules)
                                 return reject("借用效果規則必須使用借用大招規則傳播政策");
                             if (!validateEffectNumberAtEvent(machine.sourceCount, event, error)
@@ -684,8 +614,6 @@ bool validateActionPayload(const EffectAction& action, EffectEvent event, std::s
                         }
                         else if constexpr (std::is_same_v<M, CopyAttackDefinitionAction>)
                         {
-                            if (event != EffectEvent::UltimateCommitted)
-                                return reject("複製攻擊定義只允許用於絕招提交事件");
                             if (machine.propagation != CastPropagationPolicy::SuppressUltimateRules)
                                 return reject("複製攻擊定義必須使用不傳播大招規則傳播政策");
                             if (!machine.sourceUnits.excludeOwner)
@@ -711,21 +639,15 @@ bool validateActionPayload(const EffectAction& action, EffectEvent event, std::s
                         }
                         else if constexpr (std::is_same_v<M, GenerateClonesAction>)
                         {
-                            if (event != EffectEvent::BattleInitialized)
-                                return reject("生成分身只允許用於戰鬥初始化事件");
                             if (machine.count <= 0) return reject("生成分身數量必須為正數");
                         }
                         else if constexpr (std::is_same_v<M, PreventDeathAction>)
                         {
-                            if (event != EffectEvent::BattleInitialized)
-                                return reject("死亡庇護只允許用於戰鬥初始化事件");
                             if (machine.invincibilityFrames <= 0)
                                 return reject("死亡庇護無敵幀數必須為正數");
                         }
                         else if constexpr (std::is_same_v<M, ConfigureRescueRepositionAction>)
                         {
-                            if (event != EffectEvent::BattleInitialized)
-                                return reject("挪移次數只允許用於戰鬥初始化事件");
                             if (machine.activations <= 0) return reject("挪移次數必須為正數");
                         }
                         return true;
@@ -750,22 +672,47 @@ bool validateActionPayload(const EffectAction& action, EffectEvent event, std::s
 
 bool isActionAllowedAtEvent(const EffectAction& action, EffectEvent event, std::string& error)
 {
+    const auto reject = [&](std::string message)
+    {
+        error = std::move(message);
+        return false;
+    };
+
+    if (!effectActionAllowedAtEvent(action.value.index(), event))
+    {
+        switch (action.value.index())
+        {
+        case 1: return reject("傷害修正不支援此事件");
+        case 3: return reject("治療交易修正只能用於治療嘗試事件");
+        case 7: return reject("造成傷害不支援此事件");
+        case 8: return reject("修改攻擊不支援此事件");
+        case 9: return reject("強制移動只允許命中傷害前事件");
+        case 10: return reject("建立區域不支援此事件");
+        case 11: return reject("修改施放不支援此事件");
+        default: return reject("治療嘗試事件只允許治療交易修正");
+        }
+    }
+
+    if (const auto* machine = std::get_if<StateMachineAction>(&action.value);
+        machine && !effectStateMachineActionAllowedAtEvent(machine->index(), event))
+    {
+        switch (machine->index())
+        {
+        case 2: return reject("記錄最大招式生命傷害只允許用於傷害結算事件");
+        case 6: return reject("借用效果規則只允許用於施放規劃事件");
+        case 7: return reject("複製攻擊定義只允許用於絕招提交事件");
+        case 9: return reject("生成分身只允許用於戰鬥初始化事件");
+        case 10: return reject("死亡庇護只允許用於戰鬥初始化事件");
+        case 11: return reject("挪移次數只允許用於戰鬥初始化事件");
+        default: return reject("狀態機動作不支援此事件");
+        }
+    }
+
     return std::visit(
         [&](const auto& typed) -> bool
         {
             using T = std::decay_t<decltype(typed)>;
-            auto reject = [&](std::string message)
-            {
-                error = std::move(message);
-                return false;
-            };
-
-            if constexpr (std::is_same_v<T, ModifyHealTransactionAction>)
-            {
-                return event == EffectEvent::HealAttempted
-                    || reject("治療交易修正只能用於 HealAttempted");
-            }
-            else if constexpr (std::is_same_v<T, ModifyCastAction>)
+            if constexpr (std::is_same_v<T, ModifyCastAction>)
             {
                 if (event == EffectEvent::CastPlanned) return true;
                 if (event == EffectEvent::CastContinuation
@@ -796,47 +743,6 @@ bool isActionAllowedAtEvent(const EffectAction& action, EffectEvent event, std::
                 }
                 return reject("修改施放只能用於施放規劃；施放延續只允許免費 child cast；每幀與護盾破裂只允許自動絕招");
             }
-            else if constexpr (std::is_same_v<T, ModifyAttackAction>)
-            {
-                return event == EffectEvent::CastPlanned
-                    || event == EffectEvent::AttackCommitted
-                    || event == EffectEvent::UltimateCommitted
-                    || event == EffectEvent::AttackSpawned
-                    || event == EffectEvent::MainProjectileBeforeDamage
-                    || event == EffectEvent::CastContinuation
-                    || reject("修改攻擊不支援此事件");
-            }
-            else if constexpr (std::is_same_v<T, ModifyDamageAction>)
-            {
-                return event == EffectEvent::BattleInitialized
-                    || event == EffectEvent::UltimateCommitted
-                    || event == EffectEvent::HitBeforeDamage
-                    || event == EffectEvent::MainProjectileBeforeDamage
-                    || event == EffectEvent::DamageResolved
-                    || reject("傷害修正不支援此事件");
-            }
-            else if constexpr (std::is_same_v<T, ForceMoveAction>)
-            {
-                return event == EffectEvent::HitBeforeDamage
-                    || event == EffectEvent::MainProjectileBeforeDamage
-                    || reject("強制移動只允許命中傷害前事件");
-            }
-            else if constexpr (std::is_same_v<T, CreateAreaAction>)
-            {
-                return event == EffectEvent::AttackCommitted
-                    || event == EffectEvent::UltimateCommitted
-                    || event == EffectEvent::MainProjectileBeforeDamage
-                    || event == EffectEvent::HitBeforeDamage
-                    || event == EffectEvent::UnitDied
-                    || reject("建立區域不支援此事件");
-            }
-            else if constexpr (std::is_same_v<T, DealDamageAction>)
-            {
-                return event != EffectEvent::CastPlanned
-                    && event != EffectEvent::AttackSpawned
-                    && event != EffectEvent::HealAttempted
-                    || reject("造成傷害不支援此事件");
-            }
             else if constexpr (std::is_same_v<T, std::shared_ptr<ConditionalEffectAction>>)
             {
                 if (!typed) return reject("條件動作不可為空");
@@ -848,8 +754,7 @@ bool isActionAllowedAtEvent(const EffectAction& action, EffectEvent event, std::
             }
             else
             {
-                return event != EffectEvent::HealAttempted
-                    || reject("HealAttempted 只允許治療交易修正");
+                return true;
             }
         },
         action.value);
@@ -1177,7 +1082,7 @@ bool validateEffectRule(const EffectRule& rule, std::string& error)
         return false;
     }
     if (rule.castMatch == EffectCastMatch::OwnerAnyCast
-        && !eventHasCastProvenance(rule.event))
+        && !effectEventHas(rule.event, EffectEventCapability::CastProvenance))
     {
         error = "效果擁有者任意施放匹配需要具有施放識別的事件";
         return false;
@@ -1259,7 +1164,7 @@ bool validateEffectRule(const EffectRule& rule, std::string& error)
         switch (rule.activationLimit->scope)
         {
         case EffectActivationScope::PerCastPerTarget:
-            if (!eventHasCastProvenance(rule.event))
+            if (!effectEventHas(rule.event, EffectEventCapability::CastProvenance))
             {
                 error = "每次施放每個目標的觸發限制需要具有施放識別的事件";
                 return false;

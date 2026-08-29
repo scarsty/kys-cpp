@@ -13,8 +13,8 @@ The solver runs in two phases:
 
 Optional overrides make it easier to tune the resulting easy pool without
 editing the script:
-- `--exclude-synergy 名称`
-- `--threshold-override 名称=人数`
+- `--exclude-synergy 名稱`
+- `--threshold-override 名稱=人數`
 
 Report mode highlights where the current combo graph is inefficient:
 - inactive synergies and how to activate them
@@ -152,21 +152,23 @@ def collect_synergies(
     threshold_overrides: Dict[str, int],
     excluded_synergies: set[str],
 ) -> list[Synergy]:
-    combos = combos_raw.get('羁绊', []) if isinstance(combos_raw, dict) else combos_raw
+    combos = combos_raw.get('羈絆', []) if isinstance(combos_raw, dict) else combos_raw
+    if not combos:
+        raise ValueError('未從 chess_combos.yaml 讀取到任何羈絆')
     synergies: list[Synergy] = []
 
     for combo in combos:
-        name = combo['名称']
+        name = combo['名稱']
         if name in excluded_synergies:
             continue
 
-        members = tuple(role_id for role_id in combo.get('成员', []) if role_id in universe)
+        members = tuple(role_id for role_id in combo.get('成員', []) if role_id in universe)
         if not members:
             continue
 
         threshold = threshold_overrides.get(
             name,
-            max((threshold.get('人数', 0) for threshold in combo.get('阈值', [])), default=0),
+            max((threshold.get('人數', 0) for threshold in combo.get('閾值', [])), default=0),
         )
         if threshold <= 0:
             continue
@@ -180,7 +182,7 @@ def collect_synergies(
                 name=name,
                 members=members,
                 threshold=threshold,
-                reverse=bool(combo.get('反向羁绊', False)),
+                reverse=bool(combo.get('反向羈絆', False)),
             )
         )
 
@@ -631,7 +633,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         '--threshold-override',
         action='append',
         default=[],
-        help='override max threshold as 名称=人数; can be passed multiple times',
+        help='override max threshold as 名稱=人數; can be passed multiple times',
     )
     parser.add_argument(
         '--report-limit',

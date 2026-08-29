@@ -23,13 +23,13 @@ def parse_synergies_and_comments(yaml_path):
     with open(yaml_path, 'r', encoding='utf-8') as f:
         for line in f:
             raw = line.rstrip('\n')
-            m = re.match(r'^\s*-\s*名称\s*:\s*(.+)$', raw)
+            m = re.match(r'^\s*-\s*名稱\s*:\s*(.+)$', raw)
             if m:
                 cur = {'name': m.group(1).strip(), 'members': []}
                 synergies.append(cur)
                 in_members = False
                 continue
-            if '成员:' in raw:
+            if '成員:' in raw:
                 if cur is not None:
                     in_members = True
                 continue
@@ -42,6 +42,8 @@ def parse_synergies_and_comments(yaml_path):
                         id_to_name[cid] = m2.group(2).strip()
                 else:
                     in_members = False
+    if not synergies:
+        raise RuntimeError(f'未從 {yaml_path} 讀取到任何羈絆')
     return synergies, id_to_name
 
 def load_pool(pool_path):

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -94,6 +97,346 @@ class ChessEffectSchemasTests(unittest.TestCase):
         for macro in ("回復內力", "獲得護盾", "忽略防禦", "單次承傷上限"):
             with self.subTest(macro=macro):
                 self.assertTrue(errors({"時機": "開場", macro: {}}))
+
+    def test_named_mechanisms_are_exact_and_event_aware_at_every_depth(self) -> None:
+        validator = jsonschema.Draft202012Validator(self.schema("magic_effects"))
+
+        def errors(rule: dict) -> list[jsonschema.ValidationError]:
+            document = {"絕招": [{"武功": 1, "名稱": "測試", "效果": [rule]}]}
+            return list(validator.iter_errors(document))
+
+        self.assertFalse(errors({"時機": "開場", "生成分身": {"數量": 1}}))
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "開場",
+                    "狀態機": {"機制": "生成分身", "數量": 1},
+                }
+            )
+        )
+        self.assertTrue(errors({"時機": "開場", "生成分身": {"無敵幀數": 30}}))
+
+        self.assertTrue(errors({"時機": "絕招施放", "生成分身": {"數量": 1}}))
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "施放規劃",
+                    "複製攻擊定義": {
+                        "目標": {
+                            "類型": "所有存活單位",
+                            "排除效果擁有者": True,
+                        },
+                        "可選武功條件": [
+                            "有絕招攻擊定義",
+                            "排除複製與借用遞迴",
+                        ],
+                    },
+                }
+            )
+        )
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "絕招施放",
+                    "借用效果規則": {
+                        "目標": "友軍",
+                        "來源數量": 1,
+                        "允許動作類別": ["傷害修正"],
+                    },
+                }
+            )
+        )
+        self.assertTrue(errors({"時機": "開場", "目標": "命中目標", "獲得護盾": 1}))
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "施放規劃",
+                    "條件": [{"傷害種類符合": ["招式"]}],
+                    "獲得護盾": 1,
+                }
+            )
+        )
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "絕招施放",
+                    "條件": [{"攻擊序號": 1}],
+                    "獲得護盾": 1,
+                }
+            )
+        )
+        self.assertFalse(
+            errors(
+                {
+                    "時機": "命中",
+                    "目標": "交易目標",
+                    "獲得護盾": 1,
+                }
+            )
+        )
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "造成傷害後",
+                    "目標": "原攻擊目標",
+                    "獲得護盾": 1,
+                }
+            )
+        )
+        self.assertFalse(
+            errors(
+                {
+                    "時機": "施放結算完成",
+                    "條件": ["受益者施放前滿內"],
+                    "獲得護盾": 1,
+                }
+            )
+        )
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "開場",
+                    "記錄最大招式生命傷害": {
+                        "狀態槽": "最大招式生命傷害"
+                    },
+                }
+            )
+        )
+        self.assertFalse(
+            errors(
+                {
+                    "時機": "造成傷害後",
+                    "記錄最大招式生命傷害": {
+                        "狀態槽": "最大招式生命傷害"
+                    },
+                }
+            )
+        )
+        force_move = {
+            "方向": "遠離來源",
+            "距離格數": 1,
+            "碰撞": "阻擋前停止",
+            "受阻結果": "縮短",
+        }
+        self.assertTrue(errors({"時機": "開場", "強制移動": force_move}))
+        self.assertFalse(errors({"時機": "命中", "強制移動": force_move}))
+        self.assertTrue(errors({"時機": "治療嘗試", "獲得護盾": 1}))
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "施放規劃",
+                    "獲得護盾": {"實際生命傷害百分比": 50},
+                }
+            )
+        )
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "絕招施放",
+                    "條件分支": {
+                        "條件": ["僅限絕招"],
+                        "成立": [{"生成分身": {"數量": 1}}],
+                    },
+                }
+            )
+        )
+
+    def test_poison_macro_is_closed_and_generic_status_has_no_poison_switch(self) -> None:
+        validator = jsonschema.Draft202012Validator(self.schema("magic_effects"))
+
+        def errors(rule: dict) -> list[jsonschema.ValidationError]:
+            document = {"絕招": [{"武功": 1, "名稱": "測試", "效果": [rule]}]}
+            return list(validator.iter_errors(document))
+
+        self.assertFalse(
+            errors(
+                {
+                    "時機": "命中",
+                    "施毒": {"持續幀數": 90, "層數": 3, "強度": 7},
+                }
+            )
+        )
+        self.assertFalse(
+            errors(
+                {
+                    "時機": "絕招施放",
+                    "施毒": {
+                        "模式": "取代重設",
+                        "持續幀數": 150,
+                        "層數": 5,
+                        "強度": 10,
+                    },
+                }
+            )
+        )
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "命中",
+                    "施毒": {
+                        "模式": "任意合併",
+                        "持續幀數": 90,
+                        "層數": 3,
+                        "強度": 7,
+                    },
+                }
+            )
+        )
+        self.assertTrue(
+            errors(
+                {
+                    "時機": "命中",
+                    "套用狀態": {
+                        "狀態": "中毒",
+                        "同事件合計強度": True,
+                    },
+                }
+            )
+        )
+
+    def test_structural_keys_use_traditional_chinese_without_aliases(self) -> None:
+        combos = yaml.safe_load(
+            (ROOT / "config" / "chess_combos.yaml").read_text(encoding="utf-8")
+        )
+        equipment = yaml.safe_load(
+            (ROOT / "config" / "chess_equipment.yaml").read_text(encoding="utf-8")
+        )
+        neigong = yaml.safe_load(
+            (ROOT / "config" / "chess_neigong.yaml").read_text(encoding="utf-8")
+        )
+        self.assertGreater(len(combos["羈絆"]), 0)
+        self.assertGreater(len(equipment["裝備列表"]), 0)
+        self.assertGreater(len(neigong["層級分配"]), 0)
+
+        invalid_documents = {
+            "combos": {
+                "羁绊": [
+                    {
+                        "名称": "舊式",
+                        "成员": [1],
+                        "阈值": [{"人数": 1, "名称": "舊式", "效果": []}],
+                    }
+                ]
+            },
+            "equipment": {
+                "装备列表": [{"装备ID": 1, "层级": 1, "装备类型": 0}]
+            },
+            "neigong": {
+                "选择数量": 1,
+                "层级分配": [{"层级": 1, "武功": [1]}],
+                "效果": {"1": []},
+            },
+        }
+        for name, document in invalid_documents.items():
+            with self.subTest(name=name):
+                validator = jsonschema.Draft202012Validator(self.schema(name))
+                self.assertTrue(list(validator.iter_errors(document)))
+
+        verifier = subprocess.run(
+            ["python", str(ROOT / "tools" / "verify_easy_pool.py")],
+            cwd=ROOT,
+            text=True,
+            encoding="utf-8",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(verifier.returncode, 0, verifier.stderr)
+        self.assertIn(f"Total synergies: {len(combos['羈絆'])}", verifier.stdout)
+
+
+class ChessContentValidationCommandTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.executable = ROOT / "x64" / "Debug" / "kys_chess_cli.exe"
+        if not cls.executable.exists():
+            raise unittest.SkipTest("kys_chess_cli has not been built")
+
+    def run_cli(self, *arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [str(self.executable), *arguments],
+            cwd=ROOT,
+            text=True,
+            encoding="utf-8",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+
+    def content_arguments(self, config_root: Path) -> list[str]:
+        return [
+            "--data-root",
+            str(ROOT / "work" / "game-dev"),
+            "--config-root",
+            str(config_root),
+        ]
+
+    def test_help_lists_validate_content(self) -> None:
+        result = self.run_cli("--help")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("validate-content", result.stdout)
+
+    def test_validate_content_accepts_one_or_all_difficulties(self) -> None:
+        explicit = self.run_cli(
+            "validate-content",
+            "--difficulty",
+            "normal",
+            *self.content_arguments(ROOT / "config"),
+        )
+        self.assertEqual(explicit.returncode, 0, explicit.stderr)
+        self.assertIn("內容驗證成功：normal", explicit.stdout)
+        self.assertNotIn("內容驗證成功：easy", explicit.stdout)
+
+        all_difficulties = self.run_cli(
+            "validate-content", *self.content_arguments(ROOT / "config")
+        )
+        self.assertEqual(all_difficulties.returncode, 0, all_difficulties.stderr)
+        for difficulty in ("easy", "normal", "hard"):
+            self.assertIn(f"內容驗證成功：{difficulty}", all_difficulties.stdout)
+
+    def test_validate_content_reports_invalid_effect_content(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="kys-invalid-config-") as temp:
+            config_root = Path(temp) / "config"
+            shutil.copytree(ROOT / "config", config_root)
+            effects_path = config_root / "chess_magic_effects.yaml"
+            content = effects_path.read_text(encoding="utf-8")
+            content = content.replace("時機: 絕招施放", "時機: 不存在", 1)
+            effects_path.write_text(content, encoding="utf-8")
+
+            result = self.run_cli(
+                "validate-content",
+                "--difficulty",
+                "normal",
+                *self.content_arguments(config_root),
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("內容驗證失敗：normal", result.stderr)
+            self.assertIn("未知時機", result.stderr)
+
+    def test_validate_content_enforces_named_action_event_constraints(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="kys-invalid-action-event-") as temp:
+            config_root = Path(temp) / "config"
+            shutil.copytree(ROOT / "config", config_root)
+            effects_path = config_root / "chess_magic_effects.yaml"
+            content = effects_path.read_text(encoding="utf-8")
+            invalid_rule = (
+                "    效果:\n"
+                "      - 時機: 開場\n"
+                "        記錄最大招式生命傷害:\n"
+                "          狀態槽: 最大招式生命傷害\n"
+            )
+            content = content.replace("    效果:\n", invalid_rule, 1)
+            effects_path.write_text(content, encoding="utf-8")
+
+            result = self.run_cli(
+                "validate-content",
+                "--difficulty",
+                "normal",
+                *self.content_arguments(config_root),
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("內容驗證失敗：normal", result.stderr)
+            self.assertIn("只允許用於傷害結算事件", result.stderr)
 
 
 if __name__ == "__main__":

@@ -10,17 +10,20 @@ equipment = []
 with open('config/chess_equipment.yaml', 'r', encoding='utf-8') as f:
     current = {}
     for line in f:
-        if '装备ID:' in line:
+        if '裝備ID:' in line:
             if current:
                 equipment.append(current)
-            match = re.search(r'装备ID:\s*(\d+)\s*#\s*(.+)', line)
+            match = re.search(r'裝備ID:\s*(\d+)\s*#\s*(.+)', line)
             current = {'id': int(match.group(1)), 'name': match.group(2).strip()} if match else {}
-        elif '装备类型:' in line and current:
-            match = re.search(r'装备类型:\s*(\d+)', line)
+        elif '裝備類型:' in line and current:
+            match = re.search(r'裝備類型:\s*(\d+)', line)
             if match:
                 current['type'] = int(match.group(1))
     if current:
         equipment.append(current)
+
+if not equipment:
+    raise RuntimeError('未從 chess_equipment.yaml 讀取到任何裝備')
 
 # Connect to database
 conn = sqlite3.connect('work/game-dev/save/0.db')

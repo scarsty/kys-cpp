@@ -166,7 +166,7 @@ std::vector<ComboDef> loadChessCombos(
         return {};
     }
 
-    if (!root["羁绊"])
+    if (!root["羈絆"])
     {
         emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", "檔案缺少「羈絆」根節點");
         return {};
@@ -176,42 +176,42 @@ std::vector<ComboDef> loadChessCombos(
     int idx = 0;
 
     std::uint64_t nextRuleId = 1;
-    for (const auto& node : root["羁绊"])
+    for (const auto& node : root["羈絆"])
     {
         ComboDef def;
-        if (!node["名称"])
+        if (!node["名稱"])
         {
             emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("第{}個羈絆缺少「名稱」", idx + 1));
             return {};
         }
-        def.name = toTraditional(node["名称"].as<std::string>());
+        def.name = toTraditional(node["名稱"].as<std::string>());
         def.id = idx;
-        def.isAntiCombo = node["反向羁绊"] && node["反向羁绊"].as<bool>();
-        def.starSynergyBonus = node["星级羁绊加成"] && node["星级羁绊加成"].as<bool>();
+        def.isAntiCombo = node["反向羈絆"] && node["反向羈絆"].as<bool>();
+        def.starSynergyBonus = node["星級羈絆加成"] && node["星級羈絆加成"].as<bool>();
 
-        if (!node["成员"])
+        if (!node["成員"])
         {
             emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」缺少「成員」", def.name));
             return {};
         }
-        for (const auto& member : node["成员"])
+        for (const auto& member : node["成員"])
             def.memberRoleIds.push_back(member.as<int>());
 
-        if (!node["阈值"])
+        if (!node["閾值"])
         {
             emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」缺少「閾值」", def.name));
             return {};
         }
-        for (const auto& tNode : node["阈值"])
+        for (const auto& tNode : node["閾值"])
         {
             ComboThreshold thresh;
-            if (!tNode["人数"] || !tNode["名称"])
+            if (!tNode["人數"] || !tNode["名稱"])
             {
                 emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "羈絆配置", std::format("「{}」閾值缺少「人數」或「名稱」", def.name));
                 return {};
             }
-            thresh.count = tNode["人数"].as<int>();
-            thresh.name = toTraditional(tNode["名称"].as<std::string>());
+            thresh.count = tNode["人數"].as<int>();
+            thresh.name = toTraditional(tNode["名稱"].as<std::string>());
 
             if (!tNode["效果"] && !tNode["管理規則"])
             {

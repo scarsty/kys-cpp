@@ -596,7 +596,6 @@ TEST_CASE("ChessBattleEffects_ShorthandTimingsNormalizeToCanonicalRules",
         { "攻擊生成", EffectEvent::AttackSpawned, EffectSelectorKind::Self, 0 },
         { "主彈命中", EffectEvent::MainProjectileBeforeDamage, EffectSelectorKind::HitTarget, 0 },
         { "命中", EffectEvent::HitBeforeDamage, EffectSelectorKind::HitTarget, 0 },
-        { "傷害後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 0 },
         { "治療嘗試", EffectEvent::HealAttempted, EffectSelectorKind::Self, 0 },
         { "治療套用", EffectEvent::HealApplied, EffectSelectorKind::Self, 0 },
         { "施放延續", EffectEvent::CastContinuation, EffectSelectorKind::Self, 0 },
@@ -604,8 +603,8 @@ TEST_CASE("ChessBattleEffects_ShorthandTimingsNormalizeToCanonicalRules",
         { "護盾破裂", EffectEvent::ShieldBroken, EffectSelectorKind::Self, 0 },
         { "單位死亡", EffectEvent::UnitDied, EffectSelectorKind::Self, 0 },
         { "友軍死亡", EffectEvent::AllyDied, EffectSelectorKind::Self, 0 },
-        { "造成傷害後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 2 },
-        { "受傷後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 2 },
+        { "造成傷害後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 1 },
+        { "受傷後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 1 },
         { "擊殺後", EffectEvent::DamageResolved, EffectSelectorKind::Self, 2 },
     };
     for (const auto& test : cases)
@@ -628,10 +627,9 @@ TEST_CASE("ChessBattleEffects_ShorthandTimingsNormalizeToCanonicalRules",
     }
 
     const auto canonical = parseRuleText(R"(
-時機: 傷害後
+時機: 造成傷害後
 目標: 自身
 條件:
-  - 傷害方位: 造成
   - 已接受命中
   - 傷害來自招式
 機率: 75
@@ -650,6 +648,7 @@ TEST_CASE("ChessBattleEffects_ShorthandTimingsNormalizeToCanonicalRules",
 時機: 造成傷害後
 目標: 自身
 條件:
+  - 已接受命中
   - 傷害來自招式
 機率: 75
 次數: 4
@@ -722,6 +721,61 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
 )");
     checkRulesEqual(attributeCanonical, attributeShorthand);
 
+    const auto poisonShorthand = parseRuleText(R"(
+時機: 命中
+目標: 命中目標
+施毒:
+  持續幀數: 90
+  層數: 3
+  強度: 7
+)");
+    auto poisonCanonical = poisonShorthand;
+    ApplyStatusAction standardPoison;
+    standardPoison.status = BattleStatusKind::Poison;
+    standardPoison.durationFrames = 90;
+    standardPoison.stacks = 3;
+    standardPoison.potency.flat = 7;
+    standardPoison.stack = EffectStackPolicy::KeepStrongest;
+    standardPoison.stackLimit = 3;
+    standardPoison.aggregatePotencyWithinEvent = true;
+    poisonCanonical.actions = { EffectAction{ standardPoison } };
+    checkRulesEqual(poisonCanonical, poisonShorthand);
+
+    const auto resetPoisonShorthand = parseRuleText(R"(
+時機: 絕招施放
+目標: 所有敵人
+施毒:
+  模式: 取代重設
+  持續幀數: 150
+  層數: 5
+  強度: 10
+)");
+    auto resetPoisonCanonical = resetPoisonShorthand;
+    ApplyStatusAction resetPoison;
+    resetPoison.status = BattleStatusKind::Poison;
+    resetPoison.durationFrames = 150;
+    resetPoison.stacks = 5;
+    resetPoison.potency.flat = 10;
+    resetPoison.stack = EffectStackPolicy::Replace;
+    resetPoison.stackLimit = 5;
+    resetPoisonCanonical.actions = { EffectAction{ resetPoison } };
+    checkRulesEqual(resetPoisonCanonical, resetPoisonShorthand);
+
+    const auto boundedPoisonShorthand = parseRuleText(R"(
+時機: 命中
+目標: 命中目標
+施毒:
+  持續幀數:
+    固定: 90
+    最大: 30
+  層數: 3
+  強度: 7
+)");
+    auto boundedPoisonCanonical = boundedPoisonShorthand;
+    standardPoison.durationFrames = 30;
+    boundedPoisonCanonical.actions = { EffectAction{ standardPoison } };
+    checkRulesEqual(boundedPoisonCanonical, boundedPoisonShorthand);
+
     const auto controlledCanonical = parseRuleText(R"(
 時機: 命中
 目標: 命中目標
@@ -764,7 +818,7 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
     struct RulePair { std::string_view canonical; std::string_view shorthand; };
     static constexpr RulePair pairs[]{
         { R"(
-時機: 傷害後
+時機: 造成傷害後
 目標: 自身
 動作:
   - 資源變更:
@@ -773,14 +827,14 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
       數值: {基準: 目標最大生命, 百分比: 8}
       治療種類: 擊殺獎勵
 )", R"(
-時機: 傷害後
+時機: 造成傷害後
 目標: 自身
 回復生命:
   數值: {目標最大生命百分比: 8}
   治療種類: 擊殺獎勵
 )" },
         { R"(
-時機: 傷害後
+時機: 造成傷害後
 目標: 自身
 動作:
   - 資源變更:
@@ -788,7 +842,7 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
       方式: 獲得
       數值: {基準: 來源星級, 百分比: 10000}
 )", R"(
-時機: 傷害後
+時機: 造成傷害後
 目標: 自身
 獲得護盾: {每星級: 100}
 )" },
@@ -855,7 +909,7 @@ TEST_CASE("ChessBattleEffects_NamedActionsAndClosedMacrosMatchCanonicalPayloads"
         checkRulesEqual(parseRuleText(pair.canonical), parseRuleText(pair.shorthand));
 
     const auto nested = parseRuleText(R"(
-時機: 傷害後
+時機: 造成傷害後
 目標: 自身
 動作:
   - 條件分支:
@@ -886,25 +940,24 @@ TEST_CASE("ChessBattleEffects_AllNamedConditionFormsReachTypedConditions",
         { "施放規劃", "  - 施放武功為效果來源", 1 },
         { "命中", "  - 僅限主彈道", 2 },
         { "命中", "  - 僅限根攻擊", 3 },
-        { "傷害後", "  - 自身生命不高於: 40", 4 },
-        { "傷害後", "  - 自身生命低於: 30", 5 },
-        { "傷害後", "  - 自身為最後存活", 6 },
-        { "傷害後", "  - 目標生命不高於: 20", 7 },
-        { "傷害後", "  - 目標非無敵", 8 },
-        { "傷害後", "  - 自身有狀態: 戰意", 9 },
-        { "傷害後", "  - 目標有狀態: 中毒", 10 },
-        { "傷害後", "  - 目標有此來源狀態: 寒毒", 11 },
-        { "傷害後", "  - 自身層數至少:\n      狀態: 戰意\n      層數: 2", 12 },
+        { "造成傷害後", "  - 自身生命不高於: 40", 4 },
+        { "造成傷害後", "  - 自身生命低於: 30", 5 },
+        { "造成傷害後", "  - 自身為最後存活", 6 },
+        { "造成傷害後", "  - 目標生命不高於: 20", 7 },
+        { "造成傷害後", "  - 目標非無敵", 8 },
+        { "造成傷害後", "  - 自身有狀態: 戰意", 9 },
+        { "造成傷害後", "  - 目標有狀態: 中毒", 10 },
+        { "造成傷害後", "  - 目標有此來源狀態: 寒毒", 11 },
+        { "造成傷害後", "  - 自身層數至少:\n      狀態: 戰意\n      層數: 2", 12 },
         { "施放規劃", "  - 其他存活友軍使用此武功", 13 },
         { "施放結算完成", "  - 不同目標數至少: 2", 14 },
         { "命中", "  - 攻擊序號: 1", 15 },
         { "治療套用", "  - 治療種類符合: [命中, 吸血]", 16 },
-        { "傷害後", "  - 傷害來自招式", 17 },
-        { "傷害後", "  - 傷害造成死亡", 18 },
-        { "傷害後", "  - 已接受命中", 19 },
+        { "造成傷害後", "  - 傷害來自招式", 17 },
+        { "造成傷害後", "  - 傷害造成死亡", 18 },
+        { "造成傷害後", "  - 已接受命中", 19 },
         { "單位死亡", "  - 事件目標屬於綁定來源", 20 },
-        { "傷害後", "  - 傷害方位: 承受", 21 },
-        { "傷害後", "  - 傷害種類符合: [招式, 特效]", 22 },
+        { "造成傷害後", "  - 傷害種類符合: [招式, 特效]", 22 },
         { "施放規劃", "  - 受益者施放前滿內", 23 },
         { "施放規劃", "  - 有合法隨機目標", 24 },
     };
@@ -917,18 +970,27 @@ TEST_CASE("ChessBattleEffects_AllNamedConditionFormsReachTypedConditions",
 {}
 獲得護盾: 1
 )", test.timing, test.authorNode));
-        REQUIRE(rule.conditions.size() == 1);
-        CHECK(rule.conditions.front().index() == test.variantIndex);
+        CHECK(std::ranges::any_of(rule.conditions, [&](const EffectCondition& condition)
+        {
+            return condition.index() == test.variantIndex;
+        }));
     }
 
     const auto configuredAcceptedHit = parseRuleText(R"(
-時機: 傷害後
+時機: 造成傷害後
 條件:
   - 已接受命中:
       需要正傷害: true
 獲得護盾: 1
 )");
-    const auto& accepted = std::get<AcceptedHitCondition>(configuredAcceptedHit.conditions.front());
+    const auto acceptedIt = std::ranges::find_if(
+        configuredAcceptedHit.conditions,
+        [](const EffectCondition& condition)
+        {
+            return std::holds_alternative<AcceptedHitCondition>(condition);
+        });
+    REQUIRE(acceptedIt != configuredAcceptedHit.conditions.end());
+    const auto& accepted = std::get<AcceptedHitCondition>(*acceptedIt);
     CHECK(accepted.requirePositiveDamage);
 }
 
@@ -945,12 +1007,14 @@ TEST_CASE("ChessBattleEffects_ShorthandRejectsAmbiguousAndEmptyShapes",
         R"(事件: 傷害結算後
 獲得護盾: 1)",
         R"(時機: 傷害後
+獲得護盾: 1)",
+        R"(時機: 造成傷害後
 動作:
   - 類型: 資源變更
     資源: 護盾
     方式: 獲得
     數值: 1)",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 條件:
   - 類型: 已接受命中
 獲得護盾: 1)",
@@ -958,36 +1022,33 @@ TEST_CASE("ChessBattleEffects_ShorthandRejectsAmbiguousAndEmptyShapes",
 屬性加成:
   固定:
     攻擊: 10)",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 回復內力: 1
 動作: [{類型: 資源變更, 資源: 護盾, 方式: 獲得, 數值: 1}])",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 回復內力: 1
 獲得護盾: 2)",
         R"(時機: 造成傷害後
-條件: [已接受命中]
-回復內力: 1)",
-        R"(時機: 傷害後
 動作: [{未知捷徑: 1}])",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 條件: [{僅限絕招: true}]
 回復內力: 1)",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 條件: [{自身層數至少: 2}]
 回復內力: 1)",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 回復內力: {})",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 回復生命: {})",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 回復生命: {數值: {}})",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 獲得護盾: {})",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 忽略防禦: {})",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 單次承傷上限: {})",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 回復生命: {數值: 10, 百分比: 20})",
         R"(時機: 開場
 屬性加成:
@@ -1002,6 +1063,15 @@ TEST_CASE("ChessBattleEffects_ShorthandRejectsAmbiguousAndEmptyShapes",
   攻擊: 10
   百分比:
     攻擊: 20)",
+        R"(時機: 命中
+套用狀態:
+  狀態: 中毒
+  持續幀數: 90
+  層數: 3
+  強度: 7
+  合併方式: 保留最強
+  層數上限: 3
+  同事件合計強度: true)",
         R"(時機: 主彈命中
 每N次事件: 2
 擊退: {距離像素: 40})",
@@ -1043,7 +1113,7 @@ TEST_CASE("ChessBattleEffects_AllAuthorMapFamiliesRejectDuplicateRawKeys",
   方式: 獲得
   數值: 1
   數值: 2)",
-        R"(時機: 傷害後
+        R"(時機: 造成傷害後
 條件:
   - 已接受命中:
       需要正傷害: true
@@ -1088,11 +1158,6 @@ TEST_CASE("ChessBattleEffects_PayloadViewRejectsDescriptorFieldsNotConsumedByTyp
 獲得護盾:
   目標最大生命百分比: 10
   固定: 1)",
-        R"(時機: 開場
-狀態機:
-  機制: 生成分身
-  數量: 1
-  無敵幀數: 10)",
     };
     for (const auto yaml : rules)
     {
@@ -1467,7 +1532,7 @@ TEST_CASE("EffectDescriptionDocument_PreservesInlineConditionalOrderAndActionRel
           "[battle][effects][description][document][order]")
 {
     const auto rule = parseRuleText(R"(
-時機: 傷害後
+時機: 造成傷害後
 目標: 自身
 動作:
   - 回復內力: 1
@@ -2432,10 +2497,9 @@ TEST_CASE("ChessBattleEffects_OnlyOrdinaryAcceptedHitsUseTheHitAfterProjection",
           "[battle][effects][description][phrasing]")
 {
     auto rule = parseRuleText(R"(
-時機: 傷害後
+時機: 造成傷害後
 目標: 自身
 條件:
-  - 傷害方位: 造成
   - 已接受命中
 回復內力: 12
 )");
@@ -2820,8 +2884,7 @@ TEST_CASE("ChessBattleEffects_TransferStateMachinesRequireExplicitAllowLists",
 時機: 施放規劃
 目標: 自身
 動作:
-  - 狀態機:
-      機制: 借用效果規則
+  - 借用效果規則:
       目標: 敵軍
       來源數量: 1
       傳播政策: 借用大招規則
@@ -2830,8 +2893,7 @@ TEST_CASE("ChessBattleEffects_TransferStateMachinesRequireExplicitAllowLists",
 時機: 絕招施放
 目標: 自身
 動作:
-  - 狀態機:
-      機制: 複製攻擊定義
+  - 複製攻擊定義:
       目標:
         類型: 所有存活單位
         排除效果擁有者: true
@@ -3281,7 +3343,7 @@ TEST_CASE("ChessBattleEffects_StrictSchemaRejectsUnknownFieldsAndIllegalEventAct
       數值: 10
 )");
     const auto removedReflectedConditionField = YAML::Load(R"(
-時機: 傷害後
+時機: 造成傷害後
 條件:
   - 已接受命中:
       排除反彈: true
@@ -3466,7 +3528,103 @@ TEST_CASE("ChessBattleEffects_ResourceChangesRequireNonnegativeAmountsAndOneTran
 )"));
 }
 
-TEST_CASE("ChessBattleEffects_DamagePerspectiveIsTypedDescribedAndDamageOnly", "[battle][effects][magic][schema]")
+TEST_CASE("ChessBattleEffects_EventCapabilitiesAgreeForNestedAuthoringContexts",
+          "[battle][effects][schema][event_capabilities]")
+{
+    const auto parses = [](std::string_view yaml)
+    {
+        EffectRule rule;
+        return parseEffectRule(
+            YAML::Load(std::string(yaml)),
+            rule,
+            EffectRuleId{ 1 },
+            "事件能力測試");
+    };
+
+    CHECK(parses(R"(
+時機: 開場
+生成分身:
+  數量: 1
+)"));
+    CHECK_FALSE(parses(R"(
+時機: 絕招施放
+生成分身:
+  數量: 1
+)"));
+    CHECK_FALSE(parses(R"(
+時機: 開場
+目標: 命中目標
+獲得護盾: 1
+)"));
+    CHECK_FALSE(parses(R"(
+時機: 施放規劃
+條件:
+  - 傷害種類符合: [招式]
+獲得護盾: 1
+)"));
+    CHECK_FALSE(parses(R"(
+時機: 絕招施放
+條件:
+  - 攻擊序號: 1
+獲得護盾: 1
+)"));
+    CHECK(parses(R"(
+時機: 命中
+目標: 交易目標
+獲得護盾: 1
+)"));
+    CHECK_FALSE(parses(R"(
+時機: 造成傷害後
+目標: 原攻擊目標
+獲得護盾: 1
+)"));
+    CHECK(parses(R"(
+時機: 施放結算完成
+條件:
+  - 受益者施放前滿內
+獲得護盾: 1
+)"));
+    CHECK_FALSE(parses(R"(
+時機: 開場
+記錄最大招式生命傷害:
+  狀態槽: 最大招式生命傷害
+)"));
+    CHECK(parses(R"(
+時機: 造成傷害後
+記錄最大招式生命傷害:
+  狀態槽: 最大招式生命傷害
+)"));
+    CHECK_FALSE(parses(R"(
+時機: 開場
+強制移動:
+  方向: 遠離來源
+  距離格數: 1
+  碰撞: 阻擋前停止
+  受阻結果: 縮短
+)"));
+    CHECK(parses(R"(
+時機: 命中
+強制移動:
+  方向: 遠離來源
+  距離格數: 1
+  碰撞: 阻擋前停止
+  受阻結果: 縮短
+)"));
+    CHECK_FALSE(parses(R"(
+時機: 治療嘗試
+獲得護盾: 1
+)"));
+    CHECK_FALSE(parses(R"(
+時機: 絕招施放
+條件分支:
+  條件: [僅限絕招]
+  成立:
+    - 生成分身:
+        數量: 1
+)"));
+}
+
+TEST_CASE("ChessBattleEffects_DamagePerspectiveIsTypedButNotAuthorSpecified", "[battle][effects][magic][schema]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
     const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
@@ -3507,7 +3665,7 @@ TEST_CASE("ChessBattleEffects_DamagePerspectiveIsTypedDescribedAndDamageOnly", "
       數值: 1
 )"), rule, EffectRuleId{ 100 }, "錯誤傷害方位事件"));
     CHECK_FALSE(parseEffectRule(YAML::Load(R"(
-時機: 傷害後
+時機: 造成傷害後
 條件:
   - 傷害方位: 不明
 動作:
@@ -4026,8 +4184,7 @@ TEST_CASE("ChessBattleEffects_BattleInitializedSchemaMatchesInitializationRuntim
 條件:
   - 自身為最後存活
 動作:
-  - 狀態機:
-      機制: 生成分身
+  - 生成分身:
       數量: 1
 )",
         R"(
@@ -4161,16 +4318,14 @@ TEST_CASE("ChessBattleEffects_BattleInitializedSchemaMatchesInitializationRuntim
 時機: 開場
 目標: 全隊
 動作:
-  - 狀態機:
-      機制: 生成分身
+  - 生成分身:
       數量: 1
 )",
         R"(
 時機: 開場
 目標: 自身
 動作:
-  - 狀態機:
-      機制: 變更狀態值
+  - 變更狀態值:
       狀態槽: 永久施放進展
       增量: 1
 )",

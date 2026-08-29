@@ -31,11 +31,20 @@ bool loadChessNeigong(
         emitChessDiagnostic(diagnostics, ChessDiagnosticSeverity::Error, "內功配置", std::format("無法讀取檔案 {}: {}", path, ex.what()));
         return false;
     }
-    if (ng["追加選項費用"]) config.additionalOptionCost = ng["追加選項費用"].as<int>();
-    if (ng["选择数量"]) config.choiceCount = ng["选择数量"].as<int>();
-    if (ng["Boss可选层级"])
+    if (!ng["選擇數量"] || !ng["層級分配"] || !ng["效果"])
     {
-        for (const auto& kv : ng["Boss可选层级"])
+        emitChessDiagnostic(
+            diagnostics,
+            ChessDiagnosticSeverity::Error,
+            "內功配置",
+            "檔案缺少「選擇數量」、「層級分配」或「效果」根節點");
+        return false;
+    }
+    if (ng["追加選項費用"]) config.additionalOptionCost = ng["追加選項費用"].as<int>();
+    if (ng["選擇數量"]) config.choiceCount = ng["選擇數量"].as<int>();
+    if (ng["Boss可選層級"])
+    {
+        for (const auto& kv : ng["Boss可選層級"])
         {
             const int index = kv.first.as<int>();
             for (const auto& tier : kv.second)
@@ -53,10 +62,10 @@ bool loadChessNeigong(
 
     // Parse tier assignments
     std::map<int, int> magicTier;
-    if (ng["层级分配"])
-        for (const auto& entry : ng["层级分配"])
+    if (ng["層級分配"])
+        for (const auto& entry : ng["層級分配"])
         {
-            int tier = entry["层级"].as<int>();
+            int tier = entry["層級"].as<int>();
             for (const auto& mid : entry["武功"])
                 magicTier[mid.as<int>()] = tier;
         }

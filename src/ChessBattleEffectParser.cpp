@@ -380,18 +380,6 @@ bool parseConditionPayload(
     {
         out = DamageKilledTargetCondition{};
     }
-    else if (type == "傷害方位")
-    {
-        std::string perspective;
-        if (!readString("方位", perspective)) return false;
-        const auto parsed = parseLabel<DamagePerspective>(perspective, damagePerspectiveEnum);
-        if (!parsed)
-        {
-            error = std::format("未知傷害方位「{}」", perspective);
-            return false;
-        }
-        out = DamagePerspectiveCondition{ *parsed };
-    }
     else if (type == "受益者施放前滿內")
     {
         out = TargetMpWasFullBeforeCastCondition{};
@@ -598,7 +586,7 @@ bool parseAttributeModifierQualifiers(
 }
 
 bool parseActionPayload(
-    std::string_view type,
+    const EffectAuthoring::ActionDescriptor& descriptor,
     PayloadView& node,
     EffectAction& out,
     std::string& error);
@@ -975,11 +963,12 @@ bool parseAreaModifierNode(const YAML::Node& node, AreaModifier& out, std::strin
 }
 
 bool parseActionPayload(
-    std::string_view type,
+    const EffectAuthoring::ActionDescriptor& descriptor,
     PayloadView& node,
     EffectAction& out,
     std::string& error)
 {
+    const auto type = descriptor.name;
     if (type == "屬性修正")
     {
         ModifyAttributeAction action;
@@ -1114,8 +1103,7 @@ bool parseActionPayload(
         if (!requiredString(node, "狀態", status, error)
             || !parseStatusKind(status, action.status, error)
             || !optionalInt(node, "層數", action.stacks, error)
-            || !parseStackPolicy(node["合併方式"], action.stack, error)
-            || !optionalBool(node, "同事件合計強度", action.aggregatePotencyWithinEvent, error)) return false;
+            || !parseStackPolicy(node["合併方式"], action.stack, error)) return false;
         if (const auto duration = node["持續幀數"])
         {
             if (duration.IsScalar())
@@ -1456,18 +1444,10 @@ bool parseActionPayload(
         out.value = std::move(action);
         return true;
     }
-    if (type == "狀態機")
+    if (descriptor.mechanism)
     {
-        std::string mechanism;
-        if (!requiredString(node, "機制", mechanism, error)) return false;
-        const auto parsedMechanism = parseLabel<StateMachineMechanism>(
-            mechanism, stateMachineMechanismEnum);
-        if (!parsedMechanism)
-        {
-            error = std::format("未知狀態機機制「{}」", mechanism);
-            return false;
-        }
-        if (*parsedMechanism == StateMachineMechanism::ChangeStateValue)
+        const auto mechanism = *descriptor.mechanism;
+        if (mechanism == StateMachineMechanism::ChangeStateValue)
         {
             ChangeStateValueAction action;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)
@@ -1486,7 +1466,7 @@ bool parseActionPayload(
             }
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::TransferStateValue)
+        else if (mechanism == StateMachineMechanism::TransferStateValue)
         {
             TransferStateValueAction action;
             if (!parseEffectStateSlot(
@@ -1499,17 +1479,17 @@ bool parseActionPayload(
                     error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::RecordMaximumSkillDamage)
+        else if (mechanism == StateMachineMechanism::RecordMaximumSkillDamage)
         {
             RecordMaximumDamageAction action;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::ConsumeRecordAsDamage
-            || *parsedMechanism == StateMachineMechanism::ConsumeRecordAsShield)
+        else if (mechanism == StateMachineMechanism::ConsumeRecordAsDamage
+            || mechanism == StateMachineMechanism::ConsumeRecordAsShield)
         {
             ConsumeRecordedMaximumAction action;
-            action.destination = *parsedMechanism == StateMachineMechanism::ConsumeRecordAsShield
+            action.destination = mechanism == StateMachineMechanism::ConsumeRecordAsShield
                 ? StateValueDestination::ShieldAmount
                 : StateValueDestination::DamageAmount;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)
@@ -1517,7 +1497,7 @@ bool parseActionPayload(
                 || !optionalBool(node, "消耗後清除", action.clearAfterConsume, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::StartDamageAbsorption)
+        else if (mechanism == StateMachineMechanism::StartDamageAbsorption)
         {
             StartDamageAbsorptionAction action;
             std::string settlementDamageKind;
@@ -1531,7 +1511,7 @@ bool parseActionPayload(
                 || !requiredInt(node, "結算百分比", action.returnedPct, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::SettleDamageAbsorption)
+        else if (mechanism == StateMachineMechanism::SettleDamageAbsorption)
         {
             SettleDamageAbsorptionAction action;
             if (!parseEffectStateSlot(node["狀態槽"], action.slot, error)
@@ -1539,7 +1519,7 @@ bool parseActionPayload(
             if (node["目標"] && !parseSelectorNode(node["目標"], action.target, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::BorrowEffectRules)
+        else if (mechanism == StateMachineMechanism::BorrowEffectRules)
         {
             BorrowEffectRulesAction action;
             if (!parseSelectorNode(node["目標"], action.sourceUnits, error)
@@ -1548,7 +1528,7 @@ bool parseActionPayload(
                 || !parsePropagation(node["傳播政策"], action.propagation, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::CopyAttackDefinition)
+        else if (mechanism == StateMachineMechanism::CopyAttackDefinition)
         {
             CopyAttackDefinitionAction action;
             if (!parseSelectorNode(node["目標"], action.sourceUnits, error)
@@ -1557,31 +1537,29 @@ bool parseActionPayload(
                 || !parsePropagation(node["傳播政策"], action.propagation, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::SettleRemainingStatusDamage)
+        else if (mechanism == StateMachineMechanism::SettleRemainingStatusDamage)
         {
             SettleRemainingStatusDamageAction action;
-            std::string status;
-            if (!requiredString(node, "狀態", status, error)
-                || !parseStatusKind(status, action.status, error)) return false;
+            action.status = BattleStatusKind::Poison;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::GenerateClones)
+        else if (mechanism == StateMachineMechanism::GenerateClones)
         {
             GenerateClonesAction action;
             if (!requiredInt(node, "數量", action.count, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::PreventDeath)
+        else if (mechanism == StateMachineMechanism::PreventDeath)
         {
             PreventDeathAction action;
             if (!requiredInt(node, "無敵幀數", action.invincibilityFrames, error)) return false;
             out.value = StateMachineAction{ action };
         }
-        else if (*parsedMechanism == StateMachineMechanism::ConfigureProtectReposition
-            || *parsedMechanism == StateMachineMechanism::ConfigureExecuteReposition)
+        else if (mechanism == StateMachineMechanism::ConfigureProtectReposition
+            || mechanism == StateMachineMechanism::ConfigureExecuteReposition)
         {
             ConfigureRescueRepositionAction action;
-            action.mode = *parsedMechanism == StateMachineMechanism::ConfigureProtectReposition
+            action.mode = mechanism == StateMachineMechanism::ConfigureProtectReposition
                 ? RescueRepositionMode::Protect
                 : RescueRepositionMode::Execute;
             if (!requiredInt(node, "次數", action.activations, error)) return false;
@@ -1720,8 +1698,20 @@ bool parseAttributeBonusMacro(
     }
 
     out.clear();
-    std::ranges::sort(fixedActions, {}, &ModifyAttributeAction::attribute);
-    std::ranges::sort(percentageActions, {}, &ModifyAttributeAction::attribute);
+    const auto authoringOrder = [](BattleAttribute attribute)
+    {
+        if (attribute == BattleAttribute::DodgeChance)
+            return static_cast<int>(BattleAttribute::CriticalChance);
+        if (attribute == BattleAttribute::CriticalChance)
+            return static_cast<int>(BattleAttribute::DodgeChance);
+        return static_cast<int>(attribute);
+    };
+    const auto byCanonicalAttribute = [&](const auto& left, const auto& right)
+    {
+        return authoringOrder(left.attribute) < authoringOrder(right.attribute);
+    };
+    std::ranges::sort(fixedActions, byCanonicalAttribute);
+    std::ranges::sort(percentageActions, byCanonicalAttribute);
     for (auto& action : fixedActions) out.push_back(EffectAction{ std::move(action) });
     for (auto& action : percentageActions) out.push_back(EffectAction{ std::move(action) });
     return payload.finish(error);
@@ -1744,7 +1734,7 @@ bool parseNamedAction(
         PayloadView payloadView(payload, *descriptor->payload);
         if (!payloadView.validate(error)) return false;
         EffectAction action;
-        if (!parseActionPayload(descriptor->name, payloadView, action, error)
+        if (!parseActionPayload(*descriptor, payloadView, action, error)
             || !payloadView.finish(error)) return false;
         if (action.value.index() != descriptor->variantIndex)
         {
@@ -1767,6 +1757,43 @@ bool parseNamedAction(
     }
     if (macro->payloadKind == MacroPayloadKind::AttributeBonus)
         return parseAttributeBonusMacro(payload, out, error);
+    if (macro->payloadKind == MacroPayloadKind::Poison)
+    {
+        PayloadView poisonPayload(payload, *macro->payload);
+        if (!poisonPayload.validate(error)) return false;
+        ApplyStatusAction action;
+        action.status = BattleStatusKind::Poison;
+        if (!requiredInt(poisonPayload, "層數", action.stacks, error)
+            || action.stacks <= 0
+            || !parseEffectNumberNode(poisonPayload["持續幀數"], action.duration.emplace(), error)
+            || !parseEffectNumberNode(poisonPayload["強度"], action.potency, error))
+        {
+            if (error.empty()) error = "施毒層數必須是正整數";
+            return false;
+        }
+        action.stackLimit = action.stacks;
+        action.stack = EffectStackPolicy::KeepStrongest;
+        action.aggregatePotencyWithinEvent = true;
+        if (const auto mode = poisonPayload["模式"])
+        {
+            const auto label = mode.as<std::string>();
+            if (label != "取代重設")
+            {
+                error = std::format("未知施毒模式「{}」", label);
+                return false;
+            }
+            action.stack = EffectStackPolicy::Replace;
+            action.aggregatePotencyWithinEvent = false;
+        }
+        if (const auto duration = effectiveConstantEffectNumberValue(*action.duration))
+        {
+            action.durationFrames = *duration;
+            action.duration.reset();
+        }
+        if (!poisonPayload.finish(error)) return false;
+        out.push_back(EffectAction{ std::move(action) });
+        return true;
+    }
     if (name == "回復資源" || name == "獲得資源" || name == "奪取資源")
     {
         EffectAction action;
@@ -1942,8 +1969,6 @@ bool parseEffectRule(
             });
             if (timingDescriptor->intent == TimingIntent::Kill)
                 out.conditions.push_back(DamageKilledTargetCondition{});
-            else
-                out.conditions.push_back(AcceptedHitCondition{});
             automaticConditionCount = out.conditions.size();
         }
         if (const auto observation = payload["觀察範圍"])
@@ -1969,15 +1994,18 @@ bool parseEffectRule(
                 EffectCondition condition;
                 if (!parseConditionNode(conditions[index], condition, error))
                     return fail(std::format("條件#{}: {}", index + 1, error));
-                if (std::ranges::any_of(
-                        out.conditions.begin(),
-                        out.conditions.begin() + static_cast<std::ptrdiff_t>(automaticConditionCount),
-                        [&](const EffectCondition& automatic)
-                        {
-                            return automatic.index() == condition.index();
-                        }))
+                const auto automatic = std::ranges::find_if(
+                    out.conditions.begin(),
+                    out.conditions.begin() + static_cast<std::ptrdiff_t>(automaticConditionCount),
+                    [&](const EffectCondition& candidate)
+                    {
+                        return candidate.index() == condition.index();
+                    });
+                if (automatic != out.conditions.begin()
+                    + static_cast<std::ptrdiff_t>(automaticConditionCount))
                 {
-                    return fail(std::format("條件#{} 重複「時機」已自動加入的條件", index + 1));
+                    *automatic = std::move(condition);
+                    continue;
                 }
                 out.conditions.push_back(std::move(condition));
             }
@@ -2144,6 +2172,50 @@ bool validateEffectAuthoringDescriptorProbes(std::string& error)
             {
                 error = std::format("動作 descriptor「{}」dispatch 到錯誤 variant", descriptor.name);
                 return false;
+            }
+            if (descriptor.mechanism)
+            {
+                const auto* machine = std::get_if<StateMachineAction>(&actions.front().value);
+                if (!machine
+                    || machine->index()
+                        != stateMachineMechanismVariantIndex(*descriptor.mechanism))
+                {
+                    error = std::format(
+                        "機制 descriptor「{}」dispatch 到錯誤狀態機 variant",
+                        descriptor.name);
+                    return false;
+                }
+
+                bool acceptedAllowedEvent = false;
+                bool rejectedDisallowedEvent = false;
+                std::string lastValidationError;
+                for (const auto& timing : KysChess::EffectAuthoring::timingDescriptors())
+                {
+                    EffectRule rule;
+                    rule.event = timing.event;
+                    rule.selector.kind = timing.defaultTarget;
+                    rule.actions = actions;
+                    std::string validationError;
+                    const bool valid = validateEffectRule(rule, validationError);
+                    if (descriptor.eventAllowed(timing.event))
+                    {
+                        if (valid) acceptedAllowedEvent = true;
+                        else lastValidationError = std::move(validationError);
+                    }
+                    else if (!valid)
+                    {
+                        rejectedDisallowedEvent = true;
+                    }
+                }
+                if (!acceptedAllowedEvent || !rejectedDisallowedEvent)
+                {
+                    error = std::format(
+                        "機制 descriptor「{}」未通過允許/拒絕事件驗證{}{}",
+                        descriptor.name,
+                        lastValidationError.empty() ? "" : "：",
+                        lastValidationError);
+                    return false;
+                }
             }
         }
         for (const auto& descriptor : EffectAuthoring::conditionDescriptors())

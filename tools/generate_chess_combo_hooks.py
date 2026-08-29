@@ -735,8 +735,10 @@ def main() -> None:
             "原有效果字段保留，新增“触发设计”描述未来 hook/condition/effect 拆分。",
             "“迁移信心: 低/中”的战斗条目先进入专用执行器，避免把不确定语义塞进错误的共享执行器。",
         ],
-        "羁绊": copy.deepcopy(source.get("羁绊", [])),
+        "羈絆": copy.deepcopy(source.get("羈絆", [])),
     }
+    if not migrated["羈絆"]:
+        raise RuntimeError("未從 config/chess_combos.yaml 讀取到任何羈絆")
 
     hook_counts = collections.Counter()
     confidence_counts = collections.Counter()
@@ -748,10 +750,10 @@ def main() -> None:
     type_confidence = collections.defaultdict(set)
     effect_count = 0
 
-    for combo in migrated["羁绊"]:
-        combo_name = combo.get("名称", "<unknown>")
-        for threshold in combo.get("阈值", []) or []:
-            threshold_name = threshold.get("名称", "<unknown>")
+    for combo in migrated["羈絆"]:
+        combo_name = combo.get("名稱", "<unknown>")
+        for threshold in combo.get("閾值", []) or []:
+            threshold_name = threshold.get("名稱", "<unknown>")
             for effect in threshold.get("效果", []) or []:
                 effect_count += 1
                 design = build_design(effect)

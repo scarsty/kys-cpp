@@ -80,9 +80,10 @@ struct CommandDefinition
     std::size_t positionalCount{};
 };
 
-inline constexpr std::array<CommandDefinition, 7> kCommandDefinitions{{
+inline constexpr std::array<CommandDefinition, 8> kCommandDefinitions{{
     {"play", 0},
     {"new", 0},
+    {"validate-content", 0},
     {"verify", 1},
     {"replay-prefix", 1},
     {"verify-pvp", 1},
@@ -117,6 +118,7 @@ void printUsage(std::ostream& output)
               "  kys_chess_cli new [--difficulty easy|normal|hard] [--seed N] [--compact|--json]\n"
               "  kys_chess_cli --jsonl [--data-root 路徑] [--config-root 路徑] [--autosave-file 路徑]\n"
               "  kys_chess_cli --mcp [--data-root 路徑] [--config-root 路徑] [--autosave-file 路徑]\n"
+              "  kys_chess_cli validate-content [--difficulty easy|normal|hard] [--data-root 路徑] [--config-root 路徑]\n"
               "  kys_chess_cli verify <重播檔>\n"
               "  kys_chess_cli replay-prefix <存檔> --sequence N --output <新存檔>\n"
               "  kys_chess_cli verify-pvp <離線對戰存檔>\n"
@@ -420,7 +422,10 @@ ArgumentParseResult parseArguments(int argc, char** argv)
         return result;
     }
 
-    if (result.arguments.difficultySpecified && command != "play" && command != "new")
+    if (result.arguments.difficultySpecified
+        && command != "play"
+        && command != "new"
+        && command != "validate-content")
     {
         result.error = std::format("指令 {} 不支援 --difficulty", command);
     }
@@ -850,6 +855,44 @@ int main(int argc, char** argv)
         cache.emplace(difficulty, content);
         return content;
     };
+
+    if (arguments.command == "validate-content")
+    {
+        const std::array allDifficulties{
+            Difficulty::Easy,
+            Difficulty::Normal,
+            Difficulty::Hard,
+        };
+        const auto difficultyLabel = [](Difficulty difficulty) -> std::string_view
+        {
+            switch (difficulty)
+            {
+            case Difficulty::Easy: return "easy";
+            case Difficulty::Normal: return "normal";
+            case Difficulty::Hard: return "hard";
+            }
+            assert(false);
+            return {};
+        };
+        bool valid = true;
+        for (const auto difficulty : allDifficulties)
+        {
+            if (arguments.difficultySpecified && arguments.difficulty != difficulty)
+            {
+                continue;
+            }
+            if (provider(difficulty))
+            {
+                std::cout << "內容驗證成功：" << difficultyLabel(difficulty) << '\n';
+            }
+            else
+            {
+                std::cerr << "內容驗證失敗：" << difficultyLabel(difficulty) << '\n';
+                valid = false;
+            }
+        }
+        return valid ? 0 : 1;
+    }
 
     if (arguments.command == "replay-prefix")
     {

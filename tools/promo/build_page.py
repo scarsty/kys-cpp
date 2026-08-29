@@ -162,9 +162,9 @@ def main() -> None:
     counts = {
         "pool": len(pool["角色"]),
         "pool_easy": len(pool_easy["角色"]),
-        "combos": len(combos["羁绊"]),
-        "equip": len(equipment["装备列表"]),
-        "neigong": sum(len(t["武功"]) for t in neigong["层级分配"]),
+        "combos": len(combos["羈絆"]),
+        "equip": len(equipment["裝備列表"]),
+        "neigong": sum(len(t["武功"]) for t in neigong["層級分配"]),
         "challenge": len(challenge["遠征挑戰"]),
     }
 
@@ -182,9 +182,9 @@ def main() -> None:
     simplified = OpenCC("t2s")
     traditional = OpenCC("s2t")
     id2combo = {}
-    for c in combos["羁绊"]:
-        for member in c["成员"]:
-            id2combo.setdefault(member, []).append(c["名称"])
+    for c in combos["羈絆"]:
+        for member in c["成員"]:
+            id2combo.setdefault(member, []).append(c["名稱"])
 
     m = re.search(r"<!--SBODY-->(.*)<!--EBODY-->", html, re.S)
     assert m, "模板缺少 SBODY/EBODY 標記"

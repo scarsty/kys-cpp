@@ -5,6 +5,7 @@
 #include <glaze/json.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <expected>
@@ -225,29 +226,48 @@ JsonValue reference(std::string_view name)
     return object({{ "$ref", std::format("#/$defs/{}", name) }});
 }
 
-JsonValue effectNumberReference() { return reference("effectNumber"); }
-JsonValue selectorReference() { return reference("selector"); }
-JsonValue actionNodeReference() { return reference("actionNode"); }
-JsonValue conditionReference() { return reference("condition"); }
+std::string contextualName(std::string_view base, EffectEvent event)
+{
+    return std::format("{}_{}", base, static_cast<int>(event));
+}
 
-JsonValue actionListSchema()
+JsonValue effectNumberReference(EffectEvent event)
+{
+    return reference(contextualName("effectNumber", event));
+}
+JsonValue selectorReference(EffectEvent event)
+{
+    return reference(contextualName("selector", event));
+}
+JsonValue actionNodeReference(EffectEvent event)
+{
+    return reference(contextualName("actionNode", event));
+}
+JsonValue conditionReference(EffectEvent event)
+{
+    return reference(contextualName("condition", event));
+}
+
+JsonValue actionListSchema(EffectEvent event)
 {
     return object({
         { "type", "array" },
         { "minItems", 1 },
-        { "items", actionNodeReference() },
+        { "items", actionNodeReference(event) },
     });
 }
 
-JsonValue conditionListSchema()
+JsonValue conditionListSchema(EffectEvent event)
 {
     return object({
         { "type", "array" },
-        { "items", conditionReference() },
+        { "items", conditionReference(event) },
     });
 }
 
-std::expected<JsonValue, std::string> schemaForShape(PayloadNodeShape shape)
+std::expected<JsonValue, std::string> schemaForShape(
+    PayloadNodeShape shape,
+    EffectEvent event)
 {
     switch (shape)
     {
@@ -259,11 +279,11 @@ std::expected<JsonValue, std::string> schemaForShape(PayloadNodeShape shape)
     case PayloadNodeShape::Boolean: return object({{ "type", "boolean" }});
     case PayloadNodeShape::Map: return object({{ "type", "object" }});
     case PayloadNodeShape::Sequence: return object({{ "type", "array" }});
-    case PayloadNodeShape::Number: return effectNumberReference();
-    case PayloadNodeShape::Selector: return selectorReference();
-    case PayloadNodeShape::ActionNode: return actionNodeReference();
-    case PayloadNodeShape::ActionList: return actionListSchema();
-    case PayloadNodeShape::ConditionList: return conditionListSchema();
+    case PayloadNodeShape::Number: return effectNumberReference(event);
+    case PayloadNodeShape::Selector: return selectorReference(event);
+    case PayloadNodeShape::ActionNode: return actionNodeReference(event);
+    case PayloadNodeShape::ActionList: return actionListSchema(event);
+    case PayloadNodeShape::ConditionList: return conditionListSchema(event);
     case PayloadNodeShape::StringOrSequence:
         return object({{ "oneOf", array({
             object({{ "type", "string" }}),
@@ -276,17 +296,21 @@ std::expected<JsonValue, std::string> schemaForShape(PayloadNodeShape shape)
     return std::unexpected("未知 payload node shape");
 }
 
-std::expected<JsonValue, std::string> descriptorObject(const PayloadDescriptor& descriptor);
+std::expected<JsonValue, std::string> descriptorObject(
+    const PayloadDescriptor& descriptor,
+    EffectEvent event);
 
-std::expected<JsonValue, std::string> schemaForField(const PayloadFieldDescriptor& field)
+std::expected<JsonValue, std::string> schemaForField(
+    const PayloadFieldDescriptor& field,
+    EffectEvent event)
 {
     switch (field.schemaReference)
     {
-    case PayloadSchemaReference::EffectNumber: return effectNumberReference();
-    case PayloadSchemaReference::Selector: return selectorReference();
-    case PayloadSchemaReference::ActionNode: return actionNodeReference();
-    case PayloadSchemaReference::ActionList: return actionListSchema();
-    case PayloadSchemaReference::ConditionList: return conditionListSchema();
+    case PayloadSchemaReference::EffectNumber: return effectNumberReference(event);
+    case PayloadSchemaReference::Selector: return selectorReference(event);
+    case PayloadSchemaReference::ActionNode: return actionNodeReference(event);
+    case PayloadSchemaReference::ActionList: return actionListSchema(event);
+    case PayloadSchemaReference::ConditionList: return conditionListSchema(event);
     case PayloadSchemaReference::Timing:
     {
         JsonValue::Array labels;
@@ -298,11 +322,11 @@ std::expected<JsonValue, std::string> schemaForField(const PayloadFieldDescripto
     }
     case PayloadSchemaReference::Payload:
         if (!field.nestedPayload) return std::unexpected("nested payload metadata 遺失");
-        return descriptorObject(*field.nestedPayload);
+        return descriptorObject(*field.nestedPayload, event);
     case PayloadSchemaReference::PayloadList:
     {
         if (!field.nestedPayload) return std::unexpected("nested payload list metadata 遺失");
-        auto item = descriptorObject(*field.nestedPayload);
+        auto item = descriptorObject(*field.nestedPayload, event);
         if (!item) return item;
         return object({
             { "type", "array" },
@@ -313,23 +337,40 @@ std::expected<JsonValue, std::string> schemaForField(const PayloadFieldDescripto
     case PayloadSchemaReference::None: break;
     }
 
-    if (!field.enumLabels) return schemaForShape(field.shape);
+    if (!field.enumLabels) return schemaForShape(field.shape, event);
+
+    std::vector<AuthorEnumLabel> allowedLabels;
+    for (const auto& label : field.enumLabels->labels)
+    {
+        bool allowed = true;
+        if (field.enumLabels->name == "EffectNumberBase")
+            allowed = effectNumberBaseAllowedAtEvent(
+                static_cast<EffectNumberBase>(label.value), event);
+        else if (field.enumLabels->name == "EffectSelectorKind")
+            allowed = effectSelectorKindAllowedAtEvent(
+                static_cast<EffectSelectorKind>(label.value), event);
+        else if (field.enumLabels->name == "EffectRequiredTarget")
+            allowed = effectRequiredTargetAllowedAtEvent(
+                static_cast<EffectRequiredTarget>(label.value), event);
+        if (allowed) allowedLabels.push_back(label);
+    }
+    const auto labels = std::span<const AuthorEnumLabel>(allowedLabels);
     if (field.shape == PayloadNodeShape::String)
-        return enumSchema(field.enumLabels->labels);
+        return enumSchema(labels);
     if (field.shape == PayloadNodeShape::Sequence)
     {
         return object({
             { "type", "array" },
-            { "items", enumSchema(field.enumLabels->labels) },
+            { "items", enumSchema(labels) },
         });
     }
     if (field.shape == PayloadNodeShape::StringOrSequence)
     {
         return object({{ "oneOf", array({
-            enumSchema(field.enumLabels->labels),
+            enumSchema(labels),
             object({
                 { "type", "array" },
-                { "items", enumSchema(field.enumLabels->labels) },
+                { "items", enumSchema(labels) },
             }),
         }) }});
     }
@@ -337,14 +378,23 @@ std::expected<JsonValue, std::string> schemaForField(const PayloadFieldDescripto
         "enum field「{}」使用不支援的 shape", field.name));
 }
 
-std::expected<JsonValue, std::string> descriptorObject(const PayloadDescriptor& descriptor)
+std::expected<JsonValue, std::string> descriptorObject(
+    const PayloadDescriptor& descriptor,
+    EffectEvent event)
 {
     JsonValue::Object properties;
     properties.reserve(descriptor.fields.size());
     std::vector<std::string_view> required;
     for (const auto& field : descriptor.fields)
     {
-        auto schema = schemaForField(field);
+        if (&descriptor == &effectNumberDescriptor())
+        {
+            if (field.name == "實際生命傷害百分比"
+                && !effectEventHas(event, EffectEventCapability::Damage)) continue;
+            if (field.name == "目標目前護盾百分比"
+                && !effectEventHas(event, EffectEventCapability::CurrentShield)) continue;
+        }
+        auto schema = schemaForField(field, event);
         if (!schema) return std::unexpected(std::format(
             "payload「{}」欄位「{}」: {}",
             descriptor.name,
@@ -358,7 +408,7 @@ std::expected<JsonValue, std::string> descriptorObject(const PayloadDescriptor& 
     {
         for (const auto& attribute : battleAttributeDescriptor().labels)
         {
-            auto schema = schemaForShape(descriptor.dynamicValueShape);
+            auto schema = schemaForShape(descriptor.dynamicValueShape, event);
             if (!schema) return std::unexpected(schema.error());
             properties.emplace_back(std::string(attribute.name), std::move(*schema));
         }
@@ -395,13 +445,14 @@ struct NamedSchema
     JsonValue schema;
 };
 
-std::expected<std::vector<NamedSchema>, std::string> actionPayloads()
+std::expected<std::vector<NamedSchema>, std::string> actionPayloads(EffectEvent event)
 {
     std::vector<NamedSchema> result;
     result.reserve(actionDescriptors().size());
     for (const auto& descriptor : actionDescriptors())
     {
-        auto schema = descriptorObject(*descriptor.payload);
+        if (!descriptor.eventAllowed(event)) continue;
+        auto schema = descriptorObject(*descriptor.payload, event);
         if (!schema) return std::unexpected(schema.error());
         if (descriptor.payloadKind == ActionPayloadKind::Conditional)
         {
@@ -410,7 +461,7 @@ std::expected<std::vector<NamedSchema>, std::string> actionPayloads()
             auto condition = object({
                 { "type", "array" },
                 { "minItems", 1 },
-                { "items", conditionReference() },
+                { "items", conditionReference(event) },
             });
             if (!replaceProperty(*properties, "條件", std::move(condition)))
                 return std::unexpected("條件分支 descriptor 缺少條件欄位");
@@ -420,23 +471,24 @@ std::expected<std::vector<NamedSchema>, std::string> actionPayloads()
     return result;
 }
 
-std::expected<std::vector<NamedSchema>, std::string> macroPayloads()
+std::expected<std::vector<NamedSchema>, std::string> macroPayloads(EffectEvent event)
 {
     std::vector<NamedSchema> result;
     result.reserve(macroDescriptors().size());
     for (const auto& descriptor : macroDescriptors())
     {
+        if (!descriptor.eventAllowed(event)) continue;
         JsonValue schema;
         if (descriptor.payloadKind == MacroPayloadKind::Number)
         {
-            schema = effectNumberReference();
+            schema = effectNumberReference(event);
         }
         else
         {
-            auto payload = descriptorObject(*descriptor.payload);
+            auto payload = descriptorObject(*descriptor.payload, event);
             if (!payload) return std::unexpected(payload.error());
             schema = descriptor.payloadKind == MacroPayloadKind::Heal
-                ? object({{ "oneOf", array({ effectNumberReference(), std::move(*payload) }) }})
+                ? object({{ "oneOf", array({ effectNumberReference(event), std::move(*payload) }) }})
                 : std::move(*payload);
         }
         result.push_back({ descriptor.name, std::move(schema) });
@@ -446,117 +498,150 @@ std::expected<std::vector<NamedSchema>, std::string> macroPayloads()
 
 std::expected<JsonValue, std::string> commonDefinitions()
 {
-    auto selectorMap = descriptorObject(selectorDescriptor());
-    auto numberMap = descriptorObject(effectNumberDescriptor());
-    if (!selectorMap) return std::unexpected(selectorMap.error());
-    if (!numberMap) return std::unexpected(numberMap.error());
-    auto selector = object({{ "oneOf", array({
-        enumSchema(selectorKindDescriptor().labels),
-        std::move(*selectorMap),
-    }) }});
-    auto number = object({{ "oneOf", array({
-        object({{ "type", "integer" }}),
-        std::move(*numberMap),
-    }) }});
+    JsonValue::Object definitions;
+    std::array<bool, static_cast<std::size_t>(EffectEvent::AllyDied) + 1> generated{};
 
-    JsonValue::Array conditionVariants;
-    std::vector<std::string_view> scalarConditions;
-    for (const auto& descriptor : conditionDescriptors())
+    for (const auto& timing : timingDescriptors())
     {
-        if (descriptor.form == ConditionAuthorForm::Scalar
-            || descriptor.form == ConditionAuthorForm::ScalarOrMap)
-            scalarConditions.push_back(descriptor.name);
-    }
-    conditionVariants.push_back(enumSchema(std::span(scalarConditions)));
-    for (const auto& descriptor : conditionDescriptors())
-    {
-        if (descriptor.form == ConditionAuthorForm::SingleParameter)
+        const auto eventIndex = static_cast<std::size_t>(timing.event);
+        if (generated[eventIndex]) continue;
+        generated[eventIndex] = true;
+
+        auto selectorMap = descriptorObject(selectorDescriptor(), timing.event);
+        auto numberMap = descriptorObject(effectNumberDescriptor(), timing.event);
+        if (!selectorMap) return std::unexpected(selectorMap.error());
+        if (!numberMap) return std::unexpected(numberMap.error());
+
+        std::vector<AuthorEnumLabel> selectorLabels;
+        for (const auto& label : selectorKindDescriptor().labels)
+            if (effectSelectorKindAllowedAtEvent(
+                    static_cast<EffectSelectorKind>(label.value), timing.event))
+                selectorLabels.push_back(label);
+        definitions.emplace_back(
+            contextualName("selector", timing.event),
+            object({{ "oneOf", array({
+                enumSchema(std::span<const AuthorEnumLabel>(selectorLabels)),
+                std::move(*selectorMap),
+            }) }}));
+        definitions.emplace_back(
+            contextualName("effectNumber", timing.event),
+            object({{ "oneOf", array({
+                object({{ "type", "integer" }}),
+                std::move(*numberMap),
+            }) }}));
+
+        JsonValue::Array conditionVariants;
+        std::vector<std::string_view> scalarConditions;
+        for (const auto& descriptor : conditionDescriptors())
         {
-            assert(descriptor.payload->fields.size() == 1);
-            auto value = schemaForField(descriptor.payload->fields.front());
-            if (!value) return std::unexpected(value.error());
-            if (descriptor.payload->fields.front().shape == PayloadNodeShape::Sequence)
-                appendProperty(*value, "minItems", 1);
-            conditionVariants.push_back(objectSchema(
-                {{ std::string(descriptor.name), std::move(*value) }},
-                { descriptor.name }));
+            if (!descriptor.eventConstraint().allows(timing.event))
+                continue;
+            if (descriptor.form == ConditionAuthorForm::Scalar
+                || descriptor.form == ConditionAuthorForm::ScalarOrMap)
+                scalarConditions.push_back(descriptor.name);
         }
-        else if (descriptor.form == ConditionAuthorForm::Map
-            || descriptor.form == ConditionAuthorForm::ScalarOrMap)
+        if (!scalarConditions.empty())
+            conditionVariants.push_back(enumSchema(std::span(scalarConditions)));
+        for (const auto& descriptor : conditionDescriptors())
         {
-            auto payload = descriptorObject(*descriptor.payload);
-            if (!payload) return std::unexpected(payload.error());
-            conditionVariants.push_back(objectSchema(
-                {{ std::string(descriptor.name), std::move(*payload) }},
-                { descriptor.name }));
+            if (!descriptor.eventConstraint().allows(timing.event))
+                continue;
+            if (descriptor.form == ConditionAuthorForm::SingleParameter)
+            {
+                assert(descriptor.payload->fields.size() == 1);
+                auto value = schemaForField(
+                    descriptor.payload->fields.front(), timing.event);
+                if (!value) return std::unexpected(value.error());
+                if (descriptor.payload->fields.front().shape == PayloadNodeShape::Sequence)
+                    appendProperty(*value, "minItems", 1);
+                conditionVariants.push_back(objectSchema(
+                    {{ std::string(descriptor.name), std::move(*value) }},
+                    { descriptor.name }));
+            }
+            else if (descriptor.form == ConditionAuthorForm::Map
+                || descriptor.form == ConditionAuthorForm::ScalarOrMap)
+            {
+                auto payload = descriptorObject(*descriptor.payload, timing.event);
+                if (!payload) return std::unexpected(payload.error());
+                conditionVariants.push_back(objectSchema(
+                    {{ std::string(descriptor.name), std::move(*payload) }},
+                    { descriptor.name }));
+            }
         }
+        definitions.emplace_back(
+            contextualName("condition", timing.event),
+            object({{ "oneOf", JsonValue(std::move(conditionVariants)) }}));
+
+        auto actions = actionPayloads(timing.event);
+        auto macros = macroPayloads(timing.event);
+        if (!actions) return std::unexpected(actions.error());
+        if (!macros) return std::unexpected(macros.error());
+        std::vector<NamedSchema> namedSchemas = std::move(*actions);
+        namedSchemas.insert(
+            namedSchemas.end(),
+            std::make_move_iterator(macros->begin()),
+            std::make_move_iterator(macros->end()));
+
+        JsonValue::Array actionVariants;
+        actionVariants.reserve(namedSchemas.size());
+        for (const auto& named : namedSchemas)
+            actionVariants.push_back(objectSchema(
+                {{ std::string(named.name), named.schema }},
+                { named.name }));
+        definitions.emplace_back(
+            contextualName("actionNode", timing.event),
+            object({{ "oneOf", JsonValue(std::move(actionVariants)) }}));
     }
 
-    auto actions = actionPayloads();
-    auto macros = macroPayloads();
-    if (!actions) return std::unexpected(actions.error());
-    if (!macros) return std::unexpected(macros.error());
-    std::vector<NamedSchema> namedSchemas = std::move(*actions);
-    namedSchemas.insert(
-        namedSchemas.end(),
-        std::make_move_iterator(macros->begin()),
-        std::make_move_iterator(macros->end()));
-
-    JsonValue::Array actionVariants;
-    actionVariants.reserve(namedSchemas.size());
-    for (const auto& named : namedSchemas)
+    JsonValue::Array ruleVariants;
+    std::size_t timingIndex{};
+    for (const auto& timing : timingDescriptors())
     {
-        actionVariants.push_back(objectSchema(
-            {{ std::string(named.name), named.schema }},
-            { named.name }));
+        auto actions = actionPayloads(timing.event);
+        auto macros = macroPayloads(timing.event);
+        if (!actions) return std::unexpected(actions.error());
+        if (!macros) return std::unexpected(macros.error());
+        std::vector<NamedSchema> namedSchemas = std::move(*actions);
+        namedSchemas.insert(
+            namedSchemas.end(),
+            std::make_move_iterator(macros->begin()),
+            std::make_move_iterator(macros->end()));
+
+        auto rule = descriptorObject(ruleDescriptor(), timing.event);
+        if (!rule) return std::unexpected(rule.error());
+        auto* ruleProperties = findProperty(*rule, "properties");
+        assert(ruleProperties);
+        replaceProperty(*ruleProperties, "時機", object({{ "const", timing.name }}));
+        for (const auto& named : namedSchemas)
+            appendProperty(*ruleProperties, std::string(named.name), named.schema);
+
+        JsonValue::Array actionChoice;
+        actionChoice.push_back(object({{ "required", array({ "動作" }) }}));
+        for (const auto& named : namedSchemas)
+            actionChoice.push_back(object({{ "required", array({ named.name }) }}));
+        appendProperty(*rule, "oneOf", JsonValue(std::move(actionChoice)));
+
+        if (timing.intervalPolicy == TimingIntervalPolicy::Forbidden)
+            appendProperty(*rule, "not", object({{ "required", array({ "間隔幀數" }) }}));
+        else if (timing.intervalPolicy == TimingIntervalPolicy::RequiredPositive)
+        {
+            replaceProperty(*rule, "required", array({ "時機", "間隔幀數" }));
+            replaceProperty(*ruleProperties, "間隔幀數", object({
+                { "type", "integer" },
+                { "minimum", 1 },
+            }));
+        }
+
+        const auto ruleName = std::format("rule_{}", timingIndex++);
+        definitions.emplace_back(ruleName, std::move(*rule));
+        ruleVariants.push_back(reference(ruleName));
     }
 
-    auto rule = descriptorObject(ruleDescriptor());
-    if (!rule) return std::unexpected(rule.error());
-    auto* ruleProperties = findProperty(*rule, "properties");
-    assert(ruleProperties);
-    for (const auto& named : namedSchemas)
-        appendProperty(*ruleProperties, std::string(named.name), named.schema);
-
-    JsonValue::Array actionChoice;
-    actionChoice.push_back(object({{ "required", array({ "動作" }) }}));
-    for (const auto& named : namedSchemas)
-        actionChoice.push_back(object({{ "required", array({ named.name }) }}));
-    appendProperty(*rule, "oneOf", JsonValue(std::move(actionChoice)));
-    appendProperty(*rule, "allOf", array({
-        object({
-            { "if", object({
-                { "properties", object({{ "時機", object({{ "const", "每幀" }}) }}) },
-                { "required", array({ "時機" }) },
-            }) },
-            { "then", object({{ "not", object({{ "required", array({ "間隔幀數" }) }}) }}) },
-        }),
-        object({
-            { "if", object({
-                { "properties", object({{ "時機", object({{ "const", "每隔" }}) }}) },
-                { "required", array({ "時機" }) },
-            }) },
-            { "then", object({
-                { "required", array({ "間隔幀數" }) },
-                { "properties", object({{ "間隔幀數", object({
-                    { "type", "integer" },
-                    { "minimum", 1 },
-                }) }}) },
-            }) },
-        }),
+    definitions.emplace_back("ruleList", object({
+        { "type", "array" },
+        { "items", object({{ "oneOf", JsonValue(std::move(ruleVariants)) }}) },
     }));
-
-    return object({
-        { "effectNumber", std::move(number) },
-        { "selector", std::move(selector) },
-        { "condition", object({{ "oneOf", JsonValue(std::move(conditionVariants)) }}) },
-        { "actionNode", object({{ "oneOf", JsonValue(std::move(actionVariants)) }}) },
-        { "rule", std::move(*rule) },
-        { "ruleList", object({
-            { "type", "array" },
-            { "items", reference("rule") },
-        }) },
-    });
+    return JsonValue(std::move(definitions));
 }
 
 std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
@@ -564,36 +649,57 @@ std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
     const auto ruleList = reference("ruleList");
     if (kind == "combos")
     {
-        const auto threshold = objectSchema({{ "效果", ruleList }}, {}, true);
-        const auto combo = objectSchema({{
-            "阈值", object({
+        const auto integerList = object({
+            { "type", "array" },
+            { "items", object({{ "type", "integer" }}) },
+        });
+        const auto threshold = objectSchema({
+            { "人數", object({{ "type", "integer" }}) },
+            { "名稱", object({{ "type", "string" }}) },
+            { "效果", ruleList },
+        }, { "人數", "名稱" }, true);
+        const auto combo = objectSchema({
+            { "名稱", object({{ "type", "string" }}) },
+            { "成員", integerList },
+            { "反向羈絆", object({{ "type", "boolean" }}) },
+            { "星級羈絆加成", object({{ "type", "boolean" }}) },
+            { "閾值", object({
                 { "type", "array" },
                 { "items", threshold },
-            }),
-        }}, {}, true);
+            }) },
+        }, { "名稱", "成員", "閾值" }, true);
         return objectSchema({{
-            "羁绊", object({
+            "羈絆", object({
                 { "type", "array" },
                 { "items", combo },
             }),
-        }}, {}, true);
+        }}, { "羈絆" }, true);
     }
     if (kind == "equipment")
     {
-        const auto binding = objectSchema({{ "效果", ruleList }}, {}, true);
-        const auto equipment = objectSchema({
+        const auto binding = objectSchema({
+            { "角色ID", object({
+                { "type", "array" },
+                { "items", object({{ "type", "integer" }}) },
+            }) },
             { "效果", ruleList },
-            { "装备羁绊", object({
+        }, { "角色ID" }, true);
+        const auto equipment = objectSchema({
+            { "裝備ID", object({{ "type", "integer" }}) },
+            { "層級", object({{ "type", "integer" }}) },
+            { "裝備類型", object({{ "type", "integer" }}) },
+            { "效果", ruleList },
+            { "裝備羈絆", object({
                 { "type", "array" },
                 { "items", binding },
             }) },
-        }, {}, true);
+        }, { "裝備ID", "層級", "裝備類型" }, true);
         return objectSchema({{
-            "装备列表", object({
+            "裝備列表", object({
                 { "type", "array" },
                 { "items", equipment },
             }),
-        }}, {}, true);
+        }}, { "裝備列表" }, true);
     }
     if (kind == "magic_effects")
     {
@@ -612,12 +718,26 @@ std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
     }
     if (kind == "neigong")
     {
-        return objectSchema({{
-            "效果", object({
+        const auto tier = objectSchema({
+            { "層級", object({{ "type", "integer" }}) },
+            { "武功", object({
+                { "type", "array" },
+                { "items", object({{ "type", "integer" }}) },
+            }) },
+        }, { "層級", "武功" });
+        return objectSchema({
+            { "選擇數量", object({{ "type", "integer" }}) },
+            { "Boss可選層級", object({{ "type", "object" }}) },
+            { "層級分配", object({
+                { "type", "array" },
+                { "items", tier },
+            }) },
+            { "名稱", object({{ "type", "object" }}) },
+            { "效果", object({
                 { "type", "object" },
                 { "additionalProperties", ruleList },
-            }),
-        }}, {}, true);
+            }) },
+        }, { "選擇數量", "層級分配", "效果" }, true);
     }
     return std::unexpected(std::format("未知 schema kind「{}」", kind));
 }

@@ -96,24 +96,6 @@ enum class AttackRuntimeBehaviorKind
     ExpandingSpiral,
 };
 
-enum class StateMachineMechanism
-{
-    ChangeStateValue,
-    TransferStateValue,
-    RecordMaximumSkillDamage,
-    ConsumeRecordAsDamage,
-    ConsumeRecordAsShield,
-    StartDamageAbsorption,
-    SettleDamageAbsorption,
-    BorrowEffectRules,
-    CopyAttackDefinition,
-    SettleRemainingStatusDamage,
-    GenerateClones,
-    PreventDeath,
-    ConfigureProtectReposition,
-    ConfigureExecuteReposition,
-};
-
 static constexpr std::array activationScopeLabels{
     authorLabel("每次施放每個目標", EffectActivationScope::PerCastPerTarget),
 };
@@ -226,14 +208,6 @@ static constexpr AuthorEnumDescriptor requiredTargetEnum{
     "EffectRequiredTarget", requiredTargetLabels,
 };
 
-static constexpr std::array damagePerspectiveLabels{
-    authorLabel("造成", DamagePerspective::Dealt),
-    authorLabel("承受", DamagePerspective::Received),
-};
-static constexpr AuthorEnumDescriptor damagePerspectiveEnum{
-    "DamagePerspective", damagePerspectiveLabels,
-};
-
 static constexpr std::array stackPolicyLabels{
     authorLabel("獨立", EffectStackPolicy::Independent),
     authorLabel("刷新", EffectStackPolicy::Refresh),
@@ -243,6 +217,13 @@ static constexpr std::array stackPolicyLabels{
 };
 static constexpr AuthorEnumDescriptor stackPolicyEnum{
     "EffectStackPolicy", stackPolicyLabels,
+};
+
+static constexpr std::array poisonModeLabels{
+    AuthorEnumLabel{ "取代重設", 0 },
+};
+static constexpr AuthorEnumDescriptor poisonModeEnum{
+    "PoisonAuthoringMode", poisonModeLabels,
 };
 
 static constexpr std::array statusKindLabels{
@@ -629,26 +610,6 @@ static constexpr AuthorEnumDescriptor castMobilityPolicyEnum{
     "CastMobilityPolicy", castMobilityPolicyLabels,
 };
 
-static constexpr std::array stateMachineMechanismLabels{
-    authorLabel("變更狀態值", StateMachineMechanism::ChangeStateValue),
-    authorLabel("轉移狀態值", StateMachineMechanism::TransferStateValue),
-    authorLabel("記錄最大招式生命傷害", StateMachineMechanism::RecordMaximumSkillDamage),
-    authorLabel("消耗記錄為傷害", StateMachineMechanism::ConsumeRecordAsDamage),
-    authorLabel("消耗記錄為護盾", StateMachineMechanism::ConsumeRecordAsShield),
-    authorLabel("開始傷害吸收", StateMachineMechanism::StartDamageAbsorption),
-    authorLabel("結算傷害吸收", StateMachineMechanism::SettleDamageAbsorption),
-    authorLabel("借用效果規則", StateMachineMechanism::BorrowEffectRules),
-    authorLabel("複製攻擊定義", StateMachineMechanism::CopyAttackDefinition),
-    authorLabel("結算剩餘狀態傷害", StateMachineMechanism::SettleRemainingStatusDamage),
-    authorLabel("生成分身", StateMachineMechanism::GenerateClones),
-    authorLabel("死亡庇護", StateMachineMechanism::PreventDeath),
-    authorLabel("保護挪移", StateMachineMechanism::ConfigureProtectReposition),
-    authorLabel("處決挪移", StateMachineMechanism::ConfigureExecuteReposition),
-};
-static constexpr AuthorEnumDescriptor stateMachineMechanismEnum{
-    "StateMachineMechanism", stateMachineMechanismLabels,
-};
-
 static constexpr std::array observationScopeLabels{
     authorLabel("效果擁有者", EffectObservationScope::Owner),
     authorLabel("效果擁有者同隊事件來源", EffectObservationScope::OwnerTeamEventSource),
@@ -686,8 +647,8 @@ static constexpr std::array authorEnumDescriptors{
     &areaRelationEnum,
     &tieBreakEnum,
     &requiredTargetEnum,
-    &damagePerspectiveEnum,
     &stackPolicyEnum,
+    &poisonModeEnum,
     &statusKindEnum,
     &damageChannelEnum,
     &stateSlotEnum,
@@ -724,7 +685,6 @@ static constexpr std::array authorEnumDescriptors{
     &areaMergePolicyEnum,
     &castRangeModeEnum,
     &castMobilityPolicyEnum,
-    &stateMachineMechanismEnum,
     &observationScopeEnum,
     &castMatchEnum,
     &martialCategoryEnum,
@@ -1399,7 +1359,6 @@ static constexpr std::array timingDescriptors{
     TimingDescriptor{ "攻擊生成", EffectEvent::AttackSpawned, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
     TimingDescriptor{ "主彈命中", EffectEvent::MainProjectileBeforeDamage, EffectSelectorKind::HitTarget, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
     TimingDescriptor{ "命中", EffectEvent::HitBeforeDamage, EffectSelectorKind::HitTarget, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
-    TimingDescriptor{ "傷害後", EffectEvent::DamageResolved, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
     TimingDescriptor{ "治療嘗試", EffectEvent::HealAttempted, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
     TimingDescriptor{ "治療套用", EffectEvent::HealApplied, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
     TimingDescriptor{ "施放延續", EffectEvent::CastContinuation, EffectSelectorKind::Self, TimingIntervalPolicy::Unrestricted, TimingIntent::None },
@@ -1441,12 +1400,6 @@ static constexpr std::array conditionHealKindsFields{
 - 吸血)", {}, PayloadSchemaReference::None, &healKindEnum,
     },
 };
-static constexpr std::array conditionPerspectiveFields{
-    PayloadFieldDescriptor{
-        "方位", true, PayloadNodeShape::String, "承受", {},
-        PayloadSchemaReference::None, &damagePerspectiveEnum,
-    },
-};
 static constexpr std::array conditionDamageKindsFields{
     PayloadFieldDescriptor{
         "傷害種類", true, PayloadNodeShape::Sequence, R"(- 招式
@@ -1470,7 +1423,6 @@ static constexpr PayloadDescriptor conditionHealKindsPayload{
     "治療種類符合", conditionHealKindsFields, R"(治療種類:
   - 命中)",
 };
-static constexpr PayloadDescriptor conditionPerspectivePayload{ "傷害方位", conditionPerspectiveFields, "方位: 承受" };
 static constexpr PayloadDescriptor conditionDamageKindsPayload{
     "傷害種類符合", conditionDamageKindsFields, R"(傷害種類:
   - 招式)",
@@ -1499,7 +1451,6 @@ static constexpr std::array conditionDescriptors{
     ConditionDescriptor{ "傷害造成死亡", 18, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
     ConditionDescriptor{ "已接受命中", 19, ConditionAuthorForm::ScalarOrMap, {}, &conditionAcceptedHitPayload },
     ConditionDescriptor{ "事件目標屬於綁定來源", 20, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
-    ConditionDescriptor{ "傷害方位", 21, ConditionAuthorForm::SingleParameter, "方位", &conditionPerspectivePayload },
     ConditionDescriptor{ "傷害種類符合", 22, ConditionAuthorForm::SingleParameter, "傷害種類", &conditionDamageKindsPayload },
     ConditionDescriptor{ "受益者施放前滿內", 23, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
     ConditionDescriptor{ "有合法隨機目標", 24, ConditionAuthorForm::Scalar, {}, &conditionEmptyPayload },
@@ -1770,7 +1721,6 @@ static constexpr std::array applyStatusFields{
         PayloadSchemaReference::None, &stackPolicyEnum,
     },
     PayloadFieldDescriptor{ "層數上限", false, PayloadNodeShape::Integer, "5" },
-    PayloadFieldDescriptor{ "同事件合計強度", false, PayloadNodeShape::Boolean, "true" },
 };
 static constexpr std::array consumeStatusFields{
     PayloadFieldDescriptor{
@@ -1952,150 +1902,166 @@ static constexpr std::array modifyCastFields{
     PayloadFieldDescriptor{ "展開角度", false, PayloadNodeShape::Integer, "30" },
     PayloadFieldDescriptor{ "間隔幀數", false, PayloadNodeShape::Integer, "5" },
 };
-static constexpr std::array stateMachineFields{
+static constexpr std::array changeStateValueFields{
     PayloadFieldDescriptor{
-        "機制", true, PayloadNodeShape::String, "生成分身", {},
-        PayloadSchemaReference::None, &stateMachineMechanismEnum,
+        "狀態槽", true, PayloadNodeShape::String, "永久施放進展", {},
+        PayloadSchemaReference::None, &stateSlotEnum,
     },
-    PayloadFieldDescriptor{
-        "狀態槽", false, PayloadNodeShape::String, "永久施放進展", R"(機制: 變更狀態值
-狀態槽: 永久施放進展
-增量: 1)", PayloadSchemaReference::None, &stateSlotEnum,
-    },
-    PayloadFieldDescriptor{
-        "來源狀態槽", false, PayloadNodeShape::String, "最大招式生命傷害", R"(機制: 轉移狀態值
-來源狀態槽: 最大招式生命傷害
-目標狀態槽: 本次施放最高生命傷害)", PayloadSchemaReference::None, &stateSlotEnum,
-    },
-    PayloadFieldDescriptor{
-        "目標狀態槽", false, PayloadNodeShape::String, "本次施放最高生命傷害", R"(機制: 轉移狀態值
-來源狀態槽: 最大招式生命傷害
-目標狀態槽: 本次施放最高生命傷害)", PayloadSchemaReference::None, &stateSlotEnum,
-    },
-    PayloadFieldDescriptor{
-        "增量", false, PayloadNodeShape::Integer, "1", R"(機制: 變更狀態值
-狀態槽: 永久施放進展
+    PayloadFieldDescriptor{ "增量", true, PayloadNodeShape::Integer, "1" },
+    PayloadFieldDescriptor{ "最小", false, PayloadNodeShape::Integer, "0" },
+    PayloadFieldDescriptor{ "最大", false, PayloadNodeShape::Integer, "10" },
+};
+static constexpr PayloadDescriptor changeStateValuePayload{
+    "變更狀態值", changeStateValueFields, R"(狀態槽: 永久施放進展
 增量: 1)",
+};
+static constexpr std::array transferStateValueFields{
+    PayloadFieldDescriptor{
+        "來源狀態槽", true, PayloadNodeShape::String, "最大招式生命傷害", {},
+        PayloadSchemaReference::None, &stateSlotEnum,
     },
     PayloadFieldDescriptor{
-        "最小", false, PayloadNodeShape::Integer, "0", R"(機制: 變更狀態值
-狀態槽: 永久施放進展
-增量: 1)",
+        "目標狀態槽", true, PayloadNodeShape::String, "本次施放最高生命傷害", {},
+        PayloadSchemaReference::None, &stateSlotEnum,
+    },
+};
+static constexpr PayloadDescriptor transferStateValuePayload{
+    "轉移狀態值", transferStateValueFields, R"(來源狀態槽: 最大招式生命傷害
+目標狀態槽: 本次施放最高生命傷害)",
+};
+static constexpr std::array recordMaximumDamageFields{
+    PayloadFieldDescriptor{
+        "狀態槽", true, PayloadNodeShape::String, "最大招式生命傷害", {},
+        PayloadSchemaReference::None, &stateSlotEnum,
+    },
+};
+static constexpr PayloadDescriptor recordMaximumDamagePayload{
+    "記錄最大招式生命傷害", recordMaximumDamageFields, "狀態槽: 最大招式生命傷害",
+};
+static constexpr std::array consumeRecordedMaximumFields{
+    PayloadFieldDescriptor{
+        "狀態槽", true, PayloadNodeShape::String, "最大招式生命傷害", {},
+        PayloadSchemaReference::None, &stateSlotEnum,
+    },
+    PayloadFieldDescriptor{ "百分比", false, PayloadNodeShape::Integer, "100" },
+    PayloadFieldDescriptor{ "消耗後清除", false, PayloadNodeShape::Boolean, "true" },
+};
+static constexpr PayloadDescriptor consumeRecordAsDamagePayload{
+    "消耗記錄為傷害", consumeRecordedMaximumFields, "狀態槽: 最大招式生命傷害",
+};
+static constexpr PayloadDescriptor consumeRecordAsShieldPayload{
+    "消耗記錄為護盾", consumeRecordedMaximumFields, "狀態槽: 最大招式生命傷害",
+};
+static constexpr std::array startDamageAbsorptionFields{
+    PayloadFieldDescriptor{
+        "狀態槽", true, PayloadNodeShape::String, "累計吸收傷害", {},
+        PayloadSchemaReference::None, &stateSlotEnum,
+    },
+    PayloadFieldDescriptor{ "百分比", true, PayloadNodeShape::Integer, "50" },
+    PayloadFieldDescriptor{ "持續幀數", true, PayloadNodeShape::Integer, "60" },
+    PayloadFieldDescriptor{ "死亡結算", false, PayloadNodeShape::Boolean, "true" },
+    PayloadFieldDescriptor{
+        "結算目標", true, PayloadNodeShape::Selector, "自身", {},
+        PayloadSchemaReference::Selector,
     },
     PayloadFieldDescriptor{
-        "最大", false, PayloadNodeShape::Integer, "10", R"(機制: 變更狀態值
-狀態槽: 永久施放進展
-增量: 1)",
+        "結算傷害種類", true, PayloadNodeShape::String, "純粹", {},
+        PayloadSchemaReference::None, &battleDamageKindEnum,
     },
-    PayloadFieldDescriptor{
-        "百分比", false, PayloadNodeShape::Integer, "50", R"(機制: 消耗記錄為護盾
-狀態槽: 最大招式生命傷害
-百分比: 100)",
-    },
-    PayloadFieldDescriptor{
-        "消耗後清除", false, PayloadNodeShape::Boolean, "true", R"(機制: 消耗記錄為護盾
-狀態槽: 最大招式生命傷害)",
-    },
-    PayloadFieldDescriptor{
-        "持續幀數", false, PayloadNodeShape::Integer, "60", R"(機制: 開始傷害吸收
-狀態槽: 累計吸收傷害
+    PayloadFieldDescriptor{ "結算百分比", true, PayloadNodeShape::Integer, "100" },
+};
+static constexpr PayloadDescriptor startDamageAbsorptionPayload{
+    "開始傷害吸收", startDamageAbsorptionFields, R"(狀態槽: 累計吸收傷害
 百分比: 50
 持續幀數: 60
 結算目標: 自身
 結算傷害種類: 純粹
 結算百分比: 100)",
+};
+static constexpr std::array settleDamageAbsorptionFields{
+    PayloadFieldDescriptor{
+        "狀態槽", true, PayloadNodeShape::String, "累計吸收傷害", {},
+        PayloadSchemaReference::None, &stateSlotEnum,
     },
     PayloadFieldDescriptor{
-        "死亡結算", false, PayloadNodeShape::Boolean, "true", R"(機制: 開始傷害吸收
-狀態槽: 累計吸收傷害
-百分比: 50
-持續幀數: 60
-結算目標: 自身
-結算傷害種類: 純粹
-結算百分比: 100)",
+        "目標", false, PayloadNodeShape::Selector, "自身", {},
+        PayloadSchemaReference::Selector,
+    },
+    PayloadFieldDescriptor{ "百分比", false, PayloadNodeShape::Integer, "100" },
+};
+static constexpr PayloadDescriptor settleDamageAbsorptionPayload{
+    "結算傷害吸收", settleDamageAbsorptionFields, "狀態槽: 累計吸收傷害",
+};
+static constexpr std::array borrowEffectRulesFields{
+    PayloadFieldDescriptor{
+        "目標", true, PayloadNodeShape::Selector, "友軍", {},
+        PayloadSchemaReference::Selector,
     },
     PayloadFieldDescriptor{
-        "結算目標", false, PayloadNodeShape::Selector, "自身", R"(機制: 開始傷害吸收
-狀態槽: 累計吸收傷害
-百分比: 50
-持續幀數: 60
-結算目標: 自身
-結算傷害種類: 純粹
-結算百分比: 100)", PayloadSchemaReference::Selector,
+        "來源數量", true, PayloadNodeShape::Number, "1", {},
+        PayloadSchemaReference::EffectNumber,
     },
     PayloadFieldDescriptor{
-        "結算傷害種類", false, PayloadNodeShape::String, "純粹", R"(機制: 開始傷害吸收
-狀態槽: 累計吸收傷害
-百分比: 50
-持續幀數: 60
-結算目標: 自身
-結算傷害種類: 純粹
-結算百分比: 100)", PayloadSchemaReference::None, &battleDamageKindEnum,
+        "允許動作類別", true, PayloadNodeShape::Sequence, R"(- 傷害修正
+- 狀態)", {}, PayloadSchemaReference::None, &borrowedRuleActionCategoryEnum,
     },
     PayloadFieldDescriptor{
-        "結算百分比", false, PayloadNodeShape::Integer, "100", R"(機制: 開始傷害吸收
-狀態槽: 累計吸收傷害
-百分比: 50
-持續幀數: 60
-結算目標: 自身
-結算傷害種類: 純粹
-結算百分比: 100)",
+        "傳播政策", false, PayloadNodeShape::String, "借用大招規則", {},
+        PayloadSchemaReference::None, &propagationPolicyEnum,
     },
-    PayloadFieldDescriptor{
-        "目標", false, PayloadNodeShape::Selector, "自身", R"(機制: 結算傷害吸收
-狀態槽: 累計吸收傷害)", PayloadSchemaReference::Selector,
-    },
-    PayloadFieldDescriptor{
-        "來源數量", false, PayloadNodeShape::Number, "1", R"(機制: 借用效果規則
-目標: 友軍
+};
+static constexpr PayloadDescriptor borrowEffectRulesPayload{
+    "借用效果規則", borrowEffectRulesFields, R"(目標: 友軍
 來源數量: 1
 允許動作類別:
-  - 傷害修正
-傳播政策: 來源全部規則)", PayloadSchemaReference::EffectNumber,
+  - 傷害修正)",
+};
+static constexpr std::array copyAttackDefinitionFields{
+    PayloadFieldDescriptor{
+        "目標", true, PayloadNodeShape::Selector, R"(類型: 所有存活單位
+排除效果擁有者: true)", {}, PayloadSchemaReference::Selector,
     },
     PayloadFieldDescriptor{
-        "允許動作類別", false, PayloadNodeShape::Sequence, R"(- 傷害修正
-- 狀態)", R"(機制: 借用效果規則
-目標: 友軍
-來源數量: 1
-允許動作類別:
-  - 傷害修正
-傳播政策: 來源全部規則)", PayloadSchemaReference::None,
-        &borrowedRuleActionCategoryEnum,
+        "可選武功條件", true, PayloadNodeShape::Sequence, R"(- 有絕招攻擊定義
+- 排除複製與借用遞迴)", {}, PayloadSchemaReference::None, &copiedMagicConditionEnum,
     },
+    PayloadFieldDescriptor{ "來源數量", false, PayloadNodeShape::Integer, "1" },
     PayloadFieldDescriptor{
-        "傳播政策", false, PayloadNodeShape::String, "來源全部規則", R"(機制: 借用效果規則
-目標: 友軍
-來源數量: 1
-允許動作類別:
-  - 傷害修正
-傳播政策: 來源全部規則)", PayloadSchemaReference::None, &propagationPolicyEnum,
+        "傳播政策", false, PayloadNodeShape::String, "不傳播大招規則", {},
+        PayloadSchemaReference::None, &propagationPolicyEnum,
     },
-    PayloadFieldDescriptor{
-        "可選武功條件", false, PayloadNodeShape::Sequence, R"(- 有絕招攻擊定義
-- 排除複製與借用遞迴)", R"(機制: 複製攻擊定義
-目標: 友軍
+};
+static constexpr PayloadDescriptor copyAttackDefinitionPayload{
+    "複製攻擊定義", copyAttackDefinitionFields, R"(目標:
+  類型: 所有存活單位
+  排除效果擁有者: true
 可選武功條件:
   - 有絕招攻擊定義
-來源數量: 1
-傳播政策: 來源全部規則)", PayloadSchemaReference::None, &copiedMagicConditionEnum,
-    },
-    PayloadFieldDescriptor{
-        "狀態", false, PayloadNodeShape::String, "中毒", R"(機制: 結算剩餘狀態傷害
-狀態: 中毒)", PayloadSchemaReference::None, &statusKindEnum,
-    },
-    PayloadFieldDescriptor{
-        "數量", false, PayloadNodeShape::Integer, "2", R"(機制: 生成分身
-數量: 1)",
-    },
-    PayloadFieldDescriptor{
-        "無敵幀數", false, PayloadNodeShape::Integer, "30", R"(機制: 死亡庇護
-無敵幀數: 30)",
-    },
-    PayloadFieldDescriptor{
-        "次數", false, PayloadNodeShape::Integer, "1", R"(機制: 保護挪移
-次數: 1)",
-    },
+  - 排除複製與借用遞迴)",
+};
+static constexpr PayloadDescriptor settleRemainingPoisonDamagePayload{
+    "結算剩餘中毒傷害", emptyPayloadFields, "{}",
+};
+static constexpr std::array generateClonesFields{
+    PayloadFieldDescriptor{ "數量", true, PayloadNodeShape::Integer, "1" },
+};
+static constexpr PayloadDescriptor generateClonesPayload{
+    "生成分身", generateClonesFields, "數量: 1",
+};
+static constexpr std::array preventDeathFields{
+    PayloadFieldDescriptor{ "無敵幀數", true, PayloadNodeShape::Integer, "30" },
+};
+static constexpr PayloadDescriptor preventDeathPayload{
+    "死亡庇護", preventDeathFields, "無敵幀數: 30",
+};
+static constexpr std::array rescueRepositionFields{
+    PayloadFieldDescriptor{ "次數", true, PayloadNodeShape::Integer, "1" },
+};
+static constexpr PayloadDescriptor configureProtectRepositionPayload{
+    "保護挪移", rescueRepositionFields, "次數: 1",
+};
+static constexpr PayloadDescriptor configureExecuteRepositionPayload{
+    "處決挪移", rescueRepositionFields, "次數: 1",
 };
 static constexpr std::array conditionalFields{
     PayloadFieldDescriptor{
@@ -2172,10 +2138,6 @@ static constexpr PayloadDescriptor createAreaPayload{
 static constexpr PayloadDescriptor modifyCastPayload{
     "修改施放", modifyCastFields, "射程模式: 保留",
 };
-static constexpr PayloadDescriptor stateMachinePayload{
-    "狀態機", stateMachineFields, R"(機制: 生成分身
-數量: 1)",
-};
 static constexpr PayloadDescriptor conditionalPayload{
     "條件分支", conditionalFields, R"(條件:
   - 僅限絕招
@@ -2187,7 +2149,10 @@ static constexpr std::array actionDescriptors{
     ActionDescriptor{ "屬性修正", 0, ActionPayloadKind::AttributeModifier, &attributeModifierPayload },
     ActionDescriptor{ "傷害修正", 1, ActionPayloadKind::DamageModifier, &damageModifierPayload },
     ActionDescriptor{ "資源變更", 2, ActionPayloadKind::ResourceChange, &resourceChangePayload },
-    ActionDescriptor{ "治療交易修正", 3, ActionPayloadKind::HealTransactionModifier, &healTransactionModifierPayload },
+    ActionDescriptor{
+        "治療交易修正", 3, ActionPayloadKind::HealTransactionModifier,
+        &healTransactionModifierPayload,
+    },
     ActionDescriptor{ "套用狀態", 4, ActionPayloadKind::ApplyStatus, &applyStatusPayload },
     ActionDescriptor{ "消耗狀態", 5, ActionPayloadKind::ConsumeStatus, &consumeStatusPayload },
     ActionDescriptor{ "移除狀態", 6, ActionPayloadKind::RemoveStatus, &removeStatusPayload },
@@ -2196,7 +2161,62 @@ static constexpr std::array actionDescriptors{
     ActionDescriptor{ "強制移動", 9, ActionPayloadKind::ForceMove, &forceMovePayload },
     ActionDescriptor{ "建立區域", 10, ActionPayloadKind::Area, &createAreaPayload },
     ActionDescriptor{ "修改施放", 11, ActionPayloadKind::Cast, &modifyCastPayload },
-    ActionDescriptor{ "狀態機", 12, ActionPayloadKind::StateMachine, &stateMachinePayload },
+    ActionDescriptor{
+        "變更狀態值", 12, ActionPayloadKind::StateMachine, &changeStateValuePayload,
+        EffectAuthoringTier::Primitive, StateMachineMechanism::ChangeStateValue,
+    },
+    ActionDescriptor{
+        "轉移狀態值", 12, ActionPayloadKind::StateMachine, &transferStateValuePayload,
+        EffectAuthoringTier::Primitive, StateMachineMechanism::TransferStateValue,
+    },
+    ActionDescriptor{
+        "記錄最大招式生命傷害", 12, ActionPayloadKind::StateMachine, &recordMaximumDamagePayload,
+        EffectAuthoringTier::Primitive, StateMachineMechanism::RecordMaximumSkillDamage,
+    },
+    ActionDescriptor{
+        "消耗記錄為傷害", 12, ActionPayloadKind::StateMachine, &consumeRecordAsDamagePayload,
+        EffectAuthoringTier::Primitive, StateMachineMechanism::ConsumeRecordAsDamage,
+    },
+    ActionDescriptor{
+        "消耗記錄為護盾", 12, ActionPayloadKind::StateMachine, &consumeRecordAsShieldPayload,
+        EffectAuthoringTier::Primitive, StateMachineMechanism::ConsumeRecordAsShield,
+    },
+    ActionDescriptor{
+        "開始傷害吸收", 12, ActionPayloadKind::StateMachine, &startDamageAbsorptionPayload,
+        EffectAuthoringTier::Primitive, StateMachineMechanism::StartDamageAbsorption,
+    },
+    ActionDescriptor{
+        "結算傷害吸收", 12, ActionPayloadKind::StateMachine, &settleDamageAbsorptionPayload,
+        EffectAuthoringTier::Primitive, StateMachineMechanism::SettleDamageAbsorption,
+    },
+    ActionDescriptor{
+        "借用效果規則", 12, ActionPayloadKind::StateMachine, &borrowEffectRulesPayload,
+        EffectAuthoringTier::Specialized, StateMachineMechanism::BorrowEffectRules,
+    },
+    ActionDescriptor{
+        "複製攻擊定義", 12, ActionPayloadKind::StateMachine, &copyAttackDefinitionPayload,
+        EffectAuthoringTier::Specialized, StateMachineMechanism::CopyAttackDefinition,
+    },
+    ActionDescriptor{
+        "結算剩餘中毒傷害", 12, ActionPayloadKind::StateMachine, &settleRemainingPoisonDamagePayload,
+        EffectAuthoringTier::Specialized, StateMachineMechanism::SettleRemainingStatusDamage,
+    },
+    ActionDescriptor{
+        "生成分身", 12, ActionPayloadKind::StateMachine, &generateClonesPayload,
+        EffectAuthoringTier::Specialized, StateMachineMechanism::GenerateClones,
+    },
+    ActionDescriptor{
+        "死亡庇護", 12, ActionPayloadKind::StateMachine, &preventDeathPayload,
+        EffectAuthoringTier::Specialized, StateMachineMechanism::PreventDeath,
+    },
+    ActionDescriptor{
+        "保護挪移", 12, ActionPayloadKind::StateMachine, &configureProtectRepositionPayload,
+        EffectAuthoringTier::Specialized, StateMachineMechanism::ConfigureProtectReposition,
+    },
+    ActionDescriptor{
+        "處決挪移", 12, ActionPayloadKind::StateMachine, &configureExecuteRepositionPayload,
+        EffectAuthoringTier::Specialized, StateMachineMechanism::ConfigureExecuteReposition,
+    },
     ActionDescriptor{ "條件分支", 13, ActionPayloadKind::Conditional, &conditionalPayload },
 };
 
@@ -2220,6 +2240,21 @@ static constexpr std::array attributeBonusFields{
     PayloadFieldDescriptor{
         "疊加範圍", false, PayloadNodeShape::String, "事件來源", {},
         PayloadSchemaReference::None, &stackScopeEnum,
+    },
+};
+static constexpr std::array poisonMacroFields{
+    PayloadFieldDescriptor{
+        "模式", false, PayloadNodeShape::String, "取代重設", {},
+        PayloadSchemaReference::None, &poisonModeEnum,
+    },
+    PayloadFieldDescriptor{
+        "持續幀數", true, PayloadNodeShape::Number, "90", {},
+        PayloadSchemaReference::EffectNumber,
+    },
+    PayloadFieldDescriptor{ "層數", true, PayloadNodeShape::Integer, "3" },
+    PayloadFieldDescriptor{
+        "強度", true, PayloadNodeShape::Number, "7", {},
+        PayloadSchemaReference::EffectNumber,
     },
 };
 static constexpr std::array resourceMacroFields{
@@ -2268,6 +2303,11 @@ static constexpr PayloadDescriptor attributeBonusPayload{
     PayloadDynamicKeyClass::BattleAttribute, PayloadNodeShape::Integer, "攻擊", "1", 1,
     "百分比",
 };
+static constexpr PayloadDescriptor poisonMacroPayload{
+    "施毒", poisonMacroFields, R"(持續幀數: 90
+層數: 3
+強度: 7)",
+};
 static constexpr PayloadDescriptor resourceMacroPayload{
     "資源巨集", resourceMacroFields, R"(資源: 內力
 數值: 1)",
@@ -2280,22 +2320,23 @@ static constexpr PayloadDescriptor forceMoveMacroPayload{
 };
 
 static constexpr std::array macroDescriptors{
-    MacroDescriptor{ "屬性加成", MacroPayloadKind::AttributeBonus, &attributeBonusPayload },
-    MacroDescriptor{ "回復資源", MacroPayloadKind::Resource, &resourceMacroPayload },
-    MacroDescriptor{ "獲得資源", MacroPayloadKind::Resource, &resourceMacroPayload },
-    MacroDescriptor{ "奪取資源", MacroPayloadKind::Resource, &resourceMacroPayload },
-    MacroDescriptor{ "回復內力", MacroPayloadKind::Number, &effectNumberPayload },
-    MacroDescriptor{ "回復生命", MacroPayloadKind::Heal, &healMacroPayload },
-    MacroDescriptor{ "獲得護盾", MacroPayloadKind::Number, &effectNumberPayload },
-    MacroDescriptor{ "忽略防禦", MacroPayloadKind::Number, &effectNumberPayload },
-    MacroDescriptor{ "單次承傷上限", MacroPayloadKind::Number, &effectNumberPayload },
-    MacroDescriptor{ "擊退", MacroPayloadKind::ForceMove, &forceMoveMacroPayload },
-    MacroDescriptor{ "拉近", MacroPayloadKind::ForceMove, &forceMoveMacroPayload },
+    MacroDescriptor{ "屬性加成", MacroPayloadKind::AttributeBonus, &attributeBonusPayload, 0 },
+    MacroDescriptor{ "施毒", MacroPayloadKind::Poison, &poisonMacroPayload, 4 },
+    MacroDescriptor{ "回復資源", MacroPayloadKind::Resource, &resourceMacroPayload, 2 },
+    MacroDescriptor{ "獲得資源", MacroPayloadKind::Resource, &resourceMacroPayload, 2 },
+    MacroDescriptor{ "奪取資源", MacroPayloadKind::Resource, &resourceMacroPayload, 2 },
+    MacroDescriptor{ "回復內力", MacroPayloadKind::Number, &effectNumberPayload, 2 },
+    MacroDescriptor{ "回復生命", MacroPayloadKind::Heal, &healMacroPayload, 2 },
+    MacroDescriptor{ "獲得護盾", MacroPayloadKind::Number, &effectNumberPayload, 2 },
+    MacroDescriptor{ "忽略防禦", MacroPayloadKind::Number, &effectNumberPayload, 1 },
+    MacroDescriptor{ "單次承傷上限", MacroPayloadKind::Number, &effectNumberPayload, 1 },
+    MacroDescriptor{ "擊退", MacroPayloadKind::ForceMove, &forceMoveMacroPayload, 9 },
+    MacroDescriptor{ "拉近", MacroPayloadKind::ForceMove, &forceMoveMacroPayload, 9 },
 };
 
 static constexpr std::array ruleFields{
     PayloadFieldDescriptor{
-        "時機", true, PayloadNodeShape::String, "傷害後", {},
+        "時機", true, PayloadNodeShape::String, "造成傷害後", {},
         PayloadSchemaReference::Timing,
     },
     PayloadFieldDescriptor{
@@ -2337,13 +2378,13 @@ static constexpr std::array ruleFields{
         PayloadSchemaReference::EffectNumber,
     },
     PayloadFieldDescriptor{
-        "動作", false, PayloadNodeShape::ActionList, R"(- 獲得護盾: 1)", R"(時機: 傷害後
+        "動作", false, PayloadNodeShape::ActionList, R"(- 獲得護盾: 1)", R"(時機: 造成傷害後
 動作:
   - 獲得護盾: 1)", PayloadSchemaReference::ActionList,
     },
 };
 static constexpr PayloadDescriptor rulePayload{
-    "效果規則", ruleFields, R"(時機: 傷害後
+    "效果規則", ruleFields, R"(時機: 造成傷害後
 獲得護盾: 1)", PayloadDynamicKeyClass::NamedAction,
     PayloadNodeShape::Any, "獲得護盾", "1", 2,
 };
@@ -2382,7 +2423,6 @@ static constexpr std::array payloadProbeDescriptors{
     PayloadProbeDescriptor{ &conditionCountPayload, PayloadProbeKind::Condition, "不同目標數至少" },
     PayloadProbeDescriptor{ &conditionOrdinalPayload, PayloadProbeKind::Condition, "攻擊序號" },
     PayloadProbeDescriptor{ &conditionHealKindsPayload, PayloadProbeKind::Condition, "治療種類符合" },
-    PayloadProbeDescriptor{ &conditionPerspectivePayload, PayloadProbeKind::Condition, "傷害方位" },
     PayloadProbeDescriptor{ &conditionDamageKindsPayload, PayloadProbeKind::Condition, "傷害種類符合" },
     PayloadProbeDescriptor{ &conditionAcceptedHitPayload, PayloadProbeKind::Condition, "已接受命中" },
     PayloadProbeDescriptor{ &attributeModifierPayload, PayloadProbeKind::Action, "屬性修正" },
@@ -2397,7 +2437,20 @@ static constexpr std::array payloadProbeDescriptors{
     PayloadProbeDescriptor{ &forceMovePayload, PayloadProbeKind::Action, "強制移動" },
     PayloadProbeDescriptor{ &createAreaPayload, PayloadProbeKind::Action, "建立區域" },
     PayloadProbeDescriptor{ &modifyCastPayload, PayloadProbeKind::Action, "修改施放" },
-    PayloadProbeDescriptor{ &stateMachinePayload, PayloadProbeKind::Action, "狀態機" },
+    PayloadProbeDescriptor{ &changeStateValuePayload, PayloadProbeKind::Action, "變更狀態值" },
+    PayloadProbeDescriptor{ &transferStateValuePayload, PayloadProbeKind::Action, "轉移狀態值" },
+    PayloadProbeDescriptor{ &recordMaximumDamagePayload, PayloadProbeKind::Action, "記錄最大招式生命傷害" },
+    PayloadProbeDescriptor{ &consumeRecordAsDamagePayload, PayloadProbeKind::Action, "消耗記錄為傷害" },
+    PayloadProbeDescriptor{ &consumeRecordAsShieldPayload, PayloadProbeKind::Action, "消耗記錄為護盾" },
+    PayloadProbeDescriptor{ &startDamageAbsorptionPayload, PayloadProbeKind::Action, "開始傷害吸收" },
+    PayloadProbeDescriptor{ &settleDamageAbsorptionPayload, PayloadProbeKind::Action, "結算傷害吸收" },
+    PayloadProbeDescriptor{ &borrowEffectRulesPayload, PayloadProbeKind::Action, "借用效果規則" },
+    PayloadProbeDescriptor{ &copyAttackDefinitionPayload, PayloadProbeKind::Action, "複製攻擊定義" },
+    PayloadProbeDescriptor{ &settleRemainingPoisonDamagePayload, PayloadProbeKind::Action, "結算剩餘中毒傷害" },
+    PayloadProbeDescriptor{ &generateClonesPayload, PayloadProbeKind::Action, "生成分身" },
+    PayloadProbeDescriptor{ &preventDeathPayload, PayloadProbeKind::Action, "死亡庇護" },
+    PayloadProbeDescriptor{ &configureProtectRepositionPayload, PayloadProbeKind::Action, "保護挪移" },
+    PayloadProbeDescriptor{ &configureExecuteRepositionPayload, PayloadProbeKind::Action, "處決挪移" },
     PayloadProbeDescriptor{ &conditionalPayload, PayloadProbeKind::Action, "條件分支" },
     PayloadProbeDescriptor{ &attackRuntimeBehaviorPayload, PayloadProbeKind::AttackRuntimeBehavior },
     PayloadProbeDescriptor{ &areaModifierPayload, PayloadProbeKind::AreaModifier },
@@ -2405,6 +2458,7 @@ static constexpr std::array payloadProbeDescriptors{
     PayloadProbeDescriptor{ &autoUltimatePayload, PayloadProbeKind::AutoUltimate },
     PayloadProbeDescriptor{ &attributePercentagePayload, PayloadProbeKind::AttributePercentage },
     PayloadProbeDescriptor{ &attributeBonusPayload, PayloadProbeKind::Macro, "屬性加成" },
+    PayloadProbeDescriptor{ &poisonMacroPayload, PayloadProbeKind::Macro, "施毒" },
     PayloadProbeDescriptor{ &resourceMacroPayload, PayloadProbeKind::Macro, "回復資源" },
     PayloadProbeDescriptor{ &healMacroPayload, PayloadProbeKind::Macro, "回復生命" },
     PayloadProbeDescriptor{ &forceMoveMacroPayload, PayloadProbeKind::Macro, "擊退" },
@@ -2430,6 +2484,33 @@ consteval bool descriptorIndicesCoverVariants(const std::array<Descriptor, Size>
         seen[descriptor.variantIndex] = true;
     }
     return std::ranges::all_of(seen, [](bool value) { return value; });
+}
+
+template <typename Variant, typename Descriptor, std::size_t Size>
+consteval bool descriptorIndicesCoverVariantsAllowingAliases(
+    const std::array<Descriptor, Size>& descriptors)
+{
+    std::array<bool, std::variant_size_v<Variant>> seen{};
+    for (const auto& descriptor : descriptors)
+    {
+        if (descriptor.variantIndex >= seen.size()) return false;
+        seen[descriptor.variantIndex] = true;
+    }
+    return std::ranges::all_of(seen, [](bool value) { return value; });
+}
+
+template <typename Variant, typename Descriptor, std::size_t Size>
+consteval bool descriptorIndicesAreUniqueAndInRange(
+    const std::array<Descriptor, Size>& descriptors)
+{
+    std::array<bool, std::variant_size_v<Variant>> seen{};
+    for (const auto& descriptor : descriptors)
+    {
+        if (descriptor.variantIndex >= seen.size() || seen[descriptor.variantIndex])
+            return false;
+        seen[descriptor.variantIndex] = true;
+    }
+    return true;
 }
 
 template <typename Left, std::size_t LeftSize, typename Right, std::size_t RightSize>
@@ -2525,10 +2606,9 @@ consteval bool payloadProbeRegistryIsComplete()
     return true;
 }
 
-static_assert(actionDescriptors.size() == std::variant_size_v<EffectActionValue>);
-static_assert(conditionDescriptors.size() == std::variant_size_v<EffectCondition>);
-static_assert(descriptorIndicesCoverVariants(actionDescriptors));
-static_assert(descriptorIndicesCoverVariants(conditionDescriptors));
+static_assert(conditionDescriptors.size() + 1 == std::variant_size_v<EffectCondition>);
+static_assert(descriptorIndicesCoverVariantsAllowingAliases<EffectActionValue>(actionDescriptors));
+static_assert(descriptorIndicesAreUniqueAndInRange<EffectCondition>(conditionDescriptors));
 static_assert(descriptorNamesAreUnique(timingDescriptors));
 static_assert(descriptorNamesAreUnique(actionDescriptors));
 static_assert(descriptorNamesAreUnique(conditionDescriptors));

@@ -349,9 +349,9 @@ TEST_CASE("internal skill configuration can override legacy names with Tradition
     TemporaryConfigDirectory files;
     const auto config = files.write(
         "chess_neigong.yaml",
-        "选择数量: 1\n"
-        "层级分配:\n"
-        "  - 层级: 1\n"
+        "選擇數量: 1\n"
+        "層級分配:\n"
+        "  - 層級: 1\n"
         "    武功: [93]\n"
         "名稱:\n"
         "  93: 聖火神功\n"

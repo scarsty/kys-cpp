@@ -15,18 +15,21 @@ else:
 
 print(f"Total roles in pool: {len(pool_roles)}")
 
-combos_list = combos_raw.get('羁绊', []) if isinstance(combos_raw, dict) else combos_raw
+combos_list = combos_raw.get('羈絆', []) if isinstance(combos_raw, dict) else combos_raw
+if not combos_list:
+    raise RuntimeError('未從 chess_combos.yaml 讀取到任何羈絆')
+print(f"Total synergies: {len(combos_list)}")
 violations = []
 
 for combo in combos_list:
-    members = set(combo.get('成员', []))
-    thresholds = combo.get('阈值', [])
-    max_threshold = max((t.get('人数', 0) for t in thresholds), default=0)
+    members = set(combo.get('成員', []))
+    thresholds = combo.get('閾值', [])
+    max_threshold = max((t.get('人數', 0) for t in thresholds), default=0)
 
     in_pool = members & pool_roles
 
     if len(in_pool) > 0 and len(in_pool) < max_threshold:
-        violations.append(f"{combo['名称']}: has {len(in_pool)} but needs {max_threshold}")
+        violations.append(f"{combo['名稱']}: has {len(in_pool)} but needs {max_threshold}")
 
 if violations:
     print("\nVIOLATIONS:")

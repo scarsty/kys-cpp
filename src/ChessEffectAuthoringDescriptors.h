@@ -1,11 +1,14 @@
 #pragma once
 
+#include "ChessBattleEffectConstraints.h"
 #include "ChessBattleEffectTypes.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string_view>
+#include <utility>
 
 namespace KysChess::EffectAuthoring
 {
@@ -125,6 +128,11 @@ struct ConditionDescriptor
     ConditionAuthorForm form;
     std::string_view singleParameterField;
     const PayloadDescriptor* payload;
+
+    constexpr EffectEventConstraint eventConstraint() const
+    {
+        return effectConditionConstraint(variantIndex);
+    }
 };
 
 enum class ActionPayloadKind
@@ -145,17 +153,75 @@ enum class ActionPayloadKind
     Conditional,
 };
 
+enum class EffectAuthoringTier
+{
+    Primitive,
+    Specialized,
+};
+
+enum class StateMachineMechanism
+{
+    ChangeStateValue,
+    TransferStateValue,
+    RecordMaximumSkillDamage,
+    ConsumeRecordAsDamage,
+    ConsumeRecordAsShield,
+    StartDamageAbsorption,
+    SettleDamageAbsorption,
+    BorrowEffectRules,
+    CopyAttackDefinition,
+    SettleRemainingStatusDamage,
+    GenerateClones,
+    PreventDeath,
+    ConfigureProtectReposition,
+    ConfigureExecuteReposition,
+};
+
+constexpr std::size_t stateMachineMechanismVariantIndex(
+    StateMachineMechanism mechanism)
+{
+    switch (mechanism)
+    {
+    case StateMachineMechanism::ChangeStateValue: return 0;
+    case StateMachineMechanism::TransferStateValue: return 1;
+    case StateMachineMechanism::RecordMaximumSkillDamage: return 2;
+    case StateMachineMechanism::ConsumeRecordAsDamage:
+    case StateMachineMechanism::ConsumeRecordAsShield: return 3;
+    case StateMachineMechanism::StartDamageAbsorption: return 4;
+    case StateMachineMechanism::SettleDamageAbsorption: return 5;
+    case StateMachineMechanism::BorrowEffectRules: return 6;
+    case StateMachineMechanism::CopyAttackDefinition: return 7;
+    case StateMachineMechanism::SettleRemainingStatusDamage: return 8;
+    case StateMachineMechanism::GenerateClones: return 9;
+    case StateMachineMechanism::PreventDeath: return 10;
+    case StateMachineMechanism::ConfigureProtectReposition:
+    case StateMachineMechanism::ConfigureExecuteReposition: return 11;
+    }
+    std::unreachable();
+}
+
 struct ActionDescriptor
 {
     std::string_view name;
     std::size_t variantIndex;
     ActionPayloadKind payloadKind;
     const PayloadDescriptor* payload;
+    EffectAuthoringTier tier = EffectAuthoringTier::Primitive;
+    std::optional<StateMachineMechanism> mechanism;
+
+    constexpr bool eventAllowed(EffectEvent event) const
+    {
+        return mechanism
+            ? effectStateMachineActionAllowedAtEvent(
+                stateMachineMechanismVariantIndex(*mechanism), event)
+            : effectActionAllowedAtEvent(variantIndex, event);
+    }
 };
 
 enum class MacroPayloadKind
 {
     AttributeBonus,
+    Poison,
     Resource,
     Number,
     Heal,
@@ -167,6 +233,12 @@ struct MacroDescriptor
     std::string_view name;
     MacroPayloadKind payloadKind;
     const PayloadDescriptor* payload;
+    std::size_t actionVariantIndex;
+
+    constexpr bool eventAllowed(EffectEvent event) const
+    {
+        return effectActionAllowedAtEvent(actionVariantIndex, event);
+    }
 };
 
 std::span<const TimingDescriptor> timingDescriptors();
