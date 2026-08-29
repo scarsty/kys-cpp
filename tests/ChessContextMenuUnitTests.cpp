@@ -96,13 +96,15 @@ TEST_CASE("overview menu groups strategy and reference screens", "[chess][contex
                                "查看羈絆",
                                "棋子一覽",
                                "查看內功",
+                               "效果全覽",
                            });
-    REQUIRE(items.size() == 5);
+    REQUIRE(items.size() == 6);
     CHECK(items[0].action == ChessContextMenuAction::ShowPositionSwap);
     CHECK(items[1].action == ChessContextMenuAction::RerollBattleSeed);
     CHECK(items[2].action == ChessContextMenuAction::ViewCombos);
     CHECK(items[3].action == ChessContextMenuAction::ViewChessPool);
     CHECK(items[4].action == ChessContextMenuAction::ViewNeigong);
+    CHECK(items[5].action == ChessContextMenuAction::ViewEffects);
 }
 
 TEST_CASE("equipment menu puts legendary shop second once unlocked", "[chess][context-menu]")

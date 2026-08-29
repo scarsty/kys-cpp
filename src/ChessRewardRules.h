@@ -7,6 +7,8 @@
 namespace KysChess
 {
 
+const char* chessRewardTierLabel(int tier);
+
 std::string chessChallengeRewardDescription(
     const ChessGameContent& content,
     const BalanceConfig::ChallengeReward& reward);

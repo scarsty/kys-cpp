@@ -69,7 +69,7 @@ BattleRuntimeSessionCreationInput actionProjectileSessionInput()
     return input;
 }
 
-ChessMagicEffectDefinition realUltimateDefinition(int magicId, bool enabled)
+ChessMagicEffectDefinition realUltimateDefinition(int magicId)
 {
     std::vector<ChessMagicEffectDefinition> definitions;
     const auto path = std::filesystem::current_path()
@@ -87,9 +87,7 @@ ChessMagicEffectDefinition realUltimateDefinition(int magicId, bool enabled)
     {
         throw std::runtime_error("頂層大招設定缺少測試武功");
     }
-    auto result = *definition;
-    result.enabled = enabled;
-    return result;
+    return *definition;
 }
 
 BattleActionSkillSeed verticalSliceSkill(int magicId, int magicType = 1)
@@ -162,7 +160,6 @@ std::optional<BattlePresentationFrame> runUntil(
 
 BattleRuntimeSessionCreationInput singleUltimateInput(
     int magicId,
-    bool enabled,
     int casterStar = 1,
     int magicType = 1,
     Pointf targetPosition = { 300, 100, 0 })
@@ -192,7 +189,7 @@ BattleRuntimeSessionCreationInput singleUltimateInput(
     target.stats.defence = 100;
     input.units.push_back(target);
     input.setup.magicEffectDefinitions.push_back(
-        realUltimateDefinition(magicId, enabled));
+        realUltimateDefinition(magicId));
     return input;
 }
 
@@ -225,7 +222,7 @@ BattleRuntimeSessionCreationInput divineFlickInput(
     target.frozenMax = 1000;
     input.units.push_back(target);
     input.setup.magicEffectDefinitions.push_back(
-        realUltimateDefinition(DivineFlickMagicId, true));
+        realUltimateDefinition(DivineFlickMagicId));
     return input;
 }
 
@@ -298,7 +295,6 @@ ChessMagicEffectDefinition copyRuntimeDefinition()
         .magicId = CopyRuntimeMagicId,
         .name = "測試複製武功",
         .rules = { std::move(rule), std::move(sourceRule) },
-        .enabled = true,
     };
 }
 
@@ -502,7 +498,7 @@ TEST_CASE("BattleRuntimeScenario_RealQingnangHealsLowestHpAlly", "[battle][scena
     input.units.push_back(verticalSliceUnit(
         3, 1, 10000, 10000, 0, { 300, 100, 0 }));
     input.setup.magicEffectDefinitions.push_back(
-        realUltimateDefinition(127, true));
+        realUltimateDefinition(127));
 
     auto state = initializedVerticalSliceState(std::move(input));
     const auto committed = runUntil(state, 180, [](const auto& runtime, const auto&)
@@ -632,7 +628,6 @@ TEST_CASE("BattleRuntimeScenario_RealShenzhaoSpends75MpAndGrantsStarShield", "[b
 {
     auto state = initializedVerticalSliceState(singleUltimateInput(
         94,
-        true,
         3,
         1,
         { 220, 100, 0 }));
@@ -668,70 +663,36 @@ TEST_CASE("BattleRuntimeScenario_RealWitheredBoneModifiesHitAndHealTransactions"
         });
     };
 
-    auto baselineInput = singleUltimateInput(
-        11,
-        false,
-        1,
-        1,
-        { 220, 100, 0 });
-    baselineInput.units[1].vitals.hp = 5000;
-    auto baseline = initializedVerticalSliceState(std::move(baselineInput));
-    const auto baselineHit = runUntil(baseline, 100, [&](const auto&, const auto& frame)
-    {
-        return dealtDamage(frame);
-    });
-    REQUIRE(baselineHit);
-    const auto baselineDamage = std::ranges::find_if(
-        baselineHit->logEvents,
-        [](const auto& event)
-        {
-            return event.type == BattleLogEventType::Damage
-                && event.sourceUnitId == 0
-                && event.targetUnitId == 1;
-        });
-    REQUIRE(baselineDamage != baselineHit->logEvents.end());
-    CHECK(baselineDamage->amount == 66);
-    const auto baselineStatus = BattleStatusSystem({}).snapshot(
-        baseline.units.require(1).statusDamageState());
-    CHECK_FALSE(baselineStatus.has(BattleStatusKind::WitheredBone));
-
     BattleHealRequest heal;
     heal.sourceUnitId = 0;
     heal.targetUnitId = 1;
     heal.kind = BattleHealKind::Direct;
     heal.amount = fixedHealAmount(1000);
-    const auto baselineHeal = BattleHealSystem().commit(baseline, heal);
-    CHECK(baselineHeal.calculatedAmount == 1000);
-    CHECK(baselineHeal.modifiedAmount == 1000);
-    CHECK(baselineHeal.appliedAmount == 1000);
-
-    auto enabledInput = singleUltimateInput(
+    auto input = singleUltimateInput(
         11,
-        true,
         1,
         1,
         { 220, 100, 0 });
-    enabledInput.units[1].vitals.hp = 5000;
-    auto enabled = initializedVerticalSliceState(std::move(enabledInput));
-    const auto enhancedHit = runUntil(enabled, 100, [&](const auto&, const auto& frame)
+    input.units[1].vitals.hp = 5000;
+    auto state = initializedVerticalSliceState(std::move(input));
+    const auto hit = runUntil(state, 100, [&](const auto&, const auto& frame)
     {
         return dealtDamage(frame);
     });
-    REQUIRE(enhancedHit);
-    const auto enhancedDamage = std::ranges::find_if(
-        enhancedHit->logEvents,
+    REQUIRE(hit);
+    const auto damage = std::ranges::find_if(
+        hit->logEvents,
         [](const auto& event)
         {
             return event.type == BattleLogEventType::Damage
                 && event.sourceUnitId == 0
                 && event.targetUnitId == 1;
         });
-    REQUIRE(enhancedDamage != enhancedHit->logEvents.end());
-    CHECK(enhancedDamage->amount == 82);
-    CHECK(enhancedDamage->amount == baselineDamage->amount * 125 / 100);
+    REQUIRE(damage != hit->logEvents.end());
+    CHECK(damage->amount == 82);
 
     const auto status = BattleStatusSystem({}).snapshot(
-        enabled.units.require(1).statusDamageState());
+        state.units.require(1).statusDamageState());
     CHECK(status.has(BattleStatusKind::WitheredBone));
     CHECK(status.potency(BattleStatusKind::WitheredBone) == 25);
     CHECK(status.secondaryPotency(BattleStatusKind::WitheredBone) == 75);
@@ -739,7 +700,7 @@ TEST_CASE("BattleRuntimeScenario_RealWitheredBoneModifiesHitAndHealTransactions"
     REQUIRE(status.receivedHealMultipliersPct.size() == 1);
     CHECK(status.receivedHealMultipliersPct.front() == 25);
 
-    const auto healed = BattleHealSystem().commit(enabled, heal);
+    const auto healed = BattleHealSystem().commit(state, heal);
     CHECK(healed.calculatedAmount == 1000);
     CHECK(healed.modifiedAmount == 250);
     CHECK(healed.appliedAmount == 250);
@@ -749,7 +710,6 @@ TEST_CASE("BattleRuntimeScenario_RealFiveTigerSpawnsFanAndDebuffsDefence", "[bat
 {
     auto state = initializedVerticalSliceState(singleUltimateInput(
         59,
-        true,
         1,
         3,
         { 220, 100, 0 }));
@@ -844,7 +804,6 @@ TEST_CASE("BattleRuntimeScenario_RealSunflowerSpawnsAfterimagesWithTheRootAttack
 {
     auto input = singleUltimateInput(
         105,
-        true,
         1,
         1,
         { 300, 100, 0 });

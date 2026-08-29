@@ -643,10 +643,6 @@ auto magicEffectContentViews(const std::vector<ChessMagicEffectDefinition>& defi
     result.reserve(definitions.size());
     for (const auto& definition : definitions)
     {
-        if (!definition.enabled)
-        {
-            continue;
-        }
         result.emplace_back(
             definition.magicId,
             effectRuleContentViews(definition.rules));

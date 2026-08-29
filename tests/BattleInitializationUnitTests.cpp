@@ -547,9 +547,9 @@ TEST_CASE("BattleStartInitializer records only active anti-combo initialization 
               .metadata.binding.ownerUnitId == 0);
 }
 
-TEST_CASE("BattleRuntimeSession_LoadsOnlyEnabledSelectedUltimateRulesOnce", "[battle][initialization][effect_rule]")
+TEST_CASE("BattleRuntimeSession_LoadsSelectedUltimateRulesOnce", "[battle][initialization][effect_rule]")
 {
-    auto makeInput = [](bool enabled)
+    auto makeInput = []
     {
         BattleRuntimeSessionCreationInput input;
         input.rules = makeHadesBattleRuntimeRules(36.0, 18);
@@ -594,7 +594,6 @@ TEST_CASE("BattleRuntimeSession_LoadsOnlyEnabledSelectedUltimateRulesOnce", "[ba
             .magicId = 59,
             .name = "五虎斷門刀",
             .rules = { firstRule, secondRule, periodicRule },
-            .enabled = enabled,
         });
 
         EffectRule unselectedRule;
@@ -609,20 +608,13 @@ TEST_CASE("BattleRuntimeSession_LoadsOnlyEnabledSelectedUltimateRulesOnce", "[ba
             .magicId = 26,
             .name = "降龍十八掌",
             .rules = { unselectedRule },
-            .enabled = true,
         });
         return input;
     };
 
-    SECTION("停用定義不進入 runtime store")
-    {
-        auto session = BattleRuntimeSession::createInitialized(makeInput(false)).session;
-        CHECK(session.runtime().effectRules.rules().empty());
-    }
-
     SECTION("normal 與 ultimate 相同也只按 selected ultimate 載入一次")
     {
-        auto session = BattleRuntimeSession::createInitialized(makeInput(true)).session;
+        auto session = BattleRuntimeSession::createInitialized(makeInput()).session;
         const auto& store = session.runtime().effectRules;
         const auto rules = store.rules();
         REQUIRE(rules.size() == 3);

@@ -36,6 +36,7 @@ private:
     void viewCombos();
     void viewChessPool();
     void viewNeigong();
+    void viewEffects();
     void showGameGuide();
     void showSystemSettings();
     ChessGuiFlowResult chooseChallenge(const ChessLegalActionDescriptor& descriptor);

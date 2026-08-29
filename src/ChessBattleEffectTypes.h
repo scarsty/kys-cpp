@@ -1025,7 +1025,6 @@ struct ChessMagicEffectDefinition
     std::string name;
     std::vector<EffectRule> rules;
     std::string purpose;
-    bool enabled = true;
 };
 
 }  // namespace KysChess

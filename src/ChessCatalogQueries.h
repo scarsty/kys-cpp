@@ -4,6 +4,7 @@
 #include "ChessGameContent.h"
 #include "ChessSessionTypes.h"
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -90,6 +91,25 @@ struct ChessEquipmentMetadata
     std::vector<std::string> countsAsCombos;
     std::vector<ChessEquipmentCharacterBonusMetadata> characterBonuses;
     std::string comboCountingNote;
+};
+
+enum class ChessEffectCatalogSource
+{
+    Magic,
+    Equipment,
+    EquipmentSynergy,
+    Neigong,
+    ComboThreshold,
+};
+
+struct ChessEffectCatalogEntry
+{
+    ChessEffectCatalogSource source{};
+    std::string sourceName;
+    std::string sourceContext;
+    std::size_t ruleOrdinal{};
+    std::size_t sourceRuleCount{};
+    RenderedEffectDescription effects;
 };
 
 struct ChessNamedId
@@ -198,5 +218,8 @@ ChessComboMetadata chessComboMetadata(
 ChessChallengeMetadata chessChallengeMetadata(
     const ChessGameContent& content,
     const BalanceConfig::ChallengeDef& challenge);
+const char* chessEffectCatalogSourceLabel(ChessEffectCatalogSource source);
+std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
+    const ChessGameContent& content);
 
 }  // namespace KysChess

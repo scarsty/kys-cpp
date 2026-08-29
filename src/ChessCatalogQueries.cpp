@@ -53,6 +53,22 @@ bool hasDescriptionRows(const RenderedEffectDescription& description)
     return !description.sections.empty();
 }
 
+std::string joinedRoleNames(
+    const ChessGameContent& content,
+    std::span<const int> roleIds)
+{
+    assert(!roleIds.empty());
+    std::string result;
+    for (std::size_t index = 0; index < roleIds.size(); ++index)
+    {
+        const auto* role = content.role(roleIds[index]);
+        assert(role);
+        if (index > 0) result += "、";
+        result += role->Name;
+    }
+    return result;
+}
+
 void appendStandaloneDescriptionRow(
     RenderedEffectDescription& description,
     std::string text)
@@ -596,6 +612,118 @@ ChessChallengeMetadata chessChallengeMetadata(
             result.summaryDescription += "、";
         }
         result.summaryDescription += description;
+    }
+    return result;
+}
+
+const char* chessEffectCatalogSourceLabel(ChessEffectCatalogSource source)
+{
+    switch (source)
+    {
+    case ChessEffectCatalogSource::Magic: return "絕招";
+    case ChessEffectCatalogSource::Equipment: return "裝備";
+    case ChessEffectCatalogSource::EquipmentSynergy: return "專屬";
+    case ChessEffectCatalogSource::Neigong: return "內功";
+    case ChessEffectCatalogSource::ComboThreshold: return "羈絆";
+    }
+    std::unreachable();
+}
+
+std::vector<ChessEffectCatalogEntry> chessEffectCatalog(
+    const ChessGameContent& content)
+{
+    std::vector<ChessEffectCatalogEntry> result;
+    const auto appendRules = [&result](
+        ChessEffectCatalogSource source,
+        const std::string& sourceName,
+        const std::string& sourceContext,
+        EffectDescriptionContainerKind containerKind,
+        std::span<const EffectRule> rules)
+    {
+        for (std::size_t index = 0; index < rules.size(); ++index)
+        {
+            const auto document = buildEffectDescriptionDocument({
+                containerKind,
+                std::span<const EffectRule>{&rules[index], 1},
+            });
+            result.push_back({
+                .source = source,
+                .sourceName = sourceName,
+                .sourceContext = sourceContext,
+                .ruleOrdinal = index + 1,
+                .sourceRuleCount = rules.size(),
+                .effects = renderEffectDescription(
+                    document,
+                    EffectDescriptionStyle::Full,
+                    {}),
+            });
+        }
+    };
+
+    for (const auto& definition : content.magicEffects())
+    {
+        appendRules(
+            ChessEffectCatalogSource::Magic,
+            definition.name,
+            std::format("武功 ID {}", definition.magicId),
+            EffectDescriptionContainerKind::Magic,
+            definition.rules);
+    }
+
+    for (const auto& definition : content.equipment())
+    {
+        appendRules(
+            ChessEffectCatalogSource::Equipment,
+            chessItemDisplayName(content, definition.itemId),
+            std::format("{} · {} · 裝備 ID {}",
+                chessRewardTierLabel(definition.tier),
+                chessEquipmentTypeName(definition.equipType),
+                definition.itemId),
+            EffectDescriptionContainerKind::Equipment,
+            definition.rules);
+    }
+
+    for (const auto& synergy : content.equipmentSynergies())
+    {
+        const auto& equipment = requireEquipment(content, synergy.equipmentId);
+        const auto roles = joinedRoleNames(content, synergy.roleIds);
+        appendRules(
+            ChessEffectCatalogSource::EquipmentSynergy,
+            std::format("{} · {}",
+                chessItemDisplayName(content, synergy.equipmentId),
+                roles),
+            std::format("{}專屬 · {} · {} · 裝備 ID {}",
+                roles,
+                chessRewardTierLabel(equipment.tier),
+                chessEquipmentTypeName(equipment.equipType),
+                synergy.equipmentId),
+            EffectDescriptionContainerKind::EquipmentSynergy,
+            synergy.rules);
+    }
+
+    for (const auto& definition : content.neigong())
+    {
+        appendRules(
+            ChessEffectCatalogSource::Neigong,
+            definition.name,
+            std::format("{} · 武功 ID {}",
+                chessRewardTierLabel(definition.tier),
+                definition.magicId),
+            EffectDescriptionContainerKind::Neigong,
+            definition.rules);
+    }
+
+    for (const auto& combo : content.combos())
+    {
+        for (const auto& threshold : combo.thresholds)
+        {
+            appendRules(
+                ChessEffectCatalogSource::ComboThreshold,
+                std::format("{} · {}", combo.name, threshold.name),
+                std::format("{}人門檻 · 羈絆 ID {}", threshold.count, combo.id),
+                EffectDescriptionContainerKind::ComboThreshold,
+                threshold.rules);
+        }
     }
     return result;
 }

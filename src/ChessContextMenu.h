@@ -28,6 +28,7 @@ enum class ChessContextMenuAction
     ViewCombos,
     ViewChessPool,
     ViewNeigong,
+    ViewEffects,
     ShowGameGuide,
     ShowEquipmentInventory,
     BuyLegendaryEquipment,

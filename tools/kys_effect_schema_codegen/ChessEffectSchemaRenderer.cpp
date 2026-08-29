@@ -709,7 +709,6 @@ std::expected<JsonValue, std::string> rootSchema(std::string_view kind)
             { "效果", ruleList },
         }, { "武功", "名稱", "效果" });
         return objectSchema({
-            { "啟用", object({{ "type", "boolean" }}) },
             { "絕招", object({
                 { "type", "array" },
                 { "items", magic },

@@ -1285,56 +1285,6 @@ TEST_CASE("ChessMagicEffectDisplay_FitsWrappedEffectsInOneBoundedColumn",
     CHECK(wrappedEffect == rows.back().text);
 }
 
-TEST_CASE("ChessBattleEffects_DisabledMagicEffectsRemainAvailableForValidationAndDisplay", "[battle][effects][magic]")
-{
-    auto root = YAML::Load(R"(
-啟用: false
-絕招:
-  - 武功: 26
-    名稱: 降龍十八掌
-    效果:
-      - 時機: 主彈命中
-        目標: 命中目標
-        動作:
-          - 套用狀態:
-              狀態: 眩暈
-              持續幀數: 14
-              合併方式: 刷新
-)");
-
-    std::vector<ChessMagicEffectDefinition> definitions;
-    REQUIRE(parseMagicEffects(root, definitions, "停用武功效果"));
-    REQUIRE(definitions.size() == 1);
-    CHECK_FALSE(definitions[0].enabled);
-
-    Magic normal;
-    normal.ID = 5;
-    normal.Name = "寒冰綿掌";
-    Magic ultimate;
-    ultimate.ID = 26;
-    ultimate.Name = "降龍十八掌";
-
-    std::vector<const MagicSave*> magics{ &normal, &ultimate };
-    auto rows = buildChessMagicEffectDisplayRows(magics, definitions, ultimate.ID);
-
-    REQUIRE(rows.size() >= 3);
-    CHECK(rows[0].kind == ChessMagicEffectDisplayLineKind::Skill);
-    CHECK(rows[0].text == "寒冰綿掌");
-    CHECK_FALSE(rows[0].ultimate);
-    CHECK(rows[1].kind == ChessMagicEffectDisplayLineKind::Skill);
-    CHECK(rows[1].text == "降龍十八掌");
-    CHECK(rows[1].ultimate);
-    for (std::size_t index = 2; index < rows.size(); ++index)
-        CHECK(rows[index].kind == ChessMagicEffectDisplayLineKind::Effect);
-    REQUIRE(definitions[0].rules.size() == 1);
-    std::string disabledEffectText;
-    for (std::size_t index = 2; index < rows.size(); ++index)
-        disabledEffectText += rows[index].text;
-    CHECK(disabledEffectText.find("主彈命中") != std::string::npos);
-    CHECK(disabledEffectText.find("眩暈") != std::string::npos);
-    CHECK(disabledEffectText.find("14幀") != std::string::npos);
-}
-
 TEST_CASE("ChessBattleEffects_MagicYamlRejectsDuplicateIdsAndComboMemberSelectors", "[battle][effects][magic]")
 {
     const auto duplicate = YAML::Load(R"(
@@ -1380,7 +1330,7 @@ TEST_CASE("ChessBattleEffects_MagicYamlRejectsDuplicateIdsAndComboMemberSelector
         comboMemberSelector, definitions, "非法羈絆成員目標"));
 }
 
-TEST_CASE("ChessBattleEffects_RealEnabledUltimateSchemaValidatesAllDefinitions", "[battle][effects][magic][schema]")
+TEST_CASE("ChessBattleEffects_RealUltimateSchemaValidatesAllDefinitions", "[battle][effects][magic][schema]")
 {
     std::vector<ChessMagicEffectDefinition> definitions;
     const auto path = std::filesystem::current_path() / "config" / "chess_magic_effects.yaml";
@@ -1388,7 +1338,7 @@ TEST_CASE("ChessBattleEffects_RealEnabledUltimateSchemaValidatesAllDefinitions",
     REQUIRE(loadMagicEffectsFile(path.string(), definitions));
     REQUIRE(definitions.size() == 59);
     CHECK(std::ranges::all_of(definitions, [](const auto& definition) {
-        return definition.enabled && !definition.rules.empty();
+        return !definition.rules.empty();
     }));
 
     std::set<int> ids;
@@ -4622,7 +4572,6 @@ TEST_CASE("ChessBattleEffects_UltimateDefinitionsCoverStandardHardAndEasyPools",
     std::set<int> configuredIds;
     for (const auto& definition : normal->magicEffects())
     {
-        CHECK(definition.enabled);
         configuredIds.insert(definition.magicId);
     }
     CHECK(configuredIds == normalUltimates);

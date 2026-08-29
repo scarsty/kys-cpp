@@ -3,6 +3,7 @@
 #include "ChessManagementRules.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <format>
 #include <set>
@@ -10,6 +11,16 @@
 
 namespace KysChess
 {
+
+const char* chessRewardTierLabel(int tier)
+{
+    static constexpr std::array<const char*, 4> labels{
+        "初階", "中階", "高階", "傳說",
+    };
+    assert(tier >= 1 && tier <= static_cast<int>(labels.size()));
+    return labels[tier - 1];
+}
+
 namespace
 {
 

@@ -2326,21 +2326,8 @@ bool parseMagicEffects(
         return reportMagicLoadError(root, context, "根節點必須是映射表", diagnostics);
     }
 
-    bool effectsEnabled = true;
-    if (const auto enabled = root["啟用"])
-    {
-        try
-        {
-            effectsEnabled = enabled.as<bool>();
-        }
-        catch (const YAML::Exception& ex)
-        {
-            return reportMagicLoadError(enabled, context, std::format("「啟用」欄位不是有效布林值: {}", ex.what()), diagnostics);
-        }
-    }
-
     std::string rootError;
-    if (!validateKnownKeys(root, { "啟用", "絕招" }, rootError))
+    if (!validateKnownKeys(root, { "絕招" }, rootError))
     {
         return reportMagicLoadError(root, context, rootError, diagnostics);
     }
@@ -2364,7 +2351,6 @@ bool parseMagicEffects(
             return reportMagicLoadError(entryNode, context, entryError, diagnostics);
 
         ChessMagicEffectDefinition definition;
-        definition.enabled = effectsEnabled;
         try
         {
             if (!entryNode["武功"] || !entryNode["名稱"])

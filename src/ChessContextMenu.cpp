@@ -39,6 +39,7 @@ std::vector<ChessContextMenuItem> buildChessOverviewMenu()
         {"查看羈絆", ChessContextMenuAction::ViewCombos},
         {"棋子一覽", ChessContextMenuAction::ViewChessPool},
         {"查看內功", ChessContextMenuAction::ViewNeigong},
+        {"效果全覽", ChessContextMenuAction::ViewEffects},
     };
 }
 

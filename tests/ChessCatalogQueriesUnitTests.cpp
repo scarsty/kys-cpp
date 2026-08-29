@@ -1,6 +1,12 @@
 #include "ChessCatalogQueries.h"
+#include "ChessGameSessionTestHelpers.h"
+#include "ChessUiCommon.h"
 
 #include <catch2/catch_test_macros.hpp>
+
+#include <format>
+#include <iterator>
+#include <ranges>
 
 using namespace KysChess;
 
@@ -60,6 +66,15 @@ ChessGameContent catalogContent()
     magic.AttackDistance = 2;
     data.magics.emplace(magic.ID, magic);
 
+    ChessMagicEffectDefinition magicEffects;
+    magicEffects.magicId = magic.ID;
+    magicEffects.name = magic.Name;
+    magicEffects.rules = {
+        attributeRule(BattleAttribute::Attack, 4),
+        attributeRule(BattleAttribute::Speed, 5),
+    };
+    data.magicEffects.push_back(std::move(magicEffects));
+
     ChessItemDefinition item;
     item.id = 500;
     item.equipType = 0;
@@ -92,6 +107,14 @@ ChessGameContent catalogContent()
         {attributeRule(BattleAttribute::Attack, 10)},
     });
     data.combos.push_back(std::move(combo));
+
+    NeigongDef neigong;
+    neigong.magicId = 700;
+    neigong.itemId = 701;
+    neigong.tier = 3;
+    neigong.name = "共用內功";
+    neigong.rules.push_back(attributeRule(BattleAttribute::MaxHp, 30));
+    data.neigong.push_back(std::move(neigong));
 
     ChessBattleMapDefinition map;
     map.id = 900;
@@ -135,7 +158,9 @@ TEST_CASE("catalog role and equipment metadata preserve normalized semantics", "
     REQUIRE(role.abilities.size() == 1);
     CHECK(role.abilities.front().powerByStar == std::vector<ChessAbilityStarPower>{{1, 45}, {2, 60}});
     CHECK(role.abilities.front().geometry == "範圍；可選擇距離 4 格內的中心，影響中心周圍方形半徑 2 格");
-    CHECK(role.abilities.front().effectNote.contains("沒有額外配置"));
+    CHECK(role.abilities.front().effectNote.empty());
+    CHECK(joinEffectDescriptionRows(role.abilities.front().effects).contains("攻擊+4"));
+    CHECK(joinEffectDescriptionRows(role.abilities.front().effects).contains("速度+5"));
     CHECK(role.combos == std::vector<std::string>{"共用羈絆"});
 
     const auto equipment = chessEquipmentMetadata(content, 500);
@@ -189,4 +214,112 @@ TEST_CASE("catalog combo and challenge metadata retain provenance and ordering",
     REQUIRE(challenge.enemies.front().weapon);
     CHECK(challenge.enemies.front().weapon->name == "共用寶劍");
     CHECK(challenge.rewards == std::vector<std::string>{"獲取9金幣"});
+}
+
+TEST_CASE("effect catalog covers every configured runtime rule by source",
+          "[chess][catalog][effects]")
+{
+    const auto content = catalogContent();
+    const auto catalog = chessEffectCatalog(content);
+
+    REQUIRE(catalog.size() == 6);
+    CHECK(std::ranges::count(catalog, ChessEffectCatalogSource::Magic,
+              &ChessEffectCatalogEntry::source)
+        == 2);
+    CHECK(std::ranges::count(catalog, ChessEffectCatalogSource::Equipment,
+              &ChessEffectCatalogEntry::source)
+        == 1);
+    CHECK(std::ranges::count(catalog, ChessEffectCatalogSource::EquipmentSynergy,
+              &ChessEffectCatalogEntry::source)
+        == 1);
+    CHECK(std::ranges::count(catalog, ChessEffectCatalogSource::Neigong,
+              &ChessEffectCatalogEntry::source)
+        == 1);
+    CHECK(std::ranges::count(catalog, ChessEffectCatalogSource::ComboThreshold,
+              &ChessEffectCatalogEntry::source)
+        == 1);
+
+    CHECK(catalog[0].sourceName == "共用掌法");
+    CHECK(catalog[0].ruleOrdinal == 1);
+    CHECK(catalog[0].sourceRuleCount == 2);
+    CHECK(catalog[1].ruleOrdinal == 2);
+    CHECK(joinEffectDescriptionRows(catalog[0].effects).contains("攻擊+4"));
+
+    const auto synergy = std::ranges::find(
+        catalog,
+        ChessEffectCatalogSource::EquipmentSynergy,
+        &ChessEffectCatalogEntry::source);
+    REQUIRE(synergy != catalog.end());
+    CHECK(synergy->sourceName == "共用寶劍 · 共用查詢棋子");
+    CHECK(synergy->sourceContext.contains("共用查詢棋子專屬"));
+    CHECK(effectDescriptionTextRows(synergy->effects)
+        == std::vector<std::string>{"速度+5"});
+
+    const auto combo = std::ranges::find(
+        catalog,
+        ChessEffectCatalogSource::ComboThreshold,
+        &ChessEffectCatalogEntry::source);
+    REQUIRE(combo != catalog.end());
+    CHECK(combo->sourceName == "共用羈絆 · 啟動");
+    CHECK(combo->sourceContext.contains("1人門檻"));
+    CHECK(chessEffectCatalogSourceLabel(combo->source) == std::string_view{"羈絆"});
+}
+
+TEST_CASE("formal effect catalog renders every configured rule at readable panel size",
+          "[chess][catalog][effects][content]")
+{
+    const auto content = Test::actualContent(Difficulty::Normal);
+    REQUIRE(content);
+
+    std::size_t configuredRuleCount{};
+    for (const auto& definition : content->magicEffects())
+        configuredRuleCount += definition.rules.size();
+    for (const auto& definition : content->equipment())
+        configuredRuleCount += definition.rules.size();
+    for (const auto& definition : content->equipmentSynergies())
+        configuredRuleCount += definition.rules.size();
+    for (const auto& definition : content->neigong())
+        configuredRuleCount += definition.rules.size();
+    for (const auto& combo : content->combos())
+        for (const auto& threshold : combo.thresholds)
+            configuredRuleCount += threshold.rules.size();
+
+    const auto catalog = chessEffectCatalog(*content);
+    REQUIRE(catalog.size() == configuredRuleCount);
+    REQUIRE_FALSE(catalog.empty());
+    CHECK(std::ranges::is_sorted(catalog, {}, &ChessEffectCatalogEntry::source));
+
+    constexpr int minimumDetailWidth = 540;
+    constexpr int detailHeight = 590;
+    constexpr int minimumFontSize = 14;
+    for (const auto& entry : catalog)
+    {
+        CAPTURE(entry.sourceName, entry.sourceContext,
+            entry.ruleOrdinal, entry.sourceRuleCount);
+        CHECK(entry.ruleOrdinal >= 1);
+        CHECK(entry.ruleOrdinal <= entry.sourceRuleCount);
+        REQUIRE_FALSE(entry.effects.sections.empty());
+
+        std::vector<PanelTextSourceRow> rows{
+            { .text = entry.sourceName, .fontSizeDelta = 5, .spacingAfter = 4 },
+            { .text = std::format("{}效果 · 配置 {}/{}",
+                  chessEffectCatalogSourceLabel(entry.source),
+                  entry.ruleOrdinal,
+                  entry.sourceRuleCount),
+              .fontSizeDelta = 1,
+              .spacingAfter = 3 },
+            { .text = entry.sourceContext,
+              .fontSizeDelta = -2,
+              .spacingAfter = 12 },
+        };
+        auto effectRows = panelTextRowsForEffectDescription(entry.effects);
+        rows.insert(rows.end(),
+            std::make_move_iterator(effectRows.begin()),
+            std::make_move_iterator(effectRows.end()));
+        const auto layout = layoutPanelText(
+            rows,
+            minimumDetailWidth,
+            minimumFontSize);
+        CHECK(layout.height <= detailHeight);
+    }
 }

@@ -250,12 +250,17 @@ const char* tierLabel(int tier)
     return labels[std::clamp(tier, 1, 5) - 1];
 }
 
-const char* rewardTierLabel(int tier)
+Color effectCatalogSourceColor(ChessEffectCatalogSource source)
 {
-    static constexpr std::array<const char*, 4> labels{
-        "初階", "中階", "高階", "傳說",
-    };
-    return labels[std::clamp(tier, 1, 4) - 1];
+    switch (source)
+    {
+    case ChessEffectCatalogSource::Magic: return {255, 140, 255, 255};
+    case ChessEffectCatalogSource::Equipment: return {255, 220, 100, 255};
+    case ChessEffectCatalogSource::EquipmentSynergy: return {255, 170, 100, 255};
+    case ChessEffectCatalogSource::Neigong: return {120, 255, 160, 255};
+    case ChessEffectCatalogSource::ComboThreshold: return {130, 210, 255, 255};
+    }
+    std::unreachable();
 }
 
 struct BattlePreviewUnit
@@ -700,7 +705,7 @@ void drawEquipmentDetail(
     };
     constexpr Color metadataLabelColor{220, 220, 190, 255};
     drawMetadata("層級: ", metadataLabelColor);
-    drawMetadata(rewardTierLabel(equipment.tier), chessRewardTierColor(equipment.tier));
+    drawMetadata(chessRewardTierLabel(equipment.tier), chessRewardTierColor(equipment.tier));
     drawMetadata("　類型: ", metadataLabelColor);
     drawMetadata(chessEquipmentTypeName(equipment.equipType), chessEquipmentTypeColor(equipment.equipType));
     header.skip(fontSize + 4);
@@ -849,7 +854,7 @@ void drawNeigongDetail(
     PanelTextCursor header{Font::getInstance(), frame.x + 100, frame.y + 10};
     header.line(neigong.name, fontSize + 4, {255, 255, 100, 255}, 6);
     header.line(
-        std::format("層級: {}", rewardTierLabel(neigong.tier)),
+        std::format("層級: {}", chessRewardTierLabel(neigong.tier)),
         fontSize,
         chessRewardTierColor(neigong.tier));
     if (showOwnedState)
@@ -3511,7 +3516,7 @@ void ChessGuiSessionAdapter::showEquipmentInventory()
             const std::string name = item ? item->name : std::format("裝備 {}", row.definition->itemId);
             const auto* instance = equipmentInstance(session_.state(), row.instanceId);
             labelRows.push_back({
-                chessMenuPrefixWithSeparator(std::format("[{}]", rewardTierLabel(row.definition->tier))),
+                chessMenuPrefixWithSeparator(std::format("[{}]", chessRewardTierLabel(row.definition->tier))),
                 name,
                 chessEquipmentAssignmentColumn(instance && instance->assignedChessInstanceId >= 0),
                 {},
@@ -3726,6 +3731,7 @@ void ChessGuiSessionAdapter::showOverviewMenu()
     case ChessContextMenuAction::ViewCombos: viewCombos(); break;
     case ChessContextMenuAction::ViewChessPool: viewChessPool(); break;
     case ChessContextMenuAction::ViewNeigong: viewNeigong(); break;
+    case ChessContextMenuAction::ViewEffects: viewEffects(); break;
     default: assert(false); break;
     }
 }
@@ -4178,7 +4184,7 @@ void ChessGuiSessionAdapter::viewNeigong()
     {
         const bool owned = session_.state().obtainedNeigongIds.contains(neigong.magicId);
         labelRows.push_back({
-            chessMenuPrefixWithSeparator(std::format("[{}]", rewardTierLabel(neigong.tier))),
+            chessMenuPrefixWithSeparator(std::format("[{}]", chessRewardTierLabel(neigong.tier))),
             neigong.name,
             owned ? " ✓" : "",
             {},
@@ -4201,6 +4207,96 @@ void ChessGuiSessionAdapter::viewNeigong()
         anchor,
         {detail},
         false);
+}
+
+void ChessGuiSessionAdapter::viewEffects()
+{
+    auto entries = chessEffectCatalog(session_.content());
+    const auto effectCount = entries.size();
+    SessionMenuData data;
+    std::vector<ChessMenuColumnRow> labelRows;
+    labelRows.reserve(entries.size());
+    for (const auto& entry : entries)
+    {
+        labelRows.push_back({
+            chessMenuPrefixWithSeparator(std::format(
+                "[{}]",
+                chessEffectCatalogSourceLabel(entry.source))),
+            entry.sourceName,
+            std::format(" {}/{}", entry.ruleOrdinal, entry.sourceRuleCount),
+            {},
+        });
+        data.colors.push_back(effectCatalogSourceColor(entry.source));
+    }
+    data.labels = contentSizedAlignedMenuLabels(labelRows);
+
+    const auto anchor = ChessScreenLayout::contentMenuAnchor();
+    const auto frame = ChessScreenLayout::browseDetailRegionForMenu(
+        anchor,
+        data.labels,
+        kChessCompactMenuPresentation.fontSize);
+    auto detail = makePanel(
+        frame,
+        [entries = std::move(entries)](int row, const PanelFrame& panelFrame)
+        {
+            if (!isPanelRowInRange(row, static_cast<int>(entries.size()))) return;
+            const auto& entry = entries[row];
+            const auto sourceColor = effectCatalogSourceColor(entry.source);
+            std::vector<PanelVisualTextRow> rows;
+            appendPanelTextRow(
+                rows,
+                entry.sourceName,
+                {255, 255, 100, 255},
+                5,
+                0,
+                0,
+                4);
+            appendPanelTextRow(
+                rows,
+                std::format("{}效果 · 配置 {}/{}",
+                    chessEffectCatalogSourceLabel(entry.source),
+                    entry.ruleOrdinal,
+                    entry.sourceRuleCount),
+                sourceColor,
+                1,
+                0,
+                0,
+                3);
+            appendPanelTextRow(
+                rows,
+                entry.sourceContext,
+                {185, 185, 185, 255},
+                -2,
+                0,
+                0,
+                12);
+            appendRenderedEffectDescriptionRows(
+                rows,
+                entry.effects,
+                {225, 225, 225, 255},
+                0,
+                3);
+            const auto layout = fitVisualPanelText(
+                rows,
+                panelFrame.w - 20,
+                panelFrame.h - 20,
+                22,
+                14);
+            drawPanelText(
+                Font::getInstance(),
+                rows,
+                layout,
+                panelFrame.x + 10,
+                panelFrame.y + 10);
+        });
+    runIndexedMenu(
+        std::format("效果全覽 · {}項", effectCount),
+        data,
+        kChessCompactMenuPresentation.fontSize,
+        kChessCompactMenuPresentation.itemsPerPage,
+        anchor,
+        {detail},
+        true);
 }
 
 void ChessGuiSessionAdapter::showGameGuide()
@@ -4436,7 +4532,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 assert(definition);
                 const auto* item = session_.content().item(option.value);
                 labelRows.push_back({
-                    chessMenuPrefixWithSeparator(std::format("[{}]", rewardTierLabel(definition->tier))),
+                    chessMenuPrefixWithSeparator(std::format("[{}]", chessRewardTierLabel(definition->tier))),
                     item ? item->name : "未知裝備",
                     {},
                     chessRewardOptionCostColumn(option),
@@ -4448,7 +4544,7 @@ ChessGuiFlowResult ChessGuiSessionAdapter::chooseReward(const ChessLegalActionDe
                 const auto found = std::ranges::find(session_.content().neigong(), option.value, &NeigongDef::magicId);
                 assert(found != session_.content().neigong().end());
                 labelRows.push_back({
-                    chessMenuPrefixWithSeparator(std::format("[{}]", rewardTierLabel(found->tier))),
+                    chessMenuPrefixWithSeparator(std::format("[{}]", chessRewardTierLabel(found->tier))),
                     found->name,
                     {},
                     chessRewardOptionCostColumn(option),

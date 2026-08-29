@@ -218,7 +218,7 @@ void appendRuntimeMagicEffectRules(
 
         const int magicId = actionPlan->ultimateSkill.id;
         const auto* definition = findMagicDefinition(definitions, magicId);
-        if (!definition || !definition->enabled)
+        if (!definition)
         {
             continue;
         }
