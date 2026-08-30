@@ -15,6 +15,29 @@ struct BattleActionPlanSeed;
 struct BattleComboRuntimeFacts;
 struct BattleStatusEffectState;
 
+// Shared runtime attribute queries. effectAdjustedAttribute keeps the optional
+// event source so conditional rules evaluate in the caller's event context;
+// call sites without one use the -1 default.
+int effectAdjustedAttribute(
+    const BattleRuntimeState& state,
+    int unitId,
+    BattleAttribute attribute,
+    int baseValue,
+    int eventSourceUnitId = -1);
+int areaAttributeDelta(const BattleRuntimeState& state, int unitId, BattleAttribute attribute);
+int areaAdjustedSpeed(const BattleRuntimeState& state, int unitId, int baseSpeed);
+int effectAndAreaAdjustedRateAttribute(
+    const BattleRuntimeState& state,
+    int unitId,
+    BattleAttribute attribute,
+    int baseValue);
+int effectAndAreaAdjustedSpeed(const BattleRuntimeState& state, int unitId, int baseSpeed);
+bool areaDamageChannelMatches(BattleDamageKind kind, DamageChannel channel);
+int areaOutgoingDamagePctDelta(
+    const BattleRuntimeState& state,
+    int sourceUnitId,
+    BattleDamageKind damageKind);
+
 // Runtime setup calls this once after every canonical unit (including clones)
 // has been appended. Each unit owns one binding for its selected ultimate.
 void appendRuntimeMagicEffectRules(

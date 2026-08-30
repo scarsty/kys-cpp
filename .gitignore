@@ -27,6 +27,7 @@ kys-c++
 .vscode
 schemas/chess_effects/
 .claude
+.zcode
 vcpkg_installed/
 
 wasm/build

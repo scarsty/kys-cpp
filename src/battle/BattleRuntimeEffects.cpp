@@ -1,6 +1,9 @@
 #include "BattleRuntimeEffects.h"
 
 #include "BattleRuntimeUnits.h"
+#include "BattleAreaEffectSystem.h"
+#include "BattleDamageSystem.h"
+#include "BattleStatusSystem.h"
 
 #include <algorithm>
 #include <cassert>
@@ -93,11 +96,15 @@ void populateEffectStatusSnapshot(
     }
 }
 
+
+}  // namespace
+
 int effectAdjustedAttribute(
     const BattleRuntimeState& runtime,
     int unitId,
     BattleAttribute attribute,
-    int baseValue)
+    int baseValue,
+    int eventSourceUnitId)
 {
     return BattleEffectCommandSystem::queryAttribute(
         runtime,
@@ -106,6 +113,7 @@ int effectAdjustedAttribute(
             .attribute = attribute,
             .baseValue = baseValue,
             .frame = runtime.movement.frame,
+            .eventSourceUnitId = eventSourceUnitId,
         });
 }
 
@@ -136,30 +144,87 @@ int areaAttributeDelta(
     return delta;
 }
 
-int effectiveSpeed(
-    const BattleRuntimeState& runtime,
-    const BattleRuntimeUnitRecord& record)
+int areaAdjustedSpeed(const BattleRuntimeState& state, int unitId, int baseSpeed)
 {
-    const auto status = BattleStatusSystem({}).snapshot(record.status.effects);
-    const int statusAdjusted = std::max(
-        0,
-        effectAdjustedAttribute(
-            runtime,
-            record.id(),
-            BattleAttribute::Speed,
-            record.core.stats.speed)
-            * (100 + status.speedPctDelta) / 100);
     return std::max(
         0,
-        statusAdjusted
-            * (100 + areaAttributeDelta(
-                runtime,
-                record.id(),
-                BattleAttribute::Speed))
-            / 100);
+        baseSpeed * (100 + areaAttributeDelta(state, unitId, BattleAttribute::Speed)) / 100);
 }
 
-}  // namespace
+int effectAndAreaAdjustedRateAttribute(
+    const BattleRuntimeState& state,
+    int unitId,
+    BattleAttribute attribute,
+    int baseValue)
+{
+    return effectAdjustedAttribute(state, unitId, attribute, baseValue)
+        + areaAttributeDelta(state, unitId, attribute);
+}
+
+int effectAndAreaAdjustedSpeed(const BattleRuntimeState& state, int unitId, int baseSpeed)
+{
+    const auto status = BattleStatusSystem({}).snapshot(
+        state.units.require(unitId).statusDamageState());
+    const int statusAdjusted = std::max(
+        0,
+        effectAdjustedAttribute(state, unitId, BattleAttribute::Speed, baseSpeed)
+            * (100 + status.speedPctDelta) / 100);
+    return areaAdjustedSpeed(
+        state,
+        unitId,
+        statusAdjusted);
+}
+
+bool areaDamageChannelMatches(BattleDamageKind kind, DamageChannel channel)
+{
+    if (channel == DamageChannel::All)
+    {
+        return true;
+    }
+    switch (kind)
+    {
+    case BattleDamageKind::Physical:
+    case BattleDamageKind::Skill:
+        return channel == DamageChannel::Skill;
+    case BattleDamageKind::Poison:
+    case BattleDamageKind::Bleed:
+        return channel == DamageChannel::Dot;
+    case BattleDamageKind::Pure:
+    case BattleDamageKind::Effect:
+    case BattleDamageKind::Execute:
+        return channel == DamageChannel::Effect;
+    }
+    assert(false);
+    return false;
+}
+
+int areaOutgoingDamagePctDelta(
+    const BattleRuntimeState& state,
+    int sourceUnitId,
+    BattleDamageKind damageKind)
+{
+    if (sourceUnitId == OptionalDamageAttackerUnitId)
+    {
+        return 0;
+    }
+    const auto modifiers = BattleAreaEffectSystem::collectAreaUnitModifiers(
+        state.areas,
+        state.gridTransform,
+        state.units,
+        sourceUnitId,
+        state.movement.frame,
+        BattleAreaQueryPhase::OutgoingDamage);
+    int delta{};
+    for (const auto& applied : modifiers.modifiers)
+    {
+        if (areaDamageChannelMatches(damageKind, applied.modifier.damageChannel))
+        {
+            delta += applied.modifier.percent;
+        }
+    }
+    return delta;
+}
+
 
 EffectUnitSnapshot makeEffectUnitSnapshot(
     const BattleRuntimeUnit& unit,
@@ -259,7 +324,7 @@ EffectUnitSnapshot makeEffectUnitSnapshot(
         unit.id,
         BattleAttribute::Defence,
         unit.stats.defence);
-    result.speed = effectiveSpeed(runtime, record);
+    result.speed = effectAndAreaAdjustedSpeed(runtime, record.id(), record.core.stats.speed);
     appendBoundMagicIds(runtime, record.id(), result.magicIds);
     return result;
 }
