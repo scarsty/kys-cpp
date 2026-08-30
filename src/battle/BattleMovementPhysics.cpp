@@ -86,10 +86,10 @@ bool canMoveInPhysicsSnapshot(
             {
                 continue;
             }
-            const double nextDistance = distance2d(nextPosition, unit.position);
+            const double nextDistance = battleDistance2d(nextPosition, unit.position);
             if (nextDistance < separation)
             {
-                const double currentDistance = distance2d(currentPosition, unit.position);
+                const double currentDistance = battleDistance2d(currentPosition, unit.position);
                 if (currentDistance >= nextDistance)
                 {
                     return false;

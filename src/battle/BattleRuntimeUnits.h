@@ -11,6 +11,7 @@
 #include "BattleEffectSystem.h"
 #include "BattleHitResolver.h"
 #include "BattleMovement.h"
+#include "BattleMovementPhysics.h"
 #include "BattleRescueRepositionSystem.h"
 #include "BattleRuntimeActions.h"
 #include "BattleRuntimeQueues.h"
@@ -470,7 +471,7 @@ struct BattleEffectIntegrationRuntimeState
 };
 
 // Persistent battle facts live here. One-frame queues and presentation accumulation
-// belong in BattleFrameContext inside BattleCore.cpp. Do not add cached copies of
+// belong in BattleFrameContext (battle core pipeline). Do not add cached copies of
 // combo/status/action facts here unless all mutations to the source fact update the
 // cache through the same owner.
 struct BattleRuntimeState

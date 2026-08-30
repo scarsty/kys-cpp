@@ -34,6 +34,11 @@ Point battleCartesianGridPosition(Pointf position, Pointf origin, double tileWid
 int battleTravelFrames2d(Pointf start, Pointf end, double speed);
 int battleTravelFrames3d(Pointf start, Pointf end, double speed);
 std::uint64_t battleDistanceSquared2d(Pointf lhs, Pointf rhs);
+inline double battleDistance2d(Pointf a, Pointf b)
+{
+    return EuclidDis(a.x - b.x, a.y - b.y);
+}
+
 std::uint64_t battleDistanceSquared3d(Pointf lhs, Pointf rhs);
 BattleFacingArc classifyBattleFacing(Pointf attackVector, Pointf defenderFacing);
 bool battlePointSegmentWithinRadius(

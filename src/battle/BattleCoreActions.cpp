@@ -1,8 +1,4 @@
 #include "BattleCoreDetail.h"
-
-#include "../ChessEftIds.h"
-#include "../Find.h"
-#include "BattleAreaEffectSystem.h"
 #include "BattleCombatIntent.h"
 #include "BattleEffectAttackCastSystem.h"
 #include "BattleEffectEventBridge.h"
@@ -10,38 +6,24 @@
 #include "BattleLogSegments.h"
 #include "BattleMath.h"
 #include "BattleMovementPhysics.h"
-#include "BattlePresentationVisuals.h"
-#include "BattleProjectileEvents.h"
-#include "BattleResourceRules.h"
 #include "BattleRuntimeEffects.h"
-#include "BattleStatusSystem.h"
-
 #include <algorithm>
-#include <array>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <format>
 #include <iterator>
 #include <limits>
-#include <map>
 #include <memory_resource>
-#include <numeric>
 #include <optional>
-#include <set>
 #include <span>
-#include <string>
-#include <string_view>
-#include <tuple>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
+
+
 namespace KysChess::Battle
 {
-
-using namespace CoreDetail;
 
 
 namespace
@@ -91,6 +73,7 @@ RuntimeCastSkillProfile makeRuntimeCastSkillProfile(
     bool ultimate,
     const RuntimeCastPolicies* precomputedPolicies);
 BattleBlinkGeometryInput makeRuntimeBlinkGeometry(const BattleRuntimeState& state, const BattleRuntimeUnit& unit, double reach);
+const BattleCastSkillState& selectedCastSkill(const BattleCastInput& castInput, const BattleCastResult& cast);
 
 RuntimeCastPolicies runtimeCastPolicies(
     std::span<const EffectExactRuntimeRuleMatch> matches)
@@ -253,8 +236,8 @@ RuntimeCastPolicies runtimeCastPoliciesForSkill(
     {
         return {};
     }
-    const auto resources = snapshotEffectResourcesBeforeCast(state);
-    auto payload = makeCastPlanEventData(
+    const auto resources = CoreDetail::snapshotEffectResourcesBeforeCast(state);
+    auto payload = CoreDetail::makeCastPlanEventData(
         unit.id,
         magicId,
         ultimate,
@@ -583,7 +566,7 @@ void refreshCastTarget(BattleCastInput& input, int targetUnitId, Pointf targetPo
 {
     input.targetUnitId = targetUnitId;
     input.targetPosition = targetPosition;
-    input.targetDistance = distance2d(input.unit.position, targetPosition);
+    input.targetDistance = battleDistance2d(input.unit.position, targetPosition);
     if (input.geometry.dashVelocityMagnitude > 0.0)
     {
         auto dashVelocity = targetPosition - input.unit.position;
@@ -662,12 +645,12 @@ void refreshRuntimeCastSkillBonuses(
 {
     if (input.ultimateSkill.id >= 0 && input.unit.mp == input.unit.maxMp)
     {
-        const auto resources = snapshotEffectResourcesBeforeCast(state);
+        const auto resources = CoreDetail::snapshotEffectResourcesBeforeCast(state);
         const auto matches = queryExactRuntimeRules(
             state,
             input.unit.id,
             EffectEvent::CastPlanned,
-            makeCastPlanEventData(input, true, resources, provenance));
+            CoreDetail::makeCastPlanEventData(input, true, resources, provenance));
         input.ultimateSkill.extraProjectileCount =
             collectRuntimeUltimateExtraProjectileCount(
                 state,
@@ -938,7 +921,7 @@ void refreshRuntimeDashAttackDetails(
     {
         return;
     }
-    const auto& skill = selectedCastSkill(input, ultimate);
+    const auto& skill = CoreDetail::selectedCastSkill(input, ultimate);
     input.unit.dashHitCount = rollRuntimeDashHitCount(state, unit, skill);
     input.unit.dashVelocity = runtimeDashAttackVelocity(state, unit, input, skill);
 }
@@ -1120,7 +1103,7 @@ BattlePendingCastAction makePendingCastAction(const BattleCastInput& castInput,
     pending.operationType = cast.decision.operationType;
     pending.castFrame = castFrame;
     pending.dashVelocity = castInput.unit.dashVelocity;
-    pending.skillPlan = makePendingCastSkillPlan(selectedCastSkill(castInput, cast));
+    pending.skillPlan = CoreDetail::makePendingCastSkillPlan(selectedCastSkill(castInput, cast));
     pending.effectCast = trackedCast;
     return pending;
 }
@@ -1228,7 +1211,7 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
     assert(pending.effectCast.provenance.valid());
     const auto& provenance = pending.effectCast.provenance;
     const auto& unit = state.units.requireCore(provenance.sourceUnitId);
-    auto castInput = tryMakeRuntimeCastInputForPendingCast(
+    auto castInput = CoreDetail::tryMakeRuntimeCastInputForPendingCast(
         state,
         pending,
         frameMemoryResource);
@@ -1245,7 +1228,7 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
             state,
             unit.id,
             EffectEvent::CastPlanned,
-            makeCastPlanEventData(
+            CoreDetail::makeCastPlanEventData(
                 *castInput,
                 true,
                 pending.effectResourcesBeforeCast,
@@ -1283,13 +1266,13 @@ std::optional<BattleActionCommitInput> tryMakeRuntimeActionCommitInput(
         cast,
         pending.effectPreparation,
         effectAttackState);
-    applyEffectAttackDirectives(cast.attackSpawnRequests, preparedEffects);
+    CoreDetail::applyEffectAttackDirectives(cast.attackSpawnRequests, preparedEffects);
     auto plannedAttackEffects = BattleEffectAttackCastSystem().applyAttackCommands(
         *castInput,
         cast,
         pending.plannedAttackEffectCommands,
         effectAttackState);
-    applyEffectAttackDirectives(cast.attackSpawnRequests, plannedAttackEffects);
+    CoreDetail::applyEffectAttackDirectives(cast.attackSpawnRequests, plannedAttackEffects);
     state.effectIntegration.nextSharedHitGroupId = effectAttackState.nextSharedHitGroupId;
     auto actionInput = makeCommittedCastActionInput(
         state,
@@ -1356,7 +1339,7 @@ void cancelRuntimeAction(BattleRuntimeState& state, int unitId)
     auto& unit = state.units.require(unitId);
     if (const auto* pending = unit.pendingCast())
     {
-        cancelEffectRootCast(state, pending->effectCast);
+        CoreDetail::cancelEffectRootCast(state, pending->effectCast);
     }
     auto actionState = makeActionRuntimeState(unit.core);
     resetActionFrameState(actionState);
@@ -1459,10 +1442,10 @@ void queueCopiedAttackDefinitionChildCast(
     BattlePendingCastAction pending;
     pending.targetUnitId = parentTargetUnitId;
     pending.operationType = operationType;
-    pending.skillPlan = makePendingCastSkillPlan(copiedSkill);
-    pending.effectResourcesBeforeCast = snapshotEffectResourcesBeforeCast(state);
+    pending.skillPlan = CoreDetail::makePendingCastSkillPlan(copiedSkill);
+    pending.effectResourcesBeforeCast = CoreDetail::snapshotEffectResourcesBeforeCast(state);
     pending.effectCast = child;
-    auto input = tryMakeRuntimeCastInputForPendingCast(
+    auto input = CoreDetail::tryMakeRuntimeCastInputForPendingCast(
         state,
         pending,
         frameMemoryResource);
@@ -1480,7 +1463,7 @@ void queueCopiedAttackDefinitionChildCast(
         true,
         operationType);
     cast.mpDelta = 0;
-    auto committedEffects = dispatchCastCommittedEffects(
+    auto committedEffects = CoreDetail::dispatchCastCommittedEffects(
         state,
         pending,
         cast);
@@ -1494,7 +1477,7 @@ void queueCopiedAttackDefinitionChildCast(
             cast.attackSpawnRequests,
             committedEffect.commands,
             effectAttackState);
-        applyEffectAttackDirectives(cast.attackSpawnRequests, applied);
+        CoreDetail::applyEffectAttackDirectives(cast.attackSpawnRequests, applied);
     }
     state.effectIntegration.nextSharedHitGroupId =
         effectAttackState.nextSharedHitGroupId;
@@ -1504,7 +1487,7 @@ void queueCopiedAttackDefinitionChildCast(
         attack.provenance.propagation = request.propagation;
         attack.provenance.origin = BattleAttackOriginKind::CastDerived;
     }
-    reserveEffectRootCastAttacks(
+    CoreDetail::reserveEffectRootCastAttacks(
         state.castLifecycle,
         child,
         cast.attackSpawnRequests);

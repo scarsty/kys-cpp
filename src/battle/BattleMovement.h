@@ -1,7 +1,6 @@
 #pragma once
 
 #include "BattleGeometry.h"
-#include "BattleMovementPhysics.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -789,10 +789,10 @@ bool reservationConflicts(const BattleMovementPlanInput& world,
         {
             continue;
         }
-        if (distance2d(nextPosition, pos) < world.config.bodyRadius)
+        if (battleDistance2d(nextPosition, pos) < world.config.bodyRadius)
         {
-            const double currentDistance = distance2d(unit.position, pos);
-            const double nextDistance = distance2d(nextPosition, pos);
+            const double currentDistance = battleDistance2d(unit.position, pos);
+            const double nextDistance = battleDistance2d(nextPosition, pos);
             if (currentDistance < nextDistance)
             {
                 continue;
@@ -816,10 +816,10 @@ bool softReservationConflicts(const BattleMovementPlanInput& world,
         const double radius = reservation.radius > 0.0
             ? reservation.radius
             : world.config.bodyRadius;
-        if (distance2d(nextPosition, reservation.position) < radius)
+        if (battleDistance2d(nextPosition, reservation.position) < radius)
         {
-            const double currentDistance = distance2d(unit.position, reservation.position);
-            const double nextDistance = distance2d(nextPosition, reservation.position);
+            const double currentDistance = battleDistance2d(unit.position, reservation.position);
+            const double nextDistance = battleDistance2d(nextPosition, reservation.position);
             if (currentDistance < nextDistance)
             {
                 continue;
@@ -838,7 +838,7 @@ bool bodyConflicts(const BattleMovementPlanInput& world, const BattleUnitState& 
         {
             continue;
         }
-        if (distance2d(unit.position, other.position) < world.config.bodyRadius)
+        if (battleDistance2d(unit.position, other.position) < world.config.bodyRadius)
         {
             return true;
         }
@@ -855,7 +855,7 @@ std::optional<Pointf> bodySeparationDirection(const BattleMovementPlanInput& wor
         {
             continue;
         }
-        const double distance = distance2d(unit.position, other.position);
+        const double distance = battleDistance2d(unit.position, other.position);
         if (distance >= world.config.bodyRadius)
         {
             continue;
@@ -897,7 +897,7 @@ bool sharesFrontlineTarget(const BattleMovementPlanInput& world,
     }
 
     const double frontlineBand = world.config.meleeAttackReach + world.config.engagementDeadband;
-    return distance2d(other.position, target.position) <= frontlineBand;
+    return battleDistance2d(other.position, target.position) <= frontlineBand;
 }
 
 double nearestFrontlineAllyDistance(const BattleMovementPlanInput& world,
@@ -912,7 +912,7 @@ double nearestFrontlineAllyDistance(const BattleMovementPlanInput& world,
         {
             continue;
         }
-        nearest = std::min(nearest, distance2d(position, other.position));
+        nearest = std::min(nearest, battleDistance2d(position, other.position));
     }
     return nearest;
 }
@@ -927,7 +927,7 @@ std::optional<Pointf> frontlineSoftSpreadDirection(const BattleMovementPlanInput
     }
 
     const double frontlineBand = world.config.meleeAttackReach + world.config.engagementDeadband;
-    if (distance2d(unit.position, target.position) > frontlineBand)
+    if (battleDistance2d(unit.position, target.position) > frontlineBand)
     {
         return std::nullopt;
     }
@@ -950,7 +950,7 @@ std::optional<Pointf> frontlineSoftSpreadDirection(const BattleMovementPlanInput
             continue;
         }
 
-        const double distance = distance2d(unit.position, other.position);
+        const double distance = battleDistance2d(unit.position, other.position);
         if (distance >= comfortableSpacing)
         {
             continue;
@@ -1018,7 +1018,7 @@ std::optional<MovementDecision> tryFrontlineSoftSpread(const BattleMovementPlanI
 
     const auto next = unit.position + *direction * unit.speed;
     const double frontlineBand = world.config.meleeAttackReach + world.config.engagementDeadband;
-    if (distance2d(next, target.position) > frontlineBand)
+    if (battleDistance2d(next, target.position) > frontlineBand)
     {
         return std::nullopt;
     }
@@ -1307,7 +1307,7 @@ void requestMovementDetour(FrameMovementDetourRequestMap& requests,
             {
                 continue;
             }
-            clearance = std::min(clearance, distance2d(next, other.position));
+            clearance = std::min(clearance, battleDistance2d(next, other.position));
         }
         if (clearance > bestClearance)
         {
@@ -1512,12 +1512,12 @@ MoveProbe probeMoveInWorld(const BattleMovementPlanInput& world,
             {
                 continue;
             }
-            if (distance2d(nextPosition, other.position) >= world.config.bodyRadius)
+            if (battleDistance2d(nextPosition, other.position) >= world.config.bodyRadius)
             {
                 continue;
             }
-            const double currentDistance = distance2d(unit.position, other.position);
-            const double nextDistance = distance2d(nextPosition, other.position);
+            const double currentDistance = battleDistance2d(unit.position, other.position);
+            const double nextDistance = battleDistance2d(nextPosition, other.position);
             if (currentDistance < nextDistance)
             {
                 continue;
@@ -1573,7 +1573,7 @@ double localBodyClearance(const BattleMovementPlanInput& world,
     double clearance = std::numeric_limits<double>::max();
     visitMovementOccupants(world, unit, target, reservations, [&](Pointf occupiedPosition)
         {
-            clearance = std::min(clearance, distance2d(position, occupiedPosition));
+            clearance = std::min(clearance, battleDistance2d(position, occupiedPosition));
         });
     return clearance;
 }
@@ -1702,7 +1702,7 @@ std::optional<MovementDecision> tryLocalPocketEscape(const BattleMovementPlanInp
 
         const double clearance = localBodyClearance(world, unit, target, next, reservations);
         const double lateral = std::abs(targetDirection.x * direction.y - targetDirection.y * direction.x);
-        const double targetDistance = distance2d(next, target.position);
+        const double targetDistance = battleDistance2d(next, target.position);
         if (clearance <= currentClearance + 0.1)
         {
             continue;
@@ -1849,7 +1849,7 @@ std::optional<MovementDecision> chooseDash(const BattleMovementPlanInput& world,
                                            bool allowSoftReservations)
 {
 
-    double targetDistance = distance2d(unit.position, target.position);
+    double targetDistance = battleDistance2d(unit.position, target.position);
     double usefulGap = unit.style == CombatStyle::Melee
         ? targetDistance - world.config.meleeAttackReach + world.config.engagementDeadband
         : targetDistance - unit.reach + world.config.engagementDeadband;

@@ -1,4 +1,5 @@
 #include "battle/BattleMovement.h"
+#include "battle/BattleMovementPhysics.h"
 #include "BattleMovementTestHelpers.h"
 
 #include <catch2/catch_approx.hpp>

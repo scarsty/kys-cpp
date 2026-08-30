@@ -1,47 +1,35 @@
 #include "BattleCoreDetail.h"
-
 #include "../ChessEftIds.h"
-#include "../Find.h"
 #include "BattleAreaEffectSystem.h"
-#include "BattleCombatIntent.h"
 #include "BattleEffectAttackCastSystem.h"
 #include "BattleEffectEventBridge.h"
 #include "BattleFrameContext.h"
 #include "BattleLogSegments.h"
-#include "BattleMath.h"
-#include "BattleMovementPhysics.h"
 #include "BattlePresentationVisuals.h"
 #include "BattleProjectileEvents.h"
 #include "BattleResourceRules.h"
 #include "BattleRuntimeEffects.h"
 #include "BattleStatusSystem.h"
-
 #include <algorithm>
-#include <array>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <format>
 #include <iterator>
 #include <limits>
 #include <map>
 #include <memory_resource>
-#include <numeric>
 #include <optional>
 #include <set>
 #include <span>
 #include <string>
-#include <string_view>
-#include <tuple>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
+
+
 namespace KysChess::Battle
 {
-
-using namespace CoreDetail;
 
 namespace
 {
@@ -77,7 +65,7 @@ int adjustedRuntimeMpRestore(BattleRuntimeState& state, int unitId, int amount)
 {
     return adjustedMpRestore(
         isMpBlocked(state, unitId),
-        mpRecoveryBonusPct(state, unitId),
+        CoreDetail::mpRecoveryBonusPct(state, unitId),
         amount);
 }
 
@@ -144,7 +132,7 @@ void appendMpResourceEffectLogEvents(
     }
     if (removed > 0)
     {
-        appendStatusEventLog(
+        CoreDetail::appendStatusEventLog(
             logEvents,
             metadata.binding.ownerUnitId,
             metadata.targetUnitId,
@@ -161,7 +149,7 @@ void appendMpResourceEffectLogEvents(
         {
             continue;
         }
-        appendHealEventLog(
+        CoreDetail::appendHealEventLog(
             logEvents,
             metadata.binding.ownerUnitId,
             delta.unitId,
@@ -187,7 +175,7 @@ bool applyFrameMpRestore(
     }
 
     unit.vitals.mp += restored;
-    appendStatusEventLog(logEvents, unitId, unitId, reason);
+    CoreDetail::appendStatusEventLog(logEvents, unitId, unitId, reason);
     return true;
 }
 
@@ -235,15 +223,15 @@ bool reduceFrameGameplayCommand(
 {
     if (const auto* hp = std::get_if<BattleHpDamageCommand>(&command))
     {
-        return tryAppendFrameDamageTransaction(state, sinks.pendingDamage, *hp);
+        return CoreDetail::tryAppendFrameDamageTransaction(state, sinks.pendingDamage, *hp);
     }
     if (const auto* mp = std::get_if<BattleMpDamageCommand>(&command))
     {
-        return tryAppendFrameDamageTransaction(state, sinks.pendingDamage, *mp);
+        return CoreDetail::tryAppendFrameDamageTransaction(state, sinks.pendingDamage, *mp);
     }
     if (const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command))
     {
-        return tryAppendFrameDamageTransaction(state, sinks.pendingDamage, *sideEffect);
+        return CoreDetail::tryAppendFrameDamageTransaction(state, sinks.pendingDamage, *sideEffect);
     }
     if (auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&command))
     {
@@ -258,7 +246,7 @@ bool reduceFrameGameplayCommand(
             std::span(&command, 1),
             state.projectileFollowUps,
             state.units);
-        reserveTrackedProjectileFollowUps(state, followUps);
+        CoreDetail::reserveTrackedProjectileFollowUps(state, followUps);
         pending.insert(
             pending.end(),
             std::make_move_iterator(followUps.commands.begin()),
@@ -271,7 +259,7 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* autoUltimate = std::get_if<BattleAutoUltimateCommand>(&command))
     {
-        return tryCommitAutoUltimate(
+        return CoreDetail::tryCommitAutoUltimate(
             state,
             frame,
             autoUltimate->unitId,
@@ -286,7 +274,7 @@ bool reduceFrameGameplayCommand(
     }
     if (const auto* knockback = std::get_if<BattleKnockbackCommand>(&command))
     {
-        applyKnockbackImpulse(state, *knockback);
+        CoreDetail::applyKnockbackImpulse(state, *knockback);
         return true;
     }
     if (const auto* rumble = std::get_if<BattleRumbleCommand>(&command))
@@ -373,7 +361,7 @@ void appendStateMachineOutput(
             request.damageKind = BattleDamageKind::Pure;
             const auto provenance = context.attack.value_or(
                 BattleAttackProvenance{});
-            appendFramePendingDamage(
+            CoreDetail::appendFramePendingDamage(
                 state,
                 pendingDamage,
                 std::move(request),
@@ -385,7 +373,7 @@ void appendStateMachineOutput(
                     entry.metadata.ruleId,
                     entry.metadata.binding,
                 },
-                reserveEffectDamageDescendantWork(state, context, provenance));
+                CoreDetail::reserveEffectDamageDescendantWork(state, context, provenance));
         },
         [&](const StartDamageAbsorptionAction&)
         {
@@ -406,7 +394,7 @@ void appendStateMachineOutput(
                 request.defenderUnitId = targetUnitId;
                 request.baseDamage = static_cast<int>(command.outputValue);
                 request.damageKind = action.damageKind;
-                appendFramePendingDamage(
+                CoreDetail::appendFramePendingDamage(
                     state,
                     pendingDamage,
                     std::move(request),
@@ -418,7 +406,7 @@ void appendStateMachineOutput(
                         entry.metadata.ruleId,
                         entry.metadata.binding,
                     },
-                    reserveEffectDamageDescendantWork(state, context, {}));
+                    CoreDetail::reserveEffectDamageDescendantWork(state, context, {}));
             }
         },
         [&](const BorrowEffectRulesAction&)
@@ -463,7 +451,7 @@ void appendStateMachineOutput(
             request.preResolvedDamage = true;
             request.preResolvedModifierPolicy =
                 BattlePreResolvedModifierPolicy::DefenderTypedStatuses;
-            appendFramePendingDamage(
+            CoreDetail::appendFramePendingDamage(
                 state,
                 pendingDamage,
                 std::move(request),
@@ -475,7 +463,7 @@ void appendStateMachineOutput(
                     action.status,
                     entry.metadata.binding.ownerUnitId,
                 },
-                reserveEffectDamageDescendantWork(state, context, {}));
+                CoreDetail::reserveEffectDamageDescendantWork(state, context, {}));
         },
         [&](const GenerateClonesAction&)
         {
@@ -696,7 +684,7 @@ void reduceEffectCommand(
     }
     else if (const auto* damage = std::get_if<BattleEffectDamageRequestOutput>(&entry.value))
     {
-        appendEffectDamageOutput(state, frame, pendingDamage, *damage, context);
+        CoreDetail::appendEffectDamageOutput(state, frame, pendingDamage, *damage, context);
     }
     else if (const auto* move = std::get_if<
                  BattleRoutedEffectCommand<ForceMoveEffectCommand>>(&entry.value))
@@ -758,16 +746,16 @@ void reduceEffectCommand(
             *heal);
         if (heal->heal && heal->heal->appliedAmount > 0)
         {
-            appendHealEventLog(
+            CoreDetail::appendHealEventLog(
                 frame.logEvents,
                 heal->heal->request.sourceUnitId,
                 heal->heal->request.targetUnitId,
                 heal->heal->appliedAmount,
                 "效果治療");
-            frame.visualEvents.push_back(roleEffectEvent(
+            frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
                 heal->heal->request.targetUnitId,
                 KysChess::EFT_HEAL,
-                CoreRoleStatusEffectFrames));
+                CoreDetail::CoreRoleStatusEffectFrames));
         }
         if (resource->action.resource == BattleResource::Shield
             || resource->action.resource == BattleResource::StatusShield
@@ -792,7 +780,7 @@ void reduceEffectCommand(
     {
         const auto* apply = std::get_if<ApplyStatusEffectCommand>(&command.value);
         assert(apply);
-        appendPoisonEffectLogEvents(
+        CoreDetail::appendPoisonEffectLogEvents(
             frame.logEvents,
             entry.metadata,
             *apply,
@@ -839,7 +827,7 @@ void reduceEffectCommand(
         request.defenderUnitId = entry.metadata.targetUnitId;
         request.baseDamage = deferredHp->command.amount;
         request.damageKind = BattleDamageKind::Effect;
-        appendFramePendingDamage(
+        CoreDetail::appendFramePendingDamage(
             state,
             pendingDamage,
             std::move(request),
@@ -851,7 +839,7 @@ void reduceEffectCommand(
                 entry.metadata.ruleId,
                 entry.metadata.binding,
             },
-            reserveEffectDamageDescendantWork(state, context, {}));
+            CoreDetail::reserveEffectDamageDescendantWork(state, context, {}));
     }
 }
 
@@ -1018,9 +1006,9 @@ void queueFreeChildCast(
         ? freeCast.targetUnitId
         : parentContext.originalTargetUnitId;
     pending.operationType = parentContext.operationType;
-    pending.skillPlan = makePendingCastSkillPlan(parentContext.skill);
+    pending.skillPlan = CoreDetail::makePendingCastSkillPlan(parentContext.skill);
     pending.effectCast = child;
-    auto input = tryMakeRuntimeCastInputForPendingCast(
+    auto input = CoreDetail::tryMakeRuntimeCastInputForPendingCast(
         state,
         pending,
         frameMemoryResource);
@@ -1053,7 +1041,7 @@ void queueFreeChildCast(
         *input,
         child.provenance.ultimate,
         childCommands);
-    const auto& childSkill = selectedCastSkill(*input, child.provenance.ultimate);
+    const auto& childSkill = CoreDetail::selectedCastSkill(*input, child.provenance.ultimate);
     const bool forcedRanged = childSkill.forceRanged
         && (childSkill.attackAreaType == 0 || childSkill.attackAreaType == 3);
     pending.operationType = forcedRanged
@@ -1072,26 +1060,26 @@ void queueFreeChildCast(
         cast,
         preparation,
         effectAttackState);
-    applyEffectAttackDirectives(cast.attackSpawnRequests, preparedAttackEffects);
+    CoreDetail::applyEffectAttackDirectives(cast.attackSpawnRequests, preparedAttackEffects);
     const auto childAttackEffects = BattleEffectAttackCastSystem().applyAttackCommands(
         *input,
         cast,
         childCommands,
         effectAttackState);
-    applyEffectAttackDirectives(cast.attackSpawnRequests, childAttackEffects);
+    CoreDetail::applyEffectAttackDirectives(cast.attackSpawnRequests, childAttackEffects);
     state.effectIntegration.nextSharedHitGroupId = effectAttackState.nextSharedHitGroupId;
     for (auto& request : cast.attackSpawnRequests)
     {
         request.provenance.propagation = freeCast.propagation;
         request.provenance.origin = BattleAttackOriginKind::CastDerived;
     }
-    reserveEffectRootCastAttacks(
+    CoreDetail::reserveEffectRootCastAttacks(
         state.castLifecycle,
         child,
         cast.attackSpawnRequests);
     state.effectIntegration.casts[child.provenance.castId] = {
         .originalTargetUnitId = cast.decision.targetUnitId,
-        .resourcesBeforeCast = snapshotEffectResourcesBeforeCast(state),
+        .resourcesBeforeCast = CoreDetail::snapshotEffectResourcesBeforeCast(state),
         .skill = childSkill,
         .operationType = pending.operationType,
     };

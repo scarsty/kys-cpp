@@ -1,25 +1,19 @@
 #include "BattleCoreDetail.h"
-
 #include "../ChessEftIds.h"
 #include "../Find.h"
 #include "BattleAreaEffectSystem.h"
-#include "BattleCombatIntent.h"
-#include "BattleEffectAttackCastSystem.h"
 #include "BattleEffectEventBridge.h"
 #include "BattleFrameContext.h"
 #include "BattleLogSegments.h"
 #include "BattleMath.h"
 #include "BattleMovementPhysics.h"
-#include "BattlePresentationVisuals.h"
 #include "BattleProjectileEvents.h"
 #include "BattleResourceRules.h"
 #include "BattleRuntimeEffects.h"
 #include "BattleStatusSystem.h"
-
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <format>
 #include <iterator>
@@ -28,20 +22,18 @@
 #include <memory_resource>
 #include <numeric>
 #include <optional>
-#include <set>
 #include <span>
 #include <string>
 #include <string_view>
 #include <tuple>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
+
+
 namespace KysChess::Battle
 {
-
-using namespace CoreDetail;
 
 namespace
 {
@@ -141,11 +133,6 @@ std::vector<BattleRescueCellSnapshot> makeRescueCellSnapshots(const BattleRuntim
         cell.occupantUnitId = occupantIt->second;
     }
     return cells;
-}
-
-double distance2d(Pointf lhs, Pointf rhs)
-{
-    return EuclidDis(lhs.x - rhs.x, lhs.y - rhs.y);
 }
 
 std::string toStatusText(const BattleDamageEvent& event)
@@ -360,7 +347,7 @@ bool rescueUnitUnattendedByTeam(
         {
             continue;
         }
-        if (distance2d(unit.position, target.position) <= state.rescue.executeUnattendedRadius)
+        if (battleDistance2d(unit.position, target.position) <= state.rescue.executeUnattendedRadius)
         {
             return false;
         }
@@ -460,10 +447,10 @@ void commitRescueResultToRuntime(
         appliedHeal = heal.appliedAmount;
         if (appliedHeal > 0)
         {
-            visualEvents.push_back(roleEffectEvent(
+            visualEvents.push_back(CoreDetail::roleEffectEvent(
                 pulled.id,
                 KysChess::EFT_HEAL,
-                CoreRoleStatusEffectFrames));
+                CoreDetail::CoreRoleStatusEffectFrames));
         }
     }
     if (result.invincibility.frames > 0)
@@ -915,11 +902,11 @@ void appendFrameDamageResourceLogEvents(
         switch (event.type)
         {
         case BattleDamageEventType::HpRestored:
-            frame.visualEvents.push_back(roleEffectEvent(
+            frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
                 event.targetUnitId,
                 KysChess::EFT_HEAL,
-                CoreRoleStatusEffectFrames));
-            appendHealEventLog(
+                CoreDetail::CoreRoleStatusEffectFrames));
+            CoreDetail::appendHealEventLog(
                 frame.logEvents,
                 event.sourceUnitId,
                 event.targetUnitId,
@@ -927,7 +914,7 @@ void appendFrameDamageResourceLogEvents(
                 "命中回血");
             break;
         case BattleDamageEventType::CooldownExtended:
-            appendStatusEventLog(
+            CoreDetail::appendStatusEventLog(
                 frame.logEvents,
                 event.sourceUnitId,
                 event.targetUnitId,
@@ -937,7 +924,7 @@ void appendFrameDamageResourceLogEvents(
                 event.value);
             break;
         case BattleDamageEventType::MpRestored:
-            appendHealEventLog(
+            CoreDetail::appendHealEventLog(
                 frame.logEvents,
                 event.sourceUnitId,
                 event.targetUnitId,
@@ -946,7 +933,7 @@ void appendFrameDamageResourceLogEvents(
                 BattleResourceSemanticId::MagicPoints);
             break;
         case BattleDamageEventType::MpDrained:
-            appendStatusEventLog(
+            CoreDetail::appendStatusEventLog(
                 frame.logEvents,
                 event.sourceUnitId,
                 event.targetUnitId,
@@ -1037,7 +1024,7 @@ BattleDamageModifierState runtimeDamageModifierState(
                      .unitId = unitId,
                      .eventSourceUnitId = eventSourceUnitId,
                      .perspective = perspective,
-                     .channel = effectDamageChannel(request.damageKind),
+                     .channel = CoreDetail::effectDamageChannel(request.damageKind),
                      .stage = stage,
                      .frame = state.movement.frame,
                  }))
@@ -1124,7 +1111,7 @@ BattleDamageTransactionInput makeFrameDamageTransactionInput(
 
     const auto& defender = state.units.require(request.defenderUnitId);
     transaction.defender = defender.damageState(
-        mpRecoveryBonusPct(state, defender.id()));
+        CoreDetail::mpRecoveryBonusPct(state, defender.id()));
     transaction.defenderModifiers = runtimeDamageModifierState(
         state,
         defender.id(),
@@ -1146,7 +1133,7 @@ BattleDamageTransactionInput makeFrameDamageTransactionInput(
         assert(request.attackerUnitId >= 0);
         const auto& attacker = state.units.require(request.attackerUnitId);
         transaction.attacker = attacker.damageState(
-            mpRecoveryBonusPct(state, attacker.id()));
+            CoreDetail::mpRecoveryBonusPct(state, attacker.id()));
         transaction.attackerModifiers = runtimeDamageModifierState(
             state,
             attacker.id(),
@@ -1306,10 +1293,10 @@ void appendFrameDamagePreDeathLogEvents(
 
     const auto appendAttackBlock = [&](std::string text, BattleStatusSemanticId statusId)
     {
-        frame.visualEvents.push_back(roleEffectEvent(
+        frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
             transaction.defender.id,
             KysChess::EFT_BLOCK,
-            CoreRoleStatusEffectFrames));
+            CoreDetail::CoreRoleStatusEffectFrames));
         BattleLogEvent log;
         log.type = BattleLogEventType::Status;
         log.sourceUnitId = transaction.defender.id;
@@ -1418,7 +1405,7 @@ void expandFrameDamageFollowUpCommands(BattleRuntimeState& state, BattleFrameCon
         pendingCommands,
         state.projectileFollowUps,
         state.units);
-    reserveTrackedProjectileFollowUps(state, projectileExpansion);
+    CoreDetail::reserveTrackedProjectileFollowUps(state, projectileExpansion);
     appendProjectileFollowUpsToFrame(frame, std::move(projectileExpansion));
     auto areaFollowUps = frame.drainAreaProjectileFollowUps();
     for (const auto& followUp : areaFollowUps)
@@ -1458,7 +1445,7 @@ void expandFrameDamageFollowUpCommands(BattleRuntimeState& state, BattleFrameCon
                 reservationRequest.parentAttackId = followUp.sourceAttack->attackId;
                 reservationRequest.sharedHitGroupId =
                     followUp.sourceAttack->sharedHitGroupId;
-                reservationRequest.propagation = derivedAttackPropagation(
+                reservationRequest.propagation = CoreDetail::derivedAttackPropagation(
                     *followUp.sourceAttack);
             }
             else
@@ -1673,7 +1660,7 @@ bool applyFrameExecuteReaction(
     request.executeThresholdPct = intent.executeThresholdPct;
     presentation.executed = true;
     appendDamagePresentationDetail(presentation, "處決");
-    appendStatusEventLog(
+    CoreDetail::appendStatusEventLog(
         frame.logEvents,
         request.attackerUnitId,
         request.defenderUnitId,
@@ -1714,11 +1701,11 @@ bool applyFrameDefenderBlockCommands(
 
     if (counterUltimateBlock)
     {
-        frame.visualEvents.push_back(roleEffectEvent(
+        frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
             request.defenderUnitId,
             KysChess::EFT_BLOCK,
-            CoreRoleStatusEffectFrames));
-        appendStatusEventLog(
+            CoreDetail::CoreRoleStatusEffectFrames));
+        CoreDetail::appendStatusEventLog(
             frame.logEvents,
             request.defenderUnitId,
             request.attackerUnitId,
@@ -1727,11 +1714,11 @@ bool applyFrameDefenderBlockCommands(
     }
     if (block)
     {
-        frame.visualEvents.push_back(roleEffectEvent(
+        frame.visualEvents.push_back(CoreDetail::roleEffectEvent(
             request.defenderUnitId,
             KysChess::EFT_BLOCK,
-            CoreRoleStatusEffectFrames));
-        appendStatusEventLog(
+            CoreDetail::CoreRoleStatusEffectFrames));
+        CoreDetail::appendStatusEventLog(
             frame.logEvents,
             request.defenderUnitId,
             request.attackerUnitId,
@@ -1803,7 +1790,7 @@ void queueDamageResolvedEffectCommands(
         }
         auto dispatched = BattleEffectEventBridge().dispatchDamageResolvedEvent(
             state,
-            nextEffectEventHeader(state, ownerUnitId),
+            CoreDetail::nextEffectEventHeader(state, ownerUnitId),
             transaction,
             intent.effectOrigin,
             input);
@@ -1811,7 +1798,7 @@ void queueDamageResolvedEffectCommands(
         frame.queueEffectCommands(
             std::move(dispatched.commands),
             context);
-        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+        CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     }
 }
 
@@ -1832,7 +1819,7 @@ void recordResolvedDamageHeals(
             resolved.result.request.castId = attack->provenance.cast.castId.value();
         }
         healSystem.recordResolved(state, std::move(resolved));
-        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+        CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     }
 }
 
@@ -1872,11 +1859,11 @@ void queueShieldAndDeathEffectCommands(
         };
         auto dispatched = BattleEffectEventBridge().dispatch(
             state,
-            nextEffectEventHeader(state, transaction.defender.id),
+            CoreDetail::nextEffectEventHeader(state, transaction.defender.id),
             EffectEvent::ShieldBroken,
             std::move(payload));
         frame.queueEffectCommands(std::move(dispatched.commands), context);
-        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+        CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     }
 
     if (!transaction.killed)
@@ -1895,17 +1882,17 @@ void queueShieldAndDeathEffectCommands(
     death.deathOrdinal = state.effectIntegration.nextEventOrdinal;
     auto dispatched = BattleEffectEventBridge().dispatch(
         state,
-        nextEffectEventHeader(state, transaction.defender.id),
+        CoreDetail::nextEffectEventHeader(state, transaction.defender.id),
         EffectEvent::UnitDied,
         death);
     frame.queueEffectCommands(std::move(dispatched.commands), context);
-    reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
 
     auto deathDamageAbsorptions =
         BattleEffectCommandSystem::removeDamageAbsorptionsForSourceDeath(
             state,
             transaction.defender.id);
-    appendDamageAbsorptionSettlements(
+    CoreDetail::appendDamageAbsorptionSettlements(
         state,
         frame.currentFrameDamage(),
         deathDamageAbsorptions,
@@ -1923,7 +1910,7 @@ void queueShieldAndDeathEffectCommands(
         allyDeath.allyOfOwner = true;
         auto allyDispatched = BattleEffectEventBridge().dispatch(
             state,
-            nextEffectEventHeader(state, ally.id()),
+            CoreDetail::nextEffectEventHeader(state, ally.id()),
             EffectEvent::AllyDied,
             std::move(allyDeath));
         auto allyContext = context;
@@ -1931,7 +1918,7 @@ void queueShieldAndDeathEffectCommands(
         frame.queueEffectCommands(
             std::move(allyDispatched.commands),
             std::move(allyContext));
-        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+        CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     }
 }
 

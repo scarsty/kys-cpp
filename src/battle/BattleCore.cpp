@@ -1,46 +1,23 @@
 #include "BattleCore.h"
-
-#include "../ChessEftIds.h"
 #include "../Find.h"
 #include "BattleAreaEffectSystem.h"
-#include "BattleCombatIntent.h"
-#include "BattleEffectAttackCastSystem.h"
 #include "BattleEffectEventBridge.h"
 #include "BattleFrameContext.h"
 #include "BattleProjectileEvents.h"
 #include "BattleCoreDetail.h"
-#include "BattleLogSegments.h"
-#include "BattleMath.h"
 #include "BattleMovementPhysics.h"
-#include "BattlePresentationVisuals.h"
-#include "BattleResourceRules.h"
 #include "BattleRuntimeEffects.h"
-
 #include <algorithm>
-#include <array>
 #include <cassert>
-#include <cmath>
-#include <cstddef>
-#include <format>
-#include <iterator>
-#include <limits>
-#include <map>
 #include <memory_resource>
-#include <numeric>
 #include <optional>
-#include <set>
 #include <span>
-#include <string_view>
-#include <tuple>
-#include <unordered_map>
 #include <utility>
-#include <variant>
-#include <vector>
+
+
 
 namespace KysChess::Battle
 {
-
-using namespace CoreDetail;
 
 
 namespace
@@ -113,7 +90,7 @@ BattleMovementPlanInput makeFrameMovementPlanInput(
         {
             movementUnit.speed = runtimeUnit.stats.speed;
         }
-        movementUnit.taXue = runtimeDashAttackEnabled(state, runtimeUnit.id);
+        movementUnit.taXue = CoreDetail::runtimeDashAttackEnabled(state, runtimeUnit.id);
         const auto& agent = record.movement;
         const auto& physics = postPhysicsIt != physicsResults.end()
             ? postPhysicsIt->state
@@ -265,7 +242,7 @@ BattleFrameVector<BattleFrameMovementPhysicsUnitResult> computeMovementPhysics(
         physicsInput.actionDashActive = actionDashActive;
         physicsInput.unitAlive = unit.alive;
         BattleUnitState movementSnapshot;
-        movementSnapshot.taXue = runtimeDashAttackEnabled(state, unit.id);
+        movementSnapshot.taXue = CoreDetail::runtimeDashAttackEnabled(state, unit.id);
         movementSnapshot.velocity = result.state.velocity;
         movementSnapshot.dashFramesRemaining = result.state.movementDashFrames;
         movementSnapshot.dashCooldownRemaining = result.state.movementDashCooldown;
@@ -385,7 +362,7 @@ BattleTickResult advanceMotionFrame(
     std::pmr::memory_resource* frameMemoryResource)
 {
     prepareMovementAgents(state);
-    refreshRuntimeMovementProfiles(state);
+    CoreDetail::refreshRuntimeMovementProfiles(state);
     auto physicsResults = computeMovementPhysics(state, frameMemoryResource);
     auto movementInput = makeFrameMovementPlanInput(
         state,
@@ -452,17 +429,17 @@ BattleDamageUnitState makeBattleDamageUnitState(
     const BattleRuntimeUnit& unit,
     const BattleDamageRuntimeUnit* runtime)
 {
-    return makeBattleDamageUnitStateFromRuntime(unit, runtime);
+    return CoreDetail::makeBattleDamageUnitStateFromRuntime(unit, runtime);
 }
 
 void writeBattleDamageRuntimeUnit(BattleDamageRuntimeUnit& runtime, const BattleDamageUnitState& unit)
 {
-    writeBattleDamageRuntimeUnitImpl(runtime, unit);
+    CoreDetail::writeBattleDamageRuntimeUnitImpl(runtime, unit);
 }
 
 BattleCooldownState makeBattleFrameCooldownState(const BattleRuntimeUnit& unit)
 {
-    return makeBattleFrameCooldownStateImpl(unit);
+    return CoreDetail::makeBattleFrameCooldownStateImpl(unit);
 }
 
 BattleFrameRunner::BattleFrameRunner()
@@ -493,45 +470,45 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
         BattleEffectCommandSystem::removeExpiredDamageAbsorptions(
             state,
             upcomingFrame);
-    appendDamageAbsorptionSettlements(
+    CoreDetail::appendDamageAbsorptionSettlements(
         state,
         frame.currentFrameDamage(),
         expiredDamageAbsorptions,
         upcomingFrame);
 
     // Tick status timers and queue status damage, e.g. poison or bleed damage transactions.
-    advanceStatus(state, frame.currentFrameDamage());
+    CoreDetail::advanceStatus(state, frame.currentFrameDamage());
     // Tick unit cooldown/action/MP timers and collect typed skill-finished effects.
-    auto runtimeAdvance = advanceRuntimeUnits(state);
+    auto runtimeAdvance = CoreDetail::advanceRuntimeUnits(state);
     for (auto& batch : runtimeAdvance.cooldownFinishedEffects)
     {
         frame.queueEffectCommands(
             std::move(batch.commands),
             std::move(batch.context));
     }
-    reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     // Evaluate all typed per-frame rules from one frame-start snapshot before
     // movement or action selection can change their conditions.
-    auto deferredFrameEffectBatches = dispatchFrameAdvancedEffects(
+    auto deferredFrameEffectBatches = CoreDetail::dispatchFrameAdvancedEffects(
         state,
         frame,
         upcomingFrame);
     // Reduce early gameplay commands into concrete queues/state; currently mostly a pre-movement drain point.
-    reduceCommandsBeforeMovement(state, frame);
+    CoreDetail::reduceCommandsBeforeMovement(state, frame);
     // Advance and commit motion, e.g. physics and tactical movement.
     auto movement = advanceMotionFrame(state, frame.frameMemoryResource());
     // Start or commit unit actions, e.g. cast startup, attack spawn requests, blink teleports, action sounds.
-    advanceActionFrameUnits(state, frame, movement);
+    CoreDetail::advanceActionFrameUnits(state, frame, movement);
     // Typed cast-commit effects are delayed until every unit has selected its
     // action for this frame, then reduced before any resulting attack spawns.
-    reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
-    completeCastCommitBarriers(state, frame);
+    CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    CoreDetail::completeCastCommitBarriers(state, frame);
     // Reduce cast-release effects, e.g. 出手回內、全隊盾、當前生命傷害, before attacks/damage apply.
-    reduceCommandsBeforeAttacks(state, frame);
+    CoreDetail::reduceCommandsBeforeAttacks(state, frame);
     // Spawn/tick attacks and resolve hits; hit commands are reduced immediately into damage/effect queues.
-    advanceAttacksAndResolveHits(state, frame);
+    CoreDetail::advanceAttacksAndResolveHits(state, frame);
     // Apply queued damage and lifecycle effects, e.g. HP loss, death, rescue, death AOE, battle end.
-    applyDamageAndLifecycle(state, frame);
+    CoreDetail::applyDamageAndLifecycle(state, frame);
     state.nextFrame.recycleDamage(frame.drainCurrentFrameDamage());
     if (state.result.ended)
     {
@@ -540,15 +517,15 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
             frame.attackEvents,
             frame.logEvents,
             true);
-        applyLateFrameMpRestores(state, frame);
+        CoreDetail::applyLateFrameMpRestores(state, frame);
         discardBattleEndFrameContinuationWork(frame);
-        emitPresentationFrame(state, frame);
+        CoreDetail::emitPresentationFrame(state, frame);
         cancelBattleRuntimeForBattleEnd(state, state.result.endedFrame);
         return consumeBattleFrameContext(std::move(frame));
     }
     // Chain terminal logs are emitted after damage so the projectile visibly lands before the chain result.
     appendProjectileCancellationLogEvents(state.attacks, frame.attackEvents, frame.logEvents, true);
-    applyLateFrameMpRestores(state, frame);
+    CoreDetail::applyLateFrameMpRestores(state, frame);
     for (auto& batch : deferredFrameEffectBatches)
     {
         frame.queueEffectCommands(
@@ -556,31 +533,31 @@ BattlePresentationFrame BattleFrameRunner::runFrame(
             std::move(batch.context));
     }
     // 週期自動絕招固定在延後效果批次階段執行。
-    reduceEffectCommandBatches(
+    CoreDetail::reduceEffectCommandBatches(
         state,
         frame,
         state.nextFrame.mutableDamageForReducer());
     // Reduce late commands from damage/combo lifecycle, e.g. auto-ultimate or death-triggered projectiles.
-    reduceCommandsAfterDamageLifecycle(state, frame);
+    CoreDetail::reduceCommandsAfterDamageLifecycle(state, frame);
     // Direct auto-ultimate commits share the typed commit pipeline. Reduce their
     // committed effects and any resulting gameplay commands before releasing the
     // commit barrier, including when the auto cast was created late in this frame.
-    reduceEffectCommandBatches(
+    CoreDetail::reduceEffectCommandBatches(
         state,
         frame,
         state.nextFrame.mutableDamageForReducer());
-    reduceCommandsAfterDamageLifecycle(state, frame);
-    completeCastCommitBarriers(state, frame);
+    CoreDetail::reduceCommandsAfterDamageLifecycle(state, frame);
+    CoreDetail::completeCastCommitBarriers(state, frame);
     // A cast may settle only after its final attack's damage/death descendants have
     // had a chance to reserve work. Keep finished attacks alive for presentation.
     completeFinishedRuntimeAttackWork(state);
     if (state.movement.frame < state.maximumFrames)
     {
-        dispatchReadyCastLifecycleEffects(state, frame);
+        CoreDetail::dispatchReadyCastLifecycleEffects(state, frame);
     }
     assert(frame.drainCommands().empty());
     // Convert accumulated gameplay/log/visual events into the presentation frame consumed by the scene.
-    emitPresentationFrame(state, frame);
+    CoreDetail::emitPresentationFrame(state, frame);
     // Runtime maintenance: remove projectiles/melee attacks whose animation lifetime has finished.
     eraseFinishedRuntimeAttacks(state);
     return consumeBattleFrameContext(std::move(frame));

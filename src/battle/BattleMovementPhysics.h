@@ -1,7 +1,6 @@
 #pragma once
 
 #include "BattleGeometry.h"
-#include "BattleMath.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -55,11 +54,6 @@ struct BattleMovementPhysicsCollisionWorld
 };
 
 Point movementPhysicsCell(const BattleMovementPhysicsCollisionWorld& world, Pointf position);
-
-inline double distance2d(Pointf a, Pointf b)
-{
-    return EuclidDis(a.x - b.x, a.y - b.y);
-}
 
 std::size_t movementPhysicsCellIndex(const BattleMovementPhysicsCollisionWorld& world, int x, int y);
 bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& world, Point cell);

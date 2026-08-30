@@ -1,47 +1,33 @@
 #include "BattleCoreDetail.h"
 
+#include "BattleMath.h"
 #include "../ChessEftIds.h"
 #include "../Find.h"
 #include "BattleAreaEffectSystem.h"
-#include "BattleCombatIntent.h"
 #include "BattleEffectAttackCastSystem.h"
 #include "BattleEffectEventBridge.h"
 #include "BattleFrameContext.h"
 #include "BattleLogSegments.h"
-#include "BattleMath.h"
-#include "BattleMovementPhysics.h"
-#include "BattlePresentationVisuals.h"
 #include "BattleProjectileEvents.h"
-#include "BattleResourceRules.h"
 #include "BattleRuntimeEffects.h"
 #include "BattleStatusSystem.h"
-
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <format>
 #include <iterator>
-#include <limits>
-#include <map>
 #include <memory_resource>
-#include <numeric>
 #include <optional>
-#include <set>
 #include <span>
-#include <string>
-#include <string_view>
-#include <tuple>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
+
+
 namespace KysChess::Battle
 {
-
-using namespace CoreDetail;
 
 namespace
 {
@@ -406,7 +392,7 @@ bool tryResolveDodgeHit(
     }
 
     logEvents.push_back(dodgeStatusEvent(event.unitId, event.sourceUnitId));
-    visualEvents.push_back(roleEffectEvent(event.unitId, KysChess::EFT_EVADE, CoreRoleStatusEffectFrames));
+    visualEvents.push_back(CoreDetail::roleEffectEvent(event.unitId, KysChess::EFT_EVADE, CoreDetail::CoreRoleStatusEffectFrames));
     return true;
 }
 
@@ -457,7 +443,7 @@ void applyAttackSpawnAttackerDualWieldBlockGain(
     }
 
     attacker.damage.dualWieldBlocksRemaining += 1;
-    appendStatusEventLog(
+    CoreDetail::appendStatusEventLog(
         logEvents,
         attacker.core.id,
         attacker.core.id,
@@ -613,7 +599,7 @@ int currentHitIgnoreDefensePct(
             || damage->action.perspective != DamageModifierPerspective::Outgoing
             || damage->action.stage != DamageModifierStage::BeforeDefense
             || (damage->action.channel != DamageChannel::All
-                && damage->action.channel != effectDamageChannel(event.damageKind))
+                && damage->action.channel != CoreDetail::effectDamageChannel(event.damageKind))
             || damage->action.operation != DamageModifierOperation::IgnoreDefensePercent)
         {
             continue;
@@ -626,7 +612,7 @@ int currentHitIgnoreDefensePct(
                  .unitId = event.sourceUnitId,
                  .eventSourceUnitId = event.unitId,
                  .perspective = DamageModifierPerspective::Outgoing,
-                 .channel = effectDamageChannel(event.damageKind),
+                 .channel = CoreDetail::effectDamageChannel(event.damageKind),
                  .stage = DamageModifierStage::BeforeDefense,
                  .frame = state.movement.frame,
              }))
@@ -682,7 +668,7 @@ void collectHitDamageModifiers(
     std::span<const EffectCommand> commands,
     BattleHitResolutionInput& input)
 {
-    const DamageChannel channel = effectDamageChannel(event.damageKind);
+    const DamageChannel channel = CoreDetail::effectDamageChannel(event.damageKind);
     for (const auto& command : commands)
     {
         const auto* modifier = std::get_if<ModifyDamageEffectCommand>(&command.value);
@@ -798,7 +784,7 @@ BattleEffectOwnedEvent makeHitEffectEvent(
     formulaInputs.accumulatedStateValue = attackerStatus.pureDamagePerHit;
     return BattleEffectEventBridge().makeEvent(
         state,
-        nextEffectEventHeader(
+        CoreDetail::nextEffectEventHeader(
             state,
             event.sourceUnitId,
             std::move(formulaInputs)),
@@ -827,7 +813,7 @@ BattleEffectDispatchResult dispatchAttackSpawnedEffects(
     payload.damageKind = event.damageKind;
     return BattleEffectEventBridge().dispatch(
         state,
-        nextEffectEventHeader(state, event.sourceUnitId),
+        CoreDetail::nextEffectEventHeader(state, event.sourceUnitId),
         EffectEvent::AttackSpawned,
         std::move(payload));
 }
@@ -847,9 +833,9 @@ std::optional<BattleCastInput> makeEffectAttackCastInput(
     BattlePendingCastAction pending;
     pending.targetUnitId = cast->second.originalTargetUnitId;
     pending.operationType = event.operationType;
-    pending.skillPlan = makePendingCastSkillPlan(cast->second.skill);
+    pending.skillPlan = CoreDetail::makePendingCastSkillPlan(cast->second.skill);
     pending.effectCast.provenance = event.provenance.cast;
-    return tryMakeRuntimeCastInputForPendingCast(
+    return CoreDetail::tryMakeRuntimeCastInputForPendingCast(
         state,
         pending,
         frameMemoryResource);
@@ -902,7 +888,7 @@ void applyAttackSpawnedEffects(
             requests,
             dispatched.commands,
             effectAttackState);
-        applyEffectAttackDirectives(requests, applied);
+        CoreDetail::applyEffectAttackDirectives(requests, applied);
         state.effectIntegration.nextSharedHitGroupId =
             effectAttackState.nextSharedHitGroupId;
 
@@ -939,7 +925,7 @@ void applyAttackSpawnedEffects(
     context.cast = event.provenance.cast;
     context.attack = event.provenance;
     frame.queueEffectCommands(std::move(dispatched.commands), std::move(context));
-    reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+    CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
 }
 
 void appendHitSettlementEvents(
@@ -1096,7 +1082,7 @@ void resolveTypedHitEvent(
         context.cast = event.provenance.cast;
         context.attack = event.provenance;
         frame.queueEffectCommands(std::move(dispatched.commands), std::move(context));
-        reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
+        CoreDetail::reduceEffectCommandBatches(state, frame, frame.currentFrameDamage());
     };
 
     RuntimeMainHitPolicies mainHitPolicies;
@@ -1161,7 +1147,7 @@ void resolveTypedHitEvent(
         result.commands,
         state.projectileFollowUps,
         state.units);
-    reserveTrackedProjectileFollowUps(state, followUps);
+    CoreDetail::reserveTrackedProjectileFollowUps(state, followUps);
     result.commands = std::move(followUps.commands);
     result.visualEvents.insert(
         result.visualEvents.end(),

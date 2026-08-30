@@ -5,6 +5,7 @@
 #include "BattleCore.h"
 #include "BattleHitResolver.h"
 #include "BattleMovement.h"
+#include "BattleMovementPhysics.h"
 
 namespace KysChess::Battle
 {
